@@ -18,6 +18,7 @@ from loguru import logger
 from egeria_auth import apply_token
 from pyegeria.omvs.classification_explorer import ClassificationExplorer
 from valid_values_handler import _extract_name_from_element as _vv_property_name
+from pyegeria_docs_handler import search_pyegeria_docs
 
 router = APIRouter(tags=["catalog-search"])
 
@@ -110,7 +111,7 @@ _TYPE_CATEGORY: dict[str, dict] = {
 
 _CATEGORY_ORDER = [
     "glossary", "tech-types", "data-assets", "infrastructure", "apis", "processes", "projects", "surveys",
-    "valid-values", "other",
+    "valid-values", "other", "python-api",
 ]
 
 _CATEGORY_LABELS = {
@@ -124,7 +125,14 @@ _CATEGORY_LABELS = {
     "surveys":      "Surveys",
     "valid-values": "Valid Values",
     "other":        "Other",
+    "python-api":   "Python API",
 }
+
+# Cap on pyegeria class/method hits merged into a search response -- these
+# aren't Egeria elements (no live query cost either way, _build_docs() is
+# introspected once and cached), just kept modest so one very common word
+# (e.g. "get") doesn't swamp the panel.
+_PYEGERIA_HIT_LIMIT = 15
 
 
 def _creds(url, server, user_id, user_pwd):
@@ -198,6 +206,29 @@ def _serialize_search_result(el: dict) -> Optional[dict]:
         prop_name = _vv_property_name(el)
         if prop_name:
             result["validValueProperty"] = prop_name
+    return result
+
+
+def _serialize_pyegeria_hit(hit: dict) -> dict:
+    """Shape a search_pyegeria_docs() hit into the same result-item shape the
+    frontend already renders (displayName/typeName/description), plus the
+    pyClass/pyMethod fields PyegeriaDocsView's deep link needs -- there's no
+    guid/qualifiedName since this isn't an Egeria element."""
+    is_method = hit["kind"] == "method"
+    display_name = f"{hit['className']}.{hit['methodName']}()" if is_method else hit["className"]
+    result = {
+        "guid":          "",
+        "typeName":      hit["domain"],
+        "superTypeNames": [],
+        "displayName":   display_name,
+        "qualifiedName": "",
+        "description":   hit.get("summary") or "",
+        "categoryId":    "python-api",
+        "categoryLabel": "Python API",
+        "pyClass":       hit["className"],
+    }
+    if is_method:
+        result["pyMethod"] = hit["methodName"]
     return result
 
 
@@ -298,6 +329,16 @@ def catalog_search(
         cat = item["categoryId"] if item["categoryId"] in by_cat else "other"
         by_cat[cat].append(item)
 
+    # pyegeria class/method hits (Python API page) -- kept out of `unique`'s
+    # guid-based dedup entirely: these have no guid, so an empty-string dedup
+    # key would collapse every pyegeria hit into just the first one.
+    try:
+        by_cat["python-api"] = [
+            _serialize_pyegeria_hit(h) for h in search_pyegeria_docs(q, limit=_PYEGERIA_HIT_LIMIT)
+        ]
+    except Exception:
+        logger.exception("catalog_search: pyegeria docs search failed for q=%r", q)
+
     groups = [
         {
             "categoryId":    cid,
@@ -321,7 +362,7 @@ def catalog_search(
     return JSONResponse({
         "query":  q,
         "typeFacets": type_facets,
-        "total":  len(unique),
+        "total":  len(unique) + len(by_cat["python-api"]),
         "groups": groups,
         "typeFilterDropped": type_filter_dropped,
     })
