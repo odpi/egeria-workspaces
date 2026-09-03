@@ -13,6 +13,7 @@ To regenerate the catalog after an Egeria upgrade:
   or POST /api/request-bodies/rebuild with {"http_collections_path": "..."}
 """
 
+import asyncio
 import ipaddress
 import json
 import os
@@ -92,6 +93,28 @@ def _bearer_token_for_spec_fetch(user_id: str, user_pwd: str, url: str, server: 
         return token
     except Exception as exc:
         logger.warning(f"Could not obtain bearer token for OpenAPI spec fetch: {exc}")
+        return None
+
+
+async def _async_bearer_token_for_spec_fetch(user_id: str, user_pwd: str, url: str, server: str) -> Optional[str]:
+    """Async counterpart of _bearer_token_for_spec_fetch -- for the startup
+    warm-up task below, which runs from an async context (the lifespan
+    coroutine), not a request. CLAUDE.md's async-invariants note applies:
+    the sync create_egeria_bearer_token() must never be called from async
+    code (it calls asyncio.get_event_loop().run_until_complete() internally
+    and raises on an already-running loop) -- use the _async_* method instead."""
+    from egeria_auth import get_request_token
+    tok = get_request_token()
+    if tok:
+        return tok
+    try:
+        from pyegeria import ValidMetadataManager
+        vmm = ValidMetadataManager(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+        token = await vmm._async_create_egeria_bearer_token()
+        vmm.close_session()
+        return token
+    except Exception as exc:
+        logger.warning(f"Could not obtain bearer token for OpenAPI warm-up fetch: {exc}")
         return None
 
 
@@ -554,3 +577,121 @@ def refresh_rest_apis(
         return {"status": "cleared", "url": url}
     _openapi_cache.clear()
     return {"status": "cleared", "entries": "all"}
+
+
+# ── Startup warm-up (background, non-blocking) ─────────────────────────────────
+
+# Overall cap on the warm-up task's own runtime -- belt-and-braces on top of
+# it already being fire-and-forget (asyncio.create_task, never awaited by
+# the lifespan). Incident 2026-09-03: a *different*, pre-existing bug
+# (bootstrap_monitor_handler.py's unbounded, AWAITED canary-check loop) once
+# blocked the whole app's startup for several minutes; this warm-up task was
+# never actually the cause, but the postmortem's lesson stands regardless --
+# nothing that talks to a possibly-degraded Egeria should run unbounded, even
+# when it's structurally non-blocking today. See bootstrap_monitor_handler.py
+# _CANARY_CHECK_TIMEOUT for the sibling fix on the call that WAS the cause.
+_WARMUP_TIMEOUT = int(os.environ.get("REST_APIS_WARMUP_TIMEOUT_SECONDS", "60"))
+
+
+async def warm_openapi_cache() -> None:
+    """Populate the OpenAPI spec cache for the default platform at startup
+    (fire-and-forget from pyegeria_handler.py's lifespan) so the REST APIs
+    tab and portal search (see search_rest_apis below) both have data ready
+    immediately, instead of every deployment's first visitor eating the
+    ~20s cold fetch. New/changed REST endpoints only actually appear after
+    an Egeria platform restart anyway (that's the whole reason the OpenAPI
+    spec fetch is cached at all, see _OPENAPI_TTL) -- so warming it once at
+    our own startup, refreshed hourly by the existing TTL, is exactly as
+    fresh as this data can ever meaningfully be.
+
+    Runs its own HTTP fetch via httpx.AsyncClient rather than calling
+    _fetch_openapi() directly -- that function's requests.get() is a
+    blocking sync call, which would stall the event loop for the ~20s
+    cold-fetch duration if awaited directly here.
+
+    Must be launched via asyncio.create_task(), never awaited directly from
+    the lifespan -- see pyegeria_handler.py. The whole body is additionally
+    wrapped in asyncio.wait_for(_WARMUP_TIMEOUT) so even a badly-behaved
+    Egeria can't leave this task running indefinitely.
+
+    Best-effort: any failure (platform not reachable yet at our own
+    startup, credentials not ready, timeout, etc.) is logged and
+    swallowed -- the first real GET /api/rest-apis call falls back to the
+    normal on-demand fetch exactly as it did before this existed.
+    """
+    try:
+        await asyncio.wait_for(_warm_openapi_cache_body(), timeout=_WARMUP_TIMEOUT)
+    except asyncio.TimeoutError:
+        logger.warning(f"OpenAPI cache warm-up timed out after {_WARMUP_TIMEOUT}s -- Egeria is likely slow/degraded")
+    except Exception as exc:
+        logger.warning(f"OpenAPI cache warm-up failed: {exc}")
+
+
+async def _warm_openapi_cache_body() -> None:
+    d = _env_defaults()
+    platform_url, server, user_id, user_pwd = d["url"], d["server"], d["user_id"], d["user_pwd"]
+    try:
+        _validate_platform_url(platform_url)
+    except HTTPException as exc:
+        logger.warning(f"OpenAPI cache warm-up skipped -- platform URL rejected: {exc.detail}")
+        return
+
+    token = await _async_bearer_token_for_spec_fetch(user_id, user_pwd, platform_url, server)
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+
+    import httpx
+    async with httpx.AsyncClient(verify=False, timeout=30) as client:
+        for path in ("/v3/api-docs", "/v2/api-docs", "/api-docs"):
+            url = platform_url.rstrip("/") + path
+            try:
+                resp = await client.get(url, headers=headers)
+                if resp.status_code == 200:
+                    spec = resp.json()
+                    _openapi_cache[platform_url] = (time.time(), spec)
+                    logger.info(f"Warmed OpenAPI cache from {url}: {len(spec.get('paths', {}))} paths")
+                    return
+            except Exception as exc:
+                logger.debug(f"OpenAPI warm-up: failed to fetch {url}: {exc}")
+
+
+# ── Search (used by catalog_search_handler.py's portal-wide omni-search) ──────
+
+def search_rest_apis(query: str, limit: int = 40) -> list[dict]:
+    """Case-insensitive substring search over the REST API endpoint catalog
+    (method, path, operationId, summary, description). Reads ONLY from
+    whatever's already in _openapi_cache (populated by warm_openapi_cache()
+    at startup, or by a prior GET /api/rest-apis call) -- deliberately does
+    NOT trigger a fresh fetch itself, so a portal search never blocks on a
+    live ~20s Egeria round-trip. Returns [] if nothing is cached yet for the
+    default platform (e.g. it was unreachable at our own startup and no one
+    has opened the REST APIs tab since).
+    """
+    q = query.lower().strip()
+    if not q:
+        return []
+    platform_url = _env_defaults()["url"]
+    cached = _openapi_cache.get(platform_url)
+    if not cached:
+        return []
+
+    try:
+        catalog = _load_catalog()
+        processed = _process_openapi(cached[1], catalog)
+    except Exception:
+        logger.exception("search_rest_apis: failed to process cached OpenAPI spec")
+        return []
+
+    name_hits: list[dict] = []
+    text_hits: list[dict] = []
+    for svc in processed["services"]:
+        for ep in svc["endpoints"]:
+            name_hay = f"{ep['method']} {ep['path']} {ep.get('operationId', '')}".lower()
+            text_hay = f"{ep.get('summary', '')} {ep.get('description', '')}".lower()
+            bucket = name_hits if q in name_hay else (text_hits if q in text_hay else None)
+            if bucket is not None:
+                bucket.append({
+                    "tag": svc["tag"], "method": ep["method"], "path": ep["path"],
+                    "summary": ep.get("summary") or "",
+                })
+
+    return (name_hits + text_hits)[:limit]
