@@ -1,6 +1,6 @@
 # Dockerfile
 # Use a slim Python image for smaller size
-FROM docker.io/library/python:3.12-slim-bookworm@sha256:0f5b26b9518d002b6173fd61daad821fa340635ebfec5bba471013f9ca114579
+FROM docker.io/library/python:3.14-slim-bookworm@sha256:9ab8d9c8514b44f90cf0029dd42fdd7e9e211e639c8b995304cc04568dee900f
 
 # Set environment variables to prevent Python from writing .pyc files
 # and to ensure stdout/stderr are unbuffered
