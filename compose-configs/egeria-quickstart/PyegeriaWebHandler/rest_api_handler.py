@@ -461,19 +461,28 @@ def _validate_http_collections_dir(raw_path: str) -> Path:
     directory an unauthenticated caller couldn't otherwise redirect. A deployment
     that genuinely wants the flexible "point anywhere" workflow can opt back in
     by setting HTTP_COLLECTIONS_ALLOWED_ROOTS explicitly.
-    """
-    http_dir = Path(raw_path).resolve()
-    if not http_dir.is_dir():
-        raise HTTPException(status_code=422, detail=f"Directory not found: {http_dir}")
 
+    Ordering tightened 2026-09-03 (CodeQL High alerts #26/#27/#30/#31 --
+    py/path-injection flagged Path(raw_path).resolve()/.is_dir() here, which
+    used to run BEFORE the allowlist check): now the allowlist is resolved
+    first, and `raw_path` is checked against it lexically (os.path.normpath +
+    startswith -- pure string manipulation, no filesystem I/O at all) before
+    `raw_path` is ever turned into a Path or touches the filesystem. This is
+    a genuine hardening, not just a CodeQL-satisfaction reorder: the old
+    order let an unauthenticated caller use the "Directory not found" vs.
+    "not permitted" response difference as an oracle for whether an arbitrary
+    path exists on the server, before any permission check ever ran. A second
+    containment check after resolve() (below) still guards against a symlink
+    inside an allowed root pointing back out of it.
+    """
     env_roots = os.environ.get("HTTP_COLLECTIONS_ALLOWED_ROOTS")
     if env_roots:
-        allowed_roots = [Path(p).resolve() for p in env_roots.split(":") if p]
+        allowed_root_strs = [p for p in env_roots.split(":") if p]
     else:
         env_default = os.environ.get("HTTP_COLLECTIONS_PATH")
-        allowed_roots = [Path(env_default).resolve()] if env_default else []
+        allowed_root_strs = [env_default] if env_default else []
 
-    if not allowed_roots:
+    if not allowed_root_strs:
         raise HTTPException(
             status_code=400,
             detail=(
@@ -483,12 +492,34 @@ def _validate_http_collections_dir(raw_path: str) -> Path:
                 "location before calling this endpoint."
             ),
         )
-    if not any(http_dir == root or http_dir.is_relative_to(root) for root in allowed_roots):
+
+    # Lexical containment check -- os.path.normpath is pure string handling,
+    # no stat/open/glob -- so raw_path never reaches a filesystem call until
+    # this passes.
+    normalized_raw = os.path.normpath(raw_path)
+    normalized_roots = [os.path.normpath(r) for r in allowed_root_strs]
+    if not any(
+        normalized_raw == root or normalized_raw.startswith(root + os.sep)
+        for root in normalized_roots
+    ):
         raise HTTPException(
             status_code=400,
-            detail=f"Directory not permitted: {http_dir}. Set HTTP_COLLECTIONS_ALLOWED_ROOTS "
+            detail=f"Directory not permitted: {raw_path}. Set HTTP_COLLECTIONS_ALLOWED_ROOTS "
                    "to allow additional locations.",
         )
+
+    # Only now touch the filesystem: resolve() canonicalizes (defeats a
+    # symlink inside an allowed root pointing back out of it), re-checked
+    # against the resolved roots below.
+    http_dir = Path(raw_path).resolve()
+    resolved_roots = [Path(r).resolve() for r in allowed_root_strs]
+    if not any(http_dir == root or http_dir.is_relative_to(root) for root in resolved_roots):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Directory not permitted after resolving symlinks: {http_dir}.",
+        )
+    if not http_dir.is_dir():
+        raise HTTPException(status_code=422, detail=f"Directory not found: {http_dir}")
     return http_dir
 
 
