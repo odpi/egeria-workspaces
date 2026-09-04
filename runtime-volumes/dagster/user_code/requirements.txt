@@ -2,6 +2,6 @@ dagster==1.13.19
 dagster-webserver==1.13.19
 dagster-postgres==0.29.19
 dagster-openlineage==0.2.1
-pyegeria>=6.1.5
+pyegeria>=6.1.8
 rich
 pandas
