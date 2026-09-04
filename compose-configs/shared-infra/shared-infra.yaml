@@ -74,6 +74,14 @@ services:
       KAFKA_CFG_LOG_RETENTION_BYTES: "536870912"
       KAFKA_CFG_LOG_SEGMENT_BYTES: "107374182"
       KAFKA_CFG_LOG_CLEANER_ENABLE: "true"
+      # __consumer_offsets partition count -- only takes effect the first time
+      # that topic is auto-created (Kafka can't shrink an existing topic's
+      # partition count, so this is a no-op against an already-formatted log
+      # dir; see kafka-entrypoint.sh's comment for the full story). Kafka's own
+      # default is 50, sized for multi-broker production clusters; 10 is
+      # already generous for this single-broker demo instance's ~100+ consumer
+      # groups. Set to take effect on the next fresh-database redeploy.
+      KAFKA_CFG_OFFSETS_TOPIC_NUM_PARTITIONS: "10"
       # Heap. kafka-server-start.sh only falls back to -Xmx1G -Xms1G when this
       # is unset, and that 1 GB default is what ran out on 2026-08-16. Sized to
       # leave room for Egeria's EGERIA_MEM_LIMIT (6g) on the same host.
