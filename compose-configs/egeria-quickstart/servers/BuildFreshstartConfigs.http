@@ -54,7 +54,8 @@ Content-Type: application/json
   "databaseURL": "~{repositoryDatabaseURL}~?currentSchema=repository_fs_metadata_store",
   "databaseSchema": "repository_fs_metadata_store",
   "secretsStore": "~{egeriaServersSecretsStore}~",
-  "secretsCollectionName": "~{repositorySecretCollectionName}~"
+  "secretsCollectionName": "~{repositorySecretCollectionName}~",
+  "jdbcMaximumPoolSize": 25
 }
 
 ###
