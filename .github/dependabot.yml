@@ -51,6 +51,16 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 3
+    ignore:
+      # python:3.14-slim-bookworm breaks SlowAPIMiddleware/anyio (anyio's
+      # asyncio backend hits asyncio.current_task() returning None inside
+      # BaseHTTPMiddleware's task group -- agronholm/anyio#773, still open,
+      # no fix as of anyio 4.14.2). An unreviewed dependabot bump off 3.12
+      # silently reintroduced this exact regression once already (fixed in
+      # fix/revert-python-3.14-regression, second occurrence after the
+      # original fix in 111e7c51). Block bumps off 3.12 until anyio fixes it.
+      - dependency-name: "python"
+        versions: [">=3.13"]
 
   - package-ecosystem: "docker"
     directory: "/compose-configs/egeria-quickstart/watchdog"
@@ -79,6 +89,13 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 3
+    ignore:
+      # Same anyio/SlowAPIMiddleware incompatibility as the quickstart
+      # PyegeriaWebHandler entry above -- see that entry's comment for
+      # detail. freshstart's Dockerfile-fast-api mirrors quickstart's, so
+      # it needs the identical ignore rule.
+      - dependency-name: "python"
+        versions: [">=3.13"]
 
   - package-ecosystem: "docker"
     directory: "/compose-configs/optional-associated-runtimes/airflow-marquez"
