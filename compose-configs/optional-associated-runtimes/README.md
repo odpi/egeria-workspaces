@@ -23,6 +23,9 @@ Currently there are compose configurations for:
         * Delta Lake - a storage layer for Apache Spark that provides ACID transactions, scalable metadata handling, and more
         * Minio - an S3 compatible object store
         * Hive metastore - a metadata store for managing tables and databases
+    * Trellis - Resource Explorer and Egeria Advisor, containerized (demo profile); see
+        trellis/docker-compose.yaml and its README for bring-up per box and GPU overlays for
+        Ollama (ROCm, NVIDIA).
         
 
 As always, your feedback and participation are welcome. 

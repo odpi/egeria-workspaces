@@ -1,0 +1,253 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright Contributors to the Egeria project
+#
+# Optional runtime: Trellis (Resource Explorer + Egeria Advisor), demo profile.
+#
+# This follows the same shape as the sibling optional runtimes in this
+# directory (ollama/, prefect/): an overlay on top of egeria-workspaces-fs's
+# shared-infra network, brought up alongside it with `docker compose -f ...`.
+# See ../../shared-infra/shared-infra.yaml for the Postgres/Kroki service
+# names and port conventions referenced below, and
+# docs/runtime-architecture-plan.md (trellis repo) for the design this
+# implements: §1 "Process topology: profiles" (dev vs demo), §2 "Process
+# roles", §5 "LLM backend, model tiers".
+#
+# ── dev profile (NOT this file) ─────────────────────────────────────────────
+# On a dev box (Dev 1 / Dev 2 in the plan), the Trellis apps do NOT run from
+# this compose file at all. They run natively via `uv run` (`make re-web`,
+# `make ea-web` in the trellis repo), with reload, against the SAME
+# shared-infra + egeria-quickstart containers this optional runtime also
+# targets. The only thing dev mode borrows from this file is the assumption
+# that shared-infra's Postgres is reachable at localhost:5442 and Kroki at
+# localhost:6002 (both already published on the host — see shared-infra.yaml's
+# own comments on why: host processes not on egeria_network need a published
+# port). Dev mode runs ONE process with the worker role embedded in the web
+# process (`--embed-worker`, per the plan's §1/§2) so `make dev` stays one
+# command; it never runs the separate `trellis-re-worker` service below.
+#
+# ── demo profile (this file) ────────────────────────────────────────────────
+# Everything containerized: web role at a small number of uvicorn workers,
+# worker role as its own one-replica service, Ollama in a container (see the
+# docker-compose.ollama-*.yaml overlays in this directory for the GPU
+# variants). Bring up with:
+#
+#   docker compose \
+#     -f ../../shared-infra/shared-infra.yaml \
+#     -f ../ollama/docker-compose.yaml \
+#     [-f docker-compose.ollama-rocm.yaml | -f docker-compose.ollama-nvidia.yaml] \
+#     -f docker-compose.yaml up -d
+#
+# See README.md in this directory for the full per-box bring-up, model pull,
+# and Portal-wiring steps.
+#
+# ── Status (2026-09-04, end of day) ─────────────────────────────────────────
+#   Everything this file references now exists in the trellis repo on branch
+#   re/docs-consolidation-part-2:
+#   - images: `make images` in trellis builds trellis/resource-explorer:local
+#     and trellis/egeria-advisor:local (docker/Dockerfile.*, docs/packaging.md);
+#     CI publishes multi-arch images to ghcr.io/dwolfson/trellis-* on main.
+#   - the image ENTRYPOINT dispatches on the first argument to a process role
+#     (RE: web | worker | cli | tui | a2a; EA: web | cli | plans) and reads
+#     HOST, PORT, WORKERS and EMBED_WORKER — so `command:` below is the role
+#     name, never the raw CLI.
+#   - `resource-explorer worker` exists (worker.py; advisory-lock leader
+#     election per loop), and `web` takes --embed-worker/--workers.
+#   - Both apps read a model tier (EA: ADVISOR_MODEL_TIER, RE: EXPLORER_MODEL_TIER;
+#     one TRELLIS_MODEL_TIER in .env feeds both; dev | demo-gpu | demo-cpu), which sets the
+#     per-slot models, num_ctx and the RAG context budget app-side.
+#   Not yet: the A2A role has no auth and is not exposed here; the run queue
+#   (plan step 2b) is pending, so a long survey still runs in the process
+#   that received it.
+services:
+  trellis-re-web:
+    image: trellis/resource-explorer:local
+    volumes:
+      - trellis-re-data:/app/data
+    container_name: trellis-re-web
+    command: ["web"]
+    networks:
+      - egeria_network
+    ports:
+      - "8810:8810"
+    restart: unless-stopped
+    environment:
+      # Portal SSO: the same shared secret the Portal signs its handoff token with
+      # (EGERIA_ADVISOR_SSO_SECRET on the quickstart side); RE exchanges it at /api/auth/portal.
+      TRELLIS_PORTAL_SECRET: "${ADVISOR_PORTAL_SECRET:-}"
+      # Shared app-JWT secret: one value for every trellis process on this box, or a
+      # session minted by one container (CLI run, worker, web replica) is invalid in
+      # another (each derives a per-hostname secret when unset).
+      TRELLIS_JWT_SECRET: "${TRELLIS_JWT_SECRET:?set TRELLIS_JWT_SECRET in .env (openssl rand -hex 32)}"
+      # GitHub API token for RE surveys/discovery; unauthenticated calls hit the 60/h limit within one survey.
+      GITHUB_TOKEN: "${GITHUB_TOKEN:-}"
+      # ── Process role (target state — see header note; inert today) ───────
+      WORKERS: "${TRELLIS_RE_WEB_WORKERS:-2}"
+      EMBED_WORKER: "false"
+
+      # ── Postgres / pgvector — shared-infra's egeria-shared-postgres, same
+      # physical instance + database Egeria Advisor uses, RE's own
+      # `resource_explorer` schema within it. Defaults match
+      # PgVectorConfig in resource_explorer/config.py and
+      # docker-entrypoint-initdb.d/init_egeria.sql's `egeria_advisor` role. ─
+      PGVECTOR_HOST: egeria-shared-postgres
+      PGVECTOR_PORT: "5442"
+      PGVECTOR_DBNAME: egeria_advisor
+      PGVECTOR_USER: egeria_advisor
+      PGVECTOR_PASSWORD: "${PGVECTOR_PASSWORD:-advisor}"
+      PGVECTOR_SCHEMA: resource_explorer
+      REGISTRY_DATABASE_URL: "postgresql://egeria_advisor:${PGVECTOR_PASSWORD:-advisor}@egeria-shared-postgres:5442/egeria_advisor?options=-csearch_path%3Dresource_explorer"
+
+      # ── Kroki — container-to-container URL (egeria-shared-kroki:8000, the
+      # internal port; NOT the host-published 6002 shared-infra.yaml uses for
+      # non-containerized processes). See KrokiConfig's docstring in
+      # resource_explorer/config.py. ──────────────────────────────────────
+      KROKI_URL: http://egeria-shared-kroki:8000
+
+      # ── Egeria platform — same host.docker.internal convention every other
+      # containerized quickstart consumer uses (egeria-quickstart.yaml), not
+      # the egeria_network container name, because the platform's TLS cert
+      # is issued for HOST_FQDN/host.docker.internal, not the docker-network
+      # hostname. ──────────────────────────────────────────────────────────
+      EGERIA_PLATFORM_URL: https://host.docker.internal:9443
+      EGERIA_VIEW_SERVER: qs-view-server
+      EGERIA_USER: "${EGERIA_USER:-erinoverview}"
+      EGERIA_USER_PASSWORD: "${EGERIA_USER_PASSWORD:-secret}"
+      PYEGERIA_TIMEOUT_SECONDS: "30"
+
+      # ── LLM backend — Ollama in this same optional runtime, reached by
+      # its compose service name (see ../ollama/docker-compose.yaml). ─────
+      LLM__BACKEND: ollama
+      LLM__OLLAMA__BASE_URL: http://ollama:11434
+      LLM__OLLAMA__MODEL: "${TRELLIS_MODEL_GENERAL:-llama3.1:8b}"
+
+      EMBEDDINGS__DEVICE: cpu
+
+      # ── Prefect — off by default everywhere per config.py's own
+      # 2026-09-04 fix for the orphaned-ephemeral-server incident; only
+      # meaningful if the optional prefect runtime is also brought up. ────
+      PREFECT_ENABLED: "false"
+      EXPLORER_MODEL_TIER: "${TRELLIS_MODEL_TIER:-demo-cpu}"
+
+      OBSERVABILITY__MLFLOW__ENABLED: "false"
+      OBSERVABILITY__PHOENIX__ENABLED: "false"
+    extra_hosts:
+      - "host.docker.internal:${HOST_GATEWAY_IP:-host-gateway}"
+    # healthcheck: inherited from the image (curl against /health/ready or /health);
+    # the slim images have no wget, so do not override it here.
+
+  trellis-re-worker:
+    image: trellis/resource-explorer:local
+    # The image HEALTHCHECK curls the web port; the worker role serves no HTTP,
+    # so that check would mark a healthy worker unhealthy. Liveness for the
+    # worker is its advisory-lock ownership (see `make ps` / pg_locks).
+    healthcheck:
+      disable: true
+    volumes:
+      - trellis-re-data:/app/data
+    container_name: trellis-re-worker
+    command: ["worker"]
+    networks:
+      - egeria_network
+    restart: unless-stopped
+    deploy:
+      replicas: 1
+    environment:
+      # Shared app-JWT secret: one value for every trellis process on this box, or a
+      # session minted by one container (CLI run, worker, web replica) is invalid in
+      # another (each derives a per-hostname secret when unset).
+      TRELLIS_JWT_SECRET: "${TRELLIS_JWT_SECRET:?set TRELLIS_JWT_SECRET in .env (openssl rand -hex 32)}"
+      # GitHub API token for RE surveys/discovery; unauthenticated calls hit the 60/h limit within one survey.
+      GITHUB_TOKEN: "${GITHUB_TOKEN:-}"
+      PGVECTOR_HOST: egeria-shared-postgres
+      PGVECTOR_PORT: "5442"
+      PGVECTOR_DBNAME: egeria_advisor
+      PGVECTOR_USER: egeria_advisor
+      PGVECTOR_PASSWORD: "${PGVECTOR_PASSWORD:-advisor}"
+      PGVECTOR_SCHEMA: resource_explorer
+      REGISTRY_DATABASE_URL: "postgresql://egeria_advisor:${PGVECTOR_PASSWORD:-advisor}@egeria-shared-postgres:5442/egeria_advisor?options=-csearch_path%3Dresource_explorer"
+      KROKI_URL: http://egeria-shared-kroki:8000
+      EGERIA_PLATFORM_URL: https://host.docker.internal:9443
+      EGERIA_VIEW_SERVER: qs-view-server
+      EGERIA_USER: "${EGERIA_USER:-erinoverview}"
+      EGERIA_USER_PASSWORD: "${EGERIA_USER_PASSWORD:-secret}"
+      PYEGERIA_TIMEOUT_SECONDS: "30"
+      LLM__BACKEND: ollama
+      LLM__OLLAMA__BASE_URL: http://ollama:11434
+      LLM__OLLAMA__MODEL: "${TRELLIS_MODEL_GENERAL:-llama3.1:8b}"
+      PREFECT_ENABLED: "false"
+      EXPLORER_MODEL_TIER: "${TRELLIS_MODEL_TIER:-demo-cpu}"
+    extra_hosts:
+      - "host.docker.internal:${HOST_GATEWAY_IP:-host-gateway}"
+
+  trellis-ea-web:
+    image: trellis/egeria-advisor:local
+    volumes:
+      - trellis-ea-data:/app/data
+    container_name: trellis-ea-web
+    command: ["web"]
+    networks:
+      - egeria_network
+    ports:
+      - "8880:8880"
+    restart: unless-stopped
+    environment:
+      # Shared app-JWT secret: one value for every trellis process on this box, or a
+      # session minted by one container (CLI run, worker, web replica) is invalid in
+      # another (each derives a per-hostname secret when unset).
+      TRELLIS_JWT_SECRET: "${TRELLIS_JWT_SECRET:?set TRELLIS_JWT_SECRET in .env (openssl rand -hex 32)}"
+      ADVISOR_DATA_PATH: /app/data
+      # ── Model tier (target state — see header note; inert today, EA has
+      # no tier concept yet). Included as a forward-compat placeholder;
+      # the model actually loaded today is OLLAMA_MODEL/OLLAMA_CODE_MODEL
+      # and advisor.yaml's per-slot models. ────────────────────────────────
+      ADVISOR_MODEL_TIER: "${TRELLIS_MODEL_TIER:-demo-cpu}"
+
+      PGVECTOR_HOST: egeria-shared-postgres
+      PGVECTOR_PORT: "5442"
+      PGVECTOR_DBNAME: egeria_advisor
+      PGVECTOR_USER: egeria_advisor
+      PGVECTOR_PASSWORD: "${PGVECTOR_PASSWORD:-advisor}"
+
+      KROKI_URL: http://egeria-shared-kroki:8000
+
+      EGERIA_VIEW_SERVER_URL: https://host.docker.internal:9443
+      EGERIA_VIEW_SERVER: qs-view-server
+      EGERIA_USER: "${EGERIA_USER:-garygeeke}"
+      EGERIA_PASSWORD: "${EGERIA_USER_PASSWORD:-secret}"
+
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: "${TRELLIS_MODEL_GENERAL:-llama3.1:8b}"
+      OLLAMA_CODE_MODEL: "${TRELLIS_MODEL_CODE:-llama3.1:8b}"
+
+      EMBEDDING_DEVICE: cpu
+
+      # Shared HS256 secret with the Portal's EGERIA_ADVISOR_SSO_SECRET, for
+      # the Portal -> Advisor SSO handoff (advisor.auth.exchange_portal_token).
+      # Must match egeria-quickstart's EGERIA_ADVISOR_SSO_SECRET exactly, or
+      # the tile shows "Not configured" (advisor.auth's own fallback). Leave
+      # unset to disable SSO explicitly.
+      ADVISOR_PORTAL_SECRET: "${ADVISOR_PORTAL_SECRET:-}"
+      ADVISOR_EXTRA_CORS_ORIGINS: "${ADVISOR_EXTRA_CORS_ORIGINS:-}"
+
+      MLFLOW_ENABLE_TRACKING: "false"
+      PHOENIX_ENABLE: "false"
+    extra_hosts:
+      - "host.docker.internal:${HOST_GATEWAY_IP:-host-gateway}"
+    # healthcheck: inherited from the image (curl against /health/ready or /health);
+    # the slim images have no wget, so do not override it here.
+
+networks:
+  # Shared network created by ../../shared-infra/shared-infra.yaml; this file is
+  # brought up on its own (like ../prefect and ../ollama), never together with
+  # shared-infra.yaml, so it can never recreate the live infrastructure
+  # containers. Postgres/Kroki are reached by container name on this network.
+  egeria_network:
+    name: egeria_network
+    external: true
+
+volumes:
+  # Writable runtime data for the non-root image user (/app/data in both images):
+  # RE's cloned survey checkouts and caches (shared by web and worker), EA's
+  # caches, feedback and per-user document namespaces.
+  trellis-re-data:
+  trellis-ea-data:
