@@ -1,0 +1,55 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright Contributors to the Egeria project
+#
+# GPU overlay for the existing optional-associated-runtimes/ollama compose
+# service (../ollama/docker-compose.yaml — NOT edited by this file). For
+# trevor (Demo 2 in runtime-architecture-plan.md): Intel i7-10700K + RTX 2070
+# SUPER, 8 GB VRAM. As of the plan's 2026-09-04 measurement the box was still
+# on the open-source `nouveau` driver and unusable for inference — this
+# overlay is only usable once BOTH of the following are done on the host:
+#   1. The proprietary NVIDIA driver is installed (replacing nouveau).
+#   2. The NVIDIA Container Toolkit is installed and configured
+#      (`nvidia-ctk runtime configure --runtime=docker`, then restart the
+#      Docker daemon) so `docker compose ... up` can hand a GPU to a
+#      container via the `deploy.resources.reservations.devices` stanza
+#      below (the standard Compose device-request mechanism — no
+#      `runtime: nvidia` needed with a current toolkit + Compose v2).
+#
+# 8 GB VRAM fits the 8B model at 8k context with room to spare (per the
+# plan's §5 tier table — `demo-gpu` tier: llama3.1:8b / codellama:13b, 8k
+# context cap); it does not fit the 13B code model at the same time, so on
+# this box run one model at a time or accept CPU fallback for the second.
+#
+# Usage (from this directory), only after both prerequisites above are done:
+#   docker compose \
+#     -f ../shared-infra/shared-infra.yaml \
+#     -f ../ollama/docker-compose.yaml \
+#     -f docker-compose.ollama-nvidia.yaml \
+#     -f docker-compose.yaml up -d
+#
+# Verify the toolkit is wired up correctly before trusting this overlay:
+#   docker run --rm --gpus all nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    # See the ROCm overlay's comment: ../ollama/docker-compose.yaml declares
+    # no `networks:` for this service today, so this overlay adds the join
+    # to egeria_network — required for trellis-re-web/trellis-re-worker/
+    # trellis-ea-web in docker-compose.yaml to reach it as "ollama".
+    networks:
+      - egeria_network
+
+networks:
+  egeria_network:
+    name: egeria_network
+    external: true
