@@ -312,6 +312,8 @@ from jupyter_lock_handler import router as jupyter_lock_router
 app.include_router(jupyter_lock_router)
 from advisor_lock_handler import router as advisor_lock_router
 app.include_router(advisor_lock_router)
+from resource_explorer_handler import router as resource_explorer_router
+app.include_router(resource_explorer_router)
 
 # ── Demo mode ──────────────────────────────────────────────────────────────────
 

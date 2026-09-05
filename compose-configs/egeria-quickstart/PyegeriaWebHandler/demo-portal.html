@@ -323,6 +323,8 @@ Promise.all([
     setInterval(refreshJupyterTile, 30000);
     refreshAdvisorTile();
     setInterval(refreshAdvisorTile, 30000);
+    refreshResourceExplorerTile();
+    setInterval(refreshResourceExplorerTile, 30000);
     fetch('/api/demo/personas').then(function(r){ return r.json(); }).then(function(data) {
       _personas = data;
       var stored = _loadStored();
@@ -348,6 +350,8 @@ Promise.all([
     setInterval(refreshJupyterTile, 30000);
     refreshAdvisorTile();
     setInterval(refreshAdvisorTile, 30000);
+    refreshResourceExplorerTile();
+    setInterval(refreshResourceExplorerTile, 30000);
     if (stored) {
       applyPersonaUI(stored);
     } else {
@@ -385,6 +389,7 @@ function applyPersonaUI(persona) {
   loadFavorites(persona.id);
   _renderJupBookmark(persona.id);
   refreshAdvisorTile();
+  refreshResourceExplorerTile();
 }
 
 // ── Bookmarks ─────────────────────────────────────────────────────────────────
@@ -457,7 +462,7 @@ function renderAppGrid(demoMode) {
       url: '/egeria-operations', newTab: false, enabled: true },
     { icon: '🔭', name: 'Resource Explorer',
       desc: 'Scout, Assess, Discover, Enrich Resources.',
-      url: '/resource-explorer', newTab: false, enabled: false, badge: 'Preview soon' },
+      enabled: true, resourceExplorer: true },
     // Row 2 — workspaces & assistants
     { icon: '📓', name: 'Jupyter Lab',
       desc: 'Interactive notebooks for data science and hands-on Egeria API exploration.',
@@ -509,6 +514,8 @@ function renderAppGrid(demoMode) {
              + '<div id="jup-tile-bookmark"></div>';
     } else if (a.advisor) {
       action = '<div id="advisor-tile-action"><span style="color:var(--muted);font-size:0.8rem">Loading…</span></div>';
+    } else if (a.resourceExplorer) {
+      action = '<div id="re-tile-action"><span style="color:var(--muted);font-size:0.8rem">Loading…</span></div>';
     } else {
       action = '<button class="btn btn-accent app-action" onclick="launch(' + JSON.stringify(a.url).replace(/"/g, '&quot;') + ',' + a.newTab + ',' + JSON.stringify(a.name).replace(/"/g, '&quot;') + ')">' + (a.newTab ? 'Open ↗' : 'Open') + '</button>';
     }
@@ -977,6 +984,58 @@ function _clearAdvToken() {
 }
 
 if (_advToken) { _startAdvKeepalive(); }
+
+// ── Resource Explorer SSO handoff — same trellis family as Advisor above, but
+// no lock/keepalive/extend/release: Resource Explorer has no single-shared-
+// instance constraint, so there's nothing to serialize access to. ────────────
+function refreshResourceExplorerTile() {
+  fetch('/api/resource-explorer/status').then(function(r) { return r.json(); }).then(function(s) {
+    _renderRETile(s);
+  }).catch(function() {
+    var el = document.getElementById('re-tile-action');
+    if (el) el.innerHTML = '<span class="obs-hint">Status unavailable</span>';
+  });
+}
+
+function _renderRETile(s) {
+  var el = document.getElementById('re-tile-action');
+  if (!el) return;
+  if (!s.sso_configured) {
+    el.innerHTML = '<span class="soon-badge" style="background:var(--hover);color:var(--muted)">Not configured</span>';
+    return;
+  }
+  if (!s.reachable) {
+    el.innerHTML = '<span class="soon-badge" style="background:var(--hover);color:var(--muted)">Not running</span>';
+    return;
+  }
+  if (!_currentPersonaId) {
+    el.innerHTML = '<div class="obs-hint">Select a persona first</div>';
+    return;
+  }
+  el.innerHTML = '<button class="btn btn-accent" onclick="launchResourceExplorer()">Open ↗</button>';
+}
+
+function launchResourceExplorer() {
+  // Same synchronous window.open trick as acquireAdvisor() — dodges the
+  // popup blocker across the fetch's round-trip.
+  var tab = window.open('', '_blank');
+  var persona = _currentPersonaId || '';
+  var display = persona && _personas[persona] ? _personas[persona].display_name : 'User';
+  fetch('/api/resource-explorer/handoff', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ persona: persona, display_name: display })
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    if (!data.ok) {
+      if (tab) tab.close();
+      alert('Could not open Resource Explorer: ' + (data.reason || 'unavailable'));
+      return;
+    }
+    if (tab) { tab.opener = null; tab.location = data.resource_explorer_sso_url; }
+  }).catch(function(e) {
+    if (tab) tab.close();
+    alert('Error: ' + e.message);
+  });
+}
 
 // ── Jupyter notebook bookmarks ────────────────────────────────────────────────
 function _renderJupBookmark(personaId) {

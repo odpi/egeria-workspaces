@@ -100,8 +100,32 @@ def advisor_check_urls() -> list:
     return [EGERIA_ADVISOR_URL, fallback]
 
 # Shared HS256 secret with Egeria Advisor's own ADVISOR_PORTAL_SECRET — used to
-# mint the short-lived SSO handoff token in advisor_lock_handler.py. Must match
+# mint the short-lived SSO handoff token in trellis_sso.py (called from both
+# advisor_lock_handler.py and resource_explorer_handler.py). Must match
 # exactly; do not confuse with JWT_SECRET above (that signs the Portal's own
-# demo_token cookie and is unrelated). Left empty, the Advisor tile's acquire
-# call returns 503 rather than minting with an insecure/mismatched key.
+# demo_token cookie and is unrelated). Left empty, the Advisor/Resource
+# Explorer tiles' handoff calls return 503 rather than minting with an
+# insecure/mismatched key.
 EGERIA_ADVISOR_SSO_SECRET: str = os.environ.get("EGERIA_ADVISOR_SSO_SECRET", "")
+
+# Resource Explorer — same "trellis" family of apps as Egeria Advisor, same
+# shared secret above (its compose config feeds this same value in as
+# TRELLIS_PORTAL_SECRET), no separate secret needed. Same public-URL caveat
+# as EGERIA_ADVISOR_URL applies: this is sent straight to browsers.
+EGERIA_RESOURCE_EXPLORER_URL: str = os.environ.get("EGERIA_RESOURCE_EXPLORER_URL", "http://localhost:8810/")
+
+
+def resource_explorer_check_urls() -> list:
+    """Same host.docker.internal-fallback pattern as advisor_check_urls() —
+    see that function's docstring for the full rationale."""
+    if not EGERIA_RESOURCE_EXPLORER_URL:
+        return []
+    from urllib.parse import urlsplit, urlunsplit
+    parts = urlsplit(EGERIA_RESOURCE_EXPLORER_URL)
+    if parts.hostname in (None, "host.docker.internal"):
+        return [EGERIA_RESOURCE_EXPLORER_URL]
+    port = f":{parts.port}" if parts.port else ""
+    userinfo = f"{parts.username}{':' + parts.password if parts.password else ''}@" if parts.username else ""
+    fallback_netloc = f"{userinfo}host.docker.internal{port}"
+    fallback = urlunsplit((parts.scheme, fallback_netloc, parts.path, parts.query, parts.fragment))
+    return [EGERIA_RESOURCE_EXPLORER_URL, fallback]

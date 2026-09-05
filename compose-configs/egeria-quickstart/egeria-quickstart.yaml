@@ -250,6 +250,8 @@ services:
       # .env exactly. Leave unset to disable the SSO handoff (tile shows
       # "Not configured").
       EGERIA_ADVISOR_SSO_SECRET: "${EGERIA_ADVISOR_SSO_SECRET:-}"
+      # Resource Explorer — same trellis family/SSO secret as Advisor above.
+      EGERIA_RESOURCE_EXPLORER_URL: "${EGERIA_RESOURCE_EXPLORER_URL:-http://localhost:8810/}"
     extra_hosts:
       - "${HOST_FQDN}:${HOST_GATEWAY_IP:-host-gateway}"
       - "host.docker.internal:${HOST_GATEWAY_IP:-host-gateway}"
