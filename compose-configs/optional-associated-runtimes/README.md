@@ -24,7 +24,8 @@ Currently there are compose configurations for:
         * Minio - an S3 compatible object store
         * Hive metastore - a metadata store for managing tables and databases
     * Trellis - Resource Explorer and Egeria Advisor, containerized (demo profile); see
-        trellis/docker-compose.yaml and its README for bring-up per box and GPU overlays for
+        trellis/DEPLOYING-TRELLIS.md for the demo, Mac-developer and Linux-developer
+        configurations, and trellis/README.md for the compose detail and GPU overlays for
         Ollama (ROCm, NVIDIA).
         
 

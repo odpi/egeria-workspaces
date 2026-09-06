@@ -11,7 +11,7 @@ Egeria Advisor is an AI-powered assistant for navigating and querying your Egeri
 The portal tile links to the Advisor URL configured in `.env`:
 
 ```
-EGERIA_ADVISOR_URL=http://localhost:8080/
+EGERIA_ADVISOR_URL=http://localhost:8880/
 ```
 
 If you are running the Advisor on a different host or port, update this value.
@@ -29,7 +29,13 @@ If you are running the Advisor on a different host or port, update this value.
 
 ## Configuration
 
-*(Further documentation to be added as the Egeria Advisor integration develops.)*
+The Advisor requires a login (any QuickStart demo user). With `EGERIA_ADVISOR_SSO_SECRET` in the
+QuickStart `.env` equal to the Advisor's own `ADVISOR_PORTAL_SECRET`, opening the tile signs the
+Portal's user straight in; otherwise the Advisor asks for a login.
+
+How to deploy, configure and run the Advisor (and Resource Explorer) in the QuickStart demo
+configuration or natively on a Mac or Linux developer machine:
+[compose-configs/optional-associated-runtimes/trellis/DEPLOYING-TRELLIS.md](../../compose-configs/optional-associated-runtimes/trellis/DEPLOYING-TRELLIS.md).
 
 ---
 
