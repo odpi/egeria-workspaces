@@ -289,7 +289,7 @@ pushd compose-configs/egeria-quickstart >/dev/null
   }
 
   # ── Demo mode: collect / persist credentials ─────────────────────────────
-  _jwt="" _cert_dir="" _admin_email="" _admin_pass="" _resend_key="" _resend_from="" _https_port="" _site_url_override="" _advisor_url="" _advisor_secret=""
+  _jwt="" _cert_dir="" _admin_email="" _admin_pass="" _resend_key="" _resend_from="" _https_port="" _site_url_override="" _advisor_url="" _advisor_secret="" _explorer_url=""
   if [[ "$DEMO_MODE_FLAG" -eq 1 ]]; then
     ENV_DEMO=".env.demo"
     echo "[quick-start-local] Demo mode: loading configuration..."
@@ -313,6 +313,11 @@ pushd compose-configs/egeria-quickstart >/dev/null
     _site_url_override="$(_pick SITE_URL)"
     _advisor_url="$(_pick EGERIA_ADVISOR_URL)"
     _advisor_secret="$(_pick EGERIA_ADVISOR_SSO_SECRET)"
+    # Resource Explorer is the second "trellis" app behind the same SSO secret
+    # above; carry its URL over too, or gen-env.sh's rewrite of .env drops it
+    # every run and the Portal tile silently falls back to http://localhost:8810/
+    # -- wrong for anyone whose browser is not on this box.
+    _explorer_url="$(_pick EGERIA_RESOURCE_EXPLORER_URL)"
 
     # Generate JWT_SECRET if not already set
     if [[ -z "$_jwt" ]]; then
@@ -407,6 +412,7 @@ HTTPS_PORT=${_https_port}
 SITE_URL=${_site_url_override}
 EGERIA_ADVISOR_URL=${_advisor_url}
 EGERIA_ADVISOR_SSO_SECRET=${_advisor_secret}
+EGERIA_RESOURCE_EXPLORER_URL=${_explorer_url}
 EOF
     chmod 600 "$ENV_DEMO"
     echo "[quick-start-local]   Demo credentials saved to ${ENV_DEMO}."
@@ -486,6 +492,7 @@ EOF
       echo "SITE_URL=${_site_url}"
       echo "EGERIA_ADVISOR_URL=${_advisor_url}"
       echo "EGERIA_ADVISOR_SSO_SECRET=${_advisor_secret}"
+      echo "EGERIA_RESOURCE_EXPLORER_URL=${_explorer_url}"
     } >> .env
     echo "[quick-start-local]   Demo SSL_SERVER_NAME: ${_host_fqdn} — SITE_URL: ${_site_url}"
   else
