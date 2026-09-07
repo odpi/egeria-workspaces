@@ -55,7 +55,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from loguru import logger
 from pydantic import BaseModel
 
-from demo_config import DEMO_MODE, EGERIA_ADVISOR_URL, EGERIA_ADVISOR_SSO_SECRET, advisor_check_urls
+from demo_config import DEMO_MODE, EGERIA_ADVISOR_URL, EGERIA_ADVISOR_SSO_SECRET, advisor_check_urls, browser_facing_url
 from trellis_sso import make_portal_sso_token
 
 router = APIRouter(prefix="/api/advisor", tags=["advisor-lock"])
@@ -465,7 +465,8 @@ async def acquire(request: Request, body: AcquireRequest, _: None = Depends(_req
             _do_release("mint_failed")
             raise HTTPException(status_code=502, detail=f"Could not prepare Advisor session: {exc}")
 
-        advisor_sso_url = f"{EGERIA_ADVISOR_URL.rstrip('/')}/#pt={sso_token}"
+        _advisor_base = browser_facing_url(EGERIA_ADVISOR_URL, request, 8880)
+        advisor_sso_url = f"{_advisor_base.rstrip('/')}/#pt={sso_token}"
 
         return {
             "acquired":        True,

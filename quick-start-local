@@ -554,9 +554,32 @@ EOF
   # plain-HTTP vhost 301-redirects to.
   SSL_DEFINE_DIR="../../runtime-volumes/quickstart-apache-web"
   mkdir -p "$SSL_DEFINE_DIR"
+
+  # Optional extra HTTPS vhosts for the two trellis apps (Resource Explorer,
+  # Egeria Advisor). sites-available/trellis-ssl-vhosts.conf guards each on
+  # <IfDefine>, so omitting these Defines leaves both vhosts inert -- which is
+  # the right default, since Apache resolves ProxyPass backends at startup and
+  # would fail to start if trellis-re-web/trellis-ea-web were not running.
+  #
+  # Read straight from .env.demo/.env here rather than via the _pick block
+  # above, so a plain (non-demo) re-run regenerates them too. gen-env.sh
+  # rewrites .env every run in both modes; anything only picked up under
+  # --demo is silently dropped on a plain run, which is exactly how the
+  # Advisor/Resource Explorer tiles reverted to "Not configured" before.
+  _re_server_name="$(_get_env_var EGERIA_RE_SERVER_NAME .env.demo)"
+  [[ -z "$_re_server_name" ]] && _re_server_name="$(_get_env_var EGERIA_RE_SERVER_NAME .env)"
+  _ea_server_name="$(_get_env_var EGERIA_EA_SERVER_NAME .env.demo)"
+  [[ -z "$_ea_server_name" ]] && _ea_server_name="$(_get_env_var EGERIA_EA_SERVER_NAME .env)"
+
   {
     printf 'Define SSL_SERVER_NAME %s\n' "${_host_fqdn}"
     printf 'Define HTTPS_REDIRECT_PORT %s\n' "${_https_port_num}"
+    if [[ -n "$_re_server_name" ]]; then
+      printf 'Define RE_SERVER_NAME %s\n' "$_re_server_name"
+    fi
+    if [[ -n "$_ea_server_name" ]]; then
+      printf 'Define EA_SERVER_NAME %s\n' "$_ea_server_name"
+    fi
   } > "${SSL_DEFINE_DIR}/ssl-define.conf"
 
   # Build the compose file list.

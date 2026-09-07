@@ -1,0 +1,13 @@
+# certbot/certbot has no DNS plugins built in, so wildcard issuance via
+# IONOS's DNS API (certbot-dns-ionos, PyPI) needs its own image layered on
+# top. Digest-pinned per this repo's Scorecard Pinned-Dependencies convention
+# (see Dockerfile-proxy) — re-resolve deliberately, the same way
+# --refresh-platform re-resolves egeria-platform's pinned digest.
+#
+# Used by letsencrypt-wildcard-cert.sh for DNS-01 issuance/renewal of
+# *.pdr-associates.com — see that script for the credentials file format and
+# invocation. No webroot, no port 80: DNS-01 proves control of the domain via
+# a TXT record IONOS's API creates and removes, so unlike letsencrypt-cert.sh
+# (HTTP-01) this never depends on the router forwarding port 80 inbound.
+FROM docker.io/certbot/certbot@sha256:f70ad0adbb7e117f0fe42a63c553f28ea451edabc0148757b6efcd9735acaa20
+RUN pip install --no-cache-dir certbot-dns-ionos
