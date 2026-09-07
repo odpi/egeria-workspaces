@@ -14,6 +14,8 @@ The Data Hub sits at the centre of Coco Pharmaceuticals' data-driven systems arc
 
 The architecture is captured as a solution blueprint containing eight solution components — one for the Data Hub itself and one for each connected business function — linked together with solution linking wires that mirror the data flows shown in the source architecture diagram.
 
+The eight components themselves are created in [strategic-supply-chain-analysis.md](strategic-supply-chain-analysis.md), which loads before this file.  They are shared: every strategic information supply chain runs over the same business functions, so defining them once alongside the components they contain is better than defining them here and having the supply chain analysis reach backwards for them.  This file creates the blueprint, joins the eight to it, and draws the wires of the source diagram.
+
 ---
 
 ## Part 1: Solution Blueprint
@@ -61,31 +63,26 @@ ___
 
 ## Part 2: Solution Components
 
+The eight components of this blueprint are defined in
+[strategic-supply-chain-analysis.md](strategic-supply-chain-analysis.md), which loads first.  They are the
+business system groups every strategic information supply chain runs over, so they are created there — with a
+solution component type and the fine-grained components they contain — and joined to this blueprint here.
+
 ___
 
-## Create Solution Component
+## Link Solution Component to Blueprint
 
-### Display Name
-Data Hub
+### Blueprint
+CocoPharma::SolutionBlueprint::DataDrivenSystemsArchitecture
 
-### Qualified Name
+### Component1
 CocoPharma::SolutionComponent::DataHub
 
-### Description
-The central integration point of the architecture. Receives orders, status and inventory updates from every connected business function and distributes requirements and insight back out to them.
+### Membership Rationale
+The central integration point every other business function exchanges data through.
 
-### In Solution Blueprints
-CocoPharma::SolutionBlueprint::DataDrivenSystemsArchitecture
-
-### Authors
-- Erin Overview
-- Peter Profile
-
-### Version Identifier
-1.0
-
-### Content Status
-ACTIVE
+### Membership Status
+VALIDATED
 
 ___
 
@@ -93,29 +90,19 @@ ___
 
 ___
 
-## Create Solution Component
+## Link Solution Component to Blueprint
 
-### Display Name
-Patient Treatment (Sales/Direct) Systems
+### Blueprint
+CocoPharma::SolutionBlueprint::DataDrivenSystemsArchitecture
 
-### Qualified Name
+### Component1
 CocoPharma::SolutionComponent::PatientTreatment
 
-### Description
-The sales and direct-to-patient treatment channel. Originates new business into the Data Hub.
+### Membership Rationale
+Originates new business into the Data Hub.
 
-### In Solution Blueprints
-CocoPharma::SolutionBlueprint::DataDrivenSystemsArchitecture
-
-### Authors
-- Erin Overview
-- Peter Profile
-
-### Version Identifier
-1.0
-
-### Content Status
-ACTIVE
+### Membership Status
+VALIDATED
 
 ___
 
@@ -123,29 +110,19 @@ ___
 
 ___
 
-## Create Solution Component
+## Link Solution Component to Blueprint
 
-### Display Name
-Finance Systems
+### Blueprint
+CocoPharma::SolutionBlueprint::DataDrivenSystemsArchitecture
 
-### Qualified Name
+### Component1
 CocoPharma::SolutionComponent::Finance
 
-### Description
-Manages invoices, payments and expenses, and raises new orders on behalf of the business.
+### Membership Rationale
+Exchanges invoices, payments, expenses and new orders with the Data Hub.
 
-### In Solution Blueprints
-CocoPharma::SolutionBlueprint::DataDrivenSystemsArchitecture
-
-### Authors
-- Erin Overview
-- Peter Profile
-
-### Version Identifier
-1.0
-
-### Content Status
-ACTIVE
+### Membership Status
+VALIDATED
 
 ___
 
@@ -153,29 +130,19 @@ ___
 
 ___
 
-## Create Solution Component
+## Link Solution Component to Blueprint
 
-### Display Name
-Procurement Systems
+### Blueprint
+CocoPharma::SolutionBlueprint::DataDrivenSystemsArchitecture
 
-### Qualified Name
+### Component1
 CocoPharma::SolutionComponent::Procurement
 
-### Description
-Sources materials and services against requirements published by the Data Hub, and raises new orders back into it.
+### Membership Rationale
+Sources against requirements published by the Data Hub and raises new orders back into it.
 
-### In Solution Blueprints
-CocoPharma::SolutionBlueprint::DataDrivenSystemsArchitecture
-
-### Authors
-- Erin Overview
-- Peter Profile
-
-### Version Identifier
-1.0
-
-### Content Status
-ACTIVE
+### Membership Status
+VALIDATED
 
 ___
 
@@ -183,29 +150,19 @@ ___
 
 ___
 
-## Create Solution Component
+## Link Solution Component to Blueprint
 
-### Display Name
-Research Systems
+### Blueprint
+CocoPharma::SolutionBlueprint::DataDrivenSystemsArchitecture
 
-### Qualified Name
+### Component1
 CocoPharma::SolutionComponent::Research
 
-### Description
-Develops new treatments, consuming patient insight from the Data Hub and publishing new recipes back into it.
+### Membership Rationale
+Consumes patient insight from the Data Hub and publishes new recipes back into it.
 
-### In Solution Blueprints
-CocoPharma::SolutionBlueprint::DataDrivenSystemsArchitecture
-
-### Authors
-- Erin Overview
-- Peter Profile
-
-### Version Identifier
-1.0
-
-### Content Status
-ACTIVE
+### Membership Status
+VALIDATED
 
 ___
 
@@ -213,29 +170,19 @@ ___
 
 ___
 
-## Create Solution Component
+## Link Solution Component to Blueprint
 
-### Display Name
-Warehouse Systems
+### Blueprint
+CocoPharma::SolutionBlueprint::DataDrivenSystemsArchitecture
 
-### Qualified Name
+### Component1
 CocoPharma::SolutionComponent::Warehouse
 
-### Description
-Holds materials and finished goods, reporting inventory levels to the Data Hub and fulfilling materials requests from Manufacturing.
+### Membership Rationale
+Reports inventory to the Data Hub and fulfils materials requests from Manufacturing.
 
-### In Solution Blueprints
-CocoPharma::SolutionBlueprint::DataDrivenSystemsArchitecture
-
-### Authors
-- Erin Overview
-- Peter Profile
-
-### Version Identifier
-1.0
-
-### Content Status
-ACTIVE
+### Membership Status
+VALIDATED
 
 ___
 
@@ -243,29 +190,19 @@ ___
 
 ___
 
-## Create Solution Component
+## Link Solution Component to Blueprint
 
-### Display Name
-Manufacturing Systems
+### Blueprint
+CocoPharma::SolutionBlueprint::DataDrivenSystemsArchitecture
 
-### Qualified Name
+### Component1
 CocoPharma::SolutionComponent::Manufacturing
 
-### Description
-Produces treatments, reporting manufacturing status to the Data Hub, requesting materials from the Warehouse, and passing finished shipments to Delivery.
+### Membership Rationale
+Reports manufacturing status to the Data Hub, requests materials and passes shipments to Delivery.
 
-### In Solution Blueprints
-CocoPharma::SolutionBlueprint::DataDrivenSystemsArchitecture
-
-### Authors
-- Erin Overview
-- Peter Profile
-
-### Version Identifier
-1.0
-
-### Content Status
-ACTIVE
+### Membership Status
+VALIDATED
 
 ___
 
@@ -273,29 +210,19 @@ ___
 
 ___
 
-## Create Solution Component
+## Link Solution Component to Blueprint
 
-### Display Name
-Delivery Systems
-
-### Qualified Name
-CocoPharma::SolutionComponent::Delivery
-
-### Description
-Delivers shipments received from Manufacturing to their destination, reporting delivery status back to the Data Hub.
-
-### In Solution Blueprints
+### Blueprint
 CocoPharma::SolutionBlueprint::DataDrivenSystemsArchitecture
 
-### Authors
-- Erin Overview
-- Peter Profile
+### Component1
+CocoPharma::SolutionComponent::Delivery
 
-### Version Identifier
-1.0
+### Membership Rationale
+Delivers shipments from Manufacturing and reports delivery status back to the Data Hub.
 
-### Content Status
-ACTIVE
+### Membership Status
+VALIDATED
 
 ___
 

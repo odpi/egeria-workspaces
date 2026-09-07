@@ -1,6 +1,6 @@
 # Building the Governance Program
 
-This directory contains seventeen Dr.Egeria Markdown files.  The first two were created by [Jules Keeper](https://egeria-project.org/practices/coco-pharmaceuticals/personas/jules-keeper/) to describe his plan for the first 90 days at Coco Pharmaceuticals and his data strategy framework.
+This directory contains nineteen Dr.Egeria Markdown files.  The first two were created by [Jules Keeper](https://egeria-project.org/practices/coco-pharmaceuticals/personas/jules-keeper/) to describe his plan for the first 90 days at Coco Pharmaceuticals and his data strategy framework.
 
 * [jules-90-day-plan.md](jules-90-day-plan.md)
 * [data-strategy-framework.md](data-strategy-framework.md)
@@ -30,10 +30,12 @@ The governance leaders then went back to their own teams to work through the pri
 | [biological-agents-and-gmo.md](biological-agents-and-gmo.md) | `Health and Safety` | Faith Broker, through the Biological Safety Officer |
 | [dangerous-goods-transport.md](dangerous-goods-transport.md) | `Distribution` | Stew Faster with Florence Paynter and George Pie |
 
-Two further files cut across the domains:
+Four further files cut across the domains:
 
 * [risk-register.md](risk-register.md) — the threats and risks affecting the company, contributed to and owned by all the governance leaders
+* [data-quality-glossary.md](data-quality-glossary.md) — the vocabulary of data integrity as the regulators use it: the ALCOA, ALCOA+ and ALCOA++ attributes, defined precisely enough for the manufacturing quality expectations to be turned into measurable rules
 * [employee-glossary.md](employee-glossary.md) — the output of a [glossary building session](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/defining-a-glossary/overview/) run by [Erin Overview](https://egeria-project.org/practices/coco-pharmaceuticals/personas/erin-overview/) and [Faith Broker](https://egeria-project.org/practices/coco-pharmaceuticals/personas/faith-broker/) on the employee subject area, showing the common data definitions principle being put into practice
+* [strategic-information-supply-chains.md](strategic-information-supply-chains.md) — the register of data flows the company governs and monitors at company level, linked to the governance definitions from every domain that govern them
 
 ----
 
@@ -88,8 +90,12 @@ While that work is going on, Jules and his team are building the artifacts that 
 
 | | File | |
 |---|---|---|
-| 16 | `data-governance-program.md` | Jules Keeper, Erin Overview and Peter Profile |
-| 17 | `employee-glossary.md` | Erin Overview and Faith Broker, from the [glossary session](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/defining-a-glossary/overview/) |
+| 16 | `data-quality-glossary.md` | Erin Overview with Florence Paynter and the manufacturing quality team |
+| 17 | `data-governance-program.md` | Jules Keeper, Erin Overview and Peter Profile |
+| 18 | `employee-glossary.md` | Erin Overview and Faith Broker, from the [glossary session](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/defining-a-glossary/overview/) |
+| 19 | `strategic-information-supply-chains.md` | Jules Keeper and Erin Overview, naming the flows the whole programme has been describing obligations about |
+
+The last of these loads after everything else in the directory because it links to governance definitions owned by every domain in it.
 
 **There are no forward references.**  Every link resolves to a definition created in the same file or in an earlier one, so a single pass loads the whole directory.  This is worth preserving: the peer links between domains are symmetric, so when two domains reference each other the link belongs in whichever file loads later.  Several such links live in `data-governance-program.md` for exactly this reason, which is also where they belong thematically.
 
@@ -108,13 +114,13 @@ Each file is loaded as the governance leader responsible for it, so that the def
 
 | User id | Governance leader | Files |
 |---|---|---|
-| `juleskeeper` | Jules Keeper, Chief Data Officer | the 90 day plan, data strategy framework, joint officer definitions, risk register, and the data governance program |
+| `juleskeeper` | Jules Keeper, Chief Data Officer | the 90 day plan, data strategy framework, joint officer definitions, risk register, the data governance program, and the strategic information supply chains |
 | `faithbroker` | Faith Broker, Chief Privacy Officer and Head of Human Resources | privacy, human resource management, health and safety, biological agents, and diversity, equity and inclusion |
 | `stewfaster` | Stew Faster, Head of Manufacturing | manufacturing, serialisation, and dangerous goods transport |
 | `ivorpadlock` | Ivor Padlock, Chief Information Security Officer | the data security strategy |
 | `tessatube` | Tessa Tube, Drug Development Lead | drug development governance |
 | `reggiemint` | Reggie Mint, Chief Financial Officer | corporate governance |
-| `erinoverview` | Erin Overview, Information Architect | the employee glossary |
+| `erinoverview` | Erin Overview, Information Architect | the data quality glossary and the employee glossary |
 | `garygeeke` | Gary Geeke, IT Infrastructure Director | the IT governance program in `4. keeping-safe` |
 
 The sections below describe the files and how to load them into Egeria.  The files themselves are worth browsing.  They contain a narrative describing the definitions and the rationale behind them.  The instructions below describe how to load these definitions into Egeria.  Then you can browse the results in [Egeria Explorer](https://egeria-project.org/user-interfaces/egeria-explorer/overview/) in the Egeria Portal.
@@ -416,7 +422,45 @@ The definitions carry Domain Identifier `Diversity, Equity and Inclusion`, regis
 
 ----
 
-## 16. Data Governance Program
+## 16. Data Quality Glossary
+
+The file [data-quality-glossary.md](data-quality-glossary.md) contains the Dr.Egeria commands to load the vocabulary of data integrity — the five **ALCOA** attributes, the four added by **ALCOA+**, and the one added by **ALCOA++** — together with the supporting terms about records, evidence and controls that those attributes are written in terms of.
+
+It exists because of a problem the data quality analysts hit when they started turning the manufacturing quality expectations into measurable rules.  The manufacturing program's `ALCOA+ Data Integrity` principle and `ALCOA+ Data Integrity Framework` approach both assume that everybody already agrees what *attributable*, *contemporaneous* and *original* mean.  They did not: *original* meant the paper printout to the QC laboratory and the instrument's data file to the engineers, and *complete* meant "no empty fields" to one team and "including the tests that failed" to another.  The rules could not be written until the words were agreed.
+
+The definitions follow the regulators' own — EMA, FDA, MHRA, WHO and PIC/S — but record the reading Coco Pharmaceuticals applies, which is what makes them usable in a rule.  Where a definition has been narrowed, as with **Original** for hybrid instrument systems, the term's usage says so.
+
+In total the file creates:
+
+| | |
+|---|---|
+| 1 glossary | `Glossary::DataQualityGlossary` |
+| 6 categories | Data Integrity Frameworks, ALCOA Core Attributes, ALCOA+ Additional Attributes, ALCOA++ Additional Attribute, Records and Data, Controls and Evidence |
+| 40 glossary terms | the ten attributes, the three frameworks, and the records, controls and evidence terms they depend on |
+| 39 term relationships | `RelatedTerm`, `ISARelationship` and `Antonym` |
+| 2 `GovernedBy` links | the glossary to the `ALCOA+ Data Integrity` principle and the `ALCOA+ Data Integrity Framework` approach |
+| 1 collection membership | the glossary as a member of the `Governance` subject area |
+
+The relationships are the part worth reading.  They answer the question that makes the glossary usable when writing a rule — *what would I have to measure to test this attribute?* — by linking each attribute to the control it is achieved through: Attributable to **Unique User Identity**, Contemporaneous to **Time Synchronisation**, Enduring and Available to **Archive** and **Retention Period**.  Three of the attributes resist it, and the file says so: Accurate cannot be tested directly, and Legible and Enduring are assessed against the end of the retention period rather than against today.  Those three are audited rather than monitored.
+
+You can load the definitions into Egeria in one of two ways:
+
+1. From Obsidian - open the `data-quality-glossary.md` file and click the suitcase icon labeled "Call Dr. Egeria (MCP)"
+2. From the command line in JupyterLab. Make sure you are in this directory and issue the command:
+
+    ```
+    dr_egeria --directive process --userid erinoverview --user_pass secret data-quality-glossary.md
+    ```
+
+It links to the `ALCOA+ Data Integrity` principle and the `ALCOA+ Data Integrity Framework` approach, both defined in `manufacturing-governance-program.md`, so it loads after that file.  It loads before `data-governance-program.md` because the data governance program's quality definitions are written against this vocabulary.
+
+The glossary is also added as a member of the `SubjectArea::Governance` collection, so that collection must already exist in Egeria.  The subject area collections are loaded from `CocoComboArchive.omarchive` when the metadata server starts up.
+
+Once loaded, you can browse the results in [Egeria Explorer](https://egeria-project.org/user-interfaces/egeria-explorer/overview/) in the Egeria Portal.  Select the **Glossaries** card and then **Data Quality Glossary**.
+
+----
+
+## 17. Data Governance Program
 
 The file [data-governance-program.md](data-governance-program.md) contains the governance definitions created by the data governance team at Coco Pharmaceuticals.
 
@@ -438,7 +482,7 @@ The data governance program refers to definitions in the Joint Governance Office
 
 ----
 
-## 17. Employee Glossary
+## 18. Employee Glossary
 
 The file [employee-glossary.md](employee-glossary.md) contains the Dr.Egeria commands to load the first draft of the glossary for the **Employee** subject area.  It was produced by [Erin Overview](https://egeria-project.org/practices/coco-pharmaceuticals/personas/erin-overview/) and [Faith Broker](https://egeria-project.org/practices/coco-pharmaceuticals/personas/faith-broker/), the director for human resources, in the working session described in [Defining a glossary](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/defining-a-glossary/overview/).
 
@@ -471,6 +515,31 @@ You can load the definitions into Egeria in one of two ways:
 The glossary is added as a member of the `SubjectArea::Person:Employee` collection, so that collection must already exist in Egeria.  The subject area collections are loaded from `CocoComboArchive.omarchive` when the metadata server starts up.
 
 Once loaded, you can browse the results in [Egeria Explorer](https://egeria-project.org/user-interfaces/egeria-explorer/overview/) in the Egeria Portal.  Select the **Glossaries** card and then **Employee Glossary**.
+
+----
+
+## 19. Strategic Information Supply Chains
+
+The file [strategic-information-supply-chains.md](strategic-information-supply-chains.md) is the register of [information supply chains](https://egeria-project.org/concepts/information-supply-chain/) that Coco Pharmaceuticals governs and monitors at company level — the flows of data whose failure would stop the business, breach a regulation, or harm a patient.  It belongs to the [Defining information supply chains](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/defining-information-supply-chains/overview/) scenario, and makes concrete the **Optimized Information Supply Chains** component that `data-strategy-framework.md` names but does not populate.
+
+Sixteen supply chains are registered.  Seven of them already exist in `CocoComboArchive.omarchive`, complete with the solution components that produce their lineage; the file adopts those rather than recreating them, adding them to the register and linking them to governance without touching their descriptions or their wiring.  The other nine are created here — flows the domain programs plainly depend on, but which nothing had yet named as a supply chain.
+
+Membership is deliberately restrictive.  A flow enters the register only if it meets one of four tests: stopping it would halt part of the business, a regulator expects its output, a fault in it could reach a patient, or its errors cannot be undone.  The fourth test is the one that changes the engineering — a serial number issued twice or a lost chain of identity has to be caught before it propagates, not reported afterwards.
+
+The file then does two things the individual domain programs could not do from inside their own boundaries.  It records the **handoffs** between supply chains, which is where a fault in one becomes a failure in the next and where accountability changes hands.  And it links each chain to the governance definitions that govern it with the `GovernedBy` relationship — 74 links drawn from eleven of the files above.  Read in that direction the register answers *what governs this flow?*; read in the other it asks a harder question, which is whether an obligation with no supply chain attached is one anybody has worked out how to observe.
+
+You can load the definitions into Egeria in one of two ways:
+
+1. From Obsidian - open the `strategic-information-supply-chains.md` file and click the suitcase icon labeled "Call Dr. Egeria (MCP)"
+2. From the command line in JupyterLab. Make sure you are in this directory and issue the command:
+
+    ```
+    dr_egeria --directive process --userid juleskeeper --user_pass secret strategic-information-supply-chains.md
+    ```
+
+It links to definitions in the joint, data, security, privacy, manufacturing, serialisation, drug development, corporate, human resources, health and safety and dangerous goods files, so it loads after all of them.  The sustainability program links its own definitions to the Sustainability Reporting supply chain when `3. sustainability/` loads later.
+
+Once loaded, you can browse the results in [Egeria Explorer](https://egeria-project.org/user-interfaces/egeria-explorer/overview/) in the Egeria Portal.  Select the **Solution Architect** card, or find the register under **Collections** → **Strategic Solutions** → **Strategic Information Supply Chains**.
 
 ----
 
