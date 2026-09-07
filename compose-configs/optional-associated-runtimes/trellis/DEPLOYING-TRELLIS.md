@@ -185,9 +185,16 @@ Use the hostname a browser on the LAN will use, not `localhost`, unless the brow
 box itself. With the secret set on both sides, opening a tile signs the Portal's user into the app;
 without it the tile still opens the app, which then asks for a login.
 
-`./quick-start-local` regenerates that `.env` on each run. It carries `EGERIA_ADVISOR_URL` and
-`EGERIA_ADVISOR_SSO_SECRET` over from the previous file, but not `EGERIA_RESOURCE_EXPLORER_URL`,
-which falls back to `http://localhost:8810/`. Re-add it after each run on a LAN demo box.
+`./quick-start-local` regenerates that `.env` on each run, carrying `EGERIA_ADVISOR_URL`,
+`EGERIA_RESOURCE_EXPLORER_URL` and `EGERIA_ADVISOR_SSO_SECRET` over from the previous file — all
+three survive a re-run and need setting only once.
+
+On a QuickStart predating egeria-workspaces #485 (merged 2026-09-06),
+`EGERIA_RESOURCE_EXPLORER_URL` was *not* carried over: `gen-env.sh`'s rewrite dropped it every run
+and `demo_config.py` fell back to its `http://localhost:8810/` default, which sends every browser
+not running on the box to its own localhost. The failure is silent — the tile renders normally and
+only misbehaves for remote users. If you see that after a re-run, check whether the value survived
+in `.env` and update the QuickStart.
 
 ### 2.5 Check that it works
 
