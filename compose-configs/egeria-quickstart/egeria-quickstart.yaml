@@ -28,6 +28,7 @@ services:
     image: egeria-quickstart-jupyter:local
     pull_policy: never
     container_name: quickstart-jupyter-work-full
+    restart: unless-stopped
     user: root
     networks:
       - egeria_network
@@ -198,6 +199,7 @@ services:
     image: egeria-quickstart-pyegeria-web:latest
     pull_policy: never
     container_name: quickstart-pyegeria-web
+    restart: unless-stopped
     build:
       context: ./PyegeriaWebHandler
       dockerfile: ./Dockerfile-fast-api
@@ -250,6 +252,8 @@ services:
       # .env exactly. Leave unset to disable the SSO handoff (tile shows
       # "Not configured").
       EGERIA_ADVISOR_SSO_SECRET: "${EGERIA_ADVISOR_SSO_SECRET:-}"
+      # Resource Explorer — same trellis family/SSO secret as Advisor above.
+      EGERIA_RESOURCE_EXPLORER_URL: "${EGERIA_RESOURCE_EXPLORER_URL:-http://localhost:8810/}"
     extra_hosts:
       - "${HOST_FQDN}:${HOST_GATEWAY_IP:-host-gateway}"
       - "host.docker.internal:${HOST_GATEWAY_IP:-host-gateway}"
@@ -337,6 +341,7 @@ services:
     image: egeria-quickstart-my-profile:local
     pull_policy: never
     container_name: quickstart-my-profile
+    restart: unless-stopped
     build:
       context: .
       dockerfile: Dockerfile-my-egeria

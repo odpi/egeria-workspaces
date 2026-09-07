@@ -21,13 +21,24 @@ jupyter_lock_handler.py / obsidian_lock_handler.py).
 
 SSO handoff
 -----------
-Acquiring the lock also mints a short-lived HS256 JWT ({"egeria_user",
-"egeria_password", "iat", "exp"}) signed with EGERIA_ADVISOR_SSO_SECRET — a
-secret shared with Egeria Advisor's own ADVISOR_PORTAL_SECRET, NOT the
-Portal's JWT_SECRET (that signs the unrelated demo_token cookie). Advisor's
-POST /api/auth/portal exchanges this for its own session token. The acquire
+Acquiring the lock also mints a short-lived HS256 JWT via trellis_sso.py's
+make_portal_sso_token() ({"sub", "role", "display_name", "egeria_token",
+"iat", "exp"}) signed with EGERIA_ADVISOR_SSO_SECRET — a secret shared with
+Egeria Advisor's own ADVISOR_PORTAL_SECRET, NOT the Portal's JWT_SECRET
+(that signs the unrelated demo_token cookie). Advisor's POST
+/api/auth/portal exchanges this for its own session token. The acquire
 response returns the full advisor_sso_url (EGERIA_ADVISOR_URL + '#pt=<token>')
 for the frontend to open.
+
+Claim shape changed 2026-09-05: Advisor went multi-user (login, Postgres
+session store, per-user namespaces) and its auth now rejects the previous
+{"egeria_user","egeria_password","iat","exp"} shape with a 400 -- see
+trellis_sso.py's docstring for the full contract and why egeria_token is a
+real minted bearer token, not the raw password. The exclusive lock/state
+machine below is UNCHANGED by this -- still real, still enforced; whether
+it's still needed now that Advisor handles its own concurrency is an open
+question to revisit once multi-user is confirmed working in practice, not
+decided here.
 """
 
 import asyncio
@@ -41,11 +52,11 @@ from typing import Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
-from jose import jwt
 from loguru import logger
 from pydantic import BaseModel
 
 from demo_config import DEMO_MODE, EGERIA_ADVISOR_URL, EGERIA_ADVISOR_SSO_SECRET, advisor_check_urls
+from trellis_sso import make_portal_sso_token
 
 router = APIRouter(prefix="/api/advisor", tags=["advisor-lock"])
 
@@ -154,17 +165,6 @@ def _load_personas() -> dict:
         return json.loads(_PERSONAS_FILE.read_text())
     except Exception:
         return {}
-
-
-def _make_advisor_portal_token(egeria_user: str, egeria_password: str) -> str:
-    now = int(time.time())
-    payload = {
-        "egeria_user":     egeria_user,
-        "egeria_password": egeria_password,
-        "iat":             now,
-        "exp":             now + 120,  # short-lived — immediately exchanged client-side
-    }
-    return jwt.encode(payload, EGERIA_ADVISOR_SSO_SECRET, algorithm="HS256")
 
 
 # ── State transitions ──────────────────────────────────────────────────────────
@@ -458,7 +458,13 @@ async def acquire(request: Request, body: AcquireRequest, _: None = Depends(_req
         _save_state()
         logger.info(f"advisor lock acquired by '{display}' (persona={body.persona})")
 
-        sso_token = _make_advisor_portal_token(body.persona, persona["password"])
+        try:
+            sso_token = await make_portal_sso_token(user, body.persona, persona)
+        except Exception as exc:
+            logger.error(f"advisor lock: SSO token minting failed, rolling back acquire: {exc}")
+            _do_release("mint_failed")
+            raise HTTPException(status_code=502, detail=f"Could not prepare Advisor session: {exc}")
+
         advisor_sso_url = f"{EGERIA_ADVISOR_URL.rstrip('/')}/#pt={sso_token}"
 
         return {
