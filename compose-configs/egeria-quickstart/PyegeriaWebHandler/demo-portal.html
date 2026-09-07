@@ -872,10 +872,9 @@ function _clearJupToken() {
 
 if (_jupToken) { _startJupKeepalive(); }
 
-// ── Egeria Advisor lock + SSO handoff ─────────────────────────────────────────
-var _advToken     = sessionStorage.getItem('adv-token') || null;
-var _advKeepalive = null;
-
+// ── Egeria Advisor SSO handoff — Advisor is multi-user (own login + Postgres
+// session store), so there's no lock/keepalive/extend/release to manage; same
+// shape as the Resource Explorer handoff just below. ──────────────────────────
 function refreshAdvisorTile() {
   fetch('/api/advisor/status').then(function(r) { return r.json(); }).then(function(s) {
     _renderAdvTile(s);
@@ -888,10 +887,7 @@ function refreshAdvisorTile() {
 function _renderAdvTile(s) {
   var el = document.getElementById('advisor-tile-action');
   if (!el) return;
-  var isMine = !!_advToken && s.state !== 'FREE';
-  if (_advToken && s.state === 'FREE') { _clearAdvToken(); isMine = false; }
-
-  if (s.state === 'DISABLED' || !s.sso_configured) {
+  if (!s.sso_configured) {
     el.innerHTML = '<span class="soon-badge" style="background:var(--hover);color:var(--muted)">Not configured</span>';
     return;
   }
@@ -903,60 +899,25 @@ function _renderAdvTile(s) {
     el.innerHTML = '<div class="obs-hint">Select a persona first</div>';
     return;
   }
-
-  var html = '';
-  if (s.evicting && isMine) {
-    var deadline = new Date(s.evict_deadline + 'Z');
-    var secsLeft = Math.max(0, Math.round((deadline - Date.now()) / 1000));
-    html += '<div class="obs-evict">⚠ Admin needs Egeria Advisor in ~' + Math.ceil(secsLeft / 60) + ' min.</div>';
-  }
-
-  if (s.state === 'FREE') {
-    html += '<div class="obs-status obs-free">● Available</div>'
-      + '<div class="obs-actions">'
-      + '<button class="btn btn-accent" onclick="acquireAdvisor()">Ask Advisor →</button>'
-      + '</div>';
-  } else if (isMine) {
-    var mins = s.minutes_left !== null ? s.minutes_left : '?';
-    var idleWarn = s.idle_warning ? ' ⚠ idle' : '';
-    html += '<div class="obs-status obs-mine">● Your session · ' + mins + ' min left' + idleWarn + '</div>'
-      + '<div class="obs-actions">'
-      + '<button class="btn" onclick="extendAdvisor()">Extend</button>'
-      + '<button class="btn" onclick="releaseAdvisor()" style="color:var(--muted)">Release</button>'
-      + '</div>';
-  } else if (s.state === 'STUCK') {
-    html += '<div class="obs-status obs-stuck">⚠ Session may be idle</div>'
-      + '<div class="obs-hint">An admin can free it using the admin panel.</div>';
-  } else {
-    var who = s.holder_display ? ' by ' + esc(s.holder_display) : '';
-    var eta  = s.minutes_left ? ' · ~' + s.minutes_left + ' min remaining' : '';
-    html += '<div class="obs-status obs-busy">● In use' + who + eta + '</div>'
-      + '<div class="obs-hint">Check back later</div>';
-  }
-  el.innerHTML = html;
+  el.innerHTML = '<button class="btn btn-accent" onclick="launchAdvisor()">Ask Advisor →</button>';
 }
 
-function acquireAdvisor() {
+function launchAdvisor() {
   // Open the tab synchronously, inside the click handler, so the browser's
   // popup blocker doesn't reject it once we redirect it after the (cross-
-  // machine, higher-latency) acquire fetch resolves.
+  // machine, higher-latency) handoff fetch resolves.
   var tab = window.open('', '_blank');
   var persona = _currentPersonaId || '';
   var display = persona && _personas[persona] ? _personas[persona].display_name : 'User';
-  fetch('/api/advisor/acquire', {
+  fetch('/api/advisor/handoff', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ persona: persona, display_name: display })
   }).then(function(r) { return r.json(); }).then(function(data) {
-    if (!data.acquired) {
+    if (!data.ok) {
       if (tab) tab.close();
       alert('Could not open Egeria Advisor: ' + (data.reason || 'unavailable'));
-      refreshAdvisorTile();
       return;
     }
-    _advToken = data.token;
-    sessionStorage.setItem('adv-token', _advToken);
-    _startAdvKeepalive();
-    refreshAdvisorTile();
     if (tab) { tab.opener = null; tab.location = data.advisor_sso_url; }
   }).catch(function(e) {
     if (tab) tab.close();
@@ -964,53 +925,8 @@ function acquireAdvisor() {
   });
 }
 
-function releaseAdvisor() {
-  if (!_advToken) return;
-  fetch('/api/advisor/release', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token: _advToken })
-  }).then(function() { _clearAdvToken(); refreshAdvisorTile(); })
-    .catch(function() { _clearAdvToken(); refreshAdvisorTile(); });
-}
-
-function extendAdvisor() {
-  if (!_advToken) return;
-  fetch('/api/advisor/extend', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token: _advToken })
-  }).then(function(r) { return r.json(); }).then(function(d) {
-    if (!d.extended) { alert('Could not extend: ' + (d.reason || 'blocked by reservation')); }
-    refreshAdvisorTile();
-  });
-}
-
-function _startAdvKeepalive() {
-  _stopAdvKeepalive();
-  _advKeepalive = setInterval(function() {
-    if (!_advToken) { _stopAdvKeepalive(); return; }
-    fetch('/api/advisor/keepalive', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: _advToken })
-    }).catch(function() {});
-    refreshAdvisorTile();
-  }, 60000);
-}
-
-function _stopAdvKeepalive() {
-  if (_advKeepalive) { clearInterval(_advKeepalive); _advKeepalive = null; }
-}
-
-function _clearAdvToken() {
-  _advToken = null;
-  sessionStorage.removeItem('adv-token');
-  _stopAdvKeepalive();
-}
-
-if (_advToken) { _startAdvKeepalive(); }
-
-// ── Resource Explorer SSO handoff — same trellis family as Advisor above, but
-// no lock/keepalive/extend/release: Resource Explorer has no single-shared-
-// instance constraint, so there's nothing to serialize access to. ────────────
+// ── Resource Explorer SSO handoff — same trellis family and shape as Advisor
+// above, both multi-user with nothing to serialize access to. ────────────────
 function refreshResourceExplorerTile() {
   fetch('/api/resource-explorer/status').then(function(r) { return r.json(); }).then(function(s) {
     _renderRETile(s);
@@ -1039,7 +955,7 @@ function _renderRETile(s) {
 }
 
 function launchResourceExplorer() {
-  // Same synchronous window.open trick as acquireAdvisor() — dodges the
+  // Same synchronous window.open trick as launchAdvisor() — dodges the
   // popup blocker across the fetch's round-trip.
   var tab = window.open('', '_blank');
   var persona = _currentPersonaId || '';

@@ -69,7 +69,7 @@ OBSIDIAN_GITHUB_URL:  str = os.environ.get("OBSIDIAN_GITHUB_URL",  "https://gith
 # URL of the Egeria Advisor service. Set in .env or yaml (default: localhost:8880).
 # Checked server-side at startup to set advisor_running in portal-config.
 # This is ALSO the literal URL sent to browsers (advisor_url / advisor_sso_url in
-# pyegeria_handler.py / advisor_lock_handler.py) — it must be an address real
+# pyegeria_handler.py / advisor_handler.py) — it must be an address real
 # users can resolve (e.g. the public domain), not a Docker-internal one like
 # host.docker.internal, or external users get sent to an address only this
 # container can reach. See advisor_check_urls() below for the internal-only
@@ -101,7 +101,7 @@ def advisor_check_urls() -> list:
 
 # Shared HS256 secret with Egeria Advisor's own ADVISOR_PORTAL_SECRET — used to
 # mint the short-lived SSO handoff token in trellis_sso.py (called from both
-# advisor_lock_handler.py and resource_explorer_handler.py). Must match
+# advisor_handler.py and resource_explorer_handler.py). Must match
 # exactly; do not confuse with JWT_SECRET above (that signs the Portal's own
 # demo_token cookie and is unrelated). Left empty, the Advisor/Resource
 # Explorer tiles' handoff calls return 503 rather than minting with an

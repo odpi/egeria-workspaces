@@ -43,13 +43,14 @@ Two phases, both in `pyegeria_handler.py`:
    ```
    obsidian_lock_handler.start_scheduler()   # single-writer lock on the Obsidian vault
    jupyter_lock_handler.start_scheduler()    # same idea, for the Jupyter service
-   advisor_lock_handler.start_scheduler()    # reservation lock for the Egeria Advisor service
    bootstrap_monitor_handler.start_scheduler()  # data-initialization auto-heal — see §3
    demo_reset_handler.start_scheduler()      # DEMO_MODE only — scheduled full-stack reset
    ```
 
-   (Freshstart's `_lifespan` is the same shape minus `advisor_lock_handler`
-   and `demo_reset_handler` — DEMO_MODE is always false there.)
+   (Egeria Advisor has no scheduler — `advisor_handler.py` is a stateless SSO
+   handoff with no lock to run cleanup for; see its docstring. Freshstart's
+   `_lifespan` is the same shape minus `demo_reset_handler` — DEMO_MODE is
+   always false there.)
 
    None of these block app startup on failure — each `start_scheduler()` is
    independent, and `bootstrap_monitor_handler`'s specifically swallows and
@@ -230,7 +231,7 @@ Two different failure strategies, on purpose:
 | Admin page | `local-admin.html`, own page | `demo-admin.html`, "Data Initialization" tab |
 | Postgres (`demo_auth`) | available | **not wired up at all** — no `DEMO_DB_*` vars, not on shared-infra's network |
 | Hardcoded `BOOTSTRAP_FAMILIES` | empty — fully migrated to `_batch.json` | empty — never had quickstart's seed data to begin with |
-| `advisor_lock_handler` / `demo_reset_handler` in `_lifespan` | present | absent (freshstart has no Advisor integration or DEMO_MODE) |
+| `demo_reset_handler` in `_lifespan` | present | absent (freshstart has no DEMO_MODE) |
 
 ## 5. Files
 
