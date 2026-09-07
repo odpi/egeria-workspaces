@@ -3,6 +3,10 @@
 
 # Trellis (Resource Explorer + Egeria Advisor) — optional runtime
 
+> **Start with [DEPLOYING-TRELLIS.md](DEPLOYING-TRELLIS.md)** — the guide to deploying, configuring and
+> running both apps in the QuickStart demo configuration and in the Mac and Linux developer
+> configurations. This file is the compose-level detail for the demo profile.
+
 Demo-profile compose for [Trellis](../../../../trellis): Resource Explorer (RE) and Egeria
 Advisor (EA), containerized, joining this checkout's `egeria_network` alongside `shared-infra`
 and an Ollama optional runtime. Design background:
@@ -31,17 +35,12 @@ the optional ollama service to the shared network and must be in the stack whene
 
 ## Status
 
-As of 2026-09-04 (trellis branch `re/docs-consolidation-part-2`) everything this runtime references
-exists: the two images and `make images`, the `worker` role with leader election, `web` with
-`--embed-worker`/`--workers`, and EA's `ADVISOR_MODEL_TIER`. This overlay has been validated with
-`docker compose config` on all three variants (CPU, ROCm, NVIDIA) but has **not yet been brought up
-on a demo box**. Known gaps: the A2A role is not exposed (no auth yet); the run queue (plan step 2b)
-is pending; the EA image needs a writable `./data` mount as the non-root user and its MCP config
-still points at a host-only egeria-python venv (see trellis `docs/packaging.md`).
-
-Box-specific: trevor (RTX 2070 SUPER) must run native Docker Engine with the NVIDIA runtime —
-Docker Desktop for Linux runs the engine in a VM that cannot see the GPU. hedwig's native Ollama
-already carries the ROCm env this overlay's `docker-compose.ollama-rocm.yaml` reproduces.
+Brought up and verified on a Linux demo box (trevor, NVIDIA, host-native Ollama) on 2026-09-04 and
+on the Mac developer profile on 2026-09-05: login required on both apps, signed-in surveys attributed
+to the user in Egeria, EA reports run as the signed-in user (pyegeria 6.1.10), worker leader
+election in containers, multi-arch images published by trellis CI. The verbatim sequence is
+`trellis/docs/demo-deployment-runbook.md`. Not exposed here: the A2A role (an `a2a` process role
+exists in the image; add a service for it when a demo needs agent-to-agent access).
 
 ## One-command bring-up, per box
 
