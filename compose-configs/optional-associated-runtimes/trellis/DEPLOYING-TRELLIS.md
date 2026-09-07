@@ -195,7 +195,16 @@ which falls back to `http://localhost:8810/`. Re-add it after each run on a LAN 
 curl -s localhost:8810/health/ready; curl -s localhost:8880/health            # both ok
 curl -s -o /dev/null -w '%{http_code}\n' localhost:8810/api/projects/           # 401: login is required
 docker logs trellis-re-worker | grep 'worker loop started'                       # three loops, leader=true
-docker logs trellis-ea-web | grep -E 'Initialized Ollama client|MCP agent'      # Ollama reached, MCP connected
+docker logs trellis-ea-web | grep 'MCP agent pre-warmed'                        # MCP connected
+```
+
+Do **not** check Ollama with `grep 'Initialized Ollama client'`: EA creates that client lazily, so a
+perfectly healthy EA prints nothing and the check reads as a failure. Ask the running container
+instead — this proves EA can reach Ollama *and* which models it can see:
+
+```bash
+docker exec trellis-ea-web python3 -c \
+  "import urllib.request,json; print([m['name'] for m in json.load(urllib.request.urlopen('http://host.docker.internal:11434/api/tags'))['models']])"
 ```
 
 Open `http://<box>:8810` and `http://<box>:8880`, sign in as a demo user, and confirm the user is
@@ -240,6 +249,27 @@ The same compose files run under Docker Desktop on Linux or Mac. What changes:
 - **Two engines, one CLI.** Starting Desktop makes `desktop-linux` the active context; every
   `docker` command then talks to the VM until you switch back with `docker context use default`.
   Check `docker context show` first when both are installed.
+
+  Two things make this worse than it sounds. **Desktop can start itself** — on a box where it is
+  installed but not systemd-enabled it may still be launched by the desktop session, flipping the
+  context mid-task with no action from you. And **the wrong engine does not report an error**: it
+  reports emptiness. `docker images` lists nothing, and `docker inspect <container>` answers
+  `no such object` for a container that is up and healthy on the other engine. Any check built on
+  that output — "is the image there?", "is the stack running?" — passes or fails for entirely the
+  wrong reason.
+
+  `docker context use default` is not enough for anything scripted, because it does not survive a
+  flip that happens after the command runs. Force the engine into the environment instead:
+
+  ```bash
+  export DOCKER_CONTEXT=default        # or: docker --context default <cmd>
+  ```
+
+  The most confusing form is **both engines running the same stack at once**: shared-infra brought
+  up on each engine, only one holding the published ports, and the demo's data split across the
+  two. `docker ps` looks entirely normal in either context. If containers you expect are missing,
+  or state you wrote has vanished, check `docker context ls` for containers on the *other* engine
+  before concluding anything was lost.
 - **VM sizing.** Give the VM at least 24 GB and most cores: the Egeria core needs about 8 GB and
   the two apps another 5 GB.
 - **Separate state.** Images, named volumes and networks built on one engine do not exist on the
@@ -401,7 +431,8 @@ in the shared Postgres.
 | Reports fail with `User ... is not recognized` in the platform log | The view server cannot read the user directory. Check `/deployments/secrets` inside `quickstart-egeria-main` has the `.omsecrets` files; if it is empty, restart that container (a Docker Desktop bind mount went stale after the host directory was rewritten). |
 | Surveys stop with GitHub 403 / rate limit | No `GITHUB_TOKEN`; unauthenticated GitHub allows 60 calls an hour. |
 | `docker compose` cannot find `egeria_network` | Create it once: `docker network create egeria_network`. |
-| Stack "disappeared" after starting Docker Desktop on Linux | The active context flipped to `desktop-linux`; `docker context use default`. |
+| Stack "disappeared", or `docker inspect` says `no such object` for a container that is running | The active context flipped to `desktop-linux` and you are addressing the wrong engine. Desktop may have started itself. `docker context show` to confirm, `docker context use default` to fix, and `export DOCKER_CONTEXT=default` for anything scripted. |
+| A Portal tile shows as reachable but the link is dead in the browser | `advisor_check_urls()` / `resource_explorer_check_urls()` probe a `host.docker.internal` fallback as well as the configured URL, so the server-side check passes whenever the app is up on the box. It says nothing about whether a *browser* can reach the URL you configured. Test the configured URL itself, from where the browser actually runs. |
 | Docker Desktop's log pane is blank for a container | A viewer glitch after restart or log rotation; reopen the tab, or use `docker logs -f <container>`. |
 | Orphaned `prefect` server processes | Prefect is off by default (`PREFECT_ENABLED=false`); `make ps` lists strays. Enable it only against the Prefect optional runtime. |
 | `qs-engine-host` logs `startMissedEngineActions` errors every few seconds on a fresh repository | Egeria-side (egeria-python `PYEGERIA_ISSUES.md` ISSUE-90); costs CPU but does not affect the apps. |
