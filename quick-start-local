@@ -290,6 +290,23 @@ pushd compose-configs/egeria-quickstart >/dev/null
 
   # ── Demo mode: collect / persist credentials ─────────────────────────────
   _jwt="" _cert_dir="" _admin_email="" _admin_pass="" _resend_key="" _resend_from="" _https_port="" _site_url_override="" _advisor_url="" _advisor_secret="" _explorer_url=""
+
+  # The three trellis-tile vars are read here, OUTSIDE the demo branch, because
+  # gen-env.sh rewrites .env on every run in both modes -- so anything not
+  # re-appended afterwards is lost. They used to be picked up only under
+  # --demo, which meant a plain re-run silently dropped
+  # EGERIA_ADVISOR_SSO_SECRET and the Portal's Advisor/Resource Explorer tiles
+  # reverted to "Not configured" with nothing logged. Observed 2026-09-06: a
+  # secret set by hand before a plain run was gone afterwards, and the running
+  # container's env was empty. Same failure the EGERIA_RESOURCE_EXPLORER_URL
+  # comment below describes, one variable over.
+  #
+  # Demo mode still overwrites these via _pick immediately below, which also
+  # consults .env.demo first -- so --demo behaviour is unchanged.
+  _advisor_url="$(_get_env_var EGERIA_ADVISOR_URL .env)"
+  _advisor_secret="$(_get_env_var EGERIA_ADVISOR_SSO_SECRET .env)"
+  _explorer_url="$(_get_env_var EGERIA_RESOURCE_EXPLORER_URL .env)"
+
   if [[ "$DEMO_MODE_FLAG" -eq 1 ]]; then
     ENV_DEMO=".env.demo"
     echo "[quick-start-local] Demo mode: loading configuration..."
@@ -500,6 +517,19 @@ EOF
       echo "CERT_DIR=${_cert_dir}"
       echo "HTTPS_PORT=${_https_port_num}"
       echo "SITE_URL=${_site_url}"
+      # Re-append the trellis-tile vars gen-env.sh just dropped. Written only
+      # when non-empty, so a deployment that never configured them keeps a
+      # clean .env rather than gaining three empty keys.
+      #
+      # Written as `if` rather than `[[ ... ]] && echo`: under `set -e` the
+      # latter leaves the whole { } group with a non-zero status when the last
+      # such test is false, which survives today only because of bash's
+      # AND-list exemption. That is too subtle to leave for the next editor,
+      # and it would fail precisely for a deployment that has none of these
+      # set -- the common case.
+      if [[ -n "$_advisor_url" ]];    then echo "EGERIA_ADVISOR_URL=${_advisor_url}"; fi
+      if [[ -n "$_advisor_secret" ]]; then echo "EGERIA_ADVISOR_SSO_SECRET=${_advisor_secret}"; fi
+      if [[ -n "$_explorer_url" ]];   then echo "EGERIA_RESOURCE_EXPLORER_URL=${_explorer_url}"; fi
     } >> .env
     echo "[quick-start-local]   Self-signed HTTPS on port ${_https_port_num} (CERT_DIR=${_cert_dir}) — SITE_URL: ${_site_url}"
   fi
