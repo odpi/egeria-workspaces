@@ -234,6 +234,7 @@ runtime-volumes/demo-sync/
 /runtime-volumes/certs-quickstart/
 /runtime-volumes/certs-freshstart/
 /runtime-volumes/certs-letsencrypt/
+/runtime-volumes/certs-wildcard/
 # Timestamped backups of the above (e.g. certs-quickstart.pre-mkcert-<date>,
 # made by hand before swapping in a new cert) — same private-key contents,
 # same never-commit rule, but the exact-name patterns above don't cover a
