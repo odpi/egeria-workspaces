@@ -696,8 +696,8 @@ periodically while the process runs, not just at startup, since a reset
 can happen without the web app container restarting (only the Egeria
 database container being reset).
 
-**Built**: `bootstrap_monitor_handler.py` — mirrors `advisor_lock_handler.py`/
-`demo_reset_handler.py`'s own `start_scheduler()`/`stop_scheduler()`
+**Built**: `bootstrap_monitor_handler.py` — mirrors `obsidian_lock_handler.py`/
+`jupyter_lock_handler.py`/`demo_reset_handler.py`'s own `start_scheduler()`/`stop_scheduler()`
 background-task shape (same `asyncio.Lock` + module-level state pattern),
 wired into `pyegeria_handler.py`'s existing `_lifespan`. Two families
 registered today: `local-dashboards` (canary: the `Local Dashboards - Next

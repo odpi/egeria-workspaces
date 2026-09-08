@@ -4,7 +4,7 @@ Copyright Contributors to the ODPi Egeria project.
 
 Shared SSO handoff token minting for the "trellis" family of external apps
 (Egeria Advisor, Resource Explorer) — one function so the claim shape only
-exists in one place, used by both advisor_lock_handler.py and
+exists in one place, used by both advisor_handler.py and
 resource_explorer_handler.py.
 
 Contract (2026-09-05, per the trellis side): the minted HS256 JWT carries
