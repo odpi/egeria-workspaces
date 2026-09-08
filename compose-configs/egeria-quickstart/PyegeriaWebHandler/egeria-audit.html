@@ -584,7 +584,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
      Cache-Control: no-cache, but a fresh URL guarantees revalidation for
      browsers that cached the file before that header existed. -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
-<script src="/static/egeria-shared-ui.js?v=2026-09-01b"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-09-07"></script>
 
 <script>
 'use strict';
@@ -875,7 +875,9 @@ function App() {
         if (d.authenticated && d.id) { setWho({ label: d.display_name || d.id, sub: d.role || '' }); setPersonaId(d.id); setCreds({}); }
         setReady(true); return;
       }
-      var sp = null; try { var s = localStorage.getItem('egeria-persona'); sp = s ? JSON.parse(s) : null; } catch(e) {}
+      // loadOwnedPersona (QS-10) refuses a persona cached by a different Portal
+      // account, so this browser can't silently inherit a previous account's persona.
+      var sp = loadOwnedPersona(d.id);
       if (sp && sp.id) {
         setPersonaId(sp.id);
         setWho({ label: '🎭 ' + (sp.display_name || sp.id), sub: sp.id });

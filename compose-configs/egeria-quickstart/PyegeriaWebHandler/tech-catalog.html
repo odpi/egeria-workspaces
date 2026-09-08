@@ -585,7 +585,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
      this URL *before* that header existed won't revalidate on its own; a new
      URL guarantees a fresh fetch regardless of prior cache state. -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
-<script src="/static/egeria-shared-ui.js?v=2026-09-01b"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-09-07"></script>
 <script>
 'use strict';
 // React hook aliases (mirror type-explorer.html)
@@ -3643,10 +3643,11 @@ function App() {
 
       // Quickstart (demo or local): persona selection works the same in both modes.
       // The portal stores display info; POST select-persona returns egeria credentials.
-      var storedPersona = null;
-      try { var s = localStorage.getItem('egeria-persona'); storedPersona = s ? JSON.parse(s) : null; } catch(e) {}
+      // loadOwnedPersona (QS-10) refuses a persona cached by a different Portal
+      // account, so this browser can't silently inherit a previous account's persona.
+      var storedPersona = loadOwnedPersona(d.id);
+      setActivePersona(storedPersona);
       if (storedPersona && storedPersona.id) {
-        setActivePersona(storedPersona);
         fetch('/api/demo/select-persona', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ persona: storedPersona.id })

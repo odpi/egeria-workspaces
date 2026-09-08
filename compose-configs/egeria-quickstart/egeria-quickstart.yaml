@@ -28,6 +28,7 @@ services:
     image: egeria-quickstart-jupyter:local
     pull_policy: never
     container_name: quickstart-jupyter-work-full
+    restart: unless-stopped
     user: root
     networks:
       - egeria_network
@@ -198,6 +199,7 @@ services:
     image: egeria-quickstart-pyegeria-web:latest
     pull_policy: never
     container_name: quickstart-pyegeria-web
+    restart: unless-stopped
     build:
       context: ./PyegeriaWebHandler
       dockerfile: ./Dockerfile-fast-api
@@ -339,6 +341,7 @@ services:
     image: egeria-quickstart-my-profile:local
     pull_policy: never
     container_name: quickstart-my-profile
+    restart: unless-stopped
     build:
       context: .
       dockerfile: Dockerfile-my-egeria

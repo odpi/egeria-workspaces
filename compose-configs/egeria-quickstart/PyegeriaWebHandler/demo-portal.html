@@ -288,11 +288,33 @@
 var _personas = {};
 var _currentPersonaId = null;
 
+// The signed-in Portal account id, once known (set from /api/auth/me below) —
+// QS-10: localStorage['egeria-persona'] is one shared, browser-wide key with
+// no relationship to which Portal account is actually signed in, and nothing
+// clears it except explicit Logout. Tagging it with the account that picked
+// it, and refusing it once that stops matching, stops a persona chosen by one
+// account from silently carrying into a different account's session on the
+// same browser. Duplicated here rather than shared from egeria-shared-ui.js
+// (see the note above on portalResolveNav) because that file has top-level
+// React.createContext() calls this plain-vanilla-JS page can't load.
+var _portalUserId = null;
+
 function _loadStored() {
-  try { var s = localStorage.getItem('egeria-persona'); return s ? JSON.parse(s) : null; } catch(e) { return null; }
+  try {
+    var s = localStorage.getItem('egeria-persona');
+    if (!s) return null;
+    var stored = JSON.parse(s);
+    if (stored.ownerId !== _portalUserId) {
+      localStorage.removeItem('egeria-persona');
+      localStorage.removeItem('egeria-creds');
+      return null;
+    }
+    return stored;
+  } catch(e) { return null; }
 }
 function _saveStored(p) {
-  try { localStorage.setItem('egeria-persona', JSON.stringify(p)); } catch(e) {}
+  var tagged = Object.assign({}, p, { ownerId: _portalUserId });
+  try { localStorage.setItem('egeria-persona', JSON.stringify(tagged)); } catch(e) {}
 }
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
@@ -306,6 +328,7 @@ Promise.all([
   fetch('/api/platform/portal-config').then(function(r){ return r.json(); }).catch(function(){ return {}; }),
 ]).then(function(results) {
   var me = results[0];
+  _portalUserId = me.id || null;
   var orgName = (results[1].name && results[1].name.trim()) ? results[1].name : 'Egeria Quickstart';
   var platformCfg = results[2] || {};
   if (!me.demo_mode) {
@@ -460,7 +483,7 @@ function renderAppGrid(demoMode) {
     { icon: '🎛️', name: 'Egeria Operations',
       desc: 'Monitor and operate the Egeria runtime — servers, integration connectors, governance engines, and engine actions.',
       url: '/egeria-operations', newTab: false, enabled: true },
-    { icon: '🔭', name: 'Resource Explorer',
+    { icon: '🔭', name: 'Alpha: Resource Explorer',
       desc: 'Scout, Assess, Discover, Enrich Resources.',
       enabled: true, resourceExplorer: true },
     // Row 2 — workspaces & assistants
@@ -475,7 +498,7 @@ function renderAppGrid(demoMode) {
     { icon: '🖥️', name: 'My Egeria',
       desc: 'Explore your Egeria profile, roles, teams, actions, and data catalog.',
       url: '/my-egeria/', newTab: true, enabled: true },
-    { icon: '🤖', name: 'Egeria Advisor',
+    { icon: '🤖', name: 'Alpha: Egeria Advisor',
       desc: 'AI-powered guidance for your Egeria environment.',
       enabled: true, advisor: true },
     // Remaining — docs, admin & API references

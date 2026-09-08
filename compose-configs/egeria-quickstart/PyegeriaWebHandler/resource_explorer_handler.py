@@ -26,6 +26,7 @@ from demo_config import (
     DEMO_MODE,
     EGERIA_ADVISOR_SSO_SECRET,
     EGERIA_RESOURCE_EXPLORER_URL,
+    browser_facing_url,
     resource_explorer_check_urls,
 )
 from trellis_sso import make_portal_sso_token
@@ -115,5 +116,6 @@ async def handoff(request: Request, body: HandoffRequest):
         logger.error(f"resource explorer: SSO token minting failed: {exc}")
         raise HTTPException(status_code=502, detail=f"Could not prepare Resource Explorer session: {exc}")
 
-    resource_explorer_sso_url = f"{EGERIA_RESOURCE_EXPLORER_URL.rstrip('/')}/#pt={sso_token}"
+    base = browser_facing_url(EGERIA_RESOURCE_EXPLORER_URL, request, 8810)
+    resource_explorer_sso_url = f"{base.rstrip('/')}/#pt={sso_token}"
     return {"ok": True, "resource_explorer_sso_url": resource_explorer_sso_url}

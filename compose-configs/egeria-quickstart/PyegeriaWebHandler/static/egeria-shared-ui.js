@@ -431,6 +431,37 @@ function egeriaFetch(url, creds, opts) {
   });
 }
 
+/* ── Persona/session ownership (BACKLOG.md QS-10) ────────────────────────────
+ * localStorage['egeria-persona'] is one shared key read by every Explorer SPA
+ * and written by the Portal's persona picker — it has no relationship to
+ * which Portal account is actually signed in, and nothing clears it except an
+ * explicit Logout. So a persona chosen once on a browser stays cached
+ * indefinitely: a *different* Portal account signing in later on the same
+ * browser silently inherits it — the Portal header shows the new account, but
+ * every Egeria call still executes as whoever's persona was last picked.
+ * Tag each stored persona with the portal account id that picked it, and
+ * drop it (plus any cached creds/token minted from it) the moment that stops
+ * matching the currently-authenticated account, rather than trusting
+ * whatever's cached. */
+function loadOwnedPersona(portalUserId) {
+  try {
+    var raw = localStorage.getItem('egeria-persona');
+    if (!raw) return null;
+    var stored = JSON.parse(raw);
+    if (stored.ownerId !== (portalUserId || null)) {
+      localStorage.removeItem('egeria-persona');
+      localStorage.removeItem('egeria-creds');
+      return null;
+    }
+    return stored;
+  } catch (e) { return null; }
+}
+function saveOwnedPersona(info, portalUserId) {
+  var tagged = Object.assign({}, info, { ownerId: portalUserId || null });
+  try { localStorage.setItem('egeria-persona', JSON.stringify(tagged)); } catch (e) {}
+  return tagged;
+}
+
 /* ──────────────────────────────────────────────────────────────────────────
  * Type-graph helpers — promoted from type-explorer.html (2026-08-14) so any
  * screen can walk the /api/types supertype/subtype graph without a private

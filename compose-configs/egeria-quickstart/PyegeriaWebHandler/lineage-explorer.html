@@ -486,7 +486,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
      same-named ones (later plain `function` declarations overwrite earlier
      ones in the same global scope). -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
-<script src="/static/egeria-shared-ui.js?v=2026-09-01b"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-09-07"></script>
 
 </head>
 <body>
@@ -1141,6 +1141,9 @@ function App() {
   var _ready      = useState(false), ready      = _ready[0],      setReady      = _ready[1];
   var _authUser   = useState(null),  authUser   = _authUser[0],   setAuthUser   = _authUser[1];
   var _activePersona = useState(function() {
+    // Same-tick display default only — ownership isn't known yet (that needs
+    // /api/auth/me); the boot effect below re-derives and corrects this via
+    // loadOwnedPersona() (QS-10) a moment later.
     try { var s = localStorage.getItem('egeria-persona'); return s ? JSON.parse(s) : null; } catch(e) { return null; }
   }), activePersona = _activePersona[0], setActivePersona = _activePersona[1];
 
@@ -1162,11 +1165,12 @@ function App() {
         return;
       }
 
-      // Quickstart: persona-based token
-      var storedPersona = null;
-      try { var s = localStorage.getItem('egeria-persona'); storedPersona = s ? JSON.parse(s) : null; } catch(e) {}
+      // Quickstart: persona-based token. loadOwnedPersona (QS-10) refuses a persona
+      // cached by a different Portal account, so this browser can't silently
+      // inherit a previous account's persona.
+      var storedPersona = loadOwnedPersona(d.id);
+      setActivePersona(storedPersona);
       if (storedPersona && storedPersona.id) {
-        setActivePersona(storedPersona);
         fetch('/api/demo/select-persona', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ persona: storedPersona.id })

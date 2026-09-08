@@ -31,4 +31,5 @@ services:
     volumes:
       - ../../runtime-volumes/quickstart-apache-web/ssl-define.conf:/usr/local/apache2/conf/extra/ssl-define.conf
       - ./sites-available/fastapi-ssl.conf:/usr/local/apache2/conf/extra/fastapi-ssl.conf
+      - ./sites-available/trellis-ssl-vhosts.conf:/usr/local/apache2/conf/extra/trellis-ssl-vhosts.conf
       - ${CERT_DIR}:/etc/ssl/egeria:ro

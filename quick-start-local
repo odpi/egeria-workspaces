@@ -289,23 +289,29 @@ pushd compose-configs/egeria-quickstart >/dev/null
   }
 
   # ── Demo mode: collect / persist credentials ─────────────────────────────
-  _jwt="" _cert_dir="" _admin_email="" _admin_pass="" _resend_key="" _resend_from="" _https_port="" _site_url_override="" _advisor_url="" _advisor_secret="" _explorer_url=""
+  _jwt="" _cert_dir="" _admin_email="" _admin_pass="" _resend_key="" _resend_from="" _https_port="" _site_url_override="" _advisor_url="" _advisor_secret="" _explorer_url="" _alert_email=""
 
-  # The three trellis-tile vars are read here, OUTSIDE the demo branch, because
-  # gen-env.sh rewrites .env on every run in both modes -- so anything not
-  # re-appended afterwards is lost. They used to be picked up only under
-  # --demo, which meant a plain re-run silently dropped
-  # EGERIA_ADVISOR_SSO_SECRET and the Portal's Advisor/Resource Explorer tiles
-  # reverted to "Not configured" with nothing logged. Observed 2026-09-06: a
-  # secret set by hand before a plain run was gone afterwards, and the running
-  # container's env was empty. Same failure the EGERIA_RESOURCE_EXPLORER_URL
-  # comment below describes, one variable over.
+  # The trellis-tile vars (advisor URL/secret, explorer URL) are read here,
+  # OUTSIDE the demo branch, because gen-env.sh rewrites .env on every run in
+  # both modes -- so anything not re-appended afterwards is lost. They used to
+  # be picked up only under --demo, which meant a plain re-run silently
+  # dropped EGERIA_ADVISOR_SSO_SECRET and the Portal's Advisor/Resource
+  # Explorer tiles reverted to "Not configured" with nothing logged. Observed
+  # 2026-09-06: a secret set by hand before a plain run was gone afterwards,
+  # and the running container's env was empty.
+  #
+  # ALERT_EMAIL_TO is read here for the same reason: a plain re-run would
+  # otherwise silently drop the alert destination the same way, and
+  # egeria-watchdog's alerting degrades to "not fully set - skipping alert
+  # email" with nothing else logged -- the same class of bug, so it is fixed
+  # here rather than repeated a fourth time.
   #
   # Demo mode still overwrites these via _pick immediately below, which also
   # consults .env.demo first -- so --demo behaviour is unchanged.
   _advisor_url="$(_get_env_var EGERIA_ADVISOR_URL .env)"
   _advisor_secret="$(_get_env_var EGERIA_ADVISOR_SSO_SECRET .env)"
   _explorer_url="$(_get_env_var EGERIA_RESOURCE_EXPLORER_URL .env)"
+  _alert_email="$(_get_env_var ALERT_EMAIL_TO .env)"
 
   if [[ "$DEMO_MODE_FLAG" -eq 1 ]]; then
     ENV_DEMO=".env.demo"
@@ -326,6 +332,11 @@ pushd compose-configs/egeria-quickstart >/dev/null
     _admin_pass="$(_pick ADMIN_BOOTSTRAP_PASSWORD)"
     _resend_key="$(_pick RESEND_API_KEY)"
     _resend_from="$(_pick RESEND_FROM)"
+    # Where egeria-watchdog and shared-infra's alerting send to. Without this
+    # carried over, RESEND_API_KEY/RESEND_FROM survive a re-run but the
+    # destination address does not, and the watchdog silently degrades to
+    # "not fully set - skipping alert email": egeria-main can die unnoticed.
+    _alert_email="$(_pick ALERT_EMAIL_TO)"
     _https_port="$(_pick HTTPS_PORT)"
     _site_url_override="$(_pick SITE_URL)"
     _advisor_url="$(_pick EGERIA_ADVISOR_URL)"
@@ -430,6 +441,7 @@ SITE_URL=${_site_url_override}
 EGERIA_ADVISOR_URL=${_advisor_url}
 EGERIA_ADVISOR_SSO_SECRET=${_advisor_secret}
 EGERIA_RESOURCE_EXPLORER_URL=${_explorer_url}
+ALERT_EMAIL_TO=${_alert_email}
 EOF
     chmod 600 "$ENV_DEMO"
     echo "[quick-start-local]   Demo credentials saved to ${ENV_DEMO}."
@@ -510,6 +522,7 @@ EOF
       echo "EGERIA_ADVISOR_URL=${_advisor_url}"
       echo "EGERIA_ADVISOR_SSO_SECRET=${_advisor_secret}"
       echo "EGERIA_RESOURCE_EXPLORER_URL=${_explorer_url}"
+      echo "ALERT_EMAIL_TO=${_alert_email}"
     } >> .env
     echo "[quick-start-local]   Demo SSL_SERVER_NAME: ${_host_fqdn} — SITE_URL: ${_site_url}"
   else
@@ -530,6 +543,7 @@ EOF
       if [[ -n "$_advisor_url" ]];    then echo "EGERIA_ADVISOR_URL=${_advisor_url}"; fi
       if [[ -n "$_advisor_secret" ]]; then echo "EGERIA_ADVISOR_SSO_SECRET=${_advisor_secret}"; fi
       if [[ -n "$_explorer_url" ]];   then echo "EGERIA_RESOURCE_EXPLORER_URL=${_explorer_url}"; fi
+      if [[ -n "$_alert_email" ]];    then echo "ALERT_EMAIL_TO=${_alert_email}"; fi
     } >> .env
     echo "[quick-start-local]   Self-signed HTTPS on port ${_https_port_num} (CERT_DIR=${_cert_dir}) — SITE_URL: ${_site_url}"
   fi
@@ -540,9 +554,32 @@ EOF
   # plain-HTTP vhost 301-redirects to.
   SSL_DEFINE_DIR="../../runtime-volumes/quickstart-apache-web"
   mkdir -p "$SSL_DEFINE_DIR"
+
+  # Optional extra HTTPS vhosts for the two trellis apps (Resource Explorer,
+  # Egeria Advisor). sites-available/trellis-ssl-vhosts.conf guards each on
+  # <IfDefine>, so omitting these Defines leaves both vhosts inert -- which is
+  # the right default, since Apache resolves ProxyPass backends at startup and
+  # would fail to start if trellis-re-web/trellis-ea-web were not running.
+  #
+  # Read straight from .env.demo/.env here rather than via the _pick block
+  # above, so a plain (non-demo) re-run regenerates them too. gen-env.sh
+  # rewrites .env every run in both modes; anything only picked up under
+  # --demo is silently dropped on a plain run, which is exactly how the
+  # Advisor/Resource Explorer tiles reverted to "Not configured" before.
+  _re_server_name="$(_get_env_var EGERIA_RE_SERVER_NAME .env.demo)"
+  [[ -z "$_re_server_name" ]] && _re_server_name="$(_get_env_var EGERIA_RE_SERVER_NAME .env)"
+  _ea_server_name="$(_get_env_var EGERIA_EA_SERVER_NAME .env.demo)"
+  [[ -z "$_ea_server_name" ]] && _ea_server_name="$(_get_env_var EGERIA_EA_SERVER_NAME .env)"
+
   {
     printf 'Define SSL_SERVER_NAME %s\n' "${_host_fqdn}"
     printf 'Define HTTPS_REDIRECT_PORT %s\n' "${_https_port_num}"
+    if [[ -n "$_re_server_name" ]]; then
+      printf 'Define RE_SERVER_NAME %s\n' "$_re_server_name"
+    fi
+    if [[ -n "$_ea_server_name" ]]; then
+      printf 'Define EA_SERVER_NAME %s\n' "$_ea_server_name"
+    fi
   } > "${SSL_DEFINE_DIR}/ssl-define.conf"
 
   # Build the compose file list.

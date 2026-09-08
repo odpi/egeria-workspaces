@@ -115,6 +115,57 @@ EGERIA_ADVISOR_SSO_SECRET: str = os.environ.get("EGERIA_ADVISOR_SSO_SECRET", "")
 EGERIA_RESOURCE_EXPLORER_URL: str = os.environ.get("EGERIA_RESOURCE_EXPLORER_URL", "http://localhost:8810/")
 
 
+# ── Browser-facing tile URLs ──────────────────────────────────────────────────
+# EGERIA_ADVISOR_URL / EGERIA_RESOURCE_EXPLORER_URL are handed straight to the
+# browser, so they must name a host the *browser* can reach -- not one this
+# container can reach. A single configured value cannot do that for a
+# deployment reached under several names (localhost on the box, a Tailscale
+# MagicDNS name from a laptop, a public FQDN from outside), and the localhost
+# defaults are wrong for every browser that is not on this machine.
+#
+# The portal already solves this for Jupyter, entirely client-side, in
+# demo-portal.html:
+#     'http://' + window.location.hostname + ':8888/?token=egeria'
+# i.e. derive the host at click time from however the user reached the portal.
+# These two tiles cannot do that in the browser, because their URL carries an
+# SSO token minted server-side -- so we do the same derivation here, from the
+# request that asked for the handoff.
+#
+# An explicitly configured non-loopback host always wins: a public deployment
+# that must send users to a fixed URL (behind a CDN, or a different origin than
+# the portal) keeps working exactly as before.
+
+_LOOPBACK_HOSTS = {None, "", "localhost", "127.0.0.1", "::1", "host.docker.internal"}
+
+
+def browser_facing_url(configured: str, request, default_port: int) -> str:
+    """Resolve a tile URL that the caller's browser can actually reach.
+
+    Returns `configured` untouched when it names a real (non-loopback) host.
+    Otherwise rebuilds it against the hostname the browser used to reach the
+    portal, preserving the configured scheme, port and path.
+    """
+    from urllib.parse import urlsplit, urlunsplit
+
+    parts = urlsplit(configured or "")
+    if parts.hostname not in _LOOPBACK_HOSTS:
+        return configured
+
+    # Behind Apache, ProxyPreserveHost/X-Forwarded-Host carry the browser's
+    # host; fall back to the request URL for direct (unproxied) access.
+    forwarded = (request.headers.get("x-forwarded-host") or "").split(",")[0].strip()
+    host = forwarded or request.headers.get("host", "") or (request.url.hostname or "")
+    host = host.rsplit(":", 1)[0] if host.count(":") == 1 else host
+    host = host.strip("[]")
+    if not host:
+        return configured
+
+    port = parts.port or default_port
+    scheme = parts.scheme or "http"
+    netloc = f"[{host}]:{port}" if ":" in host else f"{host}:{port}"
+    return urlunsplit((scheme, netloc, parts.path or "/", parts.query, parts.fragment))
+
+
 def resource_explorer_check_urls() -> list:
     """Same host.docker.internal-fallback pattern as advisor_check_urls() —
     see that function's docstring for the full rationale."""

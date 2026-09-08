@@ -4,6 +4,10 @@ Resource Explorer scouts, surveys, publishes and curates software resources (Git
 today) into Egeria, and answers questions about them. It runs as a separate service, like Egeria
 Advisor, and the Portal tile links to it.
 
+> **Status: Alpha.** Resource Explorer is an active work in progress — features are still being
+> added and some will change. We are keen for feedback: what is useful, what is missing, and what
+> gets in your way. Use the **Share your feedback** widget in the Portal, or raise an issue.
+
 ---
 
 ## Accessing Resource Explorer
