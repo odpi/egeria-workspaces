@@ -109,6 +109,17 @@ services:
       # is issued for HOST_FQDN/host.docker.internal, not the docker-network
       # hostname. ──────────────────────────────────────────────────────────
       EGERIA_PLATFORM_URL: https://host.docker.internal:9443
+      # dr_egeria's CLI (pyegeria's EnvironmentConfig) builds its client from
+      # EGERIA_VIEW_SERVER_URL specifically, not EGERIA_PLATFORM_URL -- the two
+      # fields default independently to https://localhost:9443. Without this,
+      # every dr_egeria invocation from resource_explorer.bootstrap's heal path
+      # silently connects to localhost inside the container (nothing there)
+      # while every other Egeria client in this same process correctly uses
+      # EGERIA_PLATFORM_URL -- heal_batch() sees dr_egeria exit 0 regardless
+      # (it doesn't propagate the connection error as a nonzero exit) so the
+      # canary never resolves and bootstrap re-heals every cycle forever.
+      # Same value as EGERIA_PLATFORM_URL: single-platform deployment.
+      EGERIA_VIEW_SERVER_URL: https://host.docker.internal:9443
       EGERIA_VIEW_SERVER: qs-view-server
       EGERIA_USER: "${EGERIA_USER:-erinoverview}"
       EGERIA_USER_PASSWORD: "${EGERIA_USER_PASSWORD:-secret}"
@@ -167,6 +178,11 @@ services:
       REGISTRY_DATABASE_URL: "postgresql://egeria_advisor:${PGVECTOR_PASSWORD:-advisor}@egeria-shared-postgres:5442/egeria_advisor?options=-csearch_path%3Dresource_explorer"
       KROKI_URL: http://egeria-shared-kroki:8000
       EGERIA_PLATFORM_URL: https://host.docker.internal:9443
+      # See trellis-re-web's identical block above for why this is also
+      # required: dr_egeria's own client construction reads
+      # EGERIA_VIEW_SERVER_URL, not EGERIA_PLATFORM_URL -- this is the
+      # process that actually runs bootstrap's heal_batch()/dr_egeria calls.
+      EGERIA_VIEW_SERVER_URL: https://host.docker.internal:9443
       EGERIA_VIEW_SERVER: qs-view-server
       EGERIA_USER: "${EGERIA_USER:-erinoverview}"
       EGERIA_USER_PASSWORD: "${EGERIA_USER_PASSWORD:-secret}"
@@ -211,6 +227,13 @@ services:
       KROKI_URL: http://egeria-shared-kroki:8000
 
       EGERIA_VIEW_SERVER_URL: https://host.docker.internal:9443
+      # Mirror gap of RE's: pyegeria's EGERIA_PLATFORM_URL and
+      # EGERIA_VIEW_SERVER_URL are two independently-defaulting fields
+      # (both https://localhost:9443 if unset) — whichever client-construction
+      # path a given pyegeria call goes through picks one or the other.
+      # Setting both here means EA is covered regardless of which one a given
+      # feature (or a future one) ends up needing.
+      EGERIA_PLATFORM_URL: https://host.docker.internal:9443
       EGERIA_VIEW_SERVER: qs-view-server
       EGERIA_USER: "${EGERIA_USER:-garygeeke}"
       EGERIA_PASSWORD: "${EGERIA_USER_PASSWORD:-secret}"
