@@ -125,6 +125,7 @@ coco-workbooks/dr-egeria-outbox/**
 coco-workbooks/**/dr-egeria-outbox/**
 coco-workbooks/.obsidian/workspace.json
 coco-workbooks/pyegeria/work/mermaid_graphs/**
+coco-workbooks/Notes/
 
 # Dr.Egeria outbox (generated/runtime, not source)
 /egeria-outbox/
@@ -165,6 +166,7 @@ compose-configs/optional-associated-runtimes/airflow-marquez/runtime-data/**
 /runtime-volumes/quickstart-platform-data/logs/
 /runtime-volumes/freshstart-platform-data/logs/
 /exchange-quickstart/distribution-hub/dr-egeria-outbox/
+/exchange-freshstart/distribution-hub/dr-egeria-outbox/
 /exchange-quickstart/exploring obsidian/
 /exchange-quickstart/.obsidian/workspace.json
 /exchange-quickstart/config/debug_log/**
