@@ -188,6 +188,11 @@ services:
       # Docker daemon (standard tradeoff for any container that watches
       # `docker events`) — acceptable here since this is a single-user dev box.
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Read-only view of pyegeria-web's demo-data dir, purely to read the
+      # reset-marker file demo_reset_handler.py stamps just before it stops
+      # egeria-main. Without this the watchdog cannot tell the nightly demo
+      # reset's deliberate SIGTERM apart from a crash, and alerts on both.
+      - ../../runtime-volumes/quickstart-demo-data:/demo-data:ro
     logging:
       driver: "json-file"
       options:
