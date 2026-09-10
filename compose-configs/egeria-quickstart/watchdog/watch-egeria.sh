@@ -10,9 +10,33 @@
 set -eu
 
 : "${WATCH_CONTAINER:=quickstart-egeria-main}"
+: "${RESET_MARKER:=/demo-data/reset-marker}"
+: "${RESET_GRACE_SEC:=300}"
 : "${RESEND_API_KEY:=}"
 : "${RESEND_FROM:=}"
 : "${ALERT_EMAIL_TO:=}"
+
+# The nightly demo reset (PyegeriaWebHandler/demo_reset_handler.py) stops the
+# platform container deliberately, and that reaches us as exactly the same
+# `die` event (exit 143) a real crash would - so before this, every reset
+# emailed an "Egeria down" alert, which only teaches the reader to ignore the
+# one that eventually matters. The reset stamps RESET_MARKER with the epoch
+# seconds of the stop just before issuing it; a die within RESET_GRACE_SEC of
+# that stamp is expected and stays quiet. Anything older - or no marker at all,
+# e.g. the mount is missing or the reset path itself broke - still alerts, so
+# the failure mode here is a spurious email, never a silent outage.
+is_scheduled_reset() {
+    marker_age=""
+    [ -r "$RESET_MARKER" ] || return 1
+    marker=$(cat "$RESET_MARKER" 2>/dev/null) || return 1
+    # busybox `sh` has no regex; reject anything that is not a bare integer so a
+    # truncated or half-written marker can never be read as "reset in progress".
+    case "$marker" in
+        ''|*[!0-9]*) return 1 ;;
+    esac
+    marker_age=$(( $(date -u +%s) - marker ))
+    [ "$marker_age" -ge 0 ] && [ "$marker_age" -le "$RESET_GRACE_SEC" ]
+}
 
 send_alert() {
     exit_code="$1"
@@ -60,8 +84,15 @@ while true; do
     | while IFS= read -r line; do
         exit_code=$(echo "$line" | jq -r '.Actor.Attributes.exitCode // "unknown"')
         oom=$(docker inspect "${WATCH_CONTAINER}" --format '{{.State.OOMKilled}}' 2>/dev/null || echo "unknown")
-        echo "$(date -u +%FT%TZ) die event: ${WATCH_CONTAINER} exit=${exit_code} oom=${oom}"
-        send_alert "${exit_code}" "${oom}"
+        # An OOM kill is never "expected", so it alerts even inside the reset
+        # window - suppressing that would hide the exact failure this watchdog
+        # was built for (see the July 30 OOM-kill noted above).
+        if [ "$oom" != "true" ] && is_scheduled_reset; then
+            echo "$(date -u +%FT%TZ) die event: ${WATCH_CONTAINER} exit=${exit_code} oom=${oom} - scheduled demo reset ${marker_age}s ago, not alerting"
+        else
+            echo "$(date -u +%FT%TZ) die event: ${WATCH_CONTAINER} exit=${exit_code} oom=${oom}"
+            send_alert "${exit_code}" "${oom}"
+        fi
     done
 
     # docker events exits if the daemon connection drops (e.g. Docker Desktop

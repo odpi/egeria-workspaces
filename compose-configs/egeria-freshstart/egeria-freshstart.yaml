@@ -87,6 +87,24 @@ services:
       server.port: "8443"
       HOST_FQDN: "${HOST_FQDN}"
       KAFKA_BOOTSTRAP_SERVERS: "${KAFKA_BOOTSTRAP_SERVERS:-host.docker.internal:9194}"
+      # JVM sizing -- mirrors quickstart, see the long rationale on the same
+      # setting in ../egeria-quickstart/egeria-quickstart.yaml. Short version:
+      # the base image's run-java.sh defaults are simultaneously
+      # over-committed against mem_limit (80% heap + 1g metaspace) and so
+      # footprint-biased (GCTimeRatio=4) that the heap thrashes rather than
+      # grows. Unlike quickstart this keeps the 6g default, which
+      # MaxRAMPercentage=60 makes safe on its own: 3.6g heap + 0.5g metaspace
+      # leaves ~1.9g for thread stacks, code cache and direct buffers.
+      JAVA_OPTS_APPEND: >-
+        ${EGERIA_JAVA_OPTS_APPEND:-
+        -XX:MaxMetaspaceSize=512m
+        -XX:-UseParallelGC
+        -XX:+UseG1GC
+        -XX:MaxRAMPercentage=60.0
+        -XX:MinHeapFreeRatio=20
+        -XX:MaxHeapFreeRatio=40
+        -XX:GCTimeRatio=19
+        -Xms2g}
     extra_hosts:
       - "${HOST_FQDN}:${HOST_GATEWAY_IP:-host-gateway}"
       - "host.docker.internal:${HOST_GATEWAY_IP:-host-gateway}"
