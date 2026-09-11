@@ -1861,7 +1861,18 @@ def list_annotations(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
-    """List or search Annotation elements across all survey reports."""
+    """List or search Annotation elements across all survey reports.
+
+    graph_query_depth=0: the wildcard/broad-search case (search_string="*",
+    which is the default the Catalog's Annotations tab loads on open) was
+    timing out at 90s — depth=1 makes the view server walk the relationship
+    graph for every matching Annotation just to attach fromSurveyReport, and
+    against this repo's corpus that fan-out (hundreds of extra per-annotation
+    graph queries) reliably blew past the client timeout. Depth=0 skips that
+    walk, so list rows have no surveyReportGuid/surveyReportDisplayName —
+    the frontend fetches those per-item, lazily, via
+    GET /api/tech-catalog/annotations/{guid} when a row is selected.
+    """
     try:
         dd = _discovery_client(url, server, user_id, user_pwd, token=_token_from_request(request))
     except Exception as exc:
@@ -1877,7 +1888,7 @@ def list_annotations(
             start_from=start_from,
             page_size=page_size,
             output_format="JSON",
-            graph_query_depth=1,
+            graph_query_depth=0,
             **kwargs,
         )
         items = [_serialize_annotation(ann) for ann in _safe_list(raw)]
@@ -1886,6 +1897,36 @@ def list_annotations(
         if _is_auth_error(exc):
             raise HTTPException(status_code=401, detail="Token expired or unauthorized")
         logger.exception("list_annotations failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/api/tech-catalog/annotations/{guid}", summary="Get one Annotation with its SurveyReport link")
+def get_annotation_detail(
+    request: Request,
+    guid: str,
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    """Fetch a single Annotation at graph_query_depth=1, to attach
+    surveyReportGuid/surveyReportDisplayName on demand — the deeper half of
+    the depth=0/select-to-enrich split described on list_annotations above.
+    Called when a row in the Annotations tab is selected, not for the list."""
+    try:
+        dd = _discovery_client(url, server, user_id, user_pwd, token=_token_from_request(request))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    try:
+        raw = dd.get_annotation_by_guid(guid, graph_query_depth=1, output_format="JSON")
+        ann = raw[0] if isinstance(raw, list) else raw
+        if not isinstance(ann, dict):
+            raise HTTPException(status_code=404, detail="Annotation not found")
+        return JSONResponse(_serialize_annotation(ann))
+    except HTTPException:
+        raise
+    except Exception as exc:
+        if _is_auth_error(exc):
+            raise HTTPException(status_code=401, detail="Token expired or unauthorized")
+        logger.exception("get_annotation_detail failed for %s", guid)
         raise HTTPException(status_code=500, detail=str(exc))
 
 

@@ -2354,12 +2354,26 @@ function AnnotationCard({ ann, onNavigate, fromSubPane, annotTypeVals }) {
                  background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer', flexShrink: 0 }
       }, 'Report →')
     ),
-    ann.annotationType && el('div', { title: atTooltip,
-      style: { fontSize: 10, color: 'var(--dim)', marginBottom: 4, paddingLeft: 2,
-               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-               cursor: atTooltip && atTooltip !== ann.annotationType ? 'help' : 'default' } },
-      ann.annotationType + (atInfo && atInfo.displayName && atInfo.displayName !== ann.annotationType
-        ? ' — ' + atInfo.displayName : '')
+    ann.annotationType && el('div', { style: { display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 } },
+      el('span', { title: atTooltip,
+        style: { fontSize: 10, color: 'var(--dim)', paddingLeft: 2, overflow: 'hidden', textOverflow: 'ellipsis',
+                 whiteSpace: 'nowrap', cursor: atTooltip && atTooltip !== ann.annotationType ? 'help' : 'default' } },
+        ann.annotationType + (atInfo && atInfo.displayName && atInfo.displayName !== ann.annotationType
+          ? ' — ' + atInfo.displayName : '')
+      ),
+      // Jumps to the registered valid-value spec for this annotationType in Egeria
+      // Explorer's Valid Values tab (same data backing atTooltip above, in full —
+      // scope, usage, qualifiedName, relationships). Only when the lookup resolved
+      // a guid: annotationType values not registered as Egeria valid metadata values
+      // (a free-text analysisStep name, say) have nowhere to link to.
+      atInfo && atInfo.guid && onNavigate && el('button', {
+        title: 'Open annotationType spec in Egeria Explorer',
+        onClick: function(e) { e.stopPropagation();
+          onNavigate({ guid: atInfo.guid, external: 'egeria-explorer', hash: 'valid-values',
+                       property_name: 'annotationType', displayName: ann.annotationType }); },
+        style: { fontSize: 9, padding: '1px 5px', borderRadius: 3, border: '1px solid rgba(96,165,250,.35)',
+                 background: 'rgba(96,165,250,.06)', color: 'var(--accent)', cursor: 'pointer', flexShrink: 0,
+                 lineHeight: 1.5 } }, 'spec ↗')
     ),
     ann.summary && el('div', { style: { fontSize: 12, color: 'var(--text)', marginBottom: extras.length ? 8 : 0, lineHeight: 1.5 } }, ann.summary),
     extras.length > 0 && el('div', null,
@@ -2505,13 +2519,15 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
   var _coll    = useState(new Set()),   coll      = _coll[0],     setColl      = _coll[1];
   var _rzDetail = useResizable(400, 180, 700), detailW = _rzDetail[0], detailDown = _rzDetail[1];
   var _selRowRef = useRef(null);
+  var _enriching = useState(false), enriching = _enriching[0], setEnriching = _enriching[1];
+  var _enrichedGuid = useRef(null); // dedupe: guid we already fetched (or are fetching) the report link for
   var _reportFilter = useState(''), reportFilter = _reportFilter[0], setReportFilter = _reportFilter[1];
   var _createdFrom = useState(''), createdFrom = _createdFrom[0], setCreatedFrom = _createdFrom[1];
   var _createdTo   = useState(''), createdTo   = _createdTo[0],   setCreatedTo   = _createdTo[1];
   var el = React.createElement;
 
   var COLS     = ['typeName', 'summary', 'analysisStep', 'confidence', 'surveyReportDisplayName', 'createTime'];
-  var COL_HDRS = ['Type', 'Summary', 'Analysis Step', 'Conf%', 'Report', 'Created'];
+  var COL_HDRS = ['Type', 'Summary', 'Analysis Step', 'Conf%', 'Report (open row)', 'Created'];
   var COL_W    = [150, 300, 150, 70, 160, 130];
   var rz = useColumnResize(COLS.length, 160);
   var thSty = { textAlign: 'left', padding: '5px 10px', borderBottom: '2px solid var(--border)',
@@ -2556,6 +2572,31 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
   useEffect(function() {
     if (_selRowRef.current) _selRowRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [sel]);
+
+  // The list loads at graph_query_depth=0 (see backend comment on
+  // list_annotations) so rows arrive without a SurveyReport link — fetch it
+  // lazily, per-item, only for whichever row is actually selected. Guarded by
+  // 'surveyReportGuid' in sel: once merged in, re-selecting the same row (or
+  // one already enriched from a prior selection) skips the round-trip.
+  useEffect(function() {
+    if (!sel || !sel.guid || 'surveyReportGuid' in sel) return;
+    if (_enrichedGuid.current === sel.guid) return;
+    _enrichedGuid.current = sel.guid;
+    setEnriching(true);
+    egeriaFetch('/api/tech-catalog/annotations/' + encodeURIComponent(sel.guid), creds)
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(detail) {
+        if (!detail) return;
+        var merged = Object.assign({}, sel, detail);
+        setSel(function(cur) { return (cur && cur.guid === merged.guid) ? merged : cur; });
+        setItems(function(cur) {
+          if (!cur) return cur;
+          return cur.map(function(a) { return a.guid === merged.guid ? merged : a; });
+        });
+      })
+      .catch(function() {})
+      .finally(function() { setEnriching(false); });
+  }, [sel && sel.guid]);
 
   // Handle cross-navigation from two sources:
   //   1. AnnotationsSubPane (View ↗): navTarget.annotationItem is the full object
@@ -2682,8 +2723,13 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
       ),
       el('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginTop: 4,
                             paddingLeft: 4, borderLeft: '2px solid var(--border)' } },
-        el('input', { value: reportFilter, onChange: function(e) { setReportFilter(e.target.value); },
-          placeholder: 'Filter by survey report name…', style: { fontSize: 11, padding: '3px 8px', minWidth: 180,
+        el('input', { value: reportFilter, disabled: true,
+          onChange: function(e) { setReportFilter(e.target.value); },
+          placeholder: 'Report filter disabled (see tooltip)',
+          title: 'Disabled: the list loads without survey-report links for speed (graph_query_depth=0) — ' +
+                 'that link is only fetched once you select a row, so this filter would silently miss every ' +
+                 'row you have not opened yet. Open a row’s "Report →" link instead.',
+          style: { fontSize: 11, padding: '3px 8px', minWidth: 180, cursor: 'not-allowed', opacity: 0.5,
             borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none' } }),
         el('span', { style: { fontSize: 10, color: 'var(--dim)', whiteSpace: 'nowrap' } }, 'Created:'),
         el('input', { type: 'date', value: createdFrom, onChange: function(e) { setCreatedFrom(e.target.value); },
@@ -2746,6 +2792,7 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
             ) : null;
           })
         ),
+        enriching && !('surveyReportGuid' in sel) && el('div', { style: { fontSize: 10, color: 'var(--dim)', marginBottom: 8 } }, 'Loading report link…'),
         el(AnnotationCard, { ann: sel, onNavigate: onNavigate, annotTypeVals: annotTypeVals })
       )
     )
@@ -3570,10 +3617,13 @@ function App() {
   function handleNavigate(nav) {
     // Internal: { guid, section, tab, displayName } — switches Tech Catalog's own section.
     // Cross-app: { guid, external, hash, kind, displayName } — opens Egeria Explorer
-    // in a new tab, deep-linked to the right tab (and sub-tab via ?kind=, for Actors).
+    // in a new tab, deep-linked to the right tab (and sub-tab via ?kind=, for Actors;
+    // ?property_name=, for Valid Values — e.g. jumping to a specific annotationType spec).
     if (nav.external) {
       var url = '/' + nav.external + '?guid=' + encodeURIComponent(nav.guid) +
-        (nav.kind ? '&kind=' + encodeURIComponent(nav.kind) : '') + '#' + nav.hash;
+        (nav.kind ? '&kind=' + encodeURIComponent(nav.kind) : '') +
+        (nav.property_name ? '&property_name=' + encodeURIComponent(nav.property_name) : '') +
+        '#' + nav.hash;
       window.open(url, '_blank');
       return;
     }

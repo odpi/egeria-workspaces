@@ -102,6 +102,13 @@ services:
     # else; raise this (and the VM's total allocation) if Egeria itself needs
     # more headroom. Configurable via EGERIA_MEM_LIMIT (see gen-env.sh) —
     # ./quick-start-local --egeria-memory <SIZE> sets it for you; 6g if unset.
+    # 6g is safe as a default with the JVM retuning below (G1GC,
+    # MaxRAMPercentage=60) — a prior fix (2026-09-08) had raised this default
+    # to 10g to paper over GC-thrash-induced 401s/timeouts under the old
+    # MaxRAMPercentage=80 flags; that thrash is what the retuning actually
+    # fixes, so the default reverted here. 10g remains a reasonable
+    # EGERIA_MEM_LIMIT override on a host that's still seeing pressure (e.g.
+    # ./quick-start-local --egeria-memory 10g), just no longer the default.
     mem_limit: ${EGERIA_MEM_LIMIT:-6g}
     # CPU cap, same rationale as mem_limit above but for a different failure
     # mode: an unbounded egeria-main can peg every core the VM has, starving
