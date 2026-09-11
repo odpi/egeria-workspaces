@@ -6152,7 +6152,7 @@ function ValidValueDetailPane({ guid, creds, onNavigateToElement }) {
   return React.createElement(ValidValueDetail, { item: item, onNavigateToElement: onNavigateToElement });
 }
 
-function ValidValuesView({ navProp, onNavigateToElement }) {
+function ValidValuesView({ navProp, navGuid, onNavigateToElement }) {
   const [tab, setTab] = useState('metadata'); // 'metadata' | 'spec-properties'
 
   return React.createElement("div", { className: "body", style: { flexDirection: 'column' } },
@@ -6169,13 +6169,13 @@ function ValidValuesView({ navProp, onNavigateToElement }) {
     ),
     React.createElement("div", { style: { flex: 1, minHeight: 0, display: 'flex' } },
       tab === 'metadata'
-        ? React.createElement(ValidMetadataValuesTab, { navProp: navProp, onNavigateToElement: onNavigateToElement })
+        ? React.createElement(ValidMetadataValuesTab, { navProp: navProp, navGuid: navGuid, onNavigateToElement: onNavigateToElement })
         : React.createElement(SpecificationPropertyValuesTab, { onNavigateToElement: onNavigateToElement })
     )
   );
 }
 
-function ValidMetadataValuesTab({ navProp, onNavigateToElement }) {
+function ValidMetadataValuesTab({ navProp, navGuid, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(254);
   const [midW, onMidDivDown] = useResizable(300);
@@ -6239,6 +6239,16 @@ function ValidMetadataValuesTab({ navProp, onNavigateToElement }) {
   useEffect(() => {
     if (navProp) { setPropertyName(navProp); lookup(navProp); }
   }, [navProp]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cross-app deep link with a specific value already known (e.g. Tech Catalog's
+  // "spec ↗" on an annotationType badge: /egeria-explorer?guid=X&property_name=
+  // annotationType#valid-values). ValidValueDetailPane fetches by guid directly, so
+  // this doesn't need to wait on navProp's lookup() to finish (or even run) — show
+  // the detail immediately, independent of whether the middle-column list has loaded
+  // enough to highlight it yet.
+  useEffect(() => {
+    if (navGuid) setSelectedGuid(navGuid);
+  }, [navGuid]);
 
   useEffect(() => { setFilterText(''); }, [submittedProp]);
 
@@ -12344,7 +12354,19 @@ function App() {
     var p = new URLSearchParams(window.location.search);
     return hash === 'glossary' ? (p.get('guid') || null) : null;
   });
-  const [validValuesNavProp, setValidValuesNavProp] = useState(null);
+  const [validValuesNavProp, setValidValuesNavProp] = useState(function() {
+    // Cold deep-link e.g. /egeria-explorer?guid=X&property_name=annotationType#valid-values
+    // (used by Tech Catalog's "spec ↗" on an annotation-type badge — see egeria-explorer
+    // ?guid=&property_name= below for the paired guid half).
+    var hash = window.location.hash.slice(1).split('?')[0];
+    var p = new URLSearchParams(window.location.search);
+    return hash === 'valid-values' ? (p.get('property_name') || null) : null;
+  });
+  const [validValuesNavGuid, setValidValuesNavGuid] = useState(function() {
+    var hash = window.location.hash.slice(1).split('?')[0];
+    var p = new URLSearchParams(window.location.search);
+    return hash === 'valid-values' ? (p.get('guid') || null) : null;
+  });
   const [dataDesignNav, setDataDesignNav] = useState({ guid: null, type: null });
 
   const onNavigateToGlossary = useCallback(function(guid) {
@@ -12830,7 +12852,7 @@ function App() {
       : section === 'collections'
       ? React.createElement(CollectionsView, { key: credsKey, navGuid: collectionsNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'valid-values'
-      ? React.createElement(ValidValuesView, { key: credsKey, navProp: validValuesNavProp, onNavigateToElement: onNavigateToElement })
+      ? React.createElement(ValidValuesView, { key: credsKey, navProp: validValuesNavProp, navGuid: validValuesNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'rest-apis'
       ? React.createElement(RestApiView, { key: credsKey })
       : section === 'solution-architect'
