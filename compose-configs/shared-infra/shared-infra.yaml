@@ -150,10 +150,24 @@ services:
       # quickstart data files
       - ../../exchange-quickstart/coco-data-lake:/var/data/coco-data-lake
       - ../../exchange-quickstart/treasury-dts-history:/var/data/treasury-dts-history
+    # Resource tuning, added 2026-09-11 — this instance was still running on
+    # Postgres's stock out-of-the-box defaults (128MB shared_buffers, 4MB
+    # work_mem) despite serving 15 databases (egeria + egeria_advisor alone
+    # ~4.5GB) for egeria-main, egeria_advisor, prefect, dagster, airflow,
+    # mlflow, marquez, superset, hive_metastore and more. Measured over the
+    # 2026-09-07..11 stats window: cache_hit_ratio 48% (healthy is >99%) and
+    # ~9.8TB of sort/hash spill to temp files — both point at the same
+    # under-sizing. Host has ample headroom (Docker Desktop VM pool ~45GB,
+    # ~31GB free at the time of this change) for all of these.
     command: >-
       -p 5442
       -c max_connections=1000
       -c idle_in_transaction_session_timeout=1800000
+      -c shared_buffers=2GB
+      -c work_mem=32MB
+      -c effective_cache_size=8GB
+      -c maintenance_work_mem=256MB
+      -c random_page_cost=1.1
 
   kroki:
     # Self-hosted Mermaid/diagram rendering, replacing pyegeria's previous
