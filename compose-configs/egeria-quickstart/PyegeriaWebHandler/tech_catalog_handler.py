@@ -44,6 +44,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
 
 from common_serialize import _authored_fields, _header_summary
+from digital_products_handler import _extract_props
 
 router = APIRouter(tags=["tech-catalog"])
 
@@ -887,12 +888,20 @@ def _serialize_governance_process_detail(raw: dict) -> dict:
     for step_el in _safe_list(raw.get("nextProcessSteps")):
         _add_step(step_el)
 
+    # GovernanceActionProcessFlow relationship properties: guard/mandatoryGuard
+    # are named fields because the Step Flow table always shows them, but the
+    # relationship can carry other scalar properties too (e.g. a description) --
+    # captured generically here rather than silently dropped, same rationale as
+    # _extract_props below for the process's own properties.
+    _STEP_LINK_SKIP = {"previousProcessStep", "nextProcessStep", "class", "guard", "mandatoryGuard"}
+
     step_links = []
     for link in _safe_list(raw.get("processStepLinks")):
         prev_stub = link.get("previousProcessStep") or {}
         next_stub = link.get("nextProcessStep") or {}
         prev_guid = prev_stub.get("guid", "")
         next_guid = next_stub.get("guid", "")
+        extra_props = _extract_props({k: v for k, v in link.items() if k not in _STEP_LINK_SKIP})
         step_links.append({
             "fromGuid": prev_guid,
             "fromName": steps_by_guid.get(prev_guid, {}).get("displayName") or prev_stub.get("uniqueName") or "",
@@ -900,6 +909,7 @@ def _serialize_governance_process_detail(raw: dict) -> dict:
             "toName":   steps_by_guid.get(next_guid, {}).get("displayName") or next_stub.get("uniqueName") or "",
             "guard":    link.get("guard") or "",
             "mandatoryGuard": bool(link.get("mandatoryGuard")),
+            "extraProps": extra_props,
         })
 
     return {
@@ -908,6 +918,11 @@ def _serialize_governance_process_detail(raw: dict) -> dict:
         "displayName":   props.get("displayName") or props.get("name") or "",
         "qualifiedName": props.get("qualifiedName") or "",
         "description":   props.get("description") or "",
+        # The process's own remaining scalar properties (formula,
+        # implementationDescription, owner, additionalProperties, …) beyond the
+        # four named fields above — previously dropped entirely, with nowhere
+        # in the frontend to show them even if they had been kept.
+        "props":          _extract_props(props),
         "governanceActionProcessMermaidGraph": raw.get("governanceActionProcessMermaidGraph") or "",
         "steps":          list(steps_by_guid.values()),
         "stepLinks":      step_links,
