@@ -243,6 +243,71 @@ panel
 
 ---
 
+## Asset Maker
+
+### Create a CSV data file element from its catalog template
+```markdown
+## Create CSV Data File Element
+### File Name
+CustomerExport.csv
+
+### File Type
+CSV Data File
+
+### File Path Name
+exports/CustomerExport.csv
+
+### Version Identifier
+V1.0
+```
+
+### Create a Kafka server element from its catalog template
+```markdown
+## Create Kafka Server Element
+### Kafka Server Name
+sales-kafka-01
+
+### Host Name
+kafka01.example.com
+
+### Port
+9092
+```
+
+## Schema Maker
+
+### Create a schema type
+```markdown
+## Create Schema Type
+### Display Name
+Customer Record Schema
+
+### Description
+Schema type describing a customer record.
+```
+
+### Create a schema attribute
+```markdown
+## Create Schema Attribute
+### Display Name
+Customer ID
+
+### Element Position
+0
+```
+
+### Nest one schema attribute inside another
+```markdown
+## Link Nested Schema Attribute
+### Schema Attribute GUID
+Customer Record Schema
+
+### Nested Schema Attribute GUID
+Customer ID
+```
+
+---
+
 > **Tip:** Set **Default Directive** to `validate` in the plugin settings while drafting new commands. Switch to `process` when ready to execute.
 
 See also: [Advanced Templates](templates-advanced.md)

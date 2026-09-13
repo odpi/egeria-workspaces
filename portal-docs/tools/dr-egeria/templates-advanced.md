@@ -224,6 +224,24 @@ collection_guid: 0affb580-fa81-4d00-9438-b26faf11845d
 
 ---
 
+## Asset Maker (generic template instantiation)
+
+`Create Element` is the low-level, Advanced-only mechanism behind every
+Asset Maker command — prefer a specific `Create <Type> Element` command
+(see [Basic Templates](templates-basic.md)) when the element type has one.
+
+```markdown
+## Create Element
+### Element Type Name
+CSVFile
+
+### Template GUID
+13770f93-13c8-42be-9bb8-e0b1b1e52b1f
+
+### Placeholder Property Values
+{"fileName": "CustomerExport.csv", "filePathName": "exports/CustomerExport.csv", "versionIdentifier": "V1.0"}
+```
+
 ## Batch processing
 
 Dr. Egeria processes one command block per note. For batch operations, create a note with multiple commands separated by horizontal rules — each block is processed in sequence:
