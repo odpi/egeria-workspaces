@@ -27,10 +27,22 @@ router = APIRouter(tags=["isc"])
 # otherwise. Any information supply chain with more than a handful of
 # collectionMembers/segments (the norm for the Coco Pharmaceuticals demo data)
 # gets a visibly incomplete chain diagram as a result. Override both explicitly
-# for ISC list/detail -- this is a "show me everything about one chain" view,
-# not a broad unbounded listing, so a generous cap is safe here.
+# for ISC detail -- this is a "show me everything about one chain" view, not a
+# broad unbounded listing, so a generous cap is safe here.
 _ISC_GRAPH_QUERY_DEPTH = 10
 _ISC_MAX_MERMAID_NODES = 250
+
+# The LIST endpoint used to reuse the detail settings above verbatim --
+# add_implementation=True + graph_query_depth=10 + a 250-node mermaid cap,
+# walked and generated for EVERY information supply chain in the catalog just
+# to populate a sidebar row that only ever reads displayName/qualifiedName/
+# segments/lifecycleStatus/guid (type-explorer.html's InformationSupplyChainView).
+# The mermaid graphs and deep implementation walk _serialize_isc() computes are
+# never rendered from the list response -- pure wasted server-side work that
+# was the reported cause of the "Supply Chains" card taking a long time to
+# load. depth=1 is enough for the direct "segments" relationship the sidebar
+# actually shows; add_implementation/mermaid generation are skipped entirely.
+_ISC_LIST_GRAPH_QUERY_DEPTH = 1
 
 
 def _get_manager(url=None, server=None, user_id=None, user_pwd=None):
@@ -215,11 +227,10 @@ def list_isc(
             output_format="JSON",
             start_from=start_from,
             page_size=page_size,
-            add_implementation=True,
+            add_implementation=False,
             sequencing_order="PROPERTY_ASCENDING",
             sequencing_property="displayName",
-            graph_query_depth=_ISC_GRAPH_QUERY_DEPTH,
-            max_mermaid_node_count=_ISC_MAX_MERMAID_NODES,
+            graph_query_depth=_ISC_LIST_GRAPH_QUERY_DEPTH,
         )
     except Exception as exc:
         logger.exception("find_information_supply_chains failed")

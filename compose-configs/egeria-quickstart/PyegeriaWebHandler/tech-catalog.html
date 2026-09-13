@@ -3034,6 +3034,10 @@ function GovernanceProcessDetail({ item, detailLoading, creds }) {
   var steps     = item.steps || [];
   var stepLinks = item.stepLinks || [];
   var spec      = item.specification || {};
+  // item.props (formula, implementationDescription, additionalProperties, …)
+  // arrives nested, but GenericPropertiesTable reads flat top-level keys —
+  // same flattening every other _serialize_node-style consumer in this app does.
+  var flatItem  = Object.assign({}, item, item.props);
 
   var stepRows = steps.slice().sort(function(a, b) {
     if (a.isFirst && !b.isFirst) return -1;
@@ -3048,13 +3052,24 @@ function GovernanceProcessDetail({ item, detailLoading, creds }) {
     ];
   });
 
+  // Only add the "Other Properties" column when at least one link actually
+  // carries something beyond guard/mandatoryGuard — an always-present, always-
+  // empty column is worse than no column.
+  var anyExtraLinkProps = stepLinks.some(function(l) { return l.extraProps && Object.keys(l.extraProps).length > 0; });
   var linkRows = stepLinks.map(function(l) {
-    return [
+    var row = [
       l.fromName || l.fromGuid,
       '→ ' + (l.toName || l.toGuid),
       el('code', { style: { fontSize: 10 } }, l.guard || ''),
       l.mandatoryGuard ? el('span', { style: { color: '#fbbf24', fontWeight: 700 } }, 'mandatory') : '',
     ];
+    if (anyExtraLinkProps) {
+      var pairs = Object.entries(l.extraProps || {});
+      row.push(pairs.length > 0
+        ? el('span', { style: { fontSize: 11, color: 'var(--muted)' } }, pairs.map(function(p) { return p[0] + ': ' + p[1]; }).join(', '))
+        : '');
+    }
+    return row;
   });
 
   var guardRows = (spec.producedGuards || []).map(function(g) {
@@ -3083,6 +3098,16 @@ function GovernanceProcessDetail({ item, detailLoading, creds }) {
 
     el(AvailableMermaidDiagrams, { data: item, skip: new Set() }),
 
+    // The process's own remaining scalar properties (formula,
+    // implementationDescription, owner, additionalProperties, …) — previously
+    // shown nowhere at all beyond the four fields already rendered above.
+    el(GenericPropertiesTable, {
+      item: flatItem,
+      skip: new Set(['guid', 'typeName', 'displayName', 'qualifiedName', 'description',
+                      'steps', 'stepLinks', 'specification', 'props',
+                      'governanceActionProcessMermaidGraph']),
+    }),
+
     !detailLoading && (steps.length > 0
       ? el('div', null,
           el('div', { style: sectionHdr }, 'Process Steps (' + steps.length + ')'),
@@ -3092,7 +3117,7 @@ function GovernanceProcessDetail({ item, detailLoading, creds }) {
 
     !detailLoading && linkRows.length > 0 && el('div', null,
       el('div', { style: sectionHdr }, 'Step Flow (guards)'),
-      TechTable(['From', 'To', 'Guard', ''], linkRows, null)
+      TechTable(anyExtraLinkProps ? ['From', 'To', 'Guard', '', 'Other Properties'] : ['From', 'To', 'Guard', ''], linkRows, null)
     ),
 
     !detailLoading && paramRows.length > 0 && el('div', null,
@@ -3406,6 +3431,14 @@ var SECTIONS = [
   { id: 'apis',           icon: '🔗', label: 'APIs',                    desc: 'Deployed APIs and their endpoints.' },
   { id: 'processes',      icon: '⚙️', label: 'Processes',               desc: 'Software components and actions.' },
   { id: 'surveys',        icon: '🔍', label: 'Survey Reports & Annotations', desc: 'Survey reports, analysis annotations, and survey type definitions.' },
+  // Namespace (used here for Unity Catalog Catalogs) is a Collection subtype —
+  // The Catalog has no collection-browsing pattern of its own (that lives in
+  // Egeria Explorer's Collections/Digital Products/Agreements tabs), so this
+  // is a lighter-weight card that just hands off there rather than
+  // reimplementing that pattern a second time. `external`/`hash` make the
+  // splash card and nav-bar button below open Egeria Explorer instead of
+  // calling setSection (which has no 'namespaces' case in SectionView).
+  { id: 'namespaces',     icon: '🗂️', label: 'Namespaces', desc: 'Namespaces group elements under a particular namespace, e.g. Unity Catalog Catalogs. Opens in Egeria Explorer.', external: 'egeria-explorer', hash: 'namespaces' },
 ];
 // ALL_SECTIONS includes Search for the nav-bar button list; Search is not a splash tile group.
 var ALL_SECTIONS = SECTIONS.concat([{ id: 'search', icon: '🔎', label: 'Search' }]);
@@ -3427,7 +3460,7 @@ var SPLASH_GROUPS = [
     key: 'assets',
     label: 'Deployed Assets',
     blurb: 'Technical resources registered in your environment — infrastructure, data, APIs, and processes.',
-    sections: ['infrastructure', 'capabilities', 'data-assets', 'apis', 'processes'],
+    sections: ['infrastructure', 'capabilities', 'data-assets', 'apis', 'processes', 'namespaces'],
   },
   {
     key: 'discovery',
@@ -3573,7 +3606,12 @@ function Splash({ onSelect, authUser, activePersona, creds, demoMode, srvManaged
                   React.createElement('span', { style: { fontSize: 14, fontWeight: 600, color: 'var(--text)' } }, s.label)
                 ),
                 React.createElement('p', { style: { fontSize: 12, color: 'var(--muted)', margin: 0, lineHeight: 1.55, flex: 1 } }, s.desc),
-                React.createElement('button', { onClick: function() { onSelect(s.id); }, style: openBtnStyle }, 'Open →')
+                s.external
+                  ? React.createElement('button', {
+                      onClick: function() { window.open('/' + s.external + '#' + s.hash, '_blank'); },
+                      style: openBtnStyle
+                    }, 'Open in Egeria Explorer ↗')
+                  : React.createElement('button', { onClick: function() { onSelect(s.id); }, style: openBtnStyle }, 'Open →')
               );
             })
           )
@@ -3750,10 +3788,15 @@ function App() {
       section && React.createElement('button', { onClick: function() { setSection(''); },
         style: { fontSize: 11, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' } }, '⌂ Home'),
       section && SECTIONS.map(function(s) {
-        return React.createElement('button', { key: s.id, onClick: function() { setSection(s.id); },
+        // external sections (Namespaces → Egeria Explorer) have no local
+        // 'section' state of their own — setSection(s.id) would just blank
+        // the view, since SectionView has no case for them.
+        return React.createElement('button', { key: s.id,
+          onClick: s.external ? function() { window.open('/' + s.external + '#' + s.hash, '_blank'); } : function() { setSection(s.id); },
+          title: s.external ? 'Opens in Egeria Explorer' : undefined,
           style: { fontSize: 11, padding: '3px 10px', borderRadius: 4, border: s.id === section ? '1px solid var(--accent)' : '1px solid var(--border)',
                    background: s.id === section ? 'rgba(96,165,250,0.1)' : 'transparent',
-                   color: s.id === section ? 'var(--accent)' : 'var(--muted)', cursor: 'pointer' } }, s.label);
+                   color: s.id === section ? 'var(--accent)' : 'var(--muted)', cursor: 'pointer' } }, s.label + (s.external ? ' ↗' : ''));
       }),
       React.createElement('div', { style: { flex: 1 } }),
       activePersona
