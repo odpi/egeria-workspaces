@@ -37,6 +37,16 @@ Clinical Trial Data Flow
 Regulatory Reporting Pipeline
 ```
 
+### Link an implementation to an information supply chain
+```markdown
+## Link Implemented By
+### Design Element
+Clinical Trial Data Flow
+
+### Implementation Element
+Clinical Data Warehouse Loader
+```
+
 ---
 
 ## Solution Architecture
