@@ -588,7 +588,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 </script>
   <!-- Bump ?v= whenever egeria-shared-ui.js changes — see tech-catalog.html for why. -->
   <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
-  <script src="/static/egeria-shared-ui.js?v=2026-09-07"></script>
+  <script src="/static/egeria-shared-ui.js?v=2026-09-14"></script>
   <script>"use strict";
 
 const {
@@ -4306,98 +4306,6 @@ function AgreementsView({ navGuid, onNavigateToElement }) {
   );
 }
 
-// ── Namespaces Explorer ────────────────────────────────────────────────────────
-// Namespace is a single Collection subtype (used in this deployment for Unity
-// Catalog Catalogs), so unlike AgreementsView above there's no type-tab bar —
-// otherwise the same list+filter+detail shape, reusing DigitalProductDetail for
-// the detail pane rather than a dedicated renderer (per its own doc comment:
-// any Collection subtype's generic properties/mermaid/members/relationships).
-function NamespacesView({ navGuid, onNavigateToElement }) {
-  const creds = React.useContext(CredContext);
-  const [sideW, onDivDown] = useResizable(280);
-  const [state, setState]     = useState('loading');
-  const [attempt, setAttempt] = useState(0);
-  const [items, setItems]     = useState([]);
-  const [error, setError]     = useState('');
-  const [filter, setFilter]   = useState('');
-  const [selected, setSelected] = useState(function() {
-    var params = new URLSearchParams(window.location.search);
-    return params.get('guid') || null;
-  });
-  const [detail, setDetail]   = useState(null);
-  const [detailState, setDetailState] = useState('idle');
-
-  useEffect(function() {
-    setState('loading'); setError('');
-    egeriaFetch('/api/namespaces?page_size=1000', creds)
-      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-      .then(function(data) { setItems(data.namespaces || []); setState('ready'); })
-      .catch(function(e) { setError(e.message); setState('error'); });
-  }, [attempt]);
-
-  useEffect(function() {
-    if (!selected) { setDetail(null); return; }
-    setDetailState('loading');
-    egeriaFetch('/api/namespaces/' + selected, creds)
-      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-      .then(function(data) { setDetail(data); setDetailState('ready'); })
-      .catch(function() { setDetailState('error'); });
-  }, [selected]);
-
-  useEffect(function() {
-    if (navGuid) setSelected(navGuid);
-  }, [navGuid]);
-
-  var sidebar = React.createElement("div", { style: { width: sideW, minWidth: sideW, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflowY: 'auto', height: '100%' } },
-    React.createElement("div", { className: "search-wrap" },
-      React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
-        onChange: function(e) { setFilter(e.target.value); } }),
-      React.createElement("button", {
-        className: "btn-sm", style: { marginTop: 4 },
-        onClick: function() { setAttempt(function(a) { return a + 1; }); }
-      }, "↻ Refresh"),
-    ),
-    state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
-    state === 'error' && React.createElement("div", { style: { padding: 16 } },
-      React.createElement("div", { style: { color: '#f87171', fontSize: 13, marginBottom: 8 } }, "Error: " + error),
-      React.createElement("button", { className: "view-tab on", onClick: function() { setAttempt(function(a) { return a + 1; }); } }, "Retry")
-    ),
-    state === 'ready' && React.createElement("div", { style: { overflowY: 'auto', flex: 1 } },
-      (function() {
-        var q = filter.trim().toLowerCase();
-        var vis = items.filter(function(x) {
-          return !q || (x.displayName || x.qualifiedName || '').toLowerCase().includes(q) || (x.description || '').toLowerCase().includes(q);
-        });
-        if (!vis.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, q ? "No matches" : "No namespaces found");
-        return vis.map(function(x) {
-          return React.createElement("div", {
-            key: x.guid, className: "tree-item" + (selected === x.guid ? " sel" : ""),
-            onClick: function() { setSelected(x.guid); }, title: x.description || x.qualifiedName,
-          },
-            React.createElement("span", { className: "type-name" }, x.displayName || x.qualifiedName)
-          );
-        });
-      })()
-    )
-  );
-
-  var selectedItem = selected ? items.find(function(x) { return x.guid === selected; }) : null;
-  var mainPanel = React.createElement("div", { className: "main", style: { flex: 1, overflowY: 'auto' } },
-    !selected && React.createElement("div", { className: "center" },
-      React.createElement("span", { style: { color: 'var(--muted)' } }, "Select a namespace from the sidebar")
-    ),
-    selected && detailState === 'loading' && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "Loading…"),
-    selected && detailState === 'error'   && React.createElement("div", { style: { padding: 24, color: '#f87171' } }, "Failed to load namespace detail"),
-    selected && (detailState === 'ready' || selectedItem) && React.createElement(DigitalProductDetail, { product: detail || selectedItem, onNavigateToElement: onNavigateToElement, creds: creds })
-  );
-
-  return React.createElement("div", { className: "body" },
-    sidebar,
-    React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
-    mainPanel
-  );
-}
-
 // TabularPreviewModal now lives in /static/egeria-shared-ui.js (shared with the
 // Tech Catalog file-asset preview, TC-13). Pass a fetchUrl returning {columns,rows,has_more}.
 // ── Digital Products Explorer ─────────────────────────────────────────────────
@@ -4926,6 +4834,17 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
     typeFilter ? roots.filter(c => c.typeName === typeFilter) : roots,
   [roots, typeFilter]);
 
+  // The selected root's own record from the left-pane list, promoted to the
+  // top of the middle-pane hierarchy tree (as a selectable, expandable node in
+  // its own right) rather than being skipped straight to its members. Every
+  // root collection is itself a container by definition, so isContainer is
+  // forced true here — the /roots endpoint doesn't compute it (unlike
+  // /children, which does), since it isn't needed for the left-pane list.
+  const rootNode = useMemo(() => {
+    const rec = roots.find(r => r.guid === selectedRoot);
+    return rec ? Object.assign({}, rec, { isContainer: true }) : null;
+  }, [roots, selectedRoot]);
+
   // Load hierarchy for the selected root
   useEffect(() => {
     if (!selectedRoot) return;
@@ -4933,7 +4852,16 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
     if (!navGuidRef.current) { setSelectedNode(null); setSelectedNodeObj(null); }
     egeriaFetch('/api/collections/' + encodeURIComponent(selectedRoot) + '/tree' + (asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : ''), creds)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-      .then(data => { setTreeData(data); setChildrenByGuid({}); setTreeState('ready'); setExpanded(new Set()); })
+      .then(data => {
+        setTreeData(data);
+        // Pre-seed the lazy children cache with the members we just fetched so
+        // the root node itself can be rendered as the top of the middle-pane
+        // tree (see rootNode below) without triggering a redundant /children
+        // fetch when it's expanded by default.
+        setChildrenByGuid({ [selectedRoot]: data.children || [] });
+        setTreeState('ready');
+        setExpanded(new Set([selectedRoot])); // root starts expanded so members are visible immediately, as before
+      })
       .catch(err => { setTreeError(err.message); setTreeState('error'); });
   }, [selectedRoot, asOfTime]);
 
@@ -5060,15 +4988,17 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
       React.createElement(TimeSlider, { onChange: setAsOfTime, label: 'As of' }),
       treeState === 'error' && React.createElement("div", { style: { padding: 12, color: 'var(--muted)', fontSize: 12 } }, "Error: " + treeError),
       treeState === 'ready' && React.createElement("div", { className: "tree-scroll" },
-        treeData && (treeData.children || []).length === 0
-          ? React.createElement("div", { style: { padding: '12px 10px', fontSize: 12, color: 'var(--dim)' } }, "No members in this collection")
-          : (treeData ? (treeData.children || []) : []).map(node =>
-              React.createElement(DigitalTreeNode, {
-                key: node.guid, node, depth: 0,
-                selectedGuid: selectedNode, onSelect: handleSelect, expanded, toggleNode,
-                childrenByGuid, loadingGuids, selection,
-              })
-            )
+        // The root collection itself is the top-of-hierarchy node here (not
+        // just its members) — selecting it shows its own details in the right
+        // pane; expanding it (twistie / clicking it) walks down into members,
+        // same as any other container node.
+        rootNode
+          ? React.createElement(DigitalTreeNode, {
+              key: rootNode.guid, node: rootNode, depth: 0,
+              selectedGuid: selectedNode, onSelect: handleSelect, expanded, toggleNode,
+              childrenByGuid, loadingGuids, selection,
+            })
+          : null
       ),
       (function() {
         // Classify/Declassify only offered when every currently-selected tree
@@ -5159,7 +5089,6 @@ const SECTION_LABELS = {
   'external-references': 'External References',
   'external-identifiers': 'External Identifiers',
   'agreements':        'Agreements',
-  'namespaces':        'Namespaces',
   'dr-egeria':         'Dr. Egeria',
   'python-api':        'Python API',
 };
@@ -5864,14 +5793,6 @@ const _SPLASH_CAPABILITIES = [
     icon: '📜',
     title: 'Agreements',
     description: 'Browse agreements — general agreements, data sharing agreements, and digital subscriptions. See the actors, items, and contracts each agreement links to.',
-    requiresConnection: true,
-  },
-  {
-    section: 'namespaces',
-    group: 'review',
-    icon: '🗂️',
-    title: 'Namespaces',
-    description: 'Browse namespaces — a Collection subtype used to group elements under a particular namespace, e.g. Unity Catalog Catalogs.',
     requiresConnection: true,
   },
   {
@@ -12480,7 +12401,7 @@ function App() {
     var hash = window.location.hash.slice(1).split('?')[0];
     var valid = new Set(['type-system','reference-data','digital-products','collections','glossary',
       'report-specs','analytics','valid-values','rest-apis','python-api','solution-architect',
-      'data-design','perspectives','dr-egeria','isc','locations','actors','communities','business-capabilities','notelogs','governance','naming-vocabulary','policy-enforcement','action-center','duplicate-review','projects','informal-tags','context-events','external-references','external-identifiers','agreements','namespaces','search']);
+      'data-design','perspectives','dr-egeria','isc','locations','actors','communities','business-capabilities','notelogs','governance','naming-vocabulary','policy-enforcement','action-center','duplicate-review','projects','informal-tags','context-events','external-references','external-identifiers','agreements','search']);
     return valid.has(hash) ? hash : 'splash';
   });
   const [searchQuery, setSearchQuery] = useState(function() {
@@ -12653,12 +12574,6 @@ function App() {
     setSection('agreements');
   }, []);
 
-  const [namespacesNavGuid, setNamespacesNavGuid] = useState(null);
-  const onNavigateToNamespace = useCallback(function(guid) {
-    setNamespacesNavGuid(guid || null);
-    setSection('namespaces');
-  }, []);
-
   const [externalIdentifiersNavGuid, setExternalIdentifiersNavGuid] = useState(null);
   const onNavigateToExternalIdentifier = useCallback(function(guid) {
     setExternalIdentifiersNavGuid(guid || null);
@@ -12720,7 +12635,10 @@ function App() {
     if (EXT_REF_TYPES.indexOf(typeName) !== -1) { onNavigateToExternalReference(guid); return; }
     if (typeName === 'ExternalId') { onNavigateToExternalIdentifier(guid); return; }
     if (AGREEMENT_TYPES.indexOf(typeName) !== -1) { onNavigateToAgreement(guid); return; }
-    if (typeName === 'Namespace') { onNavigateToNamespace(guid); return; }
+    // Namespace moved to Tech Catalog (its only home now, GAP: Namespaces
+    // migration) — open externally, same pattern as the Asset/SoftwareCapability/
+    // Endpoint branches below.
+    if (typeName === 'Namespace') { window.open('/tech-catalog?guid=' + encodeURIComponent(guid), '_blank'); return; }
     var actorKind = _actorKindForType(typeName, superTypes);
     if (actorKind) { onNavigateToActor(actorKind, guid); return; }
     if (superTypes.indexOf('GovernanceDefinition') !== -1) { onNavigateToGovernance(typeName, guid); return; }
@@ -12738,7 +12656,7 @@ function App() {
     // Endpoint — Referenceable, not Asset, so it needs its own branch;
     // Tech Catalog's Infrastructure tab already has a dedicated fetch path.
     if (typeName === 'Endpoint') { window.open('/tech-catalog?guid=' + encodeURIComponent(guid), '_blank'); return; }
-  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToCollection, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToBusinessCapability, onNavigateToAction, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDesignPattern, onNavigateToDataDesign, onNavigateToPerspective, onNavigateToExternalReference, onNavigateToExternalIdentifier, onNavigateToAgreement, onNavigateToNamespace, onNavigateToProject, onNavigateToValidValues, onNavigateToInformalTag, onNavigateToContextEvent]);
+  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToCollection, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToBusinessCapability, onNavigateToAction, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDesignPattern, onNavigateToDataDesign, onNavigateToPerspective, onNavigateToExternalReference, onNavigateToExternalIdentifier, onNavigateToAgreement, onNavigateToProject, onNavigateToValidValues, onNavigateToInformalTag, onNavigateToContextEvent]);
 
   const [typeSideW, onTypeDivDown] = useResizable(254);
 
@@ -12866,7 +12784,7 @@ function App() {
         }),
         React.createElement(NavGroup, {
           label: 'Review', connected: connected, currentSection: section,
-          isActive: ['glossary','reference-data','data-design','collections','solution-architect','isc','locations','actors','communities','business-capabilities','notelogs','perspectives','governance','naming-vocabulary','policy-enforcement','action-center','duplicate-review','projects','informal-tags','context-events','external-references','external-identifiers','agreements','namespaces'].includes(section),
+          isActive: ['glossary','reference-data','data-design','collections','solution-architect','isc','locations','actors','communities','business-capabilities','notelogs','perspectives','governance','naming-vocabulary','policy-enforcement','action-center','duplicate-review','projects','informal-tags','context-events','external-references','external-identifiers','agreements'].includes(section),
           onSelect: setSection,
           items: [
             { id: 'glossary',           label: 'Glossary',                needsConnect: true },
@@ -12892,7 +12810,6 @@ function App() {
             { id: 'external-references', label: 'External References',    needsConnect: true },
             { id: 'external-identifiers', label: 'External Identifiers',  needsConnect: true },
             { id: 'agreements',        label: 'Agreements',                needsConnect: true },
-            { id: 'namespaces',        label: 'Namespaces',                needsConnect: true },
           ]
         }),
         React.createElement(NavGroup, {
@@ -13047,8 +12964,6 @@ function App() {
       ? React.createElement(ExternalIdentifiersView, { key: credsKey, navGuid: externalIdentifiersNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'agreements'
       ? React.createElement(AgreementsView, { key: credsKey, navGuid: agreementsNavGuid, onNavigateToElement: onNavigateToElement })
-      : section === 'namespaces'
-      ? React.createElement(NamespacesView, { key: credsKey, navGuid: namespacesNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'python-api'
       ? React.createElement(PyegeriaDocsView, null)
       : section !== 'type-system'

@@ -585,7 +585,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
      this URL *before* that header existed won't revalidate on its own; a new
      URL guarantees a fresh fetch regardless of prior cache state. -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
-<script src="/static/egeria-shared-ui.js?v=2026-09-07"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-09-14"></script>
 <script>
 'use strict';
 // React hook aliases (mirror type-explorer.html)
@@ -3026,6 +3026,81 @@ function SurveyTypesView({ creds }) {
 // Uses GovernanceOfficer.get_governance_process_graph, not the generic Asset
 // graph — so the detail shows the actual step/flow structure (steps, guarded
 // next-step links, request/action targets), matching the type-0462 model.
+// ProcessStepRow: one Process Steps row, plus an optional foldable sub-row
+// (same Collapsible/FoldTriangle pattern as SchemaRow above) showing the
+// step's own extra properties and — for the first step only — the
+// properties of the relationship that starts it (guard, if the platform
+// ever populates one there, plus anything else beyond linkGUID). Needs its
+// own component (not a plain row-builder function) so each row can hold its
+// own expand/collapse state.
+function ProcessStepRow({ step }) {
+  var _o = React.useState(false), open = _o[0], setOpen = _o[1];
+  var extraProps = step.extraProps || {};
+  var startLinkProps = step.startLinkProps || {};
+  var hasStartLink = Object.keys(startLinkProps).length > 0;
+  var hasExtra = Object.keys(extraProps).length > 0 || hasStartLink;
+  var tdSt = { padding: '5px 10px', fontSize: 11, borderBottom: '1px solid var(--border)', verticalAlign: 'top', lineHeight: 1.5 };
+  function propList(pairs) {
+    return pairs.map(function(p) {
+      return React.createElement('div', { key: p[0], style: { fontSize: 10, color: 'var(--muted)' } },
+        p[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(p[1])));
+    });
+  }
+  return React.createElement(React.Fragment, null,
+    React.createElement('tr', {
+      style: hasExtra ? { cursor: 'pointer' } : null,
+      onClick: hasExtra ? function() { setOpen(!open); } : undefined,
+    },
+      React.createElement('td', { style: tdSt },
+        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 4 } },
+          hasExtra
+            ? React.createElement(FoldTriangle, { open: open, size: 10 })
+            : React.createElement('span', { style: { width: 14, display: 'inline-block', flexShrink: 0 } }),
+          step.isFirst
+            ? React.createElement('span', { style: { color: '#34d399', fontWeight: 700 } }, '▶ ' + (step.displayName || step.guid))
+            : (step.displayName || step.guid)
+        )
+      ),
+      React.createElement('td', { style: tdSt }, step.description || '')
+    ),
+    open && hasExtra && React.createElement('tr', null,
+      React.createElement('td', { colSpan: 2, style: { padding: '2px 8px 10px 26px', borderBottom: '1px solid var(--border)' } },
+        hasStartLink && React.createElement('div', { style: { borderLeft: '3px solid #34d399', paddingLeft: 8, marginTop: 4, marginBottom: Object.keys(extraProps).length ? 6 : 0 } },
+          React.createElement('div', { style: { fontSize: 11, fontWeight: 600, color: '#34d399' } }, 'Start relationship properties'),
+          propList(Object.entries(startLinkProps))
+        ),
+        Object.keys(extraProps).length > 0 && React.createElement('div', { style: { borderLeft: '3px solid var(--accent)', paddingLeft: 8, marginTop: 4 } },
+          React.createElement('div', { style: { fontSize: 11, fontWeight: 600, color: 'var(--accent)' } }, 'Step properties'),
+          propList(Object.entries(extraProps))
+        )
+      )
+    )
+  );
+}
+
+// ProcessStepsTable: same resizable-column header chrome as TechTable, but
+// rows are ProcessStepRow (stateful, foldable) instead of TechTable's plain
+// static cells — TechTable can't hold per-row expand state since it's called
+// as a plain function, often inside a .map() loop.
+function ProcessStepsTable({ steps }) {
+  var rz = makeResizableCols(2, ['40%', '60%']);
+  var thSt = { padding: '5px 10px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'var(--dim)', borderBottom: '1px solid var(--border)', background: 'var(--panel)', whiteSpace: 'nowrap', position: 'relative' };
+  return React.createElement('div', { style: { overflowX: 'auto', borderRadius: 4, border: '1px solid var(--border)', marginTop: 8 } },
+    React.createElement('table', { style: { borderCollapse: 'collapse', width: '100%', tableLayout: 'fixed' } },
+      resizableColgroup(rz),
+      React.createElement('thead', null,
+        React.createElement('tr', null,
+          React.createElement('th', { style: thSt }, 'Step', colResizeHandle(rz.onResizeDown, 0)),
+          React.createElement('th', { style: thSt }, 'Description', colResizeHandle(rz.onResizeDown, 1))
+        )
+      ),
+      React.createElement('tbody', null, steps.map(function(s) {
+        return React.createElement(ProcessStepRow, { key: s.guid, step: s });
+      }))
+    )
+  );
+}
+
 function GovernanceProcessDetail({ item, detailLoading, creds }) {
   if (!item) return null;
   var el = React.createElement;
@@ -3039,17 +3114,10 @@ function GovernanceProcessDetail({ item, detailLoading, creds }) {
   // same flattening every other _serialize_node-style consumer in this app does.
   var flatItem  = Object.assign({}, item, item.props);
 
-  var stepRows = steps.slice().sort(function(a, b) {
+  var sortedSteps = steps.slice().sort(function(a, b) {
     if (a.isFirst && !b.isFirst) return -1;
     if (b.isFirst && !a.isFirst) return 1;
     return (a.displayName || '').localeCompare(b.displayName || '');
-  }).map(function(s) {
-    return [
-      s.isFirst
-        ? el('span', { style: { color: '#34d399', fontWeight: 700 } }, '▶ ' + (s.displayName || s.guid))
-        : (s.displayName || s.guid),
-      s.description || '',
-    ];
   });
 
   // Only add the "Other Properties" column when at least one link actually
@@ -3111,7 +3179,7 @@ function GovernanceProcessDetail({ item, detailLoading, creds }) {
     !detailLoading && (steps.length > 0
       ? el('div', null,
           el('div', { style: sectionHdr }, 'Process Steps (' + steps.length + ')'),
-          TechTable(['Step', 'Description'], stepRows, null)
+          el(ProcessStepsTable, { steps: sortedSteps })
         )
       : el('div', { style: { fontSize: 12, color: 'var(--dim)', marginTop: 20 } }, 'This process has no defined steps.')),
 
@@ -3338,6 +3406,190 @@ function GovernanceProcessesView({ creds, navTarget, onNavigate }) {
   );
 }
 
+// ── Namespaces ────────────────────────────────────────────────────────────────
+// Namespace is a single Collection subtype (used in this deployment for Unity
+// Catalog Catalogs) — moved here from Egeria Explorer (which has no other
+// collection-browsing pattern; Namespace's members are what matter, not a
+// digital-product-style hierarchy, so it doesn't need Explorer's Collections
+// tree either). No type-tab bar, same rationale as GovernanceProcessesView not
+// needing one when its type hierarchy is flat in practice.
+//
+// NamespaceDetail mirrors AssetDetail's structure/conventions (this file's
+// generic Asset detail renderer) rather than reusing type-explorer.html's
+// DigitalProductDetail, which drags in a large web of Explorer-only
+// dependencies (modals, favorites, tabular preview, …) for a single-subtype
+// view — plus a "Members" section grouped by typeName, the one piece of
+// AssetDetail's shape that doesn't cover (Assets don't have Collection
+// members).
+function NamespaceDetail({ item, detailLoading, creds, onNavigate }) {
+  if (!item) return null;
+  // item.props (formula, owner, additionalProperties, …) arrives nested, but
+  // this table (like AssetDetail's) reads flat top-level keys — same
+  // flattening every other _serialize_node-style consumer in this app does.
+  var flatItem = Object.assign({}, item, item.props);
+  var sectionHdr = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
+  var skipKeys = new Set(['guid', 'typeName', 'superTypeNames', 'displayName', 'qualifiedName', 'description',
+                           'classifications', 'relationships', 'children', 'props', 'additionalProperties', '_header', 'status']);
+  var extraProps = Object.entries(flatItem).filter(function(e) {
+    if (skipKeys.has(e[0]) || _isMermaidKey(e[0])) return false;
+    if (Array.isArray(e[1])) return e[1].length > 0 && e[1].every(function(v) { return typeof v === 'string'; });
+    return (typeof e[1] === 'string' && e[1].trim()) || typeof e[1] === 'number' || typeof e[1] === 'boolean';
+  }).map(function(e) {
+    return Array.isArray(e[1]) ? [e[0], e[1].join(', ')] : e;
+  });
+  var rels = item.relationships || [];
+
+  // Members grouped by typeName — same shape as DigitalProductDetail's
+  // "Members" section in type-explorer.html (renderMemberGroup), stripped of
+  // the DataSpec/tabular-preview special cases that only apply to Digital
+  // Products.
+  var children = item.children || [];
+  var memberGroups = {};
+  children.forEach(function(c) {
+    var tn = c.typeName || 'Unknown';
+    if (!memberGroups[tn]) memberGroups[tn] = [];
+    memberGroups[tn].push(c);
+  });
+  var memberTypeNames = Object.keys(memberGroups).sort();
+
+  return React.createElement('div', null,
+    React.createElement('div', { style: { display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 12 } },
+      React.createElement('h2', { style: { fontSize: 18, fontWeight: 700, margin: 0, color: 'var(--text)', flex: 1 } }, item.displayName || item.qualifiedName || item.guid),
+      detailLoading && React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)' } }, 'Loading detail…'),
+      React.createElement(EgeriaFeedbackWidget, { guid: item.guid }),
+      React.createElement(HeaderInfoButton, { header: item._header }),
+      React.createElement(CopyJsonButton, { data: item })
+    ),
+    item.typeName && React.createElement('div', { style: { display: 'inline-block', fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: 'rgba(96,165,250,0.12)', color: 'var(--accent)', marginBottom: 12 } }, item.typeName),
+    item.qualifiedName && React.createElement('code', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 8, wordBreak: 'break-all' } }, item.qualifiedName),
+    item.description && React.createElement('p', { style: { fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, margin: '0 0 16px' } }, item.description),
+
+    React.createElement(AvailableMermaidDiagrams, { data: item, skip: new Set() }),
+
+    (extraProps.length > 0 || item.qualifiedName || item.guid) && React.createElement('div', null,
+      React.createElement('div', { style: sectionHdr }, 'Properties'),
+      React.createElement('table', { style: { borderCollapse: 'collapse', width: '100%', fontSize: 12 } },
+        React.createElement('tbody', null,
+          [['Qualified Name', item.qualifiedName || '—'], ['GUID', item.guid || '—']].concat(extraProps).map(function(r) {
+            var mono = r[0] === 'Qualified Name' || r[0] === 'GUID';
+            return React.createElement('tr', { key: r[0], style: { borderBottom: '1px solid var(--border)' } },
+              React.createElement('td', { style: { padding: '5px 10px 5px 0', color: 'var(--dim)', width: 180, verticalAlign: 'top', whiteSpace: 'nowrap' } }, r[0]),
+              React.createElement('td', { style: { padding: '5px 0', color: 'var(--text)', wordBreak: 'break-all', fontFamily: mono ? 'ui-monospace,monospace' : 'inherit', fontSize: mono ? 11 : 12 } }, String(r[1]))
+            );
+          })
+        )
+      )
+    ),
+
+    React.createElement(AdditionalPropertiesTable, { data: item.additionalProperties }),
+    React.createElement(ClassificationsAndRawJson, { item: item, creds: creds }),
+
+    memberTypeNames.length > 0 && React.createElement('div', null,
+      React.createElement('div', { style: sectionHdr }, 'Members (' + children.length + ')'),
+      memberTypeNames.map(function(tn) {
+        var members = memberGroups[tn];
+        return React.createElement('div', { key: tn, style: { marginBottom: 12 } },
+          React.createElement('div', { style: { fontWeight: 600, fontSize: 11, color: 'var(--dim)', marginBottom: 4 } }, tn + ' (' + members.length + ')'),
+          members.map(function(m) {
+            var nav = m.guid ? _resolveTypeToNav(m.typeName, m.superTypeNames) : null;
+            return React.createElement('div', { key: m.guid, style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, padding: '4px 0', borderTop: '1px solid var(--border)' } },
+              React.createElement('span', { style: { flex: 1 } }, m.displayName || m.qualifiedName || m.guid),
+              nav && onNavigate && React.createElement('button', {
+                onClick: function() { onNavigate(Object.assign({ guid: m.guid, displayName: m.displayName || m.guid }, nav)); },
+                style: { fontSize: 10, padding: '2px 7px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer', flexShrink: 0 }
+              }, nav.external ? '↗ Egeria Explorer' : 'View →')
+            );
+          })
+        );
+      })
+    ),
+
+    rels.length > 0 && React.createElement(Collapsible, { title: 'Relationships', count: rels.length, defaultOpen: false },
+      rels.map(function(r, i) {
+        var el = r.relatedElement || {};
+        var relProps = Object.entries(r.relationshipProperties || {});
+        var nav = el.guid ? _resolveTypeToNav(el.typeName, el.superTypes) : null;
+        return React.createElement('div', { key: i, style: { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 12px', marginBottom: 6, borderLeft: '3px solid var(--rel)' } },
+          React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: relProps.length ? 4 : 0 } },
+            React.createElement('span', { style: { fontSize: 10, fontWeight: 700, color: 'var(--rel)', letterSpacing: '0.05em' } }, r.relationshipType),
+            React.createElement('span', { style: { fontSize: 12, color: 'var(--text)', flex: 1 } }, el.displayName || el.guid || ''),
+            el.typeName && React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)' } }, '· ' + el.typeName),
+            nav && onNavigate && React.createElement('button', {
+              onClick: function() { onNavigate(Object.assign({ guid: el.guid, displayName: el.displayName || el.guid }, nav)); },
+              style: { fontSize: 10, padding: '2px 7px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer', flexShrink: 0 }
+            }, nav.external ? '↗ Egeria Explorer' : 'View →')
+          ),
+          relProps.filter(function(e) { return typeof e[1] !== 'object' || e[1] === null; }).map(function(e) {
+            return React.createElement('div', { key: 'rel-' + e[0], style: { fontSize: 11, color: 'var(--muted)' } },
+              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
+          })
+        );
+      })
+    ),
+
+    React.createElement(EgeriaCommentsSection, { guid: item.guid })
+  );
+}
+
+function NamespacesView({ creds, navTarget, onNavigate }) {
+  var _items      = useState([]),    items      = _items[0],      setItems      = _items[1];
+  var _loading    = useState(true),  loading    = _loading[0],    setLoading    = _loading[1];
+  var _error      = useState(''),    error      = _error[0],      setError      = _error[1];
+  var _selected   = useState(null),  selected   = _selected[0],   setSelected   = _selected[1];
+  var _detail     = useState(null),  detail     = _detail[0],     setDetail     = _detail[1];
+  var _detailLoad = useState(false), detailLoad = _detailLoad[0], setDetailLoad = _detailLoad[1];
+  var _q          = useState(''),    q          = _q[0],          setQ          = _q[1];
+  var _attempt = useState(0), attempt = _attempt[0], setAttempt = _attempt[1];
+
+  useEffect(function() {
+    setLoading(true); setError('');
+    fetchWithToken('/api/namespaces?page_size=1000', creds)
+      .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || r.status); }); })
+      .then(function(d) { setItems(d.namespaces || []); setLoading(false); })
+      .catch(function(e) { setError(e.message || String(e)); setLoading(false); });
+  }, [creds.url, creds.server, creds.userId, creds.userPwd, attempt]);
+
+  function handleSelect(item) {
+    setSelected(item);
+    setDetail(item);
+    setDetailLoad(true);
+    fetchWithToken('/api/namespaces/' + encodeURIComponent(item.guid), creds)
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(d) { setDetail(d || item); setDetailLoad(false); })
+      .catch(function() { setDetailLoad(false); });
+  }
+
+  // Cross-navigation from another tab's "View →" (item typed Namespace).
+  var _lastNavGuid = useRef(null);
+  useEffect(function() {
+    if (!navTarget || !navTarget.guid || !creds) return;
+    if (navTarget.section !== 'namespaces') return;
+    if (navTarget.guid === _lastNavGuid.current) return;
+    _lastNavGuid.current = navTarget.guid;
+    handleSelect({ guid: navTarget.guid, displayName: navTarget.displayName || navTarget.guid });
+  }, [navTarget, creds]);
+
+  var listItems = items
+    .filter(function(i) { return !q.trim() || (i.displayName || i.qualifiedName || '').toLowerCase().indexOf(q.trim().toLowerCase()) !== -1; })
+    .sort(function(a, b) { return (a.displayName || a.qualifiedName || '').localeCompare(b.displayName || b.qualifiedName || ''); });
+
+  var filterBar = React.createElement('div', { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 5 } },
+    React.createElement('input', { type: 'search', placeholder: 'Filter…', value: q, onChange: function(e) { setQ(e.target.value); },
+      style: { fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none' } }),
+    React.createElement('button', {
+      className: 'btn-sm', style: { alignSelf: 'flex-start' },
+      onClick: function() { setAttempt(function(a) { return a + 1; }); }
+    }, '↻ Refresh')
+  );
+
+  return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' } },
+    React.createElement(SidebarDetail, {
+      items: listItems, loading: loading, error: error, selected: selected, onSelect: handleSelect, filterBar: filterBar,
+      renderDetail: function(item) { return React.createElement(NamespaceDetail, { item: detail || item, detailLoading: detailLoad, creds: creds, onNavigate: onNavigate }); },
+    })
+  );
+}
+
 var SECTION_TABS = {
   infrastructure: [
     { id: 'infrastructure', label: 'IT Infrastructure', endpoint: '/api/tech-catalog/infrastructure' },
@@ -3378,6 +3630,9 @@ function SectionView({ sectionId, creds, navTarget, onNavigate, searchQuery }) {
   }
   if (sectionId === 'capabilities') {
     return React.createElement(CapabilitiesView, { creds: creds, onNavigate: onNavigate });
+  }
+  if (sectionId === 'namespaces') {
+    return React.createElement(NamespacesView, { creds: creds, navTarget: navTarget, onNavigate: onNavigate });
   }
   var tabs = SECTION_TABS[sectionId] || [];
   var _tab = useState(tabs[0] ? tabs[0].id : ''), activeTab = _tab[0], setActiveTab = _tab[1];
@@ -3431,14 +3686,11 @@ var SECTIONS = [
   { id: 'apis',           icon: '🔗', label: 'APIs',                    desc: 'Deployed APIs and their endpoints.' },
   { id: 'processes',      icon: '⚙️', label: 'Processes',               desc: 'Software components and actions.' },
   { id: 'surveys',        icon: '🔍', label: 'Survey Reports & Annotations', desc: 'Survey reports, analysis annotations, and survey type definitions.' },
-  // Namespace (used here for Unity Catalog Catalogs) is a Collection subtype —
-  // The Catalog has no collection-browsing pattern of its own (that lives in
-  // Egeria Explorer's Collections/Digital Products/Agreements tabs), so this
-  // is a lighter-weight card that just hands off there rather than
-  // reimplementing that pattern a second time. `external`/`hash` make the
-  // splash card and nav-bar button below open Egeria Explorer instead of
-  // calling setSection (which has no 'namespaces' case in SectionView).
-  { id: 'namespaces',     icon: '🗂️', label: 'Namespaces', desc: 'Namespaces group elements under a particular namespace, e.g. Unity Catalog Catalogs. Opens in Egeria Explorer.', external: 'egeria-explorer', hash: 'namespaces' },
+  // Namespace (used here for Unity Catalog Catalogs) is a Collection subtype.
+  // Previously a hand-off card to Egeria Explorer's own Namespaces tab; that
+  // tab has been removed from Explorer and its list+detail view moved here
+  // (NamespacesView/NamespaceDetail above) — The Catalog is now its only home.
+  { id: 'namespaces',     icon: '🗂️', label: 'Namespaces', desc: 'Namespaces group elements under a particular namespace, e.g. Unity Catalog Catalogs.' },
 ];
 // ALL_SECTIONS includes Search for the nav-bar button list; Search is not a splash tile group.
 var ALL_SECTIONS = SECTIONS.concat([{ id: 'search', icon: '🔎', label: 'Search' }]);
@@ -3625,7 +3877,7 @@ function Splash({ onSelect, authUser, activePersona, creds, demoMode, srvManaged
 function App() {
   var _section   = useState(function() {
     var hash  = window.location.hash.slice(1);
-    var valid = new Set(['glossary','infrastructure','data-assets','apis','processes','tech-types','surveys','search']);
+    var valid = new Set(['glossary','infrastructure','data-assets','apis','processes','tech-types','surveys','search','namespaces']);
     if (valid.has(hash)) return hash;
     return '';  // ?guid= section is resolved via element-nav after auth
   }), section = _section[0], setSection = _section[1];
@@ -3788,9 +4040,11 @@ function App() {
       section && React.createElement('button', { onClick: function() { setSection(''); },
         style: { fontSize: 11, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' } }, '⌂ Home'),
       section && SECTIONS.map(function(s) {
-        // external sections (Namespaces → Egeria Explorer) have no local
-        // 'section' state of their own — setSection(s.id) would just blank
-        // the view, since SectionView has no case for them.
+        // Sections marked `external` open a different app entirely (none as
+        // of this writing — Namespaces used to, before moving fully into The
+        // Catalog) — they have no local 'section' state of their own, so
+        // setSection(s.id) would just blank the view since SectionView has no
+        // case for them.
         return React.createElement('button', { key: s.id,
           onClick: s.external ? function() { window.open('/' + s.external + '#' + s.hash, '_blank'); } : function() { setSection(s.id); },
           title: s.external ? 'Opens in Egeria Explorer' : undefined,

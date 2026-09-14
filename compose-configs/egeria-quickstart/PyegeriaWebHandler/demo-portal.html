@@ -1146,7 +1146,12 @@ document.addEventListener('visibilitychange', function() {
 function _portalIsCatalogType(item) {
   var st = item.superTypeNames || [];
   var tn = item.typeName || '';
-  return st.indexOf('Asset') !== -1 || tn === 'Endpoint' || tn === 'SoftwareCapability' || st.indexOf('SoftwareCapability') !== -1;
+  if (st.indexOf('Asset') !== -1 || tn === 'Endpoint' || tn === 'SoftwareCapability' || st.indexOf('SoftwareCapability') !== -1) return true;
+  // Same type-nav-map fallback as static/egeria-shared-ui.js's _isCatalogType
+  // — see its comment. Kept in sync manually (same duplication as the rest of
+  // this file's nav resolution, per its own header comment above).
+  var nav = (typeof resolveTypeNav === 'function') ? resolveTypeNav(tn, st) : null;
+  return !!(nav && nav.catalogSection && !nav.explorerHash);
 }
 // EngineAction is the one type not in type-nav-map.json — see that file's
 // header comment for why (it opens the egeria-operations app directly, not

@@ -867,7 +867,13 @@ def _serialize_governance_process_detail(raw: dict) -> dict:
 
     steps_by_guid: dict = {}
 
-    def _add_step(step_el: dict, is_first: bool = False):
+    # A step's own scalar properties beyond the four named fields already
+    # broken out — e.g. ignoreMultipleTriggers, waitTime, additionalProperties.
+    # Previously dropped entirely, same rationale as _extract_props for the
+    # process's own properties above.
+    _STEP_SKIP = {"class", "displayName", "name", "qualifiedName", "description"}
+
+    def _add_step(step_el: dict, is_first: bool = False, start_link_props: Optional[dict] = None):
         s_hdr = _header(step_el)
         s_guid = s_hdr.get("guid", "")
         if not s_guid or s_guid in steps_by_guid:
@@ -880,11 +886,23 @@ def _serialize_governance_process_detail(raw: dict) -> dict:
             "qualifiedName": s_props.get("qualifiedName") or "",
             "description":   s_props.get("description") or "",
             "isFirst":       is_first,
+            "extraProps":    _extract_props({k: v for k, v in s_props.items() if k not in _STEP_SKIP}),
+            # Properties of the relationship that starts this step (e.g. guard,
+            # if the platform ever populates one on the entry link) — only ever
+            # set for the first step; other steps are reached via stepLinks
+            # instead, already surfaced in the Step Flow table.
+            "startLinkProps": start_link_props or None,
         }
 
-    first_element = (raw.get("firstProcessStep") or {}).get("element") or {}
+    first_step_rel = raw.get("firstProcessStep") or {}
+    first_element = first_step_rel.get("element") or {}
     if first_element:
-        _add_step(first_element, is_first=True)
+        # firstProcessStep is {"element": {...}, "linkGUID": "...", maybe more} —
+        # everything but "element" describes the relationship that starts this
+        # step, captured generically rather than assumed to be empty.
+        _FIRST_LINK_SKIP = {"element", "class"}
+        start_link_props = _extract_props({k: v for k, v in first_step_rel.items() if k not in _FIRST_LINK_SKIP})
+        _add_step(first_element, is_first=True, start_link_props=start_link_props)
     for step_el in _safe_list(raw.get("nextProcessSteps")):
         _add_step(step_el)
 
