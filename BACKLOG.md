@@ -9,6 +9,32 @@ what's actually open — a stub with a link is left in place of each moved
 section. Sections with any open/pending sub-items stay here even if their
 header says "done", since part of the work is still live.
 ---
+## Mirror egeria-freshstart from egeria-quickstart (2026-09-14) — open
+
+`egeria-freshstart/PyegeriaWebHandler` was already out of sync with
+`egeria-quickstart/PyegeriaWebHandler` (last touched ~2026-09-01, quickstart
+now at 2026-09-13+) before the Collections/Governance-Processes/Namespaces
+fixes below were made quickstart-only. Files known to have diverged as of
+this writing: `type-explorer.html`, `tech-catalog.html`,
+`tech_catalog_handler.py`, `static/egeria-shared-ui.js`,
+`static/type-nav-map.json` (confirmed via `diff -q` between the two trees —
+re-check for more before starting, this list isn't exhaustive).
+
+Don't blind-patch the quickstart diff onto the stale freshstart copies —
+diff each file pair first and reconcile by hand; a mechanical patch onto a
+different base risks silently corrupting freshstart. Includes re-porting:
+- Egeria Explorer Collections tab: root collection selectable as its own
+  node in the middle pane (`CollectionsView`/`DigitalTreeNode`,
+  type-explorer.html).
+- Governance Processes first-step twistie now shows guard/parameters
+  (`_serialize_governance_process_detail` in tech_catalog_handler.py;
+  `ProcessStepRow`/`ProcessStepsTable` in tech-catalog.html).
+- Namespaces moved out of Egeria Explorer into The Catalog as its own
+  real view (`NamespacesView`/`NamespaceDetail` in tech-catalog.html;
+  removed from type-explorer.html; `Namespace` entry added to
+  static/type-nav-map.json; `_isCatalogType` widened in
+  static/egeria-shared-ui.js and demo-portal.html's `_portalIsCatalogType`).
+
 ## Perf: Egeria Explorer Collections "parentless" list — 46.6s → 12.5s (2026-09-02) — ✅ done (quickstart only)
 
 Raised live: the Collections pane's middle-row hierarchy was slow to render.

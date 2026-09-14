@@ -2617,7 +2617,14 @@ function _isCatalogType(item) {
   // Types displayed in the Tech Catalog (resolves ?guid via its element-nav).
   var st = item.superTypeNames || item.superTypes || [];
   var tn = item.typeName || '';
-  return st.indexOf('Asset') !== -1 || tn === 'Endpoint' || tn === 'SoftwareCapability' || st.indexOf('SoftwareCapability') !== -1;
+  if (st.indexOf('Asset') !== -1 || tn === 'Endpoint' || tn === 'SoftwareCapability' || st.indexOf('SoftwareCapability') !== -1) return true;
+  // Falls back to the type-nav map for types Tech Catalog owns an internal
+  // view for (catalogSection) but that aren't Assets/Endpoint/SoftwareCapability
+  // — e.g. Namespace, a Collection subtype. Only when there's no explorerHash:
+  // a type with both (GlossaryTerm, GovernanceActionProcess) already resolved
+  // via resolveExplorerNav() above and never reaches this fallback.
+  var nav = (typeof resolveTypeNav === 'function') ? resolveTypeNav(tn, st) : null;
+  return !!(nav && nav.catalogSection && !nav.explorerHash);
 }
 
 /* Unified element-nav: prefer an Explorer panel, else the Tech Catalog. Returns
