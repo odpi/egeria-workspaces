@@ -24,6 +24,23 @@ jupyter-notebook-parser = "^0.1.4"
 marko = "^2.1.2"
 fastapi = ">=0.135.0"
 pyspark = "3.5.3"
+pydantic = "*"
+uvicorn = { extras = ["standard"], version = "*" }
+httpx = "*"
+nest_asyncio = "*"
+email-validator = "*"
+click = "*"
+mcp = ">=2.1.1"
+sqlalchemy = "*"
+bcrypt = "*"
+python-jose = { extras = ["cryptography"], version = "*" }
+python-multipart = "*"
+slowapi = "*"
+apscheduler = "*"
+docker = "*"
+resend = "*"
+pytest = "*"
+pytest-asyncio = "*"
 
 
 [build-system]
