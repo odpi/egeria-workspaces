@@ -79,12 +79,6 @@ Software Service
 ### Planned Deployed Implementation Type
 Data Hub
 
-### In Information Supply Chain
-- InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
-- InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
-- InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
-- InformationSupplyChain::New Drug Product Details Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -184,9 +178,6 @@ Software Service
 ### Planned Deployed Implementation Type
 Business Systems Group
 
-### In Information Supply Chain
-- InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -219,10 +210,6 @@ Software Service
 
 ### Planned Deployed Implementation Type
 Business Systems Group
-
-### In Information Supply Chain
-- InformationSupplyChain::New Drug Product Details Information Supply Chain
-- InformationSupplyChain::Clinical Trials Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -438,7 +425,7 @@ ___
 
 ## Part 2: The Component Catalogue
 
-Seventy-one components, grouped by the business system group that holds them.  Each declares the supply chains it is a member of at the point it is created, so that the chains below are complete without a further membership command for anything defined in this file.
+Seventy-one components, grouped by the business system group that holds them.  Membership of the supply chains is declared in Part 3, chain by chain, with `Add Member to Collection` - an information supply chain is a collection, and its components are its members.
 
 A component that appears in several chains is created once.  The qualification register belongs to four of them, and that is the finding rather than an accident of modelling: a record human resources maintains for employment reasons is read as compliance evidence by manufacturing, by clinical trials and by dangerous goods transport.
 
@@ -467,13 +454,6 @@ Master Data Management
 
 ### In Solution Components
 - CocoPharma::SolutionComponent::DataHub
-
-### In Information Supply Chain
-- InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
-- InformationSupplyChain::Product Serialisation and Verification Information Supply Chain
-- InformationSupplyChain::New Drug Product Details Information Supply Chain
-- InformationSupplyChain::Clinical Trials Information Supply Chain
-- InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -510,9 +490,6 @@ Integration Service
 
 ### In Solution Components
 - CocoPharma::SolutionComponent::DataHub
-
-### In Information Supply Chain
-- InformationSupplyChain::New Drug Product Details Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -557,10 +534,6 @@ Web Application
 ### In Solution Blueprints
 - SolutionBlueprint::Personalized Medicine Order Fulfillment::Personalized Medicine Order Fulfillment Solution Blueprint
 
-### In Information Supply Chain
-- InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
-- InformationSupplyChain::Adverse Event and Safety Reporting Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -599,10 +572,6 @@ PostgreSQL Database
 
 ### In Solution Blueprints
 - SolutionBlueprint::Personalized Medicine Order Fulfillment::Personalized Medicine Order Fulfillment Solution Blueprint
-
-### In Information Supply Chain
-- InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
-- InformationSupplyChain::Data Subject Rights Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -647,10 +616,6 @@ Cloud Application
 ### In Solution Blueprints
 - SolutionBlueprint::Personalized Medicine Order Fulfillment::Personalized Medicine Order Fulfillment Solution Blueprint
 
-### In Information Supply Chain
-- InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
-- InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -686,13 +651,6 @@ Integration Service
 
 ### In Solution Components
 - CocoPharma::SolutionComponent::Finance
-
-### In Information Supply Chain
-- InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
-- InformationSupplyChain::Employee Expense Payment Information Supply Chain
-- InformationSupplyChain::New Employee Onboarding Information Supply Chain
-- InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
-- InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -730,9 +688,6 @@ Manual Process
 ### In Solution Components
 - CocoPharma::SolutionComponent::Finance
 
-### In Information Supply Chain
-- InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -768,9 +723,6 @@ COTS Application
 
 ### In Solution Components
 - CocoPharma::SolutionComponent::Finance
-
-### In Information Supply Chain
-- InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -808,10 +760,6 @@ Reporting Application
 ### In Solution Components
 - CocoPharma::SolutionComponent::Finance
 
-### In Information Supply Chain
-- InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
-- InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -847,9 +795,6 @@ Content Manager
 
 ### In Solution Components
 - CocoPharma::SolutionComponent::Finance
-
-### In Information Supply Chain
-- InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -887,9 +832,6 @@ Cloud Application
 ### In Solution Components
 - CocoPharma::SolutionComponent::Finance
 
-### In Information Supply Chain
-- InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -925,10 +867,6 @@ COTS Application
 
 ### In Solution Components
 - CocoPharma::SolutionComponent::Finance
-
-### In Information Supply Chain
-- InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
-- InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -966,10 +904,6 @@ Analytics Application
 ### In Solution Components
 - CocoPharma::SolutionComponent::Finance
 
-### In Information Supply Chain
-- InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
-- InformationSupplyChain::Employee Expense Payment Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -1005,11 +939,6 @@ PostgreSQL Database
 
 ### In Solution Components
 - CocoPharma::SolutionComponent::Finance
-
-### In Information Supply Chain
-- InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
-- InformationSupplyChain::Employee Expense Payment Information Supply Chain
-- InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -1049,10 +978,6 @@ Cloud Application
 
 ### In Solution Blueprints
 - SolutionBlueprint::Employee Management::Employee Management Solution Blueprint
-
-### In Information Supply Chain
-- InformationSupplyChain::Employee Expense Payment Information Supply Chain
-- InformationSupplyChain::New Employee Onboarding Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -1097,10 +1022,6 @@ Content Manager
 ### In Solution Blueprints
 - SolutionBlueprint::Inventory Management::Inventory Management Solution Blueprint
 
-### In Information Supply Chain
-- InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
-- InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -1137,9 +1058,6 @@ Cloud Application
 ### In Solution Components
 - CocoPharma::SolutionComponent::Procurement
 
-### In Information Supply Chain
-- InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -1175,10 +1093,6 @@ Master Data Management
 
 ### In Solution Components
 - CocoPharma::SolutionComponent::Procurement
-
-### In Information Supply Chain
-- InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
-- InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -1223,10 +1137,6 @@ COTS Application
 ### In Solution Blueprints
 - SolutionBlueprint::Inventory Management::Inventory Management Solution Blueprint
 
-### In Information Supply Chain
-- InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
-- InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -1265,10 +1175,6 @@ COTS Application
 
 ### In Solution Blueprints
 - SolutionBlueprint::Inventory Management::Inventory Management Solution Blueprint
-
-### In Information Supply Chain
-- InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
-- InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -1313,10 +1219,6 @@ Scheduling Application
 ### In Solution Blueprints
 - SolutionBlueprint::Personalized Medicine Order Fulfillment::Personalized Medicine Order Fulfillment Solution Blueprint
 
-### In Information Supply Chain
-- InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
-- InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -1355,11 +1257,6 @@ COTS Application
 
 ### In Solution Blueprints
 - SolutionBlueprint::Automated Manufacturing Control::Automated Manufacturing Control Solution Blueprint
-
-### In Information Supply Chain
-- InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
-- InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
-- InformationSupplyChain::Workforce Competency and Qualification Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -1400,9 +1297,6 @@ Time Series Database
 ### In Solution Blueprints
 - SolutionBlueprint::Automated Manufacturing Control::Automated Manufacturing Control Solution Blueprint
 
-### In Information Supply Chain
-- InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -1441,9 +1335,6 @@ COTS Application
 
 ### In Solution Blueprints
 - SolutionBlueprint::Automated Manufacturing Control::Automated Manufacturing Control Solution Blueprint
-
-### In Information Supply Chain
-- InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -1484,13 +1375,6 @@ COTS Application
 ### In Solution Blueprints
 - SolutionBlueprint::Automated Manufacturing Control::Automated Manufacturing Control Solution Blueprint
 
-### In Information Supply Chain
-- InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
-- InformationSupplyChain::Product Serialisation and Verification Information Supply Chain
-- InformationSupplyChain::Workforce Competency and Qualification Information Supply Chain
-- InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
-- InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -1529,10 +1413,6 @@ Serialisation Service
 
 ### In Solution Blueprints
 - SolutionBlueprint::Automated Manufacturing Control::Automated Manufacturing Control Solution Blueprint
-
-### In Information Supply Chain
-- InformationSupplyChain::Product Serialisation and Verification Information Supply Chain
-- InformationSupplyChain::New Drug Product Details Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -1573,9 +1453,6 @@ Line Control System
 ### In Solution Blueprints
 - SolutionBlueprint::Automated Manufacturing Control::Automated Manufacturing Control Solution Blueprint
 
-### In Information Supply Chain
-- InformationSupplyChain::Product Serialisation and Verification Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -1614,9 +1491,6 @@ Line Control System
 
 ### In Solution Blueprints
 - SolutionBlueprint::Automated Manufacturing Control::Automated Manufacturing Control Solution Blueprint
-
-### In Information Supply Chain
-- InformationSupplyChain::Product Serialisation and Verification Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -1657,10 +1531,6 @@ Serialisation Platform
 ### In Solution Blueprints
 - SolutionBlueprint::Automated Manufacturing Control::Automated Manufacturing Control Solution Blueprint
 
-### In Information Supply Chain
-- InformationSupplyChain::Product Serialisation and Verification Information Supply Chain
-- InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -1699,10 +1569,6 @@ Integration Service
 
 ### In Solution Blueprints
 - SolutionBlueprint::Automated Manufacturing Control::Automated Manufacturing Control Solution Blueprint
-
-### In Information Supply Chain
-- InformationSupplyChain::Product Serialisation and Verification Information Supply Chain
-- InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -1747,10 +1613,6 @@ Logistics Application
 ### In Solution Blueprints
 - SolutionBlueprint::Personalized Medicine Order Fulfillment::Personalized Medicine Order Fulfillment Solution Blueprint
 
-### In Information Supply Chain
-- InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
-- InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -1789,9 +1651,6 @@ Tracking Service
 
 ### In Solution Blueprints
 - SolutionBlueprint::Personalized Medicine Order Fulfillment::Personalized Medicine Order Fulfillment Solution Blueprint
-
-### In Information Supply Chain
-- InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -1832,11 +1691,6 @@ Rules Service
 ### In Solution Blueprints
 - SolutionBlueprint::Hazardous Material Management::Hazardous Material Management Solution Blueprint
 
-### In Information Supply Chain
-- InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
-- InformationSupplyChain::Occupational Health Surveillance Information Supply Chain
-- InformationSupplyChain::New Drug Product Details Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -1875,10 +1729,6 @@ Manual Process
 
 ### In Solution Blueprints
 - SolutionBlueprint::Hazardous Material Management::Hazardous Material Management Solution Blueprint
-
-### In Information Supply Chain
-- InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
-- InformationSupplyChain::Workforce Competency and Qualification Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -1919,9 +1769,6 @@ IoT Device
 ### In Solution Blueprints
 - SolutionBlueprint::Hazardous Material Management::Hazardous Material Management Solution Blueprint
 
-### In Information Supply Chain
-- InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -1960,10 +1807,6 @@ Integration Service
 
 ### In Solution Blueprints
 - SolutionBlueprint::Hazardous Material Management::Hazardous Material Management Solution Blueprint
-
-### In Information Supply Chain
-- InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
-- InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -2005,11 +1848,6 @@ Integration Service
 ### In Solution Components
 - CocoPharma::SolutionComponent::QualitySystems
 
-### In Information Supply Chain
-- InformationSupplyChain::Adverse Event and Safety Reporting Information Supply Chain
-- InformationSupplyChain::Clinical Trials Information Supply Chain
-- InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -2045,9 +1883,6 @@ Cloud Application
 
 ### In Solution Components
 - CocoPharma::SolutionComponent::QualitySystems
-
-### In Information Supply Chain
-- InformationSupplyChain::Adverse Event and Safety Reporting Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -2085,9 +1920,6 @@ COTS Application
 ### In Solution Components
 - CocoPharma::SolutionComponent::QualitySystems
 
-### In Information Supply Chain
-- InformationSupplyChain::Adverse Event and Safety Reporting Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -2123,9 +1955,6 @@ Manual Process
 
 ### In Solution Components
 - CocoPharma::SolutionComponent::QualitySystems
-
-### In Information Supply Chain
-- InformationSupplyChain::Adverse Event and Safety Reporting Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -2163,11 +1992,6 @@ Analytics Application
 ### In Solution Components
 - CocoPharma::SolutionComponent::QualitySystems
 
-### In Information Supply Chain
-- InformationSupplyChain::Adverse Event and Safety Reporting Information Supply Chain
-- InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
-- InformationSupplyChain::New Drug Product Details Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -2203,9 +2027,6 @@ Regulatory Gateway
 
 ### In Solution Components
 - CocoPharma::SolutionComponent::QualitySystems
-
-### In Information Supply Chain
-- InformationSupplyChain::Adverse Event and Safety Reporting Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -2246,10 +2067,6 @@ COTS Application
 ### In Solution Blueprints
 - SolutionBlueprint::Automated Manufacturing Control::Automated Manufacturing Control Solution Blueprint
 
-### In Information Supply Chain
-- InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
-- InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -2288,10 +2105,6 @@ COTS Application
 
 ### In Solution Blueprints
 - SolutionBlueprint::Automated Manufacturing Control::Automated Manufacturing Control Solution Blueprint
-
-### In Information Supply Chain
-- InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
-- InformationSupplyChain::Adverse Event and Safety Reporting Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -2332,11 +2145,6 @@ Manual Process
 ### In Solution Blueprints
 - SolutionBlueprint::Automated Manufacturing Control::Automated Manufacturing Control Solution Blueprint
 
-### In Information Supply Chain
-- InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
-- InformationSupplyChain::New Drug Product Details Information Supply Chain
-- InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -2375,9 +2183,6 @@ Cloud Application
 
 ### In Solution Blueprints
 - SolutionBlueprint::Automated Manufacturing Control::Automated Manufacturing Control Solution Blueprint
-
-### In Information Supply Chain
-- InformationSupplyChain::Product Serialisation and Verification Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -2418,10 +2223,6 @@ Cloud Application
 ### In Solution Blueprints
 - SolutionBlueprint::Hazardous Material Management::Hazardous Material Management Solution Blueprint
 
-### In Information Supply Chain
-- InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
-- InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -2457,11 +2258,6 @@ Content Manager
 
 ### In Solution Components
 - CocoPharma::SolutionComponent::QualitySystems
-
-### In Information Supply Chain
-- InformationSupplyChain::Product Serialisation and Verification Information Supply Chain
-- InformationSupplyChain::New Drug Product Details Information Supply Chain
-- InformationSupplyChain::Adverse Event and Safety Reporting Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -2502,10 +2298,6 @@ Cloud Application
 ### In Solution Blueprints
 - SolutionBlueprint::Hazardous Material Management::Hazardous Material Management Solution Blueprint
 
-### In Information Supply Chain
-- InformationSupplyChain::Occupational Health Surveillance Information Supply Chain
-- InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -2545,10 +2337,6 @@ Laboratory Application
 ### In Solution Blueprints
 - SolutionBlueprint::Hazardous Material Management::Hazardous Material Management Solution Blueprint
 
-### In Information Supply Chain
-- InformationSupplyChain::Occupational Health Surveillance Information Supply Chain
-- InformationSupplyChain::New Employee Onboarding Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -2587,9 +2375,6 @@ Cloud Application
 
 ### In Solution Blueprints
 - SolutionBlueprint::Hazardous Material Management::Hazardous Material Management Solution Blueprint
-
-### In Information Supply Chain
-- InformationSupplyChain::Occupational Health Surveillance Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -2634,13 +2419,6 @@ Master Data Management
 ### In Solution Blueprints
 - SolutionBlueprint::Employee Management::Employee Management Solution Blueprint
 
-### In Information Supply Chain
-- InformationSupplyChain::Employee Expense Payment Information Supply Chain
-- InformationSupplyChain::New Employee Onboarding Information Supply Chain
-- InformationSupplyChain::Workforce Competency and Qualification Information Supply Chain
-- InformationSupplyChain::Occupational Health Surveillance Information Supply Chain
-- InformationSupplyChain::Data Subject Rights Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -2679,10 +2457,6 @@ Cloud Application
 
 ### In Solution Blueprints
 - SolutionBlueprint::Employee Management::Employee Management Solution Blueprint
-
-### In Information Supply Chain
-- InformationSupplyChain::New Employee Onboarding Information Supply Chain
-- InformationSupplyChain::Data Subject Rights Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -2723,9 +2497,6 @@ Identity Management
 ### In Solution Blueprints
 - SolutionBlueprint::Employee Management::Employee Management Solution Blueprint
 
-### In Information Supply Chain
-- InformationSupplyChain::New Employee Onboarding Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -2764,10 +2535,6 @@ COTS Application
 
 ### In Solution Blueprints
 - SolutionBlueprint::Employee Management::Employee Management Solution Blueprint
-
-### In Information Supply Chain
-- InformationSupplyChain::New Employee Onboarding Information Supply Chain
-- InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -2808,9 +2575,6 @@ Directory Service
 ### In Solution Blueprints
 - SolutionBlueprint::Employee Management::Employee Management Solution Blueprint
 
-### In Information Supply Chain
-- InformationSupplyChain::New Employee Onboarding Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -2849,9 +2613,6 @@ Cloud Application
 
 ### In Solution Blueprints
 - SolutionBlueprint::Employee Management::Employee Management Solution Blueprint
-
-### In Information Supply Chain
-- InformationSupplyChain::Workforce Competency and Qualification Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -2892,10 +2653,6 @@ COTS Application
 ### In Solution Blueprints
 - SolutionBlueprint::Employee Management::Employee Management Solution Blueprint
 
-### In Information Supply Chain
-- InformationSupplyChain::Workforce Competency and Qualification Information Supply Chain
-- InformationSupplyChain::New Employee Onboarding Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -2934,13 +2691,6 @@ PostgreSQL Database
 
 ### In Solution Blueprints
 - SolutionBlueprint::Employee Management::Employee Management Solution Blueprint
-
-### In Information Supply Chain
-- InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
-- InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
-- InformationSupplyChain::New Employee Onboarding Information Supply Chain
-- InformationSupplyChain::Workforce Competency and Qualification Information Supply Chain
-- InformationSupplyChain::Clinical Trials Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -2981,9 +2731,6 @@ Integration Service
 ### In Solution Blueprints
 - SolutionBlueprint::Employee Management::Employee Management Solution Blueprint
 
-### In Information Supply Chain
-- InformationSupplyChain::Workforce Competency and Qualification Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -3023,10 +2770,6 @@ Clinical Records System
 ### In Solution Blueprints
 - SolutionBlueprint::Hazardous Material Management::Hazardous Material Management Solution Blueprint
 
-### In Information Supply Chain
-- InformationSupplyChain::Occupational Health Surveillance Information Supply Chain
-- InformationSupplyChain::New Employee Onboarding Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -3065,9 +2808,6 @@ Archive Service
 
 ### In Solution Blueprints
 - SolutionBlueprint::Hazardous Material Management::Hazardous Material Management Solution Blueprint
-
-### In Information Supply Chain
-- InformationSupplyChain::Occupational Health Surveillance Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -3109,9 +2849,6 @@ Web Application
 ### In Solution Components
 - CocoPharma::SolutionComponent::PrivacyOperations
 
-### In Information Supply Chain
-- InformationSupplyChain::Data Subject Rights Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -3147,9 +2884,6 @@ Cloud Application
 
 ### In Solution Components
 - CocoPharma::SolutionComponent::PrivacyOperations
-
-### In Information Supply Chain
-- InformationSupplyChain::Data Subject Rights Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -3187,10 +2921,6 @@ Cloud Application
 ### In Solution Components
 - CocoPharma::SolutionComponent::PrivacyOperations
 
-### In Information Supply Chain
-- InformationSupplyChain::Data Subject Rights Information Supply Chain
-- InformationSupplyChain::New Employee Onboarding Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -3226,9 +2956,6 @@ Discovery Service
 
 ### In Solution Components
 - CocoPharma::SolutionComponent::PrivacyOperations
-
-### In Information Supply Chain
-- InformationSupplyChain::Data Subject Rights Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -3266,11 +2993,6 @@ Cloud Application
 ### In Solution Components
 - CocoPharma::SolutionComponent::PrivacyOperations
 
-### In Information Supply Chain
-- InformationSupplyChain::Data Subject Rights Information Supply Chain
-- InformationSupplyChain::New Employee Onboarding Information Supply Chain
-- InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -3306,10 +3028,6 @@ Rules Service
 
 ### In Solution Components
 - CocoPharma::SolutionComponent::PrivacyOperations
-
-### In Information Supply Chain
-- InformationSupplyChain::Data Subject Rights Information Supply Chain
-- InformationSupplyChain::Clinical Trials Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -3348,9 +3066,6 @@ Third Party Process
 ### Planned Deployed Implementation Type
 External Organization Processes
 
-### In Information Supply Chain
-- InformationSupplyChain::Product Serialisation and Verification Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -3383,9 +3098,6 @@ Third Party Process
 
 ### Planned Deployed Implementation Type
 External Organization Processes
-
-### In Information Supply Chain
-- InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
 
 ### Authors
 - Erin Overview
@@ -3420,9 +3132,6 @@ Third Party Process
 ### Planned Deployed Implementation Type
 External Service
 
-### In Information Supply Chain
-- InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
-
 ### Authors
 - Erin Overview
 - Peter Profile
@@ -3439,7 +3148,7 @@ ___
 
 ## Part 3: The Supply Chains
 
-Each chain below lists its members, adds the ones that already existed outside this file, and then draws its wires.  Every wire names the supply chains it implements in its `ISC Qualified Names`, which is how a wire that carries a handover between two chains ends up counted in both.
+Each chain below lists its members, adds them to the chain with `Add Member to Collection` (the archive components first, then the ones created in Part 2), and then draws its wires.  Every wire names the supply chains it implements in its `ISC Qualified Names`, which is how a wire that carries a handover between two chains ends up counted in both.
 
 ### 3.1 Personalised Treatment Ordering
 
@@ -3468,16 +3177,239 @@ The components below already exist — they come from `CocoComboArchive.omarchiv
 
 ___
 
-## Link Information Supply Chain Child
+## Add Member to Collection
 
-### ISC Parent
+### Collection Id
 InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
 
-### ISC Child
+### Element Id
 SolutionComponent::Accounting ledgers::V1.0
 
 ### Membership Rationale
 Revenue from a fulfilled treatment order posts here, which is where the clinical event becomes a financial one.
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+The components defined in Part 2 that belong to this chain are added as members here.
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::DataHub
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::TreatmentOrderingPortal
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::PatientIdentityRegister
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::OrderToInvoice
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::SubledgerFeeds
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::PersonalisedOrderScheduler
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::ElectronicBatchRecord
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::SampleLogistics
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::TreatmentDeliveryTracking
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::ColdChainDataCollector
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::SafetyIntakeGateway
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::BatchReviewAndCertification
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::RightsFulfilmentOrchestrator
 
 ### Membership Status
 VALIDATED
@@ -3773,16 +3705,171 @@ The components below already exist — they come from `CocoComboArchive.omarchiv
 
 ___
 
-## Link Information Supply Chain Child
+## Add Member to Collection
 
-### ISC Parent
+### Collection Id
 InformationSupplyChain::Adverse Event and Safety Reporting Information Supply Chain
 
-### ISC Child
+### Element Id
 SolutionComponent::Hospital Processes::V1.0
 
 ### Membership Rationale
 Trial sites report suspected adverse reactions observed in participants, which is one of the doors the intake gateway exists to consolidate.
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+The components defined in Part 2 that belong to this chain are added as members here.
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Adverse Event and Safety Reporting Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::TreatmentOrderingPortal
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Adverse Event and Safety Reporting Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::SafetyIntakeGateway
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Adverse Event and Safety Reporting Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::ProductComplaintIntake
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Adverse Event and Safety Reporting Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::PharmacovigilanceCaseManagement
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Adverse Event and Safety Reporting Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::MedicalAssessmentAndCoding
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Adverse Event and Safety Reporting Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::SafetySignalDetection
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Adverse Event and Safety Reporting Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::RegulatorySafetySubmission
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Adverse Event and Safety Reporting Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::DeviationAndCAPAManagement
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Adverse Event and Safety Reporting Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::MarketAuthorisationRegister
 
 ### Membership Status
 VALIDATED
@@ -4086,16 +4173,273 @@ The components below already exist — they come from `CocoComboArchive.omarchiv
 
 ___
 
-## Link Information Supply Chain Child
+## Add Member to Collection
 
-### ISC Parent
+### Collection Id
 InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
 
-### ISC Child
+### Element Id
 SolutionComponent::Goods Inventory::V1.0
 
 ### Membership Rationale
 Material issued to a batch is drawn from inventory, and the identity and status of what was issued becomes part of the batch record.
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+The components defined in Part 2 that belong to this chain are added as members here.
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::DataHub
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::ProductMasterRegister
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::MaterialQuarantineControl
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::PersonalisedOrderScheduler
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::ManufacturingExecution
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::ProcessHistorian
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::EquipmentQualificationRegister
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::ElectronicBatchRecord
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::MarketVerificationGateway
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::SafetySignalDetection
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::LaboratoryInformationManagement
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::DeviationAndCAPAManagement
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::BatchReviewAndCertification
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::ExcursionAssessment
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::CompetencyRegister
 
 ### Membership Status
 VALIDATED
@@ -4443,16 +4787,188 @@ The components below already exist — they come from `CocoComboArchive.omarchiv
 
 ___
 
-## Link Information Supply Chain Child
+## Add Member to Collection
 
-### ISC Parent
+### Collection Id
 InformationSupplyChain::Product Serialisation and Verification Information Supply Chain
 
-### ISC Child
+### Element Id
 SolutionComponent::Goods Inventory::V1.0
 
 ### Membership Rationale
 Serialised stock becomes physical inventory, and the two chains share a key from commissioning onwards.
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+The components defined in Part 2 that belong to this chain are added as members here.
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Product Serialisation and Verification Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::ProductMasterRegister
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Product Serialisation and Verification Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::ElectronicBatchRecord
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Product Serialisation and Verification Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::SerialNumberGenerator
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Product Serialisation and Verification Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::PackagingLineController
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Product Serialisation and Verification Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::AggregationRecorder
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Product Serialisation and Verification Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::SerialisationRepository
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Product Serialisation and Verification Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::MarketVerificationGateway
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Product Serialisation and Verification Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::SerialisationAlertTriage
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Product Serialisation and Verification Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::MarketAuthorisationRegister
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Product Serialisation and Verification Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::NationalVerificationSystems
 
 ### Membership Status
 VALIDATED
@@ -4803,16 +5319,205 @@ The components below already exist — they come from `CocoComboArchive.omarchiv
 
 ___
 
-## Link Information Supply Chain Child
+## Add Member to Collection
 
-### ISC Parent
+### Collection Id
 InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
 
-### ISC Child
+### Element Id
 SolutionComponent::Hazardous Materials (HazMat) Inventory::V1.0
 
 ### Membership Rationale
 Transport classification is derived from the substance register, so a substance reclassified for safety reasons changes how it may be shipped.
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+The components defined in Part 2 that belong to this chain are added as members here.
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::ProductMasterRegister
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::ElectronicBatchRecord
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::SampleLogistics
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::TransportClassificationService
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::ShippingDocumentation
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::TemperatureMonitoringDevices
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::ColdChainDataCollector
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::ExcursionAssessment
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::ExposureBandingRegister
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::CompetencyRegister
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::CarrierSystems
 
 ### Membership Status
 VALIDATED
@@ -5136,12 +5841,12 @@ The components below already exist — they come from `CocoComboArchive.omarchiv
 
 ___
 
-## Link Information Supply Chain Child
+## Add Member to Collection
 
-### ISC Parent
+### Collection Id
 InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
 
-### ISC Child
+### Element Id
 SolutionComponent::Goods Inventory::V1.0
 
 ### Membership Rationale
@@ -5156,16 +5861,154 @@ ___
 
 ___
 
-## Link Information Supply Chain Child
+## Add Member to Collection
 
-### ISC Parent
+### Collection Id
 InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
 
-### ISC Child
+### Element Id
 SolutionComponent::Hazardous Materials (HazMat) Inventory::V1.0
 
 ### Membership Rationale
 Hazardous material identity carried by the inventory is what transport classification and emergency response are both derived from.
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+The components defined in Part 2 that belong to this chain are added as members here.
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::DataHub
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::SupplierMaterialCertificates
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::SupplierMasterRegister
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::GoodsReceiptAndInspection
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::MaterialQuarantineControl
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::ManufacturingExecution
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::SerialisationRepository
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::LaboratoryInformationManagement
 
 ### Membership Status
 VALIDATED
@@ -5411,16 +6254,171 @@ The components below already exist — they come from `CocoComboArchive.omarchiv
 
 ___
 
-## Link Information Supply Chain Child
+## Add Member to Collection
 
-### ISC Parent
+### Collection Id
 InformationSupplyChain::New Drug Product Details Information Supply Chain
 
-### ISC Child
+### Element Id
 SolutionComponent::Egeria Open Metadata and Governance::V1.0
 
 ### Membership Rationale
 The catalogue records which systems receive the product definition, because a system nobody knows receives it is a system nobody updates.
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+The components defined in Part 2 that belong to this chain are added as members here.
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::New Drug Product Details Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::DataHub
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::New Drug Product Details Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::Research
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::New Drug Product Details Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::ProductMasterRegister
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::New Drug Product Details Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::ProductDataDistribution
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::New Drug Product Details Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::SerialNumberGenerator
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::New Drug Product Details Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::TransportClassificationService
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::New Drug Product Details Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::SafetySignalDetection
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::New Drug Product Details Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::BatchReviewAndCertification
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::New Drug Product Details Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::MarketAuthorisationRegister
 
 ### Membership Status
 VALIDATED
@@ -5586,12 +6584,12 @@ The components below already exist — they come from `CocoComboArchive.omarchiv
 
 ___
 
-## Link Information Supply Chain Child
+## Add Member to Collection
 
-### ISC Parent
+### Collection Id
 InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
 
-### ISC Child
+### Element Id
 SolutionComponent::Accounting ledgers::V1.0
 
 ### Membership Rationale
@@ -5606,16 +6604,171 @@ ___
 
 ___
 
-## Link Information Supply Chain Child
+## Add Member to Collection
 
-### ISC Parent
+### Collection Id
 InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
 
-### ISC Child
+### Element Id
 SolutionComponent::Employee Expense Tool::V1.0
 
 ### Membership Rationale
 Approved expenses post to the ledger through the same feed mechanism as every other subledger.
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+The components defined in Part 2 that belong to this chain are added as members here.
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::OrderToInvoice
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::SubledgerFeeds
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::JournalEntryReview
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::GroupConsolidation
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::DisclosureReporting
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::ControlsEvidenceRepository
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::SupplierPaymentProcessing
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::TransfersOfValueRegister
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::PayrollSystem
 
 ### Membership Status
 VALIDATED
@@ -5944,12 +7097,12 @@ The components below already exist — they come from `CocoComboArchive.omarchiv
 
 ___
 
-## Link Information Supply Chain Child
+## Add Member to Collection
 
-### ISC Parent
+### Collection Id
 InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
 
-### ISC Child
+### Element Id
 SolutionComponent::Accounting ledgers::V1.0
 
 ### Membership Rationale
@@ -5964,16 +7117,222 @@ ___
 
 ___
 
-## Link Information Supply Chain Child
+## Add Member to Collection
 
-### ISC Parent
+### Collection Id
 InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
 
-### ISC Child
+### Element Id
 SolutionComponent::Employee Expense Tool::V1.0
 
 ### Membership Rationale
 Hospitality and travel provided to healthcare professionals frequently arrives as an employee expense rather than a supplier invoice.
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+The components defined in Part 2 that belong to this chain are added as members here.
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::Procurement
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::SubledgerFeeds
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::DisclosureReporting
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::PaymentDetailChangeControl
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::SupplierPaymentProcessing
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::TransactionMonitoring
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::TransfersOfValueRegister
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::SupplierMaterialCertificates
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::ThirdPartyOnboardingWorkflow
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::SupplierMasterRegister
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::GoodsReceiptAndInspection
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::SanctionsAndScreeningService
 
 ### Membership Status
 VALIDATED
@@ -6292,12 +7651,12 @@ The components below already exist — they come from `CocoComboArchive.omarchiv
 
 ___
 
-## Link Information Supply Chain Child
+## Add Member to Collection
 
-### ISC Parent
+### Collection Id
 InformationSupplyChain::Employee Expense Payment Information Supply Chain
 
-### ISC Child
+### Element Id
 SolutionComponent::Employee Expense Tool::V1.0
 
 ### Membership Rationale
@@ -6312,16 +7671,103 @@ ___
 
 ___
 
-## Link Information Supply Chain Child
+## Add Member to Collection
 
-### ISC Parent
+### Collection Id
 InformationSupplyChain::Employee Expense Payment Information Supply Chain
 
-### ISC Child
+### Element Id
 SolutionComponent::Accounting ledgers::V1.0
 
 ### Membership Rationale
 Approved expenses post to the ledger and are consolidated into the published figures.
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+The components defined in Part 2 that belong to this chain are added as members here.
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Employee Expense Payment Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::SubledgerFeeds
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Employee Expense Payment Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::TransactionMonitoring
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Employee Expense Payment Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::TransfersOfValueRegister
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Employee Expense Payment Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::ExpenseApprovalWorkflow
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Employee Expense Payment Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::WorkerMasterRegister
 
 ### Membership Status
 VALIDATED
@@ -6493,12 +7939,12 @@ The components below already exist — they come from `CocoComboArchive.omarchiv
 
 ___
 
-## Link Information Supply Chain Child
+## Add Member to Collection
 
-### ISC Parent
+### Collection Id
 InformationSupplyChain::New Employee Onboarding Information Supply Chain
 
-### ISC Child
+### Element Id
 SolutionComponent::Employee Expense Tool::V1.0
 
 ### Membership Rationale
@@ -6513,16 +7959,239 @@ ___
 
 ___
 
-## Link Information Supply Chain Child
+## Add Member to Collection
 
-### ISC Parent
+### Collection Id
 InformationSupplyChain::New Employee Onboarding Information Supply Chain
 
-### ISC Child
+### Element Id
 SolutionComponent::Egeria Open Metadata and Governance::V1.0
 
 ### Membership Rationale
 Access decisions and data ownership are recorded in the catalogue, which is how a departed owner becomes visible as a gap.
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+The components defined in Part 2 that belong to this chain are added as members here.
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::New Employee Onboarding Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::SubledgerFeeds
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::New Employee Onboarding Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::ExpenseApprovalWorkflow
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::New Employee Onboarding Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::ExposureMonitoringCapture
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::New Employee Onboarding Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::WorkerMasterRegister
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::New Employee Onboarding Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::JoinerMoverLeaverWorkflow
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::New Employee Onboarding Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::IdentityAndAccessProvisioning
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::New Employee Onboarding Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::PayrollSystem
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::New Employee Onboarding Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::CorporateDirectory
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::New Employee Onboarding Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::LearningManagement
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::New Employee Onboarding Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::CompetencyRegister
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::New Employee Onboarding Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::HealthSurveillanceRecords
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::New Employee Onboarding Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::RecordOfProcessingRegister
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::New Employee Onboarding Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::RightsFulfilmentOrchestrator
 
 ### Membership Status
 VALIDATED
@@ -6793,16 +8462,154 @@ The components below already exist — they come from `CocoComboArchive.omarchiv
 
 ___
 
-## Link Information Supply Chain Child
+## Add Member to Collection
 
-### ISC Parent
+### Collection Id
 InformationSupplyChain::Workforce Competency and Qualification Information Supply Chain
 
-### ISC Child
+### Element Id
 SolutionComponent::Certify Hospital::V1.0
 
 ### Membership Rationale
 Certifying a hospital for a clinical trial includes evidence that its staff were trained on the protocol before they worked to it.
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+The components defined in Part 2 that belong to this chain are added as members here.
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Workforce Competency and Qualification Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::ManufacturingExecution
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Workforce Competency and Qualification Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::ElectronicBatchRecord
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Workforce Competency and Qualification Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::ShippingDocumentation
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Workforce Competency and Qualification Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::WorkerMasterRegister
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Workforce Competency and Qualification Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::CompetencyFrameworkRegister
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Workforce Competency and Qualification Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::LearningManagement
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Workforce Competency and Qualification Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::CompetencyRegister
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Workforce Competency and Qualification Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::QualificationCurrencyChecker
 
 ### Membership Status
 VALIDATED
@@ -7047,12 +8854,12 @@ The components below already exist — they come from `CocoComboArchive.omarchiv
 
 ___
 
-## Link Information Supply Chain Child
+## Add Member to Collection
 
-### ISC Parent
+### Collection Id
 InformationSupplyChain::Occupational Health Surveillance Information Supply Chain
 
-### ISC Child
+### Element Id
 SolutionComponent::Hazardous Materials (HazMat) Inventory::V1.0
 
 ### Membership Rationale
@@ -7067,16 +8874,137 @@ ___
 
 ___
 
-## Link Information Supply Chain Child
+## Add Member to Collection
 
-### ISC Parent
+### Collection Id
 InformationSupplyChain::Occupational Health Surveillance Information Supply Chain
 
-### ISC Child
+### Element Id
 SolutionComponent::Goods Inventory::V1.0
 
 ### Membership Rationale
 What hazardous material is held, where and in what quantity is drawn from the inventory record.
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+The components defined in Part 2 that belong to this chain are added as members here.
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Occupational Health Surveillance Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::TransportClassificationService
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Occupational Health Surveillance Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::ExposureBandingRegister
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Occupational Health Surveillance Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::ExposureMonitoringCapture
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Occupational Health Surveillance Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::IncidentAndNearMissReporting
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Occupational Health Surveillance Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::WorkerMasterRegister
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Occupational Health Surveillance Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::HealthSurveillanceRecords
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Occupational Health Surveillance Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::LongTermHealthArchive
 
 ### Membership Status
 VALIDATED
@@ -7321,12 +9249,12 @@ The components below already exist — they come from `CocoComboArchive.omarchiv
 
 ___
 
-## Link Information Supply Chain Child
+## Add Member to Collection
 
-### ISC Parent
+### Collection Id
 InformationSupplyChain::Data Subject Rights Information Supply Chain
 
-### ISC Child
+### Element Id
 SolutionComponent::Egeria Open Metadata and Governance::V1.0
 
 ### Membership Rationale
@@ -7341,16 +9269,171 @@ ___
 
 ___
 
-## Link Information Supply Chain Child
+## Add Member to Collection
 
-### ISC Parent
+### Collection Id
 InformationSupplyChain::Data Subject Rights Information Supply Chain
 
-### ISC Child
+### Element Id
 SolutionComponent::Set Retention Period::V1.0
 
 ### Membership Rationale
 Retention periods set during data onboarding are the obligations an erasure decision has to be checked against.
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+The components defined in Part 2 that belong to this chain are added as members here.
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Data Subject Rights Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::PatientIdentityRegister
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Data Subject Rights Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::WorkerMasterRegister
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Data Subject Rights Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::JoinerMoverLeaverWorkflow
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Data Subject Rights Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::RightsRequestIntake
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Data Subject Rights Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::IdentityVerification
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Data Subject Rights Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::RecordOfProcessingRegister
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Data Subject Rights Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::PersonalDataDiscovery
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Data Subject Rights Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::RightsFulfilmentOrchestrator
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Data Subject Rights Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::RetentionScheduleService
 
 ### Membership Status
 VALIDATED
@@ -7624,6 +9707,95 @@ ___
 
 ---
 
+### 3.15 Clinical Trials
+
+The clinical trials chain arrives complete from the archive and is not redrawn here.  Five components defined in Part 2 meet it at a handover - the qualification register that evidences site staff training, the safety intake gateway that trial-site adverse events leave through, the retention schedule service that reads the retention periods trial data was onboarded with, and the research systems and product master through which trial evidence becomes a product definition - so they are added to the chain as members.
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Clinical Trials Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::CompetencyRegister
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Clinical Trials Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::SafetyIntakeGateway
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Clinical Trials Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::RetentionScheduleService
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Clinical Trials Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::Research
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+InformationSupplyChain::Clinical Trials Information Supply Chain
+
+### Element Id
+CocoPharma::SolutionComponent::ProductMasterRegister
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
 ## Appendix: What the Wires Revealed
 
 Drawing the wires produced four findings that the register could not have produced on its own.
@@ -7640,7 +9812,7 @@ Drawing the wires produced four findings that the register could not have produc
 
 ## Appendix: What This File Deliberately Leaves Out
 
-**Implementation links.** No component here is yet linked to the systems that implement it through `ImplementedBy`. The archive does this for nine of its own components, and the systems inventory built in `4. keeping-safe/` is what the rest would be linked to. That linkage is what turns a designed component into a monitored one.
+**Implementation links.** No component here is yet linked to the systems that implement it through `ImplementedBy`. The archive does this for nine of its own components, and the systems inventory — the archive's systems, extended by `extending-the-systems-inventory/` in this directory — is what the rest would be linked to. That linkage is what turns a designed component into a monitored one.
 
 **Ports and delegation.** Solution ports and port delegation are not modelled. They matter when a component's interface is contested between teams; none of these are yet.
 

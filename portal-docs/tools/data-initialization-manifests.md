@@ -70,7 +70,7 @@ Lives at the root of a batch folder (a sibling of that folder's `.md` files), e.
 
 17 files run in this explicit order — the story order Jules Keeper's plan actually happens in, not alphabetical — with `README.md` (the only `.md` in the folder not named here) appended last. `canary` checks for the `Employee Glossary` Glossary that `employee-glossary.md` creates — the last file in the list, which is deliberate: the canary only needs to confirm the *whole* batch completed, so it points at whatever the last step produces. `defaultEnabled` stays `false` — this is Coco Pharmaceuticals scenario content, not a core-portal feature that has to survive a reset unattended.
 
-Three more `coco-workbooks` folders one level deeper than the six top-level ones also ship a manifest and need their own symlink into `dr-egeria-inbox` — `discover_batches()` only scans one level deep, so a nested folder is invisible unless it's symlinked in directly, same as any top-level one: `1. coco-data-hub/data-field-naming` ("Coco - Data Field Naming"), `4. keeping-safe/extending-the-systems-inventory` ("Coco - Systems Inventory"), and `4. keeping-safe/martyns-law` ("Coco - Martyn's Law").
+Three more `coco-workbooks` folders one level deeper than the six top-level ones also ship a manifest and need their own symlink into `dr-egeria-inbox` — `discover_batches()` only scans one level deep, so a nested folder is invisible unless it's symlinked in directly, same as any top-level one: `1. coco-data-hub/data-field-naming` ("Coco - Data Field Naming"), `1. coco-data-hub/extending-the-systems-inventory` ("Coco - Systems Inventory"), and `4. keeping-safe/martyns-law` ("Coco - Martyn's Law").
 
 ### The core-portal exception
 

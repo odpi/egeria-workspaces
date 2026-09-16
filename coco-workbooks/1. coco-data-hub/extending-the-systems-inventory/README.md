@@ -1,6 +1,8 @@
 # Extending the Systems Inventory
 
-This folder follows [Gary Geeke](https://egeria-project.org/practices/coco-pharmaceuticals/personas/gary-geeke/) as he extends the system inventory to include details of the systems from two recent acquisitions, both manufacturers and experts is small batch manufacturing: one in Austin and one in Bucharest.  Gary has received 6 spreadsheets taht are stored in the data folder:
+This folder follows [Gary Geeke](https://egeria-project.org/practices/coco-pharmaceuticals/personas/gary-geeke/) as he extends the systems inventory with the systems of two recent acquisitions, both manufacturers and experts in small batch manufacturing: one in Austin and one in Bucharest.
+
+His own inventory is already in Egeria.  He loaded it from his spreadsheet — the [cataloguing infrastructure](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/cataloguing-infrastructure/overview/) scenario — so that the solution components of the [strategic information supply chains](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/defining-information-supply-chains/overview/) could be mapped to real systems; in the demo environment those systems are present from startup, supplied by `CocoComboArchive.omarchive`.  The mapping found that many of the components live in systems outside his responsibility, so he asked the two acquired sites for their systems data to see how widespread the problem is.  Gary has received 6 spreadsheets that are stored in the data folder:
 
 * The Austin systems:
     * `coco_austin_subsystems.csv` - subsystems that organize the Austin systems
