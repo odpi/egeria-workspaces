@@ -2,6 +2,20 @@
 
 The `coco-data-hub` is a collection of data stores that hold the key data needed to be exchanged between different business units to support new strategic initiatives such as personalized medicine.  It is part of the [new systems architecture](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/defining-new-systems-architecture/overview/).
 
+This directory tells the story in the order it happens.  Erin Overview and Peter Profile lay out the solution components that implement the [strategic information supply chains](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/defining-information-supply-chains/overview/).  To map those components to real systems they need an inventory, and the only one the company has is Gary Geeke's spreadsheet — so Gary [loads it into Egeria](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/cataloguing-infrastructure/overview/).  The mapping finds gaps; Gary asks the two newly acquired sites for their systems data to see how widespread the problem is, and gets a pleasant surprise.  With the flows, the components and the systems in one place, the Data Hub can be scoped and built.
+
+| | Step | Content |
+|---|---|---|
+| 1 | Lay out the supply chain components | [strategic-supply-chain-analysis.md](strategic-supply-chain-analysis.md) |
+| 2 | Gary's systems inventory | already in Egeria — supplied by `CocoComboArchive.omarchive` at startup |
+| 3 | Match components to systems, find the gaps | [strategic-supply-chain-system-matches.md](strategic-supply-chain-system-matches.md) |
+| 4 | Load the acquisitions' systems | [extending-the-systems-inventory/](extending-the-systems-inventory/README.md) |
+| 5 | Link components to systems, report the gaps, attach the chains to the lineage | [mapping-the-systems/](mapping-the-systems/README.md) |
+| 6 | Design the Data Hub | [solution-design.md](solution-design.md) |
+| 7 | Govern how it is built | [software-development-governance-program.md](software-development-governance-program.md) |
+| 8 | Set it up | [setting-up-the-data-hub.ipynb](setting-up-the-data-hub.ipynb) |
+| 9 | Name its data fields | [data-field-naming/](data-field-naming/README.md) |
+
 ----
 
 ## Analysing the strategic supply chains
@@ -33,6 +47,32 @@ components they contain, and `solution-design.md` links them to its blueprint in
 
 It refers to the supply chains created in `0. data-governance-program/strategic-information-supply-chains.md`, so
 load the data governance program first.
+
+----
+
+## Gary's systems inventory
+
+Gary Geeke has kept a spreadsheet of the servers he is responsible for at every Coco Pharmaceuticals location.  When Erin and Peter need to map the strategic supply chain components to the systems that run them, that spreadsheet is the only inventory the company has, so Gary loads it into Egeria through the pyegeria API — the story is told in the [cataloguing infrastructure](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/cataloguing-infrastructure/overview/) scenario.  In the demo environment this step is already done: `CocoComboArchive.omarchive` is loaded at startup and supplies those systems, organised into subsystems under the **IT Systems Inventory** collection, so there is something to look at from the first connection.
+
+----
+
+## Mapping the components to systems
+
+The file [strategic-supply-chain-system-matches.md](strategic-supply-chain-system-matches.md) is the result of taking the seventy-one components to Gary's inventory and trying to match them up.  It is an analysis document rather than a Dr.Egeria command file — nothing in it is loaded — and it exists for what it found rather than for the mapping itself: the inventory answered *what do we run?* when the supply chains were asking *what do we depend on?*, and the gaps clustered exactly where the regulated layer of the business ought to be.
+
+----
+
+## Extending the systems inventory
+
+Gary's response to the gaps is to ask how widespread the problem is.  The two newly acquired sites, in Austin and in Bucharest, are not in his spreadsheet at all, so he asks each of them for their systems data.  The [extending-the-systems-inventory/](extending-the-systems-inventory/README.md) folder holds the six spreadsheets that come back and the notebook that loads them, together with the [naming conventions](extending-the-systems-inventory/naming-conventions.md) each site turned out to have invented for its system identifiers.
+
+The pleasant surprise is in the matches document: both acquisitions run a complete, modern stack for regulated manufacturing that the parent company has no equivalent of, and most of the gaps the mapping found are already closed there.  Version 0.2 of the analysis re-matches every component across all three estates.
+
+----
+
+## Mapping the systems
+
+With all three estates in Egeria, the matching becomes metadata.  The [mapping-the-systems/](mapping-the-systems/README.md) folder holds the mapping as a spreadsheet — one row per candidate system per component, with a confidence — and a notebook that creates the `ImplementedBy` relationships from the solution components to the systems, then produces a gap report: which components have no system anywhere, which are implemented only at the acquisitions and so lie outside the scope of the original Coco operation, and where the parent's coverage is unconfirmed.  That report, by business system group and by supply chain, is what scopes the Data Hub.  A second notebook then attaches each supply chain to the `DataFlow` lineage between the systems - merging the chain's name onto the interactions Gary loaded, and cloning a relationship per chain where a hop carries several, since lineage relationships are multi-links.
 
 ----
 
