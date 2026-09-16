@@ -12,10 +12,7 @@ on:
   workflow_dispatch:
 
 # Declare default permissions as read only.
-permissions:
-  contents: read
-  security-events: write
-  id-token: write
+permissions: read-all
 
 jobs:
   analysis:
@@ -23,7 +20,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       security-events: write
-      id-token: write
       contents: read
 
     steps:
@@ -39,7 +35,7 @@ jobs:
           results_format: sarif
           # (Optional) "repo_token" with "public_repo" scope contributes to "GitHub-provided" counts
           # and helps avoid rate limiting. See https://github.com/ossf/scorecard-action#authentication
-          publish_results: true
+          publish_results: false
 
       # Upload the results as artifacts (optional). Commenting out will disable uploads of run results in SARIF
       # format to the repository Actions tab.
