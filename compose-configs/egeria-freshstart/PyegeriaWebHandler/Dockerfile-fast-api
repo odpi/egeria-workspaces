@@ -34,7 +34,7 @@ RUN pip install --no-cache-dir --retries 10 --timeout 60 -r requirements.txt
 # quickstart's Dockerfile-fast-api / bin/update-pyegeria.sh: pass a fresh
 # PYEGERIA_BUST build-arg to bust just this layer without a full --no-cache
 # rebuild).
-ARG PYEGERIA_VERSION=pyegeria>=6.1.1
+ARG PYEGERIA_VERSION=pyegeria>=6.1.16
 ARG PYEGERIA_BUST=0
 RUN echo "pyegeria layer ${PYEGERIA_BUST}" \
     && pip install --no-cache-dir --retries 10 --timeout 60 "${PYEGERIA_VERSION}" --upgrade
