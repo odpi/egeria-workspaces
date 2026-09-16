@@ -4,7 +4,7 @@
 > **Version:** 1.0  
 > **Status:** ACTIVE  
 > **Date:** 2026-08-24  
-> **Description:** Governance definitions for the `IT Infrastructure` domain at Coco Pharmaceuticals, built on the systems inventory created in this directory and structured around the ITIL service management practices Gary Geeke's team already works to. Load the data governance program directory first, then the systems inventory notebooks, then this file.
+> **Description:** Governance definitions for the `IT Infrastructure` domain at Coco Pharmaceuticals, built on the systems inventory created in `1. coco-data-hub` and structured around the ITIL service management practices Gary Geeke's team already works to. Load the data governance program directory first, then the systems inventory notebooks in `1. coco-data-hub`, then this file.
 
 ---
 
@@ -14,10 +14,9 @@ The IT infrastructure domain is a serving domain. It owns no regulatory obligati
 
 The program follows the ITIL practices the team already uses, which is deliberate: a governance framework that mirrors how the work is actually organised gets applied, and one that introduces a parallel vocabulary does not. Configuration management, change enablement, service level management and service continuity each carry a governance definition here, expressed in terms of the data they produce rather than the process they describe.
 
-Everything rests on the systems inventory. That inventory was built first — before this program existed — because the security team needed it urgently to scope the ISMS, and it turned out to be the precondition for almost everything else as well. A system that is not in the inventory has no owner, no recovery objective, no change path, and no place in anyone's compliance scope. The inventory is where this domain's contribution to the wider governance program begins, and the notebooks that create and extend it sit alongside this file:
+Everything rests on the systems inventory. That inventory was built first — before this program existed — because the strategic information supply chains had to be mapped to the systems that actually run them, and Gary's spreadsheet was the only inventory the company had. The security team then took it up to scope the ISMS, and it turned out to be the precondition for almost everything else as well. A system that is not in the inventory has no owner, no recovery objective, no change path, and no place in anyone's compliance scope. The inventory is where this domain's contribution to the wider governance program begins. Gary's own systems are supplied by `CocoComboArchive.omarchive` at startup; the notebook that extends the inventory with the Austin and Bucharest acquisitions lives in `1. coco-data-hub`, alongside the supply chain analysis that needed it:
 
-* [creating-system-inventory](creating-system-inventory/creating-system-inventory.ipynb)
-* [extending-the-systems-inventory](extending-the-systems-inventory/README.md)
+* [extending-the-systems-inventory](../1.%20coco-data-hub/extending-the-systems-inventory/README.md)
 
 The domain's relationship with two others is close enough to state explicitly. With **SECURITY**, the systems inventory and the ISMS asset inventory are the same enumeration seen from two angles, and they are maintained once. With **DATA**, the systems inventory records where data lives while the catalog records what the data is, and neither is complete without the other.
 
@@ -1518,8 +1517,7 @@ ___
 
 | Resource | Description |
 |----------|-------------|
-| [creating-system-inventory](creating-system-inventory/creating-system-inventory.ipynb) | Builds the initial systems inventory this programme rests on |
-| [extending-the-systems-inventory](extending-the-systems-inventory/README.md) | Extends the inventory with the detail the security and data teams need |
+| [extending-the-systems-inventory](../1.%20coco-data-hub/extending-the-systems-inventory/README.md) | Extends the inventory with the Austin and Bucharest systems (in `1. coco-data-hub`) |
 | [martyns-law](martyns-law/README.md) | Physical security scenario in this directory, loaded after this file |
 | `0. data-governance-program/data-security-strategy.md` | SECURITY-domain program. The ISMS asset register is maintained as a view over the systems inventory |
 | `0. data-governance-program/data-governance-program.md` | DATA-domain program. The catalog records what data means; the inventory records where it lives |
