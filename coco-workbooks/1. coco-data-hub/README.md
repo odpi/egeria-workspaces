@@ -2,7 +2,7 @@
 
 The `coco-data-hub` is a collection of data stores that hold the key data needed to be exchanged between different business units to support new strategic initiatives such as personalized medicine.  It is part of the [new systems architecture](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/defining-new-systems-architecture/overview/).
 
-This directory tells the story in the order it happens.  Erin Overview and Peter Profile lay out the solution components that implement the [strategic information supply chains](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/defining-information-supply-chains/overview/).  To map those components to real systems they need an inventory, and the only one the company has is Gary Geeke's spreadsheet — so Gary [loads it into Egeria](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/cataloguing-infrastructure/overview/).  The mapping finds gaps; Gary asks the two newly acquired sites for their systems data to see how widespread the problem is, and gets a pleasant surprise.  With the flows, the components and the systems in one place, the Data Hub can be scoped and built.
+This directory tells the story in the order it happens.  Erin Overview and Peter Profile lay out the solution components that implement the [strategic information supply chains](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/defining-information-supply-chains/overview/).  To map those components to real systems they need an inventory, and the only one the company has is Gary Geeke's spreadsheet — so Gary [loads it into Egeria](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/cataloguing-infrastructure/overview/).  The mapping finds gaps; Gary asks the two newly acquired sites for their systems data to see how widespread the problem is, and gets a pleasant surprise.  With the flows, the components and the systems in one place, the Data Hub can be scoped and built - and the data the supply chains carry can be offered as digital products.
 
 | | Step | Content |
 |---|---|---|
@@ -15,6 +15,7 @@ This directory tells the story in the order it happens.  Erin Overview and Peter
 | 7 | Govern how it is built | [software-development-governance-program.md](software-development-governance-program.md) |
 | 8 | Set it up | [setting-up-the-data-hub.ipynb](setting-up-the-data-hub.ipynb) |
 | 9 | Name its data fields | [data-field-naming/](data-field-naming/README.md) |
+| 10 | Publish the data the supply chains carry as digital products | [strategic-digital-products/](strategic-digital-products/README.md) |
 
 ----
 
@@ -141,6 +142,23 @@ files classify every term as a `PrimeWord`, `Modifier` or `ClassWord`
 
 There are around thirty files to process and the order matters, so follow the load order given in
 [data-field-naming/README.md](data-field-naming/README.md) rather than processing them ad hoc.
+
+----
+
+## Publishing the data as digital products
+
+Every wire in the supply chain analysis carries data that one component produces and another consumes, and
+the analysis wrote down what that data is.  The [strategic-digital-products](strategic-digital-products/README.md)
+directory turns it into the **Coco Pharmaceuticals Strategic Digital Product Catalog**: one digital product per
+solution component (more where a component receives data of different kinds), organised into a folder per
+business system group, each product with a data specification whose structures and fields follow the data field
+naming standard, and a PostgreSQL data set it will be read from.  The dependencies between the products follow
+the wires, so the supply chains can be traced through the catalog.  The products' field names needed
+vocabulary the naming glossary did not have, so `data-field-naming/strategic-products-vocabulary.md` extends it,
+and the naming glossary must be loaded first.
+
+The catalog is a member of `Egeria::DigitalProductCatalogsRoot`, so it appears in Egeria's web portal alongside
+every other digital product catalog.
 
 ----
 License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/),
