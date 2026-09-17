@@ -41,6 +41,17 @@ jobs:
           fi
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Generate SBOM
+        run: |
+          pip install cyclonedx-bom
+          cyclonedx-py poetry --output-format json --output-file bom.json
+          cyclonedx-py poetry --output-format xml --output-file bom.xml
+
       - name: Create release
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
         with:
@@ -51,4 +62,7 @@ jobs:
           generate_release_notes: true
           append_body: true
           body_path: .github/release-template.md
+          files: |
+            bom.json
+            bom.xml
 
