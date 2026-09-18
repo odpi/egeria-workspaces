@@ -33,8 +33,8 @@ In total it creates 82 solution components, adds 21 memberships for components t
 in one chain becomes a failure in the next, and they are the places worth instrumenting first.
 
 Two things it does not do.  It does not touch the **Clinical Trials** or **Sustainability Reporting** chains, which
-arrive fully implemented in `CocoComboArchive.omarchive` — beyond adding handover members where another chain now
-meets clinical trials.  And it does not invent blueprints: five of the archive's seven solution blueprints were
+arrive fully implemented in `CocoComboArchive.omarchive`; where another chain meets clinical trials, the wire records
+it.  And it does not invent blueprints: five of the archive's seven solution blueprints were
 stubs sitting exactly where a strategic supply chain needed components, so it fills those in instead.
 
 **This file loads before `solution-design.md`.**  The eight business system groups that `solution-design.md` used to
