@@ -382,9 +382,10 @@ def get_document(filename: str):
     # within _DOCS_DIR, nothing else in the read-only loading-bay tree.
     if "/" in filename or "\\" in filename or filename in (".", ".."):
         raise HTTPException(status_code=400, detail="Invalid filename")
-    path = _DOCS_DIR / filename
+    docs_root = _DOCS_DIR.resolve()
+    path = (docs_root / filename).resolve()
     try:
-        if path.resolve().parent != _DOCS_DIR.resolve() or not path.is_file():
+        if not path.is_relative_to(docs_root) or path.parent != docs_root or not path.is_file():
             raise HTTPException(status_code=404, detail=f"Document {filename!r} not found")
         content = path.read_text(encoding="utf-8")
     except HTTPException:

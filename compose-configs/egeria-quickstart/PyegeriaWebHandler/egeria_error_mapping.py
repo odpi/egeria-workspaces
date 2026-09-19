@@ -181,7 +181,39 @@ def describe_bulk_item_error(exc: Exception) -> str:
     personas in Egeria's own audit trail, which is exactly the kind of
     integrity problem this tool exists to help govern. Don't repeat that
     pattern -- this function is the fix.
+
+    Categorical dispatch only (CodeQL Medium: py/stack-trace-exposure, added
+    2026-09-03) -- every branch below returns a fixed string chosen by the
+    exception's *type*, never by reading its message/args/str(exc). That's
+    deliberate: this return value reaches the client directly (the bulk
+    endpoint's `failed[].error` field), and a pyegeria/httpx exception's text
+    can carry internal detail (qualified names, host info, raw HTTP bodies)
+    that doesn't belong in a public response. The caller already logs the
+    real exception via `logger.debug(...)` right before calling this, so
+    nothing is lost -- just not echoed back over HTTP.
     """
     if _is_auth_error(exc):
         return "You don't have permission to do this."
-    return str(exc)
+
+    try:
+        from pyegeria.core._exceptions import (
+            PyegeriaAPIException,
+            PyegeriaClientException,
+            PyegeriaConnectionException,
+            PyegeriaException,
+            PyegeriaInvalidParameterException,
+            PyegeriaTimeoutException,
+        )
+    except ImportError:
+        return "Operation failed for this item -- see server logs for details."
+
+    if isinstance(exc, PyegeriaTimeoutException):
+        return "Egeria did not respond in time for this item."
+    if isinstance(exc, PyegeriaConnectionException):
+        return "Could not reach the Egeria platform."
+    if isinstance(exc, (PyegeriaInvalidParameterException, ValueError)):
+        return "Invalid parameters for this item."
+    if isinstance(exc, (PyegeriaClientException, PyegeriaAPIException, PyegeriaException)):
+        return "Egeria rejected this item -- see server logs for details."
+
+    return "Operation failed for this item -- see server logs for details."

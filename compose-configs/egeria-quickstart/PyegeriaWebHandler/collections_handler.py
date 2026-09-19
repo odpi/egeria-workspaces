@@ -35,22 +35,101 @@ from pydantic import BaseModel
 
 from digital_products_handler import (
     _get_manager, _serialize_node, _header, _type_name, _extract_all_rels, _is_template,
+    _extract_mermaid_fields,
 )
 from egeria_error_mapping import raise_egeria_http_error, describe_bulk_item_error, EGERIA_ERROR_RESPONSES
+from egeria_auth import apply_token
+import os
 
 router = APIRouter(tags=["collections"])
+
+
+def _get_solution_architect(url=None, server=None, user_id=None, user_pwd=None):
+    """SolutionArchitect client — needed only for _enrich_isc_implementation_graph
+    below. CollectionManager's generic get_collection_by_guid hits a plain
+    /collections/{guid}/retrieve REST endpoint that never runs the ISC-specific
+    server-side mermaid-graph generation, no matter what depth/params are
+    passed to it -- that logic only fires behind SolutionArchitect's dedicated
+    get_info_supply_chain_by_guid(add_implementation=True) call (see
+    isc_handler.py's get_isc, which is where this same graph IS shown today)."""
+    from pyegeria import SolutionArchitect
+    url     = url     or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
+    server  = server  or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+    user_id = user_id or os.environ.get("EGERIA_USER",          "erinoverview")
+    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    mgr = SolutionArchitect(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+    apply_token(mgr)
+    return mgr
+
+
+# Same generous caps isc_handler.py uses for its (structurally identical)
+# detail view -- this is a "show me everything about one chain" fetch.
+_ISC_ENRICH_GRAPH_QUERY_DEPTH = 10
+_ISC_ENRICH_MAX_MERMAID_NODES = 250
+
+
+def _enrich_isc_implementation_graph(node: dict, node_guid: str, url, server, user_id, user_pwd) -> None:
+    """When a collection reached through this type-agnostic view turns out to
+    be an InformationSupplyChain, fetch its implementation graph the way
+    isc_handler.py's own detail view does and merge the mermaid fields in --
+    otherwise Collections shows every diagram EXCEPT this one for an ISC,
+    while Solution Architect's own ISC view (isc_handler.py) shows it fine.
+    Best-effort: any failure here just leaves the collection's other detail
+    (properties, members, relationships) intact, unenriched."""
+    if node.get("typeName") != "InformationSupplyChain":
+        return
+    try:
+        mgr = _get_solution_architect(url, server, user_id, user_pwd)
+        raw = mgr.get_info_supply_chain_by_guid(
+            node_guid,
+            output_format="JSON",
+            add_implementation=True,
+            graph_query_depth=_ISC_ENRICH_GRAPH_QUERY_DEPTH,
+            max_mermaid_node_count=_ISC_ENRICH_MAX_MERMAID_NODES,
+        )
+    except Exception:
+        logger.exception("ISC implementation-graph enrichment failed for %s", node_guid)
+        return
+    if isinstance(raw, dict):
+        extracted = _extract_mermaid_fields(raw)
+        # get_info_supply_chain_by_guid returns this key in a different case
+        # than find_information_supply_chains does (isc_handler.py's list/detail
+        # calls) -- "iscimplementationMermaidGraph" vs "iscImplementationMermaidGraph".
+        # Harmless either way (AvailableMermaidDiagrams matches case-insensitively),
+        # but the frontend's auto-generated label falls back to an ugly
+        # "Iscimplementation Graph" without the canonical casing, since it can't
+        # find an exact match in its nice-label lookup table. Canonicalize so the
+        # label matches what isc_handler.py's own detail view already shows.
+        for k in list(extracted.keys()):
+            if k.lower() == "iscimplementationmermaidgraph" and k != "iscImplementationMermaidGraph":
+                extracted["iscImplementationMermaidGraph"] = extracted.pop(k)
+        node.update(extracted)
+
+
+def _get_expert(url=None, server=None, user_id=None, user_pwd=None):
+    """MetadataExpert client — used alongside _get_manager's CollectionManager
+    for the one thing CollectionManager can't do: a flat relationship-type
+    search (find_relationships_between_elements), needed by
+    _find_all_collections_with_members's PERF-3 rewrite below."""
+    from pyegeria import MetadataExpert
+    url     = url     or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
+    server  = server  or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+    user_id = user_id or os.environ.get("EGERIA_USER",          "erinoverview")
+    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    expert = MetadataExpert(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+    apply_token(expert)
+    return expert
+
 
 # Tree cache: cache_key → (timestamp, result). 5-minute TTL, like digital products.
 _TREE_CACHE: dict = {}
 _TREE_CACHE_TTL = 300  # seconds
 
-# Roots cache: same TTL/shape as _TREE_CACHE. The default (non only_root_type)
-# path pages through EVERY Collection in the store at graph_query_depth=1 (so
-# each element's own members come back embedded too) purely to compute
-# "has no parent" — confirmed live 2026-08-26: ~8.5s and a 200KB+ response on
-# every call, uncached, while the /tree endpoint two lines below had a cache
-# and this one didn't. Only Egeria Explorer's Collections tab calls this
-# endpoint, but it re-fetches on every tab visit.
+# Roots cache: same TTL/shape as _TREE_CACHE. See _find_all_collections_with_
+# members's PERF-3 docstring below for why the default (non only_root_type)
+# path used to be expensive (~46s confirmed live 2026-09-02) and how it was
+# fixed. Only Egeria Explorer's Collections tab calls this endpoint, but it
+# re-fetches on every tab visit, so the cache still matters even post-fix.
 _ROOTS_CACHE: dict = {}
 _ROOTS_CACHE_TTL = 300  # seconds
 
@@ -63,19 +142,30 @@ def _is_collection(node: dict) -> bool:
     return tn == "Collection" or tn.endswith("Collection")
 
 
-def _rel_guid(entry) -> Optional[str]:
-    """Extract the related element's guid from a single RelatedMetadataElementSummary dict."""
-    if not isinstance(entry, dict):
-        return None
-    re = entry.get("relatedElement") or {}
-    return (re.get("elementHeader") or {}).get("guid") or None
+def _find_all_collections_with_members(mgr, url=None, server=None, user_id=None, user_pwd=None) -> tuple:
+    """Return (all Collection elements, set of guids that have a parent).
 
+    PERF-3: was a single depth=1 scan over every Collection, each fetch
+    embedding that element's own `collectionMembers` — confirmed live
+    2026-09-02 at 46.6s cold with ~470 collections in the store (worse than
+    the ~8.5s measured 2026-08-26, as the collection count grew since).
+    Replaced with two independent flat calls, live-measured combined at
+    ~13s: every Collection at graph_query_depth=0 via the same
+    find_collections already used by the RootCollection-only path above (no
+    nested member embedding — 472 elements in ~3s), plus every
+    CollectionMembership relationship via MetadataExpert
+    (relationshipTypeName filter, not a per-collection walk — 970
+    relationships in ~9-10s), from which "has a parent" is just membership
+    in the set of member-end guids.
 
-def _find_all_collections_with_members(mgr) -> list:
-    """Page through every Collection (any subtype), depth=1, so each element's own
-    `collectionMembers` (its children) comes back embedded in the same call — this is
-    what lets us compute "has a parent" for every collection with one paginated scan
-    instead of one get_collection_members call per collection.
+    Deliberately NOT paginated in a loop on the relationships call: live-
+    confirmed 2026-09-02 that find_relationships_between_elements'
+    start_from/page_size kwargs don't actually limit the result set for
+    this call (page_size=200 still returned all 970 live relationships in
+    one response) -- unlike find_collections' pagination below, which does
+    work correctly. A pagination loop on the relationships call would never
+    see a short-enough page to terminate on and would just re-fetch the
+    same full result up to max_pages times.
     """
     all_elements = {}
     start_from = 0
@@ -90,7 +180,7 @@ def _find_all_collections_with_members(mgr) -> list:
                 output_format="JSON",
                 start_from=start_from,
                 page_size=page_size,
-                graph_query_depth=1,
+                graph_query_depth=0,
             )
         except Exception as exc:
             logger.warning(f"find_collections page {start_from} failed: {exc}")
@@ -102,7 +192,24 @@ def _find_all_collections_with_members(mgr) -> list:
             if g and g not in all_elements:
                 all_elements[g] = e
         start_from += page_size
-    return list(all_elements.values())
+
+    has_parent = set()
+    try:
+        expert = _get_expert(url, server, user_id, user_pwd)
+        body = {"class": "FindRelationshipRequestBody", "relationshipTypeName": "CollectionMembership"}
+        res = expert.find_relationships_between_elements(body, start_from=0, page_size=2000)
+        rels = res.get("relationships", []) if isinstance(res, dict) else res
+        if isinstance(rels, list):
+            for r in rels:
+                # end2 = the member (role2 "collectionMembers"); a flat guid
+                # field on the relationship, not nested under elementAtEnd2.
+                member_guid = r.get("elementGUIDAtEnd2")
+                if member_guid:
+                    has_parent.add(member_guid)
+    except Exception as exc:
+        logger.warning(f"CollectionMembership relationship fetch failed: {exc}")
+
+    return list(all_elements.values()), has_parent
 
 
 def _children_level(mgr, collection_guid: str, as_of_time: Optional[str] = None) -> list:
@@ -187,18 +294,11 @@ def get_roots(
         return JSONResponse(result)
 
     try:
-        all_elements = _find_all_collections_with_members(mgr)
+        all_elements, has_parent = _find_all_collections_with_members(mgr, url, server, user_id, user_pwd)
     except Exception as exc:
         raise_egeria_http_error(exc, "Collection discovery failed")
 
     all_guids = {_header(e).get("guid", ""): e for e in all_elements if _header(e).get("guid")}
-    has_parent = set()
-    for element in all_elements:
-        for entry in (element.get("collectionMembers") or []):
-            child_guid = _rel_guid(entry)
-            if child_guid and child_guid in all_guids:
-                has_parent.add(child_guid)
-
     parentless = [e for g, e in all_guids.items() if g not in has_parent]
     if not include_templates:
         parentless = [e for e in parentless if not _is_template(e)]
@@ -375,6 +475,7 @@ def get_node(
 
     node = _serialize_node(raw)
     node["relationships"] = _extract_all_rels(raw)
+    _enrich_isc_implementation_graph(node, node_guid, url, server, user_id, user_pwd)
     try:
         raw_members = mgr.get_collection_members(
             collection_guid=node_guid,

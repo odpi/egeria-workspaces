@@ -1,0 +1,64 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright Contributors to the Egeria project
+#
+# GPU overlay for the existing optional-associated-runtimes/ollama compose
+# service (../ollama/docker-compose.yaml — NOT edited by this file, per
+# convention: it stays the CPU/no-GPU baseline for boxes with no GPU stanza,
+# and this file overlays only what a ROCm iGPU/dGPU needs on top of it).
+#
+# Reproduces, in a container, the exact configuration hedwig's (Dev 2 in
+# runtime-architecture-plan.md) NATIVE Ollama systemd unit already runs
+# successfully against its Radeon 890M iGPU (ROCm 7.2, verified 2026-09-04):
+#   HSA_OVERRIDE_GFX_VERSION=11.0.0, ROCR_VISIBLE_DEVICES=0,
+#   HIP_VISIBLE_DEVICES=0, plus /dev/kfd + /dev/dri device access and the
+#   video/render groups a container needs that a native process gets for
+#   free from the host session.
+#
+# Measured (native, hedwig, llama3.1:8b, 5.3k-token prompt, 8k context):
+# prefill 278 tok/s (vs 31 tok/s CPU-only), generation 12.5 tok/s, 22.5 s
+# time-to-first-token, 6.3 GB loaded footprint. The container variant is
+# expected to match this closely once these env vars and devices are in
+# place; it has NOT been live-verified in-container as of this writing
+# (native-only measurement) — treat first use here as the spike
+# runtime-architecture-plan.md's sequencing step 4 calls for on Dev 2.
+#
+# Usage (from this directory):
+#   docker compose \
+#     -f ../shared-infra/shared-infra.yaml \
+#     -f ../ollama/docker-compose.yaml \
+#     -f docker-compose.ollama-rocm.yaml \
+#     -f docker-compose.yaml up -d
+#
+# Requires: ROCm installed on the host (verified present on hedwig, 7.2) and
+# the current user in the `video`/`render` host groups so /dev/kfd and
+# /dev/dri are accessible — same requirement the native unit already has.
+
+services:
+  ollama:
+    image: ollama/ollama:rocm
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - render
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - HSA_OVERRIDE_GFX_VERSION=11.0.0
+      - ROCR_VISIBLE_DEVICES=0
+      - HIP_VISIBLE_DEVICES=0
+    # ../ollama/docker-compose.yaml declares no `networks:` for this service
+    # (it predates this optional runtime and was never joined to
+    # egeria_network — it's reachable only via its published host port
+    # today). This overlay adds the join so trellis-re-web/trellis-re-worker/
+    # trellis-ea-web in docker-compose.yaml can reach it by service name
+    # ("http://ollama:11434") rather than via the host's published port.
+    # See README.md's "what is not here" section — the same gap exists for
+    # the CPU-only path and needs the same fix there.
+    networks:
+      - egeria_network
+
+networks:
+  egeria_network:
+    name: egeria_network
+    external: true

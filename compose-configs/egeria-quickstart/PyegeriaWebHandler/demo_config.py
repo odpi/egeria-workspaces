@@ -69,7 +69,7 @@ OBSIDIAN_GITHUB_URL:  str = os.environ.get("OBSIDIAN_GITHUB_URL",  "https://gith
 # URL of the Egeria Advisor service. Set in .env or yaml (default: localhost:8880).
 # Checked server-side at startup to set advisor_running in portal-config.
 # This is ALSO the literal URL sent to browsers (advisor_url / advisor_sso_url in
-# pyegeria_handler.py / advisor_lock_handler.py) — it must be an address real
+# pyegeria_handler.py / advisor_handler.py) — it must be an address real
 # users can resolve (e.g. the public domain), not a Docker-internal one like
 # host.docker.internal, or external users get sent to an address only this
 # container can reach. See advisor_check_urls() below for the internal-only
@@ -100,8 +100,83 @@ def advisor_check_urls() -> list:
     return [EGERIA_ADVISOR_URL, fallback]
 
 # Shared HS256 secret with Egeria Advisor's own ADVISOR_PORTAL_SECRET — used to
-# mint the short-lived SSO handoff token in advisor_lock_handler.py. Must match
+# mint the short-lived SSO handoff token in trellis_sso.py (called from both
+# advisor_handler.py and resource_explorer_handler.py). Must match
 # exactly; do not confuse with JWT_SECRET above (that signs the Portal's own
-# demo_token cookie and is unrelated). Left empty, the Advisor tile's acquire
-# call returns 503 rather than minting with an insecure/mismatched key.
+# demo_token cookie and is unrelated). Left empty, the Advisor/Resource
+# Explorer tiles' handoff calls return 503 rather than minting with an
+# insecure/mismatched key.
 EGERIA_ADVISOR_SSO_SECRET: str = os.environ.get("EGERIA_ADVISOR_SSO_SECRET", "")
+
+# Resource Explorer — same "trellis" family of apps as Egeria Advisor, same
+# shared secret above (its compose config feeds this same value in as
+# TRELLIS_PORTAL_SECRET), no separate secret needed. Same public-URL caveat
+# as EGERIA_ADVISOR_URL applies: this is sent straight to browsers.
+EGERIA_RESOURCE_EXPLORER_URL: str = os.environ.get("EGERIA_RESOURCE_EXPLORER_URL", "http://localhost:8810/")
+
+
+# ── Browser-facing tile URLs ──────────────────────────────────────────────────
+# EGERIA_ADVISOR_URL / EGERIA_RESOURCE_EXPLORER_URL are handed straight to the
+# browser, so they must name a host the *browser* can reach -- not one this
+# container can reach. A single configured value cannot do that for a
+# deployment reached under several names (localhost on the box, a Tailscale
+# MagicDNS name from a laptop, a public FQDN from outside), and the localhost
+# defaults are wrong for every browser that is not on this machine.
+#
+# The portal already solves this for Jupyter, entirely client-side, in
+# demo-portal.html:
+#     'http://' + window.location.hostname + ':8888/?token=egeria'
+# i.e. derive the host at click time from however the user reached the portal.
+# These two tiles cannot do that in the browser, because their URL carries an
+# SSO token minted server-side -- so we do the same derivation here, from the
+# request that asked for the handoff.
+#
+# An explicitly configured non-loopback host always wins: a public deployment
+# that must send users to a fixed URL (behind a CDN, or a different origin than
+# the portal) keeps working exactly as before.
+
+_LOOPBACK_HOSTS = {None, "", "localhost", "127.0.0.1", "::1", "host.docker.internal"}
+
+
+def browser_facing_url(configured: str, request, default_port: int) -> str:
+    """Resolve a tile URL that the caller's browser can actually reach.
+
+    Returns `configured` untouched when it names a real (non-loopback) host.
+    Otherwise rebuilds it against the hostname the browser used to reach the
+    portal, preserving the configured scheme, port and path.
+    """
+    from urllib.parse import urlsplit, urlunsplit
+
+    parts = urlsplit(configured or "")
+    if parts.hostname not in _LOOPBACK_HOSTS:
+        return configured
+
+    # Behind Apache, ProxyPreserveHost/X-Forwarded-Host carry the browser's
+    # host; fall back to the request URL for direct (unproxied) access.
+    forwarded = (request.headers.get("x-forwarded-host") or "").split(",")[0].strip()
+    host = forwarded or request.headers.get("host", "") or (request.url.hostname or "")
+    host = host.rsplit(":", 1)[0] if host.count(":") == 1 else host
+    host = host.strip("[]")
+    if not host:
+        return configured
+
+    port = parts.port or default_port
+    scheme = parts.scheme or "http"
+    netloc = f"[{host}]:{port}" if ":" in host else f"{host}:{port}"
+    return urlunsplit((scheme, netloc, parts.path or "/", parts.query, parts.fragment))
+
+
+def resource_explorer_check_urls() -> list:
+    """Same host.docker.internal-fallback pattern as advisor_check_urls() —
+    see that function's docstring for the full rationale."""
+    if not EGERIA_RESOURCE_EXPLORER_URL:
+        return []
+    from urllib.parse import urlsplit, urlunsplit
+    parts = urlsplit(EGERIA_RESOURCE_EXPLORER_URL)
+    if parts.hostname in (None, "host.docker.internal"):
+        return [EGERIA_RESOURCE_EXPLORER_URL]
+    port = f":{parts.port}" if parts.port else ""
+    userinfo = f"{parts.username}{':' + parts.password if parts.password else ''}@" if parts.username else ""
+    fallback_netloc = f"{userinfo}host.docker.internal{port}"
+    fallback = urlunsplit((parts.scheme, fallback_netloc, parts.path, parts.query, parts.fragment))
+    return [EGERIA_RESOURCE_EXPLORER_URL, fallback]

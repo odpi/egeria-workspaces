@@ -486,7 +486,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
      same-named ones (later plain `function` declarations overwrite earlier
      ones in the same global scope). -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
-<script src="/static/egeria-shared-ui.js?v=2026-09-01b"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-09-14"></script>
 
 </head>
 <body>
@@ -572,18 +572,37 @@ function NavSearch({ onSelect, creds }) {
   var _hi     = useState(-1),    hi      = _hi[0],     setHi      = _hi[1];
   var _inclTempl = useState(false), inclTempl = _inclTempl[0], setInclTempl = _inclTempl[1];
   var _timer  = useRef(null);
+  var _seq    = useRef(0);   // request-ordering guard: only the latest search's response is applied
+  var _err    = useState(false), searchErr = _err[0], setSearchErr = _err[1];
   var wrapRef = useRef(null);
 
   function doSearch(val, inclT) {
     if (_timer.current) clearTimeout(_timer.current);
-    if (!val.trim()) { setItems([]); setOpen(false); return; }
+    // Clear stale results from the PREVIOUS query immediately, not just when
+    // the new one resolves — otherwise the old result set stays on screen
+    // while a new search is in flight, making "still searching" indistinguishable
+    // from "found nothing new" and "still showing the old query's results".
+    setItems([]);
+    setSearchErr(false);
+    if (!val.trim()) { setOpen(false); setLoading(false); return; }
+    // loading=true spans the debounce wait too, not just the fetch itself —
+    // otherwise there's a ~300ms window where loading=false and items=[]
+    // render as "No results found" before the request has even gone out.
+    setOpen(true);
+    setLoading(true);
+    var mySeq = ++_seq.current;
     _timer.current = setTimeout(function() {
-      setLoading(true);
       var url = '/api/lineage/search?q=' + encodeURIComponent(val) + (inclT ? '&include_templates=true' : '');
       fetchWithToken(url, creds)
-        .then(function(r) { return r.ok ? r.json() : { items: [] }; })
-        .then(function(d) { setItems(d.items || []); setOpen(true); setLoading(false); setHi(-1); })
-        .catch(function() { setLoading(false); });
+        .then(function(r) { return r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)); })
+        .then(function(d) {
+          if (mySeq !== _seq.current) return;  // a newer keystroke's search has since started; drop this stale response
+          setItems(d.items || []); setLoading(false); setHi(-1);
+        })
+        .catch(function() {
+          if (mySeq !== _seq.current) return;
+          setLoading(false); setSearchErr(true);
+        });
     }, 300);
   }
 
@@ -625,19 +644,25 @@ function NavSearch({ onSelect, creds }) {
         style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
       'Include templates'
     ),
-    open && items.length > 0 && React.createElement('div', { className: 'search-dropdown' },
-      items.map(function(item, i) {
-        return React.createElement('div', {
-          key: item.guid,
-          className: 'result-item' + (i === hi ? ' hi' : ''),
-          onMouseDown: function(e) { e.preventDefault(); select(item); },
-          onMouseEnter: function() { setHi(i); },
-        },
-          React.createElement('div', { className: 'result-name' }, item.displayName || item.qualifiedName || item.guid),
-          React.createElement('div', { className: 'result-type' }, item.typeName),
-          React.createElement('div', { className: 'result-qn' }, item.qualifiedName)
-        );
-      })
+    open && React.createElement('div', { className: 'search-dropdown' },
+      loading
+        ? React.createElement('div', { className: 'result-item', style: { color: 'var(--dim)', cursor: 'default' } }, 'Searching…')
+        : searchErr
+        ? React.createElement('div', { className: 'result-item', style: { color: '#f87171', cursor: 'default' } }, '⚠ Search failed — try again')
+        : items.length === 0
+        ? React.createElement('div', { className: 'result-item', style: { color: 'var(--dim)', cursor: 'default' } }, 'No results found')
+        : items.map(function(item, i) {
+            return React.createElement('div', {
+              key: item.guid,
+              className: 'result-item' + (i === hi ? ' hi' : ''),
+              onMouseDown: function(e) { e.preventDefault(); select(item); },
+              onMouseEnter: function() { setHi(i); },
+            },
+              React.createElement('div', { className: 'result-name' }, item.displayName || item.qualifiedName || item.guid),
+              React.createElement('div', { className: 'result-type' }, item.typeName),
+              React.createElement('div', { className: 'result-qn' }, item.qualifiedName)
+            );
+          })
     )
   );
 }
@@ -1141,6 +1166,9 @@ function App() {
   var _ready      = useState(false), ready      = _ready[0],      setReady      = _ready[1];
   var _authUser   = useState(null),  authUser   = _authUser[0],   setAuthUser   = _authUser[1];
   var _activePersona = useState(function() {
+    // Same-tick display default only — ownership isn't known yet (that needs
+    // /api/auth/me); the boot effect below re-derives and corrects this via
+    // loadOwnedPersona() (QS-10) a moment later.
     try { var s = localStorage.getItem('egeria-persona'); return s ? JSON.parse(s) : null; } catch(e) { return null; }
   }), activePersona = _activePersona[0], setActivePersona = _activePersona[1];
 
@@ -1162,11 +1190,12 @@ function App() {
         return;
       }
 
-      // Quickstart: persona-based token
-      var storedPersona = null;
-      try { var s = localStorage.getItem('egeria-persona'); storedPersona = s ? JSON.parse(s) : null; } catch(e) {}
+      // Quickstart: persona-based token. loadOwnedPersona (QS-10) refuses a persona
+      // cached by a different Portal account, so this browser can't silently
+      // inherit a previous account's persona.
+      var storedPersona = loadOwnedPersona(d.id);
+      setActivePersona(storedPersona);
       if (storedPersona && storedPersona.id) {
-        setActivePersona(storedPersona);
         fetch('/api/demo/select-persona', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ persona: storedPersona.id })

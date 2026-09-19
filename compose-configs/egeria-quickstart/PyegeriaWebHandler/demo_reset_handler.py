@@ -17,7 +17,10 @@ Docker socket must be mounted into the container:
 
 import asyncio
 import os
+import sys
+import time
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 import psycopg2
@@ -40,11 +43,62 @@ _scheduler_task: Optional[asyncio.Task] = None
 _SCHEMA_TO_DROP = "repository_qs_metadata_store"
 _SCHEDULER_INTERVAL_SEC = 300  # check every 5 minutes
 
+# Every reset lifecycle line below is logged at INFO, but pyegeria's
+# config_logging() runs at import time, removes loguru's default sink and
+# leaves the console sink at ERROR -- so those lines land only in
+# /app/logs/pyegeria.log.  A nightly reset that stops the Egeria container and
+# drops the metadata store schema therefore left no trace in
+# `docker logs quickstart-pyegeria-web`, which is exactly where someone looks
+# when the platform appears to have died.  Attach a small stderr sink scoped to
+# this module so the reset narrates itself there too, without raising the
+# console level for every other handler.
+_console_sink_id: Optional[int] = None
+
+
+def _ensure_console_sink() -> None:
+    """Idempotently attach an INFO stderr sink for this module's records only.
+
+    Called from start_scheduler() and _run_reset() rather than at import time:
+    both run after pyegeria's config_logging(), whose logger.remove() would
+    otherwise drop a sink added here on import.
+    """
+    global _console_sink_id
+    if _console_sink_id is not None:
+        return
+    _console_sink_id = logger.add(
+        sys.stderr,
+        level="INFO",
+        filter=lambda record: record["name"] == __name__,
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <7} | demo-reset | {message}",
+    )
+
+
+# Marker the container watchdog (watchdog/watch-egeria.sh) reads to tell this
+# reset's deliberate SIGTERM apart from a real crash.  Without it every nightly
+# reset emails an "Egeria down: exited (code 143)" alert, which just trains the
+# reader to ignore the one that eventually matters.  Epoch seconds rather than
+# ISO-8601 so the watchdog's busybox `sh` can compare it with plain integer
+# arithmetic.  Written immediately before container.stop() and deliberately
+# never deleted: the watchdog honours it only within its own grace window, so a
+# stale marker ages out by itself instead of masking a later real crash.
+_RESET_MARKER = Path(os.environ.get("DEMO_RESET_MARKER", "/app/demo-data/reset-marker"))
+
+
+def _write_reset_marker() -> None:
+    try:
+        _RESET_MARKER.parent.mkdir(parents=True, exist_ok=True)
+        _RESET_MARKER.write_text(f"{int(time.time())}\n")
+    except OSError as exc:
+        # Never let a marker failure block the reset itself -- the only
+        # consequence is one spurious watchdog alert.
+        logger.warning(f"Could not write reset marker {_RESET_MARKER}: {exc}")
+
 
 # ── Lifecycle ──────────────────────────────────────────────────────────────────
 
 async def start_scheduler() -> None:
     global _scheduler_task
+    _ensure_console_sink()
     _scheduler_task = asyncio.create_task(_scheduler_loop())
     logger.info("Demo reset scheduler started")
 
@@ -96,6 +150,7 @@ async def _maybe_scheduled_reset() -> None:
 # ── Reset execution ────────────────────────────────────────────────────────────
 
 async def _run_reset() -> None:
+    _ensure_console_sink()
     if _reset_lock.locked():
         logger.warning("Reset already in progress — skipping duplicate trigger")
         return
@@ -134,6 +189,7 @@ def _do_reset_blocking() -> None:
         container = client.containers.get(EGERIA_CONTAINER_NAME)
     except docker.errors.NotFound:
         raise RuntimeError(f"Container '{EGERIA_CONTAINER_NAME}' not found — check EGERIA_CONTAINER_NAME env var")
+    _write_reset_marker()
     container.stop(timeout=60)
     logger.info("Container stopped")
 
