@@ -130,7 +130,12 @@ def _extract_props(props: dict) -> dict:
 
 
 def _extract_rel_item(entry: dict) -> dict | None:
-    """Extract a single {guid, displayName, qualifiedName, typeName, superTypeNames} from a relationship entry."""
+    """Extract a single {guid, displayName, qualifiedName, typeName, superTypeNames,
+    relationshipType} from a relationship entry. `relationshipType` is the edge's own
+    type name (e.g. CollectionMembership, SolutionLinkingWire) read from the sibling
+    `relationshipHeader` key — distinct from `typeName`, which is the related element's
+    type — so the frontend can badge what KIND OF LINK connects to this element, not
+    just what the element itself is."""
     re = entry.get("relatedElement") or entry
     rh = re.get("elementHeader") or {}
     rp = re.get("properties") or {}
@@ -138,12 +143,14 @@ def _extract_rel_item(entry: dict) -> dict | None:
     if not g:
         return None
     rtype = rh.get("type") or {}
+    rel_hdr_type = (entry.get("relationshipHeader") or {}).get("type") or {}
     return {
-        "guid":           g,
-        "displayName":    rp.get("displayName") or rp.get("name") or "",
-        "qualifiedName":  rp.get("qualifiedName") or "",
-        "typeName":       rtype.get("typeName") or "",
-        "superTypeNames": rtype.get("superTypeNames") or [],
+        "guid":             g,
+        "displayName":      rp.get("displayName") or rp.get("name") or "",
+        "qualifiedName":    rp.get("qualifiedName") or "",
+        "typeName":         rtype.get("typeName") or "",
+        "superTypeNames":   rtype.get("superTypeNames") or [],
+        "relationshipType": rel_hdr_type.get("typeName") or "",
     }
 
 
@@ -183,9 +190,13 @@ def _extract_all_rels(element: dict) -> dict:
 
         if items:
             result[key] = items
-        # Merge sideLinks under a "<key>Appointments" key to avoid collision
+        # Merge sideLinks under a "<key>RelatedElements" key to avoid collision. Each
+        # side_item's own `relationshipType` (set above) says what kind of link it is
+        # (e.g. SolutionLinkingWire, PersonRoleAppointment) — the generic key name here
+        # deliberately doesn't guess, since sideLinks can carry different relationship
+        # types across entries of the same base key.
         if side_items:
-            side_key = key + "Appointments"
+            side_key = key + "RelatedElements"
             existing = result.get(side_key, [])
             seen = {i["guid"] for i in existing}
             result[side_key] = existing + [i for i in side_items if i["guid"] not in seen]

@@ -179,8 +179,11 @@ def _unwrap_relationship_item(item: dict) -> Optional[dict]:
     """Normalise one RelatedMetadataElementSummary-shaped dict (however it's
     nested — under `relatedElement`, or the element fields directly at the
     top level of `item`) into {guid, typeName, superTypeNames, displayName,
-    qualifiedName, description, properties}. Returns None if it doesn't look
-    like a related-element entry (no guid found)."""
+    qualifiedName, description, properties, relationshipType}. `relationshipType`
+    is the edge's own type name (e.g. CollectionMembership), read from the
+    sibling `relationshipHeader` key — distinct from `typeName`, the related
+    element's own type. Returns None if it doesn't look like a related-element
+    entry (no guid found)."""
     if not isinstance(item, dict):
         return None
     nested = item.get("relatedElement")
@@ -212,14 +215,16 @@ def _unwrap_relationship_item(item: dict) -> Optional[dict]:
             extra_props[k] = v
         elif isinstance(v, str) and v.strip():
             extra_props[k] = v
+    rel_hdr_type = (item.get("relationshipHeader") or {}).get("type") or {}
     return {
-        "guid":           guid,
-        "typeName":       type_info.get("typeName", ""),
-        "superTypeNames": type_info.get("superTypeNames") or [],
-        "displayName":    display_name,
-        "qualifiedName":  elem_props.get("qualifiedName") or "",
-        "description":    elem_props.get("description") or "",
-        "properties":     extra_props,
+        "guid":             guid,
+        "typeName":         type_info.get("typeName", ""),
+        "superTypeNames":   type_info.get("superTypeNames") or [],
+        "displayName":      display_name,
+        "qualifiedName":    elem_props.get("qualifiedName") or "",
+        "description":      elem_props.get("description") or "",
+        "properties":       extra_props,
+        "relationshipType": rel_hdr_type.get("typeName") or "",
     }
 
 
