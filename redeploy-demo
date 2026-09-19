@@ -2,7 +2,8 @@
 # redeploy-demo — full teardown and rebuild of the quickstart demo environment.
 #
 # Stops all quickstart containers, removes locally-built images, optionally
-# pulls the latest code, then restarts in demo mode with a platform refresh.
+# pulls the latest code, then restarts in demo mode with a platform and
+# pyegeria refresh.
 # Shared-infra (Kafka, Postgres, proxy) is left running unless --infra is passed.
 #
 # Usage:
@@ -20,7 +21,7 @@ print_usage() {
 Usage: ./redeploy-demo [OPTIONS]
 
 Tears down the quickstart demo stack, removes all locally-built images,
-and restarts in demo mode with a forced platform refresh.
+and restarts in demo mode with a forced platform and pyegeria refresh.
 
 Options:
   --no-pull   Skip git pull (use current local files)
@@ -112,7 +113,15 @@ else
   git pull
 fi
 
-# ── 4. Restart in demo mode with platform refresh ─────────────────────────────
+# ── 4. Restart in demo mode with platform + pyegeria refresh ─────────────────
 
-echo "[redeploy-demo] Starting demo environment (platform refresh + demo mode)..."
-./quick-start-local --demo --refresh-platform
+echo "[redeploy-demo] Starting demo environment (platform + pyegeria refresh, demo mode)..."
+# --refresh-pyegeria is needed even though step 2 removed the pyegeria-web
+# image: `pip install --upgrade pyegeria` sits in its own cached Docker layer,
+# so rebuilding from a removed image still reuses that layer and keeps whatever
+# version was resolved when it was last built. The flag passes a fresh
+# PYEGERIA_BUST build-arg, which both Dockerfiles echo into the RUN so its
+# content actually changes -- the only thing that reliably re-resolves pyegeria
+# short of a full --no-cache rebuild. Without it a "full redeploy" can silently
+# ship a months-old pyegeria.
+./quick-start-local --demo --refresh-platform --refresh-pyegeria

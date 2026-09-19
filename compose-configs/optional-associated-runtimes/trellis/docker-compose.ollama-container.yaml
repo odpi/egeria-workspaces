@@ -1,0 +1,31 @@
+# Overlay for the CONTAINERIZED Ollama variants (CPU, ROCm, NVIDIA): joins the
+# optional ollama runtime's service to the shared network so the trellis
+# services resolve `http://ollama:11434`. Include it whenever
+# ../ollama/docker-compose.yaml is in the stack; leave it out with
+# docker-compose.ollama-host.yaml.
+services:
+  # ../ollama/docker-compose.yaml declares no `networks:` for its `ollama`
+  # service (predates this optional runtime, reachable today only via its
+  # published host port). This file is always applied LAST in the bring-up
+  # command (see README.md), so this override lands regardless of whether a
+  # GPU overlay is also used, and fixes the CPU-only demo path too — without
+  # it, `http://ollama:11434` above would not resolve for
+  # trellis-re-web/trellis-re-worker/trellis-ea-web on a CPU-only box (no
+  # GPU overlay in that path to carry the same fix). Harmless no-op overlap
+  # with the GPU overlays' identical addition when one of those is also used.
+  ollama:
+    networks:
+      - egeria_network
+
+networks:
+  egeria_network:
+    name: egeria_network
+    external: true
+  # egeria-shared-postgres/egeria-shared-kroki are containers defined in
+  # shared-infra.yaml, not services here — depends_on below references them
+  # by their compose service NAME as declared there ("postgres"/"kroki"),
+  # which only resolves when shared-infra.yaml is included in the same
+  # `docker compose -f ... -f ...` invocation (see the bring-up command
+  # above and README.md). Compose does not validate depends_on targets that
+  # live in a file you didn't pass with -f in this same run; `config` will
+  # error the same way if shared-infra.yaml is omitted.

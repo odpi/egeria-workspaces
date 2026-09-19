@@ -1808,10 +1808,10 @@ ___
 
 ## Appendix: Related Resources
 
-| Resource | Description |
-|----------|-------------|
+| Resource | Description                                                                                                                                                            |
+|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `human-resource-management.md` | HR domain program. Owns employment decisions, pay equity, and workforce equality monitoring; this domain consumes its representation data rather than re-collecting it |
-| `drug-development-governance.md` | Drug Development domain program. Enrolment targets and subgroup analyses are delivered through its trial processes |
+| `drug-development-governance.md` | Drug Development domain program. Enrolment targets and subgroup analyses are delivered through its trial processes                                                     |
 | `privacy-governance-program.md` | PRIVACY-domain program. Assures the lawful basis for demographic data processing and owns the privacy impact assessment this domain's equity assessment runs alongside |
-| `data-governance-program.md` | DATA-domain program. Lineage for critical data elements is what makes model training data composition verifiable |
-| `joint-governance-officer-definitions.md` | Foundation definitions and the governance roles and folios framework |
+| `data-governance-program.md` | DATA-domain program. Lineage for consumed data elements is what makes model training data composition verifiable                                                       |
+| `joint-governance-officer-definitions.md` | Foundation definitions and the governance roles and folios framework                                                                                                   |
