@@ -177,16 +177,24 @@ def _extract_all_rels(element: dict) -> dict:
             continue
 
         items = []
+        items_seen = set()
         side_items = []
+        side_seen = set()
         for entry in val:
             item = _extract_rel_item(entry)
-            if item:
+            # A deeper graph_query_depth can walk the same target through multiple
+            # distinct relationship instances/paths -- dedupe by guid so a hub-like
+            # element (e.g. an Information Supply Chain with many segments) doesn't
+            # show the same related element repeated dozens of times.
+            if item and item["guid"] not in items_seen:
                 items.append(item)
+                items_seen.add(item["guid"])
             # Depth-2: sideLinks carries second-hop related elements (e.g. persons via PersonRoles)
             for side in (entry.get("sideLinks") or []):
                 side_item = _extract_rel_item(side)
-                if side_item:
+                if side_item and side_item["guid"] not in side_seen:
                     side_items.append(side_item)
+                    side_seen.add(side_item["guid"])
 
         if items:
             result[key] = items
