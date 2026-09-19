@@ -465,7 +465,14 @@ def get_node(
 
     raw = None
     try:
-        raw = mgr.get_collection_by_guid(node_guid, output_format="JSON")
+        # graph_query_depth defaults to 3 / max_mermaid_node_count to 5-10 in pyegeria's
+        # shared get-by-guid helper -- override both for this single-element detail view
+        # (see egeria-python PYEGERIA_ISSUES.md ISSUE-23; same default used by every other
+        # single-element detail endpoint in this codebase). Without this, a collection
+        # viewed here (e.g. an InformationSupplyChain, before _enrich_isc_implementation_graph
+        # patches in its ISC-specific mermaid fields) resolves fewer relationship hops than
+        # the type-specific viewer for the same element.
+        raw = mgr.get_collection_by_guid(node_guid, output_format="JSON", graph_query_depth=5, max_mermaid_node_count=250)
     except Exception:
         pass
     if not raw:

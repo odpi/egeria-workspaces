@@ -446,7 +446,11 @@ def get_node(
 
     raw = None
     try:
-        raw = mgr.get_collection_by_guid(node_guid, output_format="JSON")
+        # graph_query_depth defaults to 3 / max_mermaid_node_count to 5-10 in pyegeria's
+        # shared get-by-guid helper -- override both for this single-element detail view
+        # (see egeria-python PYEGERIA_ISSUES.md ISSUE-23; same default used by every other
+        # single-element detail endpoint in this codebase).
+        raw = mgr.get_collection_by_guid(node_guid, output_format="JSON", graph_query_depth=5, max_mermaid_node_count=250)
     except Exception:
         pass  # not a collection — try asset fallback below
 
@@ -477,7 +481,7 @@ def get_node(
             raw = ce.get_element_by_guid(
                 guid=node_guid,
                 output_format="JSON",
-                body={"class": "GetRequestBody", "graphQueryDepth": 2, "maxMermaidNodeCount": 250},
+                body={"class": "GetRequestBody", "graphQueryDepth": 5, "maxMermaidNodeCount": 250},
             )
         except Exception as exc:
             logger.exception("ClassificationExplorer.get_element_by_guid failed for %s", node_guid)

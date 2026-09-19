@@ -229,7 +229,7 @@ def get_perspective(
             output_format="JSON",
             page_size=200,
             metadata_element_type="Perspective",
-            graph_query_depth=1,
+            graph_query_depth=5,
             # max_mermaid_node_count defaults to 5 (pyegeria shared find helper),
             # truncating any mermaid diagram for this element -- see egeria-python
             # PYEGERIA_ISSUES.md ISSUE-23.
@@ -350,7 +350,7 @@ def get_question(
         raw = mgr.get_term_by_guid(
             question_guid,
             output_format="JSON",
-            body={"class": "GetRequestBody", "graphQueryDepth": 2, "maxMermaidNodeCount": 250},
+            body={"class": "GetRequestBody", "graphQueryDepth": 5, "maxMermaidNodeCount": 250},
         )
     except Exception as exc:
         logger.exception("get_term_by_guid failed")

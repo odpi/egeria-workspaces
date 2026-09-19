@@ -207,6 +207,7 @@ def list_context_events(
         raw = [e for e in raw if isinstance(e, dict) and not _is_template(e)]
 
     events = [_serialize_context_event(e) for e in raw if isinstance(e, dict) and e.get("elementHeader")]
+    events.sort(key=lambda x: (x.get("displayName") or x.get("qualifiedName") or "").lower())
     return JSONResponse({"events": events})
 
 
@@ -231,7 +232,7 @@ def get_context_event(
         raw = mgr.get_context_event_by_guid(
             guid=guid,
             output_format="JSON",
-            graph_query_depth=3,
+            graph_query_depth=5,
             max_mermaid_node_count=250,
         )
     except Exception as exc:

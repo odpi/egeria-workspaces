@@ -445,7 +445,7 @@ def get_definition(
         # max_mermaid_node_count defaults to 5 (pyegeria shared get-by-guid helper),
         # truncating any mermaid diagram (e.g. governance definition context) for
         # this element -- see egeria-python PYEGERIA_ISSUES.md ISSUE-23.
-        raw = mgr.get_governance_definition_by_guid(guid, output_format="JSON", graph_query_depth=3, max_mermaid_node_count=250)
+        raw = mgr.get_governance_definition_by_guid(guid, output_format="JSON", graph_query_depth=5, max_mermaid_node_count=250)
     except Exception as exc:
         logger.exception("get_governance_definition_by_guid failed")
         raise HTTPException(status_code=500, detail=str(exc))
