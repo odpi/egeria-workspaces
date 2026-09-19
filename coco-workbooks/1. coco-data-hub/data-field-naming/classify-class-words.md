@@ -10,7 +10,7 @@ Class words are collected here rather than alongside their `Create Glossary Term
 every term already exists before it is classified - process this file after all the subject area
 files listed in `README.md`.
 
-46 terms are classified below, grouped by subject area.
+52 terms are classified below, grouped by subject area.
 
 ____
 
@@ -635,3 +635,88 @@ GlossaryTerm::DataFieldNaming::Price
 Shared class word, reusable across all subject areas of the Coco Pharmaceuticals data field naming standard.
 
 ___
+
+# Strategic digital products extension
+
+6 terms added by `strategic-products-vocabulary.md`.
+
+___
+
+## Classify Class Word
+> Classify an existing element as a class word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Timestamp
+
+### Journal Entry
+
+Class word for the Common subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Class Word
+> Classify an existing element as a class word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Duration
+
+### Journal Entry
+
+Class word for the Common subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Class Word
+> Classify an existing element as a class word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Temperature
+
+### Journal Entry
+
+Class word for the Common subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Class Word
+> Classify an existing element as a class word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Count
+
+### Journal Entry
+
+Class word for the Common subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Class Word
+> Classify an existing element as a class word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Version
+
+### Journal Entry
+
+Class word for the Common subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Class Word
+> Classify an existing element as a class word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Signature
+
+### Journal Entry
+
+Class word for the Common subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
