@@ -263,7 +263,7 @@ def get_actor_profile(
         # the sibling graph_query_depth= kwarg is ignored once an explicit body is
         # passed. Default max_mermaid_node_count=5 otherwise truncates any mermaid
         # diagram for this element -- see egeria-python PYEGERIA_ISSUES.md ISSUE-23.
-        body = {"class": "GetRequestBody", "graphQueryDepth": 1, "maxMermaidNodeCount": 250}
+        body = {"class": "GetRequestBody", "graphQueryDepth": 5, "maxMermaidNodeCount": 250}
         if as_of_time:
             body["asOfTime"] = as_of_time
         element = mgr.get_actor_profile_by_guid(guid, output_format="JSON", body=body)
@@ -315,7 +315,7 @@ def get_actor_role(
     try:
         # See get_actor_profile above re: embedding graphQueryDepth/maxMermaidNodeCount
         # in the body dict (PYEGERIA_ISSUES.md ISSUE-23).
-        body = {"class": "GetRequestBody", "graphQueryDepth": 1, "maxMermaidNodeCount": 250}
+        body = {"class": "GetRequestBody", "graphQueryDepth": 5, "maxMermaidNodeCount": 250}
         if as_of_time:
             body["asOfTime"] = as_of_time
         element = mgr.get_actor_role_by_guid(guid, output_format="JSON", body=body)
@@ -366,7 +366,7 @@ def get_user_identity(
     try:
         # See get_actor_profile above re: embedding graphQueryDepth/maxMermaidNodeCount
         # in the body dict (PYEGERIA_ISSUES.md ISSUE-23).
-        body = {"class": "GetRequestBody", "graphQueryDepth": 1, "maxMermaidNodeCount": 250}
+        body = {"class": "GetRequestBody", "graphQueryDepth": 5, "maxMermaidNodeCount": 250}
         if as_of_time:
             body["asOfTime"] = as_of_time
         element = mgr.get_user_identity_by_guid(guid, output_format="JSON", body=body)

@@ -180,7 +180,7 @@ def get_external_reference(
         # max_mermaid_node_count defaults to 5 (pyegeria shared get-by-guid helper),
         # truncating any mermaid diagram for this element -- see egeria-python
         # PYEGERIA_ISSUES.md ISSUE-23.
-        element = mgr.get_external_reference_by_guid(guid, output_format="JSON", graph_query_depth=1, max_mermaid_node_count=250)
+        element = mgr.get_external_reference_by_guid(guid, output_format="JSON", graph_query_depth=5, max_mermaid_node_count=250)
     except Exception as exc:
         logger.exception(f"get_external_reference_by_guid failed for {guid}")
         raise HTTPException(status_code=500, detail=f"External reference detail retrieval failed: {exc}")
@@ -316,7 +316,7 @@ def get_external_identifier(
         # max_mermaid_node_count defaults to 5 (pyegeria shared get-by-guid helper),
         # truncating any mermaid diagram for this element -- see egeria-python
         # PYEGERIA_ISSUES.md ISSUE-23.
-        element = mgr.get_external_identifier_by_guid(guid, output_format="JSON", graph_query_depth=1, max_mermaid_node_count=250)
+        element = mgr.get_external_identifier_by_guid(guid, output_format="JSON", graph_query_depth=5, max_mermaid_node_count=250)
     except Exception as exc:
         logger.exception(f"get_external_identifier_by_guid failed for {guid}")
         raise HTTPException(status_code=500, detail=f"External identifier detail retrieval failed: {exc}")

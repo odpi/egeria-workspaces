@@ -8300,8 +8300,12 @@ function DrEgeriaCommandsView() {
 // ── Information Supply Chain View ─────────────────────────────────────────────
 
 function ISCDetail({ data, detail, onNavigateToElement }) {
-  // data = list item (has mermaid fields from add_implementation=True)
-  // detail = full detail from /api/isc/{guid} (has segments, implementations)
+  // data = list item from /api/isc (add_implementation=False, graph_query_depth=1 —
+  //   list_isc() intentionally skips mermaid/implementation generation for perf, see
+  //   isc_handler.py; data's own mermaidGraph, if any, is shallow/context-only).
+  // detail = full detail from /api/isc/{guid} (add_implementation=True, graph_query_depth=10
+  //   — this is the one with the real segments/implementations and the deep
+  //   iscImplementationMermaidGraph). Always prefer it once loaded.
   var _iscPersonaId = React.useContext(PersonaContext);
   var src = data || detail;
   if (!src) return null;
@@ -8321,7 +8325,7 @@ function ISCDetail({ data, detail, onNavigateToElement }) {
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, src.guid),
     src.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(src.description)),
     React.createElement("div", { style: { marginBottom: 8 } },
-      React.createElement(AvailableMermaidDiagrams, { data: data || src }),
+      React.createElement(AvailableMermaidDiagrams, { data: structural }),
       React.createElement(MermaidSection, { guid: src.guid })
     ),
     React.createElement("div", { style: { marginBottom: 20 } },
