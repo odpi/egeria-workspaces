@@ -79,21 +79,29 @@ from rate_limiter import limiter
 async def _lifespan(app: FastAPI):
     from obsidian_lock_handler import start_scheduler as obs_start, stop_scheduler as obs_stop
     from jupyter_lock_handler import start_scheduler as jup_start, stop_scheduler as jup_stop
-    from advisor_lock_handler import start_scheduler as adv_start, stop_scheduler as adv_stop
     from bootstrap_monitor_handler import start_scheduler as boot_start, stop_scheduler as boot_stop
     await obs_start()
     await jup_start()
-    await adv_start()
     await boot_start()
     if DEMO_MODE:
         from demo_reset_handler import start_scheduler, stop_scheduler
         await start_scheduler()
+    # Fire-and-forget: warm the REST APIs OpenAPI-spec cache in the background
+    # so the REST APIs tab and portal search (catalog_search_handler.py) both
+    # have data ready without waiting on the first ~20s cold fetch. Not
+    # awaited -- must not delay the app coming up to serve other traffic.
+    # (The 2026-09-03 startup-hang incident was a *different*, pre-existing
+    # bug -- bootstrap_monitor_handler.py's canary check, now fixed/bounded
+    # above via boot_start() -- this task was never the cause, but it's
+    # additionally self-timeout-bounded now too; see warm_openapi_cache().)
+    # Keep a reference on app.state so the task isn't GC'd mid-flight.
+    from rest_api_handler import warm_openapi_cache
+    app.state.openapi_warmup_task = asyncio.create_task(warm_openapi_cache())
     yield
     if DEMO_MODE:
         from demo_reset_handler import stop_scheduler
         await stop_scheduler()
     await boot_stop()
-    await adv_stop()
     await jup_stop()
     await obs_stop()
 
@@ -263,6 +271,8 @@ from external_links_handler import router as external_links_router
 app.include_router(external_links_router)
 from agreements_handler import router as agreements_router
 app.include_router(agreements_router)
+from namespaces_handler import router as namespaces_router
+app.include_router(namespaces_router)
 from pyegeria_docs_handler import router as pyegeria_docs_router
 app.include_router(pyegeria_docs_router)
 from demo_feedback_handler import router as demo_feedback_router
@@ -299,8 +309,10 @@ from obsidian_lock_handler import router as obsidian_lock_router
 app.include_router(obsidian_lock_router)
 from jupyter_lock_handler import router as jupyter_lock_router
 app.include_router(jupyter_lock_router)
-from advisor_lock_handler import router as advisor_lock_router
-app.include_router(advisor_lock_router)
+from advisor_handler import router as advisor_router
+app.include_router(advisor_router)
+from resource_explorer_handler import router as resource_explorer_router
+app.include_router(resource_explorer_router)
 
 # ── Demo mode ──────────────────────────────────────────────────────────────────
 
