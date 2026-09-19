@@ -10,7 +10,7 @@ Prime words are collected here rather than alongside their `Create Glossary Term
 every term already exists before it is classified - process this file after all the subject area
 files listed in `README.md`.
 
-56 terms are classified below, grouped by subject area.
+129 terms are classified below, grouped by subject area.
 
 ____
 
@@ -791,3 +791,959 @@ GlossaryTerm::DataFieldNaming::Protocol
 Prime word for the Clinical Trial subject area of the Coco Pharmaceuticals data field naming standard.
 
 ___
+
+# Strategic digital products extension
+
+73 terms added by `strategic-products-vocabulary.md`.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::LegalEntity
+
+### Journal Entry
+
+Prime word for the Organization subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::CostCentre
+
+### Journal Entry
+
+Prime word for the Organization subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::ThirdParty
+
+### Journal Entry
+
+Prime word for the Organization:Supplier subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::OnboardingCase
+
+### Journal Entry
+
+Prime word for the Organization:Supplier subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Screening
+
+### Journal Entry
+
+Prime word for the Organization:Supplier subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::PaymentDetail
+
+### Journal Entry
+
+Prime word for the Organization:Supplier subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::BankAccount
+
+### Journal Entry
+
+Prime word for the Organization:Supplier subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Worker
+
+### Journal Entry
+
+Prime word for the Person:Employee subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Claim
+
+### Journal Entry
+
+Prime word for the Person:Employee subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Payroll
+
+### Journal Entry
+
+Prime word for the Person:Employee subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::UserAccount
+
+### Journal Entry
+
+Prime word for the Person:Employee subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Entitlement
+
+### Journal Entry
+
+Prime word for the Person:Employee subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Competency
+
+### Journal Entry
+
+Prime word for the Person:Employee subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Qualification
+
+### Journal Entry
+
+Prime word for the Person:Employee subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Training
+
+### Journal Entry
+
+Prime word for the Person:Employee subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Exposure
+
+### Journal Entry
+
+Prime word for the Person:Employee subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::MonitoringCampaign
+
+### Journal Entry
+
+Prime word for the Person:Employee subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Incident
+
+### Journal Entry
+
+Prime word for the Person:Employee subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Surveillance
+
+### Journal Entry
+
+Prime word for the Person:Employee subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::HealthRecord
+
+### Journal Entry
+
+Prime word for the Person:Employee subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::DirectoryEntry
+
+### Journal Entry
+
+Prime word for the Person:Employee subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Band
+
+### Journal Entry
+
+Prime word for the Person:Employee subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Sample
+
+### Journal Entry
+
+Prime word for the Clinical subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::SafetyReport
+
+### Journal Entry
+
+Prime word for the Clinical:Outcome subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::SafetyCase
+
+### Journal Entry
+
+Prime word for the Clinical:Outcome subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Signal
+
+### Journal Entry
+
+Prime word for the Clinical:Outcome subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Pack
+
+### Journal Entry
+
+Prime word for the Treatment:Product subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Case
+
+### Journal Entry
+
+Prime word for the Treatment:Product subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Allocation
+
+### Journal Entry
+
+Prime word for the Treatment:Product subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Aggregation
+
+### Journal Entry
+
+Prime word for the Treatment:Product subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Verification
+
+### Journal Entry
+
+Prime word for the Treatment:Product subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Market
+
+### Journal Entry
+
+Prime word for the Treatment:Product subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Authorisation
+
+### Journal Entry
+
+Prime word for the Treatment:Product subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Specification
+
+### Journal Entry
+
+Prime word for the Treatment:Product subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Test
+
+### Journal Entry
+
+Prime word for the Treatment:Product subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Equipment
+
+### Journal Entry
+
+Prime word for the Treatment:Recipe subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::ExecutionStep
+
+### Journal Entry
+
+Prime word for the Treatment:Recipe subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::ProcessParameter
+
+### Journal Entry
+
+Prime word for the Treatment:Recipe subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Slot
+
+### Journal Entry
+
+Prime word for the Treatment:Recipe subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Deviation
+
+### Journal Entry
+
+Prime word for the Treatment:Recipe subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Substance
+
+### Journal Entry
+
+Prime word for the Treatment:Recipe subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Alert
+
+### Journal Entry
+
+Prime word for the ServiceQuality subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::GoodsReceipt
+
+### Journal Entry
+
+Prime word for the ServiceQuality:Stock subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Lot
+
+### Journal Entry
+
+Prime word for the ServiceQuality:Stock subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Declaration
+
+### Journal Entry
+
+Prime word for the ServiceQuality:Distribution subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Device
+
+### Journal Entry
+
+Prime word for the ServiceQuality:Distribution subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Excursion
+
+### Journal Entry
+
+Prime word for the ServiceQuality:Distribution subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::TransportClassification
+
+### Journal Entry
+
+Prime word for the ServiceQuality:Distribution subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Transaction
+
+### Journal Entry
+
+Prime word for the ServiceQuality:Invoice subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Feed
+
+### Journal Entry
+
+Prime word for the ServiceQuality:Invoice subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Posting
+
+### Journal Entry
+
+Prime word for the ServiceQuality:Invoice subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Ledger
+
+### Journal Entry
+
+Prime word for the ServiceQuality:Invoice subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::JournalEntry
+
+### Journal Entry
+
+Prime word for the ServiceQuality:Invoice subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::AccountingPeriod
+
+### Journal Entry
+
+Prime word for the ServiceQuality:Invoice subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Consolidation
+
+### Journal Entry
+
+Prime word for the ServiceQuality:Invoice subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Statement
+
+### Journal Entry
+
+Prime word for the ServiceQuality:Invoice subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::CloseChecklist
+
+### Journal Entry
+
+Prime word for the ServiceQuality:Invoice subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Revenue
+
+### Journal Entry
+
+Prime word for the ServiceQuality:Invoice subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::System
+
+### Journal Entry
+
+Prime word for the Governance subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Asset
+
+### Journal Entry
+
+Prime word for the Governance subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Document
+
+### Journal Entry
+
+Prime word for the Governance subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Certificate
+
+### Journal Entry
+
+Prime word for the Governance subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Submission
+
+### Journal Entry
+
+Prime word for the Governance subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Disclosure
+
+### Journal Entry
+
+Prime word for the Governance subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::TransferOfValue
+
+### Journal Entry
+
+Prime word for the Governance subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Anomaly
+
+### Journal Entry
+
+Prime word for the Governance subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::CorrectiveAction
+
+### Journal Entry
+
+Prime word for the Governance subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::DataSubject
+
+### Journal Entry
+
+Prime word for the Governance subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::RightsRequest
+
+### Journal Entry
+
+Prime word for the Governance subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::ProcessingActivity
+
+### Journal Entry
+
+Prime word for the Governance subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Holding
+
+### Journal Entry
+
+Prime word for the Governance subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Discrepancy
+
+### Journal Entry
+
+Prime word for the Governance subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+
+## Classify Prime Word
+> Classify an existing element as a prime word in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::Retention
+
+### Journal Entry
+
+Prime word for the Governance subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.
+
+___
+

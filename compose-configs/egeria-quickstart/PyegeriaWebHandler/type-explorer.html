@@ -4352,11 +4352,14 @@ function DigitalProductDetail({ product, onNavigateToElement, creds, selection }
   function renderMemberGroup(tn, members) {
     const isDataSpec = tn === 'DataSpecCollection';
     const isTabular  = tn.startsWith('TabularDataSet') || tn === 'ReferenceCodeTable';
+    const sortedMembers = members.slice().sort(function(a, b) {
+      return (a.displayName || a.qualifiedName || '').localeCompare(b.displayName || b.qualifiedName || '');
+    });
     return React.createElement("div", { key: tn, style: { marginBottom: 16 } },
       React.createElement("div", { style: { fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 } },
         tn + " (" + members.length + ")"
       ),
-      members.map(function(m) {
+      sortedMembers.map(function(m) {
         return React.createElement("div", { key: m.guid, style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '5px 0', borderTop: '1px solid var(--border)' } },
           selection && m.guid && React.createElement("input", {
             type: "checkbox", checked: selection.isSelected(m.guid), style: { flexShrink: 0, cursor: 'pointer' },
@@ -8612,7 +8615,8 @@ function RelatedElementRow({ item, onNavigateToElement }) {
       item.contactMethodValue && React.createElement("div", { style: { fontSize: 12, color: 'var(--fg)', marginTop: 2, fontFamily: 'ui-monospace,monospace' } }, item.contactMethodValue),
       item.description && React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', marginTop: 2 } }, item.description)
     ),
-    item.typeName && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(99,102,241,.1)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.25)', flexShrink: 0 } }, item.typeName),
+    item.relationshipType && React.createElement("span", { className: "badge", title: "Relationship type", style: { fontSize: 9, background: 'rgba(251,191,36,.1)', color: '#fbbf24', border: '0.5px solid rgba(251,191,36,.25)', flexShrink: 0 } }, item.relationshipType),
+    item.typeName && React.createElement("span", { className: "badge", title: "Element type", style: { fontSize: 9, background: 'rgba(99,102,241,.1)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.25)', flexShrink: 0 } }, item.typeName),
     clickable && React.createElement("button", {
       onClick: function() { onNavigateToElement(item); },
       style: { flexShrink: 0, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(94,234,212,.4)', background: 'rgba(94,234,212,.1)', color: '#5eead4', cursor: 'pointer', fontSize: 11 },
@@ -8631,8 +8635,11 @@ function RelatedElementRow({ item, onNavigateToElement }) {
 // direct use + GenericRelationshipsSection below).
 function RelationshipSection({ title, items, onNavigateToElement }) {
   if (!items || !items.length) return null;
+  var sorted = items.slice().sort(function(a, b) {
+    return (a.displayName || a.qualifiedName || '').localeCompare(b.displayName || b.qualifiedName || '');
+  });
   return React.createElement(Collapsible, { title: title, count: items.length, defaultOpen: true },
-    items.map(function(item) {
+    sorted.map(function(item) {
       return React.createElement(RelatedElementRow, { key: item.guid, item: item, onNavigateToElement: onNavigateToElement });
     })
   );
