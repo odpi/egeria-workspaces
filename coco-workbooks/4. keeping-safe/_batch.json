@@ -1,6 +1,6 @@
 {
   "displayName": "Coco - 4. Keeping Safe",
-  "description": "Gary Geeke's IT infrastructure governance program, built on the systems inventory created in this directory.",
+  "description": "Gary Geeke's IT infrastructure governance program, built on the systems inventory created in 1. coco-data-hub.",
   "canary": {
     "type": "BusinessImperative",
     "name": "Digital Services the Business Can Depend On"

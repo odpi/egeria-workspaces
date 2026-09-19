@@ -199,7 +199,7 @@ ___
 ## Create Governance Principle
 
 ### Display Name
-Common Data Definitions Across the Organisation
+Common Definitions for Shared Data
 
 ### Qualified Name
 CocoPharma::GovernancePrinciple::CommonDataDefinitions
@@ -211,12 +211,14 @@ Data
 Coco Pharmaceuticals will maintain shared, agreed definitions for data used across multiple departments, to eliminate ambiguity and enable reliable data sharing.
 
 ### Description
-One of the most significant barriers to data sharing and integrated analytics is inconsistent data definitions. When different departments define "patient", "batch", "supplier", or "revenue" differently, data cannot be combined without manual reconciliation — which is slow, error-prone, and expensive. Coco Pharmaceuticals will establish and maintain a common glossary of data definitions, agreed across departments, covering what data means, how it is formatted, what valid values it can take, and how frequently it is updated.
+One of the most significant barriers to data sharing and integrated analytics is inconsistent data definitions. When different departments define "patient", "batch", "supplier", or "revenue" differently, data cannot be combined without manual reconciliation — which is slow, error-prone, and expensive. Coco Pharmaceuticals will establish and maintain a common glossary of data definitions, agreed across departments, covering what data means, how it is formatted, what valid values it can take, and how frequently it is updated.  This will be used in the development of new data pipelines and data stores that are part of the data sharing network.
 
 ### Implications
-- A governed business glossary must be maintained and kept current
-- Changes to data definitions must go through an agreed approval process
-- Systems must use common definitions wherever possible; exceptions must be documented
+- The subject areas for shared data need to be agreed across departments
+- Each subject area needs an owner, who will be responsible for the development and maintenance of the common data definitions.  This includes glossaries, data dictionaries, data quality rules and reference data. 
+- The data governance team will support the subject area owners in developing and maintaining the common data definitions.
+- Changes to data definitions must go through an agreed approval process.
+- New data sharing pipelines must use common definitions wherever possible; exceptions must be documented
 
 ### Outcomes
 - Data can be shared between departments without manual reconciliation
@@ -332,7 +334,7 @@ ___
 ## Create Governance Principle
 
 ### Display Name
-Data Carries Its Classification Wherever It Goes
+Data Carries Its Context Wherever It Goes
 
 ### Qualified Name
 CocoPharma::GovernancePrinciple::ClassificationTravelsWithData

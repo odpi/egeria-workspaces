@@ -103,12 +103,14 @@ def _extract_all_rels(element: dict) -> dict:
             g  = rh.get("guid") or re.get("guid") or ""
             if g:
                 rtype = rh.get("type") or {}
+                rel_hdr_type = (entry.get("relationshipHeader") or {}).get("type") or {}
                 items.append({
-                    "guid":           g,
-                    "displayName":    rp.get("displayName") or rp.get("name") or "",
-                    "qualifiedName":  rp.get("qualifiedName") or "",
-                    "typeName":       rtype.get("typeName") or "",
-                    "superTypeNames": rtype.get("superTypeNames") or [],
+                    "guid":             g,
+                    "displayName":      rp.get("displayName") or rp.get("name") or "",
+                    "qualifiedName":    rp.get("qualifiedName") or "",
+                    "typeName":         rtype.get("typeName") or "",
+                    "superTypeNames":   rtype.get("superTypeNames") or [],
+                    "relationshipType": rel_hdr_type.get("typeName") or "",
                 })
         if items:
             result[key] = items
