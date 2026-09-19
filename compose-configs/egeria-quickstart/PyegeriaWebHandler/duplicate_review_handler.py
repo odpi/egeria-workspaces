@@ -125,6 +125,7 @@ def list_pending(
             "elementB":          _stub_summary(rel.get("end2") or {}),
         })
 
+    pairs.sort(key=lambda x: (x["elementA"].get("displayName") or "").lower())
     return JSONResponse({"pairs": pairs, "total": len(pairs)})
 
 
@@ -178,4 +179,5 @@ def list_consolidated(
             "sources":  sources_by_survivor.get(summary.get("guid"), []),
         })
 
+    records.sort(key=lambda x: (x["survivor"].get("displayName") or "").lower())
     return JSONResponse({"consolidated": records, "total": len(records)})

@@ -265,10 +265,12 @@ def get_project(
         raise_egeria_http_error(exc, "Failed to create ProjectManager")
 
     try:
-        # graphQueryDepth=2 so relationship arrays (resources, dependencies, etc.)
-        # are present for _generic_relationships to surface — without it the
-        # response has no relationship keys to extract at all.
-        body = {"class": "GetRequestBody", "graphQueryDepth": 2}
+        # graphQueryDepth=5 (default for single-element detail views) so relationship
+        # arrays (resources, dependencies, etc.) are present for _generic_relationships
+        # to surface — without an override the response has no relationship keys to
+        # extract at all. maxMermaidNodeCount=250 avoids the shared get-by-guid helper's
+        # default node cap truncating any mermaid diagram (PYEGERIA_ISSUES.md ISSUE-23).
+        body = {"class": "GetRequestBody", "graphQueryDepth": 5, "maxMermaidNodeCount": 250}
         if as_of_time:
             body["asOfTime"] = as_of_time
         raw = mgr.get_project_by_guid(guid, output_format="JSON", body=body)
