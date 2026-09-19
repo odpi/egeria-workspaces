@@ -121,14 +121,16 @@ def _serialize_rel_entries(rel_list: list) -> list:
         rh = re.get("elementHeader") or {}
         rp = re.get("properties") or {}
         rtype = rh.get("type") or {}
+        rel_hdr_type = (rel.get("relationshipHeader") or {}).get("type") or {}
         g  = rh.get("guid", "")
         if g:
             result.append({
-                "guid":           g,
-                "displayName":    rp.get("displayName") or rp.get("name") or "",
-                "qualifiedName":  rp.get("qualifiedName") or "",
-                "typeName":       rtype.get("typeName") or "",
-                "superTypeNames": rtype.get("superTypeNames") or [],
+                "guid":             g,
+                "displayName":      rp.get("displayName") or rp.get("name") or "",
+                "qualifiedName":    rp.get("qualifiedName") or "",
+                "typeName":         rtype.get("typeName") or "",
+                "superTypeNames":   rtype.get("superTypeNames") or [],
+                "relationshipType": rel_hdr_type.get("typeName") or "",
             })
     return result
 

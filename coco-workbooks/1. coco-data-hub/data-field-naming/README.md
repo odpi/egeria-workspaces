@@ -61,10 +61,16 @@ dr_egeria --directive process --userid erinoverview --user_pass secret product-d
 dr_egeria --directive process --userid erinoverview --user_pass secret common.md
 dr_egeria --directive process --userid erinoverview --user_pass secret common-modifiers.md
 dr_egeria --directive process --userid erinoverview --user_pass secret common-class-words.md
+dr_egeria --directive process --userid erinoverview --user_pass secret strategic-products-vocabulary.md
 dr_egeria --directive process --userid erinoverview --user_pass secret classify-prime-words.md
 dr_egeria --directive process --userid erinoverview --user_pass secret classify-modifiers.md
 dr_egeria --directive process --userid erinoverview --user_pass secret classify-class-words.md
 ```
+
+`strategic-products-vocabulary.md` extends the vocabulary with the prime words, modifiers and class words the
+[strategic digital products](../strategic-digital-products/README.md) needed - manufacturing, serialisation, safety,
+finance, procurement, people and privacy terms - adding each to the subject-area folder it belongs to.  It comes after
+the subject-area files because it references their folders.
 
 The three `classify-*.md` files must come last: they classify terms rather than create them, so every
 term they reference has to exist first.
@@ -102,6 +108,7 @@ term they reference has to exist first.
 | [common.md](common.md) | *(top-level folder for shared terms)* | - |
 | [common-modifiers.md](common-modifiers.md) | *(shared across subject areas)* | Common |
 | [common-class-words.md](common-class-words.md) | *(shared across subject areas)* | Common |
-| [classify-prime-words.md](classify-prime-words.md) | *(`PrimeWord` on 56 terms)* | - |
-| [classify-modifiers.md](classify-modifiers.md) | *(`Modifier` on 44 terms)* | - |
-| [classify-class-words.md](classify-class-words.md) | *(`ClassWord` on 46 terms)* | - |
+| [strategic-products-vocabulary.md](strategic-products-vocabulary.md) | *(73 prime words, 161 modifiers and 6 class words for the strategic digital products, added to the folders above)* | - |
+| [classify-prime-words.md](classify-prime-words.md) | *(`PrimeWord` on 129 terms)* | - |
+| [classify-modifiers.md](classify-modifiers.md) | *(`Modifier` on 205 terms)* | - |
+| [classify-class-words.md](classify-class-words.md) | *(`ClassWord` on 52 terms)* | - |
