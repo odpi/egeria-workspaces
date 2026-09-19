@@ -16,7 +16,7 @@ The [strategic information supply chain register](../0.%20data-governance-progra
 
 This file is that linkage.  For each supply chain it identifies the components that implement it — creating the ones that did not exist, and locating the ones that did — makes them members of the chain, and draws the wires that carry data between them.  Every wire records which supply chains it implements, so that Egeria can assemble each chain's implementation graph from the wires rather than from a hand-drawn picture.
 
-Two of the sixteen chains are not modelled here, because they are already complete.  **Clinical Trials** and **Sustainability Reporting** arrive fully implemented in `CocoComboArchive.omarchive`, with components, roles, wires and membership.  This file adds handover members to the clinical trials chain where another chain now meets it, and otherwise leaves both alone.
+Two of the sixteen chains are not modelled here, because they are already complete.  **Clinical Trials** and **Sustainability Reporting** arrive fully implemented in `CocoComboArchive.omarchive`, with components, roles, wires and membership.  Where another chain meets clinical trials, the wire records it; neither chain is otherwise touched.
 
 ---
 
@@ -9702,95 +9702,6 @@ assembled response, actions taken, decisions and reasons
 
 ### ISC Qualified Names
 - InformationSupplyChain::Data Subject Rights Information Supply Chain
-
-___
-
----
-
-### 3.15 Clinical Trials
-
-The clinical trials chain arrives complete from the archive and is not redrawn here.  Five components defined in Part 2 meet it at a handover - the qualification register that evidences site staff training, the safety intake gateway that trial-site adverse events leave through, the retention schedule service that reads the retention periods trial data was onboarded with, and the research systems and product master through which trial evidence becomes a product definition - so they are added to the chain as members.
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Clinical Trials Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::CompetencyRegister
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Clinical Trials Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::SafetyIntakeGateway
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Clinical Trials Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::RetentionScheduleService
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Clinical Trials Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::Research
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Clinical Trials Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::ProductMasterRegister
-
-### Membership Status
-VALIDATED
 
 ___
 
