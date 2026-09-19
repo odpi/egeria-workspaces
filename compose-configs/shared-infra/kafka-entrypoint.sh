@@ -60,6 +60,27 @@ RETENTION_CHECK_MS=${KAFKA_CFG_LOG_RETENTION_CHECK_INTERVAL_MS:-300000}
 CLEANER_ENABLE=${KAFKA_CFG_LOG_CLEANER_ENABLE:-true}
 AUTO_CREATE_TOPICS=${KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE:-true}
 
+# __consumer_offsets partition count. Only takes effect the first time this
+# topic is auto-created — changing it later does nothing to an
+# already-formatted log dir (Kafka can't shrink an existing topic's
+# partition count, only grow it, and won't do even that for an internal
+# topic via the normal path). Kafka's own compiled-in default is 50,
+# sized for multi-broker production clusters with many consumer groups;
+# for this single-broker demo instance that's 50x more coordinator-managed
+# partitions than there's any benefit to, for a single node. 2026-09-04:
+# confirmed 100+ live consumer groups registered (Egeria integration
+# connectors/survey/governance engines across quickstart and freshstart)
+# against the stock 50-partition topic, alongside a chronic
+# GroupCoordinator write-timeout/rebalance-storm pattern in qs-engine-host/
+# qs-integration-daemon logs (see project memory
+# kafka_coordinator_rebalance_storm.md) -- unconfirmed whether this
+# actually contributed, but there's no benefit to 50 on one broker either
+# way. Lowered as part of a fresh-database redeploy, where the existing
+# topic's committed offsets aren't being preserved anyway -- this value is
+# irrelevant to an already-formatted log dir; changing it further after
+# this redeploy would need the same delete-and-recreate treatment.
+OFFSETS_TOPIC_PARTITIONS=${KAFKA_CFG_OFFSETS_TOPIC_NUM_PARTITIONS:-10}
+
 cat > "$CONFIG_DIR/server.properties" << EOF
 # KRaft mode configuration
 process.roles=${KAFKA_CFG_PROCESS_ROLES}
@@ -86,6 +107,7 @@ socket.request.max.bytes=104857600
 num.partitions=1
 num.recovery.threads.per.data.dir=1
 offsets.topic.replication.factor=1
+offsets.topic.num.partitions=${OFFSETS_TOPIC_PARTITIONS}
 transaction.state.log.replication.factor=1
 transaction.state.log.min.isr=1
 auto.create.topics.enable=${AUTO_CREATE_TOPICS}
@@ -104,6 +126,8 @@ EOF
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Generated Kafka KRaft configuration"
 echo "[$(date '+%Y-%m-%d %H:%M:%S')]   log.retention.hours=${RETENTION_HOURS}" \
      "log.retention.bytes=${RETENTION_BYTES} log.segment.bytes=${SEGMENT_BYTES}"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')]   offsets.topic.num.partitions=${OFFSETS_TOPIC_PARTITIONS}" \
+     "(only takes effect if __consumer_offsets doesn't already exist)"
 echo "[$(date '+%Y-%m-%d %H:%M:%S')]   KAFKA_HEAP_OPTS=${KAFKA_HEAP_OPTS:-<unset, kafka-server-start.sh will use -Xmx1G -Xms1G>}"
 
 # Format only on a genuinely empty log dir. meta.properties is what makes this

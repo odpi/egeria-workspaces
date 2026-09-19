@@ -288,11 +288,33 @@
 var _personas = {};
 var _currentPersonaId = null;
 
+// The signed-in Portal account id, once known (set from /api/auth/me below) —
+// QS-10: localStorage['egeria-persona'] is one shared, browser-wide key with
+// no relationship to which Portal account is actually signed in, and nothing
+// clears it except explicit Logout. Tagging it with the account that picked
+// it, and refusing it once that stops matching, stops a persona chosen by one
+// account from silently carrying into a different account's session on the
+// same browser. Duplicated here rather than shared from egeria-shared-ui.js
+// (see the note above on portalResolveNav) because that file has top-level
+// React.createContext() calls this plain-vanilla-JS page can't load.
+var _portalUserId = null;
+
 function _loadStored() {
-  try { var s = localStorage.getItem('egeria-persona'); return s ? JSON.parse(s) : null; } catch(e) { return null; }
+  try {
+    var s = localStorage.getItem('egeria-persona');
+    if (!s) return null;
+    var stored = JSON.parse(s);
+    if (stored.ownerId !== _portalUserId) {
+      localStorage.removeItem('egeria-persona');
+      localStorage.removeItem('egeria-creds');
+      return null;
+    }
+    return stored;
+  } catch(e) { return null; }
 }
 function _saveStored(p) {
-  try { localStorage.setItem('egeria-persona', JSON.stringify(p)); } catch(e) {}
+  var tagged = Object.assign({}, p, { ownerId: _portalUserId });
+  try { localStorage.setItem('egeria-persona', JSON.stringify(tagged)); } catch(e) {}
 }
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
@@ -306,6 +328,7 @@ Promise.all([
   fetch('/api/platform/portal-config').then(function(r){ return r.json(); }).catch(function(){ return {}; }),
 ]).then(function(results) {
   var me = results[0];
+  _portalUserId = me.id || null;
   var orgName = (results[1].name && results[1].name.trim()) ? results[1].name : 'Egeria Quickstart';
   var platformCfg = results[2] || {};
   if (!me.demo_mode) {
@@ -323,6 +346,8 @@ Promise.all([
     setInterval(refreshJupyterTile, 30000);
     refreshAdvisorTile();
     setInterval(refreshAdvisorTile, 30000);
+    refreshResourceExplorerTile();
+    setInterval(refreshResourceExplorerTile, 30000);
     fetch('/api/demo/personas').then(function(r){ return r.json(); }).then(function(data) {
       _personas = data;
       var stored = _loadStored();
@@ -348,6 +373,8 @@ Promise.all([
     setInterval(refreshJupyterTile, 30000);
     refreshAdvisorTile();
     setInterval(refreshAdvisorTile, 30000);
+    refreshResourceExplorerTile();
+    setInterval(refreshResourceExplorerTile, 30000);
     if (stored) {
       applyPersonaUI(stored);
     } else {
@@ -385,6 +412,7 @@ function applyPersonaUI(persona) {
   loadFavorites(persona.id);
   _renderJupBookmark(persona.id);
   refreshAdvisorTile();
+  refreshResourceExplorerTile();
 }
 
 // ── Bookmarks ─────────────────────────────────────────────────────────────────
@@ -455,9 +483,9 @@ function renderAppGrid(demoMode) {
     { icon: '🎛️', name: 'Egeria Operations',
       desc: 'Monitor and operate the Egeria runtime — servers, integration connectors, governance engines, and engine actions.',
       url: '/egeria-operations', newTab: false, enabled: true },
-    { icon: '🔭', name: 'Resource Explorer',
+    { icon: '🔭', name: 'Alpha: Resource Explorer',
       desc: 'Scout, Assess, Discover, Enrich Resources.',
-      url: '/resource-explorer', newTab: false, enabled: false, badge: 'Preview soon' },
+      enabled: true, resourceExplorer: true },
     // Row 2 — workspaces & assistants
     { icon: '📓', name: 'Jupyter Lab',
       desc: 'Interactive notebooks for data science and hands-on Egeria API exploration.',
@@ -470,7 +498,7 @@ function renderAppGrid(demoMode) {
     { icon: '🖥️', name: 'My Egeria',
       desc: 'Explore your Egeria profile, roles, teams, actions, and data catalog.',
       url: '/my-egeria/', newTab: true, enabled: true },
-    { icon: '🤖', name: 'Egeria Advisor',
+    { icon: '🤖', name: 'Alpha: Egeria Advisor',
       desc: 'AI-powered guidance for your Egeria environment.',
       enabled: true, advisor: true },
     // Remaining — docs, admin & API references
@@ -509,6 +537,8 @@ function renderAppGrid(demoMode) {
              + '<div id="jup-tile-bookmark"></div>';
     } else if (a.advisor) {
       action = '<div id="advisor-tile-action"><span style="color:var(--muted);font-size:0.8rem">Loading…</span></div>';
+    } else if (a.resourceExplorer) {
+      action = '<div id="re-tile-action"><span style="color:var(--muted);font-size:0.8rem">Loading…</span></div>';
     } else {
       action = '<button class="btn btn-accent app-action" onclick="launch(' + JSON.stringify(a.url).replace(/"/g, '&quot;') + ',' + a.newTab + ',' + JSON.stringify(a.name).replace(/"/g, '&quot;') + ')">' + (a.newTab ? 'Open ↗' : 'Open') + '</button>';
     }
@@ -842,10 +872,9 @@ function _clearJupToken() {
 
 if (_jupToken) { _startJupKeepalive(); }
 
-// ── Egeria Advisor lock + SSO handoff ─────────────────────────────────────────
-var _advToken     = sessionStorage.getItem('adv-token') || null;
-var _advKeepalive = null;
-
+// ── Egeria Advisor SSO handoff — Advisor is multi-user (own login + Postgres
+// session store), so there's no lock/keepalive/extend/release to manage; same
+// shape as the Resource Explorer handoff just below. ──────────────────────────
 function refreshAdvisorTile() {
   fetch('/api/advisor/status').then(function(r) { return r.json(); }).then(function(s) {
     _renderAdvTile(s);
@@ -858,10 +887,7 @@ function refreshAdvisorTile() {
 function _renderAdvTile(s) {
   var el = document.getElementById('advisor-tile-action');
   if (!el) return;
-  var isMine = !!_advToken && s.state !== 'FREE';
-  if (_advToken && s.state === 'FREE') { _clearAdvToken(); isMine = false; }
-
-  if (s.state === 'DISABLED' || !s.sso_configured) {
+  if (!s.sso_configured) {
     el.innerHTML = '<span class="soon-badge" style="background:var(--hover);color:var(--muted)">Not configured</span>';
     return;
   }
@@ -873,60 +899,25 @@ function _renderAdvTile(s) {
     el.innerHTML = '<div class="obs-hint">Select a persona first</div>';
     return;
   }
-
-  var html = '';
-  if (s.evicting && isMine) {
-    var deadline = new Date(s.evict_deadline + 'Z');
-    var secsLeft = Math.max(0, Math.round((deadline - Date.now()) / 1000));
-    html += '<div class="obs-evict">⚠ Admin needs Egeria Advisor in ~' + Math.ceil(secsLeft / 60) + ' min.</div>';
-  }
-
-  if (s.state === 'FREE') {
-    html += '<div class="obs-status obs-free">● Available</div>'
-      + '<div class="obs-actions">'
-      + '<button class="btn btn-accent" onclick="acquireAdvisor()">Ask Advisor →</button>'
-      + '</div>';
-  } else if (isMine) {
-    var mins = s.minutes_left !== null ? s.minutes_left : '?';
-    var idleWarn = s.idle_warning ? ' ⚠ idle' : '';
-    html += '<div class="obs-status obs-mine">● Your session · ' + mins + ' min left' + idleWarn + '</div>'
-      + '<div class="obs-actions">'
-      + '<button class="btn" onclick="extendAdvisor()">Extend</button>'
-      + '<button class="btn" onclick="releaseAdvisor()" style="color:var(--muted)">Release</button>'
-      + '</div>';
-  } else if (s.state === 'STUCK') {
-    html += '<div class="obs-status obs-stuck">⚠ Session may be idle</div>'
-      + '<div class="obs-hint">An admin can free it using the admin panel.</div>';
-  } else {
-    var who = s.holder_display ? ' by ' + esc(s.holder_display) : '';
-    var eta  = s.minutes_left ? ' · ~' + s.minutes_left + ' min remaining' : '';
-    html += '<div class="obs-status obs-busy">● In use' + who + eta + '</div>'
-      + '<div class="obs-hint">Check back later</div>';
-  }
-  el.innerHTML = html;
+  el.innerHTML = '<button class="btn btn-accent" onclick="launchAdvisor()">Ask Advisor →</button>';
 }
 
-function acquireAdvisor() {
+function launchAdvisor() {
   // Open the tab synchronously, inside the click handler, so the browser's
   // popup blocker doesn't reject it once we redirect it after the (cross-
-  // machine, higher-latency) acquire fetch resolves.
+  // machine, higher-latency) handoff fetch resolves.
   var tab = window.open('', '_blank');
   var persona = _currentPersonaId || '';
   var display = persona && _personas[persona] ? _personas[persona].display_name : 'User';
-  fetch('/api/advisor/acquire', {
+  fetch('/api/advisor/handoff', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ persona: persona, display_name: display })
   }).then(function(r) { return r.json(); }).then(function(data) {
-    if (!data.acquired) {
+    if (!data.ok) {
       if (tab) tab.close();
       alert('Could not open Egeria Advisor: ' + (data.reason || 'unavailable'));
-      refreshAdvisorTile();
       return;
     }
-    _advToken = data.token;
-    sessionStorage.setItem('adv-token', _advToken);
-    _startAdvKeepalive();
-    refreshAdvisorTile();
     if (tab) { tab.opener = null; tab.location = data.advisor_sso_url; }
   }).catch(function(e) {
     if (tab) tab.close();
@@ -934,49 +925,56 @@ function acquireAdvisor() {
   });
 }
 
-function releaseAdvisor() {
-  if (!_advToken) return;
-  fetch('/api/advisor/release', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token: _advToken })
-  }).then(function() { _clearAdvToken(); refreshAdvisorTile(); })
-    .catch(function() { _clearAdvToken(); refreshAdvisorTile(); });
-}
-
-function extendAdvisor() {
-  if (!_advToken) return;
-  fetch('/api/advisor/extend', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token: _advToken })
-  }).then(function(r) { return r.json(); }).then(function(d) {
-    if (!d.extended) { alert('Could not extend: ' + (d.reason || 'blocked by reservation')); }
-    refreshAdvisorTile();
+// ── Resource Explorer SSO handoff — same trellis family and shape as Advisor
+// above, both multi-user with nothing to serialize access to. ────────────────
+function refreshResourceExplorerTile() {
+  fetch('/api/resource-explorer/status').then(function(r) { return r.json(); }).then(function(s) {
+    _renderRETile(s);
+  }).catch(function() {
+    var el = document.getElementById('re-tile-action');
+    if (el) el.innerHTML = '<span class="obs-hint">Status unavailable</span>';
   });
 }
 
-function _startAdvKeepalive() {
-  _stopAdvKeepalive();
-  _advKeepalive = setInterval(function() {
-    if (!_advToken) { _stopAdvKeepalive(); return; }
-    fetch('/api/advisor/keepalive', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: _advToken })
-    }).catch(function() {});
-    refreshAdvisorTile();
-  }, 60000);
+function _renderRETile(s) {
+  var el = document.getElementById('re-tile-action');
+  if (!el) return;
+  if (!s.sso_configured) {
+    el.innerHTML = '<span class="soon-badge" style="background:var(--hover);color:var(--muted)">Not configured</span>';
+    return;
+  }
+  if (!s.reachable) {
+    el.innerHTML = '<span class="soon-badge" style="background:var(--hover);color:var(--muted)">Not running</span>';
+    return;
+  }
+  if (!_currentPersonaId) {
+    el.innerHTML = '<div class="obs-hint">Select a persona first</div>';
+    return;
+  }
+  el.innerHTML = '<button class="btn btn-accent" onclick="launchResourceExplorer()">Open ↗</button>';
 }
 
-function _stopAdvKeepalive() {
-  if (_advKeepalive) { clearInterval(_advKeepalive); _advKeepalive = null; }
+function launchResourceExplorer() {
+  // Same synchronous window.open trick as launchAdvisor() — dodges the
+  // popup blocker across the fetch's round-trip.
+  var tab = window.open('', '_blank');
+  var persona = _currentPersonaId || '';
+  var display = persona && _personas[persona] ? _personas[persona].display_name : 'User';
+  fetch('/api/resource-explorer/handoff', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ persona: persona, display_name: display })
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    if (!data.ok) {
+      if (tab) tab.close();
+      alert('Could not open Resource Explorer: ' + (data.reason || 'unavailable'));
+      return;
+    }
+    if (tab) { tab.opener = null; tab.location = data.resource_explorer_sso_url; }
+  }).catch(function(e) {
+    if (tab) tab.close();
+    alert('Error: ' + e.message);
+  });
 }
-
-function _clearAdvToken() {
-  _advToken = null;
-  sessionStorage.removeItem('adv-token');
-  _stopAdvKeepalive();
-}
-
-if (_advToken) { _startAdvKeepalive(); }
 
 // ── Jupyter notebook bookmarks ────────────────────────────────────────────────
 function _renderJupBookmark(personaId) {
@@ -1148,7 +1146,12 @@ document.addEventListener('visibilitychange', function() {
 function _portalIsCatalogType(item) {
   var st = item.superTypeNames || [];
   var tn = item.typeName || '';
-  return st.indexOf('Asset') !== -1 || tn === 'Endpoint' || tn === 'SoftwareCapability' || st.indexOf('SoftwareCapability') !== -1;
+  if (st.indexOf('Asset') !== -1 || tn === 'Endpoint' || tn === 'SoftwareCapability' || st.indexOf('SoftwareCapability') !== -1) return true;
+  // Same type-nav-map fallback as static/egeria-shared-ui.js's _isCatalogType
+  // — see its comment. Kept in sync manually (same duplication as the rest of
+  // this file's nav resolution, per its own header comment above).
+  var nav = (typeof resolveTypeNav === 'function') ? resolveTypeNav(tn, st) : null;
+  return !!(nav && nav.catalogSection && !nav.explorerHash);
 }
 // EngineAction is the one type not in type-nav-map.json — see that file's
 // header comment for why (it opens the egeria-operations app directly, not
@@ -1157,6 +1160,11 @@ function _portalIsCatalogType(item) {
 // static/egeria-shared-ui.js's resolveElementNav.
 function portalResolveNav(item) {
   var tn = item.typeName || '';
+  // Python API hits (pyegeria classes/methods, not Egeria elements) -- no
+  // guid, navigate by pyClass/pyMethod instead; see portalOpenResult.
+  if (item.categoryId === 'python-api') return { app: 'egeria-explorer', hash: 'python-api', isPyDoc: true };
+  // REST API endpoint hits -- same idea, no guid, navigate by restMethod/restPath.
+  if (item.categoryId === 'rest-apis') return { app: 'egeria-explorer', hash: 'rest-apis', isRestApi: true };
   if (tn === 'EngineAction') return { app: 'egeria-operations' };
   var supers = item.superTypeNames || [];
   var ex = (typeof resolveTypeNav === 'function') ? resolveTypeNav(tn, supers) : null;
@@ -1166,7 +1174,20 @@ function portalResolveNav(item) {
 }
 function portalOpenResult(item) {
   var nav = portalResolveNav(item);
-  if (!nav || !item.guid) return;
+  if (!nav) return;
+  if (nav.isPyDoc) {
+    var pyUrl = '/egeria-explorer?pyclass=' + encodeURIComponent(item.pyClass)
+      + (item.pyMethod ? '&pymethod=' + encodeURIComponent(item.pyMethod) : '') + '#python-api';
+    window.open(pyUrl, '_blank');
+    return;
+  }
+  if (nav.isRestApi) {
+    var restUrl = '/egeria-explorer?restmethod=' + encodeURIComponent(item.restMethod)
+      + '&restpath=' + encodeURIComponent(item.restPath) + '#rest-apis';
+    window.open(restUrl, '_blank');
+    return;
+  }
+  if (!item.guid) return;
   if (nav.app === 'tech-catalog') { window.open('/tech-catalog?guid=' + encodeURIComponent(item.guid), '_blank'); return; }
   if (nav.app === 'egeria-operations') { window.open('/egeria-operations?tab=actions#actions', '_blank'); return; }
   var url = '/egeria-explorer?guid=' + encodeURIComponent(item.guid) + (nav.kind ? '&kind=' + encodeURIComponent(nav.kind) : '') + '#' + nav.hash;
@@ -1176,6 +1197,7 @@ function portalOpenResult(item) {
 var PORTAL_SEARCH_CATEGORY_ICONS = {
   glossary:'📖', 'tech-types':'🔧', 'data-assets':'🗄️', infrastructure:'🖧',
   apis:'🔗', processes:'⚙️', projects:'◉', surveys:'🔍', 'valid-values':'✅', other:'📦',
+  'python-api':'🐍', 'rest-apis':'🌐',
 };
 
 var _portalSearchTimer = null;

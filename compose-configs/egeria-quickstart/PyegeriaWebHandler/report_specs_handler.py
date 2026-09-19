@@ -166,13 +166,29 @@ class ExecuteRequest(BaseModel):
 
 @router.post("/api/report-specs/execute", summary="Execute a report spec action")
 def execute_spec(req: ExecuteRequest):
-    """Call exec_report_spec and return a normalised result structure."""
+    """Call exec_report_spec and return a normalised result structure.
+
+    pyegeria 6.1.10 (ISSUE-86) added a `token` param to exec_report_spec --
+    when a caller already holds a bearer token for the current user, passing
+    it runs the report as that user via set_bearer_token() instead of
+    re-authenticating with user/user_pass on every call. We check
+    get_request_token() (the X-Egeria-Token contextvar egeria_auth.py's
+    middleware populates, same mechanism other handlers already use) and
+    pass it through when present; falls back to user_id/user_pwd exactly as
+    before otherwise. NOTE: as of 2026-09-05 no frontend caller of this
+    endpoint actually sends X-Egeria-Token yet (the browser only holds
+    user_id/user_pwd client-side, not a bearer token), so this is currently
+    inert plumbing, not a behavior change -- wiring up a real client-side
+    token flow is a separate, larger piece of work.
+    """
     from pyegeria.view.format_set_executor import exec_report_spec
+    from egeria_auth import get_request_token
 
     url      = req.url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
     server   = req.server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
     user_id  = req.user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
     user_pwd = req.user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    token    = get_request_token()
 
     try:
         result = exec_report_spec(
@@ -183,6 +199,7 @@ def execute_spec(req: ExecuteRequest):
             view_url=url,
             user=user_id,
             user_pass=user_pwd,
+            token=token,
         )
         return JSONResponse(result)
     except ValueError as exc:

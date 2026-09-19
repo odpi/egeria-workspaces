@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - name: "Contributors to the ODPi Egeria project"
+title: "Egeria Workspaces"
+url: "https://github.com/odpi/egeria-workspaces"
+abstract: "Docker Compose orchestration for Egeria workspaces, including Quickstart and Freshstart environments."
+keywords:
+  - metadata
+  - governance
+  - egeria
+  - docker-compose
+  - workspace
+license: Apache-2.0

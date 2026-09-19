@@ -110,7 +110,13 @@ fi
 # Determine EGERIA_MEM_LIMIT (egeria-main's mem_limit — see egeria-quickstart.yaml).
 # Same priority as KAFKA_CLUSTER_ID above: already-exported env var (set by
 # ./quick-start-local --egeria-memory) > existing .env value (so a value set
-# once persists across plain re-runs without the flag) > default 6g.
+# once persists across plain re-runs without the flag) > default 6g. A
+# 2026-09-08 fix briefly raised this default to 10g to paper over GC-thrash-
+# induced 401s/timeouts under the JVM's old MaxRAMPercentage=80 flags; the
+# JVM retuning in egeria-quickstart.yaml (G1GC, MaxRAMPercentage=60) fixes
+# that thrash directly, so 6g is a safe default again. 10g (or higher)
+# remains a reasonable EGERIA_MEM_LIMIT override on a host still seeing
+# pressure — it's just no longer the default.
 EGERIA_MEM_LIMIT_VAL="${EGERIA_MEM_LIMIT:-}"
 if [[ -z "$EGERIA_MEM_LIMIT_VAL" && -f .env ]]; then
   EXISTING_MEM="$(grep -E '^EGERIA_MEM_LIMIT=' .env | head -n1 | cut -d= -f2- || true)"
