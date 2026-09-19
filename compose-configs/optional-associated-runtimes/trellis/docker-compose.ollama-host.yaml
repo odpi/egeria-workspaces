@@ -1,0 +1,28 @@
+# Overlay for HOST-NATIVE Ollama: inference runs on the box itself (Metal on a
+# Mac, or a native CUDA/ROCm install on Linux) and the trellis containers reach
+# it via host.docker.internal. Use this INSTEAD of ../ollama/docker-compose.yaml
+# and the ollama-container/-rocm/-nvidia overlays. This is the shape the plan's
+# dev profile uses on the Mac, and the first-try shape on trevor (2026-09-04):
+# Docker Desktop for Linux cannot see the GPU, but a native Ollama can, and the
+# existing demo stack under Docker Desktop stays untouched.
+#
+# Host Ollama must listen on all interfaces (OLLAMA_HOST=0.0.0.0:11434) or at
+# least on the Docker bridge; the default 127.0.0.1 is unreachable from a container.
+#
+#   docker compose -f docker-compose.yaml -f docker-compose.ollama-host.yaml --env-file .env up -d
+services:
+  trellis-re-web:
+    environment:
+      LLM__OLLAMA__BASE_URL: "${TRELLIS_HOST_OLLAMA_URL:-http://host.docker.internal:11434}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+  trellis-re-worker:
+    environment:
+      LLM__OLLAMA__BASE_URL: "${TRELLIS_HOST_OLLAMA_URL:-http://host.docker.internal:11434}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+  trellis-ea-web:
+    environment:
+      OLLAMA_BASE_URL: "${TRELLIS_HOST_OLLAMA_URL:-http://host.docker.internal:11434}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

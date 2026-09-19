@@ -70,6 +70,14 @@ _CHECK_INTERVAL = int(os.environ.get("BOOTSTRAP_CHECK_INTERVAL_SECONDS", "600"))
 # longer wait never risks anything, it only avoids giving up on genuinely
 # slow (not stuck) large batches.
 _DR_EGERIA_TIMEOUT = int(os.environ.get("BOOTSTRAP_HEAL_TIMEOUT_SECONDS", "900"))
+# Per-family canary-presence check timeout (2026-09-03 incident fix -- see
+# _canary_present's docstring). Deliberately much shorter than
+# _DR_EGERIA_TIMEOUT: this guards a "cheap point lookup", not actual healing
+# work, and start_scheduler() awaits check_and_heal_all() (which calls this
+# once per family, serially) directly from the app's lifespan -- an
+# unbounded or over-generous value here blocks the whole app's startup for
+# as long as Egeria stays slow, times number of families.
+_CANARY_CHECK_TIMEOUT = int(os.environ.get("BOOTSTRAP_CANARY_TIMEOUT_SECONDS", "15"))
 # Startup fast-retry window -- see start_scheduler()'s docstring comment.
 _STARTUP_RETRY_INTERVAL = int(os.environ.get("BOOTSTRAP_STARTUP_RETRY_SECONDS", "20"))
 _STARTUP_RETRY_WINDOW = int(os.environ.get("BOOTSTRAP_STARTUP_RETRY_WINDOW_SECONDS", "300"))  # 5 min
@@ -95,7 +103,22 @@ async def _canary_present(family: dict) -> tuple[bool, bool]:
     pass just because Egeria was briefly unreachable); `reachable` tells
     the caller whether that True actually means "confirmed present" or
     "couldn't check" -- see start_scheduler()'s fast-retry-on-startup use
-    of this distinction."""
+    of this distinction.
+
+    Timeout added 2026-09-03 (incident: a degraded Egeria -- repeated 401s
+    from the metadata-expert search endpoint -- left this call relying on
+    pyegeria/httpx's own default timeouts, which were generous enough that
+    check_and_heal_all()'s serial per-family loop took several minutes end
+    to end. Since start_scheduler() awaits that loop directly from
+    pyegeria_handler.py's lifespan, the whole app's ASGI startup was blocked
+    for those several minutes -- not infinite, but indistinguishable from a
+    hang from the outside, and it got worse every time a redeploy restarted
+    the in-progress attempt from scratch. Bounding each individual family's
+    check keeps the worst case at _CANARY_CHECK_TIMEOUT seconds no matter
+    how degraded Egeria is or how many families exist, and does NOT touch
+    _heal_family's own separate, deliberately generous _DR_EGERIA_TIMEOUT --
+    that one guards actual healing work, which is allowed to take longer.
+    """
     try:
         from pyegeria import MetadataExpert
         import pyegeria
@@ -107,20 +130,31 @@ async def _canary_present(family: dict) -> tuple[bool, bool]:
         user   = os.environ.get("EGERIA_USER",          "erinoverview")
         pwd    = os.environ.get("EGERIA_USER_PASSWORD", "secret")
         mgr = MetadataExpert(view_server=server, platform_url=url, user_id=user, user_pwd=pwd)
-        await async_apply_token(mgr)
-        body = {
-            "class": "FindRequestBody", "metadataElementTypeName": family["canary_type"],
-            "searchProperties": {
-                "class": "SearchProperties", "matchCriteria": "ALL",
-                "conditions": [{"property": "displayName", "operator": "EQ",
-                                 "value": {"class": "PrimitiveTypePropertyValue", "typeName": "string",
-                                           "primitiveValue": family["canary_name"]}}],
-            },
-            "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0, "startFrom": 0, "pageSize": 1,
-        }
-        els = await mgr._async_find_metadata_elements(body)
-        await mgr._async_close_session()
+
+        async def _do_check():
+            await async_apply_token(mgr)
+            body = {
+                "class": "FindRequestBody", "metadataElementTypeName": family["canary_type"],
+                "searchProperties": {
+                    "class": "SearchProperties", "matchCriteria": "ALL",
+                    "conditions": [{"property": "displayName", "operator": "EQ",
+                                     "value": {"class": "PrimitiveTypePropertyValue", "typeName": "string",
+                                               "primitiveValue": family["canary_name"]}}],
+                },
+                "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0, "startFrom": 0, "pageSize": 1,
+            }
+            els = await mgr._async_find_metadata_elements(body)
+            await mgr._async_close_session()
+            return els
+
+        els = await asyncio.wait_for(_do_check(), timeout=_CANARY_CHECK_TIMEOUT)
         return isinstance(els, list) and len(els) > 0, True
+    except asyncio.TimeoutError:
+        logger.warning(
+            f"bootstrap monitor: canary check for {family['name']} timed out "
+            f"after {_CANARY_CHECK_TIMEOUT}s -- Egeria is likely slow/degraded"
+        )
+        return True, False
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"bootstrap monitor: canary check failed for {family['name']}: {exc}")
         return True, False
@@ -236,12 +270,27 @@ async def check_and_heal_all() -> bool:
     start_scheduler()'s startup fast-retry window."""
     all_families = BOOTSTRAP_FAMILIES + _dynamic_families()
 
+    async with _mu:
+        for family in all_families:
+            _state["families"].setdefault(
+                family["name"], {"present": None, "lastHealedAt": None, "lastHealResult": None}
+            )
+
+    # Concurrent, not serial (2026-09-03 incident fix) -- each check is
+    # already individually bounded by _CANARY_CHECK_TIMEOUT, but a serial
+    # loop's *total* worst case still scales with family count (13 families
+    # * 15s = ~3 min even bounded). start_scheduler() awaits this whole
+    # function directly from the app's lifespan, so this phase's wall-clock
+    # is what actually gates app startup -- running the checks concurrently
+    # caps the whole phase at ~_CANARY_CHECK_TIMEOUT regardless of how many
+    # families exist. Safe to parallelize: each check is read-only against
+    # Egeria (a single bounded find), independent per family, and its own
+    # state write below is serialized through _mu like everywhere else.
+    results = await asyncio.gather(*(_canary_present(family) for family in all_families))
+
     any_unreachable = False
     to_heal = []
-    for family in all_families:
-        async with _mu:
-            _state["families"].setdefault(family["name"], {"present": None, "lastHealedAt": None, "lastHealResult": None})
-        present, reachable = await _canary_present(family)
+    for family, (present, reachable) in zip(all_families, results):
         if not reachable:
             any_unreachable = True
         async with _mu:
