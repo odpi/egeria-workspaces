@@ -1,0 +1,24 @@
+{
+  "displayName": "Coco - 1. Strategic Digital Products",
+  "description": "The Coco Pharmaceuticals Strategic Digital Product Catalog: one digital product per solution component of the strategic information supply chains, each with a data specification and a PostgreSQL data set, and the dependencies between them.",
+  "canary": {
+    "type": "DigitalProductCatalog",
+    "name": "Coco Pharmaceuticals Strategic Digital Product Catalog"
+  },
+  "defaultEnabled": false,
+  "files": [
+    "catalog.md",
+    "data-hub.md",
+    "patient-treatment.md",
+    "finance.md",
+    "procurement.md",
+    "research.md",
+    "warehouse.md",
+    "manufacturing.md",
+    "delivery.md",
+    "quality-systems.md",
+    "people-systems.md",
+    "privacy-operations.md",
+    "product-dependencies.md"
+  ]
+}
