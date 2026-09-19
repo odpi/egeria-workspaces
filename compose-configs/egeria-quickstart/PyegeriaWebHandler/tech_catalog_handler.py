@@ -44,6 +44,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
 
 from common_serialize import _authored_fields, _header_summary
+from digital_products_handler import _extract_props
 
 router = APIRouter(tags=["tech-catalog"])
 
@@ -866,7 +867,13 @@ def _serialize_governance_process_detail(raw: dict) -> dict:
 
     steps_by_guid: dict = {}
 
-    def _add_step(step_el: dict, is_first: bool = False):
+    # A step's own scalar properties beyond the four named fields already
+    # broken out — e.g. ignoreMultipleTriggers, waitTime, additionalProperties.
+    # Previously dropped entirely, same rationale as _extract_props for the
+    # process's own properties above.
+    _STEP_SKIP = {"class", "displayName", "name", "qualifiedName", "description"}
+
+    def _add_step(step_el: dict, is_first: bool = False, start_link_props: Optional[dict] = None):
         s_hdr = _header(step_el)
         s_guid = s_hdr.get("guid", "")
         if not s_guid or s_guid in steps_by_guid:
@@ -879,13 +886,32 @@ def _serialize_governance_process_detail(raw: dict) -> dict:
             "qualifiedName": s_props.get("qualifiedName") or "",
             "description":   s_props.get("description") or "",
             "isFirst":       is_first,
+            "extraProps":    _extract_props({k: v for k, v in s_props.items() if k not in _STEP_SKIP}),
+            # Properties of the relationship that starts this step (e.g. guard,
+            # if the platform ever populates one on the entry link) — only ever
+            # set for the first step; other steps are reached via stepLinks
+            # instead, already surfaced in the Step Flow table.
+            "startLinkProps": start_link_props or None,
         }
 
-    first_element = (raw.get("firstProcessStep") or {}).get("element") or {}
+    first_step_rel = raw.get("firstProcessStep") or {}
+    first_element = first_step_rel.get("element") or {}
     if first_element:
-        _add_step(first_element, is_first=True)
+        # firstProcessStep is {"element": {...}, "linkGUID": "...", maybe more} —
+        # everything but "element" describes the relationship that starts this
+        # step, captured generically rather than assumed to be empty.
+        _FIRST_LINK_SKIP = {"element", "class"}
+        start_link_props = _extract_props({k: v for k, v in first_step_rel.items() if k not in _FIRST_LINK_SKIP})
+        _add_step(first_element, is_first=True, start_link_props=start_link_props)
     for step_el in _safe_list(raw.get("nextProcessSteps")):
         _add_step(step_el)
+
+    # GovernanceActionProcessFlow relationship properties: guard/mandatoryGuard
+    # are named fields because the Step Flow table always shows them, but the
+    # relationship can carry other scalar properties too (e.g. a description) --
+    # captured generically here rather than silently dropped, same rationale as
+    # _extract_props below for the process's own properties.
+    _STEP_LINK_SKIP = {"previousProcessStep", "nextProcessStep", "class", "guard", "mandatoryGuard"}
 
     step_links = []
     for link in _safe_list(raw.get("processStepLinks")):
@@ -893,6 +919,7 @@ def _serialize_governance_process_detail(raw: dict) -> dict:
         next_stub = link.get("nextProcessStep") or {}
         prev_guid = prev_stub.get("guid", "")
         next_guid = next_stub.get("guid", "")
+        extra_props = _extract_props({k: v for k, v in link.items() if k not in _STEP_LINK_SKIP})
         step_links.append({
             "fromGuid": prev_guid,
             "fromName": steps_by_guid.get(prev_guid, {}).get("displayName") or prev_stub.get("uniqueName") or "",
@@ -900,6 +927,7 @@ def _serialize_governance_process_detail(raw: dict) -> dict:
             "toName":   steps_by_guid.get(next_guid, {}).get("displayName") or next_stub.get("uniqueName") or "",
             "guard":    link.get("guard") or "",
             "mandatoryGuard": bool(link.get("mandatoryGuard")),
+            "extraProps": extra_props,
         })
 
     return {
@@ -908,6 +936,11 @@ def _serialize_governance_process_detail(raw: dict) -> dict:
         "displayName":   props.get("displayName") or props.get("name") or "",
         "qualifiedName": props.get("qualifiedName") or "",
         "description":   props.get("description") or "",
+        # The process's own remaining scalar properties (formula,
+        # implementationDescription, owner, additionalProperties, …) beyond the
+        # four named fields above — previously dropped entirely, with nowhere
+        # in the frontend to show them even if they had been kept.
+        "props":          _extract_props(props),
         "governanceActionProcessMermaidGraph": raw.get("governanceActionProcessMermaidGraph") or "",
         "steps":          list(steps_by_guid.values()),
         "stepLinks":      step_links,
@@ -1861,7 +1894,18 @@ def list_annotations(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
-    """List or search Annotation elements across all survey reports."""
+    """List or search Annotation elements across all survey reports.
+
+    graph_query_depth=0: the wildcard/broad-search case (search_string="*",
+    which is the default the Catalog's Annotations tab loads on open) was
+    timing out at 90s — depth=1 makes the view server walk the relationship
+    graph for every matching Annotation just to attach fromSurveyReport, and
+    against this repo's corpus that fan-out (hundreds of extra per-annotation
+    graph queries) reliably blew past the client timeout. Depth=0 skips that
+    walk, so list rows have no surveyReportGuid/surveyReportDisplayName —
+    the frontend fetches those per-item, lazily, via
+    GET /api/tech-catalog/annotations/{guid} when a row is selected.
+    """
     try:
         dd = _discovery_client(url, server, user_id, user_pwd, token=_token_from_request(request))
     except Exception as exc:
@@ -1877,7 +1921,7 @@ def list_annotations(
             start_from=start_from,
             page_size=page_size,
             output_format="JSON",
-            graph_query_depth=1,
+            graph_query_depth=0,
             **kwargs,
         )
         items = [_serialize_annotation(ann) for ann in _safe_list(raw)]
@@ -1886,6 +1930,36 @@ def list_annotations(
         if _is_auth_error(exc):
             raise HTTPException(status_code=401, detail="Token expired or unauthorized")
         logger.exception("list_annotations failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/api/tech-catalog/annotations/{guid}", summary="Get one Annotation with its SurveyReport link")
+def get_annotation_detail(
+    request: Request,
+    guid: str,
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    """Fetch a single Annotation at graph_query_depth=1, to attach
+    surveyReportGuid/surveyReportDisplayName on demand — the deeper half of
+    the depth=0/select-to-enrich split described on list_annotations above.
+    Called when a row in the Annotations tab is selected, not for the list."""
+    try:
+        dd = _discovery_client(url, server, user_id, user_pwd, token=_token_from_request(request))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    try:
+        raw = dd.get_annotation_by_guid(guid, graph_query_depth=1, output_format="JSON")
+        ann = raw[0] if isinstance(raw, list) else raw
+        if not isinstance(ann, dict):
+            raise HTTPException(status_code=404, detail="Annotation not found")
+        return JSONResponse(_serialize_annotation(ann))
+    except HTTPException:
+        raise
+    except Exception as exc:
+        if _is_auth_error(exc):
+            raise HTTPException(status_code=401, detail="Token expired or unauthorized")
+        logger.exception("get_annotation_detail failed for %s", guid)
         raise HTTPException(status_code=500, detail=str(exc))
 
 

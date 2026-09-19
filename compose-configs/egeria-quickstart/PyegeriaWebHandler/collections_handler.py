@@ -35,12 +35,75 @@ from pydantic import BaseModel
 
 from digital_products_handler import (
     _get_manager, _serialize_node, _header, _type_name, _extract_all_rels, _is_template,
+    _extract_mermaid_fields,
 )
 from egeria_error_mapping import raise_egeria_http_error, describe_bulk_item_error, EGERIA_ERROR_RESPONSES
 from egeria_auth import apply_token
 import os
 
 router = APIRouter(tags=["collections"])
+
+
+def _get_solution_architect(url=None, server=None, user_id=None, user_pwd=None):
+    """SolutionArchitect client — needed only for _enrich_isc_implementation_graph
+    below. CollectionManager's generic get_collection_by_guid hits a plain
+    /collections/{guid}/retrieve REST endpoint that never runs the ISC-specific
+    server-side mermaid-graph generation, no matter what depth/params are
+    passed to it -- that logic only fires behind SolutionArchitect's dedicated
+    get_info_supply_chain_by_guid(add_implementation=True) call (see
+    isc_handler.py's get_isc, which is where this same graph IS shown today)."""
+    from pyegeria import SolutionArchitect
+    url     = url     or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
+    server  = server  or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+    user_id = user_id or os.environ.get("EGERIA_USER",          "erinoverview")
+    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    mgr = SolutionArchitect(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+    apply_token(mgr)
+    return mgr
+
+
+# Same generous caps isc_handler.py uses for its (structurally identical)
+# detail view -- this is a "show me everything about one chain" fetch.
+_ISC_ENRICH_GRAPH_QUERY_DEPTH = 10
+_ISC_ENRICH_MAX_MERMAID_NODES = 250
+
+
+def _enrich_isc_implementation_graph(node: dict, node_guid: str, url, server, user_id, user_pwd) -> None:
+    """When a collection reached through this type-agnostic view turns out to
+    be an InformationSupplyChain, fetch its implementation graph the way
+    isc_handler.py's own detail view does and merge the mermaid fields in --
+    otherwise Collections shows every diagram EXCEPT this one for an ISC,
+    while Solution Architect's own ISC view (isc_handler.py) shows it fine.
+    Best-effort: any failure here just leaves the collection's other detail
+    (properties, members, relationships) intact, unenriched."""
+    if node.get("typeName") != "InformationSupplyChain":
+        return
+    try:
+        mgr = _get_solution_architect(url, server, user_id, user_pwd)
+        raw = mgr.get_info_supply_chain_by_guid(
+            node_guid,
+            output_format="JSON",
+            add_implementation=True,
+            graph_query_depth=_ISC_ENRICH_GRAPH_QUERY_DEPTH,
+            max_mermaid_node_count=_ISC_ENRICH_MAX_MERMAID_NODES,
+        )
+    except Exception:
+        logger.exception("ISC implementation-graph enrichment failed for %s", node_guid)
+        return
+    if isinstance(raw, dict):
+        extracted = _extract_mermaid_fields(raw)
+        # get_info_supply_chain_by_guid returns this key in a different case
+        # than find_information_supply_chains does (isc_handler.py's list/detail
+        # calls) -- "iscimplementationMermaidGraph" vs "iscImplementationMermaidGraph".
+        # Harmless either way (AvailableMermaidDiagrams matches case-insensitively),
+        # but the frontend's auto-generated label falls back to an ugly
+        # "Iscimplementation Graph" without the canonical casing, since it can't
+        # find an exact match in its nice-label lookup table. Canonicalize so the
+        # label matches what isc_handler.py's own detail view already shows.
+        for k in list(extracted.keys()):
+            if k.lower() == "iscimplementationmermaidgraph" and k != "iscImplementationMermaidGraph":
+                extracted["iscImplementationMermaidGraph"] = extracted.pop(k)
+        node.update(extracted)
 
 
 def _get_expert(url=None, server=None, user_id=None, user_pwd=None):
@@ -412,6 +475,7 @@ def get_node(
 
     node = _serialize_node(raw)
     node["relationships"] = _extract_all_rels(raw)
+    _enrich_isc_implementation_graph(node, node_guid, url, server, user_id, user_pwd)
     try:
         raw_members = mgr.get_collection_members(
             collection_guid=node_guid,

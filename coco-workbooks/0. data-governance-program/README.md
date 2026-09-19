@@ -102,10 +102,11 @@ The last of these loads after everything else in the directory because it links 
 The story continues outside this directory:
 
 * `6. data-privacy/data-processing-purposes.md` — the data processing purposes declared by every domain, gathered with their links so the lawful bases can be reviewed as a set
-* `4. keeping-safe/it-governance-program.md` — Gary Geeke builds out the `IT Infrastructure` domain, after first creating the systems inventory that the security team needed urgently
+* `1. coco-data-hub/` — Erin Overview and Peter Profile lay out the solution components for the strategic supply chains, and Gary Geeke loads his systems inventory so the components can be mapped to real systems
+* `4. keeping-safe/it-governance-program.md` — Gary Geeke builds out the `IT Infrastructure` domain on that inventory
 * `3. sustainability/sustainability-governance-program.md` — Tom Tally, now leading the sustainability program, connects the sustainability definitions to the domain programs
 
-All three load after this directory.  The Martyn's Law definitions in `4. keeping-safe/martyns-law/` load after those.
+All of these load after this directory.  The Martyn's Law definitions in `4. keeping-safe/martyns-law/` load after those.
 
 ----
 

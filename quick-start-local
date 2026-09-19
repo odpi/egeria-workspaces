@@ -55,7 +55,10 @@ Options:
   --egeria-memory SIZE
                       Set egeria-main's container memory cap (Docker/Podman
                       `mem_limit` syntax, e.g. 4g, 8g, 10240m). Defaults to 6g
-                      if never set. Persists in
+                      if never set (safe with the JVM retuning in
+                      egeria-quickstart.yaml — G1GC, MaxRAMPercentage=60).
+                      10g is a reasonable override on a host still under
+                      memory pressure. Persists in
                       compose-configs/egeria-quickstart/.env, so it only needs
                       to be passed once — plain re-runs without this flag keep
                       using the last value set. Raise this if egeria-main is

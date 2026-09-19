@@ -170,10 +170,11 @@ def _extract_all_rels(element: dict) -> dict:
             g  = rh.get("guid") or re.get("guid") or ""
             if g:
                 items.append({
-                    "guid":          g,
-                    "displayName":   rp.get("displayName") or rp.get("name") or "",
-                    "qualifiedName": rp.get("qualifiedName") or "",
-                    "typeName":      (rh.get("type") or {}).get("typeName") or "",
+                    "guid":             g,
+                    "displayName":      rp.get("displayName") or rp.get("name") or "",
+                    "qualifiedName":    rp.get("qualifiedName") or "",
+                    "typeName":         (rh.get("type") or {}).get("typeName") or "",
+                    "relationshipType": ((entry.get("relationshipHeader") or {}).get("type") or {}).get("typeName") or "",
                 })
         if items:
             result[key] = items

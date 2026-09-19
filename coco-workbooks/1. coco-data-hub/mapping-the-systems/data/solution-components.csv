@@ -1,0 +1,72 @@
+component_qualified_name,component_name,business_system_group,component_type,scope,supply_chains
+CocoPharma::SolutionComponent::ProductMasterRegister,Product Master Register,Data Hub,Data Storage,internal,Batch Manufacturing and Release; Product Serialisation and Verification; New Drug Product Details; Clinical Trials; Cold Chain and Dangerous Goods Consignment
+CocoPharma::SolutionComponent::ProductDataDistribution,Product Data Distribution,Data Hub,Data Distribution,internal,New Drug Product Details
+CocoPharma::SolutionComponent::TreatmentOrderingPortal,Treatment Ordering Portal,Patient Treatment (Sales/Direct) Systems,User Interface,internal,Personalized Treatment Ordering; Adverse Event and Safety Reporting
+CocoPharma::SolutionComponent::PatientIdentityRegister,Patient Identity Register,Patient Treatment (Sales/Direct) Systems,Data Storage,internal,Personalized Treatment Ordering; Data Subject Rights
+CocoPharma::SolutionComponent::OrderToInvoice,Order to Invoice Processing,Finance Systems,Multi-Step Process,internal,Personalized Treatment Ordering; Financial Close and External Reporting
+CocoPharma::SolutionComponent::SubledgerFeeds,Subledger Feeds,Finance Systems,Data Distribution,internal,Financial Close and External Reporting; Employee Expense Payment; New Employee Onboarding; Personalized Treatment Ordering; Third Party Onboarding and Payment
+CocoPharma::SolutionComponent::JournalEntryReview,Journal Entry Review,Finance Systems,Manual Process,internal,Financial Close and External Reporting
+CocoPharma::SolutionComponent::GroupConsolidation,Group Consolidation Engine,Finance Systems,Multi-Step Process,internal,Financial Close and External Reporting
+CocoPharma::SolutionComponent::DisclosureReporting,Disclosure and Statutory Reporting,Finance Systems,Publishing,internal,Financial Close and External Reporting; Third Party Onboarding and Payment
+CocoPharma::SolutionComponent::ControlsEvidenceRepository,Controls Evidence Repository,Finance Systems,Data Storage,internal,Financial Close and External Reporting
+CocoPharma::SolutionComponent::PaymentDetailChangeControl,Payment Detail Change Control,Finance Systems,Automated Action,internal,Third Party Onboarding and Payment
+CocoPharma::SolutionComponent::SupplierPaymentProcessing,Supplier Payment Processing,Finance Systems,Multi-Step Process,internal,Financial Close and External Reporting; Third Party Onboarding and Payment
+CocoPharma::SolutionComponent::TransactionMonitoring,Transaction Monitoring,Finance Systems,Insight Model,internal,Third Party Onboarding and Payment; Employee Expense Payment
+CocoPharma::SolutionComponent::TransfersOfValueRegister,Transfers of Value Register,Finance Systems,Data Storage,internal,Third Party Onboarding and Payment; Employee Expense Payment; Financial Close and External Reporting
+CocoPharma::SolutionComponent::ExpenseApprovalWorkflow,Expense Approval Workflow,Finance Systems,Multi-Step Process,internal,Employee Expense Payment; New Employee Onboarding
+CocoPharma::SolutionComponent::SupplierMaterialCertificates,Supplier Material Certificates,Procurement Systems,Data Storage,internal,Physical Inventory Tracking; Third Party Onboarding and Payment
+CocoPharma::SolutionComponent::ThirdPartyOnboardingWorkflow,Third Party Onboarding Workflow,Procurement Systems,Multi-Step Process,internal,Third Party Onboarding and Payment
+CocoPharma::SolutionComponent::SupplierMasterRegister,Supplier Master Register,Procurement Systems,Data Storage,internal,Physical Inventory Tracking; Third Party Onboarding and Payment
+CocoPharma::SolutionComponent::GoodsReceiptAndInspection,Goods Receipt and Inspection,Warehouse Systems,Multi-Step Process,internal,Physical Inventory Tracking; Third Party Onboarding and Payment
+CocoPharma::SolutionComponent::MaterialQuarantineControl,Material Quarantine and Release Control,Warehouse Systems,Automated Action,internal,Physical Inventory Tracking; Batch Manufacturing and Release
+CocoPharma::SolutionComponent::PersonalisedOrderScheduler,Personalised Order Scheduler,Manufacturing Systems,Multi-Step Process,internal,Personalized Treatment Ordering; Batch Manufacturing and Release
+CocoPharma::SolutionComponent::ManufacturingExecution,Manufacturing Execution System,Manufacturing Systems,Multi-Step Process,internal,Batch Manufacturing and Release; Physical Inventory Tracking; Workforce Competency and Qualification
+CocoPharma::SolutionComponent::ProcessHistorian,Process Historian,Manufacturing Systems,Long Running Daemon,internal,Batch Manufacturing and Release
+CocoPharma::SolutionComponent::EquipmentQualificationRegister,Equipment Qualification Register,Manufacturing Systems,Data Storage,internal,Batch Manufacturing and Release
+CocoPharma::SolutionComponent::ElectronicBatchRecord,Electronic Batch Record System,Manufacturing Systems,Data Storage,internal,Batch Manufacturing and Release; Product Serialisation and Verification; Workforce Competency and Qualification; Cold Chain and Dangerous Goods Consignment; Personalized Treatment Ordering
+CocoPharma::SolutionComponent::SerialNumberGenerator,Serial Number Generator,Manufacturing Systems,Software Service,internal,Product Serialisation and Verification; New Drug Product Details
+CocoPharma::SolutionComponent::PackagingLineController,Packaging Line Controller,Manufacturing Systems,Automated Action,internal,Product Serialisation and Verification
+CocoPharma::SolutionComponent::AggregationRecorder,Case and Pallet Aggregation Recorder,Manufacturing Systems,Automated Action,internal,Product Serialisation and Verification
+CocoPharma::SolutionComponent::SerialisationRepository,Serialisation Repository,Manufacturing Systems,Data Storage,internal,Product Serialisation and Verification; Physical Inventory Tracking
+CocoPharma::SolutionComponent::MarketVerificationGateway,Market Verification Gateway,Manufacturing Systems,Data Distribution,internal,Product Serialisation and Verification; Batch Manufacturing and Release
+CocoPharma::SolutionComponent::SampleLogistics,Patient Sample Logistics,Delivery Systems,Multi-Step Process,internal,Personalized Treatment Ordering; Cold Chain and Dangerous Goods Consignment
+CocoPharma::SolutionComponent::TreatmentDeliveryTracking,Treatment Delivery Tracking,Delivery Systems,Long Running Daemon,internal,Personalized Treatment Ordering
+CocoPharma::SolutionComponent::TransportClassificationService,Transport Classification Service,Delivery Systems,Software Library,internal,Cold Chain and Dangerous Goods Consignment; Occupational Health Surveillance; New Drug Product Details
+CocoPharma::SolutionComponent::ShippingDocumentation,Shipping Documentation Preparation,Delivery Systems,Manual Process,internal,Cold Chain and Dangerous Goods Consignment; Workforce Competency and Qualification
+CocoPharma::SolutionComponent::TemperatureMonitoringDevices,Temperature Monitoring Devices,Delivery Systems,Long Running Daemon,internal,Cold Chain and Dangerous Goods Consignment
+CocoPharma::SolutionComponent::ColdChainDataCollector,Cold Chain Data Collector,Delivery Systems,Long Running Daemon,internal,Cold Chain and Dangerous Goods Consignment; Personalized Treatment Ordering
+CocoPharma::SolutionComponent::SafetyIntakeGateway,Safety Intake Gateway,Quality and Regulatory Systems,Multi-Step Process,internal,Adverse Event and Safety Reporting; Clinical Trials; Personalized Treatment Ordering
+CocoPharma::SolutionComponent::ProductComplaintIntake,Product Complaint Intake,Quality and Regulatory Systems,Multi-Step Process,internal,Adverse Event and Safety Reporting
+CocoPharma::SolutionComponent::PharmacovigilanceCaseManagement,Pharmacovigilance Case Management,Quality and Regulatory Systems,Multi-Step Process,internal,Adverse Event and Safety Reporting
+CocoPharma::SolutionComponent::MedicalAssessmentAndCoding,Medical Assessment and Coding,Quality and Regulatory Systems,Manual Process,internal,Adverse Event and Safety Reporting
+CocoPharma::SolutionComponent::SafetySignalDetection,Safety Signal Detection,Quality and Regulatory Systems,Insight Model,internal,Adverse Event and Safety Reporting; Batch Manufacturing and Release; New Drug Product Details
+CocoPharma::SolutionComponent::RegulatorySafetySubmission,Regulatory Safety Submission,Quality and Regulatory Systems,Publishing,internal,Adverse Event and Safety Reporting
+CocoPharma::SolutionComponent::LaboratoryInformationManagement,Laboratory Information Management System,Quality and Regulatory Systems,Data Storage,internal,Batch Manufacturing and Release; Physical Inventory Tracking
+CocoPharma::SolutionComponent::DeviationAndCAPAManagement,Deviation and CAPA Management,Quality and Regulatory Systems,Multi-Step Process,internal,Batch Manufacturing and Release; Adverse Event and Safety Reporting
+CocoPharma::SolutionComponent::BatchReviewAndCertification,Batch Review and QP Certification,Quality and Regulatory Systems,Manual Process,internal,Batch Manufacturing and Release; New Drug Product Details; Personalized Treatment Ordering
+CocoPharma::SolutionComponent::SerialisationAlertTriage,Serialisation Alert Triage,Quality and Regulatory Systems,Multi-Step Process,internal,Product Serialisation and Verification
+CocoPharma::SolutionComponent::ExcursionAssessment,Temperature Excursion Assessment,Quality and Regulatory Systems,Multi-Step Process,internal,Cold Chain and Dangerous Goods Consignment; Batch Manufacturing and Release
+CocoPharma::SolutionComponent::MarketAuthorisationRegister,Market Authorisation Register,Quality and Regulatory Systems,Data Storage,internal,Product Serialisation and Verification; New Drug Product Details; Adverse Event and Safety Reporting
+CocoPharma::SolutionComponent::ExposureBandingRegister,Exposure Banding Register,Quality and Regulatory Systems,Software Library,internal,Occupational Health Surveillance; Cold Chain and Dangerous Goods Consignment
+CocoPharma::SolutionComponent::ExposureMonitoringCapture,Exposure Monitoring Capture,Quality and Regulatory Systems,Multi-Step Process,internal,Occupational Health Surveillance; New Employee Onboarding
+CocoPharma::SolutionComponent::IncidentAndNearMissReporting,Incident and Near Miss Reporting,Quality and Regulatory Systems,Multi-Step Process,internal,Occupational Health Surveillance
+CocoPharma::SolutionComponent::WorkerMasterRegister,Worker Master Register,People Systems,Data Storage,internal,Employee Expense Payment; New Employee Onboarding; Workforce Competency and Qualification; Occupational Health Surveillance; Data Subject Rights
+CocoPharma::SolutionComponent::JoinerMoverLeaverWorkflow,Joiner Mover Leaver Workflow,People Systems,Multi-Step Process,internal,New Employee Onboarding; Data Subject Rights
+CocoPharma::SolutionComponent::IdentityAndAccessProvisioning,Identity and Access Provisioning,People Systems,Automated Action,internal,New Employee Onboarding
+CocoPharma::SolutionComponent::PayrollSystem,Payroll System,People Systems,Multi-Step Process,internal,New Employee Onboarding; Financial Close and External Reporting
+CocoPharma::SolutionComponent::CorporateDirectory,Corporate Directory,People Systems,Data Storage,internal,New Employee Onboarding
+CocoPharma::SolutionComponent::CompetencyFrameworkRegister,Competency Framework Register,People Systems,Software Library,internal,Workforce Competency and Qualification
+CocoPharma::SolutionComponent::LearningManagement,Learning Management System,People Systems,Multi-Step Process,internal,Workforce Competency and Qualification; New Employee Onboarding
+CocoPharma::SolutionComponent::CompetencyRegister,Qualification and Competency Register,People Systems,Data Storage,internal,Batch Manufacturing and Release; Cold Chain and Dangerous Goods Consignment; New Employee Onboarding; Workforce Competency and Qualification; Clinical Trials
+CocoPharma::SolutionComponent::QualificationCurrencyChecker,Qualification Currency Checker,People Systems,Long Running Daemon,internal,Workforce Competency and Qualification
+CocoPharma::SolutionComponent::HealthSurveillanceRecords,Health Surveillance Records,People Systems,Data Storage,internal,Occupational Health Surveillance; New Employee Onboarding
+CocoPharma::SolutionComponent::LongTermHealthArchive,Long Term Health Record Archive,People Systems,Data Storage,internal,Occupational Health Surveillance
+CocoPharma::SolutionComponent::RightsRequestIntake,Rights Request Intake,Privacy Operations Systems,User Interface,internal,Data Subject Rights
+CocoPharma::SolutionComponent::IdentityVerification,Data Subject Identity Verification,Privacy Operations Systems,Multi-Step Process,internal,Data Subject Rights
+CocoPharma::SolutionComponent::RecordOfProcessingRegister,Record of Processing Activities Register,Privacy Operations Systems,Data Storage,internal,Data Subject Rights; New Employee Onboarding
+CocoPharma::SolutionComponent::PersonalDataDiscovery,Personal Data Discovery,Privacy Operations Systems,Long Running Daemon,internal,Data Subject Rights
+CocoPharma::SolutionComponent::RightsFulfilmentOrchestrator,Rights Fulfilment Orchestrator,Privacy Operations Systems,Multi-Step Process,internal,Data Subject Rights; New Employee Onboarding; Personalized Treatment Ordering
+CocoPharma::SolutionComponent::RetentionScheduleService,Retention Schedule Service,Privacy Operations Systems,Software Library,internal,Data Subject Rights; Clinical Trials
+CocoPharma::SolutionComponent::NationalVerificationSystems,National Verification Systems,External,Third Party Process,external,Product Serialisation and Verification
+CocoPharma::SolutionComponent::CarrierSystems,Carrier Systems,External,Third Party Process,external,Cold Chain and Dangerous Goods Consignment
+CocoPharma::SolutionComponent::SanctionsAndScreeningService,Sanctions and Screening Service,External,Third Party Process,external,Third Party Onboarding and Payment
