@@ -22,10 +22,10 @@ States
   families         Per-family last-known presence + heal outcome, for the
                    status endpoint / a future admin view.
 
-Mirrors advisor_lock_handler.py / demo_reset_handler.py's own
-start_scheduler()/stop_scheduler() background-task shape (same asyncio.Lock
-+ module-level state pattern) so this fits the existing lifespan wiring in
-pyegeria_handler.py without introducing a new convention.
+Mirrors obsidian_lock_handler.py / jupyter_lock_handler.py / demo_reset_handler.py's
+own start_scheduler()/stop_scheduler() background-task shape (same
+asyncio.Lock + module-level state pattern) so this fits the existing
+lifespan wiring in pyegeria_handler.py without introducing a new convention.
 """
 
 import asyncio

@@ -79,11 +79,9 @@ from rate_limiter import limiter
 async def _lifespan(app: FastAPI):
     from obsidian_lock_handler import start_scheduler as obs_start, stop_scheduler as obs_stop
     from jupyter_lock_handler import start_scheduler as jup_start, stop_scheduler as jup_stop
-    from advisor_lock_handler import start_scheduler as adv_start, stop_scheduler as adv_stop
     from bootstrap_monitor_handler import start_scheduler as boot_start, stop_scheduler as boot_stop
     await obs_start()
     await jup_start()
-    await adv_start()
     await boot_start()
     if DEMO_MODE:
         from demo_reset_handler import start_scheduler, stop_scheduler
@@ -104,7 +102,6 @@ async def _lifespan(app: FastAPI):
         from demo_reset_handler import stop_scheduler
         await stop_scheduler()
     await boot_stop()
-    await adv_stop()
     await jup_stop()
     await obs_stop()
 
@@ -274,6 +271,8 @@ from external_links_handler import router as external_links_router
 app.include_router(external_links_router)
 from agreements_handler import router as agreements_router
 app.include_router(agreements_router)
+from namespaces_handler import router as namespaces_router
+app.include_router(namespaces_router)
 from pyegeria_docs_handler import router as pyegeria_docs_router
 app.include_router(pyegeria_docs_router)
 from demo_feedback_handler import router as demo_feedback_router
@@ -310,8 +309,10 @@ from obsidian_lock_handler import router as obsidian_lock_router
 app.include_router(obsidian_lock_router)
 from jupyter_lock_handler import router as jupyter_lock_router
 app.include_router(jupyter_lock_router)
-from advisor_lock_handler import router as advisor_lock_router
-app.include_router(advisor_lock_router)
+from advisor_handler import router as advisor_router
+app.include_router(advisor_router)
+from resource_explorer_handler import router as resource_explorer_router
+app.include_router(resource_explorer_router)
 
 # ── Demo mode ──────────────────────────────────────────────────────────────────
 
