@@ -59,6 +59,19 @@ def _get_manager(url=None, server=None, user_id=None, user_pwd=None):
     return mgr
 
 
+def _get_product_manager(url=None, server=None, user_id=None, user_pwd=None):
+    """ProductManager (subclass of CollectionManager) — needed for find_digital_products,
+    which CollectionManager doesn't expose."""
+    from pyegeria import ProductManager
+    url     = url     or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
+    server  = server  or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+    user_id = user_id or os.environ.get("EGERIA_USER",          "erinoverview")
+    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    mgr = ProductManager(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+    apply_token(mgr)
+    return mgr
+
+
 def _props(element: dict) -> dict:
     return element.get("properties") or {}
 
@@ -285,6 +298,86 @@ def _find_all_catalogs(mgr) -> list:
     return list(catalogs.values())
 
 
+def _find_all_digital_products(mgr) -> list:
+    """Paginate through all DigitalProduct elements (not scoped to any one catalog — the
+    Data Mesh view shows every product in the deployment). graph_query_depth=1 is enough
+    to surface direct DigitalProductDependency relationships without walking second hops."""
+    products = {}
+    start_from = 0
+    page_size  = 200
+    max_pages  = 50  # safety cap: 10000 products max
+    for _ in range(max_pages):
+        try:
+            raw = mgr.find_digital_products(
+                search_string="*",
+                starts_with=True,
+                ignore_case=True,
+                output_format="JSON",
+                start_from=start_from,
+                page_size=page_size,
+                graph_query_depth=1,
+                sequencing_order="PROPERTY_ASCENDING",
+                sequencing_property="displayName",
+            )
+        except Exception as exc:
+            logger.warning(f"find_digital_products page {start_from} failed: {exc}")
+            break
+        if not isinstance(raw, list) or not raw:
+            break  # empty page → done
+        for el in raw:
+            g = _header(el).get("guid", "")
+            if g and g not in products:
+                products[g] = el
+        start_from += page_size
+
+    return list(products.values())
+
+
+def _extract_dependency_edges(element: dict) -> list:
+    """Find DigitalProductDependency relationship entries anywhere in a product's raw
+    element (any list-valued key holding RelatedMetadataElementSummary dicts) and
+    normalize each into a directed edge {id, source, target, iscQualifiedName, label}.
+    `source` is the consuming product's guid, `target` the consumed product's guid.
+
+    Direction is inferred from `relatedElementAtEnd1`: ProductManager.link_digital_product_dependency
+    attaches via `/digital-products/{consumer_guid}/product-dependencies/{consumed_guid}/attach`,
+    which puts the consumer at end 1 -- so relatedElementAtEnd1=True means the OTHER
+    (related) element is the consumer and THIS element is the one being consumed; False
+    means this element is the consumer. NOTE: unverified against live data -- as of
+    2026-09-21 the Coco Pharmaceuticals demo dataset has no DigitalProductDependency
+    relationships to confirm end1/end2 assignment against. If dependency arrows render
+    backwards once real data exists, flip this condition.
+    """
+    this_guid = _header(element).get("guid", "")
+    edges = []
+    for key, val in element.items():
+        if key in _DP_SKIP_KEYS or not isinstance(val, list):
+            continue
+        for entry in val:
+            if not isinstance(entry, dict):
+                continue
+            rh = entry.get("relationshipHeader") or {}
+            if (rh.get("type") or {}).get("typeName") != "DigitalProductDependency":
+                continue
+            related = entry.get("relatedElement") or {}
+            other_guid = (related.get("elementHeader") or {}).get("guid", "")
+            if not other_guid or not this_guid:
+                continue
+            if entry.get("relatedElementAtEnd1"):
+                consumer_guid, consumed_guid = other_guid, this_guid
+            else:
+                consumer_guid, consumed_guid = this_guid, other_guid
+            rel_props = entry.get("relationshipProperties") or {}
+            edges.append({
+                "id":               rh.get("guid", "") or f"{consumer_guid}->{consumed_guid}",
+                "source":           consumer_guid,
+                "target":           consumed_guid,
+                "iscQualifiedName": rel_props.get("iscQualifiedName") or "",
+                "label":            rel_props.get("label") or "",
+            })
+    return edges
+
+
 def _children_level(mgr, collection_guid: str, as_of_time: Optional[str] = None) -> list:
     """Fetch ONE level of members (no recursion) for lazy tree loading (PERF-2).
 
@@ -359,6 +452,53 @@ def get_catalogs(
     catalogs = [_serialize_node(c) for c in raw_catalogs]
     catalogs.sort(key=lambda c: (c.get("displayName") or "").lower())
     return JSONResponse({"catalogs": catalogs, "total": len(catalogs)})
+
+
+@router.get("/api/digital-products/mesh",
+            summary="All digital products + DigitalProductDependency edges, for the Data Mesh graph")
+def get_mesh(
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
+):
+    """Return every DigitalProduct (regardless of which catalog it belongs to, or none)
+    plus every DigitalProductDependency relationship found between them, as a flat
+    {nodes, edges} graph for the Data Mesh view."""
+    cache_key = f"mesh|{url or ''}|{server or ''}|{user_id or ''}"
+    cached = _TREE_CACHE.get(cache_key)
+    if cached and (time.time() - cached[0]) < _TREE_CACHE_TTL:
+        return JSONResponse(cached[1])
+
+    try:
+        mgr = _get_product_manager(url, server, user_id, user_pwd)
+    except Exception as exc:
+        logger.exception("Failed to create ProductManager")
+        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+
+    try:
+        raw_products = _find_all_digital_products(mgr)
+    except Exception as exc:
+        logger.exception("Digital product discovery failed")
+        raise HTTPException(status_code=500, detail=f"Product retrieval failed: {exc}")
+
+    nodes = []
+    node_guids = set()
+    edges_by_id = {}
+    for el in raw_products:
+        node = _serialize_node(el)
+        nodes.append(node)
+        node_guids.add(node["guid"])
+        for edge in _extract_dependency_edges(el):
+            edges_by_id[edge["id"]] = edge
+
+    # Drop edges to a product outside the node set (excluded/inaccessible) rather than
+    # rendering a dangling arrow to nowhere.
+    edges = [e for e in edges_by_id.values() if e["source"] in node_guids and e["target"] in node_guids]
+
+    result = {"nodes": nodes, "edges": edges, "total": len(nodes)}
+    _TREE_CACHE[cache_key] = (time.time(), result)
+    return JSONResponse(result)
 
 
 @router.get("/api/digital-products/catalogs/{catalog_guid}/tree",

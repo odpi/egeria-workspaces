@@ -219,6 +219,8 @@ from reference_data_handler import router as reference_data_router
 app.include_router(reference_data_router)
 from digital_products_handler import router as digital_products_router
 app.include_router(digital_products_router)
+from data_mesh_handler import router as data_mesh_router
+app.include_router(data_mesh_router)
 from collections_handler import router as collections_router
 app.include_router(collections_router)
 from governance_zones_handler import router as governance_zones_router
