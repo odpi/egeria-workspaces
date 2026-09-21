@@ -2,7 +2,7 @@
 
 The `coco-data-hub` is a collection of data stores that hold the key data needed to be exchanged between different business units to support new strategic initiatives such as personalized medicine.  It is part of the [new systems architecture](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/defining-new-systems-architecture/overview/).
 
-This directory tells the story in the order it happens.  Erin Overview and Peter Profile lay out the solution components that implement the [strategic information supply chains](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/defining-information-supply-chains/overview/).  To map those components to real systems they need an inventory, and the only one the company has is Gary Geeke's spreadsheet — so Gary [loads it into Egeria](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/cataloguing-infrastructure/overview/).  The mapping finds gaps; Gary asks the two newly acquired sites for their systems data to see how widespread the problem is, and gets a pleasant surprise.  With the flows, the components and the systems in one place, the Data Hub can be scoped and built - and the data the supply chains carry can be offered as digital products.
+This directory tells the story in the order it happens.  Erin Overview and Peter Profile lay out the solution components that implement the [strategic information supply chains](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/defining-information-supply-chains/overview/).  To map those components to real systems they need an inventory, and the only one the company has is Gary Geeke's spreadsheet — so Gary [loads it into Egeria](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/cataloguing-infrastructure/overview/).  The mapping finds gaps; Gary asks the two newly acquired sites for their systems data to see how widespread the problem is, and gets a pleasant surprise.  With the flows, the components and the systems in one place, Erin sets the standard for naming data fields, the data the supply chains carry is offered as digital products described to that standard, and the Data Sharing Hub that will serve them can be scoped and built.
 
 | | Step | Content |
 |---|---|---|
@@ -11,11 +11,11 @@ This directory tells the story in the order it happens.  Erin Overview and Peter
 | 3 | Match components to systems, find the gaps | [strategic-supply-chain-system-matches.md](strategic-supply-chain-system-matches.md) |
 | 4 | Load the acquisitions' systems | [extending-the-systems-inventory/](extending-the-systems-inventory/README.md) |
 | 5 | Link components to systems, report the gaps, attach the chains to the lineage | [mapping-the-systems/](mapping-the-systems/README.md) |
-| 6 | Design the Data Hub | [solution-design.md](solution-design.md) |
-| 7 | Govern how it is built | [software-development-governance-program.md](software-development-governance-program.md) |
-| 8 | Set it up | [setting-up-the-data-hub.ipynb](setting-up-the-data-hub.ipynb) |
-| 9 | Name its data fields | [data-field-naming/](data-field-naming/README.md) |
-| 10 | Publish the data the supply chains carry as digital products | [strategic-digital-products/](strategic-digital-products/README.md) |
+| 6 | Set standards for data field names | [data-field-naming/](data-field-naming/README.md) |
+| 7 | Publish the data the supply chains carry as digital products | [strategic-digital-products/](strategic-digital-products/README.md) |
+| 8 | Design the Data Sharing Hub | [solution-design.md](solution-design.md) |
+| 9 | Govern how it is built | [software-development-governance-program.md](software-development-governance-program.md) |
+| 10 | Set up the data sharing hub | [setting-up-the-data-hub.ipynb](setting-up-the-data-hub.ipynb) |
 
 ----
 
@@ -29,7 +29,7 @@ linking wires between them.  Every wire records which supply chains it implement
 chain's implementation graph from the wires rather than from a drawing somebody has to maintain.
 
 In total it creates 82 solution components, adds 21 memberships for components that already existed, and draws
-130 wires.  Forty-four of those wires implement more than one supply chain: they are the handovers, where a fault
+126 wires.  Forty-four of those wires implement more than one supply chain: they are the handovers, where a fault
 in one chain becomes a failure in the next, and they are the places worth instrumenting first.
 
 Two things it does not do.  It does not touch the **Clinical Trials** or **Sustainability Reporting** chains, which
@@ -37,10 +37,13 @@ arrive fully implemented in `CocoComboArchive.omarchive`; where another chain me
 it.  And it does not invent blueprints: five of the archive's seven solution blueprints were
 stubs sitting exactly where a strategic supply chain needed components, so it fills those in instead.
 
-**This file loads before `solution-design.md`.**  The eight business system groups that `solution-design.md` used to
-create — the Data Hub, patient treatment, finance, procurement, research, warehouse, manufacturing and delivery —
-are the landscape every strategic supply chain runs over, so they are now created here alongside the fine-grained
-components they contain, and `solution-design.md` links them to its blueprint instead.
+**This file loads before `solution-design.md`.**  The seven business system groups that `solution-design.md` used to
+create — patient treatment, finance, procurement, research, warehouse, manufacturing and delivery — are the
+landscape every strategic supply chain runs over, so they are now created here alongside the fine-grained
+components they contain, and `solution-design.md` links them to its blueprint instead.  The **Data Sharing Hub**
+stays in `solution-design.md`, because it is an asset-layer component of the data fabric that carries data
+between those functions rather than a group of systems: it implements no supply chain and is offered as no
+digital product.
 
     ```
     dr_egeria --directive process --userid erinoverview --user_pass secret strategic-supply-chain-analysis.md
@@ -73,7 +76,41 @@ The pleasant surprise is in the matches document: both acquisitions run a comple
 
 ## Mapping the systems
 
-With all three estates in Egeria, the matching becomes metadata.  The [mapping-the-systems/](mapping-the-systems/README.md) folder holds the mapping as a spreadsheet — one row per candidate system per component, with a confidence — and a notebook that creates the `ImplementedBy` relationships from the solution components to the systems, then produces a gap report: which components have no system anywhere, which are implemented only at the acquisitions and so lie outside the scope of the original Coco operation, and where the parent's coverage is unconfirmed.  That report, by business system group and by supply chain, is what scopes the Data Hub.  A second notebook then attaches each supply chain to the `DataFlow` lineage between the systems - merging the chain's name onto the interactions Gary loaded, and cloning a relationship per chain where a hop carries several, since lineage relationships are multi-links.
+With all three estates in Egeria, the matching becomes metadata.  The [mapping-the-systems/](mapping-the-systems/README.md) folder holds the mapping as a spreadsheet — one row per candidate system per component, with a confidence — and a notebook that creates the `ImplementedBy` relationships from the solution components to the systems, then produces a gap report: which components have no system anywhere, which are implemented only at the acquisitions and so lie outside the scope of the original Coco operation, and where the parent's coverage is unconfirmed.  That report, by business system group and by supply chain, is what scopes the Data Sharing Hub.  A second notebook then attaches each supply chain to the `DataFlow` lineage between the systems - merging the chain's name onto the interactions Gary loaded, and cloning a relationship per chain where a hop carries several, since lineage relationships are multi-links.
+
+----
+
+## Naming the data fields
+
+The [data-field-naming](data-field-naming/README.md) directory builds the **Data Field Naming** glossary: the
+vocabulary of prime words, modifiers and class words used to construct consistent data field names across the
+data hub, following the `prime word + modifier(s) + class word` convention - for example `PatientAdmittingDate`
+= `Patient` (prime word) + `Admitting` (modifier) + `Date` (class word).
+
+The glossary is organized into a folder per subject area, mirroring `CocoSubjectAreaDefinition`, and each folder
+is linked to the matching `SubjectArea::` collection loaded from `CocoComboArchive.omarchive`. The final three
+files classify every term as a `PrimeWord`, `Modifier` or `ClassWord`
+(see [0438 Naming Standards](https://egeria-project.org/types/4/0438-Naming-Standards/)).
+
+There are around thirty files to process and the order matters, so follow the load order given in
+[data-field-naming/README.md](data-field-naming/README.md) rather than processing them ad hoc.
+
+----
+
+## Publishing the data as digital products
+
+Every wire in the supply chain analysis carries data that one component produces and another consumes, and
+the analysis wrote down what that data is.  The [strategic-digital-products](strategic-digital-products/README.md)
+directory turns it into the **Coco Pharmaceuticals Strategic Digital Product Catalog**: one digital product per
+solution component that originates data (more where a component receives data of different kinds), organised into a folder per
+business system group, each product with a data specification whose structures and fields follow the data field
+naming standard, and a PostgreSQL data set it will be read from.  The dependencies between the products follow
+the wires and each names the supply chain it implements, so the supply chains can be traced through the catalog.  The products' field names follow the
+data field naming standard set in step 6, and the terms they needed beyond the original vocabulary are added to the
+glossary by `data-field-naming/strategic-products-vocabulary.md`, so the naming standard loads first.
+
+The catalog is a member of `Egeria::DigitalProductCatalogsRoot`, so it appears in Egeria's web portal alongside
+every other digital product catalog.
 
 ----
 
@@ -122,43 +159,9 @@ Again you can load the definitions into Egeria on one of two ways:
 
 ----
 
-## Setting up the Data Hub
+## Setting up the Data Sharing Hub
 
-The file [setting-up-the-data-hub.ipynb](setting-up-the-data-hub.ipynb) is a Jupyter Notebook that performs the steps the [Peter Profile](https://egeria-project.org/practices/coco-pharmaceuticals/personas/peter-profile/) goes though to set up the data hub.  You need to open the file in JupyterHub and then run each cell in turn.  There are descriptions of each command he uses throughout the file.  Once you have run the file, go to Egeria's web portal and you can see the data hub in Egeria Explorer under the "Strategic Data Hubs" collection displayed from the **Collections** card.
-
-----
-
-## Naming the data fields
-
-The [data-field-naming](data-field-naming/README.md) directory builds the **Data Field Naming** glossary: the
-vocabulary of prime words, modifiers and class words used to construct consistent data field names across the
-data hub, following the `prime word + modifier(s) + class word` convention - for example `PatientAdmittingDate`
-= `Patient` (prime word) + `Admitting` (modifier) + `Date` (class word).
-
-The glossary is organized into a folder per subject area, mirroring `CocoSubjectAreaDefinition`, and each folder
-is linked to the matching `SubjectArea::` collection loaded from `CocoComboArchive.omarchive`. The final three
-files classify every term as a `PrimeWord`, `Modifier` or `ClassWord`
-(see [0438 Naming Standards](https://egeria-project.org/types/4/0438-Naming-Standards/)).
-
-There are around thirty files to process and the order matters, so follow the load order given in
-[data-field-naming/README.md](data-field-naming/README.md) rather than processing them ad hoc.
-
-----
-
-## Publishing the data as digital products
-
-Every wire in the supply chain analysis carries data that one component produces and another consumes, and
-the analysis wrote down what that data is.  The [strategic-digital-products](strategic-digital-products/README.md)
-directory turns it into the **Coco Pharmaceuticals Strategic Digital Product Catalog**: one digital product per
-solution component (more where a component receives data of different kinds), organised into a folder per
-business system group, each product with a data specification whose structures and fields follow the data field
-naming standard, and a PostgreSQL data set it will be read from.  The dependencies between the products follow
-the wires, so the supply chains can be traced through the catalog.  The products' field names needed
-vocabulary the naming glossary did not have, so `data-field-naming/strategic-products-vocabulary.md` extends it,
-and the naming glossary must be loaded first.
-
-The catalog is a member of `Egeria::DigitalProductCatalogsRoot`, so it appears in Egeria's web portal alongside
-every other digital product catalog.
+The file [setting-up-the-data-hub.ipynb](setting-up-the-data-hub.ipynb) is a Jupyter Notebook that performs the steps the [Peter Profile](https://egeria-project.org/practices/coco-pharmaceuticals/personas/peter-profile/) goes though to set up the data sharing hub.  You need to open the file in JupyterHub and then run each cell in turn.  There are descriptions of each command he uses throughout the file.  Once you have run the file, go to Egeria's web portal and you can see the data sharing hub in Egeria Explorer under the "Strategic Data Hubs" collection displayed from the **Collections** card.
 
 ----
 License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/),

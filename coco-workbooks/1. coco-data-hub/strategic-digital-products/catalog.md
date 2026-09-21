@@ -33,7 +33,7 @@ Coco Pharmaceuticals Strategic Digital Product Catalog
 DigitalProductCatalog::Coco::Strategic Digital Product Catalog
 
 ### Description
-The digital products that carry data between the solution components of Coco Pharmaceuticals' strategic information supply chains.  Each product is the data one component makes available to the others: defined once, described by a data specification, and readable from a data set in the Data Hub's PostgreSQL server.  The catalog is organised by the business system group that owns the producing component.
+The digital products that carry data between the solution components of Coco Pharmaceuticals' strategic information supply chains.  Each product is the data one component makes available to the others: defined once, described by a data specification, and readable from a data set in the Data Sharing Hub's PostgreSQL server.  The catalog is organised by the business system group that owns the producing component.
 
 ### Purpose
 Turns the data exchanged along the strategic supply chains into products that can be found, understood and subscribed to, rather than integrations that only the two systems involved know about.
@@ -73,23 +73,23 @@ ___
 
 One folder per business system group, in the order the analysis introduced them.
 
-# Data Hub
+# Master Data Management
 
-Products of the Data Hub itself and of the master data it distributes: the product master, the change notifications that keep every copy honest, the business summaries the hub assembles, and the open metadata catalogue that describes the estate.
+The master data no single business function owns: the product master, the change notifications that keep every copy of it honest, and the open metadata catalogue that describes the estate the copies live in.
 
 ## Create Collection Folder
 
 ### Display Name
-Data Hub
+Master Data Management
 
 ### Qualified Name
-CollectionFolder::Coco::Strategic Digital Products::Data Hub
+CollectionFolder::Coco::Strategic Digital Products::Master Data Management
 
 ### Description
-Products of the Data Hub itself and of the master data it distributes: the product master, the change notifications that keep every copy honest, the business summaries the hub assembles, and the open metadata catalogue that describes the estate.
+The master data no single business function owns: the product master, the change notifications that keep every copy of it honest, and the open metadata catalogue that describes the estate the copies live in.
 
 ### Purpose
-Holds the 4 digital products owned by the Data Hub business system group.
+Holds the 3 digital products owned by the Master Data Management business system group.
 
 ### Category
 Strategic Digital Products
@@ -112,10 +112,10 @@ ___
 DigitalProductCatalog::Coco::Strategic Digital Product Catalog
 
 ### Element Id
-CollectionFolder::Coco::Strategic Digital Products::Data Hub
+CollectionFolder::Coco::Strategic Digital Products::Master Data Management
 
 ### Membership Rationale
-The Data Hub group's products are catalogued together because the same people own them.
+The Master Data Management group's products are catalogued together because the same people own them.
 
 ### Membership Status
 VALIDATED
