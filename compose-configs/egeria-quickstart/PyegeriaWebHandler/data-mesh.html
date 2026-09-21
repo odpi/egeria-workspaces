@@ -561,7 +561,7 @@ function MeshGraph({ elements, matchedGuids, iscFilter, selectedGuid, onSelectNo
           'background-color': MESH_NODE_COLOR,
           'border-width': 2, 'border-color': MESH_NODE_BORDER,
           'label': 'data(label)', 'color': '#c8d4e8', 'font-size': 10,
-          'text-valign': 'bottom', 'text-margin-y': 6, 'text-wrap': 'ellipsis', 'text-max-width': 90,
+          'text-valign': 'bottom', 'text-margin-y': 6, 'text-wrap': 'wrap', 'text-max-width': 90,
           'width': 26, 'height': 26,
         } },
         { selector: 'node.search-match', style: { 'border-color': MESH_NODE_MATCH, 'border-width': 3.5 } },
@@ -574,7 +574,19 @@ function MeshGraph({ elements, matchedGuids, iscFilter, selectedGuid, onSelectNo
         { selector: 'edge.isc-match', style: { 'line-color': MESH_EDGE_ISC_COLOR, 'target-arrow-color': MESH_EDGE_ISC_COLOR, 'width': 3 } },
         { selector: 'edge.dimmed', style: { 'opacity': 0.15 } },
       ],
-      layout: { name: 'cose', animate: false, padding: 40, nodeRepulsion: 9000, idealEdgeLength: 90 },
+      // nodeDimensionsIncludeLabels is the key setting here: cose's overlap-avoidance
+      // otherwise only looks at each node's 26x26 dot, not its ~90px wrapped label, so
+      // labels overlapped even though the dots themselves didn't. Counting the label's
+      // rendered box as part of the node's size forces cose to actually space nodes far
+      // enough apart to fit their (multi-line) labels. componentSpacing/nodeRepulsion/
+      // idealEdgeLength raised too since this dataset is mostly disconnected products
+      // (no DigitalProductDependency data yet) — cose's repulsion is doing most of the
+      // spacing work here, not edge attraction.
+      layout: {
+        name: 'cose', animate: false, padding: 40,
+        nodeDimensionsIncludeLabels: true, avoidOverlap: true,
+        nodeRepulsion: 24000, idealEdgeLength: 140, componentSpacing: 80,
+      },
     });
     cy.on('tap', 'node', function(evt) { onSelectNode(evt.target.id()); });
     cy.on('tap', 'edge', function(evt) { onEdgeClick(evt.target.data('iscQualifiedName') || ''); });
