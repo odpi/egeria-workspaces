@@ -12,7 +12,7 @@ integrations that only the two systems involved know about.
 
 The catalog is the **Coco Pharmaceuticals Strategic Digital Product Catalog**.  It is a member of
 `Egeria::DigitalProductCatalogsRoot`, the root collection every digital product catalog in Egeria hangs from, and
-it is organised into one folder per **business system group** from the analysis - Data Hub, Patient Treatment,
+it is organised into one folder per **business system group** from the analysis - Master Data Management, Patient Treatment,
 Finance, Procurement, Research, Warehouse, Manufacturing, Delivery, Quality Systems, People Systems and Privacy
 Operations - because the group that owns the producing component owns the product.
 
@@ -34,11 +34,16 @@ Every product has:
 * a **data spec**, attached with a `DataDescription` relationship, containing one or more **data structures**,
   each containing the **data fields** a subscriber receives.  Every field name follows the
   [Data Field Naming](../data-field-naming/README.md) standard - prime word, modifiers, class word - and every one
-  of the 1,027 field names decomposes into the glossary's vocabulary.  The vocabulary was extended for this,
-  see below;
+  of the 1,011 field names decomposes into the glossary's vocabulary.  The glossary was extended with the
+  vocabulary these names needed, see below;
 * a **PostgreSQL tabular data set collection** the product is read from, created with the Asset Maker
   `Create Element` command from the PostgreSQL schema template.  Each product is a schema named after it in the
   `coco_pharma` database on `Coco PostgreSQL Server 1`, and the data set is a member of the product.
+
+The **Data Sharing Hub** has no product either, and deliberately so: it is the asset-layer component of the data
+fabric that carries data between the business functions, defined in
+[solution-design.md](../solution-design.md).  It originates no data of its own, so there is nothing for it to
+publish that its neighbours do not already publish.
 
 Two components have no product of their own.  The **hospital processes** are outside Coco Pharmaceuticals; the
 site safety reports they send arrive in *Consolidated Safety Reports*.  The **national verification systems**,
@@ -46,39 +51,42 @@ site safety reports they send arrive in *Consolidated Safety Reports*.  The **na
 *in* is valuable and is held by the component that receives it, so it is a product owned by that component's
 group: *Market Verification Responses* and *Carrier Transit Events* in Manufacturing and Delivery, and *Third
 Party Screening Results* in Procurement.  Data sent *out* to them is not a product.  The eight business system
-group components themselves are folders, not products; the Data Hub, Procurement and Research groups also have
-products of their own because the analysis wired them directly.
+group components themselves are folders, not products; the Master Data Management, Procurement and Research
+groups also have products of their own because the analysis wired them directly.
 
 ## Dependencies
 
 A wire from component A to component B means the product built from the data entering B depends on the
 product A publishes.  [product-dependencies.md](product-dependencies.md) draws that `DigitalProductDependency`
-for every wire in the analysis whose two ends both have a product - 125 of the 130 - with the wire's label
-and a description recording what is exchanged and which supply chains the exchange implements.  Because the
-relationship is a multi-link, two products that exchange several kinds of data have one dependency per wire.
-Following the dependencies from any product therefore traces the supply chains through the catalog.
+for every wire in the analysis whose two ends both have a product - 121 of the 126 - with the wire's label, a
+description of what is exchanged, and the qualified name of the information supply chain it implements in
+`ISC Qualified Name`.  `DigitalProductDependency` is a lineage relationship carrying the same single
+`iscQualifiedName` as a `DataFlow`, and it is a multi-link, so a wire that implements several chains becomes one
+dependency per chain - 163 dependencies from the 121 wires - and two products that exchange several kinds of
+data have one per wire.  Following the dependencies from any product therefore traces the supply chains through
+the catalog, and filtering them by chain name gives that chain's product graph.
 
 | Group | Products | Structures | Fields | Dependencies |
 |---|---|---|---|---|
-| Data Hub | 4 | 10 | 57 | 9 |
-| Patient Treatment | 3 | 5 | 31 | 3 |
-| Finance | 13 | 27 | 173 | 24 |
-| Procurement | 5 | 11 | 68 | 5 |
-| Research | 2 | 5 | 29 | 1 |
-| Warehouse | 4 | 9 | 60 | 8 |
-| Manufacturing | 11 | 20 | 129 | 21 |
-| Delivery | 7 | 10 | 73 | 10 |
-| Quality Systems | 15 | 30 | 208 | 20 |
-| People Systems | 11 | 18 | 123 | 15 |
-| Privacy Operations | 7 | 11 | 76 | 9 |
-| **Total** | **82** | **156** | **1,027** | **125** |
+| Master Data Management | 3 | 7 | 41 | 6 |
+| Patient Treatment | 3 | 5 | 31 | 4 |
+| Finance | 13 | 27 | 173 | 35 |
+| Procurement | 5 | 11 | 68 | 6 |
+| Research | 2 | 5 | 29 | 2 |
+| Warehouse | 4 | 9 | 60 | 12 |
+| Manufacturing | 11 | 20 | 129 | 28 |
+| Delivery | 7 | 10 | 73 | 14 |
+| Quality Systems | 15 | 30 | 208 | 26 |
+| People Systems | 11 | 18 | 123 | 19 |
+| Privacy Operations | 7 | 11 | 76 | 11 |
+| **Total** | **81** | **153** | **1,011** | **163** |
 
 ## Files and load order
 
 | File | Content |
 |---|---|
 | [catalog.md](catalog.md) | The catalog, its membership of the digital product catalogs root, and the eleven group folders |
-| [data-hub.md](data-hub.md) | Product master data, change notifications, the hub's business summary, the open metadata catalogue |
+| [master-data-management.md](master-data-management.md) | Product master data, change notifications, the open metadata catalogue |
 | [patient-treatment.md](patient-treatment.md) | Treatment orders, clinician reaction reports, the patient pseudonym register |
 | [finance.md](finance.md) | Invoices, subledger postings, ledger balances, journal approvals, consolidation, disclosures, controls evidence, supplier payments and their monitoring, expenses, transfers of value |
 | [procurement.md](procurement.md) | Supplier master data, onboarding cases, screening results, supplier certificates, purchase orders and receipts |
@@ -89,7 +97,7 @@ Following the dependencies from any product therefore traces the supply chains t
 | [quality-systems.md](quality-systems.md) | Safety reports, cases, assessments, signals, submissions; laboratory results, deviations, certification, alert investigations, excursion assessments, market authorisations; exposure bands, monitoring, incidents |
 | [people-systems.md](people-systems.md) | Worker master data, lifecycle events, access, payroll, directory, competency requirements, training, qualifications and their currency, health surveillance, the long-term archive |
 | [privacy-operations.md](privacy-operations.md) | Rights requests, identity verification, the record of processing, discovery findings, fulfilment actions, retention obligations and assignments |
-| [product-dependencies.md](product-dependencies.md) | The 125 dependencies, grouped by the consuming product's group |
+| [product-dependencies.md](product-dependencies.md) | The 163 dependencies, one per wire per supply chain, grouped by the consuming product's group |
 
 `catalog.md` loads first; the group files follow in any order; `product-dependencies.md` loads last because it
 references products from every group.  The `_batch.json` manifest gives this order.  All the files are processed
@@ -97,7 +105,7 @@ as Erin Overview:
 
 ```
 dr_egeria --directive process --userid erinoverview --user_pass secret catalog.md
-dr_egeria --directive process --userid erinoverview --user_pass secret data-hub.md
+dr_egeria --directive process --userid erinoverview --user_pass secret master-data-management.md
 dr_egeria --directive process --userid erinoverview --user_pass secret patient-treatment.md
 dr_egeria --directive process --userid erinoverview --user_pass secret finance.md
 dr_egeria --directive process --userid erinoverview --user_pass secret procurement.md
@@ -116,13 +124,14 @@ dr_egeria --directive process --userid erinoverview --user_pass secret product-d
 * `0. data-governance-program/strategic-information-supply-chains.md` and
   `1. coco-data-hub/strategic-supply-chain-analysis.md` - the products are named for, and describe the data
   of, the components and wires defined there, though nothing here references them by qualified name.
-* The [data-field-naming](../data-field-naming/README.md) glossary, including
-  `strategic-products-vocabulary.md`, which adds the 73 prime words, 161 modifiers and 6 class words these
-  products' fields use beyond the original vocabulary - among them `Batch`-related manufacturing terms such as
+* The [data-field-naming](../data-field-naming/README.md) glossary, the standard the field names were built
+  to, including `strategic-products-vocabulary.md`, which adds the 73 prime words, 161 modifiers and 6 class
+  words the names needed beyond the original vocabulary - `Batch`-related manufacturing terms such as
   `ExecutionStep` and `ProcessParameter`, safety terms such as `SafetyCase` and `Signal`, finance terms such as
   `Ledger` and `JournalEntry`, and the `Timestamp`, `Duration`, `Temperature`, `Count`, `Version` and
-  `Signature` class words.  The data fields do not link to the glossary terms; the glossary is the standard the
-  names were built to, and the check that every name decomposes into it was made when the files were written.
+  `Signature` class words.  The data fields do not yet link to the glossary terms by name, but the standard
+  precedes the names built to it, and the check that every name decomposes into the vocabulary was made when
+  the files were written.
 * The PostgreSQL content pack, which supplies template `3f9a0ab3-072c-4cb1-a14f-6e0492e00dd7`, and the
   `Egeria::DigitalProductCatalogsRoot` collection from the core content pack.  Both are present in the
   quickstart platform.
@@ -130,7 +139,7 @@ dr_egeria --directive process --userid erinoverview --user_pass secret product-d
 The data sets point at `Coco PostgreSQL Server 1` on `host.docker.internal:5442`, the shared PostgreSQL server
 of the quickstart environment, with credentials from the `PostgreSQL Server Secret` collection in
 `secrets/integration.omsecrets`.  The `coco_pharma` database and its schemas do not exist yet: the products
-are proposals, and the data sets describe where each will be read from once the Data Hub is built.
+are proposals, and the data sets describe where each will be read from once the Data Sharing Hub is built.
 
 ----
 License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/),

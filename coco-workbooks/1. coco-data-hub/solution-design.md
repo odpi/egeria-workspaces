@@ -1,18 +1,18 @@
-# Coco Data Hub Solution Design
+# Coco Data Sharing Hub Solution Design
 
 > **Author:** Erin Overview (Information Architect), Peter Profile (Solution Architect)  
 > **Version:** 1.0  
 > **Status:** ACTIVE  
 > **Date:** 2026-07-02  
-> **Description:** This document defines the solution architecture for the Coco Data Hub — the central integration point through which patient treatment, finance, procurement, research and the physical supply chain (warehouse, manufacturing, delivery) exchange data.
+> **Description:** This document defines the solution architecture for the Coco Data Sharing Hub — the central integration point through which patient treatment, finance, procurement, research and the physical supply chain (warehouse, manufacturing, delivery) exchange data.
 
 ---
 
 ## Overview
 
-The Data Hub sits at the centre of Coco Pharmaceuticals' data-driven systems architecture. Each surrounding business function pushes status and order information into the hub and pulls back the requirements or insight it needs, replacing point-to-point integration with a single, governed exchange point.
+The Data Sharing Hub sits at the centre of Coco Pharmaceuticals' data-driven systems architecture. Each surrounding business function pushes status and order information into the hub and pulls back the requirements or insight it needs, replacing point-to-point integration with a single, governed exchange point.
 
-The architecture is captured as a solution blueprint containing eight solution components — one for the Data Hub itself and one for each connected business function — linked together with solution linking wires that mirror the data flows shown in the source architecture diagram.
+The architecture is captured as a solution blueprint containing eight solution components — one for the Data Sharing Hub itself and one for each connected business function — linked together with solution linking wires that mirror the data flows shown in the source architecture diagram.
 
 The eight components themselves are created in [strategic-supply-chain-analysis.md](strategic-supply-chain-analysis.md), which loads before this file.  They are shared: every strategic information supply chain runs over the same business functions, so defining them once alongside the components they contain is better than defining them here and having the supply chain analysis reach backwards for them.  This file creates the blueprint, joins the eight to it, and draws the wires of the source diagram.
 
@@ -31,7 +31,7 @@ Data-Driven Systems Architecture
 CocoPharma::SolutionBlueprint::DataDrivenSystemsArchitecture
 
 ### Description
-The overall solution architecture for Coco Pharmaceuticals' data-driven systems, showing how the Data Hub integrates patient treatment, finance, procurement, research, warehouse, manufacturing and delivery.
+The overall solution architecture for Coco Pharmaceuticals' data-driven systems, showing how the Data Sharing Hub integrates patient treatment, finance, procurement, research, warehouse, manufacturing and delivery.
 
 ### Authors
 - Erin Overview
@@ -63,10 +63,48 @@ ___
 
 ## Part 2: Solution Components
 
-The eight components of this blueprint are defined in
+The Data Sharing Hub is created here, because it belongs to this design and to no supply chain: it is an
+asset-layer component of the data fabric that carries data between the business functions rather than a group
+of systems that originate or consume it.  That is also why it is a member of no information supply chain and is
+not offered as a digital product.
+
+The other seven components of this blueprint are defined in
 [strategic-supply-chain-analysis.md](strategic-supply-chain-analysis.md), which loads first.  They are the
 business system groups every strategic information supply chain runs over, so they are created there — with a
 solution component type and the fine-grained components they contain — and joined to this blueprint here.
+
+___
+
+## Create Solution Component
+
+### Display Name
+Data Sharing Hub
+
+### Qualified Name
+CocoPharma::SolutionComponent::DataSharingHub
+
+### Description
+The asset-layer component of the data fabric through which the business functions share data with one another.  It is a place data passes through rather than a group of systems that do work: it receives orders, status and inventory updates from every connected business function and distributes requirements and insight back out to them.  Because it carries data rather than originating or consuming it, it is a member of no information supply chain and is not offered as a digital product.
+
+### Solution Component Type
+Software Service
+
+### Planned Deployed Implementation Type
+Data Sharing Hub
+
+### Authors
+- Erin Overview
+- Peter Profile
+
+### Version Identifier
+1.0
+
+### Content Status
+ACTIVE
+
+___
+
+---
 
 ___
 
@@ -76,7 +114,7 @@ ___
 CocoPharma::SolutionBlueprint::DataDrivenSystemsArchitecture
 
 ### Component1
-CocoPharma::SolutionComponent::DataHub
+CocoPharma::SolutionComponent::DataSharingHub
 
 ### Membership Rationale
 The central integration point every other business function exchanges data through.
@@ -99,7 +137,7 @@ CocoPharma::SolutionBlueprint::DataDrivenSystemsArchitecture
 CocoPharma::SolutionComponent::PatientTreatment
 
 ### Membership Rationale
-Originates new business into the Data Hub.
+Originates new business into the Data Sharing Hub.
 
 ### Membership Status
 VALIDATED
@@ -119,7 +157,7 @@ CocoPharma::SolutionBlueprint::DataDrivenSystemsArchitecture
 CocoPharma::SolutionComponent::Finance
 
 ### Membership Rationale
-Exchanges invoices, payments, expenses and new orders with the Data Hub.
+Exchanges invoices, payments, expenses and new orders with the Data Sharing Hub.
 
 ### Membership Status
 VALIDATED
@@ -139,7 +177,7 @@ CocoPharma::SolutionBlueprint::DataDrivenSystemsArchitecture
 CocoPharma::SolutionComponent::Procurement
 
 ### Membership Rationale
-Sources against requirements published by the Data Hub and raises new orders back into it.
+Sources against requirements published by the Data Sharing Hub and raises new orders back into it.
 
 ### Membership Status
 VALIDATED
@@ -159,7 +197,7 @@ CocoPharma::SolutionBlueprint::DataDrivenSystemsArchitecture
 CocoPharma::SolutionComponent::Research
 
 ### Membership Rationale
-Consumes patient insight from the Data Hub and publishes new recipes back into it.
+Consumes patient insight from the Data Sharing Hub and publishes new recipes back into it.
 
 ### Membership Status
 VALIDATED
@@ -179,7 +217,7 @@ CocoPharma::SolutionBlueprint::DataDrivenSystemsArchitecture
 CocoPharma::SolutionComponent::Warehouse
 
 ### Membership Rationale
-Reports inventory to the Data Hub and fulfils materials requests from Manufacturing.
+Reports inventory to the Data Sharing Hub and fulfils materials requests from Manufacturing.
 
 ### Membership Status
 VALIDATED
@@ -199,7 +237,7 @@ CocoPharma::SolutionBlueprint::DataDrivenSystemsArchitecture
 CocoPharma::SolutionComponent::Manufacturing
 
 ### Membership Rationale
-Reports manufacturing status to the Data Hub, requests materials and passes shipments to Delivery.
+Reports manufacturing status to the Data Sharing Hub, requests materials and passes shipments to Delivery.
 
 ### Membership Status
 VALIDATED
@@ -219,7 +257,7 @@ CocoPharma::SolutionBlueprint::DataDrivenSystemsArchitecture
 CocoPharma::SolutionComponent::Delivery
 
 ### Membership Rationale
-Delivers shipments from Manufacturing and reports delivery status back to the Data Hub.
+Delivers shipments from Manufacturing and reports delivery status back to the Data Sharing Hub.
 
 ### Membership Status
 VALIDATED
@@ -238,7 +276,7 @@ ___
 CocoPharma::SolutionComponent::PatientTreatment
 
 ### Component2
-CocoPharma::SolutionComponent::DataHub
+CocoPharma::SolutionComponent::DataSharingHub
 
 ### Label
 new-business
@@ -255,7 +293,7 @@ ___
 CocoPharma::SolutionComponent::Finance
 
 ### Component2
-CocoPharma::SolutionComponent::DataHub
+CocoPharma::SolutionComponent::DataSharingHub
 
 ### Label
 invoices and payments
@@ -269,7 +307,7 @@ ___
 ## Link Solution Components
 
 ### Component1
-CocoPharma::SolutionComponent::DataHub
+CocoPharma::SolutionComponent::DataSharingHub
 
 ### Component2
 CocoPharma::SolutionComponent::Finance
@@ -286,7 +324,7 @@ ___
 ## Link Solution Components
 
 ### Component1
-CocoPharma::SolutionComponent::DataHub
+CocoPharma::SolutionComponent::DataSharingHub
 
 ### Component2
 CocoPharma::SolutionComponent::Finance
@@ -303,7 +341,7 @@ ___
 ## Link Solution Components
 
 ### Component1
-CocoPharma::SolutionComponent::DataHub
+CocoPharma::SolutionComponent::DataSharingHub
 
 ### Component2
 CocoPharma::SolutionComponent::Procurement
@@ -323,7 +361,7 @@ ___
 CocoPharma::SolutionComponent::Procurement
 
 ### Component2
-CocoPharma::SolutionComponent::DataHub
+CocoPharma::SolutionComponent::DataSharingHub
 
 ### Label
 new-orders
@@ -337,7 +375,7 @@ ___
 ## Link Solution Components
 
 ### Component1
-CocoPharma::SolutionComponent::DataHub
+CocoPharma::SolutionComponent::DataSharingHub
 
 ### Component2
 CocoPharma::SolutionComponent::Research
@@ -357,7 +395,7 @@ ___
 CocoPharma::SolutionComponent::Research
 
 ### Component2
-CocoPharma::SolutionComponent::DataHub
+CocoPharma::SolutionComponent::DataSharingHub
 
 ### Label
 new-recipes
@@ -374,7 +412,7 @@ ___
 CocoPharma::SolutionComponent::Warehouse
 
 ### Component2
-CocoPharma::SolutionComponent::DataHub
+CocoPharma::SolutionComponent::DataSharingHub
 
 ### Label
 inventory
@@ -391,7 +429,7 @@ ___
 CocoPharma::SolutionComponent::Manufacturing
 
 ### Component2
-CocoPharma::SolutionComponent::DataHub
+CocoPharma::SolutionComponent::DataSharingHub
 
 ### Label
 manufacturing-status
@@ -442,7 +480,7 @@ ___
 CocoPharma::SolutionComponent::Delivery
 
 ### Component2
-CocoPharma::SolutionComponent::DataHub
+CocoPharma::SolutionComponent::DataSharingHub
 
 ### Label
 delivery-status
@@ -459,7 +497,7 @@ ___
 SolutionComponent::Egeria:IntegrationGroup:Liskov::LiskovDataSharingHubManagerIntegrationConnector
 
 ### Component2
-CocoPharma::SolutionComponent::DataHub
+CocoPharma::SolutionComponent::DataSharingHub
 
 ### Label
 manages

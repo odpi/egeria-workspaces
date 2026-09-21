@@ -8,7 +8,7 @@
   "defaultEnabled": false,
   "files": [
     "catalog.md",
-    "data-hub.md",
+    "master-data-management.md",
     "patient-treatment.md",
     "finance.md",
     "procurement.md",
