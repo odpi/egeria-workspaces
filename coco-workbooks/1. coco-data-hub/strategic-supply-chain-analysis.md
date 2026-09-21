@@ -40,7 +40,7 @@ Eight existing components are reused rather than recreated: the accounting ledge
 
 ## Relationship to `solution-design.md`
 
-`solution-design.md` describes the Data Hub and the eight business functions that exchange data through it.  Those eight components are the landscape every one of these supply chains runs over, so they are needed here — and this file loads first.  The eight `Create Solution Component` commands have therefore **moved** from `solution-design.md` into Part 1 below, and `solution-design.md` now links them to its blueprint instead of creating them.  Its blueprint, its wires and its narrative are unchanged.
+`solution-design.md` describes the Data Sharing Hub and the seven business functions that exchange data through it.  Those seven components are the landscape every one of these supply chains runs over, so they are needed here — and this file loads first.  Their `Create Solution Component` commands have therefore **moved** from `solution-design.md` into Part 1 below, and `solution-design.md` now links them to its blueprint instead of creating them.  The hub itself stays in `solution-design.md`: it is an asset-layer component that carries data between the business functions, not a group of systems, and it implements no supply chain of its own.
 
 The move also let the eight pick up a `Solution Component Type`, which they did not have, so they now render with the right shape in Egeria's graphs.
 
@@ -58,26 +58,26 @@ dr_egeria --directive process --userid erinoverview --user_pass secret strategic
 
 ## Part 1: Business System Groups
 
-The eight groups moved from `solution-design.md`, and three more the strategic chains needed: quality and regulatory, people, and privacy operations.  They are containers rather than systems — each one holds the components that do the actual work, so that a supply chain can be read at either level.
+The seven groups moved from `solution-design.md`, and four more the strategic chains needed: master data management, quality and regulatory, people, and privacy operations.  They are containers rather than systems — each one holds the components that do the actual work, so that a supply chain can be read at either level.
 
 ___
 
 ## Create Solution Component
 
 ### Display Name
-Data Hub
+Master Data Management
 
 ### Qualified Name
-CocoPharma::SolutionComponent::DataHub
+CocoPharma::SolutionComponent::MasterDataManagement
 
 ### Description
-The central integration point of the architecture. Receives orders, status and inventory updates from every connected business function and distributes requirements and insight back out to them.
+The master data that no single business function owns, and the distribution that keeps every copy of it current.  It is a business system group like the others: the product master is read by manufacturing, serialisation, distribution, sales and finance, and owned by none of them, which is what makes it master data rather than one function's record.
 
 ### Solution Component Type
 Software Service
 
 ### Planned Deployed Implementation Type
-Data Hub
+Business Systems Group
 
 ### Authors
 - Erin Overview
@@ -104,7 +104,7 @@ Patient Treatment (Sales/Direct) Systems
 CocoPharma::SolutionComponent::PatientTreatment
 
 ### Description
-The sales and direct-to-patient treatment channel. Originates new business into the Data Hub.
+The sales and direct-to-patient treatment channel. Originates new business into the Data Sharing Hub.
 
 ### Solution Component Type
 Software Service
@@ -170,7 +170,7 @@ Procurement Systems
 CocoPharma::SolutionComponent::Procurement
 
 ### Description
-Sources materials and services against requirements published by the Data Hub, and raises new orders back into it.
+Sources materials and services against requirements published by the Data Sharing Hub, and raises new orders back into it.
 
 ### Solution Component Type
 Software Service
@@ -203,7 +203,7 @@ Research Systems
 CocoPharma::SolutionComponent::Research
 
 ### Description
-Develops new treatments, consuming patient insight from the Data Hub and publishing new recipes back into it.
+Develops new treatments, consuming patient insight from the Data Sharing Hub and publishing new recipes back into it.
 
 ### Solution Component Type
 Software Service
@@ -236,7 +236,7 @@ Warehouse Systems
 CocoPharma::SolutionComponent::Warehouse
 
 ### Description
-Holds materials and finished goods, reporting inventory levels to the Data Hub and fulfilling materials requests from Manufacturing.
+Holds materials and finished goods, reporting inventory levels to the Data Sharing Hub and fulfilling materials requests from Manufacturing.
 
 ### Solution Component Type
 Software Service
@@ -269,7 +269,7 @@ Manufacturing Systems
 CocoPharma::SolutionComponent::Manufacturing
 
 ### Description
-Produces treatments, reporting manufacturing status to the Data Hub, requesting materials from the Warehouse, and passing finished shipments to Delivery.
+Produces treatments, reporting manufacturing status to the Data Sharing Hub, requesting materials from the Warehouse, and passing finished shipments to Delivery.
 
 ### Solution Component Type
 Software Service
@@ -302,7 +302,7 @@ Delivery Systems
 CocoPharma::SolutionComponent::Delivery
 
 ### Description
-Delivers shipments received from Manufacturing to their destination, reporting delivery status back to the Data Hub.
+Delivers shipments received from Manufacturing to their destination, reporting delivery status back to the Data Sharing Hub.
 
 ### Solution Component Type
 Software Service
@@ -429,7 +429,7 @@ Seventy-one components, grouped by the business system group that holds them.  M
 
 A component that appears in several chains is created once.  The qualification register belongs to four of them, and that is the finding rather than an accident of modelling: a record human resources maintains for employment reasons is read as compliance evidence by manufacturing, by clinical trials and by dangerous goods transport.
 
-### 2.1 Data Hub
+### 2.1 Master Data Management
 
 Master data that no single business function owns.
 
@@ -453,7 +453,7 @@ Data Storage
 Master Data Management
 
 ### In Solution Components
-- CocoPharma::SolutionComponent::DataHub
+- CocoPharma::SolutionComponent::MasterDataManagement
 
 ### Authors
 - Erin Overview
@@ -489,7 +489,7 @@ Data Distribution
 Integration Service
 
 ### In Solution Components
-- CocoPharma::SolutionComponent::DataHub
+- CocoPharma::SolutionComponent::MasterDataManagement
 
 ### Authors
 - Erin Overview
@@ -3165,7 +3165,6 @@ The archive's **Personalized Medicine Order Fulfillment** blueprint already exis
 | **Treatment Delivery Tracking** | Tracks the finished therapy from release to administration at the treating site, and reports arrival back into the order. |
 | **Order to Invoice Processing** | Converts a fulfilled treatment order into an invoice and a revenue posting. |
 | **Accounting ledgers** | Revenue from a fulfilled treatment order posts here, which is where the clinical event becomes a financial one. |
-| **Data Hub** | New business originating in the treatment channel is published to the hub for the rest of the business to see. |
 | Electronic Batch Record System *(handover)* | A personalised therapy is manufactured under a batch record like any other product, and the chain of identity attaches to it. |
 | Batch Review and QP Certification *(handover)* | The same certification decision releases a personalised therapy, and is what starts delivery to the treating site. |
 | Cold Chain Data Collector *(handover)* | Patient material arrives under the same transit monitoring as product leaves, on a much shorter clock. |
@@ -3196,23 +3195,6 @@ ___
 ---
 
 The components defined in Part 2 that belong to this chain are added as members here.
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::DataHub
-
-### Membership Status
-VALIDATED
-
-___
-
----
 
 ___
 
@@ -3651,32 +3633,6 @@ invoice, revenue recognition data
 ### ISC Qualified Names
 - InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
 - InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
-
-___
-
----
-
-___
-
-## Link Solution Components
-
-### Component1
-CocoPharma::SolutionComponent::OrderToInvoice
-
-### Component2
-CocoPharma::SolutionComponent::DataHub
-
-### Label
-new-business
-
-### Description
-The completed order is published to the hub so that research, manufacturing and finance see the same view of new business.
-
-### Data Exchanged
-order, fulfilment and revenue summary
-
-### ISC Qualified Names
-- InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
 
 ___
 
@@ -4162,7 +4118,6 @@ The archive's **Automated Manufacturing Control** blueprint was empty.  These se
 | **Goods Inventory** | Material issued to a batch is drawn from inventory, and the identity and status of what was issued becomes part of the batch record. |
 | **Qualification and Competency Register** | Signature authority in the batch record is checked against the qualification register at the moment of signing. |
 | **Product Master Register** | The product specification the batch is made to, and the markets it may be certified for, are read from the product master. |
-| **Data Hub** | Manufacturing status is published to the hub for the rest of the business. |
 | Personalised Order Scheduler *(handover)* | A personalised order opens a batch record, which is where the ordering chain becomes a manufacturing one. |
 | Material Quarantine and Release Control *(handover)* | Material cannot enter a batch until quarantine has released it, so the gate is part of the release flow as well as the inventory flow. |
 | Market Verification Gateway *(handover)* | Certification releases identifiers for upload, so the serialisation gateway is what the manufacturing chain hands over to. |
@@ -4192,23 +4147,6 @@ ___
 ---
 
 The components defined in Part 2 that belong to this chain are added as members here.
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::DataHub
-
-### Membership Status
-VALIDATED
-
-___
-
----
 
 ___
 
@@ -4731,32 +4669,6 @@ The single human decision the whole chain exists to support.
 
 ### Data Exchanged
 complete assembled batch record
-
-### ISC Qualified Names
-- InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
-
-___
-
----
-
-___
-
-## Link Solution Components
-
-### Component1
-CocoPharma::SolutionComponent::BatchReviewAndCertification
-
-### Component2
-CocoPharma::SolutionComponent::DataHub
-
-### Label
-manufacturing-status
-
-### Description
-Release status is published to the hub so that warehouse, delivery and finance work from the same view.
-
-### Data Exchanged
-batch identity, certification decision, quantities
 
 ### ISC Qualified Names
 - InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
@@ -5833,7 +5745,6 @@ The quarantine control is deliberately a system-enforced gate rather than a proc
 | **Hazardous Materials (HazMat) Inventory** | Hazardous material identity carried by the inventory is what transport classification and emergency response are both derived from. |
 | **Supplier Master Register** | Material may only be received from a supplier that has been screened and approved, so the supplier record is a precondition of receipt. |
 | **Laboratory Information Management System** | Incoming material testing is what releases it from quarantine. |
-| **Data Hub** | Inventory levels are published to the hub so that procurement and manufacturing plan from the same numbers. |
 | Manufacturing Execution System *(handover)* | Material issued to a batch leaves the inventory chain at the point of issue. |
 | Serialisation Repository *(handover)* | Once commissioned and aggregated, packs are tracked as inventory by their identifiers. |
 
@@ -5880,23 +5791,6 @@ ___
 ---
 
 The components defined in Part 2 that belong to this chain are added as members here.
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::DataHub
-
-### Membership Status
-VALIDATED
-
-___
-
----
 
 ___
 
@@ -6205,32 +6099,6 @@ ___
 
 ---
 
-___
-
-## Link Solution Components
-
-### Component1
-SolutionComponent::Goods Inventory::V1.0
-
-### Component2
-CocoPharma::SolutionComponent::DataHub
-
-### Label
-inventory
-
-### Description
-Inventory levels are published to the hub for procurement and manufacturing planning.
-
-### Data Exchanged
-stock levels, locations, movements
-
-### ISC Qualified Names
-- InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
-
-___
-
----
-
 ### 3.7 New Drug Product Details
 
 This is a master data chain rather than a transactional one, and its components reflect that.  The product master is authoritative, the market authorisation register says where each product may go, and the distribution component publishes changes and — the part that matters — records which systems have applied them.
@@ -6243,7 +6111,6 @@ Knowing who has *not* yet applied a change is the useful half.  An inconsistent 
 | **Market Authorisation Register** | Records which product may be placed on which market, under which authorisation and subject to which conditions. |
 | **Product Data Distribution** | Publishes changes to the product master to every system that holds a copy, and records which of them have applied it. |
 | **Research Systems** | New product definitions originate in research, from the evidence the clinical trials chain assembled. |
-| **Data Hub** | The hub is how the product definition reaches the systems that hold copies of it. |
 | **Egeria Open Metadata and Governance** | The catalogue records which systems receive the product definition, because a system nobody knows receives it is a system nobody updates. |
 | Batch Review and QP Certification *(handover)* | Certification reads the authorised markets from the product master, which is what makes it market-specific. |
 | Serial Number Generator *(handover)* | Pack configuration and destination market determine the numbering scheme, so serialisation reads the product master before identifiers exist. |
@@ -6273,23 +6140,6 @@ ___
 ---
 
 The components defined in Part 2 that belong to this chain are added as members here.
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::New Drug Product Details Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::DataHub
-
-### Membership Status
-VALIDATED
-
-___
-
----
 
 ___
 
@@ -6500,32 +6350,6 @@ Changes are published rather than made available, so that the estate converges o
 
 ### Data Exchanged
 changed product attributes, effective date
-
-### ISC Qualified Names
-- InformationSupplyChain::New Drug Product Details Information Supply Chain
-
-___
-
----
-
-___
-
-## Link Solution Components
-
-### Component1
-CocoPharma::SolutionComponent::ProductDataDistribution
-
-### Component2
-CocoPharma::SolutionComponent::DataHub
-
-### Label
-product master feed
-
-### Description
-The hub is the route to systems that hold copies.
-
-### Data Exchanged
-current product definitions
 
 ### ISC Qualified Names
 - InformationSupplyChain::New Drug Product Details Information Supply Chain
@@ -9713,7 +9537,7 @@ Drawing the wires produced four findings that the register could not have produc
 
 **Components belong to more chains than anyone expected.** The qualification register is read by manufacturing, by clinical trials and by dangerous goods transport, and none of those consumers is a human resources use case. The HazMat inventory serves occupational health, transport classification and inventory tracking from one substance identity. The subledger feeds carry four different chains into the same ledger. Each of these is a component whose owner is answering questions they were not asked when it was bought.
 
-**The handovers are where the work is.** Of the 130 wires, forty-four implement more than one supply chain — they are the points at which a fault in one chain becomes a failure in the next. Those are the wires worth instrumenting first, and none of them belongs unambiguously to one team.
+**The handovers are where the work is.** Of the 126 wires, forty-four implement more than one supply chain — they are the points at which a fault in one chain becomes a failure in the next. Those are the wires worth instrumenting first, and none of them belongs unambiguously to one team.
 
 **Some chains are gates, not flows.** Batch release, material quarantine and identifier upload are not conveyances; they are refusals that occasionally let something through. Modelling them as wires makes the gate visible as a dependency, which is what a downstream team needs in order to understand why their input sometimes does not arrive.
 
@@ -9738,7 +9562,7 @@ Drawing the wires produced four findings that the register could not have produc
 | Resource | Relevance |
 |---|---|
 | [`0. data-governance-program/strategic-information-supply-chains.md`](../0.%20data-governance-program/strategic-information-supply-chains.md) | Creates the supply chains this file implements, and links them to governance |
-| [solution-design.md](solution-design.md) | The Data Hub blueprint; loads after this file and links the eight business system groups to it |
+| [solution-design.md](solution-design.md) | The Data Sharing Hub blueprint; loads after this file, creates the hub itself and links the seven business system groups to it |
 | [Information supply chains](https://egeria-project.org/concepts/information-supply-chain/) | The concept, and how implementation links to lineage |
 | [Solution blueprints](https://egeria-project.org/concepts/solution-blueprint/) | The blueprints the archive supplies and this file fills in |
 | `CocoComboArchive.omarchive` | Supplies the eight reused components and the five stub blueprints |
