@@ -114,6 +114,11 @@
                  border-radius: 20px; padding: 3px 12px; cursor: pointer; font-size: 12px;
                  font-family: inherit; }
     .theme-btn:hover { background: var(--hover); color: var(--text); }
+
+    .persona-badge-btn { background: rgba(96,165,250,.1); border: 1px solid rgba(96,165,250,.3);
+                         color: var(--accent); border-radius: 20px; padding: 3px 10px; font-size: 11px;
+                         cursor: pointer; font-family: inherit; white-space: nowrap; text-decoration: none; }
+    .persona-badge-btn:hover { background: rgba(96,165,250,.2); }
   </style>
   <!-- Mermaid diagram rendering (AvailableMermaidDiagrams, shared component) -->
   <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
@@ -622,7 +627,11 @@ function MeshGraph({ elements, matchedGuids, iscFilter, selectedGuid, onSelectNo
       return;
     }
     var matchEdges = cy.edges().filter(function(e) { return e.data('iscQualifiedName') === iscFilter; });
-    cy.edges().removeClass('isc-match');
+    // Clear both classes from every edge first -- an edge dimmed under the
+    // previous filter that matches the new one would otherwise keep carrying
+    // 'dimmed' alongside 'isc-match' (only 'isc-match' was ever cleared here),
+    // washing out its highlight color on every selection after the first.
+    cy.edges().removeClass('isc-match dimmed');
     matchEdges.addClass('isc-match');
     cy.edges().not(matchEdges).addClass('dimmed');
     var touchedNodes = matchEdges.connectedNodes();
@@ -862,6 +871,12 @@ function App() {
         ),
         React.createElement('div', { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 } },
           mesh && React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)' } }, mesh.nodes.length + ' products · ' + mesh.edges.length + ' dependencies'),
+          activePersona
+            ? React.createElement('span', { className: 'persona-badge-btn', title: activePersona.coco_title || '' }, '🎭 ' + (activePersona.display_name || activePersona.id))
+            : authUser
+              ? React.createElement('span', { style: { fontSize: 11, color: '#34d399', background: 'rgba(52,211,153,.1)', padding: '2px 8px', borderRadius: 10, border: '1px solid rgba(52,211,153,.25)' } },
+                  '👤 ' + (authUser.displayName || authUser.userId))
+              : React.createElement('a', { className: 'persona-badge-btn', href: '/portal' }, '🎭 Choose persona'),
           React.createElement('button', {
             className: 'theme-btn',
             onClick: function() { setTheme(theme === 'light' ? 'dark' : 'light'); },
