@@ -987,3 +987,32 @@ Four tabs: **Servers · Integration Connectors · Governance Engines · Engine A
 ### Auto-refresh
 
 Both the connector and engine views include a `RefreshControl` — a manual refresh button plus an optional interval auto-poll — so operators can watch a long-running action progress without reloading the page.
+
+---
+
+## Local Dashboards
+
+The **Local Dashboards** page (`🗂️` tile) is a user-authored reporting portal that allows you to compose high-level views from Egeria metadata, relationship diagrams, and analytic trends. It is served by `local_dashboards_handler.py`.
+
+### Key Features
+
+- **Dr.Egeria Authoring** — Create and modify dashboards using simple markdown commands (`Create Dashboard Sheet`, `Link Report to Dashboard Sheet`).
+- **Analytic Trends** — Support for historic growth charts (Vega-Lite) backed by generic analytic functions.
+- **Perspective Filtering** — One dashboard can serve multiple roles (e.g., Governance Lead vs. Consumer) by filtering placements based on the viewer's perspective.
+- **Drill-Down Drawer** — Tiles can be configured to open a secondary "Detail Spec" in a slide-out drawer for deeper investigation.
+
+### Tutorials
+
+- [Building a Local Dashboard](LOCAL_DASHBOARDS_TUTORIAL.md) — Technical guide to the dashboard model and authoring workflow.
+- [Digital Product & Subscription Dashboard](DIGITAL_PRODUCT_SUBSCRIPTION_TUTORIAL.md) — A business-value focused tutorial demonstrating analytic trends and relationship diagrams.
+
+---
+
+## Analytic Report Specifications
+
+The workspace includes professional-grade analytic report specifications that are registered at runtime via `report_specs_handler.py`. These allow users to immediately leverage metadata-driven analytics in their dashboards without waiting for a core `pyegeria` library release.
+
+### Available Analytic Specs
+
+- **Analytic - Element Count by Type** — A generic spec to count any metadata type (e.g., `DigitalProduct`, `Agreement`, `Person`).
+- **Analytic - Generic Metric Trend** — A powerful spec that can trend any metadata metric over time (e.g., daily growth of active subscriptions).

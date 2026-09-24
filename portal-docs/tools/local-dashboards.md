@@ -18,7 +18,9 @@ Because Report placements resolve live, a sheet always reflects Egeria's current
 
 Dashboard Sheets are built entirely with Dr.Egeria commands — `Create Dashboard Sheet`, `Link Report to Dashboard Sheet`, `Add Text on Dashboard Sheet` — the same markdown-document workflow used everywhere else in the Portal. There's no separate dashboard-builder UI; you write a `.md` document and process it.
 
-For a full worked example (start to finish, including the underlying `Create Report` commands a placement needs to reference), see `LOCAL_DASHBOARDS_TUTORIAL.md` in the repo's `PyegeriaWebHandler` directory — a developer-facing doc, not served under `/docs/` here.
+For worked examples, see the tutorials in the repo's `PyegeriaWebHandler` directory:
+- `LOCAL_DASHBOARDS_TUTORIAL.md` — A technical, step-by-step guide to authoring and implementing a new dashboard.
+- `DIGITAL_PRODUCT_SUBSCRIPTION_TUTORIAL.md` — A business-oriented scenario showing how to track Data Product adoption and historic growth trends.
 
 ---
 
