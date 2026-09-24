@@ -183,6 +183,8 @@ The portal at `https://localhost:8843` (quickstart) or `https://localhost:7843` 
 | 🔗 Lineage Explorer | `/lineage` | Trace data flow and dependencies across the metadata landscape |
 | 🛡️ Egeria Audit | `/egeria-audit` | Review exceptions, certifications and licenses; see who has access to Egeria. Rows **filtered by your governance-zone access** |
 | 🎛️ Egeria Operations | `/egeria-operations` | Monitor and operate the runtime — servers, integration connectors, governance engines and engine actions |
+| 📊 Egeria Overview | `/egeria-overview` | Executive summary dashboard — scale, governance coverage, quality, and AI-readiness trends |
+| 🗂️ Local Dashboards | `/local-dashboards` | User-authored reporting portal — compose high-level views from Egeria metadata and analytic trends |
 
 **Workspaces & assistants**
 
