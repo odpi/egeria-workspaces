@@ -1362,6 +1362,186 @@ ___
 
 ---
 
+___
+
+## Link Information Supply Chain Peers
+
+### Element Id
+InformationSupplyChain::New Drug Product Details Information Supply Chain
+
+### Element2 Id
+InformationSupplyChain::Product Serialisation and Verification Information Supply Chain
+
+### Label
+pack configuration
+
+### Description
+Serialisation codes every pack against a presentation and destination market it takes from the product definition. A pack configuration that is wrong or late produces identifiers the national verification systems reject, or packs that cannot legally be sold where they were sent.
+
+___
+
+---
+
+___
+
+## Link Information Supply Chain Peers
+
+### Element Id
+InformationSupplyChain::New Drug Product Details Information Supply Chain
+
+### Element2 Id
+InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
+
+### Label
+product handling requirements
+
+### Description
+Storage range, packaging and hazard properties come from the product definition. Transport classification and cold chain monitoring enforce limits they did not set, so a change to the definition has to reach them before the next consignment is booked.
+
+___
+
+---
+
+___
+
+## Link Information Supply Chain Peers
+
+### Element Id
+InformationSupplyChain::Adverse Event and Safety Reporting Information Supply Chain
+
+### Element2 Id
+InformationSupplyChain::New Drug Product Details Information Supply Chain
+
+### Label
+label or authorisation change
+
+### Description
+A confirmed safety signal can change a product's labelling or its authorisations. The change is made to the product definition, and it is effective only once it has travelled from there to every system that prints, packs or sells the product.
+
+___
+
+---
+
+___
+
+## Link Information Supply Chain Peers
+
+### Element Id
+InformationSupplyChain::Adverse Event and Safety Reporting Information Supply Chain
+
+### Element2 Id
+InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
+
+### Label
+signal referred to quality
+
+### Description
+A safety signal that implicates a product or a process is referred to the quality system and enters manufacturing as a deviation and corrective action. It is the route by which what patients experience changes how the product is made.
+
+___
+
+---
+
+___
+
+## Link Information Supply Chain Peers
+
+### Element Id
+InformationSupplyChain::Workforce Competency and Qualification Information Supply Chain
+
+### Element2 Id
+InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
+
+### Label
+certificated signatory
+
+### Description
+Dangerous goods documentation may only be signed by a worker holding a current certificate. An expired certificate makes every consignment it signs non-compliant, however correctly the goods were handled, and the expiry is checked at signature rather than at audit.
+
+___
+
+---
+
+___
+
+## Link Information Supply Chain Peers
+
+### Element Id
+InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
+
+### Element2 Id
+InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
+
+### Label
+inbound patient material
+
+### Description
+Patient material travels to the manufacturing site under the same transit monitoring as finished product leaves it, on a much shorter clock. The order supplies the consignment identity the transit record is kept against, and a record that loses it loses the patient's material.
+
+___
+
+---
+
+___
+
+## Link Information Supply Chain Peers
+
+### Element Id
+InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
+
+### Element2 Id
+InformationSupplyChain::Occupational Health Surveillance Information Supply Chain
+
+### Label
+hazardous holdings
+
+### Description
+Where hazardous substances are held, and how much, is the starting point for exposure banding and monitoring. An inventory that under-records a substance leaves workers exposed to something the health surveillance programme does not know is there.
+
+___
+
+---
+
+___
+
+## Link Information Supply Chain Peers
+
+### Element Id
+InformationSupplyChain::New Employee Onboarding Information Supply Chain
+
+### Element2 Id
+InformationSupplyChain::Employee Expense Payment Information Supply Chain
+
+### Label
+expense access
+
+### Description
+A new worker needs expense access with the right cost centre and spending authority, and a leaver needs it removed with any open claim resolved. The expense chain trusts the worker record for both.
+
+___
+
+---
+
+___
+
+## Link Information Supply Chain Peers
+
+### Element Id
+InformationSupplyChain::New Employee Onboarding Information Supply Chain
+
+### Element2 Id
+InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
+
+### Label
+payroll postings
+
+### Description
+Remuneration and employer costs post to the ledger through the subledger feeds, by entity. The worker record set up at onboarding decides which entity and cost centre each posting lands on, so an onboarding error becomes a misstated cost in the published accounts.
+
+___
+
+---
+
 
 ## Part 8: Governance
 

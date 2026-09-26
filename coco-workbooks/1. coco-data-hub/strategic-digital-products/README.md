@@ -58,28 +58,31 @@ groups also have products of their own because the analysis wired them directly.
 
 A wire from component A to component B means the product built from the data entering B depends on the
 product A publishes.  [product-dependencies.md](product-dependencies.md) draws that `DigitalProductDependency`
-for every wire in the analysis whose two ends both have a product - 121 of the 126 - with the wire's label, a
+for every wire in the analysis whose two ends both have a product - 117 of the 123 - with the wire's label, a
 description of what is exchanged, and the qualified name of the information supply chain it implements in
 `ISC Qualified Name`.  `DigitalProductDependency` is a lineage relationship carrying the same single
 `iscQualifiedName` as a `DataFlow`, and it is a multi-link, so a wire that implements several chains becomes one
-dependency per chain - 163 dependencies from the 121 wires - and two products that exchange several kinds of
+dependency per chain - 122 dependencies from the 117 wires, plus one between the cold chain data collector's two products and one across the carrier systems from the consignment records to the carriers' transit events - and two products that exchange several kinds of
 data have one per wire.  Following the dependencies from any product therefore traces the supply chains through
-the catalog, and filtering them by chain name gives that chain's product graph.
+the catalog, and filtering them by chain name gives that chain's product graph.  A wire that crosses from one chain into
+another names no chain, so its dependency has no `ISC Qualified Name`; there are ten of these, and the handoffs they
+carry are recorded as peer links between the chains in
+[strategic-information-supply-chains.md](../../0.%20data-governance-program/strategic-information-supply-chains.md).
 
 | Group | Products | Structures | Fields | Dependencies |
 |---|---|---|---|---|
-| Master Data Management | 3 | 7 | 41 | 6 |
-| Patient Treatment | 3 | 5 | 31 | 4 |
-| Finance | 13 | 27 | 173 | 35 |
+| Master Data Management | 3 | 7 | 41 | 5 |
+| Patient Treatment | 3 | 5 | 31 | 3 |
+| Finance | 13 | 27 | 173 | 23 |
 | Procurement | 5 | 11 | 68 | 6 |
-| Research | 2 | 5 | 29 | 2 |
-| Warehouse | 4 | 9 | 60 | 12 |
-| Manufacturing | 11 | 20 | 129 | 28 |
-| Delivery | 7 | 10 | 73 | 14 |
-| Quality Systems | 15 | 30 | 208 | 26 |
-| People Systems | 11 | 18 | 123 | 19 |
-| Privacy Operations | 7 | 11 | 76 | 11 |
-| **Total** | **81** | **153** | **1,011** | **163** |
+| Research | 2 | 5 | 29 | 1 |
+| Warehouse | 4 | 9 | 60 | 8 |
+| Manufacturing | 11 | 20 | 129 | 22 |
+| Delivery | 7 | 10 | 73 | 12 |
+| Quality Systems | 15 | 30 | 208 | 19 |
+| People Systems | 11 | 18 | 123 | 16 |
+| Privacy Operations | 7 | 11 | 76 | 9 |
+| **Total** | **81** | **153** | **1,011** | **124** |
 
 ## Files and load order
 
@@ -97,7 +100,7 @@ the catalog, and filtering them by chain name gives that chain's product graph.
 | [quality-systems.md](quality-systems.md) | Safety reports, cases, assessments, signals, submissions; laboratory results, deviations, certification, alert investigations, excursion assessments, market authorisations; exposure bands, monitoring, incidents |
 | [people-systems.md](people-systems.md) | Worker master data, lifecycle events, access, payroll, directory, competency requirements, training, qualifications and their currency, health surveillance, the long-term archive |
 | [privacy-operations.md](privacy-operations.md) | Rights requests, identity verification, the record of processing, discovery findings, fulfilment actions, retention obligations and assignments |
-| [product-dependencies.md](product-dependencies.md) | The 163 dependencies, one per wire per supply chain, grouped by the consuming product's group |
+| [product-dependencies.md](product-dependencies.md) | The 124 dependencies, one per wire per supply chain (one per wire where it crosses between chains), grouped by the consuming product's group |
 
 `catalog.md` loads first; the group files follow in any order; `product-dependencies.md` loads last because it
 references products from every group.  The `_batch.json` manifest gives this order.  All the files are processed
