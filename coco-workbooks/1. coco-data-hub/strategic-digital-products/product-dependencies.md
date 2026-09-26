@@ -10,13 +10,13 @@
 
 ## Overview
 
-A solution linking wire in the [strategic supply chain analysis](../strategic-supply-chain-analysis.md) says that data flows from one component to another.  In product terms, the product built from the data *entering* the second component depends on the product the first component *publishes*.  This file draws that dependency for every wire: the consuming product is `Digital Product 1`, the product it depends on is `Digital Product 2`, the label is the wire's label, the description records what data is exchanged, and `ISC Qualified Name` names the information supply chain the dependency implements.  `DigitalProductDependency` is a lineage relationship, so it carries the same single `iscQualifiedName` as a `DataFlow`; where a wire implements several supply chains there is one dependency per chain, exactly as the lineage notebook creates one `DataFlow` per chain between two systems.
+A solution linking wire in the [strategic supply chain analysis](../strategic-supply-chain-analysis.md) says that data flows from one component to another.  In product terms, the product built from the data *entering* the second component depends on the product the first component *publishes*.  This file draws that dependency for every wire: the consuming product is `Digital Product 1`, the product it depends on is `Digital Product 2`, the label is the wire's label, the description records what data is exchanged, and `ISC Qualified Name` names the information supply chain the dependency implements.  `DigitalProductDependency` is a lineage relationship, so it carries the same single `iscQualifiedName` as a `DataFlow`; where a wire implements several supply chains there is one dependency per chain, exactly as the lineage notebook creates one `DataFlow` per chain between two systems.  A dependency carries only the chains its wire carries, and the analysis names a chain on a wire only when both ends are members of it.  Where a wire crosses from one chain into another it names no chain, and neither does its dependency: there is a single dependency with no `ISC Qualified Name`, and the handoff is recorded as a peer link between the two chains in [strategic-information-supply-chains.md](../../0.%20data-governance-program/strategic-information-supply-chains.md).
 
-Wires with one end outside Coco Pharmaceuticals produce no dependency where the data is *sent out* (to national verification systems, to carriers, to the screening service) and where the hospital's own processes are the source.  Where an external party sends data *in*, that data is a product in its own right, owned by the group that receives it, and the dependencies run from it.
+Wires with one end outside Coco Pharmaceuticals produce no dependency where the data is *sent out* (to national verification systems, to carriers, to the screening service) and where the hospital's own processes are the source.  Where an external party sends data *in*, that data is a product in its own right, owned by the group that receives it, and the dependencies run from it.  The carriers are the one place where data goes out and comes back about the same thing: a consignment is handed to them and their transit events return against it, so *Carrier Transit Events* depends on *Dangerous Goods Consignment Records* across the carrier systems.  Without that dependency the dangerous goods half of the Cold Chain and Dangerous Goods Consignment chain and its temperature-monitoring half would not join.
 
 Because `DigitalProductDependency` is a multi-link relationship, two products that exchange several kinds of data along several wires have one dependency per wire, each carrying its own label, and one per chain where the wire carries several.
 
-167 dependencies from 125 wires.  This file loads last.
+124 dependencies: 122 from 117 wires, one between the two products the cold chain data collector holds, where the carriers' journey events are merged into the transit record, and one across the carrier systems from the consignment records to the carriers' transit events.  Of the 122, 112 name the chain they implement - five wires implement two chains and have one dependency for each - and 10 cross between chains and name none.  This file loads last.
 
 ```
 dr_egeria --directive process --userid erinoverview --user_pass secret product-dependencies.md
@@ -26,21 +26,21 @@ dr_egeria --directive process --userid erinoverview --user_pass secret product-d
 
 | Supply chain | Dependencies |
 |---|---|
-| Batch Manufacturing and Release | 19 |
-| Third Party Onboarding and Payment | 15 |
-| Personalized Treatment Ordering | 14 |
-| New Employee Onboarding | 14 |
-| Financial Close and External Reporting | 13 |
-| Physical Inventory Tracking | 11 |
-| Data Subject Rights | 11 |
-| Workforce Competency and Qualification | 10 |
-| Product Serialisation and Verification | 10 |
-| Cold Chain and Dangerous Goods Consignment | 10 |
-| Occupational Health Surveillance | 10 |
-| Adverse Event and Safety Reporting | 9 |
-| New Drug Product Details | 9 |
-| Employee Expense Payment | 7 |
-| Clinical Trials | 3 |
+| Batch Manufacturing and Release | 12 |
+| Data Subject Rights | 10 |
+| Financial Close and External Reporting | 9 |
+| Occupational Health Surveillance | 9 |
+| Product Serialisation and Verification | 9 |
+| Third Party Onboarding and Payment | 9 |
+| Workforce Competency and Qualification | 9 |
+| Cold Chain and Dangerous Goods Consignment | 9 |
+| Physical Inventory Tracking | 8 |
+| Adverse Event and Safety Reporting | 7 |
+| New Employee Onboarding | 7 |
+| Employee Expense Payment | 6 |
+| Personalized Treatment Ordering | 6 |
+| New Drug Product Details | 4 |
+| *None - crossing between chains* | 10 |
 
 ---
 
@@ -64,25 +64,6 @@ Composition, presentations, specification.  Implements: New Drug Product Details
 
 ### ISC Qualified Name
 InformationSupplyChain::New Drug Product Details Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::Product Master Data
-
-### Digital Product 2
-DigitalProduct::Coco::New Product Definitions
-
-### Label
-new product definition
-
-### Description
-Composition, presentations, specification.  Implements: Clinical Trials.
-
-### ISC Qualified Name
-InformationSupplyChain::Clinical Trials Information Supply Chain
 
 ___
 
@@ -121,6 +102,8 @@ Changed product attributes, effective date.  Implements: New Drug Product Detail
 
 ### ISC Qualified Name
 InformationSupplyChain::New Drug Product Details Information Supply Chain
+
+___
 
 ## Link Product Dependency
 
@@ -221,25 +204,6 @@ InformationSupplyChain::Data Subject Rights Information Supply Chain
 
 ___
 
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::Patient Pseudonym Register
-
-### Digital Product 2
-DigitalProduct::Coco::Rights Fulfilment Actions
-
-### Label
-locate patient data
-
-### Description
-Subject identity, request type.  Implements: Personalized Treatment Ordering.
-
-### ISC Qualified Name
-InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
-
-___
-
 # Finance
 
 Dependencies of the Finance group's products.
@@ -260,44 +224,6 @@ Order identity, delivery evidence.  Implements: Personalized Treatment Ordering.
 
 ### ISC Qualified Name
 InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::General Ledger Balances
-
-### Digital Product 2
-DigitalProduct::Coco::Treatment Invoices
-
-### Label
-revenue posting
-
-### Description
-Invoice, revenue recognition data.  Implements: Personalized Treatment Ordering.
-
-### ISC Qualified Name
-InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::General Ledger Balances
-
-### Digital Product 2
-DigitalProduct::Coco::Treatment Invoices
-
-### Label
-revenue posting
-
-### Description
-Invoice, revenue recognition data.  Implements: Financial Close and External Reporting.
-
-### ISC Qualified Name
-InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
 
 ___
 
@@ -345,25 +271,6 @@ ___
 DigitalProduct::Coco::Subledger Postings
 
 ### Digital Product 2
-DigitalProduct::Coco::Employee Expense Claims
-
-### Label
-expense postings
-
-### Description
-Approved expense claims, cost coding.  Implements: Employee Expense Payment.
-
-### ISC Qualified Name
-InformationSupplyChain::Employee Expense Payment Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::Subledger Postings
-
-### Digital Product 2
 DigitalProduct::Coco::Supplier Payments
 
 ### Label
@@ -374,25 +281,6 @@ Authorised payments, supplier, cost coding.  Implements: Financial Close and Ext
 
 ### ISC Qualified Name
 InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::Subledger Postings
-
-### Digital Product 2
-DigitalProduct::Coco::Supplier Payments
-
-### Label
-payment postings
-
-### Description
-Authorised payments, supplier, cost coding.  Implements: Third Party Onboarding and Payment.
-
-### ISC Qualified Name
-InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
 
 ___
 
@@ -421,54 +309,13 @@ ___
 DigitalProduct::Coco::Subledger Postings
 
 ### Digital Product 2
-DigitalProduct::Coco::Treatment Invoices
-
-### Label
-revenue postings
-
-### Description
-Invoices, revenue recognition data.  Implements: Personalized Treatment Ordering.
-
-### ISC Qualified Name
-InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::Subledger Postings
-
-### Digital Product 2
 DigitalProduct::Coco::Payroll Results
 
 ### Label
 payroll postings
 
 ### Description
-Remuneration, employer costs, by entity.  Implements: Financial Close and External Reporting.
-
-### ISC Qualified Name
-InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::Subledger Postings
-
-### Digital Product 2
-DigitalProduct::Coco::Payroll Results
-
-### Label
-payroll postings
-
-### Description
-Remuneration, employer costs, by entity.  Implements: New Employee Onboarding.
-
-### ISC Qualified Name
-InformationSupplyChain::New Employee Onboarding Information Supply Chain
+Remuneration, employer costs, by entity.
 
 ___
 
@@ -579,29 +426,7 @@ DigitalProduct::Coco::Transfers Of Value
 transfers of value
 
 ### Description
-Payments and benefits to healthcare professionals.  Implements: Financial Close and External Reporting.
-
-### ISC Qualified Name
-InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::External Financial Disclosures
-
-### Digital Product 2
-DigitalProduct::Coco::Transfers Of Value
-
-### Label
-transfers of value
-
-### Description
-Payments and benefits to healthcare professionals.  Implements: Third Party Onboarding and Payment.
-
-### ISC Qualified Name
-InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
+Payments and benefits to healthcare professionals.
 
 ___
 
@@ -640,44 +465,6 @@ Purchase order, goods receipt confirmation.  Implements: Third Party Onboarding 
 
 ### ISC Qualified Name
 InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::General Ledger Balances
-
-### Digital Product 2
-DigitalProduct::Coco::Supplier Payments
-
-### Label
-payment instruction
-
-### Description
-Authorised payment, supplier, amount, coding.  Implements: Third Party Onboarding and Payment.
-
-### ISC Qualified Name
-InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::General Ledger Balances
-
-### Digital Product 2
-DigitalProduct::Coco::Supplier Payments
-
-### Label
-payment instruction
-
-### Description
-Authorised payment, supplier, amount, coding.  Implements: Financial Close and External Reporting.
-
-### ISC Qualified Name
-InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
 
 ___
 
@@ -760,25 +547,6 @@ ___
 ## Link Product Dependency
 
 ### Digital Product 1
-DigitalProduct::Coco::Expense Approvals
-
-### Digital Product 2
-DigitalProduct::Coco::Worker Master Data
-
-### Label
-approver and cost centre
-
-### Description
-Worker, reporting line, spending authority.  Implements: New Employee Onboarding.
-
-### ISC Qualified Name
-InformationSupplyChain::New Employee Onboarding Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
 DigitalProduct::Coco::Employee Expense Claims
 
 ### Digital Product 2
@@ -817,25 +585,6 @@ ___
 ## Link Product Dependency
 
 ### Digital Product 1
-DigitalProduct::Coco::Transfers Of Value
-
-### Digital Product 2
-DigitalProduct::Coco::Employee Expense Claims
-
-### Label
-identify disclosable expense
-
-### Description
-Payee, benefit, purpose, value.  Implements: Third Party Onboarding and Payment.
-
-### ISC Qualified Name
-InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
 DigitalProduct::Coco::Payment Anomaly Findings
 
 ### Digital Product 2
@@ -849,25 +598,6 @@ Claims, claimants, categories and amounts.  Implements: Employee Expense Payment
 
 ### ISC Qualified Name
 InformationSupplyChain::Employee Expense Payment Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::Payment Anomaly Findings
-
-### Digital Product 2
-DigitalProduct::Coco::Employee Expense Claims
-
-### Label
-expense stream
-
-### Description
-Claims, claimants, categories and amounts.  Implements: Third Party Onboarding and Payment.
-
-### ISC Qualified Name
-InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
 
 ___
 
@@ -1050,25 +780,6 @@ InformationSupplyChain::Workforce Competency and Qualification Information Suppl
 
 ___
 
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::Hospital Certifications
-
-### Digital Product 2
-DigitalProduct::Coco::Worker Qualifications
-
-### Label
-site staff training evidence
-
-### Description
-Site staff, protocol training, dates.  Implements: Clinical Trials.
-
-### ISC Qualified Name
-InformationSupplyChain::Clinical Trials Information Supply Chain
-
-___
-
 # Warehouse
 
 Dependencies of the Warehouse group's products.
@@ -1085,29 +796,7 @@ DigitalProduct::Coco::Serialised Product Identifiers
 serialised stock
 
 ### Description
-Identifiers, aggregation, location.  Implements: Product Serialisation and Verification.
-
-### ISC Qualified Name
-InformationSupplyChain::Product Serialisation and Verification Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::Goods Inventory Stock
-
-### Digital Product 2
-DigitalProduct::Coco::Serialised Product Identifiers
-
-### Label
-serialised stock
-
-### Description
-Identifiers, aggregation, location.  Implements: Physical Inventory Tracking.
-
-### ISC Qualified Name
-InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
+Identifiers, aggregation, location.
 
 ___
 
@@ -1146,25 +835,6 @@ Supplier identity, approval and risk status.  Implements: Physical Inventory Tra
 
 ### ISC Qualified Name
 InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::Goods Receipts
-
-### Digital Product 2
-DigitalProduct::Coco::Supplier Master Data
-
-### Label
-approved supplier
-
-### Description
-Supplier identity, approval and risk status.  Implements: Third Party Onboarding and Payment.
-
-### ISC Qualified Name
-InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
 
 ___
 
@@ -1228,25 +898,6 @@ ___
 ## Link Product Dependency
 
 ### Digital Product 1
-DigitalProduct::Coco::Material Quarantine Dispositions
-
-### Digital Product 2
-DigitalProduct::Coco::Laboratory Test Results
-
-### Label
-test results
-
-### Description
-Results, specification comparison, disposition.  Implements: Batch Manufacturing and Release.
-
-### ISC Qualified Name
-InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
 DigitalProduct::Coco::Goods Inventory Stock
 
 ### Digital Product 2
@@ -1279,25 +930,6 @@ Substance, quantity, location.  Implements: Physical Inventory Tracking.
 
 ### ISC Qualified Name
 InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::Hazardous Material Holdings
-
-### Digital Product 2
-DigitalProduct::Coco::Goods Inventory Stock
-
-### Label
-hazardous holdings
-
-### Description
-Substance, quantity, location.  Implements: Occupational Health Surveillance.
-
-### ISC Qualified Name
-InformationSupplyChain::Occupational Health Surveillance Information Supply Chain
 
 ___
 
@@ -1355,29 +987,7 @@ DigitalProduct::Coco::Personalised Manufacturing Schedule
 open batch
 
 ### Description
-Batch identity, pseudonym, product specification.  Implements: Personalized Treatment Ordering.
-
-### ISC Qualified Name
-InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::Electronic Batch Records
-
-### Digital Product 2
-DigitalProduct::Coco::Personalised Manufacturing Schedule
-
-### Label
-open batch
-
-### Description
-Batch identity, pseudonym, product specification.  Implements: Batch Manufacturing and Release.
-
-### ISC Qualified Name
-InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
+Batch identity, pseudonym, product specification.
 
 ___
 
@@ -1397,25 +1007,6 @@ Material identity, lot, quantity, quarantine status.  Implements: Batch Manufact
 
 ### ISC Qualified Name
 InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::Batch Execution Records
-
-### Digital Product 2
-DigitalProduct::Coco::Goods Inventory Stock
-
-### Label
-issue material
-
-### Description
-Material identity, lot, quantity, quarantine status.  Implements: Physical Inventory Tracking.
-
-### ISC Qualified Name
-InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
 
 ___
 
@@ -1473,25 +1064,6 @@ Worker pseudonym, qualifications, currency.  Implements: Batch Manufacturing and
 
 ### ISC Qualified Name
 InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::Batch Execution Records
-
-### Digital Product 2
-DigitalProduct::Coco::Worker Qualifications
-
-### Label
-operator qualification
-
-### Description
-Worker pseudonym, qualifications, currency.  Implements: Workforce Competency and Qualification.
-
-### ISC Qualified Name
-InformationSupplyChain::Workforce Competency and Qualification Information Supply Chain
 
 ___
 
@@ -1587,25 +1159,6 @@ Product code, pack presentation, destination market.  Implements: Product Serial
 
 ### ISC Qualified Name
 InformationSupplyChain::Product Serialisation and Verification Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::Serial Number Allocations
-
-### Digital Product 2
-DigitalProduct::Coco::Product Master Data
-
-### Label
-pack configuration
-
-### Description
-Product code, pack presentation, destination market.  Implements: New Drug Product Details.
-
-### ISC Qualified Name
-InformationSupplyChain::New Drug Product Details Information Supply Chain
 
 ___
 
@@ -1710,25 +1263,6 @@ ___
 DigitalProduct::Coco::Market Identifier Submissions
 
 ### Digital Product 2
-DigitalProduct::Coco::Electronic Batch Records
-
-### Label
-release authorisation
-
-### Description
-Batch certification, released quantities and markets.  Implements: Batch Manufacturing and Release.
-
-### ISC Qualified Name
-InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::Market Identifier Submissions
-
-### Digital Product 2
 DigitalProduct::Coco::Serialised Product Identifiers
 
 ### Label
@@ -1773,29 +1307,7 @@ DigitalProduct::Coco::Temperature Excursion Assessments
 disposition recorded
 
 ### Description
-Excursion assessment, disposition decision.  Implements: Cold Chain and Dangerous Goods Consignment.
-
-### ISC Qualified Name
-InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::Electronic Batch Records
-
-### Digital Product 2
-DigitalProduct::Coco::Temperature Excursion Assessments
-
-### Label
-disposition recorded
-
-### Description
-Excursion assessment, disposition decision.  Implements: Batch Manufacturing and Release.
-
-### ISC Qualified Name
-InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
+Excursion assessment, disposition decision.
 
 ___
 
@@ -1872,10 +1384,7 @@ DigitalProduct::Coco::Batch Certification Decisions
 therapy released
 
 ### Description
-Batch identity, pseudonym, certification, storage conditions.  Implements: Personalized Treatment Ordering.
-
-### ISC Qualified Name
-InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
+Batch identity, pseudonym, certification, storage conditions.
 
 ___
 
@@ -1910,29 +1419,7 @@ DigitalProduct::Coco::Product Master Data
 product handling requirements
 
 ### Description
-Storage range, packaging, hazard properties.  Implements: Cold Chain and Dangerous Goods Consignment.
-
-### ISC Qualified Name
-InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::Transport Classifications
-
-### Digital Product 2
-DigitalProduct::Coco::Product Master Data
-
-### Label
-product handling requirements
-
-### Description
-Storage range, packaging, hazard properties.  Implements: New Drug Product Details.
-
-### ISC Qualified Name
-InformationSupplyChain::New Drug Product Details Information Supply Chain
+Storage range, packaging, hazard properties.
 
 ___
 
@@ -2034,25 +1521,6 @@ ___
 ## Link Product Dependency
 
 ### Digital Product 1
-DigitalProduct::Coco::Cold Chain Transit Records
-
-### Digital Product 2
-DigitalProduct::Coco::Patient Sample Consignments
-
-### Label
-inbound material record
-
-### Description
-Consignment identity, in-transit condition.  Implements: Personalized Treatment Ordering.
-
-### ISC Qualified Name
-InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
 DigitalProduct::Coco::Transport Classifications
 
 ### Digital Product 2
@@ -2072,16 +1540,16 @@ ___
 ## Link Product Dependency
 
 ### Digital Product 1
-DigitalProduct::Coco::Transport Classifications
+DigitalProduct::Coco::Cold Chain Transit Records
 
 ### Digital Product 2
-DigitalProduct::Coco::Occupational Exposure Bands
+DigitalProduct::Coco::Carrier Transit Events
 
 ### Label
-shared substance classification
+carrier journey events
 
 ### Description
-Substance, hazard classification.  Implements: Cold Chain and Dangerous Goods Consignment.
+Carrier handover events, delays and delivery confirmation, held by the same collector and merged into the transit record.  Implements: Cold Chain and Dangerous Goods Consignment.
 
 ### ISC Qualified Name
 InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
@@ -2091,16 +1559,19 @@ ___
 ## Link Product Dependency
 
 ### Digital Product 1
-DigitalProduct::Coco::Cold Chain Transit Records
-
-### Digital Product 2
 DigitalProduct::Coco::Carrier Transit Events
 
+### Digital Product 2
+DigitalProduct::Coco::Dangerous Goods Consignment Records
+
 ### Label
-read directly
+consigned to carrier
 
 ### Description
-Data read directly from the upstream product.
+Consignment identity, declaration and documents, handed to the carrier, whose handover events, delays and delivery confirmation come back against the same consignment.  The carrier systems sit between the two products and hold no product of their own.  Implements: Cold Chain and Dangerous Goods Consignment.
+
+### ISC Qualified Name
+InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
 
 ___
 
@@ -2124,25 +1595,6 @@ Suspected reaction, patient pseudonym, product and batch.  Implements: Adverse E
 
 ### ISC Qualified Name
 InformationSupplyChain::Adverse Event and Safety Reporting Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::Consolidated Safety Reports
-
-### Digital Product 2
-DigitalProduct::Coco::Clinician Adverse Reaction Reports
-
-### Label
-clinician report
-
-### Description
-Suspected reaction, patient pseudonym, product and batch.  Implements: Personalized Treatment Ordering.
-
-### ISC Qualified Name
-InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
 
 ___
 
@@ -2272,29 +1724,7 @@ DigitalProduct::Coco::Safety Signals
 signal referred to quality
 
 ### Description
-Signal, implicated product or process.  Implements: Adverse Event and Safety Reporting.
-
-### ISC Qualified Name
-InformationSupplyChain::Adverse Event and Safety Reporting Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::Deviations And CAPAs
-
-### Digital Product 2
-DigitalProduct::Coco::Safety Signals
-
-### Label
-signal referred to quality
-
-### Description
-Signal, implicated product or process.  Implements: Batch Manufacturing and Release.
-
-### ISC Qualified Name
-InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
+Signal, implicated product or process.
 
 ___
 
@@ -2310,29 +1740,7 @@ DigitalProduct::Coco::Safety Signals
 label or authorisation change
 
 ### Description
-Safety finding, affected authorisations.  Implements: Adverse Event and Safety Reporting.
-
-### ISC Qualified Name
-InformationSupplyChain::Adverse Event and Safety Reporting Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::Market Authorisations
-
-### Digital Product 2
-DigitalProduct::Coco::Safety Signals
-
-### Label
-label or authorisation change
-
-### Description
-Safety finding, affected authorisations.  Implements: New Drug Product Details.
-
-### ISC Qualified Name
-InformationSupplyChain::New Drug Product Details Information Supply Chain
+Safety finding, affected authorisations.
 
 ___
 
@@ -2371,25 +1779,6 @@ Specification, pack configuration, authorised markets.  Implements: Batch Manufa
 
 ### ISC Qualified Name
 InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::Batch Certification Decisions
-
-### Digital Product 2
-DigitalProduct::Coco::Product Master Data
-
-### Label
-product and market requirements
-
-### Description
-Specification, pack configuration, authorised markets.  Implements: New Drug Product Details.
-
-### ISC Qualified Name
-InformationSupplyChain::New Drug Product Details Information Supply Chain
 
 ___
 
@@ -2472,25 +1861,6 @@ ___
 ## Link Product Dependency
 
 ### Digital Product 1
-DigitalProduct::Coco::Laboratory Test Results
-
-### Digital Product 2
-DigitalProduct::Coco::Material Quarantine Dispositions
-
-### Label
-request incoming testing
-
-### Description
-Lot identity, required tests.  Implements: Batch Manufacturing and Release.
-
-### ISC Qualified Name
-InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
 DigitalProduct::Coco::Occupational Exposure Bands
 
 ### Digital Product 2
@@ -2548,25 +1918,6 @@ ___
 ## Link Product Dependency
 
 ### Digital Product 1
-DigitalProduct::Coco::Exposure Monitoring Results
-
-### Digital Product 2
-DigitalProduct::Coco::Worker Master Data
-
-### Label
-worker and task exposure
-
-### Description
-Worker, role, tasks and locations.  Implements: New Employee Onboarding.
-
-### ISC Qualified Name
-InformationSupplyChain::New Employee Onboarding Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
 DigitalProduct::Coco::Occupational Exposure Bands
 
 ### Digital Product 2
@@ -2580,22 +1931,6 @@ Incident, implicated substance or control, findings.  Implements: Occupational H
 
 ### ISC Qualified Name
 InformationSupplyChain::Occupational Health Surveillance Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::Serialisation Alert Investigations
-
-### Digital Product 2
-DigitalProduct::Coco::Market Verification Responses
-
-### Label
-read directly
-
-### Description
-Data read directly from the upstream product.
 
 ___
 
@@ -2729,25 +2064,6 @@ DigitalProduct::Coco::Worker Master Data
 surveillance enrolment
 
 ### Description
-Worker, role, exposure profile.  Implements: New Employee Onboarding.
-
-### ISC Qualified Name
-InformationSupplyChain::New Employee Onboarding Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::Health Surveillance Records
-
-### Digital Product 2
-DigitalProduct::Coco::Worker Master Data
-
-### Label
-surveillance enrolment
-
-### Description
 Worker, role, exposure profile.  Implements: Occupational Health Surveillance.
 
 ### ISC Qualified Name
@@ -2790,25 +2106,6 @@ Worker identity, role, start date.  Implements: Workforce Competency and Qualifi
 
 ### ISC Qualified Name
 InformationSupplyChain::Workforce Competency and Qualification Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::Training Completions
-
-### Digital Product 2
-DigitalProduct::Coco::Worker Master Data
-
-### Label
-worker and role
-
-### Description
-Worker identity, role, start date.  Implements: New Employee Onboarding.
-
-### ISC Qualified Name
-InformationSupplyChain::New Employee Onboarding Information Supply Chain
 
 ___
 
@@ -2945,25 +2242,6 @@ InformationSupplyChain::Data Subject Rights Information Supply Chain
 
 ___
 
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::Worker Master Data
-
-### Digital Product 2
-DigitalProduct::Coco::Rights Fulfilment Actions
-
-### Label
-locate employee data
-
-### Description
-Subject identity, request type.  Implements: New Employee Onboarding.
-
-### ISC Qualified Name
-InformationSupplyChain::New Employee Onboarding Information Supply Chain
-
-___
-
 # Privacy Operations
 
 Dependencies of the Privacy Operations group's products.
@@ -2980,29 +2258,7 @@ DigitalProduct::Coco::Worker Lifecycle Events
 employee personal data
 
 ### Description
-Processing purposes, systems holding worker data.  Implements: New Employee Onboarding.
-
-### ISC Qualified Name
-InformationSupplyChain::New Employee Onboarding Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::Record Of Processing Activities
-
-### Digital Product 2
-DigitalProduct::Coco::Worker Lifecycle Events
-
-### Label
-employee personal data
-
-### Description
-Processing purposes, systems holding worker data.  Implements: Data Subject Rights.
-
-### ISC Qualified Name
-InformationSupplyChain::Data Subject Rights Information Supply Chain
+Processing purposes, systems holding worker data.
 
 ___
 
@@ -3136,25 +2392,6 @@ Asset, retention basis, archive and delete dates.  Implements: Data Subject Righ
 
 ### ISC Qualified Name
 InformationSupplyChain::Data Subject Rights Information Supply Chain
-
-___
-
-## Link Product Dependency
-
-### Digital Product 1
-DigitalProduct::Coco::Retention Obligations
-
-### Digital Product 2
-DigitalProduct::Coco::Retention Period Assignments
-
-### Label
-retention periods set
-
-### Description
-Asset, retention basis, archive and delete dates.  Implements: Clinical Trials.
-
-### ISC Qualified Name
-InformationSupplyChain::Clinical Trials Information Supply Chain
 
 ___
 

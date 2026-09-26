@@ -16,7 +16,7 @@ The [strategic information supply chain register](../0.%20data-governance-progra
 
 This file is that linkage.  For each supply chain it identifies the components that implement it — creating the ones that did not exist, and locating the ones that did — makes them members of the chain, and draws the wires that carry data between them.  Every wire records which supply chains it implements, so that Egeria can assemble each chain's implementation graph from the wires rather than from a hand-drawn picture.
 
-Two of the sixteen chains are not modelled here, because they are already complete.  **Clinical Trials** and **Sustainability Reporting** arrive fully implemented in `CocoComboArchive.omarchive`, with components, roles, wires and membership.  Where another chain meets clinical trials, the wire records it; neither chain is otherwise touched.
+Two of the sixteen chains are not modelled here, because they are already complete.  **Clinical Trials** and **Sustainability Reporting** arrive fully implemented in `CocoComboArchive.omarchive`, with components, roles, wires and membership.  Where another chain meets clinical trials the wire is drawn inside the chain whose components it joins, and the handoff itself is the peer link between the two chains in `strategic-information-supply-chains.md`; neither archive chain is otherwise touched.
 
 ---
 
@@ -3148,7 +3148,7 @@ ___
 
 ## Part 3: The Supply Chains
 
-Each chain below lists its members, adds them to the chain with `Add Member to Collection` (the archive components first, then the ones created in Part 2), and then draws its wires.  Every wire names the supply chains it implements in its `ISC Qualified Names`, which is how a wire that carries a handover between two chains ends up counted in both.
+Each chain below lists its members, adds them to the chain with `Add Member to Collection` (the archive components first, then the ones created in Part 2), and then draws its wires.  Every wire names the supply chains it implements in its `ISC Qualified Names`, and it names a chain only when both of its ends are members of that chain.  A chain's members are its own components.  Where it hands data to another chain, or receives data from one, the components on the other side are listed in a second table under the chain but are not added to it, and the wire between them names no supply chain at all.  That handoff is recorded once, between the two chains, as a peer link in `strategic-information-supply-chains.md`, so the chains stay separate graphs and the joins between them are visible in one place.
 
 ### 3.1 Personalised Treatment Ordering
 
@@ -3164,33 +3164,16 @@ The archive's **Personalized Medicine Order Fulfillment** blueprint already exis
 | **Personalised Order Scheduler** | Turns an accepted order and its arriving patient material into a scheduled manufacturing slot. |
 | **Treatment Delivery Tracking** | Tracks the finished therapy from release to administration at the treating site, and reports arrival back into the order. |
 | **Order to Invoice Processing** | Converts a fulfilled treatment order into an invoice and a revenue posting. |
-| **Accounting ledgers** | Revenue from a fulfilled treatment order posts here, which is where the clinical event becomes a financial one. |
-| Electronic Batch Record System *(handover)* | A personalised therapy is manufactured under a batch record like any other product, and the chain of identity attaches to it. |
-| Batch Review and QP Certification *(handover)* | The same certification decision releases a personalised therapy, and is what starts delivery to the treating site. |
-| Cold Chain Data Collector *(handover)* | Patient material arrives under the same transit monitoring as product leaves, on a much shorter clock. |
-| Safety Intake Gateway *(handover)* | A reaction reported by a treating clinician leaves this chain through the ordering portal and enters the safety chain. |
-| Subledger Feeds *(handover)* | Invoiced treatment revenue reaches the ledger through the subledger feeds. |
-| Rights Fulfilment Orchestrator *(handover)* | Patient data held against the identity register is reachable by a rights request, which is what concentrating it was for. |
 
-The components below already exist — they come from `CocoComboArchive.omarchive` — so they are located and added to the chain rather than created.
+Where this chain meets another it exchanges data with components that belong to that chain.  They are not members of this one: the wires to them name no supply chain, and the handoff is recorded between the two chains as a peer link in [strategic-information-supply-chains.md](../0.%20data-governance-program/strategic-information-supply-chains.md).
 
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
-
-### Element Id
-SolutionComponent::Accounting ledgers::V1.0
-
-### Membership Rationale
-Revenue from a fulfilled treatment order posts here, which is where the clinical event becomes a financial one.
-
-### Membership Status
-VALIDATED
-
-___
+| Component | Handoff |
+|---|---|
+| Electronic Batch Record System | A personalised therapy is manufactured under a batch record like any other product, and the chain of identity attaches to it. |
+| Batch Review and QP Certification | The same certification decision releases a personalised therapy, and is what starts delivery to the treating site. |
+| Cold Chain Data Collector | Patient material arrives under the same transit monitoring as product leaves, on a much shorter clock. |
+| Safety Intake Gateway | A reaction reported by a treating clinician leaves this chain through the ordering portal and enters the safety chain. |
+| Subledger Feeds | Invoiced treatment revenue reaches the ledger through the subledger feeds. |
 
 ---
 
@@ -3255,41 +3238,7 @@ ___
 InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
 
 ### Element Id
-CocoPharma::SolutionComponent::SubledgerFeeds
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
-
-### Element Id
 CocoPharma::SolutionComponent::PersonalisedOrderScheduler
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::ElectronicBatchRecord
 
 ### Membership Status
 VALIDATED
@@ -3324,74 +3273,6 @@ InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
 
 ### Element Id
 CocoPharma::SolutionComponent::TreatmentDeliveryTracking
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::ColdChainDataCollector
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::SafetyIntakeGateway
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::BatchReviewAndCertification
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::RightsFulfilmentOrchestrator
 
 ### Membership Status
 VALIDATED
@@ -3525,10 +3406,6 @@ The scheduled slot opens a batch record. This is where the ordering chain hands 
 ### Data Exchanged
 batch identity, pseudonym, product specification
 
-### ISC Qualified Names
-- InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
-- InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
-
 ___
 
 ---
@@ -3551,9 +3428,6 @@ Certification releases the therapy for despatch to the treating site.
 
 ### Data Exchanged
 batch identity, pseudonym, certification, storage conditions
-
-### ISC Qualified Names
-- InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
 
 ___
 
@@ -3611,33 +3485,6 @@ ___
 
 ---
 
-___
-
-## Link Solution Components
-
-### Component1
-CocoPharma::SolutionComponent::OrderToInvoice
-
-### Component2
-SolutionComponent::Accounting ledgers::V1.0
-
-### Label
-revenue posting
-
-### Description
-Invoiced revenue posts to the ledger and is consolidated into the published figures.
-
-### Data Exchanged
-invoice, revenue recognition data
-
-### ISC Qualified Names
-- InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
-- InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
-
-___
-
----
-
 ### 3.2 Adverse Event and Safety Reporting
 
 The defining feature of this chain is its shape: many doors, one clock.  The intake gateway exists precisely because a reporting clock that starts in five different places cannot be measured, and every source — trial site, treating clinician, patient, product complaint — is routed through it before anything else happens.
@@ -3654,8 +3501,13 @@ Nothing in the archive covered this area, so all seven components are new.  Two 
 | **Regulatory Safety Submission** | Formats and transmits expedited and periodic safety reports to the regulator of each market the product is authorised in. |
 | **Hospital Processes** | Trial sites report suspected adverse reactions observed in participants, which is one of the doors the intake gateway exists to consolidate. |
 | **Treatment Ordering Portal** | Treating clinicians report reactions through the same channel they order through, which is the door most likely to be used and least likely to be designed for. |
-| Deviation and CAPA Management *(handover)* | A safety signal traced to a product or process fault becomes a corrective action, so the quality system is where this chain ends when the cause is manufacturing. |
-| Market Authorisation Register *(handover)* | A confirmed signal can change what may be sold and how it must be labelled, which is a safety outcome expressed as a product master change. |
+
+Where this chain meets another it exchanges data with components that belong to that chain.  They are not members of this one: the wires to them name no supply chain, and the handoff is recorded between the two chains as a peer link in [strategic-information-supply-chains.md](../0.%20data-governance-program/strategic-information-supply-chains.md).
+
+| Component | Handoff |
+|---|---|
+| Deviation and CAPA Management | A safety signal traced to a product or process fault becomes a corrective action, so the quality system is where this chain ends when the cause is manufacturing. |
+| Market Authorisation Register | A confirmed signal can change what may be sold and how it must be labelled, which is a safety outcome expressed as a product master change. |
 
 The components below already exist — they come from `CocoComboArchive.omarchive` — so they are located and added to the chain rather than created.
 
@@ -3800,40 +3652,6 @@ ___
 
 ---
 
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Adverse Event and Safety Reporting Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::DeviationAndCAPAManagement
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Adverse Event and Safety Reporting Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::MarketAuthorisationRegister
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
 **Wires**
 
 ___
@@ -3857,7 +3675,6 @@ suspected reaction, participant pseudonym, trial identity
 
 ### ISC Qualified Names
 - InformationSupplyChain::Adverse Event and Safety Reporting Information Supply Chain
-- InformationSupplyChain::Clinical Trials Information Supply Chain
 
 ___
 
@@ -3884,7 +3701,6 @@ suspected reaction, patient pseudonym, product and batch
 
 ### ISC Qualified Names
 - InformationSupplyChain::Adverse Event and Safety Reporting Information Supply Chain
-- InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
 
 ___
 
@@ -4065,10 +3881,6 @@ A signal traced to a product or process fault becomes a corrective action, which
 ### Data Exchanged
 signal, implicated product or process
 
-### ISC Qualified Names
-- InformationSupplyChain::Adverse Event and Safety Reporting Information Supply Chain
-- InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
-
 ___
 
 ---
@@ -4092,10 +3904,6 @@ A confirmed signal can change what may be sold and how it must be labelled, whic
 ### Data Exchanged
 safety finding, affected authorisations
 
-### ISC Qualified Names
-- InformationSupplyChain::Adverse Event and Safety Reporting Information Supply Chain
-- InformationSupplyChain::New Drug Product Details Information Supply Chain
-
 ___
 
 ---
@@ -4118,11 +3926,14 @@ The archive's **Automated Manufacturing Control** blueprint was empty.  These se
 | **Goods Inventory** | Material issued to a batch is drawn from inventory, and the identity and status of what was issued becomes part of the batch record. |
 | **Qualification and Competency Register** | Signature authority in the batch record is checked against the qualification register at the moment of signing. |
 | **Product Master Register** | The product specification the batch is made to, and the markets it may be certified for, are read from the product master. |
-| Personalised Order Scheduler *(handover)* | A personalised order opens a batch record, which is where the ordering chain becomes a manufacturing one. |
-| Material Quarantine and Release Control *(handover)* | Material cannot enter a batch until quarantine has released it, so the gate is part of the release flow as well as the inventory flow. |
-| Market Verification Gateway *(handover)* | Certification releases identifiers for upload, so the serialisation gateway is what the manufacturing chain hands over to. |
-| Temperature Excursion Assessment *(handover)* | A transit excursion changes what may be done with product that has already been certified, so the assessment writes back into the batch record. |
-| Safety Signal Detection *(handover)* | A safety signal referred to the quality system enters the manufacturing chain as a corrective action. |
+
+Where this chain meets another it exchanges data with components that belong to that chain.  They are not members of this one: the wires to them name no supply chain, and the handoff is recorded between the two chains as a peer link in [strategic-information-supply-chains.md](../0.%20data-governance-program/strategic-information-supply-chains.md).
+
+| Component | Handoff |
+|---|---|
+| Personalised Order Scheduler | A personalised order opens a batch record, which is where the ordering chain becomes a manufacturing one. |
+| Market Verification Gateway | Certification releases identifiers for upload, so the serialisation gateway is what the manufacturing chain hands over to. |
+| Temperature Excursion Assessment | A transit excursion changes what may be done with product that has already been certified, so the assessment writes back into the batch record. |
 
 The components below already exist — they come from `CocoComboArchive.omarchive` — so they are located and added to the chain rather than created.
 
@@ -4157,40 +3968,6 @@ InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
 
 ### Element Id
 CocoPharma::SolutionComponent::ProductMasterRegister
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::MaterialQuarantineControl
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::PersonalisedOrderScheduler
 
 ### Membership Status
 VALIDATED
@@ -4275,40 +4052,6 @@ ___
 InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
 
 ### Element Id
-CocoPharma::SolutionComponent::MarketVerificationGateway
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::SafetySignalDetection
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
-
-### Element Id
 CocoPharma::SolutionComponent::LaboratoryInformationManagement
 
 ### Membership Status
@@ -4360,23 +4103,6 @@ ___
 InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
 
 ### Element Id
-CocoPharma::SolutionComponent::ExcursionAssessment
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
-
-### Element Id
 CocoPharma::SolutionComponent::CompetencyRegister
 
 ### Membership Status
@@ -4409,7 +4135,6 @@ material identity, lot, quantity, quarantine status
 
 ### ISC Qualified Names
 - InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
-- InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
 
 ___
 
@@ -4488,7 +4213,6 @@ worker pseudonym, qualifications, currency
 
 ### ISC Qualified Names
 - InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
-- InformationSupplyChain::Workforce Competency and Qualification Information Supply Chain
 
 ___
 
@@ -4645,7 +4369,6 @@ specification, pack configuration, authorised markets
 
 ### ISC Qualified Names
 - InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
-- InformationSupplyChain::New Drug Product Details Information Supply Chain
 
 ___
 
@@ -4692,28 +4415,13 @@ Two properties shape these components.  Uniqueness is assured at generation rath
 | **Serialisation Alert Triage** | Investigates verification alerts raised by pharmacies and trading partners, separating the company's own data errors from genuine falsification signals. |
 | **Electronic Batch Record System** | Identifiers may only be uploaded once the batch is certified, so the batch record is the gate this chain waits on. |
 | **Product Master Register** | Pack configuration and destination market are read from the product master and determine which scheme applies. |
-| **Market Authorisation Register** | Which market a pack may be placed on determines which external system its identifiers must reach. |
-| Goods Inventory *(handover)* | Serialised stock becomes physical inventory, and the two chains share a key from commissioning onwards. |
 
-The components below already exist — they come from `CocoComboArchive.omarchive` — so they are located and added to the chain rather than created.
+Where this chain meets another it exchanges data with components that belong to that chain.  They are not members of this one: the wires to them name no supply chain, and the handoff is recorded between the two chains as a peer link in [strategic-information-supply-chains.md](../0.%20data-governance-program/strategic-information-supply-chains.md).
 
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Product Serialisation and Verification Information Supply Chain
-
-### Element Id
-SolutionComponent::Goods Inventory::V1.0
-
-### Membership Rationale
-Serialised stock becomes physical inventory, and the two chains share a key from commissioning onwards.
-
-### Membership Status
-VALIDATED
-
-___
+| Component | Handoff |
+|---|---|
+| Market Authorisation Register | Which market a pack may be placed on determines which external system its identifiers must reach. |
+| Goods Inventory | Serialised stock becomes physical inventory, and the two chains share a key from commissioning onwards. |
 
 ---
 
@@ -4863,23 +4571,6 @@ ___
 InformationSupplyChain::Product Serialisation and Verification Information Supply Chain
 
 ### Element Id
-CocoPharma::SolutionComponent::MarketAuthorisationRegister
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Product Serialisation and Verification Information Supply Chain
-
-### Element Id
 CocoPharma::SolutionComponent::NationalVerificationSystems
 
 ### Membership Status
@@ -4912,7 +4603,6 @@ product code, pack presentation, destination market
 
 ### ISC Qualified Names
 - InformationSupplyChain::Product Serialisation and Verification Information Supply Chain
-- InformationSupplyChain::New Drug Product Details Information Supply Chain
 
 ___
 
@@ -5043,7 +4733,6 @@ batch certification, released quantities and markets
 
 ### ISC Qualified Names
 - InformationSupplyChain::Product Serialisation and Verification Information Supply Chain
-- InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
 
 ___
 
@@ -5198,10 +4887,6 @@ Once commissioned and aggregated, packs are tracked as physical inventory by the
 ### Data Exchanged
 identifiers, aggregation, location
 
-### ISC Qualified Names
-- InformationSupplyChain::Product Serialisation and Verification Information Supply Chain
-- InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
-
 ___
 
 ---
@@ -5223,9 +4908,14 @@ These components complete the archive's **Hazardous Material Management** bluepr
 | **Hazardous Materials (HazMat) Inventory** | Transport classification is derived from the substance register, so a substance reclassified for safety reasons changes how it may be shipped. |
 | **Patient Sample Logistics** | Inbound patient material is a consignment under the same rules as outbound product, moving under tighter time pressure. |
 | **Qualification and Competency Register** | The declaration must be signed by a certificated person, and an expired certificate makes every subsequent consignment non-compliant. |
-| Product Master Register *(handover)* | Storage range, packaging and hazard properties are read from the product master before a consignment is built. |
-| Electronic Batch Record System *(handover)* | An excursion disposition belongs with the batch record, because it changes what may be done with certified product. |
-| Exposure Banding Register *(handover)* | One substance classification answers both the occupational and the transport question. |
+
+Where this chain meets another it exchanges data with components that belong to that chain.  They are not members of this one: the wires to them name no supply chain, and the handoff is recorded between the two chains as a peer link in [strategic-information-supply-chains.md](../0.%20data-governance-program/strategic-information-supply-chains.md).
+
+| Component | Handoff |
+|---|---|
+| Product Master Register | Storage range, packaging and hazard properties are read from the product master before a consignment is built. |
+| Electronic Batch Record System | An excursion disposition belongs with the batch record, because it changes what may be done with certified product. |
+| Exposure Banding Register | One substance classification answers both the occupational and the transport question. |
 
 The components below already exist — they come from `CocoComboArchive.omarchive` — so they are located and added to the chain rather than created.
 
@@ -5250,40 +4940,6 @@ ___
 ---
 
 The components defined in Part 2 that belong to this chain are added as members here.
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::ProductMasterRegister
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::ElectronicBatchRecord
-
-### Membership Status
-VALIDATED
-
-___
-
----
 
 ___
 
@@ -5395,23 +5051,6 @@ ___
 InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
 
 ### Element Id
-CocoPharma::SolutionComponent::ExposureBandingRegister
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
-
-### Element Id
 CocoPharma::SolutionComponent::CompetencyRegister
 
 ### Membership Status
@@ -5484,10 +5123,6 @@ The product master supplies what the product needs; the classification service d
 
 ### Data Exchanged
 storage range, packaging, hazard properties
-
-### ISC Qualified Names
-- InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
-- InformationSupplyChain::New Drug Product Details Information Supply Chain
 
 ___
 
@@ -5669,10 +5304,6 @@ The disposition belongs with the batch record, because it changes what may be do
 ### Data Exchanged
 excursion assessment, disposition decision
 
-### ISC Qualified Names
-- InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
-- InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
-
 ___
 
 ---
@@ -5698,7 +5329,6 @@ consignment identity, in-transit condition
 
 ### ISC Qualified Names
 - InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
-- InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
 
 ___
 
@@ -5745,8 +5375,13 @@ The quarantine control is deliberately a system-enforced gate rather than a proc
 | **Hazardous Materials (HazMat) Inventory** | Hazardous material identity carried by the inventory is what transport classification and emergency response are both derived from. |
 | **Supplier Master Register** | Material may only be received from a supplier that has been screened and approved, so the supplier record is a precondition of receipt. |
 | **Laboratory Information Management System** | Incoming material testing is what releases it from quarantine. |
-| Manufacturing Execution System *(handover)* | Material issued to a batch leaves the inventory chain at the point of issue. |
-| Serialisation Repository *(handover)* | Once commissioned and aggregated, packs are tracked as inventory by their identifiers. |
+
+Where this chain meets another it exchanges data with components that belong to that chain.  They are not members of this one: the wires to them name no supply chain, and the handoff is recorded between the two chains as a peer link in [strategic-information-supply-chains.md](../0.%20data-governance-program/strategic-information-supply-chains.md).
+
+| Component | Handoff |
+|---|---|
+| Manufacturing Execution System | Material issued to a batch leaves the inventory chain at the point of issue. |
+| Serialisation Repository | Once commissioned and aggregated, packs are tracked as inventory by their identifiers. |
 
 The components below already exist — they come from `CocoComboArchive.omarchive` — so they are located and added to the chain rather than created.
 
@@ -5868,40 +5503,6 @@ ___
 InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
 
 ### Element Id
-CocoPharma::SolutionComponent::ManufacturingExecution
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::SerialisationRepository
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
-
-### Element Id
 CocoPharma::SolutionComponent::LaboratoryInformationManagement
 
 ### Membership Status
@@ -5934,7 +5535,6 @@ supplier identity, approval and risk status
 
 ### ISC Qualified Names
 - InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
-- InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
 
 ___
 
@@ -6013,7 +5613,6 @@ lot identity, required tests
 
 ### ISC Qualified Names
 - InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
-- InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
 
 ___
 
@@ -6040,7 +5639,6 @@ results, specification comparison, disposition
 
 ### ISC Qualified Names
 - InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
-- InformationSupplyChain::Batch Manufacturing and Release Information Supply Chain
 
 ___
 
@@ -6093,7 +5691,6 @@ substance, quantity, location
 
 ### ISC Qualified Names
 - InformationSupplyChain::Physical Inventory Tracking Information Supply Chain
-- InformationSupplyChain::Occupational Health Surveillance Information Supply Chain
 
 ___
 
@@ -6112,10 +5709,15 @@ Knowing who has *not* yet applied a change is the useful half.  An inconsistent 
 | **Product Data Distribution** | Publishes changes to the product master to every system that holds a copy, and records which of them have applied it. |
 | **Research Systems** | New product definitions originate in research, from the evidence the clinical trials chain assembled. |
 | **Egeria Open Metadata and Governance** | The catalogue records which systems receive the product definition, because a system nobody knows receives it is a system nobody updates. |
-| Batch Review and QP Certification *(handover)* | Certification reads the authorised markets from the product master, which is what makes it market-specific. |
-| Serial Number Generator *(handover)* | Pack configuration and destination market determine the numbering scheme, so serialisation reads the product master before identifiers exist. |
-| Transport Classification Service *(handover)* | Product handling requirements are read from the product master and combined with substance data to classify a consignment. |
-| Safety Signal Detection *(handover)* | A confirmed safety signal changes labelling or authorisation, which reaches back into the product master. |
+
+Where this chain meets another it exchanges data with components that belong to that chain.  They are not members of this one: the wires to them name no supply chain, and the handoff is recorded between the two chains as a peer link in [strategic-information-supply-chains.md](../0.%20data-governance-program/strategic-information-supply-chains.md).
+
+| Component | Handoff |
+|---|---|
+| Batch Review and QP Certification | Certification reads the authorised markets from the product master, which is what makes it market-specific. |
+| Serial Number Generator | Pack configuration and destination market determine the numbering scheme, so serialisation reads the product master before identifiers exist. |
+| Transport Classification Service | Product handling requirements are read from the product master and combined with substance data to classify a consignment. |
+| Safety Signal Detection | A confirmed safety signal changes labelling or authorisation, which reaches back into the product master. |
 
 The components below already exist — they come from `CocoComboArchive.omarchive` — so they are located and added to the chain rather than created.
 
@@ -6200,74 +5802,6 @@ ___
 InformationSupplyChain::New Drug Product Details Information Supply Chain
 
 ### Element Id
-CocoPharma::SolutionComponent::SerialNumberGenerator
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::New Drug Product Details Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::TransportClassificationService
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::New Drug Product Details Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::SafetySignalDetection
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::New Drug Product Details Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::BatchReviewAndCertification
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::New Drug Product Details Information Supply Chain
-
-### Element Id
 CocoPharma::SolutionComponent::MarketAuthorisationRegister
 
 ### Membership Status
@@ -6300,7 +5834,6 @@ composition, presentations, specification
 
 ### ISC Qualified Names
 - InformationSupplyChain::New Drug Product Details Information Supply Chain
-- InformationSupplyChain::Clinical Trials Information Supply Chain
 
 ___
 
@@ -6401,8 +5934,13 @@ There is no archive blueprint covering financial control, so these components ar
 | **Employee Expense Tool** | Approved expenses post to the ledger through the same feed mechanism as every other subledger. |
 | **Supplier Payment Processing** | Payments to third parties post to the ledger, so a fraudulent payment is also a misstatement. |
 | **Order to Invoice Processing** | Invoiced treatment revenue is the operating income the published figures are mostly made of. |
-| Payroll System *(handover)* | Payroll is one of the larger subledger feeds and one of the few running under several national rule sets at once. |
-| Transfers of Value Register *(handover)* | Disclosure is produced from the register rather than reconstructed from the ledger, so the register is part of the reporting chain. |
+
+Where this chain meets another it exchanges data with components that belong to that chain.  They are not members of this one: the wires to them name no supply chain, and the handoff is recorded between the two chains as a peer link in [strategic-information-supply-chains.md](../0.%20data-governance-program/strategic-information-supply-chains.md).
+
+| Component | Handoff |
+|---|---|
+| Payroll System | Payroll is one of the larger subledger feeds and one of the few running under several national rule sets at once. |
+| Transfers of Value Register | Disclosure is produced from the register rather than reconstructed from the ledger, so the register is part of the reporting chain. |
 
 The components below already exist — they come from `CocoComboArchive.omarchive` — so they are located and added to the chain rather than created.
 
@@ -6567,40 +6105,6 @@ ___
 
 ---
 
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::TransfersOfValueRegister
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::PayrollSystem
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
 **Wires**
 
 ___
@@ -6650,7 +6154,6 @@ approved expense claims, cost coding
 
 ### ISC Qualified Names
 - InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
-- InformationSupplyChain::Employee Expense Payment Information Supply Chain
 
 ___
 
@@ -6677,7 +6180,6 @@ authorised payments, supplier, cost coding
 
 ### ISC Qualified Names
 - InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
-- InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
 
 ___
 
@@ -6704,7 +6206,6 @@ invoices, revenue recognition data
 
 ### ISC Qualified Names
 - InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
-- InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
 
 ___
 
@@ -6728,10 +6229,6 @@ Payroll is one of the larger subledger feeds and one of the few that runs under 
 
 ### Data Exchanged
 remuneration, employer costs, by entity
-
-### ISC Qualified Names
-- InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
-- InformationSupplyChain::New Employee Onboarding Information Supply Chain
 
 ___
 
@@ -6886,10 +6383,6 @@ Disclosure is produced from a register populated as payments are made, not recon
 ### Data Exchanged
 payments and benefits to healthcare professionals
 
-### ISC Qualified Names
-- InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
-- InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
-
 ___
 
 ---
@@ -6909,53 +6402,16 @@ Screening answers age, which is why the chain re-screens rather than treating an
 | **Supplier Payment Processing** | Matches invoices to orders and receipts, authorises payment, and instructs the bank. |
 | **Transaction Monitoring** | Looks across payments for the patterns that reveal fraud, duplicate payment and unusual supplier behaviour. |
 | **Transfers of Value Register** | Identifies and records payments and benefits provided to healthcare professionals and organisations, from whichever flow they originate, so that they can be disclosed. |
-| **Accounting ledgers** | Authorised payments post to the ledger, which is where a fraudulent payment also becomes a misstatement. |
 | **Procurement Systems** | Requirements and orders originate in procurement and are matched against invoices before payment. |
 | **Supplier Material Certificates** | Material documentation is held against the supplier record, so quality and commercial views of a supplier agree. |
-| Goods Receipt and Inspection *(handover)* | Receipt refuses material from an unapproved supplier, which is where the onboarding chain is actually enforced. |
-| Subledger Feeds *(handover)* | Authorised payments reach the ledger through the subledger feeds. |
-| Disclosure and Statutory Reporting *(handover)* | Transfers of value recorded in this chain are published through statutory disclosure. |
-| Employee Expense Tool *(handover)* | Hospitality and travel provided to healthcare professionals frequently arrives as an employee expense rather than a supplier invoice. |
 
-The components below already exist — they come from `CocoComboArchive.omarchive` — so they are located and added to the chain rather than created.
+Where this chain meets another it exchanges data with components that belong to that chain.  They are not members of this one: the wires to them name no supply chain, and the handoff is recorded between the two chains as a peer link in [strategic-information-supply-chains.md](../0.%20data-governance-program/strategic-information-supply-chains.md).
 
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
-
-### Element Id
-SolutionComponent::Accounting ledgers::V1.0
-
-### Membership Rationale
-Authorised payments post to the ledger, which is where a fraudulent payment also becomes a misstatement.
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
-
-### Element Id
-SolutionComponent::Employee Expense Tool::V1.0
-
-### Membership Rationale
-Hospitality and travel provided to healthcare professionals frequently arrives as an employee expense rather than a supplier invoice.
-
-### Membership Status
-VALIDATED
-
-___
+| Component | Handoff |
+|---|---|
+| Goods Receipt and Inspection | Receipt refuses material from an unapproved supplier, which is where the onboarding chain is actually enforced. |
+| Subledger Feeds | Authorised payments reach the ledger through the subledger feeds. |
+| Disclosure and Statutory Reporting | Transfers of value recorded in this chain are published through statutory disclosure. |
 
 ---
 
@@ -6970,40 +6426,6 @@ InformationSupplyChain::Third Party Onboarding and Payment Information Supply Ch
 
 ### Element Id
 CocoPharma::SolutionComponent::Procurement
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::SubledgerFeeds
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::DisclosureReporting
 
 ### Membership Status
 VALIDATED
@@ -7123,23 +6545,6 @@ InformationSupplyChain::Third Party Onboarding and Payment Information Supply Ch
 
 ### Element Id
 CocoPharma::SolutionComponent::SupplierMasterRegister
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::GoodsReceiptAndInspection
 
 ### Membership Status
 VALIDATED
@@ -7331,33 +6736,6 @@ ___
 CocoPharma::SolutionComponent::SupplierPaymentProcessing
 
 ### Component2
-SolutionComponent::Accounting ledgers::V1.0
-
-### Label
-payment instruction
-
-### Description
-Payment posts to the ledger, and a payment made in error is rarely recovered.
-
-### Data Exchanged
-authorised payment, supplier, amount, coding
-
-### ISC Qualified Names
-- InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
-- InformationSupplyChain::Financial Close and External Reporting Information Supply Chain
-
-___
-
----
-
-___
-
-## Link Solution Components
-
-### Component1
-CocoPharma::SolutionComponent::SupplierPaymentProcessing
-
-### Component2
 CocoPharma::SolutionComponent::TransactionMonitoring
 
 ### Label
@@ -7465,11 +6843,15 @@ That is the same structural weakness the supplier fraud exploited, on a smaller 
 |---|---|
 | **Expense Approval Workflow** | Routes an expense claim for approval and carries the approval forward to payment. |
 | **Employee Expense Tool** | Recording and categorisation of employee expenses, and the request for repayment. |
-| **Accounting ledgers** | Approved expenses post to the ledger and are consolidated into the published figures. |
 | **Transaction Monitoring** | The same monitoring applied to supplier payments applies here, for the same structural reason. |
 | **Transfers of Value Register** | Hospitality and travel provided to healthcare professionals frequently arrives as an employee expense. |
 | **Worker Master Register** | Claims are held against the worker record, and a leaver with an open claim is a case the chain has to handle. |
-| Subledger Feeds *(handover)* | Approved expenses reach the ledger through the same feed mechanism as every other subledger. |
+
+Where this chain meets another it exchanges data with components that belong to that chain.  They are not members of this one: the wires to them name no supply chain, and the handoff is recorded between the two chains as a peer link in [strategic-information-supply-chains.md](../0.%20data-governance-program/strategic-information-supply-chains.md).
+
+| Component | Handoff |
+|---|---|
+| Subledger Feeds | Approved expenses reach the ledger through the same feed mechanism as every other subledger. |
 
 The components below already exist — they come from `CocoComboArchive.omarchive` — so they are located and added to the chain rather than created.
 
@@ -7493,44 +6875,7 @@ ___
 
 ---
 
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Employee Expense Payment Information Supply Chain
-
-### Element Id
-SolutionComponent::Accounting ledgers::V1.0
-
-### Membership Rationale
-Approved expenses post to the ledger and are consolidated into the published figures.
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
 The components defined in Part 2 that belong to this chain are added as members here.
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Employee Expense Payment Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::SubledgerFeeds
-
-### Membership Status
-VALIDATED
-
-___
-
----
 
 ___
 
@@ -7649,7 +6994,6 @@ worker, reporting line, spending authority
 
 ### ISC Qualified Names
 - InformationSupplyChain::Employee Expense Payment Information Supply Chain
-- InformationSupplyChain::New Employee Onboarding Information Supply Chain
 
 ___
 
@@ -7702,7 +7046,6 @@ payee, benefit, purpose, value
 
 ### ISC Qualified Names
 - InformationSupplyChain::Employee Expense Payment Information Supply Chain
-- InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
 
 ___
 
@@ -7729,7 +7072,6 @@ claims, claimants, categories and amounts
 
 ### ISC Qualified Names
 - InformationSupplyChain::Employee Expense Payment Information Supply Chain
-- InformationSupplyChain::Third Party Onboarding and Payment Information Supply Chain
 
 ___
 
@@ -7751,13 +7093,15 @@ The chain is modelled around the leaver case rather than the joiner case.  Joini
 | **Employee Expense Tool** | A new worker needs expense access, and a leaver needs it removed with any open claim resolved. |
 | **Qualification and Competency Register** | Qualification records are held against the worker record created here. |
 | **Egeria Open Metadata and Governance** | Access decisions and data ownership are recorded in the catalogue, which is how a departed owner becomes visible as a gap. |
-| Learning Management System *(handover)* | Training requirements follow from the role a person is appointed to, so a joiner or mover event generates them. |
-| Expense Approval Workflow *(handover)* | Spending authority is derived from the worker record, so it changes when the person moves. |
-| Health Surveillance Records *(handover)* | Enrolment in health surveillance follows from the role, and the record outlives the employment. |
-| Exposure Monitoring Capture *(handover)* | Who needs exposure monitoring follows from what a person does, so the monitoring population changes with the worker record. |
-| Record of Processing Activities Register *(handover)* | Onboarding is where employee personal data enters the estate, and the register is what records where it went. |
-| Rights Fulfilment Orchestrator *(handover)* | Employee data is one of the two largest holdings a rights request has to reach, anchored on the worker record. |
-| Subledger Feeds *(handover)* | Payroll postings reach the ledger through the subledger feeds. |
+
+Where this chain meets another it exchanges data with components that belong to that chain.  They are not members of this one: the wires to them name no supply chain, and the handoff is recorded between the two chains as a peer link in [strategic-information-supply-chains.md](../0.%20data-governance-program/strategic-information-supply-chains.md).
+
+| Component | Handoff |
+|---|---|
+| Learning Management System | Training requirements follow from the role a person is appointed to, so a joiner or mover event generates them. |
+| Health Surveillance Records | Enrolment in health surveillance follows from the role, and the record outlives the employment. |
+| Exposure Monitoring Capture | Who needs exposure monitoring follows from what a person does, so the monitoring population changes with the worker record. |
+| Record of Processing Activities Register | Onboarding is where employee personal data enters the estate, and the register is what records where it went. |
 
 The components below already exist — they come from `CocoComboArchive.omarchive` — so they are located and added to the chain rather than created.
 
@@ -7802,57 +7146,6 @@ ___
 ---
 
 The components defined in Part 2 that belong to this chain are added as members here.
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::New Employee Onboarding Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::SubledgerFeeds
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::New Employee Onboarding Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::ExpenseApprovalWorkflow
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::New Employee Onboarding Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::ExposureMonitoringCapture
-
-### Membership Status
-VALIDATED
-
-___
-
----
 
 ___
 
@@ -7947,75 +7240,7 @@ ___
 InformationSupplyChain::New Employee Onboarding Information Supply Chain
 
 ### Element Id
-CocoPharma::SolutionComponent::LearningManagement
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::New Employee Onboarding Information Supply Chain
-
-### Element Id
 CocoPharma::SolutionComponent::CompetencyRegister
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::New Employee Onboarding Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::HealthSurveillanceRecords
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::New Employee Onboarding Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::RecordOfProcessingRegister
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::New Employee Onboarding Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::RightsFulfilmentOrchestrator
 
 ### Membership Status
 VALIDATED
@@ -8204,7 +7429,6 @@ Enrolment in health surveillance follows from the role a person is appointed to.
 worker, role, exposure profile
 
 ### ISC Qualified Names
-- InformationSupplyChain::New Employee Onboarding Information Supply Chain
 - InformationSupplyChain::Occupational Health Surveillance Information Supply Chain
 
 ___
@@ -8256,10 +7480,6 @@ Onboarding distributes employee personal data to every system and directory, and
 ### Data Exchanged
 processing purposes, systems holding worker data
 
-### ISC Qualified Names
-- InformationSupplyChain::New Employee Onboarding Information Supply Chain
-- InformationSupplyChain::Data Subject Rights Information Supply Chain
-
 ___
 
 ---
@@ -8280,7 +7500,12 @@ The framework register is separated from the records themselves because it chang
 | **Electronic Batch Record System** | Signature authority in the batch record is checked against the qualification register at the moment of signing. |
 | **Certify Hospital** | Certifying a hospital for a clinical trial includes evidence that its staff were trained on the protocol before they worked to it. |
 | **Shipping Documentation Preparation** | Dangerous goods declarations must be signed by a person whose certificate has not expired. |
-| Manufacturing Execution System *(handover)* | Signature authority in production is checked against the qualification register at the moment of use. |
+
+Where this chain meets another it exchanges data with components that belong to that chain.  They are not members of this one: the wires to them name no supply chain, and the handoff is recorded between the two chains as a peer link in [strategic-information-supply-chains.md](../0.%20data-governance-program/strategic-information-supply-chains.md).
+
+| Component | Handoff |
+|---|---|
+| Manufacturing Execution System | Signature authority in production is checked against the qualification register at the moment of use. |
 
 The components below already exist — they come from `CocoComboArchive.omarchive` — so they are located and added to the chain rather than created.
 
@@ -8305,23 +7530,6 @@ ___
 ---
 
 The components defined in Part 2 that belong to this chain are added as members here.
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Workforce Competency and Qualification Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::ManufacturingExecution
-
-### Membership Status
-VALIDATED
-
-___
-
----
 
 ___
 
@@ -8491,7 +7699,6 @@ worker identity, role, start date
 
 ### ISC Qualified Names
 - InformationSupplyChain::Workforce Competency and Qualification Information Supply Chain
-- InformationSupplyChain::New Employee Onboarding Information Supply Chain
 
 ___
 
@@ -8623,34 +7830,6 @@ site staff, protocol training, dates
 
 ### ISC Qualified Names
 - InformationSupplyChain::Workforce Competency and Qualification Information Supply Chain
-- InformationSupplyChain::Clinical Trials Information Supply Chain
-
-___
-
----
-
-___
-
-## Link Solution Components
-
-### Component1
-CocoPharma::SolutionComponent::CompetencyRegister
-
-### Component2
-CocoPharma::SolutionComponent::ShippingDocumentation
-
-### Label
-certificated signatory
-
-### Description
-An expired certificate makes every subsequent consignment non-compliant however correctly it was handled.
-
-### Data Exchanged
-certificate, scope, expiry
-
-### ISC Qualified Names
-- InformationSupplyChain::Workforce Competency and Qualification Information Supply Chain
-- InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
 
 ___
 
@@ -8672,7 +7851,12 @@ The archive component reused here is the HazMat inventory, and reusing it is the
 | **Hazardous Materials (HazMat) Inventory** | The substance register that exposure banding, transport classification and emergency response are all derived from. |
 | **Worker Master Register** | Surveillance and exposure records are held against the worker record, and outlive the employment it describes. |
 | **Transport Classification Service** | The same substance identity that drives exposure banding drives transport classification. |
-| Goods Inventory *(handover)* | What hazardous material is held, where and in what quantity is drawn from the inventory record. |
+
+Where this chain meets another it exchanges data with components that belong to that chain.  They are not members of this one: the wires to them name no supply chain, and the handoff is recorded between the two chains as a peer link in [strategic-information-supply-chains.md](../0.%20data-governance-program/strategic-information-supply-chains.md).
+
+| Component | Handoff |
+|---|---|
+| Goods Inventory | What hazardous material is held, where and in what quantity is drawn from the inventory record. |
 
 The components below already exist — they come from `CocoComboArchive.omarchive` — so they are located and added to the chain rather than created.
 
@@ -8688,26 +7872,6 @@ SolutionComponent::Hazardous Materials (HazMat) Inventory::V1.0
 
 ### Membership Rationale
 The substance register that exposure banding, transport classification and emergency response are all derived from.
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Occupational Health Surveillance Information Supply Chain
-
-### Element Id
-SolutionComponent::Goods Inventory::V1.0
-
-### Membership Rationale
-What hazardous material is held, where and in what quantity is drawn from the inventory record.
 
 ### Membership Status
 VALIDATED
@@ -8912,7 +8076,6 @@ worker, role, tasks and locations
 
 ### ISC Qualified Names
 - InformationSupplyChain::Occupational Health Surveillance Information Supply Chain
-- InformationSupplyChain::New Employee Onboarding Information Supply Chain
 
 ___
 
@@ -9043,7 +8206,6 @@ substance, hazard classification
 
 ### ISC Qualified Names
 - InformationSupplyChain::Occupational Health Surveillance Information Supply Chain
-- InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain
 
 ___
 
@@ -9067,7 +8229,12 @@ Two of them exist because a register describes what the company *believes* it pr
 | **Worker Master Register** | Employee personal data is anchored on the worker record, which is one of the two largest holdings the chain has to reach. |
 | **Patient Identity Register** | Patient identity is deliberately concentrated here, which makes it findable — the same property that protects it. |
 | **Set Retention Period** | Retention periods set during data onboarding are the obligations an erasure decision has to be checked against. |
-| Joiner Mover Leaver Workflow *(handover)* | Onboarding is what distributes employee personal data across the estate, so it is what the record of processing has to describe. |
+
+Where this chain meets another it exchanges data with components that belong to that chain.  They are not members of this one: the wires to them name no supply chain, and the handoff is recorded between the two chains as a peer link in [strategic-information-supply-chains.md](../0.%20data-governance-program/strategic-information-supply-chains.md).
+
+| Component | Handoff |
+|---|---|
+| Joiner Mover Leaver Workflow | Onboarding is what distributes employee personal data across the estate, so it is what the record of processing has to describe. |
 
 The components below already exist — they come from `CocoComboArchive.omarchive` — so they are located and added to the chain rather than created.
 
@@ -9139,23 +8306,6 @@ InformationSupplyChain::Data Subject Rights Information Supply Chain
 
 ### Element Id
 CocoPharma::SolutionComponent::WorkerMasterRegister
-
-### Membership Status
-VALIDATED
-
-___
-
----
-
-___
-
-## Add Member to Collection
-
-### Collection Id
-InformationSupplyChain::Data Subject Rights Information Supply Chain
-
-### Element Id
-CocoPharma::SolutionComponent::JoinerMoverLeaverWorkflow
 
 ### Membership Status
 VALIDATED
@@ -9419,7 +8569,6 @@ subject identity, request type
 
 ### ISC Qualified Names
 - InformationSupplyChain::Data Subject Rights Information Supply Chain
-- InformationSupplyChain::New Employee Onboarding Information Supply Chain
 
 ___
 
@@ -9446,7 +8595,6 @@ subject identity, request type
 
 ### ISC Qualified Names
 - InformationSupplyChain::Data Subject Rights Information Supply Chain
-- InformationSupplyChain::Personalized Treatment Ordering Information Supply Chain
 
 ___
 
@@ -9499,7 +8647,6 @@ asset, retention basis, archive and delete dates
 
 ### ISC Qualified Names
 - InformationSupplyChain::Data Subject Rights Information Supply Chain
-- InformationSupplyChain::Clinical Trials Information Supply Chain
 
 ___
 
@@ -9537,7 +8684,7 @@ Drawing the wires produced four findings that the register could not have produc
 
 **Components belong to more chains than anyone expected.** The qualification register is read by manufacturing, by clinical trials and by dangerous goods transport, and none of those consumers is a human resources use case. The HazMat inventory serves occupational health, transport classification and inventory tracking from one substance identity. The subledger feeds carry four different chains into the same ledger. Each of these is a component whose owner is answering questions they were not asked when it was bought.
 
-**The handovers are where the work is.** Of the 126 wires, forty-four implement more than one supply chain — they are the points at which a fault in one chain becomes a failure in the next. Those are the wires worth instrumenting first, and none of them belongs unambiguously to one team.
+**The handovers are where the work is.** Ten of the 123 wires cross from one chain into another and name neither, and five more join components that are full members of two chains and name both.  They are the points at which a fault in one chain becomes a failure in the next. Those are the wires worth instrumenting first, and none of them belongs unambiguously to one team.
 
 **Some chains are gates, not flows.** Batch release, material quarantine and identifier upload are not conveyances; they are refusals that occasionally let something through. Modelling them as wires makes the gate visible as a dependency, which is what a downstream team needs in order to understand why their input sometimes does not arrive.
 
