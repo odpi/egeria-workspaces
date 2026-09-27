@@ -33,8 +33,8 @@ Products of quality, regulatory affairs and safety: safety reports and cases, as
 For every product this file:
 
 1. creates the **digital product** and adds it to the `Quality Systems` folder of the catalog;
-2. creates its **data spec** and attaches it with a `DataDescription` relationship, then the **data structures**, each added to the spec, and the **data fields**, each linked to its structure with a `MemberDataField` relationship, named to the [Data Field Naming](../data-field-naming/README.md) standard;
-3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, as a member of the product.  The schema is named after the product, in the `coco_pharma` database on `Coco PostgreSQL Server 1`.
+2. creates its **data spec** and attaches it with a `DataDescription` relationship, then the **data structures**, each added to the spec, and the **data fields**, each linked to its structure with a `MemberDataField` relationship, its position and coverage category set on that relationship - `IDENTIFIER` for the fields that identify a row of the structure, `CORE_DETAIL` for the rest - named to the [Data Field Naming](../data-field-naming/README.md) standard;
+3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, as a member of the product.  The schema is named after the product, in the `coco_data_hub` database on `Coco PostgreSQL Server 1`.
 
 15 products, 30 data structures, 208 data fields.  This file loads after `catalog.md`.
 
@@ -156,7 +156,7 @@ DataStructure::Coco::Consolidated Safety Reports::Safety Report
 One row per suspected reaction registered.
 
 ### Namespace Path
-coco_pharma.consolidated_safety_reports
+coco_data_hub.consolidated_safety_reports
 
 ### Version Identifier
 1.0
@@ -185,19 +185,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SafetyReportIdentifier
+Safety Report Identifier
 
 ### Qualified Name
-DataField::Coco::Consolidated Safety Reports::Safety Report::SafetyReportIdentifier
+DataField::Coco::Consolidated Safety Reports::Safety Report::Safety Report Identifier
 
 ### Description
 The report.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -219,10 +216,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Consolidated Safety Reports::Safety Report::SafetyReportIdentifier
+DataField::Coco::Consolidated Safety Reports::Safety Report::Safety Report Identifier
 
 ### Data Structure
 DataStructure::Coco::Consolidated Safety Reports::Safety Report
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -232,19 +235,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SafetyReportReceivedTimestamp
+Safety Report Received Timestamp
 
 ### Qualified Name
-DataField::Coco::Consolidated Safety Reports::Safety Report::SafetyReportReceivedTimestamp
+DataField::Coco::Consolidated Safety Reports::Safety Report::Safety Report Received Timestamp
 
 ### Description
 When first received anywhere in the company.
 
 ### Data Type
 date
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -263,10 +263,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Consolidated Safety Reports::Safety Report::SafetyReportReceivedTimestamp
+DataField::Coco::Consolidated Safety Reports::Safety Report::Safety Report Received Timestamp
 
 ### Data Structure
 DataStructure::Coco::Consolidated Safety Reports::Safety Report
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -276,19 +282,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SafetyReportSourceType
+Safety Report Source Type
 
 ### Qualified Name
-DataField::Coco::Consolidated Safety Reports::Safety Report::SafetyReportSourceType
+DataField::Coco::Consolidated Safety Reports::Safety Report::Safety Report Source Type
 
 ### Description
 Clinician, complaint, trial site, literature or other.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -310,10 +313,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Consolidated Safety Reports::Safety Report::SafetyReportSourceType
+DataField::Coco::Consolidated Safety Reports::Safety Report::Safety Report Source Type
 
 ### Data Structure
 DataStructure::Coco::Consolidated Safety Reports::Safety Report
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -323,19 +332,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SafetyReportSourceIdentifier
+Safety Report Source Identifier
 
 ### Qualified Name
-DataField::Coco::Consolidated Safety Reports::Safety Report::SafetyReportSourceIdentifier
+DataField::Coco::Consolidated Safety Reports::Safety Report::Safety Report Source Identifier
 
 ### Description
 The originating report or complaint.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -357,10 +363,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Consolidated Safety Reports::Safety Report::SafetyReportSourceIdentifier
+DataField::Coco::Consolidated Safety Reports::Safety Report::Safety Report Source Identifier
 
 ### Data Structure
 DataStructure::Coco::Consolidated Safety Reports::Safety Report
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -370,19 +382,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PatientPseudonymIdentifier
+Patient Pseudonym Identifier
 
 ### Qualified Name
-DataField::Coco::Consolidated Safety Reports::Safety Report::PatientPseudonymIdentifier
+DataField::Coco::Consolidated Safety Reports::Safety Report::Patient Pseudonym Identifier
 
 ### Description
 The patient or participant, by pseudonym.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -404,10 +413,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Consolidated Safety Reports::Safety Report::PatientPseudonymIdentifier
+DataField::Coco::Consolidated Safety Reports::Safety Report::Patient Pseudonym Identifier
 
 ### Data Structure
 DataStructure::Coco::Consolidated Safety Reports::Safety Report
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -417,19 +432,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductCode
+Product Code
 
 ### Qualified Name
-DataField::Coco::Consolidated Safety Reports::Safety Report::ProductCode
+DataField::Coco::Consolidated Safety Reports::Safety Report::Product Code
 
 ### Description
 The product.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -451,10 +463,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Consolidated Safety Reports::Safety Report::ProductCode
+DataField::Coco::Consolidated Safety Reports::Safety Report::Product Code
 
 ### Data Structure
 DataStructure::Coco::Consolidated Safety Reports::Safety Report
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -464,19 +482,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-BatchIdentifier
+Batch Identifier
 
 ### Qualified Name
-DataField::Coco::Consolidated Safety Reports::Safety Report::BatchIdentifier
+DataField::Coco::Consolidated Safety Reports::Safety Report::Batch Identifier
 
 ### Description
 The batch, if known.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 true
@@ -498,10 +513,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Consolidated Safety Reports::Safety Report::BatchIdentifier
+DataField::Coco::Consolidated Safety Reports::Safety Report::Batch Identifier
 
 ### Data Structure
 DataStructure::Coco::Consolidated Safety Reports::Safety Report
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -511,19 +532,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ClinicalTrialIdentifier
+Clinical Trial Identifier
 
 ### Qualified Name
-DataField::Coco::Consolidated Safety Reports::Safety Report::ClinicalTrialIdentifier
+DataField::Coco::Consolidated Safety Reports::Safety Report::Clinical Trial Identifier
 
 ### Description
 The trial, for a site report.
 
 ### Data Type
 string
-
-### Position
-8
 
 ### Is Nullable
 true
@@ -545,10 +563,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Consolidated Safety Reports::Safety Report::ClinicalTrialIdentifier
+DataField::Coco::Consolidated Safety Reports::Safety Report::Clinical Trial Identifier
 
 ### Data Structure
 DataStructure::Coco::Consolidated Safety Reports::Safety Report
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -558,19 +582,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AdverseEventDescription
+Adverse Event Description
 
 ### Qualified Name
-DataField::Coco::Consolidated Safety Reports::Safety Report::AdverseEventDescription
+DataField::Coco::Consolidated Safety Reports::Safety Report::Adverse Event Description
 
 ### Description
 The reaction as reported.
 
 ### Data Type
 string
-
-### Position
-9
 
 ### Is Nullable
 false
@@ -589,10 +610,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Consolidated Safety Reports::Safety Report::AdverseEventDescription
+DataField::Coco::Consolidated Safety Reports::Safety Report::Adverse Event Description
 
 ### Data Structure
 DataStructure::Coco::Consolidated Safety Reports::Safety Report
+
+### Position
+9
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 9
@@ -602,19 +629,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SafetyCaseIdentifier
+Safety Case Identifier
 
 ### Qualified Name
-DataField::Coco::Consolidated Safety Reports::Safety Report::SafetyCaseIdentifier
+DataField::Coco::Consolidated Safety Reports::Safety Report::Safety Case Identifier
 
 ### Description
 The case opened from the report.
 
 ### Data Type
 string
-
-### Position
-10
 
 ### Is Nullable
 true
@@ -636,10 +660,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Consolidated Safety Reports::Safety Report::SafetyCaseIdentifier
+DataField::Coco::Consolidated Safety Reports::Safety Report::Safety Case Identifier
 
 ### Data Structure
 DataStructure::Coco::Consolidated Safety Reports::Safety Report
+
+### Position
+10
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 10
@@ -658,10 +688,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: consolidated_safety_reports
 - schemaDescription: Every suspected adverse reaction registered at the single point of intake, whatever door it arrived through: a clinician's report, a complaint with safety content or a trial site's report. The statutory clock starts on first receipt anywhere in the company.
 
@@ -788,7 +818,7 @@ DataStructure::Coco::Product Complaints::Complaint
 One row per complaint received.
 
 ### Namespace Path
-coco_pharma.product_complaints
+coco_data_hub.product_complaints
 
 ### Version Identifier
 1.0
@@ -817,19 +847,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ComplaintIdentifier
+Complaint Identifier
 
 ### Qualified Name
-DataField::Coco::Product Complaints::Complaint::ComplaintIdentifier
+DataField::Coco::Product Complaints::Complaint::Complaint Identifier
 
 ### Description
 The complaint.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -851,10 +878,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Complaints::Complaint::ComplaintIdentifier
+DataField::Coco::Product Complaints::Complaint::Complaint Identifier
 
 ### Data Structure
 DataStructure::Coco::Product Complaints::Complaint
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -864,19 +897,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ComplaintReceivedTimestamp
+Complaint Received Timestamp
 
 ### Qualified Name
-DataField::Coco::Product Complaints::Complaint::ComplaintReceivedTimestamp
+DataField::Coco::Product Complaints::Complaint::Complaint Received Timestamp
 
 ### Description
 When received.
 
 ### Data Type
 date
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -895,10 +925,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Complaints::Complaint::ComplaintReceivedTimestamp
+DataField::Coco::Product Complaints::Complaint::Complaint Received Timestamp
 
 ### Data Structure
 DataStructure::Coco::Product Complaints::Complaint
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -908,19 +944,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ComplaintReporterType
+Complaint Reporter Type
 
 ### Qualified Name
-DataField::Coco::Product Complaints::Complaint::ComplaintReporterType
+DataField::Coco::Product Complaints::Complaint::Complaint Reporter Type
 
 ### Description
 Pharmacy, distributor, patient, healthcare professional.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -942,10 +975,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Complaints::Complaint::ComplaintReporterType
+DataField::Coco::Product Complaints::Complaint::Complaint Reporter Type
 
 ### Data Structure
 DataStructure::Coco::Product Complaints::Complaint
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -955,19 +994,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductCode
+Product Code
 
 ### Qualified Name
-DataField::Coco::Product Complaints::Complaint::ProductCode
+DataField::Coco::Product Complaints::Complaint::Product Code
 
 ### Description
 The product.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -989,10 +1025,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Complaints::Complaint::ProductCode
+DataField::Coco::Product Complaints::Complaint::Product Code
 
 ### Data Structure
 DataStructure::Coco::Product Complaints::Complaint
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -1002,19 +1044,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-BatchIdentifier
+Batch Identifier
 
 ### Qualified Name
-DataField::Coco::Product Complaints::Complaint::BatchIdentifier
+DataField::Coco::Product Complaints::Complaint::Batch Identifier
 
 ### Description
 The batch, if known.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -1036,10 +1075,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Complaints::Complaint::BatchIdentifier
+DataField::Coco::Product Complaints::Complaint::Batch Identifier
 
 ### Data Structure
 DataStructure::Coco::Product Complaints::Complaint
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -1049,19 +1094,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PackSerialNumber
+Pack Serial Number
 
 ### Qualified Name
-DataField::Coco::Product Complaints::Complaint::PackSerialNumber
+DataField::Coco::Product Complaints::Complaint::Pack Serial Number
 
 ### Description
 The pack, if known.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 true
@@ -1083,10 +1125,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Complaints::Complaint::PackSerialNumber
+DataField::Coco::Product Complaints::Complaint::Pack Serial Number
 
 ### Data Structure
 DataStructure::Coco::Product Complaints::Complaint
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -1096,19 +1144,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ComplaintDescription
+Complaint Description
 
 ### Qualified Name
-DataField::Coco::Product Complaints::Complaint::ComplaintDescription
+DataField::Coco::Product Complaints::Complaint::Complaint Description
 
 ### Description
 The complaint.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -1127,10 +1172,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Complaints::Complaint::ComplaintDescription
+DataField::Coco::Product Complaints::Complaint::Complaint Description
 
 ### Data Structure
 DataStructure::Coco::Product Complaints::Complaint
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -1140,19 +1191,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ComplaintCurrentStatus
+Complaint Current Status
 
 ### Qualified Name
-DataField::Coco::Product Complaints::Complaint::ComplaintCurrentStatus
+DataField::Coco::Product Complaints::Complaint::Complaint Current Status
 
 ### Description
 Open, under investigation, closed.
 
 ### Data Type
 string
-
-### Position
-8
 
 ### Is Nullable
 false
@@ -1174,10 +1222,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Complaints::Complaint::ComplaintCurrentStatus
+DataField::Coco::Product Complaints::Complaint::Complaint Current Status
 
 ### Data Structure
 DataStructure::Coco::Product Complaints::Complaint
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -1196,7 +1250,7 @@ DataStructure::Coco::Product Complaints::Complaint Safety Assessment
 One row per complaint, whether it carries a potential safety event.
 
 ### Namespace Path
-coco_pharma.product_complaints
+coco_data_hub.product_complaints
 
 ### Version Identifier
 1.0
@@ -1225,19 +1279,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ComplaintIdentifier
+Complaint Identifier
 
 ### Qualified Name
-DataField::Coco::Product Complaints::Complaint Safety Assessment::ComplaintIdentifier
+DataField::Coco::Product Complaints::Complaint Safety Assessment::Complaint Identifier
 
 ### Description
 The complaint.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -1259,10 +1310,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Complaints::Complaint Safety Assessment::ComplaintIdentifier
+DataField::Coco::Product Complaints::Complaint Safety Assessment::Complaint Identifier
 
 ### Data Structure
 DataStructure::Coco::Product Complaints::Complaint Safety Assessment
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -1272,19 +1329,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ComplaintSafetyFlag
+Complaint Safety Flag
 
 ### Qualified Name
-DataField::Coco::Product Complaints::Complaint Safety Assessment::ComplaintSafetyFlag
+DataField::Coco::Product Complaints::Complaint Safety Assessment::Complaint Safety Flag
 
 ### Description
 Whether it is also a suspected adverse reaction.
 
 ### Data Type
 boolean
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -1303,10 +1357,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Complaints::Complaint Safety Assessment::ComplaintSafetyFlag
+DataField::Coco::Product Complaints::Complaint Safety Assessment::Complaint Safety Flag
 
 ### Data Structure
 DataStructure::Coco::Product Complaints::Complaint Safety Assessment
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -1316,19 +1376,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ComplaintAssessorIdentifier
+Complaint Assessor Identifier
 
 ### Qualified Name
-DataField::Coco::Product Complaints::Complaint Safety Assessment::ComplaintAssessorIdentifier
+DataField::Coco::Product Complaints::Complaint Safety Assessment::Complaint Assessor Identifier
 
 ### Description
 Who assessed.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -1350,10 +1407,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Complaints::Complaint Safety Assessment::ComplaintAssessorIdentifier
+DataField::Coco::Product Complaints::Complaint Safety Assessment::Complaint Assessor Identifier
 
 ### Data Structure
 DataStructure::Coco::Product Complaints::Complaint Safety Assessment
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -1363,19 +1426,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ComplaintAssessmentTimestamp
+Complaint Assessment Timestamp
 
 ### Qualified Name
-DataField::Coco::Product Complaints::Complaint Safety Assessment::ComplaintAssessmentTimestamp
+DataField::Coco::Product Complaints::Complaint Safety Assessment::Complaint Assessment Timestamp
 
 ### Description
 When.
 
 ### Data Type
 date
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -1394,10 +1454,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Complaints::Complaint Safety Assessment::ComplaintAssessmentTimestamp
+DataField::Coco::Product Complaints::Complaint Safety Assessment::Complaint Assessment Timestamp
 
 ### Data Structure
 DataStructure::Coco::Product Complaints::Complaint Safety Assessment
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -1407,19 +1473,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SafetyReportIdentifier
+Safety Report Identifier
 
 ### Qualified Name
-DataField::Coco::Product Complaints::Complaint Safety Assessment::SafetyReportIdentifier
+DataField::Coco::Product Complaints::Complaint Safety Assessment::Safety Report Identifier
 
 ### Description
 The safety report raised, if any.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -1441,10 +1504,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Complaints::Complaint Safety Assessment::SafetyReportIdentifier
+DataField::Coco::Product Complaints::Complaint Safety Assessment::Safety Report Identifier
 
 ### Data Structure
 DataStructure::Coco::Product Complaints::Complaint Safety Assessment
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -1463,10 +1532,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: product_complaints
 - schemaDescription: Complaints about product quality from pharmacies, distributors and patients, and the assessment that separates those which are also potential safety events from those which are not. The separation is deliberately generous.
 
@@ -1593,7 +1662,7 @@ DataStructure::Coco::Pharmacovigilance Cases::Safety Case
 One row per case.
 
 ### Namespace Path
-coco_pharma.pharmacovigilance_cases
+coco_data_hub.pharmacovigilance_cases
 
 ### Version Identifier
 1.0
@@ -1622,19 +1691,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SafetyCaseIdentifier
+Safety Case Identifier
 
 ### Qualified Name
-DataField::Coco::Pharmacovigilance Cases::Safety Case::SafetyCaseIdentifier
+DataField::Coco::Pharmacovigilance Cases::Safety Case::Safety Case Identifier
 
 ### Description
 The case.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -1656,10 +1722,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Pharmacovigilance Cases::Safety Case::SafetyCaseIdentifier
+DataField::Coco::Pharmacovigilance Cases::Safety Case::Safety Case Identifier
 
 ### Data Structure
 DataStructure::Coco::Pharmacovigilance Cases::Safety Case
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -1669,19 +1741,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SafetyReportIdentifier
+Safety Report Identifier
 
 ### Qualified Name
-DataField::Coco::Pharmacovigilance Cases::Safety Case::SafetyReportIdentifier
+DataField::Coco::Pharmacovigilance Cases::Safety Case::Safety Report Identifier
 
 ### Description
 The report it was opened from.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -1703,10 +1772,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Pharmacovigilance Cases::Safety Case::SafetyReportIdentifier
+DataField::Coco::Pharmacovigilance Cases::Safety Case::Safety Report Identifier
 
 ### Data Structure
 DataStructure::Coco::Pharmacovigilance Cases::Safety Case
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -1716,19 +1791,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SafetyCaseReceivedTimestamp
+Safety Case Received Timestamp
 
 ### Qualified Name
-DataField::Coco::Pharmacovigilance Cases::Safety Case::SafetyCaseReceivedTimestamp
+DataField::Coco::Pharmacovigilance Cases::Safety Case::Safety Case Received Timestamp
 
 ### Description
 The receipt timestamp the clock runs from.
 
 ### Data Type
 date
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -1747,10 +1819,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Pharmacovigilance Cases::Safety Case::SafetyCaseReceivedTimestamp
+DataField::Coco::Pharmacovigilance Cases::Safety Case::Safety Case Received Timestamp
 
 ### Data Structure
 DataStructure::Coco::Pharmacovigilance Cases::Safety Case
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -1760,19 +1838,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductCode
+Product Code
 
 ### Qualified Name
-DataField::Coco::Pharmacovigilance Cases::Safety Case::ProductCode
+DataField::Coco::Pharmacovigilance Cases::Safety Case::Product Code
 
 ### Description
 The product.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -1794,10 +1869,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Pharmacovigilance Cases::Safety Case::ProductCode
+DataField::Coco::Pharmacovigilance Cases::Safety Case::Product Code
 
 ### Data Structure
 DataStructure::Coco::Pharmacovigilance Cases::Safety Case
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -1807,19 +1888,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PatientPseudonymIdentifier
+Patient Pseudonym Identifier
 
 ### Qualified Name
-DataField::Coco::Pharmacovigilance Cases::Safety Case::PatientPseudonymIdentifier
+DataField::Coco::Pharmacovigilance Cases::Safety Case::Patient Pseudonym Identifier
 
 ### Description
 The patient, by pseudonym.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -1841,10 +1919,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Pharmacovigilance Cases::Safety Case::PatientPseudonymIdentifier
+DataField::Coco::Pharmacovigilance Cases::Safety Case::Patient Pseudonym Identifier
 
 ### Data Structure
 DataStructure::Coco::Pharmacovigilance Cases::Safety Case
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -1854,19 +1938,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SafetyCaseSeriousnessCode
+Safety Case Seriousness Code
 
 ### Qualified Name
-DataField::Coco::Pharmacovigilance Cases::Safety Case::SafetyCaseSeriousnessCode
+DataField::Coco::Pharmacovigilance Cases::Safety Case::Safety Case Seriousness Code
 
 ### Description
 Serious or non-serious, once assessed.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 true
@@ -1888,10 +1969,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Pharmacovigilance Cases::Safety Case::SafetyCaseSeriousnessCode
+DataField::Coco::Pharmacovigilance Cases::Safety Case::Safety Case Seriousness Code
 
 ### Data Structure
 DataStructure::Coco::Pharmacovigilance Cases::Safety Case
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -1901,19 +1988,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SafetyCaseExpectednessCode
+Safety Case Expectedness Code
 
 ### Qualified Name
-DataField::Coco::Pharmacovigilance Cases::Safety Case::SafetyCaseExpectednessCode
+DataField::Coco::Pharmacovigilance Cases::Safety Case::Safety Case Expectedness Code
 
 ### Description
 Expected or unexpected, once assessed.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 true
@@ -1935,10 +2019,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Pharmacovigilance Cases::Safety Case::SafetyCaseExpectednessCode
+DataField::Coco::Pharmacovigilance Cases::Safety Case::Safety Case Expectedness Code
 
 ### Data Structure
 DataStructure::Coco::Pharmacovigilance Cases::Safety Case
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -1948,19 +2038,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SafetyCaseCausalityCode
+Safety Case Causality Code
 
 ### Qualified Name
-DataField::Coco::Pharmacovigilance Cases::Safety Case::SafetyCaseCausalityCode
+DataField::Coco::Pharmacovigilance Cases::Safety Case::Safety Case Causality Code
 
 ### Description
 The causality assessment.
 
 ### Data Type
 string
-
-### Position
-8
 
 ### Is Nullable
 true
@@ -1982,10 +2069,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Pharmacovigilance Cases::Safety Case::SafetyCaseCausalityCode
+DataField::Coco::Pharmacovigilance Cases::Safety Case::Safety Case Causality Code
 
 ### Data Structure
 DataStructure::Coco::Pharmacovigilance Cases::Safety Case
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -1995,19 +2088,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SafetyCaseReportingDueDate
+Safety Case Reporting Due Date
 
 ### Qualified Name
-DataField::Coco::Pharmacovigilance Cases::Safety Case::SafetyCaseReportingDueDate
+DataField::Coco::Pharmacovigilance Cases::Safety Case::Safety Case Reporting Due Date
 
 ### Description
 When the regulatory report is due.
 
 ### Data Type
 date
-
-### Position
-9
 
 ### Is Nullable
 false
@@ -2026,10 +2116,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Pharmacovigilance Cases::Safety Case::SafetyCaseReportingDueDate
+DataField::Coco::Pharmacovigilance Cases::Safety Case::Safety Case Reporting Due Date
 
 ### Data Structure
 DataStructure::Coco::Pharmacovigilance Cases::Safety Case
+
+### Position
+9
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 9
@@ -2039,19 +2135,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SafetyCaseCurrentStatus
+Safety Case Current Status
 
 ### Qualified Name
-DataField::Coco::Pharmacovigilance Cases::Safety Case::SafetyCaseCurrentStatus
+DataField::Coco::Pharmacovigilance Cases::Safety Case::Safety Case Current Status
 
 ### Description
 Open, awaiting assessment, follow-up, submitted, closed.
 
 ### Data Type
 string
-
-### Position
-10
 
 ### Is Nullable
 false
@@ -2073,10 +2166,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Pharmacovigilance Cases::Safety Case::SafetyCaseCurrentStatus
+DataField::Coco::Pharmacovigilance Cases::Safety Case::Safety Case Current Status
 
 ### Data Structure
 DataStructure::Coco::Pharmacovigilance Cases::Safety Case
+
+### Position
+10
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 10
@@ -2095,7 +2194,7 @@ DataStructure::Coco::Pharmacovigilance Cases::Case Narrative
 One row per case, the narrative and patient context sent for medical assessment.
 
 ### Namespace Path
-coco_pharma.pharmacovigilance_cases
+coco_data_hub.pharmacovigilance_cases
 
 ### Version Identifier
 1.0
@@ -2124,19 +2223,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SafetyCaseIdentifier
+Safety Case Identifier
 
 ### Qualified Name
-DataField::Coco::Pharmacovigilance Cases::Case Narrative::SafetyCaseIdentifier
+DataField::Coco::Pharmacovigilance Cases::Case Narrative::Safety Case Identifier
 
 ### Description
 The case.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -2158,10 +2254,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Pharmacovigilance Cases::Case Narrative::SafetyCaseIdentifier
+DataField::Coco::Pharmacovigilance Cases::Case Narrative::Safety Case Identifier
 
 ### Data Structure
 DataStructure::Coco::Pharmacovigilance Cases::Case Narrative
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -2171,19 +2273,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SafetyCaseNarrativeDescription
+Safety Case Narrative Description
 
 ### Qualified Name
-DataField::Coco::Pharmacovigilance Cases::Case Narrative::SafetyCaseNarrativeDescription
+DataField::Coco::Pharmacovigilance Cases::Case Narrative::Safety Case Narrative Description
 
 ### Description
 The clinical narrative.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -2202,10 +2301,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Pharmacovigilance Cases::Case Narrative::SafetyCaseNarrativeDescription
+DataField::Coco::Pharmacovigilance Cases::Case Narrative::Safety Case Narrative Description
 
 ### Data Structure
 DataStructure::Coco::Pharmacovigilance Cases::Case Narrative
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -2215,19 +2320,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PatientBirthDate
+Patient Birth Date
 
 ### Qualified Name
-DataField::Coco::Pharmacovigilance Cases::Case Narrative::PatientBirthDate
+DataField::Coco::Pharmacovigilance Cases::Case Narrative::Patient Birth Date
 
 ### Description
 The patient's date of birth, where reported.
 
 ### Data Type
 date
-
-### Position
-3
 
 ### Is Nullable
 true
@@ -2246,10 +2348,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Pharmacovigilance Cases::Case Narrative::PatientBirthDate
+DataField::Coco::Pharmacovigilance Cases::Case Narrative::Patient Birth Date
 
 ### Data Structure
 DataStructure::Coco::Pharmacovigilance Cases::Case Narrative
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -2259,19 +2367,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PatientSexCode
+Patient Sex Code
 
 ### Qualified Name
-DataField::Coco::Pharmacovigilance Cases::Case Narrative::PatientSexCode
+DataField::Coco::Pharmacovigilance Cases::Case Narrative::Patient Sex Code
 
 ### Description
 The patient's sex, where reported.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 true
@@ -2293,10 +2398,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Pharmacovigilance Cases::Case Narrative::PatientSexCode
+DataField::Coco::Pharmacovigilance Cases::Case Narrative::Patient Sex Code
 
 ### Data Structure
 DataStructure::Coco::Pharmacovigilance Cases::Case Narrative
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -2306,19 +2417,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SafetyCaseConcomitantDescription
+Safety Case Concomitant Description
 
 ### Qualified Name
-DataField::Coco::Pharmacovigilance Cases::Case Narrative::SafetyCaseConcomitantDescription
+DataField::Coco::Pharmacovigilance Cases::Case Narrative::Safety Case Concomitant Description
 
 ### Description
 Other treatments in use.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -2337,10 +2445,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Pharmacovigilance Cases::Case Narrative::SafetyCaseConcomitantDescription
+DataField::Coco::Pharmacovigilance Cases::Case Narrative::Safety Case Concomitant Description
 
 ### Data Structure
 DataStructure::Coco::Pharmacovigilance Cases::Case Narrative
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -2359,7 +2473,7 @@ DataStructure::Coco::Pharmacovigilance Cases::Case Follow-Up
 One row per follow-up action on a case.
 
 ### Namespace Path
-coco_pharma.pharmacovigilance_cases
+coco_data_hub.pharmacovigilance_cases
 
 ### Version Identifier
 1.0
@@ -2388,19 +2502,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SafetyCaseIdentifier
+Safety Case Identifier
 
 ### Qualified Name
-DataField::Coco::Pharmacovigilance Cases::Case Follow-Up::SafetyCaseIdentifier
+DataField::Coco::Pharmacovigilance Cases::Case Follow-Up::Safety Case Identifier
 
 ### Description
 The case.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -2422,10 +2533,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Pharmacovigilance Cases::Case Follow-Up::SafetyCaseIdentifier
+DataField::Coco::Pharmacovigilance Cases::Case Follow-Up::Safety Case Identifier
 
 ### Data Structure
 DataStructure::Coco::Pharmacovigilance Cases::Case Follow-Up
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -2435,19 +2552,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SafetyCaseFollowUpNumber
+Safety Case Follow Up Number
 
 ### Qualified Name
-DataField::Coco::Pharmacovigilance Cases::Case Follow-Up::SafetyCaseFollowUpNumber
+DataField::Coco::Pharmacovigilance Cases::Case Follow-Up::Safety Case Follow Up Number
 
 ### Description
 The follow-up's sequence.
 
 ### Data Type
 int
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -2466,10 +2580,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Pharmacovigilance Cases::Case Follow-Up::SafetyCaseFollowUpNumber
+DataField::Coco::Pharmacovigilance Cases::Case Follow-Up::Safety Case Follow Up Number
 
 ### Data Structure
 DataStructure::Coco::Pharmacovigilance Cases::Case Follow-Up
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -2479,19 +2599,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SafetyCaseFollowUpDate
+Safety Case Follow Up Date
 
 ### Qualified Name
-DataField::Coco::Pharmacovigilance Cases::Case Follow-Up::SafetyCaseFollowUpDate
+DataField::Coco::Pharmacovigilance Cases::Case Follow-Up::Safety Case Follow Up Date
 
 ### Description
 When.
 
 ### Data Type
 date
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -2510,10 +2627,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Pharmacovigilance Cases::Case Follow-Up::SafetyCaseFollowUpDate
+DataField::Coco::Pharmacovigilance Cases::Case Follow-Up::Safety Case Follow Up Date
 
 ### Data Structure
 DataStructure::Coco::Pharmacovigilance Cases::Case Follow-Up
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -2523,19 +2646,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SafetyCaseFollowUpDescription
+Safety Case Follow Up Description
 
 ### Qualified Name
-DataField::Coco::Pharmacovigilance Cases::Case Follow-Up::SafetyCaseFollowUpDescription
+DataField::Coco::Pharmacovigilance Cases::Case Follow-Up::Safety Case Follow Up Description
 
 ### Description
 What was requested or received.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -2554,10 +2674,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Pharmacovigilance Cases::Case Follow-Up::SafetyCaseFollowUpDescription
+DataField::Coco::Pharmacovigilance Cases::Case Follow-Up::Safety Case Follow Up Description
 
 ### Data Structure
 DataStructure::Coco::Pharmacovigilance Cases::Case Follow-Up
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -2576,10 +2702,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: pharmacovigilance_cases
 - schemaDescription: The safety case from receipt through follow-up to closure, carrying the reporting clock that the regulators measure, with the narrative sent for assessment and the coded data that signal detection reads. Every other component in the safety chain either feeds it or reads from it.
 
@@ -2706,7 +2832,7 @@ DataStructure::Coco::Medical Assessments::Medical Assessment
 One row per assessment of a case.
 
 ### Namespace Path
-coco_pharma.medical_assessments
+coco_data_hub.medical_assessments
 
 ### Version Identifier
 1.0
@@ -2735,19 +2861,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SafetyCaseIdentifier
+Safety Case Identifier
 
 ### Qualified Name
-DataField::Coco::Medical Assessments::Medical Assessment::SafetyCaseIdentifier
+DataField::Coco::Medical Assessments::Medical Assessment::Safety Case Identifier
 
 ### Description
 The case.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -2769,10 +2892,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Medical Assessments::Medical Assessment::SafetyCaseIdentifier
+DataField::Coco::Medical Assessments::Medical Assessment::Safety Case Identifier
 
 ### Data Structure
 DataStructure::Coco::Medical Assessments::Medical Assessment
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -2782,19 +2911,63 @@ ___
 ## Create Data Field
 
 ### Display Name
-SafetyCaseAssessorIdentifier
+Safety Case Assessment Timestamp
 
 ### Qualified Name
-DataField::Coco::Medical Assessments::Medical Assessment::SafetyCaseAssessorIdentifier
+DataField::Coco::Medical Assessments::Medical Assessment::Safety Case Assessment Timestamp
+
+### Description
+When.
+
+### Data Type
+date
+
+### Is Nullable
+false
+
+### Minimum Cardinality
+1
+
+### Version Identifier
+1.0
+
+### Content Status
+ACTIVE
+
+___
+
+## Link Data Field to Data Structure
+
+### Data Field
+DataField::Coco::Medical Assessments::Medical Assessment::Safety Case Assessment Timestamp
+
+### Data Structure
+DataStructure::Coco::Medical Assessments::Medical Assessment
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
+
+### Label
+field 2
+
+___
+
+## Create Data Field
+
+### Display Name
+Safety Case Assessor Identifier
+
+### Qualified Name
+DataField::Coco::Medical Assessments::Medical Assessment::Safety Case Assessor Identifier
 
 ### Description
 The assessing physician.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -2816,54 +2989,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Medical Assessments::Medical Assessment::SafetyCaseAssessorIdentifier
+DataField::Coco::Medical Assessments::Medical Assessment::Safety Case Assessor Identifier
 
 ### Data Structure
 DataStructure::Coco::Medical Assessments::Medical Assessment
-
-### Label
-field 2
-
-___
-
-## Create Data Field
-
-### Display Name
-SafetyCaseAssessmentTimestamp
-
-### Qualified Name
-DataField::Coco::Medical Assessments::Medical Assessment::SafetyCaseAssessmentTimestamp
-
-### Description
-When.
-
-### Data Type
-date
 
 ### Position
 3
 
-### Is Nullable
-false
-
-### Minimum Cardinality
-1
-
-### Version Identifier
-1.0
-
-### Content Status
-ACTIVE
-
-___
-
-## Link Data Field to Data Structure
-
-### Data Field
-DataField::Coco::Medical Assessments::Medical Assessment::SafetyCaseAssessmentTimestamp
-
-### Data Structure
-DataStructure::Coco::Medical Assessments::Medical Assessment
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -2873,19 +3008,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SafetyCaseSeriousnessCode
+Safety Case Seriousness Code
 
 ### Qualified Name
-DataField::Coco::Medical Assessments::Medical Assessment::SafetyCaseSeriousnessCode
+DataField::Coco::Medical Assessments::Medical Assessment::Safety Case Seriousness Code
 
 ### Description
 Serious or non-serious.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -2907,10 +3039,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Medical Assessments::Medical Assessment::SafetyCaseSeriousnessCode
+DataField::Coco::Medical Assessments::Medical Assessment::Safety Case Seriousness Code
 
 ### Data Structure
 DataStructure::Coco::Medical Assessments::Medical Assessment
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -2920,19 +3058,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SafetyCaseExpectednessCode
+Safety Case Expectedness Code
 
 ### Qualified Name
-DataField::Coco::Medical Assessments::Medical Assessment::SafetyCaseExpectednessCode
+DataField::Coco::Medical Assessments::Medical Assessment::Safety Case Expectedness Code
 
 ### Description
 Expected or unexpected against the label.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -2954,10 +3089,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Medical Assessments::Medical Assessment::SafetyCaseExpectednessCode
+DataField::Coco::Medical Assessments::Medical Assessment::Safety Case Expectedness Code
 
 ### Data Structure
 DataStructure::Coco::Medical Assessments::Medical Assessment
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -2967,19 +3108,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SafetyCaseCausalityCode
+Safety Case Causality Code
 
 ### Qualified Name
-DataField::Coco::Medical Assessments::Medical Assessment::SafetyCaseCausalityCode
+DataField::Coco::Medical Assessments::Medical Assessment::Safety Case Causality Code
 
 ### Description
 The causality assessment.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -3001,10 +3139,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Medical Assessments::Medical Assessment::SafetyCaseCausalityCode
+DataField::Coco::Medical Assessments::Medical Assessment::Safety Case Causality Code
 
 ### Data Structure
 DataStructure::Coco::Medical Assessments::Medical Assessment
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -3014,19 +3158,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SafetyCaseAssessmentNotes
+Safety Case Assessment Notes
 
 ### Qualified Name
-DataField::Coco::Medical Assessments::Medical Assessment::SafetyCaseAssessmentNotes
+DataField::Coco::Medical Assessments::Medical Assessment::Safety Case Assessment Notes
 
 ### Description
 The assessor's reasoning.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 true
@@ -3045,10 +3186,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Medical Assessments::Medical Assessment::SafetyCaseAssessmentNotes
+DataField::Coco::Medical Assessments::Medical Assessment::Safety Case Assessment Notes
 
 ### Data Structure
 DataStructure::Coco::Medical Assessments::Medical Assessment
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -3067,7 +3214,7 @@ DataStructure::Coco::Medical Assessments::Coded Term
 One row per dictionary term coded against a case.
 
 ### Namespace Path
-coco_pharma.medical_assessments
+coco_data_hub.medical_assessments
 
 ### Version Identifier
 1.0
@@ -3096,19 +3243,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SafetyCaseIdentifier
+Safety Case Identifier
 
 ### Qualified Name
-DataField::Coco::Medical Assessments::Coded Term::SafetyCaseIdentifier
+DataField::Coco::Medical Assessments::Coded Term::Safety Case Identifier
 
 ### Description
 The case.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -3130,10 +3274,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Medical Assessments::Coded Term::SafetyCaseIdentifier
+DataField::Coco::Medical Assessments::Coded Term::Safety Case Identifier
 
 ### Data Structure
 DataStructure::Coco::Medical Assessments::Coded Term
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -3143,19 +3293,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AdverseEventCode
+Adverse Event Code
 
 ### Qualified Name
-DataField::Coco::Medical Assessments::Coded Term::AdverseEventCode
+DataField::Coco::Medical Assessments::Coded Term::Adverse Event Code
 
 ### Description
 The dictionary code.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -3177,10 +3324,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Medical Assessments::Coded Term::AdverseEventCode
+DataField::Coco::Medical Assessments::Coded Term::Adverse Event Code
 
 ### Data Structure
 DataStructure::Coco::Medical Assessments::Coded Term
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -3190,19 +3343,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AdverseEventDictionaryVersion
+Adverse Event Dictionary Version
 
 ### Qualified Name
-DataField::Coco::Medical Assessments::Coded Term::AdverseEventDictionaryVersion
+DataField::Coco::Medical Assessments::Coded Term::Adverse Event Dictionary Version
 
 ### Description
 The dictionary version.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -3224,10 +3374,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Medical Assessments::Coded Term::AdverseEventDictionaryVersion
+DataField::Coco::Medical Assessments::Coded Term::Adverse Event Dictionary Version
 
 ### Data Structure
 DataStructure::Coco::Medical Assessments::Coded Term
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -3237,19 +3393,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AdverseEventTermName
+Adverse Event Term Name
 
 ### Qualified Name
-DataField::Coco::Medical Assessments::Coded Term::AdverseEventTermName
+DataField::Coco::Medical Assessments::Coded Term::Adverse Event Term Name
 
 ### Description
 The term.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -3268,10 +3421,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Medical Assessments::Coded Term::AdverseEventTermName
+DataField::Coco::Medical Assessments::Coded Term::Adverse Event Term Name
 
 ### Data Structure
 DataStructure::Coco::Medical Assessments::Coded Term
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -3281,19 +3440,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AdverseEventPrimaryFlag
+Adverse Event Primary Flag
 
 ### Qualified Name
-DataField::Coco::Medical Assessments::Coded Term::AdverseEventPrimaryFlag
+DataField::Coco::Medical Assessments::Coded Term::Adverse Event Primary Flag
 
 ### Description
 Whether this is the primary event.
 
 ### Data Type
 boolean
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -3312,10 +3468,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Medical Assessments::Coded Term::AdverseEventPrimaryFlag
+DataField::Coco::Medical Assessments::Coded Term::Adverse Event Primary Flag
 
 ### Data Structure
 DataStructure::Coco::Medical Assessments::Coded Term
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -3334,10 +3496,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: medical_assessments
 - schemaDescription: The qualified medical judgement of seriousness, expectedness and causality for each case, and the coding of the event to the standard dictionary. It is the step that decides whether a report is expedited or periodic.
 
@@ -3464,7 +3626,7 @@ DataStructure::Coco::Safety Signals::Safety Signal
 One row per signal detected.
 
 ### Namespace Path
-coco_pharma.safety_signals
+coco_data_hub.safety_signals
 
 ### Version Identifier
 1.0
@@ -3493,19 +3655,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SignalIdentifier
+Signal Identifier
 
 ### Qualified Name
-DataField::Coco::Safety Signals::Safety Signal::SignalIdentifier
+DataField::Coco::Safety Signals::Safety Signal::Signal Identifier
 
 ### Description
 The signal.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -3527,10 +3686,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Safety Signals::Safety Signal::SignalIdentifier
+DataField::Coco::Safety Signals::Safety Signal::Signal Identifier
 
 ### Data Structure
 DataStructure::Coco::Safety Signals::Safety Signal
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -3540,19 +3705,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SignalDetectedDate
+Signal Detected Date
 
 ### Qualified Name
-DataField::Coco::Safety Signals::Safety Signal::SignalDetectedDate
+DataField::Coco::Safety Signals::Safety Signal::Signal Detected Date
 
 ### Description
 When detected.
 
 ### Data Type
 date
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -3571,10 +3733,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Safety Signals::Safety Signal::SignalDetectedDate
+DataField::Coco::Safety Signals::Safety Signal::Signal Detected Date
 
 ### Data Structure
 DataStructure::Coco::Safety Signals::Safety Signal
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -3584,19 +3752,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductCode
+Product Code
 
 ### Qualified Name
-DataField::Coco::Safety Signals::Safety Signal::ProductCode
+DataField::Coco::Safety Signals::Safety Signal::Product Code
 
 ### Description
 The product.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -3618,10 +3783,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Safety Signals::Safety Signal::ProductCode
+DataField::Coco::Safety Signals::Safety Signal::Product Code
 
 ### Data Structure
 DataStructure::Coco::Safety Signals::Safety Signal
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -3631,19 +3802,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AdverseEventCode
+Adverse Event Code
 
 ### Qualified Name
-DataField::Coco::Safety Signals::Safety Signal::AdverseEventCode
+DataField::Coco::Safety Signals::Safety Signal::Adverse Event Code
 
 ### Description
 The event term.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -3665,10 +3833,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Safety Signals::Safety Signal::AdverseEventCode
+DataField::Coco::Safety Signals::Safety Signal::Adverse Event Code
 
 ### Data Structure
 DataStructure::Coco::Safety Signals::Safety Signal
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -3678,19 +3852,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SignalContributingCount
+Signal Contributing Count
 
 ### Qualified Name
-DataField::Coco::Safety Signals::Safety Signal::SignalContributingCount
+DataField::Coco::Safety Signals::Safety Signal::Signal Contributing Count
 
 ### Description
 The number of cases contributing.
 
 ### Data Type
 int
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -3709,10 +3880,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Safety Signals::Safety Signal::SignalContributingCount
+DataField::Coco::Safety Signals::Safety Signal::Signal Contributing Count
 
 ### Data Structure
 DataStructure::Coco::Safety Signals::Safety Signal
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -3722,19 +3899,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SignalDescription
+Signal Description
 
 ### Qualified Name
-DataField::Coco::Safety Signals::Safety Signal::SignalDescription
+DataField::Coco::Safety Signals::Safety Signal::Signal Description
 
 ### Description
 The pattern observed.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -3753,10 +3927,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Safety Signals::Safety Signal::SignalDescription
+DataField::Coco::Safety Signals::Safety Signal::Signal Description
 
 ### Data Structure
 DataStructure::Coco::Safety Signals::Safety Signal
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -3766,19 +3946,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SignalCurrentStatus
+Signal Current Status
 
 ### Qualified Name
-DataField::Coco::Safety Signals::Safety Signal::SignalCurrentStatus
+DataField::Coco::Safety Signals::Safety Signal::Signal Current Status
 
 ### Description
 Detected, under evaluation, confirmed, refuted.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -3800,10 +3977,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Safety Signals::Safety Signal::SignalCurrentStatus
+DataField::Coco::Safety Signals::Safety Signal::Signal Current Status
 
 ### Data Structure
 DataStructure::Coco::Safety Signals::Safety Signal
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -3813,19 +3996,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SignalReferralType
+Signal Referral Type
 
 ### Qualified Name
-DataField::Coco::Safety Signals::Safety Signal::SignalReferralType
+DataField::Coco::Safety Signals::Safety Signal::Signal Referral Type
 
 ### Description
 Referred to quality, to authorisation, both or neither.
 
 ### Data Type
 string
-
-### Position
-8
 
 ### Is Nullable
 true
@@ -3847,10 +4027,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Safety Signals::Safety Signal::SignalReferralType
+DataField::Coco::Safety Signals::Safety Signal::Signal Referral Type
 
 ### Data Structure
 DataStructure::Coco::Safety Signals::Safety Signal
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -3869,7 +4055,7 @@ DataStructure::Coco::Safety Signals::Exposure Denominator
 One row per product per period, the exposure the signal rate was measured against.
 
 ### Namespace Path
-coco_pharma.safety_signals
+coco_data_hub.safety_signals
 
 ### Version Identifier
 1.0
@@ -3898,19 +4084,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductCode
+Product Code
 
 ### Qualified Name
-DataField::Coco::Safety Signals::Exposure Denominator::ProductCode
+DataField::Coco::Safety Signals::Exposure Denominator::Product Code
 
 ### Description
 The product.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -3932,10 +4115,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Safety Signals::Exposure Denominator::ProductCode
+DataField::Coco::Safety Signals::Exposure Denominator::Product Code
 
 ### Data Structure
 DataStructure::Coco::Safety Signals::Exposure Denominator
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -3945,19 +4134,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ExposurePeriodCode
+Exposure Period Code
 
 ### Qualified Name
-DataField::Coco::Safety Signals::Exposure Denominator::ExposurePeriodCode
+DataField::Coco::Safety Signals::Exposure Denominator::Exposure Period Code
 
 ### Description
 The period.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -3979,10 +4165,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Safety Signals::Exposure Denominator::ExposurePeriodCode
+DataField::Coco::Safety Signals::Exposure Denominator::Exposure Period Code
 
 ### Data Structure
 DataStructure::Coco::Safety Signals::Exposure Denominator
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -3992,19 +4184,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ExposureCount
+Exposure Count
 
 ### Qualified Name
-DataField::Coco::Safety Signals::Exposure Denominator::ExposureCount
+DataField::Coco::Safety Signals::Exposure Denominator::Exposure Count
 
 ### Description
 The estimated number of patients exposed.
 
 ### Data Type
 int
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -4023,10 +4212,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Safety Signals::Exposure Denominator::ExposureCount
+DataField::Coco::Safety Signals::Exposure Denominator::Exposure Count
 
 ### Data Structure
 DataStructure::Coco::Safety Signals::Exposure Denominator
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -4036,19 +4231,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ExposureSourceDescription
+Exposure Source Description
 
 ### Qualified Name
-DataField::Coco::Safety Signals::Exposure Denominator::ExposureSourceDescription
+DataField::Coco::Safety Signals::Exposure Denominator::Exposure Source Description
 
 ### Description
 How the estimate was derived.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -4067,10 +4259,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Safety Signals::Exposure Denominator::ExposureSourceDescription
+DataField::Coco::Safety Signals::Exposure Denominator::Exposure Source Description
 
 ### Data Structure
 DataStructure::Coco::Safety Signals::Exposure Denominator
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -4089,10 +4287,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: safety_signals
 - schemaDescription: The patterns found across accumulated cases that no single case shows, with the exposure denominators they were assessed against, and the referrals made to quality and to the authorisation register. A signal visible across trial and post-market data is invisible in either alone.
 
@@ -4219,7 +4417,7 @@ DataStructure::Coco::Regulatory Safety Submissions::Safety Submission
 One row per report submitted to a regulator.
 
 ### Namespace Path
-coco_pharma.regulatory_safety_submissions
+coco_data_hub.regulatory_safety_submissions
 
 ### Version Identifier
 1.0
@@ -4248,19 +4446,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SubmissionIdentifier
+Submission Identifier
 
 ### Qualified Name
-DataField::Coco::Regulatory Safety Submissions::Safety Submission::SubmissionIdentifier
+DataField::Coco::Regulatory Safety Submissions::Safety Submission::Submission Identifier
 
 ### Description
 The submission.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -4282,10 +4477,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Regulatory Safety Submissions::Safety Submission::SubmissionIdentifier
+DataField::Coco::Regulatory Safety Submissions::Safety Submission::Submission Identifier
 
 ### Data Structure
 DataStructure::Coco::Regulatory Safety Submissions::Safety Submission
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -4295,19 +4496,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SafetyCaseIdentifier
+Safety Case Identifier
 
 ### Qualified Name
-DataField::Coco::Regulatory Safety Submissions::Safety Submission::SafetyCaseIdentifier
+DataField::Coco::Regulatory Safety Submissions::Safety Submission::Safety Case Identifier
 
 ### Description
 The case, for an expedited report.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 true
@@ -4329,10 +4527,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Regulatory Safety Submissions::Safety Submission::SafetyCaseIdentifier
+DataField::Coco::Regulatory Safety Submissions::Safety Submission::Safety Case Identifier
 
 ### Data Structure
 DataStructure::Coco::Regulatory Safety Submissions::Safety Submission
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -4342,19 +4546,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductCode
+Product Code
 
 ### Qualified Name
-DataField::Coco::Regulatory Safety Submissions::Safety Submission::ProductCode
+DataField::Coco::Regulatory Safety Submissions::Safety Submission::Product Code
 
 ### Description
 The product.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -4376,10 +4577,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Regulatory Safety Submissions::Safety Submission::ProductCode
+DataField::Coco::Regulatory Safety Submissions::Safety Submission::Product Code
 
 ### Data Structure
 DataStructure::Coco::Regulatory Safety Submissions::Safety Submission
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -4389,19 +4596,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-MarketCode
+Market Code
 
 ### Qualified Name
-DataField::Coco::Regulatory Safety Submissions::Safety Submission::MarketCode
+DataField::Coco::Regulatory Safety Submissions::Safety Submission::Market Code
 
 ### Description
 The market.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -4423,10 +4627,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Regulatory Safety Submissions::Safety Submission::MarketCode
+DataField::Coco::Regulatory Safety Submissions::Safety Submission::Market Code
 
 ### Data Structure
 DataStructure::Coco::Regulatory Safety Submissions::Safety Submission
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -4436,19 +4646,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SubmissionRegulatorCode
+Submission Regulator Code
 
 ### Qualified Name
-DataField::Coco::Regulatory Safety Submissions::Safety Submission::SubmissionRegulatorCode
+DataField::Coco::Regulatory Safety Submissions::Safety Submission::Submission Regulator Code
 
 ### Description
 The regulator.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -4470,10 +4677,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Regulatory Safety Submissions::Safety Submission::SubmissionRegulatorCode
+DataField::Coco::Regulatory Safety Submissions::Safety Submission::Submission Regulator Code
 
 ### Data Structure
 DataStructure::Coco::Regulatory Safety Submissions::Safety Submission
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -4483,19 +4696,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SubmissionType
+Submission Type
 
 ### Qualified Name
-DataField::Coco::Regulatory Safety Submissions::Safety Submission::SubmissionType
+DataField::Coco::Regulatory Safety Submissions::Safety Submission::Submission Type
 
 ### Description
 Expedited or periodic.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -4517,10 +4727,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Regulatory Safety Submissions::Safety Submission::SubmissionType
+DataField::Coco::Regulatory Safety Submissions::Safety Submission::Submission Type
 
 ### Data Structure
 DataStructure::Coco::Regulatory Safety Submissions::Safety Submission
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -4530,19 +4746,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SubmissionDueDate
+Submission Due Date
 
 ### Qualified Name
-DataField::Coco::Regulatory Safety Submissions::Safety Submission::SubmissionDueDate
+DataField::Coco::Regulatory Safety Submissions::Safety Submission::Submission Due Date
 
 ### Description
 When due.
 
 ### Data Type
 date
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -4561,10 +4774,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Regulatory Safety Submissions::Safety Submission::SubmissionDueDate
+DataField::Coco::Regulatory Safety Submissions::Safety Submission::Submission Due Date
 
 ### Data Structure
 DataStructure::Coco::Regulatory Safety Submissions::Safety Submission
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -4574,19 +4793,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SubmissionTimestamp
+Submission Timestamp
 
 ### Qualified Name
-DataField::Coco::Regulatory Safety Submissions::Safety Submission::SubmissionTimestamp
+DataField::Coco::Regulatory Safety Submissions::Safety Submission::Submission Timestamp
 
 ### Description
 When transmitted.
 
 ### Data Type
 date
-
-### Position
-8
 
 ### Is Nullable
 false
@@ -4605,10 +4821,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Regulatory Safety Submissions::Safety Submission::SubmissionTimestamp
+DataField::Coco::Regulatory Safety Submissions::Safety Submission::Submission Timestamp
 
 ### Data Structure
 DataStructure::Coco::Regulatory Safety Submissions::Safety Submission
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -4618,19 +4840,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SubmissionFormatCode
+Submission Format Code
 
 ### Qualified Name
-DataField::Coco::Regulatory Safety Submissions::Safety Submission::SubmissionFormatCode
+DataField::Coco::Regulatory Safety Submissions::Safety Submission::Submission Format Code
 
 ### Description
 The format used.
 
 ### Data Type
 string
-
-### Position
-9
 
 ### Is Nullable
 false
@@ -4652,10 +4871,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Regulatory Safety Submissions::Safety Submission::SubmissionFormatCode
+DataField::Coco::Regulatory Safety Submissions::Safety Submission::Submission Format Code
 
 ### Data Structure
 DataStructure::Coco::Regulatory Safety Submissions::Safety Submission
+
+### Position
+9
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 9
@@ -4674,7 +4899,7 @@ DataStructure::Coco::Regulatory Safety Submissions::Submission Acknowledgement
 One row per acknowledgement received.
 
 ### Namespace Path
-coco_pharma.regulatory_safety_submissions
+coco_data_hub.regulatory_safety_submissions
 
 ### Version Identifier
 1.0
@@ -4703,110 +4928,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SubmissionIdentifier
+Submission Acknowledgement Identifier
 
 ### Qualified Name
-DataField::Coco::Regulatory Safety Submissions::Submission Acknowledgement::SubmissionIdentifier
-
-### Description
-The submission.
-
-### Data Type
-string
-
-### Position
-1
-
-### Is Nullable
-false
-
-### Minimum Cardinality
-1
-
-### Length
-40
-
-### Version Identifier
-1.0
-
-### Content Status
-ACTIVE
-
-___
-
-## Link Data Field to Data Structure
-
-### Data Field
-DataField::Coco::Regulatory Safety Submissions::Submission Acknowledgement::SubmissionIdentifier
-
-### Data Structure
-DataStructure::Coco::Regulatory Safety Submissions::Submission Acknowledgement
-
-### Label
-field 1
-
-___
-
-## Create Data Field
-
-### Display Name
-SubmissionAcknowledgedTimestamp
-
-### Qualified Name
-DataField::Coco::Regulatory Safety Submissions::Submission Acknowledgement::SubmissionAcknowledgedTimestamp
-
-### Description
-When acknowledged.
-
-### Data Type
-date
-
-### Position
-2
-
-### Is Nullable
-false
-
-### Minimum Cardinality
-1
-
-### Version Identifier
-1.0
-
-### Content Status
-ACTIVE
-
-___
-
-## Link Data Field to Data Structure
-
-### Data Field
-DataField::Coco::Regulatory Safety Submissions::Submission Acknowledgement::SubmissionAcknowledgedTimestamp
-
-### Data Structure
-DataStructure::Coco::Regulatory Safety Submissions::Submission Acknowledgement
-
-### Label
-field 2
-
-___
-
-## Create Data Field
-
-### Display Name
-SubmissionAcknowledgementIdentifier
-
-### Qualified Name
-DataField::Coco::Regulatory Safety Submissions::Submission Acknowledgement::SubmissionAcknowledgementIdentifier
+DataField::Coco::Regulatory Safety Submissions::Submission Acknowledgement::Submission Acknowledgement Identifier
 
 ### Description
 The regulator's reference.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -4828,10 +4959,113 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Regulatory Safety Submissions::Submission Acknowledgement::SubmissionAcknowledgementIdentifier
+DataField::Coco::Regulatory Safety Submissions::Submission Acknowledgement::Submission Acknowledgement Identifier
 
 ### Data Structure
 DataStructure::Coco::Regulatory Safety Submissions::Submission Acknowledgement
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
+
+### Label
+field 1
+
+___
+
+## Create Data Field
+
+### Display Name
+Submission Identifier
+
+### Qualified Name
+DataField::Coco::Regulatory Safety Submissions::Submission Acknowledgement::Submission Identifier
+
+### Description
+The submission.
+
+### Data Type
+string
+
+### Is Nullable
+false
+
+### Minimum Cardinality
+1
+
+### Length
+40
+
+### Version Identifier
+1.0
+
+### Content Status
+ACTIVE
+
+___
+
+## Link Data Field to Data Structure
+
+### Data Field
+DataField::Coco::Regulatory Safety Submissions::Submission Acknowledgement::Submission Identifier
+
+### Data Structure
+DataStructure::Coco::Regulatory Safety Submissions::Submission Acknowledgement
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
+
+### Label
+field 2
+
+___
+
+## Create Data Field
+
+### Display Name
+Submission Acknowledged Timestamp
+
+### Qualified Name
+DataField::Coco::Regulatory Safety Submissions::Submission Acknowledgement::Submission Acknowledged Timestamp
+
+### Description
+When acknowledged.
+
+### Data Type
+date
+
+### Is Nullable
+false
+
+### Minimum Cardinality
+1
+
+### Version Identifier
+1.0
+
+### Content Status
+ACTIVE
+
+___
+
+## Link Data Field to Data Structure
+
+### Data Field
+DataField::Coco::Regulatory Safety Submissions::Submission Acknowledgement::Submission Acknowledged Timestamp
+
+### Data Structure
+DataStructure::Coco::Regulatory Safety Submissions::Submission Acknowledgement
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -4841,19 +5075,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SubmissionAcknowledgementStatus
+Submission Acknowledgement Status
 
 ### Qualified Name
-DataField::Coco::Regulatory Safety Submissions::Submission Acknowledgement::SubmissionAcknowledgementStatus
+DataField::Coco::Regulatory Safety Submissions::Submission Acknowledgement::Submission Acknowledgement Status
 
 ### Description
 Accepted, rejected or queried.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -4875,10 +5106,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Regulatory Safety Submissions::Submission Acknowledgement::SubmissionAcknowledgementStatus
+DataField::Coco::Regulatory Safety Submissions::Submission Acknowledgement::Submission Acknowledgement Status
 
 ### Data Structure
 DataStructure::Coco::Regulatory Safety Submissions::Submission Acknowledgement
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -4897,10 +5134,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: regulatory_safety_submissions
 - schemaDescription: The expedited and periodic safety reports formatted and transmitted to the regulator of each market the product is authorised in, and the acknowledgement each received. An unacknowledged submission is not a submission.
 
@@ -5027,7 +5264,7 @@ DataStructure::Coco::Laboratory Test Results::Sample
 One row per sample taken for testing.
 
 ### Namespace Path
-coco_pharma.laboratory_test_results
+coco_data_hub.laboratory_test_results
 
 ### Version Identifier
 1.0
@@ -5056,19 +5293,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SampleIdentifier
+Sample Identifier
 
 ### Qualified Name
-DataField::Coco::Laboratory Test Results::Sample::SampleIdentifier
+DataField::Coco::Laboratory Test Results::Sample::Sample Identifier
 
 ### Description
 The sample.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -5090,10 +5324,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Laboratory Test Results::Sample::SampleIdentifier
+DataField::Coco::Laboratory Test Results::Sample::Sample Identifier
 
 ### Data Structure
 DataStructure::Coco::Laboratory Test Results::Sample
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -5103,19 +5343,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SampleType
+Sample Type
 
 ### Qualified Name
-DataField::Coco::Laboratory Test Results::Sample::SampleType
+DataField::Coco::Laboratory Test Results::Sample::Sample Type
 
 ### Description
 Raw material, in-process or finished product.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -5137,10 +5374,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Laboratory Test Results::Sample::SampleType
+DataField::Coco::Laboratory Test Results::Sample::Sample Type
 
 ### Data Structure
 DataStructure::Coco::Laboratory Test Results::Sample
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -5150,19 +5393,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LotIdentifier
+Lot Identifier
 
 ### Qualified Name
-DataField::Coco::Laboratory Test Results::Sample::LotIdentifier
+DataField::Coco::Laboratory Test Results::Sample::Lot Identifier
 
 ### Description
 The material lot, for raw material.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 true
@@ -5184,10 +5424,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Laboratory Test Results::Sample::LotIdentifier
+DataField::Coco::Laboratory Test Results::Sample::Lot Identifier
 
 ### Data Structure
 DataStructure::Coco::Laboratory Test Results::Sample
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -5197,19 +5443,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-BatchIdentifier
+Batch Identifier
 
 ### Qualified Name
-DataField::Coco::Laboratory Test Results::Sample::BatchIdentifier
+DataField::Coco::Laboratory Test Results::Sample::Batch Identifier
 
 ### Description
 The batch, for in-process and finished product.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 true
@@ -5231,10 +5474,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Laboratory Test Results::Sample::BatchIdentifier
+DataField::Coco::Laboratory Test Results::Sample::Batch Identifier
 
 ### Data Structure
 DataStructure::Coco::Laboratory Test Results::Sample
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -5244,19 +5493,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SampleCollectionTimestamp
+Sample Collection Timestamp
 
 ### Qualified Name
-DataField::Coco::Laboratory Test Results::Sample::SampleCollectionTimestamp
+DataField::Coco::Laboratory Test Results::Sample::Sample Collection Timestamp
 
 ### Description
 When taken.
 
 ### Data Type
 date
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -5275,10 +5521,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Laboratory Test Results::Sample::SampleCollectionTimestamp
+DataField::Coco::Laboratory Test Results::Sample::Sample Collection Timestamp
 
 ### Data Structure
 DataStructure::Coco::Laboratory Test Results::Sample
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -5288,19 +5540,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SampleCurrentStatus
+Sample Current Status
 
 ### Qualified Name
-DataField::Coco::Laboratory Test Results::Sample::SampleCurrentStatus
+DataField::Coco::Laboratory Test Results::Sample::Sample Current Status
 
 ### Description
 Received, in test, complete.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -5322,10 +5571,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Laboratory Test Results::Sample::SampleCurrentStatus
+DataField::Coco::Laboratory Test Results::Sample::Sample Current Status
 
 ### Data Structure
 DataStructure::Coco::Laboratory Test Results::Sample
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -5344,7 +5599,7 @@ DataStructure::Coco::Laboratory Test Results::Test Result
 One row per test on a sample.
 
 ### Namespace Path
-coco_pharma.laboratory_test_results
+coco_data_hub.laboratory_test_results
 
 ### Version Identifier
 1.0
@@ -5373,19 +5628,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TestResultIdentifier
+Test Result Identifier
 
 ### Qualified Name
-DataField::Coco::Laboratory Test Results::Test Result::TestResultIdentifier
+DataField::Coco::Laboratory Test Results::Test Result::Test Result Identifier
 
 ### Description
 The result.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -5407,10 +5659,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Laboratory Test Results::Test Result::TestResultIdentifier
+DataField::Coco::Laboratory Test Results::Test Result::Test Result Identifier
 
 ### Data Structure
 DataStructure::Coco::Laboratory Test Results::Test Result
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -5420,19 +5678,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SampleIdentifier
+Sample Identifier
 
 ### Qualified Name
-DataField::Coco::Laboratory Test Results::Test Result::SampleIdentifier
+DataField::Coco::Laboratory Test Results::Test Result::Sample Identifier
 
 ### Description
 The sample.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -5454,10 +5709,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Laboratory Test Results::Test Result::SampleIdentifier
+DataField::Coco::Laboratory Test Results::Test Result::Sample Identifier
 
 ### Data Structure
 DataStructure::Coco::Laboratory Test Results::Test Result
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -5467,19 +5728,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TestCode
+Test Code
 
 ### Qualified Name
-DataField::Coco::Laboratory Test Results::Test Result::TestCode
+DataField::Coco::Laboratory Test Results::Test Result::Test Code
 
 ### Description
 The test.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -5501,10 +5759,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Laboratory Test Results::Test Result::TestCode
+DataField::Coco::Laboratory Test Results::Test Result::Test Code
 
 ### Data Structure
 DataStructure::Coco::Laboratory Test Results::Test Result
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -5514,19 +5778,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TestValue
+Test Value
 
 ### Qualified Name
-DataField::Coco::Laboratory Test Results::Test Result::TestValue
+DataField::Coco::Laboratory Test Results::Test Result::Test Value
 
 ### Description
 The result.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -5548,10 +5809,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Laboratory Test Results::Test Result::TestValue
+DataField::Coco::Laboratory Test Results::Test Result::Test Value
 
 ### Data Structure
 DataStructure::Coco::Laboratory Test Results::Test Result
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -5561,19 +5828,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TestUnit
+Test Unit
 
 ### Qualified Name
-DataField::Coco::Laboratory Test Results::Test Result::TestUnit
+DataField::Coco::Laboratory Test Results::Test Result::Test Unit
 
 ### Description
 The unit.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -5595,10 +5859,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Laboratory Test Results::Test Result::TestUnit
+DataField::Coco::Laboratory Test Results::Test Result::Test Unit
 
 ### Data Structure
 DataStructure::Coco::Laboratory Test Results::Test Result
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -5608,19 +5878,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SpecificationMinimumValue
+Specification Minimum Value
 
 ### Qualified Name
-DataField::Coco::Laboratory Test Results::Test Result::SpecificationMinimumValue
+DataField::Coco::Laboratory Test Results::Test Result::Specification Minimum Value
 
 ### Description
 The lower limit.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 true
@@ -5642,10 +5909,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Laboratory Test Results::Test Result::SpecificationMinimumValue
+DataField::Coco::Laboratory Test Results::Test Result::Specification Minimum Value
 
 ### Data Structure
 DataStructure::Coco::Laboratory Test Results::Test Result
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -5655,19 +5928,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SpecificationMaximumValue
+Specification Maximum Value
 
 ### Qualified Name
-DataField::Coco::Laboratory Test Results::Test Result::SpecificationMaximumValue
+DataField::Coco::Laboratory Test Results::Test Result::Specification Maximum Value
 
 ### Description
 The upper limit.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 true
@@ -5689,10 +5959,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Laboratory Test Results::Test Result::SpecificationMaximumValue
+DataField::Coco::Laboratory Test Results::Test Result::Specification Maximum Value
 
 ### Data Structure
 DataStructure::Coco::Laboratory Test Results::Test Result
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -5702,19 +5978,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TestConformityFlag
+Test Conformity Flag
 
 ### Qualified Name
-DataField::Coco::Laboratory Test Results::Test Result::TestConformityFlag
+DataField::Coco::Laboratory Test Results::Test Result::Test Conformity Flag
 
 ### Description
 Whether the result is within specification.
 
 ### Data Type
 boolean
-
-### Position
-8
 
 ### Is Nullable
 false
@@ -5733,10 +6006,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Laboratory Test Results::Test Result::TestConformityFlag
+DataField::Coco::Laboratory Test Results::Test Result::Test Conformity Flag
 
 ### Data Structure
 DataStructure::Coco::Laboratory Test Results::Test Result
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -5746,19 +6025,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TestCompletedTimestamp
+Test Completed Timestamp
 
 ### Qualified Name
-DataField::Coco::Laboratory Test Results::Test Result::TestCompletedTimestamp
+DataField::Coco::Laboratory Test Results::Test Result::Test Completed Timestamp
 
 ### Description
 When completed.
 
 ### Data Type
 date
-
-### Position
-9
 
 ### Is Nullable
 false
@@ -5777,10 +6053,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Laboratory Test Results::Test Result::TestCompletedTimestamp
+DataField::Coco::Laboratory Test Results::Test Result::Test Completed Timestamp
 
 ### Data Structure
 DataStructure::Coco::Laboratory Test Results::Test Result
+
+### Position
+9
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 9
@@ -5790,19 +6072,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TestAnalystIdentifier
+Test Analyst Identifier
 
 ### Qualified Name
-DataField::Coco::Laboratory Test Results::Test Result::TestAnalystIdentifier
+DataField::Coco::Laboratory Test Results::Test Result::Test Analyst Identifier
 
 ### Description
 The analyst.
 
 ### Data Type
 string
-
-### Position
-10
 
 ### Is Nullable
 false
@@ -5824,10 +6103,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Laboratory Test Results::Test Result::TestAnalystIdentifier
+DataField::Coco::Laboratory Test Results::Test Result::Test Analyst Identifier
 
 ### Data Structure
 DataStructure::Coco::Laboratory Test Results::Test Result
+
+### Position
+10
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 10
@@ -5846,7 +6131,7 @@ DataStructure::Coco::Laboratory Test Results::Certificate Of Analysis
 One row per certificate issued for a batch or lot.
 
 ### Namespace Path
-coco_pharma.laboratory_test_results
+coco_data_hub.laboratory_test_results
 
 ### Version Identifier
 1.0
@@ -5875,19 +6160,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CertificateIdentifier
+Certificate Identifier
 
 ### Qualified Name
-DataField::Coco::Laboratory Test Results::Certificate Of Analysis::CertificateIdentifier
+DataField::Coco::Laboratory Test Results::Certificate Of Analysis::Certificate Identifier
 
 ### Description
 The certificate.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -5909,10 +6191,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Laboratory Test Results::Certificate Of Analysis::CertificateIdentifier
+DataField::Coco::Laboratory Test Results::Certificate Of Analysis::Certificate Identifier
 
 ### Data Structure
 DataStructure::Coco::Laboratory Test Results::Certificate Of Analysis
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -5922,19 +6210,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-BatchIdentifier
+Batch Identifier
 
 ### Qualified Name
-DataField::Coco::Laboratory Test Results::Certificate Of Analysis::BatchIdentifier
+DataField::Coco::Laboratory Test Results::Certificate Of Analysis::Batch Identifier
 
 ### Description
 The batch, for finished product.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 true
@@ -5956,10 +6241,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Laboratory Test Results::Certificate Of Analysis::BatchIdentifier
+DataField::Coco::Laboratory Test Results::Certificate Of Analysis::Batch Identifier
 
 ### Data Structure
 DataStructure::Coco::Laboratory Test Results::Certificate Of Analysis
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -5969,19 +6260,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LotIdentifier
+Lot Identifier
 
 ### Qualified Name
-DataField::Coco::Laboratory Test Results::Certificate Of Analysis::LotIdentifier
+DataField::Coco::Laboratory Test Results::Certificate Of Analysis::Lot Identifier
 
 ### Description
 The lot, for material.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 true
@@ -6003,10 +6291,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Laboratory Test Results::Certificate Of Analysis::LotIdentifier
+DataField::Coco::Laboratory Test Results::Certificate Of Analysis::Lot Identifier
 
 ### Data Structure
 DataStructure::Coco::Laboratory Test Results::Certificate Of Analysis
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -6016,19 +6310,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CertificateDate
+Certificate Date
 
 ### Qualified Name
-DataField::Coco::Laboratory Test Results::Certificate Of Analysis::CertificateDate
+DataField::Coco::Laboratory Test Results::Certificate Of Analysis::Certificate Date
 
 ### Description
 When issued.
 
 ### Data Type
 date
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -6047,10 +6338,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Laboratory Test Results::Certificate Of Analysis::CertificateDate
+DataField::Coco::Laboratory Test Results::Certificate Of Analysis::Certificate Date
 
 ### Data Structure
 DataStructure::Coco::Laboratory Test Results::Certificate Of Analysis
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -6060,19 +6357,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CertificateConformityFlag
+Certificate Conformity Flag
 
 ### Qualified Name
-DataField::Coco::Laboratory Test Results::Certificate Of Analysis::CertificateConformityFlag
+DataField::Coco::Laboratory Test Results::Certificate Of Analysis::Certificate Conformity Flag
 
 ### Description
 Whether every test conformed.
 
 ### Data Type
 boolean
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -6091,10 +6385,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Laboratory Test Results::Certificate Of Analysis::CertificateConformityFlag
+DataField::Coco::Laboratory Test Results::Certificate Of Analysis::Certificate Conformity Flag
 
 ### Data Structure
 DataStructure::Coco::Laboratory Test Results::Certificate Of Analysis
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -6104,19 +6404,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CertificateApproverIdentifier
+Certificate Approver Identifier
 
 ### Qualified Name
-DataField::Coco::Laboratory Test Results::Certificate Of Analysis::CertificateApproverIdentifier
+DataField::Coco::Laboratory Test Results::Certificate Of Analysis::Certificate Approver Identifier
 
 ### Description
 Who approved the certificate.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -6138,10 +6435,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Laboratory Test Results::Certificate Of Analysis::CertificateApproverIdentifier
+DataField::Coco::Laboratory Test Results::Certificate Of Analysis::Certificate Approver Identifier
 
 ### Data Structure
 DataStructure::Coco::Laboratory Test Results::Certificate Of Analysis
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -6160,10 +6463,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: laboratory_test_results
 - schemaDescription: Sampling, testing and results for raw materials, in-process checks and finished product, compared against specification, and the certificates of analysis issued for release. Results are gates rather than reports: material cannot be issued and product cannot be released until the laboratory has answered.
 
@@ -6290,7 +6593,7 @@ DataStructure::Coco::Deviations And CAPAs::Deviation
 One row per deviation raised.
 
 ### Namespace Path
-coco_pharma.deviations_and_capas
+coco_data_hub.deviations_and_capas
 
 ### Version Identifier
 1.0
@@ -6319,19 +6622,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DeviationIdentifier
+Deviation Identifier
 
 ### Qualified Name
-DataField::Coco::Deviations And CAPAs::Deviation::DeviationIdentifier
+DataField::Coco::Deviations And CAPAs::Deviation::Deviation Identifier
 
 ### Description
 The deviation.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -6353,10 +6653,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Deviations And CAPAs::Deviation::DeviationIdentifier
+DataField::Coco::Deviations And CAPAs::Deviation::Deviation Identifier
 
 ### Data Structure
 DataStructure::Coco::Deviations And CAPAs::Deviation
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -6366,19 +6672,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DeviationRaisedTimestamp
+Deviation Raised Timestamp
 
 ### Qualified Name
-DataField::Coco::Deviations And CAPAs::Deviation::DeviationRaisedTimestamp
+DataField::Coco::Deviations And CAPAs::Deviation::Deviation Raised Timestamp
 
 ### Description
 When raised.
 
 ### Data Type
 date
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -6397,10 +6700,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Deviations And CAPAs::Deviation::DeviationRaisedTimestamp
+DataField::Coco::Deviations And CAPAs::Deviation::Deviation Raised Timestamp
 
 ### Data Structure
 DataStructure::Coco::Deviations And CAPAs::Deviation
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -6410,19 +6719,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DeviationSourceType
+Deviation Source Type
 
 ### Qualified Name
-DataField::Coco::Deviations And CAPAs::Deviation::DeviationSourceType
+DataField::Coco::Deviations And CAPAs::Deviation::Deviation Source Type
 
 ### Description
 Manufacturing execution, safety signal, audit or other.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -6444,10 +6750,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Deviations And CAPAs::Deviation::DeviationSourceType
+DataField::Coco::Deviations And CAPAs::Deviation::Deviation Source Type
 
 ### Data Structure
 DataStructure::Coco::Deviations And CAPAs::Deviation
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -6457,19 +6769,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-BatchIdentifier
+Batch Identifier
 
 ### Qualified Name
-DataField::Coco::Deviations And CAPAs::Deviation::BatchIdentifier
+DataField::Coco::Deviations And CAPAs::Deviation::Batch Identifier
 
 ### Description
 The batch affected, if any.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 true
@@ -6491,10 +6800,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Deviations And CAPAs::Deviation::BatchIdentifier
+DataField::Coco::Deviations And CAPAs::Deviation::Batch Identifier
 
 ### Data Structure
 DataStructure::Coco::Deviations And CAPAs::Deviation
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -6504,19 +6819,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductCode
+Product Code
 
 ### Qualified Name
-DataField::Coco::Deviations And CAPAs::Deviation::ProductCode
+DataField::Coco::Deviations And CAPAs::Deviation::Product Code
 
 ### Description
 The product affected.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -6538,10 +6850,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Deviations And CAPAs::Deviation::ProductCode
+DataField::Coco::Deviations And CAPAs::Deviation::Product Code
 
 ### Data Structure
 DataStructure::Coco::Deviations And CAPAs::Deviation
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -6551,19 +6869,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SignalIdentifier
+Signal Identifier
 
 ### Qualified Name
-DataField::Coco::Deviations And CAPAs::Deviation::SignalIdentifier
+DataField::Coco::Deviations And CAPAs::Deviation::Signal Identifier
 
 ### Description
 The safety signal referred, if any.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 true
@@ -6585,10 +6900,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Deviations And CAPAs::Deviation::SignalIdentifier
+DataField::Coco::Deviations And CAPAs::Deviation::Signal Identifier
 
 ### Data Structure
 DataStructure::Coco::Deviations And CAPAs::Deviation
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -6598,19 +6919,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DeviationDescription
+Deviation Description
 
 ### Qualified Name
-DataField::Coco::Deviations And CAPAs::Deviation::DeviationDescription
+DataField::Coco::Deviations And CAPAs::Deviation::Deviation Description
 
 ### Description
 The departure and its context.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -6629,10 +6947,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Deviations And CAPAs::Deviation::DeviationDescription
+DataField::Coco::Deviations And CAPAs::Deviation::Deviation Description
 
 ### Data Structure
 DataStructure::Coco::Deviations And CAPAs::Deviation
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -6642,19 +6966,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DeviationSeverity
+Deviation Severity
 
 ### Qualified Name
-DataField::Coco::Deviations And CAPAs::Deviation::DeviationSeverity
+DataField::Coco::Deviations And CAPAs::Deviation::Deviation Severity
 
 ### Description
 Minor, major or critical.
 
 ### Data Type
 string
-
-### Position
-8
 
 ### Is Nullable
 false
@@ -6676,10 +6997,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Deviations And CAPAs::Deviation::DeviationSeverity
+DataField::Coco::Deviations And CAPAs::Deviation::Deviation Severity
 
 ### Data Structure
 DataStructure::Coco::Deviations And CAPAs::Deviation
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -6689,19 +7016,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DeviationCurrentStatus
+Deviation Current Status
 
 ### Qualified Name
-DataField::Coco::Deviations And CAPAs::Deviation::DeviationCurrentStatus
+DataField::Coco::Deviations And CAPAs::Deviation::Deviation Current Status
 
 ### Description
 Open, under investigation, dispositioned, closed.
 
 ### Data Type
 string
-
-### Position
-9
 
 ### Is Nullable
 false
@@ -6723,10 +7047,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Deviations And CAPAs::Deviation::DeviationCurrentStatus
+DataField::Coco::Deviations And CAPAs::Deviation::Deviation Current Status
 
 ### Data Structure
 DataStructure::Coco::Deviations And CAPAs::Deviation
+
+### Position
+9
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 9
@@ -6745,7 +7075,7 @@ DataStructure::Coco::Deviations And CAPAs::Investigation
 One row per deviation, the investigation outcome and impact on the batch.
 
 ### Namespace Path
-coco_pharma.deviations_and_capas
+coco_data_hub.deviations_and_capas
 
 ### Version Identifier
 1.0
@@ -6774,19 +7104,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DeviationIdentifier
+Deviation Identifier
 
 ### Qualified Name
-DataField::Coco::Deviations And CAPAs::Investigation::DeviationIdentifier
+DataField::Coco::Deviations And CAPAs::Investigation::Deviation Identifier
 
 ### Description
 The deviation.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -6808,10 +7135,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Deviations And CAPAs::Investigation::DeviationIdentifier
+DataField::Coco::Deviations And CAPAs::Investigation::Deviation Identifier
 
 ### Data Structure
 DataStructure::Coco::Deviations And CAPAs::Investigation
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -6821,19 +7154,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DeviationInvestigatorIdentifier
+Deviation Investigator Identifier
 
 ### Qualified Name
-DataField::Coco::Deviations And CAPAs::Investigation::DeviationInvestigatorIdentifier
+DataField::Coco::Deviations And CAPAs::Investigation::Deviation Investigator Identifier
 
 ### Description
 Who investigated.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -6855,10 +7185,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Deviations And CAPAs::Investigation::DeviationInvestigatorIdentifier
+DataField::Coco::Deviations And CAPAs::Investigation::Deviation Investigator Identifier
 
 ### Data Structure
 DataStructure::Coco::Deviations And CAPAs::Investigation
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -6868,19 +7204,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DeviationInvestigationCompletedDate
+Deviation Investigation Completed Date
 
 ### Qualified Name
-DataField::Coco::Deviations And CAPAs::Investigation::DeviationInvestigationCompletedDate
+DataField::Coco::Deviations And CAPAs::Investigation::Deviation Investigation Completed Date
 
 ### Description
 When.
 
 ### Data Type
 date
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -6899,10 +7232,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Deviations And CAPAs::Investigation::DeviationInvestigationCompletedDate
+DataField::Coco::Deviations And CAPAs::Investigation::Deviation Investigation Completed Date
 
 ### Data Structure
 DataStructure::Coco::Deviations And CAPAs::Investigation
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -6912,19 +7251,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DeviationRootCauseDescription
+Deviation Root Cause Description
 
 ### Qualified Name
-DataField::Coco::Deviations And CAPAs::Investigation::DeviationRootCauseDescription
+DataField::Coco::Deviations And CAPAs::Investigation::Deviation Root Cause Description
 
 ### Description
 The root cause found.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -6943,10 +7279,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Deviations And CAPAs::Investigation::DeviationRootCauseDescription
+DataField::Coco::Deviations And CAPAs::Investigation::Deviation Root Cause Description
 
 ### Data Structure
 DataStructure::Coco::Deviations And CAPAs::Investigation
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -6956,19 +7298,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DeviationImpactDescription
+Deviation Impact Description
 
 ### Qualified Name
-DataField::Coco::Deviations And CAPAs::Investigation::DeviationImpactDescription
+DataField::Coco::Deviations And CAPAs::Investigation::Deviation Impact Description
 
 ### Description
 The impact on the batch.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -6987,10 +7326,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Deviations And CAPAs::Investigation::DeviationImpactDescription
+DataField::Coco::Deviations And CAPAs::Investigation::Deviation Impact Description
 
 ### Data Structure
 DataStructure::Coco::Deviations And CAPAs::Investigation
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -7000,19 +7345,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DeviationDispositionStatus
+Deviation Disposition Status
 
 ### Qualified Name
-DataField::Coco::Deviations And CAPAs::Investigation::DeviationDispositionStatus
+DataField::Coco::Deviations And CAPAs::Investigation::Deviation Disposition Status
 
 ### Description
 No impact, rework, reject, or release with justification.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -7034,10 +7376,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Deviations And CAPAs::Investigation::DeviationDispositionStatus
+DataField::Coco::Deviations And CAPAs::Investigation::Deviation Disposition Status
 
 ### Data Structure
 DataStructure::Coco::Deviations And CAPAs::Investigation
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -7056,7 +7404,7 @@ DataStructure::Coco::Deviations And CAPAs::Corrective Action
 One row per corrective or preventive action.
 
 ### Namespace Path
-coco_pharma.deviations_and_capas
+coco_data_hub.deviations_and_capas
 
 ### Version Identifier
 1.0
@@ -7085,19 +7433,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CorrectiveActionIdentifier
+Corrective Action Identifier
 
 ### Qualified Name
-DataField::Coco::Deviations And CAPAs::Corrective Action::CorrectiveActionIdentifier
+DataField::Coco::Deviations And CAPAs::Corrective Action::Corrective Action Identifier
 
 ### Description
 The action.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -7119,10 +7464,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Deviations And CAPAs::Corrective Action::CorrectiveActionIdentifier
+DataField::Coco::Deviations And CAPAs::Corrective Action::Corrective Action Identifier
 
 ### Data Structure
 DataStructure::Coco::Deviations And CAPAs::Corrective Action
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -7132,19 +7483,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DeviationIdentifier
+Deviation Identifier
 
 ### Qualified Name
-DataField::Coco::Deviations And CAPAs::Corrective Action::DeviationIdentifier
+DataField::Coco::Deviations And CAPAs::Corrective Action::Deviation Identifier
 
 ### Description
 The deviation it addresses.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -7166,10 +7514,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Deviations And CAPAs::Corrective Action::DeviationIdentifier
+DataField::Coco::Deviations And CAPAs::Corrective Action::Deviation Identifier
 
 ### Data Structure
 DataStructure::Coco::Deviations And CAPAs::Corrective Action
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -7179,19 +7533,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CorrectiveActionType
+Corrective Action Type
 
 ### Qualified Name
-DataField::Coco::Deviations And CAPAs::Corrective Action::CorrectiveActionType
+DataField::Coco::Deviations And CAPAs::Corrective Action::Corrective Action Type
 
 ### Description
 Corrective or preventive.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -7213,10 +7564,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Deviations And CAPAs::Corrective Action::CorrectiveActionType
+DataField::Coco::Deviations And CAPAs::Corrective Action::Corrective Action Type
 
 ### Data Structure
 DataStructure::Coco::Deviations And CAPAs::Corrective Action
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -7226,19 +7583,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CorrectiveActionDescription
+Corrective Action Description
 
 ### Qualified Name
-DataField::Coco::Deviations And CAPAs::Corrective Action::CorrectiveActionDescription
+DataField::Coco::Deviations And CAPAs::Corrective Action::Corrective Action Description
 
 ### Description
 The action.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -7257,10 +7611,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Deviations And CAPAs::Corrective Action::CorrectiveActionDescription
+DataField::Coco::Deviations And CAPAs::Corrective Action::Corrective Action Description
 
 ### Data Structure
 DataStructure::Coco::Deviations And CAPAs::Corrective Action
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -7270,19 +7630,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CorrectiveActionOwnerIdentifier
+Corrective Action Owner Identifier
 
 ### Qualified Name
-DataField::Coco::Deviations And CAPAs::Corrective Action::CorrectiveActionOwnerIdentifier
+DataField::Coco::Deviations And CAPAs::Corrective Action::Corrective Action Owner Identifier
 
 ### Description
 Who owns it.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -7304,10 +7661,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Deviations And CAPAs::Corrective Action::CorrectiveActionOwnerIdentifier
+DataField::Coco::Deviations And CAPAs::Corrective Action::Corrective Action Owner Identifier
 
 ### Data Structure
 DataStructure::Coco::Deviations And CAPAs::Corrective Action
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -7317,19 +7680,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CorrectiveActionDueDate
+Corrective Action Due Date
 
 ### Qualified Name
-DataField::Coco::Deviations And CAPAs::Corrective Action::CorrectiveActionDueDate
+DataField::Coco::Deviations And CAPAs::Corrective Action::Corrective Action Due Date
 
 ### Description
 When due.
 
 ### Data Type
 date
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -7348,10 +7708,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Deviations And CAPAs::Corrective Action::CorrectiveActionDueDate
+DataField::Coco::Deviations And CAPAs::Corrective Action::Corrective Action Due Date
 
 ### Data Structure
 DataStructure::Coco::Deviations And CAPAs::Corrective Action
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -7361,19 +7727,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CorrectiveActionCurrentStatus
+Corrective Action Current Status
 
 ### Qualified Name
-DataField::Coco::Deviations And CAPAs::Corrective Action::CorrectiveActionCurrentStatus
+DataField::Coco::Deviations And CAPAs::Corrective Action::Corrective Action Current Status
 
 ### Description
 Open, complete, verified.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -7395,10 +7758,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Deviations And CAPAs::Corrective Action::CorrectiveActionCurrentStatus
+DataField::Coco::Deviations And CAPAs::Corrective Action::Corrective Action Current Status
 
 ### Data Structure
 DataStructure::Coco::Deviations And CAPAs::Corrective Action
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -7417,10 +7786,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: deviations_and_capas
 - schemaDescription: Departures from the approved process, their investigation and the corrective and preventive actions that follow, including the signals referred from safety. An open deviation is a gate on certification, so this sits inside the release flow rather than beside it.
 
@@ -7547,7 +7916,7 @@ DataStructure::Coco::Batch Certification Decisions::Certification Decision
 One row per batch per market reviewed.
 
 ### Namespace Path
-coco_pharma.batch_certification_decisions
+coco_data_hub.batch_certification_decisions
 
 ### Version Identifier
 1.0
@@ -7576,19 +7945,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-BatchIdentifier
+Batch Identifier
 
 ### Qualified Name
-DataField::Coco::Batch Certification Decisions::Certification Decision::BatchIdentifier
+DataField::Coco::Batch Certification Decisions::Certification Decision::Batch Identifier
 
 ### Description
 The batch.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -7610,10 +7976,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Batch Certification Decisions::Certification Decision::BatchIdentifier
+DataField::Coco::Batch Certification Decisions::Certification Decision::Batch Identifier
 
 ### Data Structure
 DataStructure::Coco::Batch Certification Decisions::Certification Decision
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -7623,19 +7995,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-MarketCode
+Market Code
 
 ### Qualified Name
-DataField::Coco::Batch Certification Decisions::Certification Decision::MarketCode
+DataField::Coco::Batch Certification Decisions::Certification Decision::Market Code
 
 ### Description
 The market.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -7657,10 +8026,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Batch Certification Decisions::Certification Decision::MarketCode
+DataField::Coco::Batch Certification Decisions::Certification Decision::Market Code
 
 ### Data Structure
 DataStructure::Coco::Batch Certification Decisions::Certification Decision
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -7670,19 +8045,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-BatchCertifierIdentifier
+Batch Certifier Identifier
 
 ### Qualified Name
-DataField::Coco::Batch Certification Decisions::Certification Decision::BatchCertifierIdentifier
+DataField::Coco::Batch Certification Decisions::Certification Decision::Batch Certifier Identifier
 
 ### Description
 The Qualified Person.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -7704,10 +8076,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Batch Certification Decisions::Certification Decision::BatchCertifierIdentifier
+DataField::Coco::Batch Certification Decisions::Certification Decision::Batch Certifier Identifier
 
 ### Data Structure
 DataStructure::Coco::Batch Certification Decisions::Certification Decision
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -7717,19 +8095,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-BatchCertificationDate
+Batch Certification Date
 
 ### Qualified Name
-DataField::Coco::Batch Certification Decisions::Certification Decision::BatchCertificationDate
+DataField::Coco::Batch Certification Decisions::Certification Decision::Batch Certification Date
 
 ### Description
 When decided.
 
 ### Data Type
 date
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -7748,10 +8123,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Batch Certification Decisions::Certification Decision::BatchCertificationDate
+DataField::Coco::Batch Certification Decisions::Certification Decision::Batch Certification Date
 
 ### Data Structure
 DataStructure::Coco::Batch Certification Decisions::Certification Decision
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -7761,19 +8142,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-BatchCertificationStatus
+Batch Certification Status
 
 ### Qualified Name
-DataField::Coco::Batch Certification Decisions::Certification Decision::BatchCertificationStatus
+DataField::Coco::Batch Certification Decisions::Certification Decision::Batch Certification Status
 
 ### Description
 Certified, rejected or held.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -7795,10 +8173,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Batch Certification Decisions::Certification Decision::BatchCertificationStatus
+DataField::Coco::Batch Certification Decisions::Certification Decision::Batch Certification Status
 
 ### Data Structure
 DataStructure::Coco::Batch Certification Decisions::Certification Decision
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -7808,19 +8192,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-BatchReleasedQuantity
+Batch Released Quantity
 
 ### Qualified Name
-DataField::Coco::Batch Certification Decisions::Certification Decision::BatchReleasedQuantity
+DataField::Coco::Batch Certification Decisions::Certification Decision::Batch Released Quantity
 
 ### Description
 The quantity released to the market.
 
 ### Data Type
 int
-
-### Position
-6
 
 ### Is Nullable
 true
@@ -7839,10 +8220,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Batch Certification Decisions::Certification Decision::BatchReleasedQuantity
+DataField::Coco::Batch Certification Decisions::Certification Decision::Batch Released Quantity
 
 ### Data Structure
 DataStructure::Coco::Batch Certification Decisions::Certification Decision
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -7852,19 +8239,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-BatchRecordCompleteFlag
+Batch Record Complete Flag
 
 ### Qualified Name
-DataField::Coco::Batch Certification Decisions::Certification Decision::BatchRecordCompleteFlag
+DataField::Coco::Batch Certification Decisions::Certification Decision::Batch Record Complete Flag
 
 ### Description
 Whether the record reviewed was complete.
 
 ### Data Type
 boolean
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -7883,10 +8267,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Batch Certification Decisions::Certification Decision::BatchRecordCompleteFlag
+DataField::Coco::Batch Certification Decisions::Certification Decision::Batch Record Complete Flag
 
 ### Data Structure
 DataStructure::Coco::Batch Certification Decisions::Certification Decision
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -7896,19 +8286,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DeviationIdentifier
+Deviation Identifier
 
 ### Qualified Name
-DataField::Coco::Batch Certification Decisions::Certification Decision::DeviationIdentifier
+DataField::Coco::Batch Certification Decisions::Certification Decision::Deviation Identifier
 
 ### Description
 An open deviation that held the batch, if any.
 
 ### Data Type
 string
-
-### Position
-8
 
 ### Is Nullable
 true
@@ -7930,10 +8317,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Batch Certification Decisions::Certification Decision::DeviationIdentifier
+DataField::Coco::Batch Certification Decisions::Certification Decision::Deviation Identifier
 
 ### Data Structure
 DataStructure::Coco::Batch Certification Decisions::Certification Decision
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -7943,19 +8336,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-BatchCertificationNotes
+Batch Certification Notes
 
 ### Qualified Name
-DataField::Coco::Batch Certification Decisions::Certification Decision::BatchCertificationNotes
+DataField::Coco::Batch Certification Decisions::Certification Decision::Batch Certification Notes
 
 ### Description
 The reviewer's findings.
 
 ### Data Type
 string
-
-### Position
-9
 
 ### Is Nullable
 true
@@ -7974,10 +8364,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Batch Certification Decisions::Certification Decision::BatchCertificationNotes
+DataField::Coco::Batch Certification Decisions::Certification Decision::Batch Certification Notes
 
 ### Data Structure
 DataStructure::Coco::Batch Certification Decisions::Certification Decision
+
+### Position
+9
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 9
@@ -7987,19 +8383,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ShipmentStorageDescription
+Shipment Storage Description
 
 ### Qualified Name
-DataField::Coco::Batch Certification Decisions::Certification Decision::ShipmentStorageDescription
+DataField::Coco::Batch Certification Decisions::Certification Decision::Shipment Storage Description
 
 ### Description
 The storage conditions the released therapy must be shipped under.
 
 ### Data Type
 string
-
-### Position
-10
 
 ### Is Nullable
 true
@@ -8018,10 +8411,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Batch Certification Decisions::Certification Decision::ShipmentStorageDescription
+DataField::Coco::Batch Certification Decisions::Certification Decision::Shipment Storage Description
 
 ### Data Structure
 DataStructure::Coco::Batch Certification Decisions::Certification Decision
+
+### Position
+10
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 10
@@ -8040,10 +8439,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: batch_certification_decisions
 - schemaDescription: The review of each assembled batch record and the certification decision taken by a Qualified Person against the requirements of the destination market. It is the single human decision the whole chain exists to support, and it is market-specific.
 
@@ -8170,7 +8569,7 @@ DataStructure::Coco::Serialisation Alert Investigations::Alert Investigation
 One row per alert investigated.
 
 ### Namespace Path
-coco_pharma.serialisation_alert_investigations
+coco_data_hub.serialisation_alert_investigations
 
 ### Version Identifier
 1.0
@@ -8199,19 +8598,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AlertIdentifier
+Alert Identifier
 
 ### Qualified Name
-DataField::Coco::Serialisation Alert Investigations::Alert Investigation::AlertIdentifier
+DataField::Coco::Serialisation Alert Investigations::Alert Investigation::Alert Identifier
 
 ### Description
 The alert.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -8233,10 +8629,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Serialisation Alert Investigations::Alert Investigation::AlertIdentifier
+DataField::Coco::Serialisation Alert Investigations::Alert Investigation::Alert Identifier
 
 ### Data Structure
 DataStructure::Coco::Serialisation Alert Investigations::Alert Investigation
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -8246,19 +8648,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PackSerialNumber
+Pack Serial Number
 
 ### Qualified Name
-DataField::Coco::Serialisation Alert Investigations::Alert Investigation::PackSerialNumber
+DataField::Coco::Serialisation Alert Investigations::Alert Investigation::Pack Serial Number
 
 ### Description
 The identifier.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -8280,10 +8679,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Serialisation Alert Investigations::Alert Investigation::PackSerialNumber
+DataField::Coco::Serialisation Alert Investigations::Alert Investigation::Pack Serial Number
 
 ### Data Structure
 DataStructure::Coco::Serialisation Alert Investigations::Alert Investigation
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -8293,19 +8698,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AlertInvestigatorIdentifier
+Alert Investigator Identifier
 
 ### Qualified Name
-DataField::Coco::Serialisation Alert Investigations::Alert Investigation::AlertInvestigatorIdentifier
+DataField::Coco::Serialisation Alert Investigations::Alert Investigation::Alert Investigator Identifier
 
 ### Description
 Who investigated.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -8327,10 +8729,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Serialisation Alert Investigations::Alert Investigation::AlertInvestigatorIdentifier
+DataField::Coco::Serialisation Alert Investigations::Alert Investigation::Alert Investigator Identifier
 
 ### Data Structure
 DataStructure::Coco::Serialisation Alert Investigations::Alert Investigation
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -8340,19 +8748,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AlertInvestigationStartTimestamp
+Alert Investigation Start Timestamp
 
 ### Qualified Name
-DataField::Coco::Serialisation Alert Investigations::Alert Investigation::AlertInvestigationStartTimestamp
+DataField::Coco::Serialisation Alert Investigations::Alert Investigation::Alert Investigation Start Timestamp
 
 ### Description
 When opened.
 
 ### Data Type
 date
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -8371,10 +8776,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Serialisation Alert Investigations::Alert Investigation::AlertInvestigationStartTimestamp
+DataField::Coco::Serialisation Alert Investigations::Alert Investigation::Alert Investigation Start Timestamp
 
 ### Data Structure
 DataStructure::Coco::Serialisation Alert Investigations::Alert Investigation
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -8384,19 +8795,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AlertInvestigationEndTimestamp
+Alert Investigation End Timestamp
 
 ### Qualified Name
-DataField::Coco::Serialisation Alert Investigations::Alert Investigation::AlertInvestigationEndTimestamp
+DataField::Coco::Serialisation Alert Investigations::Alert Investigation::Alert Investigation End Timestamp
 
 ### Description
 When closed.
 
 ### Data Type
 date
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -8415,10 +8823,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Serialisation Alert Investigations::Alert Investigation::AlertInvestigationEndTimestamp
+DataField::Coco::Serialisation Alert Investigations::Alert Investigation::Alert Investigation End Timestamp
 
 ### Data Structure
 DataStructure::Coco::Serialisation Alert Investigations::Alert Investigation
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -8428,19 +8842,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AlertRootCauseType
+Alert Root Cause Type
 
 ### Qualified Name
-DataField::Coco::Serialisation Alert Investigations::Alert Investigation::AlertRootCauseType
+DataField::Coco::Serialisation Alert Investigations::Alert Investigation::Alert Root Cause Type
 
 ### Description
 Data error, scanning error, expired product, suspected falsification, other.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 true
@@ -8462,10 +8873,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Serialisation Alert Investigations::Alert Investigation::AlertRootCauseType
+DataField::Coco::Serialisation Alert Investigations::Alert Investigation::Alert Root Cause Type
 
 ### Data Structure
 DataStructure::Coco::Serialisation Alert Investigations::Alert Investigation
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -8475,19 +8892,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AlertInvestigationNotes
+Alert Investigation Notes
 
 ### Qualified Name
-DataField::Coco::Serialisation Alert Investigations::Alert Investigation::AlertInvestigationNotes
+DataField::Coco::Serialisation Alert Investigations::Alert Investigation::Alert Investigation Notes
 
 ### Description
 What was found.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 true
@@ -8506,10 +8920,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Serialisation Alert Investigations::Alert Investigation::AlertInvestigationNotes
+DataField::Coco::Serialisation Alert Investigations::Alert Investigation::Alert Investigation Notes
 
 ### Data Structure
 DataStructure::Coco::Serialisation Alert Investigations::Alert Investigation
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -8519,19 +8939,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AlertCurrentStatus
+Alert Current Status
 
 ### Qualified Name
-DataField::Coco::Serialisation Alert Investigations::Alert Investigation::AlertCurrentStatus
+DataField::Coco::Serialisation Alert Investigations::Alert Investigation::Alert Current Status
 
 ### Description
 Open, closed, escalated.
 
 ### Data Type
 string
-
-### Position
-8
 
 ### Is Nullable
 false
@@ -8553,10 +8970,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Serialisation Alert Investigations::Alert Investigation::AlertCurrentStatus
+DataField::Coco::Serialisation Alert Investigations::Alert Investigation::Alert Current Status
 
 ### Data Structure
 DataStructure::Coco::Serialisation Alert Investigations::Alert Investigation
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -8575,7 +8998,7 @@ DataStructure::Coco::Serialisation Alert Investigations::Alert Disposition
 One row per disposition returned for an alert.
 
 ### Namespace Path
-coco_pharma.serialisation_alert_investigations
+coco_data_hub.serialisation_alert_investigations
 
 ### Version Identifier
 1.0
@@ -8604,19 +9027,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AlertIdentifier
+Alert Identifier
 
 ### Qualified Name
-DataField::Coco::Serialisation Alert Investigations::Alert Disposition::AlertIdentifier
+DataField::Coco::Serialisation Alert Investigations::Alert Disposition::Alert Identifier
 
 ### Description
 The alert.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -8638,10 +9058,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Serialisation Alert Investigations::Alert Disposition::AlertIdentifier
+DataField::Coco::Serialisation Alert Investigations::Alert Disposition::Alert Identifier
 
 ### Data Structure
 DataStructure::Coco::Serialisation Alert Investigations::Alert Disposition
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -8651,19 +9077,63 @@ ___
 ## Create Data Field
 
 ### Display Name
-AlertDispositionType
+Alert Disposition Timestamp
 
 ### Qualified Name
-DataField::Coco::Serialisation Alert Investigations::Alert Disposition::AlertDispositionType
+DataField::Coco::Serialisation Alert Investigations::Alert Disposition::Alert Disposition Timestamp
+
+### Description
+When.
+
+### Data Type
+date
+
+### Is Nullable
+false
+
+### Minimum Cardinality
+1
+
+### Version Identifier
+1.0
+
+### Content Status
+ACTIVE
+
+___
+
+## Link Data Field to Data Structure
+
+### Data Field
+DataField::Coco::Serialisation Alert Investigations::Alert Disposition::Alert Disposition Timestamp
+
+### Data Structure
+DataStructure::Coco::Serialisation Alert Investigations::Alert Disposition
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
+
+### Label
+field 2
+
+___
+
+## Create Data Field
+
+### Display Name
+Alert Disposition Type
+
+### Qualified Name
+DataField::Coco::Serialisation Alert Investigations::Alert Disposition::Alert Disposition Type
 
 ### Description
 Correct repository, decommission, recall, report to authority, no action.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -8685,54 +9155,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Serialisation Alert Investigations::Alert Disposition::AlertDispositionType
+DataField::Coco::Serialisation Alert Investigations::Alert Disposition::Alert Disposition Type
 
 ### Data Structure
 DataStructure::Coco::Serialisation Alert Investigations::Alert Disposition
-
-### Label
-field 2
-
-___
-
-## Create Data Field
-
-### Display Name
-AlertDispositionTimestamp
-
-### Qualified Name
-DataField::Coco::Serialisation Alert Investigations::Alert Disposition::AlertDispositionTimestamp
-
-### Description
-When.
-
-### Data Type
-date
 
 ### Position
 3
 
-### Is Nullable
-false
-
-### Minimum Cardinality
-1
-
-### Version Identifier
-1.0
-
-### Content Status
-ACTIVE
-
-___
-
-## Link Data Field to Data Structure
-
-### Data Field
-DataField::Coco::Serialisation Alert Investigations::Alert Disposition::AlertDispositionTimestamp
-
-### Data Structure
-DataStructure::Coco::Serialisation Alert Investigations::Alert Disposition
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -8742,19 +9174,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AlertAffectedCount
+Alert Affected Count
 
 ### Qualified Name
-DataField::Coco::Serialisation Alert Investigations::Alert Disposition::AlertAffectedCount
+DataField::Coco::Serialisation Alert Investigations::Alert Disposition::Alert Affected Count
 
 ### Description
 The number of identifiers affected.
 
 ### Data Type
 int
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -8773,10 +9202,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Serialisation Alert Investigations::Alert Disposition::AlertAffectedCount
+DataField::Coco::Serialisation Alert Investigations::Alert Disposition::Alert Affected Count
 
 ### Data Structure
 DataStructure::Coco::Serialisation Alert Investigations::Alert Disposition
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -8786,19 +9221,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CorrectiveActionIdentifier
+Corrective Action Identifier
 
 ### Qualified Name
-DataField::Coco::Serialisation Alert Investigations::Alert Disposition::CorrectiveActionIdentifier
+DataField::Coco::Serialisation Alert Investigations::Alert Disposition::Corrective Action Identifier
 
 ### Description
 The CAPA raised, if any.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -8820,10 +9252,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Serialisation Alert Investigations::Alert Disposition::CorrectiveActionIdentifier
+DataField::Coco::Serialisation Alert Investigations::Alert Disposition::Corrective Action Identifier
 
 ### Data Structure
 DataStructure::Coco::Serialisation Alert Investigations::Alert Disposition
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -8842,10 +9280,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: serialisation_alert_investigations
 - schemaDescription: The investigation of verification alerts raised by pharmacies and trading partners, separating the company's own data errors from genuine falsification signals, and the disposition returned to the serialisation repository. An alert not investigated is a falsification signal received and ignored.
 
@@ -8972,7 +9410,7 @@ DataStructure::Coco::Temperature Excursion Assessments::Excursion Assessment
 One row per excursion assessed.
 
 ### Namespace Path
-coco_pharma.temperature_excursion_assessments
+coco_data_hub.temperature_excursion_assessments
 
 ### Version Identifier
 1.0
@@ -9001,19 +9439,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ExcursionIdentifier
+Excursion Identifier
 
 ### Qualified Name
-DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::ExcursionIdentifier
+DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::Excursion Identifier
 
 ### Description
 The excursion.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -9035,10 +9470,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::ExcursionIdentifier
+DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::Excursion Identifier
 
 ### Data Structure
 DataStructure::Coco::Temperature Excursion Assessments::Excursion Assessment
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -9048,19 +9489,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ShipmentIdentifier
+Shipment Identifier
 
 ### Qualified Name
-DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::ShipmentIdentifier
+DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::Shipment Identifier
 
 ### Description
 The consignment.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -9082,10 +9520,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::ShipmentIdentifier
+DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::Shipment Identifier
 
 ### Data Structure
 DataStructure::Coco::Temperature Excursion Assessments::Excursion Assessment
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -9095,19 +9539,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductCode
+Product Code
 
 ### Qualified Name
-DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::ProductCode
+DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::Product Code
 
 ### Description
 The product.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -9129,10 +9570,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::ProductCode
+DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::Product Code
 
 ### Data Structure
 DataStructure::Coco::Temperature Excursion Assessments::Excursion Assessment
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -9142,19 +9589,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-BatchIdentifier
+Batch Identifier
 
 ### Qualified Name
-DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::BatchIdentifier
+DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::Batch Identifier
 
 ### Description
 The batch.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -9176,10 +9620,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::BatchIdentifier
+DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::Batch Identifier
 
 ### Data Structure
 DataStructure::Coco::Temperature Excursion Assessments::Excursion Assessment
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -9189,19 +9639,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ExcursionAssessorIdentifier
+Excursion Assessor Identifier
 
 ### Qualified Name
-DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::ExcursionAssessorIdentifier
+DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::Excursion Assessor Identifier
 
 ### Description
 Who assessed.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -9223,10 +9670,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::ExcursionAssessorIdentifier
+DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::Excursion Assessor Identifier
 
 ### Data Structure
 DataStructure::Coco::Temperature Excursion Assessments::Excursion Assessment
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -9236,19 +9689,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ExcursionAssessmentTimestamp
+Excursion Assessment Timestamp
 
 ### Qualified Name
-DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::ExcursionAssessmentTimestamp
+DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::Excursion Assessment Timestamp
 
 ### Description
 When.
 
 ### Data Type
 date
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -9267,10 +9717,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::ExcursionAssessmentTimestamp
+DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::Excursion Assessment Timestamp
 
 ### Data Structure
 DataStructure::Coco::Temperature Excursion Assessments::Excursion Assessment
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -9280,19 +9736,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ExcursionStabilityReferenceIdentifier
+Excursion Stability Reference Identifier
 
 ### Qualified Name
-DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::ExcursionStabilityReferenceIdentifier
+DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::Excursion Stability Reference Identifier
 
 ### Description
 The stability study the assessment relies on.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -9314,10 +9767,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::ExcursionStabilityReferenceIdentifier
+DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::Excursion Stability Reference Identifier
 
 ### Data Structure
 DataStructure::Coco::Temperature Excursion Assessments::Excursion Assessment
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -9327,19 +9786,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ExcursionDispositionStatus
+Excursion Disposition Status
 
 ### Qualified Name
-DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::ExcursionDispositionStatus
+DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::Excursion Disposition Status
 
 ### Description
 Use, quarantine, reject.
 
 ### Data Type
 string
-
-### Position
-8
 
 ### Is Nullable
 false
@@ -9361,10 +9817,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::ExcursionDispositionStatus
+DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::Excursion Disposition Status
 
 ### Data Structure
 DataStructure::Coco::Temperature Excursion Assessments::Excursion Assessment
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -9374,19 +9836,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ExcursionAssessmentNotes
+Excursion Assessment Notes
 
 ### Qualified Name
-DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::ExcursionAssessmentNotes
+DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::Excursion Assessment Notes
 
 ### Description
 The reasoning.
 
 ### Data Type
 string
-
-### Position
-9
 
 ### Is Nullable
 true
@@ -9405,10 +9864,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::ExcursionAssessmentNotes
+DataField::Coco::Temperature Excursion Assessments::Excursion Assessment::Excursion Assessment Notes
 
 ### Data Structure
 DataStructure::Coco::Temperature Excursion Assessments::Excursion Assessment
+
+### Position
+9
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 9
@@ -9427,10 +9892,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: temperature_excursion_assessments
 - schemaDescription: The assessment of each temperature excursion against the product's stability data, and the disposition of the consignment. It runs before the goods are used rather than after, which is what distinguishes an assessment from a report.
 
@@ -9557,7 +10022,7 @@ DataStructure::Coco::Market Authorisations::Market Authorisation
 One row per authorisation held.
 
 ### Namespace Path
-coco_pharma.market_authorisations
+coco_data_hub.market_authorisations
 
 ### Version Identifier
 1.0
@@ -9586,19 +10051,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AuthorisationIdentifier
+Authorisation Identifier
 
 ### Qualified Name
-DataField::Coco::Market Authorisations::Market Authorisation::AuthorisationIdentifier
+DataField::Coco::Market Authorisations::Market Authorisation::Authorisation Identifier
 
 ### Description
 The authorisation.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -9620,10 +10082,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Market Authorisations::Market Authorisation::AuthorisationIdentifier
+DataField::Coco::Market Authorisations::Market Authorisation::Authorisation Identifier
 
 ### Data Structure
 DataStructure::Coco::Market Authorisations::Market Authorisation
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -9633,19 +10101,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductCode
+Product Code
 
 ### Qualified Name
-DataField::Coco::Market Authorisations::Market Authorisation::ProductCode
+DataField::Coco::Market Authorisations::Market Authorisation::Product Code
 
 ### Description
 The product.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -9667,10 +10132,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Market Authorisations::Market Authorisation::ProductCode
+DataField::Coco::Market Authorisations::Market Authorisation::Product Code
 
 ### Data Structure
 DataStructure::Coco::Market Authorisations::Market Authorisation
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -9680,19 +10151,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-MarketCode
+Market Code
 
 ### Qualified Name
-DataField::Coco::Market Authorisations::Market Authorisation::MarketCode
+DataField::Coco::Market Authorisations::Market Authorisation::Market Code
 
 ### Description
 The market.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -9714,10 +10182,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Market Authorisations::Market Authorisation::MarketCode
+DataField::Coco::Market Authorisations::Market Authorisation::Market Code
 
 ### Data Structure
 DataStructure::Coco::Market Authorisations::Market Authorisation
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -9727,19 +10201,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AuthorisationRegulatorCode
+Authorisation Regulator Code
 
 ### Qualified Name
-DataField::Coco::Market Authorisations::Market Authorisation::AuthorisationRegulatorCode
+DataField::Coco::Market Authorisations::Market Authorisation::Authorisation Regulator Code
 
 ### Description
 The granting regulator.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -9761,10 +10232,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Market Authorisations::Market Authorisation::AuthorisationRegulatorCode
+DataField::Coco::Market Authorisations::Market Authorisation::Authorisation Regulator Code
 
 ### Data Structure
 DataStructure::Coco::Market Authorisations::Market Authorisation
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -9774,19 +10251,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AuthorisationStartDate
+Authorisation Start Date
 
 ### Qualified Name
-DataField::Coco::Market Authorisations::Market Authorisation::AuthorisationStartDate
+DataField::Coco::Market Authorisations::Market Authorisation::Authorisation Start Date
 
 ### Description
 When granted.
 
 ### Data Type
 date
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -9805,10 +10279,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Market Authorisations::Market Authorisation::AuthorisationStartDate
+DataField::Coco::Market Authorisations::Market Authorisation::Authorisation Start Date
 
 ### Data Structure
 DataStructure::Coco::Market Authorisations::Market Authorisation
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -9818,19 +10298,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AuthorisationEndDate
+Authorisation End Date
 
 ### Qualified Name
-DataField::Coco::Market Authorisations::Market Authorisation::AuthorisationEndDate
+DataField::Coco::Market Authorisations::Market Authorisation::Authorisation End Date
 
 ### Description
 When it lapses, if it does.
 
 ### Data Type
 date
-
-### Position
-6
 
 ### Is Nullable
 true
@@ -9849,10 +10326,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Market Authorisations::Market Authorisation::AuthorisationEndDate
+DataField::Coco::Market Authorisations::Market Authorisation::Authorisation End Date
 
 ### Data Structure
 DataStructure::Coco::Market Authorisations::Market Authorisation
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -9862,19 +10345,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AuthorisationCurrentStatus
+Authorisation Current Status
 
 ### Qualified Name
-DataField::Coco::Market Authorisations::Market Authorisation::AuthorisationCurrentStatus
+DataField::Coco::Market Authorisations::Market Authorisation::Authorisation Current Status
 
 ### Description
 Granted, suspended, varied, withdrawn.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -9896,10 +10376,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Market Authorisations::Market Authorisation::AuthorisationCurrentStatus
+DataField::Coco::Market Authorisations::Market Authorisation::Authorisation Current Status
 
 ### Data Structure
 DataStructure::Coco::Market Authorisations::Market Authorisation
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -9909,19 +10395,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SignalIdentifier
+Signal Identifier
 
 ### Qualified Name
-DataField::Coco::Market Authorisations::Market Authorisation::SignalIdentifier
+DataField::Coco::Market Authorisations::Market Authorisation::Signal Identifier
 
 ### Description
 The safety signal behind the latest variation, if any.
 
 ### Data Type
 string
-
-### Position
-8
 
 ### Is Nullable
 true
@@ -9943,10 +10426,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Market Authorisations::Market Authorisation::SignalIdentifier
+DataField::Coco::Market Authorisations::Market Authorisation::Signal Identifier
 
 ### Data Structure
 DataStructure::Coco::Market Authorisations::Market Authorisation
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -9965,7 +10454,7 @@ DataStructure::Coco::Market Authorisations::Authorisation Condition
 One row per condition or labelling requirement attached to an authorisation.
 
 ### Namespace Path
-coco_pharma.market_authorisations
+coco_data_hub.market_authorisations
 
 ### Version Identifier
 1.0
@@ -9994,19 +10483,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AuthorisationIdentifier
+Authorisation Identifier
 
 ### Qualified Name
-DataField::Coco::Market Authorisations::Authorisation Condition::AuthorisationIdentifier
+DataField::Coco::Market Authorisations::Authorisation Condition::Authorisation Identifier
 
 ### Description
 The authorisation.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -10028,10 +10514,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Market Authorisations::Authorisation Condition::AuthorisationIdentifier
+DataField::Coco::Market Authorisations::Authorisation Condition::Authorisation Identifier
 
 ### Data Structure
 DataStructure::Coco::Market Authorisations::Authorisation Condition
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -10041,19 +10533,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AuthorisationRequirementNumber
+Authorisation Requirement Number
 
 ### Qualified Name
-DataField::Coco::Market Authorisations::Authorisation Condition::AuthorisationRequirementNumber
+DataField::Coco::Market Authorisations::Authorisation Condition::Authorisation Requirement Number
 
 ### Description
 The condition's sequence.
 
 ### Data Type
 int
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -10072,10 +10561,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Market Authorisations::Authorisation Condition::AuthorisationRequirementNumber
+DataField::Coco::Market Authorisations::Authorisation Condition::Authorisation Requirement Number
 
 ### Data Structure
 DataStructure::Coco::Market Authorisations::Authorisation Condition
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -10085,19 +10580,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AuthorisationRequirementType
+Authorisation Requirement Type
 
 ### Qualified Name
-DataField::Coco::Market Authorisations::Authorisation Condition::AuthorisationRequirementType
+DataField::Coco::Market Authorisations::Authorisation Condition::Authorisation Requirement Type
 
 ### Description
 Labelling, pack size, distribution, monitoring or other.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -10119,10 +10611,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Market Authorisations::Authorisation Condition::AuthorisationRequirementType
+DataField::Coco::Market Authorisations::Authorisation Condition::Authorisation Requirement Type
 
 ### Data Structure
 DataStructure::Coco::Market Authorisations::Authorisation Condition
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -10132,19 +10630,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AuthorisationRequirementDescription
+Authorisation Requirement Description
 
 ### Qualified Name
-DataField::Coco::Market Authorisations::Authorisation Condition::AuthorisationRequirementDescription
+DataField::Coco::Market Authorisations::Authorisation Condition::Authorisation Requirement Description
 
 ### Description
 The condition.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -10163,10 +10658,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Market Authorisations::Authorisation Condition::AuthorisationRequirementDescription
+DataField::Coco::Market Authorisations::Authorisation Condition::Authorisation Requirement Description
 
 ### Data Structure
 DataStructure::Coco::Market Authorisations::Authorisation Condition
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -10176,19 +10677,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AuthorisationRequirementStartDate
+Authorisation Requirement Start Date
 
 ### Qualified Name
-DataField::Coco::Market Authorisations::Authorisation Condition::AuthorisationRequirementStartDate
+DataField::Coco::Market Authorisations::Authorisation Condition::Authorisation Requirement Start Date
 
 ### Description
 When it took effect.
 
 ### Data Type
 date
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -10207,10 +10705,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Market Authorisations::Authorisation Condition::AuthorisationRequirementStartDate
+DataField::Coco::Market Authorisations::Authorisation Condition::Authorisation Requirement Start Date
 
 ### Data Structure
 DataStructure::Coco::Market Authorisations::Authorisation Condition
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -10229,10 +10733,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: market_authorisations
 - schemaDescription: Which product may be placed on which market, under which authorisation and subject to which conditions, and the label and authorisation changes that safety findings drive. Batch certification and serialisation routing both read it.
 
@@ -10359,7 +10863,7 @@ DataStructure::Coco::Occupational Exposure Bands::Substance Exposure Band
 One row per substance, its band.
 
 ### Namespace Path
-coco_pharma.occupational_exposure_bands
+coco_data_hub.occupational_exposure_bands
 
 ### Version Identifier
 1.0
@@ -10388,19 +10892,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SubstanceCode
+Substance Code
 
 ### Qualified Name
-DataField::Coco::Occupational Exposure Bands::Substance Exposure Band::SubstanceCode
+DataField::Coco::Occupational Exposure Bands::Substance Exposure Band::Substance Code
 
 ### Description
 The substance.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -10422,10 +10923,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Occupational Exposure Bands::Substance Exposure Band::SubstanceCode
+DataField::Coco::Occupational Exposure Bands::Substance Exposure Band::Substance Code
 
 ### Data Structure
 DataStructure::Coco::Occupational Exposure Bands::Substance Exposure Band
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -10435,19 +10942,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SubstanceName
+Substance Name
 
 ### Qualified Name
-DataField::Coco::Occupational Exposure Bands::Substance Exposure Band::SubstanceName
+DataField::Coco::Occupational Exposure Bands::Substance Exposure Band::Substance Name
 
 ### Description
 Its name.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -10469,10 +10973,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Occupational Exposure Bands::Substance Exposure Band::SubstanceName
+DataField::Coco::Occupational Exposure Bands::Substance Exposure Band::Substance Name
 
 ### Data Structure
 DataStructure::Coco::Occupational Exposure Bands::Substance Exposure Band
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -10482,19 +10992,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SubstanceBandingCode
+Substance Banding Code
 
 ### Qualified Name
-DataField::Coco::Occupational Exposure Bands::Substance Exposure Band::SubstanceBandingCode
+DataField::Coco::Occupational Exposure Bands::Substance Exposure Band::Substance Banding Code
 
 ### Description
 The band assigned.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -10516,10 +11023,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Occupational Exposure Bands::Substance Exposure Band::SubstanceBandingCode
+DataField::Coco::Occupational Exposure Bands::Substance Exposure Band::Substance Banding Code
 
 ### Data Structure
 DataStructure::Coco::Occupational Exposure Bands::Substance Exposure Band
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -10529,19 +11042,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SubstanceHazardCode
+Substance Hazard Code
 
 ### Qualified Name
-DataField::Coco::Occupational Exposure Bands::Substance Exposure Band::SubstanceHazardCode
+DataField::Coco::Occupational Exposure Bands::Substance Exposure Band::Substance Hazard Code
 
 ### Description
 The hazard classification the assignment rests on.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -10563,10 +11073,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Occupational Exposure Bands::Substance Exposure Band::SubstanceHazardCode
+DataField::Coco::Occupational Exposure Bands::Substance Exposure Band::Substance Hazard Code
 
 ### Data Structure
 DataStructure::Coco::Occupational Exposure Bands::Substance Exposure Band
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -10576,19 +11092,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SubstanceBandingDate
+Substance Banding Date
 
 ### Qualified Name
-DataField::Coco::Occupational Exposure Bands::Substance Exposure Band::SubstanceBandingDate
+DataField::Coco::Occupational Exposure Bands::Substance Exposure Band::Substance Banding Date
 
 ### Description
 When assigned or last revised.
 
 ### Data Type
 date
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -10607,10 +11120,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Occupational Exposure Bands::Substance Exposure Band::SubstanceBandingDate
+DataField::Coco::Occupational Exposure Bands::Substance Exposure Band::Substance Banding Date
 
 ### Data Structure
 DataStructure::Coco::Occupational Exposure Bands::Substance Exposure Band
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -10620,19 +11139,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-IncidentIdentifier
+Incident Identifier
 
 ### Qualified Name
-DataField::Coco::Occupational Exposure Bands::Substance Exposure Band::IncidentIdentifier
+DataField::Coco::Occupational Exposure Bands::Substance Exposure Band::Incident Identifier
 
 ### Description
 The incident that prompted the latest revision, if any.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 true
@@ -10654,10 +11170,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Occupational Exposure Bands::Substance Exposure Band::IncidentIdentifier
+DataField::Coco::Occupational Exposure Bands::Substance Exposure Band::Incident Identifier
 
 ### Data Structure
 DataStructure::Coco::Occupational Exposure Bands::Substance Exposure Band
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -10676,7 +11198,7 @@ DataStructure::Coco::Occupational Exposure Bands::Band Containment Requirement
 One row per band, the limit and containment required.
 
 ### Namespace Path
-coco_pharma.occupational_exposure_bands
+coco_data_hub.occupational_exposure_bands
 
 ### Version Identifier
 1.0
@@ -10705,19 +11227,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-BandCode
+Band Code
 
 ### Qualified Name
-DataField::Coco::Occupational Exposure Bands::Band Containment Requirement::BandCode
+DataField::Coco::Occupational Exposure Bands::Band Containment Requirement::Band Code
 
 ### Description
 The band.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -10739,10 +11258,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Occupational Exposure Bands::Band Containment Requirement::BandCode
+DataField::Coco::Occupational Exposure Bands::Band Containment Requirement::Band Code
 
 ### Data Structure
 DataStructure::Coco::Occupational Exposure Bands::Band Containment Requirement
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -10752,19 +11277,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-BandMaximumValue
+Band Maximum Value
 
 ### Qualified Name
-DataField::Coco::Occupational Exposure Bands::Band Containment Requirement::BandMaximumValue
+DataField::Coco::Occupational Exposure Bands::Band Containment Requirement::Band Maximum Value
 
 ### Description
 The exposure limit.
 
 ### Data Type
 float
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -10783,10 +11305,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Occupational Exposure Bands::Band Containment Requirement::BandMaximumValue
+DataField::Coco::Occupational Exposure Bands::Band Containment Requirement::Band Maximum Value
 
 ### Data Structure
 DataStructure::Coco::Occupational Exposure Bands::Band Containment Requirement
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -10796,19 +11324,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-BandUnit
+Band Unit
 
 ### Qualified Name
-DataField::Coco::Occupational Exposure Bands::Band Containment Requirement::BandUnit
+DataField::Coco::Occupational Exposure Bands::Band Containment Requirement::Band Unit
 
 ### Description
 The unit of the limit.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -10830,10 +11355,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Occupational Exposure Bands::Band Containment Requirement::BandUnit
+DataField::Coco::Occupational Exposure Bands::Band Containment Requirement::Band Unit
 
 ### Data Structure
 DataStructure::Coco::Occupational Exposure Bands::Band Containment Requirement
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -10843,19 +11374,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-BandContainmentDescription
+Band Containment Description
 
 ### Qualified Name
-DataField::Coco::Occupational Exposure Bands::Band Containment Requirement::BandContainmentDescription
+DataField::Coco::Occupational Exposure Bands::Band Containment Requirement::Band Containment Description
 
 ### Description
 The containment required.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -10874,10 +11402,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Occupational Exposure Bands::Band Containment Requirement::BandContainmentDescription
+DataField::Coco::Occupational Exposure Bands::Band Containment Requirement::Band Containment Description
 
 ### Data Structure
 DataStructure::Coco::Occupational Exposure Bands::Band Containment Requirement
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -10896,10 +11430,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: occupational_exposure_bands
 - schemaDescription: Each substance assigned to an occupational exposure band and each band to a required containment level, revised as incidents reveal what the assessments missed. It is the rule set that turns a substance identity into a control requirement, and it is shared with transport classification rather than duplicated.
 
@@ -11026,7 +11560,7 @@ DataStructure::Coco::Exposure Monitoring Results::Monitoring Campaign
 One row per monitoring campaign.
 
 ### Namespace Path
-coco_pharma.exposure_monitoring_results
+coco_data_hub.exposure_monitoring_results
 
 ### Version Identifier
 1.0
@@ -11055,19 +11589,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-MonitoringCampaignIdentifier
+Monitoring Campaign Identifier
 
 ### Qualified Name
-DataField::Coco::Exposure Monitoring Results::Monitoring Campaign::MonitoringCampaignIdentifier
+DataField::Coco::Exposure Monitoring Results::Monitoring Campaign::Monitoring Campaign Identifier
 
 ### Description
 The campaign.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -11089,10 +11620,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Exposure Monitoring Results::Monitoring Campaign::MonitoringCampaignIdentifier
+DataField::Coco::Exposure Monitoring Results::Monitoring Campaign::Monitoring Campaign Identifier
 
 ### Data Structure
 DataStructure::Coco::Exposure Monitoring Results::Monitoring Campaign
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -11102,19 +11639,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SiteCode
+Site Code
 
 ### Qualified Name
-DataField::Coco::Exposure Monitoring Results::Monitoring Campaign::SiteCode
+DataField::Coco::Exposure Monitoring Results::Monitoring Campaign::Site Code
 
 ### Description
 The site.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -11136,10 +11670,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Exposure Monitoring Results::Monitoring Campaign::SiteCode
+DataField::Coco::Exposure Monitoring Results::Monitoring Campaign::Site Code
 
 ### Data Structure
 DataStructure::Coco::Exposure Monitoring Results::Monitoring Campaign
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -11149,19 +11689,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-MonitoringCampaignStartDate
+Monitoring Campaign Start Date
 
 ### Qualified Name
-DataField::Coco::Exposure Monitoring Results::Monitoring Campaign::MonitoringCampaignStartDate
+DataField::Coco::Exposure Monitoring Results::Monitoring Campaign::Monitoring Campaign Start Date
 
 ### Description
 When it began.
 
 ### Data Type
 date
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -11180,10 +11717,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Exposure Monitoring Results::Monitoring Campaign::MonitoringCampaignStartDate
+DataField::Coco::Exposure Monitoring Results::Monitoring Campaign::Monitoring Campaign Start Date
 
 ### Data Structure
 DataStructure::Coco::Exposure Monitoring Results::Monitoring Campaign
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -11193,19 +11736,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-MonitoringCampaignEndDate
+Monitoring Campaign End Date
 
 ### Qualified Name
-DataField::Coco::Exposure Monitoring Results::Monitoring Campaign::MonitoringCampaignEndDate
+DataField::Coco::Exposure Monitoring Results::Monitoring Campaign::Monitoring Campaign End Date
 
 ### Description
 When it ended.
 
 ### Data Type
 date
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -11224,10 +11764,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Exposure Monitoring Results::Monitoring Campaign::MonitoringCampaignEndDate
+DataField::Coco::Exposure Monitoring Results::Monitoring Campaign::Monitoring Campaign End Date
 
 ### Data Structure
 DataStructure::Coco::Exposure Monitoring Results::Monitoring Campaign
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -11237,19 +11783,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SubstanceCode
+Substance Code
 
 ### Qualified Name
-DataField::Coco::Exposure Monitoring Results::Monitoring Campaign::SubstanceCode
+DataField::Coco::Exposure Monitoring Results::Monitoring Campaign::Substance Code
 
 ### Description
 The substance monitored.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -11271,10 +11814,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Exposure Monitoring Results::Monitoring Campaign::SubstanceCode
+DataField::Coco::Exposure Monitoring Results::Monitoring Campaign::Substance Code
 
 ### Data Structure
 DataStructure::Coco::Exposure Monitoring Results::Monitoring Campaign
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -11284,19 +11833,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-MonitoringCampaignDescription
+Monitoring Campaign Description
 
 ### Qualified Name
-DataField::Coco::Exposure Monitoring Results::Monitoring Campaign::MonitoringCampaignDescription
+DataField::Coco::Exposure Monitoring Results::Monitoring Campaign::Monitoring Campaign Description
 
 ### Description
 The tasks and locations covered.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -11315,10 +11861,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Exposure Monitoring Results::Monitoring Campaign::MonitoringCampaignDescription
+DataField::Coco::Exposure Monitoring Results::Monitoring Campaign::Monitoring Campaign Description
 
 ### Data Structure
 DataStructure::Coco::Exposure Monitoring Results::Monitoring Campaign
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -11337,7 +11889,7 @@ DataStructure::Coco::Exposure Monitoring Results::Exposure Measurement
 One row per measurement.
 
 ### Namespace Path
-coco_pharma.exposure_monitoring_results
+coco_data_hub.exposure_monitoring_results
 
 ### Version Identifier
 1.0
@@ -11366,19 +11918,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ExposureReadingIdentifier
+Exposure Reading Identifier
 
 ### Qualified Name
-DataField::Coco::Exposure Monitoring Results::Exposure Measurement::ExposureReadingIdentifier
+DataField::Coco::Exposure Monitoring Results::Exposure Measurement::Exposure Reading Identifier
 
 ### Description
 The measurement.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -11400,10 +11949,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Exposure Monitoring Results::Exposure Measurement::ExposureReadingIdentifier
+DataField::Coco::Exposure Monitoring Results::Exposure Measurement::Exposure Reading Identifier
 
 ### Data Structure
 DataStructure::Coco::Exposure Monitoring Results::Exposure Measurement
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -11413,19 +11968,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-MonitoringCampaignIdentifier
+Monitoring Campaign Identifier
 
 ### Qualified Name
-DataField::Coco::Exposure Monitoring Results::Exposure Measurement::MonitoringCampaignIdentifier
+DataField::Coco::Exposure Monitoring Results::Exposure Measurement::Monitoring Campaign Identifier
 
 ### Description
 The campaign.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -11447,10 +11999,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Exposure Monitoring Results::Exposure Measurement::MonitoringCampaignIdentifier
+DataField::Coco::Exposure Monitoring Results::Exposure Measurement::Monitoring Campaign Identifier
 
 ### Data Structure
 DataStructure::Coco::Exposure Monitoring Results::Exposure Measurement
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -11460,19 +12018,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ExposureReadingType
+Exposure Reading Type
 
 ### Qualified Name
-DataField::Coco::Exposure Monitoring Results::Exposure Measurement::ExposureReadingType
+DataField::Coco::Exposure Monitoring Results::Exposure Measurement::Exposure Reading Type
 
 ### Description
 Personal or static.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -11494,10 +12049,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Exposure Monitoring Results::Exposure Measurement::ExposureReadingType
+DataField::Coco::Exposure Monitoring Results::Exposure Measurement::Exposure Reading Type
 
 ### Data Structure
 DataStructure::Coco::Exposure Monitoring Results::Exposure Measurement
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -11507,19 +12068,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerPseudonymIdentifier
+Worker Pseudonym Identifier
 
 ### Qualified Name
-DataField::Coco::Exposure Monitoring Results::Exposure Measurement::WorkerPseudonymIdentifier
+DataField::Coco::Exposure Monitoring Results::Exposure Measurement::Worker Pseudonym Identifier
 
 ### Description
 The worker, for a personal measurement.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 true
@@ -11541,10 +12099,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Exposure Monitoring Results::Exposure Measurement::WorkerPseudonymIdentifier
+DataField::Coco::Exposure Monitoring Results::Exposure Measurement::Worker Pseudonym Identifier
 
 ### Data Structure
 DataStructure::Coco::Exposure Monitoring Results::Exposure Measurement
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -11554,19 +12118,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ExposureReadingLocation
+Exposure Reading Location
 
 ### Qualified Name
-DataField::Coco::Exposure Monitoring Results::Exposure Measurement::ExposureReadingLocation
+DataField::Coco::Exposure Monitoring Results::Exposure Measurement::Exposure Reading Location
 
 ### Description
 Where, for a static measurement.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -11588,10 +12149,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Exposure Monitoring Results::Exposure Measurement::ExposureReadingLocation
+DataField::Coco::Exposure Monitoring Results::Exposure Measurement::Exposure Reading Location
 
 ### Data Structure
 DataStructure::Coco::Exposure Monitoring Results::Exposure Measurement
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -11601,19 +12168,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ExposureReadingTimestamp
+Exposure Reading Timestamp
 
 ### Qualified Name
-DataField::Coco::Exposure Monitoring Results::Exposure Measurement::ExposureReadingTimestamp
+DataField::Coco::Exposure Monitoring Results::Exposure Measurement::Exposure Reading Timestamp
 
 ### Description
 When.
 
 ### Data Type
 date
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -11632,10 +12196,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Exposure Monitoring Results::Exposure Measurement::ExposureReadingTimestamp
+DataField::Coco::Exposure Monitoring Results::Exposure Measurement::Exposure Reading Timestamp
 
 ### Data Structure
 DataStructure::Coco::Exposure Monitoring Results::Exposure Measurement
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -11645,19 +12215,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ExposureReadingValue
+Exposure Reading Value
 
 ### Qualified Name
-DataField::Coco::Exposure Monitoring Results::Exposure Measurement::ExposureReadingValue
+DataField::Coco::Exposure Monitoring Results::Exposure Measurement::Exposure Reading Value
 
 ### Description
 The exposure measured.
 
 ### Data Type
 float
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -11676,10 +12243,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Exposure Monitoring Results::Exposure Measurement::ExposureReadingValue
+DataField::Coco::Exposure Monitoring Results::Exposure Measurement::Exposure Reading Value
 
 ### Data Structure
 DataStructure::Coco::Exposure Monitoring Results::Exposure Measurement
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -11689,19 +12262,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-BandMaximumValue
+Band Maximum Value
 
 ### Qualified Name
-DataField::Coco::Exposure Monitoring Results::Exposure Measurement::BandMaximumValue
+DataField::Coco::Exposure Monitoring Results::Exposure Measurement::Band Maximum Value
 
 ### Description
 The limit compared against.
 
 ### Data Type
 float
-
-### Position
-8
 
 ### Is Nullable
 false
@@ -11720,10 +12290,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Exposure Monitoring Results::Exposure Measurement::BandMaximumValue
+DataField::Coco::Exposure Monitoring Results::Exposure Measurement::Band Maximum Value
 
 ### Data Structure
 DataStructure::Coco::Exposure Monitoring Results::Exposure Measurement
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -11733,19 +12309,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ExposureLimitExceededFlag
+Exposure Limit Exceeded Flag
 
 ### Qualified Name
-DataField::Coco::Exposure Monitoring Results::Exposure Measurement::ExposureLimitExceededFlag
+DataField::Coco::Exposure Monitoring Results::Exposure Measurement::Exposure Limit Exceeded Flag
 
 ### Description
 Whether the limit was exceeded.
 
 ### Data Type
 boolean
-
-### Position
-9
 
 ### Is Nullable
 false
@@ -11764,10 +12337,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Exposure Monitoring Results::Exposure Measurement::ExposureLimitExceededFlag
+DataField::Coco::Exposure Monitoring Results::Exposure Measurement::Exposure Limit Exceeded Flag
 
 ### Data Structure
 DataStructure::Coco::Exposure Monitoring Results::Exposure Measurement
+
+### Position
+9
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 9
@@ -11786,10 +12365,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: exposure_monitoring_results
 - schemaDescription: Personal and static exposure measurements from monitoring campaigns, compared to the banded limits, against the workers and tasks monitored. An exposure that was not measured at the time cannot be measured later, so coverage matters as much as the readings.
 
@@ -11916,7 +12495,7 @@ DataStructure::Coco::Incidents And Near Misses::Incident
 One row per incident or near miss reported.
 
 ### Namespace Path
-coco_pharma.incidents_and_near_misses
+coco_data_hub.incidents_and_near_misses
 
 ### Version Identifier
 1.0
@@ -11945,19 +12524,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-IncidentIdentifier
+Incident Identifier
 
 ### Qualified Name
-DataField::Coco::Incidents And Near Misses::Incident::IncidentIdentifier
+DataField::Coco::Incidents And Near Misses::Incident::Incident Identifier
 
 ### Description
 The incident.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -11979,10 +12555,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Incidents And Near Misses::Incident::IncidentIdentifier
+DataField::Coco::Incidents And Near Misses::Incident::Incident Identifier
 
 ### Data Structure
 DataStructure::Coco::Incidents And Near Misses::Incident
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -11992,19 +12574,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-IncidentType
+Incident Type
 
 ### Qualified Name
-DataField::Coco::Incidents And Near Misses::Incident::IncidentType
+DataField::Coco::Incidents And Near Misses::Incident::Incident Type
 
 ### Description
 Incident or near miss.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -12026,10 +12605,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Incidents And Near Misses::Incident::IncidentType
+DataField::Coco::Incidents And Near Misses::Incident::Incident Type
 
 ### Data Structure
 DataStructure::Coco::Incidents And Near Misses::Incident
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -12039,19 +12624,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-IncidentTimestamp
+Incident Timestamp
 
 ### Qualified Name
-DataField::Coco::Incidents And Near Misses::Incident::IncidentTimestamp
+DataField::Coco::Incidents And Near Misses::Incident::Incident Timestamp
 
 ### Description
 When it occurred.
 
 ### Data Type
 date
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -12070,10 +12652,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Incidents And Near Misses::Incident::IncidentTimestamp
+DataField::Coco::Incidents And Near Misses::Incident::Incident Timestamp
 
 ### Data Structure
 DataStructure::Coco::Incidents And Near Misses::Incident
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -12083,19 +12671,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-IncidentReportedTimestamp
+Incident Reported Timestamp
 
 ### Qualified Name
-DataField::Coco::Incidents And Near Misses::Incident::IncidentReportedTimestamp
+DataField::Coco::Incidents And Near Misses::Incident::Incident Reported Timestamp
 
 ### Description
 When reported.
 
 ### Data Type
 date
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -12114,10 +12699,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Incidents And Near Misses::Incident::IncidentReportedTimestamp
+DataField::Coco::Incidents And Near Misses::Incident::Incident Reported Timestamp
 
 ### Data Structure
 DataStructure::Coco::Incidents And Near Misses::Incident
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -12127,19 +12718,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SiteCode
+Site Code
 
 ### Qualified Name
-DataField::Coco::Incidents And Near Misses::Incident::SiteCode
+DataField::Coco::Incidents And Near Misses::Incident::Site Code
 
 ### Description
 The site.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -12161,10 +12749,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Incidents And Near Misses::Incident::SiteCode
+DataField::Coco::Incidents And Near Misses::Incident::Site Code
 
 ### Data Structure
 DataStructure::Coco::Incidents And Near Misses::Incident
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -12174,19 +12768,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-IncidentLocation
+Incident Location
 
 ### Qualified Name
-DataField::Coco::Incidents And Near Misses::Incident::IncidentLocation
+DataField::Coco::Incidents And Near Misses::Incident::Incident Location
 
 ### Description
 Where.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -12208,10 +12799,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Incidents And Near Misses::Incident::IncidentLocation
+DataField::Coco::Incidents And Near Misses::Incident::Incident Location
 
 ### Data Structure
 DataStructure::Coco::Incidents And Near Misses::Incident
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -12221,19 +12818,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SubstanceCode
+Substance Code
 
 ### Qualified Name
-DataField::Coco::Incidents And Near Misses::Incident::SubstanceCode
+DataField::Coco::Incidents And Near Misses::Incident::Substance Code
 
 ### Description
 The substance implicated, if any.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 true
@@ -12255,10 +12849,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Incidents And Near Misses::Incident::SubstanceCode
+DataField::Coco::Incidents And Near Misses::Incident::Substance Code
 
 ### Data Structure
 DataStructure::Coco::Incidents And Near Misses::Incident
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -12268,19 +12868,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerPseudonymIdentifier
+Worker Pseudonym Identifier
 
 ### Qualified Name
-DataField::Coco::Incidents And Near Misses::Incident::WorkerPseudonymIdentifier
+DataField::Coco::Incidents And Near Misses::Incident::Worker Pseudonym Identifier
 
 ### Description
 The worker affected, if any.
 
 ### Data Type
 string
-
-### Position
-8
 
 ### Is Nullable
 true
@@ -12302,10 +12899,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Incidents And Near Misses::Incident::WorkerPseudonymIdentifier
+DataField::Coco::Incidents And Near Misses::Incident::Worker Pseudonym Identifier
 
 ### Data Structure
 DataStructure::Coco::Incidents And Near Misses::Incident
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -12315,19 +12918,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-IncidentDescription
+Incident Description
 
 ### Qualified Name
-DataField::Coco::Incidents And Near Misses::Incident::IncidentDescription
+DataField::Coco::Incidents And Near Misses::Incident::Incident Description
 
 ### Description
 What happened and the immediate response.
 
 ### Data Type
 string
-
-### Position
-9
 
 ### Is Nullable
 false
@@ -12346,10 +12946,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Incidents And Near Misses::Incident::IncidentDescription
+DataField::Coco::Incidents And Near Misses::Incident::Incident Description
 
 ### Data Structure
 DataStructure::Coco::Incidents And Near Misses::Incident
+
+### Position
+9
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 9
@@ -12359,19 +12965,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-IncidentSeverity
+Incident Severity
 
 ### Qualified Name
-DataField::Coco::Incidents And Near Misses::Incident::IncidentSeverity
+DataField::Coco::Incidents And Near Misses::Incident::Incident Severity
 
 ### Description
 The assessed seriousness.
 
 ### Data Type
 string
-
-### Position
-10
 
 ### Is Nullable
 false
@@ -12393,10 +12996,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Incidents And Near Misses::Incident::IncidentSeverity
+DataField::Coco::Incidents And Near Misses::Incident::Incident Severity
 
 ### Data Structure
 DataStructure::Coco::Incidents And Near Misses::Incident
+
+### Position
+10
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 10
@@ -12415,7 +13024,7 @@ DataStructure::Coco::Incidents And Near Misses::Incident Investigation Finding
 One row per finding from an incident's investigation.
 
 ### Namespace Path
-coco_pharma.incidents_and_near_misses
+coco_data_hub.incidents_and_near_misses
 
 ### Version Identifier
 1.0
@@ -12444,19 +13053,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-IncidentIdentifier
+Incident Identifier
 
 ### Qualified Name
-DataField::Coco::Incidents And Near Misses::Incident Investigation Finding::IncidentIdentifier
+DataField::Coco::Incidents And Near Misses::Incident Investigation Finding::Incident Identifier
 
 ### Description
 The incident.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -12478,10 +13084,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Incidents And Near Misses::Incident Investigation Finding::IncidentIdentifier
+DataField::Coco::Incidents And Near Misses::Incident Investigation Finding::Incident Identifier
 
 ### Data Structure
 DataStructure::Coco::Incidents And Near Misses::Incident Investigation Finding
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -12491,19 +13103,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-IncidentFindingNumber
+Incident Finding Number
 
 ### Qualified Name
-DataField::Coco::Incidents And Near Misses::Incident Investigation Finding::IncidentFindingNumber
+DataField::Coco::Incidents And Near Misses::Incident Investigation Finding::Incident Finding Number
 
 ### Description
 The finding's sequence.
 
 ### Data Type
 int
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -12522,10 +13131,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Incidents And Near Misses::Incident Investigation Finding::IncidentFindingNumber
+DataField::Coco::Incidents And Near Misses::Incident Investigation Finding::Incident Finding Number
 
 ### Data Structure
 DataStructure::Coco::Incidents And Near Misses::Incident Investigation Finding
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -12535,19 +13150,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-IncidentFindingDescription
+Incident Finding Description
 
 ### Qualified Name
-DataField::Coco::Incidents And Near Misses::Incident Investigation Finding::IncidentFindingDescription
+DataField::Coco::Incidents And Near Misses::Incident Investigation Finding::Incident Finding Description
 
 ### Description
 The finding.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -12566,10 +13178,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Incidents And Near Misses::Incident Investigation Finding::IncidentFindingDescription
+DataField::Coco::Incidents And Near Misses::Incident Investigation Finding::Incident Finding Description
 
 ### Data Structure
 DataStructure::Coco::Incidents And Near Misses::Incident Investigation Finding
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -12579,19 +13197,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ControlIdentifier
+Control Identifier
 
 ### Qualified Name
-DataField::Coco::Incidents And Near Misses::Incident Investigation Finding::ControlIdentifier
+DataField::Coco::Incidents And Near Misses::Incident Investigation Finding::Control Identifier
 
 ### Description
 The control implicated, if any.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 true
@@ -12613,10 +13228,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Incidents And Near Misses::Incident Investigation Finding::ControlIdentifier
+DataField::Coco::Incidents And Near Misses::Incident Investigation Finding::Control Identifier
 
 ### Data Structure
 DataStructure::Coco::Incidents And Near Misses::Incident Investigation Finding
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -12626,19 +13247,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-IncidentFindingActionDescription
+Incident Finding Action Description
 
 ### Qualified Name
-DataField::Coco::Incidents And Near Misses::Incident Investigation Finding::IncidentFindingActionDescription
+DataField::Coco::Incidents And Near Misses::Incident Investigation Finding::Incident Finding Action Description
 
 ### Description
 The change to assessments or controls that follows.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -12657,10 +13275,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Incidents And Near Misses::Incident Investigation Finding::IncidentFindingActionDescription
+DataField::Coco::Incidents And Near Misses::Incident Investigation Finding::Incident Finding Action Description
 
 ### Data Structure
 DataStructure::Coco::Incidents And Near Misses::Incident Investigation Finding
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -12679,10 +13303,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: incidents_and_near_misses
 - schemaDescription: Incidents, near misses and their investigations, with the substance or control implicated and the findings fed back into the exposure assessments. It is what makes the health surveillance chain a loop rather than a line.
 

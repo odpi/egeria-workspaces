@@ -21,8 +21,8 @@ The master data no single business function owns: the product master, the change
 For every product this file:
 
 1. creates the **digital product** and adds it to the `Master Data Management` folder of the catalog;
-2. creates its **data spec** and attaches it with a `DataDescription` relationship, then the **data structures**, each added to the spec, and the **data fields**, each linked to its structure with a `MemberDataField` relationship, named to the [Data Field Naming](../data-field-naming/README.md) standard;
-3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, as a member of the product.  The schema is named after the product, in the `coco_pharma` database on `Coco PostgreSQL Server 1`.
+2. creates its **data spec** and attaches it with a `DataDescription` relationship, then the **data structures**, each added to the spec, and the **data fields**, each linked to its structure with a `MemberDataField` relationship, its position and coverage category set on that relationship - `IDENTIFIER` for the fields that identify a row of the structure, `CORE_DETAIL` for the rest - named to the [Data Field Naming](../data-field-naming/README.md) standard;
+3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, as a member of the product.  The schema is named after the product, in the `coco_data_hub` database on `Coco PostgreSQL Server 1`.
 
 3 products, 7 data structures, 41 data fields.  This file loads after `catalog.md`.
 
@@ -144,7 +144,7 @@ DataStructure::Coco::Product Master Data::Product Definition
 One row per product, the attributes that identify it and describe what it is.
 
 ### Namespace Path
-coco_pharma.product_master_data
+coco_data_hub.product_master_data
 
 ### Version Identifier
 1.0
@@ -173,19 +173,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductCode
+Product Code
 
 ### Qualified Name
-DataField::Coco::Product Master Data::Product Definition::ProductCode
+DataField::Coco::Product Master Data::Product Definition::Product Code
 
 ### Description
 The company's unique code for the product.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -207,10 +204,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Master Data::Product Definition::ProductCode
+DataField::Coco::Product Master Data::Product Definition::Product Code
 
 ### Data Structure
 DataStructure::Coco::Product Master Data::Product Definition
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -220,19 +223,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductName
+Product Name
 
 ### Qualified Name
-DataField::Coco::Product Master Data::Product Definition::ProductName
+DataField::Coco::Product Master Data::Product Definition::Product Name
 
 ### Description
 The product's name as it appears on the label.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -254,10 +254,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Master Data::Product Definition::ProductName
+DataField::Coco::Product Master Data::Product Definition::Product Name
 
 ### Data Structure
 DataStructure::Coco::Product Master Data::Product Definition
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -267,19 +273,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductDescription
+Product Description
 
 ### Qualified Name
-DataField::Coco::Product Master Data::Product Definition::ProductDescription
+DataField::Coco::Product Master Data::Product Definition::Product Description
 
 ### Description
 What the product is and what it treats.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 true
@@ -298,10 +301,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Master Data::Product Definition::ProductDescription
+DataField::Coco::Product Master Data::Product Definition::Product Description
 
 ### Data Structure
 DataStructure::Coco::Product Master Data::Product Definition
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -311,19 +320,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductType
+Product Type
 
 ### Qualified Name
-DataField::Coco::Product Master Data::Product Definition::ProductType
+DataField::Coco::Product Master Data::Product Definition::Product Type
 
 ### Description
 Whether the product is a standard, personalised or investigational treatment.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -345,10 +351,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Master Data::Product Definition::ProductType
+DataField::Coco::Product Master Data::Product Definition::Product Type
 
 ### Data Structure
 DataStructure::Coco::Product Master Data::Product Definition
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -358,19 +370,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ActiveIngredientName
+Active Ingredient Name
 
 ### Qualified Name
-DataField::Coco::Product Master Data::Product Definition::ActiveIngredientName
+DataField::Coco::Product Master Data::Product Definition::Active Ingredient Name
 
 ### Description
 The active ingredient responsible for the therapeutic effect.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -392,10 +401,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Master Data::Product Definition::ActiveIngredientName
+DataField::Coco::Product Master Data::Product Definition::Active Ingredient Name
 
 ### Data Structure
 DataStructure::Coco::Product Master Data::Product Definition
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -405,19 +420,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductStrength
+Product Strength
 
 ### Qualified Name
-DataField::Coco::Product Master Data::Product Definition::ProductStrength
+DataField::Coco::Product Master Data::Product Definition::Product Strength
 
 ### Description
 The concentration or potency of the active ingredient.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 true
@@ -439,10 +451,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Master Data::Product Definition::ProductStrength
+DataField::Coco::Product Master Data::Product Definition::Product Strength
 
 ### Data Structure
 DataStructure::Coco::Product Master Data::Product Definition
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -452,19 +470,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductCurrentStatus
+Product Current Status
 
 ### Qualified Name
-DataField::Coco::Product Master Data::Product Definition::ProductCurrentStatus
+DataField::Coco::Product Master Data::Product Definition::Product Current Status
 
 ### Description
 Whether the product is in development, marketed, suspended or withdrawn.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -486,10 +501,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Master Data::Product Definition::ProductCurrentStatus
+DataField::Coco::Product Master Data::Product Definition::Product Current Status
 
 ### Data Structure
 DataStructure::Coco::Product Master Data::Product Definition
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -499,19 +520,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductCurrentVersion
+Product Current Version
 
 ### Qualified Name
-DataField::Coco::Product Master Data::Product Definition::ProductCurrentVersion
+DataField::Coco::Product Master Data::Product Definition::Product Current Version
 
 ### Description
 The version of the product definition consuming systems should hold.
 
 ### Data Type
 string
-
-### Position
-8
 
 ### Is Nullable
 false
@@ -533,10 +551,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Master Data::Product Definition::ProductCurrentVersion
+DataField::Coco::Product Master Data::Product Definition::Product Current Version
 
 ### Data Structure
 DataStructure::Coco::Product Master Data::Product Definition
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -555,7 +579,7 @@ DataStructure::Coco::Product Master Data::Pack Configuration
 One row per saleable presentation of a product, the unit that carries a serial number.
 
 ### Namespace Path
-coco_pharma.product_master_data
+coco_data_hub.product_master_data
 
 ### Version Identifier
 1.0
@@ -584,19 +608,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PackCode
+Pack Code
 
 ### Qualified Name
-DataField::Coco::Product Master Data::Pack Configuration::PackCode
+DataField::Coco::Product Master Data::Pack Configuration::Pack Code
 
 ### Description
 The GTIN or company code of the pack presentation.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -618,10 +639,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Master Data::Pack Configuration::PackCode
+DataField::Coco::Product Master Data::Pack Configuration::Pack Code
 
 ### Data Structure
 DataStructure::Coco::Product Master Data::Pack Configuration
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -631,19 +658,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductCode
+Product Code
 
 ### Qualified Name
-DataField::Coco::Product Master Data::Pack Configuration::ProductCode
+DataField::Coco::Product Master Data::Pack Configuration::Product Code
 
 ### Description
 The product the pack contains.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -665,10 +689,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Master Data::Pack Configuration::ProductCode
+DataField::Coco::Product Master Data::Pack Configuration::Product Code
 
 ### Data Structure
 DataStructure::Coco::Product Master Data::Pack Configuration
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -678,19 +708,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PackDescription
+Pack Description
 
 ### Qualified Name
-DataField::Coco::Product Master Data::Pack Configuration::PackDescription
+DataField::Coco::Product Master Data::Pack Configuration::Pack Description
 
 ### Description
 The presentation, for example thirty tablets in a blister pack.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 true
@@ -709,10 +736,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Master Data::Pack Configuration::PackDescription
+DataField::Coco::Product Master Data::Pack Configuration::Pack Description
 
 ### Data Structure
 DataStructure::Coco::Product Master Data::Pack Configuration
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -722,19 +755,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PackQuantity
+Pack Quantity
 
 ### Qualified Name
-DataField::Coco::Product Master Data::Pack Configuration::PackQuantity
+DataField::Coco::Product Master Data::Pack Configuration::Pack Quantity
 
 ### Description
 The number of units of the product in the pack.
 
 ### Data Type
 int
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -753,10 +783,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Master Data::Pack Configuration::PackQuantity
+DataField::Coco::Product Master Data::Pack Configuration::Pack Quantity
 
 ### Data Structure
 DataStructure::Coco::Product Master Data::Pack Configuration
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -766,19 +802,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PackDestinationCode
+Pack Destination Code
 
 ### Qualified Name
-DataField::Coco::Product Master Data::Pack Configuration::PackDestinationCode
+DataField::Coco::Product Master Data::Pack Configuration::Pack Destination Code
 
 ### Description
 The destination market the pack presentation is configured for.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -800,10 +833,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Master Data::Pack Configuration::PackDestinationCode
+DataField::Coco::Product Master Data::Pack Configuration::Pack Destination Code
 
 ### Data Structure
 DataStructure::Coco::Product Master Data::Pack Configuration
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -813,19 +852,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PackSerialisedFlag
+Pack Serialised Flag
 
 ### Qualified Name
-DataField::Coco::Product Master Data::Pack Configuration::PackSerialisedFlag
+DataField::Coco::Product Master Data::Pack Configuration::Pack Serialised Flag
 
 ### Description
 Whether packs of this presentation must carry a serial number.
 
 ### Data Type
 boolean
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -844,10 +880,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Master Data::Pack Configuration::PackSerialisedFlag
+DataField::Coco::Product Master Data::Pack Configuration::Pack Serialised Flag
 
 ### Data Structure
 DataStructure::Coco::Product Master Data::Pack Configuration
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -866,7 +908,7 @@ DataStructure::Coco::Product Master Data::Handling Requirement
 One row per product, the storage and transport conditions it must be kept within.
 
 ### Namespace Path
-coco_pharma.product_master_data
+coco_data_hub.product_master_data
 
 ### Version Identifier
 1.0
@@ -895,19 +937,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductCode
+Product Code
 
 ### Qualified Name
-DataField::Coco::Product Master Data::Handling Requirement::ProductCode
+DataField::Coco::Product Master Data::Handling Requirement::Product Code
 
 ### Description
 The product the requirement applies to.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -929,10 +968,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Master Data::Handling Requirement::ProductCode
+DataField::Coco::Product Master Data::Handling Requirement::Product Code
 
 ### Data Structure
 DataStructure::Coco::Product Master Data::Handling Requirement
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -942,19 +987,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductStorageMinimumTemperature
+Product Storage Minimum Temperature
 
 ### Qualified Name
-DataField::Coco::Product Master Data::Handling Requirement::ProductStorageMinimumTemperature
+DataField::Coco::Product Master Data::Handling Requirement::Product Storage Minimum Temperature
 
 ### Description
 The lowest temperature the product may be stored at, in degrees Celsius.
 
 ### Data Type
 float
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -973,10 +1015,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Master Data::Handling Requirement::ProductStorageMinimumTemperature
+DataField::Coco::Product Master Data::Handling Requirement::Product Storage Minimum Temperature
 
 ### Data Structure
 DataStructure::Coco::Product Master Data::Handling Requirement
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -986,19 +1034,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductStorageMaximumTemperature
+Product Storage Maximum Temperature
 
 ### Qualified Name
-DataField::Coco::Product Master Data::Handling Requirement::ProductStorageMaximumTemperature
+DataField::Coco::Product Master Data::Handling Requirement::Product Storage Maximum Temperature
 
 ### Description
 The highest temperature the product may be stored at, in degrees Celsius.
 
 ### Data Type
 float
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -1017,10 +1062,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Master Data::Handling Requirement::ProductStorageMaximumTemperature
+DataField::Coco::Product Master Data::Handling Requirement::Product Storage Maximum Temperature
 
 ### Data Structure
 DataStructure::Coco::Product Master Data::Handling Requirement
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -1030,19 +1081,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductHazardCode
+Product Hazard Code
 
 ### Qualified Name
-DataField::Coco::Product Master Data::Handling Requirement::ProductHazardCode
+DataField::Coco::Product Master Data::Handling Requirement::Product Hazard Code
 
 ### Description
 The hazard classification of the product for transport, if any.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 true
@@ -1064,10 +1112,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Master Data::Handling Requirement::ProductHazardCode
+DataField::Coco::Product Master Data::Handling Requirement::Product Hazard Code
 
 ### Data Structure
 DataStructure::Coco::Product Master Data::Handling Requirement
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -1077,19 +1131,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductPackagingDescription
+Product Packaging Description
 
 ### Qualified Name
-DataField::Coco::Product Master Data::Handling Requirement::ProductPackagingDescription
+DataField::Coco::Product Master Data::Handling Requirement::Product Packaging Description
 
 ### Description
 The packaging required for transport.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -1108,10 +1159,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Master Data::Handling Requirement::ProductPackagingDescription
+DataField::Coco::Product Master Data::Handling Requirement::Product Packaging Description
 
 ### Data Structure
 DataStructure::Coco::Product Master Data::Handling Requirement
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -1121,19 +1178,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductExpiryDuration
+Product Expiry Duration
 
 ### Qualified Name
-DataField::Coco::Product Master Data::Handling Requirement::ProductExpiryDuration
+DataField::Coco::Product Master Data::Handling Requirement::Product Expiry Duration
 
 ### Description
 The shelf life of the product from manufacture, in days.
 
 ### Data Type
 int
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -1152,10 +1206,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Master Data::Handling Requirement::ProductExpiryDuration
+DataField::Coco::Product Master Data::Handling Requirement::Product Expiry Duration
 
 ### Data Structure
 DataStructure::Coco::Product Master Data::Handling Requirement
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -1174,7 +1234,7 @@ DataStructure::Coco::Product Master Data::Authorised Market Assignment
 One row per product per market it may be placed on.
 
 ### Namespace Path
-coco_pharma.product_master_data
+coco_data_hub.product_master_data
 
 ### Version Identifier
 1.0
@@ -1203,19 +1263,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductCode
+Product Code
 
 ### Qualified Name
-DataField::Coco::Product Master Data::Authorised Market Assignment::ProductCode
+DataField::Coco::Product Master Data::Authorised Market Assignment::Product Code
 
 ### Description
 The product.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -1237,10 +1294,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Master Data::Authorised Market Assignment::ProductCode
+DataField::Coco::Product Master Data::Authorised Market Assignment::Product Code
 
 ### Data Structure
 DataStructure::Coco::Product Master Data::Authorised Market Assignment
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -1250,19 +1313,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-MarketCode
+Market Code
 
 ### Qualified Name
-DataField::Coco::Product Master Data::Authorised Market Assignment::MarketCode
+DataField::Coco::Product Master Data::Authorised Market Assignment::Market Code
 
 ### Description
 The market the product is authorised for.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -1284,10 +1344,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Master Data::Authorised Market Assignment::MarketCode
+DataField::Coco::Product Master Data::Authorised Market Assignment::Market Code
 
 ### Data Structure
 DataStructure::Coco::Product Master Data::Authorised Market Assignment
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -1297,19 +1363,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AuthorisationIdentifier
+Authorisation Identifier
 
 ### Qualified Name
-DataField::Coco::Product Master Data::Authorised Market Assignment::AuthorisationIdentifier
+DataField::Coco::Product Master Data::Authorised Market Assignment::Authorisation Identifier
 
 ### Description
 The market authorisation the assignment relies on.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -1331,10 +1394,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Master Data::Authorised Market Assignment::AuthorisationIdentifier
+DataField::Coco::Product Master Data::Authorised Market Assignment::Authorisation Identifier
 
 ### Data Structure
 DataStructure::Coco::Product Master Data::Authorised Market Assignment
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -1344,19 +1413,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AuthorisationStartDate
+Authorisation Start Date
 
 ### Qualified Name
-DataField::Coco::Product Master Data::Authorised Market Assignment::AuthorisationStartDate
+DataField::Coco::Product Master Data::Authorised Market Assignment::Authorisation Start Date
 
 ### Description
 When the product may first be placed on the market.
 
 ### Data Type
 date
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -1375,10 +1441,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Master Data::Authorised Market Assignment::AuthorisationStartDate
+DataField::Coco::Product Master Data::Authorised Market Assignment::Authorisation Start Date
 
 ### Data Structure
 DataStructure::Coco::Product Master Data::Authorised Market Assignment
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -1388,19 +1460,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AuthorisationEndDate
+Authorisation End Date
 
 ### Qualified Name
-DataField::Coco::Product Master Data::Authorised Market Assignment::AuthorisationEndDate
+DataField::Coco::Product Master Data::Authorised Market Assignment::Authorisation End Date
 
 ### Description
 When the authorisation lapses, if it does.
 
 ### Data Type
 date
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -1419,10 +1488,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Master Data::Authorised Market Assignment::AuthorisationEndDate
+DataField::Coco::Product Master Data::Authorised Market Assignment::Authorisation End Date
 
 ### Data Structure
 DataStructure::Coco::Product Master Data::Authorised Market Assignment
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -1441,10 +1516,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: product_master_data
 - schemaDescription: The authoritative definition of every Coco Pharmaceuticals product: its identity, composition, presentations and pack configurations, the conditions it must be stored and shipped under, and the markets it is authorised for. Manufacturing, serialisation, distribution, sales and finance all read it and none of them own it.
 
@@ -1571,7 +1646,7 @@ DataStructure::Coco::Product Change Notifications::Product Change
 One row per published change to a product attribute.
 
 ### Namespace Path
-coco_pharma.product_change_notifications
+coco_data_hub.product_change_notifications
 
 ### Version Identifier
 1.0
@@ -1600,19 +1675,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductChangeIdentifier
+Product Change Identifier
 
 ### Qualified Name
-DataField::Coco::Product Change Notifications::Product Change::ProductChangeIdentifier
+DataField::Coco::Product Change Notifications::Product Change::Product Change Identifier
 
 ### Description
 The unique identifier of the change.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -1634,10 +1706,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Change Notifications::Product Change::ProductChangeIdentifier
+DataField::Coco::Product Change Notifications::Product Change::Product Change Identifier
 
 ### Data Structure
 DataStructure::Coco::Product Change Notifications::Product Change
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -1647,19 +1725,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductCode
+Product Code
 
 ### Qualified Name
-DataField::Coco::Product Change Notifications::Product Change::ProductCode
+DataField::Coco::Product Change Notifications::Product Change::Product Code
 
 ### Description
 The product changed.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -1681,10 +1756,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Change Notifications::Product Change::ProductCode
+DataField::Coco::Product Change Notifications::Product Change::Product Code
 
 ### Data Structure
 DataStructure::Coco::Product Change Notifications::Product Change
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -1694,19 +1775,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductChangeDescription
+Product Change Description
 
 ### Qualified Name
-DataField::Coco::Product Change Notifications::Product Change::ProductChangeDescription
+DataField::Coco::Product Change Notifications::Product Change::Product Change Description
 
 ### Description
 Which attributes changed and to what.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -1725,10 +1803,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Change Notifications::Product Change::ProductChangeDescription
+DataField::Coco::Product Change Notifications::Product Change::Product Change Description
 
 ### Data Structure
 DataStructure::Coco::Product Change Notifications::Product Change
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -1738,19 +1822,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductChangeStartDate
+Product Change Start Date
 
 ### Qualified Name
-DataField::Coco::Product Change Notifications::Product Change::ProductChangeStartDate
+DataField::Coco::Product Change Notifications::Product Change::Product Change Start Date
 
 ### Description
 When the change takes effect.
 
 ### Data Type
 date
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -1769,10 +1850,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Change Notifications::Product Change::ProductChangeStartDate
+DataField::Coco::Product Change Notifications::Product Change::Product Change Start Date
 
 ### Data Structure
 DataStructure::Coco::Product Change Notifications::Product Change
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -1782,19 +1869,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductChangePublishedTimestamp
+Product Change Published Timestamp
 
 ### Qualified Name
-DataField::Coco::Product Change Notifications::Product Change::ProductChangePublishedTimestamp
+DataField::Coco::Product Change Notifications::Product Change::Product Change Published Timestamp
 
 ### Description
 When the change was published to consumers.
 
 ### Data Type
 date
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -1813,10 +1897,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Change Notifications::Product Change::ProductChangePublishedTimestamp
+DataField::Coco::Product Change Notifications::Product Change::Product Change Published Timestamp
 
 ### Data Structure
 DataStructure::Coco::Product Change Notifications::Product Change
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -1835,7 +1925,7 @@ DataStructure::Coco::Product Change Notifications::Distribution Receipt
 One row per change per consuming system, recording whether it has been applied.
 
 ### Namespace Path
-coco_pharma.product_change_notifications
+coco_data_hub.product_change_notifications
 
 ### Version Identifier
 1.0
@@ -1864,19 +1954,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductChangeIdentifier
+Product Change Identifier
 
 ### Qualified Name
-DataField::Coco::Product Change Notifications::Distribution Receipt::ProductChangeIdentifier
+DataField::Coco::Product Change Notifications::Distribution Receipt::Product Change Identifier
 
 ### Description
 The change distributed.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -1898,10 +1985,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Change Notifications::Distribution Receipt::ProductChangeIdentifier
+DataField::Coco::Product Change Notifications::Distribution Receipt::Product Change Identifier
 
 ### Data Structure
 DataStructure::Coco::Product Change Notifications::Distribution Receipt
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -1911,19 +2004,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SystemIdentifier
+System Identifier
 
 ### Qualified Name
-DataField::Coco::Product Change Notifications::Distribution Receipt::SystemIdentifier
+DataField::Coco::Product Change Notifications::Distribution Receipt::System Identifier
 
 ### Description
 The consuming system the change was sent to.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -1945,10 +2035,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Change Notifications::Distribution Receipt::SystemIdentifier
+DataField::Coco::Product Change Notifications::Distribution Receipt::System Identifier
 
 ### Data Structure
 DataStructure::Coco::Product Change Notifications::Distribution Receipt
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -1958,19 +2054,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductChangeAppliedFlag
+Product Change Applied Flag
 
 ### Qualified Name
-DataField::Coco::Product Change Notifications::Distribution Receipt::ProductChangeAppliedFlag
+DataField::Coco::Product Change Notifications::Distribution Receipt::Product Change Applied Flag
 
 ### Description
 Whether the system has confirmed the change is applied.
 
 ### Data Type
 boolean
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -1989,10 +2082,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Change Notifications::Distribution Receipt::ProductChangeAppliedFlag
+DataField::Coco::Product Change Notifications::Distribution Receipt::Product Change Applied Flag
 
 ### Data Structure
 DataStructure::Coco::Product Change Notifications::Distribution Receipt
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -2002,19 +2101,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductChangeAppliedTimestamp
+Product Change Applied Timestamp
 
 ### Qualified Name
-DataField::Coco::Product Change Notifications::Distribution Receipt::ProductChangeAppliedTimestamp
+DataField::Coco::Product Change Notifications::Distribution Receipt::Product Change Applied Timestamp
 
 ### Description
 When the system confirmed it.
 
 ### Data Type
 date
-
-### Position
-4
 
 ### Is Nullable
 true
@@ -2033,10 +2129,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Product Change Notifications::Distribution Receipt::ProductChangeAppliedTimestamp
+DataField::Coco::Product Change Notifications::Distribution Receipt::Product Change Applied Timestamp
 
 ### Data Structure
 DataStructure::Coco::Product Change Notifications::Distribution Receipt
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -2055,10 +2157,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: product_change_notifications
 - schemaDescription: Every change published from the product master, and the record of which consuming system has applied it and which has not. An inconsistent estate is only dangerous while nobody knows which copies are stale.
 
@@ -2185,7 +2287,7 @@ DataStructure::Coco::Open Metadata Catalogue Holdings::Catalogued Asset
 One row per asset in the catalogue.
 
 ### Namespace Path
-coco_pharma.open_metadata_catalogue_holdings
+coco_data_hub.open_metadata_catalogue_holdings
 
 ### Version Identifier
 1.0
@@ -2214,19 +2316,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AssetIdentifier
+Asset Identifier
 
 ### Qualified Name
-DataField::Coco::Open Metadata Catalogue Holdings::Catalogued Asset::AssetIdentifier
+DataField::Coco::Open Metadata Catalogue Holdings::Catalogued Asset::Asset Identifier
 
 ### Description
 The catalogue's unique identifier for the asset.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -2248,10 +2347,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Open Metadata Catalogue Holdings::Catalogued Asset::AssetIdentifier
+DataField::Coco::Open Metadata Catalogue Holdings::Catalogued Asset::Asset Identifier
 
 ### Data Structure
 DataStructure::Coco::Open Metadata Catalogue Holdings::Catalogued Asset
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -2261,19 +2366,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AssetName
+Asset Name
 
 ### Qualified Name
-DataField::Coco::Open Metadata Catalogue Holdings::Catalogued Asset::AssetName
+DataField::Coco::Open Metadata Catalogue Holdings::Catalogued Asset::Asset Name
 
 ### Description
 The asset's display name.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -2295,10 +2397,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Open Metadata Catalogue Holdings::Catalogued Asset::AssetName
+DataField::Coco::Open Metadata Catalogue Holdings::Catalogued Asset::Asset Name
 
 ### Data Structure
 DataStructure::Coco::Open Metadata Catalogue Holdings::Catalogued Asset
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -2308,19 +2416,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AssetType
+Asset Type
 
 ### Qualified Name
-DataField::Coco::Open Metadata Catalogue Holdings::Catalogued Asset::AssetType
+DataField::Coco::Open Metadata Catalogue Holdings::Catalogued Asset::Asset Type
 
 ### Description
 The open metadata type of the asset.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -2342,10 +2447,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Open Metadata Catalogue Holdings::Catalogued Asset::AssetType
+DataField::Coco::Open Metadata Catalogue Holdings::Catalogued Asset::Asset Type
 
 ### Data Structure
 DataStructure::Coco::Open Metadata Catalogue Holdings::Catalogued Asset
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -2355,19 +2466,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SystemIdentifier
+System Identifier
 
 ### Qualified Name
-DataField::Coco::Open Metadata Catalogue Holdings::Catalogued Asset::SystemIdentifier
+DataField::Coco::Open Metadata Catalogue Holdings::Catalogued Asset::System Identifier
 
 ### Description
 The system that hosts the asset.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 true
@@ -2389,10 +2497,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Open Metadata Catalogue Holdings::Catalogued Asset::SystemIdentifier
+DataField::Coco::Open Metadata Catalogue Holdings::Catalogued Asset::System Identifier
 
 ### Data Structure
 DataStructure::Coco::Open Metadata Catalogue Holdings::Catalogued Asset
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -2402,19 +2516,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AssetOwnerIdentifier
+Asset Owner Identifier
 
 ### Qualified Name
-DataField::Coco::Open Metadata Catalogue Holdings::Catalogued Asset::AssetOwnerIdentifier
+DataField::Coco::Open Metadata Catalogue Holdings::Catalogued Asset::Asset Owner Identifier
 
 ### Description
 The person or team accountable for the asset.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -2436,10 +2547,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Open Metadata Catalogue Holdings::Catalogued Asset::AssetOwnerIdentifier
+DataField::Coco::Open Metadata Catalogue Holdings::Catalogued Asset::Asset Owner Identifier
 
 ### Data Structure
 DataStructure::Coco::Open Metadata Catalogue Holdings::Catalogued Asset
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -2449,19 +2566,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AssetPersonalDataFlag
+Asset Personal Data Flag
 
 ### Qualified Name
-DataField::Coco::Open Metadata Catalogue Holdings::Catalogued Asset::AssetPersonalDataFlag
+DataField::Coco::Open Metadata Catalogue Holdings::Catalogued Asset::Asset Personal Data Flag
 
 ### Description
 Whether the asset is classified as holding personal data.
 
 ### Data Type
 boolean
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -2480,10 +2594,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Open Metadata Catalogue Holdings::Catalogued Asset::AssetPersonalDataFlag
+DataField::Coco::Open Metadata Catalogue Holdings::Catalogued Asset::Asset Personal Data Flag
 
 ### Data Structure
 DataStructure::Coco::Open Metadata Catalogue Holdings::Catalogued Asset
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -2493,19 +2613,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AssetConfidentialityLevel
+Asset Confidentiality Level
 
 ### Qualified Name
-DataField::Coco::Open Metadata Catalogue Holdings::Catalogued Asset::AssetConfidentialityLevel
+DataField::Coco::Open Metadata Catalogue Holdings::Catalogued Asset::Asset Confidentiality Level
 
 ### Description
 The confidentiality classification of the asset.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 true
@@ -2527,10 +2644,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Open Metadata Catalogue Holdings::Catalogued Asset::AssetConfidentialityLevel
+DataField::Coco::Open Metadata Catalogue Holdings::Catalogued Asset::Asset Confidentiality Level
 
 ### Data Structure
 DataStructure::Coco::Open Metadata Catalogue Holdings::Catalogued Asset
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -2549,10 +2672,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: open_metadata_catalogue_holdings
 - schemaDescription: What the open metadata catalogue knows about the estate: the assets it has catalogued, their classifications and owners, and the indicators that an asset holds personal data. It is the starting point for personal data discovery and for setting retention periods, because it describes what the company actually holds rather than what it believes it holds.
 

@@ -54,7 +54,7 @@ Dependencies of the Data Hub group's products.
 DigitalProduct::Coco::Product Master Data
 
 ### Digital Product 2
-DigitalProduct::Coco::New Product Definitions
+DigitalProduct::Coco::Product Definitions
 
 ### Label
 new product definition

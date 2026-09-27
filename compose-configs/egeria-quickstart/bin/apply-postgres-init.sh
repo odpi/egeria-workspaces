@@ -10,7 +10,6 @@ QUICKSTART_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 source "${QUICKSTART_DIR}/../shared-infra/detect-engine.sh"
 
 SQL_DIR="${QUICKSTART_DIR}/docker-entrypoint-initdb.d"
-INIT_SQL="${SQL_DIR}/init_egeria.sql"
 
 PGHOST="${PGHOST:-localhost}"
 PGPORT="${PGPORT:-5442}"
@@ -21,7 +20,12 @@ PGUSER="${PGUSER:-egeria_admin}"
 export PGPASSWORD="${PGPASSWORD:-admin4egeria}"
 PGDATABASE="${PGDATABASE:-postgres}"
 
-MIGRATION_ID="egeria-quickstart-init-egeria-v2"
+# Migrations, applied in order, each at most once.  Format: "<migration id>:<sql file in SQL_DIR>".
+# Add a new entry (never edit an applied one) so existing installs pick the change up.
+MIGRATIONS=(
+  "egeria-quickstart-init-egeria-v2:init_egeria.sql"
+  "egeria-quickstart-coco-data-hub-v1:init_coco_data_hub.sql"
+)
 CONTAINER_NAME="egeria-shared-postgres"
 
 # Wrapper to run psql. Use local psql if available, otherwise use docker/podman exec
@@ -67,38 +71,46 @@ CREATE TABLE IF NOT EXISTS quickstart_migrations.applied_migrations (
 );
 EOF
 
-# Check if migration already applied
-ALREADY_APPLIED=$(psql_cmd -v ON_ERROR_STOP=1 -t -c "SELECT 1 FROM quickstart_migrations.applied_migrations WHERE migration_id = '$MIGRATION_ID';" 2>/dev/null | xargs)
+apply_migration() {
+  local MIGRATION_ID="$1" SQL_FILE="$2"
 
-if [ "$ALREADY_APPLIED" = "1" ]; then
-  log "Migration $MIGRATION_ID already applied; skipping."
-  exit 0
-fi
+  # Check if migration already applied
+  local ALREADY_APPLIED
+  ALREADY_APPLIED=$(psql_cmd -v ON_ERROR_STOP=1 -t -c "SELECT 1 FROM quickstart_migrations.applied_migrations WHERE migration_id = '$MIGRATION_ID';" 2>/dev/null | xargs)
 
-# Apply migration
-log "Applying migration $MIGRATION_ID ..."
-if command -v psql &> /dev/null; then
-  cd "$SQL_DIR"
-  psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -v ON_ERROR_STOP=1 -f "$INIT_SQL"
-else
-  # If psql is not on host, we must run it in the container.
-  # We use 'docker cp' to copy the SQL files to the container so that '\ir' works correctly.
-  # We copy them to /tmp/quickstart-init/
-  TMP_DIR="/tmp/quickstart-init"
-  $CONTAINER_ENGINE exec "$CONTAINER_NAME" mkdir -p "$TMP_DIR"
-  $CONTAINER_ENGINE cp "$SQL_DIR/." "$CONTAINER_NAME:$TMP_DIR/"
-  
-  $CONTAINER_ENGINE exec -i -e PGPASSWORD="$PGPASSWORD" "$CONTAINER_NAME" /bin/bash -c "cd $TMP_DIR && psql -h localhost -p 5442 -U $PGUSER -d $PGDATABASE -v ON_ERROR_STOP=1 -f init_egeria.sql"
-  
-  # Cleanup
-  $CONTAINER_ENGINE exec "$CONTAINER_NAME" rm -rf "$TMP_DIR"
-fi
+  if [ "$ALREADY_APPLIED" = "1" ]; then
+    log "Migration $MIGRATION_ID already applied; skipping."
+    return 0
+  fi
 
-# Record success
-psql_cmd -v ON_ERROR_STOP=1 <<EOF >/dev/null
+  # Apply migration
+  log "Applying migration $MIGRATION_ID ($SQL_FILE) ..."
+  if command -v psql &> /dev/null; then
+    (cd "$SQL_DIR" && psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -q -v ON_ERROR_STOP=1 -f "$SQL_FILE")
+  else
+    # If psql is not on host, we must run it in the container.
+    # We use 'docker cp' to copy the SQL files to the container so that '\ir' works correctly.
+    # We copy them to /tmp/quickstart-init/
+    local TMP_DIR="/tmp/quickstart-init"
+    $CONTAINER_ENGINE exec "$CONTAINER_NAME" mkdir -p "$TMP_DIR"
+    $CONTAINER_ENGINE cp "$SQL_DIR/." "$CONTAINER_NAME:$TMP_DIR/"
+
+    $CONTAINER_ENGINE exec -i -e PGPASSWORD="$PGPASSWORD" "$CONTAINER_NAME" /bin/bash -c "cd $TMP_DIR && psql -h localhost -p 5442 -U $PGUSER -d $PGDATABASE -q -v ON_ERROR_STOP=1 -f $SQL_FILE"
+
+    # Cleanup
+    $CONTAINER_ENGINE exec "$CONTAINER_NAME" rm -rf "$TMP_DIR"
+  fi
+
+  # Record success
+  psql_cmd -v ON_ERROR_STOP=1 <<EOF >/dev/null
 INSERT INTO quickstart_migrations.applied_migrations (migration_id)
 VALUES ('$MIGRATION_ID')
 ON CONFLICT (migration_id) DO NOTHING;
 EOF
 
-log "Migration $MIGRATION_ID applied successfully."
+  log "Migration $MIGRATION_ID applied successfully."
+}
+
+for migration in "${MIGRATIONS[@]}"; do
+  apply_migration "${migration%%:*}" "${migration#*:}"
+done

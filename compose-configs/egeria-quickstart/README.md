@@ -83,9 +83,14 @@ infrastructure is ready.
 This runner:
 1.  **Waits** for PostgreSQL to be ready to accept connections.
 2.  **Checks** a migration marker table (`quickstart_migrations.applied_migrations`) in the
-    default `postgres` database to see if the initialization has already run.
-3.  **Executes** `docker-entrypoint-initdb.d/init_egeria.sql` only if it hasn't been applied yet.
-4.  **Records** the migration as applied upon success.
+    default `postgres` database to see which migrations have already run.
+3.  **Executes** each migration in its `MIGRATIONS` list that hasn't been applied yet, in order:
+    - `egeria-quickstart-init-egeria-v2` — `docker-entrypoint-initdb.d/init_egeria.sql`
+    - `egeria-quickstart-coco-data-hub-v1` — `docker-entrypoint-initdb.d/init_coco_data_hub.sql`
+4.  **Records** each migration as applied upon success.
+
+To change the database set-up, add a new migration (a new SQL file and a new entry in `MIGRATIONS`)
+rather than editing one that has already been applied — existing installs skip applied migrations.
 
 ### What `init_egeria.sql` does
 
@@ -104,6 +109,35 @@ The script:
    `docker-entrypoint-initdb.d/data/`:
    - `data/coco_sus.sql` is loaded into `coco_sus`
    - `data/coco_ods.sql` is loaded into `coco_ods`
+
+### What `init_coco_data_hub.sql` does
+
+Creates the `coco_data_hub` database — the Coco Pharmaceuticals Data Sharing Hub — and loads
+`docker-entrypoint-initdb.d/data/coco_data_hub.sql` into it: one schema per strategic digital product
+(81), one table per data structure (153), one column per data field linked to it (1,015 columns - the
+shared Product Code field is a column of three tables) with the key columns first, a primary key on the
+fields whose link to their data structure has the coverage category `IDENTIFIER`, and the product,
+structure and field descriptions as comments.  It also creates the `provisioner` database user
+(password `provisioner4egeria`, secrets collection `PostgreSQL Provisioning Secret` in
+`secrets/integration.omsecrets`), which reads and writes the rows of every product table, and gives the
+cataloguer's `surveyor` user read-only access to every product table, so that the Data Sharing Hub
+Manager (Liskov) can survey the hub.  The tables are empty.  `coco_pharma` keeps the existing
+Coco systems (`coco_sus`, `coco_ods`).
+
+`data/coco_data_hub.sql` is generated from the product definitions in
+`coco-workbooks/1. coco-data-hub/strategic-digital-products/` — regenerate it after changing them:
+
+```bash
+# From the repository root
+compose-configs/egeria-quickstart/bin/gen-coco-data-hub-sql.py \
+  "coco-workbooks/1. coco-data-hub/strategic-digital-products" \
+  compose-configs/egeria-quickstart/docker-entrypoint-initdb.d/data/coco_data_hub.sql
+```
+
+The SQL only creates what is missing, so once `coco_data_hub` exists a change to the product definitions
+reaches it only through a new migration that alters it - or, while the tables hold no data, by dropping the
+database and its `egeria-quickstart-coco-data-hub-v1` entry in `quickstart_migrations.applied_migrations` and
+rerunning `bin/apply-postgres-init.sh`.
 
 ### Adding schemas to an existing Postgres deployment
 
