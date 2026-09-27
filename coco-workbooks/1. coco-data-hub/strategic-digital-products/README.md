@@ -34,11 +34,11 @@ Every product has:
 * a **data spec**, attached with a `DataDescription` relationship, containing one or more **data structures**,
   each containing the **data fields** a subscriber receives.  Every field name follows the
   [Data Field Naming](../data-field-naming/README.md) standard - prime word, modifiers, class word - and every one
-  of the 1,011 field names decomposes into the glossary's vocabulary.  The glossary was extended with the
+  of the 1,013 field names decomposes into the glossary's vocabulary.  The glossary was extended with the
   vocabulary these names needed, see below;
 * a **PostgreSQL tabular data set collection** the product is read from, created with the Asset Maker
   `Create Element` command from the PostgreSQL schema template.  Each product is a schema named after it in the
-  `coco_pharma` database on `Coco PostgreSQL Server 1`, and the data set is a member of the product.
+  `coco_data_hub` database on `Coco PostgreSQL Server 1`, and the data set is a member of the product.
 
 The **Data Sharing Hub** has no product either, and deliberately so: it is the asset-layer component of the data
 fabric that carries data between the business functions, defined in
@@ -73,16 +73,16 @@ carry are recorded as peer links between the chains in
 |---|---|---|---|---|
 | Master Data Management | 3 | 7 | 41 | 5 |
 | Patient Treatment | 3 | 5 | 31 | 3 |
-| Finance | 13 | 27 | 173 | 23 |
+| Finance | 13 | 27 | 174 | 23 |
 | Procurement | 5 | 11 | 68 | 6 |
-| Research | 2 | 5 | 29 | 1 |
+| Research | 2 | 5 | 27 | 1 |
 | Warehouse | 4 | 9 | 60 | 8 |
 | Manufacturing | 11 | 20 | 129 | 22 |
-| Delivery | 7 | 10 | 73 | 12 |
+| Delivery | 7 | 10 | 74 | 12 |
 | Quality Systems | 15 | 30 | 208 | 19 |
 | People Systems | 11 | 18 | 123 | 16 |
-| Privacy Operations | 7 | 11 | 76 | 9 |
-| **Total** | **81** | **153** | **1,011** | **124** |
+| Privacy Operations | 7 | 11 | 78 | 9 |
+| **Total** | **81** | **153** | **1,013** | **124** |
 
 ## Files and load order
 
@@ -140,9 +140,13 @@ dr_egeria --directive process --userid erinoverview --user_pass secret product-d
   quickstart platform.
 
 The data sets point at `Coco PostgreSQL Server 1` on `host.docker.internal:5442`, the shared PostgreSQL server
-of the quickstart environment, with credentials from the `PostgreSQL Server Secret` collection in
-`secrets/integration.omsecrets`.  The `coco_pharma` database and its schemas do not exist yet: the products
-are proposals, and the data sets describe where each will be read from once the Data Sharing Hub is built.
+of the quickstart environment, with credentials from the `PostgreSQL Provisioning Secret` collection in
+`secrets/integration.omsecrets` - the `provisioner` database user, which reads and writes the product tables.
+(The cataloguer's `PostgreSQL Server Secret` user, `surveyor`, can read the product tables, so that the Data
+Sharing Hub Manager can survey them, but not write to them.)  The quickstart creates the `coco_data_hub` database with one
+schema per product, one table per data structure and one column per data field (see
+`compose-configs/egeria-quickstart/README.md`); the tables are empty until the Data Sharing Hub is built.
+`coco_pharma` holds the existing Coco systems (`coco_sus`, `coco_ods`).
 
 ----
 License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/),

@@ -110,5 +110,5 @@ term they reference has to exist first.
 | [common-class-words.md](common-class-words.md) | *(shared across subject areas)* | Common |
 | [strategic-products-vocabulary.md](strategic-products-vocabulary.md) | *(73 prime words, 161 modifiers and 6 class words for the strategic digital products, added to the folders above)* | - |
 | [classify-prime-words.md](classify-prime-words.md) | *(`PrimeWord` on 129 terms)* | - |
-| [classify-modifiers.md](classify-modifiers.md) | *(`Modifier` on 205 terms)* | - |
+| [classify-modifiers.md](classify-modifiers.md) | *(`Modifier` on 206 terms)* | - |
 | [classify-class-words.md](classify-class-words.md) | *(`ClassWord` on 52 terms)* | - |

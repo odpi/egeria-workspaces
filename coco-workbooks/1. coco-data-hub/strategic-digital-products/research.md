@@ -20,10 +20,10 @@ Products of drug development that other chains consume: new product definitions 
 For every product this file:
 
 1. creates the **digital product** and adds it to the `Research` folder of the catalog;
-2. creates its **data spec** and attaches it with a `DataDescription` relationship, then the **data structures**, each added to the spec, and the **data fields**, each linked to its structure with a `MemberDataField` relationship, named to the [Data Field Naming](../data-field-naming/README.md) standard;
-3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, as a member of the product.  The schema is named after the product, in the `coco_pharma` database on `Coco PostgreSQL Server 1`.
+2. creates its **data spec** and attaches it with a `DataDescription` relationship, then the **data structures**, each added to the spec, and the **data fields**, each linked to its structure with a `MemberDataField` relationship, its position and coverage category set on that relationship - `IDENTIFIER` for the fields that identify a row of the structure, `CORE_DETAIL` for the rest - named to the [Data Field Naming](../data-field-naming/README.md) standard;
+3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, as a member of the product.  The schema is named after the product, in the `coco_data_hub` database on `Coco PostgreSQL Server 1`.
 
-2 products, 5 data structures, 29 data fields.  This file loads after `catalog.md`.
+2 products, 5 data structures, 27 data fields.  Product Code is one data field shared by all three New Product Definitions structures: it identifies a row of Candidate Product Definition and Product Specification, and refers to the product in Product Presentation.  This file loads after `catalog.md`.
 
 ```
 dr_egeria --directive process --userid erinoverview --user_pass secret research.md
@@ -47,7 +47,7 @@ New Product Definitions
 New Product Definitions
 
 ### Qualified Name
-DigitalProduct::Coco::New Product Definitions
+DigitalProduct::Coco::Product Definitions
 
 ### Description
 The definition of a new product as it leaves development: its composition, the presentations it will be supplied in and the specification it must meet.  It is the source the product master is created from.
@@ -82,7 +82,7 @@ ___
 CollectionFolder::Coco::Strategic Digital Products::Research
 
 ### Element Id
-DigitalProduct::Coco::New Product Definitions
+DigitalProduct::Coco::Product Definitions
 
 ### Membership Rationale
 Produced by the Research group's `Research` component.
@@ -98,7 +98,7 @@ ___
 New Product Definitions Data Spec
 
 ### Qualified Name
-DataSpec::Coco::New Product Definitions
+DataSpec::Coco::Product Definitions
 
 ### Description
 The data structures and fields that make up the New Product Definitions digital product.
@@ -121,10 +121,10 @@ ___
 ## Link Data Description
 
 ### Element Id
-DigitalProduct::Coco::New Product Definitions
+DigitalProduct::Coco::Product Definitions
 
 ### Collection Id
-DataSpec::Coco::New Product Definitions
+DataSpec::Coco::Product Definitions
 
 ### Label
 data specification
@@ -137,13 +137,13 @@ ___
 Candidate Product Definition
 
 ### Qualified Name
-DataStructure::Coco::New Product Definitions::Candidate Product Definition
+DataStructure::Coco::Product Definitions::Candidate Product Definition
 
 ### Description
 One row per product candidate handed over from development.
 
 ### Namespace Path
-coco_pharma.new_product_definitions
+coco_data_hub.new_product_definitions
 
 ### Version Identifier
 1.0
@@ -156,10 +156,10 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-DataSpec::Coco::New Product Definitions
+DataSpec::Coco::Product Definitions
 
 ### Element Id
-DataStructure::Coco::New Product Definitions::Candidate Product Definition
+DataStructure::Coco::Product Definitions::Candidate Product Definition
 
 ### Membership Rationale
 The Candidate Product Definition structure is part of the New Product Definitions data specification.
@@ -172,66 +172,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CandidateIdentifier
+Product Code
 
 ### Qualified Name
-DataField::Coco::New Product Definitions::Candidate Product Definition::CandidateIdentifier
-
-### Description
-The development identifier of the candidate.
-
-### Data Type
-string
-
-### Position
-1
-
-### Is Nullable
-false
-
-### Minimum Cardinality
-1
-
-### Length
-40
-
-### Version Identifier
-1.0
-
-### Content Status
-ACTIVE
-
-___
-
-## Link Data Field to Data Structure
-
-### Data Field
-DataField::Coco::New Product Definitions::Candidate Product Definition::CandidateIdentifier
-
-### Data Structure
-DataStructure::Coco::New Product Definitions::Candidate Product Definition
-
-### Label
-field 1
-
-___
-
-## Create Data Field
-
-### Display Name
-ProductCode
-
-### Qualified Name
-DataField::Coco::New Product Definitions::Candidate Product Definition::ProductCode
+DataField::Coco::Product Definitions::Product Code
 
 ### Description
 The product code assigned on handover.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -253,10 +203,66 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::New Product Definitions::Candidate Product Definition::ProductCode
+DataField::Coco::Product Definitions::Product Code
 
 ### Data Structure
-DataStructure::Coco::New Product Definitions::Candidate Product Definition
+DataStructure::Coco::Product Definitions::Candidate Product Definition
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
+
+### Label
+field 1
+
+___
+
+## Create Data Field
+
+### Display Name
+Candidate Identifier
+
+### Qualified Name
+DataField::Coco::Product Definitions::Candidate Identifier
+
+### Description
+The development identifier of the candidate.
+
+### Data Type
+string
+
+### Is Nullable
+false
+
+### Minimum Cardinality
+1
+
+### Length
+40
+
+### Version Identifier
+1.0
+
+### Content Status
+ACTIVE
+
+___
+
+## Link Data Field to Data Structure
+
+### Data Field
+DataField::Coco::Product Definitions::Candidate Identifier
+
+### Data Structure
+DataStructure::Coco::Product Definitions::Candidate Product Definition
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -266,19 +272,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductName
+Product Name
 
 ### Qualified Name
-DataField::Coco::New Product Definitions::Candidate Product Definition::ProductName
+DataField::Coco::Product Definitions::Product Name
 
 ### Description
 The proposed product name.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -300,10 +303,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::New Product Definitions::Candidate Product Definition::ProductName
+DataField::Coco::Product Definitions::Product Name
 
 ### Data Structure
-DataStructure::Coco::New Product Definitions::Candidate Product Definition
+DataStructure::Coco::Product Definitions::Candidate Product Definition
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -313,19 +322,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-FormulationIdentifier
+Formulation Identifier
 
 ### Qualified Name
-DataField::Coco::New Product Definitions::Candidate Product Definition::FormulationIdentifier
+DataField::Coco::Product Definitions::Formulation Identifier
 
 ### Description
 The formulation developed.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -347,10 +353,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::New Product Definitions::Candidate Product Definition::FormulationIdentifier
+DataField::Coco::Product Definitions::Formulation Identifier
 
 ### Data Structure
-DataStructure::Coco::New Product Definitions::Candidate Product Definition
+DataStructure::Coco::Product Definitions::Candidate Product Definition
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -360,19 +372,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ActiveIngredientName
+Active Ingredient Name
 
 ### Qualified Name
-DataField::Coco::New Product Definitions::Candidate Product Definition::ActiveIngredientName
+DataField::Coco::Product Definitions::Active Ingredient Name
 
 ### Description
 The active ingredient.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -394,10 +403,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::New Product Definitions::Candidate Product Definition::ActiveIngredientName
+DataField::Coco::Product Definitions::Active Ingredient Name
 
 ### Data Structure
-DataStructure::Coco::New Product Definitions::Candidate Product Definition
+DataStructure::Coco::Product Definitions::Candidate Product Definition
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -407,19 +422,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductStrength
+Product Strength
 
 ### Qualified Name
-DataField::Coco::New Product Definitions::Candidate Product Definition::ProductStrength
+DataField::Coco::Product Definitions::Product Strength
 
 ### Description
 The strength.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 true
@@ -441,10 +453,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::New Product Definitions::Candidate Product Definition::ProductStrength
+DataField::Coco::Product Definitions::Product Strength
 
 ### Data Structure
-DataStructure::Coco::New Product Definitions::Candidate Product Definition
+DataStructure::Coco::Product Definitions::Candidate Product Definition
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -454,19 +472,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ClinicalTrialIdentifier
+Clinical Trial Identifier
 
 ### Qualified Name
-DataField::Coco::New Product Definitions::Candidate Product Definition::ClinicalTrialIdentifier
+DataField::Coco::Product Definitions::Clinical Trial Identifier
 
 ### Description
 The trial that supports the product.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 true
@@ -488,10 +503,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::New Product Definitions::Candidate Product Definition::ClinicalTrialIdentifier
+DataField::Coco::Product Definitions::Clinical Trial Identifier
 
 ### Data Structure
-DataStructure::Coco::New Product Definitions::Candidate Product Definition
+DataStructure::Coco::Product Definitions::Candidate Product Definition
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -501,19 +522,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CandidateHandoverDate
+Candidate Handover Date
 
 ### Qualified Name
-DataField::Coco::New Product Definitions::Candidate Product Definition::CandidateHandoverDate
+DataField::Coco::Product Definitions::Candidate Handover Date
 
 ### Description
 When development handed the definition over.
 
 ### Data Type
 date
-
-### Position
-8
 
 ### Is Nullable
 false
@@ -532,10 +550,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::New Product Definitions::Candidate Product Definition::CandidateHandoverDate
+DataField::Coco::Product Definitions::Candidate Handover Date
 
 ### Data Structure
-DataStructure::Coco::New Product Definitions::Candidate Product Definition
+DataStructure::Coco::Product Definitions::Candidate Product Definition
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -548,13 +572,13 @@ ___
 Product Presentation
 
 ### Qualified Name
-DataStructure::Coco::New Product Definitions::Product Presentation
+DataStructure::Coco::Product Definitions::Product Presentation
 
 ### Description
 One row per presentation the product will be supplied in.
 
 ### Namespace Path
-coco_pharma.new_product_definitions
+coco_data_hub.new_product_definitions
 
 ### Version Identifier
 1.0
@@ -567,10 +591,10 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-DataSpec::Coco::New Product Definitions
+DataSpec::Coco::Product Definitions
 
 ### Element Id
-DataStructure::Coco::New Product Definitions::Product Presentation
+DataStructure::Coco::Product Definitions::Product Presentation
 
 ### Membership Rationale
 The Product Presentation structure is part of the New Product Definitions data specification.
@@ -583,57 +607,10 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductCode
+Pack Code
 
 ### Qualified Name
-DataField::Coco::New Product Definitions::Product Presentation::ProductCode
-
-### Description
-The product.
-
-### Data Type
-string
-
-### Position
-1
-
-### Is Nullable
-false
-
-### Minimum Cardinality
-1
-
-### Length
-20
-
-### Version Identifier
-1.0
-
-### Content Status
-ACTIVE
-
-___
-
-## Link Data Field to Data Structure
-
-### Data Field
-DataField::Coco::New Product Definitions::Product Presentation::ProductCode
-
-### Data Structure
-DataStructure::Coco::New Product Definitions::Product Presentation
-
-### Label
-field 1
-
-___
-
-## Create Data Field
-
-### Display Name
-PackCode
-
-### Qualified Name
-DataField::Coco::New Product Definitions::Product Presentation::PackCode
+DataField::Coco::Product Definitions::Pack Code
 
 ### Description
 The presentation's pack code.
@@ -641,9 +618,6 @@ The presentation's pack code.
 ### Data Type
 string
 
-### Position
-2
-
 ### Is Nullable
 false
 
@@ -664,10 +638,35 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::New Product Definitions::Product Presentation::PackCode
+DataField::Coco::Product Definitions::Pack Code
 
 ### Data Structure
-DataStructure::Coco::New Product Definitions::Product Presentation
+DataStructure::Coco::Product Definitions::Product Presentation
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
+
+### Label
+field 1
+
+___
+
+## Link Data Field to Data Structure
+
+### Data Field
+DataField::Coco::Product Definitions::Product Code
+
+### Data Structure
+DataStructure::Coco::Product Definitions::Product Presentation
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -677,19 +676,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PackDescription
+Pack Description
 
 ### Qualified Name
-DataField::Coco::New Product Definitions::Product Presentation::PackDescription
+DataField::Coco::Product Definitions::Pack Description
 
 ### Description
 The presentation.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -708,10 +704,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::New Product Definitions::Product Presentation::PackDescription
+DataField::Coco::Product Definitions::Pack Description
 
 ### Data Structure
-DataStructure::Coco::New Product Definitions::Product Presentation
+DataStructure::Coco::Product Definitions::Product Presentation
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -721,19 +723,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PackQuantity
+Pack Quantity
 
 ### Qualified Name
-DataField::Coco::New Product Definitions::Product Presentation::PackQuantity
+DataField::Coco::Product Definitions::Pack Quantity
 
 ### Description
 Units per pack.
 
 ### Data Type
 int
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -752,10 +751,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::New Product Definitions::Product Presentation::PackQuantity
+DataField::Coco::Product Definitions::Pack Quantity
 
 ### Data Structure
-DataStructure::Coco::New Product Definitions::Product Presentation
+DataStructure::Coco::Product Definitions::Product Presentation
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -768,13 +773,13 @@ ___
 Product Specification
 
 ### Qualified Name
-DataStructure::Coco::New Product Definitions::Product Specification
+DataStructure::Coco::Product Definitions::Product Specification
 
 ### Description
 One row per specification limit the product must meet on release.
 
 ### Namespace Path
-coco_pharma.new_product_definitions
+coco_data_hub.new_product_definitions
 
 ### Version Identifier
 1.0
@@ -787,10 +792,10 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-DataSpec::Coco::New Product Definitions
+DataSpec::Coco::Product Definitions
 
 ### Element Id
-DataStructure::Coco::New Product Definitions::Product Specification
+DataStructure::Coco::Product Definitions::Product Specification
 
 ### Membership Rationale
 The Product Specification structure is part of the New Product Definitions data specification.
@@ -800,47 +805,19 @@ VALIDATED
 
 ___
 
-## Create Data Field
+## Link Data Field to Data Structure
 
-### Display Name
-ProductCode
+### Data Field
+DataField::Coco::Product Definitions::Product Code
 
-### Qualified Name
-DataField::Coco::New Product Definitions::Product Specification::ProductCode
-
-### Description
-The product.
-
-### Data Type
-string
+### Data Structure
+DataStructure::Coco::Product Definitions::Product Specification
 
 ### Position
 1
 
-### Is Nullable
-false
-
-### Minimum Cardinality
-1
-
-### Length
-20
-
-### Version Identifier
-1.0
-
-### Content Status
-ACTIVE
-
-___
-
-## Link Data Field to Data Structure
-
-### Data Field
-DataField::Coco::New Product Definitions::Product Specification::ProductCode
-
-### Data Structure
-DataStructure::Coco::New Product Definitions::Product Specification
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -850,19 +827,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TestCode
+Test Code
 
 ### Qualified Name
-DataField::Coco::New Product Definitions::Product Specification::TestCode
+DataField::Coco::Product Definitions::Test Code
 
 ### Description
 The release test.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -884,10 +858,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::New Product Definitions::Product Specification::TestCode
+DataField::Coco::Product Definitions::Test Code
 
 ### Data Structure
-DataStructure::Coco::New Product Definitions::Product Specification
+DataStructure::Coco::Product Definitions::Product Specification
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -897,19 +877,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SpecificationMinimumValue
+Specification Minimum Value
 
 ### Qualified Name
-DataField::Coco::New Product Definitions::Product Specification::SpecificationMinimumValue
+DataField::Coco::Product Definitions::Specification Minimum Value
 
 ### Description
 The lower limit.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 true
@@ -931,10 +908,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::New Product Definitions::Product Specification::SpecificationMinimumValue
+DataField::Coco::Product Definitions::Specification Minimum Value
 
 ### Data Structure
-DataStructure::Coco::New Product Definitions::Product Specification
+DataStructure::Coco::Product Definitions::Product Specification
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -944,19 +927,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SpecificationMaximumValue
+Specification Maximum Value
 
 ### Qualified Name
-DataField::Coco::New Product Definitions::Product Specification::SpecificationMaximumValue
+DataField::Coco::Product Definitions::Specification Maximum Value
 
 ### Description
 The upper limit.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 true
@@ -978,10 +958,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::New Product Definitions::Product Specification::SpecificationMaximumValue
+DataField::Coco::Product Definitions::Specification Maximum Value
 
 ### Data Structure
-DataStructure::Coco::New Product Definitions::Product Specification
+DataStructure::Coco::Product Definitions::Product Specification
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -991,19 +977,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TestUnit
+Test Unit
 
 ### Qualified Name
-DataField::Coco::New Product Definitions::Product Specification::TestUnit
+DataField::Coco::Product Definitions::Test Unit
 
 ### Description
 The unit.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -1025,10 +1008,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::New Product Definitions::Product Specification::TestUnit
+DataField::Coco::Product Definitions::Test Unit
 
 ### Data Structure
-DataStructure::Coco::New Product Definitions::Product Specification
+DataStructure::Coco::Product Definitions::Product Specification
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -1047,15 +1036,15 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: new_product_definitions
 - schemaDescription: The definition of a new product as it leaves development: its composition, the presentations it will be supplied in and the specification it must meet. It is the source the product master is created from.
 
 ### Parent ID
-DigitalProduct::Coco::New Product Definitions
+DigitalProduct::Coco::Product Definitions
 
 ### Parent Relationship Type Name
 CollectionMembership
@@ -1177,7 +1166,7 @@ DataStructure::Coco::Hospital Certifications::Hospital Certification
 One row per hospital certified for a trial.
 
 ### Namespace Path
-coco_pharma.hospital_certifications
+coco_data_hub.hospital_certifications
 
 ### Version Identifier
 1.0
@@ -1206,19 +1195,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-HospitalIdentifier
+Hospital Identifier
 
 ### Qualified Name
-DataField::Coco::Hospital Certifications::Hospital Certification::HospitalIdentifier
+DataField::Coco::Hospital Certifications::Hospital Certification::Hospital Identifier
 
 ### Description
 The hospital.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -1240,10 +1226,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Hospital Certifications::Hospital Certification::HospitalIdentifier
+DataField::Coco::Hospital Certifications::Hospital Certification::Hospital Identifier
 
 ### Data Structure
 DataStructure::Coco::Hospital Certifications::Hospital Certification
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -1253,19 +1245,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ClinicalTrialIdentifier
+Clinical Trial Identifier
 
 ### Qualified Name
-DataField::Coco::Hospital Certifications::Hospital Certification::ClinicalTrialIdentifier
+DataField::Coco::Hospital Certifications::Hospital Certification::Clinical Trial Identifier
 
 ### Description
 The trial.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -1287,10 +1276,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Hospital Certifications::Hospital Certification::ClinicalTrialIdentifier
+DataField::Coco::Hospital Certifications::Hospital Certification::Clinical Trial Identifier
 
 ### Data Structure
 DataStructure::Coco::Hospital Certifications::Hospital Certification
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -1300,19 +1295,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-HospitalCertificationDate
+Hospital Certification Date
 
 ### Qualified Name
-DataField::Coco::Hospital Certifications::Hospital Certification::HospitalCertificationDate
+DataField::Coco::Hospital Certifications::Hospital Certification::Hospital Certification Date
 
 ### Description
 When certified.
 
 ### Data Type
 date
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -1331,10 +1323,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Hospital Certifications::Hospital Certification::HospitalCertificationDate
+DataField::Coco::Hospital Certifications::Hospital Certification::Hospital Certification Date
 
 ### Data Structure
 DataStructure::Coco::Hospital Certifications::Hospital Certification
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -1344,19 +1342,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-HospitalCertificationEndDate
+Hospital Certification End Date
 
 ### Qualified Name
-DataField::Coco::Hospital Certifications::Hospital Certification::HospitalCertificationEndDate
+DataField::Coco::Hospital Certifications::Hospital Certification::Hospital Certification End Date
 
 ### Description
 When the certification lapses.
 
 ### Data Type
 date
-
-### Position
-4
 
 ### Is Nullable
 true
@@ -1375,10 +1370,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Hospital Certifications::Hospital Certification::HospitalCertificationEndDate
+DataField::Coco::Hospital Certifications::Hospital Certification::Hospital Certification End Date
 
 ### Data Structure
 DataStructure::Coco::Hospital Certifications::Hospital Certification
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -1388,19 +1389,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-HospitalCertificationStatus
+Hospital Certification Status
 
 ### Qualified Name
-DataField::Coco::Hospital Certifications::Hospital Certification::HospitalCertificationStatus
+DataField::Coco::Hospital Certifications::Hospital Certification::Hospital Certification Status
 
 ### Description
 Certified, suspended or withdrawn.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -1422,10 +1420,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Hospital Certifications::Hospital Certification::HospitalCertificationStatus
+DataField::Coco::Hospital Certifications::Hospital Certification::Hospital Certification Status
 
 ### Data Structure
 DataStructure::Coco::Hospital Certifications::Hospital Certification
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -1435,19 +1439,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-HospitalCertifierIdentifier
+Hospital Certifier Identifier
 
 ### Qualified Name
-DataField::Coco::Hospital Certifications::Hospital Certification::HospitalCertifierIdentifier
+DataField::Coco::Hospital Certifications::Hospital Certification::Hospital Certifier Identifier
 
 ### Description
 Who certified the site.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -1469,10 +1470,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Hospital Certifications::Hospital Certification::HospitalCertifierIdentifier
+DataField::Coco::Hospital Certifications::Hospital Certification::Hospital Certifier Identifier
 
 ### Data Structure
 DataStructure::Coco::Hospital Certifications::Hospital Certification
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -1491,7 +1498,7 @@ DataStructure::Coco::Hospital Certifications::Site Staff Training Evidence
 One row per site staff member per protocol training completed.
 
 ### Namespace Path
-coco_pharma.hospital_certifications
+coco_data_hub.hospital_certifications
 
 ### Version Identifier
 1.0
@@ -1520,19 +1527,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-HospitalIdentifier
+Hospital Identifier
 
 ### Qualified Name
-DataField::Coco::Hospital Certifications::Site Staff Training Evidence::HospitalIdentifier
+DataField::Coco::Hospital Certifications::Site Staff Training Evidence::Hospital Identifier
 
 ### Description
 The site.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -1554,10 +1558,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Hospital Certifications::Site Staff Training Evidence::HospitalIdentifier
+DataField::Coco::Hospital Certifications::Site Staff Training Evidence::Hospital Identifier
 
 ### Data Structure
 DataStructure::Coco::Hospital Certifications::Site Staff Training Evidence
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -1567,19 +1577,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ClinicalTrialIdentifier
+Clinical Trial Identifier
 
 ### Qualified Name
-DataField::Coco::Hospital Certifications::Site Staff Training Evidence::ClinicalTrialIdentifier
+DataField::Coco::Hospital Certifications::Site Staff Training Evidence::Clinical Trial Identifier
 
 ### Description
 The trial.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -1601,10 +1608,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Hospital Certifications::Site Staff Training Evidence::ClinicalTrialIdentifier
+DataField::Coco::Hospital Certifications::Site Staff Training Evidence::Clinical Trial Identifier
 
 ### Data Structure
 DataStructure::Coco::Hospital Certifications::Site Staff Training Evidence
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -1614,19 +1627,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ClinicianIdentifier
+Clinician Identifier
 
 ### Qualified Name
-DataField::Coco::Hospital Certifications::Site Staff Training Evidence::ClinicianIdentifier
+DataField::Coco::Hospital Certifications::Site Staff Training Evidence::Clinician Identifier
 
 ### Description
 The staff member.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -1648,10 +1658,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Hospital Certifications::Site Staff Training Evidence::ClinicianIdentifier
+DataField::Coco::Hospital Certifications::Site Staff Training Evidence::Clinician Identifier
 
 ### Data Structure
 DataStructure::Coco::Hospital Certifications::Site Staff Training Evidence
+
+### Position
+3
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 3
@@ -1661,19 +1677,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProtocolIdentifier
+Protocol Identifier
 
 ### Qualified Name
-DataField::Coco::Hospital Certifications::Site Staff Training Evidence::ProtocolIdentifier
+DataField::Coco::Hospital Certifications::Site Staff Training Evidence::Protocol Identifier
 
 ### Description
 The protocol trained on.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -1695,10 +1708,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Hospital Certifications::Site Staff Training Evidence::ProtocolIdentifier
+DataField::Coco::Hospital Certifications::Site Staff Training Evidence::Protocol Identifier
 
 ### Data Structure
 DataStructure::Coco::Hospital Certifications::Site Staff Training Evidence
+
+### Position
+4
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 4
@@ -1708,19 +1727,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TrainingCompletedDate
+Training Completed Date
 
 ### Qualified Name
-DataField::Coco::Hospital Certifications::Site Staff Training Evidence::TrainingCompletedDate
+DataField::Coco::Hospital Certifications::Site Staff Training Evidence::Training Completed Date
 
 ### Description
 When training was completed.
 
 ### Data Type
 date
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -1739,10 +1755,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Hospital Certifications::Site Staff Training Evidence::TrainingCompletedDate
+DataField::Coco::Hospital Certifications::Site Staff Training Evidence::Training Completed Date
 
 ### Data Structure
 DataStructure::Coco::Hospital Certifications::Site Staff Training Evidence
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -1752,19 +1774,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TrainingExpiryDate
+Training Expiry Date
 
 ### Qualified Name
-DataField::Coco::Hospital Certifications::Site Staff Training Evidence::TrainingExpiryDate
+DataField::Coco::Hospital Certifications::Site Staff Training Evidence::Training Expiry Date
 
 ### Description
 When the training lapses.
 
 ### Data Type
 date
-
-### Position
-6
 
 ### Is Nullable
 true
@@ -1783,10 +1802,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Hospital Certifications::Site Staff Training Evidence::TrainingExpiryDate
+DataField::Coco::Hospital Certifications::Site Staff Training Evidence::Training Expiry Date
 
 ### Data Structure
 DataStructure::Coco::Hospital Certifications::Site Staff Training Evidence
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -1805,10 +1830,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: hospital_certifications
 - schemaDescription: The certification of hospitals as clinical trial sites, including the evidence that site staff were trained on the protocol before they worked to it. Competency data is read here as compliance evidence.
 

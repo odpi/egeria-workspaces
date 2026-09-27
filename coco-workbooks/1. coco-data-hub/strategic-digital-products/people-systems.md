@@ -29,8 +29,8 @@ Products of the worker record and everything derived from it: lifecycle events, 
 For every product this file:
 
 1. creates the **digital product** and adds it to the `People Systems` folder of the catalog;
-2. creates its **data spec** and attaches it with a `DataDescription` relationship, then the **data structures**, each added to the spec, and the **data fields**, each linked to its structure with a `MemberDataField` relationship, named to the [Data Field Naming](../data-field-naming/README.md) standard;
-3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, as a member of the product.  The schema is named after the product, in the `coco_pharma` database on `Coco PostgreSQL Server 1`.
+2. creates its **data spec** and attaches it with a `DataDescription` relationship, then the **data structures**, each added to the spec, and the **data fields**, each linked to its structure with a `MemberDataField` relationship, its position and coverage category set on that relationship - `IDENTIFIER` for the fields that identify a row of the structure, `CORE_DETAIL` for the rest - named to the [Data Field Naming](../data-field-naming/README.md) standard;
+3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, as a member of the product.  The schema is named after the product, in the `coco_data_hub` database on `Coco PostgreSQL Server 1`.
 
 11 products, 18 data structures, 123 data fields.  This file loads after `catalog.md`.
 
@@ -152,7 +152,7 @@ DataStructure::Coco::Worker Master Data::Worker
 One row per worker, identified by pseudonym to every consuming system.
 
 ### Namespace Path
-coco_pharma.worker_master_data
+coco_data_hub.worker_master_data
 
 ### Version Identifier
 1.0
@@ -181,19 +181,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerPseudonymIdentifier
+Worker Pseudonym Identifier
 
 ### Qualified Name
-DataField::Coco::Worker Master Data::Worker::WorkerPseudonymIdentifier
+DataField::Coco::Worker Master Data::Worker::Worker Pseudonym Identifier
 
 ### Description
 The worker's pseudonym.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -215,10 +212,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Master Data::Worker::WorkerPseudonymIdentifier
+DataField::Coco::Worker Master Data::Worker::Worker Pseudonym Identifier
 
 ### Data Structure
 DataStructure::Coco::Worker Master Data::Worker
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -228,19 +231,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerType
+Worker Type
 
 ### Qualified Name
-DataField::Coco::Worker Master Data::Worker::WorkerType
+DataField::Coco::Worker Master Data::Worker::Worker Type
 
 ### Description
 Employee or contractor.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -262,10 +262,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Master Data::Worker::WorkerType
+DataField::Coco::Worker Master Data::Worker::Worker Type
 
 ### Data Structure
 DataStructure::Coco::Worker Master Data::Worker
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -275,19 +281,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LegalEntityCode
+Legal Entity Code
 
 ### Qualified Name
-DataField::Coco::Worker Master Data::Worker::LegalEntityCode
+DataField::Coco::Worker Master Data::Worker::Legal Entity Code
 
 ### Description
 The employing entity.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -309,10 +312,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Master Data::Worker::LegalEntityCode
+DataField::Coco::Worker Master Data::Worker::Legal Entity Code
 
 ### Data Structure
 DataStructure::Coco::Worker Master Data::Worker
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -322,19 +331,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SiteCode
+Site Code
 
 ### Qualified Name
-DataField::Coco::Worker Master Data::Worker::SiteCode
+DataField::Coco::Worker Master Data::Worker::Site Code
 
 ### Description
 The primary site.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -356,10 +362,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Master Data::Worker::SiteCode
+DataField::Coco::Worker Master Data::Worker::Site Code
 
 ### Data Structure
 DataStructure::Coco::Worker Master Data::Worker
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -369,19 +381,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerHireDate
+Worker Hire Date
 
 ### Qualified Name
-DataField::Coco::Worker Master Data::Worker::WorkerHireDate
+DataField::Coco::Worker Master Data::Worker::Worker Hire Date
 
 ### Description
 When the worker joined.
 
 ### Data Type
 date
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -400,10 +409,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Master Data::Worker::WorkerHireDate
+DataField::Coco::Worker Master Data::Worker::Worker Hire Date
 
 ### Data Structure
 DataStructure::Coco::Worker Master Data::Worker
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -413,19 +428,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerLeaveDate
+Worker Leave Date
 
 ### Qualified Name
-DataField::Coco::Worker Master Data::Worker::WorkerLeaveDate
+DataField::Coco::Worker Master Data::Worker::Worker Leave Date
 
 ### Description
 When they left, once they have.
 
 ### Data Type
 date
-
-### Position
-6
 
 ### Is Nullable
 true
@@ -444,10 +456,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Master Data::Worker::WorkerLeaveDate
+DataField::Coco::Worker Master Data::Worker::Worker Leave Date
 
 ### Data Structure
 DataStructure::Coco::Worker Master Data::Worker
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -457,19 +475,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerCurrentStatus
+Worker Current Status
 
 ### Qualified Name
-DataField::Coco::Worker Master Data::Worker::WorkerCurrentStatus
+DataField::Coco::Worker Master Data::Worker::Worker Current Status
 
 ### Description
 Active, on leave, left.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -491,10 +506,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Master Data::Worker::WorkerCurrentStatus
+DataField::Coco::Worker Master Data::Worker::Worker Current Status
 
 ### Data Structure
 DataStructure::Coco::Worker Master Data::Worker
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -513,7 +534,7 @@ DataStructure::Coco::Worker Master Data::Worker Assignment
 One row per worker, their current role, cost centre and reporting line.
 
 ### Namespace Path
-coco_pharma.worker_master_data
+coco_data_hub.worker_master_data
 
 ### Version Identifier
 1.0
@@ -542,19 +563,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerPseudonymIdentifier
+Worker Pseudonym Identifier
 
 ### Qualified Name
-DataField::Coco::Worker Master Data::Worker Assignment::WorkerPseudonymIdentifier
+DataField::Coco::Worker Master Data::Worker Assignment::Worker Pseudonym Identifier
 
 ### Description
 The worker.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -576,10 +594,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Master Data::Worker Assignment::WorkerPseudonymIdentifier
+DataField::Coco::Worker Master Data::Worker Assignment::Worker Pseudonym Identifier
 
 ### Data Structure
 DataStructure::Coco::Worker Master Data::Worker Assignment
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -589,19 +613,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RoleCode
+Role Code
 
 ### Qualified Name
-DataField::Coco::Worker Master Data::Worker Assignment::RoleCode
+DataField::Coco::Worker Master Data::Worker Assignment::Role Code
 
 ### Description
 The role.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -623,10 +644,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Master Data::Worker Assignment::RoleCode
+DataField::Coco::Worker Master Data::Worker Assignment::Role Code
 
 ### Data Structure
 DataStructure::Coco::Worker Master Data::Worker Assignment
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -636,19 +663,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RoleName
+Role Name
 
 ### Qualified Name
-DataField::Coco::Worker Master Data::Worker Assignment::RoleName
+DataField::Coco::Worker Master Data::Worker Assignment::Role Name
 
 ### Description
 The role's name.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -670,10 +694,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Master Data::Worker Assignment::RoleName
+DataField::Coco::Worker Master Data::Worker Assignment::Role Name
 
 ### Data Structure
 DataStructure::Coco::Worker Master Data::Worker Assignment
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -683,19 +713,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CostCentreCode
+Cost Centre Code
 
 ### Qualified Name
-DataField::Coco::Worker Master Data::Worker Assignment::CostCentreCode
+DataField::Coco::Worker Master Data::Worker Assignment::Cost Centre Code
 
 ### Description
 The cost centre.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -717,10 +744,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Master Data::Worker Assignment::CostCentreCode
+DataField::Coco::Worker Master Data::Worker Assignment::Cost Centre Code
 
 ### Data Structure
 DataStructure::Coco::Worker Master Data::Worker Assignment
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -730,19 +763,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ManagerPseudonymIdentifier
+Manager Pseudonym Identifier
 
 ### Qualified Name
-DataField::Coco::Worker Master Data::Worker Assignment::ManagerPseudonymIdentifier
+DataField::Coco::Worker Master Data::Worker Assignment::Manager Pseudonym Identifier
 
 ### Description
 The reporting manager.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -764,10 +794,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Master Data::Worker Assignment::ManagerPseudonymIdentifier
+DataField::Coco::Worker Master Data::Worker Assignment::Manager Pseudonym Identifier
 
 ### Data Structure
 DataStructure::Coco::Worker Master Data::Worker Assignment
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -777,19 +813,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerAssignmentStartDate
+Worker Assignment Start Date
 
 ### Qualified Name
-DataField::Coco::Worker Master Data::Worker Assignment::WorkerAssignmentStartDate
+DataField::Coco::Worker Master Data::Worker Assignment::Worker Assignment Start Date
 
 ### Description
 When the assignment began.
 
 ### Data Type
 date
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -808,10 +841,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Master Data::Worker Assignment::WorkerAssignmentStartDate
+DataField::Coco::Worker Master Data::Worker Assignment::Worker Assignment Start Date
 
 ### Data Structure
 DataStructure::Coco::Worker Master Data::Worker Assignment
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -821,19 +860,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerSpendingMaximumAmount
+Worker Spending Maximum Amount
 
 ### Qualified Name
-DataField::Coco::Worker Master Data::Worker Assignment::WorkerSpendingMaximumAmount
+DataField::Coco::Worker Master Data::Worker Assignment::Worker Spending Maximum Amount
 
 ### Description
 The worker's spending authority.
 
 ### Data Type
 bigdecimal
-
-### Position
-7
 
 ### Is Nullable
 true
@@ -852,10 +888,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Master Data::Worker Assignment::WorkerSpendingMaximumAmount
+DataField::Coco::Worker Master Data::Worker Assignment::Worker Spending Maximum Amount
 
 ### Data Structure
 DataStructure::Coco::Worker Master Data::Worker Assignment
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -865,19 +907,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerHazardProfileDescription
+Worker Hazard Profile Description
 
 ### Qualified Name
-DataField::Coco::Worker Master Data::Worker Assignment::WorkerHazardProfileDescription
+DataField::Coco::Worker Master Data::Worker Assignment::Worker Hazard Profile Description
 
 ### Description
 The substances and tasks the role exposes the worker to.
 
 ### Data Type
 string
-
-### Position
-8
 
 ### Is Nullable
 true
@@ -896,10 +935,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Master Data::Worker Assignment::WorkerHazardProfileDescription
+DataField::Coco::Worker Master Data::Worker Assignment::Worker Hazard Profile Description
 
 ### Data Structure
 DataStructure::Coco::Worker Master Data::Worker Assignment
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -918,10 +963,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: worker_master_data
 - schemaDescription: The authoritative record of every worker, employees and contractors alike, and the assignment of each to a role, an entity, a cost centre and a reporting line. It is the anchor that qualification, health surveillance, access and payroll records are all held against.
 
@@ -1048,7 +1093,7 @@ DataStructure::Coco::Worker Lifecycle Events::Worker Event
 One row per joiner, mover or leaver event.
 
 ### Namespace Path
-coco_pharma.worker_lifecycle_events
+coco_data_hub.worker_lifecycle_events
 
 ### Version Identifier
 1.0
@@ -1077,19 +1122,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerEventIdentifier
+Worker Event Identifier
 
 ### Qualified Name
-DataField::Coco::Worker Lifecycle Events::Worker Event::WorkerEventIdentifier
+DataField::Coco::Worker Lifecycle Events::Worker Event::Worker Event Identifier
 
 ### Description
 The event.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -1111,10 +1153,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Lifecycle Events::Worker Event::WorkerEventIdentifier
+DataField::Coco::Worker Lifecycle Events::Worker Event::Worker Event Identifier
 
 ### Data Structure
 DataStructure::Coco::Worker Lifecycle Events::Worker Event
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -1124,19 +1172,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerPseudonymIdentifier
+Worker Pseudonym Identifier
 
 ### Qualified Name
-DataField::Coco::Worker Lifecycle Events::Worker Event::WorkerPseudonymIdentifier
+DataField::Coco::Worker Lifecycle Events::Worker Event::Worker Pseudonym Identifier
 
 ### Description
 The worker.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -1158,10 +1203,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Lifecycle Events::Worker Event::WorkerPseudonymIdentifier
+DataField::Coco::Worker Lifecycle Events::Worker Event::Worker Pseudonym Identifier
 
 ### Data Structure
 DataStructure::Coco::Worker Lifecycle Events::Worker Event
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -1171,19 +1222,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerEventType
+Worker Event Type
 
 ### Qualified Name
-DataField::Coco::Worker Lifecycle Events::Worker Event::WorkerEventType
+DataField::Coco::Worker Lifecycle Events::Worker Event::Worker Event Type
 
 ### Description
 Joiner, mover or leaver.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -1205,10 +1253,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Lifecycle Events::Worker Event::WorkerEventType
+DataField::Coco::Worker Lifecycle Events::Worker Event::Worker Event Type
 
 ### Data Structure
 DataStructure::Coco::Worker Lifecycle Events::Worker Event
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -1218,19 +1272,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerEventStartDate
+Worker Event Start Date
 
 ### Qualified Name
-DataField::Coco::Worker Lifecycle Events::Worker Event::WorkerEventStartDate
+DataField::Coco::Worker Lifecycle Events::Worker Event::Worker Event Start Date
 
 ### Description
 The effective date.
 
 ### Data Type
 date
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -1249,10 +1300,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Lifecycle Events::Worker Event::WorkerEventStartDate
+DataField::Coco::Worker Lifecycle Events::Worker Event::Worker Event Start Date
 
 ### Data Structure
 DataStructure::Coco::Worker Lifecycle Events::Worker Event
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -1262,19 +1319,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerEventRaisedTimestamp
+Worker Event Raised Timestamp
 
 ### Qualified Name
-DataField::Coco::Worker Lifecycle Events::Worker Event::WorkerEventRaisedTimestamp
+DataField::Coco::Worker Lifecycle Events::Worker Event::Worker Event Raised Timestamp
 
 ### Description
 When the event was raised.
 
 ### Data Type
 date
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -1293,10 +1347,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Lifecycle Events::Worker Event::WorkerEventRaisedTimestamp
+DataField::Coco::Worker Lifecycle Events::Worker Event::Worker Event Raised Timestamp
 
 ### Data Structure
 DataStructure::Coco::Worker Lifecycle Events::Worker Event
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -1306,19 +1366,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RoleCode
+Role Code
 
 ### Qualified Name
-DataField::Coco::Worker Lifecycle Events::Worker Event::RoleCode
+DataField::Coco::Worker Lifecycle Events::Worker Event::Role Code
 
 ### Description
 The new role, for a joiner or mover.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 true
@@ -1340,10 +1397,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Lifecycle Events::Worker Event::RoleCode
+DataField::Coco::Worker Lifecycle Events::Worker Event::Role Code
 
 ### Data Structure
 DataStructure::Coco::Worker Lifecycle Events::Worker Event
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -1353,19 +1416,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerEventDescription
+Worker Event Description
 
 ### Qualified Name
-DataField::Coco::Worker Lifecycle Events::Worker Event::WorkerEventDescription
+DataField::Coco::Worker Lifecycle Events::Worker Event::Worker Event Description
 
 ### Description
 The change.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -1384,10 +1444,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Lifecycle Events::Worker Event::WorkerEventDescription
+DataField::Coco::Worker Lifecycle Events::Worker Event::Worker Event Description
 
 ### Data Structure
 DataStructure::Coco::Worker Lifecycle Events::Worker Event
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -1406,7 +1472,7 @@ DataStructure::Coco::Worker Lifecycle Events::Event Distribution Status
 One row per event per consuming system.
 
 ### Namespace Path
-coco_pharma.worker_lifecycle_events
+coco_data_hub.worker_lifecycle_events
 
 ### Version Identifier
 1.0
@@ -1435,19 +1501,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerEventIdentifier
+Worker Event Identifier
 
 ### Qualified Name
-DataField::Coco::Worker Lifecycle Events::Event Distribution Status::WorkerEventIdentifier
+DataField::Coco::Worker Lifecycle Events::Event Distribution Status::Worker Event Identifier
 
 ### Description
 The event.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -1469,10 +1532,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Lifecycle Events::Event Distribution Status::WorkerEventIdentifier
+DataField::Coco::Worker Lifecycle Events::Event Distribution Status::Worker Event Identifier
 
 ### Data Structure
 DataStructure::Coco::Worker Lifecycle Events::Event Distribution Status
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -1482,19 +1551,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SystemIdentifier
+System Identifier
 
 ### Qualified Name
-DataField::Coco::Worker Lifecycle Events::Event Distribution Status::SystemIdentifier
+DataField::Coco::Worker Lifecycle Events::Event Distribution Status::System Identifier
 
 ### Description
 The system notified.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -1516,10 +1582,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Lifecycle Events::Event Distribution Status::SystemIdentifier
+DataField::Coco::Worker Lifecycle Events::Event Distribution Status::System Identifier
 
 ### Data Structure
 DataStructure::Coco::Worker Lifecycle Events::Event Distribution Status
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -1529,19 +1601,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerEventSentTimestamp
+Worker Event Sent Timestamp
 
 ### Qualified Name
-DataField::Coco::Worker Lifecycle Events::Event Distribution Status::WorkerEventSentTimestamp
+DataField::Coco::Worker Lifecycle Events::Event Distribution Status::Worker Event Sent Timestamp
 
 ### Description
 When notified.
 
 ### Data Type
 date
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -1560,10 +1629,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Lifecycle Events::Event Distribution Status::WorkerEventSentTimestamp
+DataField::Coco::Worker Lifecycle Events::Event Distribution Status::Worker Event Sent Timestamp
 
 ### Data Structure
 DataStructure::Coco::Worker Lifecycle Events::Event Distribution Status
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -1573,19 +1648,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerEventAppliedFlag
+Worker Event Applied Flag
 
 ### Qualified Name
-DataField::Coco::Worker Lifecycle Events::Event Distribution Status::WorkerEventAppliedFlag
+DataField::Coco::Worker Lifecycle Events::Event Distribution Status::Worker Event Applied Flag
 
 ### Description
 Whether the system has confirmed acting on it.
 
 ### Data Type
 boolean
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -1604,10 +1676,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Lifecycle Events::Event Distribution Status::WorkerEventAppliedFlag
+DataField::Coco::Worker Lifecycle Events::Event Distribution Status::Worker Event Applied Flag
 
 ### Data Structure
 DataStructure::Coco::Worker Lifecycle Events::Event Distribution Status
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -1617,19 +1695,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerEventAppliedTimestamp
+Worker Event Applied Timestamp
 
 ### Qualified Name
-DataField::Coco::Worker Lifecycle Events::Event Distribution Status::WorkerEventAppliedTimestamp
+DataField::Coco::Worker Lifecycle Events::Event Distribution Status::Worker Event Applied Timestamp
 
 ### Description
 When confirmed.
 
 ### Data Type
 date
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -1648,10 +1723,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Lifecycle Events::Event Distribution Status::WorkerEventAppliedTimestamp
+DataField::Coco::Worker Lifecycle Events::Event Distribution Status::Worker Event Applied Timestamp
 
 ### Data Structure
 DataStructure::Coco::Worker Lifecycle Events::Event Distribution Status
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -1670,10 +1751,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: worker_lifecycle_events
 - schemaDescription: Every joining, moving or leaving event, distributed to each system that must act on it, and the record of which have. The leaver case is the one that matters: access outlives employment by exactly this chain's delay.
 
@@ -1800,7 +1881,7 @@ DataStructure::Coco::Access Entitlements::Account
 One row per account held by a worker in a system.
 
 ### Namespace Path
-coco_pharma.access_entitlements
+coco_data_hub.access_entitlements
 
 ### Version Identifier
 1.0
@@ -1829,19 +1910,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-UserAccountIdentifier
+User Account Identifier
 
 ### Qualified Name
-DataField::Coco::Access Entitlements::Account::UserAccountIdentifier
+DataField::Coco::Access Entitlements::Account::User Account Identifier
 
 ### Description
 The account.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -1863,10 +1941,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Access Entitlements::Account::UserAccountIdentifier
+DataField::Coco::Access Entitlements::Account::User Account Identifier
 
 ### Data Structure
 DataStructure::Coco::Access Entitlements::Account
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -1876,19 +1960,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerPseudonymIdentifier
+Worker Pseudonym Identifier
 
 ### Qualified Name
-DataField::Coco::Access Entitlements::Account::WorkerPseudonymIdentifier
+DataField::Coco::Access Entitlements::Account::Worker Pseudonym Identifier
 
 ### Description
 The worker.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -1910,10 +1991,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Access Entitlements::Account::WorkerPseudonymIdentifier
+DataField::Coco::Access Entitlements::Account::Worker Pseudonym Identifier
 
 ### Data Structure
 DataStructure::Coco::Access Entitlements::Account
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -1923,19 +2010,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SystemIdentifier
+System Identifier
 
 ### Qualified Name
-DataField::Coco::Access Entitlements::Account::SystemIdentifier
+DataField::Coco::Access Entitlements::Account::System Identifier
 
 ### Description
 The system.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -1957,10 +2041,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Access Entitlements::Account::SystemIdentifier
+DataField::Coco::Access Entitlements::Account::System Identifier
 
 ### Data Structure
 DataStructure::Coco::Access Entitlements::Account
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -1970,19 +2060,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-UserAccountStartDate
+User Account Start Date
 
 ### Qualified Name
-DataField::Coco::Access Entitlements::Account::UserAccountStartDate
+DataField::Coco::Access Entitlements::Account::User Account Start Date
 
 ### Description
 When created.
 
 ### Data Type
 date
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -2001,10 +2088,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Access Entitlements::Account::UserAccountStartDate
+DataField::Coco::Access Entitlements::Account::User Account Start Date
 
 ### Data Structure
 DataStructure::Coco::Access Entitlements::Account
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -2014,19 +2107,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-UserAccountEndDate
+User Account End Date
 
 ### Qualified Name
-DataField::Coco::Access Entitlements::Account::UserAccountEndDate
+DataField::Coco::Access Entitlements::Account::User Account End Date
 
 ### Description
 When removed, once removed.
 
 ### Data Type
 date
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -2045,10 +2135,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Access Entitlements::Account::UserAccountEndDate
+DataField::Coco::Access Entitlements::Account::User Account End Date
 
 ### Data Structure
 DataStructure::Coco::Access Entitlements::Account
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -2058,19 +2154,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-UserAccountCurrentStatus
+User Account Current Status
 
 ### Qualified Name
-DataField::Coco::Access Entitlements::Account::UserAccountCurrentStatus
+DataField::Coco::Access Entitlements::Account::User Account Current Status
 
 ### Description
 Active, suspended, removed.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -2092,10 +2185,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Access Entitlements::Account::UserAccountCurrentStatus
+DataField::Coco::Access Entitlements::Account::User Account Current Status
 
 ### Data Structure
 DataStructure::Coco::Access Entitlements::Account
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -2105,19 +2204,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerEventIdentifier
+Worker Event Identifier
 
 ### Qualified Name
-DataField::Coco::Access Entitlements::Account::WorkerEventIdentifier
+DataField::Coco::Access Entitlements::Account::Worker Event Identifier
 
 ### Description
 The worker event that last changed it.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -2139,10 +2235,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Access Entitlements::Account::WorkerEventIdentifier
+DataField::Coco::Access Entitlements::Account::Worker Event Identifier
 
 ### Data Structure
 DataStructure::Coco::Access Entitlements::Account
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -2161,7 +2263,7 @@ DataStructure::Coco::Access Entitlements::Entitlement
 One row per entitlement granted to an account.
 
 ### Namespace Path
-coco_pharma.access_entitlements
+coco_data_hub.access_entitlements
 
 ### Version Identifier
 1.0
@@ -2190,19 +2292,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-UserAccountIdentifier
+User Account Identifier
 
 ### Qualified Name
-DataField::Coco::Access Entitlements::Entitlement::UserAccountIdentifier
+DataField::Coco::Access Entitlements::Entitlement::User Account Identifier
 
 ### Description
 The account.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -2224,10 +2323,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Access Entitlements::Entitlement::UserAccountIdentifier
+DataField::Coco::Access Entitlements::Entitlement::User Account Identifier
 
 ### Data Structure
 DataStructure::Coco::Access Entitlements::Entitlement
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -2237,19 +2342,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-EntitlementCode
+Entitlement Code
 
 ### Qualified Name
-DataField::Coco::Access Entitlements::Entitlement::EntitlementCode
+DataField::Coco::Access Entitlements::Entitlement::Entitlement Code
 
 ### Description
 The entitlement.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -2271,10 +2373,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Access Entitlements::Entitlement::EntitlementCode
+DataField::Coco::Access Entitlements::Entitlement::Entitlement Code
 
 ### Data Structure
 DataStructure::Coco::Access Entitlements::Entitlement
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -2284,19 +2392,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-EntitlementDescription
+Entitlement Description
 
 ### Qualified Name
-DataField::Coco::Access Entitlements::Entitlement::EntitlementDescription
+DataField::Coco::Access Entitlements::Entitlement::Entitlement Description
 
 ### Description
 What it permits.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -2315,10 +2420,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Access Entitlements::Entitlement::EntitlementDescription
+DataField::Coco::Access Entitlements::Entitlement::Entitlement Description
 
 ### Data Structure
 DataStructure::Coco::Access Entitlements::Entitlement
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -2328,19 +2439,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-EntitlementStartDate
+Entitlement Start Date
 
 ### Qualified Name
-DataField::Coco::Access Entitlements::Entitlement::EntitlementStartDate
+DataField::Coco::Access Entitlements::Entitlement::Entitlement Start Date
 
 ### Description
 When granted.
 
 ### Data Type
 date
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -2359,10 +2467,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Access Entitlements::Entitlement::EntitlementStartDate
+DataField::Coco::Access Entitlements::Entitlement::Entitlement Start Date
 
 ### Data Structure
 DataStructure::Coco::Access Entitlements::Entitlement
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -2372,19 +2486,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-EntitlementEndDate
+Entitlement End Date
 
 ### Qualified Name
-DataField::Coco::Access Entitlements::Entitlement::EntitlementEndDate
+DataField::Coco::Access Entitlements::Entitlement::Entitlement End Date
 
 ### Description
 When revoked, once revoked.
 
 ### Data Type
 date
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -2403,10 +2514,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Access Entitlements::Entitlement::EntitlementEndDate
+DataField::Coco::Access Entitlements::Entitlement::Entitlement End Date
 
 ### Data Structure
 DataStructure::Coco::Access Entitlements::Entitlement
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -2416,19 +2533,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-EntitlementDataOwnerFlag
+Entitlement Data Owner Flag
 
 ### Qualified Name
-DataField::Coco::Access Entitlements::Entitlement::EntitlementDataOwnerFlag
+DataField::Coco::Access Entitlements::Entitlement::Entitlement Data Owner Flag
 
 ### Description
 Whether the entitlement makes the worker a data owner in the catalogue.
 
 ### Data Type
 boolean
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -2447,10 +2561,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Access Entitlements::Entitlement::EntitlementDataOwnerFlag
+DataField::Coco::Access Entitlements::Entitlement::Entitlement Data Owner Flag
 
 ### Data Structure
 DataStructure::Coco::Access Entitlements::Entitlement
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -2469,10 +2589,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: access_entitlements
 - schemaDescription: The accounts and entitlements created, changed and removed for each worker in response to worker events, and the data ownership assignments recorded in the open metadata catalogue. It is driven from the worker record rather than from requests, because an access removal that depends on somebody remembering to ask does not happen.
 
@@ -2599,7 +2719,7 @@ DataStructure::Coco::Payroll Results::Payroll Run
 One row per payroll run.
 
 ### Namespace Path
-coco_pharma.payroll_results
+coco_data_hub.payroll_results
 
 ### Version Identifier
 1.0
@@ -2628,19 +2748,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PayrollRunIdentifier
+Payroll Run Identifier
 
 ### Qualified Name
-DataField::Coco::Payroll Results::Payroll Run::PayrollRunIdentifier
+DataField::Coco::Payroll Results::Payroll Run::Payroll Run Identifier
 
 ### Description
 The run.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -2662,10 +2779,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Payroll Results::Payroll Run::PayrollRunIdentifier
+DataField::Coco::Payroll Results::Payroll Run::Payroll Run Identifier
 
 ### Data Structure
 DataStructure::Coco::Payroll Results::Payroll Run
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -2675,19 +2798,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LegalEntityCode
+Legal Entity Code
 
 ### Qualified Name
-DataField::Coco::Payroll Results::Payroll Run::LegalEntityCode
+DataField::Coco::Payroll Results::Payroll Run::Legal Entity Code
 
 ### Description
 The entity paid.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -2709,10 +2829,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Payroll Results::Payroll Run::LegalEntityCode
+DataField::Coco::Payroll Results::Payroll Run::Legal Entity Code
 
 ### Data Structure
 DataStructure::Coco::Payroll Results::Payroll Run
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -2722,19 +2848,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PayrollPeriodCode
+Payroll Period Code
 
 ### Qualified Name
-DataField::Coco::Payroll Results::Payroll Run::PayrollPeriodCode
+DataField::Coco::Payroll Results::Payroll Run::Payroll Period Code
 
 ### Description
 The pay period.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -2756,10 +2879,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Payroll Results::Payroll Run::PayrollPeriodCode
+DataField::Coco::Payroll Results::Payroll Run::Payroll Period Code
 
 ### Data Structure
 DataStructure::Coco::Payroll Results::Payroll Run
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -2769,19 +2898,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PayrollRunDate
+Payroll Run Date
 
 ### Qualified Name
-DataField::Coco::Payroll Results::Payroll Run::PayrollRunDate
+DataField::Coco::Payroll Results::Payroll Run::Payroll Run Date
 
 ### Description
 When run.
 
 ### Data Type
 date
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -2800,10 +2926,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Payroll Results::Payroll Run::PayrollRunDate
+DataField::Coco::Payroll Results::Payroll Run::Payroll Run Date
 
 ### Data Structure
 DataStructure::Coco::Payroll Results::Payroll Run
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -2813,19 +2945,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PayrollRunCount
+Payroll Run Count
 
 ### Qualified Name
-DataField::Coco::Payroll Results::Payroll Run::PayrollRunCount
+DataField::Coco::Payroll Results::Payroll Run::Payroll Run Count
 
 ### Description
 The number of workers paid.
 
 ### Data Type
 int
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -2844,10 +2973,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Payroll Results::Payroll Run::PayrollRunCount
+DataField::Coco::Payroll Results::Payroll Run::Payroll Run Count
 
 ### Data Structure
 DataStructure::Coco::Payroll Results::Payroll Run
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -2857,19 +2992,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PayrollRunTotalAmount
+Payroll Run Total Amount
 
 ### Qualified Name
-DataField::Coco::Payroll Results::Payroll Run::PayrollRunTotalAmount
+DataField::Coco::Payroll Results::Payroll Run::Payroll Run Total Amount
 
 ### Description
 The total remuneration.
 
 ### Data Type
 bigdecimal
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -2888,10 +3020,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Payroll Results::Payroll Run::PayrollRunTotalAmount
+DataField::Coco::Payroll Results::Payroll Run::Payroll Run Total Amount
 
 ### Data Structure
 DataStructure::Coco::Payroll Results::Payroll Run
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -2901,19 +3039,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PayrollCurrencyCode
+Payroll Currency Code
 
 ### Qualified Name
-DataField::Coco::Payroll Results::Payroll Run::PayrollCurrencyCode
+DataField::Coco::Payroll Results::Payroll Run::Payroll Currency Code
 
 ### Description
 The currency.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -2935,10 +3070,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Payroll Results::Payroll Run::PayrollCurrencyCode
+DataField::Coco::Payroll Results::Payroll Run::Payroll Currency Code
 
 ### Data Structure
 DataStructure::Coco::Payroll Results::Payroll Run
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -2957,7 +3098,7 @@ DataStructure::Coco::Payroll Results::Payroll Posting
 One row per worker per run, the remuneration and employer costs.
 
 ### Namespace Path
-coco_pharma.payroll_results
+coco_data_hub.payroll_results
 
 ### Version Identifier
 1.0
@@ -2986,19 +3127,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PayrollRunIdentifier
+Payroll Run Identifier
 
 ### Qualified Name
-DataField::Coco::Payroll Results::Payroll Posting::PayrollRunIdentifier
+DataField::Coco::Payroll Results::Payroll Posting::Payroll Run Identifier
 
 ### Description
 The run.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -3020,10 +3158,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Payroll Results::Payroll Posting::PayrollRunIdentifier
+DataField::Coco::Payroll Results::Payroll Posting::Payroll Run Identifier
 
 ### Data Structure
 DataStructure::Coco::Payroll Results::Payroll Posting
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -3033,19 +3177,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerPseudonymIdentifier
+Worker Pseudonym Identifier
 
 ### Qualified Name
-DataField::Coco::Payroll Results::Payroll Posting::WorkerPseudonymIdentifier
+DataField::Coco::Payroll Results::Payroll Posting::Worker Pseudonym Identifier
 
 ### Description
 The worker.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -3067,10 +3208,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Payroll Results::Payroll Posting::WorkerPseudonymIdentifier
+DataField::Coco::Payroll Results::Payroll Posting::Worker Pseudonym Identifier
 
 ### Data Structure
 DataStructure::Coco::Payroll Results::Payroll Posting
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -3080,19 +3227,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PayrollGrossAmount
+Payroll Gross Amount
 
 ### Qualified Name
-DataField::Coco::Payroll Results::Payroll Posting::PayrollGrossAmount
+DataField::Coco::Payroll Results::Payroll Posting::Payroll Gross Amount
 
 ### Description
 Gross remuneration.
 
 ### Data Type
 bigdecimal
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -3111,10 +3255,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Payroll Results::Payroll Posting::PayrollGrossAmount
+DataField::Coco::Payroll Results::Payroll Posting::Payroll Gross Amount
 
 ### Data Structure
 DataStructure::Coco::Payroll Results::Payroll Posting
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -3124,19 +3274,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PayrollEmployerAmount
+Payroll Employer Amount
 
 ### Qualified Name
-DataField::Coco::Payroll Results::Payroll Posting::PayrollEmployerAmount
+DataField::Coco::Payroll Results::Payroll Posting::Payroll Employer Amount
 
 ### Description
 Employer costs.
 
 ### Data Type
 bigdecimal
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -3155,10 +3302,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Payroll Results::Payroll Posting::PayrollEmployerAmount
+DataField::Coco::Payroll Results::Payroll Posting::Payroll Employer Amount
 
 ### Data Structure
 DataStructure::Coco::Payroll Results::Payroll Posting
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -3168,19 +3321,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PayrollNetAmount
+Payroll Net Amount
 
 ### Qualified Name
-DataField::Coco::Payroll Results::Payroll Posting::PayrollNetAmount
+DataField::Coco::Payroll Results::Payroll Posting::Payroll Net Amount
 
 ### Description
 Net paid.
 
 ### Data Type
 bigdecimal
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -3199,10 +3349,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Payroll Results::Payroll Posting::PayrollNetAmount
+DataField::Coco::Payroll Results::Payroll Posting::Payroll Net Amount
 
 ### Data Structure
 DataStructure::Coco::Payroll Results::Payroll Posting
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -3212,19 +3368,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CostCentreCode
+Cost Centre Code
 
 ### Qualified Name
-DataField::Coco::Payroll Results::Payroll Posting::CostCentreCode
+DataField::Coco::Payroll Results::Payroll Posting::Cost Centre Code
 
 ### Description
 The cost centre charged.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -3246,10 +3399,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Payroll Results::Payroll Posting::CostCentreCode
+DataField::Coco::Payroll Results::Payroll Posting::Cost Centre Code
 
 ### Data Structure
 DataStructure::Coco::Payroll Results::Payroll Posting
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -3259,19 +3418,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LedgerAccountCode
+Ledger Account Code
 
 ### Qualified Name
-DataField::Coco::Payroll Results::Payroll Posting::LedgerAccountCode
+DataField::Coco::Payroll Results::Payroll Posting::Ledger Account Code
 
 ### Description
 The account posted to.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -3293,10 +3449,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Payroll Results::Payroll Posting::LedgerAccountCode
+DataField::Coco::Payroll Results::Payroll Posting::Ledger Account Code
 
 ### Data Structure
 DataStructure::Coco::Payroll Results::Payroll Posting
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -3315,10 +3477,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: payroll_results
 - schemaDescription: The remuneration calculated and paid in each payroll run, in several countries under several sets of rules from one worker record, and the postings to the ledger by entity. It is the pay data that statutory reporting and pay equity analysis are built from.
 
@@ -3445,7 +3607,7 @@ DataStructure::Coco::Corporate Directory Entries::Directory Entry
 One row per worker in the directory.
 
 ### Namespace Path
-coco_pharma.corporate_directory_entries
+coco_data_hub.corporate_directory_entries
 
 ### Version Identifier
 1.0
@@ -3474,19 +3636,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerPseudonymIdentifier
+Worker Pseudonym Identifier
 
 ### Qualified Name
-DataField::Coco::Corporate Directory Entries::Directory Entry::WorkerPseudonymIdentifier
+DataField::Coco::Corporate Directory Entries::Directory Entry::Worker Pseudonym Identifier
 
 ### Description
 The worker.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -3508,10 +3667,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Corporate Directory Entries::Directory Entry::WorkerPseudonymIdentifier
+DataField::Coco::Corporate Directory Entries::Directory Entry::Worker Pseudonym Identifier
 
 ### Data Structure
 DataStructure::Coco::Corporate Directory Entries::Directory Entry
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -3521,19 +3686,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PersonFirstName
+Person First Name
 
 ### Qualified Name
-DataField::Coco::Corporate Directory Entries::Directory Entry::PersonFirstName
+DataField::Coco::Corporate Directory Entries::Directory Entry::Person First Name
 
 ### Description
 Given name.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -3555,10 +3717,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Corporate Directory Entries::Directory Entry::PersonFirstName
+DataField::Coco::Corporate Directory Entries::Directory Entry::Person First Name
 
 ### Data Structure
 DataStructure::Coco::Corporate Directory Entries::Directory Entry
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -3568,19 +3736,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PersonLastName
+Person Last Name
 
 ### Qualified Name
-DataField::Coco::Corporate Directory Entries::Directory Entry::PersonLastName
+DataField::Coco::Corporate Directory Entries::Directory Entry::Person Last Name
 
 ### Description
 Family name.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -3602,10 +3767,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Corporate Directory Entries::Directory Entry::PersonLastName
+DataField::Coco::Corporate Directory Entries::Directory Entry::Person Last Name
 
 ### Data Structure
 DataStructure::Coco::Corporate Directory Entries::Directory Entry
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -3615,19 +3786,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RoleName
+Role Name
 
 ### Qualified Name
-DataField::Coco::Corporate Directory Entries::Directory Entry::RoleName
+DataField::Coco::Corporate Directory Entries::Directory Entry::Role Name
 
 ### Description
 The role.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -3649,10 +3817,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Corporate Directory Entries::Directory Entry::RoleName
+DataField::Coco::Corporate Directory Entries::Directory Entry::Role Name
 
 ### Data Structure
 DataStructure::Coco::Corporate Directory Entries::Directory Entry
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -3662,19 +3836,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DepartmentName
+Department Name
 
 ### Qualified Name
-DataField::Coco::Corporate Directory Entries::Directory Entry::DepartmentName
+DataField::Coco::Corporate Directory Entries::Directory Entry::Department Name
 
 ### Description
 The department.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -3696,10 +3867,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Corporate Directory Entries::Directory Entry::DepartmentName
+DataField::Coco::Corporate Directory Entries::Directory Entry::Department Name
 
 ### Data Structure
 DataStructure::Coco::Corporate Directory Entries::Directory Entry
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -3709,19 +3886,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SiteCode
+Site Code
 
 ### Qualified Name
-DataField::Coco::Corporate Directory Entries::Directory Entry::SiteCode
+DataField::Coco::Corporate Directory Entries::Directory Entry::Site Code
 
 ### Description
 The location.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -3743,10 +3917,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Corporate Directory Entries::Directory Entry::SiteCode
+DataField::Coco::Corporate Directory Entries::Directory Entry::Site Code
 
 ### Data Structure
 DataStructure::Coco::Corporate Directory Entries::Directory Entry
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -3756,19 +3936,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ManagerPseudonymIdentifier
+Manager Pseudonym Identifier
 
 ### Qualified Name
-DataField::Coco::Corporate Directory Entries::Directory Entry::ManagerPseudonymIdentifier
+DataField::Coco::Corporate Directory Entries::Directory Entry::Manager Pseudonym Identifier
 
 ### Description
 The reporting manager.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 true
@@ -3790,10 +3967,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Corporate Directory Entries::Directory Entry::ManagerPseudonymIdentifier
+DataField::Coco::Corporate Directory Entries::Directory Entry::Manager Pseudonym Identifier
 
 ### Data Structure
 DataStructure::Coco::Corporate Directory Entries::Directory Entry
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -3803,19 +3986,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PersonWorkPhoneNumber
+Person Work Phone Number
 
 ### Qualified Name
-DataField::Coco::Corporate Directory Entries::Directory Entry::PersonWorkPhoneNumber
+DataField::Coco::Corporate Directory Entries::Directory Entry::Person Work Phone Number
 
 ### Description
 Work telephone.
 
 ### Data Type
 string
-
-### Position
-8
 
 ### Is Nullable
 true
@@ -3837,10 +4017,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Corporate Directory Entries::Directory Entry::PersonWorkPhoneNumber
+DataField::Coco::Corporate Directory Entries::Directory Entry::Person Work Phone Number
 
 ### Data Structure
 DataStructure::Coco::Corporate Directory Entries::Directory Entry
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -3850,19 +4036,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DirectoryEntryCurrentTimestamp
+Directory Entry Current Timestamp
 
 ### Qualified Name
-DataField::Coco::Corporate Directory Entries::Directory Entry::DirectoryEntryCurrentTimestamp
+DataField::Coco::Corporate Directory Entries::Directory Entry::Directory Entry Current Timestamp
 
 ### Description
 When the entry was last updated from the worker record.
 
 ### Data Type
 date
-
-### Position
-9
 
 ### Is Nullable
 false
@@ -3881,10 +4064,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Corporate Directory Entries::Directory Entry::DirectoryEntryCurrentTimestamp
+DataField::Coco::Corporate Directory Entries::Directory Entry::Directory Entry Current Timestamp
 
 ### Data Structure
 DataStructure::Coco::Corporate Directory Entries::Directory Entry
+
+### Position
+9
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 9
@@ -3903,10 +4092,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: corporate_directory_entries
 - schemaDescription: The searchable directory of people, roles, locations and reporting lines that the rest of the organisation uses. It is downstream of the worker record and is frequently the first place a stale joiner or leaver event becomes visible to everybody.
 
@@ -4033,7 +4222,7 @@ DataStructure::Coco::Role Competency Requirements::Role Competency Requirement
 One row per role per competency required.
 
 ### Namespace Path
-coco_pharma.role_competency_requirements
+coco_data_hub.role_competency_requirements
 
 ### Version Identifier
 1.0
@@ -4062,19 +4251,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RoleCode
+Role Code
 
 ### Qualified Name
-DataField::Coco::Role Competency Requirements::Role Competency Requirement::RoleCode
+DataField::Coco::Role Competency Requirements::Role Competency Requirement::Role Code
 
 ### Description
 The role.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -4096,10 +4282,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Role Competency Requirements::Role Competency Requirement::RoleCode
+DataField::Coco::Role Competency Requirements::Role Competency Requirement::Role Code
 
 ### Data Structure
 DataStructure::Coco::Role Competency Requirements::Role Competency Requirement
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -4109,19 +4301,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CompetencyCode
+Competency Code
 
 ### Qualified Name
-DataField::Coco::Role Competency Requirements::Role Competency Requirement::CompetencyCode
+DataField::Coco::Role Competency Requirements::Role Competency Requirement::Competency Code
 
 ### Description
 The competency.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -4143,10 +4332,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Role Competency Requirements::Role Competency Requirement::CompetencyCode
+DataField::Coco::Role Competency Requirements::Role Competency Requirement::Competency Code
 
 ### Data Structure
 DataStructure::Coco::Role Competency Requirements::Role Competency Requirement
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -4156,19 +4351,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CompetencyName
+Competency Name
 
 ### Qualified Name
-DataField::Coco::Role Competency Requirements::Role Competency Requirement::CompetencyName
+DataField::Coco::Role Competency Requirements::Role Competency Requirement::Competency Name
 
 ### Description
 Its name.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -4190,10 +4382,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Role Competency Requirements::Role Competency Requirement::CompetencyName
+DataField::Coco::Role Competency Requirements::Role Competency Requirement::Competency Name
 
 ### Data Structure
 DataStructure::Coco::Role Competency Requirements::Role Competency Requirement
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -4203,19 +4401,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CompetencyDescription
+Competency Description
 
 ### Qualified Name
-DataField::Coco::Role Competency Requirements::Role Competency Requirement::CompetencyDescription
+DataField::Coco::Role Competency Requirements::Role Competency Requirement::Competency Description
 
 ### Description
 What the competency covers.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -4234,10 +4429,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Role Competency Requirements::Role Competency Requirement::CompetencyDescription
+DataField::Coco::Role Competency Requirements::Role Competency Requirement::Competency Description
 
 ### Data Structure
 DataStructure::Coco::Role Competency Requirements::Role Competency Requirement
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -4247,19 +4448,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CompetencyRefreshDuration
+Competency Refresh Duration
 
 ### Qualified Name
-DataField::Coco::Role Competency Requirements::Role Competency Requirement::CompetencyRefreshDuration
+DataField::Coco::Role Competency Requirements::Role Competency Requirement::Competency Refresh Duration
 
 ### Description
 How often it must be refreshed, in months.
 
 ### Data Type
 int
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -4278,10 +4476,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Role Competency Requirements::Role Competency Requirement::CompetencyRefreshDuration
+DataField::Coco::Role Competency Requirements::Role Competency Requirement::Competency Refresh Duration
 
 ### Data Structure
 DataStructure::Coco::Role Competency Requirements::Role Competency Requirement
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -4291,19 +4495,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CompetencyRegulatedFlag
+Competency Regulated Flag
 
 ### Qualified Name
-DataField::Coco::Role Competency Requirements::Role Competency Requirement::CompetencyRegulatedFlag
+DataField::Coco::Role Competency Requirements::Role Competency Requirement::Competency Regulated Flag
 
 ### Description
 Whether a regulation requires it.
 
 ### Data Type
 boolean
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -4322,10 +4523,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Role Competency Requirements::Role Competency Requirement::CompetencyRegulatedFlag
+DataField::Coco::Role Competency Requirements::Role Competency Requirement::Competency Regulated Flag
 
 ### Data Structure
 DataStructure::Coco::Role Competency Requirements::Role Competency Requirement
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -4335,19 +4542,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RoleRequirementStartDate
+Role Requirement Start Date
 
 ### Qualified Name
-DataField::Coco::Role Competency Requirements::Role Competency Requirement::RoleRequirementStartDate
+DataField::Coco::Role Competency Requirements::Role Competency Requirement::Role Requirement Start Date
 
 ### Description
 When the requirement took effect.
 
 ### Data Type
 date
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -4366,10 +4570,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Role Competency Requirements::Role Competency Requirement::RoleRequirementStartDate
+DataField::Coco::Role Competency Requirements::Role Competency Requirement::Role Requirement Start Date
 
 ### Data Structure
 DataStructure::Coco::Role Competency Requirements::Role Competency Requirement
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -4388,10 +4598,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: role_competency_requirements
 - schemaDescription: What competencies each regulated role requires and how often each must be refreshed. It is the specification the competency chain is judged against, and it changes when a process or a regulation changes rather than when a person does.
 
@@ -4518,7 +4728,7 @@ DataStructure::Coco::Training Completions::Training Completion
 One row per worker per training course completed.
 
 ### Namespace Path
-coco_pharma.training_completions
+coco_data_hub.training_completions
 
 ### Version Identifier
 1.0
@@ -4547,19 +4757,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TrainingCompletionIdentifier
+Training Completion Identifier
 
 ### Qualified Name
-DataField::Coco::Training Completions::Training Completion::TrainingCompletionIdentifier
+DataField::Coco::Training Completions::Training Completion::Training Completion Identifier
 
 ### Description
 The completion.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -4581,10 +4788,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Training Completions::Training Completion::TrainingCompletionIdentifier
+DataField::Coco::Training Completions::Training Completion::Training Completion Identifier
 
 ### Data Structure
 DataStructure::Coco::Training Completions::Training Completion
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -4594,19 +4807,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerPseudonymIdentifier
+Worker Pseudonym Identifier
 
 ### Qualified Name
-DataField::Coco::Training Completions::Training Completion::WorkerPseudonymIdentifier
+DataField::Coco::Training Completions::Training Completion::Worker Pseudonym Identifier
 
 ### Description
 The worker.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -4628,10 +4838,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Training Completions::Training Completion::WorkerPseudonymIdentifier
+DataField::Coco::Training Completions::Training Completion::Worker Pseudonym Identifier
 
 ### Data Structure
 DataStructure::Coco::Training Completions::Training Completion
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -4641,19 +4857,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TrainingCourseCode
+Training Course Code
 
 ### Qualified Name
-DataField::Coco::Training Completions::Training Completion::TrainingCourseCode
+DataField::Coco::Training Completions::Training Completion::Training Course Code
 
 ### Description
 The course.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -4675,10 +4888,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Training Completions::Training Completion::TrainingCourseCode
+DataField::Coco::Training Completions::Training Completion::Training Course Code
 
 ### Data Structure
 DataStructure::Coco::Training Completions::Training Completion
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -4688,19 +4907,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CompetencyCode
+Competency Code
 
 ### Qualified Name
-DataField::Coco::Training Completions::Training Completion::CompetencyCode
+DataField::Coco::Training Completions::Training Completion::Competency Code
 
 ### Description
 The competency the course evidences.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -4722,10 +4938,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Training Completions::Training Completion::CompetencyCode
+DataField::Coco::Training Completions::Training Completion::Competency Code
 
 ### Data Structure
 DataStructure::Coco::Training Completions::Training Completion
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -4735,19 +4957,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TrainingCompletedDate
+Training Completed Date
 
 ### Qualified Name
-DataField::Coco::Training Completions::Training Completion::TrainingCompletedDate
+DataField::Coco::Training Completions::Training Completion::Training Completed Date
 
 ### Description
 When completed.
 
 ### Data Type
 date
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -4766,10 +4985,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Training Completions::Training Completion::TrainingCompletedDate
+DataField::Coco::Training Completions::Training Completion::Training Completed Date
 
 ### Data Structure
 DataStructure::Coco::Training Completions::Training Completion
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -4779,19 +5004,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TrainingExpiryDate
+Training Expiry Date
 
 ### Qualified Name
-DataField::Coco::Training Completions::Training Completion::TrainingExpiryDate
+DataField::Coco::Training Completions::Training Completion::Training Expiry Date
 
 ### Description
 When the training lapses.
 
 ### Data Type
 date
-
-### Position
-6
 
 ### Is Nullable
 true
@@ -4810,10 +5032,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Training Completions::Training Completion::TrainingExpiryDate
+DataField::Coco::Training Completions::Training Completion::Training Expiry Date
 
 ### Data Structure
 DataStructure::Coco::Training Completions::Training Completion
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -4832,7 +5060,7 @@ DataStructure::Coco::Training Completions::Assessment Result
 One row per assessment taken.
 
 ### Namespace Path
-coco_pharma.training_completions
+coco_data_hub.training_completions
 
 ### Version Identifier
 1.0
@@ -4861,19 +5089,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TrainingCompletionIdentifier
+Training Completion Identifier
 
 ### Qualified Name
-DataField::Coco::Training Completions::Assessment Result::TrainingCompletionIdentifier
+DataField::Coco::Training Completions::Assessment Result::Training Completion Identifier
 
 ### Description
 The completion assessed.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -4895,10 +5120,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Training Completions::Assessment Result::TrainingCompletionIdentifier
+DataField::Coco::Training Completions::Assessment Result::Training Completion Identifier
 
 ### Data Structure
 DataStructure::Coco::Training Completions::Assessment Result
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -4908,19 +5139,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TrainingAssessmentDate
+Training Assessment Date
 
 ### Qualified Name
-DataField::Coco::Training Completions::Assessment Result::TrainingAssessmentDate
+DataField::Coco::Training Completions::Assessment Result::Training Assessment Date
 
 ### Description
 When assessed.
 
 ### Data Type
 date
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -4939,10 +5167,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Training Completions::Assessment Result::TrainingAssessmentDate
+DataField::Coco::Training Completions::Assessment Result::Training Assessment Date
 
 ### Data Structure
 DataStructure::Coco::Training Completions::Assessment Result
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -4952,19 +5186,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TrainingAssessmentValue
+Training Assessment Value
 
 ### Qualified Name
-DataField::Coco::Training Completions::Assessment Result::TrainingAssessmentValue
+DataField::Coco::Training Completions::Assessment Result::Training Assessment Value
 
 ### Description
 The score.
 
 ### Data Type
 float
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -4983,10 +5214,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Training Completions::Assessment Result::TrainingAssessmentValue
+DataField::Coco::Training Completions::Assessment Result::Training Assessment Value
 
 ### Data Structure
 DataStructure::Coco::Training Completions::Assessment Result
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -4996,19 +5233,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TrainingAssessmentMinimumValue
+Training Assessment Minimum Value
 
 ### Qualified Name
-DataField::Coco::Training Completions::Assessment Result::TrainingAssessmentMinimumValue
+DataField::Coco::Training Completions::Assessment Result::Training Assessment Minimum Value
 
 ### Description
 The pass mark.
 
 ### Data Type
 float
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -5027,10 +5261,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Training Completions::Assessment Result::TrainingAssessmentMinimumValue
+DataField::Coco::Training Completions::Assessment Result::Training Assessment Minimum Value
 
 ### Data Structure
 DataStructure::Coco::Training Completions::Assessment Result
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -5040,19 +5280,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TrainingAssessmentPassedFlag
+Training Assessment Passed Flag
 
 ### Qualified Name
-DataField::Coco::Training Completions::Assessment Result::TrainingAssessmentPassedFlag
+DataField::Coco::Training Completions::Assessment Result::Training Assessment Passed Flag
 
 ### Description
 Whether the worker passed.
 
 ### Data Type
 boolean
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -5071,10 +5308,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Training Completions::Assessment Result::TrainingAssessmentPassedFlag
+DataField::Coco::Training Completions::Assessment Result::Training Assessment Passed Flag
 
 ### Data Structure
 DataStructure::Coco::Training Completions::Assessment Result
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -5093,7 +5336,7 @@ DataStructure::Coco::Training Completions::Refresher Schedule
 One row per refresher scheduled for a lapsing qualification.
 
 ### Namespace Path
-coco_pharma.training_completions
+coco_data_hub.training_completions
 
 ### Version Identifier
 1.0
@@ -5122,19 +5365,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerPseudonymIdentifier
+Worker Pseudonym Identifier
 
 ### Qualified Name
-DataField::Coco::Training Completions::Refresher Schedule::WorkerPseudonymIdentifier
+DataField::Coco::Training Completions::Refresher Schedule::Worker Pseudonym Identifier
 
 ### Description
 The worker.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -5156,10 +5396,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Training Completions::Refresher Schedule::WorkerPseudonymIdentifier
+DataField::Coco::Training Completions::Refresher Schedule::Worker Pseudonym Identifier
 
 ### Data Structure
 DataStructure::Coco::Training Completions::Refresher Schedule
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -5169,19 +5415,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CompetencyCode
+Competency Code
 
 ### Qualified Name
-DataField::Coco::Training Completions::Refresher Schedule::CompetencyCode
+DataField::Coco::Training Completions::Refresher Schedule::Competency Code
 
 ### Description
 The competency lapsing.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -5203,10 +5446,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Training Completions::Refresher Schedule::CompetencyCode
+DataField::Coco::Training Completions::Refresher Schedule::Competency Code
 
 ### Data Structure
 DataStructure::Coco::Training Completions::Refresher Schedule
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -5216,19 +5465,63 @@ ___
 ## Create Data Field
 
 ### Display Name
-TrainingCourseCode
+Training Due Date
 
 ### Qualified Name
-DataField::Coco::Training Completions::Refresher Schedule::TrainingCourseCode
+DataField::Coco::Training Completions::Refresher Schedule::Training Due Date
+
+### Description
+When it must be completed.
+
+### Data Type
+date
+
+### Is Nullable
+false
+
+### Minimum Cardinality
+1
+
+### Version Identifier
+1.0
+
+### Content Status
+ACTIVE
+
+___
+
+## Link Data Field to Data Structure
+
+### Data Field
+DataField::Coco::Training Completions::Refresher Schedule::Training Due Date
+
+### Data Structure
+DataStructure::Coco::Training Completions::Refresher Schedule
+
+### Position
+3
+
+### Coverage Category
+IDENTIFIER
+
+### Label
+field 3
+
+___
+
+## Create Data Field
+
+### Display Name
+Training Course Code
+
+### Qualified Name
+DataField::Coco::Training Completions::Refresher Schedule::Training Course Code
 
 ### Description
 The refresher course.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -5250,54 +5543,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Training Completions::Refresher Schedule::TrainingCourseCode
+DataField::Coco::Training Completions::Refresher Schedule::Training Course Code
 
 ### Data Structure
 DataStructure::Coco::Training Completions::Refresher Schedule
-
-### Label
-field 3
-
-___
-
-## Create Data Field
-
-### Display Name
-TrainingDueDate
-
-### Qualified Name
-DataField::Coco::Training Completions::Refresher Schedule::TrainingDueDate
-
-### Description
-When it must be completed.
-
-### Data Type
-date
 
 ### Position
 4
 
-### Is Nullable
-false
-
-### Minimum Cardinality
-1
-
-### Version Identifier
-1.0
-
-### Content Status
-ACTIVE
-
-___
-
-## Link Data Field to Data Structure
-
-### Data Field
-DataField::Coco::Training Completions::Refresher Schedule::TrainingDueDate
-
-### Data Structure
-DataStructure::Coco::Training Completions::Refresher Schedule
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -5307,19 +5562,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TrainingScheduledDate
+Training Scheduled Date
 
 ### Qualified Name
-DataField::Coco::Training Completions::Refresher Schedule::TrainingScheduledDate
+DataField::Coco::Training Completions::Refresher Schedule::Training Scheduled Date
 
 ### Description
 When it is scheduled.
 
 ### Data Type
 date
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -5338,10 +5590,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Training Completions::Refresher Schedule::TrainingScheduledDate
+DataField::Coco::Training Completions::Refresher Schedule::Training Scheduled Date
 
 ### Data Structure
 DataStructure::Coco::Training Completions::Refresher Schedule
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -5360,10 +5618,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: training_completions
 - schemaDescription: Training delivered, completion and assessment recorded, and refreshers scheduled for lapsing qualifications. Its output is evidence consumed by two regulated processes, which is a heavier duty than the system was originally bought for.
 
@@ -5490,7 +5748,7 @@ DataStructure::Coco::Worker Qualifications::Worker Qualification
 One row per worker per competency held.
 
 ### Namespace Path
-coco_pharma.worker_qualifications
+coco_data_hub.worker_qualifications
 
 ### Version Identifier
 1.0
@@ -5519,19 +5777,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerPseudonymIdentifier
+Worker Pseudonym Identifier
 
 ### Qualified Name
-DataField::Coco::Worker Qualifications::Worker Qualification::WorkerPseudonymIdentifier
+DataField::Coco::Worker Qualifications::Worker Qualification::Worker Pseudonym Identifier
 
 ### Description
 The worker.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -5553,10 +5808,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Qualifications::Worker Qualification::WorkerPseudonymIdentifier
+DataField::Coco::Worker Qualifications::Worker Qualification::Worker Pseudonym Identifier
 
 ### Data Structure
 DataStructure::Coco::Worker Qualifications::Worker Qualification
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -5566,19 +5827,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CompetencyCode
+Competency Code
 
 ### Qualified Name
-DataField::Coco::Worker Qualifications::Worker Qualification::CompetencyCode
+DataField::Coco::Worker Qualifications::Worker Qualification::Competency Code
 
 ### Description
 The competency.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -5600,10 +5858,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Qualifications::Worker Qualification::CompetencyCode
+DataField::Coco::Worker Qualifications::Worker Qualification::Competency Code
 
 ### Data Structure
 DataStructure::Coco::Worker Qualifications::Worker Qualification
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -5613,19 +5877,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CompetencyName
+Competency Name
 
 ### Qualified Name
-DataField::Coco::Worker Qualifications::Worker Qualification::CompetencyName
+DataField::Coco::Worker Qualifications::Worker Qualification::Competency Name
 
 ### Description
 Its name.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -5647,10 +5908,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Qualifications::Worker Qualification::CompetencyName
+DataField::Coco::Worker Qualifications::Worker Qualification::Competency Name
 
 ### Data Structure
 DataStructure::Coco::Worker Qualifications::Worker Qualification
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -5660,19 +5927,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-QualificationStartDate
+Qualification Start Date
 
 ### Qualified Name
-DataField::Coco::Worker Qualifications::Worker Qualification::QualificationStartDate
+DataField::Coco::Worker Qualifications::Worker Qualification::Qualification Start Date
 
 ### Description
 When gained.
 
 ### Data Type
 date
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -5691,10 +5955,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Qualifications::Worker Qualification::QualificationStartDate
+DataField::Coco::Worker Qualifications::Worker Qualification::Qualification Start Date
 
 ### Data Structure
 DataStructure::Coco::Worker Qualifications::Worker Qualification
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -5704,19 +5974,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-QualificationExpiryDate
+Qualification Expiry Date
 
 ### Qualified Name
-DataField::Coco::Worker Qualifications::Worker Qualification::QualificationExpiryDate
+DataField::Coco::Worker Qualifications::Worker Qualification::Qualification Expiry Date
 
 ### Description
 When it lapses.
 
 ### Data Type
 date
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -5735,10 +6002,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Qualifications::Worker Qualification::QualificationExpiryDate
+DataField::Coco::Worker Qualifications::Worker Qualification::Qualification Expiry Date
 
 ### Data Structure
 DataStructure::Coco::Worker Qualifications::Worker Qualification
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -5748,19 +6021,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-QualificationCurrentStatus
+Qualification Current Status
 
 ### Qualified Name
-DataField::Coco::Worker Qualifications::Worker Qualification::QualificationCurrentStatus
+DataField::Coco::Worker Qualifications::Worker Qualification::Qualification Current Status
 
 ### Description
 Current, lapsing, lapsed.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -5782,10 +6052,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Qualifications::Worker Qualification::QualificationCurrentStatus
+DataField::Coco::Worker Qualifications::Worker Qualification::Qualification Current Status
 
 ### Data Structure
 DataStructure::Coco::Worker Qualifications::Worker Qualification
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -5795,19 +6071,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TrainingCompletionIdentifier
+Training Completion Identifier
 
 ### Qualified Name
-DataField::Coco::Worker Qualifications::Worker Qualification::TrainingCompletionIdentifier
+DataField::Coco::Worker Qualifications::Worker Qualification::Training Completion Identifier
 
 ### Description
 The training completion that evidences it.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -5829,10 +6102,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Qualifications::Worker Qualification::TrainingCompletionIdentifier
+DataField::Coco::Worker Qualifications::Worker Qualification::Training Completion Identifier
 
 ### Data Structure
 DataStructure::Coco::Worker Qualifications::Worker Qualification
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -5842,19 +6121,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CertificateIdentifier
+Certificate Identifier
 
 ### Qualified Name
-DataField::Coco::Worker Qualifications::Worker Qualification::CertificateIdentifier
+DataField::Coco::Worker Qualifications::Worker Qualification::Certificate Identifier
 
 ### Description
 The external certificate, where one exists.
 
 ### Data Type
 string
-
-### Position
-8
 
 ### Is Nullable
 true
@@ -5876,10 +6152,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Qualifications::Worker Qualification::CertificateIdentifier
+DataField::Coco::Worker Qualifications::Worker Qualification::Certificate Identifier
 
 ### Data Structure
 DataStructure::Coco::Worker Qualifications::Worker Qualification
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -5889,19 +6171,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RoleCode
+Role Code
 
 ### Qualified Name
-DataField::Coco::Worker Qualifications::Worker Qualification::RoleCode
+DataField::Coco::Worker Qualifications::Worker Qualification::Role Code
 
 ### Description
 The role the qualification was gained for.
 
 ### Data Type
 string
-
-### Position
-9
 
 ### Is Nullable
 false
@@ -5923,10 +6202,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Worker Qualifications::Worker Qualification::RoleCode
+DataField::Coco::Worker Qualifications::Worker Qualification::Role Code
 
 ### Data Structure
 DataStructure::Coco::Worker Qualifications::Worker Qualification
+
+### Position
+9
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 9
@@ -5945,10 +6230,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: worker_qualifications
 - schemaDescription: The authoritative statement of what each worker is currently qualified to do, with the evidence and the expiry, read by manufacturing, shipping, drug development and the batch record as compliance evidence. A local copy that has drifted is worse than no copy at all.
 
@@ -6075,7 +6360,7 @@ DataStructure::Coco::Qualification Expiry Warnings::Qualification Expiry Warning
 One row per warning raised.
 
 ### Namespace Path
-coco_pharma.qualification_expiry_warnings
+coco_data_hub.qualification_expiry_warnings
 
 ### Version Identifier
 1.0
@@ -6104,19 +6389,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-QualificationWarningIdentifier
+Qualification Warning Identifier
 
 ### Qualified Name
-DataField::Coco::Qualification Expiry Warnings::Qualification Expiry Warning::QualificationWarningIdentifier
+DataField::Coco::Qualification Expiry Warnings::Qualification Expiry Warning::Qualification Warning Identifier
 
 ### Description
 The warning.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -6138,10 +6420,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Qualification Expiry Warnings::Qualification Expiry Warning::QualificationWarningIdentifier
+DataField::Coco::Qualification Expiry Warnings::Qualification Expiry Warning::Qualification Warning Identifier
 
 ### Data Structure
 DataStructure::Coco::Qualification Expiry Warnings::Qualification Expiry Warning
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -6151,19 +6439,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerPseudonymIdentifier
+Worker Pseudonym Identifier
 
 ### Qualified Name
-DataField::Coco::Qualification Expiry Warnings::Qualification Expiry Warning::WorkerPseudonymIdentifier
+DataField::Coco::Qualification Expiry Warnings::Qualification Expiry Warning::Worker Pseudonym Identifier
 
 ### Description
 The worker.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -6185,10 +6470,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Qualification Expiry Warnings::Qualification Expiry Warning::WorkerPseudonymIdentifier
+DataField::Coco::Qualification Expiry Warnings::Qualification Expiry Warning::Worker Pseudonym Identifier
 
 ### Data Structure
 DataStructure::Coco::Qualification Expiry Warnings::Qualification Expiry Warning
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -6198,19 +6489,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CompetencyCode
+Competency Code
 
 ### Qualified Name
-DataField::Coco::Qualification Expiry Warnings::Qualification Expiry Warning::CompetencyCode
+DataField::Coco::Qualification Expiry Warnings::Qualification Expiry Warning::Competency Code
 
 ### Description
 The competency.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -6232,10 +6520,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Qualification Expiry Warnings::Qualification Expiry Warning::CompetencyCode
+DataField::Coco::Qualification Expiry Warnings::Qualification Expiry Warning::Competency Code
 
 ### Data Structure
 DataStructure::Coco::Qualification Expiry Warnings::Qualification Expiry Warning
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -6245,19 +6539,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-QualificationExpiryDate
+Qualification Expiry Date
 
 ### Qualified Name
-DataField::Coco::Qualification Expiry Warnings::Qualification Expiry Warning::QualificationExpiryDate
+DataField::Coco::Qualification Expiry Warnings::Qualification Expiry Warning::Qualification Expiry Date
 
 ### Description
 When it lapses.
 
 ### Data Type
 date
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -6276,10 +6567,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Qualification Expiry Warnings::Qualification Expiry Warning::QualificationExpiryDate
+DataField::Coco::Qualification Expiry Warnings::Qualification Expiry Warning::Qualification Expiry Date
 
 ### Data Structure
 DataStructure::Coco::Qualification Expiry Warnings::Qualification Expiry Warning
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -6289,19 +6586,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-QualificationWarningRaisedTimestamp
+Qualification Warning Raised Timestamp
 
 ### Qualified Name
-DataField::Coco::Qualification Expiry Warnings::Qualification Expiry Warning::QualificationWarningRaisedTimestamp
+DataField::Coco::Qualification Expiry Warnings::Qualification Expiry Warning::Qualification Warning Raised Timestamp
 
 ### Description
 When the warning was raised.
 
 ### Data Type
 date
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -6320,10 +6614,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Qualification Expiry Warnings::Qualification Expiry Warning::QualificationWarningRaisedTimestamp
+DataField::Coco::Qualification Expiry Warnings::Qualification Expiry Warning::Qualification Warning Raised Timestamp
 
 ### Data Structure
 DataStructure::Coco::Qualification Expiry Warnings::Qualification Expiry Warning
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -6333,19 +6633,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-QualificationWarningType
+Qualification Warning Type
 
 ### Qualified Name
-DataField::Coco::Qualification Expiry Warnings::Qualification Expiry Warning::QualificationWarningType
+DataField::Coco::Qualification Expiry Warnings::Qualification Expiry Warning::Qualification Warning Type
 
 ### Description
 Approaching expiry or expired.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -6367,10 +6664,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Qualification Expiry Warnings::Qualification Expiry Warning::QualificationWarningType
+DataField::Coco::Qualification Expiry Warnings::Qualification Expiry Warning::Qualification Warning Type
 
 ### Data Structure
 DataStructure::Coco::Qualification Expiry Warnings::Qualification Expiry Warning
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -6380,19 +6683,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TrainingDueDate
+Training Due Date
 
 ### Qualified Name
-DataField::Coco::Qualification Expiry Warnings::Qualification Expiry Warning::TrainingDueDate
+DataField::Coco::Qualification Expiry Warnings::Qualification Expiry Warning::Training Due Date
 
 ### Description
 The deadline set for the refresher.
 
 ### Data Type
 date
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -6411,10 +6711,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Qualification Expiry Warnings::Qualification Expiry Warning::TrainingDueDate
+DataField::Coco::Qualification Expiry Warnings::Qualification Expiry Warning::Training Due Date
 
 ### Data Structure
 DataStructure::Coco::Qualification Expiry Warnings::Qualification Expiry Warning
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -6433,10 +6739,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: qualification_expiry_warnings
 - schemaDescription: Warnings raised for qualifications approaching or past expiry, sent to the processes that depend on them before rather than after. Currency is the property the competency chain is actually judged on.
 
@@ -6563,7 +6869,7 @@ DataStructure::Coco::Health Surveillance Records::Surveillance Enrolment
 One row per worker enrolled in surveillance.
 
 ### Namespace Path
-coco_pharma.health_surveillance_records
+coco_data_hub.health_surveillance_records
 
 ### Version Identifier
 1.0
@@ -6592,19 +6898,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerPseudonymIdentifier
+Worker Pseudonym Identifier
 
 ### Qualified Name
-DataField::Coco::Health Surveillance Records::Surveillance Enrolment::WorkerPseudonymIdentifier
+DataField::Coco::Health Surveillance Records::Surveillance Enrolment::Worker Pseudonym Identifier
 
 ### Description
 The worker.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -6626,10 +6929,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Health Surveillance Records::Surveillance Enrolment::WorkerPseudonymIdentifier
+DataField::Coco::Health Surveillance Records::Surveillance Enrolment::Worker Pseudonym Identifier
 
 ### Data Structure
 DataStructure::Coco::Health Surveillance Records::Surveillance Enrolment
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -6639,19 +6948,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SurveillanceEnrollmentDate
+Surveillance Enrollment Date
 
 ### Qualified Name
-DataField::Coco::Health Surveillance Records::Surveillance Enrolment::SurveillanceEnrollmentDate
+DataField::Coco::Health Surveillance Records::Surveillance Enrolment::Surveillance Enrollment Date
 
 ### Description
 When enrolled.
 
 ### Data Type
 date
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -6670,10 +6976,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Health Surveillance Records::Surveillance Enrolment::SurveillanceEnrollmentDate
+DataField::Coco::Health Surveillance Records::Surveillance Enrolment::Surveillance Enrollment Date
 
 ### Data Structure
 DataStructure::Coco::Health Surveillance Records::Surveillance Enrolment
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -6683,19 +6995,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RoleCode
+Role Code
 
 ### Qualified Name
-DataField::Coco::Health Surveillance Records::Surveillance Enrolment::RoleCode
+DataField::Coco::Health Surveillance Records::Surveillance Enrolment::Role Code
 
 ### Description
 The role that required enrolment.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -6717,10 +7026,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Health Surveillance Records::Surveillance Enrolment::RoleCode
+DataField::Coco::Health Surveillance Records::Surveillance Enrolment::Role Code
 
 ### Data Structure
 DataStructure::Coco::Health Surveillance Records::Surveillance Enrolment
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -6730,19 +7045,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerHazardProfileDescription
+Worker Hazard Profile Description
 
 ### Qualified Name
-DataField::Coco::Health Surveillance Records::Surveillance Enrolment::WorkerHazardProfileDescription
+DataField::Coco::Health Surveillance Records::Surveillance Enrolment::Worker Hazard Profile Description
 
 ### Description
 The exposure profile enrolment was based on.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -6761,10 +7073,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Health Surveillance Records::Surveillance Enrolment::WorkerHazardProfileDescription
+DataField::Coco::Health Surveillance Records::Surveillance Enrolment::Worker Hazard Profile Description
 
 ### Data Structure
 DataStructure::Coco::Health Surveillance Records::Surveillance Enrolment
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -6774,19 +7092,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SurveillanceFrequency
+Surveillance Frequency
 
 ### Qualified Name
-DataField::Coco::Health Surveillance Records::Surveillance Enrolment::SurveillanceFrequency
+DataField::Coco::Health Surveillance Records::Surveillance Enrolment::Surveillance Frequency
 
 ### Description
 How often appointments are due, in months.
 
 ### Data Type
 int
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -6805,10 +7120,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Health Surveillance Records::Surveillance Enrolment::SurveillanceFrequency
+DataField::Coco::Health Surveillance Records::Surveillance Enrolment::Surveillance Frequency
 
 ### Data Structure
 DataStructure::Coco::Health Surveillance Records::Surveillance Enrolment
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -6818,19 +7139,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SurveillanceCurrentStatus
+Surveillance Current Status
 
 ### Qualified Name
-DataField::Coco::Health Surveillance Records::Surveillance Enrolment::SurveillanceCurrentStatus
+DataField::Coco::Health Surveillance Records::Surveillance Enrolment::Surveillance Current Status
 
 ### Description
 Enrolled, lapsed, ended.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -6852,10 +7170,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Health Surveillance Records::Surveillance Enrolment::SurveillanceCurrentStatus
+DataField::Coco::Health Surveillance Records::Surveillance Enrolment::Surveillance Current Status
 
 ### Data Structure
 DataStructure::Coco::Health Surveillance Records::Surveillance Enrolment
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -6874,7 +7198,7 @@ DataStructure::Coco::Health Surveillance Records::Surveillance Result
 One row per surveillance appointment, measurement or incident recorded against a worker.
 
 ### Namespace Path
-coco_pharma.health_surveillance_records
+coco_data_hub.health_surveillance_records
 
 ### Version Identifier
 1.0
@@ -6903,19 +7227,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SurveillanceResultIdentifier
+Surveillance Result Identifier
 
 ### Qualified Name
-DataField::Coco::Health Surveillance Records::Surveillance Result::SurveillanceResultIdentifier
+DataField::Coco::Health Surveillance Records::Surveillance Result::Surveillance Result Identifier
 
 ### Description
 The record.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -6937,10 +7258,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Health Surveillance Records::Surveillance Result::SurveillanceResultIdentifier
+DataField::Coco::Health Surveillance Records::Surveillance Result::Surveillance Result Identifier
 
 ### Data Structure
 DataStructure::Coco::Health Surveillance Records::Surveillance Result
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -6950,19 +7277,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerPseudonymIdentifier
+Worker Pseudonym Identifier
 
 ### Qualified Name
-DataField::Coco::Health Surveillance Records::Surveillance Result::WorkerPseudonymIdentifier
+DataField::Coco::Health Surveillance Records::Surveillance Result::Worker Pseudonym Identifier
 
 ### Description
 The worker.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -6984,10 +7308,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Health Surveillance Records::Surveillance Result::WorkerPseudonymIdentifier
+DataField::Coco::Health Surveillance Records::Surveillance Result::Worker Pseudonym Identifier
 
 ### Data Structure
 DataStructure::Coco::Health Surveillance Records::Surveillance Result
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -6997,19 +7327,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SurveillanceResultType
+Surveillance Result Type
 
 ### Qualified Name
-DataField::Coco::Health Surveillance Records::Surveillance Result::SurveillanceResultType
+DataField::Coco::Health Surveillance Records::Surveillance Result::Surveillance Result Type
 
 ### Description
 Appointment, exposure measurement or exposure incident.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -7031,10 +7358,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Health Surveillance Records::Surveillance Result::SurveillanceResultType
+DataField::Coco::Health Surveillance Records::Surveillance Result::Surveillance Result Type
 
 ### Data Structure
 DataStructure::Coco::Health Surveillance Records::Surveillance Result
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -7044,19 +7377,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SurveillanceResultDate
+Surveillance Result Date
 
 ### Qualified Name
-DataField::Coco::Health Surveillance Records::Surveillance Result::SurveillanceResultDate
+DataField::Coco::Health Surveillance Records::Surveillance Result::Surveillance Result Date
 
 ### Description
 When.
 
 ### Data Type
 date
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -7075,10 +7405,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Health Surveillance Records::Surveillance Result::SurveillanceResultDate
+DataField::Coco::Health Surveillance Records::Surveillance Result::Surveillance Result Date
 
 ### Data Structure
 DataStructure::Coco::Health Surveillance Records::Surveillance Result
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -7088,19 +7424,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ExposureReadingIdentifier
+Exposure Reading Identifier
 
 ### Qualified Name
-DataField::Coco::Health Surveillance Records::Surveillance Result::ExposureReadingIdentifier
+DataField::Coco::Health Surveillance Records::Surveillance Result::Exposure Reading Identifier
 
 ### Description
 The measurement, for a measurement.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -7122,10 +7455,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Health Surveillance Records::Surveillance Result::ExposureReadingIdentifier
+DataField::Coco::Health Surveillance Records::Surveillance Result::Exposure Reading Identifier
 
 ### Data Structure
 DataStructure::Coco::Health Surveillance Records::Surveillance Result
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -7135,19 +7474,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-IncidentIdentifier
+Incident Identifier
 
 ### Qualified Name
-DataField::Coco::Health Surveillance Records::Surveillance Result::IncidentIdentifier
+DataField::Coco::Health Surveillance Records::Surveillance Result::Incident Identifier
 
 ### Description
 The incident, for an incident.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 true
@@ -7169,10 +7505,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Health Surveillance Records::Surveillance Result::IncidentIdentifier
+DataField::Coco::Health Surveillance Records::Surveillance Result::Incident Identifier
 
 ### Data Structure
 DataStructure::Coco::Health Surveillance Records::Surveillance Result
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -7182,19 +7524,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SurveillanceResultDescription
+Surveillance Result Description
 
 ### Qualified Name
-DataField::Coco::Health Surveillance Records::Surveillance Result::SurveillanceResultDescription
+DataField::Coco::Health Surveillance Records::Surveillance Result::Surveillance Result Description
 
 ### Description
 The finding.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -7213,10 +7552,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Health Surveillance Records::Surveillance Result::SurveillanceResultDescription
+DataField::Coco::Health Surveillance Records::Surveillance Result::Surveillance Result Description
 
 ### Data Structure
 DataStructure::Coco::Health Surveillance Records::Surveillance Result
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -7226,19 +7571,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SurveillanceResultActionDescription
+Surveillance Result Action Description
 
 ### Qualified Name
-DataField::Coco::Health Surveillance Records::Surveillance Result::SurveillanceResultActionDescription
+DataField::Coco::Health Surveillance Records::Surveillance Result::Surveillance Result Action Description
 
 ### Description
 Any action required.
 
 ### Data Type
 string
-
-### Position
-8
 
 ### Is Nullable
 true
@@ -7257,10 +7599,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Health Surveillance Records::Surveillance Result::SurveillanceResultActionDescription
+DataField::Coco::Health Surveillance Records::Surveillance Result::Surveillance Result Action Description
 
 ### Data Structure
 DataStructure::Coco::Health Surveillance Records::Surveillance Result
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -7279,10 +7627,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: health_surveillance_records
 - schemaDescription: The enrolment of each worker in health surveillance according to their exposure profile, and the results of surveillance appointments, exposure measurements and exposure incidents held against the individual. The record belongs to the person it describes rather than to the company.
 
@@ -7409,7 +7757,7 @@ DataStructure::Coco::Long Term Health Archive::Archived Health Record
 One row per record archived.
 
 ### Namespace Path
-coco_pharma.long_term_health_archive
+coco_data_hub.long_term_health_archive
 
 ### Version Identifier
 1.0
@@ -7438,19 +7786,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-HealthRecordIdentifier
+Health Record Identifier
 
 ### Qualified Name
-DataField::Coco::Long Term Health Archive::Archived Health Record::HealthRecordIdentifier
+DataField::Coco::Long Term Health Archive::Archived Health Record::Health Record Identifier
 
 ### Description
 The archived record.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -7472,10 +7817,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Long Term Health Archive::Archived Health Record::HealthRecordIdentifier
+DataField::Coco::Long Term Health Archive::Archived Health Record::Health Record Identifier
 
 ### Data Structure
 DataStructure::Coco::Long Term Health Archive::Archived Health Record
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -7485,19 +7836,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerPseudonymIdentifier
+Worker Pseudonym Identifier
 
 ### Qualified Name
-DataField::Coco::Long Term Health Archive::Archived Health Record::WorkerPseudonymIdentifier
+DataField::Coco::Long Term Health Archive::Archived Health Record::Worker Pseudonym Identifier
 
 ### Description
 The worker.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -7519,10 +7867,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Long Term Health Archive::Archived Health Record::WorkerPseudonymIdentifier
+DataField::Coco::Long Term Health Archive::Archived Health Record::Worker Pseudonym Identifier
 
 ### Data Structure
 DataStructure::Coco::Long Term Health Archive::Archived Health Record
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -7532,19 +7886,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SurveillanceResultIdentifier
+Surveillance Result Identifier
 
 ### Qualified Name
-DataField::Coco::Long Term Health Archive::Archived Health Record::SurveillanceResultIdentifier
+DataField::Coco::Long Term Health Archive::Archived Health Record::Surveillance Result Identifier
 
 ### Description
 The surveillance record archived.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -7566,10 +7917,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Long Term Health Archive::Archived Health Record::SurveillanceResultIdentifier
+DataField::Coco::Long Term Health Archive::Archived Health Record::Surveillance Result Identifier
 
 ### Data Structure
 DataStructure::Coco::Long Term Health Archive::Archived Health Record
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -7579,19 +7936,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-HealthRecordArchivedDate
+Health Record Archived Date
 
 ### Qualified Name
-DataField::Coco::Long Term Health Archive::Archived Health Record::HealthRecordArchivedDate
+DataField::Coco::Long Term Health Archive::Archived Health Record::Health Record Archived Date
 
 ### Description
 When archived.
 
 ### Data Type
 date
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -7610,10 +7964,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Long Term Health Archive::Archived Health Record::HealthRecordArchivedDate
+DataField::Coco::Long Term Health Archive::Archived Health Record::Health Record Archived Date
 
 ### Data Structure
 DataStructure::Coco::Long Term Health Archive::Archived Health Record
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -7623,19 +7983,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-HealthRecordFormatCode
+Health Record Format Code
 
 ### Qualified Name
-DataField::Coco::Long Term Health Archive::Archived Health Record::HealthRecordFormatCode
+DataField::Coco::Long Term Health Archive::Archived Health Record::Health Record Format Code
 
 ### Description
 The format the record is held in.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -7657,10 +8014,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Long Term Health Archive::Archived Health Record::HealthRecordFormatCode
+DataField::Coco::Long Term Health Archive::Archived Health Record::Health Record Format Code
 
 ### Data Structure
 DataStructure::Coco::Long Term Health Archive::Archived Health Record
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -7670,19 +8033,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-HealthRecordArchiveEndDate
+Health Record Archive End Date
 
 ### Qualified Name
-DataField::Coco::Long Term Health Archive::Archived Health Record::HealthRecordArchiveEndDate
+DataField::Coco::Long Term Health Archive::Archived Health Record::Health Record Archive End Date
 
 ### Description
 When retention ends.
 
 ### Data Type
 date
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -7701,10 +8061,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Long Term Health Archive::Archived Health Record::HealthRecordArchiveEndDate
+DataField::Coco::Long Term Health Archive::Archived Health Record::Health Record Archive End Date
 
 ### Data Structure
 DataStructure::Coco::Long Term Health Archive::Archived Health Record
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -7714,19 +8080,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-HealthRecordReadableFlag
+Health Record Readable Flag
 
 ### Qualified Name
-DataField::Coco::Long Term Health Archive::Archived Health Record::HealthRecordReadableFlag
+DataField::Coco::Long Term Health Archive::Archived Health Record::Health Record Readable Flag
 
 ### Description
 Whether the record was readable at the last verification.
 
 ### Data Type
 boolean
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -7745,10 +8108,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Long Term Health Archive::Archived Health Record::HealthRecordReadableFlag
+DataField::Coco::Long Term Health Archive::Archived Health Record::Health Record Readable Flag
 
 ### Data Structure
 DataStructure::Coco::Long Term Health Archive::Archived Health Record
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -7767,10 +8136,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: long_term_health_archive
 - schemaDescription: Health surveillance and exposure records retained for forty years from the last entry, across every system migration in that period. Its requirement is not storage but interpretability: a record that survives and can no longer be read is the same failure as one that was lost.
 

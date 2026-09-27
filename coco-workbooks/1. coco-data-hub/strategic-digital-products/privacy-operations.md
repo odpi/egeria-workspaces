@@ -25,10 +25,10 @@ Products of the privacy function: rights requests, identity verifications, the r
 For every product this file:
 
 1. creates the **digital product** and adds it to the `Privacy Operations` folder of the catalog;
-2. creates its **data spec** and attaches it with a `DataDescription` relationship, then the **data structures**, each added to the spec, and the **data fields**, each linked to its structure with a `MemberDataField` relationship, named to the [Data Field Naming](../data-field-naming/README.md) standard;
-3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, as a member of the product.  The schema is named after the product, in the `coco_pharma` database on `Coco PostgreSQL Server 1`.
+2. creates its **data spec** and attaches it with a `DataDescription` relationship, then the **data structures**, each added to the spec, and the **data fields**, each linked to its structure with a `MemberDataField` relationship, its position and coverage category set on that relationship - `IDENTIFIER` for the fields that identify a row of the structure, `CORE_DETAIL` for the rest - named to the [Data Field Naming](../data-field-naming/README.md) standard;
+3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, as a member of the product.  The schema is named after the product, in the `coco_data_hub` database on `Coco PostgreSQL Server 1`.
 
-7 products, 11 data structures, 76 data fields.  This file loads after `catalog.md`.
+7 products, 11 data structures, 78 data fields.  This file loads after `catalog.md`.
 
 ```
 dr_egeria --directive process --userid erinoverview --user_pass secret privacy-operations.md
@@ -148,7 +148,7 @@ DataStructure::Coco::Data Subject Rights Requests::Rights Request
 One row per request received.
 
 ### Namespace Path
-coco_pharma.data_subject_rights_requests
+coco_data_hub.data_subject_rights_requests
 
 ### Version Identifier
 1.0
@@ -177,19 +177,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RightsRequestIdentifier
+Rights Request Identifier
 
 ### Qualified Name
-DataField::Coco::Data Subject Rights Requests::Rights Request::RightsRequestIdentifier
+DataField::Coco::Data Subject Rights Requests::Rights Request::Rights Request Identifier
 
 ### Description
 The request.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -211,10 +208,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Data Subject Rights Requests::Rights Request::RightsRequestIdentifier
+DataField::Coco::Data Subject Rights Requests::Rights Request::Rights Request Identifier
 
 ### Data Structure
 DataStructure::Coco::Data Subject Rights Requests::Rights Request
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -224,19 +227,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RightsRequestReceivedTimestamp
+Rights Request Received Timestamp
 
 ### Qualified Name
-DataField::Coco::Data Subject Rights Requests::Rights Request::RightsRequestReceivedTimestamp
+DataField::Coco::Data Subject Rights Requests::Rights Request::Rights Request Received Timestamp
 
 ### Description
 When first received anywhere in the company.
 
 ### Data Type
 date
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -255,10 +255,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Data Subject Rights Requests::Rights Request::RightsRequestReceivedTimestamp
+DataField::Coco::Data Subject Rights Requests::Rights Request::Rights Request Received Timestamp
 
 ### Data Structure
 DataStructure::Coco::Data Subject Rights Requests::Rights Request
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -268,19 +274,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RightsRequestChannelType
+Rights Request Channel Type
 
 ### Qualified Name
-DataField::Coco::Data Subject Rights Requests::Rights Request::RightsRequestChannelType
+DataField::Coco::Data Subject Rights Requests::Rights Request::Rights Request Channel Type
 
 ### Description
 Portal, email, letter, telephone or other.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -302,10 +305,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Data Subject Rights Requests::Rights Request::RightsRequestChannelType
+DataField::Coco::Data Subject Rights Requests::Rights Request::Rights Request Channel Type
 
 ### Data Structure
 DataStructure::Coco::Data Subject Rights Requests::Rights Request
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -315,19 +324,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RightsRequestType
+Rights Request Type
 
 ### Qualified Name
-DataField::Coco::Data Subject Rights Requests::Rights Request::RightsRequestType
+DataField::Coco::Data Subject Rights Requests::Rights Request::Rights Request Type
 
 ### Description
 Access, rectification, erasure, objection, portability or restriction.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -349,10 +355,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Data Subject Rights Requests::Rights Request::RightsRequestType
+DataField::Coco::Data Subject Rights Requests::Rights Request::Rights Request Type
 
 ### Data Structure
 DataStructure::Coco::Data Subject Rights Requests::Rights Request
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -362,19 +374,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DataSubjectType
+Data Subject Type
 
 ### Qualified Name
-DataField::Coco::Data Subject Rights Requests::Rights Request::DataSubjectType
+DataField::Coco::Data Subject Rights Requests::Rights Request::Data Subject Type
 
 ### Description
 Patient, worker, healthcare professional, other.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -396,10 +405,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Data Subject Rights Requests::Rights Request::DataSubjectType
+DataField::Coco::Data Subject Rights Requests::Rights Request::Data Subject Type
 
 ### Data Structure
 DataStructure::Coco::Data Subject Rights Requests::Rights Request
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -409,19 +424,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DataSubjectClaimedName
+Data Subject Claimed Name
 
 ### Qualified Name
-DataField::Coco::Data Subject Rights Requests::Rights Request::DataSubjectClaimedName
+DataField::Coco::Data Subject Rights Requests::Rights Request::Data Subject Claimed Name
 
 ### Description
 The name the requester gave.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -443,10 +455,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Data Subject Rights Requests::Rights Request::DataSubjectClaimedName
+DataField::Coco::Data Subject Rights Requests::Rights Request::Data Subject Claimed Name
 
 ### Data Structure
 DataStructure::Coco::Data Subject Rights Requests::Rights Request
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -456,19 +474,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RightsRequestDescription
+Rights Request Description
 
 ### Qualified Name
-DataField::Coco::Data Subject Rights Requests::Rights Request::RightsRequestDescription
+DataField::Coco::Data Subject Rights Requests::Rights Request::Rights Request Description
 
 ### Description
 What was asked for.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -487,10 +502,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Data Subject Rights Requests::Rights Request::RightsRequestDescription
+DataField::Coco::Data Subject Rights Requests::Rights Request::Rights Request Description
 
 ### Data Structure
 DataStructure::Coco::Data Subject Rights Requests::Rights Request
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -500,19 +521,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RightsRequestDueDate
+Rights Request Due Date
 
 ### Qualified Name
-DataField::Coco::Data Subject Rights Requests::Rights Request::RightsRequestDueDate
+DataField::Coco::Data Subject Rights Requests::Rights Request::Rights Request Due Date
 
 ### Description
 The statutory deadline.
 
 ### Data Type
 date
-
-### Position
-8
 
 ### Is Nullable
 false
@@ -531,10 +549,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Data Subject Rights Requests::Rights Request::RightsRequestDueDate
+DataField::Coco::Data Subject Rights Requests::Rights Request::Rights Request Due Date
 
 ### Data Structure
 DataStructure::Coco::Data Subject Rights Requests::Rights Request
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -544,19 +568,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RightsRequestCurrentStatus
+Rights Request Current Status
 
 ### Qualified Name
-DataField::Coco::Data Subject Rights Requests::Rights Request::RightsRequestCurrentStatus
+DataField::Coco::Data Subject Rights Requests::Rights Request::Rights Request Current Status
 
 ### Description
 Received, verifying, in progress, responded, closed.
 
 ### Data Type
 string
-
-### Position
-9
 
 ### Is Nullable
 false
@@ -578,10 +599,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Data Subject Rights Requests::Rights Request::RightsRequestCurrentStatus
+DataField::Coco::Data Subject Rights Requests::Rights Request::Rights Request Current Status
 
 ### Data Structure
 DataStructure::Coco::Data Subject Rights Requests::Rights Request
+
+### Position
+9
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 9
@@ -600,7 +627,7 @@ DataStructure::Coco::Data Subject Rights Requests::Request Response
 One row per response sent to a requester.
 
 ### Namespace Path
-coco_pharma.data_subject_rights_requests
+coco_data_hub.data_subject_rights_requests
 
 ### Version Identifier
 1.0
@@ -629,19 +656,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RightsRequestIdentifier
+Rights Request Identifier
 
 ### Qualified Name
-DataField::Coco::Data Subject Rights Requests::Request Response::RightsRequestIdentifier
+DataField::Coco::Data Subject Rights Requests::Request Response::Rights Request Identifier
 
 ### Description
 The request.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -663,10 +687,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Data Subject Rights Requests::Request Response::RightsRequestIdentifier
+DataField::Coco::Data Subject Rights Requests::Request Response::Rights Request Identifier
 
 ### Data Structure
 DataStructure::Coco::Data Subject Rights Requests::Request Response
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -676,19 +706,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RightsRequestResponseTimestamp
+Rights Request Response Timestamp
 
 ### Qualified Name
-DataField::Coco::Data Subject Rights Requests::Request Response::RightsRequestResponseTimestamp
+DataField::Coco::Data Subject Rights Requests::Request Response::Rights Request Response Timestamp
 
 ### Description
 When the response was sent.
 
 ### Data Type
 date
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -707,10 +734,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Data Subject Rights Requests::Request Response::RightsRequestResponseTimestamp
+DataField::Coco::Data Subject Rights Requests::Request Response::Rights Request Response Timestamp
 
 ### Data Structure
 DataStructure::Coco::Data Subject Rights Requests::Request Response
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -720,19 +753,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RightsRequestResponseDescription
+Rights Request Response Description
 
 ### Qualified Name
-DataField::Coco::Data Subject Rights Requests::Request Response::RightsRequestResponseDescription
+DataField::Coco::Data Subject Rights Requests::Request Response::Rights Request Response Description
 
 ### Description
 The response, the actions taken and the reasons.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -751,10 +781,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Data Subject Rights Requests::Request Response::RightsRequestResponseDescription
+DataField::Coco::Data Subject Rights Requests::Request Response::Rights Request Response Description
 
 ### Data Structure
 DataStructure::Coco::Data Subject Rights Requests::Request Response
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -764,19 +800,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RightsRequestResponderIdentifier
+Rights Request Responder Identifier
 
 ### Qualified Name
-DataField::Coco::Data Subject Rights Requests::Request Response::RightsRequestResponderIdentifier
+DataField::Coco::Data Subject Rights Requests::Request Response::Rights Request Responder Identifier
 
 ### Description
 Who sent it.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -798,10 +831,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Data Subject Rights Requests::Request Response::RightsRequestResponderIdentifier
+DataField::Coco::Data Subject Rights Requests::Request Response::Rights Request Responder Identifier
 
 ### Data Structure
 DataStructure::Coco::Data Subject Rights Requests::Request Response
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -811,19 +850,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RightsRequestRefusedFlag
+Rights Request Refused Flag
 
 ### Qualified Name
-DataField::Coco::Data Subject Rights Requests::Request Response::RightsRequestRefusedFlag
+DataField::Coco::Data Subject Rights Requests::Request Response::Rights Request Refused Flag
 
 ### Description
 Whether any part of the request was refused.
 
 ### Data Type
 boolean
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -842,10 +878,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Data Subject Rights Requests::Request Response::RightsRequestRefusedFlag
+DataField::Coco::Data Subject Rights Requests::Request Response::Rights Request Refused Flag
 
 ### Data Structure
 DataStructure::Coco::Data Subject Rights Requests::Request Response
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -864,10 +906,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: data_subject_rights_requests
 - schemaDescription: Requests from data subjects received through every channel the company offers, with the statutory clock that starts on receipt, and the response assembled for each. An email to a site address counts exactly as much as a submission through the portal.
 
@@ -994,7 +1036,7 @@ DataStructure::Coco::Requester Identity Verifications::Identity Verification
 One row per verification performed.
 
 ### Namespace Path
-coco_pharma.requester_identity_verifications
+coco_data_hub.requester_identity_verifications
 
 ### Version Identifier
 1.0
@@ -1023,19 +1065,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RightsRequestIdentifier
+Rights Request Identifier
 
 ### Qualified Name
-DataField::Coco::Requester Identity Verifications::Identity Verification::RightsRequestIdentifier
+DataField::Coco::Requester Identity Verifications::Identity Verification::Rights Request Identifier
 
 ### Description
 The request.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -1057,10 +1096,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Requester Identity Verifications::Identity Verification::RightsRequestIdentifier
+DataField::Coco::Requester Identity Verifications::Identity Verification::Rights Request Identifier
 
 ### Data Structure
 DataStructure::Coco::Requester Identity Verifications::Identity Verification
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -1070,19 +1115,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RightsRequestVerifiedTimestamp
+Rights Request Verified Timestamp
 
 ### Qualified Name
-DataField::Coco::Requester Identity Verifications::Identity Verification::RightsRequestVerifiedTimestamp
+DataField::Coco::Requester Identity Verifications::Identity Verification::Rights Request Verified Timestamp
 
 ### Description
 When verified.
 
 ### Data Type
 date
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -1101,10 +1143,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Requester Identity Verifications::Identity Verification::RightsRequestVerifiedTimestamp
+DataField::Coco::Requester Identity Verifications::Identity Verification::Rights Request Verified Timestamp
 
 ### Data Structure
 DataStructure::Coco::Requester Identity Verifications::Identity Verification
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -1114,19 +1162,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RightsRequestVerifiedMethodCode
+Rights Request Verified Method Code
 
 ### Qualified Name
-DataField::Coco::Requester Identity Verifications::Identity Verification::RightsRequestVerifiedMethodCode
+DataField::Coco::Requester Identity Verifications::Identity Verification::Rights Request Verified Method Code
 
 ### Description
 The method used.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -1148,10 +1193,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Requester Identity Verifications::Identity Verification::RightsRequestVerifiedMethodCode
+DataField::Coco::Requester Identity Verifications::Identity Verification::Rights Request Verified Method Code
 
 ### Data Structure
 DataStructure::Coco::Requester Identity Verifications::Identity Verification
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -1161,19 +1212,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RightsRequestVerifiedEvidenceDescription
+Rights Request Verified Evidence Description
 
 ### Qualified Name
-DataField::Coco::Requester Identity Verifications::Identity Verification::RightsRequestVerifiedEvidenceDescription
+DataField::Coco::Requester Identity Verifications::Identity Verification::Rights Request Verified Evidence Description
 
 ### Description
 The evidence offered and accepted.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -1192,10 +1240,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Requester Identity Verifications::Identity Verification::RightsRequestVerifiedEvidenceDescription
+DataField::Coco::Requester Identity Verifications::Identity Verification::Rights Request Verified Evidence Description
 
 ### Data Structure
 DataStructure::Coco::Requester Identity Verifications::Identity Verification
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -1205,19 +1259,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RightsRequestVerifiedStatus
+Rights Request Verified Status
 
 ### Qualified Name
-DataField::Coco::Requester Identity Verifications::Identity Verification::RightsRequestVerifiedStatus
+DataField::Coco::Requester Identity Verifications::Identity Verification::Rights Request Verified Status
 
 ### Description
 Verified, failed, insufficient.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -1239,10 +1290,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Requester Identity Verifications::Identity Verification::RightsRequestVerifiedStatus
+DataField::Coco::Requester Identity Verifications::Identity Verification::Rights Request Verified Status
 
 ### Data Structure
 DataStructure::Coco::Requester Identity Verifications::Identity Verification
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -1252,19 +1309,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RightsRequestVerifierIdentifier
+Rights Request Verifier Identifier
 
 ### Qualified Name
-DataField::Coco::Requester Identity Verifications::Identity Verification::RightsRequestVerifierIdentifier
+DataField::Coco::Requester Identity Verifications::Identity Verification::Rights Request Verifier Identifier
 
 ### Description
 Who verified.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -1286,10 +1340,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Requester Identity Verifications::Identity Verification::RightsRequestVerifierIdentifier
+DataField::Coco::Requester Identity Verifications::Identity Verification::Rights Request Verifier Identifier
 
 ### Data Structure
 DataStructure::Coco::Requester Identity Verifications::Identity Verification
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -1299,19 +1359,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DataSubjectIdentifier
+Data Subject Identifier
 
 ### Qualified Name
-DataField::Coco::Requester Identity Verifications::Identity Verification::DataSubjectIdentifier
+DataField::Coco::Requester Identity Verifications::Identity Verification::Data Subject Identifier
 
 ### Description
 The verified subject's identifier in the relevant register.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 true
@@ -1333,10 +1390,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Requester Identity Verifications::Identity Verification::DataSubjectIdentifier
+DataField::Coco::Requester Identity Verifications::Identity Verification::Data Subject Identifier
 
 ### Data Structure
 DataStructure::Coco::Requester Identity Verifications::Identity Verification
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -1355,10 +1418,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: requester_identity_verifications
 - schemaDescription: The verification that a requester is who they claim to be, proportionate to what they are asking for. It is the step that stops the rights process from becoming an attack on the data it is meant to protect.
 
@@ -1485,7 +1548,7 @@ DataStructure::Coco::Record Of Processing Activities::Processing Activity
 One row per processing activity.
 
 ### Namespace Path
-coco_pharma.record_of_processing_activities
+coco_data_hub.record_of_processing_activities
 
 ### Version Identifier
 1.0
@@ -1514,19 +1577,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProcessingActivityIdentifier
+Processing Activity Identifier
 
 ### Qualified Name
-DataField::Coco::Record Of Processing Activities::Processing Activity::ProcessingActivityIdentifier
+DataField::Coco::Record Of Processing Activities::Processing Activity::Processing Activity Identifier
 
 ### Description
 The activity.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -1548,10 +1608,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Record Of Processing Activities::Processing Activity::ProcessingActivityIdentifier
+DataField::Coco::Record Of Processing Activities::Processing Activity::Processing Activity Identifier
 
 ### Data Structure
 DataStructure::Coco::Record Of Processing Activities::Processing Activity
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -1561,19 +1627,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProcessingActivityName
+Processing Activity Name
 
 ### Qualified Name
-DataField::Coco::Record Of Processing Activities::Processing Activity::ProcessingActivityName
+DataField::Coco::Record Of Processing Activities::Processing Activity::Processing Activity Name
 
 ### Description
 Its name.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -1595,10 +1658,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Record Of Processing Activities::Processing Activity::ProcessingActivityName
+DataField::Coco::Record Of Processing Activities::Processing Activity::Processing Activity Name
 
 ### Data Structure
 DataStructure::Coco::Record Of Processing Activities::Processing Activity
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -1608,19 +1677,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProcessingActivityPurposeDescription
+Processing Activity Purpose Description
 
 ### Qualified Name
-DataField::Coco::Record Of Processing Activities::Processing Activity::ProcessingActivityPurposeDescription
+DataField::Coco::Record Of Processing Activities::Processing Activity::Processing Activity Purpose Description
 
 ### Description
 The purpose.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -1639,10 +1705,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Record Of Processing Activities::Processing Activity::ProcessingActivityPurposeDescription
+DataField::Coco::Record Of Processing Activities::Processing Activity::Processing Activity Purpose Description
 
 ### Data Structure
 DataStructure::Coco::Record Of Processing Activities::Processing Activity
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -1652,19 +1724,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProcessingActivityBasisCode
+Processing Activity Basis Code
 
 ### Qualified Name
-DataField::Coco::Record Of Processing Activities::Processing Activity::ProcessingActivityBasisCode
+DataField::Coco::Record Of Processing Activities::Processing Activity::Processing Activity Basis Code
 
 ### Description
 The lawful basis.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -1686,10 +1755,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Record Of Processing Activities::Processing Activity::ProcessingActivityBasisCode
+DataField::Coco::Record Of Processing Activities::Processing Activity::Processing Activity Basis Code
 
 ### Data Structure
 DataStructure::Coco::Record Of Processing Activities::Processing Activity
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -1699,19 +1774,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DataSubjectType
+Data Subject Type
 
 ### Qualified Name
-DataField::Coco::Record Of Processing Activities::Processing Activity::DataSubjectType
+DataField::Coco::Record Of Processing Activities::Processing Activity::Data Subject Type
 
 ### Description
 The category of data subject.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -1733,10 +1805,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Record Of Processing Activities::Processing Activity::DataSubjectType
+DataField::Coco::Record Of Processing Activities::Processing Activity::Data Subject Type
 
 ### Data Structure
 DataStructure::Coco::Record Of Processing Activities::Processing Activity
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -1746,19 +1824,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProcessingActivityDataDescription
+Processing Activity Data Description
 
 ### Qualified Name
-DataField::Coco::Record Of Processing Activities::Processing Activity::ProcessingActivityDataDescription
+DataField::Coco::Record Of Processing Activities::Processing Activity::Processing Activity Data Description
 
 ### Description
 The categories of personal data.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -1777,10 +1852,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Record Of Processing Activities::Processing Activity::ProcessingActivityDataDescription
+DataField::Coco::Record Of Processing Activities::Processing Activity::Processing Activity Data Description
 
 ### Data Structure
 DataStructure::Coco::Record Of Processing Activities::Processing Activity
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -1790,19 +1871,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProcessingActivityOwnerIdentifier
+Processing Activity Owner Identifier
 
 ### Qualified Name
-DataField::Coco::Record Of Processing Activities::Processing Activity::ProcessingActivityOwnerIdentifier
+DataField::Coco::Record Of Processing Activities::Processing Activity::Processing Activity Owner Identifier
 
 ### Description
 The accountable owner.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -1824,10 +1902,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Record Of Processing Activities::Processing Activity::ProcessingActivityOwnerIdentifier
+DataField::Coco::Record Of Processing Activities::Processing Activity::Processing Activity Owner Identifier
 
 ### Data Structure
 DataStructure::Coco::Record Of Processing Activities::Processing Activity
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -1837,19 +1921,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProcessingActivityCurrentTimestamp
+Processing Activity Current Timestamp
 
 ### Qualified Name
-DataField::Coco::Record Of Processing Activities::Processing Activity::ProcessingActivityCurrentTimestamp
+DataField::Coco::Record Of Processing Activities::Processing Activity::Processing Activity Current Timestamp
 
 ### Description
 When last reviewed.
 
 ### Data Type
 date
-
-### Position
-8
 
 ### Is Nullable
 false
@@ -1868,10 +1949,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Record Of Processing Activities::Processing Activity::ProcessingActivityCurrentTimestamp
+DataField::Coco::Record Of Processing Activities::Processing Activity::Processing Activity Current Timestamp
 
 ### Data Structure
 DataStructure::Coco::Record Of Processing Activities::Processing Activity
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -1890,7 +1977,7 @@ DataStructure::Coco::Record Of Processing Activities::Processing System
 One row per system or processor holding data for an activity.
 
 ### Namespace Path
-coco_pharma.record_of_processing_activities
+coco_data_hub.record_of_processing_activities
 
 ### Version Identifier
 1.0
@@ -1919,19 +2006,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProcessingActivityIdentifier
+Processing Activity System Identifier
 
 ### Qualified Name
-DataField::Coco::Record Of Processing Activities::Processing System::ProcessingActivityIdentifier
+DataField::Coco::Record Of Processing Activities::Processing System::Processing Activity System Identifier
 
 ### Description
-The activity.
+The unique identifier of the entry for one system or processor holding data for a processing activity.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -1953,10 +2037,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Record Of Processing Activities::Processing System::ProcessingActivityIdentifier
+DataField::Coco::Record Of Processing Activities::Processing System::Processing Activity System Identifier
 
 ### Data Structure
 DataStructure::Coco::Record Of Processing Activities::Processing System
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -1966,19 +2056,66 @@ ___
 ## Create Data Field
 
 ### Display Name
-SystemIdentifier
+Processing Activity Identifier
 
 ### Qualified Name
-DataField::Coco::Record Of Processing Activities::Processing System::SystemIdentifier
+DataField::Coco::Record Of Processing Activities::Processing System::Processing Activity Identifier
+
+### Description
+The activity.
+
+### Data Type
+string
+
+### Is Nullable
+false
+
+### Minimum Cardinality
+1
+
+### Length
+40
+
+### Version Identifier
+1.0
+
+### Content Status
+ACTIVE
+
+___
+
+## Link Data Field to Data Structure
+
+### Data Field
+DataField::Coco::Record Of Processing Activities::Processing System::Processing Activity Identifier
+
+### Data Structure
+DataStructure::Coco::Record Of Processing Activities::Processing System
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
+
+### Label
+field 2
+
+___
+
+## Create Data Field
+
+### Display Name
+System Identifier
+
+### Qualified Name
+DataField::Coco::Record Of Processing Activities::Processing System::System Identifier
 
 ### Description
 The system, for internal holdings.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 true
@@ -2000,32 +2137,35 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Record Of Processing Activities::Processing System::SystemIdentifier
+DataField::Coco::Record Of Processing Activities::Processing System::System Identifier
 
 ### Data Structure
 DataStructure::Coco::Record Of Processing Activities::Processing System
 
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
+
 ### Label
-field 2
+field 3
 
 ___
 
 ## Create Data Field
 
 ### Display Name
-SupplierIdentifier
+Supplier Identifier
 
 ### Qualified Name
-DataField::Coco::Record Of Processing Activities::Processing System::SupplierIdentifier
+DataField::Coco::Record Of Processing Activities::Processing System::Supplier Identifier
 
 ### Description
 The processor, for external holdings.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 true
@@ -2047,32 +2187,35 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Record Of Processing Activities::Processing System::SupplierIdentifier
+DataField::Coco::Record Of Processing Activities::Processing System::Supplier Identifier
 
 ### Data Structure
 DataStructure::Coco::Record Of Processing Activities::Processing System
 
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
+
 ### Label
-field 3
+field 4
 
 ___
 
 ## Create Data Field
 
 ### Display Name
-RetentionCategoryCode
+Retention Category Code
 
 ### Qualified Name
-DataField::Coco::Record Of Processing Activities::Processing System::RetentionCategoryCode
+DataField::Coco::Record Of Processing Activities::Processing System::Retention Category Code
 
 ### Description
 The retention category of the data held.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -2094,32 +2237,35 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Record Of Processing Activities::Processing System::RetentionCategoryCode
+DataField::Coco::Record Of Processing Activities::Processing System::Retention Category Code
 
 ### Data Structure
 DataStructure::Coco::Record Of Processing Activities::Processing System
 
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
+
 ### Label
-field 4
+field 5
 
 ___
 
 ## Create Data Field
 
 ### Display Name
-SystemReconciledFlag
+System Reconciled Flag
 
 ### Qualified Name
-DataField::Coco::Record Of Processing Activities::Processing System::SystemReconciledFlag
+DataField::Coco::Record Of Processing Activities::Processing System::System Reconciled Flag
 
 ### Description
 Whether discovery found a discrepancy against this entry.
 
 ### Data Type
 boolean
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -2138,13 +2284,19 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Record Of Processing Activities::Processing System::SystemReconciledFlag
+DataField::Coco::Record Of Processing Activities::Processing System::System Reconciled Flag
 
 ### Data Structure
 DataStructure::Coco::Record Of Processing Activities::Processing System
 
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
+
 ### Label
-field 5
+field 6
 
 ___
 
@@ -2160,10 +2312,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: record_of_processing_activities
 - schemaDescription: What personal data the company processes, for what purpose, under what lawful basis, and in which systems and processors it is held. It is what tells the rights chain where to look, so its accuracy is tested every time a request is answered.
 
@@ -2290,7 +2442,7 @@ DataStructure::Coco::Personal Data Discovery Findings::Discovered Holding
 One row per personal data holding found.
 
 ### Namespace Path
-coco_pharma.personal_data_discovery_findings
+coco_data_hub.personal_data_discovery_findings
 
 ### Version Identifier
 1.0
@@ -2319,19 +2471,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-HoldingIdentifier
+Holding Identifier
 
 ### Qualified Name
-DataField::Coco::Personal Data Discovery Findings::Discovered Holding::HoldingIdentifier
+DataField::Coco::Personal Data Discovery Findings::Discovered Holding::Holding Identifier
 
 ### Description
 The holding.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -2353,10 +2502,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Personal Data Discovery Findings::Discovered Holding::HoldingIdentifier
+DataField::Coco::Personal Data Discovery Findings::Discovered Holding::Holding Identifier
 
 ### Data Structure
 DataStructure::Coco::Personal Data Discovery Findings::Discovered Holding
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -2366,19 +2521,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AssetIdentifier
+Asset Identifier
 
 ### Qualified Name
-DataField::Coco::Personal Data Discovery Findings::Discovered Holding::AssetIdentifier
+DataField::Coco::Personal Data Discovery Findings::Discovered Holding::Asset Identifier
 
 ### Description
 The catalogued asset.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -2400,10 +2552,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Personal Data Discovery Findings::Discovered Holding::AssetIdentifier
+DataField::Coco::Personal Data Discovery Findings::Discovered Holding::Asset Identifier
 
 ### Data Structure
 DataStructure::Coco::Personal Data Discovery Findings::Discovered Holding
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -2413,19 +2571,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SystemIdentifier
+System Identifier
 
 ### Qualified Name
-DataField::Coco::Personal Data Discovery Findings::Discovered Holding::SystemIdentifier
+DataField::Coco::Personal Data Discovery Findings::Discovered Holding::System Identifier
 
 ### Description
 The system.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -2447,10 +2602,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Personal Data Discovery Findings::Discovered Holding::SystemIdentifier
+DataField::Coco::Personal Data Discovery Findings::Discovered Holding::System Identifier
 
 ### Data Structure
 DataStructure::Coco::Personal Data Discovery Findings::Discovered Holding
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -2460,19 +2621,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DataSubjectType
+Data Subject Type
 
 ### Qualified Name
-DataField::Coco::Personal Data Discovery Findings::Discovered Holding::DataSubjectType
+DataField::Coco::Personal Data Discovery Findings::Discovered Holding::Data Subject Type
 
 ### Description
 The category of data subject the data concerns.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -2494,10 +2652,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Personal Data Discovery Findings::Discovered Holding::DataSubjectType
+DataField::Coco::Personal Data Discovery Findings::Discovered Holding::Data Subject Type
 
 ### Data Structure
 DataStructure::Coco::Personal Data Discovery Findings::Discovered Holding
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -2507,19 +2671,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-HoldingDataDescription
+Holding Data Description
 
 ### Qualified Name
-DataField::Coco::Personal Data Discovery Findings::Discovered Holding::HoldingDataDescription
+DataField::Coco::Personal Data Discovery Findings::Discovered Holding::Holding Data Description
 
 ### Description
 The personal data found.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -2538,10 +2699,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Personal Data Discovery Findings::Discovered Holding::HoldingDataDescription
+DataField::Coco::Personal Data Discovery Findings::Discovered Holding::Holding Data Description
 
 ### Data Structure
 DataStructure::Coco::Personal Data Discovery Findings::Discovered Holding
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -2551,19 +2718,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-HoldingDiscoveredTimestamp
+Holding Discovered Timestamp
 
 ### Qualified Name
-DataField::Coco::Personal Data Discovery Findings::Discovered Holding::HoldingDiscoveredTimestamp
+DataField::Coco::Personal Data Discovery Findings::Discovered Holding::Holding Discovered Timestamp
 
 ### Description
 When found.
 
 ### Data Type
 date
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -2582,10 +2746,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Personal Data Discovery Findings::Discovered Holding::HoldingDiscoveredTimestamp
+DataField::Coco::Personal Data Discovery Findings::Discovered Holding::Holding Discovered Timestamp
 
 ### Data Structure
 DataStructure::Coco::Personal Data Discovery Findings::Discovered Holding
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -2595,19 +2765,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProcessingActivityIdentifier
+Processing Activity Identifier
 
 ### Qualified Name
-DataField::Coco::Personal Data Discovery Findings::Discovered Holding::ProcessingActivityIdentifier
+DataField::Coco::Personal Data Discovery Findings::Discovered Holding::Processing Activity Identifier
 
 ### Description
 The activity it reconciles to, if any.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 true
@@ -2629,10 +2796,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Personal Data Discovery Findings::Discovered Holding::ProcessingActivityIdentifier
+DataField::Coco::Personal Data Discovery Findings::Discovered Holding::Processing Activity Identifier
 
 ### Data Structure
 DataStructure::Coco::Personal Data Discovery Findings::Discovered Holding
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -2651,7 +2824,7 @@ DataStructure::Coco::Personal Data Discovery Findings::Register Discrepancy
 One row per difference between what was found and what the register says.
 
 ### Namespace Path
-coco_pharma.personal_data_discovery_findings
+coco_data_hub.personal_data_discovery_findings
 
 ### Version Identifier
 1.0
@@ -2680,19 +2853,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DiscrepancyIdentifier
+Discrepancy Identifier
 
 ### Qualified Name
-DataField::Coco::Personal Data Discovery Findings::Register Discrepancy::DiscrepancyIdentifier
+DataField::Coco::Personal Data Discovery Findings::Register Discrepancy::Discrepancy Identifier
 
 ### Description
 The discrepancy.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -2714,10 +2884,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Personal Data Discovery Findings::Register Discrepancy::DiscrepancyIdentifier
+DataField::Coco::Personal Data Discovery Findings::Register Discrepancy::Discrepancy Identifier
 
 ### Data Structure
 DataStructure::Coco::Personal Data Discovery Findings::Register Discrepancy
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -2727,19 +2903,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-HoldingIdentifier
+Holding Identifier
 
 ### Qualified Name
-DataField::Coco::Personal Data Discovery Findings::Register Discrepancy::HoldingIdentifier
+DataField::Coco::Personal Data Discovery Findings::Register Discrepancy::Holding Identifier
 
 ### Description
 The holding, for data found but not registered.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 true
@@ -2761,10 +2934,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Personal Data Discovery Findings::Register Discrepancy::HoldingIdentifier
+DataField::Coco::Personal Data Discovery Findings::Register Discrepancy::Holding Identifier
 
 ### Data Structure
 DataStructure::Coco::Personal Data Discovery Findings::Register Discrepancy
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -2774,19 +2953,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProcessingActivityIdentifier
+Processing Activity Identifier
 
 ### Qualified Name
-DataField::Coco::Personal Data Discovery Findings::Register Discrepancy::ProcessingActivityIdentifier
+DataField::Coco::Personal Data Discovery Findings::Register Discrepancy::Processing Activity Identifier
 
 ### Description
 The activity, for data registered but not found.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 true
@@ -2808,10 +2984,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Personal Data Discovery Findings::Register Discrepancy::ProcessingActivityIdentifier
+DataField::Coco::Personal Data Discovery Findings::Register Discrepancy::Processing Activity Identifier
 
 ### Data Structure
 DataStructure::Coco::Personal Data Discovery Findings::Register Discrepancy
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -2821,19 +3003,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DiscrepancyType
+Discrepancy Type
 
 ### Qualified Name
-DataField::Coco::Personal Data Discovery Findings::Register Discrepancy::DiscrepancyType
+DataField::Coco::Personal Data Discovery Findings::Register Discrepancy::Discrepancy Type
 
 ### Description
 Unregistered holding, missing holding, category mismatch.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -2855,10 +3034,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Personal Data Discovery Findings::Register Discrepancy::DiscrepancyType
+DataField::Coco::Personal Data Discovery Findings::Register Discrepancy::Discrepancy Type
 
 ### Data Structure
 DataStructure::Coco::Personal Data Discovery Findings::Register Discrepancy
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -2868,19 +3053,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DiscrepancyDescription
+Discrepancy Description
 
 ### Qualified Name
-DataField::Coco::Personal Data Discovery Findings::Register Discrepancy::DiscrepancyDescription
+DataField::Coco::Personal Data Discovery Findings::Register Discrepancy::Discrepancy Description
 
 ### Description
 The difference.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -2899,10 +3081,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Personal Data Discovery Findings::Register Discrepancy::DiscrepancyDescription
+DataField::Coco::Personal Data Discovery Findings::Register Discrepancy::Discrepancy Description
 
 ### Data Structure
 DataStructure::Coco::Personal Data Discovery Findings::Register Discrepancy
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -2912,19 +3100,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DiscrepancyCurrentStatus
+Discrepancy Current Status
 
 ### Qualified Name
-DataField::Coco::Personal Data Discovery Findings::Register Discrepancy::DiscrepancyCurrentStatus
+DataField::Coco::Personal Data Discovery Findings::Register Discrepancy::Discrepancy Current Status
 
 ### Description
 Open, register corrected, holding removed, accepted.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -2946,10 +3131,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Personal Data Discovery Findings::Register Discrepancy::DiscrepancyCurrentStatus
+DataField::Coco::Personal Data Discovery Findings::Register Discrepancy::Discrepancy Current Status
 
 ### Data Structure
 DataStructure::Coco::Personal Data Discovery Findings::Register Discrepancy
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -2968,10 +3159,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: personal_data_discovery_findings
 - schemaDescription: What the survey of systems and stores actually found: personal data holdings by system, and the discrepancies between them and the record of processing. The register describes what the company believes it processes; this describes what it actually holds.
 
@@ -3098,7 +3289,7 @@ DataStructure::Coco::Rights Fulfilment Actions::Fulfilment Request
 One row per verified request taken into fulfilment.
 
 ### Namespace Path
-coco_pharma.rights_fulfilment_actions
+coco_data_hub.rights_fulfilment_actions
 
 ### Version Identifier
 1.0
@@ -3127,19 +3318,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RightsRequestIdentifier
+Rights Request Identifier
 
 ### Qualified Name
-DataField::Coco::Rights Fulfilment Actions::Fulfilment Request::RightsRequestIdentifier
+DataField::Coco::Rights Fulfilment Actions::Fulfilment Request::Rights Request Identifier
 
 ### Description
 The request.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -3161,10 +3349,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Rights Fulfilment Actions::Fulfilment Request::RightsRequestIdentifier
+DataField::Coco::Rights Fulfilment Actions::Fulfilment Request::Rights Request Identifier
 
 ### Data Structure
 DataStructure::Coco::Rights Fulfilment Actions::Fulfilment Request
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -3174,19 +3368,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DataSubjectIdentifier
+Data Subject Identifier
 
 ### Qualified Name
-DataField::Coco::Rights Fulfilment Actions::Fulfilment Request::DataSubjectIdentifier
+DataField::Coco::Rights Fulfilment Actions::Fulfilment Request::Data Subject Identifier
 
 ### Description
 The verified subject.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -3208,10 +3399,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Rights Fulfilment Actions::Fulfilment Request::DataSubjectIdentifier
+DataField::Coco::Rights Fulfilment Actions::Fulfilment Request::Data Subject Identifier
 
 ### Data Structure
 DataStructure::Coco::Rights Fulfilment Actions::Fulfilment Request
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -3221,19 +3418,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DataSubjectType
+Data Subject Type
 
 ### Qualified Name
-DataField::Coco::Rights Fulfilment Actions::Fulfilment Request::DataSubjectType
+DataField::Coco::Rights Fulfilment Actions::Fulfilment Request::Data Subject Type
 
 ### Description
 The category of subject.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -3255,10 +3449,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Rights Fulfilment Actions::Fulfilment Request::DataSubjectType
+DataField::Coco::Rights Fulfilment Actions::Fulfilment Request::Data Subject Type
 
 ### Data Structure
 DataStructure::Coco::Rights Fulfilment Actions::Fulfilment Request
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -3268,19 +3468,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RightsRequestType
+Rights Request Type
 
 ### Qualified Name
-DataField::Coco::Rights Fulfilment Actions::Fulfilment Request::RightsRequestType
+DataField::Coco::Rights Fulfilment Actions::Fulfilment Request::Rights Request Type
 
 ### Description
 The right exercised.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -3302,10 +3499,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Rights Fulfilment Actions::Fulfilment Request::RightsRequestType
+DataField::Coco::Rights Fulfilment Actions::Fulfilment Request::Rights Request Type
 
 ### Data Structure
 DataStructure::Coco::Rights Fulfilment Actions::Fulfilment Request
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -3315,19 +3518,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RightsRequestFulfilmentStartTimestamp
+Rights Request Fulfilment Start Timestamp
 
 ### Qualified Name
-DataField::Coco::Rights Fulfilment Actions::Fulfilment Request::RightsRequestFulfilmentStartTimestamp
+DataField::Coco::Rights Fulfilment Actions::Fulfilment Request::Rights Request Fulfilment Start Timestamp
 
 ### Description
 When fulfilment began.
 
 ### Data Type
 date
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -3346,10 +3546,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Rights Fulfilment Actions::Fulfilment Request::RightsRequestFulfilmentStartTimestamp
+DataField::Coco::Rights Fulfilment Actions::Fulfilment Request::Rights Request Fulfilment Start Timestamp
 
 ### Data Structure
 DataStructure::Coco::Rights Fulfilment Actions::Fulfilment Request
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -3359,19 +3565,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RightsRequestFulfilmentCount
+Rights Request Fulfilment Count
 
 ### Qualified Name
-DataField::Coco::Rights Fulfilment Actions::Fulfilment Request::RightsRequestFulfilmentCount
+DataField::Coco::Rights Fulfilment Actions::Fulfilment Request::Rights Request Fulfilment Count
 
 ### Description
 The number of systems and processors asked.
 
 ### Data Type
 int
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -3390,10 +3593,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Rights Fulfilment Actions::Fulfilment Request::RightsRequestFulfilmentCount
+DataField::Coco::Rights Fulfilment Actions::Fulfilment Request::Rights Request Fulfilment Count
 
 ### Data Structure
 DataStructure::Coco::Rights Fulfilment Actions::Fulfilment Request
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -3403,19 +3612,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RightsRequestFulfilmentStatus
+Rights Request Fulfilment Status
 
 ### Qualified Name
-DataField::Coco::Rights Fulfilment Actions::Fulfilment Request::RightsRequestFulfilmentStatus
+DataField::Coco::Rights Fulfilment Actions::Fulfilment Request::Rights Request Fulfilment Status
 
 ### Description
 In progress, awaiting responses, decided, complete.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -3437,10 +3643,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Rights Fulfilment Actions::Fulfilment Request::RightsRequestFulfilmentStatus
+DataField::Coco::Rights Fulfilment Actions::Fulfilment Request::Rights Request Fulfilment Status
 
 ### Data Structure
 DataStructure::Coco::Rights Fulfilment Actions::Fulfilment Request
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -3459,7 +3671,7 @@ DataStructure::Coco::Rights Fulfilment Actions::System Action
 One row per system or processor per request.
 
 ### Namespace Path
-coco_pharma.rights_fulfilment_actions
+coco_data_hub.rights_fulfilment_actions
 
 ### Version Identifier
 1.0
@@ -3488,19 +3700,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RightsRequestIdentifier
+System Action Identifier
 
 ### Qualified Name
-DataField::Coco::Rights Fulfilment Actions::System Action::RightsRequestIdentifier
+DataField::Coco::Rights Fulfilment Actions::System Action::System Action Identifier
 
 ### Description
-The request.
+The unique identifier of the action requested of one system or processor for a request.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -3522,10 +3731,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Rights Fulfilment Actions::System Action::RightsRequestIdentifier
+DataField::Coco::Rights Fulfilment Actions::System Action::System Action Identifier
 
 ### Data Structure
 DataStructure::Coco::Rights Fulfilment Actions::System Action
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -3535,19 +3750,66 @@ ___
 ## Create Data Field
 
 ### Display Name
-SystemIdentifier
+Rights Request Identifier
 
 ### Qualified Name
-DataField::Coco::Rights Fulfilment Actions::System Action::SystemIdentifier
+DataField::Coco::Rights Fulfilment Actions::System Action::Rights Request Identifier
+
+### Description
+The request.
+
+### Data Type
+string
+
+### Is Nullable
+false
+
+### Minimum Cardinality
+1
+
+### Length
+40
+
+### Version Identifier
+1.0
+
+### Content Status
+ACTIVE
+
+___
+
+## Link Data Field to Data Structure
+
+### Data Field
+DataField::Coco::Rights Fulfilment Actions::System Action::Rights Request Identifier
+
+### Data Structure
+DataStructure::Coco::Rights Fulfilment Actions::System Action
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
+
+### Label
+field 2
+
+___
+
+## Create Data Field
+
+### Display Name
+System Identifier
+
+### Qualified Name
+DataField::Coco::Rights Fulfilment Actions::System Action::System Identifier
 
 ### Description
 The system, for internal holdings.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 true
@@ -3569,57 +3831,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Rights Fulfilment Actions::System Action::SystemIdentifier
+DataField::Coco::Rights Fulfilment Actions::System Action::System Identifier
 
 ### Data Structure
 DataStructure::Coco::Rights Fulfilment Actions::System Action
-
-### Label
-field 2
-
-___
-
-## Create Data Field
-
-### Display Name
-SupplierIdentifier
-
-### Qualified Name
-DataField::Coco::Rights Fulfilment Actions::System Action::SupplierIdentifier
-
-### Description
-The processor, for external holdings.
-
-### Data Type
-string
 
 ### Position
 3
 
-### Is Nullable
-true
-
-### Minimum Cardinality
-0
-
-### Length
-40
-
-### Version Identifier
-1.0
-
-### Content Status
-ACTIVE
-
-___
-
-## Link Data Field to Data Structure
-
-### Data Field
-DataField::Coco::Rights Fulfilment Actions::System Action::SupplierIdentifier
-
-### Data Structure
-DataStructure::Coco::Rights Fulfilment Actions::System Action
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -3629,201 +3850,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SystemActionType
+Supplier Identifier
 
 ### Qualified Name
-DataField::Coco::Rights Fulfilment Actions::System Action::SystemActionType
+DataField::Coco::Rights Fulfilment Actions::System Action::Supplier Identifier
 
 ### Description
-Locate, disclose, rectify, erase, restrict.
+The processor, for external holdings.
 
 ### Data Type
 string
-
-### Position
-4
-
-### Is Nullable
-false
-
-### Minimum Cardinality
-1
-
-### Length
-20
-
-### Version Identifier
-1.0
-
-### Content Status
-ACTIVE
-
-___
-
-## Link Data Field to Data Structure
-
-### Data Field
-DataField::Coco::Rights Fulfilment Actions::System Action::SystemActionType
-
-### Data Structure
-DataStructure::Coco::Rights Fulfilment Actions::System Action
-
-### Label
-field 4
-
-___
-
-## Create Data Field
-
-### Display Name
-SystemActionRequestedTimestamp
-
-### Qualified Name
-DataField::Coco::Rights Fulfilment Actions::System Action::SystemActionRequestedTimestamp
-
-### Description
-When asked.
-
-### Data Type
-date
-
-### Position
-5
-
-### Is Nullable
-false
-
-### Minimum Cardinality
-1
-
-### Version Identifier
-1.0
-
-### Content Status
-ACTIVE
-
-___
-
-## Link Data Field to Data Structure
-
-### Data Field
-DataField::Coco::Rights Fulfilment Actions::System Action::SystemActionRequestedTimestamp
-
-### Data Structure
-DataStructure::Coco::Rights Fulfilment Actions::System Action
-
-### Label
-field 5
-
-___
-
-## Create Data Field
-
-### Display Name
-SystemActionCompletedTimestamp
-
-### Qualified Name
-DataField::Coco::Rights Fulfilment Actions::System Action::SystemActionCompletedTimestamp
-
-### Description
-When answered.
-
-### Data Type
-date
-
-### Position
-6
-
-### Is Nullable
-true
-
-### Minimum Cardinality
-0
-
-### Version Identifier
-1.0
-
-### Content Status
-ACTIVE
-
-___
-
-## Link Data Field to Data Structure
-
-### Data Field
-DataField::Coco::Rights Fulfilment Actions::System Action::SystemActionCompletedTimestamp
-
-### Data Structure
-DataStructure::Coco::Rights Fulfilment Actions::System Action
-
-### Label
-field 6
-
-___
-
-## Create Data Field
-
-### Display Name
-SystemActionStatus
-
-### Qualified Name
-DataField::Coco::Rights Fulfilment Actions::System Action::SystemActionStatus
-
-### Description
-Requested, completed, refused, no data held.
-
-### Data Type
-string
-
-### Position
-7
-
-### Is Nullable
-false
-
-### Minimum Cardinality
-1
-
-### Length
-20
-
-### Version Identifier
-1.0
-
-### Content Status
-ACTIVE
-
-___
-
-## Link Data Field to Data Structure
-
-### Data Field
-DataField::Coco::Rights Fulfilment Actions::System Action::SystemActionStatus
-
-### Data Structure
-DataStructure::Coco::Rights Fulfilment Actions::System Action
-
-### Label
-field 7
-
-___
-
-## Create Data Field
-
-### Display Name
-RetentionObligationIdentifier
-
-### Qualified Name
-DataField::Coco::Rights Fulfilment Actions::System Action::RetentionObligationIdentifier
-
-### Description
-The retention obligation that overrode an erasure, if any.
-
-### Data Type
-string
-
-### Position
-8
 
 ### Is Nullable
 true
@@ -3845,13 +3881,263 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Rights Fulfilment Actions::System Action::RetentionObligationIdentifier
+DataField::Coco::Rights Fulfilment Actions::System Action::Supplier Identifier
 
 ### Data Structure
 DataStructure::Coco::Rights Fulfilment Actions::System Action
 
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
+
+### Label
+field 4
+
+___
+
+## Create Data Field
+
+### Display Name
+System Action Type
+
+### Qualified Name
+DataField::Coco::Rights Fulfilment Actions::System Action::System Action Type
+
+### Description
+Locate, disclose, rectify, erase, restrict.
+
+### Data Type
+string
+
+### Is Nullable
+false
+
+### Minimum Cardinality
+1
+
+### Length
+20
+
+### Version Identifier
+1.0
+
+### Content Status
+ACTIVE
+
+___
+
+## Link Data Field to Data Structure
+
+### Data Field
+DataField::Coco::Rights Fulfilment Actions::System Action::System Action Type
+
+### Data Structure
+DataStructure::Coco::Rights Fulfilment Actions::System Action
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
+
+### Label
+field 5
+
+___
+
+## Create Data Field
+
+### Display Name
+System Action Requested Timestamp
+
+### Qualified Name
+DataField::Coco::Rights Fulfilment Actions::System Action::System Action Requested Timestamp
+
+### Description
+When asked.
+
+### Data Type
+date
+
+### Is Nullable
+false
+
+### Minimum Cardinality
+1
+
+### Version Identifier
+1.0
+
+### Content Status
+ACTIVE
+
+___
+
+## Link Data Field to Data Structure
+
+### Data Field
+DataField::Coco::Rights Fulfilment Actions::System Action::System Action Requested Timestamp
+
+### Data Structure
+DataStructure::Coco::Rights Fulfilment Actions::System Action
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
+
+### Label
+field 6
+
+___
+
+## Create Data Field
+
+### Display Name
+System Action Completed Timestamp
+
+### Qualified Name
+DataField::Coco::Rights Fulfilment Actions::System Action::System Action Completed Timestamp
+
+### Description
+When answered.
+
+### Data Type
+date
+
+### Is Nullable
+true
+
+### Minimum Cardinality
+0
+
+### Version Identifier
+1.0
+
+### Content Status
+ACTIVE
+
+___
+
+## Link Data Field to Data Structure
+
+### Data Field
+DataField::Coco::Rights Fulfilment Actions::System Action::System Action Completed Timestamp
+
+### Data Structure
+DataStructure::Coco::Rights Fulfilment Actions::System Action
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
+
+### Label
+field 7
+
+___
+
+## Create Data Field
+
+### Display Name
+System Action Status
+
+### Qualified Name
+DataField::Coco::Rights Fulfilment Actions::System Action::System Action Status
+
+### Description
+Requested, completed, refused, no data held.
+
+### Data Type
+string
+
+### Is Nullable
+false
+
+### Minimum Cardinality
+1
+
+### Length
+20
+
+### Version Identifier
+1.0
+
+### Content Status
+ACTIVE
+
+___
+
+## Link Data Field to Data Structure
+
+### Data Field
+DataField::Coco::Rights Fulfilment Actions::System Action::System Action Status
+
+### Data Structure
+DataStructure::Coco::Rights Fulfilment Actions::System Action
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
+
 ### Label
 field 8
+
+___
+
+## Create Data Field
+
+### Display Name
+Retention Obligation Identifier
+
+### Qualified Name
+DataField::Coco::Rights Fulfilment Actions::System Action::Retention Obligation Identifier
+
+### Description
+The retention obligation that overrode an erasure, if any.
+
+### Data Type
+string
+
+### Is Nullable
+true
+
+### Minimum Cardinality
+0
+
+### Length
+40
+
+### Version Identifier
+1.0
+
+### Content Status
+ACTIVE
+
+___
+
+## Link Data Field to Data Structure
+
+### Data Field
+DataField::Coco::Rights Fulfilment Actions::System Action::Retention Obligation Identifier
+
+### Data Structure
+DataStructure::Coco::Rights Fulfilment Actions::System Action
+
+### Position
+9
+
+### Coverage Category
+CORE_DETAIL
+
+### Label
+field 9
 
 ___
 
@@ -3867,10 +4153,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: rights_fulfilment_actions
 - schemaDescription: Each verified request fanned out to every system and processor holding the person's data, what came back, and the erasure, rectification and objection decisions driven onward to the systems that must act on them. It is the component that turns a register into an answer.
 
@@ -3997,7 +4283,7 @@ DataStructure::Coco::Retention Obligations::Retention Obligation
 One row per retention category.
 
 ### Namespace Path
-coco_pharma.retention_obligations
+coco_data_hub.retention_obligations
 
 ### Version Identifier
 1.0
@@ -4026,19 +4312,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RetentionObligationIdentifier
+Retention Obligation Identifier
 
 ### Qualified Name
-DataField::Coco::Retention Obligations::Retention Obligation::RetentionObligationIdentifier
+DataField::Coco::Retention Obligations::Retention Obligation::Retention Obligation Identifier
 
 ### Description
 The obligation.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -4060,10 +4343,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Retention Obligations::Retention Obligation::RetentionObligationIdentifier
+DataField::Coco::Retention Obligations::Retention Obligation::Retention Obligation Identifier
 
 ### Data Structure
 DataStructure::Coco::Retention Obligations::Retention Obligation
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -4073,19 +4362,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RetentionCategoryCode
+Retention Category Code
 
 ### Qualified Name
-DataField::Coco::Retention Obligations::Retention Obligation::RetentionCategoryCode
+DataField::Coco::Retention Obligations::Retention Obligation::Retention Category Code
 
 ### Description
 The category of data.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -4107,10 +4393,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Retention Obligations::Retention Obligation::RetentionCategoryCode
+DataField::Coco::Retention Obligations::Retention Obligation::Retention Category Code
 
 ### Data Structure
 DataStructure::Coco::Retention Obligations::Retention Obligation
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -4120,19 +4412,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RetentionCategoryDescription
+Retention Category Description
 
 ### Qualified Name
-DataField::Coco::Retention Obligations::Retention Obligation::RetentionCategoryDescription
+DataField::Coco::Retention Obligations::Retention Obligation::Retention Category Description
 
 ### Description
 What the category covers.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -4151,10 +4440,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Retention Obligations::Retention Obligation::RetentionCategoryDescription
+DataField::Coco::Retention Obligations::Retention Obligation::Retention Category Description
 
 ### Data Structure
 DataStructure::Coco::Retention Obligations::Retention Obligation
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -4164,19 +4459,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RetentionDuration
+Retention Duration
 
 ### Qualified Name
-DataField::Coco::Retention Obligations::Retention Obligation::RetentionDuration
+DataField::Coco::Retention Obligations::Retention Obligation::Retention Duration
 
 ### Description
 How long the data must be kept, in months.
 
 ### Data Type
 int
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -4195,10 +4487,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Retention Obligations::Retention Obligation::RetentionDuration
+DataField::Coco::Retention Obligations::Retention Obligation::Retention Duration
 
 ### Data Structure
 DataStructure::Coco::Retention Obligations::Retention Obligation
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -4208,19 +4506,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RetentionBasisDescription
+Retention Basis Description
 
 ### Qualified Name
-DataField::Coco::Retention Obligations::Retention Obligation::RetentionBasisDescription
+DataField::Coco::Retention Obligations::Retention Obligation::Retention Basis Description
 
 ### Description
 The regulation or contract that requires it.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -4239,10 +4534,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Retention Obligations::Retention Obligation::RetentionBasisDescription
+DataField::Coco::Retention Obligations::Retention Obligation::Retention Basis Description
 
 ### Data Structure
 DataStructure::Coco::Retention Obligations::Retention Obligation
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -4252,19 +4553,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RetentionOverridesErasureFlag
+Retention Overrides Erasure Flag
 
 ### Qualified Name
-DataField::Coco::Retention Obligations::Retention Obligation::RetentionOverridesErasureFlag
+DataField::Coco::Retention Obligations::Retention Obligation::Retention Overrides Erasure Flag
 
 ### Description
 Whether the obligation overrides a request for erasure.
 
 ### Data Type
 boolean
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -4283,10 +4581,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Retention Obligations::Retention Obligation::RetentionOverridesErasureFlag
+DataField::Coco::Retention Obligations::Retention Obligation::Retention Overrides Erasure Flag
 
 ### Data Structure
 DataStructure::Coco::Retention Obligations::Retention Obligation
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -4296,19 +4600,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RetentionObligationStartDate
+Retention Obligation Start Date
 
 ### Qualified Name
-DataField::Coco::Retention Obligations::Retention Obligation::RetentionObligationStartDate
+DataField::Coco::Retention Obligations::Retention Obligation::Retention Obligation Start Date
 
 ### Description
 When the obligation took effect.
 
 ### Data Type
 date
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -4327,10 +4628,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Retention Obligations::Retention Obligation::RetentionObligationStartDate
+DataField::Coco::Retention Obligations::Retention Obligation::Retention Obligation Start Date
 
 ### Data Structure
 DataStructure::Coco::Retention Obligations::Retention Obligation
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -4349,10 +4656,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: retention_obligations
 - schemaDescription: The retention obligation attaching to each category of personal data, and the basis that lets it override a request to be forgotten. Clinical trial records, employment decisions and health surveillance all outrank erasure, and the chain has to know that per holding rather than in general.
 
@@ -4479,7 +4786,7 @@ DataStructure::Coco::Retention Period Assignments::Retention Period Assignment
 One row per asset with a retention period set.
 
 ### Namespace Path
-coco_pharma.retention_period_assignments
+coco_data_hub.retention_period_assignments
 
 ### Version Identifier
 1.0
@@ -4508,19 +4815,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AssetIdentifier
+Asset Identifier
 
 ### Qualified Name
-DataField::Coco::Retention Period Assignments::Retention Period Assignment::AssetIdentifier
+DataField::Coco::Retention Period Assignments::Retention Period Assignment::Asset Identifier
 
 ### Description
 The catalogued asset.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -4542,10 +4846,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Retention Period Assignments::Retention Period Assignment::AssetIdentifier
+DataField::Coco::Retention Period Assignments::Retention Period Assignment::Asset Identifier
 
 ### Data Structure
 DataStructure::Coco::Retention Period Assignments::Retention Period Assignment
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -4555,19 +4865,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RetentionObligationIdentifier
+Retention Obligation Identifier
 
 ### Qualified Name
-DataField::Coco::Retention Period Assignments::Retention Period Assignment::RetentionObligationIdentifier
+DataField::Coco::Retention Period Assignments::Retention Period Assignment::Retention Obligation Identifier
 
 ### Description
 The obligation applied.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -4589,10 +4896,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Retention Period Assignments::Retention Period Assignment::RetentionObligationIdentifier
+DataField::Coco::Retention Period Assignments::Retention Period Assignment::Retention Obligation Identifier
 
 ### Data Structure
 DataStructure::Coco::Retention Period Assignments::Retention Period Assignment
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -4602,19 +4915,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RetentionBasisDescription
+Retention Basis Description
 
 ### Qualified Name
-DataField::Coco::Retention Period Assignments::Retention Period Assignment::RetentionBasisDescription
+DataField::Coco::Retention Period Assignments::Retention Period Assignment::Retention Basis Description
 
 ### Description
 The basis recorded on the asset.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -4633,10 +4943,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Retention Period Assignments::Retention Period Assignment::RetentionBasisDescription
+DataField::Coco::Retention Period Assignments::Retention Period Assignment::Retention Basis Description
 
 ### Data Structure
 DataStructure::Coco::Retention Period Assignments::Retention Period Assignment
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -4646,19 +4962,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RetentionArchiveDate
+Retention Archive Date
 
 ### Qualified Name
-DataField::Coco::Retention Period Assignments::Retention Period Assignment::RetentionArchiveDate
+DataField::Coco::Retention Period Assignments::Retention Period Assignment::Retention Archive Date
 
 ### Description
 When the asset is to be archived.
 
 ### Data Type
 date
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -4677,10 +4990,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Retention Period Assignments::Retention Period Assignment::RetentionArchiveDate
+DataField::Coco::Retention Period Assignments::Retention Period Assignment::Retention Archive Date
 
 ### Data Structure
 DataStructure::Coco::Retention Period Assignments::Retention Period Assignment
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -4690,19 +5009,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RetentionDeleteDate
+Retention Delete Date
 
 ### Qualified Name
-DataField::Coco::Retention Period Assignments::Retention Period Assignment::RetentionDeleteDate
+DataField::Coco::Retention Period Assignments::Retention Period Assignment::Retention Delete Date
 
 ### Description
 When it is to be deleted.
 
 ### Data Type
 date
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -4721,10 +5037,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Retention Period Assignments::Retention Period Assignment::RetentionDeleteDate
+DataField::Coco::Retention Period Assignments::Retention Period Assignment::Retention Delete Date
 
 ### Data Structure
 DataStructure::Coco::Retention Period Assignments::Retention Period Assignment
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -4734,19 +5056,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RetentionAssignedTimestamp
+Retention Assigned Timestamp
 
 ### Qualified Name
-DataField::Coco::Retention Period Assignments::Retention Period Assignment::RetentionAssignedTimestamp
+DataField::Coco::Retention Period Assignments::Retention Period Assignment::Retention Assigned Timestamp
 
 ### Description
 When the period was set.
 
 ### Data Type
 date
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -4765,10 +5084,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Retention Period Assignments::Retention Period Assignment::RetentionAssignedTimestamp
+DataField::Coco::Retention Period Assignments::Retention Period Assignment::Retention Assigned Timestamp
 
 ### Data Structure
 DataStructure::Coco::Retention Period Assignments::Retention Period Assignment
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -4778,19 +5103,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RetentionAssignerIdentifier
+Retention Assigner Identifier
 
 ### Qualified Name
-DataField::Coco::Retention Period Assignments::Retention Period Assignment::RetentionAssignerIdentifier
+DataField::Coco::Retention Period Assignments::Retention Period Assignment::Retention Assigner Identifier
 
 ### Description
 Who set it.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -4812,10 +5134,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Retention Period Assignments::Retention Period Assignment::RetentionAssignerIdentifier
+DataField::Coco::Retention Period Assignments::Retention Period Assignment::Retention Assigner Identifier
 
 ### Data Structure
 DataStructure::Coco::Retention Period Assignments::Retention Period Assignment
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -4834,10 +5162,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: retention_period_assignments
 - schemaDescription: The retention period set on each catalogued asset: the basis it was set under and the dates on which the asset is to be archived and deleted. It is the point at which a retention obligation becomes an instruction attached to a specific holding.
 

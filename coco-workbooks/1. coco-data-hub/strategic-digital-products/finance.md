@@ -31,10 +31,10 @@ Products of the financial systems: invoices, subledger postings, ledger balances
 For every product this file:
 
 1. creates the **digital product** and adds it to the `Finance` folder of the catalog;
-2. creates its **data spec** and attaches it with a `DataDescription` relationship, then the **data structures**, each added to the spec, and the **data fields**, each linked to its structure with a `MemberDataField` relationship, named to the [Data Field Naming](../data-field-naming/README.md) standard;
-3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, as a member of the product.  The schema is named after the product, in the `coco_pharma` database on `Coco PostgreSQL Server 1`.
+2. creates its **data spec** and attaches it with a `DataDescription` relationship, then the **data structures**, each added to the spec, and the **data fields**, each linked to its structure with a `MemberDataField` relationship, its position and coverage category set on that relationship - `IDENTIFIER` for the fields that identify a row of the structure, `CORE_DETAIL` for the rest - named to the [Data Field Naming](../data-field-naming/README.md) standard;
+3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, as a member of the product.  The schema is named after the product, in the `coco_data_hub` database on `Coco PostgreSQL Server 1`.
 
-13 products, 27 data structures, 173 data fields.  This file loads after `catalog.md`.
+13 products, 27 data structures, 174 data fields.  This file loads after `catalog.md`.
 
 ```
 dr_egeria --directive process --userid erinoverview --user_pass secret finance.md
@@ -154,7 +154,7 @@ DataStructure::Coco::Treatment Invoices::Invoice
 One row per invoice raised.
 
 ### Namespace Path
-coco_pharma.treatment_invoices
+coco_data_hub.treatment_invoices
 
 ### Version Identifier
 1.0
@@ -183,19 +183,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-InvoiceNumber
+Invoice Number
 
 ### Qualified Name
-DataField::Coco::Treatment Invoices::Invoice::InvoiceNumber
+DataField::Coco::Treatment Invoices::Invoice::Invoice Number
 
 ### Description
 The invoice number.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -217,10 +214,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Treatment Invoices::Invoice::InvoiceNumber
+DataField::Coco::Treatment Invoices::Invoice::Invoice Number
 
 ### Data Structure
 DataStructure::Coco::Treatment Invoices::Invoice
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -230,19 +233,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-InvoiceDate
+Invoice Date
 
 ### Qualified Name
-DataField::Coco::Treatment Invoices::Invoice::InvoiceDate
+DataField::Coco::Treatment Invoices::Invoice::Invoice Date
 
 ### Description
 When the invoice was raised.
 
 ### Data Type
 date
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -261,10 +261,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Treatment Invoices::Invoice::InvoiceDate
+DataField::Coco::Treatment Invoices::Invoice::Invoice Date
 
 ### Data Structure
 DataStructure::Coco::Treatment Invoices::Invoice
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -274,19 +280,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-OrderIdentifier
+Order Identifier
 
 ### Qualified Name
-DataField::Coco::Treatment Invoices::Invoice::OrderIdentifier
+DataField::Coco::Treatment Invoices::Invoice::Order Identifier
 
 ### Description
 The treatment order invoiced.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -308,10 +311,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Treatment Invoices::Invoice::OrderIdentifier
+DataField::Coco::Treatment Invoices::Invoice::Order Identifier
 
 ### Data Structure
 DataStructure::Coco::Treatment Invoices::Invoice
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -321,19 +330,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CustomerIdentifier
+Customer Identifier
 
 ### Qualified Name
-DataField::Coco::Treatment Invoices::Invoice::CustomerIdentifier
+DataField::Coco::Treatment Invoices::Invoice::Customer Identifier
 
 ### Description
 The organisation invoiced.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -355,10 +361,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Treatment Invoices::Invoice::CustomerIdentifier
+DataField::Coco::Treatment Invoices::Invoice::Customer Identifier
 
 ### Data Structure
 DataStructure::Coco::Treatment Invoices::Invoice
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -368,19 +380,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-InvoiceTotalAmount
+Invoice Total Amount
 
 ### Qualified Name
-DataField::Coco::Treatment Invoices::Invoice::InvoiceTotalAmount
+DataField::Coco::Treatment Invoices::Invoice::Invoice Total Amount
 
 ### Description
 The invoiced value.
 
 ### Data Type
 bigdecimal
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -399,10 +408,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Treatment Invoices::Invoice::InvoiceTotalAmount
+DataField::Coco::Treatment Invoices::Invoice::Invoice Total Amount
 
 ### Data Structure
 DataStructure::Coco::Treatment Invoices::Invoice
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -412,19 +427,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-InvoiceCurrencyCode
+Invoice Currency Code
 
 ### Qualified Name
-DataField::Coco::Treatment Invoices::Invoice::InvoiceCurrencyCode
+DataField::Coco::Treatment Invoices::Invoice::Invoice Currency Code
 
 ### Description
 The currency of the invoice.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -446,10 +458,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Treatment Invoices::Invoice::InvoiceCurrencyCode
+DataField::Coco::Treatment Invoices::Invoice::Invoice Currency Code
 
 ### Data Structure
 DataStructure::Coco::Treatment Invoices::Invoice
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -459,19 +477,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-InvoiceDueDate
+Invoice Due Date
 
 ### Qualified Name
-DataField::Coco::Treatment Invoices::Invoice::InvoiceDueDate
+DataField::Coco::Treatment Invoices::Invoice::Invoice Due Date
 
 ### Description
 When payment is due.
 
 ### Data Type
 date
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -490,10 +505,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Treatment Invoices::Invoice::InvoiceDueDate
+DataField::Coco::Treatment Invoices::Invoice::Invoice Due Date
 
 ### Data Structure
 DataStructure::Coco::Treatment Invoices::Invoice
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -503,19 +524,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-InvoiceCurrentStatus
+Invoice Current Status
 
 ### Qualified Name
-DataField::Coco::Treatment Invoices::Invoice::InvoiceCurrentStatus
+DataField::Coco::Treatment Invoices::Invoice::Invoice Current Status
 
 ### Description
 Whether the invoice is open, paid or credited.
 
 ### Data Type
 string
-
-### Position
-8
 
 ### Is Nullable
 false
@@ -537,10 +555,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Treatment Invoices::Invoice::InvoiceCurrentStatus
+DataField::Coco::Treatment Invoices::Invoice::Invoice Current Status
 
 ### Data Structure
 DataStructure::Coco::Treatment Invoices::Invoice
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -559,7 +583,7 @@ DataStructure::Coco::Treatment Invoices::Revenue Recognition
 One row per invoice, the revenue recognised and the evidence it rests on.
 
 ### Namespace Path
-coco_pharma.treatment_invoices
+coco_data_hub.treatment_invoices
 
 ### Version Identifier
 1.0
@@ -588,19 +612,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-InvoiceNumber
+Invoice Number
 
 ### Qualified Name
-DataField::Coco::Treatment Invoices::Revenue Recognition::InvoiceNumber
+DataField::Coco::Treatment Invoices::Revenue Recognition::Invoice Number
 
 ### Description
 The invoice.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -622,10 +643,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Treatment Invoices::Revenue Recognition::InvoiceNumber
+DataField::Coco::Treatment Invoices::Revenue Recognition::Invoice Number
 
 ### Data Structure
 DataStructure::Coco::Treatment Invoices::Revenue Recognition
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -635,19 +662,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RevenueRecognitionDate
+Revenue Recognition Date
 
 ### Qualified Name
-DataField::Coco::Treatment Invoices::Revenue Recognition::RevenueRecognitionDate
+DataField::Coco::Treatment Invoices::Revenue Recognition::Revenue Recognition Date
 
 ### Description
 When the revenue is recognised.
 
 ### Data Type
 date
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -666,10 +690,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Treatment Invoices::Revenue Recognition::RevenueRecognitionDate
+DataField::Coco::Treatment Invoices::Revenue Recognition::Revenue Recognition Date
 
 ### Data Structure
 DataStructure::Coco::Treatment Invoices::Revenue Recognition
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -679,19 +709,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RevenueAmount
+Revenue Amount
 
 ### Qualified Name
-DataField::Coco::Treatment Invoices::Revenue Recognition::RevenueAmount
+DataField::Coco::Treatment Invoices::Revenue Recognition::Revenue Amount
 
 ### Description
 The revenue recognised.
 
 ### Data Type
 bigdecimal
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -710,10 +737,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Treatment Invoices::Revenue Recognition::RevenueAmount
+DataField::Coco::Treatment Invoices::Revenue Recognition::Revenue Amount
 
 ### Data Structure
 DataStructure::Coco::Treatment Invoices::Revenue Recognition
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -723,19 +756,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-OrderDeliveryDate
+Order Delivery Date
 
 ### Qualified Name
-DataField::Coco::Treatment Invoices::Revenue Recognition::OrderDeliveryDate
+DataField::Coco::Treatment Invoices::Revenue Recognition::Order Delivery Date
 
 ### Description
 The delivery date the recognition relies on.
 
 ### Data Type
 date
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -754,10 +784,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Treatment Invoices::Revenue Recognition::OrderDeliveryDate
+DataField::Coco::Treatment Invoices::Revenue Recognition::Order Delivery Date
 
 ### Data Structure
 DataStructure::Coco::Treatment Invoices::Revenue Recognition
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -767,19 +803,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LedgerAccountCode
+Ledger Account Code
 
 ### Qualified Name
-DataField::Coco::Treatment Invoices::Revenue Recognition::LedgerAccountCode
+DataField::Coco::Treatment Invoices::Revenue Recognition::Ledger Account Code
 
 ### Description
 The revenue account posted to.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -801,10 +834,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Treatment Invoices::Revenue Recognition::LedgerAccountCode
+DataField::Coco::Treatment Invoices::Revenue Recognition::Ledger Account Code
 
 ### Data Structure
 DataStructure::Coco::Treatment Invoices::Revenue Recognition
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -823,10 +862,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: treatment_invoices
 - schemaDescription: The invoices raised for fulfilled treatment orders and the revenue recognition data that accompanies them. It is where a clinical event becomes a financial one, and where the fulfilment record and the financial record must agree.
 
@@ -953,7 +992,7 @@ DataStructure::Coco::Subledger Postings::Posting Batch
 One row per batch of postings from one source feed for one period.
 
 ### Namespace Path
-coco_pharma.subledger_postings
+coco_data_hub.subledger_postings
 
 ### Version Identifier
 1.0
@@ -982,19 +1021,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-FeedIdentifier
+Feed Identifier
 
 ### Qualified Name
-DataField::Coco::Subledger Postings::Posting Batch::FeedIdentifier
+DataField::Coco::Subledger Postings::Posting Batch::Feed Identifier
 
 ### Description
 The unique identifier of the batch.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -1016,10 +1052,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Subledger Postings::Posting Batch::FeedIdentifier
+DataField::Coco::Subledger Postings::Posting Batch::Feed Identifier
 
 ### Data Structure
 DataStructure::Coco::Subledger Postings::Posting Batch
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -1029,19 +1071,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SystemIdentifier
+System Identifier
 
 ### Qualified Name
-DataField::Coco::Subledger Postings::Posting Batch::SystemIdentifier
+DataField::Coco::Subledger Postings::Posting Batch::System Identifier
 
 ### Description
 The source system the feed comes from.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -1063,10 +1102,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Subledger Postings::Posting Batch::SystemIdentifier
+DataField::Coco::Subledger Postings::Posting Batch::System Identifier
 
 ### Data Structure
 DataStructure::Coco::Subledger Postings::Posting Batch
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -1076,19 +1121,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AccountingPeriodCode
+Accounting Period Code
 
 ### Qualified Name
-DataField::Coco::Subledger Postings::Posting Batch::AccountingPeriodCode
+DataField::Coco::Subledger Postings::Posting Batch::Accounting Period Code
 
 ### Description
 The accounting period the batch belongs to.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -1110,10 +1152,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Subledger Postings::Posting Batch::AccountingPeriodCode
+DataField::Coco::Subledger Postings::Posting Batch::Accounting Period Code
 
 ### Data Structure
 DataStructure::Coco::Subledger Postings::Posting Batch
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -1123,19 +1171,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-FeedPostedTimestamp
+Feed Posted Timestamp
 
 ### Qualified Name
-DataField::Coco::Subledger Postings::Posting Batch::FeedPostedTimestamp
+DataField::Coco::Subledger Postings::Posting Batch::Feed Posted Timestamp
 
 ### Description
 When the batch was posted to the ledger.
 
 ### Data Type
 date
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -1154,10 +1199,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Subledger Postings::Posting Batch::FeedPostedTimestamp
+DataField::Coco::Subledger Postings::Posting Batch::Feed Posted Timestamp
 
 ### Data Structure
 DataStructure::Coco::Subledger Postings::Posting Batch
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -1167,19 +1218,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-FeedLineCount
+Feed Line Count
 
 ### Qualified Name
-DataField::Coco::Subledger Postings::Posting Batch::FeedLineCount
+DataField::Coco::Subledger Postings::Posting Batch::Feed Line Count
 
 ### Description
 The number of postings in the batch.
 
 ### Data Type
 int
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -1198,10 +1246,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Subledger Postings::Posting Batch::FeedLineCount
+DataField::Coco::Subledger Postings::Posting Batch::Feed Line Count
 
 ### Data Structure
 DataStructure::Coco::Subledger Postings::Posting Batch
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -1211,19 +1265,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-FeedTotalAmount
+Feed Total Amount
 
 ### Qualified Name
-DataField::Coco::Subledger Postings::Posting Batch::FeedTotalAmount
+DataField::Coco::Subledger Postings::Posting Batch::Feed Total Amount
 
 ### Description
 The control total of the batch.
 
 ### Data Type
 bigdecimal
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -1242,10 +1293,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Subledger Postings::Posting Batch::FeedTotalAmount
+DataField::Coco::Subledger Postings::Posting Batch::Feed Total Amount
 
 ### Data Structure
 DataStructure::Coco::Subledger Postings::Posting Batch
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -1255,19 +1312,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-FeedCurrentStatus
+Feed Current Status
 
 ### Qualified Name
-DataField::Coco::Subledger Postings::Posting Batch::FeedCurrentStatus
+DataField::Coco::Subledger Postings::Posting Batch::Feed Current Status
 
 ### Description
 Whether the batch is pending, posted or rejected.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -1289,10 +1343,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Subledger Postings::Posting Batch::FeedCurrentStatus
+DataField::Coco::Subledger Postings::Posting Batch::Feed Current Status
 
 ### Data Structure
 DataStructure::Coco::Subledger Postings::Posting Batch
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -1311,7 +1371,7 @@ DataStructure::Coco::Subledger Postings::Posting Line
 One row per posting within a batch.
 
 ### Namespace Path
-coco_pharma.subledger_postings
+coco_data_hub.subledger_postings
 
 ### Version Identifier
 1.0
@@ -1340,19 +1400,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-FeedIdentifier
+Feed Identifier
 
 ### Qualified Name
-DataField::Coco::Subledger Postings::Posting Line::FeedIdentifier
+DataField::Coco::Subledger Postings::Posting Line::Feed Identifier
 
 ### Description
 The batch the posting belongs to.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -1374,10 +1431,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Subledger Postings::Posting Line::FeedIdentifier
+DataField::Coco::Subledger Postings::Posting Line::Feed Identifier
 
 ### Data Structure
 DataStructure::Coco::Subledger Postings::Posting Line
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -1387,19 +1450,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PostingLineNumber
+Posting Line Number
 
 ### Qualified Name
-DataField::Coco::Subledger Postings::Posting Line::PostingLineNumber
+DataField::Coco::Subledger Postings::Posting Line::Posting Line Number
 
 ### Description
 The position of the posting in the batch.
 
 ### Data Type
 int
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -1418,10 +1478,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Subledger Postings::Posting Line::PostingLineNumber
+DataField::Coco::Subledger Postings::Posting Line::Posting Line Number
 
 ### Data Structure
 DataStructure::Coco::Subledger Postings::Posting Line
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -1431,19 +1497,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LedgerAccountCode
+Ledger Account Code
 
 ### Qualified Name
-DataField::Coco::Subledger Postings::Posting Line::LedgerAccountCode
+DataField::Coco::Subledger Postings::Posting Line::Ledger Account Code
 
 ### Description
 The account posted to.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -1465,10 +1528,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Subledger Postings::Posting Line::LedgerAccountCode
+DataField::Coco::Subledger Postings::Posting Line::Ledger Account Code
 
 ### Data Structure
 DataStructure::Coco::Subledger Postings::Posting Line
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -1478,19 +1547,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LegalEntityCode
+Legal Entity Code
 
 ### Qualified Name
-DataField::Coco::Subledger Postings::Posting Line::LegalEntityCode
+DataField::Coco::Subledger Postings::Posting Line::Legal Entity Code
 
 ### Description
 The legal entity the posting belongs to.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -1512,10 +1578,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Subledger Postings::Posting Line::LegalEntityCode
+DataField::Coco::Subledger Postings::Posting Line::Legal Entity Code
 
 ### Data Structure
 DataStructure::Coco::Subledger Postings::Posting Line
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -1525,19 +1597,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TransactionIdentifier
+Transaction Identifier
 
 ### Qualified Name
-DataField::Coco::Subledger Postings::Posting Line::TransactionIdentifier
+DataField::Coco::Subledger Postings::Posting Line::Transaction Identifier
 
 ### Description
 The source transaction the posting represents.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -1559,10 +1628,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Subledger Postings::Posting Line::TransactionIdentifier
+DataField::Coco::Subledger Postings::Posting Line::Transaction Identifier
 
 ### Data Structure
 DataStructure::Coco::Subledger Postings::Posting Line
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -1572,19 +1647,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PostingAmount
+Posting Amount
 
 ### Qualified Name
-DataField::Coco::Subledger Postings::Posting Line::PostingAmount
+DataField::Coco::Subledger Postings::Posting Line::Posting Amount
 
 ### Description
 The amount posted.
 
 ### Data Type
 bigdecimal
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -1603,10 +1675,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Subledger Postings::Posting Line::PostingAmount
+DataField::Coco::Subledger Postings::Posting Line::Posting Amount
 
 ### Data Structure
 DataStructure::Coco::Subledger Postings::Posting Line
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -1616,19 +1694,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PostingCurrencyCode
+Posting Currency Code
 
 ### Qualified Name
-DataField::Coco::Subledger Postings::Posting Line::PostingCurrencyCode
+DataField::Coco::Subledger Postings::Posting Line::Posting Currency Code
 
 ### Description
 The currency of the amount.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -1650,10 +1725,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Subledger Postings::Posting Line::PostingCurrencyCode
+DataField::Coco::Subledger Postings::Posting Line::Posting Currency Code
 
 ### Data Structure
 DataStructure::Coco::Subledger Postings::Posting Line
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -1672,10 +1753,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: subledger_postings
 - schemaDescription: The transactions carried from the operational systems into the general ledger, batched per source feed and accounting period. Each feed is a place where a transaction can be dropped, duplicated or posted to the wrong period, so completeness is asserted per feed rather than in aggregate.
 
@@ -1802,7 +1883,7 @@ DataStructure::Coco::Manual Journal Approvals::Journal Entry
 One row per manual journal entry submitted for review.
 
 ### Namespace Path
-coco_pharma.manual_journal_approvals
+coco_data_hub.manual_journal_approvals
 
 ### Version Identifier
 1.0
@@ -1831,19 +1912,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-JournalEntryIdentifier
+Journal Entry Identifier
 
 ### Qualified Name
-DataField::Coco::Manual Journal Approvals::Journal Entry::JournalEntryIdentifier
+DataField::Coco::Manual Journal Approvals::Journal Entry::Journal Entry Identifier
 
 ### Description
 The unique identifier of the entry.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -1865,10 +1943,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Manual Journal Approvals::Journal Entry::JournalEntryIdentifier
+DataField::Coco::Manual Journal Approvals::Journal Entry::Journal Entry Identifier
 
 ### Data Structure
 DataStructure::Coco::Manual Journal Approvals::Journal Entry
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -1878,19 +1962,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AccountingPeriodCode
+Accounting Period Code
 
 ### Qualified Name
-DataField::Coco::Manual Journal Approvals::Journal Entry::AccountingPeriodCode
+DataField::Coco::Manual Journal Approvals::Journal Entry::Accounting Period Code
 
 ### Description
 The period the entry adjusts.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -1912,10 +1993,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Manual Journal Approvals::Journal Entry::AccountingPeriodCode
+DataField::Coco::Manual Journal Approvals::Journal Entry::Accounting Period Code
 
 ### Data Structure
 DataStructure::Coco::Manual Journal Approvals::Journal Entry
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -1925,19 +2012,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LegalEntityCode
+Legal Entity Code
 
 ### Qualified Name
-DataField::Coco::Manual Journal Approvals::Journal Entry::LegalEntityCode
+DataField::Coco::Manual Journal Approvals::Journal Entry::Legal Entity Code
 
 ### Description
 The entity the entry belongs to.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -1959,10 +2043,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Manual Journal Approvals::Journal Entry::LegalEntityCode
+DataField::Coco::Manual Journal Approvals::Journal Entry::Legal Entity Code
 
 ### Data Structure
 DataStructure::Coco::Manual Journal Approvals::Journal Entry
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -1972,19 +2062,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-JournalEntryAmount
+Journal Entry Amount
 
 ### Qualified Name
-DataField::Coco::Manual Journal Approvals::Journal Entry::JournalEntryAmount
+DataField::Coco::Manual Journal Approvals::Journal Entry::Journal Entry Amount
 
 ### Description
 The value of the adjustment.
 
 ### Data Type
 bigdecimal
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -2003,10 +2090,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Manual Journal Approvals::Journal Entry::JournalEntryAmount
+DataField::Coco::Manual Journal Approvals::Journal Entry::Journal Entry Amount
 
 ### Data Structure
 DataStructure::Coco::Manual Journal Approvals::Journal Entry
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -2016,19 +2109,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-JournalEntryDescription
+Journal Entry Description
 
 ### Qualified Name
-DataField::Coco::Manual Journal Approvals::Journal Entry::JournalEntryDescription
+DataField::Coco::Manual Journal Approvals::Journal Entry::Journal Entry Description
 
 ### Description
 The reason for the adjustment.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -2047,10 +2137,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Manual Journal Approvals::Journal Entry::JournalEntryDescription
+DataField::Coco::Manual Journal Approvals::Journal Entry::Journal Entry Description
 
 ### Data Structure
 DataStructure::Coco::Manual Journal Approvals::Journal Entry
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -2060,19 +2156,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-JournalEntryPreparerIdentifier
+Journal Entry Preparer Identifier
 
 ### Qualified Name
-DataField::Coco::Manual Journal Approvals::Journal Entry::JournalEntryPreparerIdentifier
+DataField::Coco::Manual Journal Approvals::Journal Entry::Journal Entry Preparer Identifier
 
 ### Description
 The person who prepared the entry.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -2094,10 +2187,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Manual Journal Approvals::Journal Entry::JournalEntryPreparerIdentifier
+DataField::Coco::Manual Journal Approvals::Journal Entry::Journal Entry Preparer Identifier
 
 ### Data Structure
 DataStructure::Coco::Manual Journal Approvals::Journal Entry
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -2107,19 +2206,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-JournalEntrySubmittedTimestamp
+Journal Entry Submitted Timestamp
 
 ### Qualified Name
-DataField::Coco::Manual Journal Approvals::Journal Entry::JournalEntrySubmittedTimestamp
+DataField::Coco::Manual Journal Approvals::Journal Entry::Journal Entry Submitted Timestamp
 
 ### Description
 When the entry was submitted for review.
 
 ### Data Type
 date
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -2138,10 +2234,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Manual Journal Approvals::Journal Entry::JournalEntrySubmittedTimestamp
+DataField::Coco::Manual Journal Approvals::Journal Entry::Journal Entry Submitted Timestamp
 
 ### Data Structure
 DataStructure::Coco::Manual Journal Approvals::Journal Entry
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -2160,7 +2262,7 @@ DataStructure::Coco::Manual Journal Approvals::Journal Approval
 One row per review decision on a journal entry.
 
 ### Namespace Path
-coco_pharma.manual_journal_approvals
+coco_data_hub.manual_journal_approvals
 
 ### Version Identifier
 1.0
@@ -2189,19 +2291,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-JournalEntryIdentifier
+Journal Entry Identifier
 
 ### Qualified Name
-DataField::Coco::Manual Journal Approvals::Journal Approval::JournalEntryIdentifier
+DataField::Coco::Manual Journal Approvals::Journal Approval::Journal Entry Identifier
 
 ### Description
 The entry reviewed.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -2223,10 +2322,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Manual Journal Approvals::Journal Approval::JournalEntryIdentifier
+DataField::Coco::Manual Journal Approvals::Journal Approval::Journal Entry Identifier
 
 ### Data Structure
 DataStructure::Coco::Manual Journal Approvals::Journal Approval
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -2236,19 +2341,63 @@ ___
 ## Create Data Field
 
 ### Display Name
-JournalEntryApproverIdentifier
+Journal Entry Approval Timestamp
 
 ### Qualified Name
-DataField::Coco::Manual Journal Approvals::Journal Approval::JournalEntryApproverIdentifier
+DataField::Coco::Manual Journal Approvals::Journal Approval::Journal Entry Approval Timestamp
+
+### Description
+When the decision was taken.
+
+### Data Type
+date
+
+### Is Nullable
+false
+
+### Minimum Cardinality
+1
+
+### Version Identifier
+1.0
+
+### Content Status
+ACTIVE
+
+___
+
+## Link Data Field to Data Structure
+
+### Data Field
+DataField::Coco::Manual Journal Approvals::Journal Approval::Journal Entry Approval Timestamp
+
+### Data Structure
+DataStructure::Coco::Manual Journal Approvals::Journal Approval
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
+
+### Label
+field 2
+
+___
+
+## Create Data Field
+
+### Display Name
+Journal Entry Approver Identifier
+
+### Qualified Name
+DataField::Coco::Manual Journal Approvals::Journal Approval::Journal Entry Approver Identifier
 
 ### Description
 The reviewer.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -2270,32 +2419,35 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Manual Journal Approvals::Journal Approval::JournalEntryApproverIdentifier
+DataField::Coco::Manual Journal Approvals::Journal Approval::Journal Entry Approver Identifier
 
 ### Data Structure
 DataStructure::Coco::Manual Journal Approvals::Journal Approval
 
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
+
 ### Label
-field 2
+field 3
 
 ___
 
 ## Create Data Field
 
 ### Display Name
-JournalEntryApprovalStatus
+Journal Entry Approval Status
 
 ### Qualified Name
-DataField::Coco::Manual Journal Approvals::Journal Approval::JournalEntryApprovalStatus
+DataField::Coco::Manual Journal Approvals::Journal Approval::Journal Entry Approval Status
 
 ### Description
 Approved, rejected or returned for change.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -2317,54 +2469,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Manual Journal Approvals::Journal Approval::JournalEntryApprovalStatus
+DataField::Coco::Manual Journal Approvals::Journal Approval::Journal Entry Approval Status
 
 ### Data Structure
 DataStructure::Coco::Manual Journal Approvals::Journal Approval
-
-### Label
-field 3
-
-___
-
-## Create Data Field
-
-### Display Name
-JournalEntryApprovalTimestamp
-
-### Qualified Name
-DataField::Coco::Manual Journal Approvals::Journal Approval::JournalEntryApprovalTimestamp
-
-### Description
-When the decision was taken.
-
-### Data Type
-date
 
 ### Position
 4
 
-### Is Nullable
-false
-
-### Minimum Cardinality
-1
-
-### Version Identifier
-1.0
-
-### Content Status
-ACTIVE
-
-___
-
-## Link Data Field to Data Structure
-
-### Data Field
-DataField::Coco::Manual Journal Approvals::Journal Approval::JournalEntryApprovalTimestamp
-
-### Data Structure
-DataStructure::Coco::Manual Journal Approvals::Journal Approval
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -2374,19 +2488,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-JournalEntryApprovalNotes
+Journal Entry Approval Notes
 
 ### Qualified Name
-DataField::Coco::Manual Journal Approvals::Journal Approval::JournalEntryApprovalNotes
+DataField::Coco::Manual Journal Approvals::Journal Approval::Journal Entry Approval Notes
 
 ### Description
 The reviewer's comments.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -2405,10 +2516,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Manual Journal Approvals::Journal Approval::JournalEntryApprovalNotes
+DataField::Coco::Manual Journal Approvals::Journal Approval::Journal Entry Approval Notes
 
 ### Data Structure
 DataStructure::Coco::Manual Journal Approvals::Journal Approval
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -2427,10 +2544,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: manual_journal_approvals
 - schemaDescription: Manual journal entries above the materiality threshold, together with the review and approval each received before it was posted. Manual adjustment is the segment of the close least covered by system controls and most able to change a reported figure.
 
@@ -2557,7 +2674,7 @@ DataStructure::Coco::Consolidated Group Results::Entity Trial Balance
 One row per account per legal entity per period.
 
 ### Namespace Path
-coco_pharma.consolidated_group_results
+coco_data_hub.consolidated_group_results
 
 ### Version Identifier
 1.0
@@ -2586,19 +2703,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LegalEntityCode
+Legal Entity Code
 
 ### Qualified Name
-DataField::Coco::Consolidated Group Results::Entity Trial Balance::LegalEntityCode
+DataField::Coco::Consolidated Group Results::Entity Trial Balance::Legal Entity Code
 
 ### Description
 The legal entity.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -2620,10 +2734,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Consolidated Group Results::Entity Trial Balance::LegalEntityCode
+DataField::Coco::Consolidated Group Results::Entity Trial Balance::Legal Entity Code
 
 ### Data Structure
 DataStructure::Coco::Consolidated Group Results::Entity Trial Balance
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -2633,19 +2753,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AccountingPeriodCode
+Accounting Period Code
 
 ### Qualified Name
-DataField::Coco::Consolidated Group Results::Entity Trial Balance::AccountingPeriodCode
+DataField::Coco::Consolidated Group Results::Entity Trial Balance::Accounting Period Code
 
 ### Description
 The period.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -2667,10 +2784,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Consolidated Group Results::Entity Trial Balance::AccountingPeriodCode
+DataField::Coco::Consolidated Group Results::Entity Trial Balance::Accounting Period Code
 
 ### Data Structure
 DataStructure::Coco::Consolidated Group Results::Entity Trial Balance
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -2680,19 +2803,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LedgerAccountCode
+Ledger Account Code
 
 ### Qualified Name
-DataField::Coco::Consolidated Group Results::Entity Trial Balance::LedgerAccountCode
+DataField::Coco::Consolidated Group Results::Entity Trial Balance::Ledger Account Code
 
 ### Description
 The account.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -2714,10 +2834,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Consolidated Group Results::Entity Trial Balance::LedgerAccountCode
+DataField::Coco::Consolidated Group Results::Entity Trial Balance::Ledger Account Code
 
 ### Data Structure
 DataStructure::Coco::Consolidated Group Results::Entity Trial Balance
+
+### Position
+3
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 3
@@ -2727,19 +2853,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LedgerAccountBalanceAmount
+Ledger Account Balance Amount
 
 ### Qualified Name
-DataField::Coco::Consolidated Group Results::Entity Trial Balance::LedgerAccountBalanceAmount
+DataField::Coco::Consolidated Group Results::Entity Trial Balance::Ledger Account Balance Amount
 
 ### Description
 The closing balance in the entity's currency.
 
 ### Data Type
 bigdecimal
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -2758,10 +2881,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Consolidated Group Results::Entity Trial Balance::LedgerAccountBalanceAmount
+DataField::Coco::Consolidated Group Results::Entity Trial Balance::Ledger Account Balance Amount
 
 ### Data Structure
 DataStructure::Coco::Consolidated Group Results::Entity Trial Balance
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -2771,19 +2900,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LedgerCurrencyCode
+Ledger Currency Code
 
 ### Qualified Name
-DataField::Coco::Consolidated Group Results::Entity Trial Balance::LedgerCurrencyCode
+DataField::Coco::Consolidated Group Results::Entity Trial Balance::Ledger Currency Code
 
 ### Description
 The entity's reporting currency.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -2805,10 +2931,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Consolidated Group Results::Entity Trial Balance::LedgerCurrencyCode
+DataField::Coco::Consolidated Group Results::Entity Trial Balance::Ledger Currency Code
 
 ### Data Structure
 DataStructure::Coco::Consolidated Group Results::Entity Trial Balance
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -2827,7 +2959,7 @@ DataStructure::Coco::Consolidated Group Results::Consolidation Adjustment
 One row per elimination or translation adjustment applied during consolidation.
 
 ### Namespace Path
-coco_pharma.consolidated_group_results
+coco_data_hub.consolidated_group_results
 
 ### Version Identifier
 1.0
@@ -2856,19 +2988,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ConsolidationAdjustmentIdentifier
+Consolidation Adjustment Identifier
 
 ### Qualified Name
-DataField::Coco::Consolidated Group Results::Consolidation Adjustment::ConsolidationAdjustmentIdentifier
+DataField::Coco::Consolidated Group Results::Consolidation Adjustment::Consolidation Adjustment Identifier
 
 ### Description
 The unique identifier of the adjustment.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -2890,10 +3019,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Consolidated Group Results::Consolidation Adjustment::ConsolidationAdjustmentIdentifier
+DataField::Coco::Consolidated Group Results::Consolidation Adjustment::Consolidation Adjustment Identifier
 
 ### Data Structure
 DataStructure::Coco::Consolidated Group Results::Consolidation Adjustment
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -2903,19 +3038,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AccountingPeriodCode
+Accounting Period Code
 
 ### Qualified Name
-DataField::Coco::Consolidated Group Results::Consolidation Adjustment::AccountingPeriodCode
+DataField::Coco::Consolidated Group Results::Consolidation Adjustment::Accounting Period Code
 
 ### Description
 The period.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -2937,10 +3069,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Consolidated Group Results::Consolidation Adjustment::AccountingPeriodCode
+DataField::Coco::Consolidated Group Results::Consolidation Adjustment::Accounting Period Code
 
 ### Data Structure
 DataStructure::Coco::Consolidated Group Results::Consolidation Adjustment
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -2950,19 +3088,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ConsolidationAdjustmentType
+Consolidation Adjustment Type
 
 ### Qualified Name
-DataField::Coco::Consolidated Group Results::Consolidation Adjustment::ConsolidationAdjustmentType
+DataField::Coco::Consolidated Group Results::Consolidation Adjustment::Consolidation Adjustment Type
 
 ### Description
 Intercompany elimination, currency translation or other.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -2984,10 +3119,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Consolidated Group Results::Consolidation Adjustment::ConsolidationAdjustmentType
+DataField::Coco::Consolidated Group Results::Consolidation Adjustment::Consolidation Adjustment Type
 
 ### Data Structure
 DataStructure::Coco::Consolidated Group Results::Consolidation Adjustment
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -2997,19 +3138,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LegalEntityCode
+Legal Entity Code
 
 ### Qualified Name
-DataField::Coco::Consolidated Group Results::Consolidation Adjustment::LegalEntityCode
+DataField::Coco::Consolidated Group Results::Consolidation Adjustment::Legal Entity Code
 
 ### Description
 The entity the adjustment applies to.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -3031,10 +3169,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Consolidated Group Results::Consolidation Adjustment::LegalEntityCode
+DataField::Coco::Consolidated Group Results::Consolidation Adjustment::Legal Entity Code
 
 ### Data Structure
 DataStructure::Coco::Consolidated Group Results::Consolidation Adjustment
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -3044,19 +3188,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LedgerAccountCode
+Ledger Account Code
 
 ### Qualified Name
-DataField::Coco::Consolidated Group Results::Consolidation Adjustment::LedgerAccountCode
+DataField::Coco::Consolidated Group Results::Consolidation Adjustment::Ledger Account Code
 
 ### Description
 The account adjusted.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -3078,10 +3219,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Consolidated Group Results::Consolidation Adjustment::LedgerAccountCode
+DataField::Coco::Consolidated Group Results::Consolidation Adjustment::Ledger Account Code
 
 ### Data Structure
 DataStructure::Coco::Consolidated Group Results::Consolidation Adjustment
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -3091,19 +3238,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ConsolidationAdjustmentAmount
+Consolidation Adjustment Amount
 
 ### Qualified Name
-DataField::Coco::Consolidated Group Results::Consolidation Adjustment::ConsolidationAdjustmentAmount
+DataField::Coco::Consolidated Group Results::Consolidation Adjustment::Consolidation Adjustment Amount
 
 ### Description
 The adjustment in group currency.
 
 ### Data Type
 bigdecimal
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -3122,10 +3266,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Consolidated Group Results::Consolidation Adjustment::ConsolidationAdjustmentAmount
+DataField::Coco::Consolidated Group Results::Consolidation Adjustment::Consolidation Adjustment Amount
 
 ### Data Structure
 DataStructure::Coco::Consolidated Group Results::Consolidation Adjustment
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -3135,19 +3285,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ConsolidationAdjustmentDescription
+Consolidation Adjustment Description
 
 ### Qualified Name
-DataField::Coco::Consolidated Group Results::Consolidation Adjustment::ConsolidationAdjustmentDescription
+DataField::Coco::Consolidated Group Results::Consolidation Adjustment::Consolidation Adjustment Description
 
 ### Description
 The basis of the adjustment.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -3166,10 +3313,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Consolidated Group Results::Consolidation Adjustment::ConsolidationAdjustmentDescription
+DataField::Coco::Consolidated Group Results::Consolidation Adjustment::Consolidation Adjustment Description
 
 ### Data Structure
 DataStructure::Coco::Consolidated Group Results::Consolidation Adjustment
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -3188,7 +3341,7 @@ DataStructure::Coco::Consolidated Group Results::Consolidated Statement Line
 One row per line of the consolidated statements per period, with segment analysis.
 
 ### Namespace Path
-coco_pharma.consolidated_group_results
+coco_data_hub.consolidated_group_results
 
 ### Version Identifier
 1.0
@@ -3217,19 +3370,66 @@ ___
 ## Create Data Field
 
 ### Display Name
-AccountingPeriodCode
+Statement Line Identifier
 
 ### Qualified Name
-DataField::Coco::Consolidated Group Results::Consolidated Statement Line::AccountingPeriodCode
+DataField::Coco::Consolidated Group Results::Consolidated Statement Line::Statement Line Identifier
+
+### Description
+The unique identifier of a line of the consolidated statements for a period and segment.
+
+### Data Type
+string
+
+### Is Nullable
+false
+
+### Minimum Cardinality
+1
+
+### Length
+40
+
+### Version Identifier
+1.0
+
+### Content Status
+ACTIVE
+
+___
+
+## Link Data Field to Data Structure
+
+### Data Field
+DataField::Coco::Consolidated Group Results::Consolidated Statement Line::Statement Line Identifier
+
+### Data Structure
+DataStructure::Coco::Consolidated Group Results::Consolidated Statement Line
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
+
+### Label
+field 1
+
+___
+
+## Create Data Field
+
+### Display Name
+Accounting Period Code
+
+### Qualified Name
+DataField::Coco::Consolidated Group Results::Consolidated Statement Line::Accounting Period Code
 
 ### Description
 The period.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -3251,32 +3451,35 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Consolidated Group Results::Consolidated Statement Line::AccountingPeriodCode
+DataField::Coco::Consolidated Group Results::Consolidated Statement Line::Accounting Period Code
 
 ### Data Structure
 DataStructure::Coco::Consolidated Group Results::Consolidated Statement Line
 
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
+
 ### Label
-field 1
+field 2
 
 ___
 
 ## Create Data Field
 
 ### Display Name
-StatementLineCode
+Statement Line Code
 
 ### Qualified Name
-DataField::Coco::Consolidated Group Results::Consolidated Statement Line::StatementLineCode
+DataField::Coco::Consolidated Group Results::Consolidated Statement Line::Statement Line Code
 
 ### Description
 The statement line.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -3298,32 +3501,35 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Consolidated Group Results::Consolidated Statement Line::StatementLineCode
+DataField::Coco::Consolidated Group Results::Consolidated Statement Line::Statement Line Code
 
 ### Data Structure
 DataStructure::Coco::Consolidated Group Results::Consolidated Statement Line
 
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
+
 ### Label
-field 2
+field 3
 
 ___
 
 ## Create Data Field
 
 ### Display Name
-StatementSegmentCode
+Statement Segment Code
 
 ### Qualified Name
-DataField::Coco::Consolidated Group Results::Consolidated Statement Line::StatementSegmentCode
+DataField::Coco::Consolidated Group Results::Consolidated Statement Line::Statement Segment Code
 
 ### Description
 The business segment the line is analysed to.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 true
@@ -3345,32 +3551,35 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Consolidated Group Results::Consolidated Statement Line::StatementSegmentCode
+DataField::Coco::Consolidated Group Results::Consolidated Statement Line::Statement Segment Code
 
 ### Data Structure
 DataStructure::Coco::Consolidated Group Results::Consolidated Statement Line
 
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
+
 ### Label
-field 3
+field 4
 
 ___
 
 ## Create Data Field
 
 ### Display Name
-StatementLineAmount
+Statement Line Amount
 
 ### Qualified Name
-DataField::Coco::Consolidated Group Results::Consolidated Statement Line::StatementLineAmount
+DataField::Coco::Consolidated Group Results::Consolidated Statement Line::Statement Line Amount
 
 ### Description
 The consolidated amount in group currency.
 
 ### Data Type
 bigdecimal
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -3389,13 +3598,19 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Consolidated Group Results::Consolidated Statement Line::StatementLineAmount
+DataField::Coco::Consolidated Group Results::Consolidated Statement Line::Statement Line Amount
 
 ### Data Structure
 DataStructure::Coco::Consolidated Group Results::Consolidated Statement Line
 
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
+
 ### Label
-field 4
+field 5
 
 ___
 
@@ -3411,10 +3626,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: consolidated_group_results
 - schemaDescription: The trial balances of the US parent and the UK and EU subsidiaries, the intercompany eliminations and currency translations applied to them, and the consolidated statement lines that result. It is where several sets of books become one set of figures.
 
@@ -3541,7 +3756,7 @@ DataStructure::Coco::External Financial Disclosures::Disclosure Statement
 One row per statement or report filed.
 
 ### Namespace Path
-coco_pharma.external_financial_disclosures
+coco_data_hub.external_financial_disclosures
 
 ### Version Identifier
 1.0
@@ -3570,19 +3785,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DisclosureIdentifier
+Disclosure Identifier
 
 ### Qualified Name
-DataField::Coco::External Financial Disclosures::Disclosure Statement::DisclosureIdentifier
+DataField::Coco::External Financial Disclosures::Disclosure Statement::Disclosure Identifier
 
 ### Description
 The unique identifier of the filing.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -3604,10 +3816,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::External Financial Disclosures::Disclosure Statement::DisclosureIdentifier
+DataField::Coco::External Financial Disclosures::Disclosure Statement::Disclosure Identifier
 
 ### Data Structure
 DataStructure::Coco::External Financial Disclosures::Disclosure Statement
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -3617,19 +3835,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DisclosureType
+Disclosure Type
 
 ### Qualified Name
-DataField::Coco::External Financial Disclosures::Disclosure Statement::DisclosureType
+DataField::Coco::External Financial Disclosures::Disclosure Statement::Disclosure Type
 
 ### Description
 Annual report, quarterly report, transfers of value disclosure or other.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -3651,10 +3866,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::External Financial Disclosures::Disclosure Statement::DisclosureType
+DataField::Coco::External Financial Disclosures::Disclosure Statement::Disclosure Type
 
 ### Data Structure
 DataStructure::Coco::External Financial Disclosures::Disclosure Statement
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -3664,19 +3885,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AccountingPeriodCode
+Accounting Period Code
 
 ### Qualified Name
-DataField::Coco::External Financial Disclosures::Disclosure Statement::AccountingPeriodCode
+DataField::Coco::External Financial Disclosures::Disclosure Statement::Accounting Period Code
 
 ### Description
 The period the filing covers.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -3698,10 +3916,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::External Financial Disclosures::Disclosure Statement::AccountingPeriodCode
+DataField::Coco::External Financial Disclosures::Disclosure Statement::Accounting Period Code
 
 ### Data Structure
 DataStructure::Coco::External Financial Disclosures::Disclosure Statement
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -3711,19 +3935,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DisclosureRegulatorCode
+Disclosure Regulator Code
 
 ### Qualified Name
-DataField::Coco::External Financial Disclosures::Disclosure Statement::DisclosureRegulatorCode
+DataField::Coco::External Financial Disclosures::Disclosure Statement::Disclosure Regulator Code
 
 ### Description
 The regulator or body the filing was made to.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -3745,10 +3966,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::External Financial Disclosures::Disclosure Statement::DisclosureRegulatorCode
+DataField::Coco::External Financial Disclosures::Disclosure Statement::Disclosure Regulator Code
 
 ### Data Structure
 DataStructure::Coco::External Financial Disclosures::Disclosure Statement
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -3758,19 +3985,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DisclosureFiledTimestamp
+Disclosure Filed Timestamp
 
 ### Qualified Name
-DataField::Coco::External Financial Disclosures::Disclosure Statement::DisclosureFiledTimestamp
+DataField::Coco::External Financial Disclosures::Disclosure Statement::Disclosure Filed Timestamp
 
 ### Description
 When the filing was made.
 
 ### Data Type
 date
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -3789,10 +4013,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::External Financial Disclosures::Disclosure Statement::DisclosureFiledTimestamp
+DataField::Coco::External Financial Disclosures::Disclosure Statement::Disclosure Filed Timestamp
 
 ### Data Structure
 DataStructure::Coco::External Financial Disclosures::Disclosure Statement
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -3802,19 +4032,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DisclosureAcknowledgedFlag
+Disclosure Acknowledged Flag
 
 ### Qualified Name
-DataField::Coco::External Financial Disclosures::Disclosure Statement::DisclosureAcknowledgedFlag
+DataField::Coco::External Financial Disclosures::Disclosure Statement::Disclosure Acknowledged Flag
 
 ### Description
 Whether the regulator has acknowledged receipt.
 
 ### Data Type
 boolean
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -3833,10 +4060,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::External Financial Disclosures::Disclosure Statement::DisclosureAcknowledgedFlag
+DataField::Coco::External Financial Disclosures::Disclosure Statement::Disclosure Acknowledged Flag
 
 ### Data Structure
 DataStructure::Coco::External Financial Disclosures::Disclosure Statement
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -3855,7 +4088,7 @@ DataStructure::Coco::External Financial Disclosures::Disclosure Line Item
 One row per figure in a filing, with its source.
 
 ### Namespace Path
-coco_pharma.external_financial_disclosures
+coco_data_hub.external_financial_disclosures
 
 ### Version Identifier
 1.0
@@ -3884,19 +4117,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DisclosureIdentifier
+Disclosure Identifier
 
 ### Qualified Name
-DataField::Coco::External Financial Disclosures::Disclosure Line Item::DisclosureIdentifier
+DataField::Coco::External Financial Disclosures::Disclosure Line Item::Disclosure Identifier
 
 ### Description
 The filing.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -3918,10 +4148,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::External Financial Disclosures::Disclosure Line Item::DisclosureIdentifier
+DataField::Coco::External Financial Disclosures::Disclosure Line Item::Disclosure Identifier
 
 ### Data Structure
 DataStructure::Coco::External Financial Disclosures::Disclosure Line Item
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -3931,19 +4167,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-StatementLineCode
+Statement Line Code
 
 ### Qualified Name
-DataField::Coco::External Financial Disclosures::Disclosure Line Item::StatementLineCode
+DataField::Coco::External Financial Disclosures::Disclosure Line Item::Statement Line Code
 
 ### Description
 The statement line the figure reports.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -3965,10 +4198,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::External Financial Disclosures::Disclosure Line Item::StatementLineCode
+DataField::Coco::External Financial Disclosures::Disclosure Line Item::Statement Line Code
 
 ### Data Structure
 DataStructure::Coco::External Financial Disclosures::Disclosure Line Item
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -3978,19 +4217,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DisclosureLineAmount
+Disclosure Line Amount
 
 ### Qualified Name
-DataField::Coco::External Financial Disclosures::Disclosure Line Item::DisclosureLineAmount
+DataField::Coco::External Financial Disclosures::Disclosure Line Item::Disclosure Line Amount
 
 ### Description
 The figure disclosed.
 
 ### Data Type
 bigdecimal
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -4009,10 +4245,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::External Financial Disclosures::Disclosure Line Item::DisclosureLineAmount
+DataField::Coco::External Financial Disclosures::Disclosure Line Item::Disclosure Line Amount
 
 ### Data Structure
 DataStructure::Coco::External Financial Disclosures::Disclosure Line Item
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -4022,19 +4264,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ConsolidationAdjustmentIdentifier
+Consolidation Adjustment Identifier
 
 ### Qualified Name
-DataField::Coco::External Financial Disclosures::Disclosure Line Item::ConsolidationAdjustmentIdentifier
+DataField::Coco::External Financial Disclosures::Disclosure Line Item::Consolidation Adjustment Identifier
 
 ### Description
 The consolidation adjustment the figure depends on, if any.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 true
@@ -4056,10 +4295,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::External Financial Disclosures::Disclosure Line Item::ConsolidationAdjustmentIdentifier
+DataField::Coco::External Financial Disclosures::Disclosure Line Item::Consolidation Adjustment Identifier
 
 ### Data Structure
 DataStructure::Coco::External Financial Disclosures::Disclosure Line Item
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -4078,10 +4323,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: external_financial_disclosures
 - schemaDescription: The statements filed with regulators and published to the market, and the disclosures of transfers of value to healthcare professionals. Every figure must be resolvable back through the consolidation and the ledger to the transactions it was built from.
 
@@ -4208,7 +4453,7 @@ DataStructure::Coco::Financial Controls Evidence::Control Test Evidence
 One row per test of a control in a period.
 
 ### Namespace Path
-coco_pharma.financial_controls_evidence
+coco_data_hub.financial_controls_evidence
 
 ### Version Identifier
 1.0
@@ -4237,19 +4482,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ControlIdentifier
+Control Identifier
 
 ### Qualified Name
-DataField::Coco::Financial Controls Evidence::Control Test Evidence::ControlIdentifier
+DataField::Coco::Financial Controls Evidence::Control Test Evidence::Control Identifier
 
 ### Description
 The control tested.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -4271,10 +4513,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Financial Controls Evidence::Control Test Evidence::ControlIdentifier
+DataField::Coco::Financial Controls Evidence::Control Test Evidence::Control Identifier
 
 ### Data Structure
 DataStructure::Coco::Financial Controls Evidence::Control Test Evidence
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -4284,19 +4532,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AccountingPeriodCode
+Accounting Period Code
 
 ### Qualified Name
-DataField::Coco::Financial Controls Evidence::Control Test Evidence::AccountingPeriodCode
+DataField::Coco::Financial Controls Evidence::Control Test Evidence::Accounting Period Code
 
 ### Description
 The period the test covers.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -4318,10 +4563,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Financial Controls Evidence::Control Test Evidence::AccountingPeriodCode
+DataField::Coco::Financial Controls Evidence::Control Test Evidence::Accounting Period Code
 
 ### Data Structure
 DataStructure::Coco::Financial Controls Evidence::Control Test Evidence
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -4331,19 +4582,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ControlTestedDate
+Control Tested Date
 
 ### Qualified Name
-DataField::Coco::Financial Controls Evidence::Control Test Evidence::ControlTestedDate
+DataField::Coco::Financial Controls Evidence::Control Test Evidence::Control Tested Date
 
 ### Description
 When the test was performed.
 
 ### Data Type
 date
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -4362,10 +4610,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Financial Controls Evidence::Control Test Evidence::ControlTestedDate
+DataField::Coco::Financial Controls Evidence::Control Test Evidence::Control Tested Date
 
 ### Data Structure
 DataStructure::Coco::Financial Controls Evidence::Control Test Evidence
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -4375,19 +4629,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ControlTesterIdentifier
+Control Tester Identifier
 
 ### Qualified Name
-DataField::Coco::Financial Controls Evidence::Control Test Evidence::ControlTesterIdentifier
+DataField::Coco::Financial Controls Evidence::Control Test Evidence::Control Tester Identifier
 
 ### Description
 Who performed the test.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -4409,10 +4660,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Financial Controls Evidence::Control Test Evidence::ControlTesterIdentifier
+DataField::Coco::Financial Controls Evidence::Control Test Evidence::Control Tester Identifier
 
 ### Data Structure
 DataStructure::Coco::Financial Controls Evidence::Control Test Evidence
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -4422,19 +4679,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ControlTestedStatus
+Control Tested Status
 
 ### Qualified Name
-DataField::Coco::Financial Controls Evidence::Control Test Evidence::ControlTestedStatus
+DataField::Coco::Financial Controls Evidence::Control Test Evidence::Control Tested Status
 
 ### Description
 Whether the control operated effectively.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -4456,10 +4710,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Financial Controls Evidence::Control Test Evidence::ControlTestedStatus
+DataField::Coco::Financial Controls Evidence::Control Test Evidence::Control Tested Status
 
 ### Data Structure
 DataStructure::Coco::Financial Controls Evidence::Control Test Evidence
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -4469,19 +4729,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ControlEvidenceIdentifier
+Control Evidence Identifier
 
 ### Qualified Name
-DataField::Coco::Financial Controls Evidence::Control Test Evidence::ControlEvidenceIdentifier
+DataField::Coco::Financial Controls Evidence::Control Test Evidence::Control Evidence Identifier
 
 ### Description
 The document holding the evidence.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -4503,10 +4760,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Financial Controls Evidence::Control Test Evidence::ControlEvidenceIdentifier
+DataField::Coco::Financial Controls Evidence::Control Test Evidence::Control Evidence Identifier
 
 ### Data Structure
 DataStructure::Coco::Financial Controls Evidence::Control Test Evidence
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -4525,7 +4788,7 @@ DataStructure::Coco::Financial Controls Evidence::Close Checklist Item
 One row per step of the period-end close, its completion and approval.
 
 ### Namespace Path
-coco_pharma.financial_controls_evidence
+coco_data_hub.financial_controls_evidence
 
 ### Version Identifier
 1.0
@@ -4554,19 +4817,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AccountingPeriodCode
+Accounting Period Code
 
 ### Qualified Name
-DataField::Coco::Financial Controls Evidence::Close Checklist Item::AccountingPeriodCode
+DataField::Coco::Financial Controls Evidence::Close Checklist Item::Accounting Period Code
 
 ### Description
 The period closed.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -4588,10 +4848,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Financial Controls Evidence::Close Checklist Item::AccountingPeriodCode
+DataField::Coco::Financial Controls Evidence::Close Checklist Item::Accounting Period Code
 
 ### Data Structure
 DataStructure::Coco::Financial Controls Evidence::Close Checklist Item
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -4601,19 +4867,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CloseChecklistItemCode
+Close Checklist Item Code
 
 ### Qualified Name
-DataField::Coco::Financial Controls Evidence::Close Checklist Item::CloseChecklistItemCode
+DataField::Coco::Financial Controls Evidence::Close Checklist Item::Close Checklist Item Code
 
 ### Description
 The step.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -4635,10 +4898,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Financial Controls Evidence::Close Checklist Item::CloseChecklistItemCode
+DataField::Coco::Financial Controls Evidence::Close Checklist Item::Close Checklist Item Code
 
 ### Data Structure
 DataStructure::Coco::Financial Controls Evidence::Close Checklist Item
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -4648,19 +4917,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CloseChecklistItemCompletedTimestamp
+Close Checklist Item Completed Timestamp
 
 ### Qualified Name
-DataField::Coco::Financial Controls Evidence::Close Checklist Item::CloseChecklistItemCompletedTimestamp
+DataField::Coco::Financial Controls Evidence::Close Checklist Item::Close Checklist Item Completed Timestamp
 
 ### Description
 When the step was completed.
 
 ### Data Type
 date
-
-### Position
-3
 
 ### Is Nullable
 true
@@ -4679,10 +4945,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Financial Controls Evidence::Close Checklist Item::CloseChecklistItemCompletedTimestamp
+DataField::Coco::Financial Controls Evidence::Close Checklist Item::Close Checklist Item Completed Timestamp
 
 ### Data Structure
 DataStructure::Coco::Financial Controls Evidence::Close Checklist Item
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -4692,19 +4964,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CloseChecklistItemApproverIdentifier
+Close Checklist Item Approver Identifier
 
 ### Qualified Name
-DataField::Coco::Financial Controls Evidence::Close Checklist Item::CloseChecklistItemApproverIdentifier
+DataField::Coco::Financial Controls Evidence::Close Checklist Item::Close Checklist Item Approver Identifier
 
 ### Description
 Who approved completion.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 true
@@ -4726,10 +4995,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Financial Controls Evidence::Close Checklist Item::CloseChecklistItemApproverIdentifier
+DataField::Coco::Financial Controls Evidence::Close Checklist Item::Close Checklist Item Approver Identifier
 
 ### Data Structure
 DataStructure::Coco::Financial Controls Evidence::Close Checklist Item
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -4739,19 +5014,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CloseChecklistItemStatus
+Close Checklist Item Status
 
 ### Qualified Name
-DataField::Coco::Financial Controls Evidence::Close Checklist Item::CloseChecklistItemStatus
+DataField::Coco::Financial Controls Evidence::Close Checklist Item::Close Checklist Item Status
 
 ### Description
 Not started, complete or approved.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -4773,10 +5045,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Financial Controls Evidence::Close Checklist Item::CloseChecklistItemStatus
+DataField::Coco::Financial Controls Evidence::Close Checklist Item::Close Checklist Item Status
 
 ### Data Structure
 DataStructure::Coco::Financial Controls Evidence::Close Checklist Item
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -4795,10 +5073,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: financial_controls_evidence
 - schemaDescription: The documentation and test evidence for the internal controls over financial reporting, and the reconciliations, approvals and checklist items produced by each close. The controls it evidences are controls over the close itself, so the repository is part of the chain rather than an audit of it.
 
@@ -4925,7 +5203,7 @@ DataStructure::Coco::Supplier Payment Detail Changes::Payment Detail Change
 One row per requested change to a supplier's payment details.
 
 ### Namespace Path
-coco_pharma.supplier_payment_detail_changes
+coco_data_hub.supplier_payment_detail_changes
 
 ### Version Identifier
 1.0
@@ -4954,19 +5232,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PaymentDetailChangeIdentifier
+Payment Detail Change Identifier
 
 ### Qualified Name
-DataField::Coco::Supplier Payment Detail Changes::Payment Detail Change::PaymentDetailChangeIdentifier
+DataField::Coco::Supplier Payment Detail Changes::Payment Detail Change::Payment Detail Change Identifier
 
 ### Description
 The unique identifier of the change request.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -4988,10 +5263,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Supplier Payment Detail Changes::Payment Detail Change::PaymentDetailChangeIdentifier
+DataField::Coco::Supplier Payment Detail Changes::Payment Detail Change::Payment Detail Change Identifier
 
 ### Data Structure
 DataStructure::Coco::Supplier Payment Detail Changes::Payment Detail Change
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -5001,19 +5282,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SupplierIdentifier
+Supplier Identifier
 
 ### Qualified Name
-DataField::Coco::Supplier Payment Detail Changes::Payment Detail Change::SupplierIdentifier
+DataField::Coco::Supplier Payment Detail Changes::Payment Detail Change::Supplier Identifier
 
 ### Description
 The supplier.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -5035,10 +5313,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Supplier Payment Detail Changes::Payment Detail Change::SupplierIdentifier
+DataField::Coco::Supplier Payment Detail Changes::Payment Detail Change::Supplier Identifier
 
 ### Data Structure
 DataStructure::Coco::Supplier Payment Detail Changes::Payment Detail Change
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -5048,19 +5332,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PaymentDetailChangeRequestedTimestamp
+Payment Detail Change Requested Timestamp
 
 ### Qualified Name
-DataField::Coco::Supplier Payment Detail Changes::Payment Detail Change::PaymentDetailChangeRequestedTimestamp
+DataField::Coco::Supplier Payment Detail Changes::Payment Detail Change::Payment Detail Change Requested Timestamp
 
 ### Description
 When the change was requested.
 
 ### Data Type
 date
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -5079,10 +5360,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Supplier Payment Detail Changes::Payment Detail Change::PaymentDetailChangeRequestedTimestamp
+DataField::Coco::Supplier Payment Detail Changes::Payment Detail Change::Payment Detail Change Requested Timestamp
 
 ### Data Structure
 DataStructure::Coco::Supplier Payment Detail Changes::Payment Detail Change
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -5092,19 +5379,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PaymentDetailChangeRequesterIdentifier
+Payment Detail Change Requester Identifier
 
 ### Qualified Name
-DataField::Coco::Supplier Payment Detail Changes::Payment Detail Change::PaymentDetailChangeRequesterIdentifier
+DataField::Coco::Supplier Payment Detail Changes::Payment Detail Change::Payment Detail Change Requester Identifier
 
 ### Description
 Who requested it.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -5126,10 +5410,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Supplier Payment Detail Changes::Payment Detail Change::PaymentDetailChangeRequesterIdentifier
+DataField::Coco::Supplier Payment Detail Changes::Payment Detail Change::Payment Detail Change Requester Identifier
 
 ### Data Structure
 DataStructure::Coco::Supplier Payment Detail Changes::Payment Detail Change
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -5139,19 +5429,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-BankAccountPreviousIdentifier
+Bank Account Previous Identifier
 
 ### Qualified Name
-DataField::Coco::Supplier Payment Detail Changes::Payment Detail Change::BankAccountPreviousIdentifier
+DataField::Coco::Supplier Payment Detail Changes::Payment Detail Change::Bank Account Previous Identifier
 
 ### Description
 The bank account before the change, masked.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -5173,10 +5460,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Supplier Payment Detail Changes::Payment Detail Change::BankAccountPreviousIdentifier
+DataField::Coco::Supplier Payment Detail Changes::Payment Detail Change::Bank Account Previous Identifier
 
 ### Data Structure
 DataStructure::Coco::Supplier Payment Detail Changes::Payment Detail Change
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -5186,19 +5479,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-BankAccountCurrentIdentifier
+Bank Account Current Identifier
 
 ### Qualified Name
-DataField::Coco::Supplier Payment Detail Changes::Payment Detail Change::BankAccountCurrentIdentifier
+DataField::Coco::Supplier Payment Detail Changes::Payment Detail Change::Bank Account Current Identifier
 
 ### Description
 The bank account after the change, masked.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -5220,10 +5510,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Supplier Payment Detail Changes::Payment Detail Change::BankAccountCurrentIdentifier
+DataField::Coco::Supplier Payment Detail Changes::Payment Detail Change::Bank Account Current Identifier
 
 ### Data Structure
 DataStructure::Coco::Supplier Payment Detail Changes::Payment Detail Change
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -5233,19 +5529,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PaymentDetailChangeStatus
+Payment Detail Change Status
 
 ### Qualified Name
-DataField::Coco::Supplier Payment Detail Changes::Payment Detail Change::PaymentDetailChangeStatus
+DataField::Coco::Supplier Payment Detail Changes::Payment Detail Change::Payment Detail Change Status
 
 ### Description
 Pending verification, verified, rejected.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -5267,10 +5560,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Supplier Payment Detail Changes::Payment Detail Change::PaymentDetailChangeStatus
+DataField::Coco::Supplier Payment Detail Changes::Payment Detail Change::Payment Detail Change Status
 
 ### Data Structure
 DataStructure::Coco::Supplier Payment Detail Changes::Payment Detail Change
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -5289,7 +5588,7 @@ DataStructure::Coco::Supplier Payment Detail Changes::Verification Evidence
 One row per independent verification of a change.
 
 ### Namespace Path
-coco_pharma.supplier_payment_detail_changes
+coco_data_hub.supplier_payment_detail_changes
 
 ### Version Identifier
 1.0
@@ -5318,19 +5617,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PaymentDetailChangeIdentifier
+Payment Detail Change Identifier
 
 ### Qualified Name
-DataField::Coco::Supplier Payment Detail Changes::Verification Evidence::PaymentDetailChangeIdentifier
+DataField::Coco::Supplier Payment Detail Changes::Verification Evidence::Payment Detail Change Identifier
 
 ### Description
 The change verified.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -5352,10 +5648,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Supplier Payment Detail Changes::Verification Evidence::PaymentDetailChangeIdentifier
+DataField::Coco::Supplier Payment Detail Changes::Verification Evidence::Payment Detail Change Identifier
 
 ### Data Structure
 DataStructure::Coco::Supplier Payment Detail Changes::Verification Evidence
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -5365,28 +5667,22 @@ ___
 ## Create Data Field
 
 ### Display Name
-PaymentDetailChangeVerifierIdentifier
+Payment Detail Change Verified Timestamp
 
 ### Qualified Name
-DataField::Coco::Supplier Payment Detail Changes::Verification Evidence::PaymentDetailChangeVerifierIdentifier
+DataField::Coco::Supplier Payment Detail Changes::Verification Evidence::Payment Detail Change Verified Timestamp
 
 ### Description
-Who carried out the verification.
+When the verification was completed.
 
 ### Data Type
-string
-
-### Position
-2
+date
 
 ### Is Nullable
 false
 
 ### Minimum Cardinality
 1
-
-### Length
-40
 
 ### Version Identifier
 1.0
@@ -5399,10 +5695,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Supplier Payment Detail Changes::Verification Evidence::PaymentDetailChangeVerifierIdentifier
+DataField::Coco::Supplier Payment Detail Changes::Verification Evidence::Payment Detail Change Verified Timestamp
 
 ### Data Structure
 DataStructure::Coco::Supplier Payment Detail Changes::Verification Evidence
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -5412,19 +5714,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PaymentDetailChangeChannelType
+Payment Detail Change Verifier Identifier
 
 ### Qualified Name
-DataField::Coco::Supplier Payment Detail Changes::Verification Evidence::PaymentDetailChangeChannelType
+DataField::Coco::Supplier Payment Detail Changes::Verification Evidence::Payment Detail Change Verifier Identifier
 
 ### Description
-The channel used, for example call-back to a known number.
+Who carried out the verification.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -5446,10 +5745,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Supplier Payment Detail Changes::Verification Evidence::PaymentDetailChangeChannelType
+DataField::Coco::Supplier Payment Detail Changes::Verification Evidence::Payment Detail Change Verifier Identifier
 
 ### Data Structure
 DataStructure::Coco::Supplier Payment Detail Changes::Verification Evidence
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -5459,25 +5764,25 @@ ___
 ## Create Data Field
 
 ### Display Name
-PaymentDetailChangeVerifiedTimestamp
+Payment Detail Change Channel Type
 
 ### Qualified Name
-DataField::Coco::Supplier Payment Detail Changes::Verification Evidence::PaymentDetailChangeVerifiedTimestamp
+DataField::Coco::Supplier Payment Detail Changes::Verification Evidence::Payment Detail Change Channel Type
 
 ### Description
-When the verification was completed.
+The channel used, for example call-back to a known number.
 
 ### Data Type
-date
-
-### Position
-4
+string
 
 ### Is Nullable
 false
 
 ### Minimum Cardinality
 1
+
+### Length
+40
 
 ### Version Identifier
 1.0
@@ -5490,10 +5795,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Supplier Payment Detail Changes::Verification Evidence::PaymentDetailChangeVerifiedTimestamp
+DataField::Coco::Supplier Payment Detail Changes::Verification Evidence::Payment Detail Change Channel Type
 
 ### Data Structure
 DataStructure::Coco::Supplier Payment Detail Changes::Verification Evidence
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -5503,19 +5814,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PaymentDetailChangeVerifiedNotes
+Payment Detail Change Verified Notes
 
 ### Qualified Name
-DataField::Coco::Supplier Payment Detail Changes::Verification Evidence::PaymentDetailChangeVerifiedNotes
+DataField::Coco::Supplier Payment Detail Changes::Verification Evidence::Payment Detail Change Verified Notes
 
 ### Description
 What was confirmed and with whom.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -5534,10 +5842,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Supplier Payment Detail Changes::Verification Evidence::PaymentDetailChangeVerifiedNotes
+DataField::Coco::Supplier Payment Detail Changes::Verification Evidence::Payment Detail Change Verified Notes
 
 ### Data Structure
 DataStructure::Coco::Supplier Payment Detail Changes::Verification Evidence
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -5556,10 +5870,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: supplier_payment_detail_changes
 - schemaDescription: Every change to a supplier's bank details, treated as a controlled event with independent verification rather than as routine maintenance. This is where the payment flow has historically been attacked.
 
@@ -5686,7 +6000,7 @@ DataStructure::Coco::Supplier Payments::Invoice Match
 One row per supplier invoice, matched to the order and receipt it settles.
 
 ### Namespace Path
-coco_pharma.supplier_payments
+coco_data_hub.supplier_payments
 
 ### Version Identifier
 1.0
@@ -5715,19 +6029,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-InvoiceNumber
+Invoice Number
 
 ### Qualified Name
-DataField::Coco::Supplier Payments::Invoice Match::InvoiceNumber
+DataField::Coco::Supplier Payments::Invoice Match::Invoice Number
 
 ### Description
 The supplier's invoice number.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -5749,10 +6060,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Supplier Payments::Invoice Match::InvoiceNumber
+DataField::Coco::Supplier Payments::Invoice Match::Invoice Number
 
 ### Data Structure
 DataStructure::Coco::Supplier Payments::Invoice Match
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -5762,19 +6079,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SupplierIdentifier
+Supplier Identifier
 
 ### Qualified Name
-DataField::Coco::Supplier Payments::Invoice Match::SupplierIdentifier
+DataField::Coco::Supplier Payments::Invoice Match::Supplier Identifier
 
 ### Description
 The supplier.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -5796,10 +6110,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Supplier Payments::Invoice Match::SupplierIdentifier
+DataField::Coco::Supplier Payments::Invoice Match::Supplier Identifier
 
 ### Data Structure
 DataStructure::Coco::Supplier Payments::Invoice Match
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -5809,19 +6129,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-OrderIdentifier
+Order Identifier
 
 ### Qualified Name
-DataField::Coco::Supplier Payments::Invoice Match::OrderIdentifier
+DataField::Coco::Supplier Payments::Invoice Match::Order Identifier
 
 ### Description
 The purchase order matched.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -5843,10 +6160,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Supplier Payments::Invoice Match::OrderIdentifier
+DataField::Coco::Supplier Payments::Invoice Match::Order Identifier
 
 ### Data Structure
 DataStructure::Coco::Supplier Payments::Invoice Match
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -5856,19 +6179,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-GoodsReceiptIdentifier
+Goods Receipt Identifier
 
 ### Qualified Name
-DataField::Coco::Supplier Payments::Invoice Match::GoodsReceiptIdentifier
+DataField::Coco::Supplier Payments::Invoice Match::Goods Receipt Identifier
 
 ### Description
 The goods receipt matched.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 true
@@ -5890,10 +6210,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Supplier Payments::Invoice Match::GoodsReceiptIdentifier
+DataField::Coco::Supplier Payments::Invoice Match::Goods Receipt Identifier
 
 ### Data Structure
 DataStructure::Coco::Supplier Payments::Invoice Match
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -5903,19 +6229,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-InvoiceTotalAmount
+Invoice Total Amount
 
 ### Qualified Name
-DataField::Coco::Supplier Payments::Invoice Match::InvoiceTotalAmount
+DataField::Coco::Supplier Payments::Invoice Match::Invoice Total Amount
 
 ### Description
 The invoiced amount.
 
 ### Data Type
 bigdecimal
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -5934,10 +6257,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Supplier Payments::Invoice Match::InvoiceTotalAmount
+DataField::Coco::Supplier Payments::Invoice Match::Invoice Total Amount
 
 ### Data Structure
 DataStructure::Coco::Supplier Payments::Invoice Match
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -5947,19 +6276,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-InvoiceCurrencyCode
+Invoice Currency Code
 
 ### Qualified Name
-DataField::Coco::Supplier Payments::Invoice Match::InvoiceCurrencyCode
+DataField::Coco::Supplier Payments::Invoice Match::Invoice Currency Code
 
 ### Description
 The currency.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -5981,10 +6307,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Supplier Payments::Invoice Match::InvoiceCurrencyCode
+DataField::Coco::Supplier Payments::Invoice Match::Invoice Currency Code
 
 ### Data Structure
 DataStructure::Coco::Supplier Payments::Invoice Match
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -5994,19 +6326,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-InvoiceMatchStatus
+Invoice Match Status
 
 ### Qualified Name
-DataField::Coco::Supplier Payments::Invoice Match::InvoiceMatchStatus
+DataField::Coco::Supplier Payments::Invoice Match::Invoice Match Status
 
 ### Description
 Matched, variance or unmatched.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -6028,10 +6357,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Supplier Payments::Invoice Match::InvoiceMatchStatus
+DataField::Coco::Supplier Payments::Invoice Match::Invoice Match Status
 
 ### Data Structure
 DataStructure::Coco::Supplier Payments::Invoice Match
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -6050,7 +6385,7 @@ DataStructure::Coco::Supplier Payments::Payment Instruction
 One row per payment authorised and instructed to the bank.
 
 ### Namespace Path
-coco_pharma.supplier_payments
+coco_data_hub.supplier_payments
 
 ### Version Identifier
 1.0
@@ -6079,19 +6414,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PaymentIdentifier
+Payment Identifier
 
 ### Qualified Name
-DataField::Coco::Supplier Payments::Payment Instruction::PaymentIdentifier
+DataField::Coco::Supplier Payments::Payment Instruction::Payment Identifier
 
 ### Description
 The unique identifier of the payment.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -6113,10 +6445,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Supplier Payments::Payment Instruction::PaymentIdentifier
+DataField::Coco::Supplier Payments::Payment Instruction::Payment Identifier
 
 ### Data Structure
 DataStructure::Coco::Supplier Payments::Payment Instruction
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -6126,19 +6464,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SupplierIdentifier
+Supplier Identifier
 
 ### Qualified Name
-DataField::Coco::Supplier Payments::Payment Instruction::SupplierIdentifier
+DataField::Coco::Supplier Payments::Payment Instruction::Supplier Identifier
 
 ### Description
 The payee.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -6160,10 +6495,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Supplier Payments::Payment Instruction::SupplierIdentifier
+DataField::Coco::Supplier Payments::Payment Instruction::Supplier Identifier
 
 ### Data Structure
 DataStructure::Coco::Supplier Payments::Payment Instruction
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -6173,19 +6514,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-InvoiceNumber
+Invoice Number
 
 ### Qualified Name
-DataField::Coco::Supplier Payments::Payment Instruction::InvoiceNumber
+DataField::Coco::Supplier Payments::Payment Instruction::Invoice Number
 
 ### Description
 The invoice settled.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -6207,10 +6545,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Supplier Payments::Payment Instruction::InvoiceNumber
+DataField::Coco::Supplier Payments::Payment Instruction::Invoice Number
 
 ### Data Structure
 DataStructure::Coco::Supplier Payments::Payment Instruction
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -6220,19 +6564,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PaymentAmount
+Payment Amount
 
 ### Qualified Name
-DataField::Coco::Supplier Payments::Payment Instruction::PaymentAmount
+DataField::Coco::Supplier Payments::Payment Instruction::Payment Amount
 
 ### Description
 The amount paid.
 
 ### Data Type
 bigdecimal
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -6251,10 +6592,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Supplier Payments::Payment Instruction::PaymentAmount
+DataField::Coco::Supplier Payments::Payment Instruction::Payment Amount
 
 ### Data Structure
 DataStructure::Coco::Supplier Payments::Payment Instruction
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -6264,19 +6611,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PaymentCurrencyCode
+Payment Currency Code
 
 ### Qualified Name
-DataField::Coco::Supplier Payments::Payment Instruction::PaymentCurrencyCode
+DataField::Coco::Supplier Payments::Payment Instruction::Payment Currency Code
 
 ### Description
 The currency.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -6298,10 +6642,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Supplier Payments::Payment Instruction::PaymentCurrencyCode
+DataField::Coco::Supplier Payments::Payment Instruction::Payment Currency Code
 
 ### Data Structure
 DataStructure::Coco::Supplier Payments::Payment Instruction
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -6311,19 +6661,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PaymentAuthoriserIdentifier
+Payment Authoriser Identifier
 
 ### Qualified Name
-DataField::Coco::Supplier Payments::Payment Instruction::PaymentAuthoriserIdentifier
+DataField::Coco::Supplier Payments::Payment Instruction::Payment Authoriser Identifier
 
 ### Description
 Who authorised the payment.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -6345,10 +6692,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Supplier Payments::Payment Instruction::PaymentAuthoriserIdentifier
+DataField::Coco::Supplier Payments::Payment Instruction::Payment Authoriser Identifier
 
 ### Data Structure
 DataStructure::Coco::Supplier Payments::Payment Instruction
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -6358,19 +6711,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PaymentAuthorisedTimestamp
+Payment Authorised Timestamp
 
 ### Qualified Name
-DataField::Coco::Supplier Payments::Payment Instruction::PaymentAuthorisedTimestamp
+DataField::Coco::Supplier Payments::Payment Instruction::Payment Authorised Timestamp
 
 ### Description
 When it was authorised.
 
 ### Data Type
 date
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -6389,10 +6739,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Supplier Payments::Payment Instruction::PaymentAuthorisedTimestamp
+DataField::Coco::Supplier Payments::Payment Instruction::Payment Authorised Timestamp
 
 ### Data Structure
 DataStructure::Coco::Supplier Payments::Payment Instruction
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -6402,19 +6758,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SupplierScreenedStatus
+Supplier Screened Status
 
 ### Qualified Name
-DataField::Coco::Supplier Payments::Payment Instruction::SupplierScreenedStatus
+DataField::Coco::Supplier Payments::Payment Instruction::Supplier Screened Status
 
 ### Description
 The supplier's screening status at authorisation.
 
 ### Data Type
 string
-
-### Position
-8
 
 ### Is Nullable
 false
@@ -6436,10 +6789,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Supplier Payments::Payment Instruction::SupplierScreenedStatus
+DataField::Coco::Supplier Payments::Payment Instruction::Supplier Screened Status
 
 ### Data Structure
 DataStructure::Coco::Supplier Payments::Payment Instruction
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -6449,19 +6808,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-BankAccountCurrentIdentifier
+Bank Account Current Identifier
 
 ### Qualified Name
-DataField::Coco::Supplier Payments::Payment Instruction::BankAccountCurrentIdentifier
+DataField::Coco::Supplier Payments::Payment Instruction::Bank Account Current Identifier
 
 ### Description
 The account paid, masked.
 
 ### Data Type
 string
-
-### Position
-9
 
 ### Is Nullable
 false
@@ -6483,10 +6839,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Supplier Payments::Payment Instruction::BankAccountCurrentIdentifier
+DataField::Coco::Supplier Payments::Payment Instruction::Bank Account Current Identifier
 
 ### Data Structure
 DataStructure::Coco::Supplier Payments::Payment Instruction
+
+### Position
+9
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 9
@@ -6496,19 +6858,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LedgerAccountCode
+Ledger Account Code
 
 ### Qualified Name
-DataField::Coco::Supplier Payments::Payment Instruction::LedgerAccountCode
+DataField::Coco::Supplier Payments::Payment Instruction::Ledger Account Code
 
 ### Description
 The cost coding of the payment.
 
 ### Data Type
 string
-
-### Position
-10
 
 ### Is Nullable
 false
@@ -6530,10 +6889,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Supplier Payments::Payment Instruction::LedgerAccountCode
+DataField::Coco::Supplier Payments::Payment Instruction::Ledger Account Code
 
 ### Data Structure
 DataStructure::Coco::Supplier Payments::Payment Instruction
+
+### Position
+10
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 10
@@ -6552,10 +6917,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: supplier_payments
 - schemaDescription: Supplier invoices matched to purchase orders and goods receipts, the payment authorisations that followed, and the instructions sent to the bank. Screening status and payment details are read at the moment of authorisation, the only moment at which either of them protects anything.
 
@@ -6682,7 +7047,7 @@ DataStructure::Coco::Payment Anomaly Findings::Anomaly Finding
 One row per anomaly detected.
 
 ### Namespace Path
-coco_pharma.payment_anomaly_findings
+coco_data_hub.payment_anomaly_findings
 
 ### Version Identifier
 1.0
@@ -6711,19 +7076,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AnomalyIdentifier
+Anomaly Identifier
 
 ### Qualified Name
-DataField::Coco::Payment Anomaly Findings::Anomaly Finding::AnomalyIdentifier
+DataField::Coco::Payment Anomaly Findings::Anomaly Finding::Anomaly Identifier
 
 ### Description
 The unique identifier of the finding.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -6745,10 +7107,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Payment Anomaly Findings::Anomaly Finding::AnomalyIdentifier
+DataField::Coco::Payment Anomaly Findings::Anomaly Finding::Anomaly Identifier
 
 ### Data Structure
 DataStructure::Coco::Payment Anomaly Findings::Anomaly Finding
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -6758,19 +7126,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AnomalyDetectedTimestamp
+Anomaly Detected Timestamp
 
 ### Qualified Name
-DataField::Coco::Payment Anomaly Findings::Anomaly Finding::AnomalyDetectedTimestamp
+DataField::Coco::Payment Anomaly Findings::Anomaly Finding::Anomaly Detected Timestamp
 
 ### Description
 When it was detected.
 
 ### Data Type
 date
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -6789,10 +7154,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Payment Anomaly Findings::Anomaly Finding::AnomalyDetectedTimestamp
+DataField::Coco::Payment Anomaly Findings::Anomaly Finding::Anomaly Detected Timestamp
 
 ### Data Structure
 DataStructure::Coco::Payment Anomaly Findings::Anomaly Finding
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -6802,19 +7173,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AnomalyType
+Anomaly Type
 
 ### Qualified Name
-DataField::Coco::Payment Anomaly Findings::Anomaly Finding::AnomalyType
+DataField::Coco::Payment Anomaly Findings::Anomaly Finding::Anomaly Type
 
 ### Description
 Duplicate payment, split payment, new-supplier spike, claim pattern or other.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -6836,10 +7204,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Payment Anomaly Findings::Anomaly Finding::AnomalyType
+DataField::Coco::Payment Anomaly Findings::Anomaly Finding::Anomaly Type
 
 ### Data Structure
 DataStructure::Coco::Payment Anomaly Findings::Anomaly Finding
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -6849,19 +7223,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SupplierIdentifier
+Supplier Identifier
 
 ### Qualified Name
-DataField::Coco::Payment Anomaly Findings::Anomaly Finding::SupplierIdentifier
+DataField::Coco::Payment Anomaly Findings::Anomaly Finding::Supplier Identifier
 
 ### Description
 The supplier implicated, if any.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 true
@@ -6883,10 +7254,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Payment Anomaly Findings::Anomaly Finding::SupplierIdentifier
+DataField::Coco::Payment Anomaly Findings::Anomaly Finding::Supplier Identifier
 
 ### Data Structure
 DataStructure::Coco::Payment Anomaly Findings::Anomaly Finding
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -6896,19 +7273,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerPseudonymIdentifier
+Worker Pseudonym Identifier
 
 ### Qualified Name
-DataField::Coco::Payment Anomaly Findings::Anomaly Finding::WorkerPseudonymIdentifier
+DataField::Coco::Payment Anomaly Findings::Anomaly Finding::Worker Pseudonym Identifier
 
 ### Description
 The claimant implicated, if any.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -6930,10 +7304,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Payment Anomaly Findings::Anomaly Finding::WorkerPseudonymIdentifier
+DataField::Coco::Payment Anomaly Findings::Anomaly Finding::Worker Pseudonym Identifier
 
 ### Data Structure
 DataStructure::Coco::Payment Anomaly Findings::Anomaly Finding
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -6943,19 +7323,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AnomalyDescription
+Anomaly Description
 
 ### Qualified Name
-DataField::Coco::Payment Anomaly Findings::Anomaly Finding::AnomalyDescription
+DataField::Coco::Payment Anomaly Findings::Anomaly Finding::Anomaly Description
 
 ### Description
 What was observed.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -6974,10 +7351,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Payment Anomaly Findings::Anomaly Finding::AnomalyDescription
+DataField::Coco::Payment Anomaly Findings::Anomaly Finding::Anomaly Description
 
 ### Data Structure
 DataStructure::Coco::Payment Anomaly Findings::Anomaly Finding
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -6987,19 +7370,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AnomalySeverity
+Anomaly Severity
 
 ### Qualified Name
-DataField::Coco::Payment Anomaly Findings::Anomaly Finding::AnomalySeverity
+DataField::Coco::Payment Anomaly Findings::Anomaly Finding::Anomaly Severity
 
 ### Description
 The assessed seriousness.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -7021,10 +7401,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Payment Anomaly Findings::Anomaly Finding::AnomalySeverity
+DataField::Coco::Payment Anomaly Findings::Anomaly Finding::Anomaly Severity
 
 ### Data Structure
 DataStructure::Coco::Payment Anomaly Findings::Anomaly Finding
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -7034,19 +7420,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AnomalyCurrentStatus
+Anomaly Current Status
 
 ### Qualified Name
-DataField::Coco::Payment Anomaly Findings::Anomaly Finding::AnomalyCurrentStatus
+DataField::Coco::Payment Anomaly Findings::Anomaly Finding::Anomaly Current Status
 
 ### Description
 Open, under investigation, closed as false positive, confirmed.
 
 ### Data Type
 string
-
-### Position
-8
 
 ### Is Nullable
 false
@@ -7068,10 +7451,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Payment Anomaly Findings::Anomaly Finding::AnomalyCurrentStatus
+DataField::Coco::Payment Anomaly Findings::Anomaly Finding::Anomaly Current Status
 
 ### Data Structure
 DataStructure::Coco::Payment Anomaly Findings::Anomaly Finding
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -7090,7 +7479,7 @@ DataStructure::Coco::Payment Anomaly Findings::Monitored Transaction
 One row per transaction contributing to a finding.
 
 ### Namespace Path
-coco_pharma.payment_anomaly_findings
+coco_data_hub.payment_anomaly_findings
 
 ### Version Identifier
 1.0
@@ -7119,19 +7508,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AnomalyIdentifier
+Anomaly Identifier
 
 ### Qualified Name
-DataField::Coco::Payment Anomaly Findings::Monitored Transaction::AnomalyIdentifier
+DataField::Coco::Payment Anomaly Findings::Monitored Transaction::Anomaly Identifier
 
 ### Description
 The finding.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -7153,10 +7539,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Payment Anomaly Findings::Monitored Transaction::AnomalyIdentifier
+DataField::Coco::Payment Anomaly Findings::Monitored Transaction::Anomaly Identifier
 
 ### Data Structure
 DataStructure::Coco::Payment Anomaly Findings::Monitored Transaction
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -7166,19 +7558,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TransactionIdentifier
+Transaction Identifier
 
 ### Qualified Name
-DataField::Coco::Payment Anomaly Findings::Monitored Transaction::TransactionIdentifier
+DataField::Coco::Payment Anomaly Findings::Monitored Transaction::Transaction Identifier
 
 ### Description
 The payment or claim.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -7200,10 +7589,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Payment Anomaly Findings::Monitored Transaction::TransactionIdentifier
+DataField::Coco::Payment Anomaly Findings::Monitored Transaction::Transaction Identifier
 
 ### Data Structure
 DataStructure::Coco::Payment Anomaly Findings::Monitored Transaction
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -7213,19 +7608,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TransactionType
+Transaction Type
 
 ### Qualified Name
-DataField::Coco::Payment Anomaly Findings::Monitored Transaction::TransactionType
+DataField::Coco::Payment Anomaly Findings::Monitored Transaction::Transaction Type
 
 ### Description
 Supplier payment or expense claim.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -7247,10 +7639,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Payment Anomaly Findings::Monitored Transaction::TransactionType
+DataField::Coco::Payment Anomaly Findings::Monitored Transaction::Transaction Type
 
 ### Data Structure
 DataStructure::Coco::Payment Anomaly Findings::Monitored Transaction
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -7260,19 +7658,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TransactionAmount
+Transaction Amount
 
 ### Qualified Name
-DataField::Coco::Payment Anomaly Findings::Monitored Transaction::TransactionAmount
+DataField::Coco::Payment Anomaly Findings::Monitored Transaction::Transaction Amount
 
 ### Description
 Its amount.
 
 ### Data Type
 bigdecimal
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -7291,10 +7686,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Payment Anomaly Findings::Monitored Transaction::TransactionAmount
+DataField::Coco::Payment Anomaly Findings::Monitored Transaction::Transaction Amount
 
 ### Data Structure
 DataStructure::Coco::Payment Anomaly Findings::Monitored Transaction
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -7304,19 +7705,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TransactionDate
+Transaction Date
 
 ### Qualified Name
-DataField::Coco::Payment Anomaly Findings::Monitored Transaction::TransactionDate
+DataField::Coco::Payment Anomaly Findings::Monitored Transaction::Transaction Date
 
 ### Description
 Its date.
 
 ### Data Type
 date
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -7335,10 +7733,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Payment Anomaly Findings::Monitored Transaction::TransactionDate
+DataField::Coco::Payment Anomaly Findings::Monitored Transaction::Transaction Date
 
 ### Data Structure
 DataStructure::Coco::Payment Anomaly Findings::Monitored Transaction
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -7357,10 +7761,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: payment_anomaly_findings
 - schemaDescription: The patterns found across supplier payments and expense claims that no single transaction shows: duplicate payments, unusual supplier behaviour, and the concerns raised as a result. The fraud that motivated this chain was visible only across the whole flow.
 
@@ -7487,7 +7891,7 @@ DataStructure::Coco::Transfers Of Value::Transfer Of Value
 One row per payment or benefit to a healthcare professional or organisation.
 
 ### Namespace Path
-coco_pharma.transfers_of_value
+coco_data_hub.transfers_of_value
 
 ### Version Identifier
 1.0
@@ -7516,19 +7920,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TransferOfValueIdentifier
+Transfer Of Value Identifier
 
 ### Qualified Name
-DataField::Coco::Transfers Of Value::Transfer Of Value::TransferOfValueIdentifier
+DataField::Coco::Transfers Of Value::Transfer Of Value::Transfer Of Value Identifier
 
 ### Description
 The unique identifier of the transfer.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -7550,10 +7951,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Transfers Of Value::Transfer Of Value::TransferOfValueIdentifier
+DataField::Coco::Transfers Of Value::Transfer Of Value::Transfer Of Value Identifier
 
 ### Data Structure
 DataStructure::Coco::Transfers Of Value::Transfer Of Value
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -7563,19 +7970,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TransferOfValueRecipientIdentifier
+Transfer Of Value Recipient Identifier
 
 ### Qualified Name
-DataField::Coco::Transfers Of Value::Transfer Of Value::TransferOfValueRecipientIdentifier
+DataField::Coco::Transfers Of Value::Transfer Of Value::Transfer Of Value Recipient Identifier
 
 ### Description
 The healthcare professional or organisation.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -7597,10 +8001,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Transfers Of Value::Transfer Of Value::TransferOfValueRecipientIdentifier
+DataField::Coco::Transfers Of Value::Transfer Of Value::Transfer Of Value Recipient Identifier
 
 ### Data Structure
 DataStructure::Coco::Transfers Of Value::Transfer Of Value
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -7610,19 +8020,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TransferOfValueRecipientType
+Transfer Of Value Recipient Type
 
 ### Qualified Name
-DataField::Coco::Transfers Of Value::Transfer Of Value::TransferOfValueRecipientType
+DataField::Coco::Transfers Of Value::Transfer Of Value::Transfer Of Value Recipient Type
 
 ### Description
 Individual professional or organisation.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -7644,10 +8051,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Transfers Of Value::Transfer Of Value::TransferOfValueRecipientType
+DataField::Coco::Transfers Of Value::Transfer Of Value::Transfer Of Value Recipient Type
 
 ### Data Structure
 DataStructure::Coco::Transfers Of Value::Transfer Of Value
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -7657,19 +8070,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TransferOfValueType
+Transfer Of Value Type
 
 ### Qualified Name
-DataField::Coco::Transfers Of Value::Transfer Of Value::TransferOfValueType
+DataField::Coco::Transfers Of Value::Transfer Of Value::Transfer Of Value Type
 
 ### Description
 Fee, hospitality, travel, grant or other.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -7691,10 +8101,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Transfers Of Value::Transfer Of Value::TransferOfValueType
+DataField::Coco::Transfers Of Value::Transfer Of Value::Transfer Of Value Type
 
 ### Data Structure
 DataStructure::Coco::Transfers Of Value::Transfer Of Value
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -7704,19 +8120,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TransferOfValueDescription
+Transfer Of Value Description
 
 ### Qualified Name
-DataField::Coco::Transfers Of Value::Transfer Of Value::TransferOfValueDescription
+DataField::Coco::Transfers Of Value::Transfer Of Value::Transfer Of Value Description
 
 ### Description
 The purpose of the transfer.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -7735,10 +8148,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Transfers Of Value::Transfer Of Value::TransferOfValueDescription
+DataField::Coco::Transfers Of Value::Transfer Of Value::Transfer Of Value Description
 
 ### Data Structure
 DataStructure::Coco::Transfers Of Value::Transfer Of Value
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -7748,19 +8167,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TransferOfValueAmount
+Transfer Of Value Amount
 
 ### Qualified Name
-DataField::Coco::Transfers Of Value::Transfer Of Value::TransferOfValueAmount
+DataField::Coco::Transfers Of Value::Transfer Of Value::Transfer Of Value Amount
 
 ### Description
 The value transferred.
 
 ### Data Type
 bigdecimal
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -7779,10 +8195,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Transfers Of Value::Transfer Of Value::TransferOfValueAmount
+DataField::Coco::Transfers Of Value::Transfer Of Value::Transfer Of Value Amount
 
 ### Data Structure
 DataStructure::Coco::Transfers Of Value::Transfer Of Value
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -7792,19 +8214,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TransferOfValueCurrencyCode
+Transfer Of Value Currency Code
 
 ### Qualified Name
-DataField::Coco::Transfers Of Value::Transfer Of Value::TransferOfValueCurrencyCode
+DataField::Coco::Transfers Of Value::Transfer Of Value::Transfer Of Value Currency Code
 
 ### Description
 The currency.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -7826,10 +8245,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Transfers Of Value::Transfer Of Value::TransferOfValueCurrencyCode
+DataField::Coco::Transfers Of Value::Transfer Of Value::Transfer Of Value Currency Code
 
 ### Data Structure
 DataStructure::Coco::Transfers Of Value::Transfer Of Value
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -7839,19 +8264,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TransferOfValueDate
+Transfer Of Value Date
 
 ### Qualified Name
-DataField::Coco::Transfers Of Value::Transfer Of Value::TransferOfValueDate
+DataField::Coco::Transfers Of Value::Transfer Of Value::Transfer Of Value Date
 
 ### Description
 When it was provided.
 
 ### Data Type
 date
-
-### Position
-8
 
 ### Is Nullable
 false
@@ -7870,10 +8292,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Transfers Of Value::Transfer Of Value::TransferOfValueDate
+DataField::Coco::Transfers Of Value::Transfer Of Value::Transfer Of Value Date
 
 ### Data Structure
 DataStructure::Coco::Transfers Of Value::Transfer Of Value
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -7883,19 +8311,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TransactionIdentifier
+Transaction Identifier
 
 ### Qualified Name
-DataField::Coco::Transfers Of Value::Transfer Of Value::TransactionIdentifier
+DataField::Coco::Transfers Of Value::Transfer Of Value::Transaction Identifier
 
 ### Description
 The payment or expense claim it originated from.
 
 ### Data Type
 string
-
-### Position
-9
 
 ### Is Nullable
 false
@@ -7917,10 +8342,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Transfers Of Value::Transfer Of Value::TransactionIdentifier
+DataField::Coco::Transfers Of Value::Transfer Of Value::Transaction Identifier
 
 ### Data Structure
 DataStructure::Coco::Transfers Of Value::Transfer Of Value
+
+### Position
+9
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 9
@@ -7930,19 +8361,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TransferOfValueDisclosedFlag
+Transfer Of Value Disclosed Flag
 
 ### Qualified Name
-DataField::Coco::Transfers Of Value::Transfer Of Value::TransferOfValueDisclosedFlag
+DataField::Coco::Transfers Of Value::Transfer Of Value::Transfer Of Value Disclosed Flag
 
 ### Description
 Whether it has been included in a disclosure.
 
 ### Data Type
 boolean
-
-### Position
-10
 
 ### Is Nullable
 false
@@ -7961,10 +8389,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Transfers Of Value::Transfer Of Value::TransferOfValueDisclosedFlag
+DataField::Coco::Transfers Of Value::Transfer Of Value::Transfer Of Value Disclosed Flag
 
 ### Data Structure
 DataStructure::Coco::Transfers Of Value::Transfer Of Value
+
+### Position
+10
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 10
@@ -7983,10 +8417,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: transfers_of_value
 - schemaDescription: Payments and benefits provided to healthcare professionals and organisations, from whichever flow they originate, identified and recorded so that they can be disclosed. Reconstructing this afterwards from a general ledger is the failure it exists to prevent.
 
@@ -8113,7 +8547,7 @@ DataStructure::Coco::Expense Approvals::Expense Claim
 One row per claim submitted for approval.
 
 ### Namespace Path
-coco_pharma.expense_approvals
+coco_data_hub.expense_approvals
 
 ### Version Identifier
 1.0
@@ -8142,19 +8576,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ClaimIdentifier
+Claim Identifier
 
 ### Qualified Name
-DataField::Coco::Expense Approvals::Expense Claim::ClaimIdentifier
+DataField::Coco::Expense Approvals::Expense Claim::Claim Identifier
 
 ### Description
 The unique identifier of the claim.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -8176,10 +8607,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Expense Approvals::Expense Claim::ClaimIdentifier
+DataField::Coco::Expense Approvals::Expense Claim::Claim Identifier
 
 ### Data Structure
 DataStructure::Coco::Expense Approvals::Expense Claim
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -8189,19 +8626,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerPseudonymIdentifier
+Worker Pseudonym Identifier
 
 ### Qualified Name
-DataField::Coco::Expense Approvals::Expense Claim::WorkerPseudonymIdentifier
+DataField::Coco::Expense Approvals::Expense Claim::Worker Pseudonym Identifier
 
 ### Description
 The claimant.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -8223,10 +8657,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Expense Approvals::Expense Claim::WorkerPseudonymIdentifier
+DataField::Coco::Expense Approvals::Expense Claim::Worker Pseudonym Identifier
 
 ### Data Structure
 DataStructure::Coco::Expense Approvals::Expense Claim
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -8236,19 +8676,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ClaimSubmittedTimestamp
+Claim Submitted Timestamp
 
 ### Qualified Name
-DataField::Coco::Expense Approvals::Expense Claim::ClaimSubmittedTimestamp
+DataField::Coco::Expense Approvals::Expense Claim::Claim Submitted Timestamp
 
 ### Description
 When it was submitted.
 
 ### Data Type
 date
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -8267,10 +8704,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Expense Approvals::Expense Claim::ClaimSubmittedTimestamp
+DataField::Coco::Expense Approvals::Expense Claim::Claim Submitted Timestamp
 
 ### Data Structure
 DataStructure::Coco::Expense Approvals::Expense Claim
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -8280,19 +8723,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ClaimTotalAmount
+Claim Total Amount
 
 ### Qualified Name
-DataField::Coco::Expense Approvals::Expense Claim::ClaimTotalAmount
+DataField::Coco::Expense Approvals::Expense Claim::Claim Total Amount
 
 ### Description
 The value claimed.
 
 ### Data Type
 bigdecimal
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -8311,10 +8751,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Expense Approvals::Expense Claim::ClaimTotalAmount
+DataField::Coco::Expense Approvals::Expense Claim::Claim Total Amount
 
 ### Data Structure
 DataStructure::Coco::Expense Approvals::Expense Claim
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -8324,19 +8770,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ClaimCurrencyCode
+Claim Currency Code
 
 ### Qualified Name
-DataField::Coco::Expense Approvals::Expense Claim::ClaimCurrencyCode
+DataField::Coco::Expense Approvals::Expense Claim::Claim Currency Code
 
 ### Description
 The currency.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -8358,10 +8801,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Expense Approvals::Expense Claim::ClaimCurrencyCode
+DataField::Coco::Expense Approvals::Expense Claim::Claim Currency Code
 
 ### Data Structure
 DataStructure::Coco::Expense Approvals::Expense Claim
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -8371,19 +8820,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LedgerAccountCode
+Ledger Account Code
 
 ### Qualified Name
-DataField::Coco::Expense Approvals::Expense Claim::LedgerAccountCode
+DataField::Coco::Expense Approvals::Expense Claim::Ledger Account Code
 
 ### Description
 The cost coding.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -8405,10 +8851,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Expense Approvals::Expense Claim::LedgerAccountCode
+DataField::Coco::Expense Approvals::Expense Claim::Ledger Account Code
 
 ### Data Structure
 DataStructure::Coco::Expense Approvals::Expense Claim
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -8418,19 +8870,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ClaimApproverIdentifier
+Claim Approver Identifier
 
 ### Qualified Name
-DataField::Coco::Expense Approvals::Expense Claim::ClaimApproverIdentifier
+DataField::Coco::Expense Approvals::Expense Claim::Claim Approver Identifier
 
 ### Description
 The approver it was routed to.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -8452,10 +8901,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Expense Approvals::Expense Claim::ClaimApproverIdentifier
+DataField::Coco::Expense Approvals::Expense Claim::Claim Approver Identifier
 
 ### Data Structure
 DataStructure::Coco::Expense Approvals::Expense Claim
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -8474,7 +8929,7 @@ DataStructure::Coco::Expense Approvals::Approval Decision
 One row per decision on a claim.
 
 ### Namespace Path
-coco_pharma.expense_approvals
+coco_data_hub.expense_approvals
 
 ### Version Identifier
 1.0
@@ -8503,19 +8958,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ClaimIdentifier
+Claim Identifier
 
 ### Qualified Name
-DataField::Coco::Expense Approvals::Approval Decision::ClaimIdentifier
+DataField::Coco::Expense Approvals::Approval Decision::Claim Identifier
 
 ### Description
 The claim.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -8537,10 +8989,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Expense Approvals::Approval Decision::ClaimIdentifier
+DataField::Coco::Expense Approvals::Approval Decision::Claim Identifier
 
 ### Data Structure
 DataStructure::Coco::Expense Approvals::Approval Decision
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -8550,19 +9008,63 @@ ___
 ## Create Data Field
 
 ### Display Name
-ClaimApproverIdentifier
+Claim Approval Timestamp
 
 ### Qualified Name
-DataField::Coco::Expense Approvals::Approval Decision::ClaimApproverIdentifier
+DataField::Coco::Expense Approvals::Approval Decision::Claim Approval Timestamp
+
+### Description
+When.
+
+### Data Type
+date
+
+### Is Nullable
+false
+
+### Minimum Cardinality
+1
+
+### Version Identifier
+1.0
+
+### Content Status
+ACTIVE
+
+___
+
+## Link Data Field to Data Structure
+
+### Data Field
+DataField::Coco::Expense Approvals::Approval Decision::Claim Approval Timestamp
+
+### Data Structure
+DataStructure::Coco::Expense Approvals::Approval Decision
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
+
+### Label
+field 2
+
+___
+
+## Create Data Field
+
+### Display Name
+Claim Approver Identifier
+
+### Qualified Name
+DataField::Coco::Expense Approvals::Approval Decision::Claim Approver Identifier
 
 ### Description
 Who decided.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -8584,32 +9086,35 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Expense Approvals::Approval Decision::ClaimApproverIdentifier
+DataField::Coco::Expense Approvals::Approval Decision::Claim Approver Identifier
 
 ### Data Structure
 DataStructure::Coco::Expense Approvals::Approval Decision
 
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
+
 ### Label
-field 2
+field 3
 
 ___
 
 ## Create Data Field
 
 ### Display Name
-ClaimApprovalStatus
+Claim Approval Status
 
 ### Qualified Name
-DataField::Coco::Expense Approvals::Approval Decision::ClaimApprovalStatus
+DataField::Coco::Expense Approvals::Approval Decision::Claim Approval Status
 
 ### Description
 Approved, rejected or returned.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -8631,54 +9136,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Expense Approvals::Approval Decision::ClaimApprovalStatus
+DataField::Coco::Expense Approvals::Approval Decision::Claim Approval Status
 
 ### Data Structure
 DataStructure::Coco::Expense Approvals::Approval Decision
-
-### Label
-field 3
-
-___
-
-## Create Data Field
-
-### Display Name
-ClaimApprovalTimestamp
-
-### Qualified Name
-DataField::Coco::Expense Approvals::Approval Decision::ClaimApprovalTimestamp
-
-### Description
-When.
-
-### Data Type
-date
 
 ### Position
 4
 
-### Is Nullable
-false
-
-### Minimum Cardinality
-1
-
-### Version Identifier
-1.0
-
-### Content Status
-ACTIVE
-
-___
-
-## Link Data Field to Data Structure
-
-### Data Field
-DataField::Coco::Expense Approvals::Approval Decision::ClaimApprovalTimestamp
-
-### Data Structure
-DataStructure::Coco::Expense Approvals::Approval Decision
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -8688,19 +9155,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ClaimApprovalNotes
+Claim Approval Notes
 
 ### Qualified Name
-DataField::Coco::Expense Approvals::Approval Decision::ClaimApprovalNotes
+DataField::Coco::Expense Approvals::Approval Decision::Claim Approval Notes
 
 ### Description
 The approver's comments.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -8719,10 +9183,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Expense Approvals::Approval Decision::ClaimApprovalNotes
+DataField::Coco::Expense Approvals::Approval Decision::Claim Approval Notes
 
 ### Data Structure
 DataStructure::Coco::Expense Approvals::Approval Decision
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -8741,10 +9211,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: expense_approvals
 - schemaDescription: Expense claims routed for approval, the approver each was sent to and the decision taken, carried forward to payment. The approval is only worth anything if it is still attached to the claim when the payment is made.
 
@@ -8871,7 +9341,7 @@ DataStructure::Coco::General Ledger Balances::Ledger Transaction
 One row per transaction posted to the ledger.
 
 ### Namespace Path
-coco_pharma.general_ledger_balances
+coco_data_hub.general_ledger_balances
 
 ### Version Identifier
 1.0
@@ -8900,19 +9370,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TransactionIdentifier
+Transaction Identifier
 
 ### Qualified Name
-DataField::Coco::General Ledger Balances::Ledger Transaction::TransactionIdentifier
+DataField::Coco::General Ledger Balances::Ledger Transaction::Transaction Identifier
 
 ### Description
 The unique identifier of the ledger transaction.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -8934,10 +9401,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::General Ledger Balances::Ledger Transaction::TransactionIdentifier
+DataField::Coco::General Ledger Balances::Ledger Transaction::Transaction Identifier
 
 ### Data Structure
 DataStructure::Coco::General Ledger Balances::Ledger Transaction
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -8947,19 +9420,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LegalEntityCode
+Legal Entity Code
 
 ### Qualified Name
-DataField::Coco::General Ledger Balances::Ledger Transaction::LegalEntityCode
+DataField::Coco::General Ledger Balances::Ledger Transaction::Legal Entity Code
 
 ### Description
 The entity.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -8981,10 +9451,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::General Ledger Balances::Ledger Transaction::LegalEntityCode
+DataField::Coco::General Ledger Balances::Ledger Transaction::Legal Entity Code
 
 ### Data Structure
 DataStructure::Coco::General Ledger Balances::Ledger Transaction
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -8994,19 +9470,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AccountingPeriodCode
+Accounting Period Code
 
 ### Qualified Name
-DataField::Coco::General Ledger Balances::Ledger Transaction::AccountingPeriodCode
+DataField::Coco::General Ledger Balances::Ledger Transaction::Accounting Period Code
 
 ### Description
 The period.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -9028,10 +9501,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::General Ledger Balances::Ledger Transaction::AccountingPeriodCode
+DataField::Coco::General Ledger Balances::Ledger Transaction::Accounting Period Code
 
 ### Data Structure
 DataStructure::Coco::General Ledger Balances::Ledger Transaction
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -9041,19 +9520,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LedgerAccountCode
+Ledger Account Code
 
 ### Qualified Name
-DataField::Coco::General Ledger Balances::Ledger Transaction::LedgerAccountCode
+DataField::Coco::General Ledger Balances::Ledger Transaction::Ledger Account Code
 
 ### Description
 The account.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -9075,10 +9551,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::General Ledger Balances::Ledger Transaction::LedgerAccountCode
+DataField::Coco::General Ledger Balances::Ledger Transaction::Ledger Account Code
 
 ### Data Structure
 DataStructure::Coco::General Ledger Balances::Ledger Transaction
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -9088,19 +9570,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TransactionAmount
+Transaction Amount
 
 ### Qualified Name
-DataField::Coco::General Ledger Balances::Ledger Transaction::TransactionAmount
+DataField::Coco::General Ledger Balances::Ledger Transaction::Transaction Amount
 
 ### Description
 The amount.
 
 ### Data Type
 bigdecimal
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -9119,10 +9598,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::General Ledger Balances::Ledger Transaction::TransactionAmount
+DataField::Coco::General Ledger Balances::Ledger Transaction::Transaction Amount
 
 ### Data Structure
 DataStructure::Coco::General Ledger Balances::Ledger Transaction
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -9132,19 +9617,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TransactionCurrencyCode
+Transaction Currency Code
 
 ### Qualified Name
-DataField::Coco::General Ledger Balances::Ledger Transaction::TransactionCurrencyCode
+DataField::Coco::General Ledger Balances::Ledger Transaction::Transaction Currency Code
 
 ### Description
 The currency.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -9166,10 +9648,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::General Ledger Balances::Ledger Transaction::TransactionCurrencyCode
+DataField::Coco::General Ledger Balances::Ledger Transaction::Transaction Currency Code
 
 ### Data Structure
 DataStructure::Coco::General Ledger Balances::Ledger Transaction
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -9179,19 +9667,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TransactionPostedTimestamp
+Transaction Posted Timestamp
 
 ### Qualified Name
-DataField::Coco::General Ledger Balances::Ledger Transaction::TransactionPostedTimestamp
+DataField::Coco::General Ledger Balances::Ledger Transaction::Transaction Posted Timestamp
 
 ### Description
 When posted.
 
 ### Data Type
 date
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -9210,10 +9695,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::General Ledger Balances::Ledger Transaction::TransactionPostedTimestamp
+DataField::Coco::General Ledger Balances::Ledger Transaction::Transaction Posted Timestamp
 
 ### Data Structure
 DataStructure::Coco::General Ledger Balances::Ledger Transaction
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -9223,19 +9714,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-FeedIdentifier
+Feed Identifier
 
 ### Qualified Name
-DataField::Coco::General Ledger Balances::Ledger Transaction::FeedIdentifier
+DataField::Coco::General Ledger Balances::Ledger Transaction::Feed Identifier
 
 ### Description
 The feed batch it arrived in, if from a feed.
 
 ### Data Type
 string
-
-### Position
-8
 
 ### Is Nullable
 true
@@ -9257,10 +9745,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::General Ledger Balances::Ledger Transaction::FeedIdentifier
+DataField::Coco::General Ledger Balances::Ledger Transaction::Feed Identifier
 
 ### Data Structure
 DataStructure::Coco::General Ledger Balances::Ledger Transaction
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -9270,19 +9764,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-JournalEntryIdentifier
+Journal Entry Identifier
 
 ### Qualified Name
-DataField::Coco::General Ledger Balances::Ledger Transaction::JournalEntryIdentifier
+DataField::Coco::General Ledger Balances::Ledger Transaction::Journal Entry Identifier
 
 ### Description
 The manual journal it arrived in, if manual.
 
 ### Data Type
 string
-
-### Position
-9
 
 ### Is Nullable
 true
@@ -9304,10 +9795,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::General Ledger Balances::Ledger Transaction::JournalEntryIdentifier
+DataField::Coco::General Ledger Balances::Ledger Transaction::Journal Entry Identifier
 
 ### Data Structure
 DataStructure::Coco::General Ledger Balances::Ledger Transaction
+
+### Position
+9
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 9
@@ -9326,7 +9823,7 @@ DataStructure::Coco::General Ledger Balances::Ledger Account Balance
 One row per account per entity per period.
 
 ### Namespace Path
-coco_pharma.general_ledger_balances
+coco_data_hub.general_ledger_balances
 
 ### Version Identifier
 1.0
@@ -9355,19 +9852,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LegalEntityCode
+Legal Entity Code
 
 ### Qualified Name
-DataField::Coco::General Ledger Balances::Ledger Account Balance::LegalEntityCode
+DataField::Coco::General Ledger Balances::Ledger Account Balance::Legal Entity Code
 
 ### Description
 The entity.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -9389,10 +9883,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::General Ledger Balances::Ledger Account Balance::LegalEntityCode
+DataField::Coco::General Ledger Balances::Ledger Account Balance::Legal Entity Code
 
 ### Data Structure
 DataStructure::Coco::General Ledger Balances::Ledger Account Balance
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -9402,19 +9902,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AccountingPeriodCode
+Accounting Period Code
 
 ### Qualified Name
-DataField::Coco::General Ledger Balances::Ledger Account Balance::AccountingPeriodCode
+DataField::Coco::General Ledger Balances::Ledger Account Balance::Accounting Period Code
 
 ### Description
 The period.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -9436,10 +9933,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::General Ledger Balances::Ledger Account Balance::AccountingPeriodCode
+DataField::Coco::General Ledger Balances::Ledger Account Balance::Accounting Period Code
 
 ### Data Structure
 DataStructure::Coco::General Ledger Balances::Ledger Account Balance
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -9449,19 +9952,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LedgerAccountCode
+Ledger Account Code
 
 ### Qualified Name
-DataField::Coco::General Ledger Balances::Ledger Account Balance::LedgerAccountCode
+DataField::Coco::General Ledger Balances::Ledger Account Balance::Ledger Account Code
 
 ### Description
 The account.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -9483,10 +9983,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::General Ledger Balances::Ledger Account Balance::LedgerAccountCode
+DataField::Coco::General Ledger Balances::Ledger Account Balance::Ledger Account Code
 
 ### Data Structure
 DataStructure::Coco::General Ledger Balances::Ledger Account Balance
+
+### Position
+3
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 3
@@ -9496,19 +10002,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LedgerAccountName
+Ledger Account Name
 
 ### Qualified Name
-DataField::Coco::General Ledger Balances::Ledger Account Balance::LedgerAccountName
+DataField::Coco::General Ledger Balances::Ledger Account Balance::Ledger Account Name
 
 ### Description
 The account's name.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -9530,10 +10033,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::General Ledger Balances::Ledger Account Balance::LedgerAccountName
+DataField::Coco::General Ledger Balances::Ledger Account Balance::Ledger Account Name
 
 ### Data Structure
 DataStructure::Coco::General Ledger Balances::Ledger Account Balance
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -9543,19 +10052,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LedgerAccountBalanceAmount
+Ledger Account Balance Amount
 
 ### Qualified Name
-DataField::Coco::General Ledger Balances::Ledger Account Balance::LedgerAccountBalanceAmount
+DataField::Coco::General Ledger Balances::Ledger Account Balance::Ledger Account Balance Amount
 
 ### Description
 The closing balance.
 
 ### Data Type
 bigdecimal
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -9574,10 +10080,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::General Ledger Balances::Ledger Account Balance::LedgerAccountBalanceAmount
+DataField::Coco::General Ledger Balances::Ledger Account Balance::Ledger Account Balance Amount
 
 ### Data Structure
 DataStructure::Coco::General Ledger Balances::Ledger Account Balance
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -9587,19 +10099,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LedgerCurrencyCode
+Ledger Currency Code
 
 ### Qualified Name
-DataField::Coco::General Ledger Balances::Ledger Account Balance::LedgerCurrencyCode
+DataField::Coco::General Ledger Balances::Ledger Account Balance::Ledger Currency Code
 
 ### Description
 The currency.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -9621,10 +10130,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::General Ledger Balances::Ledger Account Balance::LedgerCurrencyCode
+DataField::Coco::General Ledger Balances::Ledger Account Balance::Ledger Currency Code
 
 ### Data Structure
 DataStructure::Coco::General Ledger Balances::Ledger Account Balance
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -9643,10 +10158,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: general_ledger_balances
 - schemaDescription: The general ledger of each legal entity: the transactions posted from every feed, adjustment and payment, and the account balances that result. It is the source of the entity trial balances that consolidation starts from and of the manual entries that review examines.
 
@@ -9773,7 +10288,7 @@ DataStructure::Coco::Employee Expense Claims::Claim Submission
 One row per claim as submitted by the claimant.
 
 ### Namespace Path
-coco_pharma.employee_expense_claims
+coco_data_hub.employee_expense_claims
 
 ### Version Identifier
 1.0
@@ -9802,19 +10317,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ClaimIdentifier
+Claim Identifier
 
 ### Qualified Name
-DataField::Coco::Employee Expense Claims::Claim Submission::ClaimIdentifier
+DataField::Coco::Employee Expense Claims::Claim Submission::Claim Identifier
 
 ### Description
 The unique identifier of the claim.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -9836,10 +10348,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Employee Expense Claims::Claim Submission::ClaimIdentifier
+DataField::Coco::Employee Expense Claims::Claim Submission::Claim Identifier
 
 ### Data Structure
 DataStructure::Coco::Employee Expense Claims::Claim Submission
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -9849,19 +10367,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerPseudonymIdentifier
+Worker Pseudonym Identifier
 
 ### Qualified Name
-DataField::Coco::Employee Expense Claims::Claim Submission::WorkerPseudonymIdentifier
+DataField::Coco::Employee Expense Claims::Claim Submission::Worker Pseudonym Identifier
 
 ### Description
 The claimant.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -9883,10 +10398,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Employee Expense Claims::Claim Submission::WorkerPseudonymIdentifier
+DataField::Coco::Employee Expense Claims::Claim Submission::Worker Pseudonym Identifier
 
 ### Data Structure
 DataStructure::Coco::Employee Expense Claims::Claim Submission
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -9896,19 +10417,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ClaimSubmittedTimestamp
+Claim Submitted Timestamp
 
 ### Qualified Name
-DataField::Coco::Employee Expense Claims::Claim Submission::ClaimSubmittedTimestamp
+DataField::Coco::Employee Expense Claims::Claim Submission::Claim Submitted Timestamp
 
 ### Description
 When submitted.
 
 ### Data Type
 date
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -9927,10 +10445,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Employee Expense Claims::Claim Submission::ClaimSubmittedTimestamp
+DataField::Coco::Employee Expense Claims::Claim Submission::Claim Submitted Timestamp
 
 ### Data Structure
 DataStructure::Coco::Employee Expense Claims::Claim Submission
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -9940,19 +10464,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ClaimTotalAmount
+Claim Total Amount
 
 ### Qualified Name
-DataField::Coco::Employee Expense Claims::Claim Submission::ClaimTotalAmount
+DataField::Coco::Employee Expense Claims::Claim Submission::Claim Total Amount
 
 ### Description
 The total claimed.
 
 ### Data Type
 bigdecimal
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -9971,10 +10492,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Employee Expense Claims::Claim Submission::ClaimTotalAmount
+DataField::Coco::Employee Expense Claims::Claim Submission::Claim Total Amount
 
 ### Data Structure
 DataStructure::Coco::Employee Expense Claims::Claim Submission
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -9984,19 +10511,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ClaimCurrencyCode
+Claim Currency Code
 
 ### Qualified Name
-DataField::Coco::Employee Expense Claims::Claim Submission::ClaimCurrencyCode
+DataField::Coco::Employee Expense Claims::Claim Submission::Claim Currency Code
 
 ### Description
 The currency.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -10018,10 +10542,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Employee Expense Claims::Claim Submission::ClaimCurrencyCode
+DataField::Coco::Employee Expense Claims::Claim Submission::Claim Currency Code
 
 ### Data Structure
 DataStructure::Coco::Employee Expense Claims::Claim Submission
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -10031,19 +10561,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ClaimCurrentStatus
+Claim Current Status
 
 ### Qualified Name
-DataField::Coco::Employee Expense Claims::Claim Submission::ClaimCurrentStatus
+DataField::Coco::Employee Expense Claims::Claim Submission::Claim Current Status
 
 ### Description
 Draft, submitted, approved, paid or rejected.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -10065,10 +10592,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Employee Expense Claims::Claim Submission::ClaimCurrentStatus
+DataField::Coco::Employee Expense Claims::Claim Submission::Claim Current Status
 
 ### Data Structure
 DataStructure::Coco::Employee Expense Claims::Claim Submission
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -10087,7 +10620,7 @@ DataStructure::Coco::Employee Expense Claims::Claim Line
 One row per expense within a claim.
 
 ### Namespace Path
-coco_pharma.employee_expense_claims
+coco_data_hub.employee_expense_claims
 
 ### Version Identifier
 1.0
@@ -10116,19 +10649,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ClaimIdentifier
+Claim Identifier
 
 ### Qualified Name
-DataField::Coco::Employee Expense Claims::Claim Line::ClaimIdentifier
+DataField::Coco::Employee Expense Claims::Claim Line::Claim Identifier
 
 ### Description
 The claim.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -10150,10 +10680,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Employee Expense Claims::Claim Line::ClaimIdentifier
+DataField::Coco::Employee Expense Claims::Claim Line::Claim Identifier
 
 ### Data Structure
 DataStructure::Coco::Employee Expense Claims::Claim Line
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -10163,19 +10699,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ClaimLineNumber
+Claim Line Number
 
 ### Qualified Name
-DataField::Coco::Employee Expense Claims::Claim Line::ClaimLineNumber
+DataField::Coco::Employee Expense Claims::Claim Line::Claim Line Number
 
 ### Description
 The position of the line in the claim.
 
 ### Data Type
 int
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -10194,10 +10727,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Employee Expense Claims::Claim Line::ClaimLineNumber
+DataField::Coco::Employee Expense Claims::Claim Line::Claim Line Number
 
 ### Data Structure
 DataStructure::Coco::Employee Expense Claims::Claim Line
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -10207,19 +10746,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ClaimLineType
+Claim Line Type
 
 ### Qualified Name
-DataField::Coco::Employee Expense Claims::Claim Line::ClaimLineType
+DataField::Coco::Employee Expense Claims::Claim Line::Claim Line Type
 
 ### Description
 Travel, hospitality, accommodation or other.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -10241,10 +10777,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Employee Expense Claims::Claim Line::ClaimLineType
+DataField::Coco::Employee Expense Claims::Claim Line::Claim Line Type
 
 ### Data Structure
 DataStructure::Coco::Employee Expense Claims::Claim Line
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -10254,19 +10796,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ClaimLineDate
+Claim Line Date
 
 ### Qualified Name
-DataField::Coco::Employee Expense Claims::Claim Line::ClaimLineDate
+DataField::Coco::Employee Expense Claims::Claim Line::Claim Line Date
 
 ### Description
 When the expense was incurred.
 
 ### Data Type
 date
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -10285,10 +10824,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Employee Expense Claims::Claim Line::ClaimLineDate
+DataField::Coco::Employee Expense Claims::Claim Line::Claim Line Date
 
 ### Data Structure
 DataStructure::Coco::Employee Expense Claims::Claim Line
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -10298,19 +10843,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ClaimLineAmount
+Claim Line Amount
 
 ### Qualified Name
-DataField::Coco::Employee Expense Claims::Claim Line::ClaimLineAmount
+DataField::Coco::Employee Expense Claims::Claim Line::Claim Line Amount
 
 ### Description
 The amount.
 
 ### Data Type
 bigdecimal
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -10329,10 +10871,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Employee Expense Claims::Claim Line::ClaimLineAmount
+DataField::Coco::Employee Expense Claims::Claim Line::Claim Line Amount
 
 ### Data Structure
 DataStructure::Coco::Employee Expense Claims::Claim Line
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -10342,19 +10890,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ClaimLineDescription
+Claim Line Description
 
 ### Qualified Name
-DataField::Coco::Employee Expense Claims::Claim Line::ClaimLineDescription
+DataField::Coco::Employee Expense Claims::Claim Line::Claim Line Description
 
 ### Description
 What the expense was for.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -10373,10 +10918,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Employee Expense Claims::Claim Line::ClaimLineDescription
+DataField::Coco::Employee Expense Claims::Claim Line::Claim Line Description
 
 ### Data Structure
 DataStructure::Coco::Employee Expense Claims::Claim Line
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -10386,19 +10937,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ClaimLineRecipientIdentifier
+Claim Line Recipient Identifier
 
 ### Qualified Name
-DataField::Coco::Employee Expense Claims::Claim Line::ClaimLineRecipientIdentifier
+DataField::Coco::Employee Expense Claims::Claim Line::Claim Line Recipient Identifier
 
 ### Description
 The healthcare professional entertained, if any.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 true
@@ -10420,10 +10968,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Employee Expense Claims::Claim Line::ClaimLineRecipientIdentifier
+DataField::Coco::Employee Expense Claims::Claim Line::Claim Line Recipient Identifier
 
 ### Data Structure
 DataStructure::Coco::Employee Expense Claims::Claim Line
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -10433,19 +10987,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ClaimLineEvidenceIdentifier
+Claim Line Evidence Identifier
 
 ### Qualified Name
-DataField::Coco::Employee Expense Claims::Claim Line::ClaimLineEvidenceIdentifier
+DataField::Coco::Employee Expense Claims::Claim Line::Claim Line Evidence Identifier
 
 ### Description
 The receipt or other evidence attached.
 
 ### Data Type
 string
-
-### Position
-8
 
 ### Is Nullable
 true
@@ -10467,10 +11018,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Employee Expense Claims::Claim Line::ClaimLineEvidenceIdentifier
+DataField::Coco::Employee Expense Claims::Claim Line::Claim Line Evidence Identifier
 
 ### Data Structure
 DataStructure::Coco::Employee Expense Claims::Claim Line
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -10489,7 +11046,7 @@ DataStructure::Coco::Employee Expense Claims::Claimant Cost Centre
 One row per worker per cost centre they may claim against, with the approver and spending authority.
 
 ### Namespace Path
-coco_pharma.employee_expense_claims
+coco_data_hub.employee_expense_claims
 
 ### Version Identifier
 1.0
@@ -10518,19 +11075,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WorkerPseudonymIdentifier
+Worker Pseudonym Identifier
 
 ### Qualified Name
-DataField::Coco::Employee Expense Claims::Claimant Cost Centre::WorkerPseudonymIdentifier
+DataField::Coco::Employee Expense Claims::Claimant Cost Centre::Worker Pseudonym Identifier
 
 ### Description
 The worker.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -10552,10 +11106,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Employee Expense Claims::Claimant Cost Centre::WorkerPseudonymIdentifier
+DataField::Coco::Employee Expense Claims::Claimant Cost Centre::Worker Pseudonym Identifier
 
 ### Data Structure
 DataStructure::Coco::Employee Expense Claims::Claimant Cost Centre
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -10565,19 +11125,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CostCentreCode
+Cost Centre Code
 
 ### Qualified Name
-DataField::Coco::Employee Expense Claims::Claimant Cost Centre::CostCentreCode
+DataField::Coco::Employee Expense Claims::Claimant Cost Centre::Cost Centre Code
 
 ### Description
 The cost centre.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -10599,10 +11156,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Employee Expense Claims::Claimant Cost Centre::CostCentreCode
+DataField::Coco::Employee Expense Claims::Claimant Cost Centre::Cost Centre Code
 
 ### Data Structure
 DataStructure::Coco::Employee Expense Claims::Claimant Cost Centre
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -10612,19 +11175,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ClaimApproverIdentifier
+Claim Approver Identifier
 
 ### Qualified Name
-DataField::Coco::Employee Expense Claims::Claimant Cost Centre::ClaimApproverIdentifier
+DataField::Coco::Employee Expense Claims::Claimant Cost Centre::Claim Approver Identifier
 
 ### Description
 The approver for the worker's claims.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -10646,10 +11206,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Employee Expense Claims::Claimant Cost Centre::ClaimApproverIdentifier
+DataField::Coco::Employee Expense Claims::Claimant Cost Centre::Claim Approver Identifier
 
 ### Data Structure
 DataStructure::Coco::Employee Expense Claims::Claimant Cost Centre
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -10659,19 +11225,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ClaimMaximumAmount
+Claim Maximum Amount
 
 ### Qualified Name
-DataField::Coco::Employee Expense Claims::Claimant Cost Centre::ClaimMaximumAmount
+DataField::Coco::Employee Expense Claims::Claimant Cost Centre::Claim Maximum Amount
 
 ### Description
 The spending authority applying to the worker.
 
 ### Data Type
 bigdecimal
-
-### Position
-4
 
 ### Is Nullable
 true
@@ -10690,10 +11253,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Employee Expense Claims::Claimant Cost Centre::ClaimMaximumAmount
+DataField::Coco::Employee Expense Claims::Claimant Cost Centre::Claim Maximum Amount
 
 ### Data Structure
 DataStructure::Coco::Employee Expense Claims::Claimant Cost Centre
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -10712,10 +11281,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: employee_expense_claims
 - schemaDescription: The claims employees submit for expenses incurred, line by line with their supporting evidence, and the record of which workers may claim against which cost centres. It is the entry point of the expense payment chain and a source of transfers of value that disclosure must catch.
 

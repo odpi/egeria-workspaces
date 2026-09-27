@@ -22,8 +22,8 @@ Products of physical stock handling: goods receipts, quarantine dispositions, th
 For every product this file:
 
 1. creates the **digital product** and adds it to the `Warehouse` folder of the catalog;
-2. creates its **data spec** and attaches it with a `DataDescription` relationship, then the **data structures**, each added to the spec, and the **data fields**, each linked to its structure with a `MemberDataField` relationship, named to the [Data Field Naming](../data-field-naming/README.md) standard;
-3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, as a member of the product.  The schema is named after the product, in the `coco_pharma` database on `Coco PostgreSQL Server 1`.
+2. creates its **data spec** and attaches it with a `DataDescription` relationship, then the **data structures**, each added to the spec, and the **data fields**, each linked to its structure with a `MemberDataField` relationship, its position and coverage category set on that relationship - `IDENTIFIER` for the fields that identify a row of the structure, `CORE_DETAIL` for the rest - named to the [Data Field Naming](../data-field-naming/README.md) standard;
+3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, as a member of the product.  The schema is named after the product, in the `coco_data_hub` database on `Coco PostgreSQL Server 1`.
 
 4 products, 9 data structures, 60 data fields.  This file loads after `catalog.md`.
 
@@ -145,7 +145,7 @@ DataStructure::Coco::Goods Receipts::Goods Receipt
 One row per lot received.
 
 ### Namespace Path
-coco_pharma.goods_receipts
+coco_data_hub.goods_receipts
 
 ### Version Identifier
 1.0
@@ -174,19 +174,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-GoodsReceiptIdentifier
+Goods Receipt Identifier
 
 ### Qualified Name
-DataField::Coco::Goods Receipts::Goods Receipt::GoodsReceiptIdentifier
+DataField::Coco::Goods Receipts::Goods Receipt::Goods Receipt Identifier
 
 ### Description
 The receipt.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -208,10 +205,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Receipts::Goods Receipt::GoodsReceiptIdentifier
+DataField::Coco::Goods Receipts::Goods Receipt::Goods Receipt Identifier
 
 ### Data Structure
 DataStructure::Coco::Goods Receipts::Goods Receipt
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -221,19 +224,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-OrderIdentifier
+Order Identifier
 
 ### Qualified Name
-DataField::Coco::Goods Receipts::Goods Receipt::OrderIdentifier
+DataField::Coco::Goods Receipts::Goods Receipt::Order Identifier
 
 ### Description
 The purchase order.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -255,10 +255,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Receipts::Goods Receipt::OrderIdentifier
+DataField::Coco::Goods Receipts::Goods Receipt::Order Identifier
 
 ### Data Structure
 DataStructure::Coco::Goods Receipts::Goods Receipt
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -268,19 +274,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SupplierIdentifier
+Supplier Identifier
 
 ### Qualified Name
-DataField::Coco::Goods Receipts::Goods Receipt::SupplierIdentifier
+DataField::Coco::Goods Receipts::Goods Receipt::Supplier Identifier
 
 ### Description
 The supplier.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -302,10 +305,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Receipts::Goods Receipt::SupplierIdentifier
+DataField::Coco::Goods Receipts::Goods Receipt::Supplier Identifier
 
 ### Data Structure
 DataStructure::Coco::Goods Receipts::Goods Receipt
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -315,19 +324,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RawMaterialCode
+Raw Material Code
 
 ### Qualified Name
-DataField::Coco::Goods Receipts::Goods Receipt::RawMaterialCode
+DataField::Coco::Goods Receipts::Goods Receipt::Raw Material Code
 
 ### Description
 The material.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -349,10 +355,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Receipts::Goods Receipt::RawMaterialCode
+DataField::Coco::Goods Receipts::Goods Receipt::Raw Material Code
 
 ### Data Structure
 DataStructure::Coco::Goods Receipts::Goods Receipt
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -362,19 +374,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LotIdentifier
+Lot Identifier
 
 ### Qualified Name
-DataField::Coco::Goods Receipts::Goods Receipt::LotIdentifier
+DataField::Coco::Goods Receipts::Goods Receipt::Lot Identifier
 
 ### Description
 The supplier's lot.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -396,10 +405,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Receipts::Goods Receipt::LotIdentifier
+DataField::Coco::Goods Receipts::Goods Receipt::Lot Identifier
 
 ### Data Structure
 DataStructure::Coco::Goods Receipts::Goods Receipt
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -409,19 +424,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-GoodsReceiptDate
+Goods Receipt Date
 
 ### Qualified Name
-DataField::Coco::Goods Receipts::Goods Receipt::GoodsReceiptDate
+DataField::Coco::Goods Receipts::Goods Receipt::Goods Receipt Date
 
 ### Description
 When received.
 
 ### Data Type
 date
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -440,10 +452,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Receipts::Goods Receipt::GoodsReceiptDate
+DataField::Coco::Goods Receipts::Goods Receipt::Goods Receipt Date
 
 ### Data Structure
 DataStructure::Coco::Goods Receipts::Goods Receipt
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -453,19 +471,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-GoodsReceiptQuantity
+Goods Receipt Quantity
 
 ### Qualified Name
-DataField::Coco::Goods Receipts::Goods Receipt::GoodsReceiptQuantity
+DataField::Coco::Goods Receipts::Goods Receipt::Goods Receipt Quantity
 
 ### Description
 The quantity received.
 
 ### Data Type
 int
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -484,10 +499,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Receipts::Goods Receipt::GoodsReceiptQuantity
+DataField::Coco::Goods Receipts::Goods Receipt::Goods Receipt Quantity
 
 ### Data Structure
 DataStructure::Coco::Goods Receipts::Goods Receipt
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -497,19 +518,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WarehouseCode
+Warehouse Code
 
 ### Qualified Name
-DataField::Coco::Goods Receipts::Goods Receipt::WarehouseCode
+DataField::Coco::Goods Receipts::Goods Receipt::Warehouse Code
 
 ### Description
 The receiving location.
 
 ### Data Type
 string
-
-### Position
-8
 
 ### Is Nullable
 false
@@ -531,10 +549,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Receipts::Goods Receipt::WarehouseCode
+DataField::Coco::Goods Receipts::Goods Receipt::Warehouse Code
 
 ### Data Structure
 DataStructure::Coco::Goods Receipts::Goods Receipt
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -544,19 +568,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CertificateIdentifier
+Certificate Identifier
 
 ### Qualified Name
-DataField::Coco::Goods Receipts::Goods Receipt::CertificateIdentifier
+DataField::Coco::Goods Receipts::Goods Receipt::Certificate Identifier
 
 ### Description
 The certificate that accompanied the lot.
 
 ### Data Type
 string
-
-### Position
-9
 
 ### Is Nullable
 true
@@ -578,10 +599,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Receipts::Goods Receipt::CertificateIdentifier
+DataField::Coco::Goods Receipts::Goods Receipt::Certificate Identifier
 
 ### Data Structure
 DataStructure::Coco::Goods Receipts::Goods Receipt
+
+### Position
+9
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 9
@@ -600,7 +627,7 @@ DataStructure::Coco::Goods Receipts::Receipt Inspection
 One row per inspection of a received lot.
 
 ### Namespace Path
-coco_pharma.goods_receipts
+coco_data_hub.goods_receipts
 
 ### Version Identifier
 1.0
@@ -629,19 +656,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-GoodsReceiptIdentifier
+Goods Receipt Identifier
 
 ### Qualified Name
-DataField::Coco::Goods Receipts::Receipt Inspection::GoodsReceiptIdentifier
+DataField::Coco::Goods Receipts::Receipt Inspection::Goods Receipt Identifier
 
 ### Description
 The receipt inspected.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -663,10 +687,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Receipts::Receipt Inspection::GoodsReceiptIdentifier
+DataField::Coco::Goods Receipts::Receipt Inspection::Goods Receipt Identifier
 
 ### Data Structure
 DataStructure::Coco::Goods Receipts::Receipt Inspection
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -676,19 +706,63 @@ ___
 ## Create Data Field
 
 ### Display Name
-GoodsReceiptInspectorIdentifier
+Goods Receipt Inspection Date
 
 ### Qualified Name
-DataField::Coco::Goods Receipts::Receipt Inspection::GoodsReceiptInspectorIdentifier
+DataField::Coco::Goods Receipts::Receipt Inspection::Goods Receipt Inspection Date
+
+### Description
+When.
+
+### Data Type
+date
+
+### Is Nullable
+false
+
+### Minimum Cardinality
+1
+
+### Version Identifier
+1.0
+
+### Content Status
+ACTIVE
+
+___
+
+## Link Data Field to Data Structure
+
+### Data Field
+DataField::Coco::Goods Receipts::Receipt Inspection::Goods Receipt Inspection Date
+
+### Data Structure
+DataStructure::Coco::Goods Receipts::Receipt Inspection
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
+
+### Label
+field 2
+
+___
+
+## Create Data Field
+
+### Display Name
+Goods Receipt Inspector Identifier
+
+### Qualified Name
+DataField::Coco::Goods Receipts::Receipt Inspection::Goods Receipt Inspector Identifier
 
 ### Description
 Who inspected.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -710,54 +784,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Receipts::Receipt Inspection::GoodsReceiptInspectorIdentifier
+DataField::Coco::Goods Receipts::Receipt Inspection::Goods Receipt Inspector Identifier
 
 ### Data Structure
 DataStructure::Coco::Goods Receipts::Receipt Inspection
-
-### Label
-field 2
-
-___
-
-## Create Data Field
-
-### Display Name
-GoodsReceiptInspectionDate
-
-### Qualified Name
-DataField::Coco::Goods Receipts::Receipt Inspection::GoodsReceiptInspectionDate
-
-### Description
-When.
-
-### Data Type
-date
 
 ### Position
 3
 
-### Is Nullable
-false
-
-### Minimum Cardinality
-1
-
-### Version Identifier
-1.0
-
-### Content Status
-ACTIVE
-
-___
-
-## Link Data Field to Data Structure
-
-### Data Field
-DataField::Coco::Goods Receipts::Receipt Inspection::GoodsReceiptInspectionDate
-
-### Data Structure
-DataStructure::Coco::Goods Receipts::Receipt Inspection
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -767,19 +803,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-GoodsReceiptInspectionStatus
+Goods Receipt Inspection Status
 
 ### Qualified Name
-DataField::Coco::Goods Receipts::Receipt Inspection::GoodsReceiptInspectionStatus
+DataField::Coco::Goods Receipts::Receipt Inspection::Goods Receipt Inspection Status
 
 ### Description
 Accepted, rejected or held.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -801,10 +834,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Receipts::Receipt Inspection::GoodsReceiptInspectionStatus
+DataField::Coco::Goods Receipts::Receipt Inspection::Goods Receipt Inspection Status
 
 ### Data Structure
 DataStructure::Coco::Goods Receipts::Receipt Inspection
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -814,19 +853,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-GoodsReceiptInspectionNotes
+Goods Receipt Inspection Notes
 
 ### Qualified Name
-DataField::Coco::Goods Receipts::Receipt Inspection::GoodsReceiptInspectionNotes
+DataField::Coco::Goods Receipts::Receipt Inspection::Goods Receipt Inspection Notes
 
 ### Description
 What was found.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -845,10 +881,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Receipts::Receipt Inspection::GoodsReceiptInspectionNotes
+DataField::Coco::Goods Receipts::Receipt Inspection::Goods Receipt Inspection Notes
 
 ### Data Structure
 DataStructure::Coco::Goods Receipts::Receipt Inspection
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -867,10 +909,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: goods_receipts
 - schemaDescription: What physically arrived: each lot of material received, checked against the order and the supplier's documentation, and what the inspection found. It is the point at which a supplier's claim becomes the company's record.
 
@@ -997,7 +1039,7 @@ DataStructure::Coco::Material Quarantine Dispositions::Quarantine Record
 One row per lot placed in quarantine.
 
 ### Namespace Path
-coco_pharma.material_quarantine_dispositions
+coco_data_hub.material_quarantine_dispositions
 
 ### Version Identifier
 1.0
@@ -1026,19 +1068,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LotIdentifier
+Lot Identifier
 
 ### Qualified Name
-DataField::Coco::Material Quarantine Dispositions::Quarantine Record::LotIdentifier
+DataField::Coco::Material Quarantine Dispositions::Quarantine Record::Lot Identifier
 
 ### Description
 The lot.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -1060,10 +1099,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Material Quarantine Dispositions::Quarantine Record::LotIdentifier
+DataField::Coco::Material Quarantine Dispositions::Quarantine Record::Lot Identifier
 
 ### Data Structure
 DataStructure::Coco::Material Quarantine Dispositions::Quarantine Record
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -1073,19 +1118,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RawMaterialCode
+Raw Material Code
 
 ### Qualified Name
-DataField::Coco::Material Quarantine Dispositions::Quarantine Record::RawMaterialCode
+DataField::Coco::Material Quarantine Dispositions::Quarantine Record::Raw Material Code
 
 ### Description
 The material.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -1107,10 +1149,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Material Quarantine Dispositions::Quarantine Record::RawMaterialCode
+DataField::Coco::Material Quarantine Dispositions::Quarantine Record::Raw Material Code
 
 ### Data Structure
 DataStructure::Coco::Material Quarantine Dispositions::Quarantine Record
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -1120,19 +1168,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-GoodsReceiptIdentifier
+Goods Receipt Identifier
 
 ### Qualified Name
-DataField::Coco::Material Quarantine Dispositions::Quarantine Record::GoodsReceiptIdentifier
+DataField::Coco::Material Quarantine Dispositions::Quarantine Record::Goods Receipt Identifier
 
 ### Description
 The receipt that placed it.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -1154,10 +1199,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Material Quarantine Dispositions::Quarantine Record::GoodsReceiptIdentifier
+DataField::Coco::Material Quarantine Dispositions::Quarantine Record::Goods Receipt Identifier
 
 ### Data Structure
 DataStructure::Coco::Material Quarantine Dispositions::Quarantine Record
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -1167,19 +1218,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LotQuarantineStartTimestamp
+Lot Quarantine Start Timestamp
 
 ### Qualified Name
-DataField::Coco::Material Quarantine Dispositions::Quarantine Record::LotQuarantineStartTimestamp
+DataField::Coco::Material Quarantine Dispositions::Quarantine Record::Lot Quarantine Start Timestamp
 
 ### Description
 When quarantine began.
 
 ### Data Type
 date
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -1198,10 +1246,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Material Quarantine Dispositions::Quarantine Record::LotQuarantineStartTimestamp
+DataField::Coco::Material Quarantine Dispositions::Quarantine Record::Lot Quarantine Start Timestamp
 
 ### Data Structure
 DataStructure::Coco::Material Quarantine Dispositions::Quarantine Record
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -1211,19 +1265,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WarehouseCode
+Warehouse Code
 
 ### Qualified Name
-DataField::Coco::Material Quarantine Dispositions::Quarantine Record::WarehouseCode
+DataField::Coco::Material Quarantine Dispositions::Quarantine Record::Warehouse Code
 
 ### Description
 The quarantine location.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -1245,10 +1296,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Material Quarantine Dispositions::Quarantine Record::WarehouseCode
+DataField::Coco::Material Quarantine Dispositions::Quarantine Record::Warehouse Code
 
 ### Data Structure
 DataStructure::Coco::Material Quarantine Dispositions::Quarantine Record
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -1258,19 +1315,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LotQuantity
+Lot Quantity
 
 ### Qualified Name
-DataField::Coco::Material Quarantine Dispositions::Quarantine Record::LotQuantity
+DataField::Coco::Material Quarantine Dispositions::Quarantine Record::Lot Quantity
 
 ### Description
 The quantity held.
 
 ### Data Type
 int
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -1289,10 +1343,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Material Quarantine Dispositions::Quarantine Record::LotQuantity
+DataField::Coco::Material Quarantine Dispositions::Quarantine Record::Lot Quantity
 
 ### Data Structure
 DataStructure::Coco::Material Quarantine Dispositions::Quarantine Record
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -1302,19 +1362,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SampleIdentifier
+Sample Identifier
 
 ### Qualified Name
-DataField::Coco::Material Quarantine Dispositions::Quarantine Record::SampleIdentifier
+DataField::Coco::Material Quarantine Dispositions::Quarantine Record::Sample Identifier
 
 ### Description
 The sample sent for incoming testing.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 true
@@ -1336,10 +1393,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Material Quarantine Dispositions::Quarantine Record::SampleIdentifier
+DataField::Coco::Material Quarantine Dispositions::Quarantine Record::Sample Identifier
 
 ### Data Structure
 DataStructure::Coco::Material Quarantine Dispositions::Quarantine Record
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -1349,19 +1412,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LotQuarantineStatus
+Lot Quarantine Status
 
 ### Qualified Name
-DataField::Coco::Material Quarantine Dispositions::Quarantine Record::LotQuarantineStatus
+DataField::Coco::Material Quarantine Dispositions::Quarantine Record::Lot Quarantine Status
 
 ### Description
 Held, released or rejected.
 
 ### Data Type
 string
-
-### Position
-8
 
 ### Is Nullable
 false
@@ -1383,10 +1443,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Material Quarantine Dispositions::Quarantine Record::LotQuarantineStatus
+DataField::Coco::Material Quarantine Dispositions::Quarantine Record::Lot Quarantine Status
 
 ### Data Structure
 DataStructure::Coco::Material Quarantine Dispositions::Quarantine Record
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -1405,7 +1471,7 @@ DataStructure::Coco::Material Quarantine Dispositions::Release Disposition
 One row per disposition decision on a quarantined lot.
 
 ### Namespace Path
-coco_pharma.material_quarantine_dispositions
+coco_data_hub.material_quarantine_dispositions
 
 ### Version Identifier
 1.0
@@ -1434,19 +1500,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LotIdentifier
+Lot Identifier
 
 ### Qualified Name
-DataField::Coco::Material Quarantine Dispositions::Release Disposition::LotIdentifier
+DataField::Coco::Material Quarantine Dispositions::Release Disposition::Lot Identifier
 
 ### Description
 The lot.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -1468,10 +1531,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Material Quarantine Dispositions::Release Disposition::LotIdentifier
+DataField::Coco::Material Quarantine Dispositions::Release Disposition::Lot Identifier
 
 ### Data Structure
 DataStructure::Coco::Material Quarantine Dispositions::Release Disposition
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -1481,19 +1550,63 @@ ___
 ## Create Data Field
 
 ### Display Name
-LotDispositionStatus
+Lot Disposition Timestamp
 
 ### Qualified Name
-DataField::Coco::Material Quarantine Dispositions::Release Disposition::LotDispositionStatus
+DataField::Coco::Material Quarantine Dispositions::Release Disposition::Lot Disposition Timestamp
+
+### Description
+When decided.
+
+### Data Type
+date
+
+### Is Nullable
+false
+
+### Minimum Cardinality
+1
+
+### Version Identifier
+1.0
+
+### Content Status
+ACTIVE
+
+___
+
+## Link Data Field to Data Structure
+
+### Data Field
+DataField::Coco::Material Quarantine Dispositions::Release Disposition::Lot Disposition Timestamp
+
+### Data Structure
+DataStructure::Coco::Material Quarantine Dispositions::Release Disposition
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
+
+### Label
+field 2
+
+___
+
+## Create Data Field
+
+### Display Name
+Lot Disposition Status
+
+### Qualified Name
+DataField::Coco::Material Quarantine Dispositions::Release Disposition::Lot Disposition Status
 
 ### Description
 Released for use or rejected.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -1515,54 +1628,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Material Quarantine Dispositions::Release Disposition::LotDispositionStatus
+DataField::Coco::Material Quarantine Dispositions::Release Disposition::Lot Disposition Status
 
 ### Data Structure
 DataStructure::Coco::Material Quarantine Dispositions::Release Disposition
-
-### Label
-field 2
-
-___
-
-## Create Data Field
-
-### Display Name
-LotDispositionTimestamp
-
-### Qualified Name
-DataField::Coco::Material Quarantine Dispositions::Release Disposition::LotDispositionTimestamp
-
-### Description
-When decided.
-
-### Data Type
-date
 
 ### Position
 3
 
-### Is Nullable
-false
-
-### Minimum Cardinality
-1
-
-### Version Identifier
-1.0
-
-### Content Status
-ACTIVE
-
-___
-
-## Link Data Field to Data Structure
-
-### Data Field
-DataField::Coco::Material Quarantine Dispositions::Release Disposition::LotDispositionTimestamp
-
-### Data Structure
-DataStructure::Coco::Material Quarantine Dispositions::Release Disposition
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -1572,19 +1647,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TestResultIdentifier
+Test Result Identifier
 
 ### Qualified Name
-DataField::Coco::Material Quarantine Dispositions::Release Disposition::TestResultIdentifier
+DataField::Coco::Material Quarantine Dispositions::Release Disposition::Test Result Identifier
 
 ### Description
 The laboratory result the decision rests on.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -1606,10 +1678,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Material Quarantine Dispositions::Release Disposition::TestResultIdentifier
+DataField::Coco::Material Quarantine Dispositions::Release Disposition::Test Result Identifier
 
 ### Data Structure
 DataStructure::Coco::Material Quarantine Dispositions::Release Disposition
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -1619,19 +1697,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LotExpiryDate
+Lot Expiry Date
 
 ### Qualified Name
-DataField::Coco::Material Quarantine Dispositions::Release Disposition::LotExpiryDate
+DataField::Coco::Material Quarantine Dispositions::Release Disposition::Lot Expiry Date
 
 ### Description
 The expiry assigned to the released lot.
 
 ### Data Type
 date
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -1650,10 +1725,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Material Quarantine Dispositions::Release Disposition::LotExpiryDate
+DataField::Coco::Material Quarantine Dispositions::Release Disposition::Lot Expiry Date
 
 ### Data Structure
 DataStructure::Coco::Material Quarantine Dispositions::Release Disposition
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -1663,19 +1744,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LotReleasedQuantity
+Lot Released Quantity
 
 ### Qualified Name
-DataField::Coco::Material Quarantine Dispositions::Release Disposition::LotReleasedQuantity
+DataField::Coco::Material Quarantine Dispositions::Release Disposition::Lot Released Quantity
 
 ### Description
 The quantity released.
 
 ### Data Type
 int
-
-### Position
-6
 
 ### Is Nullable
 true
@@ -1694,10 +1772,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Material Quarantine Dispositions::Release Disposition::LotReleasedQuantity
+DataField::Coco::Material Quarantine Dispositions::Release Disposition::Lot Released Quantity
 
 ### Data Structure
 DataStructure::Coco::Material Quarantine Dispositions::Release Disposition
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -1716,10 +1800,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: material_quarantine_dispositions
 - schemaDescription: Each lot held in quarantine, the tests requested for it, and the disposition that released it for use or rejected it. It is a system-enforced gate rather than a procedural one, because the failure it prevents is discovered in a finished batch.
 
@@ -1846,7 +1930,7 @@ DataStructure::Coco::Goods Inventory Stock::Stock Position
 One row per material or product per location.
 
 ### Namespace Path
-coco_pharma.goods_inventory_stock
+coco_data_hub.goods_inventory_stock
 
 ### Version Identifier
 1.0
@@ -1875,19 +1959,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductCode
+Product Code
 
 ### Qualified Name
-DataField::Coco::Goods Inventory Stock::Stock Position::ProductCode
+DataField::Coco::Goods Inventory Stock::Stock Position::Product Code
 
 ### Description
 The material or product.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -1909,10 +1990,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Inventory Stock::Stock Position::ProductCode
+DataField::Coco::Goods Inventory Stock::Stock Position::Product Code
 
 ### Data Structure
 DataStructure::Coco::Goods Inventory Stock::Stock Position
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -1922,19 +2009,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WarehouseCode
+Warehouse Code
 
 ### Qualified Name
-DataField::Coco::Goods Inventory Stock::Stock Position::WarehouseCode
+DataField::Coco::Goods Inventory Stock::Stock Position::Warehouse Code
 
 ### Description
 The location.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -1956,10 +2040,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Inventory Stock::Stock Position::WarehouseCode
+DataField::Coco::Goods Inventory Stock::Stock Position::Warehouse Code
 
 ### Data Structure
 DataStructure::Coco::Goods Inventory Stock::Stock Position
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -1969,19 +2059,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LotIdentifier
+Lot Identifier
 
 ### Qualified Name
-DataField::Coco::Goods Inventory Stock::Stock Position::LotIdentifier
+DataField::Coco::Goods Inventory Stock::Stock Position::Lot Identifier
 
 ### Description
 The lot, where stock is lot-tracked.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 true
@@ -2003,10 +2090,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Inventory Stock::Stock Position::LotIdentifier
+DataField::Coco::Goods Inventory Stock::Stock Position::Lot Identifier
 
 ### Data Structure
 DataStructure::Coco::Goods Inventory Stock::Stock Position
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -2016,19 +2109,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-StockLevel
+Stock Level
 
 ### Qualified Name
-DataField::Coco::Goods Inventory Stock::Stock Position::StockLevel
+DataField::Coco::Goods Inventory Stock::Stock Position::Stock Level
 
 ### Description
 Quantity on hand.
 
 ### Data Type
 int
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -2047,10 +2137,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Inventory Stock::Stock Position::StockLevel
+DataField::Coco::Goods Inventory Stock::Stock Position::Stock Level
 
 ### Data Structure
 DataStructure::Coco::Goods Inventory Stock::Stock Position
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -2060,19 +2156,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-StockMinimumLevel
+Stock Minimum Level
 
 ### Qualified Name
-DataField::Coco::Goods Inventory Stock::Stock Position::StockMinimumLevel
+DataField::Coco::Goods Inventory Stock::Stock Position::Stock Minimum Level
 
 ### Description
 The reorder level.
 
 ### Data Type
 int
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -2091,10 +2184,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Inventory Stock::Stock Position::StockMinimumLevel
+DataField::Coco::Goods Inventory Stock::Stock Position::Stock Minimum Level
 
 ### Data Structure
 DataStructure::Coco::Goods Inventory Stock::Stock Position
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -2104,19 +2203,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-StockMaximumLevel
+Stock Maximum Level
 
 ### Qualified Name
-DataField::Coco::Goods Inventory Stock::Stock Position::StockMaximumLevel
+DataField::Coco::Goods Inventory Stock::Stock Position::Stock Maximum Level
 
 ### Description
 The maximum holding.
 
 ### Data Type
 int
-
-### Position
-6
 
 ### Is Nullable
 true
@@ -2135,10 +2231,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Inventory Stock::Stock Position::StockMaximumLevel
+DataField::Coco::Goods Inventory Stock::Stock Position::Stock Maximum Level
 
 ### Data Structure
 DataStructure::Coco::Goods Inventory Stock::Stock Position
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -2148,19 +2250,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-StockCurrentTimestamp
+Stock Current Timestamp
 
 ### Qualified Name
-DataField::Coco::Goods Inventory Stock::Stock Position::StockCurrentTimestamp
+DataField::Coco::Goods Inventory Stock::Stock Position::Stock Current Timestamp
 
 ### Description
 When the position was last updated.
 
 ### Data Type
 date
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -2179,10 +2278,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Inventory Stock::Stock Position::StockCurrentTimestamp
+DataField::Coco::Goods Inventory Stock::Stock Position::Stock Current Timestamp
 
 ### Data Structure
 DataStructure::Coco::Goods Inventory Stock::Stock Position
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -2201,7 +2306,7 @@ DataStructure::Coco::Goods Inventory Stock::Stock Movement
 One row per movement of stock into, out of or between locations.
 
 ### Namespace Path
-coco_pharma.goods_inventory_stock
+coco_data_hub.goods_inventory_stock
 
 ### Version Identifier
 1.0
@@ -2230,19 +2335,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-StockMovementIdentifier
+Stock Movement Identifier
 
 ### Qualified Name
-DataField::Coco::Goods Inventory Stock::Stock Movement::StockMovementIdentifier
+DataField::Coco::Goods Inventory Stock::Stock Movement::Stock Movement Identifier
 
 ### Description
 The movement.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -2264,10 +2366,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Inventory Stock::Stock Movement::StockMovementIdentifier
+DataField::Coco::Goods Inventory Stock::Stock Movement::Stock Movement Identifier
 
 ### Data Structure
 DataStructure::Coco::Goods Inventory Stock::Stock Movement
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -2277,19 +2385,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductCode
+Product Code
 
 ### Qualified Name
-DataField::Coco::Goods Inventory Stock::Stock Movement::ProductCode
+DataField::Coco::Goods Inventory Stock::Stock Movement::Product Code
 
 ### Description
 The material or product.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -2311,10 +2416,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Inventory Stock::Stock Movement::ProductCode
+DataField::Coco::Goods Inventory Stock::Stock Movement::Product Code
 
 ### Data Structure
 DataStructure::Coco::Goods Inventory Stock::Stock Movement
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -2324,19 +2435,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LotIdentifier
+Lot Identifier
 
 ### Qualified Name
-DataField::Coco::Goods Inventory Stock::Stock Movement::LotIdentifier
+DataField::Coco::Goods Inventory Stock::Stock Movement::Lot Identifier
 
 ### Description
 The lot.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 true
@@ -2358,10 +2466,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Inventory Stock::Stock Movement::LotIdentifier
+DataField::Coco::Goods Inventory Stock::Stock Movement::Lot Identifier
 
 ### Data Structure
 DataStructure::Coco::Goods Inventory Stock::Stock Movement
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -2371,19 +2485,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-StockMovementType
+Stock Movement Type
 
 ### Qualified Name
-DataField::Coco::Goods Inventory Stock::Stock Movement::StockMovementType
+DataField::Coco::Goods Inventory Stock::Stock Movement::Stock Movement Type
 
 ### Description
 Receipt, issue, transfer, adjustment or shipment.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -2405,10 +2516,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Inventory Stock::Stock Movement::StockMovementType
+DataField::Coco::Goods Inventory Stock::Stock Movement::Stock Movement Type
 
 ### Data Structure
 DataStructure::Coco::Goods Inventory Stock::Stock Movement
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -2418,19 +2535,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-StockMovementQuantity
+Stock Movement Quantity
 
 ### Qualified Name
-DataField::Coco::Goods Inventory Stock::Stock Movement::StockMovementQuantity
+DataField::Coco::Goods Inventory Stock::Stock Movement::Stock Movement Quantity
 
 ### Description
 The quantity moved.
 
 ### Data Type
 int
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -2449,10 +2563,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Inventory Stock::Stock Movement::StockMovementQuantity
+DataField::Coco::Goods Inventory Stock::Stock Movement::Stock Movement Quantity
 
 ### Data Structure
 DataStructure::Coco::Goods Inventory Stock::Stock Movement
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -2462,19 +2582,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-StockMovementTimestamp
+Stock Movement Timestamp
 
 ### Qualified Name
-DataField::Coco::Goods Inventory Stock::Stock Movement::StockMovementTimestamp
+DataField::Coco::Goods Inventory Stock::Stock Movement::Stock Movement Timestamp
 
 ### Description
 When.
 
 ### Data Type
 date
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -2493,10 +2610,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Inventory Stock::Stock Movement::StockMovementTimestamp
+DataField::Coco::Goods Inventory Stock::Stock Movement::Stock Movement Timestamp
 
 ### Data Structure
 DataStructure::Coco::Goods Inventory Stock::Stock Movement
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -2506,19 +2629,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WarehouseCode
+Warehouse Code
 
 ### Qualified Name
-DataField::Coco::Goods Inventory Stock::Stock Movement::WarehouseCode
+DataField::Coco::Goods Inventory Stock::Stock Movement::Warehouse Code
 
 ### Description
 The location affected.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -2540,10 +2660,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Inventory Stock::Stock Movement::WarehouseCode
+DataField::Coco::Goods Inventory Stock::Stock Movement::Warehouse Code
 
 ### Data Structure
 DataStructure::Coco::Goods Inventory Stock::Stock Movement
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -2562,7 +2688,7 @@ DataStructure::Coco::Goods Inventory Stock::Material Issue
 One row per issue of material to a manufacturing batch.
 
 ### Namespace Path
-coco_pharma.goods_inventory_stock
+coco_data_hub.goods_inventory_stock
 
 ### Version Identifier
 1.0
@@ -2591,19 +2717,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-StockMovementIdentifier
+Stock Movement Identifier
 
 ### Qualified Name
-DataField::Coco::Goods Inventory Stock::Material Issue::StockMovementIdentifier
+DataField::Coco::Goods Inventory Stock::Material Issue::Stock Movement Identifier
 
 ### Description
 The issue movement.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -2625,10 +2748,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Inventory Stock::Material Issue::StockMovementIdentifier
+DataField::Coco::Goods Inventory Stock::Material Issue::Stock Movement Identifier
 
 ### Data Structure
 DataStructure::Coco::Goods Inventory Stock::Material Issue
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -2638,19 +2767,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-BatchIdentifier
+Batch Identifier
 
 ### Qualified Name
-DataField::Coco::Goods Inventory Stock::Material Issue::BatchIdentifier
+DataField::Coco::Goods Inventory Stock::Material Issue::Batch Identifier
 
 ### Description
 The batch the material was issued to.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -2672,10 +2798,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Inventory Stock::Material Issue::BatchIdentifier
+DataField::Coco::Goods Inventory Stock::Material Issue::Batch Identifier
 
 ### Data Structure
 DataStructure::Coco::Goods Inventory Stock::Material Issue
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -2685,19 +2817,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RawMaterialCode
+Raw Material Code
 
 ### Qualified Name
-DataField::Coco::Goods Inventory Stock::Material Issue::RawMaterialCode
+DataField::Coco::Goods Inventory Stock::Material Issue::Raw Material Code
 
 ### Description
 The material.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -2719,10 +2848,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Inventory Stock::Material Issue::RawMaterialCode
+DataField::Coco::Goods Inventory Stock::Material Issue::Raw Material Code
 
 ### Data Structure
 DataStructure::Coco::Goods Inventory Stock::Material Issue
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -2732,19 +2867,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LotIdentifier
+Lot Identifier
 
 ### Qualified Name
-DataField::Coco::Goods Inventory Stock::Material Issue::LotIdentifier
+DataField::Coco::Goods Inventory Stock::Material Issue::Lot Identifier
 
 ### Description
 The lot issued.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -2766,10 +2898,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Inventory Stock::Material Issue::LotIdentifier
+DataField::Coco::Goods Inventory Stock::Material Issue::Lot Identifier
 
 ### Data Structure
 DataStructure::Coco::Goods Inventory Stock::Material Issue
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -2779,19 +2917,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-RawMaterialIssuedQuantity
+Raw Material Issued Quantity
 
 ### Qualified Name
-DataField::Coco::Goods Inventory Stock::Material Issue::RawMaterialIssuedQuantity
+DataField::Coco::Goods Inventory Stock::Material Issue::Raw Material Issued Quantity
 
 ### Description
 The quantity issued.
 
 ### Data Type
 int
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -2810,10 +2945,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Inventory Stock::Material Issue::RawMaterialIssuedQuantity
+DataField::Coco::Goods Inventory Stock::Material Issue::Raw Material Issued Quantity
 
 ### Data Structure
 DataStructure::Coco::Goods Inventory Stock::Material Issue
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -2823,19 +2964,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-LotQuarantineStatus
+Lot Quarantine Status
 
 ### Qualified Name
-DataField::Coco::Goods Inventory Stock::Material Issue::LotQuarantineStatus
+DataField::Coco::Goods Inventory Stock::Material Issue::Lot Quarantine Status
 
 ### Description
 The lot's quarantine status at issue.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -2857,10 +2995,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Goods Inventory Stock::Material Issue::LotQuarantineStatus
+DataField::Coco::Goods Inventory Stock::Material Issue::Lot Quarantine Status
 
 ### Data Structure
 DataStructure::Coco::Goods Inventory Stock::Material Issue
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -2879,10 +3023,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: goods_inventory_stock
 - schemaDescription: The stock of materials and finished goods at every location: the current position, the movements that produced it, and the issues of material to manufacturing with their quarantine status. It also carries serialised finished goods once they are commissioned.
 
@@ -3009,7 +3153,7 @@ DataStructure::Coco::Hazardous Material Holdings::Substance Holding
 One row per substance per location.
 
 ### Namespace Path
-coco_pharma.hazardous_material_holdings
+coco_data_hub.hazardous_material_holdings
 
 ### Version Identifier
 1.0
@@ -3038,19 +3182,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SubstanceCode
+Substance Code
 
 ### Qualified Name
-DataField::Coco::Hazardous Material Holdings::Substance Holding::SubstanceCode
+DataField::Coco::Hazardous Material Holdings::Substance Holding::Substance Code
 
 ### Description
 The substance.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -3072,10 +3213,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Hazardous Material Holdings::Substance Holding::SubstanceCode
+DataField::Coco::Hazardous Material Holdings::Substance Holding::Substance Code
 
 ### Data Structure
 DataStructure::Coco::Hazardous Material Holdings::Substance Holding
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -3085,19 +3232,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-WarehouseCode
+Warehouse Code
 
 ### Qualified Name
-DataField::Coco::Hazardous Material Holdings::Substance Holding::WarehouseCode
+DataField::Coco::Hazardous Material Holdings::Substance Holding::Warehouse Code
 
 ### Description
 The location.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -3119,10 +3263,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Hazardous Material Holdings::Substance Holding::WarehouseCode
+DataField::Coco::Hazardous Material Holdings::Substance Holding::Warehouse Code
 
 ### Data Structure
 DataStructure::Coco::Hazardous Material Holdings::Substance Holding
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 2
@@ -3132,19 +3282,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SubstanceQuantity
+Substance Quantity
 
 ### Qualified Name
-DataField::Coco::Hazardous Material Holdings::Substance Holding::SubstanceQuantity
+DataField::Coco::Hazardous Material Holdings::Substance Holding::Substance Quantity
 
 ### Description
 The quantity held.
 
 ### Data Type
 float
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -3163,10 +3310,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Hazardous Material Holdings::Substance Holding::SubstanceQuantity
+DataField::Coco::Hazardous Material Holdings::Substance Holding::Substance Quantity
 
 ### Data Structure
 DataStructure::Coco::Hazardous Material Holdings::Substance Holding
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -3176,19 +3329,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SubstanceUnit
+Substance Unit
 
 ### Qualified Name
-DataField::Coco::Hazardous Material Holdings::Substance Holding::SubstanceUnit
+DataField::Coco::Hazardous Material Holdings::Substance Holding::Substance Unit
 
 ### Description
 The unit of the quantity.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -3210,10 +3360,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Hazardous Material Holdings::Substance Holding::SubstanceUnit
+DataField::Coco::Hazardous Material Holdings::Substance Holding::Substance Unit
 
 ### Data Structure
 DataStructure::Coco::Hazardous Material Holdings::Substance Holding
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -3223,19 +3379,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SubstanceFormDescription
+Substance Form Description
 
 ### Qualified Name
-DataField::Coco::Hazardous Material Holdings::Substance Holding::SubstanceFormDescription
+DataField::Coco::Hazardous Material Holdings::Substance Holding::Substance Form Description
 
 ### Description
 The physical form held, for example powder or solution.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -3254,10 +3407,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Hazardous Material Holdings::Substance Holding::SubstanceFormDescription
+DataField::Coco::Hazardous Material Holdings::Substance Holding::Substance Form Description
 
 ### Data Structure
 DataStructure::Coco::Hazardous Material Holdings::Substance Holding
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -3267,19 +3426,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SubstanceCurrentTimestamp
+Substance Current Timestamp
 
 ### Qualified Name
-DataField::Coco::Hazardous Material Holdings::Substance Holding::SubstanceCurrentTimestamp
+DataField::Coco::Hazardous Material Holdings::Substance Holding::Substance Current Timestamp
 
 ### Description
 When the holding was last updated.
 
 ### Data Type
 date
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -3298,10 +3454,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Hazardous Material Holdings::Substance Holding::SubstanceCurrentTimestamp
+DataField::Coco::Hazardous Material Holdings::Substance Holding::Substance Current Timestamp
 
 ### Data Structure
 DataStructure::Coco::Hazardous Material Holdings::Substance Holding
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -3320,7 +3482,7 @@ DataStructure::Coco::Hazardous Material Holdings::Substance Hazard Data
 One row per substance, its hazard classification.
 
 ### Namespace Path
-coco_pharma.hazardous_material_holdings
+coco_data_hub.hazardous_material_holdings
 
 ### Version Identifier
 1.0
@@ -3349,19 +3511,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SubstanceCode
+Substance Code
 
 ### Qualified Name
-DataField::Coco::Hazardous Material Holdings::Substance Hazard Data::SubstanceCode
+DataField::Coco::Hazardous Material Holdings::Substance Hazard Data::Substance Code
 
 ### Description
 The substance.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -3383,10 +3542,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Hazardous Material Holdings::Substance Hazard Data::SubstanceCode
+DataField::Coco::Hazardous Material Holdings::Substance Hazard Data::Substance Code
 
 ### Data Structure
 DataStructure::Coco::Hazardous Material Holdings::Substance Hazard Data
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -3396,19 +3561,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SubstanceName
+Substance Name
 
 ### Qualified Name
-DataField::Coco::Hazardous Material Holdings::Substance Hazard Data::SubstanceName
+DataField::Coco::Hazardous Material Holdings::Substance Hazard Data::Substance Name
 
 ### Description
 The substance's name.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -3430,10 +3592,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Hazardous Material Holdings::Substance Hazard Data::SubstanceName
+DataField::Coco::Hazardous Material Holdings::Substance Hazard Data::Substance Name
 
 ### Data Structure
 DataStructure::Coco::Hazardous Material Holdings::Substance Hazard Data
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -3443,19 +3611,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SubstanceHazardCode
+Substance Hazard Code
 
 ### Qualified Name
-DataField::Coco::Hazardous Material Holdings::Substance Hazard Data::SubstanceHazardCode
+DataField::Coco::Hazardous Material Holdings::Substance Hazard Data::Substance Hazard Code
 
 ### Description
 The hazard classification.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -3477,10 +3642,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Hazardous Material Holdings::Substance Hazard Data::SubstanceHazardCode
+DataField::Coco::Hazardous Material Holdings::Substance Hazard Data::Substance Hazard Code
 
 ### Data Structure
 DataStructure::Coco::Hazardous Material Holdings::Substance Hazard Data
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -3490,19 +3661,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SubstanceHazardDescription
+Substance Hazard Description
 
 ### Qualified Name
-DataField::Coco::Hazardous Material Holdings::Substance Hazard Data::SubstanceHazardDescription
+DataField::Coco::Hazardous Material Holdings::Substance Hazard Data::Substance Hazard Description
 
 ### Description
 The hazards the substance presents.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -3521,10 +3689,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Hazardous Material Holdings::Substance Hazard Data::SubstanceHazardDescription
+DataField::Coco::Hazardous Material Holdings::Substance Hazard Data::Substance Hazard Description
 
 ### Data Structure
 DataStructure::Coco::Hazardous Material Holdings::Substance Hazard Data
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -3534,19 +3708,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SubstanceBandingCode
+Substance Banding Code
 
 ### Qualified Name
-DataField::Coco::Hazardous Material Holdings::Substance Hazard Data::SubstanceBandingCode
+DataField::Coco::Hazardous Material Holdings::Substance Hazard Data::Substance Banding Code
 
 ### Description
 The occupational exposure band assigned, once assigned.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -3568,10 +3739,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Hazardous Material Holdings::Substance Hazard Data::SubstanceBandingCode
+DataField::Coco::Hazardous Material Holdings::Substance Hazard Data::Substance Banding Code
 
 ### Data Structure
 DataStructure::Coco::Hazardous Material Holdings::Substance Hazard Data
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -3581,19 +3758,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SubstanceTransportCode
+Substance Transport Code
 
 ### Qualified Name
-DataField::Coco::Hazardous Material Holdings::Substance Hazard Data::SubstanceTransportCode
+DataField::Coco::Hazardous Material Holdings::Substance Hazard Data::Substance Transport Code
 
 ### Description
 The transport classification, once derived.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 true
@@ -3615,10 +3789,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Hazardous Material Holdings::Substance Hazard Data::SubstanceTransportCode
+DataField::Coco::Hazardous Material Holdings::Substance Hazard Data::Substance Transport Code
 
 ### Data Structure
 DataStructure::Coco::Hazardous Material Holdings::Substance Hazard Data
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -3637,10 +3817,10 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: hazardous_material_holdings
 - schemaDescription: The hazardous substances the company holds, where and in what quantity, with the hazard data for each. It serves occupational health, dangerous goods transport and physical inventory tracking, which is exactly the kind of fact a supply chain view surfaces and a system inventory does not.
 
