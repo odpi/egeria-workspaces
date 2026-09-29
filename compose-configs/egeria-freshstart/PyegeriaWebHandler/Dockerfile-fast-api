@@ -24,17 +24,15 @@ RUN pip install --no-cache-dir --retries 10 --timeout 60 -r requirements.txt
 # failed validation" error (found 2026-08-12 processing RE's Scouting
 # Question glossary terms).
 #
-# NOTE: this RUN line is cached by Docker like any other layer — bumping the
-# floor here is what forces a stale image to actually re-resolve on the next
-# build. Bumping ONLY the running container's pip install (`docker compose
-# exec ... pip install --upgrade pyegeria`) does NOT survive a later
-# `docker compose build`/`up --build`, since site-packages lives in the image
-# layer, not a bind mount (only ./PyegeriaWebHandler:/app is mounted) —
-# use fresh-start-local's `--refresh-pyegeria` flag instead (mirrors
-# quickstart's Dockerfile-fast-api / bin/update-pyegeria.sh: pass a fresh
-# PYEGERIA_BUST build-arg to bust just this layer without a full --no-cache
-# rebuild).
-ARG PYEGERIA_VERSION=pyegeria>=6.1.16
+# NOTE: this RUN line is cached by Docker like any other layer, and an
+# in-container `pip install --upgrade pyegeria` does NOT survive the
+# container being recreated (site-packages lives in the image, only
+# ./PyegeriaWebHandler:/app is mounted). quick-start-local/fresh-start-local
+# pass PYEGERIA_VERSION=pyegeria==<latest or --pyegeria-version pin> plus
+# PYEGERIA_BUST=<that version> on every run (compose-configs/shared-infra/
+# resolve-pyegeria.sh), so the layer rebuilds exactly when the version
+# changes. The default below is only the floor for a plain compose build.
+ARG PYEGERIA_VERSION=pyegeria>=6.1.22
 ARG PYEGERIA_BUST=0
 RUN echo "pyegeria layer ${PYEGERIA_BUST}" \
     && pip install --no-cache-dir --retries 10 --timeout 60 "${PYEGERIA_VERSION}" --upgrade

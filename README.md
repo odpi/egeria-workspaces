@@ -74,8 +74,11 @@ NO_CACHE=1 ./quick-start-local
 # Force-refresh only the Egeria platform base image
 ./quick-start-local --refresh-platform
 
-# Force-refresh only pyegeria (pyegeria-web + jupyter) to the latest PyPI release
-./quick-start-local --refresh-pyegeria
+# pyegeria-web + jupyter install the latest pyegeria from PyPI on every run
+# (a cached no-op when it hasn't changed). To hold a specific release instead:
+./quick-start-local --pyegeria-version 6.1.20   # pin; persists across re-runs
+./quick-start-local --pyegeria-version latest   # clear the pin
+./quick-start-local --no-refresh-pyegeria       # skip the check (e.g. offline)
 ```
 
 `NO_CACHE` accepts `1 / true / yes / on`; unset or `0 / false / no / off` uses the cache.
