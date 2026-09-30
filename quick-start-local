@@ -304,7 +304,7 @@ pushd compose-configs/egeria-quickstart >/dev/null
   }
 
   # ── Demo mode: collect / persist credentials ─────────────────────────────
-  _jwt="" _cert_dir="" _admin_email="" _admin_pass="" _resend_key="" _resend_from="" _https_port="" _site_url_override="" _advisor_url="" _advisor_secret="" _explorer_url="" _alert_email=""
+  _jwt="" _cert_dir="" _admin_email="" _admin_pass="" _resend_key="" _resend_from="" _https_port="" _site_url_override="" _advisor_url="" _advisor_secret="" _explorer_url="" _alert_email="" _re_server_name="" _ea_server_name=""
 
   # The trellis-tile vars (advisor URL/secret, explorer URL) are read here,
   # OUTSIDE the demo branch, because gen-env.sh rewrites .env on every run in
@@ -327,6 +327,17 @@ pushd compose-configs/egeria-quickstart >/dev/null
   _advisor_secret="$(_get_env_var EGERIA_ADVISOR_SSO_SECRET .env)"
   _explorer_url="$(_get_env_var EGERIA_RESOURCE_EXPLORER_URL .env)"
   _alert_email="$(_get_env_var ALERT_EMAIL_TO .env)"
+  # The Apache vhost hostnames for the two trellis apps (see the
+  # ssl-define.conf block further down). Same trap a third time: they were
+  # only ever READ from .env.demo/.env, never written back, so the --demo
+  # rewrite of .env.demo below (fixed key list) and gen-env.sh's rewrite of
+  # .env dropped both on the very next run. Apache kept serving the vhosts
+  # from its in-memory config until its next restart, at which point
+  # re./ea.<domain> silently fell through to the portal vhost. Observed
+  # 2026-09-20: ssl-define.conf on disk had lost both Defines while the
+  # 13-day-old httpd still answered for them.
+  _re_server_name="$(_get_env_var EGERIA_RE_SERVER_NAME .env)"
+  _ea_server_name="$(_get_env_var EGERIA_EA_SERVER_NAME .env)"
 
   if [[ "$DEMO_MODE_FLAG" -eq 1 ]]; then
     ENV_DEMO=".env.demo"
@@ -361,6 +372,8 @@ pushd compose-configs/egeria-quickstart >/dev/null
     # every run and the Portal tile silently falls back to http://localhost:8810/
     # -- wrong for anyone whose browser is not on this box.
     _explorer_url="$(_pick EGERIA_RESOURCE_EXPLORER_URL)"
+    _re_server_name="$(_pick EGERIA_RE_SERVER_NAME)"
+    _ea_server_name="$(_pick EGERIA_EA_SERVER_NAME)"
 
     # Generate JWT_SECRET if not already set
     if [[ -z "$_jwt" ]]; then
@@ -456,6 +469,8 @@ SITE_URL=${_site_url_override}
 EGERIA_ADVISOR_URL=${_advisor_url}
 EGERIA_ADVISOR_SSO_SECRET=${_advisor_secret}
 EGERIA_RESOURCE_EXPLORER_URL=${_explorer_url}
+EGERIA_RE_SERVER_NAME=${_re_server_name}
+EGERIA_EA_SERVER_NAME=${_ea_server_name}
 ALERT_EMAIL_TO=${_alert_email}
 EOF
     chmod 600 "$ENV_DEMO"
@@ -537,6 +552,8 @@ EOF
       echo "EGERIA_ADVISOR_URL=${_advisor_url}"
       echo "EGERIA_ADVISOR_SSO_SECRET=${_advisor_secret}"
       echo "EGERIA_RESOURCE_EXPLORER_URL=${_explorer_url}"
+      echo "EGERIA_RE_SERVER_NAME=${_re_server_name}"
+      echo "EGERIA_EA_SERVER_NAME=${_ea_server_name}"
       echo "ALERT_EMAIL_TO=${_alert_email}"
     } >> .env
     echo "[quick-start-local]   Demo SSL_SERVER_NAME: ${_host_fqdn} — SITE_URL: ${_site_url}"
@@ -558,6 +575,8 @@ EOF
       if [[ -n "$_advisor_url" ]];    then echo "EGERIA_ADVISOR_URL=${_advisor_url}"; fi
       if [[ -n "$_advisor_secret" ]]; then echo "EGERIA_ADVISOR_SSO_SECRET=${_advisor_secret}"; fi
       if [[ -n "$_explorer_url" ]];   then echo "EGERIA_RESOURCE_EXPLORER_URL=${_explorer_url}"; fi
+      if [[ -n "$_re_server_name" ]]; then echo "EGERIA_RE_SERVER_NAME=${_re_server_name}"; fi
+      if [[ -n "$_ea_server_name" ]]; then echo "EGERIA_EA_SERVER_NAME=${_ea_server_name}"; fi
       if [[ -n "$_alert_email" ]];    then echo "ALERT_EMAIL_TO=${_alert_email}"; fi
     } >> .env
     echo "[quick-start-local]   Self-signed HTTPS on port ${_https_port_num} (CERT_DIR=${_cert_dir}) — SITE_URL: ${_site_url}"
@@ -576,15 +595,12 @@ EOF
   # the right default, since Apache resolves ProxyPass backends at startup and
   # would fail to start if trellis-re-web/trellis-ea-web were not running.
   #
-  # Read straight from .env.demo/.env here rather than via the _pick block
-  # above, so a plain (non-demo) re-run regenerates them too. gen-env.sh
-  # rewrites .env every run in both modes; anything only picked up under
-  # --demo is silently dropped on a plain run, which is exactly how the
-  # Advisor/Resource Explorer tiles reverted to "Not configured" before.
-  _re_server_name="$(_get_env_var EGERIA_RE_SERVER_NAME .env.demo)"
-  [[ -z "$_re_server_name" ]] && _re_server_name="$(_get_env_var EGERIA_RE_SERVER_NAME .env)"
-  _ea_server_name="$(_get_env_var EGERIA_EA_SERVER_NAME .env.demo)"
-  [[ -z "$_ea_server_name" ]] && _ea_server_name="$(_get_env_var EGERIA_EA_SERVER_NAME .env)"
+  # _re_server_name/_ea_server_name were read from .env (and .env.demo under
+  # --demo) at the top of this block, BEFORE gen-env.sh rewrote .env, and have
+  # already been written back to .env.demo/.env above -- do not re-read them
+  # from disk here. An earlier version did exactly that, and since the --demo
+  # rewrite of .env.demo never included these keys, it always came up empty
+  # on the second run.
 
   {
     printf 'Define SSL_SERVER_NAME %s\n' "${_host_fqdn}"
