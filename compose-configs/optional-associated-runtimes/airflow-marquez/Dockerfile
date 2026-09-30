@@ -13,7 +13,12 @@ USER airflow
 
 COPY --chown=airflow:0 requirements.txt .
 
-RUN pip install --no-cache-dir --user apache-airflow-providers-openlineage>=1.2.0 apache-airflow-providers-postgres apache-airflow-providers-apache-kafka --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.1.7/constraints-3.12.txt"
-
-RUN pip install --no-cache-dir --user confluent-kafka>=2.0.2 pyegeria>=6.1.16 unitycatalog
+RUN pip install --no-cache-dir \
+    apache-airflow-providers-openlineage>=1.2.0 \
+    apache-airflow-providers-postgres \
+    apache-airflow-providers-apache-kafka \
+    confluent-kafka>=2.0.2 \
+    pyegeria>=6.1.16 \
+    unitycatalog \
+    --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.3.1/constraints-3.12.txt"
 

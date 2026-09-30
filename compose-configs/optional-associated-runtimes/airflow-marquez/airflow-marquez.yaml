@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
-# Optimized for Airflow 3.1.7 | Toggleable OpenLineage (Marquez vs. Marquez+Egeria)
+# Optimized for Airflow 3.3.2 | Toggleable OpenLineage (Marquez vs. Marquez+Egeria)
 name: airflow-marquez
 
 x-airflow-common: &airflow-common
   build: .
-  image: airflow-egeria:3.1.7
+  image: airflow-egeria:3.3.1
   user: "${AIRFLOW_UID:-50000}:0"
   env_file:
     - .env
@@ -16,7 +16,8 @@ x-airflow-common: &airflow-common
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow_user:${AIRFLOW_DATABASE_PASSWORD}@host.docker.internal:5442/airflow
     AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow_user:${AIRFLOW_DATABASE_PASSWORD}@host.docker.internal:5442/airflow
     AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
-    AIRFLOW__CORE__FERNET_KEY: ''
+    AIRFLOW__CORE__FERNET_KEY: 'b-sqW-rmexFAOebsRs_o2sB3eXfHi1b1-0tMVhYWxdY='
+    AIRFLOW__API_AUTH__JWT_SECRET: 'b-sqW-rmexFAOebsRs_o2sB3eXfHi1b1-0tMVhYWxdY='
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: 'true'
     AIRFLOW__CORE__EXECUTION_API_SERVER_URL: 'http://airflow-apiserver:8072/execution/'
@@ -27,9 +28,11 @@ x-airflow-common: &airflow-common
     AIRFLOW__OPENLINEAGE__TRANSPORT: '${OL_TRANSPORT:-{"type": "http", "url": "http://marquez:5050", "endpoint": "api/v1/lineage"}}'
 
     AIRFLOW__API__PORT: "8072"
+    AIRFLOW__DAG_PROCESSOR__DAG_BUNDLE_CONFIG_LIST: '[{"name": "default-dags", "classpath": "airflow.dag_processing.bundles.local.LocalDagBundle", "kwargs": {"path": "/opt/airflow/dags"}}, {"name": "coco-dags", "classpath": "airflow.dag_processing.bundles.local.LocalDagBundle", "kwargs": {"path": "/opt/airflow/coco-dags"}}]'
 
   volumes:
     - ${AIRFLOW_PROJ_DIR:-./runtime-data}/dags:/opt/airflow/dags
+    - ../../../exchange-quickstart/coco-dags:/opt/airflow/coco-dags
     - ${AIRFLOW_PROJ_DIR:-./runtime-data}/logs:/opt/airflow/logs
     - ${AIRFLOW_PROJ_DIR:-./runtime-data}/plugins:/opt/airflow/plugins
   networks:
@@ -110,14 +113,22 @@ services:
       airflow-init:
         condition: service_completed_successfully
 
+  airflow-dag-processor:
+    <<: *airflow-common
+    command: dag-processor
+    restart: always
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
   airflow-init:
     <<: *airflow-common
     entrypoint: /bin/bash
     command:
       - -c
       - |
-        mkdir -v -p /opt/airflow/{logs,dags,plugins,config}
-        chown -v -R "${AIRFLOW_UID:-50000}:0" /opt/airflow/{logs,dags,plugins,config}
+        mkdir -v -p /opt/airflow/{logs,dags,plugins,config,coco-dags}
+        chown -v -R "${AIRFLOW_UID:-50000}:0" /opt/airflow/{logs,dags,plugins,config,coco-dags}
         /entrypoint airflow db migrate
         /entrypoint airflow fab users create --username airflow --password airflow --role Admin --firstname Airflow --lastname Admin --email airflow@example.com || true
         /entrypoint airflow version

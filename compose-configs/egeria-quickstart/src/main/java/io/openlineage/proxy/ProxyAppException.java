@@ -5,7 +5,7 @@
 
 package io.openlineage.proxy;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 import lombok.NoArgsConstructor;
 
 @NoArgsConstructor
