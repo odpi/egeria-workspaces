@@ -24,7 +24,7 @@ For every product this file:
 
 1. creates the **digital product** and adds it to the `Procurement` folder of the catalog;
 2. creates its **data spec** and attaches it with a `DataDescription` relationship, then the **data structures**, each added to the spec, and the **data fields**, each linked to its structure with a `MemberDataField` relationship, its position and coverage category set on that relationship - `IDENTIFIER` for the fields that identify a row of the structure, `CORE_DETAIL` for the rest - named to the [Data Field Naming](../data-field-naming/README.md) standard;
-3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, as a member of the product.  The schema is named after the product, in the `coco_data_hub` database on `Coco PostgreSQL Server 1`.
+3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, anchored to the product and a member of it, so that it is removed with the product.  The schema is named after the product, in the `coco_data_hub` database on `Coco PostgreSQL Server 1`.
 
 5 products, 11 data structures, 68 data fields.  This file loads after `catalog.md`.
 
@@ -1205,6 +1205,12 @@ TabularDataSetCollection
 - schemaName: supplier_master_data
 - schemaDescription: The authoritative record of every third party the company transacts with: its identity, its screening status and risk rating, and the payment details it is paid to. The supplier fraud was possible because this record was not authoritative; making it so is the control.
 
+### Anchor ID
+DigitalProduct::Coco::Supplier Master Data
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Supplier Master Data
 
@@ -2052,6 +2058,12 @@ TabularDataSetCollection
 - schemaName: third_party_onboarding_cases
 - schemaDescription: Every proposed third party driven through screening, risk assessment and approval to the creation of a supplier record. It is deliberately the only route to that record: a supplier created outside this flow is a supplier nothing has checked.
 
+### Anchor ID
+DigitalProduct::Coco::Third Party Onboarding Cases
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Third Party Onboarding Cases
 
@@ -2798,6 +2810,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: third_party_screening_results
 - schemaDescription: The answers returned by the external screening service: matches against sanctions, politically exposed person and adverse media lists, with the risk indicators and the date each was given. Its answers age, which is why the chain re-screens rather than treating an onboarding result as permanent.
+
+### Anchor ID
+DigitalProduct::Coco::Third Party Screening Results
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Third Party Screening Results
@@ -3649,6 +3667,12 @@ TabularDataSetCollection
 - schemaName: supplier_material_certificates
 - schemaDescription: The certificates of analysis and conformity that accompany incoming material, held against the supplier and the lot they certify. The data originates outside the company, which is why it is verified on receipt rather than trusted on arrival.
 
+### Anchor ID
+DigitalProduct::Coco::Supplier Material Certificates
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Supplier Material Certificates
 
@@ -4439,6 +4463,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: purchase_orders_and_receipts
 - schemaDescription: The purchase orders raised against approved suppliers and the confirmations that the goods or services were received, which is what a supplier invoice must match before it can be paid.
+
+### Anchor ID
+DigitalProduct::Coco::Purchase Orders And Receipts
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Purchase Orders And Receipts

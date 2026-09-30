@@ -26,7 +26,7 @@ For every product this file:
 
 1. creates the **digital product** and adds it to the `Delivery` folder of the catalog;
 2. creates its **data spec** and attaches it with a `DataDescription` relationship, then the **data structures**, each added to the spec, and the **data fields**, each linked to its structure with a `MemberDataField` relationship, its position and coverage category set on that relationship - `IDENTIFIER` for the fields that identify a row of the structure, `CORE_DETAIL` for the rest - named to the [Data Field Naming](../data-field-naming/README.md) standard;
-3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, as a member of the product.  The schema is named after the product, in the `coco_data_hub` database on `Coco PostgreSQL Server 1`.
+3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, anchored to the product and a member of it, so that it is removed with the product.  The schema is named after the product, in the `coco_data_hub` database on `Coco PostgreSQL Server 1`.
 
 7 products, 10 data structures, 74 data fields.  This file loads after `catalog.md`.
 
@@ -677,6 +677,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: patient_sample_consignments
 - schemaDescription: The collection of patient material at the treating site and its transport, under temperature and time constraints, to the manufacturing site. It is the inbound half of a round trip that has a clock running from the moment the sample is taken.
+
+### Anchor ID
+DigitalProduct::Coco::Patient Sample Consignments
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Patient Sample Consignments
@@ -1475,6 +1481,12 @@ TabularDataSetCollection
 - schemaName: therapy_delivery_events
 - schemaDescription: The finished therapy tracked from release to administration at the treating site, and the confirmation of arrival and administration reported back into the order. It closes the loop that the ordering portal opened.
 
+### Anchor ID
+DigitalProduct::Coco::Therapy Delivery Events
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Therapy Delivery Events
 
@@ -2130,6 +2142,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: transport_classifications
 - schemaDescription: The transport classification of each substance and product in each form it is shipped: UN number, packing group, labelling and the documentation set required. It is a library rather than a process because the same rules must give the same answer to despatch, to procurement and to the person signing the declaration.
+
+### Anchor ID
+DigitalProduct::Coco::Transport Classifications
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Transport Classifications
@@ -3022,6 +3040,12 @@ TabularDataSetCollection
 - schemaName: dangerous_goods_consignment_records
 - schemaDescription: The dangerous goods declaration and accompanying documents for each consignment, signed by a certificated person, with the certificate that authorised the signature. The shipper's liability stays with the company however the carrier behaves afterwards.
 
+### Anchor ID
+DigitalProduct::Coco::Dangerous Goods Consignment Records
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Dangerous Goods Consignment Records
 
@@ -3483,6 +3507,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: in_transit_temperature_readings
 - schemaDescription: The readings from the loggers and live monitors travelling inside consignments: temperature, location and time. The devices are themselves dangerous goods, because they contain lithium batteries.
+
+### Anchor ID
+DigitalProduct::Coco::In-Transit Temperature Readings
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::In-Transit Temperature Readings
@@ -4463,6 +4493,12 @@ TabularDataSetCollection
 - schemaName: cold_chain_transit_records
 - schemaDescription: The temperature history of each consignment reconciled against the permitted range for the product shipped, and the excursions detected. A gap in the record is treated as an excursion, because an unmonitored interval cannot be shown to have been within range.
 
+### Anchor ID
+DigitalProduct::Coco::Cold Chain Transit Records
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Cold Chain Transit Records
 
@@ -4924,6 +4960,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: carrier_transit_events
 - schemaDescription: The handover events, delays and delivery confirmations reported by carrier systems for each consignment. The company reads status from carriers and hands documentation to them, but has no visibility of what happens inside them.
+
+### Anchor ID
+DigitalProduct::Coco::Carrier Transit Events
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Carrier Transit Events

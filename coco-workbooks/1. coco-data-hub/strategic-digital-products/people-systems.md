@@ -30,7 +30,7 @@ For every product this file:
 
 1. creates the **digital product** and adds it to the `People Systems` folder of the catalog;
 2. creates its **data spec** and attaches it with a `DataDescription` relationship, then the **data structures**, each added to the spec, and the **data fields**, each linked to its structure with a `MemberDataField` relationship, its position and coverage category set on that relationship - `IDENTIFIER` for the fields that identify a row of the structure, `CORE_DETAIL` for the rest - named to the [Data Field Naming](../data-field-naming/README.md) standard;
-3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, as a member of the product.  The schema is named after the product, in the `coco_data_hub` database on `Coco PostgreSQL Server 1`.
+3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, anchored to the product and a member of it, so that it is removed with the product.  The schema is named after the product, in the `coco_data_hub` database on `Coco PostgreSQL Server 1`.
 
 11 products, 18 data structures, 123 data fields.  This file loads after `catalog.md`.
 
@@ -970,6 +970,12 @@ TabularDataSetCollection
 - schemaName: worker_master_data
 - schemaDescription: The authoritative record of every worker, employees and contractors alike, and the assignment of each to a role, an entity, a cost centre and a reporting line. It is the anchor that qualification, health surveillance, access and payroll records are all held against.
 
+### Anchor ID
+DigitalProduct::Coco::Worker Master Data
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Worker Master Data
 
@@ -1757,6 +1763,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: worker_lifecycle_events
 - schemaDescription: Every joining, moving or leaving event, distributed to each system that must act on it, and the record of which have. The leaver case is the one that matters: access outlives employment by exactly this chain's delay.
+
+### Anchor ID
+DigitalProduct::Coco::Worker Lifecycle Events
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Worker Lifecycle Events
@@ -2595,6 +2607,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: access_entitlements
 - schemaDescription: The accounts and entitlements created, changed and removed for each worker in response to worker events, and the data ownership assignments recorded in the open metadata catalogue. It is driven from the worker record rather than from requests, because an access removal that depends on somebody remembering to ask does not happen.
+
+### Anchor ID
+DigitalProduct::Coco::Access Entitlements
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Access Entitlements
@@ -3484,6 +3502,12 @@ TabularDataSetCollection
 - schemaName: payroll_results
 - schemaDescription: The remuneration calculated and paid in each payroll run, in several countries under several sets of rules from one worker record, and the postings to the ledger by entity. It is the pay data that statutory reporting and pay equity analysis are built from.
 
+### Anchor ID
+DigitalProduct::Coco::Payroll Results
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Payroll Results
 
@@ -4099,6 +4123,12 @@ TabularDataSetCollection
 - schemaName: corporate_directory_entries
 - schemaDescription: The searchable directory of people, roles, locations and reporting lines that the rest of the organisation uses. It is downstream of the worker record and is frequently the first place a stale joiner or leaver event becomes visible to everybody.
 
+### Anchor ID
+DigitalProduct::Coco::Corporate Directory Entries
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Corporate Directory Entries
 
@@ -4604,6 +4634,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: role_competency_requirements
 - schemaDescription: What competencies each regulated role requires and how often each must be refreshed. It is the specification the competency chain is judged against, and it changes when a process or a regulation changes rather than when a person does.
+
+### Anchor ID
+DigitalProduct::Coco::Role Competency Requirements
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Role Competency Requirements
@@ -5625,6 +5661,12 @@ TabularDataSetCollection
 - schemaName: training_completions
 - schemaDescription: Training delivered, completion and assessment recorded, and refreshers scheduled for lapsing qualifications. Its output is evidence consumed by two regulated processes, which is a heavier duty than the system was originally bought for.
 
+### Anchor ID
+DigitalProduct::Coco::Training Completions
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Training Completions
 
@@ -6237,6 +6279,12 @@ TabularDataSetCollection
 - schemaName: worker_qualifications
 - schemaDescription: The authoritative statement of what each worker is currently qualified to do, with the evidence and the expiry, read by manufacturing, shipping, drug development and the batch record as compliance evidence. A local copy that has drifted is worse than no copy at all.
 
+### Anchor ID
+DigitalProduct::Coco::Worker Qualifications
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Worker Qualifications
 
@@ -6745,6 +6793,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: qualification_expiry_warnings
 - schemaDescription: Warnings raised for qualifications approaching or past expiry, sent to the processes that depend on them before rather than after. Currency is the property the competency chain is actually judged on.
+
+### Anchor ID
+DigitalProduct::Coco::Qualification Expiry Warnings
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Qualification Expiry Warnings
@@ -7634,6 +7688,12 @@ TabularDataSetCollection
 - schemaName: health_surveillance_records
 - schemaDescription: The enrolment of each worker in health surveillance according to their exposure profile, and the results of surveillance appointments, exposure measurements and exposure incidents held against the individual. The record belongs to the person it describes rather than to the company.
 
+### Anchor ID
+DigitalProduct::Coco::Health Surveillance Records
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Health Surveillance Records
 
@@ -8142,6 +8202,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: long_term_health_archive
 - schemaDescription: Health surveillance and exposure records retained for forty years from the last entry, across every system migration in that period. Its requirement is not storage but interpretability: a record that survives and can no longer be read is the same failure as one that was lost.
+
+### Anchor ID
+DigitalProduct::Coco::Long Term Health Archive
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Long Term Health Archive

@@ -21,7 +21,7 @@ For every product this file:
 
 1. creates the **digital product** and adds it to the `Research` folder of the catalog;
 2. creates its **data spec** and attaches it with a `DataDescription` relationship, then the **data structures**, each added to the spec, and the **data fields**, each linked to its structure with a `MemberDataField` relationship, its position and coverage category set on that relationship - `IDENTIFIER` for the fields that identify a row of the structure, `CORE_DETAIL` for the rest - named to the [Data Field Naming](../data-field-naming/README.md) standard;
-3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, as a member of the product.  The schema is named after the product, in the `coco_data_hub` database on `Coco PostgreSQL Server 1`.
+3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, anchored to the product and a member of it, so that it is removed with the product.  The schema is named after the product, in the `coco_data_hub` database on `Coco PostgreSQL Server 1`.
 
 2 products, 5 data structures, 27 data fields.  Product Code is one data field shared by all three New Product Definitions structures: it identifies a row of Candidate Product Definition and Product Specification, and refers to the product in Product Presentation.  This file loads after `catalog.md`.
 
@@ -1043,6 +1043,12 @@ TabularDataSetCollection
 - schemaName: new_product_definitions
 - schemaDescription: The definition of a new product as it leaves development: its composition, the presentations it will be supplied in and the specification it must meet. It is the source the product master is created from.
 
+### Anchor ID
+DigitalProduct::Coco::Product Definitions
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Product Definitions
 
@@ -1836,6 +1842,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: hospital_certifications
 - schemaDescription: The certification of hospitals as clinical trial sites, including the evidence that site staff were trained on the protocol before they worked to it. Competency data is read here as compliance evidence.
+
+### Anchor ID
+DigitalProduct::Coco::Hospital Certifications
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Hospital Certifications
