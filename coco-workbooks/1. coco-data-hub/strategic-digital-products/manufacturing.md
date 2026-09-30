@@ -30,7 +30,7 @@ For every product this file:
 
 1. creates the **digital product** and adds it to the `Manufacturing` folder of the catalog;
 2. creates its **data spec** and attaches it with a `DataDescription` relationship, then the **data structures**, each added to the spec, and the **data fields**, each linked to its structure with a `MemberDataField` relationship, its position and coverage category set on that relationship - `IDENTIFIER` for the fields that identify a row of the structure, `CORE_DETAIL` for the rest - named to the [Data Field Naming](../data-field-naming/README.md) standard;
-3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, as a member of the product.  The schema is named after the product, in the `coco_data_hub` database on `Coco PostgreSQL Server 1`.
+3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, anchored to the product and a member of it, so that it is removed with the product.  The schema is named after the product, in the `coco_data_hub` database on `Coco PostgreSQL Server 1`.
 
 11 products, 20 data structures, 129 data fields.  This file loads after `catalog.md`.
 
@@ -866,6 +866,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: personalised_manufacturing_schedule
 - schemaDescription: Each accepted personalised order turned into a scheduled manufacturing slot, with the arriving patient material that fixes the deadline. Unlike batch scheduling it cannot defer or re-sequence freely, because the material has a viable life measured in days.
+
+### Anchor ID
+DigitalProduct::Coco::Personalised Manufacturing Schedule
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Personalised Manufacturing Schedule
@@ -2040,6 +2046,12 @@ TabularDataSetCollection
 - schemaName: batch_execution_records
 - schemaDescription: The contemporaneous record of each production step: what was done, by whom, with which materials and on which equipment, together with the deviations raised during execution. It is the source of most of what ends up in the batch record.
 
+### Anchor ID
+DigitalProduct::Coco::Batch Execution Records
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Batch Execution Records
 
@@ -2595,6 +2607,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: process_parameter_time_series
 - schemaDescription: The continuous record of critical process parameters captured from plant instrumentation, at a resolution nobody reads unless something went wrong, which is exactly when it cannot be recreated.
+
+### Anchor ID
+DigitalProduct::Coco::Process Parameter Time Series
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Process Parameter Time Series
@@ -3339,6 +3357,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: equipment_qualification_status
 - schemaDescription: The qualification and calibration status of every piece of equipment used in production, consulted at the moment of use because a qualification that lapsed last week invalidates production that has already happened.
+
+### Anchor ID
+DigitalProduct::Coco::Equipment Qualification Status
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Equipment Qualification Status
@@ -4463,6 +4487,12 @@ TabularDataSetCollection
 - schemaName: electronic_batch_records
 - schemaDescription: The complete record of each batch assembled from every contributing system and held for the life of the obligation: execution, process parameters, laboratory results, deviation dispositions, excursion dispositions and signature authority, followed by the release authorisation once certified.
 
+### Anchor ID
+DigitalProduct::Coco::Electronic Batch Records
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Electronic Batch Records
 
@@ -5074,6 +5104,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: serial_number_allocations
 - schemaDescription: The unique identifiers issued for saleable packs, allocated per product, pack presentation and destination market before the line starts. Uniqueness is assured at generation, because a number issued twice cannot be corrected once packs are distributed.
+
+### Anchor ID
+DigitalProduct::Coco::Serial Number Allocations
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Serial Number Allocations
@@ -5769,6 +5805,12 @@ TabularDataSetCollection
 - schemaName: commissioned_packs
 - schemaDescription: Each pack that has had its identifier applied, verified and commissioned as a real, saleable object on the packaging line, and its assignment to a case. It works at line speed, which is why the identifiers had to be present before the line started.
 
+### Anchor ID
+DigitalProduct::Coco::Commissioned Packs
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Commissioned Packs
 
@@ -6283,6 +6325,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: pack_aggregation_hierarchy
 - schemaDescription: Which packs are in which case and which cases are on which pallet. The relationships allow a shipment to be verified without opening it and make a recall a query rather than a search.
+
+### Anchor ID
+DigitalProduct::Coco::Pack Aggregation Hierarchy
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Pack Aggregation Hierarchy
@@ -7184,6 +7232,12 @@ TabularDataSetCollection
 - schemaName: serialised_product_identifiers
 - schemaDescription: The company's own record of every identifier issued, commissioned, aggregated, shipped and decommissioned, and the alert dispositions that corrected it. It is the reconciliation point against the external verification systems, and the reason a discrepancy can be attributed rather than merely observed.
 
+### Anchor ID
+DigitalProduct::Coco::Serialised Product Identifiers
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Serialised Product Identifiers
 
@@ -7739,6 +7793,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: market_identifier_submissions
 - schemaDescription: The identifier records uploaded to the national and regional verification systems of each destination market, together with the release authorisation each upload relied on. Destination determines the scheme, so the same production run may leave through several routes.
+
+### Anchor ID
+DigitalProduct::Coco::Market Identifier Submissions
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Market Identifier Submissions
@@ -8536,6 +8596,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: market_verification_responses
 - schemaDescription: What the national verification systems send back: verification results, decommissioning events, and the alerts raised when a pharmacy or trading partner scans an identifier that does not verify. The data originates outside the company, in systems that are opaque to it.
+
+### Anchor ID
+DigitalProduct::Coco::Market Verification Responses
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Market Verification Responses

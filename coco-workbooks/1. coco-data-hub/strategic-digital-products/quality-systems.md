@@ -34,7 +34,7 @@ For every product this file:
 
 1. creates the **digital product** and adds it to the `Quality Systems` folder of the catalog;
 2. creates its **data spec** and attaches it with a `DataDescription` relationship, then the **data structures**, each added to the spec, and the **data fields**, each linked to its structure with a `MemberDataField` relationship, its position and coverage category set on that relationship - `IDENTIFIER` for the fields that identify a row of the structure, `CORE_DETAIL` for the rest - named to the [Data Field Naming](../data-field-naming/README.md) standard;
-3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, as a member of the product.  The schema is named after the product, in the `coco_data_hub` database on `Coco PostgreSQL Server 1`.
+3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, anchored to the product and a member of it, so that it is removed with the product.  The schema is named after the product, in the `coco_data_hub` database on `Coco PostgreSQL Server 1`.
 
 15 products, 30 data structures, 208 data fields.  This file loads after `catalog.md`.
 
@@ -694,6 +694,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: consolidated_safety_reports
 - schemaDescription: Every suspected adverse reaction registered at the single point of intake, whatever door it arrived through: a clinician's report, a complaint with safety content or a trial site's report. The statutory clock starts on first receipt anywhere in the company.
+
+### Anchor ID
+DigitalProduct::Coco::Consolidated Safety Reports
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Consolidated Safety Reports
@@ -1538,6 +1544,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: product_complaints
 - schemaDescription: Complaints about product quality from pharmacies, distributors and patients, and the assessment that separates those which are also potential safety events from those which are not. The separation is deliberately generous.
+
+### Anchor ID
+DigitalProduct::Coco::Product Complaints
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Product Complaints
@@ -2709,6 +2721,12 @@ TabularDataSetCollection
 - schemaName: pharmacovigilance_cases
 - schemaDescription: The safety case from receipt through follow-up to closure, carrying the reporting clock that the regulators measure, with the narrative sent for assessment and the coded data that signal detection reads. Every other component in the safety chain either feeds it or reads from it.
 
+### Anchor ID
+DigitalProduct::Coco::Pharmacovigilance Cases
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Pharmacovigilance Cases
 
@@ -3503,6 +3521,12 @@ TabularDataSetCollection
 - schemaName: medical_assessments
 - schemaDescription: The qualified medical judgement of seriousness, expectedness and causality for each case, and the coding of the event to the standard dictionary. It is the step that decides whether a report is expedited or periodic.
 
+### Anchor ID
+DigitalProduct::Coco::Medical Assessments
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Medical Assessments
 
@@ -4293,6 +4317,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: safety_signals
 - schemaDescription: The patterns found across accumulated cases that no single case shows, with the exposure denominators they were assessed against, and the referrals made to quality and to the authorisation register. A signal visible across trial and post-market data is invisible in either alone.
+
+### Anchor ID
+DigitalProduct::Coco::Safety Signals
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Safety Signals
@@ -5140,6 +5170,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: regulatory_safety_submissions
 - schemaDescription: The expedited and periodic safety reports formatted and transmitted to the regulator of each market the product is authorised in, and the acknowledgement each received. An unacknowledged submission is not a submission.
+
+### Anchor ID
+DigitalProduct::Coco::Regulatory Safety Submissions
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Regulatory Safety Submissions
@@ -6470,6 +6506,12 @@ TabularDataSetCollection
 - schemaName: laboratory_test_results
 - schemaDescription: Sampling, testing and results for raw materials, in-process checks and finished product, compared against specification, and the certificates of analysis issued for release. Results are gates rather than reports: material cannot be issued and product cannot be released until the laboratory has answered.
 
+### Anchor ID
+DigitalProduct::Coco::Laboratory Test Results
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Laboratory Test Results
 
@@ -7793,6 +7835,12 @@ TabularDataSetCollection
 - schemaName: deviations_and_capas
 - schemaDescription: Departures from the approved process, their investigation and the corrective and preventive actions that follow, including the signals referred from safety. An open deviation is a gate on certification, so this sits inside the release flow rather than beside it.
 
+### Anchor ID
+DigitalProduct::Coco::Deviations And CAPAs
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Deviations And CAPAs
 
@@ -8445,6 +8493,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: batch_certification_decisions
 - schemaDescription: The review of each assembled batch record and the certification decision taken by a Qualified Person against the requirements of the destination market. It is the single human decision the whole chain exists to support, and it is market-specific.
+
+### Anchor ID
+DigitalProduct::Coco::Batch Certification Decisions
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Batch Certification Decisions
@@ -9287,6 +9341,12 @@ TabularDataSetCollection
 - schemaName: serialisation_alert_investigations
 - schemaDescription: The investigation of verification alerts raised by pharmacies and trading partners, separating the company's own data errors from genuine falsification signals, and the disposition returned to the serialisation repository. An alert not investigated is a falsification signal received and ignored.
 
+### Anchor ID
+DigitalProduct::Coco::Serialisation Alert Investigations
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Serialisation Alert Investigations
 
@@ -9898,6 +9958,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: temperature_excursion_assessments
 - schemaDescription: The assessment of each temperature excursion against the product's stability data, and the disposition of the consignment. It runs before the goods are used rather than after, which is what distinguishes an assessment from a report.
+
+### Anchor ID
+DigitalProduct::Coco::Temperature Excursion Assessments
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Temperature Excursion Assessments
@@ -10740,6 +10806,12 @@ TabularDataSetCollection
 - schemaName: market_authorisations
 - schemaDescription: Which product may be placed on which market, under which authorisation and subject to which conditions, and the label and authorisation changes that safety findings drive. Batch certification and serialisation routing both read it.
 
+### Anchor ID
+DigitalProduct::Coco::Market Authorisations
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Market Authorisations
 
@@ -11436,6 +11508,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: occupational_exposure_bands
 - schemaDescription: Each substance assigned to an occupational exposure band and each band to a required containment level, revised as incidents reveal what the assessments missed. It is the rule set that turns a substance identity into a control requirement, and it is shared with transport classification rather than duplicated.
+
+### Anchor ID
+DigitalProduct::Coco::Occupational Exposure Bands
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Occupational Exposure Bands
@@ -12371,6 +12449,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: exposure_monitoring_results
 - schemaDescription: Personal and static exposure measurements from monitoring campaigns, compared to the banded limits, against the workers and tasks monitored. An exposure that was not measured at the time cannot be measured later, so coverage matters as much as the readings.
+
+### Anchor ID
+DigitalProduct::Coco::Exposure Monitoring Results
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Exposure Monitoring Results
@@ -13309,6 +13393,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: incidents_and_near_misses
 - schemaDescription: Incidents, near misses and their investigations, with the substance or control implicated and the findings fed back into the exposure assessments. It is what makes the health surveillance chain a loop rather than a line.
+
+### Anchor ID
+DigitalProduct::Coco::Incidents And Near Misses
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Incidents And Near Misses
