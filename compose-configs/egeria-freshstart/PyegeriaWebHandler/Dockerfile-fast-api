@@ -32,7 +32,7 @@ RUN pip install --no-cache-dir --retries 10 --timeout 60 -r requirements.txt
 # PYEGERIA_BUST=<that version> on every run (compose-configs/shared-infra/
 # resolve-pyegeria.sh), so the layer rebuilds exactly when the version
 # changes. The default below is only the floor for a plain compose build.
-ARG PYEGERIA_VERSION=pyegeria>=6.1.22
+ARG PYEGERIA_VERSION=pyegeria>=6.1.24
 ARG PYEGERIA_BUST=0
 RUN echo "pyegeria layer ${PYEGERIA_BUST}" \
     && pip install --no-cache-dir --retries 10 --timeout 60 "${PYEGERIA_VERSION}" --upgrade
