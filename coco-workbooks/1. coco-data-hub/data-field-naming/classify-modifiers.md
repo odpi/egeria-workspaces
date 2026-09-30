@@ -10,7 +10,7 @@ Modifiers are collected here rather than alongside their `Create Glossary Term` 
 every term already exists before it is classified - process this file after all the subject area
 files listed in `README.md`.
 
-205 terms are classified below, grouped by subject area.
+206 terms are classified below, grouped by subject area.  System is classified as both a prime word and a modifier.
 
 ____
 
@@ -626,7 +626,7 @@ ___
 
 # Strategic digital products extension
 
-161 terms added by `strategic-products-vocabulary.md`.
+161 terms added by `strategic-products-vocabulary.md`, plus System, a prime word from that file that is also used as a modifier.
 
 ___
 
@@ -2723,3 +2723,32 @@ Modifier for the Governance subject area of the Coco Pharmaceuticals data field 
 
 ___
 
+
+## Add Member to Collection
+
+### Collection Id
+CollectionFolder::DataFieldNaming:Governance:Modifiers
+
+### Element Id
+GlossaryTerm::DataFieldNaming::System
+
+### Membership Rationale
+System is a prime word that also qualifies other prime words, as in `ProcessingActivitySystemIdentifier`, so it is filed with the Governance modifiers as well as the Governance prime words.
+
+### Membership Status
+VALIDATED
+
+___
+
+## Classify Modifier
+> Classify an existing element as a modifier in a naming standard (0438).
+
+### Target Element
+
+GlossaryTerm::DataFieldNaming::System
+
+### Journal Entry
+
+Modifier for the Governance subject area of the Coco Pharmaceuticals data field naming standard, added for the strategic digital products.  System is also a prime word.
+
+___

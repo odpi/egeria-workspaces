@@ -1,0 +1,4 @@
+io.dropwizard.jetty.ConnectorFactory
+io.dropwizard.logging.common.AppenderFactory
+io.dropwizard.logging.common.LoggingFactory
+io.dropwizard.request.logging.RequestLogFactory

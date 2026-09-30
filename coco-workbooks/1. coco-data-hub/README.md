@@ -28,9 +28,10 @@ the ones that did not exist, locating the ones that did — makes them members o
 linking wires between them.  Every wire records which supply chains it implements, so Egeria can assemble each
 chain's implementation graph from the wires rather than from a drawing somebody has to maintain.
 
-In total it creates 82 solution components, adds 21 memberships for components that already existed, and draws
-126 wires.  Forty-four of those wires implement more than one supply chain: they are the handovers, where a fault
-in one chain becomes a failure in the next, and they are the places worth instrumenting first.
+In total it creates 82 solution components, adds 15 memberships for components that already existed, and draws
+123 wires.  Ten of those wires cross from one chain into another and name no chain - the handoffs, recorded as
+peer links between the chains, where a fault in one chain becomes a failure in the next - and they are the places
+worth instrumenting first.
 
 Two things it does not do.  It does not touch the **Clinical Trials** or **Sustainability Reporting** chains, which
 arrive fully implemented in `CocoComboArchive.omarchive`; where another chain meets clinical trials, the wire records

@@ -19,12 +19,18 @@ in compose-configs/egeria-freshstart/.env.ssl.
 
 Options:
   --refresh-platform  Force rebuild of freshstart-egeria-main so Docker pulls the latest base image.
-  --refresh-pyegeria  Force freshstart-pyegeria-web and jupyter to re-resolve the
-                      latest pyegeria release. pyegeria's `pip install --upgrade`
-                      is a cached Docker layer, so a plain rebuild otherwise
-                      keeps whatever version was resolved when the image was
-                      last built, even though requirements.txt has no upper
-                      version bound.
+  --pyegeria-version VERSION
+                      Pin pyegeria-web and jupyter to a specific pyegeria
+                      release (e.g. 6.1.20). Persists in
+                      compose-configs/egeria-freshstart/.env.pyegeria, so plain re-runs
+                      stay pinned; pass `latest` to clear the pin. Without a
+                      pin, every run installs the latest release from PyPI
+                      (a cached no-op when it hasn't changed).
+  --no-refresh-pyegeria
+                      Skip the pyegeria check and keep whatever version the
+                      existing images already carry (e.g. offline).
+  --refresh-pyegeria  Force the pyegeria layer to rebuild even when the
+                      resolved version hasn't changed.
   --egeria-memory SIZE
                       Set freshstart-egeria-main's container memory cap (Docker/Podman
                       `mem_limit` syntax, e.g. 4g, 8g, 10240m). Defaults to 6g
@@ -39,7 +45,8 @@ EOF
 }
 
 REFRESH_PLATFORM=0
-REFRESH_PYEGERIA=0
+REFRESH_PYEGERIA=default
+PYEGERIA_VERSION_REQUEST=""
 EGERIA_MEM_LIMIT="${EGERIA_MEM_LIMIT:-}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -48,8 +55,16 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --refresh-pyegeria)
-      REFRESH_PYEGERIA=1
+      REFRESH_PYEGERIA=force
       shift
+      ;;
+    --no-refresh-pyegeria)
+      REFRESH_PYEGERIA=skip
+      shift
+      ;;
+    --pyegeria-version)
+      PYEGERIA_VERSION_REQUEST="$2"
+      shift 2
       ;;
     --egeria-memory)
       EGERIA_MEM_LIMIT="$2"
@@ -248,13 +263,19 @@ EOF
   # bound. Passing a fresh PYEGERIA_BUST value busts just that one layer, so
   # the subsequent build below re-resolves pyegeria without a full
   # --no-cache rebuild of everything else in the image.
-  if [[ "$REFRESH_PYEGERIA" -eq 1 ]]; then
-    echo "[fresh-start-local] Refreshing pyegeria (freshstart-pyegeria-web + jupyter)..."
+  # Default: install the latest pyegeria release (or the saved pin) on
+  # every run -- see resolve-pyegeria.sh for why a plain restart would
+  # otherwise keep, or silently revert to, whatever the old image carried.
+  source "$REPO_ROOT/compose-configs/shared-infra/resolve-pyegeria.sh"
+  resolve_pyegeria_build_args "$REPO_ROOT/compose-configs/egeria-freshstart/.env.pyegeria" \
+    "$PYEGERIA_VERSION_REQUEST" "$REFRESH_PYEGERIA" "[fresh-start-local]"
+  if [[ ${#PYEGERIA_BUILD_ARGS[@]} -gt 0 ]]; then
+    echo "[fresh-start-local] Building pyegeria layer (freshstart-pyegeria-web + jupyter)..."
     $COMPOSE_CMD -p egeria-freshstart \
       -f egeria-freshstart.yaml \
       -f egeria-freshstart-local.yaml \
       -f egeria-freshstart-ssl.yaml \
-      build --build-arg PYEGERIA_BUST="$(date +%s)" \
+      build "${PYEGERIA_BUILD_ARGS[@]}" \
       freshstart-pyegeria-web freshstart-jupyter-hub
   fi
 

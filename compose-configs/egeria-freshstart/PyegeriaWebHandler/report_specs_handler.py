@@ -20,11 +20,59 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 from pydantic import BaseModel
 
+from pyegeria.view.base_report_formats import get_report_registry, register_report_specs
+from pyegeria.view._output_format_models import FormatSet, Format, Column, ActionParameter
+
 router = APIRouter(tags=["report-specs"])
 
 
+def register_local_specs():
+    """Register workspace-local report specs into the pyegeria registry.
+    This allows us to provide professional, generally useful analytic specs
+    directly in the workspace before they are formally released into the
+    core pyegeria library.
+    """
+    register_report_specs({
+        "Analytic - Element Count by Type": FormatSet(
+            heading="Element Count by Type",
+            description="Counts active elements of a given type. Use type_name in "
+                        "analytic_spec_params to set the target type.",
+            family="Analytic",
+            target_type=None,
+            formats=[Format(types=["DICT", "JSON"], attributes=[])],
+            action=ActionParameter(
+                function="",
+                analytic_function="pyegeria.view.overview_metrics.count_elements",
+                analytic_spec_params={"type_name": "GlossaryTerm"}
+            )
+        ),
+        "Analytic - Generic Metric Trend": FormatSet(
+            heading="Generic Metric Trend",
+            description="Trend any analytic function over time. metric_path is the target function; "
+                        "metric_params are its keyword arguments. Default trends count_elements(type_name=Asset).",
+            family="Analytic",
+            target_type=None,
+            formats=[Format(types=["DICT", "JSON", "SERIES"], attributes=[])],
+            action=ActionParameter(
+                function="",
+                analytic_function="pyegeria.view.overview_metrics.metric_trend",
+                analytic_spec_params={
+                    "metric_path": "pyegeria.view.overview_metrics.count_elements",
+                    "metric_params": {"type_name": "Asset"},
+                    "window": "6mo"
+                }
+            )
+        )
+    }, source="workspace_local")
+
+
+try:
+    register_local_specs()
+except Exception as e:
+    logger.warning(f"Failed to register local report specs: {e}")
+
+
 def _get_registry() -> dict:
-    from pyegeria.view.base_report_formats import get_report_registry
     return get_report_registry()
 
 

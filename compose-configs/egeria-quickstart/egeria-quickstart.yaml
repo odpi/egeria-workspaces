@@ -71,6 +71,7 @@ services:
       - ../../exchange-quickstart/coco-data-lake:/home/jovyan/coco-data-lake
       - ../../exchange-quickstart/treasury-dts-history:/home/jovyan/treasury-dts-history
       - ../../exchange-quickstart/config:/home/jovyan/config
+      - ../../exchange-quickstart/coco-dags:/home/jovyan/coco-dags
 
   egeria-main:
     image: 'egeria-quickstart-platform:local'
@@ -322,6 +323,7 @@ services:
       # recreate (this is what caused a "Create Dashboard Sheet ran fine but
       # nothing showed up" report right after a container rebuild).
       - ../../runtime-volumes/quickstart-pyegeria-state:/root/.pyegeria
+      - ../../exchange-quickstart/coco-dags:/app/coco-dags
       # TC-13: read-only data dirs at the same /deployments/* paths the Egeria
       # platform sees, so file Data Assets' pathName resolves for tabular preview.
       - ../../exchange-quickstart/loading-bay:/deployments/loading-bay:ro

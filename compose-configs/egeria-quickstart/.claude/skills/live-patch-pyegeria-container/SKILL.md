@@ -145,9 +145,11 @@ docker exec -u jovyan <container-name> pipx list | grep "package pyegeria"
 This gotcha is specific to a **runtime-only** upgrade (no rebuild). At
 *build* time it's already handled correctly: `Dockerfile-jupyter`'s
 `PYEGERIA_BUST` arg busts the pip layer, and Docker's cache invalidation
-cascades forward to the pipx `RUN` layer that follows it, so
-`./quick-start-local --refresh-pyegeria` / `./fresh-start-local
---refresh-pyegeria` refreshes both installs together with no extra step.
+cascades forward to the pipx `RUN` layer that follows it, so a
+`./quick-start-local` / `./fresh-start-local` run (which installs the latest
+pyegeria, or the `--pyegeria-version` pin, by default) refreshes both installs
+together with no extra step. Note that the next such run also *replaces* any
+live-patched pyegeria with the published release.
 
 ## Don't forget the real fix
 

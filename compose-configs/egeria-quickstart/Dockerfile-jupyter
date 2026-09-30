@@ -76,8 +76,9 @@ RUN python -m pip install --no-cache-dir --retries 10 --timeout 60 \
 
 # pyegeria in its own layer. Docker caches this layer, so a plain rebuild keeps
 # the previously-installed version. To pull a fresh build, bump the cache key or
-# pin a version at build time (or just use quick-start-local/fresh-start-local's
-# --refresh-pyegeria flag, which does this for you):
+# pin a version at build time (quick-start-local/fresh-start-local do this for
+# you on every run -- latest from PyPI, or their --pyegeria-version pin; see
+# compose-configs/shared-infra/resolve-pyegeria.sh):
 #   docker compose build --build-arg PYEGERIA_BUST=$(date +%s) jupyter            # latest
 #   docker compose build --build-arg PYEGERIA_VERSION=pyegeria==6.0.15.1 jupyter  # pinned
 #
@@ -93,13 +94,17 @@ RUN python -m pip install --no-cache-dir --retries 10 --timeout 60 \
 # does NOT: it only touches the pipx copy and leaves this one stale with no
 # error to signal it — confirmed live 2026-08-31. See the
 # live-patch-pyegeria-container skill for the two-command fix.
-ARG PYEGERIA_VERSION=pyegeria
+#
+# The start scripts always override this default. It's only the floor for a
+# plain `docker compose build`, and bumping it busts this layer. Keep it in
+# step with PyegeriaWebHandler/requirements.txt + Dockerfile-fast-api.
+ARG PYEGERIA_VERSION=pyegeria>=6.1.22
 ARG PYEGERIA_BUST=0
 RUN echo "pyegeria layer ${PYEGERIA_BUST}" \
-	&& python -m pip install --no-cache-dir --upgrade --retries 10 --timeout 60 ${PYEGERIA_VERSION}
+	&& python -m pip install --no-cache-dir --upgrade --retries 10 --timeout 60 "${PYEGERIA_VERSION}"
 
 RUN python -m pipx ensurepath \
-	&& python -m pipx install --force ${PYEGERIA_VERSION}
+	&& python -m pipx install --force "${PYEGERIA_VERSION}"
 
 # RUN mkdir -p /home/jovyan/workbooks
 # RUN chmod +xrw /home/jovyan/workbooks

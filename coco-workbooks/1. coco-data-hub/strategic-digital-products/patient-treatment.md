@@ -21,8 +21,8 @@ Products originating in the direct-to-patient channel: treatment orders, the pse
 For every product this file:
 
 1. creates the **digital product** and adds it to the `Patient Treatment` folder of the catalog;
-2. creates its **data spec** and attaches it with a `DataDescription` relationship, then the **data structures**, each added to the spec, and the **data fields**, each linked to its structure with a `MemberDataField` relationship, named to the [Data Field Naming](../data-field-naming/README.md) standard;
-3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, as a member of the product.  The schema is named after the product, in the `coco_pharma` database on `Coco PostgreSQL Server 1`.
+2. creates its **data spec** and attaches it with a `DataDescription` relationship, then the **data structures**, each added to the spec, and the **data fields**, each linked to its structure with a `MemberDataField` relationship, its position and coverage category set on that relationship - `IDENTIFIER` for the fields that identify a row of the structure, `CORE_DETAIL` for the rest - named to the [Data Field Naming](../data-field-naming/README.md) standard;
+3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, anchored to the product and a member of it, so that it is removed with the product.  The schema is named after the product, in the `coco_data_hub` database on `Coco PostgreSQL Server 1`.
 
 3 products, 5 data structures, 31 data fields.  This file loads after `catalog.md`.
 
@@ -144,7 +144,7 @@ DataStructure::Coco::Treatment Orders::Treatment Order
 One row per order placed through the portal.
 
 ### Namespace Path
-coco_pharma.treatment_orders
+coco_data_hub.treatment_orders
 
 ### Version Identifier
 1.0
@@ -173,19 +173,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-OrderIdentifier
+Order Identifier
 
 ### Qualified Name
-DataField::Coco::Treatment Orders::Treatment Order::OrderIdentifier
+DataField::Coco::Treatment Orders::Treatment Order::Order Identifier
 
 ### Description
 The unique identifier of the order.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -207,10 +204,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Treatment Orders::Treatment Order::OrderIdentifier
+DataField::Coco::Treatment Orders::Treatment Order::Order Identifier
 
 ### Data Structure
 DataStructure::Coco::Treatment Orders::Treatment Order
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -220,19 +223,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-OrderDate
+Order Date
 
 ### Qualified Name
-DataField::Coco::Treatment Orders::Treatment Order::OrderDate
+DataField::Coco::Treatment Orders::Treatment Order::Order Date
 
 ### Description
 When the order was placed.
 
 ### Data Type
 date
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -251,10 +251,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Treatment Orders::Treatment Order::OrderDate
+DataField::Coco::Treatment Orders::Treatment Order::Order Date
 
 ### Data Structure
 DataStructure::Coco::Treatment Orders::Treatment Order
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -264,19 +270,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PatientIdentifier
+Patient Identifier
 
 ### Qualified Name
-DataField::Coco::Treatment Orders::Treatment Order::PatientIdentifier
+DataField::Coco::Treatment Orders::Treatment Order::Patient Identifier
 
 ### Description
 The patient the therapy is for, as identified by the treating site.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -298,10 +301,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Treatment Orders::Treatment Order::PatientIdentifier
+DataField::Coco::Treatment Orders::Treatment Order::Patient Identifier
 
 ### Data Structure
 DataStructure::Coco::Treatment Orders::Treatment Order
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -311,19 +320,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ClinicianIdentifier
+Clinician Identifier
 
 ### Qualified Name
-DataField::Coco::Treatment Orders::Treatment Order::ClinicianIdentifier
+DataField::Coco::Treatment Orders::Treatment Order::Clinician Identifier
 
 ### Description
 The prescribing clinician.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -345,10 +351,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Treatment Orders::Treatment Order::ClinicianIdentifier
+DataField::Coco::Treatment Orders::Treatment Order::Clinician Identifier
 
 ### Data Structure
 DataStructure::Coco::Treatment Orders::Treatment Order
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -358,19 +370,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-HospitalIdentifier
+Hospital Identifier
 
 ### Qualified Name
-DataField::Coco::Treatment Orders::Treatment Order::HospitalIdentifier
+DataField::Coco::Treatment Orders::Treatment Order::Hospital Identifier
 
 ### Description
 The treating site.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -392,10 +401,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Treatment Orders::Treatment Order::HospitalIdentifier
+DataField::Coco::Treatment Orders::Treatment Order::Hospital Identifier
 
 ### Data Structure
 DataStructure::Coco::Treatment Orders::Treatment Order
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -405,19 +420,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductCode
+Product Code
 
 ### Qualified Name
-DataField::Coco::Treatment Orders::Treatment Order::ProductCode
+DataField::Coco::Treatment Orders::Treatment Order::Product Code
 
 ### Description
 The product ordered.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -439,10 +451,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Treatment Orders::Treatment Order::ProductCode
+DataField::Coco::Treatment Orders::Treatment Order::Product Code
 
 ### Data Structure
 DataStructure::Coco::Treatment Orders::Treatment Order
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -452,19 +470,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-OrderQuantity
+Order Quantity
 
 ### Qualified Name
-DataField::Coco::Treatment Orders::Treatment Order::OrderQuantity
+DataField::Coco::Treatment Orders::Treatment Order::Order Quantity
 
 ### Description
 The number of doses ordered.
 
 ### Data Type
 int
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -483,10 +498,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Treatment Orders::Treatment Order::OrderQuantity
+DataField::Coco::Treatment Orders::Treatment Order::Order Quantity
 
 ### Data Structure
 DataStructure::Coco::Treatment Orders::Treatment Order
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -496,19 +517,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-OrderCurrentStatus
+Order Current Status
 
 ### Qualified Name
-DataField::Coco::Treatment Orders::Treatment Order::OrderCurrentStatus
+DataField::Coco::Treatment Orders::Treatment Order::Order Current Status
 
 ### Description
 Where the order is in its life.
 
 ### Data Type
 string
-
-### Position
-8
 
 ### Is Nullable
 false
@@ -530,10 +548,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Treatment Orders::Treatment Order::OrderCurrentStatus
+DataField::Coco::Treatment Orders::Treatment Order::Order Current Status
 
 ### Data Structure
 DataStructure::Coco::Treatment Orders::Treatment Order
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -552,7 +576,7 @@ DataStructure::Coco::Treatment Orders::Sample Collection Request
 One row per request for patient material to be collected for an order.
 
 ### Namespace Path
-coco_pharma.treatment_orders
+coco_data_hub.treatment_orders
 
 ### Version Identifier
 1.0
@@ -581,19 +605,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-OrderIdentifier
+Order Identifier
 
 ### Qualified Name
-DataField::Coco::Treatment Orders::Sample Collection Request::OrderIdentifier
+DataField::Coco::Treatment Orders::Sample Collection Request::Order Identifier
 
 ### Description
 The order the sample is for.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -615,10 +636,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Treatment Orders::Sample Collection Request::OrderIdentifier
+DataField::Coco::Treatment Orders::Sample Collection Request::Order Identifier
 
 ### Data Structure
 DataStructure::Coco::Treatment Orders::Sample Collection Request
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -628,19 +655,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SampleCollectionLocation
+Sample Collection Location
 
 ### Qualified Name
-DataField::Coco::Treatment Orders::Sample Collection Request::SampleCollectionLocation
+DataField::Coco::Treatment Orders::Sample Collection Request::Sample Collection Location
 
 ### Description
 Where the material is to be collected.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -662,10 +686,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Treatment Orders::Sample Collection Request::SampleCollectionLocation
+DataField::Coco::Treatment Orders::Sample Collection Request::Sample Collection Location
 
 ### Data Structure
 DataStructure::Coco::Treatment Orders::Sample Collection Request
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -675,19 +705,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SampleCollectionStartDate
+Sample Collection Start Date
 
 ### Qualified Name
-DataField::Coco::Treatment Orders::Sample Collection Request::SampleCollectionStartDate
+DataField::Coco::Treatment Orders::Sample Collection Request::Sample Collection Start Date
 
 ### Description
 The earliest the material may be taken.
 
 ### Data Type
 date
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -706,10 +733,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Treatment Orders::Sample Collection Request::SampleCollectionStartDate
+DataField::Coco::Treatment Orders::Sample Collection Request::Sample Collection Start Date
 
 ### Data Structure
 DataStructure::Coco::Treatment Orders::Sample Collection Request
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -719,19 +752,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SampleCollectionEndDate
+Sample Collection End Date
 
 ### Qualified Name
-DataField::Coco::Treatment Orders::Sample Collection Request::SampleCollectionEndDate
+DataField::Coco::Treatment Orders::Sample Collection Request::Sample Collection End Date
 
 ### Description
 The latest the material may be taken.
 
 ### Data Type
 date
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -750,10 +780,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Treatment Orders::Sample Collection Request::SampleCollectionEndDate
+DataField::Coco::Treatment Orders::Sample Collection Request::Sample Collection End Date
 
 ### Data Structure
 DataStructure::Coco::Treatment Orders::Sample Collection Request
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -763,19 +799,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SampleMaterialType
+Sample Material Type
 
 ### Qualified Name
-DataField::Coco::Treatment Orders::Sample Collection Request::SampleMaterialType
+DataField::Coco::Treatment Orders::Sample Collection Request::Sample Material Type
 
 ### Description
 The material required from the patient.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -797,10 +830,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Treatment Orders::Sample Collection Request::SampleMaterialType
+DataField::Coco::Treatment Orders::Sample Collection Request::Sample Material Type
 
 ### Data Structure
 DataStructure::Coco::Treatment Orders::Sample Collection Request
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -819,12 +858,18 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: treatment_orders
 - schemaDescription: The orders placed by treating clinicians for personalised therapies: the patient, the prescribing clinician, the product ordered and the sample collection it requires. It is the point at which a treatment decision made outside the company becomes an instruction inside it.
+
+### Anchor ID
+DigitalProduct::Coco::Treatment Orders
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Treatment Orders
@@ -949,7 +994,7 @@ DataStructure::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Repo
 One row per suspected reaction reported by a clinician.
 
 ### Namespace Path
-coco_pharma.clinician_adverse_reaction_reports
+coco_data_hub.clinician_adverse_reaction_reports
 
 ### Version Identifier
 1.0
@@ -978,19 +1023,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AdverseEventIdentifier
+Adverse Event Identifier
 
 ### Qualified Name
-DataField::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report::AdverseEventIdentifier
+DataField::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report::Adverse Event Identifier
 
 ### Description
 The unique identifier of the report.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -1012,10 +1054,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report::AdverseEventIdentifier
+DataField::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report::Adverse Event Identifier
 
 ### Data Structure
 DataStructure::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -1025,19 +1073,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AdverseEventReportedDate
+Adverse Event Reported Date
 
 ### Qualified Name
-DataField::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report::AdverseEventReportedDate
+DataField::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report::Adverse Event Reported Date
 
 ### Description
 When the clinician reported the reaction.
 
 ### Data Type
 date
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -1056,10 +1101,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report::AdverseEventReportedDate
+DataField::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report::Adverse Event Reported Date
 
 ### Data Structure
 DataStructure::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -1069,19 +1120,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PatientPseudonymIdentifier
+Patient Pseudonym Identifier
 
 ### Qualified Name
-DataField::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report::PatientPseudonymIdentifier
+DataField::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report::Patient Pseudonym Identifier
 
 ### Description
 The patient, by pseudonym.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -1103,10 +1151,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report::PatientPseudonymIdentifier
+DataField::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report::Patient Pseudonym Identifier
 
 ### Data Structure
 DataStructure::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -1116,19 +1170,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ClinicianIdentifier
+Clinician Identifier
 
 ### Qualified Name
-DataField::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report::ClinicianIdentifier
+DataField::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report::Clinician Identifier
 
 ### Description
 The reporting clinician.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -1150,10 +1201,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report::ClinicianIdentifier
+DataField::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report::Clinician Identifier
 
 ### Data Structure
 DataStructure::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -1163,19 +1220,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductCode
+Product Code
 
 ### Qualified Name
-DataField::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report::ProductCode
+DataField::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report::Product Code
 
 ### Description
 The product suspected.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -1197,10 +1251,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report::ProductCode
+DataField::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report::Product Code
 
 ### Data Structure
 DataStructure::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -1210,19 +1270,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-BatchIdentifier
+Batch Identifier
 
 ### Qualified Name
-DataField::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report::BatchIdentifier
+DataField::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report::Batch Identifier
 
 ### Description
 The batch administered, if known.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 true
@@ -1244,10 +1301,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report::BatchIdentifier
+DataField::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report::Batch Identifier
 
 ### Data Structure
 DataStructure::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -1257,19 +1320,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AdverseEventDescription
+Adverse Event Description
 
 ### Qualified Name
-DataField::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report::AdverseEventDescription
+DataField::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report::Adverse Event Description
 
 ### Description
 The clinician's description of the reaction.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -1288,10 +1348,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report::AdverseEventDescription
+DataField::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report::Adverse Event Description
 
 ### Data Structure
 DataStructure::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -1301,19 +1367,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-AdverseEventReportedSeverity
+Adverse Event Reported Severity
 
 ### Qualified Name
-DataField::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report::AdverseEventReportedSeverity
+DataField::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report::Adverse Event Reported Severity
 
 ### Description
 The severity as reported by the clinician.
 
 ### Data Type
 string
-
-### Position
-8
 
 ### Is Nullable
 true
@@ -1335,10 +1398,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report::AdverseEventReportedSeverity
+DataField::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report::Adverse Event Reported Severity
 
 ### Data Structure
 DataStructure::Coco::Clinician Adverse Reaction Reports::Clinician Reaction Report
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -1357,12 +1426,18 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: clinician_adverse_reaction_reports
 - schemaDescription: Suspected adverse reactions reported by treating clinicians through the ordering portal, identifying the patient by pseudonym and the product and batch involved. The data arrives through the same channel as orders but is of a different kind, and starts a different clock.
+
+### Anchor ID
+DigitalProduct::Coco::Clinician Adverse Reaction Reports
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Clinician Adverse Reaction Reports
@@ -1487,7 +1562,7 @@ DataStructure::Coco::Patient Pseudonym Register::Patient Pseudonym Link
 One row per patient pseudonym issued for an order.
 
 ### Namespace Path
-coco_pharma.patient_pseudonym_register
+coco_data_hub.patient_pseudonym_register
 
 ### Version Identifier
 1.0
@@ -1516,19 +1591,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PatientPseudonymIdentifier
+Patient Pseudonym Identifier
 
 ### Qualified Name
-DataField::Coco::Patient Pseudonym Register::Patient Pseudonym Link::PatientPseudonymIdentifier
+DataField::Coco::Patient Pseudonym Register::Patient Pseudonym Link::Patient Pseudonym Identifier
 
 ### Description
 The pseudonym issued.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -1550,10 +1622,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Patient Pseudonym Register::Patient Pseudonym Link::PatientPseudonymIdentifier
+DataField::Coco::Patient Pseudonym Register::Patient Pseudonym Link::Patient Pseudonym Identifier
 
 ### Data Structure
 DataStructure::Coco::Patient Pseudonym Register::Patient Pseudonym Link
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -1563,19 +1641,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-OrderIdentifier
+Order Identifier
 
 ### Qualified Name
-DataField::Coco::Patient Pseudonym Register::Patient Pseudonym Link::OrderIdentifier
+DataField::Coco::Patient Pseudonym Register::Patient Pseudonym Link::Order Identifier
 
 ### Description
 The order the pseudonym was issued for.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -1597,10 +1672,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Patient Pseudonym Register::Patient Pseudonym Link::OrderIdentifier
+DataField::Coco::Patient Pseudonym Register::Patient Pseudonym Link::Order Identifier
 
 ### Data Structure
 DataStructure::Coco::Patient Pseudonym Register::Patient Pseudonym Link
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -1610,19 +1691,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PatientPseudonymIssuedTimestamp
+Patient Pseudonym Issued Timestamp
 
 ### Qualified Name
-DataField::Coco::Patient Pseudonym Register::Patient Pseudonym Link::PatientPseudonymIssuedTimestamp
+DataField::Coco::Patient Pseudonym Register::Patient Pseudonym Link::Patient Pseudonym Issued Timestamp
 
 ### Description
 When the pseudonym was issued.
 
 ### Data Type
 date
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -1641,10 +1719,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Patient Pseudonym Register::Patient Pseudonym Link::PatientPseudonymIssuedTimestamp
+DataField::Coco::Patient Pseudonym Register::Patient Pseudonym Link::Patient Pseudonym Issued Timestamp
 
 ### Data Structure
 DataStructure::Coco::Patient Pseudonym Register::Patient Pseudonym Link
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -1654,19 +1738,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductCode
+Product Code
 
 ### Qualified Name
-DataField::Coco::Patient Pseudonym Register::Patient Pseudonym Link::ProductCode
+DataField::Coco::Patient Pseudonym Register::Patient Pseudonym Link::Product Code
 
 ### Description
 The product specified.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -1688,10 +1769,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Patient Pseudonym Register::Patient Pseudonym Link::ProductCode
+DataField::Coco::Patient Pseudonym Register::Patient Pseudonym Link::Product Code
 
 ### Data Structure
 DataStructure::Coco::Patient Pseudonym Register::Patient Pseudonym Link
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -1701,19 +1788,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PatientParameterDescription
+Patient Parameter Description
 
 ### Qualified Name
-DataField::Coco::Patient Pseudonym Register::Patient Pseudonym Link::PatientParameterDescription
+DataField::Coco::Patient Pseudonym Register::Patient Pseudonym Link::Patient Parameter Description
 
 ### Description
 The patient-specific parameters manufacturing must apply.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -1732,10 +1816,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Patient Pseudonym Register::Patient Pseudonym Link::PatientParameterDescription
+DataField::Coco::Patient Pseudonym Register::Patient Pseudonym Link::Patient Parameter Description
 
 ### Data Structure
 DataStructure::Coco::Patient Pseudonym Register::Patient Pseudonym Link
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -1754,7 +1844,7 @@ DataStructure::Coco::Patient Pseudonym Register::Administration Record
 One row per therapy delivered and administered, closing the loop the order opened.
 
 ### Namespace Path
-coco_pharma.patient_pseudonym_register
+coco_data_hub.patient_pseudonym_register
 
 ### Version Identifier
 1.0
@@ -1783,19 +1873,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PatientPseudonymIdentifier
+Batch Identifier
 
 ### Qualified Name
-DataField::Coco::Patient Pseudonym Register::Administration Record::PatientPseudonymIdentifier
+DataField::Coco::Patient Pseudonym Register::Administration Record::Batch Identifier
 
 ### Description
-The patient, by pseudonym.
+The therapy administered.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -1817,10 +1904,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Patient Pseudonym Register::Administration Record::PatientPseudonymIdentifier
+DataField::Coco::Patient Pseudonym Register::Administration Record::Batch Identifier
 
 ### Data Structure
 DataStructure::Coco::Patient Pseudonym Register::Administration Record
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -1830,19 +1923,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-BatchIdentifier
+Patient Pseudonym Identifier
 
 ### Qualified Name
-DataField::Coco::Patient Pseudonym Register::Administration Record::BatchIdentifier
+DataField::Coco::Patient Pseudonym Register::Administration Record::Patient Pseudonym Identifier
 
 ### Description
-The therapy administered.
+The patient, by pseudonym.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -1864,10 +1954,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Patient Pseudonym Register::Administration Record::BatchIdentifier
+DataField::Coco::Patient Pseudonym Register::Administration Record::Patient Pseudonym Identifier
 
 ### Data Structure
 DataStructure::Coco::Patient Pseudonym Register::Administration Record
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -1877,19 +1973,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TreatmentDeliveryTimestamp
+Treatment Delivery Timestamp
 
 ### Qualified Name
-DataField::Coco::Patient Pseudonym Register::Administration Record::TreatmentDeliveryTimestamp
+DataField::Coco::Patient Pseudonym Register::Administration Record::Treatment Delivery Timestamp
 
 ### Description
 When the therapy arrived at the treating site.
 
 ### Data Type
 date
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -1908,10 +2001,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Patient Pseudonym Register::Administration Record::TreatmentDeliveryTimestamp
+DataField::Coco::Patient Pseudonym Register::Administration Record::Treatment Delivery Timestamp
 
 ### Data Structure
 DataStructure::Coco::Patient Pseudonym Register::Administration Record
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -1921,19 +2020,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TreatmentAdministrationTimestamp
+Treatment Administration Timestamp
 
 ### Qualified Name
-DataField::Coco::Patient Pseudonym Register::Administration Record::TreatmentAdministrationTimestamp
+DataField::Coco::Patient Pseudonym Register::Administration Record::Treatment Administration Timestamp
 
 ### Description
 When the therapy was administered.
 
 ### Data Type
 date
-
-### Position
-4
 
 ### Is Nullable
 true
@@ -1952,10 +2048,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Patient Pseudonym Register::Administration Record::TreatmentAdministrationTimestamp
+DataField::Coco::Patient Pseudonym Register::Administration Record::Treatment Administration Timestamp
 
 ### Data Structure
 DataStructure::Coco::Patient Pseudonym Register::Administration Record
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -1965,19 +2067,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TreatmentAdministrationConfirmedFlag
+Treatment Administration Confirmed Flag
 
 ### Qualified Name
-DataField::Coco::Patient Pseudonym Register::Administration Record::TreatmentAdministrationConfirmedFlag
+DataField::Coco::Patient Pseudonym Register::Administration Record::Treatment Administration Confirmed Flag
 
 ### Description
 Whether administration has been confirmed by the site.
 
 ### Data Type
 boolean
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -1996,10 +2095,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Patient Pseudonym Register::Administration Record::TreatmentAdministrationConfirmedFlag
+DataField::Coco::Patient Pseudonym Register::Administration Record::Treatment Administration Confirmed Flag
 
 ### Data Structure
 DataStructure::Coco::Patient Pseudonym Register::Administration Record
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -2018,12 +2123,18 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: patient_pseudonym_register
 - schemaDescription: The link between a patient, the material taken from them and the therapy manufactured from it, issued as a pseudonym that every other system in the chain works from. Manufacturing can be certain it has the right material without ever holding the patient's identity.
+
+### Anchor ID
+DigitalProduct::Coco::Patient Pseudonym Register
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Patient Pseudonym Register

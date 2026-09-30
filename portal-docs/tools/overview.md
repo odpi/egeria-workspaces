@@ -13,6 +13,7 @@ The Egeria Workspaces portal includes several integrated tools for exploring, ma
 | [Egeria Explorer](egeria-explorer.md) | `/egeria-explorer` | Browse the type system, glossary terms, governance structures, digital products, information supply chains, external identifiers, and more — one tab per element category |
 | [Lineage Explorer](lineage-explorer.md) | `/lineage` | Trace data flow end-to-end; local and full lineage graphs, field-level mappings, time-travel queries, and information supply chain filtering |
 | [Egeria Audit](egeria-audit.md) | `/egeria-audit` | Review exceptions, certifications, and licenses in use across the metadata landscape, plus who has access to Egeria |
+| [Local Dashboards](local-dashboards.md) | `/local-dashboards` | User-authored reporting portal — compose custom dashboards from Egeria metadata and analytic trends using Dr.Egeria commands |
 | [Egeria Operations](egeria-operations.md) | `/egeria-operations` | Monitor and operate the Egeria runtime — servers, integration connectors, governance engines, and engine actions |
 | [Resource Explorer](resource-explorer.md) | `/resource-explorer` | Scout, assess, discover, and enrich resources *(preview — not yet enabled)* |
 | [My Egeria](my-egeria.md) | `/my-egeria/` | Textual (terminal-style) view of your own Egeria profile, roles, teams, and actions |

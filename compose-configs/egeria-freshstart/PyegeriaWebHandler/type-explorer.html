@@ -7143,6 +7143,8 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
   const [detailState, setDetailState] = useState('idle');
   const [filter, setFilter] = useState('');
   const [inclTempl, setInclTempl] = useState(false);
+  // forLineage: also show elements classified Memento/Promise (hidden by default)
+  const [forLineage, setForLineage] = useState(false);
   const [expandedISC, setExpandedISC] = useState(new Set());
   const selection = useSelection();
   const [modalAction, setModalAction] = useState(null);
@@ -7156,20 +7158,20 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
   useEffect(function() {
     setState('loading'); setError('');
     selection.clear();
-    egeriaFetch('/api/isc' + (inclTempl ? '?include_templates=true' : ''), creds)
+    egeriaFetch('/api/isc' + (inclTempl || forLineage ? '?' + [inclTempl && 'include_templates=true', forLineage && 'for_lineage=true'].filter(Boolean).join('&') : ''), creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setItems(data.supply_chains || []); setState('ready'); })
       .catch(function(e) { setError(e.message); setState('error'); });
-  }, [attempt, inclTempl]);
+  }, [attempt, inclTempl, forLineage]);
 
   useEffect(function() {
     if (!selected) { setDetail(null); return; }
     setDetailState('loading');
-    egeriaFetch('/api/isc/' + selected, creds)
+    egeriaFetch('/api/isc/' + selected + (forLineage ? '?for_lineage=true' : ''), creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setDetail(data); setDetailState('ready'); })
       .catch(function() { setDetailState('error'); });
-  }, [selected]);
+  }, [selected, forLineage]);
 
   var sidebar = React.createElement("div", { style: { width: sideW, minWidth: sideW, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflowY: 'auto', height: '100%' } },
     React.createElement("div", { style: { padding: '8px 10px' } }, React.createElement(TimeSlider, { onChange: setAsOfTime, label: 'As of' })),
@@ -7179,6 +7181,10 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
       React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', marginTop: 4 } },
         React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
         "Include templates"
+      ),
+      React.createElement("label", { title: "Include elements classified as Memento or Promise, which are hidden from lineage by default", style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', marginTop: 4 } },
+        React.createElement("input", { type: "checkbox", checked: forLineage, onChange: function(e) { setForLineage(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
+        "Show Promise / Memento"
       ),
       React.createElement("button", {
         className: "btn-sm", style: { marginTop: 4 },

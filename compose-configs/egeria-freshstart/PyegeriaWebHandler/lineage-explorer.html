@@ -904,6 +904,8 @@ function MainPanel({ focusAsset, creds, onSetFocus, activePersona }) {
   var _selectedISC = useState(null),  selectedISC = _selectedISC[0], setSelectedISC = _selectedISC[1];
   var _iscMode     = useState('limit'),iscMode     = _iscMode[0],     setIscMode     = _iscMode[1];
   var _allAnchors  = useState(false), allAnchors  = _allAnchors[0],  setAllAnchors  = _allAnchors[1];
+  // forLineage: also show elements classified Memento/Promise (hidden by default)
+  var _forLineage  = useState(false), forLineage  = _forLineage[0],  setForLineage  = _forLineage[1];
   var _showField   = useState(false), showField   = _showField[0],   setShowField   = _showField[1];
   var _showFull    = useState(false), showFull    = _showFull[0],    setShowFull    = _showFull[1];
   var _showEdge    = useState(false), showEdge    = _showEdge[0],    setShowEdge    = _showEdge[1];
@@ -923,12 +925,15 @@ function MainPanel({ focusAsset, creds, onSetFocus, activePersona }) {
     if (!guid || !creds) return;
     setGraphErr(''); setGraphLoad(true);
     var url = '/api/lineage/asset/' + encodeURIComponent(guid) + '/graph';
-    if (asOfTime) url += '?as_of_time=' + encodeURIComponent(asOfTime);
+    var gp = [];
+    if (asOfTime)   gp.push('as_of_time=' + encodeURIComponent(asOfTime));
+    if (forLineage) gp.push('for_lineage=true');
+    if (gp.length) url += '?' + gp.join('&');
     fetchWithToken(url, creds)
       .then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.detail || d.error || 'HTTP ' + r.status); }); })
       .then(function(d) { setGraphData(d); setGraphLoad(false); })
       .catch(function(e) { setGraphErr(String(e)); setGraphLoad(false); });
-  }, [guid, asOfTime, creds]);
+  }, [guid, asOfTime, creds, forLineage]);
 
   // Fetch full lineage graph (called on demand and when options change)
   function loadLineage(opts) {
@@ -939,6 +944,7 @@ function MainPanel({ focusAsset, creds, onSetFocus, activePersona }) {
     if (opts && opts.limitISC)     params.set('limit_to_isc', opts.limitISC);
     if (opts && opts.highlightISC) params.set('highlight_isc', opts.highlightISC);
     if (opts && opts.allAnchors)   params.set('all_anchors', 'true');
+    if (forLineage)                params.set('for_lineage', 'true');
     var url = '/api/lineage/asset/' + encodeURIComponent(guid) + '/lineage-graph';
     var qs = params.toString();
     if (qs) url += '?' + qs;
@@ -965,9 +971,10 @@ function MainPanel({ focusAsset, creds, onSetFocus, activePersona }) {
 
   // Re-fetch lineage when ISC or allAnchors changes (if already showing)
   useEffect(function() {
-    if (!showFull || !guid || !creds) return;
+    if (!showFull) { setLineageData(null); return; }  // stale for the new options; reload on next open
+    if (!guid || !creds) return;
     loadLineage(buildLineageOpts());
-  }, [selectedISC, iscMode, allAnchors]);
+  }, [selectedISC, iscMode, allAnchors, forLineage]);
 
   if (!focusAsset) return null;
 
@@ -1077,6 +1084,15 @@ function MainPanel({ focusAsset, creds, onSetFocus, activePersona }) {
         onClick: handleToggleFullLineage,
         style: { marginBottom: 10, padding: '8px 18px', fontSize: 13, fontWeight: 600 },
       }, (showFull ? '▲ Hide' : '▼ Load') + ' Full Asset Lineage'),
+      React.createElement('div', { className: 'opts-row' },
+        React.createElement('div', { className: 'opts-check' },
+          React.createElement('label', { title: 'Include elements classified as Memento or Promise, which are hidden from lineage by default' },
+            React.createElement('input', { type: 'checkbox', checked: forLineage,
+              onChange: function(e) { setForLineage(e.target.checked); } }),
+            ' Show Promise / Memento elements'
+          )
+        )
+      ),
       showFull && React.createElement('div', { className: 'opts-row' },
         React.createElement('div', { className: 'opts-check' },
           React.createElement('label', null,

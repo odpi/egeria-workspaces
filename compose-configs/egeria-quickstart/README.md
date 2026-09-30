@@ -83,9 +83,14 @@ infrastructure is ready.
 This runner:
 1.  **Waits** for PostgreSQL to be ready to accept connections.
 2.  **Checks** a migration marker table (`quickstart_migrations.applied_migrations`) in the
-    default `postgres` database to see if the initialization has already run.
-3.  **Executes** `docker-entrypoint-initdb.d/init_egeria.sql` only if it hasn't been applied yet.
-4.  **Records** the migration as applied upon success.
+    default `postgres` database to see which migrations have already run.
+3.  **Executes** each migration in its `MIGRATIONS` list that hasn't been applied yet, in order:
+    - `egeria-quickstart-init-egeria-v2` — `docker-entrypoint-initdb.d/init_egeria.sql`
+    - `egeria-quickstart-coco-data-hub-v1` — `docker-entrypoint-initdb.d/init_coco_data_hub.sql`
+4.  **Records** each migration as applied upon success.
+
+To change the database set-up, add a new migration (a new SQL file and a new entry in `MIGRATIONS`)
+rather than editing one that has already been applied — existing installs skip applied migrations.
 
 ### What `init_egeria.sql` does
 
@@ -104,6 +109,35 @@ The script:
    `docker-entrypoint-initdb.d/data/`:
    - `data/coco_sus.sql` is loaded into `coco_sus`
    - `data/coco_ods.sql` is loaded into `coco_ods`
+
+### What `init_coco_data_hub.sql` does
+
+Creates the `coco_data_hub` database — the Coco Pharmaceuticals Data Sharing Hub — and loads
+`docker-entrypoint-initdb.d/data/coco_data_hub.sql` into it: one schema per strategic digital product
+(81), one table per data structure (153), one column per data field linked to it (1,015 columns - the
+shared Product Code field is a column of three tables) with the key columns first, a primary key on the
+fields whose link to their data structure has the coverage category `IDENTIFIER`, and the product,
+structure and field descriptions as comments.  It also creates the `provisioner` database user
+(password `provisioner4egeria`, secrets collection `PostgreSQL Provisioning Secret` in
+`secrets/integration.omsecrets`), which reads and writes the rows of every product table, and gives the
+cataloguer's `surveyor` user read-only access to every product table, so that the Data Sharing Hub
+Manager (Liskov) can survey the hub.  The tables are empty.  `coco_pharma` keeps the existing
+Coco systems (`coco_sus`, `coco_ods`).
+
+`data/coco_data_hub.sql` is generated from the product definitions in
+`coco-workbooks/1. coco-data-hub/strategic-digital-products/` — regenerate it after changing them:
+
+```bash
+# From the repository root
+compose-configs/egeria-quickstart/bin/gen-coco-data-hub-sql.py \
+  "coco-workbooks/1. coco-data-hub/strategic-digital-products" \
+  compose-configs/egeria-quickstart/docker-entrypoint-initdb.d/data/coco_data_hub.sql
+```
+
+The SQL only creates what is missing, so once `coco_data_hub` exists a change to the product definitions
+reaches it only through a new migration that alters it - or, while the tables hold no data, by dropping the
+database and its `egeria-quickstart-coco-data-hub-v1` entry in `quickstart_migrations.applied_migrations` and
+rerunning `bin/apply-postgres-init.sh`.
 
 ### Adding schemas to an existing Postgres deployment
 
@@ -225,16 +259,18 @@ If you want to force refresh the `egeria-main` image (even when `egeria-quicksta
 This triggers a rebuild of the platform service with `docker compose build --pull` so Docker checks for a newer
 `quay.io/odpi/egeria-platform:latest` base image.
 
-If you want to force `pyegeria-web` and `jupyter` to re-resolve the latest pyegeria release from PyPI, run:
+Every run installs the latest pyegeria release from PyPI into `pyegeria-web` and `jupyter`, unless a
+version has been pinned. The resolved version is the cache key for pyegeria's own Docker layer, so when the
+latest hasn't changed the step is a cache hit; when it has, only that layer rebuilds. An upgrade done
+*inside* a running container (`pip install --upgrade pyegeria`) is lost the next time the container is
+recreated (e.g. by `--refresh-platform`), so use these flags instead:
 
 ```bash
-./quick-start-local --refresh-pyegeria
+./quick-start-local --pyegeria-version 6.1.20   # pin a release; saved in .env.pyegeria, persists across re-runs
+./quick-start-local --pyegeria-version latest   # clear the pin, go back to tracking the latest
+./quick-start-local --no-refresh-pyegeria       # skip the PyPI check and keep the images' current version
+./quick-start-local --refresh-pyegeria          # force the pyegeria layer to rebuild even if the version is unchanged
 ```
-
-pyegeria's `pip install --upgrade` sits in its own cached Docker layer, so a plain rebuild otherwise keeps
-whatever version was resolved when the image was last built, even though `requirements.txt` has no upper
-version bound. (`bin/update-pyegeria.sh` does the same thing via a full `--no-cache` rebuild of just
-`pyegeria-web`, if you'd rather not go through `quick-start-local`.)
 
 Using either the **Docker Desktop** application or the docker command line you can see the new containers running. To do this with the docker command line, you can issue:
 
