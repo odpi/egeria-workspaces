@@ -773,16 +773,18 @@ function App() {
   var _mesh = useState(null), mesh = _mesh[0], setMesh = _mesh[1]; // {nodes, edges}
   var _meshState = useState('idle'), meshState = _meshState[0], setMeshState = _meshState[1]; // idle|loading|ready|error
   var _meshErr = useState(''), meshErr = _meshErr[0], setMeshErr = _meshErr[1];
+  // forLineage: also show products/dependencies classified Memento/Promise (hidden by default)
+  var _forLineage = useState(false), forLineage = _forLineage[0], setForLineage = _forLineage[1];
 
   useEffect(function() {
     if (!ready || !creds) return;
     setMeshState('loading');
-    egeriaFetch('/api/digital-products/mesh', creds)
+    egeriaFetch('/api/digital-products/mesh' + (forLineage ? '?for_lineage=true' : ''), creds)
       .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || r.status); }); })
       .then(function(j) { setMesh(j); setMeshState('ready'); })
       .catch(function(e) { setMeshErr(e.message || String(e)); setMeshState('error'); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, creds]);
+  }, [ready, creds, forLineage]);
 
   var nodesByGuid = useMemo(function() {
     var m = {};
@@ -898,6 +900,10 @@ function App() {
         },
           React.createElement('option', { value: '' }, 'Highlight ISC…'),
           iscOptions.map(function(name) { return React.createElement('option', { key: name, value: name }, name); })
+        ),
+        React.createElement('label', { title: 'Include products and dependencies classified as Memento or Promise, which are hidden by default', style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', flexShrink: 0 } },
+          React.createElement('input', { type: 'checkbox', checked: forLineage, onChange: function(e) { setForLineage(e.target.checked); }, style: { cursor: 'pointer' } }),
+          'Show Promise / Memento'
         ),
         React.createElement('div', { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 } },
           mesh && React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)' } }, mesh.nodes.length + ' products · ' + mesh.edges.length + ' dependencies'),
