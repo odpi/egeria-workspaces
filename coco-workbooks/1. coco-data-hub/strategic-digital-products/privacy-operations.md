@@ -26,7 +26,7 @@ For every product this file:
 
 1. creates the **digital product** and adds it to the `Privacy Operations` folder of the catalog;
 2. creates its **data spec** and attaches it with a `DataDescription` relationship, then the **data structures**, each added to the spec, and the **data fields**, each linked to its structure with a `MemberDataField` relationship, its position and coverage category set on that relationship - `IDENTIFIER` for the fields that identify a row of the structure, `CORE_DETAIL` for the rest - named to the [Data Field Naming](../data-field-naming/README.md) standard;
-3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, as a member of the product.  The schema is named after the product, in the `coco_data_hub` database on `Coco PostgreSQL Server 1`.
+3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, anchored to the product and a member of it, so that it is removed with the product.  The schema is named after the product, in the `coco_data_hub` database on `Coco PostgreSQL Server 1`.
 
 7 products, 11 data structures, 78 data fields.  This file loads after `catalog.md`.
 
@@ -913,6 +913,12 @@ TabularDataSetCollection
 - schemaName: data_subject_rights_requests
 - schemaDescription: Requests from data subjects received through every channel the company offers, with the statutory clock that starts on receipt, and the response assembled for each. An email to a site address counts exactly as much as a submission through the portal.
 
+### Anchor ID
+DigitalProduct::Coco::Data Subject Rights Requests
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Data Subject Rights Requests
 
@@ -1424,6 +1430,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: requester_identity_verifications
 - schemaDescription: The verification that a requester is who they claim to be, proportionate to what they are asking for. It is the step that stops the rights process from becoming an attack on the data it is meant to protect.
+
+### Anchor ID
+DigitalProduct::Coco::Requester Identity Verifications
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Requester Identity Verifications
@@ -2319,6 +2331,12 @@ TabularDataSetCollection
 - schemaName: record_of_processing_activities
 - schemaDescription: What personal data the company processes, for what purpose, under what lawful basis, and in which systems and processors it is held. It is what tells the rights chain where to look, so its accuracy is tested every time a request is answered.
 
+### Anchor ID
+DigitalProduct::Coco::Record Of Processing Activities
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Record Of Processing Activities
 
@@ -3165,6 +3183,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: personal_data_discovery_findings
 - schemaDescription: What the survey of systems and stores actually found: personal data holdings by system, and the discrepancies between them and the record of processing. The register describes what the company believes it processes; this describes what it actually holds.
+
+### Anchor ID
+DigitalProduct::Coco::Personal Data Discovery Findings
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Personal Data Discovery Findings
@@ -4160,6 +4184,12 @@ TabularDataSetCollection
 - schemaName: rights_fulfilment_actions
 - schemaDescription: Each verified request fanned out to every system and processor holding the person's data, what came back, and the erasure, rectification and objection decisions driven onward to the systems that must act on them. It is the component that turns a register into an answer.
 
+### Anchor ID
+DigitalProduct::Coco::Rights Fulfilment Actions
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Rights Fulfilment Actions
 
@@ -4662,6 +4692,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: retention_obligations
 - schemaDescription: The retention obligation attaching to each category of personal data, and the basis that lets it override a request to be forgotten. Clinical trial records, employment decisions and health surveillance all outrank erasure, and the chain has to know that per holding rather than in general.
+
+### Anchor ID
+DigitalProduct::Coco::Retention Obligations
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Retention Obligations
@@ -5168,6 +5204,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: retention_period_assignments
 - schemaDescription: The retention period set on each catalogued asset: the basis it was set under and the dates on which the asset is to be archived and deleted. It is the point at which a retention obligation becomes an instruction attached to a specific holding.
+
+### Anchor ID
+DigitalProduct::Coco::Retention Period Assignments
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Retention Period Assignments

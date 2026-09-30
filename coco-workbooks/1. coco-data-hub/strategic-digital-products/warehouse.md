@@ -23,7 +23,7 @@ For every product this file:
 
 1. creates the **digital product** and adds it to the `Warehouse` folder of the catalog;
 2. creates its **data spec** and attaches it with a `DataDescription` relationship, then the **data structures**, each added to the spec, and the **data fields**, each linked to its structure with a `MemberDataField` relationship, its position and coverage category set on that relationship - `IDENTIFIER` for the fields that identify a row of the structure, `CORE_DETAIL` for the rest - named to the [Data Field Naming](../data-field-naming/README.md) standard;
-3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, as a member of the product.  The schema is named after the product, in the `coco_data_hub` database on `Coco PostgreSQL Server 1`.
+3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, anchored to the product and a member of it, so that it is removed with the product.  The schema is named after the product, in the `coco_data_hub` database on `Coco PostgreSQL Server 1`.
 
 4 products, 9 data structures, 60 data fields.  This file loads after `catalog.md`.
 
@@ -916,6 +916,12 @@ TabularDataSetCollection
 - schemaName: goods_receipts
 - schemaDescription: What physically arrived: each lot of material received, checked against the order and the supplier's documentation, and what the inspection found. It is the point at which a supplier's claim becomes the company's record.
 
+### Anchor ID
+DigitalProduct::Coco::Goods Receipts
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Goods Receipts
 
@@ -1806,6 +1812,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: material_quarantine_dispositions
 - schemaDescription: Each lot held in quarantine, the tests requested for it, and the disposition that released it for use or rejected it. It is a system-enforced gate rather than a procedural one, because the failure it prevents is discovered in a finished batch.
+
+### Anchor ID
+DigitalProduct::Coco::Material Quarantine Dispositions
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Material Quarantine Dispositions
@@ -3030,6 +3042,12 @@ TabularDataSetCollection
 - schemaName: goods_inventory_stock
 - schemaDescription: The stock of materials and finished goods at every location: the current position, the movements that produced it, and the issues of material to manufacturing with their quarantine status. It also carries serialised finished goods once they are commissioned.
 
+### Anchor ID
+DigitalProduct::Coco::Goods Inventory Stock
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Goods Inventory Stock
 
@@ -3823,6 +3841,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: hazardous_material_holdings
 - schemaDescription: The hazardous substances the company holds, where and in what quantity, with the hazard data for each. It serves occupational health, dangerous goods transport and physical inventory tracking, which is exactly the kind of fact a supply chain view surfaces and a system inventory does not.
+
+### Anchor ID
+DigitalProduct::Coco::Hazardous Material Holdings
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Hazardous Material Holdings

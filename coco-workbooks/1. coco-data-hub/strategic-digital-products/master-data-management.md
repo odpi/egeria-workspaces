@@ -22,7 +22,7 @@ For every product this file:
 
 1. creates the **digital product** and adds it to the `Master Data Management` folder of the catalog;
 2. creates its **data spec** and attaches it with a `DataDescription` relationship, then the **data structures**, each added to the spec, and the **data fields**, each linked to its structure with a `MemberDataField` relationship, its position and coverage category set on that relationship - `IDENTIFIER` for the fields that identify a row of the structure, `CORE_DETAIL` for the rest - named to the [Data Field Naming](../data-field-naming/README.md) standard;
-3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, as a member of the product.  The schema is named after the product, in the `coco_data_hub` database on `Coco PostgreSQL Server 1`.
+3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, anchored to the product and a member of it, so that it is removed with the product.  The schema is named after the product, in the `coco_data_hub` database on `Coco PostgreSQL Server 1`.
 
 3 products, 7 data structures, 41 data fields.  This file loads after `catalog.md`.
 
@@ -1523,6 +1523,12 @@ TabularDataSetCollection
 - schemaName: product_master_data
 - schemaDescription: The authoritative definition of every Coco Pharmaceuticals product: its identity, composition, presentations and pack configurations, the conditions it must be stored and shipped under, and the markets it is authorised for. Manufacturing, serialisation, distribution, sales and finance all read it and none of them own it.
 
+### Anchor ID
+DigitalProduct::Coco::Product Master Data
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Product Master Data
 
@@ -2164,6 +2170,12 @@ TabularDataSetCollection
 - schemaName: product_change_notifications
 - schemaDescription: Every change published from the product master, and the record of which consuming system has applied it and which has not. An inconsistent estate is only dangerous while nobody knows which copies are stale.
 
+### Anchor ID
+DigitalProduct::Coco::Product Change Notifications
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Product Change Notifications
 
@@ -2678,6 +2690,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: open_metadata_catalogue_holdings
 - schemaDescription: What the open metadata catalogue knows about the estate: the assets it has catalogued, their classifications and owners, and the indicators that an asset holds personal data. It is the starting point for personal data discovery and for setting retention periods, because it describes what the company actually holds rather than what it believes it holds.
+
+### Anchor ID
+DigitalProduct::Coco::Open Metadata Catalogue Holdings
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Open Metadata Catalogue Holdings

@@ -32,7 +32,7 @@ For every product this file:
 
 1. creates the **digital product** and adds it to the `Finance` folder of the catalog;
 2. creates its **data spec** and attaches it with a `DataDescription` relationship, then the **data structures**, each added to the spec, and the **data fields**, each linked to its structure with a `MemberDataField` relationship, its position and coverage category set on that relationship - `IDENTIFIER` for the fields that identify a row of the structure, `CORE_DETAIL` for the rest - named to the [Data Field Naming](../data-field-naming/README.md) standard;
-3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, as a member of the product.  The schema is named after the product, in the `coco_data_hub` database on `Coco PostgreSQL Server 1`.
+3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, anchored to the product and a member of it, so that it is removed with the product.  The schema is named after the product, in the `coco_data_hub` database on `Coco PostgreSQL Server 1`.
 
 13 products, 27 data structures, 174 data fields.  This file loads after `catalog.md`.
 
@@ -868,6 +868,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: treatment_invoices
 - schemaDescription: The invoices raised for fulfilled treatment orders and the revenue recognition data that accompanies them. It is where a clinical event becomes a financial one, and where the fulfilment record and the financial record must agree.
+
+### Anchor ID
+DigitalProduct::Coco::Treatment Invoices
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Treatment Invoices
@@ -1760,6 +1766,12 @@ TabularDataSetCollection
 - schemaName: subledger_postings
 - schemaDescription: The transactions carried from the operational systems into the general ledger, batched per source feed and accounting period. Each feed is a place where a transaction can be dropped, duplicated or posted to the wrong period, so completeness is asserted per feed rather than in aggregate.
 
+### Anchor ID
+DigitalProduct::Coco::Subledger Postings
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Subledger Postings
 
@@ -2550,6 +2562,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: manual_journal_approvals
 - schemaDescription: Manual journal entries above the materiality threshold, together with the review and approval each received before it was posted. Manual adjustment is the segment of the close least covered by system controls and most able to change a reported figure.
+
+### Anchor ID
+DigitalProduct::Coco::Manual Journal Approvals
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Manual Journal Approvals
@@ -3633,6 +3651,12 @@ TabularDataSetCollection
 - schemaName: consolidated_group_results
 - schemaDescription: The trial balances of the US parent and the UK and EU subsidiaries, the intercompany eliminations and currency translations applied to them, and the consolidated statement lines that result. It is where several sets of books become one set of figures.
 
+### Anchor ID
+DigitalProduct::Coco::Consolidated Group Results
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Consolidated Group Results
 
@@ -4329,6 +4353,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: external_financial_disclosures
 - schemaDescription: The statements filed with regulators and published to the market, and the disclosures of transfers of value to healthcare professionals. Every figure must be resolvable back through the consolidation and the ledger to the transactions it was built from.
+
+### Anchor ID
+DigitalProduct::Coco::External Financial Disclosures
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::External Financial Disclosures
@@ -5079,6 +5109,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: financial_controls_evidence
 - schemaDescription: The documentation and test evidence for the internal controls over financial reporting, and the reconciliations, approvals and checklist items produced by each close. The controls it evidences are controls over the close itself, so the repository is part of the chain rather than an audit of it.
+
+### Anchor ID
+DigitalProduct::Coco::Financial Controls Evidence
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Financial Controls Evidence
@@ -5876,6 +5912,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: supplier_payment_detail_changes
 - schemaDescription: Every change to a supplier's bank details, treated as a controlled event with independent verification rather than as routine maintenance. This is where the payment flow has historically been attacked.
+
+### Anchor ID
+DigitalProduct::Coco::Supplier Payment Detail Changes
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Supplier Payment Detail Changes
@@ -6924,6 +6966,12 @@ TabularDataSetCollection
 - schemaName: supplier_payments
 - schemaDescription: Supplier invoices matched to purchase orders and goods receipts, the payment authorisations that followed, and the instructions sent to the bank. Screening status and payment details are read at the moment of authorisation, the only moment at which either of them protects anything.
 
+### Anchor ID
+DigitalProduct::Coco::Supplier Payments
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Supplier Payments
 
@@ -7768,6 +7816,12 @@ TabularDataSetCollection
 - schemaName: payment_anomaly_findings
 - schemaDescription: The patterns found across supplier payments and expense claims that no single transaction shows: duplicate payments, unusual supplier behaviour, and the concerns raised as a result. The fraud that motivated this chain was visible only across the whole flow.
 
+### Anchor ID
+DigitalProduct::Coco::Payment Anomaly Findings
+
+### Is Own Anchor
+false
+
 ### Parent ID
 DigitalProduct::Coco::Payment Anomaly Findings
 
@@ -8423,6 +8477,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: transfers_of_value
 - schemaDescription: Payments and benefits provided to healthcare professionals and organisations, from whichever flow they originate, identified and recorded so that they can be disclosed. Reconstructing this afterwards from a general ledger is the failure it exists to prevent.
+
+### Anchor ID
+DigitalProduct::Coco::Transfers Of Value
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Transfers Of Value
@@ -9217,6 +9277,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: expense_approvals
 - schemaDescription: Expense claims routed for approval, the approver each was sent to and the decision taken, carried forward to payment. The approval is only worth anything if it is still attached to the claim when the payment is made.
+
+### Anchor ID
+DigitalProduct::Coco::Expense Approvals
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Expense Approvals
@@ -10164,6 +10230,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: general_ledger_balances
 - schemaDescription: The general ledger of each legal entity: the transactions posted from every feed, adjustment and payment, and the account balances that result. It is the source of the entity trial balances that consolidation starts from and of the manual entries that review examines.
+
+### Anchor ID
+DigitalProduct::Coco::General Ledger Balances
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::General Ledger Balances
@@ -11287,6 +11359,12 @@ TabularDataSetCollection
 - databaseName: coco_data_hub
 - schemaName: employee_expense_claims
 - schemaDescription: The claims employees submit for expenses incurred, line by line with their supporting evidence, and the record of which workers may claim against which cost centres. It is the entry point of the expense payment chain and a source of transfers of value that disclosure must catch.
+
+### Anchor ID
+DigitalProduct::Coco::Employee Expense Claims
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Employee Expense Claims

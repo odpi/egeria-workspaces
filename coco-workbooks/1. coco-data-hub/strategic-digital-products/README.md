@@ -38,7 +38,7 @@ Every product has:
   vocabulary these names needed, see below;
 * a **PostgreSQL tabular data set collection** the product is read from, created with the Asset Maker
   `Create Element` command from the PostgreSQL schema template.  Each product is a schema named after it in the
-  `coco_data_hub` database on `Coco PostgreSQL Server 1`, and the data set is a member of the product.
+  `coco_data_hub` database on `Coco PostgreSQL Server 1`, and the data set is anchored to the product and a member of it.
 
 The **Data Sharing Hub** has no product either, and deliberately so: it is the asset-layer component of the data
 fabric that carries data between the business functions, defined in
