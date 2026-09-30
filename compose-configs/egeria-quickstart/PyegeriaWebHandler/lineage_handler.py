@@ -147,6 +147,7 @@ def get_asset_graph(
     request: Request,
     guid: str,
     as_of_time: Optional[str] = Query(None),
+    for_lineage: bool = Query(False),
     url: Optional[str] = Query(None),
     server: Optional[str] = Query(None),
 ):
@@ -173,6 +174,7 @@ def get_asset_graph(
             output_format="JSON",
             as_of_time=as_of_time or None,
             max_mermaid_node_count=250,
+            **({"for_lineage": True} if for_lineage else {}),
         )
         if isinstance(raw, list):
             el = raw[0]
@@ -198,6 +200,7 @@ def get_asset_lineage_graph(
     limit_to_isc: Optional[str] = Query(None),
     highlight_isc: Optional[str] = Query(None),
     all_anchors: Optional[str] = Query(None),
+    for_lineage: bool = Query(False),
     url: Optional[str] = Query(None),
     server: Optional[str] = Query(None),
 ):
@@ -226,6 +229,7 @@ def get_asset_lineage_graph(
             limit_to_isc_q_name=limit_to_isc or None,
             hilight_isc_q_name=highlight_isc or None,
             all_anchors=(all_anchors == "true"),
+            **({"for_lineage": True} if for_lineage else {}),
             output_format="JSON",
         )
         el = raw[0] if isinstance(raw, list) else raw

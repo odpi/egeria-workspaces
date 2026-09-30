@@ -202,6 +202,7 @@ def list_isc(
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
+    for_lineage: bool = Query(False, description="When True, also return elements classified with Memento/Promise (hidden by default)"),
 ):
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
@@ -220,6 +221,7 @@ def list_isc(
             sequencing_property="displayName",
             graph_query_depth=_ISC_GRAPH_QUERY_DEPTH,
             max_mermaid_node_count=_ISC_MAX_MERMAID_NODES,
+            **({"for_lineage": True} if for_lineage else {}),
         )
     except Exception as exc:
         logger.exception("find_information_supply_chains failed")
@@ -243,6 +245,7 @@ def get_isc(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    for_lineage: bool = Query(False, description="When True, also return elements classified with Memento/Promise (hidden by default)"),
 ):
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
@@ -262,6 +265,14 @@ def get_isc(
             add_implementation=True,
             graph_query_depth=_ISC_GRAPH_QUERY_DEPTH,
             max_mermaid_node_count=_ISC_MAX_MERMAID_NODES,
+            # An explicit body is needed to carry forLineage; it replaces the
+            # default body pyegeria builds, so graph settings are repeated here.
+            **({"body": {
+                "class": "AnyTimeRequestBody",
+                "forLineage": True,
+                "graphQueryDepth": _ISC_GRAPH_QUERY_DEPTH,
+                "maxMermaidNodeCount": _ISC_MAX_MERMAID_NODES,
+            }} if for_lineage else {}),
         )
     except Exception as exc:
         logger.exception(f"get_info_supply_chain_by_guid failed for ISC {guid}")
