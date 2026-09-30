@@ -314,7 +314,7 @@ def _find_all_catalogs(mgr) -> list:
     return list(catalogs.values())
 
 
-def _find_all_digital_products(mgr) -> list:
+def _find_all_digital_products(mgr, for_lineage: bool = False) -> list:
     """Paginate through all DigitalProduct elements (not scoped to any one catalog — the
     Data Mesh view shows every product in the deployment). graph_query_depth=0 -- the
     Data Mesh graph only needs each product's own properties for its node, not its
@@ -338,6 +338,7 @@ def _find_all_digital_products(mgr) -> list:
                 graph_query_depth=0,
                 sequencing_order="PROPERTY_ASCENDING",
                 sequencing_property="displayName",
+                **({"for_lineage": True} if for_lineage else {}),
             )
         except Exception as exc:
             logger.warning(f"find_digital_products page {start_from} failed: {exc}")
@@ -353,7 +354,7 @@ def _find_all_digital_products(mgr) -> list:
     return list(products.values())
 
 
-def _fetch_dependency_edges(ce) -> list:
+def _fetch_dependency_edges(ce, for_lineage: bool = False) -> list:
     """Fetch every DigitalProductDependency relationship directly via
     ClassificationExplorer.get_relationships(relationship_type=...) -- one call for the
     whole deployment (confirmed live: ~0.6s for 163 relationships), instead of walking
@@ -367,7 +368,10 @@ def _fetch_dependency_edges(ce) -> list:
     data (2026-09-21): end1 is always the consumer, end2 the consumed product.
     """
     try:
-        raw = ce.get_relationships(relationship_type="DigitalProductDependency", page_size=0, output_format="JSON")
+        # get_relationships forwards **kwargs to the HTTP layer, not the body, so
+        # forLineage has to go in an explicit body.
+        body = {"class": "ResultsRequestBody", "startFrom": 0, "pageSize": 0, "forLineage": True} if for_lineage else None
+        raw = ce.get_relationships(relationship_type="DigitalProductDependency", page_size=0, output_format="JSON", body=body)
     except Exception as exc:
         logger.warning(f"get_relationships(DigitalProductDependency) failed: {exc}")
         return []
@@ -475,11 +479,12 @@ def get_mesh(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    for_lineage: bool = Query(False, description="When True, also return products/dependencies classified Memento/Promise (hidden by default)"),
 ):
     """Return every DigitalProduct (regardless of which catalog it belongs to, or none)
     plus every DigitalProductDependency relationship found between them, as a flat
     {nodes, edges} graph for the Data Mesh view."""
-    cache_key = f"mesh|{url or ''}|{server or ''}|{user_id or ''}"
+    cache_key = f"mesh|{url or ''}|{server or ''}|{user_id or ''}|{for_lineage}"
     cached = _TREE_CACHE.get(cache_key)
     if cached and (time.time() - cached[0]) < _TREE_CACHE_TTL:
         return JSONResponse(cached[1])
@@ -492,7 +497,7 @@ def get_mesh(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     try:
-        raw_products = _find_all_digital_products(mgr)
+        raw_products = _find_all_digital_products(mgr, for_lineage)
     except Exception as exc:
         logger.exception("Digital product discovery failed")
         raise HTTPException(status_code=500, detail=f"Product retrieval failed: {exc}")
@@ -504,7 +509,7 @@ def get_mesh(
         nodes.append(node)
         node_guids.add(node["guid"])
 
-    edges_by_id = {e["id"]: e for e in _fetch_dependency_edges(ce)}
+    edges_by_id = {e["id"]: e for e in _fetch_dependency_edges(ce, for_lineage)}
 
     # Drop edges to a product outside the node set (excluded/inaccessible) rather than
     # rendering a dangling arrow to nowhere.
