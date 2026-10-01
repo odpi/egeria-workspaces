@@ -409,3 +409,50 @@ def catalog_search(
         "groups": groups,
         "typeFilterDropped": type_filter_dropped,
     })
+
+
+# Oldest element creation time (the time sliders' left bound). Egeria has no
+# "min(createTime)" query, but it can sort by creation date, so one row is enough.
+# Repository-wide, so cache it -- it only ever moves earlier when older data is
+# loaded.
+_OLDEST_TTL = 3600
+_oldest_cache: dict = {}
+
+
+@router.get("/api/catalog/oldest-create-time")
+def oldest_create_time(
+    url: Optional[str] = Query(None),
+    server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
+):
+    """Creation time of the oldest element the caller can see, or null.
+
+    The time sliders use this as their left bound when the view's own data
+    carries no createTime. ``{"createTime": null}`` means "could not tell" (not
+    "nothing exists") -- the slider then falls back to its default window.
+    """
+    import time
+    key = f"{url or ''}|{server or ''}|{user_id or ''}"
+    hit = _oldest_cache.get(key)
+    if hit and time.time() - hit[0] < _OLDEST_TTL:
+        return JSONResponse({"createTime": hit[1]})
+    try:
+        ce = _classification_explorer(url, server, user_id, user_pwd)
+        # find_root_elements takes sequencing only via an explicit body (kwargs
+        # are not forwarded to it); a plain wildcard property search is rejected
+        # by Egeria (null propertyValue).
+        raw = ce.find_root_elements(
+            body={"class": "FindRequestBody", "sequencingOrder": "CREATION_DATE_OLDEST",
+                  "pageSize": 1, "graphQueryDepth": 0},
+            output_format="JSON",
+        )
+    except Exception:
+        logger.exception("oldest-create-time lookup failed")
+        return JSONResponse({"createTime": None})
+    created = None
+    if isinstance(raw, list) and raw and isinstance(raw[0], dict):
+        created = ((raw[0].get("elementHeader") or {}).get("versions") or {}).get("createTime")
+    if created:
+        _oldest_cache[key] = (time.time(), created)
+    return JSONResponse({"createTime": created})
