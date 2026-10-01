@@ -9376,6 +9376,7 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
   }, []);
   const [bpDetail, setBpDetail] = useState(null);
   const [bpDetailState, setBpDetailState] = useState('idle');
+  const [bpDeep, setBpDeep] = useState(true);   // false while the full-depth detail is still loading
 
   // Blueprints grouped by Folio (shown when not filtering); groups start collapsed.
   const [bpFolios, setBpFolios] = useState(null);
@@ -9395,6 +9396,7 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
   });
   const [compDetail, setCompDetail] = useState(null);
   const [compDetailState, setCompDetailState] = useState('idle');
+  const [compDeep, setCompDeep] = useState(true);
 
   // Composition hierarchy for the components sub-nav (shown when not filtering)
   const [compTree, setCompTree] = useState(null);
@@ -9479,11 +9481,22 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
   useEffect(function() {
     if (!selectedBp) { setBpDetail(null); return; }
     var cancelled = false;
+    var url = '/api/solution/blueprints/' + selectedBp;
     setBpDetailState('loading');
-    egeriaFetch('/api/solution/blueprints/' + selectedBp, creds)
+    setBpDeep(false);
+    // Two phases: a quick depth-1 fetch paints the pane fast, then the full-depth fetch
+    // replaces it (adds the deeper diagram). The cancel guard covers both.
+    egeriaFetch(url + '?quick=true', creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { if (!cancelled) { setBpDetail(data); setBpDetailState('ready'); } })
-      .catch(function() { if (!cancelled) setBpDetailState('error'); });
+      .catch(function() {})   // quick phase failing just falls through to the full fetch
+      .then(function() {
+        if (cancelled) return;
+        return egeriaFetch(url, creds)
+          .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+          .then(function(data) { if (!cancelled) { setBpDetail(data); setBpDetailState('ready'); setBpDeep(true); } })
+          .catch(function() { if (!cancelled) { setBpDeep(true); setBpDetailState(function(st) { return st === 'ready' ? 'ready' : 'error'; }); } });
+      });
     return function() { cancelled = true; };
   }, [selectedBp]);
 
@@ -9491,11 +9504,22 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
   useEffect(function() {
     if (!selectedComp) { setCompDetail(null); return; }
     var cancelled = false;
+    var url = '/api/solution/components/' + selectedComp;
     setCompDetailState('loading');
-    egeriaFetch('/api/solution/components/' + selectedComp, creds)
+    setCompDeep(false);
+    // Two phases: a quick depth-1 fetch paints the pane fast, then the full-depth fetch
+    // replaces it (adds the deeper diagram). The cancel guard covers both.
+    egeriaFetch(url + '?quick=true', creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { if (!cancelled) { setCompDetail(data); setCompDetailState('ready'); } })
-      .catch(function() { if (!cancelled) setCompDetailState('error'); });
+      .catch(function() {})   // quick phase failing just falls through to the full fetch
+      .then(function() {
+        if (cancelled) return;
+        return egeriaFetch(url, creds)
+          .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+          .then(function(data) { if (!cancelled) { setCompDetail(data); setCompDetailState('ready'); setCompDeep(true); } })
+          .catch(function() { if (!cancelled) { setCompDeep(true); setCompDetailState(function(st) { return st === 'ready' ? 'ready' : 'error'; }); } });
+      });
     return function() { cancelled = true; };
   }, [selectedComp]);
 
@@ -9735,6 +9759,7 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
       ),
       selectedBp && bpDetailState === 'loading' && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "Loading…"),
       selectedBp && bpDetailState === 'error' && React.createElement("div", { style: { padding: 24, color: '#f87171' } }, "Failed to load blueprint detail"),
+      selectedBp && bpDetailState === 'ready' && bpDetail && !bpDeep && React.createElement("div", { style: { padding: '4px 24px 0', fontSize: 11, color: 'var(--dim)' } }, "Loading the full relationship diagram…"),
       selectedBp && bpDetailState === 'ready' && bpDetail && React.createElement(SolutionBlueprintDetail, { blueprint: bpDetail, onNavigateToComponent: onNavigateToComponent, onNavigateToBlueprint: onNavigateToBlueprint, onNavigateToElement: onNavigateToElement })
     ),
     subNav === 'components' && React.createElement(React.Fragment, null,
@@ -9743,6 +9768,7 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
       ),
       selectedComp && compDetailState === 'loading' && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "Loading…"),
       selectedComp && compDetailState === 'error' && React.createElement("div", { style: { padding: 24, color: '#f87171' } }, "Failed to load component detail"),
+      selectedComp && compDetailState === 'ready' && compDetail && !compDeep && React.createElement("div", { style: { padding: '4px 24px 0', fontSize: 11, color: 'var(--dim)' } }, "Loading the full relationship diagram…"),
       selectedComp && compDetailState === 'ready' && compDetail && React.createElement(SolutionComponentDetail, {
         component: compDetail,
         onNavigateToBlueprint: onNavigateToBlueprint,

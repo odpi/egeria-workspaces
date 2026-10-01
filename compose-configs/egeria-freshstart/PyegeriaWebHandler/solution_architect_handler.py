@@ -52,6 +52,11 @@ _DETAIL_GRAPH_BODY_DICT = {
     "graphQueryDepth": 10,
     "maxMermaidNodeCount": 250,
 }
+# `?quick=true` first-paint variant: depth 1 returns in ~0.1 s (vs 3-20 s at depth
+# 10, and cost tracks blueprint size/DB load, not depth) with the same properties,
+# components and relationships but a smaller diagram. The UI shows it immediately,
+# then fetches the full depth-10 detail and swaps it in.
+_DETAIL_QUICK_BODY_DICT = {**_DETAIL_GRAPH_BODY_DICT, "graphQueryDepth": 1}
 
 
 def _get_manager(url=None, server=None, user_id=None, user_pwd=None):
@@ -430,6 +435,7 @@ def get_blueprint(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    quick:    bool = Query(False, description="First-paint variant: depth 1, smaller diagram"),
 ):
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
@@ -437,7 +443,7 @@ def get_blueprint(
         raise_egeria_http_error(exc, "Failed to create SolutionArchitect manager")
 
     try:
-        raw = mgr.get_solution_blueprint_by_guid(guid, body=_DETAIL_GRAPH_BODY_DICT, output_format="JSON")
+        raw = mgr.get_solution_blueprint_by_guid(guid, body=_DETAIL_QUICK_BODY_DICT if quick else _DETAIL_GRAPH_BODY_DICT, output_format="JSON")
     except Exception as exc:
         raise_egeria_http_error(exc, "get_solution_blueprint_by_guid failed")
 
@@ -570,6 +576,7 @@ def get_component(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    quick:    bool = Query(False, description="First-paint variant: depth 1, smaller diagram"),
 ):
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
@@ -577,7 +584,7 @@ def get_component(
         raise_egeria_http_error(exc, "Failed to create SolutionArchitect manager")
 
     try:
-        raw = mgr.get_solution_component_by_guid(guid, body=_DETAIL_GRAPH_BODY_DICT, output_format="JSON")
+        raw = mgr.get_solution_component_by_guid(guid, body=_DETAIL_QUICK_BODY_DICT if quick else _DETAIL_GRAPH_BODY_DICT, output_format="JSON")
     except Exception as exc:
         raise_egeria_http_error(exc, "get_solution_component_by_guid failed")
 
