@@ -39,6 +39,17 @@ def _get_actor_manager(url=None, server=None, user_id=None, user_pwd=None):
     return mgr
 
 
+def _get_classification_explorer(url=None, server=None, user_id=None, user_pwd=None):
+    from pyegeria import ClassificationExplorer
+    url      = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
+    server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+    user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
+    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    ce = ClassificationExplorer(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+    apply_token(ce)
+    return ce
+
+
 def _get_glossary_manager(url=None, server=None, user_id=None, user_pwd=None):
     from pyegeria import GlossaryManager
     url      = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
@@ -168,82 +179,27 @@ def get_perspectives(
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     """Return all Perspective elements from the metadata repository."""
+    # get_actor_profile_by_guid enforces ActorProfile type server-side and Perspective is
+    # not an ActorProfile subtype, so it rejects it. ClassificationExplorer's generic
+    # get_element_by_guid accepts any element and returns the same shape (identical
+    # keys incl. mermaidGraph/scopedElements) in ~0.15 s. This used to list up to 200
+    # Perspectives and filter by guid.
     try:
-        mgr = _get_actor_manager(url, server, user_id, user_pwd)
-    except Exception as exc:
-        logger.exception("Failed to create ActorManager")
-        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
-
-    try:
-        raw = mgr.find_actor_profiles(
-            search_string="*",
-            starts_with=True,
+        ce = _get_classification_explorer(url, server, user_id, user_pwd)
+        raw = ce.get_element_by_guid(
+            perspective_guid,
             output_format="JSON",
-            start_from=start_from,
-            page_size=page_size,
-            metadata_element_type="Perspective",
-            graph_query_depth=0,
-            sequencing_order="PROPERTY_ASCENDING",
-            sequencing_property="displayName",
-            as_of_time=as_of_time or None,
+            body={"class": "GetRequestBody", "graphQueryDepth": 1, "maxMermaidNodeCount": 250},
         )
     except Exception as exc:
-        logger.exception("find_actor_profiles (Perspective) failed")
+        logger.exception("get_element_by_guid (perspective detail) failed")
         raise HTTPException(status_code=500, detail=f"Perspective retrieval failed: {exc}")
 
-    if not isinstance(raw, list):
-        raw = []
-
-    if not include_templates:
-        raw = [e for e in raw if not _is_template(e)]
-
-    perspectives = [_serialize_perspective(p) for p in raw if _type_name(p) == "Perspective"]
-    perspectives.sort(key=lambda p: (p.get("displayName") or "").lower())
-    return JSONResponse({"perspectives": perspectives, "total": len(perspectives)})
-
-
-@router.get("/api/perspectives/{perspective_guid}", summary="Get a single Perspective by GUID")
-def get_perspective(
-    perspective_guid: str,
-    url:      Optional[str] = Query(None),
-    server:   Optional[str] = Query(None),
-    user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
-):
-    """Return full detail for a single Perspective, including linked Questions via ScopedBy."""
-    try:
-        mgr = _get_actor_manager(url, server, user_id, user_pwd)
-    except Exception as exc:
-        logger.exception("Failed to create ActorManager")
-        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
-
-    # get_actor_profile_by_guid enforces ActorProfile type server-side; Perspective is not an
-    # ActorProfile subtype so that endpoint rejects it. Use find_actor_profiles with depth=1
-    # (the working list endpoint) and filter by GUID client-side.
-    try:
-        raw_list = mgr.find_actor_profiles(
-            search_string="*",
-            starts_with=True,
-            output_format="JSON",
-            page_size=200,
-            metadata_element_type="Perspective",
-            graph_query_depth=1,
-            # max_mermaid_node_count defaults to 5 (pyegeria shared find helper),
-            # truncating any mermaid diagram for this element -- see egeria-python
-            # PYEGERIA_ISSUES.md ISSUE-23.
-            max_mermaid_node_count=250,
-            sequencing_order="PROPERTY_ASCENDING",
-            sequencing_property="displayName",
-        )
-    except Exception as exc:
-        logger.exception("find_actor_profiles (detail) failed")
-        raise HTTPException(status_code=500, detail=f"Perspective retrieval failed: {exc}")
-
-    if not isinstance(raw_list, list):
-        raise HTTPException(status_code=404, detail=f"Perspective {perspective_guid!r} not found")
-
-    raw = next((p for p in raw_list if _header(p).get("guid") == perspective_guid), None)
-    if not raw:
+    raw = raw[0] if isinstance(raw, list) and raw else raw
+    # The generic getter accepts any element type; the old list-and-filter only
+    # ever returned Perspectives, so keep 404-ing on anything else.
+    if (not isinstance(raw, dict) or not _header(raw).get("guid")
+            or (_header(raw).get("type") or {}).get("typeName") != "Perspective"):
         raise HTTPException(status_code=404, detail=f"Perspective {perspective_guid!r} not found")
 
     return JSONResponse(_serialize_perspective(raw))

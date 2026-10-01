@@ -2123,15 +2123,19 @@ async def list_survey_types(
     return JSONResponse({"items": items})
 
 
-# Map from section id → targeted find_* with graph_query_depth=5
-_SECTION_FINDERS = {
-    "software-capabilities": lambda m: m.find_software_capabilities(
-        search_string="*", output_format="JSON", graph_query_depth=5),
-    "infrastructure": lambda m: m.find_infrastructure(
-        search_string="*", output_format="JSON", graph_query_depth=5,
-        deployment_status_list=[],
-        sequencing_order=_SEQ_ORDER, sequencing_property=_SEQ_PROP),
-}
+def _get_software_capability(mgr, guid: str, as_of_time: Optional[str] = None):
+    """Direct by-guid fetch of a SoftwareCapability (depth 5, full mermaid), or None."""
+    body = {"class": "GetRequestBody", "graphQueryDepth": 5, "maxMermaidNodeCount": 250}
+    if as_of_time:
+        body["asOfTime"] = as_of_time
+    try:
+        raw = mgr.get_software_capability_by_guid(guid, output_format="JSON", body=body)
+    except Exception as exc:
+        if _is_auth_error(exc):
+            raise
+        return None
+    el = raw[0] if isinstance(raw, list) and raw else raw
+    return el if isinstance(el, dict) else None
 
 
 def _fetch_detail(mgr, guid: str, section: Optional[str], as_of_time: Optional[str] = None):
@@ -2174,14 +2178,13 @@ def _fetch_detail(mgr, guid: str, section: Optional[str], as_of_time: Optional[s
             raise
         logger.debug("get_asset_graph_by_guid failed for %s, trying fallbacks: %s", guid, exc)
 
-    # Fallback: targeted finders for non-standard Asset types
-    finder = _SECTION_FINDERS.get(section or "")
-    if finder:
-        try:
-            return _find_by_guid(finder(mgr), guid)
-        except Exception as exc:
-            if _is_auth_error(exc):
-                raise
+    # SoftwareCapability is not an Asset, so the asset-graph call above 400s for it.
+    # Fetch it directly. (This used to list every capability at depth 5 and filter
+    # by guid: ~11 s for 85 capabilities vs ~0.07 s here, same element shape.)
+    if section in (None, "software-capabilities"):
+        el = _get_software_capability(mgr, guid, as_of_time)
+        if el:
+            return el
 
     # Fallback: get_asset_by_guid
     try:
@@ -2197,15 +2200,11 @@ def _fetch_detail(mgr, guid: str, section: Optional[str], as_of_time: Optional[s
         if _is_auth_error(exc):
             raise
 
-    # Last resort: SoftwareCapability finder
-    try:
-        result = _find_by_guid(
-            mgr.find_software_capabilities(search_string="*", output_format="JSON", graph_query_depth=3),
-            guid)
-        if result:
-            return result
-    except Exception:
-        pass
+    # Last resort for other sections: the direct SoftwareCapability getter.
+    if section not in (None, "software-capabilities"):
+        el = _get_software_capability(mgr, guid, as_of_time)
+        if el:
+            return el
 
     # Final fallback: ClassificationExplorer.get_element_by_guid works for any
     # metadata element type, including non-Assets (Referenceable subtypes, etc.)
