@@ -15,12 +15,33 @@ set here propagates into the endpoint coroutine — mirroring MCPTokenMiddleware
 in pyegeria_handler.py.
 """
 from contextvars import ContextVar
+
+from pyegeria import lineage_visible  # pyegeria >= 6.1.25
 from typing import Optional
 import logging
 
 logger = logging.getLogger("pyegeria_web.egeria_auth")
 
 _egeria_token: ContextVar[Optional[str]] = ContextVar("egeria_token", default=None)
+
+# Set from the X-Egeria-For-Lineage request header (the portal's "Promise / Memento"
+# toggle). When true the middleware runs the request inside pyegeria's
+# lineage_visible() block (contextvar-based, so concurrent requests don't leak), which
+# sends forLineage=true on every request body; elements classified Promise/Memento --
+# hidden by default -- are then returned. Pages where that isn't meaningful
+# (operations, audit) simply never send the header. This var only mirrors the flag
+# so lineage_key() can keep cached element data apart.
+_for_lineage: ContextVar[bool] = ContextVar("egeria_for_lineage", default=False)
+
+
+def for_lineage_requested() -> bool:
+    return _for_lineage.get()
+
+
+def lineage_key() -> str:
+    """Cache-key suffix. Anything that caches element data across requests must
+    include this: the same URL returns different elements with forLineage on."""
+    return "|fl" if _for_lineage.get() else ""
 
 
 def get_request_token() -> Optional[str]:
@@ -63,12 +84,17 @@ class EgeriaTokenMiddleware:
             await self.app(scope, receive, send)
             return
         token = None
+        for_lineage = False
         for name, value in scope.get("headers") or ():
             if name == b"x-egeria-token":
                 token = value.decode("latin-1").strip() or None
-                break
+            elif name == b"x-egeria-for-lineage":
+                for_lineage = value.decode("latin-1").strip().lower() == "true"
         reset = _egeria_token.set(token)
+        reset_fl = _for_lineage.set(for_lineage)
         try:
-            await self.app(scope, receive, send)
+            with lineage_visible(for_lineage):
+                await self.app(scope, receive, send)
         finally:
+            _for_lineage.reset(reset_fl)
             _egeria_token.reset(reset)
