@@ -2544,17 +2544,62 @@ function TabularPreviewModal({ fetchUrl, name, creds, onClose }) {
   );
 }
 
+/* ── Time-slider left bound ──────────────────────────────────────────────────
+ * The slider should reach back to the oldest element being looked at. Order of
+ * preference: the oldest createTime found in the view's own data (egeriaMinCreateTime),
+ * else the oldest element Egeria holds (/api/catalog/oldest-create-time, fetched
+ * once per page load), else the last 30 days. */
+function egeriaMinCreateTime(items) {
+  var best = null;
+  function consider(t) { if (t && (best === null || new Date(t).getTime() < new Date(best).getTime())) best = t; }
+  function walk(x, depth) {
+    if (!x || typeof x !== 'object' || depth > 6) return;
+    if (Array.isArray(x)) { x.forEach(function(y) { walk(y, depth + 1); }); return; }
+    var v = x.versions || (x.elementHeader && x.elementHeader.versions) || (x.header && x.header.versions) || {};
+    var t = x.createTime || v.createTime;
+    if (typeof t === 'string' && !isNaN(new Date(t).getTime())) consider(t);
+    if (x.children) walk(x.children, depth + 1);
+  }
+  walk(items, 0);
+  return best;
+}
+
+var _oldestCreate = { value: null, promise: null };
+function useEgeriaOldestCreateTime() {
+  var _s = React.useState(_oldestCreate.value), v = _s[0], setV = _s[1];
+  React.useEffect(function() {
+    if (_oldestCreate.value) { setV(_oldestCreate.value); return; }
+    if (!_oldestCreate.promise) {
+      _oldestCreate.promise = egeriaFetch('/api/catalog/oldest-create-time', null)
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(j) { _oldestCreate.value = (j && j.createTime) || null; return _oldestCreate.value; })
+        .catch(function() { return null; })
+        .then(function(t) { if (!t) _oldestCreate.promise = null; return t; });  // don't cache a failure
+    }
+    var alive = true;
+    _oldestCreate.promise.then(function(t) { if (alive && t) setV(t); });
+    return function() { alive = false; };
+  }, []);
+  return v;
+}
+
 /* ───────────────────────────────────────────────────────────────────────────
  * Time slider — emits an as_of_time ISO string (or null = "now") for
  * point-in-time / historical queries. Generalised from the Lineage Explorer
  * (LE-3) with inline styles so it carries no CSS-class dependency. Props:
- *   createTime — ISO string for the slider's left bound (default: 30 days ago)
+ *   createTime — ISO string forcing the slider's left bound
+ *   items      — the data in view; left bound = oldest createTime found in it
+ *                (see egeriaMinCreateTime). With neither, the left bound is the
+ *                oldest element in Egeria, else 30 days ago.
  *   onChange(asOfTimeOrNull) — fired on release; null means "now"
  *   label — optional heading (default "Time Slider")
  * ─────────────────────────────────────────────────────────────────────────── */
-function TimeSlider({ createTime, onChange, label }) {
+function TimeSlider({ createTime, items, onChange, label }) {
   var nowMs   = Date.now();
-  var startMs = createTime ? new Date(createTime).getTime() : (nowMs - 30 * 24 * 3600 * 1000);
+  var oldestEverything = useEgeriaOldestCreateTime();
+  var inView  = createTime || egeriaMinCreateTime(items);
+  var boundIso = inView || oldestEverything;
+  var startMs = boundIso ? new Date(boundIso).getTime() : (nowMs - 30 * 24 * 3600 * 1000);
   if (isNaN(startMs) || startMs >= nowMs) startMs = nowMs - 30 * 24 * 3600 * 1000;
 
   var _val = React.useState(nowMs), val = _val[0], setVal = _val[1];
