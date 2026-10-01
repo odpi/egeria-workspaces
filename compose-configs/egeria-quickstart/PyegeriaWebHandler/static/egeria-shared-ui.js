@@ -3510,15 +3510,16 @@ function simplePillRow(values, labelFn, fSet, setFSet) {
  * Lineage Explorer, Data Mesh, Insights) opt in with
  *   <script>window.EGERIA_FOR_LINEAGE = true;</script>
  * before this file. They then get a small fixed toggle, default ON, remembered
- * in localStorage; egeriaFetch sends X-Egeria-For-Lineage: true while it is on
+ * per browser tab AND per page (sessionStorage keyed by page path) -- it applies to
+ * the instance you are looking at, not the whole app; egeriaFetch sends X-Egeria-For-Lineage: true while it is on
  * and the server (egeria_auth.py) applies it to every Egeria call in that
  * request. Operations and Audit don't opt in, so they never send it.
  * Toggling reloads the page so every view refetches under the new setting. */
-var EGERIA_FOR_LINEAGE_KEY = 'egeria-for-lineage';
+var EGERIA_FOR_LINEAGE_KEY = 'egeria-for-lineage:' + location.pathname;
 
 function egeriaForLineageOn() {
   if (!window.EGERIA_FOR_LINEAGE) return false;
-  try { return localStorage.getItem(EGERIA_FOR_LINEAGE_KEY) !== 'false'; } catch (e) { return true; }
+  try { return sessionStorage.getItem(EGERIA_FOR_LINEAGE_KEY) !== 'false'; } catch (e) { return true; }
 }
 
 (function mountForLineageToggle() {
@@ -3536,7 +3537,7 @@ function egeriaForLineageOn() {
     box.checked = egeriaForLineageOn();
     box.style.cssText = 'cursor:pointer;accent-color:var(--accent,#60a5fa);';
     box.addEventListener('change', function() {
-      try { localStorage.setItem(EGERIA_FOR_LINEAGE_KEY, box.checked ? 'true' : 'false'); } catch (e) {}
+      try { sessionStorage.setItem(EGERIA_FOR_LINEAGE_KEY, box.checked ? 'true' : 'false'); } catch (e) {}
       location.reload();
     });
     label.appendChild(box);
