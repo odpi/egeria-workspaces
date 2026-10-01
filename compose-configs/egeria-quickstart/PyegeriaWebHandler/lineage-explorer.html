@@ -486,7 +486,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
      same-named ones (later plain `function` declarations overwrite earlier
      ones in the same global scope). -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
-<script src="/static/egeria-shared-ui.js?v=2026-09-14"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-09-30"></script>
 
 </head>
 <body>
@@ -668,9 +668,13 @@ function NavSearch({ onSelect, creds }) {
 }
 
 // ── TimeSlider ─────────────────────────────────────────────────────────────────
-function TimeSlider({ createTime, onChange }) {
+function TimeSlider({ createTime, items, onChange }) {
   var nowMs   = Date.now();
-  var startMs = createTime ? new Date(createTime).getTime() : (nowMs - 30 * 24 * 3600 * 1000);
+  // Left bound: oldest createTime in `items`, else the oldest element in Egeria
+  // (shared helpers in egeria-shared-ui.js), else 30 days.
+  var oldestEverything = useEgeriaOldestCreateTime();
+  var boundIso = createTime || egeriaMinCreateTime(items) || oldestEverything;
+  var startMs = boundIso ? new Date(boundIso).getTime() : (nowMs - 30 * 24 * 3600 * 1000);
   if (isNaN(startMs) || startMs >= nowMs) startMs = nowMs - 30 * 24 * 3600 * 1000;
 
   var _val = useState(nowMs), val = _val[0], setVal = _val[1];
@@ -1048,7 +1052,7 @@ function MainPanel({ focusAsset, creds, onSetFocus, activePersona, favPersonaId 
     graphErr && React.createElement('div', { className: 'err-banner' }, 'Error loading asset graph: ' + graphErr),
 
     // ── Time Slider (show once we have graph data)
-    graphData && React.createElement(TimeSlider, { createTime: createTime, onChange: setAsOfTime }),
+    graphData && React.createElement(TimeSlider, { items: graphData.lineageLinkage, onChange: setAsOfTime }),
 
     // ── Local Lineage Graph
     graphData && React.createElement('div', { className: 'section' },

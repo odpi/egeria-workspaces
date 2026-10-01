@@ -588,7 +588,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 </script>
   <!-- Bump ?v= whenever egeria-shared-ui.js changes — see tech-catalog.html for why. -->
   <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
-  <script src="/static/egeria-shared-ui.js?v=2026-09-14"></script>
+  <script src="/static/egeria-shared-ui.js?v=2026-09-30"></script>
   <script>"use strict";
 
 const {
@@ -8409,7 +8409,7 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
   }, [selected, forLineage]);
 
   var sidebar = React.createElement("div", { style: { width: sideW, minWidth: sideW, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflowY: 'auto', height: '100%' } },
-    React.createElement("div", { style: { padding: '8px 10px' } }, React.createElement(TimeSlider, { onChange: setAsOfTime, label: 'As of' })),
+    React.createElement("div", { style: { padding: '8px 10px' } }, React.createElement(TimeSlider, { items: items, onChange: setAsOfTime, label: 'As of' })),
     React.createElement("div", { className: "search-wrap" },
       React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
         onChange: function(e) { setFilter(e.target.value); } }),
