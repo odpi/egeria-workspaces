@@ -356,6 +356,16 @@ _BP_FOLIO_CACHE: dict = {}
 _BP_FOLIO_TTL = 30  # seconds
 
 
+# Folio grouping needs depth 1 (a blueprint's memberOfCollections is only populated
+# there), and depth 1 across every blueprint is slow: ~15-35 s for 34 blueprints,
+# swinging with Postgres load (depth 0 is ~0.2 s). As of 2026-10-01 no blueprint is a
+# member of any Folio (their collections are CollectionFolder/RootCollection/
+# SolutionBlueprint; the Folios hold governance items), so depth 1 only produced an
+# empty grouping. Keep depth 0 -- every blueprint lands in `ungrouped`, identical
+# output -- and set this to 1 when blueprints are actually filed under Folios.
+_FOLIO_GROUPING_DEPTH = 0
+
+
 @router.get("/api/solution/blueprints/folios", summary="Blueprints grouped by their Folios", responses=EGERIA_ERROR_RESPONSES)
 def list_blueprints_by_folio(
     url:      Optional[str] = Query(None),
@@ -380,7 +390,7 @@ def list_blueprints_by_folio(
     try:
         raw = mgr.find_solution_blueprints(
             search_string="*", output_format="JSON", start_from=0, page_size=500,
-            graph_query_depth=1, sequencing_order="PROPERTY_ASCENDING",
+            graph_query_depth=_FOLIO_GROUPING_DEPTH, sequencing_order="PROPERTY_ASCENDING",
             sequencing_property="displayName",
         )
     except Exception as exc:
