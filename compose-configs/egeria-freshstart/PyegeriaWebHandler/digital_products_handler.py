@@ -19,6 +19,7 @@ import time
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
+from egeria_auth import lineage_key as _lineage_key
 from fastapi.responses import JSONResponse
 from loguru import logger
 
@@ -364,7 +365,7 @@ def get_catalog_tree(
         logger.exception("Failed to create CollectionManager")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
-    cache_key = f"{catalog_guid}|{url or ''}|{server or ''}|{user_id or ''}|{as_of_time or ''}"
+    cache_key = f"{catalog_guid}|{url or ''}|{server or ''}|{user_id or ''}|{as_of_time or ''}{_lineage_key()}"
     cached = _TREE_CACHE.get(cache_key)
     if cached and (time.time() - cached[0]) < _TREE_CACHE_TTL:
         logger.debug(f"Tree cache hit for {catalog_guid}")
@@ -399,7 +400,7 @@ def get_node_children(
         logger.exception("Failed to create CollectionManager")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
-    cache_key = f"children|{node_guid}|{url or ''}|{server or ''}|{user_id or ''}|{as_of_time or ''}"
+    cache_key = f"children|{node_guid}|{url or ''}|{server or ''}|{user_id or ''}|{as_of_time or ''}{_lineage_key()}"
     cached = _TREE_CACHE.get(cache_key)
     if cached and (time.time() - cached[0]) < _TREE_CACHE_TTL:
         return JSONResponse(cached[1])

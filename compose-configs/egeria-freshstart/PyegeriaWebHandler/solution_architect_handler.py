@@ -20,6 +20,7 @@ import time
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
+from egeria_auth import lineage_key as _lineage_key
 from fastapi.responses import JSONResponse
 from loguru import logger
 
@@ -364,7 +365,7 @@ def list_blueprints_by_folio(
     """Group solution blueprints under the Folios that curate them. A blueprint's
     folios are its memberOfCollections entries whose type is Folio; blueprints in
     no folio are returned under `ungrouped`. Built from one depth-1 find."""
-    cache_key = f"{url or ''}|{server or ''}|{user_id or ''}"
+    cache_key = f"{url or ''}|{server or ''}|{user_id or ''}{_lineage_key()}"
     cached = _BP_FOLIO_CACHE.get(cache_key)
     if not refresh and cached and (time.time() - cached[0]) < _BP_FOLIO_TTL:
         return JSONResponse(cached[1])
@@ -513,7 +514,7 @@ def list_components_tree(
     in any other) with recursively nested children. Built from a single depth-1 find
     that inlines nestedSolutionComponents (children) and usedInSolutionComponents
     (parents)."""
-    cache_key = f"{url or ''}|{server or ''}|{user_id or ''}"
+    cache_key = f"{url or ''}|{server or ''}|{user_id or ''}{_lineage_key()}"
     cached = _COMP_TREE_CACHE.get(cache_key)
     if not refresh and cached and (time.time() - cached[0]) < _COMP_TREE_TTL:
         return JSONResponse(cached[1])

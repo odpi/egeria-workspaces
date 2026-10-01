@@ -588,7 +588,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 </script>
   <!-- Bump ?v= whenever egeria-shared-ui.js changes — see tech-catalog.html for why. -->
   <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
-  <script src="/static/egeria-shared-ui.js?v=2026-09-30"></script>
+  <script>window.EGERIA_FOR_LINEAGE = true;</script>
+  <script src="/static/egeria-shared-ui.js?v=2026-10-01"></script>
   <script>"use strict";
 
 const {
@@ -7143,8 +7144,6 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
   const [detailState, setDetailState] = useState('idle');
   const [filter, setFilter] = useState('');
   const [inclTempl, setInclTempl] = useState(false);
-  // forLineage: also show elements classified Memento/Promise (hidden by default)
-  const [forLineage, setForLineage] = useState(false);
   const [expandedISC, setExpandedISC] = useState(new Set());
   const selection = useSelection();
   const [modalAction, setModalAction] = useState(null);
@@ -7158,20 +7157,20 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
   useEffect(function() {
     setState('loading'); setError('');
     selection.clear();
-    egeriaFetch('/api/isc' + (inclTempl || forLineage ? '?' + [inclTempl && 'include_templates=true', forLineage && 'for_lineage=true'].filter(Boolean).join('&') : ''), creds)
+    egeriaFetch('/api/isc' + (inclTempl ? '?include_templates=true' : ''), creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setItems(data.supply_chains || []); setState('ready'); })
       .catch(function(e) { setError(e.message); setState('error'); });
-  }, [attempt, inclTempl, forLineage]);
+  }, [attempt, inclTempl]);
 
   useEffect(function() {
     if (!selected) { setDetail(null); return; }
     setDetailState('loading');
-    egeriaFetch('/api/isc/' + selected + (forLineage ? '?for_lineage=true' : ''), creds)
+    egeriaFetch('/api/isc/' + selected, creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setDetail(data); setDetailState('ready'); })
       .catch(function() { setDetailState('error'); });
-  }, [selected, forLineage]);
+  }, [selected]);
 
   var sidebar = React.createElement("div", { style: { width: sideW, minWidth: sideW, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflowY: 'auto', height: '100%' } },
     React.createElement("div", { style: { padding: '8px 10px' } }, React.createElement(TimeSlider, { items: items, onChange: setAsOfTime, label: 'As of' })),
@@ -7181,10 +7180,6 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
       React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', marginTop: 4 } },
         React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
         "Include templates"
-      ),
-      React.createElement("label", { title: "Include elements classified as Memento or Promise, which are hidden from lineage by default", style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', marginTop: 4 } },
-        React.createElement("input", { type: "checkbox", checked: forLineage, onChange: function(e) { setForLineage(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
-        "Show Promise / Memento"
       ),
       React.createElement("button", {
         className: "btn-sm", style: { marginTop: 4 },

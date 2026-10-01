@@ -40,6 +40,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from egeria_auth import lineage_key as _lineage_key
 from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
 
@@ -2137,7 +2138,7 @@ async def list_survey_types(
     resourceUse == 'Survey Resource', with the full survey specification and the
     list of TechnologyTypes that reference it.
     """
-    cache_key = f"{url}|{server}|{user_id}"
+    cache_key = f"{url}|{server}|{user_id}{_lineage_key()}"
     cached = _SURVEY_TYPES_CACHE.get(cache_key)
     if cached and (time.time() - cached["ts"]) < _SURVEY_TYPES_TTL:
         return JSONResponse({"items": cached["data"]})

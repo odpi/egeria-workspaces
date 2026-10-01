@@ -418,6 +418,7 @@ function egeriaFetch(url, creds, opts) {
     var qs = p.toString();
     if (qs) queryUrl = url + (url.indexOf('?') === -1 ? '?' : '&') + qs;
   }
+  if (egeriaForLineageOn()) headers['X-Egeria-For-Lineage'] = 'true';
   var mergedOpts = Object.assign({}, opts || {});
   delete mergedOpts._isRetry;
   mergedOpts.headers = headers;
@@ -3502,3 +3503,45 @@ function simplePillRow(values, labelFn, fSet, setFSet) {
     fSet.size > 0 && el('button', { onClick:function(){ setFSet(new Set()); },
       style:{ fontSize:10, padding:'2px 8px', borderRadius:4, border:'1px solid var(--border)', background:'transparent', color:'var(--dim)', cursor:'pointer' } }, 'clear'));
 }
+
+/* ── Global "Promise / Memento" (forLineage) toggle ──────────────────────────
+ * Egeria hides elements classified Promise or Memento unless a request sets
+ * forLineage. Pages where that is meaningful (Type Explorer, Tech Catalog,
+ * Lineage Explorer, Data Mesh, Insights) opt in with
+ *   <script>window.EGERIA_FOR_LINEAGE = true;</script>
+ * before this file. They then get a small fixed toggle, default ON, remembered
+ * in localStorage; egeriaFetch sends X-Egeria-For-Lineage: true while it is on
+ * and the server (egeria_auth.py) applies it to every Egeria call in that
+ * request. Operations and Audit don't opt in, so they never send it.
+ * Toggling reloads the page so every view refetches under the new setting. */
+var EGERIA_FOR_LINEAGE_KEY = 'egeria-for-lineage';
+
+function egeriaForLineageOn() {
+  if (!window.EGERIA_FOR_LINEAGE) return false;
+  try { return localStorage.getItem(EGERIA_FOR_LINEAGE_KEY) !== 'false'; } catch (e) { return true; }
+}
+
+(function mountForLineageToggle() {
+  function mount() {
+    if (!window.EGERIA_FOR_LINEAGE || document.getElementById('egeria-for-lineage-toggle')) return;
+    var label = document.createElement('label');
+    label.id = 'egeria-for-lineage-toggle';
+    label.title = 'Include elements classified as Promise or Memento, which Egeria hides by default (forLineage)';
+    label.style.cssText = 'position:fixed;right:12px;bottom:10px;z-index:9000;display:flex;align-items:center;' +
+      'gap:6px;padding:4px 10px;font-size:11px;cursor:pointer;user-select:none;border-radius:14px;' +
+      'background:var(--card,#1c2230);border:1px solid var(--border,#2a3345);color:var(--muted,#9aa4b5);' +
+      'box-shadow:0 1px 4px rgba(0,0,0,.25);';
+    var box = document.createElement('input');
+    box.type = 'checkbox';
+    box.checked = egeriaForLineageOn();
+    box.style.cssText = 'cursor:pointer;accent-color:var(--accent,#60a5fa);';
+    box.addEventListener('change', function() {
+      try { localStorage.setItem(EGERIA_FOR_LINEAGE_KEY, box.checked ? 'true' : 'false'); } catch (e) {}
+      location.reload();
+    });
+    label.appendChild(box);
+    label.appendChild(document.createTextNode('Promise / Memento'));
+    document.body.appendChild(label);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount); else mount();
+})();

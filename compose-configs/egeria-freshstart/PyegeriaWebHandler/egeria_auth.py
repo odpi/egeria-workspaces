@@ -22,6 +22,46 @@ logger = logging.getLogger("pyegeria_web.egeria_auth")
 
 _egeria_token: ContextVar[Optional[str]] = ContextVar("egeria_token", default=None)
 
+# Set from the X-Egeria-For-Lineage request header (the portal's "Promise / Memento"
+# toggle). When true, every request body a pyegeria client sends in this request
+# carries forLineage=true, so elements classified Promise/Memento -- hidden by
+# default -- are returned. Pages where that isn't meaningful (operations, audit)
+# simply never send the header.
+_for_lineage: ContextVar[bool] = ContextVar("egeria_for_lineage", default=False)
+
+
+def for_lineage_requested() -> bool:
+    return _for_lineage.get()
+
+
+def lineage_key() -> str:
+    """Cache-key suffix. Anything that caches element data across requests must
+    include this: the same URL returns different elements with forLineage on."""
+    return "|fl" if _for_lineage.get() else ""
+
+
+def _inject_for_lineage(client) -> None:
+    """Wrap this client's request method so JSON bodies carry forLineage=true.
+
+    Per-instance (clients are built fresh per request). A stand-in for pyegeria's
+    upcoming lineage_visible() context manager -- swap for it once released.
+    Bodiless requests are left alone.
+    """
+    orig = client._async_make_request
+
+    async def _wrapped(request_type, endpoint, payload=None, *args, **kwargs):
+        if isinstance(payload, dict):
+            payload = {**payload, "forLineage": True}
+        elif isinstance(payload, str) and payload.lstrip().startswith("{"):
+            import json
+            try:
+                payload = json.dumps({**json.loads(payload), "forLineage": True})
+            except ValueError:
+                pass
+        return await orig(request_type, endpoint, payload, *args, **kwargs)
+
+    client._async_make_request = _wrapped
+
 
 def get_request_token() -> Optional[str]:
     """Return the X-Egeria-Token supplied with the current request, if any."""
@@ -37,6 +77,8 @@ def apply_token(client) -> None:
         client.set_bearer_token(token)
     else:
         client.create_egeria_bearer_token()
+    if _for_lineage.get():
+        _inject_for_lineage(client)
 
 
 async def async_apply_token(client) -> None:
@@ -49,6 +91,8 @@ async def async_apply_token(client) -> None:
         client.set_bearer_token(token)
     else:
         await client._async_create_egeria_bearer_token()
+    if _for_lineage.get():
+        _inject_for_lineage(client)
 
 
 class EgeriaTokenMiddleware:
@@ -63,12 +107,16 @@ class EgeriaTokenMiddleware:
             await self.app(scope, receive, send)
             return
         token = None
+        for_lineage = False
         for name, value in scope.get("headers") or ():
             if name == b"x-egeria-token":
                 token = value.decode("latin-1").strip() or None
-                break
+            elif name == b"x-egeria-for-lineage":
+                for_lineage = value.decode("latin-1").strip().lower() == "true"
         reset = _egeria_token.set(token)
+        reset_fl = _for_lineage.set(for_lineage)
         try:
             await self.app(scope, receive, send)
         finally:
+            _for_lineage.reset(reset_fl)
             _egeria_token.reset(reset)
