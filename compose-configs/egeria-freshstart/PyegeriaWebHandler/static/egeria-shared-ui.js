@@ -3022,13 +3022,22 @@ function egeriaForLineageOn() {
   try { return sessionStorage.getItem(EGERIA_FOR_LINEAGE_KEY) !== 'false'; } catch (e) { return true; }
 }
 
+// Pages can hide/show the toggle as the user moves between views (the Explorer hides it
+// on its home page and docs-style sections).
+window.egeriaForLineageToggleVisible = function(show) {
+  window.EGERIA_FOR_LINEAGE_VISIBLE = !!show;
+  var el = document.getElementById('egeria-for-lineage-toggle');
+  if (el) el.style.display = show ? 'flex' : 'none';
+};
+
 (function mountForLineageToggle() {
   function mount() {
     if (!window.EGERIA_FOR_LINEAGE || document.getElementById('egeria-for-lineage-toggle')) return;
     var label = document.createElement('label');
     label.id = 'egeria-for-lineage-toggle';
     label.title = 'Include elements classified as Promise or Memento, which Egeria hides by default (forLineage)';
-    label.style.cssText = 'position:fixed;right:12px;bottom:10px;z-index:9000;display:flex;align-items:center;' +
+    label.style.cssText = 'position:fixed;right:12px;bottom:10px;z-index:9000;display:' +
+      (window.EGERIA_FOR_LINEAGE_VISIBLE === false ? 'none' : 'flex') + ';align-items:center;' +
       'gap:6px;padding:4px 10px;font-size:11px;cursor:pointer;user-select:none;border-radius:14px;' +
       'background:var(--card,#1c2230);border:1px solid var(--border,#2a3345);color:var(--muted,#9aa4b5);' +
       'box-shadow:0 1px 4px rgba(0,0,0,.25);';
@@ -3038,6 +3047,20 @@ function egeriaForLineageOn() {
     box.style.cssText = 'cursor:pointer;accent-color:var(--accent,#60a5fa);';
     box.addEventListener('change', function() {
       try { sessionStorage.setItem(EGERIA_FOR_LINEAGE_KEY, box.checked ? 'true' : 'false'); } catch (e) {}
+      // A SPA may register window.egeriaNavSnapshot() -> {hash, query}; encode it in the
+      // URL first so the reload comes back to the same view instead of the home page.
+      try {
+        var snap = window.egeriaNavSnapshot && window.egeriaNavSnapshot();
+        if (snap) {
+          var qp = new URLSearchParams(location.search);
+          Object.keys(snap.query || {}).forEach(function(k) {
+            var v = snap.query[k];
+            if (v === null || v === undefined || v === '') qp.delete(k); else qp.set(k, v);
+          });
+          var qs = qp.toString();
+          history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + (snap.hash ? '#' + snap.hash : location.hash));
+        }
+      } catch (e) {}
       location.reload();
     });
     label.appendChild(box);

@@ -588,8 +588,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 </script>
   <!-- Bump ?v= whenever egeria-shared-ui.js changes — see tech-catalog.html for why. -->
   <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
-  <script>window.EGERIA_FOR_LINEAGE = true;</script>
-  <script src="/static/egeria-shared-ui.js?v=2026-10-01b"></script>
+  <script>window.EGERIA_FOR_LINEAGE = true; window.EGERIA_FOR_LINEAGE_VISIBLE = false;  /* shown per-section by App */</script>
+  <script src="/static/egeria-shared-ui.js?v=2026-10-01c"></script>
   <script>"use strict";
 
 const {
@@ -9487,6 +9487,16 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
     return function() { cancelled = true; };
   }, [selectedBp]);
 
+  // Tell the Promise/Memento toggle which blueprint/component/pattern is open, so its
+  // reload returns here (the cold-load code above reads ?kind=&guid=). Cleared on unmount.
+  useEffect(function() {
+    window.__egeriaNavExtra = {
+      kind: subNav,
+      guid: subNav === 'components' ? selectedComp : subNav === 'patterns' ? selectedPat : selectedBp,
+    };
+    return function() { window.__egeriaNavExtra = null; };
+  }, [subNav, selectedBp, selectedComp, selectedPat]);
+
   // Fetch component detail when selection changes (same race guard as above).
   useEffect(function() {
     if (!selectedComp) { setCompDetail(null); return; }
@@ -11056,6 +11066,17 @@ function App() {
       'data-design','perspectives','dr-egeria','isc','locations','actors','communities','business-capabilities','notelogs','governance','naming-vocabulary','policy-enforcement','action-center','duplicate-review','projects','informal-tags','context-events','search']);
     return valid.has(hash) ? hash : 'splash';
   });
+  // The Promise/Memento toggle only means something where elements are browsed, so it
+  // is hidden on the home page and the docs-style sections. Toggling reloads the
+  // page; this snapshot lets it come back to the same section (and, for Solution
+  // Architect, the same selection) instead of the home page.
+  useEffect(function() {
+    var hidden = ['splash','type-system','report-specs','rest-apis','python-api','dr-egeria'];
+    if (window.egeriaForLineageToggleVisible) window.egeriaForLineageToggleVisible(hidden.indexOf(section) === -1);
+    window.egeriaNavSnapshot = function() {
+      return { hash: section === 'splash' ? '' : section, query: window.__egeriaNavExtra || {} };
+    };
+  }, [section]);
   const [searchQuery, setSearchQuery] = useState('');
   const [glossaryNavGuid, setGlossaryNavGuid] = useState(function() {
     var hash = window.location.hash.slice(1).split('?')[0];
