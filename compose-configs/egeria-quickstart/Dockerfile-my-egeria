@@ -1,21 +1,22 @@
-FROM python:3.14-slim@sha256:cad9a2c871761c413caa6fdd6441c783451e740a48aaeba60ae62a8b53525ef6
+# Python 3.13, not 3.14: Textual (6.1.0 through 8.2.8) fails on 3.14 with
+# `assert task is not None` in textual/rlock.py, which the current My Profile app
+# hits at startup (pyegeria ISSUE-120). .github/dependabot.yml blocks python>=3.14
+# bumps for this directory -- don't move this image to 3.14 until Textual supports it.
+FROM python:3.13-slim@sha256:bb2988715db2cf7ace7b53f38f3cffbef7c7046a656bee66245eb0ed386e2e81
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
-# pip install of textual does not install the `textual` console script;
-# use textual_serve.server.Server programmatically via serve_my_egeria.py instead.
 # pyegeria in its own layer, same pattern as Dockerfile-jupyter — Docker caches
 # it, so a plain rebuild keeps the previously-installed version. Override with
 # --build-arg PYEGERIA_BUST=$(date +%s) (or PYEGERIA_VERSION=pyegeria==X.Y.Z),
 # or NO_CACHE=1 ./redeploy-demo to refresh every image at once.
-ARG PYEGERIA_VERSION=pyegeria
+# pyegeria >= 6.1.26 is required: it installs the my_egeria package at the top level
+# (earlier wheels nested it as my_egeria/my_egeria/, breaking its console scripts),
+# ships my_profile.tcss, and serves via the textual-serve library. Textual and
+# textual-serve come with pyegeria -- don't pin them separately.
+ARG PYEGERIA_VERSION=pyegeria>=6.1.26
 ARG PYEGERIA_BUST=0
 RUN echo "pyegeria layer ${PYEGERIA_BUST}" \
     && pip install --no-cache-dir --retries 10 --timeout 60 "${PYEGERIA_VERSION}" --upgrade nest_asyncio
-RUN pip install --no-cache-dir --retries 10 --timeout 60 "textual==6.1.0"
-COPY serve_my_egeria.py /usr/local/bin/serve_my_egeria.py
-# my_profile.tcss is missing from pyegeria's package_data (fixed upstream);
-# inject it manually until a new pyegeria release includes it.
-COPY my_profile.tcss /tmp/my_profile.tcss
-RUN find /usr/local/lib -name "my_profile_app.py" \
-    -exec sh -c 'cp /tmp/my_profile.tcss "$(dirname "$1")/my_profile.tcss"' _ {} \;
 EXPOSE 8020
-CMD ["python", "/usr/local/bin/serve_my_egeria.py"]
+# serve_my_profile reads MY_EGERIA_HOST, MY_PROFILE_PORT and MY_EGERIA_PUBLIC_URL
+# (set in egeria-quickstart.yaml) -- each browser connection gets its own app process.
+CMD ["serve_my_profile"]

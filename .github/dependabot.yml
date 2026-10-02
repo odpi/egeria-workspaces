@@ -45,6 +45,15 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    ignore:
+      # The Textual apps (Dockerfile-my-egeria: My Profile) fail on Python 3.14 --
+      # Textual's RLock asserts asyncio.current_task() is not None (pyegeria
+      # ISSUE-120; reproduced on Textual 6.1.0 and 8.2.8). A dependabot bump to
+      # 3.14 is how the my-profile image broke. Same asyncio.current_task() class
+      # of failure as the PyegeriaWebHandler rule below. Block >=3.14 until
+      # Textual supports it (applies to every Dockerfile in this directory).
+      - dependency-name: "python"
+        versions: [">=3.14"]
 
   - package-ecosystem: "docker"
     directory: "/compose-configs/egeria-quickstart/PyegeriaWebHandler"
