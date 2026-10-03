@@ -20,13 +20,15 @@ time, not per browser session.
 
 ## Why this doesn't just work today
 
-`compose-configs/egeria-quickstart/serve_my_egeria.py` (this repo) is a thin wrapper:
+The `quickstart-my-profile` container runs pyegeria's `serve_my_profile` entry point
+(`my_egeria/serve.py` in egeria-python; until 2026-10-02 this repo had its own
+`serve_my_egeria.py` wrapper doing the same thing). It is a thin wrapper:
 
 ```python
 from textual_serve.server import Server
 Server(
-    command=f"{sys.executable} {app}",   # my_profile_app.py, one fixed command
-    host=host, port=port,
+    f'"{sys.executable}" -m my_egeria.DemoCode.My_Profile.my_profile_app',  # one fixed command
+    host=host, port=port, title=name,
     public_url=public_url,
 ).serve()
 ```
@@ -72,8 +74,9 @@ accept and use it.
 
 ### 2. `my_egeria`/pyegeria package — make textual-serve identity-aware per connection
 
-This is the real fix, and it doesn't exist in this repo — `serve_my_egeria.py` here is a
-15-line wrapper around a `Server` class the package owner controls the usage of, but the
+This is the real fix, and it doesn't exist in this repo — `serve_my_profile` (in
+egeria-python's `my_egeria/serve.py`) is a short wrapper around a `Server` class the package
+owner controls the usage of, but the
 parameterization gap is inside `textual_serve` itself (whether that's a third-party library to
 subclass around, or a package `my_egeria` also owns/vendors, needs the owner to confirm).
 
@@ -121,16 +124,18 @@ changes where in the app the token gets consumed.
 
 ## Where things live (for reference)
 
-- This repo: `compose-configs/egeria-quickstart/serve_my_egeria.py`,
-  `compose-configs/egeria-quickstart/Dockerfile-my-egeria`,
+- This repo: `compose-configs/egeria-quickstart/Dockerfile-my-egeria` (runs
+  `serve_my_profile`; Python 3.13, see pyegeria ISSUE-120),
   `compose-configs/egeria-quickstart/egeria-quickstart.yaml` (`my-profile` service — port 8020,
   env `MY_EGERIA_PUBLIC_URL`/`EGERIA_USER`/`EGERIA_USER_PASSWORD`),
   `compose-configs/egeria-quickstart/PyegeriaWebHandler/demo-portal.html` (`launch()` — the tile
   click handler that would need to append the token).
 - Installed package (inside the `quickstart-my-profile` container):
-  `/usr/local/lib/python3.12/site-packages/my_egeria/my_egeria/DemoCode/My_Profile/my_profile_app.py`
+  `/usr/local/lib/python3.13/site-packages/my_egeria/DemoCode/My_Profile/my_profile_app.py`
+  (pyegeria >= 6.1.26 installs `my_egeria` at the top level; earlier wheels nested it as
+  `my_egeria/my_egeria/...`)
   (the actual TUI app, `on_mount` calls `pyegeria.omvs.my_profile.MyProfile._async_get_my_profile`),
-  `/usr/local/lib/python3.12/site-packages/pyegeria/omvs/my_profile.py` (the client class),
-  `/usr/local/lib/python3.12/site-packages/textual_serve/server.py` +
-  `/usr/local/lib/python3.12/site-packages/textual_serve/app_service.py` (the serving layer this
+  `/usr/local/lib/python3.13/site-packages/pyegeria/omvs/my_profile.py` (the client class),
+  `/usr/local/lib/python3.13/site-packages/textual_serve/server.py` +
+  `/usr/local/lib/python3.13/site-packages/textual_serve/app_service.py` (the serving layer this
   design targets).
