@@ -1630,7 +1630,7 @@ const DRILL = {
     stats:[[ND,'open']], list:[],
     cta:['Open Egeria Audit','/egeria-audit'], sec:null,
     note:'Live count of <code>Exception</code> governance relationships from ClassificationExplorer.' },
-  people: { eb:'People & community', t:'👥 People &amp; Community', s:'The human network behind the metadata — people, teams, organizations and communities',
+  people: { eb:'People & community', t:'👥 People & Community', s:'The human network behind the metadata — people, teams, organizations and communities',
     stats:[[ND,'people'],[ND,'teams'],[ND,'communities']], list:[],
     cta:['Open My Egeria','/my-egeria/'], sec:['Actors in Explorer','/egeria-explorer#actors'],
     note:'Live counts from ActorManager (Person/Team/Organization) &amp; CommunityMatters. Karma/feedback aggregates are a later slice.' },
@@ -2194,10 +2194,15 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     });
   }
   // Badge for a finished load: all sources -> the requested mode; some -> "partial"; none -> "no data".
+  // A refresh that fails leaves the last successfully loaded numbers on screen; say so rather than
+  // implying there is no data. (A first load that fails has nothing loaded, so the tiles show dashes.)
+  var SRC_FIELD = { 'summary': 'assets', 'people': 'people', 'usage-context': 'isc', 'ai-context': 'groundingPct' };
   function statusBadge(st, mode, label){
     if (st.failed.length === 0) return setBadge(mode, label);
-    if (st.failed.length === st.total) return setBadge('sample');
-    return setBadge('partial', st.failed.length + ' of ' + st.total + ' sources unavailable: ' + st.failed.join(', '));
+    var stale = st.failed.some(function(n){ return LIVE[SRC_FIELD[n]] != null; });
+    var note = stale ? ' — showing last loaded values' : '';
+    if (st.failed.length === st.total) return setBadge('sample', note);
+    return setBadge('partial', st.failed.length + ' of ' + st.total + ' sources unavailable: ' + st.failed.join(', ') + note);
   }
   function mergeStatus(a, b){
     return { total: a.total + b.total, failed: a.failed.concat(b.failed) };
@@ -2220,7 +2225,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
   function setBadge(mode, label){
     if (mode === 'asof')    return badge('◷ as of ' + label, 'var(--c4)');
     if (mode === 'compare') return badge('⇄ now vs ' + label, 'var(--c3)');
-    if (mode === 'sample')  return badge('○ no data (Egeria unavailable)', 'var(--c5)');
+    if (mode === 'sample')  return badge('○ no data (Egeria unavailable)' + (label || ''), 'var(--c5)');
     if (mode === 'partial') return badge('◐ partial: ' + label, 'var(--c4)');
     badge('● live', 'var(--green)');
   }
