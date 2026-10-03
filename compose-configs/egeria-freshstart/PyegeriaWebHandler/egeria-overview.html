@@ -706,7 +706,7 @@
   </div>
 
   <div class="foot-note">
-    <b>Live data only</b> · every figure is measured from the connected Egeria platform; anything shown as <code>—</code> or "Not measured" has no data (or no data source) yet. Every tile maps to data the portal already exposes — asset/type counts from the Tech Catalog handlers, classification &amp; zone tallies from <code>/api/insights/summary</code>, certifications from the Audit handler, glossary counts from the Glossary handler, survey coverage from survey-report annotations, the change stream from Context Events, and the <b>People &amp; Community</b> block from the Community Profile / Collaboration handlers (<code>actor</code>, <code>community</code>, karma / <code>egeria-feedback</code> likes·ratings·comments, <code>informal-tags</code>). The <b>Perspective → Question</b> framing is the existing <code>perspectives_handler</code> model (Perspective ⟶ <code>ScopedBy</code> ⟶ Question), with each question answered by a saved <b>report spec / view definition</b>. Trend lines use Egeria's native <code>asOfTime</code> historical queries — no separate time-series store required. The one new backend piece is a small <code>/api/overview/*</code> aggregation router that fans these out and caches them (mirroring the operations handler's non-blocking cache pattern).
+    <b>Live data only</b> · every figure is measured from the connected Egeria platform; anything shown as <code>—</code> or "Not measured" has no data (or no data source) yet. Every tile maps to data the portal already exposes — asset/type counts from the Tech Catalog handlers, classification &amp; zone tallies from <code>/api/insights/summary</code>, certifications from the Audit handler, glossary counts from the Glossary handler, survey coverage from <code>ReportSubject</code> links to <code>SurveyReport</code>s, and the <b>People &amp; Community</b> block from the Community Profile / Collaboration handlers (<code>actor</code>, <code>community</code>, karma / <code>egeria-feedback</code> likes·ratings·comments, <code>informal-tags</code>). The <b>Perspective → Question</b> framing is the existing <code>perspectives_handler</code> model (Perspective ⟶ <code>ScopedBy</code> ⟶ Question), with each question answered by a saved <b>report spec / view definition</b>. Trend lines use Egeria's native <code>asOfTime</code> historical queries — no separate time-series store required. The one new backend piece is a small <code>/api/overview/*</code> aggregation router that fans these out and caches them (mirroring the operations handler's non-blocking cache pattern).
   </div>
 
 </div>
@@ -1876,10 +1876,11 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     store.assets = d.assetTotal; store.terms = d.termCount;
     store.byType = d.byType; store.topZones = d.topZones;                    // drill panels
     store.certSoon = d.certSoon; store.certExpiring90 = d.certExpiring90;
-    if (primary) { renderCertsSoon(d); renderSurveyCoverage(store); }
     store.orphanTermCount = d.orphanTermCount;
     store.surveyedAssets = d.surveyedAssets; store.surveyedStores = d.surveyedStores; store.dataStoreTotal = d.dataStoreTotal;
     store.neverSurveyedStores = d.neverSurveyedStores; store.surveyReports = d.surveyReports;
+    // render only after every value above is stored (this used to run before the survey values were set)
+    if (primary) { renderCertsSoon(d); renderSurveyCoverage(store); }
     store.governedCount = d.governedCount;
     if (d.assetTotal && d.governedCount != null) {
       store.governedPctNum = Math.round(100 * d.governedCount / Math.max(d.assetTotal, d.governedCount));
