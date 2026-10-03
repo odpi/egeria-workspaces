@@ -585,7 +585,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
      this URL *before* that header existed won't revalidate on its own; a new
      URL guarantees a fresh fetch regardless of prior cache state. -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
-<script>window.EGERIA_FOR_LINEAGE = true;</script>
+<script>window.EGERIA_FOR_LINEAGE = true; window.EGERIA_FOR_LINEAGE_VISIBLE = false;  /* shown per-section by App */</script>
 <script src="/static/egeria-shared-ui.js?v=2026-10-01c"></script>
 <script>
 'use strict';
@@ -3883,6 +3883,15 @@ function App() {
     return '';  // ?guid= section is resolved via element-nav after auth
   }), section = _section[0], setSection = _section[1];
   var _searchQ = useState(''), searchQ = _searchQ[0], setSearchQ = _searchQ[1];
+
+  // The Promise/Memento toggle is hidden on the Catalog's home (section '') and shown in
+  // every section. Toggling reloads the page, and the Catalog only restores its section
+  // from the URL hash on a cold load, so register a snapshot for the toggle to write
+  // into the URL first -- otherwise the reload lands on the home page.
+  useEffect(function() {
+    if (window.egeriaForLineageToggleVisible) window.egeriaForLineageToggleVisible(!!section);
+    window.egeriaNavSnapshot = function() { return { hash: section || '', query: {} }; };
+  }, [section]);
 
   var _creds     = useState(null),  creds      = _creds[0],     setCreds      = _creds[1];
   var _srvMgd    = useState(false), srvManaged = _srvMgd[0],    setSrvManaged = _srvMgd[1];
