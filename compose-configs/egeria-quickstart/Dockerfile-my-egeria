@@ -8,11 +8,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 # it, so a plain rebuild keeps the previously-installed version. Override with
 # --build-arg PYEGERIA_BUST=$(date +%s) (or PYEGERIA_VERSION=pyegeria==X.Y.Z),
 # or NO_CACHE=1 ./redeploy-demo to refresh every image at once.
-# pyegeria >= 6.1.26 is required: it installs the my_egeria package at the top level
+# pyegeria >= 6.1.27 is required. 6.1.26 installs the my_egeria package at the top level
 # (earlier wheels nested it as my_egeria/my_egeria/, breaking its console scripts),
-# ships my_profile.tcss, and serves via the textual-serve library. Textual and
+# ships my_profile.tcss, and serves via the textual-serve library; 6.1.27 makes the
+# page's URLs follow the browser's hostname (localhost, machine name, demo site). The
+# floor matters: right after a release PyPI's index can still offer the previous
+# version, so a lower floor can silently build without the fix. Textual and
 # textual-serve come with pyegeria -- don't pin them separately.
-ARG PYEGERIA_VERSION=pyegeria>=6.1.26
+ARG PYEGERIA_VERSION=pyegeria>=6.1.27
 ARG PYEGERIA_BUST=0
 RUN echo "pyegeria layer ${PYEGERIA_BUST}" \
     && pip install --no-cache-dir --retries 10 --timeout 60 "${PYEGERIA_VERSION}" --upgrade nest_asyncio
