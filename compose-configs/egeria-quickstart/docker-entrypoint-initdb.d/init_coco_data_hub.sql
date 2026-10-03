@@ -5,9 +5,9 @@
 -- digital product, one table per data structure, one column per data field.
 -- coco_pharma keeps the existing Coco systems (coco_sus, coco_ods).
 --
--- Applied by bin/apply-postgres-init.sh as its own migration (after
--- init_egeria.sql, which creates the roles granted below), so installs that
--- already ran init_egeria.sql pick it up on their next start.  Idempotent.
+-- Run by bin/apply-postgres-init.sh on every start, after init_egeria.sql (which
+-- creates the roles granted below).  Safe to run again: it only creates what is
+-- missing.
 
 SELECT 'CREATE DATABASE coco_data_hub'
 WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'coco_data_hub')\gexec
@@ -16,6 +16,19 @@ grant all privileges on database coco_data_hub to egeria_admin, egeria_user, air
 
 \connect coco_data_hub
 \ir data/coco_data_hub.sql
+
+-- Seven code columns were widened from varchar(20) to varchar(100) after the first
+-- release, because their values did not fit ("complete with deviation",
+-- "healthcare professional", "manufacturing execution").  data/coco_data_hub.sql
+-- creates them wide; these bring a hub created before the change up to date, and
+-- do nothing when the column is already varchar(100).
+ALTER TABLE batch_execution_records.execution_step              ALTER COLUMN execution_step_status   TYPE varchar(100);
+ALTER TABLE deviations_and_capas.deviation                      ALTER COLUMN deviation_source_type   TYPE varchar(100);
+ALTER TABLE product_complaints.complaint                        ALTER COLUMN complaint_reporter_type TYPE varchar(100);
+ALTER TABLE data_subject_rights_requests.rights_request         ALTER COLUMN data_subject_type       TYPE varchar(100);
+ALTER TABLE record_of_processing_activities.processing_activity ALTER COLUMN data_subject_type       TYPE varchar(100);
+ALTER TABLE personal_data_discovery_findings.discovered_holding ALTER COLUMN data_subject_type       TYPE varchar(100);
+ALTER TABLE rights_fulfilment_actions.fulfilment_request        ALTER COLUMN data_subject_type       TYPE varchar(100);
 
 -- Database users for the data hub, each with only what its job needs:
 --

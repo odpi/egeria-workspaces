@@ -25,10 +25,20 @@ x-airflow-common: &airflow-common
     # --- OPENLINEAGE TOGGLE LOGIC ---
     AIRFLOW__OPENLINEAGE__DISABLED: 'false'
     AIRFLOW__OPENLINEAGE__NAMESPACE: 'egeria-workspace'
-    AIRFLOW__OPENLINEAGE__TRANSPORT: '${OL_TRANSPORT:-{"type": "http", "url": "http://marquez:5050", "endpoint": "api/v1/lineage"}}'
+    # AIRFLOW__OPENLINEAGE__TRANSPORT (where the lineage events go) is set in openlineage.env, which
+    # switch-lineage.sh rewrites - so the choice is kept in a file and survives restarts and rebuilds.
 
     AIRFLOW__API__PORT: "8072"
     AIRFLOW__DAG_PROCESSOR__DAG_BUNDLE_CONFIG_LIST: '[{"name": "default-dags", "classpath": "airflow.dag_processing.bundles.local.LocalDagBundle", "kwargs": {"path": "/opt/airflow/dags"}}, {"name": "coco-dags", "classpath": "airflow.dag_processing.bundles.local.LocalDagBundle", "kwargs": {"path": "/opt/airflow/coco-dags"}}]'
+
+    # Connections for the coco_feed_* and coco_subscriptions_* DAGs in coco-dags: the three Coco system databases
+    # (read by the feeds, written by the subscription loads), the Data Sharing Hub the feeds fill - written as the
+    # provisioner user that coco_data_hub's set-up creates - and the subscription staging area the loads read.
+    AIRFLOW_CONN_COCO_PHARMA: 'postgres://airflow_user:${AIRFLOW_DATABASE_PASSWORD}@host.docker.internal:5442/coco_pharma'
+    AIRFLOW_CONN_AUSTIN_SYSTEMS: 'postgres://airflow_user:${AIRFLOW_DATABASE_PASSWORD}@host.docker.internal:5442/austin_systems'
+    AIRFLOW_CONN_BUCHAREST_SYSTEMS: 'postgres://airflow_user:${AIRFLOW_DATABASE_PASSWORD}@host.docker.internal:5442/bucharest_systems'
+    AIRFLOW_CONN_COCO_DATA_HUB: 'postgres://provisioner:provisioner4egeria@host.docker.internal:5442/coco_data_hub'
+    AIRFLOW_CONN_SUBSCRIPTION_STAGING: 'postgres://airflow_user:${AIRFLOW_DATABASE_PASSWORD}@host.docker.internal:5442/subscription_staging'
 
   volumes:
     - ${AIRFLOW_PROJ_DIR:-./runtime-data}/dags:/opt/airflow/dags

@@ -9,7 +9,11 @@ a few manual steps.
 A local volume is mounted from the egeria-workspaces directory to externalize Airflow files that are useful to access. 
 One of the subdirectories is a **dags** folder containing flows to be executed in Airflow. 
 There are a few sample dags provided and more will be added over time. Workflows in Airflow are a natural extension
-to Egeria's governance capabilities. 
+to Egeria's governance capabilities.
+
+A second DAG bundle, **coco-dags**, is mounted from `exchange-quickstart/coco-dags`. It holds the Coco
+Pharmaceuticals DAGs, including the `coco_feed_*` DAGs, which fill the Data Sharing Hub's digital products from the
+Coco systems' databases as soon as their data changes. See [its README](../../../exchange-quickstart/coco-dags/README.md). 
 
 
 The pyegeria and OpenLineage python packages are installed into the Airflow Docker image for your use.
@@ -21,7 +25,7 @@ endpoint, or to both at once (a composite transport), as shown in the diagram be
 ```mermaid
 flowchart LR
     A(Airflow) -->|http:5050 marquez| B(Marquez)
-    A -->|http:9443 egeria| C[Egeria Asset Lineage OMAS]
+    A -->|http:9443 egeria| C[Egeria Open Metadata Store]
 style A fill:#FFDD44,stroke:#000000,stroke-width:2px,color:#000000
 style B fill:#FFDD44,stroke:#FF69B4,stroke-width:2px,color:#000000
 style C fill:#D9F7BE,stroke:#52C41A,stroke-width:3px,color:#000000

@@ -9,6 +9,7 @@ A solution component is a design element.  The `ImplementedBy` relationship is w
 | File | What it is |
 |---|---|
 | [mapping-the-systems.ipynb](mapping-the-systems.ipynb) | Introduces the mapping, creates the `ImplementedBy` relationships with pyegeria, and produces the gap report |
+| [egeria-implementation.md](egeria-implementation.md) | Dr.Egeria: the one `ImplementedBy` the spreadsheet cannot give - *Egeria Open Metadata and Governance* to the OMAG Server Platform that runs it. Load as Peter Profile after the notebook |
 | [supply-chain-lineage.ipynb](supply-chain-lineage.ipynb) | Attaches each supply chain to the `DataFlow` lineage between the systems - updating Gary's loaded interactions in place with `mergeUpdate`, cloning them where a hop carries several chains, creating new ones where nothing was loaded |
 | [data/component-system-mapping.csv](data/component-system-mapping.csv) | The mapping: one row per candidate system per component, across all three estates, each with a confidence and a note |
 | [data/solution-components.csv](data/solution-components.csv) | The seventy-one fine-grained components being mapped — group, type, scope, and the supply chains each belongs to |
