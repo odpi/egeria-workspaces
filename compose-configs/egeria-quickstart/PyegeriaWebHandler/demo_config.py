@@ -7,6 +7,7 @@ Import this module anywhere that needs DEMO_MODE or auth config.
 """
 
 import os
+import re
 
 # ── Core flag ──────────────────────────────────────────────────────────────────
 
@@ -138,6 +139,23 @@ EGERIA_RESOURCE_EXPLORER_URL: str = os.environ.get("EGERIA_RESOURCE_EXPLORER_URL
 _LOOPBACK_HOSTS = {None, "", "localhost", "127.0.0.1", "::1", "host.docker.internal"}
 
 
+_VALID_HOST_RE = re.compile(
+    r"^(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?)(:\d{1,5})?$")
+
+
+def _first_valid_host(header_value) -> str:
+    """First entry of an X-Forwarded-Host value that is a plausible host[:port].
+
+    Skips junk entries (a misconfigured proxy once sent "i=99, localhost:8843");
+    returns "" when none is valid so the caller falls back to the Host header.
+    """
+    for entry in (header_value or "").split(","):
+        entry = entry.strip()
+        if entry and _VALID_HOST_RE.match(entry):
+            return entry
+    return ""
+
+
 def browser_facing_url(configured: str, request, default_port: int) -> str:
     """Resolve a tile URL that the caller's browser can actually reach.
 
@@ -153,10 +171,11 @@ def browser_facing_url(configured: str, request, default_port: int) -> str:
 
     # Behind Apache, ProxyPreserveHost/X-Forwarded-Host carry the browser's
     # host; fall back to the request URL for direct (unproxied) access.
-    forwarded = (request.headers.get("x-forwarded-host") or "").split(",")[0].strip()
+    forwarded = _first_valid_host(request.headers.get("x-forwarded-host"))
     host = forwarded or request.headers.get("host", "") or (request.url.hostname or "")
-    host = host.rsplit(":", 1)[0] if host.count(":") == 1 else host
-    host = host.strip("[]")
+    # Drop the browser's port (the tile has its own); keep a bracketed IPv6 literal whole.
+    m = re.match(r"^(\[[^\]]+\]|[^:]+)(?::\d+)?$", host)
+    host = (m.group(1) if m else host).strip("[]")
     if not host:
         return configured
 
