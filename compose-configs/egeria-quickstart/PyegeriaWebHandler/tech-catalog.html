@@ -585,7 +585,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
      this URL *before* that header existed won't revalidate on its own; a new
      URL guarantees a fresh fetch regardless of prior cache state. -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
-<script>window.EGERIA_FOR_LINEAGE = true;</script>
+<script>window.EGERIA_FOR_LINEAGE = true; window.EGERIA_FOR_LINEAGE_VISIBLE = false;  /* shown per-section by App */</script>
 <script src="/static/egeria-shared-ui.js?v=2026-10-01c"></script>
 <script>
 'use strict';
@@ -1477,6 +1477,7 @@ function GlossaryView({ creds, onNavigate }) {
   var _ss2 = useState('idle'),    searchState = _ss2[0], setSearchState = _ss2[1];
   var _se2 = useState(''),        searchError = _se2[0], setSearchError = _se2[1];
   var _sel = useState(null),      selectedItem = _sel[0], setSelectedItem = _sel[1];
+  usePublishSelectedGuid(selectedItem);
   var _td = useState(null),       termDetail = _td[0], setTermDetail = _td[1];
   var _tds = useState('idle'),    termDetailState = _tds[0], setTermDetailState = _tds[1];
   var _ft = useState(''),         filterText = _ft[0], setFilterText = _ft[1];
@@ -1848,6 +1849,7 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
   var _loading    = useState(true),  loading    = _loading[0],    setLoading    = _loading[1];
   var _error      = useState(''),    error      = _error[0],      setError      = _error[1];
   var _selected   = useState(null),  selected   = _selected[0],   setSelected   = _selected[1];
+  usePublishSelectedGuid(selected && selected.guid);
   var _detail     = useState(null),  detail     = _detail[0],     setDetail     = _detail[1];
   var _detailLoad = useState(false), detailLoad = _detailLoad[0], setDetailLoad = _detailLoad[1];
   var _detailErr  = useState(null),  detailErr  = _detailErr[0],  setDetailErr  = _detailErr[1];
@@ -2104,6 +2106,7 @@ function CapabilitiesView({ creds, onNavigate }) {
   var _error   = useState(''), error   = _error[0],   setError   = _error[1];
   var _q       = useState(''), q       = _q[0],       setQ       = _q[1];
   var _selected  = useState(null), selected  = _selected[0],  setSelected  = _selected[1];
+  usePublishSelectedGuid(selected && selected.guid);
   var _detail    = useState(null), detail    = _detail[0],    setDetail    = _detail[1];
   var _detailLoad = useState(false), detailLoad = _detailLoad[0], setDetailLoad = _detailLoad[1];
   var _detailErr  = useState(null), detailErr  = _detailErr[0],  setDetailErr  = _detailErr[1];
@@ -2515,6 +2518,7 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
   var _atFilter = useState(''),         atFilter  = _atFilter[0], setAtFilter  = _atFilter[1];
   var _atVals  = useState({}),          annotTypeVals = _atVals[0], setAtVals  = _atVals[1];
   var _sel     = useState(null),        sel       = _sel[0],      setSel       = _sel[1];
+  usePublishSelectedGuid(sel && sel.guid);
   var _asOf    = useState(null),        asOf      = _asOf[0],     setAsOf      = _asOf[1];
   var _sort    = useState({ col: 1, dir: 'asc' }), sort = _sort[0], setSort  = _sort[1];
   var _coll    = useState(new Set()),   coll      = _coll[0],     setColl      = _coll[1];
@@ -3271,6 +3275,7 @@ function GovernanceProcessesView({ creds, navTarget, onNavigate }) {
   var _loading    = useState(true),  loading    = _loading[0],    setLoading    = _loading[1];
   var _error      = useState(''),    error      = _error[0],      setError      = _error[1];
   var _selected   = useState(null),  selected   = _selected[0],   setSelected   = _selected[1];
+  usePublishSelectedGuid(selected && selected.guid);
   var _detail     = useState(null),  detail     = _detail[0],     setDetail     = _detail[1];
   var _detailLoad = useState(false), detailLoad = _detailLoad[0], setDetailLoad = _detailLoad[1];
   var _q          = useState(''),    q          = _q[0],          setQ          = _q[1];
@@ -3537,6 +3542,7 @@ function NamespacesView({ creds, navTarget, onNavigate }) {
   var _loading    = useState(true),  loading    = _loading[0],    setLoading    = _loading[1];
   var _error      = useState(''),    error      = _error[0],      setError      = _error[1];
   var _selected   = useState(null),  selected   = _selected[0],   setSelected   = _selected[1];
+  usePublishSelectedGuid(selected && selected.guid);
   var _detail     = useState(null),  detail     = _detail[0],     setDetail     = _detail[1];
   var _detailLoad = useState(false), detailLoad = _detailLoad[0], setDetailLoad = _detailLoad[1];
   var _q          = useState(''),    q          = _q[0],          setQ          = _q[1];
@@ -3874,6 +3880,17 @@ function Splash({ onSelect, authUser, activePersona, creds, demoMode, srvManaged
   );
 }
 
+// The open item's guid, published for the Promise/Memento toggle: its reload writes it
+// into the URL as ?guid=, and the Catalog's existing deep-link path (element-nav ->
+// section + tab + navTarget) reselects it. Views that ignore navTarget still come back
+// to the right tab. Cleared when the view unmounts.
+function usePublishSelectedGuid(guid) {
+  useEffect(function() {
+    window.__egeriaNavExtra = guid ? { guid: guid } : {};
+    return function() { window.__egeriaNavExtra = {}; };
+  }, [guid || '']);
+}
+
 // ── App ───────────────────────────────────────────────────────────────────────
 function App() {
   var _section   = useState(function() {
@@ -3883,6 +3900,17 @@ function App() {
     return '';  // ?guid= section is resolved via element-nav after auth
   }), section = _section[0], setSection = _section[1];
   var _searchQ = useState(''), searchQ = _searchQ[0], setSearchQ = _searchQ[1];
+
+  // The Promise/Memento toggle is hidden on the Catalog's home (section '') and shown in
+  // every section. Toggling reloads the page, and the Catalog only restores its section
+  // from the URL hash on a cold load, so register a snapshot for the toggle to write
+  // into the URL first -- otherwise the reload lands on the home page.
+  useEffect(function() {
+    if (window.egeriaForLineageToggleVisible) window.egeriaForLineageToggleVisible(!!section);
+    window.egeriaNavSnapshot = function() {
+      return { hash: section || '', query: Object.assign({ guid: null }, window.__egeriaNavExtra || {}) };
+    };
+  }, [section]);
 
   var _creds     = useState(null),  creds      = _creds[0],     setCreds      = _creds[1];
   var _srvMgd    = useState(false), srvManaged = _srvMgd[0],    setSrvManaged = _srvMgd[1];
