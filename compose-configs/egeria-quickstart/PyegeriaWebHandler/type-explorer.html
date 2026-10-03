@@ -3576,6 +3576,7 @@ function ReferenceDataView({ navGuid, onNavigateToElement }) {
   const [attempt, setAttempt]     = useState(0);
   const [items, setItems]         = useState([]);
   const [selected, setSelected]   = useState(null);
+  usePublishNav(selected, null);
   const [search, setSearch]       = useState('');
   const [expanded, setExpanded]   = useState(function() { return new Set(); });
   const [error, setError]         = useState('');
@@ -3811,6 +3812,7 @@ function ExternalReferencesView({ navGuid, onNavigateToElement }) {
     var params = new URLSearchParams(window.location.search);
     return params.get('guid') || null;
   });
+  usePublishNav(selected, null);
   const [detail, setDetail]   = useState(null);
   const [detailState, setDetailState] = useState('idle');
   const selection = useSelection();
@@ -3998,6 +4000,7 @@ function ExternalIdentifiersView({ navGuid, onNavigateToElement }) {
     var params = new URLSearchParams(window.location.search);
     return params.get('guid') || null;
   });
+  usePublishNav(selected, null);
   const [detail, setDetail]   = useState(null);
   const [detailState, setDetailState] = useState('idle');
   const selection = useSelection();
@@ -4188,6 +4191,7 @@ function AgreementsView({ navGuid, onNavigateToElement }) {
     var params = new URLSearchParams(window.location.search);
     return params.get('guid') || null;
   });
+  usePublishNav(selected, null);
   const [detail, setDetail]   = useState(null);
   const [detailState, setDetailState] = useState('idle');
   const selection = useSelection();
@@ -6260,6 +6264,7 @@ function ValidMetadataValuesTab({ navProp, navGuid, onNavigateToElement }) {
   // Right: selected value's full detail (relationships/classifications) — see
   // ValidValueDetailPane, fetched from GET /api/valid-values/{guid}
   const [selectedGuid, setSelectedGuid] = useState(null);
+  usePublishNav(selectedGuid, null);
   const [vmvAttempt, setVmvAttempt] = useState(0);
 
   // Fetch list of properties that have registered valid values
@@ -7027,6 +7032,7 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
     classes:    { st: 'idle', items: [] },
   });
   const [selGuid, setSelGuid] = React.useState(null);
+  usePublishNav(selGuid, subNav);
   const [detail, setDetail] = React.useState(null);
   const [detailSt, setDetailSt] = React.useState('idle');
   const [sideW, onSideDivDown] = useResizable(260);
@@ -8372,6 +8378,7 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
     var params = new URLSearchParams(window.location.search);
     return navGuid || params.get('guid') || null;
   });
+  usePublishNav(selected, null);
 
   // Cross-link arrival: another tab (or an ISC→ISC link) selected an ISC.
   useEffect(function() { if (navGuid) setSelected(navGuid); }, [navGuid]);
@@ -8802,6 +8809,7 @@ function LocationsView({ navGuid, onNavigateToElement }) {
     var params = new URLSearchParams(window.location.search);
     return params.get('guid') || null;
   });
+  usePublishNav(selected, null);
   const [detail, setDetail] = useState(null);
   const [detailState, setDetailState] = useState('idle');
   const [filter, setFilter] = useState('');
@@ -9112,6 +9120,7 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
     if (guid) s[kind] = guid;
     return s;
   });
+  usePublishNav(selected[subNav], subNav);
   const [detail, setDetail]   = useState(null);
   const [detailState, setDetailState] = useState('idle');
   const [filter, setFilter]   = useState('');
@@ -9655,6 +9664,7 @@ function ActionCenterView({ onNavigateToElement, navGuid }) {
     var params = new URLSearchParams(window.location.search);
     return navGuid || params.get('guid') || null;
   });
+  usePublishNav(selected, null);
   const [detail, setDetail] = useState(null);
   const [detailState, setDetailState] = useState('idle');
   const selection = useSelection();
@@ -9887,6 +9897,7 @@ function InformalTagsView({ navGuid, onNavigateToElement }) {
     var params = new URLSearchParams(window.location.search);
     return params.get('guid') || null;
   });
+  usePublishNav(selected, null);
   const [detail, setDetail] = useState(null);
   const [detailState, setDetailState] = useState('idle');
   const [filter, setFilter] = useState('');
@@ -10013,6 +10024,7 @@ function CommunityView({ navGuid, onNavigateToElement }) {
     var params = new URLSearchParams(window.location.search);
     return params.get('guid') || null;
   });
+  usePublishNav(selected, null);
   const [detail, setDetail] = useState(null);
   const [detailState, setDetailState] = useState('idle');
   const [filter, setFilter] = useState('');
@@ -10176,6 +10188,7 @@ function BusinessCapabilityView({ navGuid, onNavigateToElement }) {
     var params = new URLSearchParams(window.location.search);
     return params.get('guid') || null;
   });
+  usePublishNav(selected, null);
   const [detail, setDetail] = useState(null);
   const [detailState, setDetailState] = useState('idle');
   const [filter, setFilter] = useState('');
@@ -10473,6 +10486,7 @@ function NoteLogView({ navGuid, onNavigateToElement }) {
     var params = new URLSearchParams(window.location.search);
     return params.get('guid') || null;
   });
+  usePublishNav(selected, null);
   const [detail, setDetail] = useState(null);
   const [detailState, setDetailState] = useState('idle');
   const [filter, setFilter] = useState('');
@@ -12288,6 +12302,28 @@ function GovernanceView({ navTypeName, navGuid, onNavigateToElement }) {
 
 // ── App ───────────────────────────────────────────────────────────────────────
 
+// The open item, published for the Promise/Memento toggle: its reload writes ?guid= (and
+// ?kind=) into the URL and the view reselects it from there on a cold load (most views
+// read ?guid= when they mount). Cleared when the view unmounts.
+function usePublishNav(guid, kind) {
+  useEffect(function() {
+    window.__egeriaNavExtra = { guid: guid || null, kind: kind || null };
+    return function() { window.__egeriaNavExtra = null; };
+  }, [guid || '', kind || '']);
+}
+
+// Drop ?guid= / ?kind= from the URL. They are one-shot deep-link state: left behind, the
+// next section you open would try to select that same guid on mount.
+function stripNavParams() {
+  try {
+    var p = new URLSearchParams(window.location.search);
+    if (!p.has('guid') && !p.has('kind')) return;
+    p.delete('guid'); p.delete('kind');
+    var qs = p.toString();
+    history.replaceState(null, '', window.location.pathname + (qs ? '?' + qs : '') + window.location.hash);
+  } catch (e) {}
+}
+
 function App() {
   // Demo mode state — set if /api/auth/me returns demo_mode: true (Quickstart demo).
   var _demoState = useState(false), demoMode = _demoState[0], setDemoMode = _demoState[1];
@@ -12442,7 +12478,7 @@ function App() {
   const [selected, setSelected]   = useState({ kind: 'type', name: '' });
   const [theme, setTheme]         = useState('dark');
   const [view, setView]           = useState('types'); // 'types' | 'attrs'
-  const [section, setSection]     = useState(function() {
+  const [section, setSectionRaw]  = useState(function() {
     // split('?')[0]: element favourite deep-links like /egeria-explorer?guid=X#isc
     // are fine, but guard against legacy #isc?isc=X URLs where the element id
     // leaked into the hash fragment instead of the query string.
@@ -12452,6 +12488,14 @@ function App() {
       'data-design','perspectives','dr-egeria','isc','locations','actors','communities','business-capabilities','notelogs','governance','naming-vocabulary','policy-enforcement','action-center','duplicate-review','projects','informal-tags','context-events','external-references','external-identifiers','agreements','search']);
     return valid.has(hash) ? hash : 'splash';
   });
+  // Same setter as before, but a real section change also drops the one-shot ?guid=/?kind=.
+  const _sectionRef = useRef(section);
+  const setSection = useCallback(function(next) {
+    var target = typeof next === 'function' ? next(_sectionRef.current) : next;
+    if (target !== _sectionRef.current) stripNavParams();
+    _sectionRef.current = target;
+    setSectionRaw(next);
+  }, []);
   // The Promise/Memento toggle only means something where elements are browsed, so it
   // is hidden on the home page and the docs-style sections. Toggling reloads the
   // page; this snapshot lets it come back to the same section (and, for Solution
@@ -12460,7 +12504,7 @@ function App() {
     var hidden = ['splash','type-system','report-specs','rest-apis','python-api','dr-egeria'];
     if (window.egeriaForLineageToggleVisible) window.egeriaForLineageToggleVisible(hidden.indexOf(section) === -1);
     window.egeriaNavSnapshot = function() {
-      return { hash: section === 'splash' ? '' : section, query: window.__egeriaNavExtra || {} };
+      return { hash: section === 'splash' ? '' : section, query: Object.assign({ guid: null, kind: null }, window.__egeriaNavExtra || {}) };
     };
   }, [section]);
   const [searchQuery, setSearchQuery] = useState(function() {
