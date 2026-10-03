@@ -418,6 +418,16 @@ def get_summary(
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"overview summary: stale_assets failed: {exc}")
 
+    # Survey coverage (Data Quality "Surveyed", Attention Queue "never surveyed"): one
+    # ReportSubject relationship page + two counts. Needs the relationships client.
+    survey: dict = {"surveyedAssets": None, "dataStoreTotal": None, "surveyedStores": None,
+                    "neverSurveyedStores": None, "surveyReports": None, "surveyLinksCapped": None}
+    if ce is not None:
+        try:
+            survey = _survey_coverage(mgr, ce, as_of_time, asset_total)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"overview summary: survey coverage failed: {exc}")
+
     payload = {
         "asOfTime":         as_of_time,
         "assetTotal":       asset_total,
@@ -446,6 +456,12 @@ def get_summary(
         "bvDuplicateCount":   biz_value["duplicateCount"],
         "orphanTermCount":    orphan_terms["orphanCount"],   # SemanticAssignment-unreferenced GlossaryTerms
         "orphanTermTotal":    orphan_terms["termTotal"],
+        "surveyedAssets":     survey["surveyedAssets"],
+        "dataStoreTotal":     survey["dataStoreTotal"],
+        "surveyedStores":     survey["surveyedStores"],
+        "neverSurveyedStores": survey["neverSurveyedStores"],
+        "surveyReports":      survey["surveyReports"],
+        "surveyLinksCapped":  survey["surveyLinksCapped"],
         "staleAssetCount":    stale["staleCount"],           # no update in 180d
         "staleAssetTotal":    stale["assetTotal"],
         "partial":          True,
@@ -455,6 +471,93 @@ def get_summary(
 
 
 # ── certifications & licenses ────────────────────────────────────────────────
+
+_SURVEY_LINK_CAP = 1000   # one relationship page / one find page; a result at the cap is a lower bound, reported as such
+
+
+def _type_names(end: dict) -> set:
+    t = (end or {}).get("type") or {}
+    return {t.get("typeName")} | set(t.get("superTypeNames") or [])
+
+
+def _guid_of(el: dict) -> Optional[str]:
+    return el.get("elementGUID") or (el.get("elementHeader") or {}).get("guid") or el.get("guid")
+
+
+def _survey_coverage(mgr, ce, as_of: Optional[str] = None, asset_total: Optional[int] = None) -> dict:
+    """How much of the catalog has ever been surveyed.
+
+    A SurveyReport is linked to the asset it describes by a ReportSubject relationship
+    (AssetSurveyReport, the older name, has none on the live platform). ReportSubject also
+    links ConnectorActivityReports to their connectors, so only links whose report end is a
+    SurveyReport count. Everything comes from two bounded calls, never a per-asset fan-out:
+    one ReportSubject page, and one find of the DataStore guids to intersect with.
+
+      surveyedAssets      distinct subjects of SurveyReport links (any Asset type)
+      surveyedStores      those that are DataStores
+      neverSurveyedStores DataStore total - surveyedStores
+
+    Every field is None when its own step failed, never 0: a failed query must not read as
+    "nothing surveyed". neverSurveyedStores is also None when either page hit its cap, since
+    a capped page can only under-count what was surveyed.
+    """
+    out = {"assetTotal": asset_total, "surveyedAssets": None, "surveyReports": None,
+           "dataStoreTotal": None, "surveyedStores": None, "neverSurveyedStores": None,
+           "surveyLinksCapped": None}
+    try:
+        out["surveyReports"] = count_elements(mgr, "SurveyReport", as_of)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview survey coverage: SurveyReport count failed: {exc}")
+
+    subjects = None
+    links_capped = None
+    try:
+        body = {"class": "ResultsRequestBody", "asOfTime": as_of} if as_of else None
+        raw = ce.get_relationships(relationship_type="ReportSubject", output_format="JSON",
+                                   start_from=0, page_size=_SURVEY_LINK_CAP, body=body)
+        rels = raw if isinstance(raw, list) else ((raw or {}).get("elements") or [] if isinstance(raw, dict) else [])
+        subjects = set()
+        for r in rels:
+            if not isinstance(r, dict):
+                continue
+            e1, e2 = r.get("end1") or {}, r.get("end2") or {}
+            if "SurveyReport" in _type_names(e1):
+                subject = e2
+            elif "SurveyReport" in _type_names(e2):
+                subject = e1
+            else:
+                continue          # e.g. a ConnectorActivityReport link
+            if subject.get("guid"):
+                subjects.add(subject["guid"])
+        links_capped = len(rels) >= _SURVEY_LINK_CAP
+        out["surveyedAssets"] = len(subjects)
+        out["surveyLinksCapped"] = links_capped
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview survey coverage: ReportSubject query failed: {exc}")
+
+    store_guids = None
+    stores_capped = None
+    try:
+        find_body = {"class": "FindRequestBody", "metadataElementTypeName": "DataStore",
+                     "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0,
+                     "startFrom": 0, "pageSize": _SURVEY_LINK_CAP}
+        if as_of:
+            find_body["asOfTime"] = as_of
+        found = mgr.find_metadata_elements(find_body)
+        found = [e for e in (found if isinstance(found, list) else []) if isinstance(e, dict)]
+        store_guids = {g for g in (_guid_of(e) for e in found) if g}
+        stores_capped = len(found) >= _SURVEY_LINK_CAP
+        out["dataStoreTotal"] = (count_elements(mgr, "DataStore", as_of) if stores_capped else len(store_guids))
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview survey coverage: DataStore find failed: {exc}")
+
+    if subjects is not None and store_guids is not None:
+        out["surveyedStores"] = len(subjects & store_guids)
+        total = out["dataStoreTotal"]
+        if total is not None and not links_capped and not stores_capped and out["surveyedStores"] <= total:
+            out["neverSurveyedStores"] = total - out["surveyedStores"]
+    return out
+
 
 def _certifications(url, server, user_id, user_pwd, as_of: Optional[str] = None) -> dict:
     """Build a ClassificationExplorer and delegate to overview_metrics.certifications_summary.

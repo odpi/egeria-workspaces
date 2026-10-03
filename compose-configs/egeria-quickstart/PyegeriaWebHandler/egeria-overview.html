@@ -520,9 +520,9 @@
         <div class="a-ico sev-md">🔬</div>
         <div class="a-body">
           <div class="a-title">Data stores never surveyed</div>
-          <div class="a-desc">No survey report / profiling annotations attached</div>
+          <div class="a-desc" id="aq-unsurveyed-desc">No survey report attached</div>
         </div>
-        <div style="text-align:right"><div class="a-count" style="color:var(--c4)">—</div><a class="a-cta" href="#">Open Catalog →</a></div>
+        <div style="text-align:right"><div class="a-count" style="color:var(--c4)" id="aq-unsurveyed-count">—</div><a class="a-cta" href="#">Open Catalog →</a></div>
       </div>
 
       <div class="att">
@@ -548,7 +548,7 @@
       <div class="panel">
         <h3>Data Quality Coverage</h3>
         <div class="ph-sub">Survey &amp; annotation coverage of data stores</div>
-        <div class="hbar-row"><span class="lab">Surveyed</span><div class="hbar-track"><div class="hbar-fill" style="width:0%;background:var(--c6)"></div></div><span class="num">—</span></div>
+        <div class="hbar-row"><span class="lab">Surveyed</span><div class="hbar-track"><div class="hbar-fill" id="dq-survey-fill" style="width:0%;background:var(--c6)"></div></div><span class="num" id="dq-survey-pct">—</span></div>
         <div class="hbar-row"><span class="lab">Has quality annotations</span><div class="hbar-track"><div class="hbar-fill" style="width:0%;background:var(--c1)"></div></div><span class="num">—</span></div>
         <div class="hbar-row"><span class="lab">Has schema captured</span><div class="hbar-track"><div class="hbar-fill" style="width:0%;background:var(--c2)"></div></div><span class="num">—</span></div>
         <div class="hbar-row"><span class="lab">Has assigned owner</span><div class="hbar-track"><div class="hbar-fill" id="dq-owner-fill" style="width:0%;background:var(--c3)"></div></div><span class="num" id="dq-owner-pct">—</span></div>
@@ -1426,11 +1426,11 @@ const SECTION_PROVENANCE = {
     // genuinely mixed now, not uniformly sample.
     { name: 'AQ: Confidential assets in open zones',   status: 'illustrative' }, // only 1-2 elements carry Confidentiality at all in this dataset -- too sparse to wire meaningfully
     { name: 'AQ: Certifications expiring ≤90d',        status: 'live' },  // certifications_summary's certExpiring90 (already live elsewhere), now also wired into this panel
-    { name: 'AQ: Data stores never surveyed',          status: 'illustrative' }, // needs a 2-hop DataStore->SurveyReport->Annotation traversal, not built
+    { name: 'AQ: Data stores never surveyed',          status: 'live' },  // ReportSubject links (SurveyReport only) vs the DataStore guid set: two bounded calls, no per-asset fan-out
     { name: 'AQ: Orphan glossary terms',                status: 'live' },  // orphan_glossary_terms: SemanticAssignment-unreferenced GlossaryTerms
     { name: 'AQ: Stale assets (no update >180d)',       status: 'live' },  // stale_assets: per-element updateTime vs cutoff
     // Data Quality Coverage -- split per row, same reasoning.
-    { name: 'DQ: Surveyed',                  status: 'illustrative' }, // same survey-model gap as AQ's "never surveyed" row
+    { name: 'DQ: Surveyed',                  status: 'live' },  // distinct assets with a SurveyReport / Asset total
     { name: 'DQ: Has quality annotations',   status: 'illustrative' },
     { name: 'DQ: Has schema captured',       status: 'illustrative' }, // needs a SchemaType relationship traversal, not built
     { name: 'DQ: Has assigned owner',        status: 'live' },  // ownership_coverage (already live elsewhere), now also wired into this panel
@@ -1766,6 +1766,26 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     if (fill) fill.style.width = (pct != null ? Math.max(pct, 2) : 0) + '%';
     if (conv) conv.textContent = pct != null ? pct + '%' : '—';
   }
+  // Survey coverage: Data Quality "Surveyed" (assets with a SurveyReport) and the Attention Queue's
+  // "Data stores never surveyed". Every unknown stays a dash; a real zero stays a zero.
+  function renderSurveyCoverage(st){
+    var pctEl = document.getElementById('dq-survey-pct'), fill = document.getElementById('dq-survey-fill');
+    var ok = st.surveyedAssets != null && st.assets;
+    if (pctEl) {
+      var pct = ok ? 100 * st.surveyedAssets / st.assets : null;
+      pctEl.textContent = pct == null ? '—' : (pct > 0 && pct < 1 ? pct.toFixed(1) : String(Math.round(pct))) + '%';
+      pctEl.title = ok ? st.surveyedAssets.toLocaleString() + ' of ' + st.assets.toLocaleString() + ' assets have a survey report' : 'Not measured';
+    }
+    if (fill) fill.style.width = (ok && st.surveyedAssets > 0 ? Math.max(100 * st.surveyedAssets / st.assets, 1) : 0) + '%';
+    var cnt = document.getElementById('aq-unsurveyed-count'), desc = document.getElementById('aq-unsurveyed-desc');
+    if (cnt) cnt.textContent = st.neverSurveyedStores != null ? st.neverSurveyedStores.toLocaleString() : '—';
+    if (desc) {
+      var parts = [];
+      if (st.surveyedStores != null && st.dataStoreTotal != null) parts.push(st.surveyedStores.toLocaleString() + ' of ' + st.dataStoreTotal.toLocaleString() + ' data stores have a survey report');
+      if (st.surveyReports != null) parts.push(st.surveyReports.toLocaleString() + ' survey report' + (st.surveyReports === 1 ? '' : 's') + ' on file');
+      desc.textContent = parts.length ? parts.join(' · ') : 'Not measured: the survey queries did not return a complete answer';
+    }
+  }
   // "Certifications Expiring Soon": the soonest renewals within 90 days, from the summary payload.
   function renderCertsSoon(d){
     var tb = document.getElementById('certs-soon-body'); if (!tb) return;
@@ -1844,8 +1864,10 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     store.assets = d.assetTotal; store.terms = d.termCount;
     store.byType = d.byType; store.topZones = d.topZones;                    // drill panels
     store.certSoon = d.certSoon; store.certExpiring90 = d.certExpiring90;
-    if (primary) renderCertsSoon(d);
+    if (primary) { renderCertsSoon(d); renderSurveyCoverage(store); }
     store.orphanTermCount = d.orphanTermCount;
+    store.surveyedAssets = d.surveyedAssets; store.surveyedStores = d.surveyedStores; store.dataStoreTotal = d.dataStoreTotal;
+    store.neverSurveyedStores = d.neverSurveyedStores; store.surveyReports = d.surveyReports;
     store.governedCount = d.governedCount;
     if (d.assetTotal && d.governedCount != null) {
       store.governedPctNum = Math.round(100 * d.governedCount / Math.max(d.assetTotal, d.governedCount));
