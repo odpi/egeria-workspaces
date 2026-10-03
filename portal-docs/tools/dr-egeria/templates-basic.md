@@ -306,6 +306,50 @@ Customer Record Schema
 Customer ID
 ```
 
+
+---
+
+## Automation
+
+### Run a survey of a database
+```markdown
+## Initiate Survey
+### Survey Type
+PostgreSQLSurvey::survey-postgres-database
+
+### Resource to Survey
+PostgreSQL Relational Database::host.docker.internal:5432::adventureworks
+```
+
+### Subscribe to a digital product
+```markdown
+## Initiate Subscription
+### Subscription Type
+ProvisioningActionProcess::Reference Data Set: facilityType::Create Subscription::EVALUATION-SUBSCRIPTION
+
+### Subscription Requester
+Person::TomTally
+
+### Destination Data Set
+My Landing Table
+```
+
+### Cancel a subscription
+```markdown
+## Cancel Subscription
+### Digital Subscription
+My Subscription
+```
+
+### Run a governance action process
+```markdown
+## Initiate Governance Action Process
+### Governance Action Process
+GovActionProcess::DatabaseScoutingSurvey
+
+### Action Targets
+postgresDatabase: PostgreSQL Relational Database::host.docker.internal:5432::adventureworks
+```
 ---
 
 > **Tip:** Set **Default Directive** to `validate` in the plugin settings while drafting new commands. Switch to `process` when ready to execute.
