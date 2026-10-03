@@ -99,15 +99,24 @@ grant all privileges on database mlflow_db to mlflow_user;
 CREATE SCHEMA IF NOT EXISTS demo;
 GRANT ALL ON SCHEMA demo TO egeria_admin, egeria_user;
 \connect coco_pharma
+-- coco_sus and coco_ods are loaded only when their schema is new: their data files
+-- drop and recreate every table, and this script runs on every start.
+SELECT NOT EXISTS (SELECT FROM pg_namespace WHERE nspname = 'coco_sus') AS load_coco_sus,
+       NOT EXISTS (SELECT FROM pg_namespace WHERE nspname = 'coco_ods') AS load_coco_ods \gset
 CREATE SCHEMA IF NOT EXISTS coco_sus;
 GRANT ALL ON SCHEMA coco_sus TO egeria_admin, egeria_user, airflow_user;
+\if :load_coco_sus
 SET search_path TO coco_sus;
 \ir data/coco_sus.sql
+\endif
 
 CREATE SCHEMA IF NOT EXISTS coco_ods;
 GRANT ALL ON SCHEMA coco_ods TO egeria_admin, egeria_user, airflow_user;
+\if :load_coco_ods
 SET search_path TO coco_ods;
 \ir data/coco_ods.sql
+\endif
+RESET search_path;
 
 -- Demo-mode user registry + feedback tables (coco_pharma) ──────────────────
 -- Defensive: demo_user is normally created by shared-infra's native

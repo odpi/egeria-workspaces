@@ -69,28 +69,33 @@ File system volumes are mounted for:
 
 ## Postgresql - configured for Egeria
 
-PostgreSQL runs in the shared infra stack (port **5442**). While standard Docker
-PostgreSQL containers only run initialization scripts once on brand new data volumes,
-Egeria Quickstart ensures the required roles and databases exist on every deployment
-using a migration runner.
+PostgreSQL runs in the shared infra stack (port **5442**). Standard Docker PostgreSQL containers
+run their initialization scripts only once, when the data volume is brand new. So Egeria Quickstart
+also brings the set-up up to date on every start.
 
 ### Automatic Initialization
 
 The root startup scripts (`./quick-start-local` and `./quick-start-multi-host`) automatically
 execute `compose-configs/egeria-quickstart/bin/apply-postgres-init.sh` after the shared
-infrastructure is ready.
+infrastructure is ready. It waits for PostgreSQL and then runs these scripts from
+`docker-entrypoint-initdb.d/`, in order, on every start:
 
-This runner:
-1.  **Waits** for PostgreSQL to be ready to accept connections.
-2.  **Checks** a migration marker table (`quickstart_migrations.applied_migrations`) in the
-    default `postgres` database to see which migrations have already run.
-3.  **Executes** each migration in its `MIGRATIONS` list that hasn't been applied yet, in order:
-    - `egeria-quickstart-init-egeria-v2` — `docker-entrypoint-initdb.d/init_egeria.sql`
-    - `egeria-quickstart-coco-data-hub-v1` — `docker-entrypoint-initdb.d/init_coco_data_hub.sql`
-4.  **Records** each migration as applied upon success.
+1. `init_egeria.sql` - users, databases, the demo schemas and the `coco_ods` / `coco_sus` sample data
+2. `init_coco_data_hub.sql` - the Data Sharing Hub, `coco_data_hub`
+3. `init_coco_systems.sql` - the Coco Pharmaceuticals system databases
+4. `init_subscription_staging.sql` - the digital product subscriptions, `subscription_staging`
 
-To change the database set-up, add a new migration (a new SQL file and a new entry in `MIGRATIONS`)
-rather than editing one that has already been applied — existing installs skip applied migrations.
+Every script creates only what is missing, so running them again is safe and takes a few seconds.
+A new install gets everything. An existing install picks up anything added since it was created.
+A database that has been dropped, for example to reset the demo, is recreated on the next start.
+Data already in the databases is kept: `coco_ods` and `coco_sus` are loaded only when their schema
+is new, and seed rows are inserted only when missing.
+
+To change the set-up, edit or add a script and keep it safe to rerun. A new script also needs an
+entry in `INIT_SCRIPTS` in `bin/apply-postgres-init.sh`. A change to a table that already exists
+on existing installs needs a statement that is also safe to repeat, for example
+`ALTER TABLE ... ALTER COLUMN ... TYPE ...` or `ADD COLUMN IF NOT EXISTS`.
+`init_coco_data_hub.sql` has an example.
 
 ### What `init_egeria.sql` does
 
@@ -134,23 +139,84 @@ compose-configs/egeria-quickstart/bin/gen-coco-data-hub-sql.py \
   compose-configs/egeria-quickstart/docker-entrypoint-initdb.d/data/coco_data_hub.sql
 ```
 
-The SQL only creates what is missing, so once `coco_data_hub` exists a change to the product definitions
-reaches it only through a new migration that alters it - or, while the tables hold no data, by dropping the
-database and its `egeria-quickstart-coco-data-hub-v1` entry in `quickstart_migrations.applied_migrations` and
-rerunning `bin/apply-postgres-init.sh`.
+The SQL only creates what is missing, so once `coco_data_hub` exists a new product or data structure reaches
+it on the next start, but a change to an existing column needs an `ALTER` in `init_coco_data_hub.sql`. While
+the tables hold no data, you can instead drop the database and restart.
+
+### What `init_coco_systems.sql` does
+
+Creates a database for each of Coco Pharmaceuticals' system estates and fills it with the systems that feed the
+strategic digital products. There is one schema per system, holding only the tables needed to fill the product
+tables in `coco_data_hub`, plus sample data. The tables and columns are named in the style of each kind of system,
+not to the data field naming standard.
+
+| Database | Estate | Contents |
+|---|---|---|
+| `coco_pharma` (existing) | Coco core, the parent company | 22 systems, 109 tables |
+| `austin_systems` | the acquired Austin site | 27 systems, 134 tables |
+| `bucharest_systems` | the acquired EKG Pharmaceuticals S.R.L., Bucharest | 17 systems, 120 tables |
+
+The system SQL is in `docker-entrypoint-initdb.d/data/coco_systems/<database>/<system schema>.sql`. The queries that
+copy each system's data into the product tables are in
+[`exchange-quickstart/coco-dags/coco-system-extracts/`](../../exchange-quickstart/coco-dags/coco-system-extracts/README.md). That README also explains how the systems were chosen.
+The seed data is inserted with `ON CONFLICT DO NOTHING`, so each start adds only missing rows. A changed row
+stays changed, but a deleted seed row comes back.
+
+### What `init_subscription_staging.sql` does
+
+Creates the `subscription_staging` database, where subscribing systems receive the data of the digital products
+they subscribe to. A subscription is one subscribing system taking one digital product, and each subscription
+has its own schema, named `<estate>_<system schema>__<product schema>` (estate `coco`, `aus` or `buc`; Coco
+systems whose names already start with `coco` keep their name, e.g. `coco_ods__product_master_data`). So two
+systems that subscribe to the same product each have their own copy of its data, which lets each take
+deliveries on its own schedule and reprocess them after an error.
+
+Each subscription schema has one table per data structure of the product, with the same columns, types,
+primary key and comments as the product's table in `coco_data_hub`, followed by five delivery columns:
+
+| Column | Meaning |
+|---|---|
+| `delivery_identifier` | The delivery (e.g. the pipeline run) that last wrote the row |
+| `delivery_timestamp` | When the row was last delivered |
+| `processing_status` | `delivered` (waiting for the subscriber), `processed` or `failed`; set back to `delivered` to reprocess |
+| `processing_timestamp` | When the subscriber last processed the row |
+| `processing_message` | Why processing failed, or the subscriber's note |
+
+A delivery is an upsert on the product's primary key that resets `processing_status` to `delivered`. The
+`provisioner` user reads and writes every subscription table; `surveyor` reads them.
+
+The subscriptions (249, from 63 subscribing systems to 56 products) are listed in
+`coco-workbooks/1. coco-data-hub/mapping-the-systems/data/product-subscriptions.csv`. A system subscribes to a
+product when it implements a solution component whose own product depends on that product (one row per
+system and product, whatever the number of dependencies), in all three estates; `coco_ods` and `coco_sus`
+subscribe to the products that fill their reporting tables
+(see `coco-workbooks/1. coco-data-hub/reporting-subscription-gaps.md` for what no product supplies).
+`data/subscription_staging.sql` is generated from the product definitions and that list:
+
+```bash
+# From the repository root
+compose-configs/egeria-quickstart/bin/gen-subscription-staging-sql.py \
+  "coco-workbooks/1. coco-data-hub/strategic-digital-products" \
+  "coco-workbooks/1. coco-data-hub/mapping-the-systems/data/product-subscriptions.csv" \
+  compose-configs/egeria-quickstart/docker-entrypoint-initdb.d/data/subscription_staging.sql
+```
+
+As for `coco_data_hub`, the SQL only creates what is missing: a new subscription reaches an existing
+install on the next start, and a change to an existing table needs an `ALTER`.
 
 ### Adding schemas to an existing Postgres deployment
 
 If you are using an existing PostgreSQL instance that was not initialized by the quickstart
-runner, you can trigger the initialization manually.
-
-**Using the migration runner (Recommended):**
-The runner is idempotent and will only apply the SQL if the migration marker is missing.
+runner, run the same script yourself. It is safe to run at any time:
 
 ```bash
 # From the repository root
 ./compose-configs/egeria-quickstart/bin/apply-postgres-init.sh
 ```
+
+Older versions of the runner kept a table of applied migrations,
+`quickstart_migrations.applied_migrations`, in the `postgres` database. It is no longer used and
+can be dropped.
 
 ## Demo data synchronization
 
