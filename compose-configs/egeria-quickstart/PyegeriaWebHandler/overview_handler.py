@@ -615,6 +615,37 @@ def _guid_of(el: dict) -> Optional[str]:
     return el.get("elementGUID") or (el.get("elementHeader") or {}).get("guid") or el.get("guid")
 
 
+_REL_PAGE_SIZE = 1000   # one relationship page
+_REL_MAX_PAGES = 10     # read at most this many pages; beyond that the result is a lower bound
+
+
+def _relationship_rows(ce, relationship_type: str, as_of: Optional[str] = None):
+    """Every link of one relationship type, read in pages. Returns (rows, capped), or (None, None) if
+    any page failed (partial rows are discarded: a half-read list must not pass for the whole).
+
+    Egeria's paging contract: a short page is NOT the last page, only an empty page is, so this keeps
+    reading until it gets one. If _REL_MAX_PAGES full pages are read without reaching an empty page the
+    rows are a lower bound and capped=True, so callers can withhold figures a lower bound would corrupt.
+    This matters for ReportedAnnotation: Egeria 6.2 reuses survey annotations (one annotation can be
+    reported by many reports), and every report links every annotation it reports, so the link count
+    grows with each survey even when no new annotation is created.
+    """
+    rows: list = []
+    try:
+        body = {"class": "ResultsRequestBody", "asOfTime": as_of} if as_of else None
+        for page in range(_REL_MAX_PAGES):
+            raw = ce.get_relationships(relationship_type=relationship_type, output_format="JSON",
+                                       start_from=page * _REL_PAGE_SIZE, page_size=_REL_PAGE_SIZE, body=body)
+            chunk = raw if isinstance(raw, list) else ((raw or {}).get("elements") or [] if isinstance(raw, dict) else [])
+            if not chunk:
+                return rows, False
+            rows.extend(chunk)
+        return rows, True
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview {relationship_type} relationship read failed: {exc}")
+        return None, None
+
+
 def _survey_outcome(props: dict) -> str:
     """Classify one SurveyReport as 'completed', 'failed' or 'unknown' from its own properties.
 
@@ -710,10 +741,9 @@ def _survey_coverage(mgr, ce, as_of: Optional[str] = None, asset_total: Optional
     subject_of_report: dict = {}   # SurveyReport guid -> the asset it describes
     if outcomes is not None:
         try:
-            body = {"class": "ResultsRequestBody", "asOfTime": as_of} if as_of else None
-            raw = ce.get_relationships(relationship_type="ReportSubject", output_format="JSON",
-                                       start_from=0, page_size=_SURVEY_LINK_CAP, body=body)
-            rels = raw if isinstance(raw, list) else ((raw or {}).get("elements") or [] if isinstance(raw, dict) else [])
+            rels, rels_capped = _relationship_rows(ce, "ReportSubject", as_of)
+            if rels is None:
+                raise RuntimeError("ReportSubject links could not be read")
             subjects, with_failure = set(), set()
             for r in rels:
                 if not isinstance(r, dict):
@@ -735,7 +765,7 @@ def _survey_coverage(mgr, ce, as_of: Optional[str] = None, asset_total: Optional
                 elif outcome == "failed":
                     with_failure.add(sg)
             failed_only = with_failure - subjects
-            links_capped = len(rels) >= _SURVEY_LINK_CAP
+            links_capped = rels_capped
             out["surveyedAssets"] = len(subjects)
             out["assetsSurveyFailedOnly"] = len(failed_only)
             out["surveyLinksCapped"] = links_capped
@@ -748,9 +778,11 @@ def _survey_coverage(mgr, ce, as_of: Optional[str] = None, asset_total: Optional
     # QualityAnnotation.
     if subjects is not None:
         try:
-            araw = ce.get_relationships(relationship_type="ReportedAnnotation", output_format="JSON",
-                                        start_from=0, page_size=_SURVEY_LINK_CAP, body=None)
-            arels = araw if isinstance(araw, list) else ((araw or {}).get("elements") or [] if isinstance(araw, dict) else [])
+            arels, a_capped = _relationship_rows(ce, "ReportedAnnotation", as_of)
+            if arels is None:
+                raise RuntimeError("ReportedAnnotation links could not be read")
+            # Distinct annotations per type: with annotation reuse (Egeria 6.2) the same annotation is linked
+            # from every report that found it, so counting links would count it once per report.
             by_type: dict = {}
             quality_reports: set = set()
             schema_reports: set = set()
@@ -767,13 +799,13 @@ def _survey_coverage(mgr, ce, as_of: Optional[str] = None, asset_total: Optional
                 if rep_end.get("guid") not in subject_of_report:
                     continue          # a failed / unknown survey's partial findings do not count
                 tname = ((ann.get("type") or {}).get("typeName")) or "Annotation"
-                by_type[tname] = by_type.get(tname, 0) + 1
+                by_type.setdefault(tname, set()).add(ann.get("guid") or id(ann))
                 if "QualityAnnotation" in _type_names(ann) and rep_end.get("guid"):
                     quality_reports.add(rep_end["guid"])
                 if "SchemaAnalysisAnnotation" in _type_names(ann) and rep_end.get("guid"):
                     schema_reports.add(rep_end["guid"])
-            if len(arels) < _SURVEY_LINK_CAP:
-                out["annotationsByType"] = by_type
+            if not a_capped:
+                out["annotationsByType"] = {t: len(g) for t, g in by_type.items()}
                 out["qualityAnnotatedAssets"] = len({subject_of_report[g] for g in quality_reports if g in subject_of_report})
                 out["schemaAnalysedGuids"] = sorted({subject_of_report[g] for g in schema_reports if g in subject_of_report})
         except Exception as exc:  # noqa: BLE001
