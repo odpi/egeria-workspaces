@@ -547,10 +547,10 @@
     <div class="grid" style="gap:14px">
       <div class="panel">
         <h3>Data Quality Coverage</h3>
-        <div class="ph-sub">Survey &amp; annotation coverage of data stores</div>
+        <div class="ph-sub">Survey, annotation and schema coverage</div>
         <div class="hbar-row"><span class="lab">Surveyed</span><div class="hbar-track"><div class="hbar-fill" id="dq-survey-fill" style="width:0%;background:var(--c6)"></div></div><span class="num" id="dq-survey-pct">—</span></div>
-        <div class="hbar-row"><span class="lab">Has quality annotations</span><div class="hbar-track"><div class="hbar-fill" style="width:0%;background:var(--c1)"></div></div><span class="num">—</span></div>
-        <div class="hbar-row"><span class="lab">Has schema captured</span><div class="hbar-track"><div class="hbar-fill" style="width:0%;background:var(--c2)"></div></div><span class="num">—</span></div>
+        <div class="hbar-row"><span class="lab">Has quality annotations</span><div class="hbar-track"><div class="hbar-fill" id="dq-quality-fill" style="width:0%;background:var(--c1)"></div></div><span class="num" id="dq-quality-pct">—</span></div>
+        <div class="hbar-row"><span class="lab">Has schema captured</span><div class="hbar-track"><div class="hbar-fill" id="dq-schema-fill" style="width:0%;background:var(--c2)"></div></div><span class="num" id="dq-schema-pct">—</span></div>
         <div class="hbar-row"><span class="lab">Has assigned owner</span><div class="hbar-track"><div class="hbar-fill" id="dq-owner-fill" style="width:0%;background:var(--c3)"></div></div><span class="num" id="dq-owner-pct">—</span></div>
         <div class="hbar-row"><span class="lab">Has description</span><div class="hbar-track"><div class="hbar-fill" id="dq-desc-fill" style="width:0%;background:var(--c4)"></div></div><span class="num" id="dq-desc-pct">—</span></div>
       </div>
@@ -1417,7 +1417,7 @@ const SECTION_PROVENANCE = {
   composition: [
     { name: 'Assets by Type',                status: 'live' },  // counts_by_type via /api/overview/summary
     { name: 'Elements by Governance Zone',    status: 'live' },  // governed_coverage's topZones
-    { name: 'Confidentiality Distribution',   status: 'illustrative' }, // hardcoded sample array, no endpoint field
+    { name: 'Confidentiality Distribution',   status: 'live' },  // one bounded find of elements carrying a Confidentiality classification, grouped by level
   ],
   usage: [
     { name: 'Information Supply Chains',  status: 'live' },  // usage_context_counts
@@ -1434,8 +1434,8 @@ const SECTION_PROVENANCE = {
     { name: 'AQ: Stale assets (no update >180d)',       status: 'live' },  // stale_assets: per-element updateTime vs cutoff
     // Data Quality Coverage -- split per row, same reasoning.
     { name: 'DQ: Surveyed',                  status: 'live' },  // distinct assets with a SurveyReport / Asset total
-    { name: 'DQ: Has quality annotations',   status: 'illustrative' },
-    { name: 'DQ: Has schema captured',       status: 'illustrative' }, // needs a SchemaType relationship traversal, not built
+    { name: 'DQ: Has quality annotations',   status: 'live' },  // surveyed assets whose SurveyReport has a QualityAnnotation (ReportedAnnotation links)
+    { name: 'DQ: Has schema captured',       status: 'live' },  // distinct anchors of SchemaType elements / Asset total
     { name: 'DQ: Has assigned owner',        status: 'live' },  // ownership_coverage (already live elsewhere), now also wired into this panel
     { name: 'DQ: Has description',           status: 'live' },  // business_value_signals.describedCount (already live elsewhere), now also wired into this panel
     { name: 'Certifications Expiring Soon',  status: 'illustrative' }, // "soon" table -- distinct from the AQ row above; certifications_summary's soon[] list has name/days, not the scope/pill-severity columns this table shows
@@ -1778,6 +1778,14 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     if (fill) fill.style.width = (pct != null ? Math.max(pct, 2) : 0) + '%';
     if (conv) conv.textContent = pct != null ? pct + '%' : '—';
   }
+  // Confidentiality Distribution: real levels from the one bounded query. null = could not ask (the
+  // panel keeps its "not measured" text); an empty list is a real "nothing is classified".
+  function renderConfidentiality(d){
+    if (typeof hbars !== 'function' || d.confidentialityLevels == null) return;
+    var colors = { 0: '#33415c', 1: 'var(--c6)', 2: '#ff8c5a', 3: 'var(--c4)', 4: 'var(--c5)' };
+    var rows = d.confidentialityLevels.map(function(l){ return [l.label, l.count, colors[l.level] || 'var(--c4)']; });
+    hbars('byConf', rows, null, 'No element carries a Confidentiality classification');
+  }
   // Survey coverage: Data Quality "Surveyed" (assets with a SurveyReport) and the Attention Queue's
   // "Data stores never surveyed". Every unknown stays a dash; a real zero stays a zero.
   function renderSurveyCoverage(st){
@@ -1789,6 +1797,26 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
       pctEl.title = ok ? st.surveyedAssets.toLocaleString() + ' of ' + st.assets.toLocaleString() + ' assets have a survey report' : 'Not measured';
     }
     if (fill) fill.style.width = (ok && st.surveyedAssets > 0 ? Math.max(100 * st.surveyedAssets / st.assets, 1) : 0) + '%';
+    // Has quality annotations: of the surveyed assets, how many have a report carrying a QualityAnnotation.
+    var qEl = document.getElementById('dq-quality-pct'), qFill = document.getElementById('dq-quality-fill');
+    var qOk = st.qualityAnnotatedAssets != null && st.surveyedAssets;
+    if (qEl) {
+      var qp = qOk ? 100 * st.qualityAnnotatedAssets / st.surveyedAssets : null;
+      qEl.textContent = qp == null ? '—' : (qp > 0 && qp < 1 ? qp.toFixed(1) : String(Math.round(qp))) + '%';
+      var kinds = st.annotationsByType ? Object.keys(st.annotationsByType).map(function(k){ return st.annotationsByType[k] + ' ' + k; }).join(', ') : '';
+      qEl.title = qOk ? st.qualityAnnotatedAssets.toLocaleString() + ' of ' + st.surveyedAssets.toLocaleString() + ' surveyed assets have a quality annotation' + (kinds ? ' (' + kinds + ')' : '')
+                      : (st.surveyedAssets === 0 ? 'No surveys yet' : 'Not measured');
+    }
+    if (qFill) qFill.style.width = (qOk && st.qualityAnnotatedAssets > 0 ? Math.max(100 * st.qualityAnnotatedAssets / st.surveyedAssets, 1) : 0) + '%';
+    // Has schema captured: elements that anchor a captured schema, of all assets.
+    var sEl = document.getElementById('dq-schema-pct'), sFill = document.getElementById('dq-schema-fill');
+    var sOk = st.assetsWithSchema != null && st.assets;
+    if (sEl) {
+      var sp = sOk ? 100 * st.assetsWithSchema / st.assets : null;
+      sEl.textContent = sp == null ? '—' : (sp > 0 && sp < 1 ? sp.toFixed(1) : String(Math.round(sp))) + '%';
+      sEl.title = sOk ? st.assetsWithSchema.toLocaleString() + ' of ' + st.assets.toLocaleString() + ' assets have a captured schema' : 'Not measured';
+    }
+    if (sFill) sFill.style.width = (sOk && st.assetsWithSchema > 0 ? Math.max(100 * st.assetsWithSchema / st.assets, 1) : 0) + '%';
     var cnt = document.getElementById('aq-unsurveyed-count'), desc = document.getElementById('aq-unsurveyed-desc');
     if (cnt) cnt.textContent = st.neverSurveyedStores != null ? st.neverSurveyedStores.toLocaleString() : '—';
     if (desc) {
@@ -1890,8 +1918,10 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     store.orphanTermCount = d.orphanTermCount;
     store.surveyedAssets = d.surveyedAssets; store.surveyedStores = d.surveyedStores; store.dataStoreTotal = d.dataStoreTotal;
     store.neverSurveyedStores = d.neverSurveyedStores; store.surveyReports = d.surveyReports;
+    store.qualityAnnotatedAssets = d.qualityAnnotatedAssets; store.annotationsByType = d.annotationsByType;
+    store.assetsWithSchema = d.assetsWithSchema;
     // render only after every value above is stored (this used to run before the survey values were set)
-    if (primary) { renderCertsSoon(d); renderSurveyCoverage(store); }
+    if (primary) { renderCertsSoon(d); renderSurveyCoverage(store); renderConfidentiality(d); }
     store.governedCount = d.governedCount;
     if (d.assetTotal && d.governedCount != null) {
       store.governedPctNum = Math.round(100 * d.governedCount / Math.max(d.assetTotal, d.governedCount));
