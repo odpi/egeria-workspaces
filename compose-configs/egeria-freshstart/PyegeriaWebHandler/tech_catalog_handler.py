@@ -2052,36 +2052,14 @@ def _process_survey_entry(by_guid: dict, entry: dict, tech_display: str, tech_qn
         by_guid[guid]["usedByTechTypes"].append(ref)
 
 
-@router.get("/api/tech-catalog/survey-types")
-async def list_survey_types(
-    request: Request,
-    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
-):
-    """Return survey type definitions extracted from all TechnologyTypes.
-
-    Each entry represents a GovernanceActionType or GovernanceActionProcess with
-    resourceUse == 'Survey Resource', with the full survey specification and the
-    list of TechnologyTypes that reference it.
-    """
-    cache_key = f"{url}|{server}|{user_id}{_lineage_key()}"
-    cached = _SURVEY_TYPES_CACHE.get(cache_key)
-    if cached and (time.time() - cached["ts"]) < _SURVEY_TYPES_TTL:
-        return JSONResponse({"items": cached["data"]})
-
-    token = _token_from_request(request)
-    try:
-        ac = await _automated_curation_async(url, server, user_id, user_pwd, token=token)
-        raw_list = await ac._async_find_technology_types(
-            search_string="*",
-            graph_query_depth=0,  # PY-6/PY-14 perf lesson — _serialize_tech_type only reads flat fields
-            page_size=500,
-            output_format="JSON",
-        )
-    except Exception as exc:
-        logger.exception("list_survey_types: find_technology_types failed")
-        raise HTTPException(status_code=500, detail=str(exc))
-
+async def _build_survey_types(ac) -> list:
+    """Aggregate survey types across all TechnologyTypes (slow: one detail call each)."""
+    raw_list = await ac._async_find_technology_types(
+        search_string="*",
+        graph_query_depth=0,  # PY-6/PY-14 perf lesson — _serialize_tech_type only reads flat fields
+        page_size=500,
+        output_format="JSON",
+    )
     tech_bases = [_serialize_tech_type(tr) for tr in _safe_list(raw_list)]
 
     # One get_tech_type_detail per tech type is an N+1 fan-out -- serial, this took
@@ -2120,8 +2098,61 @@ async def list_survey_types(
             _process_survey_entry(by_guid, r, tech_display, tech_qn, "resourceList")
 
     items = sorted(by_guid.values(), key=lambda x: x.get("displayName", "").lower())
-    _SURVEY_TYPES_CACHE[cache_key] = {"ts": time.time(), "data": items}
-    return JSONResponse({"items": items})
+    return items
+
+
+_SURVEY_TYPES_TASKS: dict = {}   # key → in-flight asyncio.Task
+
+
+async def _fetch_and_cache_survey_types(cache_key: str, ac):
+    try:
+        items = await _build_survey_types(ac)
+        _SURVEY_TYPES_CACHE[cache_key] = {"ts": time.time(), "data": items}
+    except Exception:
+        logger.exception("list_survey_types: background build failed")
+    finally:
+        _SURVEY_TYPES_TASKS.pop(cache_key, None)
+
+
+@router.get("/api/tech-catalog/survey-types")
+async def list_survey_types(
+    request: Request,
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    """Return survey type definitions extracted from all TechnologyTypes.
+
+    Each entry represents a GovernanceActionType or GovernanceActionProcess with
+    resourceUse == 'Survey Resource', with the full survey specification and the
+    list of TechnologyTypes that reference it.
+
+    Non-blocking: building the list takes minutes when the metadata store is busy,
+    so a cold/stale cache spawns one background Task per cache key and the request
+    returns at once. Cold -> {"items": [], "loading": true}; stale -> the old items
+    plus "stale": true and "loading": true. The UI polls until loading is false.
+    """
+    cache_key = f"{url}|{server}|{user_id}"
+    cached = _SURVEY_TYPES_CACHE.get(cache_key)
+    fresh = bool(cached) and (time.time() - cached["ts"]) < _SURVEY_TYPES_TTL
+    if fresh:
+        return JSONResponse({"items": cached["data"]})
+
+    if cache_key not in _SURVEY_TYPES_TASKS:
+        # No await between this check and the registration below, so only one
+        # Task per key can ever be created.
+        token = _token_from_request(request)
+        try:
+            ac = await _automated_curation_async(url, server, user_id, user_pwd, token=token)
+        except Exception as exc:
+            logger.exception("list_survey_types: client creation failed")
+            raise HTTPException(status_code=500, detail=str(exc))
+        if cache_key not in _SURVEY_TYPES_TASKS:
+            _SURVEY_TYPES_TASKS[cache_key] = asyncio.create_task(
+                _fetch_and_cache_survey_types(cache_key, ac))
+
+    if cached:
+        return JSONResponse({"items": cached["data"], "stale": True, "loading": True})
+    return JSONResponse({"items": [], "loading": True})
 
 
 def _get_software_capability(mgr, guid: str, as_of_time: Optional[str] = None):
