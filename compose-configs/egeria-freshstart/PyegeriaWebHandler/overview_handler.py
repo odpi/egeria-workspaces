@@ -165,6 +165,42 @@ _CACHE_TTL   = 60.0          # seconds; summary is not real-time critical
 # Base open-metadata type names for the headline "assets by type" tally. Kept as a
 # small, override-safe list — a wrong/unknown type just yields 0 for that row
 # rather than failing the response.
+# The curated buckets overlap in the type system (verified against the live type chains):
+#   DeployedAPI -> DeployedSoftwareComponent -> Process -> Asset
+# so a plain count of "Processes" already contains every software component and API, and the bars summed
+# to more than the asset total. Each entry maps a type to the curated type nested directly inside it; its
+# count is reduced by that nested count, and the remainder of the Asset total is reported as "Other assets".
+_ASSET_TYPE_NESTED = {
+    "Process": ("DeployedSoftwareComponent", "software components"),
+    "DeployedSoftwareComponent": ("DeployedAPI", "APIs"),
+}
+
+
+def _exclusive_by_type(by_type: list, asset_total: Optional[int]) -> list:
+    """Turn inclusive per-type counts into non-overlapping buckets plus an "Other assets" remainder.
+
+    A bucket whose nested count is unknown gets count None rather than an inflated number, and no
+    "Other" bucket is invented unless every bucket is known and they do not exceed the total.
+    """
+    counts = {r.get("type"): r.get("count") for r in by_type}
+    out = []
+    for r in by_type:
+        c = r.get("count")
+        label = r.get("label")
+        nested = _ASSET_TYPE_NESTED.get(r.get("type"))
+        excl = c
+        if nested is not None:
+            ic = counts.get(nested[0])
+            excl = (c - ic) if (c is not None and ic is not None and ic <= c) else None
+            label = f"{label} (excl. {nested[1]})"
+        out.append({**r, "label": label, "count": excl, "inclusiveCount": c})
+    if asset_total is not None and out and all(r["count"] is not None for r in out):
+        other = asset_total - sum(r["count"] for r in out)
+        if other >= 0:
+            out.append({"label": "Other assets", "type": None, "count": other, "inclusiveCount": other})
+    return out
+
+
 _ASSET_TYPES = [
     ("Data Stores",         "DataStore"),
     ("Data Sets",           "DataSet"),
@@ -331,6 +367,8 @@ def get_summary(
     # tile's own headline number and its own sparkline finally agree.
     asset_total = count_elements(mgr, "Asset", as_of_time)
 
+    by_type = _exclusive_by_type(by_type, asset_total)
+
     term_count = count_elements(mgr, "GlossaryTerm", as_of_time)
 
     # Vega-Lite bar chart for the assets-by-type composition (real chart —
@@ -408,6 +446,19 @@ def get_summary(
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"overview summary: stale_assets failed: {exc}")
 
+    # Survey coverage (Data Quality "Surveyed", Attention Queue "never surveyed"): one
+    # ReportSubject relationship page + two counts. Needs the relationships client.
+    survey: dict = {"surveyedAssets": None, "dataStoreTotal": None, "surveyedStores": None,
+                    "neverSurveyedStores": None, "surveyReports": None, "surveyLinksCapped": None,
+                    "qualityAnnotatedAssets": None, "annotationsByType": None}
+    if ce is not None:
+        try:
+            survey = _survey_coverage(mgr, ce, as_of_time, asset_total)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"overview summary: survey coverage failed: {exc}")
+    schema = _schema_coverage(mgr, as_of_time, survey.get("schemaAnalysedGuids"))
+    confidentiality = _confidentiality_levels(mgr, as_of_time)
+
     payload = {
         "asOfTime":         as_of_time,
         "assetTotal":       asset_total,
@@ -436,6 +487,20 @@ def get_summary(
         "bvDuplicateCount":   biz_value["duplicateCount"],
         "orphanTermCount":    orphan_terms["orphanCount"],   # SemanticAssignment-unreferenced GlossaryTerms
         "orphanTermTotal":    orphan_terms["termTotal"],
+        "surveyedAssets":     survey["surveyedAssets"],
+        "qualityAnnotatedAssets": survey["qualityAnnotatedAssets"],
+        "annotationsByType":  survey["annotationsByType"],
+        "assetsWithSchema":   schema["assetsWithSchema"],
+        "schemaAnalysedAssets": schema["schemaAnalysedAssets"],
+        "schemaTypes":        schema["schemaTypes"],
+        "confidentialityLevels":     confidentiality["levels"],
+        "confidentialityClassified": confidentiality["classified"],
+        "confidentialityCapped":     confidentiality["capped"],
+        "dataStoreTotal":     survey["dataStoreTotal"],
+        "surveyedStores":     survey["surveyedStores"],
+        "neverSurveyedStores": survey["neverSurveyedStores"],
+        "surveyReports":      survey["surveyReports"],
+        "surveyLinksCapped":  survey["surveyLinksCapped"],
         "staleAssetCount":    stale["staleCount"],           # no update in 180d
         "staleAssetTotal":    stale["assetTotal"],
         "partial":          True,
@@ -445,6 +510,206 @@ def get_summary(
 
 
 # ── certifications & licenses ────────────────────────────────────────────────
+
+# Egeria's default Confidentiality levels (0-4); a deployment may define others, shown as "Level N".
+_CONFIDENTIALITY_LABELS = {0: "Unclassified", 1: "Internal", 2: "Confidential", 3: "Sensitive", 4: "Restricted"}
+
+
+def _classification_props(el: dict, name: str) -> Optional[dict]:
+    for c in (el.get("classifications") or []):
+        if c.get("classificationName") == name:
+            pv = c.get("classificationProperties") or {}
+            return pv.get("propertiesAsStrings") or pv
+    return None
+
+
+def _confidentiality_levels(mgr, as_of: Optional[str] = None) -> dict:
+    """Distribution of the Confidentiality classification by level (one capped find). Every field is
+    None when the query failed, so "nothing classified" (a real zero) and "could not ask" differ."""
+    out = {"levels": None, "classified": None, "capped": None}
+    try:
+        body = {"class": "FindRequestBody", "metadataElementTypeName": "OpenMetadataRoot",
+                "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0, "startFrom": 0,
+                "pageSize": _SURVEY_LINK_CAP,
+                "matchClassifications": {"class": "SearchClassifications", "matchCriteria": "ANY",
+                                         "conditions": [{"name": "Confidentiality"}]}}
+        if as_of:
+            body["asOfTime"] = as_of
+        found = mgr.find_metadata_elements(body)
+        found = [e for e in (found if isinstance(found, list) else []) if isinstance(e, dict)]
+        counts: dict = {}
+        for e in found:
+            props = _classification_props(e, "Confidentiality")
+            if props is None:
+                continue
+            try:
+                lvl = int(props.get("confidentialityLevel"))
+            except (TypeError, ValueError):
+                lvl = -1
+            counts[lvl] = counts.get(lvl, 0) + 1
+        out["levels"] = [{"level": l, "label": _CONFIDENTIALITY_LABELS.get(l, f"Level {l}" if l >= 0 else "Unspecified"),
+                          "count": c} for l, c in sorted(counts.items())]
+        out["classified"] = sum(counts.values())
+        out["capped"] = len(found) >= _SURVEY_LINK_CAP
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview confidentiality levels failed: {exc}")
+    return out
+
+
+def _schema_coverage(mgr, as_of: Optional[str] = None, analysed=None) -> dict:
+    """How many elements have a schema: the distinct anchors of SchemaType elements (a schema's anchor is
+    the asset it describes) UNION the assets a survey analysed the schema of (SchemaAnalysisAnnotation --
+    surveys record a database's schema as annotations, not as SchemaType elements). One capped find; None
+    when it failed or was capped (a capped page can only under-count)."""
+    out = {"assetsWithSchema": None, "schemaTypes": None, "schemaCapped": None, "schemaAnalysedAssets": None}
+    analysed = set(analysed or [])
+    try:
+        body = {"class": "FindRequestBody", "metadataElementTypeName": "SchemaType",
+                "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0, "startFrom": 0,
+                "pageSize": _SURVEY_LINK_CAP}
+        if as_of:
+            body["asOfTime"] = as_of
+        found = mgr.find_metadata_elements(body)
+        found = [e for e in (found if isinstance(found, list) else []) if isinstance(e, dict)]
+        anchors = set()
+        for e in found:
+            props = _classification_props(e, "Anchors")
+            g = (props or {}).get("anchorGUID")
+            if g:
+                anchors.add(g)
+        out["schemaTypes"] = len(found)
+        out["schemaCapped"] = len(found) >= _SURVEY_LINK_CAP
+        out["assetsWithSchema"] = None if out["schemaCapped"] else len(anchors | analysed)
+        out["schemaAnalysedAssets"] = len(analysed - anchors)   # assets whose schema is known only from a survey
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview schema coverage failed: {exc}")
+    return out
+
+
+_SURVEY_LINK_CAP = 1000   # one relationship page / one find page; a result at the cap is a lower bound, reported as such
+
+
+def _type_names(end: dict) -> set:
+    t = (end or {}).get("type") or {}
+    return {t.get("typeName")} | set(t.get("superTypeNames") or [])
+
+
+def _guid_of(el: dict) -> Optional[str]:
+    return el.get("elementGUID") or (el.get("elementHeader") or {}).get("guid") or el.get("guid")
+
+
+def _survey_coverage(mgr, ce, as_of: Optional[str] = None, asset_total: Optional[int] = None) -> dict:
+    """How much of the catalog has ever been surveyed.
+
+    A SurveyReport is linked to the asset it describes by a ReportSubject relationship
+    (AssetSurveyReport, the older name, has none on the live platform). ReportSubject also
+    links ConnectorActivityReports to their connectors, so only links whose report end is a
+    SurveyReport count. Everything comes from two bounded calls, never a per-asset fan-out:
+    one ReportSubject page, and one find of the DataStore guids to intersect with.
+
+      surveyedAssets      distinct subjects of SurveyReport links (any Asset type)
+      surveyedStores      those that are DataStores
+      neverSurveyedStores DataStore total - surveyedStores
+
+    Every field is None when its own step failed, never 0: a failed query must not read as
+    "nothing surveyed". neverSurveyedStores is also None when either page hit its cap, since
+    a capped page can only under-count what was surveyed.
+    """
+    out = {"assetTotal": asset_total, "surveyedAssets": None, "surveyReports": None,
+           "dataStoreTotal": None, "surveyedStores": None, "neverSurveyedStores": None,
+           "surveyLinksCapped": None, "qualityAnnotatedAssets": None, "annotationsByType": None,
+           "schemaAnalysedGuids": None}
+    try:
+        out["surveyReports"] = count_elements(mgr, "SurveyReport", as_of)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview survey coverage: SurveyReport count failed: {exc}")
+
+    subjects = None
+    links_capped = None
+    subject_of_report: dict = {}   # SurveyReport guid -> the asset it describes
+    try:
+        body = {"class": "ResultsRequestBody", "asOfTime": as_of} if as_of else None
+        raw = ce.get_relationships(relationship_type="ReportSubject", output_format="JSON",
+                                   start_from=0, page_size=_SURVEY_LINK_CAP, body=body)
+        rels = raw if isinstance(raw, list) else ((raw or {}).get("elements") or [] if isinstance(raw, dict) else [])
+        subjects = set()
+        for r in rels:
+            if not isinstance(r, dict):
+                continue
+            e1, e2 = r.get("end1") or {}, r.get("end2") or {}
+            if "SurveyReport" in _type_names(e1):
+                subject = e2
+            elif "SurveyReport" in _type_names(e2):
+                subject = e1
+            else:
+                continue          # e.g. a ConnectorActivityReport link
+            if subject.get("guid"):
+                subjects.add(subject["guid"])
+                report_end = e1 if subject is e2 else e2
+                if report_end.get("guid"):
+                    subject_of_report[report_end["guid"]] = subject["guid"]
+        links_capped = len(rels) >= _SURVEY_LINK_CAP
+        out["surveyedAssets"] = len(subjects)
+        out["surveyLinksCapped"] = links_capped
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview survey coverage: ReportSubject query failed: {exc}")
+
+    # Annotations the surveys produced: ReportedAnnotation links a SurveyReport to each Annotation.
+    # "Has quality annotations" = survey subjects whose report carries at least one QualityAnnotation.
+    if subjects is not None:
+        try:
+            araw = ce.get_relationships(relationship_type="ReportedAnnotation", output_format="JSON",
+                                        start_from=0, page_size=_SURVEY_LINK_CAP, body=None)
+            arels = araw if isinstance(araw, list) else ((araw or {}).get("elements") or [] if isinstance(araw, dict) else [])
+            by_type: dict = {}
+            quality_reports: set = set()
+            schema_reports: set = set()
+            for r in arels:
+                if not isinstance(r, dict):
+                    continue
+                e1, e2 = r.get("end1") or {}, r.get("end2") or {}
+                if "SurveyReport" in _type_names(e1):
+                    rep_end, ann = e1, e2
+                elif "SurveyReport" in _type_names(e2):
+                    rep_end, ann = e2, e1
+                else:
+                    continue
+                tname = ((ann.get("type") or {}).get("typeName")) or "Annotation"
+                by_type[tname] = by_type.get(tname, 0) + 1
+                if "QualityAnnotation" in _type_names(ann) and rep_end.get("guid"):
+                    quality_reports.add(rep_end["guid"])
+                if "SchemaAnalysisAnnotation" in _type_names(ann) and rep_end.get("guid"):
+                    schema_reports.add(rep_end["guid"])
+            if len(arels) < _SURVEY_LINK_CAP:
+                out["annotationsByType"] = by_type
+                out["qualityAnnotatedAssets"] = len({subject_of_report[g] for g in quality_reports if g in subject_of_report})
+                out["schemaAnalysedGuids"] = sorted({subject_of_report[g] for g in schema_reports if g in subject_of_report})
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"overview survey coverage: ReportedAnnotation query failed: {exc}")
+
+    store_guids = None
+    stores_capped = None
+    try:
+        find_body = {"class": "FindRequestBody", "metadataElementTypeName": "DataStore",
+                     "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0,
+                     "startFrom": 0, "pageSize": _SURVEY_LINK_CAP}
+        if as_of:
+            find_body["asOfTime"] = as_of
+        found = mgr.find_metadata_elements(find_body)
+        found = [e for e in (found if isinstance(found, list) else []) if isinstance(e, dict)]
+        store_guids = {g for g in (_guid_of(e) for e in found) if g}
+        stores_capped = len(found) >= _SURVEY_LINK_CAP
+        out["dataStoreTotal"] = (count_elements(mgr, "DataStore", as_of) if stores_capped else len(store_guids))
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview survey coverage: DataStore find failed: {exc}")
+
+    if subjects is not None and store_guids is not None:
+        out["surveyedStores"] = len(subjects & store_guids)
+        total = out["dataStoreTotal"]
+        if total is not None and not links_capped and not stores_capped and out["surveyedStores"] <= total:
+            out["neverSurveyedStores"] = total - out["surveyedStores"]
+    return out
+
 
 def _certifications(url, server, user_id, user_pwd, as_of: Optional[str] = None) -> dict:
     """Build a ClassificationExplorer and delegate to overview_metrics.certifications_summary.
