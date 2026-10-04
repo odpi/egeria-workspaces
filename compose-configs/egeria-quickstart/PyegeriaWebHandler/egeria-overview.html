@@ -1786,6 +1786,17 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
       desc.textContent = parts.length ? parts.join(' · ') : 'Not measured: the survey queries did not return a complete answer';
     }
   }
+  // Header chip: who the data is queried as. Hidden when that is unknown (the server's default account).
+  function renderUserChip(creds){
+    var chip = document.getElementById('user-chip'); if (!chip) return;
+    var name = creds && ((creds.persona && creds.persona.display_name) || creds.displayName || creds.userId);
+    chip.textContent = '';
+    if (!name) { chip.style.display = 'none'; return; }
+    chip.appendChild(document.createTextNode(name));
+    var role = creds.persona && creds.persona.coco_title;
+    if (role) { var r = document.createElement('span'); r.className = 'role'; r.textContent = ' · ' + role; chip.appendChild(r); }
+    chip.style.display = '';
+  }
   // "Certifications Expiring Soon": the soonest renewals within 90 days, from the summary payload.
   function renderCertsSoon(d){
     var tb = document.getElementById('certs-soon-body'); if (!tb) return;
@@ -2333,8 +2344,17 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
   function start(creds){
     CREDS = creds;
     // Header chip: the signed-in user (this used to be a hardcoded persona that nothing updated).
-    var chip = document.getElementById('user-chip');
-    if (chip && creds && creds.userId) { chip.textContent = creds.userId; chip.style.display = ''; }
+    renderUserChip(creds);
+    // Personas get a bearer token that expires; refresh it on a 401 like the Catalog does, instead of
+    // letting every request fail until the page is reloaded (which would read as "Egeria unavailable").
+    if (typeof _tokenRefresher !== 'undefined' && creds && creds.userId) {
+      _tokenRefresher.refresh = function(old){
+        return fetch('/api/egeria-token', { method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ user_id: old.userId, url: old.url || '', server: old.server || '' }) })
+          .then(function(r){ return r.json(); })
+          .then(function(t){ var n = Object.assign({}, old, { token: t.token || '' }); CREDS = n; return n; });
+      };
+    }
     wireControls();
     loadSet(LIVE, null, true).then(function(st){ renderKPIs(); statusBadge(st, 'live'); });
     loadTileInfo();
@@ -2356,7 +2376,25 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
           .then(function(t){ start({ server: server, userId: me.egeria_user, token: t.token || '' }); })
           .catch(function(){ start({ server: server, userId: me.egeria_user }); });
       } else {
-        start({ server: server });   // server falls back to env-default user
+        // Quickstart persona picker (same flow as the Catalog): the Portal stores the chosen persona in
+        // localStorage; select-persona returns its Egeria login, exchanged for a bearer token. Without a
+        // persona the server falls back to its env-default user. loadOwnedPersona refuses a persona
+        // cached by a different Portal account.
+        var persona = (typeof loadOwnedPersona === 'function') ? loadOwnedPersona(me && me.id) : null;
+        if (!(persona && persona.id)) { start({ server: server }); return; }
+        fetch('/api/demo/select-persona', { method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ persona: persona.id }) })
+          .then(function(r){ return r.json(); })
+          .then(function(sel){
+            if (!sel || !sel.egeria_user) { start({ server: server }); return; }
+            window.CURRENT_USER = sel.egeria_user;
+            fetch('/api/egeria-token', { method:'POST', headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({ user_id: sel.egeria_user, password: sel.egeria_password || '' }) })
+              .then(function(r){ return r.ok ? r.json() : {}; })
+              .then(function(t){ start({ server: server, userId: sel.egeria_user, token: t.token || '', persona: persona }); })
+              .catch(function(){ start({ server: server, userId: sel.egeria_user, persona: persona }); });
+          })
+          .catch(function(){ start({ server: server }); });
       }
     }).catch(function(){ start({ server: server }); });
   }
