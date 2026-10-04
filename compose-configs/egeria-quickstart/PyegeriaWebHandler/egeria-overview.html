@@ -553,6 +553,7 @@
         <div class="hbar-row"><span class="lab">Has schema captured</span><div class="hbar-track"><div class="hbar-fill" id="dq-schema-fill" style="width:0%;background:var(--c2)"></div></div><span class="num" id="dq-schema-pct">—</span></div>
         <div class="hbar-row"><span class="lab">Has assigned owner</span><div class="hbar-track"><div class="hbar-fill" id="dq-owner-fill" style="width:0%;background:var(--c3)"></div></div><span class="num" id="dq-owner-pct">—</span></div>
         <div class="hbar-row"><span class="lab">Has description</span><div class="hbar-track"><div class="hbar-fill" id="dq-desc-fill" style="width:0%;background:var(--c4)"></div></div><span class="num" id="dq-desc-pct">—</span></div>
+        <div id="dq-findings" class="ph-sub" style="margin-top:10px">Survey findings: not measured</div>
       </div>
 
       <div class="panel">
@@ -1802,9 +1803,18 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     if (sEl) {
       var sp = sOk ? 100 * st.assetsWithSchema / st.assets : null;
       sEl.textContent = sp == null ? '—' : (sp > 0 && sp < 1 ? sp.toFixed(1) : String(Math.round(sp))) + '%';
-      sEl.title = sOk ? st.assetsWithSchema.toLocaleString() + ' of ' + st.assets.toLocaleString() + ' assets have a captured schema' : 'Not measured';
+      sEl.title = sOk ? st.assetsWithSchema.toLocaleString() + ' of ' + st.assets.toLocaleString() + ' assets have a captured schema'
+                        + (st.schemaAnalysedAssets ? ' (' + st.schemaAnalysedAssets.toLocaleString() + ' known only from a survey\'s schema analysis)' : '') : 'Not measured';
     }
     if (sFill) sFill.style.width = (sOk && st.assetsWithSchema > 0 ? Math.max(100 * st.assetsWithSchema / st.assets, 1) : 0) + '%';
+    // What the surveys found, by kind (annotations on survey reports); an empty tally is a real "no findings yet".
+    var fEl = document.getElementById('dq-findings');
+    if (fEl) {
+      var fk = st.annotationsByType ? Object.keys(st.annotationsByType) : null;
+      fEl.textContent = fk == null ? 'Survey findings: not measured'
+        : (fk.length ? 'Survey findings: ' + fk.map(function(k){ return st.annotationsByType[k].toLocaleString() + ' ' + k.replace(/Annotation$/, ''); }).join(' · ')
+                     : 'Survey findings: none yet');
+    }
     var cnt = document.getElementById('aq-unsurveyed-count'), desc = document.getElementById('aq-unsurveyed-desc');
     if (cnt) cnt.textContent = st.neverSurveyedStores != null ? st.neverSurveyedStores.toLocaleString() : '—';
     if (desc) {
@@ -1907,7 +1917,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     store.surveyedAssets = d.surveyedAssets; store.surveyedStores = d.surveyedStores; store.dataStoreTotal = d.dataStoreTotal;
     store.neverSurveyedStores = d.neverSurveyedStores; store.surveyReports = d.surveyReports;
     store.qualityAnnotatedAssets = d.qualityAnnotatedAssets; store.annotationsByType = d.annotationsByType;
-    store.assetsWithSchema = d.assetsWithSchema;
+    store.assetsWithSchema = d.assetsWithSchema; store.schemaAnalysedAssets = d.schemaAnalysedAssets;
     // render only after every value above is stored (this used to run before the survey values were set)
     if (primary) { renderCertsSoon(d); renderSurveyCoverage(store); renderConfidentiality(d); }
     store.governedCount = d.governedCount;

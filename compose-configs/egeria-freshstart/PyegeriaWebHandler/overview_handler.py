@@ -456,7 +456,7 @@ def get_summary(
             survey = _survey_coverage(mgr, ce, as_of_time, asset_total)
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"overview summary: survey coverage failed: {exc}")
-    schema = _schema_coverage(mgr, as_of_time)
+    schema = _schema_coverage(mgr, as_of_time, survey.get("schemaAnalysedGuids"))
     confidentiality = _confidentiality_levels(mgr, as_of_time)
 
     payload = {
@@ -491,6 +491,7 @@ def get_summary(
         "qualityAnnotatedAssets": survey["qualityAnnotatedAssets"],
         "annotationsByType":  survey["annotationsByType"],
         "assetsWithSchema":   schema["assetsWithSchema"],
+        "schemaAnalysedAssets": schema["schemaAnalysedAssets"],
         "schemaTypes":        schema["schemaTypes"],
         "confidentialityLevels":     confidentiality["levels"],
         "confidentialityClassified": confidentiality["classified"],
@@ -555,11 +556,13 @@ def _confidentiality_levels(mgr, as_of: Optional[str] = None) -> dict:
     return out
 
 
-def _schema_coverage(mgr, as_of: Optional[str] = None) -> dict:
-    """How many elements carry a captured schema: the distinct anchors of SchemaType elements (a schema's
-    anchor is the asset it describes). One capped find; None when it failed or was capped (a capped
-    page can only under-count)."""
-    out = {"assetsWithSchema": None, "schemaTypes": None, "schemaCapped": None}
+def _schema_coverage(mgr, as_of: Optional[str] = None, analysed=None) -> dict:
+    """How many elements have a schema: the distinct anchors of SchemaType elements (a schema's anchor is
+    the asset it describes) UNION the assets a survey analysed the schema of (SchemaAnalysisAnnotation --
+    surveys record a database's schema as annotations, not as SchemaType elements). One capped find; None
+    when it failed or was capped (a capped page can only under-count)."""
+    out = {"assetsWithSchema": None, "schemaTypes": None, "schemaCapped": None, "schemaAnalysedAssets": None}
+    analysed = set(analysed or [])
     try:
         body = {"class": "FindRequestBody", "metadataElementTypeName": "SchemaType",
                 "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0, "startFrom": 0,
@@ -576,7 +579,8 @@ def _schema_coverage(mgr, as_of: Optional[str] = None) -> dict:
                 anchors.add(g)
         out["schemaTypes"] = len(found)
         out["schemaCapped"] = len(found) >= _SURVEY_LINK_CAP
-        out["assetsWithSchema"] = None if out["schemaCapped"] else len(anchors)
+        out["assetsWithSchema"] = None if out["schemaCapped"] else len(anchors | analysed)
+        out["schemaAnalysedAssets"] = len(analysed - anchors)   # assets whose schema is known only from a survey
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview schema coverage failed: {exc}")
     return out
@@ -613,7 +617,8 @@ def _survey_coverage(mgr, ce, as_of: Optional[str] = None, asset_total: Optional
     """
     out = {"assetTotal": asset_total, "surveyedAssets": None, "surveyReports": None,
            "dataStoreTotal": None, "surveyedStores": None, "neverSurveyedStores": None,
-           "surveyLinksCapped": None, "qualityAnnotatedAssets": None, "annotationsByType": None}
+           "surveyLinksCapped": None, "qualityAnnotatedAssets": None, "annotationsByType": None,
+           "schemaAnalysedGuids": None}
     try:
         out["surveyReports"] = count_elements(mgr, "SurveyReport", as_of)
     except Exception as exc:  # noqa: BLE001
@@ -658,6 +663,7 @@ def _survey_coverage(mgr, ce, as_of: Optional[str] = None, asset_total: Optional
             arels = araw if isinstance(araw, list) else ((araw or {}).get("elements") or [] if isinstance(araw, dict) else [])
             by_type: dict = {}
             quality_reports: set = set()
+            schema_reports: set = set()
             for r in arels:
                 if not isinstance(r, dict):
                     continue
@@ -672,9 +678,12 @@ def _survey_coverage(mgr, ce, as_of: Optional[str] = None, asset_total: Optional
                 by_type[tname] = by_type.get(tname, 0) + 1
                 if "QualityAnnotation" in _type_names(ann) and rep_end.get("guid"):
                     quality_reports.add(rep_end["guid"])
+                if "SchemaAnalysisAnnotation" in _type_names(ann) and rep_end.get("guid"):
+                    schema_reports.add(rep_end["guid"])
             if len(arels) < _SURVEY_LINK_CAP:
                 out["annotationsByType"] = by_type
                 out["qualityAnnotatedAssets"] = len({subject_of_report[g] for g in quality_reports if g in subject_of_report})
+                out["schemaAnalysedGuids"] = sorted({subject_of_report[g] for g in schema_reports if g in subject_of_report})
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"overview survey coverage: ReportedAnnotation query failed: {exc}")
 
