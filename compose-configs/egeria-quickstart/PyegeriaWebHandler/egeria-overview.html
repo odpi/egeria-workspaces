@@ -2367,35 +2367,28 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
       badge('○ sample (offline)', 'var(--c4)'); stamp(); return;
     }
     var server = 'qs-view-server';
+    // /api/auth/me describes the PORTAL account only (id, display_name, email, role) -- in demo mode that is
+    // the external email login. The Egeria identity is never in it: it comes from the persona the user picked,
+    // which is the same Coco id (peterprofile, ...) in demo and local quickstart. Same flow as the Catalog:
+    // stored persona (loadOwnedPersona refuses one picked under a different portal account) ->
+    // select-persona (returns that persona's Egeria login) -> bearer token. Anything missing or failing
+    // falls back to the server's default user, and the header chip then stays hidden.
     fetch('/api/auth/me').then(function(r){ return r.ok ? r.json() : null; }).then(function(me){
-      if (me && me.egeria_user) {
-        window.CURRENT_USER = me.egeria_user;
-        fetch('/api/egeria-token', { method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ user_id: me.egeria_user, password: me.egeria_password || '' }) })
-          .then(function(r){ return r.ok ? r.json() : {}; })
-          .then(function(t){ start({ server: server, userId: me.egeria_user, token: t.token || '' }); })
-          .catch(function(){ start({ server: server, userId: me.egeria_user }); });
-      } else {
-        // Quickstart persona picker (same flow as the Catalog): the Portal stores the chosen persona in
-        // localStorage; select-persona returns its Egeria login, exchanged for a bearer token. Without a
-        // persona the server falls back to its env-default user. loadOwnedPersona refuses a persona
-        // cached by a different Portal account.
-        var persona = (typeof loadOwnedPersona === 'function') ? loadOwnedPersona(me && me.id) : null;
-        if (!(persona && persona.id)) { start({ server: server }); return; }
-        fetch('/api/demo/select-persona', { method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ persona: persona.id }) })
-          .then(function(r){ return r.json(); })
-          .then(function(sel){
-            if (!sel || !sel.egeria_user) { start({ server: server }); return; }
-            window.CURRENT_USER = sel.egeria_user;
-            fetch('/api/egeria-token', { method:'POST', headers:{'Content-Type':'application/json'},
-              body: JSON.stringify({ user_id: sel.egeria_user, password: sel.egeria_password || '' }) })
-              .then(function(r){ return r.ok ? r.json() : {}; })
-              .then(function(t){ start({ server: server, userId: sel.egeria_user, token: t.token || '', persona: persona }); })
-              .catch(function(){ start({ server: server, userId: sel.egeria_user, persona: persona }); });
-          })
-          .catch(function(){ start({ server: server }); });
-      }
+      var persona = (typeof loadOwnedPersona === 'function') ? loadOwnedPersona(me && me.id) : null;
+      if (!(persona && persona.id)) { start({ server: server }); return; }
+      fetch('/api/demo/select-persona', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ persona: persona.id }) })
+        .then(function(r){ return r.json(); })
+        .then(function(sel){
+          if (!sel || !sel.egeria_user) { start({ server: server }); return; }
+          window.CURRENT_USER = sel.egeria_user;
+          fetch('/api/egeria-token', { method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ user_id: sel.egeria_user, password: sel.egeria_password || '' }) })
+            .then(function(r){ return r.ok ? r.json() : {}; })
+            .then(function(t){ start({ server: server, userId: sel.egeria_user, token: t.token || '', persona: persona }); })
+            .catch(function(){ start({ server: server, userId: sel.egeria_user, persona: persona }); });
+        })
+        .catch(function(){ start({ server: server }); });
     }).catch(function(){ start({ server: server }); });
   }
   boot();

@@ -2393,22 +2393,11 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     // password exchange. No `server` literal here either way: every backend
     // route falls through to its own EGERIA_VIEW_SERVER env default
     // ("fs-view-server") when the query param is omitted.
+    // /api/auth/me describes the PORTAL account only. Freshstart loads no Coco personas: it is
+    // server-managed, so the env-var service account answers every query and the chip shows the
+    // signed-in portal account. (An Egeria login is never part of /api/auth/me.)
     fetch('/api/auth/me').then(function(r){ return r.ok ? r.json() : null; }).then(function(me){
-      if (me && me.server_managed_auth) {
-        // env-var service account answers every query; the chip shows the Portal account that is signed in
-        start(me.authenticated ? { displayName: me.display_name || me.id } : {});
-        return;
-      }
-      if (me && me.egeria_user) {
-        window.CURRENT_USER = me.egeria_user;
-        fetch('/api/egeria-token', { method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ user_id: me.egeria_user, password: me.egeria_password || '' }) })
-          .then(function(r){ return r.ok ? r.json() : {}; })
-          .then(function(t){ start({ userId: me.egeria_user, token: t.token || '' }); })
-          .catch(function(){ start({ userId: me.egeria_user }); });
-      } else {
-        start({});   // falls back to env-default service account
-      }
+      start(me && me.server_managed_auth && me.authenticated ? { displayName: me.display_name || me.id } : {});
     }).catch(function(){ start({}); });
   }
   boot();
