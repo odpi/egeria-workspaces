@@ -450,10 +450,25 @@ def _serialize_annotation(ann: dict) -> dict:
 
 
 def _survey_reports(ann: dict) -> list:
-    """Return the SurveyReports listed in an annotation's fromSurveyReports,
-    most recent first, as dicts of guid, displayName and createTime."""
+    """Return the SurveyReports that reported an annotation, most recent first,
+    as dicts of guid, displayName and createTime.
+
+    The platform reports them in the list fromSurveyReports (an annotation can
+    be reused by many surveys).  A platform that predates that returns a single
+    fromSurveyReport instead; it is read as a one-item list when the list is
+    absent or empty, so one code path serves both payloads.  (Only the payload
+    pyegeria passes through differs, not any Egeria behaviour this handler
+    depends on.)"""
+    from_reports = ann.get("fromSurveyReports")
+    if not from_reports:
+        single = ann.get("fromSurveyReport")
+        from_reports = [single] if single else []
+    elif isinstance(from_reports, dict):
+        from_reports = [from_reports]
+    elif not isinstance(from_reports, (list, tuple)):
+        from_reports = []
     reports = []
-    for from_report in ann.get("fromSurveyReports") or []:
+    for from_report in from_reports:
         if not isinstance(from_report, dict):
             continue
         rel_elem = from_report.get("relatedElement") or {}
