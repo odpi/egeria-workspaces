@@ -29,6 +29,9 @@ x-airflow-common: &airflow-common
     # switch-lineage.sh rewrites - so the choice is kept in a file and survives restarts and rebuilds.
 
     AIRFLOW__API__PORT: "8072"
+    # The scheduler's healthcheck (below) probes this server on 8974; Airflow 3 only starts it when enabled,
+    # so without this the scheduler works but is reported "unhealthy" forever.
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
     AIRFLOW__DAG_PROCESSOR__DAG_BUNDLE_CONFIG_LIST: '[{"name": "default-dags", "classpath": "airflow.dag_processing.bundles.local.LocalDagBundle", "kwargs": {"path": "/opt/airflow/dags"}}, {"name": "coco-dags", "classpath": "airflow.dag_processing.bundles.local.LocalDagBundle", "kwargs": {"path": "/opt/airflow/coco-dags"}}]'
 
     # Connections for the coco_feed_* and coco_subscriptions_* DAGs in coco-dags: the three Coco system databases

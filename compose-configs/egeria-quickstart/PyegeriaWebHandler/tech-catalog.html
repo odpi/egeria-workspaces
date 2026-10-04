@@ -2984,13 +2984,26 @@ function SurveyTypesView({ creds }) {
   var _err  = useState(null), err  = _err[0],  setErr  = _err[1];
   var _q    = useState(''),   q    = _q[0],    setQ    = _q[1];
   var _attempt = useState(0), attempt = _attempt[0], setAttempt = _attempt[1];
+  var _loading = useState(true), loading = _loading[0], setLoading = _loading[1];
+  var _stale = useState(false), stale = _stale[0], setStale = _stale[1];
 
+  // The server builds the list in the background (can take minutes) and answers
+  // {loading: true} until ready, so poll every 8s.
   useEffect(function() {
-    setData(null); setErr(null);
-    fetchWithToken('/api/tech-catalog/survey-types', creds)
-      .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || r.status); }); })
-      .then(function(j) { setData(j.items || []); })
-      .catch(function(e) { setErr(e.message || String(e)); });
+    var cancelled = false, timer = null;
+    setData(null); setErr(null); setLoading(true);
+    function load() {
+      fetchWithToken('/api/tech-catalog/survey-types', creds)
+        .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || r.status); }); })
+        .then(function(j) {
+          if (cancelled) return;
+          setData(j.items || []); setStale(!!j.stale); setLoading(!!j.loading);
+          if (j.loading) timer = setTimeout(load, 8000);
+        })
+        .catch(function(e) { if (!cancelled) { setErr(e.message || String(e)); setLoading(false); } });
+    }
+    load();
+    return function() { cancelled = true; if (timer) clearTimeout(timer); };
   }, [creds.url, creds.server, creds.userId, creds.userPwd, attempt]);
 
   var card = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 10 };
@@ -3017,9 +3030,10 @@ function SurveyTypesView({ creds }) {
     ),
     React.createElement('div', { style: { flex: 1, overflowY: 'auto', padding: '12px 16px' } },
       err  && React.createElement('div', { style: { color: '#f87171', fontSize: 13, padding: 12 } }, 'Error: ' + err),
-      !data && !err && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 12, padding: 12 } },
-        'Loading survey types — this aggregates data from all Technology Types and may take a moment…'),
-      data && filtered.length === 0 && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 12, padding: 12 } }, q ? 'No survey types match.' : 'No survey types found.'),
+      loading && !err && React.createElement('div', { style: { color: stale ? '#fbbf24' : 'var(--dim)', fontSize: 12, padding: 12 } },
+        stale ? 'Showing cached survey types — refreshing in the background…'
+              : 'Loading survey types — aggregating all Technology Types in the background; this can take a few minutes. Checking every 8 s…'),
+      data && !loading && filtered.length === 0 && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 12, padding: 12 } }, q ? 'No survey types match.' : 'No survey types found.'),
       filtered.map(function(st, i) {
         return React.createElement(SurveySpecCard, { key: st.guid || i, entry: st, card: card, showTechTypes: true });
       })
