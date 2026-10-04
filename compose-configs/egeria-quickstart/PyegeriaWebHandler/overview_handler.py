@@ -35,6 +35,7 @@ Known constraints (see PYEGERIA_ISSUES.md):
     conditions are present → keep every query to 0 or 1 classification.
 """
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any, Optional
@@ -460,7 +461,9 @@ def get_summary(
     # ReportSubject relationship page + two counts. Needs the relationships client.
     survey: dict = {"surveyedAssets": None, "dataStoreTotal": None, "surveyedStores": None,
                     "neverSurveyedStores": None, "surveyReports": None, "surveyLinksCapped": None,
-                    "qualityAnnotatedAssets": None, "annotationsByType": None}
+                    "qualityAnnotatedAssets": None, "annotationsByType": None,
+                    "surveysCompleted": None, "surveysFailed": None, "surveysUnknown": None,
+                    "assetsSurveyFailedOnly": None}
     if ce is not None:
         try:
             survey = _survey_coverage(mgr, ce, as_of_time, asset_total)
@@ -498,6 +501,10 @@ def get_summary(
         "orphanTermCount":    orphan_terms["orphanCount"],   # SemanticAssignment-unreferenced GlossaryTerms
         "orphanTermTotal":    orphan_terms["termTotal"],
         "surveyedAssets":     survey["surveyedAssets"],
+        "surveysCompleted":   survey["surveysCompleted"],
+        "surveysFailed":      survey["surveysFailed"],
+        "surveysUnknown":     survey["surveysUnknown"],
+        "assetsSurveyFailedOnly": survey["assetsSurveyFailedOnly"],
         "qualityAnnotatedAssets": survey["qualityAnnotatedAssets"],
         "annotationsByType":  survey["annotationsByType"],
         "assetsWithSchema":   schema["assetsWithSchema"],
@@ -608,69 +615,174 @@ def _guid_of(el: dict) -> Optional[str]:
     return el.get("elementGUID") or (el.get("elementHeader") or {}).get("guid") or el.get("guid")
 
 
+_REL_PAGE_SIZE = 1000   # one relationship page
+_REL_MAX_PAGES = 10     # read at most this many pages; beyond that the result is a lower bound
+
+
+def _relationship_rows(ce, relationship_type: str, as_of: Optional[str] = None):
+    """Every link of one relationship type, read in pages. Returns (rows, capped), or (None, None) if
+    any page failed (partial rows are discarded: a half-read list must not pass for the whole).
+
+    Egeria's paging contract: a short page is NOT the last page, only an empty page is, so this keeps
+    reading until it gets one. If _REL_MAX_PAGES full pages are read without reaching an empty page the
+    rows are a lower bound and capped=True, so callers can withhold figures a lower bound would corrupt.
+    This matters for ReportedAnnotation: Egeria 6.2 reuses survey annotations (one annotation can be
+    reported by many reports), and every report links every annotation it reports, so the link count
+    grows with each survey even when no new annotation is created.
+    """
+    rows: list = []
+    try:
+        body = {"class": "ResultsRequestBody", "asOfTime": as_of} if as_of else None
+        for page in range(_REL_MAX_PAGES):
+            raw = ce.get_relationships(relationship_type=relationship_type, output_format="JSON",
+                                       start_from=page * _REL_PAGE_SIZE, page_size=_REL_PAGE_SIZE, body=body)
+            chunk = raw if isinstance(raw, list) else ((raw or {}).get("elements") or [] if isinstance(raw, dict) else [])
+            if not chunk:
+                return rows, False
+            rows.extend(chunk)
+        return rows, True
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview {relationship_type} relationship read failed: {exc}")
+        return None, None
+
+
+def _survey_outcome(props: dict) -> str:
+    """Classify one SurveyReport as 'completed', 'failed' or 'unknown' from its own properties.
+
+    Two kinds of report exist on the platform and record the outcome differently:
+      * engine-run surveys ("Survey Report for <asset guid>") carry a completionMessage whose id says
+        what happened: OMES-SURVEY-ACTION-0019 "has completed the analysis ..." or
+        OMES-SURVEY-ACTION-0018 "... threw a ... exception". A failed survey still writes a report
+        (and whatever findings it got to) before it throws, so a report existing proves nothing.
+      * reports created by other tools ("Survey: <name>") carry error_count in additionalProperties:
+        0 is a clean run, more is a run that hit errors.
+    Anything else is 'unknown': it is never counted as a success.
+    """
+    msg = props.get("completionMessage") or ""
+    if msg:
+        if msg.startswith("OMES-SURVEY-ACTION-0019") or "has completed the analysis" in msg:
+            return "completed"
+        if msg.startswith("OMES-SURVEY-ACTION-0018") or " threw " in msg:
+            return "failed"
+        return "unknown"
+    m = re.search(r"error_count=(\d+)", props.get("additionalProperties") or "")
+    if m:
+        return "completed" if int(m.group(1)) == 0 else "failed"
+    return "unknown"
+
+
+def _survey_outcomes(mgr, as_of: Optional[str] = None):
+    """{SurveyReport guid: outcome} from one bounded find, or None if it failed (an unclassifiable
+    report must not be assumed successful)."""
+    try:
+        body = {"class": "FindRequestBody", "metadataElementTypeName": "SurveyReport",
+                "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0, "startFrom": 0,
+                "pageSize": _SURVEY_LINK_CAP}
+        if as_of:
+            body["asOfTime"] = as_of
+        found = mgr.find_metadata_elements(body)
+        found = [e for e in (found if isinstance(found, list) else []) if isinstance(e, dict)]
+        out = {}
+        for e in found:
+            g = _guid_of(e)
+            if g:
+                props = ((e.get("elementProperties") or {}).get("propertiesAsStrings")) or {}
+                out[g] = _survey_outcome(props)
+        return out
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview survey outcomes failed: {exc}")
+        return None
+
+
 def _survey_coverage(mgr, ce, as_of: Optional[str] = None, asset_total: Optional[int] = None) -> dict:
-    """How much of the catalog has ever been surveyed.
+    """How much of the catalog has been successfully surveyed, and how many surveys failed.
 
     A SurveyReport is linked to the asset it describes by a ReportSubject relationship
     (AssetSurveyReport, the older name, has none on the live platform). ReportSubject also
     links ConnectorActivityReports to their connectors, so only links whose report end is a
-    SurveyReport count. Everything comes from two bounded calls, never a per-asset fan-out:
-    one ReportSubject page, and one find of the DataStore guids to intersect with.
+    SurveyReport count. Everything comes from a few bounded calls, never a per-asset fan-out:
+    the SurveyReports (for their outcome), one ReportSubject page, one ReportedAnnotation page,
+    and one find of the DataStore guids to intersect with.
 
-      surveyedAssets      distinct subjects of SurveyReport links (any Asset type)
-      surveyedStores      those that are DataStores
-      neverSurveyedStores DataStore total - surveyedStores
+    Coverage counts COMPLETED surveys only (see _survey_outcome): a survey that failed still wrote a
+    report and partial findings, and must not make an asset look surveyed.
+
+      surveyedAssets       distinct subjects of completed SurveyReports (any Asset type)
+      surveyedStores       those that are DataStores
+      neverSurveyedStores  DataStore total - surveyedStores
+      surveysCompleted / surveysFailed / surveysUnknown   report counts by outcome
+      assetsSurveyFailedOnly   subjects that have failed surveys and no completed one
+      qualityAnnotatedAssets / annotationsByType / schemaAnalysedGuids   from completed surveys only
 
     Every field is None when its own step failed, never 0: a failed query must not read as
-    "nothing surveyed". neverSurveyedStores is also None when either page hit its cap, since
-    a capped page can only under-count what was surveyed.
+    "nothing surveyed". neverSurveyedStores is also None when a page hit its cap, since a capped
+    page can only under-count what was surveyed.
     """
     out = {"assetTotal": asset_total, "surveyedAssets": None, "surveyReports": None,
            "dataStoreTotal": None, "surveyedStores": None, "neverSurveyedStores": None,
            "surveyLinksCapped": None, "qualityAnnotatedAssets": None, "annotationsByType": None,
-           "schemaAnalysedGuids": None}
+           "schemaAnalysedGuids": None, "surveysCompleted": None, "surveysFailed": None,
+           "surveysUnknown": None, "assetsSurveyFailedOnly": None}
     try:
         out["surveyReports"] = count_elements(mgr, "SurveyReport", as_of)
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview survey coverage: SurveyReport count failed: {exc}")
 
-    subjects = None
+    outcomes = _survey_outcomes(mgr, as_of)
+    if outcomes is not None:
+        vals = list(outcomes.values())
+        out["surveysCompleted"] = vals.count("completed")
+        out["surveysFailed"] = vals.count("failed")
+        out["surveysUnknown"] = vals.count("unknown")
+
+    subjects = None            # subjects of COMPLETED reports
+    failed_only = None
     links_capped = None
     subject_of_report: dict = {}   # SurveyReport guid -> the asset it describes
-    try:
-        body = {"class": "ResultsRequestBody", "asOfTime": as_of} if as_of else None
-        raw = ce.get_relationships(relationship_type="ReportSubject", output_format="JSON",
-                                   start_from=0, page_size=_SURVEY_LINK_CAP, body=body)
-        rels = raw if isinstance(raw, list) else ((raw or {}).get("elements") or [] if isinstance(raw, dict) else [])
-        subjects = set()
-        for r in rels:
-            if not isinstance(r, dict):
-                continue
-            e1, e2 = r.get("end1") or {}, r.get("end2") or {}
-            if "SurveyReport" in _type_names(e1):
-                subject = e2
-            elif "SurveyReport" in _type_names(e2):
-                subject = e1
-            else:
-                continue          # e.g. a ConnectorActivityReport link
-            if subject.get("guid"):
-                subjects.add(subject["guid"])
-                report_end = e1 if subject is e2 else e2
-                if report_end.get("guid"):
-                    subject_of_report[report_end["guid"]] = subject["guid"]
-        links_capped = len(rels) >= _SURVEY_LINK_CAP
-        out["surveyedAssets"] = len(subjects)
-        out["surveyLinksCapped"] = links_capped
-    except Exception as exc:  # noqa: BLE001
-        logger.debug(f"overview survey coverage: ReportSubject query failed: {exc}")
+    if outcomes is not None:
+        try:
+            rels, rels_capped = _relationship_rows(ce, "ReportSubject", as_of)
+            if rels is None:
+                raise RuntimeError("ReportSubject links could not be read")
+            subjects, with_failure = set(), set()
+            for r in rels:
+                if not isinstance(r, dict):
+                    continue
+                e1, e2 = r.get("end1") or {}, r.get("end2") or {}
+                if "SurveyReport" in _type_names(e1):
+                    subject, report_end = e2, e1
+                elif "SurveyReport" in _type_names(e2):
+                    subject, report_end = e1, e2
+                else:
+                    continue          # e.g. a ConnectorActivityReport link
+                sg, rg = subject.get("guid"), report_end.get("guid")
+                if not sg or not rg:
+                    continue
+                outcome = outcomes.get(rg, "unknown")
+                if outcome == "completed":
+                    subjects.add(sg)
+                    subject_of_report[rg] = sg
+                elif outcome == "failed":
+                    with_failure.add(sg)
+            failed_only = with_failure - subjects
+            links_capped = rels_capped
+            out["surveyedAssets"] = len(subjects)
+            out["assetsSurveyFailedOnly"] = len(failed_only)
+            out["surveyLinksCapped"] = links_capped
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"overview survey coverage: ReportSubject query failed: {exc}")
+            subjects = None
 
-    # Annotations the surveys produced: ReportedAnnotation links a SurveyReport to each Annotation.
-    # "Has quality annotations" = survey subjects whose report carries at least one QualityAnnotation.
+    # Annotations the COMPLETED surveys produced: ReportedAnnotation links a SurveyReport to each
+    # Annotation. "Has quality annotations" = survey subjects whose report carries at least one
+    # QualityAnnotation.
     if subjects is not None:
         try:
-            araw = ce.get_relationships(relationship_type="ReportedAnnotation", output_format="JSON",
-                                        start_from=0, page_size=_SURVEY_LINK_CAP, body=None)
-            arels = araw if isinstance(araw, list) else ((araw or {}).get("elements") or [] if isinstance(araw, dict) else [])
+            arels, a_capped = _relationship_rows(ce, "ReportedAnnotation", as_of)
+            if arels is None:
+                raise RuntimeError("ReportedAnnotation links could not be read")
+            # Distinct annotations per type: with annotation reuse (Egeria 6.2) the same annotation is linked
+            # from every report that found it, so counting links would count it once per report.
             by_type: dict = {}
             quality_reports: set = set()
             schema_reports: set = set()
@@ -684,14 +796,16 @@ def _survey_coverage(mgr, ce, as_of: Optional[str] = None, asset_total: Optional
                     rep_end, ann = e2, e1
                 else:
                     continue
+                if rep_end.get("guid") not in subject_of_report:
+                    continue          # a failed / unknown survey's partial findings do not count
                 tname = ((ann.get("type") or {}).get("typeName")) or "Annotation"
-                by_type[tname] = by_type.get(tname, 0) + 1
+                by_type.setdefault(tname, set()).add(ann.get("guid") or id(ann))
                 if "QualityAnnotation" in _type_names(ann) and rep_end.get("guid"):
                     quality_reports.add(rep_end["guid"])
                 if "SchemaAnalysisAnnotation" in _type_names(ann) and rep_end.get("guid"):
                     schema_reports.add(rep_end["guid"])
-            if len(arels) < _SURVEY_LINK_CAP:
-                out["annotationsByType"] = by_type
+            if not a_capped:
+                out["annotationsByType"] = {t: len(g) for t, g in by_type.items()}
                 out["qualityAnnotatedAssets"] = len({subject_of_report[g] for g in quality_reports if g in subject_of_report})
                 out["schemaAnalysedGuids"] = sorted({subject_of_report[g] for g in schema_reports if g in subject_of_report})
         except Exception as exc:  # noqa: BLE001
