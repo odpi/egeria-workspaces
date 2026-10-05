@@ -12,6 +12,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Lineage Explorer</title>
+  <script src="/static/app-bar.js?v=2026-10-05a"></script>
   <script src="/static/bootstrap-banner.js?v=2026-08-18a"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -30,6 +31,16 @@
       --red:     #f87171;
       --purple:  #a78bfa;
     }
+    /* ── Light theme (shared toggle in the app bar; mirrors type-explorer.html) ── */
+    :root.light {
+      --bg: #f8fafc; --panel: #ffffff; --card: #f1f5f9; --hover: #e2e8f0;
+      --border: #cbd5e1; --text: #1e293b; --muted: #475569; --dim: #64748b;
+      --accent: #2563eb; --green: #059669; --amber: #d97706; --red: #dc2626; --purple: #7c3aed;
+    }
+    :root.light .search-input { background: var(--hover); }
+    :root.light .search-dropdown { box-shadow: 0 8px 24px rgba(15,23,42,.15); }
+    :root.light .result-item { border-bottom-color: var(--border); }
+    :root.light td { border-bottom-color: var(--border); }
     body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif;
            font-size: 14px; height: 100vh; overflow: hidden; }
     ::-webkit-scrollbar { width: 4px; height: 4px; }
@@ -487,7 +498,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
      ones in the same global scope). -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
 <script>window.EGERIA_FOR_LINEAGE = true;</script>
-<script src="/static/egeria-shared-ui.js?v=2026-10-01c"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-10-05a"></script>
 
 </head>
 <body>
@@ -1168,7 +1179,7 @@ function MainPanel({ focusAsset, creds, onSetFocus, activePersona, favPersonaId 
 function App() {
   var _creds      = useState(null),  creds      = _creds[0],      setCreds      = _creds[1];
   var _srvMgd     = useState(false), srvManaged = _srvMgd[0],     setSrvManaged = _srvMgd[1];
-  var _demoMode   = useState(false), demoMode   = _demoMode[0];
+  var _demoMode   = useState(false), demoMode   = _demoMode[0],   setDemoMode   = _demoMode[1];
   var _ready      = useState(false), ready      = _ready[0],      setReady      = _ready[1];
   var _authUser   = useState(null),  authUser   = _authUser[0],   setAuthUser   = _authUser[1];
   var _activePersona = useState(function() {
@@ -1185,7 +1196,7 @@ function App() {
   useEffect(function() {
     fetch('/api/auth/me').then(function(r) { return r.json(); }).then(function(d) {
       setSrvManaged(!!d.server_managed_auth);
-      if (d.demo_mode) { /* demoMode handled below */ }
+      setDemoMode(!!d.demo_mode);
 
       if (d.server_managed_auth) {
         if (d.authenticated && d.id) {
@@ -1277,23 +1288,11 @@ function App() {
   if (!ready) return null;
 
   return React.createElement('div', { id: 'root' },
-    // Nav bar
-    React.createElement('div', { className: 'nav' },
-      React.createElement('span', { style: { fontSize: 18 } }, '🔗'),
-      React.createElement('span', { className: 'nav-title' }, 'Lineage Explorer'),
-      creds !== null && React.createElement(NavSearch, { onSelect: handleSetFocus, creds: creds }),
-      React.createElement('div', { style: { flex: 1 } }),
-      activePersona
-        ? React.createElement(React.Fragment, null,
-            React.createElement('span', { style: { fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' } }, '🎭 ' + (activePersona.display_name || activePersona.id)),
-            React.createElement('a', { href: '/portal', style: { fontSize: 11, color: 'var(--accent)', textDecoration: 'none', marginLeft: 8, whiteSpace: 'nowrap' } }, 'Portal')
-          )
-        : authUser
-          ? React.createElement(React.Fragment, null,
-              React.createElement('span', { style: { fontSize: 11, color: 'var(--green)', whiteSpace: 'nowrap' } }, '👤 ' + (authUser.displayName || authUser.userId)),
-              React.createElement('a', { href: '/portal', style: { fontSize: 11, color: 'var(--muted)', textDecoration: 'none', marginLeft: 8, whiteSpace: 'nowrap' } }, 'Portal')
-            )
-          : React.createElement('a', { href: '/portal', style: { fontSize: 11, color: 'var(--accent)', textDecoration: 'none', whiteSpace: 'nowrap' } }, '🎭 Choose persona')
+    // Shared app bar (static/app-bar.js + AppHeader in egeria-shared-ui.js)
+    React.createElement(AppHeader, { icon: '🔗', title: 'Lineage Explorer',
+      onTitleClick: function() { setFocusAsset(null); setSelected(null); history.pushState({}, '', location.pathname); },
+      identity: appBarIdentity({ activePersona: activePersona, authUser: authUser, srvManaged: srvManaged }) },
+      creds !== null && React.createElement(NavSearch, { onSelect: handleSetFocus, creds: creds })
     ),
 
     // Full-width main content
@@ -1306,7 +1305,9 @@ function App() {
             React.createElement('div', { className: 'welcome-text' }, 'Lineage Explorer'),
             React.createElement('div', { className: 'welcome-hint' }, 'Search for an asset using the bar above to explore its data lineage.')
           )
-    )
+    ),
+    React.createElement(FeedbackButton, { section: focusAsset ? 'asset' : 'main', persona: activePersona ? activePersona.id : (authUser ? authUser.userId : null),
+      demoMode: demoMode, srvManaged: srvManaged, pagePrefix: 'lineage/' })
   );
 }
 

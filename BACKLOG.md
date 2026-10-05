@@ -9,6 +9,34 @@ what's actually open — a stub with a link is left in place of each moved
 section. Sections with any open/pending sub-items stay here even if their
 header says "done", since part of the work is still live.
 ---
+## Consistent app bar across portal apps (2026-10-05) — core ✅, follow-ups open
+
+The back-to-Portal link was hand-rolled per page: top-left on some, top-right
+on others, shown only once a persona was chosen on Catalog/Explorer/Lineage,
+missing on Governance Metrics, Demo Admin and the docs viewer. Theme toggles
+existed only on Explorer and Data Mesh (only Data Mesh remembered the choice),
+and identity badges had three looks in three positions.
+
+Now one bar everywhere (`static/app-bar.js` for plain-JS pages,
+`AppHeader` in `static/egeria-shared-ui.js` for the React SPAs):
+`[⌂ Portal] | icon Title subtitle | page controls … | extras · Promise/Memento · identity · theme`.
+Portal link unconditional; one `egeria-theme` key + `:root.light` palettes on
+every page (the Portal keeps its own header but has the toggle); Feedback floats
+bottom-right on every app (Lineage, Data Mesh, Local Dashboards, Governance
+Metrics and docs gained it); the forLineage toggle moved into the bar (it used
+to overlap Feedback). Guarded by `tests/test_app_bar_consistency.py`.
+Both environments; freshstart only static-checked (not running at the time).
+
+Follow-ups:
+- my-egeria (Textual TUI, ships in pyegeria) has no way back to the Portal
+  except its own tab — needs a key binding / header link in egeria-python.
+- Explorer's vega charts still render with the dark config in light mode.
+- Data Mesh graph colours are tuned for dark; readable in light but untuned.
+- Pre-login pages (login/register/reset/privacy) stay dark-only by design.
+- Pre-existing: Overview loads egeria-shared-ui.js without React, so its
+  `React.createContext` line throws at load (harmless, but noisy).
+
+---
 ## Mirror egeria-freshstart from egeria-quickstart (2026-09-14) — open
 
 `egeria-freshstart/PyegeriaWebHandler` was already out of sync with

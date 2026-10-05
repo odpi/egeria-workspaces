@@ -7,6 +7,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Egeria Overview · Coco Pharmaceuticals</title>
+<script src="/static/app-bar.js?v=2026-10-05a"></script>
 <script src="/static/bootstrap-banner.js?v=2026-08-18a"></script>
 <style>
   :root {
@@ -16,18 +17,18 @@
     --c1:#2dd4bf; --c2:#4f9cf9; --c3:#a78bfa; --c4:#f5b74e; --c5:#e94560; --c6:#6ee7b7; --c7:#f472b6;
     --grid:rgba(255,255,255,.06); --axis:#5b6376;
   }
+  :root.light {
+    --bg:#f5f6fa; --card:#ffffff; --card2:#eef1f7; --border:#d3d9e6;
+    --accent:#d23353; --text:#1f2333; --muted:#5b6376; --green:#2e7d32;
+    --c1:#0d9488; --c2:#2563eb; --c3:#7c3aed; --c4:#d97706; --c5:#d23353; --c6:#059669; --c7:#db2777;
+    --grid:rgba(0,0,0,.07); --axis:#8a91a3; --ring:#e3e7f0;
+  }
+  :root.light .sev-hi, :root.light .pill-hi { color:#b4233f; }
+  :root.light .persp-tabs button.on, :root.light .topic-tabs button.on { color:#fff; }
   * { box-sizing:border-box; margin:0; padding:0; }
   body { background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,sans-serif; min-height:100vh; }
   a { color:inherit; }
 
-  /* header — matches portal shell */
-  .hdr { background:var(--card); border-bottom:1px solid var(--border); padding:10px 24px; display:flex; align-items:center; gap:14px; position:sticky; top:0; z-index:10; }
-  .hdr .logo { font-size:1.3rem; }
-  .hdr-title { font-size:1rem; font-weight:700; }
-  .hdr-sub { font-size:.72rem; color:var(--muted); }
-  .hdr-right { margin-left:auto; display:flex; align-items:center; gap:10px; }
-  .chip { background:var(--border); border-radius:20px; padding:5px 13px; font-size:.78rem; display:inline-flex; gap:7px; align-items:center; }
-  .chip .role { color:var(--muted); font-size:.7rem; }
   .range-wrap { display:inline-flex; align-items:center; gap:5px; font-size:.9rem; }
   .range-sel { background:var(--card); color:var(--text); border:1px solid var(--border); border-radius:7px; padding:5px 8px; font-size:.78rem; font-family:inherit; cursor:pointer; }
   .seg { display:flex; border:1px solid var(--border); border-radius:7px; overflow:hidden; }
@@ -245,41 +246,13 @@
   text { font-family:system-ui,sans-serif; }
   @media (max-width:1100px){ .kpis{grid-template-columns:repeat(3,1fr);} .g-2,.g-12{grid-template-columns:1fr;} .g-3{grid-template-columns:1fr;} }
 
-  /* feedback (matches the "Share your feedback" floating widget on other portal apps) */
-  .fb-btn { position:fixed; bottom:20px; right:20px; z-index:900; background:var(--accent); color:#fff; border:none;
-    border-radius:20px; padding:7px 15px; font-size:12px; font-weight:600; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.3);
-    letter-spacing:.02em; font-family:inherit; }
-  .fb-ovl { position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,.45); display:none; align-items:flex-end; justify-content:flex-end; padding:24px; }
-  .fb-ovl.open { display:flex; }
-  .fb-panel { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:22px 26px; width:340px; box-shadow:0 8px 32px rgba(0,0,0,.3); }
-  .fb-panel h4 { font-size:14px; font-weight:700; margin-bottom:4px; }
-  .fb-page { font-size:11px; color:var(--muted); margin-bottom:12px; }
-  .fb-page code { color:var(--text); font-family:ui-monospace,monospace; font-size:10px; }
-  .fb-stars { display:flex; gap:3px; margin-bottom:10px; }
-  .fb-stars span { font-size:26px; cursor:pointer; color:var(--muted); line-height:1; }
-  .fb-stars span.on { color:#f59e0b; }
-  .fb-inp { width:100%; box-sizing:border-box; background:var(--bg); border:1px solid var(--border); border-radius:6px;
-    padding:7px 9px; color:var(--text); font-size:12px; font-family:inherit; outline:none; margin-bottom:8px; }
-  textarea.fb-inp { resize:vertical; }
-  .fb-chk { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); margin-bottom:6px; }
-  .fb-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:8px; }
-  .fb-actions button { padding:6px 14px; border-radius:6px; font-size:12px; cursor:pointer; font-family:inherit; }
-  .fb-cancel { border:1px solid var(--border); background:transparent; color:var(--text); }
-  .fb-send { border:none; background:var(--accent); color:#fff; font-weight:600; }
-  .fb-send:disabled { opacity:.45; cursor:default; }
-  .fb-thanks { text-align:center; padding:16px 0; color:var(--accent); font-size:15px; font-weight:600; }
 </style>
 </head>
 <body>
 
-<div class="hdr">
-  <a href="/portal" class="btn" style="padding:5px 10px" title="Back to Portal">← Portal</a>
-  <span class="logo">📊</span>
-  <div>
-    <div class="hdr-title">Egeria Overview</div>
-    <div class="hdr-sub">Catalog Health &amp; Governance KPIs</div>
-  </div>
-  <div class="hdr-right">
+<header class="eg-appbar eg-sticky" data-icon="📊" data-title="Egeria Overview"
+        data-subtitle="Catalog Health &amp; Governance KPIs" data-feedback="overview">
+  <div class="eg-appbar-extras">
     <label class="range-wrap" title="Growth chart window & granularity (via Egeria asOfTime)">📈
       <select id="range-sel" class="range-sel">
         <option value="8h">8 hours</option>
@@ -292,10 +265,9 @@
         <option value="1y">1 year</option>
       </select>
     </label>
-    <span class="chip" id="user-chip" style="display:none"></span>
     <button class="btn">⤓ Export</button>
   </div>
-</div>
+</header>
 
 <div class="wrap">
 
@@ -748,42 +720,12 @@
   <div class="db" id="d-body"></div>
 </aside>
 
-<!-- ── FEEDBACK ── -->
-<button class="fb-btn" id="fb-open" title="Share your feedback">💬 Feedback</button>
-<div class="fb-ovl" id="fb-ovl">
-  <div class="fb-panel">
-    <div id="fb-form">
-      <h4>Share your feedback</h4>
-      <div class="fb-page">Page: <code>overview</code></div>
-      <div class="fb-stars" id="fb-stars">
-        <span data-n="1">☆</span><span data-n="2">☆</span><span data-n="3">☆</span><span data-n="4">☆</span><span data-n="5">☆</span>
-      </div>
-      <select class="fb-inp" id="fb-category">
-        <option value="">Category (optional)</option>
-        <option value="bug">Bug</option>
-        <option value="confusing">Confusing</option>
-        <option value="suggestion">Suggestion</option>
-        <option value="praise">Praise</option>
-      </select>
-      <textarea class="fb-inp" id="fb-comment" rows="3" placeholder="What's on your mind?"></textarea>
-      <input class="fb-inp" id="fb-email" type="email" placeholder="Email for follow-up (optional)">
-      <label class="fb-chk"><input type="checkbox" id="fb-wants"> I'd like a response</label>
-      <label class="fb-chk"><input type="checkbox" id="fb-consent"> OK to contact me about this feedback</label>
-      <div class="fb-actions">
-        <button class="fb-cancel" id="fb-cancel">Cancel</button>
-        <button class="fb-send" id="fb-send" disabled>Send</button>
-      </div>
-    </div>
-    <div class="fb-thanks" id="fb-thanks" style="display:none">✓ Thank you for your feedback!</div>
-  </div>
-</div>
-
 <!-- Shared portal helpers: egeriaFetch (adds creds + auto 401-refresh), crossAppNavigate -->
 <!-- Bump ?v= whenever egeria-shared-ui.js changes — /static is served with
      Cache-Control: no-cache, but a fresh URL guarantees revalidation for
      browsers that cached the file before that header existed. -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
-<script src="/static/egeria-shared-ui.js?v=2026-10-01c"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-10-05a"></script>
 <!-- Vega-Lite chart rendering (NEXT-10 P1) — same CDN trio pyegeria's own
      vega_to_html() assumes. Backend sends ready Vega-Lite specs; renderVega()
      below just embeds them. -->
@@ -791,85 +733,6 @@
 <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
 <script>
-// ---- Feedback widget (vanilla — this dashboard has no React runtime) ----
-// Same /api/demo-feedback contract & field shape as the shared React FeedbackButton
-// (egeria-shared-ui.js), so entries from this app land in the same feedback store.
-(function(){
-  var SESSION_ID = (function(){
-    try {
-      var id = sessionStorage.getItem('_egeria_session_id');
-      if (!id) { id = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).substr(2)); sessionStorage.setItem('_egeria_session_id', id); }
-      return id;
-    } catch(e) { return 'anon-' + Date.now(); }
-  })();
-  var rating = 0, hover = 0;
-  var ovl = document.getElementById('fb-ovl'), openBtn = document.getElementById('fb-open'),
-      cancelBtn = document.getElementById('fb-cancel'), sendBtn = document.getElementById('fb-send'),
-      form = document.getElementById('fb-form'), thanks = document.getElementById('fb-thanks'),
-      stars = document.getElementById('fb-stars'), comment = document.getElementById('fb-comment'),
-      email = document.getElementById('fb-email'), category = document.getElementById('fb-category'),
-      wants = document.getElementById('fb-wants'), consent = document.getElementById('fb-consent');
-
-  function paintStars(){
-    var n = hover || rating;
-    Array.prototype.forEach.call(stars.children, function(s){
-      var on = Number(s.dataset.n) <= n;
-      s.textContent = on ? '★' : '☆';
-      s.classList.toggle('on', on);
-    });
-  }
-  Array.prototype.forEach.call(stars.children, function(s){
-    s.addEventListener('click', function(){ rating = Number(s.dataset.n); paintStars(); updateSendState(); });
-    s.addEventListener('mouseenter', function(){ hover = Number(s.dataset.n); paintStars(); });
-    s.addEventListener('mouseleave', function(){ hover = 0; paintStars(); });
-  });
-
-  function updateSendState(){ sendBtn.disabled = !(rating > 0 || comment.value.trim().length > 0); }
-  comment.addEventListener('input', updateSendState);
-
-  function reset(){
-    rating = 0; hover = 0; paintStars();
-    comment.value = ''; email.value = ''; category.value = '';
-    wants.checked = false; consent.checked = false;
-    updateSendState();
-    form.style.display = ''; thanks.style.display = 'none';
-  }
-  function open(){ ovl.classList.add('open'); }
-  function close(){ ovl.classList.remove('open'); reset(); }
-
-  openBtn.addEventListener('click', open);
-  cancelBtn.addEventListener('click', close);
-  ovl.addEventListener('click', function(e){ if (e.target === ovl) close(); });
-
-  sendBtn.addEventListener('click', function(){
-    if (sendBtn.disabled) return;
-    sendBtn.disabled = true; sendBtn.textContent = 'Sending…';
-    fetch('/api/demo-feedback', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        session_id: SESSION_ID,
-        page: 'overview',
-        rating: rating || null,
-        category: category.value || null,
-        message: comment.value.trim() || null,
-        email: email.value.trim() || null,
-        wants_response: wants.checked,
-        consent_to_contact: consent.checked,
-        persona: (window.CURRENT_USER || null),
-        env: 'freshstart-demo',
-        viewport: window.innerWidth + 'x' + window.innerHeight,
-        locale: navigator.language || null,
-      }),
-    }).then(function(){
-      form.style.display = 'none'; thanks.style.display = '';
-      setTimeout(close, 2000);
-    }).catch(function(){
-      updateSendState();
-    }).finally(function(){
-      sendBtn.textContent = 'Send';
-    });
-  });
-})();
 </script>
 <script>
 // ---- Catalog growth (dual-axis) — sample by default, live series when available ----
@@ -932,8 +795,8 @@ renderGrowth();
 function renderDonut(fully, partial, ungoverned){
   const svg=document.getElementById('donut');
   if (!svg) return;
-  if (!(fully||partial||ungoverned)) { svg.innerHTML='<circle cx="75" cy="75" r="58" fill="none" stroke="#243456" stroke-width="20"/>'; return; }
-  const data=[['var(--c6)',fully],['var(--c4)',partial],['#243456',ungoverned]];
+  if (!(fully||partial||ungoverned)) { svg.innerHTML='<circle cx="75" cy="75" r="58" fill="none" stroke="var(--ring,#243456)" stroke-width="20"/>'; return; }
+  const data=[['var(--c6)',fully],['var(--c4)',partial],['var(--ring,#243456)',ungoverned]];
   const total=data.reduce((a,b)=>a+b[1],0) || 1;
   const cx=75,cy=75,r=58,sw=20; let a=-Math.PI/2,g='';
   data.forEach(([col,v])=>{
@@ -956,9 +819,9 @@ renderDonut(0, 0, 0);   // empty ring until live data arrives
 // Known gap: Vega bars don't carry the per-bar "click to drill" affordance
 // hbars() rows have (tooltips-on-hover partially compensate); see NEXT-10 P1
 // follow-up notes in OVERVIEW_REPORTING_MODEL.md.
-// Dark-theme config merged onto every spec so charts match the dashboard
-// instead of rendering in Vega-Lite's white-background default. Only fills in
-// keys the backend spec didn't already set.
+// Theme config merged onto every spec so charts match the dashboard (light or
+// dark, per the app-bar toggle) instead of rendering in Vega-Lite's default.
+// Only fills in keys the backend spec didn't already set.
 var VEGA_DARK_CONFIG = {
   background: 'transparent',
   title:  { color: '#e0e0e0' },
@@ -966,10 +829,24 @@ var VEGA_DARK_CONFIG = {
   legend: { labelColor: '#8b93a7', titleColor: '#8b93a7' },
   view:   { stroke: 'transparent' },
 };
+var VEGA_LIGHT_CONFIG = {
+  background: 'transparent',
+  title:  { color: '#1f2333' },
+  axis:   { labelColor: '#5b6376', titleColor: '#5b6376', gridColor: 'rgba(0,0,0,.08)', domainColor: 'rgba(0,0,0,.25)', tickColor: 'rgba(0,0,0,.25)' },
+  legend: { labelColor: '#5b6376', titleColor: '#5b6376' },
+  view:   { stroke: 'transparent' },
+};
+// Last spec drawn into each chart element, so a theme flip re-draws without re-fetching.
+var _vegaSpecs = {};
+window.addEventListener('egeria-theme-change', function(){
+  Object.keys(_vegaSpecs).forEach(function(id){ renderVega(id, _vegaSpecs[id]); });
+});
 function renderVega(id, spec){
   if (!spec || typeof window.vegaEmbed !== 'function') return false;
   var el = document.getElementById(id); if (!el) return false;
-  var themed = Object.assign({}, spec, { config: Object.assign({}, VEGA_DARK_CONFIG, spec.config || {}) });
+  _vegaSpecs[id] = spec;
+  var light = document.documentElement.classList.contains('light');
+  var themed = Object.assign({}, spec, { config: Object.assign({}, light ? VEGA_LIGHT_CONFIG : VEGA_DARK_CONFIG, spec.config || {}) });
   window.vegaEmbed('#' + id, themed, { actions: false, renderer: 'svg' })
     .catch(function(err){ console.error('renderVega failed for #' + id, err); });
   return true;
@@ -1926,16 +1803,13 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
       desc.textContent = parts.length ? parts.join(' · ') : 'Not measured: the survey queries did not return a complete answer';
     }
   }
-  // Header chip: who the data is queried as. Hidden when that is unknown (the server's default account).
+  // App-bar identity: who the data is queried as. When that is unknown (the server's default
+  // account) the bar keeps its own default badge ("Choose persona" / signed-in user).
   function renderUserChip(creds){
-    var chip = document.getElementById('user-chip'); if (!chip) return;
-    var name = creds && ((creds.persona && creds.persona.display_name) || creds.displayName || creds.userId);
-    chip.textContent = '';
-    if (!name) { chip.style.display = 'none'; return; }
-    chip.appendChild(document.createTextNode(name));
-    var role = creds.persona && creds.persona.coco_title;
-    if (role) { var r = document.createElement('span'); r.className = 'role'; r.textContent = ' · ' + role; chip.appendChild(r); }
-    chip.style.display = '';
+    if (!window.EgeriaAppBar || !creds) return;
+    if (creds.persona) { EgeriaAppBar.setIdentity(EgeriaAppBar.identityFor({ activePersona: creds.persona })); return; }
+    var name = creds.displayName || creds.userId;
+    if (name) EgeriaAppBar.setIdentity({ kind: 'user', label: name, title: 'Data queried as ' + (creds.userId || name) });
   }
   // "Certifications Expiring Soon": the soonest renewals within 90 days, from the summary payload.
   function renderCertsSoon(d){

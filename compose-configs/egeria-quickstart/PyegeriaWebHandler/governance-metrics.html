@@ -7,6 +7,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Governance Metrics · Egeria</title>
+<script src="/static/app-bar.js?v=2026-10-05a"></script>
 <script src="/static/bootstrap-banner.js?v=2026-08-18a"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 <style>
@@ -14,14 +15,15 @@
     --bg:#1a1a2e; --card:#16213e; --card2:#12203c; --border:#0f3460;
     --accent:#e94560; --text:#e0e0e0; --muted:#8b93a7; --green:#4caf50; --amber:#f5b74e;
   }
+  :root.light {
+    --bg:#f5f6fa; --card:#ffffff; --card2:#eef1f7; --border:#d3d9e6;
+    --accent:#d23353; --text:#1f2333; --muted:#5b6376; --green:#2e7d32; --amber:#b7791f;
+  }
+  :root.light .err { color:#b4233f; }
   * { box-sizing:border-box; margin:0; padding:0; }
   body { background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,sans-serif; min-height:100vh; }
   a { color:inherit; }
 
-  .hdr { background:var(--card); border-bottom:1px solid var(--border); padding:10px 24px; display:flex; align-items:center; gap:14px; position:sticky; top:0; z-index:10; }
-  .hdr .logo { font-size:1.3rem; }
-  .hdr-title { font-size:1rem; font-weight:700; }
-  .hdr-sub { font-size:.72rem; color:var(--muted); }
   .btn { padding:5px 12px; border-radius:6px; border:1px solid var(--border); background:transparent; color:var(--text); cursor:pointer; font-size:.78rem; font-family:inherit; text-decoration:none; display:inline-block; }
   .btn:hover { background:var(--border); }
 
@@ -64,12 +66,10 @@
 </style>
 </head>
 <body>
-<div class="hdr">
-  <span class="logo">🎯</span>
-  <div><div class="hdr-title">Governance Metrics</div><div class="hdr-sub">Real GovernanceMetric elements → GovernanceResults → Report lineage</div></div>
-  <div style="flex:1"></div>
-  <a class="btn" href="/egeria-overview">← Overview Dashboard</a>
-</div>
+<header class="eg-appbar eg-sticky" data-icon="🎯" data-title="Governance Metrics"
+        data-subtitle="GovernanceMetric → GovernanceResults → Report lineage" data-feedback="governance-metrics">
+  <div class="eg-appbar-extras"><a class="btn" href="/egeria-overview">📊 Overview Dashboard</a></div>
+</header>
 <div class="wrap" id="app">
   <div class="loading">Loading…</div>
 </div>
@@ -95,6 +95,7 @@ function route(){
   }
 }
 window.addEventListener('hashchange', route);
+window.addEventListener('egeria-theme-change', route);   // re-render diagrams in the new palette
 
 function renderList(){
   var app = document.getElementById('app');
@@ -176,8 +177,11 @@ function buildFlowMermaid(m){
   lines.push('  GM["GovernanceMetric: ' + (m.name || '').replace(/"/g, "'") + '"]');
   lines.push('  DS -.-> FN -.-> RPT');
   lines.push('  RPT ==>|GovernanceResults| GM');
-  lines.push('  classDef real fill:#16213e,stroke:#4caf50,color:#e0e0e0;');
-  lines.push('  classDef conceptual fill:#12203c,stroke:#8b93a7,stroke-dasharray:3 3,color:#8b93a7;');
+  var light = document.documentElement.classList.contains('light');
+  lines.push(light ? '  classDef real fill:#ffffff,stroke:#2e7d32,color:#1f2333;'
+                   : '  classDef real fill:#16213e,stroke:#4caf50,color:#e0e0e0;');
+  lines.push(light ? '  classDef conceptual fill:#eef1f7,stroke:#5b6376,stroke-dasharray:3 3,color:#5b6376;'
+                   : '  classDef conceptual fill:#12203c,stroke:#8b93a7,stroke-dasharray:3 3,color:#8b93a7;');
   lines.push('  class RPT,GM real;');
   lines.push('  class DS,FN conceptual;');
   return lines.join('\n');
@@ -188,7 +192,7 @@ function renderMermaidBlock(id, code){
     if (!(window.mermaid && window.mermaid.render)) { setTimeout(tryRender, 150); return; }
     var el = document.getElementById(id);
     if (!el) return;
-    try { window.mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' }); } catch (e) {}
+    try { window.mermaid.initialize({ startOnLoad: false, theme: document.documentElement.classList.contains('light') ? 'default' : 'dark', securityLevel: 'loose' }); } catch (e) {}
     window.mermaid.render(id + '-svg', code)
       .then(function(res){ var el2 = document.getElementById(id); if (el2) el2.innerHTML = res.svg || ''; })
       .catch(function(err){ var el2 = document.getElementById(id); if (el2) el2.innerHTML = '<div class="p-note">⚠ Mermaid render failed: ' + esc(String(err)) + '</div>'; });

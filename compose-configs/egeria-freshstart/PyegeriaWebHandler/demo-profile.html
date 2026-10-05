@@ -6,6 +6,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>My Profile — Egeria</title>
+  <script src="/static/app-bar.js?v=2026-10-05a"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -13,12 +14,17 @@
       --accent: #6366f1; --accent-hover: #4f52d6;
       --text: #e2e4f0; --muted: #8b8fa8; --error: #f87171; --success: #34d399;
     }
+    :root.light {
+      --bg: #f5f6fa; --card: #ffffff; --border: #d6d9e6;
+      --accent: #4f46e5; --accent-hover: #4338ca; --accent-dim: #e0e7ff;
+      --text: #1f2333; --muted: #5b6376;
+      --error: #c53030; --success: #2f855a; --warn: #b7791f;
+      --trow: #f3f4f8;
+    }
+    :root.light .badge-admin { color: #4338ca; }
     body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; min-height: 100vh; }
-    .topbar { background: var(--card); border-bottom: 1px solid var(--border); padding: 0.75rem 1.5rem; display: flex; align-items: center; gap: 1rem; }
-    .topbar .title { font-size: 1rem; font-weight: 700; }
-    .topbar .spacer { flex: 1; }
-    .topbar a.btn-sm { padding: 0.3rem 0.75rem; background: transparent; color: var(--text); border: 1px solid var(--border); border-radius: 5px; font-size: 0.78rem; text-decoration: none; cursor: pointer; }
-    .topbar a.btn-sm:hover { background: var(--accent); border-color: var(--accent); }
+    .eg-appbar a.btn-sm { padding: 0.3rem 0.75rem; background: transparent; color: var(--text); border: 1px solid var(--border); border-radius: 5px; font-size: 0.78rem; text-decoration: none; cursor: pointer; }
+    .eg-appbar a.btn-sm:hover { background: var(--accent); border-color: var(--accent); }
     .content { max-width: 640px; margin: 2.5rem auto; padding: 0 1.5rem; }
     .section { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 1.5rem 1.75rem; margin-bottom: 1.5rem; }
     .section-title { font-size: 0.9rem; font-weight: 700; margin-bottom: 1.25rem; color: var(--text); }
@@ -39,15 +45,11 @@
 </head>
 <body>
 
-<div class="topbar">
-  <div>
-    <img src="/static/egeria-logo.png" alt="Egeria" style="height:22px;vertical-align:middle;margin-right:8px">
-    <span class="title">My Profile</span>
+<header class="eg-appbar" data-logo="/static/egeria-logo.png" data-title="My Profile" data-identity="none">
+  <div class="eg-appbar-extras">
+    <a href="#" class="btn-sm" onclick="doLogout()">Sign Out</a>
   </div>
-  <div class="spacer"></div>
-  <a href="/portal" class="btn-sm">← Portal</a>
-  <a href="#" class="btn-sm" onclick="doLogout()">Sign Out</a>
-</div>
+</header>
 
 <div class="content">
   <div id="profileSection" class="section">

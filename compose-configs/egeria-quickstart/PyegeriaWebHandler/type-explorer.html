@@ -15,6 +15,8 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Egeria Explorer</title>
+  <!-- Shared app bar: theme applied before first paint; CSS + state for AppHeader (egeria-shared-ui.js). -->
+  <script src="/static/app-bar.js?v=2026-10-05a"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -589,7 +591,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   <!-- Bump ?v= whenever egeria-shared-ui.js changes — see tech-catalog.html for why. -->
   <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
   <script>window.EGERIA_FOR_LINEAGE = true; window.EGERIA_FOR_LINEAGE_VISIBLE = false;  /* shown per-section by App */</script>
-  <script src="/static/egeria-shared-ui.js?v=2026-10-01c"></script>
+  <script src="/static/egeria-shared-ui.js?v=2026-10-05a"></script>
   <script>"use strict";
 
 const {
@@ -12476,7 +12478,6 @@ function App() {
   const [areaFilter, setAreaFilter] = useState('all');
   const [hideDeprecated, setHideDeprecated] = useState(false);
   const [selected, setSelected]   = useState({ kind: 'type', name: '' });
-  const [theme, setTheme]         = useState('dark');
   const [view, setView]           = useState('types'); // 'types' | 'attrs'
   const [section, setSectionRaw]  = useState(function() {
     // split('?')[0]: element favourite deep-links like /egeria-explorer?guid=X#isc
@@ -12777,10 +12778,6 @@ function App() {
     }).catch(err => { setError(err.message); setLoadState('error'); });
   }, [typeAttempt]);
 
-  // Apply theme class to document root
-  useEffect(() => {
-    document.documentElement.classList.toggle('light', theme === 'light');
-  }, [theme]);
 
   // Filter entities by selected area and (optionally) deprecation status.
   // Ancestors of a visible entity are always included in the tree via
@@ -12867,12 +12864,19 @@ function App() {
   return React.createElement(PersonaContext.Provider, { value: favPersonaId },
   /*#__PURE__*/React.createElement(CredContext.Provider, { value: creds },
   /*#__PURE__*/React.createElement(React.Fragment, null,
-    // Header
-    /*#__PURE__*/React.createElement("div", { className: "header" },
-      /*#__PURE__*/React.createElement("img", { src: "data:image/png;base64,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", alt: "Egeria", style: { height: 28, width: 'auto', borderRadius: 4 } }),
-      /*#__PURE__*/React.createElement("span", { style: { fontFamily: 'ui-monospace,monospace', fontSize: 11, color: 'var(--dim)', letterSpacing: 3, textTransform: 'uppercase' } }, "Egeria"),
-      /*#__PURE__*/React.createElement("span", { style: { width: 1, height: 14, background: 'var(--border)', display: 'inline-block' } }),
-      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'splash' ? " on" : ""), onClick: () => setSection('splash') }, "⌂ Home"),
+    // Header — shared app bar (AppHeader, egeria-shared-ui.js): ⌂ Portal | logo + title | nav | identity + theme.
+    // Non-demo: the signed-in / connected user (nothing if neither); demo: the persona or "Choose persona".
+    React.createElement(AppHeader, {
+      logo: "data:image/png;base64,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",
+      title: 'Egeria Explorer',
+      onTitleClick: () => setSection('splash'),
+      // Same precedence as every other app: chosen persona, else signed-in /
+      // connected user, else "Choose persona" (quickstart) / nothing (freshstart).
+      identity: appBarIdentity(activePersona ? { activePersona: activePersona }
+        : (authUser || (creds && creds.userId)) ? { authUser: authUser || { userId: creds.userId } }
+        : { srvManaged: srvManaged })
+    },
+      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'splash' ? " on" : ""), onClick: () => setSection('splash') }, "Home"),
       section !== 'splash' && React.createElement(React.Fragment, null,
         React.createElement(NavGroup, {
           label: 'Reference', connected: connected, currentSection: section,
@@ -12926,22 +12930,7 @@ function App() {
             { id: 'dr-egeria',        label: 'Dr. Egeria' },
           ]
         })
-      ),
-      /*#__PURE__*/React.createElement("div", { style: { flex: 1 } }),
-      /*#__PURE__*/React.createElement("button", {
-        className: "theme-btn",
-        onClick: () => setTheme(t => t === 'dark' ? 'light' : 'dark'),
-        title: theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'
-      }, theme === 'dark' ? "☀ Light" : "☾ Dark"),
-      !demoMode && (authUser || (creds && creds.userId)) && React.createElement('span', {
-        style: { fontSize: 11, color: '#34d399', background: 'rgba(52,211,153,.1)', padding: '2px 8px', borderRadius: 10, border: '1px solid rgba(52,211,153,.25)', marginRight: 4 }
-      }, '👤 ' + ((authUser && (authUser.displayName || authUser.userId)) || (creds && creds.userId) || '')),
-      demoMode && activePersona && React.createElement(React.Fragment, null,
-        React.createElement('span', { className: 'persona-badge-btn', title: activePersona.coco_title || '' }, '🎭 ' + activePersona.display_name),
-        React.createElement('a', { className: 'theme-btn', style: { marginLeft: 4, textDecoration: 'none' }, href: '/portal' }, 'Portal')
-      ),
-      demoMode && !activePersona && React.createElement('a', { className: 'persona-badge-btn', href: '/portal' }, '🎭 Choose persona'),
-      !demoMode && React.createElement('a', { className: 'theme-btn', style: { textDecoration: 'none' }, href: '/portal' }, 'Portal')
+      )
     ),
     section !== 'splash' && React.createElement("div", { style: { padding: '4px 14px', background: 'var(--panel)', borderBottom: '1px solid var(--border)', fontSize: 13, fontWeight: 600, color: 'var(--text)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 } },
       React.createElement('span', null, SECTION_LABELS[section] || section),

@@ -6,6 +6,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Egeria Quickstart Demo Sandbox · Coco Pharmaceuticals</title>
+  <script src="/static/app-bar.js?v=2026-10-05a"></script>
   <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
   <style>
     :root {
@@ -18,6 +19,24 @@
       --green:   #4caf50;
       --overlay: rgba(0,0,0,0.82);
     }
+    :root.light {
+      --bg:      #f5f6fa;
+      --card:    #ffffff;
+      --border:  #d3d9e6;
+      --accent:  #d23353;
+      --text:    #1f2333;
+      --muted:   #5b6376;
+      --green:   #2e7d32;
+      --overlay: rgba(20,24,40,0.55);
+    }
+    :root.light .hero { background: linear-gradient(135deg, #ffffff 0%, #e8edf7 100%); }
+    :root.light .hero-links-label { color: #7a8193; }
+    :root.light .d-Starter, :root.light .obs-free { background: #e3f3e4; color: #2e7d32; }
+    :root.light .d-Business  { background: #e3eefc; color: #1f6fd1; }
+    :root.light .d-Technical { background: #f1e4f6; color: #8e24aa; }
+    :root.light .obs-mine  { background: #dff5ec; color: #047857; }
+    :root.light .obs-busy  { background: #fbe4e4; color: #b4233f; }
+    :root.light .obs-stuck { background: #fdf0dc; color: #b45309; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; min-height: 100vh; }
 
@@ -168,6 +187,7 @@
     </div>
     <button class="btn" id="persona-btn" onclick="openPicker()">Choose Persona</button>
     <button class="btn" id="logout-btn" onclick="doLogout()">Log out</button>
+    <button class="eg-theme-btn" data-eg-vanilla></button>
   </div>
 </header>
 
