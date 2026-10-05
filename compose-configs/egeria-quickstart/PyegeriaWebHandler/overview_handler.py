@@ -463,13 +463,15 @@ def get_summary(
                     "neverSurveyedStores": None, "surveyReports": None, "surveyLinksCapped": None,
                     "qualityAnnotatedAssets": None, "annotationsByType": None,
                     "surveysCompleted": None, "surveysFailed": None, "surveysUnknown": None,
-                    "assetsSurveyFailedOnly": None}
+                    "assetsSurveyFailedOnly": None, "latestSurveyTime": None,
+                    "surveysCompleted7d": None, "dataStoresByKind": None}
     if ce is not None:
         try:
             survey = _survey_coverage(mgr, ce, as_of_time, asset_total)
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"overview summary: survey coverage failed: {exc}")
     schema = _schema_coverage(mgr, as_of_time, survey.get("schemaAnalysedGuids"))
+    engine_health = _engine_action_health(url, server, user_id, user_pwd, as_of_time)
     confidentiality = _confidentiality_levels(mgr, as_of_time)
 
     payload = {
@@ -501,6 +503,10 @@ def get_summary(
         "orphanTermCount":    orphan_terms["orphanCount"],   # SemanticAssignment-unreferenced GlossaryTerms
         "orphanTermTotal":    orphan_terms["termTotal"],
         "surveyedAssets":     survey["surveyedAssets"],
+        "latestSurveyTime":   survey["latestSurveyTime"],
+        "surveysCompleted7d": survey["surveysCompleted7d"],
+        "dataStoresByKind":   survey["dataStoresByKind"],
+        "engineActionHealth": engine_health,
         "surveysCompleted":   survey["surveysCompleted"],
         "surveysFailed":      survey["surveysFailed"],
         "surveysUnknown":     survey["surveysUnknown"],
@@ -671,9 +677,87 @@ def _survey_outcome(props: dict) -> str:
     return "unknown"
 
 
-def _survey_outcomes(mgr, as_of: Optional[str] = None):
+def _parse_time(value):
+    """A timestamp as a naive-UTC datetime, or None. Egeria hands them out as ISO strings
+    ("2026-10-04T15:49:02", sometimes with a Z or fractional seconds) or as epoch milliseconds
+    (propertiesAsStrings gives "1791127622579"); anything else is None, never a guess."""
+    import datetime as _dt
+    if value in (None, ""):
+        return None
+    try:
+        if isinstance(value, (int, float)) or str(value).strip().lstrip("-").isdigit():
+            n = float(value)
+            if n > 1e11:       # epoch milliseconds
+                n /= 1000.0
+            elif n < 1e9:      # too small to be a modern epoch
+                return None
+            return _dt.datetime.utcfromtimestamp(n)
+        txt = str(value).strip().replace("Z", "").replace(" ", "T")
+        if "+" in txt[10:]:
+            txt = txt[: 10 + txt[10:].index("+")]
+        return _dt.datetime.fromisoformat(txt)
+    except (ValueError, OverflowError, OSError):
+        return None
+
+
+_ENGINE_ACTION_PAGE = 500          # find_engine_actions page; reaching it makes the window counts a lower bound
+_ENGINE_ACTION_WINDOW_H = 24
+
+
+def _engine_action_health(url=None, server=None, user_id=None, user_pwd=None,
+                          as_of: Optional[str] = None, client=None, now=None):
+    """Outcome of the Egeria engine actions (survey runs, scheduled insight jobs, ...) requested in the
+    last 24 hours, read with one find_engine_actions page.
+
+      {"total", "completed", "failed", "inProgress", "other", "topFailing": [[requestType, n], ...],
+       "capped"}
+
+    None when the actions could not be read, and None when a past as-of time is asked for: the engine
+    action list is the current state, so showing it beside as-of figures would mix time bases. "capped"
+    means the page was full, so every count is a lower bound (the list is unordered, the newest actions
+    may be missing). Actions whose request time cannot be parsed are left out of the window rather than
+    guessed into it.
+    """
+    if as_of:
+        return None
+    import datetime as _dt
+    try:
+        ac = client if client is not None else _make("AutomatedCuration", url, server, user_id, user_pwd)
+        raw = ac.find_engine_actions(search_string="*", page_size=_ENGINE_ACTION_PAGE, output_format="JSON")
+        items = [i for i in (raw if isinstance(raw, list) else []) if isinstance(i, dict)]
+        cutoff = (now or _dt.datetime.utcnow()) - _dt.timedelta(hours=_ENGINE_ACTION_WINDOW_H)
+        counts = {"total": 0, "completed": 0, "failed": 0, "inProgress": 0, "other": 0}
+        failing: dict = {}
+        for it in items:
+            props = it.get("properties") or it.get("elementProperties") or {}
+            props = props.get("propertiesAsStrings") or props
+            when = _parse_time(props.get("requestedStartTime")) or _parse_time(props.get("startTime"))
+            if when is None or when < cutoff:
+                continue
+            status = str(props.get("activityStatus") or "").upper()
+            counts["total"] += 1
+            if status == "COMPLETED":
+                counts["completed"] += 1
+            elif status == "FAILED":
+                counts["failed"] += 1
+                rt = props.get("requestType") or props.get("governanceActionTypeName") or "(unknown)"
+                failing[rt] = failing.get(rt, 0) + 1
+            elif status == "IN_PROGRESS":
+                counts["inProgress"] += 1
+            else:
+                counts["other"] += 1
+        counts["topFailing"] = [[k, v] for k, v in sorted(failing.items(), key=lambda kv: (-kv[1], kv[0]))[:3]]
+        counts["capped"] = len(items) >= _ENGINE_ACTION_PAGE
+        return counts
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview engine action health failed: {exc}")
+        return None
+
+
+def _survey_outcomes(mgr, as_of: Optional[str] = None, times: Optional[dict] = None):
     """{SurveyReport guid: outcome} from one bounded find, or None if it failed (an unclassifiable
-    report must not be assumed successful)."""
+    report must not be assumed successful). If `times` is given it is filled with
+    {guid: createTime string} from the same page, for survey freshness."""
     try:
         body = {"class": "FindRequestBody", "metadataElementTypeName": "SurveyReport",
                 "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0, "startFrom": 0,
@@ -688,6 +772,8 @@ def _survey_outcomes(mgr, as_of: Optional[str] = None):
             if g:
                 props = ((e.get("elementProperties") or {}).get("propertiesAsStrings")) or {}
                 out[g] = _survey_outcome(props)
+                if times is not None:
+                    times[g] = (e.get("versions") or {}).get("createTime") or ""
         return out
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview survey outcomes failed: {exc}")
@@ -722,18 +808,30 @@ def _survey_coverage(mgr, ce, as_of: Optional[str] = None, asset_total: Optional
            "dataStoreTotal": None, "surveyedStores": None, "neverSurveyedStores": None,
            "surveyLinksCapped": None, "qualityAnnotatedAssets": None, "annotationsByType": None,
            "schemaAnalysedGuids": None, "surveysCompleted": None, "surveysFailed": None,
-           "surveysUnknown": None, "assetsSurveyFailedOnly": None}
+           "surveysUnknown": None, "assetsSurveyFailedOnly": None, "latestSurveyTime": None,
+           "surveysCompleted7d": None, "dataStoresByKind": None}
     try:
         out["surveyReports"] = count_elements(mgr, "SurveyReport", as_of)
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview survey coverage: SurveyReport count failed: {exc}")
 
-    outcomes = _survey_outcomes(mgr, as_of)
+    times: dict = {}
+    outcomes = _survey_outcomes(mgr, as_of, times)
     if outcomes is not None:
         vals = list(outcomes.values())
         out["surveysCompleted"] = vals.count("completed")
         out["surveysFailed"] = vals.count("failed")
         out["surveysUnknown"] = vals.count("unknown")
+        # Freshness of the COMPLETED surveys: newest one, and how many in the 7 days before now (or
+        # before the as-of time). A report whose time cannot be parsed is left out, not guessed.
+        import datetime as _dt
+        ref = _parse_time(as_of) if as_of else _dt.datetime.utcnow()
+        stamped = [(t, g) for g, o in outcomes.items() if o == "completed"
+                   for t in [_parse_time(times.get(g))] if t is not None]
+        if stamped:
+            out["latestSurveyTime"] = max(stamped)[0].isoformat()
+        if ref is not None:
+            out["surveysCompleted7d"] = sum(1 for t, _ in stamped if ref - _dt.timedelta(days=7) <= t <= ref)
 
     subjects = None            # subjects of COMPLETED reports
     failed_only = None
@@ -824,6 +922,12 @@ def _survey_coverage(mgr, ce, as_of: Optional[str] = None, asset_total: Optional
         store_guids = {g for g in (_guid_of(e) for e in found) if g}
         stores_capped = len(found) >= _SURVEY_LINK_CAP
         out["dataStoreTotal"] = (count_elements(mgr, "DataStore", as_of) if stores_capped else len(store_guids))
+        if not stores_capped:
+            kinds: dict = {}
+            for e in found:
+                k = (e.get("type") or {}).get("typeName") or "Other"
+                kinds[k] = kinds.get(k, 0) + 1
+            out["dataStoresByKind"] = kinds
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview survey coverage: DataStore find failed: {exc}")
 
