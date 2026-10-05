@@ -98,7 +98,7 @@ RUN python -m pip install --no-cache-dir --retries 10 --timeout 60 \
 # The start scripts always override this default. It's only the floor for a
 # plain `docker compose build`, and bumping it busts this layer. Keep it in
 # step with PyegeriaWebHandler/requirements.txt + Dockerfile-fast-api.
-ARG PYEGERIA_VERSION=pyegeria>=6.1.22
+ARG PYEGERIA_VERSION=pyegeria>=6.1.28
 ARG PYEGERIA_BUST=0
 RUN echo "pyegeria layer ${PYEGERIA_BUST}" \
 	&& python -m pip install --no-cache-dir --upgrade --retries 10 --timeout 60 "${PYEGERIA_VERSION}"

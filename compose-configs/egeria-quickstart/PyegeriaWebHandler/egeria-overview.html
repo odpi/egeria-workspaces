@@ -458,6 +458,11 @@
       <div class="ph-sub">Ordinal levels from <code style="font-size:.7rem">Confidentiality</code> classification</div>
       <div id="byConf"></div>
     </div>
+    <div class="panel">
+      <h3>Data Stores by Kind</h3>
+      <div class="ph-sub">What the catalogued data stores are, by element type</div>
+      <div id="byKind"></div>
+    </div>
   </div>
 
   <!-- ── USAGE CONTEXT (ISC + BLUEPRINTS) ── -->
@@ -535,6 +540,15 @@
       </div>
 
       <div class="att">
+        <div class="a-ico sev-md">⚙️</div>
+        <div class="a-body">
+          <div class="a-title">Engine actions failed (24 h)</div>
+          <div class="a-desc" id="aq-pipeline-desc">Not measured</div>
+        </div>
+        <div style="text-align:right"><div class="a-count" style="color:#ff8c5a" id="aq-pipeline-count">—</div><a class="a-cta" href="/egeria-operations">Open Operations →</a></div>
+      </div>
+
+      <div class="att">
         <div class="a-ico sev-lo">🔗</div>
         <div class="a-body">
           <div class="a-title">Orphan glossary terms</div>
@@ -563,6 +577,7 @@
         <div class="hbar-row"><span class="lab">Has assigned owner</span><div class="hbar-track"><div class="hbar-fill" id="dq-owner-fill" style="width:0%;background:var(--c3)"></div></div><span class="num" id="dq-owner-pct">—</span></div>
         <div class="hbar-row"><span class="lab">Has description</span><div class="hbar-track"><div class="hbar-fill" id="dq-desc-fill" style="width:0%;background:var(--c4)"></div></div><span class="num" id="dq-desc-pct">—</span></div>
         <div id="dq-findings" class="ph-sub" style="margin-top:10px">Survey findings: not measured</div>
+        <div id="dq-fresh" class="ph-sub" style="margin-top:4px">Survey freshness: not measured</div>
       </div>
 
       <div class="panel">
@@ -969,7 +984,8 @@ function hbars(id,rows,max,emptyMsg){
 }
 hbars('byType',[],null,'No data yet');
 hbars('byZone',[],null,'No data yet');
-hbars('byConf',[],null,'Not measured: no confidentiality-level source yet');
+hbars('byConf',[],null,'No data yet');
+hbars('byKind',[],null,'No data yet');
 hbars('activity',[],null,'Not measured: no activity feed yet');
 hbars('fbType',[],null,'No data yet');
 
@@ -1424,6 +1440,7 @@ const SECTION_PROVENANCE = {
   composition: [
     { name: 'Assets by Type',                status: 'live' },  // counts_by_type via /api/overview/summary
     { name: 'Elements by Governance Zone',    status: 'live' },  // governed_coverage's topZones
+    { name: 'Data Stores by Kind',            status: 'live' },  // element types of the DataStore find the survey coverage already reads (no extra call)
     { name: 'Confidentiality Distribution',   status: 'live' },  // one bounded find of elements carrying a Confidentiality classification, grouped by level
   ],
   usage: [
@@ -1436,6 +1453,8 @@ const SECTION_PROVENANCE = {
     // genuinely mixed now, not uniformly sample.
     { name: 'AQ: Confidential assets in open zones',   status: 'illustrative' }, // only 1-2 elements carry Confidentiality at all in this dataset -- too sparse to wire meaningfully
     { name: 'AQ: Certifications expiring ≤90d',        status: 'live' },  // certifications_summary's certExpiring90 (already live elsewhere), now also wired into this panel
+    { name: 'AQ: Engine actions failed (24h)',   status: 'live' },  // find_engine_actions, one page; capped -> "at least"
+    { name: 'DQ: Survey freshness',            status: 'live' },  // newest completed SurveyReport createTime
     { name: 'AQ: Surveys that failed',                status: 'live' },  // SurveyReport outcome: completionMessage id (engine surveys) or error_count (external surveys)
     { name: 'AQ: Data stores never surveyed',          status: 'live' },  // ReportSubject links (SurveyReport only) vs the DataStore guid set: two bounded calls, no per-asset fan-out
     { name: 'AQ: Orphan glossary terms',                status: 'live' },  // orphan_glossary_terms: SemanticAssignment-unreferenced GlossaryTerms
@@ -1779,8 +1798,25 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
   }
   // Confidentiality Distribution: real levels from the one bounded query. null = could not ask (the
   // panel keeps its "not measured" text); an empty list is a real "nothing is classified".
+  function kindLabel(k){
+    return String(k).replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2');
+  }
+  // Data Stores by Kind: the element types of the catalogued data stores (from the list the survey
+  // coverage already reads). null = the list could not be read in full (failed or capped).
+  function renderDataStoreKinds(d){
+    if (typeof hbars !== 'function') return;
+    if (d.dataStoresByKind == null) { hbars('byKind', [], null, 'Not measured: the data-store list could not be read in full'); return; }
+    var ks = Object.keys(d.dataStoresByKind).map(function(k){ return [k, d.dataStoresByKind[k]]; })
+                   .sort(function(a, b){ return b[1] - a[1] || (a[0] < b[0] ? -1 : 1); });
+    if (!ks.length) { hbars('byKind', [], null, 'No data stores catalogued'); return; }
+    var rows = ks.slice(0, 8).map(function(k){ return [kindLabel(k[0]), k[1], 'var(--c3)']; });
+    var rest = ks.slice(8);
+    if (rest.length) rows.push(['Other kinds (' + rest.length + ')', rest.reduce(function(a, k){ return a + k[1]; }, 0), 'var(--c6)']);
+    hbars('byKind', rows);
+  }
   function renderConfidentiality(d){
-    if (typeof hbars !== 'function' || d.confidentialityLevels == null) return;
+    if (typeof hbars !== 'function') return;
+    if (d.confidentialityLevels == null) { hbars('byConf', [], null, 'Not measured: the confidentiality query did not return'); return; }
     var colors = { 0: '#33415c', 1: 'var(--c6)', 2: '#ff8c5a', 3: 'var(--c4)', 4: 'var(--c5)' };
     var rows = d.confidentialityLevels.map(function(l){ return [l.label, l.count, colors[l.level] || 'var(--c4)']; });
     hbars('byConf', rows, null, 'No element carries a Confidentiality classification');
@@ -1839,6 +1875,34 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
       fEl.textContent = fk == null ? 'Survey findings (completed surveys): not measured'
         : (fk.length ? 'Survey findings (completed surveys): ' + fk.map(function(k){ return st.annotationsByType[k].toLocaleString() + ' ' + k.replace(/Annotation$/, ''); }).join(' · ')
                      : 'Survey findings (completed surveys): none yet');
+    }
+    // Survey freshness: newest COMPLETED survey and how many completed in the last 7 days.
+    var frEl = document.getElementById('dq-fresh');
+    if (frEl) {
+      var lt = st.latestSurveyTime ? new Date(st.latestSurveyTime + 'Z') : null;   // the backend sends naive UTC
+      if (st.surveysCompleted == null) frEl.textContent = 'Survey freshness: not measured';
+      else if (st.surveysCompleted === 0) frEl.textContent = 'Survey freshness: no completed survey yet';
+      else if (!lt || isNaN(lt.getTime())) frEl.textContent = 'Survey freshness: ' + st.surveysCompleted.toLocaleString() + ' completed (times unavailable)';
+      else {
+        var mins = Math.max(0, Math.round((Date.now() - lt.getTime()) / 60000));
+        var ago = mins < 60 ? mins + ' min ago' : mins < 2880 ? Math.round(mins / 60) + ' h ago' : Math.round(mins / 1440) + ' days ago';
+        frEl.textContent = 'Last completed survey: ' + lt.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) + ' (' + ago + ')'
+          + (st.surveysCompleted7d != null ? ' \u00b7 ' + st.surveysCompleted7d.toLocaleString() + ' completed in the last 7 days' : '');
+      }
+    }
+    // Engine actions (survey runs and the platform's scheduled insight jobs) in the last 24 h.
+    var pcnt = document.getElementById('aq-pipeline-count'), pdesc = document.getElementById('aq-pipeline-desc'), ph = st.engineActionHealth;
+    if (pcnt) pcnt.textContent = ph ? ph.failed.toLocaleString() : '\u2014';
+    if (pdesc) {
+      if (!ph) pdesc.textContent = 'Not measured: engine actions could not be read (or a past as-of time is shown)';
+      else if (ph.total === 0) pdesc.textContent = 'No engine actions in the last 24 hours';
+      else {
+        var lb = ph.capped ? 'at least ' : '', pp = [lb + ph.failed.toLocaleString() + ' failed of ' + lb + ph.total.toLocaleString() + ' in the last 24 h'];
+        if (ph.completed) pp.push(ph.completed.toLocaleString() + ' completed');
+        if (ph.inProgress) pp.push(ph.inProgress.toLocaleString() + ' in progress');
+        if (ph.failed && ph.topFailing && ph.topFailing.length) pp.push('most failing: ' + ph.topFailing.slice(0, 2).map(function(f){ return f[0] + ' \u00d7' + f[1]; }).join(', '));
+        pdesc.textContent = pp.join(' \u00b7 ');
+      }
     }
     var cnt = document.getElementById('aq-unsurveyed-count'), desc = document.getElementById('aq-unsurveyed-desc');
     if (cnt) cnt.textContent = st.neverSurveyedStores != null ? st.neverSurveyedStores.toLocaleString() : '—';
@@ -1946,8 +2010,10 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     store.assetsWithSchema = d.assetsWithSchema; store.schemaAnalysedAssets = d.schemaAnalysedAssets;
     store.surveysCompleted = d.surveysCompleted; store.surveysFailed = d.surveysFailed;
     store.surveysUnknown = d.surveysUnknown; store.assetsSurveyFailedOnly = d.assetsSurveyFailedOnly;
+    store.latestSurveyTime = d.latestSurveyTime; store.surveysCompleted7d = d.surveysCompleted7d;
+    store.engineActionHealth = d.engineActionHealth;
     // render only after every value above is stored (this used to run before the survey values were set)
-    if (primary) { renderCertsSoon(d); renderSurveyCoverage(store); renderConfidentiality(d); }
+    if (primary) { renderCertsSoon(d); renderSurveyCoverage(store); renderConfidentiality(d); renderDataStoreKinds(d); }
     store.governedCount = d.governedCount;
     if (d.assetTotal && d.governedCount != null) {
       store.governedPctNum = Math.round(100 * d.governedCount / Math.max(d.assetTotal, d.governedCount));
