@@ -84,6 +84,14 @@ def test_the_stream_is_the_last_48_hours_newest_first_with_created_vs_updated(ns
     assert out["total"] == 4                                 # 7-day window still counts the older two
 
 
+def test_the_stream_lists_people_only_and_counts_automation_separately(ns):
+    m = _Mgr({"GlossaryTerm": [_el("a", "GlossaryTerm", 1, "baudotnpa"), _el("b", "GlossaryTerm", 2, "baudotnpa"),
+                               _el("c", "GlossaryTerm", 3, "erinoverview"), _el("d", "GlossaryTerm", 60, "baudotnpa")]})
+    out = ns["_recent_changes"](m, _NOW)
+    assert [r["guid"] for r in out["recent"]] == ["c"] and out["recentAutomated"] == 2   # "d" is older than 48 h
+    assert all(r["automated"] is False for r in out["recent"])
+
+
 def test_nothing_older_than_the_window_is_counted_and_paging_stops_there(ns):
     m = _Mgr({"GlossaryTerm": [_el("a", "GlossaryTerm", 1)] + [_el(f"o{i}", "GlossaryTerm", 24 * 8 + i) for i in range(500)]})
     out = ns["_recent_changes"](m, _NOW)

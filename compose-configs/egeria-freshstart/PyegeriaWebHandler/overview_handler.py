@@ -730,15 +730,18 @@ def _recent_changes(mgr, now=None) -> Optional[dict]:
             automated += 1
         elif c["actor"]:
             stewards[c["actor"]] = stewards.get(c["actor"], 0) + 1
+    # The stream is people's changes: automation (a subscription manager rewriting notification types every
+    # few minutes) would otherwise fill it and hide everything a person did. It is counted, not listed.
+    in_recent = [c for c in rows if c["time"] >= recent_cut]
     recent = [{"time": c["time"].isoformat(), "actor": c["actor"], "type": c["type"], "name": c["name"],
-               "guid": c["guid"], "action": "created" if c["version"] == 1 else "updated",
-               "automated": _looks_automated(c["actor"])}
-              for c in rows if c["time"] >= recent_cut][:_ACTIVITY_STREAM]
+               "guid": c["guid"], "action": "created" if c["version"] == 1 else "updated", "automated": False}
+              for c in in_recent if not _looks_automated(c["actor"])][:_ACTIVITY_STREAM]
+    recent_automated = sum(1 for c in in_recent if _looks_automated(c["actor"]))
     return {"types": list(_ACTIVITY_TYPES), "windowDays": _ACTIVITY_WINDOW_D, "recentHours": _ACTIVITY_RECENT_H,
             "total": len(rows), "automated": automated, "people": len(rows) - automated, "capped": capped,
             "byType": by_type,
             "stewards": sorted(stewards.items(), key=lambda kv: (-kv[1], kv[0]))[:_ACTIVITY_STEWARDS],
-            "recent": recent}
+            "recent": recent, "recentAutomated": recent_automated}
 
 
 @router.get("/api/overview/activity", summary="Recent changes to curated content")

@@ -1742,13 +1742,14 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
       return;
     }
     var types = (a.types || []).join(', '), atLeast = a.capped ? 'at least ' : '';
-    if (sub) sub.textContent = 'Changes to ' + types + ' in the last ' + a.recentHours + ' h';
+    var autoNote = a.recentAutomated ? ' (' + a.recentAutomated.toLocaleString() + ' more by automation not listed)' : '';
+    if (sub) sub.textContent = 'Changes by people to ' + types + ' in the last ' + a.recentHours + ' h' + autoNote;
     if (stream) stream.innerHTML = a.recent && a.recent.length ? a.recent.map(function(c){
       return '<div class="feed-item"><span class="feed-dot" style="background:' + (c.automated ? '#33415c' : 'var(--c3)') + '"></span>'
         + '<div class="feed-body"><div class="fb-main"><b>' + escHtml(c.name) + '</b> \u00b7 ' + escHtml(kindLabel(c.type)) + '</div>'
         + '<div class="fb-meta">' + escHtml(c.action) + ' by ' + escHtml(c.actor || 'unknown') + (c.automated ? ' (automation)' : '')
         + ' \u00b7 ' + escHtml(ageText(c.time)) + '</div></div></div>';
-    }).join('') : '<div style="color:var(--muted);font-size:.8rem;padding:6px 0">No changes to ' + escHtml(types) + ' in the last ' + a.recentHours + ' hours</div>';
+    }).join('') : '<div style="color:var(--muted);font-size:.8rem;padding:6px 0">No changes by people to ' + escHtml(types) + ' in the last ' + a.recentHours + ' hours' + escHtml(autoNote) + '</div>';
     var rows = Object.keys(a.byType || {}).map(function(k){ return [kindLabel(k), a.byType[k], 'var(--c3)']; })
                      .sort(function(x, y){ return y[1] - x[1]; });
     if (tsub) tsub.textContent = atLeast + a.total.toLocaleString() + ' changes in the last ' + a.windowDays + ' days to ' + types
