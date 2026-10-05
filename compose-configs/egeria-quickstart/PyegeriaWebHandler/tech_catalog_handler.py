@@ -438,17 +438,52 @@ def _serialize_annotation(ann: dict) -> dict:
             for nk, nv in v.items():
                 if isinstance(nv, str) and nv.strip():
                     out[f"{k}.{nk}"] = nv
-    # Extract link to parent SurveyReport (present when graph_query_depth >= 1)
-    from_report = ann.get("fromSurveyReport")
-    if isinstance(from_report, dict):
+    # Extract links to the SurveyReports that reported this annotation (present
+    # when graph_query_depth >= 1).  An annotation that a later survey finds
+    # again is reused, so it can belong to many reports; the singular fields
+    # name the most recent one for the pages that show a single report link.
+    reports = _survey_reports(ann)
+    if reports:
+        out["surveyReports"] = reports
+        out["surveyReportGuid"] = reports[0]["guid"]
+        out["surveyReportDisplayName"] = reports[0]["displayName"]
+    return out
+
+
+def _survey_reports(ann: dict) -> list:
+    """Return the SurveyReports that reported an annotation, most recent first,
+    as dicts of guid, displayName and createTime.
+
+    The platform reports them in the list fromSurveyReports (an annotation can
+    be reused by many surveys).  A platform that predates that returns a single
+    fromSurveyReport instead; it is read as a one-item list when the list is
+    absent or empty, so one code path serves both payloads.  (Only the payload
+    pyegeria passes through differs, not any Egeria behaviour this handler
+    depends on.)"""
+    from_reports = ann.get("fromSurveyReports")
+    if not from_reports:
+        single = ann.get("fromSurveyReport")
+        from_reports = [single] if single else []
+    elif isinstance(from_reports, dict):
+        from_reports = [from_reports]
+    elif not isinstance(from_reports, (list, tuple)):
+        from_reports = []
+    reports = []
+    for from_report in from_reports:
+        if not isinstance(from_report, dict):
+            continue
         rel_elem = from_report.get("relatedElement") or {}
         rel_hdr = rel_elem.get("elementHeader") or {}
         rel_props = rel_elem.get("properties") or {}
         survey_guid = rel_hdr.get("guid", "")
         if survey_guid:
-            out["surveyReportGuid"] = survey_guid
-            out["surveyReportDisplayName"] = rel_props.get("displayName") or ""
-    return out
+            reports.append({
+                "guid":        survey_guid,
+                "displayName": rel_props.get("displayName") or "",
+                "createTime":  (rel_hdr.get("versions") or {}).get("createTime") or "",
+            })
+    reports.sort(key=lambda r: str(r["createTime"]), reverse=True)
+    return reports
 
 
 def _asset_catalog(url, server, user_id, user_pwd, token: Optional[str] = None):
@@ -1849,7 +1884,7 @@ def get_survey_annotations(
 ):
     """Return all Annotation elements for a specific SurveyReport GUID.
 
-    Fetches annotations with graph_query_depth=1 (to get fromSurveyReport link)
+    Fetches annotations with graph_query_depth=1 (to get the fromSurveyReports links)
     then filters to those belonging to the requested report.
     """
     try:
@@ -1871,10 +1906,7 @@ def get_survey_annotations(
         )
         items = []
         for ann in _safe_list(raw):
-            from_report = ann.get("fromSurveyReport") or {}
-            rel_elem = from_report.get("relatedElement") or {}
-            rel_hdr = rel_elem.get("elementHeader") or {}
-            if rel_hdr.get("guid") == guid:
+            if any(r["guid"] == guid for r in _survey_reports(ann)):
                 items.append(_serialize_annotation(ann))
         return JSONResponse({"items": items, "total": len(items)})
     except Exception as exc:
@@ -1900,7 +1932,7 @@ def list_annotations(
     graph_query_depth=0: the wildcard/broad-search case (search_string="*",
     which is the default the Catalog's Annotations tab loads on open) was
     timing out at 90s — depth=1 makes the view server walk the relationship
-    graph for every matching Annotation just to attach fromSurveyReport, and
+    graph for every matching Annotation just to attach fromSurveyReports, and
     against this repo's corpus that fan-out (hundreds of extra per-annotation
     graph queries) reliably blew past the client timeout. Depth=0 skips that
     walk, so list rows have no surveyReportGuid/surveyReportDisplayName —
