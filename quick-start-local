@@ -22,7 +22,7 @@ Options:
   --refresh-platform  Force rebuild of egeria-main so the container engine pulls
                       the latest base image.
   --pyegeria-version VERSION
-                      Pin pyegeria-web and jupyter to a specific pyegeria
+                      Pin pyegeria-web, jupyter and my-profile to a specific pyegeria
                       release (e.g. 6.1.20). Persists in
                       compose-configs/egeria-quickstart/.env.pyegeria, so plain re-runs
                       stay pinned; pass `latest` to clear the pin. Without a
@@ -648,13 +648,13 @@ EOF
       docker.io/odpi/egeria-platform:latest
   fi
 
-  # pyegeria-web's and jupyter's `pip install --upgrade pyegeria` each sit in
+  # pyegeria-web's, jupyter's and my-profile's `pip install --upgrade pyegeria` each sit in
   # their own cached Docker RUN layer (see Dockerfile-fast-api / Dockerfile-
-  # jupyter's own PYEGERIA_BUST comments) -- a plain rebuild reuses that
+  # jupyter / Dockerfile-my-egeria's own PYEGERIA_BUST args) -- a plain rebuild reuses that
   # layer and keeps whatever version was resolved when the image was last
   # built, even though requirements.txt's `pyegeria>=X` floor has no upper
   # bound. Passing a fresh PYEGERIA_BUST value busts just that one layer
-  # (both Dockerfiles echo it into the RUN instruction so its content
+  # (all three Dockerfiles echo it into the RUN instruction so its content
   # actually changes), so the subsequent build below re-resolves pyegeria
   # without a full --no-cache rebuild of everything else in the image.
   # Default: install the latest pyegeria release (or the saved pin) on
@@ -664,10 +664,10 @@ EOF
   resolve_pyegeria_build_args "$REPO_ROOT/compose-configs/egeria-quickstart/.env.pyegeria" \
     "$PYEGERIA_VERSION_REQUEST" "$REFRESH_PYEGERIA" "[quick-start-local]"
   if [[ ${#PYEGERIA_BUILD_ARGS[@]} -gt 0 ]]; then
-    echo "[quick-start-local] Building pyegeria layer (pyegeria-web + jupyter)..."
+    echo "[quick-start-local] Building pyegeria layer (pyegeria-web + jupyter + my-profile)..."
     $COMPOSE_CMD -p egeria-quickstart "${COMPOSE_FILES[@]}" build \
       "${PYEGERIA_BUILD_ARGS[@]}" \
-      pyegeria-web jupyter-hub
+      pyegeria-web jupyter-hub my-profile
   fi
 
   echo "[quick-start-local] Ensuring core images are available (platform, pyegeria-web, jupyter, my-profile)..."
