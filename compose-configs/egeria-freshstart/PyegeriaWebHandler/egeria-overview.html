@@ -463,6 +463,11 @@
       <div class="ph-sub">What the catalogued data stores are, by element type</div>
       <div id="byKind"></div>
     </div>
+    <div class="panel">
+      <h3>Assets by Technology</h3>
+      <div class="ph-sub">The technology each asset records (<code style="font-size:.7rem">deployedImplementationType</code>); most assets record none</div>
+      <div id="byTech"></div>
+    </div>
   </div>
 
   <!-- ── USAGE CONTEXT (ISC + BLUEPRINTS) ── -->
@@ -988,7 +993,7 @@ function hbars(id,rows,max,emptyMsg){
 hbars('byType',[],null,'No data yet');
 hbars('byZone',[],null,'No data yet');
 hbars('byConf',[],null,'No data yet');
-hbars('byKind',[],null,'No data yet');
+hbars('byKind',[],null,'No data yet'); hbars('byTech',[],null,'No data yet');
 hbars('activity',[],null,'Not measured: no activity feed yet');
 hbars('fbType',[],null,'No data yet');
 
@@ -1444,6 +1449,7 @@ const SECTION_PROVENANCE = {
     { name: 'Assets by Type',                status: 'live' },  // counts_by_type via /api/overview/summary
     { name: 'Elements by Governance Zone',    status: 'live' },  // governed_coverage's topZones
     { name: 'Data Stores by Kind',            status: 'live' },  // element types of the DataStore find the survey coverage already reads (no extra call)
+    { name: 'Assets by Technology',           status: 'live' },  // paged find of Assets grouped by deployedImplementationType
     { name: 'Confidentiality Distribution',   status: 'live' },  // one bounded find of elements carrying a Confidentiality classification, grouped by level
   ],
   usage: [
@@ -1826,6 +1832,20 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     if (rest.length) rows.push(['Other kinds (' + rest.length + ')', rest.reduce(function(a, k){ return a + k[1]; }, 0), 'var(--c6)']);
     hbars('byKind', rows);
   }
+  // Assets by Technology: exclusive groups that add up to the asset total (each technology, assets that
+  // record none, template placeholders). null = the asset list could not be read in full (failed or capped).
+  function renderAssetsByTechnology(d){
+    if (typeof hbars !== 'function') return;
+    if (d.assetsByTechnology == null) { hbars('byTech', [], null, 'Not measured: the asset list could not be read in full'); return; }
+    var ts = Object.keys(d.assetsByTechnology).map(function(k){ return [k, d.assetsByTechnology[k]]; })
+                   .sort(function(a, b){ return b[1] - a[1] || (a[0] < b[0] ? -1 : 1); });
+    var rows = ts.slice(0, 8).map(function(k){ return [k[0], k[1], 'var(--c3)']; });
+    var rest = ts.slice(8);
+    if (rest.length) rows.push(['Other technologies (' + rest.length + ')', rest.reduce(function(a, k){ return a + k[1]; }, 0), 'var(--c6)']);
+    if (d.technologyPlaceholders) rows.push(['Template placeholders', d.technologyPlaceholders, '#33415c']);
+    if (d.technologyUnrecorded) rows.push(['No technology recorded', d.technologyUnrecorded, '#33415c']);
+    hbars('byTech', rows, null, 'No assets catalogued');
+  }
   function renderConfidentiality(d){
     if (typeof hbars !== 'function') return;
     if (d.confidentialityLevels == null) { hbars('byConf', [], null, 'Not measured: the confidentiality query did not return'); return; }
@@ -2025,7 +2045,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     store.latestSurveyTime = d.latestSurveyTime; store.surveysCompleted7d = d.surveysCompleted7d;
     store.engineActionHealth = d.engineActionHealth;
     // render only after every value above is stored (this used to run before the survey values were set)
-    if (primary) { renderCertsSoon(d); renderSurveyCoverage(store); renderConfidentiality(d); renderDataStoreKinds(d); }
+    if (primary) { renderCertsSoon(d); renderSurveyCoverage(store); renderConfidentiality(d); renderDataStoreKinds(d); renderAssetsByTechnology(d); }
     store.governedCount = d.governedCount;
     if (d.assetTotal && d.governedCount != null) {
       store.governedPctNum = Math.round(100 * d.governedCount / Math.max(d.assetTotal, d.governedCount));
