@@ -690,19 +690,19 @@
   <div class="grid g-12">
     <div class="panel">
       <h3>Metadata Change Stream</h3>
-      <div class="ph-sub">Recent context events &amp; catalog changes (last 48h)</div>
-      <div style="margin-top:6px">
-        <div style="color:var(--muted);font-size:.8rem;padding:6px 0">Not measured: there is no metadata change feed yet</div>
+      <div class="ph-sub" id="act-stream-sub">Recent changes to curated content</div>
+      <div style="margin-top:6px" id="activityStream">
+        <div style="color:var(--muted);font-size:.8rem;padding:6px 0">No data yet</div>
       </div>
     </div>
 
     <div class="panel">
       <h3>Activity by Type (7d)</h3>
-      <div class="ph-sub">What's driving change</div>
+      <div class="ph-sub" id="act-type-sub">What's driving change</div>
       <div id="activity"></div>
       <div style="margin-top:14px; padding-top:12px; border-top:1px solid var(--border)">
         <div style="font-size:.74rem;color:var(--muted);margin-bottom:8px">Most active stewards</div>
-        <div style="color:var(--muted);font-size:.8rem">Not measured: steward activity is not aggregated yet</div>
+        <div style="color:var(--muted);font-size:.8rem" id="activityStewards">No data yet</div>
 </div>
     </div>
   </div>
@@ -1372,15 +1372,15 @@ const SECTION_PROVENANCE = {
     { name: 'Most-Engaged Assets',                 status: 'illustrative' },
   ],
   activity: [
-    { name: 'Metadata Change Stream', status: 'illustrative' }, // no /api/overview/activity endpoint exists
-    { name: 'Activity by Type',       status: 'illustrative' },
-    { name: 'Most Active Stewards',   status: 'illustrative' },
+    { name: 'Metadata Change Stream', status: 'live' },  // /api/overview/activity: most recent changes to curated content types
+    { name: 'Activity by Type',       status: 'live' },
+    { name: 'Most Active Stewards',   status: 'live' },  // people only (service accounts counted separately as automation)
   ],
 };
 // Which backend source feeds each section's "live" items. A section whose source failed to load
 // shows "no data" -- the constants above only say a live computation EXISTS, not that it worked.
 const SECTION_SOURCE = { value:'summary', growth:'growth', composition:'summary', usage:'usage-context',
-                         quality:'summary', ai:'ai-context', people:'people' };
+                         quality:'summary', ai:'ai-context', people:'people', activity:'activity' };
 const FAILED_SOURCES = new Set();
 function computeSectionBadge(sectionKey){
   const items = SECTION_PROVENANCE[sectionKey];
@@ -1722,6 +1722,48 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     if (d.technologyPlaceholders) rows.push(['Template placeholders', d.technologyPlaceholders, '#33415c']);
     if (d.technologyUnrecorded) rows.push(['No technology recorded', d.technologyUnrecorded, '#33415c']);
     hbars('byTech', rows, null, 'No assets catalogued');
+  }
+  // Recent activity: changes to curated content types (the backend names them). null = could not be read.
+  function escHtml(s){ return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function ageText(iso){
+    var t = new Date(iso + 'Z');                       // the backend sends naive UTC
+    if (isNaN(t.getTime())) return '';
+    var mins = Math.max(0, Math.round((Date.now() - t.getTime()) / 60000));
+    return mins < 60 ? mins + ' min ago' : mins < 2880 ? Math.round(mins / 60) + ' h ago' : Math.round(mins / 1440) + ' days ago';
+  }
+  function renderActivity(a){
+    var stream = document.getElementById('activityStream'), sub = document.getElementById('act-stream-sub'),
+        tsub = document.getElementById('act-type-sub'), st = document.getElementById('activityStewards');
+    if (!a) {
+      var msg = 'Not measured: the change query did not return';
+      if (stream) stream.innerHTML = '<div style="color:var(--muted);font-size:.8rem;padding:6px 0">' + msg + '</div>';
+      if (typeof hbars === 'function') hbars('activity', [], null, msg);
+      if (st) st.textContent = msg;
+      return;
+    }
+    var types = (a.types || []).join(', '), atLeast = a.capped ? 'at least ' : '';
+    var autoNote = a.recentAutomated ? ' (' + a.recentAutomated.toLocaleString() + ' more by automation not listed)' : '';
+    if (sub) sub.textContent = 'Changes by people to ' + types + ' in the last ' + a.recentHours + ' h' + autoNote;
+    if (stream) stream.innerHTML = a.recent && a.recent.length ? a.recent.map(function(c){
+      return '<div class="feed-item"><span class="feed-dot" style="background:' + (c.automated ? '#33415c' : 'var(--c3)') + '"></span>'
+        + '<div class="feed-body"><div class="fb-main"><b>' + escHtml(c.name) + '</b> \u00b7 ' + escHtml(kindLabel(c.type)) + '</div>'
+        + '<div class="fb-meta">' + escHtml(c.action) + ' by ' + escHtml(c.actor || 'unknown') + (c.automated ? ' (automation)' : '')
+        + ' \u00b7 ' + escHtml(ageText(c.time)) + '</div></div></div>';
+    }).join('') : '<div style="color:var(--muted);font-size:.8rem;padding:6px 0">No changes by people to ' + escHtml(types) + ' in the last ' + a.recentHours + ' hours' + escHtml(autoNote) + '</div>';
+    var rows = Object.keys(a.byType || {}).map(function(k){ return [kindLabel(k), a.byType[k], 'var(--c3)']; })
+                     .sort(function(x, y){ return y[1] - x[1]; });
+    if (tsub) tsub.textContent = atLeast + a.total.toLocaleString() + ' changes in the last ' + a.windowDays + ' days to ' + types
+      + ' (' + a.people.toLocaleString() + ' by people, ' + a.automated.toLocaleString() + ' by automation)'
+      + (a.capped ? ' \u00b7 a page limit was reached, so counts are a lower bound' : '');
+    if (typeof hbars === 'function') hbars('activity', rows, null, 'No changes to ' + types + ' in the last ' + a.windowDays + ' days');
+    if (st) st.innerHTML = a.stewards && a.stewards.length ? a.stewards.map(function(s){
+      return '<div style="display:flex;justify-content:space-between;padding:2px 0"><span>' + escHtml(s[0]) + '</span><b>' + s[1].toLocaleString() + '</b></div>';
+    }).join('') : 'No changes by people in the last ' + a.windowDays + ' days';
+  }
+  function loadActivity(){
+    return getJSON('/api/overview/activity', null)
+      .then(function(d){ if (!d || d.activity == null) throw 0; FAILED_SOURCES.delete('activity'); renderSectionBadges(); renderActivity(d.activity); })
+      .catch(function(){ FAILED_SOURCES.add('activity'); renderSectionBadges(); renderActivity(null); });
   }
   function renderConfidentiality(d){
     if (typeof hbars !== 'function') return;
@@ -2409,6 +2451,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     loadTileInfo();
     var rs = document.getElementById('range-sel');
     loadGrowth(rs ? rs.value : '6mo');
+    loadActivity();
     stamp();
   }
   function boot(){
