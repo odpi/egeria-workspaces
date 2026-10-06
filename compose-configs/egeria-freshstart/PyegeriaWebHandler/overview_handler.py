@@ -617,18 +617,25 @@ def _assets_by_technology(mgr, as_of: Optional[str] = None) -> dict:
 def _schema_coverage(mgr, as_of: Optional[str] = None, analysed=None) -> dict:
     """How many elements have a schema: the distinct anchors of SchemaType elements (a schema's anchor is
     the asset it describes) UNION the assets a survey analysed the schema of (SchemaAnalysisAnnotation --
-    surveys record a database's schema as annotations, not as SchemaType elements). One capped find; None
-    when it failed or was capped (a capped page can only under-count)."""
+    surveys record a database's schema as annotations, not as SchemaType elements). Read in pages until an
+    empty one (Egeria's paging contract); None when a page failed or _REL_MAX_PAGES full pages were read
+    without reaching the end (a capped read can only under-count)."""
     out = {"assetsWithSchema": None, "schemaTypes": None, "schemaCapped": None, "schemaAnalysedAssets": None}
     analysed = set(analysed or [])
     try:
-        body = {"class": "FindRequestBody", "metadataElementTypeName": "SchemaType",
-                "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0, "startFrom": 0,
-                "pageSize": _SURVEY_LINK_CAP}
-        if as_of:
-            body["asOfTime"] = as_of
-        found = mgr.find_metadata_elements(body)
-        found = [e for e in (found if isinstance(found, list) else []) if isinstance(e, dict)]
+        found, capped = [], True
+        for page in range(_REL_MAX_PAGES):
+            body = {"class": "FindRequestBody", "metadataElementTypeName": "SchemaType",
+                    "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0,
+                    "startFrom": page * _SURVEY_LINK_CAP, "pageSize": _SURVEY_LINK_CAP}
+            if as_of:
+                body["asOfTime"] = as_of
+            chunk = mgr.find_metadata_elements(body)
+            chunk = [e for e in (chunk if isinstance(chunk, list) else []) if isinstance(e, dict)]
+            if not chunk:
+                capped = False
+                break
+            found.extend(chunk)
         anchors = set()
         for e in found:
             props = _classification_props(e, "Anchors")
@@ -636,7 +643,7 @@ def _schema_coverage(mgr, as_of: Optional[str] = None, analysed=None) -> dict:
             if g:
                 anchors.add(g)
         out["schemaTypes"] = len(found)
-        out["schemaCapped"] = len(found) >= _SURVEY_LINK_CAP
+        out["schemaCapped"] = capped
         out["assetsWithSchema"] = None if out["schemaCapped"] else len(anchors | analysed)
         out["schemaAnalysedAssets"] = len(analysed - anchors)   # assets whose schema is known only from a survey
     except Exception as exc:  # noqa: BLE001
