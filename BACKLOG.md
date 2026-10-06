@@ -9,6 +9,63 @@ what's actually open — a stub with a link is left in place of each moved
 section. Sections with any open/pending sub-items stay here even if their
 header says "done", since part of the work is still live.
 ---
+## Investigate: SECURITY-0011 Read refusals on 5 DigitalProductFamily-anchored elements (2026-10-05) — open
+
+Platform log (quickstart-egeria-main, 20 min to 18:42Z): 1773
+OPEN-METADATA-SECURITY-0011 "not authorized to issue operation Read on <guid>
+anchor element DigitalProductFamily" on qs-metadata-store (~89/min, peaks
+340/min) — erinoverview 1580, peterprofile 193. Always the same 5 elements
+(GUID prefixes 86a1842a, 99a5cdc6, 7df8a581, 087a9692, 0407d5a4), all Read,
+in bursts of ~4 refusals per element per second.
+
+- peterprofile ≈ the 3 `/api/digital-products/mesh?user_id=peterprofile`
+  Data Mesh page loads in that window (~64 refusals per request).
+- erinoverview is the `EGERIA_USER` fallback in nearly every handler (used when
+  a request carries no user/creds). A grep of the Portal (2026-10-05) found no
+  timer, refresh interval or retry loop that reads products/families: browser
+  `setInterval`s are Portal tile status (30 s), Operations platforms/auto-refresh,
+  admin lock/reset/Obsidian polls and bootstrap-banner status; server loops are
+  the bootstrap monitor (ruled out: one pageSize=1 canary per family / 600 s),
+  demo-reset scheduler and Jupyter-lock cleanup. Product readers are all
+  request-driven: `digital_products_handler.py` (mesh/tree, 300 s cache),
+  `data_mesh_handler.py`, Overview summary (2 DigitalProduct counts, 60 s
+  cache) and growth (one count per snapshot, 15 min cache).
+- Ruled out elsewhere: RE 8810, nanny connectors.
+- Caveat (Egeria ISSUE-90): until the pending fix, every refused search HIT is
+  logged as an unauthorized access attempt, so a normal search or count whose
+  results include those 5 anchored elements produces this noise without any
+  poller. The sustained ~89/min from erinoverview still needs a source;
+  fallback test planned by the RE architect for 2026-10-06.
+
+---
+## Consistent app bar across portal apps (2026-10-05) — core ✅, follow-ups open
+
+The back-to-Portal link was hand-rolled per page: top-left on some, top-right
+on others, shown only once a persona was chosen on Catalog/Explorer/Lineage,
+missing on Governance Metrics, Demo Admin and the docs viewer. Theme toggles
+existed only on Explorer and Data Mesh (only Data Mesh remembered the choice),
+and identity badges had three looks in three positions.
+
+Now one bar everywhere (`static/app-bar.js` for plain-JS pages,
+`AppHeader` in `static/egeria-shared-ui.js` for the React SPAs):
+`[⌂ Portal] | icon Title subtitle | page controls … | extras · Promise/Memento · identity · theme`.
+Portal link unconditional; one `egeria-theme` key + `:root.light` palettes on
+every page (the Portal keeps its own header but has the toggle); Feedback floats
+bottom-right on every app (Lineage, Data Mesh, Local Dashboards, Governance
+Metrics and docs gained it); the forLineage toggle moved into the bar (it used
+to overlap Feedback). Guarded by `tests/test_app_bar_consistency.py`.
+Both environments; freshstart only static-checked (not running at the time).
+
+Follow-ups:
+- my-egeria (Textual TUI, ships in pyegeria) has no way back to the Portal
+  except its own tab — needs a key binding / header link in egeria-python.
+- Explorer's vega charts still render with the dark config in light mode.
+- Data Mesh graph colours are tuned for dark; readable in light but untuned.
+- Pre-login pages (login/register/reset/privacy) stay dark-only by design.
+- Pre-existing: Overview loads egeria-shared-ui.js without React, so its
+  `React.createContext` line throws at load (harmless, but noisy).
+
+---
 ## Mirror egeria-freshstart from egeria-quickstart (2026-09-14) — open
 
 `egeria-freshstart/PyegeriaWebHandler` was already out of sync with

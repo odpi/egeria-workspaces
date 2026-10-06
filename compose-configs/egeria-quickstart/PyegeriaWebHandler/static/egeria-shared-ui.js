@@ -2102,6 +2102,94 @@ function FeedbackButton({ section, persona, demoMode, srvManaged, pagePrefix }) 
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
+ * AppHeader — the shared app bar, React flavour. Same markup/classes as the
+ * plain-JS bar in static/app-bar.js (which must be loaded in <head>: it owns
+ * the CSS and the theme state). Layout, identical on every page:
+ *
+ *   [⌂ Portal] | [icon] Title  subtitle   {children}   {extras} [identity] [theme]
+ *
+ * The Portal link is unconditional. `identity` comes from appBarIdentity({
+ * activePersona, authUser, srvManaged }) — or null to show none. `children`
+ * is the page's own navigation/search (middle slot); `extras` are page
+ * buttons that belong on the right (Connect, Switch user, ⭐ favorite, ...).
+ * The floating 💬 Feedback button stays separate (FeedbackButton).
+ * ────────────────────────────────────────────────────────────────────────── */
+function appBarIdentity(input) {
+  return window.EgeriaAppBar ? window.EgeriaAppBar.identityFor(input) : null;
+}
+
+// [theme, setTheme] backed by the one shared 'egeria-theme' key; re-renders on
+// changes made by any toggle (or another tab).
+function useEgeriaTheme() {
+  var bar = window.EgeriaAppBar;
+  var st = React.useState(function() { return bar ? bar.getTheme() : 'dark'; });
+  React.useEffect(function() { return bar ? bar.onThemeChange(st[1]) : undefined; }, []);
+  return [st[0], function(t) {
+    var next = typeof t === 'function' ? t(bar ? bar.getTheme() : st[0]) : t;
+    if (bar) bar.setTheme(next); else st[1](next);
+  }];
+}
+
+function ThemeToggle() {
+  var th = useEgeriaTheme(), theme = th[0], setTheme = th[1];
+  var bar = window.EgeriaAppBar;
+  return React.createElement('button', {
+    type: 'button', className: 'eg-theme-btn',
+    onClick: function() { setTheme(theme === 'light' ? 'dark' : 'light'); },
+    title: bar ? bar.themeTitle(theme) : '',
+  }, bar ? bar.themeLabel(theme) : (theme === 'light' ? '☾ Dark' : '☀ Light'));
+}
+
+function IdentityBadge({ identity }) {
+  if (!identity) return null;
+  var text = (identity.kind === 'user' ? '👤 ' : '🎭 ') + identity.label;
+  var cls = 'eg-id eg-id-' + identity.kind;
+  if (identity.kind === 'user') return React.createElement('span', { className: cls, title: identity.title || '' }, text);
+  return React.createElement('a', { className: cls, title: identity.title || '',
+    href: window.EgeriaAppBar ? window.EgeriaAppBar.PICK_PERSONA_URL : '/portal' }, text);
+}
+
+// The "Promise / Memento" (forLineage) data-scope switch, in the app bar instead of
+// floating over the page (where it collided with the Feedback button). Only on pages
+// that opt in with window.EGERIA_FOR_LINEAGE; hidden while
+// egeriaForLineageToggleVisible(false) says the current view doesn't use it.
+function ForLineageToggle() {
+  var vis = React.useState(window.EGERIA_FOR_LINEAGE_VISIBLE !== false);
+  React.useEffect(function() {
+    window.EGERIA_FOR_LINEAGE_IN_HEADER = true;
+    var stray = document.getElementById('egeria-for-lineage-toggle');
+    if (stray) stray.remove();
+    function h(e) { vis[1](e.detail.show); }
+    window.addEventListener('egeria-for-lineage-visible', h);
+    return function() { window.removeEventListener('egeria-for-lineage-visible', h); };
+  }, []);
+  if (!window.EGERIA_FOR_LINEAGE || !vis[0]) return null;
+  return React.createElement('label', { className: 'eg-forlineage',
+      title: 'Include elements classified as Promise or Memento, which Egeria hides by default (forLineage)' },
+    React.createElement('input', { type: 'checkbox', defaultChecked: egeriaForLineageOn(),
+      onChange: function(e) { egeriaForLineageSet(e.target.checked); } }),
+    'Promise / Memento');
+}
+
+function AppHeader({ icon, logo, title, subtitle, onTitleClick, identity, extras, children }) {
+  var h = React.createElement;
+  return h('header', { className: 'eg-appbar' },
+    h('a', { className: 'eg-portal', href: '/portal', title: 'Back to the Portal' }, '⌂ Portal'),
+    h('span', { className: 'eg-sep' }),
+    h('div', { className: 'eg-app', onClick: onTitleClick, style: onTitleClick ? { cursor: 'pointer' } : undefined },
+      logo ? h('span', { className: 'eg-app-icon' }, h('img', { src: logo, alt: '' }))
+           : icon ? h('span', { className: 'eg-app-icon' }, icon) : null,
+      h('span', { className: 'eg-app-title' }, title),
+      subtitle ? h('span', { className: 'eg-app-sub' }, subtitle) : null),
+    h('div', { className: 'eg-appbar-middle' }, children),
+    h('div', { className: 'eg-appbar-right' },
+      h(ForLineageToggle, null),
+      extras,
+      h(IdentityBadge, { identity: identity }),
+      h(ThemeToggle, null)));
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
  * Credential context — provides Egeria connection params (or a token) to all
  * child components without prop-drilling. Both SPAs wrap their tree in
  * CredContext.Provider value={creds}; shared components read it via useContext
@@ -3528,11 +3616,35 @@ window.egeriaForLineageToggleVisible = function(show) {
   window.EGERIA_FOR_LINEAGE_VISIBLE = !!show;
   var el = document.getElementById('egeria-for-lineage-toggle');
   if (el) el.style.display = show ? 'flex' : 'none';
+  window.dispatchEvent(new CustomEvent('egeria-for-lineage-visible', { detail: { show: !!show } }));
 };
+
+// Flip forLineage and reload so every view refetches under the new setting.
+function egeriaForLineageSet(on) {
+  try { sessionStorage.setItem(EGERIA_FOR_LINEAGE_KEY, on ? 'true' : 'false'); } catch (e) {}
+  // A SPA may register window.egeriaNavSnapshot() -> {hash, query}; encode it in the
+  // URL first so the reload comes back to the same view instead of the home page.
+  try {
+    var snap = window.egeriaNavSnapshot && window.egeriaNavSnapshot();
+    if (snap) {
+      var qp = new URLSearchParams(location.search);
+      Object.keys(snap.query || {}).forEach(function(k) {
+        var v = snap.query[k];
+        if (v === null || v === undefined || v === '') qp.delete(k); else qp.set(k, v);
+      });
+      var qs = qp.toString();
+      history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + (snap.hash ? '#' + snap.hash : location.hash));
+    }
+  } catch (e) {}
+  location.reload();
+}
 
 (function mountForLineageToggle() {
   function mount() {
     if (!window.EGERIA_FOR_LINEAGE || document.getElementById('egeria-for-lineage-toggle')) return;
+    // Pages with the shared app bar show it there (ForLineageToggle in AppHeader);
+    // this floating copy is only a fallback for any page that doesn't.
+    if (window.EGERIA_FOR_LINEAGE_IN_HEADER || document.querySelector('.eg-appbar')) return;
     var label = document.createElement('label');
     label.id = 'egeria-for-lineage-toggle';
     label.title = 'Include elements classified as Promise or Memento, which Egeria hides by default (forLineage)';
@@ -3545,24 +3657,7 @@ window.egeriaForLineageToggleVisible = function(show) {
     box.type = 'checkbox';
     box.checked = egeriaForLineageOn();
     box.style.cssText = 'cursor:pointer;accent-color:var(--accent,#60a5fa);';
-    box.addEventListener('change', function() {
-      try { sessionStorage.setItem(EGERIA_FOR_LINEAGE_KEY, box.checked ? 'true' : 'false'); } catch (e) {}
-      // A SPA may register window.egeriaNavSnapshot() -> {hash, query}; encode it in the
-      // URL first so the reload comes back to the same view instead of the home page.
-      try {
-        var snap = window.egeriaNavSnapshot && window.egeriaNavSnapshot();
-        if (snap) {
-          var qp = new URLSearchParams(location.search);
-          Object.keys(snap.query || {}).forEach(function(k) {
-            var v = snap.query[k];
-            if (v === null || v === undefined || v === '') qp.delete(k); else qp.set(k, v);
-          });
-          var qs = qp.toString();
-          history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + (snap.hash ? '#' + snap.hash : location.hash));
-        }
-      } catch (e) {}
-      location.reload();
-    });
+    box.addEventListener('change', function() { egeriaForLineageSet(box.checked); });
     label.appendChild(box);
     label.appendChild(document.createTextNode('Promise / Memento'));
     document.body.appendChild(label);

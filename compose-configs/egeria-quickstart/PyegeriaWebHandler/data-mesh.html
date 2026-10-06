@@ -11,6 +11,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Data Mesh</title>
+  <script src="/static/app-bar.js?v=2026-10-05a"></script>
   <script src="/static/bootstrap-banner.js?v=2026-08-18a"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -436,7 +437,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
 <script>window.EGERIA_FOR_LINEAGE = true;</script>
-<script src="/static/egeria-shared-ui.js?v=2026-10-01c"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-10-05a"></script>
 <script>
 'use strict';
 // React hook aliases (mirror tech-catalog.html / type-explorer.html)
@@ -868,11 +869,6 @@ function App() {
 
   var [panelW, onPanelDivDown] = useResizableWidth(380, 280, 640);
 
-  var _theme = useState(function() { try { return localStorage.getItem('egeria-theme') || 'dark'; } catch(e) { return 'dark'; } }), theme = _theme[0], setTheme = _theme[1];
-  useEffect(function() {
-    document.documentElement.classList.toggle('light', theme === 'light');
-    try { localStorage.setItem('egeria-theme', theme); } catch(e) {}
-  }, [theme]);
 
   if (!ready) return null;
 
@@ -881,11 +877,10 @@ function App() {
   return React.createElement(PersonaContext.Provider, { value: favPersonaId },
   React.createElement(CredContext.Provider, { value: creds },
     React.createElement('div', { style: { display: 'flex', flexDirection: 'column', height: '100vh' } },
-      React.createElement('div', { className: 'header' },
-        React.createElement('a', { href: '/portal', style: { color: 'var(--muted)', textDecoration: 'none', fontSize: 13, flexShrink: 0 } }, '← Portal'),
-        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 15, flexShrink: 0 } },
-          React.createElement(NetIcon, { size: 18 }), 'Data Mesh'
-        ),
+      // Shared app bar (static/app-bar.js + AppHeader in egeria-shared-ui.js)
+      React.createElement(AppHeader, { icon: React.createElement(NetIcon, { size: 18 }), title: 'Data Mesh',
+        identity: appBarIdentity({ activePersona: activePersona, authUser: authUser, srvManaged: srvManaged }),
+        extras: mesh && React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)' } }, mesh.nodes.length + ' products · ' + mesh.edges.length + ' dependencies') },
         React.createElement('div', { className: 'mesh-search-wrap' },
           React.createElement('input', {
             className: 'mesh-search-input', placeholder: 'Search digital products…',
@@ -899,19 +894,6 @@ function App() {
         },
           React.createElement('option', { value: '' }, 'Highlight ISC…'),
           iscOptions.map(function(name) { return React.createElement('option', { key: name, value: name }, name); })
-        ),
-        React.createElement('div', { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 } },
-          mesh && React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)' } }, mesh.nodes.length + ' products · ' + mesh.edges.length + ' dependencies'),
-          activePersona
-            ? React.createElement('span', { className: 'persona-badge-btn', title: activePersona.coco_title || '' }, '🎭 ' + (activePersona.display_name || activePersona.id))
-            : authUser
-              ? React.createElement('span', { style: { fontSize: 11, color: '#34d399', background: 'rgba(52,211,153,.1)', padding: '2px 8px', borderRadius: 10, border: '1px solid rgba(52,211,153,.25)' } },
-                  '👤 ' + (authUser.displayName || authUser.userId))
-              : React.createElement('a', { className: 'persona-badge-btn', href: '/portal' }, '🎭 Choose persona'),
-          React.createElement('button', {
-            className: 'theme-btn',
-            onClick: function() { setTheme(theme === 'light' ? 'dark' : 'light'); },
-          }, theme === 'light' ? '🌙 Dark' : '☀️ Light')
         )
       ),
       React.createElement('div', { className: 'body' },
@@ -933,7 +915,9 @@ function App() {
           detailState === 'ready' && detail && React.createElement(DataMeshDetail, { product: detail, onNavigateToElement: handleNavigateToElement }),
           detailState === 'idle' && React.createElement('div', { className: 'mesh-panel-empty' }, 'Select a digital product in the graph to see its details.')
         )
-      )
+      ),
+      React.createElement(FeedbackButton, { section: selectedGuid ? 'product' : 'main', persona: favPersonaId,
+        demoMode: demoMode, srvManaged: srvManaged, pagePrefix: 'data-mesh/' })
     )
   ));
 }

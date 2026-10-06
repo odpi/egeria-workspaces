@@ -7,6 +7,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Local Dashboards · Egeria</title>
+<script src="/static/app-bar.js?v=2026-10-05a"></script>
 <script src="/static/bootstrap-banner.js?v=2026-08-18a"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
@@ -17,14 +18,17 @@
     --bg:#1a1a2e; --card:#16213e; --card2:#12203c; --border:#0f3460;
     --accent:#e94560; --text:#e0e0e0; --muted:#8b93a7; --green:#4caf50; --amber:#f5b74e;
   }
+  :root.light {
+    --bg:#f5f6fa; --card:#ffffff; --card2:#eef1f7; --border:#d3d9e6;
+    --accent:#d23353; --text:#1f2333; --muted:#5b6376; --green:#2e7d32; --amber:#b7791f;
+  }
+  :root.light .btn-danger, :root.light .err, :root.light .rd-summary.bad, :root.light .rd-errors { color:#b4233f; }
+  :root.light .rd-summary.ok { color:#2e7d32; }
+  :root.light .badge-fam, :root.light .placement .p-note a { color:#1f6fd1; }
   * { box-sizing:border-box; margin:0; padding:0; }
   body { background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,sans-serif; min-height:100vh; }
   a { color:inherit; }
 
-  .hdr { background:var(--card); border-bottom:1px solid var(--border); padding:10px 24px; display:flex; align-items:center; gap:14px; position:sticky; top:0; z-index:10; }
-  .hdr .logo { font-size:1.3rem; }
-  .hdr-title { font-size:1rem; font-weight:700; }
-  .hdr-sub { font-size:.72rem; color:var(--muted); }
   .btn { padding:5px 12px; border-radius:6px; border:1px solid var(--border); background:transparent; color:var(--text); cursor:pointer; font-size:.78rem; font-family:inherit; text-decoration:none; display:inline-block; }
   .btn:hover { background:var(--border); }
 
@@ -158,15 +162,12 @@
 </head>
 <body>
 
-<div class="hdr">
-  <a href="/portal" class="btn" title="Back to Portal">← Portal</a>
-  <span class="logo">🗂️</span>
-  <div>
-    <div class="hdr-title">Local Dashboards</div>
-    <div class="hdr-sub">User-authored Dashboard Sheets (Dr.Egeria)</div>
+<header class="eg-appbar eg-sticky" data-icon="🗂️" data-title="Local Dashboards"
+        data-subtitle="User-authored Dashboard Sheets (Dr.Egeria)" data-feedback="local-dashboards">
+  <div class="eg-appbar-extras">
+    <button class="btn" onclick="toggleRunDocPanel()" title="Create or update a Dashboard Sheet without shell/Docker access">▶ Run Dr.Egeria Document</button>
   </div>
-  <button class="btn" style="margin-left:auto" onclick="toggleRunDocPanel()" title="Create or update a Dashboard Sheet without shell/Docker access">▶ Run Dr.Egeria Document</button>
-</div>
+</header>
 
 <div id="run-doc-panel" style="display:none">
   <div class="rd-inner">
@@ -805,10 +806,10 @@ function renderExecResult(result) {
   return { html: '<pre style="font-size:11px">' + esc(JSON.stringify(result, null, 2)) + '</pre>', mermaidBlocks: [], vegaBlocks: [] };
 }
 
-// Dark-theme config merged onto every spec so charts match the dashboard
+// Theme config merged onto every spec so charts match the dashboard
 // instead of Vega-Lite's white-background default (same convention as
-// egeria-overview.html's VEGA_DARK_CONFIG/renderVega). Only fills in keys the
-// backend spec didn't already set.
+// egeria-overview.html's vegaThemeConfig/renderVega). Only fills in keys the
+// backend spec didn't already set. Picked per render from the app-bar theme.
 var VEGA_DARK_CONFIG = {
   background: 'transparent',
   title:  { color: '#e0e0e0' },
@@ -816,15 +817,33 @@ var VEGA_DARK_CONFIG = {
   legend: { labelColor: '#8b93a7', titleColor: '#8b93a7' },
   view:   { stroke: 'transparent' },
 };
+var VEGA_LIGHT_CONFIG = {
+  background: 'transparent',
+  title:  { color: '#1f2333' },
+  axis:   { labelColor: '#5b6376', titleColor: '#5b6376', gridColor: 'rgba(0,0,0,.08)', domainColor: 'rgba(0,0,0,.25)', tickColor: 'rgba(0,0,0,.25)' },
+  legend: { labelColor: '#5b6376', titleColor: '#5b6376' },
+  view:   { stroke: 'transparent' },
+};
+function isLightTheme() { return document.documentElement.classList.contains('light'); }
+
+// Blocks rendered on the current view, re-drawn (no re-fetch) when the theme flips.
+var _renderedVega = [], _renderedMermaid = [];
+window.addEventListener('egeria-theme-change', function() {
+  var v = _renderedVega.filter(function(b) { return document.getElementById(b.id); });
+  var m = _renderedMermaid.filter(function(b) { return document.getElementById(b.id); });
+  _renderedVega = []; _renderedMermaid = [];
+  renderVegaBlocks(v); renderMermaidBlocks(m);
+});
 
 function renderVegaBlocks(blocks) {
   if (!blocks || !blocks.length) return;
+  _renderedVega = _renderedVega.concat(blocks);
   blocks.forEach(function(b) {
     var tryRender = function() {
       if (typeof window.vegaEmbed !== 'function') { setTimeout(tryRender, 150); return; }
       var el = document.getElementById(b.id);
       if (!el) return; // navigated away before vega-embed finished loading
-      var themed = Object.assign({}, b.spec, { config: Object.assign({}, VEGA_DARK_CONFIG, b.spec.config || {}) });
+      var themed = Object.assign({}, b.spec, { config: Object.assign({}, isLightTheme() ? VEGA_LIGHT_CONFIG : VEGA_DARK_CONFIG, b.spec.config || {}) });
       window.vegaEmbed('#' + b.id, themed, { actions: false, renderer: 'svg' })
         .catch(function(err) {
           var el2 = document.getElementById(b.id);
@@ -864,12 +883,13 @@ function renderMdWithMermaid(rawText) {
 
 function renderMermaidBlocks(blocks) {
   if (!blocks || !blocks.length) return;
+  _renderedMermaid = _renderedMermaid.concat(blocks);
   blocks.forEach(function(b) {
     var tryRender = function() {
       if (!(window.mermaid && window.mermaid.render)) { setTimeout(tryRender, 150); return; }
       var el = document.getElementById(b.id);
       if (!el) return; // navigated away before mermaid.js finished loading
-      try { window.mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' }); } catch (e) {}
+      try { window.mermaid.initialize({ startOnLoad: false, theme: isLightTheme() ? 'default' : 'dark', securityLevel: 'loose' }); } catch (e) {}
       window.mermaid.render(b.id + '-svg', b.code)
         .then(function(res) { var el2 = document.getElementById(b.id); if (el2) el2.innerHTML = res.svg || ''; })
         .catch(function(err) {
