@@ -463,6 +463,7 @@ def get_summary(
     schema = _schema_coverage(mgr, as_of_time, survey.get("schemaAnalysedGuids"))
     engine_health = _engine_action_health(url, server, user_id, user_pwd, as_of_time)
     confidentiality = _confidentiality_levels(mgr, as_of_time)
+    technology = _assets_by_technology(mgr, as_of_time)
 
     payload = {
         "asOfTime":         as_of_time,
@@ -496,6 +497,10 @@ def get_summary(
         "latestSurveyTime":   survey["latestSurveyTime"],
         "surveysCompleted7d": survey["surveysCompleted7d"],
         "dataStoresByKind":   survey["dataStoresByKind"],
+        "assetsByTechnology":      technology["technologies"],
+        "technologyUnrecorded":    technology["unrecorded"],
+        "technologyPlaceholders":  technology["placeholders"],
+        "technologyAssetTotal":    technology["total"],
         "engineActionHealth": engine_health,
         "surveysCompleted":   survey["surveysCompleted"],
         "surveysFailed":      survey["surveysFailed"],
@@ -566,6 +571,46 @@ def _confidentiality_levels(mgr, as_of: Optional[str] = None) -> dict:
         out["capped"] = len(found) >= _SURVEY_LINK_CAP
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview confidentiality levels failed: {exc}")
+    return out
+
+
+def _assets_by_technology(mgr, as_of: Optional[str] = None) -> dict:
+    """Assets grouped by the technology they record in `deployedImplementationType`. Most assets do not
+    record one, so the figures are exclusive and add up to the asset total: each technology, the assets
+    that record none (`unrecorded`), and template placeholders such as ``~{deployedImplementationType}~``
+    (`placeholders`: template elements carry the unfilled name, which is not a technology). Read in pages
+    until an empty one (Egeria's paging contract); every field is None when a page failed or
+    _REL_MAX_PAGES full pages were read without reaching the end (a capped read can only under-count)."""
+    out = {"technologies": None, "unrecorded": None, "placeholders": None, "total": None}
+    try:
+        counts: dict = {}
+        unrecorded = placeholders = total = 0
+        done = False
+        for page in range(_REL_MAX_PAGES):
+            body = {"class": "FindRequestBody", "metadataElementTypeName": "Asset",
+                    "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0,
+                    "startFrom": page * _SURVEY_LINK_CAP, "pageSize": _SURVEY_LINK_CAP}
+            if as_of:
+                body["asOfTime"] = as_of
+            chunk = mgr.find_metadata_elements(body)
+            chunk = [e for e in (chunk if isinstance(chunk, list) else []) if isinstance(e, dict)]
+            if not chunk:
+                done = True
+                break
+            for e in chunk:
+                total += 1
+                props = e.get("elementProperties") or {}
+                tech = str((props.get("propertiesAsStrings") or props).get("deployedImplementationType") or "").strip()
+                if not tech:
+                    unrecorded += 1
+                elif tech.startswith("~{") and tech.endswith("}~"):
+                    placeholders += 1
+                else:
+                    counts[tech] = counts.get(tech, 0) + 1
+        if done:
+            out.update(technologies=counts, unrecorded=unrecorded, placeholders=placeholders, total=total)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview assets by technology failed: {exc}")
     return out
 
 
