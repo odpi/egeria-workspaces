@@ -473,6 +473,7 @@ def get_summary(
     schema = _schema_coverage(mgr, as_of_time, survey.get("schemaAnalysedGuids"))
     engine_health = _engine_action_health(url, server, user_id, user_pwd, as_of_time)
     confidentiality = _confidentiality_levels(mgr, as_of_time)
+    technology = _assets_by_technology(mgr, as_of_time)
 
     payload = {
         "asOfTime":         as_of_time,
@@ -506,6 +507,10 @@ def get_summary(
         "latestSurveyTime":   survey["latestSurveyTime"],
         "surveysCompleted7d": survey["surveysCompleted7d"],
         "dataStoresByKind":   survey["dataStoresByKind"],
+        "assetsByTechnology":      technology["technologies"],
+        "technologyUnrecorded":    technology["unrecorded"],
+        "technologyPlaceholders":  technology["placeholders"],
+        "technologyAssetTotal":    technology["total"],
         "engineActionHealth": engine_health,
         "surveysCompleted":   survey["surveysCompleted"],
         "surveysFailed":      survey["surveysFailed"],
@@ -579,21 +584,68 @@ def _confidentiality_levels(mgr, as_of: Optional[str] = None) -> dict:
     return out
 
 
+def _assets_by_technology(mgr, as_of: Optional[str] = None) -> dict:
+    """Assets grouped by the technology they record in `deployedImplementationType`. Most assets do not
+    record one, so the figures are exclusive and add up to the asset total: each technology, the assets
+    that record none (`unrecorded`), and template placeholders such as ``~{deployedImplementationType}~``
+    (`placeholders`: template elements carry the unfilled name, which is not a technology). Read in pages
+    until an empty one (Egeria's paging contract); every field is None when a page failed or
+    _REL_MAX_PAGES full pages were read without reaching the end (a capped read can only under-count)."""
+    out = {"technologies": None, "unrecorded": None, "placeholders": None, "total": None}
+    try:
+        counts: dict = {}
+        unrecorded = placeholders = total = 0
+        done = False
+        for page in range(_REL_MAX_PAGES):
+            body = {"class": "FindRequestBody", "metadataElementTypeName": "Asset",
+                    "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0,
+                    "startFrom": page * _SURVEY_LINK_CAP, "pageSize": _SURVEY_LINK_CAP}
+            if as_of:
+                body["asOfTime"] = as_of
+            chunk = mgr.find_metadata_elements(body)
+            chunk = [e for e in (chunk if isinstance(chunk, list) else []) if isinstance(e, dict)]
+            if not chunk:
+                done = True
+                break
+            for e in chunk:
+                total += 1
+                props = e.get("elementProperties") or {}
+                tech = str((props.get("propertiesAsStrings") or props).get("deployedImplementationType") or "").strip()
+                if not tech:
+                    unrecorded += 1
+                elif tech.startswith("~{") and tech.endswith("}~"):
+                    placeholders += 1
+                else:
+                    counts[tech] = counts.get(tech, 0) + 1
+        if done:
+            out.update(technologies=counts, unrecorded=unrecorded, placeholders=placeholders, total=total)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview assets by technology failed: {exc}")
+    return out
+
+
 def _schema_coverage(mgr, as_of: Optional[str] = None, analysed=None) -> dict:
     """How many elements have a schema: the distinct anchors of SchemaType elements (a schema's anchor is
     the asset it describes) UNION the assets a survey analysed the schema of (SchemaAnalysisAnnotation --
-    surveys record a database's schema as annotations, not as SchemaType elements). One capped find; None
-    when it failed or was capped (a capped page can only under-count)."""
+    surveys record a database's schema as annotations, not as SchemaType elements). Read in pages until an
+    empty one (Egeria's paging contract); None when a page failed or _REL_MAX_PAGES full pages were read
+    without reaching the end (a capped read can only under-count)."""
     out = {"assetsWithSchema": None, "schemaTypes": None, "schemaCapped": None, "schemaAnalysedAssets": None}
     analysed = set(analysed or [])
     try:
-        body = {"class": "FindRequestBody", "metadataElementTypeName": "SchemaType",
-                "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0, "startFrom": 0,
-                "pageSize": _SURVEY_LINK_CAP}
-        if as_of:
-            body["asOfTime"] = as_of
-        found = mgr.find_metadata_elements(body)
-        found = [e for e in (found if isinstance(found, list) else []) if isinstance(e, dict)]
+        found, capped = [], True
+        for page in range(_REL_MAX_PAGES):
+            body = {"class": "FindRequestBody", "metadataElementTypeName": "SchemaType",
+                    "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0,
+                    "startFrom": page * _SURVEY_LINK_CAP, "pageSize": _SURVEY_LINK_CAP}
+            if as_of:
+                body["asOfTime"] = as_of
+            chunk = mgr.find_metadata_elements(body)
+            chunk = [e for e in (chunk if isinstance(chunk, list) else []) if isinstance(e, dict)]
+            if not chunk:
+                capped = False
+                break
+            found.extend(chunk)
         anchors = set()
         for e in found:
             props = _classification_props(e, "Anchors")
@@ -601,7 +653,7 @@ def _schema_coverage(mgr, as_of: Optional[str] = None, analysed=None) -> dict:
             if g:
                 anchors.add(g)
         out["schemaTypes"] = len(found)
-        out["schemaCapped"] = len(found) >= _SURVEY_LINK_CAP
+        out["schemaCapped"] = capped
         out["assetsWithSchema"] = None if out["schemaCapped"] else len(anchors | analysed)
         out["schemaAnalysedAssets"] = len(analysed - anchors)   # assets whose schema is known only from a survey
     except Exception as exc:  # noqa: BLE001
