@@ -6,6 +6,7 @@
     "name": "Data Field Naming"
   },
   "defaultEnabled": false,
+  "userid": "erinoverview",
   "files": [
     "glossary.md",
     "organization.md",

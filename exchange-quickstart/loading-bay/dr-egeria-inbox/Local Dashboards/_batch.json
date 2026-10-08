@@ -1,13 +1,19 @@
 {
   "displayName": "Local Dashboards",
-  "description": "Seeds the Local Dashboards feature's WorkItemList roadmap, work items, and demo report/analytics dashboard sheets.",
-  "canary": {"type": "WorkItemList", "name": "Local Dashboards - Next Steps"},
+  "description": "Seeds the Local Dashboards feature's WorkItemList roadmap, work items, and demo report/analytics dashboard sheets, then the digital products demo and the worked examples from the two tutorials.",
+  "canary": {
+    "type": "WorkItemList",
+    "name": "Local Dashboards - Next Steps"
+  },
   "defaultEnabled": true,
   "files": [
     "LOCAL_DASHBOARDS_ROADMAP.dr-egeria.md",
     "LOCAL_DASHBOARDS_WORK_ITEMS.dr-egeria.md",
     "LOCAL_DASHBOARDS_NEXT_STEPS_REPORTS.dr-egeria.md",
     "LOCAL_DASHBOARDS_ANALYTICS_DEMO.dr-egeria.md",
-    "LOCAL_DASHBOARDS_ASSETS_BY_TYPE_LOCATION_DEMO.dr-egeria.md"
+    "LOCAL_DASHBOARDS_ASSETS_BY_TYPE_LOCATION_DEMO.dr-egeria.md",
+    "DIGITAL_PRODUCTS_DEMO.dr-egeria.md",
+    "LOCAL_DASHBOARDS_TUTORIAL.md",
+    "DIGITAL_PRODUCT_SUBSCRIPTION_TUTORIAL.md"
   ]
 }

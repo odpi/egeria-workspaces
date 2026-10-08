@@ -6,6 +6,7 @@
     "name": "The Reference-to-Patient Mapping Must Be Held Clinically with Logged Access"
   },
   "defaultEnabled": false,
+  "userid": "faithbroker",
   "files": [
     "data-processing-purposes.md",
     "cross-border-data-transfers.md",
