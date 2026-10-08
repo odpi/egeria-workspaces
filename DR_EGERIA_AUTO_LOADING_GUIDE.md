@@ -149,10 +149,10 @@ Files run only for **enabled** batches, and only on one of three triggers. Addin
 A **canary** is one element the batch creates, named in `_batch.json`:
 
 ```json
-"canary": {"type": "Glossary", "name": "Employee Glossary"}
+"canary": {"type": "InformationSupplyChain", "name": "Data Subject Rights Information Supply Chain"}
 ```
 
-If that element is missing, the Portal assumes Egeria was reset and reloads the batch. Point it at something one of the last files creates, so that its presence means the whole batch loaded. A batch without a canary never runs on its own.
+If that element is missing, the Portal assumes Egeria was reset and reloads the batch. Point it at something the last file creates, so that its presence means the whole batch loaded. A canary from an early file lets an interrupted reload look finished, and the batch is never retried. A batch without a canary never runs on its own.
 
 **Each file runs at most once per run.** Two batches can reach the same file, for example through two symlinks to one folder. In that case the file runs in the first batch, and the second batch reports it as `duplicate`, which is not counted as a failure.
 

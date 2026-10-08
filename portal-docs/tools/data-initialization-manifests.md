@@ -14,7 +14,7 @@ Lives at the root of a batch folder (a sibling of that folder's `.md` files), e.
 |---|---|---|
 | `displayName` | the folder name | Label shown in the batch list. |
 | `description` | *(empty)* | Shown under the display name in the panel. |
-| `canary` | *(none)* | `{"type": <Egeria metadata element type name>, "name": <exact displayName>}`. If present, the Portal periodically searches for an `ACTIVE` element of that type whose `displayName` exactly matches `name` (a cheap bounded, page-size-1 lookup); if nothing matches, it silently re-runs the batch's files in the background. Omit `canary` entirely for a manual-only batch — nothing runs on its own, an admin has to opt in from the panel. |
+| `canary` | *(none)* | `{"type": <Egeria metadata element type name>, "name": <exact displayName>}`. If present, the Portal periodically searches for an `ACTIVE` element of that type whose `displayName` exactly matches `name` (a cheap bounded, page-size-1 lookup); if nothing matches, it silently re-runs the batch's files in the background. **Point it at an element the batch's last file creates** (or the last file that creates anything). Auto-heal only re-runs a batch while its canary is missing, so a canary from an early file stops a heal that was interrupted partway from ever being retried. That is how `Coco - 1. Data Field Naming`, whose canary came from its first file, was left missing six of its 33 files. Omit `canary` entirely for a manual-only batch — nothing runs on its own, an admin has to opt in from the panel. |
 | `defaultEnabled` | `false` | Whether a freshly-discovered batch (no saved admin selection yet) starts checked. Core-portal batches that must survive a reset with zero admin action set this `true`; anything admin-droppable defaults to `false` so nothing runs until someone opts in. |
 | `idempotent` | `true` | Set `false` only if one of the folder's commands creates a relationship/record with no pre-existence check, so re-running against already-seeded data would duplicate it. This gates the admin panel's manual Run Now/Run All Enabled with a confirmation prompt; auto-heal is unaffected (it only ever runs when the canary is confirmed missing, so there's never an already-seeded target to duplicate against). Leave the default alone unless you've confirmed a specific command actually lacks that check. |
 | `files` | *(none — alphabetical)* | Explicit execution order, in the order listed. An entry can be a file (`"glossary.md"`), a file in a subfolder (`"mapping-the-systems/egeria-implementation.md"`), or a whole subfolder (`"strategic-digital-products/"`), which runs in place, in its own order (its own `_batch.json`, recursively). Anything **not** listed is appended afterward: `.md` files alphabetically, then subfolders alphabetically. Each appended item is flagged in the panel, because its position was defaulted rather than chosen. A stale entry (no longer present) is skipped and flagged. |
@@ -27,7 +27,7 @@ Lives at the root of a batch folder (a sibling of that folder's `.md` files), e.
 {
   "displayName": "Local Dashboards",
   "description": "Seeds the Local Dashboards feature's WorkItemList roadmap, work items, and demo report/analytics dashboard sheets, then the digital products demo and the worked examples from the two tutorials.",
-  "canary": {"type": "WorkItemList", "name": "Local Dashboards - Next Steps"},
+  "canary": {"type": "Agreement", "name": "Marketing Subscription - C360"},
   "defaultEnabled": true,
   "files": [
     "LOCAL_DASHBOARDS_ROADMAP.dr-egeria.md",
@@ -42,7 +42,7 @@ Lives at the root of a batch folder (a sibling of that folder's `.md` files), e.
 }
 ```
 
-No `userid`, so every file runs as dr_egeria's default user.
+No `userid`, so every file runs as dr_egeria's default user. The canary is an agreement created by the last file that writes to Egeria (the report and dashboard-sheet commands write to a local file, not to Egeria).
 
 ### Example — `coco-workbooks/0. data-governance-program/_batch.json` (real, shipped, abridged)
 
@@ -52,7 +52,7 @@ No `userid`, so every file runs as dr_egeria's default user.
 {
   "displayName": "Coco - 0. Data Governance Program",
   "description": "Coco Pharmaceuticals' governance program: ... Files run in the order the story happens — see the README.",
-  "canary": {"type": "Glossary", "name": "Employee Glossary"},
+  "canary": {"type": "InformationSupplyChain", "name": "Data Subject Rights Information Supply Chain"},
   "defaultEnabled": false,
   "files": [
     {"file": "jules-90-day-plan.md", "userid": "juleskeeper"},
@@ -69,7 +69,7 @@ No `userid`, so every file runs as dr_egeria's default user.
 }
 ```
 
-The 19 files run in this explicit order, which is the order the story in Jules Keeper's plan happens, not alphabetical. The `README.md` is skipped. Each file is loaded as the governance leader the README names as its owner, so the definitions are attributed to that person rather than to whoever ran the load. `canary` checks for the `Employee Glossary` Glossary that `employee-glossary.md` creates. It needs to show that the batch's main content loaded, so it points at one of the last steps. `defaultEnabled` stays `false`: this is Coco Pharmaceuticals scenario content, not a core-portal feature that has to survive a reset unattended.
+The 19 files run in this explicit order, which is the order the story in Jules Keeper's plan happens, not alphabetical. The `README.md` is skipped. Each file is loaded as the governance leader the README names as its owner, so the definitions are attributed to that person rather than to whoever ran the load. `canary` checks for an information supply chain that `strategic-information-supply-chains.md`, the last file, creates. `defaultEnabled` stays `false`: this is Coco Pharmaceuticals scenario content, not a core-portal feature that has to survive a reset unattended.
 
 ### Example — `coco-workbooks/1. coco-data-hub/_batch.json` (real, shipped, abridged)
 

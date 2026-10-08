@@ -2,8 +2,8 @@
   "displayName": "Coco - 1. Data Field Naming",
   "description": "The data field naming standard: the glossary of prime words, modifiers and class words by subject area, followed by the commands that classify them.",
   "canary": {
-    "type": "Glossary",
-    "name": "Data Field Naming"
+    "type": "GlossaryTerm",
+    "name": "OverridesErasure"
   },
   "defaultEnabled": false,
   "userid": "erinoverview",
