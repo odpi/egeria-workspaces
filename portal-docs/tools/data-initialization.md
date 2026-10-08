@@ -68,6 +68,8 @@ Full spec and a worked coco-workbooks example: **[Manifest and ordering file spe
 ## Further resources
 
 - [Manifest and ordering file specs](data-initialization-manifests.md) — full `_batch.json`/`_folder_order.json` reference, with examples
+- [Automatically Loading Dr.Egeria Files — User Guide](../../DR_EGERIA_AUTO_LOADING_GUIDE.md) — task-oriented guide for people who maintain folders of Dr.Egeria files: what changed, recipes, troubleshooting
+- `dr_egeria_folder` in pyegeria — runs a folder from the command line with the same `_batch.json` rules (see the Dr.Egeria manual in egeria-python)
 - [Admin Guide](../quickstart/demo/admin-guide.md) — where this panel sits alongside the rest of each environment's admin tools
 - [Egeria Overview](egeria-overview.md) — the dashboard whose Governance Metrics are seeded by one of the batches this panel manages
 - [Local Dashboards](local-dashboards.md) — another feature whose reference data is seeded this way
