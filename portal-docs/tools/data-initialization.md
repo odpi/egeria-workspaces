@@ -14,7 +14,11 @@ Every folder under `dr-egeria-inbox` is a **batch**, discovered automatically �
 
 Each batch shows:
 - A checkbox to **enable** it — only enabled batches ever run, whether automatically or via Run All Enabled.
-- Its files, each individually checkable — you can enable a folder but leave specific files out.
+- Its files, in run order and each individually checkable, so you can enable a folder but leave specific files out. Files in subfolders show their path (`strategic-digital-products/catalog.md`). Next to each file:
+  - ✓ if the Portal last ran it successfully and it hasn't changed since, **changed since last run** if it has, or `·` if the Portal has no record of running it (it may still have been loaded some other way)
+  - **no commands** if it contains no Dr.Egeria commands
+  - the Egeria user it loads as ("as juleskeeper"), or **default user**
+- An expandable list of **ordering/validation notes**: files whose position in the order was defaulted rather than set in `_batch.json`, stale manifest entries, files with no commands, subfolders that run as their own batch, and files that more than one batch reaches.
 - An **auto-heal** badge if the batch has a way to detect its data went missing, or **manual only** if not (see below).
 - A **⚠ not safe to re-run** badge if the batch contains a command known to duplicate data when re-run against an already-seeded target — see [Confirmation on risky re-runs](#confirmation-on-risky-re-runs).
 
@@ -24,7 +28,7 @@ Selections save automatically as you check/uncheck — there's no separate Save 
 
 ## The `_batch.json` manifest
 
-A folder needs no manifest at all — drop in `.md` files and it becomes a batch, files run alphabetically, auto-heal is off, and the folder name is the display name. An optional `_batch.json` in the folder's root customizes its display name, description, auto-heal canary, default enabled state, re-run safety, and file execution order.
+A folder needs no manifest at all. Drop in `.md` files and it becomes a batch: files run alphabetically, then any subfolders run alphabetically, each in the same way. `README.md` files and output folders such as `dr-egeria-outbox` are skipped. Auto-heal is off, and the folder name is the display name. An optional `_batch.json` in the folder's root customizes its display name, description, auto-heal canary, default enabled state, re-run safety, file execution order (including where subfolders run), files to exclude, and the Egeria user each file is loaded as.
 
 Full field reference, the shipped `Local Dashboards` example, and a worked coco-workbooks example: **[Manifest and ordering file specs](data-initialization-manifests.md)**.
 
@@ -64,6 +68,8 @@ Full spec and a worked coco-workbooks example: **[Manifest and ordering file spe
 ## Further resources
 
 - [Manifest and ordering file specs](data-initialization-manifests.md) — full `_batch.json`/`_folder_order.json` reference, with examples
+- [Automatically Loading Dr.Egeria Files — User Guide](../../DR_EGERIA_AUTO_LOADING_GUIDE.md) — task-oriented guide for people who maintain folders of Dr.Egeria files: what changed, recipes, troubleshooting
+- `dr_egeria_folder` in pyegeria — runs a folder from the command line with the same `_batch.json` rules (see the Dr.Egeria manual in egeria-python)
 - [Admin Guide](../quickstart/demo/admin-guide.md) — where this panel sits alongside the rest of each environment's admin tools
 - [Egeria Overview](egeria-overview.md) — the dashboard whose Governance Metrics are seeded by one of the batches this panel manages
 - [Local Dashboards](local-dashboards.md) — another feature whose reference data is seeded this way
