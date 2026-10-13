@@ -2,7 +2,8 @@
 SPDX-License-Identifier: Apache-2.0
 Copyright Contributors to the ODPi Egeria project.
 
-Resource Browser — FastAPI router (phase 1: the Resource page; phase 2: search, Home, Browse).
+Resource Browser — FastAPI router (phase 1: the Resource page; phase 2: search, Home, Browse;
+phase 3: work lists).
 
 A shop-for-data app for people who look for data rather than curate it.
 Reads Egeria only, and writes back only what Egeria already models
@@ -23,7 +24,16 @@ Endpoints:
   GET    /api/resource-browser/flavours                      → which resources are product or hub members (cached)
   GET    /api/resource-browser/row-extras?guids=             → tags, likes and rating summary for visible rows
   GET    /api/resource-browser/home                          → recently changed resources; popularity status
-  GET    /api/resource-browser/lists                         → work lists the user can see (read-only until phase 3)
+  GET    /api/resource-browser/lists                         → work lists the user can see, and which hold what
+  GET    /api/resource-browser/lists/{guid}                  → one list, every member with its rationale
+  POST   /api/resource-browser/lists                         → create a list of your own
+  PUT    /api/resource-browser/lists/{guid}                  → rename it or change its description
+  POST   /api/resource-browser/lists/{guid}/members          → add resources (with a reason)
+  DELETE /api/resource-browser/lists/{guid}/members/{m}      → remove one
+  POST   /api/resource-browser/lists/{guid}/copy             → copy chosen members into a list of your own
+  GET    /api/resource-browser/groups                        → the Teams and Communities you belong to
+  POST   /api/resource-browser/lists/{guid}/share            → share a list of yours with one of them
+  DELETE /api/resource-browser/lists/{guid}/share/{group}    → stop sharing it
   GET    /api/resource-browser/browse/{facet}                → the values of one browse facet
   GET    /api/resource-browser/browse/{facet}/{value}        → the resources under one facet value
 
@@ -38,8 +48,10 @@ a service account.
 """
 
 import asyncio
+import json
 import os
 import re
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -660,7 +672,12 @@ _KINDS = [
     ("topic", "Topics and feeds", ["Topic", "DataFeed"]),
     ("product", "Products", ["DigitalProduct"]),
     ("api", "APIs", ["DeployedAPI"]),
+    ("repo", "Code repositories", []),   # recognised by _REPO_QN_PREFIX, see _is_repo
 ]
+
+# Resource Explorer publishes a GitHub repository as a plain Asset named
+# GitHubRepository::<url> (no subtype yet), so a repo is told by its name.
+_REPO_QN_PREFIX = "GitHubRepository::"
 _KIND_IDS = [k[0] for k in _KINDS] + ["other"]
 
 # Governance classifications shown as badges.
@@ -702,27 +719,32 @@ def _looks_automated(user) -> bool:
     return u.endswith("npa") or "engine" in u
 
 
-def _row(el: dict) -> Optional[dict]:
+def _is_repo(type_name: str, qualified_name: str) -> bool:
+    return type_name == "Asset" and (qualified_name or "").startswith(_REPO_QN_PREFIX)
+
+
+def _row(el: dict, any_type: bool = False) -> Optional[dict]:
     """One result row, from an element (or a related element) at graph depth 0.
 
-    None for anything that is not a data resource, and for templates."""
+    None for templates, and (unless any_type) for anything that is not a data resource."""
     if not isinstance(el, dict):
         return None
     hdr = el.get("elementHeader") or {}
     guid = hdr.get("guid")
     type_name, supers = _type_names(hdr)
-    if not guid or not _is_resource(type_name, supers):
+    props = el.get("properties") or {}
+    repo = _is_repo(type_name, props.get("qualifiedName", ""))
+    if not guid or (not any_type and not repo and not _is_resource(type_name, supers)):
         return None
     cls = _classifications(hdr)
     if any(c["name"] == "Template" for c in cls):
         return None
-    props = el.get("properties") or {}
     versions = hdr.get("versions") or {}
     desc = props.get("description") or ""
     return {
         "guid": guid,
         "typeName": type_name,
-        "kind": _kind_of(type_name, supers),
+        "kind": "repo" if repo else _kind_of(type_name, supers),
         "displayName": _display_name(props, guid),
         "qualifiedName": props.get("qualifiedName", ""),
         "description": desc if len(desc) <= 400 else desc[:397] + "…",
@@ -988,6 +1010,28 @@ async def _search_keywords(client, q):
     return out
 
 
+async def _repos_value():
+    """Every published code repository (a plain Asset named GitHubRepository::<url>), as rows."""
+    client = await _explorer_async()
+    out = []
+    for p in range(10):
+        batch = _elements(await client._async_find_elements_by_property_value(
+            property_value=_REPO_QN_PREFIX, property_names=["qualifiedName"], metadata_element_subtypes=["Asset"],
+            starts_with=True, ends_with=False, ignore_case=False, graph_query_depth=0, output_format="JSON",
+            start_from=p * 200, page_size=200))
+        if not batch:
+            break
+        out.extend(r for r in (_row(e) for e in batch) if r and r["kind"] == "repo")
+    return out
+
+
+async def _search_repos(q):
+    rows, _stamp = await _cached("repos", _repos_value)
+    ql = q.lower()
+    return [r for r in rows if ql in r["displayName"].lower() or ql in r["qualifiedName"].lower()
+            or ql in r["description"].lower()]
+
+
 async def _search_owners(client, q):
     return _elements(await client._async_get_elements_by_classification_with_property_value(
         "Ownership", q, ["owner"], starts_with=False, ends_with=False, ignore_case=True,
@@ -1007,7 +1051,9 @@ async def search(q: str = Query(..., min_length=1), kind: Optional[str] = Query(
     except Exception as exc:
         raise_egeria_http_error(exc, "resource-browser: search client failed")
 
-    jobs = {"text": _search_text(client, q, kind, page)}
+    jobs = {} if kind == "repo" else {"text": _search_text(client, q, kind, page)}
+    if kind in (None, "repo") and page == 0:
+        jobs["repos"] = _search_repos(q)
     if kind in (None, "table"):
         jobs["columns"] = _search_columns(client, q, page)
     if page == 0:  # tag, keyword and owner matches are bounded and come on the first page only
@@ -1019,12 +1065,16 @@ async def search(q: str = Query(..., min_length=1), kind: Optional[str] = Query(
         if isinstance(res, Exception):
             failed[name] = str(res)[:200]
             logger.warning(f"resource-browser: search source {name} failed for {q!r}: {res}")
-    if "text" in failed and len(failed) == len(results):
-        raise_egeria_http_error(results["text"], f"resource-browser: search {q!r} failed")
+    if failed and len(failed) == len(results):
+        raise_egeria_http_error(next(r for r in results.values() if isinstance(r, Exception)),
+                                f"resource-browser: search {q!r} failed")
 
     found: dict = {}
     not_shown = 0
-    if "text" not in failed:
+    if "repos" in results and "repos" not in failed:
+        for r in results["repos"]:
+            _merge(found, [r], _text_reason(r, q))
+    if "text" in results and "text" not in failed:
         rows, skipped = _rows(results["text"])
         not_shown += skipped
         for r in rows:
@@ -1051,7 +1101,7 @@ async def search(q: str = Query(..., min_length=1), kind: Optional[str] = Query(
 
     items = [r for r in found.values() if not kind or r["kind"] == kind]
     items.sort(key=lambda r: _relevance(r, q))
-    may_have_more = ("text" not in failed and len(results["text"]) == _SEARCH_PAGE) or \
+    may_have_more = ("text" in results and "text" not in failed and len(results["text"]) == _SEARCH_PAGE) or \
                     (columns is not None and columns["found"] == _SEARCH_PAGE)
     # Sources read once (first page only) whose single read came back full: more may exist there.
     capped = [name for name in ("keywords", "owners") if name in results and name not in failed
@@ -1146,32 +1196,483 @@ _RE_LIST_PREFIX = "WorkingSet::resource-explorer::"
 _PORTAL_LIST_PREFIX = "WorkingSet::portal::"
 
 
-@router.get("/api/resource-browser/lists", summary="Work lists the user can see (read-only until phase 3)")
+# ── Work lists (phase 3, spec §5 option (a)) ─────────────────────────────────
+#
+# A work list is an Egeria WorkingSet. The Portal's own lists are named
+# WorkingSet::portal::<user>::<slug> and only their creator changes them here.
+# Resource Explorer's published lists (WorkingSet::resource-explorer::<slug>) are
+# read-only: a person copies the members they want into a list of their own, and
+# nothing is ever written back to RE. A copy is a snapshot that records its source
+# in additionalProperties.
+
+_LIST_CAP = 200            # members read per list; Egeria membership pages are bounded
+_ADD_CAP = 100             # members added in one request
+_COPY_KEYS = ("copiedFromGUID", "copiedFromQualifiedName", "copiedFromName", "copiedAt")
+
+
+async def _collections_async():
+    from pyegeria import CollectionManager
+    client = CollectionManager(**_client_kwargs())
+    await async_apply_token(client)
+    return client
+
+
+def _list_slug(name: str, suffix: str) -> str:
+    base = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")[:40] or "list"
+    return f"{base}-{suffix}"
+
+
+def _list_origin(qualified_name: str, me: Optional[str]) -> str:
+    """mine | resource-explorer | portal (another person's) | other."""
+    if me and qualified_name.startswith(f"{_PORTAL_LIST_PREFIX}{me}::"):
+        return "mine"
+    if qualified_name.startswith(_RE_LIST_PREFIX):
+        return "resource-explorer"
+    if qualified_name.startswith(_PORTAL_LIST_PREFIX):
+        return "portal"
+    return "other"
+
+
+def _list_record(el: dict, me: Optional[str]) -> dict:
+    hdr = el.get("elementHeader") or {}
+    props = el.get("properties") or {}
+    versions = hdr.get("versions") or {}
+    qn = props.get("qualifiedName", "")
+    origin = _list_origin(qn, me)
+    ap = props.get("additionalProperties") or {}
+    copied = {k: ap[k] for k in _COPY_KEYS if ap.get(k)}
+    return {
+        "guid": hdr.get("guid", ""),
+        "displayName": _display_name(props, hdr.get("guid", "")),
+        "qualifiedName": qn,
+        "description": props.get("description") or "",
+        "origin": origin,
+        "editable": origin == "mine",
+        "creator": qn.split("::")[2] if origin in ("mine", "portal") and qn.count("::") >= 3 else None,
+        "copiedFrom": copied or None,
+        "sharedWith": _shared_with(el),
+        "createdBy": versions.get("createdBy") or "",
+        "updatedBy": versions.get("updatedBy") or "",
+        "updateTime": versions.get("updateTime") or versions.get("createTime") or "",
+    }
+
+
+def _list_members(el: dict) -> list:
+    """Members of a list read with its CollectionMembership relationships: every
+    member, data resource or not, with the reason it is on the list."""
+    out = []
+    for item in (el or {}).get("collectionMembers") or []:
+        if not isinstance(item, dict):
+            continue
+        row = _row(item.get("relatedElement"), any_type=True)
+        if not row:
+            continue
+        rel = {k: v for k, v in (item.get("relationshipProperties") or {}).items() if k not in ("class", "typeName")}
+        # Egeria 6.2 stores `confidence` (an int defaulting to 0); `expectedConfidence`
+        # is silently dropped on write. 0 cannot be told from "never set", so it reads as None.
+        out.append(dict(row, rationale=rel.get("membershipRationale") or "",
+                        confidence=rel.get("confidence") or None,
+                        isResource=_is_resource(row["typeName"], (item.get("relatedElement") or {})
+                                                .get("elementHeader", {}).get("type", {}).get("superTypeNames") or [])))
+    return out
+
+
+def _membership_body(rationale: Optional[str], confidence=None) -> Optional[dict]:
+    props = {}
+    if rationale:
+        props["membershipRationale"] = rationale
+    if confidence:
+        props["confidence"] = confidence
+    if not props:
+        return None
+    return {"class": "NewRelationshipRequestBody", "properties": dict(props, **{"class": "CollectionMembershipProperties"})}
+
+
+async def _read_list(client, guid: str) -> dict:
+    el = await client._async_get_element_by_guid(
+        guid, graph_query_depth=1, output_format="JSON",
+        body={"class": "GetRequestBody", "graphQueryDepth": 1,
+              "includeOnlyRelationships": ["CollectionMembership", "ResourceList"]})
+    if not isinstance(el, dict) or _type_names(el.get("elementHeader") or {})[0] != "WorkingSet":
+        raise HTTPException(status_code=404, detail="That is not a work list visible to you.")
+    return el
+
+
+async def _my_list(client, guid: str) -> tuple:
+    """(element, record) for a list the signed-in user may change, else 403."""
+    me = _require_signed_in()
+    el = await _read_list(client, guid)
+    rec = _list_record(el, me)
+    if not rec["editable"]:
+        why = ("Resource Explorer lists are read-only here: copy the members you want into a list of your own."
+               if rec["origin"] == "resource-explorer" else "Only the person who made a list can change it.")
+        raise HTTPException(status_code=403, detail=why)
+    return el, rec
+
+
+@router.get("/api/resource-browser/lists", summary="Work lists the user can see")
 async def get_lists():
     try:
         client = await _explorer_async()
-        sets, capped = await _all_elements(client, "WorkingSet", page=100, max_pages=10)
+        sets, capped = await _all_elements(client, "WorkingSet",
+                                           {"includeOnlyRelationships": ["CollectionMembership", "ResourceList"]},
+                                           depth=1, page=100, max_pages=10)
     except Exception as exc:
         if _is_unknown_type(exc):
             sets, capped = [], False
         else:
             raise_egeria_http_error(exc, "resource-browser: work lists failed")
     me = _token_user()
-    from_re, mine = [], []
+    my_groups, groups_note = set(), None
+    if me:
+        try:
+            g, _ = await _cached("groups", _groups_value)
+            my_groups = {x["guid"] for x in g["groups"]}
+            groups_note = None if my_groups else f"No teams found: {g['how']}."
+        except Exception as exc:  # the lists still show; only "shared with you" is unknown
+            groups_note = "Your teams could not be read, so lists shared with them are not shown."
+            logger.warning(f"resource-browser: groups for lists failed: {exc}")
+    mine, from_re, shared, member_of = [], [], [], {}
     for s in sets:
-        hdr = s.get("elementHeader") or {}
-        props = s.get("properties") or {}
-        qn = props.get("qualifiedName", "")
-        rec = {"guid": hdr.get("guid", ""), "displayName": _display_name(props, hdr.get("guid", "")),
-               "qualifiedName": qn, "description": props.get("description") or "",
-               "updateTime": (hdr.get("versions") or {}).get("updateTime") or ""}
-        if qn.startswith(_RE_LIST_PREFIX):
-            from_re.append(rec)
-        elif me and qn.startswith(f"{_PORTAL_LIST_PREFIX}{me}::"):
+        rec = _list_record(s, me)
+        members = [((i.get("relatedElement") or {}).get("elementHeader") or {}).get("guid")
+                   for i in s.get("collectionMembers") or [] if isinstance(i, dict)]
+        rec["memberCount"] = len([m for m in members if m])
+        if rec["origin"] == "mine":
             mine.append(rec)
-    return JSONResponse({"mine": mine, "fromResourceExplorer": from_re, "capped": capped,
-                         "editable": False, "note": "Creating and editing lists comes with work lists (phase 3).",
-                         "asOf": _now_iso(), "source": "ClassificationExplorer.get_elements (WorkingSet)"})
+            for m in members:
+                if m:
+                    member_of.setdefault(m, []).append(rec["guid"])
+        elif rec["origin"] == "resource-explorer":
+            from_re.append(rec)
+        if rec["origin"] != "mine" and my_groups & {g["guid"] for g in rec["sharedWith"]}:
+            shared.append(rec)
+    shared.sort(key=lambda r: r["displayName"].lower())
+    mine.sort(key=lambda r: r["displayName"].lower())
+    from_re.sort(key=lambda r: r["displayName"].lower())
+    return JSONResponse({"mine": mine, "fromResourceExplorer": from_re, "sharedWithMe": shared,
+                         "groupsNote": groups_note, "memberOf": member_of, "capped": capped,
+                         "canWrite": me is not None, "me": me,
+                         "asOf": _now_iso(), "source": "ClassificationExplorer.get_elements (WorkingSet, CollectionMembership)"})
+
+
+@router.get("/api/resource-browser/lists/{guid}", summary="One work list with its members and why each is on it")
+async def get_list(guid: str):
+    try:
+        client = await _explorer_async()
+        el = await _read_list(client, guid)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        _raise_not_visible_or_mapped(exc, f"resource-browser: work list {guid} failed")
+    members = _list_members(el)
+    members.sort(key=lambda r: (r["kind"], r["displayName"].lower()))
+    return JSONResponse({**_list_record(el, _token_user()), "members": members,
+                         "capped": len(members) >= _LIST_CAP, "canWrite": _token_user() is not None,
+                         "asOf": _now_iso(), "source": "ClassificationExplorer.get_element_by_guid (CollectionMembership)"})
+
+
+class NewListBody(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+
+async def _create_list(client, me: str, name: str, description: str, extra: Optional[dict] = None) -> str:
+    name = name.strip()
+    if not name or len(name) > 120:
+        raise HTTPException(status_code=400, detail="A list needs a name of up to 120 characters.")
+    props = {"class": "CollectionProperties", "typeName": "WorkingSet",
+             "qualifiedName": f"{_PORTAL_LIST_PREFIX}{me}::{_list_slug(name, uuid.uuid4().hex[:6])}",
+             "displayName": name, "description": description or ""}
+    if extra:
+        props["additionalProperties"] = extra
+    return await client._async_create_collection(body={"class": "NewElementRequestBody", "properties": props})
+
+
+@router.post("/api/resource-browser/lists", summary="Create a work list of your own")
+async def create_list(body: NewListBody):
+    me = _require_signed_in()
+    try:
+        cm = await _collections_async()
+        guid = await _create_list(cm, me, body.name, body.description or "")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise_egeria_http_error(exc, f"resource-browser: create list {body.name!r} failed")
+    return await get_list(guid)
+
+
+class EditListBody(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+
+
+@router.put("/api/resource-browser/lists/{guid}", summary="Rename a list of yours or change its description")
+async def edit_list(guid: str, body: EditListBody):
+    props = {"class": "CollectionProperties"}
+    if body.name is not None:
+        if not body.name.strip() or len(body.name) > 120:
+            raise HTTPException(status_code=400, detail="A list needs a name of up to 120 characters.")
+        props["displayName"] = body.name.strip()
+    if body.description is not None:
+        props["description"] = body.description
+    try:
+        client = await _explorer_async()
+        await _my_list(client, guid)
+        cm = await _collections_async()
+        await cm._async_update_collection(guid, {"class": "UpdateElementRequestBody", "mergeUpdate": True,
+                                                 "properties": props})
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise_egeria_http_error(exc, f"resource-browser: edit list {guid} failed")
+    return await get_list(guid)
+
+
+class MembersBody(BaseModel):
+    guids: list
+    rationale: Optional[str] = None
+
+
+@router.post("/api/resource-browser/lists/{guid}/members", summary="Add resources to a list of yours")
+async def add_members(guid: str, body: MembersBody):
+    wanted = [g for g in dict.fromkeys(str(x).strip() for x in body.guids) if g]
+    if not wanted or len(wanted) > _ADD_CAP:
+        raise HTTPException(status_code=400, detail=f"Add between 1 and {_ADD_CAP} resources at a time.")
+    try:
+        client = await _explorer_async()
+        await _my_list(client, guid)
+        cm = await _collections_async()
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise_egeria_http_error(exc, f"resource-browser: add to list {guid} failed")
+    failed = {}
+    for g in wanted:  # one at a time: CollectionMembership is uni-link, so a repeat leaves one member
+        try:
+            await cm._async_add_to_collection(guid, g, body=_membership_body((body.rationale or "").strip() or None))
+        except Exception as exc:
+            failed[g] = str(exc)[:200]
+            logger.warning(f"resource-browser: add {g} to list {guid} failed: {exc}")
+    out = await get_list(guid)
+    if failed:
+        data = json.loads(out.body)
+        data["failed"] = failed
+        return JSONResponse(data, status_code=207)
+    return out
+
+
+@router.delete("/api/resource-browser/lists/{guid}/members/{member_guid}", summary="Remove a resource from a list of yours")
+async def remove_member(guid: str, member_guid: str):
+    try:
+        client = await _explorer_async()
+        await _my_list(client, guid)
+        cm = await _collections_async()
+        await cm._async_remove_from_collection(guid, member_guid)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise_egeria_http_error(exc, f"resource-browser: remove {member_guid} from list {guid} failed")
+    return await get_list(guid)
+
+
+class CopyBody(BaseModel):
+    members: Optional[list] = None      # the member guids to copy; None copies them all
+    name: Optional[str] = None          # a new list's name (when into is not given)
+    into: Optional[str] = None          # or the guid of an existing list of yours
+
+
+@router.post("/api/resource-browser/lists/{guid}/copy",
+             summary="Copy members of a list (e.g. from Resource Explorer) into a list of your own")
+async def copy_list(guid: str, body: CopyBody):
+    me = _require_signed_in()
+    try:
+        client = await _explorer_async()
+        source = await _read_list(client, guid)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        _raise_not_visible_or_mapped(exc, f"resource-browser: copy from list {guid} failed")
+    src = _list_record(source, me)
+    members = {m["guid"]: m for m in _list_members(source)}
+    chosen = list(members) if body.members is None else [g for g in dict.fromkeys(body.members) if g in members]
+    unknown = [] if body.members is None else [g for g in body.members if g not in members]
+    if not chosen:
+        raise HTTPException(status_code=400, detail="Choose at least one member of this list to copy.")
+    try:
+        cm = await _collections_async()
+        if body.into:
+            await _my_list(client, body.into)
+            target = body.into
+        else:
+            target = await _create_list(
+                cm, me, body.name or f"{src['displayName']} (copy)",
+                src["description"],
+                {"copiedFromGUID": guid, "copiedFromQualifiedName": src["qualifiedName"],
+                 "copiedFromName": src["displayName"], "copiedAt": _now_iso()})
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise_egeria_http_error(exc, f"resource-browser: copy target for list {guid} failed")
+    failed = {}
+    for g in chosen:
+        m = members[g]
+        try:
+            await cm._async_add_to_collection(target, g, body=_membership_body(m["rationale"] or None, m["confidence"]))
+        except Exception as exc:
+            failed[g] = str(exc)[:200]
+            logger.warning(f"resource-browser: copy {g} into list {target} failed: {exc}")
+    out = await get_list(target)
+    data = json.loads(out.body)
+    data.update(copied=len(chosen) - len(failed), failed=failed, notInSource=unknown)
+    return JSONResponse(data, status_code=207 if failed else 200)
+
+
+# ── Team sharing (spec §5: a list is shared with a Team or Community by a
+# ResourceList from that actor profile to the WorkingSet, as RE's investigations do)
+
+_GROUP_TYPES = ("Team", "Community")
+_PERSONAS_JSON = _HERE / "personas.json"
+
+
+def _is_group(type_name: str, super_types: list) -> bool:
+    return type_name in _GROUP_TYPES or any(t in (super_types or []) for t in _GROUP_TYPES)
+
+
+def _shared_with(el: dict) -> list:
+    """The Teams and Communities a list is shared with: ResourceList relationships
+    whose other end is a group."""
+    out = {}
+    for val in (el or {}).values():
+        if not isinstance(val, list):
+            continue
+        for item in val:
+            rel = _related(item)
+            if rel and rel["relationshipType"] == "ResourceList" and _is_group(rel["typeName"], rel["superTypeNames"]):
+                out[rel["guid"]] = {"guid": rel["guid"], "displayName": rel["displayName"], "typeName": rel["typeName"]}
+    return sorted(out.values(), key=lambda g: g["displayName"].lower())
+
+
+def _groups_of(person: dict, roles: list) -> list:
+    """Groups a person belongs to: those whose AssignmentScope reaches one of the
+    person's roles (PersonRoleAppointment), or the person directly."""
+    out = {}
+
+    def take(el, via):
+        for item in (el or {}).get("assignmentScope") or []:
+            rel = _related(item)
+            if rel and _is_group(rel["typeName"], rel["superTypeNames"]):
+                out.setdefault(rel["guid"], {"guid": rel["guid"], "displayName": rel["displayName"],
+                                             "typeName": rel["typeName"], "via": via})
+    take(person, "you directly")
+    for role in roles:
+        take(role, _display_name(role.get("properties"), "a role"))
+    return sorted(out.values(), key=lambda g: (g["typeName"], g["displayName"].lower()))
+
+
+def _persona_display_name(user: str) -> Optional[str]:
+    try:
+        return (json.loads(_PERSONAS_JSON.read_text()).get(user) or {}).get("display_name")
+    except Exception:
+        return None
+
+
+async def _person_of(client, user: str) -> tuple:
+    """(person element guid, how it was found) for an Egeria user id, or (None, why not).
+
+    First the identity graph: the UserIdentity with this userId and the profile its
+    ProfileIdentity names. Some demo users have no such link, so then an exact
+    display-name match against the Portal's persona list, labelled as a match by name."""
+    uids = _elements(await client._async_find_elements_by_property_value(
+        property_value=user, property_names=["userId"], metadata_element_subtypes=["UserIdentity"],
+        starts_with=True, ends_with=True, ignore_case=False, graph_query_depth=0, output_format="JSON"))
+    if uids:
+        expert = await _expert_async()
+        for u in uids:
+            res = await expert._async_get_related_metadata_elements(
+                u["elementHeader"]["guid"], "ProfileIdentity", {"class": "ResultsRequestBody"}, starting_at_end=0)
+            for item in (res or {}).get("elementList") or [] if isinstance(res, dict) else []:
+                e = item.get("element") or {}
+                if "ActorProfile" in ((e.get("type") or {}).get("superTypeNames") or []):
+                    return e.get("elementGUID"), "your user identity's profile"
+    name = _persona_display_name(user)
+    if name:
+        people = [p for p in _elements(await client._async_find_elements_by_property_value(
+            property_value=name, property_names=["displayName"], metadata_element_subtypes=["Person"],
+            starts_with=True, ends_with=True, ignore_case=False, graph_query_depth=0, output_format="JSON"))]
+        if len(people) == 1:
+            return people[0]["elementHeader"]["guid"], f"the profile named “{name}” (matched by name: your user identity is not linked to a profile)"
+        if len(people) > 1:
+            return None, f"{len(people)} profiles are named “{name}”, so yours cannot be told apart"
+    return None, "your Egeria user is not linked to a person profile"
+
+
+async def _groups_value():
+    me = _token_user()
+    if not me:
+        return {"groups": [], "person": None, "how": "not signed in"}
+    client = await _explorer_async()
+    person_guid, how = await _person_of(client, me)
+    if not person_guid:
+        return {"groups": [], "person": None, "how": how}
+    person = await client._async_get_element_by_guid(person_guid, graph_query_depth=1, output_format="JSON")
+    role_guids = [r["guid"] for r in (_related(i) for i in person.get("performsRoles") or []) if r]
+    sem = asyncio.Semaphore(_LOOKUP_CONCURRENCY)
+
+    async def role(g):
+        async with sem:
+            return await client._async_get_element_by_guid(g, graph_query_depth=1, output_format="JSON")
+    roles = [r for r in await asyncio.gather(*(role(g) for g in role_guids), return_exceptions=True) if isinstance(r, dict)]
+    return {"groups": _groups_of(person, roles), "how": how, "rolesRead": len(roles), "rolesFound": len(role_guids),
+            "person": {"guid": person_guid, "displayName": _display_name(person.get("properties"), person_guid)}}
+
+
+@router.get("/api/resource-browser/groups", summary="The Teams and Communities you belong to")
+async def get_groups():
+    try:
+        value, stamp = await _cached("groups", _groups_value)
+    except Exception as exc:
+        raise_egeria_http_error(exc, "resource-browser: group lookup failed")
+    return JSONResponse({**value, **_age(stamp),
+                         "source": "UserIdentity → ProfileIdentity → Person → PersonRoleAppointment → AssignmentScope"})
+
+
+class ShareBody(BaseModel):
+    group: str
+
+
+@router.post("/api/resource-browser/lists/{guid}/share", summary="Share a list of yours with a Team or Community you belong to")
+async def share_list(guid: str, body: ShareBody):
+    try:
+        client = await _explorer_async()
+        await _my_list(client, guid)
+        groups, _ = await _cached("groups", _groups_value)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise_egeria_http_error(exc, f"resource-browser: share list {guid} failed")
+    if body.group not in {g["guid"] for g in groups["groups"]}:
+        raise HTTPException(status_code=403, detail="You can share only with a Team or Community you belong to.")
+    try:
+        cm = await _collections_async()
+        await cm._async_attach_collection(body.group, guid)  # ResourceList; uni-link, so a repeat leaves one
+    except Exception as exc:
+        raise_egeria_http_error(exc, f"resource-browser: share list {guid} with {body.group} failed")
+    return await get_list(guid)
+
+
+@router.delete("/api/resource-browser/lists/{guid}/share/{group}", summary="Stop sharing a list of yours with a group")
+async def unshare_list(guid: str, group: str):
+    try:
+        client = await _explorer_async()
+        await _my_list(client, guid)
+        cm = await _collections_async()
+        await cm._async_detach_collection(group, guid)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise_egeria_http_error(exc, f"resource-browser: unshare list {guid} from {group} failed")
+    return await get_list(guid)
 
 
 # ── Browse ────────────────────────────────────────────────────────────────────

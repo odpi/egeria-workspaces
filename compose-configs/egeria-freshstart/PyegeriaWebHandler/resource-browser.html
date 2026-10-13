@@ -5,7 +5,7 @@
 
   Resource Browser — a shop-for-data app on Egeria alone.
   Served by PyegeriaWebHandler at /resource-browser (resource_browser_handler.py).
-  Phase 1: the Resource page (?guid=). Phase 2: Home, Search (L0) and Browse.
+  Phase 1: the Resource page (?guid=). Phase 2: Home, Search (L0) and Browse. Phase 3: work lists (?list=).
   Spec: trellis/packages/resource-explorer/docs/design-notes/SPEC-RESOURCE-BROWSER-PORTAL-APP.md
 -->
 <html lang="en">
@@ -124,6 +124,9 @@
                     white-space: nowrap; }
     .rb-result .m { font-size: 11px; color: var(--dim); margin-top: 5px; gap: 12px; }
     .rb-result .m b { color: var(--muted); font-weight: 600; }
+    .rb-pop { position: absolute; top: 26px; left: 0; z-index: 20; width: 300px; background: var(--panel);
+              border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+    @media (max-width: 600px) { .rb-pop { left: auto; right: -40px; width: min(300px, 86vw); } }
     .rb-kind { width: 18px; text-align: center; color: var(--muted); }
     .rb-values { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
     .rb-value { display: flex; flex-direction: column; gap: 2px; text-align: left; background: var(--panel); color: var(--text);
@@ -451,7 +454,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 // Phase 1: one Resource page per element (?guid=), built as a standalone
 // component (ResourcePage, the guid its only data input) so other apps can
 // reuse it; Home, Search (L0) and Browse share one result row.
-// Routes: ?guid= (resource), ?q=&kind= (search), ?browse=&value= (browse), none (home).
+// Routes: ?guid= (resource), ?q=&kind= (search), ?browse=&value= (browse), ?list= (work list), none (home).
 // Honesty rules (spec §2): every figure carries its date and source; "never
 // measured" never renders as zero or as an empty table.
 var useState = React.useState;
@@ -865,7 +868,8 @@ function ResourcePage({ guid, creds, personaId }) {
           el('span', { className: 'rb-badge', title: flav.tip, style: { color: flav.color } }, flav.label),
           others.map(function(o) { return el('span', { key: o, className: 'rb-note' }, 'also ' + FLAVOURS[o].label.toLowerCase()); }),
           personaId && el(FavoriteButton, { app: 'resource-browser', section: 'resource:' + guid, label: res.displayName, icon: '🛒',
-            url: '/resource-browser?guid=' + encodeURIComponent(guid), personaId: personaId })),
+            url: '/resource-browser?guid=' + encodeURIComponent(guid), personaId: personaId }),
+          res.canWrite && el(AddToList, { guid: guid, creds: creds })),
         el('div', { className: 'rb-qn' }, res.qualifiedName)),
       action && el('div', { style: { textAlign: 'right' } },
         el('button', { className: 'rb-action', onClick: action.run }, action.label),
@@ -913,12 +917,13 @@ function currentRoute() {
   var p = new URLSearchParams(window.location.search);
   if (p.get('guid')) return { page: 'resource', guid: p.get('guid') };
   if (p.has('q')) return { page: 'search', q: p.get('q') || '', kind: p.get('kind') || '' };
+  if (p.get('list')) return { page: 'list', guid: p.get('list') };
   if (p.get('browse')) return { page: 'browse', facet: p.get('browse'), value: p.get('value') || '' };
   return { page: 'home' };
 }
 
 var KIND_ICONS = { table: '▦', schema: '🗂', database: '🛢', report: '📊', dataset: '📋', file: '📄',
-                   topic: '📡', product: '📦', api: '🔌', other: '•' };
+                   topic: '📡', product: '📦', api: '🔌', repo: '⎇', other: '•' };
 
 // The kinds search filters on come from the server, so the two never disagree.
 var _kindsPromise = null;
@@ -977,7 +982,7 @@ function RowExtras({ extras }) {
   return el('span', { className: 'rb-row', style: { gap: 8 } }, bits);
 }
 
-function ResultRow({ row, idx, extras, showMatched }) {
+function ResultRow({ row, idx, extras, showMatched, inLists, extra }) {
   var flav = rowFlavour(idx, row);
   return el('div', { className: 'rb-result' },
     el('div', { className: 'rb-row', style: { gap: 8 } },
@@ -996,14 +1001,17 @@ function ResultRow({ row, idx, extras, showMatched }) {
       el('span', null, 'last updated by ', el('b', null, row.updatedBy || 'unknown'),
         row.automated ? ' (automation)' : '', ' · ', fmtDate(row.updateTime)),
       showMatched && row.matched.length > 0 && el('span', { title: 'Why this matched' }, 'matched: ' + row.matched.join('; ')),
-      el(RowExtras, { extras: extras })));
+      inLists > 0 && el('span', null, 'in ' + inLists + ' of your lists'),
+      el(RowExtras, { extras: extras })),
+    extra);
 }
 
 var ROWS_SHOWN = 25;
 
 // Shows rows 25 at a time and reads feedback only for the rows on screen
 // (spec §4: per-row lookups are lazy, so a list costs a handful of calls).
-function ResultList({ rows, creds, idx, showMatched }) {
+function ResultList({ rows, creds, idx, showMatched, renderExtra }) {
+  var lists = useLists(creds);
   var _n = useState(ROWS_SHOWN), shown = _n[0], setShown = _n[1];
   var _x = useState({}), extras = _x[0], setExtras = _x[1];
   var asked = useRef(new Set());
@@ -1023,7 +1031,11 @@ function ResultList({ rows, creds, idx, showMatched }) {
     }
   }, [rows, shown]);
   return el('div', null,
-    visible.map(function(r) { return el(ResultRow, { key: r.guid, row: r, idx: idx, extras: extras[r.guid], showMatched: showMatched }); }),
+    visible.map(function(r) {
+      return el(ResultRow, { key: r.guid, row: r, idx: idx, extras: extras[r.guid], showMatched: showMatched,
+        inLists: lists && lists.memberOf && lists.memberOf[r.guid] ? lists.memberOf[r.guid].length : 0,
+        extra: renderExtra ? renderExtra(r) : null });
+    }),
     rows.length > shown && el('button', { className: 'rb-btn ghost', style: { marginTop: 10 },
       onClick: function() { setShown(shown + ROWS_SHOWN); } }, 'Show ' + Math.min(ROWS_SHOWN, rows.length - shown) + ' more of ' + rows.length));
 }
@@ -1191,23 +1203,295 @@ function FavouritesTile({ personaId }) {
       })));
 }
 
+// ── Work lists (phase 3) ─────────────────────────────────────────────────────
+// One shared copy of "which lists can I see, and which of mine hold what", so
+// every row's "in N of your lists" and every Add-to-list menu agree after a change.
+
+var _lists = { data: null, promise: null, subs: [] };
+
+function refreshLists(creds) {
+  _lists.promise = getJson(API + '/lists', creds)
+    .catch(function(e) { return { error: e.message, mine: [], fromResourceExplorer: [], memberOf: {} }; })
+    .then(function(d) { _lists.data = d; _lists.subs.forEach(function(f) { f(d); }); return d; });
+  return _lists.promise;
+}
+
+function useLists(creds) {
+  var _d = useState(_lists.data), d = _d[0], setD = _d[1];
+  useEffect(function() {
+    _lists.subs.push(setD);
+    if (!_lists.promise) refreshLists(creds); else if (_lists.data) setD(_lists.data);
+    return function() { _lists.subs = _lists.subs.filter(function(f) { return f !== setD; }); };
+  }, []);
+  return d;
+}
+
+function openList(guid) { navigate({ list: guid }); }
+
 function ListsTile({ creds }) {
-  var _l = useState(null), d = _l[0], setD = _l[1];
+  var d = useLists(creds);
+  var _n = useState(''), name = _n[0], setName = _n[1];
+  var _b = useState(false), busy = _b[0], setBusy = _b[1];
   var _e = useState(''), err = _e[0], setErr = _e[1];
-  useEffect(function() { getJson(API + '/lists', creds).then(setD).catch(function(e) { setErr(e.message); }); }, [creds && creds.token]);
+  function create(e) {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setBusy(true); setErr('');
+    sendJson(API + '/lists', creds, 'POST', { name: name.trim() })
+      .then(function(l) { setName(''); refreshLists(creds); openList(l.guid); })
+      .catch(function(x) { setErr(x.message); }).finally(function() { setBusy(false); });
+  }
   function list(items) {
     return el('ul', { className: 'rb-list' }, items.map(function(l) {
-      return el('li', { key: l.guid }, el('button', { className: 'rb-link', onClick: function() { navigate({ browse: 'collection', value: l.guid }); } }, l.displayName));
+      return el('li', { key: l.guid },
+        el('button', { className: 'rb-link', onClick: function() { openList(l.guid); } }, l.displayName),
+        el('span', { className: 't' }, l.memberCount + ' item' + (l.memberCount === 1 ? '' : 's')
+          + (l.creator && l.origin !== 'mine' ? ' · by ' + l.creator : '')
+          + (l.sharedWith && l.sharedWith.length ? ' · shared with ' + l.sharedWith.map(function(g) { return g.displayName; }).join(', ') : '')));
     }));
   }
   return el(Tile, { title: 'My lists', note: 'work lists' },
-    err ? el('div', { className: 'rb-err' }, 'Lists could not be read: ' + err)
-    : !d ? el('div', { className: 'rb-absent' }, 'Loading…')
+    !d ? el('div', { className: 'rb-absent' }, 'Loading…')
+    : d.error ? el('div', { className: 'rb-err' }, 'Lists could not be read: ' + d.error)
     : el('div', null,
-        d.mine.length ? list(d.mine) : el('div', { className: 'rb-absent' }, 'You have no work lists yet.'),
-        d.fromResourceExplorer.length > 0 && el('div', { style: { marginTop: 10 } },
-          el('div', { className: 'rb-note', style: { marginBottom: 4 } }, 'From Resource Explorer (read-only)'), list(d.fromResourceExplorer)),
-        el('div', { className: 'rb-note', style: { marginTop: 8 } }, d.note)));
+        d.mine.length ? list(d.mine)
+          : el('div', { className: 'rb-absent' }, d.canWrite ? 'You have no work lists yet.' : 'Sign in or choose a persona to keep work lists.'),
+        d.canWrite && el('form', { onSubmit: create, className: 'rb-row', style: { marginTop: 8, gap: 6 } },
+          el('input', { className: 'rb-text', style: { flex: 1, padding: '4px 8px' }, value: name, placeholder: 'New list name',
+            onChange: function(e) { setName(e.target.value); } }),
+          el('button', { className: 'rb-btn', disabled: busy || !name.trim() }, busy ? 'Creating…' : 'Create')),
+        err && el('div', { className: 'rb-err' }, err),
+        d.canWrite && el('div', { style: { marginTop: 12 } },
+          el('div', { className: 'rb-note', style: { marginBottom: 4 } }, 'Shared with your teams (read-only: copy what you want)'),
+          d.sharedWithMe.length ? list(d.sharedWithMe)
+            : el('div', { className: 'rb-absent' }, d.groupsNote || 'No list has been shared with your teams yet.')),
+        el('div', { style: { marginTop: 12 } },
+          el('div', { className: 'rb-note', style: { marginBottom: 4 } }, 'From Resource Explorer (read-only: copy what you want)'),
+          d.fromResourceExplorer.length ? list(d.fromResourceExplorer)
+            : el('div', { className: 'rb-absent' }, 'No Resource Explorer list has been published to Egeria yet.'))));
+}
+
+// Add the current resource to one of my lists, or to a new one.
+function AddToList({ guid, creds }) {
+  var d = useLists(creds);
+  var _o = useState(false), open = _o[0], setOpen = _o[1];
+  var _r = useState(''), why = _r[0], setWhy = _r[1];
+  var _n = useState(''), name = _n[0], setName = _n[1];
+  var _b = useState(''), busy = _b[0], setBusy = _b[1];
+  var _e = useState(''), err = _e[0], setErr = _e[1];
+  if (!d || d.error || !d.canWrite) return null;
+  var inLists = d.memberOf[guid] || [];
+  function add(listGuid) {
+    setBusy(listGuid); setErr('');
+    return sendJson(API + '/lists/' + encodeURIComponent(listGuid) + '/members', creds, 'POST', { guids: [guid], rationale: why.trim() || null })
+      .then(function() { return refreshLists(creds); }).catch(function(x) { setErr(x.message); }).finally(function() { setBusy(''); });
+  }
+  function remove(listGuid) {
+    setBusy(listGuid); setErr('');
+    return sendJson(API + '/lists/' + encodeURIComponent(listGuid) + '/members/' + encodeURIComponent(guid), creds, 'DELETE')
+      .then(function() { return refreshLists(creds); }).catch(function(x) { setErr(x.message); }).finally(function() { setBusy(''); });
+  }
+  function createAndAdd(e) {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setBusy('new'); setErr('');
+    sendJson(API + '/lists', creds, 'POST', { name: name.trim() })
+      .then(function(l) { setName(''); return add(l.guid); })
+      .catch(function(x) { setErr(x.message); setBusy(''); });
+  }
+  return el('span', { style: { position: 'relative' } },
+    el('button', { className: 'rb-edit', onClick: function() { setOpen(!open); },
+      title: 'Add this resource to one of your work lists' },
+      inLists.length ? '✓ in ' + inLists.length + ' of your lists' : '＋ Add to list'),
+    open && el('div', { className: 'rb-pop' },
+      el('div', { className: 'rb-note', style: { marginBottom: 6 } }, 'Your lists'),
+      d.mine.length === 0 && el('div', { className: 'rb-absent' }, 'No lists yet: make one below.'),
+      d.mine.map(function(l) {
+        var has = inLists.indexOf(l.guid) >= 0;
+        return el('label', { key: l.guid, className: 'rb-row', style: { gap: 6, fontSize: 12, padding: '3px 0', cursor: 'pointer' } },
+          el('input', { type: 'checkbox', checked: has, disabled: !!busy,
+            onChange: function() { has ? remove(l.guid) : add(l.guid); } }),
+          l.displayName, busy === l.guid && el('span', { className: 'rb-note' }, '…'));
+      }),
+      el('input', { className: 'rb-text', style: { marginTop: 8, padding: '4px 8px' }, value: why, placeholder: 'Why (optional, kept with the item)',
+        onChange: function(e) { setWhy(e.target.value); } }),
+      el('form', { onSubmit: createAndAdd, className: 'rb-row', style: { marginTop: 6, gap: 6 } },
+        el('input', { className: 'rb-text', style: { flex: 1, padding: '4px 8px' }, value: name, placeholder: 'New list',
+          onChange: function(e) { setName(e.target.value); } }),
+        el('button', { className: 'rb-btn', disabled: !!busy || !name.trim() }, 'Create & add')),
+      err && el('div', { className: 'rb-err', style: { marginTop: 6 } }, err),
+      el('div', { style: { textAlign: 'right', marginTop: 6 } },
+        el('button', { className: 'rb-link', onClick: function() { setOpen(false); } }, 'Close'))));
+}
+
+// The Teams and Communities the signed-in user belongs to (cached on the server).
+var _groupsPromise = null;
+function useGroups(creds) {
+  var _g = useState(null), g = _g[0], setG = _g[1];
+  useEffect(function() {
+    if (!_groupsPromise) _groupsPromise = getJson(API + '/groups', creds).catch(function(e) { _groupsPromise = null; return { error: e.message, groups: [] }; });
+    var live = true;
+    _groupsPromise.then(function(d) { if (live) setG(d); });
+    return function() { live = false; };
+  }, []);
+  return g;
+}
+
+function ShareCard({ lst, creds, onChange }) {
+  var groups = useGroups(creds);
+  var _p = useState(''), pick = _p[0], setPick = _p[1];
+  var _b = useState(false), busy = _b[0], setBusy = _b[1];
+  var _e = useState(''), err = _e[0], setErr = _e[1];
+  var shared = lst.sharedWith || [];
+  var sharedIds = shared.map(function(g) { return g.guid; });
+  var choices = groups && groups.groups ? groups.groups.filter(function(g) { return sharedIds.indexOf(g.guid) < 0; }) : [];
+  function run(method, path, body) {
+    setBusy(true); setErr('');
+    sendJson(API + '/lists/' + encodeURIComponent(lst.guid) + path, creds, method, body)
+      .then(function(d) { setPick(''); onChange(d); refreshLists(creds); })
+      .catch(function(x) { setErr(x.message); }).finally(function() { setBusy(false); });
+  }
+  if (!lst.editable && !shared.length) return null;
+  return el('div', { className: 'rb-card' },
+    el('div', { className: 'rb-row', style: { gap: 8 } },
+      el('b', { style: { fontSize: 13 } }, 'Shared with'),
+      shared.length === 0 && el('span', { className: 'rb-absent' }, 'nobody yet: only you can see it in your lists'),
+      shared.map(function(g) {
+        return el('span', { key: g.guid, className: 'rb-chip', title: g.typeName },
+          (g.typeName === 'Community' ? '👥 ' : '🏢 ') + g.displayName,
+          lst.editable && el('button', { title: 'Stop sharing with ' + g.displayName, disabled: busy,
+            onClick: function() { run('DELETE', '/share/' + encodeURIComponent(g.guid)); } }, '×'));
+      })),
+    lst.editable && el('div', { className: 'rb-row', style: { gap: 8, marginTop: 10 } },
+      !groups ? el('span', { className: 'rb-note' }, 'Finding your teams…')
+      : groups.error ? el('span', { className: 'rb-err' }, 'Your teams could not be read: ' + groups.error)
+      : groups.groups.length === 0 ? el('span', { className: 'rb-note' }, 'No teams or communities found for you: ' + groups.how + '.')
+      : [
+          el('select', { key: 's', className: 'rb-select', value: pick, onChange: function(e) { setPick(e.target.value); } },
+            el('option', { value: '' }, choices.length ? 'Share with a team or community…' : 'Shared with all your teams'),
+            choices.map(function(g) { return el('option', { key: g.guid, value: g.guid }, g.typeName + ': ' + g.displayName); })),
+          el('button', { key: 'b', className: 'rb-btn', disabled: busy || !pick, onClick: function() { run('POST', '/share', { group: pick }); } },
+            busy ? 'Saving…' : 'Share'),
+        ],
+      groups && groups.how && groups.groups && groups.groups.length > 0 && el('span', { className: 'rb-note' }, 'Your teams come from ' + groups.how + '.')),
+    lst.editable && el('div', { className: 'rb-note', style: { marginTop: 6 } },
+      'Members of a team see this list under “Shared with your teams” and can copy from it; only you change it.'),
+    err && el('div', { className: 'rb-err', style: { marginTop: 6 } }, err));
+}
+
+var ORIGINS = {
+  mine: 'Your list',
+  'resource-explorer': 'From Resource Explorer · read-only',
+  portal: 'Shared with you · read-only',
+  other: 'Working set · read-only',
+};
+
+function ListPage({ guid, creds }) {
+  var idx = useFlavours(creds);
+  var lists = useLists(creds);
+  var _l = useState(null), lst = _l[0], setLst = _l[1];
+  var _e = useState(''), err = _e[0], setErr = _e[1];
+  var _s = useState({}), sel = _s[0], setSel = _s[1];
+  var _t = useState('new'), target = _t[0], setTarget = _t[1];
+  var _n = useState(''), newName = _n[0], setNewName = _n[1];
+  var _b = useState(false), busy = _b[0], setBusy = _b[1];
+  var _m = useState(''), msg = _m[0], setMsg = _m[1];
+
+  function load() {
+    return getJson(API + '/lists/' + encodeURIComponent(guid), creds)
+      .then(function(d) { setLst(d); document.title = d.displayName + ' · Resource Browser'; })
+      .catch(function(x) { setErr(x.message); });
+  }
+  useEffect(function() { setLst(null); setErr(''); setSel({}); setMsg(''); load(); }, [guid, creds && creds.token]);
+
+  if (err) return el('div', { className: 'rb-page' }, el('div', { className: 'rb-card' }, el('div', { className: 'rb-err' }, err)));
+  if (!lst) return el('div', { className: 'center', style: { height: 300 } }, el('div', { className: 'spinner' }), 'Loading…');
+
+  var chosen = Object.keys(sel).filter(function(g) { return sel[g]; });
+  var canCopy = lst.canWrite && lst.members.length > 0;
+  function save(field) {
+    return function(text) {
+      var body = {}; body[field] = text;
+      return sendJson(API + '/lists/' + encodeURIComponent(guid), creds, 'PUT', body)
+        .then(function(d) { setLst(d); refreshLists(creds); });
+    };
+  }
+  function removeMember(m) {
+    setBusy(true);
+    sendJson(API + '/lists/' + encodeURIComponent(guid) + '/members/' + encodeURIComponent(m.guid), creds, 'DELETE')
+      .then(function(d) { setLst(d); refreshLists(creds); }).catch(function(x) { setMsg(x.message); }).finally(function() { setBusy(false); });
+  }
+  function copy() {
+    setBusy(true); setMsg('');
+    var body = { members: chosen };
+    if (target === 'new') body.name = newName.trim() || (lst.displayName + ' (copy)'); else body.into = target;
+    sendJson(API + '/lists/' + encodeURIComponent(guid) + '/copy', creds, 'POST', body)
+      .then(function(d) {
+        refreshLists(creds);
+        var failed = Object.keys(d.failed || {}).length;
+        if (failed) setMsg(d.copied + ' copied; ' + failed + ' could not be copied.');
+        else openList(d.guid);
+      })
+      .catch(function(x) { setMsg('Copy failed: ' + x.message); }).finally(function() { setBusy(false); });
+  }
+  function selectAll(on) { var n = {}; if (on) lst.members.forEach(function(m) { n[m.guid] = true; }); setSel(n); }
+
+  function memberExtra(m) {
+    return el('div', { className: 'rb-row', style: { gap: 10, marginTop: 6, fontSize: 12 } },
+      canCopy && !lst.editable && el('label', { className: 'rb-row', style: { gap: 4, cursor: 'pointer' } },
+        el('input', { type: 'checkbox', checked: !!sel[m.guid], onChange: function(e) {
+          var n = Object.assign({}, sel); n[m.guid] = e.target.checked; setSel(n); } }), 'copy'),
+      m.rationale ? el('span', null, el('span', { className: 'rb-note' }, 'why: '), m.rationale)
+                  : el('span', { className: 'rb-absent' }, 'no reason recorded'),
+      m.confidence !== null && m.confidence !== undefined && el('span', { className: 'rb-note' }, 'confidence ' + m.confidence),
+      !m.isResource && el('span', { className: 'rb-note', title: 'Not a data resource type this app searches' }, '(not a data resource)'),
+      lst.editable && el('button', { className: 'rb-edit', disabled: busy, onClick: function() { removeMember(m); } }, 'Remove'));
+  }
+
+  return el('div', { className: 'rb-page' },
+    el('div', { className: 'rb-crumb' },
+      el('button', { className: 'rb-link', onClick: function() { navigate({}); } }, 'Home'), '›',
+      el('span', { className: 'rb-type' }, ORIGINS[lst.origin] || lst.origin)),
+    lst.editable
+      ? el('div', { className: 'rb-title' }, el(EditableText, { value: lst.displayName, canWrite: true, placeholder: 'Untitled', onSave: save('name') }))
+      : el('h1', { className: 'rb-title' }, lst.displayName),
+    el('div', { className: 'rb-qn' }, lst.qualifiedName),
+    el('div', { className: 'rb-attrib', style: { marginTop: 8 } },
+      lst.creator ? ['made by ', el('b', { key: 'c' }, lst.creator), ' · '] : null,
+      'last updated by ', el('b', null, lst.updatedBy || 'unknown'), ' · ', fmtDate(lst.updateTime)),
+    lst.copiedFrom && el('div', { className: 'rb-note', style: { marginTop: 4 } },
+      'Copied from ',
+      el('button', { className: 'rb-link', onClick: function() { openList(lst.copiedFrom.copiedFromGUID); } }, lst.copiedFrom.copiedFromName || 'another list'),
+      ' on ', fmtDate(lst.copiedFrom.copiedAt), '. A snapshot: later changes to that list do not appear here.'),
+    el('div', { className: 'rb-card', style: { marginTop: 14 } },
+      el(EditableText, { value: lst.description, canWrite: lst.editable, multiline: true,
+        placeholder: 'No description.', onSave: save('description') })),
+
+    el(ShareCard, { lst: lst, creds: creds, onChange: setLst }),
+    canCopy && !lst.editable && el('div', { className: 'rb-card rb-row', style: { gap: 10 } },
+      el('b', { style: { fontSize: 13 } }, 'Copy to your own list'),
+      el('button', { className: 'rb-link', onClick: function() { selectAll(true); } }, 'select all'),
+      el('button', { className: 'rb-link', onClick: function() { selectAll(false); } }, 'none'),
+      el('span', { className: 'rb-note' }, chosen.length + ' of ' + lst.members.length + ' chosen'),
+      el('select', { className: 'rb-select', value: target, onChange: function(e) { setTarget(e.target.value); } },
+        el('option', { value: 'new' }, 'into a new list'),
+        (lists && lists.mine || []).map(function(l) { return el('option', { key: l.guid, value: l.guid }, 'into ' + l.displayName); })),
+      target === 'new' && el('input', { className: 'rb-text', style: { width: 220, padding: '4px 8px' }, value: newName,
+        placeholder: lst.displayName + ' (copy)', onChange: function(e) { setNewName(e.target.value); } }),
+      el('button', { className: 'rb-btn', disabled: busy || !chosen.length, onClick: copy }, busy ? 'Copying…' : 'Copy'),
+      msg && el('span', { className: 'rb-err' }, msg),
+      el('div', { className: 'rb-note', style: { width: '100%' } },
+        'Each item keeps its reason. Nothing is written back to ' + (lst.origin === 'resource-explorer' ? 'Resource Explorer' : 'the original list') + '.')),
+    !lst.canWrite && !lst.editable && el('div', { className: 'rb-note', style: { marginBottom: 10 } }, 'Sign in or choose a persona to copy from this list.'),
+
+    el('div', { className: 'rb-note', style: { marginBottom: 4 } },
+      lst.members.length + ' item' + (lst.members.length === 1 ? '' : 's') + (lst.capped ? ' (the read stopped at its limit; there may be more)' : '') + '. By kind, then name.'),
+    lst.members.length === 0 && el('div', { className: 'rb-absent' },
+      lst.editable ? 'Nothing here yet. Use “＋ Add to list” on a resource’s page.' : 'This list has no members visible to you.'),
+    el(ResultList, { rows: lst.members, creds: creds, idx: idx, renderExtra: memberExtra }),
+    lst.editable && msg && el('div', { className: 'rb-err' }, msg),
+    el('div', { className: 'rb-note', style: { marginTop: 10 } }, 'Zone security may hide members from your user, so this list may be incomplete.'),
+    el(SourceLine, { data: lst }));
 }
 
 function HomePage({ creds, personaId }) {
@@ -1293,7 +1577,7 @@ function BrowsePage({ facet, value, creds }) {
           var none = v.count === 0;
           return el('button', { key: v.id, className: 'rb-value' + (none ? ' none' : ''), disabled: none,
               title: none ? 'No data resource has this yet' : '',
-              onClick: function() { navigate({ browse: f.id, value: v.id }); } },
+              onClick: function() { if (f.id === 'collection' && v.description === 'WorkingSet') openList(v.id); else navigate({ browse: f.id, value: v.id }); } },
             el('span', { className: 'n' }, v.label),
             v.count !== undefined && el('span', { className: 'c' }, none ? 'none' : v.count),
             v.description && el('span', { className: 'rb-note' }, v.description));
@@ -1366,6 +1650,7 @@ function App() {
   var content = !ready ? el('div', { className: 'center' }, el('div', { className: 'spinner' }), 'Connecting…')
     : route.page === 'resource' ? el(ResourcePage, { key: route.guid, guid: route.guid, creds: creds, personaId: personaId })
     : route.page === 'search' ? el(SearchPage, { q: route.q, kind: route.kind, creds: creds })
+    : route.page === 'list' ? el(ListPage, { key: route.guid, guid: route.guid, creds: creds })
     : route.page === 'browse' ? el(BrowsePage, { facet: route.facet, value: route.value, creds: creds })
     : el(HomePage, { creds: creds, personaId: personaId });
 
