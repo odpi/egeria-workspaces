@@ -12,7 +12,7 @@ Reads Egeria only, and writes back only what Egeria already models
 trellis/packages/resource-explorer/docs/design-notes/SPEC-RESOURCE-BROWSER-PORTAL-APP.md
 
 Endpoints:
-  GET    /resource-browser                                   → serve the SPA
+  GET    /resource-locator, /resource-browser                → serve the SPA
   GET    /api/resource-browser/resource/{guid}               → header, flavour, scope, columns, lineage, related
   GET    /api/resource-browser/resource/{guid}/statistics    → latest survey measurements (tables)
   PUT    /api/resource-browser/resource/{guid}/description   → update the description (any element, incl. a column)
@@ -334,6 +334,7 @@ def _jdbc_table_name(props: dict) -> Optional[str]:
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
+@router.get("/resource-locator", include_in_schema=False)
 @router.get("/resource-browser", include_in_schema=False)
 async def serve_resource_browser():
     if not _HTML.exists():

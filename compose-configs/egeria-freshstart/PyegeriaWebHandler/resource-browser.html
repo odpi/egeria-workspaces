@@ -474,6 +474,9 @@ var useRef = React.useRef;
 var el = React.createElement;
 
 var API = '/api/resource-browser';
+// Served at both /resource-locator and the original /resource-browser;
+// links stay on whichever path the page was opened from.
+var PAGE = window.location.pathname.indexOf('/resource-locator') === 0 ? '/resource-locator' : '/resource-browser';
 
 function fmtDate(iso) {
   if (!iso) return '';
@@ -496,7 +499,7 @@ function sendJson(url, creds, method, body) {
 }
 
 function openResource(guid) {
-  var url = '/resource-browser?guid=' + encodeURIComponent(guid);
+  var url = PAGE + '?guid=' + encodeURIComponent(guid);
   window.history.pushState({ guid: guid }, '', url);
   window.dispatchEvent(new Event('rb-navigate'));
 }
@@ -1050,7 +1053,7 @@ function StructureCard({ res, structure }) {
 function PartOfCrumb({ res, structure }) {
   var path = (structure && structure.partOf) || [];
   return el('div', { className: 'rb-crumb' },
-    el('a', { href: '/resource-browser' }, 'Resource Locator'), '›',
+    el('a', { href: PAGE }, 'Resource Locator'), '›',
     structure && structure.partOfIncomplete && el(React.Fragment, null, el('span', { title: 'Not every container above this one could be read' }, '…'), '›'),
     path.map(function(p) {
       return el(React.Fragment, { key: p.guid },
@@ -1197,7 +1200,7 @@ function ResourcePage({ guid, creds, personaId }) {
           el('span', { className: 'rb-badge', title: flav.tip, style: { color: flav.color } }, flav.label),
           others.map(function(o) { return el('span', { key: o, className: 'rb-note' }, 'also ' + FLAVOURS[o].label.toLowerCase()); }),
           personaId && el(FavoriteButton, { app: 'resource-browser', section: 'resource:' + guid, label: res.displayName, icon: '🛒',
-            url: '/resource-browser?guid=' + encodeURIComponent(guid), personaId: personaId }),
+            url: PAGE + '?guid=' + encodeURIComponent(guid), personaId: personaId }),
           res.canWrite && el(AddToList, { guid: guid, creds: creds })),
         el('div', { className: 'rb-qn' }, res.qualifiedName),
         el('div', { style: { marginTop: 4 } }, el(DetailLink, { item: Object.assign({}, res, { anchorGUID: res.parent && res.parent.guid }), long: true }))),
@@ -1242,7 +1245,7 @@ function ResourcePage({ guid, creds, personaId }) {
 
 function navigate(params) {
   var qs = new URLSearchParams(params || {}).toString();
-  window.history.pushState({}, '', '/resource-browser' + (qs ? '?' + qs : ''));
+  window.history.pushState({}, '', PAGE + (qs ? '?' + qs : ''));
   window.dispatchEvent(new Event('rb-navigate'));
 }
 
@@ -1991,7 +1994,7 @@ function App() {
     el(CredContext.Provider, { value: creds },
       el('div', { style: { display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', color: 'var(--text)' } },
         el(AppHeader, { icon: '🛒', title: 'Resource Locator', subtitle: 'Find resources and see what they are',
-          onTitleClick: function() { window.history.pushState({}, '', '/resource-browser'); window.dispatchEvent(new Event('rb-navigate')); },
+          onTitleClick: function() { window.history.pushState({}, '', PAGE); window.dispatchEvent(new Event('rb-navigate')); },
           identity: identity }),
         ready && el(NavBar, { route: route }),
         el(FeedbackButton, { section: route.page, persona: who ? who.sub : null, demoMode: !srvManaged, srvManaged: srvManaged, pagePrefix: 'resource-browser/' }),
