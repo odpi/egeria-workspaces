@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright Contributors to the ODPi Egeria project.
-"""The Resource Browser's pure helpers: flavour, lineage direction, survey statistics,
+"""The Resource Locator's pure helpers: flavour, lineage direction, survey statistics,
 and (phase 2) result rows, resource kinds, search relevance and the flavour index.
 
 Spec §3 asks for one flavour function with one test per flavour and one for the

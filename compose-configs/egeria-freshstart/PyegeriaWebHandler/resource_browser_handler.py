@@ -2,7 +2,7 @@
 SPDX-License-Identifier: Apache-2.0
 Copyright Contributors to the ODPi Egeria project.
 
-Resource Browser — FastAPI router (phase 1: the Resource page; phase 2: search, Home, Browse;
+Resource Locator — FastAPI router (phase 1: the Resource page; phase 2: search, Home, Browse;
 phase 3: work lists).
 
 A shop-for-resources app for people who look for resources (data, code, APIs, products)
@@ -337,7 +337,7 @@ def _jdbc_table_name(props: dict) -> Optional[str]:
 @router.get("/resource-browser", include_in_schema=False)
 async def serve_resource_browser():
     if not _HTML.exists():
-        raise HTTPException(status_code=404, detail="Resource Browser page not found")
+        raise HTTPException(status_code=404, detail="Resource Locator page not found")
     return FileResponse(str(_HTML), media_type="text/html")
 
 
@@ -723,7 +723,7 @@ async def add_note(guid: str, body: NoteBody):
         else:
             log_guid = await client._async_create_note_log(
                 element_guid=guid, display_name="Notes",
-                description="Notes added from the Resource Browser beside the official description.")
+                description="Notes added from the Resource Locator beside the official description.")
         stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
         await client._async_create_note(
             log_guid, display_name=(body.title or f"Note by {user}, {stamp}")[:120], description=text)
@@ -1120,6 +1120,116 @@ async def search_terms(q: str = Query(..., min_length=2)):
     terms.sort(key=lambda t: (not t["displayName"].lower().startswith(q.lower()), t["displayName"].lower()))
     return JSONResponse({"terms": terms, "asOf": _now_iso(),
                          "source": "ClassificationExplorer.find_elements_by_property_value (GlossaryTerm)"})
+
+
+# ── Private notes: entries in the user's own My Profile journal ──────────────
+#
+# Egeria's My Profile service keeps a "My Private Journal" note log on each
+# user's profile and puts every entry in a governance zone named after that user,
+# so that only they can read it where the platform's security enforces zones.
+# A private note here is one of those entries, carrying the resource it is about
+# in additionalProperties. Public notes stay on the resource's own note logs.
+
+_JOURNAL_QN_SUFFIX = "MyJournal"
+_JOURNAL_PAGE = 500
+_JOURNAL_MAX_PAGES = 10
+
+
+async def _my_profile_async():
+    from pyegeria.omvs.my_profile import MyProfile
+    client = MyProfile(**_client_kwargs())
+    await async_apply_token(client)
+    return client
+
+
+def _journal_log_guid(profile: dict) -> Optional[str]:
+    for item in (profile or {}).get("noteLogs") or []:
+        rec = _related(item)
+        if rec and (rec["qualifiedName"].endswith(_JOURNAL_QN_SUFFIX) or rec["displayName"] == "My Private Journal"):
+            return rec["guid"]
+    return None
+
+
+def _private_note_record(e: dict) -> dict:
+    rec = _note_record(e)
+    ap = ((e.get("properties") or {}).get("additionalProperties") or {})
+    rec.update(resourceGUID=ap.get("resourceGUID"), private=True)
+    return rec
+
+
+async def _my_private_notes(guid: str) -> tuple:
+    """(notes about this resource in the user's journal, whether the journal exists)."""
+    profile = await (await _my_profile_async())._async_get_my_profile(output_format="JSON")
+    log_guid = _journal_log_guid(profile if isinstance(profile, dict) else {})
+    if not log_guid:
+        return [], False
+    client = await _explorer_async()
+    notes = []
+    for page in range(_JOURNAL_MAX_PAGES):
+        batch = _elements(await client._async_get_notes_for_note_log(
+            log_guid, output_format="JSON", graph_query_depth=0,
+            start_from=page * _JOURNAL_PAGE, page_size=_JOURNAL_PAGE))
+        if not batch:
+            break
+        notes.extend(r for r in (_private_note_record(n) for n in batch) if r["resourceGUID"] == guid)
+    notes.sort(key=lambda n: n["createTime"], reverse=True)
+    return notes, True
+
+
+@router.get("/api/resource-browser/resource/{guid}/private-notes",
+            summary="Your private notes on a resource, from your own journal")
+async def get_private_notes(guid: str):
+    user = _require_signed_in()
+    try:
+        notes, has_journal = await _my_private_notes(guid)
+    except Exception as exc:
+        raise_egeria_http_error(exc, f"resource-browser: private notes of {user} on {guid} failed")
+    return JSONResponse({"notes": notes, "hasJournal": has_journal, "me": user, "asOf": _now_iso(),
+                         "source": "MyProfile.get_my_profile (My Private Journal) + get_notes_for_note_log"})
+
+
+class PrivateNoteBody(BaseModel):
+    text: str
+    resourceName: Optional[str] = None
+
+
+@router.post("/api/resource-browser/resource/{guid}/private-notes",
+             summary="Add a private note on a resource to your own journal")
+async def add_private_note(guid: str, body: PrivateNoteBody):
+    user = _require_signed_in()
+    text = body.text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="A note needs some text.")
+    name = (body.resourceName or guid)[:100]
+    try:
+        await (await _my_profile_async())._async_journal_my_activity(body={
+            "class": "NewAttachmentRequestBody",
+            "properties": {
+                "class": "JournalEntryProperties", "typeName": "JournalEntry",
+                "qualifiedName": f"JournalEntry::{user}::resource-note::{guid}::{uuid.uuid4().hex[:12]}",
+                "displayName": f"Private note on {name}",
+                "description": text,
+                "additionalProperties": {"resourceGUID": guid, "resourceName": name},
+            }})
+    except Exception as exc:
+        raise_egeria_http_error(exc, f"resource-browser: private note by {user} on {guid} failed")
+    return await get_private_notes(guid)
+
+
+@router.delete("/api/resource-browser/resource/{guid}/private-notes/{note_guid}",
+               summary="Delete one of your private notes")
+async def remove_private_note(guid: str, note_guid: str):
+    user = _require_signed_in()
+    try:
+        notes, _ = await _my_private_notes(guid)
+        if not any(n["guid"] == note_guid for n in notes):
+            raise HTTPException(status_code=404, detail="That note is not one of your private notes on this resource.")
+        await (await _explorer_async())._async_remove_note(note_guid)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise_egeria_http_error(exc, f"resource-browser: delete private note {note_guid} by {user} failed")
+    return await get_private_notes(guid)
 
 
 # ── Notes on its parts ───────────────────────────────────────────────────────

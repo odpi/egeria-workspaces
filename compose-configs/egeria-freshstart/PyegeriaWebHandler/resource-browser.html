@@ -3,7 +3,7 @@
   SPDX-License-Identifier: Apache-2.0
   Copyright Contributors to the ODPi Egeria project.
 
-  Resource Browser — find resources (data, code, APIs, products) on Egeria alone.
+  Resource Locator — find resources (data, code, APIs, products) on Egeria alone.
   Served by PyegeriaWebHandler at /resource-browser (resource_browser_handler.py).
   Phase 1: the Resource page (?guid=). Phase 2: Home, Search (L0) and Browse. Phase 3: work lists (?list=).
   Spec: trellis/packages/resource-explorer/docs/design-notes/SPEC-RESOURCE-BROWSER-PORTAL-APP.md
@@ -12,7 +12,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Resource Browser</title>
+  <title>Resource Locator</title>
   <script src="/static/app-bar.js?v=2026-10-05a"></script>
   <script src="/static/bootstrap-banner.js?v=2026-08-18a"></script>
   <style>
@@ -108,6 +108,7 @@
     .rb-term-x { background: none; border: none; color: var(--dim); cursor: pointer; font-size: 13px; line-height: 1; padding: 0 0 0 2px; }
     .rb-picker { min-width: 220px; }
     .rb-picks { margin-top: 6px; max-height: 220px; overflow-y: auto; }
+    .rb-private { border-left: 3px solid var(--dim); padding-left: 8px; }
     .rb-part { display: flex; align-items: baseline; gap: 0; }
     .rb-detail { font-size: 11px; color: var(--dim); text-decoration: none; white-space: nowrap; }
     .rb-detail:hover { color: var(--accent); text-decoration: underline; }
@@ -151,7 +152,7 @@
 </head>
 <body>
   <div id="root">
-    <div class="center"><div class="spinner"></div><span>Loading the Resource Browser…</span></div>
+    <div class="center"><div class="spinner"></div><span>Loading the Resource Locator…</span></div>
   </div>
 
   <script>/* React 18 production *//**
@@ -460,7 +461,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 
 <script>
 'use strict';
-// ── Resource Browser SPA ─────────────────────────────────────────────────────
+// ── Resource Locator SPA ─────────────────────────────────────────────────────
 // Phase 1: one Resource page per element (?guid=), built as a standalone
 // component (ResourcePage, the guid its only data input) so other apps can
 // reuse it; Home, Search (L0) and Browse share one result row.
@@ -569,21 +570,42 @@ function EditableText({ value, canWrite, placeholder, onSave, multiline }) {
 
 // ── Notes (NoteLog) beside the official description ─────────────────────────
 
-function NotesCard({ guid, creds, canWrite }) {
+// Private notes are held back: on this platform Egeria does not enforce the
+// per-user zone on journal entries (another user could read them), and there is
+// no supported way to delete a single journal entry. See PR #625's follow-up.
+var PRIVATE_NOTES_ENABLED = false;
+
+function NotesCard({ guid, creds, canWrite, name }) {
   var _n = useState(null), data = _n[0], setData = _n[1];
   var _e = useState(''), err = _e[0], setErr = _e[1];
   var _t = useState(''), text = _t[0], setText = _t[1];
   var _s = useState(false), saving = _s[0], setSaving = _s[1];
+  var _p = useState(null), mine = _p[0], setMine = _p[1];
+  var _pe = useState(''), mineErr = _pe[0], setMineErr = _pe[1];
+  var _v = useState('public'), vis = _v[0], setVis = _v[1];
   useEffect(function() {
     setData(null); setErr('');
     getJson(API + '/resource/' + encodeURIComponent(guid) + '/notes', creds).then(setData).catch(function(e) { setErr(e.message); });
   }, [guid, creds && creds.token]);
+  useEffect(function() {
+    setMine(null); setMineErr('');
+    if (!canWrite || !PRIVATE_NOTES_ENABLED) return;
+    getJson(API + '/resource/' + encodeURIComponent(guid) + '/private-notes', creds).then(setMine).catch(function(e) { setMineErr(e.message); });
+  }, [guid, creds && creds.token, canWrite]);
   function add() {
     if (!text.trim()) return;
-    setSaving(true); setErr('');
-    sendJson(API + '/resource/' + encodeURIComponent(guid) + '/notes', creds, 'POST', { text: text.trim() })
-      .then(function(d) { setData(d); setText(''); }).catch(function(e) { setErr(e.message); })
+    setSaving(true); setErr(''); setMineErr('');
+    var priv = vis === 'private';
+    sendJson(API + '/resource/' + encodeURIComponent(guid) + (priv ? '/private-notes' : '/notes'), creds, 'POST',
+             priv ? { text: text.trim(), resourceName: name } : { text: text.trim() })
+      .then(function(d) { (priv ? setMine : setData)(d); setText(''); })
+      .catch(function(e) { (priv ? setMineErr : setErr)(e.message); })
       .finally(function() { setSaving(false); });
+  }
+  function removePrivate(n) {
+    setMineErr('');
+    sendJson(API + '/resource/' + encodeURIComponent(guid) + '/private-notes/' + encodeURIComponent(n.guid), creds, 'DELETE')
+      .then(setMine).catch(function(e) { setMineErr(e.message); });
   }
   return el(Card, { title: 'Notes and journal', source: 'beside the description' },
     !data && !err && el('div', { className: 'rb-absent' }, 'Loading notes…'),
@@ -597,12 +619,26 @@ function NotesCard({ guid, creds, canWrite }) {
             (data.noteLogs > 1 && n.log ? ' · in ' + n.log : '')));
       })),
     data && data.capped && el('div', { className: 'rb-note', style: { marginTop: 6 } }, 'Showing the most recent notes only.'),
+    mine && mine.notes.length > 0 && el('div', { style: { marginTop: 12 } },
+      el('div', { className: 'rb-note', style: { marginBottom: 4, fontWeight: 600 } }, '🔒 Your private notes'),
+      el('ul', { className: 'rb-list', style: { gap: 10 } }, mine.notes.map(function(n) {
+        return el('li', { key: n.guid, className: 'rb-private' },
+          el('div', { className: 'rb-desc', style: { fontSize: 13 } }, n.text),
+          el('div', { className: 'rb-note' }, 'only you · ' + fmtDate(n.createTime) + ' · ',
+            el('button', { className: 'rb-link', style: { fontSize: 11 }, onClick: function() { removePrivate(n); } }, 'delete')));
+      }))),
+    mineErr && el('div', { className: 'rb-err', style: { marginTop: 6 } }, 'Private notes: ' + mineErr),
     canWrite && el('div', { style: { marginTop: 10 } },
-      el('textarea', { className: 'rb-text', rows: 2, placeholder: 'Add a note: context, caveats, how you use it…', value: text,
+      el('textarea', { className: 'rb-text', rows: 2, value: text,
+        placeholder: vis === 'private' ? 'A private note, kept in your own journal…' : 'Add a note: context, caveats, how you use it…',
         onChange: function(e) { setText(e.target.value); },
         onKeyDown: function(e) { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) add(); } }),
-      el('div', { style: { marginTop: 6 } },
-        el('button', { className: 'rb-btn', disabled: saving || !text.trim(), onClick: add }, saving ? 'Adding…' : 'Add note'))),
+      el('div', { className: 'rb-row', style: { marginTop: 6, gap: 10 } },
+        el('button', { className: 'rb-btn', disabled: saving || !text.trim(), onClick: add }, saving ? 'Adding…' : 'Add note'),
+        PRIVATE_NOTES_ENABLED && el('label', { className: 'rb-note', title: 'Everyone who can see this resource can read it' },
+          el('input', { type: 'radio', name: 'rb-vis-' + guid, checked: vis === 'public', onChange: function() { setVis('public'); } }), ' everyone'),
+        PRIVATE_NOTES_ENABLED && el('label', { className: 'rb-note', title: 'Kept in your own My Profile journal, in a zone only you can read' },
+          el('input', { type: 'radio', name: 'rb-vis-' + guid, checked: vis === 'private', onChange: function() { setVis('private'); } }), ' only me'))),
     el(PartNotes, { guid: guid, creds: creds }));
 }
 
@@ -912,7 +948,7 @@ function PartNotes({ guid, creds }) {
     el('div', { className: 'rb-note', style: { marginBottom: 6, fontWeight: 600 } }, 'On its parts'),
     data.error && el('div', { className: 'rb-err' }, 'Notes on its parts could not be read: ' + data.error),
     !data.error && data.parts.length === 0 && el('div', { className: 'rb-absent' },
-      'None of its ' + data.partsChecked + ' parts has notes.'),
+      data.partsChecked === 1 ? 'Its one part has no notes.' : 'None of its ' + data.partsChecked + ' parts has notes.'),
     el('ul', { className: 'rb-list', style: { gap: 8 } }, shown.map(function(p) {
       var n = p.notes[0];
       var text = n.text || n.title;
@@ -1007,14 +1043,14 @@ function StructureCard({ res, structure }) {
     groups.map(function(g) { return el(PartsGroup, { key: g.relationship + g.label, group: g }); }),
     structure.countsCapped && el('div', { className: 'rb-note' }, 'Counts are shown for the first parts only.'),
     groups.length > 0 && el('div', { className: 'rb-note', style: { marginTop: 4 } },
-      'A name opens it here in the Resource Browser; the ↗ link opens its full definition in The Catalog or Egeria Explorer.'));
+      'A name opens it here in the Resource Locator; the ↗ link opens its full definition in The Catalog or Egeria Explorer.'));
 }
 
-// The breadcrumb: Resource Browser › database › schema › table.
+// The breadcrumb: Resource Locator › database › schema › table.
 function PartOfCrumb({ res, structure }) {
   var path = (structure && structure.partOf) || [];
   return el('div', { className: 'rb-crumb' },
-    el('a', { href: '/resource-browser' }, 'Resource Browser'), '›',
+    el('a', { href: '/resource-browser' }, 'Resource Locator'), '›',
     structure && structure.partOfIncomplete && el(React.Fragment, null, el('span', { title: 'Not every container above this one could be read' }, '…'), '›'),
     path.map(function(p) {
       return el(React.Fragment, { key: p.guid },
@@ -1122,7 +1158,7 @@ function ResourcePage({ guid, creds, personaId }) {
     getJson(API + '/resource/' + encodeURIComponent(guid), creds)
       .then(function(d) {
         setRes(d);
-        document.title = d.displayName + ' · Resource Browser';
+        document.title = d.displayName + ' · Resource Locator';
         if (d.jdbcTableName) {
           getJson(API + '/resource/' + encodeURIComponent(guid) + '/statistics', creds)
             .then(setStats).catch(function(e) { setStats({ error: e.message }); });
@@ -1189,7 +1225,7 @@ function ResourcePage({ guid, creds, personaId }) {
         el('section', { id: 'rb-comments', style: { marginTop: -10, marginBottom: 18 } },
           el(EgeriaCommentsSection, { guid: guid, creds: creds, readOnly: !res.canWrite }))),
       el('div', null,
-        el(NotesCard, { guid: guid, creds: creds, canWrite: res.canWrite }),
+        el(NotesCard, { guid: guid, creds: creds, canWrite: res.canWrite, name: res.displayName }),
         el(StatisticsCard, { res: res, stats: stats }),
         el(ClassificationsCard, { res: res }),
         el(RelatedCard, { res: res, structure: structure }),
@@ -1400,7 +1436,7 @@ function SearchPage({ q, kind, creds }) {
   }
   useEffect(function() {
     setItems([]); setData(null); setFilt({ flavour: '', owner: '', badge: '', scope: false });
-    document.title = (q ? q + ' · ' : '') + 'Search · Resource Browser';
+    document.title = (q ? q + ' · ' : '') + 'Search · Resource Locator';
     if (q) load(0);
   }, [q, kind, creds && creds.token]);
 
@@ -1696,7 +1732,7 @@ function ListPage({ guid, creds }) {
 
   function load() {
     return getJson(API + '/lists/' + encodeURIComponent(guid), creds)
-      .then(function(d) { setLst(d); document.title = d.displayName + ' · Resource Browser'; })
+      .then(function(d) { setLst(d); document.title = d.displayName + ' · Resource Locator'; })
       .catch(function(x) { setErr(x.message); });
   }
   useEffect(function() { setLst(null); setErr(''); setSel({}); setMsg(''); load(); }, [guid, creds && creds.token]);
@@ -1797,7 +1833,7 @@ function HomePage({ creds, personaId }) {
   var _e = useState(''), err = _e[0], setErr = _e[1];
   var _p = useState(true), peopleOnly = _p[0], setPeopleOnly = _p[1];
   useEffect(function() {
-    document.title = 'Resource Browser';
+    document.title = 'Resource Locator';
     getJson(API + '/home', creds).then(setHome).catch(function(e) { setErr(e.message); });
   }, [creds && creds.token]);
   var recent = home ? (peopleOnly ? home.recentPeople : home.recent) : [];
@@ -1852,7 +1888,7 @@ function BrowsePage({ facet, value, creds }) {
   var _e = useState(''), err = _e[0], setErr = _e[1];
   useEffect(function() {
     setErr(''); setVals(null); setList(null);
-    document.title = f.label + ' · Browse · Resource Browser';
+    document.title = f.label + ' · Browse · Resource Locator';
     if (effective) {
       getJson(API + '/browse/' + f.id + '/' + encodeURIComponent(effective), creds).then(setList).catch(function(e) { setErr(e.message); });
     } else {
@@ -1954,7 +1990,7 @@ function App() {
   return el(PersonaContext.Provider, { value: personaId },
     el(CredContext.Provider, { value: creds },
       el('div', { style: { display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', color: 'var(--text)' } },
-        el(AppHeader, { icon: '🛒', title: 'Resource Browser', subtitle: 'Find resources and see what they are',
+        el(AppHeader, { icon: '🛒', title: 'Resource Locator', subtitle: 'Find resources and see what they are',
           onTitleClick: function() { window.history.pushState({}, '', '/resource-browser'); window.dispatchEvent(new Event('rb-navigate')); },
           identity: identity }),
         ready && el(NavBar, { route: route }),
