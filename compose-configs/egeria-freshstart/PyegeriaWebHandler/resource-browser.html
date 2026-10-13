@@ -5,7 +5,7 @@
 
   Resource Browser — a shop-for-data app on Egeria alone.
   Served by PyegeriaWebHandler at /resource-browser (resource_browser_handler.py).
-  Phase 1: the Resource page (?guid=) plus an interim lookup by name.
+  Phase 1: the Resource page (?guid=). Phase 2: Home, Search (L0) and Browse.
   Spec: trellis/packages/resource-explorer/docs/design-notes/SPEC-RESOURCE-BROWSER-PORTAL-APP.md
 -->
 <html lang="en">
@@ -103,15 +103,37 @@
     .rb-list { list-style: none; display: flex; flex-direction: column; gap: 5px; font-size: 12px; }
     .rb-list .t { color: var(--dim); font-family: ui-monospace, monospace; font-size: 10px; margin-left: 6px; }
 
-    .rb-find { max-width: 760px; margin: 40px auto; padding: 0 24px; }
-    .rb-find input { width: 100%; font-size: 16px; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border);
-                     background: var(--panel); color: var(--text); }
-    .rb-find input:focus { border-color: var(--accent); }
-    .rb-hit { display: block; width: 100%; text-align: left; background: var(--panel); border: 1px solid var(--border);
-              border-radius: 8px; padding: 10px 14px; margin-top: 8px; cursor: pointer; color: var(--text); }
-    .rb-hit:hover { border-color: var(--accent); }
-    .rb-hit .n { font-weight: 600; font-size: 14px; }
-    .rb-hit .d { font-size: 12px; color: var(--muted); margin-top: 3px; }
+    .rb-nav { display: flex; gap: 4px; align-items: center; padding: 8px 24px; border-bottom: 1px solid var(--border);
+              background: var(--panel); flex-shrink: 0; flex-wrap: wrap; }
+    .rb-navtab { background: none; border: none; color: var(--muted); font-size: 13px; font-weight: 600; padding: 6px 12px;
+                 border-radius: 6px; cursor: pointer; }
+    .rb-navtab:hover { color: var(--text); background: var(--hover); }
+    .rb-navtab.on { color: var(--accent); background: var(--card); }
+    .rb-search { flex: 1; min-width: 0; font-size: 14px; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border);
+                 background: var(--card); color: var(--text); }
+    .rb-search:focus { border-color: var(--accent); }
+    .rb-facet { background: var(--card); border: 1px solid var(--border); color: var(--muted); border-radius: 999px;
+                font-size: 12px; padding: 3px 11px; cursor: pointer; }
+    .rb-facet:hover { color: var(--text); border-color: var(--muted); }
+    .rb-facet.on { color: var(--accent); border-color: var(--accent); }
+    .rb-select { background: var(--card); border: 1px solid var(--border); color: var(--text); border-radius: 6px;
+                 font-size: 12px; padding: 3px 6px; }
+    .rb-result { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; margin-top: 8px; }
+    .rb-result .n { font-weight: 600; font-size: 14px; }
+    .rb-result .d { font-size: 12px; color: var(--muted); margin-top: 4px; overflow: hidden; text-overflow: ellipsis;
+                    white-space: nowrap; }
+    .rb-result .m { font-size: 11px; color: var(--dim); margin-top: 5px; gap: 12px; }
+    .rb-result .m b { color: var(--muted); font-weight: 600; }
+    .rb-kind { width: 18px; text-align: center; color: var(--muted); }
+    .rb-values { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+    .rb-value { display: flex; flex-direction: column; gap: 2px; text-align: left; background: var(--panel); color: var(--text);
+                border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; cursor: pointer; position: relative; }
+    .rb-value:hover { border-color: var(--accent); }
+    .rb-value .n { font-weight: 600; font-size: 13px; padding-right: 36px; word-break: break-word; }
+    .rb-value .c { position: absolute; top: 9px; right: 12px; font-size: 12px; color: var(--accent); }
+    .rb-value.none { opacity: .55; cursor: default; }
+    .rb-value.none .c { color: var(--dim); }
+    @media (max-width: 600px) { .rb-nav { padding: 8px 16px; } .rb-page { padding: 16px 16px 48px; } }
   </style>
 </head>
 <body>
@@ -428,7 +450,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 // ── Resource Browser SPA ─────────────────────────────────────────────────────
 // Phase 1: one Resource page per element (?guid=), built as a standalone
 // component (ResourcePage, the guid its only data input) so other apps can
-// reuse it, plus an interim find-by-name page until Search arrives.
+// reuse it; Home, Search (L0) and Browse share one result row.
+// Routes: ?guid= (resource), ?q=&kind= (search), ?browse=&value= (browse), none (home).
 // Honesty rules (spec §2): every figure carries its date and source; "never
 // measured" never renders as zero or as an empty table.
 var useState = React.useState;
@@ -878,48 +901,424 @@ function ResourcePage({ guid, creds, personaId }) {
       !res.canWrite && ' Sign in or choose a persona to edit, tag, note, like, rate or comment.'));
 }
 
-// ── Interim lookup (Search replaces this in phase 2) ─────────────────────────
+// ── Navigation ───────────────────────────────────────────────────────────────
 
-function FindPage({ creds }) {
-  var params = new URLSearchParams(window.location.search);
-  var _q = useState(params.get('q') || ''), q = _q[0], setQ = _q[1];
-  var _r = useState(null), data = _r[0], setData = _r[1];
+function navigate(params) {
+  var qs = new URLSearchParams(params || {}).toString();
+  window.history.pushState({}, '', '/resource-browser' + (qs ? '?' + qs : ''));
+  window.dispatchEvent(new Event('rb-navigate'));
+}
+
+function currentRoute() {
+  var p = new URLSearchParams(window.location.search);
+  if (p.get('guid')) return { page: 'resource', guid: p.get('guid') };
+  if (p.has('q')) return { page: 'search', q: p.get('q') || '', kind: p.get('kind') || '' };
+  if (p.get('browse')) return { page: 'browse', facet: p.get('browse'), value: p.get('value') || '' };
+  return { page: 'home' };
+}
+
+var KIND_ICONS = { table: '▦', schema: '🗂', database: '🛢', report: '📊', dataset: '📋', file: '📄',
+                   topic: '📡', product: '📦', api: '🔌', other: '•' };
+
+// The kinds search filters on come from the server, so the two never disagree.
+var _kindsPromise = null;
+function useKinds(creds) {
+  var _k = useState(null), kinds = _k[0], setKinds = _k[1];
+  useEffect(function() {
+    if (!_kindsPromise) _kindsPromise = getJson(API + '/kinds', creds).then(function(d) { return d.kinds; })
+      .catch(function() { _kindsPromise = null; return []; });
+    var live = true;
+    _kindsPromise.then(function(k) { if (live) setKinds(k); });
+    return function() { live = false; };
+  }, []);
+  return kinds || [];
+}
+
+// Flavour index: which resources are product or hub members. One fetch per page
+// load, shared by every row; rows show "…" until it arrives.
+var _flavourPromise = null;
+function useFlavours(creds) {
+  var _f = useState(null), f = _f[0], setF = _f[1];
+  useEffect(function() {
+    if (!_flavourPromise) _flavourPromise = getJson(API + '/flavours', creds)
+      .then(function(d) { d.productSet = new Set(d.productGuids); return d; })
+      .catch(function(e) { _flavourPromise = null; return { error: e.message }; });
+    var live = true;
+    _flavourPromise.then(function(d) { if (live) setF(d); });
+    return function() { live = false; };
+  }, []);
+  return f;
+}
+
+function rowFlavour(idx, row) {
+  if (!idx || idx.error) return null;
+  if (idx.hub[row.guid]) return 'hub';
+  if (idx.product[row.guid] || idx.productSet.has(row.guid)) return 'product';
+  return 'known';
+}
+
+// ── Result rows (shared by Search, Browse and Home) ─────────────────────────
+
+function FlavourBadge({ flavour }) {
+  if (!flavour) return el('span', { className: 'rb-note', title: 'Working out which resources are products or hub members' }, '…');
+  var f = FLAVOURS[flavour];
+  return el('span', { className: 'rb-badge', style: { color: f.color, fontSize: 10, padding: '1px 7px' }, title: f.tip }, f.label);
+}
+
+function RowExtras({ extras }) {
+  if (extras === undefined) return el('span', { className: 'rb-note' }, 'feedback …');
+  if (extras === null) return el('span', { className: 'rb-note' }, 'feedback not readable');
+  var bits = [];
+  if (extras.likes) bits.push(el('span', { key: 'l', title: 'Likes' }, '♥ ' + extras.likes));
+  if (extras.ratings) bits.push(el('span', { key: 'r', title: extras.ratings + ' rating(s)' },
+    '★ ' + (extras.rating === null ? '–' : extras.rating) + ' (' + extras.ratings + ')'));
+  extras.tags.forEach(function(t) { bits.push(el('span', { key: 't' + t, className: 'rb-chip' }, '#' + t)); });
+  if (!bits.length) return el('span', { className: 'rb-note' }, 'no likes, ratings or tags yet');
+  return el('span', { className: 'rb-row', style: { gap: 8 } }, bits);
+}
+
+function ResultRow({ row, idx, extras, showMatched }) {
+  var flav = rowFlavour(idx, row);
+  return el('div', { className: 'rb-result' },
+    el('div', { className: 'rb-row', style: { gap: 8 } },
+      el('span', { className: 'rb-kind', title: row.typeName }, KIND_ICONS[row.kind] || '•'),
+      el('button', { className: 'rb-link n', onClick: function() { openResource(row.guid); } }, row.displayName),
+      el('span', { className: 'rb-type' }, row.typeName),
+      el(FlavourBadge, { flavour: flav }),
+      row.badges.map(function(b) { return el('span', { key: b, className: 'rb-chip' }, b); }),
+      row.dataScope && el('span', { className: 'rb-chip', title: 'This resource records its data scope (time or place)' }, '◷ scope')),
+    row.qualifiedName && row.qualifiedName !== row.displayName && el('div', { className: 'rb-qn' }, row.qualifiedName),
+    row.description
+      ? el('div', { className: 'd' }, row.description)
+      : el('div', { className: 'd rb-absent' }, 'No description.'),
+    el('div', { className: 'rb-row m' },
+      el('span', null, 'owner: ', row.owner ? el('b', null, row.owner) : el('i', null, 'not recorded')),
+      el('span', null, 'last updated by ', el('b', null, row.updatedBy || 'unknown'),
+        row.automated ? ' (automation)' : '', ' · ', fmtDate(row.updateTime)),
+      showMatched && row.matched.length > 0 && el('span', { title: 'Why this matched' }, 'matched: ' + row.matched.join('; ')),
+      el(RowExtras, { extras: extras })));
+}
+
+var ROWS_SHOWN = 25;
+
+// Shows rows 25 at a time and reads feedback only for the rows on screen
+// (spec §4: per-row lookups are lazy, so a list costs a handful of calls).
+function ResultList({ rows, creds, idx, showMatched }) {
+  var _n = useState(ROWS_SHOWN), shown = _n[0], setShown = _n[1];
+  var _x = useState({}), extras = _x[0], setExtras = _x[1];
+  var asked = useRef(new Set());
+  var visible = rows.slice(0, shown);
+  useEffect(function() {
+    var want = visible.map(function(r) { return r.guid; }).filter(function(g) { return !asked.current.has(g); });
+    if (!want.length) return;
+    want.forEach(function(g) { asked.current.add(g); });
+    for (var i = 0; i < want.length; i += ROWS_SHOWN) {
+      (function(batch) {
+        getJson(API + '/row-extras?guids=' + encodeURIComponent(batch.join(',')), creds)
+          .then(function(d) { setExtras(function(prev) { return Object.assign({}, prev, d.extras); }); })
+          .catch(function() {
+            setExtras(function(prev) { var n = Object.assign({}, prev); batch.forEach(function(g) { n[g] = null; }); return n; });
+          });
+      })(want.slice(i, i + ROWS_SHOWN));
+    }
+  }, [rows, shown]);
+  return el('div', null,
+    visible.map(function(r) { return el(ResultRow, { key: r.guid, row: r, idx: idx, extras: extras[r.guid], showMatched: showMatched }); }),
+    rows.length > shown && el('button', { className: 'rb-btn ghost', style: { marginTop: 10 },
+      onClick: function() { setShown(shown + ROWS_SHOWN); } }, 'Show ' + Math.min(ROWS_SHOWN, rows.length - shown) + ' more of ' + rows.length));
+}
+
+function SourceLine({ data, extra }) {
+  if (!data) return null;
+  return el('div', { className: 'rb-note', style: { marginTop: 14 } },
+    'As of ', fmtDate(data.asOf),
+    data.ageSeconds ? ' (cached ' + Math.round(data.ageSeconds / 60) + ' min ago)' : '',
+    data.source ? ' · source: ' + data.source : '', extra ? ' · ' + extra : '');
+}
+
+// ── Nav bar: the search box and the way home, on every page ─────────────────
+
+function NavBar({ route }) {
+  var _q = useState(route.q || ''), q = _q[0], setQ = _q[1];
+  useEffect(function() { setQ(route.q || ''); }, [route.q]);
+  function submit(e) {
+    e.preventDefault();
+    if (q.trim()) navigate(Object.assign({ q: q.trim() }, route.kind ? { kind: route.kind } : {}));
+  }
+  function tab(page, label, params) {
+    return el('button', { className: 'rb-navtab' + (route.page === page ? ' on' : ''), onClick: function() { navigate(params); } }, label);
+  }
+  return el('div', { className: 'rb-nav' },
+    tab('home', 'Home', {}),
+    tab('browse', 'Browse', { browse: 'tag' }),
+    el('form', { onSubmit: submit, style: { flex: 1, display: 'flex', maxWidth: 560, marginLeft: 'auto' } },
+      el('input', { className: 'rb-search', value: q, placeholder: 'Search names, descriptions, columns, tags, keywords, owners…',
+        onChange: function(e) { setQ(e.target.value); } })));
+}
+
+// ── Search (L0) ──────────────────────────────────────────────────────────────
+
+function uniqueValues(rows, pick) {
+  var s = {};
+  rows.forEach(function(r) { (pick(r) || []).forEach(function(v) { s[v] = true; }); });
+  return Object.keys(s).sort(function(a, b) { return a.toLowerCase() < b.toLowerCase() ? -1 : 1; });
+}
+
+function SearchPage({ q, kind, creds }) {
+  var kinds = useKinds(creds);
+  var idx = useFlavours(creds);
+  var _d = useState(null), data = _d[0], setData = _d[1];
+  var _i = useState([]), items = _i[0], setItems = _i[1];
   var _e = useState(''), err = _e[0], setErr = _e[1];
   var _l = useState(false), loading = _l[0], setLoading = _l[1];
-  var timer = useRef(null);
+  var _f = useState({ flavour: '', owner: '', badge: '', scope: false }), filt = _f[0], setFilt = _f[1];
+
+  function load(page) {
+    setLoading(true); setErr('');
+    var url = API + '/search?q=' + encodeURIComponent(q) + (kind ? '&kind=' + kind : '') + '&page=' + page;
+    getJson(url, creds).then(function(d) {
+      setData(d);
+      setItems(function(prev) {
+        var have = {}; var out = page ? prev.slice() : [];
+        out.forEach(function(r) { have[r.guid] = r; });
+        d.items.forEach(function(r) {
+          if (have[r.guid]) r.matched.forEach(function(m) { if (have[r.guid].matched.indexOf(m) < 0) have[r.guid].matched.push(m); });
+          else { have[r.guid] = r; out.push(r); }
+        });
+        return out;
+      });
+    }).catch(function(e) { setErr(e.message); }).finally(function() { setLoading(false); });
+  }
   useEffect(function() {
-    clearTimeout(timer.current);
-    if (q.trim().length < 2) { setData(null); setErr(''); return; }
-    timer.current = setTimeout(function() {
-      setLoading(true); setErr('');
-      getJson(API + '/find?q=' + encodeURIComponent(q.trim()), creds)
-        .then(setData).catch(function(e) { setErr(e.message); setData(null); })
-        .finally(function() { setLoading(false); });
-    }, 300);
-    return function() { clearTimeout(timer.current); };
-  }, [q, creds && creds.token]);
-  document.title = 'Resource Browser';
-  return el('div', { className: 'rb-find' },
-    el('h1', { style: { fontSize: 22, marginBottom: 6 } }, 'Find a resource'),
-    el('div', { className: 'rb-note', style: { marginBottom: 14 } },
-      'Look up a dataset, table, file or product by name, then open its page. Results are in Egeria’s order, not ranked by use.'),
-    el('input', { autoFocus: true, value: q, placeholder: 'e.g. sales, forecast, coco_pharma', onChange: function(e) { setQ(e.target.value); } }),
-    loading && el('div', { className: 'rb-note', style: { marginTop: 10 } }, 'Searching…'),
-    err && el('div', { className: 'rb-err', style: { marginTop: 10 } }, err),
-    data && !loading && data.items.length === 0 && el('div', { className: 'rb-absent', style: { marginTop: 12 } },
-      'Nothing visible to you matches “' + q.trim() + '”.'),
-    data && data.items.map(function(i) {
-      return el('button', { key: i.guid, className: 'rb-hit', onClick: function() { openResource(i.guid); } },
-        el('div', { className: 'rb-row' }, el('span', { className: 'n' }, i.displayName), el('span', { className: 'rb-type' }, i.typeName)),
-        i.description && el('div', { className: 'd' }, i.description.length > 200 ? i.description.slice(0, 200) + '…' : i.description));
-    }),
-    data && data.mayHaveMore && el('div', { className: 'rb-note', style: { marginTop: 8 } }, 'Showing the first ' + data.items.length + '; type more to narrow it down.'),
-    data && el('div', { className: 'rb-note', style: { marginTop: 12 } }, 'As of ' + fmtDate(data.asOf) + ' · source: ' + data.source));
+    setItems([]); setData(null); setFilt({ flavour: '', owner: '', badge: '', scope: false });
+    document.title = (q ? q + ' · ' : '') + 'Search · Resource Browser';
+    if (q) load(0);
+  }, [q, kind, creds && creds.token]);
+
+  var shown = items.filter(function(r) {
+    if (filt.flavour && rowFlavour(idx, r) !== filt.flavour) return false;
+    if (filt.owner && (r.owner || '(not recorded)') !== filt.owner) return false;
+    if (filt.badge && r.badges.indexOf(filt.badge) < 0) return false;
+    if (filt.scope && !r.dataScope) return false;
+    return true;
+  });
+  var owners = uniqueValues(items, function(r) { return [r.owner || '(not recorded)']; });
+  var badges = uniqueValues(items, function(r) { return r.badges; });
+  var filtering = filt.flavour || filt.owner || filt.badge || filt.scope;
+  function set(k, v) { var n = Object.assign({}, filt); n[k] = v; setFilt(n); }
+
+  if (!q) return el('div', { className: 'rb-page' }, el('div', { className: 'rb-absent' }, 'Type a word in the search box above.'));
+
+  return el('div', { className: 'rb-page' },
+    el('div', { className: 'rb-row', style: { gap: 6, marginBottom: 10 } },
+      el('span', { className: 'rb-note', style: { marginRight: 4 } }, 'Kind:'),
+      el('button', { className: 'rb-facet' + (!kind ? ' on' : ''), onClick: function() { navigate({ q: q }); } }, 'All'),
+      kinds.map(function(k) {
+        return el('button', { key: k.id, className: 'rb-facet' + (kind === k.id ? ' on' : ''),
+          onClick: function() { navigate({ q: q, kind: k.id }); } }, (KIND_ICONS[k.id] || '') + ' ' + k.label);
+      })),
+    items.length > 0 && el('div', { className: 'rb-row', style: { gap: 10, marginBottom: 12 } },
+      el('span', { className: 'rb-note' }, 'Narrow these results:'),
+      el('select', { className: 'rb-select', value: filt.flavour, onChange: function(e) { set('flavour', e.target.value); }, disabled: !idx || !!idx.error },
+        el('option', { value: '' }, idx ? (idx.error ? 'flavour unavailable' : 'any flavour') : 'flavour …'),
+        ['hub', 'product', 'known'].map(function(f) { return el('option', { key: f, value: f }, FLAVOURS[f].label); })),
+      el('select', { className: 'rb-select', value: filt.owner, onChange: function(e) { set('owner', e.target.value); } },
+        el('option', { value: '' }, 'any owner'),
+        owners.map(function(o) { return el('option', { key: o, value: o }, o); })),
+      el('select', { className: 'rb-select', value: filt.badge, onChange: function(e) { set('badge', e.target.value); }, disabled: !badges.length },
+        el('option', { value: '' }, badges.length ? 'any badge' : 'no badges here'),
+        badges.map(function(b) { return el('option', { key: b, value: b }, b); })),
+      el('label', { className: 'rb-note', style: { display: 'flex', gap: 4, alignItems: 'center' } },
+        el('input', { type: 'checkbox', checked: filt.scope, onChange: function(e) { set('scope', e.target.checked); } }), 'has a data scope'),
+      filtering && el('button', { className: 'rb-edit', onClick: function() { setFilt({ flavour: '', owner: '', badge: '', scope: false }); } }, 'Clear')),
+    err && el('div', { className: 'rb-err', style: { marginBottom: 10 } }, 'Search failed: ' + err),
+    data && el('div', { className: 'rb-note', style: { marginBottom: 10 } },
+      filtering ? shown.length + ' of ' + items.length + ' loaded results match these filters (the filters apply to loaded results only). '
+                : items.length + ' result' + (items.length === 1 ? '' : 's') + (data.mayHaveMore ? ' so far. ' : '. '),
+      data.order),
+    loading && !items.length && el('div', { className: 'center', style: { height: 160 } }, el('div', { className: 'spinner' }), 'Searching…'),
+    data && !loading && items.length === 0 && el('div', { className: 'rb-card' },
+      el('div', null, 'Nothing visible to you matches “' + q + '”' + (kind ? ' among ' + kind + ' resources' : '') + '.'),
+      el('div', { className: 'rb-note', style: { marginTop: 6 } }, 'Zone security may hide some resources from your user, so this may be incomplete.')),
+    el(ResultList, { key: q + '|' + kind + '|' + JSON.stringify(filt), rows: shown, creds: creds, idx: idx, showMatched: true }),
+    data && data.mayHaveMore && el('button', { className: 'rb-btn', style: { marginTop: 12 }, disabled: loading,
+      onClick: function() { load(data.page + 1); } }, loading ? 'Loading…' : 'Load more results'),
+    data && el('div', { className: 'rb-note', style: { marginTop: 12, display: 'flex', flexDirection: 'column', gap: 3 } },
+      data.columns && data.columns.found > data.columns.rolledUp && el('span', null,
+        data.columns.found + ' matching columns found on this page; the tables of the first ' + data.columns.rolledUp + ' are shown.'),
+      data.cappedSources.length > 0 && el('span', null, 'These matches stopped at 50 and more may exist: ' + data.cappedSources.join(', ') + '.'),
+      Object.keys(data.failedSources).length > 0 && el('span', { className: 'rb-err' },
+        'Some sources could not be searched, so results may be incomplete: ' + Object.keys(data.failedSources).join(', ') + '.'),
+      data.notShown > 0 && el('span', null, data.notShown + ' match' + (data.notShown === 1 ? ' is' : 'es are') +
+        ' not shown because they are not data resources (for example survey or connector reports) or are templates.'),
+      el('span', null, 'Zone security may hide resources from your user, so results may be incomplete.')),
+    el(SourceLine, { data: data, extra: 'search layer ' + (data ? data.layer : '') }));
+}
+
+// ── Home ─────────────────────────────────────────────────────────────────────
+
+function Tile({ title, children, note }) {
+  return el('section', { className: 'rb-card' },
+    el('h3', null, title, note && el('span', { className: 'rb-src' }, note)),
+    children);
+}
+
+function CompactRow({ row, idx }) {
+  return el('li', { className: 'rb-row', style: { gap: 6 } },
+    el('span', { className: 'rb-kind', title: row.typeName }, KIND_ICONS[row.kind] || '•'),
+    el('button', { className: 'rb-link', onClick: function() { openResource(row.guid); } }, row.displayName),
+    el(FlavourBadge, { flavour: rowFlavour(idx, row) }),
+    el('span', { className: 'rb-note' }, (row.updatedBy || 'unknown') + (row.automated ? ' (automation)' : '') + ' · ' + fmtDate(row.updateTime)));
+}
+
+function FavouritesTile({ personaId }) {
+  var _f = useState(null), favs = _f[0], setFavs = _f[1];
+  var _e = useState(''), err = _e[0], setErr = _e[1];
+  useEffect(function() {
+    if (!personaId) return;
+    fetch('/api/favorites?persona=' + encodeURIComponent(personaId))
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(d) { setFavs((d || []).filter(function(f) { return f.app === 'resource-browser'; })); })
+      .catch(function(e) { setErr(e.message); });
+  }, [personaId]);
+  return el(Tile, { title: 'Favourites', note: 'the Portal’s favourites' },
+    !personaId ? el('div', { className: 'rb-absent' }, 'Sign in or choose a persona to keep favourites.')
+    : err ? el('div', { className: 'rb-err' }, 'Favourites could not be read: ' + err)
+    : !favs ? el('div', { className: 'rb-absent' }, 'Loading…')
+    : favs.length === 0 ? el('div', { className: 'rb-absent' }, 'No favourites yet. Use ☆ on a resource’s page.')
+    : el('ul', { className: 'rb-list' }, favs.map(function(f) {
+        return el('li', { key: f.id }, el('a', { href: f.url }, (f.icon || '⭐') + ' ' + f.label));
+      })));
+}
+
+function ListsTile({ creds }) {
+  var _l = useState(null), d = _l[0], setD = _l[1];
+  var _e = useState(''), err = _e[0], setErr = _e[1];
+  useEffect(function() { getJson(API + '/lists', creds).then(setD).catch(function(e) { setErr(e.message); }); }, [creds && creds.token]);
+  function list(items) {
+    return el('ul', { className: 'rb-list' }, items.map(function(l) {
+      return el('li', { key: l.guid }, el('button', { className: 'rb-link', onClick: function() { navigate({ browse: 'collection', value: l.guid }); } }, l.displayName));
+    }));
+  }
+  return el(Tile, { title: 'My lists', note: 'work lists' },
+    err ? el('div', { className: 'rb-err' }, 'Lists could not be read: ' + err)
+    : !d ? el('div', { className: 'rb-absent' }, 'Loading…')
+    : el('div', null,
+        d.mine.length ? list(d.mine) : el('div', { className: 'rb-absent' }, 'You have no work lists yet.'),
+        d.fromResourceExplorer.length > 0 && el('div', { style: { marginTop: 10 } },
+          el('div', { className: 'rb-note', style: { marginBottom: 4 } }, 'From Resource Explorer (read-only)'), list(d.fromResourceExplorer)),
+        el('div', { className: 'rb-note', style: { marginTop: 8 } }, d.note)));
+}
+
+function HomePage({ creds, personaId }) {
+  var idx = useFlavours(creds);
+  var _h = useState(null), home = _h[0], setHome = _h[1];
+  var _e = useState(''), err = _e[0], setErr = _e[1];
+  var _p = useState(true), peopleOnly = _p[0], setPeopleOnly = _p[1];
+  useEffect(function() {
+    document.title = 'Resource Browser';
+    getJson(API + '/home', creds).then(setHome).catch(function(e) { setErr(e.message); });
+  }, [creds && creds.token]);
+  var recent = home ? (peopleOnly ? home.recentPeople : home.recent) : [];
+  return el('div', { className: 'rb-page' },
+    el('h1', { style: { fontSize: 22, marginBottom: 4 } }, 'Find data and see what it is'),
+    el('div', { className: 'rb-note', style: { marginBottom: 16 } },
+      'Search above, browse by tag, owner, source or collection, or start from what changed recently.'),
+    el('div', { className: 'rb-grid' },
+      el('div', null,
+        el(Tile, { title: 'Popular', note: 'by use' },
+          el('div', { className: 'rb-absent' }, home ? home.popular.reason : 'Popularity is not available yet.'),
+          el('div', { className: 'rb-note', style: { marginTop: 4 } }, 'Nothing is ranked by use until Egeria records it. Recently changed is below instead.')),
+        el(Tile, { title: 'Recently changed', note: 'newest first' },
+          el('div', { className: 'rb-row', style: { gap: 6, marginBottom: 8 } },
+            el('button', { className: 'rb-facet' + (peopleOnly ? ' on' : ''), onClick: function() { setPeopleOnly(true); } }, 'Changed by people'),
+            el('button', { className: 'rb-facet' + (!peopleOnly ? ' on' : ''), onClick: function() { setPeopleOnly(false); } }, 'Including automation')),
+          err ? el('div', { className: 'rb-err' }, 'Recent changes could not be read: ' + err)
+          : !home ? el('div', { className: 'rb-absent' }, 'Loading…')
+          : recent.length === 0 ? el('div', { className: 'rb-absent' },
+              peopleOnly ? 'No person changed a resource among the most recently updated ones. Choose “Including automation” to see what catalog connectors and engines changed.'
+                         : 'No resources have been changed.')
+          : el('ul', { className: 'rb-list', style: { gap: 7 } }, recent.map(function(r) { return el(CompactRow, { key: r.guid, row: r, idx: idx }); })),
+          home && el('div', { className: 'rb-note', style: { marginTop: 8 } },
+            'From the ' + home.recentWindow.perType + ' most recently updated of each resource type. As of ' + fmtDate(home.asOf) + '.'))),
+      el('div', null,
+        el(FavouritesTile, { personaId: personaId }),
+        el(ListsTile, { creds: creds }),
+        el(Tile, { title: 'Browse' },
+          el('div', { className: 'rb-row', style: { gap: 6 } }, FACETS.map(function(f) {
+            return el('button', { key: f.id, className: 'rb-facet', onClick: function() { navigate({ browse: f.id }); } }, f.label);
+          }))))));
+}
+
+// ── Browse ───────────────────────────────────────────────────────────────────
+
+var FACETS = [
+  { id: 'tag', label: 'Tag', empty: 'No informal tags exist yet.' },
+  { id: 'badge', label: 'Badge', empty: '' },
+  { id: 'owner', label: 'Owner', empty: 'No resource has a recorded owner yet.' },
+  { id: 'source', label: 'Source system', empty: 'No databases or folders are catalogued yet.' },
+  { id: 'collection', label: 'Collection', empty: 'No product families, data sharing hubs or work lists exist yet.' },
+  { id: 'flavour', label: 'Flavour', empty: '' },
+  { id: 'scope', label: 'Data scope', empty: '' },
+];
+
+function BrowsePage({ facet, value, creds }) {
+  var idx = useFlavours(creds);
+  var f = FACETS.filter(function(x) { return x.id === facet; })[0] || FACETS[0];
+  var effective = f.id === 'scope' ? 'all' : value;
+  var _v = useState(null), vals = _v[0], setVals = _v[1];
+  var _l = useState(null), list = _l[0], setList = _l[1];
+  var _e = useState(''), err = _e[0], setErr = _e[1];
+  useEffect(function() {
+    setErr(''); setVals(null); setList(null);
+    document.title = f.label + ' · Browse · Resource Browser';
+    if (effective) {
+      getJson(API + '/browse/' + f.id + '/' + encodeURIComponent(effective), creds).then(setList).catch(function(e) { setErr(e.message); });
+    } else {
+      getJson(API + '/browse/' + f.id, creds).then(setVals).catch(function(e) { setErr(e.message); });
+    }
+  }, [f.id, effective, creds && creds.token]);
+
+  return el('div', { className: 'rb-page' },
+    el('div', { className: 'rb-row', style: { gap: 6, marginBottom: 14 } },
+      el('span', { className: 'rb-note', style: { marginRight: 4 } }, 'Browse by:'),
+      FACETS.map(function(x) {
+        return el('button', { key: x.id, className: 'rb-facet' + (x.id === f.id ? ' on' : ''), onClick: function() { navigate({ browse: x.id }); } }, x.label);
+      })),
+    err && el('div', { className: 'rb-err' }, err),
+    !err && !effective && !vals && el('div', { className: 'center', style: { height: 160 } }, el('div', { className: 'spinner' }), 'Loading…'),
+    vals && el('div', null,
+      vals.values.length === 0 ? el('div', { className: 'rb-absent' }, f.empty || 'Nothing to browse here yet.')
+      : el('div', { className: 'rb-values' }, vals.values.map(function(v) {
+          var none = v.count === 0;
+          return el('button', { key: v.id, className: 'rb-value' + (none ? ' none' : ''), disabled: none,
+              title: none ? 'No data resource has this yet' : '',
+              onClick: function() { navigate({ browse: f.id, value: v.id }); } },
+            el('span', { className: 'n' }, v.label),
+            v.count !== undefined && el('span', { className: 'c' }, none ? 'none' : v.count),
+            v.description && el('span', { className: 'rb-note' }, v.description));
+        })),
+      vals.countsAre && el('div', { className: 'rb-note', style: { marginTop: 8 } }, 'Counts are ' + vals.countsAre + '.'),
+      el(SourceLine, { data: vals })),
+    effective && !list && !err && el('div', { className: 'center', style: { height: 160 } }, el('div', { className: 'spinner' }), 'Loading…'),
+    list && el('div', null,
+      el('div', { className: 'rb-row', style: { marginBottom: 6 } },
+        f.id !== 'scope' && el('button', { className: 'rb-link', onClick: function() { navigate({ browse: f.id }); } }, '← all ' + f.label.toLowerCase() + ' values'),
+        el('h2', { style: { fontSize: 18 } }, list.title)),
+      list.note && el('div', { className: 'rb-note', style: { marginBottom: 8 } }, list.note),
+      list.items.length === 0 && !list.note && el('div', { className: 'rb-absent' }, 'No data resource visible to you is here.'),
+      list.items.length > 0 && el('div', { className: 'rb-note', style: { marginBottom: 8 } },
+        list.items.length + ' resource' + (list.items.length === 1 ? '' : 's') + '. ' + (list.order || '')),
+      el(ResultList, { rows: list.items, creds: creds, idx: idx }),
+      el('div', { className: 'rb-note', style: { marginTop: 10, display: 'flex', flexDirection: 'column', gap: 3 } },
+        list.notShown > 0 && el('span', null, list.notShown + ' element' + (list.notShown === 1 ? ' is' : 's are') +
+          ' not shown because ' + (list.notShown === 1 ? 'it is' : 'they are') + ' not a data resource or ' + (list.notShown === 1 ? 'is a template' : 'are templates') + '.'),
+        list.capped && el('span', null, 'The read stopped at its page limit, so this list may be incomplete.'),
+        el('span', null, 'Zone security may hide resources from your user, so this list may be incomplete.')),
+      el(SourceLine, { data: list })));
 }
 
 // ── App: auth bootstrap (same flow as the Audit app) and routing ────────────
-
-function currentGuid() { return new URLSearchParams(window.location.search).get('guid'); }
 
 function App() {
   var _creds = useState(null), creds = _creds[0], setCreds = _creds[1];
@@ -927,10 +1326,10 @@ function App() {
   var _who = useState(null), who = _who[0], setWho = _who[1];
   var _srv = useState(false), srvManaged = _srv[0], setSrvManaged = _srv[1];
   var _pid = useState(null), personaId = _pid[0], setPersonaId = _pid[1];
-  var _g = useState(currentGuid()), guid = _g[0], setGuid = _g[1];
+  var _rt = useState(currentRoute()), route = _rt[0], setRoute = _rt[1];
 
   useEffect(function() {
-    function sync() { setGuid(currentGuid()); var s = document.querySelector('.rb-scroll'); if (s) s.scrollTop = 0; }
+    function sync() { setRoute(currentRoute()); var s = document.querySelector('.rb-scroll'); if (s) s.scrollTop = 0; }
     window.addEventListener('popstate', sync);
     window.addEventListener('rb-navigate', sync);
     return function() { window.removeEventListener('popstate', sync); window.removeEventListener('rb-navigate', sync); };
@@ -965,8 +1364,10 @@ function App() {
                      : appBarIdentity({ srvManaged: srvManaged });
 
   var content = !ready ? el('div', { className: 'center' }, el('div', { className: 'spinner' }), 'Connecting…')
-    : guid ? el(ResourcePage, { key: guid, guid: guid, creds: creds, personaId: personaId })
-    : el(FindPage, { creds: creds });
+    : route.page === 'resource' ? el(ResourcePage, { key: route.guid, guid: route.guid, creds: creds, personaId: personaId })
+    : route.page === 'search' ? el(SearchPage, { q: route.q, kind: route.kind, creds: creds })
+    : route.page === 'browse' ? el(BrowsePage, { facet: route.facet, value: route.value, creds: creds })
+    : el(HomePage, { creds: creds, personaId: personaId });
 
   return el(PersonaContext.Provider, { value: personaId },
     el(CredContext.Provider, { value: creds },
@@ -974,7 +1375,8 @@ function App() {
         el(AppHeader, { icon: '🛒', title: 'Resource Browser', subtitle: 'Find data and see what it is',
           onTitleClick: function() { window.history.pushState({}, '', '/resource-browser'); window.dispatchEvent(new Event('rb-navigate')); },
           identity: identity }),
-        el(FeedbackButton, { section: guid ? 'resource' : 'find', persona: who ? who.sub : null, demoMode: !srvManaged, srvManaged: srvManaged, pagePrefix: 'resource-browser/' }),
+        ready && el(NavBar, { route: route }),
+        el(FeedbackButton, { section: route.page, persona: who ? who.sub : null, demoMode: !srvManaged, srvManaged: srvManaged, pagePrefix: 'resource-browser/' }),
         el('div', { className: 'rb-scroll' }, content))));
 }
 

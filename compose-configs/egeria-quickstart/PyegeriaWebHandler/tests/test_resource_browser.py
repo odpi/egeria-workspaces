@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright Contributors to the ODPi Egeria project.
-"""The Resource Browser's pure helpers: flavour, lineage direction, survey statistics.
+"""The Resource Browser's pure helpers: flavour, lineage direction, survey statistics,
+and (phase 2) result rows, resource kinds, search relevance and the flavour index.
 
 Spec §3 asks for one flavour function with one test per flavour and one for the
 precedence (hub > product > known). The other tests pin the honesty rules the page
@@ -25,8 +26,12 @@ _HANDLERS = {
     "freshstart": _COMPOSE / "egeria-freshstart" / "PyegeriaWebHandler" / "resource_browser_handler.py",
 }
 _NEEDED = {"_type_names", "_display_name", "_related", "_classifications", "_data_scope", "_flavour",
-           "_lineage", "_stats_name_of", "_latest_by_subject", "_jdbc_table_name"}
-_CONSTS = {"_SKIP_CLASSIFICATIONS", "_LINEAGE_RELATIONSHIPS", "_TABLE_STATS_QN", "_COLUMN_STATS_QN"}
+           "_lineage", "_stats_name_of", "_latest_by_subject", "_jdbc_table_name",
+           # phase 2
+           "_owner", "_kind_of", "_is_resource", "_looks_automated", "_row", "_rows", "_relevance",
+           "_text_reason", "_merge", "_flavour_index", "_recent_rows"}
+_CONSTS = {"_SKIP_CLASSIFICATIONS", "_LINEAGE_RELATIONSHIPS", "_TABLE_STATS_QN", "_COLUMN_STATS_QN",
+           "_RESOURCE_TYPES", "_NOT_RESOURCES", "_KINDS", "_BADGES"}
 
 
 def _load(path: Path):
@@ -163,3 +168,88 @@ def test_jdbc_table_name_needs_all_three_parts(rb):
     assert rb["_jdbc_table_name"]({"additionalProperties": ap}) == "coco.sales.orders"
     assert rb["_jdbc_table_name"]({"additionalProperties": {"jdbc.catalog": "coco", "jdbc.table": "orders"}}) is None
     assert rb["_jdbc_table_name"]({}) is None
+
+
+# ── Phase 2: rows, kinds, relevance, flavour index ───────────────────────────
+
+def _el(type_name, supers, name="x", guid="g1", desc="", qn="", cls=None, updated_by="erinoverview", when="2026-10-01"):
+    hdr = {"guid": guid, "type": {"typeName": type_name, "superTypeNames": supers},
+           "versions": {"updatedBy": updated_by, "updateTime": when}}
+    hdr.update(cls or {})
+    return {"elementHeader": hdr, "properties": {"displayName": name, "description": desc, "qualifiedName": qn}}
+
+
+_TABLE = ["SchemaAttribute", "SchemaElement", "Referenceable"]
+_SURVEY = ["Report", "DataSet", "DataAsset", "Asset", "Referenceable"]
+
+
+def test_kind_follows_type_and_supertypes(rb):
+    assert rb["_kind_of"]("RelationalTable", _TABLE) == "table"
+    assert rb["_kind_of"]("ReferenceCodeTable", ["TabularDataSet", "DataSet", "DataAsset"]) == "dataset"
+    assert rb["_kind_of"]("RelationalDatabase", ["Database", "DataStore", "DataAsset"]) == "database"
+    assert rb["_kind_of"]("Report", _SURVEY) == "report"
+    assert rb["_kind_of"]("Something", ["DataAsset"]) == "other"
+
+
+def test_operational_records_and_templates_are_not_rows(rb):
+    assert rb["_is_resource"]("RelationalTable", _TABLE)
+    assert not rb["_is_resource"]("SurveyReport", _SURVEY)
+    assert not rb["_is_resource"]("Notification", ["Action", "Asset"])
+    assert rb["_row"](_el("SurveyReport", _SURVEY)) is None
+    tmpl = {"template": {"class": "ElementClassification", "classificationName": "Template", "classificationProperties": {}}}
+    assert rb["_row"](_el("RelationalTable", _TABLE, cls=tmpl)) is None
+    rows, skipped = rb["_rows"]([_el("RelationalTable", _TABLE), _el("Notification", ["Asset"], guid="n")])
+    assert len(rows) == 1 and skipped == 1
+
+
+def test_row_reads_owner_badges_scope_and_automation(rb):
+    cls = {"ownership": _cls("Ownership", {"owner": "Jules"}),
+           "otherClassifications": [_cls("Confidentiality", {"levelIdentifier": 2}), _cls("Anchors")],
+           "dataScope": _cls("DataScope", {"scopeStartTime": "2020"})}
+    r = rb["_row"](_el("RelationalTable", _TABLE, cls=cls, updated_by="dbcatnpa"))
+    assert (r["owner"], r["badges"], r["automated"], r["kind"]) == ("Jules", ["Confidentiality"], True, "table")
+    assert r["dataScope"] == {"scopeStartTime": "2020"}
+    plain = rb["_row"](_el("RelationalTable", _TABLE))
+    assert plain["owner"] is None and plain["dataScope"] is None and plain["automated"] is False
+
+
+def test_relevance_puts_name_matches_first(rb):
+    rows = [rb["_row"](_el("RelationalTable", _TABLE, name=n, guid=n, desc=d, qn=q))
+            for n, d, q in [("currency", "", "db.sales.currency"), ("salesperson", "", ""), ("sales", "", ""),
+                            ("orders", "sales orders", ""), ("vsales", "", "")]]
+    order = [r["displayName"] for r in sorted(rows, key=lambda r: rb["_relevance"](r, "Sales"))]
+    assert order == ["sales", "salesperson", "vsales", "currency", "orders"]
+    assert rb["_text_reason"](rows[0], "sales") == "qualified name"
+    assert rb["_text_reason"](rows[3], "sales") == "description"
+
+
+def test_merge_keeps_one_row_and_every_reason(rb):
+    found = {}
+    r = rb["_row"](_el("RelationalTable", _TABLE))
+    rb["_merge"](found, [r], "name")
+    rb["_merge"](found, [r], "column: a, b")
+    rb["_merge"](found, [r], "name")
+    assert list(found) == ["g1"] and found["g1"]["matched"] == ["name", "column: a, b"]
+    assert r["matched"] == []  # the input row is not mutated
+
+
+def _member(guid):
+    return {"relatedElement": {"elementHeader": {"guid": guid, "type": {"typeName": "TabularDataSet"}},
+                               "properties": {"displayName": guid}},
+            "relationshipHeader": {"type": {"typeName": "CollectionMembership"}}}
+
+
+def test_flavour_index_maps_members_and_knows_when_hubs_are_unknown(rb):
+    prod = {"elementHeader": {"guid": "p"}, "properties": {"displayName": "P"}, "collectionMembers": [_member("m1")]}
+    idx = rb["_flavour_index"]([prod], None)
+    assert idx["product"] == {"m1": [{"guid": "p", "displayName": "P"}]}
+    assert idx["productGuids"] == ["p"] and idx["hub"] == {} and idx["hubTypeKnown"] is False
+    idx = rb["_flavour_index"]([], [])
+    assert idx["hubTypeKnown"] is True and idx["hubCount"] == 0
+
+
+def test_recent_rows_merge_newest_first_without_noise(rb):
+    a = [_el("RelationalTable", _TABLE, guid="t1", when="2026-10-02"), _el("SurveyReport", _SURVEY, guid="s", when="2026-10-09")]
+    b = [_el("RelationalDatabase", ["Database", "DataAsset"], guid="d", when="2026-10-05"),
+         _el("RelationalTable", _TABLE, guid="t1", when="2026-10-02")]
+    assert [r["guid"] for r in rb["_recent_rows"]([a, b])] == ["d", "t1"]

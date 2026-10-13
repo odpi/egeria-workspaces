@@ -2,7 +2,7 @@
 SPDX-License-Identifier: Apache-2.0
 Copyright Contributors to the ODPi Egeria project.
 
-Resource Browser — FastAPI router (phase 1: the Resource page).
+Resource Browser — FastAPI router (phase 1: the Resource page; phase 2: search, Home, Browse).
 
 A shop-for-data app for people who look for data rather than curate it.
 Reads Egeria only, and writes back only what Egeria already models
@@ -11,7 +11,6 @@ trellis/packages/resource-explorer/docs/design-notes/SPEC-RESOURCE-BROWSER-PORTA
 
 Endpoints:
   GET    /resource-browser                                   → serve the SPA
-  GET    /api/resource-browser/find?q=                       → interim lookup (phase 2 replaces it with search)
   GET    /api/resource-browser/resource/{guid}               → header, flavour, scope, columns, lineage, related
   GET    /api/resource-browser/resource/{guid}/statistics    → latest survey measurements (tables)
   PUT    /api/resource-browser/resource/{guid}/description   → update the description (any element, incl. a column)
@@ -20,6 +19,13 @@ Endpoints:
   DELETE /api/resource-browser/resource/{guid}/tags/{tag}    → detach a tag
   GET    /api/resource-browser/resource/{guid}/notes         → notes from the element's note logs
   POST   /api/resource-browser/resource/{guid}/notes         → add a note (creates the note log if needed)
+  GET    /api/resource-browser/search?q=&kind=&page=         → L0 search: text, columns, tags, keywords, owners
+  GET    /api/resource-browser/flavours                      → which resources are product or hub members (cached)
+  GET    /api/resource-browser/row-extras?guids=             → tags, likes and rating summary for visible rows
+  GET    /api/resource-browser/home                          → recently changed resources; popularity status
+  GET    /api/resource-browser/lists                         → work lists the user can see (read-only until phase 3)
+  GET    /api/resource-browser/browse/{facet}                → the values of one browse facet
+  GET    /api/resource-browser/browse/{facet}/{value}        → the resources under one facet value
 
 Honesty rules (spec §2): every response carries `asOf` and `source`; "never
 measured" is reported as such, not as zero; a 404 says the element may be hidden
@@ -43,7 +49,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
 from pydantic import BaseModel
 
-from egeria_auth import async_apply_token, token_user as _token_user
+from egeria_auth import async_apply_token, lineage_key as _lineage_key, token_user as _token_user
 from egeria_error_mapping import raise_egeria_http_error
 
 router = APIRouter(tags=["resource-browser"])
@@ -68,10 +74,6 @@ _FEEDBACK_TYPES = {"Like", "Rating", "Comment", "InformalTag", "NoteLog"}
 
 # Classifications that are infrastructure, never shown.
 _SKIP_CLASSIFICATIONS = {"Anchors", "LatestChange", "Memento", "TemplateSubstitute"}
-
-# The interim lookup's scope: assets, plus the schema elements people treat as
-# resources (in Egeria 6.2 a RelationalTable is a SchemaAttribute, not an Asset).
-_FIND_TYPES = ["Asset", "RelationalTable", "TabularSchemaType", "DigitalProduct"]
 
 _TABLE_STATS_QN = "Annotation::Capture Database Table Measurements::"
 _COLUMN_STATS_QN = "Annotation::Capture Database Column Measurements::"
@@ -319,36 +321,6 @@ async def serve_resource_browser():
     if not _HTML.exists():
         raise HTTPException(status_code=404, detail="Resource Browser page not found")
     return FileResponse(str(_HTML), media_type="text/html")
-
-
-@router.get("/api/resource-browser/find", summary="Interim lookup by name (phase 2 replaces this with search)")
-async def find_resources(q: str = Query(..., min_length=1), page_size: int = Query(25, ge=1, le=100)):
-    try:
-        client = await _explorer_async()
-        raw = await client._async_find_elements_by_property_value(
-            property_value=q, property_names=["displayName", "name", "qualifiedName", "description"],
-            metadata_element_subtypes=_FIND_TYPES, starts_with=False, ends_with=False, ignore_case=True,
-            graph_query_depth=0, output_format="JSON", page_size=page_size,
-        )
-    except Exception as exc:
-        raise_egeria_http_error(exc, f"resource-browser: find {q!r} failed")
-    items = []
-    for e in _elements(raw):
-        hdr = e.get("elementHeader") or {}
-        if any(c["name"] == "Template" for c in _classifications(hdr)):
-            continue
-        props = e.get("properties") or {}
-        type_name, _ = _type_names(hdr)
-        items.append({
-            "guid": hdr.get("guid", ""), "typeName": type_name,
-            "displayName": _display_name(props, hdr.get("guid", "")),
-            "qualifiedName": props.get("qualifiedName", ""),
-            "description": props.get("description", ""),
-        })
-    return JSONResponse({
-        "items": items, "asOf": _now_iso(), "source": "ClassificationExplorer.find_elements_by_property_value",
-        "mayHaveMore": len(items) == page_size,
-    })
 
 
 @router.get("/api/resource-browser/resource/{guid}", summary="Everything the Resource page shows, in one call")
@@ -661,3 +633,725 @@ async def add_note(guid: str, body: NoteBody):
     except Exception as exc:
         raise_egeria_http_error(exc, f"resource-browser: add note to {guid} failed")
     return await get_notes(guid)
+
+
+# ══ Phase 2: search, Home, Browse ════════════════════════════════════════════
+#
+# L0 search (spec §6): Egeria's own find, ordered by text relevance, with the
+# source and as-of on every response so a later layer can replace it unseen.
+# Egeria cannot sort by use or count facets, so neither is attempted here.
+
+# Search and browse scope: data resources. "Asset" alone would bring in ~8,600
+# Notifications and ~700 EngineActions, which mean nothing to a data shopper.
+_RESOURCE_TYPES = ["DataAsset", "RelationalTable", "DigitalProduct", "DeployedAPI"]
+
+# DataAsset subtypes that are operational records rather than data to shop for.
+_NOT_RESOURCES = {"SurveyReport", "ConnectorActivityReport", "SecretsCollection", "MetadataCollection",
+                  "KeyStoreFile"}
+
+# Resource kinds, in matching order (the first whose types the element has wins).
+_KINDS = [
+    ("table", "Tables", ["RelationalTable", "VirtualRelationalTable"]),
+    ("schema", "Schemas", ["DeployedDatabaseSchema"]),
+    ("database", "Databases", ["Database"]),
+    ("report", "Reports", ["Report"]),
+    ("dataset", "Data sets", ["TabularDataSet", "TabularDataSetCollection", "DataSet"]),
+    ("file", "Files and folders", ["DataFile", "DataFolder", "FileFolder", "DataFileCollection"]),
+    ("topic", "Topics and feeds", ["Topic", "DataFeed"]),
+    ("product", "Products", ["DigitalProduct"]),
+    ("api", "APIs", ["DeployedAPI"]),
+]
+_KIND_IDS = [k[0] for k in _KINDS] + ["other"]
+
+# Governance classifications shown as badges.
+_BADGES = ["Confidentiality", "Confidence", "Criticality", "Impact", "Retention", "SecurityTags"]
+
+_SEARCH_PROPS = ["displayName", "name", "qualifiedName", "description"]
+_SEARCH_PAGE = 50
+_COLUMN_ROLLUP_CAP = 25      # columns per page whose table is looked up
+_TAG_MATCH_CAP = 5           # tags (and keywords) per query whose elements are read
+_LOOKUP_CONCURRENCY = 4      # parallel per-element calls; Egeria's JDBC pool is 10 connections
+_ROW_EXTRAS_CAP = 25
+_RECENT_PAGE = 50
+_RECENT_SHOWN = 25
+_CACHE_TTL = 600             # seconds; the page shows the age
+
+_ORDER_NOTE = ("Ordered by text relevance: name matches first, then qualified name, description, "
+               "tag, keyword, owner and column matches. Egeria holds no usage measure yet, "
+               "so nothing is ranked by use.")
+
+
+def _kind_of(type_name: str, super_types: list) -> str:
+    names = [type_name] + list(super_types or [])
+    for kind, _label, types in _KINDS:
+        if any(t in names for t in types):
+            return kind
+    return "other"
+
+
+def _is_resource(type_name: str, super_types: list) -> bool:
+    if type_name in _NOT_RESOURCES:
+        return False
+    names = [type_name] + list(super_types or [])
+    return any(t in names for t in _RESOURCE_TYPES)
+
+
+def _looks_automated(user) -> bool:
+    """Egeria's own service accounts end in "npa" (non-person account) or are engines."""
+    u = str(user or "").lower()
+    return u.endswith("npa") or "engine" in u
+
+
+def _row(el: dict) -> Optional[dict]:
+    """One result row, from an element (or a related element) at graph depth 0.
+
+    None for anything that is not a data resource, and for templates."""
+    if not isinstance(el, dict):
+        return None
+    hdr = el.get("elementHeader") or {}
+    guid = hdr.get("guid")
+    type_name, supers = _type_names(hdr)
+    if not guid or not _is_resource(type_name, supers):
+        return None
+    cls = _classifications(hdr)
+    if any(c["name"] == "Template" for c in cls):
+        return None
+    props = el.get("properties") or {}
+    versions = hdr.get("versions") or {}
+    desc = props.get("description") or ""
+    return {
+        "guid": guid,
+        "typeName": type_name,
+        "kind": _kind_of(type_name, supers),
+        "displayName": _display_name(props, guid),
+        "qualifiedName": props.get("qualifiedName", ""),
+        "description": desc if len(desc) <= 400 else desc[:397] + "…",
+        "owner": _owner(cls),
+        "badges": [c["name"] for c in cls if c["name"] in _BADGES],
+        "dataScope": _data_scope(cls),
+        "updatedBy": versions.get("updatedBy") or versions.get("createdBy") or "",
+        "updateTime": versions.get("updateTime") or versions.get("createTime") or "",
+        "automated": _looks_automated(versions.get("updatedBy") or versions.get("createdBy")),
+        "matched": [],
+    }
+
+
+def _rows(elements: list) -> tuple:
+    """(rows, not_shown): rows for the data resources, and how many elements were not."""
+    rows, skipped = [], 0
+    for e in elements:
+        r = _row(e)
+        if r:
+            rows.append(r)
+        else:
+            skipped += 1
+    return rows, skipped
+
+
+def _relevance(row: dict, q: str) -> tuple:
+    """Sort key: how directly the row's own text matches the query, then its name."""
+    ql = q.lower()
+    name = row["displayName"].lower()
+    if name == ql:
+        rank = 0
+    elif name.startswith(ql):
+        rank = 1
+    elif ql in name:
+        rank = 2
+    elif ql in row["qualifiedName"].lower():
+        rank = 3
+    elif ql in row["description"].lower():
+        rank = 4
+    else:
+        rank = 5
+    return rank, name
+
+
+def _text_reason(row: dict, q: str) -> str:
+    """Which of the row's own fields the text search matched, for the "matched:" line."""
+    ql = q.lower()
+    if ql in row["displayName"].lower():
+        return "name"
+    if ql in row["qualifiedName"].lower():
+        return "qualified name"
+    if ql in row["description"].lower():
+        return "description"
+    return "name or description"
+
+
+def _merge(into: dict, rows: list, reason: str) -> None:
+    """Add rows to a guid-keyed result map, recording why each matched."""
+    for r in rows:
+        have = into.get(r["guid"])
+        if have is None:
+            r = dict(r, matched=[reason])
+            into[r["guid"]] = r
+        elif reason not in have["matched"]:
+            have["matched"].append(reason)
+
+
+def _flavour_index(products: list, hubs: Optional[list]) -> dict:
+    """Map member guid → the products and hubs that hold it, from collections read
+    with their CollectionMembership relationships. Collections are themselves listed:
+    a DigitalProduct is a product."""
+    def index(collections):
+        members = {}
+        for c in collections or []:
+            hdr = c.get("elementHeader") or {}
+            ref = {"guid": hdr.get("guid", ""), "displayName": _display_name(c.get("properties"), hdr.get("guid", ""))}
+            for item in c.get("collectionMembers") or []:
+                rel = _related(item)
+                if rel:
+                    members.setdefault(rel["guid"], []).append(ref)
+        return members
+    return {
+        "product": index(products),
+        "productGuids": sorted({(c.get("elementHeader") or {}).get("guid") for c in products
+                                if (c.get("elementHeader") or {}).get("guid")}),
+        "hub": index(hubs),
+        "hubTypeKnown": hubs is not None,
+        "productCount": len(products),
+        "hubCount": len(hubs or []),
+    }
+
+
+def _feedback_summary(el: dict) -> dict:
+    """Tags, likes and rating summary from an element read with its feedback relationships."""
+    from egeria_feedback_handler import _star_int
+    tags, likes, stars, ratings = [], 0, [], 0
+    for key, val in (el or {}).items():
+        if not isinstance(val, list):
+            continue
+        for item in val:
+            rel = _related(item)
+            if not rel:
+                continue
+            if rel["relationshipType"] == "AttachedTag":
+                tags.append(rel["displayName"])
+            elif rel["relationshipType"] == "AttachedLike":
+                likes += 1
+            elif rel["relationshipType"] == "AttachedRating":
+                ratings += 1
+                s = _star_int({"properties": rel["properties"]})
+                if s:
+                    stars.append(s)
+    return {"tags": sorted(set(tags)), "likes": likes, "ratings": ratings,
+            "rating": round(sum(stars) / len(stars), 1) if stars else None}
+
+
+# ── Per-process cache (spec §6: in memory, with a visible age) ───────────────
+
+_cache: dict = {}
+_cache_locks: dict = {}
+
+
+async def _cached(name: str, producer, ttl: int = _CACHE_TTL):
+    """(value, as_of) for `name`, per signed-in user and lineage mode: zone security
+    can show two users different elements, and forLineage changes the results."""
+    key = f"{name}|{_token_user() or '-'}{_lineage_key()}"
+    now = datetime.now(timezone.utc)
+    hit = _cache.get(key)
+    if hit and (now - hit[1]).total_seconds() < ttl:
+        return hit[0], hit[1]
+    lock = _cache_locks.setdefault(key, asyncio.Lock())
+    async with lock:
+        hit = _cache.get(key)
+        if hit and (now - hit[1]).total_seconds() < ttl:
+            return hit[0], hit[1]
+        value = await producer()
+        stamp = datetime.now(timezone.utc)
+        _cache[key] = (value, stamp)
+        return value, stamp
+
+
+def _age(stamp: datetime) -> dict:
+    return {"asOf": stamp.isoformat(timespec="seconds"),
+            "ageSeconds": int((datetime.now(timezone.utc) - stamp).total_seconds())}
+
+
+def _is_unknown_type(exc: Exception) -> bool:
+    s = str(exc)
+    return "OMAG-COMMON-400-018" in s or "is not recognized" in s
+
+
+async def _all_elements(client, type_name: str, body_extra: Optional[dict] = None, depth: int = 0,
+                        page: int = 200, max_pages: int = 25) -> tuple:
+    """Every element of a type, paged until an empty page. (elements, capped)."""
+    out = []
+    for p in range(max_pages):
+        body = {"class": "ResultsRequestBody", "metadataElementTypeName": type_name, "graphQueryDepth": depth,
+                "startFrom": p * page, "pageSize": page, **(body_extra or {})}
+        batch = _elements(await client._async_get_elements(
+            type_name, start_from=p * page, page_size=page, output_format="JSON", graph_query_depth=depth, body=body))
+        if not batch:
+            return out, False
+        out.extend(batch)
+    return out, True
+
+
+async def _flavours_value():
+    client = await _explorer_async()
+    only_members = {"includeOnlyRelationships": ["CollectionMembership"]}
+    products, p_capped = await _all_elements(client, "DigitalProduct", only_members, depth=1, page=100)
+    try:
+        hubs, h_capped = await _all_elements(client, "DataSharingHub", only_members, depth=1, page=100)
+    except Exception as exc:
+        if not _is_unknown_type(exc):
+            raise
+        hubs, h_capped = None, False
+    return {**_flavour_index(products, hubs), "capped": p_capped or h_capped}
+
+
+@router.get("/api/resource-browser/flavours", summary="Which resources are members of a product or a data sharing hub")
+async def get_flavours():
+    try:
+        value, stamp = await _cached("flavours", _flavours_value)
+    except Exception as exc:
+        raise_egeria_http_error(exc, "resource-browser: flavour index failed")
+    return JSONResponse({**value, **_age(stamp),
+                         "source": "ClassificationExplorer.get_elements (DigitalProduct, DataSharingHub; CollectionMembership only)"})
+
+
+# ── Search ────────────────────────────────────────────────────────────────────
+
+def _kind_types(kind: Optional[str]) -> list:
+    for k, _label, types in _KINDS:
+        if k == kind:
+            return types
+    return _RESOURCE_TYPES
+
+
+async def _search_text(client, q, kind, page):
+    raw = await client._async_find_elements_by_property_value(
+        property_value=q, property_names=_SEARCH_PROPS, metadata_element_subtypes=_kind_types(kind),
+        starts_with=False, ends_with=False, ignore_case=True, graph_query_depth=0, output_format="JSON",
+        start_from=page * _SEARCH_PAGE, page_size=_SEARCH_PAGE)
+    return _elements(raw)
+
+
+async def _parent_table(client, sem, column_guid):
+    async with sem:
+        el = await client._async_get_element_by_guid(
+            column_guid, graph_query_depth=1, output_format="JSON",
+            body={"class": "GetRequestBody", "graphQueryDepth": 1, "includeOnlyRelationships": ["NestedSchemaAttribute"]})
+    for item in (el or {}).get("parentSchemaElements") or []:
+        if item.get("relatedElementAtEnd1"):
+            return item.get("relatedElement")
+    return None
+
+
+async def _search_columns(client, q, page):
+    """Column-name matches, rolled up to their tables (spec: children roll up)."""
+    raw = await client._async_find_elements_by_property_value(
+        property_value=q, property_names=["displayName", "name"], metadata_element_subtypes=["RelationalColumn"],
+        starts_with=False, ends_with=False, ignore_case=True, graph_query_depth=0, output_format="JSON",
+        start_from=page * _SEARCH_PAGE, page_size=_SEARCH_PAGE)
+    cols = _elements(raw)
+    sem = asyncio.Semaphore(_LOOKUP_CONCURRENCY)
+    looked = cols[:_COLUMN_ROLLUP_CAP]
+    parents = await asyncio.gather(*(_parent_table(client, sem, (c.get("elementHeader") or {}).get("guid"))
+                                     for c in looked), return_exceptions=True)
+    tables = {}
+    for col, parent in zip(looked, parents):
+        if isinstance(parent, Exception) or not parent:
+            continue
+        row = _row(parent)
+        if not row:
+            continue
+        t = tables.setdefault(row["guid"], (row, []))
+        t[1].append(_display_name(col.get("properties"), ""))
+    return {"tables": list(tables.values()), "found": len(cols), "rolledUp": len(looked)}
+
+
+async def _search_tags(client, q):
+    tags = [t for t in _elements(await client._async_find_tags(
+        search_string=q, starts_with=False, ends_with=False, ignore_case=True, output_format="JSON"))][:_TAG_MATCH_CAP]
+    out = []
+    for t in tags:
+        tag_guid = (t.get("elementHeader") or {}).get("guid")
+        name = _display_name(t.get("properties"), "")
+        els = _elements(await client._async_get_elements_by_tag(tag_guid, graph_query_depth=0, output_format="JSON",
+                                                                page_size=_SEARCH_PAGE))
+        out.append((name, els))
+    return out
+
+
+async def _search_keywords(client, q):
+    """Exact keyword matches (a SearchKeyword is one element per attachment)."""
+    kws = _elements(await client._async_get_search_keyword_by_keyword(
+        q, graph_query_depth=1, output_format="JSON", page_size=_SEARCH_PAGE))
+    out = []
+    for k in kws:
+        for item in k.get("keywordElements") or []:
+            if isinstance(item, dict) and item.get("relatedElement"):
+                out.append(item["relatedElement"])
+    return out
+
+
+async def _search_owners(client, q):
+    return _elements(await client._async_get_elements_by_classification_with_property_value(
+        "Ownership", q, ["owner"], starts_with=False, ends_with=False, ignore_case=True,
+        graph_query_depth=0, output_format="JSON", page_size=_SEARCH_PAGE))
+
+
+@router.get("/api/resource-browser/search", summary="L0 search over Egeria's own find")
+async def search(q: str = Query(..., min_length=1), kind: Optional[str] = Query(None),
+                 page: int = Query(0, ge=0, le=40)):
+    q = q.strip()
+    if q in ("", "*"):
+        raise HTTPException(status_code=400, detail="Type a word to search for.")
+    if kind and kind not in _KIND_IDS:
+        raise HTTPException(status_code=400, detail=f"Unknown kind {kind!r}.")
+    try:
+        client = await _explorer_async()
+    except Exception as exc:
+        raise_egeria_http_error(exc, "resource-browser: search client failed")
+
+    jobs = {"text": _search_text(client, q, kind, page)}
+    if kind in (None, "table"):
+        jobs["columns"] = _search_columns(client, q, page)
+    if page == 0:  # tag, keyword and owner matches are bounded and come on the first page only
+        jobs.update(tags=_search_tags(client, q), keywords=_search_keywords(client, q), owners=_search_owners(client, q))
+    results = dict(zip(jobs, await asyncio.gather(*jobs.values(), return_exceptions=True)))
+
+    failed = {}
+    for name, res in results.items():
+        if isinstance(res, Exception):
+            failed[name] = str(res)[:200]
+            logger.warning(f"resource-browser: search source {name} failed for {q!r}: {res}")
+    if "text" in failed and len(failed) == len(results):
+        raise_egeria_http_error(results["text"], f"resource-browser: search {q!r} failed")
+
+    found: dict = {}
+    not_shown = 0
+    if "text" not in failed:
+        rows, skipped = _rows(results["text"])
+        not_shown += skipped
+        for r in rows:
+            _merge(found, [r], _text_reason(r, q))
+    if "tags" in results and "tags" not in failed:
+        for name, els in results["tags"]:
+            rows, skipped = _rows(els)
+            not_shown += skipped
+            _merge(found, rows, f"tag: {name}")
+    if "keywords" in results and "keywords" not in failed:
+        rows, skipped = _rows(results["keywords"])
+        not_shown += skipped
+        _merge(found, rows, f"keyword: {q}")
+    if "owners" in results and "owners" not in failed:
+        rows, skipped = _rows(results["owners"])
+        not_shown += skipped
+        for r in rows:
+            _merge(found, [r], f"owner: {r['owner']}")
+    columns = None
+    if "columns" in results and "columns" not in failed:
+        columns = {k: v for k, v in results["columns"].items() if k != "tables"}
+        for row, names in results["columns"]["tables"]:
+            _merge(found, [row], "column: " + ", ".join(sorted(set(names))))
+
+    items = [r for r in found.values() if not kind or r["kind"] == kind]
+    items.sort(key=lambda r: _relevance(r, q))
+    may_have_more = ("text" not in failed and len(results["text"]) == _SEARCH_PAGE) or \
+                    (columns is not None and columns["found"] == _SEARCH_PAGE)
+    # Sources read once (first page only) whose single read came back full: more may exist there.
+    capped = [name for name in ("keywords", "owners") if name in results and name not in failed
+              and len(results[name]) == _SEARCH_PAGE]
+    capped += [f"tag: {name}" for name, els in (results.get("tags") if "tags" not in failed and "tags" in results else [])
+               if len(els) == _SEARCH_PAGE]
+    return JSONResponse({
+        "query": q, "kind": kind, "page": page, "items": items,
+        "mayHaveMore": may_have_more,
+        "cappedSources": capped,
+        "notShown": not_shown,
+        "columns": columns,
+        "failedSources": failed,
+        "order": _ORDER_NOTE,
+        "layer": "L0",
+        "asOf": _now_iso(),
+        "source": "ClassificationExplorer: find_elements_by_property_value, find_tags + get_elements_by_tag, "
+                  "get_search_keyword_by_keyword, get_elements_by_classification_with_property_value (Ownership)",
+    })
+
+
+@router.get("/api/resource-browser/kinds", summary="The resource kinds search and browse filter on")
+async def get_kinds():
+    return JSONResponse({"kinds": [{"id": k, "label": label, "types": types} for k, label, types in _KINDS]
+                         + [{"id": "other", "label": "Other", "types": []}]})
+
+
+@router.get("/api/resource-browser/row-extras", summary="Tags, likes and rating summary for the rows on screen")
+async def row_extras(guids: str = Query(..., description="Comma-separated GUIDs, at most 25")):
+    wanted = [g for g in dict.fromkeys(x.strip() for x in guids.split(",")) if g][:_ROW_EXTRAS_CAP]
+    try:
+        client = await _explorer_async()
+    except Exception as exc:
+        raise_egeria_http_error(exc, "resource-browser: row extras client failed")
+    sem = asyncio.Semaphore(_LOOKUP_CONCURRENCY)
+
+    async def one(g):
+        async with sem:
+            return await client._async_get_element_by_guid(
+                g, graph_query_depth=1, output_format="JSON",
+                body={"class": "GetRequestBody", "graphQueryDepth": 1,
+                      "includeOnlyRelationships": ["AttachedTag", "AttachedLike", "AttachedRating"]})
+    got = await asyncio.gather(*(one(g) for g in wanted), return_exceptions=True)
+    out = {}
+    for g, el in zip(wanted, got):
+        out[g] = None if isinstance(el, Exception) or not isinstance(el, dict) else _feedback_summary(el)
+    return JSONResponse({"extras": out, "asOf": _now_iso(),
+                         "source": "ClassificationExplorer.get_element_by_guid (AttachedTag, AttachedLike, AttachedRating)"})
+
+
+# ── Home ──────────────────────────────────────────────────────────────────────
+
+async def _recent(client, type_name):
+    raw = await client._async_get_elements(
+        type_name, start_from=0, page_size=_RECENT_PAGE, output_format="JSON", graph_query_depth=0,
+        body={"class": "ResultsRequestBody", "metadataElementTypeName": type_name, "graphQueryDepth": 0,
+              "sequencingOrder": "LAST_UPDATE_RECENT", "limitResultsByStatus": ["ACTIVE"],
+              "startFrom": 0, "pageSize": _RECENT_PAGE})
+    return _elements(raw)
+
+
+def _recent_rows(batches: list) -> list:
+    """Merge per-type newest-first pages into one newest-first list of resources."""
+    seen = {}
+    for batch in batches:
+        for r in _rows(batch)[0]:
+            seen.setdefault(r["guid"], r)
+    return sorted(seen.values(), key=lambda r: r["updateTime"], reverse=True)
+
+
+@router.get("/api/resource-browser/home", summary="Recently changed resources, and whether popularity is available")
+async def home():
+    try:
+        client = await _explorer_async()
+        batches = await asyncio.gather(*(_recent(client, t) for t in _RESOURCE_TYPES))
+    except Exception as exc:
+        raise_egeria_http_error(exc, "resource-browser: recently changed failed")
+    rows = _recent_rows(batches)
+    return JSONResponse({
+        "recent": rows[:_RECENT_SHOWN],
+        "recentPeople": [r for r in rows if not r["automated"]][:_RECENT_SHOWN],
+        "recentWindow": {"perType": _RECENT_PAGE, "types": _RESOURCE_TYPES},
+        "popular": {"available": False,
+                    "reason": "Popularity is not available yet: Egeria holds no usage measure for these resources."},
+        "me": _token_user(),
+        "asOf": _now_iso(),
+        "source": "ClassificationExplorer.get_elements (sequencingOrder LAST_UPDATE_RECENT)",
+    })
+
+
+_RE_LIST_PREFIX = "WorkingSet::resource-explorer::"
+_PORTAL_LIST_PREFIX = "WorkingSet::portal::"
+
+
+@router.get("/api/resource-browser/lists", summary="Work lists the user can see (read-only until phase 3)")
+async def get_lists():
+    try:
+        client = await _explorer_async()
+        sets, capped = await _all_elements(client, "WorkingSet", page=100, max_pages=10)
+    except Exception as exc:
+        if _is_unknown_type(exc):
+            sets, capped = [], False
+        else:
+            raise_egeria_http_error(exc, "resource-browser: work lists failed")
+    me = _token_user()
+    from_re, mine = [], []
+    for s in sets:
+        hdr = s.get("elementHeader") or {}
+        props = s.get("properties") or {}
+        qn = props.get("qualifiedName", "")
+        rec = {"guid": hdr.get("guid", ""), "displayName": _display_name(props, hdr.get("guid", "")),
+               "qualifiedName": qn, "description": props.get("description") or "",
+               "updateTime": (hdr.get("versions") or {}).get("updateTime") or ""}
+        if qn.startswith(_RE_LIST_PREFIX):
+            from_re.append(rec)
+        elif me and qn.startswith(f"{_PORTAL_LIST_PREFIX}{me}::"):
+            mine.append(rec)
+    return JSONResponse({"mine": mine, "fromResourceExplorer": from_re, "capped": capped,
+                         "editable": False, "note": "Creating and editing lists comes with work lists (phase 3).",
+                         "asOf": _now_iso(), "source": "ClassificationExplorer.get_elements (WorkingSet)"})
+
+
+# ── Browse ────────────────────────────────────────────────────────────────────
+
+_FACETS = ["tag", "badge", "owner", "source", "collection", "flavour", "scope"]
+_SOURCE_TYPES = ["Database", "DataFolder", "FileFolder"]
+_COLLECTION_TYPES = ["DataSharingHub", "DigitalProductFamily", "WorkingSet"]
+
+
+async def _classified(client, name: str) -> tuple:
+    out = []
+    for p in range(25):
+        batch = _elements(await client._async_get_elements_by_classification(
+            name, start_from=p * 200, page_size=200, output_format="JSON", graph_query_depth=0))
+        if not batch:
+            return out, False
+        out.extend(batch)
+    return out, True
+
+
+async def _anchored(client, guid: str, type_name: str) -> list:
+    return _elements(await client._async_get_elements_by_classification_with_property_value(
+        "Anchors", guid, ["anchorGUID"], metadata_element_type_name=type_name, starts_with=True, ends_with=True,
+        graph_query_depth=0, output_format="JSON", page_size=500))
+
+
+async def _facet_values(facet: str) -> dict:
+    client = await _explorer_async()
+    if facet == "tag":
+        tags = _elements(await client._async_find_tags(search_string="*", output_format="JSON", page_size=500))
+        return {"values": sorted(({"id": (t.get("elementHeader") or {}).get("guid", ""),
+                                   "label": _display_name(t.get("properties"), ""),
+                                   "description": (t.get("properties") or {}).get("description") or ""}
+                                  for t in tags), key=lambda v: v["label"].lower())}
+    if facet == "badge":
+        sem = asyncio.Semaphore(_LOOKUP_CONCURRENCY)
+
+        async def count(name):
+            async with sem:
+                return len(_rows((await _classified(client, name))[0])[0])
+        counts = await asyncio.gather(*(count(b) for b in _BADGES))
+        return {"values": [{"id": b, "label": b, "count": n} for b, n in zip(_BADGES, counts)],
+                "countsAre": "resources with this classification, read in full"}
+    if facet == "owner":
+        els, capped = await _classified(client, "Ownership")
+        owners = {}
+        for r in _rows(els)[0]:
+            owners[r["owner"] or "(owner not named)"] = owners.get(r["owner"] or "(owner not named)", 0) + 1
+        return {"values": [{"id": o, "label": o, "count": n} for o, n in sorted(owners.items(), key=lambda kv: kv[0].lower())],
+                "countsAre": "resources with this owner, read in full", "capped": capped}
+    if facet == "source":
+        out = []
+        for t in _SOURCE_TYPES:
+            for r in _rows((await _all_elements(client, t))[0])[0]:
+                out.append({"id": r["guid"], "label": r["displayName"], "description": r["typeName"]})
+        uniq = {v["id"]: v for v in out}
+        return {"values": sorted(uniq.values(), key=lambda v: v["label"].lower())}
+    if facet == "collection":
+        out = []
+        for t in _COLLECTION_TYPES:
+            try:
+                els, _ = await _all_elements(client, t)
+            except Exception as exc:
+                if _is_unknown_type(exc):
+                    continue
+                raise
+            for e in els:
+                hdr = e.get("elementHeader") or {}
+                out.append({"id": hdr.get("guid", ""), "label": _display_name(e.get("properties"), hdr.get("guid", "")),
+                            "description": _type_names(hdr)[0]})
+        return {"values": sorted(out, key=lambda v: (v["description"], v["label"].lower()))}
+    if facet == "flavour":
+        return {"values": [{"id": "hub", "label": "Hub"}, {"id": "product", "label": "Product"},
+                           {"id": "known", "label": "Known"}]}
+    if facet == "scope":
+        return {"values": [{"id": "all", "label": "Resources with a data scope (time or place)"}]}
+    raise HTTPException(status_code=404, detail=f"Unknown browse facet {facet!r}.")
+
+
+@router.get("/api/resource-browser/browse/{facet}", summary="The values of one browse facet")
+async def browse_values(facet: str):
+    if facet not in _FACETS:
+        raise HTTPException(status_code=404, detail=f"Unknown browse facet {facet!r}.")
+    try:
+        value, stamp = await _cached(f"browse:{facet}", lambda: _facet_values(facet))
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise_egeria_http_error(exc, f"resource-browser: browse values for {facet} failed")
+    return JSONResponse({"facet": facet, **value, **_age(stamp), "source": "Egeria (see the facet's list page)"})
+
+
+async def _members(client, collection_guid: str) -> tuple:
+    el = await client._async_get_element_by_guid(
+        collection_guid, graph_query_depth=1, output_format="JSON",
+        body={"class": "GetRequestBody", "graphQueryDepth": 1, "includeOnlyRelationships": ["CollectionMembership"]})
+    hdr = (el or {}).get("elementHeader") or {}
+    title = _display_name((el or {}).get("properties"), collection_guid)
+    members = [i.get("relatedElement") for i in (el or {}).get("collectionMembers") or [] if isinstance(i, dict)]
+    return title, _type_names(hdr)[0], members
+
+
+@router.get("/api/resource-browser/browse/{facet}/{value}", summary="The resources under one browse facet value")
+async def browse_list(facet: str, value: str):
+    if facet not in _FACETS:
+        raise HTTPException(status_code=404, detail=f"Unknown browse facet {facet!r}.")
+    title, note, source, capped = value, None, "", False
+    try:
+        client = await _explorer_async()
+        if facet == "tag":
+            tag = await client._async_get_tag_by_guid(value, graph_query_depth=0, output_format="JSON")
+            title = _display_name((tag or {}).get("properties"), value)
+            els = _elements(await client._async_get_elements_by_tag(value, graph_query_depth=0, output_format="JSON",
+                                                                    page_size=500))
+            source = "ClassificationExplorer.get_elements_by_tag"
+        elif facet == "badge":
+            if value not in _BADGES:
+                raise HTTPException(status_code=404, detail=f"{value!r} is not a badge this app shows.")
+            els, capped = await _classified(client, value)
+            source = "ClassificationExplorer.get_elements_by_classification"
+        elif facet == "owner":
+            els, capped = await _classified(client, "Ownership")
+            want = None if value == "(owner not named)" else value
+            els = [e for e in els if (_row(e) or {}).get("owner") == want]
+            source = "ClassificationExplorer.get_elements_by_classification (Ownership)"
+        elif facet == "source":
+            src = await client._async_get_element_by_guid(value, graph_query_depth=0, output_format="JSON")
+            title = _display_name((src or {}).get("properties"), value)
+            els = [src] if src else []
+            for t in ("DataSet", "DataStore"):
+                els += await _anchored(client, value, t)
+            schemas = [e for e in els if _type_names(e.get("elementHeader") or {})[0] == "DeployedDatabaseSchema"]
+            sem = asyncio.Semaphore(_LOOKUP_CONCURRENCY)
+
+            async def tables(s):
+                async with sem:
+                    return await _anchored(client, (s.get("elementHeader") or {}).get("guid"), "RelationalTable")
+            for batch in await asyncio.gather(*(tables(s) for s in schemas)):
+                els += batch
+            note = "The source itself, what it anchors, and the tables of its schemas."
+            source = "ClassificationExplorer.get_elements_by_classification_with_property_value (Anchors.anchorGUID)"
+        elif facet == "collection":
+            title, ctype, els = await _members(client, value)
+            title = f"{title} ({ctype})" if ctype else title
+            source = "ClassificationExplorer.get_element_by_guid (CollectionMembership)"
+        elif facet == "flavour":
+            if value not in ("hub", "product", "known"):
+                raise HTTPException(status_code=404, detail="Flavours are hub, product and known.")
+            idx, _ = await _cached("flavours", _flavours_value)
+            title = {"hub": "Hub resources", "product": "Product resources", "known": "Known resources"}[value]
+            if value == "known":
+                return JSONResponse({"facet": facet, "value": value, "title": title, "items": [], "notShown": 0,
+                                     "note": "Every resource that is neither a product nor in a hub is Known. "
+                                             "That is most of Egeria, so use Search and filter by flavour instead.",
+                                     "asOf": _now_iso(), "source": ""})
+            guids = list(idx["hub"]) if value == "hub" else list(dict.fromkeys(idx["productGuids"] + list(idx["product"])))
+            if value == "hub" and not idx["hubTypeKnown"]:
+                note = "This Egeria does not know the DataSharingHub type, so no resource can be a hub resource."
+            elif value == "hub" and not idx["hubCount"]:
+                note = "No data sharing hub exists in this Egeria yet."
+            sem = asyncio.Semaphore(_LOOKUP_CONCURRENCY)
+
+            async def get(g):
+                async with sem:
+                    return await client._async_get_element_by_guid(g, graph_query_depth=0, output_format="JSON")
+            got = await asyncio.gather(*(get(g) for g in guids), return_exceptions=True)
+            els = [e for e in got if isinstance(e, dict)]
+            capped = idx.get("capped", False)
+            source = "the flavour index, then ClassificationExplorer.get_element_by_guid per resource"
+        elif facet == "scope":
+            els, capped = await _classified(client, "DataScope")
+            title = "Resources with a data scope"
+            source = "ClassificationExplorer.get_elements_by_classification (DataScope)"
+    except HTTPException:
+        raise
+    except Exception as exc:
+        _raise_not_visible_or_mapped(exc, f"resource-browser: browse {facet}/{value} failed")
+    rows, not_shown = _rows(els)
+    uniq = list({r["guid"]: r for r in rows}.values())
+    uniq.sort(key=lambda r: (r["kind"], r["displayName"].lower()))
+    return JSONResponse({"facet": facet, "value": value, "title": title, "items": uniq, "notShown": not_shown,
+                         "note": note, "capped": capped, "order": "By kind, then name.",
+                         "asOf": _now_iso(), "source": source})
