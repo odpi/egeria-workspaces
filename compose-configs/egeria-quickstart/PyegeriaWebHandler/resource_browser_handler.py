@@ -1272,8 +1272,7 @@ def _list_members(el: dict) -> list:
         # is silently dropped on write. 0 cannot be told from "never set", so it reads as None.
         out.append(dict(row, rationale=rel.get("membershipRationale") or "",
                         confidence=rel.get("confidence") or None,
-                        isResource=_is_resource(row["typeName"], (item.get("relatedElement") or {})
-                                                .get("elementHeader", {}).get("type", {}).get("superTypeNames") or [])))
+                        isResource=_row(item.get("relatedElement")) is not None))
     return out
 
 

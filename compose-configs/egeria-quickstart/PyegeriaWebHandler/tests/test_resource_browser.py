@@ -304,8 +304,10 @@ def test_list_members_keep_reason_confidence_and_non_resources(rb):
     members = rb["_list_members"](_ws("q", [
         m("t", "RelationalTable", _TABLE, rel={"membershipRationale": "has the sales figures", "confidence": 80}),
         m("p", "Person", ["ActorProfile"], rel={"confidence": 0}),
+        m("r", "Asset", ["Referenceable"], qn="GitHubRepository::https://github.com/odpi/egeria.git"),
     ]))
-    t, p = members
+    t, p, r = members
+    assert (r["kind"], r["isResource"]) == ("repo", True)
     assert (t["rationale"], t["confidence"], t["isResource"]) == ("has the sales figures", 80, True)
     assert (p["rationale"], p["confidence"], p["isResource"], p["kind"]) == ("", None, False, "other")
 
