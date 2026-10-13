@@ -1132,17 +1132,24 @@ async def search_terms(q: str = Query(..., min_length=2)):
 # quickstart 2026-10-13, JournalEntry 8bec72e4). journal-my-activity also ignores
 # initialClassifications. So each new entry is re-zoned straight afterwards to
 # [_PRIVATE_ZONE, <userId>]: the secured zone denies everyone else, the userId
-# zone lets the author back in. A private note carries the resource it is about
-# in additionalProperties. Public notes stay on the resource's own note logs.
+# zone lets the author back in.
+#
+# The entry is then linked to the resource with an Actions relationship
+# (resource = actionCause at end 1, JournalEntry = an Action at end 2), as the
+# Egeria team suggested: the user's own journal listing shows what each entry is
+# about, and a resource's private notes are read back through Asset Maker's
+# sponsored-actions query rather than by scanning the whole journal.
+# journal-my-activity cannot take a cause itself (it passes none to
+# createNoteLogEntry), so the link is a second call. The resource is also kept in
+# additionalProperties. Public notes stay on the resource's own note logs.
 #
 # _PRIVATE_ZONE borrows Resource Explorer's secured zone (defined in the
 # quickstart and freshstart user directories) until Egeria's journal fix lands;
 # BACKLOG.md RL-1 is to review that choice then.
 
 _PRIVATE_ZONE = "resource-explorer-private"
-_JOURNAL_QN_SUFFIX = "MyJournal"
-_JOURNAL_PAGE = 500
-_JOURNAL_MAX_PAGES = 10
+_ACTIONS_PAGE = 200
+_ACTIONS_MAX_PAGES = 10
 
 
 async def _my_profile_async():
@@ -1152,12 +1159,11 @@ async def _my_profile_async():
     return client
 
 
-def _journal_log_guid(profile: dict) -> Optional[str]:
-    for item in (profile or {}).get("noteLogs") or []:
-        rec = _related(item)
-        if rec and (rec["qualifiedName"].endswith(_JOURNAL_QN_SUFFIX) or rec["displayName"] == "My Private Journal"):
-            return rec["guid"]
-    return None
+async def _asset_maker_async():
+    from pyegeria import AssetMaker
+    client = AssetMaker(**_client_kwargs())
+    await async_apply_token(client)
+    return client
 
 
 def _zones_of(header: dict) -> list:
@@ -1176,23 +1182,27 @@ def _private_note_record(e: dict) -> dict:
     return rec
 
 
-async def _my_private_notes(guid: str) -> tuple:
-    """(notes about this resource in the user's journal, whether the journal exists)."""
-    profile = await (await _my_profile_async())._async_get_my_profile(output_format="JSON")
-    log_guid = _journal_log_guid(profile if isinstance(profile, dict) else {})
-    if not log_guid:
-        return [], False
-    client = await _explorer_async()
+async def _my_private_notes(guid: str, user: str) -> list:
+    """This user's journal entries linked to the resource by an Actions relationship."""
+    client = await _asset_maker_async()
     notes = []
-    for page in range(_JOURNAL_MAX_PAGES):
-        batch = _elements(await client._async_get_notes_for_note_log(
-            log_guid, output_format="JSON", graph_query_depth=0,
-            start_from=page * _JOURNAL_PAGE, page_size=_JOURNAL_PAGE))
+    for page in range(_ACTIONS_MAX_PAGES):
+        # activity_status_list=None: pyegeria defaults to IN_PROGRESS only, which
+        # silently drops journal entries (they carry no activity status).
+        batch = _elements(await client._async_get_actions_for_sponsor(
+            guid, activity_status_list=None, graph_query_depth=0, output_format="JSON",
+            start_from=page * _ACTIONS_PAGE, page_size=_ACTIONS_PAGE))
         if not batch:
             break
-        notes.extend(r for r in (_private_note_record(n) for n in batch) if r["resourceGUID"] == guid)
+        for e in batch:
+            hdr = e.get("elementHeader") or {}
+            if (hdr.get("type") or {}).get("typeName") != "JournalEntry":
+                continue
+            rec = _private_note_record(e)
+            if rec["createdBy"] == user:
+                notes.append(rec)
     notes.sort(key=lambda n: n["createTime"], reverse=True)
-    return notes, True
+    return notes
 
 
 @router.get("/api/resource-browser/resource/{guid}/private-notes",
@@ -1200,11 +1210,11 @@ async def _my_private_notes(guid: str) -> tuple:
 async def get_private_notes(guid: str):
     user = _require_signed_in()
     try:
-        notes, has_journal = await _my_private_notes(guid)
+        notes = await _my_private_notes(guid, user)
     except Exception as exc:
         raise_egeria_http_error(exc, f"resource-browser: private notes of {user} on {guid} failed")
-    return JSONResponse({"notes": notes, "hasJournal": has_journal, "me": user, "asOf": _now_iso(),
-                         "source": "MyProfile.get_my_profile (My Private Journal) + get_notes_for_note_log"})
+    return JSONResponse({"notes": notes, "me": user, "asOf": _now_iso(),
+                         "source": "AssetMaker.get_actions_for_sponsor (JournalEntry linked by Actions, yours only)"})
 
 
 class PrivateNoteBody(BaseModel):
@@ -1245,6 +1255,16 @@ async def add_private_note(guid: str, body: PrivateNoteBody):
         raise HTTPException(status_code=502, detail=(
             "Your note was saved, but Egeria did not make it private, so other people may be able to read it. "
             f"({exc})"))
+    try:
+        await (await _expert_async())._async_create_related_elements({
+            "class": "NewRelatedElementsRequestBody", "typeName": "Actions",
+            "metadataElement1GUID": guid, "metadataElement2GUID": note_guid,
+            "forLineage": False, "forDuplicateProcessing": False})
+    except Exception as exc:
+        logger.warning(f"resource-browser: private note {note_guid} by {user} not linked to {guid}: {exc}")
+        raise HTTPException(status_code=502, detail=(
+            "Your note was saved in your journal and is private, but Egeria did not link it to this resource, "
+            f"so it will not show here. ({exc})"))
     return await get_private_notes(guid)
 
 

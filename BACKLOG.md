@@ -20,6 +20,21 @@ Explorer's secured zone (owner's choice, 2026-10-13). Verified on quickstart,
 JournalEntry `8bec72e4`: the author reads it, while peterprofile and garygeeke get
 403 by GUID and nothing from search.
 
+**2026-10-13:** the Egeria team has acknowledged a bug in security-zone
+enforcement and will work on it from 2026-10-14. Re-test with the same three
+users once it ships. Source check (egeria af400039c2): `journalMyActivity`
+hard-codes `ZoneMembership [userId]`, drops `initialClassifications`, and
+passes no action causes or targets to `createNoteLogEntry`.
+
+**Suggested by the Egeria team:** link each journal entry to the resource
+it's about with an `Actions` relationship (end 1 the resource, as
+`actionCause`; end 2 the JournalEntry, which is an Action subtype). The user
+then sees what each entry is about in their journal listing, and the
+resource can find its notes through Asset Maker's
+`elements/{guid}/sponsored/actions`, with no full journal scan. Create the
+link with Metadata Expert's `related-elements`; `journal-my-activity` cannot
+take a cause. Unlike the entry, the link can be deleted.
+
 When Egeria's journal fix lands, review:
 - Does `journal-my-activity` then make entries private by itself? If so, drop
   the re-zone step.
