@@ -573,10 +573,10 @@ function EditableText({ value, canWrite, placeholder, onSave, multiline }) {
 
 // ── Notes (NoteLog) beside the official description ─────────────────────────
 
-// Private notes are held back: on this platform Egeria does not enforce the
-// per-user zone on journal entries (another user could read them), and there is
-// no supported way to delete a single journal entry. See PR #625's follow-up.
-var PRIVATE_NOTES_ENABLED = false;
+// Private notes are journal entries the server re-zones into a secured zone plus
+// the author's userId zone, so only the author can read them. They cannot be
+// deleted yet: Egeria has no way to delete a journal entry (ISSUE-146).
+var PRIVATE_NOTES_ENABLED = true;
 
 function NotesCard({ guid, creds, canWrite, name }) {
   var _n = useState(null), data = _n[0], setData = _n[1];
@@ -605,11 +605,6 @@ function NotesCard({ guid, creds, canWrite, name }) {
       .catch(function(e) { (priv ? setMineErr : setErr)(e.message); })
       .finally(function() { setSaving(false); });
   }
-  function removePrivate(n) {
-    setMineErr('');
-    sendJson(API + '/resource/' + encodeURIComponent(guid) + '/private-notes/' + encodeURIComponent(n.guid), creds, 'DELETE')
-      .then(setMine).catch(function(e) { setMineErr(e.message); });
-  }
   return el(Card, { title: 'Notes and journal', source: 'beside the description' },
     !data && !err && el('div', { className: 'rb-absent' }, 'Loading notes…'),
     err && el('div', { className: 'rb-err' }, 'Notes could not be read: ' + err),
@@ -627,9 +622,10 @@ function NotesCard({ guid, creds, canWrite, name }) {
       el('ul', { className: 'rb-list', style: { gap: 10 } }, mine.notes.map(function(n) {
         return el('li', { key: n.guid, className: 'rb-private' },
           el('div', { className: 'rb-desc', style: { fontSize: 13 } }, n.text),
-          el('div', { className: 'rb-note' }, 'only you · ' + fmtDate(n.createTime) + ' · ',
-            el('button', { className: 'rb-link', style: { fontSize: 11 }, onClick: function() { removePrivate(n); } }, 'delete')));
-      }))),
+          el('div', { className: n.protected ? 'rb-note' : 'rb-err' },
+            (n.protected ? 'only you' : 'in your journal, but other people can read it') + ' · ' + fmtDate(n.createTime)));
+      })),
+      el('div', { className: 'rb-note', style: { marginTop: 4 } }, 'Private notes cannot be deleted yet.')),
     mineErr && el('div', { className: 'rb-err', style: { marginTop: 6 } }, 'Private notes: ' + mineErr),
     canWrite && el('div', { style: { marginTop: 10 } },
       el('textarea', { className: 'rb-text', rows: 2, value: text,
@@ -640,7 +636,7 @@ function NotesCard({ guid, creds, canWrite, name }) {
         el('button', { className: 'rb-btn', disabled: saving || !text.trim(), onClick: add }, saving ? 'Adding…' : 'Add note'),
         PRIVATE_NOTES_ENABLED && el('label', { className: 'rb-note', title: 'Everyone who can see this resource can read it' },
           el('input', { type: 'radio', name: 'rb-vis-' + guid, checked: vis === 'public', onChange: function() { setVis('public'); } }), ' everyone'),
-        PRIVATE_NOTES_ENABLED && el('label', { className: 'rb-note', title: 'Kept in your own My Profile journal, in a zone only you can read' },
+        PRIVATE_NOTES_ENABLED && el('label', { className: 'rb-note', title: 'Kept in your own My Profile journal, in a zone only you can read. It cannot be deleted yet.' },
           el('input', { type: 'radio', name: 'rb-vis-' + guid, checked: vis === 'private', onChange: function() { setVis('private'); } }), ' only me'))),
     el(PartNotes, { guid: guid, creds: creds }));
 }

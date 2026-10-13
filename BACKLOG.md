@@ -9,6 +9,32 @@ what's actually open — a stub with a link is left in place of each moved
 section. Sections with any open/pending sub-items stay here even if their
 header says "done", since part of the work is still live.
 ---
+## RL-1 Resource Locator private notes: review the borrowed secured zone (2026-10-13) — open
+
+Private notes in the Resource Locator are My Profile journal entries. Egeria's
+`journal-my-activity` zones each entry with the userId only, and ignores
+`initialClassifications`. A userId zone only GRANTS, so on its own it hides
+nothing. As a stopgap, `resource_browser_handler.add_private_note` re-zones every
+new entry to `["resource-explorer-private", <userId>]`, borrowing Resource
+Explorer's secured zone (owner's choice, 2026-10-13). Verified on quickstart,
+JournalEntry `8bec72e4`: the author reads it, while peterprofile and garygeeke get
+403 by GUID and nothing from search.
+
+When Egeria's journal fix lands, review:
+- Does `journal-my-activity` then make entries private by itself? If so, drop
+  the re-zone step.
+- If a secured zone is still needed, should the Locator get its own (e.g.
+  `resource-locator-private` in both user directories) instead of RE's?
+- Private-note delete is off (the route returns 501). The asset delete and
+  the Metadata Expert delete both refuse a journal entry with 400-008
+  (egeria-python ISSUE-146). Re-enable delete once Egeria can delete one.
+- Clean up the test entries on Erin's profile: `8bec72e4` and `fef83ed5`,
+  which is still visible to everyone and shown in the UI as "other people can
+  read it".
+- The "My Private Journal" NoteLog itself (`f780511a`) remains `['erinoverview']`
+  only, so other people can see the log exists, though not the hidden entries.
+
+---
 ## Investigate: SECURITY-0011 Read refusals on 5 DigitalProductFamily-anchored elements (2026-10-05) — open
 
 Platform log (quickstart-egeria-main, 20 min to 18:42Z): 1773

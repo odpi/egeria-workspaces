@@ -1126,11 +1126,20 @@ async def search_terms(q: str = Query(..., min_length=2)):
 # ── Private notes: entries in the user's own My Profile journal ──────────────
 #
 # Egeria's My Profile service keeps a "My Private Journal" note log on each
-# user's profile and puts every entry in a governance zone named after that user,
-# so that only they can read it where the platform's security enforces zones.
-# A private note here is one of those entries, carrying the resource it is about
+# user's profile and puts every entry in a governance zone named after that user.
+# That zone alone hides nothing: a userId zone only GRANTS, and a zone with no
+# security list is ignored, so everyone can still read the entry (verified on
+# quickstart 2026-10-13, JournalEntry 8bec72e4). journal-my-activity also ignores
+# initialClassifications. So each new entry is re-zoned straight afterwards to
+# [_PRIVATE_ZONE, <userId>]: the secured zone denies everyone else, the userId
+# zone lets the author back in. A private note carries the resource it is about
 # in additionalProperties. Public notes stay on the resource's own note logs.
+#
+# _PRIVATE_ZONE borrows Resource Explorer's secured zone (defined in the
+# quickstart and freshstart user directories) until Egeria's journal fix lands;
+# BACKLOG.md RL-1 is to review that choice then.
 
+_PRIVATE_ZONE = "resource-explorer-private"
 _JOURNAL_QN_SUFFIX = "MyJournal"
 _JOURNAL_PAGE = 500
 _JOURNAL_MAX_PAGES = 10
@@ -1151,10 +1160,19 @@ def _journal_log_guid(profile: dict) -> Optional[str]:
     return None
 
 
+def _zones_of(header: dict) -> list:
+    zm = (header or {}).get("zoneMembership") or {}
+    return list((zm.get("classificationProperties") or {}).get("zoneMembership") or [])
+
+
 def _private_note_record(e: dict) -> dict:
     rec = _note_record(e)
     ap = ((e.get("properties") or {}).get("additionalProperties") or {})
-    rec.update(resourceGUID=ap.get("resourceGUID"), private=True)
+    zones = _zones_of(e.get("elementHeader"))
+    # "protected" is what the reader should believe: only entries in the secured
+    # zone are hidden from others. Older entries carry the userId zone alone.
+    rec.update(resourceGUID=ap.get("resourceGUID"), private=True, zones=zones,
+               protected=_PRIVATE_ZONE in zones)
     return rec
 
 
@@ -1203,7 +1221,7 @@ async def add_private_note(guid: str, body: PrivateNoteBody):
         raise HTTPException(status_code=400, detail="A note needs some text.")
     name = (body.resourceName or guid)[:100]
     try:
-        await (await _my_profile_async())._async_journal_my_activity(body={
+        note_guid = await (await _my_profile_async())._async_journal_my_activity(body={
             "class": "NewAttachmentRequestBody",
             "properties": {
                 "class": "JournalEntryProperties", "typeName": "JournalEntry",
@@ -1214,23 +1232,30 @@ async def add_private_note(guid: str, body: PrivateNoteBody):
             }})
     except Exception as exc:
         raise_egeria_http_error(exc, f"resource-browser: private note by {user} on {guid} failed")
+    if not isinstance(note_guid, str) or not note_guid:
+        raise HTTPException(status_code=502, detail=(
+            "Your note may have been saved, but Egeria did not say which entry it is, so it could not be made "
+            "private. Other people may be able to read it."))
+    try:
+        await (await _explorer_async())._async_add_zone_membership(note_guid, {
+            "class": "NewClassificationRequestBody",
+            "properties": {"class": "ZoneMembershipProperties", "zoneMembership": [_PRIVATE_ZONE, user]}})
+    except Exception as exc:
+        logger.warning(f"resource-browser: private note {note_guid} by {user} saved but not re-zoned: {exc}")
+        raise HTTPException(status_code=502, detail=(
+            "Your note was saved, but Egeria did not make it private, so other people may be able to read it. "
+            f"({exc})"))
     return await get_private_notes(guid)
 
 
 @router.delete("/api/resource-browser/resource/{guid}/private-notes/{note_guid}",
                summary="Delete one of your private notes")
 async def remove_private_note(guid: str, note_guid: str):
-    user = _require_signed_in()
-    try:
-        notes, _ = await _my_private_notes(guid)
-        if not any(n["guid"] == note_guid for n in notes):
-            raise HTTPException(status_code=404, detail="That note is not one of your private notes on this resource.")
-        await (await _explorer_async())._async_remove_note(note_guid)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise_egeria_http_error(exc, f"resource-browser: delete private note {note_guid} by {user} failed")
-    return await get_private_notes(guid)
+    # Egeria has no way to delete a single journal entry: the asset delete and the
+    # Metadata Expert delete both refuse it with 400-008 (egeria-python ISSUE-146).
+    # pyegeria's remove_note must not be called (it posts an asset delete).
+    _require_signed_in()
+    raise HTTPException(status_code=501, detail="Private notes cannot be deleted yet: Egeria has no way to delete a journal entry.")
 
 
 # ── Notes on its parts ───────────────────────────────────────────────────────
