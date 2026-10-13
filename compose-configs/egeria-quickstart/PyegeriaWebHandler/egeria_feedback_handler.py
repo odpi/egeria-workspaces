@@ -22,6 +22,8 @@ from fastapi import APIRouter, HTTPException
 from loguru import logger
 from pydantic import BaseModel
 
+from egeria_auth import apply_token, token_user
+
 router = APIRouter(tags=["egeria-feedback"])
 
 # Integer value for each StarRating enum name
@@ -40,8 +42,15 @@ def _get_client():
     user_id  = os.environ.get("EGERIA_USER",          "erinoverview")
     user_pwd = os.environ.get("EGERIA_USER_PASSWORD", "secret")
     client = ServerClient(server_name=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
-    client.create_egeria_bearer_token()
+    # With an X-Egeria-Token the signed-in user is the author of every like,
+    # rating and comment; without one this falls back to the configured user.
+    apply_token(client)
     return client
+
+
+def _me(client) -> str:
+    """Whose feedback counts as "mine": the token's user, else the configured user."""
+    return token_user() or client.user_id
 
 
 # ── response parsing helpers ───────────────────────────────────────────────────
@@ -85,7 +94,7 @@ def _likes_info(client, guid: str) -> tuple[int, bool]:
     try:
         result = client.get_attached_likes(guid)
         elems = _elements(result)
-        my_like = any(_created_by(e) == client.user_id for e in elems)
+        my_like = any(_created_by(e) == _me(client) for e in elems)
         return len(elems), my_like
     except Exception as exc:
         logger.debug(f"get_attached_likes({guid}): {exc}")
@@ -101,7 +110,7 @@ def _ratings_info(client, guid: str) -> tuple[Optional[float], int, Optional[int
             return None, 0, None
         stars = [s for e in elems if (s := _star_int(e)) is not None and s > 0]
         my_rating = next(
-            (_star_int(e) for e in elems if _created_by(e) == client.user_id),
+            (_star_int(e) for e in elems if _created_by(e) == _me(client)),
             None,
         )
         avg = round(sum(stars) / len(stars), 1) if stars else None
