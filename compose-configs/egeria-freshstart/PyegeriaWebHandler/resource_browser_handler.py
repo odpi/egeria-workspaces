@@ -5,7 +5,8 @@ Copyright Contributors to the ODPi Egeria project.
 Resource Browser — FastAPI router (phase 1: the Resource page; phase 2: search, Home, Browse;
 phase 3: work lists).
 
-A shop-for-data app for people who look for data rather than curate it.
+A shop-for-resources app for people who look for resources (data, code, APIs, products)
+rather than curate them.
 Reads Egeria only, and writes back only what Egeria already models
 (descriptions, informal tags, notes). Spec:
 trellis/packages/resource-explorer/docs/design-notes/SPEC-RESOURCE-BROWSER-PORTAL-APP.md
@@ -71,7 +72,7 @@ _HTML = _HERE / "resource-browser.html"
 
 # Relationships left out of the Resource page graph query: survey annotations are
 # read by the statistics endpoint (a surveyed database carries ~1000 of them,
-# a 4.6 MB payload), and engine-action targets mean nothing to a data shopper.
+# a 4.6 MB payload), and engine-action targets mean nothing to someone looking for resources.
 _SKIP_RELATIONSHIPS = ["AssociatedAnnotation", "ActionTarget"]
 
 # Relationship types shown as lineage, one level each way.
@@ -653,8 +654,9 @@ async def add_note(guid: str, body: NoteBody):
 # source and as-of on every response so a later layer can replace it unseen.
 # Egeria cannot sort by use or count facets, so neither is attempted here.
 
-# Search and browse scope: data resources. "Asset" alone would bring in ~8,600
-# Notifications and ~700 EngineActions, which mean nothing to a data shopper.
+# Search and browse scope: resources people look for (data, code, APIs, products).
+# "Asset" alone would bring in ~8,600 Notifications and ~700 EngineActions, which
+# are operational records, not resources.
 _RESOURCE_TYPES = ["DataAsset", "RelationalTable", "DigitalProduct", "DeployedAPI"]
 
 # DataAsset subtypes that are operational records rather than data to shop for.
@@ -726,7 +728,7 @@ def _is_repo(type_name: str, qualified_name: str) -> bool:
 def _row(el: dict, any_type: bool = False) -> Optional[dict]:
     """One result row, from an element (or a related element) at graph depth 0.
 
-    None for templates, and (unless any_type) for anything that is not a data resource."""
+    None for templates, and (unless any_type) for anything that is not a resource this app lists."""
     if not isinstance(el, dict):
         return None
     hdr = el.get("elementHeader") or {}
@@ -759,7 +761,7 @@ def _row(el: dict, any_type: bool = False) -> Optional[dict]:
 
 
 def _rows(elements: list) -> tuple:
-    """(rows, not_shown): rows for the data resources, and how many elements were not."""
+    """(rows, not_shown): rows for the resources, and how many elements were not."""
     rows, skipped = [], 0
     for e in elements:
         r = _row(e)
@@ -1259,7 +1261,7 @@ def _list_record(el: dict, me: Optional[str]) -> dict:
 
 def _list_members(el: dict) -> list:
     """Members of a list read with its CollectionMembership relationships: every
-    member, data resource or not, with the reason it is on the list."""
+    member, a listed resource kind or not, with the reason it is on the list."""
     out = []
     for item in (el or {}).get("collectionMembers") or []:
         if not isinstance(item, dict):

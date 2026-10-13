@@ -3,7 +3,7 @@
   SPDX-License-Identifier: Apache-2.0
   Copyright Contributors to the ODPi Egeria project.
 
-  Resource Browser — a shop-for-data app on Egeria alone.
+  Resource Browser — find resources (data, code, APIs, products) on Egeria alone.
   Served by PyegeriaWebHandler at /resource-browser (resource_browser_handler.py).
   Phase 1: the Resource page (?guid=). Phase 2: Home, Search (L0) and Browse. Phase 3: work lists (?list=).
   Spec: trellis/packages/resource-explorer/docs/design-notes/SPEC-RESOURCE-BROWSER-PORTAL-APP.md
@@ -805,14 +805,41 @@ function ClassificationsCard({ res }) {
         }));
 }
 
+// Preview by what the resource is. Tabular data sets read rows through Egeria's
+// tabular data API; files The Catalog can read (CSV, TSV, text, JSON) are read
+// from the file itself, a bounded page at a time. Everything else says why not.
+var FILE_PREVIEW_EXTS = ['csv', 'tsv', 'txt', 'json', 'jsonl', 'ndjson'];
+
+function previewFor(res) {
+  var types = [res.typeName].concat(res.superTypeNames || []);
+  var p = res.properties || {};
+  if (types.indexOf('TabularDataSet') >= 0) {
+    return { url: '/api/digital-products/' + encodeURIComponent(res.guid) + '/tabular', label: 'Preview the data',
+             note: 'Rows read through Egeria’s tabular data service.' };
+  }
+  if (types.indexOf('DataFile') >= 0) {
+    var ext = String(p.fileExtension || (String(p.pathName || p.fileName || '').split('.').pop()) || '').toLowerCase();
+    if (FILE_PREVIEW_EXTS.indexOf(ext) >= 0 && p.pathName) {
+      return { url: '/api/tech-catalog/assets/' + encodeURIComponent(res.guid) + '/preview', label: 'Preview the file',
+               note: 'The first rows, read from the file itself (' + p.pathName + ').' };
+    }
+    return { why: p.pathName ? 'Preview is not available for .' + (ext || '?') + ' files yet.' : 'This file has no recorded path, so it cannot be read.' };
+  }
+  if (types.indexOf('RelationalTable') >= 0) {
+    return { why: 'No preview for database tables yet: reading rows needs a decision on whose database credentials are used.' };
+  }
+  return { why: 'No preview for this kind of resource yet.' };
+}
+
 function PreviewCard({ res, creds }) {
   var _o = useState(false), open = _o[0], setOpen = _o[1];
-  var tabular = res.typeName === 'TabularDataSet' || (res.superTypeNames || []).indexOf('TabularDataSet') >= 0;
+  var pv = previewFor(res);
   return el(Card, { title: 'Preview' },
-    tabular ? el('button', { className: 'rb-action', onClick: function() { setOpen(true); } }, 'Preview the data')
-            : el('div', { className: 'rb-absent' }, 'No preview available for this resource.'),
-    open && el(TabularPreviewModal, { fetchUrl: '/api/digital-products/' + encodeURIComponent(res.guid) + '/tabular',
-      name: res.displayName, creds: creds, onClose: function() { setOpen(false); } }));
+    pv.url ? el('div', null,
+               el('button', { className: 'rb-action', onClick: function() { setOpen(true); } }, pv.label),
+               el('div', { className: 'rb-note', style: { marginTop: 6, wordBreak: 'break-all' } }, pv.note))
+           : el('div', { className: 'rb-absent' }, pv.why),
+    open && el(TabularPreviewModal, { fetchUrl: pv.url, name: res.displayName, creds: creds, onClose: function() { setOpen(false); } }));
 }
 
 // ── The Resource page (standalone: guid in, page out) ───────────────────────
@@ -1162,7 +1189,7 @@ function SearchPage({ q, kind, creds }) {
       Object.keys(data.failedSources).length > 0 && el('span', { className: 'rb-err' },
         'Some sources could not be searched, so results may be incomplete: ' + Object.keys(data.failedSources).join(', ') + '.'),
       data.notShown > 0 && el('span', null, data.notShown + ' match' + (data.notShown === 1 ? ' is' : 'es are') +
-        ' not shown because they are not data resources (for example survey or connector reports) or are templates.'),
+        ' not shown because they are operational records rather than resources (for example survey or connector reports) or are templates.'),
       el('span', null, 'Zone security may hide resources from your user, so results may be incomplete.')),
     el(SourceLine, { data: data, extra: 'search layer ' + (data ? data.layer : '') }));
 }
@@ -1444,7 +1471,7 @@ function ListPage({ guid, creds }) {
       m.rationale ? el('span', null, el('span', { className: 'rb-note' }, 'why: '), m.rationale)
                   : el('span', { className: 'rb-absent' }, 'no reason recorded'),
       m.confidence !== null && m.confidence !== undefined && el('span', { className: 'rb-note' }, 'confidence ' + m.confidence),
-      !m.isResource && el('span', { className: 'rb-note', title: 'Not a data resource type this app searches' }, '(not a data resource)'),
+      !m.isResource && el('span', { className: 'rb-note', title: 'Not a kind of resource this app searches' }, '(not a kind this app searches)'),
       lst.editable && el('button', { className: 'rb-edit', disabled: busy, onClick: function() { removeMember(m); } }, 'Remove'));
   }
 
@@ -1505,7 +1532,7 @@ function HomePage({ creds, personaId }) {
   }, [creds && creds.token]);
   var recent = home ? (peopleOnly ? home.recentPeople : home.recent) : [];
   return el('div', { className: 'rb-page' },
-    el('h1', { style: { fontSize: 22, marginBottom: 4 } }, 'Find data and see what it is'),
+    el('h1', { style: { fontSize: 22, marginBottom: 4 } }, 'Find resources and see what they are'),
     el('div', { className: 'rb-note', style: { marginBottom: 16 } },
       'Search above, browse by tag, owner, source or collection, or start from what changed recently.'),
     el('div', { className: 'rb-grid' },
@@ -1576,7 +1603,7 @@ function BrowsePage({ facet, value, creds }) {
       : el('div', { className: 'rb-values' }, vals.values.map(function(v) {
           var none = v.count === 0;
           return el('button', { key: v.id, className: 'rb-value' + (none ? ' none' : ''), disabled: none,
-              title: none ? 'No data resource has this yet' : '',
+              title: none ? 'No resource has this yet' : '',
               onClick: function() { if (f.id === 'collection' && v.description === 'WorkingSet') openList(v.id); else navigate({ browse: f.id, value: v.id }); } },
             el('span', { className: 'n' }, v.label),
             v.count !== undefined && el('span', { className: 'c' }, none ? 'none' : v.count),
@@ -1590,13 +1617,13 @@ function BrowsePage({ facet, value, creds }) {
         f.id !== 'scope' && el('button', { className: 'rb-link', onClick: function() { navigate({ browse: f.id }); } }, '← all ' + f.label.toLowerCase() + ' values'),
         el('h2', { style: { fontSize: 18 } }, list.title)),
       list.note && el('div', { className: 'rb-note', style: { marginBottom: 8 } }, list.note),
-      list.items.length === 0 && !list.note && el('div', { className: 'rb-absent' }, 'No data resource visible to you is here.'),
+      list.items.length === 0 && !list.note && el('div', { className: 'rb-absent' }, 'No resource visible to you is here.'),
       list.items.length > 0 && el('div', { className: 'rb-note', style: { marginBottom: 8 } },
         list.items.length + ' resource' + (list.items.length === 1 ? '' : 's') + '. ' + (list.order || '')),
       el(ResultList, { rows: list.items, creds: creds, idx: idx }),
       el('div', { className: 'rb-note', style: { marginTop: 10, display: 'flex', flexDirection: 'column', gap: 3 } },
         list.notShown > 0 && el('span', null, list.notShown + ' element' + (list.notShown === 1 ? ' is' : 's are') +
-          ' not shown because ' + (list.notShown === 1 ? 'it is' : 'they are') + ' not a data resource or ' + (list.notShown === 1 ? 'is a template' : 'are templates') + '.'),
+          ' not shown because ' + (list.notShown === 1 ? 'it is' : 'they are') + ' not a resource this app lists or ' + (list.notShown === 1 ? 'is a template' : 'are templates') + '.'),
         list.capped && el('span', null, 'The read stopped at its page limit, so this list may be incomplete.'),
         el('span', null, 'Zone security may hide resources from your user, so this list may be incomplete.')),
       el(SourceLine, { data: list })));
@@ -1657,7 +1684,7 @@ function App() {
   return el(PersonaContext.Provider, { value: personaId },
     el(CredContext.Provider, { value: creds },
       el('div', { style: { display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', color: 'var(--text)' } },
-        el(AppHeader, { icon: '🛒', title: 'Resource Browser', subtitle: 'Find data and see what it is',
+        el(AppHeader, { icon: '🛒', title: 'Resource Browser', subtitle: 'Find resources and see what they are',
           onTitleClick: function() { window.history.pushState({}, '', '/resource-browser'); window.dispatchEvent(new Event('rb-navigate')); },
           identity: identity }),
         ready && el(NavBar, { route: route }),
