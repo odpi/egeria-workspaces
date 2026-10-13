@@ -101,6 +101,16 @@
     .rb-link { background: none; border: none; color: var(--accent); cursor: pointer; font-size: inherit; padding: 0; text-align: left; }
     .rb-link:hover { text-decoration: underline; }
     .rb-list { list-style: none; display: flex; flex-direction: column; gap: 5px; font-size: 12px; }
+    .rb-term { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border); border-radius: 999px;
+               padding: 1px 8px; font-size: 12px; background: var(--card); }
+    .rb-term.ok { border-color: var(--accent); }
+    .rb-term-status { font-size: 10px; color: var(--dim); }
+    .rb-term-x { background: none; border: none; color: var(--dim); cursor: pointer; font-size: 13px; line-height: 1; padding: 0 0 0 2px; }
+    .rb-picker { min-width: 220px; }
+    .rb-picks { margin-top: 6px; max-height: 220px; overflow-y: auto; }
+    .rb-part { display: flex; align-items: baseline; gap: 0; }
+    .rb-detail { font-size: 11px; color: var(--dim); text-decoration: none; white-space: nowrap; }
+    .rb-detail:hover { color: var(--accent); text-decoration: underline; }
     .rb-list .t { color: var(--dim); font-family: ui-monospace, monospace; font-size: 10px; margin-left: 6px; }
 
     .rb-nav { display: flex; gap: 4px; align-items: center; padding: 8px 24px; border-bottom: 1px solid var(--border);
@@ -575,15 +585,16 @@ function NotesCard({ guid, creds, canWrite }) {
       .then(function(d) { setData(d); setText(''); }).catch(function(e) { setErr(e.message); })
       .finally(function() { setSaving(false); });
   }
-  return el(Card, { title: 'Notes', source: 'beside the official description' },
+  return el(Card, { title: 'Notes and journal', source: 'beside the description' },
     !data && !err && el('div', { className: 'rb-absent' }, 'Loading notes…'),
     err && el('div', { className: 'rb-err' }, 'Notes could not be read: ' + err),
-    data && data.notes.length === 0 && el('div', { className: 'rb-absent' }, 'No notes yet.'),
+    data && data.notes.length === 0 && el('div', { className: 'rb-absent' }, 'No notes or journal entries yet.'),
     data && data.notes.length > 0 && el('ul', { className: 'rb-list', style: { gap: 10 } },
       data.notes.map(function(n) {
         return el('li', { key: n.guid },
           el('div', { className: 'rb-desc', style: { fontSize: 13 } }, n.text || n.title),
-          el('div', { className: 'rb-note' }, (n.createdBy || 'unknown') + ' · ' + fmtDate(n.createTime)));
+          el('div', { className: 'rb-note' }, (n.createdBy || 'unknown') + ' · ' + fmtDate(n.createTime) +
+            (data.noteLogs > 1 && n.log ? ' · in ' + n.log : '')));
       })),
     data && data.capped && el('div', { className: 'rb-note', style: { marginTop: 6 } }, 'Showing the most recent notes only.'),
     canWrite && el('div', { style: { marginTop: 10 } },
@@ -591,7 +602,8 @@ function NotesCard({ guid, creds, canWrite }) {
         onChange: function(e) { setText(e.target.value); },
         onKeyDown: function(e) { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) add(); } }),
       el('div', { style: { marginTop: 6 } },
-        el('button', { className: 'rb-btn', disabled: saving || !text.trim(), onClick: add }, saving ? 'Adding…' : 'Add note'))));
+        el('button', { className: 'rb-btn', disabled: saving || !text.trim(), onClick: add }, saving ? 'Adding…' : 'Add note'))),
+    el(PartNotes, { guid: guid, creds: creds }));
 }
 
 // ── Tags (InformalTag) ───────────────────────────────────────────────────────
@@ -637,8 +649,16 @@ var COLUMN_STAT_KEYS = [
   ['Most Common Values', 'common values'],
 ];
 
-function ColumnsCard({ res, stats, creds, onColumnSaved }) {
+function ColumnsCard({ res, stats, creds, onColumnSaved, meanings }) {
   var cols = res.columns || [];
+  var _p = useState(null), picking = _p[0], setPicking = _p[1];
+  var _me = useState(''), mErr = _me[0], setMErr = _me[1];
+  var md = meanings && meanings.data;
+  var colTerms = (md && md.columns) || {};
+  function runMeaning(p) {
+    setMErr('');
+    p.then(function() { setPicking(null); meanings.reload(); }).catch(function(e) { setMErr(e.message); });
+  }
   var statsByName = (stats && stats.columns) || {};
   var measured = stats && stats.state === 'measured';
   var statsNote = !res.jdbcTableName ? 'Column statistics are read for catalogued database tables.'
@@ -654,16 +674,29 @@ function ColumnsCard({ res, stats, creds, onColumnSaved }) {
       : el('div', { style: { overflowX: 'auto' } },
           el('table', { className: 'rb-table' },
             el('thead', null, el('tr', null,
-              el('th', null, 'Name'), el('th', null, 'Type'), el('th', { style: { minWidth: 220 } }, 'Description'),
+              el('th', null, 'Name'), el('th', null, 'Type'), el('th', { style: { minWidth: 140 } }, 'Meaning'),
+              el('th', { style: { minWidth: 200 } }, 'Description'),
               el('th', null, 'Statistics'))),
             el('tbody', null, cols.map(function(c) {
               var st = statsByName[c.name];
               return el('tr', { key: c.guid },
                 el('td', null,
-                  el('div', { className: 'rb-mono' }, c.name),
+                  el('button', { className: 'rb-link rb-mono', title: 'Open this column: what it is part of, notes, comments',
+                    onClick: function() { openResource(c.guid); } }, c.name),
                   c.keyMarks.length > 0 && el('div', { className: 'rb-note' }, c.keyMarks.join(', '))),
                 el('td', { className: 'rb-mono', style: { color: 'var(--muted)' } },
-                  c.dataType || (st && st.values['Column data type']) || el('span', { className: 'rb-absent', title: 'The catalogue holds no data type for this column and no survey has measured it' }, 'not recorded')),
+                  c.dataType ? c.dataType
+                  : (st && st.values['Column data type']) ? el('span', { title: 'Not in the catalogue entry; from the latest survey of this column' }, st.values['Column data type'], el('span', { className: 'rb-note' }, ' (survey)'))
+                  : el('span', { className: 'rb-absent', title: 'The catalogue holds no data type for this column and no survey has measured it' }, 'not recorded')),
+                el('td', null,
+                  !md ? el('span', { className: 'rb-absent' }, '…')
+                  : el(MeaningChips, { terms: colTerms[c.guid] || [], me: md.me,
+                      onWithdraw: res.canWrite && function(t) { runMeaning(withdrawMeaning(c.guid, t, creds)); } }),
+                  res.canWrite && md && (picking === c.guid
+                    ? el(TermPicker, { creds: creds, placeholder: 'Meaning of ' + c.name + '…', onCancel: function() { setPicking(null); },
+                        onPick: function(t) { runMeaning(assignMeaning(c.guid, t, creds)); } })
+                    : el('button', { className: 'rb-link', style: { fontSize: 11 }, onClick: function() { setPicking(c.guid); } },
+                        (colTerms[c.guid] || []).length ? '+' : '+ meaning'))),
                 el('td', null,
                   el(EditableText, { value: c.description, canWrite: res.canWrite, placeholder: 'No description',
                     onSave: function(text) {
@@ -681,6 +714,7 @@ function ColumnsCard({ res, stats, creds, onColumnSaved }) {
                       }),
                       el('div', { className: 'rb-note' }, 'measured ' + fmtDate(st.measuredAt)))));
             })))),
+    mErr && el('div', { className: 'rb-err', style: { marginTop: 6 } }, mErr),
     el('div', { className: 'rb-note', style: { marginTop: 8 } }, statsNote),
     stats && stats.capped && el('div', { className: 'rb-note' }, 'Not every survey record was read (page limit reached); some columns may show as not measured.'));
 }
@@ -742,10 +776,11 @@ function LineageCard({ res }) {
       el('a', { href: '/lineage?guid=' + encodeURIComponent(res.guid), target: '_blank', style: { fontSize: 12 } }, 'Explore further in the Lineage Explorer ↗')));
 }
 
-function RelatedCard({ res }) {
+function RelatedCard({ res, structure }) {
   var groups = Object.keys(res.related || {});
   var parentAndCollections = [];
-  if (res.parent) parentAndCollections.push(['part of', [Object.assign({}, res.parent, { displayName: res.parent.displayName || res.parent.guid })]]);
+  var pathShown = structure && structure.partOf && structure.partOf.length;
+  if (res.parent && !pathShown) parentAndCollections.push(['part of', [Object.assign({}, res.parent, { displayName: res.parent.displayName || res.parent.guid })]]);
   if (res.collections.length) parentAndCollections.push(['in collections', res.collections]);
   var all = parentAndCollections.concat(groups.map(function(g) { return [_titleCase(g), res.related[g]]; }));
   return el(Card, { title: 'Where it fits' },
@@ -758,6 +793,237 @@ function RelatedCard({ res }) {
             })),
             pair[1].length > 25 && el('div', { className: 'rb-note' }, '…and ' + (pair[1].length - 25) + ' more'));
         }));
+}
+
+// ── Meaning: glossary terms that say what it (and each column) means ────────
+
+function useMeanings(guid, creds) {
+  var _m = useState(null), data = _m[0], setData = _m[1];
+  var _k = useState(0), key = _k[0], setKey = _k[1];
+  useEffect(function() {
+    getJson(API + '/resource/' + encodeURIComponent(guid) + '/meanings', creds)
+      .then(setData).catch(function(e) { setData({ error: e.message, meanings: [], columns: {} }); });
+  }, [guid, creds && creds.token, key]);
+  return { data: data, reload: function() { setKey(key + 1); } };
+}
+
+// The glossary a term belongs to, from its qualified name (Glossary::<name>::<term>).
+function glossaryOf(qn) {
+  var parts = String(qn || '').split('::');
+  return parts.length >= 3 ? parts[1] : '';
+}
+
+function TermPicker({ creds, onPick, onCancel, placeholder }) {
+  var _q = useState(''), q = _q[0], setQ = _q[1];
+  var _r = useState(null), found = _r[0], setFound = _r[1];
+  var _e = useState(''), err = _e[0], setErr = _e[1];
+  useEffect(function() {
+    if (q.trim().length < 2) { setFound(null); return; }
+    var stop = false;
+    var t = setTimeout(function() {
+      getJson(API + '/terms?q=' + encodeURIComponent(q.trim()), creds)
+        .then(function(d) { if (!stop) { setFound(d.terms); setErr(''); } })
+        .catch(function(e) { if (!stop) setErr(e.message); });
+    }, 250);
+    return function() { stop = true; clearTimeout(t); };
+  }, [q]);
+  return el('div', { className: 'rb-picker' },
+    el('div', { className: 'rb-row', style: { gap: 6 } },
+      el('input', { className: 'rb-text', autoFocus: true, value: q, placeholder: placeholder || 'Find a glossary term…',
+        style: { flex: 1, padding: '3px 8px' },
+        onChange: function(e) { setQ(e.target.value); },
+        onKeyDown: function(e) { if (e.key === 'Escape') onCancel(); } }),
+      el('button', { className: 'rb-btn ghost', onClick: onCancel }, 'Cancel')),
+    err && el('div', { className: 'rb-err' }, err),
+    found && found.length === 0 && el('div', { className: 'rb-absent', style: { marginTop: 4 } }, 'No terms match.'),
+    found && found.length > 0 && el('ul', { className: 'rb-list rb-picks' }, found.map(function(t) {
+      return el('li', { key: t.guid },
+        el('button', { className: 'rb-link', title: t.summary || t.qualifiedName, onClick: function() { onPick(t); } }, t.displayName),
+        glossaryOf(t.qualifiedName) && el('span', { className: 't' }, glossaryOf(t.qualifiedName)),
+        t.summary && el('div', { className: 'rb-note', style: { marginLeft: 0 } }, t.summary.length > 110 ? t.summary.slice(0, 110) + '…' : t.summary));
+    })));
+}
+
+function MeaningChips({ terms, me, onWithdraw }) {
+  return el('span', { className: 'rb-row', style: { gap: 4, display: 'inline-flex', flexWrap: 'wrap' } }, terms.map(function(t) {
+    var tip = (t.summary ? t.summary + '\n\n' : '') + (t.status || 'no status') + (t.assignedBy ? ' · assigned by ' + t.assignedBy : '') +
+      (t.assignedAt ? ' · ' + fmtDate(t.assignedAt) : '') + (glossaryOf(t.qualifiedName) ? '\nGlossary: ' + glossaryOf(t.qualifiedName) : '');
+    return el('span', { key: t.guid, className: 'rb-term' + (t.status === 'VALIDATED' ? ' ok' : ''), title: tip },
+      el('button', { className: 'rb-link', onClick: function() { openResource(t.guid); } }, t.displayName),
+      t.status && t.status !== 'VALIDATED' && el('span', { className: 'rb-term-status' }, t.status.toLowerCase()),
+      onWithdraw && me && t.assignedBy === me && el('button', { className: 'rb-term-x', title: 'Withdraw the meaning you proposed',
+        onClick: function() { onWithdraw(t); } }, '×'));
+  }));
+}
+
+function assignMeaning(guid, term, creds) {
+  return sendJson(API + '/resource/' + encodeURIComponent(guid) + '/meanings', creds, 'POST', { termGuid: term.guid });
+}
+function withdrawMeaning(guid, term, creds) {
+  return sendJson(API + '/resource/' + encodeURIComponent(guid) + '/meanings/' + encodeURIComponent(term.guid), creds, 'DELETE');
+}
+
+// Glossaries and terms are meanings themselves; the card is for what they describe.
+function hasMeanings(res) {
+  var types = [res.typeName].concat(res.superTypeNames || []);
+  return types.indexOf('GlossaryTerm') < 0 && types.indexOf('Glossary') < 0 && types.indexOf('GlossaryCategory') < 0;
+}
+
+function MeaningCard({ res, meanings, creds }) {
+  if (!hasMeanings(res)) return null;
+  var _p = useState(false), picking = _p[0], setPicking = _p[1];
+  var _e = useState(''), err = _e[0], setErr = _e[1];
+  var data = meanings.data;
+  function run(p) {
+    setErr('');
+    p.then(function() { setPicking(false); meanings.reload(); }).catch(function(e) { setErr(e.message); });
+  }
+  var terms = (data && data.meanings) || [];
+  return el(Card, { title: 'Meaning', source: 'glossary terms' },
+    !data && el('div', { className: 'rb-absent' }, 'Loading…'),
+    data && data.error && el('div', { className: 'rb-err' }, 'Meanings could not be read: ' + data.error),
+    data && !data.error && terms.length === 0 && el('div', { className: 'rb-absent' }, 'No glossary term says what this means yet.'),
+    terms.length > 0 && el(MeaningChips, { terms: terms, me: data.me,
+      onWithdraw: res.canWrite && function(t) { run(withdrawMeaning(res.guid, t, creds)); } }),
+    err && el('div', { className: 'rb-err', style: { marginTop: 6 } }, err),
+    res.canWrite && (picking
+      ? el('div', { style: { marginTop: 8 } }, el(TermPicker, { creds: creds, onCancel: function() { setPicking(false); },
+          onPick: function(t) { run(assignMeaning(res.guid, t, creds)); } }))
+      : el('div', { style: { marginTop: 8 } }, el('button', { className: 'rb-btn ghost', onClick: function() { setPicking(true); } }, '+ Propose a meaning'))),
+    el('div', { className: 'rb-note', style: { marginTop: 6 } },
+      'A meaning you add is proposed; a steward validates it in Egeria Explorer. You can withdraw your own.'));
+}
+
+// ── Notes on its parts ───────────────────────────────────────────────────────
+
+var PART_NOTES_SHOWN = 5;
+
+function PartNotes({ guid, creds }) {
+  var _d = useState(null), data = _d[0], setData = _d[1];
+  var _a = useState(false), all = _a[0], setAll = _a[1];
+  useEffect(function() {
+    setData(null);
+    getJson(API + '/resource/' + encodeURIComponent(guid) + '/part-notes', creds)
+      .then(setData).catch(function(e) { setData({ error: e.message, parts: [] }); });
+  }, [guid, creds && creds.token]);
+  if (!data || (!data.error && data.partsChecked === 0)) return null;
+  var shown = all ? data.parts : data.parts.slice(0, PART_NOTES_SHOWN);
+  return el('div', { style: { marginTop: 14, borderTop: '1px solid var(--border)', paddingTop: 10 } },
+    el('div', { className: 'rb-note', style: { marginBottom: 6, fontWeight: 600 } }, 'On its parts'),
+    data.error && el('div', { className: 'rb-err' }, 'Notes on its parts could not be read: ' + data.error),
+    !data.error && data.parts.length === 0 && el('div', { className: 'rb-absent' },
+      'None of its ' + data.partsChecked + ' parts has notes.'),
+    el('ul', { className: 'rb-list', style: { gap: 8 } }, shown.map(function(p) {
+      var n = p.notes[0];
+      var text = n.text || n.title;
+      return el('li', { key: p.part.guid },
+        el('div', null, el(ResourceLink, { item: p.part }), el('span', { className: 't' }, p.part.typeName),
+          p.notes.length > 1 && el('span', { className: 'rb-note', style: { marginLeft: 6 } }, p.notes.length + ' notes')),
+        el('div', { className: 'rb-desc', style: { fontSize: 12 } }, text.length > 160 ? text.slice(0, 160) + '…' : text),
+        el('div', { className: 'rb-note' }, (n.createdBy || 'unknown') + ' · ' + fmtDate(n.createTime)));
+    })),
+    !all && data.parts.length > PART_NOTES_SHOWN && el('button', { className: 'rb-link', style: { fontSize: 12, marginTop: 4 },
+      onClick: function() { setAll(true); } }, 'Show all ' + data.parts.length),
+    data.capped && el('div', { className: 'rb-note' }, 'Only the first ' + data.partsChecked + ' parts were checked.'));
+}
+
+// ── Structure: what it is part of, and what it contains ─────────────────────
+
+// Where an element's full definition lives: Egeria Explorer or The Catalog, by
+// the shared type-nav rules. Tables and columns have no Catalog page of their
+// own, so they open their anchor (the schema) there instead.
+function detailLink(item) {
+  var nav = resolveElementNav(item);
+  if (nav && nav.app === 'tech-catalog') return { href: '/tech-catalog?guid=' + encodeURIComponent(item.guid), label: 'The Catalog' };
+  if (nav && nav.app === 'egeria-explorer') {
+    return { href: '/egeria-explorer?guid=' + encodeURIComponent(item.guid) + (nav.kind ? '&kind=' + encodeURIComponent(nav.kind) : '') + '#' + nav.hash,
+             label: 'Egeria Explorer' };
+  }
+  if (item.anchorGUID) return { href: '/tech-catalog?guid=' + encodeURIComponent(item.anchorGUID), label: 'The Catalog', via: true };
+  return null;
+}
+
+function DetailLink({ item, long }) {
+  var d = detailLink(item);
+  if (!d) return null;
+  return el('a', { href: d.href, target: '_blank', rel: 'noopener', className: 'rb-detail',
+    title: d.via ? 'Opens what it belongs to in ' + d.label + '; it has no page of its own there' : 'Its full definition in ' + d.label },
+    (long ? 'Full definition in ' : '') + d.label + (d.via ? ' (via its schema)' : '') + ' ↗');
+}
+
+function useStructure(guid, creds) {
+  var _s = useState(null), data = _s[0], setData = _s[1];
+  useEffect(function() {
+    setData(null);
+    getJson(API + '/resource/' + encodeURIComponent(guid) + '/structure', creds)
+      .then(setData).catch(function(e) { setData({ error: e.message, partOf: [], contains: [] }); });
+  }, [guid, creds && creds.token]);
+  return data;
+}
+
+// Kinds that hold parts, so an empty "contains" is worth saying out loud.
+var CONTAINER_TYPES = { Database: 'schemas', DeployedDatabaseSchema: 'tables', FileFolder: 'files or folders', Collection: 'members' };
+function containerNoun(res) {
+  var types = [res.typeName].concat(res.superTypeNames || []);
+  for (var t in CONTAINER_TYPES) if (types.indexOf(t) >= 0) return CONTAINER_TYPES[t];
+  return null;
+}
+
+var PARTS_SHOWN = 25;
+
+function PartsGroup({ group }) {
+  var _a = useState(false), all = _a[0], setAll = _a[1];
+  var _f = useState(''), filt = _f[0], setFilt = _f[1];
+  var q = filt.trim().toLowerCase();
+  var parts = q ? group.parts.filter(function(p) { return (p.displayName + ' ' + p.qualifiedName).toLowerCase().indexOf(q) >= 0; }) : group.parts;
+  var shown = all || q ? parts : parts.slice(0, PARTS_SHOWN);
+  return el('div', { style: { marginBottom: 12 } },
+    el('div', { className: 'rb-row', style: { gap: 8, marginBottom: 4 } },
+      el('span', { style: { fontWeight: 600, fontSize: 12 } }, group.label),
+      el('span', { className: 'rb-note' }, (group.atLeast ? 'at least ' : '') + group.total),
+      group.parts.length > PARTS_SHOWN && el('input', { className: 'rb-text', style: { width: 160, padding: '2px 6px', marginLeft: 'auto' },
+        placeholder: 'Filter ' + group.label.toLowerCase() + '…', value: filt, onChange: function(e) { setFilt(e.target.value); } })),
+    el('ul', { className: 'rb-list' }, shown.map(function(p) {
+      return el('li', { key: p.guid, className: 'rb-part' },
+        el(ResourceLink, { item: p }),
+        p.count && el('span', { className: 'rb-note', style: { marginLeft: 8 } }, p.count.n + ' ' + (p.count.n === 1 ? p.count.of.replace(/s$/, '') : p.count.of)),
+        el('span', { className: 't' }, p.typeName),
+        el('span', { style: { marginLeft: 'auto' } }, el(DetailLink, { item: p })));
+    })),
+    !all && !q && parts.length > PARTS_SHOWN && el('button', { className: 'rb-link', style: { fontSize: 12, marginTop: 4 }, onClick: function() { setAll(true); } },
+      'Show all ' + parts.length),
+    group.total > group.parts.length && el('div', { className: 'rb-note' },
+      'Listing the first ' + group.parts.length + ' of ' + (group.atLeast ? 'at least ' : '') + group.total + '.'));
+}
+
+function StructureCard({ res, structure }) {
+  var noun = containerNoun(res);
+  if (!structure) return noun ? el(Card, { title: 'What it contains' }, el('div', { className: 'rb-absent' }, 'Loading…')) : null;
+  var groups = structure.contains || [];
+  if (!groups.length && !noun && !structure.error) return null;
+  return el(Card, { title: 'What it contains', source: 'one level down' },
+    structure.error && el('div', { className: 'rb-err' }, 'Its parts could not be read: ' + structure.error),
+    !structure.error && !groups.length && el('div', { className: 'rb-absent' }, 'No ' + noun + ' are recorded for it.'),
+    groups.map(function(g) { return el(PartsGroup, { key: g.relationship + g.label, group: g }); }),
+    structure.countsCapped && el('div', { className: 'rb-note' }, 'Counts are shown for the first parts only.'),
+    groups.length > 0 && el('div', { className: 'rb-note', style: { marginTop: 4 } },
+      'A name opens it here in the Resource Browser; the ↗ link opens its full definition in The Catalog or Egeria Explorer.'));
+}
+
+// The breadcrumb: Resource Browser › database › schema › table.
+function PartOfCrumb({ res, structure }) {
+  var path = (structure && structure.partOf) || [];
+  return el('div', { className: 'rb-crumb' },
+    el('a', { href: '/resource-browser' }, 'Resource Browser'), '›',
+    structure && structure.partOfIncomplete && el(React.Fragment, null, el('span', { title: 'Not every container above this one could be read' }, '…'), '›'),
+    path.map(function(p) {
+      return el(React.Fragment, { key: p.guid },
+        el('button', { className: 'rb-link', title: p.typeName + ' — part of the path down to this resource', onClick: function() { openResource(p.guid); } },
+          p.displayName),
+        '›');
+    }),
+    el('span', null, res.displayName),
+    el('span', { className: 'rb-type' }, res.typeName));
 }
 
 // DataScope (time and place). Egeria returns 0 for spatial bounds that were never
@@ -848,6 +1114,8 @@ function ResourcePage({ guid, creds, personaId }) {
   var _r = useState(null), res = _r[0], setRes = _r[1];
   var _e = useState(''), err = _e[0], setErr = _e[1];
   var _s = useState(null), stats = _s[0], setStats = _s[1];
+  var structure = useStructure(guid, creds);
+  var meanings = useMeanings(guid, creds);
 
   useEffect(function() {
     setRes(null); setErr(''); setStats(null);
@@ -885,9 +1153,7 @@ function ResourcePage({ guid, creds, personaId }) {
   }
 
   return el('div', { className: 'rb-page' },
-    el('div', { className: 'rb-crumb' },
-      el('a', { href: '/resource-browser' }, 'Resource Browser'), '›',
-      el('span', { className: 'rb-type' }, res.typeName)),
+    el(PartOfCrumb, { res: res, structure: structure }),
     el('div', { className: 'rb-row', style: { alignItems: 'flex-start', justifyContent: 'space-between' } },
       el('div', { style: { minWidth: 0, flex: 1 } },
         el('div', { className: 'rb-row' },
@@ -897,7 +1163,8 @@ function ResourcePage({ guid, creds, personaId }) {
           personaId && el(FavoriteButton, { app: 'resource-browser', section: 'resource:' + guid, label: res.displayName, icon: '🛒',
             url: '/resource-browser?guid=' + encodeURIComponent(guid), personaId: personaId }),
           res.canWrite && el(AddToList, { guid: guid, creds: creds })),
-        el('div', { className: 'rb-qn' }, res.qualifiedName)),
+        el('div', { className: 'rb-qn' }, res.qualifiedName),
+        el('div', { style: { marginTop: 4 } }, el(DetailLink, { item: Object.assign({}, res, { anchorGUID: res.parent && res.parent.guid }), long: true }))),
       action && el('div', { style: { textAlign: 'right' } },
         el('button', { className: 'rb-action', onClick: action.run }, action.label),
         el('div', { className: 'rb-note', style: { marginTop: 4, maxWidth: 260 } }, action.why))),
@@ -914,7 +1181,9 @@ function ResourcePage({ guid, creds, personaId }) {
         el(Card, { title: 'Description', source: 'the official description' },
           el(EditableText, { value: res.description, canWrite: res.canWrite, multiline: true,
             placeholder: 'No description yet.' + (res.canWrite ? ' Add one, or leave a note beside it.' : ''), onSave: saveDescription })),
-        res.columns !== null && el(ColumnsCard, { res: res, stats: stats, creds: creds, onColumnSaved: columnSaved }),
+        el(MeaningCard, { res: res, meanings: meanings, creds: creds }),
+        el(StructureCard, { res: res, structure: structure }),
+        res.columns !== null && el(ColumnsCard, { res: res, stats: stats, creds: creds, onColumnSaved: columnSaved, meanings: meanings }),
         el(LineageCard, { res: res }),
         // The shared comments section brings its own top rule and spacing.
         el('section', { id: 'rb-comments', style: { marginTop: -10, marginBottom: 18 } },
@@ -923,12 +1192,13 @@ function ResourcePage({ guid, creds, personaId }) {
         el(NotesCard, { guid: guid, creds: creds, canWrite: res.canWrite }),
         el(StatisticsCard, { res: res, stats: stats }),
         el(ClassificationsCard, { res: res }),
-        el(RelatedCard, { res: res }),
+        el(RelatedCard, { res: res, structure: structure }),
         el(PreviewCard, { res: res, creds: creds }))),
 
     el('div', { className: 'rb-note', style: { marginTop: 4 } },
       'As of ', fmtDate(res.asOf), ' · source: ', res.source, '. ',
       'Only what your user may see is shown: zone security can hide related elements, so these lists may be incomplete.',
+      res.relationshipsLimited && ' It carries many survey annotations, so only the relationships this page shows were read.',
       !res.canWrite && ' Sign in or choose a persona to edit, tag, note, like, rate or comment.'));
 }
 

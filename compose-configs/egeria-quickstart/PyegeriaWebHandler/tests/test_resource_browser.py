@@ -33,10 +33,14 @@ _NEEDED = {"_type_names", "_display_name", "_related", "_classifications", "_dat
            "_text_reason", "_merge", "_flavour_index", "_recent_rows",
            # phase 3
            "_is_repo", "_list_slug", "_list_origin", "_list_record", "_list_members", "_membership_body",
-           "_is_group", "_shared_with", "_groups_of"}
+           "_is_group", "_shared_with", "_groups_of",
+           # structure
+           "_related_recs", "_is_schema_attribute", "_is_schema_element", "_container_of", "_part_record",
+           "_group_label", "_attribute_noun", "_merge_reads", "_is_term", "_meanings_of"}
 _CONSTS = {"_SKIP_CLASSIFICATIONS", "_LINEAGE_RELATIONSHIPS", "_TABLE_STATS_QN", "_COLUMN_STATS_QN",
            "_RESOURCE_TYPES", "_NOT_RESOURCES", "_KINDS", "_BADGES",
-           "_REPO_QN_PREFIX", "_RE_LIST_PREFIX", "_PORTAL_LIST_PREFIX", "_COPY_KEYS", "_GROUP_TYPES"}
+           "_REPO_QN_PREFIX", "_RE_LIST_PREFIX", "_PORTAL_LIST_PREFIX", "_COPY_KEYS", "_GROUP_TYPES",
+           "_CONTAINS_KEYS", "_PART_OF_KEYS", "_PART_LABELS", "_COUNTED_TYPES"}
 
 
 def _load(path: Path):
@@ -173,6 +177,11 @@ def test_jdbc_table_name_needs_all_three_parts(rb):
     assert rb["_jdbc_table_name"]({"additionalProperties": ap}) == "coco.sales.orders"
     assert rb["_jdbc_table_name"]({"additionalProperties": {"jdbc.catalog": "coco", "jdbc.table": "orders"}}) is None
     assert rb["_jdbc_table_name"]({}) is None
+
+
+def test_jdbc_column_is_not_a_table(rb):
+    ap = {"jdbc.catalog": "coco", "jdbc.schema": "sales", "jdbc.table": "orders", "jdbc.column": "id"}
+    assert rb["_jdbc_table_name"]({"additionalProperties": ap}) is None
 
 
 # ── Phase 2: rows, kinds, relevance, flavour index ───────────────────────────
@@ -358,3 +367,108 @@ def test_groups_of_follow_roles_and_direct_scope(rb):
         ("Community", "Direct SIG", "you directly"),
         ("Team", "Chief Data Office", "TeamMembers::Department::7432"),
     ]
+
+
+# ── Structure: part of / contains ────────────────────────────────────────────
+
+def _part_item(guid, type_name, supers=(), name="n", rel="R", at_end1=False):
+    return {"relatedElement": {"elementHeader": {"guid": guid, "type": {"typeName": type_name,
+                                                                        "superTypeNames": list(supers)}},
+                               "properties": {"displayName": name}},
+            "relationshipHeader": {"type": {"typeName": rel}}, "relatedElementAtEnd1": at_end1}
+
+
+_TABLE_SUPERS = ["SchemaAttribute", "SchemaElement", "Referenceable"]
+
+
+def test_related_recs_takes_a_list_or_one_element(rb):
+    one = _part_item("s1", "RelationalDBSchemaType")
+    assert [r["guid"] for r in rb["_related_recs"](one)] == ["s1"]
+    assert [r["guid"] for r in rb["_related_recs"]([one, _part_item("s2", "X")])] == ["s1", "s2"]
+    assert rb["_related_recs"](None) == []
+
+
+def test_schema_sits_in_its_database(rb):
+    el = {"elementHeader": {"guid": "sch", "type": {"typeName": "DeployedDatabaseSchema"}},
+          "dataSetContent": [_part_item("db", "RelationalDatabase", ["Database"], "coco", "DataSetContent")]}
+    assert rb["_container_of"](el)["guid"] == "db"
+
+
+def test_column_sits_in_its_table_and_table_in_its_anchor(rb):
+    column = {"elementHeader": {"guid": "col", "type": {"typeName": "RelationalColumn", "superTypeNames": _TABLE_SUPERS},
+                                "anchor": {"classificationProperties": {"anchorGUID": "sch"}}},
+              "parentSchemaElements": [_part_item("tab", "RelationalTable", _TABLE_SUPERS, rel="NestedSchemaAttribute")]}
+    assert rb["_container_of"](column)["guid"] == "tab"
+    # A top-level table hangs off a schema type, which is not a container people browse:
+    # its container is the asset it is anchored to.
+    table = {"elementHeader": {"guid": "tab", "type": {"typeName": "RelationalTable", "superTypeNames": _TABLE_SUPERS},
+                               "anchor": {"classificationProperties": {"anchorGUID": "sch",
+                                                                       "anchorTypeName": "DeployedDatabaseSchema"}}},
+             "parentSchemaElements": [_part_item("st", "RelationalDBSchemaType", ["ComplexSchemaType"], rel="AttributeForSchema")]}
+    up = rb["_container_of"](table)
+    assert (up["guid"], up["typeName"]) == ("sch", "DeployedDatabaseSchema")
+
+
+def test_top_of_the_path_has_no_container(rb):
+    db = {"elementHeader": {"guid": "db", "type": {"typeName": "RelationalDatabase", "superTypeNames": ["Database", "Asset"]},
+                            "anchor": {"classificationProperties": {"anchorGUID": "db"}}},
+          "supportedDataSets": [_part_item("sch", "DeployedDatabaseSchema")]}
+    assert rb["_container_of"](db) is None
+
+
+def test_part_record_kind_group_and_catalog_anchor(rb):
+    rec = rb["_related"](_part_item("tab", "RelationalTable", _TABLE_SUPERS, "orders"))
+    rec["elementHeader"]["anchor"] = {"classificationProperties": {"anchorGUID": "sch"}}
+    part = rb["_part_record"](rec)
+    assert (part["kind"], part["anchorGUID"], rb["_group_label"](part)) == ("table", "sch", "Tables")
+    field = rb["_part_record"](rb["_related"](_part_item("f", "TabularColumn", ["SchemaAttribute"])))
+    assert rb["_group_label"](field) == "Fields"
+    # A data set subtype groups under its kind; a type with no kind keeps its own name.
+    secrets = rb["_part_record"](rb["_related"](_part_item("o", "SecretsCollection", ["DataSet"])))
+    assert rb["_group_label"](secrets) == "Data sets"
+    other = rb["_part_record"](rb["_related"](_part_item("v", "VirtualConnection", ["Connection"])))
+    assert rb["_group_label"](other) == "Virtual Connection"
+    op = rb["_part_record"](rb["_related"](_part_item("op", "APIOperation", ["SchemaType", "SchemaElement"])))
+    assert rb["_group_label"](op) == "Operations"
+
+
+def test_api_operation_and_event_type_belong_to_their_anchor(rb):
+    op = {"elementHeader": {"guid": "op", "type": {"typeName": "APIOperation", "superTypeNames": ["SchemaType", "SchemaElement"]},
+                            "anchor": {"classificationProperties": {"anchorGUID": "api", "anchorTypeName": "DeployedAPI"}}},
+          "parentSchemaElements": [_part_item("st", "APISchemaType", ["SchemaType", "SchemaElement"], rel="APIOperations")]}
+    assert rb["_container_of"](op)["guid"] == "api"
+    # A field of an event type sits in the event type, which is browsable.
+    field = {"elementHeader": {"guid": "f", "type": {"typeName": "EventSchemaAttribute", "superTypeNames": _TABLE_SUPERS},
+                               "anchor": {"classificationProperties": {"anchorGUID": "topic"}}},
+             "parentSchemaElements": [_part_item("et", "EventType", ["SchemaType", "SchemaElement"], rel="AttributeForSchema")]}
+    assert rb["_container_of"](field)["guid"] == "et"
+
+
+def test_attribute_noun(rb):
+    recs = lambda t, s: [rb["_related"](_part_item("g", t, s))]
+    assert rb["_attribute_noun"](recs("RelationalTable", _TABLE_SUPERS)) == "tables"
+    assert rb["_attribute_noun"](recs("RelationalColumn", _TABLE_SUPERS)) == "columns"
+    assert rb["_attribute_noun"](recs("EventSchemaAttribute", _TABLE_SUPERS)) == "fields"
+
+
+def test_merge_reads_keeps_each_relationship_once(rb):
+    def item(rel_guid, guid):
+        it = _part_item(guid, "X")
+        it["relationshipHeader"]["guid"] = rel_guid
+        return it
+    a = {"elementHeader": {"guid": "e"}, "properties": {"n": 1}, "class": "C",
+         "lineageLinkage": [item("r1", "a"), item("r2", "b")], "schemaType": item("r9", "st")}
+    b = {"elementHeader": {"guid": "e"}, "properties": {"n": 1}, "lineageLinkage": [item("r2", "b"), item("r3", "c")]}
+    m = rb["_merge_reads"]([a, b])
+    assert [i["relatedElement"]["elementHeader"]["guid"] for i in m["lineageLinkage"]] == ["a", "b", "c"]
+    assert m["schemaType"]["relatedElement"]["elementHeader"]["guid"] == "st" and m["class"] == "C"
+
+
+def test_meanings_are_terms_by_semantic_assignment(rb):
+    t = _part_item("t1", "GlossaryTerm", ["Referenceable"], "Customer", rel="SemanticAssignment")
+    t["relationshipProperties"] = {"termAssignmentStatus": "PROPOSED", "class": "SemanticAssignmentProperties"}
+    t["relationshipHeader"]["versions"] = {"createdBy": "erinoverview", "createTime": "2026-10-13"}
+    not_term = _part_item("x", "Comment", rel="SemanticAssignment")
+    other_rel = _part_item("t2", "GlossaryTerm", rel="RelatedTerm")
+    out = rb["_meanings_of"]({"elementHeader": {}, "meanings": [t, not_term], "relatedTerms": [other_rel]})
+    assert [(m["guid"], m["status"], m["assignedBy"]) for m in out] == [("t1", "PROPOSED", "erinoverview")]
