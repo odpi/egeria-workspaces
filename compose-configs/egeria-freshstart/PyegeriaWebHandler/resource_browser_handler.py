@@ -321,8 +321,13 @@ def _latest_by_subject(annotations: list, prefix: str) -> dict:
 
 
 def _jdbc_table_name(props: dict) -> Optional[str]:
-    """catalog.schema.table for a JDBC-catalogued table, from its additionalProperties."""
+    """catalog.schema.table for a JDBC-catalogued table, from its additionalProperties.
+
+    A column carries the same three plus jdbc.column; it is not a table, and its
+    figures are shown in its table's columns card."""
     ap = (props or {}).get("additionalProperties") or {}
+    if ap.get("jdbc.column"):
+        return None
     parts = [ap.get("jdbc.catalog"), ap.get("jdbc.schema"), ap.get("jdbc.table")]
     return ".".join(parts) if all(parts) else None
 
@@ -336,14 +341,88 @@ async def serve_resource_browser():
     return FileResponse(str(_HTML), media_type="text/html")
 
 
+# ── Reading a resource ────────────────────────────────────────────────────────
+#
+# A surveyed database carries about a thousand measurement annotations. At graph
+# depth 1 Egeria reads every one of them, even when skipRelationships names them
+# (15 s for coco_pharma), and a long includeOnlyRelationships list is not honoured
+# either. A short list is. So an element with many annotations is read as several
+# short lists of the relationships this page shows, in parallel (~0.5 s), and the
+# page says that only those were read. Everything else is read in one call.
+
+_ANNOTATION_HEAVY = 50       # annotations at which the curated read is used
+_INCLUDE_CHUNK = 10          # relationship types per curated call
+_PAGE_RELATIONSHIPS = [
+    # sections of the page
+    "CollectionMembership", "NestedSchemaAttribute", "ReportSubject", "SearchKeywordLink", "SemanticAssignment",
+    "DataFlow", "ControlFlow", "ProcessCall", "LineageMapping", "DataMapping", "UltimateSource", "UltimateDestination",
+    # structure
+    "DataSetContent", "NestedFile", "FolderHierarchy", "AttributeForSchema", "Schema",
+    # where it fits
+    "ResourceConnection", "CatalogTarget", "ImplementedBy", "GovernedBy", "ScopedBy", "AssignmentScope",
+    "ResourceList", "DataDescription", "ExternalIdLink", "MonitoredResource", "DeployedOn", "SourcedFrom",
+    "CatalogTemplate", "RelatedTerm", "MoreInformation", "ExternalReferenceLink", "Certification", "License",
+    "APIEndpoint", "SchemaTypeDefinition", "CapabilityAssetUse", "TargetForGovernanceAction",
+]
+
+
+async def _annotation_heavy(client, guid: str) -> bool:
+    """Whether the element has at least _ANNOTATION_HEAVY annotations (one short page, ~0.1 s)."""
+    try:
+        raw = await client._async_get_related_elements(
+            guid, relationship_type="AssociatedAnnotation", output_format="JSON", page_size=_ANNOTATION_HEAVY,
+            body={"class": "ResultsRequestBody", "startFrom": 0, "pageSize": _ANNOTATION_HEAVY, "graphQueryDepth": 0})
+    except Exception as exc:
+        logger.debug(f"resource-browser: annotation count for {guid} failed: {exc}")
+        return False
+    return isinstance(raw, list) and len(raw) >= _ANNOTATION_HEAVY
+
+
+def _merge_reads(reads: list) -> dict:
+    """Several depth-1 reads of one element → one, each relationship once."""
+    out = {k: reads[0][k] for k in ("elementHeader", "properties") if k in reads[0]}
+    seen = set()
+    for el in reads:
+        for key, val in el.items():
+            if key in ("elementHeader", "properties") or not isinstance(val, (list, dict)):
+                out.setdefault(key, val)
+                continue
+            for item in (val if isinstance(val, list) else [val]):
+                rel_guid = ((item.get("relationshipHeader") or {}).get("guid") if isinstance(item, dict) else None) or id(item)
+                if rel_guid in seen:
+                    continue
+                seen.add(rel_guid)
+                if isinstance(val, list):
+                    out.setdefault(key, []).append(item)
+                else:
+                    out.setdefault(key, item)
+    return out
+
+
+async def _read_resource(client, guid: str) -> tuple:
+    """(element at graph depth 1, whether only the page's relationships were read)."""
+    if not await _annotation_heavy(client, guid):
+        el = await client._async_get_element_by_guid(
+            guid, graph_query_depth=1, output_format="JSON",
+            body={"class": "GetRequestBody", "graphQueryDepth": 1, "skipRelationships": _SKIP_RELATIONSHIPS})
+        return el, False
+    chunks = [_PAGE_RELATIONSHIPS[i:i + _INCLUDE_CHUNK] for i in range(0, len(_PAGE_RELATIONSHIPS), _INCLUDE_CHUNK)]
+    sem = asyncio.Semaphore(_LOOKUP_CONCURRENCY)
+
+    async def one(types):
+        async with sem:
+            return await client._async_get_element_by_guid(
+                guid, graph_query_depth=1, output_format="JSON",
+                body={"class": "GetRequestBody", "graphQueryDepth": 1, "includeOnlyRelationships": types})
+    reads = [r for r in await asyncio.gather(*(one(c) for c in chunks)) if isinstance(r, dict) and r.get("elementHeader")]
+    return (_merge_reads(reads) if reads else None), True
+
+
 @router.get("/api/resource-browser/resource/{guid}", summary="Everything the Resource page shows, in one call")
 async def get_resource(guid: str):
     try:
         client = await _explorer_async()
-        el = await client._async_get_element_by_guid(
-            guid, graph_query_depth=1, output_format="JSON",
-            body={"class": "GetRequestBody", "graphQueryDepth": 1, "skipRelationships": _SKIP_RELATIONSHIPS},
-        )
+        el, curated = await _read_resource(client, guid)
     except Exception as exc:
         _raise_not_visible_or_mapped(exc, f"resource-browser: get_element_by_guid({guid}) failed")
     if not isinstance(el, dict) or not el.get("elementHeader"):
@@ -386,13 +465,15 @@ async def get_resource(guid: str):
             logger.debug(f"resource-browser: anchor {anchor_guid} not readable: {exc}")
 
     # Everything else, minus the keys the page already shows in its own sections.
-    shown = {"memberOfCollections", "schemaAttributes", "reports", "searchKeywords"}
+    shown = {"memberOfCollections", "schemaAttributes", "reports", "searchKeywords"} | _STRUCTURE_SHOWN_KEYS
     other = {}
     for key, recs in related.items():
         if key in shown:
             continue
         rest = [{k: r[k] for k in ("guid", "typeName", "displayName", "relationshipType", "atEnd1")}
                 for r in recs if r["relationshipType"] not in _LINEAGE_RELATIONSHIPS
+                and r["relationshipType"] not in _STRUCTURE_RELATIONSHIPS
+                and r["relationshipType"] != "SemanticAssignment"
                 and r["typeName"] not in _FEEDBACK_TYPES]
         if rest:
             other[key] = rest
@@ -433,7 +514,9 @@ async def get_resource(guid: str):
         "me": _token_user(),
         "canWrite": _token_user() is not None,
         "asOf": _now_iso(),
-        "source": "ClassificationExplorer.get_element_by_guid (graph depth 1)",
+        "relationshipsLimited": curated,
+        "source": "ClassificationExplorer.get_element_by_guid (graph depth 1"
+                  + (", the page's relationships only)" if curated else ")"),
     })
 
 
@@ -610,7 +693,8 @@ async def get_notes(guid: str):
                 (log.get("elementHeader") or {}).get("guid"), output_format="JSON", page_size=_NOTES_CAP)
             batch = _elements(raw)
             capped = capped or len(batch) >= _NOTES_CAP
-            notes.extend(_note_record(n) for n in batch)
+            log_name = _display_name(log.get("properties"), "")
+            notes.extend(dict(_note_record(n), log=log_name) for n in batch)
     except Exception as exc:
         raise_egeria_http_error(exc, f"resource-browser: notes for {guid} failed")
     notes.sort(key=lambda n: n["createTime"], reverse=True)
@@ -646,6 +730,444 @@ async def add_note(guid: str, body: NoteBody):
     except Exception as exc:
         raise_egeria_http_error(exc, f"resource-browser: add note to {guid} failed")
     return await get_notes(guid)
+
+
+# ── Structure: what a resource is part of, and what it contains ──────────────
+#
+# Egeria names each related element by the role it plays at its end of the
+# relationship (DataSetContent: end1 supportedDataSets, end2 dataSetContent), so
+# the key alone says which side of the containment the related element is on.
+
+_CONTAINS_KEYS = [                       # (key, relationship): the parts it holds
+    ("supportedDataSets", "DataSetContent"),
+    ("nestedFolders", "FolderHierarchy"),
+    ("nestedFiles", "NestedFile"),
+    ("collectionMembers", "CollectionMembership"),
+]
+_PART_OF_KEYS = ["dataSetContent", "parentFolder", "homeFolder"]   # its container
+
+# Relationships the structure section shows, left out of "where it fits".
+_STRUCTURE_RELATIONSHIPS = {"DataSetContent", "FolderHierarchy", "NestedFile", "AttributeForSchema",
+                            "NestedSchemaAttribute", "APIOperations", "SchemaTypeOption"}
+_STRUCTURE_SHOWN_KEYS = {k for k, _ in _CONTAINS_KEYS} | set(_PART_OF_KEYS)
+
+_PATH_HOPS = 5          # containers walked up from a resource
+_PARTS_CAP = 200        # parts listed per group
+_PART_COUNT_CAP = 50    # parts whose own contents are counted
+
+
+def _related_recs(val) -> list:
+    """A relationship key's value (a list, or one related element) → flat records."""
+    items = val if isinstance(val, list) else [val]
+    return [r for r in (_related(i) for i in items) if r]
+
+
+def _is_schema_attribute(type_name: str, supers: list) -> bool:
+    return "SchemaAttribute" in [type_name] + list(supers or [])
+
+
+def _is_schema_element(type_name: str, supers: list) -> bool:
+    return "SchemaElement" in [type_name] + list(supers or [])
+
+
+# Asking for only these is what keeps the walk fast: a surveyed database carries
+# about a thousand measurement annotations, and skipping them still costs ~13 s a
+# read where naming the wanted relationships takes ~0.2 s.
+_STRUCTURE_INCLUDE = ["DataSetContent", "FolderHierarchy", "NestedFile", "CollectionMembership",
+                      "Schema", "AttributeForSchema", "NestedSchemaAttribute", "APIOperations", "SchemaTypeOption"]
+
+# What a schema type holds, by key: a schema's tables and a data set's fields
+# (schemaAttributes), an API's operations, a topic's event types (schema options).
+_SCHEMA_PART_KEYS = ["schemaAttributes", "containsOperations", "schemaOptions"]
+
+# Labels for parts that have no resource kind of their own.
+_PART_LABELS = {"APIOperation": "Operations", "EventType": "Event types", "GlossaryTerm": "Glossary terms",
+                "CollectionFolder": "Folders", "Collection": "Collections"}
+
+# Kinds whose parts are worth counting (a schema's tables, a table's columns, …).
+_COUNTED_KINDS = {"database", "schema", "table", "file", "topic", "product", "dataset"}
+_COUNTED_TYPES = {"EventType"}
+_RELATED_LIMIT = 1000   # Egeria returns at most this many relationships per key at depth 1
+
+
+async def _get_depth1(client, guid: str) -> dict:
+    """The element with only its containment relationships, one level each way."""
+    return await client._async_get_element_by_guid(
+        guid, graph_query_depth=1, output_format="JSON",
+        body={"class": "GetRequestBody", "graphQueryDepth": 1, "includeOnlyRelationships": _STRUCTURE_INCLUDE})
+
+
+def _container_of(el: dict) -> Optional[dict]:
+    """The element one level up from this one, or None at the top.
+
+    A data set sits in its content (a schema in its database); a file or folder in
+    its folder. A table or column is a schema attribute: a column's container is
+    its table; a top-level table hangs off a schema type, so its container is the
+    asset the schema type describes, which is the table's anchor. Other schema
+    elements (an API operation, a topic's event type) belong to their anchor too."""
+    for key in _PART_OF_KEYS:
+        recs = _related_recs(el.get(key))
+        if recs:
+            return recs[0]
+    hdr = el.get("elementHeader") or {}
+    type_name, supers = _type_names(hdr)
+    if _is_schema_element(type_name, supers):
+        for p in _related_recs(el.get("parentSchemaElements")):
+            if _is_schema_attribute(p["typeName"], p["superTypeNames"]) or p["typeName"] in _COUNTED_TYPES:
+                return p
+        anchor = (hdr.get("anchor") or {}).get("classificationProperties") or {}
+        if anchor.get("anchorGUID") and anchor["anchorGUID"] != hdr.get("guid"):
+            return {"guid": anchor["anchorGUID"], "typeName": anchor.get("anchorTypeName", ""),
+                    "superTypeNames": [], "displayName": ""}
+    return None
+
+
+def _part_record(rec: dict) -> dict:
+    hdr = rec.get("elementHeader") or {}
+    anchor = (hdr.get("anchor") or {}).get("classificationProperties") or {}
+    return {
+        "guid": rec["guid"],
+        "typeName": rec["typeName"],
+        "superTypeNames": rec["superTypeNames"],
+        "displayName": rec["displayName"],
+        "qualifiedName": rec.get("qualifiedName", ""),
+        "kind": _kind_of(rec["typeName"], rec["superTypeNames"]),
+        # Tables and columns have no page of their own in The Catalog; their anchor does.
+        "anchorGUID": anchor.get("anchorGUID") if anchor.get("anchorGUID") != rec["guid"] else None,
+        "count": None,
+    }
+
+
+async def _schema_parts(client, el: dict) -> list:
+    """What the element's schema type holds: a schema's tables, a data set's fields,
+    an API's operations, a topic's event types."""
+    st = _related_recs(el.get("schemaType"))
+    if not st:
+        return []
+    st_el = await _get_depth1(client, st[0]["guid"]) or {}
+    return [r for key in _SCHEMA_PART_KEYS for r in _related_recs(st_el.get(key))]
+
+
+def _attribute_noun(parts: list) -> str:
+    if {_kind_of(p["typeName"], p["superTypeNames"]) for p in parts} == {"table"}:
+        return "tables"
+    if all(p["typeName"] == "RelationalColumn" for p in parts):
+        return "columns"
+    return "fields"
+
+
+async def _count_parts(client, guid: str) -> Optional[dict]:
+    """How many parts one contained element holds, by the same rules, or None."""
+    el = await _get_depth1(client, guid)
+    if not isinstance(el, dict):
+        return None
+    cols = _related_recs(el.get("schemaAttributes"))
+    if cols:
+        return {"n": len(cols), "of": _attribute_noun(cols)}
+    parts = await _schema_parts(client, el)
+    if parts:
+        return {"n": len(parts), "of": _attribute_noun(parts)}
+    n = sum(len(_related_recs(el.get(k))) for k, _ in _CONTAINS_KEYS)
+    return {"n": n, "of": "parts"} if n else None
+
+
+def _group_label(part: dict) -> str:
+    if part["typeName"] in _PART_LABELS:
+        return _PART_LABELS[part["typeName"]]
+    if part["kind"] != "other":
+        return next(label for k, label, _types in _KINDS if k == part["kind"])
+    if _is_schema_attribute(part["typeName"], part["superTypeNames"]):
+        return "Fields"
+    return re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", part["typeName"])
+
+
+async def _part_sources(client, el: dict) -> list:
+    """[(relationship, related records)] for each way the element holds parts."""
+    sources = [(rel, recs) for key, rel in _CONTAINS_KEYS for recs in [_related_recs(el.get(key))] if recs]
+    try:
+        schema_parts = await _schema_parts(client, el)
+    except Exception as exc:
+        logger.debug(f"resource-browser: schema parts not readable: {exc}")
+        schema_parts = []
+    if schema_parts:
+        sources.append(("AttributeForSchema", schema_parts))
+    return sources
+
+
+@router.get("/api/resource-browser/resource/{guid}/structure",
+            summary="What a resource is part of, and the parts it contains")
+async def get_structure(guid: str):
+    try:
+        client = await _explorer_async()
+        el = await _get_depth1(client, guid)
+    except Exception as exc:
+        _raise_not_visible_or_mapped(exc, f"resource-browser: structure of {guid} failed")
+    if not isinstance(el, dict) or not el.get("elementHeader"):
+        raise HTTPException(status_code=404, detail=_NOT_VISIBLE)
+    type_name, supers = _type_names(el["elementHeader"])
+
+    # Part of: walk up, one container at a time.
+    path, seen, cur, path_cut = [], {guid}, el, False
+    try:
+        for _ in range(_PATH_HOPS):
+            up = _container_of(cur)
+            if not up or up["guid"] in seen:
+                break
+            seen.add(up["guid"])
+            cur = await _get_depth1(client, up["guid"])
+            if not isinstance(cur, dict) or not cur.get("elementHeader"):
+                path_cut = True
+                break
+            hdr = cur["elementHeader"]
+            t, s = _type_names(hdr)
+            path.append({"guid": up["guid"], "typeName": t, "superTypeNames": s,
+                         "displayName": _display_name(cur.get("properties"), up["guid"]),
+                         "kind": _kind_of(t, s)})
+        else:
+            path_cut = _container_of(cur) is not None
+    except Exception as exc:  # what was found so far still helps
+        logger.debug(f"resource-browser: container walk for {guid} stopped: {exc}")
+        path_cut = True
+    path.reverse()
+
+    # Contains: the parts, grouped by kind. A table's columns have their own card.
+    groups = {}
+    for rel, recs in await _part_sources(client, el):
+        for rec in recs:
+            part = _part_record(rec)
+            g = groups.setdefault((rel, _group_label(part)),
+                                  {"label": _group_label(part), "relationship": rel, "parts": [], "total": 0})
+            g["total"] += 1
+            if len(g["parts"]) < _PARTS_CAP:
+                g["parts"].append(part)
+    contains = sorted(groups.values(), key=lambda g: g["label"])
+    for g in contains:
+        g["parts"].sort(key=lambda p: p["displayName"].lower())
+
+    for g in contains:
+        g["atLeast"] = g["total"] >= _RELATED_LIMIT
+
+    # Count each part's own parts (a schema's tables, a table's columns), bounded.
+    to_count = [p for g in contains for p in g["parts"]
+                if p["kind"] in _COUNTED_KINDS or p["typeName"] in _COUNTED_TYPES][:_PART_COUNT_CAP]
+    sem = asyncio.Semaphore(_LOOKUP_CONCURRENCY)
+
+    async def count(part):
+        async with sem:
+            try:
+                part["count"] = await _count_parts(client, part["guid"])
+            except Exception as exc:
+                logger.debug(f"resource-browser: count parts of {part['guid']} failed: {exc}")
+    await asyncio.gather(*(count(p) for p in to_count))
+
+    n_parts = sum(len(g["parts"]) for g in contains)
+    return JSONResponse({
+        "guid": guid,
+        "typeName": type_name,
+        "partOf": path,
+        "partOfIncomplete": path_cut,
+        "contains": contains,
+        "countsCapped": len(to_count) >= _PART_COUNT_CAP and n_parts > _PART_COUNT_CAP,
+        "asOf": _now_iso(),
+        "source": "ClassificationExplorer.get_element_by_guid (graph depth 1), one call per level",
+    })
+
+
+# ── Meaning: glossary terms assigned to a resource and its columns ───────────
+#
+# A SemanticAssignment links an element (end 1) to the glossary term that says
+# what it means (end 2). One a user adds here is PROPOSED: a steward validates it
+# in Egeria Explorer. Only the user who proposed one may remove it here.
+
+_MEANING_COLUMN_CAP = 200
+_TERM_SEARCH_PAGE = 20
+
+
+def _is_term(type_name: str, supers: list) -> bool:
+    return "GlossaryTerm" in [type_name] + list(supers or [])
+
+
+def _meanings_of(el: dict) -> list:
+    """The terms assigned to an element, with how and by whom."""
+    out = {}
+    for key, val in (el or {}).items():
+        if key in ("elementHeader", "properties") or not isinstance(val, (list, dict)):
+            continue
+        for item in (val if isinstance(val, list) else [val]):
+            rec = _related(item)
+            if not rec or rec["relationshipType"] != "SemanticAssignment" or not _is_term(rec["typeName"], rec["superTypeNames"]):
+                continue
+            rel_versions = ((item.get("relationshipHeader") or {}).get("versions") or {})
+            rp = rec["relationshipProperties"]
+            out[rec["guid"]] = {
+                "guid": rec["guid"],
+                "displayName": rec["displayName"],
+                "qualifiedName": rec["qualifiedName"],
+                "summary": rec["properties"].get("summary") or rec["description"] or "",
+                "status": rp.get("termAssignmentStatus") or rp.get("status") or "",
+                "confidence": rp.get("confidence") or None,
+                "description": rp.get("description") or "",
+                "assignedBy": rel_versions.get("createdBy") or rp.get("createdBy") or "",
+                "assignedAt": rel_versions.get("createTime") or "",
+            }
+    return sorted(out.values(), key=lambda t: t["displayName"].lower())
+
+
+async def _read_meanings(client, guid: str, with_columns: bool = True) -> dict:
+    el = await client._async_get_element_by_guid(
+        guid, graph_query_depth=1, output_format="JSON",
+        body={"class": "GetRequestBody", "graphQueryDepth": 1,
+              "includeOnlyRelationships": ["SemanticAssignment", "NestedSchemaAttribute"]})
+    if not isinstance(el, dict) or not el.get("elementHeader"):
+        raise HTTPException(status_code=404, detail=_NOT_VISIBLE)
+    columns = {}
+    col_recs = _related_recs(el.get("schemaAttributes")) if with_columns else []
+    sem = asyncio.Semaphore(_LOOKUP_CONCURRENCY)
+
+    async def one(col):
+        async with sem:
+            try:
+                c_el = await client._async_get_element_by_guid(
+                    col["guid"], graph_query_depth=1, output_format="JSON",
+                    body={"class": "GetRequestBody", "graphQueryDepth": 1, "includeOnlyRelationships": ["SemanticAssignment"]})
+                terms = _meanings_of(c_el)
+                if terms:
+                    columns[col["guid"]] = terms
+            except Exception as exc:
+                logger.debug(f"resource-browser: meanings of column {col['guid']} failed: {exc}")
+    await asyncio.gather(*(one(c) for c in col_recs[:_MEANING_COLUMN_CAP]))
+    return {"guid": guid, "meanings": _meanings_of(el), "columns": columns,
+            "columnsCapped": len(col_recs) > _MEANING_COLUMN_CAP, "me": _token_user(),
+            "asOf": _now_iso(), "source": "ClassificationExplorer.get_element_by_guid (SemanticAssignment)"}
+
+
+@router.get("/api/resource-browser/resource/{guid}/meanings",
+            summary="Glossary terms that say what a resource, and each of its columns, means")
+async def get_meanings(guid: str):
+    try:
+        client = await _explorer_async()
+        return JSONResponse(await _read_meanings(client, guid))
+    except HTTPException:
+        raise
+    except Exception as exc:
+        _raise_not_visible_or_mapped(exc, f"resource-browser: meanings of {guid} failed")
+
+
+class MeaningBody(BaseModel):
+    termGuid: str
+    description: Optional[str] = None
+
+
+@router.post("/api/resource-browser/resource/{guid}/meanings",
+             summary="Propose a glossary term as the meaning of a resource or column")
+async def add_meaning(guid: str, body: MeaningBody):
+    user = _require_signed_in()
+    try:
+        client = await _explorer_async()
+        # termAssignmentStatus, not "status" as pyegeria's docstring sample has it: Egeria
+        # silently drops a property it does not know.
+        props = {"class": "SemanticAssignmentProperties", "termAssignmentStatus": "PROPOSED", "createdBy": user}
+        if body.description and body.description.strip():
+            props["description"] = body.description.strip()
+        await client._async_setup_semantic_assignment(
+            body.termGuid, guid, {"class": "NewRelationshipRequestBody", "properties": props})
+        return JSONResponse(await _read_meanings(client, guid, with_columns=False))
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise_egeria_http_error(exc, f"resource-browser: assign term {body.termGuid} to {guid} failed")
+
+
+@router.delete("/api/resource-browser/resource/{guid}/meanings/{term_guid}",
+               summary="Withdraw a meaning you proposed")
+async def remove_meaning(guid: str, term_guid: str):
+    user = _require_signed_in()
+    try:
+        client = await _explorer_async()
+        current = await _read_meanings(client, guid, with_columns=False)
+        mine = next((t for t in current["meanings"] if t["guid"] == term_guid), None)
+        if not mine:
+            raise HTTPException(status_code=404, detail="That term is not assigned to this resource.")
+        if mine["assignedBy"] != user:
+            raise HTTPException(status_code=403, detail=(
+                f"Only {mine['assignedBy'] or 'whoever assigned it'} can withdraw this here; "
+                "a steward can change it in Egeria Explorer."))
+        await client._async_clear_semantic_assignment_classification(term_guid, guid)
+        return JSONResponse(await _read_meanings(client, guid, with_columns=False))
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise_egeria_http_error(exc, f"resource-browser: withdraw term {term_guid} from {guid} failed")
+
+
+@router.get("/api/resource-browser/terms", summary="Glossary terms matching some text, to choose a meaning from")
+async def search_terms(q: str = Query(..., min_length=2)):
+    try:
+        client = await _explorer_async()
+        raw = await client._async_find_elements_by_property_value(
+            property_value=q, property_names=["displayName", "qualifiedName", "summary"],
+            metadata_element_subtypes=["GlossaryTerm"], starts_with=False, ends_with=False, ignore_case=True,
+            graph_query_depth=0, output_format="JSON", page_size=_TERM_SEARCH_PAGE)
+    except Exception as exc:
+        raise_egeria_http_error(exc, f"resource-browser: term search {q!r} failed")
+    terms = []
+    for e in _elements(raw):
+        hdr = e.get("elementHeader") or {}
+        props = e.get("properties") or {}
+        terms.append({"guid": hdr.get("guid", ""), "displayName": _display_name(props, hdr.get("guid", "")),
+                      "qualifiedName": props.get("qualifiedName", ""),
+                      "summary": props.get("summary") or props.get("description") or ""})
+    terms.sort(key=lambda t: (not t["displayName"].lower().startswith(q.lower()), t["displayName"].lower()))
+    return JSONResponse({"terms": terms, "asOf": _now_iso(),
+                         "source": "ClassificationExplorer.find_elements_by_property_value (GlossaryTerm)"})
+
+
+# ── Notes on its parts ───────────────────────────────────────────────────────
+
+_PART_NOTES_CAP = 100   # parts whose note logs are read
+
+
+async def _notes_on(client, guid: str) -> list:
+    logs = _elements(await client._async_get_attached_note_logs(guid, graph_query_depth=0, output_format="JSON"))
+    notes = []
+    for log in logs:
+        raw = await client._async_get_notes_for_note_log(
+            (log.get("elementHeader") or {}).get("guid"), output_format="JSON", page_size=_NOTES_CAP)
+        notes.extend(_note_record(n) for n in _elements(raw))
+    return notes
+
+
+@router.get("/api/resource-browser/resource/{guid}/part-notes",
+            summary="Notes and journal entries left on a resource's parts, one level down")
+async def get_part_notes(guid: str):
+    try:
+        client = await _explorer_async()
+        el = await _get_depth1(client, guid)
+    except Exception as exc:
+        _raise_not_visible_or_mapped(exc, f"resource-browser: part notes of {guid} failed")
+    if not isinstance(el, dict) or not el.get("elementHeader"):
+        raise HTTPException(status_code=404, detail=_NOT_VISIBLE)
+    parts = [r for _rel, recs in await _part_sources(client, el) for r in recs]
+    parts += _related_recs(el.get("schemaAttributes"))           # a table's columns
+    checked = parts[:_PART_NOTES_CAP]
+    found = []
+    sem = asyncio.Semaphore(_LOOKUP_CONCURRENCY)
+
+    async def one(rec):
+        async with sem:
+            try:
+                notes = await _notes_on(client, rec["guid"])
+            except Exception as exc:
+                logger.debug(f"resource-browser: notes on part {rec['guid']} failed: {exc}")
+                return
+        if notes:
+            notes.sort(key=lambda n: n["createTime"], reverse=True)
+            found.append({"part": {k: rec[k] for k in ("guid", "typeName", "displayName")}, "notes": notes})
+    await asyncio.gather(*(one(r) for r in checked))
+    found.sort(key=lambda f: f["notes"][0]["createTime"], reverse=True)
+    return JSONResponse({"guid": guid, "parts": found, "partsChecked": len(checked),
+                         "capped": len(parts) > _PART_NOTES_CAP, "asOf": _now_iso(),
+                         "source": "get_attached_note_logs + get_notes_for_note_log on each part"})
 
 
 # ══ Phase 2: search, Home, Browse ════════════════════════════════════════════
