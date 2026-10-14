@@ -36,11 +36,6 @@ services:
     build:
       context: ../egeria-quickstart
       dockerfile: Dockerfile-jupyter
-      network: host
-      extra_hosts:
-        - "files.pythonhosted.org:151.101.128.223"
-        - "pypi.org:151.101.128.223"
-        - "deb.debian.org:151.101.114.132"
     volumes:
       - ../egeria-quickstart/before-notebook.d:/usr/local/bin/before-notebook.d
       - ../../work:/home/jovyan/work
@@ -154,10 +149,6 @@ services:
     build:
       context: ./PyegeriaWebHandler
       dockerfile: ./Dockerfile-fast-api
-      network: host
-      extra_hosts:
-        - "files.pythonhosted.org:151.101.128.223"
-        - "pypi.org:151.101.128.223"
     ports:
       - "7800:8000"
     logging:
@@ -230,11 +221,6 @@ services:
     build:
       context: ../egeria-quickstart
       dockerfile: Dockerfile-apache-web
-      network: host
-      extra_hosts:
-        - "files.pythonhosted.org:151.101.128.223"
-        - "pypi.org:151.101.128.223"
-        - "deb.debian.org:151.101.114.132"
     container_name: freshstart-web-server
     restart: unless-stopped
     ports:
