@@ -352,6 +352,54 @@ postgresDatabase: PostgreSQL Relational Database::host.docker.internal:5432::adv
 ```
 ---
 
+## Reference Data
+
+Business value lists, such as order statuses or country codes, stored as
+`ReferenceDataSet` and `ReferenceDataValue` elements.
+
+### Create a reference data set with its values
+`Values` takes one value per line; commas are part of the value. Re-running
+the note updates the set in place, and a value removed from the list is
+unlinked from the set, not deleted.
+```markdown
+## Create Reference Data Set
+### Display Name
+Order Status
+
+### Description
+The stages an order moves through.
+
+### Values
+- PENDING
+- ON HOLD, AWAITING STOCK
+- SHIPPED
+```
+
+### Give each value its own properties
+```markdown
+## Create Reference Data Set
+### Display Name
+Order Status
+
+### Value Table
+| Value     | Display Name | Description         | Default | Ordinal |
+|-----------|--------------|---------------------|---------|---------|
+| PENDING   | Pending      | Order received      | true    | 1       |
+| SHIPPED   | Shipped      | Left the warehouse  |         | 2       |
+```
+
+### Say which value set a data field uses
+```markdown
+## Link Element to Valid Values
+### Element Id
+Order Status Field
+
+### Valid Value Set
+Order Status
+```
+
+---
+
 > **Tip:** Set **Default Directive** to `validate` in the plugin settings while drafting new commands. Switch to `process` when ready to execute.
 
 See also: [Advanced Templates](templates-advanced.md)
