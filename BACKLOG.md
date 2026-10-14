@@ -9,6 +9,21 @@ what's actually open — a stub with a link is left in place of each moved
 section. Sections with any open/pending sub-items stay here even if their
 header says "done", since part of the work is still live.
 ---
+## RE-PORT Resource Explorer moves from 8813 to 8810 (2026-10-13) — deferred
+
+The owner's decision for now: the Portal reaches Resource Explorer on 8813 (the
+instance that runs on the host and tracks trellis main). It will eventually
+move to 8810, the 88xx port scheme's RE slot. When it does:
+- `RESOURCE_EXPLORER_API_URL` (server-to-server, `re_analytics.py`, the
+  Curation Coverage tile): change its default from
+  `http://host.docker.internal:8813` to `:8810`, or set it in the compose env.
+- `EGERIA_RESOURCE_EXPLORER_URL` (browser-facing, `demo_config.py`, the RE
+  tile and SSO handoff) already defaults to `http://localhost:8810/`. Check
+  it is right, since today nothing listens on 8810.
+- Re-run the tile end to end (persona erinoverview,
+  `localhost_docker_coco_pharma`).
+
+---
 ## RL-1 Resource Locator private notes: review the borrowed secured zone (2026-10-13) — open
 
 Private notes in the Resource Locator are My Profile journal entries. Egeria's
