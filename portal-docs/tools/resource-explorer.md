@@ -30,9 +30,12 @@ tile signs the Portal's user straight in.
 ## What a signed-in user does
 
 - **Add** a repository, **survey** it, and **publish** the survey into Egeria. The published asset
-  and its survey report are owned by the user who published them (Egeria Ownership) and sit in the
-  `resource-explorer-draft` zone until a curator accepts them.
-- **Curate**: accept or reject drafts; accepted resources move to the published zones.
+  and its survey report are owned by the user who published them (Egeria Ownership). Published
+  assets go to Egeria with no RE-imposed zone: RE leaves zoning to Egeria's own defaults. Draft
+  versus accepted is a content status on the element, not a zone. The exception is work in a
+  private investigation, which RE zones to its owner (`resource-explorer-private` plus the owner's
+  zone), so only that owner can see it.
+- **Curate**: accept or reject drafts. Accepting changes the element's content status, not its zone.
 - **Ask** questions about a surveyed resource, answered from the survey findings and the code.
 
 ---
