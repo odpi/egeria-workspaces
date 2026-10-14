@@ -2,7 +2,7 @@
 SPDX-License-Identifier: Apache-2.0
 Copyright Contributors to the ODPi Egeria project.
 
-Resource Browser — FastAPI router (phase 1: the Resource page; phase 2: search, Home, Browse;
+Resource Locator — FastAPI router (phase 1: the Resource page; phase 2: search, Home, Browse;
 phase 3: work lists).
 
 A shop-for-resources app for people who look for resources (data, code, APIs, products)
@@ -12,7 +12,7 @@ Reads Egeria only, and writes back only what Egeria already models
 trellis/packages/resource-explorer/docs/design-notes/SPEC-RESOURCE-BROWSER-PORTAL-APP.md
 
 Endpoints:
-  GET    /resource-browser                                   → serve the SPA
+  GET    /resource-locator, /resource-browser                → serve the SPA
   GET    /api/resource-browser/resource/{guid}               → header, flavour, scope, columns, lineage, related
   GET    /api/resource-browser/resource/{guid}/statistics    → latest survey measurements (tables)
   PUT    /api/resource-browser/resource/{guid}/description   → update the description (any element, incl. a column)
@@ -334,10 +334,11 @@ def _jdbc_table_name(props: dict) -> Optional[str]:
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
+@router.get("/resource-locator", include_in_schema=False)
 @router.get("/resource-browser", include_in_schema=False)
 async def serve_resource_browser():
     if not _HTML.exists():
-        raise HTTPException(status_code=404, detail="Resource Browser page not found")
+        raise HTTPException(status_code=404, detail="Resource Locator page not found")
     return FileResponse(str(_HTML), media_type="text/html")
 
 
@@ -723,7 +724,7 @@ async def add_note(guid: str, body: NoteBody):
         else:
             log_guid = await client._async_create_note_log(
                 element_guid=guid, display_name="Notes",
-                description="Notes added from the Resource Browser beside the official description.")
+                description="Notes added from the Resource Locator beside the official description.")
         stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
         await client._async_create_note(
             log_guid, display_name=(body.title or f"Note by {user}, {stamp}")[:120], description=text)
@@ -1120,6 +1121,161 @@ async def search_terms(q: str = Query(..., min_length=2)):
     terms.sort(key=lambda t: (not t["displayName"].lower().startswith(q.lower()), t["displayName"].lower()))
     return JSONResponse({"terms": terms, "asOf": _now_iso(),
                          "source": "ClassificationExplorer.find_elements_by_property_value (GlossaryTerm)"})
+
+
+# ── Private notes: entries in the user's own My Profile journal ──────────────
+#
+# Egeria's My Profile service keeps a "My Private Journal" note log on each
+# user's profile and puts every entry in a governance zone named after that user.
+# That zone alone hides nothing: a userId zone only GRANTS, and a zone with no
+# security list is ignored, so everyone can still read the entry (verified on
+# quickstart 2026-10-13, JournalEntry 8bec72e4). journal-my-activity also ignores
+# initialClassifications. So each new entry is re-zoned straight afterwards to
+# [_PRIVATE_ZONE, <userId>]: the secured zone denies everyone else, the userId
+# zone lets the author back in.
+#
+# The entry is then linked to the resource with an Actions relationship
+# (resource = actionCause at end 1, JournalEntry = an Action at end 2), as the
+# Egeria team suggested: the user's own journal listing shows what each entry is
+# about, and a resource's private notes are read back through Asset Maker's
+# sponsored-actions query rather than by scanning the whole journal.
+# journal-my-activity cannot take a cause itself (it passes none to
+# createNoteLogEntry), so the link is a second call. The resource is also kept in
+# additionalProperties. Public notes stay on the resource's own note logs.
+#
+# _PRIVATE_ZONE borrows Resource Explorer's secured zone (defined in the
+# quickstart and freshstart user directories) until Egeria's journal fix lands;
+# BACKLOG.md RL-1 is to review that choice then.
+
+_PRIVATE_ZONE = "resource-explorer-private"
+_ACTIONS_PAGE = 200
+_ACTIONS_MAX_PAGES = 10
+
+
+async def _my_profile_async():
+    from pyegeria.omvs.my_profile import MyProfile
+    client = MyProfile(**_client_kwargs())
+    await async_apply_token(client)
+    return client
+
+
+async def _asset_maker_async():
+    from pyegeria import AssetMaker
+    client = AssetMaker(**_client_kwargs())
+    await async_apply_token(client)
+    return client
+
+
+def _zones_of(header: dict) -> list:
+    zm = (header or {}).get("zoneMembership") or {}
+    return list((zm.get("classificationProperties") or {}).get("zoneMembership") or [])
+
+
+def _private_note_record(e: dict) -> dict:
+    rec = _note_record(e)
+    ap = ((e.get("properties") or {}).get("additionalProperties") or {})
+    zones = _zones_of(e.get("elementHeader"))
+    # "protected" is what the reader should believe: only entries in the secured
+    # zone are hidden from others. Older entries carry the userId zone alone.
+    rec.update(resourceGUID=ap.get("resourceGUID"), private=True, zones=zones,
+               protected=_PRIVATE_ZONE in zones)
+    return rec
+
+
+async def _my_private_notes(guid: str, user: str) -> list:
+    """This user's journal entries linked to the resource by an Actions relationship."""
+    client = await _asset_maker_async()
+    notes = []
+    for page in range(_ACTIONS_MAX_PAGES):
+        # activity_status_list=None: pyegeria defaults to IN_PROGRESS only, which
+        # silently drops journal entries (they carry no activity status).
+        batch = _elements(await client._async_get_actions_for_sponsor(
+            guid, activity_status_list=None, graph_query_depth=0, output_format="JSON",
+            start_from=page * _ACTIONS_PAGE, page_size=_ACTIONS_PAGE))
+        if not batch:
+            break
+        for e in batch:
+            hdr = e.get("elementHeader") or {}
+            if (hdr.get("type") or {}).get("typeName") != "JournalEntry":
+                continue
+            rec = _private_note_record(e)
+            if rec["createdBy"] == user:
+                notes.append(rec)
+    notes.sort(key=lambda n: n["createTime"], reverse=True)
+    return notes
+
+
+@router.get("/api/resource-browser/resource/{guid}/private-notes",
+            summary="Your private notes on a resource, from your own journal")
+async def get_private_notes(guid: str):
+    user = _require_signed_in()
+    try:
+        notes = await _my_private_notes(guid, user)
+    except Exception as exc:
+        raise_egeria_http_error(exc, f"resource-browser: private notes of {user} on {guid} failed")
+    return JSONResponse({"notes": notes, "me": user, "asOf": _now_iso(),
+                         "source": "AssetMaker.get_actions_for_sponsor (JournalEntry linked by Actions, yours only)"})
+
+
+class PrivateNoteBody(BaseModel):
+    text: str
+    resourceName: Optional[str] = None
+
+
+@router.post("/api/resource-browser/resource/{guid}/private-notes",
+             summary="Add a private note on a resource to your own journal")
+async def add_private_note(guid: str, body: PrivateNoteBody):
+    user = _require_signed_in()
+    text = body.text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="A note needs some text.")
+    name = (body.resourceName or guid)[:100]
+    try:
+        note_guid = await (await _my_profile_async())._async_journal_my_activity(body={
+            "class": "NewAttachmentRequestBody",
+            "properties": {
+                "class": "JournalEntryProperties", "typeName": "JournalEntry",
+                "qualifiedName": f"JournalEntry::{user}::resource-note::{guid}::{uuid.uuid4().hex[:12]}",
+                "displayName": f"Private note on {name}",
+                "description": text,
+                "additionalProperties": {"resourceGUID": guid, "resourceName": name},
+            }})
+    except Exception as exc:
+        raise_egeria_http_error(exc, f"resource-browser: private note by {user} on {guid} failed")
+    if not isinstance(note_guid, str) or not note_guid:
+        raise HTTPException(status_code=502, detail=(
+            "Your note may have been saved, but Egeria did not say which entry it is, so it could not be made "
+            "private. Other people may be able to read it."))
+    try:
+        await (await _explorer_async())._async_add_zone_membership(note_guid, {
+            "class": "NewClassificationRequestBody",
+            "properties": {"class": "ZoneMembershipProperties", "zoneMembership": [_PRIVATE_ZONE, user]}})
+    except Exception as exc:
+        logger.warning(f"resource-browser: private note {note_guid} by {user} saved but not re-zoned: {exc}")
+        raise HTTPException(status_code=502, detail=(
+            "Your note was saved, but Egeria did not make it private, so other people may be able to read it. "
+            f"({exc})"))
+    try:
+        await (await _expert_async())._async_create_related_elements({
+            "class": "NewRelatedElementsRequestBody", "typeName": "Actions",
+            "metadataElement1GUID": guid, "metadataElement2GUID": note_guid,
+            "forLineage": False, "forDuplicateProcessing": False})
+    except Exception as exc:
+        logger.warning(f"resource-browser: private note {note_guid} by {user} not linked to {guid}: {exc}")
+        raise HTTPException(status_code=502, detail=(
+            "Your note was saved in your journal and is private, but Egeria did not link it to this resource, "
+            f"so it will not show here. ({exc})"))
+    return await get_private_notes(guid)
+
+
+@router.delete("/api/resource-browser/resource/{guid}/private-notes/{note_guid}",
+               summary="Delete one of your private notes")
+async def remove_private_note(guid: str, note_guid: str):
+    # Egeria has no way to delete a single journal entry: the asset delete and the
+    # Metadata Expert delete both refuse it with 400-008 (egeria-python ISSUE-146).
+    # pyegeria's remove_note must not be called (it posts an asset delete).
+    _require_signed_in()
+    raise HTTPException(status_code=501, detail="Private notes cannot be deleted yet: Egeria has no way to delete a journal entry.")
 
 
 # ── Notes on its parts ───────────────────────────────────────────────────────
