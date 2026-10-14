@@ -185,6 +185,16 @@ def _fetch_openapi(platform_url: str, server: str, user_id: str, user_pwd: str) 
     _validate_platform_url(platform_url)
     from egeria_auth import get_request_token
 
+    # Only this deployment's own platform is ever fetched, and the request URL
+    # below is built from configuration alone, never from the caller's `url`
+    # (CodeQL py/full-ssrf). The guard above already refused any other host
+    # that resolves internally; nothing legitimate asks for a different one.
+    base = _env_defaults()["url"].rstrip("/")
+    if platform_url.rstrip("/") != base:
+        raise HTTPException(
+            status_code=400,
+            detail=f"The REST API catalogue is only read from this deployment's own platform ({base}).")
+
     cached = _openapi_cache.get(platform_url)
     if cached and (time.time() - cached[0]) < _OPENAPI_TTL:
         logger.debug(f"OpenAPI cache hit for {platform_url}")
@@ -204,7 +214,7 @@ def _fetch_openapi(platform_url: str, server: str, user_id: str, user_pwd: str) 
         headers = {"Authorization": f"Bearer {token}"} if token else {}
         saw_401 = False
         for path in ("/v3/api-docs", "/v2/api-docs", "/api-docs"):
-            url = platform_url.rstrip("/") + path
+            url = base + path
             try:
                 resp = requests.get(url, verify=False, timeout=60, headers=headers)
                 if resp.status_code == 200:
