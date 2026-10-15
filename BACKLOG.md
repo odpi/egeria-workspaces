@@ -9,6 +9,62 @@ what's actually open — a stub with a link is left in place of each moved
 section. Sections with any open/pending sub-items stay here even if their
 header says "done", since part of the work is still live.
 ---
+## RE-PORT Resource Explorer moves from 8813 to 8810 (2026-10-13) — deferred
+
+The owner's decision for now: the Portal reaches Resource Explorer on 8813 (the
+instance that runs on the host and tracks trellis main). It will eventually
+move to 8810, the 88xx port scheme's RE slot. When it does:
+- `RESOURCE_EXPLORER_API_URL` (server-to-server, `re_analytics.py`, the
+  Curation Coverage tile): change its default from
+  `http://host.docker.internal:8813` to `:8810`, or set it in the compose env.
+- `EGERIA_RESOURCE_EXPLORER_URL` (browser-facing, `demo_config.py`, the RE
+  tile and SSO handoff) already defaults to `http://localhost:8810/`. Check
+  it is right, since today nothing listens on 8810.
+- Re-run the tile end to end (persona erinoverview,
+  `localhost_docker_coco_pharma`).
+
+---
+## RL-1 Resource Locator private notes: review the borrowed secured zone (2026-10-13) — open
+
+Private notes in the Resource Locator are My Profile journal entries. Egeria's
+`journal-my-activity` zones each entry with the userId only, and ignores
+`initialClassifications`. A userId zone only GRANTS, so on its own it hides
+nothing. As a stopgap, `resource_browser_handler.add_private_note` re-zones every
+new entry to `["resource-explorer-private", <userId>]`, borrowing Resource
+Explorer's secured zone (owner's choice, 2026-10-13). Verified on quickstart,
+JournalEntry `8bec72e4`: the author reads it, while peterprofile and garygeeke get
+403 by GUID and nothing from search.
+
+**2026-10-13:** the Egeria team has acknowledged a bug in security-zone
+enforcement and will work on it from 2026-10-14. Re-test with the same three
+users once it ships. Source check (egeria af400039c2): `journalMyActivity`
+hard-codes `ZoneMembership [userId]`, drops `initialClassifications`, and
+passes no action causes or targets to `createNoteLogEntry`.
+
+**Suggested by the Egeria team:** link each journal entry to the resource
+it's about with an `Actions` relationship (end 1 the resource, as
+`actionCause`; end 2 the JournalEntry, which is an Action subtype). The user
+then sees what each entry is about in their journal listing, and the
+resource can find its notes through Asset Maker's
+`elements/{guid}/sponsored/actions`, with no full journal scan. Create the
+link with Metadata Expert's `related-elements`; `journal-my-activity` cannot
+take a cause. Unlike the entry, the link can be deleted.
+
+When Egeria's journal fix lands, review:
+- Does `journal-my-activity` then make entries private by itself? If so, drop
+  the re-zone step.
+- If a secured zone is still needed, should the Locator get its own (e.g.
+  `resource-locator-private` in both user directories) instead of RE's?
+- Private-note delete is off (the route returns 501). The asset delete and
+  the Metadata Expert delete both refuse a journal entry with 400-008
+  (egeria-python ISSUE-146). Re-enable delete once Egeria can delete one.
+- Clean up the test entries on Erin's profile: `8bec72e4` and `fef83ed5`,
+  which is still visible to everyone and shown in the UI as "other people can
+  read it".
+- The "My Private Journal" NoteLog itself (`f780511a`) remains `['erinoverview']`
+  only, so other people can see the log exists, though not the hidden entries.
+
+---
 ## Investigate: SECURITY-0011 Read refusals on 5 DigitalProductFamily-anchored elements (2026-10-05) — open
 
 Platform log (quickstart-egeria-main, 20 min to 18:42Z): 1773
