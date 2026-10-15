@@ -43,9 +43,23 @@ To build:
   hasn't run on this platform. Never show 0 reads for "not measured".
 - `_data_scope()` already reads the DataScope classification's properties.
 
-Blocked on the Egeria side: the data-scope governance service must be
-reinstated and run on quickstart. Until it has, the tile's current text
-stays correct.
+**Not blocked.** Read-only check on quickstart, 2026-10-14: the service
+already runs there (analyses at about 12:00 and 23:00 UTC). As
+erinoverview, 12 of 110 DataScope elements carry usage properties.
+- All 12 have `readsPerDay`, `readsInWindow`, `readersInWindow`,
+  `lastReadInWindow`, `analysisWindowStart`, `analysisWindowEnd`,
+  `analysisTime` and `analysisService`.
+- 10 also have the spec's `readCount` and `lastReadAt`.
+
+Rank on `readsPerDay`. Fall back to `lastReadInWindow` when `lastReadAt` is
+absent. Top resources: coco_pharma 0.37/day, adventureworks 0.17/day.
+
+**Where to read it:** in pyegeria 6.2 the classification is at
+`elementHeader.dataScope`, NOT in `elementHeader.classifications`. A
+check that looks in the list finds 0 and wrongly reports "no usage".
+Check `_data_scope()` reads the right place. Gate/re-check: the same
+read-only find of DataScope elements, counting those whose
+`elementHeader.dataScope` additionalProperties carry `readsPerDay`.
 
 ---
 ## RL-1 Resource Locator private notes: review the borrowed secured zone (2026-10-13) — open
