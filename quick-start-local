@@ -262,10 +262,24 @@ cp compose-configs/egeria-quickstart/servers/*.http "$TARGET_SERVER_DIR"/
 cp compose-configs/egeria-quickstart/servers/README.md "$TARGET_SERVER_DIR"/
 cp -r compose-configs/egeria-quickstart/servers/qs-* "$TARGET_SERVER_DIR"/
 
+# Refresh the secrets IN PLACE -- never remove the directory itself.
+# egeria-main bind-mounts this directory directly (not via a parent), and on
+# native Linux Docker a bind mount pins the directory, not its path. When this
+# script re-runs against a running egeria-main that `up -d` then leaves alone
+# (unchanged image and config -- e.g. a --refresh-pyegeria-only run), deleting
+# and recreating the directory left the container mounted on the deleted copy:
+# an empty /deployments/secrets, a YAML-SECRETS-STORE-CONNECTOR-0001 flood,
+# and every view-server -> metadata-store call failing 401 until egeria-main
+# was restarted. Podman runs are unaffected (egeria-main is force-removed
+# before `up` there), but nothing here should depend on that.
+# Overwrite first, then prune files no longer shipped, so a running platform
+# never sees the directory empty.
 RUNTIME_SECRETS_DIR="runtime-volumes/quickstart-platform-data/secrets"
-safe_rm_rf "$RUNTIME_SECRETS_DIR"
 mkdir -p "$RUNTIME_SECRETS_DIR"
-cp compose-configs/egeria-quickstart/secrets/*.omsecrets "$RUNTIME_SECRETS_DIR"/
+cp -f compose-configs/egeria-quickstart/secrets/*.omsecrets "$RUNTIME_SECRETS_DIR"/
+for _secret in "$RUNTIME_SECRETS_DIR"/*; do
+  [[ -e "compose-configs/egeria-quickstart/secrets/$(basename "$_secret")" ]] || safe_rm_rf "$_secret"
+done
 
 compose-configs/shared-infra/ensure-shared-infra.sh
 compose-configs/egeria-quickstart/bin/apply-postgres-init.sh
