@@ -80,7 +80,9 @@ services:
       - egeria_network
     ports:
       - '9443:9443'
-      - '5005:5005'
+      # JDWP debug port: anyone who can reach it can run code in the JVM, so it
+      # is loopback-only. Attach remotely via an SSH tunnel (ssh -L 5005:localhost:5005).
+      - '127.0.0.1:5005:5005'
     # Restart automatically after a crash/OOM-kill (exit 137) instead of
     # staying dead silently. See MEMORY egeria-oom-kill-docker-desktop-vm-limit.
     restart: unless-stopped
@@ -251,7 +253,10 @@ services:
       context: ./PyegeriaWebHandler
       dockerfile: ./Dockerfile-fast-api
     ports:
-      - "8800:8000" # host 8800 -> container 8000 (moved off 8000; see BACKLOG Ports & Networking)
+      # host 8800 -> container 8000 (moved off 8000; see BACKLOG Ports & Networking).
+      # Loopback-only: Apache reaches this container over egeria_network, and a
+      # direct path from outside would skip the demo login gate (demo_auth_gate.py).
+      - "127.0.0.1:8800:8000"
     logging:
       driver: "json-file"
       options:
