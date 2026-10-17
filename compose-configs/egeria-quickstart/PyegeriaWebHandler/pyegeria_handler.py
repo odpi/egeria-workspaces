@@ -157,6 +157,11 @@ class MCPTokenMiddleware:
         await self.app(scope, receive, send)
 
 app.add_middleware(MCPTokenMiddleware)
+# Public demo: everything arriving through Apache needs a login except a short
+# public list (see demo_auth_gate.py for the rules and why).
+if DEMO_MODE:
+    from demo_auth_gate import DemoAuthGateMiddleware
+    app.add_middleware(DemoAuthGateMiddleware)
 # Stash any X-Egeria-Token request header into a contextvar so token-capable
 # handlers (apply_token) reuse a pre-obtained bearer token (LE-4).
 from egeria_auth import EgeriaTokenMiddleware
