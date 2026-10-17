@@ -33,8 +33,8 @@ services:
     networks:
       - egeria_network
     ports:
-      - 8888:7888
-      - 8889:5678
+      - "${EGERIA_BIND_IP:-127.0.0.1}:8888:7888"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:8889:5678"
     logging:
       driver: "json-file"
       options:
@@ -79,8 +79,8 @@ services:
     networks:
       - egeria_network
     ports:
-      - '9443:9443'
-      - '5005:5005'
+      - '${EGERIA_BIND_IP:-127.0.0.1}:9443:9443'
+      - '${EGERIA_BIND_IP:-127.0.0.1}:5005:5005'
     # Restart automatically after a crash/OOM-kill (exit 137) instead of
     # staying dead silently. See MEMORY egeria-oom-kill-docker-desktop-vm-limit.
     restart: unless-stopped
@@ -251,7 +251,7 @@ services:
       context: ./PyegeriaWebHandler
       dockerfile: ./Dockerfile-fast-api
     ports:
-      - "8800:8000" # host 8800 -> container 8000 (moved off 8000; see BACKLOG Ports & Networking)
+      - "${EGERIA_BIND_IP:-127.0.0.1}:8800:8000" # host 8800 -> container 8000 (moved off 8000; see BACKLOG Ports & Networking)
     logging:
       driver: "json-file"
       options:
@@ -346,7 +346,7 @@ services:
     # bringing it back — discovered 2026-08-10.
     restart: unless-stopped
     ports:
-      - "8885:8085"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:8885:8085"
       # SSL (port 443) — disabled by default. See demo-mode.md § SSL / HTTPS.
       # - "443:443"
     logging:
@@ -387,7 +387,7 @@ services:
     networks:
       - egeria_network
     ports:
-      - "8820:8020"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:8820:8020"
     logging:
       driver: "json-file"
       options:

@@ -29,7 +29,7 @@
 services:
   freshstart-apache-web:
     ports:
-      - "${HTTPS_PORT:-7843}:443"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:${HTTPS_PORT:-7843}:443"
     volumes:
       - ../../runtime-volumes/freshstart-apache-web/ssl-define.conf:/usr/local/apache2/conf/extra/ssl-define.conf
       - ./sites-available/fastapi-ssl.conf:/usr/local/apache2/conf/extra/fastapi-ssl.conf
