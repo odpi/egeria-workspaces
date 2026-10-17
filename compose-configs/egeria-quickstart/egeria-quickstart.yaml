@@ -422,20 +422,30 @@ services:
       - PUID=1000
       - PGID=1000
       - TZ=America/Chicago
+      # Web-desktop login (HTTP basic auth in the image's nginx). An empty
+      # OBSIDIAN_PASSWORD means NO login at all -- acceptable only while the
+      # ports below stay on 127.0.0.1. Export both in the shell before
+      # widening them (quick-start-local regenerates .env on every run).
+      - CUSTOM_USER=${OBSIDIAN_USER:-}
+      - PASSWORD=${OBSIDIAN_PASSWORD:-}
     volumes:
       - ../../coco-workbooks:/config/vaults
       - ../../templates:/config/templates
       - ../../runtime-volumes/obsidian-config:/config/.config  # persists app-level settings
+    # Loopback-only by default. This is a full Linux desktop with a terminal,
+    # running as the host user (PUID 1000) with write access to the mounts
+    # above and a seat on egeria_network; published on 0.0.0.0 with no login
+    # it was found internet-reachable and used to run a cryptominer
+    # (2026-10-17). For remote use prefer an SSH tunnel
+    # (`ssh -L 8860:localhost:8860 <host>`); to bind elsewhere -- e.g. a
+    # Tailscale address -- set OBSIDIAN_BIND_ADDR AND OBSIDIAN_PASSWORD.
     ports:
-      - "8860:3000"
-      - "8861:3001"
+      - "${OBSIDIAN_BIND_ADDR:-127.0.0.1}:8860:3000"
+      - "${OBSIDIAN_BIND_ADDR:-127.0.0.1}:8861:3001"
     networks:
       - egeria_network
     restart: unless-stopped
 #    mem_limit: 2g # Optional: limit memory usage
-#   To add KasmVNC authentication, add to environment above:
-#     - CUSTOM_USER=youruser
-#     - PASSWORD=yourpassword
     logging:
       driver: "json-file"
       options:
