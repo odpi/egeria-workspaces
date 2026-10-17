@@ -6,6 +6,13 @@ cd "$(dirname "$0")"
 source compose-configs/shared-infra/detect-engine.sh
 source compose-configs/shared-infra/compose-build-flags.sh
 
+# Other hosts must reach these ports, so bind every interface unless the
+# caller chose an address (e.g. one NIC) by setting EGERIA_BIND_IP.
+if [[ "${EGERIA_BIND_IP_AUTO:-0}" -eq 1 ]]; then
+  export EGERIA_BIND_IP="0.0.0.0"
+fi
+echo "[fresh-start-multi-host] Published ports bind to ${EGERIA_BIND_IP}."
+
 echo "[fresh-start-multi-host] Preparing environment (.env) and compose files..."
 echo "[fresh-start-multi-host] Freshstart uses runtime-volumes/freshstart-platform-data mounted at /deployments."
 

@@ -15,7 +15,7 @@ services:
       dockerfile: Dockerfile
     container_name: egeria-duckdb-federation
     ports:
-      - "5433:5433"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:5433:5433"
     networks:
       - egeria_network
     environment:
