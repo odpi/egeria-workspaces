@@ -1,12 +1,13 @@
-# Egeria Workspaces 6.1
+# Egeria Workspaces 6.2
 
-Four and a half months, 985 commits, and two demo environments that finally act like siblings.
+Seven weeks, 686 commits, and an Overview dashboard that now shows only what it has actually measured.
 
-Since the `v6.02` tag on April 2, `egeria-workspaces` went from a single working demo to a small
-constellation of purpose-built apps over Egeria — plus the plumbing, time-travel, bulk actions, and
-bug fixes that make them trustworthy. **This is the 6.1 release.**
+Since the `v6.1` tag on August 20, `egeria-workspaces` has been about trust and operability: dashboards that
+stop inventing numbers, a portal with one consistent frame and a global Promise/Memento toggle, a
+bootstrap process that loads Dr.Egeria content as the right people, and a quickstart that heals itself
+and survives a reboot. It aligns with **Egeria 6.2** and **pyegeria 6.2.0**. **This is the 6.2 release.**
 
-**6.1** &middot; **985** commits &middot; **228** features &middot; **227** fixes &middot; **4.5** months
+**6.2** &middot; **686** commits &middot; **45** features &middot; **93** fixes &middot; **1.6** months
 
 ## Try it
 
@@ -21,120 +22,108 @@ bug fixes that make them trustworthy. **This is the 6.1 release.**
 
 ---
 
-## Apr–May: the portal, and the first tool worth living in
+## Late Aug: a platform that heals, and bootstrap you can watch
 
-The period opens with QuickStart already running, and Freshstart — the clean-slate, bring-your-own-metadata
-sibling environment — still mostly scaffolding. Most of April and May went into turning Egeria Explorer from
-a type browser into the app people actually reached for, and giving both environments a real front door.
+After 6.1 the first job was making the stack harder to knock over and easier to see into.
 
-- Egeria Explorer's type hierarchy now builds **dynamically from the live Egeria type system** instead of a
-  hardcoded tree, with domain grouping, abstract-type filtering, and inherited-method display.
-- **Element-level Favorites** rolled out across terms, report specs, digital products, data assets, and six
-  more sections — persisted in Egeria itself via `ActorManager` against the user's own Person element, not a
-  side database. Later renamed to **Bookmarks** with delete support.
-- Egeria native **Likes, Ratings, and Comments** landed on every detail pane, alongside a separate
-  **user-feedback widget** ("how's this page working for you?") that persists to Postgres — two distinct
-  feedback systems, kept deliberately apart.
-- The demo portal got a real shape: grouped nav dropdowns, a **persona picker**, a **local-admin panel** for
-  small-team deployments, and a **`--demo`** mode with its own account flow, welcome email, and verification.
-- **Obsidian** arrived as a portal tile, running Dr.Egeria markdown against a Coco Pharmaceuticals vault via a
-  session-locked container.
-- **my-egeria** — a Textual TUI, served over the browser via `textual_serve` — joined the portal as its first
-  non-React tile.
+- **Auto-heal for unhealthy containers** in the shared infrastructure, with alerting, plus restart policies
+  on every Freshstart service (it had none) and a `egeria-main` healthcheck that can now actually fail.
+- **Let's Encrypt issuance and renewal fixed**, with a cert-watch notifier and SANs preserved across renewals.
+- **Bootstrap runs batches in the background and polls for completion**, logs per-file outcomes, and adds an
+  **Activity Log** tab and a **Recent Activity** panel for `bootstrap.log` in the admin area. Orphaned
+  `dr_egeria` subprocesses are killed on timeout or cancel.
+- **Design patterns** gained a load-order manifest and a viewer in Solution Architect; the Coco workbook
+  scenario folders are linked into the Dr.Egeria inbox with their source numbering.
+- A **capability hierarchy** screen and governance-process drill-down for QuickStart; the superseded
+  GovernanceStrategy group is hidden from the governance tree.
+- Slow list endpoints got caches or cheaper queries: Operations engine actions, collection roots, and
+  governance definitions (graph depth 0).
+- Every list pane that lacked one now has a **Refresh** button, mirrored into Freshstart.
 
-## May–Jun: three more apps, and time travel for all of them
+## Early Sep: security hardening and the Egeria Advisor / Resource Explorer tiles
 
-Egeria Explorer stopped being the only tool. Three purpose-built apps shipped in quick succession, and a
-cross-cutting capability — asking "what did this look like on a given date" — got wired into nearly every
-list and detail view across the whole portal.
+- **Security fixes** in the REST API and dashboards: path-traversal guards, an SSRF guard on OpenAPI spec
+  fetch, lexical validation of `http_collections_path`, and no more raw exception text returned to clients.
+  The repository was also hardened against OpenSSF Scorecard checks.
+- **Omni-search** now includes REST API endpoints and pyegeria classes and methods.
+- **Egeria Advisor and Resource Explorer** (both marked Alpha) work from the portal: SSO handoff fixed,
+  optional HTTPS vhosts, wildcard certificates via DNS-01, tile URLs derived from the request, and the
+  Advisor's exclusive-access lock removed.
+- **Trellis** can reach Egeria from all three services, and there is a guide to deploying it with the QuickStart.
+- Performance and tuning: the platform JVM and shared Postgres were retuned off stock defaults, Kafka
+  retention and heap settings now take effect, the parentless-collections list dropped from 46.6 s to 12.5 s,
+  and the Catalog's Annotations tab no longer times out at 90 s.
+- **`jdbcMaximumPoolSize`** is set in the server-config template, addressing HikariPool connection-pool timeouts.
+- The nightly demo reset is visible instead of looking like an outage; the Portal restarts after a reboot and
+  keeps the alert address; a cached persona no longer carries across Portal accounts.
 
-- **The Catalog** *(since Jun 6)* — a dedicated technical asset catalog: infrastructure, data assets, APIs,
-  and processes, with tabular data preview, schema/lineage sub-panes, and classification-based sidebar
-  filtering.
-- **Egeria Operations** *(since Jun 22)* — governance engines, engine actions, and integration connectors in
-  one place, with a resizable docked side panel and a non-blocking cache so a slow connector report never
-  hangs the page.
-- **Egeria Audit** *(since Jun 22)* — platform users, accounts, and a shared bidirectional relationship
-  viewer, built around a new cross-app resolver every later app reused instead of inventing its own.
-- **Lineage Explorer** *(since Jun 11)* — data lineage centred on a focus asset, with a shared time-slider
-  component extracted here first and later reused across the portal.
-- **`as_of_time`** ("time travel") shipped for the Data Assets detail pane, Digital Products and Collections
-  trees, Locations, Communities, Perspectives, Glossary, Projects, and Actors — one view at a time, each
-  verified against real before/after data, not just accepted-and-ignored parameters.
-- Auth moved off password-bearing URLs: a shared `egeria_auth.py` token seam, then a cross-app `egeriaFetch`
-  helper with automatic 401 retry, replacing `user_id`/`user_pwd` query params everywhere.
-- **Self-hosted Kroki** replaced pyegeria's hard dependency on the public kroki.io for Mermaid rendering in
-  Jupyter — fixing the intermittent crashes and drifting diagram colors that came with sharing someone else's
-  multi-tenant renderer.
+## Mid Sep: Explorer, Data Mesh, and docs
 
-## Jul: governance search, and a dashboard model built to last
+- **Data Mesh** app for the Digital Products graph, with wrapped labels and a roughly 17x faster load.
+- **Egeria Explorer**: a new **Namespaces** tab, Collections fixes, Governance Process properties, the ISC
+  Mermaid mismatch fixed, lists alphabetised, and detail views now default to graph depth 5.
+  Relationship lists show the real relationship type instead of a misleading "Appointments" suffix.
+- **Project classifications** (including ProjectKind) were always empty and now display.
+- **Local Dashboards** gained a Digital Product and Subscription tutorial and generic analytic report specs.
+- Dr.Egeria templates were regenerated several times to follow pyegeria attribute changes, with new
+  Curation, Investigation, NamingStandardsVocabulary, subscription, data contract, and data product templates.
 
-July's two headline efforts: a proper cross-cutting governance search app, and the start of building
-dashboards as real, declarative metadata instead of hand-wired React state — the piece that made everything
-after it in Egeria Overview possible.
+## Late Sep–Oct: one portal frame, Promise/Memento, and honest Overview data
 
-- **Egeria Insights** *(since Jul 15)* — classification- and zone-faceted governance search over Egeria's
-  native `find_metadata_elements`, with a dashboard tab and compound AND/OR search. Later renamed **Query**
-  to match what it actually does.
-- **Egeria Overview** *(since Jul 22)* — a KPI dashboard for the whole demo (assets, governance coverage,
-  growth, business value) built on a new architecture rather than a page of hand-coded numbers.
-- The dashboard architecture: KPI tiles as real pyegeria `FormatSet` objects (single source of truth), a
-  `Container`/`Placement` model so a "perspective" is a genuine filtered lens rather than a second hardcoded
-  list, and a **Vega-Lite chart engine** (line, area, scatter, funnel generators) chosen over Mermaid for
-  anything that isn't a diagram.
-- **Naming Vocabulary, Policy Enforcement, Action Center, and Duplicate Review** panes shipped — closing four
-  of the type-coverage gap-analysis's open items.
-- **Run Dr.Egeria documents from the browser** — validate or process a markdown command file with no
-  `docker exec` required, plus a structured execute-result panel with real error classification instead of a
-  wall of text.
-- Global search grew a **type-faceted, physical/logical semantic bridge** and combinable property-value +
-  classification + relationship conditions — the same backend later promoted to a portal-level omni-search
-  bar.
-
-## Aug: user-authored dashboards, bulk governance, and closing the gap
-
-August pushed the reporting model out to actual users — dashboards anyone can build from a markdown file —
-while a parallel thread went back through Freshstart line by line to close the gap that four months of
-quickstart-first development had opened up.
-
-- **Local Dashboards** — a portal tile for browsing and running user-authored Dashboard Sheets, with inline
-  execution, KPI-tile rendering with sparklines, drill-down navigation, viewer-facing parameter overrides,
-  and a caching layer once all of that made every page load slow.
-- **Governance Metrics browser** (Tier 1 of a 3-tier lineage design) — real `GovernanceMetric` elements
-  linked to a Report, each with an Information Supply Chain documenting its conceptual data flow.
-- **Bulk actions** grew from collection add/remove to **zone membership** and then
-  **classify/declassify** (Confidentiality, Criticality, Impact) — propagated to roughly thirty list views,
-  then ported to Freshstart in full.
-- **HTTPS by default** across every deployment mode (local and multi-host, both environments), with automatic
-  HTTP→HTTPS redirect and a Let's Encrypt fallback for `--demo`.
-- A systematic **Freshstart parity audit** found and fixed real accidental drift — a stale MCP API, missing
-  cache headers, a silently-broken async-token pattern reintroducing the exact `RuntimeError` class this
-  repo's own conventions exist to prevent — alongside confirming most of the remaining divergence is
-  legitimately by-design (auth model, branding, container names).
-- Cross-machine **demo data sync** for users and feedback, so two machines running the same demo don't drift
-  apart.
+- **One shared app bar on every portal app**, and a **My Profile** app served from the portal.
+- **Global Promise/Memento (`forLineage`) toggle**, on by default, to show or hide Promise and Memento
+  elements, also available on the Data Mesh view. It is per tab and page, restores the selected item in
+  Explorer and the Tech Catalog, and is hidden on the Explorer home.
+- **Time sliders reach back to the oldest element in view.**
+- **Detail panes paint faster**: solution blueprint and component detail show a quick depth-1 view first,
+  the component tree comes from a single relationships call, and list-everything-and-filter fallbacks
+  were replaced.
+- **Egeria Overview now shows real data only.** KPI tiles show a dash rather than a sample number, static
+  markup no longer ships invented content, and section badges follow what loaded. New live KPIs cover
+  quality, schema, confidentiality, **survey coverage** (failed surveys are distinguished from successful
+  ones; coverage counts completed surveys only), survey freshness, data stores by kind, engine-action
+  health, **assets by technology**, and **recent activity** from curated content types (people's changes only).
+  Queries run as the persona picked in the Portal, and the header chip says whom the data is for.
+- **Coco Pharmaceuticals Video Blog** box on the portal home.
+- **Data Initialization recurses into subfolders** ([#618](https://github.com/odpi/egeria-workspaces/pull/618)):
+  `_batch.json` can order subfolders and use an `exclude` field; a per-file or per-folder `userid` loads
+  content as the owning persona; each file runs once per pass; the admin panel shows a run ledger and
+  validation notes; the Coco workbooks are ordered from their READMEs. See `DR_EGERIA_AUTO_LOADING_GUIDE.md`.
 
 ## Underneath all of it
 
-- **227 fixes** landed alongside the 228 features — real production concerns, not polish: a Postgres
-  connection leak that periodically took Operations offline, a stale-bind-mount class of bug that made config
-  edits silently not take effect, browser-cache issues that turned a shared-JS edit into a blank page for
-  anyone with an old cached copy, and a recurring pattern of pyegeria methods that accepted `as_of_time` and
-  silently ignored it.
-- The **`egeria-shared-ui.js`** component library grew from an idea into the real dependency both
-  environments' five-plus apps now import from, closing years of copy-paste drift between quickstart and
-  freshstart on the components that matter most.
-- The host-port scheme was renumbered onto a clean, collision-free **88xx / 78xx** block, freeing the problem
-  port 8000 and giving quickstart and freshstart the same last two digits for the same service.
+- **93 fixes** alongside 45 features. Among them: a proxy header bug (invalid `X-Forwarded-Host`) that broke
+  tile URLs, Promise/Memento toggling that lost the Tech Catalog section, Lineage Explorer search that could
+  not tell "searching" from "no results", and the Supply Chains list that was slow to load.
+- **pyegeria tracking**: `quick-start-local` and `fresh-start-local` install the latest pyegeria on every run
+  unless pinned; a new `--refresh-pyegeria` flag busts cached layers; the Jupyter dual-install gotcha is
+  documented and fixed. pyegeria 6.2.0 is released alongside this release, so images pick it up on
+  their next build.
+- **Egeria 6.2**: platform images are pinned to `odpi/egeria-platform:6.2` rather than a moving digest, and
+  Overview reads survey findings correctly given 6.2's annotation reuse.
+- Prefect (optional) upgraded to 3.8.6; the Airflow scheduler health server is enabled; a
+  `reset-egeria-db.sh` helper was added.
 
-**Commits by author:** 881 — Dan Wolfson &middot; 60 — Mandy Chessell &middot; 7 — Claude
+**Commits by author:** 470 — Dan Wolfson &middot; 164 — Mandy Chessell &middot; 52 — dependabot[bot]
 
 ---
 
+## Upgrade notes
+
+- **Data Initialization now loads files as persona users.** Files and folders can name a `userid`. Each
+  user's password comes from `EGERIA_BOOTSTRAP_PASSWORD_<USERID>`, then `EGERIA_USER_PASSWORD`, then `secret`.
+  Subfolders are now processed, so review your `_batch.json` files; `DR_EGERIA_AUTO_LOADING_GUIDE.md` explains how.
+- **Overview no longer shows placeholder numbers.** A dash means "not measured yet", not zero.
+- **Promise/Memento elements are shown by default.** Use the toggle in the app bar to hide them.
+- **pyegeria is no longer pinned by default** in `quick-start-local` / `fresh-start-local`; pin it explicitly
+  if you need a fixed version.
+- **Platform images are pinned to `odpi/egeria-platform:6.2`.** Rebuild the `egeria-main` image to move to it.
+  `--refresh-platform` re-pins to the newest `latest` image instead, which takes you off 6.2.
+
 ## Where the detail lives
 
-This is the shape of it, not the whole thing — 985 commits don't fit in a release note. The blow-by-blow,
+This is the shape of it, not the whole thing — 686 commits don't fit in a release note. The blow-by-blow,
 including root causes and what was tried and rejected along the way, lives in `BACKLOG.md` for anything
 still open and `BACKLOG-ARCHIVE.md` for everything closed.
 
-*egeria-workspaces 6.1 &middot; v6.02 → 6.1 &middot; compiled from git history*
+*egeria-workspaces 6.2 &middot; v6.1 → 6.2 &middot; compiled from git history*
