@@ -140,11 +140,14 @@ images actually exist.
 
 ## What is not here
 
-- **Prefect stays optional.** `PREFECT_ENABLED=false` in both Trellis services here regardless
-  of whether the sibling `../prefect` optional runtime is also up — enable it explicitly (and
-  point `PREFECT_API_URL` at `http://egeria-optional-prefect-server:4200/api`) only if you're
-  actually using it; see `resource_explorer/config.py`'s `PrefectConfig.enabled` docstring for
-  why the old default (`true`) leaked orphaned ephemeral servers.
+- **No Prefect dispatch.** `PREFECT_ENABLED=false` in both Trellis services here, even though
+  RE's own default is now `true` (`resource_explorer/config.py`, `PrefectConfig.enabled`).
+  Bringing up the sibling `../prefect` runtime and pointing `PREFECT_API_URL` at it is not
+  enough: RE dispatches to its own registered deployment (`RE Survey Flow/re-survey-step-deployment`)
+  and needs an online worker with RE's code installed on that deployment's pool. `../prefect`'s
+  generic worker serves `egeria-pool` and has neither, so every step would fail dispatch and fall
+  back to local execution. A containerized RE Prefect worker is not provided yet; until it is,
+  Prefect for RE is the bare-host `make prefect-up` path in the trellis repo.
 - **No SQLite.** Both apps' registry/vector-store paths are Postgres-only here, matching
   `runtime-architecture-plan.md` §3 ("the SQLite fallback ... is retired").
 - **A2A role not yet exposed.** The plan's §2 describes an `a2a` process role (agent-to-agent
