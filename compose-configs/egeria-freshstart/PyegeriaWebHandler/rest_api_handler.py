@@ -74,7 +74,8 @@ def _rebuild_catalog(http_dir: Path) -> dict:
 
 # ── OpenAPI helpers ────────────────────────────────────────────────────────────
 
-def _bearer_token_for_spec_fetch(user_id: str, user_pwd: str, url: str, server: str) -> Optional[str]:
+def _bearer_token_for_spec_fetch(user_id: str, user_pwd: str, url: str, server: str,
+                                 use_request_token: bool = True) -> Optional[str]:
     """Best-effort bearer token for the plain `requests` call below -- prefers
     the per-request X-Egeria-Token (egeria_auth's contextvar) so this reuses
     whatever session the caller already has, falling back to minting a fresh
@@ -82,7 +83,7 @@ def _bearer_token_for_spec_fetch(user_id: str, user_pwd: str, url: str, server: 
     _fetch_openapi tries unauthenticated (which used to be enough; no longer
     is, see below), not that the whole request 500s."""
     from egeria_auth import get_request_token
-    tok = get_request_token()
+    tok = get_request_token() if use_request_token else None
     if tok:
         return tok
     try:
@@ -182,32 +183,60 @@ def _fetch_openapi(platform_url: str, server: str, user_id: str, user_pwd: str) 
     calling endpoint, so we validate it before issuing any outbound request.
     """
     _validate_platform_url(platform_url)
+    from egeria_auth import get_request_token
+
+    # Only this deployment's own platform is ever fetched, and the request URL
+    # below is built from configuration alone, never from the caller's `url`
+    # (CodeQL py/full-ssrf). The guard above already refused any other host
+    # that resolves internally; nothing legitimate asks for a different one.
+    base = _env_defaults()["url"].rstrip("/")
+    if platform_url.rstrip("/") != base:
+        raise HTTPException(
+            status_code=400,
+            detail=f"The REST API catalogue is only read from this deployment's own platform ({base}).")
 
     cached = _openapi_cache.get(platform_url)
     if cached and (time.time() - cached[0]) < _OPENAPI_TTL:
         logger.debug(f"OpenAPI cache hit for {platform_url}")
         return cached[1]
 
-    token = _bearer_token_for_spec_fetch(user_id, user_pwd, platform_url, server)
-    headers = {"Authorization": f"Bearer {token}"} if token else {}
-
-    for path in ("/v3/api-docs", "/v2/api-docs", "/api-docs"):
-        url = platform_url.rstrip("/") + path
-        try:
-            resp = requests.get(url, verify=False, timeout=60, headers=headers)
-            if resp.status_code == 200:
-                spec = resp.json()
-                _openapi_cache[platform_url] = (time.time(), spec)
-                logger.info(f"Fetched OpenAPI spec from {url}: "
-                            f"{len(spec.get('paths', {}))} paths")
-                return spec
-        except Exception as exc:
-            logger.debug(f"Failed to fetch {url}: {exc}")
+    # The spec is the platform's, the same for every user, so the caller's own
+    # token is only a convenience. When the browser's X-Egeria-Token has expired
+    # Egeria answers 401 on every path; that used to surface as a 502 the page
+    # never recovers from (egeriaFetch only renews on a 401) whenever the
+    # cache was cold. So on a 401 with the caller's token, try once more with a
+    # token minted from the server's own credentials.
+    attempts = [True, False] if get_request_token() else [False]
+    failures = []
+    for use_request_token in attempts:
+        token = _bearer_token_for_spec_fetch(user_id, user_pwd, platform_url, server,
+                                             use_request_token=use_request_token)
+        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        saw_401 = False
+        for path in ("/v3/api-docs", "/v2/api-docs", "/api-docs"):
+            url = base + path
+            try:
+                resp = requests.get(url, verify=False, timeout=60, headers=headers)
+                if resp.status_code == 200:
+                    spec = resp.json()
+                    _openapi_cache[platform_url] = (time.time(), spec)
+                    logger.info(f"Fetched OpenAPI spec from {url}: "
+                                f"{len(spec.get('paths', {}))} paths")
+                    return spec
+                saw_401 = saw_401 or resp.status_code == 401
+                failures.append(f"{path} HTTP {resp.status_code}")
+            except Exception as exc:
+                failures.append(f"{path} {type(exc).__name__}")
+                logger.warning(f"Failed to fetch {url}: {exc}")
+        if not saw_401:
+            break
+        if use_request_token:
+            logger.warning("OpenAPI spec fetch: the caller's token was refused (401); retrying with the server's own login")
 
     raise HTTPException(
         status_code=502,
         detail=f"Could not fetch OpenAPI spec from {platform_url}. "
-               "Tried /v3/api-docs, /v2/api-docs, /api-docs.",
+               f"Tried: {', '.join(failures)}.",
     )
 
 

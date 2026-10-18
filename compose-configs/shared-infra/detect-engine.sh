@@ -64,6 +64,24 @@ else
     export HOST_GATEWAY_IP="host-gateway"
 fi
 
+# Host address that published ports bind to. The compose files default to
+# 127.0.0.1 so a bare `docker compose up` does not expose Egeria, Kafka and
+# Postgres to the whole network. Containers call each other back through
+# host.docker.internal: Docker Desktop routes that to the host's loopback, so
+# loopback-only ports still answer; native Docker Engine and Podman route it to
+# a bridge gateway, which a 127.0.0.1-bound port does not answer, so those
+# bind 0.0.0.0. An EGERIA_BIND_IP already in the environment always wins.
+if [[ -z "${EGERIA_BIND_IP:-}" ]]; then
+    if [[ "$CONTAINER_ENGINE" == "docker" ]] \
+        && docker info --format '{{.OperatingSystem}}' 2>/dev/null | grep -q 'Docker Desktop'; then
+        EGERIA_BIND_IP="127.0.0.1"
+    else
+        EGERIA_BIND_IP="0.0.0.0"
+    fi
+    EGERIA_BIND_IP_AUTO=1
+fi
+export EGERIA_BIND_IP
+
 if [[ "$CONTAINER_ENGINE" == "podman" && -n "${DOCKER_HOST:-}" ]]; then
     echo "[Engine] Directing API traffic to: $DOCKER_HOST"
 fi
