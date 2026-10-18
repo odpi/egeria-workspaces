@@ -33,12 +33,22 @@ Design notes
 Execution order
 ---------------
 Within a folder: _batch.json's `files` list (if present) is the explicit
-order for those files; any other .md file in the folder NOT mentioned
-there is appended afterward, alphabetically. No manifest -> pure
-alphabetical. (Extra-root batches -- see _EXTRA_BATCH_ROOTS -- are the one
-exception: their manifest's `files` list is used as-is, with no auto-append
-of "other .md files in the folder", since that folder also holds unrelated
-source files.)
+order. An entry may be a file, a file in a subfolder ("sub/x.md"), or a
+whole subfolder ("sub/"), which expands in place to that subfolder's own
+order (its own _batch.json, recursively). Anything NOT mentioned is
+appended afterward -- unlisted .md files alphabetically, then unlisted
+subfolders alphabetically -- and flagged with a validation warning when
+the folder has a `files` list. `exclude` skips named files/subfolders;
+README.md and plumbing/output folders (dr-egeria-outbox, logs, data, ...)
+are always skipped unless named in `files`. No manifest -> alphabetical
+files, then alphabetical subfolders. See _expand_folder. (Extra-root
+batches -- see _EXTRA_BATCH_ROOTS -- are the one exception: their
+manifest's `files` list is used as-is, with no auto-append and no
+recursion, since that folder also holds unrelated source files.)
+
+A subfolder that is itself another batch's root (an inbox symlink to a
+nested folder) runs in that batch, not its parent; and within one run-all
+or auto-heal pass each file runs at most once (see discover_batches).
 
 Across folders: dr-egeria-inbox/_folder_order.json, if present, is a flat
 JSON array of batch ids (folder names, or an extra-root's batch_id) giving
@@ -48,6 +58,7 @@ remainder" rule as the per-folder file order, for consistency.
 """
 
 import asyncio
+import hashlib
 import json
 import os
 import re
@@ -193,7 +204,7 @@ def save_selection(selection: dict) -> None:
     _selection_cache.pop(path, None)
 
 
-def _read_manifest(folder: Path) -> dict:
+def _read_manifest(folder: Path, warnings: Optional[list] = None) -> dict:
     manifest_path = folder / "_batch.json"
     if not manifest_path.exists():
         return {}
@@ -202,21 +213,311 @@ def _read_manifest(folder: Path) -> dict:
             return json.load(f)
     except Exception as exc:  # noqa: BLE001
         logger.warning(f"bootstrap_batches: bad manifest {manifest_path}: {exc}")
+        if warnings is not None:
+            warnings.append(_warn("error", f"{manifest_path.name} could not be read ({exc}) -- "
+                                           "folder fell back to alphabetical order"))
         return {}
 
 
-def _ordered_inbox_files(entry: Path, manifest: dict) -> list[str]:
-    """Files in a dr-egeria-inbox subfolder, in execution order: the
-    manifest's explicit `files` list first (in that order, minus any that
-    no longer exist -- a stale reference, not an error), then any other
-    .md file in the folder it doesn't mention, alphabetically. No manifest
-    (or an empty `files` list) -> pure alphabetical, same as before this
-    ordering feature existed."""
-    all_md = sorted(p.name for p in entry.iterdir()
-                     if p.is_file() and p.suffix.lower() == ".md" and p.name != "_batch.json")
-    listed = [f for f in (manifest.get("files") or []) if f in all_md]
-    remaining = [f for f in all_md if f not in listed]
-    return listed + remaining
+# ---------------------------------------------------------------------------
+# Recursive discovery
+#
+# A batch's subfolders run inline, at their place in the parent's order --
+# coco-workbooks/1. coco-data-hub's README orders files and subfolders
+# together (step 4 is extending-the-systems-inventory/, step 7 is
+# strategic-digital-products/), so a `files` entry may name a subfolder
+# ("strategic-digital-products/") as well as a file, or a file inside one
+# ("mapping-the-systems/egeria-implementation.md"). A named subfolder expands
+# to its own order, using its own _batch.json if it has one, recursively.
+#
+# Unlisted content is still appended (so a newly dropped file or folder shows
+# up without anyone editing a manifest): unlisted top-level .md files
+# alphabetically, then unlisted subfolders alphabetically. When the manifest
+# HAS a `files` list, each appended item also gets a validation warning --
+# its position was never chosen, only defaulted.
+#
+# Never descended into unless named explicitly in `files`: the plumbing/
+# output folders below. dr-egeria-outbox in particular holds dr_egeria's
+# *processed* copies of earlier runs -- real commands, so re-running them
+# would replay stale content. README.md is skipped the same way (prose, not
+# commands); `exclude` in _batch.json adds more of either.
+_SKIP_SUBDIRS = {"logs", ".ipynb_checkpoints", "__pycache__", "dr-egeria-outbox",
+                 "egeria-outbox", "data", "templates"}
+_SKIP_FILES = {"readme.md"}
+
+
+def _warn(level: str, message: str) -> dict:
+    return {"level": level, "message": message}
+
+
+@dataclass
+class _ExpandCtx:
+    other_roots: dict          # resolved Path -> batch id, for every OTHER registered batch
+    seen_files: set            # resolved file paths already placed in this batch
+    userids: dict              # relative path -> Egeria userid to run it as (only when one is declared)
+    visited_dirs: set          # resolved dirs already expanded (symlink-cycle guard)
+    warnings: list
+
+
+def _is_runnable_md(p: Path) -> bool:
+    return p.is_file() and p.suffix.lower() == ".md"
+
+
+def _entry_parts(entry) -> tuple[Optional[str], Optional[str]]:
+    """A `files` entry is a plain string, or {"file": ..., "userid": ...}."""
+    if isinstance(entry, str):
+        return entry, None
+    if isinstance(entry, dict) and isinstance(entry.get("file"), str):
+        userid = entry.get("userid")
+        return entry["file"], (str(userid) if userid else None)
+    return None, None
+
+
+def _expand_folder(folder: Path, prefix: str, ctx: _ExpandCtx,
+                   inherited_user: Optional[str] = None) -> list[str]:
+    """Execution-ordered paths (relative to the batch root, '/'-separated)
+    for `folder` and everything under it. See the block comment above.
+
+    Run-as identity (ctx.userids): the nearest declaration wins -- the
+    file's own `files` entry, then the `userid` of the manifest in the
+    file's folder, then whatever the parent folders passed down (a parent's
+    entry for this subfolder, or the parent's own `userid`). Nothing
+    declared -> no entry, and dr_egeria uses its default identity."""
+    real = folder.resolve()
+    if real in ctx.visited_dirs:
+        ctx.warnings.append(_warn("warning", f"{prefix or './'} is reachable twice (symlink loop?) -- expanded once"))
+        return []
+    ctx.visited_dirs.add(real)
+
+    manifest = _read_manifest(folder, ctx.warnings)
+    folder_user = str(manifest["userid"]) if manifest.get("userid") else inherited_user
+    listed = manifest.get("files") or []
+    excluded = {str(x).rstrip("/") for x in (manifest.get("exclude") or [])}
+    out: list[str] = []
+    placed_top: set[str] = set()   # direct children named in `files`, excluded from the remainder pass
+
+    def add_file(p: Path, rel: str, user: Optional[str]) -> None:
+        rp = p.resolve()
+        if rp in ctx.seen_files:
+            return  # already placed earlier in this batch (e.g. listed directly AND via its folder)
+        ctx.seen_files.add(rp)
+        out.append(rel)
+        if user:
+            ctx.userids[rel] = user
+
+    def add_dir(p: Path, rel: str, user: Optional[str]) -> None:
+        owner = ctx.other_roots.get(p.resolve())
+        if owner is not None:
+            ctx.warnings.append(_warn("info", f"{rel}/ runs as its own batch '{owner}', not inline here"))
+            return
+        out.extend(_expand_folder(p, rel + "/", ctx, user))
+
+    for entry in listed:
+        raw, entry_user = _entry_parts(entry)
+        if raw is None:
+            ctx.warnings.append(_warn("warning", f"_batch.json in {prefix or './'} has an unreadable files "
+                                                 f"entry {entry!r} -- expected a name or "
+                                                 '{"file": ..., "userid": ...}; skipped'))
+            continue
+        name = raw.rstrip("/")
+        if name in excluded:
+            continue
+        p = folder / name
+        user = entry_user or folder_user
+        if "/" not in name:
+            placed_top.add(name)  # a nested entry ("sub/x.md") leaves the rest of sub/ to the remainder pass
+        if p.is_dir():
+            add_dir(p, prefix + name, user)
+        elif _is_runnable_md(p):
+            add_file(p, prefix + name, user)
+        else:
+            ctx.warnings.append(_warn("warning", f"_batch.json in {prefix or './'} lists {entry!r}, "
+                                                 "which isn't there -- skipped"))
+
+    has_order = bool(listed)
+    try:
+        children = sorted(folder.iterdir(), key=lambda c: c.name)
+    except OSError as exc:
+        ctx.warnings.append(_warn("error", f"could not list {prefix or './'}: {exc}"))
+        return out
+
+    remaining_files = [c for c in children
+                       if _is_runnable_md(c) and c.name not in placed_top and c.name not in excluded
+                       and c.name.lower() not in _SKIP_FILES]
+    remaining_dirs = [c for c in children
+                      if c.is_dir() and c.name not in placed_top and c.name not in excluded
+                      and c.name not in _SKIP_SUBDIRS and not c.name.startswith(".")]
+    for c in remaining_files:
+        if has_order:
+            ctx.warnings.append(_warn("warning", f"{prefix}{c.name} isn't in _batch.json's files list -- "
+                                                 "runs after the listed files, alphabetically"))
+        add_file(c, prefix + c.name, folder_user)
+    for c in remaining_dirs:
+        before = len(out)
+        add_dir(c, prefix + c.name, folder_user)
+        if has_order and len(out) > before:
+            ctx.warnings.append(_warn("warning", f"{prefix}{c.name}/ isn't in _batch.json's files list -- "
+                                                 "runs after the listed files, alphabetically"))
+    return out
+
+
+# Dr.Egeria command detection, for the "this file contains no commands"
+# validation warning. Uses pyegeria's own command list (the same one
+# dr_egeria matches headings against) when it's importable; otherwise a
+# verb-only heading regex. Either way it's advisory -- nothing is skipped
+# because of it.
+_HEADING_RE = re.compile(r"^#{1,6}\s+(.+?)\s*#*\s*$", re.M)
+_VERB_RE = re.compile(r"^(Create|Update|Link|Unlink|Attach|Detach|Add|Remove|Classify|Declassify|Reclassify|"
+                      r"Setup|Set|Assign|Cancel|Clear|Import|Initiate|Publish|Run|View|Provenance)\b", re.I)
+_command_names: Optional[set] = None
+_command_count_cache: dict[str, tuple[int, int]] = {}   # path -> (mtime_ns, count)
+
+
+def _known_commands() -> set:
+    global _command_names
+    if _command_names is None:
+        try:
+            from md_processing.md_processing_utils import md_processing_constants as mpc
+            if not mpc.command_list:
+                mpc.load_commands()
+            _command_names = {c.lower() for c in mpc.command_list}
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"bootstrap_batches: pyegeria command list unavailable, using verb regex: {exc}")
+            _command_names = set()
+    return _command_names
+
+
+def count_commands(path: Path) -> Optional[int]:
+    """Dr.Egeria command headings in `path`, or None if it couldn't be read."""
+    try:
+        mtime = path.stat().st_mtime_ns
+    except OSError:
+        return None
+    key = str(path)
+    cached = _command_count_cache.get(key)
+    if cached and cached[0] == mtime:
+        return cached[1]
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    known = _known_commands()
+    headings = _HEADING_RE.findall(text)
+    if known:
+        count = sum(1 for h in headings if h.lower() in known)
+    else:
+        count = sum(1 for h in headings if _VERB_RE.match(h))
+    _command_count_cache[key] = (mtime, count)
+    return count
+
+
+# ---------------------------------------------------------------------------
+# Run ledger -- per-file record of the last time the Portal itself ran a file
+# successfully, and what the file's content was then. Lets the admin panel
+# show which files are new or changed since they were last run (a file added
+# to an already-loaded batch never triggers auto-heal, whose only signal is
+# the canary). Keyed by resolved path, so a file reachable through two
+# symlinks is one entry.
+#
+# Advisory only: it never causes a file to be skipped. After an Egeria wipe
+# the ledger still says "ran", and that's the point of auto-heal re-running
+# it anyway. "no_record" means "not run through the Portal since the ledger
+# existed", NOT "never loaded" -- files loaded from a notebook, Obsidian or
+# the CLI, or before this ledger shipped, are all no_record.
+def _ledger_path() -> str:
+    return os.path.expanduser(os.getenv("PYEGERIA_BOOTSTRAP_LEDGER", "~/.pyegeria/bootstrap_ledger.json"))
+
+
+_sha_cache: dict[str, tuple[int, int, str]] = {}   # path -> (mtime_ns, size, sha256)
+
+
+def _file_sha(path: Path) -> Optional[str]:
+    try:
+        st = path.stat()
+    except OSError:
+        return None
+    key = str(path)
+    cached = _sha_cache.get(key)
+    if cached and cached[0] == st.st_mtime_ns and cached[1] == st.st_size:
+        return cached[2]
+    h = hashlib.sha256()
+    try:
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(1 << 16), b""):
+                h.update(chunk)
+    except OSError:
+        return None
+    digest = h.hexdigest()
+    _sha_cache[key] = (st.st_mtime_ns, st.st_size, digest)
+    return digest
+
+
+def _load_ledger() -> dict:
+    path = _ledger_path()
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"bootstrap_batches: could not read run ledger {path}: {exc}")
+        return {}
+
+
+def record_run(doc: Path) -> None:
+    """Note a successful `dr_egeria --process` of `doc`. Sync, no awaits --
+    the read-modify-write can't interleave with another caller in the event
+    loop."""
+    real = doc.resolve()
+    ledger = _load_ledger()
+    ledger[str(real)] = {"sha256": _file_sha(real), "lastRunAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+    path = _ledger_path()
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(ledger, f, indent=2, sort_keys=True)
+        os.replace(tmp, path)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"bootstrap_batches: could not write run ledger {path}: {exc}")
+
+
+def _ledger_state(doc: Path, ledger: dict) -> dict:
+    entry = ledger.get(str(doc.resolve()))
+    if not entry:
+        return {"runState": "no_record", "lastRunAt": None}
+    current = _file_sha(doc)
+    changed = current is not None and entry.get("sha256") not in (None, current)
+    return {"runState": "changed" if changed else "current", "lastRunAt": entry.get("lastRunAt")}
+
+
+def _ordered_inbox_files(entry: Path, other_roots: dict, warnings: list) -> tuple[list[str], dict]:
+    ctx = _ExpandCtx(other_roots=other_roots, seen_files=set(), userids={},
+                     visited_dirs=set(), warnings=warnings)
+    return _expand_folder(entry, "", ctx), ctx.userids
+
+
+# ---------------------------------------------------------------------------
+# Run-as identity. A manifest can say which Egeria user each file is loaded
+# as (the coco-workbooks READMEs load each file as the persona who owns it,
+# so definitions are attributed to them), but never a password: that comes
+# from EGERIA_BOOTSTRAP_PASSWORD_<USERID> (upper-cased), then
+# EGERIA_USER_PASSWORD, then "secret" -- the same fallback the rest of this
+# app's handlers use for the demo personas.
+def _password_for(userid: str) -> str:
+    return (os.environ.get(f"EGERIA_BOOTSTRAP_PASSWORD_{userid.upper()}")
+            or os.environ.get("EGERIA_USER_PASSWORD")
+            or "secret")
+
+
+def dr_egeria_command(doc: Path, userid: Optional[str]) -> list[str]:
+    """argv for processing `doc`, as `userid` when one is declared (otherwise
+    dr_egeria's own default identity -- EGERIA_USER, or its built-in default)."""
+    cmd = ["dr_egeria", "--process", str(doc)]
+    if userid:
+        cmd += ["--userid", userid, "--user_pass", _password_for(userid)]
+    return cmd
 
 
 def _read_folder_order() -> list[str]:
@@ -243,10 +544,66 @@ def _apply_order(items: list[dict], order: list[str], key: str) -> list[dict]:
     return listed + rest
 
 
+def _batch_dict(batch_id: str, folder: Path, manifest: dict, files: list[str], warnings: list,
+                userids: Optional[dict] = None) -> dict:
+    return {
+        "id":             batch_id,
+        "displayName":    manifest.get("displayName") or batch_id,
+        "description":    manifest.get("description") or "",
+        "canary":         manifest.get("canary"),
+        "files":          files,
+        "path":           str(folder),
+        "defaultEnabled": bool(manifest.get("defaultEnabled", False)),
+        "idempotent":     bool(manifest.get("idempotent", True)),
+        "warnings":       warnings,
+        "userids":        userids or {},
+    }
+
+
+def _discover_once(inbox_dirs: list[Path], owners: dict) -> list[dict]:
+    batches = []
+    for entry in inbox_dirs:
+        warnings: list = []
+        manifest = _read_manifest(entry, warnings)
+        other_roots = {r: bid for r, bid in owners.items() if bid != entry.name}
+        files, userids = _ordered_inbox_files(entry, other_roots, warnings)
+        if not files:
+            continue
+        batches.append(_batch_dict(entry.name, entry, manifest, files, warnings, userids))
+
+    for batch_id, folder in _EXTRA_BATCH_ROOTS:
+        manifest = _read_manifest(folder)
+        if not manifest.get("files"):
+            continue  # no manifest (or no files listed) -- this extra batch doesn't register
+        files, userids = [], {}
+        for entry in manifest["files"]:
+            name, entry_user = _entry_parts(entry)
+            if name and (folder / name).exists():
+                files.append(name)
+                if entry_user or manifest.get("userid"):
+                    userids[name] = entry_user or str(manifest["userid"])
+        if not files:
+            continue
+        batches.append(_batch_dict(batch_id, folder, manifest, files, [], userids))
+    return batches
+
+
 def discover_batches() -> list[dict]:
-    """Scan dr-egeria-inbox for folders (each becomes a batch), plus any
-    _EXTRA_BATCH_ROOTS, ordered per _folder_order.json if present. Returns
-    [{id, displayName, description, canary, files, defaultEnabled, idempotent}].
+    """Scan dr-egeria-inbox for folders (each becomes a batch, including its
+    subfolders -- see _expand_folder), plus any _EXTRA_BATCH_ROOTS, ordered
+    per _folder_order.json if present. Returns
+    [{id, displayName, description, canary, files, path, defaultEnabled,
+      idempotent, warnings}] -- `files` are paths relative to `path`.
+
+    Double-run prevention, at discovery time: a subfolder that is itself
+    some other batch's root (an inbox symlink pointing at a nested folder,
+    e.g. "Coco - 1. Data Field Naming" -> 1. coco-data-hub/data-field-naming)
+    belongs to that batch, and its parent skips it. Only batches that
+    actually register (have files) claim their folder, hence the loop: an
+    empty batch's folder is released back to its parent. Within a batch,
+    a file reachable twice is placed once. Across batches, any remaining
+    overlap gets a warning here and is skipped at run time (see
+    run_all_enabled / bootstrap_monitor_handler.check_and_heal_all).
 
     `idempotent` (manifest field, default True) -- whether re-running this
     batch's files against an already-seeded target is known-safe. Default
@@ -262,70 +619,73 @@ def discover_batches() -> list[dict]:
     missing, never a present one) -- this exists purely to gate the admin
     panel's manual "Run Now"/"Run All Enabled" actions, which otherwise
     run unconditionally. See bootstrap_admin_handler.py."""
-    batches = []
-
-    if _INBOX_ROOT.is_dir():
-        for entry in sorted(_INBOX_ROOT.iterdir()):
-            if not entry.is_dir() or entry.name in _SKIP_DIRS or entry.name.startswith("."):
-                continue
-            manifest = _read_manifest(entry)
-            files = _ordered_inbox_files(entry, manifest)
-            if not files:
-                continue
-            batches.append({
-                "id":             entry.name,
-                "displayName":    manifest.get("displayName") or entry.name,
-                "description":    manifest.get("description") or "",
-                "canary":         manifest.get("canary"),
-                "files":          files,
-                "path":           str(entry),
-                "defaultEnabled": bool(manifest.get("defaultEnabled", False)),
-                "idempotent":     bool(manifest.get("idempotent", True)),
-            })
-    else:
+    if not _INBOX_ROOT.is_dir():
         logger.warning(f"bootstrap_batches: inbox root not found: {_INBOX_ROOT}")
+        inbox_dirs = []
+    else:
+        inbox_dirs = [e for e in sorted(_INBOX_ROOT.iterdir())
+                      if e.is_dir() and e.name not in _SKIP_DIRS and not e.name.startswith(".")]
 
-    for batch_id, folder in _EXTRA_BATCH_ROOTS:
-        manifest = _read_manifest(folder)
-        if not manifest.get("files"):
-            continue  # no manifest (or no files listed) -- this extra batch doesn't register
-        files = [f for f in manifest["files"] if (folder / f).exists()]
-        if not files:
-            continue
-        batches.append({
-            "id":             batch_id,
-            "displayName":    manifest.get("displayName") or batch_id,
-            "description":    manifest.get("description") or "",
-            "canary":         manifest.get("canary"),
-            "files":          files,
-            "path":           str(folder),
-            "defaultEnabled": bool(manifest.get("defaultEnabled", False)),
-            "idempotent":     bool(manifest.get("idempotent", True)),
-        })
+    owners = {e.resolve(): e.name for e in inbox_dirs}
+    batches: list[dict] = []
+    for _ in range(4):  # converges in 1-2 passes; bounded in case of pathological symlinks
+        batches = _discover_once(inbox_dirs, owners)
+        registered = {b["id"] for b in batches}
+        narrowed = {r: bid for r, bid in owners.items() if bid in registered}
+        if narrowed == owners:
+            break
+        owners = narrowed
 
-    return _apply_order(batches, _read_folder_order(), "id")
+    batches = _apply_order(batches, _read_folder_order(), "id")
+
+    # Cross-batch overlap (e.g. two inbox symlinks to the same folder, or a
+    # manifest naming a file inside another batch's folder). Reported, not
+    # removed -- which copy runs depends on which batches are enabled, so
+    # the run-time dedupe decides.
+    first_seen: dict[str, str] = {}
+    for b in batches:
+        base = Path(b["path"])
+        for rel in b["files"]:
+            real = str((base / rel).resolve())
+            if real in first_seen:
+                b["warnings"].append(_warn("warning", f"{rel} also runs in batch '{first_seen[real]}' -- "
+                                                      "it runs once per pass, in whichever comes first"))
+            else:
+                first_seen[real] = b["id"]
+    return batches
 
 
 def batches_with_selection() -> list[dict]:
-    """Discovered batches merged with saved selection state. A folder with
-    no saved selection yet falls back to its manifest's defaultEnabled
-    (False if unset/no manifest) -- so a plain admin-droppable folder stays
-    off until someone opts in, while a core-portal family whose manifest
-    sets defaultEnabled:true keeps auto-healing out of the box, with no
-    seed file needed on a fresh deploy. Files within an enabled batch
-    default to True."""
+    """Discovered batches merged with saved selection state, run ledger and
+    validation. A folder with no saved selection yet falls back to its
+    manifest's defaultEnabled (False if unset/no manifest) -- so a plain
+    admin-droppable folder stays off until someone opts in, while a
+    core-portal family whose manifest sets defaultEnabled:true keeps
+    auto-healing out of the box, with no seed file needed on a fresh
+    deploy. Files within an enabled batch default to True."""
     selection = load_selection()
+    ledger = _load_ledger()
     result = []
     for batch in discover_batches():
         sel = selection.get(batch["id"], {})
         file_sel = sel.get("files", {})
+        base = Path(batch["path"])
+        files = []
+        warnings = list(batch["warnings"])
+        for f in batch["files"]:
+            doc = base / f
+            commands = count_commands(doc)
+            if commands == 0:
+                warnings.append(_warn("warning", f"{f} contains no Dr.Egeria commands -- if it's prose, "
+                                                 "add it to _batch.json's exclude list"))
+            files.append({"name": f, "enabled": bool(file_sel.get(f, True)),
+                          "commands": commands, "userid": batch["userids"].get(f),
+                          **_ledger_state(doc, ledger)})
         result.append({
             **batch,
             "enabled": bool(sel.get("enabled", batch.get("defaultEnabled", False))),
-            "files": [
-                {"name": f, "enabled": bool(file_sel.get(f, True))}
-                for f in batch["files"]
-            ],
+            "files": files,
+            "warnings": warnings,
         })
     return result
 
@@ -365,6 +725,9 @@ def enabled_batches() -> list[dict]:
 # file 5s later. Re-running a batch in that window is what produced duplicate
 # elements in the Design Patterns incident; see the _active_procs comment in
 # bootstrap_monitor_handler.py for the full write-up.
+# "duplicate" = reached again later in the same pass and deliberately not
+# re-run (see run_batch's `seen`) -- not a failure.
+_SUCCESS_STATUSES = {"ok", "duplicate"}
 _BATCH_TIMEOUT = int(os.environ.get("BOOTSTRAP_BATCH_TIMEOUT_SECONDS", "900"))
 _active_procs: set = set()
 
@@ -379,7 +742,8 @@ async def _kill_proc(proc) -> None:
         logger.debug(f"bootstrap batches: error killing orphaned dr_egeria process: {exc}")
 
 
-async def run_batch(batch: dict, timeout_seconds: int = _BATCH_TIMEOUT) -> list[dict]:
+async def run_batch(batch: dict, timeout_seconds: int = _BATCH_TIMEOUT,
+                    seen: Optional[set] = None) -> list[dict]:
     """Run a batch's files in order via `dr_egeria --process`. Every
     Dr.Egeria doc is upsert-safe, so this is always safe to re-run. Unlike
     bootstrap_monitor_handler.py's _heal_family (which stops at the first
@@ -395,19 +759,32 @@ async def run_batch(batch: dict, timeout_seconds: int = _BATCH_TIMEOUT) -> list[
     dr_egeria output (validation errors, tracebacks) still isn't here --
     that lives in pyegeria.log, surfaced separately by
     tail_dr_egeria_issues() below -- this is just enough to know which
-    file(s) failed and why, from the admin page itself."""
+    file(s) failed and why, from the admin page itself.
+
+    `seen` (resolved paths) is shared across the batches of one pass by
+    run_all_enabled: a file that already ran earlier in the pass -- because
+    two batches reach the same file, see discover_batches -- is skipped
+    rather than run twice. Successful runs are noted in the run ledger."""
     results = []
     folder = Path(batch["path"])
+    if seen is None:
+        seen = set()
     for filename in batch["files"]:
         doc = folder / filename
         if not doc.exists():
             results.append({"file": filename, "status": "skipped", "message": "file not found"})
             logger.warning(f"bootstrap batches: {batch['id']!r} — {filename}: skipped (file not found)")
             continue
+        real = doc.resolve()
+        if real in seen:
+            results.append({"file": filename, "status": "duplicate", "message": "already ran earlier in this pass"})
+            logger.info(f"bootstrap batches: {batch['id']!r} — {filename}: skipped (already ran earlier in this pass)")
+            continue
+        seen.add(real)
         proc = None
         try:
             proc = await asyncio.create_subprocess_exec(
-                "dr_egeria", "--process", str(doc),
+                *dr_egeria_command(doc, batch.get("userids", {}).get(filename)),
                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
             )
             _active_procs.add(proc)
@@ -415,6 +792,7 @@ async def run_batch(batch: dict, timeout_seconds: int = _BATCH_TIMEOUT) -> list[
             tail = stdout.decode(errors="replace")[-800:] if stdout else ""
             if proc.returncode == 0:
                 results.append({"file": filename, "status": "ok", "message": tail})
+                record_run(doc)
                 logger.info(f"bootstrap batches: {batch['id']!r} — {filename}: ok")
             else:
                 results.append({"file": filename, "status": "failed", "message": tail})
@@ -444,7 +822,7 @@ async def run_batch(batch: dict, timeout_seconds: int = _BATCH_TIMEOUT) -> list[
             if proc is not None:
                 _active_procs.discard(proc)
 
-    ok = sum(1 for r in results if r["status"] == "ok")
+    ok = sum(1 for r in results if r["status"] in _SUCCESS_STATUSES)
     failed = [r["file"] for r in results if r["status"] == "failed"]
     skipped = [r["file"] for r in results if r["status"] == "skipped"]
     summary = f"bootstrap batches: {batch['id']!r} finished — {ok}/{len(results)} files ok"
@@ -473,9 +851,10 @@ async def run_all_enabled(timeout_seconds: int = _BATCH_TIMEOUT) -> list[dict]:
     when an admin wants to force it without waiting for a reset to be
     detected. Returns one entry per batch: {batch, results}."""
     out = []
+    seen: set = set()
     for batch in enabled_batches():
-        out.append({"batch": batch["id"], "results": await run_batch(batch, timeout_seconds)})
-    ok = sum(1 for run in out for r in run["results"] if r["status"] == "ok")
+        out.append({"batch": batch["id"], "results": await run_batch(batch, timeout_seconds, seen)})
+    ok = sum(1 for run in out for r in run["results"] if r["status"] in _SUCCESS_STATUSES)
     total = sum(len(run["results"]) for run in out)
     logger.log(
         "INFO" if ok == total else "WARNING",
@@ -539,10 +918,10 @@ async def _run_in_background(key: str, coro) -> None:
     try:
         result = await coro
         if key == RUN_ALL_KEY:
-            ok = all(r["status"] == "ok" for run in result for r in run["results"])
+            ok = all(r["status"] in _SUCCESS_STATUSES for run in result for r in run["results"])
             _run_state[key] = _RunState(status="done", success=ok, runs=result)
         else:
-            ok = all(r["status"] == "ok" for r in result)
+            ok = all(r["status"] in _SUCCESS_STATUSES for r in result)
             _run_state[key] = _RunState(status="done", success=ok, results=result)
     except Exception as exc:  # noqa: BLE001
         logger.warning(f"bootstrap batches: background run {key!r} crashed: {exc}")

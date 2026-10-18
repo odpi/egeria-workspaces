@@ -1,14 +1,35 @@
 {
   "displayName": "Coco - 1. Data Hub",
-  "description": "The Coco Data Hub solution design and the software development governance program that supports it.",
+  "description": "The Coco Data Hub, in the README's step order: the strategic supply chain analysis, the acquisitions' system naming conventions, the component-to-platform link, the data field naming standard (its own batch), the strategic digital products, the solution design, and the software development governance program that supports it.",
   "canary": {
     "type": "GovernancePrinciple",
     "name": "The AI did it wrong is no excuse!"
   },
   "defaultEnabled": false,
   "files": [
-    "strategic-supply-chain-analysis.md",
-    "solution-design.md",
-    "software-development-governance-program.md"
+    {
+      "file": "strategic-supply-chain-analysis.md",
+      "userid": "erinoverview"
+    },
+    "extending-the-systems-inventory/",
+    {
+      "file": "mapping-the-systems/",
+      "userid": "peterprofile"
+    },
+    "data-field-naming/",
+    "strategic-digital-products/",
+    {
+      "file": "solution-design.md",
+      "userid": "erinoverview"
+    },
+    {
+      "file": "software-development-governance-program.md",
+      "userid": "pollytasker"
+    }
+  ],
+  "exclude": [
+    "founders-briefing-script.md",
+    "reporting-subscription-gaps.md",
+    "strategic-supply-chain-system-matches.md"
   ]
 }

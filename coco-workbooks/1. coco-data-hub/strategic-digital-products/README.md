@@ -101,9 +101,11 @@ carry are recorded as peer links between the chains in
 | [people-systems.md](people-systems.md) | Worker master data, lifecycle events, access, payroll, directory, competency requirements, training, qualifications and their currency, health surveillance, the long-term archive |
 | [privacy-operations.md](privacy-operations.md) | Rights requests, identity verification, the record of processing, discovery findings, fulfilment actions, retention obligations and assignments |
 | [product-dependencies.md](product-dependencies.md) | The 124 dependencies, one per wire per supply chain (one per wire where it crosses between chains), grouped by the consuming product's group |
+| [promises.md](promises.md) | `Promise` classifications on the 30 supply chain components that no system implements and the 32 products that therefore have no source of data |
 
-`catalog.md` loads first; the group files follow in any order; `product-dependencies.md` loads last because it
-references products from every group.  The `_batch.json` manifest gives this order.  All the files are processed
+`catalog.md` loads first; the group files follow in any order; `product-dependencies.md` follows because it
+references products from every group; `promises.md` loads last, because a promised element is hidden from
+ordinary requests.  The `_batch.json` manifest gives this order.  All the files are processed
 as Erin Overview:
 
 ```
@@ -120,6 +122,7 @@ dr_egeria --directive process --userid erinoverview --user_pass secret quality-s
 dr_egeria --directive process --userid erinoverview --user_pass secret people-systems.md
 dr_egeria --directive process --userid erinoverview --user_pass secret privacy-operations.md
 dr_egeria --directive process --userid erinoverview --user_pass secret product-dependencies.md
+dr_egeria --directive process --userid erinoverview --user_pass secret promises.md
 ```
 
 ## What must already be loaded
