@@ -68,7 +68,7 @@ services:
     networks:
       - egeria_network
     ports:
-      - "8810:8810"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:8810:8810"
     restart: unless-stopped
     environment:
       # Portal SSO: the same shared secret the Portal signs its handoff token with
@@ -133,9 +133,13 @@ services:
 
       EMBEDDINGS__DEVICE: cpu
 
-      # ── Prefect — off by default everywhere per config.py's own
-      # 2026-09-04 fix for the orphaned-ephemeral-server incident; only
-      # meaningful if the optional prefect runtime is also brought up. ────
+      # ── Prefect — explicitly off for this runtime. RE's own default is
+      # now on (config.py PrefectConfig.enabled; the 2026-09-04 orphaned-
+      # ephemeral-server leak is fixed independently), but dispatch needs
+      # RE's registered deployment and a worker running RE's code, and
+      # nothing here (nor ../prefect's generic worker) provides either —
+      # enabled, every step would fail dispatch and fall back to local
+      # execution. See README "What is not here". ────
       PREFECT_ENABLED: "false"
       EXPLORER_MODEL_TIER: "${TRELLIS_MODEL_TIER:-demo-cpu}"
 
@@ -204,7 +208,7 @@ services:
     networks:
       - egeria_network
     ports:
-      - "8880:8880"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:8880:8880"
     restart: unless-stopped
     environment:
       # Shared app-JWT secret: one value for every trellis process on this box, or a

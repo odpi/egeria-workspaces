@@ -11,8 +11,10 @@ actual Egeria Work Items rather than a paragraph of prose.
 
 See also: [`OVERVIEW_REPORTING_MODEL.md`](OVERVIEW_REPORTING_MODEL.md) §10
 for the design history and open decisions (Dashboard Sheet → Egeria
-Collection subtype migration, generic execution engine), and
-[`BACKLOG.md`](../../../BACKLOG.md) NEXT-10 for where this fits in the
+Collection subtype migration, generic execution engine),
+[`DIGITAL_PRODUCT_SUBSCRIPTION_TUTORIAL.md`](DIGITAL_PRODUCT_SUBSCRIPTION_TUTORIAL.md)
+for a business-oriented worked example focusing on Data Products and
+Subscriptions, and [`BACKLOG.md`](../../../BACKLOG.md) NEXT-10 for where this fits in the
 larger Overview/Dashboard roadmap.
 
 ## Concepts, in one paragraph

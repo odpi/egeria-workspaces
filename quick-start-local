@@ -21,15 +21,18 @@ server-ca.crt) in compose-configs/egeria-quickstart/.env.ssl.
 Options:
   --refresh-platform  Force rebuild of egeria-main so the container engine pulls
                       the latest base image.
-  --refresh-pyegeria  Force pyegeria-web and jupyter to re-resolve the latest
-                      pyegeria release. pyegeria's `pip install --upgrade` is
-                      a cached Docker layer, so a plain rebuild otherwise
-                      keeps whatever version was resolved when the image was
-                      last built, even though requirements.txt has no upper
-                      version bound. (Same fix as bin/update-pyegeria.sh, but
-                      only busts the pyegeria layer instead of rebuilding the
-                      whole image with --no-cache, and also covers jupyter,
-                      which that script doesn't.)
+  --pyegeria-version VERSION
+                      Pin pyegeria-web, jupyter and my-profile to a specific pyegeria
+                      release (e.g. 6.1.20). Persists in
+                      compose-configs/egeria-quickstart/.env.pyegeria, so plain re-runs
+                      stay pinned; pass `latest` to clear the pin. Without a
+                      pin, every run installs the latest release from PyPI
+                      (a cached no-op when it hasn't changed).
+  --no-refresh-pyegeria
+                      Skip the pyegeria check and keep whatever version the
+                      existing images already carry (e.g. offline).
+  --refresh-pyegeria  Force the pyegeria layer to rebuild even when the
+                      resolved version hasn't changed.
   --demo              Enable demo mode: activates user registration, auth gating,
                       and moves HTTPS to port 443 with a real certificate
                       instead of the self-signed default above. On first run,
@@ -87,7 +90,8 @@ EOF
 }
 
 REFRESH_PLATFORM=0
-REFRESH_PYEGERIA=0
+REFRESH_PYEGERIA=default
+PYEGERIA_VERSION_REQUEST=""
 DEMO_MODE_FLAG=0
 SYNC_FROM=""
 SYNC_TO=""
@@ -104,8 +108,16 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --refresh-pyegeria)
-      REFRESH_PYEGERIA=1
+      REFRESH_PYEGERIA=force
       shift
+      ;;
+    --no-refresh-pyegeria)
+      REFRESH_PYEGERIA=skip
+      shift
+      ;;
+    --pyegeria-version)
+      PYEGERIA_VERSION_REQUEST="$2"
+      shift 2
       ;;
     --demo)
       DEMO_MODE_FLAG=1
@@ -154,6 +166,13 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+# A demo serves other machines, so its ports must not stay loopback-only even
+# on Docker Desktop (detect-engine.sh picks the local default).
+if [[ "$DEMO_MODE_FLAG" -eq 1 && "${EGERIA_BIND_IP_AUTO:-0}" -eq 1 ]]; then
+  export EGERIA_BIND_IP="0.0.0.0"
+fi
+echo "[quick-start-local] Published ports bind to ${EGERIA_BIND_IP}."
 
 image_exists() {
   local image_ref="$1"
@@ -250,10 +269,24 @@ cp compose-configs/egeria-quickstart/servers/*.http "$TARGET_SERVER_DIR"/
 cp compose-configs/egeria-quickstart/servers/README.md "$TARGET_SERVER_DIR"/
 cp -r compose-configs/egeria-quickstart/servers/qs-* "$TARGET_SERVER_DIR"/
 
+# Refresh the secrets IN PLACE -- never remove the directory itself.
+# egeria-main bind-mounts this directory directly (not via a parent), and on
+# native Linux Docker a bind mount pins the directory, not its path. When this
+# script re-runs against a running egeria-main that `up -d` then leaves alone
+# (unchanged image and config -- e.g. a --refresh-pyegeria-only run), deleting
+# and recreating the directory left the container mounted on the deleted copy:
+# an empty /deployments/secrets, a YAML-SECRETS-STORE-CONNECTOR-0001 flood,
+# and every view-server -> metadata-store call failing 401 until egeria-main
+# was restarted. Podman runs are unaffected (egeria-main is force-removed
+# before `up` there), but nothing here should depend on that.
+# Overwrite first, then prune files no longer shipped, so a running platform
+# never sees the directory empty.
 RUNTIME_SECRETS_DIR="runtime-volumes/quickstart-platform-data/secrets"
-safe_rm_rf "$RUNTIME_SECRETS_DIR"
 mkdir -p "$RUNTIME_SECRETS_DIR"
-cp compose-configs/egeria-quickstart/secrets/*.omsecrets "$RUNTIME_SECRETS_DIR"/
+cp -f compose-configs/egeria-quickstart/secrets/*.omsecrets "$RUNTIME_SECRETS_DIR"/
+for _secret in "$RUNTIME_SECRETS_DIR"/*; do
+  [[ -e "compose-configs/egeria-quickstart/secrets/$(basename "$_secret")" ]] || safe_rm_rf "$_secret"
+done
 
 compose-configs/shared-infra/ensure-shared-infra.sh
 compose-configs/egeria-quickstart/bin/apply-postgres-init.sh
@@ -292,7 +325,7 @@ pushd compose-configs/egeria-quickstart >/dev/null
   }
 
   # ── Demo mode: collect / persist credentials ─────────────────────────────
-  _jwt="" _cert_dir="" _admin_email="" _admin_pass="" _resend_key="" _resend_from="" _https_port="" _site_url_override="" _advisor_url="" _advisor_secret="" _explorer_url="" _alert_email=""
+  _jwt="" _cert_dir="" _admin_email="" _admin_pass="" _resend_key="" _resend_from="" _https_port="" _site_url_override="" _advisor_url="" _advisor_secret="" _explorer_url="" _alert_email="" _re_server_name="" _ea_server_name=""
 
   # The trellis-tile vars (advisor URL/secret, explorer URL) are read here,
   # OUTSIDE the demo branch, because gen-env.sh rewrites .env on every run in
@@ -315,6 +348,17 @@ pushd compose-configs/egeria-quickstart >/dev/null
   _advisor_secret="$(_get_env_var EGERIA_ADVISOR_SSO_SECRET .env)"
   _explorer_url="$(_get_env_var EGERIA_RESOURCE_EXPLORER_URL .env)"
   _alert_email="$(_get_env_var ALERT_EMAIL_TO .env)"
+  # The Apache vhost hostnames for the two trellis apps (see the
+  # ssl-define.conf block further down). Same trap a third time: they were
+  # only ever READ from .env.demo/.env, never written back, so the --demo
+  # rewrite of .env.demo below (fixed key list) and gen-env.sh's rewrite of
+  # .env dropped both on the very next run. Apache kept serving the vhosts
+  # from its in-memory config until its next restart, at which point
+  # re./ea.<domain> silently fell through to the portal vhost. Observed
+  # 2026-09-20: ssl-define.conf on disk had lost both Defines while the
+  # 13-day-old httpd still answered for them.
+  _re_server_name="$(_get_env_var EGERIA_RE_SERVER_NAME .env)"
+  _ea_server_name="$(_get_env_var EGERIA_EA_SERVER_NAME .env)"
 
   if [[ "$DEMO_MODE_FLAG" -eq 1 ]]; then
     ENV_DEMO=".env.demo"
@@ -349,6 +393,8 @@ pushd compose-configs/egeria-quickstart >/dev/null
     # every run and the Portal tile silently falls back to http://localhost:8810/
     # -- wrong for anyone whose browser is not on this box.
     _explorer_url="$(_pick EGERIA_RESOURCE_EXPLORER_URL)"
+    _re_server_name="$(_pick EGERIA_RE_SERVER_NAME)"
+    _ea_server_name="$(_pick EGERIA_EA_SERVER_NAME)"
 
     # Generate JWT_SECRET if not already set
     if [[ -z "$_jwt" ]]; then
@@ -444,6 +490,8 @@ SITE_URL=${_site_url_override}
 EGERIA_ADVISOR_URL=${_advisor_url}
 EGERIA_ADVISOR_SSO_SECRET=${_advisor_secret}
 EGERIA_RESOURCE_EXPLORER_URL=${_explorer_url}
+EGERIA_RE_SERVER_NAME=${_re_server_name}
+EGERIA_EA_SERVER_NAME=${_ea_server_name}
 ALERT_EMAIL_TO=${_alert_email}
 EOF
     chmod 600 "$ENV_DEMO"
@@ -488,8 +536,12 @@ EOF
   # gen-env.sh runs as a separate process -- EGERIA_MEM_LIMIT/EGERIA_CPU_LIMIT
   # must be exported (not just set) for their --egeria-memory/--egeria-cpus
   # values to be visible there as the highest-priority tier (see gen-env.sh).
-  export EGERIA_MEM_LIMIT
-  export EGERIA_CPU_LIMIT
+  # Only export when non-empty: docker compose gives shell vars precedence over
+  # .env, and an exported empty value makes ${EGERIA_MEM_LIMIT:-6g} fall back
+  # to the default, silently ignoring the persisted .env value.
+  for _limit_var in EGERIA_MEM_LIMIT EGERIA_CPU_LIMIT; do
+    if [[ -n "${!_limit_var}" ]]; then export "$_limit_var"; else unset "$_limit_var"; fi
+  done
   ./gen-env.sh
 
   # Append demo/TLS vars to .env immediately after gen-env.sh (which rewrites it each run).
@@ -525,6 +577,8 @@ EOF
       echo "EGERIA_ADVISOR_URL=${_advisor_url}"
       echo "EGERIA_ADVISOR_SSO_SECRET=${_advisor_secret}"
       echo "EGERIA_RESOURCE_EXPLORER_URL=${_explorer_url}"
+      echo "EGERIA_RE_SERVER_NAME=${_re_server_name}"
+      echo "EGERIA_EA_SERVER_NAME=${_ea_server_name}"
       echo "ALERT_EMAIL_TO=${_alert_email}"
     } >> .env
     echo "[quick-start-local]   Demo SSL_SERVER_NAME: ${_host_fqdn} — SITE_URL: ${_site_url}"
@@ -546,6 +600,8 @@ EOF
       if [[ -n "$_advisor_url" ]];    then echo "EGERIA_ADVISOR_URL=${_advisor_url}"; fi
       if [[ -n "$_advisor_secret" ]]; then echo "EGERIA_ADVISOR_SSO_SECRET=${_advisor_secret}"; fi
       if [[ -n "$_explorer_url" ]];   then echo "EGERIA_RESOURCE_EXPLORER_URL=${_explorer_url}"; fi
+      if [[ -n "$_re_server_name" ]]; then echo "EGERIA_RE_SERVER_NAME=${_re_server_name}"; fi
+      if [[ -n "$_ea_server_name" ]]; then echo "EGERIA_EA_SERVER_NAME=${_ea_server_name}"; fi
       if [[ -n "$_alert_email" ]];    then echo "ALERT_EMAIL_TO=${_alert_email}"; fi
     } >> .env
     echo "[quick-start-local]   Self-signed HTTPS on port ${_https_port_num} (CERT_DIR=${_cert_dir}) — SITE_URL: ${_site_url}"
@@ -564,15 +620,12 @@ EOF
   # the right default, since Apache resolves ProxyPass backends at startup and
   # would fail to start if trellis-re-web/trellis-ea-web were not running.
   #
-  # Read straight from .env.demo/.env here rather than via the _pick block
-  # above, so a plain (non-demo) re-run regenerates them too. gen-env.sh
-  # rewrites .env every run in both modes; anything only picked up under
-  # --demo is silently dropped on a plain run, which is exactly how the
-  # Advisor/Resource Explorer tiles reverted to "Not configured" before.
-  _re_server_name="$(_get_env_var EGERIA_RE_SERVER_NAME .env.demo)"
-  [[ -z "$_re_server_name" ]] && _re_server_name="$(_get_env_var EGERIA_RE_SERVER_NAME .env)"
-  _ea_server_name="$(_get_env_var EGERIA_EA_SERVER_NAME .env.demo)"
-  [[ -z "$_ea_server_name" ]] && _ea_server_name="$(_get_env_var EGERIA_EA_SERVER_NAME .env)"
+  # _re_server_name/_ea_server_name were read from .env (and .env.demo under
+  # --demo) at the top of this block, BEFORE gen-env.sh rewrote .env, and have
+  # already been written back to .env.demo/.env above -- do not re-read them
+  # from disk here. An earlier version did exactly that, and since the --demo
+  # rewrite of .env.demo never included these keys, it always came up empty
+  # on the second run.
 
   {
     printf 'Define SSL_SERVER_NAME %s\n' "${_host_fqdn}"
@@ -620,20 +673,26 @@ EOF
       docker.io/odpi/egeria-platform:latest
   fi
 
-  # pyegeria-web's and jupyter's `pip install --upgrade pyegeria` each sit in
+  # pyegeria-web's, jupyter's and my-profile's `pip install --upgrade pyegeria` each sit in
   # their own cached Docker RUN layer (see Dockerfile-fast-api / Dockerfile-
-  # jupyter's own PYEGERIA_BUST comments) -- a plain rebuild reuses that
+  # jupyter / Dockerfile-my-egeria's own PYEGERIA_BUST args) -- a plain rebuild reuses that
   # layer and keeps whatever version was resolved when the image was last
   # built, even though requirements.txt's `pyegeria>=X` floor has no upper
   # bound. Passing a fresh PYEGERIA_BUST value busts just that one layer
-  # (both Dockerfiles echo it into the RUN instruction so its content
+  # (all three Dockerfiles echo it into the RUN instruction so its content
   # actually changes), so the subsequent build below re-resolves pyegeria
   # without a full --no-cache rebuild of everything else in the image.
-  if [[ "$REFRESH_PYEGERIA" -eq 1 ]]; then
-    echo "[quick-start-local] Refreshing pyegeria (pyegeria-web + jupyter)..."
+  # Default: install the latest pyegeria release (or the saved pin) on
+  # every run -- see resolve-pyegeria.sh for why a plain restart would
+  # otherwise keep, or silently revert to, whatever the old image carried.
+  source "$REPO_ROOT/compose-configs/shared-infra/resolve-pyegeria.sh"
+  resolve_pyegeria_build_args "$REPO_ROOT/compose-configs/egeria-quickstart/.env.pyegeria" \
+    "$PYEGERIA_VERSION_REQUEST" "$REFRESH_PYEGERIA" "[quick-start-local]"
+  if [[ ${#PYEGERIA_BUILD_ARGS[@]} -gt 0 ]]; then
+    echo "[quick-start-local] Building pyegeria layer (pyegeria-web + jupyter + my-profile)..."
     $COMPOSE_CMD -p egeria-quickstart "${COMPOSE_FILES[@]}" build \
-      --build-arg PYEGERIA_BUST="$(date +%s)" \
-      pyegeria-web jupyter-hub
+      "${PYEGERIA_BUILD_ARGS[@]}" \
+      pyegeria-web jupyter-hub my-profile
   fi
 
   echo "[quick-start-local] Ensuring core images are available (platform, pyegeria-web, jupyter, my-profile)..."
@@ -794,7 +853,7 @@ echo "  - Effective EGERIA_CPU_LIMIT: ${EGERIA_CPU_LIMIT_PRINT}"
 echo "  - Egeria (platform): https://${HOST_FQDN_PRINT:-localhost}:9443"
 echo "  - JupyterHub:        http://${HOST_FQDN_PRINT:-localhost}:8888  (password: egeria)"
 echo "  - Obsidian (local):  http://localhost:8860  (WebRTC works on localhost only)"
-echo "  - Obsidian (remote): https://${HOST_FQDN_PRINT:-localhost}:8861 (accept self-signed cert in browser)"
+echo "  - Obsidian (remote): bound to ${OBSIDIAN_BIND_ADDR:-127.0.0.1} -- use ssh -L 8860:localhost:8860 <host>, or see demo-mode.md"
 if [[ "$SKIP_UNITY_CATALOG" -eq 0 ]]; then
   echo "  - Unity Catalog (coco):    http://${HOST_FQDN_PRINT:-localhost}:8087  (UI: http://${HOST_FQDN_PRINT:-localhost}:3010)"
   echo "  - Unity Catalog (server2): http://${HOST_FQDN_PRINT:-localhost}:8187  (UI: http://${HOST_FQDN_PRINT:-localhost}:3020)"

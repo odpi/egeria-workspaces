@@ -532,13 +532,25 @@ Selkies uses WebRTC for streaming. Browsers enforce that WebRTC only works in a 
 
 ### Access options
 
+**The ports are bound to `127.0.0.1` by default, and the web desktop has no login unless you set one.**
+This container is a full Linux desktop with a terminal, running as the host user with write access to
+`coco-workbooks/`, `templates/` and `runtime-volumes/obsidian-config/`, and a seat on `egeria_network`.
+On 2026-10-17 a demo host that published it on all interfaces, with no login, had it found from the
+internet and used to run a cryptominer. Never expose it publicly.
+
 | Scenario | URL | Notes |
 |----------|-----|-------|
 | On the server itself | `http://localhost:8860` | `localhost` is always a secure context — no cert needed |
-| Remote, local mode | `https://<HOST_FQDN>:8861` | nginx serves HTTPS with a self-signed cert — accept the browser warning once |
-| Remote, demo mode | `https://<HOST_FQDN>:8861` | The demo overlay mounts your real cert (`CERT_DIR`) into the container — no browser warning |
+| Remote, via SSH tunnel (recommended) | `http://localhost:8860` | `ssh -L 8860:localhost:8860 <host>` first; still a secure context, no ports opened |
+| Remote, on a private network (e.g. Tailscale) | `https://<address>:8861` | Export `OBSIDIAN_BIND_ADDR=<that address>` **and** `OBSIDIAN_PASSWORD` (optionally `OBSIDIAN_USER`, default `abc`) before running `quick-start-local`; self-signed cert, accept the warning once |
 
-The portal tile automatically opens the correct URL: `http://localhost:8860` on the server, `https://<HOST_FQDN>:8861` for all remote browsers.
+Set these in the shell, not in `.env` — `quick-start-local` regenerates `.env` on every run. Both
+modes use the image's self-signed certificate: the demo overlay no longer mounts `CERT_DIR` into this
+container, so the site's private key is never readable from inside it.
+
+The portal tile opens `http://localhost:8860` on the server and `https://<HOST_FQDN>:8861` for remote
+browsers; with the default loopback binding the remote link only works through a tunnel or a widened
+`OBSIDIAN_BIND_ADDR`.
 
 ### Vault access
 
@@ -555,6 +567,8 @@ Before making a deployment public:
 - [ ] `RESEND_API_KEY` (or SMTP credentials) set in `.env.demo` if email verification is required
 - [ ] `SITE_URL` is `https://your.domain.com` — set automatically by `--demo` from `HOST_FQDN`; verify it is correct
 - [ ] Port 8000 (FastAPI) NOT exposed to the internet; all traffic via Apache on port 8885/443
+- [ ] Obsidian ports 8860/8861 NOT exposed to the internet (default `127.0.0.1`); if `OBSIDIAN_BIND_ADDR` is widened, `OBSIDIAN_PASSWORD` is set
+- [ ] Router/firewall forwards only 443 (and 80 for ACME) to this host — every quickstart service publishes on all interfaces by default
 - [ ] `DEMO_DB_PASSWORD` and `EGERIA_META_DB_PASSWORD` set in `.env.demo` if changed from defaults
 - [ ] Egeria data store pre-loaded with Coco Pharmaceuticals data before announcing the demo
 - [ ] `ADMIN_BOOTSTRAP_EMAIL` and `ADMIN_BOOTSTRAP_PASSWORD` set in `.env.demo` so admin is created on first startup
