@@ -68,7 +68,7 @@ services:
     networks:
       - egeria_network
     ports:
-      - "8810:8810"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:8810:8810"
     restart: unless-stopped
     environment:
       # Portal SSO: the same shared secret the Portal signs its handoff token with
@@ -208,7 +208,7 @@ services:
     networks:
       - egeria_network
     ports:
-      - "8880:8880"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:8880:8880"
     restart: unless-stopped
     environment:
       # Shared app-JWT secret: one value for every trellis process on this box, or a

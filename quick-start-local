@@ -167,6 +167,13 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# A demo serves other machines, so its ports must not stay loopback-only even
+# on Docker Desktop (detect-engine.sh picks the local default).
+if [[ "$DEMO_MODE_FLAG" -eq 1 && "${EGERIA_BIND_IP_AUTO:-0}" -eq 1 ]]; then
+  export EGERIA_BIND_IP="0.0.0.0"
+fi
+echo "[quick-start-local] Published ports bind to ${EGERIA_BIND_IP}."
+
 image_exists() {
   local image_ref="$1"
   $CONTAINER_ENGINE image inspect "$image_ref" >/dev/null 2>&1
