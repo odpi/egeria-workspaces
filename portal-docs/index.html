@@ -6,20 +6,24 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Egeria Workspaces — Documentation</title>
+  <script src="/static/app-bar.js?v=2026-10-05a"></script>
   <style>
     :root {
       --bg: #1a1a2e; --card: #16213e; --border: #0f3460;
       --accent: #e94560; --text: #e0e0e0; --muted: #888;
       --green: #4caf50; --blue: #64b5f6; --purple: #ce93d8;
     }
+    :root.light {
+      --bg: #f5f6fa; --card: #ffffff; --border: #d3d9e6;
+      --accent: #d23353; --text: #1f2333; --muted: #5b6376;
+      --green: #2e7d32; --blue: #1f6fd1; --purple: #8e24aa;
+    }
+    :root.light .hero { background: linear-gradient(135deg, #ffffff 0%, #e8edf7 100%); }
+    :root.light .tag-tool { background: #e3eefc; }
+    :root.light .tag-qs   { background: #e3f3e4; }
+    :root.light .tag-fs   { background: #f1e4f6; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; min-height: 100vh; }
-    .hdr { background: var(--card); border-bottom: 1px solid var(--border); padding: 12px 28px; display: flex; align-items: center; gap: 14px; }
-    .hdr img { height: 26px; }
-    .hdr-title { font-size: 1rem; font-weight: 700; }
-    .hdr-right { margin-left: auto; }
-    .hdr-right a { color: var(--muted); font-size: 0.82rem; text-decoration: none; }
-    .hdr-right a:hover { color: var(--accent); }
     .hero { background: linear-gradient(135deg, #16213e 0%, #0f3460 100%); border-bottom: 1px solid var(--border); padding: 40px 28px 36px; text-align: center; }
     .hero h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 10px; }
     .hero p  { color: var(--muted); font-size: 0.95rem; max-width: 640px; margin: 0 auto; line-height: 1.65; }
@@ -43,11 +47,8 @@
 </head>
 <body>
 
-<header class="hdr">
-  <img src="/static/egeria-logo.png" alt="Egeria">
-  <span class="hdr-title">Egeria Workspaces — Documentation</span>
-  <div class="hdr-right"><a href="/">← Portal</a></div>
-</header>
+<header class="eg-appbar" data-logo="/static/egeria-logo.png" data-title="Documentation"
+        data-subtitle="Egeria Workspaces" data-feedback="docs/index"></header>
 
 <div class="hero">
   <h1>Egeria Workspaces Reference</h1>

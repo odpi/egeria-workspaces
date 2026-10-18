@@ -35,6 +35,7 @@ Known constraints (see PYEGERIA_ISSUES.md):
     conditions are present → keep every query to 0 or 1 classification.
 """
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any, Optional
@@ -175,6 +176,42 @@ _CACHE_TTL   = 60.0          # seconds; summary is not real-time critical
 # Base open-metadata type names for the headline "assets by type" tally. Kept as a
 # small, override-safe list — a wrong/unknown type just yields 0 for that row
 # rather than failing the response.
+# The curated buckets overlap in the type system (verified against the live type chains):
+#   DeployedAPI -> DeployedSoftwareComponent -> Process -> Asset
+# so a plain count of "Processes" already contains every software component and API, and the bars summed
+# to more than the asset total. Each entry maps a type to the curated type nested directly inside it; its
+# count is reduced by that nested count, and the remainder of the Asset total is reported as "Other assets".
+_ASSET_TYPE_NESTED = {
+    "Process": ("DeployedSoftwareComponent", "software components"),
+    "DeployedSoftwareComponent": ("DeployedAPI", "APIs"),
+}
+
+
+def _exclusive_by_type(by_type: list, asset_total: Optional[int]) -> list:
+    """Turn inclusive per-type counts into non-overlapping buckets plus an "Other assets" remainder.
+
+    A bucket whose nested count is unknown gets count None rather than an inflated number, and no
+    "Other" bucket is invented unless every bucket is known and they do not exceed the total.
+    """
+    counts = {r.get("type"): r.get("count") for r in by_type}
+    out = []
+    for r in by_type:
+        c = r.get("count")
+        label = r.get("label")
+        nested = _ASSET_TYPE_NESTED.get(r.get("type"))
+        excl = c
+        if nested is not None:
+            ic = counts.get(nested[0])
+            excl = (c - ic) if (c is not None and ic is not None and ic <= c) else None
+            label = f"{label} (excl. {nested[1]})"
+        out.append({**r, "label": label, "count": excl, "inclusiveCount": c})
+    if asset_total is not None and out and all(r["count"] is not None for r in out):
+        other = asset_total - sum(r["count"] for r in out)
+        if other >= 0:
+            out.append({"label": "Other assets", "type": None, "count": other, "inclusiveCount": other})
+    return out
+
+
 _ASSET_TYPES = [
     ("Data Stores",         "DataStore"),
     ("Data Sets",           "DataSet"),
@@ -341,6 +378,8 @@ def get_summary(
     # tile's own headline number and its own sparkline finally agree.
     asset_total = count_elements(mgr, "Asset", as_of_time)
 
+    by_type = _exclusive_by_type(by_type, asset_total)
+
     term_count = count_elements(mgr, "GlossaryTerm", as_of_time)
 
     # Vega-Lite bar chart for the assets-by-type composition (real chart —
@@ -418,6 +457,24 @@ def get_summary(
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"overview summary: stale_assets failed: {exc}")
 
+    # Survey coverage (Data Quality "Surveyed", Attention Queue "never surveyed"): one
+    # ReportSubject relationship page + two counts. Needs the relationships client.
+    survey: dict = {"surveyedAssets": None, "dataStoreTotal": None, "surveyedStores": None,
+                    "neverSurveyedStores": None, "surveyReports": None, "surveyLinksCapped": None,
+                    "qualityAnnotatedAssets": None, "annotationsByType": None,
+                    "surveysCompleted": None, "surveysFailed": None, "surveysUnknown": None,
+                    "assetsSurveyFailedOnly": None, "latestSurveyTime": None,
+                    "surveysCompleted7d": None, "dataStoresByKind": None}
+    if ce is not None:
+        try:
+            survey = _survey_coverage(mgr, ce, as_of_time, asset_total)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"overview summary: survey coverage failed: {exc}")
+    schema = _schema_coverage(mgr, as_of_time, survey.get("schemaAnalysedGuids"))
+    engine_health = _engine_action_health(url, server, user_id, user_pwd, as_of_time)
+    confidentiality = _confidentiality_levels(mgr, as_of_time)
+    technology = _assets_by_technology(mgr, as_of_time)
+
     payload = {
         "asOfTime":         as_of_time,
         "assetTotal":       asset_total,
@@ -446,6 +503,32 @@ def get_summary(
         "bvDuplicateCount":   biz_value["duplicateCount"],
         "orphanTermCount":    orphan_terms["orphanCount"],   # SemanticAssignment-unreferenced GlossaryTerms
         "orphanTermTotal":    orphan_terms["termTotal"],
+        "surveyedAssets":     survey["surveyedAssets"],
+        "latestSurveyTime":   survey["latestSurveyTime"],
+        "surveysCompleted7d": survey["surveysCompleted7d"],
+        "dataStoresByKind":   survey["dataStoresByKind"],
+        "assetsByTechnology":      technology["technologies"],
+        "technologyUnrecorded":    technology["unrecorded"],
+        "technologyPlaceholders":  technology["placeholders"],
+        "technologyAssetTotal":    technology["total"],
+        "engineActionHealth": engine_health,
+        "surveysCompleted":   survey["surveysCompleted"],
+        "surveysFailed":      survey["surveysFailed"],
+        "surveysUnknown":     survey["surveysUnknown"],
+        "assetsSurveyFailedOnly": survey["assetsSurveyFailedOnly"],
+        "qualityAnnotatedAssets": survey["qualityAnnotatedAssets"],
+        "annotationsByType":  survey["annotationsByType"],
+        "assetsWithSchema":   schema["assetsWithSchema"],
+        "schemaAnalysedAssets": schema["schemaAnalysedAssets"],
+        "schemaTypes":        schema["schemaTypes"],
+        "confidentialityLevels":     confidentiality["levels"],
+        "confidentialityClassified": confidentiality["classified"],
+        "confidentialityCapped":     confidentiality["capped"],
+        "dataStoreTotal":     survey["dataStoreTotal"],
+        "surveyedStores":     survey["surveyedStores"],
+        "neverSurveyedStores": survey["neverSurveyedStores"],
+        "surveyReports":      survey["surveyReports"],
+        "surveyLinksCapped":  survey["surveyLinksCapped"],
         "staleAssetCount":    stale["staleCount"],           # no update in 180d
         "staleAssetTotal":    stale["assetTotal"],
         "partial":          True,
@@ -455,6 +538,571 @@ def get_summary(
 
 
 # ── certifications & licenses ────────────────────────────────────────────────
+
+# Egeria's default Confidentiality levels (0-4); a deployment may define others, shown as "Level N".
+_CONFIDENTIALITY_LABELS = {0: "Unclassified", 1: "Internal", 2: "Confidential", 3: "Sensitive", 4: "Restricted"}
+
+
+def _classification_props(el: dict, name: str) -> Optional[dict]:
+    for c in (el.get("classifications") or []):
+        if c.get("classificationName") == name:
+            pv = c.get("classificationProperties") or {}
+            return pv.get("propertiesAsStrings") or pv
+    return None
+
+
+def _confidentiality_levels(mgr, as_of: Optional[str] = None) -> dict:
+    """Distribution of the Confidentiality classification by level (one capped find). Every field is
+    None when the query failed, so "nothing classified" (a real zero) and "could not ask" differ."""
+    out = {"levels": None, "classified": None, "capped": None}
+    try:
+        body = {"class": "FindRequestBody", "metadataElementTypeName": "OpenMetadataRoot",
+                "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0, "startFrom": 0,
+                "pageSize": _SURVEY_LINK_CAP,
+                "matchClassifications": {"class": "SearchClassifications", "matchCriteria": "ANY",
+                                         "conditions": [{"name": "Confidentiality"}]}}
+        if as_of:
+            body["asOfTime"] = as_of
+        found = mgr.find_metadata_elements(body)
+        found = [e for e in (found if isinstance(found, list) else []) if isinstance(e, dict)]
+        counts: dict = {}
+        for e in found:
+            props = _classification_props(e, "Confidentiality")
+            if props is None:
+                continue
+            try:
+                lvl = int(props.get("confidentialityLevel"))
+            except (TypeError, ValueError):
+                lvl = -1
+            counts[lvl] = counts.get(lvl, 0) + 1
+        out["levels"] = [{"level": l, "label": _CONFIDENTIALITY_LABELS.get(l, f"Level {l}" if l >= 0 else "Unspecified"),
+                          "count": c} for l, c in sorted(counts.items())]
+        out["classified"] = sum(counts.values())
+        out["capped"] = len(found) >= _SURVEY_LINK_CAP
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview confidentiality levels failed: {exc}")
+    return out
+
+
+def _assets_by_technology(mgr, as_of: Optional[str] = None) -> dict:
+    """Assets grouped by the technology they record in `deployedImplementationType`. Most assets do not
+    record one, so the figures are exclusive and add up to the asset total: each technology, the assets
+    that record none (`unrecorded`), and template placeholders such as ``~{deployedImplementationType}~``
+    (`placeholders`: template elements carry the unfilled name, which is not a technology). Read in pages
+    until an empty one (Egeria's paging contract); every field is None when a page failed or
+    _REL_MAX_PAGES full pages were read without reaching the end (a capped read can only under-count)."""
+    out = {"technologies": None, "unrecorded": None, "placeholders": None, "total": None}
+    try:
+        counts: dict = {}
+        unrecorded = placeholders = total = 0
+        done = False
+        for page in range(_REL_MAX_PAGES):
+            body = {"class": "FindRequestBody", "metadataElementTypeName": "Asset",
+                    "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0,
+                    "startFrom": page * _SURVEY_LINK_CAP, "pageSize": _SURVEY_LINK_CAP}
+            if as_of:
+                body["asOfTime"] = as_of
+            chunk = mgr.find_metadata_elements(body)
+            chunk = [e for e in (chunk if isinstance(chunk, list) else []) if isinstance(e, dict)]
+            if not chunk:
+                done = True
+                break
+            for e in chunk:
+                total += 1
+                props = e.get("elementProperties") or {}
+                tech = str((props.get("propertiesAsStrings") or props).get("deployedImplementationType") or "").strip()
+                if not tech:
+                    unrecorded += 1
+                elif tech.startswith("~{") and tech.endswith("}~"):
+                    placeholders += 1
+                else:
+                    counts[tech] = counts.get(tech, 0) + 1
+        if done:
+            out.update(technologies=counts, unrecorded=unrecorded, placeholders=placeholders, total=total)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview assets by technology failed: {exc}")
+    return out
+
+
+def _schema_coverage(mgr, as_of: Optional[str] = None, analysed=None) -> dict:
+    """How many elements have a schema: the distinct anchors of SchemaType elements (a schema's anchor is
+    the asset it describes) UNION the assets a survey analysed the schema of (SchemaAnalysisAnnotation --
+    surveys record a database's schema as annotations, not as SchemaType elements). Read in pages until an
+    empty one (Egeria's paging contract); None when a page failed or _REL_MAX_PAGES full pages were read
+    without reaching the end (a capped read can only under-count)."""
+    out = {"assetsWithSchema": None, "schemaTypes": None, "schemaCapped": None, "schemaAnalysedAssets": None}
+    analysed = set(analysed or [])
+    try:
+        found, capped = [], True
+        for page in range(_REL_MAX_PAGES):
+            body = {"class": "FindRequestBody", "metadataElementTypeName": "SchemaType",
+                    "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0,
+                    "startFrom": page * _SURVEY_LINK_CAP, "pageSize": _SURVEY_LINK_CAP}
+            if as_of:
+                body["asOfTime"] = as_of
+            chunk = mgr.find_metadata_elements(body)
+            chunk = [e for e in (chunk if isinstance(chunk, list) else []) if isinstance(e, dict)]
+            if not chunk:
+                capped = False
+                break
+            found.extend(chunk)
+        anchors = set()
+        for e in found:
+            props = _classification_props(e, "Anchors")
+            g = (props or {}).get("anchorGUID")
+            if g:
+                anchors.add(g)
+        out["schemaTypes"] = len(found)
+        out["schemaCapped"] = capped
+        out["assetsWithSchema"] = None if out["schemaCapped"] else len(anchors | analysed)
+        out["schemaAnalysedAssets"] = len(analysed - anchors)   # assets whose schema is known only from a survey
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview schema coverage failed: {exc}")
+    return out
+
+
+# ── Recent activity (changes to curated content) ────────────────────────────
+# Egeria's most-recently-updated elements are dominated by connector churn here (one catalog refresh
+# rewrote ~10,000 elements in 20 minutes), so a plain "latest changes" scan says nothing about what
+# people curate. Activity is therefore read per CURATED content type, and the payload names the types.
+_ACTIVITY_TYPES = ["GlossaryTerm", "Collection", "GovernanceDefinition", "Project"]
+_ACTIVITY_WINDOW_D = 7
+_ACTIVITY_RECENT_H = 48
+_ACTIVITY_PAGE = 200
+_ACTIVITY_MAX_PAGES = 5      # per type: 1000 most recent; a type still inside the window after that is a lower bound
+_ACTIVITY_STREAM = 12
+_ACTIVITY_STEWARDS = 5
+
+
+def _looks_automated(user) -> bool:
+    """Heuristic: Egeria's own service accounts end in "npa" (non-person account) or are engines."""
+    u = str(user or "").lower()
+    return u.endswith("npa") or "engine" in u
+
+
+def _element_label(e: dict) -> str:
+    props = e.get("elementProperties") or {}
+    props = props.get("propertiesAsStrings") or props
+    return str(props.get("displayName") or props.get("name") or props.get("qualifiedName") or "(unnamed)")
+
+
+def _recent_changes(mgr, now=None) -> Optional[dict]:
+    """Changes to curated content in the last _ACTIVITY_WINDOW_D days, from each type's most-recently-updated
+    elements (read in pages until one is older than the window). None if any query failed (a half-read
+    list must not pass for the whole). `capped` is True when some type was still inside the window after
+    _ACTIVITY_MAX_PAGES pages, which makes the counts a lower bound."""
+    import datetime as _dt
+    now = now or _dt.datetime.utcnow()
+    cutoff = now - _dt.timedelta(days=_ACTIVITY_WINDOW_D)
+    recent_cut = now - _dt.timedelta(hours=_ACTIVITY_RECENT_H)
+    changes: dict = {}
+    capped = False
+    try:
+        for tname in _ACTIVITY_TYPES:
+            reached = False
+            for page in range(_ACTIVITY_MAX_PAGES):
+                chunk = mgr.find_metadata_elements({
+                    "class": "FindRequestBody", "metadataElementTypeName": tname,
+                    "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0,
+                    "sequencingOrder": "LAST_UPDATE_RECENT",
+                    "startFrom": page * _ACTIVITY_PAGE, "pageSize": _ACTIVITY_PAGE})
+                chunk = [e for e in (chunk if isinstance(chunk, list) else []) if isinstance(e, dict)]
+                if not chunk:
+                    reached = True
+                    break
+                for e in chunk:
+                    v = e.get("versions") or {}
+                    when = _parse_time(v.get("updateTime"))
+                    if when is None:
+                        continue
+                    if when < cutoff:
+                        reached = True
+                        break
+                    guid = _guid_of(e)
+                    if guid and guid not in changes:
+                        changes[guid] = {"time": when, "actor": v.get("updatedBy") or "", "version": v.get("version"),
+                                         "type": (e.get("type") or {}).get("typeName") or tname,
+                                         "name": _element_label(e), "guid": guid}
+                if reached:
+                    break
+            if not reached:
+                capped = True
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview recent activity failed: {exc}")
+        return None
+    rows = sorted(changes.values(), key=lambda c: c["time"], reverse=True)
+    by_type: dict = {}
+    stewards: dict = {}
+    automated = 0
+    for c in rows:
+        by_type[c["type"]] = by_type.get(c["type"], 0) + 1
+        if _looks_automated(c["actor"]):
+            automated += 1
+        elif c["actor"]:
+            stewards[c["actor"]] = stewards.get(c["actor"], 0) + 1
+    # The stream is people's changes: automation (a subscription manager rewriting notification types every
+    # few minutes) would otherwise fill it and hide everything a person did. It is counted, not listed.
+    in_recent = [c for c in rows if c["time"] >= recent_cut]
+    recent = [{"time": c["time"].isoformat(), "actor": c["actor"], "type": c["type"], "name": c["name"],
+               "guid": c["guid"], "action": "created" if c["version"] == 1 else "updated", "automated": False}
+              for c in in_recent if not _looks_automated(c["actor"])][:_ACTIVITY_STREAM]
+    recent_automated = sum(1 for c in in_recent if _looks_automated(c["actor"]))
+    return {"types": list(_ACTIVITY_TYPES), "windowDays": _ACTIVITY_WINDOW_D, "recentHours": _ACTIVITY_RECENT_H,
+            "total": len(rows), "automated": automated, "people": len(rows) - automated, "capped": capped,
+            "byType": by_type,
+            "stewards": sorted(stewards.items(), key=lambda kv: (-kv[1], kv[0]))[:_ACTIVITY_STEWARDS],
+            "recent": recent, "recentAutomated": recent_automated}
+
+
+@router.get("/api/overview/activity", summary="Recent changes to curated content")
+def get_activity(
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    """Change stream, activity by type and most active stewards for curated content types (glossary terms,
+    collections/products, governance definitions, projects). Always "now": Egeria's asOfTime cannot
+    say who changed what. `activity` is None when a query failed -- the page then shows "Not measured"."""
+    ckey = f"activity|{url}|{server}|{user_id}"
+    cached = _cache_get(ckey)
+    if cached is not None:
+        return JSONResponse(cached)
+    activity = None
+    try:
+        activity = _recent_changes(_expert(url, server, user_id, user_pwd))
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview activity: client build failed: {exc}")
+    return JSONResponse(_cache_put(ckey, {"activity": activity, "source": "live:activity"}))
+
+
+_SURVEY_LINK_CAP = 1000   # one relationship page / one find page; a result at the cap is a lower bound, reported as such
+
+
+def _type_names(end: dict) -> set:
+    t = (end or {}).get("type") or {}
+    return {t.get("typeName")} | set(t.get("superTypeNames") or [])
+
+
+def _guid_of(el: dict) -> Optional[str]:
+    return el.get("elementGUID") or (el.get("elementHeader") or {}).get("guid") or el.get("guid")
+
+
+_REL_PAGE_SIZE = 1000   # one relationship page
+_REL_MAX_PAGES = 10     # read at most this many pages; beyond that the result is a lower bound
+
+
+def _relationship_rows(ce, relationship_type: str, as_of: Optional[str] = None):
+    """Every link of one relationship type, read in pages. Returns (rows, capped), or (None, None) if
+    any page failed (partial rows are discarded: a half-read list must not pass for the whole).
+
+    Egeria's paging contract: a short page is NOT the last page, only an empty page is, so this keeps
+    reading until it gets one. If _REL_MAX_PAGES full pages are read without reaching an empty page the
+    rows are a lower bound and capped=True, so callers can withhold figures a lower bound would corrupt.
+    This matters for ReportedAnnotation: Egeria 6.2 reuses survey annotations (one annotation can be
+    reported by many reports), and every report links every annotation it reports, so the link count
+    grows with each survey even when no new annotation is created.
+    """
+    rows: list = []
+    try:
+        body = {"class": "ResultsRequestBody", "asOfTime": as_of} if as_of else None
+        for page in range(_REL_MAX_PAGES):
+            raw = ce.get_relationships(relationship_type=relationship_type, output_format="JSON",
+                                       start_from=page * _REL_PAGE_SIZE, page_size=_REL_PAGE_SIZE, body=body)
+            chunk = raw if isinstance(raw, list) else ((raw or {}).get("elements") or [] if isinstance(raw, dict) else [])
+            if not chunk:
+                return rows, False
+            rows.extend(chunk)
+        return rows, True
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview {relationship_type} relationship read failed: {exc}")
+        return None, None
+
+
+def _survey_outcome(props: dict) -> str:
+    """Classify one SurveyReport as 'completed', 'failed' or 'unknown' from its own properties.
+
+    Two kinds of report exist on the platform and record the outcome differently:
+      * engine-run surveys ("Survey Report for <asset guid>") carry a completionMessage whose id says
+        what happened: OMES-SURVEY-ACTION-0019 "has completed the analysis ..." or
+        OMES-SURVEY-ACTION-0018 "... threw a ... exception". A failed survey still writes a report
+        (and whatever findings it got to) before it throws, so a report existing proves nothing.
+      * reports created by other tools ("Survey: <name>") carry error_count in additionalProperties:
+        0 is a clean run, more is a run that hit errors.
+    Anything else is 'unknown': it is never counted as a success.
+    """
+    msg = props.get("completionMessage") or ""
+    if msg:
+        if msg.startswith("OMES-SURVEY-ACTION-0019") or "has completed the analysis" in msg:
+            return "completed"
+        if msg.startswith("OMES-SURVEY-ACTION-0018") or " threw " in msg:
+            return "failed"
+        return "unknown"
+    m = re.search(r"error_count=(\d+)", props.get("additionalProperties") or "")
+    if m:
+        return "completed" if int(m.group(1)) == 0 else "failed"
+    return "unknown"
+
+
+def _parse_time(value):
+    """A timestamp as a naive-UTC datetime, or None. Egeria hands them out as ISO strings
+    ("2026-10-04T15:49:02", sometimes with a Z or fractional seconds) or as epoch milliseconds
+    (propertiesAsStrings gives "1791127622579"); anything else is None, never a guess."""
+    import datetime as _dt
+    if value in (None, ""):
+        return None
+    try:
+        if isinstance(value, (int, float)) or str(value).strip().lstrip("-").isdigit():
+            n = float(value)
+            if n > 1e11:       # epoch milliseconds
+                n /= 1000.0
+            elif n < 1e9:      # too small to be a modern epoch
+                return None
+            return _dt.datetime.utcfromtimestamp(n)
+        txt = str(value).strip().replace("Z", "").replace(" ", "T")
+        if "+" in txt[10:]:
+            txt = txt[: 10 + txt[10:].index("+")]
+        return _dt.datetime.fromisoformat(txt)
+    except (ValueError, OverflowError, OSError):
+        return None
+
+
+_ENGINE_ACTION_PAGE = 500          # find_engine_actions page; reaching it makes the window counts a lower bound
+_ENGINE_ACTION_WINDOW_H = 24
+
+
+def _engine_action_health(url=None, server=None, user_id=None, user_pwd=None,
+                          as_of: Optional[str] = None, client=None, now=None):
+    """Outcome of the Egeria engine actions (survey runs, scheduled insight jobs, ...) requested in the
+    last 24 hours, read with one find_engine_actions page.
+
+      {"total", "completed", "failed", "inProgress", "other", "topFailing": [[requestType, n], ...],
+       "capped"}
+
+    None when the actions could not be read, and None when a past as-of time is asked for: the engine
+    action list is the current state, so showing it beside as-of figures would mix time bases. "capped"
+    means the page was full, so every count is a lower bound (the list is unordered, the newest actions
+    may be missing). Actions whose request time cannot be parsed are left out of the window rather than
+    guessed into it.
+    """
+    if as_of:
+        return None
+    import datetime as _dt
+    try:
+        ac = client if client is not None else _make("AutomatedCuration", url, server, user_id, user_pwd)
+        raw = ac.find_engine_actions(search_string="*", page_size=_ENGINE_ACTION_PAGE, output_format="JSON")
+        items = [i for i in (raw if isinstance(raw, list) else []) if isinstance(i, dict)]
+        cutoff = (now or _dt.datetime.utcnow()) - _dt.timedelta(hours=_ENGINE_ACTION_WINDOW_H)
+        counts = {"total": 0, "completed": 0, "failed": 0, "inProgress": 0, "other": 0}
+        failing: dict = {}
+        for it in items:
+            props = it.get("properties") or it.get("elementProperties") or {}
+            props = props.get("propertiesAsStrings") or props
+            when = _parse_time(props.get("requestedStartTime")) or _parse_time(props.get("startTime"))
+            if when is None or when < cutoff:
+                continue
+            status = str(props.get("activityStatus") or "").upper()
+            counts["total"] += 1
+            if status == "COMPLETED":
+                counts["completed"] += 1
+            elif status == "FAILED":
+                counts["failed"] += 1
+                rt = props.get("requestType") or props.get("governanceActionTypeName") or "(unknown)"
+                failing[rt] = failing.get(rt, 0) + 1
+            elif status == "IN_PROGRESS":
+                counts["inProgress"] += 1
+            else:
+                counts["other"] += 1
+        counts["topFailing"] = [[k, v] for k, v in sorted(failing.items(), key=lambda kv: (-kv[1], kv[0]))[:3]]
+        counts["capped"] = len(items) >= _ENGINE_ACTION_PAGE
+        return counts
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview engine action health failed: {exc}")
+        return None
+
+
+def _survey_outcomes(mgr, as_of: Optional[str] = None, times: Optional[dict] = None):
+    """{SurveyReport guid: outcome} from one bounded find, or None if it failed (an unclassifiable
+    report must not be assumed successful). If `times` is given it is filled with
+    {guid: createTime string} from the same page, for survey freshness."""
+    try:
+        body = {"class": "FindRequestBody", "metadataElementTypeName": "SurveyReport",
+                "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0, "startFrom": 0,
+                "pageSize": _SURVEY_LINK_CAP}
+        if as_of:
+            body["asOfTime"] = as_of
+        found = mgr.find_metadata_elements(body)
+        found = [e for e in (found if isinstance(found, list) else []) if isinstance(e, dict)]
+        out = {}
+        for e in found:
+            g = _guid_of(e)
+            if g:
+                props = ((e.get("elementProperties") or {}).get("propertiesAsStrings")) or {}
+                out[g] = _survey_outcome(props)
+                if times is not None:
+                    times[g] = (e.get("versions") or {}).get("createTime") or ""
+        return out
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview survey outcomes failed: {exc}")
+        return None
+
+
+def _survey_coverage(mgr, ce, as_of: Optional[str] = None, asset_total: Optional[int] = None) -> dict:
+    """How much of the catalog has been successfully surveyed, and how many surveys failed.
+
+    A SurveyReport is linked to the asset it describes by a ReportSubject relationship
+    (AssetSurveyReport, the older name, has none on the live platform). ReportSubject also
+    links ConnectorActivityReports to their connectors, so only links whose report end is a
+    SurveyReport count. Everything comes from a few bounded calls, never a per-asset fan-out:
+    the SurveyReports (for their outcome), one ReportSubject page, one ReportedAnnotation page,
+    and one find of the DataStore guids to intersect with.
+
+    Coverage counts COMPLETED surveys only (see _survey_outcome): a survey that failed still wrote a
+    report and partial findings, and must not make an asset look surveyed.
+
+      surveyedAssets       distinct subjects of completed SurveyReports (any Asset type)
+      surveyedStores       those that are DataStores
+      neverSurveyedStores  DataStore total - surveyedStores
+      surveysCompleted / surveysFailed / surveysUnknown   report counts by outcome
+      assetsSurveyFailedOnly   subjects that have failed surveys and no completed one
+      qualityAnnotatedAssets / annotationsByType / schemaAnalysedGuids   from completed surveys only
+
+    Every field is None when its own step failed, never 0: a failed query must not read as
+    "nothing surveyed". neverSurveyedStores is also None when a page hit its cap, since a capped
+    page can only under-count what was surveyed.
+    """
+    out = {"assetTotal": asset_total, "surveyedAssets": None, "surveyReports": None,
+           "dataStoreTotal": None, "surveyedStores": None, "neverSurveyedStores": None,
+           "surveyLinksCapped": None, "qualityAnnotatedAssets": None, "annotationsByType": None,
+           "schemaAnalysedGuids": None, "surveysCompleted": None, "surveysFailed": None,
+           "surveysUnknown": None, "assetsSurveyFailedOnly": None, "latestSurveyTime": None,
+           "surveysCompleted7d": None, "dataStoresByKind": None}
+    try:
+        out["surveyReports"] = count_elements(mgr, "SurveyReport", as_of)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview survey coverage: SurveyReport count failed: {exc}")
+
+    times: dict = {}
+    outcomes = _survey_outcomes(mgr, as_of, times)
+    if outcomes is not None:
+        vals = list(outcomes.values())
+        out["surveysCompleted"] = vals.count("completed")
+        out["surveysFailed"] = vals.count("failed")
+        out["surveysUnknown"] = vals.count("unknown")
+        # Freshness of the COMPLETED surveys: newest one, and how many in the 7 days before now (or
+        # before the as-of time). A report whose time cannot be parsed is left out, not guessed.
+        import datetime as _dt
+        ref = _parse_time(as_of) if as_of else _dt.datetime.utcnow()
+        stamped = [(t, g) for g, o in outcomes.items() if o == "completed"
+                   for t in [_parse_time(times.get(g))] if t is not None]
+        if stamped:
+            out["latestSurveyTime"] = max(stamped)[0].isoformat()
+        if ref is not None:
+            out["surveysCompleted7d"] = sum(1 for t, _ in stamped if ref - _dt.timedelta(days=7) <= t <= ref)
+
+    subjects = None            # subjects of COMPLETED reports
+    failed_only = None
+    links_capped = None
+    subject_of_report: dict = {}   # SurveyReport guid -> the asset it describes
+    if outcomes is not None:
+        try:
+            rels, rels_capped = _relationship_rows(ce, "ReportSubject", as_of)
+            if rels is None:
+                raise RuntimeError("ReportSubject links could not be read")
+            subjects, with_failure = set(), set()
+            for r in rels:
+                if not isinstance(r, dict):
+                    continue
+                e1, e2 = r.get("end1") or {}, r.get("end2") or {}
+                if "SurveyReport" in _type_names(e1):
+                    subject, report_end = e2, e1
+                elif "SurveyReport" in _type_names(e2):
+                    subject, report_end = e1, e2
+                else:
+                    continue          # e.g. a ConnectorActivityReport link
+                sg, rg = subject.get("guid"), report_end.get("guid")
+                if not sg or not rg:
+                    continue
+                outcome = outcomes.get(rg, "unknown")
+                if outcome == "completed":
+                    subjects.add(sg)
+                    subject_of_report[rg] = sg
+                elif outcome == "failed":
+                    with_failure.add(sg)
+            failed_only = with_failure - subjects
+            links_capped = rels_capped
+            out["surveyedAssets"] = len(subjects)
+            out["assetsSurveyFailedOnly"] = len(failed_only)
+            out["surveyLinksCapped"] = links_capped
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"overview survey coverage: ReportSubject query failed: {exc}")
+            subjects = None
+
+    # Annotations the COMPLETED surveys produced: ReportedAnnotation links a SurveyReport to each
+    # Annotation. "Has quality annotations" = survey subjects whose report carries at least one
+    # QualityAnnotation.
+    if subjects is not None:
+        try:
+            arels, a_capped = _relationship_rows(ce, "ReportedAnnotation", as_of)
+            if arels is None:
+                raise RuntimeError("ReportedAnnotation links could not be read")
+            # Distinct annotations per type: with annotation reuse (Egeria 6.2) the same annotation is linked
+            # from every report that found it, so counting links would count it once per report.
+            by_type: dict = {}
+            quality_reports: set = set()
+            schema_reports: set = set()
+            for r in arels:
+                if not isinstance(r, dict):
+                    continue
+                e1, e2 = r.get("end1") or {}, r.get("end2") or {}
+                if "SurveyReport" in _type_names(e1):
+                    rep_end, ann = e1, e2
+                elif "SurveyReport" in _type_names(e2):
+                    rep_end, ann = e2, e1
+                else:
+                    continue
+                if rep_end.get("guid") not in subject_of_report:
+                    continue          # a failed / unknown survey's partial findings do not count
+                tname = ((ann.get("type") or {}).get("typeName")) or "Annotation"
+                by_type.setdefault(tname, set()).add(ann.get("guid") or id(ann))
+                if "QualityAnnotation" in _type_names(ann) and rep_end.get("guid"):
+                    quality_reports.add(rep_end["guid"])
+                if "SchemaAnalysisAnnotation" in _type_names(ann) and rep_end.get("guid"):
+                    schema_reports.add(rep_end["guid"])
+            if not a_capped:
+                out["annotationsByType"] = {t: len(g) for t, g in by_type.items()}
+                out["qualityAnnotatedAssets"] = len({subject_of_report[g] for g in quality_reports if g in subject_of_report})
+                out["schemaAnalysedGuids"] = sorted({subject_of_report[g] for g in schema_reports if g in subject_of_report})
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"overview survey coverage: ReportedAnnotation query failed: {exc}")
+
+    store_guids = None
+    stores_capped = None
+    try:
+        find_body = {"class": "FindRequestBody", "metadataElementTypeName": "DataStore",
+                     "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0,
+                     "startFrom": 0, "pageSize": _SURVEY_LINK_CAP}
+        if as_of:
+            find_body["asOfTime"] = as_of
+        found = mgr.find_metadata_elements(find_body)
+        found = [e for e in (found if isinstance(found, list) else []) if isinstance(e, dict)]
+        store_guids = {g for g in (_guid_of(e) for e in found) if g}
+        stores_capped = len(found) >= _SURVEY_LINK_CAP
+        out["dataStoreTotal"] = (count_elements(mgr, "DataStore", as_of) if stores_capped else len(store_guids))
+        if not stores_capped:
+            kinds: dict = {}
+            for e in found:
+                k = (e.get("type") or {}).get("typeName") or "Other"
+                kinds[k] = kinds.get(k, 0) + 1
+            out["dataStoresByKind"] = kinds
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview survey coverage: DataStore find failed: {exc}")
+
+    if subjects is not None and store_guids is not None:
+        out["surveyedStores"] = len(subjects & store_guids)
+        total = out["dataStoreTotal"]
+        if total is not None and not links_capped and not stores_capped and out["surveyedStores"] <= total:
+            out["neverSurveyedStores"] = total - out["surveyedStores"]
+    return out
+
 
 def _certifications(url, server, user_id, user_pwd, as_of: Optional[str] = None) -> dict:
     """Build a ClassificationExplorer and delegate to overview_metrics.certifications_summary.
