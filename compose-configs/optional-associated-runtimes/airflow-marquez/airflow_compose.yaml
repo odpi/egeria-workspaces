@@ -121,7 +121,7 @@ services:
     <<: *airflow-common
     command: api-server
     ports:
-      - "8080:8080"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:8080:8080"
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/version"]
       interval: 30s
@@ -320,7 +320,7 @@ services:
     profiles:
       - flower
     ports:
-      - "5555:5555"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:5555:5555"
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:5555/"]
       interval: 30s
