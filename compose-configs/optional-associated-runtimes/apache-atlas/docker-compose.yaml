@@ -22,7 +22,7 @@ services:
     environment:
       ALLOW_ANONYMOUS_LOGIN: "yes"
     ports:
-      - "2181:2181"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:2181:2181"
     restart: unless-stopped
 
   hadoop-namenode:
@@ -33,8 +33,8 @@ services:
     volumes:
       - hadoop-name:/hadoop/dfs/name
     ports:
-      - "9870:9870"
-      - "9000:9000"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:9870:9870"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:9000:9000"
     restart: unless-stopped
 
   hadoop-datanode:
@@ -63,7 +63,7 @@ services:
       HIVE_SITE_CONF_hive_metastore_uris: thrift://hive-metastore:9183
       CORE_CONF_fs_defaultFS: hdfs://hadoop-namenode:9000
     ports:
-      - "9183:9183"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:9183:9183"
     restart: unless-stopped
 
   hive-server:
@@ -81,7 +81,7 @@ services:
     depends_on:
       - hive-metastore
     ports:
-      - "10000:10000"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:10000:10000"
     restart: unless-stopped
 
   atlas:
@@ -99,7 +99,7 @@ services:
         -Datlas.server.bind.address=0.0.0.0
         -Datlas.repository.store.impl=org.apache.atlas.repository.store.graph.v2.AtlasJanusGraphDatabase
     ports:
-      - "21000:21000"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:21000:21000"
     volumes:
       - atlas-data:/var/lib/atlas
     restart: unless-stopped
