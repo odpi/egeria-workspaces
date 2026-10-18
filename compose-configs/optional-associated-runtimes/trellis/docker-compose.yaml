@@ -133,9 +133,13 @@ services:
 
       EMBEDDINGS__DEVICE: cpu
 
-      # ── Prefect — off by default everywhere per config.py's own
-      # 2026-09-04 fix for the orphaned-ephemeral-server incident; only
-      # meaningful if the optional prefect runtime is also brought up. ────
+      # ── Prefect — explicitly off for this runtime. RE's own default is
+      # now on (config.py PrefectConfig.enabled; the 2026-09-04 orphaned-
+      # ephemeral-server leak is fixed independently), but dispatch needs
+      # RE's registered deployment and a worker running RE's code, and
+      # nothing here (nor ../prefect's generic worker) provides either —
+      # enabled, every step would fail dispatch and fall back to local
+      # execution. See README "What is not here". ────
       PREFECT_ENABLED: "false"
       EXPLORER_MODEL_TIER: "${TRELLIS_MODEL_TIER:-demo-cpu}"
 
