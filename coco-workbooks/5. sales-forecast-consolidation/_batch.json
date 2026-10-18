@@ -8,5 +8,9 @@
   "defaultEnabled": false,
   "files": [
     "sales_forecast_governance_plan.md"
+  ],
+  "exclude": [
+    "implementation_plan.md",
+    "walkthrough.md"
   ]
 }
