@@ -12,6 +12,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Egeria Operations</title>
+  <script src="/static/app-bar.js?v=2026-10-05a"></script>
   <script src="/static/bootstrap-banner.js?v=2026-08-18a"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -584,7 +585,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
      Cache-Control: no-cache, but a fresh URL guarantees revalidation for
      browsers that cached the file before that header existed. -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
-<script src="/static/egeria-shared-ui.js?v=2026-10-01c"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-10-05a"></script>
 
 <script>
 'use strict';
@@ -1387,7 +1388,7 @@ function App() {
       var sp = loadOwnedPersona(d.id);
       if (sp && sp.id) {
         setPersonaId(sp.id);
-        setWho({ label: '🎭 ' + (sp.display_name || sp.id), sub: sp.id });
+        setWho({ label: '🎭 ' + (sp.display_name || sp.id), sub: sp.id, persona: sp });
         fetch('/api/demo/select-persona', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ persona: sp.id }) })
           .then(function(r){ return r.json(); }).then(function(sel) {
             if (sel.egeria_user) {
@@ -1449,20 +1450,21 @@ function App() {
     : active.id === 'engines'    ? el(EnginesTab,    Object.assign({ key:'engines@'+credKey },    shared))
     : el(ActionsTab, Object.assign({ key:'actions@'+credKey }, shared));
 
+  // Shared app-bar badge: persona → 🎭, signed-in / connected Egeria user → 👤, nothing → Choose persona.
+  var identity = who ? (who.persona ? appBarIdentity({ activePersona: who.persona })
+                                   : { kind: 'user', label: who.label, title: who.sub || '' })
+                     : appBarIdentity({ srvManaged: srvManaged });
+
   return el(PersonaContext.Provider, { value: personaId },
     el(CredContext.Provider, { value: creds },
     el('div', { style: { display:'flex', flexDirection:'column', height:'100vh', background:'var(--bg)', color:'var(--text)' } },
-      el('div', { style: { display:'flex', alignItems:'center', gap:10, padding:'0 16px', height:46, borderBottom:'1px solid var(--border)', background:'var(--panel)', flexShrink:0 } },
-        el('span', { style: { fontSize:18 } }, '⚙️'),
-        el('span', { style: { fontSize:15, fontWeight:700 } }, 'Egeria Operations'),
-        el('span', { style: { fontSize:11, color:'var(--dim)' } }, 'Servers · Integration Connectors · Governance Engines · Engine Actions'),
-        el('div', { style: { flex:1 } }),
-        isAdmin && el('span', { style: { fontSize:11, color:'#34d399', marginRight:4 } }, '🔓 Admin'),
-        who && el('span', { title: who.sub || '', style: { fontSize:12, color:'var(--accent)', background:'rgba(96,165,250,.1)', border:'1px solid rgba(96,165,250,.3)', borderRadius:12, padding:'2px 10px' } }, who.label),
-        personaId && el(FavoriteButton, { app:'egeria-operations', section:active.id, label:active.label, icon:'⚙️', url:'/egeria-operations#'+active.id, personaId:personaId }),
-        el(FeedbackButton, { section: active.id, persona: who ? who.sub : null, demoMode: demoMode, srvManaged: srvManaged, pagePrefix: 'egeria-operations/' }),
-        el('a', { href:'/portal', style: { fontSize:12, color:'var(--muted)', textDecoration:'none', marginLeft:4 } }, '⌂ Portal')),
+      el(AppHeader, { icon: '⚙️', title: 'Egeria Operations', subtitle: 'Servers · Integration Connectors · Governance Engines · Engine Actions', identity: identity,
+        extras: el(React.Fragment, null,
+          isAdmin && el('span', { style: { fontSize:11, color:'#34d399', marginRight:4 } }, '🔓 Admin'),
+          personaId && el(FavoriteButton, { app:'egeria-operations', section:active.id, label:active.label, icon:'⚙️', url:'/egeria-operations#'+active.id, personaId:personaId })
+        ) }),
       el('div', { style: { display:'flex', gap:4, padding:'0 12px', borderBottom:'1px solid var(--border)', background:'var(--panel)', flexShrink:0 } }, TABS.map(tabBtn)),
+      el(FeedbackButton, { section: active.id, persona: who ? who.sub : null, demoMode: demoMode, srvManaged: srvManaged, pagePrefix: 'egeria-operations/' }),
       el('div', { style: { flex:1, overflow:'hidden' } }, content))))
 }
 

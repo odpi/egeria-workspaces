@@ -1,7 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# [quickstart-postgres-init] Migration runner for quickstart PostgreSQL setup
+# [quickstart-postgres-init] Brings the quickstart PostgreSQL set-up up to date.
+#
+# Runs every init script below, in order, on every start.  Each script is safe to
+# run again: it creates only the users, databases, schemas, tables and seed rows
+# that are missing.  So a new install gets everything, an existing install picks
+# up anything added since it was created, and a database that has been dropped
+# (e.g. to reset the demo) is recreated on the next start.  A change to an
+# existing table must therefore be written so it is also safe to repeat (e.g.
+# ALTER ... TYPE, ADD COLUMN IF NOT EXISTS).
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 QUICKSTART_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -18,15 +26,18 @@ PGUSER="${PGUSER:-egeria_admin}"
 # installed) picks it up via libpq instead of prompting interactively. The
 # default matches the egeria_admin role created by the postgres init SQL.
 export PGPASSWORD="${PGPASSWORD:-admin4egeria}"
+# The scripts rerun on every start, so hide the "already exists, skipping" notices.
+export PGOPTIONS="${PGOPTIONS:--c client_min_messages=warning}"
 PGDATABASE="${PGDATABASE:-postgres}"
 
-# Migrations, applied in order, each at most once.  Format: "<migration id>:<sql file in SQL_DIR>".
-# Add a new entry (never edit an applied one) so existing installs pick the change up.
-MIGRATIONS=(
-  "egeria-quickstart-init-egeria-v2:init_egeria.sql"
-  "egeria-quickstart-coco-data-hub-v1:init_coco_data_hub.sql"
+# Init scripts in SQL_DIR, run in this order on every start.
+INIT_SCRIPTS=(
+  init_egeria.sql
+  init_coco_data_hub.sql
+  init_coco_systems.sql
+  init_subscription_staging.sql
 )
-CONTAINER_NAME="egeria-shared-postgres"
+CONTAINER_NAME="${PG_CONTAINER:-egeria-shared-postgres}"
 
 # Wrapper to run psql. Use local psql if available, otherwise use docker/podman exec
 psql_cmd() {
@@ -62,55 +73,27 @@ until psql_cmd -v ON_ERROR_STOP=1 -c "SELECT 1;" >/dev/null 2>&1; do
   ATTEMPT=$((ATTEMPT + 1))
 done
 
-# Ensure marker table exists
-psql_cmd -v ON_ERROR_STOP=1 <<EOF >/dev/null
-CREATE SCHEMA IF NOT EXISTS quickstart_migrations;
-CREATE TABLE IF NOT EXISTS quickstart_migrations.applied_migrations (
-  migration_id text PRIMARY KEY,
-  applied_at timestamptz NOT NULL DEFAULT now()
-);
-EOF
-
-apply_migration() {
-  local MIGRATION_ID="$1" SQL_FILE="$2"
-
-  # Check if migration already applied
-  local ALREADY_APPLIED
-  ALREADY_APPLIED=$(psql_cmd -v ON_ERROR_STOP=1 -t -c "SELECT 1 FROM quickstart_migrations.applied_migrations WHERE migration_id = '$MIGRATION_ID';" 2>/dev/null | xargs)
-
-  if [ "$ALREADY_APPLIED" = "1" ]; then
-    log "Migration $MIGRATION_ID already applied; skipping."
-    return 0
-  fi
-
-  # Apply migration
-  log "Applying migration $MIGRATION_ID ($SQL_FILE) ..."
+run_init_script() {
+  local SQL_FILE="$1"
+  log "Running $SQL_FILE ..."
   if command -v psql &> /dev/null; then
     (cd "$SQL_DIR" && psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -q -v ON_ERROR_STOP=1 -f "$SQL_FILE")
   else
-    # If psql is not on host, we must run it in the container.
-    # We use 'docker cp' to copy the SQL files to the container so that '\ir' works correctly.
-    # We copy them to /tmp/quickstart-init/
-    local TMP_DIR="/tmp/quickstart-init"
-    $CONTAINER_ENGINE exec "$CONTAINER_NAME" mkdir -p "$TMP_DIR"
-    $CONTAINER_ENGINE cp "$SQL_DIR/." "$CONTAINER_NAME:$TMP_DIR/"
-
-    $CONTAINER_ENGINE exec -i -e PGPASSWORD="$PGPASSWORD" "$CONTAINER_NAME" /bin/bash -c "cd $TMP_DIR && psql -h localhost -p 5442 -U $PGUSER -d $PGDATABASE -q -v ON_ERROR_STOP=1 -f $SQL_FILE"
-
-    # Cleanup
-    $CONTAINER_ENGINE exec "$CONTAINER_NAME" rm -rf "$TMP_DIR"
+    # psql is not on the host: run it in the container.  The scripts include their
+    # data files with \ir, so copy the whole directory in first.
+    $CONTAINER_ENGINE exec -i -e PGPASSWORD="$PGPASSWORD" -e PGOPTIONS="$PGOPTIONS" "$CONTAINER_NAME" /bin/bash -c "cd $TMP_DIR && psql -h localhost -p 5442 -U $PGUSER -d $PGDATABASE -q -v ON_ERROR_STOP=1 -f $SQL_FILE"
   fi
-
-  # Record success
-  psql_cmd -v ON_ERROR_STOP=1 <<EOF >/dev/null
-INSERT INTO quickstart_migrations.applied_migrations (migration_id)
-VALUES ('$MIGRATION_ID')
-ON CONFLICT (migration_id) DO NOTHING;
-EOF
-
-  log "Migration $MIGRATION_ID applied successfully."
 }
 
-for migration in "${MIGRATIONS[@]}"; do
-  apply_migration "${migration%%:*}" "${migration#*:}"
+TMP_DIR="/tmp/quickstart-init"
+if ! command -v psql &> /dev/null; then
+  $CONTAINER_ENGINE exec "$CONTAINER_NAME" rm -rf "$TMP_DIR"
+  $CONTAINER_ENGINE exec "$CONTAINER_NAME" mkdir -p "$TMP_DIR"
+  $CONTAINER_ENGINE cp "$SQL_DIR/." "$CONTAINER_NAME:$TMP_DIR/"
+  trap '$CONTAINER_ENGINE exec "$CONTAINER_NAME" rm -rf "$TMP_DIR" >/dev/null 2>&1 || true' EXIT
+fi
+
+for sql_file in "${INIT_SCRIPTS[@]}"; do
+  run_init_script "$sql_file"
 done
+log "PostgreSQL set-up is up to date."

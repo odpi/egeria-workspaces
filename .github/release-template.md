@@ -1,5 +1,5 @@
 ## Alignment
-- This release aligns with Egeria release `v6.0`.
+- This release aligns with Egeria release `v6.2` and pyegeria `6.2.0`.
 
 ## Highlights
 - Add short bullets of the most important user-visible changes.
