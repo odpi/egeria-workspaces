@@ -22,7 +22,9 @@ services:
       # run even with reset_interval_hours > 0.
       - /var/run/docker.sock:/var/run/docker.sock
 
-  obsidian:
-    volumes:
-      - ${CERT_DIR}/server.crt:/config/ssl/cert.pem:ro
-      - ${CERT_DIR}/server.key:/config/ssl/cert.key:ro
+  # obsidian deliberately gets NO cert mount here. It used to receive
+  # ${CERT_DIR}/server.key so :8861 served the real certificate, which made the
+  # site's private key readable from inside a general-purpose desktop
+  # container -- and it was, once that container was compromised (2026-10-17).
+  # The image's own self-signed cert is fine for the loopback/tunnel access
+  # the base file now defaults to.
