@@ -418,6 +418,7 @@ function egeriaFetch(url, creds, opts) {
     var qs = p.toString();
     if (qs) queryUrl = url + (url.indexOf('?') === -1 ? '?' : '&') + qs;
   }
+  if (egeriaForLineageOn()) headers['X-Egeria-For-Lineage'] = 'true';
   var mergedOpts = Object.assign({}, opts || {});
   delete mergedOpts._isRetry;
   mergedOpts.headers = headers;
@@ -1084,9 +1085,17 @@ function ZoneMembershipModal({ items, creds, action, onClose, onDone }) {
  * bare fetch() against /api/egeria-feedback/* (session/cookie auth, env-agnostic).
  * ────────────────────────────────────────────────────────────────────────── */
 
+// Optional props on both widgets: `creds` sends the signed-in user's Egeria token
+// (X-Egeria-Token via egeriaFetch) so likes, ratings and comments are authored by
+// that user rather than the server's configured one; `readOnly` shows the
+// feedback without the controls that change it (no signed-in user to author it).
+function _feedbackFetch(url, creds, opts) {
+  return creds ? egeriaFetch(url, creds, opts) : fetch(url, opts);
+}
+
 // ── EgeriaFeedbackWidget ──────────────────────────────────────────────────────
 
-function EgeriaFeedbackWidget({ guid }) {
+function EgeriaFeedbackWidget({ guid, creds, readOnly }) {
   var _dataState       = React.useState(null),  feedbackData = _dataState[0],       setFeedbackData = _dataState[1];
   var _loadState       = React.useState(true),  loading      = _loadState[0],       setLoading      = _loadState[1];
   var _showRateState   = React.useState(false), showRate     = _showRateState[0],   setShowRate     = _showRateState[1];
@@ -1097,16 +1106,16 @@ function EgeriaFeedbackWidget({ guid }) {
   React.useEffect(function() {
     if (!guid) return;
     setLoading(true);
-    fetch('/api/egeria-feedback/' + encodeURIComponent(guid))
+    _feedbackFetch('/api/egeria-feedback/' + encodeURIComponent(guid), creds)
       .then(function(r) { return r.ok ? r.json() : null; })
       .then(function(d) { if (d) setFeedbackData(d); setLoading(false); })
       .catch(function() { setLoading(false); });
-  }, [guid]);
+  }, [guid, creds && creds.token]);
 
   function handleLike() {
-    if (likeLoading || !feedbackData) return;
+    if (readOnly || likeLoading || !feedbackData) return;
     setLikeLoading(true);
-    fetch('/api/egeria-feedback/' + encodeURIComponent(guid) + '/like', { method: 'POST' })
+    _feedbackFetch('/api/egeria-feedback/' + encodeURIComponent(guid) + '/like', creds, { method: 'POST' })
       .then(function(r) { return r.ok ? r.json() : null; })
       .then(function(d) { if (d) setFeedbackData(function(p) { return Object.assign({}, p, d); }); })
       .catch(function() {})
@@ -1114,14 +1123,14 @@ function EgeriaFeedbackWidget({ guid }) {
   }
 
   function handleStar(n) {
-    if (rateLoading || !feedbackData) return;
+    if (readOnly || rateLoading || !feedbackData) return;
     setRateLoading(true);
     var sameRating = n === feedbackData.my_rating;
     var url = '/api/egeria-feedback/' + encodeURIComponent(guid) + '/rating';
     var opts = sameRating
       ? { method: 'DELETE' }
       : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ star_rating: n }) };
-    fetch(url, opts)
+    _feedbackFetch(url, creds, opts)
       .then(function(r) { return r.ok ? r.json() : null; })
       .then(function(d) {
         if (d) setFeedbackData(function(p) { return Object.assign({}, p, d); });
@@ -1135,7 +1144,7 @@ function EgeriaFeedbackWidget({ guid }) {
 
   var liked = feedbackData.my_like;
   var likeStyle = {
-    cursor: likeLoading ? 'default' : 'pointer',
+    cursor: (likeLoading || readOnly) ? 'default' : 'pointer',
     color:  liked ? '#f87171' : 'var(--muted)',
     opacity: likeLoading ? 0.5 : 1,
     fontWeight: 600, fontSize: 13, letterSpacing: '0.02em',
@@ -1172,23 +1181,23 @@ function EgeriaFeedbackWidget({ guid }) {
 
   var ratingDisplay = !showRate
     ? React.createElement('span', {
-        onClick: function() { setShowRate(true); },
-        title: feedbackData.my_rating ? 'Change your rating' : 'Rate this',
-        style: { cursor: 'pointer' }
+        onClick: function() { if (!readOnly) setShowRate(true); },
+        title: readOnly ? 'Sign in to rate' : (feedbackData.my_rating ? 'Change your rating' : 'Rate this'),
+        style: { cursor: readOnly ? 'default' : 'pointer' }
       },
         avgStars
         ? React.createElement(React.Fragment, null,
             React.createElement('span', { style: { color: '#f59e0b', letterSpacing: '0.05em' } }, avgStars),
             feedbackData.ratings_count > 1 && React.createElement('span', { style: { color: 'var(--dim)', fontSize: 10, marginLeft: 3 } }, '(' + feedbackData.ratings_count + ')')
           )
-        : React.createElement('span', { style: { color: 'var(--muted)', fontSize: 11 } }, 'Rate ★')
+        : React.createElement('span', { style: { color: 'var(--muted)', fontSize: 11 } }, readOnly ? 'No ratings' : 'Rate ★')
       )
     : null;
 
   return React.createElement('div', {
     style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, marginBottom: 2, fontSize: 12, userSelect: 'none' }
   },
-    React.createElement('span', { onClick: handleLike, title: liked ? 'Unlike' : 'Like', style: likeStyle },
+    React.createElement('span', { onClick: handleLike, title: readOnly ? 'Sign in to like' : (liked ? 'Unlike' : 'Like'), style: likeStyle },
       '♥ ' + feedbackData.likes_count),
     React.createElement('span', { style: { color: 'var(--border)' } }, '|'),
     ratingDisplay,
@@ -1198,7 +1207,7 @@ function EgeriaFeedbackWidget({ guid }) {
 
 // ── EgeriaCommentsSection ─────────────────────────────────────────────────────
 
-function EgeriaCommentsSection({ guid }) {
+function EgeriaCommentsSection({ guid, creds, readOnly }) {
   var TYPES = ['STANDARD_COMMENT','QUESTION','ANSWER','SUGGESTION','USAGE_EXPERIENCE','REQUIREMENT','OTHER'];
   var TYPE_COLOR = {
     STANDARD_COMMENT: 'var(--muted)', QUESTION: '#60a5fa', ANSWER: '#34d399',
@@ -1223,16 +1232,16 @@ function EgeriaCommentsSection({ guid }) {
   React.useEffect(function() {
     if (!guid) return;
     setLoading(true);
-    fetch('/api/egeria-feedback/' + encodeURIComponent(guid) + '/comments')
+    _feedbackFetch('/api/egeria-feedback/' + encodeURIComponent(guid) + '/comments', creds)
       .then(function(r) { return r.ok ? r.json() : []; })
       .then(function(d) { setComments(Array.isArray(d) ? d : []); setLoading(false); })
       .catch(function() { setLoading(false); });
-  }, [guid]);
+  }, [guid, creds && creds.token]);
 
   function handleSubmit() {
     if (!text.trim() || submitting) return;
     setSubmitting(true); setErrMsg('');
-    fetch('/api/egeria-feedback/' + encodeURIComponent(guid) + '/comments', {
+    _feedbackFetch('/api/egeria-feedback/' + encodeURIComponent(guid) + '/comments', creds, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ comment_type: commentType, text: text.trim() })
     })
@@ -1243,7 +1252,7 @@ function EgeriaCommentsSection({ guid }) {
   }
 
   function handleDelete(cguid) {
-    fetch('/api/egeria-feedback/' + encodeURIComponent(guid) + '/comments/' + encodeURIComponent(cguid), { method: 'DELETE' })
+    _feedbackFetch('/api/egeria-feedback/' + encodeURIComponent(guid) + '/comments/' + encodeURIComponent(cguid), creds, { method: 'DELETE' })
       .then(function(r) { return r.ok ? r.json() : []; })
       .then(function(d) { setComments(Array.isArray(d) ? d : []); if (editing && editing.guid === cguid) setEditing(null); })
       .catch(function() {});
@@ -1257,7 +1266,7 @@ function EgeriaCommentsSection({ guid }) {
   function handleEditSave() {
     if (!editing || !editing.text.trim() || editSaving) return;
     setEditSaving(true); setEditErr('');
-    fetch('/api/egeria-feedback/' + encodeURIComponent(guid) + '/comments/' + encodeURIComponent(editing.guid), {
+    _feedbackFetch('/api/egeria-feedback/' + encodeURIComponent(guid) + '/comments/' + encodeURIComponent(editing.guid), creds, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ comment_type: editing.commentType, text: editing.text.trim() })
     })
@@ -1278,12 +1287,12 @@ function EgeriaCommentsSection({ guid }) {
         React.createElement('span', { style: { fontSize: 10, fontWeight: 700, color: col, textTransform: 'uppercase' } }, TYPE_LABEL[c.commentType] || c.commentType),
         React.createElement('span', { style: { color: 'var(--dim)', fontSize: 10 } }, c.createdBy || 'unknown'),
         c.createTime && React.createElement('span', { style: { color: 'var(--dim)', fontSize: 10 } }, '· ' + new Date(c.createTime).toLocaleDateString()),
-        !isEditing && React.createElement('button', {
+        !isEditing && !readOnly && React.createElement('button', {
           onClick: function() { startEdit(c); },
           title: 'Edit comment',
           style: Object.assign({}, btnBase, { marginLeft: 'auto', background: 'var(--hover)', color: 'var(--muted)' })
         }, 'Edit'),
-        !isEditing && React.createElement('button', {
+        !isEditing && !readOnly && React.createElement('button', {
           onClick: function() { handleDelete(c.guid); },
           title: 'Delete comment',
           style: Object.assign({}, btnBase, { background: 'rgba(248,113,113,.1)', color: '#f87171' })
@@ -1333,7 +1342,8 @@ function EgeriaCommentsSection({ guid }) {
       : comments.length === 0
         ? React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', marginBottom: 12, fontStyle: 'italic' } }, 'No comments yet.')
         : React.createElement('div', { style: { marginBottom: 12 } }, comments.map(renderComment)),
-    React.createElement('div', { style: { marginBottom: 6 } },
+    readOnly && React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', fontStyle: 'italic' } }, 'Sign in to comment.'),
+    !readOnly && React.createElement('div', { style: { marginBottom: 6 } },
       React.createElement('select', {
         value: commentType,
         onChange: function(e) { setCommentType(e.target.value); },
@@ -1342,7 +1352,7 @@ function EgeriaCommentsSection({ guid }) {
         TYPES.map(function(t) { return React.createElement('option', { key: t, value: t }, TYPE_LABEL[t]); })
       )
     ),
-    React.createElement('div', { style: { display: 'flex', gap: 6 } },
+    !readOnly && React.createElement('div', { style: { display: 'flex', gap: 6 } },
       React.createElement('textarea', {
         value: text,
         onChange: function(e) { setText(e.target.value); },
@@ -1603,6 +1613,94 @@ function FeedbackButton({ section, persona, demoMode, srvManaged, pagePrefix }) 
       )
     )
   );
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * AppHeader — the shared app bar, React flavour. Same markup/classes as the
+ * plain-JS bar in static/app-bar.js (which must be loaded in <head>: it owns
+ * the CSS and the theme state). Layout, identical on every page:
+ *
+ *   [⌂ Portal] | [icon] Title  subtitle   {children}   {extras} [identity] [theme]
+ *
+ * The Portal link is unconditional. `identity` comes from appBarIdentity({
+ * activePersona, authUser, srvManaged }) — or null to show none. `children`
+ * is the page's own navigation/search (middle slot); `extras` are page
+ * buttons that belong on the right (Connect, Switch user, ⭐ favorite, ...).
+ * The floating 💬 Feedback button stays separate (FeedbackButton).
+ * ────────────────────────────────────────────────────────────────────────── */
+function appBarIdentity(input) {
+  return window.EgeriaAppBar ? window.EgeriaAppBar.identityFor(input) : null;
+}
+
+// [theme, setTheme] backed by the one shared 'egeria-theme' key; re-renders on
+// changes made by any toggle (or another tab).
+function useEgeriaTheme() {
+  var bar = window.EgeriaAppBar;
+  var st = React.useState(function() { return bar ? bar.getTheme() : 'dark'; });
+  React.useEffect(function() { return bar ? bar.onThemeChange(st[1]) : undefined; }, []);
+  return [st[0], function(t) {
+    var next = typeof t === 'function' ? t(bar ? bar.getTheme() : st[0]) : t;
+    if (bar) bar.setTheme(next); else st[1](next);
+  }];
+}
+
+function ThemeToggle() {
+  var th = useEgeriaTheme(), theme = th[0], setTheme = th[1];
+  var bar = window.EgeriaAppBar;
+  return React.createElement('button', {
+    type: 'button', className: 'eg-theme-btn',
+    onClick: function() { setTheme(theme === 'light' ? 'dark' : 'light'); },
+    title: bar ? bar.themeTitle(theme) : '',
+  }, bar ? bar.themeLabel(theme) : (theme === 'light' ? '☾ Dark' : '☀ Light'));
+}
+
+function IdentityBadge({ identity }) {
+  if (!identity) return null;
+  var text = (identity.kind === 'user' ? '👤 ' : '🎭 ') + identity.label;
+  var cls = 'eg-id eg-id-' + identity.kind;
+  if (identity.kind === 'user') return React.createElement('span', { className: cls, title: identity.title || '' }, text);
+  return React.createElement('a', { className: cls, title: identity.title || '',
+    href: window.EgeriaAppBar ? window.EgeriaAppBar.PICK_PERSONA_URL : '/portal' }, text);
+}
+
+// The "Promise / Memento" (forLineage) data-scope switch, in the app bar instead of
+// floating over the page (where it collided with the Feedback button). Only on pages
+// that opt in with window.EGERIA_FOR_LINEAGE; hidden while
+// egeriaForLineageToggleVisible(false) says the current view doesn't use it.
+function ForLineageToggle() {
+  var vis = React.useState(window.EGERIA_FOR_LINEAGE_VISIBLE !== false);
+  React.useEffect(function() {
+    window.EGERIA_FOR_LINEAGE_IN_HEADER = true;
+    var stray = document.getElementById('egeria-for-lineage-toggle');
+    if (stray) stray.remove();
+    function h(e) { vis[1](e.detail.show); }
+    window.addEventListener('egeria-for-lineage-visible', h);
+    return function() { window.removeEventListener('egeria-for-lineage-visible', h); };
+  }, []);
+  if (!window.EGERIA_FOR_LINEAGE || !vis[0]) return null;
+  return React.createElement('label', { className: 'eg-forlineage',
+      title: 'Include elements classified as Promise or Memento, which Egeria hides by default (forLineage)' },
+    React.createElement('input', { type: 'checkbox', defaultChecked: egeriaForLineageOn(),
+      onChange: function(e) { egeriaForLineageSet(e.target.checked); } }),
+    'Promise / Memento');
+}
+
+function AppHeader({ icon, logo, title, subtitle, onTitleClick, identity, extras, children }) {
+  var h = React.createElement;
+  return h('header', { className: 'eg-appbar' },
+    h('a', { className: 'eg-portal', href: '/portal', title: 'Back to the Portal' }, '⌂ Portal'),
+    h('span', { className: 'eg-sep' }),
+    h('div', { className: 'eg-app', onClick: onTitleClick, style: onTitleClick ? { cursor: 'pointer' } : undefined },
+      logo ? h('span', { className: 'eg-app-icon' }, h('img', { src: logo, alt: '' }))
+           : icon ? h('span', { className: 'eg-app-icon' }, icon) : null,
+      h('span', { className: 'eg-app-title' }, title),
+      subtitle ? h('span', { className: 'eg-app-sub' }, subtitle) : null),
+    h('div', { className: 'eg-appbar-middle' }, children),
+    h('div', { className: 'eg-appbar-right' },
+      h(ForLineageToggle, null),
+      extras,
+      h(IdentityBadge, { identity: identity }),
+      h(ThemeToggle, null)));
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -2049,17 +2147,62 @@ function TabularPreviewModal({ fetchUrl, name, creds, onClose }) {
   );
 }
 
+/* ── Time-slider left bound ──────────────────────────────────────────────────
+ * The slider should reach back to the oldest element being looked at. Order of
+ * preference: the oldest createTime found in the view's own data (egeriaMinCreateTime),
+ * else the oldest element Egeria holds (/api/catalog/oldest-create-time, fetched
+ * once per page load), else the last 30 days. */
+function egeriaMinCreateTime(items) {
+  var best = null;
+  function consider(t) { if (t && (best === null || new Date(t).getTime() < new Date(best).getTime())) best = t; }
+  function walk(x, depth) {
+    if (!x || typeof x !== 'object' || depth > 6) return;
+    if (Array.isArray(x)) { x.forEach(function(y) { walk(y, depth + 1); }); return; }
+    var v = x.versions || (x.elementHeader && x.elementHeader.versions) || (x.header && x.header.versions) || {};
+    var t = x.createTime || v.createTime;
+    if (typeof t === 'string' && !isNaN(new Date(t).getTime())) consider(t);
+    if (x.children) walk(x.children, depth + 1);
+  }
+  walk(items, 0);
+  return best;
+}
+
+var _oldestCreate = { value: null, promise: null };
+function useEgeriaOldestCreateTime() {
+  var _s = React.useState(_oldestCreate.value), v = _s[0], setV = _s[1];
+  React.useEffect(function() {
+    if (_oldestCreate.value) { setV(_oldestCreate.value); return; }
+    if (!_oldestCreate.promise) {
+      _oldestCreate.promise = egeriaFetch('/api/catalog/oldest-create-time', null)
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(j) { _oldestCreate.value = (j && j.createTime) || null; return _oldestCreate.value; })
+        .catch(function() { return null; })
+        .then(function(t) { if (!t) _oldestCreate.promise = null; return t; });  // don't cache a failure
+    }
+    var alive = true;
+    _oldestCreate.promise.then(function(t) { if (alive && t) setV(t); });
+    return function() { alive = false; };
+  }, []);
+  return v;
+}
+
 /* ───────────────────────────────────────────────────────────────────────────
  * Time slider — emits an as_of_time ISO string (or null = "now") for
  * point-in-time / historical queries. Generalised from the Lineage Explorer
  * (LE-3) with inline styles so it carries no CSS-class dependency. Props:
- *   createTime — ISO string for the slider's left bound (default: 30 days ago)
+ *   createTime — ISO string forcing the slider's left bound
+ *   items      — the data in view; left bound = oldest createTime found in it
+ *                (see egeriaMinCreateTime). With neither, the left bound is the
+ *                oldest element in Egeria, else 30 days ago.
  *   onChange(asOfTimeOrNull) — fired on release; null means "now"
  *   label — optional heading (default "Time Slider")
  * ─────────────────────────────────────────────────────────────────────────── */
-function TimeSlider({ createTime, onChange, label }) {
+function TimeSlider({ createTime, items, onChange, label }) {
   var nowMs   = Date.now();
-  var startMs = createTime ? new Date(createTime).getTime() : (nowMs - 30 * 24 * 3600 * 1000);
+  var oldestEverything = useEgeriaOldestCreateTime();
+  var inView  = createTime || egeriaMinCreateTime(items);
+  var boundIso = inView || oldestEverything;
+  var startMs = boundIso ? new Date(boundIso).getTime() : (nowMs - 30 * 24 * 3600 * 1000);
   if (isNaN(startMs) || startMs >= nowMs) startMs = nowMs - 30 * 24 * 3600 * 1000;
 
   var _val = React.useState(nowMs), val = _val[0], setVal = _val[1];
@@ -2957,3 +3100,76 @@ function simplePillRow(values, labelFn, fSet, setFSet) {
     fSet.size > 0 && el('button', { onClick:function(){ setFSet(new Set()); },
       style:{ fontSize:10, padding:'2px 8px', borderRadius:4, border:'1px solid var(--border)', background:'transparent', color:'var(--dim)', cursor:'pointer' } }, 'clear'));
 }
+
+/* ── Global "Promise / Memento" (forLineage) toggle ──────────────────────────
+ * Egeria hides elements classified Promise or Memento unless a request sets
+ * forLineage. Pages where that is meaningful (Type Explorer, Tech Catalog,
+ * Lineage Explorer, Data Mesh, Insights) opt in with
+ *   <script>window.EGERIA_FOR_LINEAGE = true;</script>
+ * before this file. They then get a small fixed toggle, default ON, remembered
+ * per browser tab AND per page (sessionStorage keyed by page path) -- it applies to
+ * the instance you are looking at, not the whole app; egeriaFetch sends X-Egeria-For-Lineage: true while it is on
+ * and the server (egeria_auth.py) applies it to every Egeria call in that
+ * request. Operations and Audit don't opt in, so they never send it.
+ * Toggling reloads the page so every view refetches under the new setting. */
+var EGERIA_FOR_LINEAGE_KEY = 'egeria-for-lineage:' + location.pathname;
+
+function egeriaForLineageOn() {
+  if (!window.EGERIA_FOR_LINEAGE) return false;
+  try { return sessionStorage.getItem(EGERIA_FOR_LINEAGE_KEY) !== 'false'; } catch (e) { return true; }
+}
+
+// Pages can hide/show the toggle as the user moves between views (the Explorer hides it
+// on its home page and docs-style sections).
+window.egeriaForLineageToggleVisible = function(show) {
+  window.EGERIA_FOR_LINEAGE_VISIBLE = !!show;
+  var el = document.getElementById('egeria-for-lineage-toggle');
+  if (el) el.style.display = show ? 'flex' : 'none';
+  window.dispatchEvent(new CustomEvent('egeria-for-lineage-visible', { detail: { show: !!show } }));
+};
+
+// Flip forLineage and reload so every view refetches under the new setting.
+function egeriaForLineageSet(on) {
+  try { sessionStorage.setItem(EGERIA_FOR_LINEAGE_KEY, on ? 'true' : 'false'); } catch (e) {}
+  // A SPA may register window.egeriaNavSnapshot() -> {hash, query}; encode it in the
+  // URL first so the reload comes back to the same view instead of the home page.
+  try {
+    var snap = window.egeriaNavSnapshot && window.egeriaNavSnapshot();
+    if (snap) {
+      var qp = new URLSearchParams(location.search);
+      Object.keys(snap.query || {}).forEach(function(k) {
+        var v = snap.query[k];
+        if (v === null || v === undefined || v === '') qp.delete(k); else qp.set(k, v);
+      });
+      var qs = qp.toString();
+      history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + (snap.hash ? '#' + snap.hash : location.hash));
+    }
+  } catch (e) {}
+  location.reload();
+}
+
+(function mountForLineageToggle() {
+  function mount() {
+    if (!window.EGERIA_FOR_LINEAGE || document.getElementById('egeria-for-lineage-toggle')) return;
+    // Pages with the shared app bar show it there (ForLineageToggle in AppHeader);
+    // this floating copy is only a fallback for any page that doesn't.
+    if (window.EGERIA_FOR_LINEAGE_IN_HEADER || document.querySelector('.eg-appbar')) return;
+    var label = document.createElement('label');
+    label.id = 'egeria-for-lineage-toggle';
+    label.title = 'Include elements classified as Promise or Memento, which Egeria hides by default (forLineage)';
+    label.style.cssText = 'position:fixed;right:12px;bottom:10px;z-index:9000;display:' +
+      (window.EGERIA_FOR_LINEAGE_VISIBLE === false ? 'none' : 'flex') + ';align-items:center;' +
+      'gap:6px;padding:4px 10px;font-size:11px;cursor:pointer;user-select:none;border-radius:14px;' +
+      'background:var(--card,#1c2230);border:1px solid var(--border,#2a3345);color:var(--muted,#9aa4b5);' +
+      'box-shadow:0 1px 4px rgba(0,0,0,.25);';
+    var box = document.createElement('input');
+    box.type = 'checkbox';
+    box.checked = egeriaForLineageOn();
+    box.style.cssText = 'cursor:pointer;accent-color:var(--accent,#60a5fa);';
+    box.addEventListener('change', function() { egeriaForLineageSet(box.checked); });
+    label.appendChild(box);
+    label.appendChild(document.createTextNode('Promise / Memento'));
+    document.body.appendChild(label);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount); else mount();
+})();

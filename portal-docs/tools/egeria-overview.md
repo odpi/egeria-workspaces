@@ -41,3 +41,4 @@ Every section carries a provenance badge: ● live (queried from Egeria now), �
 
 - [Egeria Explorer](egeria-explorer.md) — browse the "Egeria Dashboard Analytics" Glossary and "Egeria Dashboard" RootCollection that the info bubbles are generated from
 - [Egeria Audit](egeria-audit.md) — full detail views for the exceptions/certifications tiles' underlying elements
+- [Local Dashboards](local-dashboards.md) — the user-authored companion portal for custom reporting and analytic trends

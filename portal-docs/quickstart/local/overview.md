@@ -94,6 +94,7 @@ This stops the running stack, removes locally-built images, runs `git pull`, the
 ```bash
 ./quick-start-local --demo             # Enable demo mode (auth, HTTPS, SSL certs)
 ./quick-start-local --refresh-platform # Force pull of latest Egeria base image
-./quick-start-local --refresh-pyegeria # Force pyegeria-web + jupyter to re-resolve latest pyegeria
+./quick-start-local --pyegeria-version 6.1.20  # Pin pyegeria (default: latest from PyPI every run); `latest` clears
+./quick-start-local --no-refresh-pyegeria      # Keep the pyegeria already in the images (e.g. offline)
 ./quick-start-local --help
 ```

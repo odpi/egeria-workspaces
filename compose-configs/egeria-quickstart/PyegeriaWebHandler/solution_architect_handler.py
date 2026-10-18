@@ -20,6 +20,7 @@ import time
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
+from egeria_auth import lineage_key as _lineage_key
 from fastapi.responses import JSONResponse
 from loguru import logger
 
@@ -51,6 +52,22 @@ _DETAIL_GRAPH_BODY_DICT = {
     "graphQueryDepth": 10,
     "maxMermaidNodeCount": 250,
 }
+# `?quick=true` first-paint variant: depth 1 returns in ~0.1 s (vs 3-20 s at depth
+# 10, and cost tracks blueprint size/DB load, not depth) with the same properties,
+# components and relationships but a smaller diagram. The UI shows it immediately,
+# then fetches the full depth-10 detail and swaps it in.
+_DETAIL_QUICK_BODY_DICT = {**_DETAIL_GRAPH_BODY_DICT, "graphQueryDepth": 1}
+
+
+def _get_classification_explorer(url=None, server=None, user_id=None, user_pwd=None):
+    from pyegeria import ClassificationExplorer
+    url      = url      or os.environ.get("EGERIA_PLATFORM_URL",   "https://localhost:9443")
+    server   = server   or os.environ.get("EGERIA_VIEW_SERVER",    "qs-view-server")
+    user_id  = user_id  or os.environ.get("EGERIA_USER",           "erinoverview")
+    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD",  "secret")
+    ce = ClassificationExplorer(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+    apply_token(ce)
+    return ce
 
 
 def _get_manager(url=None, server=None, user_id=None, user_pwd=None):
@@ -355,6 +372,16 @@ _BP_FOLIO_CACHE: dict = {}
 _BP_FOLIO_TTL = 30  # seconds
 
 
+# Folio grouping needs depth 1 (a blueprint's memberOfCollections is only populated
+# there), and depth 1 across every blueprint is slow: ~15-35 s for 34 blueprints,
+# swinging with Postgres load (depth 0 is ~0.2 s). As of 2026-10-01 no blueprint is a
+# member of any Folio (their collections are CollectionFolder/RootCollection/
+# SolutionBlueprint; the Folios hold governance items), so depth 1 only produced an
+# empty grouping. Keep depth 0 -- every blueprint lands in `ungrouped`, identical
+# output -- and set this to 1 when blueprints are actually filed under Folios.
+_FOLIO_GROUPING_DEPTH = 0
+
+
 @router.get("/api/solution/blueprints/folios", summary="Blueprints grouped by their Folios", responses=EGERIA_ERROR_RESPONSES)
 def list_blueprints_by_folio(
     url:      Optional[str] = Query(None),
@@ -366,7 +393,7 @@ def list_blueprints_by_folio(
     """Group solution blueprints under the Folios that curate them. A blueprint's
     folios are its memberOfCollections entries whose type is Folio; blueprints in
     no folio are returned under `ungrouped`. Built from one depth-1 find."""
-    cache_key = f"{url or ''}|{server or ''}|{user_id or ''}"
+    cache_key = f"{url or ''}|{server or ''}|{user_id or ''}{_lineage_key()}"
     cached = _BP_FOLIO_CACHE.get(cache_key)
     if not refresh and cached and (time.time() - cached[0]) < _BP_FOLIO_TTL:
         return JSONResponse(cached[1])
@@ -379,7 +406,7 @@ def list_blueprints_by_folio(
     try:
         raw = mgr.find_solution_blueprints(
             search_string="*", output_format="JSON", start_from=0, page_size=500,
-            graph_query_depth=1, sequencing_order="PROPERTY_ASCENDING",
+            graph_query_depth=_FOLIO_GROUPING_DEPTH, sequencing_order="PROPERTY_ASCENDING",
             sequencing_property="displayName",
         )
     except Exception as exc:
@@ -431,6 +458,7 @@ def get_blueprint(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    quick:    bool = Query(False, description="First-paint variant: depth 1, smaller diagram"),
 ):
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
@@ -438,7 +466,7 @@ def get_blueprint(
         raise_egeria_http_error(exc, "Failed to create SolutionArchitect manager")
 
     try:
-        raw = mgr.get_solution_blueprint_by_guid(guid, body=_DETAIL_GRAPH_BODY_DICT, output_format="JSON")
+        raw = mgr.get_solution_blueprint_by_guid(guid, body=_DETAIL_QUICK_BODY_DICT if quick else _DETAIL_GRAPH_BODY_DICT, output_format="JSON")
     except Exception as exc:
         raise_egeria_http_error(exc, "get_solution_blueprint_by_guid failed")
 
@@ -487,7 +515,7 @@ def list_components(
     return JSONResponse({"components": components, "total": len(components)})
 
 
-# Component tree cache: cache_key → (timestamp, result). The depth-1 find is ~5s.
+# Component tree cache: cache_key → (timestamp, result).
 _COMP_TREE_CACHE: dict = {}
 _COMP_TREE_TTL = 30  # seconds
 
@@ -515,7 +543,7 @@ def list_components_tree(
     in any other) with recursively nested children. Built from a single depth-1 find
     that inlines nestedSolutionComponents (children) and usedInSolutionComponents
     (parents)."""
-    cache_key = f"{url or ''}|{server or ''}|{user_id or ''}"
+    cache_key = f"{url or ''}|{server or ''}|{user_id or ''}{_lineage_key()}"
     cached = _COMP_TREE_CACHE.get(cache_key)
     if not refresh and cached and (time.time() - cached[0]) < _COMP_TREE_TTL:
         return JSONResponse(cached[1])
@@ -525,16 +553,31 @@ def list_components_tree(
     except Exception as exc:
         raise_egeria_http_error(exc, "Failed to create SolutionArchitect manager")
 
+    # Depth 0 for the components plus ONE SolutionComposition relationships call for
+    # the nesting. The old single depth-1 find fanned out into per-component
+    # relationship queries: it took minutes for ~440 components under database load
+    # and 504'd behind the proxy (the Solution Blueprints view fires this call on
+    # load, which also starved the blueprint detail call). SolutionComposition end1
+    # is the parent and end2 the nested component -- checked against
+    # nestedSolutionComponents / usedInSolutionComponents on a sample of components.
     try:
         raw = mgr.find_solution_components(
             search_string="*", output_format="JSON",
-            start_from=0, page_size=500, graph_query_depth=1,
+            start_from=0, page_size=500, graph_query_depth=0,
             sequencing_order="PROPERTY_ASCENDING", sequencing_property="displayName",
         )
     except Exception as exc:
         raise_egeria_http_error(exc, "find_solution_components (tree) failed")
     if not isinstance(raw, list):
         raw = []
+    try:
+        ce = _get_classification_explorer(url, server, user_id, user_pwd)
+        compositions = ce.get_relationships(
+            relationship_type="SolutionComposition", page_size=0, output_format="JSON")
+    except Exception as exc:
+        raise_egeria_http_error(exc, "get_relationships (SolutionComposition) failed")
+    if not isinstance(compositions, list):
+        compositions = []
 
     summary = {}      # guid → node
     children = {}     # guid → [child guid]
@@ -544,11 +587,13 @@ def list_components_tree(
         if not g:
             continue
         summary[g] = _serialize_component_summary(el)
-        kids = _rel_guids(el, "nestedSolutionComponents")
-        children[g] = kids
-        has_parent.update(kids)                       # nested children have a parent
-        if _rel_guids(el, "usedInSolutionComponents"):
-            has_parent.add(g)                          # this component is used by another
+        children[g] = []
+    for rel in compositions:
+        parent = (rel.get("end1") or {}).get("guid")
+        child  = (rel.get("end2") or {}).get("guid")
+        if parent in children and child in summary:
+            children[parent].append(child)
+            has_parent.add(child)                     # nested children have a parent
 
     def build(guid: str, visited: set) -> dict:
         node = dict(summary.get(guid, {"guid": guid}))
@@ -571,6 +616,7 @@ def get_component(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    quick:    bool = Query(False, description="First-paint variant: depth 1, smaller diagram"),
 ):
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
@@ -578,7 +624,7 @@ def get_component(
         raise_egeria_http_error(exc, "Failed to create SolutionArchitect manager")
 
     try:
-        raw = mgr.get_solution_component_by_guid(guid, body=_DETAIL_GRAPH_BODY_DICT, output_format="JSON")
+        raw = mgr.get_solution_component_by_guid(guid, body=_DETAIL_QUICK_BODY_DICT if quick else _DETAIL_GRAPH_BODY_DICT, output_format="JSON")
     except Exception as exc:
         raise_egeria_http_error(exc, "get_solution_component_by_guid failed")
 
