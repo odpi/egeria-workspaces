@@ -29,6 +29,7 @@ import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Body, HTTPException, Query
+from egeria_auth import lineage_key as _lineage_key
 from fastapi.responses import JSONResponse
 from loguru import logger
 from pydantic import BaseModel
@@ -260,7 +261,7 @@ def get_roots(
     other collection. When only_root_type=True: just the RootCollection-typed
     elements, as before.
     """
-    cache_key = f"{url or ''}|{server or ''}|{user_id or ''}|{include_templates}|{only_root_type}"
+    cache_key = f"{url or ''}|{server or ''}|{user_id or ''}|{include_templates}|{only_root_type}{_lineage_key()}"
     cached = _ROOTS_CACHE.get(cache_key)
     if cached and (time.time() - cached[0]) < _ROOTS_CACHE_TTL:
         return JSONResponse(cached[1])
@@ -324,7 +325,7 @@ def get_tree(
     except Exception as exc:
         raise_egeria_http_error(exc, "Failed to create CollectionManager")
 
-    cache_key = f"{root_guid}|{url or ''}|{server or ''}|{user_id or ''}|{as_of_time or ''}"
+    cache_key = f"{root_guid}|{url or ''}|{server or ''}|{user_id or ''}|{as_of_time or ''}{_lineage_key()}"
     cached = _TREE_CACHE.get(cache_key)
     if cached and (time.time() - cached[0]) < _TREE_CACHE_TTL:
         return JSONResponse(cached[1])
@@ -356,7 +357,7 @@ def get_node_children(
     except Exception as exc:
         raise_egeria_http_error(exc, "Failed to create CollectionManager")
 
-    cache_key = f"children|{node_guid}|{url or ''}|{server or ''}|{user_id or ''}|{as_of_time or ''}"
+    cache_key = f"children|{node_guid}|{url or ''}|{server or ''}|{user_id or ''}|{as_of_time or ''}{_lineage_key()}"
     cached = _TREE_CACHE.get(cache_key)
     if cached and (time.time() - cached[0]) < _TREE_CACHE_TTL:
         return JSONResponse(cached[1])

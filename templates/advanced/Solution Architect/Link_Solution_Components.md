@@ -1,7 +1,7 @@
 ___
 
 ## Link Solution Components
-> Links or unlinks two solution compoents.
+> Links or unlinks two solution components.
 
 ### Component1
 >	**Input Required**: True
@@ -169,14 +169,6 @@ ___
 >	**Description**: Is the element at end2 an anchor to end1?
 
 >	**Default Value**: false
-
-
-### ISC Qualified Names
->	**Input Required**: False
-
->	**Attribute Type**: Reference Name List
-
->	**Description**: The qualified names of the information supply chains that this wire implements. From SolutionLinkingWire (0735).
 
 
 ### ISC Qualified Names

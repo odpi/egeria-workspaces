@@ -54,6 +54,23 @@ Both root startup scripts (`quick-start-*` and `fresh-start-*`) call `ensure-sha
 
 To bypass the local build cache for the proxy build, set `NO_CACHE=1` before running the script.
 
+### Resetting an Egeria metadata database
+
+To start Egeria from a clean metadata store, use `reset-egeria-db.sh` rather than a bare `DROP/CREATE DATABASE`.
+`docker-entrypoint-initdb.d/init_egeria.sql` grants `egeria_admin` and `egeria_user` privileges on the database, but it only
+runs when Postgres initialises a new data directory, so a hand-recreated database has no grants and the platform crash-loops
+with `permission denied for database egeria`. The script stops the platform container, drops and recreates the database,
+re-applies the grant, and restarts the platform:
+
+```bash
+./reset-egeria-db.sh --dry-run            # show what would happen
+./reset-egeria-db.sh --backup             # pg_dump to egeria-db-backups/ first, then reset (asks you to type the database name)
+./reset-egeria-db.sh --database egeria_freshstart --container <freshstart platform container>
+```
+
+All metadata in that database is lost. Stop anything else that writes to Egeria first, and do not hand-run Dr.Egeria documents
+afterwards; the portal's bootstrap heal repopulates the content.
+
 ## Image pinning and hardened Kafka defaults
 
 `gen-env.sh` writes image references into `compose-configs/shared-infra/.env`:
