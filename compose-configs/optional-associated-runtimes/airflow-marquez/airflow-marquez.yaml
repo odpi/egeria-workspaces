@@ -70,7 +70,7 @@ services:
     <<: *airflow-common
     command: api-server
     ports:
-      - "8072:8072"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:8072:8072"
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8072/api/v2/version"]
       interval: 30s
@@ -159,8 +159,8 @@ services:
     env_file:
       - .env
     ports:
-      - "5050:5050"
-      - "5051:5051"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:5050:5050"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:5051:5051"
     environment:
       - MARQUEZ_PORT=5050
       - MARQUEZ_ADMIN_PORT=5051
@@ -183,7 +183,7 @@ services:
     image: marquezproject/marquez-web:latest
     platform: linux/amd64
     ports:
-      - "3000:3000"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:3000:3000"
     environment:
       - WEB_PORT=3000
       - MARQUEZ_HOST=marquez

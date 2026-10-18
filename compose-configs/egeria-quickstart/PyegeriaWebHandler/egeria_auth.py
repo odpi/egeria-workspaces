@@ -14,6 +14,8 @@ A standard ASGI middleware (not ``BaseHTTPMiddleware``) is used so the contextva
 set here propagates into the endpoint coroutine — mirroring MCPTokenMiddleware
 in pyegeria_handler.py.
 """
+import base64
+import json
 from contextvars import ContextVar
 
 from pyegeria import lineage_visible  # pyegeria >= 6.1.25
@@ -47,6 +49,24 @@ def lineage_key() -> str:
 def get_request_token() -> Optional[str]:
     """Return the X-Egeria-Token supplied with the current request, if any."""
     return _egeria_token.get()
+
+
+def token_user() -> Optional[str]:
+    """The user id in the current request's Egeria bearer token, or None.
+
+    Egeria tokens are JWTs whose ``sub`` is the user id. The payload is read
+    without verifying the signature: Egeria verifies the token on every call, and
+    this is only for labelling things as the caller's own (my like, my rating)."""
+    token = _egeria_token.get()
+    parts = token.split(".") if token else []
+    if len(parts) != 3:
+        return None
+    try:
+        payload = json.loads(base64.urlsafe_b64decode(parts[1] + "=" * (-len(parts[1]) % 4)))
+    except (ValueError, TypeError):
+        return None
+    sub = payload.get("sub") if isinstance(payload, dict) else None
+    return sub if isinstance(sub, str) and sub else None
 
 
 def apply_token(client) -> None:

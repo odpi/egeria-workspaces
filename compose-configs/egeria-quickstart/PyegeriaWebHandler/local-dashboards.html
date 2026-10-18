@@ -271,7 +271,35 @@ var _executeCache = {};
 // `force` (default false) skips the cache read (a manual per-placement
 // refresh click) but still writes the fresh result back into the cache, so
 // the normal 45s TTL behavior for everyone else's next read is unchanged.
+// The persona picked in this browser, sent with every execute so a tile that
+// must act as the viewer elsewhere (Resource Explorer's Curation Coverage, see
+// re_analytics.py) can. Same owner check as static/egeria-shared-ui.js's
+// loadOwnedPersona, trimmed here because this page loads no React: a persona
+// picked under a different Portal account is not used. Resolved once per page.
+var _viewerPersonaPromise = null;
+function viewerPersona() {
+  if (!_viewerPersonaPromise) {
+    _viewerPersonaPromise = fetch('/api/auth/me')
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .catch(function() { return null; })
+      .then(function(me) {
+        try {
+          var stored = JSON.parse(localStorage.getItem('egeria-persona') || 'null');
+          if (!stored || stored.ownerId !== ((me && me.id) || null)) return null;
+          return stored.id || null;
+        } catch (e) { return null; }
+      });
+  }
+  return _viewerPersonaPromise;
+}
+
 function fetchExecuteCached(body, force) {
+  return viewerPersona().then(function(persona) {
+    return _fetchExecuteCached(persona ? Object.assign({}, body, { persona: persona }) : body, force);
+  });
+}
+
+function _fetchExecuteCached(body, force) {
   var key = JSON.stringify(body);
   var hit = _executeCache[key];
   if (!force && hit && (Date.now() - hit.t) < EXECUTE_CACHE_TTL_MS) {

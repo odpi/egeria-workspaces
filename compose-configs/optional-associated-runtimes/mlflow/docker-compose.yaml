@@ -17,8 +17,8 @@ services:
     volumes:
       - minio_data:/data # Persistent storage for artifacts
     ports:
-      - "9005:9000" # Host: 9005 -> Container: 9000 (API)
-      - "9006:9001" # Host: 9006 -> Container: 9001 (Console UI)
+      - "${EGERIA_BIND_IP:-127.0.0.1}:9005:9000" # Host: 9005 -> Container: 9000 (API)
+      - "${EGERIA_BIND_IP:-127.0.0.1}:9006:9001" # Host: 9006 -> Container: 9001 (Console UI)
     command: server /data --console-address ":9001"
     networks:
       - egeria_network # Connect to your existing network
@@ -46,7 +46,7 @@ services:
 
     command: mlflow server --backend-store-uri $BACKEND_STORE_URI --default-artifact-root $ARTIFACT_ROOT --host 0.0.0.0 --port 5000
     ports:
-      - "5025:5000" # Host: 5025 -> Container: 5000 (MLflow UI)
+      - "${EGERIA_BIND_IP:-127.0.0.1}:5025:5000" # Host: 5025 -> Container: 5000 (MLflow UI)
     depends_on:
       - minio
     networks:

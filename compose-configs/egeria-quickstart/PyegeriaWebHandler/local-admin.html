@@ -195,9 +195,11 @@
       Folders of Dr.Egeria documents discovered under <code>dr-egeria-inbox</code>. Enable a folder
       to include it when the Portal reinitializes after Egeria is wiped (a folder with a canary
       element is auto-healed; without one it only runs when triggered here). Drop a new folder in
-      to add a batch — no code change needed. Add a <code>_batch.json</code> to a folder for a
-      friendlier name/description or an explicit file order (files it doesn't mention run after,
-      alphabetically). Add <code>_folder_order.json</code> (a JSON array of folder names) directly
+      to add a batch — no code change needed. Subfolders run inline (outbox, logs and README files are skipped).
+      Add a <code>_batch.json</code> to a folder for a friendlier name/description or an explicit
+      order — its <code>files</code> list can name subfolders (<code>"sub/"</code>) as well as files;
+      anything it doesn't mention runs after, alphabetically, and is flagged; <code>exclude</code> skips prose files;
+      <code>userid</code> (for the folder, or per entry as <code>{"file": …, "userid": …}</code>) sets the Egeria user each file loads as. Add <code>_folder_order.json</code> (a JSON array of folder names) directly
       under <code>dr-egeria-inbox</code> to control the order folders run in — same rule: unlisted
       folders run after, alphabetically.
     </p>
@@ -547,6 +549,39 @@
       .catch(function() { el.textContent = 'Failed to load log'; });
   }
 
+  // Per-file run ledger state (bootstrap_batches.py). "no_record" only means
+  // the Portal hasn't run it since the ledger existed -- it may well have been
+  // loaded another way -- so it gets the quietest treatment, not a warning.
+  function _fileRunTag(f) {
+    var tag = function(text, color, title) {
+      return ' <span title="' + esc(title) + '" style="font-size:0.68rem;color:' + color +
+        ';border:1px solid currentColor;border-radius:4px;padding:0 0.3rem;opacity:0.85">' + esc(text) + '</span>';
+    };
+    var out = '';
+    if (f.runState === 'changed') out += tag('changed since last run', 'var(--warning,#d97706)', 'Last run ' + (f.lastRunAt || '') + ' — the file has changed since');
+    else if (f.runState === 'current') out += ' <span title="Last run by the Portal ' + esc(f.lastRunAt || '') + '" style="font-size:0.68rem;color:var(--muted)">✓</span>';
+    else if (f.runState === 'no_record') out += ' <span title="No run by the Portal recorded — it may still have been loaded from a notebook, Obsidian or the CLI" style="font-size:0.68rem;color:var(--muted)">·</span>';
+    if (f.commands === 0) out += tag('no commands', 'var(--muted)', 'No Dr.Egeria command headings found in this file');
+    out += ' <span title="' + esc(f.userid ? 'Loaded as this Egeria user (_batch.json userid)' : 'No userid declared in _batch.json — runs as dr_egeria\'s default user') +
+      '" style="font-size:0.68rem;color:var(--muted)">' + esc(f.userid ? 'as ' + f.userid : 'default user') + '</span>';
+    return out;
+  }
+
+  // Ordering/validation notes from discovery (bootstrap_batches.py) -- unlisted
+  // files whose position was defaulted, stale manifest entries, prose files,
+  // overlap with another batch.
+  function _batchWarnings(b) {
+    var ws = b.warnings || [];
+    if (!ws.length) return '';
+    var n = ws.filter(function(w) { return w.level !== 'info'; }).length;
+    var summary = n ? n + ' ordering/validation note' + (n === 1 ? '' : 's') : 'notes';
+    return '<details style="margin-top:0.5rem;padding-left:1.6rem;font-size:0.75rem">' +
+      '<summary style="cursor:pointer;color:' + (n ? 'var(--warning,#d97706)' : 'var(--muted)') + '">' + esc(summary) + '</summary>' +
+      '<ul style="margin:0.3rem 0 0 1rem;padding:0;color:var(--muted);line-height:1.5">' +
+      ws.map(function(w) { return '<li>' + (w.level === 'info' ? '' : '⚠ ') + esc(w.message) + '</li>'; }).join('') +
+      '</ul></details>';
+  }
+
   function renderBatches() {
     var el = document.getElementById('batchList');
     if (!_batches.length) {
@@ -563,7 +598,7 @@
       var files = b.files.map(function(f, fi) {
         return '<label style="display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;padding:0.15rem 0">' +
           '<input type="checkbox"' + (f.enabled ? ' checked' : '') +
-          ' onchange="toggleFile(' + bi + ',' + fi + ',this.checked)"> ' + esc(f.name) +
+          ' onchange="toggleFile(' + bi + ',' + fi + ',this.checked)"> ' + esc(f.name) + _fileRunTag(f) +
           '</label>';
       }).join('');
       return '<div class="card" style="margin-bottom:0.75rem">' +
@@ -576,7 +611,7 @@
             '<button class="btn-xs" onclick="runBatch(' + bi + ')">▶ Run Now</button></span>' +
         '</div>' +
         (b.description ? '<p class="note" style="margin-top:0.3rem">' + esc(b.description) + '</p>' : '') +
-        '<div style="margin-top:0.5rem;padding-left:1.6rem">' + files + '</div>' +
+        '<div style="margin-top:0.5rem;padding-left:1.6rem">' + files + '</div>' + _batchWarnings(b) +
         '<div id="batchResult-' + bi + '" class="note" style="display:none"></div>' +
       '</div>';
     }).join('');
@@ -678,7 +713,7 @@
       var ok = d.results.filter(function(r) { return r.status === 'ok'; }).length;
       resultEl.innerHTML = (d.success ? '<span style="color:var(--success)">✓</span> ' : '<span style="color:var(--error)">✗</span> ') +
         ok + '/' + d.results.length + ' files ran clean' +
-        (d.success ? '' : ' — ' + d.results.filter(function(r) { return r.status !== 'ok'; })
+        (d.success ? '' : ' — ' + d.results.filter(function(r) { return r.status !== 'ok' && r.status !== 'duplicate'; })
           .map(function(r) { return esc(r.file) + ': ' + esc((r.message || '').slice(0, 200)); }).join('; '));
       showBanner(d.success ? 'success' : 'error', d.success ? b.displayName + ' ran successfully' : b.displayName + ' had failures — see details below');
     }, function(msg) { resultEl.textContent = msg; }, function(secs) {

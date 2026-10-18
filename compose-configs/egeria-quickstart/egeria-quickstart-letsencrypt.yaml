@@ -12,6 +12,6 @@
 services:
   apache-web:
     ports:
-      - "80:8085"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:80:8085"
     volumes:
       - ../../runtime-volumes/quickstart-apache-web/acme-challenge:/usr/local/apache2/htdocs/.well-known/acme-challenge

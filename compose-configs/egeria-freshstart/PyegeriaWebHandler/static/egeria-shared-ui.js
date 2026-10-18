@@ -1085,9 +1085,17 @@ function ZoneMembershipModal({ items, creds, action, onClose, onDone }) {
  * bare fetch() against /api/egeria-feedback/* (session/cookie auth, env-agnostic).
  * ────────────────────────────────────────────────────────────────────────── */
 
+// Optional props on both widgets: `creds` sends the signed-in user's Egeria token
+// (X-Egeria-Token via egeriaFetch) so likes, ratings and comments are authored by
+// that user rather than the server's configured one; `readOnly` shows the
+// feedback without the controls that change it (no signed-in user to author it).
+function _feedbackFetch(url, creds, opts) {
+  return creds ? egeriaFetch(url, creds, opts) : fetch(url, opts);
+}
+
 // ── EgeriaFeedbackWidget ──────────────────────────────────────────────────────
 
-function EgeriaFeedbackWidget({ guid }) {
+function EgeriaFeedbackWidget({ guid, creds, readOnly }) {
   var _dataState       = React.useState(null),  feedbackData = _dataState[0],       setFeedbackData = _dataState[1];
   var _loadState       = React.useState(true),  loading      = _loadState[0],       setLoading      = _loadState[1];
   var _showRateState   = React.useState(false), showRate     = _showRateState[0],   setShowRate     = _showRateState[1];
@@ -1098,16 +1106,16 @@ function EgeriaFeedbackWidget({ guid }) {
   React.useEffect(function() {
     if (!guid) return;
     setLoading(true);
-    fetch('/api/egeria-feedback/' + encodeURIComponent(guid))
+    _feedbackFetch('/api/egeria-feedback/' + encodeURIComponent(guid), creds)
       .then(function(r) { return r.ok ? r.json() : null; })
       .then(function(d) { if (d) setFeedbackData(d); setLoading(false); })
       .catch(function() { setLoading(false); });
-  }, [guid]);
+  }, [guid, creds && creds.token]);
 
   function handleLike() {
-    if (likeLoading || !feedbackData) return;
+    if (readOnly || likeLoading || !feedbackData) return;
     setLikeLoading(true);
-    fetch('/api/egeria-feedback/' + encodeURIComponent(guid) + '/like', { method: 'POST' })
+    _feedbackFetch('/api/egeria-feedback/' + encodeURIComponent(guid) + '/like', creds, { method: 'POST' })
       .then(function(r) { return r.ok ? r.json() : null; })
       .then(function(d) { if (d) setFeedbackData(function(p) { return Object.assign({}, p, d); }); })
       .catch(function() {})
@@ -1115,14 +1123,14 @@ function EgeriaFeedbackWidget({ guid }) {
   }
 
   function handleStar(n) {
-    if (rateLoading || !feedbackData) return;
+    if (readOnly || rateLoading || !feedbackData) return;
     setRateLoading(true);
     var sameRating = n === feedbackData.my_rating;
     var url = '/api/egeria-feedback/' + encodeURIComponent(guid) + '/rating';
     var opts = sameRating
       ? { method: 'DELETE' }
       : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ star_rating: n }) };
-    fetch(url, opts)
+    _feedbackFetch(url, creds, opts)
       .then(function(r) { return r.ok ? r.json() : null; })
       .then(function(d) {
         if (d) setFeedbackData(function(p) { return Object.assign({}, p, d); });
@@ -1136,7 +1144,7 @@ function EgeriaFeedbackWidget({ guid }) {
 
   var liked = feedbackData.my_like;
   var likeStyle = {
-    cursor: likeLoading ? 'default' : 'pointer',
+    cursor: (likeLoading || readOnly) ? 'default' : 'pointer',
     color:  liked ? '#f87171' : 'var(--muted)',
     opacity: likeLoading ? 0.5 : 1,
     fontWeight: 600, fontSize: 13, letterSpacing: '0.02em',
@@ -1173,23 +1181,23 @@ function EgeriaFeedbackWidget({ guid }) {
 
   var ratingDisplay = !showRate
     ? React.createElement('span', {
-        onClick: function() { setShowRate(true); },
-        title: feedbackData.my_rating ? 'Change your rating' : 'Rate this',
-        style: { cursor: 'pointer' }
+        onClick: function() { if (!readOnly) setShowRate(true); },
+        title: readOnly ? 'Sign in to rate' : (feedbackData.my_rating ? 'Change your rating' : 'Rate this'),
+        style: { cursor: readOnly ? 'default' : 'pointer' }
       },
         avgStars
         ? React.createElement(React.Fragment, null,
             React.createElement('span', { style: { color: '#f59e0b', letterSpacing: '0.05em' } }, avgStars),
             feedbackData.ratings_count > 1 && React.createElement('span', { style: { color: 'var(--dim)', fontSize: 10, marginLeft: 3 } }, '(' + feedbackData.ratings_count + ')')
           )
-        : React.createElement('span', { style: { color: 'var(--muted)', fontSize: 11 } }, 'Rate ★')
+        : React.createElement('span', { style: { color: 'var(--muted)', fontSize: 11 } }, readOnly ? 'No ratings' : 'Rate ★')
       )
     : null;
 
   return React.createElement('div', {
     style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, marginBottom: 2, fontSize: 12, userSelect: 'none' }
   },
-    React.createElement('span', { onClick: handleLike, title: liked ? 'Unlike' : 'Like', style: likeStyle },
+    React.createElement('span', { onClick: handleLike, title: readOnly ? 'Sign in to like' : (liked ? 'Unlike' : 'Like'), style: likeStyle },
       '♥ ' + feedbackData.likes_count),
     React.createElement('span', { style: { color: 'var(--border)' } }, '|'),
     ratingDisplay,
@@ -1199,7 +1207,7 @@ function EgeriaFeedbackWidget({ guid }) {
 
 // ── EgeriaCommentsSection ─────────────────────────────────────────────────────
 
-function EgeriaCommentsSection({ guid }) {
+function EgeriaCommentsSection({ guid, creds, readOnly }) {
   var TYPES = ['STANDARD_COMMENT','QUESTION','ANSWER','SUGGESTION','USAGE_EXPERIENCE','REQUIREMENT','OTHER'];
   var TYPE_COLOR = {
     STANDARD_COMMENT: 'var(--muted)', QUESTION: '#60a5fa', ANSWER: '#34d399',
@@ -1224,16 +1232,16 @@ function EgeriaCommentsSection({ guid }) {
   React.useEffect(function() {
     if (!guid) return;
     setLoading(true);
-    fetch('/api/egeria-feedback/' + encodeURIComponent(guid) + '/comments')
+    _feedbackFetch('/api/egeria-feedback/' + encodeURIComponent(guid) + '/comments', creds)
       .then(function(r) { return r.ok ? r.json() : []; })
       .then(function(d) { setComments(Array.isArray(d) ? d : []); setLoading(false); })
       .catch(function() { setLoading(false); });
-  }, [guid]);
+  }, [guid, creds && creds.token]);
 
   function handleSubmit() {
     if (!text.trim() || submitting) return;
     setSubmitting(true); setErrMsg('');
-    fetch('/api/egeria-feedback/' + encodeURIComponent(guid) + '/comments', {
+    _feedbackFetch('/api/egeria-feedback/' + encodeURIComponent(guid) + '/comments', creds, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ comment_type: commentType, text: text.trim() })
     })
@@ -1244,7 +1252,7 @@ function EgeriaCommentsSection({ guid }) {
   }
 
   function handleDelete(cguid) {
-    fetch('/api/egeria-feedback/' + encodeURIComponent(guid) + '/comments/' + encodeURIComponent(cguid), { method: 'DELETE' })
+    _feedbackFetch('/api/egeria-feedback/' + encodeURIComponent(guid) + '/comments/' + encodeURIComponent(cguid), creds, { method: 'DELETE' })
       .then(function(r) { return r.ok ? r.json() : []; })
       .then(function(d) { setComments(Array.isArray(d) ? d : []); if (editing && editing.guid === cguid) setEditing(null); })
       .catch(function() {});
@@ -1258,7 +1266,7 @@ function EgeriaCommentsSection({ guid }) {
   function handleEditSave() {
     if (!editing || !editing.text.trim() || editSaving) return;
     setEditSaving(true); setEditErr('');
-    fetch('/api/egeria-feedback/' + encodeURIComponent(guid) + '/comments/' + encodeURIComponent(editing.guid), {
+    _feedbackFetch('/api/egeria-feedback/' + encodeURIComponent(guid) + '/comments/' + encodeURIComponent(editing.guid), creds, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ comment_type: editing.commentType, text: editing.text.trim() })
     })
@@ -1279,12 +1287,12 @@ function EgeriaCommentsSection({ guid }) {
         React.createElement('span', { style: { fontSize: 10, fontWeight: 700, color: col, textTransform: 'uppercase' } }, TYPE_LABEL[c.commentType] || c.commentType),
         React.createElement('span', { style: { color: 'var(--dim)', fontSize: 10 } }, c.createdBy || 'unknown'),
         c.createTime && React.createElement('span', { style: { color: 'var(--dim)', fontSize: 10 } }, '· ' + new Date(c.createTime).toLocaleDateString()),
-        !isEditing && React.createElement('button', {
+        !isEditing && !readOnly && React.createElement('button', {
           onClick: function() { startEdit(c); },
           title: 'Edit comment',
           style: Object.assign({}, btnBase, { marginLeft: 'auto', background: 'var(--hover)', color: 'var(--muted)' })
         }, 'Edit'),
-        !isEditing && React.createElement('button', {
+        !isEditing && !readOnly && React.createElement('button', {
           onClick: function() { handleDelete(c.guid); },
           title: 'Delete comment',
           style: Object.assign({}, btnBase, { background: 'rgba(248,113,113,.1)', color: '#f87171' })
@@ -1334,7 +1342,8 @@ function EgeriaCommentsSection({ guid }) {
       : comments.length === 0
         ? React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', marginBottom: 12, fontStyle: 'italic' } }, 'No comments yet.')
         : React.createElement('div', { style: { marginBottom: 12 } }, comments.map(renderComment)),
-    React.createElement('div', { style: { marginBottom: 6 } },
+    readOnly && React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', fontStyle: 'italic' } }, 'Sign in to comment.'),
+    !readOnly && React.createElement('div', { style: { marginBottom: 6 } },
       React.createElement('select', {
         value: commentType,
         onChange: function(e) { setCommentType(e.target.value); },
@@ -1343,7 +1352,7 @@ function EgeriaCommentsSection({ guid }) {
         TYPES.map(function(t) { return React.createElement('option', { key: t, value: t }, TYPE_LABEL[t]); })
       )
     ),
-    React.createElement('div', { style: { display: 'flex', gap: 6 } },
+    !readOnly && React.createElement('div', { style: { display: 'flex', gap: 6 } },
       React.createElement('textarea', {
         value: text,
         onChange: function(e) { setText(e.target.value); },

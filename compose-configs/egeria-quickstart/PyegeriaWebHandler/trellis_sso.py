@@ -84,7 +84,15 @@ async def make_portal_sso_token(user, persona_id: str, persona: dict) -> str:
     egeria_token = await _acquire_egeria_bearer_for_handoff(persona_id, persona["password"])
     if not egeria_token:
         raise RuntimeError(f"Could not obtain an Egeria bearer token for persona {persona_id!r}")
+    return encode_portal_sso_token(user, persona_id, persona, egeria_token)
 
+
+def encode_portal_sso_token(user, persona_id: str, persona: dict, egeria_token: str) -> str:
+    """Sign the SSO JWT around an Egeria bearer token the caller already holds.
+
+    Synchronous so a server-side caller (re_analytics.py, which trades the JWT
+    for a Resource Explorer session) can use it without an event loop.
+    """
     now = int(time.time())
     payload = {
         "sub":          user.id if user else persona_id,
@@ -92,6 +100,6 @@ async def make_portal_sso_token(user, persona_id: str, persona: dict) -> str:
         "display_name": persona.get("display_name", persona_id),
         "egeria_token": egeria_token,
         "iat":          now,
-        "exp":          now + 120,  # short-lived -- immediately exchanged client-side
+        "exp":          now + 120,  # short-lived -- immediately exchanged
     }
     return jwt.encode(payload, EGERIA_ADVISOR_SSO_SECRET, algorithm="HS256")
