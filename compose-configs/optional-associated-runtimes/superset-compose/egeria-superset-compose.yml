@@ -64,7 +64,7 @@ services:
     user: "root"
     restart: unless-stopped
     ports:
-      - 8088:8088
+      - "${EGERIA_BIND_IP:-127.0.0.1}:8088:8088"
     depends_on: *superset-depends-on
     volumes: *superset-volumes
 

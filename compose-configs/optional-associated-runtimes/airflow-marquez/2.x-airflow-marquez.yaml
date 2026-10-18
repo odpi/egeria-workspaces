@@ -117,7 +117,7 @@ services:
       - openlineage.env
     command: webserver
     ports:
-      - "8070:8070"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:8070:8070"
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8070/health"]
       interval: 30s
@@ -301,7 +301,7 @@ services:
     profiles:
       - flower
     ports:
-      - "5555:5555"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:5555:5555"
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:5555/"]
       interval: 30s
@@ -331,8 +331,8 @@ services:
       - MARQUEZ_PASSWORD=user4marquez
       - MARQUEZ_CONFIG=marquez.yml
     ports:
-      - "5050:5050"
-      - "5051:5051"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:5050:5050"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:5051:5051"
     volumes:
       - ./docker/wait-for-it.sh:/usr/src/app/wait-for-it.sh
       - ./marquez.yml:/usr/src/app/marquez.yml
@@ -365,7 +365,7 @@ services:
       - MARQUEZ_PASSWORD=marquez
       - REACT_APP_ADVANCED_SEARCH=true
     ports:
-      - "3000:3000"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:3000:3000"
     stdin_open: true
     tty: true
     depends_on:
