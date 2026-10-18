@@ -6,6 +6,7 @@
     "name": "Coco Pharmaceuticals Strategic Digital Product Catalog"
   },
   "defaultEnabled": false,
+  "userid": "erinoverview",
   "files": [
     "catalog.md",
     "master-data-management.md",
@@ -19,6 +20,7 @@
     "quality-systems.md",
     "people-systems.md",
     "privacy-operations.md",
-    "product-dependencies.md"
+    "product-dependencies.md",
+    "promises.md"
   ]
 }

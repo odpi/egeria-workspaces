@@ -438,17 +438,52 @@ def _serialize_annotation(ann: dict) -> dict:
             for nk, nv in v.items():
                 if isinstance(nv, str) and nv.strip():
                     out[f"{k}.{nk}"] = nv
-    # Extract link to parent SurveyReport (present when graph_query_depth >= 1)
-    from_report = ann.get("fromSurveyReport")
-    if isinstance(from_report, dict):
+    # Extract links to the SurveyReports that reported this annotation (present
+    # when graph_query_depth >= 1).  An annotation that a later survey finds
+    # again is reused, so it can belong to many reports; the singular fields
+    # name the most recent one for the pages that show a single report link.
+    reports = _survey_reports(ann)
+    if reports:
+        out["surveyReports"] = reports
+        out["surveyReportGuid"] = reports[0]["guid"]
+        out["surveyReportDisplayName"] = reports[0]["displayName"]
+    return out
+
+
+def _survey_reports(ann: dict) -> list:
+    """Return the SurveyReports that reported an annotation, most recent first,
+    as dicts of guid, displayName and createTime.
+
+    The platform reports them in the list fromSurveyReports (an annotation can
+    be reused by many surveys).  A platform that predates that returns a single
+    fromSurveyReport instead; it is read as a one-item list when the list is
+    absent or empty, so one code path serves both payloads.  (Only the payload
+    pyegeria passes through differs, not any Egeria behaviour this handler
+    depends on.)"""
+    from_reports = ann.get("fromSurveyReports")
+    if not from_reports:
+        single = ann.get("fromSurveyReport")
+        from_reports = [single] if single else []
+    elif isinstance(from_reports, dict):
+        from_reports = [from_reports]
+    elif not isinstance(from_reports, (list, tuple)):
+        from_reports = []
+    reports = []
+    for from_report in from_reports:
+        if not isinstance(from_report, dict):
+            continue
         rel_elem = from_report.get("relatedElement") or {}
         rel_hdr = rel_elem.get("elementHeader") or {}
         rel_props = rel_elem.get("properties") or {}
         survey_guid = rel_hdr.get("guid", "")
         if survey_guid:
-            out["surveyReportGuid"] = survey_guid
-            out["surveyReportDisplayName"] = rel_props.get("displayName") or ""
-    return out
+            reports.append({
+                "guid":        survey_guid,
+                "displayName": rel_props.get("displayName") or "",
+                "createTime":  (rel_hdr.get("versions") or {}).get("createTime") or "",
+            })
+    reports.sort(key=lambda r: str(r["createTime"]), reverse=True)
+    return reports
 
 
 def _asset_catalog(url, server, user_id, user_pwd, token: Optional[str] = None):
@@ -1849,7 +1884,7 @@ def get_survey_annotations(
 ):
     """Return all Annotation elements for a specific SurveyReport GUID.
 
-    Fetches annotations with graph_query_depth=1 (to get fromSurveyReport link)
+    Fetches annotations with graph_query_depth=1 (to get the fromSurveyReports links)
     then filters to those belonging to the requested report.
     """
     try:
@@ -1871,10 +1906,7 @@ def get_survey_annotations(
         )
         items = []
         for ann in _safe_list(raw):
-            from_report = ann.get("fromSurveyReport") or {}
-            rel_elem = from_report.get("relatedElement") or {}
-            rel_hdr = rel_elem.get("elementHeader") or {}
-            if rel_hdr.get("guid") == guid:
+            if any(r["guid"] == guid for r in _survey_reports(ann)):
                 items.append(_serialize_annotation(ann))
         return JSONResponse({"items": items, "total": len(items)})
     except Exception as exc:
@@ -1900,7 +1932,7 @@ def list_annotations(
     graph_query_depth=0: the wildcard/broad-search case (search_string="*",
     which is the default the Catalog's Annotations tab loads on open) was
     timing out at 90s — depth=1 makes the view server walk the relationship
-    graph for every matching Annotation just to attach fromSurveyReport, and
+    graph for every matching Annotation just to attach fromSurveyReports, and
     against this repo's corpus that fan-out (hundreds of extra per-annotation
     graph queries) reliably blew past the client timeout. Depth=0 skips that
     walk, so list rows have no surveyReportGuid/surveyReportDisplayName —
@@ -2126,36 +2158,14 @@ def _process_survey_entry(by_guid: dict, entry: dict, tech_display: str, tech_qn
         by_guid[guid]["usedByTechTypes"].append(ref)
 
 
-@router.get("/api/tech-catalog/survey-types")
-async def list_survey_types(
-    request: Request,
-    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
-):
-    """Return survey type definitions extracted from all TechnologyTypes.
-
-    Each entry represents a GovernanceActionType or GovernanceActionProcess with
-    resourceUse == 'Survey Resource', with the full survey specification and the
-    list of TechnologyTypes that reference it.
-    """
-    cache_key = f"{url}|{server}|{user_id}{_lineage_key()}"
-    cached = _SURVEY_TYPES_CACHE.get(cache_key)
-    if cached and (time.time() - cached["ts"]) < _SURVEY_TYPES_TTL:
-        return JSONResponse({"items": cached["data"]})
-
-    token = _token_from_request(request)
-    try:
-        ac = await _automated_curation_async(url, server, user_id, user_pwd, token=token)
-        raw_list = await ac._async_find_technology_types(
-            search_string="*",
-            graph_query_depth=0,  # PY-6/PY-14 perf lesson — _serialize_tech_type only reads flat fields
-            page_size=500,
-            output_format="JSON",
-        )
-    except Exception as exc:
-        logger.exception("list_survey_types: find_technology_types failed")
-        raise HTTPException(status_code=500, detail=str(exc))
-
+async def _build_survey_types(ac) -> list:
+    """Aggregate survey types across all TechnologyTypes (slow: one detail call each)."""
+    raw_list = await ac._async_find_technology_types(
+        search_string="*",
+        graph_query_depth=0,  # PY-6/PY-14 perf lesson — _serialize_tech_type only reads flat fields
+        page_size=500,
+        output_format="JSON",
+    )
     tech_bases = [_serialize_tech_type(tr) for tr in _safe_list(raw_list)]
 
     # One get_tech_type_detail per tech type is an N+1 fan-out -- serial, this took
@@ -2194,8 +2204,61 @@ async def list_survey_types(
             _process_survey_entry(by_guid, r, tech_display, tech_qn, "resourceList")
 
     items = sorted(by_guid.values(), key=lambda x: x.get("displayName", "").lower())
-    _SURVEY_TYPES_CACHE[cache_key] = {"ts": time.time(), "data": items}
-    return JSONResponse({"items": items})
+    return items
+
+
+_SURVEY_TYPES_TASKS: dict = {}   # key → in-flight asyncio.Task
+
+
+async def _fetch_and_cache_survey_types(cache_key: str, ac):
+    try:
+        items = await _build_survey_types(ac)
+        _SURVEY_TYPES_CACHE[cache_key] = {"ts": time.time(), "data": items}
+    except Exception:
+        logger.exception("list_survey_types: background build failed")
+    finally:
+        _SURVEY_TYPES_TASKS.pop(cache_key, None)
+
+
+@router.get("/api/tech-catalog/survey-types")
+async def list_survey_types(
+    request: Request,
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    """Return survey type definitions extracted from all TechnologyTypes.
+
+    Each entry represents a GovernanceActionType or GovernanceActionProcess with
+    resourceUse == 'Survey Resource', with the full survey specification and the
+    list of TechnologyTypes that reference it.
+
+    Non-blocking: building the list takes minutes when the metadata store is busy,
+    so a cold/stale cache spawns one background Task per cache key and the request
+    returns at once. Cold -> {"items": [], "loading": true}; stale -> the old items
+    plus "stale": true and "loading": true. The UI polls until loading is false.
+    """
+    cache_key = f"{url}|{server}|{user_id}{_lineage_key()}"
+    cached = _SURVEY_TYPES_CACHE.get(cache_key)
+    fresh = bool(cached) and (time.time() - cached["ts"]) < _SURVEY_TYPES_TTL
+    if fresh:
+        return JSONResponse({"items": cached["data"]})
+
+    if cache_key not in _SURVEY_TYPES_TASKS:
+        # No await between this check and the registration below, so only one
+        # Task per key can ever be created.
+        token = _token_from_request(request)
+        try:
+            ac = await _automated_curation_async(url, server, user_id, user_pwd, token=token)
+        except Exception as exc:
+            logger.exception("list_survey_types: client creation failed")
+            raise HTTPException(status_code=500, detail=str(exc))
+        if cache_key not in _SURVEY_TYPES_TASKS:
+            _SURVEY_TYPES_TASKS[cache_key] = asyncio.create_task(
+                _fetch_and_cache_survey_types(cache_key, ac))
+
+    if cached:
+        return JSONResponse({"items": cached["data"], "stale": True, "loading": True})
+    return JSONResponse({"items": [], "loading": True})
 
 
 def _get_software_capability(mgr, guid: str, as_of_time: Optional[str] = None):

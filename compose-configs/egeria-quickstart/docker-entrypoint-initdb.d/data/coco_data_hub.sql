@@ -310,7 +310,7 @@ CREATE TABLE IF NOT EXISTS batch_execution_records.execution_step (
   execution_step_end_timestamp   timestamptz NOT NULL,
   worker_pseudonym_identifier    varchar(40) NOT NULL,
   execution_step_signature       varchar(200) NOT NULL,
-  execution_step_status          varchar(20) NOT NULL,
+  execution_step_status          varchar(100) NOT NULL,
   CONSTRAINT execution_step_pk PRIMARY KEY (batch_identifier, execution_step_number)
 );
 COMMENT ON TABLE batch_execution_records.execution_step IS 'One row per production step performed for a batch.';
@@ -733,7 +733,7 @@ COMMENT ON SCHEMA product_complaints IS 'Complaints about product quality from p
 CREATE TABLE IF NOT EXISTS product_complaints.complaint (
   complaint_identifier         varchar(40) NOT NULL,
   complaint_received_timestamp timestamptz NOT NULL,
-  complaint_reporter_type      varchar(20) NOT NULL,
+  complaint_reporter_type      varchar(100) NOT NULL,
   product_code                 varchar(20) NOT NULL,
   batch_identifier             varchar(40),
   pack_serial_number           varchar(40),
@@ -1027,7 +1027,7 @@ COMMENT ON SCHEMA deviations_and_capas IS 'Departures from the approved process,
 CREATE TABLE IF NOT EXISTS deviations_and_capas.deviation (
   deviation_identifier       varchar(40) NOT NULL,
   deviation_raised_timestamp timestamptz NOT NULL,
-  deviation_source_type      varchar(20) NOT NULL,
+  deviation_source_type      varchar(100) NOT NULL,
   batch_identifier           varchar(40),
   product_code               varchar(20),
   signal_identifier          varchar(40),
@@ -3163,7 +3163,7 @@ CREATE TABLE IF NOT EXISTS data_subject_rights_requests.rights_request (
   rights_request_received_timestamp timestamptz NOT NULL,
   rights_request_channel_type       varchar(20) NOT NULL,
   rights_request_type               varchar(20) NOT NULL,
-  data_subject_type                 varchar(20) NOT NULL,
+  data_subject_type                 varchar(100) NOT NULL,
   data_subject_claimed_name         varchar(200) NOT NULL,
   rights_request_description        text NOT NULL,
   rights_request_due_date           date NOT NULL,
@@ -3234,7 +3234,7 @@ CREATE TABLE IF NOT EXISTS record_of_processing_activities.processing_activity (
   processing_activity_name                varchar(120) NOT NULL,
   processing_activity_purpose_description text NOT NULL,
   processing_activity_basis_code          varchar(40) NOT NULL,
-  data_subject_type                       varchar(20) NOT NULL,
+  data_subject_type                       varchar(100) NOT NULL,
   processing_activity_data_description    text NOT NULL,
   processing_activity_owner_identifier    varchar(40) NOT NULL,
   processing_activity_current_timestamp   timestamptz NOT NULL,
@@ -3278,7 +3278,7 @@ CREATE TABLE IF NOT EXISTS personal_data_discovery_findings.discovered_holding (
   holding_identifier             varchar(40) NOT NULL,
   asset_identifier               varchar(40) NOT NULL,
   system_identifier              varchar(60) NOT NULL,
-  data_subject_type              varchar(20) NOT NULL,
+  data_subject_type              varchar(100) NOT NULL,
   holding_data_description       text NOT NULL,
   holding_discovered_timestamp   timestamptz NOT NULL,
   processing_activity_identifier varchar(40),
@@ -3320,7 +3320,7 @@ COMMENT ON SCHEMA rights_fulfilment_actions IS 'Each verified request fanned out
 CREATE TABLE IF NOT EXISTS rights_fulfilment_actions.fulfilment_request (
   rights_request_identifier                 varchar(40) NOT NULL,
   data_subject_identifier                   varchar(40) NOT NULL,
-  data_subject_type                         varchar(20) NOT NULL,
+  data_subject_type                         varchar(100) NOT NULL,
   rights_request_type                       varchar(20) NOT NULL,
   rights_request_fulfilment_start_timestamp timestamptz NOT NULL,
   rights_request_fulfilment_count           integer NOT NULL,
