@@ -28,8 +28,8 @@ services:
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
     ports:
-      - "9001:9001"
-      - "9000:9000"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:9001:9001"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:9000:9000"
     volumes:
 #      - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/minio:/minio_data
       - Milvus_Minio_Volume:/minio_data
@@ -61,8 +61,8 @@ services:
       timeout: 20s
       retries: 3
     ports:
-      - "19530:19530"
-      - "9091:9091"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:19530:19530"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:9091:9091"
     depends_on:
       - "etcd"
       - "minio"

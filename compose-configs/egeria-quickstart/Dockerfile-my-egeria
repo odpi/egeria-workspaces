@@ -2,7 +2,7 @@
 # `assert task is not None` in textual/rlock.py, which the current My Profile app
 # hits at startup (pyegeria ISSUE-120). .github/dependabot.yml blocks python>=3.14
 # bumps for this directory -- don't move this image to 3.14 until Textual supports it.
-FROM python:3.13-slim@sha256:bb2988715db2cf7ace7b53f38f3cffbef7c7046a656bee66245eb0ed386e2e81
+FROM python:3.13-slim@sha256:70729b46c69b4f1e97c4822c1af3df53a1476cf5ddc6c087c0c10bc3a5678c2f
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 # pyegeria in its own layer, same pattern as Dockerfile-jupyter — Docker caches
 # it, so a plain rebuild keeps the previously-installed version. Override with
@@ -11,11 +11,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 # pyegeria >= 6.1.27 is required. 6.1.26 installs the my_egeria package at the top level
 # (earlier wheels nested it as my_egeria/my_egeria/, breaking its console scripts),
 # ships my_profile.tcss, and serves via the textual-serve library; 6.1.27 makes the
-# page's URLs follow the browser's hostname (localhost, machine name, demo site). The
+# page's URLs follow the browser's hostname (localhost, machine name, demo site). 6.2.4
+# adds the My Network option and fixes Technology Types / Shop for Data go back. The
 # floor matters: right after a release PyPI's index can still offer the previous
 # version, so a lower floor can silently build without the fix. Textual and
 # textual-serve come with pyegeria -- don't pin them separately.
-ARG PYEGERIA_VERSION=pyegeria>=6.1.27
+ARG PYEGERIA_VERSION=pyegeria>=6.2.4
 ARG PYEGERIA_BUST=0
 RUN echo "pyegeria layer ${PYEGERIA_BUST}" \
     && pip install --no-cache-dir --retries 10 --timeout 60 "${PYEGERIA_VERSION}" --upgrade nest_asyncio

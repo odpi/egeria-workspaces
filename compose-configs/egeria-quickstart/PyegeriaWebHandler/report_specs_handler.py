@@ -15,7 +15,7 @@ endpoint requires no Egeria connection.
 import os
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from loguru import logger
 from pydantic import BaseModel
@@ -210,10 +210,13 @@ class ExecuteRequest(BaseModel):
     server:        Optional[str] = None
     user_id:       Optional[str] = None
     user_pwd:      Optional[str] = None
+    # The persona the browser picked, for analytic functions that must act as
+    # the viewer elsewhere (report_viewer.py). Optional: other specs ignore it.
+    persona:       Optional[str] = None
 
 
 @router.post("/api/report-specs/execute", summary="Execute a report spec action")
-def execute_spec(req: ExecuteRequest):
+def execute_spec(req: ExecuteRequest, request: Request):
     """Call exec_report_spec and return a normalised result structure.
 
     pyegeria 6.1.10 (ISSUE-86) added a `token` param to exec_report_spec --
@@ -238,6 +241,8 @@ def execute_spec(req: ExecuteRequest):
     user_pwd = req.user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
     token    = get_request_token()
 
+    from report_viewer import reset_viewer, resolve_viewer, set_viewer
+    viewer_token = set_viewer(resolve_viewer(request, req.persona))
     try:
         result = exec_report_spec(
             req.spec_name,
@@ -259,3 +264,5 @@ def execute_spec(req: ExecuteRequest):
             raise HTTPException(status_code=401, detail="Not authorized for this operation — the current user does not have permission for this report")
         logger.exception("exec_report_spec failed")
         raise HTTPException(status_code=500, detail=f"Execution failed: {exc}")
+    finally:
+        reset_viewer(viewer_token)

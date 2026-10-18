@@ -1,30 +1,87 @@
 {
   "displayName": "Coco - 0. Data Governance Program",
-  "description": "Coco Pharmaceuticals' governance program: Jules Keeper's 90 day plan and data strategy, the governance officers' joint definitions and risk register, and the domain programs each officer's team produced. Files run in the order the story happens \u2014 see the README.",
+  "description": "Coco Pharmaceuticals' governance program: Jules Keeper's 90 day plan and data strategy, the governance officers' joint definitions and risk register, and the domain programs each officer's team produced. Files run in the order the story happens — see the README.",
   "canary": {
-    "type": "Glossary",
-    "name": "Employee Glossary"
+    "type": "InformationSupplyChain",
+    "name": "Data Subject Rights Information Supply Chain"
   },
   "defaultEnabled": false,
   "files": [
-    "jules-90-day-plan.md",
-    "data-strategy-framework.md",
-    "joint-governance-officer-definitions.md",
-    "risk-register.md",
-    "privacy-governance-program.md",
-    "data-security-strategy.md",
-    "drug-development-governance.md",
-    "corporate-governance-program.md",
-    "manufacturing-governance-program.md",
-    "serialisation-governance-program.md",
-    "human-resource-management.md",
-    "health-and-safety.md",
-    "biological-agents-and-gmo.md",
-    "dangerous-goods-transport.md",
-    "diversity-equity-inclusion.md",
-    "data-quality-glossary.md",
-    "data-governance-program.md",
-    "employee-glossary.md",
-    "strategic-information-supply-chains.md"
+    {
+      "file": "jules-90-day-plan.md",
+      "userid": "juleskeeper"
+    },
+    {
+      "file": "data-strategy-framework.md",
+      "userid": "juleskeeper"
+    },
+    {
+      "file": "joint-governance-officer-definitions.md",
+      "userid": "juleskeeper"
+    },
+    {
+      "file": "risk-register.md",
+      "userid": "juleskeeper"
+    },
+    {
+      "file": "privacy-governance-program.md",
+      "userid": "faithbroker"
+    },
+    {
+      "file": "data-security-strategy.md",
+      "userid": "ivorpadlock"
+    },
+    {
+      "file": "drug-development-governance.md",
+      "userid": "tessatube"
+    },
+    {
+      "file": "corporate-governance-program.md",
+      "userid": "reggiemint"
+    },
+    {
+      "file": "manufacturing-governance-program.md",
+      "userid": "stewfaster"
+    },
+    {
+      "file": "serialisation-governance-program.md",
+      "userid": "stewfaster"
+    },
+    {
+      "file": "human-resource-management.md",
+      "userid": "faithbroker"
+    },
+    {
+      "file": "health-and-safety.md",
+      "userid": "faithbroker"
+    },
+    {
+      "file": "biological-agents-and-gmo.md",
+      "userid": "faithbroker"
+    },
+    {
+      "file": "dangerous-goods-transport.md",
+      "userid": "stewfaster"
+    },
+    {
+      "file": "diversity-equity-inclusion.md",
+      "userid": "faithbroker"
+    },
+    {
+      "file": "data-quality-glossary.md",
+      "userid": "erinoverview"
+    },
+    {
+      "file": "data-governance-program.md",
+      "userid": "juleskeeper"
+    },
+    {
+      "file": "employee-glossary.md",
+      "userid": "erinoverview"
+    },
+    {
+      "file": "strategic-information-supply-chains.md",
+      "userid": "juleskeeper"
+    }
   ]
 }
