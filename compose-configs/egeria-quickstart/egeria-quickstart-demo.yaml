@@ -13,14 +13,32 @@ services:
     environment:
       DEMO_MODE: "true"
       DEMO_DB_HOST: "host.docker.internal"
-    volumes:
       # demo_reset_handler.py's scheduled reset (DEMO_MODE-gated) stops/starts
-      # EGERIA_CONTAINER_NAME directly via the Docker API — without this mount
-      # it fails at the first scheduled tick with "Ensure /var/run/docker.sock
-      # is mounted into this container." Discovered 2026-08-06: DEMO_MODE was
-      # on but this mount was missing, so scheduled resets could never have
-      # run even with reset_interval_hours > 0.
+      # EGERIA_CONTAINER_NAME via the Docker API. It goes through docker-proxy
+      # below rather than a /var/run/docker.sock mount: this app faces the
+      # internet, and the raw socket is root on the host for whoever gets code
+      # execution in it (see the 2026-10-17 Obsidian compromise).
+      DOCKER_HOST: "tcp://docker-proxy:2375"
+    depends_on:
+      - docker-proxy
+
+  # Allow-list proxy for the Docker socket: only inspect/stop/start of
+  # quickstart-egeria-main get through (docker-proxy/nginx.conf). Publishes no
+  # host port; reachable only from containers on egeria_network.
+  docker-proxy:
+    image: nginx:1.27-alpine
+    container_name: quickstart-docker-proxy
+    restart: unless-stopped
+    networks:
+      - egeria_network
+    volumes:
+      - ./docker-proxy/nginx.conf:/etc/nginx/nginx.conf:ro
       - /var/run/docker.sock:/var/run/docker.sock
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # obsidian deliberately gets NO cert mount here. It used to receive
   # ${CERT_DIR}/server.key so :8861 served the real certificate, which made the

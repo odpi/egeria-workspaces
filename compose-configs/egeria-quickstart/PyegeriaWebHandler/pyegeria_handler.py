@@ -157,6 +157,13 @@ class MCPTokenMiddleware:
         await self.app(scope, receive, send)
 
 app.add_middleware(MCPTokenMiddleware)
+# Public demo: everything arriving through Apache needs a login except a short
+# public list (see demo_auth_gate.py for the rules and why).
+if DEMO_MODE:
+    from demo_auth_gate import DemoAuthGateMiddleware
+    from demo_target_pin import DemoTargetPinMiddleware
+    app.add_middleware(DemoTargetPinMiddleware)
+    app.add_middleware(DemoAuthGateMiddleware)   # added last = runs first
 # Stash any X-Egeria-Token request header into a contextvar so token-capable
 # handlers (apply_token) reuse a pre-obtained bearer token (LE-4).
 from egeria_auth import EgeriaTokenMiddleware
@@ -521,6 +528,12 @@ def _stringify_env_value(value: Any) -> str:
 def _apply_request_configuration(req: ProcessRequest) -> tuple[str, str]:
     environment = req.environment or {}
     user_profile = req.user_profile or {}
+    if DEMO_MODE:
+        # Public demo: the caller doesn't get to choose the platform, view
+        # server or paths — those come from this container's configuration.
+        # (The request's environment could otherwise point the processor, and
+        # the credentials it carries, at any host.)
+        environment, user_profile = {}, {}
 
     logger.debug(f"Request environment: {environment}")
 
@@ -703,9 +716,30 @@ def _console_output_indicates_error(console_output: str) -> bool:
     return any(marker in lower_output for marker in error_markers)
 
 
+# Dr.Egeria input/output must stay inside these trees on the public demo.
+_DEMO_DR_EGERIA_ROOTS = (Path("/work"), Path("/coco-workbooks"))
+
+
+def _demo_confine(path: str, what: str) -> None:
+    resolved = Path(path).resolve()
+    if not any(resolved.is_relative_to(root) for root in _DEMO_DR_EGERIA_ROOTS):
+        raise HTTPException(
+            status_code=400,
+            detail=f"{what} must be under {' or '.join(map(str, _DEMO_DR_EGERIA_ROOTS))}",
+        )
+
+
 def _invoke_processor(req: ProcessRequest) -> ProcessResponse:
     with _processor_lock:
-        return _invoke_processor_locked(req)
+        # _apply_request_configuration works by writing os.environ, which is
+        # process-wide: restore it afterwards so one request's settings can't
+        # leak into every later request (and every other handler's defaults).
+        saved_env = dict(os.environ)
+        try:
+            return _invoke_processor_locked(req)
+        finally:
+            os.environ.clear()
+            os.environ.update(saved_env)
 
 
 def _invoke_processor_locked(req: ProcessRequest) -> ProcessResponse:
@@ -725,6 +759,12 @@ def _invoke_processor_locked(req: ProcessRequest) -> ProcessResponse:
             output_folder = str(Path("/work/Work-Obsidian") / output_folder)
         elif input_file.startswith("/work"):
              output_folder = str(Path("/work") / output_folder)
+
+    if DEMO_MODE:
+        _demo_confine(input_file, "input_file")
+        if req.source_file:
+            _demo_confine(req.source_file, "source_file")
+        _demo_confine(output_folder or "/", "output_folder")
 
     logger.debug(f"Invoking processor with input_file: {input_file}")
     logger.debug(f"Invoking processor with output_folder: {output_folder}")
@@ -775,6 +815,8 @@ async def process_markdown(request: ProcessRequest):
         loop = asyncio.get_event_loop()
         result: ProcessResponse = await loop.run_in_executor(executor, _invoke_processor, request)
         return JSONResponse(content=result.model_dump())
+    except HTTPException:
+        raise
     except Exception as e:
         print_basic_exception(e)
         raise HTTPException(
