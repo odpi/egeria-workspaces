@@ -129,7 +129,7 @@ Content-Type: application/json
 ###
 # Add the event topic audit log destination to the server's configuration document.  The list of severities that are sent to this destination are passed on the request body.  An empty list means all severities.
 # The server may have multiple audit log destinations configured.  Typically each destination has a different subset of the severities configured.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-metadata-store/audit-log-destinations/event-topic?topicName=egeria.omag.server.quickstart.ffdc.audit-logs
+POST {{baseURL}}/open-metadata/admin-services/servers/qs-metadata-store/audit-log-destinations/event-topic?topicName=quickstart.ffdc.audit-logs
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -337,7 +337,7 @@ Content-Type: application/json
 ###
 # Add the event topic audit log destination to the server's configuration document.  The list of severities that are sent to this destination are passed on the request body.  An empty list means all severities.
 # The server may have multiple audit log destinations configured.  Typically each destination has a different subset of the severities configured.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-view-server/audit-log-destinations/event-topic?topicName=egeria.omag.server.quickstart.ffdc.audit-logs
+POST {{baseURL}}/open-metadata/admin-services/servers/qs-view-server/audit-log-destinations/event-topic?topicName=quickstart.ffdc.audit-logs
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -441,7 +441,7 @@ Content-Type: application/json
 ###
 # Add the event topic audit log destination to the server's configuration document.  The list of severities that are sent to this destination are passed on the request body.  An empty list means all severities.
 # The server may have multiple audit log destinations configured.  Typically each destination has a different subset of the severities configured.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-engine-host/audit-log-destinations/event-topic?topicName=egeria.omag.server.quickstart.ffdc.audit-logs
+POST {{baseURL}}/open-metadata/admin-services/servers/qs-engine-host/audit-log-destinations/event-topic?topicName=quickstart.ffdc.audit-logs
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -825,7 +825,7 @@ Content-Type: application/json
 ###
 # Add the event topic audit log destination to the server's configuration document.  The list of severities that are sent to this destination are passed on the request body.  An empty list means all severities.
 # The server may have multiple audit log destinations configured.  Typically each destination has a different subset of the severities configured.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-integration-daemon/audit-log-destinations/event-topic?topicName=egeria.omag.server.quickstart.ffdc.audit-logs
+POST {{baseURL}}/open-metadata/admin-services/servers/qs-integration-daemon/audit-log-destinations/event-topic?topicName=quickstart.ffdc.audit-logs
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -1046,7 +1046,7 @@ Content-Type: application/json
 ###
 # Add the event topic audit log destination to the server's configuration document.  The list of severities that are sent to this destination are passed on the request body.  An empty list means all severities.
 # The server may have multiple audit log destinations configured.  Typically each destination has a different subset of the severities configured.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-nanny-daemon/audit-log-destinations/event-topic?topicName=egeria.omag.server.quickstart.ffdc.audit-logs
+POST {{baseURL}}/open-metadata/admin-services/servers/qs-nanny-daemon/audit-log-destinations/event-topic?topicName=quickstart.ffdc.audit-logs
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -1113,6 +1113,15 @@ Content-Type: application/json
     "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
     "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~",
     "integrationGroupQualifiedName" : "Egeria:IntegrationGroup:Darwin"
+  },
+  {
+    "class": "IntegrationGroupConfig",
+    "omagserverPlatformRootURL": "~{egeriaLocalEndpoint}~",
+    "omagserverName" : "qs-metadata-store",
+    "secretsStoreProvider" : "~{secretsStoreProvider}~",
+    "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
+    "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~",
+    "integrationGroupQualifiedName" : "Egeria:IntegrationGroup:OpenMetadataObservability"
   },
   {
     "class": "IntegrationGroupConfig",

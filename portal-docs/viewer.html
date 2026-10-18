@@ -6,6 +6,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Egeria Docs</title>
+  <script src="/static/app-bar.js?v=2026-10-05a"></script>
   <!-- marked.js — markdown parser -->
   <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
   <!-- mermaid.js — diagram rendering -->
@@ -19,12 +20,17 @@
       --accent: #e94560; --text: #e0e0e0; --muted: #888;
       --code-bg: #0d1117;
     }
+    :root.light {
+      --bg: #f5f6fa; --card: #ffffff; --border: #d3d9e6;
+      --accent: #d23353; --text: #1f2333; --muted: #5b6376;
+      --code-bg: #0d1117;   /* code blocks stay dark (github-dark highlight theme) */
+    }
+    :root.light .md-body tr:nth-child(even) td { background: rgba(15,52,96,0.05); }
+    :root.light .error-msg { color: #b4233f; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; min-height: 100vh; }
 
     /* ── Header ── */
-    .hdr { background: var(--card); border-bottom: 1px solid var(--border); padding: 10px 28px; display: flex; align-items: center; gap: 14px; }
-    .hdr img { height: 22px; }
     .hdr-nav { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; flex: 1; overflow: hidden; }
     .hdr-nav a { color: var(--muted); text-decoration: none; white-space: nowrap; }
     .hdr-nav a:hover { color: var(--accent); }
@@ -84,12 +90,13 @@
 </head>
 <body>
 
-<header class="hdr">
-  <a href="/docs/"><img src="/static/egeria-logo.png" alt="Egeria"></a>
+<header class="eg-appbar" data-logo="/static/egeria-logo.png" data-title="Docs" data-feedback="docs/viewer">
   <nav class="hdr-nav" id="breadcrumb">
     <a href="/docs/">Documentation</a>
   </nav>
-  <button id="docBookmarkBtn" class="doc-bookmark-btn" style="display:none" title="Add to My Bookmarks">☐</button>
+  <div class="eg-appbar-extras">
+    <button id="docBookmarkBtn" class="doc-bookmark-btn" style="display:none" title="Add to My Bookmarks">☐</button>
+  </div>
 </header>
 
 <div class="layout">
@@ -103,7 +110,9 @@
 </div>
 
 <script>
-  mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.classList.contains('light') ? 'default' : 'dark', securityLevel: 'loose' });
+  // Diagrams are rendered once from the fetched markdown; simplest correct re-theme is a reload.
+  window.addEventListener('egeria-theme-change', function() { location.reload(); });
 
   // ── Resolve internal markdown links ──────────────────────────────────────────
   function _mdLinkHref(href, currentSrc) {

@@ -252,6 +252,49 @@ CSVFile
 {"fileName": "CustomerExport.csv", "filePathName": "exports/CustomerExport.csv", "versionIdentifier": "V1.0"}
 ```
 
+## Valid Metadata
+
+Allowed values for Egeria's own properties. Dr. Egeria checks its
+"valid value" attributes against these, so a value set up here is accepted
+straight away.
+
+### Set up several values for one property
+```markdown
+## Setup Valid Metadata Value
+### Metadata Property Name
+projectHealth
+
+### Type Name
+Project
+
+### Metadata Value Table
+| Preferred Value | Display Name | Description               |
+|-----------------|--------------|---------------------------|
+| On Track        | On Track     | Progressing to plan       |
+| At Risk         | At Risk      | Slipping; needs attention |
+```
+
+## Reference Data relationships
+
+Relate values in different reference data sets: `Link Mapped Valid Values`
+(same meaning), `Link Associated Valid Values` (a named relation),
+`Link Consistent Valid Values` (used together).
+
+### Map a legacy code to a current value
+```markdown
+## Link Mapped Valid Values
+### Valid Value 1
+CANCELLED
+
+### Valid Value 2
+Legacy X
+
+### Association Description
+Legacy code X means CANCELLED.
+```
+
+---
+
 ## Batch processing
 
 Dr. Egeria processes one command block per note. For batch operations, create a note with multiple commands separated by horizontal rules — each block is processed in sequence:

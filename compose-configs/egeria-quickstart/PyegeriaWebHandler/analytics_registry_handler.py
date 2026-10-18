@@ -34,10 +34,24 @@ from loguru import logger
 
 router = APIRouter(tags=["analytics"])
 
+# re_analytics:report_specs adds Resource Explorer's Curation Coverage tile
+# (re_analytics.py), fetched from RE over HTTP as the viewer.
 os.environ.setdefault(
     "PYEGERIA_REPORT_SPEC_MODULES",
-    "pyegeria.view.analytic_demo_specs:get_analytic_demo_specs",
+    "pyegeria.view.analytic_demo_specs:get_analytic_demo_specs,re_analytics:report_specs",
 )
+
+# pyegeria loads the CONFIG tier once, on the first get_report_registry() call.
+# report_specs_handler.py is imported before this module and registers its own
+# specs at import time, which makes that first call before the default above
+# exists, so neither the demo specs nor the RE tile ever loaded. Reload the
+# tier now that the variable is set; each bad entry is skipped on its own.
+try:
+    from pyegeria.view.base_report_formats import refresh_report_specs
+    for _source, _reason in refresh_report_specs():
+        logger.warning(f"analytics: report spec module skipped: {_source}: {_reason}")
+except Exception as _exc:  # noqa: BLE001  never stop the app over an optional spec module
+    logger.warning(f"analytics: could not load report spec modules: {_exc}")
 
 
 def _get_registry() -> dict:
