@@ -5,7 +5,7 @@ services:
     image: ollama/ollama:latest
     container_name: ollama
     ports:
-      - "11434:11434"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:11434:11434"
     volumes:
       - ollama-data:/root/.ollama
     restart: unless-stopped
