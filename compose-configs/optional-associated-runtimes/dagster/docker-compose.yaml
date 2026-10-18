@@ -19,7 +19,7 @@ services:
     volumes:
       - ../../../runtime-volumes/dagster/user_code:/opt/dagster/app
     ports:
-      - "4000:4000"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:4000:4000"
     restart: always
 
   dagster-webserver:
@@ -29,7 +29,7 @@ services:
     networks:
       - egeria_network
     ports:
-      - "8050:3000"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:8050:3000"
     environment:
       - DAGSTER_HOME=/opt/dagster
       - POSTGRES_USER=${POSTGRES_USER:-postgres}

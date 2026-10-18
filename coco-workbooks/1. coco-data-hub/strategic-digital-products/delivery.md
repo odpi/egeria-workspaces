@@ -25,10 +25,10 @@ Products of inbound and outbound logistics: sample consignments, therapy deliver
 For every product this file:
 
 1. creates the **digital product** and adds it to the `Delivery` folder of the catalog;
-2. creates its **data spec** and attaches it with a `DataDescription` relationship, then the **data structures**, each added to the spec, and the **data fields**, each linked to its structure with a `MemberDataField` relationship, named to the [Data Field Naming](../data-field-naming/README.md) standard;
-3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, as a member of the product.  The schema is named after the product, in the `coco_pharma` database on `Coco PostgreSQL Server 1`.
+2. creates its **data spec** and attaches it with a `DataDescription` relationship, then the **data structures**, each added to the spec, and the **data fields**, each linked to its structure with a `MemberDataField` relationship, its position and coverage category set on that relationship - `IDENTIFIER` for the fields that identify a row of the structure, `CORE_DETAIL` for the rest - named to the [Data Field Naming](../data-field-naming/README.md) standard;
+3. creates the **PostgreSQL tabular data set collection** the product is read from, using the PostgreSQL schema template, anchored to the product and a member of it, so that it is removed with the product.  The schema is named after the product, in the `coco_data_hub` database on `Coco PostgreSQL Server 1`.
 
-7 products, 10 data structures, 73 data fields.  This file loads after `catalog.md`.
+7 products, 10 data structures, 74 data fields.  This file loads after `catalog.md`.
 
 ```
 dr_egeria --directive process --userid erinoverview --user_pass secret delivery.md
@@ -148,7 +148,7 @@ DataStructure::Coco::Patient Sample Consignments::Sample Consignment
 One row per consignment of patient material.
 
 ### Namespace Path
-coco_pharma.patient_sample_consignments
+coco_data_hub.patient_sample_consignments
 
 ### Version Identifier
 1.0
@@ -177,19 +177,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ShipmentIdentifier
+Shipment Identifier
 
 ### Qualified Name
-DataField::Coco::Patient Sample Consignments::Sample Consignment::ShipmentIdentifier
+DataField::Coco::Patient Sample Consignments::Sample Consignment::Shipment Identifier
 
 ### Description
 The consignment.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -211,10 +208,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Patient Sample Consignments::Sample Consignment::ShipmentIdentifier
+DataField::Coco::Patient Sample Consignments::Sample Consignment::Shipment Identifier
 
 ### Data Structure
 DataStructure::Coco::Patient Sample Consignments::Sample Consignment
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -224,19 +227,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-OrderIdentifier
+Order Identifier
 
 ### Qualified Name
-DataField::Coco::Patient Sample Consignments::Sample Consignment::OrderIdentifier
+DataField::Coco::Patient Sample Consignments::Sample Consignment::Order Identifier
 
 ### Description
 The order the material is for.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -258,10 +258,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Patient Sample Consignments::Sample Consignment::OrderIdentifier
+DataField::Coco::Patient Sample Consignments::Sample Consignment::Order Identifier
 
 ### Data Structure
 DataStructure::Coco::Patient Sample Consignments::Sample Consignment
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -271,19 +277,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PatientPseudonymIdentifier
+Patient Pseudonym Identifier
 
 ### Qualified Name
-DataField::Coco::Patient Sample Consignments::Sample Consignment::PatientPseudonymIdentifier
+DataField::Coco::Patient Sample Consignments::Sample Consignment::Patient Pseudonym Identifier
 
 ### Description
 The patient, by pseudonym.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -305,10 +308,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Patient Sample Consignments::Sample Consignment::PatientPseudonymIdentifier
+DataField::Coco::Patient Sample Consignments::Sample Consignment::Patient Pseudonym Identifier
 
 ### Data Structure
 DataStructure::Coco::Patient Sample Consignments::Sample Consignment
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -318,19 +327,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SampleCollectionLocation
+Sample Collection Location
 
 ### Qualified Name
-DataField::Coco::Patient Sample Consignments::Sample Consignment::SampleCollectionLocation
+DataField::Coco::Patient Sample Consignments::Sample Consignment::Sample Collection Location
 
 ### Description
 Where collected.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -352,10 +358,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Patient Sample Consignments::Sample Consignment::SampleCollectionLocation
+DataField::Coco::Patient Sample Consignments::Sample Consignment::Sample Collection Location
 
 ### Data Structure
 DataStructure::Coco::Patient Sample Consignments::Sample Consignment
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -365,19 +377,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SampleCollectionTimestamp
+Sample Collection Timestamp
 
 ### Qualified Name
-DataField::Coco::Patient Sample Consignments::Sample Consignment::SampleCollectionTimestamp
+DataField::Coco::Patient Sample Consignments::Sample Consignment::Sample Collection Timestamp
 
 ### Description
 When the sample was taken.
 
 ### Data Type
 date
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -396,10 +405,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Patient Sample Consignments::Sample Consignment::SampleCollectionTimestamp
+DataField::Coco::Patient Sample Consignments::Sample Consignment::Sample Collection Timestamp
 
 ### Data Structure
 DataStructure::Coco::Patient Sample Consignments::Sample Consignment
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -409,19 +424,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ShipmentDispatchTimestamp
+Shipment Dispatch Timestamp
 
 ### Qualified Name
-DataField::Coco::Patient Sample Consignments::Sample Consignment::ShipmentDispatchTimestamp
+DataField::Coco::Patient Sample Consignments::Sample Consignment::Shipment Dispatch Timestamp
 
 ### Description
 When dispatched.
 
 ### Data Type
 date
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -440,10 +452,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Patient Sample Consignments::Sample Consignment::ShipmentDispatchTimestamp
+DataField::Coco::Patient Sample Consignments::Sample Consignment::Shipment Dispatch Timestamp
 
 ### Data Structure
 DataStructure::Coco::Patient Sample Consignments::Sample Consignment
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -453,19 +471,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ShipmentDeliveryTimestamp
+Shipment Delivery Timestamp
 
 ### Qualified Name
-DataField::Coco::Patient Sample Consignments::Sample Consignment::ShipmentDeliveryTimestamp
+DataField::Coco::Patient Sample Consignments::Sample Consignment::Shipment Delivery Timestamp
 
 ### Description
 When it arrived at manufacturing.
 
 ### Data Type
 date
-
-### Position
-7
 
 ### Is Nullable
 true
@@ -484,10 +499,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Patient Sample Consignments::Sample Consignment::ShipmentDeliveryTimestamp
+DataField::Coco::Patient Sample Consignments::Sample Consignment::Shipment Delivery Timestamp
 
 ### Data Structure
 DataStructure::Coco::Patient Sample Consignments::Sample Consignment
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -497,19 +518,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-SampleViableDuration
+Sample Viable Duration
 
 ### Qualified Name
-DataField::Coco::Patient Sample Consignments::Sample Consignment::SampleViableDuration
+DataField::Coco::Patient Sample Consignments::Sample Consignment::Sample Viable Duration
 
 ### Description
 The remaining viable life on arrival, in hours.
 
 ### Data Type
 int
-
-### Position
-8
 
 ### Is Nullable
 true
@@ -528,10 +546,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Patient Sample Consignments::Sample Consignment::SampleViableDuration
+DataField::Coco::Patient Sample Consignments::Sample Consignment::Sample Viable Duration
 
 ### Data Structure
 DataStructure::Coco::Patient Sample Consignments::Sample Consignment
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -541,19 +565,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ShipmentArrivalDescription
+Shipment Arrival Description
 
 ### Qualified Name
-DataField::Coco::Patient Sample Consignments::Sample Consignment::ShipmentArrivalDescription
+DataField::Coco::Patient Sample Consignments::Sample Consignment::Shipment Arrival Description
 
 ### Description
 The condition on arrival.
 
 ### Data Type
 string
-
-### Position
-9
 
 ### Is Nullable
 true
@@ -572,10 +593,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Patient Sample Consignments::Sample Consignment::ShipmentArrivalDescription
+DataField::Coco::Patient Sample Consignments::Sample Consignment::Shipment Arrival Description
 
 ### Data Structure
 DataStructure::Coco::Patient Sample Consignments::Sample Consignment
+
+### Position
+9
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 9
@@ -585,19 +612,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CarrierIdentifier
+Carrier Identifier
 
 ### Qualified Name
-DataField::Coco::Patient Sample Consignments::Sample Consignment::CarrierIdentifier
+DataField::Coco::Patient Sample Consignments::Sample Consignment::Carrier Identifier
 
 ### Description
 The carrier.
 
 ### Data Type
 string
-
-### Position
-10
 
 ### Is Nullable
 false
@@ -619,10 +643,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Patient Sample Consignments::Sample Consignment::CarrierIdentifier
+DataField::Coco::Patient Sample Consignments::Sample Consignment::Carrier Identifier
 
 ### Data Structure
 DataStructure::Coco::Patient Sample Consignments::Sample Consignment
+
+### Position
+10
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 10
@@ -641,12 +671,18 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: patient_sample_consignments
 - schemaDescription: The collection of patient material at the treating site and its transport, under temperature and time constraints, to the manufacturing site. It is the inbound half of a round trip that has a clock running from the moment the sample is taken.
+
+### Anchor ID
+DigitalProduct::Coco::Patient Sample Consignments
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Patient Sample Consignments
@@ -771,7 +807,7 @@ DataStructure::Coco::Therapy Delivery Events::Delivery Event
 One row per tracking event for a released therapy.
 
 ### Namespace Path
-coco_pharma.therapy_delivery_events
+coco_data_hub.therapy_delivery_events
 
 ### Version Identifier
 1.0
@@ -800,19 +836,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-BatchIdentifier
+Batch Identifier
 
 ### Qualified Name
-DataField::Coco::Therapy Delivery Events::Delivery Event::BatchIdentifier
+DataField::Coco::Therapy Delivery Events::Delivery Event::Batch Identifier
 
 ### Description
 The therapy.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -834,10 +867,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Therapy Delivery Events::Delivery Event::BatchIdentifier
+DataField::Coco::Therapy Delivery Events::Delivery Event::Batch Identifier
 
 ### Data Structure
 DataStructure::Coco::Therapy Delivery Events::Delivery Event
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -847,113 +886,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PatientPseudonymIdentifier
+Shipment Event Type
 
 ### Qualified Name
-DataField::Coco::Therapy Delivery Events::Delivery Event::PatientPseudonymIdentifier
-
-### Description
-The patient, by pseudonym.
-
-### Data Type
-string
-
-### Position
-2
-
-### Is Nullable
-false
-
-### Minimum Cardinality
-1
-
-### Length
-40
-
-### Version Identifier
-1.0
-
-### Content Status
-ACTIVE
-
-___
-
-## Link Data Field to Data Structure
-
-### Data Field
-DataField::Coco::Therapy Delivery Events::Delivery Event::PatientPseudonymIdentifier
-
-### Data Structure
-DataStructure::Coco::Therapy Delivery Events::Delivery Event
-
-### Label
-field 2
-
-___
-
-## Create Data Field
-
-### Display Name
-OrderIdentifier
-
-### Qualified Name
-DataField::Coco::Therapy Delivery Events::Delivery Event::OrderIdentifier
-
-### Description
-The order.
-
-### Data Type
-string
-
-### Position
-3
-
-### Is Nullable
-false
-
-### Minimum Cardinality
-1
-
-### Length
-40
-
-### Version Identifier
-1.0
-
-### Content Status
-ACTIVE
-
-___
-
-## Link Data Field to Data Structure
-
-### Data Field
-DataField::Coco::Therapy Delivery Events::Delivery Event::OrderIdentifier
-
-### Data Structure
-DataStructure::Coco::Therapy Delivery Events::Delivery Event
-
-### Label
-field 3
-
-___
-
-## Create Data Field
-
-### Display Name
-ShipmentEventType
-
-### Qualified Name
-DataField::Coco::Therapy Delivery Events::Delivery Event::ShipmentEventType
+DataField::Coco::Therapy Delivery Events::Delivery Event::Shipment Event Type
 
 ### Description
 Released, dispatched, in transit, delivered, administered.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -975,32 +917,35 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Therapy Delivery Events::Delivery Event::ShipmentEventType
+DataField::Coco::Therapy Delivery Events::Delivery Event::Shipment Event Type
 
 ### Data Structure
 DataStructure::Coco::Therapy Delivery Events::Delivery Event
 
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
+
 ### Label
-field 4
+field 2
 
 ___
 
 ## Create Data Field
 
 ### Display Name
-ShipmentEventTimestamp
+Shipment Event Timestamp
 
 ### Qualified Name
-DataField::Coco::Therapy Delivery Events::Delivery Event::ShipmentEventTimestamp
+DataField::Coco::Therapy Delivery Events::Delivery Event::Shipment Event Timestamp
 
 ### Description
 When.
 
 ### Data Type
 date
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -1019,10 +964,116 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Therapy Delivery Events::Delivery Event::ShipmentEventTimestamp
+DataField::Coco::Therapy Delivery Events::Delivery Event::Shipment Event Timestamp
 
 ### Data Structure
 DataStructure::Coco::Therapy Delivery Events::Delivery Event
+
+### Position
+3
+
+### Coverage Category
+IDENTIFIER
+
+### Label
+field 3
+
+___
+
+## Create Data Field
+
+### Display Name
+Patient Pseudonym Identifier
+
+### Qualified Name
+DataField::Coco::Therapy Delivery Events::Delivery Event::Patient Pseudonym Identifier
+
+### Description
+The patient, by pseudonym.
+
+### Data Type
+string
+
+### Is Nullable
+false
+
+### Minimum Cardinality
+1
+
+### Length
+40
+
+### Version Identifier
+1.0
+
+### Content Status
+ACTIVE
+
+___
+
+## Link Data Field to Data Structure
+
+### Data Field
+DataField::Coco::Therapy Delivery Events::Delivery Event::Patient Pseudonym Identifier
+
+### Data Structure
+DataStructure::Coco::Therapy Delivery Events::Delivery Event
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
+
+### Label
+field 4
+
+___
+
+## Create Data Field
+
+### Display Name
+Order Identifier
+
+### Qualified Name
+DataField::Coco::Therapy Delivery Events::Delivery Event::Order Identifier
+
+### Description
+The order.
+
+### Data Type
+string
+
+### Is Nullable
+false
+
+### Minimum Cardinality
+1
+
+### Length
+40
+
+### Version Identifier
+1.0
+
+### Content Status
+ACTIVE
+
+___
+
+## Link Data Field to Data Structure
+
+### Data Field
+DataField::Coco::Therapy Delivery Events::Delivery Event::Order Identifier
+
+### Data Structure
+DataStructure::Coco::Therapy Delivery Events::Delivery Event
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -1032,19 +1083,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ShipmentEventLocation
+Shipment Event Location
 
 ### Qualified Name
-DataField::Coco::Therapy Delivery Events::Delivery Event::ShipmentEventLocation
+DataField::Coco::Therapy Delivery Events::Delivery Event::Shipment Event Location
 
 ### Description
 Where.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 true
@@ -1066,10 +1114,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Therapy Delivery Events::Delivery Event::ShipmentEventLocation
+DataField::Coco::Therapy Delivery Events::Delivery Event::Shipment Event Location
 
 ### Data Structure
 DataStructure::Coco::Therapy Delivery Events::Delivery Event
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -1079,19 +1133,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ShipmentStorageDescription
+Shipment Storage Description
 
 ### Qualified Name
-DataField::Coco::Therapy Delivery Events::Delivery Event::ShipmentStorageDescription
+DataField::Coco::Therapy Delivery Events::Delivery Event::Shipment Storage Description
 
 ### Description
 The storage conditions the therapy must be kept under in transit.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 true
@@ -1110,10 +1161,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Therapy Delivery Events::Delivery Event::ShipmentStorageDescription
+DataField::Coco::Therapy Delivery Events::Delivery Event::Shipment Storage Description
 
 ### Data Structure
 DataStructure::Coco::Therapy Delivery Events::Delivery Event
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -1132,7 +1189,7 @@ DataStructure::Coco::Therapy Delivery Events::Administration Confirmation
 One row per therapy confirmed administered.
 
 ### Namespace Path
-coco_pharma.therapy_delivery_events
+coco_data_hub.therapy_delivery_events
 
 ### Version Identifier
 1.0
@@ -1161,19 +1218,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-BatchIdentifier
+Batch Identifier
 
 ### Qualified Name
-DataField::Coco::Therapy Delivery Events::Administration Confirmation::BatchIdentifier
+DataField::Coco::Therapy Delivery Events::Administration Confirmation::Batch Identifier
 
 ### Description
 The therapy.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -1195,10 +1249,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Therapy Delivery Events::Administration Confirmation::BatchIdentifier
+DataField::Coco::Therapy Delivery Events::Administration Confirmation::Batch Identifier
 
 ### Data Structure
 DataStructure::Coco::Therapy Delivery Events::Administration Confirmation
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -1208,19 +1268,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-PatientPseudonymIdentifier
+Patient Pseudonym Identifier
 
 ### Qualified Name
-DataField::Coco::Therapy Delivery Events::Administration Confirmation::PatientPseudonymIdentifier
+DataField::Coco::Therapy Delivery Events::Administration Confirmation::Patient Pseudonym Identifier
 
 ### Description
 The patient, by pseudonym.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -1242,10 +1299,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Therapy Delivery Events::Administration Confirmation::PatientPseudonymIdentifier
+DataField::Coco::Therapy Delivery Events::Administration Confirmation::Patient Pseudonym Identifier
 
 ### Data Structure
 DataStructure::Coco::Therapy Delivery Events::Administration Confirmation
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -1255,19 +1318,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TreatmentAdministrationTimestamp
+Treatment Administration Timestamp
 
 ### Qualified Name
-DataField::Coco::Therapy Delivery Events::Administration Confirmation::TreatmentAdministrationTimestamp
+DataField::Coco::Therapy Delivery Events::Administration Confirmation::Treatment Administration Timestamp
 
 ### Description
 When administered.
 
 ### Data Type
 date
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -1286,10 +1346,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Therapy Delivery Events::Administration Confirmation::TreatmentAdministrationTimestamp
+DataField::Coco::Therapy Delivery Events::Administration Confirmation::Treatment Administration Timestamp
 
 ### Data Structure
 DataStructure::Coco::Therapy Delivery Events::Administration Confirmation
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -1299,19 +1365,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ClinicianIdentifier
+Clinician Identifier
 
 ### Qualified Name
-DataField::Coco::Therapy Delivery Events::Administration Confirmation::ClinicianIdentifier
+DataField::Coco::Therapy Delivery Events::Administration Confirmation::Clinician Identifier
 
 ### Description
 Who administered.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -1333,10 +1396,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Therapy Delivery Events::Administration Confirmation::ClinicianIdentifier
+DataField::Coco::Therapy Delivery Events::Administration Confirmation::Clinician Identifier
 
 ### Data Structure
 DataStructure::Coco::Therapy Delivery Events::Administration Confirmation
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -1346,19 +1415,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-OrderIdentifier
+Order Identifier
 
 ### Qualified Name
-DataField::Coco::Therapy Delivery Events::Administration Confirmation::OrderIdentifier
+DataField::Coco::Therapy Delivery Events::Administration Confirmation::Order Identifier
 
 ### Description
 The order fulfilled.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -1380,10 +1446,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Therapy Delivery Events::Administration Confirmation::OrderIdentifier
+DataField::Coco::Therapy Delivery Events::Administration Confirmation::Order Identifier
 
 ### Data Structure
 DataStructure::Coco::Therapy Delivery Events::Administration Confirmation
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -1402,12 +1474,18 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: therapy_delivery_events
 - schemaDescription: The finished therapy tracked from release to administration at the treating site, and the confirmation of arrival and administration reported back into the order. It closes the loop that the ordering portal opened.
+
+### Anchor ID
+DigitalProduct::Coco::Therapy Delivery Events
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Therapy Delivery Events
@@ -1532,7 +1610,7 @@ DataStructure::Coco::Transport Classifications::Transport Classification
 One row per substance or product per shipped form.
 
 ### Namespace Path
-coco_pharma.transport_classifications
+coco_data_hub.transport_classifications
 
 ### Version Identifier
 1.0
@@ -1561,28 +1639,25 @@ ___
 ## Create Data Field
 
 ### Display Name
-SubstanceCode
+Transport Classification Identifier
 
 ### Qualified Name
-DataField::Coco::Transport Classifications::Transport Classification::SubstanceCode
+DataField::Coco::Transport Classifications::Transport Classification::Transport Classification Identifier
 
 ### Description
-The substance, for hazardous materials.
+The unique identifier of the transport classification of a substance or product in a shipped form.
 
 ### Data Type
 string
 
-### Position
-1
-
 ### Is Nullable
-true
+false
 
 ### Minimum Cardinality
-0
+1
 
 ### Length
-20
+40
 
 ### Version Identifier
 1.0
@@ -1595,10 +1670,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Transport Classifications::Transport Classification::SubstanceCode
+DataField::Coco::Transport Classifications::Transport Classification::Transport Classification Identifier
 
 ### Data Structure
 DataStructure::Coco::Transport Classifications::Transport Classification
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -1608,19 +1689,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductCode
+Substance Code
 
 ### Qualified Name
-DataField::Coco::Transport Classifications::Transport Classification::ProductCode
+DataField::Coco::Transport Classifications::Transport Classification::Substance Code
 
 ### Description
-The product, for finished goods.
+The substance, for hazardous materials.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 true
@@ -1642,10 +1720,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Transport Classifications::Transport Classification::ProductCode
+DataField::Coco::Transport Classifications::Transport Classification::Substance Code
 
 ### Data Structure
 DataStructure::Coco::Transport Classifications::Transport Classification
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -1655,19 +1739,66 @@ ___
 ## Create Data Field
 
 ### Display Name
-SubstanceFormDescription
+Product Code
 
 ### Qualified Name
-DataField::Coco::Transport Classifications::Transport Classification::SubstanceFormDescription
+DataField::Coco::Transport Classifications::Transport Classification::Product Code
+
+### Description
+The product, for finished goods.
+
+### Data Type
+string
+
+### Is Nullable
+true
+
+### Minimum Cardinality
+0
+
+### Length
+20
+
+### Version Identifier
+1.0
+
+### Content Status
+ACTIVE
+
+___
+
+## Link Data Field to Data Structure
+
+### Data Field
+DataField::Coco::Transport Classifications::Transport Classification::Product Code
+
+### Data Structure
+DataStructure::Coco::Transport Classifications::Transport Classification
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
+
+### Label
+field 3
+
+___
+
+## Create Data Field
+
+### Display Name
+Substance Form Description
+
+### Qualified Name
+DataField::Coco::Transport Classifications::Transport Classification::Substance Form Description
 
 ### Description
 The form shipped.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -1686,32 +1817,35 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Transport Classifications::Transport Classification::SubstanceFormDescription
+DataField::Coco::Transport Classifications::Transport Classification::Substance Form Description
 
 ### Data Structure
 DataStructure::Coco::Transport Classifications::Transport Classification
 
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
+
 ### Label
-field 3
+field 4
 
 ___
 
 ## Create Data Field
 
 ### Display Name
-TransportClassificationCode
+Transport Classification Code
 
 ### Qualified Name
-DataField::Coco::Transport Classifications::Transport Classification::TransportClassificationCode
+DataField::Coco::Transport Classifications::Transport Classification::Transport Classification Code
 
 ### Description
 The UN number.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -1733,32 +1867,35 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Transport Classifications::Transport Classification::TransportClassificationCode
+DataField::Coco::Transport Classifications::Transport Classification::Transport Classification Code
 
 ### Data Structure
 DataStructure::Coco::Transport Classifications::Transport Classification
 
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
+
 ### Label
-field 4
+field 5
 
 ___
 
 ## Create Data Field
 
 ### Display Name
-TransportClassificationPackingGroupCode
+Transport Classification Packing Group Code
 
 ### Qualified Name
-DataField::Coco::Transport Classifications::Transport Classification::TransportClassificationPackingGroupCode
+DataField::Coco::Transport Classifications::Transport Classification::Transport Classification Packing Group Code
 
 ### Description
 The packing group.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -1780,32 +1917,35 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Transport Classifications::Transport Classification::TransportClassificationPackingGroupCode
+DataField::Coco::Transport Classifications::Transport Classification::Transport Classification Packing Group Code
 
 ### Data Structure
 DataStructure::Coco::Transport Classifications::Transport Classification
 
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
+
 ### Label
-field 5
+field 6
 
 ___
 
 ## Create Data Field
 
 ### Display Name
-TransportClassificationHazardClassCode
+Transport Classification Hazard Class Code
 
 ### Qualified Name
-DataField::Coco::Transport Classifications::Transport Classification::TransportClassificationHazardClassCode
+DataField::Coco::Transport Classifications::Transport Classification::Transport Classification Hazard Class Code
 
 ### Description
 The hazard class.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -1827,54 +1967,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Transport Classifications::Transport Classification::TransportClassificationHazardClassCode
+DataField::Coco::Transport Classifications::Transport Classification::Transport Classification Hazard Class Code
 
 ### Data Structure
 DataStructure::Coco::Transport Classifications::Transport Classification
-
-### Label
-field 6
-
-___
-
-## Create Data Field
-
-### Display Name
-TransportClassificationLabellingDescription
-
-### Qualified Name
-DataField::Coco::Transport Classifications::Transport Classification::TransportClassificationLabellingDescription
-
-### Description
-The labelling required.
-
-### Data Type
-string
 
 ### Position
 7
 
-### Is Nullable
-false
-
-### Minimum Cardinality
-1
-
-### Version Identifier
-1.0
-
-### Content Status
-ACTIVE
-
-___
-
-## Link Data Field to Data Structure
-
-### Data Field
-DataField::Coco::Transport Classifications::Transport Classification::TransportClassificationLabellingDescription
-
-### Data Structure
-DataStructure::Coco::Transport Classifications::Transport Classification
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -1884,19 +1986,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TransportClassificationDocumentationDescription
+Transport Classification Labelling Description
 
 ### Qualified Name
-DataField::Coco::Transport Classifications::Transport Classification::TransportClassificationDocumentationDescription
+DataField::Coco::Transport Classifications::Transport Classification::Transport Classification Labelling Description
 
 ### Description
-The documentation set required.
+The labelling required.
 
 ### Data Type
 string
-
-### Position
-8
 
 ### Is Nullable
 false
@@ -1915,10 +2014,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Transport Classifications::Transport Classification::TransportClassificationDocumentationDescription
+DataField::Coco::Transport Classifications::Transport Classification::Transport Classification Labelling Description
 
 ### Data Structure
 DataStructure::Coco::Transport Classifications::Transport Classification
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -1928,19 +2033,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TransportClassificationDate
+Transport Classification Documentation Description
 
 ### Qualified Name
-DataField::Coco::Transport Classifications::Transport Classification::TransportClassificationDate
+DataField::Coco::Transport Classifications::Transport Classification::Transport Classification Documentation Description
 
 ### Description
-When derived.
+The documentation set required.
 
 ### Data Type
-date
-
-### Position
-9
+string
 
 ### Is Nullable
 false
@@ -1959,13 +2061,66 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Transport Classifications::Transport Classification::TransportClassificationDate
+DataField::Coco::Transport Classifications::Transport Classification::Transport Classification Documentation Description
 
 ### Data Structure
 DataStructure::Coco::Transport Classifications::Transport Classification
 
+### Position
+9
+
+### Coverage Category
+CORE_DETAIL
+
 ### Label
 field 9
+
+___
+
+## Create Data Field
+
+### Display Name
+Transport Classification Date
+
+### Qualified Name
+DataField::Coco::Transport Classifications::Transport Classification::Transport Classification Date
+
+### Description
+When derived.
+
+### Data Type
+date
+
+### Is Nullable
+false
+
+### Minimum Cardinality
+1
+
+### Version Identifier
+1.0
+
+### Content Status
+ACTIVE
+
+___
+
+## Link Data Field to Data Structure
+
+### Data Field
+DataField::Coco::Transport Classifications::Transport Classification::Transport Classification Date
+
+### Data Structure
+DataStructure::Coco::Transport Classifications::Transport Classification
+
+### Position
+10
+
+### Coverage Category
+CORE_DETAIL
+
+### Label
+field 10
 
 ___
 
@@ -1981,12 +2136,18 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: transport_classifications
 - schemaDescription: The transport classification of each substance and product in each form it is shipped: UN number, packing group, labelling and the documentation set required. It is a library rather than a process because the same rules must give the same answer to despatch, to procurement and to the person signing the declaration.
+
+### Anchor ID
+DigitalProduct::Coco::Transport Classifications
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Transport Classifications
@@ -2111,7 +2272,7 @@ DataStructure::Coco::Dangerous Goods Consignment Records::Consignment Declaratio
 One row per dangerous goods consignment.
 
 ### Namespace Path
-coco_pharma.dangerous_goods_consignment_records
+coco_data_hub.dangerous_goods_consignment_records
 
 ### Version Identifier
 1.0
@@ -2140,19 +2301,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ShipmentIdentifier
+Shipment Identifier
 
 ### Qualified Name
-DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::ShipmentIdentifier
+DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::Shipment Identifier
 
 ### Description
 The consignment.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -2174,10 +2332,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::ShipmentIdentifier
+DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::Shipment Identifier
 
 ### Data Structure
 DataStructure::Coco::Dangerous Goods Consignment Records::Consignment Declaration
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -2187,19 +2351,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ShipmentDispatchDate
+Shipment Dispatch Date
 
 ### Qualified Name
-DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::ShipmentDispatchDate
+DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::Shipment Dispatch Date
 
 ### Description
 When dispatched.
 
 ### Data Type
 date
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -2218,10 +2379,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::ShipmentDispatchDate
+DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::Shipment Dispatch Date
 
 ### Data Structure
 DataStructure::Coco::Dangerous Goods Consignment Records::Consignment Declaration
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -2231,19 +2398,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CarrierIdentifier
+Carrier Identifier
 
 ### Qualified Name
-DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::CarrierIdentifier
+DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::Carrier Identifier
 
 ### Description
 The carrier.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -2265,10 +2429,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::CarrierIdentifier
+DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::Carrier Identifier
 
 ### Data Structure
 DataStructure::Coco::Dangerous Goods Consignment Records::Consignment Declaration
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -2278,19 +2448,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ShipmentShipToAddress
+Shipment Ship To Address
 
 ### Qualified Name
-DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::ShipmentShipToAddress
+DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::Shipment Ship To Address
 
 ### Description
 The destination.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -2309,10 +2476,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::ShipmentShipToAddress
+DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::Shipment Ship To Address
 
 ### Data Structure
 DataStructure::Coco::Dangerous Goods Consignment Records::Consignment Declaration
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -2322,19 +2495,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-TransportClassificationCode
+Transport Classification Code
 
 ### Qualified Name
-DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::TransportClassificationCode
+DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::Transport Classification Code
 
 ### Description
 The UN number declared.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -2356,10 +2526,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::TransportClassificationCode
+DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::Transport Classification Code
 
 ### Data Structure
 DataStructure::Coco::Dangerous Goods Consignment Records::Consignment Declaration
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -2369,19 +2545,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ShipmentQuantity
+Shipment Quantity
 
 ### Qualified Name
-DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::ShipmentQuantity
+DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::Shipment Quantity
 
 ### Description
 The quantity shipped.
 
 ### Data Type
 float
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -2400,10 +2573,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::ShipmentQuantity
+DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::Shipment Quantity
 
 ### Data Structure
 DataStructure::Coco::Dangerous Goods Consignment Records::Consignment Declaration
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -2413,19 +2592,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ShipmentUnit
+Shipment Unit
 
 ### Qualified Name
-DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::ShipmentUnit
+DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::Shipment Unit
 
 ### Description
 The unit.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -2447,10 +2623,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::ShipmentUnit
+DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::Shipment Unit
 
 ### Data Structure
 DataStructure::Coco::Dangerous Goods Consignment Records::Consignment Declaration
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -2460,19 +2642,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DeclarationSignatoryIdentifier
+Declaration Signatory Identifier
 
 ### Qualified Name
-DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::DeclarationSignatoryIdentifier
+DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::Declaration Signatory Identifier
 
 ### Description
 The certificated signatory, by pseudonym.
 
 ### Data Type
 string
-
-### Position
-8
 
 ### Is Nullable
 false
@@ -2494,10 +2673,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::DeclarationSignatoryIdentifier
+DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::Declaration Signatory Identifier
 
 ### Data Structure
 DataStructure::Coco::Dangerous Goods Consignment Records::Consignment Declaration
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -2507,19 +2692,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DeclarationSignedTimestamp
+Declaration Signed Timestamp
 
 ### Qualified Name
-DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::DeclarationSignedTimestamp
+DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::Declaration Signed Timestamp
 
 ### Description
 When signed.
 
 ### Data Type
 date
-
-### Position
-9
 
 ### Is Nullable
 false
@@ -2538,10 +2720,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::DeclarationSignedTimestamp
+DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::Declaration Signed Timestamp
 
 ### Data Structure
 DataStructure::Coco::Dangerous Goods Consignment Records::Consignment Declaration
+
+### Position
+9
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 9
@@ -2551,19 +2739,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CertificateIdentifier
+Certificate Identifier
 
 ### Qualified Name
-DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::CertificateIdentifier
+DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::Certificate Identifier
 
 ### Description
 The signatory's dangerous goods certificate.
 
 ### Data Type
 string
-
-### Position
-10
 
 ### Is Nullable
 false
@@ -2585,10 +2770,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::CertificateIdentifier
+DataField::Coco::Dangerous Goods Consignment Records::Consignment Declaration::Certificate Identifier
 
 ### Data Structure
 DataStructure::Coco::Dangerous Goods Consignment Records::Consignment Declaration
+
+### Position
+10
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 10
@@ -2607,7 +2798,7 @@ DataStructure::Coco::Dangerous Goods Consignment Records::Consignment Document
 One row per document in the consignment's documentation set.
 
 ### Namespace Path
-coco_pharma.dangerous_goods_consignment_records
+coco_data_hub.dangerous_goods_consignment_records
 
 ### Version Identifier
 1.0
@@ -2636,19 +2827,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ShipmentIdentifier
+Shipment Identifier
 
 ### Qualified Name
-DataField::Coco::Dangerous Goods Consignment Records::Consignment Document::ShipmentIdentifier
+DataField::Coco::Dangerous Goods Consignment Records::Consignment Document::Shipment Identifier
 
 ### Description
 The consignment.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -2670,10 +2858,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Dangerous Goods Consignment Records::Consignment Document::ShipmentIdentifier
+DataField::Coco::Dangerous Goods Consignment Records::Consignment Document::Shipment Identifier
 
 ### Data Structure
 DataStructure::Coco::Dangerous Goods Consignment Records::Consignment Document
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -2683,66 +2877,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DocumentType
+Document Identifier
 
 ### Qualified Name
-DataField::Coco::Dangerous Goods Consignment Records::Consignment Document::DocumentType
-
-### Description
-Declaration, safety data sheet, handling instructions or other.
-
-### Data Type
-string
-
-### Position
-2
-
-### Is Nullable
-false
-
-### Minimum Cardinality
-1
-
-### Length
-40
-
-### Version Identifier
-1.0
-
-### Content Status
-ACTIVE
-
-___
-
-## Link Data Field to Data Structure
-
-### Data Field
-DataField::Coco::Dangerous Goods Consignment Records::Consignment Document::DocumentType
-
-### Data Structure
-DataStructure::Coco::Dangerous Goods Consignment Records::Consignment Document
-
-### Label
-field 2
-
-___
-
-## Create Data Field
-
-### Display Name
-DocumentIdentifier
-
-### Qualified Name
-DataField::Coco::Dangerous Goods Consignment Records::Consignment Document::DocumentIdentifier
+DataField::Coco::Dangerous Goods Consignment Records::Consignment Document::Document Identifier
 
 ### Description
 The document.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -2764,10 +2908,66 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Dangerous Goods Consignment Records::Consignment Document::DocumentIdentifier
+DataField::Coco::Dangerous Goods Consignment Records::Consignment Document::Document Identifier
 
 ### Data Structure
 DataStructure::Coco::Dangerous Goods Consignment Records::Consignment Document
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
+
+### Label
+field 2
+
+___
+
+## Create Data Field
+
+### Display Name
+Document Type
+
+### Qualified Name
+DataField::Coco::Dangerous Goods Consignment Records::Consignment Document::Document Type
+
+### Description
+Declaration, safety data sheet, handling instructions or other.
+
+### Data Type
+string
+
+### Is Nullable
+false
+
+### Minimum Cardinality
+1
+
+### Length
+40
+
+### Version Identifier
+1.0
+
+### Content Status
+ACTIVE
+
+___
+
+## Link Data Field to Data Structure
+
+### Data Field
+DataField::Coco::Dangerous Goods Consignment Records::Consignment Document::Document Type
+
+### Data Structure
+DataStructure::Coco::Dangerous Goods Consignment Records::Consignment Document
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -2777,19 +2977,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DocumentDate
+Document Date
 
 ### Qualified Name
-DataField::Coco::Dangerous Goods Consignment Records::Consignment Document::DocumentDate
+DataField::Coco::Dangerous Goods Consignment Records::Consignment Document::Document Date
 
 ### Description
 Its date.
 
 ### Data Type
 date
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -2808,10 +3005,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Dangerous Goods Consignment Records::Consignment Document::DocumentDate
+DataField::Coco::Dangerous Goods Consignment Records::Consignment Document::Document Date
 
 ### Data Structure
 DataStructure::Coco::Dangerous Goods Consignment Records::Consignment Document
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -2830,12 +3033,18 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: dangerous_goods_consignment_records
 - schemaDescription: The dangerous goods declaration and accompanying documents for each consignment, signed by a certificated person, with the certificate that authorised the signature. The shipper's liability stays with the company however the carrier behaves afterwards.
+
+### Anchor ID
+DigitalProduct::Coco::Dangerous Goods Consignment Records
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Dangerous Goods Consignment Records
@@ -2960,7 +3169,7 @@ DataStructure::Coco::In-Transit Temperature Readings::Temperature Reading
 One row per reading from a device.
 
 ### Namespace Path
-coco_pharma.in_transit_temperature_readings
+coco_data_hub.in_transit_temperature_readings
 
 ### Version Identifier
 1.0
@@ -2989,19 +3198,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DeviceIdentifier
+Device Identifier
 
 ### Qualified Name
-DataField::Coco::In-Transit Temperature Readings::Temperature Reading::DeviceIdentifier
+DataField::Coco::In-Transit Temperature Readings::Temperature Reading::Device Identifier
 
 ### Description
 The device.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -3023,10 +3229,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::In-Transit Temperature Readings::Temperature Reading::DeviceIdentifier
+DataField::Coco::In-Transit Temperature Readings::Temperature Reading::Device Identifier
 
 ### Data Structure
 DataStructure::Coco::In-Transit Temperature Readings::Temperature Reading
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -3036,19 +3248,63 @@ ___
 ## Create Data Field
 
 ### Display Name
-ShipmentIdentifier
+Device Reading Timestamp
 
 ### Qualified Name
-DataField::Coco::In-Transit Temperature Readings::Temperature Reading::ShipmentIdentifier
+DataField::Coco::In-Transit Temperature Readings::Temperature Reading::Device Reading Timestamp
+
+### Description
+When.
+
+### Data Type
+date
+
+### Is Nullable
+false
+
+### Minimum Cardinality
+1
+
+### Version Identifier
+1.0
+
+### Content Status
+ACTIVE
+
+___
+
+## Link Data Field to Data Structure
+
+### Data Field
+DataField::Coco::In-Transit Temperature Readings::Temperature Reading::Device Reading Timestamp
+
+### Data Structure
+DataStructure::Coco::In-Transit Temperature Readings::Temperature Reading
+
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
+
+### Label
+field 2
+
+___
+
+## Create Data Field
+
+### Display Name
+Shipment Identifier
+
+### Qualified Name
+DataField::Coco::In-Transit Temperature Readings::Temperature Reading::Shipment Identifier
 
 ### Description
 The consignment the device travelled with.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -3070,54 +3326,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::In-Transit Temperature Readings::Temperature Reading::ShipmentIdentifier
+DataField::Coco::In-Transit Temperature Readings::Temperature Reading::Shipment Identifier
 
 ### Data Structure
 DataStructure::Coco::In-Transit Temperature Readings::Temperature Reading
-
-### Label
-field 2
-
-___
-
-## Create Data Field
-
-### Display Name
-DeviceReadingTimestamp
-
-### Qualified Name
-DataField::Coco::In-Transit Temperature Readings::Temperature Reading::DeviceReadingTimestamp
-
-### Description
-When.
-
-### Data Type
-date
 
 ### Position
 3
 
-### Is Nullable
-false
-
-### Minimum Cardinality
-1
-
-### Version Identifier
-1.0
-
-### Content Status
-ACTIVE
-
-___
-
-## Link Data Field to Data Structure
-
-### Data Field
-DataField::Coco::In-Transit Temperature Readings::Temperature Reading::DeviceReadingTimestamp
-
-### Data Structure
-DataStructure::Coco::In-Transit Temperature Readings::Temperature Reading
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -3127,19 +3345,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DeviceReadingTemperature
+Device Reading Temperature
 
 ### Qualified Name
-DataField::Coco::In-Transit Temperature Readings::Temperature Reading::DeviceReadingTemperature
+DataField::Coco::In-Transit Temperature Readings::Temperature Reading::Device Reading Temperature
 
 ### Description
 The temperature, in degrees Celsius.
 
 ### Data Type
 float
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -3158,10 +3373,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::In-Transit Temperature Readings::Temperature Reading::DeviceReadingTemperature
+DataField::Coco::In-Transit Temperature Readings::Temperature Reading::Device Reading Temperature
 
 ### Data Structure
 DataStructure::Coco::In-Transit Temperature Readings::Temperature Reading
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -3171,19 +3392,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DeviceLocation
+Device Location
 
 ### Qualified Name
-DataField::Coco::In-Transit Temperature Readings::Temperature Reading::DeviceLocation
+DataField::Coco::In-Transit Temperature Readings::Temperature Reading::Device Location
 
 ### Description
 The device's reported location, if it reports one.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -3205,10 +3423,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::In-Transit Temperature Readings::Temperature Reading::DeviceLocation
+DataField::Coco::In-Transit Temperature Readings::Temperature Reading::Device Location
 
 ### Data Structure
 DataStructure::Coco::In-Transit Temperature Readings::Temperature Reading
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -3218,19 +3442,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DeviceType
+Device Type
 
 ### Qualified Name
-DataField::Coco::In-Transit Temperature Readings::Temperature Reading::DeviceType
+DataField::Coco::In-Transit Temperature Readings::Temperature Reading::Device Type
 
 ### Description
 Logger or live monitor.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -3252,10 +3473,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::In-Transit Temperature Readings::Temperature Reading::DeviceType
+DataField::Coco::In-Transit Temperature Readings::Temperature Reading::Device Type
 
 ### Data Structure
 DataStructure::Coco::In-Transit Temperature Readings::Temperature Reading
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -3274,12 +3501,18 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: in_transit_temperature_readings
 - schemaDescription: The readings from the loggers and live monitors travelling inside consignments: temperature, location and time. The devices are themselves dangerous goods, because they contain lithium batteries.
+
+### Anchor ID
+DigitalProduct::Coco::In-Transit Temperature Readings
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::In-Transit Temperature Readings
@@ -3404,7 +3637,7 @@ DataStructure::Coco::Cold Chain Transit Records::Transit Temperature Record
 One row per consignment, the reconciled temperature history.
 
 ### Namespace Path
-coco_pharma.cold_chain_transit_records
+coco_data_hub.cold_chain_transit_records
 
 ### Version Identifier
 1.0
@@ -3433,19 +3666,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ShipmentIdentifier
+Shipment Identifier
 
 ### Qualified Name
-DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::ShipmentIdentifier
+DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::Shipment Identifier
 
 ### Description
 The consignment.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -3467,10 +3697,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::ShipmentIdentifier
+DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::Shipment Identifier
 
 ### Data Structure
 DataStructure::Coco::Cold Chain Transit Records::Transit Temperature Record
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -3480,19 +3716,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ProductCode
+Product Code
 
 ### Qualified Name
-DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::ProductCode
+DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::Product Code
 
 ### Description
 The product shipped.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -3514,10 +3747,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::ProductCode
+DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::Product Code
 
 ### Data Structure
 DataStructure::Coco::Cold Chain Transit Records::Transit Temperature Record
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -3527,19 +3766,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-BatchIdentifier
+Batch Identifier
 
 ### Qualified Name
-DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::BatchIdentifier
+DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::Batch Identifier
 
 ### Description
 The batch.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -3561,10 +3797,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::BatchIdentifier
+DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::Batch Identifier
 
 ### Data Structure
 DataStructure::Coco::Cold Chain Transit Records::Transit Temperature Record
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -3574,19 +3816,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-DeviceIdentifier
+Device Identifier
 
 ### Qualified Name
-DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::DeviceIdentifier
+DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::Device Identifier
 
 ### Description
 The device the record came from.
 
 ### Data Type
 string
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -3608,10 +3847,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::DeviceIdentifier
+DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::Device Identifier
 
 ### Data Structure
 DataStructure::Coco::Cold Chain Transit Records::Transit Temperature Record
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -3621,19 +3866,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ShipmentTransitStartTimestamp
+Shipment Transit Start Timestamp
 
 ### Qualified Name
-DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::ShipmentTransitStartTimestamp
+DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::Shipment Transit Start Timestamp
 
 ### Description
 When monitoring began.
 
 ### Data Type
 date
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -3652,10 +3894,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::ShipmentTransitStartTimestamp
+DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::Shipment Transit Start Timestamp
 
 ### Data Structure
 DataStructure::Coco::Cold Chain Transit Records::Transit Temperature Record
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -3665,19 +3913,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ShipmentTransitEndTimestamp
+Shipment Transit End Timestamp
 
 ### Qualified Name
-DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::ShipmentTransitEndTimestamp
+DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::Shipment Transit End Timestamp
 
 ### Description
 When monitoring ended.
 
 ### Data Type
 date
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -3696,10 +3941,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::ShipmentTransitEndTimestamp
+DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::Shipment Transit End Timestamp
 
 ### Data Structure
 DataStructure::Coco::Cold Chain Transit Records::Transit Temperature Record
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -3709,19 +3960,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ShipmentTransitMinimumTemperature
+Shipment Transit Minimum Temperature
 
 ### Qualified Name
-DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::ShipmentTransitMinimumTemperature
+DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::Shipment Transit Minimum Temperature
 
 ### Description
 The lowest temperature recorded.
 
 ### Data Type
 float
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -3740,10 +3988,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::ShipmentTransitMinimumTemperature
+DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::Shipment Transit Minimum Temperature
 
 ### Data Structure
 DataStructure::Coco::Cold Chain Transit Records::Transit Temperature Record
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -3753,19 +4007,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ShipmentTransitMaximumTemperature
+Shipment Transit Maximum Temperature
 
 ### Qualified Name
-DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::ShipmentTransitMaximumTemperature
+DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::Shipment Transit Maximum Temperature
 
 ### Description
 The highest temperature recorded.
 
 ### Data Type
 float
-
-### Position
-8
 
 ### Is Nullable
 false
@@ -3784,10 +4035,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::ShipmentTransitMaximumTemperature
+DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::Shipment Transit Maximum Temperature
 
 ### Data Structure
 DataStructure::Coco::Cold Chain Transit Records::Transit Temperature Record
+
+### Position
+8
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 8
@@ -3797,19 +4054,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ShipmentTransitRecordCompleteFlag
+Shipment Transit Record Complete Flag
 
 ### Qualified Name
-DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::ShipmentTransitRecordCompleteFlag
+DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::Shipment Transit Record Complete Flag
 
 ### Description
 Whether the record has no gaps.
 
 ### Data Type
 boolean
-
-### Position
-9
 
 ### Is Nullable
 false
@@ -3828,10 +4082,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::ShipmentTransitRecordCompleteFlag
+DataField::Coco::Cold Chain Transit Records::Transit Temperature Record::Shipment Transit Record Complete Flag
 
 ### Data Structure
 DataStructure::Coco::Cold Chain Transit Records::Transit Temperature Record
+
+### Position
+9
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 9
@@ -3850,7 +4110,7 @@ DataStructure::Coco::Cold Chain Transit Records::Excursion Detection
 One row per excursion detected in a consignment's record.
 
 ### Namespace Path
-coco_pharma.cold_chain_transit_records
+coco_data_hub.cold_chain_transit_records
 
 ### Version Identifier
 1.0
@@ -3879,19 +4139,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ExcursionIdentifier
+Excursion Identifier
 
 ### Qualified Name
-DataField::Coco::Cold Chain Transit Records::Excursion Detection::ExcursionIdentifier
+DataField::Coco::Cold Chain Transit Records::Excursion Detection::Excursion Identifier
 
 ### Description
 The excursion.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -3913,10 +4170,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Cold Chain Transit Records::Excursion Detection::ExcursionIdentifier
+DataField::Coco::Cold Chain Transit Records::Excursion Detection::Excursion Identifier
 
 ### Data Structure
 DataStructure::Coco::Cold Chain Transit Records::Excursion Detection
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -3926,19 +4189,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ShipmentIdentifier
+Shipment Identifier
 
 ### Qualified Name
-DataField::Coco::Cold Chain Transit Records::Excursion Detection::ShipmentIdentifier
+DataField::Coco::Cold Chain Transit Records::Excursion Detection::Shipment Identifier
 
 ### Description
 The consignment.
 
 ### Data Type
 string
-
-### Position
-2
 
 ### Is Nullable
 false
@@ -3960,10 +4220,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Cold Chain Transit Records::Excursion Detection::ShipmentIdentifier
+DataField::Coco::Cold Chain Transit Records::Excursion Detection::Shipment Identifier
 
 ### Data Structure
 DataStructure::Coco::Cold Chain Transit Records::Excursion Detection
+
+### Position
+2
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 2
@@ -3973,19 +4239,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ExcursionStartTimestamp
+Excursion Start Timestamp
 
 ### Qualified Name
-DataField::Coco::Cold Chain Transit Records::Excursion Detection::ExcursionStartTimestamp
+DataField::Coco::Cold Chain Transit Records::Excursion Detection::Excursion Start Timestamp
 
 ### Description
 When the range was left.
 
 ### Data Type
 date
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -4004,10 +4267,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Cold Chain Transit Records::Excursion Detection::ExcursionStartTimestamp
+DataField::Coco::Cold Chain Transit Records::Excursion Detection::Excursion Start Timestamp
 
 ### Data Structure
 DataStructure::Coco::Cold Chain Transit Records::Excursion Detection
+
+### Position
+3
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 3
@@ -4017,19 +4286,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ExcursionEndTimestamp
+Excursion End Timestamp
 
 ### Qualified Name
-DataField::Coco::Cold Chain Transit Records::Excursion Detection::ExcursionEndTimestamp
+DataField::Coco::Cold Chain Transit Records::Excursion Detection::Excursion End Timestamp
 
 ### Description
 When it was regained.
 
 ### Data Type
 date
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -4048,10 +4314,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Cold Chain Transit Records::Excursion Detection::ExcursionEndTimestamp
+DataField::Coco::Cold Chain Transit Records::Excursion Detection::Excursion End Timestamp
 
 ### Data Structure
 DataStructure::Coco::Cold Chain Transit Records::Excursion Detection
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -4061,19 +4333,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ExcursionDuration
+Excursion Duration
 
 ### Qualified Name
-DataField::Coco::Cold Chain Transit Records::Excursion Detection::ExcursionDuration
+DataField::Coco::Cold Chain Transit Records::Excursion Detection::Excursion Duration
 
 ### Description
 How long, in minutes.
 
 ### Data Type
 int
-
-### Position
-5
 
 ### Is Nullable
 false
@@ -4092,10 +4361,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Cold Chain Transit Records::Excursion Detection::ExcursionDuration
+DataField::Coco::Cold Chain Transit Records::Excursion Detection::Excursion Duration
 
 ### Data Structure
 DataStructure::Coco::Cold Chain Transit Records::Excursion Detection
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -4105,19 +4380,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ExcursionMaximumTemperature
+Excursion Maximum Temperature
 
 ### Qualified Name
-DataField::Coco::Cold Chain Transit Records::Excursion Detection::ExcursionMaximumTemperature
+DataField::Coco::Cold Chain Transit Records::Excursion Detection::Excursion Maximum Temperature
 
 ### Description
 The extreme temperature reached.
 
 ### Data Type
 float
-
-### Position
-6
 
 ### Is Nullable
 false
@@ -4136,10 +4408,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Cold Chain Transit Records::Excursion Detection::ExcursionMaximumTemperature
+DataField::Coco::Cold Chain Transit Records::Excursion Detection::Excursion Maximum Temperature
 
 ### Data Structure
 DataStructure::Coco::Cold Chain Transit Records::Excursion Detection
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -4149,19 +4427,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ExcursionType
+Excursion Type
 
 ### Qualified Name
-DataField::Coco::Cold Chain Transit Records::Excursion Detection::ExcursionType
+DataField::Coco::Cold Chain Transit Records::Excursion Detection::Excursion Type
 
 ### Description
 Temperature excursion or monitoring gap.
 
 ### Data Type
 string
-
-### Position
-7
 
 ### Is Nullable
 false
@@ -4183,10 +4458,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Cold Chain Transit Records::Excursion Detection::ExcursionType
+DataField::Coco::Cold Chain Transit Records::Excursion Detection::Excursion Type
 
 ### Data Structure
 DataStructure::Coco::Cold Chain Transit Records::Excursion Detection
+
+### Position
+7
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 7
@@ -4205,12 +4486,18 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: cold_chain_transit_records
 - schemaDescription: The temperature history of each consignment reconciled against the permitted range for the product shipped, and the excursions detected. A gap in the record is treated as an excursion, because an unmonitored interval cannot be shown to have been within range.
+
+### Anchor ID
+DigitalProduct::Coco::Cold Chain Transit Records
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Cold Chain Transit Records
@@ -4335,7 +4622,7 @@ DataStructure::Coco::Carrier Transit Events::Transit Event
 One row per event reported by a carrier.
 
 ### Namespace Path
-coco_pharma.carrier_transit_events
+coco_data_hub.carrier_transit_events
 
 ### Version Identifier
 1.0
@@ -4364,19 +4651,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ShipmentIdentifier
+Shipment Identifier
 
 ### Qualified Name
-DataField::Coco::Carrier Transit Events::Transit Event::ShipmentIdentifier
+DataField::Coco::Carrier Transit Events::Transit Event::Shipment Identifier
 
 ### Description
 The consignment.
 
 ### Data Type
 string
-
-### Position
-1
 
 ### Is Nullable
 false
@@ -4398,10 +4682,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Carrier Transit Events::Transit Event::ShipmentIdentifier
+DataField::Coco::Carrier Transit Events::Transit Event::Shipment Identifier
 
 ### Data Structure
 DataStructure::Coco::Carrier Transit Events::Transit Event
+
+### Position
+1
+
+### Coverage Category
+IDENTIFIER
 
 ### Label
 field 1
@@ -4411,66 +4701,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-CarrierIdentifier
+Shipment Transit Event Type
 
 ### Qualified Name
-DataField::Coco::Carrier Transit Events::Transit Event::CarrierIdentifier
-
-### Description
-The carrier.
-
-### Data Type
-string
-
-### Position
-2
-
-### Is Nullable
-false
-
-### Minimum Cardinality
-1
-
-### Length
-40
-
-### Version Identifier
-1.0
-
-### Content Status
-ACTIVE
-
-___
-
-## Link Data Field to Data Structure
-
-### Data Field
-DataField::Coco::Carrier Transit Events::Transit Event::CarrierIdentifier
-
-### Data Structure
-DataStructure::Coco::Carrier Transit Events::Transit Event
-
-### Label
-field 2
-
-___
-
-## Create Data Field
-
-### Display Name
-ShipmentTransitEventType
-
-### Qualified Name
-DataField::Coco::Carrier Transit Events::Transit Event::ShipmentTransitEventType
+DataField::Coco::Carrier Transit Events::Transit Event::Shipment Transit Event Type
 
 ### Description
 Collected, handed over, delayed, delivered or exception.
 
 ### Data Type
 string
-
-### Position
-3
 
 ### Is Nullable
 false
@@ -4492,32 +4732,35 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Carrier Transit Events::Transit Event::ShipmentTransitEventType
+DataField::Coco::Carrier Transit Events::Transit Event::Shipment Transit Event Type
 
 ### Data Structure
 DataStructure::Coco::Carrier Transit Events::Transit Event
 
+### Position
+2
+
+### Coverage Category
+IDENTIFIER
+
 ### Label
-field 3
+field 2
 
 ___
 
 ## Create Data Field
 
 ### Display Name
-ShipmentTransitEventTimestamp
+Shipment Transit Event Timestamp
 
 ### Qualified Name
-DataField::Coco::Carrier Transit Events::Transit Event::ShipmentTransitEventTimestamp
+DataField::Coco::Carrier Transit Events::Transit Event::Shipment Transit Event Timestamp
 
 ### Description
 When.
 
 ### Data Type
 date
-
-### Position
-4
 
 ### Is Nullable
 false
@@ -4536,10 +4779,66 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Carrier Transit Events::Transit Event::ShipmentTransitEventTimestamp
+DataField::Coco::Carrier Transit Events::Transit Event::Shipment Transit Event Timestamp
 
 ### Data Structure
 DataStructure::Coco::Carrier Transit Events::Transit Event
+
+### Position
+3
+
+### Coverage Category
+IDENTIFIER
+
+### Label
+field 3
+
+___
+
+## Create Data Field
+
+### Display Name
+Carrier Identifier
+
+### Qualified Name
+DataField::Coco::Carrier Transit Events::Transit Event::Carrier Identifier
+
+### Description
+The carrier.
+
+### Data Type
+string
+
+### Is Nullable
+false
+
+### Minimum Cardinality
+1
+
+### Length
+40
+
+### Version Identifier
+1.0
+
+### Content Status
+ACTIVE
+
+___
+
+## Link Data Field to Data Structure
+
+### Data Field
+DataField::Coco::Carrier Transit Events::Transit Event::Carrier Identifier
+
+### Data Structure
+DataStructure::Coco::Carrier Transit Events::Transit Event
+
+### Position
+4
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 4
@@ -4549,19 +4848,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ShipmentTransitEventLocation
+Shipment Transit Event Location
 
 ### Qualified Name
-DataField::Coco::Carrier Transit Events::Transit Event::ShipmentTransitEventLocation
+DataField::Coco::Carrier Transit Events::Transit Event::Shipment Transit Event Location
 
 ### Description
 Where.
 
 ### Data Type
 string
-
-### Position
-5
 
 ### Is Nullable
 true
@@ -4583,10 +4879,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Carrier Transit Events::Transit Event::ShipmentTransitEventLocation
+DataField::Coco::Carrier Transit Events::Transit Event::Shipment Transit Event Location
 
 ### Data Structure
 DataStructure::Coco::Carrier Transit Events::Transit Event
+
+### Position
+5
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 5
@@ -4596,19 +4898,16 @@ ___
 ## Create Data Field
 
 ### Display Name
-ShipmentTransitEventDescription
+Shipment Transit Event Description
 
 ### Qualified Name
-DataField::Coco::Carrier Transit Events::Transit Event::ShipmentTransitEventDescription
+DataField::Coco::Carrier Transit Events::Transit Event::Shipment Transit Event Description
 
 ### Description
 The carrier's description.
 
 ### Data Type
 string
-
-### Position
-6
 
 ### Is Nullable
 true
@@ -4627,10 +4926,16 @@ ___
 ## Link Data Field to Data Structure
 
 ### Data Field
-DataField::Coco::Carrier Transit Events::Transit Event::ShipmentTransitEventDescription
+DataField::Coco::Carrier Transit Events::Transit Event::Shipment Transit Event Description
 
 ### Data Structure
 DataStructure::Coco::Carrier Transit Events::Transit Event
+
+### Position
+6
+
+### Coverage Category
+CORE_DETAIL
 
 ### Label
 field 6
@@ -4649,12 +4954,18 @@ TabularDataSetCollection
 - hostIdentifier: host.docker.internal
 - serverName: Coco PostgreSQL Server 1
 - portNumber: 5442
-- secretsCollectionName: PostgreSQL Server Secret
+- secretsCollectionName: PostgreSQL Provisioning Secret
 - secretsStorePathName: secrets/integration.omsecrets
 - versionIdentifier: V1.0
-- databaseName: coco_pharma
+- databaseName: coco_data_hub
 - schemaName: carrier_transit_events
 - schemaDescription: The handover events, delays and delivery confirmations reported by carrier systems for each consignment. The company reads status from carriers and hands documentation to them, but has no visibility of what happens inside them.
+
+### Anchor ID
+DigitalProduct::Coco::Carrier Transit Events
+
+### Is Own Anchor
+false
 
 ### Parent ID
 DigitalProduct::Coco::Carrier Transit Events

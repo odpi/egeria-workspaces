@@ -12,6 +12,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>The Catalog</title>
+  <script src="/static/app-bar.js?v=2026-10-05a"></script>
   <script src="/static/bootstrap-banner.js?v=2026-08-18a"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -585,7 +586,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
      this URL *before* that header existed won't revalidate on its own; a new
      URL guarantees a fresh fetch regardless of prior cache state. -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
-<script src="/static/egeria-shared-ui.js?v=2026-09-14"></script>
+<script>window.EGERIA_FOR_LINEAGE = true; window.EGERIA_FOR_LINEAGE_VISIBLE = false;  /* shown per-section by App */</script>
+<script src="/static/egeria-shared-ui.js?v=2026-10-05a"></script>
 <script>
 'use strict';
 // React hook aliases (mirror type-explorer.html)
@@ -1476,6 +1478,7 @@ function GlossaryView({ creds, onNavigate }) {
   var _ss2 = useState('idle'),    searchState = _ss2[0], setSearchState = _ss2[1];
   var _se2 = useState(''),        searchError = _se2[0], setSearchError = _se2[1];
   var _sel = useState(null),      selectedItem = _sel[0], setSelectedItem = _sel[1];
+  usePublishSelectedGuid(selectedItem);
   var _td = useState(null),       termDetail = _td[0], setTermDetail = _td[1];
   var _tds = useState('idle'),    termDetailState = _tds[0], setTermDetailState = _tds[1];
   var _ft = useState(''),         filterText = _ft[0], setFilterText = _ft[1];
@@ -1847,6 +1850,7 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
   var _loading    = useState(true),  loading    = _loading[0],    setLoading    = _loading[1];
   var _error      = useState(''),    error      = _error[0],      setError      = _error[1];
   var _selected   = useState(null),  selected   = _selected[0],   setSelected   = _selected[1];
+  usePublishSelectedGuid(selected && selected.guid);
   var _detail     = useState(null),  detail     = _detail[0],     setDetail     = _detail[1];
   var _detailLoad = useState(false), detailLoad = _detailLoad[0], setDetailLoad = _detailLoad[1];
   var _detailErr  = useState(null),  detailErr  = _detailErr[0],  setDetailErr  = _detailErr[1];
@@ -2103,6 +2107,7 @@ function CapabilitiesView({ creds, onNavigate }) {
   var _error   = useState(''), error   = _error[0],   setError   = _error[1];
   var _q       = useState(''), q       = _q[0],       setQ       = _q[1];
   var _selected  = useState(null), selected  = _selected[0],  setSelected  = _selected[1];
+  usePublishSelectedGuid(selected && selected.guid);
   var _detail    = useState(null), detail    = _detail[0],    setDetail    = _detail[1];
   var _detailLoad = useState(false), detailLoad = _detailLoad[0], setDetailLoad = _detailLoad[1];
   var _detailErr  = useState(null), detailErr  = _detailErr[0],  setDetailErr  = _detailErr[1];
@@ -2514,6 +2519,7 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
   var _atFilter = useState(''),         atFilter  = _atFilter[0], setAtFilter  = _atFilter[1];
   var _atVals  = useState({}),          annotTypeVals = _atVals[0], setAtVals  = _atVals[1];
   var _sel     = useState(null),        sel       = _sel[0],      setSel       = _sel[1];
+  usePublishSelectedGuid(sel && sel.guid);
   var _asOf    = useState(null),        asOf      = _asOf[0],     setAsOf      = _asOf[1];
   var _sort    = useState({ col: 1, dir: 'asc' }), sort = _sort[0], setSort  = _sort[1];
   var _coll    = useState(new Set()),   coll      = _coll[0],     setColl      = _coll[1];
@@ -2979,13 +2985,26 @@ function SurveyTypesView({ creds }) {
   var _err  = useState(null), err  = _err[0],  setErr  = _err[1];
   var _q    = useState(''),   q    = _q[0],    setQ    = _q[1];
   var _attempt = useState(0), attempt = _attempt[0], setAttempt = _attempt[1];
+  var _loading = useState(true), loading = _loading[0], setLoading = _loading[1];
+  var _stale = useState(false), stale = _stale[0], setStale = _stale[1];
 
+  // The server builds the list in the background (can take minutes) and answers
+  // {loading: true} until ready, so poll every 8s.
   useEffect(function() {
-    setData(null); setErr(null);
-    fetchWithToken('/api/tech-catalog/survey-types', creds)
-      .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || r.status); }); })
-      .then(function(j) { setData(j.items || []); })
-      .catch(function(e) { setErr(e.message || String(e)); });
+    var cancelled = false, timer = null;
+    setData(null); setErr(null); setLoading(true);
+    function load() {
+      fetchWithToken('/api/tech-catalog/survey-types', creds)
+        .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || r.status); }); })
+        .then(function(j) {
+          if (cancelled) return;
+          setData(j.items || []); setStale(!!j.stale); setLoading(!!j.loading);
+          if (j.loading) timer = setTimeout(load, 8000);
+        })
+        .catch(function(e) { if (!cancelled) { setErr(e.message || String(e)); setLoading(false); } });
+    }
+    load();
+    return function() { cancelled = true; if (timer) clearTimeout(timer); };
   }, [creds.url, creds.server, creds.userId, creds.userPwd, attempt]);
 
   var card = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 10 };
@@ -3012,9 +3031,10 @@ function SurveyTypesView({ creds }) {
     ),
     React.createElement('div', { style: { flex: 1, overflowY: 'auto', padding: '12px 16px' } },
       err  && React.createElement('div', { style: { color: '#f87171', fontSize: 13, padding: 12 } }, 'Error: ' + err),
-      !data && !err && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 12, padding: 12 } },
-        'Loading survey types — this aggregates data from all Technology Types and may take a moment…'),
-      data && filtered.length === 0 && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 12, padding: 12 } }, q ? 'No survey types match.' : 'No survey types found.'),
+      loading && !err && React.createElement('div', { style: { color: stale ? '#fbbf24' : 'var(--dim)', fontSize: 12, padding: 12 } },
+        stale ? 'Showing cached survey types — refreshing in the background…'
+              : 'Loading survey types — aggregating all Technology Types in the background; this can take a few minutes. Checking every 8 s…'),
+      data && !loading && filtered.length === 0 && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 12, padding: 12 } }, q ? 'No survey types match.' : 'No survey types found.'),
       filtered.map(function(st, i) {
         return React.createElement(SurveySpecCard, { key: st.guid || i, entry: st, card: card, showTechTypes: true });
       })
@@ -3270,6 +3290,7 @@ function GovernanceProcessesView({ creds, navTarget, onNavigate }) {
   var _loading    = useState(true),  loading    = _loading[0],    setLoading    = _loading[1];
   var _error      = useState(''),    error      = _error[0],      setError      = _error[1];
   var _selected   = useState(null),  selected   = _selected[0],   setSelected   = _selected[1];
+  usePublishSelectedGuid(selected && selected.guid);
   var _detail     = useState(null),  detail     = _detail[0],     setDetail     = _detail[1];
   var _detailLoad = useState(false), detailLoad = _detailLoad[0], setDetailLoad = _detailLoad[1];
   var _q          = useState(''),    q          = _q[0],          setQ          = _q[1];
@@ -3536,6 +3557,7 @@ function NamespacesView({ creds, navTarget, onNavigate }) {
   var _loading    = useState(true),  loading    = _loading[0],    setLoading    = _loading[1];
   var _error      = useState(''),    error      = _error[0],      setError      = _error[1];
   var _selected   = useState(null),  selected   = _selected[0],   setSelected   = _selected[1];
+  usePublishSelectedGuid(selected && selected.guid);
   var _detail     = useState(null),  detail     = _detail[0],     setDetail     = _detail[1];
   var _detailLoad = useState(false), detailLoad = _detailLoad[0], setDetailLoad = _detailLoad[1];
   var _q          = useState(''),    q          = _q[0],          setQ          = _q[1];
@@ -3873,6 +3895,17 @@ function Splash({ onSelect, authUser, activePersona, creds, demoMode, srvManaged
   );
 }
 
+// The open item's guid, published for the Promise/Memento toggle: its reload writes it
+// into the URL as ?guid=, and the Catalog's existing deep-link path (element-nav ->
+// section + tab + navTarget) reselects it. Views that ignore navTarget still come back
+// to the right tab. Cleared when the view unmounts.
+function usePublishSelectedGuid(guid) {
+  useEffect(function() {
+    window.__egeriaNavExtra = guid ? { guid: guid } : {};
+    return function() { window.__egeriaNavExtra = {}; };
+  }, [guid || '']);
+}
+
 // ── App ───────────────────────────────────────────────────────────────────────
 function App() {
   var _section   = useState(function() {
@@ -3882,6 +3915,17 @@ function App() {
     return '';  // ?guid= section is resolved via element-nav after auth
   }), section = _section[0], setSection = _section[1];
   var _searchQ = useState(''), searchQ = _searchQ[0], setSearchQ = _searchQ[1];
+
+  // The Promise/Memento toggle is hidden on the Catalog's home (section '') and shown in
+  // every section. Toggling reloads the page, and the Catalog only restores its section
+  // from the URL hash on a cold load, so register a snapshot for the toggle to write
+  // into the URL first -- otherwise the reload lands on the home page.
+  useEffect(function() {
+    if (window.egeriaForLineageToggleVisible) window.egeriaForLineageToggleVisible(!!section);
+    window.egeriaNavSnapshot = function() {
+      return { hash: section || '', query: Object.assign({ guid: null }, window.__egeriaNavExtra || {}) };
+    };
+  }, [section]);
 
   var _creds     = useState(null),  creds      = _creds[0],     setCreds      = _creds[1];
   var _srvMgd    = useState(false), srvManaged = _srvMgd[0],    setSrvManaged = _srvMgd[1];
@@ -4033,12 +4077,12 @@ function App() {
   return React.createElement(PersonaContext.Provider, { value: favPersonaId },
   React.createElement(CredContext.Provider, { value: creds },
     React.createElement('div', { style: { display: 'flex', flexDirection: 'column', height: '100vh' } },
-    // Nav bar
-    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '0 14px', height: 42, borderBottom: '1px solid var(--border)', background: 'var(--panel)', flexShrink: 0 } },
-      React.createElement('span', { style: { fontSize: 18 } }, '🐱'),
-      React.createElement('span', { style: { fontSize: 14, fontWeight: 700, color: 'var(--text)', marginRight: 8 } }, 'The Catalog'),
+    // Shared app bar (static/app-bar.js + AppHeader in egeria-shared-ui.js)
+    React.createElement(AppHeader, { icon: '🐱', title: 'The Catalog',
+      onTitleClick: function() { setSection(''); },
+      identity: appBarIdentity({ activePersona: activePersona, authUser: authUser, srvManaged: srvManaged }) },
       section && React.createElement('button', { onClick: function() { setSection(''); },
-        style: { fontSize: 11, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' } }, '⌂ Home'),
+        style: { fontSize: 11, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' } }, 'Home'),
       section && SECTIONS.map(function(s) {
         // Sections marked `external` open a different app entirely (none as
         // of this writing — Namespaces used to, before moving fully into The
@@ -4051,22 +4095,7 @@ function App() {
           style: { fontSize: 11, padding: '3px 10px', borderRadius: 4, border: s.id === section ? '1px solid var(--accent)' : '1px solid var(--border)',
                    background: s.id === section ? 'rgba(96,165,250,0.1)' : 'transparent',
                    color: s.id === section ? 'var(--accent)' : 'var(--muted)', cursor: 'pointer' } }, s.label + (s.external ? ' ↗' : ''));
-      }),
-      React.createElement('div', { style: { flex: 1 } }),
-      activePersona
-        ? React.createElement(React.Fragment, null,
-            React.createElement('span', { className: 'persona-badge-btn', title: activePersona.coco_title || '' }, '🎭 ' + (activePersona.display_name || activePersona.id)),
-            React.createElement('a', { className: 'theme-btn', style: { marginLeft: 4, textDecoration: 'none' }, href: '/portal' }, 'Portal')
-          )
-        : authUser
-          ? React.createElement(React.Fragment, null,
-              React.createElement('span', { style: { fontSize: 11, color: '#34d399', background: 'rgba(52,211,153,.1)', padding: '2px 8px', borderRadius: 10, border: '1px solid rgba(52,211,153,.25)', marginRight: 4 } },
-                '👤 ' + (authUser.displayName || authUser.userId)),
-              React.createElement('a', { href: '/portal', style: { fontSize: 11, color: 'var(--muted)', textDecoration: 'none' } }, 'Portal')
-            )
-          : React.createElement(React.Fragment, null,
-              React.createElement('a', { className: 'persona-badge-btn', href: '/portal' }, '🎭 Choose persona')
-            )
+      })
     ),
     section
       ? React.createElement(SectionView, { sectionId: section, creds: creds, navTarget: navTarget, onNavigate: handleNavigate, searchQuery: searchQ })

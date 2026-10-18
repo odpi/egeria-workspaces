@@ -11,6 +11,19 @@ has been **reconciled against the actual repo wiring** — see the validation
 section below for where the upstream hand-off's generic instructions diverge
 from how this repo really works.
 
+> **Update 2026-10-02 (pyegeria 6.1.26, BACKLOG ME-10) — read before following the steps below.**
+> - **No wrapper script needed any more.** Earlier pyegeria wheels installed the app nested as
+>   `site-packages/my_egeria/my_egeria/...`, so the `serve_my_egeria` / `serve_my_profile` /
+>   `my_egeria` entry points failed in a pip install; that's why this repo used its own
+>   `serve_my_egeria.py`. From 6.1.26 they work as installed, use the `textual-serve` library and honour
+>   `MY_EGERIA_PUBLIC_URL`. Step 1 below ("add a serve wrapper") is obsolete. Use
+>   `CMD ["serve_my_egeria"]` in a container like `Dockerfile-my-egeria`, which now runs
+>   `serve_my_profile`, and the old wrapper and `my_profile.tcss` copy have been removed.
+> - **Python 3.13, not 3.14:** Textual fails on 3.14 (pyegeria ISSUE-120).
+> - **Is the full app worth serving?** The main MyEgeria app hasn't changed since June 2026, and
+>   several of its secondary screens are incomplete. Active development is in **My Profile**,
+>   which the portal already serves. Check with the owner before doing this work.
+
 ---
 
 ## Validation results (2026-06-18)

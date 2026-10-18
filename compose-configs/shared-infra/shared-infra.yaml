@@ -15,8 +15,8 @@ services:
     networks:
       - egeria_network
     ports:
-      - "6000:6000"
-      - "6001:6001"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:6000:6000"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:6001:6001"
     logging:
       driver: "json-file"
       options:
@@ -48,9 +48,9 @@ services:
       # Opts this container in to the autoheal service below.
       egeria.autoheal: "true"
     ports:
-      - "9192:9192"
-      - "9193:9193"
-      - "9194:9194"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:9192:9192"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:9193:9193"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:9194:9194"
     environment:
       KAFKA_CFG_NODE_ID: "1"
       KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
@@ -119,7 +119,7 @@ services:
     networks:
       - egeria_network
     ports:
-      - "5442:5442"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:5442:5442"
     shm_size: 1gb
     # Relative CPU scheduling weight (default is 1024 for every container that
     # doesn't set this) — doesn't cap Postgres, just tells the kernel to favor
@@ -193,7 +193,7 @@ services:
       # serve`) and collided with it on this machine; container-internal
       # port stays 8000 (that's what KROKI_MERMAID_HOST/healthcheck/the
       # container-to-container EGERIA_KROKI_URL below all assume).
-      - "6002:8000"
+      - "${EGERIA_BIND_IP:-127.0.0.1}:6002:8000"
     environment:
       KROKI_MERMAID_HOST: kroki-mermaid
     logging:
