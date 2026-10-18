@@ -24,8 +24,8 @@ services:
     container_name: dl-minio
     command: server /data --console-address ":9001"
     ports:
-      - "${MINIO_HOST_PORT_API:-8200}:9000"   # S3 API (host)
-      - "${MINIO_HOST_PORT_CONSOLE:-8201}:9001"   # MinIO Console (host)
+      - "${EGERIA_BIND_IP:-127.0.0.1}:${MINIO_HOST_PORT_API:-8200}:9000"   # S3 API (host)
+      - "${EGERIA_BIND_IP:-127.0.0.1}:${MINIO_HOST_PORT_CONSOLE:-8201}:9001"   # MinIO Console (host)
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
@@ -84,7 +84,7 @@ services:
       HIVE_METASTORE_PASSWORD: admin4egeria
       HIVE_LOGLEVEL: INFO
     ports:
-      - "9083:9083"  # Thrift metastore endpoint
+      - "${EGERIA_BIND_IP:-127.0.0.1}:9083:9083"  # Thrift metastore endpoint
     volumes:
       - ./drivers/postgresql-42.7.4.jar:/opt/hive/lib/postgresql-42.7.4.jar:ro
     command: ["/opt/hive/bin/hive", "--service", "metastore", "-p", "9083"]
@@ -97,8 +97,8 @@ services:
       - MINIO_ROOT_USER=${MINIO_ROOT_USER}
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
     ports:
-      - "7077:7077"   # Spark master RPC
-      - "8080:8080"   # Spark master UI
+      - "${EGERIA_BIND_IP:-127.0.0.1}:7077:7077"   # Spark master RPC
+      - "${EGERIA_BIND_IP:-127.0.0.1}:8080:8080"   # Spark master UI
     volumes:
       - ./spark/conf:/opt/spark/conf
       - spark-warehouse:/opt/spark/warehouse
@@ -116,7 +116,7 @@ services:
       - MINIO_ROOT_USER=${MINIO_ROOT_USER}
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
     ports:
-      - "8081:8081"   # Spark worker UI
+      - "${EGERIA_BIND_IP:-127.0.0.1}:8081:8081"   # Spark worker UI
     volumes:
       - ./spark/conf:/opt/spark/conf
       - spark-warehouse:/opt/spark/warehouse

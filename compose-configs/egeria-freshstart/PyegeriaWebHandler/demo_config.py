@@ -27,7 +27,7 @@ DEMO_DB_SCHEMA:   str = os.environ.get("DEMO_DB_SCHEMA",   "demo_auth")
 DEMO_DB_USER:     str = os.environ.get("DEMO_DB_USER",     "demo_user")
 DEMO_DB_PASSWORD: str = os.environ.get("DEMO_DB_PASSWORD", "demo4egeria")
 DEMO_DB_URL:      str = (
-    f"postgresql://{DEMO_DB_USER}:{DEMO_DB_PASSWORD}"
+    f"postgresql+psycopg2://{DEMO_DB_USER}:{DEMO_DB_PASSWORD}"
     f"@{DEMO_DB_HOST}:{DEMO_DB_PORT}/{DEMO_DB_NAME}"
 )
 

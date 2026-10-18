@@ -306,6 +306,98 @@ Customer Record Schema
 Customer ID
 ```
 
+
+---
+
+## Automation
+
+### Run a survey of a database
+```markdown
+## Initiate Survey
+### Survey Type
+PostgreSQLSurvey::survey-postgres-database
+
+### Resource to Survey
+PostgreSQL Relational Database::host.docker.internal:5432::adventureworks
+```
+
+### Subscribe to a digital product
+```markdown
+## Initiate Subscription
+### Subscription Type
+ProvisioningActionProcess::Reference Data Set: facilityType::Create Subscription::EVALUATION-SUBSCRIPTION
+
+### Subscription Requester
+Person::TomTally
+
+### Destination Data Set
+My Landing Table
+```
+
+### Cancel a subscription
+```markdown
+## Cancel Subscription
+### Digital Subscription
+My Subscription
+```
+
+### Run a governance action process
+```markdown
+## Initiate Governance Action Process
+### Governance Action Process
+GovActionProcess::DatabaseScoutingSurvey
+
+### Action Targets
+postgresDatabase: PostgreSQL Relational Database::host.docker.internal:5432::adventureworks
+```
+---
+
+## Reference Data
+
+Business value lists, such as order statuses or country codes, stored as
+`ReferenceDataSet` and `ReferenceDataValue` elements.
+
+### Create a reference data set with its values
+`Values` takes one value per line; commas are part of the value. Re-running
+the note updates the set in place, and a value removed from the list is
+unlinked from the set, not deleted.
+```markdown
+## Create Reference Data Set
+### Display Name
+Order Status
+
+### Description
+The stages an order moves through.
+
+### Values
+- PENDING
+- ON HOLD, AWAITING STOCK
+- SHIPPED
+```
+
+### Give each value its own properties
+```markdown
+## Create Reference Data Set
+### Display Name
+Order Status
+
+### Value Table
+| Value     | Display Name | Description         | Default | Ordinal |
+|-----------|--------------|---------------------|---------|---------|
+| PENDING   | Pending      | Order received      | true    | 1       |
+| SHIPPED   | Shipped      | Left the warehouse  |         | 2       |
+```
+
+### Say which value set a data field uses
+```markdown
+## Link Element to Valid Values
+### Element Id
+Order Status Field
+
+### Valid Value Set
+Order Status
+```
+
 ---
 
 > **Tip:** Set **Default Directive** to `validate` in the plugin settings while drafting new commands. Switch to `process` when ready to execute.

@@ -283,6 +283,8 @@ from operations_handler import router as operations_router
 app.include_router(operations_router)
 from lineage_handler import router as lineage_router
 app.include_router(lineage_router)
+from resource_browser_handler import router as resource_browser_router
+app.include_router(resource_browser_router)
 from context_events_handler import router as context_events_router
 app.include_router(context_events_router)
 from favorites_handler import router as favorites_router
