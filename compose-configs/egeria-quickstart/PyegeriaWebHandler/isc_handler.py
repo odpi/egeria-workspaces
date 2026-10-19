@@ -16,6 +16,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
+from pyegeria import PyegeriaNotFoundException
 
 from common_serialize import _authored_fields, _header_summary, _classifications
 
@@ -287,6 +288,11 @@ def get_isc(
                 "maxMermaidNodeCount": _ISC_MAX_MERMAID_NODES,
             }} if for_lineage else {}),
         )
+    except PyegeriaNotFoundException:
+        # A stale GUID -- typically a page still open across a demo store
+        # reset. Not a server fault, so no traceback.
+        logger.info(f"ISC {guid} not found")
+        raise HTTPException(status_code=404, detail=f"ISC {guid!r} not found")
     except Exception as exc:
         logger.exception(f"get_info_supply_chain_by_guid failed for ISC {guid}")
         raise HTTPException(status_code=500, detail=f"ISC detail retrieval failed: {exc}")
