@@ -20,7 +20,7 @@ import asyncio
 import os
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
@@ -136,21 +136,29 @@ async def _maybe_scheduled_reset() -> None:
     if get_config("reset_state", "ready") == "resetting":
         return
     last_str = get_config("last_reset_at", "")
+    anchor = None
     if last_str:
         try:
             last = datetime.fromisoformat(last_str)
-            elapsed_h = (datetime.utcnow() - last).total_seconds() / 3600
-            if elapsed_h < interval_hours:
+            due = last + timedelta(hours=interval_hours)
+            now = datetime.utcnow()
+            if now < due:
                 return
+            # Record the slot that was due, not when the reset finished, so the
+            # schedule keeps its time of day instead of creeping later by the
+            # reset's duration every cycle. A slot missed by more than a whole
+            # interval (platform down for days) re-anchors on now.
+            if now - due < timedelta(hours=interval_hours):
+                anchor = due
         except ValueError:
             pass
     logger.info(f"Scheduled reset triggered (interval={interval_hours}h)")
-    asyncio.create_task(_run_reset())
+    asyncio.create_task(_run_reset(anchor))
 
 
 # ── Reset execution ────────────────────────────────────────────────────────────
 
-async def _run_reset() -> None:
+async def _run_reset(anchor: datetime | None = None) -> None:
     _ensure_console_sink()
     if _reset_lock.locked():
         logger.warning("Reset already in progress — skipping duplicate trigger")
@@ -161,7 +169,7 @@ async def _run_reset() -> None:
         try:
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(None, _do_reset_blocking)
-            set_config("last_reset_at", datetime.utcnow().isoformat())
+            set_config("last_reset_at", (anchor or datetime.utcnow()).isoformat())
             logger.info("Demo environment reset complete — Egeria will finish initializing in ~5 min")
         except Exception as exc:
             logger.error(f"Demo reset failed: {exc}")
