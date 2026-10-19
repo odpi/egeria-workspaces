@@ -192,19 +192,29 @@ async def _kill_proc(proc) -> None:
         logger.debug(f"bootstrap monitor: error killing orphaned dr_egeria process: {exc}")
 
 
-async def _heal_family(family: dict) -> str:
+async def _heal_family(family: dict, seen: Optional[set] = None) -> str:
     """Re-run every doc in this family's list, in order, via `dr_egeria
     --process`. Stops at the first failing doc (later docs in the same
     family typically depend on earlier ones' output). Every doc is
-    upsert-safe, so re-running is always the correct fix."""
+    upsert-safe, so re-running is always the correct fix.
+
+    `seen` (resolved paths) is shared across the families healed in one
+    check_and_heal_all pass, so a doc two families both reach runs once."""
+    if seen is None:
+        seen = set()
     for doc in family["docs"]:
         if not Path(doc).exists():
             logger.warning(f"bootstrap monitor: {family['name']} doc missing, skipping: {doc}")
             continue
+        real = Path(doc).resolve()
+        if real in seen:
+            logger.info(f"bootstrap monitor: {family['name']} -- {Path(doc).name} already ran this pass, skipping")
+            continue
+        seen.add(real)
         proc = None
         try:
             proc = await asyncio.create_subprocess_exec(
-                "dr_egeria", "--process", doc,
+                *_dr_egeria_command(doc, family.get("userids", {}).get(doc)),
                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
             )
             _active_procs.add(proc)
@@ -213,6 +223,7 @@ async def _heal_family(family: dict) -> str:
                 tail = stdout.decode(errors="replace")[-800:] if stdout else ""
                 logger.error(f"bootstrap monitor: heal failed for {family['name']} on {doc}: {tail}")
                 return f"failed on {Path(doc).name}"
+            _record_run(doc)
             logger.info(f"bootstrap monitor: healed {family['name']} via {Path(doc).name}")
         except asyncio.TimeoutError:
             logger.error(f"bootstrap monitor: heal timed out for {family['name']} on {doc} -- killing it "
@@ -234,6 +245,27 @@ async def _heal_family(family: dict) -> str:
             if proc is not None:
                 _active_procs.discard(proc)
     return "ok"
+
+
+def _dr_egeria_command(doc: str, userid: Optional[str]) -> list[str]:
+    """bootstrap_batches.dr_egeria_command (run-as identity from the batch's
+    manifest), or the plain default-identity command if that module isn't
+    importable -- the hardcoded BOOTSTRAP_FAMILIES path must keep working."""
+    try:
+        import bootstrap_batches as bb
+        return bb.dr_egeria_command(Path(doc), userid)
+    except Exception:  # noqa: BLE001
+        return ["dr_egeria", "--process", doc]
+
+
+def _record_run(doc: str) -> None:
+    """Note a successful heal of `doc` in bootstrap_batches' run ledger
+    (advisory -- see that module). Never lets a ledger problem fail a heal."""
+    try:
+        import bootstrap_batches as bb
+        bb.record_run(Path(doc))
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"bootstrap monitor: could not record run of {doc}: {exc}")
 
 
 def _dynamic_families() -> list[dict]:
@@ -259,6 +291,7 @@ def _dynamic_families() -> list[dict]:
             "canary_type": canary["type"],
             "canary_name": canary["name"],
             "docs":        [str(Path(batch["path"]) / f) for f in batch["files"]],
+            "userids":     {str(Path(batch["path"]) / f): u for f, u in batch.get("userids", {}).items()},
         })
     return families
 
@@ -310,8 +343,9 @@ async def check_and_heal_all() -> bool:
         _state["message"] = "Reinitializing Portal — re-seeding " + ", ".join(f["name"] for f in to_heal)
     logger.info(f"bootstrap monitor: healing {[f['name'] for f in to_heal]} (canary missing)")
 
+    seen: set = set()
     for family in to_heal:
-        result = await _heal_family(family)
+        result = await _heal_family(family, seen)
         async with _mu:
             _state["families"][family["name"]]["lastHealedAt"] = _now_iso()
             _state["families"][family["name"]]["lastHealResult"] = result
@@ -346,7 +380,20 @@ async def start_scheduler() -> None:
     # periodic cadence as any other transient unreachability. Fast-retrying
     # forever on a genuine extended outage would just hammer Egeria for no
     # benefit.
+    #
+    # The first check runs inside the background task, NOT awaited here
+    # (2026-10-19 incident): when Egeria is reachable but its store was just
+    # reset, check_and_heal_all() goes on to re-seed every missing family
+    # serially -- ~30 min -- and awaiting that from the lifespan kept the
+    # whole Portal answering 503 until it finished. Bounding the canary
+    # checks (2026-09-03) never covered the healing that follows them.
     _startup_deadline = time.monotonic() + _STARTUP_RETRY_WINDOW
+    _scheduler_task = asyncio.create_task(_startup_then_monitor())
+    logger.info(f"bootstrap monitor scheduler started (interval={_CHECK_INTERVAL}s)")
+
+
+async def _startup_then_monitor() -> None:
+    global _startup_deadline
     try:
         unreachable = await check_and_heal_all()
     except Exception as exc:  # noqa: BLE001
@@ -354,12 +401,12 @@ async def start_scheduler() -> None:
         unreachable = True
     if not unreachable:
         _startup_deadline = None  # already reachable on the very first try -- no fast-retry needed
-    _scheduler_task = asyncio.create_task(_monitor_loop())
-    logger.info(
-        f"bootstrap monitor scheduler started (interval={_CHECK_INTERVAL}s"
-        + (f", fast-retrying every {_STARTUP_RETRY_INTERVAL}s for up to {_STARTUP_RETRY_WINDOW}s "
-           "while Egeria isn't reachable yet" if _startup_deadline else "") + ")"
-    )
+    else:
+        logger.info(
+            f"bootstrap monitor: Egeria not reachable yet -- fast-retrying every "
+            f"{_STARTUP_RETRY_INTERVAL}s for up to {_STARTUP_RETRY_WINDOW}s"
+        )
+    await _monitor_loop()
 
 
 async def stop_scheduler() -> None:

@@ -11,15 +11,16 @@ Two modes:
     configured interval has elapsed and triggers a reset automatically.
   - Manual: POST /api/demo/reset (admin only) triggers an immediate reset.
 
-Docker socket must be mounted into the container:
-  /var/run/docker.sock:/var/run/docker.sock
+Docker access goes through the docker-proxy sidecar (DOCKER_HOST=tcp://docker-proxy:2375,
+see egeria-quickstart-demo.yaml), which only allows inspect/stop/start of the Egeria
+container. The raw socket is deliberately not mounted into this internet-facing app.
 """
 
 import asyncio
 import os
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
@@ -78,7 +79,7 @@ def _ensure_console_sink() -> None:
 # reset emails an "Egeria down: exited (code 143)" alert, which just trains the
 # reader to ignore the one that eventually matters.  Epoch seconds rather than
 # ISO-8601 so the watchdog's busybox `sh` can compare it with plain integer
-# arithmetic.  Written immediately before container.stop() and deliberately
+# arithmetic.  Written immediately before the container stop and deliberately
 # never deleted: the watchdog honours it only within its own grace window, so a
 # stale marker ages out by itself instead of masking a later real crash.
 _RESET_MARKER = Path(os.environ.get("DEMO_RESET_MARKER", "/app/demo-data/reset-marker"))
@@ -135,21 +136,29 @@ async def _maybe_scheduled_reset() -> None:
     if get_config("reset_state", "ready") == "resetting":
         return
     last_str = get_config("last_reset_at", "")
+    anchor = None
     if last_str:
         try:
             last = datetime.fromisoformat(last_str)
-            elapsed_h = (datetime.utcnow() - last).total_seconds() / 3600
-            if elapsed_h < interval_hours:
+            due = last + timedelta(hours=interval_hours)
+            now = datetime.utcnow()
+            if now < due:
                 return
+            # Record the slot that was due, not when the reset finished, so the
+            # schedule keeps its time of day instead of creeping later by the
+            # reset's duration every cycle. A slot missed by more than a whole
+            # interval (platform down for days) re-anchors on now.
+            if now - due < timedelta(hours=interval_hours):
+                anchor = due
         except ValueError:
             pass
     logger.info(f"Scheduled reset triggered (interval={interval_hours}h)")
-    asyncio.create_task(_run_reset())
+    asyncio.create_task(_run_reset(anchor))
 
 
 # ── Reset execution ────────────────────────────────────────────────────────────
 
-async def _run_reset() -> None:
+async def _run_reset(anchor: datetime | None = None) -> None:
     _ensure_console_sink()
     if _reset_lock.locked():
         logger.warning("Reset already in progress — skipping duplicate trigger")
@@ -160,7 +169,7 @@ async def _run_reset() -> None:
         try:
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(None, _do_reset_blocking)
-            set_config("last_reset_at", datetime.utcnow().isoformat())
+            set_config("last_reset_at", (anchor or datetime.utcnow()).isoformat())
             logger.info("Demo environment reset complete — Egeria will finish initializing in ~5 min")
         except Exception as exc:
             logger.error(f"Demo reset failed: {exc}")
@@ -181,16 +190,19 @@ def _do_reset_blocking() -> None:
     except Exception as exc:
         raise RuntimeError(
             f"Cannot reach Docker daemon at {_DOCKER_SOCKET!r}: {exc}. "
-            "Ensure /var/run/docker.sock is mounted into this container."
+            "Ensure the docker-proxy service is running (egeria-quickstart-demo.yaml)."
         ) from exc
 
+    # Address the container by NAME via the low-level API (not the high-level
+    # Container object, which switches to the container ID): the docker-proxy
+    # sidecar allow-lists these calls by container name only.
     logger.info(f"Stopping container: {EGERIA_CONTAINER_NAME}")
     try:
-        container = client.containers.get(EGERIA_CONTAINER_NAME)
+        client.api.inspect_container(EGERIA_CONTAINER_NAME)
     except docker.errors.NotFound:
         raise RuntimeError(f"Container '{EGERIA_CONTAINER_NAME}' not found — check EGERIA_CONTAINER_NAME env var")
     _write_reset_marker()
-    container.stop(timeout=60)
+    client.api.stop(EGERIA_CONTAINER_NAME, timeout=60)
     logger.info("Container stopped")
 
     logger.info(f"Dropping schema {_SCHEMA_TO_DROP} from {EGERIA_META_DB_NAME}")
@@ -210,7 +222,7 @@ def _do_reset_blocking() -> None:
         conn.close()
 
     logger.info(f"Starting container: {EGERIA_CONTAINER_NAME}")
-    container.start()
+    client.api.start(EGERIA_CONTAINER_NAME)
     logger.info("Container started")
 
 

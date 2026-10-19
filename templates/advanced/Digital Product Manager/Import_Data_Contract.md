@@ -1,46 +1,14 @@
 ___
 
-## Setup Valid Metadata Value
-> Create or update the valid value for a particular open metadata property name.
+## Import Data Contract
+> Catalog an Open Data Contract Standard (ODCS) data contract file directly as an Agreement classified as a DataSharingAgreement. Re-importing the same contract version updates it; a new version creates new elements.
 
-### Metadata Property Name
+### Document File
 >	**Input Required**: True
 
 >	**Attribute Type**: Simple
 
->	**Description**: The open metadata property name the valid value is set up for.
-
-
-### Preferred Value
->	**Input Required**: True
-
->	**Attribute Type**: Simple
-
->	**Description**: The valid/preferred value being set up for the property (or map name/value).
-
-
-### Type Name
->	**Input Required**: False
-
->	**Attribute Type**: Simple
-
->	**Description**: The open metadata type name the valid value applies to; leave unset to apply to all types.
-
-
-### Metadata Display Name
->	**Input Required**: False
-
->	**Attribute Type**: Simple
-
->	**Description**: Display name for the valid metadata value.
-
-
-### Metadata Description
->	**Input Required**: False
-
->	**Attribute Type**: Simple
-
->	**Description**: Description of the valid metadata value.
+>	**Description**: Path to a file holding the document (YAML or JSON): an Open Data Contract Standard (ODCS) data contract or an Open Data Product Standard (ODPS) data product. A relative path is resolved against the directory of the markdown file being processed.
 
 
 ### Journal Entry

@@ -1,70 +1,22 @@
 ___
 
-## Set Consistent Metadata Values
-> Set up a consistent metadata values relationship between two property values.
+## Publish Data Contract
+> Send an ODCS data contract file to an integration daemon, which passes it on to the integration connectors that registered a Bitol listener.
 
-### Metadata Property Name
+### Integration Daemon
+>	**Input Required**: True
+
+>	**Attribute Type**: Reference Name
+
+>	**Description**: The integration daemon (a SoftwareServer) whose Bitol listeners receive the document.
+
+
+### Document File
 >	**Input Required**: True
 
 >	**Attribute Type**: Simple
 
->	**Description**: The open metadata property name the valid value is set up for.
-
-
-### Map Name
->	**Input Required**: True
-
->	**Attribute Type**: Simple
-
->	**Description**: The name of the map entry, for a map-valued property.
-
-
-### Preferred Value
->	**Input Required**: True
-
->	**Attribute Type**: Simple
-
->	**Description**: The valid/preferred value being set up for the property (or map name/value).
-
-
-### Metadata Property Name 2
->	**Input Required**: True
-
->	**Attribute Type**: Simple
-
->	**Description**: The open metadata property name for the second value in a consistent-values pairing.
-
-
-### Preferred Value 2
->	**Input Required**: True
-
->	**Attribute Type**: Simple
-
->	**Description**: The preferred value for the second value in a consistent-values pairing.
-
-
-### Type Name
->	**Input Required**: False
-
->	**Attribute Type**: Simple
-
->	**Description**: The open metadata type name the valid value applies to; leave unset to apply to all types.
-
-
-### Type Name 2
->	**Input Required**: False
-
->	**Attribute Type**: Simple
-
->	**Description**: The open metadata type name for the second value in a consistent-values pairing.
-
-
-### Map Name 2
->	**Input Required**: False
-
->	**Attribute Type**: Simple
-
->	**Description**: The map entry name for the second value in a consistent-values pairing (map-valued properties only).
+>	**Description**: Path to a file holding the document (YAML or JSON): an Open Data Contract Standard (ODCS) data contract or an Open Data Product Standard (ODPS) data product. A relative path is resolved against the directory of the markdown file being processed.
 
 
 ### Journal Entry

@@ -12,6 +12,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>The Catalog</title>
+  <script src="/static/app-bar.js?v=2026-10-05a"></script>
   <script src="/static/bootstrap-banner.js?v=2026-08-18a"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -586,7 +587,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
      URL guarantees a fresh fetch regardless of prior cache state. -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
 <script>window.EGERIA_FOR_LINEAGE = true; window.EGERIA_FOR_LINEAGE_VISIBLE = false;  /* shown per-section by App */</script>
-<script src="/static/egeria-shared-ui.js?v=2026-10-01c"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-10-05a"></script>
 <script>
 'use strict';
 // React hook aliases (mirror type-explorer.html)
@@ -3531,33 +3532,18 @@ function App() {
   return React.createElement(PersonaContext.Provider, { value: favPersonaId },
   React.createElement(CredContext.Provider, { value: creds },
     React.createElement('div', { style: { display: 'flex', flexDirection: 'column', height: '100vh' } },
-    // Nav bar
-    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '0 14px', height: 42, borderBottom: '1px solid var(--border)', background: 'var(--panel)', flexShrink: 0 } },
-      React.createElement('span', { style: { fontSize: 18 } }, '🐱'),
-      React.createElement('span', { style: { fontSize: 14, fontWeight: 700, color: 'var(--text)', marginRight: 8 } }, 'The Catalog'),
+    // Shared app bar (static/app-bar.js + AppHeader in egeria-shared-ui.js)
+    React.createElement(AppHeader, { icon: '🐱', title: 'The Catalog',
+      onTitleClick: function() { setSection(''); },
+      identity: appBarIdentity({ activePersona: activePersona, authUser: authUser, srvManaged: srvManaged }) },
       section && React.createElement('button', { onClick: function() { setSection(''); },
-        style: { fontSize: 11, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' } }, '⌂ Home'),
+        style: { fontSize: 11, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' } }, 'Home'),
       section && SECTIONS.map(function(s) {
         return React.createElement('button', { key: s.id, onClick: function() { setSection(s.id); },
           style: { fontSize: 11, padding: '3px 10px', borderRadius: 4, border: s.id === section ? '1px solid var(--accent)' : '1px solid var(--border)',
                    background: s.id === section ? 'rgba(96,165,250,0.1)' : 'transparent',
                    color: s.id === section ? 'var(--accent)' : 'var(--muted)', cursor: 'pointer' } }, s.label);
-      }),
-      React.createElement('div', { style: { flex: 1 } }),
-      activePersona
-        ? React.createElement(React.Fragment, null,
-            React.createElement('span', { className: 'persona-badge-btn', title: activePersona.coco_title || '' }, '🎭 ' + (activePersona.display_name || activePersona.id)),
-            React.createElement('a', { className: 'theme-btn', style: { marginLeft: 4, textDecoration: 'none' }, href: '/portal' }, 'Portal')
-          )
-        : authUser
-          ? React.createElement(React.Fragment, null,
-              React.createElement('span', { style: { fontSize: 11, color: '#34d399', background: 'rgba(52,211,153,.1)', padding: '2px 8px', borderRadius: 10, border: '1px solid rgba(52,211,153,.25)', marginRight: 4 } },
-                '👤 ' + (authUser.displayName || authUser.userId)),
-              React.createElement('a', { href: '/portal', style: { fontSize: 11, color: 'var(--muted)', textDecoration: 'none' } }, 'Portal')
-            )
-          : React.createElement(React.Fragment, null,
-              React.createElement('a', { className: 'persona-badge-btn', href: '/portal' }, '🎭 Choose persona')
-            )
+      })
     ),
     section
       ? React.createElement(SectionView, { sectionId: section, creds: creds, navTarget: navTarget, onNavigate: handleNavigate, searchQuery: searchQ })

@@ -1,46 +1,22 @@
 ___
 
-## Setup Valid Metadata Map Name
-> Create or update the valid value for a name that can be stored in a particular open metadata map-valued property.
+## Detach Associated Valid Values
+> Removes the ValidValueAssociation relationship.
 
-### Metadata Property Name
+### Valid Value 1
 >	**Input Required**: True
 
->	**Attribute Type**: Simple
+>	**Attribute Type**: Reference Name
 
->	**Description**: The open metadata property name the valid value is set up for.
+>	**Description**: The first valid value in the relationship.
 
 
-### Preferred Value
+### Valid Value 2
 >	**Input Required**: True
 
->	**Attribute Type**: Simple
+>	**Attribute Type**: Reference Name
 
->	**Description**: The valid/preferred value being set up for the property (or map name/value).
-
-
-### Type Name
->	**Input Required**: False
-
->	**Attribute Type**: Simple
-
->	**Description**: The open metadata type name the valid value applies to; leave unset to apply to all types.
-
-
-### Metadata Display Name
->	**Input Required**: False
-
->	**Attribute Type**: Simple
-
->	**Description**: Display name for the valid metadata value.
-
-
-### Metadata Description
->	**Input Required**: False
-
->	**Attribute Type**: Simple
-
->	**Description**: Description of the valid metadata value.
+>	**Description**: The second valid value in the relationship.
 
 
 ### Journal Entry
@@ -49,6 +25,22 @@ ___
 >	**Attribute Type**: Simple
 
 >	**Description**: A text entry into a journal.
+
+
+### Association Name
+>	**Input Required**: False
+
+>	**Attribute Type**: Simple
+
+>	**Description**: Name of the association between the two valid values.
+
+
+### Association Type
+>	**Input Required**: False
+
+>	**Attribute Type**: Simple
+
+>	**Description**: Type of the association between the two valid values.
 
 
 ### Effective From
@@ -113,6 +105,18 @@ ___
 >	**Attribute Type**: Simple
 
 >	**Description**: A user provided or system generated request id for a conversation.
+
+
+### Additional Properties
+>	**Input Required**: False
+
+>	**Attribute Type**: Dictionary
+
+>	**Description**: Additional Properties  allow arbitrary properties not defined in the type definitions to be added to any referenceable element.
+
+>	| Parameter Name | Parameter Value |
+>	|---|---|
+>	| example_key | example_value |
 
 
 ___

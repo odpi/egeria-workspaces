@@ -9,6 +9,157 @@ what's actually open — a stub with a link is left in place of each moved
 section. Sections with any open/pending sub-items stay here even if their
 header says "done", since part of the work is still live.
 ---
+## RE-PORT Resource Explorer moves from 8813 to 8810 (2026-10-13) — deferred
+
+The owner's decision for now: the Portal reaches Resource Explorer on 8813 (the
+instance that runs on the host and tracks trellis main). It will eventually
+move to 8810, the 88xx port scheme's RE slot. When it does:
+- `RESOURCE_EXPLORER_API_URL` (server-to-server, `re_analytics.py`, the
+  Curation Coverage tile): change its default from
+  `http://host.docker.internal:8813` to `:8810`, or set it in the compose env.
+- `EGERIA_RESOURCE_EXPLORER_URL` (browser-facing, `demo_config.py`, the RE
+  tile and SSO handoff) already defaults to `http://localhost:8810/`. Check
+  it is right, since today nothing listens on 8810.
+- Re-run the tile end to end (persona erinoverview,
+  `localhost_docker_coco_pharma`).
+
+---
+## RL-2 Resource Locator popularity from DataScope usage (2026-10-14) — open
+
+The owner confirmed (2026-10-14) the usage measure the spec waited for: the
+additionalProperties that the open-lineage data-scope governance service
+writes on the **DataScope** classification: `readCount`, `readsPerDay`,
+`readersInWindow`, `lastReadAt`, `analysisWindowStart`, `analysisWindowEnd`.
+Spec: trellis `SPEC-RESOURCE-BROWSER-PORTAL-APP.md` (re/design-amundsen-
+migration-assessment c7058502, PR #623).
+
+To build:
+- **Home's Popular tile** (today hard-coded "Popularity is not available
+  yet" in `resource_browser_handler.get_home`). Rank by `readsPerDay`
+  within the analysis window, and show `analysisWindowEnd` as the as-of.
+- **Search**: the L1 search-keyword buckets read the same properties.
+- Absence handling: show **"no usage recorded"** for a resource without
+  the properties, and **"popularity not available yet"** while the service
+  hasn't run on this platform. Never show 0 reads for "not measured".
+- `_data_scope()` already reads the DataScope classification's properties.
+
+**Not blocked.** Read-only check on quickstart, 2026-10-14: the service
+already runs there (analyses at about 12:00 and 23:00 UTC). As
+erinoverview, 12 of 110 DataScope elements carry usage properties.
+- All 12 have `readsPerDay`, `readsInWindow`, `readersInWindow`,
+  `lastReadInWindow`, `analysisWindowStart`, `analysisWindowEnd`,
+  `analysisTime` and `analysisService`.
+- 10 also have the spec's `readCount` and `lastReadAt`.
+
+Rank on `readsPerDay`. Fall back to `lastReadInWindow` when `lastReadAt` is
+absent. Top resources: coco_pharma 0.37/day, adventureworks 0.17/day.
+
+**Where to read it:** in pyegeria 6.2 the classification is at
+`elementHeader.dataScope`, NOT in `elementHeader.classifications`. A
+check that looks in the list finds 0 and wrongly reports "no usage".
+Check `_data_scope()` reads the right place. Gate/re-check: the same
+read-only find of DataScope elements, counting those whose
+`elementHeader.dataScope` additionalProperties carry `readsPerDay`.
+
+---
+## RL-1 Resource Locator private notes: review the borrowed secured zone (2026-10-13) — open
+
+Private notes in the Resource Locator are My Profile journal entries. Egeria's
+`journal-my-activity` zones each entry with the userId only, and ignores
+`initialClassifications`. A userId zone only GRANTS, so on its own it hides
+nothing. As a stopgap, `resource_browser_handler.add_private_note` re-zones every
+new entry to `["resource-explorer-private", <userId>]`, borrowing Resource
+Explorer's secured zone (owner's choice, 2026-10-13). Verified on quickstart,
+JournalEntry `8bec72e4`: the author reads it, while peterprofile and garygeeke get
+403 by GUID and nothing from search.
+
+**2026-10-13:** the Egeria team has acknowledged a bug in security-zone
+enforcement and will work on it from 2026-10-14. Re-test with the same three
+users once it ships. Source check (egeria af400039c2): `journalMyActivity`
+hard-codes `ZoneMembership [userId]`, drops `initialClassifications`, and
+passes no action causes or targets to `createNoteLogEntry`.
+
+**Suggested by the Egeria team:** link each journal entry to the resource
+it's about with an `Actions` relationship (end 1 the resource, as
+`actionCause`; end 2 the JournalEntry, which is an Action subtype). The user
+then sees what each entry is about in their journal listing, and the
+resource can find its notes through Asset Maker's
+`elements/{guid}/sponsored/actions`, with no full journal scan. Create the
+link with Metadata Expert's `related-elements`; `journal-my-activity` cannot
+take a cause. Unlike the entry, the link can be deleted.
+
+When Egeria's journal fix lands, review:
+- Does `journal-my-activity` then make entries private by itself? If so, drop
+  the re-zone step.
+- If a secured zone is still needed, should the Locator get its own (e.g.
+  `resource-locator-private` in both user directories) instead of RE's?
+- Private-note delete is off (the route returns 501). The asset delete and
+  the Metadata Expert delete both refuse a journal entry with 400-008
+  (egeria-python ISSUE-146). Re-enable delete once Egeria can delete one.
+- Clean up the test entries on Erin's profile: `8bec72e4` and `fef83ed5`,
+  which is still visible to everyone and shown in the UI as "other people can
+  read it".
+- The "My Private Journal" NoteLog itself (`f780511a`) remains `['erinoverview']`
+  only, so other people can see the log exists, though not the hidden entries.
+
+---
+## Investigate: SECURITY-0011 Read refusals on 5 DigitalProductFamily-anchored elements (2026-10-05) — open
+
+Platform log (quickstart-egeria-main, 20 min to 18:42Z): 1773
+OPEN-METADATA-SECURITY-0011 "not authorized to issue operation Read on <guid>
+anchor element DigitalProductFamily" on qs-metadata-store (~89/min, peaks
+340/min) — erinoverview 1580, peterprofile 193. Always the same 5 elements
+(GUID prefixes 86a1842a, 99a5cdc6, 7df8a581, 087a9692, 0407d5a4), all Read,
+in bursts of ~4 refusals per element per second.
+
+- peterprofile ≈ the 3 `/api/digital-products/mesh?user_id=peterprofile`
+  Data Mesh page loads in that window (~64 refusals per request).
+- erinoverview is the `EGERIA_USER` fallback in nearly every handler (used when
+  a request carries no user/creds). A grep of the Portal (2026-10-05) found no
+  timer, refresh interval or retry loop that reads products/families: browser
+  `setInterval`s are Portal tile status (30 s), Operations platforms/auto-refresh,
+  admin lock/reset/Obsidian polls and bootstrap-banner status; server loops are
+  the bootstrap monitor (ruled out: one pageSize=1 canary per family / 600 s),
+  demo-reset scheduler and Jupyter-lock cleanup. Product readers are all
+  request-driven: `digital_products_handler.py` (mesh/tree, 300 s cache),
+  `data_mesh_handler.py`, Overview summary (2 DigitalProduct counts, 60 s
+  cache) and growth (one count per snapshot, 15 min cache).
+- Ruled out elsewhere: RE 8810, nanny connectors.
+- Caveat (Egeria ISSUE-90): until the pending fix, every refused search HIT is
+  logged as an unauthorized access attempt, so a normal search or count whose
+  results include those 5 anchored elements produces this noise without any
+  poller. The sustained ~89/min from erinoverview still needs a source;
+  fallback test planned by the RE architect for 2026-10-06.
+
+---
+## Consistent app bar across portal apps (2026-10-05) — core ✅, follow-ups open
+
+The back-to-Portal link was hand-rolled per page: top-left on some, top-right
+on others, shown only once a persona was chosen on Catalog/Explorer/Lineage,
+missing on Governance Metrics, Demo Admin and the docs viewer. Theme toggles
+existed only on Explorer and Data Mesh (only Data Mesh remembered the choice),
+and identity badges had three looks in three positions.
+
+Now one bar everywhere (`static/app-bar.js` for plain-JS pages,
+`AppHeader` in `static/egeria-shared-ui.js` for the React SPAs):
+`[⌂ Portal] | icon Title subtitle | page controls … | extras · Promise/Memento · identity · theme`.
+Portal link unconditional; one `egeria-theme` key + `:root.light` palettes on
+every page (the Portal keeps its own header but has the toggle); Feedback floats
+bottom-right on every app (Lineage, Data Mesh, Local Dashboards, Governance
+Metrics and docs gained it); the forLineage toggle moved into the bar (it used
+to overlap Feedback). Guarded by `tests/test_app_bar_consistency.py`.
+Both environments; freshstart only static-checked (not running at the time).
+
+Follow-ups:
+- my-egeria (Textual TUI, ships in pyegeria) has no way back to the Portal
+  except its own tab — needs a key binding / header link in egeria-python.
+- Explorer's vega charts still render with the dark config in light mode.
+- Data Mesh graph colours are tuned for dark; readable in light but untuned.
+- Pre-login pages (login/register/reset/privacy) stay dark-only by design.
+- Pre-existing: Overview loads egeria-shared-ui.js without React, so its
+  `React.createContext` line throws at load (harmless, but noisy).
+
+---
 ## Mirror egeria-freshstart from egeria-quickstart (2026-09-14) — open
 
 `egeria-freshstart/PyegeriaWebHandler` was already out of sync with
@@ -673,7 +824,7 @@ Jupyter runs on the host.
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| INFRA-2 | `openlineage-proxy` Docker build fails DNS resolution for `repo.maven.apache.org`/`plugins.gradle.org` on hedwig | open — needs real fix | Build-time Gradle dependency resolution intermittently/consistently fails to resolve those two hosts from inside the `docker build` network namespace on hedwig specifically (not reproduced elsewhere yet). **Local-only workaround in place on hedwig** (uncommitted, kept out of git via `git update-index --skip-worktree` on both files as of 2026-07-30): `compose-configs/shared-infra/shared-infra.yaml` adds `network: host` plus hardcoded `extra_hosts` IP pins (`repo.maven.apache.org:104.18.18.12`, `plugins.gradle.org:104.16.73.101`) to the proxy build; `compose-configs/egeria-quickstart/Dockerfile-proxy` was also changed to build from the `gradle:8.9-jdk11` base image directly instead of bootstrapping via the repo's own `./gradlew`. **Do not merge as-is** — those are CDN edge IPs that rotate, so pinning them will silently break again later (for hedwig or anyone else). Real fix needs investigating actual root cause: Docker daemon DNS config on hedwig (`/etc/docker/daemon.json` `dns` setting), host `/etc/resolv.conf`, or VPN/corporate-DNS interference during `docker build`. Once diagnosed, prefer a real DNS fix (or, if `network: host` genuinely is the right call, drop the hardcoded IPs). |
+| INFRA-2 | `openlineage-proxy` Docker build fails DNS resolution for `repo.maven.apache.org`/`plugins.gradle.org` on hedwig | open — needs real fix | Build-time Gradle dependency resolution intermittently/consistently fails to resolve those two hosts from inside the `docker build` network namespace on hedwig specifically (not reproduced elsewhere yet). **Local-only workaround in place on hedwig** (uncommitted, kept out of git via `git update-index --skip-worktree` on both files as of 2026-07-30): `compose-configs/shared-infra/shared-infra.yaml` adds `network: host` plus hardcoded `extra_hosts` IP pins (`repo.maven.apache.org:104.18.18.12`, `plugins.gradle.org:104.16.73.101`) to the proxy build; `compose-configs/egeria-quickstart/Dockerfile-proxy` was also changed to build from the `gradle:8.9-jdk11` base image directly instead of bootstrapping via the repo's own `./gradlew`. **Do not merge as-is** — those are CDN edge IPs that rotate, so pinning them will silently break again later (for hedwig or anyone else). Real fix needs investigating actual root cause: Docker daemon DNS config on hedwig (`/etc/docker/daemon.json` `dns` setting), host `/etc/resolv.conf`, or VPN/corporate-DNS interference during `docker build`. Once diagnosed, prefer a real DNS fix (or, if `network: host` genuinely is the right call, drop the hardcoded IPs). **2026-10-13:** the same pattern had been merged into the quickstart and freshstart build blocks (jupyter, pyegeria-web, apache-web, my-profile): `network: host` plus `extra_hosts` pins for PyPI/Debian. Removed from both compose files: Compose v5 builds through `buildx bake`, which refuses a `network: host` build without `--allow=network.host`, so every build failed. Builds verified with normal bridge networking on laz (PyPI and Debian). If hedwig's build-time DNS problem resurfaces, fix the Docker daemon's DNS there rather than re-adding either. |
 | INFRA-1 | Egeria metadata-store leaks PostgreSQL connections over time | in-progress | The `qs-metadata-store` Postgres repository connector ("PostgreSQL JDBC Driver") accumulates `idle` and `idle in transaction` sessions on the shared `egeria` DB (port 5442) until the 1000-slot pool is exhausted → all metadata queries 500 with `POSTGRES-REPOSITORY-CONNECTOR-500-001 … FATAL: remaining connection slots are reserved for roles with the SUPERUSER attribute`. First hit 2026-06-23: 994/1000 used (833 idle + 161 idle-in-transaction stuck **20+ hrs** on `classification_attribute_value`). Surfaced as Operations-page 500s. **Stopgap:** `docker restart quickstart-egeria-main` (drops to 0; view servers auto-restart ~10s later). **Safety net (done 2026-06-23):** `idle_in_transaction_session_timeout=1800000` (30 min) added to `shared-infra.yaml` postgres `command:`; leaked idle-in-transaction sessions now self-reap rather than accumulating indefinitely. Takes effect on next `docker compose up` of shared-infra. **Still open:** investigate Egeria Postgres connector pool config (max pool size / session release on the connector side) to prevent accumulation in the first place. Watch `idle in transaction` count as the leading indicator (`SELECT state,count(*) FROM pg_stat_activity WHERE usename='egeria_user' GROUP BY state;`). **Recurred 2026-07-26:** the 30-min timeout is reaping the sessions (no pool exhaustion this time), but the underlying leak is still live — `docker logs egeria-shared-postgres` showed repeated `FATAL: terminating connection due to idle-in-transaction timeout` batches (several/minute) throughout the session, and Tech Catalog's `/tech-types/hierarchy` and `/tech-types/{qn}` endpoints intermittently 500'd (`POSTGRES-REPOSITORY-CONNECTOR-500-001`) until a retry succeeded. Safety net is working as designed; the root-cause investigation is still open. **Reassessed 2026-08-14/15:** two distinct failure shapes now distinguished by `xact_age`, not just count. (a) The classic leak above — a connector-held transaction stuck for hours; `docker restart quickstart-egeria-main` genuinely fixes it. (b) A separate, much faster startup-catch-up churn — `idle in transaction` count oscillates in a bounded band (tens, not hundreds) as engine-host/integration-daemon re-run config-refresh cycles after any restart, then settles on its own; **restarting for this case is counterproductive**, since it just re-triggers the same catch-up. Rebuilt `egeria-quickstart-platform:local` against a newly-pulled `odpi/egeria-platform:latest` (base OS/JDK layers unchanged, app layer had moved on since our last build) and recreated `quickstart-egeria-main` to test whether upstream connection-pooling changes had landed. Watched `pg_stat_activity` for ~14 min post-restart: idle-in-transaction oscillated 10-47 (never ran away toward the 833-994 range from the original incident), and the one long-held connection observed (11m37s, same `classification_attribute_value` query signature as the original leak) cleared on its own rather than sticking for hours. Read as a partial improvement — the leak signature is still present, but self-resolves faster than before — not confirmation the root cause is fixed. **Still open:** short-window observation isn't proof; recheck after the *next* platform refresh (per team) that specifically ships the connection-pooling change, and watch for a `classification_attribute_value` transaction that does NOT clear within the 30-min safety-net window. **The connection-pooling change has landed upstream (2026-08-20, pre-release readiness check):** `odpi/egeria` core shipped exactly this on 2026-08-16/17 — "Replace JDBCResourceConnector's per-thread connection cache with a HikariCP pool" and "Externalize the JDBC Pool Size," both touching `PostgresOMRSRepositoryConnector.java`/`JDBCResourceConnector.java` directly. `egeria-quickstart-platform:local` was built 2026-08-19, *after* both commits — plausibly already includes the fix, which would explain the improved behavior observed since. Live-checked `pg_stat_activity` on 2026-08-20: 0 `idle in transaction`, 10 `active`, 15 `idle`, oldest active transaction <1s — healthy. **Not yet confirmed as the actual fix, not just another short healthy window** — Dan is continuing to watch it live rather than declaring this closed. **2026-09-03: found and fixed the actual undersized-pool knob.** Separate from the leak/catch-up shapes above: `qs-metadata-store` was hitting `HikariPool createTimeoutException` (confirmed in logs) with only ~7 connections open to the `egeria` DB — nowhere near Postgres's own 1000-slot limit. Root cause: `jdbcMaximumPoolSize` (Egeria's own `PostgresConfigurationProperty`/`JDBCConfigurationProperty`, `postgres-repository-connector`/`jdbc-resource-connector`) defaults to just `10` and was never set. Fixed by adding `"jdbcMaximumPoolSize": 50` to `qs-metadata-store.config`'s `repositoryServicesConfig.localRepositoryConfig.localRepositoryLocalConnection.configurationProperties`, then `docker restart quickstart-egeria-main`. Live-verified: connections to `egeria` DB went 7→57, no more HikariPool timeouts, a previously-`TIMEOUT_ERROR_408`-failing live query returned cleanly. This may retroactively explain some of the "fast-cycle" symptom shape above too (10 connections shared across a startup-catch-up load spike looks exactly like this). **Mandy (Egeria team) is exposing this as a proper `application.properties`-tunable parameter** (per Dan, 2026-09-03) rather than requiring a hand-edit of the persisted server `.config` JSON — once that lands, retune through the new setting instead of this workaround. **Still not done:** mirror the same bump to freshstart's equivalent server config (only quickstart was touched). **2026-09-03/04 follow-up:** `50` was reduced to `25` (still confirmed comfortably sufficient — 11-14 connections in normal use) and made durable via `compose-configs/egeria-quickstart/servers/BuildQuickstartConfigs.http`/`BuildFreshstartConfigs.http` (the real source templates `quick-start-local`/`fresh-start-local` copy into the runtime dir — a hand-edit of the persisted `.config` JSON alone does not survive a fresh redeploy) in PR #469 (open, pending review). |
 | INFRA-3 | Kafka consumer-group rebalance storm → JVM heap OOM crash on `quickstart-egeria-main` | open | Recurring `OCF-KAFKA-TOPIC-CONNECTOR-0018` ("client was rebalanced by Kafka and failed to commit already consumed events") bursts across `qs-engine-host`/`qs-integration-daemon`. First seen as log noise (2026-09-03), attributed to `__consumer_offsets` being sized at Kafka's single-broker-inappropriate default of 50 partitions for ~100+ live consumer groups; fixed via `KAFKA_CFG_OFFSETS_TOPIC_NUM_PARTITIONS=10` in `shared-infra.yaml`/`kafka-entrypoint.sh` (PR #467, open) — only takes effect on a freshly-formatted Kafka data dir, applied via a genuine fresh redeploy (`runtime-volumes/shared-infra-hardened-kafka` cleared), confirmed live: `__consumer_offsets` `PartitionCount: 10`. **Did not fix the rebalance storm.** 2026-09-04 04:11 UTC: a ~90s burst of the same signature (04:10:11–04:11:04) immediately preceded `quickstart-egeria-main` terminating with `java.lang.OutOfMemoryError: Java heap space` (confirmed in the container's own log — this JVM-self-managed heap OOM does NOT set `docker inspect`'s `OOMKilled` field, which stayed `false` and would mislead anyone checking only that field; `unless-stopped` auto-restarted it 153ms later, `RestartCount:1` is the container-level signature to look for instead). Container runs 6GB limit, `-XX:MaxRAMPercentage=80.0`, no explicit `-Xmx`. **Confirmed the partition fix really was live and under test at crash time** (same `TopicId`, created at the same redeploy) — this isn't a case of an untested fix; the 50→10 partition change was real and the storm still occurred, so that theory was incomplete on its own. **Still open:** whether `qs-engine-host`/`qs-integration-daemon` connectors accumulate uncommitted consumed events in heap across a rebalance (a lead, not yet confirmed) is the next thing to check. Self-recovers via the restart policy every time so far, but a heap OOM is more consequential than log noise — don't downgrade this to "cosmetic" without checking whether it recurs. |
 | INFRA-4 | Same-platform Egeria servers route to each other via `host.docker.internal` instead of localhost — occasional `HttpConnectTimeoutException` | **fixed 2026-09-05 (PR #482), pending longer-window confirmation** | All 5 quickstart servers (`qs-metadata-store`, `qs-engine-host`, `qs-integration-daemon`, `qs-view-server`, `qs-nanny-daemon`) run in the same JVM/container, but address each other via `https://host.docker.internal:9443` rather than `localhost` — confirmed in `qs-engine-host.config`: both `localServerURL` and `omagserverPlatformRootURL` resolve to the single `~{egeriaEndpoint}` placeholder (`quickstart.application.properties`), which is also the address used externally by `pyegeria-web`/Jupyter. No separate "internal" endpoint exists. A same-container call therefore round-trips out through Docker Desktop's VM networking (`host.docker.internal` → host → Docker's port-publishing layer → back into the same container) instead of a direct loopback hop — a path Docker Desktop for Mac's gvisor-based networking is known to add occasional latency spikes to, especially under load. No explicit HTTP connect-timeout override found in config, so this rides on Java `HttpClient`'s default behavior. **Evidence (2026-09-04 redeploy, ~33 min window):** 32 `HttpConnectTimeoutException`s — 22 clustered in the first 2 minutes (a known/benign startup race, engine-host querying metadata-store before it's warm), the rest single isolated blips roughly every 5-10 min during heavy write load; `quickstart-egeria-main` sat at 66% CPU well past startup. Every occurrence self-recovered on the platform's own periodic retry; none has blocked functionality by itself so far — **distinct mechanism from INFRA-3 above**, don't conflate just because both surface as "timeout" in the logs. **Real fix would need** a separate, lower-latency target (e.g. `127.0.0.1`) for intra-platform server-to-server calls, distinct from the externally-advertised `egeriaEndpoint` — not a quick config tweak, since Egeria's placeholder substitution currently uses one URL for both roles; would need either a template-level change or confirming Egeria supports a second placeholder for this. Not urgent given it's self-healing so far, but worth revisiting if it starts causing real failures rather than log noise. **Fixed 2026-09-05 (PR #482)**, planned jointly with `dwolfson-ad` (owns the separate, larger trellis-side question of its own `host.docker.internal` usage — blocked on the platform TLS cert gaining a container-name SAN, tracked separately, not part of this fix): added a second placeholder `egeriaLocalEndpoint` (`https://localhost:9443`/`:8443`) and repointed only `omagserverPlatformRootURL` at it — deliberately left `localServerURL`/the auto-derived `networkAddress` untouched, since a real cross-platform cohort-joining path exists in this repo (`ConnectFreshstartToCohort.http`) and those fields need to stay genuinely externally-reachable if quickstart/freshstart or an external platform are ever in the same cohort. Mirrored to freshstart (same 5-server-one-JVM topology), though not live-tested there (not running). **Live-verified on quickstart**: clean restart, zero new error types, zero `HttpConnectTimeoutException` in the observation window, confirmed via log evidence (`qs-integration-daemon`'s own startup log lines) that it now genuinely calls `qs-metadata-store` on `https://localhost:9443`, and a real functional test (`/api/operations/platforms`, `/api/bootstrap/status`) succeeded — ruling out a silent connection-refused misconfiguration. **Caveat: the observation window was short (a few minutes) against a 31h/154-occurrence baseline** — this is a strong early signal, not yet a statistically confirmed fix; recheck the `HttpConnectTimeoutException` count after real uptime before closing this out entirely. |

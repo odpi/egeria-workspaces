@@ -463,6 +463,7 @@ def get_summary(
     schema = _schema_coverage(mgr, as_of_time, survey.get("schemaAnalysedGuids"))
     engine_health = _engine_action_health(url, server, user_id, user_pwd, as_of_time)
     confidentiality = _confidentiality_levels(mgr, as_of_time)
+    technology = _assets_by_technology(mgr, as_of_time)
 
     payload = {
         "asOfTime":         as_of_time,
@@ -496,6 +497,10 @@ def get_summary(
         "latestSurveyTime":   survey["latestSurveyTime"],
         "surveysCompleted7d": survey["surveysCompleted7d"],
         "dataStoresByKind":   survey["dataStoresByKind"],
+        "assetsByTechnology":      technology["technologies"],
+        "technologyUnrecorded":    technology["unrecorded"],
+        "technologyPlaceholders":  technology["placeholders"],
+        "technologyAssetTotal":    technology["total"],
         "engineActionHealth": engine_health,
         "surveysCompleted":   survey["surveysCompleted"],
         "surveysFailed":      survey["surveysFailed"],
@@ -569,21 +574,68 @@ def _confidentiality_levels(mgr, as_of: Optional[str] = None) -> dict:
     return out
 
 
+def _assets_by_technology(mgr, as_of: Optional[str] = None) -> dict:
+    """Assets grouped by the technology they record in `deployedImplementationType`. Most assets do not
+    record one, so the figures are exclusive and add up to the asset total: each technology, the assets
+    that record none (`unrecorded`), and template placeholders such as ``~{deployedImplementationType}~``
+    (`placeholders`: template elements carry the unfilled name, which is not a technology). Read in pages
+    until an empty one (Egeria's paging contract); every field is None when a page failed or
+    _REL_MAX_PAGES full pages were read without reaching the end (a capped read can only under-count)."""
+    out = {"technologies": None, "unrecorded": None, "placeholders": None, "total": None}
+    try:
+        counts: dict = {}
+        unrecorded = placeholders = total = 0
+        done = False
+        for page in range(_REL_MAX_PAGES):
+            body = {"class": "FindRequestBody", "metadataElementTypeName": "Asset",
+                    "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0,
+                    "startFrom": page * _SURVEY_LINK_CAP, "pageSize": _SURVEY_LINK_CAP}
+            if as_of:
+                body["asOfTime"] = as_of
+            chunk = mgr.find_metadata_elements(body)
+            chunk = [e for e in (chunk if isinstance(chunk, list) else []) if isinstance(e, dict)]
+            if not chunk:
+                done = True
+                break
+            for e in chunk:
+                total += 1
+                props = e.get("elementProperties") or {}
+                tech = str((props.get("propertiesAsStrings") or props).get("deployedImplementationType") or "").strip()
+                if not tech:
+                    unrecorded += 1
+                elif tech.startswith("~{") and tech.endswith("}~"):
+                    placeholders += 1
+                else:
+                    counts[tech] = counts.get(tech, 0) + 1
+        if done:
+            out.update(technologies=counts, unrecorded=unrecorded, placeholders=placeholders, total=total)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview assets by technology failed: {exc}")
+    return out
+
+
 def _schema_coverage(mgr, as_of: Optional[str] = None, analysed=None) -> dict:
     """How many elements have a schema: the distinct anchors of SchemaType elements (a schema's anchor is
     the asset it describes) UNION the assets a survey analysed the schema of (SchemaAnalysisAnnotation --
-    surveys record a database's schema as annotations, not as SchemaType elements). One capped find; None
-    when it failed or was capped (a capped page can only under-count)."""
+    surveys record a database's schema as annotations, not as SchemaType elements). Read in pages until an
+    empty one (Egeria's paging contract); None when a page failed or _REL_MAX_PAGES full pages were read
+    without reaching the end (a capped read can only under-count)."""
     out = {"assetsWithSchema": None, "schemaTypes": None, "schemaCapped": None, "schemaAnalysedAssets": None}
     analysed = set(analysed or [])
     try:
-        body = {"class": "FindRequestBody", "metadataElementTypeName": "SchemaType",
-                "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0, "startFrom": 0,
-                "pageSize": _SURVEY_LINK_CAP}
-        if as_of:
-            body["asOfTime"] = as_of
-        found = mgr.find_metadata_elements(body)
-        found = [e for e in (found if isinstance(found, list) else []) if isinstance(e, dict)]
+        found, capped = [], True
+        for page in range(_REL_MAX_PAGES):
+            body = {"class": "FindRequestBody", "metadataElementTypeName": "SchemaType",
+                    "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0,
+                    "startFrom": page * _SURVEY_LINK_CAP, "pageSize": _SURVEY_LINK_CAP}
+            if as_of:
+                body["asOfTime"] = as_of
+            chunk = mgr.find_metadata_elements(body)
+            chunk = [e for e in (chunk if isinstance(chunk, list) else []) if isinstance(e, dict)]
+            if not chunk:
+                capped = False
+                break
+            found.extend(chunk)
         anchors = set()
         for e in found:
             props = _classification_props(e, "Anchors")
@@ -591,12 +643,125 @@ def _schema_coverage(mgr, as_of: Optional[str] = None, analysed=None) -> dict:
             if g:
                 anchors.add(g)
         out["schemaTypes"] = len(found)
-        out["schemaCapped"] = len(found) >= _SURVEY_LINK_CAP
+        out["schemaCapped"] = capped
         out["assetsWithSchema"] = None if out["schemaCapped"] else len(anchors | analysed)
         out["schemaAnalysedAssets"] = len(analysed - anchors)   # assets whose schema is known only from a survey
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview schema coverage failed: {exc}")
     return out
+
+
+# ── Recent activity (changes to curated content) ────────────────────────────
+# Egeria's most-recently-updated elements are dominated by connector churn here (one catalog refresh
+# rewrote ~10,000 elements in 20 minutes), so a plain "latest changes" scan says nothing about what
+# people curate. Activity is therefore read per CURATED content type, and the payload names the types.
+_ACTIVITY_TYPES = ["GlossaryTerm", "Collection", "GovernanceDefinition", "Project"]
+_ACTIVITY_WINDOW_D = 7
+_ACTIVITY_RECENT_H = 48
+_ACTIVITY_PAGE = 200
+_ACTIVITY_MAX_PAGES = 5      # per type: 1000 most recent; a type still inside the window after that is a lower bound
+_ACTIVITY_STREAM = 12
+_ACTIVITY_STEWARDS = 5
+
+
+def _looks_automated(user) -> bool:
+    """Heuristic: Egeria's own service accounts end in "npa" (non-person account) or are engines."""
+    u = str(user or "").lower()
+    return u.endswith("npa") or "engine" in u
+
+
+def _element_label(e: dict) -> str:
+    props = e.get("elementProperties") or {}
+    props = props.get("propertiesAsStrings") or props
+    return str(props.get("displayName") or props.get("name") or props.get("qualifiedName") or "(unnamed)")
+
+
+def _recent_changes(mgr, now=None) -> Optional[dict]:
+    """Changes to curated content in the last _ACTIVITY_WINDOW_D days, from each type's most-recently-updated
+    elements (read in pages until one is older than the window). None if any query failed (a half-read
+    list must not pass for the whole). `capped` is True when some type was still inside the window after
+    _ACTIVITY_MAX_PAGES pages, which makes the counts a lower bound."""
+    import datetime as _dt
+    now = now or _dt.datetime.utcnow()
+    cutoff = now - _dt.timedelta(days=_ACTIVITY_WINDOW_D)
+    recent_cut = now - _dt.timedelta(hours=_ACTIVITY_RECENT_H)
+    changes: dict = {}
+    capped = False
+    try:
+        for tname in _ACTIVITY_TYPES:
+            reached = False
+            for page in range(_ACTIVITY_MAX_PAGES):
+                chunk = mgr.find_metadata_elements({
+                    "class": "FindRequestBody", "metadataElementTypeName": tname,
+                    "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0,
+                    "sequencingOrder": "LAST_UPDATE_RECENT",
+                    "startFrom": page * _ACTIVITY_PAGE, "pageSize": _ACTIVITY_PAGE})
+                chunk = [e for e in (chunk if isinstance(chunk, list) else []) if isinstance(e, dict)]
+                if not chunk:
+                    reached = True
+                    break
+                for e in chunk:
+                    v = e.get("versions") or {}
+                    when = _parse_time(v.get("updateTime"))
+                    if when is None:
+                        continue
+                    if when < cutoff:
+                        reached = True
+                        break
+                    guid = _guid_of(e)
+                    if guid and guid not in changes:
+                        changes[guid] = {"time": when, "actor": v.get("updatedBy") or "", "version": v.get("version"),
+                                         "type": (e.get("type") or {}).get("typeName") or tname,
+                                         "name": _element_label(e), "guid": guid}
+                if reached:
+                    break
+            if not reached:
+                capped = True
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview recent activity failed: {exc}")
+        return None
+    rows = sorted(changes.values(), key=lambda c: c["time"], reverse=True)
+    by_type: dict = {}
+    stewards: dict = {}
+    automated = 0
+    for c in rows:
+        by_type[c["type"]] = by_type.get(c["type"], 0) + 1
+        if _looks_automated(c["actor"]):
+            automated += 1
+        elif c["actor"]:
+            stewards[c["actor"]] = stewards.get(c["actor"], 0) + 1
+    # The stream is people's changes: automation (a subscription manager rewriting notification types every
+    # few minutes) would otherwise fill it and hide everything a person did. It is counted, not listed.
+    in_recent = [c for c in rows if c["time"] >= recent_cut]
+    recent = [{"time": c["time"].isoformat(), "actor": c["actor"], "type": c["type"], "name": c["name"],
+               "guid": c["guid"], "action": "created" if c["version"] == 1 else "updated", "automated": False}
+              for c in in_recent if not _looks_automated(c["actor"])][:_ACTIVITY_STREAM]
+    recent_automated = sum(1 for c in in_recent if _looks_automated(c["actor"]))
+    return {"types": list(_ACTIVITY_TYPES), "windowDays": _ACTIVITY_WINDOW_D, "recentHours": _ACTIVITY_RECENT_H,
+            "total": len(rows), "automated": automated, "people": len(rows) - automated, "capped": capped,
+            "byType": by_type,
+            "stewards": sorted(stewards.items(), key=lambda kv: (-kv[1], kv[0]))[:_ACTIVITY_STEWARDS],
+            "recent": recent, "recentAutomated": recent_automated}
+
+
+@router.get("/api/overview/activity", summary="Recent changes to curated content")
+def get_activity(
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    """Change stream, activity by type and most active stewards for curated content types (glossary terms,
+    collections/products, governance definitions, projects). Always "now": Egeria's asOfTime cannot
+    say who changed what. `activity` is None when a query failed -- the page then shows "Not measured"."""
+    ckey = f"activity|{url}|{server}|{user_id}"
+    cached = _cache_get(ckey)
+    if cached is not None:
+        return JSONResponse(cached)
+    activity = None
+    try:
+        activity = _recent_changes(_expert(url, server, user_id, user_pwd))
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview activity: client build failed: {exc}")
+    return JSONResponse(_cache_put(ckey, {"activity": activity, "source": "live:activity"}))
 
 
 _SURVEY_LINK_CAP = 1000   # one relationship page / one find page; a result at the cap is a lower bound, reported as such
