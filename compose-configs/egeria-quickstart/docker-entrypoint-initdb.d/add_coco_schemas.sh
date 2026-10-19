@@ -60,7 +60,7 @@ fi
 log "Creating coco_ods schema..."
 psql_cmd -c "CREATE SCHEMA IF NOT EXISTS coco_ods; GRANT ALL ON SCHEMA coco_ods TO egeria_admin, egeria_user, airflow_user;"
 
-log "Loading coco_ods data..."
+log "Creating the coco_ods tables (empty)..."
 if command -v psql &> /dev/null; then
     psql_cmd -f <(cat <(printf 'SET search_path TO coco_ods;\n') "$DATA_DIR/coco_ods.sql")
 else

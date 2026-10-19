@@ -80,7 +80,7 @@ execute `compose-configs/egeria-quickstart/bin/apply-postgres-init.sh` after the
 infrastructure is ready. It waits for PostgreSQL and then runs these scripts from
 `docker-entrypoint-initdb.d/`, in order, on every start:
 
-1. `init_egeria.sql` - users, databases, the demo schemas and the `coco_ods` / `coco_sus` sample data
+1. `init_egeria.sql` - users, databases, the demo schemas, the `coco_sus` sample data and the empty `coco_ods` tables
 2. `init_coco_data_hub.sql` - the Data Sharing Hub, `coco_data_hub`
 3. `init_coco_systems.sql` - the Coco Pharmaceuticals system databases
 4. `init_subscription_staging.sql` - the digital product subscriptions, `subscription_staging`
@@ -88,8 +88,8 @@ infrastructure is ready. It waits for PostgreSQL and then runs these scripts fro
 Every script creates only what is missing, so running them again is safe and takes a few seconds.
 A new install gets everything. An existing install picks up anything added since it was created.
 A database that has been dropped, for example to reset the demo, is recreated on the next start.
-Data already in the databases is kept: `coco_ods` and `coco_sus` are loaded only when their schema
-is new, and seed rows are inserted only when missing.
+Data already in the databases is kept: the `coco_ods` and `coco_sus` tables are created only when their
+schema is new, and seed rows are inserted only when missing.
 
 To change the set-up, edit or add a script and keep it safe to rerun. A new script also needs an
 entry in `INIT_SCRIPTS` in `bin/apply-postgres-init.sh`. A change to a table that already exists
@@ -110,10 +110,12 @@ The script:
    - `demo` schema in `egeria` — the demo-mode user registry.
    - `coco_sus` schema in `coco_pharma` — Coco Pharmaceuticals supply chain / source system data.
    - `coco_ods` schema in `coco_pharma` — Coco Pharmaceuticals operational data store.
-5. **Loads sample data** into each schema immediately after creating it, using the SQL files in
+5. **Creates the tables** of each schema immediately after creating it, using the SQL files in
    `docker-entrypoint-initdb.d/data/`:
-   - `data/coco_sus.sql` is loaded into `coco_sus`
-   - `data/coco_ods.sql` is loaded into `coco_ods`
+   - `data/coco_sus.sql` creates and loads the `coco_sus` sample data
+   - `data/coco_ods.sql` creates the `coco_ods` tables, empty.  `coco_ods` is a reporting store: it is
+     filled from the strategic digital products through its subscriptions, not from seed data (see
+     [`exchange-quickstart/coco-dags/`](../../exchange-quickstart/coco-dags/README.md))
 
 ### What `init_coco_data_hub.sql` does
 

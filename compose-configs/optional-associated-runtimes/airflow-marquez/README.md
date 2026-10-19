@@ -12,8 +12,10 @@ There are a few sample dags provided and more will be added over time. Workflows
 to Egeria's governance capabilities.
 
 A second DAG bundle, **coco-dags**, is mounted from `exchange-quickstart/coco-dags`. It holds the Coco
-Pharmaceuticals DAGs, including the `coco_feed_*` DAGs, which fill the Data Sharing Hub's digital products from the
-Coco systems' databases as soon as their data changes. See [its README](../../../exchange-quickstart/coco-dags/README.md). 
+Pharmaceuticals DAGs: the `coco_operations_*` DAGs, which simulate the company's day-to-day activity in the Coco
+systems' databases; the `coco_feed_*` DAGs, which fill the Data Sharing Hub's digital products from those databases
+as soon as their data changes; and the `coco_subscriptions_*` DAGs, which apply what the products' subscriptions
+deliver to the subscribing systems. See [its README](../../../exchange-quickstart/coco-dags/README.md). 
 
 
 The pyegeria and OpenLineage python packages are installed into the Airflow Docker image for your use.
