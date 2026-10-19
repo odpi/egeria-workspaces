@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright Contributors to the Egeria project
+
+# Arize Phoenix - LLM tracing and evaluation (OpenTelemetry / OpenInference).
+# Used to trace Resource Explorer's chat tool calls; RE exports over OTLP/HTTP to
+# http://localhost:6006/v1/traces (OBSERVABILITY__PHOENIX__COLLECTOR_ENDPOINT).
+#
+#   docker compose -f docker-compose.yaml up -d
+#
+# Phoenix has no authentication by default, so its ports are bound to loopback
+# only, whatever EGERIA_BIND_IP says. Reach it remotely through an SSH tunnel.
+
+services:
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    container_name: phoenix
+    restart: unless-stopped
+    environment:
+      PHOENIX_WORKING_DIR: /mnt/data # SQLite trace store lives on the volume
+    volumes:
+      - phoenix-data:/mnt/data # Traces survive restarts
+    ports:
+      - "127.0.0.1:6006:6006" # UI + OTLP/HTTP collector (/v1/traces)
+      - "127.0.0.1:4317:4317" # OTLP/gRPC collector (not used by RE)
+    networks:
+      - egeria_network # Containers can export to http://phoenix:6006/v1/traces
+
+networks:
+  egeria_network:
+    external: true
+
+volumes:
+  phoenix-data:
