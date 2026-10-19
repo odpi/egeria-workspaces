@@ -30,10 +30,29 @@ tile signs the Portal's user straight in.
 ## What a signed-in user does
 
 - **Add** a repository, **survey** it, and **publish** the survey into Egeria. The published asset
-  and its survey report are owned by the user who published them (Egeria Ownership) and sit in the
-  `resource-explorer-draft` zone until a curator accepts them.
-- **Curate**: accept or reject drafts; accepted resources move to the published zones.
+  and its survey report are owned by the user who published them (Egeria Ownership). Published
+  assets go to Egeria with no RE-imposed zone: RE leaves zoning to Egeria's own defaults. Draft
+  versus accepted is a content status on the element, not a zone. The exception is work in a
+  private investigation, which RE zones to its owner (`resource-explorer-private` plus the owner's
+  zone), so only that owner can see it.
+- **Curate**: accept or reject drafts. Accepting changes the element's content status, not its zone.
 - **Ask** questions about a surveyed resource, answered from the survey findings and the code.
+
+---
+
+## In the Portal
+
+- **Curation Coverage tile.** The report spec **Resource Explorer - Curation Coverage** puts RE's published-against-not-yet-published count for a database on a [Dashboard Sheet](local-dashboards.md). The Portal calls RE server-to-server, as the viewer's persona: it exchanges the Portal's SSO token at RE's `POST /api/auth/portal`, then calls `GET /api/analytics/curation-coverage-tile/{type}/{slug}`.
+- **Resource Locator.** Work lists published from RE appear in the [Resource Locator](resource-locator.md), and lists made there appear in RE, because both use the same Egeria collections. The Locator's private notes use RE's secured zone, `resource-explorer-private`.
+
+There are two addresses:
+
+| Setting | Used by | Default |
+|---|---|---|
+| `EGERIA_RESOURCE_EXPLORER_URL` | the browser (the portal tile and the SSO handoff) | `http://localhost:8810/` |
+| `RESOURCE_EXPLORER_API_URL` | the Portal server (the Curation Coverage tile) | `http://host.docker.internal:8813` |
+
+RE currently runs on **8813**. It will move to **8810**; when it does, change `RESOURCE_EXPLORER_API_URL` to match.
 
 ---
 

@@ -24,6 +24,17 @@ For worked examples, see the tutorials in the repo's `PyegeriaWebHandler` direct
 
 ---
 
+## Resource Explorer's Curation Coverage tile
+
+The report spec **Resource Explorer - Curation Coverage** can be placed on a sheet like any other. For one database known to [Resource Explorer](resource-explorer.md), it shows how many of its schemas are **published** and how many are **not yet published** (undecided, chosen but not published, or left out), with the tables and reports behind them. Use the `BAR` output format for a chart, or `DICT` for the detail. Pass the resource as the `slug` parameter, for example `localhost_docker_coco_pharma`.
+
+- The Portal does not compute these numbers. It asks Resource Explorer, which runs the Analytic Library's `curation_coverage` routine, and shows RE's answer unchanged.
+- RE runs it **as you**. The sheet sends the persona you picked in this browser; the Portal signs you in to RE with it and keeps RE's session on the server. **Without a persona the tile says "choose a persona to see this"** and doesn't call RE at all.
+- When RE is not running, refuses the sign-in, or answers with an error, the tile says **not established** and gives the reason. It never shows zeros it did not measure.
+- The Portal finds RE at `RESOURCE_EXPLORER_API_URL`, default `http://host.docker.internal:8813`.
+
+---
+
 ## Where the data lives
 
 Unlike most of the Portal, a Dashboard Sheet's own structure (its name, its ordered list of Placements) is **not** an Egeria element — it's a small local JSON record the Portal itself maintains. The *Report* each Placement references, and the data the Report queries, are both real Egeria elements. This is why Dashboard Sheets need their own [Data Initialization](data-initialization.md) batch to survive an Egeria wipe: re-running their seed documents recreates both the Egeria Reports and the local sheet records that reference them.
