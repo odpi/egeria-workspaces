@@ -2,7 +2,10 @@
 
 The `coco-data-hub` is a collection of data stores that hold the key data needed to be exchanged between different business units to support new strategic initiatives such as personalized medicine.  It is part of the [new systems architecture](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/defining-new-systems-architecture/overview/).
 
-This directory tells the story in the order it happens.  Erin Overview and Peter Profile lay out the solution components that implement the [strategic information supply chains](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/defining-information-supply-chains/overview/).  To map those components to real systems they need an inventory, and the only one the company has is Gary Geeke's spreadsheet — so Gary [loads it into Egeria](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/cataloguing-infrastructure/overview/).  The mapping finds gaps; Gary asks the two newly acquired sites for their systems data to see how widespread the problem is, and gets a pleasant surprise.  With the flows, the components and the systems in one place, Erin sets the standard for naming data fields, the data the supply chains carry is offered as digital products described to that standard, and the Data Sharing Hub that will serve them can be scoped and built.
+This directory tells the story in the order it happens.  Erin Overview and Peter Profile lay out the solution components that implement the [strategic information supply chains](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/defining-information-supply-chains/overview/).  
+To map those components to real systems they need an inventory, and the only one the company has is Gary Geeke's spreadsheet — so Gary [loads it into Egeria](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/cataloguing-infrastructure/overview/).  The mapping finds gaps; Gary asks the two newly acquired sites for their systems data to see how widespread the problem is, and gets a pleasant surprise.
+
+With the flows, the components, and the systems in one place, Erin sets the standard for naming data fields, the data the supply chains carry is offered as digital products described to that standard, and the Data Sharing Hub that will serve them can be scoped and built.
 
 | | Step | Content |
 |---|---|---|
@@ -16,6 +19,44 @@ This directory tells the story in the order it happens.  Erin Overview and Peter
 | 8 | Design the Data Sharing Hub | [solution-design.md](solution-design.md) |
 | 9 | Govern how it is built | [software-development-governance-program.md](software-development-governance-program.md) |
 | 10 | Set up the data sharing hub | [setting-up-the-data-hub.ipynb](setting-up-the-data-hub.ipynb) |
+| 11 | Subscribe the systems to the digital products | [digital-product-subscriptions.md](digital-product-subscriptions.md) |
+
+----
+
+## Before you start
+
+Load [`0. data-governance-program`](../0.%20data-governance-program/README.md) first: the supply chains and the
+governance definitions this directory links to are created there.
+
+This directory also needs two of the optional runtimes in
+[`compose-configs/optional-associated-runtimes`](../../compose-configs/optional-associated-runtimes/README.md),
+running alongside `egeria-quickstart`:
+
+* **Unity Catalog** ([unity-catalog/](../../compose-configs/optional-associated-runtimes/unity-catalog/README.md)) -
+  `setting-up-the-data-hub.ipynb` catalogues it, and adds its `clinical_trials` catalog to the data hub.
+* **Airflow and Marquez** ([airflow-marquez/](../../compose-configs/optional-associated-runtimes/airflow-marquez/README.md)) -
+  Airflow runs the DAGs in [`exchange-quickstart/coco-dags`](../../exchange-quickstart/coco-dags/README.md) that move
+  the data along the supply chains: `coco_operations_*` simulate the company's day-to-day activity in its systems,
+  `coco_feed_*` copy each change from the systems into the digital products in the hub, and `coco_subscriptions_*`
+  apply what the products' subscriptions deliver to the subscribing systems.  Start `egeria-quickstart` first,
+  since Airflow uses its PostgreSQL server and the databases it creates.
+
+Airflow reports what each DAG reads and writes as OpenLineage events.  For those events to reach Egeria:
+
+1. Point Airflow at Egeria's OpenLineage topic, from the `airflow-marquez` directory: `./switch-lineage.sh egeria`
+   (or `both` to keep sending them to Marquez too).  The events go through the OpenLineage proxy in `shared-infra`
+   to the Kafka topic `openlineage.events`.
+2. Run [publish-to-marquez.ipynb](../../workbooks/cataloguing-and-surveys/marquez/publish-to-marquez.ipynb) once in
+   JupyterLab (`work/cataloguing-and-surveys/marquez/` in the quickstart's JupyterLab).  Its last cells run the
+   `HarvestOpenLineageEvents::CreateAsCatalogTargetGovernanceActionProcess` process, which makes the
+   `OpenLineageKafkaListener` integration connector listen to `openlineage.events`; its first cells send Egeria's own
+   lineage events on to Marquez.  Run it only once: each run adds another catalog target for the topic.  The
+   listener starts reading at the end of the topic, so only events published after it is connected are catalogued.
+
+   Run it **after step 10**, `setting-up-the-data-hub.ipynb`, has catalogued the `coco_data_hub` database.  Egeria
+   then matches the OpenLineage events about the product tables to the tables it has catalogued, which are what
+   the ongoing update subscriptions in step 11 monitor.  If the events arrive first, Egeria creates separate
+   `DataSet` elements for the tables instead, and those subscriptions are not triggered.
 
 ----
 
@@ -163,6 +204,33 @@ Again you can load the definitions into Egeria on one of two ways:
 ## Setting up the Data Sharing Hub
 
 The file [setting-up-the-data-hub.ipynb](setting-up-the-data-hub.ipynb) is a Jupyter Notebook that performs the steps the [Peter Profile](https://egeria-project.org/practices/coco-pharmaceuticals/personas/peter-profile/) goes though to set up the data sharing hub.  You need to open the file in JupyterHub and then run each cell in turn.  There are descriptions of each command he uses throughout the file.  Once you have run the file, go to Egeria's web portal and you can see the data sharing hub in Egeria Explorer under the "Strategic Data Hubs" collection displayed from the **Collections** card.
+
+----
+
+## Subscribing the systems to the digital products
+
+The file [digital-product-subscriptions.md](digital-product-subscriptions.md) completes the supply chains.  Each
+system that supplies a digital product already copies its changes into the product's tables in the hub; this file
+sets up the **subscriptions** that deliver each product's data to the systems that depend on it, following
+[product-subscriptions.csv](mapping-the-systems/data/product-subscriptions.csv).  It gives each product a product
+manager and the subscription types its subscribers use, creates each subscriber's destination in the
+`subscription_staging` database, and initiates the subscriptions.  The subscription types are deliberately varied -
+ongoing updates, hourly, daily and weekly refreshes, and one-time evaluations - so that each way Egeria delivers a
+product is exercised.  The subscriptions to products that no system supplies yet are listed in the file but not set
+up.
+
+It is generated by `compose-configs/egeria-quickstart/bin/gen-digital-product-subscriptions.py`; change the rules
+there and regenerate rather than editing the file.  It needs the runtimes described in *Before you start*: the
+ongoing update subscriptions are triggered by the data sets Egeria catalogues from the feed DAGs' OpenLineage
+events, so load it once the `coco_feed_*` DAGs have run with OpenLineage connected to Egeria.  For that reason it
+is not part of the directory's batch load.  Load it as Peter Profile, who builds the hub's pipelines:
+
+    ```
+    dr_egeria --directive process --userid peterprofile --user_pass secret digital-product-subscriptions.md
+    ```
+
+Each delivery lands in the subscriber's schema in `subscription_staging`, where the `coco_subscriptions_*` DAGs
+apply it to the subscribing system - see [exchange-quickstart/coco-dags](../../exchange-quickstart/coco-dags/README.md).
 
 ----
 License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/),

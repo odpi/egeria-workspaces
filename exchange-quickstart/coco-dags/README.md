@@ -7,6 +7,49 @@ This folder is the `coco-dags` DAG bundle of the Airflow runtime in
 `compose-configs/optional-associated-runtimes/airflow-marquez`. It is mounted into the Airflow containers at
 `/opt/airflow/coco-dags`, so a change to a file here reaches Airflow at its next DAG parse.
 
+## Operations
+
+[coco_operations.py](coco_operations.py) simulates Coco Pharmaceuticals going about its business. It adds records
+to the systems' own databases, `coco_pharma`, `austin_systems` and `bucharest_systems`, at different speeds. The
+feeds below copy each change into the digital products, and the products' subscriptions deliver it on to the systems
+that need it. So these DAGs are what keeps data moving along the information supply chains.
+
+| DAG | Schedule | Adds |
+|---|---|---|
+| `coco_operations_seed` | Once, when first unpaused | Thirty days of history in every active table |
+| `coco_operations_fast` | Every 3 minutes | Readings, scans, telemetry, stock movements, quality events |
+| `coco_operations_steady` | Every 15 minutes | Orders, batches, samples, results, shipments, cases |
+| `coco_operations_slow` | Hourly | Expenses, invoices, payments, payroll, approvals |
+| `coco_operations_daily` | 06:00 every day | Qualifications, calibrations, audits, submissions, reviews |
+
+Each DAG has one task per system, grouped by estate. On each run a table has a chance of new activity, so the
+systems do not all change in step. To add another thirty days of history, trigger `coco_operations_seed` with
+`{"force": true}`.
+
+What each table does is set by the activity plan in [coco-operations/](coco-operations), one JSON file per
+database. The plans are generated from the systems' SQL by
+`compose-configs/egeria-quickstart/bin/gen-coco-operations.py`, which classifies every table:
+
+| Activity | What happens | Examples |
+|---|---|---|
+| `entity` | A new record is copied from an existing one under a new key, with its details | An expense report and its entries; a batch with its operations and release |
+| `child` | Copied with its parent. With a cadence, it also gets new rows against existing parents | Order lines; stock movements against a lot |
+| `event` | A new row is recorded against an existing record, at the current time | A worker's position change; a SCADA reading |
+| `snapshot` | An existing row is refreshed | Stock on hand; an asset's maintenance status |
+| `master` | Left alone: new copies would be duplicate people, products or sites | Employees, items, suppliers |
+| `inbound` | Left alone: filled by the subscriptions | The tables added for the subscription loads |
+
+A copy is moved in time so that its newest date is the time it is created, keeping the gaps between its dates.
+Amounts and quantities vary by up to 15%, and codes and statuses are kept as they were in the row copied. New keys
+follow the pattern of the existing ones, so `RPT-26-0712` is followed by `RPT-26-0713`. Business identifiers that are
+unique in a table, such as a deviation number, are renumbered the same way. Edit the plan to move a table to another
+cadence or activity, or to name extra columns to renumber (`"new_values": [...]`). Regenerating the plan overwrites
+those edits, so record lasting changes in `OVERRIDES` in the generator.
+
+Where a copy reuses a product's key, for example a new pay statement for the same worker and pay period, the feed
+updates the product record rather than adding one. Tables only grow, so pause the DAGs when the simulation is not
+needed.
+
 ## Digital product feeds
 
 [coco_product_feeds.py](coco_product_feeds.py) fills the strategic digital products' tables in the Data Sharing
@@ -62,8 +105,11 @@ in a Variable named `coco_feed_fingerprint::<database>.<system>.<product schema>
 [coco_subscription_loads.py](coco_subscription_loads.py) completes the journey. Each subscribing system has its
 own copy of each digital product it subscribes to in the `subscription_staging` database: one schema per
 subscription, holding the product's tables plus delivery columns. Delivering into those schemas is the job of
-Egeria's provisioning services. These DAGs copy what has been delivered into the subscribing system's own tables,
-as soon as it arrives. There is one DAG per system estate:
+Egeria's provisioning services, through the subscriptions set up by
+`coco-workbooks/1. coco-data-hub/digital-product-subscriptions.md`. Egeria writes only the product's columns. A
+trigger on each staging table stamps the delivery columns, and sets a row back to `delivered` whenever its product
+data changes. These DAGs copy what has been delivered into the subscribing system's own tables, as soon as it
+arrives. There is one DAG per system estate:
 
 | DAG | Writes to | Subscriptions |
 |---|---|---|
