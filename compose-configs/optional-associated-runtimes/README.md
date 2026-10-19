@@ -17,6 +17,8 @@ Currently there are compose configurations for:
     * Unity Catalog—The Open Source version of Unity Catalog—we use for demonstrating Egeria's integration with other catalogs.
         * Two deployments - one using Postgres and one native.
     * Ollama - a local LLM runtime, for experimenting with local model inference alongside Egeria (no dedicated README yet).
+    * Phoenix - Arize Phoenix, for tracing LLM and agent calls (OpenTelemetry/OpenInference), such as Resource
+        Explorer's chat tool calls. Its ports (6006 UI and OTLP/HTTP, 4317 OTLP/gRPC) are bound to 127.0.0.1 only.
     * Deltalake-Spark - a data lake framework for storing and processing data - this is a small sandbox configuration but includes
         other components that may be useful for additional experiments such as:
         * Spark - a distributed computing framework for processing large datasets
