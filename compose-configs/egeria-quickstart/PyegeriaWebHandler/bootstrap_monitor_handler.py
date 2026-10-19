@@ -380,7 +380,20 @@ async def start_scheduler() -> None:
     # periodic cadence as any other transient unreachability. Fast-retrying
     # forever on a genuine extended outage would just hammer Egeria for no
     # benefit.
+    #
+    # The first check runs inside the background task, NOT awaited here
+    # (2026-10-19 incident): when Egeria is reachable but its store was just
+    # reset, check_and_heal_all() goes on to re-seed every missing family
+    # serially -- ~30 min -- and awaiting that from the lifespan kept the
+    # whole Portal answering 503 until it finished. Bounding the canary
+    # checks (2026-09-03) never covered the healing that follows them.
     _startup_deadline = time.monotonic() + _STARTUP_RETRY_WINDOW
+    _scheduler_task = asyncio.create_task(_startup_then_monitor())
+    logger.info(f"bootstrap monitor scheduler started (interval={_CHECK_INTERVAL}s)")
+
+
+async def _startup_then_monitor() -> None:
+    global _startup_deadline
     try:
         unreachable = await check_and_heal_all()
     except Exception as exc:  # noqa: BLE001
@@ -388,12 +401,12 @@ async def start_scheduler() -> None:
         unreachable = True
     if not unreachable:
         _startup_deadline = None  # already reachable on the very first try -- no fast-retry needed
-    _scheduler_task = asyncio.create_task(_monitor_loop())
-    logger.info(
-        f"bootstrap monitor scheduler started (interval={_CHECK_INTERVAL}s"
-        + (f", fast-retrying every {_STARTUP_RETRY_INTERVAL}s for up to {_STARTUP_RETRY_WINDOW}s "
-           "while Egeria isn't reachable yet" if _startup_deadline else "") + ")"
-    )
+    else:
+        logger.info(
+            f"bootstrap monitor: Egeria not reachable yet -- fast-retrying every "
+            f"{_STARTUP_RETRY_INTERVAL}s for up to {_STARTUP_RETRY_WINDOW}s"
+        )
+    await _monitor_loop()
 
 
 async def stop_scheduler() -> None:
