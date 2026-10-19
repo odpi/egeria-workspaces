@@ -672,7 +672,7 @@ Request body: `{ "http_collections_path": "/path/to/http-client-collections" }` 
 
 **`GET /api/rest-apis`** — OpenAPI-derived endpoint catalog, augmented with Layer 1 body type mapping.
 
-Query params: `url` (platform URL, overrides env). Fetches `/v3/api-docs` from the Egeria platform and returns `{ services }` — a list of OMAS/OMVS services, each with its endpoints, matched outer body type, inferred properties type, and parameter definitions. Results are cached in process for one hour.
+Fetches `/v3/api-docs` from this deployment's own Egeria platform (`EGERIA_PLATFORM_URL`) and returns `{ services }` — a list of OMAS/OMVS services, each with its endpoints, matched outer body type, inferred properties type, and parameter definitions. Results are cached in process for one hour. The `url` query parameter is accepted only when it names that same platform; any other address gets a 400. The request URL is built from configuration alone (CodeQL `py/full-ssrf`). If the browser's `X-Egeria-Token` has expired, the fetch retries once with the server's own login, because the spec is the same for every user. A failure lists what each `api-docs` path answered.
 
 **`POST /api/rest-apis/refresh`** — Clear the OpenAPI spec cache.
 
@@ -959,6 +959,18 @@ Four tabs run across the top: **Exceptions · Certifications · Licenses · User
 
 For example, in the Coco Pharmaceuticals sample the two **License** relationships attach to CSV files in the `landing-area` / `quarantine` zones, so `erinoverview`, `peterprofile` and `tanyatidie` see them while `garygeeke` and `calliequartile` see none. Exceptions, by contrast, are visible to everyone. The page surfaces this with a `🔒 filtered by your access` chip in the toolbar and an explanatory empty-state message ("No licenses are visible to you …"). If you expect rows that aren't there, connect as a steward with broader zone access.
 
+## Resource Locator
+
+A shop-for-resources app at `/resource-locator` (also `/resource-browser`; API under `/api/resource-browser/...`). User guide: [portal-docs/tools/resource-locator.md](../../../portal-docs/tools/resource-locator.md). Code: `resource_browser_handler.py` + `resource-browser.html`, mirrored to freshstart. Tests: `tests/test_resource_browser.py`.
+
+**Private notes** are My Profile journal entries (`journal-my-activity`), then two more calls:
+1. re-zoned to `[resource-explorer-private, <userId>]` with `add_zone_membership`, because `journal-my-activity` stamps only the userId zone and ignores `initialClassifications`;
+2. linked to the resource with an **`Actions`** relationship (resource = `actionCause`, end 1), created through Metadata Expert's `related-elements`.
+
+They are read back through Asset Maker's `elements/{guid}/sponsored/actions`, passing `activity_status_list=None` (pyegeria before 6.2.3 defaulted that to `IN_PROGRESS`, which drops journal entries). Delete returns 501: Egeria cannot delete a journal entry (egeria-python ISSUE-146). Review all this when Egeria's journal and zone fixes land: BACKLOG RL-1.
+
+---
+
 ## Egeria Operations
 
 The **Egeria Operations** page (`🎛️` tile) monitors and operates the live Egeria runtime. Served by `operations_handler.py`, it shares the same React/`egeria-shared-ui.js` foundation as the Explorer and Audit pages.
@@ -1016,3 +1028,11 @@ The workspace includes professional-grade analytic report specifications that ar
 
 - **Analytic - Element Count by Type** — A generic spec to count any metadata type (e.g., `DigitalProduct`, `Agreement`, `Person`).
 - **Analytic - Generic Metric Trend** — A powerful spec that can trend any metadata metric over time (e.g., daily growth of active subscriptions).
+
+### Spec modules loaded through `PYEGERIA_REPORT_SPEC_MODULES`
+
+`analytics_registry_handler.py` defaults `PYEGERIA_REPORT_SPEC_MODULES` to pyegeria's **Analytic Demo** specs and `re_analytics:report_specs`, then reloads pyegeria's CONFIG tier. The reload matters: `report_specs_handler.py` registers specs at import time, which builds the registry before the variable exists, and until 2026-10-14 neither module ever loaded.
+
+- **Analytic Demo - …** (`pyegeria.view.analytic_demo_specs`): one runnable demo per analytic function.
+- **Resource Explorer - Curation Coverage** (`re_analytics.py`): a thin HTTP client for Resource Explorer's tile. It returns RE's dict unchanged, so the Portal computes nothing. It runs as the viewer: `report_viewer.py` takes the persona sent with `/api/report-specs/execute` (checked like the RE handoff), and `re_analytics` signs the trellis SSO JWT (`trellis_sso.encode_portal_sso_token`). It trades that at RE's `POST /api/auth/portal` for an RE session token, caches the token server-side until shortly before it expires, and trades again once on a 401. Every failure is a `not_established` tile with its reason. Setting: `RESOURCE_EXPLORER_API_URL` (default `http://host.docker.internal:8813`; RE moves to 8810 later, see BACKLOG RE-PORT).
+- An analytic function that must act as the viewer elsewhere reads `report_viewer.current_viewer()`, because pyegeria passes analytic functions only the spec's parameters.

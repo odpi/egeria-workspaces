@@ -24,6 +24,44 @@ move to 8810, the 88xx port scheme's RE slot. When it does:
   `localhost_docker_coco_pharma`).
 
 ---
+## RL-2 Resource Locator popularity from DataScope usage (2026-10-14) — open
+
+The owner confirmed (2026-10-14) the usage measure the spec waited for: the
+additionalProperties that the open-lineage data-scope governance service
+writes on the **DataScope** classification: `readCount`, `readsPerDay`,
+`readersInWindow`, `lastReadAt`, `analysisWindowStart`, `analysisWindowEnd`.
+Spec: trellis `SPEC-RESOURCE-BROWSER-PORTAL-APP.md` (re/design-amundsen-
+migration-assessment c7058502, PR #623).
+
+To build:
+- **Home's Popular tile** (today hard-coded "Popularity is not available
+  yet" in `resource_browser_handler.get_home`). Rank by `readsPerDay`
+  within the analysis window, and show `analysisWindowEnd` as the as-of.
+- **Search**: the L1 search-keyword buckets read the same properties.
+- Absence handling: show **"no usage recorded"** for a resource without
+  the properties, and **"popularity not available yet"** while the service
+  hasn't run on this platform. Never show 0 reads for "not measured".
+- `_data_scope()` already reads the DataScope classification's properties.
+
+**Not blocked.** Read-only check on quickstart, 2026-10-14: the service
+already runs there (analyses at about 12:00 and 23:00 UTC). As
+erinoverview, 12 of 110 DataScope elements carry usage properties.
+- All 12 have `readsPerDay`, `readsInWindow`, `readersInWindow`,
+  `lastReadInWindow`, `analysisWindowStart`, `analysisWindowEnd`,
+  `analysisTime` and `analysisService`.
+- 10 also have the spec's `readCount` and `lastReadAt`.
+
+Rank on `readsPerDay`. Fall back to `lastReadInWindow` when `lastReadAt` is
+absent. Top resources: coco_pharma 0.37/day, adventureworks 0.17/day.
+
+**Where to read it:** in pyegeria 6.2 the classification is at
+`elementHeader.dataScope`, NOT in `elementHeader.classifications`. A
+check that looks in the list finds 0 and wrongly reports "no usage".
+Check `_data_scope()` reads the right place. Gate/re-check: the same
+read-only find of DataScope elements, counting those whose
+`elementHeader.dataScope` additionalProperties carry `readsPerDay`.
+
+---
 ## RL-1 Resource Locator private notes: review the borrowed secured zone (2026-10-13) — open
 
 Private notes in the Resource Locator are My Profile journal entries. Egeria's
