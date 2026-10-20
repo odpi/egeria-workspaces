@@ -5,7 +5,7 @@ The `coco-data-hub` is a collection of data stores that hold the key data needed
 This directory tells the story in the order it happens.  Erin Overview and Peter Profile lay out the solution components that implement the [strategic information supply chains](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/defining-information-supply-chains/overview/).  
 To map those components to real systems they need an inventory, and the only one the company has is Gary Geeke's spreadsheet — so Gary [loads it into Egeria](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/cataloguing-infrastructure/overview/).  The mapping finds gaps; Gary asks the two newly acquired sites for their systems data to see how widespread the problem is, and gets a pleasant surprise.
 
-With the flows, the components, and the systems in one place, Erin sets the standard for naming data fields, the data the supply chains carry is offered as digital products described to that standard, and the Data Sharing Hub that will serve them can be scoped and built.
+With the flows, the components, and the systems in one place, Erin sets the standard for naming data fields, Gary and Peter catalogue the data each system holds, the data the supply chains carry is offered as digital products described to that standard, and the Data Sharing Hub that will serve them can be scoped and built.
 
 | | Step | Content |
 |---|---|---|
@@ -15,11 +15,12 @@ With the flows, the components, and the systems in one place, Erin sets the stan
 | 4 | Load the acquisitions' systems | [extending-the-systems-inventory/](extending-the-systems-inventory/README.md) |
 | 5 | Link components to systems, report the gaps, attach the chains to the lineage | [mapping-the-systems/](mapping-the-systems/README.md) |
 | 6 | Set standards for data field names | [data-field-naming/](data-field-naming/README.md) |
-| 7 | Publish the data the supply chains carry as digital products | [strategic-digital-products/](strategic-digital-products/README.md) |
-| 8 | Design the Data Sharing Hub | [solution-design.md](solution-design.md) |
-| 9 | Govern how it is built | [software-development-governance-program.md](software-development-governance-program.md) |
-| 10 | Set up the data sharing hub | [setting-up-the-data-hub.ipynb](setting-up-the-data-hub.ipynb) |
-| 11 | Subscribe the systems to the digital products | [digital-product-subscriptions.md](digital-product-subscriptions.md) |
+| 7 | Catalog the systems' database schemas, tables and columns | [creating-system-data-layer/](creating-system-data-layer/README.md) |
+| 8 | Publish the data the supply chains carry as digital products | [strategic-digital-products/](strategic-digital-products/README.md) |
+| 9 | Design the Data Sharing Hub | [solution-design.md](solution-design.md) |
+| 10 | Govern how it is built | [software-development-governance-program.md](software-development-governance-program.md) |
+| 11 | Set up the data sharing hub | [setting-up-the-data-hub.ipynb](setting-up-the-data-hub.ipynb) |
+| 12 | Subscribe the systems to the digital products | [digital-product-subscriptions.md](digital-product-subscriptions.md) |
 
 ----
 
@@ -53,9 +54,9 @@ Airflow reports what each DAG reads and writes as OpenLineage events.  For those
    lineage events on to Marquez.  Run it only once: each run adds another catalog target for the topic.  The
    listener starts reading at the end of the topic, so only events published after it is connected are catalogued.
 
-   Run it **after step 10**, `setting-up-the-data-hub.ipynb`, has catalogued the `coco_data_hub` database.  Egeria
+   Run it **after step 11**, `setting-up-the-data-hub.ipynb`, has catalogued the `coco_data_hub` database.  Egeria
    then matches the OpenLineage events about the product tables to the tables it has catalogued, which are what
-   the ongoing update subscriptions in step 11 monitor.  If the events arrive first, Egeria creates separate
+   the ongoing update subscriptions in step 12 monitor.  If the events arrive first, Egeria creates separate
    `DataSet` elements for the tables instead, and those subscriptions are not triggered.
 
 ----
@@ -136,6 +137,18 @@ files classify every term as a `PrimeWord`, `Modifier` or `ClassWord`
 
 There are around thirty files to process and the order matters, so follow the load order given in
 [data-field-naming/README.md](data-field-naming/README.md) rather than processing them ad hoc.
+
+----
+
+## Cataloguing the systems' data
+
+The digital products are filled from the systems' own data, so before they are published Gary Geeke and Peter Profile describe the data
+layer of every system that supplies or receives them.  Each of those systems keeps its data in its own PostgreSQL
+schema, in one database per estate - `coco_pharma`, `austin_systems` and `bucharest_systems`.  The notebook in
+[creating-system-data-layer/](creating-system-data-layer/README.md) has Gary give each system a `DatabaseManager` software
+capability (`SupportedSoftwareCapability`); Peter then creates a `DeployedDatabaseSchema` asset for its schema from the
+PostgreSQL schema template so that it has a working connection, links the two with `CapabilityAssetUse`, and makes
+the schema a catalog target of the `JDBCDatabaseCataloguer`, which catalogues its tables and columns.
 
 ----
 
