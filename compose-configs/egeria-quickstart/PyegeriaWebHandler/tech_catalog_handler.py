@@ -1400,9 +1400,11 @@ def _data_asset_query(type_name: str, q: str, as_of_time: Optional[str], include
 #   fresh    → return the cached list
 #   stale    → return the cached list with {"stale": true}, refresh in background
 #   refresh=true (the UI's Refresh button) → drop the entry, load again
+# TTL default 15 min (TECH_CATALOG_LIST_CACHE_SECONDS): these lists change
+# slowly, the UI shows the data's age, and Refresh forces a reload.
 # _get_data_assets_cached must stay sync (no await) so check-and-create-task is
 # atomic: exactly one fill Task per key.
-_DA_TTL = 120.0
+_DA_TTL = float(os.environ.get("TECH_CATALOG_LIST_CACHE_SECONDS", "900"))
 _da_cache: dict = {}        # key → {"items", "byType", "capped", "ts", "refreshing"}
 _da_tasks: dict = {}        # key → asyncio.Task
 _da_errors: dict = {}       # key → error text from a failed cold fill

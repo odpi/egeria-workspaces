@@ -1929,9 +1929,9 @@ function AssetDetail({ item, detailLoading, onNavigate, creds, sectionId }) {
 // sidebar is instead the type hierarchy under the tab's root type (live type
 // system via useTypeGraph/getSubs, like CapabilitiesView), counts rolled up;
 // under each type its own instances, with same-named instances collapsed into
-// one "name (n)" branch whose rows are labelled by folder. Very large report
-// types start collapsed so they don't bury everything else.
-var DATA_ASSET_COLLAPSED = { ConnectorActivityReport: true, SurveyReport: true };
+// one "name (n)" branch whose rows are labelled by folder. Everything below
+// the root starts collapsed (counts show what is where); filtering opens every
+// branch that has a match.
 var _UUID_SEG_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // A readable name even when displayName is blank: the first meaningful
@@ -2034,7 +2034,7 @@ function DataAssetTree({ items, rootType, creds, selected, onSelect, filtering }
   }
   function renderType(node, depth) {
     var key = 't:' + node.name;
-    var dflt = filtering || !DATA_ASSET_COLLAPSED[node.name];
+    var dflt = filtering || depth === 0;
     var open = isOpen(key, dflt);
     var out = [header(key, depth, open, node.name, node.count, function() { toggle(key, dflt); }, true)];
     if (open) {
@@ -2048,6 +2048,12 @@ function DataAssetTree({ items, rootType, creds, selected, onSelect, filtering }
 
 // Action subtypes from the live type system, for the paged Actions list's
 // server-side type filter (the loaded page can't show which types exist).
+// "just now" / "4 min ago" for the cached tree lists' status line.
+function _agoText(ts) {
+  var m = Math.floor((Date.now() - ts) / 60000);
+  return m < 1 ? 'just now' : m + ' min ago';
+}
+
 function ActionTypeSelect({ creds, value, onChange }) {
   var entities = useTypeGraph(creds);
   var names = entities && entities['Action'] ? getAllSubs('Action', entities).slice().sort() : [];
@@ -2088,6 +2094,7 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
   // Tree lists come from a per-user server cache: {loading:true} on a cold
   // cache → poll; {stale:true} → shown while the server refreshes it.
   var _stale = useState(false), stale = _stale[0], setStale = _stale[1];
+  var _loadedAt = useState(null), loadedAt = _loadedAt[0], setLoadedAt = _loadedAt[1]; // when the server's cached copy was read from Egeria
   var _pollTick = useState(0), pollTick = _pollTick[0], setPollTick = _pollTick[1];
   var _pollingRef = useRef(false), _refreshNextRef = useRef(false);
   // Paged lists (Actions: thousands, newest first): one page at a time; the
@@ -2130,7 +2137,7 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
           timer = setTimeout(function() { _pollingRef.current = true; setPollTick(function(n) { return n + 1; }); }, 1500);
           return;
         }
-        setItems(Array.isArray(d) ? d : (d.items || [])); setCapped(!!(d && d.capped)); setStale(!!(d && d.stale));
+        setItems(Array.isArray(d) ? d : (d.items || [])); setCapped(!!(d && d.capped)); setStale(!!(d && d.stale)); setLoadedAt(d && d.ageSeconds != null ? Date.now() - d.ageSeconds * 1000 : null);
         setHasMore(!!(d && d.hasMore)); setNextStart((d && d.nextStart) || 0);
         setLoading(false);
       })
@@ -2244,7 +2251,7 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
       style: { fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none' } }),
     React.createElement('button', {
       className: 'btn-sm', style: { alignSelf: 'flex-start' },
-      title: treeRoot ? 'Reload the full list from Egeria (it is otherwise kept for up to 2 minutes)' : undefined,
+      title: treeRoot ? 'Reload the full list from Egeria now (it is otherwise kept for up to 15 minutes)' : undefined,
       onClick: function() { if (treeRoot) _refreshNextRef.current = true; setAttempt(function(a) { return a + 1; }); }
     }, '↻ Refresh'),
     paged && React.createElement(ActionTypeSelect, { creds: creds, value: typeFilter, onChange: setTypeFilter }),
@@ -2268,7 +2275,8 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
         ? (filtered.length !== items.length ? filtered.length + ' of ' : '') + items.length + (hasMore ? '+' : '') + ' ' +
           (serverQ || typeFilter !== 'all' ? 'matching' : 'loaded') + (hasMore ? ', newest first — more below' : ' (all)')
         : (filtered.length === items.length ? items.length : filtered.length + ' of ' + items.length) + ' loaded' +
-          (capped ? ' — capped: there are more' : '') + (stale ? ' · refreshing…' : '')),
+          (capped ? ' — capped: there are more' : '') +
+          (stale ? ' · refreshing…' : loadedAt ? ' · updated ' + _agoText(loadedAt) : '')),
     !treeRoot && !paged && types.length > 1 && React.createElement('select', { value: typeFilter, onChange: function(e) { setTypeFilter(e.target.value); },
       style: { fontSize: 11, padding: '3px 6px', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 4 } },
       [React.createElement('option', { key: 'all', value: 'all' }, 'All types')].concat(
@@ -2297,7 +2305,7 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
   return React.createElement(SidebarDetail, {
     items: filtered, loading: loading, error: error, selected: selected, onSelect: handleSelect,
     filterBar: filterBar,
-    loadingText: treeRoot ? 'Loading the full list… The first load can take a few seconds; after that it is kept for 2 minutes.' : null,
+    loadingText: treeRoot ? 'Loading the full list… The first load can take a few seconds; after that it is kept for up to 15 minutes — use Refresh to reload it sooner.' : null,
     listFooter: paged && hasMore ? React.createElement('div', { style: { padding: '10px 14px' } },
       React.createElement('button', { className: 'btn-sm', disabled: loadingMore, onClick: loadMore },
         loadingMore ? 'Loading…' : 'Load 200 more')) : null,
