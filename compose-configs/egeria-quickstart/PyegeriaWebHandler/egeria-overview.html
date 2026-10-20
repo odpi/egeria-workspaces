@@ -12,7 +12,7 @@
 <style>
   :root {
     --bg:#1a1a2e; --card:#16213e; --card2:#12203c; --border:#0f3460;
-    --accent:#e94560; --text:#e0e0e0; --muted:#8b93a7; --green:#4caf50;
+    --accent:#e94560; --text:#e0e0e0; --muted:#a3abc0; --green:#4caf50;
     /* data palette (dark-navy safe, categorical) */
     --c1:#2dd4bf; --c2:#4f9cf9; --c3:#a78bfa; --c4:#f5b74e; --c5:#e94560; --c6:#6ee7b7; --c7:#f472b6;
     --grid:rgba(255,255,255,.06); --axis:#5b6376;
@@ -727,7 +727,7 @@
 
 <!-- Shared portal helpers: egeriaFetch (adds creds + auto 401-refresh), crossAppNavigate -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
-<script src="/static/egeria-shared-ui.js?v=2026-10-05a"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-10-20a"></script>
 <!-- Vega-Lite chart rendering (NEXT-10 P1) — same CDN trio pyegeria's own
      vega_to_html() assumes. Backend sends ready Vega-Lite specs; renderVega()
      below just embeds them. -->
@@ -827,8 +827,8 @@ renderDonut(0, 0, 0);   // empty ring until live data arrives
 var VEGA_DARK_CONFIG = {
   background: 'transparent',
   title:  { color: '#e0e0e0' },
-  axis:   { labelColor: '#8b93a7', titleColor: '#8b93a7', gridColor: 'rgba(255,255,255,.08)', domainColor: 'rgba(255,255,255,.2)', tickColor: 'rgba(255,255,255,.2)' },
-  legend: { labelColor: '#8b93a7', titleColor: '#8b93a7' },
+  axis:   { labelColor: '#a3abc0', titleColor: '#a3abc0', gridColor: 'rgba(255,255,255,.08)', domainColor: 'rgba(255,255,255,.2)', tickColor: 'rgba(255,255,255,.2)' },
+  legend: { labelColor: '#a3abc0', titleColor: '#a3abc0' },
   view:   { stroke: 'transparent' },
 };
 var VEGA_LIGHT_CONFIG = {

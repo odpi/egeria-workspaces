@@ -27,8 +27,8 @@
       --border:   #1a2d48;
       --md-code-bg: rgba(255,255,255,.08);
       --text:     #c8d4e8;
-      --muted:    #7a96b0;
-      --dim:      #4a6278;
+      --muted:    #a3abc0;
+      --dim:      #7088a2;
       --accent:   #60a5fa;
       --abstract: #c4b5fd;
       --classif:  #5eead4;
@@ -134,7 +134,7 @@
     /* ── Light theme ─────────────────────────────────────────────── */
     :root.light {
       --bg: #f8fafc; --panel: #ffffff; --card: #f1f5f9; --hover: #e2e8f0;
-      --border: #cbd5e1; --text: #1e293b; --muted: #475569; --dim: #64748b;
+      --border: #cbd5e1; --text: #1e293b; --muted: #475569; --dim: #5b6b80;
       --accent: #2563eb; --abstract: #7c3aed; --classif: #0d9488; --rel: #d97706; --base: #475569;
       --md-code-bg: rgba(0,0,0,.06);
     }
@@ -591,7 +591,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   <!-- Bump ?v= whenever egeria-shared-ui.js changes — see tech-catalog.html for why. -->
   <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
   <script>window.EGERIA_FOR_LINEAGE = true; window.EGERIA_FOR_LINEAGE_VISIBLE = false;  /* shown per-section by App */</script>
-  <script src="/static/egeria-shared-ui.js?v=2026-10-05a"></script>
+  <script src="/static/egeria-shared-ui.js?v=2026-10-20a"></script>
   <script>"use strict";
 
 const {
@@ -1077,13 +1077,30 @@ function TypeDetail({
 }) {
   const [tab, setTab] = useState('props');
   const [showInherited, setShowInherited] = useState(true);
+  // Filter/sort for the Properties table (click headers) and the Relationships
+  // card list (sort <select>) — both clear the filter when the type changes.
+  const propLc = useListControls(null, name);
+  const [propSort, setPropSort] = useState({ col: null, dir: 'asc' });
+  const relLc = useListControls('name', name);
   var _typePersonaId = React.useContext(PersonaContext);
   const t = entities[name];
   if (!t) return null;
   const chain = getChain(name, entities);
   const allProps = getAllProps(name, entities);
-  const shown = showInherited ? allProps : allProps.filter(p => p.source === name);
+  const ownOrAll = showInherited ? allProps : allProps.filter(p => p.source === name);
+  const shown = applySort(ownOrAll.filter(p => listMatches(propLc.query, [p.name, p.type, p.source, p.desc])), propSort, ['name', 'type', 'source', 'desc']);
   const rels = getRels(name, entities, relationships);
+  // Which type in the inheritance chain the relationship attaches through —
+  // getRels sets role to the end that is in the chain. Chain is root-first,
+  // so a higher index is nearer to this type.
+  const relVia = r => r.role === 'end1' ? r.end1 : r.end2;
+  const REL_SORTS = {
+    name: r => r.name,
+    other: r => r.other,
+    nearest: r => -chain.indexOf(relVia(r)),
+    role: r => r.role
+  };
+  const shownRels = listSortBy(rels.filter(r => listMatches(relLc.query, [r.name, r.other, relVia(r), r.desc, (r.props || []).map(p => p.name)])), REL_SORTS[relLc.sortKey]);
   const subs = getSubs(name, entities);
   const kind = typeKind(name, entities);
   const nameCol = kind === 'abstract' ? '#c4b5fd' : kind === 'base' ? '#94a3b8' : '#93c5fd';
@@ -1178,19 +1195,13 @@ function TypeDetail({
     key: k,
     className: `tab${tab === k ? ' on' : ''}`,
     onClick: () => setTab(k)
-  }, label))), tab === 'props' && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'flex',
-      gap: 12,
-      alignItems: 'center',
-      marginBottom: 12
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 12,
-      color: 'var(--muted)'
-    }
-  }, shown.length, " properties"), /*#__PURE__*/React.createElement("label", {
+  }, label, k === 'rels' ? ` (${rels.length})` : k === 'props' ? ` (${ownOrAll.length})` : ''))), tab === 'props' && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(ListControls, {
+    lc: propLc,
+    shown: shown.length,
+    total: ownOrAll.length,
+    noun: 'properties',
+    placeholder: 'Filter properties (name, type, source, description)…'
+  }, /*#__PURE__*/React.createElement("label", {
     style: {
       display: 'flex',
       alignItems: 'center',
@@ -1211,9 +1222,7 @@ function TypeDetail({
       color: 'var(--dim)',
       fontStyle: 'italic'
     }
-  }, "No properties defined.") : /*#__PURE__*/React.createElement("table", null, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, ['Property', 'Type', 'Source', 'Description'].map(h => /*#__PURE__*/React.createElement("th", {
-    key: h
-  }, h)))), /*#__PURE__*/React.createElement("tbody", null, shown.map((p, i) => {
+  }, ownOrAll.length === 0 ? "No properties defined." : "No properties match the filter.") : /*#__PURE__*/React.createElement("table", null, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, ['Property', 'Type', 'Source', 'Description'].map((h, i) => thSortable(propSort, setPropSort, i, h)))), /*#__PURE__*/React.createElement("tbody", null, shown.map((p, i) => {
     var _entities$p$source;
     const isOwn = p.source === name;
     return /*#__PURE__*/React.createElement("tr", {
@@ -1255,15 +1264,23 @@ function TypeDetail({
         lineHeight: 1.4
       }
     }, p.desc));
-  })))), tab === 'rels' && /*#__PURE__*/React.createElement("div", null, rels.length === 0 ? /*#__PURE__*/React.createElement("p", {
+  })))), tab === 'rels' && /*#__PURE__*/React.createElement("div", null, rels.length > 0 && /*#__PURE__*/React.createElement(ListControls, {
+    lc: relLc,
+    shown: shownRels.length,
+    total: rels.length,
+    noun: 'relationships',
+    placeholder: 'Filter (relationship, other type, description, attribute)…',
+    sortOptions: [['name', 'Relationship A–Z'], ['other', 'Other end type'], ['nearest', 'Nearest ancestor first'], ['role', 'Direction']]
+  }), shownRels.length === 0 ? /*#__PURE__*/React.createElement("p", {
     style: {
       color: 'var(--dim)',
       fontStyle: 'italic'
     }
-  }, "No relationships found.") : rels.map((r, i) => {
+  }, rels.length === 0 ? "No relationships found." : "No relationships match the filter.") : shownRels.map((r, i) => {
     var _entities$r$other;
+    const via = relVia(r);
     return /*#__PURE__*/React.createElement("div", {
-      key: i,
+      key: r.name + '|' + r.role,
       className: "rel-card"
     }, /*#__PURE__*/React.createElement("div", {
       style: {
@@ -1301,7 +1318,25 @@ function TypeDetail({
         fontSize: 12,
         color: (_entities$r$other = entities[r.other]) !== null && _entities$r$other !== void 0 && _entities$r$other.abstract ? '#c4b5fd' : '#93c5fd'
       }
-    }, r.other)), /*#__PURE__*/React.createElement("p", {
+    }, r.other), via !== name && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        color: 'var(--dim)',
+        marginLeft: 'auto'
+      },
+      title: `Inherited — this relationship attaches to ${via}`
+    }, "via ", /*#__PURE__*/React.createElement("button", {
+      onClick: () => onSelect('type', via),
+      style: {
+        background: 'none',
+        border: 'none',
+        padding: 0,
+        cursor: 'pointer',
+        fontFamily: 'ui-monospace,monospace',
+        fontSize: 11,
+        color: 'var(--muted)'
+      }
+    }, via))), /*#__PURE__*/React.createElement("p", {
       style: {
         fontSize: 12,
         color: 'var(--muted)',
@@ -7405,10 +7440,28 @@ function RelatedElementRow({ item, onNavigateToElement }) {
 // applied consistently here since this one component backs every detail
 // panel's relationship groups across the whole app (~30 call sites via
 // direct use + GenericRelationshipsSection below).
+// Groups longer than REL_SECTION_FILTER_MIN get a filter box + sort select
+// (shared ListControls); shorter ones render as before, uncluttered.
+var REL_SECTION_FILTER_MIN = 8;
+var REL_SECTION_SORTS = {
+  name: function(it) { return it.displayName || it.qualifiedName || ''; },
+  type: function(it) { return it.typeName || ''; },
+  rel:  function(it) { return it.relationshipType || ''; },
+};
 function RelationshipSection({ title, items, onNavigateToElement }) {
+  var lc = useListControls('name');
   if (!items || !items.length) return null;
+  var withControls = items.length > REL_SECTION_FILTER_MIN;
+  var sorted = listSortBy(items.filter(function(it) {
+    return listMatches(lc.query, [it.displayName, it.qualifiedName, it.description, it.typeName, it.relationshipType]);
+  }), REL_SECTION_SORTS[lc.sortKey]);
   return React.createElement(Collapsible, { title: title, count: items.length, defaultOpen: true },
-    items.map(function(item) {
+    withControls && React.createElement(ListControls, {
+      lc: lc, shown: sorted.length, total: items.length, placeholder: 'Filter ' + String(title).toLowerCase() + '…',
+      sortOptions: [['name', 'Name'], ['type', 'Element type'], ['rel', 'Relationship type']],
+    }),
+    sorted.length === 0 && React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', fontStyle: 'italic', padding: '4px 0' } }, 'No entries match the filter.'),
+    sorted.map(function(item) {
       return React.createElement(RelatedElementRow, { key: item.guid, item: item, onNavigateToElement: onNavigateToElement });
     })
   );

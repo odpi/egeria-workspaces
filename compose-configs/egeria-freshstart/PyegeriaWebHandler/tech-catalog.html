@@ -24,8 +24,8 @@
       --border:   #1a2d48;
       --md-code-bg: rgba(255,255,255,.08);
       --text:     #c8d4e8;
-      --muted:    #7a96b0;
-      --dim:      #4a6278;
+      --muted:    #a3abc0;
+      --dim:      #7088a2;
       --accent:   #60a5fa;
       --abstract: #c4b5fd;
       --classif:  #5eead4;
@@ -131,7 +131,7 @@
     /* ── Light theme ─────────────────────────────────────────────── */
     :root.light {
       --bg: #f8fafc; --panel: #ffffff; --card: #f1f5f9; --hover: #e2e8f0;
-      --border: #cbd5e1; --text: #1e293b; --muted: #475569; --dim: #64748b;
+      --border: #cbd5e1; --text: #1e293b; --muted: #475569; --dim: #5b6b80;
       --accent: #2563eb; --abstract: #7c3aed; --classif: #0d9488; --rel: #d97706; --base: #475569;
       --md-code-bg: rgba(0,0,0,.06);
     }
@@ -587,7 +587,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
      URL guarantees a fresh fetch regardless of prior cache state. -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
 <script>window.EGERIA_FOR_LINEAGE = true; window.EGERIA_FOR_LINEAGE_VISIBLE = false;  /* shown per-section by App */</script>
-<script src="/static/egeria-shared-ui.js?v=2026-10-05a"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-10-20a"></script>
 <script>
 'use strict';
 // React hook aliases (mirror type-explorer.html)
@@ -1710,6 +1710,58 @@ function _resolveTypeToNav(typeName, superTypeNames) {
   return _navFromEntry((typeof resolveTypeNav === 'function') ? resolveTypeNav(typeName, superTypeNames) : null);
 }
 
+// Asset Relationships list — own component so its filter/sort state (shared
+// ListControls) doesn't add hooks to AssetDetail, which returns early.
+var ASSET_REL_SORTS = {
+  rel:  function(r) { return r.relationshipType || ''; },
+  name: function(r) { var el = r.relatedElement || {}; return el.displayName || el.guid || ''; },
+  type: function(r) { return (r.relatedElement || {}).typeName || ''; },
+};
+function AssetRelationships({ rels, cardStyle, onNavigate }) {
+  var lc = useListControls('rel');
+  var shown = listSortBy(rels.filter(function(r) {
+    var el = r.relatedElement || {};
+    return listMatches(lc.query, [r.relationshipType, el.displayName, el.typeName, el.description]);
+  }), ASSET_REL_SORTS[lc.sortKey]);
+  return React.createElement(Collapsible, { title: 'Relationships', count: rels.length, defaultOpen: true },
+    rels.length > 5 && React.createElement(ListControls, {
+      lc: lc, shown: shown.length, total: rels.length, noun: 'relationships',
+      placeholder: 'Filter (relationship, element, type, description)…',
+      sortOptions: [['rel', 'Relationship type'], ['name', 'Related element'], ['type', 'Element type']],
+    }),
+    shown.length === 0 && React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', fontStyle: 'italic', padding: '4px 0' } }, 'No relationships match the filter.'),
+    shown.map(function(r, i) {
+        var el = r.relatedElement || {};
+        var relProps = Object.entries(r.relationshipProperties || {});
+        // Resolve nav target: try exact typeName first, then walk superTypes
+        var nav = el.guid ? _resolveTypeToNav(el.typeName, el.superTypes) : null;
+        return React.createElement('div', { key: i, style: Object.assign({}, cardStyle, { borderLeft: '3px solid var(--rel)' }) },
+          React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: relProps.length ? 4 : 0 } },
+            React.createElement('span', { style: { fontSize: 10, fontWeight: 700, color: 'var(--rel)', letterSpacing: '0.05em' } }, r.relationshipType),
+            React.createElement('span', { style: { fontSize: 12, color: 'var(--text)', flex: 1 } }, el.displayName || el.guid || ''),
+            el.typeName && React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)' } }, '· ' + el.typeName),
+            nav && onNavigate && React.createElement('button', {
+              onClick: function() { onNavigate(Object.assign({ guid: el.guid, displayName: el.displayName || el.guid }, nav)); },
+              style: { fontSize: 10, padding: '2px 7px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer', flexShrink: 0 }
+            }, nav.external ? '↗ Egeria Explorer' : 'View →')
+          ),
+          el.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', marginBottom: relProps.length ? 4 : 0 } }, el.description),
+          relProps.filter(function(e) { return typeof e[1] !== 'object' || e[1] === null; }).map(function(e) {
+            return React.createElement('div', { key: 'rel-' + e[0], style: { fontSize: 11, color: 'var(--muted)' } },
+              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
+          }),
+          // Related element's own scalar properties — fills in useful detail (e.g. an
+          // Annotation's summary/annotationType/confidence) beyond just guid/typeName,
+          // especially for related types that have no displayName of their own.
+          Object.entries(el.properties || {}).slice(0, 8).map(function(e) {
+            return React.createElement('div', { key: 'prop-' + e[0], style: { fontSize: 11, color: 'var(--muted)' } },
+              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
+          })
+        );
+    })
+  );
+}
+
 // ── Generic detail panel ──────────────────────────────────────────────────────
 function AssetDetail({ item, detailLoading, onNavigate, creds, sectionId }) {
   var _assetPersonaId = React.useContext(PersonaContext);
@@ -1790,37 +1842,7 @@ function AssetDetail({ item, detailLoading, onNavigate, creds, sectionId }) {
     // Relationships — foldable (shared Collapsible), same affordance as the
     // Schema/Lineage/Annotations sub-panes above and RelationshipSection in
     // type-explorer.html.
-    rels.length > 0 && React.createElement(Collapsible, { title: 'Relationships', count: rels.length, defaultOpen: true },
-      rels.map(function(r, i) {
-        var el = r.relatedElement || {};
-        var relProps = Object.entries(r.relationshipProperties || {});
-        // Resolve nav target: try exact typeName first, then walk superTypes
-        var nav = el.guid ? _resolveTypeToNav(el.typeName, el.superTypes) : null;
-        return React.createElement('div', { key: i, style: Object.assign({}, cardStyle, { borderLeft: '3px solid var(--rel)' }) },
-          React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: relProps.length ? 4 : 0 } },
-            React.createElement('span', { style: { fontSize: 10, fontWeight: 700, color: 'var(--rel)', letterSpacing: '0.05em' } }, r.relationshipType),
-            React.createElement('span', { style: { fontSize: 12, color: 'var(--text)', flex: 1 } }, el.displayName || el.guid || ''),
-            el.typeName && React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)' } }, '· ' + el.typeName),
-            nav && onNavigate && React.createElement('button', {
-              onClick: function() { onNavigate(Object.assign({ guid: el.guid, displayName: el.displayName || el.guid }, nav)); },
-              style: { fontSize: 10, padding: '2px 7px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer', flexShrink: 0 }
-            }, nav.external ? '↗ Egeria Explorer' : 'View →')
-          ),
-          el.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', marginBottom: relProps.length ? 4 : 0 } }, el.description),
-          relProps.filter(function(e) { return typeof e[1] !== 'object' || e[1] === null; }).map(function(e) {
-            return React.createElement('div', { key: 'rel-' + e[0], style: { fontSize: 11, color: 'var(--muted)' } },
-              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
-          }),
-          // Related element's own scalar properties — fills in useful detail (e.g. an
-          // Annotation's summary/annotationType/confidence) beyond just guid/typeName,
-          // especially for related types that have no displayName of their own.
-          Object.entries(el.properties || {}).slice(0, 8).map(function(e) {
-            return React.createElement('div', { key: 'prop-' + e[0], style: { fontSize: 11, color: 'var(--muted)' } },
-              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
-          })
-        );
-      })
-    ),
+    rels.length > 0 && React.createElement(AssetRelationships, { rels: rels, cardStyle: cardStyle, onNavigate: onNavigate }),
 
     // Comments
     React.createElement(EgeriaCommentsSection, { guid: item.guid }),

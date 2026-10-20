@@ -17,16 +17,17 @@
   <script src="/static/bootstrap-banner.js?v=2026-08-18a"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    /* --dim is the dimmest text colour: keep it at or above 4.5:1 (WCAG AA) on --bg, --panel and --card in both themes. */
     :root {
       --bg: #080c14; --panel: #0b111c; --card: #0f1828; --hover: #131e30; --border: #1a2d48;
-      --text: #c8d4e8; --muted: #7a96b0; --dim: #4a6278; --accent: #60a5fa;
+      --text: #c8d4e8; --muted: #a3abc0; --dim: #7088a2; --accent: #60a5fa;
       --abstract: #c4b5fd; --classif: #5eead4; --rel: #fbbf24; --base: #64748b;
       --md-code-bg: rgba(255,255,255,.08);
       --hub: #34d399; --product: #a78bfa; --known: #7a96b0; --warn: #fbbf24; --bad: #f87171;
     }
     :root.light {
       --bg: #f8fafc; --panel: #ffffff; --card: #f1f5f9; --hover: #e2e8f0; --border: #cbd5e1;
-      --text: #1e293b; --muted: #475569; --dim: #64748b; --accent: #2563eb;
+      --text: #1e293b; --muted: #475569; --dim: #5b6b80; --accent: #2563eb;
       --abstract: #7c3aed; --classif: #0d9488; --rel: #d97706; --base: #475569;
       --md-code-bg: rgba(0,0,0,.06);
       --hub: #059669; --product: #7c3aed; --known: #475569; --warn: #b45309; --bad: #dc2626;
@@ -457,7 +458,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 </script>
 <!-- Bump ?v= whenever egeria-shared-ui.js changes. -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
-<script src="/static/egeria-shared-ui.js?v=2026-10-12a"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-10-20a"></script>
 
 <script>
 'use strict';
@@ -509,10 +510,26 @@ function ResourceLink({ item }) {
     item.displayName || item.guid);
 }
 
+// Contains a render error to the card/tile/page it happened in. Without it,
+// one response shape a component doesn't expect unmounts the whole React
+// tree and the page goes blank with nothing on screen to say why.
+function Boundary(props) { React.Component.call(this, props); this.state = { err: null }; }
+Boundary.prototype = Object.create(React.Component.prototype);
+Boundary.prototype.constructor = Boundary;
+Boundary.getDerivedStateFromError = function(err) { return { err: err }; };
+Boundary.prototype.componentDidCatch = function(err) { console.error('[resource-locator] ' + (this.props.what || 'section') + ' failed to render', err); };
+Boundary.prototype.render = function() {
+  if (!this.state.err) return this.props.children;
+  var msg = el('div', { className: 'rb-err' },
+    'This ' + (this.props.what || 'section') + ' could not be shown: the server sent something it did not expect.',
+    el('div', { className: 'rb-note', style: { marginTop: 4 } }, String(this.state.err.message || this.state.err)));
+  return this.props.what === 'page' ? el('div', { className: 'rb-page' }, el('div', { className: 'rb-card' }, msg)) : msg;
+};
+
 function Card({ title, source, children }) {
   return el('section', { className: 'rb-card' },
     el('h3', null, title, source && el('span', { className: 'rb-src' }, source)),
-    children);
+    el(Boundary, null, children));
 }
 
 // ── Flavour (spec §3) ────────────────────────────────────────────────────────
@@ -1504,7 +1521,7 @@ function SearchPage({ q, kind, creds }) {
 function Tile({ title, children, note }) {
   return el('section', { className: 'rb-card' },
     el('h3', null, title, note && el('span', { className: 'rb-src' }, note)),
-    children);
+    el(Boundary, null, children));
 }
 
 function CompactRow({ row, idx }) {
@@ -1833,7 +1850,10 @@ function HomePage({ creds, personaId }) {
   var _p = useState(true), peopleOnly = _p[0], setPeopleOnly = _p[1];
   useEffect(function() {
     document.title = 'Resource Locator';
-    getJson(API + '/home', creds).then(setHome).catch(function(e) { setErr(e.message); });
+    getJson(API + '/home', creds).then(function(h) {
+      if (!h || !Array.isArray(h.recent) || !Array.isArray(h.recentPeople)) throw new Error('the server sent an unexpected response');
+      setHome(h);
+    }).catch(function(e) { setErr(e.message); });
   }, [creds && creds.token]);
   var recent = home ? (peopleOnly ? home.recentPeople : home.recent) : [];
   return el('div', { className: 'rb-page' },
@@ -1843,7 +1863,7 @@ function HomePage({ creds, personaId }) {
     el('div', { className: 'rb-grid' },
       el('div', null,
         el(Tile, { title: 'Popular', note: 'by use' },
-          el('div', { className: 'rb-absent' }, home ? home.popular.reason : 'Popularity is not available yet.'),
+          el('div', { className: 'rb-absent' }, (home && home.popular && home.popular.reason) || 'Popularity is not available yet.'),
           el('div', { className: 'rb-note', style: { marginTop: 4 } }, 'Nothing is ranked by use until Egeria records it. Recently changed is below instead.')),
         el(Tile, { title: 'Recently changed', note: 'newest first' },
           el('div', { className: 'rb-row', style: { gap: 6, marginBottom: 8 } },
@@ -1855,11 +1875,11 @@ function HomePage({ creds, personaId }) {
               peopleOnly ? 'No person changed a resource among the most recently updated ones. Choose “Including automation” to see what catalog connectors and engines changed.'
                          : 'No resources have been changed.')
           : el('ul', { className: 'rb-list', style: { gap: 7 } }, recent.map(function(r) { return el(CompactRow, { key: r.guid, row: r, idx: idx }); })),
-          home && el('div', { className: 'rb-note', style: { marginTop: 8 } },
+          home && home.recentWindow && el('div', { className: 'rb-note', style: { marginTop: 8 } },
             'From the ' + home.recentWindow.perType + ' most recently updated of each resource type. As of ' + fmtDate(home.asOf) + '.'))),
       el('div', null,
-        el(FavouritesTile, { personaId: personaId }),
-        el(ListsTile, { creds: creds }),
+        el(Boundary, { what: 'Favourites tile' }, el(FavouritesTile, { personaId: personaId })),
+        el(Boundary, { what: 'Work lists tile' }, el(ListsTile, { creds: creds })),
         el(Tile, { title: 'Browse' },
           el('div', { className: 'rb-row', style: { gap: 6 } }, FACETS.map(function(f) {
             return el('button', { key: f.id, className: 'rb-facet', onClick: function() { navigate({ browse: f.id }); } }, f.label);
@@ -1994,7 +2014,8 @@ function App() {
           identity: identity }),
         ready && el(NavBar, { route: route }),
         el(FeedbackButton, { section: route.page, persona: who ? who.sub : null, demoMode: !srvManaged, srvManaged: srvManaged, pagePrefix: 'resource-browser/' }),
-        el('div', { className: 'rb-scroll' }, content))));
+        el('div', { className: 'rb-scroll' },
+          el(Boundary, { key: JSON.stringify(route), what: 'page' }, content)))));
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(el(App));

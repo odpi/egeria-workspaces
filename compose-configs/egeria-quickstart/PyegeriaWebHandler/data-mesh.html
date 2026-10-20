@@ -23,8 +23,8 @@
       --border:   #1a2d48;
       --md-code-bg: rgba(255,255,255,.08);
       --text:     #c8d4e8;
-      --muted:    #7a96b0;
-      --dim:      #4a6278;
+      --muted:    #a3abc0;
+      --dim:      #7088a2;
       --accent:   #60a5fa;
       --abstract: #c4b5fd;
       --classif:  #5eead4;
@@ -96,7 +96,7 @@
     /* ── Light theme ─────────────────────────────────────────────── */
     :root.light {
       --bg: #f8fafc; --panel: #ffffff; --card: #f1f5f9; --hover: #e2e8f0;
-      --border: #cbd5e1; --text: #1e293b; --muted: #475569; --dim: #64748b;
+      --border: #cbd5e1; --text: #1e293b; --muted: #475569; --dim: #5b6b80;
       --accent: #2563eb; --abstract: #7c3aed; --classif: #0d9488; --rel: #d97706; --base: #475569;
       --md-code-bg: rgba(0,0,0,.06);
     }
@@ -437,7 +437,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
 <script>window.EGERIA_FOR_LINEAGE = true;</script>
-<script src="/static/egeria-shared-ui.js?v=2026-10-05a"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-10-20a"></script>
 <script>
 'use strict';
 // React hook aliases (mirror tech-catalog.html / type-explorer.html)
@@ -473,12 +473,26 @@ function RelatedElementRow({ item, onNavigateToElement }) {
     }, "View →")
   );
 }
+// Same filter/sort behaviour as type-explorer.html's RelationshipSection.
+var REL_SECTION_FILTER_MIN = 8;
+var REL_SECTION_SORTS = {
+  name: function(it) { return it.displayName || it.qualifiedName || ''; },
+  type: function(it) { return it.typeName || ''; },
+  rel:  function(it) { return it.relationshipType || ''; },
+};
 function RelationshipSection({ title, items, onNavigateToElement }) {
+  var lc = useListControls('name');
   if (!items || !items.length) return null;
-  var sorted = items.slice().sort(function(a, b) {
-    return (a.displayName || a.qualifiedName || '').localeCompare(b.displayName || b.qualifiedName || '');
-  });
+  var withControls = items.length > REL_SECTION_FILTER_MIN;
+  var sorted = listSortBy(items.filter(function(it) {
+    return listMatches(lc.query, [it.displayName, it.qualifiedName, it.description, it.typeName, it.relationshipType]);
+  }), REL_SECTION_SORTS[lc.sortKey]);
   return React.createElement(Collapsible, { title: title, count: items.length, defaultOpen: true },
+    withControls && React.createElement(ListControls, {
+      lc: lc, shown: sorted.length, total: items.length, placeholder: 'Filter ' + String(title).toLowerCase() + '…',
+      sortOptions: [['name', 'Name'], ['type', 'Element type'], ['rel', 'Relationship type']],
+    }),
+    sorted.length === 0 && React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', fontStyle: 'italic', padding: '4px 0' } }, 'No entries match the filter.'),
     sorted.map(function(item) {
       return React.createElement(RelatedElementRow, { key: item.guid, item: item, onNavigateToElement: onNavigateToElement });
     })
@@ -717,6 +731,10 @@ function App() {
   var _activePersona = useState(function() {
     try { var s = localStorage.getItem('egeria-persona'); return s ? JSON.parse(s) : null; } catch(e) { return null; }
   }), activePersona = _activePersona[0], setActivePersona = _activePersona[1];
+  // Why there are no creds once `ready` — 'pending' while the persona sign-in
+  // is still in flight, otherwise a reason the page renders instead of an
+  // empty body ('no-persona' | 'no-egeria' | 'signed-out').
+  var _credIssue = useState('pending'), credIssue = _credIssue[0], setCredIssue = _credIssue[1];
 
   useEffect(function() {
     fetch('/api/auth/me').then(function(r) { return r.json(); }).then(function(d) {
@@ -727,6 +745,8 @@ function App() {
         if (d.authenticated && d.id) {
           setAuthUser({ userId: d.id, displayName: d.display_name || d.id, role: d.role });
           setCreds({});
+        } else {
+          setCredIssue('signed-out');
         }
         setReady(true);
         return;
@@ -734,6 +754,7 @@ function App() {
 
       var storedPersona = loadOwnedPersona(d.id);
       setActivePersona(storedPersona);
+      if (!storedPersona || !storedPersona.id) setCredIssue('no-persona');
       if (storedPersona && storedPersona.id) {
         fetch('/api/demo/select-persona', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -748,11 +769,13 @@ function App() {
             }).catch(function() {
               setCreds({ server: 'qs-view-server', userId: sel.egeria_user });
             });
+          } else {
+            setCredIssue('no-egeria');
           }
-        }).catch(function() {});
+        }).catch(function() { setCredIssue('no-egeria'); });
       }
       setReady(true);
-    }).catch(function() { setReady(true); });
+    }).catch(function() { setCredIssue('no-egeria'); setReady(true); });
   }, []);
 
   useEffect(function() {
@@ -781,7 +804,7 @@ function App() {
     setMeshState('loading');
     egeriaFetch('/api/digital-products/mesh', creds)
       .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || r.status); }); })
-      .then(function(j) { setMesh(j); setMeshState('ready'); })
+      .then(function(j) { setMesh({ nodes: (j && j.nodes) || [], edges: (j && j.edges) || [] }); setMeshState('ready'); })
       .catch(function(e) { setMeshErr(e.message || String(e)); setMeshState('error'); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, creds]);
@@ -897,19 +920,38 @@ function App() {
         )
       ),
       React.createElement('div', { className: 'body' },
+        !creds && credIssue === 'pending' && React.createElement('div', { className: 'center', style: { flex: 1 } },
+          React.createElement('div', { className: 'spinner' }), React.createElement('span', null, 'Connecting…')
+        ),
+        !creds && credIssue === 'no-persona' && React.createElement('div', { className: 'center', style: { flex: 1 } },
+          React.createElement('span', null, 'No persona selected, so there is no one to read digital products as.'),
+          React.createElement('a', { href: '/portal' }, 'Choose one at the Portal →')
+        ),
+        !creds && credIssue === 'signed-out' && React.createElement('div', { className: 'center', style: { flex: 1 } },
+          React.createElement('span', null, 'Sign in to see the data mesh.'),
+          React.createElement('a', { href: '/portal' }, 'Go to the Portal →')
+        ),
+        !creds && credIssue === 'no-egeria' && React.createElement('div', { className: 'center', style: { flex: 1 } },
+          React.createElement('span', null, 'Could not sign in to Egeria as this persona, so no digital products could be read.'),
+          React.createElement('button', { className: 'theme-btn', onClick: function() { window.location.reload(); } }, 'Try again')
+        ),
         meshState === 'loading' && React.createElement('div', { className: 'center', style: { flex: 1 } },
           React.createElement('div', { className: 'spinner' }), React.createElement('span', null, 'Loading digital products…')
         ),
         meshState === 'error' && React.createElement('div', { className: 'center', style: { flex: 1 } },
-          React.createElement('span', null, 'Failed to load: ' + meshErr)
+          React.createElement('span', null, 'Failed to load: ' + meshErr),
+          React.createElement('button', { className: 'theme-btn', onClick: function() { window.location.reload(); } }, 'Try again')
         ),
-        meshState === 'ready' && React.createElement(MeshGraph, {
+        meshState === 'ready' && mesh.nodes.length === 0 && React.createElement('div', { className: 'center', style: { flex: 1 } },
+          React.createElement('span', null, 'No digital products are catalogued yet, or none are visible to you.')
+        ),
+        meshState === 'ready' && mesh.nodes.length > 0 && React.createElement(MeshGraph, {
           elements: cyElements, matchedGuids: matched, iscFilter: iscFilter,
           selectedGuid: selectedGuid, onSelectNode: handleSelectNode, onEdgeClick: handleEdgeClick,
           layoutTrigger: mesh,
         }),
-        meshState === 'ready' && React.createElement('div', { className: 'col-divider', onMouseDown: onPanelDivDown }),
-        meshState === 'ready' && React.createElement('div', { className: 'mesh-panel', style: { width: panelW } },
+        meshState === 'ready' && mesh.nodes.length > 0 && React.createElement('div', { className: 'col-divider', onMouseDown: onPanelDivDown }),
+        meshState === 'ready' && mesh.nodes.length > 0 && React.createElement('div', { className: 'mesh-panel', style: { width: panelW } },
           detailState === 'loading' && React.createElement('div', { className: 'mesh-panel-empty' }, 'Loading…'),
           detailState === 'error' && React.createElement('div', { className: 'mesh-panel-empty' }, 'Failed to load product details.'),
           detailState === 'ready' && detail && React.createElement(DataMeshDetail, { product: detail, onNavigateToElement: handleNavigateToElement }),
