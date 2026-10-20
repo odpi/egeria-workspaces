@@ -2186,9 +2186,9 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
         style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
       'Include templates'
     ),
-    treeRoot && !loading && !error && React.createElement('div', { style: { fontSize: 11, color: capped ? '#fbbf24' : 'var(--dim)' } },
+    !loading && !error && React.createElement('div', { style: { fontSize: 11, color: capped ? '#fbbf24' : 'var(--dim)' } },
       (filtered.length === items.length ? items.length : filtered.length + ' of ' + items.length) + ' loaded' +
-      (capped ? ' — capped: more exist than were loaded' : '')),
+      (capped ? ' — capped: there are more' + (/\/actions\b/.test(endpoint) ? ' (newest shown)' : '') : '')),
     !treeRoot && types.length > 1 && React.createElement('select', { value: typeFilter, onChange: function(e) { setTypeFilter(e.target.value); },
       style: { fontSize: 11, padding: '3px 6px', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 4 } },
       [React.createElement('option', { key: 'all', value: 'all' }, 'All types')].concat(
@@ -2479,6 +2479,7 @@ function AnnotationsSubPane({ guid, creds, onNavigate }) {
 }
 
 function AnnotationsTabView({ creds, navTarget, onNavigate }) {
+  var _annCapped = useState(false), annCapped = _annCapped[0], setAnnCapped = _annCapped[1]; // server stopped at its cap
   var _items   = useState(null),        items     = _items[0],    setItems     = _items[1];
   var _loading = useState(false),       loading   = _loading[0],  setLoading   = _loading[1];
   var _err     = useState(null),        err       = _err[0],      setErr       = _err[1];
@@ -2529,7 +2530,7 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
       .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || 'Failed'); }); })
       .then(function(d) {
         var loaded = d.items || [];
-        setItems(loaded); setLoading(false);
+        setItems(loaded); setAnnCapped(!!d.capped); setLoading(false);
         if (selectGuid) {
           var match = loaded.find(function(a) { return a.guid === selectGuid; });
           if (match) setSel(match);
@@ -2689,6 +2690,8 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
       el('div', { style: { flex: 1, overflowX: 'auto', overflowY: 'auto' } },
         loading && el('div', { style: { padding: '20px 0', textAlign: 'center', color: 'var(--dim)', fontSize: 12 } }, 'Loading…'),
         err     && el('div', { style: { padding: 12, color: '#f87171', fontSize: 12 } }, '⚠ ' + err),
+        !loading && !err && annCapped && el('div', { style: { padding: '6px 10px', color: '#fbbf24', fontSize: 11 } },
+          'Showing the first ' + items.length.toLocaleString() + ' annotations — there are more. Search, or filter by type or time, to narrow the list.'),
         !loading && !err && items && items.length === 0 && el('div', { style: { padding: 20, color: 'var(--dim)', fontSize: 12 } }, 'No annotations found.'),
         !loading && !err && items && items.length > 0 && filtered.length === 0 && el('div', { style: { padding: 20, color: 'var(--dim)', fontSize: 12 } }, 'No annotations match the current filters.'),
         hasItems && filtered.length > 0 && el('table', { style: { width: rz.tableWidth || '100%', tableLayout: rz.widths ? 'fixed' : 'auto', borderCollapse: 'collapse' } },

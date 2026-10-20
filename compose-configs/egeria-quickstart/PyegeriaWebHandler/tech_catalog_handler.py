@@ -55,6 +55,13 @@ _HTML = _HERE / "tech-catalog.html"
 _SEQ_ORDER = "PROPERTY_ASCENDING"
 _SEQ_PROP  = "displayName"
 
+# List paging (see _page_all). Defined up here: route signatures use _LIST_PAGE.
+_LIST_PAGE = 500
+_LIST_MAX_PAGES = 25          # 12,500 — far above any current list
+# Actions and annotations accumulate without bound (5,000+ each); these lists
+# stop at 2,000 and say so (Actions newest first, so the cap keeps the recent).
+_LARGE_LIST_MAX_PAGES = 4
+
 # Mermaid graph fields Egeria may embed in an element response.
 # Must stay in sync with _ALL_MERMAID_FIELDS in tech-catalog.html and mermaid_handler.py.
 _MERMAID_FIELDS = {
@@ -1214,7 +1221,7 @@ def list_infrastructure(
     request: Request,
     q:          str = Query("*"),
     start_from: int = Query(0, ge=0),
-    page_size:  int = Query(100, ge=1, le=500),
+    page_size:  int = Query(_LIST_PAGE, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
@@ -1226,21 +1233,21 @@ def list_infrastructure(
         logger.exception("tech-catalog: AssetMaker connection failed")
         raise HTTPException(status_code=500, detail=str(exc))
     try:
-        raw = mgr.find_infrastructure(
+        raw, capped = _page_all(lambda start, size: mgr.find_infrastructure(
             search_string=q or "*",
             metadata_element_type="ITInfrastructure",
             deployment_status_list=[],
-            start_from=start_from,
-            page_size=page_size,
+            start_from=start,
+            page_size=size,
             output_format="JSON",
             sequencing_order=_SEQ_ORDER,
             sequencing_property=_SEQ_PROP,
             graph_query_depth=0,
             as_of_time=as_of_time or None,
             skip_classified_elements=[] if include_templates else ["Template"],
-        )
+        ), page_size=page_size, start_from=start_from)
         items = [_serialize(e) for e in _safe_list(raw)]
-        return JSONResponse({"items": items, "total": len(items)})
+        return JSONResponse({"items": items, "total": len(items), "capped": capped})
     except Exception as exc:
         logger.exception("list_infrastructure failed")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -1251,7 +1258,7 @@ def list_software_capabilities(
     request: Request,
     q:          str = Query("*"),
     start_from: int = Query(0, ge=0),
-    page_size:  int = Query(100, ge=1, le=500),
+    page_size:  int = Query(_LIST_PAGE, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
@@ -1263,17 +1270,17 @@ def list_software_capabilities(
         logger.exception("tech-catalog: AssetMaker connection failed")
         raise HTTPException(status_code=500, detail=str(exc))
     try:
-        raw = mgr.find_software_capabilities(
+        raw, capped = _page_all(lambda start, size: mgr.find_software_capabilities(
             search_string=q or "*",
-            start_from=start_from,
-            page_size=page_size,
+            start_from=start,
+            page_size=size,
             output_format="JSON",
             graph_query_depth=0,
             as_of_time=as_of_time or None,
             skip_classified_elements=[] if include_templates else ["Template"],
-        )
+        ), page_size=page_size, start_from=start_from)
         items = [_serialize(e) for e in _safe_list(raw)]
-        return JSONResponse({"items": items, "total": len(items)})
+        return JSONResponse({"items": items, "total": len(items), "capped": capped})
     except Exception as exc:
         logger.exception("list_software_capabilities failed")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -1284,7 +1291,7 @@ def list_endpoints(
     request: Request,
     q:          str = Query("*"),
     start_from: int = Query(0, ge=0),
-    page_size:  int = Query(100, ge=1, le=500),
+    page_size:  int = Query(_LIST_PAGE, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
@@ -1295,31 +1302,50 @@ def list_endpoints(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
     try:
-        raw = mgr.find_endpoints(
+        raw, capped = _page_all(lambda start, size: mgr.find_endpoints(
             search_string=q or "*",
             output_format="JSON",
-            start_from=start_from,
-            page_size=page_size,
+            start_from=start,
+            page_size=size,
             graph_query_depth=0,
             as_of_time=as_of_time or None,
-        )
+        ), page_size=page_size, start_from=start_from)
         if not include_templates:
             raw = [e for e in _safe_list(raw) if not _is_template(e)]
         items = [_serialize(e) for e in _safe_list(raw)]
-        return JSONResponse({"items": items, "total": len(items)})
+        return JSONResponse({"items": items, "total": len(items), "capped": capped})
     except Exception as exc:
         logger.exception("list_endpoints failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-# Data Assets (Data Stores / Feeds / Sets) — every page, not just the first.
-# Egeria's paging contract: only an EMPTY page means done. A short page is not
-# the end — the server drops Template-classified elements after paging, so a
-# page can come back short with more behind it. One page of 100 sorted by name
-# used to show only `1.0.yaml`/`6.2.yaml` (hundreds of same-named files sort
-# first), so the type list offered just two types out of ~10.
-_DATA_ASSET_PAGE = 500
-_DATA_ASSET_MAX_PAGES = 25
+# List endpoints return every page, not just the first. Egeria's paging
+# contract: only an EMPTY page means done. A short page is not the end — the
+# server drops Template-classified elements after paging, so a page can come
+# back short with more behind it. One page of 100 sorted by name used to show
+# only `1.0.yaml`/`6.2.yaml` in Data Stores (hundreds of same-named files sort
+# first), 97 of 836 endpoints, 100 of 262 tech types, and so on.
+_DATA_ASSET_PAGE = _LIST_PAGE
+_DATA_ASSET_MAX_PAGES = _LIST_MAX_PAGES
+
+
+def _page_all(fetch, page_size: int = _LIST_PAGE, max_pages: int = _LIST_MAX_PAGES,
+              start_from: int = 0) -> tuple:
+    """Call fetch(start_from, page_size) page after page until an empty page,
+    de-duplicating by GUID. Returns (raw_elements, capped)."""
+    out, seen = [], set()
+    for p in range(max_pages):
+        batch = _safe_list(fetch(start_from + p * page_size, page_size))
+        if not batch:
+            return out, False
+        for e in batch:
+            guid = ((e or {}).get("elementHeader") or {}).get("guid") if isinstance(e, dict) else None
+            if guid and guid in seen:
+                continue
+            if guid:
+                seen.add(guid)
+            out.append(e)
+    return out, True
 
 
 def _find_all_data_assets(mgr, type_name: str, q: str, as_of_time: Optional[str],
@@ -1327,31 +1353,19 @@ def _find_all_data_assets(mgr, type_name: str, q: str, as_of_time: Optional[str]
                           max_pages: int = _DATA_ASSET_MAX_PAGES) -> tuple:
     """Every data asset of type_name (subtypes included), paged until an empty
     page, de-duplicated by GUID. Returns (raw_elements, capped)."""
-    out, seen = [], set()
-    for p in range(max_pages):
-        batch = _safe_list(mgr.find_data_assets(
-            search_string=q or "*",
-            metadata_element_type=type_name,
-            content_status_list=[],
-            start_from=p * page_size,
-            page_size=page_size,
-            output_format="JSON",
-            sequencing_order=_SEQ_ORDER,
-            sequencing_property=_SEQ_PROP,
-            graph_query_depth=0,
-            as_of_time=as_of_time or None,
-            skip_classified_elements=[] if include_templates else ["Template"],
-        ))
-        if not batch:
-            return out, False
-        for e in batch:
-            guid = ((e or {}).get("elementHeader") or {}).get("guid")
-            if guid and guid in seen:
-                continue
-            if guid:
-                seen.add(guid)
-            out.append(e)
-    return out, True
+    return _page_all(lambda start, size: mgr.find_data_assets(
+        search_string=q or "*",
+        metadata_element_type=type_name,
+        content_status_list=[],
+        start_from=start,
+        page_size=size,
+        output_format="JSON",
+        sequencing_order=_SEQ_ORDER,
+        sequencing_property=_SEQ_PROP,
+        graph_query_depth=0,
+        as_of_time=as_of_time or None,
+        skip_classified_elements=[] if include_templates else ["Template"],
+    ), page_size=page_size, max_pages=max_pages)
 
 
 def _list_data_assets(request: Request, type_name: str, q: str, url, server, user_id, user_pwd,
@@ -1415,7 +1429,7 @@ def list_apis(
     request: Request,
     q:          str = Query("*"),
     start_from: int = Query(0, ge=0),
-    page_size:  int = Query(100, ge=1, le=500),
+    page_size:  int = Query(_LIST_PAGE, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
@@ -1426,20 +1440,20 @@ def list_apis(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
     try:
-        raw = mgr.find_assets(
+        raw, capped = _page_all(lambda start, size: mgr.find_assets(
             search_string=q or "*",
             metadata_element_type="DeployedAPI",
-            start_from=start_from,
-            page_size=page_size,
+            start_from=start,
+            page_size=size,
             output_format="JSON",
             sequencing_order=_SEQ_ORDER,
             sequencing_property=_SEQ_PROP,
             graph_query_depth=0,
             as_of_time=as_of_time or None,
             skip_classified_elements=[] if include_templates else ["Template"],
-        )
+        ), page_size=page_size, start_from=start_from)
         items = [_serialize(e) for e in _safe_list(raw)]
-        return JSONResponse({"items": items, "total": len(items)})
+        return JSONResponse({"items": items, "total": len(items), "capped": capped})
     except Exception as exc:
         logger.exception("list_apis failed")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -1450,7 +1464,7 @@ def list_software_components(
     request: Request,
     q:          str = Query("*"),
     start_from: int = Query(0, ge=0),
-    page_size:  int = Query(100, ge=1, le=500),
+    page_size:  int = Query(_LIST_PAGE, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
@@ -1461,21 +1475,21 @@ def list_software_components(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
     try:
-        raw = mgr.find_processes(
+        raw, capped = _page_all(lambda start, size: mgr.find_processes(
             search_string=q or "*",
             metadata_element_type="DeployedSoftwareComponent",
             activity_status_list=[],
-            start_from=start_from,
-            page_size=page_size,
+            start_from=start,
+            page_size=size,
             output_format="JSON",
             sequencing_order=_SEQ_ORDER,
             sequencing_property=_SEQ_PROP,
             graph_query_depth=0,
             as_of_time=as_of_time or None,
             skip_classified_elements=[] if include_templates else ["Template"],
-        )
+        ), page_size=page_size, start_from=start_from)
         items = [_serialize(e) for e in _safe_list(raw)]
-        return JSONResponse({"items": items, "total": len(items)})
+        return JSONResponse({"items": items, "total": len(items), "capped": capped})
     except Exception as exc:
         logger.exception("list_software_components failed")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -1486,7 +1500,7 @@ def list_actions(
     request: Request,
     q:          str = Query("*"),
     start_from: int = Query(0, ge=0),
-    page_size:  int = Query(100, ge=1, le=500),
+    page_size:  int = Query(_LIST_PAGE, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
@@ -1497,21 +1511,21 @@ def list_actions(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
     try:
-        raw = mgr.find_processes(
+        raw, capped = _page_all(lambda start, size: mgr.find_processes(
             search_string=q or "*",
             metadata_element_type="Action",
             activity_status_list=[],
-            start_from=start_from,
-            page_size=page_size,
+            start_from=start,
+            page_size=size,
             output_format="JSON",
-            sequencing_order=_SEQ_ORDER,
+            sequencing_order="CREATION_DATE_RECENT",
             sequencing_property=_SEQ_PROP,
             graph_query_depth=0,
             as_of_time=as_of_time or None,
             skip_classified_elements=[] if include_templates else ["Template"],
-        )
+        ), page_size=page_size, start_from=start_from, max_pages=_LARGE_LIST_MAX_PAGES)
         items = [_serialize(e) for e in _safe_list(raw)]
-        return JSONResponse({"items": items, "total": len(items)})
+        return JSONResponse({"items": items, "total": len(items), "capped": capped})
     except Exception as exc:
         logger.exception("list_actions failed")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -1533,20 +1547,20 @@ def list_governance_processes(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
     try:
-        raw = mgr.find_governance_definitions(
+        raw, capped = _page_all(lambda start, size: mgr.find_governance_definitions(
             search_string=q or "*",
             metadata_element_type="GovernanceActionProcess",
             output_format="JSON",
-            start_from=start_from,
-            page_size=page_size,
+            start_from=start,
+            page_size=size,
             graph_query_depth=0,
             sequencing_order=_SEQ_ORDER,
             sequencing_property=_SEQ_PROP,
             skip_classified_elements=[] if include_templates else ["Template"],
-        )
+        ), page_size=page_size, start_from=start_from)
         raw = _safe_list(raw)
         items = [_serialize_governance_process_list_item(e) for e in raw]
-        return JSONResponse({"items": items, "total": len(items)})
+        return JSONResponse({"items": items, "total": len(items), "capped": capped})
     except Exception as exc:
         if _is_auth_error(exc):
             raise HTTPException(status_code=401, detail="Token expired or unauthorized")
@@ -1826,7 +1840,7 @@ def list_survey_reports(
     request: Request,
     q:          str = Query("*"),
     start_from: int = Query(0, ge=0),
-    page_size:  int = Query(100, ge=1, le=500),
+    page_size:  int = Query(_LIST_PAGE, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None),
@@ -1839,22 +1853,22 @@ def list_survey_reports(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
     try:
-        raw = mgr.find_data_assets(
+        raw, capped = _page_all(lambda start, size: mgr.find_data_assets(
             search_string=q or "*",
             metadata_element_type="SurveyReport",
             content_status_list=[],
-            start_from=start_from,
-            page_size=page_size,
+            start_from=start,
+            page_size=size,
             output_format="JSON",
             graph_query_depth=0,
             sequencing_order=_SEQ_ORDER,
             sequencing_property=_SEQ_PROP,
             as_of_time=as_of_time or None,
-        )
+        ), page_size=page_size, start_from=start_from)
         if not include_templates:
             raw = [e for e in _safe_list(raw) if not _is_template(e)]
         items = [_serialize(e) for e in _safe_list(raw)]
-        return JSONResponse({"items": items, "total": len(items)})
+        return JSONResponse({"items": items, "total": len(items), "capped": capped})
     except Exception as exc:
         if _is_auth_error(exc):
             raise HTTPException(status_code=401, detail="Token expired or unauthorized")
@@ -1939,16 +1953,16 @@ def list_annotations(
             kwargs["metadata_element_type"] = annotation_type
         if as_of_time:
             kwargs["as_of_time"] = as_of_time
-        raw = dd.find_annotations(
+        raw, capped = _page_all(lambda start, size: dd.find_annotations(
             search_string=q or "*",
-            start_from=start_from,
-            page_size=page_size,
+            start_from=start,
+            page_size=size,
             output_format="JSON",
             graph_query_depth=0,
             **kwargs,
-        )
+        ), page_size=page_size, start_from=start_from, max_pages=_LARGE_LIST_MAX_PAGES)
         items = [_serialize_annotation(ann) for ann in _safe_list(raw)]
-        return JSONResponse({"items": items, "total": len(items)})
+        return JSONResponse({"items": items, "total": len(items), "capped": capped})
     except Exception as exc:
         if _is_auth_error(exc):
             raise HTTPException(status_code=401, detail="Token expired or unauthorized")
@@ -2014,7 +2028,7 @@ def list_tech_types(
     request: Request,
     q: str = Query("*"),
     start_from: int = Query(0, ge=0),
-    page_size:  int = Query(100, ge=1, le=500),
+    page_size:  int = Query(_LIST_PAGE, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
@@ -2022,13 +2036,13 @@ def list_tech_types(
     """List or search technology types."""
     try:
         ac = _automated_curation(url, server, user_id, user_pwd, token=_token_from_request(request))
-        raw = ac.find_technology_types(
+        raw, capped = _page_all(lambda start, size: ac.find_technology_types(
             search_string=q or "*",
             graph_query_depth=0,  # PY-6/PY-14 perf lesson — _serialize_tech_type only reads flat fields
-            start_from=start_from,
-            page_size=page_size,
+            start_from=start,
+            page_size=size,
             output_format="JSON",
-        )
+        ), page_size=page_size, start_from=start_from)
         # Deduplicate by qualifiedName (some content packs register the same type twice).
         # Keep the entry with more catalogTemplates when there's a conflict.
         if not include_templates:
@@ -2040,7 +2054,7 @@ def list_tech_types(
             if qn not in seen or item.get("templateCount", 0) > seen[qn].get("templateCount", 0):
                 seen[qn] = item
         items = sorted(seen.values(), key=lambda x: x.get("displayName", "").lower())
-        return JSONResponse({"items": items, "total": len(items)})
+        return JSONResponse({"items": items, "total": len(items), "capped": capped})
     except Exception as exc:
         logger.exception("list_tech_types failed")
         raise HTTPException(status_code=500, detail=str(exc))
