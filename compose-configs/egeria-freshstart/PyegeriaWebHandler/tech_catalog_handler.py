@@ -40,7 +40,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from egeria_auth import lineage_key as _lineage_key
+from egeria_auth import lineage_key as _lineage_key, token_user as _token_user
 from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
 
@@ -57,9 +57,10 @@ _SEQ_PROP  = "displayName"
 # List paging (see _page_all). Defined up here: route signatures use _LIST_PAGE.
 _LIST_PAGE = 500
 _LIST_MAX_PAGES = 25          # 12,500 — far above any current list
-# Actions and annotations accumulate without bound (5,000+ each); these lists
-# stop at 2,000 and say so (Actions newest first, so the cap keeps the recent).
-_LARGE_LIST_MAX_PAGES = 4
+# Actions and annotations accumulate without bound (5,000+ each), so they are
+# never loaded whole: one page at a time (_SCROLL_PAGE), filtered and searched
+# in Egeria, with a "Load more" in the UI.
+_SCROLL_PAGE = 200
 
 # Mermaid graph fields Egeria may embed in an element response.
 # Must stay in sync with _ALL_MERMAID_FIELDS in tech-catalog.html and mermaid_handler.py.
@@ -1296,6 +1297,23 @@ _DATA_ASSET_PAGE = _LIST_PAGE
 _DATA_ASSET_MAX_PAGES = _LIST_MAX_PAGES
 
 
+def _search_regex(q: Optional[str]) -> str:
+    """Egeria treats the search string as a regular expression; a user's text
+    is literal ("week1.csv" must not match "week1Xcsv")."""
+    q = (q or "").strip()
+    if not q or q == "*":
+        return "*"
+    return "".join("\\" + c if c in ".^$*+?()[]{}|\\" else c for c in q)
+
+
+def _scroll_page(fetch, start_from: int, page_size: int) -> tuple:
+    """One page plus whether more exist. A short page is not proof of the end
+    (elements can be dropped after paging), so probe one element past it."""
+    batch = _safe_list(fetch(start_from, page_size))
+    more = bool(batch) and bool(_safe_list(fetch(start_from + page_size, 1)))
+    return batch, more
+
+
 def _page_all(fetch, page_size: int = _LIST_PAGE, max_pages: int = _LIST_MAX_PAGES,
               start_from: int = 0) -> tuple:
     """Call fetch(start_from, page_size) page after page until an empty page,
@@ -1319,76 +1337,167 @@ def _find_all_data_assets(mgr, type_name: str, q: str, as_of_time: Optional[str]
                           include_templates: bool, page_size: int = _DATA_ASSET_PAGE,
                           max_pages: int = _DATA_ASSET_MAX_PAGES) -> tuple:
     """Every data asset of type_name (subtypes included), paged until an empty
-    page, de-duplicated by GUID. Returns (raw_elements, capped)."""
+    page, de-duplicated by GUID. Returns (raw_elements, capped). Sync: for
+    sync callers only."""
     return _page_all(lambda start, size: mgr.find_data_assets(
+        **_data_asset_query(type_name, q, as_of_time, include_templates), start_from=start, page_size=size,
+    ), page_size=page_size, max_pages=max_pages)
+
+
+def _data_asset_query(type_name: str, q: str, as_of_time: Optional[str], include_templates: bool) -> dict:
+    return dict(
         search_string=q or "*",
         metadata_element_type=type_name,
         content_status_list=[],
-        start_from=start,
-        page_size=size,
         output_format="JSON",
         sequencing_order=_SEQ_ORDER,
         sequencing_property=_SEQ_PROP,
         graph_query_depth=0,
         as_of_time=as_of_time or None,
         skip_classified_elements=[] if include_templates else ["Template"],
-    ), page_size=page_size, max_pages=max_pages)
+    )
 
 
-def _list_data_assets(request: Request, type_name: str, q: str, url, server, user_id, user_pwd,
-                      as_of_time: Optional[str], include_templates: bool) -> JSONResponse:
+# Data Stores / Feeds / Sets are shown as a type tree with counts, which needs
+# the whole list (Egeria has no cheap count). Loading it takes seconds, so it is
+# cached per user (zone access differs) for _DA_TTL and filled in the
+# background — the same non-blocking pattern as operations_handler's server
+# report cache:
+#   cold     → start one background Task, return {"loading": true}; the UI polls
+#   fresh    → return the cached list
+#   stale    → return the cached list with {"stale": true}, refresh in background
+#   refresh=true (the UI's Refresh button) → drop the entry, load again
+# _get_data_assets_cached must stay sync (no await) so check-and-create-task is
+# atomic: exactly one fill Task per key.
+_DA_TTL = 120.0
+_da_cache: dict = {}        # key → {"items", "byType", "capped", "ts", "refreshing"}
+_da_tasks: dict = {}        # key → asyncio.Task
+_da_errors: dict = {}       # key → error text from a failed cold fill
+
+
+async def _async_asset_maker(url, server, user_id, user_pwd, token: Optional[str] = None):
+    """Async twin of _asset_maker (see _automated_curation_async for why)."""
+    from pyegeria import AssetMaker
+    u, s, uid, pwd = _creds(url, server, user_id, user_pwd)
+    mgr = AssetMaker(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
+    if token:
+        mgr.set_bearer_token(token)
+    else:
+        await mgr._async_create_egeria_bearer_token()
+    return mgr
+
+
+async def _fill_data_assets(mgr, type_name: str, as_of_time: Optional[str], include_templates: bool, key: str) -> None:
+    """Background Task: load every page into _da_cache[key]."""
     try:
-        mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
-    try:
-        raw, capped = _find_all_data_assets(mgr, type_name, q, as_of_time, include_templates)
-        items = [_serialize(e) for e in raw]
+        out, seen, capped = [], set(), True
+        query = _data_asset_query(type_name, "*", as_of_time, include_templates)
+        for p in range(_DATA_ASSET_MAX_PAGES):
+            batch = _safe_list(await mgr._async_find_data_assets(
+                **query, start_from=p * _DATA_ASSET_PAGE, page_size=_DATA_ASSET_PAGE))
+            if not batch:
+                capped = False
+                break
+            for e in batch:
+                guid = ((e or {}).get("elementHeader") or {}).get("guid") if isinstance(e, dict) else None
+                if guid and guid in seen:
+                    continue
+                if guid:
+                    seen.add(guid)
+                out.append(e)
+        items = [_serialize(e) for e in out]
         by_type: dict = {}
         for it in items:
             t = it.get("typeName") or "Unknown"
             by_type[t] = by_type.get(t, 0) + 1
-        return JSONResponse({"items": items, "total": len(items), "capped": capped,
-                             "byType": by_type, "rootType": type_name})
+        _da_cache[key] = {"items": items, "byType": by_type, "capped": capped, "ts": time.monotonic(), "refreshing": False}
+        _da_errors.pop(key, None)
     except Exception as exc:
-        logger.exception("list data assets ({}) failed", type_name)
+        logger.exception("data assets ({}) background load failed", type_name)
+        entry = _da_cache.get(key)
+        if entry:
+            entry["refreshing"] = False
+        else:
+            _da_errors[key] = "Unauthorized" if _is_auth_error(exc) else str(exc)
+    finally:
+        _da_tasks.pop(key, None)
+
+
+def _get_data_assets_cached(mgr, type_name, as_of_time, include_templates, key, refresh: bool):
+    """Return (entry_or_None, stale, loading, error). Sync — see above."""
+    if refresh and key not in _da_tasks:
+        _da_cache.pop(key, None)
+    entry = _da_cache.get(key)
+    if entry is not None:
+        if time.monotonic() - entry["ts"] < _DA_TTL:
+            return entry, False, False, None
+        if not entry["refreshing"]:
+            entry["refreshing"] = True
+            _da_tasks[key] = asyncio.get_event_loop().create_task(
+                _fill_data_assets(mgr, type_name, as_of_time, include_templates, key))
+        return entry, True, False, None
+    if key not in _da_tasks:
+        err = _da_errors.pop(key, None)
+        if err:
+            return None, False, False, err      # report once; the next poll retries
+        _da_tasks[key] = asyncio.get_event_loop().create_task(
+            _fill_data_assets(mgr, type_name, as_of_time, include_templates, key))
+    return None, False, True, None
+
+
+async def _list_data_assets(request: Request, type_name: str, url, server, user_id, user_pwd,
+                            as_of_time: Optional[str], include_templates: bool, refresh: bool) -> JSONResponse:
+    token = _token_from_request(request)
+    try:
+        mgr = await _async_asset_maker(url, server, user_id, user_pwd, token=token)
+    except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
+    who = _token_user() or _creds(url, server, user_id, user_pwd)[2]
+    key = f"{type_name}|{who}|{url or ''}|{server or ''}|{include_templates}|{as_of_time or ''}{_lineage_key()}"
+    entry, stale, loading, err = _get_data_assets_cached(mgr, type_name, as_of_time, include_templates, key, refresh)
+    if err:
+        raise HTTPException(status_code=401 if err == "Unauthorized" else 500, detail=err)
+    if loading:
+        return JSONResponse({"items": [], "loading": True, "rootType": type_name})
+    return JSONResponse({"items": entry["items"], "total": len(entry["items"]), "capped": entry["capped"],
+                         "byType": entry["byType"], "rootType": type_name, "stale": stale,
+                         "ageSeconds": round(time.monotonic() - entry["ts"])})
 
 
 @router.get("/api/tech-catalog/data-stores")
-def list_data_stores(
+async def list_data_stores(
     request: Request,
-    q:          str = Query("*"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
+    refresh: bool = Query(False, description="Drop the cached list and load it again"),
 ):
-    return _list_data_assets(request, "DataStore", q, url, server, user_id, user_pwd, as_of_time, include_templates)
+    return await _list_data_assets(request, "DataStore", url, server, user_id, user_pwd, as_of_time, include_templates, refresh)
 
 
 @router.get("/api/tech-catalog/data-feeds")
-def list_data_feeds(
+async def list_data_feeds(
     request: Request,
-    q:          str = Query("*"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
+    refresh: bool = Query(False, description="Drop the cached list and load it again"),
 ):
-    return _list_data_assets(request, "DataFeed", q, url, server, user_id, user_pwd, as_of_time, include_templates)
+    return await _list_data_assets(request, "DataFeed", url, server, user_id, user_pwd, as_of_time, include_templates, refresh)
 
 
 @router.get("/api/tech-catalog/data-sets")
-def list_data_sets(
+async def list_data_sets(
     request: Request,
-    q:          str = Query("*"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
+    refresh: bool = Query(False, description="Drop the cached list and load it again"),
 ):
-    return _list_data_assets(request, "DataSet", q, url, server, user_id, user_pwd, as_of_time, include_templates)
+    return await _list_data_assets(request, "DataSet", url, server, user_id, user_pwd, as_of_time, include_templates, refresh)
 
 
 @router.get("/api/tech-catalog/apis")
@@ -1465,22 +1574,28 @@ def list_software_components(
 @router.get("/api/tech-catalog/actions")
 def list_actions(
     request: Request,
-    q:          str = Query("*"),
+    q:          str = Query("*", description="Text to find (literal, matched anywhere, case-insensitive)"),
+    type_name:  Optional[str] = Query(None, description="Action subtype, e.g. EngineAction; default all Actions"),
     start_from: int = Query(0, ge=0),
-    page_size:  int = Query(_LIST_PAGE, ge=1, le=500),
+    page_size:  int = Query(_SCROLL_PAGE, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
+    """One page of Actions, newest first. There are thousands, so the UI loads
+    a page, searches/filters in Egeria, and offers "Load more" (hasMore)."""
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
+    search = _search_regex(q)
     try:
-        raw, capped = _page_all(lambda start, size: mgr.find_processes(
-            search_string=q or "*",
-            metadata_element_type="Action",
+        raw, more = _scroll_page(lambda start, size: mgr.find_processes(
+            search_string=search,
+            starts_with=search == "*",
+            ignore_case=True,
+            metadata_element_type=type_name or "Action",
             activity_status_list=[],
             start_from=start,
             page_size=size,
@@ -1490,9 +1605,9 @@ def list_actions(
             graph_query_depth=0,
             as_of_time=as_of_time or None,
             skip_classified_elements=[] if include_templates else ["Template"],
-        ), page_size=page_size, start_from=start_from, max_pages=_LARGE_LIST_MAX_PAGES)
-        items = [_serialize(e) for e in _safe_list(raw)]
-        return JSONResponse({"items": items, "total": len(items), "capped": capped})
+        ), start_from, page_size)
+        items = [_serialize(e) for e in raw]
+        return JSONResponse({"items": items, "startFrom": start_from, "nextStart": start_from + page_size, "hasMore": more})
     except Exception as exc:
         logger.exception("list_actions failed")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -1893,7 +2008,7 @@ def list_annotations(
     q:               str = Query("*"),
     annotation_type: Optional[str] = Query(None, description="Filter by annotation subtype name"),
     start_from:      int = Query(0, ge=0),
-    page_size:       int = Query(_LIST_PAGE, ge=1, le=500),
+    page_size:       int = Query(_SCROLL_PAGE, ge=1, le=500),
     as_of_time:      Optional[str] = Query(None),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
@@ -1909,16 +2024,19 @@ def list_annotations(
             kwargs["metadata_element_type"] = annotation_type
         if as_of_time:
             kwargs["as_of_time"] = as_of_time
-        raw, capped = _page_all(lambda start, size: dd.find_annotations(
-            search_string=q or "*",
+        search = _search_regex(q)
+        raw, more = _scroll_page(lambda start, size: dd.find_annotations(
+            search_string=search,
+            starts_with=search == "*",
+            ignore_case=True,
             start_from=start,
             page_size=size,
             output_format="JSON",
-            graph_query_depth=1,
+            graph_query_depth=0,
             **kwargs,
-        ), page_size=page_size, start_from=start_from, max_pages=_LARGE_LIST_MAX_PAGES)
+        ), start_from, page_size)
         items = [_serialize_annotation(ann) for ann in _safe_list(raw)]
-        return JSONResponse({"items": items, "total": len(items), "capped": capped})
+        return JSONResponse({"items": items, "startFrom": start_from, "nextStart": start_from + page_size, "hasMore": more})
     except Exception as exc:
         if _is_auth_error(exc):
             raise HTTPException(status_code=401, detail="Token expired or unauthorized")

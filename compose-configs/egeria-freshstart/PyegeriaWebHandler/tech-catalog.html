@@ -1221,20 +1221,22 @@ function _sidebarRow(item, active, onSelect, opts) {
 }
 
 // renderList (optional): replaces the flat item list, e.g. DataAssetTree.
-function SidebarDetail({ items, loading, error, selected, onSelect, renderDetail, filterBar, renderList }) {
+// listFooter (optional): rendered after the list, e.g. a "Load more" button.
+function SidebarDetail({ items, loading, error, selected, onSelect, renderDetail, filterBar, renderList, loadingText, listFooter }) {
   var _rz = useResizable(280, 120, 600), sideW = _rz[0], sideDown = _rz[1];
   return React.createElement('div', { style: { display: 'flex', flex: 1, overflow: 'hidden' } },
     // Sidebar (resizable)
     React.createElement('div', { style: { width: sideW, minWidth: 120, borderRight: 'none', display: 'flex', flexDirection: 'column', flexShrink: 0 } },
       filterBar,
       React.createElement('div', { style: { overflowY: 'auto', flex: 1 } },
-        loading ? React.createElement('div', { style: { padding: 24, color: 'var(--dim)', fontSize: 12 } }, 'Loading…')
+        loading ? React.createElement('div', { style: { padding: 24, color: 'var(--dim)', fontSize: 12, lineHeight: 1.5 } }, loadingText || 'Loading…')
         : error   ? React.createElement('div', { style: { padding: 16, color: '#f87171', fontSize: 12 } }, error)
         : items.length === 0 ? React.createElement('div', { style: { padding: 16, color: 'var(--dim)', fontSize: 12 } }, 'No items found.')
         : renderList ? renderList(items)
         : items.map(function(item) {
             return _sidebarRow(item, selected && selected.guid === item.guid, onSelect);
-          })
+          }),
+        !loading && !error && listFooter
       )
     ),
     React.createElement(ResizeDivider, { onMouseDown: sideDown }),
@@ -2035,6 +2037,17 @@ function DataAssetTree({ items, rootType, creds, selected, onSelect, filtering }
   return el('div', null, renderType(root, 0));
 }
 
+// Action subtypes from the live type system, for the paged Actions list's
+// server-side type filter (the loaded page can't show which types exist).
+function ActionTypeSelect({ creds, value, onChange }) {
+  var entities = useTypeGraph(creds);
+  var names = entities && entities['Action'] ? getAllSubs('Action', entities).slice().sort() : [];
+  return React.createElement('select', { value: value, onChange: function(e) { onChange(e.target.value); },
+      style: { fontSize: 11, padding: '3px 6px', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 4 } },
+    [React.createElement('option', { key: 'all', value: 'all' }, 'All action types')].concat(
+      names.map(function(t) { return React.createElement('option', { key: t, value: t }, t); })));
+}
+
 function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
   var _items      = useState([]),    items      = _items[0],      setItems      = _items[1];
   var _loading    = useState(true),  loading    = _loading[0],    setLoading    = _loading[1];
@@ -2063,18 +2076,70 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
   var _treeRootMatch = /\/data-(stores|feeds|sets)\b/.exec(endpoint);
   var treeRoot = _treeRootMatch ? { stores: 'DataStore', feeds: 'DataFeed', sets: 'DataSet' }[_treeRootMatch[1]] : null;
   var _capped = useState(false), capped = _capped[0], setCapped = _capped[1];
+  // Tree lists come from a per-user server cache: {loading:true} on a cold
+  // cache → poll; {stale:true} → shown while the server refreshes it.
+  var _stale = useState(false), stale = _stale[0], setStale = _stale[1];
+  var _pollTick = useState(0), pollTick = _pollTick[0], setPollTick = _pollTick[1];
+  var _pollingRef = useRef(false), _refreshNextRef = useRef(false);
+  // Paged lists (Actions: thousands, newest first): one page at a time; the
+  // filter box and type select query Egeria; "Load more" appends a page.
+  var paged = /\/actions\b/.test(endpoint);
+  var _hasMore = useState(false), hasMore = _hasMore[0], setHasMore = _hasMore[1];
+  var _nextStart = useState(0), nextStart = _nextStart[0], setNextStart = _nextStart[1];
+  var _loadingMore = useState(false), loadingMore = _loadingMore[0], setLoadingMore = _loadingMore[1];
+  var _serverQ = useState(''), serverQ = _serverQ[0], setServerQ = _serverQ[1];
 
   useEffect(function() {
-    setLoading(true); setError(''); setSelected(null); setDetail(null); setClassifFilter([]);
+    if (!paged) return;
+    var t = setTimeout(function() { setServerQ(q.trim()); }, 400);
+    return function() { clearTimeout(t); };
+  }, [q, paged]);
+
+  function listUrl(start) {
     var params = [];
     if (supportsTime && asOfTime) params.push('as_of_time=' + encodeURIComponent(asOfTime));
     if (supportsTemplateFilter && inclTempl) params.push('include_templates=true');
-    var listUrl = endpoint + (params.length ? '?' + params.join('&') : '');
-    fetchWithToken(listUrl, creds)
+    if (paged) {
+      if (serverQ) params.push('q=' + encodeURIComponent(serverQ));
+      if (typeFilter !== 'all') params.push('type_name=' + encodeURIComponent(typeFilter));
+      if (start) params.push('start_from=' + start);
+    }
+    if (treeRoot && _refreshNextRef.current) { params.push('refresh=true'); _refreshNextRef.current = false; }
+    return endpoint + (params.length ? '?' + params.join('&') : '');
+  }
+
+  useEffect(function() {
+    var isPoll = _pollingRef.current;
+    _pollingRef.current = false;
+    if (!isPoll) { setLoading(true); setError(''); setSelected(null); setDetail(null); setClassifFilter([]); }
+    var stop = false, timer = null;
+    fetchWithToken(listUrl(0), creds)
+      .then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error((d && d.detail) || ('HTTP ' + r.status)); return d; }); })
+      .then(function(d) {
+        if (stop) return;
+        if (d && d.loading) {   // cold server cache: ask again shortly
+          timer = setTimeout(function() { _pollingRef.current = true; setPollTick(function(n) { return n + 1; }); }, 1500);
+          return;
+        }
+        setItems(Array.isArray(d) ? d : (d.items || [])); setCapped(!!(d && d.capped)); setStale(!!(d && d.stale));
+        setHasMore(!!(d && d.hasMore)); setNextStart((d && d.nextStart) || 0);
+        setLoading(false);
+      })
+      .catch(function(e) { if (!stop) { setError(String(e.message || e)); setLoading(false); } });
+    return function() { stop = true; clearTimeout(timer); };
+  }, [endpoint, asOfTime, inclTempl, attempt, pollTick, serverQ, paged ? typeFilter : null]);
+
+  function loadMore() {
+    setLoadingMore(true);
+    fetchWithToken(listUrl(nextStart), creds)
       .then(function(r) { return r.json(); })
-      .then(function(d) { setItems(Array.isArray(d) ? d : (d.items || [])); setCapped(!!(d && d.capped)); setLoading(false); })
-      .catch(function(e) { setError(String(e)); setLoading(false); });
-  }, [endpoint, asOfTime, inclTempl, attempt]);
+      .then(function(d) {
+        var seen = new Set(items.map(function(i) { return i.guid; }));
+        setItems(items.concat((d.items || []).filter(function(i) { return !seen.has(i.guid); })));
+        setHasMore(!!d.hasMore); setNextStart(d.nextStart || nextStart); setLoadingMore(false);
+      })
+      .catch(function(e) { setError(String(e.message || e)); setLoadingMore(false); });
+  }
 
   function handleSelect(item) {
     setSelected(item);
@@ -2133,10 +2198,10 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
   }
 
   var filtered = items.filter(function(item) {
-    var matchQ = !q.trim() || (treeRoot
+    var matchQ = paged || !q.trim() || (treeRoot
       ? listMatches(q, [_assetLabel(item), item.qualifiedName, item.pathName, item.typeName, item.deployedImplementationType])
       : (item.displayName || item.qualifiedName || '').toLowerCase().includes(q.trim().toLowerCase()));
-    var matchT = typeFilter === 'all' || item.deployedImplementationType === typeFilter || item.typeName === typeFilter;
+    var matchT = paged || typeFilter === 'all' || item.deployedImplementationType === typeFilter || item.typeName === typeFilter;
     var matchC = classifFilter.length === 0 || classifFilter.every(function(key) {
       var clsList = item.classifications || [];
       if (key.indexOf('ZoneMembership:') === 0) {
@@ -2165,12 +2230,15 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
 
   var filterBar = React.createElement('div', { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 5 } },
     supportsTime && React.createElement(TimeSlider, { onChange: setAsOfTime, label: 'As of' }),
-    React.createElement('input', { type: 'search', placeholder: 'Filter…', value: q, onChange: function(e) { setQ(e.target.value); },
+    React.createElement('input', { type: 'search', placeholder: paged ? 'Search all…' : 'Filter…', value: q, onChange: function(e) { setQ(e.target.value); },
+      title: paged ? 'Searches every item in Egeria, not just the ones loaded' : undefined,
       style: { fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none' } }),
     React.createElement('button', {
       className: 'btn-sm', style: { alignSelf: 'flex-start' },
-      onClick: function() { setAttempt(function(a) { return a + 1; }); }
+      title: treeRoot ? 'Reload the full list from Egeria (it is otherwise kept for up to 2 minutes)' : undefined,
+      onClick: function() { if (treeRoot) _refreshNextRef.current = true; setAttempt(function(a) { return a + 1; }); }
     }, '↻ Refresh'),
+    paged && React.createElement(ActionTypeSelect, { creds: creds, value: typeFilter, onChange: setTypeFilter }),
     supportsCreatedFilter && React.createElement('div', { style: { display: 'flex', gap: 4, alignItems: 'center' } },
       React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)', whiteSpace: 'nowrap' } }, 'Created:'),
       React.createElement('input', { type: 'date', value: createdFrom, onChange: function(e) { setCreatedFrom(e.target.value); },
@@ -2187,9 +2255,12 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
       'Include templates'
     ),
     !loading && !error && React.createElement('div', { style: { fontSize: 11, color: capped ? '#fbbf24' : 'var(--dim)' } },
-      (filtered.length === items.length ? items.length : filtered.length + ' of ' + items.length) + ' loaded' +
-      (capped ? ' — capped: there are more' + (/\/actions\b/.test(endpoint) ? ' (newest shown)' : '') : '')),
-    !treeRoot && types.length > 1 && React.createElement('select', { value: typeFilter, onChange: function(e) { setTypeFilter(e.target.value); },
+      paged
+        ? (filtered.length !== items.length ? filtered.length + ' of ' : '') + items.length + (hasMore ? '+' : '') + ' ' +
+          (serverQ || typeFilter !== 'all' ? 'matching' : 'loaded') + (hasMore ? ', newest first — more below' : ' (all)')
+        : (filtered.length === items.length ? items.length : filtered.length + ' of ' + items.length) + ' loaded' +
+          (capped ? ' — capped: there are more' : '') + (stale ? ' · refreshing…' : '')),
+    !treeRoot && !paged && types.length > 1 && React.createElement('select', { value: typeFilter, onChange: function(e) { setTypeFilter(e.target.value); },
       style: { fontSize: 11, padding: '3px 6px', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 4 } },
       [React.createElement('option', { key: 'all', value: 'all' }, 'All types')].concat(
         types.map(function(t) { return React.createElement('option', { key: t, value: t }, t); })
@@ -2217,6 +2288,10 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
   return React.createElement(SidebarDetail, {
     items: filtered, loading: loading, error: error, selected: selected, onSelect: handleSelect,
     filterBar: filterBar,
+    loadingText: treeRoot ? 'Loading the full list… The first load can take a few seconds; after that it is kept for 2 minutes.' : null,
+    listFooter: paged && hasMore ? React.createElement('div', { style: { padding: '10px 14px' } },
+      React.createElement('button', { className: 'btn-sm', disabled: loadingMore, onClick: loadMore },
+        loadingMore ? 'Loading…' : 'Load 200 more')) : null,
     renderList: treeRoot ? function(list) {
       return React.createElement(DataAssetTree, { items: list, rootType: treeRoot, creds: creds, selected: selected, onSelect: handleSelect,
         filtering: !!q.trim() || classifFilter.length > 0 });
@@ -2479,7 +2554,9 @@ function AnnotationsSubPane({ guid, creds, onNavigate }) {
 }
 
 function AnnotationsTabView({ creds, navTarget, onNavigate }) {
-  var _annCapped = useState(false), annCapped = _annCapped[0], setAnnCapped = _annCapped[1]; // server stopped at its cap
+  // Thousands of annotations: one page at a time, searched in Egeria; "Load more" appends.
+  var _annMore = useState(null), annMore = _annMore[0], setAnnMore = _annMore[1]; // {q, atype, asOf, next} or null
+  var _annLoadingMore = useState(false), annLoadingMore = _annLoadingMore[0], setAnnLoadingMore = _annLoadingMore[1];
   var _items   = useState(null),        items     = _items[0],    setItems     = _items[1];
   var _loading = useState(false),       loading   = _loading[0],  setLoading   = _loading[1];
   var _err     = useState(null),        err       = _err[0],      setErr       = _err[1];
@@ -2521,16 +2598,36 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
       .catch(function() {});
   }, [creds]);
 
-  function load(search, atype, asOfTime, selectGuid) {
-    setLoading(true); setErr(null);
-    var url = '/api/tech-catalog/annotations?q=' + encodeURIComponent(search || '*') + '&page_size=500';
+  function annUrl(search, atype, asOfTime, start) {
+    var url = '/api/tech-catalog/annotations?q=' + encodeURIComponent(search || '*') + '&page_size=200';
     if (atype)    url += '&annotation_type=' + encodeURIComponent(atype);
     if (asOfTime) url += '&as_of_time='      + encodeURIComponent(asOfTime);
-    egeriaFetch(url, creds)
+    if (start)    url += '&start_from='      + start;
+    return url;
+  }
+
+  function loadMore() {
+    if (!annMore) return;
+    setAnnLoadingMore(true);
+    egeriaFetch(annUrl(annMore.q, annMore.atype, annMore.asOf, annMore.next), creds)
+      .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || 'Failed'); }); })
+      .then(function(d) {
+        var seen = new Set((items || []).map(function(a) { return a.guid; }));
+        setItems((items || []).concat((d.items || []).filter(function(a) { return !seen.has(a.guid); })));
+        setAnnMore(d.hasMore ? Object.assign({}, annMore, { next: d.nextStart }) : null);
+        setAnnLoadingMore(false);
+      })
+      .catch(function(e) { setErr(e.message); setAnnLoadingMore(false); });
+  }
+
+  function load(search, atype, asOfTime, selectGuid) {
+    setLoading(true); setErr(null);
+    egeriaFetch(annUrl(search, atype, asOfTime, 0), creds)
       .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || 'Failed'); }); })
       .then(function(d) {
         var loaded = d.items || [];
-        setItems(loaded); setAnnCapped(!!d.capped); setLoading(false);
+        setItems(loaded); setLoading(false);
+        setAnnMore(d.hasMore ? { q: search, atype: atype, asOf: asOfTime, next: d.nextStart } : null);
         if (selectGuid) {
           var match = loaded.find(function(a) { return a.guid === selectGuid; });
           if (match) setSel(match);
@@ -2690,8 +2787,8 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
       el('div', { style: { flex: 1, overflowX: 'auto', overflowY: 'auto' } },
         loading && el('div', { style: { padding: '20px 0', textAlign: 'center', color: 'var(--dim)', fontSize: 12 } }, 'Loading…'),
         err     && el('div', { style: { padding: 12, color: '#f87171', fontSize: 12 } }, '⚠ ' + err),
-        !loading && !err && annCapped && el('div', { style: { padding: '6px 10px', color: '#fbbf24', fontSize: 11 } },
-          'Showing the first ' + items.length.toLocaleString() + ' annotations — there are more. Search, or filter by type or time, to narrow the list.'),
+        !loading && !err && items && items.length > 0 && el('div', { style: { padding: '6px 10px', color: 'var(--dim)', fontSize: 11 } },
+          items.length + (annMore ? '+ annotations loaded — more below. Search or filter by type or time to find others.' : ' annotations (all)')),
         !loading && !err && items && items.length === 0 && el('div', { style: { padding: 20, color: 'var(--dim)', fontSize: 12 } }, 'No annotations found.'),
         !loading && !err && items && items.length > 0 && filtered.length === 0 && el('div', { style: { padding: 20, color: 'var(--dim)', fontSize: 12 } }, 'No annotations match the current filters.'),
         hasItems && filtered.length > 0 && el('table', { style: { width: rz.tableWidth || '100%', tableLayout: rz.widths ? 'fixed' : 'auto', borderCollapse: 'collapse' } },
@@ -2720,7 +2817,9 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
               return rows;
             })()
           )
-        )
+        ),
+        !loading && !err && annMore && el('div', { style: { padding: '10px' } },
+          el('button', { className: 'btn-sm', disabled: annLoadingMore, onClick: loadMore }, annLoadingMore ? 'Loading…' : 'Load 200 more'))
       ),
       // Detail panel (resizable — drag the left edge)
       sel && el(ResizeDivider, { onMouseDown: detailDown }),
