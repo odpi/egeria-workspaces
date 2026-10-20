@@ -1312,27 +1312,28 @@ def list_endpoints(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@router.get("/api/tech-catalog/data-stores")
-def list_data_stores(
-    request: Request,
-    q:          str = Query("*"),
-    start_from: int = Query(0, ge=0),
-    page_size:  int = Query(100, ge=1, le=500),
-    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
-    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
-    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
-):
-    try:
-        mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
-    try:
-        raw = mgr.find_data_assets(
+# Data Assets (Data Stores / Feeds / Sets) — every page, not just the first.
+# Egeria's paging contract: only an EMPTY page means done. A short page is not
+# the end — the server drops Template-classified elements after paging, so a
+# page can come back short with more behind it. One page of 100 sorted by name
+# used to show only `1.0.yaml`/`6.2.yaml` (hundreds of same-named files sort
+# first), so the type list offered just two types out of ~10.
+_DATA_ASSET_PAGE = 500
+_DATA_ASSET_MAX_PAGES = 25
+
+
+def _find_all_data_assets(mgr, type_name: str, q: str, as_of_time: Optional[str],
+                          include_templates: bool, page_size: int = _DATA_ASSET_PAGE,
+                          max_pages: int = _DATA_ASSET_MAX_PAGES) -> tuple:
+    """Every data asset of type_name (subtypes included), paged until an empty
+    page, de-duplicated by GUID. Returns (raw_elements, capped)."""
+    out, seen = [], set()
+    for p in range(max_pages):
+        batch = _safe_list(mgr.find_data_assets(
             search_string=q or "*",
-            metadata_element_type="DataStore",
+            metadata_element_type=type_name,
             content_status_list=[],
-            start_from=start_from,
+            start_from=p * page_size,
             page_size=page_size,
             output_format="JSON",
             sequencing_order=_SEQ_ORDER,
@@ -1340,84 +1341,73 @@ def list_data_stores(
             graph_query_depth=0,
             as_of_time=as_of_time or None,
             skip_classified_elements=[] if include_templates else ["Template"],
-        )
-        items = [_serialize(e) for e in _safe_list(raw)]
-        return JSONResponse({"items": items, "total": len(items)})
+        ))
+        if not batch:
+            return out, False
+        for e in batch:
+            guid = ((e or {}).get("elementHeader") or {}).get("guid")
+            if guid and guid in seen:
+                continue
+            if guid:
+                seen.add(guid)
+            out.append(e)
+    return out, True
+
+
+def _list_data_assets(request: Request, type_name: str, q: str, url, server, user_id, user_pwd,
+                      as_of_time: Optional[str], include_templates: bool) -> JSONResponse:
+    try:
+        mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
     except Exception as exc:
-        logger.exception("list_data_stores failed")
         raise HTTPException(status_code=500, detail=str(exc))
+    try:
+        raw, capped = _find_all_data_assets(mgr, type_name, q, as_of_time, include_templates)
+        items = [_serialize(e) for e in raw]
+        by_type: dict = {}
+        for it in items:
+            t = it.get("typeName") or "Unknown"
+            by_type[t] = by_type.get(t, 0) + 1
+        return JSONResponse({"items": items, "total": len(items), "capped": capped,
+                             "byType": by_type, "rootType": type_name})
+    except Exception as exc:
+        logger.exception("list data assets ({}) failed", type_name)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/api/tech-catalog/data-stores")
+def list_data_stores(
+    request: Request,
+    q:          str = Query("*"),
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
+):
+    return _list_data_assets(request, "DataStore", q, url, server, user_id, user_pwd, as_of_time, include_templates)
 
 
 @router.get("/api/tech-catalog/data-feeds")
 def list_data_feeds(
     request: Request,
     q:          str = Query("*"),
-    start_from: int = Query(0, ge=0),
-    page_size:  int = Query(100, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
-    try:
-        mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
-    try:
-        raw = mgr.find_data_assets(
-            search_string=q or "*",
-            metadata_element_type="DataFeed",
-            content_status_list=[],
-            start_from=start_from,
-            page_size=page_size,
-            output_format="JSON",
-            sequencing_order=_SEQ_ORDER,
-            sequencing_property=_SEQ_PROP,
-            graph_query_depth=0,
-            as_of_time=as_of_time or None,
-            skip_classified_elements=[] if include_templates else ["Template"],
-        )
-        items = [_serialize(e) for e in _safe_list(raw)]
-        return JSONResponse({"items": items, "total": len(items)})
-    except Exception as exc:
-        logger.exception("list_data_feeds failed")
-        raise HTTPException(status_code=500, detail=str(exc))
+    return _list_data_assets(request, "DataFeed", q, url, server, user_id, user_pwd, as_of_time, include_templates)
 
 
 @router.get("/api/tech-catalog/data-sets")
 def list_data_sets(
     request: Request,
     q:          str = Query("*"),
-    start_from: int = Query(0, ge=0),
-    page_size:  int = Query(100, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
-    try:
-        mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
-    try:
-        raw = mgr.find_data_assets(
-            search_string=q or "*",
-            metadata_element_type="DataSet",
-            content_status_list=[],
-            start_from=start_from,
-            page_size=page_size,
-            output_format="JSON",
-            sequencing_order=_SEQ_ORDER,
-            sequencing_property=_SEQ_PROP,
-            graph_query_depth=0,
-            as_of_time=as_of_time or None,
-            skip_classified_elements=[] if include_templates else ["Template"],
-        )
-        items = [_serialize(e) for e in _safe_list(raw)]
-        return JSONResponse({"items": items, "total": len(items)})
-    except Exception as exc:
-        logger.exception("list_data_sets failed")
-        raise HTTPException(status_code=500, detail=str(exc))
+    return _list_data_assets(request, "DataSet", q, url, server, user_id, user_pwd, as_of_time, include_templates)
 
 
 @router.get("/api/tech-catalog/apis")
