@@ -1,0 +1,775 @@
+{
+  "database": "coco_pharma",
+  "systems": {
+    "aus_inventory": {
+      "aus_inventory.item": {
+        "activity": "master"
+      },
+      "aus_inventory.receiving_log": {
+        "activity": "master"
+      },
+      "aus_inventory.rcv_inspection": {
+        "activity": "master"
+      },
+      "aus_inventory.badge": {
+        "activity": "master"
+      },
+      "aus_inventory.lot_status": {
+        "activity": "entity",
+        "cadence": "steady",
+        "children": [
+          "aus_inventory.lot_disposition",
+          "aus_inventory.inv_transaction"
+        ]
+      },
+      "aus_inventory.lot_disposition": {
+        "activity": "child",
+        "parent": "aus_inventory.lot_status"
+      },
+      "aus_inventory.on_hand": {
+        "activity": "master"
+      },
+      "aus_inventory.inv_transaction": {
+        "activity": "child",
+        "parent": "aus_inventory.lot_status",
+        "cadence": "fast"
+      },
+      "aus_inventory.lab_sample_in": {
+        "activity": "inbound"
+      },
+      "aus_inventory.lab_result_in": {
+        "activity": "inbound"
+      },
+      "aus_inventory.lab_coa_in": {
+        "activity": "inbound"
+      },
+      "aus_inventory.serial_no": {
+        "activity": "inbound"
+      },
+      "aus_inventory.serial_event": {
+        "activity": "inbound"
+      },
+      "aus_inventory.vendor": {
+        "activity": "inbound"
+      },
+      "aus_inventory.vendor_coa": {
+        "activity": "inbound"
+      },
+      "aus_inventory.vendor_coa_test": {
+        "activity": "inbound"
+      }
+    },
+    "austin_haz_mat": {
+      "austin_haz_mat.chemical": {
+        "activity": "master"
+      },
+      "austin_haz_mat.storage_location_qty": {
+        "activity": "master"
+      },
+      "austin_haz_mat.dot_classification": {
+        "activity": "entity",
+        "cadence": "steady",
+        "children": []
+      },
+      "austin_haz_mat.stock_check": {
+        "activity": "inbound"
+      },
+      "austin_haz_mat.ehs_incident": {
+        "activity": "inbound"
+      },
+      "austin_haz_mat.oeb_band": {
+        "activity": "inbound"
+      },
+      "austin_haz_mat.product_handling": {
+        "activity": "inbound"
+      }
+    },
+    "ca_payroll": {
+      "ca_payroll.employee_master": {
+        "activity": "master"
+      },
+      "ca_payroll.payroll_batch": {
+        "activity": "master"
+      },
+      "ca_payroll.earnings_statement": {
+        "activity": "master"
+      },
+      "ca_payroll.hr_interface": {
+        "activity": "inbound"
+      }
+    },
+    "coco_expenses": {
+      "coco_expenses.employee_profile": {
+        "activity": "master"
+      },
+      "coco_expenses.employee_cost_center": {
+        "activity": "master"
+      },
+      "coco_expenses.expense_report": {
+        "activity": "entity",
+        "cadence": "slow",
+        "children": [
+          "coco_expenses.expense_entry",
+          "coco_expenses.approval_history"
+        ]
+      },
+      "coco_expenses.expense_entry": {
+        "activity": "child",
+        "parent": "coco_expenses.expense_report"
+      },
+      "coco_expenses.approval_history": {
+        "activity": "child",
+        "parent": "coco_expenses.expense_report"
+      },
+      "coco_expenses.employee_import": {
+        "activity": "inbound"
+      }
+    },
+    "coco_haz_mat": {
+      "coco_haz_mat.hm_subst": {
+        "activity": "master"
+      },
+      "coco_haz_mat.hm_band": {
+        "activity": "master"
+      },
+      "coco_haz_mat.hm_hold": {
+        "activity": "master"
+      },
+      "coco_haz_mat.hm_tpt": {
+        "activity": "entity",
+        "cadence": "steady",
+        "children": []
+      },
+      "coco_haz_mat.hm_consign": {
+        "activity": "inbound"
+      },
+      "coco_haz_mat.hm_stk_chk": {
+        "activity": "inbound"
+      },
+      "coco_haz_mat.hm_incid": {
+        "activity": "inbound"
+      },
+      "coco_haz_mat.hm_prd_hndl": {
+        "activity": "inbound"
+      }
+    },
+    "coco_hrim": {
+      "coco_hrim.job": {
+        "activity": "master"
+      },
+      "coco_hrim.person": {
+        "activity": "master"
+      },
+      "coco_hrim.job_assignment": {
+        "activity": "master"
+      },
+      "coco_hrim.competency": {
+        "activity": "master"
+      },
+      "coco_hrim.job_competency": {
+        "activity": "master"
+      },
+      "coco_hrim.emp_competency": {
+        "activity": "master"
+      },
+      "coco_hrim.hr_event": {
+        "activity": "entity",
+        "cadence": "fast",
+        "children": [
+          "coco_hrim.hr_event_dist"
+        ]
+      },
+      "coco_hrim.hr_event_dist": {
+        "activity": "child",
+        "parent": "coco_hrim.hr_event"
+      },
+      "coco_hrim.lms_completion": {
+        "activity": "inbound"
+      },
+      "coco_hrim.dsr_action": {
+        "activity": "inbound"
+      }
+    },
+    "coco_inventory": {
+      "coco_inventory.inv_loc": {
+        "activity": "master"
+      },
+      "coco_inventory.inv_item": {
+        "activity": "master"
+      },
+      "coco_inventory.inv_bal": {
+        "activity": "master"
+      },
+      "coco_inventory.inv_txn": {
+        "activity": "child",
+        "parent": "coco_inventory.inv_qrn",
+        "cadence": "fast"
+      },
+      "coco_inventory.inv_insp": {
+        "activity": "master"
+      },
+      "coco_inventory.inv_qrn": {
+        "activity": "entity",
+        "cadence": "steady",
+        "children": [
+          "coco_inventory.inv_txn",
+          "coco_inventory.inv_qdisp"
+        ]
+      },
+      "coco_inventory.inv_qdisp": {
+        "activity": "child",
+        "parent": "coco_inventory.inv_qrn"
+      },
+      "coco_inventory.inv_rcpt_ntf": {
+        "activity": "inbound"
+      },
+      "coco_inventory.inv_qc_smpl": {
+        "activity": "inbound"
+      },
+      "coco_inventory.inv_qc_res": {
+        "activity": "inbound"
+      },
+      "coco_inventory.inv_qc_coa": {
+        "activity": "inbound"
+      },
+      "coco_inventory.inv_serial": {
+        "activity": "inbound"
+      },
+      "coco_inventory.inv_serial_evt": {
+        "activity": "inbound"
+      },
+      "coco_inventory.inv_supp": {
+        "activity": "inbound"
+      },
+      "coco_inventory.inv_supp_coa": {
+        "activity": "inbound"
+      },
+      "coco_inventory.inv_supp_coa_tst": {
+        "activity": "inbound"
+      }
+    },
+    "coco_ledgers": {
+      "coco_ledgers.fm_user": {
+        "activity": "master"
+      },
+      "coco_ledgers.gl_entity": {
+        "activity": "master"
+      },
+      "coco_ledgers.gl_account": {
+        "activity": "master"
+      },
+      "coco_ledgers.gl_journal": {
+        "activity": "entity",
+        "cadence": "slow",
+        "children": [
+          "coco_ledgers.gl_journal_line",
+          "coco_ledgers.gl_je_review"
+        ]
+      },
+      "coco_ledgers.gl_journal_line": {
+        "activity": "child",
+        "parent": "coco_ledgers.gl_journal"
+      },
+      "coco_ledgers.gl_je_review": {
+        "activity": "child",
+        "parent": "coco_ledgers.gl_journal"
+      },
+      "coco_ledgers.gl_period_balance": {
+        "activity": "master"
+      },
+      "coco_ledgers.ar_invoice": {
+        "activity": "entity",
+        "cadence": "slow",
+        "children": []
+      },
+      "coco_ledgers.ap_invoice": {
+        "activity": "master"
+      },
+      "coco_ledgers.ap_payment": {
+        "activity": "entity",
+        "cadence": "slow",
+        "children": []
+      },
+      "coco_ledgers.ap_vendor": {
+        "activity": "inbound"
+      },
+      "coco_ledgers.ap_po": {
+        "activity": "inbound"
+      },
+      "coco_ledgers.ap_po_receipt": {
+        "activity": "inbound"
+      },
+      "coco_ledgers.gl_feed_batch": {
+        "activity": "inbound"
+      },
+      "coco_ledgers.gl_interface": {
+        "activity": "inbound"
+      },
+      "coco_ledgers.ar_fulfilment": {
+        "activity": "inbound"
+      }
+    },
+    "coco_products": {
+      "coco_products.prd_mstr": {
+        "activity": "master"
+      },
+      "coco_products.prd_pack": {
+        "activity": "master"
+      },
+      "coco_products.prd_hndl": {
+        "activity": "master"
+      },
+      "coco_products.prd_mkt_auth": {
+        "activity": "master"
+      },
+      "coco_products.prd_ma_rcvd": {
+        "activity": "inbound"
+      },
+      "coco_products.prd_ma_cond": {
+        "activity": "inbound"
+      },
+      "coco_products.prd_cand": {
+        "activity": "inbound"
+      },
+      "coco_products.prd_cand_pack": {
+        "activity": "inbound"
+      },
+      "coco_products.prd_cand_spec": {
+        "activity": "inbound"
+      }
+    },
+    "cocopages": {
+      "cocopages.dir_person": {
+        "activity": "master"
+      },
+      "cocopages.hr_sync": {
+        "activity": "inbound"
+      }
+    },
+    "ed_mfg_control": {
+      "ed_mfg_control.prod_lot": {
+        "activity": "master"
+      },
+      "ed_mfg_control.operator": {
+        "activity": "master"
+      },
+      "ed_mfg_control.op_log": {
+        "activity": "master"
+      },
+      "ed_mfg_control.consumption": {
+        "activity": "master"
+      },
+      "ed_mfg_control.equip_log": {
+        "activity": "master"
+      },
+      "ed_mfg_control.ebr_section": {
+        "activity": "master"
+      },
+      "ed_mfg_control.market_release": {
+        "activity": "master"
+      },
+      "ed_mfg_control.lot_deviation": {
+        "activity": "inbound"
+      },
+      "ed_mfg_control.equipment_status": {
+        "activity": "inbound"
+      },
+      "ed_mfg_control.component_issue": {
+        "activity": "inbound"
+      },
+      "ed_mfg_control.qc_sample": {
+        "activity": "inbound"
+      },
+      "ed_mfg_control.qc_result": {
+        "activity": "inbound"
+      },
+      "ed_mfg_control.qc_certificate": {
+        "activity": "inbound"
+      },
+      "ed_mfg_control.process_reading": {
+        "activity": "inbound"
+      },
+      "ed_mfg_control.excursion_review": {
+        "activity": "inbound"
+      },
+      "ed_mfg_control.operator_qualification": {
+        "activity": "inbound"
+      }
+    },
+    "eddepot01": {
+      "eddepot01.receipt": {
+        "activity": "master"
+      },
+      "eddepot01.tdg_signer": {
+        "activity": "master"
+      },
+      "eddepot01.tdg_shipment": {
+        "activity": "entity",
+        "cadence": "steady",
+        "children": [
+          "eddepot01.tdg_document"
+        ]
+      },
+      "eddepot01.tdg_document": {
+        "activity": "child",
+        "parent": "eddepot01.tdg_shipment"
+      },
+      "eddepot01.vendor_master": {
+        "activity": "inbound"
+      },
+      "eddepot01.coa_cert": {
+        "activity": "inbound"
+      },
+      "eddepot01.coa_cert_test": {
+        "activity": "inbound"
+      },
+      "eddepot01.tdg_class": {
+        "activity": "inbound"
+      }
+    },
+    "global_crm": {
+      "global_crm.account": {
+        "activity": "master"
+      },
+      "global_crm.contact": {
+        "activity": "master"
+      },
+      "global_crm.sales_order": {
+        "activity": "entity",
+        "cadence": "steady",
+        "children": [
+          "global_crm.sales_order_item"
+        ]
+      },
+      "global_crm.sales_order_item": {
+        "activity": "child",
+        "parent": "global_crm.sales_order"
+      },
+      "global_crm.collection_request__c": {
+        "activity": "entity",
+        "cadence": "slow",
+        "children": []
+      },
+      "global_crm.adverse_reaction__c": {
+        "activity": "entity",
+        "cadence": "steady",
+        "children": []
+      },
+      "global_crm.invoice__c": {
+        "activity": "entity",
+        "cadence": "slow",
+        "children": []
+      },
+      "global_crm.therapy_shipment_event__c": {
+        "activity": "inbound"
+      },
+      "global_crm.therapy_administration__c": {
+        "activity": "inbound"
+      }
+    },
+    "kcdepot01": {
+      "kcdepot01.inbound_receipt": {
+        "activity": "entity",
+        "cadence": "steady",
+        "children": []
+      },
+      "kcdepot01.hazmat_employee": {
+        "activity": "master"
+      },
+      "kcdepot01.hazmat_shipment": {
+        "activity": "entity",
+        "cadence": "steady",
+        "children": [
+          "kcdepot01.shipment_doc"
+        ]
+      },
+      "kcdepot01.shipment_doc": {
+        "activity": "child",
+        "parent": "kcdepot01.hazmat_shipment"
+      },
+      "kcdepot01.vendor": {
+        "activity": "inbound"
+      },
+      "kcdepot01.lot_cert": {
+        "activity": "inbound"
+      },
+      "kcdepot01.lot_cert_test": {
+        "activity": "inbound"
+      },
+      "kcdepot01.hazmat_class": {
+        "activity": "inbound"
+      }
+    },
+    "manufacturing_planning": {
+      "manufacturing_planning.plnord": {
+        "activity": "entity",
+        "cadence": "steady",
+        "children": [
+          "manufacturing_planning.inbd_matl"
+        ]
+      },
+      "manufacturing_planning.plnord_pers": {
+        "activity": "master"
+      },
+      "manufacturing_planning.inbd_matl": {
+        "activity": "child",
+        "parent": "manufacturing_planning.plnord"
+      },
+      "manufacturing_planning.pers_psn_reg": {
+        "activity": "inbound"
+      },
+      "manufacturing_planning.inbd_asn": {
+        "activity": "inbound"
+      }
+    },
+    "mfctrl9482": {
+      "mfctrl9482.mfc_batch": {
+        "activity": "entity",
+        "cadence": "steady",
+        "children": [
+          "mfctrl9482.mfc_operation",
+          "mfctrl9482.mfc_consumption",
+          "mfctrl9482.mfc_equipment_use",
+          "mfctrl9482.mfc_record_section",
+          "mfctrl9482.mfc_release"
+        ]
+      },
+      "mfctrl9482.mfc_operator": {
+        "activity": "master"
+      },
+      "mfctrl9482.mfc_operation": {
+        "activity": "child",
+        "parent": "mfctrl9482.mfc_batch"
+      },
+      "mfctrl9482.mfc_consumption": {
+        "activity": "child",
+        "parent": "mfctrl9482.mfc_batch"
+      },
+      "mfctrl9482.mfc_equipment_use": {
+        "activity": "child",
+        "parent": "mfctrl9482.mfc_batch"
+      },
+      "mfctrl9482.mfc_record_section": {
+        "activity": "child",
+        "parent": "mfctrl9482.mfc_batch"
+      },
+      "mfctrl9482.mfc_release": {
+        "activity": "child",
+        "parent": "mfctrl9482.mfc_batch"
+      },
+      "mfctrl9482.mfc_mes_operation": {
+        "activity": "inbound"
+      },
+      "mfctrl9482.mfc_mes_consumption": {
+        "activity": "inbound"
+      },
+      "mfctrl9482.mfc_mes_equipment_use": {
+        "activity": "inbound"
+      },
+      "mfctrl9482.mfc_deviation": {
+        "activity": "inbound"
+      },
+      "mfctrl9482.mfc_equipment_qual": {
+        "activity": "inbound"
+      },
+      "mfctrl9482.mfc_issue": {
+        "activity": "inbound"
+      },
+      "mfctrl9482.mfc_lab_sample": {
+        "activity": "inbound"
+      },
+      "mfctrl9482.mfc_lab_result": {
+        "activity": "inbound"
+      },
+      "mfctrl9482.mfc_lab_coa": {
+        "activity": "inbound"
+      },
+      "mfctrl9482.mfc_param_reading": {
+        "activity": "inbound"
+      },
+      "mfctrl9482.mfc_excursion": {
+        "activity": "inbound"
+      }
+    },
+    "nl_payroll": {
+      "nl_payroll.medewerker": {
+        "activity": "master"
+      },
+      "nl_payroll.verloningsrun": {
+        "activity": "entity",
+        "cadence": "steady",
+        "children": [
+          "nl_payroll.loonstrook"
+        ]
+      },
+      "nl_payroll.loonstrook": {
+        "activity": "child",
+        "parent": "nl_payroll.verloningsrun"
+      },
+      "nl_payroll.hr_mutatie": {
+        "activity": "inbound"
+      }
+    },
+    "procurement01": {
+      "procurement01.vendor": {
+        "activity": "master"
+      },
+      "procurement01.vendor_bank": {
+        "activity": "master"
+      },
+      "procurement01.vendor_anomaly": {
+        "activity": "master"
+      },
+      "procurement01.onboard_case": {
+        "activity": "entity",
+        "cadence": "steady",
+        "children": [
+          "procurement01.vendor_screening"
+        ]
+      },
+      "procurement01.vendor_screening": {
+        "activity": "child",
+        "parent": "procurement01.onboard_case"
+      },
+      "procurement01.anomaly_alert": {
+        "activity": "inbound"
+      },
+      "procurement01.anomaly_alert_txn": {
+        "activity": "inbound"
+      },
+      "procurement01.bank_chg_req": {
+        "activity": "inbound"
+      },
+      "procurement01.screen_result": {
+        "activity": "inbound"
+      },
+      "procurement01.screen_hit": {
+        "activity": "inbound"
+      }
+    },
+    "sec_admin": {
+      "sec_admin.sa_entitlement": {
+        "activity": "master"
+      },
+      "sec_admin.sa_user": {
+        "activity": "master"
+      },
+      "sec_admin.sa_grant": {
+        "activity": "master"
+      },
+      "sec_admin.sa_hr_feed": {
+        "activity": "inbound"
+      }
+    },
+    "uk_payroll": {
+      "uk_payroll.pay_employee": {
+        "activity": "master"
+      },
+      "uk_payroll.pay_run": {
+        "activity": "entity",
+        "cadence": "slow",
+        "children": [
+          "uk_payroll.pay_result"
+        ]
+      },
+      "uk_payroll.pay_result": {
+        "activity": "child",
+        "parent": "uk_payroll.pay_run"
+      },
+      "uk_payroll.hr_feed": {
+        "activity": "inbound"
+      }
+    },
+    "winch_mfg_control": {
+      "winch_mfg_control.wbatch": {
+        "activity": "entity",
+        "cadence": "steady",
+        "children": []
+      },
+      "winch_mfg_control.wstep": {
+        "activity": "master"
+      },
+      "winch_mfg_control.wmatl": {
+        "activity": "master"
+      },
+      "winch_mfg_control.wstep_eq": {
+        "activity": "master"
+      },
+      "winch_mfg_control.wdoc": {
+        "activity": "master"
+      },
+      "winch_mfg_control.wrel": {
+        "activity": "master"
+      },
+      "winch_mfg_control.wdev": {
+        "activity": "inbound"
+      },
+      "winch_mfg_control.weq_qual": {
+        "activity": "inbound"
+      },
+      "winch_mfg_control.wmat_iss": {
+        "activity": "inbound"
+      },
+      "winch_mfg_control.wlab_smpl": {
+        "activity": "inbound"
+      },
+      "winch_mfg_control.wlab_res": {
+        "activity": "inbound"
+      },
+      "winch_mfg_control.wlab_coa": {
+        "activity": "inbound"
+      },
+      "winch_mfg_control.wsched": {
+        "activity": "inbound"
+      },
+      "winch_mfg_control.wparam": {
+        "activity": "inbound"
+      },
+      "winch_mfg_control.wexc": {
+        "activity": "inbound"
+      },
+      "winch_mfg_control.wopr_qual": {
+        "activity": "inbound"
+      }
+    },
+    "winchdepot01": {
+      "winchdepot01.gr_hdr": {
+        "activity": "entity",
+        "cadence": "steady",
+        "children": [
+          "winchdepot01.gr_line"
+        ]
+      },
+      "winchdepot01.gr_line": {
+        "activity": "child",
+        "parent": "winchdepot01.gr_hdr"
+      },
+      "winchdepot01.dg_consign": {
+        "activity": "entity",
+        "cadence": "steady",
+        "children": [
+          "winchdepot01.dg_docs"
+        ]
+      },
+      "winchdepot01.dg_docs": {
+        "activity": "child",
+        "parent": "winchdepot01.dg_consign"
+      },
+      "winchdepot01.supp_mstr": {
+        "activity": "inbound"
+      },
+      "winchdepot01.coa_hdr": {
+        "activity": "inbound"
+      },
+      "winchdepot01.coa_line": {
+        "activity": "inbound"
+      },
+      "winchdepot01.dg_class": {
+        "activity": "inbound"
+      },
+      "winchdepot01.dg_signatory": {
+        "activity": "inbound"
+      }
+    }
+  }
+}

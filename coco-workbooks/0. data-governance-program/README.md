@@ -5,7 +5,7 @@ This directory contains nineteen Dr.Egeria Markdown files.  The first two were c
 * [jules-90-day-plan.md](jules-90-day-plan.md)
 * [data-strategy-framework.md](data-strategy-framework.md)
 
-The next file records the meeting where the governance leaders came together to agree the top-level definitions that everything else links to:
+The next file records the top-level governance definitions that everything else links to:
 
 * [joint-governance-officer-definitions.md](joint-governance-officer-definitions.md)
 
@@ -30,12 +30,12 @@ The governance leaders then went back to their own teams to work through the pri
 | [biological-agents-and-gmo.md](biological-agents-and-gmo.md) | `Health and Safety` | Faith Broker, through the Biological Safety Officer |
 | [dangerous-goods-transport.md](dangerous-goods-transport.md) | `Distribution` | Stew Faster with Florence Paynter and George Pie |
 
-Four further files cut across the domains:
+Four further files covering definitions that cut across the domains were developed by various groups:
 
-* [risk-register.md](risk-register.md) — the threats and risks affecting the company, contributed to and owned by all the governance leaders
-* [data-quality-glossary.md](data-quality-glossary.md) — the vocabulary of data integrity as the regulators use it: the ALCOA, ALCOA+ and ALCOA++ attributes, defined precisely enough for the manufacturing quality expectations to be turned into measurable rules
-* [employee-glossary.md](employee-glossary.md) — the output of a [glossary building session](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/defining-a-glossary/overview/) run by [Erin Overview](https://egeria-project.org/practices/coco-pharmaceuticals/personas/erin-overview/) and [Faith Broker](https://egeria-project.org/practices/coco-pharmaceuticals/personas/faith-broker/) on the employee subject area, showing the common data definitions principle being put into practice
-* [strategic-information-supply-chains.md](strategic-information-supply-chains.md) — the register of data flows the company governs and monitors at company level, linked to the governance definitions from every domain that govern them
+* [risk-register.md](risk-register.md) — the threats and risks affecting the company, contributed to and owned by all the governance leaders.  Although this is a topic normally associated with the security domain, the cross domina team brought a broader perspective on the impact and likelihood of particular risks, as well as innovative approaches to their mitigation.  
+* [data-quality-glossary.md](data-quality-glossary.md) — the vocabulary of data integrity as the regulators use it: the ALCOA, ALCOA+ and ALCOA++ attributes, defined precisely enough for the manufacturing quality expectations to be turned into measurable rules.  Jule was going to put together his own definition of data quality, until he saw the ALCOA++ definition in the manufacturing team's governance domain.  He asked Erin to work with the manufacturing team to build the definitions out more full so they could be used across the business.
+* [employee-glossary.md](employee-glossary.md) — the output of a [glossary building session](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/defining-a-glossary/overview/) run by [Erin Overview](https://egeria-project.org/practices/coco-pharmaceuticals/personas/erin-overview/) and [Faith Broker](https://egeria-project.org/practices/coco-pharmaceuticals/personas/faith-broker/) on the employee subject area, showing the common data definitions principle being put into practice.
+* [strategic-information-supply-chains.md](strategic-information-supply-chains.md) — the register of data flows the company governs and monitors at company level, linked to the governance definitions from across the domains that govern them.
 
 ----
 
@@ -101,10 +101,10 @@ The last of these loads after everything else in the directory because it links 
 
 The story continues outside this directory:
 
-* `6. data-privacy/data-processing-purposes.md` — the data processing purposes declared by every domain, gathered with their links so the lawful bases can be reviewed as a set
-* `1. coco-data-hub/` — Erin Overview and Peter Profile lay out the solution components for the strategic supply chains, and Gary Geeke loads his systems inventory so the components can be mapped to real systems
-* `4. keeping-safe/it-governance-program.md` — Gary Geeke builds out the `IT Infrastructure` domain on that inventory
+* `1. coco-data-hub/` — Erin Overview and Peter Profile lay out the solution components for the strategic supply chains, and Gary Geeke loads his systems inventory so the components can be mapped to real systems.  In this directory you det to see the data governance team building out a mesh of digital products that deliver critical data between systems along the strategic information supply chains.
 * `3. sustainability/sustainability-governance-program.md` — Tom Tally, now leading the sustainability program, connects the sustainability definitions to the domain programs
+* `4. keeping-safe/it-governance-program.md` — Gary Geeke builds out the `IT Infrastructure` domain on the systems inventory created in `1. coco-data-hub/`.
+* `6. data-privacy/data-processing-purposes.md` — the data processing purposes declared by every domain, gathered with their links so the lawful bases can be reviewed as a set
 
 All of these load after this directory.  The Martyn's Law definitions in `4. keeping-safe/martyns-law/` load after those.
 

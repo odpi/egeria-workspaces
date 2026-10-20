@@ -1,0 +1,590 @@
+{
+  "database": "bucharest_systems",
+  "systems": {
+    "active_directory": {
+      "active_directory.ad_user": {
+        "activity": "master"
+      },
+      "active_directory.ad_group": {
+        "activity": "master"
+      },
+      "active_directory.ad_group_member": {
+        "activity": "snapshot",
+        "cadence": "steady"
+      }
+    },
+    "ekg_wms": {
+      "ekg_wms.articole": {
+        "activity": "master"
+      },
+      "ekg_wms.depozite": {
+        "activity": "master"
+      },
+      "ekg_wms.receptii": {
+        "activity": "master"
+      },
+      "ekg_wms.inspectii_receptie": {
+        "activity": "master"
+      },
+      "ekg_wms.carantina": {
+        "activity": "master"
+      },
+      "ekg_wms.stoc": {
+        "activity": "master"
+      },
+      "ekg_wms.miscari": {
+        "activity": "master"
+      },
+      "ekg_wms.expeditii": {
+        "activity": "master"
+      },
+      "ekg_wms.documente_exp": {
+        "activity": "master"
+      },
+      "ekg_wms.furnizori": {
+        "activity": "master"
+      },
+      "ekg_wms.certificate_furnizor": {
+        "activity": "master"
+      },
+      "ekg_wms.buletine_analiza": {
+        "activity": "master"
+      },
+      "ekg_wms.imp_decizii_sap": {
+        "activity": "master"
+      },
+      "ekg_wms.serii_ambalaj": {
+        "activity": "master"
+      },
+      "ekg_wms.clasificari_adr": {
+        "activity": "master"
+      }
+    },
+    "empower_cds": {
+      "empower_cds.sample_set": {
+        "activity": "entity",
+        "cadence": "steady",
+        "children": [
+          "empower_cds.injection"
+        ]
+      },
+      "empower_cds.injection": {
+        "activity": "child",
+        "parent": "empower_cds.sample_set",
+        "children": [
+          "empower_cds.result"
+        ]
+      },
+      "empower_cds.result": {
+        "activity": "child",
+        "parent": "empower_cds.injection"
+      }
+    },
+    "factorytalk": {
+      "factorytalk.tagtable": {
+        "activity": "master"
+      },
+      "factorytalk.hmitag": {
+        "activity": "master"
+      },
+      "factorytalk.floattable": {
+        "activity": "event",
+        "cadence": "fast"
+      },
+      "factorytalk.stringtable": {
+        "activity": "event",
+        "cadence": "steady"
+      },
+      "factorytalk.line_serial_event": {
+        "activity": "entity",
+        "cadence": "fast",
+        "children": []
+      },
+      "factorytalk.sn_allocation": {
+        "activity": "master"
+      }
+    },
+    "kronos_workforce": {
+      "kronos_workforce.laboracct": {
+        "activity": "master"
+      },
+      "kronos_workforce.person": {
+        "activity": "master"
+      },
+      "kronos_workforce.paycode": {
+        "activity": "master"
+      },
+      "kronos_workforce.wfctotal": {
+        "activity": "entity",
+        "cadence": "steady",
+        "children": []
+      },
+      "kronos_workforce.pay_statement": {
+        "activity": "entity",
+        "cadence": "slow",
+        "children": []
+      }
+    },
+    "labware_lims": {
+      "labware_lims.vendor": {
+        "activity": "master"
+      },
+      "labware_lims.product_spec": {
+        "activity": "master"
+      },
+      "labware_lims.lot": {
+        "activity": "entity",
+        "cadence": "steady",
+        "children": []
+      },
+      "labware_lims.sample": {
+        "activity": "entity",
+        "cadence": "steady",
+        "children": [
+          "labware_lims.test"
+        ]
+      },
+      "labware_lims.test": {
+        "activity": "child",
+        "parent": "labware_lims.sample",
+        "children": [
+          "labware_lims.result"
+        ]
+      },
+      "labware_lims.result": {
+        "activity": "child",
+        "parent": "labware_lims.test"
+      },
+      "labware_lims.c_quarantine_request": {
+        "activity": "master"
+      }
+    },
+    "maximo": {
+      "maximo.asset": {
+        "activity": "snapshot",
+        "cadence": "steady"
+      },
+      "maximo.assetspec": {
+        "activity": "master"
+      },
+      "maximo.pm": {
+        "activity": "snapshot",
+        "cadence": "fast"
+      },
+      "maximo.workorder": {
+        "activity": "snapshot",
+        "cadence": "steady"
+      }
+    },
+    "microsoft_365": {
+      "microsoft_365.exo_recipient": {
+        "activity": "master"
+      }
+    },
+    "opcenter_mes": {
+      "opcenter_mes.product": {
+        "activity": "master"
+      },
+      "opcenter_mes.container": {
+        "activity": "entity",
+        "cadence": "steady",
+        "children": [
+          "opcenter_mes.historymainline",
+          "opcenter_mes.ebrsectionref",
+          "opcenter_mes.batchreleasehistory",
+          "opcenter_mes.shipmentmonitor"
+        ]
+      },
+      "opcenter_mes.spec": {
+        "activity": "master"
+      },
+      "opcenter_mes.resourcedef": {
+        "activity": "master"
+      },
+      "opcenter_mes.employee": {
+        "activity": "master"
+      },
+      "opcenter_mes.historymainline": {
+        "activity": "child",
+        "parent": "opcenter_mes.container"
+      },
+      "opcenter_mes.componentissuehistory": {
+        "activity": "master"
+      },
+      "opcenter_mes.resourceusagehistory": {
+        "activity": "master"
+      },
+      "opcenter_mes.ebrheader": {
+        "activity": "master"
+      },
+      "opcenter_mes.ebrsectionref": {
+        "activity": "child",
+        "parent": "opcenter_mes.container"
+      },
+      "opcenter_mes.batchreleasehistory": {
+        "activity": "child",
+        "parent": "opcenter_mes.container"
+      },
+      "opcenter_mes.shipmentmonitor": {
+        "activity": "child",
+        "parent": "opcenter_mes.container"
+      },
+      "opcenter_mes.shipmenteventhistory": {
+        "activity": "entity",
+        "cadence": "fast",
+        "children": []
+      },
+      "opcenter_mes.mfgorder": {
+        "activity": "master"
+      },
+      "opcenter_mes.inboundshipment": {
+        "activity": "master"
+      },
+      "opcenter_mes.resourcequalification": {
+        "activity": "master"
+      },
+      "opcenter_mes.employeecertification": {
+        "activity": "master"
+      },
+      "opcenter_mes.materialinventory": {
+        "activity": "master"
+      },
+      "opcenter_mes.labsample": {
+        "activity": "master"
+      },
+      "opcenter_mes.labresult": {
+        "activity": "master"
+      },
+      "opcenter_mes.extqualityevent": {
+        "activity": "master"
+      },
+      "opcenter_mes.shipmentconsignment": {
+        "activity": "master"
+      },
+      "opcenter_mes.extshipmentevent": {
+        "activity": "master"
+      },
+      "opcenter_mes.shipmenttemperature": {
+        "activity": "master"
+      },
+      "opcenter_mes.productmarket": {
+        "activity": "master"
+      }
+    },
+    "opentext_ecm": {
+      "opentext_ecm.kuaf": {
+        "activity": "master"
+      },
+      "opentext_ecm.dtree": {
+        "activity": "entity",
+        "cadence": "steady",
+        "children": []
+      },
+      "opentext_ecm.catregionmap": {
+        "activity": "master"
+      },
+      "opentext_ecm.llattrdata": {
+        "activity": "master"
+      },
+      "opentext_ecm.rm_rsi": {
+        "activity": "master"
+      },
+      "opentext_ecm.rm_docxref": {
+        "activity": "entity",
+        "cadence": "steady",
+        "children": []
+      }
+    },
+    "proact_cold_chain": {
+      "proact_cold_chain.device": {
+        "activity": "master"
+      },
+      "proact_cold_chain.trip": {
+        "activity": "entity",
+        "cadence": "steady",
+        "children": [
+          "proact_cold_chain.trip_event",
+          "proact_cold_chain.alarm"
+        ]
+      },
+      "proact_cold_chain.measurement": {
+        "activity": "master"
+      },
+      "proact_cold_chain.trip_event": {
+        "activity": "child",
+        "parent": "proact_cold_chain.trip",
+        "cadence": "fast"
+      },
+      "proact_cold_chain.alarm": {
+        "activity": "child",
+        "parent": "proact_cold_chain.trip",
+        "cadence": "fast"
+      },
+      "proact_cold_chain.shipment_manifest": {
+        "activity": "master"
+      },
+      "proact_cold_chain.partner_event": {
+        "activity": "master"
+      }
+    },
+    "sap_concur": {
+      "sap_concur.employee": {
+        "activity": "master"
+      },
+      "sap_concur.cost_object_approver": {
+        "activity": "master"
+      },
+      "sap_concur.report": {
+        "activity": "entity",
+        "cadence": "slow",
+        "children": [
+          "sap_concur.entry",
+          "sap_concur.report_workflow"
+        ]
+      },
+      "sap_concur.entry": {
+        "activity": "child",
+        "parent": "sap_concur.report"
+      },
+      "sap_concur.attendee": {
+        "activity": "master"
+      },
+      "sap_concur.allocation": {
+        "activity": "master"
+      },
+      "sap_concur.report_workflow": {
+        "activity": "child",
+        "parent": "sap_concur.report"
+      }
+    },
+    "sap_s4hana": {
+      "sap_s4hana.aufk": {
+        "activity": "master"
+      },
+      "sap_s4hana.afko": {
+        "activity": "master"
+      },
+      "sap_s4hana.afpo": {
+        "activity": "master"
+      },
+      "sap_s4hana.jest": {
+        "activity": "master"
+      },
+      "sap_s4hana.likp": {
+        "activity": "master"
+      },
+      "sap_s4hana.qals": {
+        "activity": "master"
+      },
+      "sap_s4hana.qave": {
+        "activity": "master"
+      },
+      "sap_s4hana.mch1": {
+        "activity": "master"
+      },
+      "sap_s4hana.lfa1": {
+        "activity": "master"
+      },
+      "sap_s4hana.lfbk": {
+        "activity": "master"
+      },
+      "sap_s4hana.bnka": {
+        "activity": "master"
+      },
+      "sap_s4hana.cdhdr": {
+        "activity": "master"
+      },
+      "sap_s4hana.zekg_bank_verif": {
+        "activity": "master"
+      },
+      "sap_s4hana.zekg_vend_scrn": {
+        "activity": "master"
+      },
+      "sap_s4hana.rbkp": {
+        "activity": "master"
+      },
+      "sap_s4hana.rseg": {
+        "activity": "master"
+      },
+      "sap_s4hana.reguh": {
+        "activity": "master"
+      },
+      "sap_s4hana.regup": {
+        "activity": "master"
+      },
+      "sap_s4hana.bnk_batch_header": {
+        "activity": "master"
+      },
+      "sap_s4hana.vbak": {
+        "activity": "master"
+      },
+      "sap_s4hana.vbrk": {
+        "activity": "master"
+      },
+      "sap_s4hana.vbrp": {
+        "activity": "master"
+      },
+      "sap_s4hana.skat": {
+        "activity": "master"
+      },
+      "sap_s4hana.edidc": {
+        "activity": "master"
+      },
+      "sap_s4hana.bkpf": {
+        "activity": "master"
+      },
+      "sap_s4hana.acdoca": {
+        "activity": "master"
+      },
+      "sap_s4hana.vbkpf": {
+        "activity": "master"
+      },
+      "sap_s4hana.vbsegs": {
+        "activity": "master"
+      },
+      "sap_s4hana.swwwihead": {
+        "activity": "master"
+      },
+      "sap_s4hana.sww_wi2obj": {
+        "activity": "master"
+      },
+      "sap_s4hana.zekg_cnq_rpt": {
+        "activity": "master"
+      },
+      "sap_s4hana.zekg_qm_lims": {
+        "activity": "master"
+      },
+      "sap_s4hana.zekg_pat_link": {
+        "activity": "master"
+      },
+      "sap_s4hana.zekg_pay_anom": {
+        "activity": "master"
+      },
+      "sap_s4hana.zekg_ther_evt": {
+        "activity": "master"
+      }
+    },
+    "trackwise": {
+      "trackwise.users": {
+        "activity": "master"
+      },
+      "trackwise.cmpl123qms__quality_event__c": {
+        "activity": "entity",
+        "cadence": "fast",
+        "children": []
+      },
+      "trackwise.cmpl123qms__investigation__c": {
+        "activity": "entity",
+        "cadence": "steady",
+        "children": []
+      },
+      "trackwise.cmpl123qms__capa__c": {
+        "activity": "entity",
+        "cadence": "daily",
+        "children": []
+      }
+    },
+    "veeva_qms": {
+      "veeva_qms.user__sys": {
+        "activity": "master"
+      },
+      "veeva_qms.product__v": {
+        "activity": "master"
+      },
+      "veeva_qms.quality_event__qdm": {
+        "activity": "entity",
+        "cadence": "fast",
+        "children": []
+      },
+      "veeva_qms.investigation__qdm": {
+        "activity": "entity",
+        "cadence": "fast",
+        "children": []
+      },
+      "veeva_qms.capa_action__qdm": {
+        "activity": "entity",
+        "cadence": "daily",
+        "children": []
+      },
+      "veeva_qms.batch_disposition__c": {
+        "activity": "entity",
+        "cadence": "steady",
+        "children": []
+      },
+      "veeva_qms.batch__c": {
+        "activity": "master"
+      },
+      "veeva_qms.safety_signal__c": {
+        "activity": "master"
+      }
+    },
+    "veeva_rim": {
+      "veeva_rim.product__v": {
+        "activity": "master"
+      },
+      "veeva_rim.country__v": {
+        "activity": "master"
+      },
+      "veeva_rim.registration__v": {
+        "activity": "master"
+      },
+      "veeva_rim.commitment__v": {
+        "activity": "entity",
+        "cadence": "daily",
+        "children": []
+      },
+      "veeva_rim.submission__v": {
+        "activity": "entity",
+        "cadence": "daily",
+        "children": []
+      },
+      "veeva_rim.submission_acknowledgement__c": {
+        "activity": "entity",
+        "cadence": "daily",
+        "children": []
+      },
+      "veeva_rim.safety_case__c": {
+        "activity": "master"
+      },
+      "veeva_rim.safety_signal__c": {
+        "activity": "master"
+      }
+    },
+    "workday_hcm": {
+      "workday_hcm.job_profile": {
+        "activity": "master"
+      },
+      "workday_hcm.worker": {
+        "activity": "master"
+      },
+      "workday_hcm.worker_position": {
+        "activity": "event",
+        "cadence": "slow"
+      },
+      "workday_hcm.business_process_event": {
+        "activity": "entity",
+        "cadence": "fast",
+        "children": []
+      },
+      "workday_hcm.integration_event": {
+        "activity": "entity",
+        "cadence": "fast",
+        "children": []
+      },
+      "workday_hcm.pay_run": {
+        "activity": "entity",
+        "cadence": "slow",
+        "children": [
+          "workday_hcm.payroll_result"
+        ]
+      },
+      "workday_hcm.payroll_result": {
+        "activity": "child",
+        "parent": "workday_hcm.pay_run"
+      },
+      "workday_hcm.data_privacy_request": {
+        "activity": "master"
+      }
+    }
+  }
+}

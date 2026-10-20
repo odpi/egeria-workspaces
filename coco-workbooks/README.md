@@ -18,7 +18,9 @@ The purpose of these workbooks is to help you understand how to use Egeria and e
     and build the [data field naming glossary](1.%20coco-data-hub/data-field-naming/README.md) used to name its data fields consistently.
   - [2. Clinical Trials](2.%20clinical-trials/receive-data-from-hospitals.ipynb) - set up and run the clinical trial data pipeline and observe lineage and data quality checks. Builds on the Coco Data Hub.
   - [3. Sustainability](3.%20sustainability/README.md) - configures Egeria to support their sustainability initiative.
-  - [4. Keeping Safe](4.%20keeping-safe/README.md) - looks at some security scenarios.
+  - [4. Keeping Safe](4.%20keeping-safe/README.md) - looks at some security and IT System Management scenarios.
+  - [5. Sales Forecast Consolidation](5.%20sales-forecast-consolidation/walkthrough.md) - looks at how to consolidate sales forecasting data from multiple sources.
+  - [6. Data Privacy](6.%20data-privacy/README.md) - looks at how to protect data privacy.
 
 <br>
 
