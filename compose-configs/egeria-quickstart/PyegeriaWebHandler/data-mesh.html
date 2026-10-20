@@ -717,6 +717,10 @@ function App() {
   var _activePersona = useState(function() {
     try { var s = localStorage.getItem('egeria-persona'); return s ? JSON.parse(s) : null; } catch(e) { return null; }
   }), activePersona = _activePersona[0], setActivePersona = _activePersona[1];
+  // Why there are no creds once `ready` — 'pending' while the persona sign-in
+  // is still in flight, otherwise a reason the page renders instead of an
+  // empty body ('no-persona' | 'no-egeria' | 'signed-out').
+  var _credIssue = useState('pending'), credIssue = _credIssue[0], setCredIssue = _credIssue[1];
 
   useEffect(function() {
     fetch('/api/auth/me').then(function(r) { return r.json(); }).then(function(d) {
@@ -727,6 +731,8 @@ function App() {
         if (d.authenticated && d.id) {
           setAuthUser({ userId: d.id, displayName: d.display_name || d.id, role: d.role });
           setCreds({});
+        } else {
+          setCredIssue('signed-out');
         }
         setReady(true);
         return;
@@ -734,6 +740,7 @@ function App() {
 
       var storedPersona = loadOwnedPersona(d.id);
       setActivePersona(storedPersona);
+      if (!storedPersona || !storedPersona.id) setCredIssue('no-persona');
       if (storedPersona && storedPersona.id) {
         fetch('/api/demo/select-persona', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -748,11 +755,13 @@ function App() {
             }).catch(function() {
               setCreds({ server: 'qs-view-server', userId: sel.egeria_user });
             });
+          } else {
+            setCredIssue('no-egeria');
           }
-        }).catch(function() {});
+        }).catch(function() { setCredIssue('no-egeria'); });
       }
       setReady(true);
-    }).catch(function() { setReady(true); });
+    }).catch(function() { setCredIssue('no-egeria'); setReady(true); });
   }, []);
 
   useEffect(function() {
@@ -781,7 +790,7 @@ function App() {
     setMeshState('loading');
     egeriaFetch('/api/digital-products/mesh', creds)
       .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || r.status); }); })
-      .then(function(j) { setMesh(j); setMeshState('ready'); })
+      .then(function(j) { setMesh({ nodes: (j && j.nodes) || [], edges: (j && j.edges) || [] }); setMeshState('ready'); })
       .catch(function(e) { setMeshErr(e.message || String(e)); setMeshState('error'); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, creds]);
@@ -897,19 +906,38 @@ function App() {
         )
       ),
       React.createElement('div', { className: 'body' },
+        !creds && credIssue === 'pending' && React.createElement('div', { className: 'center', style: { flex: 1 } },
+          React.createElement('div', { className: 'spinner' }), React.createElement('span', null, 'Connecting…')
+        ),
+        !creds && credIssue === 'no-persona' && React.createElement('div', { className: 'center', style: { flex: 1 } },
+          React.createElement('span', null, 'No persona selected, so there is no one to read digital products as.'),
+          React.createElement('a', { href: '/portal' }, 'Choose one at the Portal →')
+        ),
+        !creds && credIssue === 'signed-out' && React.createElement('div', { className: 'center', style: { flex: 1 } },
+          React.createElement('span', null, 'Sign in to see the data mesh.'),
+          React.createElement('a', { href: '/portal' }, 'Go to the Portal →')
+        ),
+        !creds && credIssue === 'no-egeria' && React.createElement('div', { className: 'center', style: { flex: 1 } },
+          React.createElement('span', null, 'Could not sign in to Egeria as this persona, so no digital products could be read.'),
+          React.createElement('button', { className: 'theme-btn', onClick: function() { window.location.reload(); } }, 'Try again')
+        ),
         meshState === 'loading' && React.createElement('div', { className: 'center', style: { flex: 1 } },
           React.createElement('div', { className: 'spinner' }), React.createElement('span', null, 'Loading digital products…')
         ),
         meshState === 'error' && React.createElement('div', { className: 'center', style: { flex: 1 } },
-          React.createElement('span', null, 'Failed to load: ' + meshErr)
+          React.createElement('span', null, 'Failed to load: ' + meshErr),
+          React.createElement('button', { className: 'theme-btn', onClick: function() { window.location.reload(); } }, 'Try again')
         ),
-        meshState === 'ready' && React.createElement(MeshGraph, {
+        meshState === 'ready' && mesh.nodes.length === 0 && React.createElement('div', { className: 'center', style: { flex: 1 } },
+          React.createElement('span', null, 'No digital products are catalogued yet, or none are visible to you.')
+        ),
+        meshState === 'ready' && mesh.nodes.length > 0 && React.createElement(MeshGraph, {
           elements: cyElements, matchedGuids: matched, iscFilter: iscFilter,
           selectedGuid: selectedGuid, onSelectNode: handleSelectNode, onEdgeClick: handleEdgeClick,
           layoutTrigger: mesh,
         }),
-        meshState === 'ready' && React.createElement('div', { className: 'col-divider', onMouseDown: onPanelDivDown }),
-        meshState === 'ready' && React.createElement('div', { className: 'mesh-panel', style: { width: panelW } },
+        meshState === 'ready' && mesh.nodes.length > 0 && React.createElement('div', { className: 'col-divider', onMouseDown: onPanelDivDown }),
+        meshState === 'ready' && mesh.nodes.length > 0 && React.createElement('div', { className: 'mesh-panel', style: { width: panelW } },
           detailState === 'loading' && React.createElement('div', { className: 'mesh-panel-empty' }, 'Loading…'),
           detailState === 'error' && React.createElement('div', { className: 'mesh-panel-empty' }, 'Failed to load product details.'),
           detailState === 'ready' && detail && React.createElement(DataMeshDetail, { product: detail, onNavigateToElement: handleNavigateToElement }),
