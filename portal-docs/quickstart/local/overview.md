@@ -56,6 +56,15 @@ Without this, `textual-serve` emits `localhost` WebSocket URLs that the browser 
 
 To change a persistent default (e.g. `console_width`, Egeria paths, logging), edit the `.template` file. The runtime `config_workspaces.json` is regenerated fresh on each startup.
 
+### The user directory and secrets
+
+| File | Purpose |
+|------|---------|
+| `compose-configs/egeria-quickstart/secrets/*.omsecrets` | Tracked templates: the Coco user directory (users, groups, governance zones and their access lists) and server credentials |
+| `runtime-volumes/quickstart-platform-data/secrets/*.omsecrets` | What the Egeria platform actually reads (`/deployments/secrets`) |
+
+The runtime copies are made from the templates **only when they are missing, and are never overwritten**. So a template change, such as PR #630's governance-zone fixes, does not reach a running quickstart by itself. To pick it up, either delete the runtime copy and restart the stack, or copy the template over the runtime copy (keeping any local additions) and run `docker restart quickstart-egeria-main`. Restarting the platform interrupts anyone using Egeria for about a minute, so warn other users first.
+
 ---
 
 ## Key differences from demo mode
