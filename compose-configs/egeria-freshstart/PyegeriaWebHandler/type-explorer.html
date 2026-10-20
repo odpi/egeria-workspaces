@@ -1815,10 +1815,17 @@ function AttrIndexView({ rawData, onNavigateToType, hideDeprecated }) {
     if (!selAttr && attrNames.length > 0) setSelAttr(attrNames[0]);
   }, [attrNames, selAttr]);
 
+  // One filter box + one header sort shared by the three occurrence tables;
+  // the filter clears when another attribute is selected.
+  const occLc = useListControls(null, selAttr);
+  const [occSort, setOccSort] = useState({ col: null, dir: 'asc' });
   const occurrences = selAttr ? (attrIndex[selAttr] || []) : [];
-  const entities  = occurrences.filter(o => o.kind === 'entity');
-  const rels      = occurrences.filter(o => o.kind === 'relationship');
-  const classifs  = occurrences.filter(o => o.kind === 'classification');
+  const occShown  = applySort(occurrences
+    .filter(o => listMatches(occLc.query, [o.typeName, o.propType]))
+    .map(o => Object.assign({ reqSort: o.req ? '0' : '1' }, o)), occSort, ['typeName', 'propType', 'reqSort']);
+  const entities  = occShown.filter(o => o.kind === 'entity');
+  const rels      = occShown.filter(o => o.kind === 'relationship');
+  const classifs  = occShown.filter(o => o.kind === 'classification');
 
   const chipColor = kind =>
     kind === 'entity' ? 'var(--accent)' : kind === 'relationship' ? 'var(--rel)' : 'var(--classif)';
@@ -1831,9 +1838,7 @@ function AttrIndexView({ rawData, onNavigateToType, hideDeprecated }) {
       /*#__PURE__*/React.createElement("table", null,
         /*#__PURE__*/React.createElement("thead", null,
           /*#__PURE__*/React.createElement("tr", null,
-            /*#__PURE__*/React.createElement("th", null, "Name"),
-            /*#__PURE__*/React.createElement("th", null, "Property Type"),
-            /*#__PURE__*/React.createElement("th", null, "Required")
+            ['Name', 'Property Type', 'Required'].map((h, i) => thSortable(occSort, setOccSort, i, h))
           )
         ),
         /*#__PURE__*/React.createElement("tbody", null,
@@ -1902,6 +1907,9 @@ function AttrIndexView({ rawData, onNavigateToType, hideDeprecated }) {
               rels.length      ? ` · ${rels.length} relationship${rels.length === 1 ? '' : 's'}` : "",
               classifs.length  ? ` · ${classifs.length} classification${classifs.length === 1 ? '' : 's'}` : ""
             ),
+            occurrences.length > 10 && /*#__PURE__*/React.createElement("div", { style: { marginTop: 12 } },
+              /*#__PURE__*/React.createElement(ListControls, { lc: occLc, shown: occShown.length, total: occurrences.length, noun: 'types', placeholder: 'Filter types (name, property type)…' })),
+            occurrences.length > 0 && occShown.length === 0 && /*#__PURE__*/React.createElement("p", { style: { color: 'var(--dim)', fontStyle: 'italic' } }, "No types match the filter."),
             sectionTable("Entities", entities, "entity"),
             sectionTable("Relationships", rels, "relationship"),
             sectionTable("Classifications", classifs, "classification")
