@@ -50,6 +50,31 @@ A subfolder that is itself another batch's root (an inbox symlink to a
 nested folder) runs in that batch, not its parent; and within one run-all
 or auto-heal pass each file runs at most once (see discover_batches).
 
+Notebooks
+---------
+A `files` entry may also be a Jupyter notebook (.ipynb), so one manifest
+orders Dr.Egeria documents, notebooks and subfolders together. Notebooks
+are never appended automatically the way unlisted .md files are -- a
+workbook folder is mostly tutorials, so each one must be listed (or the
+manifest says `"notebooks": "all"`). A notebook runs as
+`jupyter nbconvert --execute` in its own folder (relative paths such as
+./data/x.csv work), with the run-as identity passed as EGERIA_USER /
+EGERIA_USER_PASSWORD; the executed copy, outputs and any traceback
+included, is saved under ~/.pyegeria/notebook-runs. Notebooks commonly
+create elements without checking for existing ones, so a batch that
+contains one defaults to `idempotent: false` unless its manifest says
+otherwise (auto-heal still runs it when its canary is missing).
+
+Scan roots
+----------
+EGERIA_BOOTSTRAP_SCAN_ROOTS (os.pathsep-separated, default none) adds
+folders that are searched recursively for _batch.json: every topmost
+folder with a manifest becomes a batch, id "<root name>/<path>"
+(quickstart: /coco-workbooks). Unlike dr-egeria-inbox, a folder without a
+manifest is not a batch. A folder that is already an inbox batch (the
+inbox's symlinks into coco-workbooks) keeps its inbox id, so saved
+selections are unaffected; anything below a batch root runs inside it.
+
 Across folders: dr-egeria-inbox/_folder_order.json, if present, is a flat
 JSON array of batch ids (folder names, or an extra-root's batch_id) giving
 the order batches run in. Any batch not mentioned runs after the listed
@@ -90,6 +115,9 @@ _INBOX_ROOT = Path(os.environ.get(
 _EXTRA_BATCH_ROOTS = [
     ("overview-governance-metrics", Path(__file__).parent),
 ]
+
+# Folders searched recursively for manifests -- see "Scan roots" above.
+_SCAN_ROOTS = [Path(p) for p in os.environ.get("EGERIA_BOOTSTRAP_SCAN_ROOTS", "").split(os.pathsep) if p.strip()]
 
 
 def _selection_store_path() -> str:
@@ -263,6 +291,10 @@ def _is_runnable_md(p: Path) -> bool:
     return p.is_file() and p.suffix.lower() == ".md"
 
 
+def _is_notebook(p: Path) -> bool:
+    return p.is_file() and p.suffix.lower() == ".ipynb"
+
+
 def _entry_parts(entry) -> tuple[Optional[str], Optional[str]]:
     """A `files` entry is a plain string, or {"file": ..., "userid": ...}."""
     if isinstance(entry, str):
@@ -328,7 +360,7 @@ def _expand_folder(folder: Path, prefix: str, ctx: _ExpandCtx,
             placed_top.add(name)  # a nested entry ("sub/x.md") leaves the rest of sub/ to the remainder pass
         if p.is_dir():
             add_dir(p, prefix + name, user)
-        elif _is_runnable_md(p):
+        elif _is_runnable_md(p) or _is_notebook(p):
             add_file(p, prefix + name, user)
         else:
             ctx.warnings.append(_warn("warning", f"_batch.json in {prefix or './'} lists {entry!r}, "
@@ -341,8 +373,12 @@ def _expand_folder(folder: Path, prefix: str, ctx: _ExpandCtx,
         ctx.warnings.append(_warn("error", f"could not list {prefix or './'}: {exc}"))
         return out
 
+    # Notebooks only when listed, or when the manifest opts in with
+    # "notebooks": "all" -- see "Notebooks" in the module docstring.
+    all_notebooks = manifest.get("notebooks") == "all"
     remaining_files = [c for c in children
-                       if _is_runnable_md(c) and c.name not in placed_top and c.name not in excluded
+                       if (_is_runnable_md(c) or (all_notebooks and _is_notebook(c)))
+                       and c.name not in placed_top and c.name not in excluded
                        and c.name.lower() not in _SKIP_FILES]
     remaining_dirs = [c for c in children
                       if c.is_dir() and c.name not in placed_top and c.name not in excluded
@@ -520,6 +556,41 @@ def dr_egeria_command(doc: Path, userid: Optional[str]) -> list[str]:
     return cmd
 
 
+# Executed copies of notebooks (outputs and tracebacks included) -- the
+# notebook-run equivalent of dr_egeria's outbox. Under ~/.pyegeria so they
+# survive a container recreate, like bootstrap.log.
+_NOTEBOOK_RUNS_DIR = Path(os.path.expanduser(
+    os.getenv("PYEGERIA_NOTEBOOK_RUNS", "~/.pyegeria/notebook-runs")))
+# Per-cell limit. nbconvert runs without stdin, so a cell calling input()
+# fails at once rather than hanging; this bounds a cell that is merely slow.
+_NOTEBOOK_CELL_TIMEOUT = int(os.environ.get("BOOTSTRAP_NOTEBOOK_CELL_TIMEOUT_SECONDS", "600"))
+
+
+def notebook_output_path(doc: Path) -> Path:
+    """Where the executed copy of `doc` is written (one per notebook path,
+    overwritten each run)."""
+    tag = hashlib.sha256(str(doc.resolve()).encode()).hexdigest()[:8]
+    return _NOTEBOOK_RUNS_DIR / f"{doc.parent.name}-{tag}" / doc.name
+
+
+def run_command(doc: Path, userid: Optional[str]) -> tuple[list[str], Optional[str], Optional[dict]]:
+    """(argv, cwd, env) to run one batch file: a Dr.Egeria document via
+    dr_egeria, a notebook via `jupyter nbconvert --execute` in its own
+    folder. cwd/env None = inherit."""
+    if doc.suffix.lower() != ".ipynb":
+        return dr_egeria_command(doc, userid), None, None
+    out = notebook_output_path(doc)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    argv = ["jupyter", "nbconvert", "--to", "notebook", "--execute", str(doc),
+            "--output-dir", str(out.parent), "--output", out.name,
+            f"--ExecutePreprocessor.timeout={_NOTEBOOK_CELL_TIMEOUT}",
+            "--ExecutePreprocessor.kernel_name=python3"]
+    env = None
+    if userid:
+        env = {**os.environ, "EGERIA_USER": userid, "EGERIA_USER_PASSWORD": _password_for(userid)}
+    return argv, str(doc.parent), env
+
+
 def _read_folder_order() -> list[str]:
     order_path = _INBOX_ROOT / "_folder_order.json"
     if not order_path.exists():
@@ -554,22 +625,24 @@ def _batch_dict(batch_id: str, folder: Path, manifest: dict, files: list[str], w
         "files":          files,
         "path":           str(folder),
         "defaultEnabled": bool(manifest.get("defaultEnabled", False)),
-        "idempotent":     bool(manifest.get("idempotent", True)),
+        # Notebooks seldom check before creating -- see "Notebooks" above.
+        "idempotent":     bool(manifest.get("idempotent", not any(f.lower().endswith(".ipynb") for f in files))),
+        "hasNotebooks":   any(f.lower().endswith(".ipynb") for f in files),
         "warnings":       warnings,
         "userids":        userids or {},
     }
 
 
-def _discover_once(inbox_dirs: list[Path], owners: dict) -> list[dict]:
+def _discover_once(roots: list[tuple[str, Path]], owners: dict) -> list[dict]:
     batches = []
-    for entry in inbox_dirs:
+    for batch_id, entry in roots:
         warnings: list = []
         manifest = _read_manifest(entry, warnings)
-        other_roots = {r: bid for r, bid in owners.items() if bid != entry.name}
+        other_roots = {r: bid for r, bid in owners.items() if bid != batch_id}
         files, userids = _ordered_inbox_files(entry, other_roots, warnings)
         if not files:
             continue
-        batches.append(_batch_dict(entry.name, entry, manifest, files, warnings, userids))
+        batches.append(_batch_dict(batch_id, entry, manifest, files, warnings, userids))
 
     for batch_id, folder in _EXTRA_BATCH_ROOTS:
         manifest = _read_manifest(folder)
@@ -586,6 +659,32 @@ def _discover_once(inbox_dirs: list[Path], owners: dict) -> list[dict]:
             continue
         batches.append(_batch_dict(batch_id, folder, manifest, files, [], userids))
     return batches
+
+
+def _scanned_roots(inbox_dirs: list[Path]) -> list[tuple[str, Path]]:
+    """Topmost folders with a _batch.json under each EGERIA_BOOTSTRAP_SCAN_ROOTS
+    root, as (batch id, folder). Skips any folder that is, or is inside, an
+    inbox batch's folder -- that batch already runs it, under the id its
+    saved selection uses. Symlinks aren't followed while scanning."""
+    inbox_real = [d.resolve() for d in inbox_dirs]
+
+    def covered(real: Path) -> bool:
+        return any(real == r or r in real.parents for r in inbox_real)
+
+    found: list[tuple[str, Path]] = []
+    for root in _SCAN_ROOTS:
+        if not root.is_dir():
+            logger.warning(f"bootstrap_batches: scan root not found: {root}")
+            continue
+        for dirpath, dirnames, filenames in os.walk(root):
+            here = Path(dirpath)
+            if "_batch.json" in filenames and here != root:
+                dirnames[:] = []          # topmost manifest: everything below runs inside it
+                if not covered(here.resolve()):
+                    found.append((f"{root.name}/{here.relative_to(root).as_posix()}", here))
+                continue
+            dirnames[:] = sorted(d for d in dirnames if d not in _SKIP_SUBDIRS and not d.startswith("."))
+    return found
 
 
 def discover_batches() -> list[dict]:
@@ -626,10 +725,11 @@ def discover_batches() -> list[dict]:
         inbox_dirs = [e for e in sorted(_INBOX_ROOT.iterdir())
                       if e.is_dir() and e.name not in _SKIP_DIRS and not e.name.startswith(".")]
 
-    owners = {e.resolve(): e.name for e in inbox_dirs}
+    roots = [(e.name, e) for e in inbox_dirs] + _scanned_roots(inbox_dirs)
+    owners = {path.resolve(): bid for bid, path in roots}
     batches: list[dict] = []
     for _ in range(4):  # converges in 1-2 passes; bounded in case of pathological symlinks
-        batches = _discover_once(inbox_dirs, owners)
+        batches = _discover_once(roots, owners)
         registered = {b["id"] for b in batches}
         narrowed = {r: bid for r, bid in owners.items() if bid in registered}
         if narrowed == owners:
@@ -674,7 +774,7 @@ def batches_with_selection() -> list[dict]:
         warnings = list(batch["warnings"])
         for f in batch["files"]:
             doc = base / f
-            commands = count_commands(doc)
+            commands = count_commands(doc) if doc.suffix.lower() == ".md" else None
             if commands == 0:
                 warnings.append(_warn("warning", f"{f} contains no Dr.Egeria commands -- if it's prose, "
                                                  "add it to _batch.json's exclude list"))
@@ -783,13 +883,17 @@ async def run_batch(batch: dict, timeout_seconds: int = _BATCH_TIMEOUT,
         seen.add(real)
         proc = None
         try:
+            argv, cwd, env = run_command(doc, batch.get("userids", {}).get(filename))
             proc = await asyncio.create_subprocess_exec(
-                *dr_egeria_command(doc, batch.get("userids", {}).get(filename)),
+                *argv, cwd=cwd, env=env,
                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
             )
             _active_procs.add(proc)
             stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout_seconds)
-            tail = stdout.decode(errors="replace")[-800:] if stdout else ""
+            # nbconvert colours its tracebacks; the admin panel shows this as plain text.
+            tail = _ANSI_RE.sub("", stdout.decode(errors="replace"))[-800:] if stdout else ""
+            if doc.suffix.lower() == ".ipynb":
+                tail += f"\nExecuted copy: {notebook_output_path(doc)}"
             if proc.returncode == 0:
                 results.append({"file": filename, "status": "ok", "message": tail})
                 record_run(doc)
