@@ -3601,6 +3601,67 @@ function simplePillRow(values, labelFn, fSet, setFSet) {
       style:{ fontSize:10, padding:'2px 8px', borderRadius:4, border:'1px solid var(--border)', background:'transparent', color:'var(--dim)', cursor:'pointer' } }, 'clear'));
 }
 
+/* ── List filter / sort controls for card-shaped lists ──────────────────────
+   Tables use thSortable + applySort above (click a header). Card lists have no
+   headers, so they get a filter box + sort <select> instead:
+
+     var lc = useListControls('name');            // initial sort key
+     var rows = listSortBy(items.filter(function(it){ return listMatches(lc.query, [it.a, it.b]); }),
+                           SORT_GETTERS[lc.sortKey]);
+     el(ListControls, { lc: lc, sortOptions: [['name','Name'], ...], shown: rows.length, total: items.length })
+
+   listMatches: every whitespace-separated term must appear (case-insensitive)
+   somewhere in `parts` (strings, arrays of strings, null/undefined skipped).
+   listSortBy: stable sort by getter (strings compared case-insensitively).
+   `resetOn` clears the query when it changes (e.g. the selected type's name). */
+function useListControls(initialSort, resetOn) {
+  var _q = React.useState(''), query = _q[0], setQuery = _q[1];
+  var _s = React.useState(initialSort || null), sortKey = _s[0], setSortKey = _s[1];
+  React.useEffect(function() { setQuery(''); }, [resetOn]);
+  return { query: query, setQuery: setQuery, sortKey: sortKey, setSortKey: setSortKey };
+}
+
+function listMatches(query, parts) {
+  var q = (query || '').trim().toLowerCase();
+  if (!q) return true;
+  var hay = [].concat.apply([], (parts || []).map(function(p) { return Array.isArray(p) ? p : [p]; }))
+    .filter(function(p) { return p != null; }).join(' \u0001 ').toLowerCase();
+  return q.split(/\s+/).every(function(t) { return hay.indexOf(t) !== -1; });
+}
+
+function listSortBy(rows, getter) {
+  if (!getter) return rows;
+  return rows.map(function(r, i) { return [r, i]; }).sort(function(a, b) {
+    var av = getter(a[0]), bv = getter(b[0]);
+    var r = (typeof av === 'number' && typeof bv === 'number') ? av - bv
+      : String(av == null ? '' : av).localeCompare(String(bv == null ? '' : bv), undefined, { sensitivity: 'base' });
+    return r || a[1] - b[1];
+  }).map(function(p) { return p[0]; });
+}
+
+/* ListControls props: lc (from useListControls), sortOptions ([[key,label],…],
+   optional), shown/total (counts), placeholder, noun ('relationships'), and
+   children appended at the right (e.g. an existing "Show inherited" toggle). */
+function ListControls({ lc, sortOptions, shown, total, placeholder, noun, children }) {
+  var el = React.createElement;
+  var filtered = lc.query.trim() !== '';
+  return el('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 } },
+    el('input', { type: 'search', placeholder: placeholder || 'Filter…', value: lc.query,
+      'aria-label': placeholder || 'Filter',
+      onChange: function(e) { lc.setQuery(e.target.value); },
+      onKeyDown: function(e) { if (e.key === 'Escape') lc.setQuery(''); },
+      style: { flex: '0 1 280px', minWidth: 160, fontSize: 12, padding: '5px 9px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none' } }),
+    sortOptions && sortOptions.length > 1 && el('label', { style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--muted)' } },
+      'Sort',
+      el('select', { value: lc.sortKey || '', onChange: function(e) { lc.setSortKey(e.target.value); },
+        style: { fontSize: 12, padding: '4px 6px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit' } },
+        sortOptions.map(function(o) { return el('option', { key: o[0], value: o[0] }, o[1]); }))),
+    el('span', { style: { fontSize: 12, color: 'var(--muted)' } },
+      filtered ? (shown + ' of ' + total + (noun ? ' ' + noun : '')) : (total + (noun ? ' ' + noun : ''))),
+    children
+  );
+}
+
 /* ── Global "Promise / Memento" (forLineage) toggle ──────────────────────────
  * Egeria hides elements classified Promise or Memento unless a request sets
  * forLineage. Pages where that is meaningful (Type Explorer, Tech Catalog,
