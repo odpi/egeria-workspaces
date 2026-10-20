@@ -701,10 +701,16 @@ var COLUMN_STAT_KEYS = [
   ['Most Common Values', 'common values'],
 ];
 
+var COLUMNS_FILTER_MIN = 10;
+
 function ColumnsCard({ res, stats, creds, onColumnSaved, meanings }) {
   var cols = res.columns || [];
   var _p = useState(null), picking = _p[0], setPicking = _p[1];
   var _me = useState(''), mErr = _me[0], setMErr = _me[1];
+  // Filter box (over COLUMNS_FILTER_MIN columns) + sortable Name/Type/Description
+  // headers; with no sort chosen the catalogue order is kept.
+  var lc = useListControls(null, res.guid);
+  var _cs = useState({ col: null, dir: 'asc' }), colSort = _cs[0], setColSort = _cs[1];
   var md = meanings && meanings.data;
   var colTerms = (md && md.columns) || {};
   function runMeaning(p) {
@@ -720,16 +726,26 @@ function ColumnsCard({ res, stats, creds, onColumnSaved, meanings }) {
     : stats.state === 'not-applicable' ? stats.reason
     : 'Statistics from the latest survey of each column (dates per column).';
 
+  var shownCols = applySort(cols.filter(function(c) {
+    return listMatches(lc.query, [c.name, c.dataType, c.description, c.keyMarks,
+      (colTerms[c.guid] || []).map(function(t) { return t.displayName; })]);
+  }).map(function(c) { return Object.assign({ _sortType: c.dataType || '' }, c); }), colSort, ['name', '_sortType', null, 'description']);
+
   return el(Card, { title: 'Columns (' + cols.length + ')', source: 'catalogued by ' + (res.createdBy || 'unknown') },
+    cols.length > COLUMNS_FILTER_MIN && el(ListControls, { lc: lc, shown: shownCols.length, total: cols.length, noun: 'columns',
+      placeholder: 'Filter columns (name, type, meaning, description)…' }),
     cols.length === 0
       ? el('div', { className: 'rb-absent' }, 'No columns are recorded for this resource.')
+      : shownCols.length === 0
+      ? el('div', { className: 'rb-absent' }, 'No columns match the filter.')
       : el('div', { style: { overflowX: 'auto' } },
           el('table', { className: 'rb-table' },
             el('thead', null, el('tr', null,
-              el('th', null, 'Name'), el('th', null, 'Type'), el('th', { style: { minWidth: 140 } }, 'Meaning'),
-              el('th', { style: { minWidth: 200 } }, 'Description'),
+              thSortable(colSort, setColSort, 0, 'Name'), thSortable(colSort, setColSort, 1, 'Type'),
+              el('th', { style: { minWidth: 140 } }, 'Meaning'),
+              thSortable(colSort, setColSort, 3, 'Description', null, { minWidth: 200 }),
               el('th', null, 'Statistics'))),
-            el('tbody', null, cols.map(function(c) {
+            el('tbody', null, shownCols.map(function(c) {
               var st = statsByName[c.name];
               return el('tr', { key: c.guid },
                 el('td', null,
@@ -837,14 +853,28 @@ function RelatedCard({ res, structure }) {
   var all = parentAndCollections.concat(groups.map(function(g) { return [_titleCase(g), res.related[g]]; }));
   return el(Card, { title: 'Where it fits' },
     all.length === 0 ? el('div', { className: 'rb-absent' }, 'No other relationships recorded.')
-      : all.map(function(pair) {
-          return el('div', { key: pair[0], style: { marginBottom: 10 } },
-            el('div', { className: 'rb-note', style: { marginBottom: 3 } }, pair[0]),
-            el('ul', { className: 'rb-list' }, pair[1].slice(0, 25).map(function(i) {
-              return el('li', { key: i.guid }, el(ResourceLink, { item: i }), el('span', { className: 't' }, i.typeName));
-            })),
-            pair[1].length > 25 && el('div', { className: 'rb-note' }, '…and ' + (pair[1].length - 25) + ' more'));
-        }));
+      : all.map(function(pair) { return el(RelatedGroup, { key: pair[0], label: pair[0], items: pair[1] }); }));
+}
+
+// One "Where it fits" group: first PARTS_SHOWN entries, then "Show all N";
+// a filter box once the group is longer than that (same as PartsGroup).
+function RelatedGroup({ label, items }) {
+  var _a = useState(false), all = _a[0], setAll = _a[1];
+  var _f = useState(''), filt = _f[0], setFilt = _f[1];
+  var q = filt.trim();
+  var matching = q ? items.filter(function(i) { return listMatches(q, [i.displayName, i.qualifiedName, i.typeName]); }) : items;
+  var shown = all || q ? matching : matching.slice(0, PARTS_SHOWN);
+  return el('div', { style: { marginBottom: 10 } },
+    el('div', { className: 'rb-row', style: { gap: 8, marginBottom: 3 } },
+      el('span', { className: 'rb-note' }, label + (items.length > PARTS_SHOWN ? ' (' + (q ? matching.length + ' of ' : '') + items.length + ')' : '')),
+      items.length > PARTS_SHOWN && el('input', { className: 'rb-text', style: { width: 160, padding: '2px 6px', marginLeft: 'auto' },
+        placeholder: 'Filter ' + label.toLowerCase() + '…', value: filt, onChange: function(e) { setFilt(e.target.value); } })),
+    q && matching.length === 0 && el('div', { className: 'rb-absent' }, 'Nothing matches the filter.'),
+    el('ul', { className: 'rb-list' }, shown.map(function(i) {
+      return el('li', { key: i.guid }, el(ResourceLink, { item: i }), el('span', { className: 't' }, i.typeName));
+    })),
+    !all && !q && matching.length > PARTS_SHOWN && el('button', { className: 'rb-link', style: { fontSize: 12, marginTop: 4 }, onClick: function() { setAll(true); } },
+      'Show all ' + matching.length));
 }
 
 // ── Meaning: glossary terms that say what it (and each column) means ────────

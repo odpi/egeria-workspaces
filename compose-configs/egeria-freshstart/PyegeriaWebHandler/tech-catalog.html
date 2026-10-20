@@ -1184,7 +1184,44 @@ function ConnectionForm({ saveCreds, initialCreds }) {
 }
 
 // ── Sidebar + Detail shell ────────────────────────────────────────────────────
-function SidebarDetail({ items, loading, error, selected, onSelect, renderDetail, filterBar }) {
+// One sidebar list row. opts.label overrides the main text (e.g. a file's
+// folder inside a same-name group); opts.indent shifts it right in a tree.
+function _sidebarRow(item, active, onSelect, opts) {
+  opts = opts || {};
+  // Sidebar classification badges: zones first, then other types (max 3 total)
+  var badges = [];
+  (item.classifications || []).forEach(function(cls) {
+    if (cls.typeName === 'ZoneMembership') {
+      var zones = (cls.properties && cls.properties.zoneMembershipList)
+        ? cls.properties.zoneMembershipList.split(', ').filter(Boolean) : [];
+      zones.forEach(function(z) {
+        badges.push(React.createElement('span', { key: 'zm:' + z,
+          style: { fontSize: 9, background: 'rgba(20,83,45,.45)', color: '#4ade80', borderRadius: 8, padding: '1px 5px', border: '0.5px solid #166534', whiteSpace: 'nowrap' }
+        }, z));
+      });
+    } else {
+      badges.push(React.createElement('span', { key: cls.typeName,
+        style: { fontSize: 9, background: 'rgba(124,58,237,.12)', color: '#a78bfa', borderRadius: 8, padding: '1px 5px', border: '0.5px solid rgba(124,58,237,.3)', whiteSpace: 'nowrap' }
+      }, cls.typeName));
+    }
+  });
+  if (badges.length > 3) badges = badges.slice(0, 3);
+  return React.createElement('div', { key: item.guid, onClick: function() { onSelect(item); }, title: item.qualifiedName || '',
+    style: { padding: '8px 14px', paddingLeft: 14 + (opts.indent || 0), cursor: 'pointer', borderBottom: '1px solid var(--border)',
+             background: active ? 'var(--hover)' : 'transparent',
+             borderLeft: active ? '3px solid var(--accent)' : '3px solid transparent' } },
+    React.createElement('div', { style: { fontSize: 12, fontWeight: active ? 700 : 400, color: active ? 'var(--accent)' : 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
+      opts.label || item.displayName || item.qualifiedName || item.guid),
+    item.deployedImplementationType && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 1 } }, item.deployedImplementationType),
+    item.typeName && !item.deployedImplementationType && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 1 } }, item.typeName),
+    item.createTime && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 1 } },
+      new Date(item.createTime).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })),
+    badges.length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 2, marginTop: 3 } }, badges)
+  );
+}
+
+// renderList (optional): replaces the flat item list, e.g. DataAssetTree.
+function SidebarDetail({ items, loading, error, selected, onSelect, renderDetail, filterBar, renderList }) {
   var _rz = useResizable(280, 120, 600), sideW = _rz[0], sideDown = _rz[1];
   return React.createElement('div', { style: { display: 'flex', flex: 1, overflow: 'hidden' } },
     // Sidebar (resizable)
@@ -1194,38 +1231,9 @@ function SidebarDetail({ items, loading, error, selected, onSelect, renderDetail
         loading ? React.createElement('div', { style: { padding: 24, color: 'var(--dim)', fontSize: 12 } }, 'Loading…')
         : error   ? React.createElement('div', { style: { padding: 16, color: '#f87171', fontSize: 12 } }, error)
         : items.length === 0 ? React.createElement('div', { style: { padding: 16, color: 'var(--dim)', fontSize: 12 } }, 'No items found.')
+        : renderList ? renderList(items)
         : items.map(function(item) {
-            var active = selected && selected.guid === item.guid;
-            // Sidebar classification badges: zones first, then other types (max 3 total)
-            var badges = [];
-            (item.classifications || []).forEach(function(cls) {
-              if (cls.typeName === 'ZoneMembership') {
-                var zones = (cls.properties && cls.properties.zoneMembershipList)
-                  ? cls.properties.zoneMembershipList.split(', ').filter(Boolean) : [];
-                zones.forEach(function(z) {
-                  badges.push(React.createElement('span', { key: 'zm:' + z,
-                    style: { fontSize: 9, background: 'rgba(20,83,45,.45)', color: '#4ade80', borderRadius: 8, padding: '1px 5px', border: '0.5px solid #166534', whiteSpace: 'nowrap' }
-                  }, z));
-                });
-              } else {
-                badges.push(React.createElement('span', { key: cls.typeName,
-                  style: { fontSize: 9, background: 'rgba(124,58,237,.12)', color: '#a78bfa', borderRadius: 8, padding: '1px 5px', border: '0.5px solid rgba(124,58,237,.3)', whiteSpace: 'nowrap' }
-                }, cls.typeName));
-              }
-            });
-            if (badges.length > 3) badges = badges.slice(0, 3);
-            return React.createElement('div', { key: item.guid, onClick: function() { onSelect(item); },
-              style: { padding: '8px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)',
-                       background: active ? 'var(--hover)' : 'transparent',
-                       borderLeft: active ? '3px solid var(--accent)' : '3px solid transparent' } },
-              React.createElement('div', { style: { fontSize: 12, fontWeight: active ? 700 : 400, color: active ? 'var(--accent)' : 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
-                item.displayName || item.qualifiedName || item.guid),
-              item.deployedImplementationType && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 1 } }, item.deployedImplementationType),
-              item.typeName && !item.deployedImplementationType && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 1 } }, item.typeName),
-              item.createTime && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 1 } },
-                new Date(item.createTime).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })),
-              badges.length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 2, marginTop: 3 } }, badges)
-            );
+            return _sidebarRow(item, selected && selected.guid === item.guid, onSelect);
           })
       )
     ),
@@ -1392,40 +1400,86 @@ function SchemaRow({ row, tdStyle, tdDim, onNavigate }) {
   );
 }
 
+// SchemaTable: schema type + attribute tree with a filter box and sortable
+// headers. Own component (SubPane's renderContent is a plain callback) so it
+// can hold filter/sort state. Filtering keeps the ancestors of every match so
+// the nesting still reads; sorting orders siblings within each level.
+var SCHEMA_SORT_KEYS = [
+  function(a) { return a.displayName || ''; },
+  function(a) { return a.dataType || a.typeName || ''; },
+  function(a) { return a.required ? 0 : 1; },
+  function(a) { return a.description || ''; },
+];
+function _schemaMatches(a, q) {
+  return listMatches(q, [a.displayName, a.dataType, a.typeName, a.description,
+    (a.assignedTerms || []).map(function(t) { return t.displayName; }),
+    (a.classifications || []).map(function(c) { return c.typeName; })]);
+}
+// Returns { rows: [{node, depth}], matched: n } for the visible tree.
+function _schemaVisibleRows(nodes, depth, q, sort, out) {
+  var getter = sort.col != null ? SCHEMA_SORT_KEYS[sort.col] : null;
+  var list = getter ? listSortBy(nodes || [], getter) : (nodes || []);
+  if (getter && sort.dir === 'desc') list = list.slice().reverse();
+  var matched = 0;
+  list.forEach(function(n) {
+    var self = _schemaMatches(n, q);
+    var sub = [];
+    var subMatched = _schemaVisibleRows(n.children, depth + 1, q, sort, sub);
+    if (self || subMatched > 0) {
+      out.push({ node: n, depth: depth });
+      Array.prototype.push.apply(out, sub);
+    }
+    matched += (self ? 1 : 0) + subMatched;
+  });
+  return matched;
+}
+function SchemaTable({ data, onNavigate }) {
+  var lc = useListControls(null);
+  var _s = React.useState({ col: null, dir: 'asc' }), sort = _s[0], setSort = _s[1];
+  var rz = React.useMemo(function() { return makeResizableCols(4, ['30%', '18%', '10%', '42%']); }, []);
+  var st = data.schemaType;
+  var total = _flattenSchemaTree(data.attributes || [], 0, []).length;
+  var rows = [];
+  var matched = _schemaVisibleRows(data.attributes || [], 0, lc.query, sort, rows);
+  var tblHdr = { fontSize: 10, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '4px 8px 4px 0', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap', position: 'relative' };
+  var tdStyle = { fontSize: 11, padding: '3px 8px 3px 0', color: 'var(--text)', verticalAlign: 'top', borderBottom: '1px solid var(--border)', overflow: 'hidden', textOverflow: 'ellipsis' };
+  var tdDim   = Object.assign({}, tdStyle, { color: 'var(--dim)', whiteSpace: 'nowrap' });
+  return React.createElement('div', null,
+    st && React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 } },
+      React.createElement('span', { style: { fontSize: 12, color: 'var(--muted)' } }, 'Schema type:'),
+      React.createElement('span', { style: { fontSize: 12, fontWeight: 600, color: 'var(--text)' } }, st.typeName || ''),
+      st.displayName && React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)' } }, st.displayName)
+    ),
+    total > 10 && React.createElement(ListControls, {
+      lc: lc, shown: matched, total: total, noun: 'attributes',
+      placeholder: 'Filter attributes (name, type, description, term)…',
+    }),
+    total === 0
+      ? React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'No attributes found.')
+      : rows.length === 0
+      ? React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', fontStyle: 'italic' } }, 'No attributes match the filter.')
+      : React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed' } },
+          resizableColgroup(rz),
+          React.createElement('thead', null,
+            React.createElement('tr', null,
+              ['Name', 'Type', 'Required', 'Description'].map(function(h, i) {
+                return thSortable(sort, setSort, i, h, i < 3 ? rz.onResizeDown : null, tblHdr);
+              })
+            )
+          ),
+          React.createElement('tbody', null,
+            rows.map(function(row, i) {
+              return React.createElement(SchemaRow, { key: row.node.guid || i, row: row, tdStyle: tdStyle, tdDim: tdDim, onNavigate: onNavigate });
+            })
+          )
+        )
+  );
+}
+
 // SchemaPane: renders schemaType + the real nested attribute structure
 function SchemaPane({ guid, creds, onNavigate }) {
   function renderSchema(data) {
-    var st = data.schemaType;
-    var rows = _flattenSchemaTree(data.attributes || [], 0, []);
-    var tblHdr = { fontSize: 10, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '4px 8px 4px 0', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap', position: 'relative' };
-    var tdStyle = { fontSize: 11, padding: '3px 8px 3px 0', color: 'var(--text)', verticalAlign: 'top', borderBottom: '1px solid var(--border)', overflow: 'hidden', textOverflow: 'ellipsis' };
-    var tdDim   = Object.assign({}, tdStyle, { color: 'var(--dim)', whiteSpace: 'nowrap' });
-    var rz = makeResizableCols(4, ['30%', '18%', '10%', '42%']);
-    return React.createElement('div', null,
-      st && React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 } },
-        React.createElement('span', { style: { fontSize: 12, color: 'var(--muted)' } }, 'Schema type:'),
-        React.createElement('span', { style: { fontSize: 12, fontWeight: 600, color: 'var(--text)' } }, st.typeName || ''),
-        st.displayName && React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)' } }, st.displayName)
-      ),
-      rows.length === 0
-        ? React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'No attributes found.')
-        : React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed' } },
-            resizableColgroup(rz),
-            React.createElement('thead', null,
-              React.createElement('tr', null,
-                React.createElement('th', { style: tblHdr }, 'Name', colResizeHandle(rz.onResizeDown, 0)),
-                React.createElement('th', { style: tblHdr }, 'Type', colResizeHandle(rz.onResizeDown, 1)),
-                React.createElement('th', { style: tblHdr }, 'Required', colResizeHandle(rz.onResizeDown, 2)),
-                React.createElement('th', { style: tblHdr }, 'Description')
-              )
-            ),
-            React.createElement('tbody', null,
-              rows.map(function(row, i) {
-                return React.createElement(SchemaRow, { key: row.node.guid || i, row: row, tdStyle: tdStyle, tdDim: tdDim, onNavigate: onNavigate });
-              })
-            )
-          )
-    );
+    return React.createElement(SchemaTable, { data: data, onNavigate: onNavigate });
   }
   return React.createElement(SubPane, {
     title: 'Schema',
@@ -1858,6 +1912,129 @@ function AssetDetail({ item, detailLoading, onNavigate, creds, sectionId }) {
 }
 
 // ── Generic tab view ──────────────────────────────────────────────────────────
+// ── Data Assets tree (Data Stores / Data Feeds / Data Sets) ──────────────────
+// The flat, name-sorted list hid most types (hundreds of same-named files such
+// as 6.2.yaml sorted first) and gave no way to tell same-named rows apart. The
+// sidebar is instead the type hierarchy under the tab's root type (live type
+// system via useTypeGraph/getSubs, like CapabilitiesView), counts rolled up;
+// under each type its own instances, with same-named instances collapsed into
+// one "name (n)" branch whose rows are labelled by folder. Very large report
+// types start collapsed so they don't bury everything else.
+var DATA_ASSET_COLLAPSED = { ConnectorActivityReport: true, SurveyReport: true };
+var _UUID_SEG_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// A readable name even when displayName is blank: the first meaningful
+// qualifiedName part. ConnectorActivityReport's is
+// "ConnectorActivityReport::<guid>::<connector>::<timestamp>", so its reports
+// group by connector and _assetDistinguisher labels each by its timestamp.
+function _assetLabel(item) {
+  if (item.displayName && item.displayName.trim()) return item.displayName;
+  var segs = String(item.qualifiedName || '').split('::').filter(function(seg, i) {
+    return seg && !(i === 0 && seg === item.typeName) && !_UUID_SEG_RE.test(seg);
+  });
+  return segs.length ? segs[0] : (item.typeName || 'Element') + ' ' + String(item.guid || '').slice(0, 8);
+}
+
+// "…/parent/folder" of a file path — what tells same-named files apart.
+function _assetFolder(pathName) {
+  var parts = String(pathName || '').split('/').filter(Boolean);
+  parts.pop();
+  if (!parts.length) return '';
+  return (parts.length > 2 ? '…/' : '/') + parts.slice(-2).join('/');
+}
+
+// What tells one member of a same-name group from the others: its folder for
+// files; otherwise the qualifiedName parts that aren't the type, a GUID or the
+// shared name (e.g. "host.docker.internal:5432" for databases all named
+// "egeria"); else when it was created.
+function _assetDistinguisher(item, label) {
+  var folder = _assetFolder(item.pathName);
+  if (folder) return folder;
+  var segs = String(item.qualifiedName || '').split('::').filter(function(seg, i) {
+    return seg && i > 0 && seg !== label && !_UUID_SEG_RE.test(seg);
+  });
+  if (segs.length) return segs.join(' · ');
+  return item.createTime ? 'created ' + new Date(item.createTime).toLocaleString() : String(item.guid || '').slice(0, 8);
+}
+
+function DataAssetTree({ items, rootType, creds, selected, onSelect, filtering }) {
+  var entities = useTypeGraph(creds); // null while loading, {} on error
+  var _ov = useState({}), overrides = _ov[0], setOverrides = _ov[1]; // node key → open?
+  function isOpen(key, dflt) { return Object.prototype.hasOwnProperty.call(overrides, key) ? overrides[key] : dflt; }
+  function toggle(key, dflt) { setOverrides(function(o) { var n = Object.assign({}, o); n[key] = !isOpen(key, dflt); return n; }); }
+
+  var byType = {};
+  items.forEach(function(i) { (byType[i.typeName || 'Unknown'] = byType[i.typeName || 'Unknown'] || []).push(i); });
+
+  var root = useMemo(function() {
+    var placed = {};
+    function build(name) {
+      placed[name] = true;
+      var kids = (entities && entities[name]) ? getSubs(name, entities).map(build).filter(function(k) { return k.count > 0; })
+        .sort(function(a, b) { return a.name.localeCompare(b.name); }) : [];
+      var own = (byType[name] || []).length;
+      return { name: name, own: own, count: own + kids.reduce(function(n, k) { return n + k.count; }, 0), children: kids };
+    }
+    var r = build(rootType);
+    // Types the type graph didn't place under rootType (graph still loading or
+    // failed, or a type it doesn't know) still get a branch rather than vanish.
+    Object.keys(byType).filter(function(t) { return !placed[t]; }).sort().forEach(function(t) {
+      r.children.push({ name: t, own: byType[t].length, count: byType[t].length, children: [] });
+      r.count += byType[t].length;
+    });
+    return r;
+  }, [entities, items, rootType]);
+
+  var el = React.createElement;
+  var INDENT = 14;
+  function header(key, depth, open, text, count, onClick, isType) {
+    return el('div', { key: key, className: 'tree-item', onClick: onClick, style: { paddingLeft: 8 + depth * INDENT, cursor: 'pointer' },
+        title: text + ' — ' + count + (isType ? ' (including subtypes)' : '') },
+      el('span', { style: { width: 16, display: 'inline-block', flexShrink: 0, fontSize: 10, textAlign: 'center', color: open ? 'var(--accent)' : 'var(--muted)' } }, open ? '▼' : '▶'),
+      el('span', { className: isType ? 'type-name' : null, style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: isType ? undefined : 12 } }, text),
+      el('span', { style: { fontSize: 10, fontWeight: 600, color: 'var(--dim)', background: 'rgba(96,165,250,.1)', borderRadius: 8, padding: '1px 6px', flexShrink: 0 } }, count));
+  }
+  function ownRows(typeName, depth) {
+    var groups = {};
+    (byType[typeName] || []).forEach(function(i) { var l = _assetLabel(i); (groups[l] = groups[l] || []).push(i); });
+    var out = [];
+    Object.keys(groups).sort(function(a, b) { return a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true }); }).forEach(function(label) {
+      var g = groups[label];
+      if (g.length === 1) {
+        out.push(_sidebarRow(g[0], selected && selected.guid === g[0].guid, onSelect, { label: label, indent: depth * INDENT + 8 }));
+        return;
+      }
+      var key = 'g:' + typeName + ':' + label;
+      var open = isOpen(key, filtering);
+      out.push(header(key, depth, open, label, g.length, function() { toggle(key, filtering); }, false));
+      if (open) {
+        // Files by folder; anything without a path newest first.
+        g.slice().sort(function(a, b) {
+          if (a.pathName || b.pathName) return _assetDistinguisher(a, label).localeCompare(_assetDistinguisher(b, label), undefined, { numeric: true });
+          return String(b.createTime || '').localeCompare(String(a.createTime || ''));
+        })
+          .forEach(function(i) {
+            out.push(_sidebarRow(i, selected && selected.guid === i.guid, onSelect,
+              { label: _assetDistinguisher(i, label), indent: (depth + 1) * INDENT + 8 }));
+          });
+      }
+    });
+    return out;
+  }
+  function renderType(node, depth) {
+    var key = 't:' + node.name;
+    var dflt = filtering || !DATA_ASSET_COLLAPSED[node.name];
+    var open = isOpen(key, dflt);
+    var out = [header(key, depth, open, node.name, node.count, function() { toggle(key, dflt); }, true)];
+    if (open) {
+      node.children.forEach(function(k) { out = out.concat(renderType(k, depth + 1)); });
+      out = out.concat(ownRows(node.name, depth + 1));
+    }
+    return out;
+  }
+  return el('div', null, renderType(root, 0));
+}
+
 function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
   var _items      = useState([]),    items      = _items[0],      setItems      = _items[1];
   var _loading    = useState(true),  loading    = _loading[0],    setLoading    = _loading[1];
@@ -1881,6 +2058,11 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
   // Filter-by-creation-timestamp: currently only meaningful for Survey Reports,
   // where "when did this survey run" is a primary way of finding a report.
   var supportsCreatedFilter = /\/survey-reports\b/.test(endpoint);
+  // Data Stores / Feeds / Sets: the sidebar is a type tree (DataAssetTree)
+  // rooted at this type, instead of a flat list + type dropdown.
+  var _treeRootMatch = /\/data-(stores|feeds|sets)\b/.exec(endpoint);
+  var treeRoot = _treeRootMatch ? { stores: 'DataStore', feeds: 'DataFeed', sets: 'DataSet' }[_treeRootMatch[1]] : null;
+  var _capped = useState(false), capped = _capped[0], setCapped = _capped[1];
 
   useEffect(function() {
     setLoading(true); setError(''); setSelected(null); setDetail(null); setClassifFilter([]);
@@ -1890,7 +2072,7 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
     var listUrl = endpoint + (params.length ? '?' + params.join('&') : '');
     fetchWithToken(listUrl, creds)
       .then(function(r) { return r.json(); })
-      .then(function(d) { setItems(Array.isArray(d) ? d : (d.items || [])); setLoading(false); })
+      .then(function(d) { setItems(Array.isArray(d) ? d : (d.items || [])); setCapped(!!(d && d.capped)); setLoading(false); })
       .catch(function(e) { setError(String(e)); setLoading(false); });
   }, [endpoint, asOfTime, inclTempl, attempt]);
 
@@ -1951,7 +2133,9 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
   }
 
   var filtered = items.filter(function(item) {
-    var matchQ = !q.trim() || (item.displayName || item.qualifiedName || '').toLowerCase().includes(q.trim().toLowerCase());
+    var matchQ = !q.trim() || (treeRoot
+      ? listMatches(q, [_assetLabel(item), item.qualifiedName, item.pathName, item.typeName, item.deployedImplementationType])
+      : (item.displayName || item.qualifiedName || '').toLowerCase().includes(q.trim().toLowerCase()));
     var matchT = typeFilter === 'all' || item.deployedImplementationType === typeFilter || item.typeName === typeFilter;
     var matchC = classifFilter.length === 0 || classifFilter.every(function(key) {
       var clsList = item.classifications || [];
@@ -2002,7 +2186,10 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
         style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
       'Include templates'
     ),
-    types.length > 1 && React.createElement('select', { value: typeFilter, onChange: function(e) { setTypeFilter(e.target.value); },
+    !loading && !error && React.createElement('div', { style: { fontSize: 11, color: capped ? '#fbbf24' : 'var(--dim)' } },
+      (filtered.length === items.length ? items.length : filtered.length + ' of ' + items.length) + ' loaded' +
+      (capped ? ' — capped: there are more' + (/\/actions\b/.test(endpoint) ? ' (newest shown)' : '') : '')),
+    !treeRoot && types.length > 1 && React.createElement('select', { value: typeFilter, onChange: function(e) { setTypeFilter(e.target.value); },
       style: { fontSize: 11, padding: '3px 6px', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 4 } },
       [React.createElement('option', { key: 'all', value: 'all' }, 'All types')].concat(
         types.map(function(t) { return React.createElement('option', { key: t, value: t }, t); })
@@ -2030,6 +2217,10 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
   return React.createElement(SidebarDetail, {
     items: filtered, loading: loading, error: error, selected: selected, onSelect: handleSelect,
     filterBar: filterBar,
+    renderList: treeRoot ? function(list) {
+      return React.createElement(DataAssetTree, { items: list, rootType: treeRoot, creds: creds, selected: selected, onSelect: handleSelect,
+        filtering: !!q.trim() || classifFilter.length > 0 });
+    } : null,
     renderDetail: function() {
       if (detailErr === 'unauthorized') {
         return React.createElement('div', { style: { padding: '32px 24px' } },
@@ -2288,6 +2479,7 @@ function AnnotationsSubPane({ guid, creds, onNavigate }) {
 }
 
 function AnnotationsTabView({ creds, navTarget, onNavigate }) {
+  var _annCapped = useState(false), annCapped = _annCapped[0], setAnnCapped = _annCapped[1]; // server stopped at its cap
   var _items   = useState(null),        items     = _items[0],    setItems     = _items[1];
   var _loading = useState(false),       loading   = _loading[0],  setLoading   = _loading[1];
   var _err     = useState(null),        err       = _err[0],      setErr       = _err[1];
@@ -2338,7 +2530,7 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
       .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || 'Failed'); }); })
       .then(function(d) {
         var loaded = d.items || [];
-        setItems(loaded); setLoading(false);
+        setItems(loaded); setAnnCapped(!!d.capped); setLoading(false);
         if (selectGuid) {
           var match = loaded.find(function(a) { return a.guid === selectGuid; });
           if (match) setSel(match);
@@ -2498,6 +2690,8 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
       el('div', { style: { flex: 1, overflowX: 'auto', overflowY: 'auto' } },
         loading && el('div', { style: { padding: '20px 0', textAlign: 'center', color: 'var(--dim)', fontSize: 12 } }, 'Loading…'),
         err     && el('div', { style: { padding: 12, color: '#f87171', fontSize: 12 } }, '⚠ ' + err),
+        !loading && !err && annCapped && el('div', { style: { padding: '6px 10px', color: '#fbbf24', fontSize: 11 } },
+          'Showing the first ' + items.length.toLocaleString() + ' annotations — there are more. Search, or filter by type or time, to narrow the list.'),
         !loading && !err && items && items.length === 0 && el('div', { style: { padding: 20, color: 'var(--dim)', fontSize: 12 } }, 'No annotations found.'),
         !loading && !err && items && items.length > 0 && filtered.length === 0 && el('div', { style: { padding: 20, color: 'var(--dim)', fontSize: 12 } }, 'No annotations match the current filters.'),
         hasItems && filtered.length > 0 && el('table', { style: { width: rz.tableWidth || '100%', tableLayout: rz.widths ? 'fixed' : 'auto', borderCollapse: 'collapse' } },
