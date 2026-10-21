@@ -166,8 +166,8 @@ container process, so it always writes to the exact store this app reads
 from (running `dr_egeria` from a different machine/venv against a
 different server is the #1 way to make this silently not work).
 
-A notebook runs the same way, in the same container, as
-`jupyter nbconvert --to notebook --execute` (`bootstrap_batches.run_command`):
+A notebook runs the same way, in the same container, through nbclient (the
+engine behind `jupyter nbconvert --execute`; `bootstrap_batches.run_command`):
 - in the notebook's own folder, so relative paths like `./data/x.csv` work;
 - as the manifest's run-as user, passed as `EGERIA_USER` /
   `EGERIA_USER_PASSWORD` (the password comes from the same
@@ -175,8 +175,9 @@ A notebook runs the same way, in the same container, as
   chain as for Dr.Egeria docs);
 - with no stdin, so a cell calling `input()` fails at once, and a per-cell
   limit of `BOOTSTRAP_NOTEBOOK_CELL_TIMEOUT_SECONDS` (default 600);
-- a failing cell makes the file fail. The executed copy — outputs and any
-  traceback — is written to `~/.pyegeria/notebook-runs/` (persisted,
+- a failing cell makes the file fail, and the run result says which cell and
+  why (`cell 1 of 15: ImportError: …`). The executed copy — outputs and the
+  traceback, written even when a cell fails — is in `~/.pyegeria/notebook-runs/` (persisted,
   `PYEGERIA_NOTEBOOK_RUNS` to move it); the run result names its path.
 
 Two different failure strategies, on purpose:

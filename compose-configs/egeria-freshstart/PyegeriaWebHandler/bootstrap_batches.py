@@ -57,7 +57,7 @@ orders Dr.Egeria documents, notebooks and subfolders together. Notebooks
 are never appended automatically the way unlisted .md files are -- a
 workbook folder is mostly tutorials, so each one must be listed (or the
 manifest says `"notebooks": "all"`). A notebook runs as
-`jupyter nbconvert --execute` in its own folder (relative paths such as
+`jupyter nbconvert --execute` does (via nbclient) in its own folder (relative paths such as
 ./data/x.csv work), with the run-as identity passed as EGERIA_USER /
 EGERIA_USER_PASSWORD; the executed copy, outputs and any traceback
 included, is saved under ~/.pyegeria/notebook-runs. Notebooks commonly
@@ -87,6 +87,7 @@ import hashlib
 import json
 import os
 import re
+import sys
 import time
 from collections import deque
 from dataclasses import dataclass
@@ -561,9 +562,34 @@ def dr_egeria_command(doc: Path, userid: Optional[str]) -> list[str]:
 # survive a container recreate, like bootstrap.log.
 _NOTEBOOK_RUNS_DIR = Path(os.path.expanduser(
     os.getenv("PYEGERIA_NOTEBOOK_RUNS", "~/.pyegeria/notebook-runs")))
-# Per-cell limit. nbconvert runs without stdin, so a cell calling input()
+# Per-cell limit. A notebook runs without stdin, so a cell calling input()
 # fails at once rather than hanging; this bounds a cell that is merely slow.
 _NOTEBOOK_CELL_TIMEOUT = int(os.environ.get("BOOTSTRAP_NOTEBOOK_CELL_TIMEOUT_SECONDS", "600"))
+
+
+# Runs one notebook with nbclient (what `jupyter nbconvert --execute` uses
+# underneath) rather than the nbconvert CLI, because the CLI writes nothing
+# when a cell fails -- the executed copy, with its traceback, is exactly what
+# a failed run needs. Prints one summary line ("cell 3: ImportError: ...")
+# for the admin panel; exit 1 on failure.
+_NOTEBOOK_RUNNER = r"""
+import sys, nbformat
+from nbclient import NotebookClient
+src, out, timeout = sys.argv[1], sys.argv[2], int(sys.argv[3])
+nb = nbformat.read(src, as_version=4)
+code = [c for c in nb.cells if c.cell_type == "code"]
+try:
+    NotebookClient(nb, timeout=timeout, kernel_name="python3").execute()
+except Exception as exc:
+    nbformat.write(nb, out)
+    where = next((i for i, c in enumerate(code, 1)
+                  if any(o.get("output_type") == "error" for o in c.get("outputs", []))), None)
+    what = f"{exc.ename}: {exc.evalue}" if getattr(exc, "ename", None) else f"{type(exc).__name__}: {exc}"
+    print((f"cell {where} of {len(code)}: " if where else "") + what.splitlines()[0][:300])
+    sys.exit(1)
+nbformat.write(nb, out)
+print(f"ran {len(code)} code cells")
+"""
 
 
 def notebook_output_path(doc: Path) -> Path:
@@ -575,16 +601,13 @@ def notebook_output_path(doc: Path) -> Path:
 
 def run_command(doc: Path, userid: Optional[str]) -> tuple[list[str], Optional[str], Optional[dict]]:
     """(argv, cwd, env) to run one batch file: a Dr.Egeria document via
-    dr_egeria, a notebook via `jupyter nbconvert --execute` in its own
-    folder. cwd/env None = inherit."""
+    dr_egeria, a notebook via _NOTEBOOK_RUNNER in its own folder.
+    cwd/env None = inherit."""
     if doc.suffix.lower() != ".ipynb":
         return dr_egeria_command(doc, userid), None, None
     out = notebook_output_path(doc)
     out.parent.mkdir(parents=True, exist_ok=True)
-    argv = ["jupyter", "nbconvert", "--to", "notebook", "--execute", str(doc),
-            "--output-dir", str(out.parent), "--output", out.name,
-            f"--ExecutePreprocessor.timeout={_NOTEBOOK_CELL_TIMEOUT}",
-            "--ExecutePreprocessor.kernel_name=python3"]
+    argv = [sys.executable, "-c", _NOTEBOOK_RUNNER, str(doc), str(out), str(_NOTEBOOK_CELL_TIMEOUT)]
     env = None
     if userid:
         env = {**os.environ, "EGERIA_USER": userid, "EGERIA_USER_PASSWORD": _password_for(userid)}
@@ -890,10 +913,13 @@ async def run_batch(batch: dict, timeout_seconds: int = _BATCH_TIMEOUT,
             )
             _active_procs.add(proc)
             stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout_seconds)
-            # nbconvert colours its tracebacks; the admin panel shows this as plain text.
+            # Tracebacks come coloured; the admin panel shows this as plain text.
             tail = _ANSI_RE.sub("", stdout.decode(errors="replace"))[-800:] if stdout else ""
             if doc.suffix.lower() == ".ipynb":
-                tail += f"\nExecuted copy: {notebook_output_path(doc)}"
+                # The runner's summary is its last line; anything above it is
+                # kernel noise.
+                summary = tail.strip().splitlines()[-1] if tail.strip() else ""
+                tail = f"{summary}\nExecuted copy: {notebook_output_path(doc)}"
             if proc.returncode == 0:
                 results.append({"file": filename, "status": "ok", "message": tail})
                 record_run(doc)
