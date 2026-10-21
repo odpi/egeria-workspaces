@@ -8,7 +8,7 @@
 # Differences from TestGen's own docker-compose.yml:
 #   * No bundled Postgres: TestGen's metadata lives in the `testgen` database on
 #     shared-infra's egeria-shared-postgres (port 5442), created by
-#     shared-infra/docker-entrypoint-initdb.d/init_testgen.sh.
+#     compose-configs/shared-infra/docker-entrypoint-initdb.d/init_testgen.sh.
 #   * Joins egeria_network, not TestGen's external `datakitchen-network`, so it
 #     reaches the coco databases by container name.
 #   * Ports bind to 127.0.0.1 only. Host 8531 carries the API (8530 inside the
@@ -20,7 +20,7 @@
 #   cp .env.example .env   # then fill in the secrets
 #   docker compose --env-file .env run --rm engine setup-system-db --yes
 #   docker compose --env-file .env up -d
-#   docker compose --env-file .env exec engine /dk/bin/python /examples/scripts/seed_examples.py
+#   docker compose --env-file .env exec engine python /examples/scripts/seed_examples.py
 
 services:
   engine:

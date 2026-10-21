@@ -15,6 +15,11 @@ the real TestGen against the same coco databases, so the two can be compared:
 3. **Results into Egeria:** a mapping only ([EGERIA-MAPPING.md](EGERIA-MAPPING.md)); nothing
    here writes to Egeria.
 
+**This is a comparison harness beside Resource Explorer, not part of it.** RE never calls this
+TestGen: in RE's design TestGen does not run, and its test catalogue is vendored as data
+(trellis `INTEGRATION-TESTGEN-RE-EGERIA.md`). This runtime exists to check that work against
+the real thing.
+
 | Piece | What it does |
 |---|---|
 | `docker-compose.yaml` | TestGen's engine (UI, scheduler, API) on `egeria_network`; UI `127.0.0.1:8501`, API `127.0.0.1:8531`; telemetry off |
@@ -53,7 +58,7 @@ Shared-infra must be up (`egeria-shared-postgres` on 5442, `egeria_network`).
 ### 1. Metadata database
 
 TestGen keeps its own metadata in a `testgen` database on the shared Postgres, owned by a
-`testgen_admin` role. `shared-infra/docker-entrypoint-initdb.d/init_testgen.sh` creates both,
+`testgen_admin` role. `compose-configs/shared-infra/docker-entrypoint-initdb.d/init_testgen.sh` creates both,
 but only when the shared Postgres volume is first initialised, and without a password.
 
 **On an existing shared Postgres**, run this once. **It is a write to the shared Postgres, so
@@ -89,7 +94,7 @@ stored connection passwords unreadable.
 ```bash
 docker compose --env-file .env run --rm engine setup-system-db --yes
 docker compose --env-file .env up -d
-docker compose --env-file .env exec engine /dk/bin/python /examples/scripts/seed_examples.py
+docker compose --env-file .env exec engine python /examples/scripts/seed_examples.py
 ```
 
 The seeder:
@@ -104,23 +109,35 @@ It is re-runnable: run it again after new schemas appear. Options: `--project CO
 (repeatable), `--setup-only`, `--skip-tests`. A database it cannot reach is reported and
 counted as a failure, never seeded as empty.
 
+**It is slow on the full coco set.** On 2026-10-21 `COCO_DATA_HUB` alone took about 40 minutes,
+and the other four together about 2.5 hours. Start with `--project COCO_DATA_HUB`.
+
+**Schema names over 50 characters are skipped.** TestGen 5.134.0 stores schema names in
+`VARCHAR(50)` columns (`profiling_runs`, `test_results` and others), so it cannot profile such a
+schema at all. `subscription_staging` has many of them, for example
+`coco_winch_mfg_control__personalised_manufacturing_schedule` (59). The seeder names each schema
+it skips. Table groups created for them by an earlier seeder version are left in place, and the
+export marks them `schema_name_too_long`.
+
 `setup-system-db` also creates the `DEFAULT` project, with no connection. Ignore it.
 
 ## Comparing with Resource Explorer
 
 ```bash
 mkdir -p out
-docker compose --env-file .env exec -T engine /dk/bin/python /examples/scripts/export_testgen.py \
+docker compose --env-file .env exec -T engine python /examples/scripts/export_testgen.py \
     > out/testgen-export.json
 
-uv run --with sqlalchemy --with psycopg2-binary compare/compare_re_testgen.py \
+uv run --no-project --with sqlalchemy --with "psycopg[binary]" compare/compare_re_testgen.py \
     --export out/testgen-export.json \
-    --re-registry "postgresql://egeria_advisor:<password>@localhost:5442/egeria_advisor?options=-csearch_path%3Dresource_explorer" \
+    --re-registry "postgresql+psycopg://egeria_advisor:<password>@localhost:5442/egeria_advisor?options=-csearch_path%3Dresource_explorer" \
     --out out/compare
 ```
 
 `--re-registry` takes any SQLAlchemy URL, including `sqlite:///…/data/registry.db` for a
-native RE. The script only reads. It writes `out/compare/report.md`, plus:
+native RE. Name the driver (`postgresql+psycopg://`): SQLAlchemy 2.1 maps a bare
+`postgresql://` to psycopg 3, so it fails if only psycopg2 is installed. `--no-project` keeps
+`uv` from resolving the repository's own `pyproject.toml`. The script only reads. It writes `out/compare/report.md`, plus:
 
 - `profile.csv`: per column, both sides' `record_ct`, `value_ct`, `distinct_value_ct`, …, and
   which measures differ;
@@ -161,8 +178,20 @@ What to expect:
 
 ## Verified
 
-Checked on 2026-10-20 in a sandbox with **pip-installed TestGen 5.134.0 against PostgreSQL 16**,
-not yet with the Docker image or the real coco databases:
+**Live run, 2026-10-21**, with the `v5.134.0` image against the shared Postgres and the five coco
+databases:
+
+- `setup-system-db` succeeded; the UI (127.0.0.1:8501) and API (127.0.0.1:8531) were
+  localhost-only;
+- creating the role and database changed no existing role or database (a before/after diff of
+  `pg_authid` and `pg_database` showed only the two additions);
+- all five projects were seeded and tested. The only failures were the 24 `subscription_staging`
+  schemas with names over 50 characters, which the seeder now skips;
+- the export (20.5 MB) and the comparison ran; RE's side reported slice 1 as not deployed, as
+  expected.
+
+Earlier, on 2026-10-20, in a sandbox with **pip-installed TestGen 5.134.0 against
+PostgreSQL 16**:
 
 - `init_testgen.sh` creates the role and database, is idempotent, and handles a password with
   a quote;

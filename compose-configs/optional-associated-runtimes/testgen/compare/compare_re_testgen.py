@@ -9,9 +9,9 @@ Inputs:
     are RE's quality slice 1 (trellis branch re/value-profile-quality-checks, not yet merged), so
     their names can still move.
 
-    uv run --with sqlalchemy --with psycopg2-binary compare/compare_re_testgen.py \
+    uv run --no-project --with sqlalchemy --with "psycopg[binary]" compare/compare_re_testgen.py \
         --export out/testgen-export.json \
-        --re-registry "postgresql://egeria_advisor:...@localhost:5442/egeria_advisor?options=-csearch_path%3Dresource_explorer" \
+        --re-registry "postgresql+psycopg://egeria_advisor:...@localhost:5442/egeria_advisor?options=-csearch_path%3Dresource_explorer" \
         --out out/compare
 
 Writes <out>/report.md, profile.csv, checks.csv and results.csv. Read-only on both sides.

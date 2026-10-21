@@ -8,7 +8,7 @@ container's TG_DECRYPT_* secrets, exactly as the UI would store it. The open-sou
 create a project and shows only a project's first connection, so this is the only supported way
 to get several databases into one TestGen instance short of hand-written SQL.
 
-    docker compose --env-file .env exec engine /dk/bin/python /examples/scripts/seed_examples.py
+    docker compose --env-file .env exec engine python /examples/scripts/seed_examples.py
         [--config /examples/examples.yaml] [--project CODE ...] [--setup-only] [--skip-tests]
 
 Re-runnable: an existing project, connection, membership, table group or suite is reused and left
@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import subprocess
 import sys
 
@@ -36,9 +37,13 @@ from testgen.common.models.table_group import TableGroup, table_group_defaults
 from testgen.common.models.test_suite import TestSuite
 from testgen.common.models.user import User
 
-# The image installs TestGen under /dk; TESTGEN_BIN overrides it for a pip-installed TestGen.
-TESTGEN = os.environ.get("TESTGEN_BIN", "/dk/bin/testgen")
+# TESTGEN_BIN overrides the `testgen` found on PATH, for an unusual install.
+TESTGEN = os.environ.get("TESTGEN_BIN") or shutil.which("testgen") or "/dk/bin/testgen"
 SYSTEM_SCHEMAS = {"information_schema", "pg_catalog", "pg_toast"}
+# TestGen 5.134.0 stores schema names in VARCHAR(50) columns (profiling_runs, test_results and
+# others), so a table group on a longer schema name is created but every profiling run of it fails.
+# Such schemas are reported and skipped instead.
+TESTGEN_SCHEMA_NAME_MAX = 50
 
 
 def load_config(path: str) -> tuple[dict, list[dict]]:
@@ -189,6 +194,10 @@ def main() -> int:
             print(f"  ! cannot read {spec['database']} as {user}: {str(error).strip()}")
             failures += 1
             continue
+        too_long = [s for s in schemas if len(s) > TESTGEN_SCHEMA_NAME_MAX]
+        for schema in too_long:
+            print(f"  ! skipped {schema}: {len(schema)} characters, over TestGen's {TESTGEN_SCHEMA_NAME_MAX}")
+        schemas = [s for s in schemas if len(s) <= TESTGEN_SCHEMA_NAME_MAX]
         if not schemas:
             print("  ! no schemas to profile after filtering; nothing seeded for this project")
             continue

@@ -5,7 +5,7 @@
 Runs INSIDE the TestGen engine container and writes to stdout, so the host keeps the file
 (the container's user cannot write to a host bind mount on Linux):
 
-    docker compose --env-file .env exec -T engine /dk/bin/python /examples/scripts/export_testgen.py \
+    docker compose --env-file .env exec -T engine python /examples/scripts/export_testgen.py \
         > out/testgen-export.json
 
 The document is neutral, so compare/ needs neither TestGen nor its database: per table group,
@@ -16,7 +16,9 @@ and the result of each in the suite's latest complete test run. Every test also 
 
 Absence is explicit, never an empty list that could read as "nothing found":
 `profile_state` / `tests_state` are `exported`, `never_profiled`, `never_generated` or
-`never_run`, and a test with no result in the latest run has `result: null`.
+`never_run`, and a test with no result in the latest run has `result: null`. A table group whose
+schema name is longer than TestGen's 50-character `schema_name` columns can never be profiled,
+and says so: `schema_name_too_long`.
 """
 from __future__ import annotations
 
@@ -46,6 +48,8 @@ DEFINITION_COLUMNS = (
     "baseline_unique_ct", "baseline_value", "baseline_value_ct", "baseline_sum", "baseline_avg",
     "baseline_sd", "threshold_value", "lower_tolerance", "upper_tolerance", "subset_condition",
 )
+# TestGen 5.134.0's profiling_runs, profile_results and test_results hold schema_name in VARCHAR(50).
+TESTGEN_SCHEMA_NAME_MAX = 50
 RESULT_COLUMNS = (
     "result_code", "result_status", "result_measure", "threshold_value", "result_message", "test_time",
 )
@@ -104,6 +108,8 @@ def export_table_group(group: dict) -> dict:
             id=group["last_complete_profile_run_id"],
         )
         out["profile_state"] = "exported"
+    elif len(group["table_group_schema"] or "") > TESTGEN_SCHEMA_NAME_MAX:
+        out["profile_state"] = "schema_name_too_long"
 
     if not group["default_test_suite_id"]:
         return out
