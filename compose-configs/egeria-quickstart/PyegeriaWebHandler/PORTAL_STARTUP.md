@@ -111,6 +111,24 @@ An optional `_batch.json` in a folder gives it:
   show a `⚠ not safe to re-run` badge and a native `confirm()` prompt
   quoting the server's own message before retrying with that flag.
 
+**Scan roots.** `EGERIA_BOOTSTRAP_SCAN_ROOTS` (`os.pathsep`-separated;
+quickstart's compose file sets `/coco-workbooks`, freshstart sets nothing)
+adds folders searched recursively for `_batch.json`. Each *topmost* folder
+with a manifest is a batch, id `<root name>/<path>`; a folder without a
+manifest is not (unlike `dr-egeria-inbox`, where every subfolder is), so
+tutorial folders never run by accident. A folder that is already an
+inbox batch — the inbox's symlinks into `coco-workbooks` — keeps its inbox
+id, so saved selections carry over; anything below a batch root runs
+inside it, in that manifest's order.
+
+**Notebooks.** A `files` entry may be a Jupyter notebook (`.ipynb`), so one
+manifest orders Dr.Egeria docs, notebooks and subfolders together.
+Notebooks are never appended automatically the way unlisted `.md` files
+are — list each one, or set `"notebooks": "all"` in that folder's
+manifest. A batch containing a notebook defaults to `idempotent: false`
+(notebooks commonly create without checking first); set it explicitly if
+yours are safe to re-run. See §3.3 for how they execute.
+
 An optional top-level `dr-egeria-inbox/_folder_order.json` — a flat JSON
 array of batch ids — controls the order *batches* run in relative to each
 other, with the same "explicit list, then alphabetical remainder" rule.
@@ -147,6 +165,20 @@ Each doc runs via `asyncio.create_subprocess_exec("dr_egeria", "--process", doc_
 container process, so it always writes to the exact store this app reads
 from (running `dr_egeria` from a different machine/venv against a
 different server is the #1 way to make this silently not work).
+
+A notebook runs the same way, in the same container, through nbclient (the
+engine behind `jupyter nbconvert --execute`; `bootstrap_batches.run_command`):
+- in the notebook's own folder, so relative paths like `./data/x.csv` work;
+- as the manifest's run-as user, passed as `EGERIA_USER` /
+  `EGERIA_USER_PASSWORD` (the password comes from the same
+  `EGERIA_BOOTSTRAP_PASSWORD_<USERID>` → `EGERIA_USER_PASSWORD` → `secret`
+  chain as for Dr.Egeria docs);
+- with no stdin, so a cell calling `input()` fails at once, and a per-cell
+  limit of `BOOTSTRAP_NOTEBOOK_CELL_TIMEOUT_SECONDS` (default 600);
+- a failing cell makes the file fail, and the run result says which cell and
+  why (`cell 1 of 15: ImportError: …`). The executed copy — outputs and the
+  traceback, written even when a cell fails — is in `~/.pyegeria/notebook-runs/` (persisted,
+  `PYEGERIA_NOTEBOOK_RUNS` to move it); the run result names its path.
 
 Two different failure strategies, on purpose:
 - **Auto-heal** (`_heal_family` in `bootstrap_monitor_handler.py`): stops

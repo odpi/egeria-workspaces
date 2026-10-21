@@ -213,8 +213,9 @@ async def _heal_family(family: dict, seen: Optional[set] = None) -> str:
         seen.add(real)
         proc = None
         try:
+            argv, cwd, env = _run_command(doc, family.get("userids", {}).get(doc))
             proc = await asyncio.create_subprocess_exec(
-                *_dr_egeria_command(doc, family.get("userids", {}).get(doc)),
+                *argv, cwd=cwd, env=env,
                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
             )
             _active_procs.add(proc)
@@ -247,15 +248,17 @@ async def _heal_family(family: dict, seen: Optional[set] = None) -> str:
     return "ok"
 
 
-def _dr_egeria_command(doc: str, userid: Optional[str]) -> list[str]:
-    """bootstrap_batches.dr_egeria_command (run-as identity from the batch's
-    manifest), or the plain default-identity command if that module isn't
-    importable -- the hardcoded BOOTSTRAP_FAMILIES path must keep working."""
+def _run_command(doc: str, userid: Optional[str]) -> tuple[list[str], Optional[str], Optional[dict]]:
+    """bootstrap_batches.run_command -- (argv, cwd, env): dr_egeria for a
+    Dr.Egeria document, `jupyter nbconvert --execute` for a notebook, with
+    the run-as identity from the batch's manifest -- or the plain
+    default-identity dr_egeria command if that module isn't importable (the
+    hardcoded BOOTSTRAP_FAMILIES path must keep working)."""
     try:
         import bootstrap_batches as bb
-        return bb.dr_egeria_command(Path(doc), userid)
+        return bb.run_command(Path(doc), userid)
     except Exception:  # noqa: BLE001
-        return ["dr_egeria", "--process", doc]
+        return ["dr_egeria", "--process", doc], None, None
 
 
 def _record_run(doc: str) -> None:
