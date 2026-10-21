@@ -1,0 +1,45 @@
+# Example TestGen projects for the RE <-> TestGen comparisons.
+#
+# One TestGen project per target database, each with one connection, because
+# the open-source UI shows only a project's first connection. seed_examples.py
+# discovers the schemas when it runs (the coco schemas appear as data products
+# are made) and creates one table group, plus one Standard test suite, per
+# schema. Running it again adds what is missing and changes nothing else.
+#
+#   project_code  TestGen project code (max 30 characters, the column width).
+#   database      Target database on `host`.
+#   re_slug       The database's slug in Resource Explorer's registry, which
+#                 compare/ joins on. Defaults to `database`.
+#   schemas       Optional allow-list; when absent every non-system schema is used.
+#   exclude_schemas  Optional deny-list, applied after discovery.
+#
+# The connection account comes from TESTGEN_TARGET_DB_USER and
+# TESTGEN_TARGET_DB_PASSWORD in .env (the read-only `surveyor` by default).
+
+defaults:
+  host: egeria-shared-postgres
+  port: 5442
+  exclude_schemas: [public, information_schema]
+
+projects:
+  - project_code: COCO_DATA_HUB
+    name: "Coco Data Hub"
+    database: coco_data_hub
+
+  - project_code: AUSTIN_SYSTEMS
+    name: "Austin Systems"
+    database: austin_systems
+
+  - project_code: BUCHAREST_SYSTEMS
+    name: "Bucharest Systems"
+    database: bucharest_systems
+
+  - project_code: SUBSCRIPTION_STAGING
+    name: "Subscription Staging"
+    database: subscription_staging
+
+  - project_code: COCO_PHARMA
+    name: "Coco Pharma"
+    database: coco_pharma
+    # The demo site's own auth and feedback tables live here; they are not example data.
+    exclude_schemas: [public, information_schema, demo, demo_auth]

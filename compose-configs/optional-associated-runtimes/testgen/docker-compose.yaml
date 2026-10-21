@@ -1,0 +1,85 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright Contributors to the Egeria project
+#
+# DataKitchen DataOps TestGen as an optional runtime, for building examples
+# that set TestGen's profiling and generated tests beside Resource Explorer's
+# value profile and proposed quality checks. See README.md in this directory.
+#
+# Differences from TestGen's own docker-compose.yml:
+#   * No bundled Postgres: TestGen's metadata lives in the `testgen` database on
+#     shared-infra's egeria-shared-postgres (port 5442), created by
+#     shared-infra/docker-entrypoint-initdb.d/init_testgen.sh.
+#   * Joins egeria_network, not TestGen's external `datakitchen-network`, so it
+#     reaches the coco databases by container name.
+#   * Ports bind to 127.0.0.1 only. Host 8531 carries the API (8530 inside the
+#     container), leaving 8530 free for a separately run TestGen.
+#   * Mixpanel telemetry and the feedback popup are off. TestGen's release
+#     check cannot be turned off, only pointed at PyPI or Docker Hub.
+#
+# Usage (from this directory, with shared-infra already up):
+#   cp .env.example .env   # then fill in the secrets
+#   docker compose --env-file .env run --rm engine setup-system-db --yes
+#   docker compose --env-file .env up -d
+#   docker compose --env-file .env exec engine /dk/bin/python /examples/scripts/seed_examples.py
+
+services:
+  engine:
+    # Pinned to the release the Trellis vendored catalogue was copied from
+    # (resource_explorer/configdata/quality/testgen/PROVENANCE.md, commit
+    # 3606859c, 5.134.0). Move the two together so the comparisons stay like
+    # for like.
+    image: "${TESTGEN_IMAGE:-datakitchen/dataops-testgen:v5.134.0}"
+    container_name: egeria-testgen
+    restart: unless-stopped
+    # Must exceed TG_JOB_SHUTDOWN_TIMEOUT (default 60s), or docker kills the
+    # scheduler mid-wait and running jobs are cut instead of checkpointing.
+    stop_grace_period: 90s
+    environment:
+      TESTGEN_USERNAME: "${TESTGEN_USERNAME:?set TESTGEN_USERNAME in .env}"
+      TESTGEN_PASSWORD: "${TESTGEN_PASSWORD:?set TESTGEN_PASSWORD in .env}"
+      TG_DECRYPT_SALT: "${TG_DECRYPT_SALT:?set TG_DECRYPT_SALT in .env}"
+      TG_DECRYPT_PASSWORD: "${TG_DECRYPT_PASSWORD:?set TG_DECRYPT_PASSWORD in .env}"
+      TG_JWT_HASHING_KEY: "${TG_JWT_HASHING_KEY:?set TG_JWT_HASHING_KEY in .env}"
+      TG_METADATA_DB_HOST: egeria-shared-postgres
+      TG_METADATA_DB_PORT: "5442"
+      TG_METADATA_DB_NAME: testgen
+      TG_METADATA_DB_SCHEMA: testgen
+      TG_METADATA_DB_USER: testgen_admin
+      TG_METADATA_DB_PASSWORD: "${TESTGEN_DB_PASSWORD:?set TESTGEN_DB_PASSWORD in .env}"
+      # The project setup-system-db creates. The example projects come from
+      # examples.yaml and seed_examples.py, because the open-source UI cannot
+      # create a project.
+      PROJECT_KEY: "${TESTGEN_DEFAULT_PROJECT_KEY:-DEFAULT}"
+      PROJECT_NAME: "${TESTGEN_DEFAULT_PROJECT_NAME:-Default}"
+      # Read by seed_examples.py for every example connection. The `surveyor`
+      # role is the read-only account RE's cataloguer and surveys already use.
+      TESTGEN_TARGET_DB_USER: "${TESTGEN_TARGET_DB_USER:-surveyor}"
+      TESTGEN_TARGET_DB_PASSWORD: "${TESTGEN_TARGET_DB_PASSWORD:?set TESTGEN_TARGET_DB_PASSWORD in .env}"
+      TG_ANALYTICS: "no"
+      TG_DISABLE_FEEDBACK_POPUP: "yes"
+      TG_RELEASE_CHECK: docker
+      TG_TARGET_DB_TRUST_SERVER_CERTIFICATE: "yes"
+      TG_EXPORT_TO_OBSERVABILITY_VERIFY_SSL: "no"
+    volumes:
+      - testgen_data:/var/lib/testgen
+      # examples.yaml and the in-container scripts, read-only.
+      - ./examples.yaml:/examples/examples.yaml:ro
+      - ./scripts:/examples/scripts:ro
+    ports:
+      - "127.0.0.1:8501:8501"
+      - "127.0.0.1:8531:8530"
+    networks:
+      - egeria_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  testgen_data:
+
+networks:
+  egeria_network:
+    name: egeria_network
+    external: true
