@@ -133,6 +133,18 @@ def _governance_officer(url, server, user_id, user_pwd, token: Optional[str] = N
     return mgr
 
 
+async def _governance_officer_async(url, server, user_id, user_pwd, token: Optional[str] = None):
+    """Async twin of _governance_officer -- for async def routes."""
+    from pyegeria import GovernanceOfficer
+    u, s, uid, pwd = _creds(url, server, user_id, user_pwd)
+    mgr = GovernanceOfficer(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
+    if token:
+        mgr.set_bearer_token(token)
+    else:
+        await mgr._async_create_egeria_bearer_token()
+    return mgr
+
+
 # ── Serialisation ─────────────────────────────────────────────────────────────
 
 def _header(el):
@@ -1391,18 +1403,19 @@ def _data_asset_query(type_name: str, q: str, as_of_time: Optional[str], include
     )
 
 
-# Data Stores / Feeds / Sets are shown as a type tree with counts, which needs
-# the whole list (Egeria has no cheap count). Loading it takes seconds, so it is
-# cached per user (zone access differs) for _DA_TTL and filled in the
-# background — the same non-blocking pattern as operations_handler's server
-# report cache:
+# Whole-list cache. Data Stores / Feeds / Sets are shown as a type tree with
+# counts, which needs the whole list (Egeria has no cheap count); Software
+# Components and Governance Processes are filtered in the browser, which also
+# needs the whole list. Loading one takes seconds, so each is cached per user
+# (zone access differs) for _DA_TTL and filled in the background — the same
+# non-blocking pattern as operations_handler's server report cache:
 #   cold     → start one background Task, return {"loading": true}; the UI polls
 #   fresh    → return the cached list
 #   stale    → return the cached list with {"stale": true}, refresh in background
 #   refresh=true (the UI's Refresh button) → drop the entry, load again
 # TTL default 15 min (TECH_CATALOG_LIST_CACHE_SECONDS): these lists change
 # slowly, the UI shows the data's age, and Refresh forces a reload.
-# _get_data_assets_cached must stay sync (no await) so check-and-create-task is
+# _get_list_cached must stay sync (no await) so check-and-create-task is
 # atomic: exactly one fill Task per key.
 _DA_TTL = float(os.environ.get("TECH_CATALOG_LIST_CACHE_SECONDS", "900"))
 _da_cache: dict = {}        # key → {"items", "byType", "capped", "ts", "refreshing"}
@@ -1422,14 +1435,13 @@ async def _async_asset_maker(url, server, user_id, user_pwd, token: Optional[str
     return mgr
 
 
-async def _fill_data_assets(mgr, type_name: str, as_of_time: Optional[str], include_templates: bool, key: str) -> None:
-    """Background Task: load every page into _da_cache[key]."""
+async def _fill_list_cache(key: str, label: str, fetch_page, serialize) -> None:
+    """Background Task: load every page of one list into _da_cache[key].
+    fetch_page(start, size) returns a coroutine for one page of raw elements."""
     try:
         out, seen, capped = [], set(), True
-        query = _data_asset_query(type_name, "*", as_of_time, include_templates)
-        for p in range(_DATA_ASSET_MAX_PAGES):
-            batch = _safe_list(await mgr._async_find_data_assets(
-                **query, start_from=p * _DATA_ASSET_PAGE, page_size=_DATA_ASSET_PAGE))
+        for p in range(_LIST_MAX_PAGES):
+            batch = _safe_list(await fetch_page(p * _LIST_PAGE, _LIST_PAGE))
             if not batch:
                 capped = False
                 break
@@ -1440,7 +1452,7 @@ async def _fill_data_assets(mgr, type_name: str, as_of_time: Optional[str], incl
                 if guid:
                     seen.add(guid)
                 out.append(e)
-        items = [_serialize(e) for e in out]
+        items = [serialize(e) for e in out]
         by_type: dict = {}
         for it in items:
             t = it.get("typeName") or "Unknown"
@@ -1448,7 +1460,7 @@ async def _fill_data_assets(mgr, type_name: str, as_of_time: Optional[str], incl
         _da_cache[key] = {"items": items, "byType": by_type, "capped": capped, "ts": time.monotonic(), "refreshing": False}
         _da_errors.pop(key, None)
     except Exception as exc:
-        logger.exception("data assets ({}) background load failed", type_name)
+        logger.exception("{} background load failed", label)
         entry = _da_cache.get(key)
         if entry:
             entry["refreshing"] = False
@@ -1458,8 +1470,9 @@ async def _fill_data_assets(mgr, type_name: str, as_of_time: Optional[str], incl
         _da_tasks.pop(key, None)
 
 
-def _get_data_assets_cached(mgr, type_name, as_of_time, include_templates, key, refresh: bool):
-    """Return (entry_or_None, stale, loading, error). Sync — see above."""
+def _get_list_cached(key: str, refresh: bool, start_fill):
+    """Return (entry_or_None, stale, loading, error). start_fill() returns the
+    fill coroutine. Sync — see above."""
     if refresh and key not in _da_tasks:
         _da_cache.pop(key, None)
     entry = _da_cache.get(key)
@@ -1468,35 +1481,48 @@ def _get_data_assets_cached(mgr, type_name, as_of_time, include_templates, key, 
             return entry, False, False, None
         if not entry["refreshing"]:
             entry["refreshing"] = True
-            _da_tasks[key] = asyncio.get_event_loop().create_task(
-                _fill_data_assets(mgr, type_name, as_of_time, include_templates, key))
+            _da_tasks[key] = asyncio.get_event_loop().create_task(start_fill())
         return entry, True, False, None
     if key not in _da_tasks:
         err = _da_errors.pop(key, None)
         if err:
             return None, False, False, err      # report once; the next poll retries
-        _da_tasks[key] = asyncio.get_event_loop().create_task(
-            _fill_data_assets(mgr, type_name, as_of_time, include_templates, key))
+        _da_tasks[key] = asyncio.get_event_loop().create_task(start_fill())
     return None, False, True, None
+
+
+def _list_key(kind: str, url, server, user_id, user_pwd, include_templates: bool, as_of_time: Optional[str]) -> str:
+    who = _token_user() or _creds(url, server, user_id, user_pwd)[2]
+    return f"{kind}|{who}|{url or ''}|{server or ''}|{include_templates}|{as_of_time or ''}{_lineage_key()}"
+
+
+def _cached_list_response(key: str, label: str, refresh: bool, fetch_page, serialize,
+                          root_type: Optional[str] = None) -> JSONResponse:
+    """The whole list from the cache: {"loading": true} while a cold fill runs,
+    otherwise the items plus stale/ageSeconds for the UI's status line."""
+    entry, stale, loading, err = _get_list_cached(
+        key, refresh, lambda: _fill_list_cache(key, label, fetch_page, serialize))
+    if err:
+        raise HTTPException(status_code=401 if err == "Unauthorized" else 500, detail=err)
+    if loading:
+        return JSONResponse({"items": [], "loading": True, "rootType": root_type})
+    return JSONResponse({"items": entry["items"], "total": len(entry["items"]), "capped": entry["capped"],
+                         "byType": entry["byType"], "rootType": root_type, "stale": stale,
+                         "ageSeconds": round(time.monotonic() - entry["ts"])})
 
 
 async def _list_data_assets(request: Request, type_name: str, url, server, user_id, user_pwd,
                             as_of_time: Optional[str], include_templates: bool, refresh: bool) -> JSONResponse:
-    token = _token_from_request(request)
     try:
-        mgr = await _async_asset_maker(url, server, user_id, user_pwd, token=token)
+        mgr = await _async_asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
-    who = _token_user() or _creds(url, server, user_id, user_pwd)[2]
-    key = f"{type_name}|{who}|{url or ''}|{server or ''}|{include_templates}|{as_of_time or ''}{_lineage_key()}"
-    entry, stale, loading, err = _get_data_assets_cached(mgr, type_name, as_of_time, include_templates, key, refresh)
-    if err:
-        raise HTTPException(status_code=401 if err == "Unauthorized" else 500, detail=err)
-    if loading:
-        return JSONResponse({"items": [], "loading": True, "rootType": type_name})
-    return JSONResponse({"items": entry["items"], "total": len(entry["items"]), "capped": entry["capped"],
-                         "byType": entry["byType"], "rootType": type_name, "stale": stale,
-                         "ageSeconds": round(time.monotonic() - entry["ts"])})
+    query = _data_asset_query(type_name, "*", as_of_time, include_templates)
+    return _cached_list_response(
+        _list_key(type_name, url, server, user_id, user_pwd, include_templates, as_of_time),
+        f"data assets ({type_name})", refresh,
+        lambda start, size: mgr._async_find_data_assets(**query, start_from=start, page_size=size),
+        _serialize, root_type=type_name)
 
 
 @router.get("/api/tech-catalog/data-stores")
@@ -1571,23 +1597,24 @@ def list_apis(
 
 
 @router.get("/api/tech-catalog/software-components")
-def list_software_components(
+async def list_software_components(
     request: Request,
-    q:          str = Query("*"),
-    start_from: int = Query(0, ge=0),
-    page_size:  int = Query(_LIST_PAGE, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
+    refresh: bool = Query(False, description="Drop the cached list and load it again"),
 ):
+    """Every DeployedSoftwareComponent, from the whole-list cache (see _DA_TTL)."""
     try:
-        mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
+        mgr = await _async_asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
-    try:
-        raw, capped = _page_all(lambda start, size: mgr.find_processes(
-            search_string=q or "*",
+    return _cached_list_response(
+        _list_key("DeployedSoftwareComponent", url, server, user_id, user_pwd, include_templates, as_of_time),
+        "software components", refresh,
+        lambda start, size: mgr._async_find_processes(
+            search_string="*",
             metadata_element_type="DeployedSoftwareComponent",
             activity_status_list=[],
             start_from=start,
@@ -1598,12 +1625,8 @@ def list_software_components(
             graph_query_depth=0,
             as_of_time=as_of_time or None,
             skip_classified_elements=[] if include_templates else ["Template"],
-        ), page_size=page_size, start_from=start_from)
-        items = [_serialize(e) for e in _safe_list(raw)]
-        return JSONResponse({"items": items, "total": len(items), "capped": capped})
-    except Exception as exc:
-        logger.exception("list_software_components failed")
-        raise HTTPException(status_code=500, detail=str(exc))
+        ),
+        _serialize)
 
 
 @router.get("/api/tech-catalog/actions")
@@ -1649,23 +1672,24 @@ def list_actions(
 
 
 @router.get("/api/tech-catalog/governance-processes")
-def list_governance_processes(
+async def list_governance_processes(
     request: Request,
-    q:          str = Query("*"),
-    start_from: int = Query(0, ge=0),
-    page_size:  int = Query(200, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
+    refresh: bool = Query(False, description="Drop the cached list and load it again"),
 ):
-    """List GovernanceActionProcess definitions (0462 Governance Action Processes)."""
+    """Every GovernanceActionProcess definition (0462 Governance Action
+    Processes), from the whole-list cache (see _DA_TTL)."""
     try:
-        mgr = _governance_officer(url, server, user_id, user_pwd, token=_token_from_request(request))
+        mgr = await _governance_officer_async(url, server, user_id, user_pwd, token=_token_from_request(request))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
-    try:
-        raw, capped = _page_all(lambda start, size: mgr.find_governance_definitions(
-            search_string=q or "*",
+    return _cached_list_response(
+        _list_key("GovernanceActionProcess", url, server, user_id, user_pwd, include_templates, None),
+        "governance processes", refresh,
+        lambda start, size: mgr._async_find_governance_definitions(
+            search_string="*",
             metadata_element_type="GovernanceActionProcess",
             output_format="JSON",
             start_from=start,
@@ -1674,15 +1698,8 @@ def list_governance_processes(
             sequencing_order=_SEQ_ORDER,
             sequencing_property=_SEQ_PROP,
             skip_classified_elements=[] if include_templates else ["Template"],
-        ), page_size=page_size, start_from=start_from)
-        raw = _safe_list(raw)
-        items = [_serialize_governance_process_list_item(e) for e in raw]
-        return JSONResponse({"items": items, "total": len(items), "capped": capped})
-    except Exception as exc:
-        if _is_auth_error(exc):
-            raise HTTPException(status_code=401, detail="Token expired or unauthorized")
-        logger.exception("list_governance_processes failed")
-        raise HTTPException(status_code=500, detail=str(exc))
+        ),
+        _serialize_governance_process_list_item)
 
 
 @router.get("/api/tech-catalog/governance-processes/{guid}")
