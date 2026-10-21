@@ -49,21 +49,22 @@ else
   echo "[shared-infra] $CONTAINER_ENGINE network 'egeria_network' already exists"
 fi
 
-echo "[shared-infra] Ensuring shared Kafka, Postgres, proxy, and Kroki are running..."
-if ! $COMPOSE_CMD -p egeria-shared-infra -f shared-infra.yaml build "${COMPOSE_BUILD_FLAGS[@]}" proxy; then
+echo "[shared-infra] Ensuring shared Kafka, Postgres, proxy, kroki, and autoheal are running..."
+if ! $COMPOSE_CMD -p egeria-shared-infra -f shared-infra.yaml build "${COMPOSE_BUILD_FLAGS[@]}" proxy autoheal; then
   echo "[shared-infra] Pull-enabled build failed; retrying build without pull to use local cache..."
-  $COMPOSE_CMD -p egeria-shared-infra -f shared-infra.yaml build proxy
+  $COMPOSE_CMD -p egeria-shared-infra -f shared-infra.yaml build proxy autoheal
 fi
 
-if ! $COMPOSE_CMD -p egeria-shared-infra -f shared-infra.yaml up -d ${COMPOSE_PULL_FLAGS} proxy kafka postgres kroki kroki-mermaid; then
+if ! $COMPOSE_CMD -p egeria-shared-infra -f shared-infra.yaml up -d ${COMPOSE_PULL_FLAGS} proxy kafka postgres kroki kroki-mermaid autoheal; then
   echo "[shared-infra] Pull-enabled up failed; retrying up without pull to use local cache..."
-  $COMPOSE_CMD -p egeria-shared-infra -f shared-infra.yaml up -d proxy kafka postgres kroki kroki-mermaid
+  $COMPOSE_CMD -p egeria-shared-infra -f shared-infra.yaml up -d proxy kafka postgres kroki kroki-mermaid autoheal
 fi
 
 wait_for_container_state egeria-shared-kafka
 wait_for_container_state egeria-shared-postgres
 wait_for_container_state egeria-shared-openlineage-proxy-backend
 wait_for_container_state egeria-shared-kroki
+wait_for_container_state egeria-shared-autoheal
 
 # Extra safety: Wait for Postgres port to be reachable on localhost
 # Container 'healthy' (pg_isready) doesn't always mean the host-mapped port is fully bound/reachable yet.
