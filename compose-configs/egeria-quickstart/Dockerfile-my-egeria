@@ -12,11 +12,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 # (earlier wheels nested it as my_egeria/my_egeria/, breaking its console scripts),
 # ships my_profile.tcss, and serves via the textual-serve library; 6.1.27 makes the
 # page's URLs follow the browser's hostname (localhost, machine name, demo site). 6.2.4
-# adds the My Network option and fixes Technology Types / Shop for Data go back. The
-# floor matters: right after a release PyPI's index can still offer the previous
-# version, so a lower floor can silently build without the fix. Textual and
+# adds the My Network option and fixes Technology Types / Shop for Data go back; 6.2.7
+# brings the reworked My Profile (one key binding convention on every screen,
+# discoverable Roles -> My Team, Scorecard workflow fix). The floor matters: right
+# after a release PyPI's index can still offer the previous version, so a lower
+# floor can silently build without the fix. Textual and
 # textual-serve come with pyegeria -- don't pin them separately.
-ARG PYEGERIA_VERSION=pyegeria>=6.2.4
+ARG PYEGERIA_VERSION=pyegeria>=6.2.7
 ARG PYEGERIA_BUST=0
 RUN echo "pyegeria layer ${PYEGERIA_BUST}" \
     && pip install --no-cache-dir --retries 10 --timeout 60 "${PYEGERIA_VERSION}" --upgrade nest_asyncio
