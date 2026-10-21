@@ -1,12 +1,12 @@
 # Data Initialization — manifest and ordering file specs
 
-Reference for the two optional JSON files that control how [Data Initialization](data-initialization.md) discovers, orders, and describes batches. Neither file is required — every folder under `dr-egeria-inbox` works with no manifest at all, alphabetical order, auto-heal off. These exist for when the defaults aren't enough.
+Reference for the two optional JSON files that control how [Data Initialization](data-initialization.md) discovers, orders, and describes batches. Neither file is required — every folder under `dr-egeria-inbox` works with no manifest at all, alphabetical order, auto-heal off. These exist for when the defaults aren't enough. (A folder in a [scan root](#scan-roots) is the exception: there, the `_batch.json` is what makes it a batch.)
 
 ---
 
 ## `_batch.json` — per-folder manifest
 
-Lives at the root of a batch folder (a sibling of that folder's `.md` files), e.g. `dr-egeria-inbox/Local Dashboards/_batch.json`. Customizes one folder's display name, description, auto-heal canary, default enabled state, re-run safety, file execution order, and the Egeria user each file is loaded as.
+Lives at the root of a batch folder (a sibling of that folder's `.md` files), e.g. `dr-egeria-inbox/Local Dashboards/_batch.json`. Customizes one folder's display name, description, auto-heal canary, default enabled state, re-run safety, file execution order, the notebooks it runs, and the Egeria user each file is loaded as.
 
 ### Fields
 
@@ -16,9 +16,10 @@ Lives at the root of a batch folder (a sibling of that folder's `.md` files), e.
 | `description` | *(empty)* | Shown under the display name in the panel. |
 | `canary` | *(none)* | `{"type": <Egeria metadata element type name>, "name": <exact displayName>}`. If present, the Portal periodically searches for an `ACTIVE` element of that type whose `displayName` exactly matches `name` (a cheap bounded, page-size-1 lookup); if nothing matches, it silently re-runs the batch's files in the background. **Point it at an element the batch's last file creates** (or the last file that creates anything). Auto-heal only re-runs a batch while its canary is missing, so a canary from an early file stops a heal that was interrupted partway from ever being retried. That is how `Coco - 1. Data Field Naming`, whose canary came from its first file, was left missing six of its 33 files. Omit `canary` entirely for a manual-only batch — nothing runs on its own, an admin has to opt in from the panel. |
 | `defaultEnabled` | `false` | Whether a freshly-discovered batch (no saved admin selection yet) starts checked. Core-portal batches that must survive a reset with zero admin action set this `true`; anything admin-droppable defaults to `false` so nothing runs until someone opts in. |
-| `idempotent` | `true` | Set `false` only if one of the folder's commands creates a relationship/record with no pre-existence check, so re-running against already-seeded data would duplicate it. This gates the admin panel's manual Run Now/Run All Enabled with a confirmation prompt; auto-heal is unaffected (it only ever runs when the canary is confirmed missing, so there's never an already-seeded target to duplicate against). Leave the default alone unless you've confirmed a specific command actually lacks that check. |
-| `files` | *(none — alphabetical)* | Explicit execution order, in the order listed. An entry can be a file (`"glossary.md"`), a file in a subfolder (`"mapping-the-systems/egeria-implementation.md"`), or a whole subfolder (`"strategic-digital-products/"`), which runs in place, in its own order (its own `_batch.json`, recursively). Anything **not** listed is appended afterward: `.md` files alphabetically, then subfolders alphabetically. Each appended item is flagged in the panel, because its position was defaulted rather than chosen. A stale entry (no longer present) is skipped and flagged. |
+| `idempotent` | `true`, or `false` if the batch runs a notebook | Set `false` only if one of the folder's commands creates a relationship/record with no pre-existence check, so re-running against already-seeded data would duplicate it. This gates the admin panel's manual Run Now/Run All Enabled with a confirmation prompt; auto-heal is unaffected (it only ever runs when the canary is confirmed missing, so there's never an already-seeded target to duplicate against). Leave the default alone unless you've confirmed a specific command actually lacks that check. A batch that runs a notebook defaults to `false`, because notebooks often create without checking; set `true` once you know its notebooks are safe to re-run. |
+| `files` | *(none — alphabetical)* | Explicit execution order, in the order listed. An entry can be a Dr.Egeria file (`"glossary.md"`), a Jupyter notebook (`"load-reference-data.ipynb"`), a file in a subfolder (`"mapping-the-systems/egeria-implementation.md"`), or a whole subfolder (`"strategic-digital-products/"`), which runs in place, in its own order (its own `_batch.json`, recursively). Anything **not** listed is appended afterward: `.md` files alphabetically, then subfolders alphabetically. Notebooks are appended only when `notebooks` is `"all"`. Each appended item is flagged in the panel, because its position was defaulted rather than chosen. A stale entry (no longer present) is skipped and flagged. |
 | `userid` | *(none — dr_egeria's default user)* | The Egeria user this folder's files are loaded as, and the default for its subfolders. A single entry in `files` can override it with the object form `{"file": "risk-register.md", "userid": "juleskeeper"}`. That form also works for a subfolder entry (`{"file": "mapping-the-systems/", "userid": "peterprofile"}`), where it sets the default for that subfolder. See [Run-as identity](#run-as-identity). |
+| `notebooks` | *(none — listed notebooks only)* | `"all"` runs every notebook in this folder, the unlisted ones after the listed files, alphabetically with the unlisted `.md` files. Without it, a notebook runs only if `files` lists it, since workbook folders are mostly tutorials. Applies to this folder only, not its subfolders. See [Running notebooks during Data Initialization](data-initialization-notebooks.md). |
 | `exclude` | *(none)* | Files or subfolders in this folder that should never run, e.g. prose documents that sit next to the command files. `README.md` and the plumbing/output folders `dr-egeria-outbox`, `egeria-outbox`, `logs`, `data`, `templates`, `__pycache__` and `.ipynb_checkpoints` are always skipped, unless named explicitly in `files`. |
 
 ### Example — `Local Dashboards/_batch.json` (real, shipped)
@@ -125,13 +126,24 @@ A manifest is optional for every folder under `dr-egeria-inbox` — but it's the
 
 ---
 
+## Scan roots
+
+The folders named in the Portal's `EGERIA_BOOTSTRAP_SCAN_ROOTS` setting (separated by `:`) are searched recursively for `_batch.json`. Quickstart sets it to `/coco-workbooks`; freshstart sets none.
+
+- Each **topmost** folder with a `_batch.json` becomes a batch. Everything below it runs inside that batch, in its manifest's order, so a `_batch.json` lower down orders a subfolder; it doesn't make a new batch.
+- A folder with no `_batch.json` is **not** a batch, unlike a folder in `dr-egeria-inbox`.
+- A folder that is already an inbox batch, or is inside one, is left to that batch. The `Coco - …` symlinks therefore keep their names and saved selections.
+- A scanned batch's id is the scan root's name and the folder's path below it, e.g. `coco-workbooks/egeria-api-samples/pyegeria`. Use that id in `_folder_order.json`. The panel shows the manifest's `displayName` if it has one.
+
+---
+
 ## `_folder_order.json` — cross-folder ordering
 
 Lives directly under `dr-egeria-inbox` itself (a sibling of the batch folders, not inside any of them). By default, batches run in alphabetical order by folder name; this file overrides that — e.g. so a batch other batches' elements depend on runs first.
 
 ### Shape
 
-A flat JSON array of batch ids. A batch's id is its folder name, or a core-portal batch's fixed id (e.g. `overview-governance-metrics`).
+A flat JSON array of batch ids. A batch's id is its folder name, a core-portal batch's fixed id (e.g. `overview-governance-metrics`), or a scanned batch's path (e.g. `coco-workbooks/egeria-api-samples/pyegeria`, see [Scan roots](#scan-roots)).
 
 ```json
 ["Local Dashboards", "Sustainability Commands", "ML-OPS"]
@@ -156,3 +168,4 @@ This file is deployment-specific (it lives under `dr-egeria-inbox`, which is env
 ## Further resources
 
 - [Data Initialization](data-initialization.md) — the admin panel these files configure
+- [Running notebooks during Data Initialization](data-initialization-notebooks.md) — the task-oriented guide to notebook batches
