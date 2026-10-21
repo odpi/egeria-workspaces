@@ -280,6 +280,10 @@ services:
       EGERIA_ROOT_PATH: "/"
       EGERIA_INBOX_PATH: "."
       EGERIA_OUTBOX_PATH: "dr-egeria-outbox"
+      # Data initialization: also search these folders (recursively) for
+      # _batch.json manifests -- each topmost one is a batch, which may list
+      # notebooks as well as Dr.Egeria docs. See PyegeriaWebHandler/PORTAL_STARTUP.md §3.1.
+      EGERIA_BOOTSTRAP_SCAN_ROOTS: "${EGERIA_BOOTSTRAP_SCAN_ROOTS:-/coco-workbooks}"
       MCP_ACCESS_TOKEN: "egeria-secret-mcp-token"
       # ── Demo mode — set DEMO_MODE=true to enable public access with auth ──────
       DEMO_MODE: "false"

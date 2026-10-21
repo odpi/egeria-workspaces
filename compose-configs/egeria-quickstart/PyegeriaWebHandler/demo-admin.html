@@ -584,15 +584,15 @@
     var resultEl = document.getElementById('batchResult-' + bi);
     resultEl.style.display = 'block';
     resultEl.textContent = 'Running…';
-    var runUrl = '/api/bootstrap/batches/' + encodeURIComponent(b.id) + '/run';
-    var statusUrl = '/api/bootstrap/batches/' + encodeURIComponent(b.id) + '/run-status';
+    var runUrl = '/api/bootstrap/batches/' + encodeURIComponent(b.id).replace(/%2F/g, '/') + '/run';
+    var statusUrl = '/api/bootstrap/batches/' + encodeURIComponent(b.id).replace(/%2F/g, '/') + '/run-status';
     _postRun(runUrl, statusUrl, function(d) {
       if (!d.results) { resultEl.textContent = 'Run failed'; return; }
       var ok = d.results.filter(function(r) { return r.status === 'ok'; }).length;
       resultEl.innerHTML = (d.success ? '<span style="color:var(--success)">✓</span> ' : '<span style="color:var(--error)">✗</span> ') +
         ok + '/' + d.results.length + ' files ran clean' +
-        (d.success ? '' : ' — ' + d.results.filter(function(r) { return r.status !== 'ok' && r.status !== 'duplicate'; })
-          .map(function(r) { return esc(r.file) + ': ' + esc((r.message || '').slice(0, 200)); }).join('; '));
+        (d.success ? '' : d.results.filter(function(r) { return r.status !== 'ok' && r.status !== 'duplicate'; })
+          .map(function(r) { return '<br>• ' + esc(r.file) + ': ' + esc((r.message || '').slice(0, 600)).replace(/\n/g, '<br>&nbsp;&nbsp;'); }).join(''));
       showGlobalMsg(d.success ? 'success' : 'error', d.success ? b.displayName + ' ran successfully' : b.displayName + ' had failures — see details below');
     }, function(msg) { resultEl.textContent = msg; }, function(secs) {
       resultEl.textContent = 'Running… (' + secs + 's — large batches can take several minutes; safe to leave this tab)';

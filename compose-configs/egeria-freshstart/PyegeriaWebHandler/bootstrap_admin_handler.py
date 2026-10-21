@@ -88,7 +88,37 @@ def save_batch_selection(req: SaveSelectionRequest, request: Request):
     return JSONResponse({"saved": True, "selection": payload})
 
 
-@router.post("/batches/{batch_id}/run", summary="Start running one batch now in the background (admin only)")
+# The run-all routes come first: the per-batch routes below take a path
+# (scanned batch ids are folder paths such as "coco-workbooks/a/b"), so
+# declared earlier they would also match "run-all/run-status".
+@router.post("/batches/run-all", summary="Start running every enabled batch, in folder order, in the background (admin only)")
+async def run_all_batches_now(request: Request, confirm: bool = Query(False)):
+    _admin_gate(request)
+    enabled = bb.enabled_batches()
+    if not enabled:
+        raise HTTPException(status_code=400, detail="No batches are enabled")
+
+    non_idempotent = [b["id"] for b in enabled if not b["idempotent"]]
+    if non_idempotent and not confirm:
+        raise HTTPException(
+            status_code=409,
+            detail=f"These enabled batches contain a command known to duplicate data if re-run "
+                    f"against an already-seeded target: {', '.join(non_idempotent)}. "
+                    "Pass ?confirm=true to run everything anyway.",
+        )
+
+    logger.info(f"bootstrap batches: manually running all enabled batches ({[b['id'] for b in enabled]})")
+    started = bb.start_background(bb.RUN_ALL_KEY, bb.run_all_enabled())
+    return JSONResponse({"started": True, "already_running": not started})
+
+
+@router.get("/batches/run-all/run-status", summary="Poll the outcome of a run-all started via POST .../run-all")
+def run_all_status(request: Request):
+    _admin_gate(request)
+    return JSONResponse(bb.run_status(bb.RUN_ALL_KEY))
+
+
+@router.post("/batches/{batch_id:path}/run", summary="Start running one batch now in the background (admin only)")
 async def run_batch_now(batch_id: str, request: Request, confirm: bool = Query(False)):
     _admin_gate(request)
     batches = {b["id"]: b for b in bb.batches_with_selection()}
@@ -117,34 +147,7 @@ async def run_batch_now(batch_id: str, request: Request, confirm: bool = Query(F
     return JSONResponse({"started": True, "already_running": not started})
 
 
-@router.get("/batches/{batch_id}/run-status", summary="Poll the outcome of a batch run started via POST .../run")
+@router.get("/batches/{batch_id:path}/run-status", summary="Poll the outcome of a batch run started via POST .../run")
 def batch_run_status(batch_id: str, request: Request):
     _admin_gate(request)
     return JSONResponse(bb.run_status(batch_id))
-
-
-@router.post("/batches/run-all", summary="Start running every enabled batch, in folder order, in the background (admin only)")
-async def run_all_batches_now(request: Request, confirm: bool = Query(False)):
-    _admin_gate(request)
-    enabled = bb.enabled_batches()
-    if not enabled:
-        raise HTTPException(status_code=400, detail="No batches are enabled")
-
-    non_idempotent = [b["id"] for b in enabled if not b["idempotent"]]
-    if non_idempotent and not confirm:
-        raise HTTPException(
-            status_code=409,
-            detail=f"These enabled batches contain a command known to duplicate data if re-run "
-                    f"against an already-seeded target: {', '.join(non_idempotent)}. "
-                    "Pass ?confirm=true to run everything anyway.",
-        )
-
-    logger.info(f"bootstrap batches: manually running all enabled batches ({[b['id'] for b in enabled]})")
-    started = bb.start_background(bb.RUN_ALL_KEY, bb.run_all_enabled())
-    return JSONResponse({"started": True, "already_running": not started})
-
-
-@router.get("/batches/run-all/run-status", summary="Poll the outcome of a run-all started via POST .../run-all")
-def run_all_status(request: Request):
-    _admin_gate(request)
-    return JSONResponse(bb.run_status(bb.RUN_ALL_KEY))
