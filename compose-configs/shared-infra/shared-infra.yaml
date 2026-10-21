@@ -168,6 +168,11 @@ services:
       -c effective_cache_size=8GB
       -c maintenance_work_mem=256MB
       -c random_page_cost=1.1
+      -c checkpoint_timeout=15min
+      -c checkpoint_completion_target=0.9
+      -c max_wal_size=2GB
+      -c min_wal_size=1GB
+      -c log_checkpoints=on
 
   kroki:
     # Self-hosted Mermaid/diagram rendering, replacing pyegeria's previous
