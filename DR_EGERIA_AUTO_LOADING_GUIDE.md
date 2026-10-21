@@ -3,7 +3,7 @@
 
 # Automatically Loading Dr.Egeria Files in the Egeria Portal
 
-User guide · updated 2026-10-08
+User guide · updated 2026-10-21
 
 The Egeria Portal's **Data Initialization** feature now loads Dr.Egeria files from subfolders, runs them in an order you control, and loads each file as the Egeria user who owns it. Existing folders keep working without changes. This guide covers what changed and how to use it.
 
@@ -18,6 +18,8 @@ The Egeria Portal's **Data Initialization** feature now loads Dr.Egeria files fr
 | Running a file twice | Possible when two batches reached the same file | Each file runs at most once per run; a folder with its own batch is skipped by its parent |
 | Checking your setup | No feedback | The admin panel lists ordering and validation notes for each batch |
 | Run history | Only in the activity log | Each file shows whether the Portal has run it, and whether it has changed since |
+| Notebooks | Not run | A `_batch.json` can list Jupyter notebooks beside Dr.Egeria files; see [Running notebooks during Data Initialization](portal-docs/tools/data-initialization-notebooks.md) |
+| Where batches come from | Only `dr-egeria-inbox` | Also any folder with a `_batch.json` under a scan root (`coco-workbooks` in quickstart) |
 
 If you maintain a folder of Dr.Egeria files, check its notes in the admin panel once (see [Reading the admin panel](#reading-the-admin-panel)). Items listed there as "isn't in `_batch.json`'s files list" run in alphabetical order, which may not be the order you intended.
 
@@ -190,6 +192,14 @@ A batch with no notes is running exactly the order its `_batch.json` sets.
 3. To have it reloaded after a reset, add a `canary` naming an element one of the last files creates.
 4. If it depends on another folder, add it to `_folder_order.json` after that folder.
 5. In the admin panel, enable the batch, read its notes, and click **Run Now**.
+
+### Add a notebook to a folder
+
+1. List the notebook in the folder's `_batch.json` `files`, at its place in the order, with a `userid` if it has an owner. Unlike `.md` files, an unlisted notebook never runs.
+2. Check it runs in the Portal's Python and reads its user from `EGERIA_USER`.
+3. In the admin panel, check its position and run-as user, then click **Run Now**. A failed notebook's result names the cell and the error, and the path of its executed copy.
+
+Details, a walkthrough and troubleshooting: [Running notebooks during Data Initialization](portal-docs/tools/data-initialization-notebooks.md).
 
 ### Add a file to an existing folder
 

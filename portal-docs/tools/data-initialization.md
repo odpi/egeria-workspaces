@@ -12,6 +12,8 @@ Access it from the **Data Initialization** tab/section on the Admin page (`/admi
 
 Every folder under `dr-egeria-inbox` is a **batch**, discovered automatically — no code change or redeploy needed to add one. Drop a new folder of Dr.Egeria `.md` files in, and it appears in the list on next page load.
 
+The Portal also searches its **scan roots** (`EGERIA_BOOTSTRAP_SCAN_ROOTS`; in quickstart, the `coco-workbooks` folder) for `_batch.json` manifests: each topmost folder with one becomes a batch too. A batch can run **Jupyter notebooks** as well as Dr.Egeria documents, when its manifest lists them. See [Running notebooks during Data Initialization](data-initialization-notebooks.md).
+
 Each batch shows:
 - A checkbox to **enable** it — only enabled batches ever run, whether automatically or via Run All Enabled.
 - Its files, in run order and each individually checkable, so you can enable a folder but leave specific files out. Files in subfolders show their path (`strategic-digital-products/catalog.md`). Next to each file:
@@ -20,7 +22,7 @@ Each batch shows:
   - the Egeria user it loads as ("as juleskeeper"), or **default user**
 - An expandable list of **ordering/validation notes**: files whose position in the order was defaulted rather than set in `_batch.json`, stale manifest entries, files with no commands, subfolders that run as their own batch, and files that more than one batch reaches.
 - An **auto-heal** badge if the batch has a way to detect its data went missing, or **manual only** if not (see below).
-- A **⚠ not safe to re-run** badge if the batch contains a command known to duplicate data when re-run against an already-seeded target — see [Confirmation on risky re-runs](#confirmation-on-risky-re-runs).
+- A **⚠ not safe to re-run** badge if the batch contains a command known to duplicate data when re-run against an already-seeded target, or contains a notebook whose manifest doesn't declare it safe — see [Confirmation on risky re-runs](#confirmation-on-risky-re-runs).
 
 Selections save automatically as you check/uncheck — there's no separate Save button.
 
@@ -44,7 +46,7 @@ A batch with no canary is **manual only** — it never runs on its own. This is 
 
 ## Running manually
 
-- **Run Now** on a single batch runs its enabled files, in the order described in [The `_batch.json` manifest](#the-_batchjson-manifest), and reports per-file results inline — including files that failed, with a short excerpt of the error.
+- **Run Now** on a single batch runs its enabled files, in the order described in [The `_batch.json` manifest](#the-_batchjson-manifest), and reports per-file results inline — including files that failed, with a short excerpt of the error. A failed notebook reports the cell and the error, and the path of its executed copy (outputs and traceback).
 - **Run All Enabled (in order)** runs every enabled batch across the whole tree, in the order described in [Cross-folder ordering](#cross-folder-ordering-_folder_orderjson) below, and shows a per-batch pass/fail summary.
 
 Every document here is meant to be safe to re-run — creating the same element twice should just update it, not duplicate it. That's true for the overwhelming majority of what ships here, but not universally guaranteed for every possible command a folder's documents might use.
@@ -68,6 +70,7 @@ Full spec and a worked coco-workbooks example: **[Manifest and ordering file spe
 ## Further resources
 
 - [Manifest and ordering file specs](data-initialization-manifests.md) — full `_batch.json`/`_folder_order.json` reference, with examples
+- [Running notebooks during Data Initialization](data-initialization-notebooks.md) — adding Jupyter notebooks to a batch, writing notebooks that run here, a walkthrough, and troubleshooting
 - [Automatically Loading Dr.Egeria Files — User Guide](../../DR_EGERIA_AUTO_LOADING_GUIDE.md) — task-oriented guide for people who maintain folders of Dr.Egeria files: what changed, recipes, troubleshooting
 - `dr_egeria_folder` in pyegeria — runs a folder from the command line with the same `_batch.json` rules (see the Dr.Egeria manual in egeria-python)
 - [Admin Guide](../quickstart/demo/admin-guide.md) — where this panel sits alongside the rest of each environment's admin tools
