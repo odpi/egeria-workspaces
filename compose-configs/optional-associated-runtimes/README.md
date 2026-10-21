@@ -29,6 +29,10 @@ Currently there are compose configurations for:
         trellis/DEPLOYING-TRELLIS.md for the demo, Mac-developer and Linux-developer
         configurations, and trellis/README.md for the compose detail and GPU overlays for
         Ollama (ROCm, NVIDIA).
+    * TestGen - DataKitchen's DataOps TestGen, seeded with one project per coco database, for
+        comparing its profiles and generated tests with Resource Explorer's quality checks;
+        metadata in the shared Postgres; UI 8501 / API 8531 bound to 127.0.0.1 only. See
+        testgen/README.md.
         
 
 As always, your feedback and participation are welcome. 
