@@ -2090,9 +2090,12 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
   // rooted at this type, instead of a flat list + type dropdown.
   var _treeRootMatch = /\/data-(stores|feeds|sets)\b/.exec(endpoint);
   var treeRoot = _treeRootMatch ? { stores: 'DataStore', feeds: 'DataFeed', sets: 'DataSet' }[_treeRootMatch[1]] : null;
+  // Whole lists from the server's per-user cache: the tree lists, plus
+  // Software Components (filtered here, so it needs every item too).
+  var cached = !!treeRoot || /\/software-components\b/.test(endpoint);
   var _capped = useState(false), capped = _capped[0], setCapped = _capped[1];
-  // Tree lists come from a per-user server cache: {loading:true} on a cold
-  // cache → poll; {stale:true} → shown while the server refreshes it.
+  // Cached lists: {loading:true} on a cold cache → poll; {stale:true} → shown
+  // while the server refreshes it.
   var _stale = useState(false), stale = _stale[0], setStale = _stale[1];
   var _loadedAt = useState(null), loadedAt = _loadedAt[0], setLoadedAt = _loadedAt[1]; // when the server's cached copy was read from Egeria
   var _pollTick = useState(0), pollTick = _pollTick[0], setPollTick = _pollTick[1];
@@ -2120,7 +2123,7 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
       if (typeFilter !== 'all') params.push('type_name=' + encodeURIComponent(typeFilter));
       if (start) params.push('start_from=' + start);
     }
-    if (treeRoot && _refreshNextRef.current) { params.push('refresh=true'); _refreshNextRef.current = false; }
+    if (cached && _refreshNextRef.current) { params.push('refresh=true'); _refreshNextRef.current = false; }
     return endpoint + (params.length ? '?' + params.join('&') : '');
   }
 
@@ -2251,8 +2254,8 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
       style: { fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none' } }),
     React.createElement('button', {
       className: 'btn-sm', style: { alignSelf: 'flex-start' },
-      title: treeRoot ? 'Reload the full list from Egeria now (it is otherwise kept for up to 15 minutes)' : undefined,
-      onClick: function() { if (treeRoot) _refreshNextRef.current = true; setAttempt(function(a) { return a + 1; }); }
+      title: cached ? 'Reload the full list from Egeria now (it is otherwise kept for up to 15 minutes)' : undefined,
+      onClick: function() { if (cached) _refreshNextRef.current = true; setAttempt(function(a) { return a + 1; }); }
     }, '↻ Refresh'),
     paged && React.createElement(ActionTypeSelect, { creds: creds, value: typeFilter, onChange: setTypeFilter }),
     supportsCreatedFilter && React.createElement('div', { style: { display: 'flex', gap: 4, alignItems: 'center' } },
@@ -2305,7 +2308,7 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
   return React.createElement(SidebarDetail, {
     items: filtered, loading: loading, error: error, selected: selected, onSelect: handleSelect,
     filterBar: filterBar,
-    loadingText: treeRoot ? 'Loading the full list… The first load can take a few seconds; after that it is kept for up to 15 minutes — use Refresh to reload it sooner.' : null,
+    loadingText: cached ? 'Loading the full list… The first load can take a few seconds; after that it is kept for up to 15 minutes — use Refresh to reload it sooner.' : null,
     listFooter: paged && hasMore ? React.createElement('div', { style: { padding: '10px 14px' } },
       React.createElement('button', { className: 'btn-sm', disabled: loadingMore, onClick: loadMore },
         loadingMore ? 'Loading…' : 'Load 200 more')) : null,
@@ -3618,14 +3621,36 @@ function GovernanceProcessesView({ creds, navTarget, onNavigate }) {
   var _detailLoad = useState(false), detailLoad = _detailLoad[0], setDetailLoad = _detailLoad[1];
   var _q          = useState(''),    q          = _q[0],          setQ          = _q[1];
   var _attempt = useState(0), attempt = _attempt[0], setAttempt = _attempt[1];
+  // The list comes from the server's per-user whole-list cache, as in
+  // AssetTabView: {loading:true} on a cold cache → poll; {stale:true} → shown
+  // while the server refreshes it; Refresh sends refresh=true.
+  var _stale = useState(false), stale = _stale[0], setStale = _stale[1];
+  var _loadedAt = useState(null), loadedAt = _loadedAt[0], setLoadedAt = _loadedAt[1];
+  var _pollTick = useState(0), pollTick = _pollTick[0], setPollTick = _pollTick[1];
+  var _pollingRef = useRef(false), _refreshNextRef = useRef(false);
 
   useEffect(function() {
-    setLoading(true); setError('');
-    fetchWithToken('/api/tech-catalog/governance-processes?page_size=500', creds)
+    var isPoll = _pollingRef.current;
+    _pollingRef.current = false;
+    if (!isPoll) { setLoading(true); setError(''); }
+    var refresh = _refreshNextRef.current;
+    _refreshNextRef.current = false;
+    var stop = false, timer = null;
+    fetchWithToken('/api/tech-catalog/governance-processes' + (refresh ? '?refresh=true' : ''), creds)
       .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || r.status); }); })
-      .then(function(d) { setItems(d.items || []); setLoading(false); })
-      .catch(function(e) { setError(e.message || String(e)); setLoading(false); });
-  }, [creds.url, creds.server, creds.userId, creds.userPwd, attempt]);
+      .then(function(d) {
+        if (stop) return;
+        if (d && d.loading) {   // cold server cache: ask again shortly
+          timer = setTimeout(function() { _pollingRef.current = true; setPollTick(function(n) { return n + 1; }); }, 1500);
+          return;
+        }
+        setItems(d.items || []); setStale(!!d.stale);
+        setLoadedAt(d.ageSeconds != null ? Date.now() - d.ageSeconds * 1000 : null);
+        setLoading(false);
+      })
+      .catch(function(e) { if (!stop) { setError(e.message || String(e)); setLoading(false); } });
+    return function() { stop = true; clearTimeout(timer); };
+  }, [creds.url, creds.server, creds.userId, creds.userPwd, attempt, pollTick]);
 
   function toggleNode(name) {
     setExpanded(function(prev) { var n = new Set(prev); if (n.has(name)) n.delete(name); else n.add(name); return n; });
@@ -3715,16 +3740,19 @@ function GovernanceProcessesView({ creds, navTarget, onNavigate }) {
     React.createElement('div', { style: { width: listW, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRight: '1px solid var(--border)' } },
       React.createElement('div', { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 } },
         React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)' } },
-          selectedTypeName ? selectedTypeName + ' (' + listItems.length + ')' : 'All processes (' + listItems.length + ')'),
+          (selectedTypeName ? selectedTypeName + ' (' + listItems.length + ')' : 'All processes (' + listItems.length + ')') +
+          (loading || error ? '' : stale ? ' · refreshing…' : loadedAt ? ' · updated ' + _agoText(loadedAt) : '')),
         React.createElement('input', { type: 'search', placeholder: 'Filter…', value: q, onChange: function(e) { setQ(e.target.value); },
           style: { fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none' } }),
         React.createElement('button', {
           className: 'btn-sm', style: { alignSelf: 'flex-start' },
-          onClick: function() { setAttempt(function(a) { return a + 1; }); }
+          title: 'Reload the full list from Egeria now (it is otherwise kept for up to 15 minutes)',
+          onClick: function() { _refreshNextRef.current = true; setAttempt(function(a) { return a + 1; }); }
         }, '↻ Refresh')
       ),
       React.createElement('div', { style: { overflowY: 'auto', flex: 1 } },
-        loading ? React.createElement('div', { style: { padding: 24, color: 'var(--dim)', fontSize: 12 } }, 'Loading…')
+        loading ? React.createElement('div', { style: { padding: 24, color: 'var(--dim)', fontSize: 12 } },
+          'Loading the full list… The first load can take a few seconds; after that it is kept for up to 15 minutes — use Refresh to reload it sooner.')
         : error ? React.createElement('div', { style: { padding: 16, color: '#f87171', fontSize: 12 } }, error)
         : listItems.length === 0 ? React.createElement('div', { style: { padding: 16, color: 'var(--dim)', fontSize: 12 } }, 'No items found.')
         : listItems.map(function(item) {
