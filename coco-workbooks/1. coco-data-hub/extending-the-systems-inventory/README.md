@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: CC-BY-4.0 -->
+<!-- Copyright Contributors to the Egeria project. -->
+
 # Extending the Systems Inventory
 
 This folder follows [Gary Geeke](https://egeria-project.org/practices/coco-pharmaceuticals/personas/gary-geeke/) as he extends the systems inventory with the systems of two recent acquisitions, both manufacturers and experts in small batch manufacturing: one in Austin and one in Bucharest.

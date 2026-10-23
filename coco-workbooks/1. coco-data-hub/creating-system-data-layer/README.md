@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: CC-BY-4.0 -->
+<!-- Copyright Contributors to the Egeria project. -->
+
 # Creating the System Data Layer
 
 This folder follows [Gary Geeke](https://egeria-project.org/practices/coco-pharmaceuticals/personas/gary-geeke/) and [Peter Profile](https://egeria-project.org/practices/coco-pharmaceuticals/personas/peter-profile/) describing the data held by the systems that supply and receive the strategic digital products.  It runs after [mapping-the-systems](../mapping-the-systems/README.md) and [data-field-naming](../data-field-naming/README.md), and just before [strategic-digital-products](../strategic-digital-products/README.md).
@@ -36,4 +39,8 @@ Open [creating-system-data-layer.ipynb](creating-system-data-layer.ipynb) in Jup
 
 * the Coco core systems from `CocoComboArchive.omarchive`
 * the Austin and Bucharest systems from [extending-the-systems-inventory.ipynb](../extending-the-systems-inventory/extending-the-systems-inventory.ipynb)
-* the PostgreSQL content pack, which supplies the schema template and the `JDBCDatabaseCataloguer` connector
+* the PostgreSQL content pack, which supplies the schema template and the `JDBCDatabaseCataloguer` connector.
+
+----
+License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/),
+Copyright Contributors to the ODPi Egeria project.

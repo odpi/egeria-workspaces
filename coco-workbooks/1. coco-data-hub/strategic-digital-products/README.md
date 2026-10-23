@@ -40,10 +40,8 @@ Every product has:
   `Create Element` command from the PostgreSQL schema template.  Each product is a schema named after it in the
   `coco_data_hub` database on `Coco PostgreSQL Server 1`, and the data set is anchored to the product and a member of it.
 
-The **Data Sharing Hub** has no product either, and deliberately so: it is the asset-layer component of the data
-fabric that carries data between the business functions, defined in
-[solution-design.md](../solution-design.md).  It originates no data of its own, so there is nothing for it to
-publish that its neighbours do not already publish.
+The **Data Sharing Hub** manages the data stores for Coco's strategic digital products.  
+Data Sharing Hubs are considered part of the data fabric where physical data stores are managed.
 
 Two components have no product of their own.  The **hospital processes** are outside Coco Pharmaceuticals; the
 site safety reports they send arrive in *Consolidated Safety Reports*.  The **national verification systems**,
