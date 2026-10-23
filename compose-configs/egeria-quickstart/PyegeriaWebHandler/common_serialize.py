@@ -68,6 +68,29 @@ _SKIP_CLASSIFICATIONS = frozenset([
 # classificationName) is treated the same way. Non-classification list keys
 # (folders, categories, relatedTerms, ...) are unaffected — their items
 # don't have classificationName, so they fall through untouched.
+def _map_property_value(v):
+    """A map-valued classification property as {key: value}, largest value
+    first -- e.g. MemberPopularityProfile's explicitGetCountProfile, which maps
+    each member GUID to that member's count. Accepts pyegeria's JSON shape (a
+    plain dict) and the raw instance-properties shape (MapTypePropertyValue
+    with mapValues.propertyValueMap). Returns None when v is not a flat map,
+    so callers fall back to their existing handling."""
+    if not isinstance(v, dict) or not v:
+        return None
+    if v.get("class") == "MapTypePropertyValue":
+        inner = (v.get("mapValues") or {}).get("propertyValueMap") or {}
+        v = {k: (x.get("primitiveValue") if isinstance(x, dict) else x) for k, x in inner.items()}
+    elif "class" in v:
+        return None
+    if not v or any(isinstance(x, (dict, list)) for x in v.values()):
+        return None
+
+    def _order(kv):
+        val = kv[1]
+        return (0, -val, str(kv[0])) if isinstance(val, (int, float)) else (1, 0, str(kv[0]))
+    return dict(sorted(v.items(), key=_order))
+
+
 def _flatten_classification_properties(cls_props_raw) -> dict:
     flat = {}
     if isinstance(cls_props_raw, dict):
@@ -78,6 +101,8 @@ def _flatten_classification_properties(cls_props_raw) -> dict:
                 flat[k] = ", ".join(str(i) for i in v)
             elif not isinstance(v, dict):
                 flat[k] = str(v)
+            elif (m := _map_property_value(v)) is not None:
+                flat[k] = m
     return flat
 
 
@@ -139,6 +164,9 @@ def _classifications_from_metadata_expert(el: dict) -> list:
         cls_props_raw = (c.get("classificationProperties") or {}).get("propertyValueMap") or {}
         flat = {}
         for k, v in cls_props_raw.items():
+            if (m := _map_property_value(v)) is not None:
+                flat[k] = m
+                continue
             pv = v.get("primitiveValue", "") if isinstance(v, dict) else v
             if isinstance(pv, list):
                 flat[k] = ", ".join(str(i) for i in pv)
