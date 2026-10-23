@@ -458,7 +458,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 </script>
 <!-- Bump ?v= whenever egeria-shared-ui.js changes. -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
-<script src="/static/egeria-shared-ui.js?v=2026-10-20a"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-10-23a"></script>
 
 <script>
 'use strict';
@@ -1149,7 +1149,7 @@ function ClassificationsCard({ res }) {
           var props = Object.keys(c.properties);
           return el('div', { key: c.name, style: { borderLeft: '3px solid var(--classif)', paddingLeft: 8, marginBottom: 8, fontSize: 12 } },
             el('div', { style: { fontWeight: 600, color: 'var(--classif)' } }, c.name),
-            props.map(function(k) { return el('div', { key: k, className: 'rb-note' }, k + ': ', el('span', { style: { color: 'var(--text)' } }, String(c.properties[k]))); }));
+            props.map(function(k) { return el('div', { key: k, className: 'rb-note' }, k + ': ', el('span', { style: { color: 'var(--text)' } }, el(ClassificationPropertyValue, { value: c.properties[k] }))); }));
         }));
 }
 

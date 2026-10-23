@@ -44,7 +44,7 @@ from egeria_auth import lineage_key as _lineage_key, token_user as _token_user
 from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
 
-from common_serialize import _authored_fields, _header_summary
+from common_serialize import _authored_fields, _header_summary, _map_property_value
 from digital_products_handler import _extract_props
 
 router = APIRouter(tags=["tech-catalog"])
@@ -205,6 +205,8 @@ def _extract_classifications(header: dict) -> list:
                     flat[k] = ", ".join(str(i) for i in v)
                 elif not isinstance(v, (dict,)):
                     flat[k] = str(v)
+                elif (m := _map_property_value(v)) is not None:
+                    flat[k] = m
         return flat
 
     result = []
@@ -263,13 +265,17 @@ def _flat_props(props_dict: dict) -> dict:
     prop_map = props_dict.get("propertyValueMap") or {}
     if prop_map:
         for k, v in prop_map.items():
+            if (m := _map_property_value(v)) is not None:
+                flat[k] = m
+                continue
             pv = v.get("primitiveValue", "") if isinstance(v, dict) else v
             # primitiveValue can itself be a nested object — always stringify
             flat[k] = str(pv) if not isinstance(pv, (dict, list)) else ", ".join(str(i) for i in pv) if isinstance(pv, list) else ""
     else:
         for k, v in props_dict.items():
             if k not in ("class", "propertyValueMap", "propertiesAsStrings"):
-                flat[k] = str(v) if not isinstance(v, (dict, list)) else ""
+                m = _map_property_value(v)
+                flat[k] = m if m is not None else str(v) if not isinstance(v, (dict, list)) else ""
     return {k: v for k, v in flat.items() if v}
 
 
