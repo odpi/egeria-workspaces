@@ -112,3 +112,8 @@ term they reference has to exist first.
 | [classify-prime-words.md](classify-prime-words.md) | *(`PrimeWord` on 129 terms)* | - |
 | [classify-modifiers.md](classify-modifiers.md) | *(`Modifier` on 206 terms)* | - |
 | [classify-class-words.md](classify-class-words.md) | *(`ClassWord` on 52 terms)* | - |
+
+
+----
+License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/),
+Copyright Contributors to the ODPi Egeria project.

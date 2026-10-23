@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: CC-BY-4.0 -->
+<!-- Copyright Contributors to the Egeria project. -->
+
 # The Coco Data Hub
 
 The `coco-data-hub` is a collection of data stores that hold the key data needed to be exchanged between different business units to support new strategic initiatives such as personalized medicine.  It is part of the [new systems architecture](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/defining-new-systems-architecture/overview/).
@@ -20,7 +23,8 @@ With the flows, the components, and the systems in one place, Erin sets the stan
 | 9 | Design the Data Sharing Hub | [solution-design.md](solution-design.md) |
 | 10 | Govern how it is built | [software-development-governance-program.md](software-development-governance-program.md) |
 | 11 | Set up the data sharing hub | [setting-up-the-data-hub.ipynb](setting-up-the-data-hub.ipynb) |
-| 12 | Subscribe the systems to the digital products | [digital-product-subscriptions.md](digital-product-subscriptions.md) |
+| 12 | Receive the OpenLineage events from Airflow | [receiving-open-lineage-events.ipynb](receiving-open-lineage-events.ipynb) |
+| 13 | Subscribe the systems to the digital products | [digital-product-subscriptions.md](digital-product-subscriptions.md) |
 
 ----
 
@@ -47,17 +51,17 @@ Airflow reports what each DAG reads and writes as OpenLineage events.  For those
 1. Point Airflow at Egeria's OpenLineage topic, from the `airflow-marquez` directory: `./switch-lineage.sh egeria`
    (or `both` to keep sending them to Marquez too).  The events go through the OpenLineage proxy in `shared-infra`
    to the Kafka topic `openlineage.events`.
-2. Run [publish-to-marquez.ipynb](../../workbooks/cataloguing-and-surveys/marquez/publish-to-marquez.ipynb) once in
-   JupyterLab (`work/cataloguing-and-surveys/marquez/` in the quickstart's JupyterLab).  Its last cells run the
-   `HarvestOpenLineageEvents::CreateAsCatalogTargetGovernanceActionProcess` process, which makes the
-   `OpenLineageKafkaListener` integration connector listen to `openlineage.events`; its first cells send Egeria's own
-   lineage events on to Marquez.  Run it only once: each run adds another catalog target for the topic.  The
-   listener starts reading at the end of the topic, so only events published after it is connected are catalogued.
+2. Run [receiving-open-lineage-events.ipynb](receiving-open-lineage-events.ipynb) - step 12 - which makes Egeria's
+   `OpenLineageKafkaListener` integration connector listen to `openlineage.events`.  It runs **after step 11**,
+   `setting-up-the-data-hub.ipynb`, has catalogued the `coco_data_hub` database: Egeria then matches the OpenLineage
+   events about the product tables to the tables it has catalogued, which are what the ongoing update subscriptions in
+   step 13 monitor.  If the events arrive first, Egeria creates separate `DataSet` elements for the tables instead, and
+   those subscriptions are not triggered.  The listener starts reading at the end of the topic, so only events
+   published after it is connected are catalogued.  The notebook can be re-run safely.
 
-   Run it **after step 11**, `setting-up-the-data-hub.ipynb`, has catalogued the `coco_data_hub` database.  Egeria
-   then matches the OpenLineage events about the product tables to the tables it has catalogued, which are what
-   the ongoing update subscriptions in step 12 monitor.  If the events arrive first, Egeria creates separate
-   `DataSet` elements for the tables instead, and those subscriptions are not triggered.
+   To also send Egeria's own lineage events on to Marquez, run
+   [publish-to-marquez.ipynb](../../workbooks/cataloguing-and-surveys/marquez/publish-to-marquez.ipynb) once in
+   JupyterLab - only its first cells are needed, since step 12 has already connected the listener.
 
 ----
 
@@ -220,6 +224,22 @@ The file [setting-up-the-data-hub.ipynb](setting-up-the-data-hub.ipynb) is a Jup
 
 ----
 
+## Receiving the OpenLineage events
+
+The notebook [receiving-open-lineage-events.ipynb](receiving-open-lineage-events.ipynb) connects Egeria to the
+OpenLineage events that Airflow publishes as the DAGs move the data along the supply chains.  Peter Profile runs the
+`HarvestOpenLineageEvents::CreateAsCatalogTargetGovernanceActionProcess` process, which creates a `Topic` asset for
+`openlineage.events` and adds it as a catalog target of the `OpenLineageKafkaListener` integration connector, and then
+starts the listener.  From then on each DAG task is catalogued as a process, linked by `DataFlow` lineage to the
+system tables and product tables it reads and writes.  It needs Airflow to be sending its events to Egeria - see
+*Before you start* - and it must run after `setting-up-the-data-hub.ipynb`.  Since the `JDBCDatabaseCataloguer` carries
+on cataloguing the tables in the background after the earlier workbooks finish, the notebook first waits - for up to 20
+minutes - until every system table and every product table the `coco_feed_*` DAGs write to is catalogued, and does not
+connect the listener if they are not.  If the listener is already connected, the notebook does not add a second catalog
+target.
+
+----
+
 ## Subscribing the systems to the digital products
 
 The file [digital-product-subscriptions.md](digital-product-subscriptions.md) completes the supply chains.  Each
@@ -235,7 +255,7 @@ up.
 It is generated by `compose-configs/egeria-quickstart/bin/gen-digital-product-subscriptions.py`; change the rules
 there and regenerate rather than editing the file.  It needs the runtimes described in *Before you start*: the
 ongoing update subscriptions are triggered by the data sets Egeria catalogues from the feed DAGs' OpenLineage
-events, so load it once the `coco_feed_*` DAGs have run with OpenLineage connected to Egeria.  For that reason it
+events, so load it once the `coco_feed_*` DAGs have run with OpenLineage connected to Egeria (step 12).  For that reason it
 is not part of the directory's batch load.  Load it as Peter Profile, who builds the hub's pipelines:
 
     ```

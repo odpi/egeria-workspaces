@@ -19,18 +19,18 @@ does not pretend to be a running capability.
 
 Each promise is classified with a deployment status of `PROPOSED` and a journal entry saying why.  Egeria returns a
 promised element only to requests made for lineage, so the promises disappear from catalog searches and
-reports but remain in the supply chain and product lineage graphs.  When a system is chosen, link it to the
-component with `ImplementedBy`, then remove the classification with `Declassify Promise` from the component and its
-products.
+reports but remain in the supply chain and product lineage graphs.  When a system is chosen, first remove the
+classification with `Declassify Promise` from the component and its products, then link the system to the component
+with `ImplementedBy`.  The order matters: while the component is a promise it is invisible to the request that
+creates the link, so Egeria refuses it with `OMAG-REPOSITORY-HANDLER-400-010`.
 
 ## Components
 
-30 components are promises:
+29 components are promises:
 
 | Component | Supply chains |
 |---|---|
 | Case and Pallet Aggregation Recorder | Product Serialisation and Verification |
-| Certify Hospital | Workforce Competency and Qualification |
 | Controls Evidence Repository | Financial Close and External Reporting |
 | Data Subject Identity Verification | Data Subject Rights |
 | Disclosure and Statutory Reporting | Financial Close and External Reporting |
@@ -60,19 +60,24 @@ products.
 | Transaction Monitoring | Employee Expense Payment, Third Party Onboarding and Payment |
 | Transfers of Value Register | Employee Expense Payment, Third Party Onboarding and Payment |
 
-Five of the 35 unimplemented components are deliberately **not** promises:
+Six of the 35 unimplemented components are deliberately **not** promises:
 
 * **Hospital Processes**, **Carrier Systems**, **National Verification Systems** and **Sanctions and Screening
   Service** are other organisations' systems.  Coco Pharmaceuticals will never implement them, so there is nothing for
   it to promise.
 * **Egeria Open Metadata and Governance** is already running: it is the metadata platform these definitions live in,
   and [egeria-implementation.md](../mapping-the-systems/egeria-implementation.md) links it to the OMAG Server Platform.
+* **Certify Hospital** is carried out by Egeria too, rather than by one of the systems in the mapping: the
+  `ClinicalTrials@CocoPharmaceuticals` governance engine creates a certify-hospital governance action process for each
+  clinical trial it sets up, and links it to this component with `ImplementedBy`.  As a promise, the component would
+  be hidden from that request, and setting up a clinical trial in
+  [`2. clinical-trials`](../../2.%20clinical-trials/receive-data-from-hospitals.ipynb) would fail.
 
 ## Digital products
 
 A digital product built from the data entering a promised component has no system to feed its data set, so it is a
 promise too.  So is *Third Party Screening Results*: its data comes from the external sanctions screening service,
-and no Coco Pharmaceuticals system receives it yet.  32 products are promises:
+and no Coco Pharmaceuticals system receives it yet.  31 products are promises:
 
 | Product | Component |
 |---|---|
@@ -82,7 +87,6 @@ and no Coco Pharmaceuticals system receives it yet.  32 products are promises:
 | External Financial Disclosures | Disclosure and Statutory Reporting |
 | Financial Controls Evidence | Controls Evidence Repository |
 | Health Surveillance Records | Health Surveillance Records |
-| Hospital Certifications | Certify Hospital |
 | Incidents And Near Misses | Incident and Near Miss Reporting |
 | Long Term Health Archive | Long Term Health Record Archive |
 | Market Identifier Submissions | Market Verification Gateway |
@@ -109,7 +113,8 @@ and no Coco Pharmaceuticals system receives it yet.  32 products are promises:
 | Third Party Screening Results | Sanctions and Screening Service |
 | Transfers Of Value | Transfers of Value Register |
 
-*Open Metadata Catalogue Holdings* is not a promise, because Egeria, its source, is already running.
+*Open Metadata Catalogue Holdings* is not a promise, because Egeria, its source, is already running.  Nor is
+*Hospital Certifications*, since its component, Certify Hospital, is not a promise either.
 
 This file loads after `product-dependencies.md`.
 
@@ -133,19 +138,6 @@ PROPOSED
 
 ### Journal Entry
 No system implements Case and Pallet Aggregation Recorder in any of Coco Pharmaceuticals' three estates - the component-system mapping found no Strong or Probable candidate at Coco, Austin or Bucharest. It is promised by the Product Serialisation and Verification supply chain, and stays a promise until a system is chosen and linked to it with ImplementedBy.
-
-___
-
-## Classify Promise
-
-### Target Element
-SolutionComponent::Certify Hospital::V1.0
-
-### Deployment Status
-PROPOSED
-
-### Journal Entry
-No system implements Certify Hospital in any of Coco Pharmaceuticals' three estates - the component-system mapping found no Strong or Probable candidate at Coco, Austin or Bucharest. It is promised by the Workforce Competency and Qualification supply chain, and stays a promise until a system is chosen and linked to it with ImplementedBy.
 
 ___
 
@@ -592,19 +584,6 @@ PROPOSED
 
 ### Journal Entry
 No system feeds its data set in any estate, because its solution component, Health Surveillance Records, is itself a promise. The product is defined - data specification, data set and dependencies - but delivers no data until a source system is in place.
-
-___
-
-## Classify Promise
-
-### Target Element
-DigitalProduct::Coco::Hospital Certifications
-
-### Deployment Status
-PROPOSED
-
-### Journal Entry
-No system feeds its data set in any estate, because its solution component, Certify Hospital, is itself a promise. The product is defined - data specification, data set and dependencies - but delivers no data until a source system is in place.
 
 ___
 
