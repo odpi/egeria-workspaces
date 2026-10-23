@@ -270,7 +270,7 @@ Most users should start from the repository root using one of the quick-start sc
    * A Docker network named `egeria_network` will be created automatically by the scripts if needed
 2. Clone the repo: [odpi/egeria-workspaces](https://github.com/odpi/egeria-workspaces.git)
 3. From the repository root, run one of:
-   * `./quick-start-local` — single-machine development, HTTPS via a self-signed cert by default (see [HTTPS](#https))
+   * `./quick-start-local` — single-machine development, HTTPS via a self-signed cert by default (see [HTTPS](#https)). On Docker Desktop it answers on `localhost` only; add `--lan` to reach it by machine name or from other hosts (see [Local vs multi-host](#local-vs-multi-host))
    * `./quick-start-local --demo` — public demo deployment with user auth, registration, and a real-cert HTTPS on 443 (see [Demo mode](#demo-mode))
    * `./quick-start-multi-host` — reachable from other hosts on your network (see [Local vs multi-host](#local-vs-multi-host))
 
@@ -445,7 +445,17 @@ The two startup scripts apply different Docker Compose overlays on top of `egeri
 | Extra behaviour | Adds `extra_hosts` mapping `${HOST_FQDN} → host-gateway` inside the Egeria, Jupyter, and pyegeria-web containers | No `extra_hosts` — relies on real DNS resolution of `${HOST_FQDN}` |
 | When to use | Single machine (laptop / workstation). Lets containers reach the host by its hostname without a real DNS entry. Required on Linux where `host.docker.internal` is not automatic. | When Egeria needs to be reachable from **other machines** on your network. `HOST_FQDN` must resolve via DNS on all participating hosts. |
 
-Neither overlay changes ports, images, or volumes — the only difference is whether containers get a synthetic `/etc/hosts` entry for the host machine's hostname.
+Neither overlay changes ports, images, or volumes. The overlays differ only in whether containers get a synthetic `/etc/hosts` entry for the host machine's hostname.
+
+The scripts also choose which host address the published ports bind to (`EGERIA_BIND_IP`):
+
+| | Docker Desktop | Native Docker Engine / Podman |
+|---|---|---|
+| `./quick-start-local` | `127.0.0.1`: `localhost` only | `0.0.0.0` |
+| `./quick-start-local --lan` | `0.0.0.0` | `0.0.0.0` |
+| `./quick-start-local --demo`, `./quick-start-multi-host` | `0.0.0.0` | `0.0.0.0` |
+
+On a `127.0.0.1` bind, `https://<HOST_FQDN>:8843` is refused even on the same machine, because the hostname resolves to the network address; the end-of-run summary therefore prints `localhost` URLs. Native Docker Engine and Podman need `0.0.0.0`, because their containers call each other back through a bridge gateway rather than loopback. An `EGERIA_BIND_IP` exported in your shell overrides all of this; `--lan` keeps it and warns.
 
 ## Dr. Egeria Processing
 

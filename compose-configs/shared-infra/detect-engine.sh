@@ -82,6 +82,37 @@ if [[ -z "${EGERIA_BIND_IP:-}" ]]; then
 fi
 export EGERIA_BIND_IP
 
+# --lan / --demo: publish on every interface so this machine's name and other
+# machines can reach the ports. Only replaces the automatic choice above; an
+# EGERIA_BIND_IP exported in the shell still wins (with a warning).
+# Usage: egeria_widen_bind <script-name>
+egeria_widen_bind() {
+    if [[ "${EGERIA_BIND_IP_AUTO:-0}" -eq 1 ]]; then
+        export EGERIA_BIND_IP="0.0.0.0"
+    elif [[ "$EGERIA_BIND_IP" != "0.0.0.0" ]]; then
+        echo "[$1] WARNING: EGERIA_BIND_IP=${EGERIA_BIND_IP} is exported in your shell, so it is kept; other machines may not reach these ports." >&2
+    fi
+}
+
+# True when published ports answer only on this machine's loopback.
+egeria_bind_is_loopback() {
+    case "${EGERIA_BIND_IP:-}" in
+        127.*|localhost|::1) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# Host name to print in URLs: a loopback-bound port answers on localhost, not on
+# HOST_FQDN (which resolves to this machine's network address).
+# Usage: egeria_url_host <HOST_FQDN>
+egeria_url_host() {
+    if egeria_bind_is_loopback; then
+        echo "localhost"
+    else
+        echo "${1:-localhost}"
+    fi
+}
+
 if [[ "$CONTAINER_ENGINE" == "podman" && -n "${DOCKER_HOST:-}" ]]; then
     echo "[Engine] Directing API traffic to: $DOCKER_HOST"
 fi

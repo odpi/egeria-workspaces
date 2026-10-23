@@ -33,6 +33,14 @@ Options:
                       existing images already carry (e.g. offline).
   --refresh-pyegeria  Force the pyegeria layer to rebuild even when the
                       resolved version hasn't changed.
+  --lan               Publish the ports on every network interface (0.0.0.0) so
+                      they answer on this machine's name (HOST_FQDN) and from
+                      other machines, not just on localhost. Docker Desktop
+                      otherwise binds them to 127.0.0.1 (this machine only, by
+                      localhost); native Docker Engine and Podman already bind
+                      0.0.0.0. Applies to this run only; --demo implies it.
+                      Anyone who can reach this machine can then reach Egeria,
+                      Kafka and Postgres, so use it on a trusted network.
   --demo              Enable demo mode: activates user registration, auth gating,
                       and moves HTTPS to port 443 with a real certificate
                       instead of the self-signed default above. On first run,
@@ -93,6 +101,7 @@ REFRESH_PLATFORM=0
 REFRESH_PYEGERIA=default
 PYEGERIA_VERSION_REQUEST=""
 DEMO_MODE_FLAG=0
+LAN_FLAG=0
 SYNC_FROM=""
 SYNC_TO=""
 REMOTE_USER="${REMOTE_USER:-}"
@@ -121,6 +130,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --demo)
       DEMO_MODE_FLAG=1
+      shift
+      ;;
+    --lan)
+      LAN_FLAG=1
       shift
       ;;
     --egeria-memory)
@@ -167,10 +180,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# A demo serves other machines, so its ports must not stay loopback-only even
-# on Docker Desktop (detect-engine.sh picks the local default).
-if [[ "$DEMO_MODE_FLAG" -eq 1 && "${EGERIA_BIND_IP_AUTO:-0}" -eq 1 ]]; then
-  export EGERIA_BIND_IP="0.0.0.0"
+# A demo, or --lan, serves other machines, so its ports must not stay
+# loopback-only even on Docker Desktop (detect-engine.sh picks the local default).
+if [[ "$DEMO_MODE_FLAG" -eq 1 || "$LAN_FLAG" -eq 1 ]]; then
+  egeria_widen_bind quick-start-local
 fi
 echo "[quick-start-local] Published ports bind to ${EGERIA_BIND_IP}."
 
@@ -850,19 +863,31 @@ echo "  - Effective HOST_FQDN: ${HOST_FQDN_PRINT}"
 echo "  - Effective KAFKA_CLUSTER_ID: ${KAFKA_CLUSTER_ID_PRINT}"
 echo "  - Effective EGERIA_MEM_LIMIT: ${EGERIA_MEM_LIMIT_PRINT}"
 echo "  - Effective EGERIA_CPU_LIMIT: ${EGERIA_CPU_LIMIT_PRINT}"
-echo "  - Egeria (platform): https://${HOST_FQDN_PRINT:-localhost}:9443"
-echo "  - JupyterHub:        http://${HOST_FQDN_PRINT:-localhost}:8888  (password: egeria)"
+echo "  - Published ports bind to: ${EGERIA_BIND_IP}"
+URL_HOST="$(egeria_url_host "${HOST_FQDN_PRINT}")"
+echo "  - Egeria (platform): https://${URL_HOST}:9443"
+echo "  - JupyterHub:        http://${URL_HOST}:8888  (password: egeria)"
 echo "  - Obsidian (local):  http://localhost:8860  (WebRTC works on localhost only)"
 echo "  - Obsidian (remote): bound to ${OBSIDIAN_BIND_ADDR:-127.0.0.1} -- use ssh -L 8860:localhost:8860 <host>, or see demo-mode.md"
 if [[ "$SKIP_UNITY_CATALOG" -eq 0 ]]; then
-  echo "  - Unity Catalog (coco):    http://${HOST_FQDN_PRINT:-localhost}:8087  (UI: http://${HOST_FQDN_PRINT:-localhost}:3010)"
-  echo "  - Unity Catalog (server2): http://${HOST_FQDN_PRINT:-localhost}:8187  (UI: http://${HOST_FQDN_PRINT:-localhost}:3020)"
+  echo "  - Unity Catalog (coco):    http://${URL_HOST}:8087  (UI: http://${URL_HOST}:3010)"
+  echo "  - Unity Catalog (server2): http://${URL_HOST}:8187  (UI: http://${URL_HOST}:3020)"
 fi
 _site_url_final="$(grep '^SITE_URL=' compose-configs/egeria-quickstart/.env | cut -d= -f2- || echo "https://${HOST_FQDN_PRINT:-localhost}:8843")"
+if egeria_bind_is_loopback; then
+  # SITE_URL names HOST_FQDN (it is also used in email links); on a loopback
+  # bind the portal answers on localhost, so print that instead.
+  _site_url_final="https://localhost:$(printf '%s' "$_site_url_final" | sed -nE 's#^https?://[^/:]+:([0-9]+).*#\1#p')"
+  _site_url_final="${_site_url_final%:}"
+fi
 echo "  - Egeria Portal (HTTPS):  ${_site_url_final}  (http://…:8885 redirects here)"
 if [[ "$DEMO_MODE_FLAG" -eq 1 ]]; then
   echo "  - Login:                  ${_site_url_final}/login"
 else
   echo "  - Portal is self-signed unless CERT_DIR is set in .env.ssl — accept the cert warning once."
   echo "  - My Profile:             ${_site_url_final}/my-egeria/"
+fi
+if egeria_bind_is_loopback; then
+  echo "  - Ports answer on localhost only (this machine). To reach them as ${HOST_FQDN_PRINT:-the machine name} or from"
+  echo "    other machines, re-run with --lan (see ./quick-start-local --help)."
 fi

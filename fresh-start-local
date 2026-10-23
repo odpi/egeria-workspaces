@@ -9,7 +9,7 @@ source compose-configs/shared-infra/compose-build-flags.sh
 
 print_usage() {
   cat <<'EOF'
-Usage: ./fresh-start-local [--refresh-platform] [--egeria-memory SIZE]
+Usage: ./fresh-start-local [--lan] [--refresh-platform] [--egeria-memory SIZE]
 
 Every run gets HTTPS via Apache on port 7843 by default, using a self-signed
 certificate auto-generated into runtime-volumes/certs-freshstart on first run
@@ -18,6 +18,14 @@ certificate auto-generated into runtime-volumes/certs-freshstart on first run
 in compose-configs/egeria-freshstart/.env.ssl.
 
 Options:
+  --lan               Publish the ports on every network interface (0.0.0.0) so
+                      they answer on this machine's name (HOST_FQDN) and from
+                      other machines, not just on localhost. Docker Desktop
+                      otherwise binds them to 127.0.0.1 (this machine only, by
+                      localhost); native Docker Engine and Podman already bind
+                      0.0.0.0. Applies to this run only. Anyone who can reach
+                      this machine can then reach Egeria, Kafka and Postgres,
+                      so use it on a trusted network.
   --refresh-platform  Force rebuild of freshstart-egeria-main so Docker pulls the latest base image.
   --pyegeria-version VERSION
                       Pin pyegeria-web and jupyter to a specific pyegeria
@@ -48,8 +56,13 @@ REFRESH_PLATFORM=0
 REFRESH_PYEGERIA=default
 PYEGERIA_VERSION_REQUEST=""
 EGERIA_MEM_LIMIT="${EGERIA_MEM_LIMIT:-}"
+LAN_FLAG=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --lan)
+      LAN_FLAG=1
+      shift
+      ;;
     --refresh-platform)
       REFRESH_PLATFORM=1
       shift
@@ -81,6 +94,13 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+# --lan serves other machines, so its ports must not stay loopback-only even on
+# Docker Desktop (detect-engine.sh picks the local default).
+if [[ "$LAN_FLAG" -eq 1 ]]; then
+  egeria_widen_bind fresh-start-local
+fi
+echo "[fresh-start-local] Published ports bind to ${EGERIA_BIND_IP}."
 
 image_exists() {
   local image_ref="$1"
@@ -330,9 +350,19 @@ EGERIA_MEM_LIMIT_PRINT=$(grep '^EGERIA_MEM_LIMIT=' compose-configs/egeria-freshs
 echo "  - Effective HOST_FQDN: ${HOST_FQDN_PRINT}"
 echo "  - Effective KAFKA_CLUSTER_ID: ${KAFKA_CLUSTER_ID_PRINT}"
 echo "  - Effective EGERIA_MEM_LIMIT: ${EGERIA_MEM_LIMIT_PRINT}"
+echo "  - Published ports bind to: ${EGERIA_BIND_IP}"
+URL_HOST="$(egeria_url_host "${HOST_FQDN_PRINT}")"
 _site_url_print=$(grep '^SITE_URL=' compose-configs/egeria-freshstart/.env | cut -d= -f2- || echo "https://${HOST_FQDN_PRINT:-localhost}:7843")
-echo "  - Egeria (platform):      https://${HOST_FQDN_PRINT:-localhost}:8443"
-echo "  - JupyterHub:             http://${HOST_FQDN_PRINT:-localhost}:7888   (password: egeria)"
+if egeria_bind_is_loopback; then
+  # SITE_URL names HOST_FQDN; on a loopback bind the portal answers on localhost.
+  _site_url_print="https://localhost:$(printf '%s' "$_site_url_print" | sed -nE 's#^https?://[^/:]+:([0-9]+).*#\1#p')"
+  _site_url_print="${_site_url_print%:}"
+fi
+echo "  - Egeria (platform):      https://${URL_HOST}:8443"
+echo "  - JupyterHub:             http://${URL_HOST}:7888   (password: egeria)"
 echo "  - Egeria Portal (HTTPS):  ${_site_url_print}  (http://…:7885 redirects here)"
 echo "  - Portal is self-signed unless CERT_DIR is set in .env.ssl — accept the cert warning once."
-
+if egeria_bind_is_loopback; then
+  echo "  - Ports answer on localhost only (this machine). To reach them as ${HOST_FQDN_PRINT:-the machine name} or from"
+  echo "    other machines, re-run with --lan (see ./fresh-start-local --help)."
+fi
