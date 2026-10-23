@@ -14,12 +14,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 # page's URLs follow the browser's hostname (localhost, machine name, demo site). 6.2.4
 # adds the My Network option and fixes Technology Types / Shop for Data go back; 6.2.7
 # brings the reworked My Profile (one key binding convention on every screen,
-# discoverable Roles -> My Team, Scorecard workflow fix); 6.2.9 is the release the
-# quickstart portal and My Profile run on, tested 2026-10-22. The floor matters:
+# discoverable Roles -> My Team, Scorecard workflow fix); 6.2.9 was tested with the quickstart portal and
+# My Profile on 2026-10-22; 6.2.10 (2026-10-23) is the release the October
+# Egeria reset redeploys on. The floor matters:
 # right after a release PyPI's index can still offer the previous version, so a
 # lower floor can silently build without the fix. Textual and
 # textual-serve come with pyegeria -- don't pin them separately.
-ARG PYEGERIA_VERSION=pyegeria>=6.2.9
+ARG PYEGERIA_VERSION=pyegeria>=6.2.10
 ARG PYEGERIA_BUST=0
 RUN echo "pyegeria layer ${PYEGERIA_BUST}" \
     && pip install --no-cache-dir --retries 10 --timeout 60 "${PYEGERIA_VERSION}" --upgrade nest_asyncio
