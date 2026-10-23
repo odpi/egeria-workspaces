@@ -1,0 +1,9 @@
+{
+  "displayName": "Coco - 1. System Data Layer",
+  "description": "Gives each system a database manager capability and catalogues its schemas, tables and columns (the notebook switches from garygeeke to peterprofile itself).",
+  "defaultEnabled": false,
+  "userid": "garygeeke",
+  "files": [
+    "creating-system-data-layer.ipynb"
+  ]
+}

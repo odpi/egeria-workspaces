@@ -1,0 +1,14 @@
+{
+  "displayName": "Coco - 1. Mapping the Systems",
+  "description": "Links the strategic solution components to the systems that implement them and reports the gaps, adds Egeria's own implementation, then attaches each supply chain to the DataFlow lineage between the systems.",
+  "defaultEnabled": false,
+  "userid": "peterprofile",
+  "files": [
+    "mapping-the-systems.ipynb",
+    "egeria-implementation.md",
+    {
+      "file": "supply-chain-lineage.ipynb",
+      "userid": "garygeeke"
+    }
+  ]
+}
