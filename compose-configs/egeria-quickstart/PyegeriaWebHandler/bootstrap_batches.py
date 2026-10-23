@@ -115,6 +115,9 @@ _INBOX_ROOT = Path(os.environ.get(
 # anything meant to be admin-droppable belongs under dr-egeria-inbox instead.
 _EXTRA_BATCH_ROOTS = [
     ("overview-governance-metrics", Path(__file__).parent),
+    # Admin-only workload generator, kept out of coco-workbooks and the inbox
+    # so Coco users never see it; not selected by default. See its README.md.
+    ("portal-usage-workload", Path(__file__).parent / "portal-workloads" / "usage-driver"),
 ]
 
 # Folders searched recursively for manifests -- see "Scan roots" above.

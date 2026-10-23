@@ -1,0 +1,9 @@
+{
+  "displayName": "Portal — Usage Workload (admin)",
+  "description": "Admin tool, not Coco content: several Coco personas search for, open, like and rate Coco collections, glossary terms and digital products, so Egeria's usage counts (UsageActivity) and collection popularity profiles (MemberPopularityProfile) have realistic data. Reads plus at most one like and one rating per persona per run; creates no catalog elements. Safe to re-run: each run adds more usage. No canary, so auto-heal never runs it.",
+  "defaultEnabled": false,
+  "idempotent": true,
+  "files": [
+    "usage-driver.ipynb"
+  ]
+}
