@@ -1,6 +1,6 @@
 {
   "displayName": "Coco - 1. Systems Inventory",
-  "description": "Naming standard rules for IT system identifiers across the Coco Pharmaceuticals sites.",
+  "description": "Loads the Austin and Bucharest acquisitions' systems into the inventory, then the naming standard rules for IT system identifiers across the Coco Pharmaceuticals sites.",
   "canary": {
     "type": "NamingStandardRule",
     "name": "IT System Identifier — Coco Pharmaceuticals Austin"
@@ -8,6 +8,7 @@
   "defaultEnabled": false,
   "userid": "garygeeke",
   "files": [
+    "extending-the-systems-inventory.ipynb",
     "naming-conventions.md"
   ]
 }

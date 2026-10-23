@@ -1,6 +1,6 @@
 {
   "displayName": "Coco - 1. Data Hub",
-  "description": "The Coco Data Hub, in the README's step order: the strategic supply chain analysis, the acquisitions' system naming conventions, the component-to-platform link, the data field naming standard (its own batch), the strategic digital products, the solution design, and the software development governance program that supports it.",
+  "description": "The Coco Data Hub, in the README's step order: the strategic supply chain analysis, the acquisitions' systems inventory, the component-to-platform mapping and supply chain lineage, the data field naming standard (its own batch), the systems' data layer, the strategic digital products, the solution design, the software development governance program, setting up the data sharing hub, and the digital product subscriptions. Includes the folder's notebooks, so it is not idempotent; setting-up-the-data-hub.ipynb needs the optional Unity Catalog runtime.",
   "canary": {
     "type": "GovernancePrinciple",
     "name": "The AI did it wrong is no excuse!"
@@ -17,6 +17,7 @@
       "userid": "peterprofile"
     },
     "data-field-naming/",
+    "creating-system-data-layer/",
     "strategic-digital-products/",
     {
       "file": "solution-design.md",
@@ -25,7 +26,12 @@
     {
       "file": "software-development-governance-program.md",
       "userid": "pollytasker"
-    }
+    },
+    {
+      "file": "setting-up-the-data-hub.ipynb",
+      "userid": "erinoverview"
+    },
+    "digital-product-subscriptions.md"
   ],
   "exclude": [
     "founders-briefing-script.md",
