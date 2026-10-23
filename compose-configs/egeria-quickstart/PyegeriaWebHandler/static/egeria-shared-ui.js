@@ -2927,10 +2927,62 @@ function _classificationsFromHeader(hdr) {
       var v = rawProps[k];
       if (Array.isArray(v)) flat[k] = v.join(', ');
       else if (v !== null && typeof v !== 'object') flat[k] = String(v);
+      else if (_isFlatMap(v)) flat[k] = v;
     });
     result.push({ typeName: clsName, properties: flat });
   });
   return result;
+}
+
+// Map-valued classification properties -- e.g. MemberPopularityProfile's
+// explicitGetCountProfile, which maps each member GUID to that member's count --
+// arrive as plain {key: value} objects (common_serialize.py's
+// _map_property_value keeps them; it used to drop them). A key that is a GUID is
+// shown as the element's display name, looked up once per GUID through
+// /api/valid-values/resolve-name; until then, or if the lookup fails, the GUID.
+var _GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var _guidNames = {};  // guid -> display name, or a Promise while it is being looked up
+
+function _isFlatMap(v) {
+  if (!v || typeof v !== 'object' || Array.isArray(v) || v.class) return false;
+  var keys = Object.keys(v);
+  return keys.length > 0 && keys.every(function(k) { return v[k] === null || typeof v[k] !== 'object'; });
+}
+
+function _resolveGuidName(guid, creds) {
+  if (typeof _guidNames[guid] === 'string') return Promise.resolve(_guidNames[guid]);
+  if (!_guidNames[guid]) {
+    _guidNames[guid] = egeriaFetch('/api/valid-values/resolve-name/' + encodeURIComponent(guid), creds)
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(d) { _guidNames[guid] = (d && d.displayName) || guid; return _guidNames[guid]; })
+      .catch(function() { _guidNames[guid] = guid; return guid; });
+  }
+  return _guidNames[guid];
+}
+
+function ClassificationPropertyValue({ value, creds }) {
+  var ctxCreds = React.useContext(CredContext);
+  var effectiveCreds = creds || ctxCreds;
+  var isMap = _isFlatMap(value);
+  var guids = isMap ? Object.keys(value).filter(function(k) { return _GUID_RE.test(k); }) : [];
+  var _t = React.useState(0), setTick = _t[1];
+  React.useEffect(function() {
+    var live = true;
+    guids.forEach(function(g) {
+      if (typeof _guidNames[g] !== 'string') {
+        _resolveGuidName(g, effectiveCreds).then(function() { if (live) setTick(function(n) { return n + 1; }); });
+      }
+    });
+    return function() { live = false; };
+  }, [guids.join(',')]);
+  if (!isMap) return String(value);
+  return React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'auto auto', justifyContent: 'start', columnGap: 10, marginTop: 2 } },
+    Object.keys(value).map(function(k) {
+      var label = typeof _guidNames[k] === 'string' ? _guidNames[k] : k;
+      return React.createElement(React.Fragment, { key: k },
+        React.createElement('span', { title: k, style: { color: 'var(--text)', overflowWrap: 'anywhere' } }, label),
+        React.createElement('span', { style: { color: 'var(--text)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' } }, String(value[k])));
+    }));
 }
 
 // ClassificationsAndRawJson — one shared insertion point for any Detail
@@ -2953,7 +3005,7 @@ function ClassificationsAndRawJson({ item, creds }) {
           React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--classif)', marginBottom: Object.keys(c.properties || {}).length ? 4 : 0 } }, c.typeName),
           Object.entries(c.properties || {}).map(function(e) {
             return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
-              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
+              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, React.createElement(ClassificationPropertyValue, { value: e[1], creds: effectiveCreds })));
           })
         );
       })

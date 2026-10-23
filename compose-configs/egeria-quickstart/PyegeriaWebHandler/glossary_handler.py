@@ -17,7 +17,7 @@ import os
 from egeria_auth import apply_token
 from typing import Optional
 
-from common_serialize import _authored_fields, _header_summary
+from common_serialize import _authored_fields, _header_summary, _map_property_value
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
@@ -275,6 +275,8 @@ def _flat_classification_properties(cls_props_raw) -> dict:
                 flat[k] = ", ".join(str(i) for i in v)
             elif not isinstance(v, (dict,)):
                 flat[k] = str(v)
+            elif (m := _map_property_value(v)) is not None:
+                flat[k] = m
     return flat
 
 
