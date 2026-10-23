@@ -65,6 +65,19 @@ Then open the web portal (self-signed HTTPS by default — accept the browser wa
 - **Quickstart:** `https://localhost:8843`
 - **Freshstart:** `https://localhost:7843`
 
+#### Reaching it by machine name, or from other machines
+
+On **Docker Desktop** (Mac, Windows), the scripts publish every port on `127.0.0.1` only, so Egeria, Kafka and Postgres aren't exposed to your network. The stack then answers on `localhost` only. Your machine's own name (e.g. `https://my-mac.local:8843`) is refused, because that name resolves to its network address. The end-of-run summary prints `localhost` URLs and says so.
+
+To reach the stack by machine name or from other machines, add `--lan`:
+
+```bash
+./quick-start-local --lan
+./fresh-start-local --lan
+```
+
+`--lan` binds the ports on every interface (`0.0.0.0`) for that run. Anyone who can reach your machine can then reach Egeria, Kafka and Postgres, so use it on a trusted network. Native Docker Engine and Podman already bind `0.0.0.0` (their containers need it to call each other back), and `--demo` and the `*-multi-host` scripts imply it. An `EGERIA_BIND_IP` exported in your shell always wins: `EGERIA_BIND_IP=192.168.1.20 ./quick-start-local` binds just that address.
+
 #### Force a clean rebuild
 
 ```bash
@@ -106,7 +119,8 @@ Register for a free account, pick your persona, and start exploring. Includes sc
 The recommended starting point for learning Egeria. Pre-loaded with [Coco Pharmaceuticals](https://egeria-project.org/practices/coco-pharmaceuticals/) personas, data assets, governance metadata and scenario content. No authentication wall — opens directly to the portal.
 
 ```bash
-./quick-start-local        # single machine
+./quick-start-local        # single machine (localhost only on Docker Desktop)
+./quick-start-local --lan  # same, also reachable by machine name and from other hosts
 ./quick-start-multi-host   # accessible from other hosts on your network
 ```
 

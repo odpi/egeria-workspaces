@@ -20,6 +20,8 @@ From the repository root:
 ./quick-start-local
 ```
 
+On Docker Desktop the stack answers on `localhost` only: its ports are bound to `127.0.0.1`, so they aren't exposed to your network. To open it by your machine's name, or from another machine, run `./quick-start-local --lan` instead. This binds every interface, so use it on a trusted network.
+
 The script handles everything:
 - Detects your container engine (Docker or Podman)
 - Generates `compose-configs/egeria-quickstart/.env` with your hostname and Kafka config
