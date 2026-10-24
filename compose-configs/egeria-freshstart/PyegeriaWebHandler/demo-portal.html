@@ -1024,8 +1024,8 @@ function _portalIsCatalogType(item) {
 }
 // EngineAction is the one type not in type-nav-map.json — see that file's
 // header comment for why (it opens the egeria-operations app directly, not
-// an Egeria Explorer hash, and egeria-operations has no per-guid deep link
-// yet) — kept as a small explicit special case here, mirroring
+// an Egeria Explorer hash, deep-linked by ?guid=) — kept as a small explicit
+// special case here, mirroring
 // static/egeria-shared-ui.js's resolveElementNav.
 function portalResolveNav(item) {
   var tn = item.typeName || '';
@@ -1058,7 +1058,7 @@ function portalOpenResult(item) {
   }
   if (!item.guid) return;
   if (nav.app === 'tech-catalog') { window.open('/tech-catalog?guid=' + encodeURIComponent(item.guid), '_blank'); return; }
-  if (nav.app === 'egeria-operations') { window.open('/egeria-operations?tab=actions#actions', '_blank'); return; }
+  if (nav.app === 'egeria-operations') { window.open('/egeria-operations?tab=actions&guid=' + encodeURIComponent(item.guid) + '#actions', '_blank'); return; }
   var url = '/egeria-explorer?guid=' + encodeURIComponent(item.guid) + (nav.kind ? '&kind=' + encodeURIComponent(nav.kind) : '') + '#' + nav.hash;
   window.open(url, '_blank');
 }
