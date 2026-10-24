@@ -1,0 +1,14 @@
+{
+  "displayName": "Coco - 3. Going CFC-Free",
+  "description": "Adds the Equipment and RefrigerationUnit open metadata types, the refrigerantType valid values and the refrigeration units at each site, then replaces the New York CFC unit. Both notebooks check before they create, so the batch can be rerun.",
+  "canary": {
+    "type": "RefrigerationUnit",
+    "name": "REF-NYC-010"
+  },
+  "defaultEnabled": false,
+  "idempotent": true,
+  "files": [
+    "load-refrigeration-units.ipynb",
+    "ny-refrigeration-unit-replacement.ipynb"
+  ]
+}

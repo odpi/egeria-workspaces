@@ -1,13 +1,16 @@
 {
   "displayName": "Coco - 3. Sustainability",
-  "description": "The sustainability governance definitions owned by Tom Tally, and the file connecting them to the domain programs they depend on.",
+  "description": "The sustainability governance definitions owned by Tom Tally and the file connecting them to the domain programs they depend on, then the reference data build-out for the acquired sites and Procurement, then the CFC-Free Initiative. The notebooks need 1. coco-data-hub's systems inventory.",
   "canary": {
     "type": "BusinessImperative",
     "name": "Sustainability Reporting"
   },
   "defaultEnabled": false,
+  "idempotent": true,
   "files": [
     "sustainability-governance-definitions.md",
-    "sustainability-governance-program.md"
+    "sustainability-governance-program.md",
+    "build-out-reference-data/",
+    "going-cfc-free/"
   ]
 }

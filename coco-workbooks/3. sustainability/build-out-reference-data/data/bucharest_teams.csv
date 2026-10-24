@@ -1,0 +1,5 @@
+team_id,display_name,description,super_team_id,business_area,business_area_scope
+9991,Bucharest Site,Bucharest Employees - formerly EKG Pharmaceuticals S.R.L.,9999,,
+0025,Bucharest Factory,"Team producing personalized medicines in small batches at Bucharest, including sterile products and autologous serum eye drops.",9991,MFG,Within region
+0026,Bucharest Office Team,"Team managing finance, procurement, human resources, legal, sales and marketing for the Bucharest operation.",9991,MFG,Within site
+0027,Bucharest Information Technology Team,Team managing IT resources for Bucharest manufacturing.,9991,IT,Within site
