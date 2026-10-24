@@ -1,4 +1,4 @@
-apache-airflow-providers-openlineage>=2.20.2
+apache-airflow-providers-openlineage>=2.20.3
 apache-airflow-providers-postgres
 confluent-kafka>=2.16.0
 
