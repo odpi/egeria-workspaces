@@ -111,6 +111,15 @@ _EXTRA_PROPERTY_KEYS = (
 )
 
 
+# Properties the generic pass-through below leaves out: "class" is the
+# pyegeria bean name, and the others are shown elsewhere (displayName above,
+# additionalProperties in its own table) or are names Egeria uses internally.
+_UNSURFACED_PROPERTY_KEYS = frozenset({
+    "class", "typeName", "displayName", "qualifiedName", "description",
+    "additionalProperties", "extendedProperties",
+})
+
+
 def _serialize_actor_element(element: dict) -> dict:
     """Generic serializer for ActorProfile / ActorRole / UserIdentity elements.
 
@@ -138,6 +147,20 @@ def _serialize_actor_element(element: dict) -> dict:
         val = props.get(key)
         if val not in (None, "", []):
             d[key] = val
+    # Every other plain property too, so a type-specific one (fullName,
+    # pronouns, preferredLanguage, a subtype's own...) is never dropped just
+    # because it isn't listed above. Map-valued additionalProperties is
+    # rendered by its own table in the UI.
+    for key, val in props.items():
+        if key in d or key in _UNSURFACED_PROPERTY_KEYS or val in (None, "", []):
+            continue
+        if isinstance(val, list) and all(not isinstance(x, (dict, list)) for x in val):
+            d[key] = val
+        elif not isinstance(val, (dict, list)):
+            d[key] = val
+    extra = props.get("additionalProperties")
+    if isinstance(extra, dict) and extra:
+        d["additionalProperties"] = extra
 
     relationships = {}
     for k, v in element.items():

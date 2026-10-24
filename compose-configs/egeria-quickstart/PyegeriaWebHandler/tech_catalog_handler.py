@@ -9,7 +9,8 @@ nine asset-type sections defined in ../../../design-docs/technical_data_catalog_
 
 Endpoints:
   GET /tech-catalog                              → serve tech-catalog.html SPA
-  GET /api/tech-catalog/infrastructure           → ITInfrastructure assets
+  GET /api/tech-catalog/infrastructure           → Infrastructure assets of ?type_name= (default ITInfrastructure)
+  GET /api/tech-catalog/infrastructure/types     → direct subtypes of Infrastructure (one tab each)
   GET /api/tech-catalog/software-capabilities    → SoftwareCapability elements
   GET /api/tech-catalog/endpoints                → Endpoint elements
   GET /api/tech-catalog/data-stores              → DataStore assets
@@ -1233,12 +1234,87 @@ _CRED_PARAMS = dict(
 )
 
 
+# ── Infrastructure subtypes ───────────────────────────────────────────────────
+# The Infrastructure section has one tab per direct subtype of Infrastructure,
+# read from Egeria's type system rather than a fixed list, so a subtype someone
+# defines later (say Equipment, beside ITInfrastructure) gets its own tab. The
+# entity type map is cached per platform+server for _INFRA_TYPES_TTL seconds;
+# ?refresh=true reloads it.
+_INFRA_ROOT = "Infrastructure"
+_INFRA_DEFAULT = "ITInfrastructure"
+_INFRA_TYPES_TTL = 600
+_INFRA_TYPES_CACHE: dict = {}  # (url, server) -> (loaded_at, {name: {supertype, abstract, desc}})
+
+
+def _entity_type_map(url, server, user_id, user_pwd, token: Optional[str] = None, refresh: bool = False) -> dict:
+    from pyegeria import ValidMetadataManager
+    from type_system_handler import _normalize_raw, _sup_name
+    u, s, uid, pwd = _creds(url, server, user_id, user_pwd)
+    hit = _INFRA_TYPES_CACHE.get((u, s))
+    if hit and not refresh and time.monotonic() - hit[0] < _INFRA_TYPES_TTL:
+        return hit[1]
+    c = ValidMetadataManager(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
+    _apply_token(c, token)
+    try:
+        raw = _normalize_raw(c.get_all_entity_defs(), "Entity definitions")
+    finally:
+        c.close_session()
+    types = {
+        td["name"]: {"supertype": _sup_name(td), "abstract": bool(td.get("isAbstract")),
+                     "desc": td.get("description") or ""}
+        for td in raw if td.get("name")
+    }
+    _INFRA_TYPES_CACHE[(u, s)] = (time.monotonic(), types)
+    return types
+
+
+def _is_or_descends_from(name: str, root: str, types: dict) -> bool:
+    seen = set()
+    while name and name not in seen:
+        if name == root:
+            return True
+        seen.add(name)
+        name = (types.get(name) or {}).get("supertype")
+    return False
+
+
+@router.get("/api/tech-catalog/infrastructure/types")
+def list_infrastructure_types(
+    request: Request,
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    refresh: bool = Query(False, description="Reload the type system instead of using the cached copy"),
+):
+    """Direct subtypes of Infrastructure, each with how many types descend from
+    it (itself included), for the Infrastructure section's tabs."""
+    try:
+        types = _entity_type_map(url, server, user_id, user_pwd, token=_token_from_request(request), refresh=refresh)
+    except Exception as exc:
+        if _is_auth_error(exc):
+            raise HTTPException(status_code=401, detail=str(exc))
+        logger.exception("list_infrastructure_types failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+    subs = []
+    for name, t in types.items():
+        if t["supertype"] != _INFRA_ROOT:
+            continue
+        subs.append({
+            "name": name, "abstract": t["abstract"], "desc": t["desc"],
+            "descendantCount": sum(1 for n in types if _is_or_descends_from(n, name, types)),
+        })
+    subs.sort(key=lambda t: (t["name"] != _INFRA_DEFAULT, t["name"]))
+    root = types.get(_INFRA_ROOT) or {}
+    return JSONResponse({"root": _INFRA_ROOT, "rootKnown": bool(root),
+                         "rootAbstract": bool(root.get("abstract")), "types": subs})
+
+
 # ── List endpoints ────────────────────────────────────────────────────────────
 
 @router.get("/api/tech-catalog/infrastructure")
 def list_infrastructure(
     request: Request,
     q:          str = Query("*"),
+    type_name:  str = Query(_INFRA_DEFAULT, description="Infrastructure or one of its subtypes; subtypes of it are included"),
     start_from: int = Query(0, ge=0),
     page_size:  int = Query(_LIST_PAGE, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
@@ -1246,15 +1322,24 @@ def list_infrastructure(
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
+    token = _token_from_request(request)
+    if type_name != _INFRA_DEFAULT:
+        try:
+            types = _entity_type_map(url, server, user_id, user_pwd, token=token)
+        except Exception as exc:
+            logger.exception("tech-catalog: type system lookup failed")
+            raise HTTPException(status_code=500, detail=str(exc))
+        if not _is_or_descends_from(type_name, _INFRA_ROOT, types):
+            raise HTTPException(status_code=400, detail=f"'{type_name}' is not Infrastructure or a subtype of it")
     try:
-        mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
+        mgr = _asset_maker(url, server, user_id, user_pwd, token=token)
     except Exception as exc:
         logger.exception("tech-catalog: AssetMaker connection failed")
         raise HTTPException(status_code=500, detail=str(exc))
     try:
         raw, capped = _page_all(lambda start, size: mgr.find_infrastructure(
             search_string=q or "*",
-            metadata_element_type="ITInfrastructure",
+            metadata_element_type=type_name,
             deployment_status_list=[],
             start_from=start,
             page_size=size,

@@ -2278,8 +2278,8 @@ function _isCatalogType(item) {
  * EngineAction is the one type that still needs an explicit special case: it
  * doesn't route to an Egeria Explorer hash at all (unlike every map entry),
  * it opens the egeria-operations app directly — a genuinely different target
- * app, not just a different hash — and egeria-operations has no per-guid deep
- * link yet, so there's no {hash} to carry even if it were data-driven. Must
+ * app, not just a different hash — deep-linked by ?guid= rather than by an
+ * Explorer {hash}, so it isn't data-driven like the map entries. Must
  * be checked before the generic Asset-supertype fallback below, which would
  * otherwise route it to Tech Catalog's generic mixed "Actions" tab
  * (metadata_element_type="Action", no per-subtype detail). */
@@ -2309,11 +2309,9 @@ function crossAppNavigate(item, explicitNav) {
     return true;
   }
   if (nav.app === 'egeria-operations') {
-    // No per-guid deep link exists yet in egeria-operations.html (it only
-    // reads ?tab=/hash for tab selection) — route to the Engine Actions tab,
-    // still a real improvement over falling through to Tech Catalog's
-    // generic mixed Actions tab.
-    window.open('/egeria-operations?tab=actions#actions', '_blank');
+    // Engine Actions tab, with ?guid= preselecting the action (ActionsTab in
+    // egeria-operations.html reads it).
+    window.open('/egeria-operations?tab=actions&guid=' + encodeURIComponent(item.guid) + '#actions', '_blank');
     return true;
   }
   var url = '/egeria-explorer?guid=' + encodeURIComponent(item.guid)
