@@ -591,7 +591,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   <!-- Bump ?v= whenever egeria-shared-ui.js changes — see tech-catalog.html for why. -->
   <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
   <script>window.EGERIA_FOR_LINEAGE = true; window.EGERIA_FOR_LINEAGE_VISIBLE = false;  /* shown per-section by App */</script>
-  <script src="/static/egeria-shared-ui.js?v=2026-10-23a"></script>
+  <script src="/static/egeria-shared-ui.js?v=2026-10-24a"></script>
   <script>"use strict";
 
 const {
@@ -879,17 +879,33 @@ function getSubs(name, entities) {
     return ((_entities$n = entities[n]) === null || _entities$n === void 0 ? void 0 : _entities$n.supertype) === name;
   });
 }
+// One row per end that attaches through this type's inheritance chain, so a
+// relationship with both ends in the chain (e.g. Referenceable↔Referenceable)
+// lists both directions. source = the chain type that end names.
 function getRels(name, entities, relationships) {
   const chain = getChain(name, entities);
-  return Object.entries(relationships).filter(([, r]) => chain.includes(r.end1) || chain.includes(r.end2)).map(([rn, r]) => {
-    const asEnd1 = chain.includes(r.end1);
-    return {
-      name: rn,
-      ...r,
-      role: asEnd1 ? 'end1' : 'end2',
-      other: asEnd1 ? r.end2 : r.end1
-    };
+  const out = [];
+  Object.entries(relationships).forEach(([rn, r]) => {
+    if (chain.includes(r.end1)) out.push({ name: rn, ...r, role: 'end1', other: r.end2, source: r.end1 });
+    if (chain.includes(r.end2)) out.push({ name: rn, ...r, role: 'end2', other: r.end1, source: r.end2 });
   });
+  return out;
+}
+// Classifications an entity type can carry: those whose validFor names this
+// type or one of its supertypes. source = the nearest such type in the chain.
+// An empty validFor (none in Egeria's own types today) is treated as valid for
+// any entity type.
+function getValidClassifs(name, entities, classifications) {
+  const chain = getChain(name, entities);
+  const out = [];
+  Object.entries(classifications || {}).forEach(([cn, c]) => {
+    const validFor = c.validFor || [];
+    let source = null;
+    if (validFor.length === 0) source = chain[0] || name;
+    else for (let i = chain.length - 1; i >= 0; i--) if (validFor.includes(chain[i])) { source = chain[i]; break; }
+    if (source) out.push({ name: cn, ...c, source, anyType: validFor.length === 0 });
+  });
+  return out;
 }
 function typeKind(name, entities) {
   const t = entities[name];
@@ -1066,22 +1082,41 @@ function DeprBadge() {
   return /*#__PURE__*/React.createElement(Badge, { kind: "abstract" }, "deprecated");
 }
 
+// "Show inherited" checkbox shared by the Properties, Relationships and
+// Classifications tabs; own/total says how many belong to the type itself.
+function InheritedToggle({ checked, onChange, own, total }) {
+  return /*#__PURE__*/React.createElement("label", {
+    style: { display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12, color: 'var(--muted)' },
+    title: own != null ? `${own} own, ${total - own} inherited from supertypes` : undefined
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: checked,
+    onChange: e => onChange(e.target.checked),
+    style: { accentColor: 'var(--accent)' }
+  }), "Show inherited", own != null && /*#__PURE__*/React.createElement("span", { style: { color: 'var(--dim)' } }, ` (${own} own / ${total})`));
+}
+
 // ── Type Detail ───────────────────────────────────────────────────────────────
 
 function TypeDetail({
   name,
   entities,
   relationships,
+  classifications,
   onSelect,
   onNavigateProp
 }) {
   const [tab, setTab] = useState('props');
   const [showInherited, setShowInherited] = useState(true);
+  const [showInheritedRels, setShowInheritedRels] = useState(true);
+  const [showInheritedClassifs, setShowInheritedClassifs] = useState(true);
   // Filter/sort for the Properties table (click headers) and the Relationships
   // card list (sort <select>) — both clear the filter when the type changes.
   const propLc = useListControls(null, name);
   const [propSort, setPropSort] = useState({ col: null, dir: 'asc' });
   const relLc = useListControls('name', name);
+  const classifLc = useListControls(null, name);
+  const [classifSort, setClassifSort] = useState({ col: null, dir: 'asc' });
   var _typePersonaId = React.useContext(PersonaContext);
   const t = entities[name];
   if (!t) return null;
@@ -1089,11 +1124,15 @@ function TypeDetail({
   const allProps = getAllProps(name, entities);
   const ownOrAll = showInherited ? allProps : allProps.filter(p => p.source === name);
   const shown = applySort(ownOrAll.filter(p => listMatches(propLc.query, [p.name, p.type, p.source, p.desc])), propSort, ['name', 'type', 'source', 'desc']);
-  const rels = getRels(name, entities, relationships);
-  // Which type in the inheritance chain the relationship attaches through —
-  // getRels sets role to the end that is in the chain. Chain is root-first,
-  // so a higher index is nearer to this type.
-  const relVia = r => r.role === 'end1' ? r.end1 : r.end2;
+  const allRels = getRels(name, entities, relationships);
+  const rels = showInheritedRels ? allRels : allRels.filter(r => r.source === name);
+  // Which type in the inheritance chain the relationship attaches through
+  // (getRels's source). Chain is root-first, so a higher index is nearer to
+  // this type.
+  const relVia = r => r.source;
+  const allClassifs = getValidClassifs(name, entities, classifications);
+  const classifs = showInheritedClassifs ? allClassifs : allClassifs.filter(c => c.source === name);
+  const shownClassifs = applySort(classifs.filter(c => listMatches(classifLc.query, [c.name, c.source, c.desc])), classifSort, ['name', 'source', 'propagatable', 'desc']);
   const REL_SORTS = {
     name: r => r.name,
     other: r => r.other,
@@ -1191,33 +1230,22 @@ function TypeDetail({
     }, s, (_entities$s = entities[s]) !== null && _entities$s !== void 0 && _entities$s.abstract ? ' ⟨abs⟩' : '');
   })), /*#__PURE__*/React.createElement("div", {
     className: "tabs"
-  }, [['props', 'Properties'], ['rels', 'Relationships'], ['graph', 'Graph']].map(([k, label]) => /*#__PURE__*/React.createElement("button", {
+  }, [['props', 'Properties'], ['rels', 'Relationships'], ['classifs', 'Classifications'], ['graph', 'Graph']].map(([k, label]) => /*#__PURE__*/React.createElement("button", {
     key: k,
     className: `tab${tab === k ? ' on' : ''}`,
     onClick: () => setTab(k)
-  }, label, k === 'rels' ? ` (${rels.length})` : k === 'props' ? ` (${ownOrAll.length})` : ''))), tab === 'props' && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(ListControls, {
+  }, label, k === 'rels' ? ` (${rels.length})` : k === 'props' ? ` (${ownOrAll.length})` : k === 'classifs' ? ` (${classifs.length})` : ''))), tab === 'props' && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(ListControls, {
     lc: propLc,
     shown: shown.length,
     total: ownOrAll.length,
     noun: 'properties',
     placeholder: 'Filter properties (name, type, source, description)…'
-  }, /*#__PURE__*/React.createElement("label", {
-    style: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: 6,
-      cursor: 'pointer',
-      fontSize: 12,
-      color: 'var(--muted)'
-    }
-  }, /*#__PURE__*/React.createElement("input", {
-    type: "checkbox",
+  }, /*#__PURE__*/React.createElement(InheritedToggle, {
     checked: showInherited,
-    onChange: e => setShowInherited(e.target.checked),
-    style: {
-      accentColor: 'var(--accent)'
-    }
-  }), "Show inherited")), shown.length === 0 ? /*#__PURE__*/React.createElement("p", {
+    onChange: setShowInherited,
+    own: allProps.filter(p => p.source === name).length,
+    total: allProps.length
+  })), shown.length === 0 ? /*#__PURE__*/React.createElement("p", {
     style: {
       color: 'var(--dim)',
       fontStyle: 'italic'
@@ -1264,19 +1292,24 @@ function TypeDetail({
         lineHeight: 1.4
       }
     }, p.desc));
-  })))), tab === 'rels' && /*#__PURE__*/React.createElement("div", null, rels.length > 0 && /*#__PURE__*/React.createElement(ListControls, {
+  })))), tab === 'rels' && /*#__PURE__*/React.createElement("div", null, allRels.length > 0 && /*#__PURE__*/React.createElement(ListControls, {
     lc: relLc,
     shown: shownRels.length,
     total: rels.length,
     noun: 'relationships',
-    placeholder: 'Filter (relationship, other type, description, attribute)…',
+    placeholder: 'Filter (relationship, other type, source, description, attribute)…',
     sortOptions: [['name', 'Relationship A–Z'], ['other', 'Other end type'], ['nearest', 'Nearest ancestor first'], ['role', 'Direction']]
-  }), shownRels.length === 0 ? /*#__PURE__*/React.createElement("p", {
+  }, /*#__PURE__*/React.createElement(InheritedToggle, {
+    checked: showInheritedRels,
+    onChange: setShowInheritedRels,
+    own: allRels.filter(r => r.source === name).length,
+    total: allRels.length
+  })), shownRels.length === 0 ? /*#__PURE__*/React.createElement("p", {
     style: {
       color: 'var(--dim)',
       fontStyle: 'italic'
     }
-  }, rels.length === 0 ? "No relationships found." : "No relationships match the filter.") : shownRels.map((r, i) => {
+  }, allRels.length === 0 ? "No relationships found." : rels.length === 0 ? "No relationships attach to this type itself — tick Show inherited to see those it inherits." : "No relationships match the filter.") : shownRels.map((r, i) => {
     var _entities$r$other;
     const via = relVia(r);
     return /*#__PURE__*/React.createElement("div", {
@@ -1318,7 +1351,9 @@ function TypeDetail({
         fontSize: 12,
         color: (_entities$r$other = entities[r.other]) !== null && _entities$r$other !== void 0 && _entities$r$other.abstract ? '#c4b5fd' : '#93c5fd'
       }
-    }, r.other), via !== name && /*#__PURE__*/React.createElement("span", {
+    }, r.other), via === name && /*#__PURE__*/React.createElement("span", {
+      style: { marginLeft: 'auto' }
+    }, /*#__PURE__*/React.createElement(Badge, { kind: "own" }, "own")), via !== name && /*#__PURE__*/React.createElement("span", {
       style: {
         fontSize: 11,
         color: 'var(--dim)',
@@ -1360,7 +1395,42 @@ function TypeDetail({
         padding: '1px 6px'
       }
     }, p.name, ": ", p.type))));
-  })), tab === 'graph' && /*#__PURE__*/React.createElement(GraphView, {
+  })), tab === 'classifs' && /*#__PURE__*/React.createElement("div", null, allClassifs.length > 0 && /*#__PURE__*/React.createElement(ListControls, {
+    lc: classifLc,
+    shown: shownClassifs.length,
+    total: classifs.length,
+    noun: 'classifications',
+    placeholder: 'Filter classifications (name, source, description)…'
+  }, /*#__PURE__*/React.createElement(InheritedToggle, {
+    checked: showInheritedClassifs,
+    onChange: setShowInheritedClassifs,
+    own: allClassifs.filter(c => c.source === name).length,
+    total: allClassifs.length
+  })), shownClassifs.length === 0 ? /*#__PURE__*/React.createElement("p", {
+    style: {
+      color: 'var(--dim)',
+      fontStyle: 'italic'
+    }
+  }, allClassifs.length === 0 ? "No classifications are valid for this type." : classifs.length === 0 ? "No classifications name this type itself — tick Show inherited to see those valid for its supertypes." : "No classifications match the filter.") : /*#__PURE__*/React.createElement("table", null, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, ['Classification', 'Source', 'Propagates', 'Description'].map((h, i) => thSortable(classifSort, setClassifSort, i, h)))), /*#__PURE__*/React.createElement("tbody", null, shownClassifs.map(c => {
+    const isOwn = c.source === name;
+    return /*#__PURE__*/React.createElement("tr", {
+      key: c.name,
+      className: [isOwn ? 'own-row' : '', c.deprecated ? 'depr-row' : ''].filter(Boolean).join(' ')
+    }, /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("button", {
+      className: c.deprecated ? "mono depr" : "mono",
+      onClick: () => onSelect('classif', c.name),
+      style: { background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'ui-monospace,monospace', fontSize: 'inherit', color: '#fbbf24' }
+    }, c.name), isOwn && /*#__PURE__*/React.createElement("span", null, " ", /*#__PURE__*/React.createElement(Badge, {
+      kind: "own"
+    }, "own")), c.deprecated && /*#__PURE__*/React.createElement("span", null, " ", /*#__PURE__*/React.createElement(DeprBadge, null))), /*#__PURE__*/React.createElement("td", null, c.anyType
+      ? /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: 'var(--dim)' } }, "any entity type")
+      : /*#__PURE__*/React.createElement("button", {
+      onClick: () => onSelect('type', c.source),
+      style: { background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'ui-monospace,monospace', fontSize: 11, color: isOwn ? '#60a5fa' : '#64748b' }
+    }, c.source)), /*#__PURE__*/React.createElement("td", { style: { fontSize: 11, color: c.propagatable ? '#fbbf24' : 'var(--dim)' } }, c.propagatable ? 'yes' : 'no'), /*#__PURE__*/React.createElement("td", {
+      style: { color: 'var(--muted)', lineHeight: 1.4 }
+    }, c.desc));
+  })))), tab === 'graph' && /*#__PURE__*/React.createElement(GraphView, {
     name: name,
     entities: entities,
     onSelect: onSelect
@@ -7897,7 +7967,8 @@ function ActorDetail({ data, detail, onNavigateToElement }) {
       React.createElement(MermaidDiagram, { code: src.mermaidGraph })
     ),
     React.createElement("div", { style: { marginBottom: 20 } },
-      React.createElement(GenericPropertiesTable, { item: src, priority: ['status', 'jobTitle'] })
+      React.createElement(GenericPropertiesTable, { item: src, priority: ['status', 'jobTitle'] }),
+      React.createElement(AdditionalPropertiesTable, { data: src.additionalProperties })
     ),
     relKeys.map(function(k) {
       return React.createElement(RelationshipSection, { key: k, title: _prettyRelLabel(k), items: relationships[k], onNavigateToElement: onNavigateToElement });
@@ -11708,7 +11779,7 @@ function App() {
           /*#__PURE__*/React.createElement(Sidebar, { selected: selected, onSelect: onSelect, data: data, width: typeSideW }),
           /*#__PURE__*/React.createElement(ResizeDivider, { onMouseDown: onTypeDivDown }),
           /*#__PURE__*/React.createElement("div", { className: "main" },
-            selected.kind === 'type' && (entities[selected.name] || allEntities[selected.name]) && /*#__PURE__*/React.createElement(TypeDetail, { name: selected.name, entities: allEntities, relationships: relationships, onSelect: onSelect, onNavigateProp: onNavigateToValidValues }),
+            selected.kind === 'type' && (entities[selected.name] || allEntities[selected.name]) && /*#__PURE__*/React.createElement(TypeDetail, { name: selected.name, entities: allEntities, relationships: relationships, classifications: classifications, onSelect: onSelect, onNavigateProp: onNavigateToValidValues }),
             selected.kind === 'classif' && classifications[selected.name] && /*#__PURE__*/React.createElement(ClassifDetail, { name: selected.name, classifications: classifications }),
             selected.kind === 'rel' && relationships[selected.name] && /*#__PURE__*/React.createElement(RelDetail, { name: selected.name, relationships: relationships, onSelect: onSelect }),
             !selected.name && /*#__PURE__*/React.createElement("div", { className: "center" },
