@@ -587,7 +587,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
      URL guarantees a fresh fetch regardless of prior cache state. -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
 <script>window.EGERIA_FOR_LINEAGE = true; window.EGERIA_FOR_LINEAGE_VISIBLE = false;  /* shown per-section by App */</script>
-<script src="/static/egeria-shared-ui.js?v=2026-10-23a"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-10-24a"></script>
 <script>
 'use strict';
 // React hook aliases (mirror type-explorer.html)
@@ -1758,14 +1758,15 @@ function _navFromEntry(entry) {
   return null;
 }
 // EngineAction is the one type that isn't in type-nav-map.json at all — see
-// that file's header comment for why (it opens the egeria-operations app
-// directly, not an Egeria Explorer hash, and egeria-operations has no
-// per-guid deep link yet). Kept as a tiny explicit special case here so a
-// relationship row of this type still gets a "View →" button, matching
-// static/egeria-shared-ui.js's resolveElementNav and demo-portal.html's
-// portalResolveNav, which special-case it the same way for the same reason.
+// that file's header comment for why. Outside The Catalog it opens the
+// egeria-operations app (static/egeria-shared-ui.js's resolveElementNav,
+// demo-portal.html's portalResolveNav); here it opens The Catalog's own
+// Processes > Actions tab, which lists and details EngineActions. Routing it
+// out to egeria-operations from here sent Egeria Operations' own "Engine
+// Action ↗" link (which opens /tech-catalog?guid=) straight back where it
+// came from.
 function _resolveTypeToNav(typeName, superTypeNames) {
-  if (typeName === 'EngineAction') return { external: 'egeria-operations', hash: 'actions' };
+  if (typeName === 'EngineAction') return { section: 'processes', tab: 'actions' };
   return _navFromEntry((typeof resolveTypeNav === 'function') ? resolveTypeNav(typeName, superTypeNames) : null);
 }
 
@@ -2124,7 +2125,8 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
       if (start) params.push('start_from=' + start);
     }
     if (cached && _refreshNextRef.current) { params.push('refresh=true'); _refreshNextRef.current = false; }
-    return endpoint + (params.length ? '?' + params.join('&') : '');
+    // endpoint may already carry a query (Infrastructure's per-type tabs: ?type_name=)
+    return endpoint + (params.length ? (endpoint.indexOf('?') >= 0 ? '&' : '?') + params.join('&') : '');
   }
 
   useEffect(function() {
@@ -3989,6 +3991,24 @@ var SECTION_TABS = {
   ],
 };
 
+// Tabs for the Infrastructure section from /api/tech-catalog/infrastructure/types.
+// ITInfrastructure keeps the tab id 'infrastructure', which type-nav-map.json's
+// catalogTab entries point at. "All Infrastructure" is added when it shows
+// something no single tab does: several subtypes, or a non-abstract
+// Infrastructure that can have instances of its own.
+function _infrastructureTabs(d) {
+  var tabs = d.types.map(function(t) {
+    if (t.name === 'ITInfrastructure') return SECTION_TABS.infrastructure[0];
+    return { id: 'infra-' + t.name, label: t.name.replace(/([a-z0-9])([A-Z])/g, '$1 $2'),
+             endpoint: '/api/tech-catalog/infrastructure?type_name=' + encodeURIComponent(t.name) };
+  });
+  if (d.types.length > 1 || (d.rootKnown && !d.rootAbstract)) {
+    tabs.push({ id: 'infra-all', label: 'All Infrastructure',
+                endpoint: '/api/tech-catalog/infrastructure?type_name=' + encodeURIComponent(d.root || 'Infrastructure') });
+  }
+  return tabs.concat(SECTION_TABS.infrastructure.filter(function(t) { return t.id !== 'infrastructure'; }));
+}
+
 function SectionView({ sectionId, creds, navTarget, onNavigate, searchQuery }) {
   if (sectionId === 'search') {
     return React.createElement(SearchView, { creds: creds, onNavigate: onNavigate, initialQuery: searchQuery });
@@ -4007,7 +4027,20 @@ function SectionView({ sectionId, creds, navTarget, onNavigate, searchQuery }) {
   if (sectionId === 'namespaces') {
     return React.createElement(NamespacesView, { creds: creds, navTarget: navTarget, onNavigate: onNavigate });
   }
-  var tabs = SECTION_TABS[sectionId] || [];
+  // Infrastructure: one tab per direct subtype of Infrastructure, from Egeria's
+  // type system (so a newly defined subtype gets a tab); SECTION_TABS is the
+  // fallback until that loads or if it fails.
+  var _infraTypes = useState(null), infraTypes = _infraTypes[0], setInfraTypes = _infraTypes[1];
+  useEffect(function() {
+    if (sectionId !== 'infrastructure' || !creds) return;
+    fetchWithToken('/api/tech-catalog/infrastructure/types', creds)
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(d) { if (d && d.types && d.types.length) setInfraTypes(d); })
+      .catch(function() {});
+  }, [sectionId, creds]);
+  var tabs = (sectionId === 'infrastructure' && infraTypes)
+    ? _infrastructureTabs(infraTypes)
+    : (SECTION_TABS[sectionId] || []);
   var _tab = useState(tabs[0] ? tabs[0].id : ''), activeTab = _tab[0], setActiveTab = _tab[1];
 
   // When a cross-nav target arrives for this section, switch to the right sub-tab
@@ -4338,7 +4371,7 @@ function App() {
         }
         if (nav.external) {
           // Resolves to a type The Catalog doesn't own a view for (Egeria
-          // Explorer or, for EngineAction, Egeria Operations) — hand off via
+          // Explorer) — hand off via
           // the same handleNavigate() cross-app path a click uses, instead of
           // wrapping it in Catalog chrome.
           handleNavigate(Object.assign({ guid: guid, displayName: disp }, nav));

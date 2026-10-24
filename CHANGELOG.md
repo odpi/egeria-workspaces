@@ -8,9 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **The Catalog's Infrastructure section has a tab for each direct subtype of `Infrastructure`**, read from Egeria's type system, so a newly defined subtype (for example `Equipment`) gets its own tab. An "All Infrastructure" tab is added when Infrastructure has several subtypes or can have instances of its own. New endpoint `GET /api/tech-catalog/infrastructure/types`; `GET /api/tech-catalog/infrastructure` takes `?type_name=` (default `ITInfrastructure`).
+- **Egeria Explorer's Type Explorer shows inheritance for relationships and classifications**: the Relationships tab has the same Show inherited toggle as Properties, with an own/total count and an "own" badge. A new Classifications tab lists every classification the type can carry and the type in its supertype chain that makes it valid.
 - **`--lan` for `quick-start-local` and `fresh-start-local`**: publishes the ports on every interface (`0.0.0.0`) for that run, so the stack is reachable by machine name and from other machines. On Docker Desktop the default since [#644](https://github.com/odpi/egeria-workspaces/pull/644) is `127.0.0.1`, which answers on `localhost` only.
 
 ### Fixed
+- **Egeria Operations' "Engine Action ↗" link** opened The Catalog, which sent engine actions straight back to Egeria Operations' main page. The Catalog now opens them in its own Processes › Actions tab. Links into Egeria Operations' Engine Actions tab now carry `?guid=` and select that action.
+- **Actor profiles, roles and user identities show all their properties**, including `additionalProperties` and type-specific ones such as `pronouns` and `givenNames`. The detail serializer used to copy only a fixed list of keys.
+- **Type Explorer lists both directions of a relationship whose two ends are both in the type's inheritance chain** (for example `Referenceable`↔`Referenceable`); only the first end was listed before.
 - **Start-up summary URLs**: on a loopback bind, `quick-start-local` and `fresh-start-local` printed `https://<HOST_FQDN>:…` URLs that refuse connections. They now print `localhost` URLs, show the bind address, and point to `--lan`.
 
 ### Removed
