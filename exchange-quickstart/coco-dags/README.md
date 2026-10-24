@@ -148,6 +148,32 @@ The apply scripts are written so that applying the same rows twice changes nothi
 loop: once delivered data has been applied, the `coco_feed_*` DAGs must not see it as new product data. Each apply
 task declares the staging tables it reads, and the system tables it writes, as Airflow assets for OpenLineage.
 
+## Information supply chains
+
+[coco_lineage_facets.py](coco_lineage_facets.py) adds Egeria's `egeria_informationSupplyChain` run facet to the
+OpenLineage events of the feed and subscription tasks, so Egeria tags the lineage it catalogues with the supply chains
+the task moves data along. It is registered with the OpenLineage provider as a custom run facet function
+(`AIRFLOW__OPENLINEAGE__CUSTOM_RUN_FACETS` in `airflow-marquez.yaml`), and `.airflowignore` keeps the DAG processor
+from parsing it.
+
+The chains come from [coco-supply-chains.json](coco-supply-chains.json), which
+`compose-configs/egeria-quickstart/bin/gen-coco-supply-chains.py` generates from the strategic digital products'
+dependencies and subscriptions. Regenerate it after changing either:
+
+```bash
+compose-configs/egeria-quickstart/bin/gen-coco-supply-chains.py "coco-workbooks/1. coco-data-hub" exchange-quickstart/coco-dags
+```
+
+- A **subscription** task follows the product dependency named in its subscription's basis, and takes that
+  dependency's chain. Reporting subscriptions (`coco_ods`, `coco_sus`) and subscriptions along a wire that crosses
+  between chains have none.
+- A **feed** task publishes a product, so it takes the chains of the dependencies on that product. A product nothing
+  depends on takes the chains of its own dependencies.
+- The facet (version 1-1-0) lists every chain in `iscQualifiedNames`, and Egeria creates each lineage relationship
+  once per chain. A task with a single chain also names it in `iscQualifiedName`, which is all that an Egeria from
+  before 1-1-0 understands, so on such an Egeria the tasks with several chains are catalogued with none.
+- The `coco_operations_*` DAGs, the sensors and the branch tasks move no data along a wire, so they have none.
+
 ## Connections
 
 The connections are set as `AIRFLOW_CONN_*` environment variables in `airflow-marquez.yaml`:

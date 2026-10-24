@@ -27,6 +27,10 @@ x-airflow-common: &airflow-common
     AIRFLOW__OPENLINEAGE__NAMESPACE: 'egeria-workspace'
     # AIRFLOW__OPENLINEAGE__TRANSPORT (where the lineage events go) is set in openlineage.env, which
     # switch-lineage.sh rewrites - so the choice is kept in a file and survives restarts and rebuilds.
+    # Adds Egeria's egeria_informationSupplyChain run facet to the coco-dags tasks' events.  The function lives in
+    # the coco-dags bundle, which Airflow does not put on the import path, so PYTHONPATH adds it.
+    AIRFLOW__OPENLINEAGE__CUSTOM_RUN_FACETS: 'coco_lineage_facets.information_supply_chain'
+    PYTHONPATH: '/opt/airflow/coco-dags'
 
     AIRFLOW__API__PORT: "8072"
     # The scheduler's healthcheck (below) probes this server on 8974; Airflow 3 only starts it when enabled,
