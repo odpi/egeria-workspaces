@@ -1,4 +1,4 @@
 #FROM quay.io/odpi/egeria-platform:latest
-FROM docker.io/odpi/egeria-platform:latest@sha256:81beb8e5069c5a2cf44600f3d7dd6445d488b52fb6de5bf654e12ac942d86f79
+FROM docker.io/odpi/egeria-platform:latest@sha256:257c3682414e7ae7a41e261800987cabfb618351cbdc619800228b4cace2a2fd
 # Quickstart now relies on runtime-mounted /deployments content and default image behavior.
 

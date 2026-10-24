@@ -1,0 +1,14 @@
+{
+  "displayName": "Coco - 3. Building out Reference Data",
+  "description": "Adds the Austin and Bucharest employees (with Romania and Bucharest in the reference data, the Bucharest teams and the system owners), then the Procurement business capability, its sustainability champion and the procurement staff from the acquired sites. Needs 1. coco-data-hub's systems inventory. Both notebooks check before they create, so the batch can be rerun.",
+  "canary": {
+    "type": "BusinessCapability",
+    "name": "Procurement"
+  },
+  "defaultEnabled": false,
+  "idempotent": true,
+  "files": [
+    "adding-acquisition-employees.ipynb",
+    "adding-procurement.ipynb"
+  ]
+}

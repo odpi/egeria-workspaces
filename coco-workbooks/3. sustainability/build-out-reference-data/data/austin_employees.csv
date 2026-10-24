@@ -1,0 +1,36 @@
+employee_number,courtesy_title,first_name,middle_initials,surname,pronouns,job_title,job_level,employee_type,email_address,team_id,team_role,source
+100031,,James,,Whitfield,,IT Director,6,FTP,jwhitfield@austinpharma.com,0013,member,System inventory
+100045,,Maria,,Santos,,Director of Manufacturing Operations,6,FTP,msantos@austinpharma.com,0011,member,System inventory
+100052,Dr,Patricia,,Chen,,Head of Quality and Regulatory Affairs,7,FTP,pchen@austinpharma.com,0011,member,System inventory
+100058,,Robert,,Halverson,,Finance Director,6,FTP,rhalverson@austinpharma.com,0012,member,System inventory
+100063,,Carlos,,Mendez,,Supply Chain Director,6,FTP,cmendez@austinpharma.com,0011,member,System inventory
+100067,,Sarah,,Mitchell,,Sales and Marketing Director,6,FTP,smitchell@austinpharma.com,0012,member,System inventory
+100072,,Denise,,Washington,,Human Resources Director,6,FTP,dwashington@austinpharma.com,0012,member,System inventory
+100076,,Tom,,Okafor,,Facilities Manager,4,FTP,tokafor@austinpharma.com,0011,member,System inventory
+100083,,Kevin,,Park,,IT Security Manager,4,FTP,kpark@austinpharma.com,0013,member,System inventory
+100088,Dr,Aisha,,Patel,,Head of Analytics and Integration,6,FTP,apatel@austinpharma.com,0013,member,System inventory
+100101,,Rebecca,,Hernandez,,"Site Head, Austin",7,FTP,rhernandez@austinpharma.com,9995,member,Workday HCM
+100112,,Marcus,,Whitfield,,Director of Quality Assurance,6,FTP,mwhitfield@austinpharma.com,0011,member,Workday HCM
+100118,,Priya,,Raman,,QA Batch Disposition Specialist,2,FTP,praman@austinpharma.com,0011,member,Workday HCM
+100122,,Brian,,Foster,,Production Operator II,2,Resigner,bfoster@austinpharma.com,,,Workday HCM
+100124,,Daniel,,Okafor,,QC Laboratory Manager,4,FTP,dokafor@austinpharma.com,0011,member,Workday HCM
+100128,,Carla,,Ruiz,,QC Analyst II,2,Resigner,cruiz@austinpharma.com,,,Workday HCM
+100131,,Sofia,,Delgado,,QC Analyst II,2,FTP,sdelgado@austinpharma.com,0011,member,Workday HCM
+100137,,Kevin,,Tran,,QC Chromatography Analyst,2,FTP,ktran@austinpharma.com,0011,member,Workday HCM
+100142,,Jason,,Morales,,Manufacturing Supervisor,3,FTP,jmorales@austinpharma.com,0011,member,Workday HCM
+100149,,Aaliyah,,Brooks,,Production Operator III,2,FTP,abrooks@austinpharma.com,0011,member,Workday HCM
+100153,,Tyler,,Nguyen,,Production Operator III,2,FTP,tnguyen@austinpharma.com,0011,member,Workday HCM
+100158,,Grace,,Lindqvist,,Cell Therapy Manufacturing Specialist,5,FTP,glindqvist@austinpharma.com,0011,member,Workday HCM
+100162,,Omar,,Haddad,,Warehouse Lead,3,FTP,ohaddad@austinpharma.com,0011,member,Workday HCM
+100167,,Hannah,,Kowalski,,Site Controller,6,FTP,hkowalski@austinpharma.com,0012,member,Workday HCM
+100171,,Luis,,Carranza,,Senior Accountant,2,FTP,lcarranza@austinpharma.com,0012,member,Workday HCM
+100176,,Megan,,O'Neill,,Accounts Payable Specialist,2,FTP,moneill@austinpharma.com,0012,member,Workday HCM
+100180,,Ethan,,Park,,Procurement Manager,4,FTP,epark@austinpharma.com,0012,member,Workday HCM
+100184,,Chloe,,Bennett,,HR Business Partner,5,FTP,cbennett@austinpharma.com,0012,member,Workday HCM
+100189,,Samuel,,Adeyemi,,Shipping and Dangerous Goods Coordinator,2,FTP,sadeyemi@austinpharma.com,0011,member,Workday HCM
+100193,,Nina,,Petrov,,Maintenance and Calibration Engineer,5,FTP,npetrov@austinpharma.com,0011,member,Workday HCM
+100197,,Robert,,Castillo,,Customer Quality Specialist,2,FTP,rcastillo@austinpharma.com,0011,member,Workday HCM
+100201,,Isabel,,Moreno,,Drug Safety Associate,2,FTP,imoreno@austinpharma.com,0012,member,Workday HCM
+100205,,Mia,,Johnson,,QC Analyst I,2,FTP,mjohnson@austinpharma.com,0011,member,Workday HCM
+C00015,,Derek,,Shaw,,Validation Consultant,5,Contractor,dshaw.ext@austinpharma.com,0011,member,Workday HCM
+C00021,,Laura,,Chen,,GMP Audit Consultant,5,Contractor,lchen.ext@austinpharma.com,0011,member,Workday HCM
