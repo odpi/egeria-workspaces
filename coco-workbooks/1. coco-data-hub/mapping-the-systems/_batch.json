@@ -10,5 +10,9 @@
       "file": "supply-chain-lineage.ipynb",
       "userid": "garygeeke"
     }
+  ],
+  "exclude": [
+    "supply-chain-lineage-report.md",
+    "system-mapping-report.md"
   ]
 }
