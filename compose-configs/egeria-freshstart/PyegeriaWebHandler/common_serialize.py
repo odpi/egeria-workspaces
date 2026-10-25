@@ -91,6 +91,28 @@ def _map_property_value(v):
     return dict(sorted(v.items(), key=_order))
 
 
+def _property_items(props: dict) -> list:
+    """(name, value) pairs of an element's own properties, followed by its
+    extendedProperties -- the attributes of an open type that has no bean
+    class of its own (e.g. coco's RefrigerationUnit, created via
+    InfrastructureProperties), which pyegeria returns as one nested map that
+    scalar-only property loops silently drop. An extended name that clashes
+    with a real property is skipped, so the real property always wins."""
+    props = props or {}
+    ext = props.get("extendedProperties")
+    if not isinstance(ext, dict):
+        return list(props.items())
+    return list(props.items()) + [(k, v) for k, v in ext.items() if k not in props]
+
+
+def _additional_properties(props: dict) -> dict:
+    """An element's additionalProperties (free-form, not part of its type) as
+    a plain dict, kept structured for the frontend's AdditionalPropertiesTable
+    rather than flattened in with the type's own attributes."""
+    ap = (props or {}).get("additionalProperties")
+    return ap if isinstance(ap, dict) else {}
+
+
 def _flatten_classification_properties(cls_props_raw) -> dict:
     flat = {}
     if isinstance(cls_props_raw, dict):
@@ -233,7 +255,7 @@ def _unwrap_relationship_item(item: dict) -> Optional[dict]:
     )
     skip_extra = {"class", "displayName", "name", "description", "qualifiedName"}
     extra_props = {}
-    for k, v in elem_props.items():
+    for k, v in _property_items(elem_props):
         if k in skip_extra:
             continue
         if isinstance(v, bool) or isinstance(v, (int, float)):

@@ -45,7 +45,8 @@ from egeria_auth import lineage_key as _lineage_key, token_user as _token_user
 from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
 
-from common_serialize import _authored_fields, _header_summary, _map_property_value
+from common_serialize import (_authored_fields, _header_summary, _map_property_value,
+                              _property_items, _additional_properties)
 
 router = APIRouter(tags=["tech-catalog"])
 
@@ -316,7 +317,7 @@ def _unwrap_rel_item(item: dict, key: str) -> Optional[dict]:
     # Annotation that have no displayName of their own.
     _skip_extra = {"class", "displayName", "name", "description", "qualifiedName"}
     extra_props = {}
-    for k, v in elem_props.items():
+    for k, v in _property_items(elem_props):
         if k in _skip_extra:
             continue
         if isinstance(v, bool) or isinstance(v, (int, float)):
@@ -410,22 +411,15 @@ def _serialize(el, include_relationships: bool = False):
                 out[k] = v
     # Pass through every remaining scalar property so the detail shows the full
     # property set, not a fixed subset. Skip header/mermaid keys already handled.
-    # extendedProperties holds the attributes of an open type that has no bean
-    # class of its own (e.g. the coco RefrigerationUnit, created as
-    # InfrastructureProperties) -- flatten it so those attributes show too.
-    ext = props.get("extendedProperties")
-    for k, v in [*props.items(), *(ext.items() if isinstance(ext, dict) else [])]:
+    # _property_items also flattens extendedProperties (open-type attributes).
+    for k, v in _property_items(props):
         if k in out or k in {"displayName", "name", "qualifiedName", "description", "class"} or _is_mermaid_key(k):
             continue
         if isinstance(v, bool) or isinstance(v, (int, float)):
             out[k] = v
         elif isinstance(v, str) and v.strip():
             out[k] = v
-    # additionalProperties is free-form (not part of the type), so it is kept
-    # structured for the frontend's separate AdditionalPropertiesTable rather
-    # than mixed into the type's own attributes.
-    ap = props.get("additionalProperties")
-    if isinstance(ap, dict) and ap:
+    if ap := _additional_properties(props):
         out["additionalProperties"] = ap
     return out
 

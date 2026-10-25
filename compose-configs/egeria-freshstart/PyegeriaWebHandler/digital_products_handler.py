@@ -23,7 +23,8 @@ from egeria_auth import lineage_key as _lineage_key
 from fastapi.responses import JSONResponse
 from loguru import logger
 
-from common_serialize import _authored_fields, _header_summary, _classifications
+from common_serialize import (_authored_fields, _header_summary, _classifications,
+                              _property_items, _additional_properties)
 
 # Tree cache: guid → (timestamp, result). Invalidated after 5 minutes.
 _TREE_CACHE: dict = {}
@@ -118,7 +119,7 @@ def _extract_props(props: dict) -> dict:
     flattened to one string row, so the frontend can render it as its own
     sub-table (AdditionalPropertiesTable) rather than a giant "k: v; k2: v2" cell."""
     out = {}
-    for k, v in (props or {}).items():
+    for k, v in _property_items(props):
         if k in _PROP_SKIP:
             continue
         if isinstance(v, bool) or isinstance(v, (int, float)):
@@ -219,7 +220,7 @@ def _serialize_node(element: dict) -> dict:
         # Kept structured (not flattened into props above) so the frontend can render
         # it as its own sub-table via AdditionalPropertiesTable instead of one long
         # "k: v; k2: v2" cell — see _extract_props's comment for why it's skipped there.
-        "additionalProperties": (props.get("additionalProperties") or {}) if isinstance(props.get("additionalProperties"), dict) else {},
+        "additionalProperties": _additional_properties(props),
         "_header":          _header_summary(element),
         **_authored_fields(element),
         "classifications": _classifications(element),
