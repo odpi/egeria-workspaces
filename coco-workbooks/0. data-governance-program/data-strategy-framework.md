@@ -1049,9 +1049,6 @@ ___
 ### Display Name
 Authoritative Sources Data Sharing Agreement
 
-### Agreement Type
-Data Sharing Agreement
-
 ### Description
 Defines the terms under which the systems designated as Authoritative Sources make their data available for consumption by Continuous Analytics and AI, and for propagation through the Optimized Information Supply Chains.
 

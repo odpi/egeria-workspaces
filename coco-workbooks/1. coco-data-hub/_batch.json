@@ -1,6 +1,6 @@
 {
   "displayName": "Coco - 1. Data Hub",
-  "description": "The Coco Data Hub, in the README's step order: the strategic supply chain analysis, the acquisitions' systems inventory, the component-to-platform mapping and supply chain lineage, the data field naming standard (its own batch), the systems' data layer, the strategic digital products, the solution design, the software development governance program, setting up the data sharing hub, and the digital product subscriptions. Includes the folder's notebooks, so it is not idempotent; setting-up-the-data-hub.ipynb needs the optional Unity Catalog runtime.",
+  "description": "The Coco Data Hub, in the README's step order: the strategic supply chain analysis, the acquisitions' systems inventory, the component-to-platform mapping and supply chain lineage, the data field naming standard (its own batch), the systems' data layer, the strategic digital products, the solution design, the software development governance program, setting up the data sharing hub, receiving the OpenLineage events from Airflow, and the digital product subscriptions. Includes the folder's notebooks, so it is not idempotent; setting-up-the-data-hub.ipynb needs the optional Unity Catalog runtime and receiving-open-lineage-events.ipynb needs Airflow sending its events to Egeria.",
   "canary": {
     "type": "GovernancePrinciple",
     "name": "The AI did it wrong is no excuse!"
@@ -31,7 +31,14 @@
       "file": "setting-up-the-data-hub.ipynb",
       "userid": "erinoverview"
     },
-    "digital-product-subscriptions.md"
+    {
+      "file": "receiving-open-lineage-events.ipynb",
+      "userid": "peterprofile"
+    },
+    {
+      "file": "digital-product-subscriptions.md",
+      "userid": "peterprofile"
+    }
   ],
   "exclude": [
     "founders-briefing-script.md",

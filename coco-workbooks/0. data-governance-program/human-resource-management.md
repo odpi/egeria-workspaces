@@ -910,9 +910,6 @@ Governance Role
 ### Version Identifier
 1.0
 
-### Content Status
-ACTIVE
-
 ___
 
 ---
@@ -947,9 +944,6 @@ Governance Role
 
 ### Version Identifier
 1.0
-
-### Content Status
-ACTIVE
 
 ___
 
