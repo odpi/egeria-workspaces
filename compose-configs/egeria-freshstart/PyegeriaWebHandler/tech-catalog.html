@@ -1884,6 +1884,8 @@ function AssetDetail({ item, detailLoading, onNavigate, creds, sectionId }) {
 
     // Classifications + Raw JSON (debug) — shared component (egeria-shared-ui.js)
     // so this stays in sync with the same collapsible used across Egeria Explorer.
+    React.createElement(AdditionalPropertiesTable, { data: item.additionalProperties }),
+
     React.createElement(ClassificationsAndRawJson, { item: item, creds: creds }),
 
     // Mermaid diagrams — between Properties and Relationships

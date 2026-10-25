@@ -410,13 +410,23 @@ def _serialize(el, include_relationships: bool = False):
                 out[k] = v
     # Pass through every remaining scalar property so the detail shows the full
     # property set, not a fixed subset. Skip header/mermaid keys already handled.
-    for k, v in props.items():
+    # extendedProperties holds the attributes of an open type that has no bean
+    # class of its own (e.g. the coco RefrigerationUnit, created as
+    # InfrastructureProperties) -- flatten it so those attributes show too.
+    ext = props.get("extendedProperties")
+    for k, v in [*props.items(), *(ext.items() if isinstance(ext, dict) else [])]:
         if k in out or k in {"displayName", "name", "qualifiedName", "description", "class"} or _is_mermaid_key(k):
             continue
         if isinstance(v, bool) or isinstance(v, (int, float)):
             out[k] = v
         elif isinstance(v, str) and v.strip():
             out[k] = v
+    # additionalProperties is free-form (not part of the type), so it is kept
+    # structured for the frontend's separate AdditionalPropertiesTable rather
+    # than mixed into the type's own attributes.
+    ap = props.get("additionalProperties")
+    if isinstance(ap, dict) and ap:
+        out["additionalProperties"] = ap
     return out
 
 
