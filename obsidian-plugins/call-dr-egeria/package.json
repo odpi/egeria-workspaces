@@ -33,6 +33,6 @@
   "overrides": {
     "qs": "^6.15.2",
     "ip-address": "^10.3.1",
-    "body-parser": "^2.3.0"
+    "body-parser": "^2.4.0"
   }
 }
