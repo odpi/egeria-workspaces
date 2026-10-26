@@ -13,6 +13,7 @@ The files should be loaded by [Dr.Egeria](https://egeria-project.org/user-interf
 * [glossary.md](glossary.md)
 * [regulation.md](regulation.md)
 * [collections.md](collections.md)
+* [annual-conference.md](annual-conference.md) - describes the annual conference as a project, defines the Responsible Person role, and scopes the role and the two event security risks to the conference.  It links to the [risk register](../../0.%20data-governance-program/risk-register.md), so `0. data-governance-program` must be loaded first.
 
 There is a choice on how to do this depending on the tools you are most comfortable with using.
 

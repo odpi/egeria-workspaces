@@ -1,6 +1,6 @@
 # Coco Pharmaceuticals Naming Conventions
 
-> **Author:** Gary Geeke (Infrastructure Lead)
+> **Author:** Gary Geeke (Chief Information Officer)
 > **Version:** 0.1
 > **Status:** ACTIVE
 > **Date:** 2026-07-23

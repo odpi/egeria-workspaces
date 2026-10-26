@@ -1,6 +1,6 @@
 # Coco Pharmaceuticals Risk Register
 
-> **Author:** Jules Keeper (Chief Data Officer), Ivor Padlock (Chief Information Security Officer), Faith Broker (Chief Privacy Officer), Reggie Mint (Chief Financial Officer), Tessa Tube (Drug Development Lead)  
+> **Author:** Jules Keeper (Chief Data Officer), Ivor Padlock (Chief Security Officer), Faith Broker (Chief Privacy Officer), Reggie Mint (Chief Financial Officer), Tessa Tube (Drug Development Lead)  
 > **Version:** 1.0  
 > **Status:** ACTIVE  
 > **Date:** 2026-07-08  
@@ -894,7 +894,7 @@ Coco Pharmaceuticals could fail to formally designate, or adequately support, th
 ### Implications
 - A Responsible Person must be formally designated with clear authority and resourcing well ahead of the 2027 enforcement date
 - Required security assessments and public protection procedure documentation must be prepared and kept current
-- Compliance status must be tracked and reported to the CISO as part of routine security governance
+- Compliance status must be tracked and reported to the Chief Security Officer as part of routine security governance
 
 ### Importance
 Medium-High
@@ -1537,20 +1537,20 @@ ___
 
 ---
 
-### 6.2 Chief Information Security Officer Folio Members
+### 6.2 Chief Security Officer Folio Members
 
 ___
 
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ChiefInformationSecurityOfficer
+CocoPharma::Folio::ChiefSecurityOfficer
 
 ### Element Id
 CocoPharma::Threat::TerrorismAtPublicEvents
 
 ### Membership Rationale
-The CISO is the domain lead for security compliance, including Martyn's Law — already a member of this folio — and this threat is the underlying driver that regulation responds to.
+The Chief Security Officer is the domain lead for security compliance, including Martyn's Law — already a member of this folio — and this threat is the underlying driver that regulation responds to.
 
 ### Membership Status
 VALIDATED
@@ -1564,13 +1564,13 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ChiefInformationSecurityOfficer
+CocoPharma::Folio::ChiefSecurityOfficer
 
 ### Element Id
 CocoPharma::Risk::RansomwareDisruptionToManufacturing
 
 ### Membership Rationale
-This risk assesses the likelihood and impact of the Cyber-Attack on Operations or Data threat, which the CISO is responsible for mitigating.
+This risk assesses the likelihood and impact of the Cyber-Attack on Operations or Data threat, which the Chief Security Officer is responsible for mitigating.
 
 ### Membership Status
 VALIDATED
@@ -1584,13 +1584,13 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ChiefInformationSecurityOfficer
+CocoPharma::Folio::ChiefSecurityOfficer
 
 ### Element Id
 CocoPharma::Risk::TheftOfPersonalisedTreatmentIP
 
 ### Membership Rationale
-This risk assesses the likelihood and impact of the Cyber-Attack on Operations or Data threat, which the CISO is responsible for mitigating.
+This risk assesses the likelihood and impact of the Cyber-Attack on Operations or Data threat, which the Chief Security Officer is responsible for mitigating.
 
 ### Membership Status
 VALIDATED
@@ -1604,13 +1604,13 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ChiefInformationSecurityOfficer
+CocoPharma::Folio::ChiefSecurityOfficer
 
 ### Element Id
 CocoPharma::Risk::TerrorismIncidentAtAnnualConference
 
 ### Membership Rationale
-Physical event security, including terrorism preparedness for the annual conference, falls within the CISO's security governance domain.
+Physical event security, including terrorism preparedness for the annual conference, falls within the Chief Security Officer's security governance domain.
 
 ### Membership Status
 VALIDATED
@@ -1624,13 +1624,13 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ChiefInformationSecurityOfficer
+CocoPharma::Folio::ChiefSecurityOfficer
 
 ### Element Id
 CocoPharma::Risk::MartynsLawResponsiblePersonNonCompliance
 
 ### Membership Rationale
-The CISO is accountable for Martyn's Law compliance, including designation and support of the Responsible Person role this risk assesses.
+The Chief Security Officer is accountable for Martyn's Law compliance, including designation and support of the Responsible Person role this risk assesses.
 
 ### Membership Status
 VALIDATED
