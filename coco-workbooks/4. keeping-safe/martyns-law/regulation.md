@@ -210,13 +210,13 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ChiefInformationSecurityOfficer
+CocoPharma::Folio::ChiefSecurityOfficer
 
 ### Element Id
 Regulation::MartynsLawUK
 
 ### Membership Rationale
-Martyn's Law is a security regulation. The CISO is the domain lead for security compliance including this act.
+Martyn's Law is a security regulation. The Chief Security Officer is the domain lead for security compliance including this act.
 
 ### Membership Status
 VALIDATED
@@ -251,13 +251,13 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ChiefInformationSecurityOfficer
+CocoPharma::Folio::ChiefSecurityOfficer
 
 ### Element Id
 Regulation::MartynsLawUK
 
 ### Membership Rationale
-Martyn's Law is a security regulation. The CISO is the domain lead for security compliance including this act.
+Martyn's Law is a security regulation. The Chief Security Officer is the domain lead for security compliance including this act.
 
 ### Membership Status
 VALIDATED

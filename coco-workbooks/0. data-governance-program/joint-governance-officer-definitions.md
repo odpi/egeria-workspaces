@@ -865,10 +865,10 @@ The following governance roles are assigned as part of the Coco Pharmaceuticals 
 | Role | Appointed Person | Domain | Responsibility |
 |------|-----------------|--------|---------------|
 | Chief Data Officer | Jules Keeper | ALL | Overall governance program leadership and cross-domain coordination |
-| Chief Information Security Officer | Ivor Padlock | SECURITY | Security governance — access controls, incident response, cyber resilience |
+| Chief Security Officer | Ivor Padlock | SECURITY | Security governance — physical and IT security, access controls, incident response, cyber resilience |
 | Chief Privacy Officer | Faith Broker | PRIVACY | Privacy governance — personal data handling, GDPR compliance |
 | Chief Financial Officer (Governance) | Reggie Mint | CORPORATE | Corporate governance — financial reporting, supplier management |
-| IT Infrastructure Lead | Gary Geeke | IT_INFRASTRUCTURE | Infrastructure governance — systems, platforms, and networks |
+| Chief Information Officer | Gary Geeke | IT_INFRASTRUCTURE | Infrastructure governance — systems, platforms, and networks |
 | Senior Software Manager | Polly Tasker | SOFTWARE_DEVELOPMENT | Software development governance — development standards and DevOps |
 | Information Architect | Erin Overview | DATA | Data architecture, classification schemes, and subject area definitions |
 | Drug Development Lead | Tessa Tube | Drug Development | Clinical trial data governance and FDA compliance |
@@ -929,13 +929,13 @@ ___
 ## Create Governance Role
 
 ### Display Name
-Chief Information Security Officer
+Chief Security Officer
 
 ### Qualified Name
-CocoPharma::GovernanceRole::ChiefInformationSecurityOfficer
+CocoPharma::GovernanceRole::ChiefSecurityOfficer
 
 ### Description
-The Chief Information Security Officer (CISO) is responsible for Coco Pharmaceuticals' information security governance domain. The CISO defines security policies and standards, oversees access controls and authentication requirements, leads incident response, and manages cyber resilience.
+The Chief Security Officer (CSO) is responsible for Coco Pharmaceuticals' security governance domain, covering both the physical security of its premises, equipment, people and events, and the security of its information and IT systems. The CSO defines security policies and standards, oversees access controls and authentication requirements, leads incident response, and is accountable for cyber resilience. The Chief Information Security Officer reports to the CSO.
 
 ### Scope
 Security governance domain — all systems, data, and physical events operated by Coco Pharmaceuticals.
@@ -947,8 +947,9 @@ Security governance domain — all systems, data, and physical events operated b
 Governance Role
 
 ### Search Keywords
-- CISO
+- CSO
 - security governance
+- physical security
 - cyber resilience
 - information security
 
@@ -967,7 +968,7 @@ ___
 Person::USA::499888
 
 ### Person Role
-CocoPharma::GovernanceRole::ChiefInformationSecurityOfficer
+CocoPharma::GovernanceRole::ChiefSecurityOfficer
 
 ___
 
@@ -1077,13 +1078,13 @@ ___
 ## Create Governance Role
 
 ### Display Name
-IT Infrastructure Lead
+Chief Information Officer
 
 ### Qualified Name
-CocoPharma::GovernanceRole::ITInfrastructureLead
+CocoPharma::GovernanceRole::ChiefInformationOfficer
 
 ### Description
-The IT Infrastructure Lead is responsible for the IT infrastructure governance domain. This role defines standards for platforms, networks, and systems; governs the deployment and decommissioning of infrastructure assets; ensures infrastructure changes are managed with appropriate audit trails; and coordinates with the CISO on infrastructure security controls and with the CDO on metadata cataloguing of infrastructure components.
+The Chief Information Officer (CIO) is responsible for the IT infrastructure governance domain. This role defines standards for platforms, networks, and systems; governs the deployment and decommissioning of infrastructure assets; ensures infrastructure changes are managed with appropriate audit trails; and coordinates with the CISO on infrastructure security controls and with the CDO on metadata cataloguing of infrastructure components.
 
 ### Scope
 IT infrastructure governance domain — all computing platforms, networks, storage systems, and cloud services operated by or on behalf of Coco Pharmaceuticals.
@@ -1095,6 +1096,7 @@ IT infrastructure governance domain — all computing platforms, networks, stora
 Governance Role
 
 ### Search Keywords
+- CIO
 - IT governance
 - infrastructure governance
 - platform management
@@ -1114,7 +1116,7 @@ ___
 Person::NL::199995
 
 ### Person Role
-CocoPharma::GovernanceRole::ITInfrastructureLead
+CocoPharma::GovernanceRole::ChiefInformationOfficer
 
 ___
 
@@ -2433,13 +2435,13 @@ ___
 ## Create Folio
 
 ### Display Name
-Chief Information Security Officer — Governance Folio
+Chief Security Officer — Governance Folio
 
 ### Qualified Name
-CocoPharma::Folio::ChiefInformationSecurityOfficer
+CocoPharma::Folio::ChiefSecurityOfficer
 
 ### Description
-The governance definitions owned by the Chief Information Security Officer (Ivor Padlock). This folio covers the security domain: the business imperative for cyber resilience, the cyber-attack threat, and the obligation for universal user authentication and accountability.
+The governance definitions owned by the Chief Security Officer (Ivor Padlock). This folio covers the security domain: the business imperative for cyber resilience, the cyber-attack threat, and the obligation for universal user authentication and accountability.
 
 ### Purpose
 Provides Ivor Padlock with a single view of all security governance definitions he is responsible for authoring, maintaining, and enforcing.
@@ -2465,16 +2467,16 @@ ___
 ## Link Assignment Scope
 
 ### Assigned Actor
-CocoPharma::GovernanceRole::ChiefInformationSecurityOfficer
+CocoPharma::GovernanceRole::ChiefSecurityOfficer
 
 ### Assignment Type
 Governance Folio
 
 ### Scope Element
-CocoPharma::Folio::ChiefInformationSecurityOfficer
+CocoPharma::Folio::ChiefSecurityOfficer
 
 ### Description
-Assigns the Chief Information Security Officer role responsibility for all governance definitions collected in the Chief Information Security Officer Governance Folio.
+Assigns the Chief Security Officer role responsibility for all governance definitions collected in the Chief Security Officer Governance Folio.
 
 ___
 
@@ -2825,20 +2827,20 @@ ___
 ---
 ---
 
-#### Chief Information Security Officer Folio Members
+#### Chief Security Officer Folio Members
 
 ___
 
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ChiefInformationSecurityOfficer
+CocoPharma::Folio::ChiefSecurityOfficer
 
 ### Element Id
 CocoPharma::BusinessImperative::CyberResilience
 
 ### Membership Rationale
-The CISO is the accountable executive for the cyber resilience imperative and owns the security governance program that delivers it.
+The Chief Security Officer is the accountable executive for the cyber resilience imperative and owns the security governance program that delivers it.
 
 ### Membership Status
 VALIDATED
@@ -2852,13 +2854,13 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ChiefInformationSecurityOfficer
+CocoPharma::Folio::ChiefSecurityOfficer
 
 ### Element Id
 CocoPharma::Threat::CyberAttackOnOperationsOrData
 
 ### Membership Rationale
-The CISO is responsible for threat assessment and for the controls that mitigate the risk of cyber-attack.
+The Chief Security Officer is responsible for threat assessment and for the controls that mitigate the risk of cyber-attack.
 
 ### Membership Status
 VALIDATED
@@ -2872,13 +2874,13 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ChiefInformationSecurityOfficer
+CocoPharma::Folio::ChiefSecurityOfficer
 
 ### Element Id
 CocoPharma::GovernanceObligation::AllUsersMustBeAuthenticatedAndAccountable
 
 ### Membership Rationale
-User authentication and access logging are core security controls authored and owned by the CISO.
+User authentication and access logging are core security controls authored and owned by the Chief Security Officer.
 
 ### Membership Status
 VALIDATED
@@ -3065,10 +3067,10 @@ ___
 RootCollection::Coco::Governance Folios
 
 ### Element Id
-CocoPharma::Folio::ChiefInformationSecurityOfficer
+CocoPharma::Folio::ChiefSecurityOfficer
 
 ### Membership Rationale
-The CISO folio is part of the Coco Pharmaceuticals governance folios collection.
+The Chief Security Officer folio is part of the Coco Pharmaceuticals governance folios collection.
 
 ### Membership Status
 VALIDATED

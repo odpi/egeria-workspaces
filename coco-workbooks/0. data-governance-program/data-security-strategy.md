@@ -1,6 +1,6 @@
 # Coco Pharmaceuticals — Data Security Strategy
 
-> **Author:** Ivor Padlock (Chief Information Security Officer), Sidney Seeker (Security Consultant), Simon Burr (Cyber-Security Specialist)  
+> **Author:** Ivor Padlock (Chief Security Officer), Sidney Seeker (Security Consultant), Simon Burr (Chief Information Security Officer)  
 > **Version:** 1.0  
 > **Status:** ACTIVE  
 > **Date:** 2026-07-18  
@@ -12,14 +12,14 @@
 
 The [Data Governance Program](data-governance-program.md) already establishes the foundations of the security domain: the Cyber Resilience business imperative, the Cyber-Attack on Operations or Data threat, the Martyn's Law regulation, and the obligation that all users must be authenticated and accountable. The [Risk Register](risk-register.md) then rates the concrete risks that follow from those drivers — Ransomware Disruption to Manufacturing and Theft of Personalised Treatment Intellectual Property foremost among them.
 
-This document adds the policies and controls needed to close the gap between those drivers and day-to-day security practice, structured around ISO/IEC 27001:2022 — the international standard Coco Pharmaceuticals is adopting as the operating framework for its information security management system (ISMS). It does not redefine the drivers already captured in the Data Governance Program; instead, every new policy and control is linked back to the existing drivers, obligation, and risks so that the CISO's Governance Folio remains a single, complete view of the security governance program.
+This document adds the policies and controls needed to close the gap between those drivers and day-to-day security practice, structured around ISO/IEC 27001:2022 — the international standard Coco Pharmaceuticals is adopting as the operating framework for its information security management system (ISMS). It does not redefine the drivers already captured in the Data Governance Program; instead, every new policy and control is linked back to the existing drivers, obligation, and risks so that the Chief Security Officer's Governance Folio remains a single, complete view of the security governance program.
 
 The document is organised as follows:
 
 1. **Governance Policies** — the principle, approach, and obligations that define how Coco Pharmaceuticals operates its ISMS.
 2. **Governance Controls** — the ISO/IEC 27001:2022 certification and the metrics used to measure and evidence compliance.
 3. **Governance Links** — connecting the new policies and controls to the drivers, obligations, and risks already defined in the Data Governance Program and Risk Register.
-4. **Folio Membership** — adding every new definition to the Chief Information Security Officer's Governance Folio.
+4. **Folio Membership** — adding every new definition to the Chief Security Officer's Governance Folio.
 
 ---
 
@@ -758,24 +758,24 @@ ___
 
 ## Part 4: Folio Membership
 
-The [Data Governance Program](data-governance-program.md) defines a Chief Information Security Officer Governance Folio collecting the definitions Ivor Padlock is accountable for. Every governance definition created in this document is added as a member of that folio, so it remains a complete view of the CISO's governance work.
+The [Data Governance Program](data-governance-program.md) defines a Chief Security Officer Governance Folio collecting the definitions Ivor Padlock is accountable for. Every governance definition created in this document is added as a member of that folio, so it remains a complete view of the Chief Security Officer's governance work.  The definitions that Simon Burr operates day to day as Chief Information Security Officer are also added to his own folio when he is onboarded (see `4. keeping-safe/onboarding-simon-burr.md`).
 
 ---
 
-### 4.1 Chief Information Security Officer Folio Members
+### 4.1 Chief Security Officer Folio Members
 
 ___
 
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ChiefInformationSecurityOfficer
+CocoPharma::Folio::ChiefSecurityOfficer
 
 ### Element Id
 CocoPharma::GovernancePrinciple::RiskBasedInformationSecurityManagement
 
 ### Membership Rationale
-The CISO owns the risk-based approach that determines how security controls are prioritised across the ISMS.
+The Chief Security Officer owns the risk-based approach that determines how security controls are prioritised across the ISMS.
 
 ### Membership Status
 VALIDATED
@@ -789,13 +789,13 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ChiefInformationSecurityOfficer
+CocoPharma::Folio::ChiefSecurityOfficer
 
 ### Element Id
 CocoPharma::GovernanceObligation::InformationAssetsInventoriedAndClassifiedForISMS
 
 ### Membership Rationale
-The CISO is accountable for the asset inventory and classification scheme underpinning the ISMS.
+The Chief Security Officer is accountable for the asset inventory and classification scheme underpinning the ISMS.
 
 ### Membership Status
 VALIDATED
@@ -809,13 +809,13 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ChiefInformationSecurityOfficer
+CocoPharma::Folio::ChiefSecurityOfficer
 
 ### Element Id
 CocoPharma::GovernanceObligation::SupplierSecurityRiskAssessment
 
 ### Membership Rationale
-The CISO owns the security assessment of suppliers and partners, a control area of the ISMS.
+The Chief Security Officer owns the security assessment of suppliers and partners, a control area of the ISMS.
 
 ### Membership Status
 VALIDATED
@@ -829,13 +829,13 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ChiefInformationSecurityOfficer
+CocoPharma::Folio::ChiefSecurityOfficer
 
 ### Element Id
 CocoPharma::GovernanceObligation::SecurityIncidentsLoggedReportedReviewed
 
 ### Membership Rationale
-The CISO leads incident response and is accountable for this obligation.
+The Chief Security Officer leads incident response and is accountable for this obligation.
 
 ### Membership Status
 VALIDATED
@@ -849,13 +849,13 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ChiefInformationSecurityOfficer
+CocoPharma::Folio::ChiefSecurityOfficer
 
 ### Element Id
 CocoPharma::GovernanceObligation::AnnualSecurityAwarenessTraining
 
 ### Membership Rationale
-The CISO is accountable for the security awareness training programme.
+The Chief Security Officer is accountable for the security awareness training programme.
 
 ### Membership Status
 VALIDATED
@@ -869,13 +869,13 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ChiefInformationSecurityOfficer
+CocoPharma::Folio::ChiefSecurityOfficer
 
 ### Element Id
 CocoPharma::GovernanceApproach::ISMSPlanDoCheckActCycle
 
 ### Membership Rationale
-The CISO owns the ISMS operating cycle that this approach defines.
+The Chief Security Officer owns the ISMS operating cycle that this approach defines.
 
 ### Membership Status
 VALIDATED
@@ -889,13 +889,13 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ChiefInformationSecurityOfficer
+CocoPharma::Folio::ChiefSecurityOfficer
 
 ### Element Id
 CocoPharma::CertificationType::ISO27001
 
 ### Membership Rationale
-The CISO is accountable for achieving and maintaining ISO/IEC 27001:2022 certification.
+The Chief Security Officer is accountable for achieving and maintaining ISO/IEC 27001:2022 certification.
 
 ### Membership Status
 VALIDATED
@@ -909,13 +909,13 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ChiefInformationSecurityOfficer
+CocoPharma::Folio::ChiefSecurityOfficer
 
 ### Element Id
 CocoPharma::GovernanceMetric::ISO27001ControlImplementationRate
 
 ### Membership Rationale
-The CISO uses this metric to track ISMS readiness for certification and surveillance audits.
+The Chief Security Officer uses this metric to track ISMS readiness for certification and surveillance audits.
 
 ### Membership Status
 VALIDATED
@@ -929,13 +929,13 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ChiefInformationSecurityOfficer
+CocoPharma::Folio::ChiefSecurityOfficer
 
 ### Element Id
 CocoPharma::GovernanceMetric::SecurityIncidentMeanTimeToContainment
 
 ### Membership Rationale
-The CISO uses this metric to monitor the effectiveness of incident response.
+The Chief Security Officer uses this metric to monitor the effectiveness of incident response.
 
 ### Membership Status
 VALIDATED
@@ -949,13 +949,13 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ChiefInformationSecurityOfficer
+CocoPharma::Folio::ChiefSecurityOfficer
 
 ### Element Id
 CocoPharma::GovernanceMetric::SecurityAwarenessTrainingCompletionRate
 
 ### Membership Rationale
-The CISO uses this metric to track compliance with the security awareness training obligation.
+The Chief Security Officer uses this metric to track compliance with the security awareness training obligation.
 
 ### Membership Status
 VALIDATED

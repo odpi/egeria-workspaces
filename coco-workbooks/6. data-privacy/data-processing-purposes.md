@@ -1573,13 +1573,13 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ChiefInformationSecurityOfficer
+CocoPharma::Folio::ChiefSecurityOfficer
 
 ### Element Id
 CocoPharma::DataProcessingPurpose::SecurityMonitoringAndInvestigation
 
 ### Membership Rationale
-The CISO owns the legitimate interests basis for security monitoring and the proportionality assessment supporting it.
+The Chief Security Officer owns the legitimate interests basis for security monitoring and the proportionality assessment supporting it.
 
 ### Membership Status
 VALIDATED
@@ -1833,13 +1833,13 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ChiefInformationSecurityOfficer
+CocoPharma::Folio::ChiefSecurityOfficer
 
 ### Element Id
 CocoPharma::DataProcessingPurpose::IdentityAndAccessAdministration
 
 ### Membership Rationale
-Identity and entitlement data underpins every access control in the ISMS and is governed by the CISO.
+Identity and entitlement data underpins every access control in the ISMS and is governed by the Chief Security Officer.
 
 ### Membership Status
 VALIDATED

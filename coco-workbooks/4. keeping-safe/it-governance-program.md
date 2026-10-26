@@ -485,7 +485,7 @@ ___
 
 ### 3.1 Governance Roles
 
-The IT Infrastructure Lead role (`CocoPharma::GovernanceRole::ITInfrastructureLead`, held by Gary Geeke) is defined in `joint-governance-officer-definitions.md`. The role below is the delegated position through which service accountability reaches individual systems.
+The Chief Information Officer role (`CocoPharma::GovernanceRole::ChiefInformationOfficer`, held by Gary Geeke) is defined in `joint-governance-officer-definitions.md`. The role below is the delegated position through which service accountability reaches individual systems.
 
 ___
 
@@ -1151,7 +1151,7 @@ ___
 
 ## Part 5: IT Infrastructure Governance Folio
 
-The IT Infrastructure Lead had no folio in the joint governance officer definitions, so this file creates one and registers it in the root collection alongside the others.
+The Chief Information Officer had no folio in the joint governance officer definitions, so this file creates one and registers it in the root collection alongside the others.
 
 ---
 
@@ -1162,13 +1162,13 @@ ___
 ## Create Folio
 
 ### Display Name
-IT Infrastructure Lead — Governance Folio
+Chief Information Officer — Governance Folio
 
 ### Qualified Name
-CocoPharma::Folio::ITInfrastructureLead
+CocoPharma::Folio::ChiefInformationOfficer
 
 ### Description
-The governance definitions owned by the IT Infrastructure Lead (Gary Geeke) in the `IT Infrastructure` domain. The folio covers the dependable services imperative, the unmanaged systems threat, the ownership, change path and recovery principles, the inventory, change assessment and service level obligations, the ITIL and inventory management approaches, and the controls that measure them.
+The governance definitions owned by the Chief Information Officer (Gary Geeke) in the `IT Infrastructure` domain. The folio covers the dependable services imperative, the unmanaged systems threat, the ownership, change path and recovery principles, the inventory, change assessment and service level obligations, the ITIL and inventory management approaches, and the controls that measure them.
 
 ### Purpose
 Provides Gary Geeke with a single view of the definitions through which the infrastructure domain serves the rest of the governance programme. Most of the folio's content exists to let another domain meet an obligation that is theirs, and the folio is where that service relationship is made visible as a set rather than scattered across other people's programmes.
@@ -1194,16 +1194,16 @@ ___
 ## Link Assignment Scope
 
 ### Assigned Actor
-CocoPharma::GovernanceRole::ITInfrastructureLead
+CocoPharma::GovernanceRole::ChiefInformationOfficer
 
 ### Assignment Type
 Governance Folio
 
 ### Scope Element
-CocoPharma::Folio::ITInfrastructureLead
+CocoPharma::Folio::ChiefInformationOfficer
 
 ### Description
-Assigns the IT Infrastructure Lead role responsibility for the governance definitions collected in this folio.
+Assigns the Chief Information Officer role responsibility for the governance definitions collected in this folio.
 
 ___
 
@@ -1216,7 +1216,7 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ITInfrastructureLead
+CocoPharma::Folio::ChiefInformationOfficer
 
 ### Element Id
 CocoPharma::BusinessImperative::DependableDigitalServices
@@ -1236,7 +1236,7 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ITInfrastructureLead
+CocoPharma::Folio::ChiefInformationOfficer
 
 ### Element Id
 CocoPharma::Threat::UnmanagedSystems
@@ -1256,7 +1256,7 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ITInfrastructureLead
+CocoPharma::Folio::ChiefInformationOfficer
 
 ### Element Id
 CocoPharma::GovernancePrinciple::SystemsHaveOwnerAndPurpose
@@ -1276,13 +1276,13 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ITInfrastructureLead
+CocoPharma::Folio::ChiefInformationOfficer
 
 ### Element Id
 CocoPharma::GovernancePrinciple::SingleChangePathToProduction
 
 ### Membership Rationale
-The single change path is owned by the IT Infrastructure Lead and protects validated states in other domains.
+The single change path is owned by the Chief Information Officer and protects validated states in other domains.
 
 ### Membership Status
 VALIDATED
@@ -1296,7 +1296,7 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ITInfrastructureLead
+CocoPharma::Folio::ChiefInformationOfficer
 
 ### Element Id
 CocoPharma::GovernancePrinciple::DesignedForRequiredRecovery
@@ -1316,7 +1316,7 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ITInfrastructureLead
+CocoPharma::Folio::ChiefInformationOfficer
 
 ### Element Id
 CocoPharma::GovernanceObligation::SystemsRecordedInInventory
@@ -1336,7 +1336,7 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ITInfrastructureLead
+CocoPharma::Folio::ChiefInformationOfficer
 
 ### Element Id
 CocoPharma::GovernanceObligation::ChangesAssessedAndRecorded
@@ -1356,7 +1356,7 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ITInfrastructureLead
+CocoPharma::Folio::ChiefInformationOfficer
 
 ### Element Id
 CocoPharma::GovernanceObligation::ServiceLevelsAgreedAndTested
@@ -1376,7 +1376,7 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ITInfrastructureLead
+CocoPharma::Folio::ChiefInformationOfficer
 
 ### Element Id
 CocoPharma::GovernanceApproach::ITILServiceManagementAdoption
@@ -1396,7 +1396,7 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ITInfrastructureLead
+CocoPharma::Folio::ChiefInformationOfficer
 
 ### Element Id
 CocoPharma::GovernanceApproach::SystemsInventoryManagement
@@ -1416,7 +1416,7 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ITInfrastructureLead
+CocoPharma::Folio::ChiefInformationOfficer
 
 ### Element Id
 CocoPharma::GovernanceRole::ServiceOwner
@@ -1436,13 +1436,13 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ITInfrastructureLead
+CocoPharma::Folio::ChiefInformationOfficer
 
 ### Element Id
 CocoPharma::GovernanceMetric::SystemsInventoryCompleteness
 
 ### Membership Rationale
-Inventory completeness is reported to the IT Infrastructure Lead, the CISO, and the CDO.
+Inventory completeness is reported to the Chief Information Officer, the CISO, and the CDO.
 
 ### Membership Status
 VALIDATED
@@ -1456,13 +1456,13 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ITInfrastructureLead
+CocoPharma::Folio::ChiefInformationOfficer
 
 ### Element Id
 CocoPharma::GovernanceMetric::ChangeSuccessRate
 
 ### Membership Rationale
-Change success and emergency rates are reported to the IT Infrastructure Lead and to Service Owners.
+Change success and emergency rates are reported to the Chief Information Officer and to Service Owners.
 
 ### Membership Status
 VALIDATED
@@ -1476,7 +1476,7 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CocoPharma::Folio::ITInfrastructureLead
+CocoPharma::Folio::ChiefInformationOfficer
 
 ### Element Id
 CocoPharma::GovernanceMetric::RecoveryTestCoverage
@@ -1501,10 +1501,10 @@ ___
 RootCollection::Coco::Governance Folios
 
 ### Element Id
-CocoPharma::Folio::ITInfrastructureLead
+CocoPharma::Folio::ChiefInformationOfficer
 
 ### Membership Rationale
-The IT Infrastructure Lead folio is part of the Coco Pharmaceuticals governance folios collection, making the infrastructure domain discoverable alongside the others.
+The Chief Information Officer folio is part of the Coco Pharmaceuticals governance folios collection, making the infrastructure domain discoverable alongside the others.
 
 ### Membership Status
 VALIDATED
@@ -1522,4 +1522,4 @@ ___
 | `0. data-governance-program/data-security-strategy.md` | SECURITY-domain program. The ISMS asset register is maintained as a view over the systems inventory |
 | `0. data-governance-program/data-governance-program.md` | DATA-domain program. The catalog records what data means; the inventory records where it lives |
 | `0. data-governance-program/manufacturing-governance-program.md` | Manufacturing change control, which IT change assessment must route into for GMP systems |
-| `0. data-governance-program/joint-governance-officer-definitions.md` | Defines the IT Infrastructure Lead role this folio is assigned to |
+| `0. data-governance-program/joint-governance-officer-definitions.md` | Defines the Chief Information Officer role this folio is assigned to |

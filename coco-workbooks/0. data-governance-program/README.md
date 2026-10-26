@@ -21,7 +21,7 @@ The governance leaders then went back to their own teams to work through the pri
 | File | Domain | Owner |
 |---|---|---|
 | [data-governance-program.md](data-governance-program.md) | `Data` | Jules Keeper, Chief Data Officer |
-| [data-security-strategy.md](data-security-strategy.md) | `Security` | Ivor Padlock, Chief Information Security Officer |
+| [data-security-strategy.md](data-security-strategy.md) | `Security` | Ivor Padlock, Chief Security Officer |
 | [privacy-governance-program.md](privacy-governance-program.md) | `Privacy` | Faith Broker, Chief Privacy Officer |
 | [manufacturing-governance-program.md](manufacturing-governance-program.md) | `Manufacturing` | Stew Faster, Head of Manufacturing |
 | [serialisation-governance-program.md](serialisation-governance-program.md) | `Manufacturing` | Stew Faster with Florence Paynter and George Pie |
@@ -121,7 +121,7 @@ Each file is loaded as the governance leader responsible for it, so that the def
 | `juleskeeper` | Jules Keeper, Chief Data Officer | the 90 day plan, data strategy framework, joint officer definitions, risk register, the data governance program, and the strategic information supply chains |
 | `faithbroker` | Faith Broker, Chief Privacy Officer and Head of Human Resources | privacy, human resource management, health and safety, biological agents, and diversity, equity and inclusion |
 | `stewfaster` | Stew Faster, Head of Manufacturing | manufacturing, serialisation, and dangerous goods transport |
-| `ivorpadlock` | Ivor Padlock, Chief Information Security Officer | the data security strategy |
+| `ivorpadlock` | Ivor Padlock, Chief Security Officer | the data security strategy |
 | `tessatube` | Tessa Tube, Drug Development Lead | drug development governance |
 | `reggiemint` | Reggie Mint, Chief Financial Officer | corporate governance |
 | `erinoverview` | Erin Overview, Information Architect | the data quality glossary and the employee glossary |
