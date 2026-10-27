@@ -107,15 +107,18 @@ class StyleSet {
   mount(modules, root) {
     let sheet = this.sheet
     let pos = 0 /* Current rule offset */, j = 0 /* Index into this.modules */
+    let changed = false
     for (let i = 0; i < modules.length; i++) {
       let mod = modules[i], index = this.modules.indexOf(mod)
       if (index < j && index > -1) { // Ordering conflict
         this.modules.splice(index, 1)
+        changed = true
         j--
         index = -1
       }
       if (index == -1) {
         this.modules.splice(j++, 0, mod)
+        changed = true
         if (sheet) for (let k = 0; k < mod.rules.length; k++)
           sheet.insertRule(mod.rules[k], pos++)
       } else {
@@ -129,10 +132,12 @@ class StyleSet {
       if (root.adoptedStyleSheets.indexOf(this.sheet) < 0)
         root.adoptedStyleSheets = [this.sheet, ...root.adoptedStyleSheets]
     } else {
-      let text = ""
-      for (let i = 0; i < this.modules.length; i++)
-        text += this.modules[i].getRules() + "\n"
-      this.styleTag.textContent = text
+      if (changed) {
+        let text = ""
+        for (let i = 0; i < this.modules.length; i++)
+          text += this.modules[i].getRules() + "\n"
+        this.styleTag.textContent = text
+      }
       let target = root.head || root
       if (this.styleTag.parentNode != target)
         target.insertBefore(this.styleTag, target.firstChild)
