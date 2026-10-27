@@ -60,6 +60,67 @@ Marks assets containing sensitive information.
 
 ---
 
+## Security Officer
+
+### Create a statement of applicability
+```markdown
+## Create Statement of Applicability
+### Display Name
+Coco Pharmaceuticals ISMS
+
+### Scope
+The information security management system for Coco Pharmaceuticals.
+
+### Content Status
+DRAFT
+
+### Certification Standard
+CertificationType::ISO/IEC 27001:2022
+
+### Scoped By
+[qualified name of the organization the statement covers]
+```
+
+### Record whether a control applies
+```markdown
+## Link Control Applicability
+### Statement of Applicability
+StatementOfApplicability::Coco Pharmaceuticals ISMS
+
+### Control
+[qualified name of the control, e.g. NIST SP 800-53 Rev 5::AC-2]
+
+### Label
+AC-2
+
+### Justification
+Account management is needed to treat the insider-threat risk.
+
+### Inclusion Reasons
+Risk Treatment
+
+### Implementation Status
+PARTIALLY_IMPLEMENTED
+```
+Re-running the Link for the same statement and control updates it — only the
+values you give change, so a new `Implementation Status` and `Review Date` keep
+the justification and the rest.
+
+### View the control table
+```markdown
+## View Report
+### Report Spec
+Statement-of-Applicability-Controls
+
+### Output Format
+LIST
+
+### Report Parameters
+soa_guid: StatementOfApplicability::Coco Pharmaceuticals ISMS
+```
+
+---
+
 ## Feedback
 
 ### Create a comment
