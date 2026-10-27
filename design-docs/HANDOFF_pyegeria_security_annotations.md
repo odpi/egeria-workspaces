@@ -3,7 +3,7 @@
 Audience: maintainers of **pyegeria** and **Dr.Egeria** (egeria-python).
 Goal: support the four new annotation types added to Egeria 6.3 for the results of security testing, so that a security team can catalogue vulnerability scans and penetration tests, see the findings against the systems they affect, and follow the trend across test runs.
 
-Status (2026-10-26): the egeria changes are on the `oak2026` branch, not yet committed.  They compile, the unit tests pass, and every flow below has been exercised end to end against a platform built from the branch.  pyegeria 6.2.11 has also been tried against that platform - see [What already works](#what-already-works).
+Status (2026-10-27): the egeria changes are merged into `main` for 6.3 (odpi/egeria#9386).  Every flow below has been exercised end to end against a platform built from them.  pyegeria 6.2.11 has also been tried against that platform - see [What already works](#what-already-works).
 
 ---
 
@@ -123,6 +123,14 @@ Tried with pyegeria 6.2.11 against a platform built from the branch:
 - `get_annotation_by_guid(..., output_format="JSON")` returns all the security properties in `properties`, with the right `class`.
 
 The gaps are in output and convenience, not in the calls themselves.
+
+### Unset numbers and flags (ISSUE-166)
+
+Fixed in Egeria 6.3 (merged into `main` on 2026-10-27), for every Open Metadata Framework property bean, not only the security annotations:
+
+- Numeric and boolean properties are now `Integer`, `Long`, `Float` and `Boolean` with a `null` default.  A value that is not set is not stored, and is left out of the response, so `cvssScore`, `exploitAvailable`, `patchAvailable` and the posture counts are simply absent when nobody set them.
+- A merge update that leaves a number or flag out no longer resets it: `update_annotation` with only `reproductionSteps` keeps the stored `cvssScore` and `exploitAvailable`.  The Dr.Egeria `SecurityFindingProcessor` workaround that copies the current values into every merge update can go.
+- When a value is absent, its default is in the `defaultValue` additional property of the property's valid metadata value (category `Open Metadata Types`, set `propertyName`).  For example `exploitAvailable` and `patchAvailable` default to `false`, and `cvssScore` to `0.0`.  For a findings table, leaving an absent value blank - as the PR #495 rows already do - is still the right display; the default says what Egeria assumes, not what anyone assessed.
 
 ---
 
