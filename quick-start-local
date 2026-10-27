@@ -93,6 +93,18 @@ Options:
                       used for the Coco Pharmaceuticals clinical_trials
                       scenario). Deployed automatically by default; failure
                       only warns, startup continues either way.
+  --with-airflow-marquez
+                      Also deploy Airflow and Marquez (from
+                      compose-configs/optional-associated-runtimes/airflow-marquez):
+                      the Coco Pharmaceuticals DAGs and the OpenLineage
+                      events they emit. On by default with --demo, off
+                      otherwise. The first run builds the Airflow image, which
+                      takes several minutes. In demo mode their ports (Airflow
+                      8072, Marquez 3000/5050/5051) stay on 127.0.0.1, because
+                      Airflow's admin login can run code; reach them with
+                      ssh -L. Failure only warns.
+  --skip-airflow-marquez
+                      Don't deploy Airflow and Marquez, even with --demo.
   -h, --help          Show this help text.
 EOF
 }
@@ -110,6 +122,7 @@ ONLY_SYNC=0
 EGERIA_MEM_LIMIT="${EGERIA_MEM_LIMIT:-}"
 EGERIA_CPU_LIMIT="${EGERIA_CPU_LIMIT:-}"
 SKIP_UNITY_CATALOG=0
+AIRFLOW_MARQUEZ=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --refresh-platform)
@@ -148,6 +161,14 @@ while [[ $# -gt 0 ]]; do
       SKIP_UNITY_CATALOG=1
       shift
       ;;
+    --with-airflow-marquez)
+      AIRFLOW_MARQUEZ=1
+      shift
+      ;;
+    --skip-airflow-marquez)
+      AIRFLOW_MARQUEZ=0
+      shift
+      ;;
     --sync-from)
       SYNC_FROM="$2"
       shift 2
@@ -179,6 +200,11 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+# Airflow and Marquez come with the demo unless asked for (or skipped) explicitly.
+if [[ -z "$AIRFLOW_MARQUEZ" ]]; then
+  AIRFLOW_MARQUEZ="$DEMO_MODE_FLAG"
+fi
 
 # A demo, or --lan, serves other machines, so its ports must not stay
 # loopback-only even on Docker Desktop (detect-engine.sh picks the local default).
@@ -854,6 +880,24 @@ if [[ "$SKIP_UNITY_CATALOG" -eq 0 ]]; then
   fi
 fi
 
+if [[ "$AIRFLOW_MARQUEZ" -eq 1 ]]; then
+  echo "[quick-start-local] Starting Airflow and Marquez (builds the Airflow image on first run)..."
+  AM_COMPOSE_DIR="compose-configs/optional-associated-runtimes/airflow-marquez"
+  # Airflow's admin login (airflow/airflow) can run arbitrary code, and Marquez
+  # has no login at all, so a public demo keeps them on loopback.
+  AM_BIND_IP="$EGERIA_BIND_IP"
+  if [[ "$DEMO_MODE_FLAG" -eq 1 ]]; then
+    AM_BIND_IP="127.0.0.1"
+  fi
+  if [[ -f "${AM_COMPOSE_DIR}/airflow-marquez.yaml" ]]; then
+    EGERIA_BIND_IP="$AM_BIND_IP" \
+      $COMPOSE_CMD -f "${AM_COMPOSE_DIR}/airflow-marquez.yaml" -p airflow-marquez up -d \
+      || echo "[quick-start-local] WARNING: Airflow/Marquez did not start. Core services are unaffected. Skip with --skip-airflow-marquez." >&2
+  else
+    echo "[quick-start-local] WARNING: ${AM_COMPOSE_DIR}/airflow-marquez.yaml not found; skipping Airflow and Marquez." >&2
+  fi
+fi
+
 echo "[quick-start-local] Done. Useful URLs:"
 HOST_FQDN_PRINT=$(grep '^HOST_FQDN=' compose-configs/egeria-quickstart/.env | cut -d= -f2- || echo "localhost")
 KAFKA_CLUSTER_ID_PRINT=$(grep '^KAFKA_CLUSTER_ID=' compose-configs/egeria-quickstart/.env | cut -d= -f2- || echo "42")
@@ -872,6 +916,11 @@ echo "  - Obsidian (remote): bound to ${OBSIDIAN_BIND_ADDR:-127.0.0.1} -- use ss
 if [[ "$SKIP_UNITY_CATALOG" -eq 0 ]]; then
   echo "  - Unity Catalog (coco):    http://${URL_HOST}:8087  (UI: http://${URL_HOST}:3010)"
   echo "  - Unity Catalog (server2): http://${URL_HOST}:8187  (UI: http://${URL_HOST}:3020)"
+fi
+if [[ "$AIRFLOW_MARQUEZ" -eq 1 ]]; then
+  AM_URL_HOST="$(EGERIA_BIND_IP="$AM_BIND_IP" egeria_url_host "${HOST_FQDN_PRINT}")"
+  echo "  - Airflow:           http://${AM_URL_HOST}:8072  (airflow / airflow)"
+  echo "  - Marquez:           http://${AM_URL_HOST}:3000  (OpenLineage API on :5050)"
 fi
 _site_url_final="$(grep '^SITE_URL=' compose-configs/egeria-quickstart/.env | cut -d= -f2- || echo "https://${HOST_FQDN_PRINT:-localhost}:8843")"
 if egeria_bind_is_loopback; then

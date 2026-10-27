@@ -38,6 +38,10 @@ style C fill:#D9F7BE,stroke:#52C41A,stroke-width:3px,color:#000000
 
 ## Usage
 
+`./quick-start-local --with-airflow-marquez` (from the egeria-workspaces root) starts Airflow and Marquez for you
+after the quickstart containers, building the image on the first run; `--demo` does so by default
+(`--skip-airflow-marquez` turns it off). The manual steps below do the same by hand.
+
 This docker compose script is designed to run along-side the **egeria-quickstart** compose script. The **egeria-quickstart**
 compose containers must already be running before you try to start the **airflow-marquez** docker compose script. This is because
 both Airflow and Marquez are configured to share the same PostgreSQL database server as Egeria. Here are the steps to get

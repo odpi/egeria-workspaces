@@ -52,6 +52,10 @@ x-airflow-common: &airflow-common
     - ../../../exchange-quickstart/coco-dags:/opt/airflow/coco-dags
     - ${AIRFLOW_PROJ_DIR:-./runtime-data}/logs:/opt/airflow/logs
     - ${AIRFLOW_PROJ_DIR:-./runtime-data}/plugins:/opt/airflow/plugins
+  # Postgres and the OpenLineage proxy are reached through host.docker.internal, which Docker Desktop
+  # defines but native Docker Engine (Linux) does not.
+  extra_hosts:
+    - "host.docker.internal:${HOST_GATEWAY_IP:-host-gateway}"
   networks:
     - egeria_network
 
@@ -177,6 +181,8 @@ services:
       - SEARCH_ENABLED=false
     volumes:
       - ./marquez.yml:/usr/src/app/marquez.yml
+    extra_hosts:
+      - "host.docker.internal:${HOST_GATEWAY_IP:-host-gateway}"
     networks:
       - egeria_network
     healthcheck:
