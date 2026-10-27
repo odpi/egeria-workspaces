@@ -40,6 +40,7 @@ Once started, the following services are running:
 - Login: `https://<HOST_FQDN>/login`
 - Jupyter: `http://<HOST_FQDN>:8888` (password: `egeria`)
 - Obsidian — see [Obsidian browser container](#obsidian-browser-container) below
+- Airflow and Marquez (localhost only) — see [Airflow and Marquez](#airflow-and-marquez) below
 
 On first startup the container creates the admin account from the bootstrap credentials. If an admin already exists those values are ignored, so it is safe to leave them set.
 
@@ -558,6 +559,35 @@ browsers; with the default loopback binding the remote link only works through a
 
 ---
 
+## Airflow and Marquez
+
+`--demo` also starts Airflow and Marquez from
+[`optional-associated-runtimes/airflow-marquez`](../../optional-associated-runtimes/airflow-marquez/README.md)
+(`--skip-airflow-marquez` leaves them out). Airflow runs the Coco Pharmaceuticals DAGs, and each task's
+OpenLineage events go both to Marquez and, through the OpenLineage proxy and the `openlineage.events` Kafka
+topic, to Egeria, which catalogs them as processes and lineage. The Portal's *OpenLineage Events* bootstrap
+batch reconnects Egeria to that topic after every demo reset.
+
+| Service | URL on the host | Login |
+|---------|-----------------|-------|
+| Airflow | `http://localhost:8072` | `airflow` / `airflow` |
+| Marquez UI | `http://localhost:3000` | none |
+| Marquez API | `http://localhost:5050` | none |
+
+**These ports stay on `127.0.0.1` in demo mode**, unlike the rest of the demo: Airflow's admin login can run
+code, and Marquez has no login. From another machine, tunnel in:
+
+```bash
+ssh -L 8072:localhost:8072 -L 3000:localhost:3000 <demo-host>
+```
+
+To publish the Marquez UI on the internet later, give it its own hostname behind Apache with a login and
+read-only methods; do not forward port 3000. The README's
+[Opening the Marquez UI to the internet](../../optional-associated-runtimes/airflow-marquez/README.md#opening-the-marquez-ui-to-the-internet)
+lists what is needed.
+
+---
+
 ## Security checklist
 
 Before making a deployment public:
@@ -568,6 +598,7 @@ Before making a deployment public:
 - [ ] `SITE_URL` is `https://your.domain.com` — set automatically by `--demo` from `HOST_FQDN`; verify it is correct
 - [ ] Port 8000 (FastAPI) NOT exposed to the internet; all traffic via Apache on port 8885/443
 - [ ] Obsidian ports 8860/8861 NOT exposed to the internet (default `127.0.0.1`); if `OBSIDIAN_BIND_ADDR` is widened, `OBSIDIAN_PASSWORD` is set
+- [ ] Airflow (8072) and Marquez (3000, 5050, 5051) NOT exposed to the internet (`127.0.0.1` in demo mode); Marquez published only through an authenticated, read-only Apache vhost
 - [ ] Router/firewall forwards only 443 (and 80 for ACME) to this host — every quickstart service publishes on all interfaces by default
 - [ ] `DEMO_DB_PASSWORD` and `EGERIA_META_DB_PASSWORD` set in `.env.demo` if changed from defaults
 - [ ] Egeria data store pre-loaded with Coco Pharmaceuticals data before announcing the demo
