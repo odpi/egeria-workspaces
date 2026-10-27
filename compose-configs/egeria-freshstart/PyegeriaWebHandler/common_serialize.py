@@ -273,6 +273,36 @@ def _unwrap_relationship_item(item: dict) -> Optional[dict]:
     }
 
 
+def _relationship_items_once(element: dict, skip_keys) -> list:
+    """(key, entry) for every relationship-shaped entry on a graph-queried
+    element, each relationship once. A graph query returns a relationship both
+    under its typed key (e.g. knownLocations) and again in the flat
+    `relationships` list, so the flat list is visited last and a relationship
+    GUID already seen is skipped -- the typed key wins. Entries without a
+    relationship GUID are never treated as duplicates."""
+    seen = set()
+    out = []
+    for key, val in sorted(element.items(), key=lambda kv: kv[0] == "relationships"):
+        if key in skip_keys:
+            continue
+        if isinstance(val, list):
+            candidates = val
+        elif isinstance(val, dict):
+            candidates = [val]
+        else:
+            continue
+        for entry in candidates:
+            if not isinstance(entry, dict):
+                continue
+            rel_guid = (entry.get("relationshipHeader") or {}).get("guid")
+            if rel_guid:
+                if rel_guid in seen:
+                    continue
+                seen.add(rel_guid)
+            out.append((key, entry))
+    return out
+
+
 def _generic_relationships(element: dict, skip: tuple = ()) -> dict:
     """Group every top-level relationship-shaped key on a graph-queried
     element into {keyName: [relatedElement, ...]}. A key qualifies if its
@@ -292,20 +322,8 @@ def _generic_relationships(element: dict, skip: tuple = ()) -> dict:
         return {}
     skip_set = _RELATIONSHIP_SKIP_KEYS | set(skip)
     result = {}
-    for key, val in element.items():
-        if key in skip_set:
-            continue
-        if isinstance(val, list):
-            candidates = val
-        elif isinstance(val, dict):
-            candidates = [val]
-        else:
-            continue
-        items = []
-        for entry in candidates:
-            r = _unwrap_relationship_item(entry)
-            if r:
-                items.append(r)
-        if items:
-            result[key] = items
+    for key, entry in _relationship_items_once(element, skip_set):
+        r = _unwrap_relationship_item(entry)
+        if r:
+            result.setdefault(key, []).append(r)
     return result

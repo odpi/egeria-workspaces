@@ -83,6 +83,21 @@ test("failing when set is bigger than max() ", () => {
   expect(result.success).toEqual(false);
   expect(result.error!.issues.length).toEqual(1);
   expect(result.error!.issues[0].code).toEqual("too_big");
+  expect(
+    z
+      .set(z.string())
+      .max(1)
+      .safeParse(new Set([1, 2])).error!.issues
+  ).toMatchObject([{ code: "too_big" }]);
+});
+
+test("failing when set does not match size() ", () => {
+  expect(justTwo.safeParse(new Set(["one"])).error!.issues[0].message).toEqual(
+    "Too small: expected set to have exactly 2 items"
+  );
+  expect(justTwo.safeParse(new Set(["one", "two", "three"])).error!.issues[0].message).toEqual(
+    "Too big: expected set to have exactly 2 items"
+  );
 });
 
 test("doesn’t throw when an empty set is given", () => {

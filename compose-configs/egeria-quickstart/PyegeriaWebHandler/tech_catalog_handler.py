@@ -46,7 +46,8 @@ from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
 
 from common_serialize import (_authored_fields, _header_summary, _map_property_value,
-                              _property_items, _additional_properties)
+                              _property_items, _additional_properties,
+                              _relationship_items_once)
 from digital_products_handler import _extract_props
 
 router = APIRouter(tags=["tech-catalog"])
@@ -349,24 +350,15 @@ def _extract_relationships(el: dict) -> list:
     """
     _SKIP_KEYS = {"elementHeader", "properties", "classifications", "class"}
     result = []
-    for key, val in el.items():
-        if key in _SKIP_KEYS:
+    # Each relationship once -- the graph's flat `relationships` list repeats
+    # the ones already under their typed keys (see _relationship_items_once).
+    for key, item in _relationship_items_once(el, _SKIP_KEYS):
+        # Single-dict values (e.g. schemaType) only count with a relationshipHeader
+        if isinstance(el.get(key), dict) and not item.get("relationshipHeader"):
             continue
-        # Single-dict relationship (e.g. schemaType)
-        if isinstance(val, dict):
-            if val.get("relationshipHeader"):
-                r = _unwrap_rel_item(val, key)
-                if r:
-                    result.append(r)
-            continue
-        if not isinstance(val, list):
-            continue
-        for item in val:
-            if not isinstance(item, dict):
-                continue
-            r = _unwrap_rel_item(item, key)
-            if r:
-                result.append(r)
+        r = _unwrap_rel_item(item, key)
+        if r:
+            result.append(r)
     return result
 
 
