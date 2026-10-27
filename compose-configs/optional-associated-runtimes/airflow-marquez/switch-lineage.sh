@@ -1,12 +1,12 @@
 #!/bin/bash
 # Chooses where Airflow sends its OpenLineage events, and recreates the Airflow containers to pick it up.
 #
-#   ./switch-lineage.sh marquez   - to Marquez only (the default)
+#   ./switch-lineage.sh marquez   - to Marquez only
 #   ./switch-lineage.sh egeria    - to Egeria only, through the OpenLineage proxy backend in shared-infra, which
 #                                   publishes the events to the Kafka topic openlineage.events.  Egeria's
 #                                   OpenLineageKafkaListener integration connector must be listening on that topic:
 #                                   see workbooks/cataloguing-and-surveys/apache-kafka/kafka-open-lineage-events.ipynb.
-#   ./switch-lineage.sh both      - to both
+#   ./switch-lineage.sh both      - to both (the default)
 #
 # The choice is written to openlineage.env (AIRFLOW__OPENLINEAGE__TRANSPORT), which every Airflow container loads,
 # so it stays in force across restarts and rebuilds until it is switched again.

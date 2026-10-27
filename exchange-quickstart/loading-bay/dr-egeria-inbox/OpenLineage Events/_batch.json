@@ -1,0 +1,15 @@
+{
+  "displayName": "OpenLineage Events",
+  "description": "Sets Egeria up to receive the OpenLineage events Airflow publishes: catalogs the openlineage.events Kafka topic (filled by the shared-infra OpenLineage proxy) and makes it the OpenLineageKafkaListener connector's catalog target. Re-runs after a demo reset, which deletes that set-up.",
+  "canary": {
+    "type": "Topic",
+    "name": "openlineage.events"
+  },
+  "defaultEnabled": true,
+  "files": [
+    {
+      "file": "harvest-open-lineage-events.ipynb",
+      "userid": "erinoverview"
+    }
+  ]
+}

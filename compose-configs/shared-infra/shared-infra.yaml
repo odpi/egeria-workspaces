@@ -10,6 +10,9 @@ services:
       context: ../egeria-quickstart
       dockerfile: Dockerfile-proxy
     container_name: egeria-shared-openlineage-proxy-backend
+    # Airflow's OpenLineage events reach Egeria only through this proxy, and nothing
+    # else brings it back once it stops.
+    restart: always
     extra_hosts:
       - "host.docker.internal:${HOST_GATEWAY_IP}"
     networks:
