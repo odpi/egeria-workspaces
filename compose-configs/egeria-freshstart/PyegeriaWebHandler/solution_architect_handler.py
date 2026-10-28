@@ -267,9 +267,15 @@ def _serialize_wires(wires: list) -> list:
 
 
 def _serialize_implementation(element: dict) -> dict:
+    # get_solution_component_implementations returns ImplementedBy relationship
+    # entries with the implementation under relatedElement; reading the entry
+    # itself left every field empty.
+    rel_type = ((element.get("relationshipHeader") or {}).get("type") or {}).get("typeName") or ""
+    element = element.get("relatedElement") or element
     props  = _props(element)
     header = _header(element)
     return {
+        "relationshipType": rel_type,
         "guid":           header.get("guid", ""),
         "displayName":    props.get("displayName") or props.get("name") or "",
         "qualifiedName":  props.get("qualifiedName") or "",
