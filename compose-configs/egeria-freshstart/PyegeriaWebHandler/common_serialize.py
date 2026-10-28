@@ -273,14 +273,27 @@ def _unwrap_relationship_item(item: dict) -> Optional[dict]:
     }
 
 
-def _relationship_items_once(element: dict, skip_keys) -> list:
+def _relationship_items_once(element: dict, skip_keys, shown_keys=()) -> list:
     """(key, entry) for every relationship-shaped entry on a graph-queried
     element, each relationship once. A graph query returns a relationship both
     under its typed key (e.g. knownLocations) and again in the flat
     `relationships` list, so the flat list is visited last and a relationship
     GUID already seen is skipped -- the typed key wins. Entries without a
-    relationship GUID are never treated as duplicates."""
+    relationship GUID are never treated as duplicates.
+
+    `shown_keys`: keys the caller already displays through its own curated
+    logic. They are not returned, but their relationship GUIDs count as seen,
+    so the same relationship under a second typed key is not listed again
+    (e.g. a SolutionComponent's wires come back under both wiredTo and
+    lineageLinkage)."""
     seen = set()
+    for key in shown_keys:
+        val = element.get(key)
+        for entry in (val if isinstance(val, list) else [val]):
+            if isinstance(entry, dict):
+                rel_guid = (entry.get("relationshipHeader") or {}).get("guid")
+                if rel_guid:
+                    seen.add(rel_guid)
     out = []
     for key, val in sorted(element.items(), key=lambda kv: kv[0] == "relationships"):
         if key in skip_keys:
@@ -322,7 +335,7 @@ def _generic_relationships(element: dict, skip: tuple = ()) -> dict:
         return {}
     skip_set = _RELATIONSHIP_SKIP_KEYS | set(skip)
     result = {}
-    for key, entry in _relationship_items_once(element, skip_set):
+    for key, entry in _relationship_items_once(element, skip_set, shown_keys=skip):
         r = _unwrap_relationship_item(entry)
         if r:
             result.setdefault(key, []).append(r)

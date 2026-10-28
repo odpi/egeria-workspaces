@@ -16,6 +16,7 @@ Endpoints:
 
 import os
 from egeria_auth import apply_token
+import threading
 import time
 from typing import Optional
 
@@ -236,14 +237,33 @@ def _serialize_component_detail(element: dict) -> dict:
     detail["blueprints"]              = blueprints
     detail["informationSupplyChains"] = supply_chains
     detail["actors"]                  = _serialize_rel_entries(_rel_list(element, "actors"))
-    detail["wiredTo"]                 = _serialize_rel_entries(_rel_list(element, "wiredTo"))
-    detail["wiredFrom"]               = _serialize_rel_entries(_rel_list(element, "wiredFrom"))
+    # Egeria returns every SolutionLinkingWire under wiredTo, whichever end this
+    # component is on. The typedef's end1 is "wiredFrom" (where the wire starts)
+    # and end2 "wiredTo", so a related element at end1 is a wire coming in.
+    wires = _rel_list(element, "wiredTo") + _rel_list(element, "wiredFrom")
+    detail["wiredTo"]   = _serialize_wires([w for w in wires if not w.get("relatedElementAtEnd1")])
+    detail["wiredFrom"] = _serialize_wires([w for w in wires if w.get("relatedElementAtEnd1")])
     # Generic catch-all so any relationship key not curated above still surfaces.
     detail["relationships"]     = _generic_relationships(element, skip=(
         "memberOfCollections", "usedInSolutionComponents", "nestedSolutionComponents",
         "actors", "wiredTo", "wiredFrom",
     ))
     return detail
+
+
+def _serialize_wires(wires: list) -> list:
+    """_serialize_rel_entries plus each wire's label (what flows along it),
+    once per relationship GUID."""
+    seen, out = set(), []
+    for w in wires:
+        rel_guid = (w.get("relationshipHeader") or {}).get("guid")
+        if rel_guid and rel_guid in seen:
+            continue
+        seen.add(rel_guid)
+        for entry in _serialize_rel_entries([w]):
+            entry["label"] = (w.get("relationshipProperties") or {}).get("label") or ""
+            out.append(entry)
+    return out
 
 
 def _serialize_implementation(element: dict) -> dict:
@@ -477,7 +497,7 @@ def get_blueprint(
 @router.get("/api/solution/components", summary="List all solution components", responses=EGERIA_ERROR_RESPONSES)
 def list_components(
     start_from: int = Query(0,   ge=0),
-    page_size:  int = Query(200, ge=1, le=500),
+    page_size:  Optional[int] = Query(None, ge=1, le=500, description="Omit to return every component"),
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
@@ -490,15 +510,18 @@ def list_components(
         raise_egeria_http_error(exc, "Failed to create SolutionArchitect manager")
 
     try:
-        raw = mgr.find_solution_components(
-            search_string="*",
-            output_format="JSON",
-            start_from=start_from,
-            page_size=page_size,
-            graph_query_depth=0,
-            sequencing_order="PROPERTY_ASCENDING",
-            sequencing_property="displayName",
-        )
+        if page_size is None:
+            raw = _find_all_components(mgr)
+        else:
+            raw = mgr.find_solution_components(
+                search_string="*",
+                output_format="JSON",
+                start_from=start_from,
+                page_size=page_size,
+                graph_query_depth=0,
+                sequencing_order="PROPERTY_ASCENDING",
+                sequencing_property="displayName",
+            )
     except Exception as exc:
         raise_egeria_http_error(exc, "find_solution_components failed")
 
@@ -527,6 +550,33 @@ def _rel_guids(element: dict, key: str) -> list:
         if g:
             out.append(g)
     return out
+
+
+_PAGE = 500
+
+
+def _all_pages(fetch) -> list:
+    """Call fetch(start_from, page_size) until it returns an empty page. A short
+    page is not the last one (Egeria's paging contract), and page_size=0 is not
+    "everything": get_relationships stops at 1000 that way."""
+    out, start = [], 0
+    while True:
+        page = fetch(start, _PAGE)
+        if not isinstance(page, list) or not page:
+            return out
+        out.extend(page)
+        start += len(page)
+
+
+def _find_all_components(mgr) -> list:
+    return _all_pages(lambda start, size: mgr.find_solution_components(
+        search_string="*", output_format="JSON", start_from=start, page_size=size,
+        graph_query_depth=0, sequencing_order="PROPERTY_ASCENDING", sequencing_property="displayName"))
+
+
+def _all_relationships(ce, relationship_type: str) -> list:
+    return _all_pages(lambda start, size: ce.get_relationships(
+        relationship_type=relationship_type, start_from=start, page_size=size, output_format="JSON"))
 
 
 @router.get("/api/solution/components/tree", summary="Solution component composition hierarchy", responses=EGERIA_ERROR_RESPONSES)
@@ -559,19 +609,14 @@ def list_components_tree(
     # is the parent and end2 the nested component -- checked against
     # nestedSolutionComponents / usedInSolutionComponents on a sample of components.
     try:
-        raw = mgr.find_solution_components(
-            search_string="*", output_format="JSON",
-            start_from=0, page_size=500, graph_query_depth=0,
-            sequencing_order="PROPERTY_ASCENDING", sequencing_property="displayName",
-        )
+        raw = _find_all_components(mgr)
     except Exception as exc:
         raise_egeria_http_error(exc, "find_solution_components (tree) failed")
     if not isinstance(raw, list):
         raw = []
     try:
         ce = _get_classification_explorer(url, server, user_id, user_pwd)
-        compositions = ce.get_relationships(
-            relationship_type="SolutionComposition", page_size=0, output_format="JSON")
+        compositions = _all_relationships(ce, "SolutionComposition")
     except Exception as exc:
         raise_egeria_http_error(exc, "get_relationships (SolutionComposition) failed")
     if not isinstance(compositions, list):
@@ -605,6 +650,95 @@ def list_components_tree(
     result = {"roots": roots, "total": len(summary)}
     _COMP_TREE_CACHE[cache_key] = (time.time(), result)
     return JSONResponse(result)
+
+
+# Grouping data for the Components left pane: cache_key → (timestamp, result).
+# Cold builds take a minute or more (four bulk relationship scans), so a stale
+# entry is served at once while one background thread rebuilds it.
+_COMP_GROUPS_CACHE: dict = {}
+_COMP_GROUPS_TTL = 300  # seconds
+_COMP_GROUPS_BUILDING: set = set()
+_COMP_GROUPS_LOCK = threading.Lock()
+
+
+def _build_component_groups(url, server, user_id, user_pwd) -> dict:
+    mgr = _get_manager(url, server, user_id, user_pwd)
+    ce = _get_classification_explorer(url, server, user_id, user_pwd)
+
+    def names(elements):
+        out = {}
+        for el in elements if isinstance(elements, list) else []:
+            g = (el.get("elementHeader") or {}).get("guid")
+            if g:
+                p = _props(el)
+                out[g] = {"guid": g, "displayName": p.get("displayName") or p.get("name") or p.get("qualifiedName") or g,
+                          "qualifiedName": p.get("qualifiedName") or ""}
+        return out
+
+    blueprints = names(_all_pages(lambda start, size: mgr.find_solution_blueprints(
+        search_string="*", output_format="JSON", start_from=start, page_size=size, graph_query_depth=0)))
+    supply_chains = names(_all_pages(lambda start, size: mgr.find_information_supply_chains(
+        search_string="*", output_format="JSON", start_from=start, page_size=size,
+        add_implementation=False, graph_query_depth=0)))
+
+    members: dict = {}
+
+    def member(guid):
+        return members.setdefault(guid, {"blueprints": [], "supplyChains": [], "wires": 0, "implementations": 0})
+
+    def end_guid(rel, end):
+        return (rel.get(end) or {}).get("guid")
+
+    for rel in _all_relationships(ce, "CollectionMembership"):
+        coll, elem = end_guid(rel, "end1"), end_guid(rel, "end2")
+        if coll in blueprints:
+            member(elem)["blueprints"].append(coll)
+        elif coll in supply_chains:
+            member(elem)["supplyChains"].append(coll)
+    for rel in _all_relationships(ce, "SolutionLinkingWire"):
+        for g in {end_guid(rel, "end1"), end_guid(rel, "end2")} - {None}:
+            member(g)["wires"] += 1
+    for rel in _all_relationships(ce, "ImplementedBy"):
+        member(end_guid(rel, "end1"))["implementations"] += 1
+    members.pop(None, None)
+    return {"blueprints": blueprints, "supplyChains": supply_chains, "members": members, "builtAt": time.time()}
+
+
+def _refresh_component_groups(cache_key, args):
+    try:
+        _COMP_GROUPS_CACHE[cache_key] = (time.time(), _build_component_groups(*args))
+    except Exception:
+        logger.exception("Building solution component groups failed")
+    finally:
+        with _COMP_GROUPS_LOCK:
+            _COMP_GROUPS_BUILDING.discard(cache_key)
+
+
+@router.get("/api/solution/components/groups", summary="Blueprint, supply chain, wire and implementation membership per component", responses=EGERIA_ERROR_RESPONSES)
+def list_component_groups(
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
+    refresh:  bool = Query(False, description="Rebuild in the background even if the cached copy is fresh"),
+):
+    """Per component GUID: the blueprints and information supply chains it belongs
+    to, and how many wires and implementations it has. Returns {"loading": true}
+    until the first build finishes; {"stale": true} while a rebuild is running."""
+    cache_key = f"{url or ''}|{server or ''}|{user_id or ''}{_lineage_key()}"
+    cached = _COMP_GROUPS_CACHE.get(cache_key)
+    fresh = cached and not refresh and (time.time() - cached[0]) < _COMP_GROUPS_TTL
+    if not fresh:
+        with _COMP_GROUPS_LOCK:
+            start = cache_key not in _COMP_GROUPS_BUILDING
+            if start:
+                _COMP_GROUPS_BUILDING.add(cache_key)
+        if start:
+            threading.Thread(target=_refresh_component_groups, daemon=True,
+                             args=(cache_key, (url, server, user_id, user_pwd))).start()
+    if not cached:
+        return JSONResponse({"loading": True})
+    return JSONResponse({**cached[1], "stale": not fresh})
 
 
 @router.get("/api/solution/components/{guid}", summary="Get a single solution component by GUID", responses=EGERIA_ERROR_RESPONSES)
