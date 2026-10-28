@@ -108,7 +108,11 @@ def _serialize_rel_entries(rel_list: list) -> list:
 
 
 _MERMAID_FIELDS = [
-    "mermaidGraph", "iscImplementationMermaidGraph", "informationSupplyChainMermaidGraph",
+    "mermaidGraph", "iscImplementationMermaidGraph",
+    # Egeria 6.3+: the implementation graph split into five (empty ones are omitted)
+    "iscDataMeshMermaidGraph", "iscSystemFabricMermaidGraph",
+    "iscDataFabricMermaidGraph", "iscDataMappingMermaidGraph",
+    "informationSupplyChainMermaidGraph",
     "edgeMermaidGraph", "anchorMermaidGraph", "specificationMermaidGraph",
     "solutionBlueprintMermaidGraph", "solutionSubcomponentMermaidGraph",
     "actionMermaidGraph", "localLineageGraph", "fieldLevelLineageGraph",
