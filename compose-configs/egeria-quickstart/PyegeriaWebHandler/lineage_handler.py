@@ -18,6 +18,7 @@ Credentials for pyegeria client construction come from env vars only.
 """
 
 import os
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -62,6 +63,23 @@ def _is_no_data_error(exc: Exception) -> bool:
     return any(code in exc_str for code in (
         "400", "404", "CLIENT_ERROR_400", "CLIENT_ERROR_404", "No elements",
     ))
+
+
+_EGERIA_ERROR_MESSAGE = re.compile(r"exceptionErrorMessage=\s*`([^`]*)`")
+
+
+def _egeria_error_message(exc: Exception) -> Optional[str]:
+    """The Egeria server's own error message carried in a pyegeria exception, if any.
+
+    _is_no_data_error matches any "400"/"404" in the text, and Egeria reports
+    real failures with those codes too (e.g. OMAG-REPOSITORY-HANDLER-404-001
+    when a lineage traversal reaches a DigitalProduct, which is not an Asset).
+    An empty result never carries an Egeria error message, so its presence
+    means the call failed and the caller should say so rather than show "no
+    lineage".
+    """
+    m = _EGERIA_ERROR_MESSAGE.search(str(exc))
+    return m.group(1).strip() if m else None
 
 
 def _asset_catalog(url, server, token=None):
@@ -237,6 +255,10 @@ def get_asset_lineage_graph(
             return JSONResponse(_empty)
         return JSONResponse(el)
     except Exception as exc:
+        egeria_msg = _egeria_error_message(exc)
+        if egeria_msg:
+            logger.warning(f"get_asset_lineage_graph: Egeria failed for guid={guid}: {egeria_msg}")
+            raise HTTPException(status_code=502, detail=f"Egeria could not build the lineage graph: {egeria_msg}")
         if _is_no_data_error(exc):
             return JSONResponse(_empty)
         logger.exception("get_asset_lineage_graph failed for guid=%s", guid)
