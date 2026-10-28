@@ -41,7 +41,7 @@ The full set of element-category browsers — most support search, filtering, cr
 | **Data Design** | Data Specs, Data Structures, Data Fields, and Data Grains, cross-referenced with glossary terms — a field's assigned glossary term(s) and data class(es) are called out distinctly (🧠 / 🏷️) rather than buried among other relationships |
 | **Collections** | Same as above |
 | **Solution Architect** | Solution blueprints and component hierarchies — actor assignments, wiring relationships, concrete implementations — plus a **Patterns** tab for the design-pattern library (general/specialized, consumed/consuming, and related pattern relationships, grouped by category) |
-| **Information Supply Chains** | ISC scope, segments, and concrete technical implementations as Mermaid diagrams |
+| **Information Supply Chains** | ISC scope, segments, and concrete technical implementations as Mermaid diagrams. From Egeria 6.3 a supply chain has up to five graphs, each shown only when it has content: **ISC Implementation** (context, solution design and implementation status), **ISC Data Mesh** (digital products and their dependencies), **ISC System Fabric** (infrastructure and software capabilities), **ISC Data Fabric** (data assets, processes and actions linked by lineage) and **ISC Data Mapping** (elements linked by data mappings, such as columns) |
 | **Locations** | Physical, cyber, and secure locations — parent/child hierarchies, peer links, locally hosted assets, assigned roles |
 | **Actors** | Actor profiles (people, teams, organizations, IT profiles), the roles they perform, and their user identities |
 | **Communities** | Communities of interest and the roles/people assigned to them |

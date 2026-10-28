@@ -64,6 +64,11 @@ _ALL_MERMAID_FIELDS = [
     "localLineageGraph",
     "edgeMermaidGraph",
     "iscImplementationMermaidGraph",
+    # Egeria 6.3+: the ISC implementation graph split into five
+    "iscDataMeshMermaidGraph",
+    "iscSystemFabricMermaidGraph",
+    "iscDataFabricMermaidGraph",
+    "iscDataMappingMermaidGraph",
     "specificationMermaidGraph",
     "solutionBlueprintMermaidGraph",
     "solutionSubcomponentMermaidGraph",
