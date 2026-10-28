@@ -148,6 +148,12 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    # codeql-action's init and analyze steps must run the same version, so a
+    # PR that bumps only one fails CodeQL (#668/#674 did). One PR for both.
+    groups:
+      codeql-action:
+        patterns:
+          - "github/codeql-action*"
 
   # npm (obsidian-plugins/call-dr-egeria) deliberately excluded: the one
   # historical dependabot PR against this plugin (js-yaml 4.1.0 -> 4.1.1,
