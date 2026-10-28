@@ -14,7 +14,11 @@
 
 var _MERMAID_FIELD_LABELS = {
   mermaidGraph:                          'Context Diagram',
-  iscImplementationMermaidGraph:         'ISC Implementation',
+  iscImplementationMermaidGraph:         'ISC Implementation Graph',
+  iscDataMeshMermaidGraph:               'ISC Data Mesh Graph',
+  iscSystemFabricMermaidGraph:           'ISC System Fabric Graph',
+  iscDataFabricMermaidGraph:             'ISC Data Fabric Graph',
+  iscDataMappingMermaidGraph:            'ISC Data Mapping Graph',
   informationSupplyChainMermaidGraph:    'Supply Chain Graph',
   edgeMermaidGraph:                      'Asset Edge Graph',
   anchorMermaidGraph:                    'Anchored Graph',
