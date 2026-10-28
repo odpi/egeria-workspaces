@@ -57,7 +57,10 @@ def token_user() -> Optional[str]:
     Egeria tokens are JWTs whose ``sub`` is the user id. The payload is read
     without verifying the signature: Egeria verifies the token on every call, and
     this is only for labelling things as the caller's own (my like, my rating)."""
-    token = _egeria_token.get()
+    return _token_sub(_egeria_token.get())
+
+
+def _token_sub(token: Optional[str]) -> Optional[str]:
     parts = token.split(".") if token else []
     if len(parts) != 3:
         return None
@@ -69,13 +72,28 @@ def token_user() -> Optional[str]:
     return sub if isinstance(sub, str) and sub else None
 
 
+def use_token(client, token: str) -> None:
+    """Make a pyegeria client act only as the user the bearer token belongs to.
+
+    pyegeria answers a 401 (usually an expired token) by logging in again with
+    the client's own user_id/user_pwd and retrying. The portal builds its
+    clients with the service credentials (EGERIA_USER, erinoverview), so when a
+    signed-in user's token expired, that retry silently ran the request as the
+    service user: Peter's lineage query failed with "erinoverview is not
+    authorized". The client keeps no password, so there is no retry; the 401
+    reaches the browser, which mints a new token for its own user."""
+    client.set_bearer_token(token)
+    client.user_id = _token_sub(token) or client.user_id
+    client.user_pwd = None
+
+
 def apply_token(client) -> None:
     """Apply the per-request bearer token to a freshly-built pyegeria client, or
     obtain a fresh token from the client's configured credentials when none was
     supplied. Drop-in replacement for ``client.create_egeria_bearer_token()``."""
     token = _egeria_token.get()
     if token:
-        client.set_bearer_token(token)
+        use_token(client, token)
     else:
         client.create_egeria_bearer_token()
 
@@ -87,7 +105,7 @@ async def async_apply_token(client) -> None:
     need to run a sub-loop (which would raise RuntimeError on Python 3.10+)."""
     token = _egeria_token.get()
     if token:
-        client.set_bearer_token(token)
+        use_token(client, token)
     else:
         await client._async_create_egeria_bearer_token()
 
