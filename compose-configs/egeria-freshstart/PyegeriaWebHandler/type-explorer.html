@@ -6244,7 +6244,6 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
 }
 
 function SolutionBlueprintDetail({ blueprint, onNavigateToComponent, onNavigateToBlueprint, onNavigateToElement }) {
-  const [implState, setImplState] = useState('idle');
   var _saPersonaId = React.useContext(PersonaContext);
   if (!blueprint) return null;
 
@@ -6309,17 +6308,6 @@ function SolutionBlueprintDetail({ blueprint, onNavigateToComponent, onNavigateT
 function SolutionComponentDetail({ component, onNavigateToBlueprint, onNavigateToComponent, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
   var _saPersonaId = React.useContext(PersonaContext);
-  const [implState, setImplState] = useState('idle');
-  const [implementations, setImplementations] = useState([]);
-
-  function loadImplementations() {
-    if (implState !== 'idle') return;
-    setImplState('loading');
-    egeriaFetch('/api/solution/components/' + component.guid + '/implementations', creds)
-      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-      .then(data => { setImplementations(data.implementations || []); setImplState('done'); })
-      .catch(() => setImplState('error'));
-  }
 
   if (!component) return null;
 
@@ -6373,21 +6361,6 @@ function SolutionComponentDetail({ component, onNavigateToBlueprint, onNavigateT
     relSection("Wired To", component.wiredTo, onNavigateToComponent),
     relSection("Wired From", component.wiredFrom, onNavigateToComponent),
     React.createElement(GenericRelationshipsSection, { relationships: component.relationships, onNavigateToElement: onNavigateToElement }),
-    React.createElement("div", { style: { marginBottom: 16 } },
-      React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 } },
-        React.createElement("div", { style: { fontWeight: 600, fontSize: 13, color: 'var(--accent)' } }, "Implementations"),
-        implState === 'idle' && React.createElement("button", {
-          onClick: loadImplementations,
-          style: { padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--hover)', cursor: 'pointer', fontSize: 11 }
-        }, "Load"),
-        implState === 'loading' && React.createElement("span", { style: { fontSize: 11, color: 'var(--dim)' } }, "Loading…"),
-        implState === 'error' && React.createElement("span", { style: { fontSize: 11, color: '#f87171' } }, "Failed to load"),
-      ),
-      implState === 'done' && implementations.length === 0 && React.createElement("div", { style: { fontSize: 13, color: 'var(--dim)' } }, "No implementations found"),
-      implState === 'done' && implementations.map(function(impl) {
-        return React.createElement(RelatedElementRow, { key: impl.guid, item: impl, onNavigateToElement: onNavigateToElement });
-      })
-    ),
     React.createElement(ClassificationsAndRawJson, { item: component, creds: creds }),
     React.createElement(EgeriaCommentsSection, { guid: component.guid })
   );
