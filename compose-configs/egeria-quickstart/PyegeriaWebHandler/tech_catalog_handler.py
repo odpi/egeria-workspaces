@@ -41,7 +41,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from egeria_auth import lineage_key as _lineage_key, token_user as _token_user
+from egeria_auth import lineage_key as _lineage_key, token_user as _token_user, use_token
 from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
 
@@ -98,7 +98,7 @@ def _token_from_request(request: Request) -> Optional[str]:
 def _apply_token(client, token: Optional[str]):
     """Set a pre-obtained bearer token on a pyegeria client, or obtain a fresh one."""
     if token:
-        client.set_bearer_token(token)
+        use_token(client, token)   # never falls back to the service user; see egeria_auth.use_token
     else:
         client.create_egeria_bearer_token()
 

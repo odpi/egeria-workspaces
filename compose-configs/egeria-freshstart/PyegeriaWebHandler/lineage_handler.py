@@ -26,6 +26,9 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
 
+from egeria_auth import use_token
+from egeria_error_mapping import _is_auth_error
+
 router = APIRouter(tags=["lineage"])
 
 _HERE = Path(__file__).parent
@@ -52,7 +55,7 @@ def _token_from_request(request: Request) -> Optional[str]:
 def _apply_token(client, token: Optional[str]):
     """Set a pre-obtained bearer token on a pyegeria client, or obtain a fresh one."""
     if token:
-        client.set_bearer_token(token)
+        use_token(client, token)   # never falls back to the service user; see egeria_auth.use_token
     else:
         client.create_egeria_bearer_token()
 
@@ -204,6 +207,9 @@ def get_asset_graph(
             return JSONResponse({"error": "not_found"}, status_code=404)
         return JSONResponse(el)
     except Exception as exc:
+        if _is_auth_error(exc) and not _egeria_error_message(exc):
+            # Expired token: a 401 lets the page mint a new one for its own user and retry.
+            raise HTTPException(status_code=401, detail="Egeria rejected the token")
         if _is_no_data_error(exc):
             return JSONResponse({"error": "not_found"}, status_code=404)
         logger.exception("get_asset_graph failed for guid=%s", guid)
@@ -259,6 +265,9 @@ def get_asset_lineage_graph(
         if egeria_msg:
             logger.warning(f"get_asset_lineage_graph: Egeria failed for guid={guid}: {egeria_msg}")
             raise HTTPException(status_code=502, detail=f"Egeria could not build the lineage graph: {egeria_msg}")
+        if _is_auth_error(exc):
+            # Expired token: a 401 lets the page mint a new one for its own user and retry.
+            raise HTTPException(status_code=401, detail="Egeria rejected the token")
         if _is_no_data_error(exc):
             return JSONResponse(_empty)
         logger.exception("get_asset_lineage_graph failed for guid=%s", guid)
