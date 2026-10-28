@@ -43,7 +43,7 @@ Shows elements directly connected to the focus asset by lineage relationships. I
 Lists the information supply chains (ISC) that include the focus asset. Click a supply chain to select it, then use the ISC filter options when loading the full lineage graph:
 
 - **Limit to ISC** — show only lineage within the selected supply chain
-- **Highlight ISC** — show full lineage with the selected supply chain highlighted
+- **Highlight ISC** — show full lineage with the selected supply chain highlighted. Egeria draws a thin line for any edge tagged with a *different* supply chain; edges with no supply chain stay thick. So highlighting only changes the picture when the lineage crosses into another supply chain
 
 **View in Explorer** opens the selected ISC in [Egeria Explorer](egeria-explorer.md).
 
@@ -59,6 +59,8 @@ Includes:
 - **Linked assets table** — all assets in the full lineage graph with display name, description, GUID, qualified name, creation date, and last-updated date
 
 The full lineage fetch is on-demand because it can be expensive. It is only available when local lineage relationships exist.
+
+If Egeria fails to build the graph, the error banner shows Egeria's own message rather than reporting "no lineage". For example, some Egeria 6.3 builds reject lineage that reaches a Digital Product (`OMAG-REPOSITORY-HANDLER-404-001 … of type DigitalProduct rather than type Asset`).
 
 ---
 
