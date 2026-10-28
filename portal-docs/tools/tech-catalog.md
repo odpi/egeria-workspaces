@@ -29,8 +29,8 @@ Selecting any item opens a detail pane on the right. For most asset types this i
 - **Properties** — all metadata properties with classifications
 - **Context Diagram** — Mermaid diagram showing the element in its broader context (rendered immediately when available)
 - **Additional diagrams** — lineage, field-level, supply-chain, and other diagrams where present
-- **Relationships** — related elements with "View →" navigation links
-- **Schema** — column / attribute list (data assets only). A column carrying a glossary-term assignment shows a 🧠 badge — click to expand and jump straight to that term
+- **Relationships** — related elements with "View →" navigation links (see [Cross-navigation](#cross-navigation))
+- **Schema** — column / attribute list (data assets only). A column carrying a glossary-term assignment shows a 🧠 badge — click to expand and jump straight to that term. Every column, and the schema type above the table, has a **View →** button that opens it in the element detail popup
 - **Lineage** — direct lineage graph and link to Lineage Explorer
 
 ---
@@ -62,6 +62,8 @@ Relationship cards in the Survey Report detail pane (e.g. its reported annotatio
 ## Cross-navigation
 
 Clicking **"View →"** on a relationship card jumps directly to that element in its correct section, even when the related element is a different type (e.g. following a relationship from a Data Store to a Software Server navigates to IT Infrastructure).
+
+When the related element is a type no Catalog section owns (a schema type or attribute, for example), **"View →"** opens it in an **element detail popup** instead. The popup shows the same detail pane — properties, classifications, diagrams, schema, relationships, comments — over the page you were on. A **View →** inside the popup drills further (column → schema type → annotation), with a breadcrumb and **← Back**. A View to a type that does have a Catalog section closes the popup and navigates there. Press **Esc**, click **✕**, or click outside the popup to close it.
 
 Clicking **"View in Catalog"** from another tool (e.g. Lineage Explorer, Egeria Explorer) brings you to the correct section and detail view for any asset GUID automatically.
 

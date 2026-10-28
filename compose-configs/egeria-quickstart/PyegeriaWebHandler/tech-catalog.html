@@ -1351,6 +1351,7 @@ function _flattenSchemaTree(nodes, depth, out) {
 // function) so each row can hold its own expand/collapse state.
 function SchemaRow({ row, tdStyle, tdDim, onNavigate }) {
   var _o = React.useState(false), open = _o[0], setOpen = _o[1];
+  var view = React.useContext(ElementViewContext);
   var a = row.node;
   var classifs = a.classifications || [];
   var terms = a.assignedTerms || [];
@@ -1372,7 +1373,8 @@ function SchemaRow({ row, tdStyle, tdDim, onNavigate }) {
           hasExtra && React.createElement(FoldTriangle, { open: open, size: 10 }),
           a.displayName,
           hasClassifs && React.createElement('span', { style: { fontSize: 10, color: 'var(--classif)', border: '1px solid var(--classif)', borderRadius: 8, padding: '0 5px' } }, classifs.length),
-          hasTerms && React.createElement('span', { title: terms.map(function(t) { return t.displayName; }).join(', '), style: { fontSize: 10, color: 'var(--accent)', border: '1px solid var(--accent)', borderRadius: 8, padding: '0 5px' } }, '🧠 ' + terms.length)
+          hasTerms && React.createElement('span', { title: terms.map(function(t) { return t.displayName; }).join(', '), style: { fontSize: 10, color: 'var(--accent)', border: '1px solid var(--accent)', borderRadius: 8, padding: '0 5px' } }, '🧠 ' + terms.length),
+          view && a.guid && React.createElement(ElementViewButton, { guid: a.guid, displayName: a.displayName, style: { marginLeft: 'auto' } })
         )
       ),
       React.createElement('td', { style: tdDim }, a.dataType || a.typeName || ''),
@@ -1453,7 +1455,8 @@ function SchemaTable({ data, onNavigate }) {
     st && React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 } },
       React.createElement('span', { style: { fontSize: 12, color: 'var(--muted)' } }, 'Schema type:'),
       React.createElement('span', { style: { fontSize: 12, fontWeight: 600, color: 'var(--text)' } }, st.typeName || ''),
-      st.displayName && React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)' } }, st.displayName)
+      st.displayName && React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)' } }, st.displayName),
+      st.guid && React.createElement(ElementViewButton, { guid: st.guid, displayName: st.displayName || st.typeName })
     ),
     total > 10 && React.createElement(ListControls, {
       lc: lc, shown: matched, total: total, noun: 'attributes',
@@ -1803,7 +1806,11 @@ function AssetRelationships({ rels, cardStyle, onNavigate }) {
             nav && onNavigate && React.createElement('button', {
               onClick: function() { onNavigate(Object.assign({ guid: el.guid, displayName: el.displayName || el.guid }, nav)); },
               style: { fontSize: 10, padding: '2px 7px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer', flexShrink: 0 }
-            }, nav.external ? '↗ Egeria Explorer' : 'View →')
+            }, nav.external ? '↗ Egeria Explorer' : 'View →'),
+            // No Catalog section owns this type (schema types/attributes,
+            // annotations reached sideways, …) — open it in the detail popup
+            // instead of leaving it a dead end.
+            !(nav && onNavigate) && el.guid && React.createElement(ElementViewButton, { guid: el.guid, displayName: el.displayName })
           ),
           el.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', marginBottom: relProps.length ? 4 : 0 } }, el.description),
           relProps.filter(function(e) { return typeof e[1] !== 'object' || e[1] === null; }).map(function(e) {
@@ -1922,6 +1929,75 @@ function AssetDetail({ item, detailLoading, onNavigate, creds, sectionId }) {
       creds: creds,
       onClose: function() { setShowPreview(false); }
     })
+  );
+}
+
+// ── Element detail popup ──────────────────────────────────────────────────────
+// Schema attributes, schema types and related elements whose type no Catalog
+// section owns (no type-nav-map.json entry) used to be dead ends: name only,
+// no properties, classifications or relationships. ElementViewButton opens
+// any of them in a popup that reuses AssetDetail over the generic
+// /api/tech-catalog/assets/{guid} endpoint (serves any Referenceable, not
+// just Assets). The popup keeps a back-stack, so you can walk column ->
+// schema type -> annotation without losing your place in the page behind it.
+// App provides the context; outside it the button renders nothing.
+var ElementViewContext = React.createContext(null);
+
+function ElementViewButton({ guid, displayName, style }) {
+  var view = React.useContext(ElementViewContext);
+  if (!view || !guid) return null;
+  return React.createElement('button', {
+    onClick: function(e) { e.stopPropagation(); view.open(guid, displayName); },
+    title: 'Show full detail for this element',
+    style: Object.assign({ fontSize: 10, padding: '2px 7px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }, style || {})
+  }, 'View →');
+}
+
+function ElementDetailModal({ stack, creds, onNavigate, onBack, onClose }) {
+  var top = stack[stack.length - 1];
+  var _d = useState(null), item = _d[0], setItem = _d[1];
+  var _e = useState(''),   err  = _e[0], setErr  = _e[1];
+  useEffect(function() {
+    var cancelled = false;
+    setItem(null); setErr('');
+    fetchWithToken('/api/tech-catalog/assets/' + encodeURIComponent(top.guid), creds)
+      .then(function(r) {
+        if (r.status === 404) throw new Error('Element not found (it may have been deleted).');
+        if (!r.ok) throw new Error('Failed to load element detail (HTTP ' + r.status + ').');
+        return r.json();
+      })
+      .then(function(d) { if (!cancelled) setItem(d); })
+      .catch(function(e) { if (!cancelled) setErr(String(e.message || e)); });
+    return function() { cancelled = true; };
+  }, [top.guid]);
+  useEffect(function() {
+    function onKey(e) { if (e.key === 'Escape') onClose(); }
+    window.addEventListener('keydown', onKey);
+    return function() { window.removeEventListener('keydown', onKey); };
+  }, [onClose]);
+  var btn = { fontSize: 11, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' };
+  return React.createElement('div', {
+    onClick: function(e) { if (e.target === e.currentTarget) onClose(); },
+    style: { position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }
+  },
+    React.createElement('div', { style: { background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 12, width: 'min(960px, 100%)', maxHeight: '100%', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' } },
+      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderBottom: '1px solid var(--border)' } },
+        stack.length > 1 && React.createElement('button', { onClick: onBack, style: btn, title: 'Back to ' + (stack[stack.length - 2].displayName || 'previous element') }, '← Back'),
+        React.createElement('div', { style: { flex: 1, fontSize: 11, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
+          stack.map(function(s) { return s.displayName || s.guid; }).join('  ›  ')),
+        React.createElement('button', { onClick: onClose, style: btn, title: 'Close (Esc)' }, '✕')
+      ),
+      React.createElement('div', { style: { padding: '16px 20px', overflowY: 'auto' } },
+        err
+          ? React.createElement('div', { style: { fontSize: 12, color: '#f87171' } }, err)
+          : !item
+          ? React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'Loading detail…')
+          : React.createElement(AssetDetail, { item: item, detailLoading: false, creds: creds,
+              // A "View →" to a type a Catalog section owns leaves the popup
+              // and navigates the main view, same as from a full detail page.
+              onNavigate: function(nav) { onClose(); onNavigate(nav); } })
+      )
+    )
   );
 }
 
@@ -4323,6 +4399,19 @@ function App() {
   // "not part of The Catalog" panel instead of silently defaulting into the
   // Data Assets section (see UnresolvedElement below).
   var _unresolvedNav = useState(null), unresolvedNav = _unresolvedNav[0], setUnresolvedNav = _unresolvedNav[1];
+  // Element detail popup back-stack ([{guid, displayName}], top = shown) —
+  // see ElementViewContext.
+  var _peek = useState([]), peekStack = _peek[0], setPeekStack = _peek[1];
+  var elementView = useMemo(function() {
+    return { open: function(guid, displayName) {
+      setPeekStack(function(s) {
+        if (s.length && s[s.length - 1].guid === guid) return s;
+        return s.concat([{ guid: guid, displayName: displayName || guid }]);
+      });
+    } };
+  }, []);
+  var closePeek = useCallback(function() { setPeekStack([]); }, []);
+  var backPeek  = useCallback(function() { setPeekStack(function(s) { return s.slice(0, -1); }); }, []);
 
   // Deep-link: resolve ?guid= to the correct section+tab once creds are ready
   var _deepLinkGuid = useRef((function() {
@@ -4461,6 +4550,7 @@ function App() {
   var favPersonaId = activePersona ? activePersona.id : (srvManaged && authUser ? authUser.userId : null);
 
   return React.createElement(PersonaContext.Provider, { value: favPersonaId },
+  React.createElement(ElementViewContext.Provider, { value: elementView },
   React.createElement(CredContext.Provider, { value: creds },
     React.createElement('div', { style: { display: 'flex', flexDirection: 'column', height: '100vh' } },
     // Shared app bar (static/app-bar.js + AppHeader in egeria-shared-ui.js)
@@ -4488,8 +4578,9 @@ function App() {
       : unresolvedNav
         ? React.createElement(UnresolvedElement, { nav: unresolvedNav, onDismiss: function() { setUnresolvedNav(null); } })
         : React.createElement(Splash, { onSelect: function(id, q) { if (q) setSearchQ(q); setSection(id); }, authUser: authUser, activePersona: activePersona, creds: creds, demoMode: demoMode, srvManaged: srvManaged, saveCreds: setCreds }),
-    React.createElement(FeedbackButton, { section: section, persona: null, demoMode: demoMode, srvManaged: srvManaged, pagePrefix: 'tech-catalog/' })
-  )));
+    React.createElement(FeedbackButton, { section: section, persona: null, demoMode: demoMode, srvManaged: srvManaged, pagePrefix: 'tech-catalog/' }),
+    peekStack.length > 0 && React.createElement(ElementDetailModal, { key: 'peek', stack: peekStack, creds: creds, onNavigate: handleNavigate, onBack: backPeek, onClose: closePeek })
+  ))));
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App, null));
