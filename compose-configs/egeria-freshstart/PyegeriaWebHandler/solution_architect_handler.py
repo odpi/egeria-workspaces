@@ -555,16 +555,36 @@ def _rel_guids(element: dict, key: str) -> list:
 _PAGE = 500
 
 
+def _page_item_guid(item):
+    if not isinstance(item, dict):
+        return None
+    return ((item.get("elementHeader") or {}).get("guid")
+            or (item.get("relationshipHeader") or {}).get("guid"))
+
+
 def _all_pages(fetch) -> list:
-    """Call fetch(start_from, page_size) until it returns an empty page. A short
+    """Call fetch(start_from, page_size) until a page brings nothing new. A short
     page is not the last one (Egeria's paging contract), and page_size=0 is not
-    "everything": get_relationships stops at 1000 that way."""
-    out, start = [], 0
+    "everything": get_relationships stops at 1000 that way. Later pages can also
+    repeat items from earlier ones (seen: a second find_solution_components page
+    returned 36 of the first page's 416 components), so items are kept once per
+    element or relationship GUID."""
+    out, seen, start = [], set(), 0
     while True:
         page = fetch(start, _PAGE)
         if not isinstance(page, list) or not page:
             return out
-        out.extend(page)
+        new = 0
+        for item in page:
+            g = _page_item_guid(item)
+            if g and g in seen:
+                continue
+            if g:
+                seen.add(g)
+            out.append(item)
+            new += 1
+        if not new:
+            return out
         start += len(page)
 
 
