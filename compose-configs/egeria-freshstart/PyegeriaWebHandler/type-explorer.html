@@ -6329,7 +6329,9 @@ function SolutionComponentDetail({ component, onNavigateToBlueprint, onNavigateT
       React.createElement("div", { style: { fontWeight: 600, fontSize: 13, marginBottom: 6, color: 'var(--accent)' } }, title + " (" + items.length + ")"),
       items.map(function(item) {
         return React.createElement("div", { key: item.guid, style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '4px 0', borderTop: '1px solid var(--border)' } },
-          React.createElement("span", { style: { flex: 1 } }, item.displayName || item.qualifiedName),
+          React.createElement("span", { style: { flex: 1 } }, item.displayName || item.qualifiedName,
+            // Wires carry a label saying what flows along them.
+            item.label && React.createElement("span", { style: { marginLeft: 8, fontSize: 11, color: 'var(--dim)', fontStyle: 'italic' } }, item.label)),
           item.typeName && React.createElement("span", { className: "badge", style: { fontSize: 10, background: 'rgba(99,102,241,.1)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.25)' } }, item.typeName),
           onClick && React.createElement("button", {
             onClick: function() { onClick(item.guid); },
@@ -9548,6 +9550,16 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
   const [compTree, setCompTree] = useState(null);
   const [compTreeState, setCompTreeState] = useState('idle');
   const [expandedComps, setExpandedComps] = useState(new Set());
+  // Components left pane: grouping and filter chips. The grouping data
+  // (/api/solution/components/groups) takes a minute or more to build cold, so
+  // the pane polls while it loads and shows plain lists until it arrives.
+  const [compGroupBy, setCompGroupBy] = useState('blueprint');
+  const [compGroups, setCompGroups] = useState(null);
+  const [compGroupsState, setCompGroupsState] = useState('idle');
+  const [toggledCompGroups, setToggledCompGroups] = useState(new Set());
+  const [compTypeFilter, setCompTypeFilter] = useState(new Set());
+  const [compOnlyImpl, setCompOnlyImpl] = useState(false);
+  const [compOnlyWired, setCompOnlyWired] = useState(false);
 
   const [filter, setFilter] = useState('');
   const [inclTempl, setInclTempl] = useState(false);
@@ -9604,6 +9616,31 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
       .then(function(data) { setCompTree(data.roots || []); setCompTreeState('ready'); })
       .catch(function() { setCompTreeState('error'); });
   }, [subNav, compAttempt]);
+
+  useEffect(function() {
+    if (subNav !== 'components') return;
+    var cancelled = false, timer = null;
+    function load(refresh) {
+      egeriaFetch('/api/solution/components/groups' + (refresh ? '?refresh=true' : ''), creds)
+        .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function(data) {
+          if (cancelled) return;
+          if (data.loading) {
+            setCompGroupsState(function(st) { return st === 'ready' ? st : 'loading'; });
+            timer = setTimeout(function() { load(false); }, 8000);
+            return;
+          }
+          setCompGroups(data); setCompGroupsState('ready');
+        })
+        .catch(function() { if (!cancelled) setCompGroupsState(function(st) { return st === 'ready' ? st : 'error'; }); });
+    }
+    load(compAttempt > 0);
+    return function() { cancelled = true; if (timer) clearTimeout(timer); };
+  }, [subNav, compAttempt]);
+
+  const toggleCompGroup = useCallback(function(key) {
+    setToggledCompGroups(function(prev) { var n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n; });
+  }, []);
 
   const toggleComp = useCallback(function(guid) {
     setExpandedComps(function(prev) { var n = new Set(prev); if (n.has(guid)) n.delete(guid); else n.add(guid); return n; });
@@ -9809,37 +9846,128 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
         React.createElement("button", { className: "view-tab on", onClick: function() { setCompAttempt(function(a) { return a + 1; }); } }, "Retry")
       ),
       compState === 'ready' && (function() {
-        var q = filter.toLowerCase();
-        // Filtering → flat matches across all components. No filter → composition tree.
-        if (q) {
-          var vis = components.filter(function(c) { return (c.displayName || c.qualifiedName || '').toLowerCase().includes(q); });
-          if (!vis.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "No matches");
-          return vis.map(function(c) {
-            return React.createElement("div", {
-              key: c.guid, className: "tree-item" + (selectedComp === c.guid ? " sel" : ""),
-              onClick: function() { setSelectedComp(c.guid); }, title: c.qualifiedName || c.guid,
+        var groupsReady = compGroupsState === 'ready' && !!compGroups;
+        var typeCounts = {};
+        components.forEach(function(c) { var t = c.componentType || ''; typeCounts[t] = (typeCounts[t] || 0) + 1; });
+        var types = Object.keys(typeCounts).sort(function(a, b) { return (a === '') - (b === '') || a.localeCompare(b); });
+        function chip(label, on, onClick, opts) {
+          opts = opts || {};
+          return React.createElement("button", {
+            key: opts.key || label, onClick: onClick, disabled: !!opts.disabled, title: opts.title,
+            style: { fontSize: 10, padding: '1px 7px', borderRadius: 10, cursor: opts.disabled ? 'default' : 'pointer', opacity: opts.disabled ? 0.5 : 1,
+                     border: '1px solid ' + (on ? 'rgba(96,165,250,.6)' : 'var(--border)'),
+                     background: on ? 'rgba(96,165,250,.18)' : 'transparent', color: on ? 'var(--accent)' : 'var(--muted)' },
+          }, label);
+        }
+        return React.createElement("div", { style: { padding: '6px 10px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 } },
+          React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--dim)' } }, "Group by",
+            React.createElement("select", {
+              className: "area-select", value: compGroupBy, style: { flex: 1, fontSize: 11 },
+              onChange: function(e) { setCompGroupBy(e.target.value); setToggledCompGroups(new Set()); },
             },
-              c.guid && React.createElement("input", {
-                type: "checkbox", checked: selection.isSelected(c.guid), style: { flexShrink: 0, cursor: 'pointer' },
-                onClick: function(e) { e.stopPropagation(); },
-                onChange: function() { selection.toggle({ guid: c.guid, displayName: c.displayName, typeName: c.typeName || 'SolutionComponent' }); },
-              }),
-              React.createElement("span", { className: "type-name" }, c.displayName || c.qualifiedName),
-              c.componentType && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(96,165,250,.1)', color: '#93c5fd', border: '0.5px solid rgba(96,165,250,.3)', marginLeft: 4 } }, c.componentType)
-            );
+              React.createElement("option", { value: 'blueprint' }, "Blueprint"),
+              React.createElement("option", { value: 'supplyChain' }, "Information supply chain"),
+              React.createElement("option", { value: 'type' }, "Component type"),
+              React.createElement("option", { value: 'composition' }, "Composition (nesting)")
+            )
+          ),
+          React.createElement("div", { style: { display: 'flex', flexWrap: 'wrap', gap: 4 } },
+            chip("Has implementations", compOnlyImpl, function() { setCompOnlyImpl(!compOnlyImpl); },
+              { disabled: !groupsReady, title: groupsReady ? 'Only components with an ImplementedBy relationship' : 'Waiting for relationship data…' }),
+            chip("Has wires", compOnlyWired, function() { setCompOnlyWired(!compOnlyWired); },
+              { disabled: !groupsReady, title: groupsReady ? 'Only components wired to another component' : 'Waiting for relationship data…' })
+          ),
+          types.length > 1 && React.createElement("div", { style: { display: 'flex', flexWrap: 'wrap', gap: 4 } },
+            types.map(function(t) {
+              return chip((t || 'No type') + ' ' + typeCounts[t], compTypeFilter.has(t), function() {
+                setCompTypeFilter(function(prev) { var n = new Set(prev); if (n.has(t)) n.delete(t); else n.add(t); return n; });
+              }, { key: 'type-' + t, title: 'Component type: ' + (t || '(none)') });
+            })
+          ),
+          compGroupsState === 'loading' && React.createElement("div", { style: { fontSize: 10, color: 'var(--dim)' } }, "Loading blueprint, supply chain and wire data…"),
+          compGroupsState === 'error' && React.createElement("div", { style: { fontSize: 10, color: '#f87171' } }, "Couldn't load blueprint and supply chain data, so grouping by them is unavailable.")
+        );
+      })(),
+      compState === 'ready' && (function() {
+        var q = filter.toLowerCase();
+        var groupsReady = compGroupsState === 'ready' && !!compGroups;
+        var members = (groupsReady && compGroups.members) || {};
+        var filtering = !!q || compTypeFilter.size > 0 || compOnlyImpl || compOnlyWired;
+        var vis = components.filter(function(c) {
+          if (q && !(c.displayName || c.qualifiedName || '').toLowerCase().includes(q)) return false;
+          if (compTypeFilter.size && !compTypeFilter.has(c.componentType || '')) return false;
+          var m = members[c.guid] || {};
+          if (compOnlyImpl && !m.implementations) return false;
+          if (compOnlyWired && !m.wires) return false;
+          return true;
+        });
+        function compRow(c, indent, keyPrefix) {
+          return React.createElement("div", {
+            key: (keyPrefix || '') + c.guid, className: "tree-item" + (selectedComp === c.guid ? " sel" : ""),
+            style: indent ? { paddingLeft: 26 } : null,
+            onClick: function() { setSelectedComp(c.guid); }, title: c.qualifiedName || c.guid,
+          },
+            c.guid && React.createElement("input", {
+              type: "checkbox", checked: selection.isSelected(c.guid), style: { flexShrink: 0, cursor: 'pointer' },
+              onClick: function(e) { e.stopPropagation(); },
+              onChange: function() { selection.toggle({ guid: c.guid, displayName: c.displayName, typeName: c.typeName || 'SolutionComponent' }); },
+            }),
+            React.createElement("span", { className: "type-name" }, c.displayName || c.qualifiedName),
+            c.componentType && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(96,165,250,.1)', color: '#93c5fd', border: '0.5px solid rgba(96,165,250,.3)', marginLeft: 4 } }, c.componentType)
+          );
+        }
+        // Composition with nothing filtered → the nesting tree.
+        if (compGroupBy === 'composition' && !filtering) {
+          if (compTreeState === 'loading' || compTreeState === 'idle') return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading hierarchy…");
+          var roots = compTree || [];
+          if (!roots.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "No components found");
+          return roots.map(function(node) {
+            return React.createElement(DigitalTreeNode, {
+              key: node.guid, node: node, depth: 0,
+              selectedGuid: selectedComp,
+              onSelect: function(guid) { setSelectedComp(guid); },
+              expanded: expandedComps, toggleNode: toggleComp, selection: selection,
+            });
           });
         }
-        if (compTreeState === 'loading' || compTreeState === 'idle') return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading hierarchy…");
-        var roots = compTree || [];
-        if (!roots.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "No components found");
-        return roots.map(function(node) {
-          return React.createElement(DigitalTreeNode, {
-            key: node.guid, node: node, depth: 0,
-            selectedGuid: selectedComp,
-            onSelect: function(guid) { setSelectedComp(guid); },
-            expanded: expandedComps, toggleNode: toggleComp, selection: selection,
-          });
+        if (!vis.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "No matches");
+        var byMembership = compGroupBy === 'blueprint' || compGroupBy === 'supplyChain';
+        // Composition while filtering, or membership grouping before its data arrives → flat list.
+        if (compGroupBy === 'composition' || (byMembership && !groupsReady)) {
+          return vis.map(function(c) { return compRow(c, false); });
+        }
+        var buckets = {}, order = [];
+        function add(key, label, c) {
+          if (!buckets[key]) { buckets[key] = { label: label, items: [] }; order.push(key); }
+          buckets[key].items.push(c);
+        }
+        var noneLabel = compGroupBy === 'blueprint' ? 'In no blueprint' : compGroupBy === 'supplyChain' ? 'In no supply chain' : 'No component type';
+        vis.forEach(function(c) {
+          if (compGroupBy === 'type') { add(c.componentType ? 't:' + c.componentType : 'none', c.componentType || noneLabel, c); return; }
+          var m = members[c.guid] || {};
+          var ids = Array.from(new Set(compGroupBy === 'blueprint' ? (m.blueprints || []) : (m.supplyChains || [])));
+          var names = compGroupBy === 'blueprint' ? compGroups.blueprints : compGroups.supplyChains;
+          if (!ids.length) add('none', noneLabel, c);
+          ids.forEach(function(id) { add(id, (names[id] || {}).displayName || id, c); });
         });
+        order.sort(function(a, b) { return (a === 'none') - (b === 'none') || buckets[a].label.localeCompare(buckets[b].label); });
+        var out = [];
+        order.forEach(function(key) {
+          var b = buckets[key];
+          // Collapsed by default; expanded by default while filtering so matches show.
+          var isOpen = filtering !== toggledCompGroups.has(key);
+          out.push(React.createElement("div", {
+            key: 'grp-' + key, onClick: function() { toggleCompGroup(key); },
+            style: { display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: key === 'none' ? 'var(--dim)' : 'var(--text)', background: 'var(--panel)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' },
+            title: key === 'none' ? b.label : ((compGroupBy === 'type' ? b.label : (((compGroupBy === 'blueprint' ? compGroups.blueprints : compGroups.supplyChains)[key] || {}).qualifiedName || b.label))),
+          },
+            React.createElement(FoldTriangle, { open: isOpen, size: 9, style: { width: 10 } }),
+            React.createElement("span", { style: { flex: 1 } }, b.label),
+            React.createElement("span", { style: { color: 'var(--muted)', fontWeight: 400 } }, b.items.length)
+          ));
+          if (isOpen) b.items.forEach(function(c) { out.push(compRow(c, true, key + '|')); });
+        });
+        return out;
       })()
     ),
     // Patterns list — grouped by `category` (the pattern group each book
