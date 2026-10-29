@@ -886,7 +886,7 @@ function _capContent(text) {
   if (!text || text.length <= _MAX_RENDER_CHARS) return text;
   return text.slice(0, _MAX_RENDER_CHARS)
     + '\n\n*(truncated — this placement has no query scope, so it matched far '
-    + 'more than fits here; see "No scoping params yet" in LOCAL_DASHBOARDS_TUTORIAL.md)*';
+    + 'more than fits here; see "No scoping params yet" in portal-docs/tutorials/local-dashboards.md)*';
 }
 
 // Splits markdown on ```mermaid fences (same contract as static/egeria-
@@ -1005,7 +1005,7 @@ function renderJsonTableHtml(data) {
 // document, validate or process it via POST /api/dr-egeria/execute-document
 // (runs in this same backend process — always the store this page reads,
 // unlike running `dr_egeria` on a different machine; see
-// LOCAL_DASHBOARDS_TUTORIAL.md).
+// portal-docs/tutorials/local-dashboards.md).
 
 var _runDocLibraryLoaded = false;
 

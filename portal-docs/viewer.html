@@ -132,8 +132,23 @@
     return href;
   }
 
+  // ── Resolve relative image paths against the current doc's folder ────────────
+  // (so `../images/x.png` works here exactly as it does on GitHub)
+  function _mdImgSrc(href, currentSrc) {
+    if (!href || /^(https?:)?\/\//.test(href) || href.startsWith('/') || href.startsWith('data:')) return href;
+    var base = currentSrc.substring(0, currentSrc.lastIndexOf('/') + 1);
+    var out = [];
+    (base + href).split('/').forEach(function(p) {
+      if (p === '..') { out.pop(); } else if (p !== '.' && p !== '') { out.push(p); }
+    });
+    return out.join('/');
+  }
+
   // ── Build breadcrumb ──────────────────────────────────────────────────────────
   var _LABELS = {
+    tutorials: 'Tutorials',
+    'saved-queries': 'Saved Queries',
+    'digital-product-subscription': 'Digital Product Subscription',
     tools: 'Tools', quickstart: 'Quickstart', freshstart: 'Freshstart',
     local: 'Local', demo: 'Demo', coco: 'Coco Pharmaceuticals',
     'dr-egeria': 'Dr. Egeria',
@@ -286,6 +301,9 @@
         var resolved = _mdLinkHref(href, src);
         var ext = href && (href.startsWith('http') || href.startsWith('//'));
         return '<a href="' + resolved + '"' + (ext ? ' target="_blank" rel="noopener"' : '') + (title ? ' title="' + title + '"' : '') + '>' + text + '</a>';
+      };
+      renderer.image = function(href, title, text) {
+        return '<img src="' + _mdImgSrc(href, src) + '" alt="' + (text || '') + '"' + (title ? ' title="' + title + '"' : '') + '>';
       };
       // Wrap mermaid code blocks
       renderer.code = function(code, lang) {
