@@ -611,6 +611,8 @@ var _obsStatus    = null;   // last fetched status object
 function _obsIsLocal() { return !!_obsidianUrl; }
 
 function _obsContainerUrl() {
+  // Demo mode: the server returns the Apache-gated path (workbench_access.py).
+  if (_obsStatus && _obsStatus.url) return _obsStatus.url;
   var isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
   return isLocal
     ? 'http://' + location.hostname + ':8860'
@@ -800,6 +802,8 @@ function refreshJupyterTile() {
 function _renderJupTile(s) {
   var el = document.getElementById('jup-tile-action');
   if (!el) return;
+  // Demo mode: the server returns the Apache-gated path (workbench_access.py).
+  if (s.url) _jupUrl = s.url;
   var isMine = !!_jupToken && s.state !== 'FREE';
   if (_jupToken && s.state === 'FREE') { _clearJupToken(); isMine = false; }
 
@@ -1038,9 +1042,12 @@ function saveNotebookBookmark() {
   if (!path) return;
   var label = (document.getElementById('jup-nb-label').value || '').trim()
               || path.split('/').pop().replace(/\.ipynb$/i, '');
-  // Build the JupyterLab deep-link: /lab/tree/<path>?token=egeria
-  var nbUrl = 'http://' + window.location.hostname + ':8888/lab/tree/'
-              + path.split('/').map(encodeURIComponent).join('/') + '?token=egeria';
+  // Build the JupyterLab deep-link: /lab/tree/<path>. Demo mode goes through
+  // the gated /jupyter/ route (no token in the URL); local mode hits :8888.
+  var nbPath = path.split('/').map(encodeURIComponent).join('/');
+  var nbUrl = (_jupStatus && _jupStatus.url)
+    ? '/jupyter/lab/tree/' + nbPath
+    : 'http://' + window.location.hostname + ':8888/lab/tree/' + nbPath + '?token=egeria';
   var persona = _currentPersonaId;
   if (!persona) return;
   var status = document.getElementById('jup-nb-status');

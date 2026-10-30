@@ -413,6 +413,7 @@ pushd compose-configs/egeria-quickstart >/dev/null
     }
 
     _jwt="$(_pick JWT_SECRET)"
+    _workbench_secret="$(_pick WORKBENCH_SECRET)"
     _cert_dir="$(_pick CERT_DIR)"
     _admin_email="$(_pick ADMIN_BOOTSTRAP_EMAIL)"
     _admin_pass="$(_pick ADMIN_BOOTSTRAP_PASSWORD)"
@@ -440,6 +441,14 @@ pushd compose-configs/egeria-quickstart >/dev/null
       _jwt="$(openssl rand -hex 32 2>/dev/null \
         || python3 -c 'import secrets; print(secrets.token_hex(32))' 2>/dev/null)"
       echo "[quick-start-local]   Generated new JWT_SECRET."
+    fi
+    # Upstream credential for the gated JupyterLab/Obsidian routes (Jupyter
+    # token + Obsidian basic-auth password, injected by Apache; see
+    # PyegeriaWebHandler/workbench_access.py). Internal only, so safe to mint.
+    if [[ -z "$_workbench_secret" ]]; then
+      _workbench_secret="$(openssl rand -hex 32 2>/dev/null \
+        || python3 -c 'import secrets; print(secrets.token_hex(32))' 2>/dev/null)"
+      echo "[quick-start-local]   Generated new WORKBENCH_SECRET."
     fi
 
     # Prompt for admin credentials if not set (needed above the cert-dir
@@ -519,6 +528,7 @@ pushd compose-configs/egeria-quickstart >/dev/null
     # value from the Advisor machine.
     cat > "$ENV_DEMO" <<EOF
 JWT_SECRET=${_jwt}
+WORKBENCH_SECRET=${_workbench_secret}
 CERT_DIR=${_cert_dir}
 ADMIN_BOOTSTRAP_EMAIL=${_admin_email}
 ADMIN_BOOTSTRAP_PASSWORD=${_admin_pass}
@@ -606,6 +616,7 @@ EOF
   if [[ "$DEMO_MODE_FLAG" -eq 1 ]]; then
     {
       echo "JWT_SECRET=${_jwt}"
+      echo "WORKBENCH_SECRET=${_workbench_secret}"
       echo "CERT_DIR=${_cert_dir}"
       echo "ADMIN_BOOTSTRAP_EMAIL=${_admin_email}"
       echo "ADMIN_BOOTSTRAP_PASSWORD=${_admin_pass}"
@@ -621,6 +632,12 @@ EOF
       echo "ALERT_EMAIL_TO=${_alert_email}"
     } >> .env
     echo "[quick-start-local]   Demo SSL_SERVER_NAME: ${_host_fqdn} — SITE_URL: ${_site_url}"
+    # Apache's RewriteMap must exist before apache-web starts; pyegeria-web
+    # rewrites it as Portal sessions start and end. Seed it "all free" only if
+    # absent, so a re-run doesn't cut off a live session.
+    _wb_dir="../../runtime-volumes/quickstart-workbench-access"
+    mkdir -p "$_wb_dir"
+    [[ -f "$_wb_dir/access.map" ]] || printf 'jupyter -\nobsidian -\n' > "$_wb_dir/access.map"
   else
     {
       echo "CERT_DIR=${_cert_dir}"

@@ -19,18 +19,77 @@ services:
       # internet, and the raw socket is root on the host for whoever gets code
       # execution in it (see the 2026-10-17 Obsidian compromise).
       DOCKER_HOST: "tcp://docker-proxy:2375"
+      # Workbench gate (workbench_access.py): JupyterLab and Obsidian are
+      # reachable only via Apache's /jupyter/ and /obsidian/, and only by the
+      # current Portal lock holder.
+      WORKBENCH_GATE: "true"
+      WORKBENCH_SECRET: "${WORKBENCH_SECRET:?WORKBENCH_SECRET must be set -- quick-start-local --demo generates it}"
+    volumes:
+      - ../../runtime-volumes/quickstart-workbench-access:/app/workbench-access
+    networks:
+      - docker_control
     depends_on:
       - docker-proxy
 
+  apache-web:
+    environment:
+      WORKBENCH_SECRET: "${WORKBENCH_SECRET:?WORKBENCH_SECRET must be set -- quick-start-local --demo generates it}"
+    volumes:
+      - ./sites-available/workbench-locations.conf:/usr/local/apache2/conf/extra/workbench-locations.conf:ro
+      # A directory, not the file: the Portal replaces access.map by rename.
+      - ../../runtime-volumes/quickstart-workbench-access:/usr/local/apache2/workbench-access:ro
+
+  # ── Workbenches ─────────────────────────────────────────────────────────────
+  # Both give whoever uses them code execution, and demo users are anyone who
+  # registers, so in demo mode they are reached only through the gated Apache
+  # routes above, use WORKBENCH_SECRET as their upstream credential (Apache
+  # injects it; browsers never see it), and are capped so a session can't take
+  # the whole machine (the 2026-10-17 miner did). Local mode is unaffected.
+  jupyter-hub:
+    command: ["start-notebook.py", "--ServerApp.base_url=/jupyter/"]
+    environment:
+      JUPYTER_TOKEN: "${WORKBENCH_SECRET:?WORKBENCH_SECRET must be set -- quick-start-local --demo generates it}"
+    # Start as jovyan rather than root: JupyterLab already ran as jovyan (the
+    # image's start script dropped privileges), and jovyan owns /opt/conda, so
+    # `pip install --upgrade pyegeria` still works. Nothing in the container
+    # runs as root now.
+    user: "1000:100"
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    cpus: 2
+    mem_limit: 4g
+    pids_limit: 1024
+    # Loopback only (SSH tunnel for the box's owner); 8889 (debugpy) dropped.
+    ports: !override
+      - "127.0.0.1:8888:7888"
+
+  obsidian:
+    environment:
+      SUBFOLDER: "/obsidian/"
+      CUSTOM_USER: "workbench"
+      PASSWORD: "${WORKBENCH_SECRET:?WORKBENCH_SECRET must be set -- quick-start-local --demo generates it}"
+    cpus: 2
+    mem_limit: 3g
+    pids_limit: 1024
+
+  # Served to the internet as /my-egeria/ through Apache; the direct port
+  # stays on loopback.
+  my-profile:
+    ports: !override
+      - "127.0.0.1:8820:8020"
+
   # Allow-list proxy for the Docker socket: only inspect/stop/start of
-  # quickstart-egeria-main get through (docker-proxy/nginx.conf). Publishes no
-  # host port; reachable only from containers on egeria_network.
+  # quickstart-egeria-main and restart of obsidian-quickstart get through
+  # (docker-proxy/nginx.conf). Publishes no host port.
   docker-proxy:
     image: nginx:1.27-alpine
     container_name: quickstart-docker-proxy
     restart: unless-stopped
-    networks:
-      - egeria_network
+    # Only pyegeria-web shares this network. On egeria_network the workbenches
+    # could reach the proxy and stop Egeria.
+    networks: !override
+      - docker_control
     volumes:
       - ./docker-proxy/nginx.conf:/etc/nginx/nginx.conf:ro
       - /var/run/docker.sock:/var/run/docker.sock
@@ -46,3 +105,8 @@ services:
   # container -- and it was, once that container was compromised (2026-10-17).
   # The image's own self-signed cert is fine for the loopback/tunnel access
   # the base file now defaults to.
+
+networks:
+  docker_control:
+    name: quickstart_docker_control
+    internal: true

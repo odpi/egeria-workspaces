@@ -38,8 +38,7 @@ Once started, the following services are running:
 - HTTP portal (301-redirects to HTTPS): `http://<HOST_FQDN>:8885`
 - HTTPS portal: `https://<HOST_FQDN>` (port 443)
 - Login: `https://<HOST_FQDN>/login`
-- Jupyter: `http://<HOST_FQDN>:8888` (password: `egeria`)
-- Obsidian — see [Obsidian browser container](#obsidian-browser-container) below
+- Jupyter and Obsidian: `https://<HOST_FQDN>/jupyter/lab` and `/obsidian/`, for the current Portal session holder only — see [Workbench gate](#workbench-gate-jupyter-and-obsidian) below
 - Airflow and Marquez (localhost only) — see [Airflow and Marquez](#airflow-and-marquez) below
 
 On first startup the container creates the admin account from the bootstrap credentials. If an admin already exists those values are ignored, so it is safe to leave them set.
@@ -257,6 +256,18 @@ Selecting a persona:
 1. Stores display info in `localStorage` (`egeria-persona`).
 2. Calls `POST /api/demo/select-persona` to retrieve the matching Egeria credentials.
 3. Stores those credentials in `localStorage` (`egeria-creds`) so Egeria Explorer can connect immediately without a separate login step.
+
+### Workbench gate (Jupyter and Obsidian)
+
+JupyterLab and the Obsidian desktop both give whoever uses them code execution in a container, and in demo mode that is anyone who registers. So in demo mode (`egeria-quickstart-demo.yaml`) they are reachable only through Apache on 443, and only by the user currently holding that workbench's Portal session lock:
+
+- **Acquire** (`POST /api/jupyter/acquire`, `/api/obsidian/acquire`) mints a random key, sets it as an `HttpOnly`/`Secure` cookie (`wb_jupyter` on `/jupyter/`, `wb_obsidian` on `/obsidian/`) and publishes it in `runtime-volumes/quickstart-workbench-access/access.map`.
+- **Apache** (`sites-available/workbench-locations.conf`) compares the cookie with the map on every request, WebSocket upgrades included, and returns 403 on a mismatch. It then injects the upstream credential, `WORKBENCH_SECRET` (the Jupyter token and the Obsidian basic-auth password), which browsers never see.
+- **Release, expiry and eviction** revoke the key, so the next request is refused, and cut live connections: Jupyter's kernels and terminals are shut down, and the Obsidian container is restarted through docker-proxy.
+
+`quick-start-local --demo` generates `WORKBENCH_SECRET` (saved in `.env.demo`) and seeds `access.map`. The overlay also limits each workbench (2 CPUs, 4 GB / 3 GB memory, 1024 processes); runs Jupyter as `jovyan` with no capabilities (`pip install --upgrade pyegeria` still works, since jovyan owns `/opt/conda`); keeps the direct ports (8888, 8860/8861, 8820) on loopback; and moves docker-proxy onto a network shared only with pyegeria-web. Workspaces persist between sessions.
+
+Local (non-demo) mode is unchanged: the gate is off, and Jupyter is at `http://localhost:8888` with token `egeria`.
 
 ### Obsidian tile
 
