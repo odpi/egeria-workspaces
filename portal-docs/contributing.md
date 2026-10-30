@@ -26,6 +26,8 @@ portal-docs/
   index.html            ← documentation hub (edit to add cards)
   viewer.html           ← markdown renderer (do not edit for content)
   contributing.md       ← this file
+  images/               ← screenshots used by tutorials (../images/name.png)
+  tutorials/            ← step-by-step tutorials (overview.md is the hub)
   tools/                ← docs that apply to both environments
     dr-egeria/
       overview.md
@@ -52,6 +54,7 @@ portal-docs/
 **Step 1** — Create a Markdown file in the appropriate subdirectory:
 
 - `tools/` — applies to both Quickstart and Freshstart
+- `tutorials/` — step-by-step tutorials; list new ones in `tutorials/overview.md` too. Keep screenshots in `images/` and reference them as `../images/name.png` (the viewer resolves images relative to the page, as GitHub does)
 - `quickstart/` — Quickstart-specific
 - `freshstart/` — Freshstart-specific
 

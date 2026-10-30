@@ -44,6 +44,23 @@ _scheduler_task: Optional[asyncio.Task] = None
 _SCHEMA_TO_DROP = "repository_qs_metadata_store"
 _SCHEDULER_INTERVAL_SEC = 300  # check every 5 minutes
 
+# Indexes the demo adds to Egeria's metadata store. Egeria's JDBC repository
+# only indexes entity on (instance_guid, version) and type_name, and finds an
+# element's current version with "instance_guid = ? and version_end_time is
+# null". The watchdog's award-karma-points requests write a new version of a
+# ContributionRecord on every change -- one record reached ~200k versions in a
+# day -- so for those guids the planner falls back to a parallel seq scan of
+# the whole table (~100 ms each), and Postgres CPU climbs all day until the
+# nightly reset. A partial index on the current versions makes that lookup
+# ~0.2 ms. DROP SCHEMA in the reset removes it, and Egeria only recreates the
+# tables after it restarts, so _ensure_store_indexes() re-adds it from the
+# scheduler loop once the table is back (this also covers redeploys and fresh
+# stores). Remove when Egeria indexes this itself.
+_STORE_INDEXES = {
+    "entity_current_guid_idx":
+        "ON {schema}.entity (instance_guid) WHERE version_end_time IS NULL",
+}
+
 # Every reset lifecycle line below is logged at INFO, but pyegeria's
 # config_logging() runs at import time, removes loguru's default sink and
 # leaves the console sink at ERROR -- so those lines land only in
@@ -124,6 +141,11 @@ async def _scheduler_loop() -> None:
             await _maybe_scheduled_reset()
         except Exception as exc:
             logger.error(f"Reset scheduler error: {exc}")
+        if not _reset_lock.locked():
+            try:
+                await asyncio.get_event_loop().run_in_executor(None, _ensure_store_indexes)
+            except Exception as exc:
+                logger.error(f"Store index check failed: {exc}")
 
 
 async def _maybe_scheduled_reset() -> None:
@@ -224,6 +246,53 @@ def _do_reset_blocking() -> None:
     logger.info(f"Starting container: {EGERIA_CONTAINER_NAME}")
     client.api.start(EGERIA_CONTAINER_NAME)
     logger.info("Container started")
+
+
+def _ensure_store_indexes() -> None:
+    """Create any missing _STORE_INDEXES once Egeria has created its tables.
+
+    Blocking; run in an executor. A no-op while the schema is absent (mid-reset,
+    Egeria still starting) or the indexes already exist. CONCURRENTLY so Egeria
+    keeps writing during the build; a build that fails that way leaves an
+    INVALID index which IF NOT EXISTS would then skip forever, so drop it and
+    let the next pass retry.
+    """
+    conn = psycopg2.connect(
+        host=DEMO_DB_HOST,
+        port=DEMO_DB_PORT,
+        dbname=EGERIA_META_DB_NAME,
+        user=EGERIA_META_DB_USER,
+        password=EGERIA_META_DB_PASSWORD,
+    )
+    conn.autocommit = True  # CREATE INDEX CONCURRENTLY can't run in a transaction
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT to_regclass(%s)", (f"{_SCHEMA_TO_DROP}.entity",))
+            if cur.fetchone()[0] is None:
+                return
+            for name, definition in _STORE_INDEXES.items():
+                cur.execute(
+                    "SELECT i.indisvalid FROM pg_index i"
+                    " JOIN pg_class c ON c.oid = i.indexrelid"
+                    " JOIN pg_namespace n ON n.oid = c.relnamespace"
+                    " WHERE n.nspname = %s AND c.relname = %s",
+                    (_SCHEMA_TO_DROP, name),
+                )
+                row = cur.fetchone()
+                if row and row[0]:
+                    continue
+                if row:
+                    logger.warning(f"Dropping invalid store index {name} to rebuild it")
+                    cur.execute(f"DROP INDEX CONCURRENTLY IF EXISTS {_SCHEMA_TO_DROP}.{name}")
+                started = time.monotonic()
+                cur.execute(
+                    f"CREATE INDEX CONCURRENTLY IF NOT EXISTS {name} "
+                    + definition.format(schema=_SCHEMA_TO_DROP)
+                )
+                cur.execute(f"ANALYZE {_SCHEMA_TO_DROP}.entity")
+                logger.info(f"Created store index {name} in {time.monotonic() - started:.1f}s")
+    finally:
+        conn.close()
 
 
 # ── API routes ─────────────────────────────────────────────────────────────────

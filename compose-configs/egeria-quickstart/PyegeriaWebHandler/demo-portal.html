@@ -474,7 +474,7 @@ function renderFavorites(favs) {
   section.style.display = '';
   strip.innerHTML = favs.map(function(f) {
     var delBtn = '<button class="fav-chip-del" title="Remove bookmark"'
-      + ' onclick="event.preventDefault();event.stopPropagation();removeBookmark(' + JSON.stringify(f.id) + ')">×</button>';
+      + ' onclick="event.preventDefault();event.stopPropagation();removeBookmark(' + JSON.stringify(f.id).replace(/"/g, '&quot;') + ')">×</button>';
     return '<a class="fav-chip" href="' + esc(f.url) + '">'
       + '<span class="fav-chip-icon">' + (f.icon || '⭐') + '</span>'
       + '<span>' + esc(f.label) + '</span>'
@@ -611,6 +611,8 @@ var _obsStatus    = null;   // last fetched status object
 function _obsIsLocal() { return !!_obsidianUrl; }
 
 function _obsContainerUrl() {
+  // Demo mode: the server returns the Apache-gated path (workbench_access.py).
+  if (_obsStatus && _obsStatus.url) return _obsStatus.url;
   var isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
   return isLocal
     ? 'http://' + location.hostname + ':8860'
@@ -644,9 +646,11 @@ function _obsGhBtn() {
 function _renderObsTile(s) {
   var el = document.getElementById('obs-tile-action');
   if (!el) return;
-  var isMine = _obsToken && s.holder_token === undefined
-    ? false   // server never returns holder_token; we infer from sessionStorage match
-    : !!_obsToken && s.state !== 'FREE';
+  // The server never returns holder_token; holding a token from acquire (in
+  // sessionStorage) while the lock is taken means the session is ours. (This
+  // used to test s.holder_token === undefined, which made it always false:
+  // the holder saw their own session as "in use" with no Open button.)
+  var isMine = !!_obsToken && s.state !== 'FREE';
 
   // If I have a token but the lock is free, someone else released it - clear my token
   if (_obsToken && s.state === 'FREE') { _clearObsToken(); isMine = false; }
@@ -720,11 +724,16 @@ function _renderObsTile(s) {
 function acquireObsidian() {
   var persona   = _currentPersonaId || '';
   var display   = persona && _personas[persona] ? _personas[persona].display_name : 'User';
+  // Open the tab now, inside the click handler: opened after the acquire
+  // fetch resolves, popup blockers (Safari especially) silently drop it --
+  // same trick as launchAdvisor(). Local Obsidian launches via obsidian://.
+  var tab = _obsIsLocal() ? null : window.open('', '_blank');
   fetch('/api/obsidian/acquire', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ persona: persona, display_name: display })
   }).then(function(r) { return r.json(); }).then(function(data) {
     if (!data.acquired) {
+      if (tab) tab.close();
       alert('Could not acquire Obsidian: ' + (data.reason || 'unavailable'));
       refreshObsidianTile();
       return;
@@ -733,8 +742,9 @@ function acquireObsidian() {
     sessionStorage.setItem('obs-token', _obsToken);
     _startObsKeepalive();
     refreshObsidianTile();
-    _obsLaunchTarget();
-  }).catch(function(e) { alert('Error: ' + e.message); });
+    if (tab) { tab.opener = null; tab.location = _obsContainerUrl(); }
+    else { _obsLaunchTarget(); }
+  }).catch(function(e) { if (tab) tab.close(); alert('Error: ' + e.message); });
 }
 
 function releaseObsidian() {
@@ -800,12 +810,14 @@ function refreshJupyterTile() {
 function _renderJupTile(s) {
   var el = document.getElementById('jup-tile-action');
   if (!el) return;
+  // Demo mode: the server returns the Apache-gated path (workbench_access.py).
+  if (s.url) _jupUrl = s.url;
   var isMine = !!_jupToken && s.state !== 'FREE';
   if (_jupToken && s.state === 'FREE') { _clearJupToken(); isMine = false; }
 
   var html = '';
   if (s.state === 'DISABLED') {
-    html = '<button class="btn btn-accent" onclick="window.open(' + JSON.stringify(_jupUrl) + ',\'_blank\',\'noopener\')">Open ↗</button>';
+    html = '<button class="btn btn-accent" onclick="window.open(' + JSON.stringify(_jupUrl).replace(/"/g, '&quot;') + ',\'_blank\',\'noopener\')">Open ↗</button>';
     el.innerHTML = html;
     return;
   }
@@ -826,7 +838,7 @@ function _renderJupTile(s) {
     var idleWarn = s.idle_warning ? ' ⚠ idle' : '';
     html += '<div class="obs-status obs-mine">● Your session · ' + mins + ' min left' + idleWarn + '</div>'
       + '<div class="obs-actions">'
-      + '<button class="btn btn-accent" onclick="window.open(' + JSON.stringify(_jupUrl) + ',\'_blank\',\'noopener\')">Open Jupyter →</button>'
+      + '<button class="btn btn-accent" onclick="window.open(' + JSON.stringify(_jupUrl).replace(/"/g, '&quot;') + ',\'_blank\',\'noopener\')">Open Jupyter →</button>'
       + '<button class="btn" onclick="extendJupyter()">Extend</button>'
       + '<button class="btn" onclick="releaseJupyter()" style="color:var(--muted)">Release</button>'
       + '</div>';
@@ -848,11 +860,14 @@ function _renderJupTile(s) {
 function acquireJupyter() {
   var persona  = _currentPersonaId || '';
   var display  = persona && _personas[persona] ? _personas[persona].display_name : 'User';
+  // Open the tab inside the click handler -- see acquireObsidian().
+  var tab = window.open('', '_blank');
   fetch('/api/jupyter/acquire', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ display_name: display })
   }).then(function(r) { return r.json(); }).then(function(data) {
     if (!data.acquired) {
+      if (tab) tab.close();
       alert('Could not acquire Jupyter: ' + (data.reason || 'unavailable'));
       refreshJupyterTile();
       return;
@@ -861,8 +876,9 @@ function acquireJupyter() {
     sessionStorage.setItem('jup-token', _jupToken);
     _startJupKeepalive();
     refreshJupyterTile();
-    window.open(_jupUrl, '_blank', 'noopener');
-  }).catch(function(e) { alert('Error: ' + e.message); });
+    if (tab) { tab.opener = null; tab.location = _jupUrl; }
+    else { window.open(_jupUrl, '_blank', 'noopener'); }
+  }).catch(function(e) { if (tab) tab.close(); alert('Error: ' + e.message); });
 }
 
 function releaseJupyter() {
@@ -1038,9 +1054,12 @@ function saveNotebookBookmark() {
   if (!path) return;
   var label = (document.getElementById('jup-nb-label').value || '').trim()
               || path.split('/').pop().replace(/\.ipynb$/i, '');
-  // Build the JupyterLab deep-link: /lab/tree/<path>?token=egeria
-  var nbUrl = 'http://' + window.location.hostname + ':8888/lab/tree/'
-              + path.split('/').map(encodeURIComponent).join('/') + '?token=egeria';
+  // Build the JupyterLab deep-link: /lab/tree/<path>. Demo mode goes through
+  // the gated /jupyter/ route (no token in the URL); local mode hits :8888.
+  var nbPath = path.split('/').map(encodeURIComponent).join('/');
+  var nbUrl = (_jupStatus && _jupStatus.url)
+    ? '/jupyter/lab/tree/' + nbPath
+    : 'http://' + window.location.hostname + ':8888/lab/tree/' + nbPath + '?token=egeria';
   var persona = _currentPersonaId;
   if (!persona) return;
   var status = document.getElementById('jup-nb-status');
