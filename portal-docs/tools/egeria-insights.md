@@ -22,6 +22,8 @@ Build a query from a facet picker (populated live from `/api/types`, so it alway
 
 Queries you save here persist as real Egeria `SavedQuery` elements (previously modeled as a generic `ResultsSet` before Egeria added a dedicated type) — not local-only Portal state. A saved query with `CollectionMembership` results shows a staleness indicator if the underlying data has changed since it was last materialized.
 
+For a step-by-step walkthrough — build a query, save it, refresh it, and show its results on a [Local Dashboard](local-dashboards.md) — see the [Create and Use Saved Queries](../tutorials/saved-queries.md) tutorial.
+
 ---
 
 ## Further resources

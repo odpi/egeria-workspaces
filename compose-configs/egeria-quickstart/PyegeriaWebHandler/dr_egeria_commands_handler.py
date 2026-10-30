@@ -402,7 +402,7 @@ def execute_document(req: ExecuteDocumentRequest):
     --validate|--process some-file.md` would, but through the browser. Runs
     in this same backend process, so it always writes to the store this
     portal actually reads (the #1 gotcha with running dr_egeria from a
-    different machine — see LOCAL_DASHBOARDS_TUTORIAL.md)."""
+    different machine — see portal-docs/tutorials/local-dashboards.md)."""
     if not req.content.strip():
         return JSONResponse({"success": False, "partial": False, "output": "Empty document.",
                              "directive": req.directive, "validation_errors": [], "execution_errors": [],
