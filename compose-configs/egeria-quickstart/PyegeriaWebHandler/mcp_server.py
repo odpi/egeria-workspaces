@@ -272,10 +272,13 @@ async def dr_egeria_run_block(
     os.environ["EGERIA_ROOT_PATH"] = "/"
     os.environ["EGERIA_INBOX_PATH"] = "."
     
-    structured_func = getattr(dr_egeria_md, "process_markdown_file_structured", None)
+    # Await the async processors directly. This tool already runs on the MCP server's event
+    # loop, and the sync wrappers call asyncio.run(), which a running loop rejects now that
+    # pyegeria (6.2.16+) no longer applies nest_asyncio.
+    structured_func = getattr(dr_egeria_md, "process_md_file_structured_async", None)
     try:
         if structured_func:
-            raw = structured_func(
+            raw = await structured_func(
                 input_file=effective_input_file,
                 output_folder=final_output_folder,
                 directive=directive,
@@ -287,7 +290,7 @@ async def dr_egeria_run_block(
             )
         else:
             # Fallback if structured function not available
-            plain = dr_egeria_md.process_markdown_file(
+            plain = await dr_egeria_md.process_md_file_async(
                 input_file=effective_input_file,
                 output_folder=final_output_folder,
                 directive=directive,
