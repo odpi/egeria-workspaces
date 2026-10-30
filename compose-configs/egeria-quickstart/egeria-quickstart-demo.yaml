@@ -27,6 +27,12 @@ services:
       # Jupyter is on the isolated `workbench` network; its API is reached via
       # the gateway (pyegeria-web itself stays off that network).
       WORKBENCH_JUPYTER_INTERNAL_URL: "http://quickstart-workbench-gateway:7888/jupyter"
+      # workbench_watchdog.py: evicts and restarts a workbench pinned at its
+      # CPU cap (keep WORKBENCH_CPU_CAP equal to the `cpus:` below) and
+      # emails ALERT_EMAIL_TO.
+      WORKBENCH_CPU_CAP: "2"
+      WORKBENCH_WATCHDOG_MINUTES: "10"
+      ALERT_EMAIL_TO: "${ALERT_EMAIL_TO:-}"
     volumes:
       - ../../runtime-volumes/quickstart-workbench-access:/app/workbench-access
     networks:

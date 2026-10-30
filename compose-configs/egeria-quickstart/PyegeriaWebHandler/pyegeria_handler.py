@@ -83,6 +83,8 @@ async def _lifespan(app: FastAPI):
     await obs_start()
     await jup_start()
     await boot_start()
+    import workbench_watchdog
+    await workbench_watchdog.start()   # demo-only; no-op unless WORKBENCH_GATE
     if DEMO_MODE:
         from demo_reset_handler import start_scheduler, stop_scheduler
         await start_scheduler()
@@ -101,6 +103,7 @@ async def _lifespan(app: FastAPI):
     if DEMO_MODE:
         from demo_reset_handler import stop_scheduler
         await stop_scheduler()
+    await workbench_watchdog.stop()
     await boot_stop()
     await jup_stop()
     await obs_stop()
