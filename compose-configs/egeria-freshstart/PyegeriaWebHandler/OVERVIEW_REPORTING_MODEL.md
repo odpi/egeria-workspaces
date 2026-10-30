@@ -310,7 +310,7 @@ P0–P1 stand alone and are worth doing regardless of whether P3–P4 ship.
 - pyegeria `pyegeria/view/_output_format_models.py` (`FormatSet`/`Format`/`Column`/`ActionParameter`/`QuestionSpec`), `base_report_formats.py`, `output_formatter.py`.
 - egeria-advisor `advisor/report_spec_*.py`, `report_spec_agent.py` (the report runner), `report_spec_elicitor.py`.
 - `OVERVIEW_PERSPECTIVES.dr-egeria.md` + `gen_perspectives.py` — the Perspective/Question authoring pattern to mirror for metrics/containers.
-- `LOCAL_DASHBOARDS_TUTORIAL.md` — user-facing guide to §13's Dashboard Sheet track.
+- `portal-docs/tutorials/local-dashboards.md` — user-facing guide to §13's Dashboard Sheet track.
 
 ## 13. Update — the Dashboard Sheet / Report track actually shipped §9's P3 goals, via a different path (2026-07-29 → 2026-07-30)
 
@@ -332,7 +332,7 @@ much of the same destination without that migration:
   pyegeria-local (JSON store, not Egeria-native — P3's storage question is
   still open), but real and shipping today via `local-dashboards.html`/
   `local_dashboards_handler.py` (egeria-workspaces-fs), documented in
-  `LOCAL_DASHBOARDS_TUTORIAL.md`.
+  `portal-docs/tutorials/local-dashboards.md`.
 - **Generic analytic execution — §9 P3's "unify on the report runner" landed**,
   but via a second `ActionParameter` execution path (`analytic_function` /
   Dr.Egeria's `extra_find`) rather than migrating `action_function`'s
