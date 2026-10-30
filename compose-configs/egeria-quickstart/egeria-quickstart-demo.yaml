@@ -24,6 +24,9 @@ services:
       # current Portal lock holder.
       WORKBENCH_GATE: "true"
       WORKBENCH_SECRET: "${WORKBENCH_SECRET:?WORKBENCH_SECRET must be set -- quick-start-local --demo generates it}"
+      # Jupyter is on the isolated `workbench` network; its API is reached via
+      # the gateway (pyegeria-web itself stays off that network).
+      WORKBENCH_JUPYTER_INTERNAL_URL: "http://quickstart-workbench-gateway:7888/jupyter"
     volumes:
       - ../../runtime-volumes/quickstart-workbench-access:/app/workbench-access
     networks:
@@ -38,6 +41,9 @@ services:
       - ./sites-available/workbench-locations.conf:/usr/local/apache2/conf/extra/workbench-locations.conf:ro
       # A directory, not the file: the Portal replaces access.map by rename.
       - ../../runtime-volumes/quickstart-workbench-access:/usr/local/apache2/workbench-access:ro
+    # Joins `workbench` to proxy /jupyter/ and /obsidian/ to it.
+    networks:
+      - workbench
 
   # ── Workbenches ─────────────────────────────────────────────────────────────
   # Both give whoever uses them code execution, and demo users are anyone who
@@ -60,9 +66,14 @@ services:
     cpus: 2
     mem_limit: 4g
     pids_limit: 1024
-    # Loopback only (SSH tunnel for the box's owner); 8889 (debugpy) dropped.
-    ports: !override
-      - "127.0.0.1:8888:7888"
+    # Isolated: only Apache and the gateway share this network, and it has no
+    # route out. No published ports (debugpy's 8889 included), and no
+    # extra_hosts -- host.docker.internal/${HOST_FQDN} must resolve to the
+    # gateway, not the host.
+    networks: !override
+      - workbench
+    extra_hosts: !reset []
+    ports: !reset []
 
   obsidian:
     environment:
@@ -72,6 +83,37 @@ services:
     cpus: 2
     mem_limit: 3g
     pids_limit: 1024
+    networks: !override
+      - workbench
+    ports: !reset []
+
+  # The workbenches' only way out: forwards Egeria (9443), Unity Catalog
+  # (8087), Kroki, the Obsidian plugin's MCP endpoint and PyPI, and nothing
+  # else -- in particular not the shared Postgres, whose superuser password
+  # is in a committed notebook. See workbench-gateway/nginx.conf.
+  workbench-gateway:
+    image: nginx:1.27-alpine
+    container_name: quickstart-workbench-gateway
+    restart: unless-stopped
+    volumes:
+      - ./workbench-gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+    extra_hosts:
+      - "host.docker.internal:${HOST_GATEWAY_IP:-host-gateway}"
+    networks:
+      egeria_network: {}
+      workbench:
+        aliases:
+          - host.docker.internal
+          - ${HOST_FQDN}
+          - egeria-shared-kroki
+          - pyegeria-web
+          - pypi.org
+          - files.pythonhosted.org
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # Served to the internet as /my-egeria/ through Apache; the direct port
   # stays on loopback.
@@ -109,4 +151,9 @@ services:
 networks:
   docker_control:
     name: quickstart_docker_control
+    internal: true
+  # Demo workbenches + Apache + workbench-gateway. internal: no route to the
+  # host, the LAN or the internet; the gateway is the only way out.
+  workbench:
+    name: quickstart_workbench
     internal: true
