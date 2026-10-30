@@ -474,7 +474,7 @@ function renderFavorites(favs) {
   section.style.display = '';
   strip.innerHTML = favs.map(function(f) {
     var delBtn = '<button class="fav-chip-del" title="Remove bookmark"'
-      + ' onclick="event.preventDefault();event.stopPropagation();removeBookmark(' + JSON.stringify(f.id) + ')">×</button>';
+      + ' onclick="event.preventDefault();event.stopPropagation();removeBookmark(' + JSON.stringify(f.id).replace(/"/g, '&quot;') + ')">×</button>';
     return '<a class="fav-chip" href="' + esc(f.url) + '">'
       + '<span class="fav-chip-icon">' + (f.icon || '⭐') + '</span>'
       + '<span>' + esc(f.label) + '</span>'
@@ -815,7 +815,7 @@ function _renderJupTile(s) {
 
   var html = '';
   if (s.state === 'DISABLED') {
-    html = '<button class="btn btn-accent" onclick="window.open(' + JSON.stringify(_jupUrl) + ',\'_blank\',\'noopener\')">Open ↗</button>';
+    html = '<button class="btn btn-accent" onclick="window.open(' + JSON.stringify(_jupUrl).replace(/"/g, '&quot;') + ',\'_blank\',\'noopener\')">Open ↗</button>';
     el.innerHTML = html;
     return;
   }
@@ -836,7 +836,7 @@ function _renderJupTile(s) {
     var idleWarn = s.idle_warning ? ' ⚠ idle' : '';
     html += '<div class="obs-status obs-mine">● Your session · ' + mins + ' min left' + idleWarn + '</div>'
       + '<div class="obs-actions">'
-      + '<button class="btn btn-accent" onclick="window.open(' + JSON.stringify(_jupUrl) + ',\'_blank\',\'noopener\')">Open Jupyter →</button>'
+      + '<button class="btn btn-accent" onclick="window.open(' + JSON.stringify(_jupUrl).replace(/"/g, '&quot;') + ',\'_blank\',\'noopener\')">Open Jupyter →</button>'
       + '<button class="btn" onclick="extendJupyter()">Extend</button>'
       + '<button class="btn" onclick="releaseJupyter()" style="color:var(--muted)">Release</button>'
       + '</div>';
