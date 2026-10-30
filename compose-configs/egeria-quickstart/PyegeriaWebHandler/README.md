@@ -1015,8 +1015,11 @@ The **Local Dashboards** page (`🗂️` tile) is a user-authored reporting port
 
 ### Tutorials
 
-- [Building a Local Dashboard](LOCAL_DASHBOARDS_TUTORIAL.md) — Technical guide to the dashboard model and authoring workflow.
-- [Digital Product & Subscription Dashboard](DIGITAL_PRODUCT_SUBSCRIPTION_TUTORIAL.md) — A business-value focused tutorial demonstrating analytic trends and relationship diagrams.
+The tutorials live in the Portal Docs (`portal-docs/tutorials/`, served at `/docs/` — see the [Tutorials hub](../../../portal-docs/tutorials/overview.md)).
+
+- [Building a Local Dashboard](../../../portal-docs/tutorials/local-dashboards.md) — Technical guide to the dashboard model and authoring workflow.
+- [Digital Product & Subscription Dashboard](../../../portal-docs/tutorials/digital-product-subscription.md) — A business-value focused tutorial demonstrating analytic trends and relationship diagrams.
+- [Create and Use Saved Queries](../../../portal-docs/tutorials/saved-queries.md) — Build, save and refresh a query in the Query tool, then show its results on a Local Dashboard (with screenshots and diagrams).
 
 ---
 

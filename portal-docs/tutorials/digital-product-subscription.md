@@ -19,7 +19,7 @@ We want to answer four key questions for the Data Office:
 
 - Access to the Egeria Quickstart environment.
 - The `dr_egeria` CLI or the **▶ Run Dr.Egeria Document** panel in the Local Dashboards UI.
-- (Optional) Familiarity with [LOCAL_DASHBOARDS_TUTORIAL.md](LOCAL_DASHBOARDS_TUTORIAL.md).
+- (Optional) Familiarity with [Building a Local Dashboard](local-dashboards.md).
 
 ---
 

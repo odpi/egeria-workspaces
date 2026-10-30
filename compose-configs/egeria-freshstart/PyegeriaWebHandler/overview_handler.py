@@ -108,7 +108,7 @@ except ImportError:
 
 # ownership_coverage is new (2026-08-01), not yet in a published pyegeria release
 # (same "container runs the published package, not this dev checkout" gap already
-# documented for Create Report/Dashboard Sheet commands in LOCAL_DASHBOARDS_TUTORIAL.md
+# documented for Create Report/Dashboard Sheet commands in portal-docs/tutorials/local-dashboards.md
 # — this import crashed the whole app on an installed pyegeria that predates it,
 # taking down every /api/overview/* route, not just ai-context). Defensive import,
 # matching the vega_utilities pattern just above this block.
