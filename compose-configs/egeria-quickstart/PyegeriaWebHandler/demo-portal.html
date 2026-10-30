@@ -722,11 +722,16 @@ function _renderObsTile(s) {
 function acquireObsidian() {
   var persona   = _currentPersonaId || '';
   var display   = persona && _personas[persona] ? _personas[persona].display_name : 'User';
+  // Open the tab now, inside the click handler: opened after the acquire
+  // fetch resolves, popup blockers (Safari especially) silently drop it --
+  // same trick as launchAdvisor(). Local Obsidian launches via obsidian://.
+  var tab = _obsIsLocal() ? null : window.open('', '_blank');
   fetch('/api/obsidian/acquire', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ persona: persona, display_name: display })
   }).then(function(r) { return r.json(); }).then(function(data) {
     if (!data.acquired) {
+      if (tab) tab.close();
       alert('Could not acquire Obsidian: ' + (data.reason || 'unavailable'));
       refreshObsidianTile();
       return;
@@ -735,8 +740,9 @@ function acquireObsidian() {
     sessionStorage.setItem('obs-token', _obsToken);
     _startObsKeepalive();
     refreshObsidianTile();
-    _obsLaunchTarget();
-  }).catch(function(e) { alert('Error: ' + e.message); });
+    if (tab) { tab.opener = null; tab.location = _obsContainerUrl(); }
+    else { _obsLaunchTarget(); }
+  }).catch(function(e) { if (tab) tab.close(); alert('Error: ' + e.message); });
 }
 
 function releaseObsidian() {
@@ -852,11 +858,14 @@ function _renderJupTile(s) {
 function acquireJupyter() {
   var persona  = _currentPersonaId || '';
   var display  = persona && _personas[persona] ? _personas[persona].display_name : 'User';
+  // Open the tab inside the click handler -- see acquireObsidian().
+  var tab = window.open('', '_blank');
   fetch('/api/jupyter/acquire', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ display_name: display })
   }).then(function(r) { return r.json(); }).then(function(data) {
     if (!data.acquired) {
+      if (tab) tab.close();
       alert('Could not acquire Jupyter: ' + (data.reason || 'unavailable'));
       refreshJupyterTile();
       return;
@@ -865,8 +874,9 @@ function acquireJupyter() {
     sessionStorage.setItem('jup-token', _jupToken);
     _startJupKeepalive();
     refreshJupyterTile();
-    window.open(_jupUrl, '_blank', 'noopener');
-  }).catch(function(e) { alert('Error: ' + e.message); });
+    if (tab) { tab.opener = null; tab.location = _jupUrl; }
+    else { window.open(_jupUrl, '_blank', 'noopener'); }
+  }).catch(function(e) { if (tab) tab.close(); alert('Error: ' + e.message); });
 }
 
 function releaseJupyter() {
