@@ -646,9 +646,11 @@ function _obsGhBtn() {
 function _renderObsTile(s) {
   var el = document.getElementById('obs-tile-action');
   if (!el) return;
-  var isMine = _obsToken && s.holder_token === undefined
-    ? false   // server never returns holder_token; we infer from sessionStorage match
-    : !!_obsToken && s.state !== 'FREE';
+  // The server never returns holder_token; holding a token from acquire (in
+  // sessionStorage) while the lock is taken means the session is ours. (This
+  // used to test s.holder_token === undefined, which made it always false:
+  // the holder saw their own session as "in use" with no Open button.)
+  var isMine = !!_obsToken && s.state !== 'FREE';
 
   // If I have a token but the lock is free, someone else released it - clear my token
   if (_obsToken && s.state === 'FREE') { _clearObsToken(); isMine = false; }
