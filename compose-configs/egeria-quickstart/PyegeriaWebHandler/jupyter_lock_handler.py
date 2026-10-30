@@ -26,10 +26,11 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from loguru import logger
 from pydantic import BaseModel
 
+import workbench_access as wb
 from demo_config import DEMO_MODE
 
 router = APIRouter(prefix="/api/jupyter", tags=["jupyter-lock"])
@@ -63,6 +64,7 @@ _state: dict = {
     "last_keepalive": None,
     "evicting":       False,
     "evict_deadline": None,
+    "access_key":     None,   # workbench gate cookie value (workbench_access.py)
 }
 _audit: list[dict] = []
 _reservations: list[dict] = []
@@ -170,6 +172,7 @@ def _minutes_until_free() -> Optional[int]:
 
 def _do_release(reason: str = "released") -> None:
     _audit_entry(reason)
+    wb.revoke("jupyter")
     _state.update({
         "state":          "FREE",
         "holder_token":   None,
@@ -179,6 +182,7 @@ def _do_release(reason: str = "released") -> None:
         "last_keepalive": None,
         "evicting":       False,
         "evict_deadline": None,
+        "access_key":     None,
     })
     _save_state()
 
@@ -189,6 +193,7 @@ async def start_scheduler() -> None:
     global _scheduler_task
     _load_state()
     _startup_cleanup()
+    wb.restore("jupyter", _state.get("access_key"))
     _scheduler_task = asyncio.create_task(_cleanup_loop())
     logger.info("jupyter lock scheduler started")
 
@@ -329,11 +334,12 @@ async def jupyter_status(request: Request):
             "next_reservation_at": nrs.isoformat() if nrs else None,
             "buffer_minutes":      _BUFFER_MINUTES,
             "session_minutes":     _SESSION_MINUTES,
+            "url":                 wb.public_url("jupyter"),
         }
 
 
 @router.post("/acquire")
-async def acquire(request: Request, body: AcquireRequest, _: None = Depends(_require_lock_enabled)):
+async def acquire(request: Request, response: Response, body: AcquireRequest, _: None = Depends(_require_lock_enabled)):
     """Acquire the Jupyter lock. Returns a session token for keepalive/release."""
     user = _require_verified_or_local(request)
     async with _mu:
@@ -373,6 +379,7 @@ async def acquire(request: Request, body: AcquireRequest, _: None = Depends(_req
             "evicting":       False,
             "evict_deadline": None,
         })
+        _state["access_key"] = wb.grant("jupyter", response)
         _audit_entry("acquired")
         _save_state()
         logger.info(f"jupyter lock acquired by '{display}'")

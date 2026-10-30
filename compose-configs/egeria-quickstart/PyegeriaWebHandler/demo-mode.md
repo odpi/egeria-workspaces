@@ -38,8 +38,7 @@ Once started, the following services are running:
 - HTTP portal (301-redirects to HTTPS): `http://<HOST_FQDN>:8885`
 - HTTPS portal: `https://<HOST_FQDN>` (port 443)
 - Login: `https://<HOST_FQDN>/login`
-- Jupyter: `http://<HOST_FQDN>:8888` (password: `egeria`)
-- Obsidian — see [Obsidian browser container](#obsidian-browser-container) below
+- Jupyter and Obsidian: `https://<HOST_FQDN>/jupyter/lab` and `/obsidian/`, for the current Portal session holder only — see [Workbench gate](#workbench-gate-jupyter-and-obsidian) below
 - Airflow and Marquez (localhost only) — see [Airflow and Marquez](#airflow-and-marquez) below
 
 On first startup the container creates the admin account from the bootstrap credentials. If an admin already exists those values are ignored, so it is safe to leave them set.
@@ -257,6 +256,30 @@ Selecting a persona:
 1. Stores display info in `localStorage` (`egeria-persona`).
 2. Calls `POST /api/demo/select-persona` to retrieve the matching Egeria credentials.
 3. Stores those credentials in `localStorage` (`egeria-creds`) so Egeria Explorer can connect immediately without a separate login step.
+
+### Workbench gate (Jupyter and Obsidian)
+
+JupyterLab and the Obsidian desktop both give whoever uses them code execution in a container, and in demo mode that is anyone who registers. So in demo mode (`egeria-quickstart-demo.yaml`) they are reachable only through Apache on 443, and only by the user currently holding that workbench's Portal session lock:
+
+- **Acquire** (`POST /api/jupyter/acquire`, `/api/obsidian/acquire`) mints a random key, sets it as an `HttpOnly`/`Secure` cookie (`wb_jupyter` on `/jupyter/`, `wb_obsidian` on `/obsidian/`) and publishes it in `runtime-volumes/quickstart-workbench-access/access.map`.
+- **Apache** (`sites-available/workbench-locations.conf`) compares the cookie with the map on every request, WebSocket upgrades included, and returns 403 on a mismatch. It then injects the upstream credential, `WORKBENCH_SECRET` (the Jupyter token and the Obsidian basic-auth password), which browsers never see.
+- **Release, expiry and eviction** revoke the key, so the next request is refused, and cut live connections: Jupyter's kernels and terminals are shut down, and the Obsidian container is restarted through docker-proxy.
+
+`quick-start-local --demo` generates `WORKBENCH_SECRET` (saved in `.env.demo`) and seeds `access.map`. The overlay also limits each workbench (2 CPUs, 4 GB / 3 GB memory, 1024 processes); runs Jupyter as `jovyan` with no capabilities (`pip install --upgrade pyegeria` still works, since jovyan owns `/opt/conda`); publishes no workbench ports (My Egeria's 8820 stays on loopback); and moves docker-proxy onto a network shared only with pyegeria-web. Workspaces persist between sessions.
+
+**Isolated network.** Both workbenches sit on `workbench`, an internal Docker network with no route to the host, the LAN or the internet. Its only other members are Apache (which proxies `/jupyter/` and `/obsidian/`) and `workbench-gateway` (`workbench-gateway/nginx.conf`), which joins under the names notebooks already use, so they need no changes. The gateway forwards only:
+
+| From a workbench | Goes to |
+|---|---|
+| `https://host.docker.internal:9443`, `https://${HOST_FQDN}:9443` | Egeria platform (TLS passed through) |
+| `http://host.docker.internal:8087` | Unity Catalog |
+| `http://egeria-shared-kroki:8000` | Kroki (`render_mermaid()`) |
+| `http://pyegeria-web:8000/sse`, `/messages` | The Portal's MCP endpoint (Obsidian's Call Dr. Egeria plugin); every other pyegeria-web path is refused |
+| `pypi.org`, `files.pythonhosted.org` (443) | PyPI, chosen by TLS server name without decrypting; any other name is refused |
+
+Everything else is unreachable from a workbench: the shared Postgres (which holds the Portal's accounts), Kafka, the host's native databases, Ollama, docker-proxy, and the internet at large. Notebook steps that connect to Postgres *directly* (for example `5. sales-forecast-consolidation/1. generate-sales-data.ipynb`) therefore fail in demo mode; steps that only pass Postgres details to Egeria are unaffected, because Egeria makes the connection. pyegeria-web reaches Jupyter's API (to end sessions) through the gateway's port 7888, so it never joins `workbench` itself, where it would be reachable without Apache's edge header.
+
+Local (non-demo) mode is unchanged: the gate is off, and Jupyter is at `http://localhost:8888` with token `egeria`.
 
 ### Obsidian tile
 
