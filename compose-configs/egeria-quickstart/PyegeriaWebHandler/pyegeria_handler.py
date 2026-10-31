@@ -83,6 +83,8 @@ async def _lifespan(app: FastAPI):
     await obs_start()
     await jup_start()
     await boot_start()
+    import workbench_watchdog
+    await workbench_watchdog.start()   # demo-only; no-op unless WORKBENCH_GATE
     if DEMO_MODE:
         from demo_reset_handler import start_scheduler, stop_scheduler
         await start_scheduler()
@@ -101,6 +103,7 @@ async def _lifespan(app: FastAPI):
     if DEMO_MODE:
         from demo_reset_handler import stop_scheduler
         await stop_scheduler()
+    await workbench_watchdog.stop()
     await boot_stop()
     await jup_stop()
     await obs_stop()
@@ -892,5 +895,26 @@ if _static_dir.is_dir():
 
 # Mount MCP SSE app last — mounting at "/" is a catch-all and must come after
 # all @app.get() / include_router() registrations or it intercepts them first.
-mcp_app = mcp_server.sse_app()
+#
+# mcp 2.x turns on DNS-rebinding protection by default and then accepts only a
+# localhost Host and Origin, which rejects every real client: the Obsidian
+# Call Dr. Egeria plugin connects as Host pyegeria-web:8000 with Origin
+# app://obsidian.md and got 421/403. List the names this app is actually
+# reached by; MCP_ALLOWED_HOSTS / MCP_ALLOWED_ORIGINS (comma-separated) add
+# more. MCPTokenMiddleware above still requires the access token.
+from mcp.server.transport_security import TransportSecuritySettings
+
+
+def _env_list(name: str) -> list[str]:
+    return [v.strip() for v in os.environ.get(name, "").split(",") if v.strip()]
+
+
+_mcp_security = TransportSecuritySettings(
+    enable_dns_rebinding_protection=True,
+    allowed_hosts=["localhost:*", "127.0.0.1:*", "[::1]:*",
+                   "pyegeria-web:*", "quickstart-pyegeria-web:*"] + _env_list("MCP_ALLOWED_HOSTS"),
+    allowed_origins=["http://localhost:*", "http://127.0.0.1:*", "http://[::1]:*",
+                     "app://obsidian.md"] + _env_list("MCP_ALLOWED_ORIGINS"),
+)
+mcp_app = mcp_server.sse_app(transport_security=_mcp_security)
 app.mount("/", mcp_app)
