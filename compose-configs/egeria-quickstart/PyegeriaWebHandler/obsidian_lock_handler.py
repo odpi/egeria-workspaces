@@ -37,10 +37,11 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from loguru import logger
 from pydantic import BaseModel
 
+import workbench_access as wb
 from demo_config import DEMO_MODE
 
 router = APIRouter(prefix="/api/obsidian", tags=["obsidian-lock"])
@@ -80,6 +81,7 @@ _state: dict = {
     "last_keepalive": None,   # ISO datetime
     "evicting":       False,  # True while grace period is running
     "evict_deadline": None,   # ISO datetime when eviction takes effect
+    "access_key":     None,   # workbench gate cookie value (workbench_access.py)
 }
 _audit: list[dict] = []       # capped at 200 entries
 _reservations: list[dict] = []
@@ -237,6 +239,7 @@ def _minutes_until_free() -> Optional[int]:
 
 def _do_release(reason: str = "released") -> None:
     _audit_entry(reason)
+    wb.revoke("obsidian")
     if _state.get("holder_persona"):
         _clear_persona()
     _state.update({
@@ -249,6 +252,7 @@ def _do_release(reason: str = "released") -> None:
         "last_keepalive": None,
         "evicting":       False,
         "evict_deadline": None,
+        "access_key":     None,
     })
     _save_state()
 
@@ -259,6 +263,7 @@ async def start_scheduler() -> None:
     global _scheduler_task
     _load_state()
     _startup_cleanup()
+    wb.restore("obsidian", _state.get("access_key"))
     _scheduler_task = asyncio.create_task(_cleanup_loop())
     logger.info("obsidian lock scheduler started")
 
@@ -425,11 +430,12 @@ async def obsidian_status(request: Request):
             "next_reservation_at": nrs.isoformat() if nrs else None,
             "buffer_minutes":  _BUFFER_MINUTES,
             "session_minutes": _SESSION_MINUTES,
+            "url":             wb.public_url("obsidian"),
         }
 
 
 @router.post("/acquire")
-async def acquire(request: Request, body: AcquireRequest, _: None = Depends(_require_lock_enabled)):
+async def acquire(request: Request, response: Response, body: AcquireRequest, _: None = Depends(_require_lock_enabled)):
     """Acquire the Obsidian lock. Returns a session token the caller must use for keepalive/release."""
     user = _require_verified_or_local(request)
 
@@ -476,6 +482,7 @@ async def acquire(request: Request, body: AcquireRequest, _: None = Depends(_req
             "evicting":       False,
             "evict_deadline": None,
         })
+        _state["access_key"] = wb.grant("obsidian", response)
         _audit_entry("acquired")
         _save_state()
 

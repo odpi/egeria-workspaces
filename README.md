@@ -7,7 +7,7 @@
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/3044/badge)](https://bestpractices.coreinfrastructure.org/projects/3044)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
 [![Governance](https://img.shields.io/badge/Governance-Egeria-blue)](GOVERNANCE.md)
-[![GitHub](https://img.shields.io/github/license/odpi/egeria)](LICENSE)
+[![GitHub](https://img.shields.io/github/license/odpi/egeria-workspaces)](LICENSE)
 
 # Egeria Workspaces
 
@@ -95,6 +95,16 @@ NO_CACHE=1 ./quick-start-local
 ```
 
 `NO_CACHE` accepts `1 / true / yes / on`; unset or `0 / false / no / off` uses the cache.
+
+#### Optional runtimes started with the quickstart
+
+```bash
+./quick-start-local --with-airflow-marquez   # also start Airflow + Marquez (Coco DAGs and OpenLineage events)
+./quick-start-local --skip-airflow-marquez   # don't start them (they are on by default with --demo)
+./quick-start-local --skip-unity-catalog     # skip the Unity Catalog demo containers
+```
+
+Airflow (`http://localhost:8072`) and Marquez (`http://localhost:3000`) send their OpenLineage events to Egeria through the shared OpenLineage proxy, so the lineage appears in the portal's `/lineage` tool. Their ports stay bound to `127.0.0.1` even with `--demo` or `--lan`, because Airflow's default login can run code and Marquez has no login. The first run builds the Airflow image, which takes several minutes. See the [optional runtimes README](compose-configs/optional-associated-runtimes/README.md) for details.
 
 ---
 
