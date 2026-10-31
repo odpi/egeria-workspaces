@@ -36,6 +36,14 @@ The Dr. Egeria engine and the Obsidian plugin work together to ensure that input
 ### Generalized MCP
 The included `mcp_server.py` now supports dynamic execution. You can use the `egeria_execute_command` tool to run any Dr. Egeria command by name, and `egeria_list_commands` to see what is currently available.
 
+## Analytic Report Specifications
+
+`report_specs_handler.py` registers two workspace analytic specs at import time: **Analytic - Element Count by Type** and **Analytic - Generic Metric Trend**.
+
+A report spec is data, so it names its analytic function by **registered name** (`count_elements`, `metric_trend`), not by Python dotted path. Registered names come from pyegeria's analytic registry; installed packages add functions through the `pyegeria.analytics` entry-point group, and report specs through the `pyegeria.report_specs` entry-point group (pyegeria 6.2.18+). Dotted paths in report specs resolve with a `DeprecationWarning` in pyegeria 6.2.18 and are refused in 6.2.19. `metric_trend`'s `metric_path` accepts a registered name only from 6.2.18, so it stays a dotted path until the image runs 6.2.18.
+
+`PYEGERIA_REPORT_SPEC_MODULES` is deprecated from pyegeria 6.2.18 (it still loads, with a warning) and removed in 6.2.19. Use the `pyegeria.report_specs` entry point instead. See the quickstart `PyegeriaWebHandler/README.md` ("Analytic Report Specifications") for the full description.
+
 ## Model Context Protocol (MCP) Support
 
 ### Overview

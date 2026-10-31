@@ -60,8 +60,10 @@ def _get_registry() -> dict:
 
 
 def _demo_report_spec_names() -> dict:
-    """dotted function path -> demo report spec name, from
-    pyegeria.view.analytic_demo_specs (best-effort -- {} if unavailable)."""
+    """analytic_function -> demo report spec name, from
+    pyegeria.view.analytic_demo_specs (best-effort -- {} if unavailable).
+    The key is whatever the demo spec names: a dotted path up to pyegeria
+    6.2.17, the registered name from 6.2.18 (ISSUE-173)."""
     try:
         from pyegeria.view.analytic_demo_specs import get_analytic_demo_specs
     except ImportError:
@@ -84,7 +86,7 @@ def _serialize(name: str, spec, demo_specs: dict) -> dict:
         "returns":        getattr(spec, "returns", "") or "",
         "generic":        bool(getattr(spec, "generic", False)),
         "bindingNote":    getattr(spec, "binding_note", "") or "",
-        "demoReportSpec": demo_specs.get(getattr(spec, "function", ""), None),
+        "demoReportSpec": demo_specs.get(name) or demo_specs.get(getattr(spec, "function", ""), None),
         "params": [
             {
                 "name":        getattr(p, "name", ""),
