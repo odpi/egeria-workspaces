@@ -42,7 +42,7 @@ def register_local_specs():
             formats=[Format(types=["DICT", "JSON"], attributes=[])],
             action=ActionParameter(
                 function="",
-                analytic_function="pyegeria.view.overview_metrics.count_elements",
+                analytic_function="count_elements",
                 analytic_spec_params={"type_name": "GlossaryTerm"}
             )
         ),
@@ -55,7 +55,7 @@ def register_local_specs():
             formats=[Format(types=["DICT", "JSON", "SERIES"], attributes=[])],
             action=ActionParameter(
                 function="",
-                analytic_function="pyegeria.view.overview_metrics.metric_trend",
+                analytic_function="metric_trend",
                 analytic_spec_params={
                     "metric_path": "pyegeria.view.overview_metrics.count_elements",
                     "metric_params": {"type_name": "Asset"},
