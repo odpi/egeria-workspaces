@@ -108,6 +108,29 @@ After 6.1 the first job was making the stack harder to knock over and easier to 
 
 ---
 
+## Since 6.2 (unreleased, on `main`)
+
+Work merged after the 6.2 notes were compiled; see the `[Unreleased]` section of
+[CHANGELOG.md](CHANGELOG.md) for the full list.
+
+- **Airflow and Marquez start with the demo.** `quick-start-local --demo` now brings up Airflow and Marquez
+  (`--with-airflow-marquez` / `--skip-airflow-marquez`), with their ports kept on `127.0.0.1` because Airflow's
+  login can run code and Marquez has none.
+- **Airflow's lineage reaches Egeria.** OpenLineage events go to Marquez and, through the shared proxy and the
+  `openlineage.events` Kafka topic, to Egeria, where the `/lineage` tool shows them. The proxy now restarts
+  automatically.
+- **More Dr.Egeria templates**: Security Officer (Statement of Applicability, Control Applicability) and Business
+  Capability commands; `pyegeria` floor raised to **6.2.11**.
+- **Portal and Explorer**: Infrastructure tabs by subtype in The Catalog, inheritance for relationships and
+  classifications in the Type Explorer, `--lan` for local starts, and fixes for relationship cards, extended
+  properties and engine action links.
+- **Security**: the `call-dr-egeria` Obsidian plugin's dependencies were updated (8 advisories cleared).
+- **OpenSSF Scorecard**: the scorecard workflow pinned a commit of `ossf/scorecard-action` that does not exist, so
+  it never ran and the README badge showed "invalid repo path". It is now pinned to v2.4.3, and the badge links to
+  this repository's scorecard.
+
+---
+
 ## Upgrade notes
 
 - **Data Initialization now loads files as persona users.** Files and folders can name a `userid`. Each
@@ -119,6 +142,8 @@ After 6.1 the first job was making the stack harder to knock over and easier to 
   if you need a fixed version.
 - **Platform images are pinned to `odpi/egeria-platform:6.2`.** Rebuild the `egeria-main` image to move to it.
   `--refresh-platform` re-pins to the newest `latest` image instead, which takes you off 6.2.
+- **Docker Desktop publishes ports on `127.0.0.1` only.** Add `--lan` to `quick-start-local` / `fresh-start-local`
+  to reach the stack by machine name or from other machines.
 
 ## Where the detail lives
 

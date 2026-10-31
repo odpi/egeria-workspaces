@@ -31,7 +31,7 @@ collection's `MemberPopularityProfile`, not the per-member maps.
 | Each element | `UsageActivity` | Pepys Activity Observer (nanny daemon) | Seven counts: `explicitGetCount`, `findCount`, `updatePropertyCount`, `updateAttachmentCount`, `updateFeedbackCount`, `deleteAttachmentCount`, `deleteFeedbackCount` *[read]* |
 | Root collections, glossaries, data sharing hubs, collection folders, digital product catalogs | `MemberPopularityProfile` | Lovelace "Build Member Popularity Profile" (Babbage Analytical Engine) | For each of the seven counts, a `…Total` and a `…Profile` map of **member element GUID → count**. Nested collections roll up, so totals ripple to the top. Members with no activity are left out; a map is omitted when every member is zero *[read]* |
 | Governance zones | `ZoneMembershipProfile` | Lovelace "Build Zone Membership Profile" | Member counts by type: direct, anchored, combined *[read]* |
-| People | `ContributionRecord` | Lovelace "Award Karma Points" | Karma points (already used by `karma_leaderboard`) *[read]* |
+| People | `ContributionRecord` | Simon Contribution Recorder (nanny daemon) | Karma points (already used by `karma_leaderboard`); people only by default - Simon ignores userIds matching `.*npa` and `.*engine` *[read]* |
 
 Points that shape the design:
 
