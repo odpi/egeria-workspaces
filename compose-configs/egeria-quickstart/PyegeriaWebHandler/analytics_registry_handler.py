@@ -17,15 +17,16 @@ Also makes pyegeria.view.analytic_demo_specs's demo report specs (one per
 analytic function, proving each is actually runnable) show up in Egeria
 Explorer's existing Report Specs browser alongside every other spec — see
 analytic_demo_specs.py's module docstring for why these are hand-written
-rather than Tinderbox-authored. Loading itself is pyegeria's own job now
-(pyegeria.view.base_report_formats.get_report_registry() auto-loads its
-CONFIG tier from settings.Environment.pyegeria_report_spec_modules / the
-PYEGERIA_REPORT_SPEC_MODULES env var on first call) — this module only sets
-that env var as a default, since the container's pyegeria install has no
-config.json of its own pointing at it.
+rather than Tinderbox-authored. Loading them is pyegeria's own job: from
+6.2.18 they come in through pyegeria's `pyegeria.report_specs` entry point
+(`analytic_demos`), which get_report_registry() reads on first call.
+
+Registers Resource Explorer's Curation Coverage tile (re_analytics.py) in
+pyegeria's RUNTIME tier with register_report_specs(), which survives
+refresh_report_specs(). The Portal no longer sets PYEGERIA_REPORT_SPEC_MODULES:
+pyegeria 6.2.18 deprecates it and 6.2.19 removes it (ISSUE-173).
 """
 
-import os
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
@@ -34,24 +35,19 @@ from loguru import logger
 
 router = APIRouter(tags=["analytics"])
 
-# re_analytics:report_specs adds Resource Explorer's Curation Coverage tile
-# (re_analytics.py), fetched from RE over HTTP as the viewer.
-os.environ.setdefault(
-    "PYEGERIA_REPORT_SPEC_MODULES",
-    "pyegeria.view.analytic_demo_specs:get_analytic_demo_specs,re_analytics:report_specs",
-)
-
-# pyegeria loads the CONFIG tier once, on the first get_report_registry() call.
-# report_specs_handler.py is imported before this module and registers its own
-# specs at import time, which makes that first call before the default above
-# exists, so neither the demo specs nor the RE tile ever loaded. Reload the
-# tier now that the variable is set; each bad entry is skipped on its own.
+# Resource Explorer's Curation Coverage tile (re_analytics.py), fetched from RE
+# over HTTP as the viewer. A reload of this module (WatchFiles) registers it
+# again; pyegeria 6.2.18 raises ReportFormatCollision for that, 6.2.19 makes a
+# same-source re-registration a no-op.
 try:
-    from pyegeria.view.base_report_formats import refresh_report_specs
-    for _source, _reason in refresh_report_specs():
-        logger.warning(f"analytics: report spec module skipped: {_source}: {_reason}")
-except Exception as _exc:  # noqa: BLE001  never stop the app over an optional spec module
-    logger.warning(f"analytics: could not load report spec modules: {_exc}")
+    from pyegeria.view.base_report_formats import ReportFormatCollision, register_report_specs
+    import re_analytics
+    try:
+        register_report_specs(re_analytics.report_specs(), source="re_analytics")
+    except ReportFormatCollision:
+        logger.debug("analytics: Resource Explorer tile spec already registered")
+except Exception as _exc:  # noqa: BLE001  never stop the app over an optional spec
+    logger.warning(f"analytics: could not register the Resource Explorer tile spec: {_exc}")
 
 
 def _get_registry() -> dict:

@@ -367,7 +367,10 @@ much of the same destination without that migration:
   6.2.19. Dotted paths in specs resolve with a warning in 6.2.18 and are
   refused in 6.2.19; an unregistered dotted path outside the allowed packages
   is refused from 6.2.17 (ISSUE-169). The Portal's workspace specs use
-  registered names throughout, `metric_path` included (needs 6.2.18).
+  registered names throughout, `metric_path` included (needs 6.2.18). The
+  Portal no longer sets `PYEGERIA_REPORT_SPEC_MODULES`: the demo specs come
+  from pyegeria's own entry point, and the Resource Explorer tile is
+  registered at runtime (`register_report_specs`).
 
 **What this does *not* close** — the real gap list from re-assessing "is this
 enough to rewrite the Overview dashboard on Dashboard Sheets" (2026-07-30):
