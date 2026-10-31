@@ -30,7 +30,13 @@ host today. Where a deployed RE should live is still open, so set it per
 environment.
 
 `report_specs()` is the tile's FormatSet, loaded through
-PYEGERIA_REPORT_SPEC_MODULES (see analytics_registry_handler.py).
+PYEGERIA_REPORT_SPEC_MODULES (see analytics_registry_handler.py). It also
+registers `curation_coverage_tile` in pyegeria's analytic registry as
+`re_curation_coverage_tile`, the name the spec uses: a report spec names its
+function by registered name, and pyegeria refuses an unregistered dotted path
+outside its allowed packages (ISSUE-169/173). The name differs from trellis's
+own `curation_coverage_tile` routine so the two never collide if trellis
+packages are ever installed here.
 """
 
 import os
@@ -45,7 +51,8 @@ RESOURCE_EXPLORER_API_URL = os.environ.get(
     "RESOURCE_EXPLORER_API_URL", "http://host.docker.internal:8813").rstrip("/")
 
 TILE_LABEL = "Resource Explorer - Curation Coverage"
-TILE_FUNCTION = "re_analytics.curation_coverage_tile"
+TILE_FUNCTION = "re_curation_coverage_tile"          # registered name; report specs use this
+_TILE_IMPORT_PATH = "re_analytics.curation_coverage_tile"
 _ENTITY_TYPES = ("database", "file_system", "document_source")
 
 _EXCHANGE_TIMEOUT_S = 10
@@ -174,9 +181,31 @@ def curation_coverage_tile(slug: str, resource_type: str = "database") -> dict:
         return _state_tile("not_established", entity_type, slug, "Resource Explorer's answer was not JSON")
 
 
+def register_tile_function() -> None:
+    """Register curation_coverage_tile as TILE_FUNCTION in pyegeria's analytic registry (idempotent)."""
+    from pyegeria.view.analytic_registry import get_analytic_registry, register_analytic_functions
+    if TILE_FUNCTION in get_analytic_registry():
+        return
+    register_analytic_functions({TILE_FUNCTION: {
+        "name": TILE_FUNCTION,
+        "function": _TILE_IMPORT_PATH,
+        "description": "Resource Explorer's curation-coverage tile for one resource, fetched as the viewer.",
+        "returns": "dict (tile with a state envelope)",
+        "params": [
+            {"name": "slug", "type": "str", "required": True,
+             "description": "The resource's slug in Resource Explorer."},
+            {"name": "resource_type", "type": "str", "default": "database",
+             "description": "One of " + ", ".join(_ENTITY_TYPES) + "."},
+        ],
+        "family": "Curation",
+        "resource_types": list(_ENTITY_TYPES),
+    }}, source="re_analytics")
+
+
 def report_specs():
     """The tile's FormatSet, keyed by its label: the loader PYEGERIA_REPORT_SPEC_MODULES names."""
     from pyegeria.view._output_format_models import ActionParameter, Format, FormatSet, FormatSetDict
+    register_tile_function()
     return FormatSetDict({TILE_LABEL: FormatSet(
         heading="Curation Coverage",
         description="Published against not yet published, from Resource Explorer's curation record "

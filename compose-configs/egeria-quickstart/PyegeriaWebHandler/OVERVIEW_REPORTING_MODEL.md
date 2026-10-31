@@ -355,6 +355,20 @@ much of the same destination without that migration:
   future extra report-spec source) are visible to `dr_egeria`, `hey_egeria`,
   the Portal, and any other pyegeria consumer without each one remembering to
   register anything.
+- **Registered names and entry points (ISSUE-173, pyegeria 6.2.18, 2026-10-31)**
+  — a report spec is data, so it may not import arbitrary code. Specs name
+  analytic functions (`analytic_function`, and function-valued parameters
+  such as `metric_trend`'s `metric_path`) by registered name (`count_elements`),
+  not dotted path. Packages contribute functions through the
+  `pyegeria.analytics` entry-point group and report specs through the new
+  `pyegeria.report_specs` group, which replaces the CONFIG tier's env-var
+  source: `PYEGERIA_REPORT_SPEC_MODULES` (and config.json's "Pyegeria Report
+  Spec Modules") is deprecated in 6.2.18 (still loads, warns) and removed in
+  6.2.19. Dotted paths in specs resolve with a warning in 6.2.18 and are
+  refused in 6.2.19; an unregistered dotted path outside the allowed packages
+  is refused from 6.2.17 (ISSUE-169). The Portal's workspace specs use
+  registered names for `analytic_function`; `metric_path` follows once the
+  image runs 6.2.18.
 
 **What this does *not* close** — the real gap list from re-assessing "is this
 enough to rewrite the Overview dashboard on Dashboard Sheets" (2026-07-30):
