@@ -1040,7 +1040,7 @@ A report spec is data, so it must not make the Portal import arbitrary code. It 
 - **Dotted paths** in report specs still resolve in pyegeria 6.2.18, with a `DeprecationWarning` naming the registered name to use. pyegeria 6.2.19 refuses them. An unregistered dotted path outside pyegeria's allowed packages (`pyegeria`, `trellis_analytics`, or `PYEGERIA_ANALYTIC_MODULE_PREFIXES`) is refused already, from 6.2.17.
 - **Report specs from packages** register through the `pyegeria.report_specs` entry-point group (pyegeria 6.2.18+). Its value is a callable returning a `FormatSetDict`, or the dict itself. pyegeria's own Analytic Demo specs load this way from 6.2.18.
 
-`metric_trend`'s `metric_path` takes a registered name only from pyegeria 6.2.18 (6.2.17 splits it as a dotted path), so the Generic Metric Trend spec keeps the dotted `metric_path` until the Portal image runs 6.2.18.
+`metric_trend`'s `metric_path` takes a registered name only from pyegeria 6.2.18 (6.2.17 splits it as a dotted path). The Generic Metric Trend spec uses `metric_path: count_elements`, so it needs pyegeria 6.2.18 or later.
 
 ### Spec modules loaded through `PYEGERIA_REPORT_SPEC_MODULES`
 

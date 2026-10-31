@@ -57,7 +57,7 @@ def register_local_specs():
                 function="",
                 analytic_function="metric_trend",
                 analytic_spec_params={
-                    "metric_path": "pyegeria.view.overview_metrics.count_elements",
+                    "metric_path": "count_elements",
                     "metric_params": {"type_name": "Asset"},
                     "window": "6mo"
                 }
