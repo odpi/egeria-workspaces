@@ -29,8 +29,8 @@ default, http://host.docker.internal:8813, is the RE instance that runs on the
 host today. Where a deployed RE should live is still open, so set it per
 environment.
 
-`report_specs()` is the tile's FormatSet, loaded through
-PYEGERIA_REPORT_SPEC_MODULES (see analytics_registry_handler.py). It also
+`report_specs()` is the tile's FormatSet, which analytics_registry_handler.py
+registers with pyegeria's register_report_specs (RUNTIME tier). It also
 registers `curation_coverage_tile` in pyegeria's analytic registry as
 `re_curation_coverage_tile`, the name the spec uses: a report spec names its
 function by registered name, and pyegeria refuses an unregistered dotted path
@@ -203,7 +203,7 @@ def register_tile_function() -> None:
 
 
 def report_specs():
-    """The tile's FormatSet, keyed by its label: the loader PYEGERIA_REPORT_SPEC_MODULES names."""
+    """The tile's FormatSet, keyed by its label; analytics_registry_handler.py registers it."""
     from pyegeria.view._output_format_models import ActionParameter, Format, FormatSet, FormatSetDict
     register_tile_function()
     return FormatSetDict({TILE_LABEL: FormatSet(
