@@ -266,6 +266,7 @@ contexts/
 
 # Obsidian container runtime config (persisted by the linuxserver/obsidian container)
 runtime-volumes/obsidian-config/
+runtime-volumes/deltalake-spark/
 
 # Portal test-harness generated output (JUnit XML, triage reports) — regenerated
 # by tests/analyze.py on every run, not source
