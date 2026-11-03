@@ -24,7 +24,7 @@ It is designed so you can access it from:
   ```
 
 ## Files
-- `.env` — MinIO credentials, default bucket, and Spark worker sizing
+- `.env` — optional overrides for MinIO credentials, default bucket, and Spark worker sizing; the defaults live in `docker-compose.yml` (see `.env.example`), so the stack starts with no `.env` at all
 - `spark/conf/spark-defaults.conf` — Spark defaults enabling Delta + S3A + Hive Metastore
 - `docker-compose.yml` — services for MinIO, Hive Metastore, Spark master/worker
 
