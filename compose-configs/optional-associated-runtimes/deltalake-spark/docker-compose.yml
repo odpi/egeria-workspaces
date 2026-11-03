@@ -13,7 +13,7 @@
 #   docker compose up -d
 #
 # Access:
-# - MinIO Console: http://localhost:${MINIO_HOST_PORT_CONSOLE:-8201} (MINIO_ROOT_USER/MINIO_ROOT_PASSWORD from .env)
+# - MinIO Console: http://localhost:${MINIO_HOST_PORT_CONSOLE:-8201} (MINIO_ROOT_USER/MINIO_ROOT_PASSWORD; .env optional, defaults below)
 # - Spark Master UI: http://localhost:8080
 # - Spark Worker UI: http://localhost:8081
 # - Hive Metastore Thrift: thrift://localhost:9083
@@ -27,8 +27,8 @@ services:
       - "${EGERIA_BIND_IP:-127.0.0.1}:${MINIO_HOST_PORT_API:-8200}:9000"   # S3 API (host)
       - "${EGERIA_BIND_IP:-127.0.0.1}:${MINIO_HOST_PORT_CONSOLE:-8201}:9001"   # MinIO Console (host)
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 10s
@@ -46,7 +46,7 @@ services:
       minio:
         condition: service_healthy
     entrypoint: ["/bin/sh", "-c"]
-    command: "set -e; until (curl -sf http://minio:9000/minio/health/live >/dev/null); do echo 'Waiting for MinIO...'; sleep 2; done; mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}; mc mb -p local/${S3_BUCKET} || true; mc anonymous set download local/${S3_BUCKET} || true; echo 'MinIO initialized'"
+    command: "set -e; until (curl -sf http://minio:9000/minio/health/live >/dev/null); do echo 'Waiting for MinIO...'; sleep 2; done; mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin123}; mc mb -p local/${S3_BUCKET:-datalake} || true; mc anonymous set download local/${S3_BUCKET:-datalake} || true; echo 'MinIO initialized'"
     networks:
       - deltalan
 
@@ -94,8 +94,8 @@ services:
     container_name: dl-spark-master
     environment:
       - SPARK_LOG_LEVEL=INFO
-      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
-      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin123}
     ports:
       - "${EGERIA_BIND_IP:-127.0.0.1}:7077:7077"   # Spark master RPC
       - "${EGERIA_BIND_IP:-127.0.0.1}:8080:8080"   # Spark master UI
@@ -113,8 +113,8 @@ services:
     image: apache/spark:3.5.1
     container_name: dl-spark-worker
     environment:
-      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
-      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin123}
     ports:
       - "${EGERIA_BIND_IP:-127.0.0.1}:8081:8081"   # Spark worker UI
     volumes:
@@ -122,7 +122,7 @@ services:
       - spark-warehouse:/opt/spark/warehouse
     depends_on:
       - spark-master
-    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.worker.Worker", "spark://spark-master:7077", "--webui-port", "8081", "--cores", "${SPARK_WORKER_CORES}", "--memory", "${SPARK_WORKER_MEMORY}"]
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.worker.Worker", "spark://spark-master:7077", "--webui-port", "8081", "--cores", "${SPARK_WORKER_CORES:-2}", "--memory", "${SPARK_WORKER_MEMORY:-2G}"]
     networks:
       - deltalan
 
