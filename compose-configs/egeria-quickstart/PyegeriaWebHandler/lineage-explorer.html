@@ -174,6 +174,23 @@
     .opts-check label { display: flex; align-items: center; gap: 5px; font-size: 12px;
                         color: var(--muted); cursor: pointer; }
 
+    /* Hop limit (Egeria 6.3+): rows where the walk stopped with more lineage beyond */
+    tr.hop-cut td { border-top: 1px dashed var(--amber); border-bottom: 1px dashed var(--amber); }
+    tr.hop-cut td:first-child { border-left: 1px dashed var(--amber); }
+    tr.hop-cut td:last-child  { border-right: 1px dashed var(--amber); }
+    .hop-cue  { font-size: 10px; color: var(--amber); margin-top: 2px; }
+    .hop-note { font-size: 12px; color: var(--muted); margin-bottom: 10px; line-height: 1.5; }
+    .hop-note.warn { color: var(--amber); }
+    .hop-ctl  { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+    .hop-ctl input[type=range] { width: 160px; accent-color: var(--accent); cursor: pointer; }
+    .hop-warn { background: rgba(251,191,36,.08); border: 1px solid rgba(251,191,36,.35); border-radius: 6px;
+                padding: 8px 12px; font-size: 12px; color: var(--amber); margin-bottom: 12px;
+                display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .hop-adv  { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+    .hop-adv summary { cursor: pointer; color: var(--dim); }
+    .hop-adv input[type=text] { background: var(--hover); border: 1px solid var(--border); border-radius: 4px;
+                                padding: 3px 6px; color: var(--text); font-size: 12px; width: 240px; }
+
     /* Linked assets table guid */
     .guid-cell { font-family: ui-monospace, monospace; font-size: 10px; color: var(--dim);
                  max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -542,6 +559,34 @@ function fetchWithToken(url, creds, opts) {
   });
 }
 
+// ── Lineage hop limit / relationship scope (Egeria 6.3+, odpi/egeria#9420) ───
+// 6.3 walks at most maxHops lineage relationships each way (default 8) and
+// marks each node with hopsFromStart / hopLimitReached. Older platforms have
+// neither field, so their presence is how the page tells which it is talking to.
+var HOP_DEFAULT = 8;
+var HOP_SLIDER_MAX = 15;
+// Egeria 6.3's default relationship types (AssetHandler.getLineageRelationshipTypeNames).
+// include_relationships REPLACES the defaults, so following actions and
+// assignments again means restating the defaults plus the two 6.3 dropped.
+var LINEAGE_DEFAULT_RELS = ['DataFlow', 'ControlFlow', 'LineageMapping', 'ProcessCall',
+  'DerivedSchemaTypeQueryTarget', 'DataSetContent', 'DataMapping', 'ActionRequester'];
+var ACTION_ASSIGNMENT_RELS = ['RequestForActionTarget', 'AssignmentScope'];
+
+function splitTypes(s) {
+  return (s || '').split(',').map(function(t) { return t.trim(); }).filter(Boolean);
+}
+
+// true = the platform reports hops (6.3+); false = it doesn't; null = can't tell
+// from this response (e.g. the empty no-lineage result).
+function detectHopSupport(d) {
+  if (!d) return null;
+  if ('hopsFromStart' in d) return true;
+  var la = d.linkedAssets || [];
+  if (la.some(function(a) { return a && 'hopsFromStart' in a; })) return true;
+  if (la.length || d.elementHeader) return false;
+  return null;
+}
+
 // ── MermaidDiagram ─────────────────────────────────────────────────────────────
 function MermaidDiagram({ code }) {
   var ref = useRef(null);
@@ -834,7 +879,9 @@ function ISCTable({ iscs, selectedISCGuid, onSelect, activePersona }) {
 }
 
 // ── LinkedAssetsTable ─────────────────────────────────────────────────────────
-function LinkedAssetsTable({ assets, onSetFocus, creds }) {
+// showHops: the platform reports hopsFromStart/hopLimitReached (Egeria 6.3+).
+// onExpand: re-run the full lineage with that asset as the start.
+function LinkedAssetsTable({ assets, onSetFocus, onExpand, showHops, creds }) {
   const selection = useSelection();
   // null | 'add' | 'remove' — which AddToCollectionModal action, if any, is open.
   const [modalAction, setModalAction] = React.useState(null);
@@ -865,6 +912,7 @@ function LinkedAssetsTable({ assets, onSetFocus, creds }) {
             React.createElement('th', { style: { width: 24 } },
               React.createElement('input', { type: 'checkbox', checked: allSelected, onChange: toggleAll, style: { cursor: 'pointer' } })),
             React.createElement('th', null, 'Display Name'),
+            showHops && React.createElement('th', { title: 'Lineage relationships between this element and the focus asset' }, 'Hops'),
             React.createElement('th', null, 'Description'),
             React.createElement('th', null, 'Qualified Name'),
             React.createElement('th', null, 'GUID'),
@@ -879,13 +927,18 @@ function LinkedAssetsTable({ assets, onSetFocus, creds }) {
             var prop = asset.properties    || {};
             var superTypes = ((hdr.type || {}).superTypeNames || []);
             var isAsset = superTypes.indexOf('Asset') !== -1 || (hdr.type || {}).typeName === 'Asset';
-            return React.createElement('tr', { key: hdr.guid || i },
+            var cut = showHops && asset.hopLimitReached === true;
+            var focusItem = { guid: hdr.guid, displayName: prop.displayName || prop.qualifiedName || '', typeName: (hdr.type || {}).typeName || '', qualifiedName: prop.qualifiedName || '', description: prop.description || '' };
+            return React.createElement('tr', { key: hdr.guid || i, className: cut ? 'hop-cut' : '' },
               React.createElement('td', null,
                 hdr.guid && React.createElement('input', {
                   type: 'checkbox', checked: selection.isSelected(hdr.guid), style: { cursor: 'pointer' },
                   onChange: function() { selection.toggle({ guid: hdr.guid, displayName: prop.displayName || prop.qualifiedName || '', typeName: (hdr.type || {}).typeName || '' }); },
                 })),
-              React.createElement('td', null, prop.displayName || prop.qualifiedName || ''),
+              React.createElement('td', null, prop.displayName || prop.qualifiedName || '',
+                cut && React.createElement('div', { className: 'hop-cue' }, '⋯ lineage continues past the hop limit')),
+              showHops && React.createElement('td', { className: 'mono', style: { textAlign: 'right' } },
+                typeof asset.hopsFromStart === 'number' ? String(asset.hopsFromStart) : ''),
               React.createElement('td', { style: { color: 'var(--muted)', maxWidth: 200 } }, prop.description || ''),
               React.createElement('td', { className: 'mono td-trunc', title: prop.qualifiedName }, prop.qualifiedName || ''),
               React.createElement('td', { className: 'guid-cell', title: hdr.guid }, hdr.guid || ''),
@@ -894,8 +947,14 @@ function LinkedAssetsTable({ assets, onSetFocus, creds }) {
               React.createElement('td', { style: { whiteSpace: 'nowrap' } },
                 isAsset && onSetFocus && React.createElement('button', {
                   className: 'btn btn-focus', style: { marginRight: 4 },
-                  onClick: function() { onSetFocus({ guid: hdr.guid, displayName: prop.displayName || prop.qualifiedName || '', typeName: (hdr.type || {}).typeName || '', qualifiedName: prop.qualifiedName || '', description: prop.description || '' }); }
+                  onClick: function() { onSetFocus(focusItem); }
                 }, 'Set as Focus'),
+                // The lineage-graph API starts from an Asset, so only Assets can be expanded.
+                cut && isAsset && onExpand && React.createElement('button', {
+                  className: 'btn btn-load', style: { marginRight: 4 },
+                  title: 'Make this the focus asset and load its full lineage with the same settings',
+                  onClick: function() { onExpand(focusItem); }
+                }, 'Expand from here'),
                 hdr.guid && React.createElement('a', {
                   href: '/tech-catalog?guid=' + encodeURIComponent(hdr.guid),
                   target: '_blank',
@@ -949,15 +1008,61 @@ function MainPanel({ focusAsset, creds, onSetFocus, activePersona, favPersonaId 
   var _showFull    = useState(false), showFull    = _showFull[0],    setShowFull    = _showFull[1];
   var _showEdge    = useState(false), showEdge    = _showEdge[0],    setShowEdge    = _showEdge[1];
 
+  // Hop limit / relationship scope (Egeria 6.3+). hopSupport is a platform
+  // property, so it survives focus changes: null until a lineage response says.
+  var _hopSupport  = useState(null),  hopSupport  = _hopSupport[0],  setHopSupport  = _hopSupport[1];
+  var _maxHops     = useState(HOP_DEFAULT), maxHops = _maxHops[0],   setMaxHops     = _maxHops[1];
+  var _hopDraft    = useState(HOP_DEFAULT), hopDraft = _hopDraft[0], setHopDraft    = _hopDraft[1];
+  var _noLimit     = useState(false), noLimit     = _noLimit[0],     setNoLimit     = _noLimit[1];
+  var _askNoLimit  = useState(false), askNoLimit  = _askNoLimit[0],  setAskNoLimit  = _askNoLimit[1];
+  var _followAct   = useState(false), followActions = _followAct[0], setFollowActions = _followAct[1];
+  var _advInc      = useState(''),    advInclude  = _advInc[0],      setAdvInclude  = _advInc[1];
+  var _advSkip     = useState(''),    advSkip     = _advSkip[0],     setAdvSkip     = _advSkip[1];
+  var _advApplied  = useState({ include: '', skip: '' }), advApplied = _advApplied[0], setAdvApplied = _advApplied[1];
+  // The options the shown lineageData was loaded with, and any the Portal's
+  // pyegeria couldn't send (X-Lineage-Ignored-Params) — the summary line
+  // describes the data on screen, not the controls' current position.
+  var _lineageReq  = useState(null),  lineageReq  = _lineageReq[0],  setLineageReq  = _lineageReq[1];
+  var _ignored     = useState(''),    ignoredParams = _ignored[0],   setIgnoredParams = _ignored[1];
+  var _cancelled   = useState(false), lineageCancelled = _cancelled[0], setLineageCancelled = _cancelled[1];
+  var _elapsed     = useState(0),     lineageElapsed = _elapsed[0],  setLineageElapsed = _elapsed[1];
+  var lineageAbort = useRef(null);
+
   var guid = focusAsset ? focusAsset.guid : null;
+
+  function abortLineage() {
+    if (lineageAbort.current) { lineageAbort.current.abort(); lineageAbort.current = null; }
+  }
 
   // Reset all state when the focused asset changes (keeps TimeSlider mounted during asOfTime re-fetches)
   useEffect(function() {
     if (!guid) return;
+    abortLineage();
     setGraphData(null); setGraphErr('');
-    setLineageData(null); setLineageErr(''); setShowFull(false);
+    setLineageData(null); setLineageErr(''); setLineageLoad(false); setLineageCancelled(false);
+    setShowFull(false);
     setSelectedISC(null);
+    // "Expand from here": open the new focus asset's full lineage straight
+    // away with the current hop/relationship settings (and no ISC filter,
+    // which belonged to the previous asset).
+    if (focusAsset.expand && creds) {
+      setShowFull(true);
+      var opts = buildLineageOpts();
+      delete opts.limitISC; delete opts.highlightISC;
+      loadLineage(opts);
+    }
   }, [guid]);
+
+  useEffect(function() { return abortLineage; }, []);
+
+  // Elapsed-time counter while a lineage request is running
+  useEffect(function() {
+    if (!lineageLoad) return;
+    var t0 = Date.now();
+    setLineageElapsed(0);
+    var timer = setInterval(function() { setLineageElapsed(Math.round((Date.now() - t0) / 1000)); }, 1000);
+    return function() { clearInterval(timer); };
+  }, [lineageLoad]);
 
   // Fetch asset graph whenever guid or asOfTime changes (does not clear graphData on asOfTime change)
   useEffect(function() {
@@ -972,21 +1077,55 @@ function MainPanel({ focusAsset, creds, onSetFocus, activePersona, favPersonaId 
   }, [guid, asOfTime, creds]);
 
   // Fetch full lineage graph (called on demand and when options change)
+  // Only one lineage request at a time: a new one (or Cancel, or a focus
+  // change) aborts the previous, so a slow stale response can't overwrite a
+  // newer one. Aborting stops the browser waiting; Egeria may still finish
+  // the walk on its side.
   function loadLineage(opts) {
     if (!guid || !creds) return;
-    setLineageErr(''); setLineageLoad(true);
+    abortLineage();
+    var ctl = new AbortController();
+    lineageAbort.current = ctl;
+    setLineageErr(''); setLineageCancelled(false); setLineageLoad(true);
     var params = new URLSearchParams();
     if (asOfTime)       params.set('as_of_time', asOfTime);
     if (opts && opts.limitISC)     params.set('limit_to_isc', opts.limitISC);
     if (opts && opts.highlightISC) params.set('highlight_isc', opts.highlightISC);
     if (opts && opts.allAnchors)   params.set('all_anchors', 'true');
+    if (opts && typeof opts.maxHops === 'number') params.set('max_hops', String(opts.maxHops));
+    if (opts && opts.include)      params.set('include_relationships', opts.include);
+    if (opts && opts.skip)         params.set('skip_relationships', opts.skip);
     var url = '/api/lineage/asset/' + encodeURIComponent(guid) + '/lineage-graph';
     var qs = params.toString();
     if (qs) url += '?' + qs;
-    fetchWithToken(url, creds)
-      .then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.detail || 'HTTP ' + r.status); }); })
-      .then(function(d) { setLineageData(d); setLineageLoad(false); })
-      .catch(function(e) { setLineageErr(String(e)); setLineageLoad(false); });
+    var ignored = '';
+    fetchWithToken(url, creds, { signal: ctl.signal })
+      .then(function(r) {
+        if (!r.ok) {
+          // A proxy timeout returns an HTML page, not JSON
+          return r.json().catch(function() { return {}; }).then(function(d) { throw new Error(d.detail || 'HTTP ' + r.status); });
+        }
+        ignored = r.headers.get('X-Lineage-Ignored-Params') || '';
+        return r.json();
+      })
+      .then(function(d) {
+        if (lineageAbort.current !== ctl) return;
+        lineageAbort.current = null;
+        setLineageData(d); setLineageReq(opts || {}); setIgnoredParams(ignored); setLineageLoad(false);
+        var hs = detectHopSupport(d);
+        if (hs !== null) setHopSupport(hs);
+      })
+      .catch(function(e) {
+        if (e && e.name === 'AbortError') return;
+        if (lineageAbort.current !== ctl) return;
+        lineageAbort.current = null;
+        setLineageErr(String(e)); setLineageLoad(false);
+      });
+  }
+
+  function cancelLineage() {
+    abortLineage();
+    setLineageLoad(false); setLineageCancelled(true);
   }
 
   function buildLineageOpts() {
@@ -994,6 +1133,19 @@ function MainPanel({ focusAsset, creds, onSetFocus, activePersona, favPersonaId 
     if (selectedISC) {
       if (iscMode === 'limit')     opts.limitISC     = selectedISC.qualifiedName;
       if (iscMode === 'highlight') opts.highlightISC = selectedISC.qualifiedName;
+    }
+    // Hop and relationship options only once the platform is known to support
+    // them; until then Egeria's own defaults apply (8 hops on 6.3).
+    if (hopSupport === true) {
+      opts.maxHops = noLimit ? 0 : maxHops;
+      var include = splitTypes(advApplied.include);
+      if (followActions) {
+        if (!include.length) include = LINEAGE_DEFAULT_RELS.slice();
+        ACTION_ASSIGNMENT_RELS.forEach(function(t) { if (include.indexOf(t) === -1) include.push(t); });
+      }
+      if (include.length) opts.include = include.join(',');
+      var skip = splitTypes(advApplied.skip);
+      if (skip.length) opts.skip = skip.join(',');
     }
     return opts;
   }
@@ -1004,12 +1156,28 @@ function MainPanel({ focusAsset, creds, onSetFocus, activePersona, favPersonaId 
     if (!lineageData) loadLineage(buildLineageOpts());
   }
 
-  // Re-fetch lineage when ISC or allAnchors changes (if already showing)
+  // Re-fetch lineage when ISC, allAnchors or hop/relationship options change (if already showing)
   useEffect(function() {
     if (!showFull) { setLineageData(null); return; }  // stale for the new options; reload on next open
     if (!guid || !creds) return;
     loadLineage(buildLineageOpts());
-  }, [selectedISC, iscMode, allAnchors]);
+  }, [selectedISC, iscMode, allAnchors, maxHops, noLimit, followActions, advApplied]);
+
+  function startWithISC(isc) {
+    var h = isc.elementHeader || {}, p = isc.properties || {};
+    setIscMode('limit');
+    setSelectedISC({ guid: h.guid || '', qualifiedName: p.qualifiedName || '', displayName: p.displayName || p.qualifiedName || h.guid || '' });
+    setShowFull(true);   // the effect above loads it
+  }
+
+  function commitHops(v) {
+    var n = parseInt(v, 10);
+    if (!isNaN(n) && n !== maxHops) setMaxHops(n);
+  }
+
+  function handleExpand(item) {
+    onSetFocus(Object.assign({}, item, { expand: true }));
+  }
 
   if (!focusAsset) return null;
 
@@ -1030,6 +1198,25 @@ function MainPanel({ focusAsset, creds, onSetFocus, activePersona, favPersonaId 
   var fullGraph  = lineageData && (lineageData.fullLineageMermaidGraph || lineageData.mermaidGraph || '');
   var edgeGraph  = lineageData && (lineageData.edgeMermaidGraph || '');
   var linkedAssets = lineageData && (lineageData.linkedAssets || []);
+
+  // Hop summary for the lineage on screen (Egeria 6.3+). Never present a cut
+  // graph as a complete one: say how many elements continue past the limit.
+  var hopSummary = null, hopCut = false;
+  if (lineageData && hopSupport === true) {
+    var nodes = [lineageData].concat(linkedAssets || []);
+    var cutCount = nodes.filter(function(n) { return n && n.hopLimitReached === true; }).length;
+    hopCut = cutCount > 0;
+    var deepest = nodes.reduce(function(m, n) { return (n && typeof n.hopsFromStart === 'number' && n.hopsFromStart > m) ? n.hopsFromStart : m; }, 0);
+    var hopsIgnored = ignoredParams.split(',').indexOf('max_hops') !== -1;
+    var reqHops = (lineageReq && typeof lineageReq.maxHops === 'number' && !hopsIgnored) ? lineageReq.maxHops : null;
+    var limitText = reqHops === 0 ? 'No hop limit'
+      : 'Showing up to ' + (reqHops === null ? HOP_DEFAULT + ' (Egeria default)' : reqHops) + ' hops each way';
+    hopSummary = limitText + ' · deepest element ' + deepest + ' hop' + (deepest === 1 ? '' : 's') + ' away · ' +
+      (cutCount
+        ? cutCount + (cutCount === 1 ? ' element continues' : ' elements continue') + ' past the limit (dashed rows in Linked Assets)'
+        : 'nothing continues past the limit, so this is the whole graph');
+  }
+  var advDirty = advInclude !== advApplied.include || advSkip !== advApplied.skip;
 
   return React.createElement('div', null,
     // ── Focus Asset Card
@@ -1122,11 +1309,27 @@ function MainPanel({ focusAsset, creds, onSetFocus, activePersona, favPersonaId 
       React.createElement('div', { className: 'section-desc' },
         'End-to-end data and control flow across the IT landscape through this asset. ' +
         'Click to load — may be slow for large lineage graphs.'),
+      // A supply chain bounds the walk, so it is much faster than the whole
+      // estate (seconds rather than minutes): offer it first when there is one.
+      !showFull && iscList && iscList.length > 0 && React.createElement('div', { style: { marginBottom: 10 } },
+        React.createElement('div', { className: 'opts-label', style: { marginBottom: 6 } }, 'Faster: load only the lineage within a supply chain'),
+        React.createElement('div', { className: 'opts-row', style: { marginBottom: 0 } },
+          iscList.map(function(isc, i) {
+            var p = isc.properties || {}, h = isc.elementHeader || {};
+            return React.createElement('button', {
+              key: h.guid || i, className: 'btn btn-expand-primary',
+              style: { padding: '6px 14px', fontSize: 12, fontWeight: 600 },
+              onClick: function() { startWithISC(isc); }
+            }, '▼ ' + (p.displayName || p.qualifiedName || h.guid));
+          })
+        )
+      ),
       React.createElement('button', {
-        className: 'btn btn-expand-primary' + (showFull ? ' on' : ''),
+        className: (iscList && iscList.length > 0 && !showFull ? 'btn btn-toggle' : 'btn btn-expand-primary') + (showFull ? ' on' : ''),
         onClick: handleToggleFullLineage,
         style: { marginBottom: 10, padding: '8px 18px', fontSize: 13, fontWeight: 600 },
-      }, (showFull ? '▲ Hide' : '▼ Load') + ' Full Asset Lineage'),
+      }, (showFull ? '▲ Hide' : '▼ Load') + ' Full Asset Lineage' +
+         (!showFull && iscList && iscList.length > 0 ? ' (all supply chains — may be slow)' : '')),
       showFull && React.createElement('div', { className: 'opts-row' },
         React.createElement('div', { className: 'opts-check' },
           React.createElement('label', null,
@@ -1134,14 +1337,68 @@ function MainPanel({ focusAsset, creds, onSetFocus, activePersona, favPersonaId 
               onChange: function(e) { setAllAnchors(e.target.checked); } }),
             ' Show field-level detail'
           )
+        ),
+        selectedISC && React.createElement('span', { className: 'opts-label' },
+          (iscMode === 'limit' ? 'Limited to supply chain: ' : 'Highlighting supply chain: ') + (selectedISC.displayName || selectedISC.qualifiedName))
+      ),
+      // Hop limit + relationship scope controls: Egeria 6.3+ only
+      showFull && hopSupport === true && React.createElement('div', { className: 'opts-row hop-ctl' },
+        React.createElement('span', null, 'Hops each way:'),
+        React.createElement('input', {
+          type: 'range', min: '1', max: String(HOP_SLIDER_MAX), step: '1', 'aria-label': 'Hops each way',
+          value: String(hopDraft), disabled: noLimit,
+          onChange: function(e) { setHopDraft(parseInt(e.target.value, 10)); },
+          onMouseUp:  function(e) { commitHops(e.target.value); },
+          onTouchEnd: function(e) { commitHops(e.target.value); },
+          onKeyUp:    function(e) { commitHops(e.target.value); },
+        }),
+        React.createElement('span', { className: 'mono', style: { minWidth: 24, color: 'var(--accent)' } }, noLimit ? '∞' : String(hopDraft)),
+        noLimit
+          ? React.createElement('button', { className: 'btn', onClick: function() { setNoLimit(false); } }, 'Use a hop limit')
+          : React.createElement('button', { className: 'btn btn-toggle', onClick: function() { setAskNoLimit(true); } }, 'No limit…'),
+        React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', marginLeft: 8 } },
+          React.createElement('input', { type: 'checkbox', checked: followActions,
+            onChange: function(e) { setFollowActions(e.target.checked); } }),
+          ' Also follow actions and assignments (RequestForActionTarget, AssignmentScope)'
         )
       ),
+      showFull && hopSupport === true && askNoLimit && !noLimit && React.createElement('div', { className: 'hop-warn' },
+        React.createElement('span', null, '⚠ With no hop limit Egeria walks all of this asset\'s lineage. On a large estate that can take minutes, and the Portal gives up after about 5 minutes.'),
+        React.createElement('button', { className: 'btn', style: { color: 'var(--amber)', borderColor: 'var(--amber)' },
+          onClick: function() { setAskNoLimit(false); setNoLimit(true); } }, 'Load with no limit'),
+        React.createElement('button', { className: 'btn btn-toggle', onClick: function() { setAskNoLimit(false); } }, 'Keep the limit')
+      ),
+      showFull && hopSupport === true && React.createElement('details', { className: 'hop-adv' },
+        React.createElement('summary', null, 'Advanced relationship scope'),
+        React.createElement('div', { className: 'opts-row', style: { marginTop: 8, marginBottom: 0 } },
+          React.createElement('label', null, 'Include only ',
+            React.createElement('input', { type: 'text', value: advInclude, placeholder: 'e.g. LineageRelationship',
+              onChange: function(e) { setAdvInclude(e.target.value); } })),
+          React.createElement('label', null, 'Skip ',
+            React.createElement('input', { type: 'text', value: advSkip, placeholder: 'e.g. DataSetContent',
+              onChange: function(e) { setAdvSkip(e.target.value); } })),
+          React.createElement('button', { className: 'btn', disabled: !advDirty,
+            onClick: function() { setAdvApplied({ include: advInclude.trim(), skip: advSkip.trim() }); } }, 'Apply')
+        ),
+        React.createElement('div', { className: 'opts-label', style: { marginTop: 6, whiteSpace: 'normal' } },
+          'Comma-separated relationship type names. "Include only" replaces Egeria\'s default types; a supertype such as LineageRelationship includes its subtypes. "Skip" removes types and their subtypes.')
+      ),
+      showFull && hopSupport === false && React.createElement('div', { className: 'hop-note' },
+        'Hop limit and relationship controls are hidden: this Egeria platform (before 6.3) does not limit the lineage walk by hops, so the graph below is the whole walk.'),
       showFull && lineageLoad && React.createElement('div', { className: 'center' },
         React.createElement('div', { className: 'spinner' }),
-        React.createElement('span', null, 'Loading lineage graph…')
+        React.createElement('span', null, 'Loading lineage graph… ' + lineageElapsed + ' s'),
+        React.createElement('button', { className: 'btn btn-toggle', onClick: cancelLineage }, 'Cancel')
       ),
+      showFull && lineageCancelled && !lineageLoad && React.createElement('div', { className: 'hop-note' },
+        'Cancelled. The browser stopped waiting; Egeria may still be finishing the walk. Try a supply-chain filter or a smaller hop limit, or ',
+        React.createElement('a', { href: '#', onClick: function(e) { e.preventDefault(); loadLineage(buildLineageOpts()); } }, 'load it again'), '.'),
       showFull && lineageErr && React.createElement('div', { className: 'err-banner' }, 'Error: ' + lineageErr),
-      showFull && lineageData && React.createElement('div', null,
+      showFull && lineageData && ignoredParams && React.createElement('div', { className: 'hop-note warn' },
+        '⚠ Not applied: ' + ignoredParams.split(',').join(', ') + '. This Portal\'s pyegeria is too old to send ' +
+        (ignoredParams.split(',').length === 1 ? 'it' : 'them') + ', so Egeria used its defaults (' + HOP_DEFAULT + ' hops each way).'),
+      showFull && lineageData && React.createElement('div', { style: { opacity: lineageLoad ? 0.5 : 1 } },
+        hopSummary && React.createElement('div', { className: 'hop-note' + (hopCut ? ' warn' : '') }, hopSummary),
         // Full lineage mermaid
         React.createElement('div', { className: 'section-desc', style: { marginBottom: 8 } },
           'End-to-end data and control flow across the IT landscape through this asset.'),
@@ -1168,7 +1425,8 @@ function MainPanel({ focusAsset, creds, onSetFocus, activePersona, favPersonaId 
             'Linked Assets'),
           React.createElement('div', { className: 'section-desc', style: { marginBottom: 10 } },
             'All assets that appear in the full lineage graph above.'),
-          React.createElement(LinkedAssetsTable, { assets: linkedAssets, onSetFocus: onSetFocus, creds: creds })
+          React.createElement(LinkedAssetsTable, { assets: linkedAssets, onSetFocus: onSetFocus, onExpand: handleExpand,
+            showHops: hopSupport === true, creds: creds })
         )
       )
     )

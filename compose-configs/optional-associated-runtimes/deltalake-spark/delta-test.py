@@ -1,11 +1,17 @@
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
+import os
 import sys
 
 # Enable verbose logging
 import logging
 
 logging.basicConfig(level=logging.INFO)
+
+# MinIO connection — same demo defaults as docker-compose.yml; override via environment
+MINIO_ROOT_USER = os.environ.get("MINIO_ROOT_USER", 'minioadmin')
+MINIO_ROOT_PASSWORD = os.environ.get("MINIO_ROOT_PASSWORD", 'minioadmin123')
+MINIO_HOST_PORT_API = os.environ.get("MINIO_HOST_PORT_API", '8200')
 
 print("Creating Spark session...")
 try:
@@ -17,9 +23,9 @@ try:
         .config("spark.sql.catalogImplementation", "hive")
         .config("spark.hadoop.hive.metastore.uris", "thrift://localhost:9083")
         .config("spark.jars.packages", "io.delta:delta-spark_2.12:3.2.0,org.apache.hadoop:hadoop-aws:3.3.4")
-        .config("spark.hadoop.fs.s3a.endpoint", "http://localhost:8200")
-        .config("spark.hadoop.fs.s3a.access.key", "minioadmin")
-        .config("spark.hadoop.fs.s3a.secret.key", "minioadmin123")
+        .config("spark.hadoop.fs.s3a.endpoint", f"http://localhost:{MINIO_HOST_PORT_API}")
+        .config("spark.hadoop.fs.s3a.access.key", MINIO_ROOT_USER)
+        .config("spark.hadoop.fs.s3a.secret.key", MINIO_ROOT_PASSWORD)
         .config("spark.hadoop.fs.s3a.path.style.access", "true")
         .config("spark.hadoop.fs.s3a.connection.ssl.enabled", "false")
         # Add these for better error messages
