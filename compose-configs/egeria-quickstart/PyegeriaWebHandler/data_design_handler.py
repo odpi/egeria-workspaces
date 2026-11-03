@@ -28,7 +28,6 @@ Endpoints:
   GET /api/data-design/classes/{guid}     → detail for a Data Class (with nested class relationships)
 """
 
-import asyncio
 import os
 from egeria_auth import apply_token
 from typing import Optional
@@ -126,8 +125,9 @@ def _search_data_value_specs(mgr) -> list:
         f"/api/open-metadata/data-designer/data-value-specifications/by-search-string"
     )
     body = {"class": "SearchStringRequestBody", "searchString": "", "startFrom": 0, "pageSize": 500}
-    loop = asyncio.get_event_loop()
-    resp = loop.run_until_complete(mgr._async_make_request("POST", endpoint, body))
+    # make_request, not run_until_complete: this runs on a sync route's worker thread, which
+    # has no event loop of its own now that pyegeria (6.2.16+) no longer applies nest_asyncio.
+    resp = mgr.make_request("POST", endpoint, body)
     if hasattr(resp, "json"):
         return resp.json().get("elements", []) or []
     if isinstance(resp, dict):

@@ -479,12 +479,17 @@ def _element_props(element: dict) -> dict:
     return {k: _prop_scalar(v) for k, v in pvm.items()}
 
 
-def _extract_classifications(element: dict) -> dict:
+def _extract_classifications(element: dict, extra=()) -> dict:
     """Best-effort {camelCaseKey: {propName: value}} for the governance-relevant
-    classifications actually attached to this element. Only used to build result
-    badges — an empty/partial result here degrades the UI, it doesn't fail a query."""
+    classifications actually attached to this element, plus any named in `extra`
+    (the search's own conditions: a query on e.g. Question must show Question in
+    the result's Classifications column and feed its aggregate, even though it
+    isn't a governed-data classification). Only used to build result badges and
+    tallies; an empty/partial result here degrades the UI, it doesn't fail a query."""
     out = {}
-    interesting = {_classification_key(n) for n in _GOVERNANCE_CLASSIFICATIONS} | {"securityTags", "ownership"}
+    interesting = ({_classification_key(n) for n in _GOVERNANCE_CLASSIFICATIONS}
+                   | {"securityTags", "ownership"}
+                   | {_classification_key(n) for n in extra if n})
     for c in element.get("classifications") or []:
         if not isinstance(c, dict):
             continue
@@ -499,7 +504,7 @@ def _extract_classifications(element: dict) -> dict:
     return out
 
 
-def _serialize_hit(el: dict) -> dict:
+def _serialize_hit(el: dict, extra_classifications=()) -> dict:
     type_info = el.get("type") or {}
     props = _element_props(el)
     guid = el.get("elementGUID", "")
@@ -509,7 +514,7 @@ def _serialize_hit(el: dict) -> dict:
         "superTypeNames":  type_info.get("superTypeNames") or [],
         "displayName":     props.get("displayName") or props.get("name") or props.get("qualifiedName") or guid,
         "qualifiedName":   props.get("qualifiedName") or "",
-        "classifications": _extract_classifications(el),
+        "classifications": _extract_classifications(el, extra_classifications),
     }
 
 
@@ -1117,7 +1122,8 @@ def search_elements(body: SearchBody = Body(...)):
         capped = len(hits) >= page_size
         effective_full_count = False
 
-    results = [_serialize_hit(el) for el in hits]
+    queried = tuple(c.classification for c in body.conditions)
+    results = [_serialize_hit(el, queried) for el in hits]
 
     # Type exclusion (2026-08-05) — client-side, applied before everything
     # else below (aggregates, relationship annotation/filtering, sorting)

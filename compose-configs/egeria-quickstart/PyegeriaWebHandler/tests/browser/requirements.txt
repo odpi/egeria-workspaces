@@ -12,5 +12,5 @@
 #   python3 -m playwright install chromium
 
 pytest>=9.1.1
-playwright>=1.63.0
+playwright>=1.64.1
 pytest-playwright>=0.10.0

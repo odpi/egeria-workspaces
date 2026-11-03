@@ -257,6 +257,16 @@ def _do_release(reason: str = "released") -> None:
     _save_state()
 
 
+async def watchdog_release(reason: str) -> Optional[str]:
+    """Release for workbench_watchdog.py; the holder's display name, or None if free."""
+    async with _mu:
+        if _state["state"] == "FREE":
+            return None
+        holder = _state.get("holder_display") or "unknown"
+        _do_release(reason)
+        return holder
+
+
 # ── Background cleanup ─────────────────────────────────────────────────────────
 
 async def start_scheduler() -> None:

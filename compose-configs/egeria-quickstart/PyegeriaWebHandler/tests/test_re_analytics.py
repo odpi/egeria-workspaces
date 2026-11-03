@@ -131,3 +131,13 @@ def test_report_spec_loads_under_its_label():
     assert re_analytics.TILE_LABEL in specs
     fs = specs[re_analytics.TILE_LABEL]
     assert fs.action.analytic_function == re_analytics.TILE_FUNCTION
+
+
+def test_report_spec_function_resolves_by_registered_name():
+    # pyegeria refuses an unregistered dotted path outside its allowed packages, so the
+    # spec must name a registered function that resolves to this module's tile.
+    from pyegeria.view.format_set_executor import _resolve_analytic_function
+    fs = re_analytics.report_specs()[re_analytics.TILE_LABEL]
+    assert "." not in fs.action.analytic_function
+    assert _resolve_analytic_function(fs.action.analytic_function) is re_analytics.curation_coverage_tile
+    re_analytics.register_tile_function()  # a second load does not collide
