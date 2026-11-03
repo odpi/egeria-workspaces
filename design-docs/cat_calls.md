@@ -198,16 +198,6 @@ Result passed through `_serialize_schema` which extracts `schemaType` + nested a
 
 ---
 
-## Lineage sub-pane — `GET /api/tech-catalog/assets/{guid}/lineage`
-
-| Call | Class | Params |
-|---|---|---|
-| `AssetCatalog.get_asset_lineage_graph` | `AssetCatalog` | `asset_guid=guid`, `output_format="MERMAID"` |
-
-Returns `{"mermaidGraph": ""}` when Egeria returns 400 (asset has no lineage data). Other errors propagate as 500.
-
----
-
 ## Technology Types detail — `GET /api/tech-catalog/tech-types/{qualifiedName}`
 
 | Call | Class | Params |
@@ -396,7 +386,9 @@ Returns `{"error": "not_found"}` (404) when the asset is not found or Egeria ret
 
 ### `GET /api/lineage/asset/{guid}/lineage-graph`
 
-**Query params**: `as_of_time`, `limit_to_isc` (qualifiedName), `highlight_isc` (qualifiedName), `all_anchors` (`"true"` or absent), `url`, `server`
+**Query params**: `as_of_time`, `limit_to_isc` (qualifiedName), `highlight_isc` (qualifiedName), `all_anchors` (`"true"` or absent), `max_hops`, `include_relationships`, `skip_relationships`, `url`, `server`
+
+**Hop limit (Egeria 6.3+, odpi/egeria#9420)**: `max_hops` → `maxHops` (hops followed each way; `0` = no limit; unset = Egeria's default of 8). `include_relationships` (comma-separated) → `includeOnlyRelationships`, which *replaces* Egeria's default types; a supertype such as `LineageRelationship` includes its subtypes. `skip_relationships` (comma-separated) → `skipRelationships`. Each node then carries `hopsFromStart` and `hopLimitReached`; the page uses their presence to tell a 6.3 platform from an older one and hides the hop controls on the latter. When the installed pyegeria predates `max_hops`/`skip_relationships`, they are not sent and the `X-Lineage-Ignored-Params` response header names them. The `AssetCatalog` client gets a 280 s timeout (under Apache's 300 s proxy timeout); a timeout returns 504.
 
 **Response**: Raw JSON dict from `AssetCatalog.get_asset_lineage_graph`. Frontend extracts:
 
