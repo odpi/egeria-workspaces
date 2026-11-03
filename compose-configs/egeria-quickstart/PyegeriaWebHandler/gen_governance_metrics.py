@@ -52,7 +52,8 @@ def build_entries():
     for name, spec in sorted(reg.items()):
         if spec.generic:
             continue
-        demo_name, demo_desc, heading = func_to_demo.get(spec.function, (None, None, None))
+        # Demo specs name the function by registered name from pyegeria 6.2.18, by dotted path before.
+        demo_name, demo_desc, heading = func_to_demo.get(name) or func_to_demo.get(spec.function, (None, None, None))
         if not demo_name:
             continue
         entries.append({

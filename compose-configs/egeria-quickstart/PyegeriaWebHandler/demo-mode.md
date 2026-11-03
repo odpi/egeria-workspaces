@@ -279,6 +279,8 @@ JupyterLab and the Obsidian desktop both give whoever uses them code execution i
 
 Everything else is unreachable from a workbench: the shared Postgres (which holds the Portal's accounts), Kafka, the host's native databases, Ollama, docker-proxy, and the internet at large. Notebook steps that connect to Postgres *directly* (for example `5. sales-forecast-consolidation/1. generate-sales-data.ipynb`) therefore fail in demo mode; steps that only pass Postgres details to Egeria are unaffected, because Egeria makes the connection. pyegeria-web reaches Jupyter's API (to end sessions) through the gateway's port 7888, so it never joins `workbench` itself, where it would be reachable without Apache's edge header.
 
+**CPU watchdog.** `workbench_watchdog.py` samples each workbench's CPU once a minute through docker-proxy. A workbench at 90% or more of its cap (`WORKBENCH_CPU_CAP`, which must match its `cpus:`) for `WORKBENCH_WATCHDOG_MINUTES` (10) consecutive minutes has its Portal lock released, if anyone holds it, and its container restarted. That ends whatever was burning the CPU, including processes started from a terminal, which survive a kernel shutdown. It then emails `ALERT_EMAIL_TO`. A pinned workbench with no lock holder is handled the same way, and the email flags it as suspicious, since an unattended miner looks like that. Its log lines go to `/app/logs/pyegeria.log` in pyegeria-web.
+
 Local (non-demo) mode is unchanged: the gate is off, and Jupyter is at `http://localhost:8888` with token `egeria`.
 
 ### Obsidian tile
