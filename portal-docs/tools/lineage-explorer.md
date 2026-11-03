@@ -58,7 +58,22 @@ Includes:
 - **Edge graph** — extreme sources and destinations only
 - **Linked assets table** — all assets in the full lineage graph with display name, description, GUID, qualified name, creation date, and last-updated date
 
-The full lineage fetch is on-demand because it can be expensive. It is only available when local lineage relationships exist.
+The full lineage fetch is on-demand because it can be expensive. It is only available when local lineage relationships exist. While it loads, the page shows the elapsed time and a **Cancel** button. Cancel stops the browser waiting; Egeria may still finish the walk on its side.
+
+When the focus asset belongs to a supply chain, a button for each supply chain is offered first. Limiting the walk to one supply chain usually takes seconds, where the whole estate can take minutes.
+
+### Hop limit (Egeria 6.3 and later)
+
+From Egeria 6.3 the lineage walk stops a set number of hops from the focus asset in each direction (8 by default). The page detects this from the response and then shows:
+
+- **Hops each way** — a slider from 1 to 15, defaulting to 8. **No limit…** removes the limit after a warning: on a large estate it can take minutes, and the Portal gives up after about 5 minutes.
+- **A summary line** — the limit used, the deepest element found, and how many elements continue past the limit. When none do, the graph is complete.
+- **Dashed rows** in the linked assets table mark the elements where the walk stopped with more lineage beyond, and a **Hops** column gives each element's distance from the focus asset.
+- **Expand from here** — on a dashed row for an asset, makes it the focus asset and loads its full lineage with the same settings.
+- **Also follow actions and assignments** — Egeria 6.3 no longer follows RequestForActionTarget and AssignmentScope relationships by default; tick this to include them again.
+- **Advanced relationship scope** — "Include only" replaces Egeria's default relationship types (a supertype such as `LineageRelationship` includes its subtypes); "Skip" removes types.
+
+On an older platform these controls are hidden and a one-line note says why: the platform does not limit the walk, so the graph shown is the whole walk.
 
 If Egeria fails to build the graph, the error banner shows Egeria's own message rather than reporting "no lineage". For example, some Egeria 6.3 builds reject lineage that reaches a Digital Product (`OMAG-REPOSITORY-HANDLER-404-001 … of type DigitalProduct rather than type Asset`).
 
