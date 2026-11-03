@@ -3024,6 +3024,13 @@ function GlossaryTermsTab({ navGuid, onNavigateToDataDesign, onNavigateToElement
   const [folderStack, setFolderStack] = useState([]);
   // External navigation target (from Digital Products cross-link)
   const [navTerm, setNavTerm] = useState(null);
+  // While a ?guid= deep-link is active, the glossary-list load must
+  // NOT auto-select the first glossary: that changes currentScopeGuid, whose
+  // effect clears selectedItem, so the deep-linked term was wiped and the
+  // user landed on the first glossary's term list instead (e.g. Insights
+  // query results' "View →" on a GlossaryTerm). The term isn't serialized
+  // with its glossary guid, so we open it in "All Terms" mode instead.
+  const navPendingRef = React.useRef(!!navGuid);
   const [asOfTime, setAsOfTime] = useState(null);  // LE-3 point-in-time
 
   const [showTemplates, setShowTemplates] = useState(false);
@@ -3115,8 +3122,29 @@ function GlossaryTermsTab({ navGuid, onNavigateToDataDesign, onNavigateToElement
     if (!navGuid) { setNavTerm(null); return; }
     egeriaFetch('/api/glossary/term/' + encodeURIComponent(navGuid) + atParam, creds)
       .then(function(r) { return r.ok ? r.json() : null; })
-      .then(function(data) { if (data) { setNavTerm(data); setSelectedItem(data.guid); } })
-      .catch(function() {});
+      .then(function(data) {
+        if (data && data.guid) {
+          // Show the target in "All Terms" mode: it is the only row in the
+          // middle pane (selected) and its detail fills the right pane.
+          setSelectedGlossary(null);
+          setFolderStack([]);
+          setSearchTerms([data]);
+          setSearchState('ready');
+          setNavTerm(data);
+          setSelectedItem(data.guid);
+          // Keep navPendingRef set: the glossary list often resolves AFTER
+          // the term, and must still not auto-select the first glossary.
+          // The user leaves deep-link mode by clicking a glossary, which
+          // sets selectedGlossary directly (not via the list-load effect).
+        } else {
+          throw new Error('term not found');
+        }
+      })
+      .catch(function() {
+        // Unresolvable guid: fall back to the normal first-glossary landing.
+        navPendingRef.current = false;
+        setGlossaryAttempt(function(n) { return n + 1; });
+      });
   }, [navGuid, asOfTime]);
 
   // Current scope guid: deepest folder or the glossary itself
@@ -3135,7 +3163,7 @@ function GlossaryTermsTab({ navGuid, onNavigateToDataDesign, onNavigateToElement
         const list = (data.glossaries || []).sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
         setGlossaries(list);
         setGlossaryState('ready');
-        if (list.length > 0) setSelectedGlossary(list[0].guid);
+        if (list.length > 0 && !navPendingRef.current) setSelectedGlossary(list[0].guid);
       })
       .catch(err => { setGlossaryError(err.message); setGlossaryState('error'); });
   }, [glossaryAttempt, asOfTime, showTemplates]);
