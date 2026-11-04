@@ -4116,20 +4116,25 @@ var RelationshipUI = { Row: null };
 
 var REL_PURPOSE_NONE_HINT = "This Egeria server doesn't report relationship purposes, so relationships aren't grouped.";
 
+// The name block shrinks; badges + actions form one right-aligned group that
+// wraps under the name when the pane is too narrow, rather than overflowing
+// (and clipping the "View →" button) in narrow panes such as Data Mesh's.
 function RelatedElementRowBase({ item, purpose, groupFamily, actions }) {
   return React.createElement('div', {
-      style: { display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, padding: '6px 0', borderTop: '1px solid var(--border)' },
+      style: { display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 8, fontSize: 13, padding: '6px 0', borderTop: '1px solid var(--border)' },
       title: item.description || '',
     },
-    React.createElement('div', { style: { flex: 1 } },
+    React.createElement('div', { style: { flex: '1 1 180px', minWidth: 0, overflowWrap: 'anywhere' } },
       React.createElement('div', null, item.displayName || item.qualifiedName),
       item.contactMethodValue && React.createElement('div', { style: { fontSize: 12, color: 'var(--fg)', marginTop: 2, fontFamily: 'ui-monospace,monospace' } }, item.contactMethodValue),
       item.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', marginTop: 2 } }, item.description)
     ),
-    item.relationshipType && React.createElement('span', { className: 'badge', title: 'Relationship type', style: { fontSize: 9, background: 'rgba(251,191,36,.1)', color: '#fbbf24', border: '0.5px solid rgba(251,191,36,.25)', flexShrink: 0 } }, item.relationshipType),
-    relPurposeBadgeWanted(purpose, groupFamily) && React.createElement(PurposeBadge, { purpose: purpose, compact: true }),
-    item.typeName && React.createElement('span', { className: 'badge', title: 'Element type', style: { fontSize: 9, background: 'rgba(99,102,241,.1)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.25)', flexShrink: 0 } }, item.typeName),
-    actions
+    React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: 8, marginLeft: 'auto', maxWidth: '100%' } },
+      item.relationshipType && React.createElement('span', { className: 'badge', title: 'Relationship type', style: { fontSize: 9, background: 'rgba(251,191,36,.1)', color: '#fbbf24', border: '0.5px solid rgba(251,191,36,.25)', flexShrink: 0 } }, item.relationshipType),
+      relPurposeBadgeWanted(purpose, groupFamily) && React.createElement(PurposeBadge, { purpose: purpose, compact: true }),
+      item.typeName && React.createElement('span', { className: 'badge', title: 'Element type', style: { fontSize: 9, background: 'rgba(99,102,241,.1)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.25)', flexShrink: 0 } }, item.typeName),
+      actions
+    )
   );
 }
 

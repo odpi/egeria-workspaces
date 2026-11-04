@@ -437,7 +437,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
 <script>window.EGERIA_FOR_LINEAGE = true;</script>
-<script src="/static/egeria-shared-ui.js?v=2026-11-04c"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-11-04d"></script>
 <script>
 'use strict';
 // React hook aliases (mirror tech-catalog.html / type-explorer.html)
@@ -673,7 +673,7 @@ function useResizableWidth(initialPx, min, max) {
     function onMove(ev) {
       if (!dragRef.current) return;
       var nx = window.innerWidth - ev.clientX;
-      setW(Math.max(min, Math.min(max, nx)));
+      setW(Math.max(min, Math.min(typeof max === 'function' ? max() : max, nx)));
     }
     function onUp() { dragRef.current = false; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); }
     window.addEventListener('mousemove', onMove);
@@ -850,7 +850,9 @@ function App() {
   var _iscFilter = useState(''), iscFilter = _iscFilter[0], setIscFilter = _iscFilter[1];
   function handleEdgeClick(iscQ) { setIscFilter(iscQ || ''); }
 
-  var [panelW, onPanelDivDown] = useResizableWidth(380, 280, 640);
+  // Detail pane: drag the divider; up to all but 240px of the window, so
+  // the graph always keeps a usable strip (640px was too narrow a cap).
+  var [panelW, onPanelDivDown] = useResizableWidth(380, 280, function() { return Math.max(280, window.innerWidth - 240); });
 
 
   if (!ready) return null;
