@@ -233,6 +233,35 @@ The Report Specs tab currently shows name, description, and perspectives. The `q
 
 6. **Update docs:** `README.md` (user-facing features and API), `type-explorer-architecture.md` (internals), and this file.
 
+## Showing relationships: use the shared helpers
+
+Relationship lists and relationship purposes live in `static/egeria-shared-ui.js`, shared by the Explorer,
+Data Mesh and The Catalog. Design: `design-docs/relationship-purpose-plan.md`. Don't copy them into an app.
+
+- **A detail panel's relationships:** pass the backend `relationships` dict
+  (`{key: [relatedElement, ...]}`, from `common_serialize.py::_generic_relationships`) to
+  `GenericRelationshipsSection({relationships, onNavigateToElement, skip})`. It renders one foldable
+  `RelationshipSection` per non-empty key, grouped into purpose families once the purpose map has loaded.
+  Pass `groupByPurpose: false` to opt out. Use `RelationshipSection({title, items, ...})` directly for a
+  hand-placed group.
+- **Rows:** each app can register its own row once with `RelationshipUI.Row = MyRow`. The Explorer does
+  this to add its type-aware "View →" and "↗ Tech Catalog" links. Build the row on
+  `RelatedElementRowBase({item, purpose, groupFamily, actions})`, so the badges, the purpose-badge rule and
+  wrapping in narrow panes stay the same everywhere.
+- **Purpose lookups:** `useRelationshipPurposes(creds)` returns
+  `{ready, error, serverReportsPurpose, purposeOf(typeName), familyOf(typeName)}`, fetching
+  `GET /api/types/relationship-purposes` once per page and server. A page that already loads `/api/types`
+  should call `seedRelationshipPurposes(data.relationships, undefined, creds)` instead, as the Explorer does.
+  `serverReportsPurpose` is `null` while loading and after a failed lookup. Only `false` means the server
+  reports no purposes, so only then show `REL_PURPOSE_NONE_HINT`.
+- **Grouping your own list:** `groupByPurposeFamily(items, getTypeName, purposeOf)` returns
+  `[{family, items}]` in display order. Render each with `PurposeFamilySection({familyKey, count})`, which
+  starts folded and remembers its fold state. `majorityPurposeFamily` places a mixed group in one family,
+  and `relPurposeBadgeWanted(purpose, groupFamily)` decides whether a row shows its `PurposeBadge`.
+- **Families and colours:** `REL_PURPOSES` and `REL_PURPOSE_FAMILIES` hold the labels, Egeria's
+  descriptions and the defaults. Colours are the `--purpose-<family>` CSS variables (dark and light themes).
+- **After changing `egeria-shared-ui.js`**, bump its `?v=` cache-buster in every page that loads it.
+
 ## Keeping the REST API catalog current after Egeria upgrades
 
 Run the build script against the new distribution's http-client-collections, then commit the updated JSON:

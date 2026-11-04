@@ -4,15 +4,21 @@ Copyright Contributors to the ODPi Egeria project.
 
 Type System Explorer — FastAPI router.
 
-Provides two endpoints:
+Provides these endpoints:
   GET /egeria-explorer      → serves the single-page HTML explorer
   GET /api/types            → returns all type definitions as JSON
                               (optional ?area=N filter for entities)
+  GET /api/types/names      → sorted type names for one kind
+  GET /api/types/relationship-purposes
+                            → relationship type name → purpose map, for pages
+                              that don't load the full type system
 
 Consumed by the type-explorer UI and can be called directly.
 """
 
 import os
+import re
+import time
 from egeria_auth import apply_token, async_apply_token
 from pathlib import Path
 from typing import Optional
@@ -238,6 +244,77 @@ def _normalize_raw(raw, label: str) -> list[dict]:
     return []
 
 
+# ── Relationship purpose ──────────────────────────────────────────────────────
+# Mirrors Egeria's OpenMetadataRelationshipPurpose enum. Purpose explains why a
+# relationship type exists; see design-docs/relationship-purpose-plan.md.
+#
+# Wire format (checked 2026-11-03 against a 6.3-SNAPSHOT platform): the
+# /open-metadata-types/relationship-defs response carries relationshipPurpose
+# as the enum constant name ("DESIGN_LINEAGE"), already resolved server-side
+# (a subtype may override its supertype's purpose, so never derive it from
+# the supertype client-side). Types with no purpose anywhere in their chain
+# (e.g. custom types such as BiopsySupportingEvidence) omit the field, as do
+# older servers. _norm_purpose also accepts display names and {name: ...}
+# objects in case the shape changes.
+
+REL_PURPOSES: tuple[str, ...] = (
+    "STRUCTURAL", "ATTACHMENT", "ASSIGNMENT", "MEMBERSHIP", "ASSOCIATION",
+    "PEER", "DEFINITION", "DEPLOYMENT", "DESIGN_LINEAGE", "ACTION", "ACTIVITY",
+)
+
+# Key on letters only, so "DESIGN_LINEAGE", "DesignLineage" and
+# "Design Lineage" all resolve to the same constant.
+_PURPOSE_BY_KEY: dict[str, str] = {re.sub(r"[^a-z]", "", p.lower()): p for p in REL_PURPOSES}
+_WARNED_PURPOSES: set[str] = set()
+
+
+def _norm_purpose(value) -> str | None:
+    """Return the OpenMetadataRelationshipPurpose constant name for ``value``,
+    or None when it is missing or unrecognised.
+
+    Accepts a constant name, a display name, or a dict carrying ``name`` or
+    ``displayName``. Unknown values are logged once each, then treated as None
+    -- never defaulted to ASSOCIATION, because that would claim a purpose the
+    server never reported."""
+    if isinstance(value, dict):
+        value = value.get("name") or value.get("displayName")
+    if value is None:
+        return None
+    # Only strings are parsed: re-reading repr(["PEER"]) would invent a match.
+    key = re.sub(r"[^a-z]", "", value.lower()) if isinstance(value, str) else None
+    if key == "":
+        return None
+    purpose = _PURPOSE_BY_KEY.get(key) if key else None
+    value = value if isinstance(value, str) else repr(value)
+    if purpose is None and value not in _WARNED_PURPOSES:
+        _WARNED_PURPOSES.add(value)
+        logger.warning(f"Unrecognised relationshipPurpose {value!r}; treating as unknown")
+    return purpose
+
+
+def _purpose_map(relationship_raw: list[dict]) -> dict:
+    """Build the /api/types/relationship-purposes payload from raw relationship
+    defs. Types with no purpose are kept with a null value, so "the server
+    knows this type but gave it no purpose" stays distinguishable from "the
+    server doesn't know this type". ``serverReportsPurpose`` is False when no
+    def carried a purpose (older server), so the UI can say so instead of
+    rendering everything as Unclassified."""
+    purposes = {
+        td["name"]: _norm_purpose(td.get("relationshipPurpose"))
+        for td in relationship_raw if td.get("name")
+    }
+    return {
+        "purposes": purposes,
+        "serverReportsPurpose": any(v is not None for v in purposes.values()),
+    }
+
+
+# Keyed on "url|server". Type definitions change rarely; 10 minutes keeps a
+# newly loaded archive from being invisible for long.
+_PURPOSE_TTL = 600.0
+_PURPOSE_CACHE: dict[str, tuple[float, dict]] = {}
+
+
 # ── Module-level caches (process-lifetime, cleared on restart) ────────────────
 
 _TYPE_NAMES_CACHE: dict[str, list[str]] = {}
@@ -454,7 +531,13 @@ async def get_all_types(
             "end2Cardinality":      e2.get("attributeCardinality", ""),
             "end1Desc":             e1.get("attributeDescription", ""),
             "end2Desc":             e2.get("attributeDescription", ""),
+            # Why this relationship type exists (OpenMetadataRelationshipPurpose
+            # constant name), or None when the server doesn't report one.
+            "relationshipPurpose":  _norm_purpose(td.get("relationshipPurpose")),
         }
+
+    # Prime the purpose-map cache from data we already hold.
+    _PURPOSE_CACHE[f"{url}|{server}"] = (time.monotonic(), _purpose_map(relationship_raw))
 
     # ── Classifications ───────────────────────────────────────────────────────
     classifications: dict[str, dict] = {}
@@ -488,3 +571,64 @@ async def get_all_types(
         "classifications": classifications,
         "relationships":   relationships,
     })
+
+@router.get("/api/types/relationship-purposes",
+            summary="Get the relationship type name to purpose map")
+async def get_relationship_purposes(
+    request: Request,
+    url:      Optional[str] = Query(None, description="Egeria platform URL (overrides env)"),
+    server:   Optional[str] = Query(None, description="Egeria view server name (overrides env)"),
+    user_id:  Optional[str] = Query(None, description="Egeria user id (overrides env)"),
+    user_pwd: Optional[str] = Query(None, description="Egeria user password (overrides env)"),
+):
+    """
+    Return ``{"purposes": {typeName: purpose | null}, "serverReportsPurpose": bool}``.
+
+    A lightweight alternative to ``/api/types`` for pages that only need to
+    group or badge relationships by purpose. Purpose values are
+    OpenMetadataRelationshipPurpose constant names (e.g. ``"DESIGN_LINEAGE"``).
+    Cached in-process for 10 minutes per platform URL and view server.
+
+    Connection: as ``/api/types`` -- the logged-in user's Egeria token under
+    server-managed auth, falling back to the env service account.
+    """
+    d = _env_defaults()
+    url      = url      or d["url"]
+    server   = server   or d["server"]
+    user_id  = user_id  or d["user_id"]
+    user_pwd = user_pwd or d["user_pwd"]
+
+    cache_key = f"{url}|{server}"
+    hit = _PURPOSE_CACHE.get(cache_key)
+    if hit and time.monotonic() - hit[0] < _PURPOSE_TTL:
+        return JSONResponse(hit[1])
+
+    async def _fetch(c) -> list[dict]:
+        try:
+            return _normalize_raw(await c._async_get_all_relationship_defs(),
+                                  "Relationship definitions")
+        finally:
+            await c._async_close_session()
+
+    egeria_token = _egeria_token_from_request(request)
+    try:
+        if egeria_token:
+            try:
+                raw = await _fetch(_get_client_from_token(url, server, user_id, egeria_token))
+            except Exception as token_exc:
+                logger.warning(f"Token-based auth failed ({token_exc}); retrying with env-var credentials")
+                raw = await _fetch(await _get_client_async(url, server, user_id, user_pwd))
+        else:
+            raw = await _fetch(await _get_client_async(url, server, user_id, user_pwd))
+    except PyegeriaException as exc:
+        logger.exception(f"Pyegeria error in get_relationship_purposes: {exc}")
+        if "HTTP Code: 401" in str(exc) or getattr(exc, "http_error_code", None) == 401:
+            raise HTTPException(status_code=401, detail="Not authorized — check credentials or user permissions")
+        raise HTTPException(status_code=502, detail=f"Egeria error: {exc}")
+    except Exception as exc:
+        logger.exception(f"Unexpected error in get_relationship_purposes: {exc}")
+        raise HTTPException(status_code=500, detail=f"Relationship purpose query failed: {exc}")
+
+    payload = _purpose_map(raw)
+    _PURPOSE_CACHE[cache_key] = (time.monotonic(), payload)
+    return JSONResponse(payload)

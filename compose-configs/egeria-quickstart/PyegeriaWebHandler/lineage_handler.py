@@ -17,6 +17,7 @@ Auth: token only (X-Egeria-Token header). No user_id/user_pwd query params.
 Credentials for pyegeria client construction come from env vars only.
 """
 
+import inspect
 import os
 import re
 from pathlib import Path
@@ -85,12 +86,46 @@ def _egeria_error_message(exc: Exception) -> Optional[str]:
     return m.group(1).strip() if m else None
 
 
-def _asset_catalog(url, server, token=None):
+def _is_timeout(exc: Exception) -> bool:
+    try:
+        from pyegeria.core._exceptions import PyegeriaTimeoutException
+    except ImportError:
+        return False
+    return isinstance(exc, PyegeriaTimeoutException)
+
+
+def _asset_catalog(url, server, token=None, timeout=None):
     from pyegeria import AssetCatalog
     u, s, uid, pwd = _creds(url, server)
-    ac = AssetCatalog(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
+    ac = AssetCatalog(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd, timeout=timeout)
     _apply_token(ac, token)
     return ac
+
+
+# The lineage walk can take minutes on a large estate (an unfiltered graph, or
+# maxHops=0 on Egeria 6.3+), far beyond pyegeria's 30 s client default. Stay
+# under Apache's 300 s ProxyPass timeout so a slow walk ends in a clean 504
+# from here rather than a proxy error page.
+_LINEAGE_TIMEOUT_S = 280
+
+
+def _lineage_kwargs_supported() -> set:
+    """The optional lineage-graph parameters this pyegeria accepts.
+
+    max_hops/skip_relationships arrive with Egeria 6.3's hop-limited walk
+    (odpi/egeria#9420) and a later pyegeria. Older pyegeria swallows unknown
+    keyword arguments via **kwargs, so passing them would be silently ignored
+    rather than rejected; check the signature instead.
+    """
+    from pyegeria import AssetCatalog
+    params = inspect.signature(AssetCatalog.get_asset_lineage_graph_by_guid).parameters
+    return {name for name in ("max_hops", "skip_relationships") if name in params}
+
+
+def _split_types(raw: Optional[str]) -> Optional[list]:
+    """Comma-separated relationship type names → list, or None when empty."""
+    names = [t.strip() for t in (raw or "").split(",") if t.strip()]
+    return names or None
 
 
 def _asset_maker(url, server, token=None):
@@ -225,6 +260,9 @@ def get_asset_lineage_graph(
     highlight_isc: Optional[str] = Query(None),
     all_anchors: Optional[str] = Query(None),
     for_lineage: bool = Query(False),
+    max_hops: Optional[int] = Query(None, ge=0, le=100, description="Egeria 6.3+: hops to follow each way; 0 = no limit; unset = Egeria's default (8)"),
+    include_relationships: Optional[str] = Query(None, description="Comma-separated relationship types; replaces Egeria's defaults"),
+    skip_relationships: Optional[str] = Query(None, description="Egeria 6.3+: comma-separated relationship types to skip"),
     url: Optional[str] = Query(None),
     server: Optional[str] = Query(None),
 ):
@@ -243,24 +281,56 @@ def get_asset_lineage_graph(
 
     all_anchors: "true" to include field-level detail in the graphs.
     as_of_time: ISO 8601 string; null/absent = "now".
+
+    Hop limit and relationship scope (Egeria 6.3+ walks at most maxHops each
+    way, default 8, and marks the nodes where it stopped with hopLimitReached;
+    each node also carries hopsFromStart). The element is returned unchanged,
+    so those fields reach the page as-is; on 6.2 they are simply absent.
+      max_hops: hops to follow; 0 = no limit; unset = Egeria's default.
+      include_relationships: replaces Egeria's default relationship types.
+      skip_relationships: removes types (and subtypes) from the walk.
+
+    If this pyegeria predates max_hops/skip_relationships, they are not sent
+    and the X-Lineage-Ignored-Params response header names them, so the page
+    can say the hop setting was not applied instead of implying it was.
     """
     _empty = {"mermaidGraph": "", "edgeMermaidGraph": "", "linkedAssets": []}
+    supported = _lineage_kwargs_supported()
+    optional = {}
+    ignored = []
+    for name, value in (("max_hops", max_hops), ("skip_relationships", _split_types(skip_relationships))):
+        if value is None:
+            continue
+        if name in supported:
+            optional[name] = value
+        else:
+            ignored.append(name)
+    headers = {"X-Lineage-Ignored-Params": ",".join(ignored)} if ignored else None
     try:
-        ac = _asset_catalog(url, server, _token_from_request(request))
+        ac = _asset_catalog(url, server, _token_from_request(request), timeout=_LINEAGE_TIMEOUT_S)
         raw = ac.get_asset_lineage_graph_by_guid(
             guid,
             as_of_time=as_of_time or None,
+            relationship_types=_split_types(include_relationships),
             limit_to_isc_q_name=limit_to_isc or None,
             hilight_isc_q_name=highlight_isc or None,
             all_anchors=(all_anchors == "true"),
             **({"for_lineage": True} if for_lineage else {}),
+            **optional,
             output_format="JSON",
         )
         el = raw[0] if isinstance(raw, list) else raw
         if not isinstance(el, dict):
-            return JSONResponse(_empty)
-        return JSONResponse(el)
+            return JSONResponse(_empty, headers=headers)
+        return JSONResponse(el, headers=headers)
     except Exception as exc:
+        if _is_timeout(exc):
+            logger.warning(f"get_asset_lineage_graph: timed out after {_LINEAGE_TIMEOUT_S}s for guid={guid}")
+            raise HTTPException(
+                status_code=504,
+                detail=f"Egeria did not finish the lineage walk within {_LINEAGE_TIMEOUT_S} s. "
+                       "Try a smaller hop limit or limit the graph to a supply chain.",
+            )
         egeria_msg = _egeria_error_message(exc)
         if egeria_msg:
             logger.warning(f"get_asset_lineage_graph: Egeria failed for guid={guid}: {egeria_msg}")

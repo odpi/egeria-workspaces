@@ -21,7 +21,6 @@ Endpoints:
   GET /api/tech-catalog/actions                  → Action processes
   GET /api/tech-catalog/assets/{guid}            → detail for any element by GUID
   GET /api/tech-catalog/assets/{guid}/schema     → schema type + attribute tree (depth=5)
-  GET /api/tech-catalog/assets/{guid}/lineage    → lineage graph via AssetCatalog
 
   GET /api/tech-catalog/tech-types               → list / search technology types
   GET /api/tech-catalog/tech-types/hierarchy     → hierarchy tree from root
@@ -508,14 +507,6 @@ def _survey_reports(ann: dict) -> list:
     return reports
 
 
-def _asset_catalog(url, server, user_id, user_pwd, token: Optional[str] = None):
-    from pyegeria import AssetCatalog
-    u, s, uid, pwd = _creds(url, server, user_id, user_pwd)
-    ac = AssetCatalog(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
-    _apply_token(ac, token)
-    return ac
-
-
 def _automated_curation(url, server, user_id, user_pwd, token: Optional[str] = None):
     from pyegeria import AutomatedCuration
     u, s, uid, pwd = _creds(url, server, user_id, user_pwd)
@@ -785,21 +776,6 @@ def _serialize_schema(el: dict, mgr=None) -> dict:
             _apply_terms(attributes)
 
     return {"schemaType": schema_type, "attributes": attributes}
-
-
-def _serialize_lineage(lin: dict) -> dict:
-    """Flatten an AssetCatalog lineage graph response into a UI-friendly list."""
-    if not lin:
-        return {"relationships": []}
-    result = []
-    for key in ("lineageLinkage", "lineageRelationships"):
-        for item in (lin.get(key) or []):
-            if not isinstance(item, dict):
-                continue
-            r = _unwrap_rel_item(item, key)
-            if r:
-                result.append(r)
-    return {"relationships": result}
 
 
 def _serialize_tech_type(el: dict) -> dict:
@@ -1883,35 +1859,6 @@ def get_asset_schema(
     except Exception as exc:
         logger.exception("get_asset_schema failed")
         raise HTTPException(status_code=500, detail=str(exc))
-
-
-@router.get("/api/tech-catalog/assets/{guid}/lineage")
-def get_asset_lineage(
-    request: Request,
-    guid: str,
-    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
-):
-    """Return the mermaid lineage graph string for any asset via AssetCatalog.
-
-    Returns {"mermaidGraph": ""} when the asset has no lineage data (Egeria returns 400).
-    """
-    try:
-        ac = _asset_catalog(url, server, user_id, user_pwd, token=_token_from_request(request))
-        mermaid_str = ac.get_asset_lineage_graph_by_guid(guid, output_format="MERMAID")
-        if isinstance(mermaid_str, str):
-            return JSONResponse({"mermaidGraph": mermaid_str or ""})
-        # Some pyegeria versions return a dict; extract mermaidGraph field if present
-        if isinstance(mermaid_str, dict):
-            return JSONResponse({"mermaidGraph": mermaid_str.get("mermaidGraph") or ""})
-        return JSONResponse({"mermaidGraph": ""})
-    except Exception as exc:
-        exc_str = str(exc)
-        # 400 = no lineage data; 404 = element not an Asset (e.g. Endpoint); treat both as empty
-        if any(code in exc_str for code in ("400", "404", "CLIENT_ERROR_400", "CLIENT_ERROR_404")):
-            return JSONResponse({"mermaidGraph": ""})
-        logger.exception("get_asset_lineage failed for %s", guid)
-        raise HTTPException(status_code=500, detail=exc_str)
 
 
 # ── TC-13: file Data Asset preview ────────────────────────────────────────────
