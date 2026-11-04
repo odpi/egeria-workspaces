@@ -1489,9 +1489,83 @@ function TypeDetail({
 
 // ── Classification Detail ─────────────────────────────────────────────────────
 
+// ── Inheritance for relationship and classification types ───────────────────
+// Relationship and classification typedefs have supertypes just like entity
+// types (e.g. DataFlow -> DataLineageRelationship -> LineageRelationship ->
+// LabeledRelationship). getChain/getAllProps/getSubs (egeria-shared-ui.js) work
+// on any {name: {supertype, props}} map, so these mirror the entity page's
+// Inherits/Subtypes row and its Properties tab with the Show inherited toggle.
+// kind is the onSelect kind ('rel' | 'classif'); color is the type's accent.
+function TypeDefInheritance({ name, map, kind, color, onSelect }) {
+  const chain = getChain(name, map);
+  const subs = getSubs(name, map).sort();
+  // A type with no supertype and no subtypes has no inheritance to show.
+  if (chain.length <= 1 && subs.length === 0) return null;
+  const label = text => /*#__PURE__*/React.createElement("span", {
+    style: { fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1 }
+  }, text);
+  return /*#__PURE__*/React.createElement(React.Fragment, null,
+    chain.length > 1 && /*#__PURE__*/React.createElement("div", { className: "chain" },
+      label("Inherits:"),
+      chain.map((n, i) => /*#__PURE__*/React.createElement("span", {
+        key: n, style: { display: 'flex', alignItems: 'center', gap: 5 }
+      }, i > 0 && /*#__PURE__*/React.createElement("span", { style: { color: 'var(--dim)' } }, "›"),
+        /*#__PURE__*/React.createElement("button", {
+          onClick: () => n !== name && onSelect && onSelect(kind, n),
+          title: n === name ? undefined : 'Open ' + n,
+          style: {
+            background: 'none', border: 'none', padding: '1px 0',
+            cursor: n === name ? 'default' : 'pointer',
+            fontFamily: 'ui-monospace,monospace', fontSize: 12,
+            color: n === name ? color : 'var(--muted)', fontWeight: n === name ? 700 : 400
+          }
+        }, n)))),
+    subs.length > 0 && /*#__PURE__*/React.createElement("div", { className: "subs" },
+      label("Subtypes:"),
+      subs.map(sb => /*#__PURE__*/React.createElement("button", {
+        key: sb, className: "chip", onClick: () => onSelect && onSelect(kind, sb)
+      }, sb))));
+}
+
+function TypeDefPropsTable({ name, map, kind, title, onSelect }) {
+  const [showInherited, setShowInherited] = useState(true);
+  const all = getAllProps(name, map);
+  const own = all.filter(p => p.source === name);
+  if (all.length === 0) return null;
+  const shown = showInherited ? all : own;
+  return /*#__PURE__*/React.createElement(React.Fragment, null,
+    /*#__PURE__*/React.createElement("div", {
+      style: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10, flexWrap: 'wrap' }
+    }, title && /*#__PURE__*/React.createElement("p", {
+        style: { fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1, margin: 0 }
+      }, title),
+      /*#__PURE__*/React.createElement(InheritedToggle, {
+        checked: showInherited, onChange: setShowInherited, own: own.length, total: all.length
+      })),
+    shown.length === 0
+      ? /*#__PURE__*/React.createElement("p", { style: { color: 'var(--dim)', fontStyle: 'italic' } },
+          "No properties are defined on this type itself — tick Show inherited to see the ones it inherits.")
+      : /*#__PURE__*/React.createElement("table", null,
+          /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null,
+            ['Property', 'Type', 'Source', 'Description'].map(h => /*#__PURE__*/React.createElement("th", { key: h }, h)))),
+          /*#__PURE__*/React.createElement("tbody", null, shown.map((p, i) => /*#__PURE__*/React.createElement("tr", {
+            key: p.source + '.' + p.name + i
+          }, /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("span", { className: "mono" }, p.name)),
+            /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("span", { className: "mono", style: { color: '#7a9ab8' } }, p.type)),
+            /*#__PURE__*/React.createElement("td", null, p.source === name
+              ? /*#__PURE__*/React.createElement(Badge, { kind: "own" }, "own")
+              : /*#__PURE__*/React.createElement("button", {
+                  onClick: () => onSelect && onSelect(kind, p.source),
+                  title: 'Inherited from ' + p.source,
+                  style: { background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'ui-monospace,monospace', fontSize: 11, color: 'var(--muted)' }
+                }, p.source)),
+            /*#__PURE__*/React.createElement("td", { style: { color: 'var(--muted)' } }, p.desc))))));
+}
+
 function ClassifDetail({
   name,
-  classifications
+  classifications,
+  onSelect
 }) {
   const c = classifications[name];
   if (!c) return null;
@@ -1535,34 +1609,28 @@ function ClassifDetail({
       color: 'var(--muted)',
       marginTop: 6
     }
-  }, "Valid for: ", c.validFor.map(v => /*#__PURE__*/React.createElement("span", {
+  }, "Valid for: ", c.validFor.map(v => /*#__PURE__*/React.createElement("button", {
     key: v,
     className: "mono",
+    onClick: () => onSelect && onSelect('type', v),
+    title: 'Open entity type ' + v,
     style: {
+      background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 12,
       color: 'var(--accent)',
       marginRight: 6
     }
-  }, v)))), /*#__PURE__*/React.createElement("div", {
+  }, v))),
+  /*#__PURE__*/React.createElement(TypeDefInheritance, { name: name, map: classifications, kind: 'classif', color: '#5eead4', onSelect: onSelect })),
+  /*#__PURE__*/React.createElement("div", {
     style: {
       borderBottom: '1px solid var(--border)',
       marginBottom: 20
     }
-  }), /*#__PURE__*/React.createElement("table", null, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, ['Property', 'Type', 'Description'].map(h => /*#__PURE__*/React.createElement("th", {
-    key: h
-  }, h)))), /*#__PURE__*/React.createElement("tbody", null, c.props.map((p, i) => /*#__PURE__*/React.createElement("tr", {
-    key: i
-  }, /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("span", {
-    className: "mono"
-  }, p.name)), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("span", {
-    className: "mono",
-    style: {
-      color: '#7a9ab8'
-    }
-  }, p.type)), /*#__PURE__*/React.createElement("td", {
-    style: {
-      color: 'var(--muted)'
-    }
-  }, p.desc))))));
+  }),
+  /*#__PURE__*/React.createElement(TypeDefPropsTable, { name: name, map: classifications, kind: 'classif', onSelect: onSelect }),
+  getAllProps(name, classifications).length === 0 && /*#__PURE__*/React.createElement("p", {
+    style: { color: 'var(--dim)', fontStyle: 'italic' }
+  }, "No properties defined, on this type or any it inherits from."));
 }
 
 // ── Relationship Detail ───────────────────────────────────────────────────────
@@ -1712,30 +1780,9 @@ function RelDetail({
     style: { fontSize: 11, color: 'var(--accent)' }
   }, "About relationship purposes \u2197")),
   /*#__PURE__*/React.createElement(TypeDefHeaderMeta, { header: r.header }),
-  r.props.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("p", {
-    style: {
-      fontSize: 11,
-      color: 'var(--dim)',
-      textTransform: 'uppercase',
-      letterSpacing: 1,
-      marginBottom: 10
-    }
-  }, "Relationship Properties"), /*#__PURE__*/React.createElement("table", null, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, ['Property', 'Type', 'Description'].map(h => /*#__PURE__*/React.createElement("th", {
-    key: h
-  }, h)))), /*#__PURE__*/React.createElement("tbody", null, r.props.map((p, i) => /*#__PURE__*/React.createElement("tr", {
-    key: i
-  }, /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("span", {
-    className: "mono"
-  }, p.name)), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("span", {
-    className: "mono",
-    style: {
-      color: '#7a9ab8'
-    }
-  }, p.type)), /*#__PURE__*/React.createElement("td", {
-    style: {
-      color: 'var(--muted)'
-    }
-  }, p.desc)))))));
+  /*#__PURE__*/React.createElement(TypeDefInheritance, { name: name, map: relationships, kind: 'rel', color: '#fbbf24', onSelect: onSelect }),
+  /*#__PURE__*/React.createElement(TypeDefPropsTable, { name: name, map: relationships, kind: 'rel', title: 'Relationship Properties', onSelect: onSelect }),
+  null);
 }
 
 // ── Tree Node (recursive) ─────────────────────────────────────────────────────
@@ -11948,7 +11995,7 @@ function App() {
           /*#__PURE__*/React.createElement(ResizeDivider, { onMouseDown: onTypeDivDown }),
           /*#__PURE__*/React.createElement("div", { className: "main" },
             selected.kind === 'type' && (entities[selected.name] || allEntities[selected.name]) && /*#__PURE__*/React.createElement(TypeDetail, { name: selected.name, entities: allEntities, relationships: relationships, classifications: classifications, onSelect: onSelect, onNavigateProp: onNavigateToValidValues }),
-            selected.kind === 'classif' && classifications[selected.name] && /*#__PURE__*/React.createElement(ClassifDetail, { name: selected.name, classifications: classifications }),
+            selected.kind === 'classif' && classifications[selected.name] && /*#__PURE__*/React.createElement(ClassifDetail, { name: selected.name, classifications: classifications, onSelect: onSelect }),
             selected.kind === 'rel' && relationships[selected.name] && /*#__PURE__*/React.createElement(RelDetail, { name: selected.name, relationships: relationships, onSelect: onSelect }),
             !selected.name && /*#__PURE__*/React.createElement("div", { className: "center" },
               /*#__PURE__*/React.createElement("span", { style: { fontSize: 32 } }, "\u2B05"),
