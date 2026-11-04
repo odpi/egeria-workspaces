@@ -591,7 +591,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   <!-- Bump ?v= whenever egeria-shared-ui.js changes — see tech-catalog.html for why. -->
   <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
   <script>window.EGERIA_FOR_LINEAGE = true; window.EGERIA_FOR_LINEAGE_VISIBLE = false;  /* shown per-section by App */</script>
-  <script src="/static/egeria-shared-ui.js?v=2026-10-28a"></script>
+  <script src="/static/egeria-shared-ui.js?v=2026-11-04a"></script>
   <script>"use strict";
 
 const {
@@ -1097,6 +1097,11 @@ function TypeDetail({
   const propLc = useListControls(null, name);
   const [propSort, setPropSort] = useState({ col: null, dir: 'asc' });
   const relLc = useListControls('name', name);
+  // Relationships tab: group by purpose family (default) or flat, and an
+  // optional purpose filter (OpenMetadataRelationshipPurpose names; '__none'
+  // = types the server gives no purpose).
+  const [relGroup, setRelGroup] = useState('family');
+  const [relPurposeSel, setRelPurposeSel] = useState(() => new Set());
   const classifLc = useListControls(null, name);
   const [classifSort, setClassifSort] = useState({ col: null, dir: 'asc' });
   var _typePersonaId = React.useContext(PersonaContext);
@@ -1121,10 +1126,114 @@ function TypeDetail({
     nearest: r => -chain.indexOf(relVia(r)),
     role: r => r.role
   };
-  const shownRels = listSortBy(rels.filter(r => listMatches(relLc.query, [r.name, r.other, relVia(r), r.desc, (r.props || []).map(p => p.name)])), REL_SORTS[relLc.sortKey]);
+  const relPurposeKey = r => r.relationshipPurpose || '__none';
+  const shownRels = listSortBy(rels.filter(r => (relPurposeSel.size === 0 || relPurposeSel.has(relPurposeKey(r))) && listMatches(relLc.query, [r.name, r.other, relVia(r), r.desc, (r.props || []).map(p => p.name)])), REL_SORTS[relLc.sortKey]);
+  // Purpose is per relationship TYPE (server-resolved, may differ from the
+  // supertype's) — so read it from each type, never from its ancestors.
+  const purposesReported = Object.values(relationships).some(x => x.relationshipPurpose);
+  const relPurposeCounts = {};
+  rels.forEach(r => { const k = relPurposeKey(r); relPurposeCounts[k] = (relPurposeCounts[k] || 0) + 1; });
+  const relPurposeChips = Object.keys(REL_PURPOSES).concat(['__none']).filter(k => relPurposeCounts[k]);
+  const toggleRelPurpose = k => setRelPurposeSel(prev => {
+    const next = new Set(prev);
+    next.has(k) ? next.delete(k) : next.add(k);
+    return next;
+  });
+  const relGroups = purposesReported && relGroup === 'family'
+    ? groupByPurposeFamily(shownRels, r => r.name, n => (relationships[n] && relationships[n].relationshipPurpose) || null)
+    : null;
   const subs = getSubs(name, entities);
   const kind = typeKind(name, entities);
   const nameCol = kind === 'abstract' ? '#c4b5fd' : kind === 'base' ? '#94a3b8' : '#93c5fd';
+  const renderRelCard = r => {
+    var _entities$r$other;
+    const via = relVia(r);
+    return /*#__PURE__*/React.createElement("div", {
+      key: r.name + '|' + r.role,
+      className: "rel-card"
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 6,
+        flexWrap: 'wrap'
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => onSelect('rel', r.name),
+      style: {
+        background: 'none',
+        border: 'none',
+        padding: 0,
+        cursor: 'pointer',
+        fontFamily: 'ui-monospace,monospace',
+        fontSize: 13,
+        color: '#fbbf24',
+        fontWeight: 600
+      }
+    }, r.name), /*#__PURE__*/React.createElement(PurposeBadge, {
+      purpose: r.relationshipPurpose
+    }), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 12,
+        color: 'var(--dim)'
+      }
+    }, r.role === 'end1' ? '— this →' : '→ this from'), /*#__PURE__*/React.createElement("button", {
+      onClick: () => onSelect('type', r.other),
+      style: {
+        background: 'none',
+        border: 'none',
+        padding: 0,
+        cursor: 'pointer',
+        fontFamily: 'ui-monospace,monospace',
+        fontSize: 12,
+        color: (_entities$r$other = entities[r.other]) !== null && _entities$r$other !== void 0 && _entities$r$other.abstract ? '#c4b5fd' : '#93c5fd'
+      }
+    }, r.other), via === name && /*#__PURE__*/React.createElement("span", {
+      style: { marginLeft: 'auto' }
+    }, /*#__PURE__*/React.createElement(Badge, { kind: "own" }, "own")), via !== name && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        color: 'var(--dim)',
+        marginLeft: 'auto'
+      },
+      title: `Inherited — this relationship attaches to ${via}`
+    }, "via ", /*#__PURE__*/React.createElement("button", {
+      onClick: () => onSelect('type', via),
+      style: {
+        background: 'none',
+        border: 'none',
+        padding: 0,
+        cursor: 'pointer',
+        fontFamily: 'ui-monospace,monospace',
+        fontSize: 11,
+        color: 'var(--muted)'
+      }
+    }, via))), /*#__PURE__*/React.createElement("p", {
+      style: {
+        fontSize: 12,
+        color: 'var(--muted)',
+        marginBottom: r.props.length > 0 ? 8 : 0
+      }
+    }, r.desc), r.props.length > 0 && /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 5,
+        flexWrap: 'wrap'
+      }
+    }, r.props.map((p, j) => /*#__PURE__*/React.createElement("span", {
+      key: j,
+      className: "mono",
+      style: {
+        fontSize: 11,
+        color: '#7a9ab8',
+        background: 'rgba(51,65,85,.3)',
+        border: '0.5px solid rgba(51,65,85,.6)',
+        borderRadius: 3,
+        padding: '1px 6px'
+      }
+    }, p.name, ": ", p.type))));
+  };
   return /*#__PURE__*/React.createElement("div", {
     className: "detail"
   }, /*#__PURE__*/React.createElement("div", {
@@ -1286,98 +1395,37 @@ function TypeDetail({
     onChange: setShowInheritedRels,
     own: allRels.filter(r => r.source === name).length,
     total: allRels.length
-  })), shownRels.length === 0 ? /*#__PURE__*/React.createElement("p", {
+  }), purposesReported && /*#__PURE__*/React.createElement("label", {
+    style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--muted)' }
+  }, "Group", /*#__PURE__*/React.createElement("select", {
+    value: relGroup,
+    onChange: e => setRelGroup(e.target.value),
+    style: { fontSize: 12, padding: '4px 6px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit' }
+  }, /*#__PURE__*/React.createElement("option", { value: 'family' }, "Purpose family"), /*#__PURE__*/React.createElement("option", { value: 'none' }, "None")))),
+  allRels.length > 0 && !purposesReported && /*#__PURE__*/React.createElement("p", {
+    style: { fontSize: 11, color: 'var(--dim)', fontStyle: 'italic', margin: '0 0 10px' }
+  }, "This Egeria server doesn't report relationship purposes, so relationships aren't grouped."),
+  purposesReported && relPurposeChips.length > 1 && /*#__PURE__*/React.createElement(RelPurposeChips, {
+    keys: relPurposeChips,
+    counts: relPurposeCounts,
+    selected: relPurposeSel,
+    onToggle: toggleRelPurpose,
+    onClear: () => setRelPurposeSel(new Set())
+  }), shownRels.length === 0 ? /*#__PURE__*/React.createElement("p", {
     style: {
       color: 'var(--dim)',
       fontStyle: 'italic'
     }
-  }, allRels.length === 0 ? "No relationships found." : rels.length === 0 ? "No relationships attach to this type itself — tick Show inherited to see those it inherits." : "No relationships match the filter.") : shownRels.map((r, i) => {
-    var _entities$r$other;
-    const via = relVia(r);
-    return /*#__PURE__*/React.createElement("div", {
-      key: r.name + '|' + r.role,
-      className: "rel-card"
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        marginBottom: 6,
-        flexWrap: 'wrap'
-      }
-    }, /*#__PURE__*/React.createElement("button", {
-      onClick: () => onSelect('rel', r.name),
-      style: {
-        background: 'none',
-        border: 'none',
-        padding: 0,
-        cursor: 'pointer',
-        fontFamily: 'ui-monospace,monospace',
-        fontSize: 13,
-        color: '#fbbf24',
-        fontWeight: 600
-      }
-    }, r.name), /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 12,
-        color: 'var(--dim)'
-      }
-    }, r.role === 'end1' ? '— this →' : '→ this from'), /*#__PURE__*/React.createElement("button", {
-      onClick: () => onSelect('type', r.other),
-      style: {
-        background: 'none',
-        border: 'none',
-        padding: 0,
-        cursor: 'pointer',
-        fontFamily: 'ui-monospace,monospace',
-        fontSize: 12,
-        color: (_entities$r$other = entities[r.other]) !== null && _entities$r$other !== void 0 && _entities$r$other.abstract ? '#c4b5fd' : '#93c5fd'
-      }
-    }, r.other), via === name && /*#__PURE__*/React.createElement("span", {
-      style: { marginLeft: 'auto' }
-    }, /*#__PURE__*/React.createElement(Badge, { kind: "own" }, "own")), via !== name && /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 11,
-        color: 'var(--dim)',
-        marginLeft: 'auto'
-      },
-      title: `Inherited — this relationship attaches to ${via}`
-    }, "via ", /*#__PURE__*/React.createElement("button", {
-      onClick: () => onSelect('type', via),
-      style: {
-        background: 'none',
-        border: 'none',
-        padding: 0,
-        cursor: 'pointer',
-        fontFamily: 'ui-monospace,monospace',
-        fontSize: 11,
-        color: 'var(--muted)'
-      }
-    }, via))), /*#__PURE__*/React.createElement("p", {
-      style: {
-        fontSize: 12,
-        color: 'var(--muted)',
-        marginBottom: r.props.length > 0 ? 8 : 0
-      }
-    }, r.desc), r.props.length > 0 && /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: 'flex',
-        gap: 5,
-        flexWrap: 'wrap'
-      }
-    }, r.props.map((p, j) => /*#__PURE__*/React.createElement("span", {
-      key: j,
-      className: "mono",
-      style: {
-        fontSize: 11,
-        color: '#7a9ab8',
-        background: 'rgba(51,65,85,.3)',
-        border: '0.5px solid rgba(51,65,85,.6)',
-        borderRadius: 3,
-        padding: '1px 6px'
-      }
-    }, p.name, ": ", p.type))));
-  })), tab === 'classifs' && /*#__PURE__*/React.createElement("div", null, allClassifs.length > 0 && /*#__PURE__*/React.createElement(ListControls, {
+  }, allRels.length === 0 ? "No relationships found." : rels.length === 0 ? "No relationships attach to this type itself — tick Show inherited to see those it inherits." : "No relationships match the filter.") : relGroups ? relGroups.map(g => /*#__PURE__*/React.createElement(Collapsible, {
+    key: g.family.key,
+    defaultOpen: true,
+    count: g.items.length,
+    title: /*#__PURE__*/React.createElement("span", {
+      style: { display: 'inline-flex', alignItems: 'center', gap: 6, color: g.family.color }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: { width: 8, height: 8, borderRadius: 2, background: g.family.color, display: 'inline-block' }
+    }), g.family.label)
+  }, g.items.map(renderRelCard))) : shownRels.map(renderRelCard)), tab === 'classifs' && /*#__PURE__*/React.createElement("div", null, allClassifs.length > 0 && /*#__PURE__*/React.createElement(ListControls, {
     lc: classifLc,
     shown: shownClassifs.length,
     total: classifs.length,
@@ -1534,6 +1582,34 @@ function TypeDefHeaderMeta({ header }) {
   }, /*#__PURE__*/React.createElement("span", { style: { color: 'var(--muted)' } }, label, ': '), value)));
 }
 
+// Multi-select purpose filter chips for the TypeDetail Relationships tab.
+// keys: purpose names present (plus '__none'); counts: key -> number of rows.
+function RelPurposeChips({ keys, counts, selected, onToggle, onClear }) {
+  return /*#__PURE__*/React.createElement("div", {
+    style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, margin: '0 0 10px' }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: { fontSize: 11, color: 'var(--muted)' }
+  }, "Purpose"), keys.map(k => {
+    const info = REL_PURPOSES[k];
+    const color = relPurposeFamily(info ? info.family : 'unclassified').color;
+    const on = selected.has(k);
+    return /*#__PURE__*/React.createElement("button", {
+      key: k,
+      onClick: () => onToggle(k),
+      title: info ? info.desc : 'The server reports no purpose for these relationship types.',
+      'aria-pressed': on,
+      style: {
+        fontSize: 11, padding: '1px 8px', borderRadius: 10, cursor: 'pointer',
+        border: '1px solid ' + color, color: on ? 'var(--bg)' : color,
+        background: on ? color : 'transparent', fontWeight: on ? 700 : 500
+      }
+    }, info ? info.label : 'Unclassified', " ", counts[k]);
+  }), selected.size > 0 && /*#__PURE__*/React.createElement("button", {
+    onClick: onClear,
+    style: { fontSize: 11, background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', padding: 0 }
+  }, "Clear"));
+}
+
 function RelDetail({
   name,
   relationships,
@@ -1542,6 +1618,7 @@ function RelDetail({
   const r = relationships[name];
   if (!r) return null;
   const catInfo = _relCategoryInfo(r.relationshipCategory);
+  const purposeInfo = r.relationshipPurpose && REL_PURPOSES[r.relationshipPurpose];
   return /*#__PURE__*/React.createElement("div", {
     className: "detail"
   }, /*#__PURE__*/React.createElement("div", {
@@ -1597,6 +1674,23 @@ function RelDetail({
       style: { fontSize: 11, color: 'var(--dim)' }
     }, "Propagation: ", r.propagationRule)
   ),
+  // Purpose: why this relationship type exists. Shown only when the server
+  // reports one -- no fake default.
+  purposeInfo && /*#__PURE__*/React.createElement("div", {
+    style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, margin: '0 0 10px' }
+  }, /*#__PURE__*/React.createElement(PurposeBadge, {
+    purpose: r.relationshipPurpose
+  }), purposeInfo.anchored && /*#__PURE__*/React.createElement("span", {
+    title: 'Anchor operations (delete, copy, scope checks) starting on an anchored element follow this relationship to elements in the same anchored graph.',
+    style: { fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 3, border: '1px solid var(--border)', color: 'var(--muted)' }
+  }, "\u2693 anchored graph"), /*#__PURE__*/React.createElement("span", {
+    style: { fontSize: 11, color: 'var(--muted)' }
+  }, purposeInfo.desc, " Family: ", relPurposeFamily(purposeInfo.family).label, "."), /*#__PURE__*/React.createElement("a", {
+    href: REL_PURPOSE_CONCEPT_URL,
+    target: '_blank',
+    rel: 'noopener noreferrer',
+    style: { fontSize: 11, color: 'var(--accent)' }
+  }, "About relationship purposes \u2197")),
   /*#__PURE__*/React.createElement(TypeDefHeaderMeta, { header: r.header }),
   r.props.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("p", {
     style: {
@@ -1712,7 +1806,28 @@ function Sidebar({
   const filtTypes = q ? Object.keys(entities).filter(n => n.toLowerCase().includes(q)).sort() : null;
   const filtClassif = Object.keys(classifications).filter(n => !q || n.toLowerCase().includes(q)).sort();
   const filtRels = Object.keys(relationships).filter(n => !q || n.toLowerCase().includes(q)).sort();
-  const mkSideRow = (kind, name, col, selCol, selBg) => /*#__PURE__*/React.createElement("div", {
+  // RELATIONSHIPS grouped by purpose family: sub-headers folded by default,
+  // all expanded while a search is active. Flat A–Z when the server reports
+  // no purposes.
+  const [relFamOpen, setRelFamOpen] = useState({});
+  const relPurposeOf = n => (relationships[n] && relationships[n].relationshipPurpose) || null;
+  const relsHavePurpose = Object.keys(relationships).some(relPurposeOf);
+  const renderRelRows = (names, forceOpen) => {
+    if (!relsHavePurpose) return names.map(n => mkSideRow('rel', n, '#5a7290', '#fbbf24', 'rgba(251,191,36,.1)'));
+    return groupByPurposeFamily(names, n => n, relPurposeOf).map(({ family, items }) => {
+      const open = forceOpen || !!relFamOpen[family.key];
+      const multi = new Set(items.map(relPurposeOf)).size > 1;
+      return /*#__PURE__*/React.createElement("div", {
+        key: family.key
+      }, /*#__PURE__*/React.createElement("div", {
+        onClick: forceOpen ? undefined : () => setRelFamOpen(s => ({ ...s, [family.key]: !s[family.key] })),
+        style: { display: 'flex', alignItems: 'center', gap: 6, padding: '3px 10px 3px 16px', fontSize: 10, letterSpacing: 0.5, color: family.color, cursor: forceOpen ? 'default' : 'pointer', userSelect: 'none' }
+      }, !forceOpen && /*#__PURE__*/React.createElement(FoldTriangle, { open: open, size: 10, style: { color: family.color } }),
+        family.label.toUpperCase(), /*#__PURE__*/React.createElement("span", { style: { color: 'var(--dim)' } }, "(", items.length, ")")),
+      open && items.map(n => mkSideRow('rel', n, '#5a7290', '#fbbf24', 'rgba(251,191,36,.1)', multi && relPurposeOf(n) ? REL_PURPOSES[relPurposeOf(n)].label : null)));
+    });
+  };
+  const mkSideRow = (kind, name, col, selCol, selBg, suffix) => /*#__PURE__*/React.createElement("div", {
     key: name,
     className: `tree-item${selected.name === name && selected.kind === kind ? ' sel' : ''}`,
     style: {
@@ -1724,7 +1839,9 @@ function Sidebar({
     onClick: () => onSelect(kind, name)
   }, /*#__PURE__*/React.createElement("span", {
     className: "type-name"
-  }, name));
+  }, name), suffix && /*#__PURE__*/React.createElement("span", {
+    style: { marginLeft: 6, fontSize: 10, color: 'var(--dim)' }
+  }, suffix));
   return /*#__PURE__*/React.createElement("div", {
     className: "sidebar", style: { width: width || 254 }
   }, /*#__PURE__*/React.createElement("div", {
@@ -1790,7 +1907,7 @@ function Sidebar({
       letterSpacing: 1,
       marginTop: 4
     }
-  }, "RELATIONSHIPS"), filtRels.map(n => mkSideRow('rel', n, '#5a7290', '#fbbf24', 'rgba(251,191,36,.1)')))) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  }, "RELATIONSHIPS"), renderRelRows(filtRels, true))) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "section-hdr",
     onClick: () => setSec(s => ({
       ...s,
@@ -1825,7 +1942,7 @@ function Sidebar({
       ...s,
       rels: !s.rels
     }))
-  }, /*#__PURE__*/React.createElement(FoldTriangle, { open: sec.rels, size: 12 }), " RELATIONSHIPS (", Object.keys(relationships).length, ")"), sec.rels && filtRels.map(n => mkSideRow('rel', n, '#5a7290', '#fbbf24', 'rgba(251,191,36,.1)'))))));
+  }, /*#__PURE__*/React.createElement(FoldTriangle, { open: sec.rels, size: 12 }), " RELATIONSHIPS (", Object.keys(relationships).length, ")"), sec.rels && renderRelRows(filtRels, false)))));
 }
 
 // ── Attribute Index ───────────────────────────────────────────────────────────
@@ -13031,6 +13148,9 @@ function App() {
       return r.json();
     }).then(data => {
       setRawData(data);
+      // Share the purpose map with detail panels so they skip the extra
+      // /api/types/relationship-purposes request.
+      seedRelationshipPurposes(data.relationships || {}, undefined, creds);
       setLoadState('ready');
       const area4 = Object.keys(data.entities || {}).find(n => data.entities[n].area === 4);
       setSelected({ kind: 'type', name: area4 || Object.keys(data.entities || {})[0] || '' });

@@ -108,14 +108,14 @@ for collapsible grouping.
 | 1 | **Composition** | Structural, Attachment | folded | The element's own anchored graph: what it *is* and what it *owns*. |
 | 2 | **Governance & Description** | Assignment | folded | Independent things that describe or govern it (terms, policies, owners, tags). |
 | 3 | **Organization** | Membership | folded | Collections, folders, groupings it belongs to or contains. |
-| 4 | **Related Elements** | Association, Peer | folded | Independent elements linked by an ordinary or equal-standing relationship. |
+| 4 | **Associations** | Association, Peer | folded | Independent elements linked by an ordinary or equal-standing relationship. |
 | 5 | **Design & Deployment** | Definition, Deployment, DesignLineage | folded | Spec → implementation, where it runs or is stored, designed flows. |
 | 6 | **Operations** | Action, Activity | folded | Actions to take, and records of actions taken. |
 | — | **Unclassified** | `null` / unknown | folded, shown last | Server does not report a purpose, or the row has no `relationshipType`. |
 
 Notes:
 - **Unclassified does not fall back to Association.** Association is the enum
-  default, but showing un-purposed relationships as "Related Elements" would
+  default, but showing un-purposed relationships as "Associations" would
   claim something the server never said. Older Egeria servers will put
   everything in Unclassified. The UI should then show a single hint ("This
   Egeria server doesn't report relationship purposes") rather than six empty
@@ -208,7 +208,7 @@ var REL_PURPOSE_FAMILIES = [   // display order
   { key: 'composition',  label: 'Composition',              defaultOpen: true,  color: … },
   { key: 'governance',   label: 'Governance & Description', defaultOpen: true,  color: … },
   { key: 'organization', label: 'Organization',             defaultOpen: false, color: … },
-  { key: 'related',      label: 'Related Elements',         defaultOpen: false, color: … },
+  { key: 'related',      label: 'Associations',             defaultOpen: false, color: … },
   { key: 'design',       label: 'Design & Deployment',      defaultOpen: false, color: … },
   { key: 'operations',   label: 'Operations',               defaultOpen: false, color: … },
   { key: 'unclassified', label: 'Unclassified',             defaultOpen: false, color: … },
@@ -257,6 +257,8 @@ suffix only when the family has more than one purpose.
 **T4. (Optional) `GraphView` — colour relationship edges by family**, with a
 legend. Low cost once the colour tokens exist. Do it if the graph already
 distinguishes edge kinds; otherwise defer.
+**Deferred (2026-11-04):** `GraphView` draws only the inheritance tree, with no
+relationship edges, so there is nothing to colour yet.
 
 **T5. Attribute index.** No change. It indexes properties, not relationships.
 
@@ -328,7 +330,7 @@ filter/sort inside each family.
 |-------|-------|------|---------------|
 | **0 — Verify wire format** ✅ 2026-11-03 | Call `/open-metadata-types/relationship-defs` (raw JSON) against a server built from current `main`; record the exact `relationshipPurpose` shape and a few sample values; confirm inherited values are filled in for subtypes (e.g. a `LineageRelationship` subtype → `DESIGN_LINEAGE`). Also try an older server to confirm the field is absent/null. | S | Shape recorded in this doc (§1.2.3 updated). |
 | **1 — Backend + shared module** ✅ 2026-11-03 | B1, B2, §3.2 shared constants/hook/badge/grouping helper. Unit tests for `_norm_purpose` (constant, display name, dict, null, garbage) and for the B2 endpoint (cache hit, `serverReportsPurpose` false). | S–M | `/api/types` and `/api/types/relationship-purposes` return purposes; tests pass. |
-| **2 — Type Explorer** | T1, T2, T3 (T4 optional). | M | Relationship types are browsable by purpose in the sidebar and entity Relationships tab; `RelDetail` shows purpose. |
+| **2 — Type Explorer** ✅ 2026-11-04 (T4 deferred) | T1, T2, T3 (T4 optional). | M | Relationship types are browsable by purpose in the sidebar and entity Relationships tab; `RelDetail` shows purpose. |
 | **3 — Detail pages** | D1, D2 in `type-explorer.html`. | M | All `GenericRelationshipsSection` panels group by family; graceful fallback on old servers. |
 | **4 — Other apps** | D3 (`data-mesh.html` de-dup + grouping), D4 (`tech-catalog.html`). | M | Same grouping and badges across the three apps. |
 | **5 — Docs & release** | `portal-docs/tools/egeria-explorer.md` (new "Relationship purposes" section with the family table), `Extending the TypeExplorer.md` (how to use the shared helpers), CHANGELOG / RELEASE_NOTES. | S | Docs merged. |
@@ -337,7 +339,9 @@ filter/sort inside each family.
 
 - **Backend:** pytest for `_norm_purpose` and the B2 endpoint (mock
   `ValidMetadataManager`).
-- **Browser:** extend `tests/browser/` (Playwright) with:
+- **Browser:** extend `tests/browser/` (Playwright) with (1 and the
+  `serverReportsPurpose: false` case for the Type Explorer are in
+  `test_relationship_purpose_type_explorer.py`, Phase 2):
   1. Type Explorer → pick an entity with many relationships (e.g. `Asset`) →
      Relationships tab shows family groups; purpose filter narrows them.
   2. A detail panel with Composition + Governance content → all families
@@ -353,12 +357,26 @@ filter/sort inside each family.
 1. **Fold defaults.** ~~Composition + Governance open, the rest folded.~~
    **Decided 2026-11-04: every family is folded by default** on detail pages;
    the user's per-family choice is remembered in `localStorage`.
-2. **Family names.** "Governance & Description" and "Related Elements" are the
-   least settled labels. Alternatives: "Descriptive & Governing", "Associations". <!-- -->
-3. **Per-row badges.** Always show them on detail pages, or only when a key group
-   is mixed-purpose (less visual noise)? Proposal: always, but compact. <!-- -->
-4. **"Property detail pages".** This doc assumes element detail panels
-   (`GenericRelationshipsSection` users). If something else was meant, e.g. a
-   property-centric view in the Type Explorer, add it here. <!-- -->
-5. **B3 (server-side stamping).** Worth doing in Phase 1 so third-party callers of
-   the portal's JSON APIs also get purpose, or keep it client-only? <!-- -->
+2. **Family names.** **Decided 2026-11-04:** keep "Governance & Description";
+   rename "Related Elements" → **"Associations"** (Association + Peer). Labels
+   live in one place (`REL_PURPOSE_FAMILIES`), so revisiting is cheap.
+3. **Per-row badges.** **Decided 2026-11-04:** show a row's `PurposeBadge` only
+   where it adds information: when the row's family holds more than one
+   purpose (Composition, Associations, Design & Deployment, Operations), or
+   when the row's own family differs from the family its key group was
+   placed under (minority rows from the majority rule in D1).
+4. **"Property detail pages".** **Decided 2026-11-04:** means the element
+   detail panels (`GenericRelationshipsSection` users, data-mesh, tech-catalog),
+   as this doc assumes.
+5. **B3 (server-side stamping).** **Decided 2026-11-04:** client-only for now;
+   add B3 when a non-browser consumer (notebooks, MCP, advisor) needs purpose.
+
+Further decisions (2026-11-04):
+- **Type Explorer stays open.** The all-folded default is for element detail
+  pages. The `TypeDetail` Relationships tab opens every family (reference
+  view); the sidebar RELATIONSHIPS section stays folded except during a search.
+- **Older-server hint wording:** "This Egeria server doesn't report
+  relationship purposes, so relationships aren't grouped." Shown only when
+  `serverReportsPurpose === false`. A failed lookup shows no hint, just the
+  flat layout, because failure says nothing about the server.
+- **PR scope:** one PR covering Phases 0–2.
