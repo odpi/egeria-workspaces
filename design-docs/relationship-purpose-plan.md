@@ -105,8 +105,8 @@ for collapsible grouping.
 
 | # | Family | Purposes | Default on detail pages | Rationale |
 |---|--------|----------|-------------------------|-----------|
-| 1 | **Composition** | Structural, Attachment | open | The element's own anchored graph: what it *is* and what it *owns*. |
-| 2 | **Governance & Description** | Assignment | open | Independent things that describe or govern it (terms, policies, owners, tags). |
+| 1 | **Composition** | Structural, Attachment | folded | The element's own anchored graph: what it *is* and what it *owns*. |
+| 2 | **Governance & Description** | Assignment | folded | Independent things that describe or govern it (terms, policies, owners, tags). |
 | 3 | **Organization** | Membership | folded | Collections, folders, groupings it belongs to or contains. |
 | 4 | **Related Elements** | Association, Peer | folded | Independent elements linked by an ordinary or equal-standing relationship. |
 | 5 | **Design & Deployment** | Definition, Deployment, DesignLineage | folded | Spec → implementation, where it runs or is stored, designed flows. |
@@ -287,7 +287,7 @@ backs nearly every detail panel, so changing it covers the whole Explorer.
 - While the purpose map is loading, render today's flat layout so there is no
   layout flash. Once `ready`, switch to the grouped layout. If
   `serverReportsPurpose` is false, keep the flat layout and show the one-line hint.
-- Family fold state: defaults from §1.3, remembered per family in `localStorage`.
+- Family fold state: all folded by default (§1.3), remembered per family in `localStorage`.
   The per-key inner `Collapsible`s keep `defaultOpen: true`, as today.
 - Opt-out prop `groupByPurpose={false}` for any panel where the grouping reads
   badly. None are expected; the prop is an escape hatch.
@@ -340,8 +340,8 @@ filter/sort inside each family.
 - **Browser:** extend `tests/browser/` (Playwright) with:
   1. Type Explorer → pick an entity with many relationships (e.g. `Asset`) →
      Relationships tab shows family groups; purpose filter narrows them.
-  2. A detail panel with Composition + Governance content → those two families
-     are open, the others folded; fold state survives a reload.
+  2. A detail panel with Composition + Governance content → all families
+     start folded; opening one survives a reload.
   3. Purpose endpoint stubbed to `serverReportsPurpose: false` → flat layout plus
      the hint, no empty family headers.
 - **Manual:** check light and dark themes for badge and family-header contrast.
@@ -350,9 +350,9 @@ filter/sort inside each family.
 
 ## 5. Open questions
 
-1. **Fold defaults.** Composition + Governance open, the rest folded. Is that right for
-   every panel, or should some sections (e.g. Projects, Actors) open Organization
-   by default? <!-- -->
+1. **Fold defaults.** ~~Composition + Governance open, the rest folded.~~
+   **Decided 2026-11-04: every family is folded by default** on detail pages;
+   the user's per-family choice is remembered in `localStorage`.
 2. **Family names.** "Governance & Description" and "Related Elements" are the
    least settled labels. Alternatives: "Descriptive & Governing", "Associations". <!-- -->
 3. **Per-row badges.** Always show them on detail pages, or only when a key group

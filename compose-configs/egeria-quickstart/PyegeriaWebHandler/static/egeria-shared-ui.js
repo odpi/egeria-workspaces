@@ -3837,11 +3837,12 @@ var REL_PURPOSES = {
                     desc: 'A record of action that took place.' },
 };
 
-// Display order. defaultOpen is for element detail pages (the Type Explorer's
-// reference views open every family).
+// Display order. Every family starts folded on element detail pages (owner
+// decision 2026-11-04); the user's per-family choice is then remembered.
+// The Type Explorer's reference views open every family.
 var REL_PURPOSE_FAMILIES = [
-  { key: 'composition',  label: 'Composition',              defaultOpen: true,  color: 'var(--purpose-composition)' },
-  { key: 'governance',   label: 'Governance & Description', defaultOpen: true,  color: 'var(--purpose-governance)' },
+  { key: 'composition',  label: 'Composition',              defaultOpen: false, color: 'var(--purpose-composition)' },
+  { key: 'governance',   label: 'Governance & Description', defaultOpen: false, color: 'var(--purpose-governance)' },
   { key: 'organization', label: 'Organization',             defaultOpen: false, color: 'var(--purpose-organization)' },
   { key: 'related',      label: 'Related Elements',         defaultOpen: false, color: 'var(--purpose-related)' },
   { key: 'design',       label: 'Design & Deployment',      defaultOpen: false, color: 'var(--purpose-design)' },
