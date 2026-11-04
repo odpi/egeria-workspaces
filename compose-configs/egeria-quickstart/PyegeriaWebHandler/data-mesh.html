@@ -12,7 +12,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Data Mesh</title>
   <script src="/static/app-bar.js?v=2026-10-05a"></script>
-  <script src="/static/egeria-resize.js?v=2026-11-04a"></script>
+  <script src="/static/egeria-resize.js?v=2026-11-04b"></script>
   <script src="/static/bootstrap-banner.js?v=2026-08-18a"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -481,6 +481,14 @@ function DataMeshDetail({ product, onNavigateToElement }) {
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, product.displayName || product.qualifiedName),
       product.typeName && React.createElement("span", { className: "badge", style: { background: 'rgba(96,165,250,.1)', color: '#93c5fd', border: '0.5px solid rgba(96,165,250,.3)' } }, product.typeName),
+      // The full Digital Product view (all sections, actions, bulk tools) lives
+      // in Egeria Explorer; this pane is a read-only summary.
+      product.guid && React.createElement("a", {
+        href: '/egeria-explorer?guid=' + encodeURIComponent(product.guid) + '#digital-products',
+        target: '_blank', rel: 'noopener',
+        title: 'Open this digital product in Egeria Explorer (new tab)',
+        style: { flexShrink: 0, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(94,234,212,.4)', background: 'rgba(94,234,212,.1)', color: '#5eead4', textDecoration: 'none', fontSize: 11, whiteSpace: 'nowrap' }
+      }, "View full details \u2197"),
       React.createElement("div", { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
         React.createElement(EgeriaFeedbackWidget, { guid: product.guid })
       ),
