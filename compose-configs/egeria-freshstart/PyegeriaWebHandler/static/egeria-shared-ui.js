@@ -1742,11 +1742,14 @@ function AppHeader({ icon, logo, title, subtitle, onTitleClick, identity, extras
  * and pass it to egeriaFetch. (Was previously Explorer-only; the Tech Catalog
  * prop-drilled instead — unified here so credential handling is identical.)
  * ────────────────────────────────────────────────────────────────────────── */
-var CredContext = React.createContext({ url: '', server: '', userId: '', password: '' });
+// Plain-DOM pages (Overview) load this file without React. A top-level
+// React call there threw and stopped the rest of this file from running, so
+// guard the two contexts; nothing on those pages renders React components.
+var CredContext = (typeof React !== 'undefined') ? React.createContext({ url: '', server: '', userId: '', password: '' }) : null;
 
 // PersonaContext — the active persona/user ID for the favorites API (null if unknown).
 // Set by each SPA's App via PersonaContext.Provider and read by detail panels.
-var PersonaContext = React.createContext(null);
+var PersonaContext = (typeof React !== 'undefined') ? React.createContext(null) : null;
 
 /* Single lazy-loading diagram panel. fetchUrl is called on first open; label
  * appears in the header. field: which key to read from the JSON response
