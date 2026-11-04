@@ -82,6 +82,14 @@ Most detail panels (Glossary, Solution Architect, Locations, Actors, Communities
 - **☐ / ☑ bookmark** — saves the item to **My Bookmarks** on the portal home page, linking back to this exact element. Requires an active persona (Quickstart) or a logged-in account (Freshstart); the toggle is hidden otherwise.
 - **♡ feedback** — like/comment on the element via Egeria's built-in feedback API (separate from the portal's own per-page feedback button).
 
+**Resizing.** Every column and pane width can be changed, in the Explorer and in the other portal pages:
+
+- Drag the divider between a sidebar and its detail pane.
+- Drag the right edge of a table's header cell to resize that column. Double-click the edge to reset the table.
+- On dashboard pages (Overview, Resource Browser, Governance Metrics, Local Dashboards), drag the gap between two columns, or the edge of a side drawer. Double-click to reset.
+
+Your browser remembers each width for that page. Grids still switch to a single column on narrow windows.
+
 Every list-driven tab's sidebar also has a **↻ Refresh** button below its filter box, to reload that list on demand (e.g. after adding something via Dr. Egeria or Obsidian) without waiting for a full page reload.
 
 Properties are shown generically — any scalar property Egeria returns for an element (including `authors`, `contentStatus`, and other `AuthoredReferenceable` fields) is displayed automatically, without needing per-type code changes. Relationships not otherwise shown in a dedicated section appear in a catch-all **Relationships** block at the bottom of the panel, so nothing linked to an element is silently hidden. That block is grouped into [relationship purpose](#relationship-purposes) families.

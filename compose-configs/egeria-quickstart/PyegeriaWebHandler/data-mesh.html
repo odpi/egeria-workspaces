@@ -12,6 +12,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Data Mesh</title>
   <script src="/static/app-bar.js?v=2026-10-05a"></script>
+  <script src="/static/egeria-resize.js?v=2026-11-04a"></script>
   <script src="/static/bootstrap-banner.js?v=2026-08-18a"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -664,24 +665,6 @@ function MeshGraph({ elements, matchedGuids, iscFilter, selectedGuid, onSelectNo
   );
 }
 
-function useResizableWidth(initialPx, min, max) {
-  var _w = useState(initialPx), w = _w[0], setW = _w[1];
-  var dragRef = useRef(false);
-  function onDown(e) {
-    dragRef.current = true;
-    e.preventDefault();
-    function onMove(ev) {
-      if (!dragRef.current) return;
-      var nx = window.innerWidth - ev.clientX;
-      setW(Math.max(min, Math.min(typeof max === 'function' ? max() : max, nx)));
-    }
-    function onUp() { dragRef.current = false; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); }
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-  }
-  return [w, onDown];
-}
-
 function App() {
   var _creds     = useState(null),  creds      = _creds[0],     setCreds      = _creds[1];
   var _srvMgd    = useState(false), srvManaged = _srvMgd[0],    setSrvManaged = _srvMgd[1];
@@ -850,9 +833,9 @@ function App() {
   var _iscFilter = useState(''), iscFilter = _iscFilter[0], setIscFilter = _iscFilter[1];
   function handleEdgeClick(iscQ) { setIscFilter(iscQ || ''); }
 
-  // Detail pane: drag the divider; up to all but 240px of the window, so
-  // the graph always keeps a usable strip (640px was too narrow a cap).
-  var [panelW, onPanelDivDown] = useResizableWidth(380, 280, function() { return Math.max(280, window.innerWidth - 240); });
+  // Detail pane, right of its divider: shared hook, width remembered, max
+  // follows the window (was a private hook capped at 640px).
+  var [panelW, onPanelDivDown] = useResizable(380, 280, null, { key: 'App.panelW', fromRight: true });
 
 
   if (!ready) return null;

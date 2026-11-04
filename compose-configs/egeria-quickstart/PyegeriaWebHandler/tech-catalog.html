@@ -13,6 +13,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>The Catalog</title>
   <script src="/static/app-bar.js?v=2026-10-05a"></script>
+  <script src="/static/egeria-resize.js?v=2026-11-04a"></script>
   <script src="/static/bootstrap-banner.js?v=2026-08-18a"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -991,7 +992,7 @@ function TechTypeNode({ node, depth, selQN, onSelect, expanded, onToggle }) {
 }
 
 function TechTypesView({ creds, onNavigate }) {
-  var _sideW = useResizable(290, 200, 600), sideW = _sideW[0], onSideDivDown = _sideW[1];
+  var _sideW = useResizable(290, 200, null, 'TechTypesView.sideW'), sideW = _sideW[0], onSideDivDown = _sideW[1];
   // Hierarchy state
   var _hier    = useState(null),  hier    = _hier[0],    setHier    = _hier[1];
   var _hierErr = useState(''),    hierErr = _hierErr[0], setHierErr = _hierErr[1];
@@ -1227,7 +1228,7 @@ function _sidebarRow(item, active, onSelect, opts) {
 // renderList (optional): replaces the flat item list, e.g. DataAssetTree.
 // listFooter (optional): rendered after the list, e.g. a "Load more" button.
 function SidebarDetail({ items, loading, error, selected, onSelect, renderDetail, filterBar, renderList, loadingText, listFooter }) {
-  var _rz = useResizable(280, 120, 600), sideW = _rz[0], sideDown = _rz[1];
+  var _rz = useResizable(280, 120, null, 'SidebarDetail.sideW'), sideW = _rz[0], sideDown = _rz[1];
   return React.createElement('div', { style: { display: 'flex', flex: 1, overflow: 'hidden' } },
     // Sidebar (resizable)
     React.createElement('div', { style: { width: sideW, minWidth: 120, borderRight: 'none', display: 'flex', flexDirection: 'column', flexShrink: 0 } },
@@ -1521,8 +1522,8 @@ var _glsItemStyle    = { display: 'flex', alignItems: 'center', gap: 4, padding:
 var _glsItemSelStyle = Object.assign({}, _glsItemStyle, { background: 'rgba(96,165,250,.1)', borderLeftColor: 'var(--accent)', color: 'var(--text)' });
 
 function GlossaryView({ creds, onNavigate }) {
-  var _sideW = useResizable(220), sideW = _sideW[0], onDivDown = _sideW[1];
-  var _midW  = useResizable(280, 200, 700), midW = _midW[0], onMidDivDown = _midW[1];
+  var _sideW = useResizable(220, null, null, 'GlossaryView.sideW'), sideW = _sideW[0], onDivDown = _sideW[1];
+  var _midW  = useResizable(280, 200, null, 'GlossaryView.midW'), midW = _midW[0], onMidDivDown = _midW[1];
   var _gs = useState('loading'), glossaryState = _gs[0], setGlossaryState = _gs[1];
   var _ga = useState(0),         glossaryAttempt = _ga[0], setGlossaryAttempt = _ga[1];
   var _gl = useState([]),         glossaries = _gl[0], setGlossaries = _gl[1];
@@ -2494,8 +2495,8 @@ function CapabilityTreeNode({ node, depth, selectedTypeName, onSelectType, expan
 }
 
 function CapabilitiesView({ creds, onNavigate }) {
-  var _treeRz = useResizable(240, 160, 420), treeW = _treeRz[0], onTreeDown = _treeRz[1];
-  var _listRz = useResizable(280, 160, 500), listW = _listRz[0], onListDown = _listRz[1];
+  var _treeRz = useResizable(240, 160, null, 'CapabilitiesView.treeW'), treeW = _treeRz[0], onTreeDown = _treeRz[1];
+  var _listRz = useResizable(280, 160, null, 'CapabilitiesView.listW'), listW = _listRz[0], onListDown = _listRz[1];
   var entities = useTypeGraph(creds); // null while loading, {} on error — both read as "no tree yet"
   var _expanded = useState(function() { return new Set(['SoftwareCapability']); }), expanded = _expanded[0], setExpanded = _expanded[1];
   var _selType  = useState(null), selectedTypeName = _selType[0], setSelectedTypeName = _selType[1]; // null = show all
@@ -2922,7 +2923,7 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
   var _asOf    = useState(null),        asOf      = _asOf[0],     setAsOf      = _asOf[1];
   var _sort    = useState({ col: 1, dir: 'asc' }), sort = _sort[0], setSort  = _sort[1];
   var _coll    = useState(new Set()),   coll      = _coll[0],     setColl      = _coll[1];
-  var _rzDetail = useResizable(400, 180, 700), detailW = _rzDetail[0], detailDown = _rzDetail[1];
+  var _rzDetail = useResizable(400, 180, null, { key: 'AnnotationsTabView.detailW', fromRight: true }), detailW = _rzDetail[0], detailDown = _rzDetail[1];
   var _selRowRef = useRef(null);
   var _enriching = useState(false), enriching = _enriching[0], setEnriching = _enriching[1];
   var _enrichedGuid = useRef(null); // dedupe: guid we already fetched (or are fetching) the report link for
@@ -3707,8 +3708,8 @@ function GovernanceProcessTreeNode({ node, depth, selectedTypeName, onSelectType
 // root node alongside the subtype branches, same as CapabilitiesView handles
 // untyped SoftwareCapability instances.
 function GovernanceProcessesView({ creds, navTarget, onNavigate }) {
-  var _treeRz = useResizable(240, 160, 420), treeW = _treeRz[0], onTreeDown = _treeRz[1];
-  var _listRz = useResizable(280, 160, 500), listW = _listRz[0], onListDown = _listRz[1];
+  var _treeRz = useResizable(240, 160, null, 'GovernanceProcessesView.treeW'), treeW = _treeRz[0], onTreeDown = _treeRz[1];
+  var _listRz = useResizable(280, 160, null, 'GovernanceProcessesView.listW'), listW = _listRz[0], onListDown = _listRz[1];
   var entities = useTypeGraph(creds); // null while loading, {} on error — both read as "no tree yet"
   var _expanded = useState(function() { return new Set(['GovernanceActionProcess']); }), expanded = _expanded[0], setExpanded = _expanded[1];
   var _selType  = useState(null), selectedTypeName = _selType[0], setSelectedTypeName = _selType[1]; // null = show all
