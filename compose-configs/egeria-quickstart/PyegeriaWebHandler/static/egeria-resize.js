@@ -10,9 +10,11 @@
  * listeners that look at where the pointer is, so React-rendered markup is
  * never disturbed (React only diffs the style keys it set itself).
  *
- *   1. Table columns — every <table> with header cells. Drag a header cell's
- *      right edge; double-click that edge to reset the table's widths.
- *      Opt out with data-no-col-resize on the table or an ancestor.
+ *   1. Table columns — every <table> with two or more columns. Drag a header
+ *      cell's right edge (or, in a table with no header cells such as a
+ *      label/value property table, a column boundary on any row); double-click
+ *      that edge to reset the table's widths. Opt out with data-no-col-resize
+ *      on the table or an ancestor.
  *   2. Layout grids — elements matching the selectors a page registers with
  *      EgeriaResize.grids('.g-2, .detail-grid'). Drag the gap between two
  *      columns; double-click it to reset. A grid that has collapsed to one
@@ -47,16 +49,29 @@
 
   /* ── Tables ───────────────────────────────────────────────────────────── */
 
+  // The row whose cell widths size the table: the (last) header row, or for a
+  // table with no header cells (e.g. a label/value property table) its first
+  // row. With table-layout: fixed the first row's widths govern every row.
   function headerRow(table) {
     var row = table.tHead && table.tHead.rows[table.tHead.rows.length - 1];
     if (!row) {
       var first = table.rows && table.rows[0];
-      if (first && first.cells.length && first.cells[0].tagName === 'TH') row = first;
+      if (first && first.cells.length) row = first;
     }
     return row && row.cells.length > 1 ? row : null;
   }
 
+  function isHeaderless(row) {
+    for (var i = 0; i < row.cells.length; i++) if (row.cells[i].tagName === 'TH') return false;
+    return !(row.parentElement && row.parentElement.tagName === 'THEAD');
+  }
+
   function tableKey(row) {
+    // A header-less row holds data, which changes from element to element, so
+    // key it on the column count and the first label (e.g. "Qualified Name").
+    if (isHeaderless(row)) {
+      return 'kvtable:' + row.cells.length + ':' + (row.cells[0].textContent || '').trim().slice(0, 24);
+    }
     var names = [];
     for (var i = 0; i < row.cells.length; i++) names.push((row.cells[i].textContent || '').trim().slice(0, 24));
     return 'table:' + names.join('|');
@@ -104,13 +119,16 @@
     var table = cell.closest('table');
     if (!table || tableOptedOut(table)) return null;
     var hrow = headerRow(table);
-    if (!hrow || hrow !== row) return null;
+    if (!hrow) return null;
+    // Header tables: only the header row's edges. Header-less tables: any row
+    // whose cells line up with the first row's (same count, no colspans).
+    if (hrow !== row && !(isHeaderless(hrow) && row.cells.length === hrow.cells.length)) return null;
     var r = cell.getBoundingClientRect();
     var idx = cell.cellIndex;
     if (e.clientX >= r.right - EDGE && e.clientX <= r.right + EDGE && idx < row.cells.length) {
-      return { table: table, row: row, idx: idx };
+      return { table: table, row: hrow, idx: idx };
     }
-    if (e.clientX <= r.left + EDGE && idx > 0) return { table: table, row: row, idx: idx - 1 };
+    if (e.clientX <= r.left + EDGE && idx > 0) return { table: table, row: hrow, idx: idx - 1 };
     return null;
   }
 
