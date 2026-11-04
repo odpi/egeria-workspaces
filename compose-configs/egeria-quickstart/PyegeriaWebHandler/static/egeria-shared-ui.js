@@ -5,7 +5,8 @@
  * (Egeria Explorer + Tech Catalog). Loaded via <script> AFTER React/ReactDOM and
  * BEFORE each SPA's app script, so these are plain globals referenced by name.
  * Scope: robust clipboard + the mermaid diagram family + useResizable +
- *        markdown renderer + glossary tree + Egeria Feedback widgets.
+ *        markdown renderer + glossary tree + Egeria Feedback widgets +
+ *        relationship-purpose metadata, hook, badge and grouping helpers.
  * Depends on host globals: React, window.mermaid; CSS: .mermaid-wrap;
  * CSS vars: --accent --border --panel --muted --dim --md-code-bg.
  * Feedback widgets use bare fetch() against /api/egeria-feedback/* (cookie auth).
@@ -3815,3 +3816,237 @@ function egeriaForLineageSet(on) {
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount); else mount();
 })();
+
+/* ── Relationship purpose (design-docs/relationship-purpose-plan.md) ─────────
+ * Egeria gives every relationship TYPE a purpose (OpenMetadataRelationshipPurpose)
+ * saying why the type exists. Purposes are grouped into six display families for
+ * collapsible grouping; badges always show the precise purpose.
+ *
+ * Purpose is per type, not per relationship, so callers map a row's
+ * relationshipType name to a purpose through the map from
+ * GET /api/types/relationship-purposes (or seedRelationshipPurposes() when the
+ * page already holds /api/types). A type with no reported purpose belongs to
+ * 'unclassified' — never to 'related', even though ASSOCIATION is the enum's
+ * default: the server didn't say so.
+ *
+ * Exposes: REL_PURPOSES, REL_PURPOSE_FAMILIES, REL_PURPOSE_CONCEPT_URL,
+ *   relPurposeFamily(key), useRelationshipPurposes(creds),
+ *   seedRelationshipPurposes(map, serverReportsPurpose, creds),
+ *   PurposeBadge({purpose, compact}), groupByPurposeFamily(items, getTypeName, purposeOf),
+ *   majorityPurposeFamily(items, getTypeName, purposeOf).
+ * CSS vars injected here: --purpose-<familyKey> (dark on :root, light on :root.light). */
+
+var REL_PURPOSE_CONCEPT_URL = 'https://egeria-project.org/concepts/relationship-purpose/';
+
+// Descriptions are Egeria's own (OpenMetadataRelationshipPurpose.java).
+var REL_PURPOSES = {
+  STRUCTURAL:     { label: 'Structural',     family: 'composition',  anchored: true,
+                    desc: 'Part of what the element is.' },
+  ATTACHMENT:     { label: 'Attachment',     family: 'composition',  anchored: true,
+                    desc: 'Information attached to, and owned by, the element.' },
+  ASSIGNMENT:     { label: 'Assignment',     family: 'governance',
+                    desc: 'Links the element to independent information that describes or governs it.' },
+  MEMBERSHIP:     { label: 'Membership',     family: 'organization',
+                    desc: 'Groups or organizes elements without owning them.' },
+  ASSOCIATION:    { label: 'Association',    family: 'related',
+                    desc: 'Relates elements that keep their own identity, often in one direction.' },
+  PEER:           { label: 'Peer',           family: 'related',
+                    desc: 'A purely peer link between elements of equal standing.' },
+  DEFINITION:     { label: 'Definition',     family: 'design',
+                    desc: 'Links a design or specification to its implementation.' },
+  DEPLOYMENT:     { label: 'Deployment',     family: 'design',
+                    desc: 'Where something runs or is stored.' },
+  DESIGN_LINEAGE: { label: 'Design Lineage', family: 'design',
+                    desc: 'How data and control are designed to flow (LineageRelationship and its subtypes).' },
+  ACTION:         { label: 'Action',         family: 'operations',
+                    desc: 'Information gathered so that action can be taken.' },
+  ACTIVITY:       { label: 'Activity',       family: 'operations',
+                    desc: 'A record of action that took place.' },
+};
+
+// Display order. Every family starts folded on element detail pages (owner
+// decision 2026-11-04); the user's per-family choice is then remembered.
+// The Type Explorer's reference views open every family.
+var REL_PURPOSE_FAMILIES = [
+  { key: 'composition',  label: 'Composition',              defaultOpen: false, color: 'var(--purpose-composition)' },
+  { key: 'governance',   label: 'Governance & Description', defaultOpen: false, color: 'var(--purpose-governance)' },
+  { key: 'organization', label: 'Organization',             defaultOpen: false, color: 'var(--purpose-organization)' },
+  { key: 'related',      label: 'Associations',             defaultOpen: false, color: 'var(--purpose-related)' },
+  { key: 'design',       label: 'Design & Deployment',      defaultOpen: false, color: 'var(--purpose-design)' },
+  { key: 'operations',   label: 'Operations',               defaultOpen: false, color: 'var(--purpose-operations)' },
+  { key: 'unclassified', label: 'Unclassified',             defaultOpen: false, color: 'var(--purpose-unclassified)' },
+];
+
+var _REL_PURPOSE_FAMILY_BY_KEY = {};
+REL_PURPOSE_FAMILIES.forEach(function(f, i) { _REL_PURPOSE_FAMILY_BY_KEY[f.key] = Object.assign({ order: i }, f); });
+
+function relPurposeFamily(key) {
+  return _REL_PURPOSE_FAMILY_BY_KEY[key] || _REL_PURPOSE_FAMILY_BY_KEY.unclassified;
+}
+
+// Muted hue per family. Dark values are the light-on-dark tints; :root.light
+// switches to darker shades so badge text keeps contrast on white panels.
+(function injectRelPurposeTokens() {
+  if (typeof document === 'undefined' || document.getElementById('egeria-rel-purpose-tokens')) return;
+  var css =
+    ':root{--purpose-composition:#2dd4bf;--purpose-governance:#a78bfa;--purpose-organization:#38bdf8;' +
+    '--purpose-related:#94a3b8;--purpose-design:#4ade80;--purpose-operations:#fb7185;--purpose-unclassified:#9ca3af;}' +
+    ':root.light{--purpose-composition:#0f766e;--purpose-governance:#6d28d9;--purpose-organization:#0369a1;' +
+    '--purpose-related:#475569;--purpose-design:#15803d;--purpose-operations:#be123c;--purpose-unclassified:#6b7280;}';
+  var el = document.createElement('style');
+  el.id = 'egeria-rel-purpose-tokens';
+  el.textContent = css;
+  (document.head || document.documentElement).appendChild(el);
+})();
+
+// Module-level cache: one entry per "url|server", so a page fetches the map at
+// most once per Egeria server. Each entry:
+//   { purposes: {typeName: purpose|null} | null,
+//     serverReportsPurpose: true | false | null,   // null = not known yet / fetch failed
+//     error: string | null, promise, listeners: Set }
+var _relPurposeCache = {};
+// Default lookup for the grouping helpers when no purposeOf is passed: the
+// most recently loaded map.
+var _relPurposeLatest = { purposeOf: function() { return null; } };
+
+function _relPurposeKey(creds) {
+  return ((creds && creds.url) || '') + '|' + ((creds && creds.server) || '');
+}
+
+function _relPurposeEntry(creds) {
+  var k = _relPurposeKey(creds);
+  if (!_relPurposeCache[k]) {
+    _relPurposeCache[k] = { purposes: null, serverReportsPurpose: null, error: null, promise: null, listeners: new Set() };
+  }
+  return _relPurposeCache[k];
+}
+
+function _relPurposeNotify(entry) {
+  entry.listeners.forEach(function(fn) { try { fn(); } catch (e) {} });
+}
+
+/* Seed the map from data the page already holds, so it never makes the extra
+ * request. `map` may be {typeName: 'STRUCTURAL'} or the /api/types
+ * `relationships` dict ({typeName: {relationshipPurpose: ...}}). When
+ * serverReportsPurpose is omitted it is derived: true if any type has one. */
+function seedRelationshipPurposes(map, serverReportsPurpose, creds) {
+  var entry = _relPurposeEntry(creds);
+  var purposes = {};
+  Object.keys(map || {}).forEach(function(name) {
+    var v = map[name];
+    if (v && typeof v === 'object') v = v.relationshipPurpose;
+    purposes[name] = (v && REL_PURPOSES[v]) ? v : null;
+  });
+  entry.purposes = purposes;
+  entry.serverReportsPurpose = (serverReportsPurpose != null)
+    ? !!serverReportsPurpose
+    : Object.keys(purposes).some(function(n) { return purposes[n] != null; });
+  entry.error = null;
+  entry.promise = entry.promise || Promise.resolve();
+  _relPurposeLatest.purposeOf = function(typeName) { return (typeName && purposes[typeName]) || null; };
+  _relPurposeNotify(entry);
+}
+
+function _loadRelationshipPurposes(creds) {
+  var entry = _relPurposeEntry(creds);
+  if (entry.promise) return entry.promise;
+  var url = '/api/types/relationship-purposes';
+  var req = (creds && typeof egeriaFetch === 'function') ? egeriaFetch(url, creds) : fetch(url);
+  entry.promise = req.then(function(r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }).then(function(body) {
+    seedRelationshipPurposes((body && body.purposes) || {}, body && body.serverReportsPurpose, creds);
+  }).catch(function(err) {
+    // A failed lookup is NOT "the server reports no purposes": leave
+    // serverReportsPurpose null and let the next mount retry.
+    entry.error = String((err && err.message) || err);
+    entry.promise = null;
+    _relPurposeNotify(entry);
+  });
+  return entry.promise;
+}
+
+/* Hook: { ready, error, serverReportsPurpose, purposeOf(typeName), familyOf(typeName) }.
+ * ready is false until the map has loaded (or failed — then error is set and
+ * serverReportsPurpose stays null). Callers should keep their flat layout until
+ * ready && serverReportsPurpose === true. */
+function useRelationshipPurposes(creds) {
+  var entry = _relPurposeEntry(creds);
+  var _t = React.useState(0), bump = _t[1];
+  React.useEffect(function() {
+    var fn = function() { bump(function(n) { return n + 1; }); };
+    entry.listeners.add(fn);
+    if (!entry.purposes) _loadRelationshipPurposes(creds);
+    return function() { entry.listeners.delete(fn); };
+  }, [entry]);
+  var purposes = entry.purposes;
+  function purposeOf(typeName) {
+    return (purposes && typeName && purposes[typeName]) || null;
+  }
+  return {
+    ready: !!purposes || !!entry.error,
+    error: entry.error,
+    serverReportsPurpose: entry.serverReportsPurpose,
+    purposeOf: purposeOf,
+    familyOf: function(typeName) {
+      var p = purposeOf(typeName);
+      return p ? REL_PURPOSES[p].family : 'unclassified';
+    },
+  };
+}
+
+function _familyKeyOf(item, getTypeName, purposeOf) {
+  var p = (purposeOf || _relPurposeLatest.purposeOf)(getTypeName(item));
+  return (p && REL_PURPOSES[p]) ? REL_PURPOSES[p].family : 'unclassified';
+}
+
+/* Split items into [{ family, items }] in display order; empty families are
+ * dropped. Item order within a family is preserved, so sort first. */
+function groupByPurposeFamily(items, getTypeName, purposeOf) {
+  var buckets = {};
+  (items || []).forEach(function(item) {
+    var k = _familyKeyOf(item, getTypeName, purposeOf);
+    (buckets[k] = buckets[k] || []).push(item);
+  });
+  return REL_PURPOSE_FAMILIES
+    .filter(function(f) { return buckets[f.key]; })
+    .map(function(f) { return { family: relPurposeFamily(f.key), items: buckets[f.key] }; });
+}
+
+/* Family key covering most of `items` — for placing one mixed-purpose group
+ * (e.g. a pyegeria response key) under a single family. Ties go to the family
+ * earlier in display order. Returns 'unclassified' for an empty list. */
+function majorityPurposeFamily(items, getTypeName, purposeOf) {
+  var counts = {};
+  (items || []).forEach(function(item) {
+    var k = _familyKeyOf(item, getTypeName, purposeOf);
+    counts[k] = (counts[k] || 0) + 1;
+  });
+  var best = 'unclassified', bestN = 0;
+  REL_PURPOSE_FAMILIES.forEach(function(f) {
+    if ((counts[f.key] || 0) > bestN) { best = f.key; bestN = counts[f.key]; }
+  });
+  return best;
+}
+
+/* Small badge for one precise purpose; renders nothing for an unknown purpose
+ * (no fake default). Tooltip = Egeria's description, plus the anchored-graph
+ * note for STRUCTURAL / ATTACHMENT. */
+function PurposeBadge({ purpose, compact }) {
+  var info = purpose && REL_PURPOSES[purpose];
+  if (!info) return null;
+  var color = relPurposeFamily(info.family).color;
+  var tip = info.label + ' — ' + info.desc +
+    (info.anchored ? '\nPart of the anchored graph: anchor operations (delete, copy, scope checks) follow it.' : '');
+  return React.createElement('span', {
+    title: tip,
+    style: {
+      display: 'inline-block', flexShrink: 0, whiteSpace: 'nowrap',
+      fontSize: compact ? 9 : 10, fontWeight: 600, letterSpacing: '0.02em',
+      padding: compact ? '0 5px' : '1px 6px', borderRadius: 3, lineHeight: 1.5,
+      color: color, border: '1px solid ' + color,
+      background: 'color-mix(in srgb, ' + color + ' 12%, transparent)',
+    }
+  }, info.label);
+}
