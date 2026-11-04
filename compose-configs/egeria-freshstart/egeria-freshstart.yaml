@@ -92,6 +92,12 @@ services:
       # grows. Unlike quickstart this keeps the 6g default, which
       # MaxRAMPercentage=60 makes safe on its own: 3.6g heap + 0.5g metaspace
       # leaves ~1.9g for thread stacks, code cache and direct buffers.
+      # On OutOfMemoryError the JVM writes a heap dump (java_pid<pid>.hprof, up to
+      # the heap size: ~3.6 GB at the 6g default) to /deployments/logs, i.e. the
+      # host's runtime-volumes/freshstart-platform-data/logs -- the host disk, not
+      # Docker's VM disk. It is written before run-java.sh's ExitOnOutOfMemoryError
+      # exits. Added after the unexplained 2026-11-04 21:00Z OOM. The JVM won't
+      # overwrite an existing dump, so move or delete one once it has been read.
       JAVA_OPTS_APPEND: >-
         ${EGERIA_JAVA_OPTS_APPEND:-
         -XX:MaxMetaspaceSize=512m
@@ -101,7 +107,9 @@ services:
         -XX:MinHeapFreeRatio=20
         -XX:MaxHeapFreeRatio=40
         -XX:GCTimeRatio=19
-        -Xms2g}
+        -Xms2g
+        -XX:+HeapDumpOnOutOfMemoryError
+        -XX:HeapDumpPath=/deployments/logs}
     extra_hosts:
       - "${HOST_FQDN}:${HOST_GATEWAY_IP:-host-gateway}"
       - "host.docker.internal:${HOST_GATEWAY_IP:-host-gateway}"
