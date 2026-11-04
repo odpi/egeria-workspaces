@@ -13,6 +13,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>The Catalog</title>
   <script src="/static/app-bar.js?v=2026-10-05a"></script>
+  <script src="/static/egeria-resize.js?v=2026-11-04a"></script>
   <script src="/static/bootstrap-banner.js?v=2026-08-18a"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -587,7 +588,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
      URL guarantees a fresh fetch regardless of prior cache state. -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
 <script>window.EGERIA_FOR_LINEAGE = true; window.EGERIA_FOR_LINEAGE_VISIBLE = false;  /* shown per-section by App */</script>
-<script src="/static/egeria-shared-ui.js?v=2026-10-28a"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-11-04f"></script>
 <script>
 'use strict';
 // React hook aliases (mirror type-explorer.html)
@@ -988,7 +989,7 @@ function TechTypeNode({ node, depth, selQN, onSelect, expanded, onToggle }) {
 }
 
 function TechTypesView({ creds, onNavigate }) {
-  var _sideW = useResizable(290, 200, 600), sideW = _sideW[0], onSideDivDown = _sideW[1];
+  var _sideW = useResizable(290, 200, null, 'TechTypesView.sideW'), sideW = _sideW[0], onSideDivDown = _sideW[1];
   // Hierarchy state
   var _hier    = useState(null),  hier    = _hier[0],    setHier    = _hier[1];
   var _hierErr = useState(''),    hierErr = _hierErr[0], setHierErr = _hierErr[1];
@@ -1224,7 +1225,7 @@ function _sidebarRow(item, active, onSelect, opts) {
 // renderList (optional): replaces the flat item list, e.g. DataAssetTree.
 // listFooter (optional): rendered after the list, e.g. a "Load more" button.
 function SidebarDetail({ items, loading, error, selected, onSelect, renderDetail, filterBar, renderList, loadingText, listFooter }) {
-  var _rz = useResizable(280, 120, 600), sideW = _rz[0], sideDown = _rz[1];
+  var _rz = useResizable(280, 120, null, 'SidebarDetail.sideW'), sideW = _rz[0], sideDown = _rz[1];
   return React.createElement('div', { style: { display: 'flex', flex: 1, overflow: 'hidden' } },
     // Sidebar (resizable)
     React.createElement('div', { style: { width: sideW, minWidth: 120, borderRight: 'none', display: 'flex', flexDirection: 'column', flexShrink: 0 } },
@@ -1518,8 +1519,8 @@ var _glsItemStyle    = { display: 'flex', alignItems: 'center', gap: 4, padding:
 var _glsItemSelStyle = Object.assign({}, _glsItemStyle, { background: 'rgba(96,165,250,.1)', borderLeftColor: 'var(--accent)', color: 'var(--text)' });
 
 function GlossaryView({ creds, onNavigate }) {
-  var _sideW = useResizable(220), sideW = _sideW[0], onDivDown = _sideW[1];
-  var _midW  = useResizable(280, 200, 700), midW = _midW[0], onMidDivDown = _midW[1];
+  var _sideW = useResizable(220, null, null, 'GlossaryView.sideW'), sideW = _sideW[0], onDivDown = _sideW[1];
+  var _midW  = useResizable(280, 200, null, 'GlossaryView.midW'), midW = _midW[0], onMidDivDown = _midW[1];
   var _gs = useState('loading'), glossaryState = _gs[0], setGlossaryState = _gs[1];
   var _ga = useState(0),         glossaryAttempt = _ga[0], setGlossaryAttempt = _ga[1];
   var _gl = useState([]),         glossaries = _gl[0], setGlossaries = _gl[1];
@@ -1778,28 +1779,31 @@ var ASSET_REL_SORTS = {
   name: function(r) { var el = r.relatedElement || {}; return el.displayName || el.guid || ''; },
   type: function(r) { return (r.relatedElement || {}).typeName || ''; },
 };
+// Purpose families (relationship-purpose-plan.md D4): once the purpose map is
+// ready the (filtered, sorted) cards are split into folded PurposeFamily-
+// Sections by each card's relationshipType; filter/sort apply before grouping,
+// so one control serves every family. Until the map is ready, or if the
+// lookup failed, the flat list renders; a server reporting no purposes keeps
+// it flat with a one-line hint.
 function AssetRelationships({ rels, cardStyle, onNavigate }) {
   var lc = useListControls('rel');
+  var rp = useRelationshipPurposes(React.useContext(CredContext));
   var shown = listSortBy(rels.filter(function(r) {
     var el = r.relatedElement || {};
     return listMatches(lc.query, [r.relationshipType, el.displayName, el.typeName, el.description]);
   }), ASSET_REL_SORTS[lc.sortKey]);
-  return React.createElement(Collapsible, { title: 'Relationships', count: rels.length, defaultOpen: true },
-    rels.length > 5 && React.createElement(ListControls, {
-      lc: lc, shown: shown.length, total: rels.length, noun: 'relationships',
-      placeholder: 'Filter (relationship, element, type, description)…',
-      sortOptions: [['rel', 'Relationship type'], ['name', 'Related element'], ['type', 'Element type']],
-    }),
-    shown.length === 0 && React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', fontStyle: 'italic', padding: '4px 0' } }, 'No relationships match the filter.'),
-    shown.map(function(r, i) {
+  var grouped = rp.ready && rp.serverReportsPurpose === true;
+  function card(r, i, groupFamily) {
         var el = r.relatedElement || {};
+        var purpose = rp.purposeOf(r.relationshipType);
         var relProps = Object.entries(r.relationshipProperties || {});
         // Resolve nav target: try exact typeName first, then walk superTypes
         var nav = el.guid ? _resolveTypeToNav(el.typeName, el.superTypes) : null;
         return React.createElement('div', { key: i, style: Object.assign({}, cardStyle, { borderLeft: '3px solid var(--rel)' }) },
-          React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: relProps.length ? 4 : 0 } },
+          React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: relProps.length ? 4 : 0 } },
             React.createElement('span', { style: { fontSize: 10, fontWeight: 700, color: 'var(--rel)', letterSpacing: '0.05em' } }, r.relationshipType),
-            React.createElement('span', { style: { fontSize: 12, color: 'var(--text)', flex: 1 } }, el.displayName || el.guid || ''),
+            relPurposeBadgeWanted(purpose, groupFamily) && React.createElement(PurposeBadge, { purpose: purpose, compact: true }),
+            React.createElement('span', { style: { fontSize: 12, color: 'var(--text)', flex: '1 1 160px', minWidth: 0, overflowWrap: 'anywhere' } }, el.displayName || el.guid || ''),
             el.typeName && React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)' } }, '· ' + el.typeName),
             nav && onNavigate && React.createElement('button', {
               onClick: function() { onNavigate(Object.assign({ guid: el.guid, displayName: el.displayName || el.guid }, nav)); },
@@ -1823,7 +1827,23 @@ function AssetRelationships({ rels, cardStyle, onNavigate }) {
               e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
           })
         );
-    })
+  }
+  return React.createElement(Collapsible, { title: 'Relationships', count: rels.length, defaultOpen: true },
+    rels.length > 5 && React.createElement(ListControls, {
+      lc: lc, shown: shown.length, total: rels.length, noun: 'relationships',
+      placeholder: 'Filter (relationship, element, type, description)…',
+      sortOptions: [['rel', 'Relationship type'], ['name', 'Related element'], ['type', 'Element type']],
+    }),
+    rp.serverReportsPurpose === false && React.createElement('div', {
+      style: { fontSize: 11, color: 'var(--dim)', fontStyle: 'italic', padding: '4px 0' }
+    }, REL_PURPOSE_NONE_HINT),
+    shown.length === 0 && React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', fontStyle: 'italic', padding: '4px 0' } }, 'No relationships match the filter.'),
+    grouped
+      ? groupByPurposeFamily(shown, function(r) { return r.relationshipType; }, rp.purposeOf).map(function(g) {
+          return React.createElement(PurposeFamilySection, { key: g.family.key, familyKey: g.family.key, count: g.items.length },
+            g.items.map(function(r, i) { return card(r, g.family.key + i, g.family.key); }));
+        })
+      : shown.map(function(r, i) { return card(r, i, null); })
   );
 }
 
@@ -2661,7 +2681,7 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
   var _asOf    = useState(null),        asOf      = _asOf[0],     setAsOf      = _asOf[1];
   var _sort    = useState({ col: 1, dir: 'asc' }), sort = _sort[0], setSort  = _sort[1];
   var _coll    = useState(new Set()),   coll      = _coll[0],     setColl      = _coll[1];
-  var _rzDetail = useResizable(400, 180, 700), detailW = _rzDetail[0], detailDown = _rzDetail[1];
+  var _rzDetail = useResizable(400, 180, null, { key: 'AnnotationsTabView.detailW', fromRight: true }), detailW = _rzDetail[0], detailDown = _rzDetail[1];
   var _selRowRef = useRef(null);
   var _reportFilter = useState(''), reportFilter = _reportFilter[0], setReportFilter = _reportFilter[1];
   var _createdFrom = useState(''), createdFrom = _createdFrom[0], setCreatedFrom = _createdFrom[1];
@@ -3392,8 +3412,8 @@ function GovernanceProcessTreeNode({ node, depth, selectedTypeName, onSelectType
 // still the base GovernanceActionProcess) rolls up as a direct count on the
 // root node alongside the subtype branches.
 function GovernanceProcessesView({ creds, navTarget, onNavigate }) {
-  var _treeRz = useResizable(240, 160, 420), treeW = _treeRz[0], onTreeDown = _treeRz[1];
-  var _listRz = useResizable(280, 160, 500), listW = _listRz[0], onListDown = _listRz[1];
+  var _treeRz = useResizable(240, 160, null, 'GovernanceProcessesView.treeW'), treeW = _treeRz[0], onTreeDown = _treeRz[1];
+  var _listRz = useResizable(280, 160, null, 'GovernanceProcessesView.listW'), listW = _listRz[0], onListDown = _listRz[1];
   var entities = useTypeGraph(creds); // null while loading, {} on error — both read as "no tree yet"
   var _expanded = useState(function() { return new Set(['GovernanceActionProcess']); }), expanded = _expanded[0], setExpanded = _expanded[1];
   var _selType  = useState(null), selectedTypeName = _selType[0], setSelectedTypeName = _selType[1]; // null = show all
