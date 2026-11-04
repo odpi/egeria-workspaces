@@ -168,10 +168,33 @@ function AvailableMermaidDiagrams({ data, skip }) {
   return React.createElement('div', { style: { margin: '8px 0' } }, panels);
 }
 
-function useResizable(initialPx, min, max) {
-  min = (min === undefined) ? 100 : min;
-  max = (max === undefined) ? 900 : max;
-  const [width, setWidth] = React.useState(initialPx);
+/* Drag-to-resize width for a pane (paired with ResizeDivider / .col-divider).
+ *   useResizable(initialPx, min, max, opts)
+ * min defaults to 100. max defaults to the window width minus 200px, checked
+ * on every drag, so a pane is never capped at a fixed size on a wide screen.
+ * opts: a string key, or { key, fromRight }.
+ *   key       — remember the width in localStorage ("egeria-pane-width:<page>:<key>")
+ *               and restore it on the next visit. Every pane should have one.
+ *   fromRight — the pane sits to the right of its divider (dragging left widens it).
+ * Owner rule: every column / pane width is user-resizable. */
+function useResizable(initialPx, min, max, opts) {
+  min = (min === undefined || min === null) ? 100 : min;
+  if (typeof opts === 'string') opts = { key: opts };
+  opts = opts || {};
+  var storageKey = opts.key ? 'egeria-pane-width:' + location.pathname + ':' + opts.key : null;
+  function maxNow() {
+    var winMax = Math.max(min, window.innerWidth - 200);
+    return (max === undefined || max === null) ? winMax : Math.min(max, winMax);
+  }
+  const [width, setWidth] = React.useState(function() {
+    if (storageKey) {
+      try {
+        var saved = parseInt(localStorage.getItem(storageKey), 10);
+        if (saved > 0) return Math.max(min, Math.min(maxNow(), saved));
+      } catch (e) {}
+    }
+    return initialPx;
+  });
   const widthRef = React.useRef(width);
   widthRef.current = width;
   const onMouseDown = React.useCallback(function(e) {
@@ -179,15 +202,19 @@ function useResizable(initialPx, min, max) {
     var startX = e.clientX;
     var startW = widthRef.current;
     function onMove(mv) {
-      setWidth(Math.max(min, Math.min(max, startW + mv.clientX - startX)));
+      var d = mv.clientX - startX;
+      setWidth(Math.max(min, Math.min(maxNow(), opts.fromRight ? startW - d : startW + d)));
     }
     function onUp() {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
+      document.body.style.userSelect = '';
+      if (storageKey) { try { localStorage.setItem(storageKey, String(Math.round(widthRef.current))); } catch (err) {} }
     }
+    document.body.style.userSelect = 'none';
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
-  }, [min, max]);
+  }, [min, max, storageKey, opts.fromRight]);
   return [width, onMouseDown];
 }
 
@@ -2593,7 +2620,7 @@ function TabularPreviewModal({ fetchUrl, name, creds, onClose }) {
         loading ? React.createElement('div', { style: { padding: 40, textAlign: 'center', color: 'var(--dim)' } }, 'Loading…')
         : errMsg ? React.createElement('div', { style: { padding: 24, color: '#f87171' } }, errMsg)
         : columns.length === 0 ? React.createElement('div', { style: { padding: 24, color: 'var(--dim)' } }, 'No tabular data returned. The data set may be empty or the format unsupported.')
-        : React.createElement('table', { style: { tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: 12, width: tableWidth ? tableWidth + 'px' : '100%', minWidth: '100%' } },
+        : React.createElement('table', { 'data-no-col-resize': '', style: { tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: 12, width: tableWidth ? tableWidth + 'px' : '100%', minWidth: '100%' } },
             React.createElement('colgroup', null,
               columns.map(function(col, i) {
                 return React.createElement('col', { key: col, style: { width: (colWidths ? colWidths[i] : DEFAULT_COL_W) + 'px' } });
