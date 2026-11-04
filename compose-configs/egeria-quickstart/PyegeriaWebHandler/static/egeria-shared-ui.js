@@ -3806,7 +3806,9 @@ function egeriaForLineageSet(on) {
  *   relPurposeFamily(key), useRelationshipPurposes(creds),
  *   seedRelationshipPurposes(map, serverReportsPurpose, creds),
  *   PurposeBadge({purpose, compact}), groupByPurposeFamily(items, getTypeName, purposeOf),
- *   majorityPurposeFamily(items, getTypeName, purposeOf).
+ *   majorityPurposeFamily(items, getTypeName, purposeOf),
+ *   PurposeFamilySection({familyKey, count}), usePurposeFamilyOpen(familyKey),
+ *   relPurposeBadgeWanted(purpose, groupFamily), REL_PURPOSE_FOLD_KEY.
  * CSS vars injected here: --purpose-<familyKey> (dark on :root, light on :root.light). */
 
 var REL_PURPOSE_CONCEPT_URL = 'https://egeria-project.org/concepts/relationship-purpose/';
@@ -4022,4 +4024,72 @@ function PurposeBadge({ purpose, compact }) {
       background: 'color-mix(in srgb, ' + color + ' 12%, transparent)',
     }
   }, info.label);
+}
+
+/* Fold state per purpose family, shared by every panel and app in this
+ * browser: opening Composition once opens it everywhere until closed again.
+ * Defaults come from REL_PURPOSE_FAMILIES (all folded). */
+var REL_PURPOSE_FOLD_KEY = 'egeria-rel-purpose-open';
+
+function _readRelPurposeFold() {
+  try { return JSON.parse(localStorage.getItem(REL_PURPOSE_FOLD_KEY) || '{}') || {}; } catch (e) { return {}; }
+}
+
+function usePurposeFamilyOpen(familyKey) {
+  var fam = relPurposeFamily(familyKey);
+  var _s = React.useState(function() {
+    var saved = _readRelPurposeFold()[fam.key];
+    return (typeof saved === 'boolean') ? saved : !!fam.defaultOpen;
+  });
+  var open = _s[0], setOpen = _s[1];
+  function toggle() {
+    var next = !open;
+    setOpen(next);
+    try {
+      var all = _readRelPurposeFold();
+      all[fam.key] = next;
+      localStorage.setItem(REL_PURPOSE_FOLD_KEY, JSON.stringify(all));
+    } catch (e) {}
+  }
+  return [open, toggle];
+}
+
+/* One purpose family on a detail page: a foldable header in the family hue
+ * with its item count, fold state remembered per family. */
+function PurposeFamilySection({ familyKey, count, children }) {
+  var fam = relPurposeFamily(familyKey);
+  var _o = usePurposeFamilyOpen(fam.key), open = _o[0], toggle = _o[1];
+  return React.createElement('div', { 'data-purpose-family': fam.key, style: { borderTop: '1px solid var(--border)' } },
+    React.createElement('div', {
+      onClick: toggle,
+      role: 'button',
+      'aria-expanded': open,
+      style: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 4px', cursor: 'pointer', userSelect: 'none',
+               fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: fam.color }
+    },
+      React.createElement(FoldTriangle, { open: open, style: { color: fam.color } }),
+      React.createElement('span', { style: { width: 8, height: 8, borderRadius: 2, background: fam.color, display: 'inline-block' } }),
+      fam.label,
+      (count != null) && React.createElement('span', { style: { color: 'var(--dim)', fontWeight: 600 } }, '(' + count + ')')
+    ),
+    open && React.createElement('div', { style: { padding: '0 0 6px 14px' } }, children)
+  );
+}
+
+/* Should a related-element row show its purpose badge? (Plan §5 Q3.)
+ * Outside any family group (groupFamily null) the purpose isn't shown
+ * anywhere else, so yes. Inside a group: only when the row's family holds
+ * more than one purpose, or the row is a minority row whose family differs
+ * from the group's. */
+var _REL_PURPOSES_PER_FAMILY = {};
+Object.keys(REL_PURPOSES).forEach(function(p) {
+  var f = REL_PURPOSES[p].family;
+  _REL_PURPOSES_PER_FAMILY[f] = (_REL_PURPOSES_PER_FAMILY[f] || 0) + 1;
+});
+
+function relPurposeBadgeWanted(purpose, groupFamily) {
+  var info = purpose && REL_PURPOSES[purpose];
+  if (!info) return false;
+  if (!groupFamily) return true;
+  return info.family !== groupFamily || _REL_PURPOSES_PER_FAMILY[info.family] > 1;
 }
