@@ -51,9 +51,20 @@ updates:
       # ISSUE-120; reproduced on Textual 6.1.0 and 8.2.8). A dependabot bump to
       # 3.14 is how the my-profile image broke. Same asyncio.current_task() class
       # of failure as the PyegeriaWebHandler rule below. Block >=3.14 until
-      # Textual supports it (applies to every Dockerfile in this directory).
+      # Textual supports it.
+      #
+      # Dependabot names a Docker dependency after how FROM is written:
+      # "FROM python:..." is "python", but "FROM docker.io/library/python:..."
+      # is "library/python", and a rule for one doesn't match the other.
+      # Dockerfile-my-egeria uses "python:", so the rule above covers it.
+      # Dockerfile-apache-web uses "docker.io/library/python:", which no
+      # rule matched, so it was bumped to 3.14. It installs pyegeria, which
+      # declares requires-python <3.15, so block >=3.15 there. 3.14 digest
+      # refreshes still come through.
       - dependency-name: "python"
         versions: [">=3.14"]
+      - dependency-name: "library/python"
+        versions: [">=3.15"]
 
   - package-ecosystem: "docker"
     directory: "/compose-configs/egeria-quickstart/PyegeriaWebHandler"
@@ -68,7 +79,12 @@ updates:
       # silently reintroduced this exact regression once already (fixed in
       # fix/revert-python-3.14-regression, second occurrence after the
       # original fix in 111e7c51). Block bumps off 3.12 until anyio fixes it.
+      # Dockerfile-fast-api writes "FROM docker.io/library/python:...", which
+      # Dependabot names "library/python": the "python" rule alone never
+      # matched it (that's how the 3.14 bump got through), so cover both.
       - dependency-name: "python"
+        versions: [">=3.13"]
+      - dependency-name: "library/python"
         versions: [">=3.13"]
 
   - package-ecosystem: "docker"
@@ -102,8 +118,10 @@ updates:
       # Same anyio/SlowAPIMiddleware incompatibility as the quickstart
       # PyegeriaWebHandler entry above -- see that entry's comment for
       # detail. freshstart's Dockerfile-fast-api mirrors quickstart's, so
-      # it needs the identical ignore rule.
+      # it needs the identical ignore rules ("python" and "library/python").
       - dependency-name: "python"
+        versions: [">=3.13"]
+      - dependency-name: "library/python"
         versions: [">=3.13"]
 
   - package-ecosystem: "docker"
