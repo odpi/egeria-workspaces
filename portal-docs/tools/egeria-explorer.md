@@ -66,7 +66,7 @@ Read-only reference material; most don't require a live server connection.
 
 | Tab | What it shows |
 |---|---|
-| **Type Explorer** | The open metadata type system — entities, classifications, relationships, and full inheritance hierarchy |
+| **Type Explorer** | The open metadata type system — entities, classifications, relationships, and full inheritance hierarchy. Relationship types are grouped by [relationship purpose](#relationship-purposes) |
 | **REST APIs** | REST endpoints exposed by the view server — operations, parameters, and response shapes |
 | **Valid Values** | Registered valid metadata values for a specific Egeria property name |
 | **Python API** | The pyegeria Python client API — classes by functional domain, methods with docstrings, inherited-vs-own filter |
@@ -84,7 +84,58 @@ Most detail panels (Glossary, Solution Architect, Locations, Actors, Communities
 
 Every list-driven tab's sidebar also has a **↻ Refresh** button below its filter box, to reload that list on demand (e.g. after adding something via Dr. Egeria or Obsidian) without waiting for a full page reload.
 
-Properties are shown generically — any scalar property Egeria returns for an element (including `authors`, `contentStatus`, and other `AuthoredReferenceable` fields) is displayed automatically, without needing per-type code changes. Relationships not otherwise shown in a dedicated section appear in a catch-all **Relationships** block at the bottom of the panel, so nothing linked to an element is silently hidden.
+Properties are shown generically — any scalar property Egeria returns for an element (including `authors`, `contentStatus`, and other `AuthoredReferenceable` fields) is displayed automatically, without needing per-type code changes. Relationships not otherwise shown in a dedicated section appear in a catch-all **Relationships** block at the bottom of the panel, so nothing linked to an element is silently hidden. That block is grouped into [relationship purpose](#relationship-purposes) families.
+
+---
+
+## Relationship purposes
+
+Egeria gives every relationship type a **purpose**: why the type exists. Purpose also decides whether
+operations that start on an anchored element (delete, copy, scope checks) follow the relationship. See
+Egeria's [relationship purpose](https://egeria-project.org/concepts/relationship-purpose/) concept page.
+
+Egeria defines eleven purposes. The portal groups them into six **families**:
+
+| Family | Purposes | What it holds |
+|---|---|---|
+| **Composition** | Structural, Attachment | The element's own anchored graph: what it *is* and what it *owns* |
+| **Governance & Description** | Assignment | Independent things that describe or govern it: terms, policies, owners, tags |
+| **Organization** | Membership | Collections, folders and groupings it belongs to or contains |
+| **Associations** | Association, Peer | Independent elements linked by an ordinary or equal-standing relationship |
+| **Design & Deployment** | Definition, Deployment, Design Lineage | Specification to implementation, where it runs or is stored, designed flows |
+| **Operations** | Action, Activity | Actions to take, and records of actions taken |
+| **Unclassified** | — | Relationship types the server reports no purpose for |
+
+A coloured **purpose badge** shows a relationship's exact purpose. Hover over it for Egeria's description.
+Structural and Attachment relationships are part of the element's **anchored graph**.
+
+### In the Type Explorer
+
+- **Relationship type pages** show the purpose badge, Egeria's description, the family, and an
+  **⚓ anchored graph** chip for Structural and Attachment types.
+- **An entity type's Relationships tab** groups relationship types by family (all open). Use **Group** to
+  switch to a flat list. The **Purpose** chips filter to one or more purposes, together with the text filter
+  and **Show inherited**. Each card has its purpose badge.
+- **The sidebar's RELATIONSHIPS list** is grouped into folded families. They open while you search.
+
+A subtype can have a different purpose from its supertype. For example, `ActionRequester` is Activity
+although its supertype `LineageRelationship` is Design Lineage. Each type shows its own purpose.
+
+### On detail panels
+
+The **Relationships** block on detail panels, and the relationships in **Data Mesh** and **The Catalog**,
+are grouped into families:
+
+- Every family starts **folded**. Click a family to open it. The browser remembers which families you
+  opened, for every panel and app.
+- Each group of related elements (for example *Member Of Collections*) sits in the family that most of its
+  relationships belong to. A group is never split across families.
+- A row shows its purpose badge where it adds information: in families with more than one purpose, for a
+  row whose purpose belongs to a different family from its group, and in sections outside the families.
+
+If the Egeria server doesn't report relationship purposes (older servers), panels keep a flat list and say
+*"This Egeria server doesn't report relationship purposes, so relationships aren't grouped."* If the
+purpose lookup fails, panels show the flat list without that message.
 
 ---
 

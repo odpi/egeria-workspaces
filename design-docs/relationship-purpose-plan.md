@@ -293,20 +293,35 @@ backs nearly every detail panel, so changing it covers the whole Explorer.
   The per-key inner `Collapsible`s keep `defaultOpen: true`, as today.
 - Opt-out prop `groupByPurpose={false}` for any panel where the grouping reads
   badly. None are expected; the prop is an escape hatch.
+- *Implemented 2026-11-04:* the family header count is the number of related
+  elements (rows), not key groups. Fold state is one `localStorage` entry,
+  `egeria-rel-purpose-open` (`{familyKey: bool}`), shared by every panel and
+  app, so opening a family once opens it everywhere. `PurposeFamilySection`,
+  `usePurposeFamilyOpen` and `relPurposeBadgeWanted` live in
+  `egeria-shared-ui.js` for reuse in Phase 4.
 
-**D2. `RelatedElementRow` — purpose badge.** Next to the existing amber
+**D2. `RelatedElementRow` — purpose badge** (shown per the §5 Q3 rule:
+always outside a family group, where purpose isn't visible otherwise; inside
+one only for multi-purpose families or minority rows). Next to the existing amber
 `relationshipType` badge, add a compact `PurposeBadge` (shown only when the
 purpose is known). This also covers hand-placed `RelationshipSection` call
 sites that aren't routed through `GenericRelationshipsSection`. Those keep
 their curated positions and gain only the badge.
 
-**D3. `data-mesh.html`.** Delete its private `RelationshipSection` copy and its
+**D3. `data-mesh.html`.** *Done 2026-11-04:* `RelationshipSection`,
+`GenericRelationshipsSection`, `RelatedElementRowBase`, `relTitleCase` and
+`REL_SECTION_*` moved to `egeria-shared-ui.js`. The Explorer keeps its
+type-aware navigation by registering `RelationshipUI.Row = RelatedElementRow`
+(a thin wrapper over `RelatedElementRowBase`). Data Mesh deleted its copies
+and renders through the shared `GenericRelationshipsSection`. Delete its private `RelationshipSection` copy and its
 key-grouping loop, and use the shared implementation (move `RelationshipSection`,
 `RelatedElementRow` and `GenericRelationshipsSection` into `egeria-shared-ui.js`
 if they aren't already shareable). This removes a duplicate as well as adding
 the feature.
 
-**D4. `tech-catalog.html::AssetRelationships`.** Its rows are relationship-first
+**D4. `tech-catalog.html::AssetRelationships`.** *Done 2026-11-04:* one
+filter/sort control above the families; it applies before grouping, which has
+the same effect as per-family controls without repeating the filter box. Its rows are relationship-first
 (`r.relationshipType` plus a related element) rather than key-grouped. Wrap the
 list in family `Collapsible`s using `groupByPurposeFamily(rels, r => r.relationshipType)`,
 and add `PurposeBadge` beside the relationship-type label. Keep the existing
@@ -331,9 +346,9 @@ filter/sort inside each family.
 | **0 — Verify wire format** ✅ 2026-11-03 | Call `/open-metadata-types/relationship-defs` (raw JSON) against a server built from current `main`; record the exact `relationshipPurpose` shape and a few sample values; confirm inherited values are filled in for subtypes (e.g. a `LineageRelationship` subtype → `DESIGN_LINEAGE`). Also try an older server to confirm the field is absent/null. | S | Shape recorded in this doc (§1.2.3 updated). |
 | **1 — Backend + shared module** ✅ 2026-11-03 | B1, B2, §3.2 shared constants/hook/badge/grouping helper. Unit tests for `_norm_purpose` (constant, display name, dict, null, garbage) and for the B2 endpoint (cache hit, `serverReportsPurpose` false). | S–M | `/api/types` and `/api/types/relationship-purposes` return purposes; tests pass. |
 | **2 — Type Explorer** ✅ 2026-11-04 (T4 deferred) | T1, T2, T3 (T4 optional). | M | Relationship types are browsable by purpose in the sidebar and entity Relationships tab; `RelDetail` shows purpose. |
-| **3 — Detail pages** | D1, D2 in `type-explorer.html`. | M | All `GenericRelationshipsSection` panels group by family; graceful fallback on old servers. |
-| **4 — Other apps** | D3 (`data-mesh.html` de-dup + grouping), D4 (`tech-catalog.html`). | M | Same grouping and badges across the three apps. |
-| **5 — Docs & release** | `portal-docs/tools/egeria-explorer.md` (new "Relationship purposes" section with the family table), `Extending the TypeExplorer.md` (how to use the shared helpers), CHANGELOG / RELEASE_NOTES. | S | Docs merged. |
+| **3 — Detail pages** ✅ 2026-11-04 | D1, D2 in `type-explorer.html`. | M | All `GenericRelationshipsSection` panels group by family; graceful fallback on old servers. |
+| **4 — Other apps** ✅ 2026-11-04 | D3 (`data-mesh.html` de-dup + grouping), D4 (`tech-catalog.html`). | M | Same grouping and badges across the three apps. |
+| **5 — Docs & release** ✅ 2026-11-04 (CHANGELOG; RELEASE_NOTES at release time) | `portal-docs/tools/egeria-explorer.md` (new "Relationship purposes" section with the family table), `Extending the TypeExplorer.md` (how to use the shared helpers), CHANGELOG / RELEASE_NOTES. | S | Docs merged. |
 
 ### Testing
 
@@ -341,7 +356,9 @@ filter/sort inside each family.
   `ValidMetadataManager`).
 - **Browser:** extend `tests/browser/` (Playwright) with (1 and the
   `serverReportsPurpose: false` case for the Type Explorer are in
-  `test_relationship_purpose_type_explorer.py`, Phase 2):
+  `test_relationship_purpose_type_explorer.py`, Phase 2; 2 and the detail-page
+  `serverReportsPurpose: false` case are in `test_relationship_purpose_detail.py`,
+  Phase 3):
   1. Type Explorer → pick an entity with many relationships (e.g. `Asset`) →
      Relationships tab shows family groups; purpose filter narrows them.
   2. A detail panel with Composition + Governance content → all families
@@ -351,6 +368,15 @@ filter/sort inside each family.
 - **Manual:** check light and dark themes for badge and family-header contrast.
 
 ---
+
+## 4a. Follow-ups after Phase 5
+
+- **Freshstart:** all of this is in `compose-configs/egeria-quickstart/PyegeriaWebHandler` only. Freshstart's
+  copies of `type-explorer.html`, `tech-catalog.html` and `static/egeria-shared-ui.js` have diverged from
+  quickstart's (`type_system_handler.py` is identical, and freshstart has no `data-mesh.html`), so the port
+  is its own change. See the SHARE-1/SHARE-2 backlog items on the dual-file problem.
+- **T4** (GraphView edge colours): waits until GraphView draws relationship edges.
+- **B3** (server-side stamping): when a non-browser consumer needs purpose.
 
 ## 5. Open questions
 
