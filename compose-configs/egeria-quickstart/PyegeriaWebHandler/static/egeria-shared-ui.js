@@ -3844,7 +3844,7 @@ var REL_PURPOSE_FAMILIES = [
   { key: 'composition',  label: 'Composition',              defaultOpen: false, color: 'var(--purpose-composition)' },
   { key: 'governance',   label: 'Governance & Description', defaultOpen: false, color: 'var(--purpose-governance)' },
   { key: 'organization', label: 'Organization',             defaultOpen: false, color: 'var(--purpose-organization)' },
-  { key: 'related',      label: 'Related Elements',         defaultOpen: false, color: 'var(--purpose-related)' },
+  { key: 'related',      label: 'Associations',             defaultOpen: false, color: 'var(--purpose-related)' },
   { key: 'design',       label: 'Design & Deployment',      defaultOpen: false, color: 'var(--purpose-design)' },
   { key: 'operations',   label: 'Operations',               defaultOpen: false, color: 'var(--purpose-operations)' },
   { key: 'unclassified', label: 'Unclassified',             defaultOpen: false, color: 'var(--purpose-unclassified)' },
