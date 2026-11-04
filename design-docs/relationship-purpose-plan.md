@@ -308,13 +308,20 @@ purpose is known). This also covers hand-placed `RelationshipSection` call
 sites that aren't routed through `GenericRelationshipsSection`. Those keep
 their curated positions and gain only the badge.
 
-**D3. `data-mesh.html`.** Delete its private `RelationshipSection` copy and its
+**D3. `data-mesh.html`.** *Done 2026-11-04:* `RelationshipSection`,
+`GenericRelationshipsSection`, `RelatedElementRowBase`, `relTitleCase` and
+`REL_SECTION_*` moved to `egeria-shared-ui.js`. The Explorer keeps its
+type-aware navigation by registering `RelationshipUI.Row = RelatedElementRow`
+(a thin wrapper over `RelatedElementRowBase`). Data Mesh deleted its copies
+and renders through the shared `GenericRelationshipsSection`. Delete its private `RelationshipSection` copy and its
 key-grouping loop, and use the shared implementation (move `RelationshipSection`,
 `RelatedElementRow` and `GenericRelationshipsSection` into `egeria-shared-ui.js`
 if they aren't already shareable). This removes a duplicate as well as adding
 the feature.
 
-**D4. `tech-catalog.html::AssetRelationships`.** Its rows are relationship-first
+**D4. `tech-catalog.html::AssetRelationships`.** *Done 2026-11-04:* one
+filter/sort control above the families; it applies before grouping, which has
+the same effect as per-family controls without repeating the filter box. Its rows are relationship-first
 (`r.relationshipType` plus a related element) rather than key-grouped. Wrap the
 list in family `Collapsible`s using `groupByPurposeFamily(rels, r => r.relationshipType)`,
 and add `PurposeBadge` beside the relationship-type label. Keep the existing
@@ -340,7 +347,7 @@ filter/sort inside each family.
 | **1 — Backend + shared module** ✅ 2026-11-03 | B1, B2, §3.2 shared constants/hook/badge/grouping helper. Unit tests for `_norm_purpose` (constant, display name, dict, null, garbage) and for the B2 endpoint (cache hit, `serverReportsPurpose` false). | S–M | `/api/types` and `/api/types/relationship-purposes` return purposes; tests pass. |
 | **2 — Type Explorer** ✅ 2026-11-04 (T4 deferred) | T1, T2, T3 (T4 optional). | M | Relationship types are browsable by purpose in the sidebar and entity Relationships tab; `RelDetail` shows purpose. |
 | **3 — Detail pages** ✅ 2026-11-04 | D1, D2 in `type-explorer.html`. | M | All `GenericRelationshipsSection` panels group by family; graceful fallback on old servers. |
-| **4 — Other apps** | D3 (`data-mesh.html` de-dup + grouping), D4 (`tech-catalog.html`). | M | Same grouping and badges across the three apps. |
+| **4 — Other apps** ✅ 2026-11-04 | D3 (`data-mesh.html` de-dup + grouping), D4 (`tech-catalog.html`). | M | Same grouping and badges across the three apps. |
 | **5 — Docs & release** | `portal-docs/tools/egeria-explorer.md` (new "Relationship purposes" section with the family table), `Extending the TypeExplorer.md` (how to use the shared helpers), CHANGELOG / RELEASE_NOTES. | S | Docs merged. |
 
 ### Testing
