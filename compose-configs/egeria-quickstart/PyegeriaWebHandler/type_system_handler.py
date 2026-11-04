@@ -509,6 +509,10 @@ async def get_all_types(
         et2 = et2 if isinstance(et2, dict) else {}
         relationships[name] = {
             "guid":       td.get("guid"),
+            # Relationship types inherit too (e.g. DataFlow -> DataLineageRelationship
+            # -> LineageRelationship -> LabeledRelationship); the UI walks this
+            # chain for inherited properties, as it does for entities.
+            "supertype":  _sup_name(td),
             "desc":       td.get("description", ""),
             "wiki":       td.get("descriptionWiki", ""),
             "deprecated": str(td.get("status", "")).upper() in ("DEPRECATED_TYPEDEF", "DEPRECATED"),
@@ -550,6 +554,8 @@ async def get_all_types(
             valid_for = []
         classifications[name] = {
             "guid":       td.get("guid"),
+            "supertype":  _sup_name(td),   # classifications inherit too; see relationships
+
             "desc":       td.get("description", ""),
             "wiki":       td.get("descriptionWiki", ""),
             "deprecated": str(td.get("status", "")).upper() in ("DEPRECATED_TYPEDEF", "DEPRECATED"),
