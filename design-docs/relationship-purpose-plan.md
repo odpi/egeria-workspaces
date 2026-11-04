@@ -348,7 +348,7 @@ filter/sort inside each family.
 | **2 — Type Explorer** ✅ 2026-11-04 (T4 deferred) | T1, T2, T3 (T4 optional). | M | Relationship types are browsable by purpose in the sidebar and entity Relationships tab; `RelDetail` shows purpose. |
 | **3 — Detail pages** ✅ 2026-11-04 | D1, D2 in `type-explorer.html`. | M | All `GenericRelationshipsSection` panels group by family; graceful fallback on old servers. |
 | **4 — Other apps** ✅ 2026-11-04 | D3 (`data-mesh.html` de-dup + grouping), D4 (`tech-catalog.html`). | M | Same grouping and badges across the three apps. |
-| **5 — Docs & release** | `portal-docs/tools/egeria-explorer.md` (new "Relationship purposes" section with the family table), `Extending the TypeExplorer.md` (how to use the shared helpers), CHANGELOG / RELEASE_NOTES. | S | Docs merged. |
+| **5 — Docs & release** ✅ 2026-11-04 (CHANGELOG; RELEASE_NOTES at release time) | `portal-docs/tools/egeria-explorer.md` (new "Relationship purposes" section with the family table), `Extending the TypeExplorer.md` (how to use the shared helpers), CHANGELOG / RELEASE_NOTES. | S | Docs merged. |
 
 ### Testing
 
@@ -368,6 +368,15 @@ filter/sort inside each family.
 - **Manual:** check light and dark themes for badge and family-header contrast.
 
 ---
+
+## 4a. Follow-ups after Phase 5
+
+- **Freshstart:** all of this is in `compose-configs/egeria-quickstart/PyegeriaWebHandler` only. Freshstart's
+  copies of `type-explorer.html`, `tech-catalog.html` and `static/egeria-shared-ui.js` have diverged from
+  quickstart's (`type_system_handler.py` is identical, and freshstart has no `data-mesh.html`), so the port
+  is its own change. See the SHARE-1/SHARE-2 backlog items on the dual-file problem.
+- **T4** (GraphView edge colours): waits until GraphView draws relationship edges.
+- **B3** (server-side stamping): when a non-browser consumer needs purpose.
 
 ## 5. Open questions
 
