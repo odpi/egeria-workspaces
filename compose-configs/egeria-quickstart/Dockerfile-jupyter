@@ -65,6 +65,16 @@ ENV PATH="/home/${NB_USER}/.local/bin:${PATH}"
 # permission errors — e.g. `pip install --upgrade pyegeria` from a JupyterLab
 # terminal, no rebuild needed.
 USER ${NB_UID}
+# conda's own CA bundle (/opt/conda/ssl/cacert.pem) is OpenSSL's default CA
+# file in this image, so Python's default SSL context (urllib,
+# ssl.create_default_context) and conda's openssl/curl trust whatever it holds,
+# independently of the certifi package that requests/httpx/pyegeria use. The
+# base image's conda-forge ca-certificates 2026.7.22 still trusts emSign ECC
+# Root CA - G3, which Mozilla distrusted in October 2026; 2026.10.19+ drops it
+# (same change as certifi 2026.10.18). Raise the floor here; bump it the same
+# way after any future CA distrust.
+RUN mamba install --yes --quiet -n base -c conda-forge --override-channels "ca-certificates>=2026.10.19" \
+    && mamba clean --all -f -y
 RUN python -m pip install --no-cache-dir --retries 10 --timeout 60 rich pipx
 RUN python -m pip install --no-cache-dir --retries 10 --timeout 60 textual textual-dev
 RUN python -m pip install --no-cache-dir --retries 10 --timeout 60 plotly dash
