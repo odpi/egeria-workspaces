@@ -8843,7 +8843,12 @@ function _elementIsLinkable(item) {
 // needs to know which types are Action-Center-routed, not every linkable type.
 var _ACTION_CENTER_ROW_TYPES = { Notification: 1, Meeting: 1, ToDo: 1, Review: 1 };
 
-function RelatedElementRow({ item, onNavigateToElement }) {
+// Explorer's related-element row: the shared RelatedElementRowBase (static/
+// egeria-shared-ui.js) plus Explorer-specific navigation — "View →" for types
+// _elementIsLinkable can route, "↗ Tech Catalog" for assets. Registered as
+// RelationshipUI.Row so the shared RelationshipSection / GenericRelationships-
+// Section (also shared, with the purpose-family grouping) use it everywhere here.
+function RelatedElementRow({ item, onNavigateToElement, purpose, groupFamily }) {
   var isActionCenterType = !!_ACTION_CENTER_ROW_TYPES[item.typeName || ''];
   var superTypes = item.superTypeNames || [];
   // SoftwareCapability subtypes (SourceControlLibrary, etc.) and Endpoint
@@ -8852,87 +8857,24 @@ function RelatedElementRow({ item, onNavigateToElement }) {
     item.typeName === 'SoftwareCapability' || superTypes.indexOf('SoftwareCapability') !== -1 ||
     item.typeName === 'Endpoint');
   var clickable = !isAsset && !!onNavigateToElement && _elementIsLinkable(item);
+  return React.createElement(RelatedElementRowBase, {
+    item: item, purpose: purpose, groupFamily: groupFamily,
+    actions: React.createElement(React.Fragment, null,
+      clickable && React.createElement("button", {
+        onClick: function() { onNavigateToElement(item); },
+        style: { flexShrink: 0, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(94,234,212,.4)', background: 'rgba(94,234,212,.1)', color: '#5eead4', cursor: 'pointer', fontSize: 11 },
+      }, "View →"),
+      isAsset && React.createElement("a", {
+        href: '/tech-catalog?guid=' + encodeURIComponent(item.guid), target: '_blank', rel: 'noopener',
+        style: { flexShrink: 0, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(167,139,250,.4)', background: 'rgba(167,139,250,.1)', color: '#a78bfa', textDecoration: 'none', fontSize: 11 },
+      }, "↗ Tech Catalog")),
+  });
+}
+RelationshipUI.Row = RelatedElementRow;
 
-  return React.createElement("div", {
-      key: item.guid,
-      style: { display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, padding: '6px 0', borderTop: '1px solid var(--border)' },
-      title: item.description || '',
-    },
-    React.createElement("div", { style: { flex: 1 } },
-      React.createElement("div", null, item.displayName || item.qualifiedName),
-      item.contactMethodValue && React.createElement("div", { style: { fontSize: 12, color: 'var(--fg)', marginTop: 2, fontFamily: 'ui-monospace,monospace' } }, item.contactMethodValue),
-      item.description && React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', marginTop: 2 } }, item.description)
-    ),
-    item.relationshipType && React.createElement("span", { className: "badge", title: "Relationship type", style: { fontSize: 9, background: 'rgba(251,191,36,.1)', color: '#fbbf24', border: '0.5px solid rgba(251,191,36,.25)', flexShrink: 0 } }, item.relationshipType),
-    item.typeName && React.createElement("span", { className: "badge", title: "Element type", style: { fontSize: 9, background: 'rgba(99,102,241,.1)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.25)', flexShrink: 0 } }, item.typeName),
-    clickable && React.createElement("button", {
-      onClick: function() { onNavigateToElement(item); },
-      style: { flexShrink: 0, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(94,234,212,.4)', background: 'rgba(94,234,212,.1)', color: '#5eead4', cursor: 'pointer', fontSize: 11 },
-    }, "View →"),
-    isAsset && React.createElement("a", {
-      href: '/tech-catalog?guid=' + encodeURIComponent(item.guid), target: '_blank', rel: 'noopener',
-      style: { flexShrink: 0, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(167,139,250,.4)', background: 'rgba(167,139,250,.1)', color: '#a78bfa', textDecoration: 'none', fontSize: 11 },
-    }, "↗ Tech Catalog")
-  );
-}
-
-// Foldable — uses the shared Collapsible (static/egeria-shared-ui.js), same
-// toggle affordance already used elsewhere (e.g. Audit's relationship tabs),
-// applied consistently here since this one component backs every detail
-// panel's relationship groups across the whole app (~30 call sites via
-// direct use + GenericRelationshipsSection below).
-// Groups longer than REL_SECTION_FILTER_MIN get a filter box + sort select
-// (shared ListControls); shorter ones render as before, uncluttered.
-var REL_SECTION_FILTER_MIN = 8;
-var REL_SECTION_SORTS = {
-  name: function(it) { return it.displayName || it.qualifiedName || ''; },
-  type: function(it) { return it.typeName || ''; },
-  rel:  function(it) { return it.relationshipType || ''; },
-};
-function RelationshipSection({ title, items, onNavigateToElement }) {
-  var lc = useListControls('name');
-  if (!items || !items.length) return null;
-  var withControls = items.length > REL_SECTION_FILTER_MIN;
-  var sorted = listSortBy(items.filter(function(it) {
-    return listMatches(lc.query, [it.displayName, it.qualifiedName, it.description, it.typeName, it.relationshipType]);
-  }), REL_SECTION_SORTS[lc.sortKey]);
-  return React.createElement(Collapsible, { title: title, count: items.length, defaultOpen: true },
-    withControls && React.createElement(ListControls, {
-      lc: lc, shown: sorted.length, total: items.length, placeholder: 'Filter ' + String(title).toLowerCase() + '…',
-      sortOptions: [['name', 'Name'], ['type', 'Element type'], ['rel', 'Relationship type']],
-    }),
-    sorted.length === 0 && React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', fontStyle: 'italic', padding: '4px 0' } }, 'No entries match the filter.'),
-    sorted.map(function(item) {
-      return React.createElement(RelatedElementRow, { key: item.guid, item: item, onNavigateToElement: onNavigateToElement });
-    })
-  );
-}
-
-// GenericRelationshipsSection — renders every group in a backend-supplied
-// `relationships` dict ({ keyName: [relatedElement, ...] }), instead of each
-// Detail component hand-picking which relationship keys to show. This is
-// what makes a relationship Egeria returns under a key nobody hard-coded
-// (e.g. a SolutionBlueprint's "resourceList") show up automatically. Backend
-// side: common_serialize.py::_generic_relationships produces this shape.
-function _relTitleCase(key) {
-  var s = String(key).replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/_/g, ' ');
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-var _REL_KEY_LABELS = {}; // per-key overrides can be added here if a nicer label is needed
-function GenericRelationshipsSection({ relationships, onNavigateToElement, skip }) {
-  if (!relationships) return null;
-  var skipSet = new Set(skip || []);
-  var keys = Object.keys(relationships).filter(function(k) { return !skipSet.has(k) && relationships[k] && relationships[k].length > 0; });
-  if (keys.length === 0) return null;
-  return React.createElement(React.Fragment, null,
-    keys.map(function(k) {
-      return React.createElement(RelationshipSection, {
-        key: k, title: _REL_KEY_LABELS[k] || _relTitleCase(k),
-        items: relationships[k], onNavigateToElement: onNavigateToElement,
-      });
-    })
-  );
-}
+// RelationshipSection and GenericRelationshipsSection (one foldable group;
+// every group of a backend `relationships` dict, grouped into purpose
+// families) now live in static/egeria-shared-ui.js, shared with Data Mesh.
 
 var LOCATION_KIND_COLORS = {
   'Fixed':  { bg: 'rgba(94,234,212,.1)',  fg: '#5eead4', border: 'rgba(94,234,212,.3)' },

@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Relationships are organised by Egeria's relationship purpose** ([#752](https://github.com/odpi/egeria-workspaces/pull/752) and a follow-up). Egeria gives every relationship type a purpose; the portal groups the eleven purposes into six families (Composition, Governance & Description, Organization, Associations, Design & Deployment, Operations) plus Unclassified.
+  - **Egeria Explorer's Type Explorer:** relationship type pages show the purpose, Egeria's description and an anchored-graph chip. An entity type's Relationships tab groups by family, with purpose filter chips. The sidebar's RELATIONSHIPS list is grouped into folded families.
+  - **Detail panels, Data Mesh and The Catalog:** relationships are grouped into families that start folded and remember being opened. Purpose badges appear where they add information.
+  - **Servers that report no purposes** keep the flat lists, with a one-line note.
+  - **API:** `/api/types` relationships carry `relationshipPurpose`, and the new `GET /api/types/relationship-purposes` returns the type → purpose map.
+  - See *Relationship purposes* in the Egeria Explorer docs.
 - **The Catalog's Infrastructure section has a tab for each direct subtype of `Infrastructure`**, read from Egeria's type system, so a newly defined subtype (for example `Equipment`) gets its own tab. An "All Infrastructure" tab is added when Infrastructure has several subtypes or can have instances of its own. New endpoint `GET /api/tech-catalog/infrastructure/types`; `GET /api/tech-catalog/infrastructure` takes `?type_name=` (default `ITInfrastructure`).
 - **Egeria Explorer's Type Explorer shows inheritance for relationships and classifications**: the Relationships tab has the same Show inherited toggle as Properties, with an own/total count and an "own" badge. A new Classifications tab lists every classification the type can carry and the type in its supertype chain that makes it valid.
 - **`--lan` for `quick-start-local` and `fresh-start-local`**: publishes the ports on every interface (`0.0.0.0`) for that run, so the stack is reachable by machine name and from other machines. On Docker Desktop the default since [#644](https://github.com/odpi/egeria-workspaces/pull/644) is `127.0.0.1`, which answers on `localhost` only.
@@ -19,11 +25,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Saved Queries tutorial** (`portal-docs/tutorials/saved-queries.md`): builds, saves and refreshes a query in the Query tool, then shows its results set on a Local Dashboard through a `Collection Members` report. It has screenshots (`portal-docs/images/saved-query-*.png`), diagrams and links to and from the Local Dashboards tutorial.
 
 ### Changed
+- **Data Mesh uses the shared relationship components** from `static/egeria-shared-ui.js` instead of private copies, so its rows also show each related element's description. Its detail pane can now be dragged up to the window width minus 240px (it stopped at 640px).
 - **The `pyegeria` floor is now 6.2.11** in the pyegeria-web and Jupyter/my-egeria images (quickstart and freshstart). It adds the Business Capability commands, routes deprecated wrappers of removed Egeria endpoints to their replacements, and makes `get_platform_organization` read `/api/public/app/info`.
 - **`call-dr-egeria` Obsidian plugin dependencies updated** (`npm audit` now reports 0 vulnerabilities, down from 8 advisories including 1 critical); the committed `node_modules` and bundled `main.js` were rebuilt. Supersedes Dependabot PRs #650, #665, #678, #689, #690, #696 and #697.
 - **README**: the OpenSSF Scorecard badge now links to this repository's scorecard (it pointed at `odpi/egeria`), the license badge points at this repository, and the Airflow/Marquez and Unity Catalog startup flags are documented.
 
 ### Fixed
+- **Related-element rows no longer clip their "View →" button in narrow panes.** Badges and actions wrap under the element name. In Data Mesh's default 380px detail pane, 58 of 60 buttons on a busy product were cut off.
 - **OpenSSF Scorecard workflow never ran, so the README badge showed "invalid repo path".** `.github/workflows/scorecard.yml` pinned an `ossf/scorecard-action` commit that does not exist; it is now pinned to the v2.4.3 commit, so results are published for `odpi/egeria-workspaces`. The README badge link also pointed at `odpi/egeria` and now points at this repository.
 - **The shared OpenLineage proxy now has `restart: always`.** It had no restart policy, so once it stopped, lineage silently stopped reaching Egeria.
 - **Relationship cards show each relationship once**, instead of repeating it from both ends.

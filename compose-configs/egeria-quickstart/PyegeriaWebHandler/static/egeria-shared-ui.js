@@ -3809,7 +3809,9 @@ function egeriaForLineageSet(on) {
  *   relPurposeFamily(key), useRelationshipPurposes(creds),
  *   seedRelationshipPurposes(map, serverReportsPurpose, creds),
  *   PurposeBadge({purpose, compact}), groupByPurposeFamily(items, getTypeName, purposeOf),
- *   majorityPurposeFamily(items, getTypeName, purposeOf).
+ *   majorityPurposeFamily(items, getTypeName, purposeOf),
+ *   PurposeFamilySection({familyKey, count}), usePurposeFamilyOpen(familyKey),
+ *   relPurposeBadgeWanted(purpose, groupFamily), REL_PURPOSE_FOLD_KEY.
  * CSS vars injected here: --purpose-<familyKey> (dark on :root, light on :root.light). */
 
 var REL_PURPOSE_CONCEPT_URL = 'https://egeria-project.org/concepts/relationship-purpose/';
@@ -4025,4 +4027,206 @@ function PurposeBadge({ purpose, compact }) {
       background: 'color-mix(in srgb, ' + color + ' 12%, transparent)',
     }
   }, info.label);
+}
+
+/* Fold state per purpose family, shared by every panel and app in this
+ * browser: opening Composition once opens it everywhere until closed again.
+ * Defaults come from REL_PURPOSE_FAMILIES (all folded). */
+var REL_PURPOSE_FOLD_KEY = 'egeria-rel-purpose-open';
+
+function _readRelPurposeFold() {
+  try { return JSON.parse(localStorage.getItem(REL_PURPOSE_FOLD_KEY) || '{}') || {}; } catch (e) { return {}; }
+}
+
+function usePurposeFamilyOpen(familyKey) {
+  var fam = relPurposeFamily(familyKey);
+  var _s = React.useState(function() {
+    var saved = _readRelPurposeFold()[fam.key];
+    return (typeof saved === 'boolean') ? saved : !!fam.defaultOpen;
+  });
+  var open = _s[0], setOpen = _s[1];
+  function toggle() {
+    var next = !open;
+    setOpen(next);
+    try {
+      var all = _readRelPurposeFold();
+      all[fam.key] = next;
+      localStorage.setItem(REL_PURPOSE_FOLD_KEY, JSON.stringify(all));
+    } catch (e) {}
+  }
+  return [open, toggle];
+}
+
+/* One purpose family on a detail page: a foldable header in the family hue
+ * with its item count, fold state remembered per family. */
+function PurposeFamilySection({ familyKey, count, children }) {
+  var fam = relPurposeFamily(familyKey);
+  var _o = usePurposeFamilyOpen(fam.key), open = _o[0], toggle = _o[1];
+  return React.createElement('div', { 'data-purpose-family': fam.key, style: { borderTop: '1px solid var(--border)' } },
+    React.createElement('div', {
+      onClick: toggle,
+      role: 'button',
+      'aria-expanded': open,
+      style: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 4px', cursor: 'pointer', userSelect: 'none',
+               fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: fam.color }
+    },
+      React.createElement(FoldTriangle, { open: open, style: { color: fam.color } }),
+      React.createElement('span', { style: { width: 8, height: 8, borderRadius: 2, background: fam.color, display: 'inline-block' } }),
+      fam.label,
+      (count != null) && React.createElement('span', { style: { color: 'var(--dim)', fontWeight: 600 } }, '(' + count + ')')
+    ),
+    open && React.createElement('div', { style: { padding: '0 0 6px 14px' } }, children)
+  );
+}
+
+/* Should a related-element row show its purpose badge? (Plan §5 Q3.)
+ * Outside any family group (groupFamily null) the purpose isn't shown
+ * anywhere else, so yes. Inside a group: only when the row's family holds
+ * more than one purpose, or the row is a minority row whose family differs
+ * from the group's. */
+var _REL_PURPOSES_PER_FAMILY = {};
+Object.keys(REL_PURPOSES).forEach(function(p) {
+  var f = REL_PURPOSES[p].family;
+  _REL_PURPOSES_PER_FAMILY[f] = (_REL_PURPOSES_PER_FAMILY[f] || 0) + 1;
+});
+
+function relPurposeBadgeWanted(purpose, groupFamily) {
+  var info = purpose && REL_PURPOSES[purpose];
+  if (!info) return false;
+  if (!groupFamily) return true;
+  return info.family !== groupFamily || _REL_PURPOSES_PER_FAMILY[info.family] > 1;
+}
+
+/* ── Related-element relationship sections (shared by Explorer + Data Mesh) ──
+ * Moved from type-explorer.html (D3 of relationship-purpose-plan.md) so every
+ * app renders relationship groups, purpose families and badges the same way.
+ *
+ *   RelatedElementRowBase({item, purpose, groupFamily, actions}) — one row:
+ *     name, contact value, description, relationship/element type badges,
+ *     purpose badge (relPurposeBadgeWanted), then the app's `actions`.
+ *   RelationshipSection({title, items, onNavigateToElement, groupFamily, Row})
+ *     — one foldable, filterable group (filter/sort above REL_SECTION_FILTER_MIN).
+ *   GenericRelationshipsSection({relationships, onNavigateToElement, skip,
+ *     groupByPurpose, Row, titleOf}) — every non-empty group of a backend
+ *     `relationships` dict ({key: [relatedElement, ...]}, see
+ *     common_serialize.py::_generic_relationships), grouped into purpose
+ *     families once the purpose map is ready.
+ *
+ * Row component: an explicit `Row` prop, else RelationshipUI.Row (an app
+ * registers its own once, e.g. the Explorer's type-aware navigation), else
+ * the default row, whose "View →" shows whenever onNavigateToElement is given. */
+var RelationshipUI = { Row: null };
+
+var REL_PURPOSE_NONE_HINT = "This Egeria server doesn't report relationship purposes, so relationships aren't grouped.";
+
+// The name block shrinks; badges + actions form one right-aligned group that
+// wraps under the name when the pane is too narrow, rather than overflowing
+// (and clipping the "View →" button) in narrow panes such as Data Mesh's.
+function RelatedElementRowBase({ item, purpose, groupFamily, actions }) {
+  return React.createElement('div', {
+      style: { display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 8, fontSize: 13, padding: '6px 0', borderTop: '1px solid var(--border)' },
+      title: item.description || '',
+    },
+    React.createElement('div', { style: { flex: '1 1 180px', minWidth: 0, overflowWrap: 'anywhere' } },
+      React.createElement('div', null, item.displayName || item.qualifiedName),
+      item.contactMethodValue && React.createElement('div', { style: { fontSize: 12, color: 'var(--fg)', marginTop: 2, fontFamily: 'ui-monospace,monospace' } }, item.contactMethodValue),
+      item.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', marginTop: 2 } }, item.description)
+    ),
+    React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: 8, marginLeft: 'auto', maxWidth: '100%' } },
+      item.relationshipType && React.createElement('span', { className: 'badge', title: 'Relationship type', style: { fontSize: 9, background: 'rgba(251,191,36,.1)', color: '#fbbf24', border: '0.5px solid rgba(251,191,36,.25)', flexShrink: 0 } }, item.relationshipType),
+      relPurposeBadgeWanted(purpose, groupFamily) && React.createElement(PurposeBadge, { purpose: purpose, compact: true }),
+      item.typeName && React.createElement('span', { className: 'badge', title: 'Element type', style: { fontSize: 9, background: 'rgba(99,102,241,.1)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.25)', flexShrink: 0 } }, item.typeName),
+      actions
+    )
+  );
+}
+
+function _defaultRelatedElementRow({ item, onNavigateToElement, purpose, groupFamily }) {
+  return React.createElement(RelatedElementRowBase, {
+    item: item, purpose: purpose, groupFamily: groupFamily,
+    actions: onNavigateToElement && React.createElement('button', {
+      onClick: function() { onNavigateToElement(item); },
+      style: { flexShrink: 0, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(94,234,212,.4)', background: 'rgba(94,234,212,.1)', color: '#5eead4', cursor: 'pointer', fontSize: 11 },
+    }, 'View →'),
+  });
+}
+
+var REL_SECTION_FILTER_MIN = 8;
+var REL_SECTION_SORTS = {
+  name: function(it) { return it.displayName || it.qualifiedName || ''; },
+  type: function(it) { return it.typeName || ''; },
+  rel:  function(it) { return it.relationshipType || ''; },
+};
+
+function RelationshipSection({ title, items, onNavigateToElement, groupFamily, Row }) {
+  var lc = useListControls('name');
+  var rp = useRelationshipPurposes(React.useContext(CredContext));
+  if (!items || !items.length) return null;
+  var RowC = Row || RelationshipUI.Row || _defaultRelatedElementRow;
+  var withControls = items.length > REL_SECTION_FILTER_MIN;
+  var sorted = listSortBy(items.filter(function(it) {
+    return listMatches(lc.query, [it.displayName, it.qualifiedName, it.description, it.typeName, it.relationshipType]);
+  }), REL_SECTION_SORTS[lc.sortKey]);
+  return React.createElement(Collapsible, { title: title, count: items.length, defaultOpen: true },
+    withControls && React.createElement(ListControls, {
+      lc: lc, shown: sorted.length, total: items.length, placeholder: 'Filter ' + String(title).toLowerCase() + '…',
+      sortOptions: [['name', 'Name'], ['type', 'Element type'], ['rel', 'Relationship type']],
+    }),
+    sorted.length === 0 && React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', fontStyle: 'italic', padding: '4px 0' } }, 'No entries match the filter.'),
+    sorted.map(function(item) {
+      return React.createElement(RowC, {
+        key: item.guid, item: item, onNavigateToElement: onNavigateToElement,
+        purpose: rp.purposeOf(item.relationshipType), groupFamily: groupFamily || null,
+      });
+    })
+  );
+}
+
+function relTitleCase(key) {
+  var s = String(key).replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/_/g, ' ');
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/* Purpose families (plan D1): once the purpose map is ready, each key group
+ * sits under the family of the MAJORITY of its rows (ties: earlier family) —
+ * never split, so a pyegeria label shows in one place; minority rows keep a
+ * visible badge. Until the map is ready, or if the lookup failed, the flat
+ * layout renders (no layout flash, no false claim). A server reporting no
+ * purposes keeps the flat layout plus a one-line hint. groupByPurpose={false}
+ * opts out. */
+function GenericRelationshipsSection({ relationships, onNavigateToElement, skip, groupByPurpose, Row, titleOf }) {
+  var rp = useRelationshipPurposes(React.useContext(CredContext));
+  if (!relationships) return null;
+  var skipSet = new Set(skip || []);
+  var keys = Object.keys(relationships).filter(function(k) { return !skipSet.has(k) && relationships[k] && relationships[k].length > 0; });
+  if (keys.length === 0) return null;
+  function section(k, family) {
+    return React.createElement(RelationshipSection, {
+      key: k, title: (titleOf || relTitleCase)(k),
+      items: relationships[k], onNavigateToElement: onNavigateToElement,
+      groupFamily: family || null, Row: Row,
+    });
+  }
+  var grouped = groupByPurpose !== false && rp.ready && rp.serverReportsPurpose === true;
+  if (!grouped) {
+    return React.createElement(React.Fragment, null,
+      groupByPurpose !== false && rp.serverReportsPurpose === false && React.createElement('div', {
+        style: { fontSize: 11, color: 'var(--dim)', fontStyle: 'italic', padding: '6px 4px' }
+      }, REL_PURPOSE_NONE_HINT),
+      keys.map(function(k) { return section(k, null); })
+    );
+  }
+  var byFamily = {};
+  keys.forEach(function(k) {
+    var f = majorityPurposeFamily(relationships[k], function(it) { return it.relationshipType; }, rp.purposeOf);
+    (byFamily[f] = byFamily[f] || []).push(k);
+  });
+  return React.createElement(React.Fragment, null,
+    REL_PURPOSE_FAMILIES.filter(function(f) { return byFamily[f.key]; }).map(function(f) {
+      var famKeys = byFamily[f.key];
+      var count = famKeys.reduce(function(n, k) { return n + relationships[k].length; }, 0);
+      return React.createElement(PurposeFamilySection, { key: f.key, familyKey: f.key, count: count },
+        famKeys.map(function(k) { return section(k, f.key); }));
+    })
+  );
 }
