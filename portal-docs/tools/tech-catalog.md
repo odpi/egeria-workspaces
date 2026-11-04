@@ -29,7 +29,7 @@ Selecting any item opens a detail pane on the right. For most asset types this i
 - **Properties** — all metadata properties with classifications
 - **Context Diagram** — Mermaid diagram showing the element in its broader context (rendered immediately when available)
 - **Additional diagrams** — lineage, field-level, supply-chain, and other diagrams where present
-- **Relationships** — related elements with "View →" navigation links (see [Cross-navigation](#cross-navigation))
+- **Relationships** — related elements with "View →" navigation links (see [Cross-navigation](#cross-navigation)), grouped into folded [relationship purpose](egeria-explorer.md#relationship-purposes) families with purpose badges
 - **Schema** — column / attribute list (data assets only). A column carrying a glossary-term assignment shows a 🧠 badge — click to expand and jump straight to that term. Every column, and the schema type above the table, has a **View →** button that opens it in the element detail popup
 - **Lineage** — direct lineage graph and link to Lineage Explorer
 
