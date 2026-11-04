@@ -17,6 +17,7 @@
   <title>Egeria Explorer</title>
   <!-- Shared app bar: theme applied before first paint; CSS + state for AppHeader (egeria-shared-ui.js). -->
   <script src="/static/app-bar.js?v=2026-10-05a"></script>
+  <script src="/static/egeria-resize.js?v=2026-11-04a"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -591,7 +592,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   <!-- Bump ?v= whenever egeria-shared-ui.js changes — see tech-catalog.html for why. -->
   <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
   <script>window.EGERIA_FOR_LINEAGE = true; window.EGERIA_FOR_LINEAGE_VISIBLE = false;  /* shown per-section by App */</script>
-  <script src="/static/egeria-shared-ui.js?v=2026-11-04d"></script>
+  <script src="/static/egeria-shared-ui.js?v=2026-11-04r"></script>
   <script>"use strict";
 
 const {
@@ -1971,7 +1972,7 @@ function buildAttrIndex(rawData, hideDeprecated) {
 function AttrIndexView({ rawData, onNavigateToType, hideDeprecated }) {
   const [search, setSearch] = useState('');
   const [selAttr, setSelAttr] = useState(null);
-  const [sideW, onDivDown] = useResizable(254);
+  const [sideW, onDivDown] = useResizable(254, null, null, 'AttrIndexView.sideW');
 
   const attrIndex = useMemo(() => rawData ? buildAttrIndex(rawData, hideDeprecated) : {}, [rawData, hideDeprecated]);
   const attrNames = useMemo(() => {
@@ -2388,7 +2389,7 @@ function DictResultView({ rows, columns, depth }) {
       visRows.length + ' row' + (visRows.length !== 1 ? 's' : '') + (filter.trim() ? ' (filtered)' : '')
     ),
     React.createElement('div', { style: { overflowX: 'auto', maxHeight: 520, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 4 } },
-      React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse' } },
+      React.createElement('table', { 'data-no-col-resize': '', style: { width: '100%', borderCollapse: 'collapse' } },
         React.createElement('thead', null, React.createElement('tr', null, headerCells)),
         React.createElement('tbody', null, tbodyChildren)
       )
@@ -2768,7 +2769,7 @@ function ReportSpecDetail({ spec, onSelectSpec }) {
 function ReportSpecView() {
   const [loadState, setLoadState] = useState('loading');
   const [attempt, setAttempt]     = useState(0);
-  const [sideW, onDivDown] = useResizable(254);
+  const [sideW, onDivDown] = useResizable(254, null, null, 'ReportSpecView.sideW');
   const [specs, setSpecs]         = useState([]);
   const [selected, setSelected]   = useState(null);
   const [history, setHistory]     = useState([]); // navigation back-stack
@@ -3001,7 +3002,7 @@ function AnalyticsDetail({ spec }) {
 function AnalyticsView() {
   const [loadState, setLoadState] = useState('loading');
   const [attempt, setAttempt]     = useState(0);
-  const [sideW, onDivDown] = useResizable(254);
+  const [sideW, onDivDown] = useResizable(254, null, null, 'AnalyticsView.sideW');
   const [functions, setFunctions] = useState([]);
   const [selected, setSelected]   = useState(null);
   const [search, setSearch]       = useState('');
@@ -3130,8 +3131,8 @@ function ReportsView({ initialTab }) {
 
 function GlossaryTermsTab({ navGuid, onNavigateToDataDesign, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
-  const [sideW, onDivDown] = useResizable(254);
-  const [midW, onMidDivDown] = useResizable(300);
+  const [sideW, onDivDown] = useResizable(254, null, null, 'GlossaryTermsTab.sideW');
+  const [midW, onMidDivDown] = useResizable(300, null, null, 'GlossaryTermsTab.midW');
   const [glossaryState, setGlossaryState] = useState('loading');
   const [glossaryAttempt, setGlossaryAttempt] = useState(0);
   const [glossaries, setGlossaries] = useState([]);
@@ -3604,7 +3605,7 @@ function SubjectAreaTreeNode({ node, depth, selectedGuid, onSelect, expanded, to
 
 function SubjectAreasTab({ onNavigateToElement }) {
   const creds = React.useContext(CredContext);
-  const [sideW, onDivDown] = useResizable(300);
+  const [sideW, onDivDown] = useResizable(300, null, null, 'SubjectAreasTab.sideW');
   const [hierState, setHierState] = useState('loading');
   const [hierAttempt, setHierAttempt] = useState(0);
   const [hierError, setHierError] = useState('');
@@ -3832,7 +3833,7 @@ function ReferenceDataView({ navGuid, onNavigateToElement }) {
     var params = new URLSearchParams(window.location.search);
     return params.get('guid') || null;
   })());
-  const [sideW, onDivDown] = useResizable(254);
+  const [sideW, onDivDown] = useResizable(254, null, null, 'ReferenceDataView.sideW');
   const [loadState, setLoadState] = useState('loading');
   const [attempt, setAttempt]     = useState(0);
   const [items, setItems]         = useState([]);
@@ -4061,7 +4062,7 @@ function ExternalReferenceDetail({ item, onNavigateToElement }) {
 
 function ExternalReferencesView({ navGuid, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
-  const [sideW, onDivDown] = useResizable(280);
+  const [sideW, onDivDown] = useResizable(280, null, null, 'ExternalReferencesView.sideW');
   const [state, setState]     = useState('loading');
   const [attempt, setAttempt] = useState(0);
   const [items, setItems]     = useState([]);
@@ -4251,7 +4252,7 @@ function ExternalIdentifierDetail({ item, onNavigateToElement }) {
 
 function ExternalIdentifiersView({ navGuid, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
-  const [sideW, onDivDown] = useResizable(280);
+  const [sideW, onDivDown] = useResizable(280, null, null, 'ExternalIdentifiersView.sideW');
   const [state, setState]     = useState('loading');
   const [attempt, setAttempt] = useState(0);
   const [items, setItems]     = useState([]);
@@ -4440,7 +4441,7 @@ function AgreementDetail({ item, onNavigateToElement }) {
 
 function AgreementsView({ navGuid, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
-  const [sideW, onDivDown] = useResizable(280);
+  const [sideW, onDivDown] = useResizable(280, null, null, 'AgreementsView.sideW');
   const [state, setState]     = useState('loading');
   const [attempt, setAttempt] = useState(0);
   const [items, setItems]     = useState([]);
@@ -4829,8 +4830,8 @@ function DigitalTreeNode({ node, depth, selectedGuid, onSelect, expanded, toggle
 
 function DigitalProductsView({ navGuid, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
-  const [sideW, onDivDown] = useResizable(254);
-  const [treeW, onTreeDivDown] = useResizable(300);
+  const [sideW, onDivDown] = useResizable(254, null, null, 'DigitalProductsView.sideW');
+  const [treeW, onTreeDivDown] = useResizable(300, null, null, 'DigitalProductsView.treeW');
   const [catState, setCatState]     = useState('loading');
   const [catAttempt, setCatAttempt] = useState(0);
   const [catalogs, setCatalogs]     = useState([]);
@@ -5025,8 +5026,8 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
 
 function CollectionsView({ navGuid, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
-  const [sideW, onDivDown] = useResizable(254);
-  const [treeW, onTreeDivDown] = useResizable(300);
+  const [sideW, onDivDown] = useResizable(254, null, null, 'CollectionsView.sideW');
+  const [treeW, onTreeDivDown] = useResizable(300, null, null, 'CollectionsView.treeW');
   const [rootState, setRootState]   = useState('loading');
   const [rootAttempt, setRootAttempt] = useState(0);
   const [roots, setRoots]           = useState([]);
@@ -5408,6 +5409,7 @@ function _parseNumpyDoc(doc) {
 }
 
 function PyegeriaDocsView() {
+  const [docsSideW, onDocsDivDown] = useResizable(270, 180, null, 'PyegeriaDocsView.sideW');
   const [data, setData]                       = useState(null);
   const [error, setError]                     = useState(null);
   const [search, setSearch]                   = useState('');
@@ -5593,7 +5595,7 @@ function PyegeriaDocsView() {
 
   return React.createElement("div", { className: "body" },
     // ── Left sidebar ──────────────────────────────────────────────────────────
-    React.createElement("div", { style: { width: 270, minWidth: 180, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 } },
+    React.createElement("div", { style: { width: docsSideW, minWidth: 180, display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 } },
       React.createElement("div", { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)' } },
         React.createElement("input", {
           type: 'text', placeholder: 'Search classes…', value: search,
@@ -5610,6 +5612,7 @@ function PyegeriaDocsView() {
       ),
       React.createElement("div", { style: { flex: 1, overflowY: 'auto' } }, renderSidebar())
     ),
+    React.createElement(ResizeDivider, { onMouseDown: onDocsDivDown }),
     // ── Right detail pane ─────────────────────────────────────────────────────
     selectedClass
       ? React.createElement("div", { style: { flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' } },
@@ -6509,8 +6512,8 @@ function ValidValuesView({ navProp, navGuid, onNavigateToElement }) {
 
 function ValidMetadataValuesTab({ navProp, navGuid, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
-  const [sideW, onDivDown] = useResizable(254);
-  const [midW, onMidDivDown] = useResizable(300);
+  const [sideW, onDivDown] = useResizable(254, null, null, 'ValidMetadataValuesTab.sideW');
+  const [midW, onMidDivDown] = useResizable(300, null, null, 'ValidMetadataValuesTab.midW');
   // Left: property name input + dynamic presets from Egeria
   const [propertyName, setPropertyName] = useState('');
   const [submittedProp, setSubmittedProp] = useState('');
@@ -6670,8 +6673,8 @@ function ValidMetadataValuesTab({ navProp, navGuid, onNavigateToElement }) {
 
 function SpecificationPropertyValuesTab({ onNavigateToElement }) {
   const creds = React.useContext(CredContext);
-  const [sideW, onDivDown] = useResizable(254);
-  const [midW, onMidDivDown] = useResizable(300);
+  const [sideW, onDivDown] = useResizable(254, null, null, 'SpecificationPropertyValuesTab.sideW');
+  const [midW, onMidDivDown] = useResizable(300, null, null, 'SpecificationPropertyValuesTab.midW');
   // Left: spec property type input + dynamic presets from Egeria
   const [typeName, setTypeName] = useState('');
   const [submittedType, setSubmittedType] = useState('');
@@ -6829,8 +6832,8 @@ function MethodBadge({ method }) {
 
 function RestApiView() {
   const { useState: S, useEffect: E, useMemo: M, useCallback: C } = React;
-  const [col1W, onDiv1Down] = useResizable(220);
-  const [col2W, onDiv2Down] = useResizable(360);
+  const [col1W, onDiv1Down] = useResizable(220, null, null, 'RestApiView.col1W');
+  const [col2W, onDiv2Down] = useResizable(360, null, null, 'RestApiView.col2W');
 
   // catalog = { groups, bodies } — loaded from /api/request-bodies (no Egeria needed)
   const [catalog, setCatalog]       = S(null);
@@ -7296,7 +7299,7 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
   usePublishNav(selGuid, subNav);
   const [detail, setDetail] = React.useState(null);
   const [detailSt, setDetailSt] = React.useState('idle');
-  const [sideW, onSideDivDown] = useResizable(260);
+  const [sideW, onSideDivDown] = useResizable(260, null, null, 'DataDesignView.sideW');
   const [filter, setFilter] = React.useState('');
   const [inclTempl, setInclTempl] = React.useState(false);
   const selection = useSelection();
@@ -7839,7 +7842,7 @@ function DesignPatternDetail({ pattern, onNavigateToPattern, onNavigateToElement
 
 function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
-  const [sideW, onDivDown] = useResizable(260);
+  const [sideW, onDivDown] = useResizable(260, null, null, 'PerspectivesView.sideW');
   const [subNav, setSubNav]   = useState('perspectives');
   const [filter, setFilter]   = useState('');
   const [asOfTime, setAsOfTime] = useState(null);  // LE-3 point-in-time
@@ -8103,7 +8106,7 @@ function getDualTitle(title) {
 }
 
 function DrEgeriaCommandsView() {
-  const [sideW, onDivDown] = useResizable(280);
+  const [sideW, onDivDown] = useResizable(280, null, null, 'DrEgeriaCommandsView.sideW');
   const [level, setLevel]   = useState('basic');
   const [filter, setFilter] = useState('');
   const [cmdData, setCmdData]     = useState(null);
@@ -8604,7 +8607,7 @@ function _humanizeKey(key) {
 
 function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
-  const [sideW, onDivDown] = useResizable(280);
+  const [sideW, onDivDown] = useResizable(280, null, null, 'InformationSupplyChainView.sideW');
   const [asOfTime, setAsOfTime] = useState(null);
   const [state, setState]   = useState('loading');
   const [attempt, setAttempt] = useState(0);
@@ -8993,7 +8996,7 @@ function LocationTreeNode({ item, byGuid, depth, selected, onSelect, expanded, t
 
 function LocationsView({ navGuid, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
-  const [sideW, onDivDown] = useResizable(280);
+  const [sideW, onDivDown] = useResizable(280, null, null, 'LocationsView.sideW');
   const [state, setState]   = useState('loading');
   const [attempt, setAttempt] = useState(0);
   const [items, setItems]   = useState([]);
@@ -9292,7 +9295,7 @@ var ACTOR_SUBNAV_ORDER = ['profiles', 'roles', 'identities'];
 
 function ActorsView({ navKind, navGuid, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
-  const [sideW, onDivDown] = useResizable(280);
+  const [sideW, onDivDown] = useResizable(280, null, null, 'ActorsView.sideW');
   // Initial sub-tab + selection: in-app nav (navKind/navGuid props) takes
   // priority; falls back to ?kind=&guid= for a cross-app deep link landing
   // directly on this page (e.g. from Tech Catalog's "↗ Egeria Explorer" link).
@@ -9843,7 +9846,7 @@ function ActionDetail({ data, onNavigateToElement }) {
 
 function ActionCenterView({ onNavigateToElement, navGuid }) {
   const creds = React.useContext(CredContext);
-  const [sideW, onDivDown] = useResizable(280);
+  const [sideW, onDivDown] = useResizable(280, null, null, 'ActionCenterView.sideW');
   const [actionType, setActionType] = useState('all');
   const [startFrom, setStartFrom] = useState(0);
   const PAGE_SIZE = 50;
@@ -10082,7 +10085,7 @@ function DuplicateReviewView({ onNavigateToElement }) {
 
 function InformalTagsView({ navGuid, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
-  const [sideW, onDivDown] = useResizable(280);
+  const [sideW, onDivDown] = useResizable(280, null, null, 'InformalTagsView.sideW');
   const [state, setState]   = useState('loading');
   const [attempt, setAttempt] = useState(0);
   const [items, setItems]   = useState([]);
@@ -10209,7 +10212,7 @@ function InformalTagsView({ navGuid, onNavigateToElement }) {
 
 function CommunityView({ navGuid, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
-  const [sideW, onDivDown] = useResizable(280);
+  const [sideW, onDivDown] = useResizable(280, null, null, 'CommunityView.sideW');
   const [state, setState]   = useState('loading');
   const [attempt, setAttempt] = useState(0);
   const [items, setItems]   = useState([]);
@@ -10373,7 +10376,7 @@ function BusinessCapabilityDetail({ data, detail, onNavigateToElement }) {
 
 function BusinessCapabilityView({ navGuid, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
-  const [sideW, onDivDown] = useResizable(280);
+  const [sideW, onDivDown] = useResizable(280, null, null, 'BusinessCapabilityView.sideW');
   const [state, setState]   = useState('loading');
   const [attempt, setAttempt] = useState(0);
   const [items, setItems]   = useState([]);
@@ -10671,7 +10674,7 @@ function NoteLogDetail({ data, detail, onNavigateToElement }) {
 
 function NoteLogView({ navGuid, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
-  const [sideW, onDivDown] = useResizable(280);
+  const [sideW, onDivDown] = useResizable(280, null, null, 'NoteLogView.sideW');
   const [state, setState]   = useState('loading');
   const [attempt, setAttempt] = useState(0);
   const [items, setItems]   = useState([]);
@@ -10793,7 +10796,7 @@ function NoteLogView({ navGuid, onNavigateToElement }) {
 
 function SolutionArchitectView({ navProp, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
-  const [sideW, onDivDown] = useResizable(260);
+  const [sideW, onDivDown] = useResizable(260, null, null, 'SolutionArchitectView.sideW');
   // ?kind=components&guid=... supports a cross-app deep link landing directly
   // here (e.g. from Tech Catalog's "↗ Egeria Explorer" link on a SolutionComponent).
   const [subNav, setSubNav] = useState(function() {
@@ -11550,7 +11553,7 @@ function ProjectTreeNode({ node, depth, selectedGuid, onSelect, expanded, toggle
 
 function ProjectsView({ navGuid, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
-  const [sideW, onDivDown] = useResizable(280);
+  const [sideW, onDivDown] = useResizable(280, null, null, 'ProjectsView.sideW');
   const [state, setState]   = React.useState('loading');
   const [error, setError]   = React.useState('');
   const [projects, setProjects] = React.useState([]);
@@ -12029,7 +12032,7 @@ function GovTypeNode({ node, depth, selectedType, onSelect, expanded, toggleExpa
 
 function ContextEventsView({ navGuid, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
-  const [sideW, onDivDown]   = useResizable(260);
+  const [sideW, onDivDown]   = useResizable(260, null, null, 'ContextEventsView.sideW');
   const [filter, setFilter]  = useState('');
   const [inclTempl, setInclTempl] = useState(false);
   const [events, setEvents]  = useState([]);
@@ -12355,8 +12358,8 @@ function ContextEventsView({ navGuid, onNavigateToElement }) {
 
 function GovernanceView({ navTypeName, navGuid, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
-  const [sideW, onDivDown]     = useResizable(220);
-  const [listW, onListDivDown] = useResizable(280);
+  const [sideW, onDivDown]     = useResizable(220, null, null, 'GovernanceView.sideW');
+  const [listW, onListDivDown] = useResizable(280, null, null, 'GovernanceView.listW');
 
   const [typeTree, setTypeTree]     = useState([]);
   const [typeLabels, setTypeLabels] = useState({});
@@ -13080,7 +13083,7 @@ function App() {
     if (typeName === 'Endpoint') { window.open('/tech-catalog?guid=' + encodeURIComponent(guid), '_blank'); return; }
   }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToCollection, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToBusinessCapability, onNavigateToAction, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDesignPattern, onNavigateToDataDesign, onNavigateToPerspective, onNavigateToExternalReference, onNavigateToExternalIdentifier, onNavigateToAgreement, onNavigateToProject, onNavigateToValidValues, onNavigateToInformalTag, onNavigateToContextEvent]);
 
-  const [typeSideW, onTypeDivDown] = useResizable(254);
+  const [typeSideW, onTypeDivDown] = useResizable(254, null, null, 'App.typeSideW');
 
   // Fetch type data; re-runs when typeAttempt changes (triggered by saveCreds) so a credential fix retries.
   useEffect(() => {
