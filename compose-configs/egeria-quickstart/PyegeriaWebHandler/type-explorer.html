@@ -869,8 +869,15 @@ function getRels(name, entities, relationships) {
   const chain = getChain(name, entities);
   const out = [];
   Object.entries(relationships).forEach(([rn, r]) => {
-    if (chain.includes(r.end1)) out.push({ name: rn, ...r, role: 'end1', other: r.end2, source: r.end1 });
-    if (chain.includes(r.end2)) out.push({ name: rn, ...r, role: 'end2', other: r.end1, source: r.end2 });
+    const at1 = chain.includes(r.end1), at2 = chain.includes(r.end2);
+    if (at1 && at2) {
+      // This type can sit at either end (e.g. Referenceable–Referenceable, or
+      // end1 Referenceable / end2 Asset for an Asset subtype) — one card, not
+      // two near-identical ones. source = the nearer end in the chain.
+      const near1 = chain.indexOf(r.end1) >= chain.indexOf(r.end2);
+      out.push({ name: rn, ...r, role: 'both', other: near1 ? r.end2 : r.end1, source: near1 ? r.end1 : r.end2 });
+    } else if (at1) out.push({ name: rn, ...r, role: 'end1', other: r.end2, source: r.end1 });
+    else if (at2) out.push({ name: rn, ...r, role: 'end2', other: r.end1, source: r.end2 });
   });
   return out;
 }
@@ -1179,7 +1186,8 @@ function TypeDetail({
         fontSize: 12,
         color: 'var(--dim)'
       }
-    }, r.role === 'end1' ? '— this →' : '→ this from'), /*#__PURE__*/React.createElement("button", {
+    }, r.role === 'end1' ? '— this →' : r.role === 'end2' ? '→ this from' : '⇄ this (either end) with'), /*#__PURE__*/React.createElement("button", {
+      title: r.role === 'both' ? `end1: ${r.end1} · end2: ${r.end2}` : undefined,
       onClick: () => onSelect('type', r.other),
       style: {
         background: 'none',
