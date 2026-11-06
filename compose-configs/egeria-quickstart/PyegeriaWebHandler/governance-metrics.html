@@ -11,6 +11,7 @@
 <script src="/static/egeria-resize.js?v=2026-11-04b"></script>
 <script>EgeriaResize.grids('.detail-grid');</script>
 <script src="/static/bootstrap-banner.js?v=2026-08-18a"></script>
+<script src="/static/diagram-viewer.js?v=2026-11-06a"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 <style>
   :root {
@@ -196,7 +197,7 @@ function renderMermaidBlock(id, code){
     if (!el) return;
     try { window.mermaid.initialize({ startOnLoad: false, theme: document.documentElement.classList.contains('light') ? 'default' : 'dark', securityLevel: 'loose' }); } catch (e) {}
     window.mermaid.render(id + '-svg', code)
-      .then(function(res){ var el2 = document.getElementById(id); if (el2) el2.innerHTML = res.svg || ''; })
+      .then(function(res){ var el2 = document.getElementById(id); if (el2) { el2.innerHTML = res.svg || ''; egeriaAttachExpand(el2, 'Diagram'); } })
       .catch(function(err){ var el2 = document.getElementById(id); if (el2) el2.innerHTML = '<div class="p-note">⚠ Mermaid render failed: ' + esc(String(err)) + '</div>'; });
   };
   tryRender();

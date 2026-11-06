@@ -11,6 +11,7 @@
 <script src="/static/egeria-resize.js?v=2026-11-04b"></script>
 <script>EgeriaResize.grids('.placements');</script>
 <script src="/static/bootstrap-banner.js?v=2026-08-18a"></script>
+<script src="/static/diagram-viewer.js?v=2026-11-06a"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
@@ -875,6 +876,7 @@ function renderVegaBlocks(blocks) {
       if (!el) return; // navigated away before vega-embed finished loading
       var themed = Object.assign({}, b.spec, { config: Object.assign({}, isLightTheme() ? VEGA_LIGHT_CONFIG : VEGA_DARK_CONFIG, b.spec.config || {}) });
       window.vegaEmbed('#' + b.id, themed, { actions: false, renderer: 'svg' })
+        .then(function() { egeriaAttachExpand(document.getElementById(b.id), 'Chart'); })
         .catch(function(err) {
           var el2 = document.getElementById(b.id);
           if (el2) el2.innerHTML = '<div class="p-note">⚠ Chart render failed: ' + esc(String(err)) + '</div>';
@@ -921,7 +923,7 @@ function renderMermaidBlocks(blocks) {
       if (!el) return; // navigated away before mermaid.js finished loading
       try { window.mermaid.initialize({ startOnLoad: false, theme: isLightTheme() ? 'default' : 'dark', securityLevel: 'loose' }); } catch (e) {}
       window.mermaid.render(b.id + '-svg', b.code)
-        .then(function(res) { var el2 = document.getElementById(b.id); if (el2) el2.innerHTML = res.svg || ''; })
+        .then(function(res) { var el2 = document.getElementById(b.id); if (el2) { el2.innerHTML = res.svg || ''; egeriaAttachExpand(el2, 'Diagram'); } })
         .catch(function(err) {
           var el2 = document.getElementById(b.id);
           if (el2) el2.innerHTML = '<div class="p-note">⚠ Mermaid render failed: ' + esc(String(err)) + '</div>';
