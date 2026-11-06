@@ -359,7 +359,7 @@ A **value cell** is the runtime pairing of a value with the companions its field
 
 | Companion | Source in the shipped Declaration |
 |---|---|
-| `state` | the absence vocabulary `ABSENCE_STATES` (`not_measured`, `not_permitted`, `not_applicable`, `measured_nothing`) plus `measured`. `not_permitted` is an explicit refusal (an Egeria 403 on one call) and the one Resource Explorer meets daily. A per-row refusal with a reason (today's live case: a file "cataloged twice in Egeria", the W68 sentence) is `not_measured` plus `reason`, per row, not a result-level state. |
+| `state` | the absence vocabulary `ABSENCE_STATES` (`not_measured`, `not_permitted`, `not_applicable`, `nothing_found`) plus `measured`. `not_permitted` is an explicit refusal (an Egeria 403 on one call) and the one Resource Explorer meets daily. A per-row refusal with a reason (today's live case: a file "cataloged twice in Egeria", the W68 sentence) is `not_measured` plus `reason`, per row, not a result-level state. |
 | `completeness` | **replaces the boolean `capped` and the v3 idea of an `unknowable` state** (owner raised silent filtering; Architect: a value exists under it, so it is a companion, not an absence). Three values: `complete` · `lower_bound` (what `capped_field` says today; same meaning, no migration of meaning) · `unknown` (silently filtered, e.g. a zone filter that hides elements without refusing: not even a bound). **Who sets it:** no producer can see a silent filter, and the executor already knows whether the role input it supplied is a person's client, so **`unknown` is the default for every Egeria-reading stage run under a person's client** (Architect, v5 review: as an opt-in flag it is forgotten, as v5's own 10.3 showed). A stage opts out only with a reason (`completeness: {"complete": "daemon precomputed under all zones"}`); the daemon's all-zones reads are `complete` by the same rule. Rendering: the number with "at least" for `lower_bound`, "incomplete: some items may be hidden from you" for `unknown`; never a bare integer, never zero for either. (The result envelope's own states, `measured` / `nothing_found` / `not_established` / `not_applicable`, stay at the result level; the executor already maps them onto the absence words.) |
 | absence sentence | **not carried in the cell.** Declared once per measure (`AbsenceSentences`); looked up from the declaration at render time. |
 | confidence `score` | `ConfidenceDeclaration` (form ∈ measured / estimated / inferred / judged / generated, basis, method, score, calibrated) is declared per measure; a cell may carry the score, never a different form. Confidence is about the method. |
@@ -383,7 +383,7 @@ companion to a named **state set**:
 ```
 
 A plain string (`"completeness"`) means "any value of the shared vocabulary". `CountStates` is a registered set
-(`measured`, `not_measured`, `measured_nothing`: a count read under the daemon cannot be `not_permitted`). A set may
+(`measured`, `not_measured`, `nothing_found`: a count read under the daemon cannot be `not_permitted`). A set may
 only narrow the shared vocabulary, never add a word, because formatters and absence sentences know only the shared
 words. Each cell then carries **one actual value** per companion, produced by the run. The executor checks both ends:
 at load, that every named set exists and is a subset (§2c); at run time, that a cell's state is in its field's set (a
@@ -795,7 +795,7 @@ its own (v5.3); and a report carries one parameter document.
 
 | New entity type | Supertype | Own properties | Replaces |
 |---|---|---|---|
-| **`Dashboard`** | `DataSet` (sibling of `Report`, `Form`) **— base type to decide, below** | `aliases` (array), `refreshSeconds` (int), `layoutStyle` (string); heading = `displayName` | the `DashboardSheet` record in `~/.pyegeria/dashboard_sheets.json` |
+| **`Dashboard`** | `DataSet` (sibling of `Report`, `Form`) **— base type DECIDED (owner, 2026-11-06)** | `aliases` (array), `refreshSeconds` (int), `layoutStyle` (string); heading = `displayName` | the `DashboardSheet` record in `~/.pyegeria/dashboard_sheets.json` |
 | **`DashboardPlacement`** | `DisplayDataField` (⊂ `SchemaAttribute`) | `placementKind` (REPORT · TEXT), `span` (ONE · TWO · FULL), `emphasis` (KPI · PANEL), `markdownContent` (TEXT only); the placement's name is its `displayName`, its order the `position` of `NestedSchemaAttribute` | `Placement` |
 
 | New relationship | End 1 → End 2 | Properties | Replaces |
@@ -832,7 +832,7 @@ the placement's report through its spec's `KPI` formatter, and `PANEL` through t
 how 10.7 shows one report twice, as a tile and as a panel. Dr.Egeria's `Placement Emphasis` values `kpi` / `panel` keep
 their meaning; the overlap with the `KPI` output format name is now defined rather than accidental.
 
-**The base type of `Dashboard`: `DataSet` is recommended, and the Architect agrees (v5.3); the owner decides.**
+**The base type of `Dashboard`: `DataSet`. DECIDED (owner, 2026-11-06), as recommended, with the Architect's agreement.** The comparison is kept for the Egeria type review:
 
 | | `Dashboard` ⊂ `DataSet` (recommended; the companion note's choice) | `Dashboard` ⊂ `Collection` (pyegeria's dashboard model docstring; Dr.Egeria's `Create Dashboard Sheet` bundle inherits `Collection Base`) |
 |---|---|---|
@@ -858,7 +858,7 @@ One place for the review with the Egeria team. **Status** says where each item s
 |---|---|---|---|---|
 | 1 | `ReportSpec` ⊂ `ReportType`, typed `microflow` (JSON text) plus `targetType`, `aliases`, `outputTypes`, `includePreamble` (§9.1) | decided | `ReportType` with values in `additionalProperties` | a map of maps in `additionalProperties` is the pattern the earlier note forbids; a subtype keeps today's 74 `ReportType` GUIDs and names by retyping within one branch |
 | 2 | `MeasurementSpecification` ⊂ `DataValueSpecification` (`completenessDeclared`, `confidenceForm`, `uncertaintyForm`, `stateSet`, `absenceSentences`, `basisField`, `asOfField`) (§8b) | decided | a `MeasurementDeclaration` classification on `DataField` (v5.1); typed attributes on `GovernanceMetric` (the 2026-11-03 ask) | follows Egeria's own pattern (`DataClass`, `DataGrain` are siblings); inherits unit and uncertainty, so one carrier; an element can be shared, a classification cannot |
-| 3 | `Dashboard` ⊂ `DataSet` (`aliases`, `refreshSeconds`, `layoutStyle`) (§8d) | recommended (Architect agrees) | `Dashboard` ⊂ `Collection` (pyegeria's model docstring, Dr.Egeria's current bundle) | `DataSetContent` makes a dashboard's reports its lineage, and `Report`, `Form`, `InformationView` are its natural siblings; layout works either way |
+| 3 | `Dashboard` ⊂ `DataSet` (`aliases`, `refreshSeconds`, `layoutStyle`) (§8d) | decided | `Dashboard` ⊂ `Collection` (pyegeria's model docstring, Dr.Egeria's current bundle) | `DataSetContent` makes a dashboard's reports its lineage, and `Report`, `Form`, `InformationView` are its natural siblings; layout works either way |
 | 4 | `DashboardPlacement` ⊂ `DisplayDataField` (`placementKind` REPORT · TEXT, `span`, `emphasis`, `markdownContent`) | recommended | plain `DisplayDataField` with span, emphasis and kind in `additionalProperties` (the companion note's existing-types variant) | typed, validated properties instead of strings every consumer parses |
 | 5 | `DashboardPlacementReport` (`DashboardPlacement` → `Report`) | recommended | `DataSetContent` from the dashboard with the placement id in `queryId` | a placement names its report directly; `DataSetContent` stays as the dashboard-level lineage link |
 | 6 | `ReportInstanceOf` (`ReportSpec` → `Report`) | recommended | `Report.additionalProperties.reportSpec` (today); `DataDescription` as an interim | the missing link between a spec and its configured reports, so "which reports use this spec?" is a query |
@@ -947,9 +947,12 @@ One place for the review with the Egeria team. **Status** says where each item s
     Egeria removes the stage. No decision needed now beyond keeping the shape/renderer axes separate.
 11. **Examples are re-cut at each revision (owner point 16).** §10 is the review surface for the structure and the
     mappings; when the design hardens, the examples are checked against a running executor and the generator.
-12. **One absence word for "nothing there".** The envelope says `nothing_found`, the cell says `measured_nothing`; the
-    executor's `_ABSENCE_FOR_STATE` map hides the pair from code but not from a Dr.Egeria author. Pick one in v6, with
-    the trellis-analytics 0.3 vocabulary release (§5).
+12. **One absence word for "nothing there".** **DECIDED (owner, 2026-11-06): `nothing_found`**, for the envelope and
+    the cell alike. The cell vocabulary is `measured`, `not_measured`, `not_permitted`, `not_applicable`, `nothing_found`.
+    `measured_nothing` is renamed in the trellis-analytics declaration model, the step manifests and pyegeria's
+    `_ABSENCE_FOR_STATE` map with the 0.3 vocabulary release (delivery step (a′), §9.7); the map keeps reading the
+    old word until then, so results already published still resolve. Chosen because it is the wider word (Resource
+    Explorer's result state, and `ReportRunOf.resultState`), and renaming the other is a code change only.
 13. **Egeria Advisor's builder (v5.2).** The builder (`egeria-advisor` `REPORT_SPEC_BUILDER_DESIGN.md`, 2026-06-26)
     writes `## Create Report Spec` plus one `## Create Column` block per column, parsed by its own
     `parse_report_spec_markdown` into a `FormatSet`, registered in the `RUNTIME` tier under the document id and run
@@ -968,8 +971,8 @@ One place for the review with the Egeria team. **Status** says where each item s
     contract, so a preview is a run whose result is not saved as a snapshot), and parameter profiles (named sets of
     `shape` and `performance` values; deferred).
 14. **The dashboard type package (v5.2).** In scope (owner, 2026-11-06) and requested with `ReportSpec` and
-    `MeasurementSpecification` (§8d). Open for the owner: `Dashboard`'s base type, `DataSet` (recommended, Architect
-    agrees on the lineage argument) or `Collection`. Answered (v5.3): the asset-to-layout relationship is `Schema` to a
+    `MeasurementSpecification` (§8d). **DECIDED (owner, 2026-11-06):** `Dashboard`'s base type is `DataSet` (the lineage argument; `Collection`
+    was the alternative). Answered (v5.3): the asset-to-layout relationship is `Schema` to a
     `DisplayDataSchemaType`, and a nested sheet is a nested container, so the package is `Dashboard`,
     `DashboardPlacement`, `DashboardPlacementReport`, `ReportInstanceOf`, `ReportRunOf`.
 15. **Resource Explorer's charts to Vega-Lite (v5.2).** Decided (owner): one chart library, Vega-Lite. Resource
@@ -988,30 +991,30 @@ One place for the review with the Egeria team. **Status** says where each item s
     `microflow` JSON. Recommended: (a), with (b) as the interim, since the canonical JSON already holds the binding and
     the executors never read it from Egeria.
 
-18. **Sheet-level parameters (from 10.8).** The Overview's time machine passes one as-of time to every tile, and a
+18. **Sheet-level parameters (from 10.8).** **DECIDED (owner, 2026-11-06): as recommended.** The Overview's time machine passes one as-of time to every tile, and a
     `Dashboard` has no parameters of its own. Proposed: a sheet declares `params` like a spec (§2b, same rules); each
     placement's report receives the sheet's value for any parameter it declares of the same name; a placement whose
     spec does not declare a sheet parameter that is set is refused at load with that reason, never run at "now". In
     Egeria the values join the report's parameter document (`formula`, §8d); a typed home on `Dashboard` waits for the
     type review.
-19. **Order and selection per perspective (from 10.8).** Each Overview perspective shows its own tiles in its own
+19. **Order and selection per perspective (from 10.8).** **DECIDED (owner, 2026-11-06): as recommended.** Each Overview perspective shows its own tiles in its own
     order; `ScopedBy` selects placements but the only order is `NestedSchemaAttribute.position`. Options: (a) a
     `perspective_order` map on the sheet (perspective → placement names), simple, no lineage; (b) one nested
     `DisplayDataContainer` per perspective, which duplicates placements; (c) a `position` property on the
     placement-to-perspective link, which `ScopedBy` does not have. Recommended: (a) now, (c) as an ask if (a) proves
     too weak. Topics, the Overview's second selector, are the same question with a different vocabulary; they could
     be `Collection` tags on placements.
-20. **A perspective as a scope, not only a filter (from the July Overview note, still open).** A Steward's drill into
+20. **A perspective as a scope, not only a filter (from the July Overview note, still open).** **DECIDED (owner, 2026-11-06): as recommended.** A Steward's drill into
     "ungoverned" should be limited to their own domain. Nothing passes a perspective's scope (or the viewer's
     `assignmentScope`) into a report's parameters. Proposed: a perspective may bind values to declared `content`
     parameters, resolved per viewer before the run. Not needed for the first rebuild; recorded so the parameter model
     leaves room for it.
-21. **Shared datasets and result caching (from 10.8).** One Overview summary call computes about a dozen tiles from
+21. **Shared datasets and result caching (from 10.8).** **DECIDED (owner, 2026-11-06): as recommended.** One Overview summary call computes about a dozen tiles from
     shared counts; run as separate specs the Asset count is fetched many times. Proposed: placements that name the
     same routine with the same parameter values share one run within a sheet render, and the executor caches results
     keyed on (spec or routine, version, parameter values, viewer), with the TTL the sheet's `refreshSeconds` or the
     routine's declaration gives. The cache is per viewer because results are zone-filtered.
-22. **Where the catalog-level questions live (from 10.8).** Trellis's `resource_questions.csv` is per resource type and
+22. **Where the catalog-level questions live (from 10.8).** **DECIDED (owner, 2026-11-06): as recommended.** Trellis's `resource_questions.csv` is per resource type and
     its generator refuses an unknown type. The Overview's questions are about the whole catalog. Options: (a) a new
     resource type (for example `catalog`) in the same CSV and generator; (b) a separate catalog of the same shape for
     Portal dashboards. Recommended: (a), so one generator, one `Question` pattern and one perspective vocabulary serve
@@ -1364,7 +1367,7 @@ BAR: x=published,not_yet_published, y=published,not_yet_published
 ```
 **(c) Egeria and the tile.** `curation_coverage_tile` is deleted; the KPI and BAR renderers do what it did, from
 pyegeria's rendering library, in the Portal and in Resource Explorer alike (§6). The tile's states survive as
-envelope words: `measured_nothing` + reason ("30 schemas known, no choice made"), `provenance` ("from
+envelope words: `nothing_found` + reason ("30 schemas known, no choice made"), `provenance` ("from
 trellis-analytics 0.3.0 · curation coverage · as of …"); a repository never reaches the routine (admission). Elements:
 `ReportSpec` → `ResourceList` "stage 1" → `Process` `curation_coverage` (the routine; declaration JSON in `formula`,
 `formulaType` `trellis-declaration/1`) `ImplementedBy` (`role` "python") → `EmbeddedProcess` (an `Action`)
@@ -1530,7 +1533,7 @@ Consumer, Steward
 Glossary-With-Terms
 ```
 **(c) Egeria** (§8d; every dashboard type below is *proposed*): one `Dashboard` (`glossary-health`, with `aliases`,
-`refreshSeconds`, `layoutStyle`; base type `DataSet` as recommended, open in §9.14) —`Schema`→ a
+`refreshSeconds`, `layoutStyle`; base type `DataSet`, decided in §9.14) —`Schema`→ a
 `DisplayDataSchemaType` —`AttributeForSchema`→ the sheet's `DisplayDataContainer`, which holds four
 `DashboardPlacement`s (⊂ `DisplayDataField`) by `NestedSchemaAttribute`, `position` 1–4: one TEXT placement
 with `markdownContent`, three REPORT placements with `span` and `emphasis`. Each REPORT placement is linked
@@ -1646,8 +1649,8 @@ must carry or fix:
   is fixed at 2026-07-23.
 
 **Perspectives: a Trellis subset, not a second set.** The Overview should use the `Perspective::<Name>` elements Trellis
-already creates (`foundations.md`, twelve), not its own ten keys. Proposed subset for an estate-wide catalog view, for
-the owner to review:
+already creates (`foundations.md`, twelve), not its own ten keys. **DECIDED (owner, 2026-11-06):** the subset below, ten of
+the twelve, for an estate-wide catalog view:
 
 | Overview today | Trellis perspective | Keep for the Overview? |
 |---|---|---|
@@ -1661,7 +1664,7 @@ the owner to review:
 | `architecture` | Architecture | yes |
 | `engineer` (Engineering) | Data Expert | yes; Data Expert already consolidates the engineering lens, so Engineering retires |
 | `community` | Community | yes (People section) |
-| — | Financial | not now: the Business Value cards are proxies, not cost; add when a cost measure exists |
+| — | Financial | not now; added back when the Overview has cost measures to show (owner, 2026-11-06) |
 | — | Admin | no: platform operations is the Operations app's view, not the catalog's |
 
 **Questions follow the perspectives.** Trellis keeps its questions in `resource_questions.csv`, generated into
@@ -1714,12 +1717,13 @@ abbreviated. Producers in a multi-producer micro-flow carry a `name`, and a proc
   }
 }
 ```
-Sheet-level `params` and `perspective_order` are **not in the model yet**: they are what §9.18 and §9.19 ask for, shown
-here so the gap is concrete. Every report on the sheet declares `as_of`, so the sheet's value is passed to each; a
+Sheet-level `params` and `perspective_order` are the additions §9.18 and §9.19 decided (owner, 2026-11-06). Every report on the sheet declares `as_of`, so the sheet's value is passed to each; a
 placement whose spec does not declare it is refused at load, never silently run at "now" (the growth and activity
 panels' bug today). The `governed` count states one thing today's tile does not: matching ANY of five classifications on
-**Asset**, where the current find counts any element type over an Asset-only denominator. Whether to keep today's
-definition is a question for the tile's owner, and the spec makes it a visible parameter rather than a comment.
+**Asset**, where the current find counts any element type over an Asset-only denominator. **DECIDED (owner, 2026-11-06): Assets only.** Governed
+Coverage is Assets carrying at least one of the five over all Assets, a true share ("N of M assets"); the donut keeps
+the zone-only versus fully governed split. Both counts are native counts, which removes today's 500 cap (a type plus
+classification condition on the count endpoint is assumed here and checked live before the build relies on it).
 
 **(b) Dr.Egeria.** The sheet uses the commands of 10.6 unchanged: one `Create Dashboard Sheet`, one `Add Text on
 Dashboard Sheet` per section heading, one `Link Report to Dashboard Sheet` per placement, with `Placement Perspectives`
