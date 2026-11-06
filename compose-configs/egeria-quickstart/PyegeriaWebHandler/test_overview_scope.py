@@ -241,3 +241,20 @@ def test_people_and_usage_report_their_scope(monkeypatch):
     monkeypatch.setattr(oh, "count_relationships", lambda c, r, as_of=None, expert=None: 3)
     people = json.loads(oh.get_people(as_of_time=None, url=None, server=None, user_id=None, user_pwd=None).body)
     assert people["countScope"] == "viewer"
+
+
+def test_repository_relationship_counts_are_given_the_expert():
+    """count_relationships only applies a scope through `expert`; without it repository scope is None."""
+    seen = []
+
+    def rel(c, r, as_of=None, expert=None, scope=None):
+        seen.append((expert, scope))
+        return 1
+    marker = object()
+    oh._scoped(rel, oh.REPOSITORY, expert=marker)(None, "AttachedLike", None)
+    assert seen == [(marker, "repository")]
+    seen.clear()
+    oh._scoped(rel, oh.VIEWER, expert=marker)(None, "AttachedLike", None)   # viewer: untouched
+    assert seen == [(None, None)]
+    src = inspect.getsource(oh.get_summary) + inspect.getsource(oh.get_people)
+    assert src.count("expert=mgr") + src.count("expert=expert") >= 2

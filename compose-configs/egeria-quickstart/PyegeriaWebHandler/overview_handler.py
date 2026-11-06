@@ -375,10 +375,12 @@ def _count_scope(*fns) -> str:
     return REPOSITORY if fns and all(_accepts_scope(f) for f in fns) else VIEWER
 
 
-def _scoped(fn, scope: str):
-    """`fn` with `scope="repository"` bound when requested and supported; otherwise `fn` unchanged."""
+def _scoped(fn, scope: str, **extra):
+    """`fn` with `scope="repository"` (plus any `extra` kwargs) bound when requested and supported;
+    otherwise `fn` unchanged. count_relationships needs `expert=<MetadataExpert>` for a scope to apply
+    (repository scope without it returns None, i.e. not measured)."""
     if scope == REPOSITORY and _accepts_scope(fn):
-        return functools.partial(fn, scope=REPOSITORY)
+        return functools.partial(fn, scope=REPOSITORY, **extra)
     return fn
 
 
@@ -485,7 +487,7 @@ def get_summary(
                          *([count_elements_by_property] if count_elements_by_property else []))
     n_elements = _scoped(count_elements, scope)
     n_by_type = _scoped(counts_by_type, scope)
-    n_relationships = _scoped(count_relationships, scope)
+    n_relationships = _scoped(count_relationships, scope, expert=mgr)
     n_by_property = _scoped(count_elements_by_property, scope) if count_elements_by_property else None
 
     gov = governed_coverage(mgr, as_of_time)
@@ -1434,7 +1436,6 @@ def get_people(
     scope = _count_scope(people_counts, count_elements, count_relationships)
     n_people = _scoped(people_counts, scope)
     n_elements = _scoped(count_elements, scope)
-    n_relationships = _scoped(count_relationships, scope)
     try:
         expert = _expert(url, server, user_id, user_pwd)
         people = n_people(expert, as_of_time, strict=True)
@@ -1456,7 +1457,7 @@ def get_people(
     ce = None
     try:
         ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
-        fb = _feedback_counts(ce, as_of_time, n_relationships)
+        fb = _feedback_counts(ce, as_of_time, _scoped(count_relationships, scope, expert=expert))
         feedback_by_type = fb["byType"]
         feedback_items = fb["total"]
         feedback_unmeasured = fb["unmeasured"]
