@@ -18,14 +18,28 @@ number tied to a business-value lens and drill-through into the owning app.
 
 A dashboard = a **Perspective's Questions**, each answered by a saved report spec,
 rendered as a drill-able tile. Selecting a perspective reconfigures the whole page
-(which sections show, in what order, the KPI tiles, the question set). The 8
-perspectives and their scavenged question sets (DAMA-DMBOK / DCAM / FAIR / DataOps)
-are materialisable as real Egeria elements — see `OVERVIEW_PERSPECTIVES.dr-egeria.md`.
+(which sections show, in what order, the KPI tiles, the question set).
+
+### Perspectives
+
+The page shows **ten of the twelve Trellis perspectives**, named and ordered as the Trellis
+`foundations.md` names them: Governance, Steward, Data Owner, Consumer, App/AI Builder, Privacy,
+Community, Data Expert, Security, Architecture. **Financial** is left out until the Overview has cost
+measures; **Admin** is left out because it is the Operations app's view. (The former "Engineering" lens
+is now **Data Expert**.) Keys are slugs of the display name (`data-owner`, `app-ai-builder`,
+`data-expert`, …); keys saved in a browser's `localStorage` before the rename are migrated
+(`owner`, `engineer`, `builder`).
+
+On load the page reads the existing `GET /api/perspectives` and matches Egeria's `Perspective`
+elements by **qualifiedName** (`Perspective::Data Owner`, …) — never by display name, so stray
+elements such as `Perspective::Owner` or `Perspective::Administration` are ignored. A matched tab's
+tooltip says it is live (and shows the element's description); if Egeria is down or the element is
+missing, the tab still renders from the built-in entry and its tooltip says "Perspective not found in
+Egeria". The per-perspective question sets stay inline in `PERSPECTIVES` for now.
 
 ## Features
 
-- **Perspective-driven layout** — 8 personas (Governance Lead, Steward, Data Owner,
-  Consumer, Engineer, App/AI Builder, Privacy Officer, Community Lead); each shows a
+- **Perspective-driven layout** — the 10 Trellis perspectives listed above; each shows a
   curated, reordered section set + its own KPI tiles + its own questions. Persists in
   `localStorage`.
 - **Business Value lens** — every metric ladders to risk / productivity / trust /

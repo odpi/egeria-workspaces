@@ -86,12 +86,12 @@ TOPIC_COLLECTIONS = {
 PERSPECTIVE_COLLECTIONS = {
     "governance":   "Governance View",
     "steward":      "Steward View",
-    "owner":        "Data Owner View",
+    "data-owner":   "Data Owner View",
     "consumer":     "Consumer View",
-    "engineer":     "Engineering View",
+    "data-expert":  "Data Expert View",
     "architecture": "Architecture View",
     "security":     "Security View",
-    "builder":      "App/AI Builder View",
+    "app-ai-builder": "App/AI Builder View",
     "privacy":      "Privacy View",
     "community":    "Community View",
 }
