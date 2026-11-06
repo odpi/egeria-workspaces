@@ -62,7 +62,7 @@ The Overview dashboard's KPI tiles are defined once in `overview_specs.py` as Fo
 
 - `assets` — `MetadataExpert.count_metadata_elements(type_name=Asset)`
 - `terms` — `MetadataExpert.count_metadata_elements(type_name=GlossaryTerm)`
-- `governed` — `MetadataExpert.find_metadata_elements(matchClassifications=['ZoneMembership', 'Confidentiality', 'Criticality', 'Impact', 'Retention'], matchCriteria=ANY)`
+- `governed` — `MetadataExpert.count_metadata_elements(metadataElementTypeName=Asset, matchClassifications=['ZoneMembership', 'Confidentiality', 'Criticality', 'Impact', 'Retention'], matchCriteria=ANY)`
 - `certs` — `ClassificationExplorer.get_relationships(relationship_type=Certification)`
 - `products` — `MetadataExpert.count_metadata_elements(type_name=DigitalProduct)`
 - `exceptions` — `ClassificationExplorer.get_relationships(relationship_type=Exception)`
