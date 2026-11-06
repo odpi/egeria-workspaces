@@ -162,13 +162,19 @@ services:
     # ~9.8TB of sort/hash spill to temp files — both point at the same
     # under-sizing. Host has ample headroom (Docker Desktop VM pool ~45GB,
     # ~31GB free at the time of this change) for all of these.
+    #
+    # Raised 2026-11-06: shared_buffers 2GB -> 6GB, effective_cache_size 8GB ->
+    # 16GB. The egeria database had grown to 40GB and its queries spent most of
+    # their time in DataFileRead, reading pages that did not fit in 2GB. Not
+    # 8GB: the Docker VM (32GB) had ~12GB available with its swap full, and
+    # egeria-main can grow to its 10GB limit, so 8GB left too little headroom.
     command: >-
       -p 5442
       -c max_connections=1000
       -c idle_in_transaction_session_timeout=1800000
-      -c shared_buffers=2GB
+      -c shared_buffers=6GB
       -c work_mem=32MB
-      -c effective_cache_size=8GB
+      -c effective_cache_size=16GB
       -c maintenance_work_mem=256MB
       -c random_page_cost=1.1
       -c checkpoint_timeout=15min
