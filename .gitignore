@@ -285,3 +285,9 @@ coco-workbooks/1. coco-data-hub/mapping-the-systems/supply-chain-lineage-report.
 
 # pyegeria version pin written by quick-start-local/fresh-start-local --pyegeria-version
 compose-configs/*/.env.pyegeria
+
+# Claude Code per-user state (the shared skills under .claude/skills/ stay tracked)
+.claude/settings.local.json
+.claude/worktrees/
+.claude/projects/
+.claude/scheduled_tasks.lock
