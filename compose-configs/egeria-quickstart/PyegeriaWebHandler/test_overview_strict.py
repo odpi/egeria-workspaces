@@ -66,10 +66,10 @@ def test_handler_passes_strict_for_headline_counts():
     # the summary tile counts must come from strict calls; check the source rather than a live route
     import inspect
     src = inspect.getsource(oh.get_summary)
-    for needle in ('count_elements(mgr, "Asset", as_of_time, strict=True)',
-                   'count_elements(mgr, "GlossaryTerm", as_of_time, strict=True)',
-                   'count_elements(mgr, "DigitalProduct", as_of_time, strict=True)',
-                   "counts_by_type(mgr, _ASSET_TYPES, as_of_time, strict=True)"):
+    for needle in ('n_elements(mgr, "Asset", as_of_time, strict=True)',
+                   'n_elements(mgr, "GlossaryTerm", as_of_time, strict=True)',
+                   'n_elements(mgr, "DigitalProduct", as_of_time, strict=True)',
+                   "n_by_type(mgr, _ASSET_TYPES, as_of_time, strict=True)"):
         assert needle in src, needle
     assert "strict=True" in inspect.getsource(oh.get_people)
     assert "strict=True" in inspect.getsource(oh.get_usage_context)
@@ -78,9 +78,10 @@ def test_handler_passes_strict_for_headline_counts():
 # ── funnel: a measured 0 stays 0 ─────────────────────────────────────────────
 
 def test_pyegeria_funnel_turns_zero_into_none_which_the_handler_corrects():
-    # pyegeria's `count or None`: a measured 0 is reported as None
+    # pyegeria 6.2.21 reports a measured 0 as None (`count or None`); later versions may report 0.
+    # Either way the handler must end up with a real 0.
     raw = om.context_readiness_funnel(_EmptyMgr(), _ZeroCE())
-    assert raw["cataloged"] is None and raw["classified"] is None
+    assert raw["cataloged"] in (None, 0) and raw["classified"] in (None, 0)
     fixed = oh._strict_funnel_counts(raw, _EmptyMgr())
     assert fixed["cataloged"] == 0 and fixed["classified"] == 0
     # other stages are untouched
@@ -98,8 +99,9 @@ def test_feedback_failure_is_none_not_zero():
     fb = oh._feedback_counts(_FailingCE())
     assert set(fb["byType"].values()) == {None}
     assert fb["total"] is None and len(fb["unmeasured"]) == 5
-    # pyegeria's own summary reports the same failure as "0 items of feedback"
-    assert om.feedback_summary(_FailingCE())["total"] == 0
+    # pyegeria 6.2.21's own summary reports the same failure as "0 items of feedback"; later versions
+    # report None. The handler does not depend on which.
+    assert om.feedback_summary(_FailingCE())["total"] in (0, None)
 
 
 def test_feedback_real_zero_is_zero():
@@ -120,7 +122,7 @@ def test_feedback_partial_failure_has_no_total():
 
 def test_business_value_failed_find_is_not_a_zero():
     failed = om.business_value_signals(_FailingMgr())
-    assert failed["assetTotal"] == 0          # pyegeria: failure looks like an empty catalog
+    assert failed["assetTotal"] in (0, None)  # 6.2.21: failure looks like an empty catalog; later: None
     out = oh._reconcile_business_value(failed, None, None)
     assert out["assetTotal"] is None and out["confidentialCount"] is None and out["describedCount"] is None
 
@@ -169,8 +171,10 @@ def test_governed_counts_are_asset_scoped_and_strict(monkeypatch):
 def test_governed_summary_route_uses_asset_scoped_counts():
     import inspect
     src = inspect.getsource(oh.get_summary)
-    assert 'count_elements(mgr, "Asset", as_of_time, classifications=GOVERNANCE_CLASSIFICATIONS, strict=True)' in src
-    assert 'classifications=_SUBSTANTIVE_GOVERNANCE, strict=True' in src
+    assert '_governed_asset_counts(n_elements, mgr, as_of_time)' in src
+    gsrc = inspect.getsource(oh._governed_asset_counts)
+    assert 'classifications=GOVERNANCE_CLASSIFICATIONS, strict=True' in gsrc
+    assert 'classifications=_SUBSTANTIVE_GOVERNANCE, strict=True' in gsrc
 
 
 def test_governed_unmeasured_is_none_not_zero():

@@ -205,7 +205,11 @@ _TILES = [
                  "count, so the figure is usually lower than the earlier any-type tally. A count that "
                  "could not be measured shows as not measured, never 0. The Governed vs Ungoverned "
                  "donut is Asset-scoped the same way; the zone and classification breakdowns beside "
-                 "it still count elements of any type.",
+                 "it still count elements of any type. Scope: when the installed pyegeria supports "
+                 "whole-repository counts, both numerator and denominator count the whole catalog "
+                 "(including Assets you cannot open), so the share can be much smaller than the "
+                 "viewer-scoped figure because the denominator is every Asset in the repository; "
+                 "the tile says which scope it used.",
     },
     {
         "key": "certs", "label": "Active Certifications", "icon": "📜", "color": "var(--c4)",
