@@ -3,7 +3,7 @@
 
 # Building the Governance Program
 
-This directory contains nineteen Dr.Egeria Markdown files.  The first two were created by [Jules Keeper](https://egeria-project.org/practices/coco-pharmaceuticals/personas/jules-keeper/) to describe his plan for the first 90 days at Coco Pharmaceuticals and his data strategy framework.
+This directory contains twenty Dr.Egeria Markdown files.  The first two were created by [Jules Keeper](https://egeria-project.org/practices/coco-pharmaceuticals/personas/jules-keeper/) to describe his plan for the first 90 days at Coco Pharmaceuticals and his data strategy framework.
 
 * [jules-90-day-plan.md](jules-90-day-plan.md)
 * [data-strategy-framework.md](data-strategy-framework.md)
@@ -97,8 +97,9 @@ While that work is going on, Jules and his team are building the artifacts that 
 | 17 | `data-governance-program.md` | Jules Keeper, Erin Overview and Peter Profile |
 | 18 | `employee-glossary.md` | Erin Overview and Faith Broker, from the [glossary session](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/defining-a-glossary/overview/) |
 | 19 | `strategic-information-supply-chains.md` | Jules Keeper and Erin Overview, naming the flows the whole programme has been describing obligations about |
+| 20 | `chief-data-officer-dashboard.md` | Jules Keeper, building the dashboard that shows how the program is going |
 
-The last of these loads after everything else in the directory because it links to governance definitions owned by every domain in it.
+The supply chain register loads after the domain files because it links to governance definitions owned by every domain in them.  The dashboard loads last of all because its tiles count what everything else created.
 
 **There are no forward references.**  Every link resolves to a definition created in the same file or in an earlier one, so a single pass loads the whole directory.  This is worth preserving: the peer links between domains are symmetric, so when two domains reference each other the link belongs in whichever file loads later.  Several such links live in `data-governance-program.md` for exactly this reason, which is also where they belong thematically.
 
@@ -118,7 +119,7 @@ Each file is loaded as the governance leader responsible for it, so that the def
 
 | User id | Governance leader | Files |
 |---|---|---|
-| `juleskeeper` | Jules Keeper, Chief Data Officer | the 90 day plan, data strategy framework, joint officer definitions, risk register, the data governance program, and the strategic information supply chains |
+| `juleskeeper` | Jules Keeper, Chief Data Officer | the 90 day plan, data strategy framework, joint officer definitions, risk register, the data governance program, the strategic information supply chains, and the Chief Data Officer dashboard |
 | `faithbroker` | Faith Broker, Chief Privacy Officer and Head of Human Resources | privacy, human resource management, health and safety, biological agents, and diversity, equity and inclusion |
 | `stewfaster` | Stew Faster, Head of Manufacturing | manufacturing, serialisation, and dangerous goods transport |
 | `ivorpadlock` | Ivor Padlock, Chief Security Officer | the data security strategy |
@@ -544,6 +545,30 @@ You can load the definitions into Egeria in one of two ways:
 It links to definitions in the joint, data, security, privacy, manufacturing, serialisation, drug development, corporate, human resources, health and safety and dangerous goods files, so it loads after all of them.  The sustainability program links its own definitions to the Sustainability Reporting supply chain when `3. sustainability/` loads later.
 
 Once loaded, you can browse the results in [Egeria Explorer](https://egeria-project.org/user-interfaces/egeria-explorer/overview/) in the Egeria Portal.  Select the **Solution Architect** card, or find the register under **Collections** → **Strategic Solutions** → **Strategic Information Supply Chains**.
+
+----
+
+## 20. Chief Data Officer Dashboard
+
+The file [chief-data-officer-dashboard.md](chief-data-officer-dashboard.md) defines a **local dashboard** for Jules Keeper that shows how well the data governance program is going.  It is the first version of the metrics system that the Impact Phase of the ninety day plan set out to build.
+
+The dashboard is built from three kinds of Dr.Egeria command.  `Create Report` defines each tile as an Egeria `Report` asset: a report spec plus the parameters that scope it.  `Create Dashboard Sheet` creates the dashboard itself, and `Link Report to Dashboard Sheet` and `Add Text on Dashboard Sheet` lay out the tiles and captions in order.  The dashboard sheet is a local record held by pyegeria rather than an Egeria element, which is why it is called a *local* dashboard.
+
+The tiles are grouped around five questions: has the governance program been built, are the DATA domain's own metrics moving, is the common vocabulary being used, is the data hub delivering, and where do things stand against the plan and the risk register.  Every tile is a live query, so the dashboard changes as the catalog grows.  Three of the six DATA domain metrics depend on data quality results that the catalog does not record yet, and the dashboard says so rather than leaving them out.
+
+Run this file where the Egeria Portal can see the dashboard it writes:
+
+1. From the Egeria Portal - open **Local Dashboards**, click **▶ Run Dr.Egeria Document**, paste the file, then click **Validate** and **Process**.
+2. From the command line, run it inside the portal's own container:
+
+    ```
+    docker exec -w "/coco-workbooks/0. data-governance-program" quickstart-pyegeria-web \
+        dr_egeria --directive process --userid juleskeeper --user_pass secret chief-data-officer-dashboard.md
+    ```
+
+Running it from JupyterLab or Obsidian also works, but the dashboard sheet is then written to that environment's own `~/.pyegeria/dashboard_sheets.json`, so the portal will not show it.
+
+Load it after the rest of this directory, and preferably after `1. coco-data-hub/` too, since the digital product and supply chain tiles count what the data hub team builds.  Then open **Local Dashboards** in the Egeria Portal and select **Chief Data Officer Dashboard**.
 
 ----
 
