@@ -19,6 +19,10 @@ Routes:
   GET /api/overview/ai-context    → AI & context-intelligence readiness (best-effort)
   GET /api/overview/people        → people / community engagement (best-effort)
   GET /api/overview/growth        → catalog growth via asOfTime snapshots (best-effort)
+  GET /api/overview/specs         → the tile registry (overview_specs) as JSON (static; no Egeria call)
+  GET /api/overview/container     → the Overview dashboard as a Container of placements (static; no Egeria call)
+  GET /api/overview/activity      → recent changes to curated content (always "now"; no asOfTime)
+  GET /api/overview/usage-context → Information Supply Chains & Solution Blueprints (usage context)
 
 Aggregation reuses the same capped-tally philosophy as insights_handler (Egeria's
 find API returns paged element lists with no total-count metadata, so counts are
@@ -65,6 +69,7 @@ except ImportError:
 # docstring for the design boundary).
 from pyegeria.view.overview_metrics import (
     WINDOWS as _WINDOWS,
+    GOVERNANCE_CLASSIFICATIONS,
     count_elements,
     count_relationships,
     counts_by_type,
@@ -73,7 +78,6 @@ from pyegeria.view.overview_metrics import (
     semantic_grounding,
     context_readiness_funnel,
     people_counts,
-    feedback_summary,
     usage_context_counts,
     growth_series,
 )
@@ -337,6 +341,70 @@ def get_container(
         raise HTTPException(status_code=500, detail=f"Container resolution failed: {exc}")
 
 
+# Collaboration relationship types behind the People tile's feedback tally (same set and keys as
+# pyegeria's overview_metrics.feedback_summary, which folds a failed count to 0).
+_FEEDBACK_RELATIONSHIPS = (
+    ("AttachedRating", "ratings"), ("AttachedComment", "comments"), ("AttachedLike", "likes"),
+    ("AttachedTag", "tags"), ("AttachedNoteLog", "noteLogs"),
+)
+
+
+def _feedback_counts(ce, as_of: Optional[str] = None) -> dict:
+    """Feedback tally where a count that could not be read is None, not 0.
+
+    pyegeria's feedback_summary does `count_relationships(...) or 0`, so a failed query reads as "no
+    feedback". Here each type is None when unmeasured, and `total` is None unless every type was
+    measured -- a sum over a subset is a lower bound, not a total."""
+    by_type = {key: count_relationships(ce, rel, as_of) for rel, key in _FEEDBACK_RELATIONSHIPS}
+    unmeasured = [k for k, v in by_type.items() if v is None]
+    total = None if unmeasured else sum(by_type.values())
+    return {"byType": by_type, "total": total, "unmeasured": unmeasured}
+
+
+_SUBSTANTIVE_GOVERNANCE = tuple(c for c in GOVERNANCE_CLASSIFICATIONS if c != "ZoneMembership")
+
+
+def _asset_scoped_governed(gov: dict, governed: Optional[int], fully: Optional[int]) -> dict:
+    """Governed Coverage is an Assets-only share (owner decision 2026-11-06).
+
+    `governed` = Assets carrying at least one of the five governance classifications; `fully` = Assets
+    carrying at least one of the four substantive ones (everything but ZoneMembership). Both are strict
+    native counts, so they are exact (never a capped lower bound) or None. The zone-only share is the
+    difference. `gov` (pyegeria's governed_coverage) contributes only byClassification / topZones, which
+    stay element-wide (any type) and are labelled so by the page."""
+    out = dict(gov)
+    out["governedCount"] = governed
+    out["governedCapped"] = False if governed is not None else None
+    out["fullyGoverned"] = fully
+    out["partialZoneOnly"] = (governed - fully) if governed is not None and fully is not None and governed >= fully else None
+    return out
+
+
+def _reconcile_business_value(bv: dict, asset_total: Optional[int], duplicate_count: Optional[int]) -> dict:
+    """Make business_value_signals honest about a failed find.
+
+    Its Asset find returns [] on failure, which it reports as assetTotal=0 and confidential/described=0.
+    The strict Asset count (`asset_total`) is the independent check: if the find came back empty but the
+    catalog is not known to be empty, the per-asset figures were not measured. The duplicate count is the
+    caller's strict one, replacing pyegeria's non-strict value."""
+    out = dict(bv)
+    out["duplicateCount"] = duplicate_count
+    if out.get("assetTotal") == 0 and asset_total != 0:
+        out.update(assetTotal=None, assetCapped=None, confidentialCount=None, describedCount=None)
+    return out
+
+
+def _strict_funnel_counts(readiness: dict, mgr, as_of: Optional[str] = None) -> dict:
+    """Re-measure the funnel's Cataloged/Classified stages strictly.
+
+    pyegeria's context_readiness_funnel returns `count or None`, turning a measured 0 into null (and a
+    failed count into 0 first). A measured 0 must stay 0 and a failure must stay None."""
+    out = dict(readiness)
+    out["cataloged"] = count_elements(mgr, "Asset", as_of, strict=True)
+    out["classified"] = count_elements(mgr, None, as_of, classifications=GOVERNANCE_CLASSIFICATIONS, strict=True)
+    return out
+
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 @router.get("/api/overview/summary", summary="Headline KPI counts for the Overview dashboard")
@@ -361,11 +429,15 @@ def get_summary(
     # 5-classification ANY is affected by the server bug; still correct at 0/1
     # conditions and used here as a best-effort coverage proxy).
     gov = governed_coverage(mgr, as_of_time)
+    gov = _asset_scoped_governed(
+        gov,
+        count_elements(mgr, "Asset", as_of_time, classifications=GOVERNANCE_CLASSIFICATIONS, strict=True),
+        count_elements(mgr, "Asset", as_of_time, classifications=_SUBSTANTIVE_GOVERNANCE, strict=True))
 
     # Assets by type (best-effort; unknown types yield 0) — kept purely as the
     # composition breakdown behind the "Assets by Type" chart below; it is
     # NOT summed for the headline total anymore (see asset_total below).
-    by_type = counts_by_type(mgr, _ASSET_TYPES, as_of_time)
+    by_type = counts_by_type(mgr, _ASSET_TYPES, as_of_time, strict=True)
 
     # Headline total: the native `Asset` supertype count (OVERVIEW_NEXT_STEPS.md
     # "Asset definition" open decision, resolved 2026-08-16) — one native count
@@ -376,11 +448,11 @@ def get_summary(
     # in that list — that mismatch (e.g. live: 2,668 curated-sum vs 2,523
     # Asset-supertype) is exactly what motivated unifying the two here, so the
     # tile's own headline number and its own sparkline finally agree.
-    asset_total = count_elements(mgr, "Asset", as_of_time)
+    asset_total = count_elements(mgr, "Asset", as_of_time, strict=True)
 
     by_type = _exclusive_by_type(by_type, asset_total)
 
-    term_count = count_elements(mgr, "GlossaryTerm", as_of_time)
+    term_count = count_elements(mgr, "GlossaryTerm", as_of_time, strict=True)
 
     # Vega-Lite bar chart for the assets-by-type composition (real chart —
     # supersedes the hand-drawn SVG bars; see OVERVIEW_REPORTING_MODEL.md P1).
@@ -400,12 +472,12 @@ def get_summary(
     # keeps this to 2 cheap native COUNT calls total, same cost class as the
     # single count this replaces, and stays correct regardless of which
     # status values actually appear in a given dataset.
-    data_products = count_elements(mgr, "DigitalProduct", as_of_time)
+    data_products = count_elements(mgr, "DigitalProduct", as_of_time, strict=True)
     data_products_active = None
     if count_elements_by_property is not None:
         try:
             data_products_active = count_elements_by_property(
-                mgr, "DigitalProduct", "deploymentStatus", "ACTIVE", as_of_time)
+                mgr, "DigitalProduct", "deploymentStatus", "ACTIVE", as_of_time, strict=True)
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"overview summary: data products deploymentStatus breakdown failed: {exc}")
     data_products_pending = (
@@ -438,7 +510,9 @@ def get_summary(
                         "describedCount": None, "duplicateCount": None}
     if business_value_signals is not None:
         try:
-            biz_value = business_value_signals(mgr, as_of_time)
+            biz_value = _reconcile_business_value(
+                business_value_signals(mgr, as_of_time), asset_total,
+                count_elements(mgr, None, as_of_time, classifications=["ConsolidatedDuplicate"], strict=True))
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"overview summary: business_value_signals failed: {exc}")
 
@@ -477,6 +551,7 @@ def get_summary(
 
     payload = {
         "asOfTime":         as_of_time,
+        "viewServer":       _env(url, server, user_id, user_pwd)[1],   # the Egeria view server queried (page header)
         "assetTotal":       asset_total,
         "byType":           by_type,
         "byTypeChart":      by_type_chart,
@@ -1210,6 +1285,8 @@ def get_ai_context(
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview ai-context: ai_ready_assets query failed: {exc}")
 
+    readiness = _strict_funnel_counts(readiness, mgr, as_of_time)
+
     funnel = {
         "Cataloged":       readiness["cataloged"],
         "Documented":      readiness["documented"],
@@ -1290,7 +1367,7 @@ def get_people(
     expert = None
     try:
         expert = _expert(url, server, user_id, user_pwd)
-        people = people_counts(expert, as_of_time)
+        people = people_counts(expert, as_of_time, strict=True)
         persons     = people["persons"]
         teams       = people["teams"]
         orgs        = people["organizations"]
@@ -1304,18 +1381,20 @@ def get_people(
     # (deferred). karma = count of ContributionRecord elements.
     feedback_by_type = None
     feedback_items = None
+    feedback_unmeasured = None
     karma = None
     ce = None
     try:
         ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
-        fb = feedback_summary(ce, as_of_time)
+        fb = _feedback_counts(ce, as_of_time)
         feedback_by_type = fb["byType"]
         feedback_items = fb["total"]
+        feedback_unmeasured = fb["unmeasured"]
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview people: feedback query failed: {exc}")
     try:
         if expert is not None:
-            karma = count_elements(expert, "ContributionRecord", as_of_time)
+            karma = count_elements(expert, "ContributionRecord", as_of_time, strict=True)
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview people: karma query failed: {exc}")
 
@@ -1361,6 +1440,7 @@ def get_people(
         "karmaRecords":       karma,             # count of ContributionRecord elements
         "feedbackItems":      feedback_items,    # Σ ratings+comments+likes+tags+noteLogs
         "feedbackByType":     feedback_by_type,
+        "feedbackUnmeasured": feedback_unmeasured,   # relationship types whose count could not be read
         "feedbackChart":      feedback_chart,
         "leaderboard":        leaderboard,       # per-person karma rollup, top 10
         "engagementSeries":   engagement_series_data,  # weekly feedback trend, 12wk
@@ -1399,7 +1479,7 @@ def get_usage_context(
     iscs = blueprints = None
     try:
         mgr = _expert(url, server, user_id, user_pwd)
-        usage = usage_context_counts(mgr, as_of_time)
+        usage = usage_context_counts(mgr, as_of_time, strict=True)
         iscs       = usage["informationSupplyChains"]
         blueprints = usage["blueprints"]
     except Exception as exc:  # noqa: BLE001
