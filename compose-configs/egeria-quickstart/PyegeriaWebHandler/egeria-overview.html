@@ -1315,8 +1315,8 @@ const SECTION_PROVENANCE = {
   ],
   growth: [
     { name: 'Catalog Growth chart (assets/terms/governed/products)', status: 'live' },      // /api/overview/growth, real asOfTime snapshots
-    { name: 'Governed vs Ungoverned %',                              status: 'live' },      // governed_coverage
-    { name: 'Fully/Partial/Ungoverned breakdown',                    status: 'live' },  // governed_coverage's fullyGoverned/partialZoneOnly, ungoverned derived from assetTotal
+    { name: 'Governed vs Ungoverned %',                              status: 'live' },      // Asset-scoped strict native counts (summary.governedCount / assetTotal)
+    { name: 'Fully/Partial/Ungoverned breakdown',                    status: 'live' },  // Asset-scoped native counts (fullyGoverned / governed - fully), ungoverned derived from assetTotal
   ],
   composition: [
     { name: 'Assets by Type',                status: 'live' },  // counts_by_type via /api/overview/summary
@@ -1515,7 +1515,7 @@ const DRILL = {
   governed: { eb:'Governance posture', t:'🛡️ Governed Coverage', s:'Assets carrying ≥1 governance classification',
     stats:[[ND,'governed'],[ND,'ungoverned'],[ND,'assets']], list:[],
     cta:['Review in Query','/egeria-insights'], sec:['See exceptions in Audit','/egeria-audit'],
-    note:'Classification &amp; zone tallies from <code>overview_metrics.governed_coverage</code> (<code>/api/overview/summary</code>). A capped tally is shown as a lower bound.' },
+    note:'Assets only: Assets carrying at least one governance classification ÷ all Assets, both exact native counts (<code>overview_metrics.count_elements</code>, via <code>/api/overview/summary</code>). Usually lower than the earlier any-element-type tally.' },
   certs: { eb:'Compliance', t:'📜 Active Certifications', s:'Active certification relationships',
     stats:[[ND,'active'],[ND,'expiring ≤90d'],[ND,'open exceptions']], list:[],
     cta:['Open in Egeria Audit','/egeria-audit'], sec:null,
@@ -1970,10 +1970,12 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     if (d.viewServer) setTxt('srcServer', 'server: ' + d.viewServer);
     store.asOfTime = d.asOfTime || null;
     store.surveyLinksCapped = d.surveyLinksCapped; store.confidentialityCapped = d.confidentialityCapped;
-    if (d.assetTotal && d.governedCount != null) {
-      store.governedPctNum = Math.round(100 * d.governedCount / Math.max(d.assetTotal, d.governedCount));
-      // governedCapped: the governed tally stopped at a page limit, so both figures are lower bounds
-      var gLb = d.governedCapped ? 'at least ' : '';
+    // Governed Coverage = Assets with >=1 governance classification / all Assets, both exact native counts
+    // (so governed <= total by construction; a governed count above the total means the two reads
+    // disagree, and no percentage is shown rather than a clamped one).
+    if (d.assetTotal && d.governedCount != null && d.governedCount <= d.assetTotal) {
+      store.governedPctNum = Math.round(100 * d.governedCount / d.assetTotal);
+      var gLb = d.governedCapped ? 'at least ' : '';   // false for the native counts; kept for a capped fallback
       store.governedPct = (d.governedCapped ? '≥' : '') + store.governedPctNum + '%';
       store.governedSub = gLb + fmt(d.governedCount) + ' of ' + fmt(d.assetTotal) + ' assets';
     }
@@ -2014,12 +2016,12 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
         (d.staleAssetTotal ? ' (' + fmt(d.staleAssetCount) + ' of ' + fmt(d.staleAssetTotal) + ' assets)' : ''));
     }
     // Governed vs. Ungoverned donut + Fully/Partial/Ungoverned breakdown —
-    // fullyGoverned/partialZoneOnly are real (governed_coverage's own hits
-    // list, bucketed by which classifications each element carries);
-    // ungoverned is derived the same way the donut % badge already was
-    // (assetTotal - governed), not a separate query.
-    if (d.fullyGoverned != null && d.partialZoneOnly != null && d.assetTotal != null) {
-      var ungoverned = Math.max(d.assetTotal - d.fullyGoverned - d.partialZoneOnly, 0);
+    // fullyGoverned / partialZoneOnly are Asset-scoped native counts (fully = Assets with a Confidentiality,
+    // Criticality, Impact or Retention classification; zone only = governed minus fully); ungoverned is
+    // assetTotal - governed. Nothing is shown if the counts are inconsistent.
+    if (d.fullyGoverned != null && d.partialZoneOnly != null && d.assetTotal != null
+        && d.fullyGoverned + d.partialZoneOnly <= d.assetTotal) {
+      var ungoverned = d.assetTotal - d.fullyGoverned - d.partialZoneOnly;
       setTxt('gov-full', fmt(d.fullyGoverned));
       setTxt('gov-partial', fmt(d.partialZoneOnly));
       setTxt('gov-ungoverned', fmt(ungoverned));

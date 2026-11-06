@@ -361,13 +361,23 @@ def _feedback_counts(ce, as_of: Optional[str] = None) -> dict:
     return {"byType": by_type, "total": total, "unmeasured": unmeasured}
 
 
-def _reconcile_governed(gov: dict, strict_count: Optional[int]) -> dict:
-    """governed_coverage's find returns [] on failure and reports governedCount=0. An empty result is
-    only believed when the strict count agrees it is 0; otherwise the figures were not measured."""
-    if gov.get("governedCount") == 0 and strict_count != 0:
-        return {"governedCount": None, "governedCapped": None, "byClassification": None,
-                "topZones": None, "fullyGoverned": None, "partialZoneOnly": None}
-    return gov
+_SUBSTANTIVE_GOVERNANCE = tuple(c for c in GOVERNANCE_CLASSIFICATIONS if c != "ZoneMembership")
+
+
+def _asset_scoped_governed(gov: dict, governed: Optional[int], fully: Optional[int]) -> dict:
+    """Governed Coverage is an Assets-only share (owner decision 2026-11-06).
+
+    `governed` = Assets carrying at least one of the five governance classifications; `fully` = Assets
+    carrying at least one of the four substantive ones (everything but ZoneMembership). Both are strict
+    native counts, so they are exact (never a capped lower bound) or None. The zone-only share is the
+    difference. `gov` (pyegeria's governed_coverage) contributes only byClassification / topZones, which
+    stay element-wide (any type) and are labelled so by the page."""
+    out = dict(gov)
+    out["governedCount"] = governed
+    out["governedCapped"] = False if governed is not None else None
+    out["fullyGoverned"] = fully
+    out["partialZoneOnly"] = (governed - fully) if governed is not None and fully is not None and governed >= fully else None
+    return out
 
 
 def _reconcile_business_value(bv: dict, asset_total: Optional[int], duplicate_count: Optional[int]) -> dict:
@@ -419,8 +429,10 @@ def get_summary(
     # 5-classification ANY is affected by the server bug; still correct at 0/1
     # conditions and used here as a best-effort coverage proxy).
     gov = governed_coverage(mgr, as_of_time)
-    gov = _reconcile_governed(gov, count_elements(
-        mgr, None, as_of_time, classifications=GOVERNANCE_CLASSIFICATIONS, strict=True))
+    gov = _asset_scoped_governed(
+        gov,
+        count_elements(mgr, "Asset", as_of_time, classifications=GOVERNANCE_CLASSIFICATIONS, strict=True),
+        count_elements(mgr, "Asset", as_of_time, classifications=_SUBSTANTIVE_GOVERNANCE, strict=True))
 
     # Assets by type (best-effort; unknown types yield 0) — kept purely as the
     # composition breakdown behind the "Assets by Type" chart below; it is

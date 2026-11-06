@@ -136,13 +136,56 @@ def test_business_value_duplicate_count_is_the_strict_one():
     assert out["duplicateCount"] is None
 
 
-def test_governed_failed_find_is_not_a_zero():
-    failed = om.governed_coverage(_FailingMgr())
-    assert failed["governedCount"] == 0
-    out = oh._reconcile_governed(failed, None)
-    assert out["governedCount"] is None and out["byClassification"] is None
+# ── Governed Coverage is an Assets-only share ────────────────────────────────
+
+class _CountingMgr:
+    """Records the body of every native count call and answers from a table keyed on
+    (type, sorted classification names)."""
+    def __init__(self, table):
+        self.table, self.bodies = table, []
+
+    def count_metadata_elements(self, body):
+        self.bodies.append(body)
+        names = tuple(sorted(c["name"] for c in (body.get("matchClassifications") or {}).get("conditions", [])))
+        return self.table[(body.get("metadataElementTypeName"), names)]
+
+
+def test_governed_counts_are_asset_scoped_and_strict(monkeypatch):
+    monkeypatch.setattr(om, "_native_count_method", lambda *a, **k: "count_metadata_elements")
+    G = tuple(sorted(om.GOVERNANCE_CLASSIFICATIONS))
+    S = tuple(sorted(oh._SUBSTANTIVE_GOVERNANCE))
+    # any-type tally (232) differs from the Asset-scoped one (43): the numerator must be the latter
+    mgr = _CountingMgr({("Asset", G): 43, ("Asset", S): 30, (None, G): 232})
+    governed = om.count_elements(mgr, "Asset", None, classifications=om.GOVERNANCE_CLASSIFICATIONS, strict=True)
+    fully = om.count_elements(mgr, "Asset", None, classifications=oh._SUBSTANTIVE_GOVERNANCE, strict=True)
+    assert (governed, fully) == (43, 30)
+    assert all(b["metadataElementTypeName"] == "Asset" for b in mgr.bodies)
+    out = oh._asset_scoped_governed({"byClassification": {"Confidentiality": 5}, "topZones": []}, governed, fully)
+    assert out["governedCount"] == 43 and out["governedCapped"] is False
+    assert out["fullyGoverned"] == 30 and out["partialZoneOnly"] == 13
+    assert out["byClassification"] == {"Confidentiality": 5}      # element-wide breakdown is passed through
+
+
+def test_governed_summary_route_uses_asset_scoped_counts():
+    import inspect
+    src = inspect.getsource(oh.get_summary)
+    assert 'count_elements(mgr, "Asset", as_of_time, classifications=GOVERNANCE_CLASSIFICATIONS, strict=True)' in src
+    assert 'classifications=_SUBSTANTIVE_GOVERNANCE, strict=True' in src
+
+
+def test_governed_unmeasured_is_none_not_zero():
+    out = oh._asset_scoped_governed({}, None, None)
+    assert out["governedCount"] is None and out["governedCapped"] is None
+    assert out["fullyGoverned"] is None and out["partialZoneOnly"] is None
+    # fully known but governed not: zone-only cannot be derived
+    assert oh._asset_scoped_governed({}, None, 3)["partialZoneOnly"] is None
 
 
 def test_governed_real_zero_stays_zero():
-    empty = om.governed_coverage(_EmptyMgr())
-    assert oh._reconcile_governed(empty, 0)["governedCount"] == 0
+    out = oh._asset_scoped_governed({}, 0, 0)
+    assert out["governedCount"] == 0 and out["fullyGoverned"] == 0 and out["partialZoneOnly"] == 0
+    assert out["governedCapped"] is False
+
+
+def test_governed_failed_strict_count_is_none():
+    assert om.count_elements(_FailingMgr(), "Asset", classifications=om.GOVERNANCE_CLASSIFICATIONS, strict=True) is None

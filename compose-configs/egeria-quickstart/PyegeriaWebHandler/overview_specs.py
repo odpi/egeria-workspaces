@@ -183,25 +183,29 @@ _TILES = [
     },
     {
         "key": "governed", "label": "Governed Coverage", "icon": "🛡️", "color": "var(--c6)",
-        "description": "Share of assets carrying at least one governance classification "
+        "description": "Share of Assets carrying at least one governance classification "
                        "(ZoneMembership/Confidentiality/Criticality/Impact/Retention).",
         "target_type": None, "endpoint": "summary", "value_field": "governedCount",
         "detail_spec": "governed", "series": "gov", "unit": "percent", "provenance": "live",
-        "compute": ("MetadataExpert.find_metadata_elements",
-                    {"matchClassifications": ["ZoneMembership", "Confidentiality",
+        "compute": ("MetadataExpert.count_metadata_elements",
+                    {"metadataElementTypeName": "Asset",
+                     "matchClassifications": ["ZoneMembership", "Confidentiality",
                                               "Criticality", "Impact", "Retention"],
                      "matchCriteria": "ANY"}),
         "questions": ["Are we in control of the catalog?", "What's ungoverned?"],
-        "summary": "Count of elements carrying at least one governance classification, as a "
-                   "percentage of Assets.",
-        "usage": "The numerator (governance-classified elements) is NOT scoped to Asset -- ANY "
-                 "element type carrying one of the 5 classifications counts, matched ANY not ALL "
-                 "(one classification is enough). The denominator (percentage base) IS Asset-only. "
-                 "So this can legitimately exceed a naive expectation if many non-Asset elements "
-                 "(e.g. GovernanceDefinitions, Projects) are classified -- it is a coverage signal, "
-                 "not literally \"the fraction of assets meeting the label\". Also capped at "
-                 "DEFAULT_CAP (500) server elements per query -- governedCapped=true in the raw "
-                 "payload means the true count is a floor, not exact.",
+        "summary": "Count of Assets carrying at least one governance classification, as a "
+                   "percentage of all Assets. Counts Assets only, so it will usually be lower than "
+                   "before, when elements of any type counted.",
+        "usage": "Assets-only share (owner decision 2026-11-06): the numerator is the number of Asset "
+                 "elements carrying at least one of the 5 governance classifications "
+                 "(ZoneMembership/Confidentiality/Criticality/Impact/Retention, matched ANY not ALL), "
+                 "the denominator is the number of all Assets. Both are strict native counts, so the "
+                 "500-element cap no longer applies and the percentage cannot exceed 100. Elements "
+                 "that are not Assets (GovernanceDefinitions, Projects, glossary terms, ...) no longer "
+                 "count, so the figure is usually lower than the earlier any-type tally. A count that "
+                 "could not be measured shows as not measured, never 0. The Governed vs Ungoverned "
+                 "donut is Asset-scoped the same way; the zone and classification breakdowns beside "
+                 "it still count elements of any type.",
     },
     {
         "key": "certs", "label": "Active Certifications", "icon": "📜", "color": "var(--c4)",
