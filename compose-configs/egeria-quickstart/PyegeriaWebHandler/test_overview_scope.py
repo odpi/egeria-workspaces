@@ -123,7 +123,7 @@ def stubbed_summary(monkeypatch):
         oh._CACHE.clear() if hasattr(oh, "_CACHE") else None
         monkeypatch.setattr(oh, "_cache_get", lambda k: None)
         monkeypatch.setattr(oh, "_cache_put", lambda k, v: v)
-        monkeypatch.setattr(oh, "_viewer_total_state", lambda *a, **k: (None, True, False))   # cold: counting
+        monkeypatch.setattr(oh, "_viewer_total_state", lambda *a, **k: (None, True, False, None))   # cold: counting
         monkeypatch.setattr(oh, "_expert", lambda *a, **k: object())
         monkeypatch.setattr(oh, "_make", lambda *a, **k: object())
         monkeypatch.setattr(oh, "_env", lambda *a, **k: ("u", "view-server", "x", "y"))

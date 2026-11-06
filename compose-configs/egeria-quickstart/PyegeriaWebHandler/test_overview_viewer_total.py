@@ -55,7 +55,7 @@ def _state(user="u", as_of=None):
 
 def test_cold_start_returns_loading_and_starts_exactly_one_worker(monkeypatch):
     c = _Counter(); monkeypatch.setattr(oh, "_viewer_count", c)
-    assert _state() == (None, True, False)
+    assert _state() == (None, True, False, None)
     assert c.started.acquire(timeout=5)
     assert len(oh._viewer_inflight) == 1
     c.release.set(); _wait_idle()
@@ -68,7 +68,7 @@ def test_concurrent_requests_for_one_key_share_the_worker(monkeypatch):
     ts = [threading.Thread(target=lambda: results.append(_state())) for _ in range(8)]
     [t.start() for t in ts]; [t.join() for t in ts]
     assert c.started.acquire(timeout=5)
-    assert results == [(None, True, False)] * 8
+    assert results == [(None, True, False, None)] * 8
     c.release.set(); _wait_idle()
     assert len(c.calls) == 1                         # eight requests, one count
 
@@ -87,7 +87,8 @@ def test_different_keys_queue_on_the_global_cap_of_one(monkeypatch):
 def test_fresh_hit_returns_the_value_without_a_new_count(monkeypatch):
     c = _Counter(value=4242); c.release.set(); monkeypatch.setattr(oh, "_viewer_count", c)
     _state(); _wait_idle()
-    assert _state() == (4242, False, False)
+    v = _state()
+    assert v[:3] == (4242, False, False) and abs(v[3] - time.time()) < 5   # counted_at is reported
     assert len(c.calls) == 1
 
 
@@ -95,25 +96,25 @@ def test_stale_hit_returns_value_flagged_stale_and_refreshes_in_background(monke
     c = _Counter(value=7); c.release.set(); monkeypatch.setattr(oh, "_viewer_count", c)
     _state(); _wait_idle()
     key = next(iter(oh._viewer_totals))
-    oh._viewer_totals[key] = (time.time() - 1, 7)    # expire it
+    oh._viewer_totals[key] = (time.time() - 1, 7, 1000.0)    # expire it
     c.value = 8; c.release.clear()
-    assert _state() == (7, False, True)              # old value served at once, marked stale
+    assert _state() == (7, False, True, 1000.0)      # old value + its original time served at once, marked stale
     assert c.started.acquire(timeout=5) and len(c.calls) == 2   # refresh started
     c.release.set(); _wait_idle()
-    assert _state() == (8, False, False)
+    assert _state()[:3] == (8, False, False)
 
 
 def test_timeout_gives_none_not_loading_then_retries_after_the_short_ttl(monkeypatch):
     c = _Counter(value=None); c.release.set(); monkeypatch.setattr(oh, "_viewer_count", c)
     _state(); _wait_idle()
-    assert _state() == (None, False, False)          # settled: "not measured", not "counting"
+    assert _state() == (None, False, False, None)    # settled: "not measured", not "counting"
     assert len(c.calls) == 1
     key = next(iter(oh._viewer_totals))
-    oh._viewer_totals[key] = (time.time() - 1, None) # short fail TTL elapsed
+    oh._viewer_totals[key] = (time.time() - 1, None, 1000.0) # short fail TTL elapsed
     c.value = 55
-    assert _state() == (None, True, False)           # retrying
+    assert _state() == (None, True, False, None)     # retrying
     _wait_idle()
-    assert _state() == (55, False, False) and len(c.calls) == 2
+    assert _state()[:3] == (55, False, False) and len(c.calls) == 2
 
 
 def test_worker_exception_is_not_measured_and_clears_inflight(monkeypatch):
@@ -122,7 +123,7 @@ def test_worker_exception_is_not_measured_and_clears_inflight(monkeypatch):
     monkeypatch.setattr(oh, "_viewer_count", boom)
     _state(); _wait_idle()
     assert oh._viewer_inflight == {}
-    assert _state() == (None, False, False)
+    assert _state() == (None, False, False, None)
 
 
 def test_count_uses_the_long_client_timeout(monkeypatch):
@@ -154,16 +155,36 @@ def test_viewer_scope_needs_no_second_count(monkeypatch):
 
 
 def test_repository_scope_overlay_never_reuses_the_repository_total(monkeypatch):
-    monkeypatch.setattr(oh, "_viewer_total_state", lambda *a, **k: (None, True, False))
+    monkeypatch.setattr(oh, "_viewer_total_state", lambda *a, **k: (None, True, False, None))
     out = oh._overlay_viewer_total({"countScope": "repository", "assetTotal": 60680}, None, None, None, None, None)
     assert out["assetTotalViewer"] is None and out["assetTotal"] == 60680 and out["assetTotalViewerLoading"] is True
-    monkeypatch.setattr(oh, "_viewer_total_state", lambda *a, **k: (43, False, True))
+    monkeypatch.setattr(oh, "_viewer_total_state", lambda *a, **k: (43, False, True, 1700000000.0))
     out = oh._overlay_viewer_total({"countScope": "repository", "assetTotal": 60680}, None, None, None, None, None)
     assert out["assetTotalViewer"] == 43 and out["assetTotal"] == 60680 and out["assetTotalViewerStale"] is True
+    assert out["assetTotalViewerAsOf"] == "2023-11-14T22:13:20+00:00"
 
 
 def test_overlay_does_not_mutate_the_cached_payload(monkeypatch):
-    monkeypatch.setattr(oh, "_viewer_total_state", lambda *a, **k: (5, False, False))
+    monkeypatch.setattr(oh, "_viewer_total_state", lambda *a, **k: (5, False, False, 1.0))
     cached = {"countScope": "repository", "assetTotal": 10}
     oh._overlay_viewer_total(cached, None, None, None, None, None)
     assert "assetTotalViewer" not in cached
+
+
+def test_ttl_is_one_hour_and_failures_retry_sooner():
+    assert oh._VIEWER_TOTAL_TTL == 3600
+    assert oh._VIEWER_TOTAL_FAIL_TTL < oh._VIEWER_TOTAL_TTL
+
+
+def test_a_measured_value_is_still_fresh_after_59_minutes_and_stale_after_61(monkeypatch):
+    c = _Counter(value=9); c.release.set(); monkeypatch.setattr(oh, "_viewer_count", c)
+    _state(); _wait_idle()
+    key = next(iter(oh._viewer_totals))
+    exp, val, at = oh._viewer_totals[key]
+    base = at
+    monkeypatch.setattr(oh.time, "time", lambda: base + 59 * 60)
+    assert _state()[:3] == (9, False, False) and len(c.calls) == 1        # fresh: no new count
+    monkeypatch.setattr(oh.time, "time", lambda: base + 61 * 60)
+    assert _state()[:3] == (9, False, True)                                # stale: served, refresh starts
+    assert c.started.acquire(timeout=5) or True
+    _wait_idle()

@@ -39,6 +39,7 @@ Known constraints (see PYEGERIA_ISSUES.md):
     conditions are present → keep every query to 0 or 1 classification.
 """
 import contextvars
+from datetime import datetime, timezone
 import functools
 import inspect
 import os
@@ -466,7 +467,7 @@ def _strict_funnel_counts(readiness: dict, mgr, as_of: Optional[str] = None) -> 
 # viewer-scoped) need a count of the Assets THIS user can see. That count reads every Asset (~100 s), so it
 # is never taken inside a request. Same non-blocking pattern as operations_handler.py's report cache:
 #   cold    -> start one background worker, answer at once with value=None, loading=True
-#   fresh   -> the cached value (15 min TTL)
+#   fresh   -> the cached value (1 hour TTL; the page shows how old it is)
 #   stale   -> the cached value flagged stale, refreshed in the background
 #   failed  -> None is cached for _VIEWER_TOTAL_FAIL_TTL only, then retried ("not measured" until then)
 # One worker per key (url|server|user|as_of: the value is per viewer, Egeria filters by zone), and at most
@@ -478,10 +479,10 @@ def _strict_funnel_counts(readiness: dict, mgr, as_of: Optional[str] = None) -> 
 # (an async Task or an executor on the main loop would hit "event loop already running"). The request's
 # contextvars (bearer token, forLineage) are copied into the worker so it counts as the same viewer.
 
-_VIEWER_TOTAL_TTL = 15 * 60          # seconds a measured value stays fresh
+_VIEWER_TOTAL_TTL = 60 * 60          # seconds a measured value stays fresh (owner 2026-11-06: refresh ~hourly)
 _VIEWER_TOTAL_FAIL_TTL = 60          # seconds before a failed/timed-out count is retried
 _VIEWER_TOTAL_TIMEOUT = 240          # client timeout for this one count (the default is shorter than ~100 s+)
-_viewer_totals: dict = {}            # key -> (expires_at, value-or-None)
+_viewer_totals: dict = {}            # key -> (expires_at, value-or-None, counted_at)
 _viewer_inflight: dict = {}          # key -> Thread
 _viewer_lock = threading.Lock()      # makes check-and-start atomic: at most one worker per key
 _viewer_gate = threading.Semaphore(1)   # global cap: one viewer Asset count at a time, across all users
@@ -506,15 +507,17 @@ def _viewer_total_worker(key, url, server, user_id, user_pwd, as_of):
     finally:
         ttl = _VIEWER_TOTAL_TTL if value is not None else _VIEWER_TOTAL_FAIL_TTL
         with _viewer_lock:
-            _viewer_totals[key] = (time.time() + ttl, value)
+            now = time.time()
+            _viewer_totals[key] = (now + ttl, value, now)
             _viewer_inflight.pop(key, None)
 
 
 def _viewer_total_state(url, server, user_id, user_pwd, as_of):
-    """(value, loading, stale) for this viewer's Asset count; starts a background count if none is fresh.
+    """(value, loading, stale, counted_at) for this viewer's Asset count; starts a background count if none is fresh.
 
     Never blocks. value is None when not (yet) measured; loading means a count is running and the
-    caller should ask again; stale means value is the previous measurement, being refreshed."""
+    caller should ask again; stale means value is the previous measurement, being refreshed;
+    counted_at is the epoch time the value was measured (None if never measured)."""
     u, sv, uid, pwd = _env(url, server, user_id, user_pwd)
     key = f"{u}|{sv}|{uid}|{as_of}"
     with _viewer_lock:                 # no await/IO between the check and the start
@@ -528,8 +531,8 @@ def _viewer_total_state(url, server, user_id, user_pwd, as_of):
             t.start()
         value = hit[1] if hit else None
     if hit is None or (value is None and not fresh):
-        return None, True, False
-    return value, False, (value is not None and not fresh)
+        return None, True, False, None
+    return value, False, (value is not None and not fresh), (hit[2] if value is not None else None)
 
 
 def _overlay_viewer_total(payload: dict, url, server, user_id, user_pwd, as_of) -> dict:
@@ -539,11 +542,14 @@ def _overlay_viewer_total(payload: dict, url, server, user_id, user_pwd, as_of) 
     total comes from the background count; it is used only as the denominator of find-based percentages."""
     out = dict(payload)
     if out.get("countScope") == REPOSITORY:
-        value, loading, stale = _viewer_total_state(url, server, user_id, user_pwd, as_of)
-        out.update(assetTotalViewer=value, assetTotalViewerLoading=loading, assetTotalViewerStale=stale)
+        value, loading, stale, counted_at = _viewer_total_state(url, server, user_id, user_pwd, as_of)
+        out.update(assetTotalViewer=value, assetTotalViewerLoading=loading, assetTotalViewerStale=stale,
+                   assetTotalViewerAsOf=(datetime.fromtimestamp(counted_at, timezone.utc).isoformat()
+                                         if counted_at is not None else None))
     else:
         out.update(assetTotalViewer=out.get("assetTotal"), assetTotalViewerLoading=False,
-                   assetTotalViewerStale=False)
+                   assetTotalViewerStale=False,
+                   assetTotalViewerAsOf=None)
     return out
 
 
