@@ -74,8 +74,10 @@ FAMILY = "overview-kpi"
 PROVENANCE = ("live", "mixed", "illustrative")
 
 # The backend endpoints a tile's value can be sourced from (the /api/overview/*
-# routes in overview_handler.py).
-ENDPOINTS = ("summary", "people", "usage-context", "ai-context")
+# routes in overview_handler.py). "growth" (time series) and "activity" (change
+# stream) feed panels rather than KPI tiles, but are listed so the registry
+# names every data route.
+ENDPOINTS = ("summary", "people", "usage-context", "ai-context", "growth", "activity")
 
 # Perspective → ordered KPI selection. This is the *source of truth* for which
 # tiles each perspective shows; the frontend PERSP_KPIS must match it (guarded by
