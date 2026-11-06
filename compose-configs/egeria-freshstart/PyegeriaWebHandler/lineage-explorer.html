@@ -618,7 +618,15 @@ function MermaidDiagram({ code }) {
       if (ref.current) ref.current.innerHTML = '<pre style="color:red;font-size:10px">' + String(e) + '</pre>';
     }
   }, [code]);
-  return React.createElement('div', { ref: ref, className: 'mermaid-wrap' });
+  return React.createElement('div', { style: { position: 'relative' } },
+    code && React.createElement('button', {
+      onClick: function() { if (ref.current && ref.current.querySelector('svg')) openDiagramViewer(ref.current.innerHTML, 'Lineage diagram'); },
+      title: 'Open larger, with pan and zoom',
+      style: { position: 'absolute', top: 4, right: 4, zIndex: 2, fontSize: 10, padding: '2px 8px', borderRadius: 4,
+               border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--accent)', cursor: 'pointer', opacity: 0.9 }
+    }, '⤢ Expand'),
+    React.createElement('div', { ref: ref, className: 'mermaid-wrap' })
+  );
 }
 
 // ── Nav search (autocomplete dropdown) ────────────────────────────────────────
