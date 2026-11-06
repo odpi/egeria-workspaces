@@ -1,6 +1,6 @@
 # Dockerfile
 # Use a slim Python image for smaller size
-FROM docker.io/library/python:3.12-slim-bookworm@sha256:0f5b26b9518d002b6173fd61daad821fa340635ebfec5bba471013f9ca114579
+FROM docker.io/library/python:3.12-slim-bookworm@sha256:e697c81897302a4c4333bade000d98038fbb21eb064f8ee1fd42d02ebcd9d337
 
 # Set environment variables to prevent Python from writing .pyc files
 # and to ensure stdout/stderr are unbuffered
@@ -32,7 +32,7 @@ RUN pip install --no-cache-dir --retries 10 --timeout 60 -r requirements.txt
 # PYEGERIA_BUST=<that version> on every run (compose-configs/shared-infra/
 # resolve-pyegeria.sh), so the layer rebuilds exactly when the version
 # changes. The default below is only the floor for a plain compose build.
-ARG PYEGERIA_VERSION=pyegeria>=6.2.20
+ARG PYEGERIA_VERSION=pyegeria>=6.2.21
 ARG PYEGERIA_BUST=0
 RUN echo "pyegeria layer ${PYEGERIA_BUST}" \
     && pip install --no-cache-dir --retries 10 --timeout 60 "${PYEGERIA_VERSION}" --upgrade

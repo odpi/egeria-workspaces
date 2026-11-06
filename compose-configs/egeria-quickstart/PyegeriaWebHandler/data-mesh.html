@@ -12,7 +12,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Data Mesh</title>
   <script src="/static/app-bar.js?v=2026-10-05a"></script>
-  <script src="/static/egeria-resize.js?v=2026-11-04a"></script>
+  <script src="/static/egeria-resize.js?v=2026-11-04b"></script>
   <script src="/static/bootstrap-banner.js?v=2026-08-18a"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -54,12 +54,16 @@
     .col-divider:hover::after { background: var(--accent); }
 
     /* ── search bar ── */
-    .mesh-search-wrap { position: relative; flex: 1; max-width: 480px; }
+    /* Search and ISC select share the app bar's middle slot evenly. The select
+       used to take its intrinsic width (its longest option name), squeezing the
+       search box to "Searc"; flex-basis 0 sizes both by flex-grow, so they also never wrap. */
+    .mesh-search-wrap { position: relative; flex: 3 1 0; min-width: 140px; max-width: 480px; }
     .mesh-search-input { width: 100%; background: rgba(20,32,52,.8); border: 1px solid var(--border);
                     border-radius: 6px; padding: 7px 10px; color: var(--text); font-size: 13px; }
     .mesh-search-count { font-size: 11px; color: var(--dim); white-space: nowrap; }
     .mesh-isc-select { background: rgba(20,32,52,.8); border: 1px solid var(--border);
-                   border-radius: 6px; color: var(--text); padding: 6px 8px; font-size: 12px; max-width: 320px; }
+                   border-radius: 6px; color: var(--text); padding: 6px 8px; font-size: 12px;
+                   flex: 2 1 0; width: 0; min-width: 120px; max-width: 320px; text-overflow: ellipsis; }
     .mesh-isc-select option { background: #0b111c; }
 
     /* ── graph canvas ── */
@@ -481,6 +485,14 @@ function DataMeshDetail({ product, onNavigateToElement }) {
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, product.displayName || product.qualifiedName),
       product.typeName && React.createElement("span", { className: "badge", style: { background: 'rgba(96,165,250,.1)', color: '#93c5fd', border: '0.5px solid rgba(96,165,250,.3)' } }, product.typeName),
+      // The full Digital Product view (all sections, actions, bulk tools) lives
+      // in Egeria Explorer; this pane is a read-only summary.
+      product.guid && React.createElement("a", {
+        href: '/egeria-explorer?guid=' + encodeURIComponent(product.guid) + '#digital-products',
+        target: '_blank', rel: 'noopener',
+        title: 'Open this digital product in Egeria Explorer (new tab)',
+        style: { flexShrink: 0, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(94,234,212,.4)', background: 'rgba(94,234,212,.1)', color: '#5eead4', textDecoration: 'none', fontSize: 11, whiteSpace: 'nowrap' }
+      }, "View full details \u2197"),
       React.createElement("div", { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
         React.createElement(EgeriaFeedbackWidget, { guid: product.guid })
       ),
@@ -504,9 +516,13 @@ function DataMeshDetail({ product, onNavigateToElement }) {
     React.createElement(AdditionalPropertiesTable, { data: product.additionalProperties }),
     relKeys.length > 0 && React.createElement("div", { style: { marginTop: 8 } },
       React.createElement("div", { style: { fontWeight: 700, fontSize: 13, marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid var(--border)', color: 'var(--accent)' } }, "Relationships"),
-      React.createElement(GenericRelationshipsSection, {
-        relationships: product.relationships, skip: ['collectionMembers'], onNavigateToElement: onNavigateToElement,
-      })
+      // Indented so the relationship categories read as children of the
+      // "Relationships" heading rather than siblings of it.
+      React.createElement("div", { style: { paddingLeft: 14 } },
+        React.createElement(GenericRelationshipsSection, {
+          relationships: product.relationships, skip: ['collectionMembers'], onNavigateToElement: onNavigateToElement,
+        })
+      )
     ),
     React.createElement(ClassificationsAndRawJson, { item: product }),
     React.createElement(EgeriaCommentsSection, { guid: product.guid })
@@ -554,7 +570,7 @@ var MESH_EDGE_ISC_COLOR   = '#fbbf24';
 // matching the live search get a gold ring; edges whose iscQualifiedName
 // matches the selected ISC filter are highlighted gold and thickened, all
 // others dimmed. ──────────────────────────────────────────────────────────
-function MeshGraph({ elements, matchedGuids, iscFilter, selectedGuid, onSelectNode, onEdgeClick, layoutTrigger }) {
+function MeshGraph({ elements, matchedGuids, iscFilter, selectedGuid, onSelectNode, layoutTrigger }) {
   var containerRef = useRef(null);
   var cyRef = useRef(null);
 
@@ -598,9 +614,29 @@ function MeshGraph({ elements, matchedGuids, iscFilter, selectedGuid, onSelectNo
         nodeRepulsion: 24000, idealEdgeLength: 140, componentSpacing: 80,
       },
     });
+    // The ISC dropdown is the only thing that changes the highlighted ISC.
+    // Edge taps used to set it too, but zoomed out the product dots are a few
+    // pixels wide, so a click aimed at a product usually lands on one of its
+    // dependency edges — which silently swapped the dropdown's ISC for that
+    // edge's and selected nothing. A tap that misses every node now selects
+    // the nearest product within NODE_PICK_PX screen pixels instead.
+    var NODE_PICK_PX = 14;
+    function nearestNode(rp) {
+      var best = null, bestD = NODE_PICK_PX;
+      cy.nodes().forEach(function(n) {
+        var p = n.renderedPosition();
+        var d = Math.hypot(p.x - rp.x, p.y - rp.y) - n.renderedWidth() / 2;
+        if (d < bestD) { bestD = d; best = n; }
+      });
+      return best;
+    }
     cy.on('tap', 'node', function(evt) { onSelectNode(evt.target.id()); });
-    cy.on('tap', 'edge', function(evt) { onEdgeClick(evt.target.data('iscQualifiedName') || ''); });
-    cy.on('tap', function(evt) { if (evt.target === cy) onSelectNode(null); });
+    cy.on('tap', function(evt) {
+      if (evt.target !== cy && !evt.target.isEdge()) return;
+      var n = nearestNode(evt.renderedPosition);
+      if (n) onSelectNode(n.id());
+      else if (evt.target === cy) onSelectNode(null);
+    });
     cyRef.current = cy;
     return function() { cy.destroy(); cyRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -831,7 +867,6 @@ function App() {
   }
 
   var _iscFilter = useState(''), iscFilter = _iscFilter[0], setIscFilter = _iscFilter[1];
-  function handleEdgeClick(iscQ) { setIscFilter(iscQ || ''); }
 
   // Detail pane, right of its divider: shared hook, width remembered, max
   // follows the window (was a private hook capped at 640px).
@@ -857,7 +892,7 @@ function App() {
         ),
         matched && React.createElement('span', { className: 'mesh-search-count' }, matched.size + ' match' + (matched.size === 1 ? '' : 'es')),
         iscOptions.length > 0 && React.createElement('select', {
-          className: 'mesh-isc-select', value: iscFilter,
+          className: 'mesh-isc-select', value: iscFilter, title: iscFilter || 'Highlight an information supply chain',
           onChange: function(e) { setIscFilter(e.target.value); },
         },
           React.createElement('option', { value: '' }, 'Highlight ISC…'),
@@ -892,7 +927,7 @@ function App() {
         ),
         meshState === 'ready' && mesh.nodes.length > 0 && React.createElement(MeshGraph, {
           elements: cyElements, matchedGuids: matched, iscFilter: iscFilter,
-          selectedGuid: selectedGuid, onSelectNode: handleSelectNode, onEdgeClick: handleEdgeClick,
+          selectedGuid: selectedGuid, onSelectNode: handleSelectNode,
           layoutTrigger: mesh,
         }),
         meshState === 'ready' && mesh.nodes.length > 0 && React.createElement('div', { className: 'col-divider', onMouseDown: onPanelDivDown }),
