@@ -7,7 +7,7 @@ the 6.3 types: a routine stays a plain `Process` (the `*ActionProcess` types are
 processes); `GovernanceResults` cannot point at a field; layouts hang off a `DisplayDataSchemaType` through `Schema` and
 `AttributeForSchema`; a display column has no property that can name its field (a new open question); every shape is
 anchored to a per-source shapes collection. It also makes a processor's output additive, stops 10.3 from re-declaring
-shared fields, scopes the JSON rule to the in-method path, recommends `Dashboard` ⊂ `DataSet`, and adds §8e, a summary table of every Egeria proposal and mapping with its alternatives. v5.2 followed the
+shared fields, scopes the JSON rule to the in-method path, recommends `Dashboard` ⊂ `DataSet`, adds §8e, a summary table of every Egeria proposal and mapping with its alternatives, and adds 10.8, the Egeria Overview rebuilt as one sheet against the code as reviewed on 2026-11-06, with the Trellis perspectives and §9.18–§9.22. v5.2 followed the
 owner's review of v5.1 and a
 review against pyegeria's own report-spec documentation, the Dr.Egeria Report-family commands and the Egeria Advisor
 report-spec builder (2026-11-06). v5.2 decides: fields are shared between shapes rather than copied; field names carry
@@ -988,6 +988,35 @@ One place for the review with the Egeria team. **Status** says where each item s
     `microflow` JSON. Recommended: (a), with (b) as the interim, since the canonical JSON already holds the binding and
     the executors never read it from Egeria.
 
+18. **Sheet-level parameters (from 10.8).** The Overview's time machine passes one as-of time to every tile, and a
+    `Dashboard` has no parameters of its own. Proposed: a sheet declares `params` like a spec (§2b, same rules); each
+    placement's report receives the sheet's value for any parameter it declares of the same name; a placement whose
+    spec does not declare a sheet parameter that is set is refused at load with that reason, never run at "now". In
+    Egeria the values join the report's parameter document (`formula`, §8d); a typed home on `Dashboard` waits for the
+    type review.
+19. **Order and selection per perspective (from 10.8).** Each Overview perspective shows its own tiles in its own
+    order; `ScopedBy` selects placements but the only order is `NestedSchemaAttribute.position`. Options: (a) a
+    `perspective_order` map on the sheet (perspective → placement names), simple, no lineage; (b) one nested
+    `DisplayDataContainer` per perspective, which duplicates placements; (c) a `position` property on the
+    placement-to-perspective link, which `ScopedBy` does not have. Recommended: (a) now, (c) as an ask if (a) proves
+    too weak. Topics, the Overview's second selector, are the same question with a different vocabulary; they could
+    be `Collection` tags on placements.
+20. **A perspective as a scope, not only a filter (from the July Overview note, still open).** A Steward's drill into
+    "ungoverned" should be limited to their own domain. Nothing passes a perspective's scope (or the viewer's
+    `assignmentScope`) into a report's parameters. Proposed: a perspective may bind values to declared `content`
+    parameters, resolved per viewer before the run. Not needed for the first rebuild; recorded so the parameter model
+    leaves room for it.
+21. **Shared datasets and result caching (from 10.8).** One Overview summary call computes about a dozen tiles from
+    shared counts; run as separate specs the Asset count is fetched many times. Proposed: placements that name the
+    same routine with the same parameter values share one run within a sheet render, and the executor caches results
+    keyed on (spec or routine, version, parameter values, viewer), with the TTL the sheet's `refreshSeconds` or the
+    routine's declaration gives. The cache is per viewer because results are zone-filtered.
+22. **Where the catalog-level questions live (from 10.8).** Trellis's `resource_questions.csv` is per resource type and
+    its generator refuses an unknown type. The Overview's questions are about the whole catalog. Options: (a) a new
+    resource type (for example `catalog`) in the same CSV and generator; (b) a separate catalog of the same shape for
+    Portal dashboards. Recommended: (a), so one generator, one `Question` pattern and one perspective vocabulary serve
+    both.
+
 ## 10. Worked examples (owner's request 2026-11-05; JSON + Dr.Egeria 2026-11-06; re-cut for v5.2)
 
 Each example gives (a) the spec as **JSON**, the canonical form the registry's CONFIG tier loads and every executor
@@ -1323,7 +1352,7 @@ Curation Coverage - Databases
 ### Placement Emphasis
 kpi
 ### Placement Perspectives
-steward, owner
+Steward, Data Owner
 ```
 Proposed authoring block, the routine named as the whole micro-flow:
 ```markdown
@@ -1424,9 +1453,9 @@ in this model, only what the placements point at.
     "placements": [
       {"ref": null, "content": "**Coverage** — counts and definition completeness per glossary.", "span": "full",
        "emphasis": "panel", "perspectives": [], "detail_spec": null},
-      {"ref": "Coco Terms Total",        "span": "1",    "emphasis": "kpi",   "perspectives": ["steward", "owner"],   "detail_spec": "Glossary-Term-Counts"},
-      {"ref": "Coco Term Counts",        "span": "2",    "emphasis": "panel", "perspectives": ["steward"],            "detail_spec": "Glossary-With-Terms"},
-      {"ref": "Coco Glossaries",         "span": "full", "emphasis": "panel", "perspectives": ["consumer", "steward"], "detail_spec": "Glossary-With-Terms"}
+      {"ref": "Coco Terms Total",        "span": "1",    "emphasis": "kpi",   "perspectives": ["Steward", "Data Owner"],   "detail_spec": "Glossary-Term-Counts"},
+      {"ref": "Coco Term Counts",        "span": "2",    "emphasis": "panel", "perspectives": ["Steward"],            "detail_spec": "Glossary-With-Terms"},
+      {"ref": "Coco Glossaries",         "span": "full", "emphasis": "panel", "perspectives": ["Consumer", "Steward"], "detail_spec": "Glossary-With-Terms"}
     ]
   }
 }
@@ -1468,7 +1497,7 @@ Coco Terms Total
 ### Placement Emphasis
 kpi
 ### Placement Perspectives
-steward, owner
+Steward, Data Owner
 ### Placement Detail Spec
 Glossary-Term-Counts
 
@@ -1482,7 +1511,7 @@ Coco Term Counts
 ### Placement Emphasis
 panel
 ### Placement Perspectives
-steward
+Steward
 ### Placement Detail Spec
 Glossary-With-Terms
 
@@ -1496,7 +1525,7 @@ full
 ### Placement Emphasis
 panel
 ### Placement Perspectives
-consumer, steward
+Consumer, Steward
 ### Placement Detail Spec
 Glossary-With-Terms
 ```
@@ -1526,12 +1555,12 @@ which executor produced what.
     "description": "Curation, profiling and cataloging state of the Coco data hub.",
     "family": "Data Hub",
     "placements": [
-      {"ref": "Curation Coverage - Databases",   "span": "1",    "emphasis": "kpi",   "perspectives": ["steward", "owner"], "detail_spec": "Trellis - Curation Coverage"},
-      {"ref": "Coco Data Lake File Profiles",    "span": "1",    "emphasis": "kpi",   "perspectives": ["engineer"],         "detail_spec": "Data-Lake-File-Profiles"},
-      {"ref": "Coco Terms Total",                "span": "1",    "emphasis": "kpi",   "perspectives": ["steward"],          "detail_spec": "Glossary-Term-Counts"},
+      {"ref": "Curation Coverage - Databases",   "span": "1",    "emphasis": "kpi",   "perspectives": ["Steward", "Data Owner"], "detail_spec": "Trellis - Curation Coverage"},
+      {"ref": "Coco Data Lake File Profiles",    "span": "1",    "emphasis": "kpi",   "perspectives": ["Data Expert"],         "detail_spec": "Data-Lake-File-Profiles"},
+      {"ref": "Coco Terms Total",                "span": "1",    "emphasis": "kpi",   "perspectives": ["Steward"],          "detail_spec": "Glossary-Term-Counts"},
       {"ref": null, "content": "**Detail** — what is behind the three numbers.", "span": "full", "emphasis": "panel", "perspectives": [], "detail_spec": null},
-      {"ref": "Curation Coverage - Databases",   "span": "2",    "emphasis": "panel", "perspectives": ["steward"],          "detail_spec": null},
-      {"ref": "Coco Data Lake File Profiles",    "span": "2",    "emphasis": "panel", "perspectives": ["engineer"],         "detail_spec": null}
+      {"ref": "Curation Coverage - Databases",   "span": "2",    "emphasis": "panel", "perspectives": ["Steward"],          "detail_spec": null},
+      {"ref": "Coco Data Lake File Profiles",    "span": "2",    "emphasis": "panel", "perspectives": ["Data Expert"],         "detail_spec": null}
     ]
   }
 }
@@ -1561,7 +1590,7 @@ Curation Coverage - Databases
 ### Placement Emphasis
 kpi
 ### Placement Perspectives
-steward, owner
+Steward, Data Owner
 ### Placement Detail Spec
 Trellis - Curation Coverage
 
@@ -1575,7 +1604,7 @@ Coco Data Lake File Profiles
 ### Placement Emphasis
 kpi
 ### Placement Perspectives
-engineer
+Data Expert
 ### Placement Detail Spec
 Data-Lake-File-Profiles
 ```
@@ -1589,7 +1618,145 @@ links to three `ReportSpec`s, of which one (`Trellis - Curation Coverage`) names
 (`Data-Lake-File-Profiles`) reads the stored results of a routine deployed as a step (its `Process`, with the
 `GovernanceActionType` that describes the deployment).
 
-### What the seven show
+### 10.8 The Egeria Overview dashboard, rebuilt as one sheet (owner's request, 2026-11-06)
+
+The Portal's Overview (`egeria-overview.html`, `overview_handler.py`, `overview_specs.py`, pyegeria's
+`view/overview_metrics.py`) is the largest dashboard we run and the best validation set the model has: it is live, its
+24 metric functions are most of delivery step (a)'s 27 undeclared routines (§9.7), and `test_overview_specs.py` already
+guards its tile registry against drift. **The implementation has moved on since its own July design note**
+(`OVERVIEW_REPORTING_MODEL.md`); this example is cut against the code as reviewed on 2026-11-06, not against that note.
+
+**What the page is today (code review, 2026-11-06).** Eight sections (Value, Growth, Composition, Usage, Quality, AI,
+People, Activity) fed by six endpoints (`summary`, `growth`, `usage-context`, `ai-context`, `people`, `activity`), each
+cached 60 s per user (growth 900 s). A KPI band shows six of 13 tiles chosen by a perspective tab and a topic tab; four
+Business Value cards; about 30 panels (Vega bars and lines, SVG donut, hbars, lists, a funnel, an attention queue).
+Page-wide controls: an as-of time machine with a compare mode, a growth range, per-section refresh. Facts the rebuild
+must carry or fix:
+
+- **Perspectives and questions are hard-coded in the page** (`PERSPECTIVES`, `PERSP_KPIS`, inline question text). The
+  container endpoint and `overview_containers.py` exist but the page never calls them; the questions in
+  `overview_specs._TILES` are served and never shown; nothing reads Egeria `Perspective` or `Question` elements.
+- **Absence is often a zero.** `count_elements` is called non-strict, so a failed count reads 0; several best-effort
+  blocks fold failure to 0; the funnel turns a real 0 into null. Caps (500 per find, 1000 per relationship read) are
+  carried in the payload (`governedCapped`, `bvAssetCapped`, …) and never shown.
+- **Arithmetic happens in the browser:** governed %, the donut's ungoverned remainder, every Data Quality %, the funnel's
+  conversion %, growth deltas, top-8-plus-Other on kinds and technologies.
+- **Work is repeated:** about five capped Asset finds and five Asset counts per load, `DataFlow` fetched three times.
+- **The as-of control is partial:** it reaches four endpoints but not growth or activity, and the date picker's `max`
+  is fixed at 2026-07-23.
+
+**Perspectives: a Trellis subset, not a second set.** The Overview should use the `Perspective::<Name>` elements Trellis
+already creates (`foundations.md`, twelve), not its own ten keys. Proposed subset for an estate-wide catalog view, for
+the owner to review:
+
+| Overview today | Trellis perspective | Keep for the Overview? |
+|---|---|---|
+| `governance` | Governance | yes |
+| `steward` | Steward | yes |
+| `owner` | Data Owner | yes |
+| `consumer` | Consumer | yes |
+| `builder` | App/AI Builder | yes (the AI section) |
+| `privacy` | Privacy | yes |
+| `security` | Security | yes |
+| `architecture` | Architecture | yes |
+| `engineer` (Engineering) | Data Expert | yes; Data Expert already consolidates the engineering lens, so Engineering retires |
+| `community` | Community | yes (People section) |
+| — | Financial | not now: the Business Value cards are proxies, not cost; add when a cost measure exists |
+| — | Admin | no: platform operations is the Operations app's view, not the catalog's |
+
+**Questions follow the perspectives.** Trellis keeps its questions in `resource_questions.csv`, generated into
+`Question` terms linked to perspectives by `ScopedBy`. The Overview's questions are about the whole catalog, which that
+catalog's `Resource Types` vocabulary cannot name today (`*` means repo, database, filesystem). §9.22 asks where they
+live; once placed, a tile's spec links to its `Question`s (§2a) and the page stops carrying question text.
+
+**(a) JSON.** One tile spec with two producers and a `derive` (the browser's governed % moves here), then the sheet,
+abbreviated. Producers in a multi-producer micro-flow carry a `name`, and a processor names what it reads in `in` (§9.4).
+```json
+{
+  "Overview - Governed Coverage": {
+    "target_type": "Asset",
+    "heading": "Governed coverage",
+    "family": "Egeria Overview",
+    "params": {"as_of": {"type": "datetime", "required": false, "category": "content"}},
+    "microflow": [
+      {"stage": "producer/count", "name": "governed",
+       "params": {"type_name": "Asset", "match_classifications": ["ZoneMembership", "Confidentiality", "Criticality", "Impact", "Retention"],
+                  "match": "ANY", "as_of": "$as_of"},
+       "out": [{"name": "governed", "kind": "cell", "type": "int", "companions": ["state", "completeness", "as_of"]}]},
+      {"stage": "producer/count", "name": "assets",
+       "params": {"type_name": "Asset", "as_of": "$as_of"},
+       "out": [{"name": "assets", "kind": "cell", "type": "int", "companions": ["state", "completeness", "as_of"]}]},
+      {"stage": "processor/derive", "in": ["governed", "assets"], "into": "governed_pct",
+       "function": "ratio", "params": {"numerator": "governed", "denominator": "assets"},
+       "out": [{"name": "governed_pct", "label": "Governed", "kind": "cell", "type": "fraction", "unit": "%",
+                "companions": ["state", "basis", "completeness"]}]}
+    ],
+    "formatters": {
+      "KPI": {"fields": ["governed_pct"], "subtitle": "basis"},
+      "DONUT": {"theta": ["governed", "assets"]}
+    }
+  },
+  "egeria-overview": {
+    "name": "egeria-overview",
+    "heading": "Egeria Overview",
+    "family": "Egeria Overview",
+    "params": {"as_of": {"type": "datetime", "required": false, "category": "content"}},
+    "placements": [
+      {"ref": null, "content": "## Value", "span": "full", "emphasis": "panel", "perspectives": [], "detail_spec": null},
+      {"ref": "Overview Cataloged Assets", "span": "1", "emphasis": "kpi", "perspectives": ["Governance", "Steward", "Data Expert", "Architecture", "Security", "App/AI Builder", "Privacy", "Community"], "detail_spec": "Overview - Assets by Type"},
+      {"ref": "Overview Governed Coverage", "span": "1", "emphasis": "kpi", "perspectives": ["Governance", "Steward", "Data Owner", "Security", "Privacy"], "detail_spec": "Overview - Ungoverned Assets"},
+      {"ref": "Overview Semantic Grounding", "span": "1", "emphasis": "kpi", "perspectives": ["Steward", "Consumer", "App/AI Builder"], "detail_spec": "Overview - Ungrounded Assets"},
+      {"ref": null, "content": "## Composition", "span": "full", "emphasis": "panel", "perspectives": [], "detail_spec": null},
+      {"ref": "Overview Assets by Type", "span": "2", "emphasis": "panel", "perspectives": [], "detail_spec": "Overview - Assets of Type"},
+      {"ref": "Overview Context Readiness Funnel", "span": "full", "emphasis": "panel", "perspectives": ["App/AI Builder", "Data Expert"], "detail_spec": "Overview - Funnel Stage"}
+    ],
+    "perspective_order": {"Governance": ["Overview Cataloged Assets", "Overview Governed Coverage"], "Steward": ["Overview Governed Coverage", "Overview Cataloged Assets", "Overview Semantic Grounding"]}
+  }
+}
+```
+Sheet-level `params` and `perspective_order` are **not in the model yet**: they are what §9.18 and §9.19 ask for, shown
+here so the gap is concrete. Every report on the sheet declares `as_of`, so the sheet's value is passed to each; a
+placement whose spec does not declare it is refused at load, never silently run at "now" (the growth and activity
+panels' bug today). The `governed` count states one thing today's tile does not: matching ANY of five classifications on
+**Asset**, where the current find counts any element type over an Asset-only denominator. Whether to keep today's
+definition is a question for the tile's owner, and the spec makes it a visible parameter rather than a comment.
+
+**(b) Dr.Egeria.** The sheet uses the commands of 10.6 unchanged: one `Create Dashboard Sheet`, one `Add Text on
+Dashboard Sheet` per section heading, one `Link Report to Dashboard Sheet` per placement, with `Placement Perspectives`
+naming Trellis perspectives by display name. The sheet parameter and the per-perspective order need new attributes once
+§9.18 and §9.19 are settled.
+
+**(c) Where each part of the page lands.**
+
+| Today | In the model |
+|---|---|
+| 13 KPI tiles and 4 Business Value cards | one spec each, mostly `producer/count` with a `MeasurementSpecification` (unit, absence sentences); placed with emphasis `kpi` |
+| percentages computed in the browser | a `derive` processor (`ratio`), with `basis` so a tile can say "N of M" |
+| capped finds (`governedCapped`, …) | `completeness: lower_bound` on the cell, which the KPI renderer must show |
+| failed counts reading 0 | the `count` producer runs strict; failure is `not_measured` with its sentence, never 0 |
+| Vega bars and lines, SVG donut, hbars | Vega-Lite renderers over declared shapes (§6); the hbars fallback retires |
+| top-8 plus Other | a `rank` processor (top N, remainder folded), not page code |
+| Catalog Growth over `asOfTime` snapshots | a routine that runs the count producers at N as-of times; the growth range is its parameter |
+| Attention Queue and Certifications Expiring | table shapes with sort and filter processors; the static "—" rows either get a spec or leave the page |
+| Recent Activity (48 h stream, by type, stewards) | a find producer with a time-window filter, then aggregate; it takes the sheet's `as_of` or declares that it cannot |
+| section badges (live, illustrative) | the result state of each placement's run; no hand-kept `SECTION_PROVENANCE` map |
+| perspective and topic tabs | `ScopedBy` to Trellis `Perspective`s; topics as a second selector (§9.19) |
+| drill drawers | `DataDescription` from each placement to a detail spec |
+| six endpoints, each computing many tiles with shared counts | one executor run per placement over shared routine datasets (§9.21) |
+
+**(d) What it validates.** Rebuilt on the executor, each placement's result is compared with today's endpoint field
+for the same user and as-of time, the method of the curation-coverage tile gate (§9.5). Where they differ, the
+difference is one of the fixes above and is named, never accepted silently. Egeria, once the types land: one
+`Dashboard`, a `DisplayDataContainer` per section, about 45 `DashboardPlacement`s, 17 tile `Report`s plus the panel
+`Report`s, their `ReportSpec`s, and `ScopedBy` links to the ten Trellis `Perspective`s kept.
+
+**Work this example commissions, after a review of the current implementation, and independent of the design:** the
+page's own defects above (the fixed date `max`, as-of not reaching growth and activity, non-strict counts, the
+mislabelled section badges, the sample engagement lines left in the page when the chart is missing, the dead Export
+button, the Business Value badge losing its id, stale drawer notes and docstrings, the hard-coded organisation name),
+and a move to the Trellis perspectives. These are worth doing on today's code whether or not the rebuild goes ahead.
+
+### What the eight show
 10.1 is the mechanical migration and shows the field-to-`DataField` mapping end to end, with the column constant gone.
 10.2 and 10.3 are the two things the current model cannot say, and both are honest about paging and about N calls;
 10.2 also shows a tree rendered through mermaid and a `dataset` field mapped to `NestedDataField`. 10.3 shows a KPI
@@ -1606,4 +1773,4 @@ needs are `Create Report Spec` (with `Update`/`View`; it replaces the Egeria Adv
 name, §9.13), whose `Microflow` and `Formatters` attributes are the JSON above in Dr.Egeria's list form, and
 `Create Measurement Specification` beside Data Designer's existing value-specification commands; shapes are authored by
 the Data Designer commands that exist. The compact-command generator (§9.6) emits the spec command for every existing
-spec, and a Dr.Egeria spec and a JSON spec of one name round-trip to the same JSON (§9.8).
+spec, and a Dr.Egeria spec and a JSON spec of one name round-trip to the same JSON (§9.8). 10.8 takes the model to the Portal's largest live dashboard: it maps almost every part of the Overview, moves its browser arithmetic into `derive` processors, turns its zeros-on-failure into declared states, and finds the four things the dashboard layer still lacks (§9.18, §9.19, §9.21, §9.22).
