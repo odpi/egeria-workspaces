@@ -6,7 +6,7 @@ Generate a loadable Dr.Egeria doc governing the Overview dashboard's own
 metrics as real Egeria elements — one GlossaryTerm per tile, grouped under a
 RootCollection with sub-collections. Single source of truth is
 `overview_specs.py`'s `_TILES` (no HTML-scraping needed here, unlike
-`gen_perspectives.py` — the tile registry already lives in Python).
+the (since retired) `gen_perspectives.py` — the tile registry already lives in Python).
 
 Design: OVERVIEW_METRIC_GOVERNANCE.md (NEXT-24). Only tiles carrying a
 `summary` field are included — as of Phase B all 12 tiles have one; adding a
