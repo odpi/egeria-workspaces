@@ -103,7 +103,7 @@ def test_summary_takes_every_governed_count_through_the_same_bound_helper():
 def test_ratios_with_find_numerators_never_use_the_scoped_total():
     src = inspect.getsource(oh.get_summary)
     # find-based survey / schema ratios get a total only when it is viewer-scoped
-    assert '"assetTotalViewer": asset_total if scope == VIEWER else None' in src
+    assert "_overlay_viewer_total(payload," in src            # viewer total comes only from the overlay
     # the funnel keeps viewer scope for every stage and its ownership / AI-Ready percentages
     assert '"countScope": VIEWER' in inspect.getsource(oh.get_ai_context)
 
@@ -123,6 +123,7 @@ def stubbed_summary(monkeypatch):
         oh._CACHE.clear() if hasattr(oh, "_CACHE") else None
         monkeypatch.setattr(oh, "_cache_get", lambda k: None)
         monkeypatch.setattr(oh, "_cache_put", lambda k, v: v)
+        monkeypatch.setattr(oh, "_viewer_total_state", lambda *a, **k: (None, True, False))   # cold: counting
         monkeypatch.setattr(oh, "_expert", lambda *a, **k: object())
         monkeypatch.setattr(oh, "_make", lambda *a, **k: object())
         monkeypatch.setattr(oh, "_env", lambda *a, **k: ("u", "view-server", "x", "y"))
@@ -197,7 +198,7 @@ def test_summary_reports_repository_scope_and_withholds_the_viewer_total(stubbed
     out = stubbed_summary(ce, bt, rel, prop)
     assert out["countScope"] == "repository"
     assert out["assetTotal"] == 100 and out["governedCount"] == 40
-    assert out["assetTotalViewer"] is None                           # a find numerator must not meet this total
+    assert out["assetTotalViewer"] is None and out["assetTotalViewerLoading"] is True   # find numerator must not meet this total
     assert seen and set(seen) == {"repository"}                      # every native count used the same scope
 
 

@@ -38,10 +38,12 @@ Known constraints (see PYEGERIA_ISSUES.md):
   - PY-15: Postgres connector ignores matchCriteria once 2+ classification
     conditions are present → keep every query to 0 or 1 classification.
 """
+import contextvars
 import functools
 import inspect
 import os
 import re
+import threading
 import time
 from pathlib import Path
 from typing import Any, Optional
@@ -245,7 +247,7 @@ def _cache_put(key: str, value: Any):
 
 # ── client factory ───────────────────────────────────────────────────────────
 
-def _expert(url=None, server=None, user_id=None, user_pwd=None):
+def _expert(url=None, server=None, user_id=None, user_pwd=None, timeout=None):
     from pyegeria import MetadataExpert
     import pyegeria
     pyegeria.enable_ssl_check = False
@@ -254,7 +256,8 @@ def _expert(url=None, server=None, user_id=None, user_pwd=None):
     server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
     user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
     user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
-    mgr = MetadataExpert(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+    extra = {"timeout": timeout} if timeout is not None else {}
+    mgr = MetadataExpert(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd, **extra)
     apply_token(mgr)
     return mgr
 
@@ -457,6 +460,93 @@ def _strict_funnel_counts(readiness: dict, mgr, as_of: Optional[str] = None) -> 
     return out
 
 
+# ── Background viewer Asset count ────────────────────────────────────────────
+#
+# Under repository scope the Asset headline is whole-catalog, so the survey % and schema % (find numerators,
+# viewer-scoped) need a count of the Assets THIS user can see. That count reads every Asset (~100 s), so it
+# is never taken inside a request. Same non-blocking pattern as operations_handler.py's report cache:
+#   cold    -> start one background worker, answer at once with value=None, loading=True
+#   fresh   -> the cached value (15 min TTL)
+#   stale   -> the cached value flagged stale, refreshed in the background
+#   failed  -> None is cached for _VIEWER_TOTAL_FAIL_TTL only, then retried ("not measured" until then)
+# One worker per key (url|server|user|as_of: the value is per viewer, Egeria filters by zone), and at most
+# ONE worker counting across all users (_viewer_gate): each count reads every Asset and Egeria's database
+# pool is 10 connections.
+#
+# These routes are sync `def` (they run in the threadpool), and pyegeria's count helpers are sync and call
+# run_until_complete internally, so the worker is a plain thread with its OWN client, not an asyncio Task
+# (an async Task or an executor on the main loop would hit "event loop already running"). The request's
+# contextvars (bearer token, forLineage) are copied into the worker so it counts as the same viewer.
+
+_VIEWER_TOTAL_TTL = 15 * 60          # seconds a measured value stays fresh
+_VIEWER_TOTAL_FAIL_TTL = 60          # seconds before a failed/timed-out count is retried
+_VIEWER_TOTAL_TIMEOUT = 240          # client timeout for this one count (the default is shorter than ~100 s+)
+_viewer_totals: dict = {}            # key -> (expires_at, value-or-None)
+_viewer_inflight: dict = {}          # key -> Thread
+_viewer_lock = threading.Lock()      # makes check-and-start atomic: at most one worker per key
+_viewer_gate = threading.Semaphore(1)   # global cap: one viewer Asset count at a time, across all users
+
+
+def _viewer_count(mgr, as_of: Optional[str]) -> Optional[int]:
+    """Strict viewer-scoped Asset count (None if it failed or timed out)."""
+    if _accepts_scope(count_elements):
+        return count_elements(mgr, "Asset", as_of, strict=True, scope=VIEWER)
+    return count_elements(mgr, "Asset", as_of, strict=True)
+
+
+def _viewer_total_worker(key, url, server, user_id, user_pwd, as_of):
+    value = None
+    try:
+        with _viewer_gate:
+            mgr = _expert(url, server, user_id, user_pwd, timeout=_VIEWER_TOTAL_TIMEOUT)
+            value = _viewer_count(mgr, as_of)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview: viewer Asset count failed: {exc}")
+        value = None
+    finally:
+        ttl = _VIEWER_TOTAL_TTL if value is not None else _VIEWER_TOTAL_FAIL_TTL
+        with _viewer_lock:
+            _viewer_totals[key] = (time.time() + ttl, value)
+            _viewer_inflight.pop(key, None)
+
+
+def _viewer_total_state(url, server, user_id, user_pwd, as_of):
+    """(value, loading, stale) for this viewer's Asset count; starts a background count if none is fresh.
+
+    Never blocks. value is None when not (yet) measured; loading means a count is running and the
+    caller should ask again; stale means value is the previous measurement, being refreshed."""
+    u, sv, uid, pwd = _env(url, server, user_id, user_pwd)
+    key = f"{u}|{sv}|{uid}|{as_of}"
+    with _viewer_lock:                 # no await/IO between the check and the start
+        hit = _viewer_totals.get(key)
+        fresh = hit is not None and hit[0] > time.time()
+        if not fresh and key not in _viewer_inflight:
+            ctx = contextvars.copy_context()
+            t = threading.Thread(target=ctx.run, daemon=True, name="overview-viewer-total",
+                                 args=(_viewer_total_worker, key, url, server, user_id, user_pwd, as_of))
+            _viewer_inflight[key] = t
+            t.start()
+        value = hit[1] if hit else None
+    if hit is None or (value is None and not fresh):
+        return None, True, False
+    return value, False, (value is not None and not fresh)
+
+
+def _overlay_viewer_total(payload: dict, url, server, user_id, user_pwd, as_of) -> dict:
+    """Fill the viewer-scoped Asset total fields on a (possibly cached) summary payload.
+
+    Viewer scope: assetTotal already is the viewer total, no second count. Repository scope: the viewer
+    total comes from the background count; it is used only as the denominator of find-based percentages."""
+    out = dict(payload)
+    if out.get("countScope") == REPOSITORY:
+        value, loading, stale = _viewer_total_state(url, server, user_id, user_pwd, as_of)
+        out.update(assetTotalViewer=value, assetTotalViewerLoading=loading, assetTotalViewerStale=stale)
+    else:
+        out.update(assetTotalViewer=out.get("assetTotal"), assetTotalViewerLoading=False,
+                   assetTotalViewerStale=False)
+    return out
+
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 @router.get("/api/overview/summary", summary="Headline KPI counts for the Overview dashboard")
@@ -469,7 +559,7 @@ def get_summary(
     ckey = f"summary|{as_of_time}|{url}|{server}|{user_id}"
     cached = _cache_get(ckey)
     if cached is not None:
-        return JSONResponse(cached)
+        return JSONResponse(_overlay_viewer_total(cached, url, server, user_id, user_pwd, as_of_time))
 
     try:
         mgr = _expert(url, server, user_id, user_pwd)
@@ -615,9 +705,6 @@ def get_summary(
         # Which scope every native count in this payload used: "repository" = the whole catalog (fast),
         # "viewer" = only what the signed-in user can see. The page labels the tiles with it.
         "countScope":       scope,
-        # Asset total for ratios whose numerator is a find (viewer-scoped): the total itself only when it is
-        # viewer-scoped, otherwise None, so such a ratio is withheld rather than mixing scopes.
-        "assetTotalViewer": asset_total if scope == VIEWER else None,
         "byType":           by_type,
         "byTypeChart":      by_type_chart,
         "termCount":        term_count,
@@ -674,7 +761,10 @@ def get_summary(
         "partial":          True,
         "source":           "live:summary",
     }
-    return JSONResponse(_cache_put(ckey, payload))
+    # assetTotalViewer* are filled per request by _overlay_viewer_total (never cached with the payload, so a
+    # background count that finishes is seen on the next poll without recomputing the whole summary).
+    _cache_put(ckey, payload)
+    return JSONResponse(_overlay_viewer_total(payload, url, server, user_id, user_pwd, as_of_time))
 
 
 # ── certifications & licenses ────────────────────────────────────────────────

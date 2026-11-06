@@ -1787,9 +1787,17 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
   // These percentages divide a find-based count (visible to you only) by the Asset total. If that total is
   // whole-catalog scoped the ratio would mix scopes, so it is withheld and says why.
   function noRatioMsg(st){
+    if (st.assets != null && st.assetsViewer == null && st.viewerLoading && !st.viewerGaveUp)
+      return 'Counting the assets you can see… this takes about two minutes the first time; the percentage appears when it finishes.';
+    if (st.assets != null && st.assetsViewer == null && st.viewerGaveUp)
+      return 'Not measured: counting the assets you can see did not finish in time. Refresh to try again.';
     return (st.assets != null && st.assetsViewer == null)
-      ? 'Percentage withheld: the Asset total covers the whole catalog but this count covers only what you can see'
+      ? 'Not measured: the count of assets you can see failed or timed out, so no percentage is shown (the whole-catalog total cannot be mixed with it)'
       : 'Not measured';
+  }
+  // Placeholder text for a percentage whose denominator is still being counted
+  function pctPlaceholder(st){
+    return (st.assets != null && st.assetsViewer == null && st.viewerLoading && !st.viewerGaveUp) ? 'counting…' : '—';
   }
   function renderSurveyCoverage(st){
     var pctEl = document.getElementById('dq-survey-pct'), fill = document.getElementById('dq-survey-fill');
@@ -1798,7 +1806,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
       var pct = ok ? 100 * st.surveyedAssets / st.assetsViewer : null;
       // surveyLinksCapped: the ReportSubject read stopped at its page limit, so the surveyed count is a lower bound
       var sLb = st.surveyLinksCapped ? 'at least ' : '';
-      pctEl.textContent = pct == null ? '—' : (st.surveyLinksCapped ? '≥' : '') + (pct > 0 && pct < 1 ? pct.toFixed(1) : String(Math.round(pct))) + '%';
+      pctEl.textContent = pct == null ? pctPlaceholder(st) : (st.surveyLinksCapped ? '≥' : '') + (pct > 0 && pct < 1 ? pct.toFixed(1) : String(Math.round(pct))) + '%';
       pctEl.title = ok ? sLb + st.surveyedAssets.toLocaleString() + ' of ' + st.assetsViewer.toLocaleString() + ' assets have a completed survey'
                          + (st.assetsSurveyFailedOnly ? ' (' + st.assetsSurveyFailedOnly.toLocaleString() + ' more only have failed surveys)' : '') : noRatioMsg(st);
     }
@@ -1819,7 +1827,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     var sOk = st.assetsWithSchema != null && st.assetsViewer;
     if (sEl) {
       var sp = sOk ? 100 * st.assetsWithSchema / st.assetsViewer : null;
-      sEl.textContent = sp == null ? '—' : (sp > 0 && sp < 1 ? sp.toFixed(1) : String(Math.round(sp))) + '%';
+      sEl.textContent = sp == null ? pctPlaceholder(st) : (sp > 0 && sp < 1 ? sp.toFixed(1) : String(Math.round(sp))) + '%';
       sEl.title = sOk ? st.assetsWithSchema.toLocaleString() + ' of ' + st.assetsViewer.toLocaleString() + ' assets have a captured schema'
                         + (st.schemaAnalysedAssets ? ' (' + st.schemaAnalysedAssets.toLocaleString() + ' known only from a survey\'s schema analysis)' : '') : noRatioMsg(st);
     }
@@ -1973,7 +1981,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
   function applySummary(d, store, primary){
     if (!d) return;
     store.assets = d.assetTotal; store.terms = d.termCount;
-    store.assetsViewer = d.assetTotalViewer; store.scopeSummary = d.countScope || null;   // viewer-scoped total for find-based ratios only
+    store.assetsViewer = d.assetTotalViewer; store.viewerLoading = !!d.assetTotalViewerLoading; store.viewerStale = !!d.assetTotalViewerStale; store.scopeSummary = d.countScope || null;   // viewer-scoped total for find-based ratios only
     store.byType = d.byType; store.topZones = d.topZones;                    // drill panels
     store.certSoon = d.certSoon; store.certExpiring90 = d.certExpiring90;
     store.orphanTermCount = d.orphanTermCount;
@@ -2287,8 +2295,21 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
   // Per-endpoint reloaders — each fetches one section's data into `store` and
   // re-renders the KPI band. Factored out of loadSet() so a section's own
   // refresh button can re-fetch just that section instead of all four.
-  function reloadSummary(store, asOf, primary){
-    return getJSON('/api/overview/summary', asOf).then(function(d){ applySummary(d, store, primary); renderKPIs(); });
+  // The summary may answer before the count of assets this user can see has finished (it takes about two
+  // minutes; the server counts in the background). While it says "loading", ask again every 15 s for up to
+  // 5 minutes, then show "not measured" with the reason. A newer load of the same store cancels an older poll.
+  var VIEWER_POLL_MS = 15000, VIEWER_POLL_MAX = 20;
+  function reloadSummary(store, asOf, primary, attempt){
+    attempt = attempt || 0;
+    if (attempt === 0) store.sumPoll = (store.sumPoll || 0) + 1;
+    var token = store.sumPoll;
+    return getJSON('/api/overview/summary', asOf).then(function(d){
+      if (token !== store.sumPoll) return;               // a newer load owns this store now
+      store.viewerGaveUp = !!(d && d.assetTotalViewerLoading && attempt >= VIEWER_POLL_MAX);
+      applySummary(d, store, primary); renderKPIs();
+      if (d && d.assetTotalViewerLoading && attempt < VIEWER_POLL_MAX)
+        setTimeout(function(){ reloadSummary(store, asOf, primary, attempt + 1).catch(function(){}); }, VIEWER_POLL_MS);
+    });
   }
   function reloadPeople(store, asOf, primary){
     return getJSON('/api/overview/people', asOf).then(function(d){ applyPeople(d, store, primary); renderKPIs(); });
