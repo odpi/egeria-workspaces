@@ -66,10 +66,10 @@ def test_handler_passes_strict_for_headline_counts():
     # the summary tile counts must come from strict calls; check the source rather than a live route
     import inspect
     src = inspect.getsource(oh.get_summary)
-    for needle in ('count_elements(mgr, "Asset", as_of_time, strict=True)',
-                   'count_elements(mgr, "GlossaryTerm", as_of_time, strict=True)',
-                   'count_elements(mgr, "DigitalProduct", as_of_time, strict=True)',
-                   "counts_by_type(mgr, _ASSET_TYPES, as_of_time, strict=True)"):
+    for needle in ('n_elements(mgr, "Asset", as_of_time, strict=True)',
+                   'n_elements(mgr, "GlossaryTerm", as_of_time, strict=True)',
+                   'n_elements(mgr, "DigitalProduct", as_of_time, strict=True)',
+                   "n_by_type(mgr, _ASSET_TYPES, as_of_time, strict=True)"):
         assert needle in src, needle
     assert "strict=True" in inspect.getsource(oh.get_people)
     assert "strict=True" in inspect.getsource(oh.get_usage_context)
@@ -169,8 +169,10 @@ def test_governed_counts_are_asset_scoped_and_strict(monkeypatch):
 def test_governed_summary_route_uses_asset_scoped_counts():
     import inspect
     src = inspect.getsource(oh.get_summary)
-    assert 'count_elements(mgr, "Asset", as_of_time, classifications=GOVERNANCE_CLASSIFICATIONS, strict=True)' in src
-    assert 'classifications=_SUBSTANTIVE_GOVERNANCE, strict=True' in src
+    assert '_governed_asset_counts(n_elements, mgr, as_of_time)' in src
+    gsrc = inspect.getsource(oh._governed_asset_counts)
+    assert 'classifications=GOVERNANCE_CLASSIFICATIONS, strict=True' in gsrc
+    assert 'classifications=_SUBSTANTIVE_GOVERNANCE, strict=True' in gsrc
 
 
 def test_governed_unmeasured_is_none_not_zero():

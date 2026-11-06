@@ -38,6 +38,8 @@ Known constraints (see PYEGERIA_ISSUES.md):
   - PY-15: Postgres connector ignores matchCriteria once 2+ classification
     conditions are present → keep every query to 0 or 1 classification.
 """
+import functools
+import inspect
 import os
 import re
 import time
@@ -341,6 +343,45 @@ def get_container(
         raise HTTPException(status_code=500, detail=f"Container resolution failed: {exc}")
 
 
+# ── Count scope (whole repository vs what the viewer can see) ────────────────
+#
+# Egeria's native count can push the count down to the repository (fast, 0.2-0.8 s at any size) or
+# apply per-element visibility (slow, ~100 s for Asset). Owner decision 2026-11-06: the Overview shows
+# whole-repository totals to anyone. pyegeria's count helpers take `scope="repository"|"viewer"` from
+# the release after 6.2.21; on an older pyegeria the parameter does not exist and every count stays
+# viewer-scoped. Support is detected from the signature at run time, never assumed from a version.
+#
+# One route uses ONE scope for all its native counts, and a ratio never mixes scopes: a numerator that
+# comes from a find (always viewer-scoped) is only ever divided by a viewer-scoped total.
+
+REPOSITORY = "repository"
+VIEWER = "viewer"
+_SCOPE_SUPPORT: dict = {}
+
+
+def _accepts_scope(fn) -> bool:
+    """True if `fn` takes a `scope` parameter. Cached per function object."""
+    if fn not in _SCOPE_SUPPORT:
+        try:
+            _SCOPE_SUPPORT[fn] = "scope" in inspect.signature(fn).parameters
+        except (TypeError, ValueError):
+            _SCOPE_SUPPORT[fn] = False
+    return _SCOPE_SUPPORT[fn]
+
+
+def _count_scope(*fns) -> str:
+    """The scope a route's native counts will actually use: repository only if EVERY helper the
+    route calls supports it, otherwise viewer for all of them (never a mix inside one payload)."""
+    return REPOSITORY if fns and all(_accepts_scope(f) for f in fns) else VIEWER
+
+
+def _scoped(fn, scope: str):
+    """`fn` with `scope="repository"` bound when requested and supported; otherwise `fn` unchanged."""
+    if scope == REPOSITORY and _accepts_scope(fn):
+        return functools.partial(fn, scope=REPOSITORY)
+    return fn
+
+
 # Collaboration relationship types behind the People tile's feedback tally (same set and keys as
 # pyegeria's overview_metrics.feedback_summary, which folds a failed count to 0).
 _FEEDBACK_RELATIONSHIPS = (
@@ -349,19 +390,28 @@ _FEEDBACK_RELATIONSHIPS = (
 )
 
 
-def _feedback_counts(ce, as_of: Optional[str] = None) -> dict:
+def _feedback_counts(ce, as_of: Optional[str] = None, count_rel=None) -> dict:
     """Feedback tally where a count that could not be read is None, not 0.
 
     pyegeria's feedback_summary does `count_relationships(...) or 0`, so a failed query reads as "no
     feedback". Here each type is None when unmeasured, and `total` is None unless every type was
     measured -- a sum over a subset is a lower bound, not a total."""
-    by_type = {key: count_relationships(ce, rel, as_of) for rel, key in _FEEDBACK_RELATIONSHIPS}
+    count_rel = count_rel or count_relationships
+    by_type = {key: count_rel(ce, rel, as_of) for rel, key in _FEEDBACK_RELATIONSHIPS}
     unmeasured = [k for k, v in by_type.items() if v is None]
     total = None if unmeasured else sum(by_type.values())
     return {"byType": by_type, "total": total, "unmeasured": unmeasured}
 
 
 _SUBSTANTIVE_GOVERNANCE = tuple(c for c in GOVERNANCE_CLASSIFICATIONS if c != "ZoneMembership")
+
+
+def _governed_asset_counts(count_fn, mgr, as_of: Optional[str] = None):
+    """(governed, fully governed) Asset counts, both taken through the SAME bound `count_fn` so the
+    numerator and denominator of Governed Coverage always share one scope (the denominator, the Asset
+    total, is taken through that same function by the caller)."""
+    return (count_fn(mgr, "Asset", as_of, classifications=GOVERNANCE_CLASSIFICATIONS, strict=True),
+            count_fn(mgr, "Asset", as_of, classifications=_SUBSTANTIVE_GOVERNANCE, strict=True))
 
 
 def _asset_scoped_governed(gov: dict, governed: Optional[int], fully: Optional[int]) -> dict:
@@ -428,16 +478,23 @@ def get_summary(
     # Governed tally — single ANY over governance classifications (PY-15 note: this
     # 5-classification ANY is affected by the server bug; still correct at 0/1
     # conditions and used here as a best-effort coverage proxy).
+    # Every native count in this payload shares ONE scope (see "Count scope" above): the Governed share,
+    # the donut, Assets by Type's "Other" remainder and Data Products' pending count are all ratios or
+    # differences of these counts, so they must not mix repository- and viewer-scoped values.
+    scope = _count_scope(count_elements, counts_by_type, count_relationships,
+                         *([count_elements_by_property] if count_elements_by_property else []))
+    n_elements = _scoped(count_elements, scope)
+    n_by_type = _scoped(counts_by_type, scope)
+    n_relationships = _scoped(count_relationships, scope)
+    n_by_property = _scoped(count_elements_by_property, scope) if count_elements_by_property else None
+
     gov = governed_coverage(mgr, as_of_time)
-    gov = _asset_scoped_governed(
-        gov,
-        count_elements(mgr, "Asset", as_of_time, classifications=GOVERNANCE_CLASSIFICATIONS, strict=True),
-        count_elements(mgr, "Asset", as_of_time, classifications=_SUBSTANTIVE_GOVERNANCE, strict=True))
+    gov = _asset_scoped_governed(gov, *_governed_asset_counts(n_elements, mgr, as_of_time))
 
     # Assets by type (best-effort; unknown types yield 0) — kept purely as the
     # composition breakdown behind the "Assets by Type" chart below; it is
     # NOT summed for the headline total anymore (see asset_total below).
-    by_type = counts_by_type(mgr, _ASSET_TYPES, as_of_time, strict=True)
+    by_type = n_by_type(mgr, _ASSET_TYPES, as_of_time, strict=True)
 
     # Headline total: the native `Asset` supertype count (OVERVIEW_NEXT_STEPS.md
     # "Asset definition" open decision, resolved 2026-08-16) — one native count
@@ -448,11 +505,11 @@ def get_summary(
     # in that list — that mismatch (e.g. live: 2,668 curated-sum vs 2,523
     # Asset-supertype) is exactly what motivated unifying the two here, so the
     # tile's own headline number and its own sparkline finally agree.
-    asset_total = count_elements(mgr, "Asset", as_of_time, strict=True)
+    asset_total = n_elements(mgr, "Asset", as_of_time, strict=True)
 
     by_type = _exclusive_by_type(by_type, asset_total)
 
-    term_count = count_elements(mgr, "GlossaryTerm", as_of_time, strict=True)
+    term_count = n_elements(mgr, "GlossaryTerm", as_of_time, strict=True)
 
     # Vega-Lite bar chart for the assets-by-type composition (real chart —
     # supersedes the hand-drawn SVG bars; see OVERVIEW_REPORTING_MODEL.md P1).
@@ -472,11 +529,11 @@ def get_summary(
     # keeps this to 2 cheap native COUNT calls total, same cost class as the
     # single count this replaces, and stays correct regardless of which
     # status values actually appear in a given dataset.
-    data_products = count_elements(mgr, "DigitalProduct", as_of_time, strict=True)
+    data_products = n_elements(mgr, "DigitalProduct", as_of_time, strict=True)
     data_products_active = None
-    if count_elements_by_property is not None:
+    if n_by_property is not None:
         try:
-            data_products_active = count_elements_by_property(
+            data_products_active = n_by_property(
                 mgr, "DigitalProduct", "deploymentStatus", "ACTIVE", as_of_time, strict=True)
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"overview summary: data products deploymentStatus breakdown failed: {exc}")
@@ -497,7 +554,7 @@ def get_summary(
     ce = None
     try:
         ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
-        ratings_total = count_relationships(ce, "AttachedRating", as_of_time)
+        ratings_total = n_relationships(ce, "AttachedRating", as_of_time)
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview summary: ratings count failed: {exc}")
 
@@ -512,7 +569,7 @@ def get_summary(
         try:
             biz_value = _reconcile_business_value(
                 business_value_signals(mgr, as_of_time), asset_total,
-                count_elements(mgr, None, as_of_time, classifications=["ConsolidatedDuplicate"], strict=True))
+                n_elements(mgr, None, as_of_time, classifications=["ConsolidatedDuplicate"], strict=True))
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"overview summary: business_value_signals failed: {exc}")
 
@@ -553,6 +610,12 @@ def get_summary(
         "asOfTime":         as_of_time,
         "viewServer":       _env(url, server, user_id, user_pwd)[1],   # the Egeria view server queried (page header)
         "assetTotal":       asset_total,
+        # Which scope every native count in this payload used: "repository" = the whole catalog (fast),
+        # "viewer" = only what the signed-in user can see. The page labels the tiles with it.
+        "countScope":       scope,
+        # Asset total for ratios whose numerator is a find (viewer-scoped): the total itself only when it is
+        # viewer-scoped, otherwise None, so such a ratio is withheld rather than mixing scopes.
+        "assetTotalViewer": asset_total if scope == VIEWER else None,
         "byType":           by_type,
         "byTypeChart":      by_type_chart,
         "termCount":        term_count,
@@ -1319,6 +1382,9 @@ def get_ai_context(
 
     payload = {
         "asOfTime":  as_of_time,
+        # The funnel mixes find-based stages (Documented, AI-Ready) with counts, so every stage and the
+        # ownership / AI-Ready percentages stay viewer-scoped; only a single scope is ever shown here.
+        "countScope": VIEWER,
         "funnel": {
             "cataloged":  funnel["Cataloged"],
             "documented": funnel["Documented"],
@@ -1365,9 +1431,13 @@ def get_people(
 
     persons = teams = orgs = it_profiles = communities = None
     expert = None
+    scope = _count_scope(people_counts, count_elements, count_relationships)
+    n_people = _scoped(people_counts, scope)
+    n_elements = _scoped(count_elements, scope)
+    n_relationships = _scoped(count_relationships, scope)
     try:
         expert = _expert(url, server, user_id, user_pwd)
-        people = people_counts(expert, as_of_time, strict=True)
+        people = n_people(expert, as_of_time, strict=True)
         persons     = people["persons"]
         teams       = people["teams"]
         orgs        = people["organizations"]
@@ -1386,7 +1456,7 @@ def get_people(
     ce = None
     try:
         ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
-        fb = _feedback_counts(ce, as_of_time)
+        fb = _feedback_counts(ce, as_of_time, n_relationships)
         feedback_by_type = fb["byType"]
         feedback_items = fb["total"]
         feedback_unmeasured = fb["unmeasured"]
@@ -1394,7 +1464,7 @@ def get_people(
         logger.debug(f"overview people: feedback query failed: {exc}")
     try:
         if expert is not None:
-            karma = count_elements(expert, "ContributionRecord", as_of_time, strict=True)
+            karma = n_elements(expert, "ContributionRecord", as_of_time, strict=True)
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview people: karma query failed: {exc}")
 
@@ -1440,6 +1510,7 @@ def get_people(
         "karmaRecords":       karma,             # count of ContributionRecord elements
         "feedbackItems":      feedback_items,    # Σ ratings+comments+likes+tags+noteLogs
         "feedbackByType":     feedback_by_type,
+        "countScope":         scope,            # "repository" (whole catalog) or "viewer" (what you can see)
         "feedbackUnmeasured": feedback_unmeasured,   # relationship types whose count could not be read
         "feedbackChart":      feedback_chart,
         "leaderboard":        leaderboard,       # per-person karma rollup, top 10
@@ -1477,9 +1548,10 @@ def get_usage_context(
         return JSONResponse(cached)
 
     iscs = blueprints = None
+    scope = _count_scope(usage_context_counts)
     try:
         mgr = _expert(url, server, user_id, user_pwd)
-        usage = usage_context_counts(mgr, as_of_time, strict=True)
+        usage = _scoped(usage_context_counts, scope)(mgr, as_of_time, strict=True)
         iscs       = usage["informationSupplyChains"]
         blueprints = usage["blueprints"]
     except Exception as exc:  # noqa: BLE001
@@ -1508,6 +1580,7 @@ def get_usage_context(
 
     payload = {
         "asOfTime":                as_of_time,
+        "countScope":              scope,   # scope of the ISC / blueprint counts; the % contextualised is viewer-scoped
         "informationSupplyChains": iscs,
         "blueprints":              blueprints,
         "contextualisedCount":     contextualised_count,

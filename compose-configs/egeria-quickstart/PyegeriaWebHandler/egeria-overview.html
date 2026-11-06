@@ -991,6 +991,18 @@ const num = n => (n != null ? Number(n).toLocaleString() : null);
 const NO_DATA = '—';
 const cnt = n => (n != null ? String(n) : NO_DATA);
 const NM_SUB = 'not measured — query failed or hit its page cap';
+// Which scope a native count used. "repository" = the whole catalog (Egeria counts without per-element
+// visibility, so it can include elements the signed-in user cannot open); "viewer" = only what they can see.
+// The backend reports it per payload (countScope); null = that payload has not answered.
+const SCOPE_TAG = { repository: 'whole catalog', viewer: 'what you can see' };
+const SCOPE_NOTE = {
+  repository: 'This count covers the whole catalog, including elements you may not have access to, so it can be higher than the list you reach by clicking through, which shows only what you can see.',
+  viewer: 'This count covers only the elements you can see.'
+};
+// tile -> the LIVE field holding the scope of the payload its count came from
+const TILE_SCOPE = { assets:'scopeSummary', terms:'scopeSummary', governed:'scopeSummary', products:'scopeSummary',
+                     people:'scopePeople', communities:'scopePeople', isc:'scopeUsage', blueprints:'scopeUsage' };
+const scopeSuffix = k => (TILE_SCOPE[k] && SCOPE_TAG[LIVE[TILE_SCOPE[k]]]) ? ' · ' + SCOPE_TAG[LIVE[TILE_SCOPE[k]]] : '';
 // A KPI shows a sparkline ONLY when we have a real historical series for it
 // (from /api/overview/growth asOfTime snapshots). `hist` names the series field;
 // metrics without one render no sparkline rather than a fake squiggle.
@@ -1225,6 +1237,7 @@ function renderKPIs(){
         sub = `<span style="color:var(--muted)">no data at ${ASOF_LABEL}</span>`;
       }
     }
+    if (!comparing && sub && sub !== NM_SUB) sub += scopeSuffix(k);
     let spark = '';
     const pts = (!comparing && m.hist && LIVE.series) ? sparkPts(LIVE.series[m.hist]) : null;
     if (pts) {
@@ -1259,7 +1272,8 @@ function toggleInfoPopover(btn, key){
   pop.className = 'k-info-popover';
   pop.dataset.forKey = key;
   pop.innerHTML = (info.summary ? `<div class="k-info-summary">${info.summary}</div>` : '') +
-    (info.usage ? `<div class="k-info-usage"><strong>Usage notes:</strong> ${info.usage}</div>` : '');
+    (info.usage ? `<div class="k-info-usage"><strong>Usage notes:</strong> ${info.usage}</div>` : '') +
+    ((TILE_SCOPE[key] && SCOPE_NOTE[LIVE[TILE_SCOPE[key]]]) ? `<div class="k-info-usage"><strong>Scope:</strong> ${SCOPE_NOTE[LIVE[TILE_SCOPE[key]]]}</div>` : '');
   document.body.appendChild(pop);
   var r = btn.getBoundingClientRect();
   var left = Math.min(r.left, window.innerWidth - 340);   // keep on-screen; popover is ~320px
@@ -1582,8 +1596,8 @@ function drillFor(key){
   if(TYPE_NAMES[key]) return typeDrill(...TYPE_NAMES[key]);
   if(key.startsWith('zone-')) return zoneDrill(key.slice(5));
   if(key.startsWith('funnel-')){
-    const meta={'funnel-cataloged':['Cataloged','All registered assets',LIVE.assets],'funnel-documented':['Documented','Have a description / usage',LIVE.documented],'funnel-classified':['Classified','Carry governance classifications',LIVE.classified],'funnel-lineage':['Lineage-traced','Connected in the lineage graph',LIVE.lineage],'funnel-airead':['AI-Ready','Pass all context-readiness gates',LIVE.aiReadyCount]}[key];
-    const n=meta[2], tot=LIVE.assets, known=(n!=null), pct=(known&&tot)?Math.round(n/tot*100)+'%':ND;
+    const meta={'funnel-cataloged':['Cataloged','All registered assets',LIVE.cataloged],'funnel-documented':['Documented','Have a description / usage',LIVE.documented],'funnel-classified':['Classified','Carry governance classifications',LIVE.classified],'funnel-lineage':['Lineage-traced','Connected in the lineage graph',LIVE.lineage],'funnel-airead':['AI-Ready','Pass all context-readiness gates',LIVE.aiReadyCount]}[key];
+    const n=meta[2], tot=LIVE.cataloged, known=(n!=null), pct=(known&&tot)?Math.round(n/tot*100)+'%':ND;
     return { eb:'Context readiness', t:'🚦 '+meta[0], s:meta[1]+(known?' — '+n.toLocaleString()+' assets'+(tot?' ('+pct+' of catalog)':''):''),
       stats:[[known?n.toLocaleString():ND,'assets'],[pct,'of catalog']], list:(known&&tot&&n<=tot)?[['Reaches this stage',n],['Drops off before',tot-n]]:[],
       cta:['Open The Catalog','/tech-catalog'], sec:['Fix gaps via Query','/egeria-insights'],
@@ -1628,7 +1642,7 @@ function drillLivePatch(key, d){
   if (key === 'ai-ready' && LIVE.aiReadyCount != null) {
     d.stats[0][0] = String(LIVE.aiReadyCount);
     if (LIVE.aiReadyPct != null) d.stats[1][0] = LIVE.aiReadyPct + '%';
-    if (LIVE.assets != null && LIVE.assets >= LIVE.aiReadyCount) set(2, LIVE.assets - LIVE.aiReadyCount);
+    if (LIVE.cataloged != null && LIVE.cataloged >= LIVE.aiReadyCount) set(2, LIVE.cataloged - LIVE.aiReadyCount);   // same (viewer) scope as aiReadyCount
     d.s = num(LIVE.aiReadyCount) + ' assets are governed + documented + lineage-traced — safe to serve as AI context';
     d.list = [['Documented', LIVE.documented], ['Classified', LIVE.classified], ['Lineage-traced', LIVE.lineage], ['AI-ready (all gates)', LIVE.aiReadyCount]]
               .filter(r => r[1] != null);
@@ -1770,18 +1784,25 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
   }
   // Survey coverage: Data Quality "Surveyed" (assets with a SurveyReport) and the Attention Queue's
   // "Data stores never surveyed". Every unknown stays a dash; a real zero stays a zero.
+  // These percentages divide a find-based count (visible to you only) by the Asset total. If that total is
+  // whole-catalog scoped the ratio would mix scopes, so it is withheld and says why.
+  function noRatioMsg(st){
+    return (st.assets != null && st.assetsViewer == null)
+      ? 'Percentage withheld: the Asset total covers the whole catalog but this count covers only what you can see'
+      : 'Not measured';
+  }
   function renderSurveyCoverage(st){
     var pctEl = document.getElementById('dq-survey-pct'), fill = document.getElementById('dq-survey-fill');
-    var ok = st.surveyedAssets != null && st.assets;
+    var ok = st.surveyedAssets != null && st.assetsViewer;
     if (pctEl) {
-      var pct = ok ? 100 * st.surveyedAssets / st.assets : null;
+      var pct = ok ? 100 * st.surveyedAssets / st.assetsViewer : null;
       // surveyLinksCapped: the ReportSubject read stopped at its page limit, so the surveyed count is a lower bound
       var sLb = st.surveyLinksCapped ? 'at least ' : '';
       pctEl.textContent = pct == null ? '—' : (st.surveyLinksCapped ? '≥' : '') + (pct > 0 && pct < 1 ? pct.toFixed(1) : String(Math.round(pct))) + '%';
-      pctEl.title = ok ? sLb + st.surveyedAssets.toLocaleString() + ' of ' + st.assets.toLocaleString() + ' assets have a completed survey'
-                         + (st.assetsSurveyFailedOnly ? ' (' + st.assetsSurveyFailedOnly.toLocaleString() + ' more only have failed surveys)' : '') : 'Not measured';
+      pctEl.title = ok ? sLb + st.surveyedAssets.toLocaleString() + ' of ' + st.assetsViewer.toLocaleString() + ' assets have a completed survey'
+                         + (st.assetsSurveyFailedOnly ? ' (' + st.assetsSurveyFailedOnly.toLocaleString() + ' more only have failed surveys)' : '') : noRatioMsg(st);
     }
-    if (fill) fill.style.width = (ok && st.surveyedAssets > 0 ? Math.max(100 * st.surveyedAssets / st.assets, 1) : 0) + '%';
+    if (fill) fill.style.width = (ok && st.surveyedAssets > 0 ? Math.max(100 * st.surveyedAssets / st.assetsViewer, 1) : 0) + '%';
     // Has quality annotations: of the surveyed assets, how many have a report carrying a QualityAnnotation.
     var qEl = document.getElementById('dq-quality-pct'), qFill = document.getElementById('dq-quality-fill');
     var qOk = st.qualityAnnotatedAssets != null && st.surveyedAssets;
@@ -1795,14 +1816,14 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     if (qFill) qFill.style.width = (qOk && st.qualityAnnotatedAssets > 0 ? Math.max(100 * st.qualityAnnotatedAssets / st.surveyedAssets, 1) : 0) + '%';
     // Has schema captured: elements that anchor a captured schema, of all assets.
     var sEl = document.getElementById('dq-schema-pct'), sFill = document.getElementById('dq-schema-fill');
-    var sOk = st.assetsWithSchema != null && st.assets;
+    var sOk = st.assetsWithSchema != null && st.assetsViewer;
     if (sEl) {
-      var sp = sOk ? 100 * st.assetsWithSchema / st.assets : null;
+      var sp = sOk ? 100 * st.assetsWithSchema / st.assetsViewer : null;
       sEl.textContent = sp == null ? '—' : (sp > 0 && sp < 1 ? sp.toFixed(1) : String(Math.round(sp))) + '%';
-      sEl.title = sOk ? st.assetsWithSchema.toLocaleString() + ' of ' + st.assets.toLocaleString() + ' assets have a captured schema'
-                        + (st.schemaAnalysedAssets ? ' (' + st.schemaAnalysedAssets.toLocaleString() + ' known only from a survey\'s schema analysis)' : '') : 'Not measured';
+      sEl.title = sOk ? st.assetsWithSchema.toLocaleString() + ' of ' + st.assetsViewer.toLocaleString() + ' assets have a captured schema'
+                        + (st.schemaAnalysedAssets ? ' (' + st.schemaAnalysedAssets.toLocaleString() + ' known only from a survey\'s schema analysis)' : '') : noRatioMsg(st);
     }
-    if (sFill) sFill.style.width = (sOk && st.assetsWithSchema > 0 ? Math.max(100 * st.assetsWithSchema / st.assets, 1) : 0) + '%';
+    if (sFill) sFill.style.width = (sOk && st.assetsWithSchema > 0 ? Math.max(100 * st.assetsWithSchema / st.assetsViewer, 1) : 0) + '%';
     // Surveys that failed: a failed survey still writes a report and partial findings, so it is counted here
     // and NOT in any coverage figure. Unknown outcomes are shown too, never folded into the successes.
     var fcnt = document.getElementById('aq-failedsurveys-count'), fdesc = document.getElementById('aq-failedsurveys-desc');
@@ -1952,6 +1973,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
   function applySummary(d, store, primary){
     if (!d) return;
     store.assets = d.assetTotal; store.terms = d.termCount;
+    store.assetsViewer = d.assetTotalViewer; store.scopeSummary = d.countScope || null;   // viewer-scoped total for find-based ratios only
     store.byType = d.byType; store.topZones = d.topZones;                    // drill panels
     store.certSoon = d.certSoon; store.certExpiring90 = d.certExpiring90;
     store.orphanTermCount = d.orphanTermCount;
@@ -2051,7 +2073,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
 
   function applyPeople(d, store, primary){
     if (!d) return;
-    store.people = d.activeContributors; store.communities = d.communities;
+    store.people = d.activeContributors; store.communities = d.communities; store.scopePeople = d.countScope || null;
     store.teams = d.teams; store.orgs = d.organizations;
     if (!primary) return;
     // People & Community section sub-band
@@ -2121,7 +2143,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
 
   function applyUsage(d, store, primary){
     if (!d) return;
-    store.isc = d.informationSupplyChains; store.blueprints = d.blueprints;
+    store.isc = d.informationSupplyChains; store.blueprints = d.blueprints; store.scopeUsage = d.countScope || null;
     store.contextualisedPct = d.contextualisedPct;
     store.solutionComponents = d.solutionComponents;
     store.solutionComponentsRealised = d.solutionComponentsRealised;
@@ -2171,6 +2193,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
       if (d.funnel.documented != null) store.documented = d.funnel.documented;
       if (d.funnel.classified != null) store.classified = d.funnel.classified;
       if (d.funnel.lineage != null)    store.lineage = d.funnel.lineage;
+      store.cataloged = d.funnel.cataloged;   // viewer-scoped: the denominator for the funnel's own percentages
     }
     if (!primary) return;
     // AI section grounding tile + funnel — cataloged/classified/documented/
