@@ -720,8 +720,24 @@ cannot.
   by a steward; it is not used here. Both verified live at 6.3.
 - **Sharing:** `DataValueHierarchy` (one parent, many children) lets a **general** specification hold everything that
   does not depend on one field (completeness, confidence form, state set, absence sentences: e.g. "a count read under a
-  person's client"), with a small **child** per measured field adding only its own `basisField` and `asOfField`. Fields
-  share what they have in common; the field references stay one per field.
+  person's client"), with a small **child** per measured field adding only its own basis and as-of field links
+  (below). Fields share what they have in common; the field references stay one per field.
+- **References are relationships (owner, 2026-11-07, with the Egeria team's preference).** The three things a
+  specification points at are links, not strings:
+  - **State set:** `ValidValuesAssignment` from the `MeasurementSpecification` (end 1, `validValuesConsumer`) to the
+    state set's `ReferenceDataSet` (end 2, at most one), with `strictRequirement` = true (verified on the 6.3 platform
+    deployed 2026-11-07: end 2 is any `ValidValueDefinition`, and `ReferenceDataSet` ⊂ `ReferenceDataValue` ⊂
+    `ValidValueDefinition`). Usually on the general parent, so the runtime walks `DataValueHierarchy` up to find it.
+  - **Basis field:** a new `BasisDataField` from the child `MeasurementSpecification` (end 1, any number) to the
+    `DataField` the measure is relative to (end 2, at most one): the denominator of a percentage, the total a share is
+    taken of. A basis field can serve many measures, because a shared `DataField` has one element (§5, §8c).
+  - **As-of field:** a new `AsOfDataField`, same ends and cardinalities, to the `DataField` that holds the measurement
+    time. The Egeria team will implement it alongside `BasisDataField` (2026-11-07), one type per role rather than one
+    `MeasurementDataField` with a `role` property.
+
+  The canonical JSON keeps names (`"valid_values": "CountStates"`, a basis or as-of field by its name in the same
+  shape); the mapping to Egeria resolves each name and writes the relationship, and the loader reads it back as the
+  name.
 - **Unit has one home:** the inherited `units`. `DataField.units` also exists at 6.3 and is left unset, so the two
   cannot disagree.
 - **It retires the 2026-11-03 typed-`GovernanceMetric` ask**, because `MeasurementSpecification` is the measure's
@@ -746,8 +762,10 @@ list in this design uses the one that fits:
 - **Reference data** holds named business-style lists as elements: a `ReferenceDataSet` with `ReferenceDataValue`
   members through `ValidValueMember` (never a plain `ValidValueDefinition`, which the Reference Data service does not
   return by default). Used for the **per-field state sets** of §5 (`CountStates`, …), which are not keyed by an Egeria
-  property: a field's `MeasurementSpecification` names its set in `stateSet` (a string), and the runtime reads the
-  set's members by that name to validate a cell or fill a drop-down. No relationship from the field to the set.
+  property: a field's `MeasurementSpecification` links to its set by `ValidValuesAssignment` with
+  `strictRequirement` = true (above; a string `stateSet` until 2026-11-07), and the runtime reads the set's members to
+  validate a cell or fill a drop-down. The consumer is the specification, never the field, so this link cannot be
+  confused with the field's own data valid values below.
 - The governed-data `valid_values` of a field (today's `Column.valid_values`, e.g. the `confidentiality_classification`
   levels in the generated specs) are a different thing, the allowed values of the data itself, and keep
   `ValidValuesAssignment` (§8c).
@@ -755,7 +773,7 @@ list in this design uses the one that fits:
 | Need | Exists today | Proposed |
 |---|---|---|
 | spec carries its micro-flow | nothing typed on `ReportType` (own properties: `createdTime`, `lastModifiedTime`, `lastModifier`); `Referenceable` has no `aliases` | `ReportSpec` ⊂ `ReportType` with `microflow` (string, JSON), plus the envelope strings `targetTypeName`, `aliases`, `outputTypes`, `includePreamble` (§9.1, **decided**) |
-| field is a measured value (value and measurement semantics) | `DataValueSpecification` (`units`, `absoluteUncertainty`, `relativeUncertainty`, `dataType`, `specification`, `specificationDetails`); `DataClass`, `DataGrain` as siblings; `GovernanceMetric` (`measurement`, `target`) | a **`MeasurementSpecification` ⊂ `DataValueSpecification`** with `completenessDeclared` (valid metadata: `complete`, `lower_bound`, `unknown`), `confidenceForm` (valid metadata: `measured`, `estimated`, `inferred`, `judged`, `generated`), `uncertaintyForm` (valid metadata: `plus_minus`, `low_high`, `band`), `stateSet` (a reference-data set's name), `absenceSentences` (map: state → sentence), `basisField`, `asOfField` (field names in the same shape); linked `DataValueDefinition` from the `DataField`, shared through `DataValueHierarchy` |
+| field is a measured value (value and measurement semantics) | `DataValueSpecification` (`units`, `absoluteUncertainty`, `relativeUncertainty`, `dataType`, `specification`, `specificationDetails`); `DataClass`, `DataGrain` as siblings; `GovernanceMetric` (`measurement`, `target`) | a **`MeasurementSpecification` ⊂ `DataValueSpecification`** with `completenessDeclared` (valid metadata: `complete`, `lower_bound`, `unknown`), `confidenceForm` (valid metadata: `measured`, `estimated`, `inferred`, `judged`, `generated`), `uncertaintyForm` (valid metadata: `plus_minus`, `low_high`, `band`), `absenceSentences` (map: state → sentence); linked `DataValueDefinition` from the `DataField`, shared through `DataValueHierarchy`; its state set by `ValidValuesAssignment` (`strictRequirement` true), its basis and as-of fields by new `BasisDataField` and `AsOfDataField` relationships to `DataField`s |
 | routine carries its declaration | `Process.formula` / `formulaType` | no new type; `formulaType` = `trellis-declaration/1` |
 | formatter names its renderer | `DisplayDataContainer` has no renderer word | `renderer` string property on `DisplayDataContainer` (or `additionalProperties.renderer` as fallback) |
 | a function says where it can run | `ImplementedBy` has `role`, `description`, `designStep`, `transformation`, `iscQualifiedName` | use `role` = the binding kind (`python`, `egeria_query`, `sql`, `step`); no new type |
@@ -783,7 +801,8 @@ list in this design uses the one that fits:
 | `field.detail_spec` | `DataDescription` from the `DataField` to the detail `ReportSpec` (a `Collection`, so the end type holds) |
 | `field.valid_values` (governed values of the data) | `ValidValuesAssignment` to a `ReferenceDataSet` (a set is a definition with members; `ValidValueSet` does not exist) |
 | `field.companions`, `kind: cell` | `DataValueDefinition` to a *proposed* `MeasurementSpecification` (§8b), child of a shared general one through `DataValueHierarchy` |
-| a companion's state set (`{"name": "state", "valid_values": "CountStates"}`) | `MeasurementSpecification.stateSet` = "CountStates", the name of a `ReferenceDataSet`; no relationship |
+| a companion's state set (`{"name": "state", "valid_values": "CountStates"}`) | `ValidValuesAssignment` (`strictRequirement` true) from the `MeasurementSpecification` to the `CountStates` `ReferenceDataSet` |
+| a measure's basis field and as-of field (by name in the same shape) | `BasisDataField` and `AsOfDataField` from the child `MeasurementSpecification` to those `DataField`s (*proposed*, §8b) |
 | `field.kind: representation`, `format` | `DataField.dataType` = `representation/mermaid` (string convention until a type is agreed) |
 | `formatters.TABLE.columns` | `DisplayDataContainer` "TABLE", under the spec's `DisplayDataSchemaType` by `AttributeForSchema`, with one `DisplayDataField` per entry by `NestedSchemaAttribute` (`position` = column order); `displayName` only when the label is overridden; which `DataField` each shows is linked by `SchemaAttributeDefinition` once Egeria makes it one to many (§9.17) |
 | `formatters.ALL` | `DisplayDataContainer` "ALL" under the same schema type (the fallback formatter, §6) |
@@ -865,7 +884,9 @@ One place for the review with the Egeria team. **Status** says where each item s
 | # | Proposal | Status | Alternatives considered | Why the recommendation |
 |---|---|---|---|---|
 | 1 | `ReportSpec` ⊂ `ReportType`, typed `microflow` (JSON text) plus `targetTypeName`, `aliases`, `outputTypes`, `includePreamble` (§9.1) | decided | `ReportType` with values in `additionalProperties` | a map of maps in `additionalProperties` is the pattern the earlier note forbids; a subtype keeps today's 74 `ReportType` GUIDs and names by retyping within one branch |
-| 2 | `MeasurementSpecification` ⊂ `DataValueSpecification` (`completenessDeclared`, `confidenceForm`, `uncertaintyForm`, `stateSet`, `absenceSentences`, `basisField`, `asOfField`) (§8b) | decided | a `MeasurementDeclaration` classification on `DataField` (v5.1); typed attributes on `GovernanceMetric` (the 2026-11-03 ask) | follows Egeria's own pattern (`DataClass`, `DataGrain` are siblings); inherits unit and uncertainty, so one carrier; an element can be shared, a classification cannot |
+| 2 | `MeasurementSpecification` ⊂ `DataValueSpecification` (`completenessDeclared`, `confidenceForm`, `uncertaintyForm`, `absenceSentences`; its state set by `ValidValuesAssignment`, 2a and 2b below) (§8b) | decided | a `MeasurementDeclaration` classification on `DataField` (v5.1); typed attributes on `GovernanceMetric` (the 2026-11-03 ask) | follows Egeria's own pattern (`DataClass`, `DataGrain` are siblings); inherits unit and uncertainty, so one carrier; an element can be shared, a classification cannot |
+| 2a | `BasisDataField` (`MeasurementSpecification` → `DataField`, end 2 at most one) (§8b) | decided (owner, 2026-11-07; the Egeria team will implement it) | `basisField`, the field's name as a string (v5.3) | a typed link Egeria can resolve and query ("which measures are relative to this total?") |
+| 2b | `AsOfDataField` (`MeasurementSpecification` → `DataField`, end 2 at most one) (§8b) | decided (Egeria team will implement it, 2026-11-07) | `asOfField` string (v5.3); one `MeasurementDataField` with a `role` property | same shape as 2a; one type per role is easier to query and validate |
 | 3 | `Dashboard` ⊂ `DataSet` (`aliases`, `refreshSeconds`, `layoutStyle`) (§8d) | decided | `Dashboard` ⊂ `Collection` (pyegeria's model docstring, Dr.Egeria's current bundle) | `DataSetContent` makes a dashboard's reports its lineage, and `Report`, `Form`, `InformationView` are its natural siblings; layout works either way |
 | 4 | `DashboardPlacement` ⊂ `DisplayDataField` (`placementKind` REPORT · TEXT, `span`, `presentationStyle`, `markdownContent`) | recommended | plain `DisplayDataField` with span, presentation style and kind in `additionalProperties` (the companion note's existing-types variant) | typed, validated properties instead of strings every consumer parses |
 | 5 | `DashboardPlacementReport` (`DashboardPlacement` → `Report`) | recommended | `DataSetContent` from the dashboard with the placement id in `queryId` | a placement names its report directly; `DataSetContent` stays as the dashboard-level lineage link |
@@ -891,7 +912,7 @@ One place for the review with the Egeria team. **Status** says where each item s
 | 20 | unit | the inherited `DataValueSpecification.units` | recommended | `DataField.units` | one home, so the two cannot disagree |
 | 21 | governance metric | `GovernanceResults` → the `Report` or `SurveyReport` holding results | recommended | `GovernanceResults` → the `DataField` (v5.2) | the relationship ends at an `Asset`; a field is not one |
 | 22 | closed lists of Egeria properties (completeness, confidence form, renderer, column options, placement values, binding kinds, output format) | Valid Metadata values keyed by property and type; checked by the runtimes; no relationship | decided | a `ValidValuesAssignment` per element | one list feeds the drop-down and the check; Dr.Egeria already validates against it |
-| 23 | per-field state sets (`CountStates`) | a `ReferenceDataSet` named in `MeasurementSpecification.stateSet` | decided | a relationship to the set; code-only sets | not keyed by an Egeria property, so a named set; the name is enough for the runtimes |
+| 23 | per-field state sets (`CountStates`) | a `ReferenceDataSet` linked from the `MeasurementSpecification` by `ValidValuesAssignment` (`strictRequirement` true) | decided (owner, 2026-11-07; was a `stateSet` name string) | the name string; code-only sets | a typed link by GUID survives a rename and answers "which measures use this set?"; end 2 at most one matches one set per measure |
 | 24 | governed values of the data (`valid_values`) | `ValidValuesAssignment` → a `ReferenceDataSet` | reuse | — | these constrain the data itself, which is what the relationship is for |
 | 25 | questions, perspectives | `QuestionSpec` `CollectionFolder`, `Question` terms, `ScopedBy` from `Perspective`s; also `ScopedBy` from placements | reuse | the Advisor builder's inline copies | Egeria is the system of record since 2026-05-18 |
 | 26 | saved query producer, report subject | `SavedQuery` with `DataSetContent`; `ReportSubject` → the element a GUID parameter names | reuse | — | existing types with the right meaning |
@@ -1294,8 +1315,8 @@ elements `count_elements` and `term_definition_completeness` (declaration in `fo
 "python") its `EmbeddedProcess`; the spec links to `GlossaryRow` and to the two added-field structures
 `Glossary-Term-Counts::stage-2` (`term_count`) and `Glossary-Term-Counts::stage-3` (`completeness_pct`), anchored to the
 spec. The `term_count` and `completeness_pct` `DataField`s are each linked by `DataValueDefinition` to their own
-`MeasurementSpecification` (`term_count`'s with `stateSet` "CountStates"; `completeness_pct`'s with `basisField` and the
-inherited `units` "%" and `absoluteUncertainty`), both children through `DataValueHierarchy` of one shared
+`MeasurementSpecification` (`term_count`'s linked to "CountStates" by `ValidValuesAssignment`; `completeness_pct`'s with
+`BasisDataField` to its basis field and the inherited `units` "%" and `absoluteUncertainty`), both children through `DataValueHierarchy` of one shared
 "read under a person's client" specification (`completenessDeclared` unknown). No `GovernanceMetric` is needed at field level (§8b). **Honesty:** N native counts, no
 batched count in pyegeria yet; tile-safe only under the 25-glossary cap, otherwise a step plus `results`.
 
