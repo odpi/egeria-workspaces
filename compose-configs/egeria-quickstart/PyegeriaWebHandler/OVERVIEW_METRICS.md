@@ -46,15 +46,15 @@ The Overview dashboard's KPI tiles are defined once in `overview_specs.py` as Fo
 |---|---|---|---|---|---|---|---|
 | `assets` | Cataloged Assets | 🟢 live | Asset | summary → `assetTotal` | kpi | `assets` | governance, steward, app-ai-builder, privacy, community, data-expert, security, architecture |
 | `terms` | Glossary Terms | 🟢 live | GlossaryTerm | summary → `termCount` | kpi | `grounding` | governance, steward, consumer, community |
-| `governed` | Governed Coverage | 🟢 live | — | summary → `governedCount` | kpi | `governed` | governance, steward, data-owner, app-ai-builder, privacy, community, data-expert, security, architecture |
-| `certs` | Active Certifications | 🟢 live | — | summary → `certifications` | kpi | `certs` | governance, steward, data-owner, privacy, security |
-| `products` | Data Products | 🟢 live | DigitalProduct | summary → `dataProducts` | kpi | `products` | governance, data-owner, consumer, app-ai-builder, privacy, community |
-| `exceptions` | Open Exceptions | 🟢 live | — | summary → `openExceptions` | kpi | `exceptions` | governance, steward, data-owner, privacy, data-expert, security, architecture |
-| `people` | People / Contributors | 🟢 live | Person | people → `activeContributors` | kpi | `people` | data-owner, consumer, community |
+| `governed` | Governed Coverage | 🟢 live | — | summary → `governedCount` | kpi | `governed` | governance, steward, owner, app-ai-builder, privacy, community, data-expert, security, architecture |
+| `certs` | Active Certifications | 🟢 live | — | summary → `certifications` | kpi | `certs` | governance, steward, owner, privacy, security |
+| `products` | Data Products | 🟢 live | DigitalProduct | summary → `dataProducts` | kpi | `products` | governance, owner, consumer, app-ai-builder, privacy, community |
+| `exceptions` | Open Exceptions | 🟢 live | — | summary → `openExceptions` | kpi | `exceptions` | governance, steward, owner, privacy, data-expert, security, architecture |
+| `people` | People / Contributors | 🟢 live | Person | people → `activeContributors` | kpi | `people` | owner, consumer, community |
 | `communities` | Active Communities | 🟢 live | Community | people → `communities` | kpi | `people` | community |
 | `isc` | Supply Chains | 🟢 live | InformationSupplyChain | usage-context → `informationSupplyChains` | kpi | `isc` | consumer, app-ai-builder, data-expert, architecture |
 | `blueprints` | Solution Blueprints | 🟢 live | SolutionBlueprint | usage-context → `blueprints` | kpi | `blueprints` | consumer, app-ai-builder, data-expert, architecture |
-| `grounding` | Semantic Grounding | 🟢 live | — | ai-context → `groundingPct` | kpi | `grounding` | steward, data-owner, consumer, app-ai-builder, privacy, data-expert, security, architecture |
+| `grounding` | Semantic Grounding | 🟢 live | — | ai-context → `groundingPct` | kpi | `grounding` | steward, owner, consumer, app-ai-builder, privacy, data-expert, security, architecture |
 | `ownership` | Ownership Coverage | 🟢 live | — | ai-context → `ownershipPct` | kpi | `ownership` |  |
 | `ai-ready` | AI-Ready Assets | 🟢 live | Asset | ai-context → `aiReadyPct` | kpi | `ai-ready` | security |
 

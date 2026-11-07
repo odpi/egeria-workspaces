@@ -86,7 +86,9 @@ TOPIC_COLLECTIONS = {
 PERSPECTIVE_COLLECTIONS = {
     "governance":   "Governance View",
     "steward":      "Steward View",
-    "data-owner":   "Data Owner View",
+    # Key "owner" since 2026-11-07 (Trellis moved to Perspective::Owner). The collection keeps its name, and
+    # with it its qualifiedName, so a re-run updates the existing collection rather than creating a second.
+    "owner":        "Data Owner View",
     "consumer":     "Consumer View",
     "data-expert":  "Data Expert View",
     "architecture": "Architecture View",

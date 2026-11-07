@@ -343,7 +343,7 @@ Collection::Steward View
 Data Owner View
 
 ### Description
-Metrics shown to the "Data Owner" Perspective on the Overview dashboard (perspectives_for()'s 'data-owner').
+Metrics shown to the "Data Owner" Perspective on the Overview dashboard (perspectives_for()'s 'owner').
 
 ### Qualified Name
 Collection::Data Owner View
