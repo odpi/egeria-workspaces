@@ -86,7 +86,7 @@ ENDPOINTS = ("summary", "people", "usage-context", "ai-context", "growth", "acti
 PERSP_KPIS: Dict[str, List[str]] = {
     "governance":     ["assets", "terms", "governed", "certs", "products", "exceptions"],
     "steward":        ["assets", "governed", "exceptions", "certs", "terms", "grounding"],
-    "data-owner":     ["products", "governed", "certs", "exceptions", "people", "grounding"],
+    "owner":          ["products", "governed", "certs", "exceptions", "people", "grounding"],
     "consumer":       ["products", "terms", "grounding", "isc", "blueprints", "people"],
     "app-ai-builder": ["assets", "grounding", "isc", "blueprints", "governed", "products"],
     "privacy":        ["governed", "certs", "exceptions", "assets", "grounding", "products"],
@@ -96,16 +96,18 @@ PERSP_KPIS: Dict[str, List[str]] = {
     "architecture":   ["isc", "blueprints", "assets", "grounding", "governed", "exceptions"],
 }
 
-# The ten Trellis perspectives the Overview shows, in foundations.md order (Financial and Admin are left
-# out on purpose: design note §10.8). Egeria qualifiedName is "Perspective::<display name>".
+# The ten Trellis perspectives the Overview shows, in foundations.md order (Financial and Administration
+# are left out on purpose: design note §10.8). Egeria qualifiedName is "Perspective::<display name>".
+# "Owner" was "Data Owner" until 2026-11-07, when Trellis moved to the content pack's Perspective::Owner.
 PERSPECTIVE_DISPLAY_NAMES: List[str] = [
-    "Governance", "Steward", "Data Owner", "Consumer", "App/AI Builder",
+    "Governance", "Steward", "Owner", "Consumer", "App/AI Builder",
     "Privacy", "Community", "Data Expert", "Security", "Architecture",
 ]
 
-# Keys the page saved in localStorage before the Trellis rename -> current key.
+# Keys the page saved in localStorage before a Trellis rename -> current key. "data-owner" -> "owner"
+# since 2026-11-07; the older saved "owner" is the current key again, so it needs no entry.
 LEGACY_PERSPECTIVE_KEYS: Dict[str, str] = {
-    "owner": "data-owner", "engineer": "data-expert", "builder": "app-ai-builder",
+    "data-owner": "owner", "engineer": "data-expert", "builder": "app-ai-builder",
 }
 
 
