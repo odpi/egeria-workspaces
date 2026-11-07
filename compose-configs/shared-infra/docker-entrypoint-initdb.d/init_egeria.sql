@@ -40,5 +40,8 @@ grant all privileges on database egeria_advisor to egeria_advisor, surveyor;
 grant all privileges on database dagster to dagster_user, surveyor;
 grant all privileges on database prefect to prefect_user, surveyor;
 
+\c egeria
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+
 \c egeria_advisor
 CREATE EXTENSION IF NOT EXISTS vector;

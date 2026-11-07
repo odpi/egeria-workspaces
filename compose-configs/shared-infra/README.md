@@ -40,6 +40,21 @@ The `egeria_advisor` database is created at first startup with pgvector already 
 All other databases have pgvector available but not enabled — run `CREATE EXTENSION IF NOT EXISTS vector;` in any database
 that needs it.
 
+### Query statistics (pg_stat_statements)
+
+PostgreSQL starts with `pg_stat_statements` preloaded and `track_activity_query_size=16384`, so slow or frequent
+statements can be found without sampling, and `pg_stat_activity` shows Egeria's long generated SQL in full. A new data
+directory gets the extension in the `egeria` database from `init_egeria.sql`. On an existing container, the settings
+take effect at the next restart of `egeria-shared-postgres` (this briefly interrupts every service that uses it); then
+run, once per database you want to inspect:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+-- busiest statements by total time
+SELECT calls, round(total_exec_time) AS ms, rows, left(query, 120)
+FROM pg_stat_statements ORDER BY total_exec_time DESC LIMIT 20;
+```
+
 Both root startup scripts (`quick-start-*` and `fresh-start-*`) call `ensure-shared-infra.sh`, which:
 
 1. generates `.env` for the shared stack,
