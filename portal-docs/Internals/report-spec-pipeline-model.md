@@ -643,7 +643,8 @@ Everything else uses types that exist.
 > displays a run as derived from its report; (4) `Dashboard` reuses the existing **`refreshTimeInterval`** (long,
 > **minutes**) instead of a new `refreshSeconds`. Also shipped: `Report.outputFormat` and `Report.reportParameters`
 > (JSON string), `BasisDataField` and `AsOfDataField`, and `SchemaAttributeDefinition` / `SchemaTypeDefinition` one to
-> many (§9.17). **Not shipped:** a placement-to-report relationship (the note's `DashboardPlacementReport`): §9.24.
+> many (§9.17). **Not needed:** a placement-to-report relationship (the note's `DashboardPlacementReport`); a placement
+> names its report by `DataSetContent` from the `Dashboard` (§9.24, decided).
 
 **How heavy to go.** Execution never goes through Egeria; the executors run from the registry. Egeria holds the catalog
 view, and there are two levels of it:
@@ -840,7 +841,7 @@ its own (v5.3); and a report carries one parameter document.
 
 | New relationship | End 1 → End 2 | Properties | Replaces |
 |---|---|---|---|
-| *(not shipped)* placement → `Report` | — | — | `Placement.ref` (a report's display name); **open, §9.24** |
+| `DataSetContent` (exists) | `Dashboard` → `Report`, one per REPORT placement | `queryId` = the placement's `qualifiedName`, `queryType` = `placement` | `Placement.ref` (a report's display name); §9.24, decided |
 | `ReportTypeInstance` | `ReportType` → `Report` (covers `ReportSpec`) | labeled | `Report.additionalProperties.reportSpec` (today the only link) |
 | `ReportRunOf` | `ResultsSet` → `Report` (direction chosen for lineage display, accepted 2026-11-07) | `resultState` (MEASURED · NOTHING_FOUND · NOT_ESTABLISHED · NOT_APPLICABLE), `resultStateReason`, `resultLocation` | — (optional run history) |
 
@@ -904,7 +905,7 @@ One place for the review with the Egeria team. **Status** says where each item s
 | 2b | `AsOfDataField` (`MeasurementSpecification` → `DataField`, end 2 at most one) (§8b) | decided (Egeria team will implement it, 2026-11-07) | `asOfField` string (v5.3); one `MeasurementDataField` with a `role` property | same shape as 2a; one type per role is easier to query and validate |
 | 3 | `Dashboard` ⊂ `DataSet` (`aliases`, `refreshTimeInterval` in minutes, `layoutStyle`) (§8d) | **shipped 6.3** (#9432; `refreshTimeInterval` reused, accepted) | `Dashboard` ⊂ `Collection` (pyegeria's model docstring, Dr.Egeria's current bundle) | `DataSetContent` makes a dashboard's reports its lineage, and `Report`, `Form`, `InformationView` are its natural siblings; layout works either way |
 | 4 | placement attributes (`placementKind` REPORT · TEXT, `span`, `presentationStyle`, `markdownContent`) on `DisplayDataField` and `DisplayDataContainer` (no `DashboardPlacement` subtype) | **shipped 6.3** (#9432; accepted 2026-11-07) | plain `DisplayDataField` with span, presentation style and kind in `additionalProperties` (the companion note's existing-types variant) | typed, validated properties instead of strings every consumer parses |
-| 5 | a placement → `Report` relationship (was `DashboardPlacementReport`) | **not shipped; open (§9.24)** | `DataSetContent` from the dashboard with the placement id in `queryId` | a placement names its report directly; `DataSetContent` stays as the dashboard-level lineage link |
+| 5 | a placement → `Report` relationship (was `DashboardPlacementReport`) | **not needed: `DataSetContent` from the dashboard, `queryId` = placement QN (§9.24, decided 2026-11-07)** | `DataSetContent` from the dashboard with the placement id in `queryId` | a placement names its report directly; `DataSetContent` stays as the dashboard-level lineage link |
 | 6 | `ReportTypeInstance` (`ReportType` → `Report`; was `ReportInstanceOf` from `ReportSpec`) | **shipped 6.3** (#9432; accepted) | `Report.additionalProperties.reportSpec` (today); `DataDescription` as an interim | the missing link between a spec and its configured reports, so "which reports use this spec?" is a query |
 | 7 | `ReportRunOf` (`ResultsSet` → `Report`, for lineage display; `resultState`, `resultStateReason`, `resultLocation`) | **shipped 6.3** (#9432; direction accepted) | no run history (today) | history, caching and "last run" words, with the envelope state kept |
 | 8 | `SchemaAttributeDefinition` (`DataField` → `SchemaAttribute`) and `SchemaTypeDefinition` made one to many, so a shared field or shape can back many display columns and containers (§9.17) | decided (Egeria team, 2026-11-07) | a new many-to-one `DisplayDataField` → `DataField` relationship (the earlier ask); the field's `qualifiedName` as a string in the column's `additionalProperties` (interim until the change ships) | reuses the existing relationships instead of adding one; at 6.3 both are one to one at both ends, so a shared field could back only one column |
@@ -1020,7 +1021,7 @@ One place for the review with the Egeria team. **Status** says where each item s
     `DisplayDataSchemaType`, and a nested sheet is a nested container, so the package was `Dashboard`,
     `DashboardPlacement`, `DashboardPlacementReport`, `ReportInstanceOf`, `ReportRunOf`. **Shipped (6.3, #9432):**
     `Dashboard`, placement attributes on `DisplayDataField` / `DisplayDataContainer`, `ReportTypeInstance`,
-    `ReportRunOf` (`ResultsSet` → `Report`); the placement → `Report` link is open (§9.24).
+    `ReportRunOf` (`ResultsSet` → `Report`); a placement names its report by `DataSetContent` (§9.24).
 15. **Resource Explorer's charts to Vega-Lite (v5.2).** Decided (owner): one chart library, Vega-Lite. Resource
     Explorer's Plotly figure builders migrate with delivery step (d) of item 7; scoping that is delivery work, not design.
 16. **Field sharing in Egeria (v5.2; answered v5.3).** A shared field is one `DataField` named after its declaring
@@ -1085,16 +1086,15 @@ One place for the review with the Egeria team. **Status** says where each item s
     classification 43 viewer versus 163 repository; `Infrastructure` 90 versus 210; `DataSet` 2,421 versus 2,458.
     **Future (owner, 2026-11-06):** Egeria is investigating pushing the security checks into PostgreSQL. If that lands,
     a `viewer` count becomes cheap too; nothing in the model changes, only the cost and the need for the cache in (d).
-24. **How a placement names its report (new, 2026-11-07, after Egeria #9432).** **OPEN (owner / Egeria team).** The
-    note asked for `DashboardPlacementReport` (placement → `Report`); #9432 did not add it, and a placement is now a
-    plain `DisplayDataField` with the placement attributes. A REPORT placement still has to say which `Report` it
-    shows. Options: (a) ask Egeria for a placement → `Report` relationship (end 1 `DisplayDataField` or
-    `SchemaAttribute`, end 2 `Report`), the note's original ask; (b) `DataSetContent` from the `Dashboard` to the
-    `Report` (already the lineage link, §8d) with the placement's `qualifiedName` in its `queryId`, which needs no new
-    type but puts the placement-to-report binding on a dashboard-level relationship; (c) the report's
-    `qualifiedName` in the placement's `additionalProperties`, the interim pattern §9.17 just retired. **Recommended:
-    (b) now, (a) asked for**: (b) is queryable and loses nothing, and the canonical sheet JSON holds the binding either
-    way, so the executors never read it from Egeria.
+24. **How a placement names its report (2026-11-07, after Egeria #9432).** **DECIDED (owner, 2026-11-07): the
+    existing-types approach the companion note already documents** (`report-specs-dashboards-egeria-model.md`, the
+    DashboardSheet / Placement mapping). A REPORT placement is a `DisplayDataField`; its report is linked by
+    `DataSetContent` from the `Dashboard` to the `Report`, with `queryId` = the placement's `qualifiedName` and
+    `queryType` = `placement`. No new relationship is asked for (the note's `DashboardPlacementReport` is withdrawn).
+    The same `DataSetContent` links are the dashboard's lineage (§8d), so one `Report` shown by two placements on a
+    sheet has two links that differ by `queryId`; a reader finds a placement's report by matching `queryId`, and a
+    placement with no matching link is reported as unbound, never shown empty. The canonical sheet JSON holds the
+    binding too, so the executors never read it from Egeria.
 
 ## 10. Worked examples (owner's request 2026-11-05; JSON + Dr.Egeria 2026-11-06; re-cut for v5.2)
 
@@ -1613,7 +1613,8 @@ Glossary-With-Terms
 `DisplayDataSchemaType` —`AttributeForSchema`→ the sheet's `DisplayDataContainer`, which holds four placements
 (`DisplayDataField`s with the placement attributes) by `NestedSchemaAttribute`, `position` 1–4: one TEXT placement
 with `markdownContent`, three REPORT placements with `span` and `presentationStyle`. Each REPORT placement is linked
-to the `Report` element `Create Report` made (the relationship is open, §9.24), `DataDescription` → the `ReportSpec`
+to the `Report` element `Create Report` made by the dashboard's `DataSetContent` (`queryId` = the placement's
+`qualifiedName`, §9.24), `DataDescription` → the `ReportSpec`
 it drills into (an existing relationship), and `ScopedBy` → each `Perspective`. Each `Report` is linked
 `ReportTypeInstance` from its `ReportSpec` and carries its parameter JSON in `reportParameters`. Migration from the JSON store is one element
 per record and one per placement; the Portal reads Egeria first and the JSON file as fallback until the file is
