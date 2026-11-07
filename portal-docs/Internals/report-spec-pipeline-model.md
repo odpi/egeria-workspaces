@@ -835,9 +835,14 @@ its own (v5.3); and a report carries one parameter document.
 
 | Patched type (6.3, #9432) | New properties | Role |
 |---|---|---|
-| `DisplayDataField` | `placementKind` (REPORT · TEXT), `span` (ONE · TWO · FULL), `presentationStyle` (KPI · PANEL), `markdownContent` (TEXT only) | **a placement**: no `DashboardPlacement` subtype (owner accepted, 2026-11-07); its name is its `displayName`, its order the `position` of `NestedSchemaAttribute`; replaces `Placement` |
+| `DisplayDataField` | `placementKind` (`report` · `text`), `span` (`1` · `2` · `full`), `presentationStyle` (`kpi` · `panel`), `markdownContent` (TEXT only) | **a placement**: no `DashboardPlacement` subtype (owner accepted, 2026-11-07); its name is its `displayName`, its order the `position` of `NestedSchemaAttribute`; replaces `Placement` |
 | `DisplayDataContainer` | `renderer`, plus the same four | a formatter, or **a nested sheet** inside a sheet (the owner's point that containers nest) |
 | `Report` | `outputFormat`, `reportParameters` (JSON string) | a configured run of a spec |
+
+**Value spellings (owner, 2026-11-07: "Match pyegeria").** The placement values are the ones pyegeria's dashboard model
+already emits, lowercase: `placementKind` `report` · `text`, `span` `1` · `2` · `full`, `presentationStyle` `kpi` ·
+`panel`, on both `DisplayDataField` and `DisplayDataContainer`. They are primed as Egeria valid metadata values by the
+Portal's report-spec valid-values heal batch, since Egeria's core content pack carries only the property descriptors.
 
 | New relationship | End 1 → End 2 | Properties | Replaces |
 |---|---|---|---|
@@ -868,7 +873,7 @@ pinned values and defaults. With one parameter kind the three collapse into one 
 common attributes as authoring sugar that writes into it.
 
 **Presentation style and output format.** A placement's `presentationStyle` is a layout hint, not a second output
-format: `KPI` renders the placement's report through its spec's `KPI` formatter, and `PANEL` through the report's own
+format: `kpi` renders the placement's report through its spec's `KPI` formatter, and `panel` through the report's own
 `outputFormat`. That is how 10.7 shows one report twice, as a tile and as a panel. The overlap with the `KPI` output
 format name is defined rather than accidental. **Named `presentationStyle` (owner, 2026-11-07); it was `emphasis`**,
 renamed so that "emphasis" stays free for a later meaning (highlighting, alert styling). The canonical JSON key is
@@ -904,7 +909,7 @@ One place for the review with the Egeria team. **Status** says where each item s
 | 2a | `BasisDataField` (`MeasurementSpecification` → `DataField`, end 2 at most one) (§8b) | decided (owner, 2026-11-07; the Egeria team will implement it) | `basisField`, the field's name as a string (v5.3) | a typed link Egeria can resolve and query ("which measures are relative to this total?") |
 | 2b | `AsOfDataField` (`MeasurementSpecification` → `DataField`, end 2 at most one) (§8b) | decided (Egeria team will implement it, 2026-11-07) | `asOfField` string (v5.3); one `MeasurementDataField` with a `role` property | same shape as 2a; one type per role is easier to query and validate |
 | 3 | `Dashboard` ⊂ `DataSet` (`aliases`, `refreshTimeInterval` in minutes, `layoutStyle`) (§8d) | **shipped 6.3** (#9432; `refreshTimeInterval` reused, accepted) | `Dashboard` ⊂ `Collection` (pyegeria's model docstring, Dr.Egeria's current bundle) | `DataSetContent` makes a dashboard's reports its lineage, and `Report`, `Form`, `InformationView` are its natural siblings; layout works either way |
-| 4 | placement attributes (`placementKind` REPORT · TEXT, `span`, `presentationStyle`, `markdownContent`) on `DisplayDataField` and `DisplayDataContainer` (no `DashboardPlacement` subtype) | **shipped 6.3** (#9432; accepted 2026-11-07) | plain `DisplayDataField` with span, presentation style and kind in `additionalProperties` (the companion note's existing-types variant) | typed, validated properties instead of strings every consumer parses |
+| 4 | placement attributes (`placementKind` `report` · `text`, `span` `1` · `2` · `full`, `presentationStyle`, `markdownContent`) on `DisplayDataField` and `DisplayDataContainer` (no `DashboardPlacement` subtype) | **shipped 6.3** (#9432; accepted 2026-11-07) | plain `DisplayDataField` with span, presentation style and kind in `additionalProperties` (the companion note's existing-types variant) | typed, validated properties instead of strings every consumer parses |
 | 5 | a placement → `Report` relationship (was `DashboardPlacementReport`) | **not needed: `DataSetContent` from the dashboard, `queryId` = placement QN (§9.24, decided 2026-11-07)** | `DataSetContent` from the dashboard with the placement id in `queryId` | a placement names its report directly; `DataSetContent` stays as the dashboard-level lineage link |
 | 6 | `ReportTypeInstance` (`ReportType` → `Report`; was `ReportInstanceOf` from `ReportSpec`) | **shipped 6.3** (#9432; accepted) | `Report.additionalProperties.reportSpec` (today); `DataDescription` as an interim | the missing link between a spec and its configured reports, so "which reports use this spec?" is a query |
 | 7 | `ReportRunOf` (`ResultsSet` → `Report`, for lineage display; `resultState`, `resultStateReason`, `resultLocation`) | **shipped 6.3** (#9432; direction accepted) | no run history (today) | history, caching and "last run" words, with the envelope state kept |
