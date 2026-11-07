@@ -47,3 +47,14 @@ def test_manifest_flags():
 def test_batch_root_registered():
     import bootstrap_batches as bb
     assert ("portal-report-spec-valid-values", FOLDER) in bb._EXTRA_BATCH_ROOTS
+
+
+def test_placement_values_and_types():
+    doc = gen.render()
+    for prop in ("placementKind", "span", "presentationStyle"):
+        for t in ("DisplayDataField", "DisplayDataContainer"):
+            assert re.search(rf"### Metadata Property Name\n{prop}\n\n### Type Name\n{t}\n", doc)
+    vals = {p: [v for v, _ in vs] for p, vs, _ in gen.PROPERTIES}
+    assert vals["placementKind"] == ["report", "text"]
+    assert vals["span"] == ["1", "2", "full"]
+    assert vals["presentationStyle"] == ["kpi", "panel"]

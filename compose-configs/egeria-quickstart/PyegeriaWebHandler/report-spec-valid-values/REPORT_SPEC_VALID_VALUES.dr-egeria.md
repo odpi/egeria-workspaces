@@ -111,11 +111,30 @@ renderer
 ### Metadata Property Name
 placementKind
 
+### Type Name
+DisplayDataField
+
 ### Metadata Value Table
 | Preferred Value | Display Name | Description |
 |---|---|---|
-| REPORT | REPORT | Places a report. |
-| TEXT | TEXT | Places a block of markdown text. |
+| report | report | Places a report. |
+| text | text | Places a block of markdown text. |
+
+---
+
+## Setup Valid Metadata Value
+
+### Metadata Property Name
+placementKind
+
+### Type Name
+DisplayDataContainer
+
+### Metadata Value Table
+| Preferred Value | Display Name | Description |
+|---|---|---|
+| report | report | Places a report. |
+| text | text | Places a block of markdown text. |
 
 ---
 
@@ -123,6 +142,26 @@ placementKind
 
 ### Metadata Property Name
 span
+
+### Type Name
+DisplayDataField
+
+### Metadata Value Table
+| Preferred Value | Display Name | Description |
+|---|---|---|
+| 1 | 1 | One column wide. |
+| 2 | 2 | Two columns wide. |
+| full | full | The full row width. |
+
+---
+
+## Setup Valid Metadata Value
+
+### Metadata Property Name
+span
+
+### Type Name
+DisplayDataContainer
 
 ### Metadata Value Table
 | Preferred Value | Display Name | Description |
@@ -137,6 +176,25 @@ span
 
 ### Metadata Property Name
 presentationStyle
+
+### Type Name
+DisplayDataField
+
+### Metadata Value Table
+| Preferred Value | Display Name | Description |
+|---|---|---|
+| kpi | kpi | A compact tile. |
+| panel | panel | A larger, detailed panel. |
+
+---
+
+## Setup Valid Metadata Value
+
+### Metadata Property Name
+presentationStyle
+
+### Type Name
+DisplayDataContainer
 
 ### Metadata Value Table
 | Preferred Value | Display Name | Description |
