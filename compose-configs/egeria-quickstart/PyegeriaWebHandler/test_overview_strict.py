@@ -65,14 +65,14 @@ def test_strict_people_and_usage_counts_are_none_on_failure():
 def test_handler_passes_strict_for_headline_counts():
     # the summary tile counts must come from strict calls; check the source rather than a live route
     import inspect
-    src = inspect.getsource(oh.get_summary)
+    src = inspect.getsource(oh._compute_summary)
     for needle in ('n_elements(mgr, "Asset", as_of_time, strict=True)',
                    'n_elements(mgr, "GlossaryTerm", as_of_time, strict=True)',
                    'n_elements(mgr, "DigitalProduct", as_of_time, strict=True)',
                    "n_by_type(mgr, _ASSET_TYPES, as_of_time, strict=True)"):
         assert needle in src, needle
     assert "strict=True" in inspect.getsource(oh.get_people)
-    assert "strict=True" in inspect.getsource(oh.get_usage_context)
+    assert "strict=True" in inspect.getsource(oh._compute_usage_context)
 
 
 # ── funnel: a measured 0 stays 0 ─────────────────────────────────────────────
@@ -170,7 +170,7 @@ def test_governed_counts_are_asset_scoped_and_strict(monkeypatch):
 
 def test_governed_summary_route_uses_asset_scoped_counts():
     import inspect
-    src = inspect.getsource(oh.get_summary)
+    src = inspect.getsource(oh._compute_summary)
     assert '_governed_asset_counts(n_elements, mgr, as_of_time)' in src
     gsrc = inspect.getsource(oh._governed_asset_counts)
     assert 'classifications=GOVERNANCE_CLASSIFICATIONS, strict=True' in gsrc

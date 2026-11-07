@@ -29,9 +29,10 @@ find API returns paged element lists with no total-count metadata, so counts are
 capped at _DEFAULT_CAP unless full_count paging is requested). Endpoints degrade
 gracefully: a field that can't be computed yet is returned as null with
 `"partial": true` rather than failing the whole response, so the SPA can overlay
-whatever is live over its sample baseline. Results are held in a small in-process
-TTL cache (mirroring the operations_handler non-blocking pattern, but simpler —
-these queries are seconds, not minutes).
+whatever is live over its sample baseline. The slow sections (summary, ai-context,
+growth, usage-context: up to ~2 min cold) are measured by background workers and
+served from an hourly cache that never blocks a request (see "Background section
+cache"); people and activity are fast and keep a short in-request TTL cache.
 
 Known constraints (see PYEGERIA_ISSUES.md):
   - No total-count in find responses → capped tallies (cap 500).
@@ -53,7 +54,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
 
-from egeria_auth import apply_token
+from egeria_auth import apply_token, lineage_key, token_user
 
 # generate_vega_bar_chart/generate_vega_pie_chart ship with pyegeria (the
 # requirements.txt-pinned version has them). generate_vega_line_chart and
@@ -553,6 +554,124 @@ def _overlay_viewer_total(payload: dict, url, server, user_id, user_pwd, as_of) 
     return out
 
 
+# ── Background section cache ─────────────────────────────────────────────────
+#
+# summary (~2 min cold), ai-context (~2 min), growth (~1 min) and usage-context (~40 s) spend their time in
+# find/search calls, so a cold request used to block for minutes and a client with a 60 s timeout got
+# nothing. Same non-blocking pattern as the viewer Asset count above, one entry per section key:
+#   cold     -> start one background worker, answer at once with {"loading": true} and NO data fields
+#   fresh    -> the cached payload (_SECTION_TTL, hourly; the page shows how old it is)
+#   stale    -> the cached payload flagged "stale", refreshed in the background
+#   failed   -> no new attempt for _SECTION_FAIL_TTL; a previous payload (if any) is still served as stale,
+#               otherwise the route answers 503 "not measured" (never a zero-filled payload)
+#   partial  -> a payload whose headline value could not be measured is served but re-measured after
+#               _SECTION_PARTIAL_TTL instead of an hour
+# The key is section|url|server|viewer|args (+ lineage_key(): forLineage changes which elements are found);
+# the viewer is the bearer token's user when there is one, since find calls are filtered by zone access.
+# At most _SECTION_WORKERS sections compute at once across all users (_section_gate): a page load asks for
+# four sections, and Egeria's database pool is 10 connections. Workers are plain threads with copied
+# contextvars, for the same reason as _viewer_total_worker.
+
+_SECTION_TTL = 60 * 60               # seconds a measured section stays fresh (owner 2026-11-06: hourly)
+_SECTION_PARTIAL_TTL = 5 * 60        # a payload missing its headline value is re-measured sooner
+_SECTION_FAIL_TTL = 60               # back-off before a failed measurement is retried
+_SECTION_WORKERS = 2                 # global cap on sections computing at once
+_SECTION_MAX_KEYS = 256              # bound on remembered keys (time-machine dates make many)
+_sections: dict = {}                 # key -> {"payload", "measured_at", "fresh_until", "retry_at", "error"}
+_section_inflight: dict = {}         # key -> Thread
+_section_lock = threading.Lock()     # makes check-and-start atomic: at most one worker per key
+_section_gate = threading.Semaphore(_SECTION_WORKERS)
+
+
+def _section_key(section: str, *args, url=None, server=None, user_id=None, user_pwd=None) -> str:
+    u, sv, uid, _ = _env(url, server, user_id, user_pwd)
+    viewer = token_user() or uid
+    return "|".join([section, u, sv, viewer, *(str(a) for a in args)]) + lineage_key()
+
+
+def _iso(epoch: Optional[float]) -> Optional[str]:
+    return datetime.fromtimestamp(epoch, timezone.utc).isoformat() if epoch is not None else None
+
+
+def _prune_sections(now: float) -> None:
+    """Drop the least recently measured idle keys once there are too many (caller holds _section_lock)."""
+    extra = len(_sections) - _SECTION_MAX_KEYS
+    if extra <= 0:
+        return
+    idle = sorted((k for k in _sections if k not in _section_inflight),
+                  key=lambda k: _sections[k].get("measured_at") or 0)
+    for k in idle[:extra]:
+        _sections.pop(k, None)
+
+
+def _section_worker(key, compute, ok):
+    payload, error = None, None
+    try:
+        with _section_gate:
+            payload = compute()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"overview: section {key.split('|', 1)[0]} failed: {exc}")
+        error = str(exc) or type(exc).__name__
+    finally:
+        now = time.time()
+        with _section_lock:
+            prev = _sections.get(key) or {}
+            if payload is not None:
+                try:
+                    whole = bool(ok(payload))
+                except Exception:  # noqa: BLE001
+                    whole = False
+                ttl = _SECTION_TTL if whole else _SECTION_PARTIAL_TTL
+                _sections[key] = {"payload": payload, "measured_at": now, "fresh_until": now + ttl,
+                                  "retry_at": now + ttl, "error": None}
+            else:                       # keep any previous measurement (served as stale); back off the retry
+                _sections[key] = {"payload": prev.get("payload"), "measured_at": prev.get("measured_at"),
+                                  "fresh_until": prev.get("fresh_until", 0), "retry_at": now + _SECTION_FAIL_TTL,
+                                  "error": error or "no result"}
+            _section_inflight.pop(key, None)
+            _prune_sections(now)
+
+
+def _section_fetch(key: str, compute, ok=lambda p: True):
+    """(payload-or-None, meta) for one section key; starts a background measurement when none is fresh.
+
+    Never blocks on Egeria. meta carries loading (nothing measured yet, a worker is running: ask again),
+    stale (payload is an older measurement, past its TTL), refreshing (a worker is re-measuring it),
+    measuredAt (ISO time the payload was measured), refreshSeconds (the TTL) and error (the last failure,
+    while no worker is running)."""
+    now = time.time()
+    with _section_lock:                # no IO between the check and the start
+        e = _sections.get(key)
+        payload = e.get("payload") if e else None
+        fresh = payload is not None and e["fresh_until"] > now
+        running = key in _section_inflight
+        if not fresh and not running and (e is None or e["retry_at"] <= now):
+            ctx = contextvars.copy_context()
+            t = threading.Thread(target=ctx.run, daemon=True, name="overview-section",
+                                 args=(_section_worker, key, compute, ok))
+            _section_inflight[key] = t
+            t.start()
+            running = True
+        meta = {
+            "loading":        payload is None and running,
+            "stale":          payload is not None and not fresh,
+            "refreshing":     payload is not None and running,
+            "measuredAt":     _iso(e.get("measured_at")) if payload is not None else None,
+            "refreshSeconds": _SECTION_TTL,
+            "error":          (e.get("error") if e and not running else None),
+        }
+    return payload, meta
+
+
+def _section_unready(section: str, meta: dict):
+    """The answer when a section has no measurement to serve: loading (200, no data fields) or failed (503)."""
+    if meta.get("loading"):
+        return JSONResponse({"loading": True, "source": f"live:{section}", **meta})
+    raise HTTPException(status_code=503,
+                        detail=f"Not measured: {section} failed ({meta.get('error')}); retried within "
+                               f"{_SECTION_FAIL_TTL} s")
+
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 @router.get("/api/overview/summary", summary="Headline KPI counts for the Overview dashboard")
@@ -561,17 +680,26 @@ def get_summary(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
+    """Served from the background section cache (see "Background section cache"); computed by _compute_summary."""
     as_of_time = _norm_asof(as_of_time)
-    ckey = f"summary|{as_of_time}|{url}|{server}|{user_id}"
-    cached = _cache_get(ckey)
-    if cached is not None:
-        return JSONResponse(_overlay_viewer_total(cached, url, server, user_id, user_pwd, as_of_time))
+    key = _section_key("summary", as_of_time, url=url, server=server, user_id=user_id, user_pwd=user_pwd)
+    payload, meta = _section_fetch(
+        key, functools.partial(_compute_summary, as_of_time, url, server, user_id, user_pwd),
+        ok=lambda p: p.get("assetTotal") is not None)
+    if payload is None:
+        return _section_unready("summary", meta)
+    # assetTotalViewer* are filled per request by _overlay_viewer_total (never cached with the payload, so a
+    # background count that finishes is seen on the next poll without recomputing the whole summary).
+    return JSONResponse({**_overlay_viewer_total(payload, url, server, user_id, user_pwd, as_of_time), **meta})
 
+
+def _compute_summary(as_of_time, url, server, user_id, user_pwd) -> dict:
+    """Every Egeria call behind the summary (~2 min cold, mostly find calls). Runs in a background worker."""
     try:
         mgr = _expert(url, server, user_id, user_pwd)
     except Exception as exc:  # noqa: BLE001
         logger.exception("overview: failed to create MetadataExpert")
-        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+        raise RuntimeError(f"Connection failed: {exc}") from exc
 
     # Governed tally — single ANY over governance classifications (PY-15 note: this
     # 5-classification ANY is affected by the server bug; still correct at 0/1
@@ -767,10 +895,7 @@ def get_summary(
         "partial":          True,
         "source":           "live:summary",
     }
-    # assetTotalViewer* are filled per request by _overlay_viewer_total (never cached with the payload, so a
-    # background count that finishes is seen on the next poll without recomputing the whole summary).
-    _cache_put(ckey, payload)
-    return JSONResponse(_overlay_viewer_total(payload, url, server, user_id, user_pwd, as_of_time))
+    return payload
 
 
 # ── certifications & licenses ────────────────────────────────────────────────
@@ -1363,14 +1488,21 @@ def get_ai_context(
     """Context-readiness funnel + grounding. Consumers/guardrails are not natively
     queryable yet — returned as null so the SPA shows its sample baseline."""
     as_of_time = _norm_asof(as_of_time)
-    ckey = f"ai|{as_of_time}|{url}|{server}|{user_id}"
-    cached = _cache_get(ckey)
-    if cached is not None:
-        return JSONResponse(cached)
+    key = _section_key("ai-context", as_of_time, url=url, server=server, user_id=user_id, user_pwd=user_pwd)
+    payload, meta = _section_fetch(
+        key, functools.partial(_compute_ai_context, as_of_time, url, server, user_id, user_pwd),
+        ok=lambda p: (p.get("funnel") or {}).get("cataloged") is not None)
+    if payload is None:
+        return _section_unready("ai-context", meta)
+    return JSONResponse({**payload, **meta})
+
+
+def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
+    """Every Egeria call behind ai-context (~2 min cold). Runs in a background worker."""
     try:
         mgr = _expert(url, server, user_id, user_pwd)
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+        raise RuntimeError(f"Connection failed: {exc}") from exc
 
     try:
         ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
@@ -1504,7 +1636,7 @@ def get_ai_context(
         "partial":         True,
         "source":          "live:ai-context",
     }
-    return JSONResponse(_cache_put(ckey, payload))
+    return payload
 
 
 # ── People & Community ───────────────────────────────────────────────────────
@@ -1639,12 +1771,19 @@ def get_usage_context(
     given *some* solution-design context, not that its specific
     SolutionComponent is itself wired into an ISC/blueprint)."""
     as_of_time = _norm_asof(as_of_time)
-    ckey = f"usage|{as_of_time}|{url}|{server}|{user_id}"
-    cached = _cache_get(ckey)
-    if cached is not None:
-        return JSONResponse(cached)
+    key = _section_key("usage-context", as_of_time, url=url, server=server, user_id=user_id, user_pwd=user_pwd)
+    payload, meta = _section_fetch(
+        key, functools.partial(_compute_usage_context, as_of_time, url, server, user_id, user_pwd),
+        ok=lambda p: p.get("informationSupplyChains") is not None)
+    if payload is None:
+        return _section_unready("usage-context", meta)
+    return JSONResponse({**payload, **meta})
 
+
+def _compute_usage_context(as_of_time, url, server, user_id, user_pwd) -> dict:
+    """Every Egeria call behind usage-context (~40 s cold). Runs in a background worker."""
     iscs = blueprints = None
+    mgr = None
     scope = _count_scope(usage_context_counts)
     try:
         mgr = _expert(url, server, user_id, user_pwd)
@@ -1688,7 +1827,7 @@ def get_usage_context(
         "partial":                 True,
         "source":                  "live:usage-context",
     }
-    return JSONResponse(_cache_put(ckey, payload))
+    return payload
 
 
 def _is_template_el(el: dict) -> bool:
@@ -1700,9 +1839,6 @@ def _is_template_el(el: dict) -> bool:
 
 
 # ── Growth (asOfTime snapshots) ──────────────────────────────────────────────
-
-_GROWTH_TTL = 900.0   # 15 min — growth is expensive (N snapshots) and slow-moving
-
 
 @router.get("/api/overview/growth", summary="Catalog growth via asOfTime snapshots")
 def get_growth(
@@ -1716,22 +1852,28 @@ def get_growth(
     answers historical queries natively, so no separate time-series store is needed.
     The window sets the span and (by default) the granularity; points can override
     the snapshot count. Snapshots assets / terms / governed / data-products.
-    Cached 15 min (this is the expensive endpoint until the count API lands)."""
+    Served from the background section cache (refreshed hourly; see "Background section cache")."""
     if months:                              # back-compat: months → an N*30d window
         window = f"{months * 30}d"
 
     span_s, default_pts = _WINDOWS.get(window, _WINDOWS["6mo"])
     n = points or default_pts
 
-    ckey = f"growth|{window}|{n}|{url}|{server}|{user_id}"
-    hit = _cache.get(ckey)
-    if hit and (time.time() - hit[0]) < _GROWTH_TTL:
-        return JSONResponse(hit[1])
+    key = _section_key("growth", window, n, url=url, server=server, user_id=user_id, user_pwd=user_pwd)
+    payload, meta = _section_fetch(
+        key, functools.partial(_compute_growth, window, n, url, server, user_id, user_pwd),
+        ok=lambda p: bool(p.get("series")))
+    if payload is None:
+        return _section_unready("growth", meta)
+    return JSONResponse({**payload, **meta})
 
+
+def _compute_growth(window, n, url, server, user_id, user_pwd) -> dict:
+    """The N asOfTime snapshots behind the growth chart (~1 min cold). Runs in a background worker."""
     try:
         mgr = _expert(url, server, user_id, user_pwd)
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+        raise RuntimeError(f"Connection failed: {exc}") from exc
 
     series = growth_series(mgr, window=window, points=n)
 
@@ -1750,5 +1892,4 @@ def get_growth(
                "rangeTo": series[-1]["date"] if series else None,
                "growthChart": growth_chart,
                "partial": False, "source": "live:growth"}
-    _cache[ckey] = (time.time(), payload)
-    return JSONResponse(payload)
+    return payload
