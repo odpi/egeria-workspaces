@@ -115,6 +115,9 @@ _INBOX_ROOT = Path(os.environ.get(
 # anything meant to be admin-droppable belongs under dr-egeria-inbox instead.
 _EXTRA_BATCH_ROOTS = [
     ("overview-governance-metrics", Path(__file__).parent),
+    # Valid metadata values for the Egeria 6.3 report-spec/dashboard properties; own folder
+    # because this folder's single _batch.json belongs to the governance-metrics batch.
+    ("portal-report-spec-valid-values", Path(__file__).parent / "report-spec-valid-values"),
     # Admin-only workload generator, kept out of coco-workbooks and the inbox
     # so Coco users never see it; not selected by default. See its README.md.
     ("portal-usage-workload", Path(__file__).parent / "portal-workloads" / "usage-driver"),

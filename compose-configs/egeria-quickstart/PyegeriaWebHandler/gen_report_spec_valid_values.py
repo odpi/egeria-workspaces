@@ -1,0 +1,113 @@
+#!/usr/bin/env python3
+"""Generate the Dr.Egeria document that primes Egeria's valid metadata values for
+the report-spec / dashboard properties added in Egeria 6.3 (odpi/egeria#9432).
+
+Egeria's core content pack ships only the property-name descriptors
+(Egeria:ValidMetadataValue::<prop>-), not the allowed values, so
+get_valid_metadata_values(<prop>) returns nothing until these are set up. The
+output is loaded by the Portal's canary-based self-heal (batch
+"portal-report-spec-valid-values"), so a fresh or reset Egeria gets them
+automatically. `Setup Valid Metadata Value` is create-or-update, so re-runs are
+harmless. Type Name is omitted (like the content pack's own descriptors) except
+for placementKind/span/presentationStyle, set up once each for DisplayDataField
+and DisplayDataContainer.
+
+Regenerate, do not hand-edit:
+  python3 gen_report_spec_valid_values.py
+Pure stdlib -- no pyegeria needed.
+
+Value sources (spelling must match what pyegeria / Dr.Egeria emit):
+  * completenessDeclared / confidenceForm / uncertaintyForm: pyegeria
+    models/models.py and commands_data_designer.json (egeria-python
+    claude/dr-egeria-report-spec-types @74f7dd30).
+  * outputFormat / renderer: the "Output Format" valid values of
+    commands_report_compact.json on that branch (the installed pyegeria 6.2.23
+    names only eight; the branch adds KPI, BAR, PIE, SERIES, GRAPH, REPORT-GRAPH,
+    HTML). pyegeria has no other single registry of output formats.
+  * layoutStyle: Egeria 0239 ("a grid, a set of tabs or a single column").
+  * placementKind / span / presentationStyle: owner decision 2026-11-07, match
+    pyegeria's emitted spellings (kpi|panel, "1"|"2"|"full", report|text).
+"""
+from pathlib import Path
+
+OUT = Path(__file__).resolve().parent / "report-spec-valid-values" / "REPORT_SPEC_VALID_VALUES.dr-egeria.md"
+
+OUTPUT_FORMATS = ["BAR", "DICT", "FORM", "GRAPH", "HTML", "JSON", "KPI", "LIST", "MD",
+                  "MERMAID", "PIE", "REPORT", "REPORT-GRAPH", "SERIES", "TABLE"]
+
+# (property, [(value, description)], what the property is for)
+PLACEMENT = [
+    # Owner decision 2026-11-07: match pyegeria's emitted spellings.
+    ("placementKind", [("report", "Places a report."), ("text", "Places a block of markdown text.")],
+     "What a placement on a dashboard sheet shows."),
+    ("span", [("1", "One column wide."), ("2", "Two columns wide."), ("full", "The full row width.")],
+     "How wide a placement is on a dashboard sheet."),
+    ("presentationStyle", [("kpi", "A compact tile."), ("panel", "A larger, detailed panel.")],
+     "How a placement is presented."),
+]
+
+PROPERTIES = [
+    ("completenessDeclared", [
+        ("complete", "The value covers everything in scope."),
+        ("lower_bound", "The value is a lower bound -- there may be more."),
+        ("unknown", "Completeness has not been established.")],
+     "Whether a measurement claims to be complete."),
+    ("confidenceForm", [
+        ("measured", "Directly measured."), ("estimated", "Estimated from a sample or model."),
+        ("inferred", "Inferred from related measurements."), ("judged", "A person's judgement."),
+        ("generated", "Produced by a generator or synthetic source.")],
+     "How the confidence in a measurement was arrived at."),
+    ("uncertaintyForm", [
+        ("plus_minus", "Expressed as value plus or minus an amount."),
+        ("low_high", "Expressed as a low and a high value."),
+        ("band", "Expressed as a named band.")],
+     "How the uncertainty of a measurement is expressed."),
+    ("outputFormat", [(v, f"The {v} output format.") for v in OUTPUT_FORMATS],
+     "The output format a report produces."),
+    ("renderer", [(v, f"Render with the {v} output format.") for v in OUTPUT_FORMATS],
+     "How a display data container is rendered."),
+    *PLACEMENT,
+    # layoutStyle is deliberately LAST: its final value is the heal canary.
+    ("layoutStyle", [
+        ("grid", "Placements are laid out on a grid."), ("tabs", "Placements are laid out as a set of tabs."),
+        ("single-column", "Placements are laid out in a single column.")],
+     "How a dashboard lays out its sheets."),
+]
+
+# Set up once per listed type (owner: both DisplayDataField and DisplayDataContainer).
+TYPES = {p: ["DisplayDataField", "DisplayDataContainer"] for p in ("placementKind", "span", "presentationStyle")}
+
+CANARY_TYPE = "ValidMetadataValue"
+
+
+def canary_name():
+    """displayName Egeria stores for the last value this document sets. The Setup
+    command defaults displayName to the preferred value when none is given."""
+    return PROPERTIES[-1][1][-1][0]
+
+
+def render():
+    out = ["<!-- SPDX-License-Identifier: CC-BY-4.0 -->",
+           "<!-- Copyright Contributors to the ODPi Egeria project. -->", "",
+           "# Report Spec and Dashboard — Valid Metadata Values", "",
+           "> Primes Egeria's valid metadata values for the report-spec and dashboard",
+           "> properties added in Egeria 6.3. Generated by `gen_report_spec_valid_values.py`",
+           "> — regenerate, do not hand-edit. `Setup Valid Metadata Value` is create-or-update,",
+           "> so re-running (e.g. after a repository reset) is always correct.", "", "---", ""]
+    blocks = [(prop, t, values) for prop, values, _p in PROPERTIES for t in (TYPES.get(prop) or [None])]
+    for prop, type_name, values in blocks:
+        out += ["## Setup Valid Metadata Value", "",
+                "### Metadata Property Name", prop, ""]
+        if type_name:
+            out += ["### Type Name", type_name, ""]
+        out += [
+                "### Metadata Value Table",
+                "| Preferred Value | Display Name | Description |", "|---|---|---|"]
+        out += [f"| {v} | {v} | {d} |" for v, d in values]
+        out += ["", "---", ""]
+    return "\n".join(out)
+
+
+if __name__ == "__main__":
+    OUT.write_text(render(), encoding="utf-8")
+    print(f"wrote {OUT}")
