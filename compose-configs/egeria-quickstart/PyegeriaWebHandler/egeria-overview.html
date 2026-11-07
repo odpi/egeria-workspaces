@@ -305,7 +305,7 @@
     <div class="persp-tabs">
       <button data-persp="governance" class="on">Governance</button>
       <button data-persp="steward">Steward</button>
-      <button data-persp="data-owner">Data&nbsp;Owner</button>
+      <button data-persp="owner">Owner</button>
       <button data-persp="consumer">Consumer</button>
       <button data-persp="app-ai-builder">App/AI&nbsp;Builder</button>
       <button data-persp="privacy">Privacy</button>
@@ -918,7 +918,7 @@ const PERSPECTIVES = {
       Q('🟠','Which glossary terms are unlinked or awaiting approval?','FAIR · Findable → <b style="color:var(--text)">Value:</b> semantic coverage','Orphan terms'),
       Q('🟠','Which data stores have never been surveyed / profiled?','DataOps · quality → <b style="color:var(--text)">Value:</b> known data quality','Unsurveyed'),
       Q('⚪','What changed in my domain since I last looked?','Observability → <b style="color:var(--text)">Value:</b> stay ahead of drift','→ Recent Activity','qb-none') ] },
-  'data-owner': { icon:'📦', label:'Data Owner', qualified_name:'Perspective::Data Owner', q:'"Are the assets I&#39;m responsible for managing healthy, used, and trusted?"',
+  'owner': { icon:'📦', label:'Owner', qualified_name:'Perspective::Owner', q:'"Are the assets I&#39;m responsible for managing healthy, used, and trusted?"',
     show:['value','quality','people','usage','composition','activity'],
     questions:[
       Q('🟢','Who is using the data products I&#39;m responsible for, and how much?','Data-as-product → <b style="color:var(--text)">Value:</b> demonstrate impact','Most-engaged assets','qb-ans'),
@@ -1066,7 +1066,7 @@ function sparkPts(vals){
 const PERSP_KPIS = {
   'governance': ['assets','terms','governed','certs','products','exceptions'],
   'steward': ['assets','governed','exceptions','certs','terms','grounding'],
-  'data-owner': ['products','governed','certs','exceptions','people','grounding'],
+  'owner': ['products','governed','certs','exceptions','people','grounding'],
   'consumer': ['products','terms','grounding','isc','blueprints','people'],
   'app-ai-builder': ['assets','grounding','isc','blueprints','governed','products'],
   'privacy': ['governed','certs','exceptions','assets','grounding','products'],
@@ -1150,7 +1150,7 @@ const SECTION_VARIANTS = {
       '<div style="font-size:.76rem;color:var(--muted);line-height:1.5">Same catalog-wide number shown to every perspective. A Privacy Officer\'s real question — which UNcontextualised assets are ALSO confidential — isn\'t computed yet; treat this as a general prioritisation signal, not that intersection.</div>',
       '</div>',
     ].join(''),
-    'data-owner': [
+    'owner': [
       '<div class="panel clickable" data-drill="isc" style="border-left:3px solid var(--c2)">',
       '<h3>🔗 Information Supply Chains</h3>',
       '<div style="font-size:1.9rem;font-weight:700;margin:6px 0 2px" id="uc-isc">—</div>',
@@ -1518,8 +1518,10 @@ const TOPIC_LABELS = {
 function perspectiveKey(displayName){
   return String(displayName || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
-// Keys saved in localStorage before the Trellis rename -> current key. Unknown -> 'governance'.
-const LEGACY_PERSP_KEYS = { owner:'data-owner', engineer:'data-expert', builder:'app-ai-builder' };
+// Keys saved in localStorage before a Trellis rename -> current key. Unknown -> 'governance'.
+// 'data-owner' -> 'owner' (2026-11-07): Trellis moved to the content pack's Perspective::Owner. The older
+// saved key 'owner' needs no entry any more: it is the current key again.
+const LEGACY_PERSP_KEYS = { 'data-owner':'owner', engineer:'data-expert', builder:'app-ai-builder' };
 function migratePerspKey(k){
   if (k && PERSPECTIVES[k]) return k;
   if (k && LEGACY_PERSP_KEYS[k]) return LEGACY_PERSP_KEYS[k];
@@ -1544,8 +1546,8 @@ function renderPerspTabs(){
   });
 }
 // Load the Trellis Perspective elements from Egeria (existing GET /api/perspectives) and match them to
-// the ten static entries by qualifiedName ONLY (the stray Perspective::Owner / ::Administration, and
-// Financial / Admin, are never shown). Read-only; any failure leaves the static entries, marked fallback.
+// the ten static entries by qualifiedName ONLY (Perspective::Financial and ::Administration are never
+// shown, nor the retired Trellis Perspective::Data Owner / ::Admin). Read-only; any failure leaves the static entries, marked fallback.
 function loadPerspectivesFromEgeria(creds){
   const done = found => {
     Object.keys(PERSPECTIVES).forEach(k => { PERSP_SOURCE[k] = found[PERSPECTIVES[k].qualified_name] ? 'live' : 'fallback'; });

@@ -23,16 +23,22 @@ rendered as a drill-able tile. Selecting a perspective reconfigures the whole pa
 ### Perspectives
 
 The page shows **ten of the twelve Trellis perspectives**, named and ordered as the Trellis
-`foundations.md` names them: Governance, Steward, Data Owner, Consumer, App/AI Builder, Privacy,
+`foundations.md` names them: Governance, Steward, Owner, Consumer, App/AI Builder, Privacy,
 Community, Data Expert, Security, Architecture. **Financial** is left out until the Overview has cost
-measures; **Admin** is left out because it is the Operations app's view. (The former "Engineering" lens
-is now **Data Expert**.) Keys are slugs of the display name (`data-owner`, `app-ai-builder`,
-`data-expert`, …); keys saved in a browser's `localStorage` before the rename are migrated
-(`owner`, `engineer`, `builder`).
+measures; **Administration** is left out because it is the Operations app's view. (The former "Engineering" lens
+is now **Data Expert**.) Keys are slugs of the display name (`owner`, `app-ai-builder`,
+`data-expert`, …); keys saved in a browser's `localStorage` before a rename are migrated
+(`data-owner`, `engineer`, `builder`).
+
+**Owner** was **Data Owner** (`Perspective::Data Owner`, key `data-owner`) until 2026-11-07. That
+element was one Trellis created itself; Trellis now uses the content pack's `Perspective::Owner`, and so
+does this page. The dashboard-glossary collection keeps its name, "Data Owner View", so that re-running
+`OVERVIEW_ANALYTICS_GLOSSARY.dr-egeria.md` updates the existing collection instead of adding a second one.
 
 On load the page reads the existing `GET /api/perspectives` and matches Egeria's `Perspective`
-elements by **qualifiedName** (`Perspective::Data Owner`, …) — never by display name, so stray
-elements such as `Perspective::Owner` or `Perspective::Administration` are ignored. A matched tab's
+elements by **qualifiedName** (`Perspective::Owner`, …) — never by display name (the content pack's
+display names are `OWNER-PERSPECTIVE` and so on), so other elements such as `Perspective::Financial` or
+`Perspective::Administration` are ignored. A matched tab's
 tooltip says it is live (and shows the element's description); if Egeria is down or the element is
 missing, the tab still renders from the built-in entry and its tooltip says "Perspective not found in
 Egeria". The per-perspective question sets stay inline in `PERSPECTIVES` for now.
