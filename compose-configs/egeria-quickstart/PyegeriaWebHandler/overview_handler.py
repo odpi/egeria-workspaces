@@ -88,6 +88,10 @@ from pyegeria.view.overview_metrics import (
     growth_series,
 )
 
+# asset_composition (pyegeria >= 6.2.23): the Asset subtype tree with repository counts. Imported plainly --
+# requirements.txt floors pyegeria at the release that has it.
+from pyegeria.view.overview_metrics import asset_composition
+
 # count_elements_by_property is new (2026-08-17, Data Products deploymentStatus
 # breakdown), not yet in a published pyegeria release -- same
 # "container runs the published package, not this dev checkout" gap as
@@ -182,54 +186,6 @@ _HERE = Path(__file__).parent
 _HTML = _HERE / "egeria-overview.html"
 
 _CACHE_TTL   = 60.0          # seconds; summary is not real-time critical
-
-# Base open-metadata type names for the headline "assets by type" tally. Kept as a
-# small, override-safe list — a wrong/unknown type just yields 0 for that row
-# rather than failing the response.
-# The curated buckets overlap in the type system (verified against the live type chains):
-#   DeployedAPI -> DeployedSoftwareComponent -> Process -> Asset
-# so a plain count of "Processes" already contains every software component and API, and the bars summed
-# to more than the asset total. Each entry maps a type to the curated type nested directly inside it; its
-# count is reduced by that nested count, and the remainder of the Asset total is reported as "Other assets".
-_ASSET_TYPE_NESTED = {
-    "Process": ("DeployedSoftwareComponent", "software components"),
-    "DeployedSoftwareComponent": ("DeployedAPI", "APIs"),
-}
-
-
-def _exclusive_by_type(by_type: list, asset_total: Optional[int]) -> list:
-    """Turn inclusive per-type counts into non-overlapping buckets plus an "Other assets" remainder.
-
-    A bucket whose nested count is unknown gets count None rather than an inflated number, and no
-    "Other" bucket is invented unless every bucket is known and they do not exceed the total.
-    """
-    counts = {r.get("type"): r.get("count") for r in by_type}
-    out = []
-    for r in by_type:
-        c = r.get("count")
-        label = r.get("label")
-        nested = _ASSET_TYPE_NESTED.get(r.get("type"))
-        excl = c
-        if nested is not None:
-            ic = counts.get(nested[0])
-            excl = (c - ic) if (c is not None and ic is not None and ic <= c) else None
-            label = f"{label} (excl. {nested[1]})"
-        out.append({**r, "label": label, "count": excl, "inclusiveCount": c})
-    if asset_total is not None and out and all(r["count"] is not None for r in out):
-        other = asset_total - sum(r["count"] for r in out)
-        if other >= 0:
-            out.append({"label": "Other assets", "type": None, "count": other, "inclusiveCount": other})
-    return out
-
-
-_ASSET_TYPES = [
-    ("Data Stores",         "DataStore"),
-    ("Data Sets",           "DataSet"),
-    ("Software Components", "DeployedSoftwareComponent"),
-    ("Infrastructure",      "ITInfrastructure"),
-    ("APIs",                "DeployedAPI"),
-    ("Processes",           "Process"),
-]
 
 # ── tiny TTL cache ───────────────────────────────────────────────────────────
 _cache: dict[str, tuple[float, Any]] = {}
@@ -672,6 +628,116 @@ def _section_unready(section: str, meta: dict):
                                f"{_SECTION_FAIL_TTL} s")
 
 
+# ── Asset composition ────────────────────────────────────────────────────────
+#
+# One routine (pyegeria asset_composition) returns the Asset subtype tree with a count per type. The Overview
+# asks it for the REPOSITORY population only (owner decision, design note 9.23: the Overview shows catalog-wide
+# totals to anyone, fast, ~3 s for ten counts). The viewer population is never counted here: a viewer count of
+# Process takes ~120 s. The one viewer figure on offer is the Asset total, read from the hourly per-viewer
+# cache above, and per-type viewer cells say so instead of showing a number. "not visible to you" is derived
+# (repository - viewer) and only where both operands are measured. A failed count is never a 0.
+
+COMPOSITION_DEPTH_MAX = 3
+_VIEWER_TOTAL_ONLY = "viewer counts are refreshed hourly; only the total is cached"
+
+
+def _composition_cell(value, state, reason, population, completeness="unknown", as_of=None) -> dict:
+    return {"value": value, "state": state, "completeness": completeness, "as_of": as_of,
+            "population": population, "reason": reason, "elapsed_s": None}
+
+
+def _compute_composition(root, depth, as_of_time, url, server, user_id, user_pwd) -> dict:
+    """Repository-scope asset_composition for `root`; runs in a background worker (never in the request)."""
+    vm = _make("ValidMetadataManager", url, server, user_id, user_pwd)
+    mgr = _expert(url, server, user_id, user_pwd)
+    return asset_composition(mgr, vm, root=root, depth=depth, as_of=as_of_time, scopes=(REPOSITORY,))
+
+
+def _viewer_cell_for_root(viewer: tuple) -> dict:
+    value, loading, stale, counted_at = viewer
+    if value is None:
+        return _composition_cell(None, "not_measured",
+                                 "being counted for you now (can take a couple of minutes)" if loading
+                                 else "the count of assets you can see did not complete", VIEWER)
+    return _composition_cell(value, "measured" if value else "nothing_found",
+                             "counted earlier and refreshed hourly" + (" (refreshing)" if stale else ""),
+                             VIEWER, as_of=_iso(counted_at))
+
+
+def _not_visible_cell(repo: dict, viewer: dict) -> dict:
+    rv, vv = repo.get("value"), viewer.get("value")
+    if repo.get("state") not in ("measured", "nothing_found") or viewer.get("state") not in ("measured", "nothing_found") \
+            or rv is None or vv is None:
+        return _composition_cell(None, "not_measured", "needs both the repository and the viewer count", "derived")
+    if vv > rv:      # the two counts were taken at different times; a negative difference is not a count
+        return _composition_cell(None, "not_measured",
+                                 "the viewer count is higher than the repository count (counted at different times)",
+                                 "derived")
+    return _composition_cell(rv - vv, "measured" if rv - vv else "nothing_found",
+                             f"repository count minus the count of assets you can see "
+                             f"(viewer counted {viewer.get('as_of') or 'earlier'})", "derived", completeness="unknown")
+
+
+def _composition_view(result: dict, viewer: Optional[tuple]) -> dict:
+    """The routine's result with the viewer column filled: the Asset total from the hourly cache, every other
+    row 'not measured, only the total is cached'. Rows are otherwise the routine's own (type_name, parent,
+    level, exact_type, repository, viewer, not_visible)."""
+    out = dict(result)
+    rows = []
+    for row in result.get("rows", []):
+        row = dict(row)
+        if row.get("level") == 0 and viewer is not None:
+            row["viewer"] = _viewer_cell_for_root(viewer)
+        else:
+            row["viewer"] = _composition_cell(None, "not_measured", _VIEWER_TOTAL_ONLY, VIEWER)
+        row["not_visible"] = _not_visible_cell(row.get("repository") or {}, row["viewer"])
+        rows.append(row)
+    out["rows"] = rows
+    out["scopes"] = [REPOSITORY, VIEWER]
+    return out
+
+
+def _level1_rows(result: dict) -> list:
+    """The direct-subtype rows (plus each 'other' row) of a composition result, repository cell flattened."""
+    out = []
+    for r in result.get("rows", []):
+        if r.get("level") != 1:
+            continue
+        cell = r.get("repository") or {}
+        label = f"{r['type_name']} (exactly)" if r.get("exact_type") else r["type_name"]
+        out.append({"label": label, "type": r["type_name"], "exactType": bool(r.get("exact_type")),
+                    "count": cell.get("value"), "state": cell.get("state"), "reason": cell.get("reason")})
+    return out
+
+
+@router.get("/api/overview/composition",
+            summary="Asset composition by subtype (repository totals; viewer total only)")
+def get_composition(
+    root: str = Query("Asset", description="Type whose subtypes are counted; a click on a bar re-queries with it"),
+    depth: int = Query(1, ge=0, le=COMPOSITION_DEPTH_MAX),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now (time-machine)"),
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    """Served from the background section cache (cold -> {"loading": true}); see "Asset composition" above.
+
+    countScope is always "repository". viewerCounts is "total-only": the Asset total of the viewer column comes
+    from the hourly per-viewer cache (and only when root is Asset), every other viewer cell is not_measured."""
+    as_of_time = _norm_asof(as_of_time)
+    if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", root):
+        raise HTTPException(status_code=422, detail="root must be an open metadata type name")
+    key = _section_key("composition", root, depth, as_of_time, url=url, server=server, user_id=user_id, user_pwd=user_pwd)
+    payload, meta = _section_fetch(
+        key, functools.partial(_compute_composition, root, depth, as_of_time, url, server, user_id, user_pwd),
+        ok=lambda p: p.get("state") == "measured" and not p.get("not_measured"))
+    if payload is None:
+        return _section_unready("composition", meta)
+    viewer = _viewer_total_state(url, server, user_id, user_pwd, as_of_time) if root == "Asset" else None
+    view = _composition_view(payload, viewer)
+    return JSONResponse({**view, "countScope": REPOSITORY, "viewerCounts": "total-only",
+                         "viewerTotalLoading": bool(viewer and viewer[1]), "source": "live:composition", **meta})
+
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 @router.get("/api/overview/summary", summary="Headline KPI counts for the Overview dashboard")
@@ -710,17 +776,11 @@ def _compute_summary(as_of_time, url, server, user_id, user_pwd) -> dict:
     scope = _count_scope(count_elements, counts_by_type, count_relationships,
                          *([count_elements_by_property] if count_elements_by_property else []))
     n_elements = _scoped(count_elements, scope)
-    n_by_type = _scoped(counts_by_type, scope)
     n_relationships = _scoped(count_relationships, scope, expert=mgr)
     n_by_property = _scoped(count_elements_by_property, scope) if count_elements_by_property else None
 
     gov = governed_coverage(mgr, as_of_time)
     gov = _asset_scoped_governed(gov, *_governed_asset_counts(n_elements, mgr, as_of_time))
-
-    # Assets by type (best-effort; unknown types yield 0) — kept purely as the
-    # composition breakdown behind the "Assets by Type" chart below; it is
-    # NOT summed for the headline total anymore (see asset_total below).
-    by_type = n_by_type(mgr, _ASSET_TYPES, as_of_time, strict=True)
 
     # Headline total: the native `Asset` supertype count (OVERVIEW_NEXT_STEPS.md
     # "Asset definition" open decision, resolved 2026-08-16) — one native count
@@ -733,7 +793,14 @@ def _compute_summary(as_of_time, url, server, user_id, user_pwd) -> dict:
     # tile's own headline number and its own sparkline finally agree.
     asset_total = n_elements(mgr, "Asset", as_of_time, strict=True)
 
-    by_type = _exclusive_by_type(by_type, asset_total)
+    # Assets by type: the direct subtypes of Asset from the composition routine (repository counts, plus an
+    # "(exactly)" row for plain Asset elements). A count that failed is None, never 0; the chart leaves it out
+    # and the page says "not measured".
+    by_type = []
+    try:
+        by_type = _level1_rows(_compute_composition("Asset", 1, as_of_time, url, server, user_id, user_pwd))
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview summary: asset composition failed: {exc}")
 
     term_count = n_elements(mgr, "GlossaryTerm", as_of_time, strict=True)
 
