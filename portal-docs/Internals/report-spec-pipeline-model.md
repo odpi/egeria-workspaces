@@ -663,7 +663,7 @@ view, and there are two levels of it:
 `GovernanceActionType`, `SurveyingActionProcess` and `AnalyticalActionProcess` describe, as governance definitions,
 what an engine host runs (a routine deployed as a step), whether that host is Resource Explorer or the OMAG Engine
 Host; the thing they describe is the routine's plain `Process`. Every type, relationship and property named below
-exists in the live 6.3 types, except where marked *proposed* (§8b, §8d) or *to agree* (§9.17). v5.1's §10.6 named the
+exists in the live 6.3 types, except where marked *proposed* (§8b, §8d) or changed by Egeria for §9.17 (`SchemaAttributeDefinition` one to many). v5.1's §10.6 named the
 dashboard types without marking them proposed; v5.2 marks them.
 **How to repeat the check:** `ValidMetadataManager.get_typedef_by_name(<name>)` against qs-view-server, reading the
 `typeDef` (or the top-level dict when it is absent): `attributeDefinitions` / `propertiesDefinition` (own properties,
@@ -687,7 +687,7 @@ again by the coordinator on 2026-11-06 (v5.1, v5.2 and v5.3).
 | value and measurement semantics of a cell (`unit`, `uncertainty`, `completeness`, `basis`, `as_of`, confidence form, state set, absence sentences) | **one carrier**: the proposed `MeasurementSpecification` ⊂ `DataValueSpecification` (§8b), which inherits `units`, `absoluteUncertainty`, `relativeUncertainty`, `dataType` | `DataValueDefinition` (`Referenceable` → `DataValueSpecification`, many to many, no properties; verified 6.3) from the `DataField`; `DataValueHierarchy` (one parent, many children) from a shared general specification to a field's own |
 | formatters (all of a spec's) | one `DisplayDataSchemaType` (⊂ `RootSchemaType` ⊂ `ComplexSchemaType`; exists) per spec | `Schema` from the `ReportSpec` (`Referenceable` → `SchemaType`, one to one at both ends; verified 6.3) |
 | formatter (one output format) | `DisplayDataContainer` (`displayName` = the output format name) | `AttributeForSchema` from the spec's `DisplayDataSchemaType` (containers attach only to a `ComplexSchemaType`) |
-| formatter column | `DisplayDataField`; `displayName` only for a label override | `NestedSchemaAttribute` from its container, whose `position` is the column order (verified 6.3). **Which `DataField` it shows has no Egeria home yet** (§9.17): `inputField` is a **boolean** at 6.3 (a form-input flag), and the one relationship from a `DataField` to a `SchemaAttribute`, `SchemaAttributeDefinition`, is one to one at both ends, so it cannot bind one shared field to the columns of several formatters |
+| formatter column | `DisplayDataField`; `displayName` only for a label override | `NestedSchemaAttribute` from its container, whose `position` is the column order (verified 6.3). **Which `DataField` it shows** is `SchemaAttributeDefinition` (`DataField` → `SchemaAttribute`), which Egeria is making one to many (§9.17, DECIDED 2026-11-07), so one shared field can back the columns of several formatters; at 6.3 it is still one to one at both ends, and `inputField` is a **boolean** (a form-input flag) |
 | `saved_query` producer | `SavedQuery` | `DataSetContent` |
 | `results` producer | `SurveyReport` annotations / `GovernanceResults` | `GovernanceResults` |
 | report (a configured run of a spec: `Create Report`) | `Report` ⊂ `DataSet` (exists); typed properties proposed in §8d | *proposed* `ReportInstanceOf` (`ReportSpec` → `Report`); `ReportSubject` (exists) to the element a GUID parameter names |
@@ -780,7 +780,7 @@ list in this design uses the one that fits:
 | `field.companions`, `kind: cell` | `DataValueDefinition` to a *proposed* `MeasurementSpecification` (§8b), child of a shared general one through `DataValueHierarchy` |
 | a companion's state set (`{"name": "state", "valid_values": "CountStates"}`) | `MeasurementSpecification.stateSet` = "CountStates", the name of a `ReferenceDataSet`; no relationship |
 | `field.kind: representation`, `format` | `DataField.dataType` = `representation/mermaid` (string convention until a type is agreed) |
-| `formatters.TABLE.columns` | `DisplayDataContainer` "TABLE", under the spec's `DisplayDataSchemaType` by `AttributeForSchema`, with one `DisplayDataField` per entry by `NestedSchemaAttribute` (`position` = column order); `displayName` only when the label is overridden; which `DataField` each shows is *to agree* (§9.17) |
+| `formatters.TABLE.columns` | `DisplayDataContainer` "TABLE", under the spec's `DisplayDataSchemaType` by `AttributeForSchema`, with one `DisplayDataField` per entry by `NestedSchemaAttribute` (`position` = column order); `displayName` only when the label is overridden; which `DataField` each shows is linked by `SchemaAttributeDefinition` once Egeria makes it one to many (§9.17) |
 | `formatters.ALL` | `DisplayDataContainer` "ALL" under the same schema type (the fallback formatter, §6) |
 | `tile_safe`, `completeness` opt-out, `in` | in the `microflow` JSON (light form); on the stage sub-`Process` in the full form |
 
@@ -863,7 +863,7 @@ One place for the review with the Egeria team. **Status** says where each item s
 | 5 | `DashboardPlacementReport` (`DashboardPlacement` → `Report`) | recommended | `DataSetContent` from the dashboard with the placement id in `queryId` | a placement names its report directly; `DataSetContent` stays as the dashboard-level lineage link |
 | 6 | `ReportInstanceOf` (`ReportSpec` → `Report`) | recommended | `Report.additionalProperties.reportSpec` (today); `DataDescription` as an interim | the missing link between a spec and its configured reports, so "which reports use this spec?" is a query |
 | 7 | `ReportRunOf` (`Report` → `ResultsSet`, with `resultState`, `resultStateReason`, `resultLocation`) | recommended, optional | no run history (today) | history, caching and "last run" words, with the envelope state kept |
-| 8 | a many-to-one relationship from a display column (`DisplayDataField`) to the `DataField` it shows (§9.17) | to agree | the field's `qualifiedName` as a string in the column's `additionalProperties` (interim); the binding only in the canonical JSON | at 6.3 nothing can hold it: `inputField` is a boolean and `SchemaAttributeDefinition` is one to one at both ends, so a shared field could back only one column |
+| 8 | `SchemaAttributeDefinition` (`DataField` → `SchemaAttribute`) and `SchemaTypeDefinition` made one to many, so a shared field or shape can back many display columns and containers (§9.17) | decided (Egeria team, 2026-11-07) | a new many-to-one `DisplayDataField` → `DataField` relationship (the earlier ask); the field's `qualifiedName` as a string in the column's `additionalProperties` (interim until the change ships) | reuses the existing relationships instead of adding one; at 6.3 both are one to one at both ends, so a shared field could back only one column |
 | 9 | `renderer` on `DisplayDataContainer` | recommended | `additionalProperties.renderer` | a formatter is shape × renderer (§6); the renderer word is validated against valid metadata |
 | 10 | typed `outputFormat` and `reportParameters` on `Report` | optional | the inherited `formula` / `formulaType` (`report-parameters/1`) holding the parameter JSON, with no new type | the inherited pair works today; typed properties only if the leads prefer them |
 
@@ -982,14 +982,16 @@ One place for the review with the Egeria team. **Status** says where each item s
     by membership; an inline stage shape `<spec>::stage-N` is anchored to its spec (§8). The Architect's reason: if a
     spec anchored the shapes it uses, `Anchors` cascade deletion would remove `CommonRow::display_name` along with
     `TermRow`'s spec, and a step-only shape would have no holder.
-17. **Which `DataField` a display column shows (v5.3, to agree with the Egeria team).** A formatter column
-    (`DisplayDataField`) must name the `DataField` it shows, and no 6.3 element can hold that for a shared field:
-    `inputField` is a boolean, and `SchemaAttributeDefinition` (`DataField` → `SchemaAttribute`) is one to one at both
-    ends, so one shared field could back only one column anywhere. Options: (a) a new many-to-one relationship
-    `DisplayDataField` → `DataField` (added to the type package of §8d); (b) the field's `qualifiedName` as a scalar in
-    the column's `additionalProperties` (a string reference, no lineage); (c) leave the binding only in the canonical
-    `microflow` JSON. Recommended: (a), with (b) as the interim, since the canonical JSON already holds the binding and
-    the executors never read it from Egeria.
+17. **Which `DataField` a display column shows (v5.3).** **DECIDED (owner, 2026-11-07): Egeria makes
+    `SchemaAttributeDefinition` and `SchemaTypeDefinition` one to many.** A formatter column (`DisplayDataField`) must
+    name the `DataField` it shows, and at 6.3 no element can hold that for a shared field: `inputField` is a boolean,
+    and `SchemaAttributeDefinition` (`DataField` → `SchemaAttribute`) is one to one at both ends, so one shared field
+    could back only one column anywhere. With the Egeria change, the one shared `DataField` links by
+    `SchemaAttributeDefinition` to every column that shows it, and each column still names one field; the same
+    change to `SchemaTypeDefinition` lets one registered shape back the containers of several formatters. This
+    replaces the earlier recommendation of a new `DisplayDataField` → `DataField` relationship. Until the change
+    ships, the interim is the field's `qualifiedName` as a scalar in the column's `additionalProperties`; the
+    canonical `microflow` JSON holds the binding either way, and the executors never read it from Egeria.
 
 18. **Sheet-level parameters (from 10.8).** **DECIDED (owner, 2026-11-06): as recommended.** The Overview's time machine passes one as-of time to every tile, and a
     `Dashboard` has no parameters of its own. Proposed: a sheet declares `params` like a spec (§2b, same rules); each
@@ -1025,7 +1027,7 @@ One place for the review with the Egeria team. **Status** says where each item s
     `scope` already means result level (resource, container, member, field) in the shipped declaration model and in the
     questions catalog's Level column. A `count` producer declares `population` (§3), and every
     cell it fills carries `population` as a companion so a renderer can say "of what you can see" or "in the whole catalog".
-    Rules, recommended: (a) a `derive` refuses at load to combine cells of different populations in one ratio or sum, since
+    Rules, **DECIDED (owner, 2026-11-07): (a), (c) and (d) as recommended**: (a) a `derive` refuses at load to combine cells of different populations in one ratio or sum, since
     a viewer numerator over a repository denominator is the Governed Coverage mistake again; (b) **DECIDED (owner, 2026-11-06):** the
     Overview, a catalog-wide view, shows `repository`-population totals to anyone; a local dashboard or any role-based or
     personalised view counts in `viewer` population, under the user's own identity. Admission by role list stays the
@@ -1136,7 +1138,7 @@ MERMAID: field=mermaidGraph
 | `out: "GlossaryRow"` | `CollectionMembership` from the `ReportSpec` → `DataStructure` `GlossaryRow`; its eleven `MemberDataField`s (positions 1–11): positions 1–6 to the **shared** `DataField`s `CommonRow::display_name` (`displayName` "Display Name", `namePatterns` ["display_name"], `dataType` string) … `CommonRow::url`, declared by `CommonRow` and linked from `TermRow` too; positions 7–11 to `GlossaryRow::language` … `GlossaryRow::mermaidGraph` (`dataType` "representation/mermaid") |
 | `CommonRow` | `DataStructure` `CommonRow`, anchored to the shapes `Collection` `Shapes::pyegeria` (§8a), linked to its six fields; `GlossaryRow` is anchored there too, and the spec only links to it |
 | formatters | `ReportSpec` —`Schema`→ one `DisplayDataSchemaType` —`AttributeForSchema`→ one `DisplayDataContainer` per output format (TABLE, LIST, DICT, MD, FORM, MERMAID) |
-| `formatters.TABLE` | `DisplayDataContainer` "TABLE" with seven `DisplayDataField`s under it by `NestedSchemaAttribute` (`position` 1–7 = column order), no `displayName` (no label overridden); each column's `DataField` per §9.17 (interim: its `qualifiedName` in the column's `additionalProperties`) |
+| `formatters.TABLE` | `DisplayDataContainer` "TABLE" with seven `DisplayDataField`s under it by `NestedSchemaAttribute` (`position` 1–7 = column order), no `displayName` (no label overridden); each column's `DataField` by `SchemaAttributeDefinition` per §9.17 (interim, until that is one to many: its `qualifiedName` in the column's `additionalProperties`) |
 | `formatters.LIST` | `DisplayDataContainer` "LIST"; the folders column's `DisplayDataField` carries `additionalProperties.format` = "bulleted-list" |
 | `formatters.MERMAID` | `DisplayDataContainer` "MERMAID" with one `DisplayDataField` → `GlossaryRow::mermaidGraph` |
 | the `find` | no `Process` element: `find` is a built-in producer, not a reusable function |
