@@ -1411,7 +1411,7 @@ const LOADING_SOURCES = new Set();
 // source -> {measuredAt, stale, refreshSeconds} of the displayed measurement (the slow sections are measured
 // in the background and refreshed hourly, so each section says how old its numbers are).
 const SOURCE_AGE = {};
-const MEASURING_SUB = 'measuring… the first load after a refresh takes 1–2 minutes';
+const MEASURING_SUB = 'measuring… the first load after a refresh can take several minutes';
 function sourceAgeText(source){
   const a = SOURCE_AGE[source];
   if (!a || !a.measuredAt) return '';
@@ -1459,7 +1459,7 @@ function renderSectionBadges(){
       else {
         if (!age) { age = document.createElement('span'); age.className = 'sec-age';
                     age.style.cssText = 'color:var(--muted);font-size:.68rem;margin-left:8px;font-weight:400;text-transform:none;letter-spacing:0;white-space:nowrap';
-                    age.title = 'Measured in the background and refreshed about once an hour, because a full measurement takes 1–2 minutes.'; }
+                    age.title = 'Measured in the background and refreshed about once an hour, because a full measurement takes minutes.'; }
         fresh.insertAdjacentElement('afterend', age);
         age.textContent = txt;
       }
@@ -2410,7 +2410,8 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
   // re-measures; it is re-fetched quietly a few times so the fresh numbers replace it. A newer call for the
   // same source and store cancels an older poll (it resolves null). People and activity are fast and are
   // answered directly, so they keep plain getJSON. Only the primary (displayed) store drives badges and ages.
-  var SECTION_POLL_MS = 10000, SECTION_POLL_MAX = 45;      // ~7.5 min: cold sections can queue behind each other
+  var SECTION_POLL_MS = 10000, SECTION_POLL_MAX = 90;      // 15 min: cold sections queue behind each other (2 at a time);
+                                                            // measured 2026-11-07 under heavy host load: 4–8 min until all four were ready
   var REFRESH_POLL_MS = 30000, REFRESH_POLL_MAX = 10;
   function getSection(source, path, asOf, store, primary, onData){
     var tk = 'poll_' + source;
