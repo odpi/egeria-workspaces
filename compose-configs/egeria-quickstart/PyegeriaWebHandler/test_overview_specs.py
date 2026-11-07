@@ -234,13 +234,13 @@ def main() -> int:
     # 8. Trellis perspective subset (design note §10.8): the page shows ten of the twelve foundations
     # perspectives, keyed by slug(display name), each carrying its Egeria qualifiedName.
     # foundations.md: trellis/packages/resource-explorer/docs/dr-egeria/foundations/foundations.md (lines 246-419)
-    FOUNDATIONS_TWELVE = ["Governance", "Financial", "Steward", "Data Owner", "Consumer", "App/AI Builder",
-                          "Privacy", "Community", "Data Expert", "Security", "Architecture", "Admin"]
-    EXPECTED_KEYS = ["governance", "steward", "data-owner", "consumer", "app-ai-builder",
+    FOUNDATIONS_TWELVE = ["Governance", "Financial", "Steward", "Owner", "Consumer", "App/AI Builder",
+                          "Privacy", "Community", "Data Expert", "Security", "Architecture", "Administration"]
+    EXPECTED_KEYS = ["governance", "steward", "owner", "consumer", "app-ai-builder",
                      "privacy", "community", "data-expert", "security", "architecture"]
     check([specs.perspective_key(n) for n in specs.PERSPECTIVE_DISPLAY_NAMES] == EXPECTED_KEYS,
           f"perspective_key() on the ten display names != {EXPECTED_KEYS}")
-    check(specs.perspective_key("App/AI Builder") == "app-ai-builder" and specs.perspective_key(" Data  Owner ") == "data-owner",
+    check(specs.perspective_key("App/AI Builder") == "app-ai-builder" and specs.perspective_key(" Data  Owner ") == "data-owner" and specs.perspective_key("Owner") == "owner",
           "perspective_key() slug rules wrong")
     check(list(specs.PERSP_KPIS) == EXPECTED_KEYS, f"PERSP_KPIS keys/order != {EXPECTED_KEYS}: {list(specs.PERSP_KPIS)}")
     persp_entries = re.findall(
@@ -253,19 +253,21 @@ def main() -> int:
         check(specs.perspective_key(label) == key, f"[{key}] key != perspective_key({label!r})")
     labels = [e[1] for e in persp_entries]
     check(labels == specs.PERSPECTIVE_DISPLAY_NAMES, f"page labels != PERSPECTIVE_DISPLAY_NAMES: {labels}")
-    check("Financial" not in labels and "Admin" not in labels, "Financial/Admin must not be shown (owner decision)")
+    check("Financial" not in labels and "Administration" not in labels, "Financial/Administration must not be shown (owner decision)")
     check("Engineering" not in html.split("const PERSPECTIVES = {")[0].split("persp-bar")[-1],
           "the perspective ribbon still says Engineering")
     buttons = re.findall(r'<button data-persp="([\w-]+)"', html)
     check(buttons == EXPECTED_KEYS, f"ribbon buttons != {EXPECTED_KEYS}: {buttons}")
     # saved-key migration: every old key maps to a current key; page map == registry map
     OLD_KEYS = ["governance", "steward", "owner", "consumer", "engineer", "architecture",
-                "security", "builder", "privacy", "community"]
+                "security", "builder", "privacy", "community", "data-owner"]
     for old in OLD_KEYS:
         check(old in EXPECTED_KEYS or specs.LEGACY_PERSPECTIVE_KEYS.get(old) in EXPECTED_KEYS,
               f"saved key {old!r} has no migration target")
+    check(specs.LEGACY_PERSPECTIVE_KEYS.get("data-owner") == "owner" and "owner" not in specs.LEGACY_PERSPECTIVE_KEYS,
+          "a saved 'data-owner' must migrate to 'owner', and 'owner' is a current key, not a legacy one")
     m = re.search(r"const LEGACY_PERSP_KEYS = \{([^}]*)\}", html)
-    page_legacy = dict(re.findall(r"(\w+):'([\w-]+)'", m.group(1))) if m else {}
+    page_legacy = dict(re.findall(r"'?([\w-]+)'?:'([\w-]+)'", m.group(1))) if m else {}
     check(page_legacy == specs.LEGACY_PERSPECTIVE_KEYS, f"page LEGACY_PERSP_KEYS {page_legacy} != registry {specs.LEGACY_PERSPECTIVE_KEYS}")
     # the page's perspectiveKey() (JS) agrees with perspective_key() (Python), evaluated with node when present
     fm = re.search(r"function perspectiveKey\(displayName\)\{.*?\n\}", html, re.S)
