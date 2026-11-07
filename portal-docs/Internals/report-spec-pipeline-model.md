@@ -242,7 +242,7 @@ A producer originates a dataset. It takes parameters, never a dataset. Types:
 |---|---|---|
 | `find` | one of the typed Egeria finds, with its existing pyegeria processor as the output shaping (flattening nested JSON into fields; lifting `mermaidGraph` and other representation fields) | as-of time, sequencing property and order, status filter, paging, search string: all Egeria parameters already |
 | `saved_query` | an Egeria `SavedQuery` element (`queryURL`, `queryRequestBody`) run as stored; uses the ones that exist, never forces one per spec. **Roadmap (owner, 2026-11-06):** Egeria queries are gaining SQL push-down (`group by`, `sum`, `avg`, …). As that lands, a saved query's `pushdown` list grows, the executor leaves more in Egeria, and `count` below becomes one capability of this producer rather than a kind of its own. | whatever the stored query declares |
-| `count` | Egeria's native count by search conditions. Settled live (2026-11-05, platform OpenAPI): `metadata-elements/by-search-conditions/count` and `relationships/by-search-conditions/count`; nothing else today. pyegeria wraps both (`MetadataExpert.count_metadata_elements`, `count_relationships_between_elements`, with `push_down`). **Declares `scope`** (§9.23): `viewer` (`pushDown=false`, the server default since Egeria main of 2026-10-18) reads and checks every matching element, so the count is exactly what the caller may see and agrees with a find, at about 2 ms an element; `repository` (`pushDown=true`) has the repository count rows, well under a second at any size, keeps the search conditions, and skips the per-element visibility check. Kept as a named kind until `saved_query` absorbs it. | the count, with criteria, and its `scope` |
+| `count` | Egeria's native count by search conditions. Settled live (2026-11-05, platform OpenAPI): `metadata-elements/by-search-conditions/count` and `relationships/by-search-conditions/count`; nothing else today. pyegeria wraps both (`MetadataExpert.count_metadata_elements`, `count_relationships_between_elements`, with `push_down`). **Declares `population`** (§9.23; pyegeria 6.2.22's `count_elements(..., scope=)` keyword maps to it): `viewer` (`pushDown=false`, the server default since Egeria main of 2026-10-18) reads and checks every matching element, so the count is exactly what the caller may see and agrees with a find, at about 2 ms an element; `repository` (`pushDown=true`) has the repository count rows, well under a second at any size, keeps the search conditions, and skips the per-element visibility check. Kept as a named kind until `saved_query` absorbs it. | the count, with criteria, and its `population` |
 | `query` | an external query, e.g. SQL against the ODS or another store, through a registered `reader:<source>` with a declared output shape; the successor of `analytic_binders` | the store's own filter / order / limit / group-by |
 | `results` | stored results read back: survey annotations of a step, or a `GovernanceMetric`'s `GovernanceResults` | as-of, latest-only, by subject |
 | `literal` | a fixed or parameter-supplied dataset (tests, Overview tiles, demos) | none |
@@ -1021,15 +1021,17 @@ One place for the review with the Egeria team. **Status** says where each item s
     both.
 
 23. **Viewer counts and repository counts (from 10.8, 2026-11-06).** **Owner direction (2026-11-06): show both, so
-    a dashboard gives the whole picture and not only one user's.** A `count` producer declares `scope` (§3), and every
-    cell it fills carries `scope` as a companion so a renderer can say "of what you can see" or "in the whole catalog".
-    Rules, recommended: (a) a `derive` refuses at load to combine cells of different scopes in one ratio or sum, since
+    a dashboard gives the whole picture and not only one user's.** **Word DECIDED (owner, 2026-11-06): `population`**, because
+    `scope` already means result level (resource, container, member, field) in the shipped declaration model and in the
+    questions catalog's Level column. A `count` producer declares `population` (§3), and every
+    cell it fills carries `population` as a companion so a renderer can say "of what you can see" or "in the whole catalog".
+    Rules, recommended: (a) a `derive` refuses at load to combine cells of different populations in one ratio or sum, since
     a viewer numerator over a repository denominator is the Governed Coverage mistake again; (b) **DECIDED (owner, 2026-11-06):** the
-    Overview, a catalog-wide view, shows `repository`-scope totals to anyone; a local dashboard or any role-based or
-    personalised view counts in `viewer` scope, under the user's own identity. Admission by role list stays the
-    mechanism for any later placement that should restrict repository counts, so a sheet declares which scope each
+    Overview, a catalog-wide view, shows `repository`-population totals to anyone; a local dashboard or any role-based or
+    personalised view counts in `viewer` population, under the user's own identity. Admission by role list stays the
+    mechanism for any later placement that should restrict repository counts, so a sheet declares which population each
     count uses and the default for a personal sheet is `viewer`; (c) the difference between the two, labelled "not visible to you", is
-    a derived cell like any other and needs both scopes admitted; (d) a viewer count that is slow may be served from
+    a derived cell like any other and needs both populations admitted; (d) a viewer count that is slow may be served from
     the per-viewer result cache (§9.21) while the repository count, which is cheap, gives an immediate figure to a
     viewer admitted to see it. Live evidence (erinoverview, 2026-11-06, same minute): Assets with a governance
     classification 43 viewer versus 163 repository; `Infrastructure` 90 versus 210; `DataSet` 2,421 versus 2,458.
@@ -1747,12 +1749,12 @@ classification condition on the count endpoint is assumed here and checked live 
 `RunnableSoftwareComponent` 0. The headline keeps them all; what makes its size legible is a histogram by subtype
 beside it, not a narrower definition. The filtered count reads every element (about 2 ms each, so about 120 s for
 `Process` alone), and running the groups in parallel does not shorten it, because the slowest group sets the pace. In
-the Overview, a catalog-wide view, the tile therefore counts in `repository` scope (§9.23 (b), decided 2026-11-06):
+the Overview, a catalog-wide view, the tile therefore counts in `repository` population (§9.23 (b), decided 2026-11-06):
 under a second, the same for every viewer, and shared by the tile and the histogram. A personal or role-based sheet
-counts in `viewer` scope and serves that slow count from the per-viewer result cache of §9.21.
+counts in `viewer` population and serves that slow count from the per-viewer result cache of §9.21.
 
-**The Asset composition routine: several metrics and two scopes from one run.** One routine lists the subtypes from
-Egeria's type system, counts each in both scopes with a concurrency cap, and the tiles and the histogram are views of its
+**The Asset composition routine: several metrics and two populations from one run.** One routine lists the subtypes from
+Egeria's type system, counts each in both populations with a concurrency cap, and the tiles and the histogram are views of its
 output. Live counts on 2026-11-06 (viewer = erinoverview): `Process` 57,372 / 57,391 (of which `Action` — / 56,903 and
 `DeployedSoftwareComponent` 486 / 486); `DataAsset` 2,945 / 2,984 (`DataSet` 2,421 / 2,458, `DataStore` 518 / 519, `DataFeed`
 7 / 7); `Infrastructure` 90 / 210; `RunnableSoftwareComponent` 0 / 0. The repository counts took 0.2–0.8 s each, all ten in
@@ -1765,19 +1767,19 @@ output. Live counts on 2026-11-06 (viewer = erinoverview): `Process` 57,372 / 57
       "params": {"root": {"type": "string", "default": "Asset", "category": "content"},
                  "depth": {"type": "int", "default": 2, "category": "shape"},
                  "as_of": {"type": "datetime", "required": false, "category": "content"},
-                 "scopes": {"type": "list", "default": ["viewer", "repository"], "category": "content"},
+                 "populations": {"type": "list", "default": ["viewer", "repository"], "category": "content"},
                  "concurrency": {"type": "int", "default": 3, "category": "performance"}},
       "microflow": [
         {"stage": "producer/typedefs", "name": "groups", "params": {"root": "$root", "depth": "$depth"},
          "out": [{"name": "type_name", "type": "string"}, {"name": "parent", "type": "string"}, {"name": "level", "type": "int"}]},
         {"stage": "processor/derive", "in": ["groups"], "per": "row", "into": "viewer_count",
-         "function": "count_elements", "params": {"type_name": "$row.type_name", "as_of": "$as_of", "scope": "viewer"},
+         "function": "count_elements", "params": {"type_name": "$row.type_name", "as_of": "$as_of", "population": "viewer"},
          "concurrency": "$concurrency",
-         "out": [{"name": "viewer_count", "kind": "cell", "type": "int", "companions": ["state", "completeness", "as_of", "scope"]}]},
+         "out": [{"name": "viewer_count", "kind": "cell", "type": "int", "companions": ["state", "completeness", "as_of", "population"]}]},
         {"stage": "processor/derive", "in": ["groups"], "per": "row", "into": "repository_count",
-         "function": "count_elements", "params": {"type_name": "$row.type_name", "as_of": "$as_of", "scope": "repository"},
+         "function": "count_elements", "params": {"type_name": "$row.type_name", "as_of": "$as_of", "population": "repository"},
          "admission": {"role_list": "repository-count-viewers"},
-         "out": [{"name": "repository_count", "kind": "cell", "type": "int", "companions": ["state", "as_of", "scope"]}]},
+         "out": [{"name": "repository_count", "kind": "cell", "type": "int", "companions": ["state", "as_of", "population"]}]},
         {"stage": "processor/derive", "per": "row", "into": "not_visible",
          "function": "difference", "params": {"minuend": "repository_count", "subtrahend": "viewer_count"},
          "out": [{"name": "not_visible", "label": "Not visible to you", "kind": "cell", "type": "int", "companions": ["state"]}]}
@@ -1797,7 +1799,7 @@ output. Live counts on 2026-11-06 (viewer = erinoverview): `Process` 57,372 / 57
 `repository-count-viewers` names a role list the deployment configures (§9.23 (b)); the routine never takes it as a
 parameter, so a caller cannot widen its own admission. The `metrics` block is illustrative, not a new registry section: each line is a spec with this routine as its only stage
 and a `KPI` formatter whose `reduce` picks the rows. They share one run per viewer and parameter set (§9.21). The
-histogram is the routine's rows through a `BAR` formatter, grouped by `level`, the two scopes as paired bars, and a click
+histogram is the routine's rows through a `BAR` formatter, grouped by `level`, the two populations as paired bars, and a click
 on a bar runs the same routine with `root` set to that subtype. Two cautions from the live run: a group's count includes
 its subtypes, so groups add up exactly at one level but a parent can hold elements typed as the parent itself (about 2
 plain `Process`es here), which an "other" row shows rather than hides; and the viewer `Action` count is the slow one, so
@@ -1858,4 +1860,4 @@ needs are `Create Report Spec` (with `Update`/`View`; it replaces the Egeria Adv
 name, §9.13), whose `Microflow` and `Formatters` attributes are the JSON above in Dr.Egeria's list form, and
 `Create Measurement Specification` beside Data Designer's existing value-specification commands; shapes are authored by
 the Data Designer commands that exist. The compact-command generator (§9.6) emits the spec command for every existing
-spec, and a Dr.Egeria spec and a JSON spec of one name round-trip to the same JSON (§9.8). 10.8 takes the model to the Portal's largest live dashboard: it maps almost every part of the Overview, moves its browser arithmetic into `derive` processors, turns its zeros-on-failure into declared states, finds the four things the dashboard layer still lacked (§9.18, §9.19, §9.21, §9.22), and shows one routine serving several metrics in both count scopes (§9.23).
+spec, and a Dr.Egeria spec and a JSON spec of one name round-trip to the same JSON (§9.8). 10.8 takes the model to the Portal's largest live dashboard: it maps almost every part of the Overview, moves its browser arithmetic into `derive` processors, turns its zeros-on-failure into declared states, finds the four things the dashboard layer still lacked (§9.18, §9.19, §9.21, §9.22), and shows one routine serving several metrics in both count populations (§9.23).
