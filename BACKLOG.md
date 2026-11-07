@@ -9,6 +9,29 @@ what's actually open — a stub with a link is left in place of each moved
 section. Sections with any open/pending sub-items stay here even if their
 header says "done", since part of the work is still live.
 ---
+## DASH-REUSE Reusable dashboard tiles (2026-11-07) — deferred
+
+The owner's decision for now: Egeria implements the current dashboard structure from the report-spec model
+(`portal-docs/Internals/report-spec-pipeline-model.md` §8d: `Dashboard` ⊂ `DataSet`; sheets and sections as nested
+`DisplayDataContainer`s; `DashboardPlacement` ⊂ `DisplayDataField`, one per tile, linked to its `Report` by
+`DashboardPlacementReport`). These ideas wait until that is in place.
+
+- **Why the tile itself can't be shared.** Checked on the 6.3 platform on 2026-11-07, both relationships that place a
+  schema element allow only one parent: `NestedSchemaAttribute` (`parentAttribute` at most one) and
+  `AttributeForSchema` (`parentSchemas` at most one). So one placement or container can't sit on two sheets.
+- **What can be shared already.** A `Report` can be shared: many placements, on many dashboards, can point at one
+  `Report` through `DashboardPlacementReport`. Putting the same tile on another dashboard means adding a thin placement
+  to that sheet.
+- **Deferred 1: default display hints on the `Report`.** The `Report` would hold a default `span` and default
+  presentation (today's `emphasis`). Each placement uses those unless it overrides them, so a tile looks the same
+  everywhere by default.
+- **Deferred 2: reusable text tiles.** A `TEXT` placement holds its markdown directly, so it can't be shared. Options:
+  a small `Report` whose output is the text, or a shared text element that placements point at.
+- **Deferred 3: `DashboardPlacement` ⊂ `DisplayDataContainer`.** This only matters if a tile ever has to hold more
+  than one item, such as a KPI with a small chart under it. A thin placement with no children is a field, so it stays
+  ⊂ `DisplayDataField`.
+
+---
 ## RE-PORT Resource Explorer moves from 8813 to 8810 (2026-10-13) — deferred
 
 The owner's decision for now: the Portal reaches Resource Explorer on 8813 (the
