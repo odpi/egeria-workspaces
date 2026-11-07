@@ -53,6 +53,7 @@ generalization of `Format` itself is deliberately deferred to P1 (see
 
 from __future__ import annotations
 
+import re
 from typing import Dict, List
 
 # The FormatSet model moved to pyegeria.view in newer releases; keep a fallback
@@ -83,17 +84,35 @@ ENDPOINTS = ("summary", "people", "usage-context", "ai-context", "growth", "acti
 # tiles each perspective shows; the frontend PERSP_KPIS must match it (guarded by
 # test_overview_specs.py). Each tile's question_spec.perspectives is the inverse.
 PERSP_KPIS: Dict[str, List[str]] = {
-    "governance": ["assets", "terms", "governed", "certs", "products", "exceptions"],
-    "steward":    ["assets", "governed", "exceptions", "certs", "terms", "grounding"],
-    "owner":      ["products", "governed", "certs", "exceptions", "people", "grounding"],
-    "consumer":   ["products", "terms", "grounding", "isc", "blueprints", "people"],
-    "engineer":   ["assets", "isc", "blueprints", "grounding", "exceptions", "governed"],
-    "architecture": ["isc", "blueprints", "assets", "grounding", "governed", "exceptions"],
-    "security":   ["governed", "exceptions", "ai-ready", "certs", "assets", "grounding"],
-    "builder":    ["assets", "grounding", "isc", "blueprints", "governed", "products"],
-    "privacy":    ["governed", "certs", "exceptions", "assets", "grounding", "products"],
-    "community":  ["people", "communities", "products", "terms", "governed", "assets"],
+    "governance":     ["assets", "terms", "governed", "certs", "products", "exceptions"],
+    "steward":        ["assets", "governed", "exceptions", "certs", "terms", "grounding"],
+    "data-owner":     ["products", "governed", "certs", "exceptions", "people", "grounding"],
+    "consumer":       ["products", "terms", "grounding", "isc", "blueprints", "people"],
+    "app-ai-builder": ["assets", "grounding", "isc", "blueprints", "governed", "products"],
+    "privacy":        ["governed", "certs", "exceptions", "assets", "grounding", "products"],
+    "community":      ["people", "communities", "products", "terms", "governed", "assets"],
+    "data-expert":    ["assets", "isc", "blueprints", "grounding", "exceptions", "governed"],
+    "security":       ["governed", "exceptions", "ai-ready", "certs", "assets", "grounding"],
+    "architecture":   ["isc", "blueprints", "assets", "grounding", "governed", "exceptions"],
 }
+
+# The ten Trellis perspectives the Overview shows, in foundations.md order (Financial and Admin are left
+# out on purpose: design note §10.8). Egeria qualifiedName is "Perspective::<display name>".
+PERSPECTIVE_DISPLAY_NAMES: List[str] = [
+    "Governance", "Steward", "Data Owner", "Consumer", "App/AI Builder",
+    "Privacy", "Community", "Data Expert", "Security", "Architecture",
+]
+
+# Keys the page saved in localStorage before the Trellis rename -> current key.
+LEGACY_PERSPECTIVE_KEYS: Dict[str, str] = {
+    "owner": "data-owner", "engineer": "data-expert", "builder": "app-ai-builder",
+}
+
+
+def perspective_key(display_name: str) -> str:
+    """Slug of a Trellis perspective display name: lower-case, runs of non-alphanumerics -> "-".
+    Mirrors perspectiveKey() in egeria-overview.html (test_overview_specs.py proves they agree)."""
+    return re.sub(r"[^a-z0-9]+", "-", (display_name or "").lower()).strip("-")
 
 
 def perspectives_for(kpi_key: str) -> List[str]:

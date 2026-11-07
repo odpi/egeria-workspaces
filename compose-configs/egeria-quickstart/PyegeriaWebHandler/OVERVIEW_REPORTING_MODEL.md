@@ -231,7 +231,7 @@ the Advisor could generate them conversationally (it already builds report specs
 Egeria already has the pieces to make dashboards *rendered governed metadata*:
 - **`GovernanceMetric`** (governance model) — native home for a metric definition.
 - **Perspective + Question** elements — already modeled (`Perspective ─ScopedBy→
-  Question`); Dr.Egeria authoring shipped (`OVERVIEW_PERSPECTIVES.dr-egeria.md`).
+  Question`); Dr.Egeria authoring shipped (`OVERVIEW_PERSPECTIVES.dr-egeria.md`, since retired: the Trellis foundations.md is now the source of perspectives).
 - **ReportSpec** — the "how to compute," linkable from a Question/Metric.
 - **Scope** — `assignmentScope` / `GovernanceZone` / `Collection` express scope as
   relationships.
@@ -309,7 +309,7 @@ P0–P1 stand alone and are worth doing regardless of whether P3–P4 ship.
 - `PYEGERIA_ISSUES.md` PY-20 — load-all paging strategy; #9168 — native counting.
 - pyegeria `pyegeria/view/_output_format_models.py` (`FormatSet`/`Format`/`Column`/`ActionParameter`/`QuestionSpec`), `base_report_formats.py`, `output_formatter.py`.
 - egeria-advisor `advisor/report_spec_*.py`, `report_spec_agent.py` (the report runner), `report_spec_elicitor.py`.
-- `OVERVIEW_PERSPECTIVES.dr-egeria.md` + `gen_perspectives.py` — the Perspective/Question authoring pattern to mirror for metrics/containers.
+- (retired 2026-11) `OVERVIEW_PERSPECTIVES.dr-egeria.md` + `gen_perspectives.py` — the Perspective/Question authoring pattern to mirror for metrics/containers.
 - `portal-docs/tutorials/local-dashboards.md` — user-facing guide to §13's Dashboard Sheet track.
 
 ## 13. Update — the Dashboard Sheet / Report track actually shipped §9's P3 goals, via a different path (2026-07-29 → 2026-07-30)

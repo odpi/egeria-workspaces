@@ -67,7 +67,7 @@ def parse_persp_kpis(html: str) -> dict:
     """Parse the frontend PERSP_KPIS map → {perspective: [kpi, ...]}."""
     block = _slice_object(html, "const PERSP_KPIS = {")
     out = {}
-    for m in re.finditer(r"^\s*(\w+):\s*\[([^\]]*)\]", block, re.MULTILINE):
+    for m in re.finditer(r"^\s*'?([\w-]+)'?:\s*\[([^\]]*)\]", block, re.MULTILINE):
         persp, arr = m.groups()
         out[persp] = [x.strip().strip("'\"") for x in arr.split(",") if x.strip()]
     return out
@@ -230,6 +230,57 @@ def main() -> int:
               f"[{tile['key']}] missing a non-empty 'summary' field (required by NEXT-24)")
         check(bool(tile.get("usage")),
               f"[{tile['key']}] missing a non-empty 'usage' field (required by NEXT-24)")
+
+    # 8. Trellis perspective subset (design note §10.8): the page shows ten of the twelve foundations
+    # perspectives, keyed by slug(display name), each carrying its Egeria qualifiedName.
+    # foundations.md: trellis/packages/resource-explorer/docs/dr-egeria/foundations/foundations.md (lines 246-419)
+    FOUNDATIONS_TWELVE = ["Governance", "Financial", "Steward", "Data Owner", "Consumer", "App/AI Builder",
+                          "Privacy", "Community", "Data Expert", "Security", "Architecture", "Admin"]
+    EXPECTED_KEYS = ["governance", "steward", "data-owner", "consumer", "app-ai-builder",
+                     "privacy", "community", "data-expert", "security", "architecture"]
+    check([specs.perspective_key(n) for n in specs.PERSPECTIVE_DISPLAY_NAMES] == EXPECTED_KEYS,
+          f"perspective_key() on the ten display names != {EXPECTED_KEYS}")
+    check(specs.perspective_key("App/AI Builder") == "app-ai-builder" and specs.perspective_key(" Data  Owner ") == "data-owner",
+          "perspective_key() slug rules wrong")
+    check(list(specs.PERSP_KPIS) == EXPECTED_KEYS, f"PERSP_KPIS keys/order != {EXPECTED_KEYS}: {list(specs.PERSP_KPIS)}")
+    persp_entries = re.findall(
+        r"^  '([\w-]+)': \{ icon:'[^']*', label:'([^']*)', qualified_name:'([^']*)'",
+        _slice_object(html, "const PERSPECTIVES = {"), re.MULTILINE)
+    check([e[0] for e in persp_entries] == EXPECTED_KEYS, f"page PERSPECTIVES keys/order != {EXPECTED_KEYS}: {[e[0] for e in persp_entries]}")
+    for key, label, qn in persp_entries:
+        check(qn == "Perspective::" + label, f"[{key}] qualified_name {qn!r} != 'Perspective::' + label {label!r}")
+        check(label in FOUNDATIONS_TWELVE, f"[{key}] label {label!r} is not one of the foundations twelve")
+        check(specs.perspective_key(label) == key, f"[{key}] key != perspective_key({label!r})")
+    labels = [e[1] for e in persp_entries]
+    check(labels == specs.PERSPECTIVE_DISPLAY_NAMES, f"page labels != PERSPECTIVE_DISPLAY_NAMES: {labels}")
+    check("Financial" not in labels and "Admin" not in labels, "Financial/Admin must not be shown (owner decision)")
+    check("Engineering" not in html.split("const PERSPECTIVES = {")[0].split("persp-bar")[-1],
+          "the perspective ribbon still says Engineering")
+    buttons = re.findall(r'<button data-persp="([\w-]+)"', html)
+    check(buttons == EXPECTED_KEYS, f"ribbon buttons != {EXPECTED_KEYS}: {buttons}")
+    # saved-key migration: every old key maps to a current key; page map == registry map
+    OLD_KEYS = ["governance", "steward", "owner", "consumer", "engineer", "architecture",
+                "security", "builder", "privacy", "community"]
+    for old in OLD_KEYS:
+        check(old in EXPECTED_KEYS or specs.LEGACY_PERSPECTIVE_KEYS.get(old) in EXPECTED_KEYS,
+              f"saved key {old!r} has no migration target")
+    m = re.search(r"const LEGACY_PERSP_KEYS = \{([^}]*)\}", html)
+    page_legacy = dict(re.findall(r"(\w+):'([\w-]+)'", m.group(1))) if m else {}
+    check(page_legacy == specs.LEGACY_PERSPECTIVE_KEYS, f"page LEGACY_PERSP_KEYS {page_legacy} != registry {specs.LEGACY_PERSPECTIVE_KEYS}")
+    # the page's perspectiveKey() (JS) agrees with perspective_key() (Python), evaluated with node when present
+    fm = re.search(r"function perspectiveKey\(displayName\)\{.*?\n\}", html, re.S)
+    check(fm is not None, "perspectiveKey() missing from the page")
+    if fm:
+        try:
+            probe = fm.group(0) + "\nconsole.log(JSON.stringify(%s.map(perspectiveKey)));" % __import__("json").dumps(
+                specs.PERSPECTIVE_DISPLAY_NAMES + ["  Odd -- Name/X "])
+            res = subprocess.run(["node", "-e", probe], capture_output=True, text=True, timeout=30)
+            if res.returncode == 0:
+                got = __import__("json").loads(res.stdout)
+                want = [specs.perspective_key(n) for n in specs.PERSPECTIVE_DISPLAY_NAMES + ["  Odd -- Name/X "]]
+                check(got == want, f"JS perspectiveKey() {got} != Python perspective_key() {want}")
+        except FileNotFoundError:
+            pass  # no node on this box: the JS side is covered by the regex shape checks above
 
     # Report.
     print(f"ran {_checks} checks over {len(reg_keys)} tiles / {len(specs.PERSP_KPIS)} perspectives / "

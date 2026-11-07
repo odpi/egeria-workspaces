@@ -343,7 +343,7 @@ Collection::Steward View
 Data Owner View
 
 ### Description
-Metrics shown to the "Data Owner" Perspective on the Overview dashboard (perspectives_for()'s 'owner').
+Metrics shown to the "Data Owner" Perspective on the Overview dashboard (perspectives_for()'s 'data-owner').
 
 ### Qualified Name
 Collection::Data Owner View
@@ -392,13 +392,13 @@ Collection::Consumer View
 ## Create Collection
 
 ### Display Name
-Engineering View
+Data Expert View
 
 ### Description
-Metrics shown to the "Engineering" Perspective on the Overview dashboard (perspectives_for()'s 'engineer').
+Metrics shown to the "Data Expert" Perspective on the Overview dashboard (perspectives_for()'s 'data-expert').
 
 ### Qualified Name
-Collection::Engineering View
+Collection::Data Expert View
 
 ### Version Identifier
 1.0
@@ -411,7 +411,7 @@ Collection::Engineering View
 RootCollection::Egeria Dashboard
 
 ### Element Id
-Collection::Engineering View
+Collection::Data Expert View
 
 ---
 
@@ -473,7 +473,7 @@ Collection::Security View
 App/AI Builder View
 
 ### Description
-Metrics shown to the "App/AI Builder" Perspective on the Overview dashboard (perspectives_for()'s 'builder').
+Metrics shown to the "App/AI Builder" Perspective on the Overview dashboard (perspectives_for()'s 'app-ai-builder').
 
 ### Qualified Name
 Collection::App/AI Builder View
@@ -613,36 +613,6 @@ Term::overview-kpi-assets
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Engineering View
-
-### Element Id
-Term::overview-kpi-assets
-
----
-
-## Add Member to Collection
-
-### Collection Id
-Collection::Architecture View
-
-### Element Id
-Term::overview-kpi-assets
-
----
-
-## Add Member to Collection
-
-### Collection Id
-Collection::Security View
-
-### Element Id
-Term::overview-kpi-assets
-
----
-
-## Add Member to Collection
-
-### Collection Id
 Collection::App/AI Builder View
 
 ### Element Id
@@ -664,6 +634,36 @@ Term::overview-kpi-assets
 
 ### Collection Id
 Collection::Community View
+
+### Element Id
+Term::overview-kpi-assets
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Expert View
+
+### Element Id
+Term::overview-kpi-assets
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Security View
+
+### Element Id
+Term::overview-kpi-assets
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Architecture View
 
 ### Element Id
 Term::overview-kpi-assets
@@ -853,36 +853,6 @@ Term::overview-kpi-governed
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Engineering View
-
-### Element Id
-Term::overview-kpi-governed
-
----
-
-## Add Member to Collection
-
-### Collection Id
-Collection::Architecture View
-
-### Element Id
-Term::overview-kpi-governed
-
----
-
-## Add Member to Collection
-
-### Collection Id
-Collection::Security View
-
-### Element Id
-Term::overview-kpi-governed
-
----
-
-## Add Member to Collection
-
-### Collection Id
 Collection::App/AI Builder View
 
 ### Element Id
@@ -904,6 +874,36 @@ Term::overview-kpi-governed
 
 ### Collection Id
 Collection::Community View
+
+### Element Id
+Term::overview-kpi-governed
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Expert View
+
+### Element Id
+Term::overview-kpi-governed
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Security View
+
+### Element Id
+Term::overview-kpi-governed
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Architecture View
 
 ### Element Id
 Term::overview-kpi-governed
@@ -998,7 +998,7 @@ Term::overview-kpi-certs
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Security View
+Collection::Privacy View
 
 ### Element Id
 Term::overview-kpi-certs
@@ -1008,7 +1008,7 @@ Term::overview-kpi-certs
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Privacy View
+Collection::Security View
 
 ### Element Id
 Term::overview-kpi-certs
@@ -1218,7 +1218,7 @@ Term::overview-kpi-exceptions
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Engineering View
+Collection::Privacy View
 
 ### Element Id
 Term::overview-kpi-exceptions
@@ -1228,7 +1228,7 @@ Term::overview-kpi-exceptions
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Architecture View
+Collection::Data Expert View
 
 ### Element Id
 Term::overview-kpi-exceptions
@@ -1248,7 +1248,7 @@ Term::overview-kpi-exceptions
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Privacy View
+Collection::Architecture View
 
 ### Element Id
 Term::overview-kpi-exceptions
@@ -1473,7 +1473,17 @@ Term::overview-kpi-isc
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Engineering View
+Collection::App/AI Builder View
+
+### Element Id
+Term::overview-kpi-isc
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Expert View
 
 ### Element Id
 Term::overview-kpi-isc
@@ -1484,16 +1494,6 @@ Term::overview-kpi-isc
 
 ### Collection Id
 Collection::Architecture View
-
-### Element Id
-Term::overview-kpi-isc
-
----
-
-## Add Member to Collection
-
-### Collection Id
-Collection::App/AI Builder View
 
 ### Element Id
 Term::overview-kpi-isc
@@ -1568,7 +1568,17 @@ Term::overview-kpi-blueprints
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Engineering View
+Collection::App/AI Builder View
+
+### Element Id
+Term::overview-kpi-blueprints
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Expert View
 
 ### Element Id
 Term::overview-kpi-blueprints
@@ -1579,16 +1589,6 @@ Term::overview-kpi-blueprints
 
 ### Collection Id
 Collection::Architecture View
-
-### Element Id
-Term::overview-kpi-blueprints
-
----
-
-## Add Member to Collection
-
-### Collection Id
-Collection::App/AI Builder View
 
 ### Element Id
 Term::overview-kpi-blueprints
@@ -1683,7 +1683,7 @@ Term::overview-kpi-grounding
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Engineering View
+Collection::App/AI Builder View
 
 ### Element Id
 Term::overview-kpi-grounding
@@ -1693,7 +1693,17 @@ Term::overview-kpi-grounding
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Architecture View
+Collection::Privacy View
+
+### Element Id
+Term::overview-kpi-grounding
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Expert View
 
 ### Element Id
 Term::overview-kpi-grounding
@@ -1713,17 +1723,7 @@ Term::overview-kpi-grounding
 ## Add Member to Collection
 
 ### Collection Id
-Collection::App/AI Builder View
-
-### Element Id
-Term::overview-kpi-grounding
-
----
-
-## Add Member to Collection
-
-### Collection Id
-Collection::Privacy View
+Collection::Architecture View
 
 ### Element Id
 Term::overview-kpi-grounding
