@@ -711,7 +711,7 @@
   </div>
 
   <div class="foot-note">
-    <b>Live data only</b> · every figure is measured from the connected Egeria platform; anything shown as <code>—</code> or "Not measured" has no data (or no data source) yet. Every figure comes from the <code>/api/overview/*</code> aggregation router, which computes it with pyegeria's <code>overview_metrics</code> functions (native element counts, classification &amp; zone tallies, certification / license / exception relationships, <code>ReportSubject</code> links to <code>SurveyReport</code>s, people / community / feedback counts) and caches it briefly. The <b>Perspective → Question</b> framing is the <code>perspectives_handler</code> model (Perspective ⟶ <code>ScopedBy</code> ⟶ Question), with each question answered by a saved <b>report spec / view definition</b>. Trend lines use Egeria's native <code>asOfTime</code> historical queries — no separate time-series store. A number shown as <b>at least N</b> hit a page limit and is a lower bound; <b>Recent Activity</b> and the 24-hour engine-action row always show <i>now</i> (Egeria cannot say who changed what at a past time).
+    <b>Live data only</b> · every figure is measured from the connected Egeria platform; anything shown as <code>—</code> or "Not measured" has no data (or no data source) yet. Every figure comes from the <code>/api/overview/*</code> aggregation router, which computes it with pyegeria's <code>overview_metrics</code> functions (native element counts, classification &amp; zone tallies, certification / license / exception relationships, <code>ReportSubject</code> links to <code>SurveyReport</code>s, people / community / feedback counts). The slow sections (summary, AI readiness, usage context, growth) are measured in the background and refreshed hourly, and each section says when its numbers were measured; people and activity are queried directly. The <b>Perspective → Question</b> framing is the <code>perspectives_handler</code> model (Perspective ⟶ <code>ScopedBy</code> ⟶ Question), with each question answered by a saved <b>report spec / view definition</b>. Trend lines use Egeria's native <code>asOfTime</code> historical queries — no separate time-series store. A number shown as <b>at least N</b> hit a page limit and is a lower bound; <b>Recent Activity</b> and the 24-hour engine-action row always show <i>now</i> (Egeria cannot say who changed what at a past time).
   </div>
 
 </div>
@@ -1008,6 +1008,10 @@ const SCOPE_NOTE = {
 // tile -> the LIVE field holding the scope of the payload its count came from
 const TILE_SCOPE = { assets:'scopeSummary', terms:'scopeSummary', governed:'scopeSummary', products:'scopeSummary',
                      people:'scopePeople', communities:'scopePeople', isc:'scopeUsage', blueprints:'scopeUsage' };
+// tile -> the /api/overview source its value comes from (for the "measuring…" state)
+const TILE_SOURCE = { assets:'summary', terms:'summary', governed:'summary', products:'summary', exceptions:'summary', certs:'summary',
+                      people:'people', communities:'people', isc:'usage-context', blueprints:'usage-context',
+                      grounding:'ai-context', ownership:'ai-context' };
 const scopeSuffix = k => (TILE_SCOPE[k] && SCOPE_TAG[LIVE[TILE_SCOPE[k]]]) ? ' · ' + SCOPE_TAG[LIVE[TILE_SCOPE[k]]] : '';
 // A KPI shows a sparkline ONLY when we have a real historical series for it
 // (from /api/overview/growth asOfTime snapshots). `hist` names the series field;
@@ -1233,6 +1237,9 @@ function renderKPIs(){
     const s = m.get();
     // Compare mode: replace the sub-label with a real delta vs the as-of baseline.
     let sub = s.sub || '';
+    // Still being measured for the first time: say so instead of "not measured".
+    const measuring = sub === NM_SUB && LOADING_SOURCES.has(TILE_SOURCE[k]);
+    if (measuring) { sub = MEASURING_SUB; s.val = '…'; }
     if (comparing && RAW[k]) {
       const cur = RAW[k](LIVE), base = RAW[k](BASE);
       if (cur != null && base != null) {
@@ -1243,7 +1250,7 @@ function renderKPIs(){
         sub = `<span style="color:var(--muted)">no data at ${ASOF_LABEL}</span>`;
       }
     }
-    if (!comparing && sub && sub !== NM_SUB) sub += scopeSuffix(k);
+    if (!comparing && !measuring && sub && sub !== NM_SUB) sub += scopeSuffix(k);
     let spark = '';
     const pts = (!comparing && m.hist && LIVE.series) ? sparkPts(LIVE.series[m.hist]) : null;
     if (pts) {
@@ -1398,10 +1405,29 @@ const SECTION_PROVENANCE = {
 const SECTION_SOURCE = { value:'summary', growth:'growth', composition:'summary', usage:'usage-context',
                          quality:'summary', ai:'ai-context', people:'people', activity:'activity' };
 const FAILED_SOURCES = new Set();
+// Sources the server is still measuring for the first time (it answered {"loading": true}; the page polls).
+// Their tiles say "measuring…", never "not measured": nothing has failed yet.
+const LOADING_SOURCES = new Set();
+// source -> {measuredAt, stale, refreshSeconds} of the displayed measurement (the slow sections are measured
+// in the background and refreshed hourly, so each section says how old its numbers are).
+const SOURCE_AGE = {};
+const MEASURING_SUB = 'measuring… the first load after a refresh can take several minutes';
+function sourceAgeText(source){
+  const a = SOURCE_AGE[source];
+  if (!a || !a.measuredAt) return '';
+  const t = Date.parse(a.measuredAt);
+  if (isNaN(t)) return '';
+  const min = Math.max(0, Math.round((Date.now() - t) / 60000));
+  const ago = min < 1 ? 'just now' : min < 90 ? min + ' min ago' : Math.round(min / 60) + ' h ago';
+  const every = !a.refreshSeconds ? '' : a.refreshSeconds === 3600 ? ' · refreshed hourly'
+              : ' · refreshed every ' + Math.round(a.refreshSeconds / 60) + ' min';
+  return 'measured ' + ago + every + (a.stale ? ' · refreshing now' : '');
+}
 function computeSectionBadge(sectionKey){
   const items = SECTION_PROVENANCE[sectionKey];
   if (!items || !items.length) return null;
   if (FAILED_SOURCES.has(SECTION_SOURCE[sectionKey]) && items.some(i => i.status === 'live')) return 'unavailable';
+  if (LOADING_SOURCES.has(SECTION_SOURCE[sectionKey]) && items.some(i => i.status === 'live')) return 'measuring';
   const statuses = new Set(items.map(i => i.status));
   if (statuses.size === 1) return statuses.has('live') ? 'live' : 'illustrative';
   return 'mixed';
@@ -1411,6 +1437,7 @@ const PROV_BADGE_HTML = {
   mixed:        '<span class="prov prov-mix">◐ mixed</span>',
   illustrative: '<span class="prov prov-sample">○ not measured</span>',
   unavailable:  '<span class="prov prov-sample">○ no data</span>',
+  measuring:    '<span class="prov prov-mix" title="The server is measuring this section in the background; the page checks again every few seconds.">◌ measuring…</span>',
 };
 function renderSectionBadges(){
   document.querySelectorAll('.dash-sec').forEach(sec => {
@@ -1424,6 +1451,18 @@ function renderSectionBadges(){
       const fresh = tpl.content.firstElementChild;
       if (badgeEl.id) fresh.id = badgeEl.id;
       badgeEl.replaceWith(fresh);
+      // How old this section's numbers are ("measured 12 min ago · refreshed hourly").
+      const src = SECTION_SOURCE[sec.dataset.sec];
+      const txt = (badgeKind === 'live' || badgeKind === 'mixed') ? sourceAgeText(src) : '';
+      let age = sec.querySelector('.section-label .sec-age');
+      if (!txt) { if (age) age.remove(); }
+      else {
+        if (!age) { age = document.createElement('span'); age.className = 'sec-age';
+                    age.style.cssText = 'color:var(--muted);font-size:.68rem;margin-left:8px;font-weight:400;text-transform:none;letter-spacing:0;white-space:nowrap';
+                    age.title = 'Measured in the background and refreshed about once an hour, because a full measurement takes minutes.'; }
+        fresh.insertAdjacentElement('afterend', age);
+        age.textContent = txt;
+      }
     }
   });
 }
@@ -2364,12 +2403,61 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     var q = asOf ? (path.indexOf('?') === -1 ? '?' : '&') + 'as_of_time=' + encodeURIComponent(asOf) : '';
     return egeriaFetch(path + q, CREDS).then(function(r){ if (!r.ok) throw 0; return r.json(); });
   }
+  // Background-measured sections (summary, ai-context, usage-context, growth). The server never blocks on
+  // Egeria: with nothing measured yet it answers {"loading": true} with no data fields, and this asks again
+  // every SECTION_POLL_MS until the numbers arrive (onData runs, the promise resolves) or SECTION_POLL_MAX
+  // tries pass (rejects, so the section reads "no data"). A stale answer is shown at once while the server
+  // re-measures; it is re-fetched quietly a few times so the fresh numbers replace it. A newer call for the
+  // same source and store cancels an older poll (it resolves null). People and activity are fast and are
+  // answered directly, so they keep plain getJSON. Only the primary (displayed) store drives badges and ages.
+  var SECTION_POLL_MS = 10000, SECTION_POLL_MAX = 90;      // 15 min: cold sections queue behind each other (2 at a time);
+                                                            // measured 2026-11-07 under heavy host load: 4–8 min until all four were ready
+  var REFRESH_POLL_MS = 30000, REFRESH_POLL_MAX = 10;
+  function getSection(source, path, asOf, store, primary, onData){
+    var tk = 'poll_' + source;
+    store[tk] = (store[tk] || 0) + 1;
+    var token = store[tk];
+    return new Promise(function(resolve, reject){
+      var settled = false;
+      (function attempt(n, refreshTries){
+        getJSON(path, asOf).then(function(d){
+          if (token !== store[tk]) { if (!settled) { settled = true; resolve(null); } return; }
+          if (d && d.loading) {
+            if (settled) return;                         // a quiet refresh poll: keep showing the old numbers
+            if (n >= SECTION_POLL_MAX) {
+              if (primary) { LOADING_SOURCES.delete(source); renderSectionBadges(); renderKPIs(); }
+              settled = true; reject(new Error(source + ' still measuring')); return;
+            }
+            if (primary && !LOADING_SOURCES.has(source)) { LOADING_SOURCES.add(source); renderSectionBadges(); renderKPIs(); }
+            setTimeout(function(){ attempt(n + 1, refreshTries); }, SECTION_POLL_MS);
+            return;
+          }
+          if (primary) {
+            LOADING_SOURCES.delete(source);
+            SOURCE_AGE[source] = d ? { measuredAt: d.measuredAt || null, stale: !!d.stale, refreshSeconds: d.refreshSeconds || null } : null;
+            renderSectionBadges();
+          }
+          onData(d);
+          if (!settled) { settled = true; resolve(d); }
+          if (d && d.refreshing && refreshTries < REFRESH_POLL_MAX)
+            setTimeout(function(){ attempt(n, refreshTries + 1); }, REFRESH_POLL_MS);
+        }, function(e){
+          if (token !== store[tk] || settled) { if (!settled) { settled = true; resolve(null); } return; }
+          if (primary) { LOADING_SOURCES.delete(source); renderSectionBadges(); renderKPIs(); }
+          settled = true; reject(e);
+        });
+      })(0, 0);
+    });
+  }
   // Growth chart for a given window (8h..1y); granularity follows the window server-side.
   function loadGrowth(win){
     var sub = document.getElementById('growth-sub');
+    win = win || '6mo';
     if (sub) sub.textContent = 'Loading ' + win + ' snapshots…';
-    return getJSON('/api/overview/growth?window=' + encodeURIComponent(win || '6mo'), null)
-      .then(function(d){ FAILED_SOURCES.delete('growth'); renderSectionBadges(); applyGrowth(d); })
+    var shown = false;
+    return getSection('growth', '/api/overview/growth?window=' + encodeURIComponent(win), null, LIVE, true,
+                      function(d){ shown = true; applyGrowth(d); })
+      .then(function(d){ if (d === null && !shown) return; FAILED_SOURCES.delete('growth'); renderSectionBadges(); })
       .catch(function(){ FAILED_SOURCES.add('growth'); renderSectionBadges(); if (sub) sub.textContent = 'Growth unavailable'; });
   }
   // Per-endpoint reloaders — each fetches one section's data into `store` and
@@ -2383,7 +2471,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     attempt = attempt || 0;
     if (attempt === 0) store.sumPoll = (store.sumPoll || 0) + 1;
     var token = store.sumPoll;
-    return getJSON('/api/overview/summary', asOf).then(function(d){
+    return getSection('summary', '/api/overview/summary', asOf, store, primary, function(d){
       if (token !== store.sumPoll) return;               // a newer load owns this store now
       store.viewerGaveUp = !!(d && d.assetTotalViewerLoading && attempt >= VIEWER_POLL_MAX);
       applySummary(d, store, primary); renderKPIs();
@@ -2395,10 +2483,12 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     return getJSON('/api/overview/people', asOf).then(function(d){ applyPeople(d, store, primary); renderKPIs(); });
   }
   function reloadUsage(store, asOf, primary){
-    return getJSON('/api/overview/usage-context', asOf).then(function(d){ applyUsage(d, store, primary); renderKPIs(); });
+    return getSection('usage-context', '/api/overview/usage-context', asOf, store, primary,
+                      function(d){ applyUsage(d, store, primary); renderKPIs(); });
   }
   function reloadAI(store, asOf, primary){
-    return getJSON('/api/overview/ai-context', asOf).then(function(d){ applyAI(d, store, primary); renderKPIs(); });
+    return getSection('ai-context', '/api/overview/ai-context', asOf, store, primary,
+                      function(d){ applyAI(d, store, primary); renderKPIs(); });
   }
   // Fetch the four point-in-time endpoints (optionally as-of) into a store.
   // Renders after EACH resolves so fast endpoints (summary ~3s) show immediately

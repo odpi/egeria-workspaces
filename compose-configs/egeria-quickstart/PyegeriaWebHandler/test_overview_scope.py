@@ -95,7 +95,7 @@ def test_governed_numerators_use_one_function_and_one_scope(make):
 
 
 def test_summary_takes_every_governed_count_through_the_same_bound_helper():
-    src = inspect.getsource(oh.get_summary)
+    src = inspect.getsource(oh._compute_summary)
     assert "_governed_asset_counts(n_elements, mgr, as_of_time)" in src
     assert 'asset_total = n_elements(mgr, "Asset", as_of_time, strict=True)' in src
 
@@ -105,7 +105,7 @@ def test_ratios_with_find_numerators_never_use_the_scoped_total():
     # find-based survey / schema ratios get a total only when it is viewer-scoped
     assert "_overlay_viewer_total(payload," in src            # viewer total comes only from the overlay
     # the funnel keeps viewer scope for every stage and its ownership / AI-Ready percentages
-    assert '"countScope": VIEWER' in inspect.getsource(oh.get_ai_context)
+    assert '"countScope": VIEWER' in inspect.getsource(oh._compute_ai_context)
 
 
 # ── payload reports the scope actually used ──────────────────────────────────
@@ -122,6 +122,7 @@ def stubbed_summary(monkeypatch):
         monkeypatch.setattr(oh, "count_elements_by_property", prop_fn)
         oh._CACHE.clear() if hasattr(oh, "_CACHE") else None
         monkeypatch.setattr(oh, "_cache_get", lambda k: None)
+        monkeypatch.setattr(oh, "_section_fetch", lambda key, compute, ok=None: (compute(), {}))   # compute inline
         monkeypatch.setattr(oh, "_cache_put", lambda k, v: v)
         monkeypatch.setattr(oh, "_viewer_total_state", lambda *a, **k: (None, True, False, None))   # cold: counting
         monkeypatch.setattr(oh, "_expert", lambda *a, **k: object())
@@ -215,6 +216,7 @@ def test_one_unsupported_helper_pulls_the_whole_summary_back_to_viewer(stubbed_s
 def test_people_and_usage_report_their_scope(monkeypatch):
     import json
     monkeypatch.setattr(oh, "_cache_get", lambda k: None)
+    monkeypatch.setattr(oh, "_section_fetch", lambda key, compute, ok=None: (compute(), {}))   # compute inline
     monkeypatch.setattr(oh, "_cache_put", lambda k, v: v)
     monkeypatch.setattr(oh, "_expert", lambda *a, **k: object())
     monkeypatch.setattr(oh, "_make", lambda *a, **k: object())
@@ -257,5 +259,5 @@ def test_repository_relationship_counts_are_given_the_expert():
     seen.clear()
     oh._scoped(rel, oh.VIEWER, expert=marker)(None, "AttachedLike", None)   # viewer: untouched
     assert seen == [(None, None)]
-    src = inspect.getsource(oh.get_summary) + inspect.getsource(oh.get_people)
+    src = inspect.getsource(oh._compute_summary) + inspect.getsource(oh.get_people)
     assert src.count("expert=mgr") + src.count("expert=expert") >= 2
