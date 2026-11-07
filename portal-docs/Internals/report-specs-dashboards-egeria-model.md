@@ -7,6 +7,17 @@
 `PyegeriaWebHandler/local_dashboards_handler.py`, `local-dashboards.html`, `OVERVIEW_REPORTING_MODEL.md` §8/§10/§13;
 the live Egeria 6.3 type system read from the quickstart platform (`/api/types`).*
 
+> **Superseded in part by Egeria 6.3 (odpi/egeria#9432, merged 2026-11-07).** The types this note proposes have
+> shipped, with four differences the owner accepted on 2026-11-07: no `DashboardPlacement` type (the placement
+> attributes `placementKind`, `span`, `presentationStyle`, `markdownContent` are on `DisplayDataField` and
+> `DisplayDataContainer`, which also gains `renderer`); `ReportTypeInstance` (`ReportType` → `Report`) in place of
+> `ReportInstanceOf`; `ReportRunOf` runs `ResultsSet` → `Report`, for lineage display; `Dashboard` uses the existing
+> `refreshTimeInterval` (minutes) in place of `refreshSeconds`. `Report` gains `outputFormat` and `reportParameters`.
+> No placement → `Report` relationship shipped (`DashboardPlacementReport`; see the pipeline note §9.24), and the
+> `DashboardPlacementSection` / `DashboardPlacementDetail` relationships were already dropped (nested container;
+> `DataDescription`). The current model is [`report-spec-pipeline-model.md`](report-spec-pipeline-model.md) §8d;
+> this note's tables and diagrams below are kept as the proposal of record.
+
 ## 1. What exists today
 
 Three layers, in three different places:
@@ -353,6 +364,8 @@ Rule kept from both documents: use an existing Egeria type before a new one; a n
 carries the fact without bending it; never a structured value in `additionalProperties`.
 
 ### 4.1 Three new entity types (and nothing else new)
+
+> *As shipped (6.3, #9432): `ReportSpec` and `Dashboard` as below, no `DashboardPlacement` (see the banner at the top).*
 
 | New type | Supertype | Own properties | Replaces |
 |---|---|---|---|
