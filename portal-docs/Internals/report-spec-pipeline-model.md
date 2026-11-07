@@ -727,8 +727,8 @@ cannot.
     `DataField` the measure is relative to (end 2, at most one): the denominator of a percentage, the total a share is
     taken of. A basis field can serve many measures, because a shared `DataField` has one element (§5, §8c).
   - **As-of field:** a new `AsOfDataField`, same ends and cardinalities, to the `DataField` that holds the measurement
-    time. Asked of the Egeria team alongside `BasisDataField`; the alternative is one `MeasurementDataField` with a
-    `role` property (`basis` | `asOf`, valid metadata), which leaves room for later roles without new types.
+    time. The Egeria team will implement it alongside `BasisDataField` (2026-11-07), one type per role rather than one
+    `MeasurementDataField` with a `role` property.
 
   The canonical JSON keeps names (`"valid_values": "CountStates"`, a basis or as-of field by its name in the same
   shape); the mapping to Egeria resolves each name and writes the relationship, and the loader reads it back as the
@@ -877,8 +877,8 @@ One place for the review with the Egeria team. **Status** says where each item s
 |---|---|---|---|---|
 | 1 | `ReportSpec` ⊂ `ReportType`, typed `microflow` (JSON text) plus `targetType`, `aliases`, `outputTypes`, `includePreamble` (§9.1) | decided | `ReportType` with values in `additionalProperties` | a map of maps in `additionalProperties` is the pattern the earlier note forbids; a subtype keeps today's 74 `ReportType` GUIDs and names by retyping within one branch |
 | 2 | `MeasurementSpecification` ⊂ `DataValueSpecification` (`completenessDeclared`, `confidenceForm`, `uncertaintyForm`, `absenceSentences`; its state set by `ValidValuesAssignment`, 2a and 2b below) (§8b) | decided | a `MeasurementDeclaration` classification on `DataField` (v5.1); typed attributes on `GovernanceMetric` (the 2026-11-03 ask) | follows Egeria's own pattern (`DataClass`, `DataGrain` are siblings); inherits unit and uncertainty, so one carrier; an element can be shared, a classification cannot |
-| 2a | `BasisDataField` (`MeasurementSpecification` → `DataField`, end 2 at most one) (§8b) | decided (owner, 2026-11-07; the Egeria team's preference) | `basisField`, the field's name as a string (v5.3) | a typed link Egeria can resolve and query ("which measures are relative to this total?") |
-| 2b | `AsOfDataField` (`MeasurementSpecification` → `DataField`, end 2 at most one) (§8b) | to agree | `asOfField` string (v5.3); one `MeasurementDataField` with a `role` property | same shape as 2a; one type per role is easier to query and validate |
+| 2a | `BasisDataField` (`MeasurementSpecification` → `DataField`, end 2 at most one) (§8b) | decided (owner, 2026-11-07; the Egeria team will implement it) | `basisField`, the field's name as a string (v5.3) | a typed link Egeria can resolve and query ("which measures are relative to this total?") |
+| 2b | `AsOfDataField` (`MeasurementSpecification` → `DataField`, end 2 at most one) (§8b) | decided (Egeria team will implement it, 2026-11-07) | `asOfField` string (v5.3); one `MeasurementDataField` with a `role` property | same shape as 2a; one type per role is easier to query and validate |
 | 3 | `Dashboard` ⊂ `DataSet` (`aliases`, `refreshSeconds`, `layoutStyle`) (§8d) | decided | `Dashboard` ⊂ `Collection` (pyegeria's model docstring, Dr.Egeria's current bundle) | `DataSetContent` makes a dashboard's reports its lineage, and `Report`, `Form`, `InformationView` are its natural siblings; layout works either way |
 | 4 | `DashboardPlacement` ⊂ `DisplayDataField` (`placementKind` REPORT · TEXT, `span`, `emphasis`, `markdownContent`) | recommended | plain `DisplayDataField` with span, emphasis and kind in `additionalProperties` (the companion note's existing-types variant) | typed, validated properties instead of strings every consumer parses |
 | 5 | `DashboardPlacementReport` (`DashboardPlacement` → `Report`) | recommended | `DataSetContent` from the dashboard with the placement id in `queryId` | a placement names its report directly; `DataSetContent` stays as the dashboard-level lineage link |
