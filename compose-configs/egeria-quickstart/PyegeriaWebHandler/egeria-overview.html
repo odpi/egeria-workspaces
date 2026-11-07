@@ -419,8 +419,9 @@
   <div class="grid g-3">
     <div class="panel">
       <h3>Assets by Type</h3>
-      <div class="ph-sub">Top asset categories in the catalog</div>
+      <div class="ph-sub" id="byType-sub">Direct subtypes of Asset — whole catalog</div>
       <div id="byType"></div>
+      <div class="ph-sub" id="byType-viewer" style="margin-top:8px"></div>
     </div>
     <div class="panel">
       <h3>Elements by Governance Zone</h3>
@@ -2186,18 +2187,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
       var zoneRows = d.topZones.map(function(z){ return [z.zone, z.count, 'var(--c3)']; });
       hbars('byZone', zoneRows);
     }
-    // Assets-by-type live overlay (composition section) — real Vega-Lite bar
-    // chart when the backend has one (NEXT-10 P1); falls back to hbars() rows
-    // (which keep the per-bar drill click Vega doesn't have yet) otherwise.
-    if (!renderVega('byType', d.byTypeChart) &&
-        Array.isArray(d.byType) && d.byType.length && typeof hbars === 'function') {
-      var keymap = {DataStore:'type-datastore', DataSet:'type-dataset', DeployedSoftwareComponent:'type-swcomp',
-                    ITInfrastructure:'type-infra', DeployedAPI:'type-api', Process:'type-proc', DataFeed:'type-feed'};
-      var rows = d.byType.filter(function(r){ return r.count > 0; })
-                         .sort(function(a,b){ return b.count - a.count; })
-                         .map(function(r){ return [r.label, r.count, 'var(--c2)', keymap[r.type]]; });
-      if (rows.length) hbars('byType', rows);
-    }
+    // The Assets by Type panel is drawn by renderComposition() from /api/overview/composition.
   }
 
   function applyPeople(d, store, primary){
@@ -2462,6 +2452,70 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
       .then(function(d){ if (d === null && !shown) return; FAILED_SOURCES.delete('growth'); renderSectionBadges(); })
       .catch(function(){ FAILED_SOURCES.add('growth'); renderSectionBadges(); if (sub) sub.textContent = 'Growth unavailable'; });
   }
+  // ---- Assets by Type: /api/overview/composition (repository counts per subtype; viewer total only) ----
+  // A bar is the repository count. not_measured shows the words (never a zero bar); nothing_found shows 0 with
+  // its sentence on hover. The viewer column is the hourly Asset total only: per-type viewer cells are
+  // not_measured, so the panel says so once instead of drawing viewer bars. A click on a bar re-queries with
+  // root=<that type>.
+  var COMP = { root: 'Asset', trail: [], asOf: null, polls: 0 };
+  function escHtml(t){ return String(t == null ? '' : t).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function renderComposition(d){
+    var el = document.getElementById('byType'); if (!el || !d) return;
+    var rows = (d.rows || []).filter(function(r){ return r.level === 1; });
+    var sub = document.getElementById('byType-sub');
+    if (sub) sub.innerHTML = 'Direct subtypes of ' + escHtml(d.root) + ' — whole catalog' +
+      (COMP.trail.length ? ' · <a href="#" data-comp-root="' + escHtml(COMP.trail[COMP.trail.length - 1]) + '">&larr; back</a>' : '');
+    if (!rows.length) { el.innerHTML = '<div style="color:var(--muted);font-size:.8rem;padding:10px 0">' + escHtml(d.root) + ' has no subtypes to show' + (d.state_reason ? ' — ' + escHtml(d.state_reason) : '') + '</div>'; return; }
+    var mx = Math.max.apply(null, rows.map(function(r){ var v = r.repository && r.repository.value; return v || 0; })) || 1;
+    el.innerHTML = rows.map(function(r){
+      var c = r.repository || {}, label = r.exact_type ? r.type_name + ' (exactly)' : r.type_name;
+      var drill = !r.exact_type && c.state !== 'nothing_found' ? ' data-comp-root="' + escHtml(r.type_name) + '"' : '';
+      var cls = 'hbar-row' + (drill ? ' drill' : '');
+      if (c.state === 'measured' || c.state === 'nothing_found') {
+        var v = c.value || 0;
+        return '<div class="' + cls + '"' + drill + ' title="' + escHtml(c.state === 'nothing_found' ? 'Nothing found: no ' + label + ' elements in the catalog' : label + ': ' + v.toLocaleString()) + '"><span class="lab">' + escHtml(label) + '</span>' +
+          '<div class="hbar-track"><div class="hbar-fill" style="width:' + (v ? Math.max(3, 100 * v / mx) : 0) + '%;background:var(--c2)"></div></div>' +
+          '<span class="num">' + v.toLocaleString() + '</span></div>';
+      }
+      return '<div class="' + cls + '" title="' + escHtml(c.reason || 'not measured') + '"><span class="lab">' + escHtml(label) + '</span>' +
+        '<div class="hbar-track"></div><span class="num" style="font-size:.7rem;color:var(--muted)">not measured</span></div>';
+    }).join('');
+    var vEl = document.getElementById('byType-viewer');
+    if (vEl) {
+      var top = (d.rows || []).filter(function(r){ return r.level === 0; })[0], v = top && top.viewer, nv = top && top.not_visible, txt;
+      if (d.root !== 'Asset' || !v) txt = 'Visible to you: per-type counts are not measured (only the total of all assets is cached).';
+      else if (v.state === 'measured' || v.state === 'nothing_found') {
+        txt = 'Visible to you: ' + v.value.toLocaleString() + ' of ' + ((top.repository || {}).value != null ? top.repository.value.toLocaleString() : 'not measured') + ' in the catalog' +
+          (nv && nv.value != null ? ' · not visible to you: ' + nv.value.toLocaleString() : '') +
+          (v.as_of ? ' · counted ' + new Date(v.as_of).toLocaleTimeString() + ', refreshed hourly' : '') + '. Per-type counts for you are not measured.';
+      } else txt = 'Visible to you: not measured — ' + (v.reason || '') + '. Per-type counts for you are not measured.';
+      vEl.textContent = txt;
+    }
+  }
+  function renderCompositionFailed(){
+    var el = document.getElementById('byType');
+    if (el) el.innerHTML = '<div style="color:var(--muted);font-size:.8rem;padding:10px 0">Not measured: the composition could not be read</div>';
+  }
+  function reloadComposition(store, asOf, primary, attempt){
+    if (!primary) return Promise.resolve();
+    attempt = attempt || 0;
+    if (attempt === 0) { COMP.asOf = asOf; COMP.polls += 1; }
+    var token = COMP.polls, root = COMP.root;
+    return getSection('composition', '/api/overview/composition?root=' + encodeURIComponent(root) + '&depth=1', asOf, {}, false, function(d){
+      if (token !== COMP.polls || root !== COMP.root) return;
+      renderComposition(d);
+      if (d && d.viewerTotalLoading && attempt < VIEWER_POLL_MAX)
+        setTimeout(function(){ reloadComposition(store, asOf, primary, attempt + 1).catch(function(){}); }, VIEWER_POLL_MS);
+    }).catch(function(){ if (token === COMP.polls) renderCompositionFailed(); });
+  }
+  document.addEventListener('click', function(e){
+    var a = e.target.closest ? e.target.closest('[data-comp-root]') : null; if (!a) return;
+    e.preventDefault(); e.stopPropagation();
+    var next = a.getAttribute('data-comp-root');
+    if (a.tagName === 'A') COMP.trail.pop(); else COMP.trail.push(COMP.root);
+    COMP.root = next;
+    reloadComposition({}, COMP.asOf, true).catch(function(){});
+  }, true);
   // Per-endpoint reloaders — each fetches one section's data into `store` and
   // re-renders the KPI band. Factored out of loadSet() so a section's own
   // refresh button can re-fetch just that section instead of all four.
@@ -2498,6 +2552,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
   // Resolves to {total, failed:[source names]} so the caller can say what actually loaded --
   // allSettled never rejects, so without this every outcome used to read as "live".
   function loadSet(store, asOf, primary){
+    if (primary) { COMP.root = 'Asset'; COMP.trail = []; reloadComposition(store, asOf, primary).catch(function(){}); }
     var names = ['summary', 'people', 'usage-context', 'ai-context'];
     return Promise.allSettled([
       reloadSummary(store, asOf, primary),
