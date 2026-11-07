@@ -102,7 +102,7 @@ classDiagram
     class Placement {
       ref → Report displayName or sheet name
       span 1 2 full
-      emphasis kpi panel
+      presentation_style kpi panel
       content (text placement)
       perspectives[]
       detail_spec → FormatSet label
@@ -208,7 +208,7 @@ flowchart TB
         DB["Dashboard (DataSet; interim: Report, target: new subtype)<br/>displayName=heading, description<br/>additionalProperties: family, aliases, refreshSeconds"]
         SCH["RootSchemaType"]
         CONT["DisplayDataContainer — a sheet / sub-sheet"]
-        FLD["DisplayDataField — a placement<br/>position, displayName<br/>additionalProperties: span, emphasis, kind=report|text|sheet; description = text content"]
+        FLD["DisplayDataField — a placement<br/>position, displayName<br/>additionalProperties: span, presentationStyle, kind=report|text|sheet; description = text content"]
     end
 
     RT -- "CollectionMembership" --> DS
@@ -292,7 +292,7 @@ their ReportType or Dashboard so they are deleted with it).
 | `heading`, `description` | `displayName`, `description` |
 | `aliases`, `family` | `additionalProperties.aliases`; `CollectionMembership` from the family folder |
 | nested sheet | nested `DisplayDataContainer` |
-| `Placement` | `DisplayDataField` under the container; list order = `position`; `span`, `emphasis`, `kind` in `additionalProperties` |
+| `Placement` | `DisplayDataField` under the container; list order = `position`; `span`, `presentationStyle`, `kind` in `additionalProperties` |
 | `Placement.ref` (report) | `DataSetContent` from the Dashboard to the `Report`, `queryId` = the placement's QN, `queryType="placement"` |
 | `Placement.content` (text) | the field's `description` (markdown), `kind=text` |
 | `Placement.perspectives` | `ScopedBy` from the field to each `Perspective` |
@@ -305,7 +305,7 @@ Why a `DataSet` with a display schema rather than a `Collection` subtype (the pl
 ordering (`position`) and nesting for free, and `DataSetContent` already means "the assets this data set draws from";
 a Collection would need `membershipRationale`/`expression` hacks for order, span and text. The lighter fallback if a
 new subtype is slow to land: Dashboard as `CollectionFolder` + `CollectionMembership` with `expression` =
-`position;span;emphasis` and `notes` = text content — workable, but every consumer parses strings again.
+`position;span;presentationStyle` and `notes` = text content — workable, but every consumer parses strings again.
 
 ### 3.3 Type requests to raise with Egeria
 
@@ -358,7 +358,7 @@ carries the fact without bending it; never a structured value in `additionalProp
 |---|---|---|---|
 | **`ReportSpec`** | `ReportType` (⊂ `DataSpec` ⊂ `Collection`) | `targetType`, `aliases` (array), `outputTypes` (array), `includePreamble` (bool); the inline action: `actionMethod` (pyegeria client method, e.g. `AssetCatalog.find_assets`), `requiredParameters` (array), `optionalParameters` (array), `fixedParameters` (map); `additionalPropertiesFunction` (name of the registered extractor, see 4.4) | `FormatSet` + `ActionParameter` (find path) |
 | **`Dashboard`** | `DataSet` (sibling of `Report`, `Form`) | `aliases` (array), `refreshSeconds` (int), `layoutStyle` (string) | `DashboardSheet` (top level) |
-| **`DashboardPlacement`** | `DisplayDataField` (⊂ `SchemaAttribute`) | `placementKind` (enum REPORT, TEXT, SECTION), `span` (enum ONE, TWO, FULL), `emphasis` (enum KPI, PANEL), `markdownContent` (TEXT only); `position`, `displayName` inherited | `Placement` |
+| **`DashboardPlacement`** | `DisplayDataField` (⊂ `SchemaAttribute`) | `placementKind` (enum REPORT, TEXT, SECTION), `span` (enum ONE, TWO, FULL), `presentationStyle` (enum KPI, PANEL; was `emphasis`, renamed 2026-11-07), `markdownContent` (TEXT only); `position`, `displayName` inherited | `Placement` |
 
 Reused as-is (existing types, new elements): `DataStructure` for a `Format` (`namePatterns` = its output types),
 `DataField` for a `Column` (`displayName` = name, `namePatterns` = [key], `dataType`, `units`), `DisplayDataContainer`
@@ -451,7 +451,7 @@ flowchart LR
 flowchart LR
     DB["Dashboard<br/>aliases · refreshSeconds<br/>Ownership · ZoneMembership"]
     SEC["DisplayDataContainer<br/>(section / sub-sheet)"]
-    PL["DashboardPlacement<br/>kind · span · emphasis · position"]
+    PL["DashboardPlacement<br/>kind · span · presentationStyle · position"]
     REP["Report"]
     RS["ReportSpec (drill-down)"]
     P["Perspective"]

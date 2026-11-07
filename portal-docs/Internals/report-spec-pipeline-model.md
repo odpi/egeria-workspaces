@@ -113,7 +113,7 @@ flowchart LR
 The micro-flow replaces only the *action* half of today's `FormatSet`. Everything that identifies, describes and makes a
 spec discoverable stays as the envelope around it, unchanged in meaning: label and heading, description,
 `target_type`, `aliases`, `family`, `annotations`, the question spec (example questions and the perspectives they serve),
-the preamble, and the dashboard-facing fields (emphasis, detail spec). In Egeria these are the properties and links the
+the preamble, and the dashboard-facing fields (presentation style, detail spec). In Egeria these are the properties and links the
 earlier note already placed on the spec element and its `QuestionSpec` folder (a `CollectionFolder` by naming
 convention, not a type) / `Question` / `Perspective` neighbours; nothing
 in this note moves them. A spec is therefore: **envelope + micro-flow + formatters**.
@@ -440,7 +440,7 @@ Registered output format names. **The names that exist keep their meaning** (v5.
 | `GRAPH` | document / graph_page (Vega-Lite charts in a standalone HTML page) | exists, meaning unchanged |
 | `BAR` `SERIES` `PIE` | series / bar, series, pie (Vega-Lite) | exist (today dispatched before the Format lookup; now ordinary formatters) |
 | `MERMAID` | representation field / mermaid when the payload carries one; graph / mermaid when a `represent` stage built it | exists |
-| `KPI` | measure set / kpi | new as an output format (the Portal's tile emphasis today) |
+| `KPI` | measure set / kpi | new as an output format (the Portal's KPI tiles today) |
 | `MASTER_DETAIL` | tree / master_detail | new |
 | `TREE_MERMAID` | tree / mermaid | new, proposed name |
 | `NETWORK` | graph / interactive (nodes and edges as Explorer draws them) | new, proposed name (v5.1 called it `GRAPH`, which is taken) |
@@ -735,7 +735,7 @@ list in this design uses the one that fits:
   Dr.Egeria already validates its "Valid Value" attributes against this registry. Used for:
   `MeasurementSpecification.completenessDeclared`, `.confidenceForm`, `.uncertaintyForm`; the binding kinds in
   `ImplementedBy.role`; `DisplayDataContainer.renderer`; the column format options (§6) as the map value `format` of
-  `DisplayDataField.additionalProperties`; `DashboardPlacement.placementKind`, `.span`, `.emphasis`; and `Report`'s
+  `DisplayDataField.additionalProperties`; `DashboardPlacement.placementKind`, `.span`, `.presentationStyle`; and `Report`'s
   output format, whose list is generated from the format registry (Dr.Egeria's `Output Format` list today names only
   eight formats and omits `KPI`, the charts, `REPORT-GRAPH` and `HTML`).
 - **Reference data** holds named business-style lists as elements: a `ReferenceDataSet` with `ReferenceDataValue`
@@ -796,7 +796,7 @@ its own (v5.3); and a report carries one parameter document.
 | New entity type | Supertype | Own properties | Replaces |
 |---|---|---|---|
 | **`Dashboard`** | `DataSet` (sibling of `Report`, `Form`) **— base type DECIDED (owner, 2026-11-06)** | `aliases` (array), `refreshSeconds` (int), `layoutStyle` (string); heading = `displayName` | the `DashboardSheet` record in `~/.pyegeria/dashboard_sheets.json` |
-| **`DashboardPlacement`** | `DisplayDataField` (⊂ `SchemaAttribute`) | `placementKind` (REPORT · TEXT), `span` (ONE · TWO · FULL), `emphasis` (KPI · PANEL), `markdownContent` (TEXT only); the placement's name is its `displayName`, its order the `position` of `NestedSchemaAttribute` | `Placement` |
+| **`DashboardPlacement`** | `DisplayDataField` (⊂ `SchemaAttribute`) | `placementKind` (REPORT · TEXT), `span` (ONE · TWO · FULL), `presentationStyle` (KPI · PANEL), `markdownContent` (TEXT only); the placement's name is its `displayName`, its order the `position` of `NestedSchemaAttribute` | `Placement` |
 
 | New relationship | End 1 → End 2 | Properties | Replaces |
 |---|---|---|---|
@@ -827,10 +827,13 @@ generated from the format registry) and a `reportParameters` map if the leads pr
 pinned values and defaults. With one parameter kind the three collapse into one document; the Dr.Egeria command keeps its
 common attributes as authoring sugar that writes into it.
 
-**Emphasis and output format.** A placement's `emphasis` is a layout hint, not a second output format: `KPI` renders
-the placement's report through its spec's `KPI` formatter, and `PANEL` through the report's own `outputFormat`. That is
-how 10.7 shows one report twice, as a tile and as a panel. Dr.Egeria's `Placement Emphasis` values `kpi` / `panel` keep
-their meaning; the overlap with the `KPI` output format name is now defined rather than accidental.
+**Presentation style and output format.** A placement's `presentationStyle` is a layout hint, not a second output
+format: `KPI` renders the placement's report through its spec's `KPI` formatter, and `PANEL` through the report's own
+`outputFormat`. That is how 10.7 shows one report twice, as a tile and as a panel. The overlap with the `KPI` output
+format name is defined rather than accidental. **Named `presentationStyle` (owner, 2026-11-07); it was `emphasis`**,
+renamed so that "emphasis" stays free for a later meaning (highlighting, alert styling). The canonical JSON key is
+`presentation_style`; Dr.Egeria's attribute becomes `Presentation Style`, with `Placement Emphasis` accepted as an
+alias, and the values `kpi` / `panel` keep their meaning.
 
 **The base type of `Dashboard`: `DataSet`. DECIDED (owner, 2026-11-06), as recommended, with the Architect's agreement.** The comparison is kept for the Egeria type review:
 
@@ -859,7 +862,7 @@ One place for the review with the Egeria team. **Status** says where each item s
 | 1 | `ReportSpec` ⊂ `ReportType`, typed `microflow` (JSON text) plus `targetType`, `aliases`, `outputTypes`, `includePreamble` (§9.1) | decided | `ReportType` with values in `additionalProperties` | a map of maps in `additionalProperties` is the pattern the earlier note forbids; a subtype keeps today's 74 `ReportType` GUIDs and names by retyping within one branch |
 | 2 | `MeasurementSpecification` ⊂ `DataValueSpecification` (`completenessDeclared`, `confidenceForm`, `uncertaintyForm`, `stateSet`, `absenceSentences`, `basisField`, `asOfField`) (§8b) | decided | a `MeasurementDeclaration` classification on `DataField` (v5.1); typed attributes on `GovernanceMetric` (the 2026-11-03 ask) | follows Egeria's own pattern (`DataClass`, `DataGrain` are siblings); inherits unit and uncertainty, so one carrier; an element can be shared, a classification cannot |
 | 3 | `Dashboard` ⊂ `DataSet` (`aliases`, `refreshSeconds`, `layoutStyle`) (§8d) | decided | `Dashboard` ⊂ `Collection` (pyegeria's model docstring, Dr.Egeria's current bundle) | `DataSetContent` makes a dashboard's reports its lineage, and `Report`, `Form`, `InformationView` are its natural siblings; layout works either way |
-| 4 | `DashboardPlacement` ⊂ `DisplayDataField` (`placementKind` REPORT · TEXT, `span`, `emphasis`, `markdownContent`) | recommended | plain `DisplayDataField` with span, emphasis and kind in `additionalProperties` (the companion note's existing-types variant) | typed, validated properties instead of strings every consumer parses |
+| 4 | `DashboardPlacement` ⊂ `DisplayDataField` (`placementKind` REPORT · TEXT, `span`, `presentationStyle`, `markdownContent`) | recommended | plain `DisplayDataField` with span, presentation style and kind in `additionalProperties` (the companion note's existing-types variant) | typed, validated properties instead of strings every consumer parses |
 | 5 | `DashboardPlacementReport` (`DashboardPlacement` → `Report`) | recommended | `DataSetContent` from the dashboard with the placement id in `queryId` | a placement names its report directly; `DataSetContent` stays as the dashboard-level lineage link |
 | 6 | `ReportInstanceOf` (`ReportSpec` → `Report`) | recommended | `Report.additionalProperties.reportSpec` (today); `DataDescription` as an interim | the missing link between a spec and its configured reports, so "which reports use this spec?" is a query |
 | 7 | `ReportRunOf` (`Report` → `ResultsSet`, with `resultState`, `resultStateReason`, `resultLocation`) | recommended, optional | no run history (today) | history, caching and "last run" words, with the envelope state kept |
@@ -1372,7 +1375,7 @@ Data Hub Health
 Curation Coverage - Databases
 ### Placement Span
 1
-### Placement Emphasis
+### Presentation Style
 kpi
 ### Placement Perspectives
 Steward, Data Owner
@@ -1475,10 +1478,10 @@ in this model, only what the placements point at.
     "family": "Glossary Manager",
     "placements": [
       {"ref": null, "content": "**Coverage** — counts and definition completeness per glossary.", "span": "full",
-       "emphasis": "panel", "perspectives": [], "detail_spec": null},
-      {"ref": "Coco Terms Total",        "span": "1",    "emphasis": "kpi",   "perspectives": ["Steward", "Data Owner"],   "detail_spec": "Glossary-Term-Counts"},
-      {"ref": "Coco Term Counts",        "span": "2",    "emphasis": "panel", "perspectives": ["Steward"],            "detail_spec": "Glossary-With-Terms"},
-      {"ref": "Coco Glossaries",         "span": "full", "emphasis": "panel", "perspectives": ["Consumer", "Steward"], "detail_spec": "Glossary-With-Terms"}
+       "presentation_style": "panel", "perspectives": [], "detail_spec": null},
+      {"ref": "Coco Terms Total",        "span": "1",    "presentation_style": "kpi",   "perspectives": ["Steward", "Data Owner"],   "detail_spec": "Glossary-Term-Counts"},
+      {"ref": "Coco Term Counts",        "span": "2",    "presentation_style": "panel", "perspectives": ["Steward"],            "detail_spec": "Glossary-With-Terms"},
+      {"ref": "Coco Glossaries",         "span": "full", "presentation_style": "panel", "perspectives": ["Consumer", "Steward"], "detail_spec": "Glossary-With-Terms"}
     ]
   }
 }
@@ -1486,8 +1489,8 @@ in this model, only what the placements point at.
 `ref` names a **Report** (a `Create Report` display name), not a spec: the report pins the spec, output format and
 parameters; `detail_spec` names the spec a click drills into (10.2 for the detail, 10.3 for the table behind the KPI).
 The sheet's refresh runs each placement's report through `POST /api/report-specs/execute` as today; what comes back
-is the formatter's output for that placement's emphasis. The sheet refuses, at load, a placement whose report's spec is
-not `tile_safe` under `emphasis: kpi` (§2c, check 6); "Coco Terms Total" passes because 10.3 is tile-safe under its
+is the formatter's output for that placement's presentation style. The sheet refuses, at load, a placement whose report's spec is
+not `tile_safe` under `presentation_style: kpi` (§2c, check 6); "Coco Terms Total" passes because 10.3 is tile-safe under its
 25-glossary cap, and if Coco ever has more glossaries than that the tile says so instead of a number.
 
 **(b) Dr.Egeria**, today's commands end to end (the three `Create Report`s are 10.1 and 10.3 above):
@@ -1517,7 +1520,7 @@ glossary-health
 Coco Terms Total
 ### Placement Span
 1
-### Placement Emphasis
+### Presentation Style
 kpi
 ### Placement Perspectives
 Steward, Data Owner
@@ -1531,7 +1534,7 @@ glossary-health
 Coco Term Counts
 ### Placement Span
 2
-### Placement Emphasis
+### Presentation Style
 panel
 ### Placement Perspectives
 Steward
@@ -1545,7 +1548,7 @@ glossary-health
 Coco Glossaries
 ### Placement Span
 full
-### Placement Emphasis
+### Presentation Style
 panel
 ### Placement Perspectives
 Consumer, Steward
@@ -1556,7 +1559,7 @@ Glossary-With-Terms
 `refreshSeconds`, `layoutStyle`; base type `DataSet`, decided in §9.14) —`Schema`→ a
 `DisplayDataSchemaType` —`AttributeForSchema`→ the sheet's `DisplayDataContainer`, which holds four
 `DashboardPlacement`s (⊂ `DisplayDataField`) by `NestedSchemaAttribute`, `position` 1–4: one TEXT placement
-with `markdownContent`, three REPORT placements with `span` and `emphasis`. Each REPORT placement is linked
+with `markdownContent`, three REPORT placements with `span` and `presentationStyle`. Each REPORT placement is linked
 `DashboardPlacementReport` → the `Report` element `Create Report` made, `DataDescription` → the `ReportSpec` it drills
 into (an existing relationship), and `ScopedBy` → each `Perspective`. Each `Report` is linked `ReportInstanceOf` from
 its `ReportSpec` and carries its parameter JSON in `formula` (`formulaType` `report-parameters/1`). Migration from the JSON store is one element
@@ -1578,17 +1581,17 @@ which executor produced what.
     "description": "Curation, profiling and cataloging state of the Coco data hub.",
     "family": "Data Hub",
     "placements": [
-      {"ref": "Curation Coverage - Databases",   "span": "1",    "emphasis": "kpi",   "perspectives": ["Steward", "Data Owner"], "detail_spec": "Trellis - Curation Coverage"},
-      {"ref": "Coco Data Lake File Profiles",    "span": "1",    "emphasis": "kpi",   "perspectives": ["Data Expert"],         "detail_spec": "Data-Lake-File-Profiles"},
-      {"ref": "Coco Terms Total",                "span": "1",    "emphasis": "kpi",   "perspectives": ["Steward"],          "detail_spec": "Glossary-Term-Counts"},
-      {"ref": null, "content": "**Detail** — what is behind the three numbers.", "span": "full", "emphasis": "panel", "perspectives": [], "detail_spec": null},
-      {"ref": "Curation Coverage - Databases",   "span": "2",    "emphasis": "panel", "perspectives": ["Steward"],          "detail_spec": null},
-      {"ref": "Coco Data Lake File Profiles",    "span": "2",    "emphasis": "panel", "perspectives": ["Data Expert"],         "detail_spec": null}
+      {"ref": "Curation Coverage - Databases",   "span": "1",    "presentation_style": "kpi",   "perspectives": ["Steward", "Data Owner"], "detail_spec": "Trellis - Curation Coverage"},
+      {"ref": "Coco Data Lake File Profiles",    "span": "1",    "presentation_style": "kpi",   "perspectives": ["Data Expert"],         "detail_spec": "Data-Lake-File-Profiles"},
+      {"ref": "Coco Terms Total",                "span": "1",    "presentation_style": "kpi",   "perspectives": ["Steward"],          "detail_spec": "Glossary-Term-Counts"},
+      {"ref": null, "content": "**Detail** — what is behind the three numbers.", "span": "full", "presentation_style": "panel", "perspectives": [], "detail_spec": null},
+      {"ref": "Curation Coverage - Databases",   "span": "2",    "presentation_style": "panel", "perspectives": ["Steward"],          "detail_spec": null},
+      {"ref": "Coco Data Lake File Profiles",    "span": "2",    "presentation_style": "panel", "perspectives": ["Data Expert"],         "detail_spec": null}
     ]
   }
 }
 ```
-The same report (`Curation Coverage - Databases`) appears twice with different emphasis: `kpi` renders it through its
+The same report (`Curation Coverage - Databases`) appears twice with different presentation styles: `kpi` renders it through its
 spec's `KPI` formatter for the tile, `panel` through the report's own output format for the panel (§8d; for the panel
 to be a bar chart the report's output format is `BAR`, or a second report names it). That is one spec, two formatters,
 and it is why presentation must not live in the routine.
@@ -1610,7 +1613,7 @@ data-hub-health
 Curation Coverage - Databases
 ### Placement Span
 1
-### Placement Emphasis
+### Presentation Style
 kpi
 ### Placement Perspectives
 Steward, Data Owner
@@ -1624,7 +1627,7 @@ data-hub-health
 Coco Data Lake File Profiles
 ### Placement Span
 1
-### Placement Emphasis
+### Presentation Style
 kpi
 ### Placement Perspectives
 Data Expert
@@ -1725,13 +1728,13 @@ abbreviated. Producers in a multi-producer micro-flow carry a `name`, and a proc
     "family": "Egeria Overview",
     "params": {"as_of": {"type": "datetime", "required": false, "category": "content"}},
     "placements": [
-      {"ref": null, "content": "## Value", "span": "full", "emphasis": "panel", "perspectives": [], "detail_spec": null},
-      {"ref": "Overview Cataloged Assets", "span": "1", "emphasis": "kpi", "perspectives": ["Governance", "Steward", "Data Expert", "Architecture", "Security", "App/AI Builder", "Privacy", "Community"], "detail_spec": "Overview - Assets by Type"},
-      {"ref": "Overview Governed Coverage", "span": "1", "emphasis": "kpi", "perspectives": ["Governance", "Steward", "Data Owner", "Security", "Privacy"], "detail_spec": "Overview - Ungoverned Assets"},
-      {"ref": "Overview Semantic Grounding", "span": "1", "emphasis": "kpi", "perspectives": ["Steward", "Consumer", "App/AI Builder"], "detail_spec": "Overview - Ungrounded Assets"},
-      {"ref": null, "content": "## Composition", "span": "full", "emphasis": "panel", "perspectives": [], "detail_spec": null},
-      {"ref": "Overview Assets by Type", "span": "2", "emphasis": "panel", "perspectives": [], "detail_spec": "Overview - Assets of Type"},
-      {"ref": "Overview Context Readiness Funnel", "span": "full", "emphasis": "panel", "perspectives": ["App/AI Builder", "Data Expert"], "detail_spec": "Overview - Funnel Stage"}
+      {"ref": null, "content": "## Value", "span": "full", "presentation_style": "panel", "perspectives": [], "detail_spec": null},
+      {"ref": "Overview Cataloged Assets", "span": "1", "presentation_style": "kpi", "perspectives": ["Governance", "Steward", "Data Expert", "Architecture", "Security", "App/AI Builder", "Privacy", "Community"], "detail_spec": "Overview - Assets by Type"},
+      {"ref": "Overview Governed Coverage", "span": "1", "presentation_style": "kpi", "perspectives": ["Governance", "Steward", "Data Owner", "Security", "Privacy"], "detail_spec": "Overview - Ungoverned Assets"},
+      {"ref": "Overview Semantic Grounding", "span": "1", "presentation_style": "kpi", "perspectives": ["Steward", "Consumer", "App/AI Builder"], "detail_spec": "Overview - Ungrounded Assets"},
+      {"ref": null, "content": "## Composition", "span": "full", "presentation_style": "panel", "perspectives": [], "detail_spec": null},
+      {"ref": "Overview Assets by Type", "span": "2", "presentation_style": "panel", "perspectives": [], "detail_spec": "Overview - Assets of Type"},
+      {"ref": "Overview Context Readiness Funnel", "span": "full", "presentation_style": "panel", "perspectives": ["App/AI Builder", "Data Expert"], "detail_spec": "Overview - Funnel Stage"}
     ],
     "perspective_order": {"Governance": ["Overview Cataloged Assets", "Overview Governed Coverage"], "Steward": ["Overview Governed Coverage", "Overview Cataloged Assets", "Overview Semantic Grounding"]}
   }
@@ -1819,7 +1822,7 @@ naming Trellis perspectives by display name. The sheet parameter and the per-per
 
 | Today | In the model |
 |---|---|
-| 13 KPI tiles and 4 Business Value cards | one spec each, mostly `producer/count` with a `MeasurementSpecification` (unit, absence sentences); placed with emphasis `kpi` |
+| 13 KPI tiles and 4 Business Value cards | one spec each, mostly `producer/count` with a `MeasurementSpecification` (unit, absence sentences); placed with presentation style `kpi` |
 | percentages computed in the browser | a `derive` processor (`ratio`), with `basis` so a tile can say "N of M" |
 | capped finds (`governedCapped`, …) | `completeness: lower_bound` on the cell, which the KPI renderer must show |
 | failed counts reading 0 | the `count` producer runs strict; failure is `not_measured` with its sentence, never 0 |
