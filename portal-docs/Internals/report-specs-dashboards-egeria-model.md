@@ -183,7 +183,7 @@ lost on the way** (a lossless JSON copy travels in `additionalProperties` until 
 ```mermaid
 flowchart TB
     subgraph SPEC["Spec layer — what can be asked"]
-        RT["ReportType (DataSpec)<br/>QN ReportType::label<br/>displayName=heading, description, versionIdentifier<br/>additionalProperties: targetType, aliases, outputTypes, formatSetJson"]
+        RT["ReportType (DataSpec)<br/>QN ReportType::label<br/>displayName=heading, description, versionIdentifier<br/>additionalProperties: targetTypeName, aliases, outputTypes, formatSetJson"]
         DS["DataStructure — one per Format<br/>namePatterns=types (DICT,LIST,…)"]
         DF["DataField — one per Column<br/>displayName=name, namePatterns=[key], dataType, units, sortOrder=position<br/>additionalProperties: format, validValues"]
         FAM["CollectionFolder — family"]
@@ -252,7 +252,7 @@ their ReportType or Dashboard so they are deleted with it).
 | label | `qualifiedName = ReportType::<label>` (already the convention) |
 | `heading` / `description` | `displayName` / `description` |
 | `aliases` | `additionalProperties.aliases` (JSON list) — Egeria has no alias property on Collection |
-| `target_type` | `additionalProperties.targetType`; optionally `SemanticAssignment` to the type's GlossaryTerm |
+| `target_type` | `additionalProperties.targetTypeName`; optionally `SemanticAssignment` to the type's GlossaryTerm |
 | `family` | `CollectionMembership` from a `CollectionFolder` named `Family::<family>` |
 | `annotations` (wikilinks) | `ExternalReference` elements + `ExternalReferenceLink` |
 | `formats[]` | one `DataStructure` per `Format`, member of the ReportType (`CollectionMembership`); `namePatterns` = the `types` list |
@@ -356,7 +356,7 @@ carries the fact without bending it; never a structured value in `additionalProp
 
 | New type | Supertype | Own properties | Replaces |
 |---|---|---|---|
-| **`ReportSpec`** | `ReportType` (⊂ `DataSpec` ⊂ `Collection`) | `targetType`, `aliases` (array), `outputTypes` (array), `includePreamble` (bool); the inline action: `actionMethod` (pyegeria client method, e.g. `AssetCatalog.find_assets`), `requiredParameters` (array), `optionalParameters` (array), `fixedParameters` (map); `additionalPropertiesFunction` (name of the registered extractor, see 4.4) | `FormatSet` + `ActionParameter` (find path) |
+| **`ReportSpec`** | `ReportType` (⊂ `DataSpec` ⊂ `Collection`) | `targetTypeName`, `aliases` (array), `outputTypes` (array), `includePreamble` (bool); the inline action: `actionMethod` (pyegeria client method, e.g. `AssetCatalog.find_assets`), `requiredParameters` (array), `optionalParameters` (array), `fixedParameters` (map); `additionalPropertiesFunction` (name of the registered extractor, see 4.4) | `FormatSet` + `ActionParameter` (find path) |
 | **`Dashboard`** | `DataSet` (sibling of `Report`, `Form`) | `aliases` (array), `refreshSeconds` (int), `layoutStyle` (string) | `DashboardSheet` (top level) |
 | **`DashboardPlacement`** | `DisplayDataField` (⊂ `SchemaAttribute`) | `placementKind` (enum REPORT, TEXT, SECTION), `span` (enum ONE, TWO, FULL), `presentationStyle` (enum KPI, PANEL; was `emphasis`, renamed 2026-11-07), `markdownContent` (TEXT only); `position`, `displayName` inherited | `Placement` |
 
@@ -399,7 +399,7 @@ placement), `AssetSchemaType` / `AttributeForSchema` / `NestedSchemaAttribute` (
 
 ```mermaid
 flowchart LR
-    RS["ReportSpec<br/>targetType · outputTypes<br/>actionMethod + parameters"]
+    RS["ReportSpec<br/>targetTypeName · outputTypes<br/>actionMethod + parameters"]
     FMT["DataStructure<br/>(a Format)"]
     COL["DataField<br/>(a Column: key, dataType, units)"]
     RS2["ReportSpec<br/>(detail spec)"]
@@ -474,7 +474,7 @@ flowchart LR
 | Analytic path: `analytic_function` by registered name, `analytic_spec_params` (defaults), `analytic_binders` | `ReportSpecAnalytic` to the process element; defaults and binders on the relationship |
 | Both paths on one spec (analytic only for SERIES / BAR / PIE) | both links present; `outputTypes` says which formats exist; the executor rule is unchanged |
 | Several `Format` rows; the `ALL` shorthand; precedence of a type-specific row | one `DataStructure` per row, `namePatterns` = its types (`ALL` is a value); precedence stays an executor rule |
-| Master–detail (`Column.detail_spec`); schema-driven promotion keyed on the detail spec's `target_type` | `ReportColumnDetail` from the column to the detail `ReportSpec`; promotion keys on that spec's `targetType` as today |
+| Master–detail (`Column.detail_spec`); schema-driven promotion keyed on the detail spec's `target_type` | `ReportColumnDetail` from the column to the detail `ReportSpec`; promotion keys on that spec's `targetTypeName` (today's `target_type`) |
 | REPORT-GRAPH (any spec with `types: ["ALL"]` renders as a linked graph) | an output type; nothing to model |
 | Mermaid / Vega-Lite columns recognised by camelCase key | ordinary `DataField`s; the key is the `namePatterns` entry; recognition stays in the formatter |
 | FORM output (summaries only) | an output type |

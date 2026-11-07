@@ -112,7 +112,7 @@ flowchart LR
 
 The micro-flow replaces only the *action* half of today's `FormatSet`. Everything that identifies, describes and makes a
 spec discoverable stays as the envelope around it, unchanged in meaning: label and heading, description,
-`target_type`, `aliases`, `family`, `annotations`, the question spec (example questions and the perspectives they serve),
+`target_type_name` (today's `FormatSet.target_type`), `aliases`, `family`, `annotations`, the question spec (example questions and the perspectives they serve),
 the preamble, and the dashboard-facing fields (presentation style, detail spec). In Egeria these are the properties and links the
 earlier note already placed on the spec element and its `QuestionSpec` folder (a `CollectionFolder` by naming
 convention, not a type) / `Question` / `Perspective` neighbours; nothing
@@ -127,8 +127,13 @@ questions into its own catalog file, and stops doing so (§9.13). (2) Once Egeri
 precedence that today reads "the file wins, Egeria provides only the questions" becomes: **the registry's canonical
 JSON wins, and the Egeria element is its projection**; the loader refuses, with both sources named, a label whose
 Egeria micro-flow differs from the registry's, instead of picking one. `target_type`, today in the `ReportType`'s
-`additionalProperties`, moves to the typed `targetType` property when the element is retyped to `ReportSpec`; the
+`additionalProperties`, moves to the typed `targetTypeName` property when the element is retyped to `ReportSpec`; the
 loader's type filter must find the retyped elements (a subtype query, checked in the migration's read-back).
+**Naming (Egeria team, 2026-11-07):** the property is `targetTypeName`, not `targetType`, so it is not confused with
+the other kinds of target in Egeria (action targets, catalog targets, survey targets). The canonical JSON follows it as
+`target_type_name`. pyegeria's `FormatSet.target_type` keeps its name until the executor moves to the canonical form;
+the loader maps `target_type` ↔ `target_type_name` in both directions, and a JSON carrying both with different values is
+refused at load.
 
 ## 2b. Declarations and bindings: how a function is specified so it is shareable
 
@@ -749,7 +754,7 @@ list in this design uses the one that fits:
 
 | Need | Exists today | Proposed |
 |---|---|---|
-| spec carries its micro-flow | nothing typed on `ReportType` (own properties: `createdTime`, `lastModifiedTime`, `lastModifier`); `Referenceable` has no `aliases` | `ReportSpec` ⊂ `ReportType` with `microflow` (string, JSON), plus the envelope strings `targetType`, `aliases`, `outputTypes`, `includePreamble` (§9.1, **decided**) |
+| spec carries its micro-flow | nothing typed on `ReportType` (own properties: `createdTime`, `lastModifiedTime`, `lastModifier`); `Referenceable` has no `aliases` | `ReportSpec` ⊂ `ReportType` with `microflow` (string, JSON), plus the envelope strings `targetTypeName`, `aliases`, `outputTypes`, `includePreamble` (§9.1, **decided**) |
 | field is a measured value (value and measurement semantics) | `DataValueSpecification` (`units`, `absoluteUncertainty`, `relativeUncertainty`, `dataType`, `specification`, `specificationDetails`); `DataClass`, `DataGrain` as siblings; `GovernanceMetric` (`measurement`, `target`) | a **`MeasurementSpecification` ⊂ `DataValueSpecification`** with `completenessDeclared` (valid metadata: `complete`, `lower_bound`, `unknown`), `confidenceForm` (valid metadata: `measured`, `estimated`, `inferred`, `judged`, `generated`), `uncertaintyForm` (valid metadata: `plus_minus`, `low_high`, `band`), `stateSet` (a reference-data set's name), `absenceSentences` (map: state → sentence), `basisField`, `asOfField` (field names in the same shape); linked `DataValueDefinition` from the `DataField`, shared through `DataValueHierarchy` |
 | routine carries its declaration | `Process.formula` / `formulaType` | no new type; `formulaType` = `trellis-declaration/1` |
 | formatter names its renderer | `DisplayDataContainer` has no renderer word | `renderer` string property on `DisplayDataContainer` (or `additionalProperties.renderer` as fallback) |
@@ -762,7 +767,7 @@ list in this design uses the one that fits:
 | JSON | Egeria |
 |---|---|
 | spec key (`"Glossaries"`) | `ReportSpec.qualifiedName` = `ReportType::Glossaries`, `displayName` |
-| `heading`, `description`, `family`, `target_type`, `aliases`, `annotations` | `ReportSpec` properties (`displayName`, `description`, `category`=family, `targetType`, `aliases`; wikilinks in `additionalProperties.annotations` as the earlier note has it) |
+| `heading`, `description`, `family`, `target_type`, `aliases`, `annotations` | `ReportSpec` properties (`displayName`, `description`, `category`=family, `targetTypeName`, `aliases`; wikilinks in `additionalProperties.annotations` as the earlier note has it) |
 | `microflow` (the list, with every stage's `params` and the spec `params` / `defaults`) | `ReportSpec.microflow` (JSON text); parameters live nowhere else (`ResourceList` has an `additionalProperties` map at 6.3, not used for structured values by the house rule) |
 | a stage's `function` / `routine` | `ResourceList` (`resourceUse` "stage N") → `Process` |
 | `out: "GlossaryRow"` (registered shape) | `DataStructure` `GlossaryRow`, held by the spec through `CollectionMembership` (`ReportSpec` is a `Collection`); the producing `Process` is reached from the same spec, since `DataDescription` ends at a `Collection`, not at a `DataStructure` |
@@ -859,7 +864,7 @@ One place for the review with the Egeria team. **Status** says where each item s
 
 | # | Proposal | Status | Alternatives considered | Why the recommendation |
 |---|---|---|---|---|
-| 1 | `ReportSpec` ⊂ `ReportType`, typed `microflow` (JSON text) plus `targetType`, `aliases`, `outputTypes`, `includePreamble` (§9.1) | decided | `ReportType` with values in `additionalProperties` | a map of maps in `additionalProperties` is the pattern the earlier note forbids; a subtype keeps today's 74 `ReportType` GUIDs and names by retyping within one branch |
+| 1 | `ReportSpec` ⊂ `ReportType`, typed `microflow` (JSON text) plus `targetTypeName`, `aliases`, `outputTypes`, `includePreamble` (§9.1) | decided | `ReportType` with values in `additionalProperties` | a map of maps in `additionalProperties` is the pattern the earlier note forbids; a subtype keeps today's 74 `ReportType` GUIDs and names by retyping within one branch |
 | 2 | `MeasurementSpecification` ⊂ `DataValueSpecification` (`completenessDeclared`, `confidenceForm`, `uncertaintyForm`, `stateSet`, `absenceSentences`, `basisField`, `asOfField`) (§8b) | decided | a `MeasurementDeclaration` classification on `DataField` (v5.1); typed attributes on `GovernanceMetric` (the 2026-11-03 ask) | follows Egeria's own pattern (`DataClass`, `DataGrain` are siblings); inherits unit and uncertainty, so one carrier; an element can be shared, a classification cannot |
 | 3 | `Dashboard` ⊂ `DataSet` (`aliases`, `refreshSeconds`, `layoutStyle`) (§8d) | decided | `Dashboard` ⊂ `Collection` (pyegeria's model docstring, Dr.Egeria's current bundle) | `DataSetContent` makes a dashboard's reports its lineage, and `Report`, `Form`, `InformationView` are its natural siblings; layout works either way |
 | 4 | `DashboardPlacement` ⊂ `DisplayDataField` (`placementKind` REPORT · TEXT, `span`, `presentationStyle`, `markdownContent`) | recommended | plain `DisplayDataField` with span, presentation style and kind in `additionalProperties` (the companion note's existing-types variant) | typed, validated properties instead of strings every consumer parses |
@@ -1064,7 +1069,7 @@ optionally with a label override or a column format option.
 ```json
 {
   "Glossaries": {
-    "target_type": "Glossary",
+    "target_type_name": "Glossary",
     "heading": "Glossary Attributes",
     "description": "Attributes that apply to all Glossaries.",
     "family": "Glossary Manager",
@@ -1136,7 +1141,7 @@ MERMAID: field=mermaidGraph
 
 | JSON | Element |
 |---|---|
-| `"Glossaries"` + envelope | `ReportSpec` `ReportType::Glossaries` (`displayName` "Glossaries", `description`, `category` "Glossary Manager", `targetType` "Glossary") |
+| `"Glossaries"` + envelope | `ReportSpec` `ReportType::Glossaries` (`displayName` "Glossaries", `description`, `category` "Glossary Manager", `targetTypeName` "Glossary") |
 | `microflow` | `ReportSpec.microflow` = the one-stage list as JSON text |
 | `out: "GlossaryRow"` | `CollectionMembership` from the `ReportSpec` → `DataStructure` `GlossaryRow`; its eleven `MemberDataField`s (positions 1–11): positions 1–6 to the **shared** `DataField`s `CommonRow::display_name` (`displayName` "Display Name", `namePatterns` ["display_name"], `dataType` string) … `CommonRow::url`, declared by `CommonRow` and linked from `TermRow` too; positions 7–11 to `GlossaryRow::language` … `GlossaryRow::mermaidGraph` (`dataType` "representation/mermaid") |
 | `CommonRow` | `DataStructure` `CommonRow`, anchored to the shapes `Collection` `Shapes::pyegeria` (§8a), linked to its six fields; `GlossaryRow` is anchored there too, and the spec only links to it |
@@ -1152,7 +1157,7 @@ MERMAID: field=mermaidGraph
 ```json
 {
   "Glossary-With-Terms": {
-    "target_type": "Glossary",
+    "target_type_name": "Glossary",
     "heading": "Glossaries and their terms",
     "family": "Glossary Manager",
     "params": {"search_string": {"type": "string", "default": "*"}},
@@ -1214,7 +1219,7 @@ not the last page, only an empty one is). Run on demand from a detail click, not
 ```json
 {
   "Glossary-Term-Counts": {
-    "target_type": "Glossary",
+    "target_type_name": "Glossary",
     "heading": "Glossaries: term counts and definition completeness",
     "family": "Glossary Manager",
     "params": {"search_string": {"type": "string", "default": "*"}},
@@ -1340,7 +1345,7 @@ Then the spec, which is now small:
 ```json
 {
   "Trellis - Curation Coverage": {
-    "target_type": "Database",
+    "target_type_name": "Database",
     "heading": "Curation coverage",
     "family": "Curation",
     "params": {"resource_type": {"type": "string", "default": "database"}},
@@ -1405,7 +1410,7 @@ the full lineage form. Retiring the binder is §9.5's gate: byte-identical tile 
 ```json
 {
   "Data-Lake-File-Profiles": {
-    "target_type": "FileSystem",
+    "target_type_name": "FileSystem",
     "heading": "Profiled data files",
     "family": "Resource Explorer",
     "inputs": ["subject"],
@@ -1700,7 +1705,7 @@ abbreviated. Producers in a multi-producer micro-flow carry a `name`, and a proc
 ```json
 {
   "Overview - Governed Coverage": {
-    "target_type": "Asset",
+    "target_type_name": "Asset",
     "heading": "Governed coverage",
     "family": "Egeria Overview",
     "params": {"as_of": {"type": "datetime", "required": false, "category": "content"}},
