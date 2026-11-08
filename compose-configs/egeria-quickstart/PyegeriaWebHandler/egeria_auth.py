@@ -16,6 +16,8 @@ in pyegeria_handler.py.
 """
 import base64
 import json
+import os
+import time
 from contextvars import ContextVar
 
 from pyegeria import lineage_visible  # pyegeria >= 6.1.25
@@ -85,6 +87,91 @@ def use_token(client, token: str) -> None:
     client.set_bearer_token(token)
     client.user_id = _token_sub(token) or client.user_id
     client.user_pwd = None
+
+
+# The words a caller sees when their sign-in cannot be used. Same text the report-spec
+# execute route has always returned with HTTP 401.
+TOKEN_REFUSED_WORDS = ("Not authorized for this operation — the current user does not have "
+                       "permission for this report")
+
+
+def _token_expired(token: Optional[str]) -> bool:
+    """True when the token's ``exp`` claim is in the past. Read without verifying the signature
+    (Egeria verifies it on every call); a token with no readable ``exp`` is not called expired."""
+    parts = token.split(".") if token else []
+    if len(parts) != 3:
+        return False
+    try:
+        payload = json.loads(base64.urlsafe_b64decode(parts[1] + "=" * (-len(parts[1]) % 4)))
+    except (ValueError, TypeError):
+        return False
+    exp = payload.get("exp") if isinstance(payload, dict) else None
+    return isinstance(exp, (int, float)) and exp <= time.time()
+
+
+class PortalSupply:
+    """The Portal's pyegeria ``RoleSupply`` (RS-W2-3): what a report-spec routine's declared
+    inputs are filled from. Built per request (``PortalSupply(request)``).
+
+    - ``client(cls)``: a client of that class acting as the signed-in user. With a request token
+      it goes through :func:`use_token`, so the client holds no password and a 401 can never
+      re-authenticate as the service user. A token whose ``exp`` has passed is refused here,
+      before any Egeria call, with ``CallerTokenExpired``. With no token at all the client signs
+      in with the service credentials, exactly as ``exec_report_spec`` did before.
+    - forLineage: ``EgeriaTokenMiddleware`` already wraps the whole request in
+      ``lineage_visible(...)`` and pyegeria reads that default per request, so every client handed
+      out sees the request's Promise/Memento toggle with no wrapping here.
+    - ``viewer()``: read from the ``report_viewer`` contextvar that ``execute_spec`` sets (no
+      second copy). No chosen persona refuses, saying why.
+    """
+
+    def __init__(self, request=None, *, view_server: Optional[str] = None, view_url: Optional[str] = None,
+                 user_id: Optional[str] = None, user_pwd: Optional[str] = None):
+        self.request = request
+        self._server = view_server
+        self._url = view_url
+        self._user = user_id
+        self._pwd = user_pwd
+        self._clients: dict = {}
+
+    def client(self, cls):
+        from pyegeria.view.role_supply import CallerTokenExpired
+        token = _egeria_token.get()
+        if token and _token_expired(token):
+            raise CallerTokenExpired(TOKEN_REFUSED_WORDS, role=f"egeria_client:{getattr(cls, '__name__', cls)}")
+        if cls not in self._clients:
+            c = cls(self._server or os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server"),
+                    self._url or os.environ.get("EGERIA_PLATFORM_URL", "https://localhost:9443"),
+                    user_id=self._user or os.environ.get("EGERIA_USER", "erinoverview"),
+                    user_pwd=self._pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret"))
+            if token:
+                use_token(c, token)
+            else:
+                c.create_egeria_bearer_token()
+            self._clients[cls] = c
+        return self._clients[cls]
+
+    def viewer(self):
+        from pyegeria.view.role_supply import RoleRefused, Viewer
+        from report_viewer import current_viewer
+        v = current_viewer()
+        if not v or not v.get("persona_id"):
+            why = (v or {}).get("reason") or "the viewer is not known"
+            raise RoleRefused(f"No persona was chosen ({why})", role="viewer")
+        persona = v.get("persona") or {}
+        return Viewer(user_id=v["persona_id"], is_admin=None, display_name=persona.get("display_name"))
+
+    def reader(self, source: str):
+        from pyegeria.view.role_supply import NoSuchReader
+        raise NoSuchReader(f"The Portal has no reader named '{source}'", role=f"reader:{source}")
+
+    def subject(self):
+        return None
+
+    def refusal_words(self, kind: str) -> str:
+        if kind == "egeria_client":
+            return TOKEN_REFUSED_WORDS
+        return f"The Portal does not supply '{kind}' to report specs."
 
 
 def apply_token(client) -> None:
