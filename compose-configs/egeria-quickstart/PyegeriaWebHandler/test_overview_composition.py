@@ -184,7 +184,8 @@ def test_real_routine_runs_against_a_fake_client():
         platform_url, view_server = "http://x", "s"
     import pyegeria.view.overview_metrics as om
     orig = om.count_elements
-    om.count_elements = lambda mgr, t, as_of=None, classifications=None, strict=True, scope=None: {"Asset": 10, "DataAsset": 7, "Process": 0}[t]
+    # **kw: asset_composition passes the population keyword (population= or scope=, by version)
+    om.count_elements = lambda mgr, t, as_of=None, classifications=None, strict=True, **kw: {"Asset": 10, "DataAsset": 7, "Process": 0}[t]
     try:
         res = oh.asset_composition(Mgr(), VM(), root="Asset", depth=1, scopes=("repository",))
     finally:

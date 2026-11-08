@@ -12,6 +12,7 @@
 <script>EgeriaResize.grids('.placements');</script>
 <script src="/static/bootstrap-banner.js?v=2026-08-18a"></script>
 <script src="/static/diagram-viewer.js?v=2026-11-06a"></script>
+<script src="/static/egeria-not-measured.js?v=2026-11-08a"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
@@ -788,6 +789,24 @@ function _seriesValues(data) {
 }
 
 function renderExecResult(result) {
+  var out = _renderExecResultBody(result);
+  // A count pyegeria could not measure (odpi/egeria-python #555) is null in
+  // the data and named in result.unmeasured — list each one under the result,
+  // so a "No results." or a table never reads as the whole answer. Absent for
+  // every older result shape, which renders exactly as before.
+  if (result && result.kind !== 'absent' && window.EgeriaNotMeasured && EgeriaNotMeasured.hasUnmeasured(result)) {
+    out.html += EgeriaNotMeasured.footnoteHtml(result);
+  }
+  return out;
+}
+
+function _renderExecResultBody(result) {
+  // kind:"absent" — the value is not established, does not apply, or is a
+  // count that was not measured (ISSUE-171 / #555). Say so: never the raw
+  // JSON, an empty chart or a KPI number that reads as an answer.
+  if (result && result.kind === 'absent' && window.EgeriaNotMeasured) {
+    return { html: EgeriaNotMeasured.absentHtml(result), mermaidBlocks: [], vegaBlocks: [], isKpiShaped: result.detail === undefined };
+  }
   if (!result || result.kind === 'empty') return { html: '<div class="p-loading">No results.</div>', mermaidBlocks: [], vegaBlocks: [] };
   if (result.kind === 'text') return Object.assign({ vegaBlocks: [] }, renderMdWithMermaid(_capContent(result.content)));
   if (result.kind === 'json') {
@@ -832,7 +851,7 @@ function renderExecResult(result) {
         mermaidBlocks: [], vegaBlocks: [], isKpiShaped: true,
       };
     }
-    return { html: renderJsonTableHtml(result.data), mermaidBlocks: [], vegaBlocks: [] };
+    return { html: renderJsonTableHtml(result.data, !!(window.EgeriaNotMeasured && EgeriaNotMeasured.hasUnmeasured(result))), mermaidBlocks: [], vegaBlocks: [] };
   }
   return { html: '<pre style="font-size:11px">' + esc(JSON.stringify(result, null, 2)) + '</pre>', mermaidBlocks: [], vegaBlocks: [] };
 }
@@ -981,7 +1000,10 @@ function renderMdToHtml(rawText) {
   return parts.join('');
 }
 
-function renderJsonTableHtml(data) {
+// unmeasured: the result carries #555 `unmeasured` notes, so a null cell is a
+// count that was not measured and reads "not measured" (never blank). False
+// (every older result): cells render exactly as before.
+function renderJsonTableHtml(data, unmeasured) {
   var rows = Array.isArray(data) ? data : (data && typeof data === 'object' ? [data] : []);
   if (!rows.length) return '<div class="p-loading">No results.</div>';
   var cols = [];
@@ -994,7 +1016,8 @@ function renderJsonTableHtml(data) {
   rows.slice(0, 25).forEach(function(r) {
     html += '<tr>' + cols.map(function(c) {
       var v = r ? r[c] : undefined;
-      if (v && typeof v === 'object') v = JSON.stringify(v);
+      if (unmeasured && v === null) return '<td class="nm-cell">' + esc(EgeriaNotMeasured.NULL_TEXT) + '</td>';
+      if (v && typeof v === 'object') v = JSON.stringify(v, unmeasured ? EgeriaNotMeasured.nullReplacer : null);
       return '<td>' + esc(v == null ? '' : v) + '</td>';
     }).join('') + '</tr>';
   });
