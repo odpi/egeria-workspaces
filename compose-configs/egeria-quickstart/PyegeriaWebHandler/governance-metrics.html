@@ -12,6 +12,7 @@
 <script>EgeriaResize.grids('.detail-grid');</script>
 <script src="/static/bootstrap-banner.js?v=2026-08-18a"></script>
 <script src="/static/diagram-viewer.js?v=2026-11-06a"></script>
+<script src="/static/egeria-not-measured.js?v=2026-11-08a"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 <style>
   :root {
@@ -213,8 +214,21 @@ function runReport(specName, btn){
     body: JSON.stringify({ spec_name: specName, server: 'qs-view-server', user_id: 'erinoverview', output_format: 'DICT' }),
   })
     .then(function(r){ return r.json(); })
-    .then(function(d){ out.textContent = JSON.stringify(d.data !== undefined ? d.data : d, null, 2); btn.disabled = false; })
+    .then(function(d){ renderRunOutput(out, d); btn.disabled = false; })
     .catch(function(e){ out.textContent = 'Error: ' + String(e); btn.disabled = false; });
+}
+
+// kind:"absent" (ISSUE-171 / odpi/egeria-python #555): the value was not
+// established or not measured — show that, not the raw envelope JSON. A
+// result with `unmeasured` notes shows its nulls as "not measured" and lists
+// each note underneath. Every other result: the same JSON text as before.
+function renderRunOutput(out, d){
+  var NM = window.EgeriaNotMeasured;
+  if (NM && NM.isAbsent(d)) { out.innerHTML = NM.absentHtml(d); return; }
+  var unmeasured = !!(NM && NM.hasUnmeasured(d));
+  if (unmeasured && d.data === undefined) out.textContent = 'No results.';  // kind:"empty" — its notes follow
+  else out.textContent = JSON.stringify(d.data !== undefined ? d.data : d, unmeasured ? NM.nullReplacer : null, 2);
+  if (unmeasured) out.insertAdjacentHTML('beforeend', NM.footnoteHtml(d));
 }
 
 // Event delegation for card clicks / run buttons — inline onclick="..."

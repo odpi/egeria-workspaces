@@ -593,6 +593,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
   <script>window.EGERIA_FOR_LINEAGE = true; window.EGERIA_FOR_LINEAGE_VISIBLE = false;  /* shown per-section by App */</script>
   <script src="/static/egeria-shared-ui.js?v=2026-11-04o"></script>
+  <script src="/static/egeria-not-measured.js?v=2026-11-08a"></script>
   <script>"use strict";
 
 const {
@@ -2316,7 +2317,10 @@ var _DV_TD = { padding: '4px 8px', fontSize: 12, color: 'var(--text)', borderBot
 // Spec-driven master-detail table for DICT/JSON report results.
 // columns: [{key, name, detailSpec?}] from spec.formats[].attributes — or auto-inferred from data shape.
 // depth: recursion guard (capped at 3).
-function DictResultView({ rows, columns, depth }) {
+// unmeasured: the result carries odpi/egeria-python #555 `unmeasured` notes,
+// so a null is a count that was not measured and reads "not measured" (never
+// blank). Omitted (every older result): cells render exactly as before.
+function DictResultView({ rows, columns, depth, unmeasured }) {
   var d = depth || 0;
   var [filter, setFilter] = React.useState('');
   var [expanded, setExpanded] = React.useState({});
@@ -2405,7 +2409,11 @@ function DictResultView({ rows, columns, depth }) {
           )
         ));
       } else {
-        var disp = val == null ? '' : (typeof val === 'object' ? JSON.stringify(val) : String(val));
+        if (unmeasured && val === null) {
+          cells.push(React.createElement('td', { key: c.key, style: tdStyle, className: 'nm-cell' }, EgeriaNotMeasured.NULL_TEXT));
+          return;
+        }
+        var disp = val == null ? '' : (typeof val === 'object' ? JSON.stringify(val, unmeasured ? EgeriaNotMeasured.nullReplacer : null) : String(val));
         cells.push(React.createElement('td', { key: c.key, style: tdStyle, title: disp.length > 60 ? disp : undefined }, disp));
       }
     });
@@ -2422,7 +2430,7 @@ function DictResultView({ rows, columns, depth }) {
         var subRows = Array.isArray(sub) ? sub : [sub];
         detailContent.push(React.createElement('div', { key: c.key, style: { marginTop: 8 } },
           React.createElement('div', { style: { fontSize: 11, fontWeight: 600, color: 'var(--muted)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: .5 } }, c.name || c.key),
-          React.createElement(DictResultView, { rows: subRows, columns: null, depth: d + 1 })
+          React.createElement(DictResultView, { rows: subRows, columns: null, depth: d + 1, unmeasured: unmeasured })
         ));
       });
       tbodyChildren.push(React.createElement('tr', { key: rowId + '__d' },
@@ -2561,7 +2569,20 @@ function ReportSpecDetail({ spec, onSelectSpec }) {
     if (execState === 'running') return React.createElement('div', { style: { padding: 16, textAlign: 'center' } }, React.createElement('div', { className: 'spinner' }));
     if (execState === 'error')   return React.createElement('div', { style: { padding: '8px 0', color: '#f87171', fontSize: 12 } }, 'Error: ' + execError);
     if (!execResult) return null;
-    if (execResult.kind === 'empty') return React.createElement('div', { style: { padding: '8px 0', color: 'var(--dim)', fontSize: 13, fontStyle: 'italic' } }, 'No results found.');
+    var NM = window.EgeriaNotMeasured;
+    // kind:"absent" (ISSUE-171 / odpi/egeria-python #555): the value was not
+    // established, does not apply, or is a count that was not measured. Say
+    // so — never the raw envelope JSON, a chart or a big number.
+    if (NM && NM.isAbsent(execResult)) {
+      return React.createElement('div', { dangerouslySetInnerHTML: { __html: NM.absentHtml(execResult) } });
+    }
+    // Counts that were not measured are listed under the result; '' (nothing
+    // rendered) for every older result shape.
+    var unmeasured = !!(NM && NM.hasUnmeasured(execResult));
+    var footnote = unmeasured ? React.createElement('div', { dangerouslySetInnerHTML: { __html: NM.footnoteHtml(execResult) } }) : null;
+    if (execResult.kind === 'empty') return React.createElement('div', null,
+      React.createElement('div', { style: { padding: '8px 0', color: 'var(--dim)', fontSize: 13, fontStyle: 'italic' } }, 'No results found.'),
+      footnote);
     if (execResult.kind === 'text') {
       return React.createElement('div', { style: { fontSize: 13, lineHeight: 1.6 } },
         React.createElement(SmartReportRenderer, { content: execResult.content })
@@ -2581,9 +2602,9 @@ function ReportSpecDetail({ spec, onSelectSpec }) {
       // rows/columns to tabulate — DictResultView only accepts objects/arrays
       // and silently shows "No data." for anything else. Show it directly.
       if (rawData == null || typeof rawData !== 'object') {
-        return React.createElement('div', {
+        return React.createElement('div', null, React.createElement('div', {
           style: { fontSize: 32, fontWeight: 700, padding: '16px 0', color: 'var(--text)' }
-        }, rawData == null ? '—' : String(rawData));
+        }, rawData == null ? '—' : String(rawData)), footnote);
       }
       var rows = Array.isArray(rawData) ? rawData : [rawData];
       var fmtForCols = sentFmt || execFmt;
@@ -2591,7 +2612,8 @@ function ReportSpecDetail({ spec, onSelectSpec }) {
       var columns = fmtObj ? (fmtObj.attributes || []) : [];
       return React.createElement('div', null,
         React.createElement(AvailableCharts, { data: rawData }),
-        React.createElement(DictResultView, { rows: rows, columns: columns, depth: 0 })
+        React.createElement(DictResultView, { rows: rows, columns: columns, depth: 0, unmeasured: unmeasured }),
+        footnote
       );
     }
     return React.createElement('pre', { style: { fontSize: 11 } }, JSON.stringify(execResult, null, 2));
