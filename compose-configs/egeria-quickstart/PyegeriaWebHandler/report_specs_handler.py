@@ -233,7 +233,8 @@ def execute_spec(req: ExecuteRequest, request: Request):
     token flow is a separate, larger piece of work.
     """
     from pyegeria.view.format_set_executor import exec_report_spec
-    from egeria_auth import get_request_token
+    from egeria_auth import TOKEN_REFUSED_WORDS, PortalSupply, get_request_token
+    from pyegeria.view.role_supply import CallerTokenExpired
 
     url      = req.url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
     server   = req.server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
@@ -253,8 +254,12 @@ def execute_spec(req: ExecuteRequest, request: Request):
             user=user_id,
             user_pass=user_pwd,
             token=token,
+            supply=PortalSupply(request, view_server=server, view_url=url, user_id=user_id, user_pwd=user_pwd),
         )
         return JSONResponse(result)
+    except CallerTokenExpired:
+        # Refused before any Egeria call; same 401 words as an Egeria 401 below.
+        raise HTTPException(status_code=401, detail=TOKEN_REFUSED_WORDS)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
