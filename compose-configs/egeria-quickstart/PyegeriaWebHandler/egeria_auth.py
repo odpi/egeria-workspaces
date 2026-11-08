@@ -118,8 +118,9 @@ class PortalSupply:
       re-authenticate as the service user. A token whose ``exp`` has passed is refused here,
       before any Egeria call, with ``CallerTokenExpired``. With no token at all the client signs
       in with the service credentials, exactly as ``exec_report_spec`` did before.
-    - every client is built inside ``lineage_visible(for_lineage_requested())``, so the request's
-      Promise/Memento toggle holds for each client handed out.
+    - forLineage: ``EgeriaTokenMiddleware`` already wraps the whole request in
+      ``lineage_visible(...)`` and pyegeria reads that default per request, so every client handed
+      out sees the request's Promise/Memento toggle with no wrapping here.
     - ``viewer()``: read from the ``report_viewer`` contextvar that ``execute_spec`` sets (no
       second copy). No chosen persona refuses, saying why.
     """
@@ -139,15 +140,14 @@ class PortalSupply:
         if token and _token_expired(token):
             raise CallerTokenExpired(TOKEN_REFUSED_WORDS, role=f"egeria_client:{getattr(cls, '__name__', cls)}")
         if cls not in self._clients:
-            with lineage_visible(for_lineage_requested()):
-                c = cls(self._server or os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server"),
-                        self._url or os.environ.get("EGERIA_PLATFORM_URL", "https://localhost:9443"),
-                        user_id=self._user or os.environ.get("EGERIA_USER", "erinoverview"),
-                        user_pwd=self._pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret"))
-                if token:
-                    use_token(c, token)
-                else:
-                    c.create_egeria_bearer_token()
+            c = cls(self._server or os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server"),
+                    self._url or os.environ.get("EGERIA_PLATFORM_URL", "https://localhost:9443"),
+                    user_id=self._user or os.environ.get("EGERIA_USER", "erinoverview"),
+                    user_pwd=self._pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret"))
+            if token:
+                use_token(c, token)
+            else:
+                c.create_egeria_bearer_token()
             self._clients[cls] = c
         return self._clients[cls]
 

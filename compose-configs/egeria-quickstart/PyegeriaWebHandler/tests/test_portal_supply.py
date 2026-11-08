@@ -21,13 +21,11 @@ def _jwt(sub="peter", exp_in=3600):
 
 class FakeClient:
     instances = []
-    lineage_seen = []
 
     def __init__(self, view_server, url, user_id=None, user_pwd=None):
         self.user_id, self.user_pwd, self.bearer, self.minted = user_id, user_pwd, None, False
         FakeClient.instances.append(self)
         import pyegeria
-        FakeClient.lineage_seen.append(egeria_auth.for_lineage_requested())
 
     def set_bearer_token(self, t):
         self.bearer = t
@@ -39,7 +37,6 @@ class FakeClient:
 @pytest.fixture(autouse=True)
 def _reset():
     FakeClient.instances.clear()
-    FakeClient.lineage_seen.clear()
 
 
 def test_token_client_holds_no_password_and_acts_as_token_user():
@@ -73,13 +70,19 @@ def test_client_is_cached_per_class():
     assert len(FakeClient.instances) == 1
 
 
-def test_lineage_flag_in_force_for_client():
-    fl = egeria_auth._for_lineage.set(True)
-    try:
-        egeria_auth.PortalSupply().client(FakeClient)
-    finally:
-        egeria_auth._for_lineage.reset(fl)
-    assert FakeClient.lineage_seen == [True]
+def test_middleware_puts_lineage_flag_in_force_for_the_request():
+    """PortalSupply adds no lineage wrapping: the middleware already holds pyegeria's default."""
+    import asyncio
+    from pyegeria.core._base_platform_client import _for_lineage_default
+    seen = {}
+
+    async def app(scope, receive, send):
+        seen["pyegeria"] = _for_lineage_default.get()
+        seen["portal"] = egeria_auth.for_lineage_requested()
+
+    asyncio.run(egeria_auth.EgeriaTokenMiddleware(app)(
+        {"type": "http", "headers": [(b"x-egeria-for-lineage", b"true")]}, None, None))
+    assert seen == {"pyegeria": True, "portal": True}
 
 
 def test_viewer_read_from_report_viewer_contextvar():
