@@ -128,6 +128,12 @@
   .vega-block svg, .vega-block canvas { max-width:100%; }
   .placement .p-note { font-size:.76rem; color:var(--amber); background:rgba(245,183,78,.08); border:1px solid rgba(245,183,78,.25); border-radius:6px; padding:8px 10px; margin-top:4px; }
   .placement .p-note a { color:#4f9cf9; text-decoration:underline; }
+  /* RS-W2-4: a refusal in the server's (or the resolver's) own words, labelled by status. */
+  .p-refusal { font-size:.78rem; background:rgba(248,113,113,.08); border:1px solid rgba(248,113,113,.35); border-radius:6px; padding:8px 10px; margin-top:4px; }
+  .p-refusal .p-refusal-label { font-size:.68rem; font-weight:700; color:#f87171; text-transform:uppercase; letter-spacing:.04em; }
+  .p-refusal .p-refusal-words { color:var(--text); margin-top:3px; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .p-refusal a { color:#4f9cf9; text-decoration:underline; }
+  .badge-binders { font-size:.62rem; font-weight:700; color:#f5b74e; border:1px solid rgba(245,183,78,.45); border-radius:4px; padding:0 4px; margin-left:6px; vertical-align:middle; }
   .spinner { width:16px; height:16px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; display:inline-block; }
   @keyframes spin { to { transform:rotate(360deg); } }
 
@@ -257,6 +263,29 @@ function attrJson(v) {
   return JSON.stringify(v).replace(/"/g, '&quot;');
 }
 
+// RS-W2-4 -- a non-2xx execute response, or a spec the resolver already knows
+// cannot run: the words the server sent, verbatim, labelled by status. No
+// blank tile, and no generic text in place of words the server sent.
+function refusalLabel(status) {
+  return status === 400 ? 'The spec refused to run'
+       : status === 401 ? 'Sign-in needed'
+       : (status === 504 || status === 408 || status === 524) ? 'Timed out'
+       : status === 500 ? 'Server error'
+       : status === 'unrunnable' ? 'This spec cannot run'
+       : status ? 'Error ' + status : 'Request failed';
+}
+function refusalHtml(status, words, specName) {
+  return '<div class="p-refusal" role="alert"><div class="p-refusal-label">' + esc(refusalLabel(status))
+    + (typeof status === 'number' && status ? ' (' + status + ')' : '') + '</div>'
+    + '<div class="p-refusal-words">' + esc(words) + '</div>'
+    + (specName ? '<div style="margin-top:4px"><a href="/egeria-explorer?name=' + encodeURIComponent(specName)
+      + '#report-specs" target="_blank" rel="noopener">open in Report Spec Browser →</a></div>' : '')
+    + '</div>';
+}
+function refusalFromError(err, specName) {
+  return refusalHtml(err && err.status, (err && err.message) || String(err), specName);
+}
+
 function spanClass(span) {
   return span === 'full' ? 'span-full' : (span === '2' ? 'span-2' : 'span-1');
 }
@@ -317,7 +346,10 @@ function _fetchExecuteCached(body, force) {
     if (!r.ok) return r.text().then(function(t) {
       var detail = null;
       try { detail = JSON.parse(t).detail; } catch (e) {}
-      throw new Error(detail || ('HTTP ' + r.status));
+      if (detail != null && typeof detail !== 'string') detail = JSON.stringify(detail);
+      var e = new Error(detail || ('HTTP ' + r.status));
+      e.status = r.status;  // refusalHtml labels the words by status
+      throw e;
     });
     return r.json();
   }).then(function(result) {
@@ -385,7 +417,7 @@ function openDrillDrawer(p, i) {
       renderVegaBlocks(out.vegaBlocks);
     })
     .catch(function(err) {
-      body.innerHTML = '<div class="p-note">⚠ ' + esc(err.message) + '</div>';
+      body.innerHTML = refusalFromError(err, p.detailSpec);
     });
 }
 
@@ -523,7 +555,11 @@ function renderDetail(name) {
         var refreshBtn = p.kind === 'report'
           ? '<button class="icon-btn" id="refresh-btn-' + i + '" title="Refresh this report (bypass cache)" aria-label="Refresh this report" onclick="renderPlacementBody(' + attrJson(p) + ',' + i + ',true)">↻</button>'
           : '';
-        el.innerHTML = '<h4>' + esc(p.heading) + refreshBtn + adjustBtn + drillBtn + '</h4>'
+        // RS-W2-4 (O1-a) -- the spec carried analytic_binders, which pyegeria ignores.
+        var bindersTag = p.bindersDeprecated
+          ? '<span class="badge-binders" title="This placement\'s spec carried analytic_binders, which pyegeria now ignores: the routine\'s declared inputs are supplied instead.">BINDERS IGNORED</span>'
+          : '';
+        el.innerHTML = '<h4>' + esc(p.heading) + bindersTag + refreshBtn + adjustBtn + drillBtn + '</h4>'
           + (p.description ? '<div class="p-desc">' + esc(p.description) + '</div>' : '')
           + (p.kind === 'report' ? '<div class="adjust-panel" id="adjust-panel-' + i + '" style="display:none"></div>' : '')
           + '<div class="p-body" id="placement-body-' + i + '"></div>';
@@ -570,6 +606,14 @@ function renderPlacementBody(p, i, force) {
     renderMermaidBlocks(out.mermaidBlocks);
     return;
   }
+  // kind === 'report' on a spec pyegeria's resolver already refused at load
+  // (runnable === false): show its words instead of calling execute -- it
+  // would only fail, once per refresh. runnable === null (not resolved) and
+  // true both run as before.
+  if (p.runnable === false) {
+    target.innerHTML = refusalHtml('unrunnable', p.refusal || ('Spec \'' + (p.reportSpec || '') + '\' cannot run.'), p.reportSpec);
+    return;
+  }
   // kind === 'report', isAnalytic === true — an analytic-function-backed spec
   // (extra_find/analytic_function on the Report Spec, e.g. count_elements,
   // growth_series) rather than a find-oriented one. Params come from the
@@ -594,7 +638,7 @@ function renderPlacementBody(p, i, force) {
         renderVegaBlocks(out.vegaBlocks);
         applyKpiTileClass(p, i, out);
       })
-      .catch(function(err) { target.innerHTML = '<div class="p-note">⚠ ' + esc(err.message) + '</div>'; });
+      .catch(function(err) { target.innerHTML = refusalFromError(err, p.reportSpec); });
     return;
   }
 
@@ -638,7 +682,7 @@ function renderPlacementBody(p, i, force) {
       renderVegaBlocks(out.vegaBlocks);
       applyKpiTileClass(p, i, out);
     })
-    .catch(function(err) { target.innerHTML = '<div class="p-note">⚠ ' + esc(err.message) + '</div>'; });
+    .catch(function(err) { target.innerHTML = refusalFromError(err, p.reportSpec); });
 }
 
 // Switches the placement's outer card into compact-tile mode (BACKLOG.md

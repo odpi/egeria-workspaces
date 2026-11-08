@@ -33,6 +33,8 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
 
+import spec_resolution
+
 router = APIRouter(tags=["analytics"])
 
 # Resource Explorer's Curation Coverage tile (re_analytics.py), fetched from RE
@@ -74,8 +76,16 @@ def _demo_report_spec_names() -> dict:
 
 
 def _serialize(name: str, spec, demo_specs: dict) -> dict:
-    """Convert an AnalyticFunctionSpec to a JSON-serialisable dict."""
-    return {
+    """Convert an AnalyticFunctionSpec to a JSON-serialisable dict.
+
+    RS-W2-4 adds the routine declaration (kind, binding, inputs, outFields/outShape, tileSafe, and
+    each param's category); every earlier key is kept."""
+    try:
+        declared = spec_resolution.routine_fields(spec)
+    except Exception as exc:  # noqa: BLE001 -- one bad entry must not take the list down
+        logger.warning(f"analytics: could not read routine declaration for {name}: {exc}")
+        declared = {}
+    return {**declared,
         "name":           name,
         "function":       getattr(spec, "function", "") or "",
         "description":    getattr(spec, "description", "") or "",
@@ -90,6 +100,7 @@ def _serialize(name: str, spec, demo_specs: dict) -> dict:
                 "required":    bool(getattr(p, "required", False)),
                 "default":     getattr(p, "default", None),
                 "description": getattr(p, "description", "") or "",
+                "category":    getattr(p, "category", None) or "content",
             }
             for p in (getattr(spec, "params", []) or [])
         ],
@@ -132,4 +143,5 @@ def get_analytics(
         result.append(s)
 
     result.sort(key=lambda s: s["name"])
-    return JSONResponse({"functions": result, "total": len(result)})
+    return JSONResponse({"functions": result, "total": len(result),
+                         "portalSupply": spec_resolution.PORTAL_SUPPLY_NOTE})
