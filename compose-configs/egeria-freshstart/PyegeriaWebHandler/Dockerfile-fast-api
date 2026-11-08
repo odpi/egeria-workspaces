@@ -32,7 +32,10 @@ RUN pip install --no-cache-dir --retries 10 --timeout 60 -r requirements.txt
 # PYEGERIA_BUST=<that version> on every run (compose-configs/shared-infra/
 # resolve-pyegeria.sh), so the layer rebuilds exactly when the version
 # changes. The default below is only the floor for a plain compose build.
-ARG PYEGERIA_VERSION=pyegeria>=6.2.21
+# Capped below 6.2.27 (see requirements.txt): freshstart's Overview is not ready for repository-wide totals
+# and not-measured (None) counts. NOTE: quick-start-local/fresh-start-local override this ARG with the
+# latest PyPI release unless a version is pinned (--pyegeria-version 6.2.26), so the cap governs plain builds only.
+ARG PYEGERIA_VERSION=pyegeria>=6.2.21,<6.2.27
 ARG PYEGERIA_BUST=0
 RUN echo "pyegeria layer ${PYEGERIA_BUST}" \
     && pip install --no-cache-dir --retries 10 --timeout 60 "${PYEGERIA_VERSION}" --upgrade
