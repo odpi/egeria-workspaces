@@ -52,16 +52,30 @@ def _no_native_counts(monkeypatch):
     monkeypatch.setattr(om, "_native_count_method", lambda *a, **k: None)
 
 
+# The cap belongs to the viewer find fallback; from 6.2.27 an unscoped count is the repository's, which
+# has no fallback at all (see the last test). So the cap is exercised with population="viewer".
+VIEWER = {"population": "viewer"}
+
+
 def test_capped_counts_are_none_not_the_cap():
-    assert om.count_elements(_CappedMgr(), "SurveyReport") is None             # non-strict, as the handler calls it
-    assert om.count_elements(_CappedMgr(), "Asset", strict=True) is None
+    assert om.count_elements(_CappedMgr(), "SurveyReport", **VIEWER) is None   # non-strict
+    assert om.count_elements(_CappedMgr(), "Asset", strict=True, **VIEWER) is None
+    assert om.count_relationships(_CappedCE(), "AttachedRating", **VIEWER) is None
+    # the default population (repository from 6.2.27) is never the cap either
+    assert om.count_elements(_CappedMgr(), "SurveyReport") is None
     assert om.count_relationships(_CappedCE(), "AttachedRating") is None
 
 
 def test_capped_count_records_its_lower_bound():
     with om.recording_unmeasured() as notes:
-        om.count_elements(_CappedMgr(), "Asset", strict=True)
+        om.count_elements(_CappedMgr(), "Asset", strict=True, **VIEWER)
     assert notes and notes[0]["at_least"] == CAP
+
+
+def test_unscoped_count_without_native_is_noted_not_guessed():
+    with om.recording_unmeasured() as notes:
+        value = om.count_elements(_CappedMgr(), "Asset", strict=True)
+    assert value is None and notes            # a note says why, whichever population is the default
 
 
 def test_feedback_tally_with_capped_relationship_pages():

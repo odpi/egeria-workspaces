@@ -104,8 +104,121 @@ def test_ratios_with_find_numerators_never_use_the_scoped_total():
     src = inspect.getsource(oh.get_summary)
     # find-based survey / schema ratios get a total only when it is viewer-scoped
     assert "_overlay_viewer_total(payload," in src            # viewer total comes only from the overlay
-    # the funnel keeps viewer scope for every stage and its ownership / AI-Ready percentages
-    assert '"countScope": VIEWER' in inspect.getsource(oh._compute_ai_context)
+
+
+
+def _ai_context(monkeypatch, default_scope, viewer_total=(None, True, False, None)):
+    """get_ai_context with every Egeria call stubbed; returns (payload, scopes count_elements received).
+    `default_scope` is the default of count_elements' scope parameter: "repository" from pyegeria 6.2.27
+    (and so the population of context_readiness_funnel, which takes none), None before it."""
+    import json
+    seen = []
+
+    def count_elements(mgr, type_name=None, as_of=None, classifications=None, strict=False, scope=default_scope):
+        seen.append(scope)
+        return 1000 if classifications is None else 300
+    monkeypatch.setattr(oh, "count_elements", count_elements)
+    monkeypatch.setattr(oh, "_expert", lambda *a, **k: object())
+    monkeypatch.setattr(oh, "_make", lambda *a, **k: object())
+    monkeypatch.setattr(oh, "context_readiness_funnel", lambda mgr, ce, as_of=None: {
+        "cataloged": 1000, "documented": 400, "classified": 300, "lineage": 200, "aiReady": None})
+    monkeypatch.setattr(oh, "semantic_grounding", lambda mgr, ce, as_of=None: {"groundingLinks": 50, "groundingPct": 5})
+    monkeypatch.setattr(oh, "ownership_coverage", lambda mgr, as_of=None: {"ownershipCount": 120})
+    monkeypatch.setattr(oh, "ai_ready_assets", lambda mgr, ce, as_of=None: {"aiReadyCount": 40, "total": 500})
+    monkeypatch.setattr(oh, "drl_readiness_gates", None, raising=False)
+    monkeypatch.setattr(oh, "_section_fetch", lambda key, compute, ok=None: (compute(), {}))   # compute inline
+    monkeypatch.setattr(oh, "_env", lambda *a, **k: ("u", "view-server", "x", "y"))
+    monkeypatch.setattr(oh, "_viewer_total_state", lambda *a, **k: viewer_total)
+    resp = oh.get_ai_context(as_of_time=None, url=None, server=None, user_id=None, user_pwd=None)
+    return json.loads(resp.body), seen
+
+
+def test_ai_context_on_a_viewer_default_pyegeria_is_unchanged(monkeypatch):
+    out, seen = _ai_context(monkeypatch, None)
+    assert out["countScope"] == oh.VIEWER
+    assert seen == [oh.VIEWER, oh.VIEWER]                    # the strict re-count: explicit, the funnel's population
+    assert out["funnel"]["aiReady"] == 40 and out["aiReadyCount"] == 40
+    assert out["ownershipPct"] == 12.0                       # 120 / 1000: viewer over viewer, as before
+    assert "ownershipPctLoading" not in out
+
+
+def test_ai_context_on_a_repository_default_pyegeria_never_mixes_populations(monkeypatch):
+    # P1-2. pyegeria 6.2.27: the funnel and grounding count the whole repository; ownership and AI-Ready are
+    # finds (what the viewer can see) and are never divided by, or drawn beside, the repository total.
+    out, seen = _ai_context(monkeypatch, oh.REPOSITORY)
+    assert out["countScope"] == oh.REPOSITORY                # funnel stages labelled repository
+    assert seen == [oh.REPOSITORY, oh.REPOSITORY]
+    assert out["funnel"]["cataloged"] == 1000 and out["funnel"]["classified"] == 300
+    assert out["funnel"]["aiReady"] is None                   # not a stage of a repository funnel
+    assert out["aiReadyCount"] == 40 and out["aiReadyScope"] == oh.VIEWER
+    assert out["aiReadyPct"] == 8.0                           # 40 / 500: its own (viewer) total
+    assert out["ownershipScope"] == oh.VIEWER
+    # the viewer Asset total is still counting: not measured, never 120 / 1000 (a viewer find over the repository)
+    assert out["ownershipCount"] == 120 and out["ownershipPct"] is None and out["ownershipPctLoading"] is True
+
+
+def test_ai_context_ownership_divides_by_the_viewer_total(monkeypatch):
+    out, _ = _ai_context(monkeypatch, oh.REPOSITORY, viewer_total=(600, False, False, 1.0))
+    assert out["ownershipPct"] == 20.0                        # 120 / 600 (viewer), not 120 / 1000 (repository)
+    assert out["ownershipPctLoading"] is False
+
+
+def test_strict_funnel_counts_pass_the_scope_explicitly(monkeypatch):
+    seen = []
+
+    def with_scope(mgr, type_name=None, as_of=None, classifications=None, strict=False, scope=None):
+        seen.append(scope)
+        return 0
+    monkeypatch.setattr(oh, "count_elements", with_scope)
+    oh._strict_funnel_counts({}, None, None, scope=oh.REPOSITORY)
+    oh._strict_funnel_counts({}, None, None, scope=oh.VIEWER)
+    assert seen == [oh.REPOSITORY, oh.REPOSITORY, oh.VIEWER, oh.VIEWER]
+
+    def without_scope(mgr, type_name=None, as_of=None, classifications=None, strict=False):   # pyegeria <= 6.2.21
+        return 0
+    monkeypatch.setattr(oh, "count_elements", without_scope)
+    assert oh._strict_funnel_counts({}, None, None, scope=oh.REPOSITORY)["cataloged"] == 0
+
+
+def test_summary_passes_its_scope_to_business_value_and_survey_coverage(stubbed_summary):
+    seen, ce, bt, rel, prop = _stubs(with_scope=True)
+    got = {}
+
+    def bv(mgr, as_of=None, scope=None, *, population=None):
+        got["business_value_signals"] = scope
+        return {"assetTotal": 100, "assetCapped": False, "confidentialCount": 1, "describedCount": 2,
+                "duplicateCount": 0}
+
+    def survey(mgr, ce_, as_of=None, asset_total=None, scope=oh.REPOSITORY):
+        got["_survey_coverage"] = scope
+        return {k: None for k in ("surveyedAssets", "dataStoreTotal", "surveyedStores", "neverSurveyedStores",
+                                  "surveyReports", "surveyLinksCapped", "qualityAnnotatedAssets", "annotationsByType",
+                                  "surveysCompleted", "surveysFailed", "surveysUnknown", "assetsSurveyFailedOnly",
+                                  "latestSurveyTime", "surveysCompleted7d", "dataStoresByKind", "schemaAnalysedGuids")}
+    out = stubbed_summary(ce, bt, rel, prop, business_value_signals=bv, _survey_coverage=survey)
+    assert out["countScope"] == oh.REPOSITORY
+    assert got == {"business_value_signals": oh.REPOSITORY, "_survey_coverage": oh.REPOSITORY}
+
+
+def test_survey_coverage_counts_in_the_scope_it_is_given(monkeypatch):
+    seen = []
+
+    def count_elements(mgr, type_name=None, as_of=None, classifications=None, strict=False, scope=None):
+        seen.append((type_name, scope, strict))
+        return 7
+
+    class Mgr:   # every find fills its page, so the DataStore total comes from the native count
+        def find_metadata_elements(self, body):
+            return [{"elementHeader": {"guid": f"g{i}"}, "guid": f"g{i}"} for i in range(body.get("pageSize") or 500)]
+
+    class CE:
+        def get_relationships(self, **kw):
+            return []
+    monkeypatch.setattr(oh, "count_elements", count_elements)
+    out = oh._survey_coverage(Mgr(), CE(), None, None, scope=oh.REPOSITORY)
+    assert ("SurveyReport", oh.REPOSITORY, True) in seen and ("DataStore", oh.REPOSITORY, True) in seen   # strict
+    assert out["surveyReports"] == 7 and out["dataStoreTotal"] == 7
+    assert out["neverSurveyedStores"] is None                 # a capped store find never feeds the difference
 
 
 # ── payload reports the scope actually used ──────────────────────────────────
@@ -115,7 +228,7 @@ def stubbed_summary(monkeypatch):
     """get_summary with every Egeria call replaced by a stub; returns a callable -> payload dict."""
     import json
 
-    def run(count_elements_fn, by_type_fn, rel_fn, prop_fn):
+    def run(count_elements_fn, by_type_fn, rel_fn, prop_fn, **overrides):
         monkeypatch.setattr(oh, "count_elements", count_elements_fn)
         monkeypatch.setattr(oh, "counts_by_type", by_type_fn)
         monkeypatch.setattr(oh, "count_relationships", rel_fn)
@@ -143,6 +256,8 @@ def stubbed_summary(monkeypatch):
         monkeypatch.setattr(oh, "_engine_action_health", lambda *a, **k: None)
         monkeypatch.setattr(oh, "_confidentiality_levels", lambda *a, **k: {"levels": None, "classified": None, "capped": None})
         monkeypatch.setattr(oh, "_assets_by_technology", lambda *a, **k: {"technologies": None, "unrecorded": None, "placeholders": None, "total": None})
+        for name, value in overrides.items():          # a test's own stub for any of the above
+            monkeypatch.setattr(oh, name, value)
         resp = oh.get_summary(as_of_time=None, url=None, server=None, user_id=None, user_pwd=None)
         return json.loads(resp.body)
     return run

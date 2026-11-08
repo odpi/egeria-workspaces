@@ -336,6 +336,21 @@ def _count_scope(*fns) -> str:
     return REPOSITORY if fns and all(_accepts_scope(f) for f in fns) else VIEWER
 
 
+def _default_population(fn) -> str:
+    """The population `fn` counts when no scope is passed, read from its signature (never a version).
+
+    Every count call in this module passes its population explicitly; this is only for the helpers that
+    cannot be told one -- context_readiness_funnel and semantic_grounding take no scope. They count in
+    pyegeria's default population: since the totals change (pyegeria 6.2.27, owner decision 2026-11-08) that
+    is the whole repository, the default of count_elements' scope; before it they reached the server's
+    default, which counts what the viewer can see. So `_default_population(count_elements)` names theirs."""
+    try:
+        param = inspect.signature(fn).parameters.get("scope")
+    except (TypeError, ValueError):
+        return VIEWER
+    return REPOSITORY if param is not None and param.default == REPOSITORY else VIEWER
+
+
 def _scoped(fn, scope: str, **extra):
     """`fn` with `scope="repository"` (plus any `extra` kwargs) bound when requested and supported;
     otherwise `fn` unchanged. count_relationships needs `expert=<MetadataExpert>` for a scope to apply
@@ -407,14 +422,16 @@ def _reconcile_business_value(bv: dict, asset_total: Optional[int], duplicate_co
     return out
 
 
-def _strict_funnel_counts(readiness: dict, mgr, as_of: Optional[str] = None) -> dict:
-    """Re-measure the funnel's Cataloged/Classified stages strictly.
+def _strict_funnel_counts(readiness: dict, mgr, as_of: Optional[str] = None, scope: Optional[str] = None) -> dict:
+    """Re-measure the funnel's Cataloged/Classified stages strictly, in `scope` (the funnel's own
+    population, see _compute_ai_context), passed explicitly whenever count_elements takes it.
 
     pyegeria's context_readiness_funnel returns `count or None`, turning a measured 0 into null (and a
     failed count into 0 first). A measured 0 must stay 0 and a failure must stay None."""
+    n = functools.partial(count_elements, scope=scope) if scope and _accepts_scope(count_elements) else count_elements
     out = dict(readiness)
-    out["cataloged"] = count_elements(mgr, "Asset", as_of, strict=True)
-    out["classified"] = count_elements(mgr, None, as_of, classifications=GOVERNANCE_CLASSIFICATIONS, strict=True)
+    out["cataloged"] = n(mgr, "Asset", as_of, strict=True)
+    out["classified"] = n(mgr, None, as_of, classifications=GOVERNANCE_CLASSIFICATIONS, strict=True)
     return out
 
 
@@ -861,7 +878,7 @@ def _compute_summary(as_of_time, url, server, user_id, user_pwd) -> dict:
     if business_value_signals is not None:
         try:
             biz_value = _reconcile_business_value(
-                business_value_signals(mgr, as_of_time), asset_total,
+                _scoped(business_value_signals, scope)(mgr, as_of_time), asset_total,
                 n_elements(mgr, None, as_of_time, classifications=["ConsolidatedDuplicate"], strict=True))
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"overview summary: business_value_signals failed: {exc}")
@@ -891,7 +908,7 @@ def _compute_summary(as_of_time, url, server, user_id, user_pwd) -> dict:
                     "surveysCompleted7d": None, "dataStoresByKind": None}
     if ce is not None:
         try:
-            survey = _survey_coverage(mgr, ce, as_of_time, asset_total)
+            survey = _survey_coverage(mgr, ce, as_of_time, asset_total, scope=scope)
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"overview summary: survey coverage failed: {exc}")
     schema = _schema_coverage(mgr, as_of_time, survey.get("schemaAnalysedGuids"))
@@ -1373,7 +1390,8 @@ def _survey_outcomes(mgr, as_of: Optional[str] = None, times: Optional[dict] = N
         return None
 
 
-def _survey_coverage(mgr, ce, as_of: Optional[str] = None, asset_total: Optional[int] = None) -> dict:
+def _survey_coverage(mgr, ce, as_of: Optional[str] = None, asset_total: Optional[int] = None,
+                     scope: str = REPOSITORY) -> dict:
     """How much of the catalog has been successfully surveyed, and how many surveys failed.
 
     A SurveyReport is linked to the asset it describes by a ReportSubject relationship
@@ -1404,7 +1422,9 @@ def _survey_coverage(mgr, ce, as_of: Optional[str] = None, asset_total: Optional
            "surveysUnknown": None, "assetsSurveyFailedOnly": None, "latestSurveyTime": None,
            "surveysCompleted7d": None, "dataStoresByKind": None}
     try:
-        out["surveyReports"] = count_elements(mgr, "SurveyReport", as_of)
+        # the summary payload's population (`scope`, its countScope), passed explicitly; a lone figure, no ratio.
+        # strict: a repository count that cannot be taken is None -- non-strict, pyegeria <= 6.2.26 gives 0.
+        out["surveyReports"] = _scoped(count_elements, scope)(mgr, "SurveyReport", as_of, strict=True)
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview survey coverage: SurveyReport count failed: {exc}")
 
@@ -1514,7 +1534,9 @@ def _survey_coverage(mgr, ce, as_of: Optional[str] = None, asset_total: Optional
         found = [e for e in (found if isinstance(found, list) else []) if isinstance(e, dict)]
         store_guids = {g for g in (_guid_of(e) for e in found) if g}
         stores_capped = len(found) >= _SURVEY_LINK_CAP
-        out["dataStoreTotal"] = (count_elements(mgr, "DataStore", as_of) if stores_capped else len(store_guids))
+        # capped find: the native count, in the summary's population (neverSurveyedStores needs an uncapped find)
+        out["dataStoreTotal"] = (_scoped(count_elements, scope)(mgr, "DataStore", as_of, strict=True) if stores_capped
+                                 else len(store_guids))
         if not stores_capped:
             kinds: dict = {}
             for e in found:
@@ -1561,11 +1583,31 @@ def get_ai_context(
         ok=lambda p: (p.get("funnel") or {}).get("cataloged") is not None)
     if payload is None:
         return _section_unready("ai-context", meta)
+    payload = _overlay_ai_ownership(payload, url, server, user_id, user_pwd, as_of_time)
     return JSONResponse({**payload, **meta})
+
+
+def _overlay_ai_ownership(payload: dict, url, server, user_id, user_pwd, as_of) -> dict:
+    """ownershipPct for a repository-population ai-context payload: the owner count is a find (what the
+    viewer can see), so its denominator is the viewer's Asset total -- the main Overview's background count
+    (never blocks; None while it is counting, with ownershipPctLoading). A viewer payload already divided
+    by its own viewer `cataloged` and is returned unchanged."""
+    if payload.get("countScope") != REPOSITORY:
+        return payload
+    out = dict(payload)
+    value, loading, _stale, _counted_at = _viewer_total_state(url, server, user_id, user_pwd, as_of)
+    count = out.get("ownershipCount")
+    out["ownershipPct"] = (round(100 * count / value, 1)
+                           if count is not None and value and count <= value else None)
+    out["ownershipPctLoading"] = loading
+    return out
 
 
 def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
     """Every Egeria call behind ai-context (~2 min cold). Runs in a background worker."""
+    # The funnel, its strict re-count and grounding take no scope here, so they count pyegeria's default
+    # population: the whole repository from 6.2.27, what the viewer can see before it.
+    population = _default_population(count_elements)
     try:
         mgr = _expert(url, server, user_id, user_pwd)
     except Exception as exc:  # noqa: BLE001
@@ -1623,7 +1665,10 @@ def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
         ownership = ownership_coverage(mgr, as_of_time)
         ownership_count = ownership["ownershipCount"]
         total = readiness.get("cataloged")
-        if total:
+        # the owner count comes from a find (what the viewer can see): divide only by a viewer total. In a
+        # repository funnel that total is the background viewer Asset count, applied per request
+        # (_overlay_ai_ownership), never `cataloged`.
+        if total and population == VIEWER:
             ownership_pct = round(100 * ownership_count / total, 1)
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview ai-context: ownership query failed: {exc}")
@@ -1641,11 +1686,14 @@ def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
         ai_ready_count = ready["aiReadyCount"]
         if ready["total"]:
             ai_ready_pct = round(100 * ai_ready_count / ready["total"], 1)
-        readiness["aiReady"] = ai_ready_count
+        # a funnel stage only in a viewer funnel: ai_ready_assets is a find (what the viewer can see), so it
+        # is not a stage of a whole-repository funnel; it stays in the payload as aiReadyCount (viewer)
+        if population == VIEWER:
+            readiness["aiReady"] = ai_ready_count
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview ai-context: ai_ready_assets query failed: {exc}")
 
-    readiness = _strict_funnel_counts(readiness, mgr, as_of_time)
+    readiness = _strict_funnel_counts(readiness, mgr, as_of_time, scope=population)
 
     funnel = {
         "Cataloged":       readiness["cataloged"],
@@ -1679,9 +1727,14 @@ def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
 
     payload = {
         "asOfTime":  as_of_time,
-        # The funnel mixes find-based stages (Documented, AI-Ready) with counts, so every stage and the
-        # ownership / AI-Ready percentages stay viewer-scoped; only a single scope is ever shown here.
-        "countScope": VIEWER,
+        # The population of the funnel's counts and grounding. On a pyegeria whose totals count the whole
+        # repository (6.2.27+), funnel and grounding are repository counts, and the two find-based figures
+        # below (ownership, AI-Ready) are viewer-scoped: they are reported on their own, never divided by a
+        # repository total and never drawn as a funnel stage. Older pyegeria: everything is viewer, as before.
+        "countScope": population,
+        "aiReadyCount":    ai_ready_count,
+        "aiReadyScope":    VIEWER,       # ai_ready_assets is a find
+        "ownershipScope":  VIEWER,       # ownership_coverage is a find
         "funnel": {
             "cataloged":  funnel["Cataloged"],
             "documented": funnel["Documented"],

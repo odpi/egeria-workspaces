@@ -1696,7 +1696,9 @@ function drillFor(key){
   if(key.startsWith('zone-')) return zoneDrill(key.slice(5));
   if(key.startsWith('funnel-')){
     const meta={'funnel-cataloged':['Cataloged','All registered assets',LIVE.cataloged],'funnel-documented':['Documented','Have a description / usage',LIVE.documented],'funnel-classified':['Classified','Carry governance classifications',LIVE.classified],'funnel-lineage':['Lineage-traced','Connected in the lineage graph',LIVE.lineage],'funnel-airead':['AI-Ready','Pass all context-readiness gates',LIVE.aiReadyCount]}[key];
-    const n=meta[2], tot=LIVE.cataloged, known=(n!=null), pct=(known&&tot)?Math.round(n/tot*100)+'%':ND;
+    // AI-Ready is a find (what you can see): no share of a whole-repository Cataloged count
+    const sameScope = key !== 'funnel-airead' || (LIVE.aiReadyScope || 'viewer') === (LIVE.scopeAi || 'viewer');
+    const n=meta[2], tot=sameScope?LIVE.cataloged:null, known=(n!=null), pct=(known&&tot)?Math.round(n/tot*100)+'%':ND;
     return { eb:'Context readiness', t:'🚦 '+meta[0], s:meta[1]+(known?' — '+n.toLocaleString()+' assets'+(tot?' ('+pct+' of catalog)':''):''),
       stats:[[known?n.toLocaleString():ND,'assets'],[pct,'of catalog']], list:(known&&tot&&n<=tot)?[['Reaches this stage',n],['Drops off before',tot-n]]:[],
       cta:['Open The Catalog','/tech-catalog'], sec:['Fix gaps via Query','/egeria-insights'],
@@ -1741,7 +1743,8 @@ function drillLivePatch(key, d){
   if (key === 'ai-ready' && LIVE.aiReadyCount != null) {
     d.stats[0][0] = String(LIVE.aiReadyCount);
     if (LIVE.aiReadyPct != null) d.stats[1][0] = LIVE.aiReadyPct + '%';
-    if (LIVE.cataloged != null && LIVE.cataloged >= LIVE.aiReadyCount) set(2, LIVE.cataloged - LIVE.aiReadyCount);   // same (viewer) scope as aiReadyCount
+    if (LIVE.cataloged != null && LIVE.cataloged >= LIVE.aiReadyCount
+        && (LIVE.aiReadyScope || 'viewer') === (LIVE.scopeAi || 'viewer')) set(2, LIVE.cataloged - LIVE.aiReadyCount);   // only within one population
     d.s = num(LIVE.aiReadyCount) + ' assets are governed + documented + lineage-traced — safe to serve as AI context';
     d.list = [['Documented', LIVE.documented], ['Classified', LIVE.classified], ['Lineage-traced', LIVE.lineage], ['AI-ready (all gates)', LIVE.aiReadyCount]]
               .filter(r => r[1] != null);
@@ -2307,12 +2310,18 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     if (d.ownershipPct != null) store.ownershipPct = d.ownershipPct;
     if (d.ownershipCount != null) store.ownershipCount = d.ownershipCount;
     if (d.aiReadyPct != null) store.aiReadyPct = d.aiReadyPct;
+    // The funnel's population (countScope) and AI-Ready's (always a find: what you can see) differ once
+    // pyegeria counts totals over the whole repository; then AI-Ready is reported on its own and is not
+    // a funnel stage. A payload without these fields is all-viewer, as before.
+    store.scopeAi = d.countScope || 'viewer';
+    store.aiReadyScope = d.aiReadyScope || store.scopeAi;
+    if (d.aiReadyCount != null) store.aiReadyCount = d.aiReadyCount;
     if (d.funnel) {
       if (d.funnel.aiReady != null)   store.aiReadyCount = d.funnel.aiReady;
       if (d.funnel.documented != null) store.documented = d.funnel.documented;
       if (d.funnel.classified != null) store.classified = d.funnel.classified;
       if (d.funnel.lineage != null)    store.lineage = d.funnel.lineage;
-      store.cataloged = d.funnel.cataloged;   // viewer-scoped: the denominator for the funnel's own percentages
+      store.cataloged = d.funnel.cataloged;   // countScope's population: the denominator for the funnel's own percentages
     }
     if (!primary) return;
     // AI section grounding tile + funnel — cataloged/classified/documented/
@@ -2331,7 +2340,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     setFunnel('uc-cataloged', f.cataloged, f.cataloged); setFunnel('uc-documented', f.documented, f.cataloged);
     setFunnel('uc-classified', f.classified, f.cataloged); setFunnel('uc-lineage', f.lineage, f.cataloged);
     setFunnel('uc-airead', f.aiReady, f.cataloged);
-    if (f.aiReady != null) setTxt('uc-ai-ready', fmt(f.aiReady));
+    if (store.aiReadyCount != null) setTxt('uc-ai-ready', fmt(store.aiReadyCount));
     if (d.aiReadyPct != null) setTxt('uc-ai-ready-sub', d.aiReadyPct + '% — governed + documented + lineage');
     // DRL recency + modality (NEXT-8 §1.9) — a narrowing of AI-Ready by last-
     // update recency, not yet a full Analytics-Ready/RAG-Ready band
