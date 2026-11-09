@@ -593,6 +593,7 @@ def get_term_assigned_elements(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now (the view's As-of slider)"),
 ):
     """The reverse of a schema/data-field's "assigned terms" badge: given a
     term, everything SemanticAssignment-linked to it, split physical vs
@@ -609,7 +610,7 @@ def get_term_assigned_elements(
         _raise_http(exc, "Failed to create ClassificationExplorer")
 
     try:
-        elements = elements_for_term_guid(ce, term_guid)
+        elements = elements_for_term_guid(ce, term_guid, as_of_time or None)
     except Exception as exc:
         _raise_http(exc, "elements_for_term_guid failed")
 

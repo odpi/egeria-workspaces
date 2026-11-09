@@ -21,7 +21,7 @@ end1=element/end2=term convention below still holds. As a defensive backstop
 we trust each end's own `type.typeName` over position when it's present and
 disagrees with the positional default.
 
-One bounded fetch per call (capped at _REL_CAP), not one call per element --
+One bounded paged read per call (at most _REL_PAGES pages of _REL_PAGE), not one call per element --
 the same "commonly interesting, not exhaustive" tradeoff
 insights_handler.py's _relationship_type_stats already makes for this app,
 reused here rather than reimplemented.
@@ -30,10 +30,15 @@ from typing import Optional
 
 from loguru import logger
 
-# Generous cap for a single relationship-type fetch. Not exhaustive on very
-# large repositories, same tradeoff insights_handler.py's _DEFAULT_CAP makes
-# — this feeds interactive badges/lookups, not a governance-audit total.
-_REL_CAP = 2000
+# Egeria refuses pageSize > 1000 (OMAG-COMMON-400-010). The old single read of
+# 2000 was refused on every call, and the failure was swallowed into [] -- so the
+# term's "Where is this used?" panel and the schema tree's term badges said
+# "nothing assigned" against a store holding hundreds of assignments. Read pages
+# of 1000; only an EMPTY page ends the read (a short page is not the last one,
+# per Egeria's paging contract). Still bounded: this feeds interactive
+# badges/lookups, not a governance-audit total.
+_REL_PAGE = 1000
+_REL_PAGES = 5
 
 
 def _flat_props(props_dict: dict) -> dict:
@@ -68,20 +73,28 @@ def _end_is_term(end: dict) -> Optional[bool]:
     return type_name == "GlossaryTerm"
 
 
-def _fetch_semantic_assignments(ce) -> list:
+def _fetch_semantic_assignments(ce, as_of_time: Optional[str] = None) -> list:
     """One bounded fetch of every SemanticAssignment relationship, normalized to
     [{"elementGuid": ..., "termGuid": ...}, ...]. Direction resolved per module
     docstring."""
-    try:
-        raw = ce.get_relationships(
-            relationship_type="SemanticAssignment", start_from=0,
-            page_size=_REL_CAP, output_format="JSON", body=None,
+    # Errors propagate: a failed read is not "nothing is assigned". The callers decide -- the
+    # assigned-elements route answers 500 (the panel says the lookup failed); the schema tree drops its badges.
+    raw = []
+    for page in range(_REL_PAGES):
+        body = {"class": "ResultsRequestBody", "startFrom": page * _REL_PAGE, "pageSize": _REL_PAGE}
+        if as_of_time:
+            body["asOfTime"] = as_of_time   # point-in-time (the view's As-of slider)
+        batch = ce.get_relationships(
+            relationship_type="SemanticAssignment", start_from=page * _REL_PAGE,
+            page_size=_REL_PAGE, output_format="JSON", body=body,
         )
-    except Exception:
-        logger.debug("semantic_links: SemanticAssignment fetch failed")
-        return []
+        if not isinstance(batch, list) or not batch:     # empty page (or pyegeria's "none found" string): done
+            break
+        raw.extend(batch)
+    else:
+        logger.info(f"semantic_links: SemanticAssignment read stopped at {_REL_PAGES * _REL_PAGE} (cap)")
     out = []
-    for r in (raw if isinstance(raw, list) else []):
+    for r in raw:
         if not isinstance(r, dict):
             continue
         end1, end2 = r.get("end1") or {}, r.get("end2") or {}
@@ -98,10 +111,12 @@ def _fetch_semantic_assignments(ce) -> list:
     return out
 
 
-def _resolve_display(ce, guid: str) -> dict:
+def _resolve_display(ce, guid: str, as_of_time: Optional[str] = None) -> dict:
     """{guid, displayName, qualifiedName, typeName} for one guid — cheap, depth 0."""
     try:
         body = {"class": "GetRequestBody", "graphQueryDepth": 0}
+        if as_of_time:
+            body["asOfTime"] = as_of_time
         raw = ce.get_element_by_guid(guid=guid, output_format="JSON", body=body)
         el = raw[0] if isinstance(raw, list) and raw else (raw if isinstance(raw, dict) else None)
         if not isinstance(el, dict):
@@ -137,17 +152,17 @@ def terms_for_element_guids(ce, element_guids) -> dict:
     return result
 
 
-def elements_for_term_guid(ce, term_guid: str) -> list:
+def elements_for_term_guid(ce, term_guid: str, as_of_time: Optional[str] = None) -> list:
     """Elements (physical or logical, whatever's assigned) for one glossary term,
     resolved to display info — the reverse direction of terms_for_element_guids."""
     if not term_guid:
         return []
-    links = [l for l in _fetch_semantic_assignments(ce) if l["termGuid"] == term_guid]
+    links = [l for l in _fetch_semantic_assignments(ce, as_of_time) if l["termGuid"] == term_guid]
     seen = set()
     out = []
     for l in links:
         if l["elementGuid"] in seen:
             continue
         seen.add(l["elementGuid"])
-        out.append(_resolve_display(ce, l["elementGuid"]))
+        out.append(_resolve_display(ce, l["elementGuid"], as_of_time))
     return out

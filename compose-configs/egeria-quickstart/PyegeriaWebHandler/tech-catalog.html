@@ -2398,7 +2398,8 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
     )
   );
 
-  return React.createElement(SidebarDetail, {
+  // AsOfContext: the shared widgets inside (diagrams, assigned elements, raw JSON, feedback) follow the slider.
+  return React.createElement(AsOfContext.Provider, { value: asOfTime }, React.createElement(SidebarDetail, {
     items: filtered, loading: loading, error: error, selected: selected, onSelect: handleSelect,
     filterBar: filterBar,
     loadingText: cached ? 'Loading the full list… The first load can take a few seconds; after that it is kept for up to 15 minutes — use Refresh to reload it sooner.' : null,
@@ -2432,7 +2433,7 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
       }
       return React.createElement(AssetDetail, { item: detail, detailLoading: detailLoad, onNavigate: onNavigate, creds: creds, sectionId: sectionId });
     },
-  });
+  }));
 }
 
 // ── Software Capabilities — hierarchy · instances · detail ──────────────────
@@ -2576,7 +2577,8 @@ function CapabilitiesView({ creds, onNavigate }) {
     .filter(function(i) { return !q.trim() || (i.displayName || i.qualifiedName || '').toLowerCase().indexOf(q.trim().toLowerCase()) !== -1; })
     .sort(function(a, b) { return (a.displayName || a.qualifiedName || '').localeCompare(b.displayName || b.qualifiedName || ''); });
 
-  return React.createElement('div', { className: 'body' },
+  // AsOfContext: the shared widgets inside (diagrams, assigned elements, raw JSON, feedback) follow the slider.
+  return React.createElement(AsOfContext.Provider, { value: asOfTime }, React.createElement('div', { className: 'body' },
     // Left: hierarchy + time slider
     React.createElement('div', { style: { width: treeW, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRight: '1px solid var(--border)' } },
       React.createElement('div', { style: { padding: '10px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 } },
@@ -2654,7 +2656,7 @@ function CapabilitiesView({ creds, onNavigate }) {
         })()
       : React.createElement(AssetDetail, { item: detail, detailLoading: detailLoad, onNavigate: onNavigate, creds: creds, sectionId: 'software-capabilities' })
     )
-  );
+  ));
 }
 
 // ── Annotation components ─────────────────────────────────────────────────────
@@ -3098,7 +3100,8 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
 
   var hasItems = !loading && !err && items && items.length > 0;
 
-  return el('div', { style: { display: 'flex', flex: 1, overflow: 'hidden', flexDirection: 'column' } },
+  // AsOfContext: the shared widgets inside (diagrams, assigned elements, raw JSON, feedback) follow the slider.
+  return React.createElement(AsOfContext.Provider, { value: asOf }, el('div', { style: { display: 'flex', flex: 1, overflow: 'hidden', flexDirection: 'column' } },
     // Toolbar
     el('div', { style: { padding: '6px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
       el(TimeSlider, { onChange: function(t) { setAsOf(t); load(q, filter, t); }, label: 'As of' }),
@@ -3221,7 +3224,7 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
         el(AnnotationCard, { ann: sel, onNavigate: onNavigate, annotTypeVals: annotTypeVals })
       )
     )
-  );
+  ));
 }
 
 

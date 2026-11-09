@@ -3715,7 +3715,8 @@ function GlossaryTermsTab({ navGuid, onNavigateToDataDesign, onNavigateToElement
         (terms.length >= 500 ? ' ⚠ first 500 shown' : '')
       ));
 
-  return React.createElement("div", { className: "body" },
+  // AsOfContext: the shared widgets inside (diagrams, assigned elements, raw JSON, feedback) follow the slider.
+  return React.createElement(AsOfContext.Provider, { value: asOfTime }, React.createElement("div", { className: "body" },
     // Left: glossary list
     React.createElement("div", { className: "sidebar", style: { width: sideW } },
       React.createElement("div", { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)' } },
@@ -3853,7 +3854,7 @@ function GlossaryTermsTab({ navGuid, onNavigateToDataDesign, onNavigateToElement
       onClose: function() { setClassifyModalOpen(false); },
       onDone: function() { selection.clear(); },
     })
-  );
+  ));
 }
 
 // ── Subject Area Explorer ─────────────────────────────────────────────────────
@@ -5256,7 +5257,8 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
     )
   );
 
-  return React.createElement("div", { className: "body" },
+  // AsOfContext: the shared widgets inside (diagrams, assigned elements, raw JSON, feedback) follow the slider.
+  return React.createElement(AsOfContext.Provider, { value: asOfTime }, React.createElement("div", { className: "body" },
     // Catalog list (left)
     React.createElement("div", { className: "sidebar", style: { width: sideW } },
       React.createElement("div", { style: { padding: '10px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 } },
@@ -5321,7 +5323,7 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
             React.createElement("span", { style: { color: 'var(--muted)' } }, "Select a node to view details")
           )
     )
-  );
+  ));
 }
 
 // ── Collections (collections by type → type-agnostic hierarchy) ──────────────
@@ -5541,7 +5543,8 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
     )
   );
 
-  return React.createElement("div", { className: "body" },
+  // AsOfContext: the shared widgets inside (diagrams, assigned elements, raw JSON, feedback) follow the slider.
+  return React.createElement(AsOfContext.Provider, { value: asOfTime }, React.createElement("div", { className: "body" },
     // Collections by type (left): one collapsible group per type, all collapsed to start
     React.createElement("div", { className: "sidebar", style: { width: sideW } },
       React.createElement("div", { style: { padding: '10px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 } },
@@ -5677,7 +5680,7 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
       onClose: function() { setClassifyModalAction(null); },
       onDone: function() { selection.clear(); },
     })
-  );
+  ));
 }
 
 // ── Placeholder (shown for sections not yet implemented) ─────────────────────
@@ -8375,7 +8378,8 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
       color: subNav === key ? 'var(--bg)' : 'var(--dim)' };
   };
 
-  return React.createElement("div", { className: "body" },
+  // AsOfContext: the shared widgets inside (diagrams, assigned elements, raw JSON, feedback) follow the slider.
+  return React.createElement(AsOfContext.Provider, { value: asOfTime }, React.createElement("div", { className: "body" },
     // Left pane
     React.createElement("div", { className: "sidebar", style: { width: sideW, display: 'flex', flexDirection: 'column' } },
       React.createElement("div", { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 6 } },
@@ -8448,7 +8452,7 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
       onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
-  );
+  ));
 }
 
 function getDualTitle(title) {
@@ -9099,7 +9103,8 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
     selected && (detailState === 'ready' || (selectedItem && detailState !== 'absent')) && React.createElement(ISCDetail, { data: selectedItem, detail: detail, onNavigateToElement: onNavigateToElement })
   );
 
-  return React.createElement("div", { className: "body" },
+  // AsOfContext: the shared widgets inside (diagrams, assigned elements, raw JSON, feedback) follow the slider.
+  return React.createElement(AsOfContext.Provider, { value: asOfTime }, React.createElement("div", { className: "body" },
     sidebar,
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
     mainPanel,
@@ -9117,7 +9122,7 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
       onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
-  );
+  ));
 }
 
 // ── Shared cross-link helpers ─────────────────────────────────────────────────
@@ -9863,7 +9868,8 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
     })
   );
 
-  return React.createElement("div", { className: "body" },
+  // AsOfContext: the shared widgets inside (diagrams, assigned elements, raw JSON, feedback) follow the slider.
+  return React.createElement(AsOfContext.Provider, { value: asOfTime }, React.createElement("div", { className: "body" },
     sidebar,
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
     mainPanel,
@@ -9881,7 +9887,7 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
       onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
-  );
+  ));
 }
 
 function CommunityDetail({ data, detail, onNavigateToElement }) {
@@ -10690,7 +10696,8 @@ function CommunityView({ navGuid, onNavigateToElement }) {
     selected && (detailState === 'ready' || (selectedItem && detailState !== 'absent')) && React.createElement(CommunityDetail, { data: selectedItem, detail: detail, onNavigateToElement: onNavigateToElement })
   );
 
-  return React.createElement("div", { className: "body" },
+  // AsOfContext: the shared widgets inside (diagrams, assigned elements, raw JSON, feedback) follow the slider.
+  return React.createElement(AsOfContext.Provider, { value: asOfTime }, React.createElement("div", { className: "body" },
     sidebar,
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
     mainPanel,
@@ -10708,7 +10715,7 @@ function CommunityView({ navGuid, onNavigateToElement }) {
       onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
-  );
+  ));
 }
 
 function BusinessCapabilityDetail({ data, detail, onNavigateToElement }) {
@@ -10861,7 +10868,8 @@ function BusinessCapabilityView({ navGuid, onNavigateToElement }) {
     selected && (detailState === 'ready' || (selectedItem && detailState !== 'absent')) && React.createElement(BusinessCapabilityDetail, { data: selectedItem, detail: detail, onNavigateToElement: onNavigateToElement })
   );
 
-  return React.createElement("div", { className: "body" },
+  // AsOfContext: the shared widgets inside (diagrams, assigned elements, raw JSON, feedback) follow the slider.
+  return React.createElement(AsOfContext.Provider, { value: asOfTime }, React.createElement("div", { className: "body" },
     sidebar,
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
     mainPanel,
@@ -10879,7 +10887,7 @@ function BusinessCapabilityView({ navGuid, onNavigateToElement }) {
       onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
-  );
+  ));
 }
 
 function _fmtNoteDate(s) {
@@ -12034,7 +12042,8 @@ function ProjectsView({ navGuid, onNavigateToElement }) {
   var activeForestState = projSubNav === 'dependencies' ? depTreeState : projTreeState;
   var emptyForestMsg = projSubNav === 'dependencies' ? 'No project dependencies defined.' : 'No projects found.';
 
-  return React.createElement('div', { className: 'body' },
+  // AsOfContext: the shared widgets inside (diagrams, assigned elements, raw JSON, feedback) follow the slider.
+  return React.createElement(AsOfContext.Provider, { value: asOfTime }, React.createElement('div', { className: 'body' },
     // Sidebar
     React.createElement('div', { style: sidebarStyle },
       // Time slider
@@ -12135,7 +12144,7 @@ function ProjectsView({ navGuid, onNavigateToElement }) {
       onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
-  );
+  ));
 }
 
 function ProjectDetail({ project, children, onSelectChild, onNavigateToElement }) {
