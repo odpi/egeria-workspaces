@@ -2460,7 +2460,163 @@ function DictResultView({ rows, columns, depth, unmeasured }) {
   );
 }
 
-function ReportSpecDetail({ spec, onSelectSpec }) {
+// ── RS-W2-4: declarations, resolution and refusals ───────────────────────────
+// pyegeria resolves every report spec when it loads (spec_resolver): runnable,
+// unrunnable (with the resolver's own words), or format-only. Three states,
+// never two: a format-only spec is a column layout, not a broken spec. These
+// components only show what /api/report-specs and /api/analytics send; no
+// check is re-implemented here.
+var _RS_STATUS = {
+  runnable:    { label: 'RUNNABLE',    mark: '',  title: 'Resolved at load: every check that could run passed.',
+                 style: { background: 'rgba(134,239,172,.12)', color: '#86efac', border: '0.5px solid rgba(134,239,172,.35)' } },
+  unrunnable:  { label: 'CANNOT RUN',  mark: '⚠', title: 'The resolver refused this spec at load; its words say why.',
+                 style: { background: 'rgba(248,113,113,.12)', color: '#f87171', border: '0.5px solid rgba(248,113,113,.4)' } },
+  format_only: { label: 'FORMAT ONLY', mark: '◇', title: 'A column layout used by other specs; not run on its own.',
+                 style: { background: 'rgba(148,163,184,.12)', color: '#94a3b8', border: '0.5px solid rgba(148,163,184,.35)' } },
+};
+var _RS_BINDERS_TITLE = 'This spec carried analytic_binders, which pyegeria now ignores: declare those arguments as the routine\'s inputs instead. See the warning below.';
+var _RS_SECTION = { fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1, margin: '14px 0 6px' };
+var _RS_WRAP_TD = { padding: '4px 8px', fontSize: 12, color: 'var(--text)', borderBottom: '1px solid rgba(26,45,72,.3)',
+                    verticalAlign: 'top', whiteSpace: 'normal', overflowWrap: 'anywhere' };
+
+function RsBindersTag() {
+  return React.createElement('span', { className: 'badge', title: _RS_BINDERS_TITLE,
+    style: { background: 'rgba(251,191,36,.12)', color: '#fbbf24', border: '0.5px solid rgba(251,191,36,.4)' } },
+    'BINDERS IGNORED');
+}
+
+function RsStatusBadge({ status }) {
+  var s = _RS_STATUS[status];
+  if (!s) return null;
+  return React.createElement('span', { className: 'badge', style: s.style, title: s.title }, s.label);
+}
+
+// A small table whose every column width the user can drag (owner rule), with
+// cells that wrap rather than clip.
+function RsDeclTable({ columns, rows, rowKey }) {
+  var [colWidths, onColMouseDown] = useResizableColumns({});
+  return React.createElement('div', { style: { overflowX: 'auto' } },
+    React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed' } },
+      React.createElement('thead', null, React.createElement('tr', null,
+        columns.map(function(c) {
+          var w = colWidths[c.key] || c.width;
+          return React.createElement('th', { key: c.key,
+            style: Object.assign({}, _DV_TH, { position: 'relative', paddingRight: 14 }, w ? { width: w } : {}) },
+            c.label, React.createElement(ColResizeHandle, { onMouseDown: onColMouseDown(c.key) }));
+        }))),
+      React.createElement('tbody', null, rows.map(function(r, i) {
+        return React.createElement('tr', { key: rowKey ? rowKey(r, i) : i },
+          columns.map(function(c) {
+            return React.createElement('td', { key: c.key, style: _RS_WRAP_TD }, c.render ? c.render(r) : (r[c.key] == null ? '' : String(r[c.key])));
+          }));
+      }))));
+}
+
+function RsRoleInputs({ inputs, portalSupply }) {
+  return React.createElement('div', null,
+    (inputs && inputs.length)
+      ? React.createElement('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+          inputs.map(function(i) { return React.createElement('code', { key: i, className: 'badge', style: BADGE_STYLE.entity }, i); }))
+      : React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', fontStyle: 'italic' } }, 'Declares no role inputs.'),
+    portalSupply && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', marginTop: 6, lineHeight: 1.5 } }, portalSupply));
+}
+
+function RsOut({ fields, shape, declared, isFind }) {
+  if (fields && fields.length) {
+    return React.createElement(RsDeclTable, { rowKey: function(r) { return r.name; },
+      columns: [
+        { key: 'name', label: 'Field', width: 180, render: function(r) { return React.createElement('code', null, r.name); } },
+        { key: 'label', label: 'Label' },
+        { key: 'type', label: 'Type', width: 140 },
+      ], rows: fields });
+  }
+  var msg = shape
+    ? React.createElement('span', null, 'Shape ', React.createElement('code', null, shape), ' (fields not known to pyegeria).')
+    : isFind ? 'A find method declares no out: its columns are element properties (see Output Formats).'
+    : declared === false ? 'The routine declares no out, so its fields are not known.' : 'No out fields declared.';
+  return React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', fontStyle: 'italic' } }, msg);
+}
+
+// A non-2xx execute response: the server's own words, labelled by status.
+function RsRefusalBox({ status, detail }) {
+  var label = status === 400 ? 'The spec refused to run'
+            : status === 401 ? 'Sign-in needed'
+            : (status === 504 || status === 408 || status === 524) ? 'Timed out'
+            : status === 500 ? 'Server error'
+            : status ? 'Error ' + status : 'Request failed';
+  return React.createElement('div', { role: 'alert', style: { marginTop: 4, padding: '8px 10px', borderRadius: 6,
+      background: 'rgba(248,113,113,.08)', border: '1px solid rgba(248,113,113,.35)' } },
+    React.createElement('div', { style: { fontSize: 11, fontWeight: 700, color: '#f87171', textTransform: 'uppercase', letterSpacing: .5 } },
+      label + (status ? ' (' + status + ')' : '')),
+    React.createElement('div', { style: { fontSize: 12, color: 'var(--text)', marginTop: 4, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' } }, detail));
+}
+
+function RsResolutionPanel({ spec, portalSupply }) {
+  var r = spec.resolution;
+  const [showNotes, setShowNotes] = useState(false);
+  if (!r) return React.createElement('div', { style: { marginTop: 12, fontSize: 12, color: 'var(--dim)', fontStyle: 'italic' } },
+    'This pyegeria does not resolve report specs, so whether this spec can run is not known here.');
+  var isFind = (r.kind || '').indexOf('find') >= 0;
+  return React.createElement('div', { style: { marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' } },
+    React.createElement('div', { style: { display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' } },
+      React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1, marginRight: 4 } }, 'Resolution'),
+      React.createElement(RsStatusBadge, { status: r.status }),
+      r.kind && r.status !== 'format_only' && React.createElement('span', { className: 'badge', style: BADGE_STYLE.base }, r.kind),
+      r.bindersDeprecated && React.createElement(RsBindersTag, null)),
+    r.status === 'unrunnable' && React.createElement('div', { role: 'alert', style: { marginTop: 8, padding: '8px 10px', borderRadius: 6,
+        background: 'rgba(248,113,113,.08)', border: '1px solid rgba(248,113,113,.35)' } },
+      React.createElement('div', { style: { fontSize: 11, fontWeight: 700, color: '#f87171' } },
+        'Cannot run' + (r.checks && r.checks.length ? ' — failed check ' + r.checks.join(', ') : '')),
+      (r.words || []).map(function(w, i) {
+        return React.createElement('div', { key: i, style: { fontSize: 12, color: 'var(--text)', marginTop: 4, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' } }, w);
+      })),
+    r.status === 'format_only' && React.createElement('div', { style: { marginTop: 8, padding: '8px 10px', borderRadius: 6,
+        background: 'rgba(148,163,184,.08)', border: '1px solid rgba(148,163,184,.3)', fontSize: 12, color: 'var(--text)' } },
+      'A column layout used by other specs; not run on its own.',
+      (r.words || []).map(function(w, i) { return React.createElement('div', { key: i, style: { fontSize: 11, color: 'var(--dim)', marginTop: 4 } }, w); })),
+    r.status !== 'format_only' && React.createElement(React.Fragment, null,
+      React.createElement('div', { style: _RS_SECTION }, 'What it runs'),
+      (r.stages && r.stages.length)
+        ? React.createElement(RsDeclTable, { columns: [
+            { key: 'kind', label: 'Stage', width: 100 },
+            { key: 'name', label: 'Name', render: function(s) { return React.createElement('code', null, s.name); } },
+            { key: 'binding', label: 'Binding', render: function(s) { return React.createElement('code', { style: { color: 'var(--dim)' } }, s.binding); } },
+          ], rows: r.stages })
+        : React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', fontStyle: 'italic' } },
+            'No stage resolved — see why it cannot run above.'),
+      React.createElement('div', { style: _RS_SECTION }, 'What it needs'),
+      React.createElement(RsRoleInputs, { inputs: r.roleInputs, portalSupply: portalSupply }),
+      (r.params && r.params.length)
+        ? React.createElement('div', { style: { marginTop: 8 } }, React.createElement(RsDeclTable, { rowKey: function(p) { return p.name; }, columns: [
+            { key: 'name', label: 'Param', width: 170, render: function(p) { return React.createElement('code', null, p.name); } },
+            { key: 'required', label: 'Required', width: 90, render: function(p) {
+                return p.required ? React.createElement('span', { style: { color: '#86efac', fontWeight: 600 } }, 'required')
+                                  : React.createElement('span', { style: { color: 'var(--dim)' } }, 'optional'); } },
+            { key: 'category', label: 'Category', width: 110, render: function(p) { return p.category || React.createElement('span', { style: { color: 'var(--dim)' } }, '—'); } },
+            { key: 'default', label: 'Default', width: 120, render: function(p) { return p.default == null ? '' : (typeof p.default === 'object' ? JSON.stringify(p.default) : String(p.default)); } },
+            { key: 'stage', label: 'Sent to', render: function(p) { return React.createElement('code', { style: { color: 'var(--dim)' } }, p.stage); } },
+          ], rows: r.params }))
+        : React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', fontStyle: 'italic', marginTop: 6 } }, 'Declares no parameters.'),
+      React.createElement('div', { style: _RS_SECTION }, 'What comes back'),
+      React.createElement('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6 } },
+        (r.outputFormats && r.outputFormats.length ? r.outputFormats : (spec.output_types || [])).map(function(t) {
+          return React.createElement('span', { key: t, className: 'badge', style: BADGE_STYLE.base }, t); })),
+      React.createElement(RsOut, { fields: r.outFields, shape: r.outShape, declared: r.outDeclared, isFind: isFind && (r.kind === 'find') })),
+    r.warnings && r.warnings.length > 0 && React.createElement('div', { style: { marginTop: 10 } },
+      r.warnings.map(function(w, i) {
+        return React.createElement('div', { key: i, style: { fontSize: 12, color: '#fbbf24', background: 'rgba(251,191,36,.08)',
+          border: '1px solid rgba(251,191,36,.25)', borderRadius: 6, padding: '6px 10px', marginTop: 4, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' } }, '⚠ ' + w);
+      })),
+    r.notes && r.notes.length > 0 && React.createElement('div', { style: { marginTop: 8 } },
+      React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center', gap: 4 },
+          onClick: function() { setShowNotes(function(v) { return !v; }); } },
+        React.createElement(FoldTriangle, { open: showNotes, size: 12 }), 'Resolver notes (' + r.notes.length + ')'),
+      showNotes && React.createElement('ul', { style: { margin: '4px 0 0 18px', padding: 0 } },
+        r.notes.map(function(n, i) { return React.createElement('li', { key: i, style: { fontSize: 11, color: 'var(--dim)', overflowWrap: 'anywhere' } }, n); })))
+  );
+}
+
+function ReportSpecDetail({ spec, onSelectSpec, portalSupply }) {
   const creds = React.useContext(CredContext);
   const _favPersonaId = React.useContext(PersonaContext);
   const [selFormat, setSelFormat] = useState(0);
@@ -2474,7 +2630,7 @@ function ReportSpecDetail({ spec, onSelectSpec }) {
   const [sentFmt, setSentFmt]             = useState('');
   const [execState, setExecState]         = useState('idle');
   const [execResult, setExecResult]       = useState(null);
-  const [execError, setExecError]         = useState('');
+  const [execError, setExecError]         = useState(null); // {status, detail}: the server's words
   const [showOptParams, setShowOptParams] = useState(false);
   const [showAdvanced, setShowAdvanced]   = useState(false);
   const [showRawSpec, setShowRawSpec]     = useState(false);
@@ -2482,7 +2638,7 @@ function ReportSpecDetail({ spec, onSelectSpec }) {
   useEffect(function() {
     setExecState('idle');
     setExecResult(null);
-    setExecError('');
+    setExecError(null);
     setSentFmt('');
     setShowOptParams(false);
     setShowAdvanced(false);
@@ -2527,7 +2683,7 @@ function ReportSpecDetail({ spec, onSelectSpec }) {
   function runReport() {
     setExecState('running');
     setExecResult(null);
-    setExecError('');
+    setExecError(null);
     // GRAPH is a UI-side rendering mode; send DICT (preferred) or JSON (always available) to the executor.
     var actualFmt = execFmt;
     if (execFmt === 'GRAPH') {
@@ -2553,21 +2709,27 @@ function ReportSpecDetail({ spec, onSelectSpec }) {
       .then(function(r) {
         if (r.ok) return r.json();
         // Read body as text first — error responses may be HTML (e.g. gateway timeout), not JSON.
+        // RS-W2-4: the server's own words (`detail`) are shown verbatim, labelled by status;
+        // generic text only when the server sent none.
         return r.text().then(function(body) {
-          if (r.status === 401) return Promise.reject('Not authorized for this operation');
           var detail = null;
           try { detail = JSON.parse(body).detail; } catch(e) {}
+          if (detail != null && typeof detail !== 'string') detail = JSON.stringify(detail);
           var isTimeout = r.status === 408 || r.status === 502 || r.status === 504 || r.status === 524;
-          return Promise.reject(detail || (isTimeout ? 'Request timed out — the operation took too long' : 'Error ' + r.status));
+          return Promise.reject({ status: r.status, detail: detail || (r.status === 401 ? 'Not authorized for this operation'
+            : isTimeout ? 'Request timed out — the operation took too long' : 'Error ' + r.status) });
         });
       })
       .then(function(data) { setExecResult(data); setExecState('done'); })
-      .catch(function(err) { setExecError(String(err)); setExecState('error'); });
+      .catch(function(err) {
+        setExecError(err && err.detail != null ? err : { status: 0, detail: String(err) });
+        setExecState('error');
+      });
   }
 
   function renderExecResults() {
     if (execState === 'running') return React.createElement('div', { style: { padding: 16, textAlign: 'center' } }, React.createElement('div', { className: 'spinner' }));
-    if (execState === 'error')   return React.createElement('div', { style: { padding: '8px 0', color: '#f87171', fontSize: 12 } }, 'Error: ' + execError);
+    if (execState === 'error')   return React.createElement(RsRefusalBox, execError || { status: 0, detail: 'Request failed' });
     if (!execResult) return null;
     var NM = window.EgeriaNotMeasured;
     // kind:"absent" (ISSUE-171 / odpi/egeria-python #555): the value was not
@@ -2627,6 +2789,8 @@ function ReportSpecDetail({ spec, onSelectSpec }) {
     React.createElement('div', { style: { display: 'flex', gap: 6, alignItems: 'center', marginTop: 8, flexWrap: 'wrap' } },
       spec.family     && React.createElement('span', { className: 'badge', style: BADGE_STYLE.base  }, spec.family),
       spec.target_type && React.createElement('span', { className: 'badge', style: BADGE_STYLE.entity }, spec.target_type),
+      spec.resolution && React.createElement(RsStatusBadge, { status: spec.resolution.status }),
+      spec.resolution && spec.resolution.bindersDeprecated && React.createElement(RsBindersTag, null),
       React.createElement(CopyJsonButton, { data: spec })
     ),
     spec.heading && React.createElement('div', { style: { marginTop: 12, fontWeight: 600, fontSize: 13, color: 'var(--text)' } }, spec.heading),
@@ -2634,6 +2798,8 @@ function ReportSpecDetail({ spec, onSelectSpec }) {
     spec.aliases && spec.aliases.length > 0 && React.createElement('div', { style: { marginTop: 8, fontSize: 11, color: 'var(--dim)' } },
       'Aliases: ' + spec.aliases.join(', ')
     ),
+    // ── Resolution: what it runs, needs and returns, or why it cannot run (RS-W2-4)
+    React.createElement(RsResolutionPanel, { spec: spec, portalSupply: portalSupply }),
     // ── Raw spec definition — foldable ──────────────────────────────────────
     React.createElement('div', { style: { marginTop: 12 } },
       React.createElement('div', {
@@ -2852,6 +3018,9 @@ function ReportSpecView() {
   const [history, setHistory]     = useState([]); // navigation back-stack
   const [search, setSearch]       = useState('');
   const [perspFilter, setPerspFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState(''); // '' | runnable | unrunnable | format_only
+  const [counts, setCounts]       = useState(null);
+  const [portalSupply, setPortalSupply] = useState('');
   const [error, setError]         = useState('');
 
   useEffect(() => {
@@ -2862,6 +3031,8 @@ function ReportSpecView() {
       .then(data => {
         const list = data.specs || [];
         setSpecs(list);
+        setCounts(data.counts || null);
+        setPortalSupply(data.portalSupply || '');
         setLoadState('ready');
         if (list.length > 0) setSelected(list[0].name);
       })
@@ -2894,6 +3065,7 @@ function ReportSpecView() {
     const sq = search.toLowerCase().trim();
     const sp = perspFilter.toLowerCase();
     return specs.filter(s => {
+      if (statusFilter && !(s.resolution && s.resolution.status === statusFilter)) return false;
       if (sp) {
         const perps = s.question_spec.flatMap(qs => qs.perspectives.map(p => p.toLowerCase()));
         if (!perps.includes(sp) && !perps.includes('any')) return false;
@@ -2904,7 +3076,7 @@ function ReportSpecView() {
       if (s.family && s.family.toLowerCase().includes(sq)) return true;
       return s.question_spec.some(qs => qs.questions.some(qText => qText.toLowerCase().includes(sq)));
     });
-  }, [specs, search, perspFilter]);
+  }, [specs, search, perspFilter, statusFilter]);
 
   const selectedSpec = specs.find(s => s.name === selected) || null;
 
@@ -2945,17 +3117,36 @@ function ReportSpecView() {
           React.createElement('option', { value: '' }, 'All perspectives'),
           allPerspectives.map(p => React.createElement('option', { key: p, value: p.toLowerCase() }, p))
         ),
+        // Three states, never two: format-only specs are not counted as unrunnable.
+        counts && React.createElement('select', {
+          className: 'area-select', 'aria-label': 'Filter by resolution',
+          style: { width: '100%', marginTop: 6 },
+          value: statusFilter,
+          onChange: e => setStatusFilter(e.target.value)
+        },
+          React.createElement('option', { value: '' }, 'All resolutions'),
+          React.createElement('option', { value: 'runnable' }, 'Runnable (' + counts.runnable + ')'),
+          React.createElement('option', { value: 'unrunnable' }, 'Cannot run (' + counts.unrunnable + ')'),
+          React.createElement('option', { value: 'format_only' }, 'Format only (' + counts.formatOnly + ')')
+        ),
         React.createElement('button', {
           className: 'btn-sm', style: { marginTop: 6 },
           onClick: () => setAttempt(a => a + 1)
         }, '↻ Refresh')
       ),
-      React.createElement('div', { className: 'stats' },
+      React.createElement('div', { className: 'stats', style: { flexWrap: 'wrap', rowGap: 2 } },
         React.createElement('span', null,
           React.createElement('span', { style: { color: 'var(--accent)' } }, filtered.length),
           ' of ',
           React.createElement('span', { style: { color: 'var(--accent)' } }, specs.length),
           ' specs'
+        ),
+        counts && React.createElement('span', { style: { width: '100%', fontSize: 11 } },
+          React.createElement('span', { style: { color: '#86efac' } }, counts.runnable), ' runnable · ',
+          React.createElement('a', { href: '#', title: 'Show the specs that cannot run',
+              style: { color: counts.unrunnable ? '#f87171' : 'var(--dim)' },
+              onClick: e => { e.preventDefault(); setStatusFilter('unrunnable'); } }, counts.unrunnable + ' cannot run'), ' · ',
+          React.createElement('span', { style: { color: '#94a3b8' } }, counts.formatOnly), ' format-only'
         )
       ),
       React.createElement('div', { className: 'tree-scroll' },
@@ -2978,7 +3169,16 @@ function ReportSpecView() {
                 key: s.name,
                 className: 'tree-item' + (selected === s.name ? ' sel' : ''),
                 onClick: function() { setHistory([]); setSelected(s.name); }
-              }, React.createElement('span', { className: 'type-name' }, s.name)));
+              }, React.createElement('span', { className: 'type-name' }, s.name),
+                 (function() {
+                   var res = s.resolution, st = res && _RS_STATUS[res.status];
+                   var marks = [];
+                   if (st && st.mark) marks.push(React.createElement('span', { key: 'm', title: st.title,
+                     style: { marginLeft: 6, fontSize: 10, color: st.style.color } }, st.mark));
+                   if (res && res.bindersDeprecated) marks.push(React.createElement('span', { key: 'b', title: _RS_BINDERS_TITLE,
+                     style: { marginLeft: 4, fontSize: 9, color: '#fbbf24', fontWeight: 700 } }, 'B'));
+                   return marks;
+                 })()));
             });
           });
           return rows;
@@ -2997,7 +3197,7 @@ function ReportSpecView() {
               }, '← Back to ', history[history.length - 1])
             ),
             React.createElement('div', { style: { flex: 1, overflowY: 'auto' } },
-              React.createElement(ReportSpecDetail, { spec: selectedSpec, onSelectSpec: navigateTo })
+              React.createElement(ReportSpecDetail, { spec: selectedSpec, onSelectSpec: navigateTo, portalSupply: portalSupply })
             )
           )
         : React.createElement('div', { className: 'center' },
@@ -3014,7 +3214,7 @@ function ReportSpecView() {
 // (that's Egeria Advisor's report-spec builder, a separate app) — this is
 // purely browse/reference, mirroring ReportSpecView's list+detail shape.
 
-function AnalyticsDetail({ spec }) {
+function AnalyticsDetail({ spec, portalSupply }) {
   var params = spec.params || [];
   return React.createElement('div', { className: 'detail', style: { overflowY: 'auto', height: '100%' } },
     React.createElement('div', { className: 'detail-name' }, spec.name),
@@ -3026,10 +3226,16 @@ function AnalyticsDetail({ spec }) {
           ? 'What this counts is a parameter — retarget it freely via analytic_spec_params'
           : 'What this counts is hardcoded in the function body — always the same metric'
       }, spec.generic ? 'GENERIC' : 'FIXED METRIC'),
+      spec.kind && React.createElement('span', { className: 'badge', style: BADGE_STYLE.base,
+        title: 'What the routine declares itself to be: producer, processor, routine or step' }, spec.kind),
       spec.returns && React.createElement('span', { className: 'badge', style: BADGE_STYLE.entity }, spec.returns),
       React.createElement(CopyJsonButton, { data: spec })
     ),
-    React.createElement('code', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginTop: 10 } }, spec.function),
+    React.createElement('code', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginTop: 10, overflowWrap: 'anywhere' } },
+      (spec.binding ? 'python ' + spec.binding : spec.function)),
+    (spec.bindings || []).filter(function(b) { return b.kind !== 'python'; }).map(function(b, i) {
+      return React.createElement('code', { key: i, style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginTop: 2 } }, b.kind + ' ' + b.target);
+    }),
     spec.description && React.createElement('div', { className: 'detail-desc', style: { marginTop: 10 } }, spec.description),
     !spec.generic && spec.bindingNote && React.createElement('div', {
       style: { marginTop: 8, fontSize: 12, color: '#fbbf24', background: 'rgba(251,191,36,.08)', border: '1px solid rgba(251,191,36,.25)', borderRadius: 6, padding: '8px 10px' }
@@ -3039,39 +3245,36 @@ function AnalyticsDetail({ spec }) {
       React.createElement('code', { style: { color: 'var(--accent)' } }, spec.demoReportSpec),
       ' — find it in the Report Specs browser.'
     ),
+    // RS-W2-4: the routine declaration — inputs by role, params with category, out.
+    spec.inputs && React.createElement('div', { style: { marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' } },
+      React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 } }, 'Inputs (by role)'),
+      React.createElement(RsRoleInputs, { inputs: spec.inputs, portalSupply: portalSupply })
+    ),
     React.createElement('div', { style: { marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' } },
       React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 } },
         'Parameters' + (params.length ? ' (' + params.length + ')' : '')
       ),
       params.length === 0
         ? React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', fontStyle: 'italic' } },
-            'Takes no parameters beyond its leading client argument(s).')
-        : React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12 } },
-            React.createElement('thead', null,
-              React.createElement('tr', null,
-                ['Name', 'Type', 'Required', 'Default', 'Description'].map(function(h) {
-                  return React.createElement('th', {
-                    key: h,
-                    style: { textAlign: 'left', padding: '4px 8px', borderBottom: '1px solid var(--border)', color: 'var(--dim)', fontWeight: 600 }
-                  }, h);
-                })
-              )
-            ),
-            React.createElement('tbody', null,
-              params.map(function(p) {
-                return React.createElement('tr', { key: p.name },
-                  React.createElement('td', { style: { padding: '4px 8px', borderBottom: '1px solid rgba(26,45,72,.4)' } },
-                    React.createElement('code', null, p.name)),
-                  React.createElement('td', { style: { padding: '4px 8px', borderBottom: '1px solid rgba(26,45,72,.4)', color: 'var(--dim)' } }, p.type),
-                  React.createElement('td', { style: { padding: '4px 8px', borderBottom: '1px solid rgba(26,45,72,.4)' } },
-                    p.required && React.createElement('span', { style: { color: '#86efac', fontWeight: 600 } }, 'yes')),
-                  React.createElement('td', { style: { padding: '4px 8px', borderBottom: '1px solid rgba(26,45,72,.4)', color: 'var(--dim)' } },
-                    p.default != null ? String(p.default) : ''),
-                  React.createElement('td', { style: { padding: '4px 8px', borderBottom: '1px solid rgba(26,45,72,.4)' } }, p.description)
-                );
-              })
-            )
-          )
+            'Declares no parameters.')
+        : React.createElement(RsDeclTable, { rowKey: function(p) { return p.name; }, rows: params, columns: [
+            { key: 'name', label: 'Name', width: 150, render: function(p) { return React.createElement('code', null, p.name); } },
+            { key: 'type', label: 'Type', width: 90, render: function(p) { return React.createElement('span', { style: { color: 'var(--dim)' } }, p.type); } },
+            { key: 'required', label: 'Required', width: 95, render: function(p) {
+                return p.required ? React.createElement('span', { style: { color: '#86efac', fontWeight: 600 } }, 'required')
+                                  : React.createElement('span', { style: { color: 'var(--dim)' } }, 'optional'); } },
+            { key: 'category', label: 'Category', width: 100, render: function(p) {
+                return React.createElement('span', { title: p.category === 'content' ? 'changes what is counted'
+                  : p.category === 'shape' ? 'changes how the result is laid out'
+                  : p.category === 'performance' ? 'changes only how fast or how much is read, never a value' : '' }, p.category || '—'); } },
+            { key: 'default', label: 'Default', width: 100, render: function(p) { return p.default != null ? (typeof p.default === 'object' ? JSON.stringify(p.default) : String(p.default)) : ''; } },
+            { key: 'description', label: 'Description' },
+          ] })
+    ),
+    'outFields' in spec && React.createElement('div', { style: { marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' } },
+      React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 } },
+        'Out' + (spec.outFields && spec.outFields.length ? ' (' + spec.outFields.length + ' fields)' : '')),
+      React.createElement(RsOut, { fields: spec.outFields, shape: spec.outShape, declared: spec.outDeclared, isFind: false })
     )
   );
 }
@@ -3083,6 +3286,7 @@ function AnalyticsView() {
   const [functions, setFunctions] = useState([]);
   const [selected, setSelected]   = useState(null);
   const [search, setSearch]       = useState('');
+  const [portalSupply, setPortalSupply] = useState('');
   const [error, setError]         = useState('');
 
   useEffect(() => {
@@ -3093,6 +3297,7 @@ function AnalyticsView() {
       .then(data => {
         const list = data.functions || [];
         setFunctions(list);
+        setPortalSupply(data.portalSupply || '');
         setLoadState('ready');
         if (list.length > 0) setSelected(list[0].name);
       })
@@ -3163,7 +3368,7 @@ function AnalyticsView() {
     React.createElement('div', { className: 'main' },
       selectedFn
         ? React.createElement('div', { style: { flex: 1, overflowY: 'auto' } },
-            React.createElement(AnalyticsDetail, { spec: selectedFn })
+            React.createElement(AnalyticsDetail, { spec: selectedFn, portalSupply: portalSupply })
           )
         : React.createElement('div', { className: 'center' },
             React.createElement('span', { style: { color: 'var(--muted)' } }, 'Select an analytic function from the sidebar')

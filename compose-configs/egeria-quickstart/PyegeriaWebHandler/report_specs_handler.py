@@ -20,6 +20,8 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 from pydantic import BaseModel
 
+import spec_resolution
+
 from pyegeria.view.base_report_formats import get_report_registry, register_report_specs
 from pyegeria.view._output_format_models import FormatSet, Format, Column, ActionParameter
 
@@ -163,9 +165,14 @@ def get_report_specs(
     persp_lower = perspective.strip().lower() if perspective else None
     q_lower     = q.strip().lower()           if q         else None
 
+    # Load-time resolution (pyegeria spec_resolver, cached): runnable, unrunnable with the
+    # resolver's words, or format-only. Keyed on the existing spec name (RS-W2-4).
+    resolutions = spec_resolution.resolve_all()
+
     result: list[dict] = []
     for name, fs in registry.items():
         s = _serialize(name, fs)
+        s["resolution"] = spec_resolution.resolution(name, fs, resolutions.get(name))
 
         if persp_lower is not None:
             all_p = [p.lower() for qs in s["question_spec"] for p in qs["perspectives"]]
@@ -197,6 +204,11 @@ def get_report_specs(
         "families":     families,
         "perspectives": all_perspectives,
         "total":        len(result),
+        # Three states, never two: format-only specs are not unrunnable. `unresolved` counts
+        # specs pyegeria did not resolve (0 when the resolver is present).
+        "counts":       spec_resolution.counts(resolutions, [s["name"] for s in result]),
+        "portalSupply": spec_resolution.PORTAL_SUPPLY_NOTE,
+        "bindersDeprecatedPrefix": spec_resolution.binders_prefix(),
     })
 
 

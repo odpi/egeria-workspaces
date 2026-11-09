@@ -66,6 +66,8 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
 
+import spec_resolution
+
 router = APIRouter(tags=["local-dashboards"])
 
 _HERE = Path(__file__).parent
@@ -261,7 +263,8 @@ def _find_report_by_name_uncached(name: str, mgr) -> Optional[dict]:
     return None
 
 
-def _serialize_placement(p, sheets, registry, mgr, url=None, server=None, user_id=None) -> dict:
+def _serialize_placement(p, sheets, registry, mgr, url=None, server=None, user_id=None,
+                         resolutions=None) -> dict:
     # A text placement (Dr.Egeria "Add Text on Dashboard Sheet") carries its
     # content inline -- no Egeria lookup needed at all, so check it before
     # attempting a Report/Sheet resolution (which would otherwise treat a
@@ -309,6 +312,9 @@ def _serialize_placement(p, sheets, registry, mgr, url=None, server=None, user_i
             # None on the currently-deployed pyegeria (predates this field)
             # instead of raising AttributeError and taking the whole sheet down.
             "detailSpec":     getattr(p, "detail_spec", None),
+            # RS-W2-4: runnable (True/False, None = not resolved) and refusal (the resolver's
+            # words when not runnable). The page shows the refusal instead of executing.
+            **spec_resolution.placement_status(report["reportSpec"], resolutions or {}),
         }
     sub = sheets.get(p.ref)
     if sub is not None:
@@ -434,6 +440,9 @@ def get_local_dashboard(
         logger.exception("local-dashboards: report spec registry unavailable")
         raise HTTPException(status_code=500, detail=f"Report spec registry unavailable: {exc}")
 
+    # pyegeria's load-time resolution (cached); {} on a pyegeria without the resolver.
+    resolutions = spec_resolution.resolve_all()
+
     # Best-effort: if Egeria's unreachable, placements just fall through to
     # "missing" rather than failing the whole sheet — same degrade-don't-fail
     # philosophy as overview_handler.py.
@@ -448,7 +457,7 @@ def get_local_dashboard(
         "heading":     sheet.heading,
         "description": sheet.description,
         "family":      sheet.family,
-        "placements":  [_serialize_placement(p, sheets, registry, mgr, url, server, user_id)
+        "placements":  [_serialize_placement(p, sheets, registry, mgr, url, server, user_id, resolutions)
                          for p in _view_for_perspective(sheet.placements, perspective)],
         "perspective": perspective,
     })
