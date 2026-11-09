@@ -281,7 +281,7 @@ def get_roots(
                 start_from=0,
                 page_size=500,
                 graph_query_depth=0,
-                metadata_element_type_name="RootCollection",
+                metadata_element_type="RootCollection",
             )
         except Exception as exc:
             raise_egeria_http_error(exc, "RootCollection discovery failed")
@@ -394,7 +394,7 @@ def get_collections_by_type(
         # metadata repository"), and is slow even when it doesn't fail outright
         # (same ~30s-vs-<0.5s tradeoff documented in digital_products_handler.py).
         # This picker only needs flat collection headers, no relationship graph.
-        cols = mgr.find_collections(metadata_element_type_name=type_name, output_format="JSON",
+        cols = mgr.find_collections(metadata_element_type=type_name, output_format="JSON",
                                      page_size=200, graph_query_depth=0)
     except Exception as exc:
         raise_egeria_http_error(exc, f"Failed to find collections of type {type_name}")

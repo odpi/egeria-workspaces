@@ -56,7 +56,7 @@ def list_namespaces(
             start_from=start_from,
             page_size=page_size,
             graph_query_depth=0,
-            metadata_element_type_name="Namespace",
+            metadata_element_type="Namespace",
         )
     except Exception as exc:
         logger.exception("find_collections (Namespace) failed")

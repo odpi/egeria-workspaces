@@ -543,7 +543,7 @@ Selecting an item shows its description, URL, a per-subtype properties table (re
 
 #### Agreements
 
-Browses agreements — Collection subtypes covering `Agreement` (general), `DataSharingAgreement`, and `DigitalSubscription`. All are fetched together in one `find_collections(metadata_element_type_name="Agreement")` call and filtered client-side via a type tab bar, same pattern as External References. (`DataSharingAgreement` has a client-side pyegeria properties model but is not yet accepted by the server — its tab shows a zero count until server support lands.)
+Browses agreements — Collection subtypes covering `Agreement` (general), `DataSharingAgreement`, and `DigitalSubscription`. All are fetched together in one `find_collections(metadata_element_type="Agreement")` call and filtered client-side via a type tab bar, same pattern as External References. (`DataSharingAgreement` has a client-side pyegeria properties model but is not yet accepted by the server — its tab shows a zero count until server support lands.)
 
 Selecting an item shows its description, a generic properties table (identifier, etc.), any available Mermaid diagram, and a **Relationships** section covering `agreementItems` (what the agreement covers), `agreementActors` (who is party to it), and `contracts` (linked external references). Each related element cross-links into its own tab via the shared `onNavigateToElement` dispatcher, and other tabs that reference an agreement link back into this one.
 
@@ -860,7 +860,7 @@ For the extension history and remaining open work, see [Extending the TypeExplor
 | `project_handler.py` | `/api/projects`, `/api/projects/tree`, `/api/projects/dependencies`, `/api/projects/{guid}`; uses `ProjectManager`; tree/deps results cached for 120 s (keyed by `as_of_time`) |
 | `actor_handler.py` | `/api/actors/profiles*`, `/api/actors/roles*`, `/api/actors/identities*`; uses `ActorManager`; generic relationship surface via any top-level list with `relatedElement` entries |
 | `external_links_handler.py` | `/api/external-references*`; uses `ExternalReferences`; list fetched with `graph_query_depth=0`, detail with `graph_query_depth=1` to surface `referencingElements` |
-| `agreements_handler.py` | `/api/agreements*`; uses `CollectionManager.find_collections(metadata_element_type_name="Agreement")`; reuses `_serialize_node`/`_extract_all_rels` from `digital_products_handler.py` since agreements are Collections |
+| `agreements_handler.py` | `/api/agreements*`; uses `CollectionManager.find_collections(metadata_element_type="Agreement")`; reuses `_serialize_node`/`_extract_all_rels` from `digital_products_handler.py` since agreements are Collections |
 | `pyegeria_handler.py` | FastAPI app entry point; mounts all routers |
 | `type-explorer.html` | Self-contained SPA (React 18 + Mermaid 11 via CDN, application JS inlined) |
 | `egeria_request_body_catalog.json` | Generated catalog of Layer 1 request body types; regenerate with `build_request_body_catalog.py` |

@@ -26,3 +26,13 @@ def test_demo_spec_found_by_dotted_path():
 
 def test_no_demo_spec_is_none():
     assert h._serialize("governed_coverage", _SPEC, {})["demoReportSpec"] is None
+
+
+def test_undeclared_param_category_stays_null_not_content():
+    """A param with no declared category is null (UI shows "—"), never a guessed "content"."""
+    from types import SimpleNamespace as NS
+    spec = NS(function="f", description="", returns="", generic=False, binding_note="",
+              params=[NS(name="a", type="str", required=False, default=None, description="", category=None),
+                      NS(name="b", type="str", required=False, default=None, description="", category="shape")])
+    cats = {p["name"]: p["category"] for p in h._serialize("f", spec, {})["params"]}
+    assert cats == {"a": None, "b": "shape"}
