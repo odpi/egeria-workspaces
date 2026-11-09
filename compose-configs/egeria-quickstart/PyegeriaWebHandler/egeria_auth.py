@@ -18,6 +18,7 @@ import base64
 import json
 import os
 import time
+from contextlib import contextmanager
 from contextvars import ContextVar
 
 from pyegeria import lineage_visible  # pyegeria >= 6.1.25
@@ -46,6 +47,19 @@ def lineage_key() -> str:
     """Cache-key suffix. Anything that caches element data across requests must
     include this: the same URL returns different elements with forLineage on."""
     return "|fl" if _for_lineage.get() else ""
+
+
+@contextmanager
+def lineage_scope(on: bool):
+    """Run a block as if it were a request with X-Egeria-For-Lineage set to `on`: the mirror flag that
+    lineage_key() reads AND pyegeria's lineage_visible(), exactly what EgeriaTokenMiddleware does per
+    request. For background work with no request (cache warm-ups). Always restored, even on error."""
+    reset = _for_lineage.set(bool(on))
+    try:
+        with lineage_visible(bool(on)):
+            yield
+    finally:
+        _for_lineage.reset(reset)
 
 
 def get_request_token() -> Optional[str]:

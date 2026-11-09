@@ -119,13 +119,63 @@ def test_pages_of_1000_and_only_an_empty_page_ends_the_read(client, monkeypatch)
     assert sizes == [(0, 1000), (1000, 1000), (2000, 1000)] and d["total"] == 600 and d["capped"] is False
 
 
-def test_warm_up_fills_the_default_cache_key_the_page_uses(client, monkeypatch):
-    c = client(PAGES)
+def _seen_keys(client_, **headers):
+    """The cache key(s) a real request creates, by making it."""
+    ch._ROOTS_CACHE.clear()
+    assert client_.get("/api/collections/roots", headers=headers).status_code == 200
+    return set(ch._ROOTS_CACHE)
+
+
+def test_warm_up_warms_exactly_the_keys_page_requests_use_lineage_on_and_off(client, monkeypatch):
+    import egeria_auth
+    app = FastAPI(); app.add_middleware(egeria_auth.EgeriaTokenMiddleware); app.include_router(ch.router)
+    client(PAGES)
+    c = TestClient(app)
+    key_on = _seen_keys(c, **{"X-Egeria-For-Lineage": "true"})       # what a default browser visitor sends
+    key_off = _seen_keys(c)
+    assert len(key_on) == len(key_off) == 1 and key_on != key_off and next(iter(key_on)).endswith("|fl")
+    ch._ROOTS_CACHE.clear()
     ch.warm_roots_cache()
-    assert any(k.startswith("||") and k.endswith("|False|False|True") for k in ch._ROOTS_CACHE)
-    # the page's own default request is now a cache hit: no manager is even built
+    assert set(ch._ROOTS_CACHE) == key_on | key_off                  # both passes, same keys as real requests
+    # and the toggle is restored afterwards, so the warm-up leaks nothing into later work
+    assert egeria_auth._for_lineage.get() is False
     monkeypatch.setattr(ch, "_get_manager", lambda *a, **k: (_ for _ in ()).throw(AssertionError("not cached")))
+    assert c.get("/api/collections/roots", headers={"X-Egeria-For-Lineage": "true"}).json()["total"] == 3
     assert c.get("/api/collections/roots").json()["total"] == 3
+
+
+def test_warm_up_runs_lineage_on_first_then_off_and_restores_state(client, monkeypatch):
+    import egeria_auth
+    client(PAGES); seen = []
+    real = ch._roots_payload
+    def spy(*a, **k):
+        seen.append(egeria_auth.for_lineage_requested()); return real(*a, **k)
+    monkeypatch.setattr(ch, "_roots_payload", spy)
+    ch._ROOTS_CACHE.clear(); ch.warm_roots_cache()
+    assert seen == [True, False] and egeria_auth.for_lineage_requested() is False
+
+
+def test_one_failing_pass_does_not_stop_the_other(client, monkeypatch):
+    import egeria_auth
+    client(PAGES); real = ch._roots_payload
+    def flaky(*a, **k):
+        if egeria_auth.for_lineage_requested(): raise RuntimeError("on-pass failed")
+        return real(*a, **k)
+    monkeypatch.setattr(ch, "_roots_payload", flaky)
+    ch._ROOTS_CACHE.clear(); ch.warm_roots_cache()
+    assert len(ch._ROOTS_CACHE) == 1 and not next(iter(ch._ROOTS_CACHE)).endswith("|fl")
+
+
+def test_roots_cache_is_keyed_on_the_credential_not_a_bare_user_id(client):
+    c = client(PAGES)
+    ch._ROOTS_CACHE.clear()
+    c.get("/api/collections/roots", params={"user_id": "peter", "user_pwd": "right"})
+    assert len(ch._ROOTS_CACHE) == 1
+    c.get("/api/collections/roots", params={"user_id": "peter", "user_pwd": "wrong"})     # same user id, other password
+    assert len(ch._ROOTS_CACHE) == 2                                                      # a miss, not peter's entry
+    c.get("/api/collections/roots", params={"user_id": "peter", "user_pwd": "right"})
+    assert len(ch._ROOTS_CACHE) == 2                                                      # the right password hits
+    assert all("right" not in k and "wrong" not in k for k in ch._ROOTS_CACHE)            # secrets are hashed
 
 
 def test_warm_up_failure_is_logged_not_cached_and_never_raises(client, monkeypatch):
