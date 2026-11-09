@@ -41,4 +41,6 @@ def test_type_filter_and_search():
 
 def test_groups_start_collapsed_in_the_view():
     assert "useState(new Set());   // every group starts collapsed" in HTML
-    assert "openTypes.has(g.typeName) || !!listSearch.trim()" in HTML        # only a search auto-opens
+    assert "searching ? !closedInSearch.has(t) : openTypes.has(t)" in HTML    # only a search auto-opens, and a click can still close
+    assert "const open = isTypeOpen(g.typeName);" in HTML                    # rows, arrow and aria-expanded share that one state
+    assert "React.createElement(FoldTriangle, { open: open, size: 14 })" in HTML
