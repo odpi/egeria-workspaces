@@ -8,17 +8,15 @@ Provides one endpoint:
   GET /api/governance-metrics  → every GovernanceMetric element, with its
     GovernanceResults link resolved to a Report (+ that Report's reportSpec
     name, so the frontend can offer a "run it live" button reusing
-    /api/report-specs/execute) and its per-metric InformationSupplyChain
-    "data flow" (Purposes/Scope text + member list) resolved by the naming
-    convention gen_governance_metrics.py uses ("<metric name> Data Flow").
+    /api/report-specs/execute).
 
 This is Tier 1 of the design discussed in OVERVIEW_NEXT_STEPS.md (2026-08-17
 "Design landed" section): real GovernanceMetric→GovernanceResults→Report
 lineage, rendered from Egeria metadata that already exists — it does NOT
 attempt true DataFlow lineage into the analytic function/data source (those
 aren't Egeria elements yet; see BACKLOG.md's "GovernanceMetric lineage"
-items). The InformationSupplyChain is a *documented* flow (its Purposes
-text names the stages), not a literal DataFlow graph.
+items). Until 2026-11-09 each metric also had a documented-only
+"<metric> Data Flow" InformationSupplyChain; those were removed as noise.
 
 Sync routes throughout (matching overview_handler.py/local_dashboards_
 handler.py's own convention — see CLAUDE.md's async-invariants note: sync
@@ -73,7 +71,7 @@ def _add_prop(el: dict, name: str) -> Optional[str]:
     return v.get("primitiveValue") if isinstance(v, dict) else None
 
 
-@router.get("/api/governance-metrics", summary="List GovernanceMetric elements with their Report + data-flow lineage")
+@router.get("/api/governance-metrics", summary="List GovernanceMetric elements with their Report")
 def get_governance_metrics(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
@@ -114,7 +112,6 @@ def get_governance_metrics(
             "measurement": _prop(el, "measurement"),
             "target": _prop(el, "target"),
             "report": None,
-            "dataFlow": None,
         }
         # Resolve the GovernanceResults link -> Report (real Egeria edge).
         try:
@@ -132,32 +129,6 @@ def get_governance_metrics(
                 break
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"governance-metrics: GovernanceResults lookup failed for {name}: {exc}")
-
-        # Resolve the per-metric InformationSupplyChain "data flow" by the
-        # naming convention gen_governance_metrics.py uses -- a documented
-        # (not literal DataFlow) chain; see this module's own docstring.
-        try:
-            flow_name = f"{name} Data Flow"
-            flow_body = {
-                "class": "FindRequestBody", "metadataElementTypeName": "InformationSupplyChain",
-                "searchProperties": {
-                    "class": "SearchProperties", "matchCriteria": "ALL",
-                    "conditions": [{"property": "displayName", "operator": "EQ",
-                                     "value": {"class": "PrimitiveTypePropertyValue", "typeName": "string",
-                                               "primitiveValue": flow_name}}],
-                },
-                "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0, "startFrom": 0, "pageSize": 1,
-            }
-            flow_els = mgr.find_metadata_elements(flow_body)
-            flow_els = [e for e in flow_els if isinstance(e, dict)] if isinstance(flow_els, list) else []
-            if flow_els:
-                flow_el = flow_els[0]
-                entry["dataFlow"] = {
-                    "name": flow_name,
-                    "purposes": _prop(flow_el, "description"),
-                }
-        except Exception as exc:  # noqa: BLE001
-            logger.debug(f"governance-metrics: InformationSupplyChain lookup failed for {name}: {exc}")
 
         out.append(entry)
 

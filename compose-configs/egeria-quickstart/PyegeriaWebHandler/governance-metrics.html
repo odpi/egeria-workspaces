@@ -121,7 +121,6 @@ function renderList(){
       html += '<div class="desc">' + esc(m.summary || 'No summary set.') + '</div>';
       html += '<div class="meta">';
       html += m.report ? '<span class="badge badge-live">→ ' + esc(m.report.name) + '</span>' : '<span class="badge">no linked Report</span>';
-      if (m.dataFlow) html += '<span class="badge">🔗 data flow</span>';
       html += '</div></div>';
     });
     html += '</div>';
@@ -155,9 +154,6 @@ function renderDetail(name){
     setTimeout(function(){ renderMermaidBlock(mermaidId, code); }, 0);
   } else {
     html += '<div class="p-note">No GovernanceResults link found — this metric has no Report attached.</div>';
-  }
-  if (m.dataFlow && m.dataFlow.purposes) {
-    html += '<div class="field full" style="margin-top:12px"><div class="lab">Data Flow — ' + esc(m.dataFlow.name) + '</div><div class="val">' + esc(m.dataFlow.purposes) + '</div></div>';
   }
   html += '</div>';
 
