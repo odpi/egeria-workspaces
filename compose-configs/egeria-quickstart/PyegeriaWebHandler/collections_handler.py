@@ -38,7 +38,7 @@ from digital_products_handler import (
     _get_manager, _serialize_node, _header, _type_name, _extract_all_rels, _is_template,
     _extract_mermaid_fields,
 )
-from egeria_error_mapping import raise_egeria_http_error, describe_bulk_item_error, EGERIA_ERROR_RESPONSES
+from egeria_error_mapping import raise_egeria_http_error, raise_if_auth_error, describe_bulk_item_error, EGERIA_ERROR_RESPONSES
 from egeria_auth import apply_token
 from result_cache import credential_identity, request_identity
 import os
@@ -256,6 +256,7 @@ def _children_level(mgr, collection_guid: str, as_of_time: Optional[str] = None)
             body=body,
         )
     except Exception as exc:
+        raise_if_auth_error(exc)   # an expired/refused token is a 401/403, not an empty tree
         logger.warning(f"get_collection_members failed for {collection_guid}: {exc}")
         return []
 
@@ -400,8 +401,13 @@ def _roots_payload(url, server, user_id, user_pwd, include_templates, only_root_
 
 
 def warm_roots_cache() -> None:
-    """Fill the all-collections list cache for the Portal's own service user, for BOTH forLineage settings,
-    so the first visitor after a restart rarely waits ~8-11 s. The Promise/Memento toggle defaults ON in
+    """Fill the all-collections list cache for the Portal's own service user, for BOTH forLineage settings.
+
+    Who this helps: only requests that present NO credential (no X-Egeria-Token, no user_id/user_pwd), whose
+    key is `svc:<EGERIA_USER>` (result_cache.credential_identity). A signed-in Explorer user's key is a hash
+    of their own token, so they never read this entry and still pay the ~8-11 s cold read once per sign-in
+    (and per token renewal). Kept anyway: it is cheap, runs off the request path, and serves the service-user
+    callers. The Promise/Memento toggle defaults ON in
     the browser (egeriaFetch then sends X-Egeria-For-Lineage: true, a different cache key and a different,
     larger list), so that key is warmed first, then the OFF key, one after the other. Each pass runs inside
     egeria_auth.lineage_scope, i.e. the same state the middleware sets per request.

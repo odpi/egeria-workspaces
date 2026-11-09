@@ -172,3 +172,65 @@ def test_component_groups_build_runs_with_the_callers_token(monkeypatch):
     assert c.get("/api/solution/components/groups", headers={"X-Egeria-Token": PETER}).json() == {"loading": True}
     assert done.wait(5)
     assert seen == [PETER]
+
+
+# ── follow-up: auth failures surface; survey types are the service user's ────
+
+class _Refusing:
+    """get_collection_members raises what pyegeria raises for a refused/expired token."""
+    def __init__(self, status):
+        self.status = status
+
+    def get_collection_members(self, **k):
+        raise RuntimeError(f"Client error '{self.status} ' -- HTTP code: {self.status}")
+
+
+@pytest.mark.parametrize("setup,path", ROUTES[:4])
+@pytest.mark.parametrize("status", [401, 403])
+def test_a_refused_token_is_a_401_or_403_not_an_empty_tree(monkeypatch, setup, path, status):
+    module = setup(monkeypatch, _Refusing(status))
+    r = _app(module).get(path, headers={"X-Egeria-Token": PETER})
+    assert r.status_code == status, r.text
+    assert module._TREE_CACHE == {}, "a refusal was cached"
+
+
+def test_other_member_read_failures_still_degrade_to_an_empty_tree(monkeypatch):
+    class _Broken:
+        def get_collection_members(self, **k):
+            raise RuntimeError("connection reset")
+    m = _collections(monkeypatch, _Broken())
+    r = _app(m).get("/api/collections/node-1/children", headers={"X-Egeria-Token": PETER})
+    assert r.status_code == 200 and r.json() == {"children": []}
+
+
+def test_survey_types_are_built_once_as_the_service_user_for_everyone(monkeypatch):
+    import asyncio
+    import tech_catalog_handler as tc
+    tc._SURVEY_TYPES_CACHE.clear(); tc._SURVEY_TYPES_TASKS.clear()
+    clients = []
+
+    async def fake_client(url, server, user_id, user_pwd, token=None):
+        clients.append((url, server, user_id, user_pwd, token))
+        return object()
+
+    async def fake_build(ac):
+        return [{"guid": "s1", "displayName": "Survey"}]
+
+    monkeypatch.setattr(tc, "_automated_curation_async", fake_client)
+    monkeypatch.setattr(tc, "_build_survey_types", fake_build)
+    c = _app(tc)
+    first = c.get("/api/tech-catalog/survey-types", headers={"X-Egeria-Token": PETER},
+                  params={"url": "https://elsewhere.example", "user_id": "x", "user_pwd": "y"})
+    assert first.json().get("loading") is True
+    # the build ran with no caller credentials and no caller URL: the env service user on the env platform
+    assert clients == [(None, None, None, None, None)]
+    for _ in range(50):                                   # let the background Task finish
+        if tc._SURVEY_TYPES_CACHE:
+            break
+        time.sleep(0.02)
+    assert list(tc._SURVEY_TYPES_CACHE) and all(k.startswith("svc:") for k in tc._SURVEY_TYPES_CACHE)
+    # a different user (and an expired token) reads the same shared entry, no second build
+    for tok in (ERIN, EXPIRED):
+        assert c.get("/api/tech-catalog/survey-types", headers={"X-Egeria-Token": tok}).json() == \
+            {"items": [{"guid": "s1", "displayName": "Survey"}]}
+    assert len(clients) == 1

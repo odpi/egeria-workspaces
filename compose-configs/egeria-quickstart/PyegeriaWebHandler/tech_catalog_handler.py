@@ -2412,8 +2412,15 @@ async def list_survey_types(
     so a cold/stale cache spawns one background Task per cache key and the request
     returns at once. Cold -> {"items": [], "loading": true}; stale -> the old items
     plus "stale": true and "loading": true. The UI polls until loading is false.
+
+    Built as the Portal's service user on the configured platform, for every caller alike: survey types
+    come from TechnologyType reference data, the same for everyone, so one shared entry (key `svc:<user>`)
+    is correct by construction -- unlike a key on the caller's bare user_id, which every token user shared
+    while the entry held whichever caller's view filled it first. The caller's url/server/user_id/user_pwd
+    are deliberately ignored: the service password is never sent to a platform the request names.
     """
-    cache_key = f"{url}|{server}|{user_id}{_lineage_key()}"
+    svc_user = os.environ.get("EGERIA_USER", "erinoverview")
+    cache_key = f"svc:{svc_user}{_lineage_key()}"
     cached = _SURVEY_TYPES_CACHE.get(cache_key)
     fresh = bool(cached) and (time.time() - cached["ts"]) < _SURVEY_TYPES_TTL
     if fresh:
@@ -2422,9 +2429,8 @@ async def list_survey_types(
     if cache_key not in _SURVEY_TYPES_TASKS:
         # No await between this check and the registration below, so only one
         # Task per key can ever be created.
-        token = _token_from_request(request)
         try:
-            ac = await _automated_curation_async(url, server, user_id, user_pwd, token=token)
+            ac = await _automated_curation_async(None, None, None, None, token=None)   # env service user
         except Exception as exc:
             logger.exception("list_survey_types: client creation failed")
             raise HTTPException(status_code=500, detail=str(exc))

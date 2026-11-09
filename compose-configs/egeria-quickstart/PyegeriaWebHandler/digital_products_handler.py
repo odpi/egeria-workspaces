@@ -21,6 +21,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 from egeria_auth import lineage_key as _lineage_key
 from result_cache import request_identity
+from egeria_error_mapping import raise_if_auth_error
 from fastapi.responses import JSONResponse
 from loguru import logger
 
@@ -402,6 +403,7 @@ def _children_level(mgr, collection_guid: str, as_of_time: Optional[str] = None)
             body=body,
         )
     except Exception as exc:
+        raise_if_auth_error(exc)   # an expired/refused token is a 401/403, not an empty tree
         logger.warning(f"get_collection_members failed for {collection_guid}: {exc}")
         return []
 
