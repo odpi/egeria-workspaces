@@ -615,7 +615,8 @@ def _node_from_metadata_expert_element(el: dict) -> dict:
     }
 
 
-def _serialize_schema(el: dict, mgr=None) -> dict:
+def _serialize_schema(el: dict, mgr=None, as_of_time: Optional[str] = None,
+                      identity_user_id: Optional[str] = None, identity_user_pwd: Optional[str] = None) -> dict:
     """Build the nested schemaType -> attribute -> nested-attribute tree.
 
     AssetCatalog.get_asset_graph_by_guid's response flattens the ENTIRE
@@ -713,7 +714,8 @@ def _serialize_schema(el: dict, mgr=None) -> dict:
                 me = _metadata_expert_from_asset_maker(mgr)
                 for guid in all_guids:
                     try:
-                        raw_el = me.get_metadata_element_by_guid(guid, graph_query_depth=0, output_format="JSON")
+                        raw_el = me.get_metadata_element_by_guid(guid, graph_query_depth=0, output_format="JSON",
+                                                                 **({"as_of_time": as_of_time} if as_of_time else {}))
                     except Exception:
                         logger.debug("schema tree: could not resolve node %s", guid)
                         continue
@@ -748,7 +750,13 @@ def _serialize_schema(el: dict, mgr=None) -> dict:
 
     # Badge each node with its assigned glossary term(s), if any -- one bounded
     # SemanticAssignment fetch for the whole tree (see semantic_links.py), not
-    # one relationship call per node.
+    # one relationship call per node. termsStatus says how far to trust the
+    # badges, so a missing badge is never silently read as "no term":
+    #   "complete" -- every assignment was read; "capped" -- the read stopped at
+    #   termsReadLimit, so some badges may be missing; "failed" -- the read failed,
+    #   no badges at all; None -- no attributes to badge.
+    terms_status = None
+    from semantic_links import READ_LIMIT
     if mgr is not None and attributes:
         def _collect_guids(nodes, out):
             for n in nodes:
@@ -760,10 +768,14 @@ def _serialize_schema(el: dict, mgr=None) -> dict:
         try:
             from semantic_links import terms_for_element_guids
             ce = _classification_explorer_from_asset_maker(mgr)
-            terms_by_guid = terms_for_element_guids(ce, _collect_guids(attributes, set()))
+            # identity keys semantic_links' short shared cache of the assignment read; _serialize_schema runs
+            # inside the request, so request_identity() sees this request's token (None = expired: no cache)
+            terms_by_guid, capped = terms_for_element_guids(ce, _collect_guids(attributes, set()), as_of_time,
+                                                            identity=request_identity(identity_user_id, identity_user_pwd))
+            terms_status = "capped" if capped else "complete"
         except Exception:
             logger.debug("schema tree: could not resolve assigned glossary terms")
-            terms_by_guid = {}
+            terms_by_guid, terms_status = {}, "failed"
 
         if terms_by_guid:
             def _apply_terms(nodes):
@@ -772,7 +784,8 @@ def _serialize_schema(el: dict, mgr=None) -> dict:
                     _apply_terms(n.get("children") or [])
             _apply_terms(attributes)
 
-    return {"schemaType": schema_type, "attributes": attributes}
+    return {"schemaType": schema_type, "attributes": attributes,
+            "termsStatus": terms_status, "termsReadLimit": READ_LIMIT}
 
 
 def _serialize_tech_type(el: dict) -> dict:
@@ -1872,6 +1885,7 @@ def get_asset_schema(
     guid: str,
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now (the view's As-of slider)"),
 ):
     """Return the schema type + nested attribute tree for any asset with a Schema relationship.
 
@@ -1889,14 +1903,17 @@ def get_asset_schema(
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
         ac = _asset_catalog_from_asset_maker(mgr)
-        raw = ac.get_asset_graph_by_guid(
-            guid,
-            output_format="JSON",
-            body={"class": "ResultsRequestBody", "graphQueryDepth": 5},
-        )
+        body = {"class": "ResultsRequestBody", "graphQueryDepth": 5}
+        if as_of_time:
+            body["asOfTime"] = as_of_time       # the whole tree, its node lookups and term badges share one time
+        raw = ac.get_asset_graph_by_guid(guid, output_format="JSON", body=body)
         el = raw[0] if isinstance(raw, list) else raw
-        return JSONResponse(_serialize_schema(el or {}, mgr=mgr))
+        return JSONResponse(_serialize_schema(el or {}, mgr=mgr, as_of_time=as_of_time or None,
+                                              identity_user_id=user_id, identity_user_pwd=user_pwd))
     except Exception as exc:
+        from pyegeria import PyegeriaNotFoundException
+        if as_of_time and isinstance(exc, PyegeriaNotFoundException):
+            raise HTTPException(status_code=404, detail=f"{guid!r} did not exist at {as_of_time}")
         logger.exception("get_asset_schema failed")
         raise HTTPException(status_code=500, detail=str(exc))
 

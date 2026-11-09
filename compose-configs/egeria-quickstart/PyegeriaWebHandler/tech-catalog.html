@@ -1445,7 +1445,16 @@ function SchemaTable({ data, onNavigate }) {
   var tblHdr = { fontSize: 10, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '4px 8px 4px 0', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap', position: 'relative' };
   var tdStyle = { fontSize: 11, padding: '3px 8px 3px 0', color: 'var(--text)', verticalAlign: 'top', borderBottom: '1px solid var(--border)', overflow: 'hidden', textOverflow: 'ellipsis' };
   var tdDim   = Object.assign({}, tdStyle, { color: 'var(--dim)', whiteSpace: 'nowrap' });
+  // How far to trust the term badges: a missing badge must not read as "no term" when the read was cut
+  // short or failed (semantic_links.py; termsStatus from _serialize_schema).
+  var limit = (data.termsReadLimit || 5000).toLocaleString();
+  var termsNote = data.termsStatus === 'capped'
+      ? 'Glossary-term badges may be incomplete: the term-assignment read stopped at ' + limit + ' assignments.'
+    : data.termsStatus === 'failed'
+      ? 'Glossary-term badges could not be loaded; a row without a badge may still have a term.'
+    : null;
   return React.createElement('div', null,
+    termsNote && React.createElement('div', { style: { fontSize: 11, color: '#fbbf24', marginBottom: 6 } }, termsNote),
     st && React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 } },
       React.createElement('span', { style: { fontSize: 12, color: 'var(--muted)' } }, 'Schema type:'),
       React.createElement('span', { style: { fontSize: 12, fontWeight: 600, color: 'var(--text)' } }, st.typeName || ''),
@@ -1480,12 +1489,14 @@ function SchemaTable({ data, onNavigate }) {
 
 // SchemaPane: renders schemaType + the real nested attribute structure
 function SchemaPane({ guid, creds, onNavigate }) {
+  var asOf = useAsOf();   // the view's As-of slider: the tree, its node lookups and term badges share this time
   function renderSchema(data) {
     return React.createElement(SchemaTable, { data: data, onNavigate: onNavigate });
   }
   return React.createElement(SubPane, {
+    key: asOf || 'now',   // SubPane fetches once per mount: a new time is a new pane
     title: 'Schema',
-    fetchUrl: '/api/tech-catalog/assets/' + encodeURIComponent(guid) + '/schema',
+    fetchUrl: '/api/tech-catalog/assets/' + encodeURIComponent(guid) + '/schema' + asOfParam(asOf),
     creds: creds,
     renderContent: renderSchema,
   });

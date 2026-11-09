@@ -205,8 +205,8 @@ def test_semantic_assignments_never_ask_for_more_than_egerias_page_limit():
             # a SHORT first page is not the last one: only an empty page ends the read
             return [{"end1": {"guid": f"e{k['body']['startFrom']}"}, "end2": {"guid": "t"}}] if k["body"]["startFrom"] < 2000 else []
 
-    out = sl._fetch_semantic_assignments(_CE())
-    assert max(sizes) <= 1000 and len(out) == 2 and len(sizes) == 3
+    out, capped = sl._fetch_semantic_assignments(_CE())
+    assert max(sizes) <= 1000 and len(out) == 2 and len(sizes) == 3 and capped is False
 
 
 def test_a_failed_assignment_read_is_an_error_not_an_empty_answer(monkeypatch):
