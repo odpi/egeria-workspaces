@@ -85,16 +85,27 @@ def test_failed_viewer_count_is_never_a_zero_and_says_why():
         assert notes and notes[0]["reason"], "a None count must carry its unmeasured note"
 
 
-def test_unmeasured_note_reaches_the_stale_asset_payload_field(monkeypatch):
-    # the Overview forwards that note (summary's staleAssetNote) instead of a bare "—"
-    def fake_stale(mgr, as_of=None):
-        om._not_measured("Assets not updated within 180 days", "the find filled its 500-element page cap")
-        return {"staleCount": None, "assetTotal": 100}
-    monkeypatch.setattr(oh, "stale_assets", fake_stale)
+class _FullPageMgr(_FailingMgr):
+    """Every find returns a full page (DEFAULT_CAP elements): a sample, never the population."""
+    def find_metadata_elements(self, body):
+        return [{"elementHeader": {"guid": f"g{i}"}} for i in range(om.DEFAULT_CAP)]
+
+
+def test_stale_asset_note_reaches_the_summary_payload(monkeypatch):
+    # Drives the real _compute_summary and real pyegeria stale_assets: a full Asset page is a sample, so
+    # the count is None and the payload carries pyegeria's own words as staleAssetNote (not a bare "—").
+    monkeypatch.setattr(oh, "_expert", lambda *a, **k: _FullPageMgr())
+    payload = oh._compute_summary(None, "https://x", "srv", "u", "p")
+    assert payload["staleAssetCount"] is None
+    assert payload["staleAssetNote"] and "page cap" in payload["staleAssetNote"]
+
+
+def test_stale_asset_note_label_is_pinned():
+    # oh._compute_summary picks the stale note out of pyegeria's notes by this label; if pyegeria
+    # renames it the Overview silently loses the reason, so fail here instead.
     with om.recording_unmeasured() as notes:
-        oh.stale_assets(None)
-    why = [n["reason"] for n in notes if "not updated" in n["count"]]
-    assert why == ["the find filled its 500-element page cap"]
+        om.stale_assets(_FullPageMgr())
+    assert [n["count"] for n in notes if "not updated" in n["count"]] == ["Assets not updated within 180 days"]
 
 
 def test_failed_repository_count_is_never_a_zero():

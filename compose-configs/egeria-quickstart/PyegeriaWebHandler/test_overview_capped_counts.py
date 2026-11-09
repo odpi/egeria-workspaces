@@ -100,7 +100,7 @@ def test_growth_with_capped_counts_keeps_gaps(monkeypatch):
     json.dumps(payload, default=str)                                # the route can serialise it
 
 
-def test_summary_source_has_no_old_type_filter_name():
+def test_handlers_use_metadata_element_type_not_the_deprecated_name():
     """The Portal passes metadata_element_type, not the deprecated metadata_element_type_name (6.2.28)."""
     import pathlib
     here = pathlib.Path(__file__).parent

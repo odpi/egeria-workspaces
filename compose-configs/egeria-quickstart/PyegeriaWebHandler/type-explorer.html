@@ -2694,7 +2694,6 @@ function ReportSpecDetail({ spec, onSelectSpec, portalSupply }) {
     var res = spec.resolution;
     if (res && res.status === 'unrunnable')
       return 'Cannot run: ' + ((res.words && res.words.length) ? res.words.join(' ') : 'the resolver refused this spec at load.');
-    if (res && res.status === 'format_only') return 'Format-only: a column layout used by other specs, not run on its own.';
     var missing = ((res && res.params) || []).filter(function(rp) {
       return rp.required && (rp.default == null) && execParams[rp.name] !== undefined && String(execParams[rp.name]).trim() === ''; });
     return missing.length ? 'Required: ' + missing.map(function(m) { return m.name; }).join(', ') : null;
@@ -2913,7 +2912,7 @@ function ReportSpecDetail({ spec, onSelectSpec, portalSupply }) {
                   name: p,
                   value: execParams[p] != null ? execParams[p] : '',
                   onChange: function(v) { setExecParams(function(prev) { var n = Object.assign({}, prev); n[p] = v; return n; }); },
-                  required: false,
+                  required: !!(declared && declared.required),
                 })
               );
             })
