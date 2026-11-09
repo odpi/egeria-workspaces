@@ -69,7 +69,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from loguru import logger
 
 import spec_resolution
-from result_cache import FRESH, STALE, ResultCache, credential_identity
+from result_cache import FRESH, MISS, STALE, ResultCache, credential_identity
 
 router = APIRouter(tags=["local-dashboards"])
 
@@ -426,10 +426,24 @@ def _view_for_perspective(placements, perspective: Optional[str]):
 # Key: sheet name, perspective, the store file's mtime (an edit, from anywhere, invalidates it), the
 # presented credential (hashed, see result_cache.credential_identity), platform/server, and the
 # forLineage toggle. A degraded answer (no Egeria connection, or a placement that did not resolve) is
-# served but NOT stored, so a transient lookup failure is not pinned for minutes.
+# kept in a SEPARATE cache with a short TTL (a permanently broken placement would otherwise cost the
+# full resolve on every visit, a transient failure is not pinned for minutes), is never served stale,
+# and a degraded refresh never replaces a good entry.
 _SHEET_CACHE = ResultCache(
     ttl=float(os.environ.get("PORTAL_SHEET_CACHE_TTL", "300")),
     max_entries=int(os.environ.get("PORTAL_SHEET_CACHE_MAX", "64")))
+_DEGRADED_TTL = float(os.environ.get("PORTAL_SHEET_DEGRADED_TTL", "60"))
+_SHEET_DEGRADED = ResultCache(ttl=_DEGRADED_TTL, max_stale=_DEGRADED_TTL,
+                              max_entries=int(os.environ.get("PORTAL_SHEET_CACHE_MAX", "64")))
+
+
+def _sheet_lookup(key):
+    """The good entry if there is one (fresh or stale), else a still-fresh degraded one."""
+    state, body, at = _SHEET_CACHE.lookup(key)
+    if state in (FRESH, STALE):
+        return state, body, at
+    state, body, at = _SHEET_DEGRADED.lookup(key)
+    return (FRESH, body, at) if state == FRESH else (MISS, None, None)
 
 
 def _store_mtime_ns() -> int:
@@ -496,7 +510,7 @@ def _refresh_sheet(key, args) -> None:
         if cacheable:
             _SHEET_CACHE.put(key, JSONResponse(payload).body)
         else:
-            failed = True       # keep the old entry rather than replace it with a degraded one
+            failed = True       # never replace a good entry with a degraded one
     except Exception as exc:  # noqa: BLE001 -- the stale entry stays; nothing failed is cached
         failed = True
         logger.warning(f"local-dashboards: background refresh of {args[0]!r} failed: {exc}")
@@ -523,7 +537,7 @@ def get_local_dashboard(
     key = ("sheet", name, perspective, _store_mtime_ns(), identity, url, server, lineage_key())
 
     if not refresh:
-        state, body, stored_at = _SHEET_CACHE.lookup(key)
+        state, body, stored_at = _sheet_lookup(key)
         if state == FRESH:
             return _sheet_response(body, "hit", stored_at)
         if state == STALE:
@@ -535,7 +549,7 @@ def get_local_dashboard(
         leader, flight = _SHEET_CACHE.begin_flight(key)
         if not leader:        # the same sheet is already being resolved: wait for it
             flight.event.wait(200.0)
-            state, body, stored_at = _SHEET_CACHE.lookup(key)
+            state, body, stored_at = _sheet_lookup(key)
             if state in (FRESH, STALE):
                 return _sheet_response(body, "hit", stored_at)
             if flight.error is not None:
@@ -547,7 +561,13 @@ def get_local_dashboard(
     try:
         payload, cacheable = _build_sheet(*args)
         body = JSONResponse(payload).body
-        stored_at = _SHEET_CACHE.put(key, body) if cacheable else time.time()
+        # a good answer replaces anything; a degraded one is stored short-lived and only if no good entry exists
+        if cacheable:
+            stored_at = _SHEET_CACHE.put(key, body)
+        elif _SHEET_CACHE.lookup(key)[0] == MISS:
+            stored_at = _SHEET_DEGRADED.put(key, body)
+        else:
+            stored_at = time.time()
     except BaseException as exc:
         error = exc
         raise

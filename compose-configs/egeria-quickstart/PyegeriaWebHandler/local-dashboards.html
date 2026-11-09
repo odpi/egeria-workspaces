@@ -550,7 +550,7 @@ function renderDetail(name, force) {
         + '<div style="display:flex;align-items:center;gap:8px">'
         + (sheet.family ? '<span class="badge badge-fam">' + esc(sheet.family) + '</span>' : '')
         + '<select class="btn" onchange="setPerspective(this.value)" title="Filter placements by viewer-role perspective">' + perspOptions + '</select>'
-        + '<button class="icon-btn" title="Refresh this Dashboard Sheet" aria-label="Refresh this Dashboard Sheet" onclick="renderDetail(' + attrJson(sheet.name) + ',true)">↻</button>'
+        + '<button class="icon-btn" title="Refresh everything: re-resolve this sheet and re-run every report now (bypasses the caches)" aria-label="Refresh this Dashboard Sheet and re-run every report" onclick="renderDetail(' + attrJson(sheet.name) + ',true)">↻</button>'
         + '<button class="btn btn-danger" onclick="deleteSheet(' + attrJson(sheet.name) + ',' + attrJson(sheet.heading || sheet.name) + ')">Delete Dashboard</button>'
         + '</div></div>'
         + '<div class="placements" id="placements"></div>';
@@ -596,7 +596,7 @@ function renderDetail(name, force) {
           + (p.kind === 'report' ? '<div class="adjust-panel" id="adjust-panel-' + i + '" style="display:none"></div>' : '')
           + '<div class="p-body" id="placement-body-' + i + '"></div>';
         grid.appendChild(el);
-        renderPlacementBody(p, i);
+        renderPlacementBody(p, i, force);   // the sheet's ↻ means "refresh everything": every tile re-runs live too
       });
     })
     .catch(function(err) {

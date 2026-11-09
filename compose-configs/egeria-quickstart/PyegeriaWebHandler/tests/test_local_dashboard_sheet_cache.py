@@ -31,6 +31,8 @@ def env(monkeypatch, tmp_path):
     clock = Clock()
     cache = ResultCache(ttl=300, max_stale=3600, max_entries=8, clock=clock)
     monkeypatch.setattr(ld, "_SHEET_CACHE", cache)
+    degraded = ResultCache(ttl=60, max_stale=60, max_entries=8, clock=clock)
+    monkeypatch.setattr(ld, "_SHEET_DEGRADED", degraded)
     st = {"calls": [], "raise": None, "cacheable": True, "gate": None, "v": 1, "store": store}
 
     def fake_build(name, perspective, url, server, user_id, user_pwd):
@@ -41,7 +43,7 @@ def env(monkeypatch, tmp_path):
 
     monkeypatch.setattr(ld, "_build_sheet", fake_build)
     app = FastAPI(); app.add_middleware(egeria_auth.EgeriaTokenMiddleware); app.include_router(ld.router)
-    st.update(client=TestClient(app), clock=clock, cache=cache)
+    st.update(client=TestClient(app), clock=clock, cache=cache, degraded=degraded)
     return st
 
 
@@ -96,11 +98,31 @@ def test_errors_are_never_cached(env):
     assert _get(env).headers["X-Cache"] == "miss"
 
 
-def test_degraded_sheet_is_served_but_not_stored(env):
-    env["cacheable"] = False          # no Egeria connection, or a placement did not resolve
-    assert _get(env).status_code == 200 and len(env["cache"]) == 0
-    env["cacheable"] = True
-    assert _get(env).headers["X-Cache"] == "miss"
+def test_degraded_sheet_is_stored_briefly_in_its_own_cache(env):
+    env["cacheable"] = False          # a permanently broken placement, or no Egeria connection
+    a = _get(env); b = _get(env)
+    assert (a.headers["X-Cache"], b.headers["X-Cache"]) == ("miss", "hit") and len(env["calls"]) == 1
+    assert len(env["cache"]) == 0 and len(env["degraded"]) == 1      # never in the good cache
+    env["clock"].advance(61)                                         # short TTL, and never served stale
+    assert _get(env).headers["X-Cache"] == "miss" and len(env["calls"]) == 2
+
+
+def test_good_answer_replaces_a_degraded_one(env):
+    env["cacheable"] = False; _get(env)
+    env["cacheable"] = True; _get(env, refresh="true")
+    r = _get(env)
+    assert r.headers["X-Cache"] == "hit" and len(env["cache"]) == 1
+
+
+def test_degraded_answer_never_replaces_a_good_entry(env):
+    _get(env)                                                        # good entry stored
+    env["clock"].advance(301); env["cacheable"] = False; env["v"] = 2
+    _get(env); _join_refresh()                                       # stale served; background refresh is degraded
+    r = _get(env)
+    assert r.headers["X-Cache"] == "stale" and r.json()["v"] == 1 and len(env["degraded"]) == 0
+    r = _get(env, refresh="true")                                    # a forced refresh that is degraded
+    assert r.json()["v"] == 2 and len(env["cache"]) == 1 and len(env["degraded"]) == 0
+    assert _get(env).json()["v"] == 1                                # the good entry is still what is served
 
 
 def test_stale_is_served_at_once_with_one_refresh(env):
@@ -136,3 +158,10 @@ def test_expired_token_bypasses_the_cache(env):
     _get(env, _jwt("peter"))
     r = _get(env, _jwt("peter", exp_in=-60))
     assert "X-Cache" not in r.headers and len(env["calls"]) == 2
+
+
+def test_sheet_refresh_button_refreshes_every_tile():
+    html = (Path(__file__).resolve().parent.parent / "local-dashboards.html").read_text()
+    assert "renderPlacementBody(p, i, force)" in html                     # force reaches every tile on re-render
+    assert "onclick=\"renderDetail(' + attrJson(sheet.name) + ',true)\"" in html
+    assert "Refresh everything" in html                                   # and the tooltip says so
