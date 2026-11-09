@@ -27,9 +27,12 @@ KNOWN_KEYS = [
     "informationSupplyChainMermaidGraph", "iscImplementationMermaidGraph", "iscDataMeshMermaidGraph",
     "iscSystemFabricMermaidGraph", "iscDataFabricMermaidGraph", "iscDataMappingMermaidGraph",
     "governanceActionProcessMermaidGraph", "organizationTreeMermaidGraph", "collectionMermaidMindMap",
-    "zoneProfileMermaidPieChart", "zoneProfileAnchoredMermaidPieChart", "zoneProfileAllPieChart",
-    "userAccountTypeProfileMermaidPieChart", "userAccountStatusMermaidPieChart",
+    "zoneProfileMermaidPieChart", "zoneProfileAnchoredMermaidPieChart", "zoneProfileAllMermaidPieChart",
+    "userAccountTypeProfileMermaidPieChart", "userAccountStatusProfileMermaidPieChart",
+    "rootHierarchyMermaidGraph",
     "fieldLevelLineageGraph", "localLineageGraph", "fullLineageMermaidGraph",
+    # the older spellings of two pie charts (pyegeria's own names), still returned by some calls
+    "zoneProfileAllPieChart", "userAccountStatusMermaidPieChart",
 ]
 _CANONICAL = {k.lower(): k for k in KNOWN_KEYS}
 

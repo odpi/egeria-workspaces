@@ -35,9 +35,13 @@ var _MERMAID_FIELD_LABELS = {
   collectionMermaidMindMap:              'Collection Mind Map',
   zoneProfileMermaidPieChart:            'Zone Profile',
   zoneProfileAnchoredMermaidPieChart:    'Zone Anchored Profile',
+  zoneProfileAllMermaidPieChart:         'Zone All Assets',
   zoneProfileAllPieChart:                'Zone All Assets',
   userAccountTypeProfileMermaidPieChart: 'Account Type Profile',
+  userAccountStatusProfileMermaidPieChart: 'Account Status',
   userAccountStatusMermaidPieChart:      'Account Status',
+  rootHierarchyMermaidGraph:             'Root Hierarchy',
+  fullLineageMermaidGraph:               'Full Lineage',
 };
 
 var _MERMAID_SECTION_FIELDS = new Set(['mermaidGraph', 'anchorMermaidGraph']);

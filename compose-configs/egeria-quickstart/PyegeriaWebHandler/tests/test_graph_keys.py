@@ -112,3 +112,44 @@ def test_collections_handler_reuses_the_shared_canonicalisation():
     assert 'k.lower() == "iscimplementationmermaidgraph"' not in src                  # the copy is gone
     import collections_handler as ch
     assert "iscImplementationMermaidGraph" in ch._extract_mermaid_fields({"iscimplementationMermaidGraph": "graph TD;x"})
+
+
+# The owner's Egeria list of 2026-11-09 (~/.re-gate/PYEGERIA-6.2.29-QUEUE.md, "Egeria graph change"): the 17 kinds
+# "known today" plus the 9 not yet handled by pyegeria, less governanceActionProcessMermaidGraph (pyegeria's, not in
+# the owner's list) = 25 names. Hard-coded here because that note lives outside the repository.
+OWNERS_25 = [
+    "mermaidGraph", "anchorMermaidGraph", "actionMermaidGraph", "edgeMermaidGraph", "specificationMermaidGraph",
+    "solutionBlueprintMermaidGraph", "solutionSubcomponentMermaidGraph", "informationSupplyChainMermaidGraph",
+    "iscImplementationMermaidGraph", "iscSystemFabricMermaidGraph", "iscDataMeshMermaidGraph",
+    "iscDataMappingMermaidGraph", "iscDataFabricMermaidGraph", "organizationTreeMermaidGraph",
+    "rootHierarchyMermaidGraph", "fullLineageMermaidGraph",
+    "activityMermaidGraph", "collectionMermaidMindMap", "zoneProfileMermaidPieChart", "zoneProfileAnchoredMermaidPieChart",
+    "zoneProfileAllMermaidPieChart", "userAccountTypeProfileMermaidPieChart", "userAccountStatusProfileMermaidPieChart",
+    "fieldLevelLineageGraph", "localLineageGraph",
+]
+
+
+def _js_label_keys():
+    import re
+    ui = (HERE / "static" / "egeria-shared-ui.js").read_text()
+    block = re.search(r"var _MERMAID_FIELD_LABELS = \{(.*?)\n\};", ui, re.S).group(1)
+    return set(re.findall(r"^\s*(\w+):\s*'", block, re.M))
+
+
+def test_the_owners_25_keys_are_known_and_labelled():
+    assert len(OWNERS_25) == 25 and len(set(OWNERS_25)) == 25
+    labels = _js_label_keys()
+    for k in OWNERS_25:
+        assert k in gk.KNOWN_KEYS, f"{k} missing from graph_keys.KNOWN_KEYS"
+        assert k in labels, f"{k} has no label in _MERMAID_FIELD_LABELS"
+
+
+def test_the_older_spellings_are_kept_and_python_and_browser_lists_agree():
+    for k in ("zoneProfileAllPieChart", "userAccountStatusMermaidPieChart", "governanceActionProcessMermaidGraph"):
+        assert k in gk.KNOWN_KEYS and k in _js_label_keys()
+    assert set(gk.KNOWN_KEYS) == _js_label_keys()          # one list, two places: they must not drift
+
+
+def test_canonical_spelling_of_the_new_names():
+    assert gk.canonical_key("ZONEPROFILEALLMERMAIDPIECHART") == "zoneProfileAllMermaidPieChart"
+    assert gk.canonical_key("rootHierarchyMermaidgraph") == "rootHierarchyMermaidGraph"
