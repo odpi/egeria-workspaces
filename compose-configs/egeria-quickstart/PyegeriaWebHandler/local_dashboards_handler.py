@@ -184,6 +184,148 @@ def _expert(url=None, server=None, user_id=None, user_pwd=None):
     return mgr
 
 
+# ── Sheets held in Egeria (RS-DASH PR-3) ─────────────────────────────────────
+# A Dashboard Sheet can live as an element chain in Egeria (pyegeria 6.2.29+: PR-2's reader turns it into
+# a DashboardSheet) or in the JSON store. Egeria is read FIRST; the JSON store supplies every sheet name
+# Egeria does not hold. Egeria wins by name. If Egeria cannot be reached, or the read fails, the JSON
+# store answers alone and the response says so (`egeria.available: false` + the reason), never an empty
+# list passed off as "no dashboards". Read only: nothing here writes to Egeria.
+SOURCE_EGERIA = "egeria"
+SOURCE_LOCAL = "local file"
+
+
+class _EgeriaUnavailable(Exception):
+    """Egeria sheets could not be read; the message is shown to the person."""
+
+
+def _egeria_client(url=None, server=None, user_id=None, user_pwd=None):
+    """Sync EgeriaTech client for the PR-2 reader, signed in with the request's token (or the configured
+    user). For sync routes only (apply_token runs the sync token call)."""
+    from pyegeria import EgeriaTech
+    import pyegeria
+    from egeria_auth import apply_token
+    pyegeria.enable_ssl_check = False
+    pyegeria.disable_ssl_warnings = True
+    url      = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
+    server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+    user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
+    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    mgr = EgeriaTech(server, url, user_id, user_pwd)
+    apply_token(mgr)
+    return mgr
+
+
+def _egeria_identity(url, server, user_id, user_pwd) -> Optional[str]:
+    """Cache-key part for this request: result_cache.request_identity (the presented credential, hashed) +
+    platform/server + the forLineage toggle. None when the token has expired: the caller must then neither
+    read nor fill its cache, so the request reaches Egeria and is refused."""
+    from egeria_auth import lineage_key
+    ident = request_identity(user_id, user_pwd)
+    return None if ident is None else f"{ident}|{url}|{server}{lineage_key()}"
+
+
+def _keyed(prefix, url, server, user_id, user_pwd) -> Optional[str]:
+    ident = _egeria_identity(url, server, user_id, user_pwd)
+    return None if ident is None else f"{prefix}|{ident}"
+
+
+def _egeria_sheets(url=None, server=None, user_id=None, user_pwd=None) -> dict:
+    """{name: EgeriaDashboardSheet} for every sheet Egeria holds. Raises _EgeriaUnavailable (never caches
+    a failure). Cached _CACHE_TTL s per presented credential + platform/server + forLineage toggle."""
+    ckey = _keyed("egeria-sheets", url, server, user_id, user_pwd)
+    hit = _cache_get(ckey) if ckey else None
+    if hit is not None:
+        return hit
+    try:
+        from pyegeria.view.dashboards import list_dashboard_sheets
+        sheets = list_dashboard_sheets(_egeria_client(url, server, user_id, user_pwd))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"local-dashboards: Egeria sheets unavailable: {exc}")
+        raise _EgeriaUnavailable(f"{type(exc).__name__}: {' '.join(str(exc).split())[:240]}") from exc
+    found = {s.name: s for s in sheets}
+    return _cache_put(ckey, found) if ckey else found
+
+
+def _egeria_one(name, url=None, server=None, user_id=None, user_pwd=None):
+    """The one Egeria-held sheet `name`, or None. Raises _EgeriaUnavailable (a failure is never cached; a
+    clean "Egeria does not hold it" is, for _CACHE_TTL s). Walks one chain: ~0.1 s for a name Egeria does not
+    hold, against ~3 s per held sheet for the full list, so the detail route uses this, not the list."""
+    ckey = _keyed(f"egeria-sheet|{name}", url, server, user_id, user_pwd)
+    hit = _cache_get(ckey) if ckey else None
+    if hit is not None:
+        return None if hit is _MISS else hit
+    lkey = _keyed("egeria-sheets", url, server, user_id, user_pwd)
+    listed = _cache_get(lkey) if lkey else None
+    if listed is not None:
+        found = listed.get(name)
+    else:
+        try:
+            from pyegeria.view.dashboards import load_dashboard_sheet
+            found = load_dashboard_sheet(name, _egeria_client(url, server, user_id, user_pwd))
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"local-dashboards: Egeria sheet {name!r} unavailable: {exc}")
+            raise _EgeriaUnavailable(f"{type(exc).__name__}: {' '.join(str(exc).split())[:240]}") from exc
+    if ckey:
+        _cache_put(ckey, found if found is not None else _MISS)
+    return found
+
+
+class _MergedSheets:
+    """Egeria-held sheets first, then the JSON store's sheets for names Egeria does not hold.
+    `.get` takes a name or an alias, like DashboardSheetDict; `source_of` labels a sheet."""
+    def __init__(self, egeria: dict, local, loader=None):
+        self.egeria = dict(egeria or {})
+        self.local = local
+        self._loader = loader      # name -> Egeria sheet or None, for names (nested sheets) not loaded yet
+        self._alias = {a: s for s in self.egeria.values() for a in (getattr(s, "aliases", None) or [])}
+
+    def get(self, name):
+        s = self.egeria.get(name) or self._alias.get(name)
+        if s is None and self._loader is not None:
+            s = self._loader(name)
+            if s is not None:
+                self.egeria[s.name] = s
+        return s if s is not None else self.local.get(name)
+
+    def source_of(self, sheet) -> str:
+        return SOURCE_EGERIA if self.egeria.get(getattr(sheet, "name", None)) is sheet else SOURCE_LOCAL
+
+    def values(self):
+        yield from self.egeria.values()
+        for s in self.local.values():
+            if s.name not in self.egeria:
+                yield s
+
+    def __len__(self):
+        return sum(1 for _ in self.values())
+
+
+def _merged_sheet_for(name, url=None, server=None, user_id=None, user_pwd=None):
+    """Like _merged_sheets, for ONE sheet: reads just `name` from Egeria (nested sheets load lazily)."""
+    local = _load_sheets()
+    status = {"available": True}
+
+    def loader(n):
+        try:
+            return _egeria_one(n, url, server, user_id, user_pwd)
+        except _EgeriaUnavailable as exc:
+            status.update(available=False, error=str(exc))
+            return None
+    first = loader(name)
+    merged = _MergedSheets({first.name: first} if first is not None else {}, local, loader)
+    return merged, status
+
+
+def _merged_sheets(url=None, server=None, user_id=None, user_pwd=None):
+    """(_MergedSheets, egeria_status). egeria_status is {"available": True} or
+    {"available": False, "error": ...}; the JSON store failing still raises."""
+    local = _load_sheets()
+    try:
+        return _MergedSheets(_egeria_sheets(url, server, user_id, user_pwd), local), {"available": True}
+    except _EgeriaUnavailable as exc:
+        return _MergedSheets({}, local), {"available": False, "error": str(exc)}
+
+
 def _flatten_property_value_map(pvm: dict) -> dict:
     """Un-nest Egeria's typed propertyValueMap into plain {name: value} pairs
     -- primitives pass through as strings; a nested Map property (e.g.
@@ -202,21 +344,27 @@ def _flatten_property_value_map(pvm: dict) -> dict:
     return out
 
 
-def _find_report_by_name(name: str, mgr, url=None, server=None, identity=None) -> Optional[dict]:
+def _report_ckey(name, url, server, user_id, user_pwd) -> Optional[str]:
+    """Cache key of one Report lookup: the PRESENTED credential (hashed), platform/server and the
+    forLineage toggle, never a bare user_id: what a user may see in Egeria differs per user."""
+    return _keyed(f"report|{name}", url, server, user_id, user_pwd)
+
+
+def _find_report_by_name(name: str, mgr, url=None, server=None, user_id=None, user_pwd=None) -> Optional[dict]:
     """Look up a `Report` element by exact display name. Returns a dict with
     guid/heading/description/reportSpec/outputFormat/params, or None if not
     found (or on any lookup failure -- best-effort, never raises).
 
-    Cached for _CACHE_TTL seconds per (name, url, server, identity) -- this is
+    Cached for _CACHE_TTL seconds per (name, url, server, user_id) -- this is
     otherwise a live Egeria find call per Report-typed placement, per page
-    load (BACKLOG.md NEXT-22). url/server/identity (result_cache.request_identity) are for cache-key scoping
+    load (BACKLOG.md NEXT-22). url/server/user_id are for cache-key scoping
     only (mgr already carries the resolved connection); a stale hit within
     the TTL simply means a Report renamed/reconfigured via Dr.Egeria can take
     up to _CACHE_TTL seconds to show up here, same tradeoff overview_handler.py
     already accepts for its own cached endpoints."""
-    if identity is None:    # expired token (or no identity): no cache, so Egeria decides
+    ckey = _report_ckey(name, url, server, user_id, user_pwd)
+    if ckey is None:            # expired token: no read, no fill, so Egeria decides
         return _find_report_by_name_uncached(name, mgr)
-    ckey = f"report|{name}|{url}|{server}|{identity}"
     cached = _cache_get(ckey)
     if cached is not None:
         return None if cached is _MISS else cached
@@ -268,8 +416,40 @@ def _find_report_by_name_uncached(name: str, mgr) -> Optional[dict]:
     return None
 
 
-def _serialize_placement(p, sheets, registry, mgr, url=None, server=None, identity=None,
-                         resolutions=None) -> dict:
+def _prime_report_lookups(placements, url, server, user_id, user_pwd, max_workers: int = 6) -> None:
+    """Look up the sheet's Reports CONCURRENTLY, filling _find_report_by_name's cache before the (serial)
+    serialisation below reads it. Each lookup is a live Egeria find of 3-5 s, and they ran one after
+    another: a four-placement sheet took ~18 s on the cold path (RS-DASH PR-3 measurement), the Report
+    lookups being nearly all of it. Each worker has its OWN client (a sync pyegeria client is not safe to
+    share across threads) and runs in a copy of the request context, so the token and the forLineage
+    toggle travel with it and the cache key is the same one the serial path uses. Best-effort: a worker
+    that fails leaves the cache empty and the serial path retries that one."""
+    if _report_ckey("", url, server, user_id, user_pwd) is None:
+        return              # expired token: nothing is cached for it, priming would only repeat the work
+    ckey_of = lambda n: _report_ckey(n, url, server, user_id, user_pwd)
+    names = []
+    for p in placements:
+        if getattr(p, "content", None) or (getattr(p, "kind", None) == "missing" and getattr(p, "note", None)):
+            continue
+        if p.ref not in names and _cache_get(ckey_of(p.ref)) is None:
+            names.append(p.ref)
+    if len(names) < 2:
+        return
+    from concurrent.futures import ThreadPoolExecutor
+
+    def _one(name):
+        try:
+            _find_report_by_name(name, _expert(url, server, user_id, user_pwd), url, server, user_id, user_pwd)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"local-dashboards: concurrent Report lookup failed for {name!r}: {exc}")
+
+    with ThreadPoolExecutor(max_workers=min(max_workers, len(names)), thread_name_prefix="report-lookup") as pool:
+        for n in names:
+            pool.submit(contextvars.copy_context().run, _one, n)
+
+
+def _serialize_placement(p, sheets, registry, mgr, url=None, server=None, user_id=None,
+                         resolutions=None, user_pwd=None) -> dict:
     # A text placement (Dr.Egeria "Add Text on Dashboard Sheet") carries its
     # content inline -- no Egeria lookup needed at all, so check it before
     # attempting a Report/Sheet resolution (which would otherwise treat a
@@ -280,7 +460,14 @@ def _serialize_placement(p, sheets, registry, mgr, url=None, server=None, identi
             "heading": p.ref, "content": p.content,
             "perspectives": list(getattr(p, "perspectives", None) or []),
         }
-    report = _find_report_by_name(p.ref, mgr, url, server, identity) if mgr is not None else None
+    if getattr(p, "kind", None) == "missing" and getattr(p, "note", None):
+        # An Egeria-held placement whose report link is gone: the reader's own words, no lookup.
+        return {
+            "ref": p.ref, "span": p.span, "emphasis": p.emphasis, "kind": "missing",
+            "heading": p.ref, "description": p.note,
+            "perspectives": list(getattr(p, "perspectives", None) or []),
+        }
+    report = _find_report_by_name(p.ref, mgr, url, server, user_id, user_pwd) if mgr is not None else None
     if report is not None:
         fs = registry.get(report["reportSpec"]) if report["reportSpec"] else None
         action = getattr(fs, "action", None) if fs is not None else None
@@ -344,21 +531,26 @@ def serve_local_dashboards():
                         headers={"Cache-Control": "no-store, must-revalidate"})
 
 
-@router.get("/api/local-dashboards", summary="List locally-authored Dashboard Sheets")
-def list_local_dashboards():
+@router.get("/api/local-dashboards", summary="List Dashboard Sheets (Egeria-held first, then the local store)")
+def list_local_dashboards(
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
     try:
-        sheets = _load_sheets()
+        sheets, egeria_status = _merged_sheets(url, server, user_id, user_pwd)
     except Exception as exc:  # noqa: BLE001
         logger.exception("local-dashboards: failed to load store")
         raise HTTPException(status_code=500, detail=f"Dashboard Sheet store unavailable: {exc}")
     return JSONResponse({
         "sheets": [
             {"name": s.name, "heading": s.heading, "description": s.description,
-             "family": s.family, "placementCount": len(s.placements)}
+             "family": s.family, "placementCount": len(s.placements),
+             "source": sheets.source_of(s), "breaks": list(getattr(s, "breaks", None) or [])}
             for s in sheets.values()
         ],
         "storePath": _store_path(),
         "total": len(sheets),
+        "egeria": egeria_status,
     })
 
 
@@ -458,14 +650,19 @@ def _store_mtime_ns() -> int:
 def _build_sheet(name, perspective, url, server, user_id, user_pwd):
     """Resolve one sheet. Returns (payload, cacheable); raises the HTTPException the browser should see."""
     try:
-        sheets = _load_sheets()
+        sheets, egeria_status = _merged_sheet_for(name, url, server, user_id, user_pwd)
     except Exception as exc:  # noqa: BLE001
         logger.exception("local-dashboards: failed to load store")
         raise HTTPException(status_code=500, detail=f"Dashboard Sheet store unavailable: {exc}")
 
     sheet = sheets.get(name)
     if sheet is None:
+        if not egeria_status["available"]:
+            raise HTTPException(status_code=503, detail=(
+                f"Dashboard Sheet {name!r} is not in the local store, and Egeria could not be read, so it "
+                f"may be held there: {egeria_status['error']}"))
         raise HTTPException(status_code=404, detail=f"Dashboard Sheet {name!r} not found")
+    source = sheets.source_of(sheet)
 
     try:
         registry = _report_registry()
@@ -485,20 +682,25 @@ def _build_sheet(name, perspective, url, server, user_id, user_pwd):
         logger.debug(f"local-dashboards: Egeria connection unavailable: {exc}")
         mgr = None
 
-    # Report lookups are cached per presented credential (hashed), never per bare user_id: that is None
-    # for every token-authenticated viewer, and zone security can hide a Report from some of them.
-    identity = request_identity(user_id, user_pwd)
-    placements = [_serialize_placement(p, sheets, registry, mgr, url, server, identity, resolutions)
-                  for p in _view_for_perspective(sheet.placements, perspective)]
+    visible = _view_for_perspective(sheet.placements, perspective)
+    if mgr is not None:
+        _prime_report_lookups(visible, url, server, user_id, user_pwd)
+    placements = [_serialize_placement(p, sheets, registry, mgr, url, server, user_id, resolutions, user_pwd)
+                  for p in visible]
+    for pl in placements:
+        pl["source"] = source        # a placement is held where its sheet is
     payload = {
         "name":        sheet.name,
+        "source":      source,
+        "breaks":      list(getattr(sheet, "breaks", None) or []),
+        "egeria":      egeria_status,
         "heading":     sheet.heading,
         "description": sheet.description,
         "family":      sheet.family,
         "placements":  placements,
         "perspective": perspective,
     }
-    cacheable = mgr is not None and all(pl.get("kind") != "missing" for pl in placements)
+    cacheable = mgr is not None and egeria_status["available"] and all(pl.get("kind") != "missing" for pl in placements)
     return payload, cacheable
 
 
