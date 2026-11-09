@@ -5332,7 +5332,26 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
   );
 }
 
-// ── Collections (root collections → type-agnostic hierarchy) ─────────────────
+// ── Collections (collections by type → type-agnostic hierarchy) ──────────────
+
+// The left list: collections grouped by their (sub)type, one group per typeName, rows sorted by name.
+// Pure, so it can be tested without React. opts: typeFilter (one type only), search (substring of
+// name / qualifiedName).
+function groupCollectionsByType(items, opts) {
+  opts = opts || {};
+  var needle = (opts.search || '').trim().toLowerCase();
+  var byType = {};
+  (items || []).forEach(function(c) {
+    if (opts.typeFilter && c.typeName !== opts.typeFilter) return;
+    if (needle && ((c.displayName || '') + ' ' + (c.qualifiedName || '')).toLowerCase().indexOf(needle) < 0) return;
+    var t = c.typeName || 'Collection';
+    (byType[t] = byType[t] || []).push(c);
+  });
+  var name = function(c) { return (c.displayName || c.qualifiedName || c.guid || '').toLowerCase(); };
+  return Object.keys(byType).sort(function(a, b) { return a.toLowerCase() < b.toLowerCase() ? -1 : 1; }).map(function(t) {
+    return { typeName: t, items: byType[t].slice().sort(function(a, b) { return name(a) < name(b) ? -1 : name(a) > name(b) ? 1 : 0; }) };
+  });
+}
 
 function CollectionsView({ navGuid, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
@@ -5355,11 +5374,14 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
   const [loadingGuids, setLoadingGuids]     = useState(new Set());
   const [asOfTime, setAsOfTime]             = useState(null);
   const [inclTempl, setInclTempl]           = useState(false);
-  const [onlyRootType, setOnlyRootType]     = useState(true);
-  // Client-side only: with "Root Collections only" unchecked the roots list mixes
-  // every collection subtype (DigitalProduct, Folio, Namespace, plain Collection,
-  // …) with no way to narrow it — all roots are already fetched into the browser
-  // for this view, so filtering here avoids a second round trip.
+  // The left list is every collection grouped by type, all groups collapsed. (There is no "root
+  // collections only" switch any more: which collections have no parent cannot be read cheaply, see
+  // collections_handler._find_all_collections_with_members.)
+  const [listMeta, setListMeta]             = useState({ capped: false, complete: true });
+  const [openTypes, setOpenTypes]           = useState(new Set());   // every group starts collapsed
+  const [listSearch, setListSearch]         = useState('');
+  // Client-side only: all collections are already fetched into the browser for this view, so the type
+  // filter, search and top-level toggle need no second round trip.
   const [typeFilter, setTypeFilter]         = useState('');
   const childrenRef = useRef({});
   useEffect(() => { childrenRef.current = childrenByGuid; }, [childrenByGuid]);
@@ -5379,7 +5401,7 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
   // null | 'set' | 'clear' — which ClassificationModal action, if any, is open.
   const [classifyModalAction, setClassifyModalAction] = useState(null);
   useEffect(() => { memberSelection.clear(); }, [selectedNode]); // Members list changed to a different collection
-  useEffect(() => { selection.clear(); }, [selectedRoot, asOfTime, inclTempl, onlyRootType]); // tree dataset changed
+  useEffect(() => { selection.clear(); }, [selectedRoot, asOfTime, inclTempl]); // tree dataset changed
 
   // Tracks the active deep-link guid so root/tree load effects don't stomp it
   const navGuidRef = useRef(navGuid);
@@ -5389,19 +5411,22 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
   useEffect(() => {
     setRootState('loading'); setRootError('');
     const qs = [];
+    qs.push('all_collections=true');
     if (inclTempl) qs.push('include_templates=true');
-    if (onlyRootType) qs.push('only_root_type=true');
     egeriaFetch('/api/collections/roots' + (qs.length ? '?' + qs.join('&') : ''), creds)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => {
         const list = (data.roots || []).slice().sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
         setRoots(list);
+        setListMeta({ capped: !!data.capped, complete: data.complete !== false });
         setRootState('ready');
         setTypeFilter('');  // available options are about to change
-        if (list.length > 0 && !navGuidRef.current) setSelectedRoot(list[0].guid);
+        // Every group stays collapsed; only a deep link opens the group holding its collection.
+        const linked = navGuidRef.current && list.find(c => c.guid === navGuidRef.current);
+        setOpenTypes(new Set(linked ? [linked.typeName || 'Collection'] : []));
       })
       .catch(err => { setRootError(err.message); setRootState('error'); });
-  }, [rootAttempt, inclTempl, onlyRootType]);
+  }, [rootAttempt, inclTempl]);
 
   // Distinct typeNames present in the currently-loaded roots, for the filter
   // dropdown below — recomputed whenever the dataset changes.
@@ -5410,9 +5435,14 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
     roots.forEach(c => { if (c.typeName) seen.add(c.typeName); });
     return Array.from(seen).sort();
   }, [roots]);
-  const filteredRoots = useMemo(() =>
-    typeFilter ? roots.filter(c => c.typeName === typeFilter) : roots,
-  [roots, typeFilter]);
+  const typeGroups = useMemo(() =>
+    groupCollectionsByType(roots, { typeFilter, search: listSearch }),
+  [roots, typeFilter, listSearch]);
+  const shownCount = useMemo(() => typeGroups.reduce((n, g) => n + g.items.length, 0), [typeGroups]);
+  const toggleType = t => setOpenTypes(prev => { const n = new Set(prev); n.has(t) ? n.delete(t) : n.add(t); return n; });
+  const filtering = !!(typeFilter || listSearch.trim());
+  // "at least" whenever the list may not be the whole catalog (more pages than the safety cap, or a page failed).
+  const atLeast = (listMeta.capped || !listMeta.complete) ? 'at least ' : '';
 
   // The selected root's own record from the left-pane list, promoted to the
   // top of the middle-pane hierarchy tree (as a selectable, expandable node in
@@ -5509,26 +5539,27 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
   );
 
   return React.createElement("div", { className: "body" },
-    // Root collections (left)
+    // Collections by type (left): one collapsible group per type, all collapsed to start
     React.createElement("div", { className: "sidebar", style: { width: sideW } },
       React.createElement("div", { style: { padding: '10px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 } },
         React.createElement("div", { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
-          React.createElement("div", { style: { fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } },
-            (onlyRootType ? "Root Collections (" : "Collections Without a Parent (") + filteredRoots.length + (typeFilter ? " of " + roots.length : "") + ")"),
+          React.createElement("div", { style: { fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', overflowWrap: 'anywhere' } },
+            "Collections (" + (filtering ? shownCount + " of " + atLeast + roots.length : atLeast + roots.length) + ")"),
           React.createElement("button", { className: "btn-sm", onClick: () => setRootAttempt(a => a + 1) }, "↻ Refresh")
         ),
-        React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' } },
-          React.createElement("input", { type: "checkbox", checked: onlyRootType, onChange: function(e) { setOnlyRootType(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
-          "Root Collections only"
-        ),
+        !listMeta.complete && React.createElement("div", { style: { fontSize: 11, color: 'var(--warn, #fbbf24)' } }, "The list stopped early (a page failed to load), so there may be more collections than shown."),
+        listMeta.capped && listMeta.complete && React.createElement("div", { style: { fontSize: 11, color: 'var(--warn, #fbbf24)' } }, "More collections exist than were read."),
+        React.createElement("input", {
+          type: "search", placeholder: "Search collections…", value: listSearch, 'aria-label': 'Search collections',
+          onChange: function(e) { setListSearch(e.target.value); },
+          style: { fontSize: 11, padding: '4px 6px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', width: '100%', boxSizing: 'border-box' }
+        }),
         React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' } },
           React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
           "Include templates"
         ),
-        // Only useful once the list actually mixes subtypes — with "Root
-        // Collections only" checked, every row is the same type by definition.
-        !onlyRootType && rootTypeNames.length > 1 && React.createElement("select", {
-          className: "area-select", value: typeFilter,
+        rootTypeNames.length > 1 && React.createElement("select", {
+          className: "area-select", value: typeFilter, 'aria-label': 'Filter by type',
           onChange: function(e) { setTypeFilter(e.target.value); },
           style: { fontSize: 11, padding: '3px 6px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit' }
         },
@@ -5537,26 +5568,35 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
         )
       ),
       React.createElement("div", { className: "tree-scroll" },
-        filteredRoots.length === 0
+        typeGroups.length === 0
           ? React.createElement("div", { style: { padding: '12px 10px', fontSize: 12, color: 'var(--dim)' } },
-              typeFilter ? "No collections of type \"" + typeFilter + "\" found"
-              : onlyRootType ? "No root collections found" : "No parentless collections found")
-          : filteredRoots.map(c =>
-            React.createElement("div", {
-              key: c.guid,
-              className: "tree-item" + (selectedRoot === c.guid ? " sel" : ""),
-              onClick: () => setSelectedRoot(c.guid),
-              title: (c.description || c.qualifiedName || '') + (c.typeName ? ' [' + c.typeName + ']' : ''),
-            },
-              React.createElement("span", { className: "type-name" }, c.displayName || c.qualifiedName || c.guid),
-              // Root-list rows previously showed no type at all, unlike the
-              // Hierarchy tree (DigitalTreeNode above) and the detail pane —
-              // with "Root Collections only" unchecked this list mixes every
-              // collection subtype (DigitalProduct, Folio, plain Collection,
-              // Namespace, …) with no way to tell them apart at a glance.
-              c.typeName && React.createElement("span", { className: "badge", style: { background: 'rgba(99,102,241,.1)', color: '#60a5fa', border: '0.5px solid rgba(99,102,241,.3)', fontSize: 9, marginLeft: 4 } }, c.typeName)
-            )
-          )
+              roots.length === 0 ? "No collections found" : "No collections match the current filter")
+          : typeGroups.map(g => {
+            // Same header pattern as the Python API explorer's domain groups: fold triangle, name, count.
+            // While searching, a group with matches opens by itself so the hits are visible.
+            const open = openTypes.has(g.typeName) || !!listSearch.trim();
+            return React.createElement("div", { key: g.typeName },
+              React.createElement("div", {
+                onClick: () => toggleType(g.typeName), role: 'button', 'aria-expanded': open,
+                style: { padding: '6px 10px', cursor: 'pointer', background: 'var(--panel)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, userSelect: 'none' }
+              },
+                React.createElement(FoldTriangle, { open: open, size: 14 }),
+                React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: 'var(--text)', flex: 1, overflowWrap: 'anywhere' } }, g.typeName),
+                React.createElement("span", { style: { fontSize: 11, color: 'var(--dim)', background: 'var(--bg)', padding: '1px 5px', borderRadius: 3, border: '1px solid var(--border)' } }, g.items.length)
+              ),
+              open && g.items.map(c =>
+                React.createElement("div", {
+                  key: c.guid,
+                  className: "tree-item" + (selectedRoot === c.guid ? " sel" : ""),
+                  style: { paddingLeft: 26 },
+                  onClick: () => setSelectedRoot(c.guid),
+                  title: (c.description || c.qualifiedName || '') + ' [' + g.typeName + ']',
+                },
+                  React.createElement("span", { className: "type-name", style: { overflowWrap: 'anywhere', whiteSpace: 'normal' } }, c.displayName || c.qualifiedName || c.guid)
+                )
+              )
+            );
+          })
       )
     ),
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
@@ -6176,7 +6216,7 @@ const _SPLASH_CAPABILITIES = [
     group: 'act',
     icon: '❐',
     title: 'Collections',
-    description: 'Start from the root collections and navigate the collection hierarchy — digital products, families, blueprints, folios, dictionaries, and more — regardless of collection type.',
+    description: 'Browse every collection grouped by type (collapsed to start), then navigate the collection hierarchy — digital products, families, blueprints, folios, dictionaries, and more — regardless of collection type.',
   },
   {
     section: 'report-specs',
@@ -6233,7 +6273,7 @@ const _SPLASH_CAPABILITIES = [
     group: 'review',
     icon: '❐',
     title: 'Collections',
-    description: 'Start from the root collections and navigate the collection hierarchy — digital products, families, blueprints, folios, dictionaries, and more — regardless of collection type.',
+    description: 'Browse every collection grouped by type (collapsed to start), then navigate the collection hierarchy — digital products, families, blueprints, folios, dictionaries, and more — regardless of collection type.',
   },
   {
     section: 'solution-architect',
