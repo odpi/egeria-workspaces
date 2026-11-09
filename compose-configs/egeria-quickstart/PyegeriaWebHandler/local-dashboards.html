@@ -523,13 +523,13 @@ function renderList() {
 
 // ── detail view ────────────────────────────────────────────────────────────
 
-function renderDetail(name) {
+function renderDetail(name, force) {
   var perspective = currentPerspective();
   app.innerHTML = '<div class="back"><a href="#" class="btn" onclick="event.preventDefault();navigateToSheet(null)">← All Dashboards</a></div>'
     + '<div id="detail-body"><div style="padding:40px;text-align:center;color:var(--muted)"><span class="spinner"></span> Loading…</div></div>';
 
-  var url = '/api/local-dashboards/' + encodeURIComponent(name)
-    + (perspective ? '?perspective=' + encodeURIComponent(perspective) : '');
+  var qs = (perspective ? ['perspective=' + encodeURIComponent(perspective)] : []).concat(force ? ['refresh=true'] : []);
+  var url = '/api/local-dashboards/' + encodeURIComponent(name) + (qs.length ? '?' + qs.join('&') : '');
   fetch(url)
     .then(function(r) {
       if (!r.ok) return r.json().catch(function(){ return {}; }).then(function(b) {
@@ -550,7 +550,7 @@ function renderDetail(name) {
         + '<div style="display:flex;align-items:center;gap:8px">'
         + (sheet.family ? '<span class="badge badge-fam">' + esc(sheet.family) + '</span>' : '')
         + '<select class="btn" onchange="setPerspective(this.value)" title="Filter placements by viewer-role perspective">' + perspOptions + '</select>'
-        + '<button class="icon-btn" title="Refresh this Dashboard Sheet" aria-label="Refresh this Dashboard Sheet" onclick="renderDetail(' + attrJson(sheet.name) + ')">↻</button>'
+        + '<button class="icon-btn" title="Refresh this Dashboard Sheet" aria-label="Refresh this Dashboard Sheet" onclick="renderDetail(' + attrJson(sheet.name) + ',true)">↻</button>'
         + '<button class="btn btn-danger" onclick="deleteSheet(' + attrJson(sheet.name) + ',' + attrJson(sheet.heading || sheet.name) + ')">Delete Dashboard</button>'
         + '</div></div>'
         + '<div class="placements" id="placements"></div>';
