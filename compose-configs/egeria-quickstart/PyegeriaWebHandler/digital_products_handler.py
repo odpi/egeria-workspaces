@@ -260,7 +260,7 @@ def _serialize_node(element: dict) -> dict:
     return node
 
 
-def _find_all_catalogs(mgr) -> list:
+def _find_all_catalogs(mgr, as_of_time: Optional[str] = None) -> list:
     """
     Paginate through all collections and return those with typeName == DigitalProductCatalog.
     graph_query_depth=0 avoids deep relationship traversal, cutting per-page time from ~30s to <0.5s.
@@ -283,6 +283,7 @@ def _find_all_catalogs(mgr) -> list:
                 graph_query_depth=0,
                 sequencing_order="PROPERTY_ASCENDING",
                 sequencing_property="displayName",
+                as_of_time=as_of_time or None,  # point-in-time (the view's As-of slider)
             )
         except Exception as exc:
             logger.warning(f"find_collections page {start_from} failed: {exc}")
@@ -435,6 +436,7 @@ def get_catalogs(
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """Return all DigitalProductCatalog collections (paginated through all available collections)."""
     try:
@@ -444,7 +446,7 @@ def get_catalogs(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     try:
-        raw_catalogs = _find_all_catalogs(mgr)
+        raw_catalogs = _find_all_catalogs(mgr, as_of_time)
     except Exception as exc:
         logger.exception("Catalog discovery failed")
         raise HTTPException(status_code=500, detail=f"Catalog retrieval failed: {exc}")
@@ -579,6 +581,7 @@ def get_node(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """Return detail for a single digital product, family, or asset node.
 
@@ -589,6 +592,14 @@ def get_node(
     svr_val  = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
     uid      = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
     pwd      = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    if not isinstance(as_of_time, str):
+        as_of_time = None  # a direct Python call (not via FastAPI) leaves the Query() default in place
+    # One GetRequestBody for every get below. It must carry the graph settings itself (pyegeria ignores
+    # the graph kwargs once an explicit body is passed; its defaults truncate mermaid -- egeria-python
+    # PYEGERIA_ISSUES.md ISSUE-23), and asOfTime when the view's As-of slider is set.
+    detail_body = {"class": "GetRequestBody", "graphQueryDepth": 5, "maxMermaidNodeCount": 250}
+    if as_of_time:
+        detail_body["asOfTime"] = as_of_time
 
     try:
         mgr = _get_manager(url_val, svr_val, uid, pwd)
@@ -602,7 +613,7 @@ def get_node(
         # shared get-by-guid helper -- override both for this single-element detail view
         # (see egeria-python PYEGERIA_ISSUES.md ISSUE-23; same default used by every other
         # single-element detail endpoint in this codebase).
-        raw = mgr.get_collection_by_guid(node_guid, output_format="JSON", graph_query_depth=5, max_mermaid_node_count=250)
+        raw = mgr.get_collection_by_guid(node_guid, output_format="JSON", body=dict(detail_body))
     except Exception:
         pass  # not a collection — try asset fallback below
 
@@ -612,7 +623,9 @@ def get_node(
             from pyegeria import AssetMaker
             am = AssetMaker(view_server=svr_val, platform_url=url_val, user_id=uid, user_pwd=pwd)
             apply_token(am)
-            raw = am.get_asset_by_guid(node_guid, output_format="JSON")
+            raw = am.get_asset_by_guid(node_guid, output_format="JSON",
+                                       **({"body": {"class": "GetRequestBody", "asOfTime": as_of_time}}
+                                          if as_of_time else {}))
         except Exception as exc:
             logger.warning("AssetMaker.get_asset_by_guid failed for %s: %s", node_guid, exc)
 
@@ -633,7 +646,7 @@ def get_node(
             raw = ce.get_element_by_guid(
                 guid=node_guid,
                 output_format="JSON",
-                body={"class": "GetRequestBody", "graphQueryDepth": 5, "maxMermaidNodeCount": 250},
+                body=dict(detail_body),
             )
         except Exception as exc:
             logger.exception("ClassificationExplorer.get_element_by_guid failed for %s", node_guid)
@@ -646,11 +659,14 @@ def get_node(
 
     # Fetch direct members so the detail is usable when navigated directly (not via tree)
     try:
+        members_body = {"class": "ResultsRequestBody", "graphQueryDepth": 0}
+        if as_of_time:
+            members_body["asOfTime"] = as_of_time
         raw_members = mgr.get_collection_members(
             collection_guid=node_guid,
             output_format="JSON",
             page_size=200,
-            body={"class": "ResultsRequestBody", "graphQueryDepth": 0},
+            body=members_body,
         )
     except Exception:
         raw_members = []

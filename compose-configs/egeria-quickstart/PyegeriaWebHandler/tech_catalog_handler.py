@@ -2461,7 +2461,10 @@ def _fetch_detail(mgr, guid: str, section: Optional[str], as_of_time: Optional[s
     if section == "endpoints":
         try:
             cm = _connection_maker_from_asset_maker(mgr)
-            raw = cm.get_endpoint_by_guid(guid=guid, output_format="JSON", graph_query_depth=5)
+            # An explicit body when as_of_time is set (pyegeria ignores graph kwargs once a body is given).
+            raw = cm.get_endpoint_by_guid(guid=guid, output_format="JSON", graph_query_depth=5,
+                                          **({"body": {"class": "GetRequestBody", "graphQueryDepth": 5,
+                                                       "asOfTime": as_of_time}} if as_of_time else {}))
             el = raw[0] if isinstance(raw, list) else raw
             if el:
                 return el
@@ -2499,7 +2502,8 @@ def _fetch_detail(mgr, guid: str, section: Optional[str], as_of_time: Optional[s
         raw = mgr.get_asset_by_guid(
             guid=guid,
             output_format="JSON",
-            body={"class": "GetRequestBody", "graphQueryDepth": 5, "relationshipsPageSize": 50},
+            body={"class": "GetRequestBody", "graphQueryDepth": 5, "relationshipsPageSize": 50,
+                  **({"asOfTime": as_of_time} if as_of_time else {})},
         )
         el = raw[0] if isinstance(raw, list) else raw
         if el:
