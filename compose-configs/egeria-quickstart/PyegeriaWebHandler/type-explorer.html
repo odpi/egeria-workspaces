@@ -5159,7 +5159,10 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
   useEffect(() => {
     setCatState('loading');
     setCatError('');
-    egeriaFetch('/api/digital-products/catalogs' + (inclTempl ? '?include_templates=true' : ''), creds)
+    const qs = [];
+    if (inclTempl) qs.push('include_templates=true');
+    if (asOfTime) qs.push('as_of_time=' + encodeURIComponent(asOfTime));  // As-of slider (point-in-time)
+    egeriaFetch('/api/digital-products/catalogs' + (qs.length ? '?' + qs.join('&') : ''), creds)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => {
         const list = (data.catalogs || []).slice().sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
@@ -5168,7 +5171,7 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
         if (list.length > 0 && !navGuidRef.current) setSelectedCat(list[0].guid);
       })
       .catch(err => { setCatError(err.message); setCatState('error'); });
-  }, [catAttempt, inclTempl]);
+  }, [catAttempt, inclTempl, asOfTime]);
 
   // Load tree for selected catalog
   useEffect(() => {
@@ -5228,12 +5231,12 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
     if (!selectedNode) { setNodeDetail(null); return; }
     let cancelled = false;
     setNodeDetail(null);
-    egeriaFetch('/api/digital-products/' + encodeURIComponent(selectedNode), creds)
+    egeriaFetch('/api/digital-products/' + encodeURIComponent(selectedNode) + (asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : ''), creds)
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (!cancelled && data) setNodeDetail(data); })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [selectedNode]);
+  }, [selectedNode, asOfTime]);
 
   // Handle deep-link navigation: select the given GUID without requiring tree traversal
   useEffect(() => {
@@ -5403,6 +5406,7 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
     const qs = [];
     qs.push('all_collections=true');
     if (inclTempl) qs.push('include_templates=true');
+    if (asOfTime) qs.push('as_of_time=' + encodeURIComponent(asOfTime));  // As-of slider (point-in-time)
     egeriaFetch('/api/collections/roots' + (qs.length ? '?' + qs.join('&') : ''), creds)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => {
@@ -5416,7 +5420,7 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
         setOpenTypes(new Set(linked ? [linked.typeName || 'Collection'] : []));
       })
       .catch(err => { setRootError(err.message); setRootState('error'); });
-  }, [rootAttempt, inclTempl]);
+  }, [rootAttempt, inclTempl, asOfTime]);
 
   // Distinct typeNames present in the currently-loaded roots, for the filter
   // dropdown below — recomputed whenever the dataset changes.
@@ -5512,12 +5516,12 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
     if (!selectedNode) { setNodeDetail(null); return; }
     let cancelled = false;
     setNodeDetail(null);
-    egeriaFetch('/api/collections/' + encodeURIComponent(selectedNode), creds)
+    egeriaFetch('/api/collections/' + encodeURIComponent(selectedNode) + (asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : ''), creds)
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (!cancelled && data) setNodeDetail(data); })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [selectedNode]);
+  }, [selectedNode, asOfTime]);
 
   // Handle deep-link navigation: select the given GUID without requiring tree traversal
   useEffect(() => {
@@ -8223,7 +8227,7 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
   }
 
   // Reset questions so they re-fetch with new inclTempl value
-  useEffect(() => { setQState('idle'); setQList([]); selection.clear(); }, [inclTempl]);
+  useEffect(() => { setQState('idle'); setQList([]); selection.clear(); }, [inclTempl, asOfTime]);
 
   // Load perspectives on mount
   useEffect(() => {
@@ -8249,31 +8253,34 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
   useEffect(() => {
     if (subNav !== 'questions' || qState !== 'idle') return;
     setQState('loading');
-    egeriaFetch('/api/questions' + (inclTempl ? '?include_templates=true' : ''), creds)
+    const qp = [];
+    if (inclTempl) qp.push('include_templates=true');
+    if (asOfTime) qp.push('as_of_time=' + encodeURIComponent(asOfTime));  // As-of slider (point-in-time)
+    egeriaFetch('/api/questions' + (qp.length ? '?' + qp.join('&') : ''), creds)
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(data => { setQList(data.questions || []); setQState('ready'); })
       .catch(() => setQState('error'));
-  }, [subNav, qState, inclTempl]);
+  }, [subNav, qState, inclTempl, asOfTime]);
 
   // Load perspective detail
   useEffect(() => {
     if (!selectedPersp) { setPerspDetail(null); return; }
     setPerspDetailState('loading');
-    egeriaFetch('/api/perspectives/' + encodeURIComponent(selectedPersp), creds)
+    egeriaFetch('/api/perspectives/' + encodeURIComponent(selectedPersp) + (asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : ''), creds)
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(data => { setPerspDetail(data); setPerspDetailState('ready'); })
       .catch(() => setPerspDetailState('error'));
-  }, [selectedPersp]);
+  }, [selectedPersp, asOfTime]);
 
   // Load question detail
   useEffect(() => {
     if (!selectedQ) { setQDetail(null); return; }
     setQDetailState('loading');
-    egeriaFetch('/api/questions/' + encodeURIComponent(selectedQ), creds)
+    egeriaFetch('/api/questions/' + encodeURIComponent(selectedQ) + (asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : ''), creds)
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(data => { setQDetail(data); setQDetailState('ready'); })
       .catch(() => setQDetailState('error'));
-  }, [selectedQ]);
+  }, [selectedQ, asOfTime]);
 
   // Relationship section renderer with context-aware navigation
   function renderRelSection(key, items, isInPerspectiveContext) {
@@ -8987,20 +8994,28 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
   useEffect(function() {
     setState('loading'); setError('');
     selection.clear();
-    egeriaFetch('/api/isc' + (inclTempl ? '?include_templates=true' : ''), creds)
+    var p = [];
+    if (inclTempl) p.push('include_templates=true');
+    if (asOfTime) p.push('as_of_time=' + encodeURIComponent(asOfTime));  // As-of slider (point-in-time)
+    egeriaFetch('/api/isc' + (p.length ? '?' + p.join('&') : ''), creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setItems(data.supply_chains || []); setState('ready'); })
       .catch(function(e) { setError(e.message); setState('error'); });
-  }, [attempt, inclTempl]);
+  }, [attempt, inclTempl, asOfTime]);
 
   useEffect(function() {
     if (!selected) { setDetail(null); return; }
     setDetailState('loading');
-    egeriaFetch('/api/isc/' + selected, creds)
-      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    egeriaFetch('/api/isc/' + selected + (asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : ''), creds)
+      .then(function(r) {
+        // 404 at a past As-of time = the chain did not exist yet (or was deleted): say so, not "failed".
+        if (r.status === 404 && asOfTime) { var e = new Error('absent'); e.absent = true; throw e; }
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
       .then(function(data) { setDetail(data); setDetailState('ready'); })
-      .catch(function() { setDetailState('error'); });
-  }, [selected]);
+      .catch(function(e) { setDetail(null); setDetailState(e && e.absent ? 'absent' : 'error'); });
+  }, [selected, asOfTime]);
 
   var sidebar = React.createElement("div", { style: { width: sideW, minWidth: sideW, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflowY: 'auto', height: '100%' } },
     React.createElement("div", { style: { padding: '8px 10px' } }, React.createElement(TimeSlider, { items: items, onChange: setAsOfTime, label: 'As of' })),
@@ -9080,7 +9095,8 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
     ),
     selected && detailState === 'loading' && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "Loading…"),
     selected && detailState === 'error'   && React.createElement("div", { style: { padding: 24, color: '#f87171' } }, "Failed to load ISC detail"),
-    selected && (detailState === 'ready' || selectedItem) && React.createElement(ISCDetail, { data: selectedItem, detail: detail, onNavigateToElement: onNavigateToElement })
+    selected && detailState === 'absent'  && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "This supply chain did not exist at " + new Date(asOfTime).toLocaleString() + "."),
+    selected && (detailState === 'ready' || (selectedItem && detailState !== 'absent')) && React.createElement(ISCDetail, { data: selectedItem, detail: detail, onNavigateToElement: onNavigateToElement })
   );
 
   return React.createElement("div", { className: "body" },
@@ -10599,11 +10615,16 @@ function CommunityView({ navGuid, onNavigateToElement }) {
   useEffect(function() {
     if (!selected) { setDetail(null); return; }
     setDetailState('loading');
-    egeriaFetch('/api/communities/' + selected, creds)
-      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    egeriaFetch('/api/communities/' + selected + (asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : ''), creds)
+      .then(function(r) {
+        // 404 at a past As-of time = it did not exist yet (or was deleted): say so, not "failed".
+        if (r.status === 404 && asOfTime) { var e = new Error('absent'); e.absent = true; throw e; }
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
       .then(function(data) { setDetail(data); setDetailState('ready'); })
-      .catch(function() { setDetailState('error'); });
-  }, [selected]);
+      .catch(function(e) { setDetail(null); setDetailState(e && e.absent ? 'absent' : 'error'); });
+  }, [selected, asOfTime]);
 
   // Cross-tab arrival: another tab called onNavigateToElement on a Community item.
   useEffect(function() {
@@ -10665,7 +10686,8 @@ function CommunityView({ navGuid, onNavigateToElement }) {
     ),
     selected && detailState === 'loading' && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "Loading…"),
     selected && detailState === 'error'   && React.createElement("div", { style: { padding: 24, color: '#f87171' } }, "Failed to load community detail"),
-    selected && (detailState === 'ready' || selectedItem) && React.createElement(CommunityDetail, { data: selectedItem, detail: detail, onNavigateToElement: onNavigateToElement })
+    selected && detailState === 'absent'  && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "This community did not exist at " + new Date(asOfTime).toLocaleString() + "."),
+    selected && (detailState === 'ready' || (selectedItem && detailState !== 'absent')) && React.createElement(CommunityDetail, { data: selectedItem, detail: detail, onNavigateToElement: onNavigateToElement })
   );
 
   return React.createElement("div", { className: "body" },
@@ -10763,11 +10785,16 @@ function BusinessCapabilityView({ navGuid, onNavigateToElement }) {
   useEffect(function() {
     if (!selected) { setDetail(null); return; }
     setDetailState('loading');
-    egeriaFetch('/api/business-capabilities/' + selected, creds)
-      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    egeriaFetch('/api/business-capabilities/' + selected + (asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : ''), creds)
+      .then(function(r) {
+        // 404 at a past As-of time = it did not exist yet (or was deleted): say so, not "failed".
+        if (r.status === 404 && asOfTime) { var e = new Error('absent'); e.absent = true; throw e; }
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
       .then(function(data) { setDetail(data); setDetailState('ready'); })
-      .catch(function() { setDetailState('error'); });
-  }, [selected]);
+      .catch(function(e) { setDetail(null); setDetailState(e && e.absent ? 'absent' : 'error'); });
+  }, [selected, asOfTime]);
 
   // Cross-tab arrival: another tab called onNavigateToElement on a BusinessCapability item.
   useEffect(function() {
@@ -10830,7 +10857,8 @@ function BusinessCapabilityView({ navGuid, onNavigateToElement }) {
     ),
     selected && detailState === 'loading' && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "Loading…"),
     selected && detailState === 'error'   && React.createElement("div", { style: { padding: 24, color: '#f87171' } }, "Failed to load business capability detail"),
-    selected && (detailState === 'ready' || selectedItem) && React.createElement(BusinessCapabilityDetail, { data: selectedItem, detail: detail, onNavigateToElement: onNavigateToElement })
+    selected && detailState === 'absent'  && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "This business capability did not exist at " + new Date(asOfTime).toLocaleString() + "."),
+    selected && (detailState === 'ready' || (selectedItem && detailState !== 'absent')) && React.createElement(BusinessCapabilityDetail, { data: selectedItem, detail: detail, onNavigateToElement: onNavigateToElement })
   );
 
   return React.createElement("div", { className: "body" },

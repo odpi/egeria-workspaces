@@ -35,6 +35,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
+from pyegeria import PyegeriaNotFoundException
 
 from egeria_auth import apply_token
 from common_serialize import _authored_fields, _header_summary, _generic_relationships, _classifications
@@ -192,6 +193,7 @@ def get_business_capability(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
@@ -200,7 +202,13 @@ def get_business_capability(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     try:
-        element = mgr.get_business_capability_by_guid(guid, output_format="JSON", body=_BC_DETAIL_GRAPH_BODY)
+        body = dict(_BC_DETAIL_GRAPH_BODY)
+        if as_of_time:
+            body["asOfTime"] = as_of_time  # point-in-time (the view's As-of slider)
+        element = mgr.get_business_capability_by_guid(guid, output_format="JSON", body=body)
+    except PyegeriaNotFoundException:
+        # Stale GUID, or (with as_of_time) the capability did not exist yet.
+        raise HTTPException(status_code=404, detail=f"Business capability {guid!r} not found")
     except Exception as exc:
         logger.exception(f"get_business_capability_by_guid failed for {guid}")
         raise HTTPException(status_code=500, detail=f"Business capability detail retrieval failed: {exc}")
