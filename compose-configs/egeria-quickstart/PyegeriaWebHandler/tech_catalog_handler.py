@@ -41,7 +41,7 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from egeria_auth import lineage_key as _lineage_key, use_token
-from result_cache import request_identity
+from result_cache import credential_identity, request_identity
 from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
 
@@ -2419,8 +2419,11 @@ async def list_survey_types(
     while the entry held whichever caller's view filled it first. The caller's url/server/user_id/user_pwd
     are deliberately ignored: the service password is never sent to a platform the request names.
     """
-    svc_user = os.environ.get("EGERIA_USER", "erinoverview")
-    cache_key = f"svc:{svc_user}{_lineage_key()}"
+    # Reference data, shared by construction: built with an explicit service-credential client (below,
+    # never the request token) and keyed on that service identity plus the platform/server it reads.
+    svc_url, svc_server, _, _ = _creds(None, None, None, None)
+    svc_identity = credential_identity(None, None, None, os.environ.get("EGERIA_USER", "erinoverview"))  # "svc:<user>"
+    cache_key = f"{svc_identity}|{svc_url}|{svc_server}{_lineage_key()}"
     cached = _SURVEY_TYPES_CACHE.get(cache_key)
     fresh = bool(cached) and (time.time() - cached["ts"]) < _SURVEY_TYPES_TTL
     if fresh:

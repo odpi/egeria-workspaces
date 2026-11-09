@@ -28,9 +28,6 @@ LAUNDER_CALLS = {"request_identity", "credential_identity", "_credential_identit
 
 # (module, function) -> why it is allowed. Keep this list short and every entry justified.
 ALLOWED = {
-    ("overview_handler.py", "_section_key"):
-        "hourly section cache keyed on the token's sub; changing it is the owner's call (2-minute builds "
-        "behind a 2-worker gate would rerun on every sign-in). Tracked in the cache-identity sweep notes.",
     ("demo_auth_gate.py", "_authenticated"):
         "the sub comes from the Portal JWT that demo_auth_handler._decode_jwt has VERIFIED, and the cache "
         "only holds whether that account is still enabled",
@@ -60,10 +57,22 @@ def _tainted(expr, tainted_names) -> bool:
             return True
         if name in PASS_THROUGH_CALLS:
             return any(_tainted(a, tainted_names) for a in expr.args) or bool(set(_names(expr)) & BARE_IDS)
+        if _builds_a_string(expr):                     # "|".join([...]), "{}".format(...), str(x): taint flows
+            parts = list(expr.args) + [k.value for k in expr.keywords]
+            if isinstance(expr.func, ast.Attribute) and not isinstance(expr.func.value, ast.Constant):
+                parts.append(expr.func.value)          # x.format(...) / sep.join(...) with a variable receiver
+            return any(_tainted(a, tainted_names) for a in parts)
         return False                                   # opaque (includes request_identity / credential_identity)
     if isinstance(expr, ast.Lambda):
         return False
     return any(_tainted(child, tainted_names) for child in ast.iter_child_nodes(expr))
+
+
+def _builds_a_string(call) -> bool:
+    f = call.func
+    if isinstance(f, ast.Name):
+        return f.id == "str"
+    return isinstance(f, ast.Attribute) and f.attr in ("join", "format", "lower", "upper", "strip")
 
 
 def _names(expr):
@@ -158,6 +167,12 @@ def _list_key(kind, url, server, user_id, user_pwd):
     "token sub inline": '''
 async def _cached(name):
     key = f"{name}|{_token_user() or '-'}"
+''',
+    "token sub joined into a key (the old overview _section_key)": '''
+def _section_key(section, *args, url=None, server=None, user_id=None, user_pwd=None):
+    u, sv, uid, _ = _env(url, server, user_id, user_pwd)
+    viewer = token_user() or uid
+    return "|".join([section, u, sv, viewer, *(str(a) for a in args)]) + lineage_key()
 ''',
     "cache indexed directly by user_id": '''
 def check(user_id):
