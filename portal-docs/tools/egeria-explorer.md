@@ -116,7 +116,7 @@ Select a spec and scroll to **Resolution**. For a runnable spec it has four part
 
 A routine declares its inputs by role; the environment supplies them. The Portal's supply is shown under **What it needs**:
 
-- Each `egeria_client:<Class>` input is a client of that class for the **signed-in user**.
+- Each `egeria_client:<Class>` input is a client of that class. It acts as the user the run is made as: the Explorer's Connection Settings user, or the server's service user (see *Which user runs it* below). The Portal's own supply note says "signed-in user" and means that.
 - `viewer` is the **persona chosen in this browser**. With no persona chosen, a routine that declares `viewer` is refused before it runs, and the refusal says so.
 - `reader:<name>` and `subject` inputs are **not supplied**. A routine that declares one is refused before it runs.
 
@@ -132,7 +132,7 @@ This was checked against the code on 2026-11-09. When the browser starts sending
 
 ### Running a spec, and when it refuses
 
-**▶ Run** posts to the Portal, which calls pyegeria. A refusal comes back as a non-2xx response, and the Portal shows the server's own words verbatim in a box labelled by the status:
+**▶ Run** is disabled, with the reason beside it, when it cannot work: `Required: <param>` for a required parameter left blank, or `Cannot run:` followed by the resolver's words for a spec it refused. The Resource Explorer curation-coverage routine, for one, needs its `slug` filled in before Run is enabled. **▶ Run** posts to the Portal, which calls pyegeria. A refusal comes back as a non-2xx response, and the Portal shows the server's own words verbatim in a box labelled by the status:
 
 | Status | Box label | Typical cause |
 |---|---|---|
@@ -152,7 +152,7 @@ Two refusals you may meet on pyegeria 6.2.28:
 
 ### Technology parameter and type filters
 
-pyegeria 6.2.28 made the generic-search `*-DrE-*` specs name their type. The nine technology commands (Kafka, Postgres server and database, the Unity Catalog elements) take an optional run parameter **`deployed_implementation_type`**. It defaults to the spec's own technology: `*` searches every element of the type (any technology), and any other value is an exact match on that technology, ignoring case. You see it under *Optional Parameters* in the Run panel, and as a parameter in the Resolution table.
+pyegeria 6.2.28 made the generic-search `*-DrE-*` specs name their type. The nine technology commands (Kafka, Postgres server and database, the Unity Catalog elements) take an optional run parameter **`deployed_implementation_type`**. The default is the spec's own technology (an exact match, ignoring case). Set it to `*` to search every element of the type, whatever its technology; any other value is an exact match on that technology, ignoring case. On pyegeria 6.2.28 these specs are slow, about 18 s a run; a fix is planned. You see it under *Optional Parameters* in the Run panel, and as a parameter in the Resolution table.
 
 The type filters are spelt one way across pyegeria: `metadata_element_type` and `metadata_element_subtypes`. The old spellings still work in code, with a deprecation warning; report specs that use them keep working.
 
