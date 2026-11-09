@@ -76,9 +76,25 @@ def test_strict_count_of_failed_query_is_none():
     assert om.count_elements(_FailingMgr(), "Asset", strict=True, **VIEWER) is None
 
 
-def test_nonstrict_count_of_failed_query_is_the_zero_we_are_avoiding():
-    # documents why the handler passes strict=True: the viewer find fallback still folds failure to 0
-    assert om.count_elements(_FailingMgr(), "Asset", **VIEWER) == 0
+def test_failed_viewer_count_is_never_a_zero_and_says_why():
+    # pyegeria 6.2.28 (#565): the viewer find fallback no longer folds a failed query to 0 -- strict or
+    # not, the count is None and a note records why. Intent unchanged: no figure from a failed query.
+    for kw in ({}, {"strict": True}):
+        with om.recording_unmeasured() as notes:
+            assert om.count_elements(_FailingMgr(), "Asset", **kw, **VIEWER) is None
+        assert notes and notes[0]["reason"], "a None count must carry its unmeasured note"
+
+
+def test_unmeasured_note_reaches_the_stale_asset_payload_field(monkeypatch):
+    # the Overview forwards that note (summary's staleAssetNote) instead of a bare "—"
+    def fake_stale(mgr, as_of=None):
+        om._not_measured("Assets not updated within 180 days", "the find filled its 500-element page cap")
+        return {"staleCount": None, "assetTotal": 100}
+    monkeypatch.setattr(oh, "stale_assets", fake_stale)
+    with om.recording_unmeasured() as notes:
+        oh.stale_assets(None)
+    why = [n["reason"] for n in notes if "not updated" in n["count"]]
+    assert why == ["the find filled its 500-element page cap"]
 
 
 def test_failed_repository_count_is_never_a_zero():
