@@ -17,6 +17,28 @@ from typing import Any, Dict, Iterable, List
 PREFERRED_ORDER = ["mermaidGraph", "actionMermaidGraph", "activityMermaidGraph"]
 
 
+# The spellings the browser has labels for. A key that matches one of these ignoring case (Egeria's calls
+# disagree: get_info_supply_chain_by_guid returns 'iscimplementationMermaidGraph', the find calls
+# 'iscImplementationMermaidGraph') is returned under THIS spelling, so there is one name per diagram.
+# A key not listed keeps Egeria's own spelling. Keep in step with _MERMAID_FIELD_LABELS in static/egeria-shared-ui.js.
+KNOWN_KEYS = [
+    "mermaidGraph", "actionMermaidGraph", "activityMermaidGraph", "anchorMermaidGraph", "edgeMermaidGraph",
+    "specificationMermaidGraph", "solutionBlueprintMermaidGraph", "solutionSubcomponentMermaidGraph",
+    "informationSupplyChainMermaidGraph", "iscImplementationMermaidGraph", "iscDataMeshMermaidGraph",
+    "iscSystemFabricMermaidGraph", "iscDataFabricMermaidGraph", "iscDataMappingMermaidGraph",
+    "governanceActionProcessMermaidGraph", "organizationTreeMermaidGraph", "collectionMermaidMindMap",
+    "zoneProfileMermaidPieChart", "zoneProfileAnchoredMermaidPieChart", "zoneProfileAllPieChart",
+    "userAccountTypeProfileMermaidPieChart", "userAccountStatusMermaidPieChart",
+    "fieldLevelLineageGraph", "localLineageGraph", "fullLineageMermaidGraph",
+]
+_CANONICAL = {k.lower(): k for k in KNOWN_KEYS}
+
+
+def canonical_key(key: str) -> str:
+    """The canonical spelling of a known diagram key (matched ignoring case), else the key as given."""
+    return _CANONICAL.get(key.lower(), key)
+
+
 def is_graph_key(key: str) -> bool:
     """True for a Mermaid / lineage diagram key: anything containing 'mermaid' (case-insensitive), or ending
     in graph, mindmap, piechart or chart. That covers *MermaidGraph, *MermaidMindMap, *MermaidPieChart and
@@ -39,13 +61,18 @@ def order_graph_keys(keys: Iterable[str]) -> List[str]:
 
 
 def extract_graph_fields(*sources: Dict[str, Any]) -> Dict[str, str]:
-    """Every non-empty diagram field found at the top level of the given dicts (earlier sources win),
-    in display order (context graph, action, activity, then the rest)."""
+    """Every non-empty diagram field found at the top level of the given dicts, in display order (context
+    graph, action, activity, then the rest). Keys are de-duplicated ignoring case and known variants are
+    returned under their canonical spelling, so a response carrying both 'iscimplementationMermaidGraph' and
+    'iscImplementationMermaidGraph' gives one diagram, not two. When variants collide the earlier source wins,
+    and within one source the canonically spelled key does."""
     found: Dict[str, str] = {}
     for src in sources:
         if not isinstance(src, dict):
             continue
-        for k, v in src.items():
-            if k not in found and is_graph_key(k) and graph_value(v):
-                found[k] = v
+        # canonical spelling first within a source, so it wins a collision with its own variant
+        for k in sorted(src, key=lambda x: (canonical_key(x) != x, x)):
+            v = src[k]
+            if is_graph_key(k) and graph_value(v):
+                found.setdefault(canonical_key(k), v)
     return {k: found[k] for k in order_graph_keys(found)}

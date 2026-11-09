@@ -393,11 +393,9 @@ def _serialize(el, include_relationships: bool = False):
     out["hasAnnotations"] = (out["typeName"] == "SurveyReport" or "SurveyReport" in super_types)
     # Pass through ANY non-empty mermaid graph field (generic — from the element or
     # its properties), so all available diagrams surface, consistent with Explorer.
-    for src in (el, props):
-        for k, v in src.items():
-            if k not in out and isinstance(v, str) and v.strip() \
-                    and not v.lower().startswith("no ") and _is_mermaid_key(k):
-                out[k] = v
+    from graph_keys import extract_graph_fields
+    for k, v in extract_graph_fields(el, props).items():     # de-duplicated, canonical spelling (graph_keys.py)
+        out.setdefault(k, v)
     # Pass through every remaining scalar property so the detail shows the full
     # property set, not a fixed subset. Skip header/mermaid keys already handled.
     # _property_items also flattens extendedProperties (open-type attributes).

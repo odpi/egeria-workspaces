@@ -90,3 +90,25 @@ def test_no_route_was_lost(module, routes):
     import importlib
     m = importlib.import_module(module)
     assert len([r for r in m.router.routes if getattr(r, "path", "")]) == routes
+
+
+def test_spelling_variants_are_one_diagram_under_the_canonical_name():
+    el = {"iscimplementationMermaidGraph": "graph TD;typo", "iscImplementationMermaidGraph": "graph TD;canon",
+          "ACTIONMERMAIDGRAPH": "graph TD;a"}
+    got = gk.extract_graph_fields(el)
+    assert list(got) == ["actionMermaidGraph", "iscImplementationMermaidGraph"]          # one each, canonical spelling
+    assert got["iscImplementationMermaidGraph"] == "graph TD;canon"                      # the canonical key wins its variant
+    only_typo = gk.extract_graph_fields({"iscimplementationMermaidGraph": "graph TD;typo"})
+    assert only_typo == {"iscImplementationMermaidGraph": "graph TD;typo"}               # a lone variant is renamed
+
+
+def test_unknown_keys_keep_egerias_spelling_and_earlier_source_wins():
+    assert list(gk.extract_graph_fields({"someFutureMermaidGraph": "g"})) == ["someFutureMermaidGraph"]
+    assert gk.extract_graph_fields({"mermaidGraph": "first"}, {"mermaidGraph": "second"}) == {"mermaidGraph": "first"}
+
+
+def test_collections_handler_reuses_the_shared_canonicalisation():
+    src = (HERE / "collections_handler.py").read_text()
+    assert 'k.lower() == "iscimplementationmermaidgraph"' not in src                  # the copy is gone
+    import collections_handler as ch
+    assert "iscImplementationMermaidGraph" in ch._extract_mermaid_fields({"iscimplementationMermaidGraph": "graph TD;x"})

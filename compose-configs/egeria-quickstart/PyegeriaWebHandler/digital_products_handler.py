@@ -110,13 +110,10 @@ from graph_keys import is_graph_key as _is_mermaid_key   # one rule for what a d
 
 
 def _extract_mermaid_fields(element: dict) -> dict:
-    """Pass through ANY non-empty mermaid-graph string field (generic — not a
-    fixed allow-list), so new/rare diagram fields surface automatically."""
-    result = {}
-    for k, v in element.items():
-        if isinstance(v, str) and v.strip() and not v.lower().startswith("no ") and _is_mermaid_key(k):
-            result[k] = v
-    return result
+    """Pass through ANY non-empty diagram field (generic, not a fixed allow-list), so new or rare kinds
+    surface automatically; known kinds come back under their canonical spelling (see graph_keys.py)."""
+    from graph_keys import extract_graph_fields
+    return extract_graph_fields(element)
 
 
 # Scalar property keys already surfaced in the node header / as named fields —

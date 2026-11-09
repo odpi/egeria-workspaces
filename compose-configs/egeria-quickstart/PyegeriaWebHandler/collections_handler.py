@@ -94,17 +94,9 @@ def _enrich_isc_implementation_graph(node: dict, node_guid: str, url, server, us
         return
     if isinstance(raw, dict):
         extracted = _extract_mermaid_fields(raw)
-        # get_info_supply_chain_by_guid returns this key in a different case
-        # than find_information_supply_chains does (isc_handler.py's list/detail
-        # calls) -- "iscimplementationMermaidGraph" vs "iscImplementationMermaidGraph".
-        # Harmless either way (AvailableMermaidDiagrams matches case-insensitively),
-        # but the frontend's auto-generated label falls back to an ugly
-        # "Iscimplementation Graph" without the canonical casing, since it can't
-        # find an exact match in its nice-label lookup table. Canonicalize so the
-        # label matches what isc_handler.py's own detail view already shows.
-        for k in list(extracted.keys()):
-            if k.lower() == "iscimplementationmermaidgraph" and k != "iscImplementationMermaidGraph":
-                extracted["iscImplementationMermaidGraph"] = extracted.pop(k)
+        # (graph_keys.extract_graph_fields, used by _extract_mermaid_fields, already returns known diagram keys
+        # under their canonical spelling: get_info_supply_chain_by_guid's "iscimplementationMermaidGraph" arrives
+        # as "iscImplementationMermaidGraph", so the browser finds its label.)
         node.update(extracted)
 
 
