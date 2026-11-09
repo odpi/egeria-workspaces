@@ -127,6 +127,8 @@
   .vega-block { margin:10px 0; overflow-x:auto; min-height:120px; }
   .vega-block svg, .vega-block canvas { max-width:100%; }
   .placement .p-note { font-size:.76rem; color:var(--amber); background:rgba(245,183,78,.08); border:1px solid rgba(245,183,78,.25); border-radius:6px; padding:8px 10px; margin-top:4px; }
+  .placement .p-cache { font-size:.68rem; color:var(--muted); margin-top:6px; }
+  .placement .p-cache.stale { color:var(--amber); }
   .placement .p-note a { color:#4f9cf9; text-decoration:underline; }
   /* RS-W2-4: a refusal in the server's (or the resolver's) own words, labelled by status. */
   .p-refusal { font-size:.78rem; background:rgba(248,113,113,.08); border:1px solid rgba(248,113,113,.35); border-radius:6px; padding:8px 10px; margin-top:4px; }
@@ -338,11 +340,19 @@ function _fetchExecuteCached(body, force) {
   if (!force && hit && (Date.now() - hit.t) < EXECUTE_CACHE_TTL_MS) {
     return Promise.resolve(hit.result);
   }
+  // cache:true opts this run in to the server-side result cache (5 min, stale-while-revalidate);
+  // refresh:true (the placement's refresh button) makes the server run it now and store the result.
+  var sent = Object.assign({}, body, { cache: true }, force ? { refresh: true } : {});
+  var meta = null;
   return fetch('/api/report-specs/execute', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify(sent),
   }).then(function(r) {
+    if (r.ok) {
+      var st = r.headers.get('X-Cache'), at = r.headers.get('X-Cache-At');
+      if (st && at) meta = { state: st, at: at, stale: st === 'stale' };
+    }
     if (!r.ok) return r.text().then(function(t) {
       var detail = null;
       try { detail = JSON.parse(t).detail; } catch (e) {}
@@ -353,9 +363,31 @@ function _fetchExecuteCached(body, force) {
     });
     return r.json();
   }).then(function(result) {
-    _executeCache[key] = { t: Date.now(), result: result };
+    // A stale answer is not kept client-side: the follow-up re-fetch must reach the server again.
+    if (!(meta && meta.stale)) _executeCache[key] = { t: Date.now(), result: result };
+    if (meta && result !== null && typeof result === 'object') _execMeta.set(result, meta);
     return result;
   });
+}
+
+// Where a result came from: server cache hit / stale / live, with the time it was computed.
+// Keyed by the result object (primitives carry no badge), so the client cache keeps the original time.
+var _execMeta = new WeakMap();
+function cacheNoteHtml(result) {
+  var m = (result !== null && typeof result === 'object') ? _execMeta.get(result) : null;
+  if (!m || m.state === 'miss' || m.state === 'refresh') return '';
+  var d = new Date(m.at), hhmm = isNaN(d) ? m.at : d.toTimeString().slice(0, 5);
+  return '<div class="p-cache' + (m.stale ? ' stale' : '') + '" title="Served from the Portal\'s result cache; the ↻ button re-runs it now">'
+    + (m.stale ? 'stale · as of ' + esc(hhmm) + ' · refreshing in the background' : 'cached · as of ' + esc(hhmm)) + '</div>';
+}
+// After a placement renders, add the cache note; a stale one re-checks once the background refresh has had time.
+function afterPlacementResult(p, i, result, target) {
+  var note = cacheNoteHtml(result);
+  if (note) target.insertAdjacentHTML('beforeend', note);
+  var m = (result !== null && typeof result === 'object') ? _execMeta.get(result) : null;
+  if (m && m.stale) setTimeout(function() {
+    if (document.getElementById('placement-body-' + i) === target) renderPlacementBody(p, i, false);
+  }, 20000);
 }
 
 function currentSheetName() {
@@ -637,6 +669,7 @@ function renderPlacementBody(p, i, force) {
         renderMermaidBlocks(out.mermaidBlocks);
         renderVegaBlocks(out.vegaBlocks);
         applyKpiTileClass(p, i, out);
+        afterPlacementResult(p, i, result, target);
       })
       .catch(function(err) { target.innerHTML = refusalFromError(err, p.reportSpec); });
     return;
@@ -681,6 +714,7 @@ function renderPlacementBody(p, i, force) {
       renderMermaidBlocks(out.mermaidBlocks);
       renderVegaBlocks(out.vegaBlocks);
       applyKpiTileClass(p, i, out);
+      afterPlacementResult(p, i, result, target);
     })
     .catch(function(err) { target.innerHTML = refusalFromError(err, p.reportSpec); });
 }

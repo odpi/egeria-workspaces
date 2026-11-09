@@ -12,15 +12,22 @@ pyegeria.view.base_report_formats.  They are not stored in Egeria and this
 endpoint requires no Egeria connection.
 """
 
+import contextvars
+import hashlib
+import json
 import os
+import threading
+import time
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from loguru import logger
 from pydantic import BaseModel
 
 import spec_resolution
+from result_cache import FRESH, MISS, STALE, ResultCache
 
 from pyegeria.view.base_report_formats import get_report_registry, register_report_specs
 from pyegeria.view._output_format_models import FormatSet, Format, Column, ActionParameter
@@ -225,6 +232,11 @@ class ExecuteRequest(BaseModel):
     # The persona the browser picked, for analytic functions that must act as
     # the viewer elsewhere (report_viewer.py). Optional: other specs ignore it.
     persona:       Optional[str] = None
+    # Local-dashboard placements opt in to the server-side result cache (see _RESULT_CACHE below). The
+    # Report Specs browser's manual Run leaves this off and always runs live.
+    cache:         bool = False
+    # With cache=True: skip the cache read, run now, and store the fresh result (a viewer's refresh click).
+    refresh:       bool = False
 
 
 @router.post("/api/report-specs/execute", summary="Execute a report spec action")
@@ -244,9 +256,7 @@ def execute_spec(req: ExecuteRequest, request: Request):
     inert plumbing, not a behavior change -- wiring up a real client-side
     token flow is a separate, larger piece of work.
     """
-    from pyegeria.view.format_set_executor import exec_report_spec
-    from egeria_auth import TOKEN_REFUSED_WORDS, PortalSupply, get_request_token
-    from pyegeria.view.role_supply import CallerTokenExpired
+    from egeria_auth import _token_expired, get_request_token, lineage_key
 
     url      = req.url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
     server   = req.server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
@@ -255,7 +265,134 @@ def execute_spec(req: ExecuteRequest, request: Request):
     token    = get_request_token()
 
     from report_viewer import reset_viewer, resolve_viewer, set_viewer
-    viewer_token = set_viewer(resolve_viewer(request, req.persona))
+    viewer = resolve_viewer(request, req.persona)
+    viewer_token = set_viewer(viewer)
+    try:
+        # An expired token is never served from cache: it must reach _run_spec and be refused (401).
+        if not req.cache or (token and _token_expired(token)):
+            return JSONResponse(_run_spec(req, request, token, url, server, user_id, user_pwd))
+        key = _cache_key(req, url, server, _credential_identity(req, token, user_id), viewer, lineage_key())
+        return _cached_execute(key, req, request, token, url, server, user_id, user_pwd)
+    finally:
+        reset_viewer(viewer_token)
+
+
+# ── Result cache for local-dashboard placements ─────────────────────────────
+# A placement run takes 20-35 s because each run hits Egeria; a revisit should not pay that again.
+# Fresh (<5 min): served at once. Stale: served at once, marked stale, and refreshed once in the
+# background. Only successful results are stored: an error, a refusal (400) or a token failure
+# propagates and is never cached. A "not measured" result is a success and is cached verbatim, so
+# it still renders as not measured. Bounded (LRU). See result_cache.py.
+_RESULT_CACHE = ResultCache(
+    ttl=float(os.environ.get("PORTAL_RESULT_CACHE_TTL", "300")),
+    max_entries=int(os.environ.get("PORTAL_RESULT_CACHE_MAX", "256")))
+
+
+def _credential_identity(req, token, user_id) -> str:
+    """Who the cache entry belongs to, from the credential actually PRESENTED -- never from an
+    unverified claim. A token's `sub` and a body `user_id` are unauthenticated, and a cache hit makes
+    no Egeria call to check them, so keying on either would let a forged `sub`/user_id read another
+    user's results. A hash of the whole token (or of user_id + password) can only be reproduced by
+    someone who holds that credential; a forged one just misses and goes to Egeria, which refuses it
+    (and a refusal is never cached). Memory only; the secret is never stored or logged. The cost: a
+    renewed token is a new key."""
+    if token:
+        return "t:" + hashlib.sha256(token.encode()).hexdigest()
+    if req.user_id:
+        return "u:" + hashlib.sha256(f"{req.user_id}\0{req.user_pwd or ''}".encode()).hexdigest()
+    return "svc:" + user_id    # the Portal's own service user (server-side env), no caller credential
+
+
+def _cache_key(req, url, server, identity, viewer, lineage) -> tuple:
+    """Everything that can change the answer: the spec, format, params, platform, the signed-in
+    identity (zone visibility differs per viewer), the chosen persona, and the forLineage toggle."""
+    params = json.dumps(req.params, sort_keys=True, default=str)
+    return (req.spec_name, req.output_format, params, url, server, identity,
+            (viewer or {}).get("persona_id"), lineage)
+
+
+def _stamp(stored_at: float) -> dict:
+    return {"X-Cache-At": datetime.fromtimestamp(stored_at, timezone.utc).isoformat(timespec="seconds"),
+            "X-Cache-Age": str(max(0, int(time.time() - stored_at)))}
+
+
+def _cache_response(body: bytes, state: str, stored_at: float) -> Response:
+    return Response(content=body, media_type="application/json",
+                    headers={"X-Cache": state, **_stamp(stored_at)})
+
+
+def _cached_execute(key, req, request, token, url, server, user_id, user_pwd) -> Response:
+    if not req.refresh:
+        state, body, stored_at = _RESULT_CACHE.lookup(key)
+        if state == FRESH:
+            return _cache_response(body, "hit", stored_at)
+        if state == STALE:
+            # claim is atomic: exactly one background refresh per key
+            if _RESULT_CACHE.claim_refresh(key):
+                ctx = contextvars.copy_context()   # carries the token, forLineage and viewer to the thread
+                threading.Thread(target=ctx.run, daemon=True, name="report-spec-refresh",
+                                 args=(_background_refresh, key, req, None, token, url, server, user_id, user_pwd)).start()
+            return _cache_response(body, "stale", stored_at)
+    if not req.refresh:
+        err = _RESULT_CACHE.recent_timeout(key)
+        if err is not None:      # it timed out a moment ago; do not spend the full timeout again on every load
+            raise err
+        leader, flight = _RESULT_CACHE.begin_flight(key)
+        if not leader:           # another request is already running this exact report: wait for it
+            flight.event.wait(_FLIGHT_WAIT)
+            state, body, stored_at = _RESULT_CACHE.lookup(key)
+            if state in (FRESH, STALE):
+                return _cache_response(body, "hit", stored_at)
+            if flight.error is not None:
+                raise flight.error
+            # the leader's result was too large to store (or it vanished): run it ourselves
+            leader, flight = False, None
+    else:
+        leader, flight = False, None
+    error = None
+    try:
+        body = JSONResponse(_run_spec(req, request, token, url, server, user_id, user_pwd)).body
+        stored_at = _RESULT_CACHE.put(key, body)    # stored BEFORE followers are woken
+    except BaseException as exc:
+        error = exc
+        if _is_timeout(exc):
+            _RESULT_CACHE.note_timeout(key, exc)
+        raise
+    finally:
+        if leader:
+            _RESULT_CACHE.end_flight(key, flight, error)
+    return _cache_response(body, "refresh" if req.refresh else "miss", stored_at)
+
+
+_FLIGHT_WAIT = 200.0   # a follower waits at most this long for the leader's run (pyegeria times out at 90 s)
+
+
+def _is_timeout(exc) -> bool:
+    """A run that hit a timeout (pyegeria TIMEOUT_ERROR_408, an asyncio/httpx timeout, or a gateway 504)."""
+    if isinstance(exc, HTTPException):
+        text = str(exc.detail)
+        return exc.status_code in (408, 504) or "TIMEOUT_ERROR_408" in text or "timed out" in text.lower()
+    return False
+
+
+def _background_refresh(key, req, request, token, url, server, user_id, user_pwd) -> None:
+    failed = False
+    try:
+        body = JSONResponse(_run_spec(req, request, token, url, server, user_id, user_pwd)).body
+        _RESULT_CACHE.put(key, body)
+    except Exception as exc:  # noqa: BLE001 -- the stale entry stays; nothing failed is cached
+        failed = True
+        logger.warning(f"report-spec cache: background refresh of {req.spec_name!r} failed: {exc}")
+    finally:
+        _RESULT_CACHE.release_refresh(key, failed=failed)
+
+
+def _run_spec(req, request, token, url, server, user_id, user_pwd):
+    """Run the spec; return the result, or raise the HTTPException the browser should see."""
+    from pyegeria.view.format_set_executor import exec_report_spec
+    from egeria_auth import TOKEN_REFUSED_WORDS, PortalSupply
+    from pyegeria.view.role_supply import CallerTokenExpired
+
     try:
         result = exec_report_spec(
             req.spec_name,
@@ -268,7 +405,7 @@ def execute_spec(req: ExecuteRequest, request: Request):
             token=token,
             supply=PortalSupply(request, view_server=server, view_url=url, user_id=user_id, user_pwd=user_pwd),
         )
-        return JSONResponse(result)
+        return result
     except CallerTokenExpired:
         # Refused before any Egeria call; same 401 words as an Egeria 401 below.
         raise HTTPException(status_code=401, detail=TOKEN_REFUSED_WORDS)
@@ -281,5 +418,3 @@ def execute_spec(req: ExecuteRequest, request: Request):
             raise HTTPException(status_code=401, detail="Not authorized for this operation — the current user does not have permission for this report")
         logger.exception("exec_report_spec failed")
         raise HTTPException(status_code=500, detail=f"Execution failed: {exc}")
-    finally:
-        reset_viewer(viewer_token)
