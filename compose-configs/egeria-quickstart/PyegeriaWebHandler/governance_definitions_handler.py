@@ -25,6 +25,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
+from graph_keys import extract_graph_fields
 
 from common_serialize import _authored_fields, _header_summary, _classifications
 
@@ -325,6 +326,8 @@ def _serialize_detail(element: dict) -> dict:
         "results":          sv("results"),
         "status":           (header.get("status") or ""),
         "mermaidGraph":     element.get("mermaidGraph") or "",
+        # Action, Activity and any other diagram kind the element carries (graph_keys.py), beside the context graph
+        **{k: v for k, v in extract_graph_fields(element).items() if k != "mermaidGraph"},
         "_header":          _header_summary(element),
         **_authored_fields(element),
         "classifications": _classifications(element),

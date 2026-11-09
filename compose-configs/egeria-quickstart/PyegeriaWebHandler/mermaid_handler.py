@@ -55,33 +55,9 @@ def _get_expert(url=None, server=None, user_id=None, user_pwd=None):
     return mgr
 
 
-_ALL_MERMAID_FIELDS = [
-    "mermaidGraph",
-    "anchorMermaidGraph",
-    "informationSupplyChainMermaidGraph",
-    "fieldLevelLineageGraph",
-    "actionMermaidGraph",
-    "localLineageGraph",
-    "edgeMermaidGraph",
-    "iscImplementationMermaidGraph",
-    # Egeria 6.3+: the ISC implementation graph split into five
-    "iscDataMeshMermaidGraph",
-    "iscSystemFabricMermaidGraph",
-    "iscDataFabricMermaidGraph",
-    "iscDataMappingMermaidGraph",
-    "specificationMermaidGraph",
-    "solutionBlueprintMermaidGraph",
-    "solutionSubcomponentMermaidGraph",
-    "governanceActionProcessMermaidGraph",
-    # newer pyegeria fields (may not be present in older installations)
-    "organizationTreeMermaidGraph",
-    "collectionMermaidMindMap",
-    "zoneProfileMermaidPieChart",
-    "zoneProfileAnchoredMermaidPieChart",
-    "zoneProfileAllPieChart",
-    "userAccountTypeProfileMermaidPieChart",
-    "userAccountStatusMermaidPieChart",
-]
+
+
+from graph_keys import extract_graph_fields
 
 
 def _normalise(graph) -> str:
@@ -143,13 +119,9 @@ def get_mermaid_graph(
             graph_query_depth=_MERMAID_GRAPH_QUERY_DEPTH,
             max_mermaid_node_count=_MERMAID_MAX_NODES,
         )
-        graphs = {}
-        if isinstance(element, dict):
-            lower_map = {k.lower(): v for k, v in element.items()}
-            for field in _ALL_MERMAID_FIELDS:
-                val = _normalise(lower_map.get(field.lower(), ""))
-                if val:
-                    graphs[field] = val
+        # Every diagram field the element carries, found by shape (graph_keys.py): a fixed list here is what
+        # hid activityMermaidGraph and every other new graph kind.
+        graphs = extract_graph_fields(element) if isinstance(element, dict) else {}
     except Exception as exc:
         logger.warning(f"get_element_by_guid failed for {guid}: {exc}")
         graphs = {}

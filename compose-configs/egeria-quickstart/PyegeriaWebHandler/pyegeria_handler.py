@@ -77,6 +77,10 @@ from rate_limiter import limiter
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
+    # pyegeria's logging config leaves the console at ERROR, so Portal info/warning lines were invisible in
+    # `docker logs`. Add a Portal-only sink here, after that config has run (see portal_logging.py).
+    from portal_logging import ensure_portal_log_sink
+    ensure_portal_log_sink()
     from obsidian_lock_handler import start_scheduler as obs_start, stop_scheduler as obs_stop
     from jupyter_lock_handler import start_scheduler as jup_start, stop_scheduler as jup_stop
     from bootstrap_monitor_handler import start_scheduler as boot_start, stop_scheduler as boot_stop
@@ -99,6 +103,11 @@ async def _lifespan(app: FastAPI):
     # Keep a reference on app.state so the task isn't GC'd mid-flight.
     from rest_api_handler import warm_openapi_cache
     app.state.openapi_warmup_task = asyncio.create_task(warm_openapi_cache())
+    # Likewise warm Egeria Explorer's Collections list (about 8-11 s cold) in a daemon thread, so the first
+    # visitor after a restart rarely waits. Never blocks startup; failures are not cached.
+    if os.environ.get("PORTAL_WARM_COLLECTIONS", "1") != "0":
+        from collections_handler import warm_roots_cache
+        threading.Thread(target=warm_roots_cache, daemon=True, name="warm-collections").start()
     yield
     if DEMO_MODE:
         from demo_reset_handler import stop_scheduler

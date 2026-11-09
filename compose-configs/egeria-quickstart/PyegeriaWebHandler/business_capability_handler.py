@@ -91,7 +91,6 @@ def _super_type_names(element: dict) -> list:
 # mermaidGraph, same field-name convention as solution_architect_handler.py's
 # _SA_MERMAID_FIELDS (no shared helper in common_serialize.py yet -- every
 # handler keeps its own small list of the mermaid field names relevant to it).
-_BC_MERMAID_FIELDS = ["mermaidGraph", "anchorMermaidGraph", "collectionMermaidMindMap"]
 
 # Raises the depth/node cap the same way solution_architect_handler.py's
 # _DETAIL_GRAPH_BODY_DICT does for blueprint/component detail -- a plain dict
@@ -108,13 +107,10 @@ _BC_DETAIL_GRAPH_BODY = {
 
 
 def _extract_mermaid_fields(element: dict) -> dict:
-    lower_map = {k.lower(): v for k, v in element.items()}
-    result = {}
-    for f in _BC_MERMAID_FIELDS:
-        v = lower_map.get(f.lower()) or ""
-        if v and isinstance(v, str) and not v.lower().startswith("no "):
-            result[f] = v
-    return result
+    # every diagram field the element carries, found by shape (graph_keys.py), not just the three this
+    # handler used to list
+    from graph_keys import extract_graph_fields
+    return extract_graph_fields(element)
 
 
 def _serialize_business_capability_summary(element: dict) -> dict:

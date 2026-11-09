@@ -109,26 +109,12 @@ def _rel_list(element: dict, key: str) -> list:
     return element.get(key) or []
 
 
-_SA_MERMAID_FIELDS = [
-    "mermaidGraph", "solutionBlueprintMermaidGraph", "solutionSubcomponentMermaidGraph",
-    "iscImplementationMermaidGraph", "informationSupplyChainMermaidGraph",
-    "edgeMermaidGraph", "anchorMermaidGraph", "specificationMermaidGraph",
-    "actionMermaidGraph", "localLineageGraph", "fieldLevelLineageGraph",
-    "governanceActionProcessMermaidGraph", "organizationTreeMermaidGraph",
-    "collectionMermaidMindMap", "zoneProfileMermaidPieChart",
-    "zoneProfileAnchoredMermaidPieChart", "zoneProfileAllPieChart",
-    "userAccountTypeProfileMermaidPieChart", "userAccountStatusMermaidPieChart",
-]
+from graph_keys import extract_graph_fields as _extract_graph_fields
 
 
 def _extract_mermaid_fields(element: dict) -> dict:
-    lower_map = {k.lower(): v for k, v in element.items()}
-    result = {}
-    for f in _SA_MERMAID_FIELDS:
-        v = lower_map.get(f.lower()) or ""
-        if v and isinstance(v, str) and not v.lower().startswith("no "):
-            result[f] = v
-    return result
+    # found by shape, not a fixed list: see graph_keys.py
+    return _extract_graph_fields(element)
 
 
 def _serialize_rel_entries(rel_list: list) -> list:

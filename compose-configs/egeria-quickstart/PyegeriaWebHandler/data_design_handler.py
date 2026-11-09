@@ -181,26 +181,12 @@ def _extract_all_rels(element: dict) -> dict:
     return result
 
 
-_DD_MERMAID_FIELDS = [
-    "mermaidGraph", "specificationMermaidGraph", "anchorMermaidGraph",
-    "edgeMermaidGraph", "localLineageGraph", "fieldLevelLineageGraph",
-    "collectionMermaidMindMap", "solutionBlueprintMermaidGraph",
-    "iscImplementationMermaidGraph", "informationSupplyChainMermaidGraph",
-    "governanceActionProcessMermaidGraph", "organizationTreeMermaidGraph",
-    "zoneProfileMermaidPieChart", "zoneProfileAnchoredMermaidPieChart",
-    "zoneProfileAllPieChart", "userAccountTypeProfileMermaidPieChart",
-    "userAccountStatusMermaidPieChart",
-]
+from graph_keys import extract_graph_fields as _extract_graph_fields
 
 
 def _extract_mermaid_fields(element: dict) -> dict:
-    lower_map = {k.lower(): v for k, v in element.items()}
-    result = {}
-    for f in _DD_MERMAID_FIELDS:
-        v = lower_map.get(f.lower()) or ""
-        if v and isinstance(v, str) and not v.lower().startswith("no "):
-            result[f] = v
-    return result
+    # found by shape, not a fixed list: see graph_keys.py
+    return _extract_graph_fields(element)
 
 
 def _serialize_spec(el: dict) -> dict:

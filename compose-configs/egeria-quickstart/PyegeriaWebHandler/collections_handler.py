@@ -40,6 +40,7 @@ from digital_products_handler import (
 )
 from egeria_error_mapping import raise_egeria_http_error, describe_bulk_item_error, EGERIA_ERROR_RESPONSES
 from egeria_auth import apply_token
+from result_cache import credential_identity
 import os
 
 router = APIRouter(tags=["collections"])
@@ -93,17 +94,9 @@ def _enrich_isc_implementation_graph(node: dict, node_guid: str, url, server, us
         return
     if isinstance(raw, dict):
         extracted = _extract_mermaid_fields(raw)
-        # get_info_supply_chain_by_guid returns this key in a different case
-        # than find_information_supply_chains does (isc_handler.py's list/detail
-        # calls) -- "iscimplementationMermaidGraph" vs "iscImplementationMermaidGraph".
-        # Harmless either way (AvailableMermaidDiagrams matches case-insensitively),
-        # but the frontend's auto-generated label falls back to an ugly
-        # "Iscimplementation Graph" without the canonical casing, since it can't
-        # find an exact match in its nice-label lookup table. Canonicalize so the
-        # label matches what isc_handler.py's own detail view already shows.
-        for k in list(extracted.keys()):
-            if k.lower() == "iscimplementationmermaidgraph" and k != "iscImplementationMermaidGraph":
-                extracted["iscImplementationMermaidGraph"] = extracted.pop(k)
+        # (graph_keys.extract_graph_fields, used by _extract_mermaid_fields, already returns known diagram keys
+        # under their canonical spelling: get_info_supply_chain_by_guid's "iscimplementationMermaidGraph" arrives
+        # as "iscImplementationMermaidGraph", so the browser finds its label.)
         node.update(extracted)
 
 
@@ -176,8 +169,11 @@ def _find_all_collections_with_members(mgr, url=None, server=None, user_id=None,
     """
     all_elements = {}
     start_from = 0
-    page_size = 200
-    max_pages = 50  # safety cap: 10000 collections max
+    # Egeria's maximum page is 1000 (OMAG-COMMON-400-010 above it). Measured live 2026-11-09 at depth 0:
+    # 200 rows 1.5 s, 500 rows 3.7 s, 1000 rows 3.8 s, so a 1000-row page costs about what a 500-row one does.
+    # Still only an EMPTY page ends the read (a short page is not the last one).
+    page_size = 1000
+    max_pages = 10  # safety cap: 10000 collections max
     status = {"capped": False, "incomplete": False, "parentsKnown": True}
     for page_no in range(max_pages):
         try:
@@ -300,10 +296,35 @@ def get_roots(
     """
     if not only_root_type and not parentless:
         all_collections = True          # the default: the cheap, complete answer
-    cache_key = f"{url or ''}|{server or ''}|{user_id or ''}|{include_templates}|{only_root_type}|{all_collections}{_lineage_key()}"
-    cached = _ROOTS_CACHE.get(cache_key)
+    meta: dict = {}
+    result = _roots_payload(url, server, user_id, user_pwd, include_templates, only_root_type, all_collections, meta)
+    from report_specs_handler import _stamp      # same X-Cache / X-Cache-At / X-Cache-Age headers as the other caches
+    return JSONResponse(result, headers={"X-Cache": meta.get("state", "miss"), **_stamp(meta.get("at") or time.time())})
+
+
+def _roots_cache_key(url, server, user_id, user_pwd, include_templates, only_root_type, all_collections) -> str:
+    """Who asked (the credential PRESENTED, hashed, never a bare user_id: see result_cache.credential_identity),
+    what they asked for, and the forLineage toggle. The warm-up builds its keys with this too."""
+    from egeria_auth import get_request_token
+    identity = credential_identity(get_request_token(), user_id, user_pwd, os.environ.get("EGERIA_USER", "erinoverview"))
+    return f"{url or ''}|{server or ''}|{identity}|{include_templates}|{only_root_type}|{all_collections}{_lineage_key()}"
+
+
+def _roots_payload(url, server, user_id, user_pwd, include_templates, only_root_type, all_collections,
+                   meta: Optional[dict] = None) -> dict:
+    """The roots answer, from the cache when fresh. Raises HTTPException on a failure; a partial answer is
+    returned but never cached. Shared by the route and the startup warm-up. If `meta` is given it is filled
+    with state ("hit" or "miss") and at (when the answer was computed), for the X-Cache headers."""
+    meta = meta if meta is not None else {}
+    from egeria_auth import _token_expired, get_request_token
+    token = get_request_token()
+    use_cache = not (token and _token_expired(token))    # an expired token must reach Egeria and be refused
+    cache_key = _roots_cache_key(url, server, user_id, user_pwd, include_templates, only_root_type, all_collections)
+    cached = _ROOTS_CACHE.get(cache_key) if use_cache else None
     if cached and (time.time() - cached[0]) < _ROOTS_CACHE_TTL:
-        return JSONResponse(cached[1])
+        meta.update(state="hit", at=cached[0])
+        return cached[1]
+    meta.update(state="miss", at=time.time())
 
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
@@ -331,8 +352,8 @@ def get_roots(
         roots.sort(key=lambda c: (c.get("displayName") or c.get("qualifiedName") or "").lower())
         result = {"roots": roots, "total": len(roots), "capped": len(raw) >= 500, "complete": True,
                   "parentsKnown": True}
-        _ROOTS_CACHE[cache_key] = (time.time(), result)
-        return JSONResponse(result)
+        if use_cache: _ROOTS_CACHE[cache_key] = (time.time(), result)
+        return result
 
     try:
         all_elements, has_parent, status = _find_all_collections_with_members(
@@ -349,8 +370,32 @@ def get_roots(
     result = {"roots": roots, "total": len(roots), "capped": status["capped"],
               "complete": not status["incomplete"], "parentsKnown": status["parentsKnown"]}
     if result["complete"]:      # a partial answer is served, not remembered
-        _ROOTS_CACHE[cache_key] = (time.time(), result)
-    return JSONResponse(result)
+        if use_cache: _ROOTS_CACHE[cache_key] = (time.time(), result)
+    return result
+
+
+def warm_roots_cache() -> None:
+    """Fill the all-collections list cache for the Portal's own service user, for BOTH forLineage settings,
+    so the first visitor after a restart rarely waits ~8-11 s. The Promise/Memento toggle defaults ON in
+    the browser (egeriaFetch then sends X-Egeria-For-Lineage: true, a different cache key and a different,
+    larger list), so that key is warmed first, then the OFF key, one after the other. Each pass runs inside
+    egeria_auth.lineage_scope, i.e. the same state the middleware sets per request.
+
+    Runs in a daemon thread (sync pyegeria is only safe off the event loop), never blocks startup, and logs
+    one line per pass. A failure, or a partial answer, is logged and NOT cached (_roots_payload stores only
+    complete answers), so a warm-up while Egeria is still coming up leaves the cache empty, not wrong."""
+    from egeria_auth import lineage_scope
+    for lineage in (True, False):
+        started = time.time()
+        try:
+            with lineage_scope(lineage):
+                result = _roots_payload(None, None, None, None, False, False, True)
+            took = time.time() - started
+            logger.info(f"collections: warmed the type-grouped list (forLineage={'on' if lineage else 'off'}): "
+                        f"{result['total']} collections in {took:.1f}s ({'cached' if result['complete'] else 'partial, not cached'})")
+        except Exception as exc:  # noqa: BLE001 -- warm-up is best effort
+            logger.warning(f"collections: list warm-up (forLineage={'on' if lineage else 'off'}) failed after "
+                           f"{time.time() - started:.1f}s (nothing cached): {exc}")
 
 
 @router.get("/api/collections/{root_guid}/tree", summary="Member hierarchy from a collection", responses=EGERIA_ERROR_RESPONSES)

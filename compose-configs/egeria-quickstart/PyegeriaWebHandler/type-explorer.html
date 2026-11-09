@@ -717,18 +717,7 @@ function AvailableCharts({ data }) {
   );
 }
 
-// All known mermaid graph field names — kept in sync with Python _ALL_MERMAID_FIELDS.
-var _ALL_JS_MERMAID_FIELDS = [
-  'mermaidGraph', 'iscImplementationMermaidGraph', 'informationSupplyChainMermaidGraph',
-  'iscDataMeshMermaidGraph', 'iscSystemFabricMermaidGraph', 'iscDataFabricMermaidGraph', 'iscDataMappingMermaidGraph',
-  'edgeMermaidGraph', 'anchorMermaidGraph', 'specificationMermaidGraph',
-  'solutionBlueprintMermaidGraph', 'solutionSubcomponentMermaidGraph',
-  'actionMermaidGraph', 'localLineageGraph', 'fieldLevelLineageGraph',
-  'governanceActionProcessMermaidGraph', 'organizationTreeMermaidGraph',
-  'collectionMermaidMindMap', 'zoneProfileMermaidPieChart',
-  'zoneProfileAnchoredMermaidPieChart', 'zoneProfileAllPieChart',
-  'userAccountTypeProfileMermaidPieChart', 'userAccountStatusMermaidPieChart',
-];
+// (The diagram keys an element carries are found by shape, not listed here: see _isMermaidKey in static/egeria-shared-ui.js.)
 
 
 
@@ -5380,6 +5369,7 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
   const [listMeta, setListMeta]             = useState({ capped: false, complete: true });
   const [openTypes, setOpenTypes]           = useState(new Set());   // every group starts collapsed
   const [listSearch, setListSearch]         = useState('');
+  const [closedInSearch, setClosedInSearch] = useState(new Set());   // groups the viewer closed while a search had opened them
   // Client-side only: all collections are already fetched into the browser for this view, so the type
   // filter, search and top-level toggle need no second round trip.
   const [typeFilter, setTypeFilter]         = useState('');
@@ -5439,7 +5429,16 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
     groupCollectionsByType(roots, { typeFilter, search: listSearch }),
   [roots, typeFilter, listSearch]);
   const shownCount = useMemo(() => typeGroups.reduce((n, g) => n + g.items.length, 0), [typeGroups]);
-  const toggleType = t => setOpenTypes(prev => { const n = new Set(prev); n.has(t) ? n.delete(t) : n.add(t); return n; });
+  const searching = !!listSearch.trim();
+  // ONE rule for "is this group open", used for the rows, the arrow and aria-expanded alike: while a
+  // search is active its groups are open (so the hits show) unless the viewer closed one; otherwise it
+  // is whatever the viewer opened. A click flips that same state.
+  const isTypeOpen = t => searching ? !closedInSearch.has(t) : openTypes.has(t);
+  const toggleType = t => {
+    const flip = prev => { const n = new Set(prev); n.has(t) ? n.delete(t) : n.add(t); return n; };
+    if (searching) setClosedInSearch(flip); else setOpenTypes(flip);
+  };
+  useEffect(() => { setClosedInSearch(new Set()); }, [listSearch]);   // a new search opens its matching groups afresh
   const filtering = !!(typeFilter || listSearch.trim());
   // "at least" whenever the list may not be the whole catalog (more pages than the safety cap, or a page failed).
   const atLeast = (listMeta.capped || !listMeta.complete) ? 'at least ' : '';
@@ -5574,7 +5573,7 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
           : typeGroups.map(g => {
             // Same header pattern as the Python API explorer's domain groups: fold triangle, name, count.
             // While searching, a group with matches opens by itself so the hits are visible.
-            const open = openTypes.has(g.typeName) || !!listSearch.trim();
+            const open = isTypeOpen(g.typeName);
             return React.createElement("div", { key: g.typeName },
               React.createElement("div", {
                 onClick: () => toggleType(g.typeName), role: 'button', 'aria-expanded': open,
@@ -7804,7 +7803,7 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
       React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, detail.guid),
       detail.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(detail.description)),
       React.createElement(AvailableMermaidDiagrams, { data: detail }),
-      React.createElement(MermaidSection, { guid: detail.guid }),
+      React.createElement(MermaidSection, { guid: detail.guid, data: detail }),
       fields.length > 0 && React.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 20 } },
         React.createElement("tbody", null,
           fields.map(function(row) {
@@ -7994,7 +7993,7 @@ function SolutionBlueprintDetail({ blueprint, onNavigateToComponent, onNavigateT
     blueprint.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(blueprint.description)),
     React.createElement("div", { style: { marginBottom: 8 } },
       React.createElement(AvailableMermaidDiagrams, { data: blueprint }),
-      React.createElement(MermaidSection, { guid: blueprint.guid })
+      React.createElement(MermaidSection, { guid: blueprint.guid, data: blueprint })
     ),
     React.createElement("div", { style: { marginBottom: 20 } },
       React.createElement(GenericPropertiesTable, {
@@ -8077,7 +8076,7 @@ function SolutionComponentDetail({ component, onNavigateToBlueprint, onNavigateT
     component.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(component.description)),
     React.createElement("div", { style: { marginBottom: 8 } },
       React.createElement(AvailableMermaidDiagrams, { data: component }),
-      React.createElement(MermaidSection, { guid: component.guid })
+      React.createElement(MermaidSection, { guid: component.guid, data: component })
     ),
     React.createElement("div", { style: { marginBottom: 20 } },
       React.createElement(GenericPropertiesTable, {
@@ -8158,7 +8157,7 @@ function DesignPatternDetail({ pattern, onNavigateToPattern, onNavigateToElement
     pattern.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(pattern.description)),
     React.createElement("div", { style: { marginBottom: 8 } },
       React.createElement(AvailableMermaidDiagrams, { data: pattern }),
-      React.createElement(MermaidSection, { guid: pattern.guid })
+      React.createElement(MermaidSection, { guid: pattern.guid, data: pattern })
     ),
     React.createElement("div", { style: { marginBottom: 20 } },
       React.createElement(GenericPropertiesTable, {
@@ -8922,7 +8921,7 @@ function ISCDetail({ data, detail, onNavigateToElement }) {
     src.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(src.description)),
     React.createElement("div", { style: { marginBottom: 8 } },
       React.createElement(AvailableMermaidDiagrams, { data: structural }),
-      React.createElement(MermaidSection, { guid: src.guid })
+      React.createElement(MermaidSection, { guid: src.guid, data: structural })
     ),
     React.createElement("div", { style: { marginBottom: 20 } },
       React.createElement(GenericPropertiesTable, { item: src, priority: ['scope', 'versionIdentifier', 'lifecycleStatus', 'status'] })
@@ -9278,6 +9277,7 @@ function LocationDetail({ data, detail, onNavigateToElement }) {
     src.mermaidGraph && React.createElement("div", { style: { marginBottom: 8 } },
       React.createElement(MermaidDiagram, { code: src.mermaidGraph })
     ),
+    React.createElement(AvailableMermaidDiagrams, { data: src, skip: new Set(['mermaidGraph']) }),   // Action, Activity and the other diagrams the element carries
     React.createElement("div", { style: { marginBottom: 20 } },
       React.createElement(GenericPropertiesTable, { item: src, priority: ['identifier', 'status'], extra: kindFields })
     ),
@@ -9624,6 +9624,7 @@ function ActorDetail({ data, detail, onNavigateToElement }) {
     src.mermaidGraph && React.createElement("div", { style: { marginBottom: 8 } },
       React.createElement(MermaidDiagram, { code: src.mermaidGraph })
     ),
+    React.createElement(AvailableMermaidDiagrams, { data: src, skip: new Set(['mermaidGraph']) }),   // Action, Activity and the other diagrams the element carries
     React.createElement("div", { style: { marginBottom: 20 } },
       React.createElement(GenericPropertiesTable, { item: src, priority: ['status', 'jobTitle'] }),
       React.createElement(AdditionalPropertiesTable, { data: src.additionalProperties })
@@ -9891,6 +9892,7 @@ function CommunityDetail({ data, detail, onNavigateToElement }) {
     src.mermaidGraph && React.createElement("div", { style: { marginBottom: 8 } },
       React.createElement(MermaidDiagram, { code: src.mermaidGraph })
     ),
+    React.createElement(AvailableMermaidDiagrams, { data: src, skip: new Set(['mermaidGraph']) }),   // Action, Activity and the other diagrams the element carries
     React.createElement("div", { style: { marginBottom: 20 } },
       React.createElement(GenericPropertiesTable, { item: src, priority: ['mission', 'status'] })
     ),
@@ -10711,7 +10713,7 @@ function BusinessCapabilityDetail({ data, detail, onNavigateToElement }) {
     src.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(src.description)),
     React.createElement("div", { style: { marginBottom: 8 } },
       React.createElement(AvailableMermaidDiagrams, { data: src }),
-      React.createElement(MermaidSection, { guid: src.guid })
+      React.createElement(MermaidSection, { guid: src.guid, data: src })
     ),
     React.createElement("div", { style: { marginBottom: 20 } },
       React.createElement(GenericPropertiesTable, { item: src, priority: ['businessCapabilityType', 'businessImplementationType', 'status'] })
@@ -10969,6 +10971,7 @@ function NoteLogDetail({ data, detail, onNavigateToElement }) {
     src.mermaidGraph && React.createElement("div", { style: { marginBottom: 8 } },
       React.createElement(MermaidDiagram, { code: src.mermaidGraph })
     ),
+    React.createElement(AvailableMermaidDiagrams, { data: src, skip: new Set(['mermaidGraph']) }),   // Action, Activity and the other diagrams the element carries
     React.createElement("div", { style: { marginBottom: 20 } },
       React.createElement(GenericPropertiesTable, { item: src, priority: ['status'] })
     ),
@@ -12187,7 +12190,7 @@ function ProjectDetail({ project, children, onSelectChild, onNavigateToElement }
         ),
     React.createElement(GenericRelationshipsSection, { relationships: project.relationships, onNavigateToElement: onNavigateToElement }),
     React.createElement(AvailableMermaidDiagrams, { data: project }),
-    React.createElement(MermaidSection, { guid: project.guid }),
+    React.createElement(MermaidSection, { guid: project.guid, data: project }),
     project.guid && React.createElement(RawJsonViewer, { guid: project.guid }),
     React.createElement(EgeriaCommentsSection, { guid: project.guid })
   );
@@ -12331,9 +12334,9 @@ function GovDefDetail({ definition, onNavigateToElement }) {
     definition.description && React.createElement('div', { style: { fontSize: 13, marginBottom: 16 } }, renderMd(definition.description)),
     definition.isGovernanceActionProcess
       ? React.createElement(GovProcessStructure, { key: definition.guid, guid: definition.guid })
-      : definition.mermaidGraph && React.createElement('div', { style: { marginBottom: 8 } },
+      : React.createElement('div', { style: { marginBottom: 8 } },
           React.createElement(AvailableMermaidDiagrams, { data: definition }),
-          React.createElement(MermaidSection, { guid: definition.guid })
+          React.createElement(MermaidSection, { guid: definition.guid, data: definition })
         ),
     React.createElement('div', { style: { marginBottom: 20 } },
       React.createElement(GenericPropertiesTable, {
@@ -12669,7 +12672,7 @@ function ContextEventsView({ navGuid, onNavigateToElement }) {
 
             // ── Mermaid context diagram ─────────────────────────────────────
             React.createElement(AvailableMermaidDiagrams, { data: detail }),
-            React.createElement(MermaidSection, { guid: detail.guid }),
+            React.createElement(MermaidSection, { guid: detail.guid, data: detail }),
 
             // ── Relationships ──────────────────────────────────────────────
             detail.relationships && Object.keys(detail.relationships).length > 0
