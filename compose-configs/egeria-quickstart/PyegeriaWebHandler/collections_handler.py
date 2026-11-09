@@ -176,8 +176,11 @@ def _find_all_collections_with_members(mgr, url=None, server=None, user_id=None,
     """
     all_elements = {}
     start_from = 0
-    page_size = 200
-    max_pages = 50  # safety cap: 10000 collections max
+    # Egeria's maximum page is 1000 (OMAG-COMMON-400-010 above it). Measured live 2026-11-09 at depth 0:
+    # 200 rows 1.5 s, 500 rows 3.7 s, 1000 rows 3.8 s, so a 1000-row page costs about what a 500-row one does.
+    # Still only an EMPTY page ends the read (a short page is not the last one).
+    page_size = 1000
+    max_pages = 10  # safety cap: 10000 collections max
     status = {"capped": False, "incomplete": False, "parentsKnown": True}
     for page_no in range(max_pages):
         try:
@@ -300,10 +303,16 @@ def get_roots(
     """
     if not only_root_type and not parentless:
         all_collections = True          # the default: the cheap, complete answer
+    return JSONResponse(_roots_payload(url, server, user_id, user_pwd, include_templates, only_root_type, all_collections))
+
+
+def _roots_payload(url, server, user_id, user_pwd, include_templates, only_root_type, all_collections) -> dict:
+    """The roots answer, from the cache when fresh. Raises HTTPException on a failure; a partial answer is
+    returned but never cached. Shared by the route and the startup warm-up."""
     cache_key = f"{url or ''}|{server or ''}|{user_id or ''}|{include_templates}|{only_root_type}|{all_collections}{_lineage_key()}"
     cached = _ROOTS_CACHE.get(cache_key)
     if cached and (time.time() - cached[0]) < _ROOTS_CACHE_TTL:
-        return JSONResponse(cached[1])
+        return cached[1]
 
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
@@ -332,7 +341,7 @@ def get_roots(
         result = {"roots": roots, "total": len(roots), "capped": len(raw) >= 500, "complete": True,
                   "parentsKnown": True}
         _ROOTS_CACHE[cache_key] = (time.time(), result)
-        return JSONResponse(result)
+        return result
 
     try:
         all_elements, has_parent, status = _find_all_collections_with_members(
@@ -350,7 +359,23 @@ def get_roots(
               "complete": not status["incomplete"], "parentsKnown": status["parentsKnown"]}
     if result["complete"]:      # a partial answer is served, not remembered
         _ROOTS_CACHE[cache_key] = (time.time(), result)
-    return JSONResponse(result)
+    return result
+
+
+def warm_roots_cache() -> None:
+    """Fill the all-collections list cache for the Portal's own service user and the default
+    (non-lineage) toggle, so the first visitor after a restart rarely waits ~8-11 s. Runs in a daemon
+    thread (sync pyegeria is only safe off the event loop), never blocks startup, and logs one line.
+    A failure, or a partial answer, is logged and NOT cached (_roots_payload stores only complete
+    answers), so a warm-up while Egeria is still coming up leaves the cache empty, not wrong."""
+    started = time.time()
+    try:
+        result = _roots_payload(None, None, None, None, False, False, True)
+        took = time.time() - started
+        logger.info(f"collections: warmed the type-grouped list: {result['total']} collections in {took:.1f}s "
+                    f"({'cached' if result['complete'] else 'partial, not cached'})")
+    except Exception as exc:  # noqa: BLE001 -- warm-up is best effort
+        logger.warning(f"collections: list warm-up failed after {time.time() - started:.1f}s (nothing cached): {exc}")
 
 
 @router.get("/api/collections/{root_guid}/tree", summary="Member hierarchy from a collection", responses=EGERIA_ERROR_RESPONSES)

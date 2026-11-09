@@ -99,6 +99,11 @@ async def _lifespan(app: FastAPI):
     # Keep a reference on app.state so the task isn't GC'd mid-flight.
     from rest_api_handler import warm_openapi_cache
     app.state.openapi_warmup_task = asyncio.create_task(warm_openapi_cache())
+    # Likewise warm Egeria Explorer's Collections list (about 8-11 s cold) in a daemon thread, so the first
+    # visitor after a restart rarely waits. Never blocks startup; failures are not cached.
+    if os.environ.get("PORTAL_WARM_COLLECTIONS", "1") != "0":
+        from collections_handler import warm_roots_cache
+        threading.Thread(target=warm_roots_cache, daemon=True, name="warm-collections").start()
     yield
     if DEMO_MODE:
         from demo_reset_handler import stop_scheduler

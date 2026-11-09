@@ -99,6 +99,50 @@ def test_a_failed_page_marks_the_list_incomplete(client):
 
 def test_hitting_the_page_cap_says_capped(client, monkeypatch):
     # every page non-empty for all max_pages pages: more may exist
-    full = [[_el(f"g{i}", "Collection", f"n{i}")] for i in range(50)]
+    full = [[_el(f"g{i}", "Collection", f"n{i}")] for i in range(10)]
     d = client(full, RELS).get("/api/collections/roots", params={"all_collections": "true"}).json()
-    assert d["capped"] is True and d["total"] == 50
+    assert d["capped"] is True and d["total"] == 10
+
+
+def test_pages_of_1000_and_only_an_empty_page_ends_the_read(client, monkeypatch):
+    sizes = []
+    class Mgr:
+        def find_collections(self, **kw):
+            sizes.append((kw["start_from"], kw["page_size"]))
+            n = kw["start_from"] // 1000
+            return [_el(f"g{n}-{i}", "Collection", f"n{n}-{i}") for i in range(300)] if n < 2 else []   # short pages, not last
+    monkeypatch.setattr(ch, "_get_manager", lambda *a, **k: Mgr())
+    monkeypatch.setattr(ch, "_get_expert", lambda *a, **k: _Expert([]))
+    ch._ROOTS_CACHE.clear()
+    app = FastAPI(); app.include_router(ch.router)
+    d = TestClient(app).get("/api/collections/roots").json()
+    assert sizes == [(0, 1000), (1000, 1000), (2000, 1000)] and d["total"] == 600 and d["capped"] is False
+
+
+def test_warm_up_fills_the_default_cache_key_the_page_uses(client, monkeypatch):
+    c = client(PAGES)
+    ch.warm_roots_cache()
+    assert any(k.startswith("||") and k.endswith("|False|False|True") for k in ch._ROOTS_CACHE)
+    # the page's own default request is now a cache hit: no manager is even built
+    monkeypatch.setattr(ch, "_get_manager", lambda *a, **k: (_ for _ in ()).throw(AssertionError("not cached")))
+    assert c.get("/api/collections/roots").json()["total"] == 3
+
+
+def test_warm_up_failure_is_logged_not_cached_and_never_raises(client, monkeypatch):
+    client(PAGES)
+    monkeypatch.setattr(ch, "_get_manager", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("egeria not up yet")))
+    ch._ROOTS_CACHE.clear()
+    ch.warm_roots_cache()                      # must not raise
+    assert ch._ROOTS_CACHE == {}
+
+
+def test_warm_up_partial_answer_is_not_cached(client):
+    client([PAGES[0]], fail_at=1)
+    ch._ROOTS_CACHE.clear()
+    ch.warm_roots_cache()
+    assert ch._ROOTS_CACHE == {}
+
+
+def test_startup_hook_is_non_blocking_and_switchable():
+    src = (Path(__file__).resolve().parent.parent / "pyegeria_handler.py").read_text()
+    assert 'PORTAL_WARM_COLLECTIONS", "1") != "0"' in src and 'threading.Thread(target=warm_roots_cache, daemon=True' in src
