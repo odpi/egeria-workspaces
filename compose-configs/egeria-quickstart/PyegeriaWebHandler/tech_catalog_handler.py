@@ -40,7 +40,8 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from egeria_auth import lineage_key as _lineage_key, token_user as _token_user, use_token
+from egeria_auth import lineage_key as _lineage_key, use_token
+from result_cache import request_identity
 from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
 
@@ -1550,7 +1551,12 @@ def _get_list_cached(key: str, refresh: bool, start_fill):
 
 
 def _list_key(kind: str, url, server, user_id, user_pwd, include_templates: bool, as_of_time: Optional[str]) -> str:
-    who = _token_user() or _creds(url, server, user_id, user_pwd)[2]
+    # The hashed credential presented (result_cache.request_identity), not the token's unverified `sub`
+    # or a bare user id: zone security shows users different elements and a cache hit checks nothing.
+    who = request_identity(user_id, user_pwd)
+    if who is None:
+        # Expired token: never serve (or start) a cached list for it; these fills read many pages.
+        raise HTTPException(status_code=401, detail="Egeria token expired; sign in again")
     return f"{kind}|{who}|{url or ''}|{server or ''}|{include_templates}|{as_of_time or ''}{_lineage_key()}"
 
 

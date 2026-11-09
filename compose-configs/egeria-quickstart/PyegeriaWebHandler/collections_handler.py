@@ -40,7 +40,7 @@ from digital_products_handler import (
 )
 from egeria_error_mapping import raise_egeria_http_error, describe_bulk_item_error, EGERIA_ERROR_RESPONSES
 from egeria_auth import apply_token
-from result_cache import credential_identity
+from result_cache import credential_identity, request_identity
 import os
 
 router = APIRouter(tags=["collections"])
@@ -438,8 +438,9 @@ def get_tree(
     except Exception as exc:
         raise_egeria_http_error(exc, "Failed to create CollectionManager")
 
-    cache_key = f"{root_guid}|{url or ''}|{server or ''}|{user_id or ''}|{as_of_time or ''}{_lineage_key()}"
-    cached = _TREE_CACHE.get(cache_key)
+    who = request_identity(user_id, user_pwd)  # hashed credential; None = expired token, bypass the cache
+    cache_key = f"{root_guid}|{url or ''}|{server or ''}|{who}|{as_of_time or ''}{_lineage_key()}"
+    cached = (_TREE_CACHE.get(cache_key) if who else None)
     if cached and (time.time() - cached[0]) < _TREE_CACHE_TTL:
         return JSONResponse(cached[1])
 
@@ -449,7 +450,8 @@ def get_tree(
     children = _children_level(mgr, root_guid, as_of_time)
 
     result = {"root": root, "children": children}
-    _TREE_CACHE[cache_key] = (time.time(), result)
+    if who:
+        _TREE_CACHE[cache_key] = (time.time(), result)
     return JSONResponse(result)
 
 
@@ -470,13 +472,15 @@ def get_node_children(
     except Exception as exc:
         raise_egeria_http_error(exc, "Failed to create CollectionManager")
 
-    cache_key = f"children|{node_guid}|{url or ''}|{server or ''}|{user_id or ''}|{as_of_time or ''}{_lineage_key()}"
-    cached = _TREE_CACHE.get(cache_key)
+    who = request_identity(user_id, user_pwd)  # hashed credential; None = expired token, bypass the cache
+    cache_key = f"children|{node_guid}|{url or ''}|{server or ''}|{who}|{as_of_time or ''}{_lineage_key()}"
+    cached = (_TREE_CACHE.get(cache_key) if who else None)
     if cached and (time.time() - cached[0]) < _TREE_CACHE_TTL:
         return JSONResponse(cached[1])
 
     result = {"children": _children_level(mgr, node_guid, as_of_time)}
-    _TREE_CACHE[cache_key] = (time.time(), result)
+    if who:
+        _TREE_CACHE[cache_key] = (time.time(), result)
     return JSONResponse(result)
 
 

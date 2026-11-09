@@ -20,6 +20,7 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from egeria_auth import lineage_key as _lineage_key
+from result_cache import request_identity
 from fastapi.responses import JSONResponse
 from loguru import logger
 
@@ -471,8 +472,9 @@ def get_mesh(
     """Return every DigitalProduct (regardless of which catalog it belongs to, or none)
     plus every DigitalProductDependency relationship found between them, as a flat
     {nodes, edges} graph for the Data Mesh view."""
-    cache_key = f"mesh|{url or ''}|{server or ''}|{user_id or ''}|{for_lineage}{_lineage_key()}"
-    cached = _TREE_CACHE.get(cache_key)
+    who = request_identity(user_id, user_pwd)  # hashed credential; None = expired token, bypass the cache
+    cache_key = f"mesh|{url or ''}|{server or ''}|{who}|{for_lineage}{_lineage_key()}"
+    cached = (_TREE_CACHE.get(cache_key) if who else None)
     if cached and (time.time() - cached[0]) < _TREE_CACHE_TTL:
         return JSONResponse(cached[1])
 
@@ -503,7 +505,8 @@ def get_mesh(
     edges = [e for e in edges_by_id.values() if e["source"] in node_guids and e["target"] in node_guids]
 
     result = {"nodes": nodes, "edges": edges, "total": len(nodes)}
-    _TREE_CACHE[cache_key] = (time.time(), result)
+    if who:
+        _TREE_CACHE[cache_key] = (time.time(), result)
     return JSONResponse(result)
 
 
@@ -529,8 +532,9 @@ def get_catalog_tree(
         logger.exception("Failed to create CollectionManager")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
-    cache_key = f"{catalog_guid}|{url or ''}|{server or ''}|{user_id or ''}|{as_of_time or ''}{_lineage_key()}"
-    cached = _TREE_CACHE.get(cache_key)
+    who = request_identity(user_id, user_pwd)  # hashed credential; None = expired token, bypass the cache
+    cache_key = f"{catalog_guid}|{url or ''}|{server or ''}|{who}|{as_of_time or ''}{_lineage_key()}"
+    cached = (_TREE_CACHE.get(cache_key) if who else None)
     if cached and (time.time() - cached[0]) < _TREE_CACHE_TTL:
         logger.debug(f"Tree cache hit for {catalog_guid}")
         return JSONResponse(cached[1])
@@ -543,7 +547,8 @@ def get_catalog_tree(
     children = _children_level(mgr, catalog_guid, as_of_time)
 
     result = {"catalog": catalog, "children": children}
-    _TREE_CACHE[cache_key] = (time.time(), result)
+    if who:
+        _TREE_CACHE[cache_key] = (time.time(), result)
     return JSONResponse(result)
 
 
@@ -564,13 +569,15 @@ def get_node_children(
         logger.exception("Failed to create CollectionManager")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
-    cache_key = f"children|{node_guid}|{url or ''}|{server or ''}|{user_id or ''}|{as_of_time or ''}{_lineage_key()}"
-    cached = _TREE_CACHE.get(cache_key)
+    who = request_identity(user_id, user_pwd)  # hashed credential; None = expired token, bypass the cache
+    cache_key = f"children|{node_guid}|{url or ''}|{server or ''}|{who}|{as_of_time or ''}{_lineage_key()}"
+    cached = (_TREE_CACHE.get(cache_key) if who else None)
     if cached and (time.time() - cached[0]) < _TREE_CACHE_TTL:
         return JSONResponse(cached[1])
 
     result = {"children": _children_level(mgr, node_guid, as_of_time)}
-    _TREE_CACHE[cache_key] = (time.time(), result)
+    if who:
+        _TREE_CACHE[cache_key] = (time.time(), result)
     return JSONResponse(result)
 
 

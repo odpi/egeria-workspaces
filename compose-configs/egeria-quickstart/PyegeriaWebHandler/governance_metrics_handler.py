@@ -24,6 +24,7 @@ pyegeria calls are only safe from sync routes, never from `async def` routes).
 """
 
 import os
+from result_cache import request_identity
 from pathlib import Path
 from typing import Any, Optional
 
@@ -77,8 +78,9 @@ def get_governance_metrics(
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
     import time
-    ckey = f"{url}|{server}|{user_id}"
-    cached = _cache.get(ckey)
+    who = request_identity(user_id, user_pwd)  # hashed credential; None = expired token, bypass the cache
+    ckey = f"{url}|{server}|{who}"
+    cached = (_cache.get(ckey) if who else None)
     if cached and (time.time() - cached[0]) < _CACHE_TTL:
         return JSONResponse(cached[1])
 
@@ -134,7 +136,8 @@ def get_governance_metrics(
 
     out.sort(key=lambda e: e["name"] or "")
     payload = {"metrics": out, "total": len(out), "source": "live:governance-metrics"}
-    _cache[ckey] = (time.time(), payload)
+    if who:
+        _cache[ckey] = (time.time(), payload)
     return JSONResponse(payload)
 
 

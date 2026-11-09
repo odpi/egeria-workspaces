@@ -69,7 +69,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from loguru import logger
 
 import spec_resolution
-from result_cache import FRESH, MISS, STALE, ResultCache, credential_identity
+from result_cache import FRESH, MISS, STALE, ResultCache, credential_identity, request_identity
 
 router = APIRouter(tags=["local-dashboards"])
 
@@ -202,19 +202,21 @@ def _flatten_property_value_map(pvm: dict) -> dict:
     return out
 
 
-def _find_report_by_name(name: str, mgr, url=None, server=None, user_id=None) -> Optional[dict]:
+def _find_report_by_name(name: str, mgr, url=None, server=None, identity=None) -> Optional[dict]:
     """Look up a `Report` element by exact display name. Returns a dict with
     guid/heading/description/reportSpec/outputFormat/params, or None if not
     found (or on any lookup failure -- best-effort, never raises).
 
-    Cached for _CACHE_TTL seconds per (name, url, server, user_id) -- this is
+    Cached for _CACHE_TTL seconds per (name, url, server, identity) -- this is
     otherwise a live Egeria find call per Report-typed placement, per page
-    load (BACKLOG.md NEXT-22). url/server/user_id are for cache-key scoping
+    load (BACKLOG.md NEXT-22). url/server/identity (result_cache.request_identity) are for cache-key scoping
     only (mgr already carries the resolved connection); a stale hit within
     the TTL simply means a Report renamed/reconfigured via Dr.Egeria can take
     up to _CACHE_TTL seconds to show up here, same tradeoff overview_handler.py
     already accepts for its own cached endpoints."""
-    ckey = f"report|{name}|{url}|{server}|{user_id}"
+    if identity is None:    # expired token (or no identity): no cache, so Egeria decides
+        return _find_report_by_name_uncached(name, mgr)
+    ckey = f"report|{name}|{url}|{server}|{identity}"
     cached = _cache_get(ckey)
     if cached is not None:
         return None if cached is _MISS else cached
@@ -266,7 +268,7 @@ def _find_report_by_name_uncached(name: str, mgr) -> Optional[dict]:
     return None
 
 
-def _serialize_placement(p, sheets, registry, mgr, url=None, server=None, user_id=None,
+def _serialize_placement(p, sheets, registry, mgr, url=None, server=None, identity=None,
                          resolutions=None) -> dict:
     # A text placement (Dr.Egeria "Add Text on Dashboard Sheet") carries its
     # content inline -- no Egeria lookup needed at all, so check it before
@@ -278,7 +280,7 @@ def _serialize_placement(p, sheets, registry, mgr, url=None, server=None, user_i
             "heading": p.ref, "content": p.content,
             "perspectives": list(getattr(p, "perspectives", None) or []),
         }
-    report = _find_report_by_name(p.ref, mgr, url, server, user_id) if mgr is not None else None
+    report = _find_report_by_name(p.ref, mgr, url, server, identity) if mgr is not None else None
     if report is not None:
         fs = registry.get(report["reportSpec"]) if report["reportSpec"] else None
         action = getattr(fs, "action", None) if fs is not None else None
@@ -483,7 +485,10 @@ def _build_sheet(name, perspective, url, server, user_id, user_pwd):
         logger.debug(f"local-dashboards: Egeria connection unavailable: {exc}")
         mgr = None
 
-    placements = [_serialize_placement(p, sheets, registry, mgr, url, server, user_id, resolutions)
+    # Report lookups are cached per presented credential (hashed), never per bare user_id: that is None
+    # for every token-authenticated viewer, and zone security can hide a Report from some of them.
+    identity = request_identity(user_id, user_pwd)
+    placements = [_serialize_placement(p, sheets, registry, mgr, url, server, identity, resolutions)
                   for p in _view_for_perspective(sheet.placements, perspective)]
     payload = {
         "name":        sheet.name,

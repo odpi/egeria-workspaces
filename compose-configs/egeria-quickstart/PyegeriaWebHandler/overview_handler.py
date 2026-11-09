@@ -55,6 +55,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
 
 from egeria_auth import apply_token, lineage_key, token_user
+from result_cache import request_identity
 
 # generate_vega_bar_chart/generate_vega_pie_chart ship with pyegeria (the
 # requirements.txt-pinned version has them). generate_vega_line_chart and
@@ -197,16 +198,29 @@ _CACHE_TTL   = 60.0          # seconds; summary is not real-time critical
 _cache: dict[str, tuple[float, Any]] = {}
 
 
-def _cache_get(key: str):
+def _cache_get(key: Optional[str]):
+    """key None = do not use the cache (see _viewer_key: an expired token)."""
+    if key is None:
+        return None
     hit = _cache.get(key)
     if hit and (time.time() - hit[0]) < _CACHE_TTL:
         return hit[1]
     return None
 
 
-def _cache_put(key: str, value: Any):
-    _cache[key] = (time.time(), value)
+def _cache_put(key: Optional[str], value: Any):
+    if key is not None:
+        _cache[key] = (time.time(), value)
     return value
+
+
+def _viewer_key(prefix: str, url, server, user_id, user_pwd) -> Optional[str]:
+    """Cache key for viewer-scoped data: the hashed credential the caller presented
+    (result_cache.request_identity), never the bare user_id -- that is None for every token-authenticated
+    viewer, so they would all share one entry and see each other's zone-filtered results. None (an
+    expired token) means bypass the cache so Egeria refuses the request."""
+    who = request_identity(user_id, user_pwd)
+    return None if who is None else f"{prefix}|{url}|{server}|{who}"
 
 
 # ── client factory ───────────────────────────────────────────────────────────
@@ -499,7 +513,10 @@ def _viewer_total_state(url, server, user_id, user_pwd, as_of):
     caller should ask again; stale means value is the previous measurement, being refreshed;
     counted_at is the epoch time the value was measured (None if never measured)."""
     u, sv, uid, pwd = _env(url, server, user_id, user_pwd)
-    key = f"{u}|{sv}|{uid}|{as_of}"
+    who = request_identity(user_id, user_pwd)   # was uid: the env service user for EVERY token-authenticated viewer
+    if who is None:
+        return None, False, False, None         # expired token: not measured (the rest of the page shows the 401)
+    key = f"{u}|{sv}|{who}|{as_of}"
     with _viewer_lock:                 # no await/IO between the check and the start
         hit = _viewer_totals.get(key)
         fresh = hit is not None and hit[0] > time.time()
@@ -1221,7 +1238,7 @@ def get_activity(
     """Change stream, activity by type and most active stewards for curated content types (glossary terms,
     collections/products, governance definitions, projects). Always "now": Egeria's asOfTime cannot
     say who changed what. `activity` is None when a query failed -- the page then shows "Not measured"."""
-    ckey = f"activity|{url}|{server}|{user_id}"
+    ckey = _viewer_key("activity", url, server, user_id, user_pwd)
     cached = _cache_get(ckey)
     if cached is not None:
         return JSONResponse(cached)
@@ -1788,7 +1805,7 @@ def get_people(
     find-and-bucket returned a curated set, so a few totals differ (that raw count
     is the authoritative repository count). Karma / feedback below."""
     as_of_time = _norm_asof(as_of_time)
-    ckey = f"people|{as_of_time}|{url}|{server}|{user_id}"
+    ckey = _viewer_key(f"people|{as_of_time}", url, server, user_id, user_pwd)
     cached = _cache_get(ckey)
     if cached is not None:
         return JSONResponse(cached)
