@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Generate a loadable Dr.Egeria doc for the Overview dashboard's Governance
-Metrics -- one GovernanceMetric + Report + GovernanceResults link + a
-per-metric InformationSupplyChain "data flow" per FIXED (non-generic)
-function in pyegeria.view.analytic_registry. Single source of truth: the
+Metrics -- one GovernanceMetric + Report + GovernanceResults link per
+FIXED (non-generic) function in pyegeria.view.analytic_registry. Single source of truth: the
 registry's own description/binding_note/returns text and
 analytic_demo_specs.py's fuller description -- no hand-authored prose per
 metric, so this stays honest and in sync as functions are added/changed.
@@ -13,13 +12,10 @@ excluded -- their subject is itself a parameter, so a single GovernanceMetric
 per function would be meaningless (see OVERVIEW_NEXT_STEPS.md's rollout
 writeup for the full reasoning).
 
-The InformationSupplyChain per metric is a *documented* flow, not true
-DataFlow lineage -- FormatSet/the analytic function itself aren't Egeria
-elements yet (see BACKLOG.md's "GovernanceMetric lineage" items), so its
-Purposes/Scope carry the conceptual data-source -> analytic-function -> Report
--> GovernanceMetric chain as text, while its real Collection membership only
-covers the two real elements (the Report and the GovernanceMetric) --
-extend this once the missing links become real Egeria types.
+It no longer writes a per-metric "<metric> Data Flow" InformationSupplyChain
+(removed 2026-11-09: a documented-only flow with two text-only stages was
+noise in the supply-chain views). Add real lineage once the analytic function
+and report spec are Egeria elements.
 
 Run inside the quickstart-pyegeria-web container (needs pyegeria installed;
 /app is bind-mounted 1:1 to this host directory, so the output lands in the
@@ -74,11 +70,10 @@ def render(entries):
     out.append("> Loadable **Dr.Egeria** document that materialises the Overview dashboard's")
     out.append("> fixed (non-generic) `pyegeria.view.overview_metrics` functions as real")
     out.append("> `GovernanceMetric` elements, each linked via `GovernanceResults` to a real")
-    out.append("> `Report` (report-spec-backed, runnable via `/api/report-specs/execute`), plus")
-    out.append("> a per-metric `InformationSupplyChain` documenting the conceptual data flow")
-    out.append("> (data source → analytic function → Report → GovernanceMetric) — a real")
-    out.append("> Collection membership for the two real artifacts today, text-only for the")
-    out.append("> two stages that aren't Egeria elements yet. Generated from")
+    out.append("> `Report` (report-spec-backed, runnable via `/api/report-specs/execute`).")
+    out.append("> (Until 2026-11-09 it also wrote a per-metric \"<metric> Data Flow\"")
+    out.append("> `InformationSupplyChain`; the owner judged them noise and they were removed.)")
+    out.append("> Generated from")
     out.append("> `pyegeria.view.analytic_registry` + `analytic_demo_specs` — the single")
     out.append("> source of truth. Regenerate with `gen_governance_metrics.py`. Upsert-safe —")
     out.append("> re-running this file (e.g. after a repository reset) is always correct.")
@@ -90,34 +85,11 @@ def render(entries):
     for e in entries:
         title = e["heading"]
         report_name = f"{title} Metric Report"
-        flow_name = f"{title} Data Flow"
         scope = e["binding_note"] or "Catalog-wide -- no additional population scoping applied."
         impl = (f"pyegeria.view.overview_metrics.{e['name']}() -- exposed as Report Spec "
                 f"\"{e['demo_spec']}\" via pyegeria's analytic function registry "
                 f"(analytic_registry.py). Returns: {e['returns']}.")
         measurement = f"{e['returns']}. {e['binding_note']}".strip()
-        # `Purposes` is a Simple List attribute -- Dr.Egeria's parser splits list values on
-        # ANY comma (not just an intentional list separator: re.split(r'[;,\n]+', value) in
-        # md_processing/v2/parsing.py), so a single prose paragraph full of commas gets
-        # silently chopped into disconnected mid-sentence fragments. Build this as genuinely
-        # separate, comma-free purpose statements joined with "; " instead -- and strip any
-        # stray comma from the dynamic pieces (title/demo_spec/report_name) as a safety net,
-        # since those are metric names that could in principle contain one.
-        _nc = lambda s: s.replace(",", " --")  # no-comma guard for interpolated values
-        flow_purpose = "; ".join([
-            f"Documents the conceptual data-flow chain behind the \"{_nc(title)}\" governance "
-            f"metric (not yet true DataFlow lineage -- see BACKLOG.md)",
-            f"Chain: a data source (the Egeria relationship/classification/property "
-            f"{e['name']}() actually reads -- see its own Implementation Description) feeds "
-            f"the analytic function pyegeria.view.overview_metrics.{e['name']}() exposed as "
-            f"Report Spec \"{_nc(e['demo_spec'])}\" instantiated as the Report "
-            f"\"{_nc(report_name)}\" and measured by the GovernanceMetric \"{_nc(title)}\"",
-            f"Real Collection membership below covers the Report and GovernanceMetric "
-            f"(both real elements today)",
-            f"The data-source and analytic-function stages are text-only until "
-            f"FormatSet/the analytic function itself become real Egeria types",
-        ])
-
         out.append(f"""## Create Report
 > Defines a report with optional default parameters set, that can be placed on a Dashboard.
 
@@ -172,38 +144,6 @@ ___
 
 ___
 
-## Create Information Supply Chain
-> Creates or updates an information supply chain -- a description of the flow of a particular type of data across a digital landscape.
-
-### Display Name
-{flow_name}
-
-### Purposes
-{esc(flow_purpose)}
-
-___
-
-## Add Member to Collection
-> Add/Remove a member to/from a collection.
-
-### Collection Id
-{flow_name}
-
-### Element Id
-{report_name}
-
-___
-
-## Add Member to Collection
-> Add/Remove a member to/from a collection.
-
-### Collection Id
-{flow_name}
-
-### Element Id
-{title}
-
-___
 """)
 
     return "\n".join(out)
