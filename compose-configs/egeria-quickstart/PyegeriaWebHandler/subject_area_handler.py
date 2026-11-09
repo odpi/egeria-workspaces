@@ -66,7 +66,7 @@ def get_subject_area_hierarchy(
             start_from=0,
             page_size=1000,
             graph_query_depth=1,
-            metadata_element_type_name="SubjectArea",
+            metadata_element_type="SubjectArea",
         )
     except Exception as exc:
         logger.exception("SubjectArea discovery failed")

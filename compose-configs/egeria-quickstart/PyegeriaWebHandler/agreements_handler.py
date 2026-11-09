@@ -6,7 +6,7 @@ Agreements Explorer — FastAPI router.
 
 Agreements are Collection subtypes, so this reuses the generic Collection
 serializer/relationship-extractor from digital_products_handler rather than
-duplicating it. `find_collections(metadata_element_type_name="Agreement")`
+duplicating it. `find_collections(metadata_element_type="Agreement")`
 returns every subtype together in one call (confirmed against a live server:
 it returns both plain Agreement and DigitalSubscription elements).
 
@@ -62,7 +62,7 @@ def list_agreements(
             start_from=start_from,
             page_size=page_size,
             graph_query_depth=0,
-            metadata_element_type_name="Agreement",
+            metadata_element_type="Agreement",
         )
     except Exception as exc:
         logger.exception("find_collections (Agreement) failed")

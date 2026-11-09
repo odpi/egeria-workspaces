@@ -1995,7 +1995,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     }
     // Engine actions (survey runs and the platform's scheduled insight jobs) in the last 24 h.
     var pcnt = document.getElementById('aq-pipeline-count'), pdesc = document.getElementById('aq-pipeline-desc'), ph = st.engineActionHealth;
-    if (pcnt) pcnt.textContent = ph ? ph.failed.toLocaleString() : '\u2014';
+    if (pcnt) pcnt.textContent = ph ? (ph.capped ? '\u2265' : '') + ph.failed.toLocaleString() : '\u2014';
     if (pdesc) {
       if (!ph) pdesc.textContent = st.asOfTime
         ? 'Not shown for a past as-of time: the engine-action list is only the current state, so it is not mixed with as-of figures'
@@ -2131,7 +2131,9 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     if (d.assetTotal && d.governedCount != null && d.governedCount <= d.assetTotal) {
       store.governedPctNum = Math.round(100 * d.governedCount / d.assetTotal);
       var gLb = d.governedCapped ? 'at least ' : '';   // false for the native counts; kept for a capped fallback
-      store.governedPct = (d.governedCapped ? '≥' : '') + store.governedPctNum + '%';
+      // a non-zero share under 0.5% must not round to a "0%" that reads as nothing governed
+      store.governedPct = (d.governedCapped ? '≥' : '') +
+        ((store.governedPctNum === 0 && d.governedCount > 0) ? '<1' : store.governedPctNum) + '%';
       store.governedSub = gLb + fmt(d.governedCount) + ' of ' + fmt(d.assetTotal) + ' assets';
     }
     if (d.certifications != null) {
@@ -2164,6 +2166,11 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
       setTxt('aq-orphan-count', fmt(d.orphanTermCount));
       setTxt('aq-orphan-desc', 'Approved terms with no semantic assignment to any asset' +
         (d.orphanTermTotal ? ' (' + fmt(d.orphanTermCount) + ' of ' + fmt(d.orphanTermTotal) + ' terms)' : ''));
+    }
+    if (d.staleAssetCount == null) {
+      // "—" must say why: the backend's note (page cap / query failed), else the generic not-measured words
+      setTxt('aq-stale-desc', 'Not measured \u2014 ' + (d.staleAssetNote || 'query failed or hit its page cap') +
+        '. (Possibly abandoned assets; candidates for archival review.)');
     }
     if (d.staleAssetCount != null) {
       setTxt('aq-stale-count', fmt(d.staleAssetCount));

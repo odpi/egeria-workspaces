@@ -2671,6 +2671,7 @@ function ReportSpecDetail({ spec, onSelectSpec, portalSupply }) {
           init[entry[0]] = v == null ? '' : String(v);
         });
         if (!('as_of' in init)) init['as_of'] = '';
+        declaredExtraParams().forEach(function(rp) { if (!(rp.name in init)) init[rp.name] = rp.default == null ? '' : String(rp.default); });
       }
     }
     setExecParams(init);
@@ -2678,6 +2679,25 @@ function ReportSpecDetail({ spec, onSelectSpec, portalSupply }) {
 
   function snakeToLabel(s) {
     return s.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+  }
+
+  // Params the spec's own resolution declares for an analytic routine but that the older
+  // analytic_spec_params path does not carry (e.g. a required `slug`): the form asks for them too.
+  function declaredExtraParams() {
+    var a = spec.action || {}, res = spec.resolution;
+    if (!a.analytic_function || !res || !res.params) return [];
+    var known = [].concat(a.required_params || [], a.optional_params || [], Object.keys(a.analytic_spec_params || {}), ['as_of']);
+    return res.params.filter(function(rp) { return known.indexOf(rp.name) < 0; });
+  }
+  // A required declared param left blank, or a spec the resolver refused, means Run cannot work: say why.
+  function runBlockedReason() {
+    var res = spec.resolution;
+    if (res && res.status === 'unrunnable')
+      return 'Cannot run: ' + ((res.words && res.words.length) ? res.words.join(' ') : 'the resolver refused this spec at load.');
+    if (res && res.status === 'format_only') return 'Format-only: a column layout used by other specs, not run on its own.';
+    var missing = ((res && res.params) || []).filter(function(rp) {
+      return rp.required && (rp.default == null) && execParams[rp.name] !== undefined && String(execParams[rp.name]).trim() === ''; });
+    return missing.length ? 'Required: ' + missing.map(function(m) { return m.name; }).join(', ') : null;
   }
 
   function runReport() {
@@ -2876,13 +2896,16 @@ function ReportSpecDetail({ spec, onSelectSpec, portalSupply }) {
           React.createElement('div', { style: { fontSize: 11, color: '#5eead4', fontWeight: 600, marginBottom: 6 } }, 'Analytic Parameters'),
           Object.keys(spec.action.analytic_spec_params || {})
             .filter(function(p) { var v = spec.action.analytic_spec_params[p]; return v === null || typeof v !== 'object'; })
+            .concat(declaredExtraParams().map(function(rp) { return rp.name; }))
             .concat(['as_of'])
             .filter(function(p, i, arr) { return arr.indexOf(p) === i; })
             .map(function(p) {
               var defaultVal = spec.action.analytic_spec_params[p];
+              var declared = ((spec.resolution && spec.resolution.params) || []).filter(function(rp) { return rp.name === p; })[0];
               return React.createElement('div', { key: p, style: { marginBottom: 8 } },
                 React.createElement('label', { style: { display: 'block', fontSize: 11, color: 'var(--dim)', marginBottom: 3 } },
                   snakeToLabel(p),
+                  declared && declared.required && React.createElement('span', { style: { fontSize: 10, color: '#86efac', fontWeight: 600, marginLeft: 6 } }, '(required)'),
                   defaultVal != null && React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)', fontStyle: 'italic', marginLeft: 6 } }, '(default: ' + defaultVal + ')'),
                   p === 'as_of' && React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)', fontStyle: 'italic', marginLeft: 6 } }, '(ISO-8601; blank = now)')
                 ),
@@ -2936,11 +2959,17 @@ function ReportSpecDetail({ spec, onSelectSpec, portalSupply }) {
             return React.createElement('option', { key: t, value: t }, t);
           }))
         ),
-        React.createElement('button', {
-          onClick: runReport,
-          disabled: execState === 'running',
-          style: { padding: '6px 20px', borderRadius: 5, border: 'none', background: execState === 'running' ? 'rgba(99,102,241,.3)' : 'var(--accent)', color: execState === 'running' ? 'var(--dim)' : '#fff', cursor: execState === 'running' ? 'default' : 'pointer', fontWeight: 600, fontSize: 13 }
-        }, execState === 'running' ? 'Running…' : '▶ Run'),
+        (function() {
+          var blocked = runBlockedReason(), off = execState === 'running' || !!blocked;
+          return React.createElement(React.Fragment, null,
+            React.createElement('button', {
+              onClick: runReport,
+              disabled: off,
+              title: blocked || undefined,
+              style: { padding: '6px 20px', borderRadius: 5, border: 'none', background: off ? 'rgba(99,102,241,.3)' : 'var(--accent)', color: off ? 'var(--dim)' : '#fff', cursor: off ? 'default' : 'pointer', fontWeight: 600, fontSize: 13 }
+            }, execState === 'running' ? 'Running…' : '▶ Run'),
+            blocked && React.createElement('span', { role: 'note', style: { marginLeft: 10, fontSize: 11, color: 'var(--dim)', fontStyle: 'italic' } }, blocked));
+        })(),
         // Results area
         (execState !== 'idle') && React.createElement('div', { style: { marginTop: 16, borderTop: '1px solid var(--border)', paddingTop: 12 } },
           renderExecResults()
@@ -4658,7 +4687,7 @@ function ExternalIdentifiersView({ navGuid, onNavigateToElement }) {
 }
 
 // ── Agreements Explorer ────────────────────────────────────────────────────────
-// Agreements are Collection subtypes; find_collections(metadata_element_type_name=
+// Agreements are Collection subtypes; find_collections(metadata_element_type=
 // "Agreement") returns every subtype together — filtered client-side by a type
 // tab bar, same pattern as External References.
 

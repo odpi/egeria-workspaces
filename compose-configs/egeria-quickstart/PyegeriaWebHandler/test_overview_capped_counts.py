@@ -98,3 +98,12 @@ def test_growth_with_capped_counts_keeps_gaps(monkeypatch):
     assert series and all(p["assets"] is None for p in series)    # strict in #555: a gap, never 500
     assert all(p[k] != CAP for p in series for k in ("assets", "terms", "governed", "products"))
     json.dumps(payload, default=str)                                # the route can serialise it
+
+
+def test_summary_source_has_no_old_type_filter_name():
+    """The Portal passes metadata_element_type, not the deprecated metadata_element_type_name (6.2.28)."""
+    import pathlib
+    here = pathlib.Path(__file__).parent
+    for name in ("agreements_handler", "collections_handler", "namespaces_handler",
+                 "resource_browser_handler", "subject_area_handler"):
+        assert "metadata_element_type_name=" not in (here / f"{name}.py").read_text(), name
