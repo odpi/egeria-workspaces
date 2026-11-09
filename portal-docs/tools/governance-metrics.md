@@ -16,7 +16,7 @@ Each card is one `GovernanceMetric`. This is deliberately **Tier 1** of a larger
 
 Selecting a metric shows:
 - Its own properties as an Egeria element.
-- The linked **Report** — the Report Spec (FormatSet) that actually computes the value, with a **run it live** action that executes it on demand, the same execution path as the `View Report` Dr.Egeria command uses elsewhere in the Portal.
+- The linked **Report** — the Report Spec (FormatSet) that actually computes the value, with a **run it live** action that executes it on demand, the same execution path as the `View Report` Dr.Egeria command uses elsewhere in the Portal. The run goes to `/api/report-specs/execute` as the service user `erinoverview` and sends no persona (the browser does not yet send an Egeria token). A figure pyegeria could not measure shows as **not measured**, with its note listed under the result, never as `0`. See [what a report spec will do](egeria-explorer.md).
 - The metric's **data flow** — a per-metric `InformationSupplyChain` element (named `"<metric name> Data Flow"` by convention) whose Purposes/Scope text and member list document, in prose, what actually feeds the calculation. This is a *documented* flow, not a queried one — Egeria doesn't yet have the DataFlow lineage relationships needed to compute it automatically.
 
 ---

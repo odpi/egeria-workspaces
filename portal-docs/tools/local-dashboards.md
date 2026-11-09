@@ -36,6 +36,22 @@ The report spec **Resource Explorer - Curation Coverage** can be placed on a she
 
 ---
 
+## When a placement cannot run, or refuses
+
+A Report placement is checked against pyegeria's load-time resolution before it runs:
+
+- **The spec cannot run** (the resolver refused it at load). The tile does not call the server. It shows a box labelled **THIS SPEC CANNOT RUN** with the resolver's own words and a link, *open in Report Spec Browser →*, to the spec's Resolution panel in the [Egeria Explorer](egeria-explorer.md). It would only fail, once per refresh.
+- **The spec is not resolved** (pyegeria did not report on it). The tile runs as before.
+- **The run is refused.** A non-2xx answer shows the server's words verbatim in a box labelled by the status: *THE SPEC REFUSED TO RUN (400)*, *SIGN-IN NEEDED (401)*, *TIMED OUT (504)* or *SERVER ERROR (500)*. A tile is never left blank.
+- **A figure was not measured.** The tile says **not measured** and lists the note; it does not show `0`.
+- **BINDERS IGNORED.** A placement whose spec still carries the removed `analytic_binders` key is tagged. Declare those arguments as the routine's inputs instead.
+
+On the quickstart on 2026-11-09 all 20 Report placements across the five sheets resolved as runnable, so none showed a refusal.
+
+**Who runs it.** Each run sends the persona chosen in this browser (so a routine that declares the `viewer` role knows who is looking). The clients use the server's service user: the browser does not yet send an Egeria token. See [what the Portal supplies](egeria-explorer.md) (section *Reports: what a report spec will do*).
+
+---
+
 ## Where the data lives
 
 Unlike most of the Portal, a Dashboard Sheet's own structure (its name, its ordered list of Placements) is **not** an Egeria element — it's a small local JSON record the Portal itself maintains. The *Report* each Placement references, and the data the Report queries, are both real Egeria elements. This is why Dashboard Sheets need their own [Data Initialization](data-initialization.md) batch to survive an Egeria wipe: re-running their seed documents recreates both the Egeria Reports and the local sheet records that reference them.

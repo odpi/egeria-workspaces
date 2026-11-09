@@ -26,7 +26,7 @@ A quick-start subset of the most commonly used tabs, shown on the splash screen 
 |---|---|
 | **Glossary** | Business glossaries, terms, definitions, and semantic relationships — folders, cross-glossary search, synonyms, antonyms, and related terms. A term's detail panel includes **"Where is this used?"** — every physical (schema column, etc.) and logical (Data Field, etc.) element assigned that term, shown together even though they live in different tabs |
 | **Collections** | The collection hierarchy — digital products, families, blueprints, folios, dictionaries, and more, regardless of collection subtype. Defaults to **Root Collections only**; uncheck the box to see all collections with no parent (a broader, noisier set) |
-| **Reports** | Two sub-tabs: **Report Specs** (report specifications, their links to data assets, and a Run Report panel) and **Analytic Functions** (the catalog of Python routines a report spec's `analytic_function` can run — each marked GENERIC or FIXED METRIC, cross-linked to its demo report spec) |
+| **Reports** | Two sub-tabs: **Report Specs** (report specifications, whether each can run, what it runs, needs and returns, and a Run Report panel) and **Analytic Functions** (the registry of Python routines a report spec's `analytic_function` can run — each marked GENERIC or FIXED METRIC, with its declared inputs, parameters and output fields, cross-linked to its demo report spec). See [Reports: what a report spec will do](#reports-what-a-report-spec-will-do) |
 | **Digital Products** | Data products with governance metadata, lineage, and associated glossary terms |
 | **Dr. Egeria Commands** | The full library of Dr. Egeria markdown command templates, organised by level and family — see [Dr. Egeria Execute panel](#dr-egeria-execute-panel) below |
 
@@ -70,6 +70,114 @@ Read-only reference material; most don't require a live server connection.
 | **REST APIs** | REST endpoints exposed by the view server — operations, parameters, and response shapes |
 | **Valid Values** | Registered valid metadata values for a specific Egeria property name |
 | **Python API** | The pyegeria Python client API — classes by functional domain, methods with docstrings, inherited-vs-own filter |
+
+---
+
+## Reports: what a report spec will do
+
+The **Reports** tab shows what pyegeria knows about every report spec *before* you run it. pyegeria resolves each spec when it loads, and the Portal shows that answer: it does not re-check anything itself. The screenshots below were taken from the deployed Portal on **2026-11-09** (pyegeria 6.2.28, quickstart).
+
+### Three states, never two
+
+Every spec is in exactly one of three states. The **Resolution** filter above the list, and the counts line under it, use the same three words.
+
+| State | Mark | Meaning |
+|---|---|---|
+| **RUNNABLE** | green badge | Every check that could run at load passed. |
+| **CANNOT RUN** | red badge, ⚠ | The resolver refused the spec at load. The panel shows its own words and the number of the check that failed. |
+| **FORMAT ONLY** | grey badge, ◇ | The spec has no action: it is a column layout (a detail view or a command's output format) that other specs use. **It is not broken**, and it is never counted as "cannot run". |
+
+On the quickstart on 2026-11-09 the counts line read **379 runnable · 0 cannot run · 61 format-only** (440 specs). Choosing **Cannot run** in the filter, or clicking the *N cannot run* link, lists only the specs the resolver refused; today that list is empty. (pyegeria 6.2.27 had two, `Asset-Graph` and `Data-Classes`; 6.2.28 repointed both.)
+
+![The Report Specs tab: the Resolution filter, the counts line, and a format-only spec's panel](../images/report-specs-portal/01-report-specs-list.png)
+
+*Report Specs tab, deployed Portal, 2026-11-09. The selected spec, `Referenceable`, is format-only: its box says so and gives the resolver's words.*
+
+If a spec cannot run, the red box under **Resolution** reads `Cannot run — failed check N` followed by one sentence per failed check, copied from pyegeria. Those sentences are the explanation; for how to read them, see [Will this spec run?](https://github.com/odpi/egeria-python/blob/main/docs/output-formats-and-report-specs.md#will-this-spec-run-load-time-resolution) in the pyegeria docs.
+
+A spec that still carries the removed `analytic_binders` key is tagged **BINDERS IGNORED**, with the resolver's warning under the Resolution panel. pyegeria no longer reads that key: declare those arguments as the routine's inputs instead (see [the migration recipe](https://github.com/odpi/egeria-python/blob/main/docs/output-formats-and-report-specs.md#routines-declarations-and-roles)). No spec on the quickstart shows the tag today.
+
+### The Resolution panel
+
+Select a spec and scroll to **Resolution**. For a runnable spec it has four parts:
+
+| Part | What it shows |
+|---|---|
+| **What it runs** | The stages, each with its kind (a `producer` find method, or a `routine`) and its binding (for example `python pyegeria.view.overview_metrics.ownership_coverage`). |
+| **What it needs** | The **role inputs** the routine declares, such as `egeria_client:MetadataExpert`, followed by every parameter: required or optional, its **category** (`content`, `shape` or `performance`), its default and which stage receives it. |
+| **What comes back** | The output formats the spec offers, and the routine's declared **out** fields (name, label, type). A find spec declares no `out`: its columns are element properties, listed under Output Formats. A shape name that only the analytic library knows is shown as the shape name, not as "no output". |
+| **Resolver notes** | Folded. What the resolver recorded, for example which checks did not apply (`a single stage, so there is no previous stage's shape to check against`). |
+
+![The Resolution panel of Analytic Demo - Ownership Coverage](../images/report-specs-portal/02-resolution-runnable.png)
+
+*Resolution panel of `Analytic Demo - Ownership Coverage`, deployed Portal, 2026-11-09: one routine stage, one role input, one parameter in category `content`, and three declared out fields.*
+
+### What the Portal supplies to a routine
+
+A routine declares its inputs by role; the environment supplies them. The Portal's supply is shown under **What it needs**:
+
+- Each `egeria_client:<Class>` input is a client of that class. It acts as the user the run is made as: the Explorer's Connection Settings user, or the server's service user (see *Which user runs it* below). The Portal's own supply note says "signed-in user" and means that.
+- `viewer` is the **persona chosen in this browser**. With no persona chosen, a routine that declares `viewer` is refused before it runs, and the refusal says so.
+- `reader:<name>` and `subject` inputs are **not supplied**. A routine that declares one is refused before it runs.
+
+None of the built-in routines declares `viewer`, a reader or a subject today.
+
+**Which user runs it.** The browser does not yet send an `X-Egeria-Token` header to the execute route, so a report spec does not run as a token-holding user:
+
+- From the **Explorer**, the client signs in with the user and password in the Explorer's Connection Settings (or the server's default service user when those are blank). The Explorer's Run panel does not send the persona.
+- From **Local Dashboards**, the persona chosen in this browser is sent with every run (for `viewer`), and the clients use the server's service user.
+- From **Governance Metrics**, the run uses the service user `erinoverview` and sends no persona.
+
+This was checked against the code on 2026-11-09. When the browser starts sending a token, the server already uses it (the client then holds no password, and an expired token is refused with the 401 words below), but no page does that yet.
+
+### Running a spec, and when it refuses
+
+**▶ Run** is disabled, with the reason beside it, when it cannot work: `Required: <param>` for a required parameter left blank, or `Cannot run:` followed by the resolver's words for a spec it refused. The Resource Explorer curation-coverage routine, for one, needs its `slug` filled in before Run is enabled. **▶ Run** posts to the Portal, which calls pyegeria. A refusal comes back as a non-2xx response, and the Portal shows the server's own words verbatim in a box labelled by the status:
+
+| Status | Box label | Typical cause |
+|---|---|---|
+| 400 | THE SPEC REFUSED TO RUN | pyegeria raised a `ValueError`: a role that is not supplied, a method not on the allowlist, or a parameter value it will not accept. |
+| 401 | SIGN-IN NEEDED | `Not authorized for this operation — the current user does not have permission for this report`. Egeria returned 401, or the caller's token has expired. |
+| 504 / 408 / 524 | TIMED OUT | The operation took longer than the proxy allows. |
+| 500 | SERVER ERROR | Anything else; the box shows `Execution failed:` and the error. |
+
+![A 400 refusal box under the Run button](../images/report-specs-portal/03-refusal-400.png)
+
+*`Element-DrE-Advanced` run with the search string `*`, deployed Portal, 2026-11-09. pyegeria refuses before any request reaches Egeria: a `*` search over the root type would list every element.*
+
+Two refusals you may meet on pyegeria 6.2.28:
+
+- **`*` with no type, or with `OpenMetadataRoot` or `Referenceable`** is refused (`give a search string or a narrower type`). `*` with a real type lists at most 100 elements of that type per call.
+- **A find method that is not on the allowlist** is refused with words. Specs held in Egeria may name only the find methods on pyegeria's positive allowlist (`FIND_METHOD_ALLOWLIST`), whatever the method's prefix. pyegeria loads such specs when it is set up to; the Portal lists whatever pyegeria has loaded and does not mark where a spec came from, and none of the 440 on the quickstart on 2026-11-09 has an `egeria:` name.
+
+### Technology parameter and type filters
+
+pyegeria 6.2.28 made the generic-search `*-DrE-*` specs name their type. The nine technology commands (Kafka, Postgres server and database, the Unity Catalog elements) take an optional run parameter **`deployed_implementation_type`**. The default is the spec's own technology (an exact match, ignoring case). Set it to `*` to search every element of the type, whatever its technology; any other value is an exact match on that technology, ignoring case. On pyegeria 6.2.28 these specs are slow, about 18 s a run; a fix is planned. You see it under *Optional Parameters* in the Run panel, and as a parameter in the Resolution table.
+
+The type filters are spelt one way across pyegeria: `metadata_element_type` and `metadata_element_subtypes`. The old spellings still work in code, with a deprecation warning; report specs that use them keep working.
+
+### Counts that were not measured
+
+A figure that pyegeria could not measure (a count whose query failed, or a scan that did not read every page) now comes back as `None` with an `unmeasured` note, never as `0`. The Explorer, Local Dashboards and Governance Metrics show that as **not measured** and list the note under the result. A tile that was never measured is not the same as a tile that measured nothing.
+
+### Analytic Functions
+
+The **Analytic Functions** sub-tab is the registry of routines a report spec can run (there is no separate "analytics registry" page). It reads the same declarations the Resolution panel uses. Each function shows:
+
+- its kind and binding, and **GENERIC** or **FIXED METRIC**;
+- **Inputs (by role)**, with the same Portal supply note;
+- its **Parameters**, each with type, required or optional, category and default (`content` changes what is counted, `shape` changes how the result is laid out, `performance` changes only how fast or how much is read, never a value);
+- its **Out** fields.
+
+![The Analytic Functions sub-tab, showing ai_ready_assets with two role inputs, one parameter and three out fields](../images/report-specs-portal/04-analytic-function.png)
+
+*Analytic Functions, `ai_ready_assets`, deployed Portal, 2026-11-09. It declares two client inputs, `egeria_client:MetadataExpert` and `egeria_client:ClassificationExplorer`. 29 functions were registered.*
+
+### Further reading
+
+- pyegeria: [Routines, declarations and roles](https://github.com/odpi/egeria-python/blob/main/docs/output-formats-and-report-specs.md#routines-declarations-and-roles) and [Will this spec run? Load-time resolution](https://github.com/odpi/egeria-python/blob/main/docs/output-formats-and-report-specs.md#will-this-spec-run-load-time-resolution) (the declarations, the seven checks, `supply=`, and migrating off `analytic_binders`).
+- [Report specs as micro-flows](../Internals/report-spec-pipeline-model.md): the design this is built from, with what is shipped and what is still design.
+- [Local Dashboards](local-dashboards.md): how a placement shows a refusal.
 
 ---
 

@@ -7,6 +7,13 @@
 `PyegeriaWebHandler/local_dashboards_handler.py`, `local-dashboards.html`, `OVERVIEW_REPORTING_MODEL.md` §8/§10/§13;
 the live Egeria 6.3 type system read from the quickstart platform (`/api/types`).*
 
+> **Status as of 2026-11-09.** Section 4's action half is now built, in
+> [`report-spec-pipeline-model.md`](report-spec-pipeline-model.md) (see its status box): routine declarations and
+> load-time resolution live in pyegeria, report specs can be held in Egeria (pyegeria 6.2.28), and the Portal shows
+> declarations, resolution and refusals (odpi/egeria-workspaces#809; see [Egeria Explorer: Reports](../tools/egeria-explorer.md)).
+> Sections 1 to 3 (the as-is model) are still accurate for what they describe. What this note proposes beyond that is
+> still a proposal unless a line below says it shipped.
+
 > **Superseded in part by Egeria 6.3 (odpi/egeria#9432, merged 2026-11-07).** The types this note proposes have
 > shipped, with four differences the owner accepted on 2026-11-07: no `DashboardPlacement` type (the placement
 > attributes `placementKind`, `span`, `presentationStyle`, `markdownContent` are on `DisplayDataField` and
