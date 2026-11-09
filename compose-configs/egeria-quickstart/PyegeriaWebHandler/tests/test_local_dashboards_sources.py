@@ -218,3 +218,17 @@ def test_detail_reads_one_chain_not_the_whole_list(env):
     assert env["calls"] == 0 and env["loads"] == 2                                         # list never read
     c.get("/api/local-dashboards/json-only", params={"refresh": "true"})
     assert env["loads"] == 2                                                               # "not held" is cached too
+
+
+def test_expired_token_neither_reads_nor_fills_the_egeria_caches(env):
+    env["egeria"] = {"e1": _sheet("e1", [], source="egeria", breaks=[])}
+    exp = _jwt("alice"); enc = lambda d: base64.urlsafe_b64encode(json.dumps(d).encode()).rstrip(b"=").decode()
+    expired = f"{enc({'alg': 'none'})}.{enc({'sub': 'alice', 'exp': int(time.time()) - 60})}.sig"
+    c = env["client"]
+    c.get("/api/local-dashboards", headers={"X-Egeria-Token": exp})              # a good user fills the cache
+    n = env["calls"]
+    c.get("/api/local-dashboards", headers={"X-Egeria-Token": expired})
+    c.get("/api/local-dashboards", headers={"X-Egeria-Token": expired})
+    assert env["calls"] == n + 2                                                 # read Egeria each time, no cache hit
+    assert not any("expired" in k for k in ld._cache)
+    assert ld._report_ckey("R", None, None, None, None) is not None              # (no token here: service user)
