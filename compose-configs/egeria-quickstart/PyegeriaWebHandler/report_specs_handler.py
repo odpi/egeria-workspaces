@@ -256,7 +256,7 @@ def execute_spec(req: ExecuteRequest, request: Request):
     inert plumbing, not a behavior change -- wiring up a real client-side
     token flow is a separate, larger piece of work.
     """
-    from egeria_auth import _token_expired, get_request_token, lineage_key, token_user
+    from egeria_auth import _token_expired, get_request_token, lineage_key
 
     url      = req.url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
     server   = req.server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
@@ -271,7 +271,7 @@ def execute_spec(req: ExecuteRequest, request: Request):
         # An expired token is never served from cache: it must reach _run_spec and be refused (401).
         if not req.cache or (token and _token_expired(token)):
             return JSONResponse(_run_spec(req, request, token, url, server, user_id, user_pwd))
-        key = _cache_key(req, url, server, token_user() or user_id, viewer, lineage_key())
+        key = _cache_key(req, url, server, _credential_identity(req, token, user_id), viewer, lineage_key())
         return _cached_execute(key, req, request, token, url, server, user_id, user_pwd)
     finally:
         reset_viewer(viewer_token)
@@ -286,6 +286,21 @@ def execute_spec(req: ExecuteRequest, request: Request):
 _RESULT_CACHE = ResultCache(
     ttl=float(os.environ.get("PORTAL_RESULT_CACHE_TTL", "300")),
     max_entries=int(os.environ.get("PORTAL_RESULT_CACHE_MAX", "256")))
+
+
+def _credential_identity(req, token, user_id) -> str:
+    """Who the cache entry belongs to, from the credential actually PRESENTED -- never from an
+    unverified claim. A token's `sub` and a body `user_id` are unauthenticated, and a cache hit makes
+    no Egeria call to check them, so keying on either would let a forged `sub`/user_id read another
+    user's results. A hash of the whole token (or of user_id + password) can only be reproduced by
+    someone who holds that credential; a forged one just misses and goes to Egeria, which refuses it
+    (and a refusal is never cached). Memory only; the secret is never stored or logged. The cost: a
+    renewed token is a new key."""
+    if token:
+        return "t:" + hashlib.sha256(token.encode()).hexdigest()
+    if req.user_id:
+        return "u:" + hashlib.sha256(f"{req.user_id}\0{req.user_pwd or ''}".encode()).hexdigest()
+    return "svc:" + user_id    # the Portal's own service user (server-side env), no caller credential
 
 
 def _cache_key(req, url, server, identity, viewer, lineage) -> tuple:
@@ -316,12 +331,48 @@ def _cached_execute(key, req, request, token, url, server, user_id, user_pwd) ->
             if _RESULT_CACHE.claim_refresh(key):
                 ctx = contextvars.copy_context()   # carries the token, forLineage and viewer to the thread
                 threading.Thread(target=ctx.run, daemon=True, name="report-spec-refresh",
-                                 args=(_background_refresh, key, req, request, token, url, server, user_id, user_pwd)).start()
+                                 args=(_background_refresh, key, req, None, token, url, server, user_id, user_pwd)).start()
             return _cache_response(body, "stale", stored_at)
-    # cold miss, or a forced refresh: run now, as an uncached call would
-    body = JSONResponse(_run_spec(req, request, token, url, server, user_id, user_pwd)).body
-    stored_at = _RESULT_CACHE.put(key, body)
+    if not req.refresh:
+        err = _RESULT_CACHE.recent_timeout(key)
+        if err is not None:      # it timed out a moment ago; do not spend the full timeout again on every load
+            raise err
+        leader, flight = _RESULT_CACHE.begin_flight(key)
+        if not leader:           # another request is already running this exact report: wait for it
+            flight.event.wait(_FLIGHT_WAIT)
+            state, body, stored_at = _RESULT_CACHE.lookup(key)
+            if state in (FRESH, STALE):
+                return _cache_response(body, "hit", stored_at)
+            if flight.error is not None:
+                raise flight.error
+            # the leader's result was too large to store (or it vanished): run it ourselves
+            leader, flight = False, None
+    else:
+        leader, flight = False, None
+    error = None
+    try:
+        body = JSONResponse(_run_spec(req, request, token, url, server, user_id, user_pwd)).body
+        stored_at = _RESULT_CACHE.put(key, body)    # stored BEFORE followers are woken
+    except BaseException as exc:
+        error = exc
+        if _is_timeout(exc):
+            _RESULT_CACHE.note_timeout(key, exc)
+        raise
+    finally:
+        if leader:
+            _RESULT_CACHE.end_flight(key, flight, error)
     return _cache_response(body, "refresh" if req.refresh else "miss", stored_at)
+
+
+_FLIGHT_WAIT = 200.0   # a follower waits at most this long for the leader's run (pyegeria times out at 90 s)
+
+
+def _is_timeout(exc) -> bool:
+    """A run that hit a timeout (pyegeria TIMEOUT_ERROR_408, an asyncio/httpx timeout, or a gateway 504)."""
+    if isinstance(exc, HTTPException):
+        text = str(exc.detail)
+        return exc.status_code in (408, 504) or "TIMEOUT_ERROR_408" in text or "timed out" in text.lower()
+    return False
 
 
 def _background_refresh(key, req, request, token, url, server, user_id, user_pwd) -> None:

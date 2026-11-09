@@ -66,8 +66,9 @@ def _wait_refresh(env):
 
 
 def test_miss_then_hit_runs_once(env):
-    a = _post(env, _jwt("peter")); b = _post(env, _jwt("peter", salt="renewed"))
-    assert (a.headers["X-Cache"], b.headers["X-Cache"]) == ("miss", "hit")   # a renewed token is the same viewer
+    tok = _jwt("peter")
+    a = _post(env, tok); b = _post(env, tok)
+    assert (a.headers["X-Cache"], b.headers["X-Cache"]) == ("miss", "hit")
     assert a.json() == b.json() == {"n": 1}
     assert len(env["calls"]) == 1
     assert "X-Cache-At" in b.headers
@@ -81,6 +82,64 @@ def test_uncached_requests_always_run_live(env):
 def test_viewers_are_separate(env):
     _post(env, _jwt("peter")); _post(env, _jwt("paul"))
     assert len(env["calls"]) == 2
+
+
+def test_renewed_token_is_a_new_key(env):
+    # the key is a hash of the presented credential, so a renewed token misses (the price of authenticity)
+    _post(env, _jwt("peter")); r = _post(env, _jwt("peter", salt="renewed"))
+    assert r.headers["X-Cache"] == "miss"
+
+
+def test_forged_sub_does_not_read_another_users_entry(env):
+    real = _jwt("peter"); _post(env, real)
+    forged = _jwt("peter", salt="forged")           # claims sub=peter but is not peter's token
+    assert _post(env, forged).headers["X-Cache"] == "miss"
+    assert _post(env, real).headers["X-Cache"] == "hit"
+
+
+def test_same_user_id_with_a_different_password_misses(env):
+    _post(env, user_id="peter", user_pwd="right")
+    assert _post(env, user_id="peter", user_pwd="wrong").headers["X-Cache"] == "miss"
+    assert _post(env, user_id="peter", user_pwd="right").headers["X-Cache"] == "hit"
+    assert _post(env, user_id="paul", user_pwd="right").headers["X-Cache"] == "miss"
+
+
+def test_secrets_are_not_in_the_key(env):
+    _post(env, _jwt("peter"), user_id="u", user_pwd="hunter2")
+    assert all("hunter2" not in repr(k) for k in env["cache"]._data)
+
+
+def test_concurrent_cold_misses_run_once(env):
+    env["gate"] = threading.Event()
+    out = []
+    ts = [threading.Thread(target=lambda: out.append(_post(env))) for _ in range(4)]
+    [t.start() for t in ts]
+    time.sleep(0.3); env["gate"].set(); [t.join(10) for t in ts]
+    assert len(env["calls"]) == 1 and len(out) == 4 and all(r.status_code == 200 for r in out)
+
+
+def test_timeout_is_remembered_briefly_and_refresh_bypasses_it(env):
+    env["raise"] = HTTPException(status_code=500, detail="Execution failed: TIMEOUT_ERROR_408 timed out")
+    assert _post(env).status_code == 500 and _post(env).status_code == 500
+    assert len(env["calls"]) == 1                     # second load did not spend the timeout again
+    env["clock"].advance(61); env["raise"] = None
+    assert _post(env).headers["X-Cache"] == "miss"    # back-off over: runs, and succeeds
+    env["raise"] = HTTPException(status_code=500, detail="TIMEOUT_ERROR_408"); env["cache"].clear()
+    _post(env); env["raise"] = None
+    assert _post(env, refresh=True).status_code == 200  # a viewer's refresh click always runs
+
+
+def test_non_timeout_errors_are_not_remembered(env):
+    env["raise"] = HTTPException(status_code=500, detail="Execution failed: boom")
+    _post(env); _post(env)
+    assert len(env["calls"]) == 2
+
+
+def test_oversized_body_is_served_but_not_stored(env):
+    env["cache"].max_body_bytes = 50
+    env["result"] = {"big": "x" * 500}
+    assert _post(env).status_code == 200
+    assert len(env["cache"]) == 0 and _post(env).headers["X-Cache"] == "miss"
 
 
 def test_lineage_toggle_is_separate(env):
