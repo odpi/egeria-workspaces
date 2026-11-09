@@ -56,17 +56,20 @@ the Local Dashboards page's "Run Dr.Egeria Document" panel (POST
 /api/dr-egeria/execute-document, dr_egeria_commands_handler.py) instead of
 pasting it in by hand.
 """
+import contextvars
 import json
 import os
+import threading
 import time
 from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from loguru import logger
 
 import spec_resolution
+from result_cache import FRESH, MISS, STALE, ResultCache, credential_identity
 
 router = APIRouter(tags=["local-dashboards"])
 
@@ -416,14 +419,42 @@ def _view_for_perspective(placements, perspective: Optional[str]):
             or perspective in p.perspectives]
 
 
-@router.get("/api/local-dashboards/{name}", summary="One Dashboard Sheet, placements resolved")
-def get_local_dashboard(
-    name: str,
-    perspective: Optional[str] = Query(None, description="Keep only placements tagged with this "
-                                        "perspective, plus any untagged ones (fail-open)."),
-    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
-):
+# ── Resolved-sheet cache ─────────────────────────────────────────────────────
+# Resolving a sheet looks up every placement's Report by name in Egeria, uncached per sheet: about a
+# minute on the CDO sheet even when every placement RESULT is already cached (result_cache). Cache the
+# resolved sheet the same way: stale-while-revalidate, one refresh in flight, errors never cached.
+# Key: sheet name, perspective, the store file's mtime (an edit, from anywhere, invalidates it), the
+# presented credential (hashed, see result_cache.credential_identity), platform/server, and the
+# forLineage toggle. A degraded answer (no Egeria connection, or a placement that did not resolve) is
+# kept in a SEPARATE cache with a short TTL (a permanently broken placement would otherwise cost the
+# full resolve on every visit, a transient failure is not pinned for minutes), is never served stale,
+# and a degraded refresh never replaces a good entry.
+_SHEET_CACHE = ResultCache(
+    ttl=float(os.environ.get("PORTAL_SHEET_CACHE_TTL", "300")),
+    max_entries=int(os.environ.get("PORTAL_SHEET_CACHE_MAX", "64")))
+_DEGRADED_TTL = float(os.environ.get("PORTAL_SHEET_DEGRADED_TTL", "60"))
+_SHEET_DEGRADED = ResultCache(ttl=_DEGRADED_TTL, max_stale=_DEGRADED_TTL,
+                              max_entries=int(os.environ.get("PORTAL_SHEET_CACHE_MAX", "64")))
+
+
+def _sheet_lookup(key):
+    """The good entry if there is one (fresh or stale), else a still-fresh degraded one."""
+    state, body, at = _SHEET_CACHE.lookup(key)
+    if state in (FRESH, STALE):
+        return state, body, at
+    state, body, at = _SHEET_DEGRADED.lookup(key)
+    return (FRESH, body, at) if state == FRESH else (MISS, None, None)
+
+
+def _store_mtime_ns() -> int:
+    try:
+        return os.stat(_store_path()).st_mtime_ns
+    except OSError:
+        return 0
+
+
+def _build_sheet(name, perspective, url, server, user_id, user_pwd):
+    """Resolve one sheet. Returns (payload, cacheable); raises the HTTPException the browser should see."""
     try:
         sheets = _load_sheets()
     except Exception as exc:  # noqa: BLE001
@@ -452,15 +483,98 @@ def get_local_dashboard(
         logger.debug(f"local-dashboards: Egeria connection unavailable: {exc}")
         mgr = None
 
-    return JSONResponse({
+    placements = [_serialize_placement(p, sheets, registry, mgr, url, server, user_id, resolutions)
+                  for p in _view_for_perspective(sheet.placements, perspective)]
+    payload = {
         "name":        sheet.name,
         "heading":     sheet.heading,
         "description": sheet.description,
         "family":      sheet.family,
-        "placements":  [_serialize_placement(p, sheets, registry, mgr, url, server, user_id, resolutions)
-                         for p in _view_for_perspective(sheet.placements, perspective)],
+        "placements":  placements,
         "perspective": perspective,
-    })
+    }
+    cacheable = mgr is not None and all(pl.get("kind") != "missing" for pl in placements)
+    return payload, cacheable
+
+
+def _sheet_response(body: bytes, state: str, stored_at: float) -> Response:
+    from report_specs_handler import _stamp
+    return Response(content=body, media_type="application/json",
+                    headers={"X-Cache": state, **_stamp(stored_at)})
+
+
+def _refresh_sheet(key, args) -> None:
+    failed = False
+    try:
+        payload, cacheable = _build_sheet(*args)
+        if cacheable:
+            _SHEET_CACHE.put(key, JSONResponse(payload).body)
+        else:
+            failed = True       # never replace a good entry with a degraded one
+    except Exception as exc:  # noqa: BLE001 -- the stale entry stays; nothing failed is cached
+        failed = True
+        logger.warning(f"local-dashboards: background refresh of {args[0]!r} failed: {exc}")
+    finally:
+        _SHEET_CACHE.release_refresh(key, failed=failed)
+
+
+@router.get("/api/local-dashboards/{name}", summary="One Dashboard Sheet, placements resolved")
+def get_local_dashboard(
+    name: str,
+    perspective: Optional[str] = Query(None, description="Keep only placements tagged with this "
+                                        "perspective, plus any untagged ones (fail-open)."),
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    refresh: bool = Query(False, description="Resolve now and store the result, ignoring the cache."),
+):
+    from egeria_auth import _token_expired, get_request_token, lineage_key
+    token = get_request_token()
+    args = (name, perspective, url, server, user_id, user_pwd)
+    if token and _token_expired(token):          # never serve an expired token from cache: let it be refused
+        payload, _ = _build_sheet(*args)
+        return JSONResponse(payload)
+    identity = credential_identity(token, user_id, user_pwd, os.environ.get("EGERIA_USER", "erinoverview"))
+    key = ("sheet", name, perspective, _store_mtime_ns(), identity, url, server, lineage_key())
+
+    if not refresh:
+        state, body, stored_at = _sheet_lookup(key)
+        if state == FRESH:
+            return _sheet_response(body, "hit", stored_at)
+        if state == STALE:
+            if _SHEET_CACHE.claim_refresh(key):      # atomic: exactly one refresh in flight per key
+                ctx = contextvars.copy_context()     # token and forLineage travel with it
+                threading.Thread(target=ctx.run, args=(_refresh_sheet, key, args), daemon=True,
+                                 name="sheet-refresh").start()
+            return _sheet_response(body, "stale", stored_at)
+        leader, flight = _SHEET_CACHE.begin_flight(key)
+        if not leader:        # the same sheet is already being resolved: wait for it
+            flight.event.wait(200.0)
+            state, body, stored_at = _sheet_lookup(key)
+            if state in (FRESH, STALE):
+                return _sheet_response(body, "hit", stored_at)
+            if flight.error is not None:
+                raise flight.error
+            leader, flight = False, None
+    else:
+        leader, flight = False, None
+    error = None
+    try:
+        payload, cacheable = _build_sheet(*args)
+        body = JSONResponse(payload).body
+        # a good answer replaces anything; a degraded one is stored short-lived and only if no good entry exists
+        if cacheable:
+            stored_at = _SHEET_CACHE.put(key, body)
+        elif _SHEET_CACHE.lookup(key)[0] == MISS:
+            stored_at = _SHEET_DEGRADED.put(key, body)
+        else:
+            stored_at = time.time()
+    except BaseException as exc:
+        error = exc
+        raise
+    finally:
+        if leader:
+            _SHEET_CACHE.end_flight(key, flight, error)
+    return _sheet_response(body, "refresh" if refresh else "miss", stored_at)
 
 
 @router.delete("/api/local-dashboards/{name}", summary="Delete a Dashboard Sheet")

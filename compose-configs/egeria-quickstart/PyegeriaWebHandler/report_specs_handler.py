@@ -13,7 +13,6 @@ endpoint requires no Egeria connection.
 """
 
 import contextvars
-import hashlib
 import json
 import os
 import threading
@@ -27,7 +26,7 @@ from loguru import logger
 from pydantic import BaseModel
 
 import spec_resolution
-from result_cache import FRESH, MISS, STALE, ResultCache
+from result_cache import FRESH, MISS, STALE, ResultCache, credential_identity
 
 from pyegeria.view.base_report_formats import get_report_registry, register_report_specs
 from pyegeria.view._output_format_models import FormatSet, Format, Column, ActionParameter
@@ -289,18 +288,8 @@ _RESULT_CACHE = ResultCache(
 
 
 def _credential_identity(req, token, user_id) -> str:
-    """Who the cache entry belongs to, from the credential actually PRESENTED -- never from an
-    unverified claim. A token's `sub` and a body `user_id` are unauthenticated, and a cache hit makes
-    no Egeria call to check them, so keying on either would let a forged `sub`/user_id read another
-    user's results. A hash of the whole token (or of user_id + password) can only be reproduced by
-    someone who holds that credential; a forged one just misses and goes to Egeria, which refuses it
-    (and a refusal is never cached). Memory only; the secret is never stored or logged. The cost: a
-    renewed token is a new key."""
-    if token:
-        return "t:" + hashlib.sha256(token.encode()).hexdigest()
-    if req.user_id:
-        return "u:" + hashlib.sha256(f"{req.user_id}\0{req.user_pwd or ''}".encode()).hexdigest()
-    return "svc:" + user_id    # the Portal's own service user (server-side env), no caller credential
+    """See result_cache.credential_identity."""
+    return credential_identity(token, req.user_id, req.user_pwd, user_id)
 
 
 def _cache_key(req, url, server, identity, viewer, lineage) -> tuple:

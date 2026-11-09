@@ -143,8 +143,15 @@ def _is_collection(node: dict) -> bool:
     return tn == "Collection" or tn.endswith("Collection")
 
 
-def _find_all_collections_with_members(mgr, url=None, server=None, user_id=None, user_pwd=None) -> tuple:
-    """Return (all Collection elements, set of guids that have a parent).
+def _find_all_collections_with_members(mgr, url=None, server=None, user_id=None, user_pwd=None,
+                                       with_parents: bool = True) -> tuple:
+    """Return (all Collection elements, set of guids that have a parent, status).
+
+    `status` says how far to trust the first two, so the UI never shows a partial list as the whole
+    one: {"capped": the page loop hit max_pages (more collections exist), "incomplete": a page failed
+    (the list stops early), "parentsKnown": the CollectionMembership read succeeded and was not cut off
+    (when False, "has a parent" is unknown, and every collection looks parentless)}. With
+    with_parents=False the relationship read is skipped (parentsKnown is then False by definition).
 
     PERF-3: was a single depth=1 scan over every Collection, each fetch
     embedding that element's own `collectionMembers` — confirmed live
@@ -159,20 +166,20 @@ def _find_all_collections_with_members(mgr, url=None, server=None, user_id=None,
     relationships in ~9-10s), from which "has a parent" is just membership
     in the set of member-end guids.
 
-    Deliberately NOT paginated in a loop on the relationships call: live-
-    confirmed 2026-09-02 that find_relationships_between_elements'
-    start_from/page_size kwargs don't actually limit the result set for
-    this call (page_size=200 still returned all 970 live relationships in
-    one response) -- unlike find_collections' pagination below, which does
-    work correctly. A pagination loop on the relationships call would never
-    see a short-enough page to terminate on and would just re-fetch the
-    same full result up to max_pages times.
+    Why "has a parent" is only a best effort (checked live 2026-11-09): CollectionMembership holds
+    thousands of relationships, because collections contain assets, terms and everything else, not only
+    collections, and a page comes back SHORT (984 of 1000) with far more after it. Egeria also now refuses
+    pageSize > 1000 (OMAG-COMMON-400-010), which made the old page_size=2000 read fail so every collection
+    looked parentless. Reading all of them is ~10 s per 1000 (minutes in total), so this reads ONE page of
+    1000 and says parentsKnown=False: the parent set is partial. The type-grouped list does not need it
+    and passes with_parents=False.
     """
     all_elements = {}
     start_from = 0
     page_size = 200
     max_pages = 50  # safety cap: 10000 collections max
-    for _ in range(max_pages):
+    status = {"capped": False, "incomplete": False, "parentsKnown": True}
+    for page_no in range(max_pages):
         try:
             raw = mgr.find_collections(
                 search_string="*",
@@ -185,6 +192,7 @@ def _find_all_collections_with_members(mgr, url=None, server=None, user_id=None,
             )
         except Exception as exc:
             logger.warning(f"find_collections page {start_from} failed: {exc}")
+            status["incomplete"] = True
             break
         if not isinstance(raw, list) or not raw:
             break
@@ -193,24 +201,27 @@ def _find_all_collections_with_members(mgr, url=None, server=None, user_id=None,
             if g and g not in all_elements:
                 all_elements[g] = e
         start_from += page_size
+        if page_no == max_pages - 1:
+            status["capped"] = True      # every page was non-empty: there may be more
 
     has_parent = set()
-    try:
-        expert = _get_expert(url, server, user_id, user_pwd)
-        body = {"class": "FindRelationshipRequestBody", "relationshipTypeName": "CollectionMembership"}
-        res = expert.find_relationships_between_elements(body, start_from=0, page_size=2000)
-        rels = res.get("relationships", []) if isinstance(res, dict) else res
-        if isinstance(rels, list):
-            for r in rels:
-                # end2 = the member (role2 "collectionMembers"); a flat guid
-                # field on the relationship, not nested under elementAtEnd2.
-                member_guid = r.get("elementGUIDAtEnd2")
-                if member_guid:
-                    has_parent.add(member_guid)
-    except Exception as exc:
-        logger.warning(f"CollectionMembership relationship fetch failed: {exc}")
+    status["parentsKnown"] = False         # see the docstring: one page cannot establish "no parent"
+    if with_parents:
+        try:
+            expert = _get_expert(url, server, user_id, user_pwd)
+            body = {"class": "FindRelationshipRequestBody", "relationshipTypeName": "CollectionMembership"}
+            res = expert.find_relationships_between_elements(body, start_from=0, page_size=1000)
+            rels = res.get("relationships", []) if isinstance(res, dict) else res
+            if isinstance(rels, list):
+                for r in rels:
+                    # end2 = the member (role2 "collectionMembers"); a flat guid field on the relationship
+                    member_guid = r.get("elementGUIDAtEnd2")
+                    if member_guid:
+                        has_parent.add(member_guid)
+        except Exception as exc:
+            logger.warning(f"CollectionMembership relationship fetch failed: {exc}")
 
-    return list(all_elements.values()), has_parent
+    return list(all_elements.values()), has_parent, status
 
 
 def _children_level(mgr, collection_guid: str, as_of_time: Optional[str] = None) -> list:
@@ -248,6 +259,26 @@ def _children_level(mgr, collection_guid: str, as_of_time: Optional[str] = None)
     return nodes
 
 
+_SUMMARY_DESCRIPTION_CHARS = 200
+
+
+def _summarize_node(node: dict) -> dict:
+    """The few fields the type-grouped list and the tree's top node read. The full node (properties,
+    classifications, mermaid graphs...) averaged 1.9 KB and reached 19 KB; 1,840 of them were 3.2 MB.
+    The detail pane fetches the full element by guid when a collection is selected."""
+    desc = node.get("description") or ""
+    if len(desc) > _SUMMARY_DESCRIPTION_CHARS:
+        desc = desc[:_SUMMARY_DESCRIPTION_CHARS].rstrip() + "…"
+    return {
+        "guid":           node.get("guid", ""),
+        "typeName":       node.get("typeName", ""),
+        "superTypeNames": node.get("superTypeNames") or [],
+        "displayName":    node.get("displayName", ""),
+        "qualifiedName":  node.get("qualifiedName", ""),
+        "description":    desc,
+    }
+
+
 @router.get("/api/collections/roots", summary="List parentless (or RootCollection-only) elements", responses=EGERIA_ERROR_RESPONSES)
 def get_roots(
     url:      Optional[str] = Query(None),
@@ -256,12 +287,20 @@ def get_roots(
     user_pwd: Optional[str] = Query(None),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
     only_root_type: bool = Query(False, description="When True, restrict to the RootCollection open metadata type instead of any parentless collection"),
+    all_collections: bool = Query(False, description="When True, return EVERY collection (any subtype) as summary rows (guid, typeName, names, a short description) without working out parents (fast), for the type-grouped list"),
+    parentless: bool = Query(False, description="Opt in to the OLD 'collections without a parent' answer. It costs ~10 s and is only a best effort (parentsKnown=false): CollectionMembership is too big to read in full. Without this flag, and without only_root_type, the answer is all_collections."),
 ):
     """Default: every collection (any subtype) that is not itself a member of any
     other collection. When only_root_type=True: just the RootCollection-typed
-    elements, as before.
+    elements, as before. When all_collections=True, or when no mode is given: every collection as
+    summary rows, no parent test (fast). parentless=True opts in to the slow, partial parent test.
+
+    Besides roots/total the answer says whether the list is the whole story: `capped` (more exist
+    than were read), `complete` (false if a page failed), `parentsKnown` (false: parentless is a best effort).
     """
-    cache_key = f"{url or ''}|{server or ''}|{user_id or ''}|{include_templates}|{only_root_type}{_lineage_key()}"
+    if not only_root_type and not parentless:
+        all_collections = True          # the default: the cheap, complete answer
+    cache_key = f"{url or ''}|{server or ''}|{user_id or ''}|{include_templates}|{only_root_type}|{all_collections}{_lineage_key()}"
     cached = _ROOTS_CACHE.get(cache_key)
     if cached and (time.time() - cached[0]) < _ROOTS_CACHE_TTL:
         return JSONResponse(cached[1])
@@ -290,23 +329,27 @@ def get_roots(
             raw = [c for c in raw if isinstance(c, dict) and not _is_template(c)]
         roots = [_serialize_node(c) for c in raw if isinstance(c, dict)]
         roots.sort(key=lambda c: (c.get("displayName") or c.get("qualifiedName") or "").lower())
-        result = {"roots": roots, "total": len(roots)}
+        result = {"roots": roots, "total": len(roots), "capped": len(raw) >= 500, "complete": True,
+                  "parentsKnown": True}
         _ROOTS_CACHE[cache_key] = (time.time(), result)
         return JSONResponse(result)
 
     try:
-        all_elements, has_parent = _find_all_collections_with_members(mgr, url, server, user_id, user_pwd)
+        all_elements, has_parent, status = _find_all_collections_with_members(
+            mgr, url, server, user_id, user_pwd, with_parents=not all_collections)
     except Exception as exc:
         raise_egeria_http_error(exc, "Collection discovery failed")
 
     all_guids = {_header(e).get("guid", ""): e for e in all_elements if _header(e).get("guid")}
-    parentless = [e for g, e in all_guids.items() if g not in has_parent]
+    chosen = list(all_guids.items()) if all_collections else [(g, e) for g, e in all_guids.items() if g not in has_parent]
     if not include_templates:
-        parentless = [e for e in parentless if not _is_template(e)]
-    roots = [_serialize_node(e) for e in parentless]
+        chosen = [(g, e) for g, e in chosen if not _is_template(e)]
+    roots = [_summarize_node(_serialize_node(e)) if all_collections else _serialize_node(e) for g, e in chosen]
     roots.sort(key=lambda c: (c.get("displayName") or c.get("qualifiedName") or "").lower())
-    result = {"roots": roots, "total": len(roots)}
-    _ROOTS_CACHE[cache_key] = (time.time(), result)
+    result = {"roots": roots, "total": len(roots), "capped": status["capped"],
+              "complete": not status["incomplete"], "parentsKnown": status["parentsKnown"]}
+    if result["complete"]:      # a partial answer is served, not remembered
+        _ROOTS_CACHE[cache_key] = (time.time(), result)
     return JSONResponse(result)
 
 

@@ -183,6 +183,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Compress responses over 1 KB. Checked 2026-11-09: the Apache in front (quickstart-web-server) does not
+# load mod_deflate, so /api JSON (3.2 MB for the collections list, and the big Overview/Explorer
+# payloads) crossed the wire uncompressed. text/event-stream is excluded by Starlette's defaults and
+# WebSocket scopes pass straight through. PORTAL_GZIP=0 turns it off.
+if os.environ.get("PORTAL_GZIP", "1") != "0":
+    from starlette.middleware.gzip import GZipMiddleware
+    app.add_middleware(GZipMiddleware, minimum_size=1024)
+
 executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
 # Serialises _invoke_processor calls because _apply_request_configuration mutates os.environ
 _processor_lock = threading.Lock()
