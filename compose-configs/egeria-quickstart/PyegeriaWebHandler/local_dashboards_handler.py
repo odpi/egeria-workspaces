@@ -537,7 +537,8 @@ def _serialize_placement(p, sheets, registry, mgr, url=None, server=None, user_i
             "detailSpec":     getattr(p, "detail_spec", None),
             # RS-W2-4: runnable (True/False, None = not resolved) and refusal (the resolver's
             # words when not runnable). The page shows the refusal instead of executing.
-            **spec_resolution.placement_status(report["reportSpec"], resolutions or {}),
+            **spec_resolution.placement_status(report["reportSpec"], resolutions or {},
+                                                report["analyticParams"], action),
         }
     sub = sheets.get(p.ref)
     if sub is not None:

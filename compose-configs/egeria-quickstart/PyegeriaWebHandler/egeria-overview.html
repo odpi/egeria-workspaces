@@ -859,6 +859,24 @@ function renderVega(id, spec){
 }
 
 // ---- Horizontal bar helper (row = [lab,val,col,drillKey?]) ----
+// Governed Coverage text: the real share, never a rounding artefact. A non-zero share under 0.5%
+// shows its real small value ("0.3%", "0.02%"), not "<1%" or a "0%" that reads as nothing governed;
+// 0 governed is "0%". A capped (lower-bound) count is prefixed with "≥".
+function overviewGovernedPct(count, total, capped) {
+  if (!total || count == null || count > total) return null;
+  var pct = 100 * count / total, txt;
+  if (count === 0) txt = '0';
+  else if (pct >= 0.5) txt = String(Math.round(pct));
+  else txt = pct >= 0.1 ? pct.toFixed(1) : String(Number(pct.toPrecision(1)));
+  return (capped ? '\u2265' : '') + txt + '%';
+}
+// Engine-action failures tile: a capped read of 0 failures is "at least 0" -- not a measurement, so it
+// is "—" (the description says why); a capped read with failures is "≥N"; an exact read is N.
+function overviewPipelineCount(ph) {
+  if (!ph || ph.failed == null) return '\u2014';
+  if (ph.capped && !ph.failed) return '\u2014';
+  return (ph.capped ? '\u2265' : '') + ph.failed.toLocaleString();
+}
 function hbars(id,rows,max,emptyMsg){
   const el=document.getElementById(id); if(!el) return;
   if(!rows||!rows.length){ el.innerHTML=`<div style="color:var(--muted);font-size:.8rem;padding:10px 0">${emptyMsg||'No data yet'}</div>`; return; }
@@ -1995,12 +2013,14 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     }
     // Engine actions (survey runs and the platform's scheduled insight jobs) in the last 24 h.
     var pcnt = document.getElementById('aq-pipeline-count'), pdesc = document.getElementById('aq-pipeline-desc'), ph = st.engineActionHealth;
-    if (pcnt) pcnt.textContent = ph ? (ph.capped ? '\u2265' : '') + ph.failed.toLocaleString() : '\u2014';
+    if (pcnt) pcnt.textContent = overviewPipelineCount(ph);
     if (pdesc) {
       if (!ph) pdesc.textContent = st.asOfTime
         ? 'Not shown for a past as-of time: the engine-action list is only the current state, so it is not mixed with as-of figures'
         : 'Not measured: engine actions could not be read';
       else if (ph.total === 0) pdesc.textContent = 'No engine actions in the last 24 hours';
+      else if (ph.capped && !ph.failed) pdesc.textContent = 'Not measured: only the first ' + ph.total.toLocaleString() +
+        ' engine actions of the last 24 h were read (page cap), and none of those failed; failures beyond them are not counted';
       else {
         var lb = ph.capped ? 'at least ' : '', pp = [lb + ph.failed.toLocaleString() + ' failed of ' + lb + ph.total.toLocaleString() + ' in the last 24 h'];
         if (ph.completed) pp.push(ph.completed.toLocaleString() + ' completed');
@@ -2131,9 +2151,8 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     if (d.assetTotal && d.governedCount != null && d.governedCount <= d.assetTotal) {
       store.governedPctNum = Math.round(100 * d.governedCount / d.assetTotal);
       var gLb = d.governedCapped ? 'at least ' : '';   // false for the native counts; kept for a capped fallback
-      // a non-zero share under 0.5% must not round to a "0%" that reads as nothing governed
-      store.governedPct = (d.governedCapped ? '≥' : '') +
-        ((store.governedPctNum === 0 && d.governedCount > 0) ? '<1' : store.governedPctNum) + '%';
+      // the real share: a non-zero share under 0.5% shows its small value, not "<1%" or "0%"
+      store.governedPct = overviewGovernedPct(d.governedCount, d.assetTotal, d.governedCapped);
       store.governedSub = gLb + fmt(d.governedCount) + ' of ' + fmt(d.assetTotal) + ' assets';
     }
     if (d.certifications != null) {

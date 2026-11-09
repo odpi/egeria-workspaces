@@ -181,3 +181,36 @@ def test_execute_refusal_is_400_with_the_words(monkeypatch):
                              json={"spec_name": "Anything", "output_format": "DICT"})
     assert r.status_code == 400, r.text
     assert r.json()["detail"] == words
+
+
+# ── a placement's own metric_path is checked like the spec's ─────────────────
+
+def test_placement_metric_path_refused_by_pyegeria_is_not_runnable(monkeypatch):
+    """A dashboard Report's analyticParams override the spec's fixed metric_path; the resolver checks
+    only the spec's, so a placement naming an unregistered routine (Subscription Growth Trend) must
+    carry pyegeria's refusal up front, not runnable: true."""
+    resolved = {"Trend": SimpleNamespace(runnable=True, kind="analytic", words=[], warnings=[])}
+    action = SimpleNamespace(analytic_function="metric_trend", required_params=[], optional_params=[])
+    registry = {"Trend": SimpleNamespace(action=action, formats=[], description="", family=None)}
+    params = {"tile-bad": {"metric_path": "pyegeria.view.overview_metrics.not_registered"},
+              "tile-good": {"metric_path": "governed_coverage"},
+              "tile-none": {}}
+
+    def report(ref, *a, **k):
+        r = _report("Trend")
+        r["analyticParams"] = params[ref]
+        return r
+
+    monkeypatch.setattr(local_dashboards_handler, "_find_report_by_name", report)
+    ser = lambda ref: local_dashboards_handler._serialize_placement(_placement(ref), {}, registry, object(),
+                                                                    resolutions=resolved)
+    bad = ser("tile-bad")
+    assert bad["runnable"] is False
+    assert "metric_path" in bad["refusal"] and "not a registered name" in bad["refusal"]
+    assert ser("tile-good")["runnable"] is True and ser("tile-good")["refusal"] is None
+    assert ser("tile-none")["runnable"] is True
+
+
+def test_placement_status_unresolved_spec_stays_unknown_whatever_its_params():
+    st = spec_resolution.placement_status("Nope", {}, {"metric_path": "x.y"})
+    assert st["runnable"] is None and st["refusal"] is None
