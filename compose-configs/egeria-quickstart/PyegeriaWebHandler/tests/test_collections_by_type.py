@@ -196,3 +196,23 @@ def test_warm_up_partial_answer_is_not_cached(client):
 def test_startup_hook_is_non_blocking_and_switchable():
     src = (Path(__file__).resolve().parent.parent / "pyegeria_handler.py").read_text()
     assert 'PORTAL_WARM_COLLECTIONS", "1") != "0"' in src and 'threading.Thread(target=warm_roots_cache, daemon=True' in src
+
+
+EXPECTED_ROUTES = {
+    ("GET", "/api/collections/roots"),
+    ("GET", "/api/collections/{root_guid}/tree"),
+    ("GET", "/api/collections/{node_guid}/children"),
+    ("GET", "/api/collections/by-type"),
+    ("POST", "/api/collections"),
+    ("GET", "/api/collections/{node_guid}"),
+    ("POST", "/api/collections/{collection_guid}/members"),
+    ("DELETE", "/api/collections/{collection_guid}/members"),
+}
+
+
+def test_the_router_still_has_all_eight_collections_routes():
+    """A truncated edit once dropped seven of these (hierarchy, detail, create, membership) and every test
+    passed. The Collections view needs all of them, so list them: losing one must fail here."""
+    have = {(m, r.path) for r in ch.router.routes for m in (getattr(r, "methods", None) or ())}
+    assert EXPECTED_ROUTES <= have, f"missing routes: {sorted(EXPECTED_ROUTES - have)}"
+    assert len([r for r in ch.router.routes if getattr(r, "path", "")]) == 8
