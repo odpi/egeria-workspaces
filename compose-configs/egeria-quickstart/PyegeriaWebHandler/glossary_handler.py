@@ -602,7 +602,7 @@ def get_term_assigned_elements(
     as two lists rather than one undifferentiated blob.
     """
     from catalog_search_handler import _TYPE_CATEGORY
-    from semantic_links import elements_for_term_guid
+    from semantic_links import READ_LIMIT, elements_for_term_guid
 
     try:
         ce = _get_classification_explorer(url, server, user_id, user_pwd)
@@ -610,7 +610,10 @@ def get_term_assigned_elements(
         _raise_http(exc, "Failed to create ClassificationExplorer")
 
     try:
-        elements = elements_for_term_guid(ce, term_guid, as_of_time or None)
+        from result_cache import request_identity
+        # identity keys semantic_links' short shared cache of the assignment read (None = expired: no cache)
+        elements, capped = elements_for_term_guid(ce, term_guid, as_of_time or None,
+                                                  identity=request_identity(user_id, user_pwd))
     except Exception as exc:
         _raise_http(exc, "elements_for_term_guid failed")
 
@@ -630,4 +633,8 @@ def get_term_assigned_elements(
         "logical":  logical,
         "other":    other,
         "total":    len(elements),
+        # capped: the SemanticAssignment read stopped at readLimit, so total is a lower bound ("at least N"),
+        # and an empty list means "none in the part that was read", not "none assigned".
+        "capped":   capped,
+        "readLimit": READ_LIMIT,
     })

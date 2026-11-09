@@ -2653,7 +2653,11 @@ function AssignedElementsSection({ termGuid, onNavigateToElement, isElementLinka
     React.createElement('button', { onClick: toggle, style: btnStyle }, btnLabel),
     visible && loading && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '6px 0' } }, 'Looking up assigned elements…'),
     visible && !loading && failed && React.createElement('div', { style: { fontSize: 11, color: '#f87171', padding: '4px 0' } }, 'Could not look up the assigned elements. ', React.createElement('a', { href: '#', onClick: function(e) { e.preventDefault(); setVisible(false); toggle(); } }, 'Try again')),
-    visible && !loading && data && data.total === 0 && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '4px 0' } }, asOf ? 'No physical or logical elements were assigned this term at ' + asOfLabel(asOf) + '.' : 'No physical or logical elements are assigned this term yet.'),
+    // capped: the assignment read stopped at readLimit, so the list is a lower bound and an empty one means
+    // "none in the part that was read" -- never shown as complete.
+    visible && !loading && data && data.capped && React.createElement('div', { style: { fontSize: 11, color: '#fbbf24', padding: '4px 0' } },
+      'At least ' + data.total + ' — the assignment read stopped at ' + (data.readLimit || 5000).toLocaleString() + ', so more may exist.'),
+    visible && !loading && data && data.total === 0 && !data.capped && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '4px 0' } }, asOf ? 'No physical or logical elements were assigned this term at ' + asOfLabel(asOf) + '.' : 'No physical or logical elements are assigned this term yet.'),
     visible && !loading && data && data.total > 0 && React.createElement('div', { style: { marginTop: 8 } },
       renderGroup('Physical elements', data.physical),
       renderGroup('Logical elements', data.logical),
