@@ -33,6 +33,13 @@ review (`~/.re-gate/OPINION-REPORT-SPEC-PIPELINE-2026-11-05.md`). Supersedes the
 as-is model and the live Egeria types), its dashboard layer and its report-run elements still stand. The Egeria
 mapping in §8 is a proposal for review with the Egeria team; the examples in §10 are re-cut at each revision.*
 
+> **What has shipped from this design (status as of 2026-11-09).** This note is still a design note; the lines below say which parts are now code.
+>
+> - **Shipped in pyegeria:** routine declarations in the analytic registry (inputs by role, parameters with a category, `out`); load-time resolution of every spec into runnable, unrunnable (with words) or format-only (6.2.25); inputs by role supplied by the environment, `supply=`, and check 5 (6.2.26); `analytic_binders` no longer read (ignored, with a warning); report specs held in Egeria, run from plain pyegeria, with a positive allowlist of the find methods they may name (6.2.28, the first release with that tier); `None` rather than `0` for a count that was not measured (6.2.28).
+> - **Shipped in the Portal:** report-spec declarations, resolution and refusals in the Egeria Explorer and Local Dashboards (odpi/egeria-workspaces#809); see [Egeria Explorer: Reports](../tools/egeria-explorer.md). The Portal supplies the signed-in user's client by class and the chosen persona as `viewer`; it supplies no readers or subject.
+> - **Still design, not shipped:** Wave 3 (call indirection and the token-death rule) and the four parameter rules held back from Wave 2 (PR-C). Treat every section that describes them as a proposal.
+> - **Not changed by the above:** the Egeria mapping in §8 and §9 stands as the proposal of record, with the 6.3 differences already noted there.
+
 **Vocabulary used here.**
 
 - A **micro-flow** is a declared, ordered sequence of **stages** that runs entirely within one thread of one process,
