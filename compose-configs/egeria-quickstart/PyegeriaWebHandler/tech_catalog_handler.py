@@ -1088,6 +1088,7 @@ def debug_raw_element(
     depth: int = Query(1, ge=0, le=5, description="graphQueryDepth to request from Egeria"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now (the view's As-of slider)"),
 ):
     """Return the raw pyegeria/Egeria element response for any GUID — for advanced
     users who want to see the actual payload Egeria returns, rather than the
@@ -1118,7 +1119,8 @@ def debug_raw_element(
         u, s, uid, pwd = _creds(url, server, user_id, user_pwd)
         me = MetadataExpert(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
         _apply_token(me, token)
-        raw_el = me.get_metadata_element_by_guid(guid, graph_query_depth=depth, output_format="JSON")
+        raw_el = me.get_metadata_element_by_guid(guid, graph_query_depth=depth, output_format="JSON",
+                                                 **({"as_of_time": as_of_time} if as_of_time else {}))
         if isinstance(raw_el, dict) and raw_el:
             el = raw_el
             fetch_method = f"MetadataExpert.get_metadata_element_by_guid(depth={depth})"
@@ -1136,7 +1138,8 @@ def debug_raw_element(
             raw = mgr.get_asset_by_guid(
                 guid=guid,
                 output_format="JSON",
-                body={"class": "GetRequestBody", "graphQueryDepth": depth},
+                body={"class": "GetRequestBody", "graphQueryDepth": depth,
+                      **({"asOfTime": as_of_time} if as_of_time else {})},
             )
             el = raw[0] if isinstance(raw, list) else raw
             fetch_method = f"AssetMaker.get_asset_by_guid(depth={depth})"
@@ -1147,7 +1150,8 @@ def debug_raw_element(
     if not el:
         try:
             mgr = _asset_maker(url, server, user_id, user_pwd, token=token)
-            raw = mgr.find_infrastructure(search_string="*", output_format="JSON", graph_query_depth=depth)
+            raw = mgr.find_infrastructure(search_string="*", output_format="JSON", graph_query_depth=depth,
+                                          **({"as_of_time": as_of_time} if as_of_time else {}))
             found = _find_by_guid(raw, guid)
             if found:
                 el = found
@@ -1162,7 +1166,8 @@ def debug_raw_element(
             u, s, uid, pwd = _creds(url, server, user_id, user_pwd)
             gm = GlossaryManager(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
             _apply_token(gm, token)
-            raw = gm.get_term_by_guid(guid, output_format="JSON", body={"class": "GetRequestBody", "graphQueryDepth": depth})
+            raw = gm.get_term_by_guid(guid, output_format="JSON", body={"class": "GetRequestBody", "graphQueryDepth": depth,
+                                                                     **({"asOfTime": as_of_time} if as_of_time else {})})
             el = raw
             fetch_method = f"GlossaryManager.get_term_by_guid(depth={depth})"
             classifications = _extract_classifications(_header(el))
@@ -1170,7 +1175,8 @@ def debug_raw_element(
             pass
 
     if not el:
-        raise HTTPException(status_code=404, detail=f"Could not fetch element {guid!r} via any method")
+        raise HTTPException(status_code=404, detail=(f"{guid!r} did not exist at {as_of_time}" if as_of_time
+                                                     else f"Could not fetch element {guid!r} via any method"))
 
     return JSONResponse({
         "guid":            guid,

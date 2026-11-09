@@ -1227,7 +1227,8 @@ function MainPanel({ focusAsset, creds, onSetFocus, activePersona, favPersonaId 
   }
   var advDirty = advInclude !== advApplied.include || advSkip !== advApplied.skip;
 
-  return React.createElement('div', null,
+  // AsOfContext: the shared widgets inside (diagrams, assigned elements, raw JSON, feedback) follow the slider.
+  return React.createElement(AsOfContext.Provider, { value: asOfTime }, React.createElement('div', null,
     // ── Focus Asset Card
     React.createElement('div', { className: 'asset-card' },
       React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
@@ -1439,7 +1440,7 @@ function MainPanel({ focusAsset, creds, onSetFocus, activePersona, favPersonaId 
         )
       )
     )
-  );
+  ));
 }
 
 // ── App ────────────────────────────────────────────────────────────────────────

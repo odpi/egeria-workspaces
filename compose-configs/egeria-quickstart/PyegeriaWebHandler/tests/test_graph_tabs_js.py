@@ -53,7 +53,8 @@ def test_diagrams_are_one_chip_bar_not_a_stack_of_buttons():
 
 
 def test_the_context_section_fetches_all_graphs_once_and_does_not_double_list():
-    assert "/api/mermaid/' + encodeURIComponent(guid), creds" in UI
+    # one context fetch (as_of_time added only when the view's As-of slider is set; see test_as_of_panels.py)
+    assert "/api/mermaid/' + encodeURIComponent(guid) + asOfParam(asOf), creds" in UI
     assert "data && typeof data[k] === 'string' && data[k].trim()" in UI             # not listed twice beside the pane's own
 
 
