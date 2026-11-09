@@ -27,6 +27,7 @@ var _MERMAID_FIELD_LABELS = {
   solutionBlueprintMermaidGraph:         'Blueprint Graph',
   solutionSubcomponentMermaidGraph:      'Subcomponent Graph',
   actionMermaidGraph:                    'Action Graph',
+  activityMermaidGraph:                  'Activity Graph',
   localLineageGraph:                     'Local Lineage',
   fieldLevelLineageGraph:                'Field-Level Lineage',
   governanceActionProcessMermaidGraph:   'Governance Action Process',
@@ -70,6 +71,20 @@ function copyToClipboard(text) {
 function _isMermaidKey(k) {
   var kl = k.toLowerCase();
   return kl.indexOf('mermaid') !== -1 || /(?:graph|mindmap|piechart|chart)$/i.test(k);
+}
+
+/* Display order for a set of diagram keys: the context graph first, then Action, then Activity (Egeria 6.3
+ * moved those relationships out of mermaidGraph into their own graphs), then the rest alphabetically by
+ * label. Keep in step with graph_keys.order_graph_keys in the server. */
+var _GRAPH_PREFERRED_ORDER = ['mermaidgraph', 'actionmermaidgraph', 'activitymermaidgraph'];
+function _graphKeysOrdered(keys) {
+  return keys.slice().sort(function(a, b) {
+    var ra = _GRAPH_PREFERRED_ORDER.indexOf(a.toLowerCase()), rb = _GRAPH_PREFERRED_ORDER.indexOf(b.toLowerCase());
+    ra = ra < 0 ? _GRAPH_PREFERRED_ORDER.length : ra; rb = rb < 0 ? _GRAPH_PREFERRED_ORDER.length : rb;
+    if (ra !== rb) return ra - rb;
+    var la = _mermaidLabel(a).toLowerCase(), lb = _mermaidLabel(b).toLowerCase();
+    return la < lb ? -1 : la > lb ? 1 : 0;
+  });
 }
 
 function _mermaidLabel(k) {
@@ -234,7 +249,7 @@ function diagramExpandButton(getSvg, title, opts) {
   return b;
 }
 
-function MermaidDiagram({ code }) {
+function MermaidDiagram({ code, label }) {
   const ref = React.useRef(null);
   const [errMsg, setErrMsg] = React.useState('');
   const [copyState, setCopyState] = React.useState('');  // '' | 'ok' | 'fail'
@@ -290,7 +305,7 @@ function MermaidDiagram({ code }) {
   var expandBtn = code && !errMsg && React.createElement('button', {
     onClick: function(e) {
       e.stopPropagation();
-      if (ref.current) openDiagramViewer(ref.current.innerHTML, 'Diagram');
+      if (ref.current) openDiagramViewer(ref.current.innerHTML, label || 'Diagram');
     },
     title: 'Open larger, with pan and zoom',
     style: { fontSize: 10, padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)',
@@ -323,19 +338,60 @@ function DiagramPanelFromData({ code, label }) {
   );
 }
 
+/* GraphTabs — ONE compact chip bar for all the diagrams an element carries, instead of a stack of
+ * "Show X" buttons. graphs: { key: mermaidCode }. Nothing renders until a chip is chosen (a big diagram is
+ * costly); choosing the open chip again hides it. Only the chosen diagram is mounted. `extra` is a list of
+ * { key, label, load } for diagrams fetched on demand (the chip loads them, then shows them). */
+function GraphTabs({ graphs, extra, initial }) {
+  var _a = React.useState(initial || null), active = _a[0], setActive = _a[1];
+  var _l = React.useState({}), loaded = _l[0], setLoaded = _l[1];        // extra key -> { state, code }
+  var items = _graphKeysOrdered(Object.keys(graphs || {})).map(function(k) {
+    return { key: k, label: _mermaidLabel(k), code: graphs[k] };
+  }).concat((extra || []).map(function(x) { return { key: x.key, label: x.label, load: x.load }; }));
+  if (items.length === 0) return null;
+  var current = items.filter(function(it) { return it.key === active; })[0];
+  var chipStyle = function(on) { return { fontSize: 12, padding: '3px 10px', borderRadius: 4, cursor: 'pointer',
+    border: '1px solid ' + (on ? 'var(--accent)' : 'var(--border)'),
+    background: on ? 'rgba(96,165,250,.22)' : 'rgba(96,165,250,.08)', color: 'var(--accent)', fontWeight: on ? 600 : 400 }; };
+  function choose(it) {
+    if (active === it.key) { setActive(null); return; }
+    setActive(it.key);
+    if (it.load && !loaded[it.key]) {
+      setLoaded(function(m) { var n = Object.assign({}, m); n[it.key] = { state: 'loading' }; return n; });
+      Promise.resolve(it.load()).then(function(code) {
+        setLoaded(function(m) { var n = Object.assign({}, m); n[it.key] = { state: 'done', code: code || '' }; return n; });
+      }).catch(function() {
+        setLoaded(function(m) { var n = Object.assign({}, m); n[it.key] = { state: 'done', code: '' }; return n; });
+      });
+    }
+  }
+  var code = current && (current.load ? (loaded[current.key] && loaded[current.key].code) : current.code);
+  var state = current && current.load ? (loaded[current.key] && loaded[current.key].state) : 'done';
+  return React.createElement('div', { style: { margin: '8px 0' } },
+    React.createElement('div', { role: 'tablist', 'aria-label': 'Diagrams', style: { display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' } },
+      React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)', marginRight: 2 } }, '▦ Diagrams'),
+      items.map(function(it) {
+        return React.createElement('button', { key: it.key, role: 'tab', 'aria-selected': active === it.key, onClick: function() { choose(it); }, style: chipStyle(active === it.key) }, it.label);
+      })),
+    current && state === 'loading' && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '6px 0' } }, 'Loading diagram…'),
+    current && state === 'done' && !code && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '4px 0' } }, 'No diagram available for this element.'),
+    current && state === 'done' && code && React.createElement('div', { style: { marginTop: 6 } },
+      React.createElement(MermaidDiagram, { key: current.key, code: code, label: current.label }))
+  );
+}
+
 function AvailableMermaidDiagrams({ data, skip }) {
   if (!data) return null;
   var skipSet = skip || _MERMAID_SECTION_FIELDS;
-  var panels = [];
+  var graphs = {};
   Object.keys(data).forEach(function(k) {
     if (skipSet.has(k)) return;
     var code = data[k];
     if (typeof code !== 'string' || !code.trim() || code.toLowerCase().indexOf('no ') === 0) return;
     if (!_isMermaidKey(k)) return;
-    panels.push(React.createElement(DiagramPanelFromData, { key: k, code: code, label: _mermaidLabel(k) }));
+    graphs[k] = code;
   });
-  if (panels.length === 0) return null;
-  return React.createElement('div', { style: { margin: '8px 0' } }, panels);
+  return React.createElement(GraphTabs, { graphs: graphs });
 }
 
 /* Drag-to-resize width for a pane (paired with ResizeDivider / .col-divider).
@@ -2455,22 +2511,49 @@ function DiagramPanel({ fetchUrl, label, buttonLabel, field }) {
   );
 }
 
-/* Context diagram + anchored graph buttons for any element GUID. */
-function MermaidSection({ guid }) {
+/* Every diagram for any element GUID, as one chip bar (see GraphTabs): Context first, then Action and
+ * Activity (Egeria 6.3 moved those relationships out of the context graph), then whatever else the element
+ * carries, and the Anchored graph. The element is fetched ONCE, when the chip bar first loads (a deep
+ * context walk is costly, so it stays on demand): the Context chip loads it and the other chips then
+ * appear. The Anchored graph is its own, costlier read and loads only when its chip is chosen. */
+function MermaidSection({ guid, data }) {
+  var creds = React.useContext(CredContext);
+  var _g = React.useState(null), graphs = _g[0], setGraphs = _g[1];        // null = not loaded yet
+  var _b = React.useState(false), busy = _b[0], setBusy = _b[1];
+  var _o = React.useState(false), open = _o[0], setOpen = _o[1];
+  React.useEffect(function() { setGraphs(null); setBusy(false); setOpen(false); }, [guid]);
   if (!guid) return null;
+  var btnStyle = { fontSize: 12, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer' };
+  function loadAll() {
+    setOpen(true);
+    if (graphs !== null || busy) return;
+    setBusy(true);
+    egeriaFetch('/api/mermaid/' + encodeURIComponent(guid), creds)
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(d) { setGraphs((d && d.graphs) || (d && d.mermaidGraph ? { mermaidGraph: d.mermaidGraph } : {})); setBusy(false); })
+      .catch(function() { setGraphs({}); setBusy(false); });
+  }
+  var extra = [{
+    key: '__anchored', label: 'Anchored Graph',
+    load: function() {
+      return egeriaFetch('/api/mermaid/' + encodeURIComponent(guid) + '/anchored', creds)
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(d) { return (d && d.mermaidGraph) || ''; });
+    }
+  }];
+  // the element's own anchor graph, if it came back, would duplicate the Anchored chip: leave it to that chip
+  var shown = {};
+  // `data` is the host pane's own element, whose diagram keys AvailableMermaidDiagrams already offers: do not
+  // list the same diagram twice.
+  Object.keys(graphs || {}).forEach(function(k) {
+    if (k === 'anchorMermaidGraph') return;
+    if (k !== 'mermaidGraph' && data && typeof data[k] === 'string' && data[k].trim()) return;
+    shown[k] = graphs[k];
+  });
   return React.createElement('div', { style: { margin: '8px 0' } },
-    React.createElement(DiagramPanel, {
-      key: 'ctx:' + guid,
-      fetchUrl: '/api/mermaid/' + encodeURIComponent(guid),
-      label: 'Context Diagram',
-      buttonLabel: '▦ Load Context Diagram'
-    }),
-    React.createElement(DiagramPanel, {
-      key: 'anc:' + guid,
-      fetchUrl: '/api/mermaid/' + encodeURIComponent(guid) + '/anchored',
-      label: 'Anchored Graph',
-      buttonLabel: '▦ Load Anchored Graph'
-    })
+    !open && React.createElement('button', { onClick: loadAll, style: btnStyle }, '▦ Load Diagrams (context, action, activity, anchored…)'),
+    open && busy && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '6px 0' } }, 'Loading diagrams…'),
+    open && graphs !== null && !busy && React.createElement(GraphTabs, { graphs: shown, extra: extra, initial: shown.mermaidGraph ? 'mermaidGraph' : null })
   );
 }
 

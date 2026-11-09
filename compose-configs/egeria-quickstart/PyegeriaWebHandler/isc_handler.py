@@ -122,31 +122,13 @@ def _serialize_rel_entries(rel_list: list) -> list:
     return result
 
 
-_MERMAID_FIELDS = [
-    "mermaidGraph", "iscImplementationMermaidGraph",
-    # Egeria 6.3+: the implementation graph split into five (empty ones are omitted)
-    "iscDataMeshMermaidGraph", "iscSystemFabricMermaidGraph",
-    "iscDataFabricMermaidGraph", "iscDataMappingMermaidGraph",
-    "informationSupplyChainMermaidGraph",
-    "edgeMermaidGraph", "anchorMermaidGraph", "specificationMermaidGraph",
-    "solutionBlueprintMermaidGraph", "solutionSubcomponentMermaidGraph",
-    "actionMermaidGraph", "localLineageGraph", "fieldLevelLineageGraph",
-    "governanceActionProcessMermaidGraph", "organizationTreeMermaidGraph",
-    "collectionMermaidMindMap", "zoneProfileMermaidPieChart",
-    "zoneProfileAnchoredMermaidPieChart", "zoneProfileAllPieChart",
-    "userAccountTypeProfileMermaidPieChart", "userAccountStatusMermaidPieChart",
-]
+from graph_keys import extract_graph_fields as _extract_graph_fields
 
 
 def _extract_mermaid(element: dict) -> dict:
-    """Return all non-empty mermaid graph fields found at the top level of an element dict."""
-    lower_map = {k.lower(): v for k, v in element.items()}
-    result = {}
-    for f in _MERMAID_FIELDS:
-        v = lower_map.get(f.lower()) or ""
-        if v and isinstance(v, str) and not v.lower().startswith("no "):
-            result[f] = v
-    return result
+    """Every non-empty diagram field at the top level of an element (found by shape, so a new Egeria graph
+    kind such as activityMermaidGraph appears without a code change; see graph_keys.py)."""
+    return _extract_graph_fields(element)
 
 
 # Relationship keys rendered as their own named sections; everything else falls

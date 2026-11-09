@@ -158,10 +158,7 @@ def _props(el):
 def _type_name(el):
     return (_header(el).get("type") or {}).get("typeName", "")
 
-def _is_mermaid_key(key: str) -> bool:
-    kl = key.lower()
-    return ("mermaid" in kl or kl.endswith("graph") or kl.endswith("mindmap")
-            or kl.endswith("piechart") or kl.endswith("chart"))
+from graph_keys import is_graph_key as _is_mermaid_key   # one rule for what a diagram key is (graph_keys.py)
 
 # Classifications that are internal infrastructure — never shown in the UI.
 _SKIP_CLASSIFICATIONS = frozenset([

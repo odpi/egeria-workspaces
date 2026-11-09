@@ -104,23 +104,9 @@ def _type_name(element: dict) -> str:
 
 _DP_SKIP_KEYS = {"elementHeader", "properties"}
 
-_DP_MERMAID_FIELDS = [
-    "mermaidGraph", "collectionMermaidMindMap", "edgeMermaidGraph",
-    "anchorMermaidGraph", "specificationMermaidGraph",
-    "iscImplementationMermaidGraph", "informationSupplyChainMermaidGraph",
-    "solutionBlueprintMermaidGraph", "solutionSubcomponentMermaidGraph",
-    "actionMermaidGraph", "localLineageGraph", "fieldLevelLineageGraph",
-    "governanceActionProcessMermaidGraph", "organizationTreeMermaidGraph",
-    "zoneProfileMermaidPieChart", "zoneProfileAnchoredMermaidPieChart",
-    "zoneProfileAllPieChart", "userAccountTypeProfileMermaidPieChart",
-    "userAccountStatusMermaidPieChart",
-]
 
 
-def _is_mermaid_key(key: str) -> bool:
-    kl = key.lower()
-    return ("mermaid" in kl or kl.endswith("graph") or kl.endswith("mindmap")
-            or kl.endswith("piechart") or kl.endswith("chart"))
+from graph_keys import is_graph_key as _is_mermaid_key   # one rule for what a diagram key is (graph_keys.py)
 
 
 def _extract_mermaid_fields(element: dict) -> dict:
