@@ -107,7 +107,7 @@ SERIES
 ### Analytic Parameters
 window: 180d
 points: 6
-metric_path: pyegeria.view.overview_metrics.count_elements
+metric_path: count_elements
 metric_params: {"type_name": "Agreement"}
 
 ___
