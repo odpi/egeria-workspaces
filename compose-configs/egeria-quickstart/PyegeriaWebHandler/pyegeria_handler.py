@@ -77,6 +77,10 @@ from rate_limiter import limiter
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
+    # pyegeria's logging config leaves the console at ERROR, so Portal info/warning lines were invisible in
+    # `docker logs`. Add a Portal-only sink here, after that config has run (see portal_logging.py).
+    from portal_logging import ensure_portal_log_sink
+    ensure_portal_log_sink()
     from obsidian_lock_handler import start_scheduler as obs_start, stop_scheduler as obs_stop
     from jupyter_lock_handler import start_scheduler as jup_start, stop_scheduler as jup_stop
     from bootstrap_monitor_handler import start_scheduler as boot_start, stop_scheduler as boot_stop

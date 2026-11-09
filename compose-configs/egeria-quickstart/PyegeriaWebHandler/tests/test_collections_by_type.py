@@ -216,3 +216,11 @@ def test_the_router_still_has_all_eight_collections_routes():
     have = {(m, r.path) for r in ch.router.routes for m in (getattr(r, "methods", None) or ())}
     assert EXPECTED_ROUTES <= have, f"missing routes: {sorted(EXPECTED_ROUTES - have)}"
     assert len([r for r in ch.router.routes if getattr(r, "path", "")]) == 8
+
+
+def test_roots_sends_x_cache_hit_and_miss_headers(client):
+    c = client(PAGES)
+    ch._ROOTS_CACHE.clear()
+    a = c.get("/api/collections/roots"); b = c.get("/api/collections/roots")
+    assert (a.headers["X-Cache"], b.headers["X-Cache"]) == ("miss", "hit")
+    assert "X-Cache-At" in b.headers and "X-Cache-Age" in b.headers

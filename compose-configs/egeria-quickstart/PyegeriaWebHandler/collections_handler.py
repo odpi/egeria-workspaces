@@ -304,7 +304,10 @@ def get_roots(
     """
     if not only_root_type and not parentless:
         all_collections = True          # the default: the cheap, complete answer
-    return JSONResponse(_roots_payload(url, server, user_id, user_pwd, include_templates, only_root_type, all_collections))
+    meta: dict = {}
+    result = _roots_payload(url, server, user_id, user_pwd, include_templates, only_root_type, all_collections, meta)
+    from report_specs_handler import _stamp      # same X-Cache / X-Cache-At / X-Cache-Age headers as the other caches
+    return JSONResponse(result, headers={"X-Cache": meta.get("state", "miss"), **_stamp(meta.get("at") or time.time())})
 
 
 def _roots_cache_key(url, server, user_id, user_pwd, include_templates, only_root_type, all_collections) -> str:
@@ -315,16 +318,21 @@ def _roots_cache_key(url, server, user_id, user_pwd, include_templates, only_roo
     return f"{url or ''}|{server or ''}|{identity}|{include_templates}|{only_root_type}|{all_collections}{_lineage_key()}"
 
 
-def _roots_payload(url, server, user_id, user_pwd, include_templates, only_root_type, all_collections) -> dict:
+def _roots_payload(url, server, user_id, user_pwd, include_templates, only_root_type, all_collections,
+                   meta: Optional[dict] = None) -> dict:
     """The roots answer, from the cache when fresh. Raises HTTPException on a failure; a partial answer is
-    returned but never cached. Shared by the route and the startup warm-up."""
+    returned but never cached. Shared by the route and the startup warm-up. If `meta` is given it is filled
+    with state ("hit" or "miss") and at (when the answer was computed), for the X-Cache headers."""
+    meta = meta if meta is not None else {}
     from egeria_auth import _token_expired, get_request_token
     token = get_request_token()
     use_cache = not (token and _token_expired(token))    # an expired token must reach Egeria and be refused
     cache_key = _roots_cache_key(url, server, user_id, user_pwd, include_templates, only_root_type, all_collections)
     cached = _ROOTS_CACHE.get(cache_key) if use_cache else None
     if cached and (time.time() - cached[0]) < _ROOTS_CACHE_TTL:
+        meta.update(state="hit", at=cached[0])
         return cached[1]
+    meta.update(state="miss", at=time.time())
 
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
