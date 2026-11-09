@@ -20,6 +20,7 @@ failure is never put here.
 Sync on purpose: ``execute_spec`` is a sync route (it runs in a worker thread), so a ``threading``
 lock is the right primitive and no asyncio loop is involved.
 """
+import hashlib
 import threading
 import time
 from collections import OrderedDict
@@ -147,3 +148,17 @@ class ResultCache:
             self._failed_at.clear()
             self._flights.clear()
             self._timeouts.clear()
+
+
+def credential_identity(token: Optional[str], user_id: Optional[str], user_pwd: Optional[str], default_user: str) -> str:
+    """Who a cache entry belongs to, from the credential actually PRESENTED -- never from an unverified
+    claim. A token's `sub` and a bare `user_id` are unauthenticated, and a cache hit makes no Egeria
+    call to check them, so keying on either would let a forged claim read another user's entry. A hash
+    of the whole token (or of user_id + password) can only be reproduced by someone who holds that
+    credential; a forged one just misses and goes to Egeria, which refuses it (a refusal is never
+    cached). Memory only: the secret is never stored or logged. A renewed token is a new key."""
+    if token:
+        return "t:" + hashlib.sha256(token.encode()).hexdigest()
+    if user_id:
+        return "u:" + hashlib.sha256(f"{user_id}\0{user_pwd or ''}".encode()).hexdigest()
+    return "svc:" + default_user      # the Portal's own service user (server-side env)
