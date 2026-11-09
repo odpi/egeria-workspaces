@@ -282,7 +282,9 @@ def list_external_identifiers(
             ignore_case=True,
             start_from=start_from,
             page_size=page_size,
-            graph_query_depth=1,
+            # The list reads only summary fields, which depth 0 returns identically (checked live: 25 rows, same
+            # serialised output at depth 0 and 1, 0.7 s against 4.3 s); the detail endpoint walks deeper.
+            graph_query_depth=0,
             output_format="JSON",
         )
     except Exception as exc:
@@ -316,9 +318,13 @@ def get_external_identifier(
         # max_mermaid_node_count defaults to 5 (pyegeria shared get-by-guid helper),
         # truncating any mermaid diagram for this element -- see egeria-python
         # PYEGERIA_ISSUES.md ISSUE-23.
-        element = mgr.get_external_identifier_by_guid(guid, output_format="JSON", graph_query_depth=5, max_mermaid_node_count=250)
+        # pyegeria renamed this get_external_identifiers_by_guid (plural) in 6.1.0 and kept no alias, so the old
+        # singular name made every detail load fail with an AttributeError (tests/test_pyegeria_methods_exist.py
+        # now catches a rename like that). graph_query_depth and max_mermaid_node_count are GetFilters, forwarded
+        # to the request.
+        element = mgr.get_external_identifiers_by_guid(guid, output_format="JSON", graph_query_depth=5, max_mermaid_node_count=250)
     except Exception as exc:
-        logger.exception(f"get_external_identifier_by_guid failed for {guid}")
+        logger.exception(f"get_external_identifiers_by_guid failed for {guid}")
         raise HTTPException(status_code=500, detail=f"External identifier detail retrieval failed: {exc}")
 
     if isinstance(element, list):
