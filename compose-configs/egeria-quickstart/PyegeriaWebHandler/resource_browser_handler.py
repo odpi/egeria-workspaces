@@ -530,7 +530,7 @@ async def _find_all_annotations(client, prefix: str) -> tuple:
     for page in range(_STATS_MAX_PAGES):
         raw = await client._async_find_assets(
             search_string=prefix, starts_with=True, ignore_case=False,
-            metadata_element_type_name="ResourceMeasureAnnotation",
+            metadata_element_type="ResourceMeasureAnnotation",
             graph_query_depth=0, output_format="JSON",
             start_from=page * _STATS_PAGE, page_size=_STATS_PAGE,
         )
@@ -2374,7 +2374,7 @@ async def _classified(client, name: str) -> tuple:
 
 async def _anchored(client, guid: str, type_name: str) -> list:
     return _elements(await client._async_get_elements_by_classification_with_property_value(
-        "Anchors", guid, ["anchorGUID"], metadata_element_type_name=type_name, starts_with=True, ends_with=True,
+        "Anchors", guid, ["anchorGUID"], metadata_element_type=type_name, starts_with=True, ends_with=True,
         graph_query_depth=0, output_format="JSON", page_size=500))
 
 

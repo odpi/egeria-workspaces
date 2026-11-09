@@ -142,6 +142,12 @@ except ImportError:
     orphan_glossary_terms = None
     stale_assets = None
 
+# 6.2.28+: the words behind a count that is None. Optional so an older pyegeria still imports.
+try:
+    from pyegeria.view.overview_metrics import recording_unmeasured
+except ImportError:
+    recording_unmeasured = None
+
 # ownership_coverage is new (2026-08-01), not yet in a published pyegeria release
 # (same "container runs the published package, not this dev checkout" gap already
 # documented for Create Report/Dashboard Sheet commands in portal-docs/tutorials/local-dashboards.md
@@ -892,9 +898,16 @@ def _compute_summary(as_of_time, url, server, user_id, user_pwd) -> dict:
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"overview summary: orphan_glossary_terms failed: {exc}")
     stale: dict = {"staleCount": None, "assetTotal": None}
+    stale_note = None   # why staleCount is None (e.g. the 500-element page cap), from pyegeria's note
     if stale_assets is not None:
         try:
-            stale = stale_assets(mgr, as_of_time)
+            if recording_unmeasured is not None:
+                with recording_unmeasured() as _notes:
+                    stale = stale_assets(mgr, as_of_time)
+                _why = [n.get("reason") for n in _notes if n.get("reason") and "not updated" in str(n.get("count", ""))]
+                stale_note = "; ".join(_why) if _why else None
+            else:
+                stale = stale_assets(mgr, as_of_time)
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"overview summary: stale_assets failed: {exc}")
 
@@ -976,6 +989,7 @@ def _compute_summary(as_of_time, url, server, user_id, user_pwd) -> dict:
         "surveyLinksCapped":  survey["surveyLinksCapped"],
         "staleAssetCount":    stale["staleCount"],           # no update in 180d
         "staleAssetTotal":    stale["assetTotal"],
+        "staleAssetNote":     stale_note if stale["staleCount"] is None else None,  # why the count is "—"
         "partial":          True,
         "source":           "live:summary",
     }

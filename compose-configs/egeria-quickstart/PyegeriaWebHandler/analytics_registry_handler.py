@@ -100,7 +100,7 @@ def _serialize(name: str, spec, demo_specs: dict) -> dict:
                 "required":    bool(getattr(p, "required", False)),
                 "default":     getattr(p, "default", None),
                 "description": getattr(p, "description", "") or "",
-                "category":    getattr(p, "category", None) or "content",
+                "category":    getattr(p, "category", None) or None,  # undeclared stays null: the UI shows "—", not a guessed "content"
             }
             for p in (getattr(spec, "params", []) or [])
         ],
