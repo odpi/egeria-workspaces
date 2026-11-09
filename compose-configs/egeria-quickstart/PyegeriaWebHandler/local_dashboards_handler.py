@@ -280,12 +280,17 @@ class _MergedSheets:
         self._alias = {a: s for s in self.egeria.values() for a in (getattr(s, "aliases", None) or [])}
 
     def get(self, name):
-        s = self.egeria.get(name) or self._alias.get(name)
+        """Egeria wins by NAME. An Egeria sheet's alias is only a fallback, after a local sheet of that name:
+        the list shows every local sheet whose name Egeria does not hold, so a local sheet named like an
+        Egeria alias is listed AND opens as itself (list and open agree), never as the Egeria sheet."""
+        s = self.egeria.get(name)
         if s is None and self._loader is not None:
             s = self._loader(name)
             if s is not None:
                 self.egeria[s.name] = s
-        return s if s is not None else self.local.get(name)
+        if s is None:
+            s = self.local.get(name) or self._alias.get(name)
+        return s
 
     def source_of(self, sheet) -> str:
         return SOURCE_EGERIA if self.egeria.get(getattr(sheet, "name", None)) is sheet else SOURCE_LOCAL
@@ -298,6 +303,24 @@ class _MergedSheets:
 
     def __len__(self):
         return sum(1 for _ in self.values())
+
+
+def _egeria_fingerprint(name, url=None, server=None, user_id=None, user_pwd=None) -> str:
+    """A short digest of the Egeria-held sheet `name` as just read (cached _CACHE_TTL s by _egeria_one), "-" when
+    Egeria does not hold it, "down" when it could not be read. Part of the built-sheet cache key, so an
+    edit in Egeria changes the key within a minute instead of waiting out the built sheet's own TTL."""
+    import hashlib
+    try:
+        sheet = _egeria_one(name, url, server, user_id, user_pwd)
+    except _EgeriaUnavailable:
+        return "down"
+    if sheet is None:
+        return "-"
+    try:
+        body = sheet.model_dump_json()
+    except Exception:  # noqa: BLE001
+        body = repr(sheet)
+    return hashlib.sha256(body.encode()).hexdigest()[:16]
 
 
 def _merged_sheet_for(name, url=None, server=None, user_id=None, user_pwd=None):
@@ -438,10 +461,18 @@ def _prime_report_lookups(placements, url, server, user_id, user_pwd, max_worker
     from concurrent.futures import ThreadPoolExecutor
 
     def _one(name):
+        client = None
         try:
-            _find_report_by_name(name, _expert(url, server, user_id, user_pwd), url, server, user_id, user_pwd)
+            client = _expert(url, server, user_id, user_pwd)
+            _find_report_by_name(name, client, url, server, user_id, user_pwd)
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"local-dashboards: concurrent Report lookup failed for {name!r}: {exc}")
+        finally:
+            if client is not None:      # this worker's own client: close its HTTP session, never leak it
+                try:
+                    client.close_session()
+                except Exception as exc:  # noqa: BLE001
+                    logger.debug(f"local-dashboards: closing a lookup client failed: {exc}")
 
     with ThreadPoolExecutor(max_workers=min(max_workers, len(names)), thread_name_prefix="report-lookup") as pool:
         for n in names:
@@ -617,7 +648,8 @@ def _view_for_perspective(placements, perspective: Optional[str]):
 # Resolving a sheet looks up every placement's Report by name in Egeria, uncached per sheet: about a
 # minute on the CDO sheet even when every placement RESULT is already cached (result_cache). Cache the
 # resolved sheet the same way: stale-while-revalidate, one refresh in flight, errors never cached.
-# Key: sheet name, perspective, the store file's mtime (an edit, from anywhere, invalidates it), the
+# Key: sheet name, perspective, the store file's mtime (an edit, from anywhere, invalidates it), a digest of
+# the Egeria-held sheet (an edit in Egeria invalidates it within _CACHE_TTL), the
 # presented credential (hashed, see result_cache.credential_identity), platform/server, and the
 # forLineage toggle. A degraded answer (no Egeria connection, or a placement that did not resolve) is
 # kept in a SEPARATE cache with a short TTL (a permanently broken placement would otherwise cost the
@@ -741,7 +773,8 @@ def get_local_dashboard(
         payload, _ = _build_sheet(*args)
         return JSONResponse(payload)
     identity = credential_identity(token, user_id, user_pwd, os.environ.get("EGERIA_USER", "erinoverview"))
-    key = ("sheet", name, perspective, _store_mtime_ns(), identity, url, server, lineage_key())
+    key = ("sheet", name, perspective, _store_mtime_ns(), _egeria_fingerprint(name, url, server, user_id, user_pwd),
+           identity, url, server, lineage_key())
 
     if not refresh:
         state, body, stored_at = _sheet_lookup(key)

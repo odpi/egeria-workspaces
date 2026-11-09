@@ -42,6 +42,7 @@ def env(monkeypatch, tmp_path):
         return {"name": name, "perspective": perspective, "placements": [], "v": st["v"]}, st["cacheable"]
 
     monkeypatch.setattr(ld, "_build_sheet", fake_build)
+    monkeypatch.setattr(ld, "_egeria_fingerprint", lambda *a, **k: "-")   # no Egeria in this file
     app = FastAPI(); app.add_middleware(egeria_auth.EgeriaTokenMiddleware); app.include_router(ld.router)
     st.update(client=TestClient(app), clock=clock, cache=cache, degraded=degraded)
     return st

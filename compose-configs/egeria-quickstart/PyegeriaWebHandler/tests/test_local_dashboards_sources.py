@@ -232,3 +232,44 @@ def test_expired_token_neither_reads_nor_fills_the_egeria_caches(env):
     assert env["calls"] == n + 2                                                 # read Egeria each time, no cache hit
     assert not any("expired" in k for k in ld._cache)
     assert ld._report_ckey("R", None, None, None, None) is not None              # (no token here: service user)
+
+
+def test_local_sheet_named_like_an_egeria_alias_is_listed_and_opens_as_itself(env):
+    e = _sheet("real", [_pl("Rep Egeria")], source="egeria", breaks=[]); e.aliases = ["json-only"]
+    env["egeria"] = {"real": e}
+    names = [s["name"] for s in env["client"].get("/api/local-dashboards").json()["sheets"]]
+    assert "json-only" in names and "real" in names                                   # the local sheet is still listed
+    d = env["client"].get("/api/local-dashboards/json-only").json()
+    assert d["source"] == "local file" and d["placements"][0]["ref"] == "Rep A"       # ...and opens as itself: they agree
+
+
+def test_report_lookup_workers_close_their_clients(env, monkeypatch):
+    closed = []
+    class C:
+        def close_session(self): closed.append(1)
+    monkeypatch.setattr(ld, "_expert", lambda *a, **k: C())
+    def boom(name, mgr, *a, **k):
+        if name == "R2": raise RuntimeError("lookup failed")
+    monkeypatch.setattr(ld, "_find_report_by_name", boom)
+    ld._prime_report_lookups([_pl("R1"), _pl("R2"), _pl("R3")], None, None, None, None)
+    assert len(closed) == 3                                                          # even when a lookup failed
+
+
+def test_egeria_edit_changes_the_built_sheet_key(env, monkeypatch):
+    built = []
+    monkeypatch.undo() if False else None
+    real_build = ld._build_sheet
+    def counting(name, *a):
+        built.append(name); return real_build(name, *a)
+    monkeypatch.setattr(ld, "_build_sheet", counting)
+    env["egeria"] = {"e1": _sheet("e1", [_pl("Rep A")], source="egeria", breaks=[])}
+    class M(NS):
+        def model_dump_json(self): return json.dumps({"p": [x.ref for x in self.placements]})
+    env["egeria"]["e1"] = M(**env["egeria"]["e1"].__dict__)
+    c = env["client"]
+    assert c.get("/api/local-dashboards/e1").headers["X-Cache"] == "miss"
+    assert c.get("/api/local-dashboards/e1").headers["X-Cache"] == "hit"
+    env["egeria"]["e1"] = M(**{**env["egeria"]["e1"].__dict__, "placements": [_pl("Rep B")]})   # edited in Egeria
+    ld._cache.clear()                                                                  # the 60 s Egeria read has expired
+    r = c.get("/api/local-dashboards/e1")
+    assert r.headers["X-Cache"] == "miss" and r.json()["placements"][0]["ref"] == "Rep B"
