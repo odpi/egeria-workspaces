@@ -65,13 +65,30 @@ def test_all_collections_returns_every_type_and_skips_the_parent_read(client, mo
     assert (d["capped"], d["complete"]) == (False, True)
 
 
-def test_default_parentless_read_uses_a_valid_page_size_and_says_it_is_partial(client, monkeypatch):
+def test_parentless_opt_in_uses_a_valid_page_size_and_says_it_is_partial(client, monkeypatch):
+    ex = _Expert(RELS)
+    c = client(PAGES, RELS)
+    monkeypatch.setattr(ch, "_get_expert", lambda *a, **k: ex)
+    d = c.get("/api/collections/roots", params={"parentless": "true"}).json()
+    assert ex.sizes == [1000]                                                  # Egeria refuses pageSize > 1000
+    assert {r["guid"] for r in d["roots"]} == {"a", "b"} and d["parentsKnown"] is False
+
+
+def test_default_call_is_the_cheap_all_collections_answer(client, monkeypatch):
     ex = _Expert(RELS)
     c = client(PAGES, RELS)
     monkeypatch.setattr(ch, "_get_expert", lambda *a, **k: ex)
     d = c.get("/api/collections/roots").json()
-    assert ex.sizes == [1000]                                                  # Egeria refuses pageSize > 1000
-    assert {r["guid"] for r in d["roots"]} == {"a", "b"} and d["parentsKnown"] is False
+    assert ex.sizes == [] and {r["guid"] for r in d["roots"]} == {"a", "b", "c"}     # no ~10 s parent read, nobody waits for it
+
+
+def test_all_collections_rows_are_summaries_with_a_short_description(client):
+    long = "x" * 5000
+    pages = [[dict(_el("a", "Folder", "Alpha"), properties={"displayName": "Alpha", "qualifiedName": "qn::Alpha",
+                                                            "description": long, "mermaidGraph": "y" * 9000})]]
+    row = client(pages).get("/api/collections/roots", params={"all_collections": "true"}).json()["roots"][0]
+    assert set(row) == {"guid", "typeName", "superTypeNames", "displayName", "qualifiedName", "description"}
+    assert len(row["description"]) <= 201 and row["description"].endswith("…")
 
 
 def test_a_failed_page_marks_the_list_incomplete(client):

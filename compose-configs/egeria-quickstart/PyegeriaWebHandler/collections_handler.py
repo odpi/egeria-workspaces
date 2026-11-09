@@ -259,6 +259,26 @@ def _children_level(mgr, collection_guid: str, as_of_time: Optional[str] = None)
     return nodes
 
 
+_SUMMARY_DESCRIPTION_CHARS = 200
+
+
+def _summarize_node(node: dict) -> dict:
+    """The few fields the type-grouped list and the tree's top node read. The full node (properties,
+    classifications, mermaid graphs...) averaged 1.9 KB and reached 19 KB; 1,840 of them were 3.2 MB.
+    The detail pane fetches the full element by guid when a collection is selected."""
+    desc = node.get("description") or ""
+    if len(desc) > _SUMMARY_DESCRIPTION_CHARS:
+        desc = desc[:_SUMMARY_DESCRIPTION_CHARS].rstrip() + "…"
+    return {
+        "guid":           node.get("guid", ""),
+        "typeName":       node.get("typeName", ""),
+        "superTypeNames": node.get("superTypeNames") or [],
+        "displayName":    node.get("displayName", ""),
+        "qualifiedName":  node.get("qualifiedName", ""),
+        "description":    desc,
+    }
+
+
 @router.get("/api/collections/roots", summary="List parentless (or RootCollection-only) elements", responses=EGERIA_ERROR_RESPONSES)
 def get_roots(
     url:      Optional[str] = Query(None),
@@ -267,15 +287,19 @@ def get_roots(
     user_pwd: Optional[str] = Query(None),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
     only_root_type: bool = Query(False, description="When True, restrict to the RootCollection open metadata type instead of any parentless collection"),
-    all_collections: bool = Query(False, description="When True, return EVERY collection (any subtype) without working out parents (fast), for the type-grouped list"),
+    all_collections: bool = Query(False, description="When True, return EVERY collection (any subtype) as summary rows (guid, typeName, names, a short description) without working out parents (fast), for the type-grouped list"),
+    parentless: bool = Query(False, description="Opt in to the OLD 'collections without a parent' answer. It costs ~10 s and is only a best effort (parentsKnown=false): CollectionMembership is too big to read in full. Without this flag, and without only_root_type, the answer is all_collections."),
 ):
     """Default: every collection (any subtype) that is not itself a member of any
     other collection. When only_root_type=True: just the RootCollection-typed
-    elements, as before. When all_collections=True: every collection, no parent test (fast).
+    elements, as before. When all_collections=True, or when no mode is given: every collection as
+    summary rows, no parent test (fast). parentless=True opts in to the slow, partial parent test.
 
     Besides roots/total the answer says whether the list is the whole story: `capped` (more exist
     than were read), `complete` (false if a page failed), `parentsKnown` (false: parentless is a best effort).
     """
+    if not only_root_type and not parentless:
+        all_collections = True          # the default: the cheap, complete answer
     cache_key = f"{url or ''}|{server or ''}|{user_id or ''}|{include_templates}|{only_root_type}|{all_collections}{_lineage_key()}"
     cached = _ROOTS_CACHE.get(cache_key)
     if cached and (time.time() - cached[0]) < _ROOTS_CACHE_TTL:
@@ -320,7 +344,7 @@ def get_roots(
     chosen = list(all_guids.items()) if all_collections else [(g, e) for g, e in all_guids.items() if g not in has_parent]
     if not include_templates:
         chosen = [(g, e) for g, e in chosen if not _is_template(e)]
-    roots = [_serialize_node(e) for g, e in chosen]
+    roots = [_summarize_node(_serialize_node(e)) if all_collections else _serialize_node(e) for g, e in chosen]
     roots.sort(key=lambda c: (c.get("displayName") or c.get("qualifiedName") or "").lower())
     result = {"roots": roots, "total": len(roots), "capped": status["capped"],
               "complete": not status["incomplete"], "parentsKnown": status["parentsKnown"]}
