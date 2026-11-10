@@ -175,9 +175,6 @@ The **Analytic Functions** sub-tab is the registry of routines a report spec can
 
 ### Where a report spec comes from
 
-> **Status (2026-11-10):** this Portal change is merged on its branch but not yet deployed to the
-> quickstart. Until the Portal container is recreated, the Report Specs view does not show sources.
-
 Report specs come from four places. In the Report Specs view each spec carries a **source** badge,
 and a **source** filter (*All sources*, or one source with its count, for example *held in Egeria (0)*)
 narrows the list to one of them:
@@ -201,11 +198,12 @@ says how many specs are held in Egeria. When there are none it says why, for exa
 
 - *None held in Egeria: no report spec folders are configured for this Portal (PYEGERIA_REPORT_SPEC_FOLDERS)*
 - *None held in Egeria yet: no sync from Egeria has run*
-- *None held in Egeria: the configured folders were not found in Egeria*
+- *None held in Egeria: the configured folders were not found in Egeria (or are not visible to the Portal's user)*
 - *None held in Egeria: the configured folders hold no active report specs*
 
-On the quickstart today you will see *the configured folders were not found in Egeria*: the
-`ReportSpecFolder::EgeriaPortal` folder has not been created yet.
+On the quickstart the folder `ReportSpecFolder::EgeriaPortal` exists (created 2026-11-10) but is empty,
+so the banner says *the configured folders hold no active report specs*. To show a spec held in Egeria,
+add its ReportSpec element (an active one, not a draft) to that folder as a member, then sync.
 
 **The Portal works from a local copy of those specs.** It copies the specs in its folders from Egeria
 into its own cache:
@@ -213,7 +211,8 @@ into its own cache:
 - automatically, shortly after the Portal starts (about 30 seconds; it retries while Egeria is still
   starting, and never delays the Portal's start). `PORTAL_REPORT_SPEC_SYNC_AT_STARTUP=0` turns this off;
 - on demand: administrators can click **⇣ Sync from Egeria** in the banner (`POST /api/report-specs/sync`;
-  `GET /api/report-specs/sync` gives the last result, such as *Synced …: 2 added, 0 updated, …*).
+  `GET /api/report-specs/sync` gives the last result, such as *Synced …: 2 added, 0 updated, …*, or
+  *The configured folders were not found in Egeria, or are not visible to the Portal's user: …*).
 
 After someone changes a spec in Egeria, sync again to see the change. A sync only **reads** Egeria; it
 never writes to it.
