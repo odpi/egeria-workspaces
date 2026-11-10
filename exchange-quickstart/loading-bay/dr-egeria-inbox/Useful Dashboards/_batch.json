@@ -1,0 +1,15 @@
+{
+  "displayName": "Useful Dashboards",
+  "description": "Four public Dashboard Sheets built from pyegeria's analytic report specs: Catalog Health, Glossary & Meaning, Governance & Compliance, and Community & Feedback.",
+  "canary": {
+    "type": "Dashboard",
+    "name": "Catalog Health"
+  },
+  "defaultEnabled": false,
+  "files": [
+    "LOCAL_DASHBOARDS_USEFUL_SHEETS.dr-egeria.md"
+  ],
+  "exclude": [
+    "LOCAL_DASHBOARDS_SAVED_QUERY_TILE.dr-egeria.md"
+  ]
+}
