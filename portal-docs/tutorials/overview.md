@@ -11,6 +11,7 @@ Step-by-step, worked guides for getting things done in the Egeria Workspaces por
 | [Create and Use Saved Queries](saved-queries.md) | Build a faceted query, save it as a real Egeria `SavedQuery`, refresh it, and show its results on a Local Dashboard. | [Query tool](../tools/egeria-insights.md), [Local Dashboards](../tools/local-dashboards.md) |
 | [Digital Product & Subscription Dashboard](digital-product-subscription.md) | Track Data Product adoption and historic growth with analytic trends and relationship diagrams. | [Local Dashboards](../tools/local-dashboards.md), Dr.Egeria |
 | [Report Specs: Local and Held in Egeria](report-specs.md) | Add report specs as files or as Egeria elements, publish them to a tool's consumer folder, sync them, and see which copy wins (local > egeria > builtin). | [Egeria Explorer](../tools/egeria-explorer.md), Dr.Egeria, pyegeria |
+| [Worked Examples](worked-examples.md) | Try end-to-end examples of different kinds: list, parameterised and analytic specs; local and Egeria-held specs; functions in each environment; saved queries; dashboards mixing report, text and restricted tiles. Each shows its input, steps and output. | All of the above |
 | [Add and Use Analytic Functions](analytic-functions.md) | Use the built-in analytic functions, write your own, and register it in Jupyter, the quickstart Portal, freshstart or Egeria Advisor. | [Egeria Explorer](../tools/egeria-explorer.md), pyegeria |
 
 ## Suggested order

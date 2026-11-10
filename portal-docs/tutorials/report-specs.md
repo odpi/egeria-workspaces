@@ -314,6 +314,7 @@ emptied or a sync has not run yet.
 
 ## Where next
 
+- [Worked Examples](worked-examples.md): several end-to-end examples of different kinds, with their outputs.
 - [Add and Use Analytic Functions](analytic-functions.md): write the function a spec runs.
 - [Building a Local Dashboard](local-dashboards.md): put a spec on a dashboard through a Report.
 - [Egeria Explorer: where a report spec comes from](../tools/egeria-explorer.md#where-a-report-spec-comes-from).

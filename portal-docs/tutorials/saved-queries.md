@@ -445,6 +445,7 @@ build-save-refresh-dashboard workflow in this tutorial, use the Query tool.
 
 ## Where next
 
+- **[Worked Examples](worked-examples.md)** — saved queries of different kinds (property, classification, missing relationship, Dr.Egeria), with their results.
 - **[Building a Local Dashboard](local-dashboards.md)** — Reports, Report
   Specs, KPI tiles, analytic charts, perspectives, drill-downs.
 - **[Digital Product & Subscription Dashboard](digital-product-subscription.md)**

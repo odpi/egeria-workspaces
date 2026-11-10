@@ -13,7 +13,8 @@ actual Egeria Work Items rather than a paragraph of prose.
 > freshstart Portal has no Local Dashboards page; the Dr.Egeria commands below
 > still write sheets into Egeria from there, but nothing in freshstart shows them.
 
-See also: [Report Specs](report-specs.md) and
+See also: [Worked Examples](worked-examples.md) for dashboards, specs, functions and queries of
+different kinds with their outputs, [Report Specs](report-specs.md) and
 [Add and Use Analytic Functions](analytic-functions.md) for the specs and
 functions a Report runs, [`OVERVIEW_REPORTING_MODEL.md`](https://github.com/odpi/egeria-workspaces/blob/main/compose-configs/egeria-quickstart/PyegeriaWebHandler/OVERVIEW_REPORTING_MODEL.md) §10
 for the design history,

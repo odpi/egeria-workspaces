@@ -285,6 +285,7 @@ not visible to Egeria Advisor.
 
 ## Where next
 
+- [Worked Examples](worked-examples.md): several end-to-end examples of different kinds, with their outputs.
 - [Report Specs](report-specs.md): write a report spec that runs your function, locally or held in Egeria.
 - [Building a Local Dashboard](local-dashboards.md): put the result on a Dashboard Sheet.
 - [Egeria Explorer: Reports](../tools/egeria-explorer.md#reports-what-a-report-spec-will-do): the
