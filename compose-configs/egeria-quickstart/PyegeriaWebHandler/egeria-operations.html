@@ -977,9 +977,19 @@ function ConnectorsTab({ creds, platforms, platform, onPlatform }) {
   };
 
   // Catalog targets table rendered in the detail panel
-  function CatalogTargetsSection({ targets }) {
-    if (!targets || !targets.length) return el('div', { style:{ color:'var(--dim)', fontSize:12 } }, 'No catalog targets configured.');
-    return el('table', { style:{ borderCollapse:'collapse', width:'100%', marginTop:4 } },
+  function CatalogTargetsSection({ row }) {
+    var targets = (row && row.catalogTargets) || [];
+    var unreadable = row && row.catalogTargetsError && !targets.length;
+    if (unreadable) return el('div', { style:{ color:'#f87171', fontSize:12 } },
+      'Catalog targets ' + row.catalogTargetsError + '. This is not "none": they are unknown.');
+    if (!targets.length) return el('div', { style:{ color:'var(--dim)', fontSize:12 } }, 'No catalog targets configured.');
+    var partial = row && row.catalogTargetsLowerBound != null;
+    return el('div', null,
+      partial && el('div', { style:{ color:'#fbbf24', fontSize:11, marginBottom:4 } },
+        'Showing the first ' + targets.length + '; more exist' +
+        (row.catalogTargetsStoppedBy === 'cap' ? ' (the Portal reads at most ' + targets.length + ')' :
+         row.catalogTargetsError ? ' (' + row.catalogTargetsError + ')' : '') + '.'),
+      el('table', { style:{ borderCollapse:'collapse', width:'100%', marginTop:4 } },
       el('thead', null, el('tr', null,
         el('th', { style:{ textAlign:'left', padding:'4px 8px', fontSize:10, color:'var(--muted)', borderBottom:'1px solid var(--border)', textTransform:'uppercase', letterSpacing:1 } }, 'Target Name'),
         el('th', { style:{ textAlign:'left', padding:'4px 8px', fontSize:10, color:'var(--muted)', borderBottom:'1px solid var(--border)', textTransform:'uppercase', letterSpacing:1 } }, 'Element'),
@@ -993,7 +1003,7 @@ function ConnectorsTab({ creds, platforms, platform, onPlatform }) {
           el('td', { style:{ padding:'5px 8px', borderBottom:'1px solid rgba(26,45,72,.3)', textAlign:'right' } },
             tg.guid && el('button', { onClick:function(){ crossAppNavigate({ guid: tg.guid, typeName: tg.typeName }, { app: 'tech-catalog' }); },
               style:{ fontSize:10, padding:'2px 8px', borderRadius:4, border:'1px solid rgba(96,165,250,.4)', background:'transparent', color:'var(--accent)', cursor:'pointer', whiteSpace:'nowrap' } }, 'View ↗')));
-      })));
+      }))));
   }
 
   var table = el('div', { style:{ flex:1, overflow:'auto', minWidth:0 } },
@@ -1043,8 +1053,8 @@ function ConnectorsTab({ creds, platforms, platform, onPlatform }) {
         sel.failingExceptionMessage && el('div', null,
           sectionHdr('⚠ Failing Exception'),
           el('div', { style:{ fontSize:12, color:'#f87171', background:'rgba(248,113,113,.08)', border:'1px solid rgba(248,113,113,.25)', borderRadius:6, padding:'10px 12px', wordBreak:'break-word', lineHeight:1.5 } }, sel.failingExceptionMessage)),
-        sectionHdr('Catalog Targets (' + (sel.catalogTargets ? sel.catalogTargets.length : 0) + ')'),
-        el(CatalogTargetsSection, { targets: sel.catalogTargets }),
+        sectionHdr(opsTargetsHeading(sel)),
+        el(CatalogTargetsSection, { row: sel }),
         sectionHdr('Connector Properties'),
         el(JsonView, { data: (function(r){ var d={}; ['connectorGUID','connectorStatus','integrationGroup','lastStatusChange','lastRefreshTime','minMinutesBetweenRefresh'].forEach(function(k){ if(r[k]!=null) d[k]=r[k]; }); return d; })(sel) }))),
     confirm && el(ConfirmDialog, {
@@ -1160,6 +1170,8 @@ function ActionsTab({ creds, isAdmin }) {
   var _rows = useState([]),        rows    = _rows[0], setRows    = _rows[1];
   var _st   = useState('idle'),    state   = _st[0],   setState   = _st[1];
   var _busy = useState(false),     busy    = _busy[0], setBusy    = _busy[1];
+  var _pi   = useState({}),        pageInfo = _pi[0],  setPageInfo = _pi[1];   // more / total / repositoryCount / nextStart
+  var _lm   = useState(''),        moreErr = _lm[0],   setMoreErr = _lm[1];
   var _ft   = useState(''),        fText   = _ft[0],   setFText   = _ft[1];
   var _fs   = useState(new Set()), fStatus = _fs[0],   setFStatus = _fs[1];
   // ?guid= preselects that engine action (crossAppNavigate's link into this tab).
@@ -1174,13 +1186,29 @@ function ActionsTab({ creds, isAdmin }) {
 
   var sel = rows.find(function(r){ return r.guid === selGuid; });
 
+  var EA_PAGE = 200;
+  // Newest first, a page at a time (the server asks Egeria for that order); Load more appends.
   function load() {
     if (busy) return;
-    setBusy(true); setState('loading');
-    egeriaFetch('/api/operations/engine-actions', creds)
+    setBusy(true); setState('loading'); setMoreErr('');
+    egeriaFetch('/api/operations/engine-actions?start=0&page_size=' + EA_PAGE, creds)
       .then(function(r){ return r.ok ? r.json() : errMsg(r); })
-      .then(function(d){ setRows(d.actions || []); setState('ready'); setBusy(false); })
+      .then(function(d){ setRows(d.actions || []); setPageInfo(d); setState('ready'); setBusy(false); })
       .catch(function(){ setState('error'); setBusy(false); });
+  }
+  function loadMore() {
+    if (busy || pageInfo.nextStart == null) return;
+    setBusy(true); setMoreErr('');
+    egeriaFetch('/api/operations/engine-actions?start=' + pageInfo.nextStart + '&page_size=' + EA_PAGE, creds)
+      .then(function(r){ return r.ok ? r.json() : errMsg(r); })
+      .then(function(d){
+        setRows(function(prev){
+          var seen = new Set(prev.map(function(r){ return r.guid; }));
+          return prev.concat((d.actions || []).filter(function(r){ return !seen.has(r.guid); }));
+        });
+        setPageInfo(d); setBusy(false);
+      })
+      .catch(function(e){ setMoreErr('Could not load more: ' + ((e && e.message) || 'error')); setBusy(false); });
   }
 
   React.useEffect(function(){ load(); }, []);
@@ -1324,7 +1352,13 @@ function ActionsTab({ creds, isAdmin }) {
     el('div', { style:{ display:'flex', gap:3, flexWrap:'wrap' } }, statusPills),
     fStatus.size > 0 && el('button', { onClick:function(){ setFStatus(new Set()); },
       style:{ fontSize:10, padding:'2px 8px', borderRadius:4, border:'1px solid var(--border)', background:'transparent', color:'var(--dim)', cursor:'pointer' } }, 'clear'),
-    el('span', { style:{ marginLeft:'auto', fontSize:11, color:'var(--dim)' } }, visibleRows.length + ' / ' + rows.length + ' actions'));
+    el('span', { style:{ marginLeft:'auto', fontSize:11, color:'var(--dim)' } },
+      visibleRows.length + ' shown · ' + opsActionsCountLabel(rows.length, pageInfo)),
+    state === 'ready' && pageInfo.more !== false && pageInfo.nextStart != null && el('button', { onClick: loadMore, disabled: busy,
+      title: 'Load the next ' + EA_PAGE + ' (older) engine actions',
+      style:{ fontSize:11, padding:'3px 10px', borderRadius:4, border:'1px solid rgba(96,165,250,.4)', background:'transparent', color:'var(--accent)', cursor: busy ? 'default' : 'pointer' } },
+      busy ? 'Loading…' : 'Load more'),
+    moreErr && el('span', { style:{ fontSize:11, color:'#f87171' } }, moreErr));
 
   return el('div', { style:{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden' } },
     toolbar,
@@ -1346,6 +1380,29 @@ function ActionsTab({ creds, isAdmin }) {
       body: el('span', null, 'Cancel ', el('b', { style:{ color:'var(--text)' } }, _shortName(confirm.row.displayName)), '? This cannot be undone.'),
       confirmLabel: 'Cancel action', err: confirm.err,
       onCancel: function(){ setConfirm(null); }, onConfirm: function(){ doCancel(confirm.row); } }));
+}
+
+// ── Honest counts (pure: tests/test_operations_paging_js.py) ─────────────────
+// Engine actions come a page at a time, newest first. A page is never called the total: the words
+// say "of M" only when M is exact (or is the repository's own count, said as such).
+function opsActionsCountLabel(loaded, info) {
+  info = info || {};
+  var fmt = function(n){ return Number(n).toLocaleString('en-US'); };
+  if (info.total != null) return loaded >= info.total ? 'all ' + fmt(info.total) : 'newest ' + fmt(loaded) + ' of ' + fmt(info.total);
+  if (info.repositoryCount != null) return 'newest ' + fmt(loaded) + ' of ' + fmt(info.repositoryCount) + ' in the repository';
+  if (info.more === true) return 'newest ' + fmt(loaded) + ', more available';
+  if (info.more === false) return 'newest ' + fmt(loaded);
+  return 'newest ' + fmt(loaded) + ' (could not check for more)';
+}
+
+// A connector's catalog targets: read in full, partly (a lower bound), or not at all (unknown).
+function opsTargetsHeading(row) {
+  row = row || {};
+  if (row.catalogTargetsError && !(row.catalogTargets && row.catalogTargets.length) && row.catalogTargetCount == null
+      && row.catalogTargetsLowerBound == null) return 'Catalog Targets (could not be read)';
+  if (row.catalogTargetCount != null) return 'Catalog Targets (' + row.catalogTargetCount + ')';
+  if (row.catalogTargetsLowerBound != null) return 'Catalog Targets (' + row.catalogTargetsLowerBound + '+)';
+  return 'Catalog Targets (' + ((row.catalogTargets || []).length) + ')';   // an older response shape
 }
 
 // ── Placeholder (kept for future tabs) ───────────────────────────────────────

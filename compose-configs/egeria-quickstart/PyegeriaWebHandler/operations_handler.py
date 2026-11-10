@@ -449,6 +449,52 @@ def _target_list(raw) -> list:
     return [t for t in raw if isinstance(t, dict)] if isinstance(raw, list) else []
 
 
+# Catalog targets per connector, read at graph depth 0 (the same rows as depth 1, measured live
+# 2026-11-10: 67 targets took 25.8 s at depth 1 and 0.18 s at depth 0; two connectors timed out at
+# depth 1). Paging MUST be in the body: with a body, pyegeria ignores start_from/page_size, so the old
+# page_size=200 never applied. Read page by page until an empty page (the end), the cap, or the time
+# budget. A read that fails before any row is an explicit "could not be read", never "no targets".
+_CT_PAGE = 200
+_CT_MAX = 1000
+_CT_BUDGET_S = 20.0
+
+
+async def _read_catalog_targets(ac, guid: str, *, page: int = _CT_PAGE, cap: int = _CT_MAX,
+                                budget_s: float = _CT_BUDGET_S) -> dict:
+    """{"targets": [rows] | None, "complete": bool, "error": str | None, "stoppedBy": None | "cap" |
+    "time" | "error"}. targets is None only when nothing could be read (error says why)."""
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + budget_s
+    rows: list = []
+    start = 0
+    while True:
+        remaining = deadline - loop.time()
+        try:
+            if remaining <= 0:
+                raise asyncio.TimeoutError()
+            raw = await asyncio.wait_for(
+                ac._async_get_catalog_targets(
+                    integ_connector_guid=guid, output_format="JSON", report_spec=None,
+                    body={"class": "FilterRequestBody", "graphQueryDepth": 0, "startFrom": start, "pageSize": page}),
+                timeout=remaining)
+        except Exception as exc:  # noqa: BLE001 -- timeout or Egeria error: said, never hidden as "none"
+            timed_out = isinstance(exc, asyncio.TimeoutError) or _is_timeout_error(exc)
+            why = (f"timed out after {budget_s:.0f} s" if timed_out
+                   else f"{type(exc).__name__}: {str(exc)[:160]}")
+            if not rows:
+                return {"targets": None, "complete": False, "error": f"could not be read: {why}",
+                        "stoppedBy": "error"}
+            return {"targets": rows, "complete": False, "error": f"stopped after {len(rows)}: {why}",
+                    "stoppedBy": "time" if timed_out else "error"}
+        batch = [_catalog_target(t) for t in _target_list(raw)]
+        if not batch:
+            return {"targets": rows, "complete": True, "error": None, "stoppedBy": None}
+        rows.extend(batch)
+        start += len(batch)
+        if len(rows) >= cap:
+            return {"targets": rows[:cap], "complete": False, "error": None, "stoppedBy": "cap"}
+
+
 @router.get("/api/operations/integration-connectors", summary="Connectors on an Integration Daemon (Integration Connectors tab)")
 async def list_integration_connectors(
     server_guid: str = Query(...),
@@ -478,24 +524,16 @@ async def list_integration_connectors(
     groups = {g.get("integrationGroupGUID"): g.get("integrationGroupName")
               for g in (rep.get("integrationGroups") or []) if isinstance(g, dict)}
 
-    # One get_catalog_targets per connector — N+1 fan-out, run concurrently.
-    # graphQueryDepth=1 limits traversal depth to prevent timeouts on large connector sets.
-    _ct_body = {"class": "FilterRequestBody", "graphQueryDepth": 1}
+    # Catalog targets per connector (N+1 fan-out, run concurrently), paged at depth 0; see
+    # _read_catalog_targets. A connector whose targets could not be read says so.
     sem = asyncio.Semaphore(16)
 
     async def _one(c):
         guid = c.get("connectorGUID")
         async with sem:
-            try:
-                raw = await asyncio.wait_for(
-                    ac._async_get_catalog_targets(integ_connector_guid=guid,
-                                                  page_size=200, output_format="JSON",
-                                                  report_spec=None, body=_ct_body),
-                    timeout=10,
-                )
-                targets = [_catalog_target(t) for t in _target_list(raw)]
-            except Exception:
-                targets = []
+            ct = await _read_catalog_targets(ac, guid) if guid else {
+                "targets": None, "complete": False, "error": "could not be read: no connector GUID", "stoppedBy": "error"}
+        targets = ct["targets"]
         return {
             "connectorName":            c.get("connectorName") or "",
             "connectorGUID":            guid or "",
@@ -505,7 +543,13 @@ async def list_integration_connectors(
             "lastRefreshTime":          c.get("lastRefreshTime") or "",
             "minMinutesBetweenRefresh": c.get("minMinutesBetweenRefresh"),
             "failingExceptionMessage":  c.get("failingExceptionMessage") or "",
-            "catalogTargets":           targets,
+            "catalogTargets":           targets if targets is not None else [],
+            # None = could not be read (catalogTargetsError says why); never shown as "no targets".
+            "catalogTargetCount":       (len(targets) if targets is not None and ct["complete"] else None),
+            "catalogTargetsLowerBound": (len(targets) if targets is not None and not ct["complete"] else None),
+            "catalogTargetsComplete":   bool(ct["complete"]),
+            "catalogTargetsError":      ct["error"],
+            "catalogTargetsStoppedBy":  ct["stoppedBy"],
         }
 
     try:
@@ -619,45 +663,117 @@ _ENGINE_ACTIONS_TTL = 60.0  # seconds — same TTL as _REPORT_TTL above; unlike 
 # background-task/stale-banner machinery _report_cache uses.
 
 
-@router.get("/api/operations/engine-actions", summary="Ecosystem-wide engine actions (Engine Actions tab)")
+# Engine actions are read newest first, a page at a time, at graph depth 0 (the rows read only
+# `properties`). Measured live 2026-11-10: depth 0 + PROPERTY_DESCENDING on requestedStartTime is
+# honoured by Egeria (contiguous pages, no overlap), 500 rows in ~2.5 s; the old depth-3 single page of
+# 500 took 90 s+ (504). Egeria held 21,908 engine actions, so one page is never "the total".
+_EA_PAGE_DEFAULT = 200
+_EA_PAGE_MAX = 500
+_EA_ORDER = {"sequencing_order": "PROPERTY_DESCENDING", "sequencing_property": "requestedStartTime"}
+_EA_COUNT_TIMEOUT = 10   # seconds; the repository-wide count is ~1 s, a viewer-scoped one times out
+
+
+def _engine_action_row(item: dict) -> dict:
+    hdr   = item.get("elementHeader") or {}
+    props = item.get("properties") or {}
+    return {
+        "guid":                     hdr.get("guid") or "",
+        "displayName":              props.get("displayName") or props.get("qualifiedName") or "",
+        "requestType":              props.get("requestType") or "",
+        "activityStatus":           props.get("activityStatus") or "",
+        "executorEngineGUID":       props.get("executorEngineGUID") or "",
+        "executorEngineName":       props.get("executorEngineName") or "",
+        "requesterUserId":          props.get("requesterUserId") or "",
+        "requestedStartTime":       props.get("requestedStartTime") or "",
+        "startTime":                props.get("startTime") or "",
+        "completionTime":           props.get("completionTime") or "",
+        "completionGuards":         props.get("completionGuards") or [],
+        "completionMessage":        props.get("completionMessage") or "",
+        "governanceActionTypeName": props.get("governanceActionTypeName") or "",
+    }
+
+
+def _fetch_engine_actions(ac, search_string: str, start: int, page_size: int) -> list:
+    raw = ac.find_engine_actions(search_string=search_string, graph_query_depth=0, start_from=start,
+                                 page_size=page_size, output_format="JSON", **_EA_ORDER)
+    return [r for r in raw if isinstance(r, dict)] if isinstance(raw, list) else []
+
+
+def _page_summary(start: int, returned: int, next_is_empty: Optional[bool],
+                  repository_count: Optional[int]) -> dict:
+    """What a page says about the whole set, honestly (Egeria paging contract: a short page is NOT
+    the last page; only an empty one is). `next_is_empty` is the answer to a 1-row read just past
+    this page: True = this page ends the set (the total is exact), False = more exist, None = the
+    check failed (unknown). `total` is set only when exact; otherwise `lowerBound` says "at least"."""
+    seen = start + returned
+    if returned == 0:
+        # An empty page is the end. From the start it means "none"; further in, the set ends at or
+        # before `start`, which is exact only when the caller paged here contiguously -- not assumed.
+        more = False
+        total = 0 if start == 0 else None
+    else:
+        more = None if next_is_empty is None else (not next_is_empty)
+        total = seen if more is False else None
+    return {
+        "start":           start,
+        "returned":        returned,
+        "nextStart":       seen if (returned and more is not False) else None,   # also when unknown
+        "more":            more,                  # True / False / None (unknown)
+        "total":           total,
+        "lowerBound":      seen + (1 if more else 0),
+        "repositoryCount": repository_count,      # whole repository (all zones); None if not counted
+    }
+
+
+def _repository_engine_action_count(url, server, user_id, user_pwd) -> Optional[int]:
+    """Every EngineAction in the repository, counted natively (push_down: repository-wide, not
+    zone-scoped; ~1 s). None if the count is unavailable. Labelled as the repository's count."""
+    try:
+        from pyegeria import MetadataExpert
+        url      = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
+        server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+        user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
+        user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+        mx = MetadataExpert(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+        apply_token(mx)
+        n = mx.count_metadata_elements({"class": "FindRequestBody", "metadataElementTypeName": "EngineAction"},
+                                       push_down=True, timeout=_EA_COUNT_TIMEOUT)
+        return n if isinstance(n, int) and n >= 0 else None
+    except Exception as exc:  # noqa: BLE001 -- the count is extra; the page still serves
+        logger.debug(f"operations: engine-action count unavailable: {exc}")
+        return None
+
+
+@router.get("/api/operations/engine-actions", summary="Ecosystem-wide engine actions, newest first, a page at a time")
 def list_engine_actions(
     search_string: str = Query("*"),
+    start: int = Query(0, ge=0),
+    page_size: int = Query(_EA_PAGE_DEFAULT, ge=1, le=_EA_PAGE_MAX),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None),
 ):
     user_pwd = None  # never from the URL: a password in a query string lands in access logs
     who = request_identity(user_id, user_pwd)  # hashed credential; None = expired token, bypass the cache
-    cache_key = f"{search_string}|{url or ''}|{server or ''}|{who}"
+    cache_key = f"{search_string}|{start}|{page_size}|{url or ''}|{server or ''}|{who}"
     cached = (_ENGINE_ACTIONS_CACHE.get(cache_key) if who else None)
     if cached and (time.time() - cached[0]) < _ENGINE_ACTIONS_TTL:
         return JSONResponse(cached[1])
 
     try:
         ac = _automated_curation(url, server, user_id, user_pwd)
-        raw = ac.find_engine_actions(search_string=search_string, page_size=500, output_format="JSON")
+        page = _fetch_engine_actions(ac, search_string, start, page_size)
     except Exception as exc:
         _raise_http(exc, "operations: find_engine_actions failed")
-    rows = []
-    for item in (raw if isinstance(raw, list) else []):
-        hdr   = item.get("elementHeader") or {}
-        props = item.get("properties") or {}
-        rows.append({
-            "guid":                     hdr.get("guid") or "",
-            "displayName":              props.get("displayName") or props.get("qualifiedName") or "",
-            "requestType":              props.get("requestType") or "",
-            "activityStatus":           props.get("activityStatus") or "",
-            "executorEngineGUID":       props.get("executorEngineGUID") or "",
-            "executorEngineName":       props.get("executorEngineName") or "",
-            "requesterUserId":          props.get("requesterUserId") or "",
-            "requestedStartTime":       props.get("requestedStartTime") or "",
-            "startTime":                props.get("startTime") or "",
-            "completionTime":           props.get("completionTime") or "",
-            "completionGuards":         props.get("completionGuards") or [],
-            "completionMessage":        props.get("completionMessage") or "",
-            "governanceActionTypeName": props.get("governanceActionTypeName") or "",
-        })
-    rows.sort(key=lambda r: r.get("requestedStartTime") or "", reverse=True)
-    result = {"actions": rows, "total": len(rows)}
+    # Is there anything after this page? One row past it answers that (an empty read = the end).
+    try:
+        next_is_empty = (not _fetch_engine_actions(ac, search_string, start + len(page), 1)) if page else True
+    except Exception as exc:  # noqa: BLE001 -- unknown, said as unknown
+        logger.debug(f"operations: engine-action next-page check failed: {exc}")
+        next_is_empty = None
+    repo_count = (_repository_engine_action_count(url, server, user_id, user_pwd)
+                  if search_string in ("*", "") else None)
+    rows = [_engine_action_row(item) for item in page]
+    result = {"actions": rows, **_page_summary(start, len(rows), next_is_empty, repo_count)}
     if who:
         _ENGINE_ACTIONS_CACHE[cache_key] = (time.time(), result)
     return JSONResponse(result)
