@@ -69,9 +69,10 @@ def test_miss_then_hit(env):
 def test_forged_sub_and_wrong_password_miss(env):
     real = _jwt("peter"); _get(env, real)
     assert _get(env, _jwt("peter", salt="forged")).headers["X-Cache"] == "miss"
-    _get(env, user_id="peter", user_pwd="right")
-    assert _get(env, user_id="peter", user_pwd="wrong").headers["X-Cache"] == "miss"
+    # user_id/user_pwd query params are not accepted (token header only): they never pick a cache entry
+    _get(env)                                                    # the service user's own entry
     assert _get(env, user_id="peter", user_pwd="right").headers["X-Cache"] == "hit"
+    assert _get(env, user_id="peter", user_pwd="wrong").headers["X-Cache"] == "hit"
 
 
 def test_sheet_perspective_lineage_are_separate(env):
@@ -158,7 +159,7 @@ def test_refresh_param_resolves_now(env):
 def test_expired_token_bypasses_the_cache(env):
     _get(env, _jwt("peter"))
     r = _get(env, _jwt("peter", exp_in=-60))
-    assert "X-Cache" not in r.headers and len(env["calls"]) == 2
+    assert r.status_code == 401 and "X-Cache" not in r.headers and len(env["calls"]) == 1   # refused, never built
 
 
 def test_sheet_refresh_button_refreshes_every_tile():

@@ -227,9 +227,10 @@ def test_expired_token_neither_reads_nor_fills_the_egeria_caches(env):
     c = env["client"]
     c.get("/api/local-dashboards", headers={"X-Egeria-Token": exp})              # a good user fills the cache
     n = env["calls"]
-    c.get("/api/local-dashboards", headers={"X-Egeria-Token": expired})
-    c.get("/api/local-dashboards", headers={"X-Egeria-Token": expired})
-    assert env["calls"] == n + 2                                                 # read Egeria each time, no cache hit
+    for path in ("/api/local-dashboards", "/api/local-dashboards/e1"):
+        r = c.get(path, headers={"X-Egeria-Token": expired})
+        assert r.status_code == 401                                              # refused before any read
+    assert env["calls"] == n and env["loads"] == 0                               # no cache hit, no Egeria call
     assert not any("expired" in k for k in ld._cache)
     assert ld._report_ckey("R", None, None, None, None) is not None              # (no token here: service user)
 
@@ -273,3 +274,82 @@ def test_egeria_edit_changes_the_built_sheet_key(env, monkeypatch):
     ld._cache.clear()                                                                  # the 60 s Egeria read has expired
     r = c.get("/api/local-dashboards/e1")
     assert r.headers["X-Cache"] == "miss" and r.json()["placements"][0]["ref"] == "Rep B"
+
+
+# ── Token-header auth only (P3 2026-11-09: passwords in access logs) ─────────────────────────────────────
+
+def test_no_route_accepts_user_id_or_user_pwd():
+    for route in ld.router.routes:
+        names = {p.name for p in route.dependant.query_params} | {p.alias for p in route.dependant.query_params}
+        assert not names & {"user_id", "user_pwd", "password"}, route.path
+
+
+def test_credentials_in_the_url_are_ignored_never_signed_in_as(env, monkeypatch):
+    seen = []
+    monkeypatch.setattr(ld, "_egeria_client", lambda url=None, server=None, user_id=None, user_pwd=None:
+                        seen.append((user_id, user_pwd)) or object())
+    monkeypatch.setattr(ld, "_expert", lambda url=None, server=None, user_id=None, user_pwd=None:
+                        seen.append((user_id, user_pwd)) or object())
+    env["egeria"] = {"e1": _sheet("e1", [_pl("Rep E")], source="egeria", breaks=[])}
+    q = {"user_id": "garygeeke", "user_pwd": "secret"}
+    c = env["client"]
+    assert c.get("/api/local-dashboards", params=q).status_code == 200
+    assert c.get("/api/local-dashboards/e1", params=q).status_code == 200
+    assert seen and all(s == (None, None) for s in seen)          # the env service user, never garygeeke
+    assert not any("garygeeke" in k for k in ld._cache)
+
+
+def test_no_token_never_gets_a_signed_in_users_cached_data(env):
+    env["egeria"] = {}
+    c = env["client"]
+    c.get("/api/local-dashboards", headers={"X-Egeria-Token": _jwt("alice")})
+    n = env["calls"]
+    c.get("/api/local-dashboards")                                   # no token: its own (service) entry
+    assert env["calls"] == n + 1
+    c.get("/api/local-dashboards", params={"user_id": "alice"})       # a claimed user_id does not reach alice's entry
+    assert env["calls"] == n + 1                                      # shares the service entry, not alice's
+
+
+def test_page_never_puts_credentials_in_a_local_dashboards_url():
+    import re
+    html = (Path(__file__).resolve().parent.parent / "local-dashboards.html").read_text()
+    for m in re.finditer(r"/api/local-dashboards[^\n]*", html):
+        assert not re.search(r"user_pwd|user_id|password", m.group(0)), m.group(0)
+
+
+class _Refused(Exception):
+    response_code = 401
+
+
+def test_a_refused_token_is_a_401_not_a_quiet_fallback_to_the_local_file(env):
+    env["fail"] = _Refused("Egeria said 401")
+    c, tok = env["client"], {"X-Egeria-Token": _jwt("alice")}
+    assert c.get("/api/local-dashboards", headers=tok).status_code == 401
+    assert c.get("/api/local-dashboards/json-only", headers=tok).status_code == 401
+    # the service user's own failure (no token) still degrades to the local file, and says so
+    body = c.get("/api/local-dashboards").json()
+    assert body["egeria"]["available"] is False and [s["name"] for s in body["sheets"]]
+
+
+def _expired(sub="alice"):
+    enc = lambda d: base64.urlsafe_b64encode(json.dumps(d).encode()).rstrip(b"=").decode()
+    return f"{enc({'alg': 'none'})}.{enc({'sub': sub, 'exp': int(time.time()) - 60})}.sig"
+
+
+def test_delete_without_a_token_user_is_refused_and_deletes_nothing(env):
+    c = env["client"]
+    for headers in ({}, {"X-Egeria-Token": _expired()}, {"X-Egeria-Token": "not-a-jwt"}):
+        r = c.delete("/api/local-dashboards/json-only", headers=headers)
+        assert r.status_code == 401, headers
+    assert "json-only" in [s["name"] for s in c.get("/api/local-dashboards").json()["sheets"]]
+    r = c.delete("/api/local-dashboards/json-only", headers={"X-Egeria-Token": _jwt("alice")})
+    assert r.status_code == 200 and r.json() == {"deleted": "json-only"}
+    ld._cache.clear()
+    assert "json-only" not in [s["name"] for s in c.get("/api/local-dashboards").json()["sheets"]]
+
+
+def test_page_sends_the_token_header_on_delete():
+    html = (Path(__file__).resolve().parent.parent / "local-dashboards.html").read_text()
+    i = html.index("function deleteSheet(")
+    body = html[i:html.index("\n}\n", i)]
+    assert "viewerToken()" in body and "'X-Egeria-Token': token" in body
