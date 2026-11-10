@@ -793,12 +793,13 @@ def get_composition(
     depth: int = Query(1, ge=0, le=COMPOSITION_DEPTH_MAX),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now (time-machine)"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """Served from the background section cache (cold -> {"loading": true}); see "Asset composition" above.
 
     countScope is always "repository". viewerCounts is "total-only": the Asset total of the viewer column comes
     from the hourly per-viewer cache (and only when root is Asset), every other viewer cell is not_measured."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     as_of_time = _norm_asof(as_of_time)
     if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", root):
         raise HTTPException(status_code=422, detail="root must be an open metadata type name")
@@ -821,9 +822,10 @@ def get_composition(
 def get_summary(
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now (time-machine)"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """Served from the background section cache (see "Background section cache"); computed by _compute_summary."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     as_of_time = _norm_asof(as_of_time)
     key = _section_key_or_401("summary", as_of_time, population=VIEWER,
                               url=url, server=server, user_id=user_id, user_pwd=user_pwd)
@@ -1271,11 +1273,12 @@ def _recent_changes(mgr, now=None) -> Optional[dict]:
 @router.get("/api/overview/activity", summary="Recent changes to curated content")
 def get_activity(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """Change stream, activity by type and most active stewards for curated content types (glossary terms,
     collections/products, governance definitions, projects). Always "now": Egeria's asOfTime cannot
     say who changed what. `activity` is None when a query failed -- the page then shows "Not measured"."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     ckey = _viewer_key("activity", url, server, user_id, user_pwd)
     cached = _cache_get(ckey)
     if cached is not None:
@@ -1641,10 +1644,11 @@ def _certifications(url, server, user_id, user_pwd, as_of: Optional[str] = None)
 def get_ai_context(
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """Context-readiness funnel + grounding. Consumers/guardrails are not natively
     queryable yet — returned as null so the SPA shows its sample baseline."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     as_of_time = _norm_asof(as_of_time)
     key = _section_key_or_401("ai-context", as_of_time, population=VIEWER,
                               url=url, server=server, user_id=user_id, user_pwd=user_pwd)
@@ -1835,7 +1839,7 @@ def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
 def get_people(
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """People counts (persons / teams / orgs / communities) via native element
     counts — one `count_metadata_elements` per type (SELECT COUNT(*)), so this is
@@ -1843,6 +1847,7 @@ def get_people(
     NB: native counts every entity of the type; the previous ActorManager
     find-and-bucket returned a curated set, so a few totals differ (that raw count
     is the authoritative repository count). Karma / feedback below."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     as_of_time = _norm_asof(as_of_time)
     ckey = _viewer_key(f"people|{as_of_time}", url, server, user_id, user_pwd)
     cached = _cache_get(ckey)
@@ -1948,7 +1953,7 @@ def get_people(
 def get_usage_context(
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """ISCs and Blueprints are what put assets in a *usage context* — "this store
     feeds the Clinical Trial supply chain", "this component realises the Sales
@@ -1960,6 +1965,7 @@ def get_usage_context(
     docstring for the honest "this is a proxy" caveat (confirms an asset was
     given *some* solution-design context, not that its specific
     SolutionComponent is itself wired into an ISC/blueprint)."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     as_of_time = _norm_asof(as_of_time)
     key = _section_key_or_401("usage-context", as_of_time, population=VIEWER,
                               url=url, server=server, user_id=user_id, user_pwd=user_pwd)
@@ -2037,13 +2043,14 @@ def get_growth(
     points: Optional[int] = Query(None, ge=2, le=24, description="override #snapshots"),
     months: Optional[int] = Query(None, ge=2, le=12, description="deprecated — use window"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """Real growth series: one count per snapshot date with asOfTime set — Egeria
     answers historical queries natively, so no separate time-series store is needed.
     The window sets the span and (by default) the granularity; points can override
     the snapshot count. Snapshots assets / terms / governed / data-products.
     Served from the background section cache (refreshed hourly; see "Background section cache")."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     if months:                              # back-compat: months → an N*30d window
         window = f"{months * 30}d"
 

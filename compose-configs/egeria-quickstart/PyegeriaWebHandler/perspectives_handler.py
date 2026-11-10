@@ -188,11 +188,11 @@ def get_perspectives(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     """Return all Perspective elements from the metadata repository."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_actor_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -233,7 +233,6 @@ def get_perspective(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """Return full detail for a single Perspective, including linked Questions via ScopedBy."""
@@ -242,6 +241,7 @@ def get_perspective(
     # get_element_by_guid accepts any element and returns the same shape (confirmed
     # live: identical keys incl. mermaidGraph/scopedElements) in ~0.15 s. This used
     # to list up to 200 Perspectives at depth 5 and filter by guid (~2.4 s for 14).
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         ce = _get_classification_explorer(url, server, user_id, user_pwd)
         raw = ce.get_element_by_guid(
@@ -273,11 +273,11 @@ def get_questions(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """Return all GlossaryTerms classified as Questions (Question classification)."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_glossary_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -350,10 +350,10 @@ def get_question(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """Return full detail for a single Question (GlossaryTerm with Question classification)."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_glossary_manager(url, server, user_id, user_pwd)
     except Exception as exc:

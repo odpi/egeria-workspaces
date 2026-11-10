@@ -75,8 +75,9 @@ def _add_prop(el: dict, name: str) -> Optional[str]:
 @router.get("/api/governance-metrics", summary="List GovernanceMetric elements with their Report")
 def get_governance_metrics(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     import time
     who = request_identity(user_id, user_pwd)  # hashed credential; None = expired token, bypass the cache
     ckey = f"{url}|{server}|{who}"

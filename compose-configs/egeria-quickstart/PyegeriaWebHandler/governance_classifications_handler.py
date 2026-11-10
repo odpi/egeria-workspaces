@@ -83,6 +83,7 @@ from fastapi import APIRouter, Body, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
 from pydantic import BaseModel
+from egeria_auth import PlatformBody  # platform gate on the body's url (see egeria_auth)
 
 from egeria_error_mapping import describe_bulk_item_error
 from egeria_auth import apply_token
@@ -242,11 +243,11 @@ def get_applicable_classifications(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
 ):
     """A classification is offered only if it's valid for *every* distinct
     type in the selection -- that's what makes it safe to apply to the whole
     (possibly mixed-type) selection in one bulk action."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     types = sorted({t.strip() for t in entity_types.split(",") if t.strip()})
     if not types:
         return JSONResponse({"classifications": []})
@@ -306,7 +307,6 @@ def get_classification_schema(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
 ):
     """Reads Egeria's own ClassificationDef.attributeDefinitions live (Dan's
     call, 2026-08-17) -- never hardcoded -- so any classification's full
@@ -314,6 +314,7 @@ def get_classification_schema(
     UI already had dedicated controls for. Returns [] for "marker" kind
     classifications (they have none by design, e.g. PrimeWord) and for any
     classification whose level/notes fields exhaust its actual schema."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     cfg = _classification_config(classification_name)
     if cfg.get("kind") != "level":
         return JSONResponse({"properties": []})
@@ -352,7 +353,7 @@ def get_level_property(classification_name: str):
     return JSONResponse({"level_field": cfg.get("level_field"), "kind": cfg.get("kind", "level")})
 
 
-class BulkClassificationSetBody(BaseModel):
+class BulkClassificationSetBody(PlatformBody):
     guids: list[str]
     level: Optional[int] = None  # required for kind="level" classifications only; ignored for "marker"
     notes: Optional[str] = None
@@ -410,7 +411,7 @@ def set_classification_members(classification_name: str, body: BulkClassificatio
     return JSONResponse({"added": added, "failed": failed})
 
 
-class BulkClassificationClearBody(BaseModel):
+class BulkClassificationClearBody(PlatformBody):
     guids: list[str]
     url: Optional[str] = None
     server: Optional[str] = None

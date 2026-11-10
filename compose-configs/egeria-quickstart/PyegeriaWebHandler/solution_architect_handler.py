@@ -350,9 +350,9 @@ def list_blueprints(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -401,12 +401,12 @@ def list_blueprints_by_folio(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     refresh:  bool = Query(False, description="Bypass the cache and re-query the metadata store"),
 ):
     """Group solution blueprints under the Folios that curate them. A blueprint's
     folios are its memberOfCollections entries whose type is Folio; blueprints in
     no folio are returned under `ungrouped`. Built from one depth-1 find."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     who = request_identity(user_id, user_pwd)  # hashed credential; None = expired token, bypass the cache
     cache_key = f"{url or ''}|{server or ''}|{who}{_lineage_key()}"
     cached = _BP_FOLIO_CACHE.get(cache_key) if who else None
@@ -473,9 +473,9 @@ def get_blueprint(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     quick:    bool = Query(False, description="First-paint variant: depth 1, smaller diagram"),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -499,9 +499,9 @@ def list_components(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -602,13 +602,13 @@ def list_components_tree(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     refresh:  bool = Query(False, description="Bypass the cache and re-query the metadata store"),
 ):
     """Return the solution-component composition forest: roots (components not nested
     in any other) with recursively nested children. Built from a single depth-1 find
     that inlines nestedSolutionComponents (children) and usedInSolutionComponents
     (parents)."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     who = request_identity(user_id, user_pwd)  # hashed credential; None = expired token, bypass the cache
     cache_key = f"{url or ''}|{server or ''}|{who}{_lineage_key()}"
     cached = _COMP_TREE_CACHE.get(cache_key) if who else None
@@ -739,12 +739,12 @@ def list_component_groups(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     refresh:  bool = Query(False, description="Rebuild in the background even if the cached copy is fresh"),
 ):
     """Per component GUID: the blueprints and information supply chains it belongs
     to, and how many wires and implementations it has. Returns {"loading": true}
     until the first build finishes; {"stale": true} while a rebuild is running."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     who = request_identity(user_id, user_pwd)  # hashed credential; None = expired token, bypass the cache
     cache_key = f"{url or ''}|{server or ''}|{who}{_lineage_key()}"
     if who is None:
@@ -778,9 +778,9 @@ def get_component(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     quick:    bool = Query(False, description="First-paint variant: depth 1, smaller diagram"),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -805,8 +805,8 @@ def get_component_implementations(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -836,9 +836,9 @@ def list_patterns(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -874,8 +874,8 @@ def get_pattern(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:

@@ -141,8 +141,9 @@ def list_relationships(
     page_size:  int = Query(500, ge=1, le=2000),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     if type not in _AUDIT_REL_TYPES:
         raise HTTPException(status_code=400, detail=f"Unsupported audit relationship type {type!r}")
     try:
@@ -184,9 +185,10 @@ def get_audit_element(
     guid: str,
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """Resolve an element (end1, end2, or a GUID-form actor) for the detail panes."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _classifier(url, server, user_id, user_pwd)
         body = {"class": "GetRequestBody", "graphQueryDepth": 0}
@@ -209,7 +211,7 @@ def resolve_audit_actor(
     type_name:    Optional[str] = Query(None, description="xxxTypeName — metadataElementTypeName for the unique-name lookup"),
     as_of_time:   Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """Per the spec: if propertyName is set, resolve the actor by unique name
     (get_element_by_unique_name); otherwise `value` is the actor GUID."""
@@ -218,6 +220,7 @@ def resolve_audit_actor(
     # template whose substitution values were never supplied.  Egeria rejects a
     # uniqueName lookup of such a string with a 400.  Return a synthetic stub so
     # the UI can display the raw value instead of an error.
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     if _TEMPLATE_PLACEHOLDER_RE.match(value.strip()):
         return JSONResponse({
             "properties": {
@@ -296,8 +299,9 @@ def _security_officer(url=None, server=None, user_id=None, user_pwd=None):
 @router.get("/api/audit/platforms", summary="OMAG Server Platforms (Users tab dropdown)")
 def list_platforms(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         rm = _runtime_manager(url, server, user_id, user_pwd)
         raw = rm.get_platforms_by_type(filter_string="OMAG Server Platform", output_format="JSON")
@@ -342,8 +346,9 @@ async def list_users(
     platform_guid: str = Query(...),
     platform_name: Optional[str] = Query(None),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         so = await _security_officer_async(url, server, user_id, user_pwd)
         names = await _user_names(so, platform_name, platform_guid)
