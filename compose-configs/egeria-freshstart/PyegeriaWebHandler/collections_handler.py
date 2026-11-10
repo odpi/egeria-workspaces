@@ -29,6 +29,7 @@ from egeria_auth import lineage_key as _lineage_key
 from fastapi.responses import JSONResponse
 from loguru import logger
 from pydantic import BaseModel
+from egeria_auth import PlatformBody  # platform gate on the body's url (see egeria_auth)
 
 from egeria_error_mapping import describe_bulk_item_error
 
@@ -91,10 +92,10 @@ def get_roots(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     """Return the RootCollection-typed collections that anchor the hierarchy."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -129,10 +130,10 @@ def get_tree(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """Recursive member hierarchy beneath a collection (any subtype is a container)."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -161,10 +162,10 @@ def get_node_children(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """One level of children for a container node, fetched when the user expands it."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -187,9 +188,9 @@ def get_node(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
 ):
     """Detail for a single collection node: properties, members, relationships."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -227,12 +228,12 @@ def get_collections_by_type(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
 ):
     """Feeds the Add-to-Collection picker's second step (subtype already chosen
     client-side from the /api/types graph — see egeria-shared-ui.js's
     useTypeGraph/getAllSubs). Ported from quickstart's collections_handler.py
     (bulk-action sync, 2026-08-15)."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -250,7 +251,7 @@ def get_collections_by_type(
     return JSONResponse([_serialize_node(c) for c in cols] if isinstance(cols, list) else [])
 
 
-class CreateCollectionBody(BaseModel):
+class CreateCollectionBody(PlatformBody):
     type_name: str
     display_name: str
     description: Optional[str] = None
@@ -305,7 +306,7 @@ def create_collection(body: CreateCollectionBody = Body(...)):
 # sync, 2026-08-15). Partial-failure tolerant by design: one bad guid doesn't
 # fail the whole batch, the response says exactly what happened to each one.
 
-class BulkMembershipBody(BaseModel):
+class BulkMembershipBody(PlatformBody):
     guids: list[str]
     membership_rationale: Optional[str] = None
     url: Optional[str] = None

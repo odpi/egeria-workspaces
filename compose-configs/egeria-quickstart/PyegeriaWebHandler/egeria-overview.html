@@ -589,7 +589,7 @@
     </div>
     <div class="kpi clickable" data-drill="grounding">
       <span class="k-ico">🧠</span><span class="k-label">Semantic Grounding</span><button type="button" id="ai-ctx-info-grounding" class="k-info" data-info="grounding" style="display:none" title="What does this measure?" aria-label="What does this measure?">ⓘ</button>
-      <span class="k-val" id="ai-grounding">—</span><span class="k-sub">glossary-linked</span>
+      <span class="k-val" id="ai-grounding">—</span><span class="k-sub" id="ai-grounding-sub">term links per 100 Assets</span>
     </div>
   </div>
 
@@ -859,6 +859,24 @@ function renderVega(id, spec){
 }
 
 // ---- Horizontal bar helper (row = [lab,val,col,drillKey?]) ----
+// Governed Coverage text: the real share, never a rounding artefact. A non-zero share under 0.5%
+// shows its real small value ("0.3%", "0.02%"), not "<1%" or a "0%" that reads as nothing governed;
+// 0 governed is "0%". A capped (lower-bound) count is prefixed with "≥".
+function overviewGovernedPct(count, total, capped) {
+  if (!total || count == null || count > total) return null;
+  var pct = 100 * count / total, txt;
+  if (count === 0) txt = '0';
+  else if (pct >= 0.5) txt = String(Math.round(pct));
+  else txt = pct >= 0.1 ? pct.toFixed(1) : String(Number(pct.toPrecision(1)));
+  return (capped ? '\u2265' : '') + txt + '%';
+}
+// Engine-action failures tile: a capped read of 0 failures is "at least 0" -- not a measurement, so it
+// is "—" (the description says why); a capped read with failures is "≥N"; an exact read is N.
+function overviewPipelineCount(ph) {
+  if (!ph || ph.failed == null) return '\u2014';
+  if (ph.capped && !ph.failed) return '\u2014';
+  return (ph.capped ? '\u2265' : '') + ph.failed.toLocaleString();
+}
 function hbars(id,rows,max,emptyMsg){
   const el=document.getElementById(id); if(!el) return;
   if(!rows||!rows.length){ el.innerHTML=`<div style="color:var(--muted);font-size:.8rem;padding:10px 0">${emptyMsg||'No data yet'}</div>`; return; }
@@ -989,9 +1007,29 @@ const RAW = {
   assets:s=>s.assets, terms:s=>s.terms, governed:s=>s.governedPctNum,
   certs:s=>s.certs, products:s=>s.products, exceptions:s=>s.exceptions,
   people:s=>s.people, communities:s=>s.communities, isc:s=>s.isc,
-  blueprints:s=>s.blueprints, grounding:s=>s.groundingPct
+  blueprints:s=>s.blueprints, grounding:s=>s.groundingValue
 };
 const num = n => (n != null ? Number(n).toLocaleString() : null);
+// Semantic Grounding says what it measures (ai-context's groundingMeasure). pyegeria 6.2.30 reports
+// SemanticAssignment links ÷ Assets × 100 -- links per 100 Assets, NOT a share of Assets (one Asset with
+// three terms counts three times), so it is never shown with a % sign. When pyegeria reports distinct
+// grounded Assets (groundingMeasure "assetShare"; see overview_handler._grounding_fields) it becomes a %.
+const groundingIsShare = s => s.groundingMeasure === 'assetShare';
+const groundingVal = s => s.groundingValue == null ? null
+  : (groundingIsShare(s) ? s.groundingValue + '%' : num(s.groundingValue));
+// pyegeria 6.2.31 measures distinct grounded Assets even when their share cannot be measured (the
+// viewer Asset total times out); groundedAssetNote says why. A count that was not measured is never 0.
+const groundedAssetsSub = s => s.groundedAssets != null
+  ? ' · ' + num(s.groundedAssets) + ' Assets grounded' + (s.groundedAssetNote ? ' (share not measured)' : '')
+  : (s.groundedAssetNote ? ' · grounded Assets not measured' : '');
+const groundingSub = s => groundingIsShare(s)
+  ? (s.groundedAssets != null ? num(s.groundedAssets) + ' Assets with a glossary term' : 'of Assets have a glossary term')
+  : 'term links per 100 Assets' + (s.groundingLinks != null ? ' (' + num(s.groundingLinks) + ' links)' : '')
+    + groundedAssetsSub(s);
+// The full reason goes on the sub-label's tooltip and in the drill panel.
+const groundingNote = s => s.groundedAssetNote
+  ? s.groundedAssetNote + (s.groundedAssets != null ? ' Grounded Assets are counted among the Assets you can see.' : '')
+  : (s.groundedAssets != null ? 'Grounded Assets: an Asset counts once if it, or one of its parts, carries a glossary term; counted among the Assets you can see.' : '');
 // A tile with no measurement says so. It never shows a plausible-looking sample number:
 // an em dash means "not measured" (endpoint failed, or the backend returned null),
 // which is a different statement from a real 0.
@@ -1008,7 +1046,8 @@ const SCOPE_NOTE = {
 };
 // tile -> the LIVE field holding the scope of the payload its count came from
 const TILE_SCOPE = { assets:'scopeSummary', terms:'scopeSummary', governed:'scopeSummary', products:'scopeSummary',
-                     people:'scopePeople', communities:'scopePeople', isc:'scopeUsage', blueprints:'scopeUsage' };
+                     people:'scopePeople', communities:'scopePeople', isc:'scopeUsage', blueprints:'scopeUsage',
+                     ownership:'scopeOwnership' };
 // tile -> the /api/overview source its value comes from (for the "measuring…" state)
 const TILE_SOURCE = { assets:'summary', terms:'summary', governed:'summary', products:'summary', exceptions:'summary', certs:'summary',
                       people:'people', communities:'people', isc:'usage-context', blueprints:'usage-context',
@@ -1039,8 +1078,8 @@ const METRICS = {
   blueprints: { label:'Solution Blueprints',   ico:'🧱', color:'var(--c3)', drill:'blueprints',
                 get:()=>({ val: cnt(LIVE.blueprints), sub: LIVE.blueprints == null ? NM_SUB : 'reusable designs' }) },
   grounding:  { label:'Semantic Grounding',    ico:'🧠', color:'var(--c1)', drill:'grounding',
-                get:()=>({ val: LIVE.groundingPct != null ? LIVE.groundingPct + '%' : NO_DATA,
-                           sub: LIVE.groundingLinks != null ? num(LIVE.groundingLinks) + ' term links' : 'glossary-linked' }) },
+                get:()=>({ val: groundingVal(LIVE) != null ? groundingVal(LIVE) : NO_DATA,
+                           sub: groundingSub(LIVE) }) },
   ownership:  { label:'Ownership Coverage',    ico:'🧑‍💼', color:'var(--c4)', drill:'ownership',
                 get:()=>({ val: LIVE.ownershipPct != null ? LIVE.ownershipPct + '%' : '—',
                            sub: LIVE.ownershipCount != null ? num(LIVE.ownershipCount) + ' owned assets' : 'named owner assigned' }) },
@@ -1244,7 +1283,7 @@ function renderKPIs(){
     if (comparing && RAW[k]) {
       const cur = RAW[k](LIVE), base = RAW[k](BASE);
       if (cur != null && base != null) {
-        const dv = cur - base, unit = (k === 'governed' || k === 'grounding') ? ' pts' : '';
+        const dv = cur - base, unit = (k === 'governed' || (k === 'grounding' && groundingIsShare(LIVE))) ? ' pts' : '';
         sub = `<span class="delta ${dv >= 0 ? 'up' : 'down'}">${dv >= 0 ? '▲' : '▼'} ${Math.abs(dv).toLocaleString()}${unit}</span> `+
               `<span style="color:var(--muted)">since ${ASOF_LABEL}</span>`;
       } else {
@@ -1645,8 +1684,8 @@ const DRILL = {
     stats:[], list:[],
     cta:['AI &amp; MCP docs','/docs/'], sec:['Context audit trail','/egeria-audit'],
     note:'MCP / API access logs are not read by the Overview, so there is no honest count of consumers or calls.' },
-  grounding: { eb:'AI & context intelligence', t:'🧠 Semantic Grounding', s:'Share of assets linked to glossary terms — the meaning layer that grounds AI',
-    stats:[[ND,'grounded'],[ND,'term links'],[ND,'terms']], list:[],
+  grounding: { eb:'AI & context intelligence', t:'🧠 Semantic Grounding', s:'Glossary-term links (SemanticAssignment) per 100 Assets — the meaning layer that grounds AI. A link count, not a share of Assets: one Asset with several terms counts several times.',
+    stats:[[ND,'links per 100 Assets'],[ND,'term links'],[ND,'terms']], list:[],
     cta:['Open Glossary in Explorer','/egeria-explorer#glossary'], sec:null,
     note:'Semantic assignments (term ↔ asset) counted by <code>overview_metrics.semantic_grounding</code> (<code>/api/overview/ai-context</code>).' },
   ownership: { eb:'AI & context intelligence', t:'🧑‍💼 Ownership Coverage', s:'Share of assets carrying a named, accountable owner (Ownership classification)',
@@ -1730,9 +1769,16 @@ function drillLivePatch(key, d){
     if (Array.isArray(LIVE.certSoon) && LIVE.certSoon.length) d.list = LIVE.certSoon.map(c => [c.name, c.days != null ? c.days + 'd' : ND]);
   }
   if (key === 'grounding') {
-    if (LIVE.groundingPct != null) d.stats[0][0] = LIVE.groundingPct + '%';
+    if (groundingVal(LIVE) != null) d.stats[0][0] = groundingVal(LIVE);
+    if (groundingIsShare(LIVE)) {
+      d.stats[0][1] = 'of Assets grounded';
+      d.s = 'Share of Assets with at least one glossary term (SemanticAssignment) — the meaning layer that grounds AI';
+    }
     set(1, LIVE.groundingLinks); set(2, LIVE.terms);
-    if (LIVE.orphanTermCount != null) d.list = [['Orphan terms (no asset links)', LIVE.orphanTermCount]];
+    d.list = [];
+    if (LIVE.groundedAssets != null) d.list.push(['Assets grounded (you can see)', num(LIVE.groundedAssets)]);
+    if (LIVE.groundedAssetNote) d.list.push([LIVE.groundedAssetNote, ND]);   // why the share is missing
+    if (LIVE.orphanTermCount != null) d.list.push(['Orphan terms (no asset links)', LIVE.orphanTermCount]);
   }
   if (key === 'ownership' && LIVE.ownershipPct != null) {
     d.stats[0][0] = LIVE.ownershipPct + '%';
@@ -1995,12 +2041,14 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     }
     // Engine actions (survey runs and the platform's scheduled insight jobs) in the last 24 h.
     var pcnt = document.getElementById('aq-pipeline-count'), pdesc = document.getElementById('aq-pipeline-desc'), ph = st.engineActionHealth;
-    if (pcnt) pcnt.textContent = ph ? (ph.capped ? '\u2265' : '') + ph.failed.toLocaleString() : '\u2014';
+    if (pcnt) pcnt.textContent = overviewPipelineCount(ph);
     if (pdesc) {
       if (!ph) pdesc.textContent = st.asOfTime
         ? 'Not shown for a past as-of time: the engine-action list is only the current state, so it is not mixed with as-of figures'
         : 'Not measured: engine actions could not be read';
       else if (ph.total === 0) pdesc.textContent = 'No engine actions in the last 24 hours';
+      else if (ph.capped && !ph.failed) pdesc.textContent = 'Not measured: only the first ' + ph.total.toLocaleString() +
+        ' engine actions of the last 24 h were read (page cap), and none of those failed; failures beyond them are not counted';
       else {
         var lb = ph.capped ? 'at least ' : '', pp = [lb + ph.failed.toLocaleString() + ' failed of ' + lb + ph.total.toLocaleString() + ' in the last 24 h'];
         if (ph.completed) pp.push(ph.completed.toLocaleString() + ' completed');
@@ -2131,9 +2179,8 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     if (d.assetTotal && d.governedCount != null && d.governedCount <= d.assetTotal) {
       store.governedPctNum = Math.round(100 * d.governedCount / d.assetTotal);
       var gLb = d.governedCapped ? 'at least ' : '';   // false for the native counts; kept for a capped fallback
-      // a non-zero share under 0.5% must not round to a "0%" that reads as nothing governed
-      store.governedPct = (d.governedCapped ? '≥' : '') +
-        ((store.governedPctNum === 0 && d.governedCount > 0) ? '<1' : store.governedPctNum) + '%';
+      // the real share: a non-zero share under 0.5% shows its small value, not "<1%" or "0%"
+      store.governedPct = overviewGovernedPct(d.governedCount, d.assetTotal, d.governedCapped);
       store.governedSub = gLb + fmt(d.governedCount) + ' of ' + fmt(d.assetTotal) + ' assets';
     }
     if (d.certifications != null) {
@@ -2312,10 +2359,15 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
 
   function applyAI(d, store, primary){
     if (!d) return;
-    if (d.groundingPct != null) store.groundingPct = d.groundingPct;
+    if (d.groundingValue != null) {
+      store.groundingValue = d.groundingValue; store.groundingMeasure = d.groundingMeasure;
+      store.groundingPct = d.groundingPct;
+    }
+    if ('groundedAssets' in d) { store.groundedAssets = d.groundedAssets; store.groundedAssetNote = d.groundedAssetNote || null; }
     if (d.groundingLinks != null) store.groundingLinks = d.groundingLinks;
     if (d.ownershipPct != null) store.ownershipPct = d.ownershipPct;
     if (d.ownershipCount != null) store.ownershipCount = d.ownershipCount;
+    store.scopeOwnership = d.ownershipScope || null;   // owned Assets ÷ Assets: the funnel's population
     if (d.aiReadyPct != null) store.aiReadyPct = d.aiReadyPct;
     // The funnel's population (countScope) and AI-Ready's (always a find: what you can see) differ once
     // pyegeria counts totals over the whole repository; then AI-Ready is reported on its own and is not
@@ -2337,7 +2389,11 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     // lineage-traced simultaneously, not three independent counts — see
     // NEXT-18). Context Products/Active AI Consumers/AI Guardrails are not
     // measured -- no backend signal for those yet.
-    if (d.groundingPct != null) setTxt('ai-grounding', d.groundingPct + '%');
+    if (d.groundingValue != null) {
+      setTxt('ai-grounding', groundingVal(d));
+      setTxt('ai-grounding-sub', groundingSub(d));
+      var gsEl = document.getElementById('ai-grounding-sub'); if (gsEl) gsEl.title = groundingNote(d);
+    }
     var f = d.funnel || {};
     if (f.cataloged != null) setTxt('uc-cataloged', fmt(f.cataloged));
     if (f.classified != null) setTxt('uc-classified', fmt(f.classified));
@@ -2588,7 +2644,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
   // Badge for a finished load: all sources -> the requested mode; some -> "partial"; none -> "no data".
   // A refresh that fails leaves the last successfully loaded numbers on screen; say so rather than
   // implying there is no data. (A first load that fails has nothing loaded, so the tiles show dashes.)
-  var SRC_FIELD = { 'summary': 'assets', 'people': 'people', 'usage-context': 'isc', 'ai-context': 'groundingPct' };
+  var SRC_FIELD = { 'summary': 'assets', 'people': 'people', 'usage-context': 'isc', 'ai-context': 'groundingLinks' };
   function statusBadge(st, mode, label){
     if (st.failed.length === 0) return setBadge(mode, label);
     var stale = st.failed.some(function(n){ return LIVE[SRC_FIELD[n]] != null; });

@@ -14,7 +14,10 @@
  *      cell's right edge (or, in a table with no header cells such as a
  *      label/value property table, a column boundary on any row); double-click
  *      that edge to reset the table's widths. Opt out with data-no-col-resize
- *      on the table or an ancestor.
+ *      on the table or an ancestor. A table whose header cells already hold
+ *      the page's own resize handles (egeria-shared-ui.js colResizeHandle,
+ *      local-admin's .col-resize) is left to the page; a plain <colgroup> gets
+ *      its <col> widths set along with the cells'.
  *   2. Layout grids — elements matching the selectors a page registers with
  *      EgeriaResize.grids('.g-2, .detail-grid'). Drag the gap between two
  *      columns; double-click it to reset. A grid that has collapsed to one
@@ -66,19 +69,66 @@
     return !(row.parentElement && row.parentElement.tagName === 'THEAD');
   }
 
+  // Sort indicators (↑ ↓ ⇅ ▲ ▼ …) change with the sort, not the column, so
+  // they are left out of the key: otherwise sorting would lose saved widths.
+  var SORT_MARKS = /[↑↓↕⇅▲△▼▽⬆⬇]/g;
+  function cellLabel(cell) {
+    return (cell.textContent || '').replace(SORT_MARKS, '').trim().slice(0, 24);
+  }
+
   function tableKey(row) {
     // A header-less row holds data, which changes from element to element, so
     // key it on the column count and the first label (e.g. "Qualified Name").
     if (isHeaderless(row)) {
-      return 'kvtable:' + row.cells.length + ':' + (row.cells[0].textContent || '').trim().slice(0, 24);
+      return 'kvtable:' + row.cells.length + ':' + cellLabel(row.cells[0]);
     }
     var names = [];
-    for (var i = 0; i < row.cells.length; i++) names.push((row.cells[i].textContent || '').trim().slice(0, 24));
+    for (var i = 0; i < row.cells.length; i++) names.push(cellLabel(row.cells[i]));
     return 'table:' + names.join('|');
   }
 
   function tableOptedOut(table) {
     return !!table.closest('[data-no-col-resize]');
+  }
+
+  // A table whose page already provides its own column resizing — a drag
+  // handle inside a header cell, e.g. egeria-shared-ui.js's colResizeHandle
+  // (React state + <colgroup>) or local-admin's .col-resize — is left to the
+  // page. Handling it here too made the two fight: this module took the
+  // mousedown (capture phase) and stopped it, so the page's handler only ran
+  // in the few pixels outside EDGE, and the widths written here lost to the
+  // page's <col> widths, so the column did not follow the pointer.
+  // Ownership is read from a cell descendant's resting cursor (inline or
+  // computed). A handle that only gets col-resize on :hover is not detected;
+  // none does today — give such a handle a resting cursor, or put
+  // data-no-col-resize on the table.
+  function cursorOf(el) {
+    var c = el.style && el.style.cursor;
+    if (!c && window.getComputedStyle) c = getComputedStyle(el).cursor;
+    return c || '';
+  }
+  // True for an element that sets a resize cursor of its own — not one that
+  // merely inherits it (e.g. a <span> inside a cell this module is hovering),
+  // and not the element this module itself gave the cursor to.
+  function isResizeCursor(el) {
+    if (el === hoverEl) return false;
+    var c = cursorOf(el);
+    if (c !== 'col-resize' && c !== 'ew-resize') return false;
+    var p = el.parentElement;
+    if (p && p !== hoverEl && !el.style.cursor && cursorOf(p) === c) return false;
+    if (p && p === hoverEl && !el.style.cursor) return false;
+    return true;
+  }
+  function pageOwnsColumns(row) {
+    var now = Date.now();
+    if (row.__egOwnAt && now - row.__egOwnAt < 500) return row.__egOwn;
+    var own = false;
+    for (var i = 0; i < row.cells.length && !own; i++) {
+      var els = row.cells[i].getElementsByTagName('*');
+      for (var j = 0; j < els.length; j++) { if (isResizeCursor(els[j])) { own = true; break; } }
+    }
+    row.__egOwn = own; row.__egOwnAt = now;
+    return own;
   }
 
   function freezeTable(table, row) {
@@ -88,27 +138,83 @@
     return widths;
   }
 
+  // <col> elements, one per column, when the table has a plain colgroup. With
+  // table-layout: fixed a <col> width beats the first row's cell widths, so
+  // they have to be set too or the drag has no visible effect.
+  function simpleCols(table, n) {
+    var cols = table.getElementsByTagName('col'), out = [];
+    for (var i = 0; i < cols.length; i++) {
+      if (cols[i].closest('table') !== table) continue;
+      if ((parseInt(cols[i].getAttribute('span'), 10) || 1) !== 1) return [];
+      out.push(cols[i]);
+    }
+    return out.length <= n ? out : [];
+  }
+
   function applyTableWidths(table, row, widths) {
     if (!widths || widths.length !== row.cells.length) return false;
-    var total = 0;
+    clearTable(table);
+    var total = 0, cells = [], cols = simpleCols(table, widths.length);
     for (var i = 0; i < widths.length; i++) {
       row.cells[i].style.width = widths[i] + 'px';
       row.cells[i].style.boxSizing = 'border-box';
+      cells.push(row.cells[i]);
+      if (cols[i]) {
+        if (!('__egOrigW' in cols[i])) cols[i].__egOrigW = cols[i].style.width;
+        cols[i].style.width = widths[i] + 'px';
+      }
       total += widths[i];
+    }
+    if (!('__egOrigStyle' in table)) {
+      table.__egOrigStyle = { tableLayout: table.style.tableLayout, width: table.style.width, minWidth: table.style.minWidth };
     }
     table.style.tableLayout = 'fixed';
     table.style.width = total + 'px';
     table.style.minWidth = '';
     table.setAttribute('data-egeria-resized', '1');
+    table.__egKey = tableKey(row);
+    table.__egRow = row;
+    table.__egCells = cells;
+    table.__egCols = cols.slice(0, widths.length);
     return true;
   }
 
-  function resetTable(table, row) {
-    for (var i = 0; i < row.cells.length; i++) { row.cells[i].style.width = ''; }
-    table.style.tableLayout = '';
-    table.style.width = '';
+  // Undo every inline style this module wrote on the table, its cells and its
+  // cols — the ones it wrote, even if React has since reused those cells for
+  // different columns — and give the page back its own values.
+  function clearTable(table) {
+    if (!table.hasAttribute('data-egeria-resized')) return;
+    (table.__egCells || []).forEach(function (c) { c.style.width = ''; c.style.boxSizing = ''; });
+    (table.__egCols || []).forEach(function (c) { if ('__egOrigW' in c) { c.style.width = c.__egOrigW; delete c.__egOrigW; } });
+    var o = table.__egOrigStyle || {};
+    table.style.tableLayout = o.tableLayout || '';
+    table.style.width = o.width || '';
+    table.style.minWidth = o.minWidth || '';
+    delete table.__egOrigStyle;
     table.removeAttribute('data-egeria-resized');
+    table.__egKey = table.__egRow = table.__egCells = table.__egCols = null;
+  }
+
+  function resetTable(table, row) {
+    clearTable(table);
     save(tableKey(row), null);
+  }
+
+  // Bring a table in line with its current header: a React re-render can
+  // reuse the same <table> (and even the same cells) for a different set of
+  // columns, leaving the previous view's frozen widths behind.
+  function syncTable(table) {
+    if (tableOptedOut(table)) { clearTable(table); return; }
+    var row = headerRow(table);
+    if (!row || pageOwnsColumns(row)) { clearTable(table); return; }
+    var key = tableKey(row);
+    var marked = table.hasAttribute('data-egeria-resized');
+    if (marked && table.__egKey === key && table.__egRow === row &&
+        table.__egCells && table.__egCells.length === row.cells.length &&
+        table.__egCells.every(function (c, i) { return row.cells[i] === c; })) return;
+    if (marked) clearTable(table);
+    var saved = load(key);
+    if (saved) applyTableWidths(table, row, saved);
   }
 
   // The header cell whose right edge is under the pointer, if any.
@@ -119,7 +225,7 @@
     var table = cell.closest('table');
     if (!table || tableOptedOut(table)) return null;
     var hrow = headerRow(table);
-    if (!hrow) return null;
+    if (!hrow || pageOwnsColumns(hrow)) return null;
     // Header tables: only the header row's edges. Header-less tables: any row
     // whose cells line up with the first row's (same count, no colspans).
     if (hrow !== row && !(isHeaderless(hrow) && row.cells.length === hrow.cells.length)) return null;
@@ -228,6 +334,10 @@
   var drag = null;
 
   function hit(e) {
+    // A page's own drag handle (it sets a col-resize/ew-resize cursor) is the
+    // page's to handle; only the cursor this module set itself is ignored.
+    var tg = e.target;
+    if (tg && tg.nodeType === 1 && tg !== hoverEl && isResizeCursor(tg)) return null;
     var t = tableEdgeAt(e);
     if (t) return { kind: 'table', t: t, hoverEl: t.row.cells[t.idx] };
     var g = gridGapAt(e);
@@ -237,14 +347,32 @@
     return null;
   }
 
-  document.addEventListener('mousemove', function (e) {
-    if (drag) { drag.move(e); return; }
+  // Listeners sit on window in the capture phase, so they run before any page
+  // or React handler (React listens on its root container) can stop the
+  // event; mousedown and dblclick act only when hit() finds a boundary, so
+  // every other click goes on to the page untouched.
+  function endDrag() {
+    if (!drag) return;
+    var d = drag;
+    drag = null;
+    document.body.style.userSelect = '';
+    d.done();
+  }
+
+  window.addEventListener('mousemove', function (e) {
+    if (drag) {
+      // The button was released where no mouseup reached us (outside the
+      // window, over an iframe): finish the drag instead of leaving it stuck.
+      if (e.buttons === 0) { endDrag(); }
+      else { drag.move(e); return; }
+    }
     var h = hit(e);
     setHover(h ? h.hoverEl : null);
   }, true);
 
-  document.addEventListener('mousedown', function (e) {
+  window.addEventListener('mousedown', function (e) {
     if (e.button !== 0) return;
+    endDrag();
     var h = hit(e);
     if (!h) return;
     e.preventDefault();
@@ -281,15 +409,11 @@
     document.body.style.userSelect = 'none';
   }, true);
 
-  document.addEventListener('mouseup', function () {
-    if (!drag) return;
-    drag.done();
-    drag = null;
-    document.body.style.userSelect = '';
-  }, true);
+  window.addEventListener('mouseup', endDrag, true);
+  window.addEventListener('blur', endDrag);
 
   // Double-click a boundary to reset to the page's own layout.
-  document.addEventListener('dblclick', function (e) {
+  window.addEventListener('dblclick', function (e) {
     var h = hit(e);
     if (!h) return;
     e.preventDefault();
@@ -303,14 +427,11 @@
   var pending = false;
   function restoreAll() {
     pending = false;
-    var tables = document.querySelectorAll('table:not([data-egeria-resized])');
-    for (var i = 0; i < tables.length; i++) {
-      if (tableOptedOut(tables[i])) continue;
-      var row = headerRow(tables[i]);
-      if (!row) continue;
-      var saved = load(tableKey(row));
-      if (saved) applyTableWidths(tables[i], row, saved);
-    }
+    if (drag) { schedule(); return; }
+    // Every table, not only unmarked ones: a marked table may since have been
+    // re-rendered with other columns (see syncTable).
+    var tables = document.querySelectorAll('table');
+    for (var i = 0; i < tables.length; i++) syncTable(tables[i]);
     gridSelectors.forEach(function (sel) {
       var els = document.querySelectorAll(sel);
       for (var j = 0; j < els.length; j++) { if (!els[j].__egSynced) { els[j].__egSynced = true; syncGrid(els[j]); } }

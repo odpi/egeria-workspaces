@@ -166,16 +166,16 @@ def test_one_failing_pass_does_not_stop_the_other(client, monkeypatch):
     assert len(ch._ROOTS_CACHE) == 1 and not next(iter(ch._ROOTS_CACHE)).endswith("|fl")
 
 
-def test_roots_cache_is_keyed_on_the_credential_not_a_bare_user_id(client):
+def test_roots_cache_ignores_a_password_in_the_query_string(client):
+    # user_pwd is no longer a query param (BRIEF-PORTAL-PLATFORM-URL-ALLOWLIST): a password in a URL lands in
+    # access logs. One sent anyway is ignored -- it neither changes the cache key nor reaches it.
     c = client(PAGES)
     ch._ROOTS_CACHE.clear()
     c.get("/api/collections/roots", params={"user_id": "peter", "user_pwd": "right"})
     assert len(ch._ROOTS_CACHE) == 1
     c.get("/api/collections/roots", params={"user_id": "peter", "user_pwd": "wrong"})     # same user id, other password
-    assert len(ch._ROOTS_CACHE) == 2                                                      # a miss, not peter's entry
-    c.get("/api/collections/roots", params={"user_id": "peter", "user_pwd": "right"})
-    assert len(ch._ROOTS_CACHE) == 2                                                      # the right password hits
-    assert all("right" not in k and "wrong" not in k for k in ch._ROOTS_CACHE)            # secrets are hashed
+    assert len(ch._ROOTS_CACHE) == 1                                                      # the query password is ignored
+    assert all("right" not in k and "wrong" not in k for k in ch._ROOTS_CACHE)
 
 
 def test_warm_up_failure_is_logged_not_cached_and_never_raises(client, monkeypatch):

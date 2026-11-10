@@ -20,6 +20,8 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from egeria_auth import lineage_key as _lineage_key
+from result_cache import request_identity
+from egeria_error_mapping import raise_if_auth_error
 from fastapi.responses import JSONResponse
 from loguru import logger
 
@@ -260,7 +262,7 @@ def _serialize_node(element: dict) -> dict:
     return node
 
 
-def _find_all_catalogs(mgr) -> list:
+def _find_all_catalogs(mgr, as_of_time: Optional[str] = None) -> list:
     """
     Paginate through all collections and return those with typeName == DigitalProductCatalog.
     graph_query_depth=0 avoids deep relationship traversal, cutting per-page time from ~30s to <0.5s.
@@ -283,6 +285,7 @@ def _find_all_catalogs(mgr) -> list:
                 graph_query_depth=0,
                 sequencing_order="PROPERTY_ASCENDING",
                 sequencing_property="displayName",
+                as_of_time=as_of_time or None,  # point-in-time (the view's As-of slider)
             )
         except Exception as exc:
             logger.warning(f"find_collections page {start_from} failed: {exc}")
@@ -400,6 +403,7 @@ def _children_level(mgr, collection_guid: str, as_of_time: Optional[str] = None)
             body=body,
         )
     except Exception as exc:
+        raise_if_auth_error(exc)   # an expired/refused token is a 401/403, not an empty tree
         logger.warning(f"get_collection_members failed for {collection_guid}: {exc}")
         return []
 
@@ -433,10 +437,11 @@ def get_catalogs(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """Return all DigitalProductCatalog collections (paginated through all available collections)."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -444,7 +449,7 @@ def get_catalogs(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     try:
-        raw_catalogs = _find_all_catalogs(mgr)
+        raw_catalogs = _find_all_catalogs(mgr, as_of_time)
     except Exception as exc:
         logger.exception("Catalog discovery failed")
         raise HTTPException(status_code=500, detail=f"Catalog retrieval failed: {exc}")
@@ -463,14 +468,15 @@ def get_mesh(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     for_lineage: bool = Query(False, description="When True, also return products/dependencies classified Memento/Promise (hidden by default)"),
 ):
     """Return every DigitalProduct (regardless of which catalog it belongs to, or none)
     plus every DigitalProductDependency relationship found between them, as a flat
     {nodes, edges} graph for the Data Mesh view."""
-    cache_key = f"mesh|{url or ''}|{server or ''}|{user_id or ''}|{for_lineage}{_lineage_key()}"
-    cached = _TREE_CACHE.get(cache_key)
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
+    who = request_identity(user_id, user_pwd)  # hashed credential; None = expired token, bypass the cache
+    cache_key = f"mesh|{url or ''}|{server or ''}|{who}|{for_lineage}{_lineage_key()}"
+    cached = (_TREE_CACHE.get(cache_key) if who else None)
     if cached and (time.time() - cached[0]) < _TREE_CACHE_TTL:
         return JSONResponse(cached[1])
 
@@ -501,7 +507,8 @@ def get_mesh(
     edges = [e for e in edges_by_id.values() if e["source"] in node_guids and e["target"] in node_guids]
 
     result = {"nodes": nodes, "edges": edges, "total": len(nodes)}
-    _TREE_CACHE[cache_key] = (time.time(), result)
+    if who:
+        _TREE_CACHE[cache_key] = (time.time(), result)
     return JSONResponse(result)
 
 
@@ -512,7 +519,6 @@ def get_catalog_tree(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """
@@ -521,14 +527,16 @@ def get_catalog_tree(
 
     Tree nodes: {guid, typeName, displayName, ..., isContainer: bool, children: []}
     """
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
         logger.exception("Failed to create CollectionManager")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
-    cache_key = f"{catalog_guid}|{url or ''}|{server or ''}|{user_id or ''}|{as_of_time or ''}{_lineage_key()}"
-    cached = _TREE_CACHE.get(cache_key)
+    who = request_identity(user_id, user_pwd)  # hashed credential; None = expired token, bypass the cache
+    cache_key = f"{catalog_guid}|{url or ''}|{server or ''}|{who}|{as_of_time or ''}{_lineage_key()}"
+    cached = (_TREE_CACHE.get(cache_key) if who else None)
     if cached and (time.time() - cached[0]) < _TREE_CACHE_TTL:
         logger.debug(f"Tree cache hit for {catalog_guid}")
         return JSONResponse(cached[1])
@@ -541,7 +549,8 @@ def get_catalog_tree(
     children = _children_level(mgr, catalog_guid, as_of_time)
 
     result = {"catalog": catalog, "children": children}
-    _TREE_CACHE[cache_key] = (time.time(), result)
+    if who:
+        _TREE_CACHE[cache_key] = (time.time(), result)
     return JSONResponse(result)
 
 
@@ -552,23 +561,25 @@ def get_node_children(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """One level of children for a container node, fetched when the user expands it."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
         logger.exception("Failed to create CollectionManager")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
-    cache_key = f"children|{node_guid}|{url or ''}|{server or ''}|{user_id or ''}|{as_of_time or ''}{_lineage_key()}"
-    cached = _TREE_CACHE.get(cache_key)
+    who = request_identity(user_id, user_pwd)  # hashed credential; None = expired token, bypass the cache
+    cache_key = f"children|{node_guid}|{url or ''}|{server or ''}|{who}|{as_of_time or ''}{_lineage_key()}"
+    cached = (_TREE_CACHE.get(cache_key) if who else None)
     if cached and (time.time() - cached[0]) < _TREE_CACHE_TTL:
         return JSONResponse(cached[1])
 
     result = {"children": _children_level(mgr, node_guid, as_of_time)}
-    _TREE_CACHE[cache_key] = (time.time(), result)
+    if who:
+        _TREE_CACHE[cache_key] = (time.time(), result)
     return JSONResponse(result)
 
 
@@ -578,17 +589,26 @@ def get_node(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """Return detail for a single digital product, family, or asset node.
 
     Tries CollectionManager first (covers all Collection subtypes). If the node is
     a non-collection asset (e.g. TabularDataSet), falls back to AssetMaker.get_asset_by_guid.
     """
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     url_val  = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
     svr_val  = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
     uid      = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
     pwd      = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    if not isinstance(as_of_time, str):
+        as_of_time = None  # a direct Python call (not via FastAPI) leaves the Query() default in place
+    # One GetRequestBody for every get below. It must carry the graph settings itself (pyegeria ignores
+    # the graph kwargs once an explicit body is passed; its defaults truncate mermaid -- egeria-python
+    # PYEGERIA_ISSUES.md ISSUE-23), and asOfTime when the view's As-of slider is set.
+    detail_body = {"class": "GetRequestBody", "graphQueryDepth": 5, "maxMermaidNodeCount": 250}
+    if as_of_time:
+        detail_body["asOfTime"] = as_of_time
 
     try:
         mgr = _get_manager(url_val, svr_val, uid, pwd)
@@ -602,7 +622,7 @@ def get_node(
         # shared get-by-guid helper -- override both for this single-element detail view
         # (see egeria-python PYEGERIA_ISSUES.md ISSUE-23; same default used by every other
         # single-element detail endpoint in this codebase).
-        raw = mgr.get_collection_by_guid(node_guid, output_format="JSON", graph_query_depth=5, max_mermaid_node_count=250)
+        raw = mgr.get_collection_by_guid(node_guid, output_format="JSON", body=dict(detail_body))
     except Exception:
         pass  # not a collection — try asset fallback below
 
@@ -612,7 +632,9 @@ def get_node(
             from pyegeria import AssetMaker
             am = AssetMaker(view_server=svr_val, platform_url=url_val, user_id=uid, user_pwd=pwd)
             apply_token(am)
-            raw = am.get_asset_by_guid(node_guid, output_format="JSON")
+            raw = am.get_asset_by_guid(node_guid, output_format="JSON",
+                                       **({"body": {"class": "GetRequestBody", "asOfTime": as_of_time}}
+                                          if as_of_time else {}))
         except Exception as exc:
             logger.warning("AssetMaker.get_asset_by_guid failed for %s: %s", node_guid, exc)
 
@@ -633,7 +655,7 @@ def get_node(
             raw = ce.get_element_by_guid(
                 guid=node_guid,
                 output_format="JSON",
-                body={"class": "GetRequestBody", "graphQueryDepth": 5, "maxMermaidNodeCount": 250},
+                body=dict(detail_body),
             )
         except Exception as exc:
             logger.exception("ClassificationExplorer.get_element_by_guid failed for %s", node_guid)
@@ -646,11 +668,14 @@ def get_node(
 
     # Fetch direct members so the detail is usable when navigated directly (not via tree)
     try:
+        members_body = {"class": "ResultsRequestBody", "graphQueryDepth": 0}
+        if as_of_time:
+            members_body["asOfTime"] = as_of_time
         raw_members = mgr.get_collection_members(
             collection_guid=node_guid,
             output_format="JSON",
             page_size=200,
-            body={"class": "ResultsRequestBody", "graphQueryDepth": 0},
+            body=members_body,
         )
     except Exception:
         raw_members = []
@@ -670,9 +695,9 @@ def get_tabular_data(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
 ):
     """Fetch a page of rows from a TabularDataSet via DataEngineer.get_tabular_data_set."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         from pyegeria import DataEngineer
         url_val     = url     or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")

@@ -1445,7 +1445,16 @@ function SchemaTable({ data, onNavigate }) {
   var tblHdr = { fontSize: 10, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '4px 8px 4px 0', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap', position: 'relative' };
   var tdStyle = { fontSize: 11, padding: '3px 8px 3px 0', color: 'var(--text)', verticalAlign: 'top', borderBottom: '1px solid var(--border)', overflow: 'hidden', textOverflow: 'ellipsis' };
   var tdDim   = Object.assign({}, tdStyle, { color: 'var(--dim)', whiteSpace: 'nowrap' });
+  // How far to trust the term badges: a missing badge must not read as "no term" when the read was cut
+  // short or failed (semantic_links.py; termsStatus from _serialize_schema).
+  var limit = (data.termsReadLimit || 5000).toLocaleString();
+  var termsNote = data.termsStatus === 'capped'
+      ? 'Glossary-term badges may be incomplete: the term-assignment read stopped at ' + limit + ' assignments.'
+    : data.termsStatus === 'failed'
+      ? 'Glossary-term badges could not be loaded; a row without a badge may still have a term.'
+    : null;
   return React.createElement('div', null,
+    termsNote && React.createElement('div', { style: { fontSize: 11, color: '#fbbf24', marginBottom: 6 } }, termsNote),
     st && React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 } },
       React.createElement('span', { style: { fontSize: 12, color: 'var(--muted)' } }, 'Schema type:'),
       React.createElement('span', { style: { fontSize: 12, fontWeight: 600, color: 'var(--text)' } }, st.typeName || ''),
@@ -1480,12 +1489,14 @@ function SchemaTable({ data, onNavigate }) {
 
 // SchemaPane: renders schemaType + the real nested attribute structure
 function SchemaPane({ guid, creds, onNavigate }) {
+  var asOf = useAsOf();   // the view's As-of slider: the tree, its node lookups and term badges share this time
   function renderSchema(data) {
     return React.createElement(SchemaTable, { data: data, onNavigate: onNavigate });
   }
   return React.createElement(SubPane, {
+    key: asOf || 'now',   // SubPane fetches once per mount: a new time is a new pane
     title: 'Schema',
-    fetchUrl: '/api/tech-catalog/assets/' + encodeURIComponent(guid) + '/schema',
+    fetchUrl: '/api/tech-catalog/assets/' + encodeURIComponent(guid) + '/schema' + asOfParam(asOf),
     creds: creds,
     renderContent: renderSchema,
   });
@@ -2398,7 +2409,8 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
     )
   );
 
-  return React.createElement(SidebarDetail, {
+  // AsOfContext: the shared widgets inside (diagrams, assigned elements, raw JSON, feedback) follow the slider.
+  return React.createElement(AsOfContext.Provider, { value: asOfTime }, React.createElement(SidebarDetail, {
     items: filtered, loading: loading, error: error, selected: selected, onSelect: handleSelect,
     filterBar: filterBar,
     loadingText: cached ? 'Loading the full list… The first load can take a few seconds; after that it is kept for up to 15 minutes — use Refresh to reload it sooner.' : null,
@@ -2432,7 +2444,7 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
       }
       return React.createElement(AssetDetail, { item: detail, detailLoading: detailLoad, onNavigate: onNavigate, creds: creds, sectionId: sectionId });
     },
-  });
+  }));
 }
 
 // ── Software Capabilities — hierarchy · instances · detail ──────────────────
@@ -2576,7 +2588,8 @@ function CapabilitiesView({ creds, onNavigate }) {
     .filter(function(i) { return !q.trim() || (i.displayName || i.qualifiedName || '').toLowerCase().indexOf(q.trim().toLowerCase()) !== -1; })
     .sort(function(a, b) { return (a.displayName || a.qualifiedName || '').localeCompare(b.displayName || b.qualifiedName || ''); });
 
-  return React.createElement('div', { className: 'body' },
+  // AsOfContext: the shared widgets inside (diagrams, assigned elements, raw JSON, feedback) follow the slider.
+  return React.createElement(AsOfContext.Provider, { value: asOfTime }, React.createElement('div', { className: 'body' },
     // Left: hierarchy + time slider
     React.createElement('div', { style: { width: treeW, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRight: '1px solid var(--border)' } },
       React.createElement('div', { style: { padding: '10px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 } },
@@ -2654,7 +2667,7 @@ function CapabilitiesView({ creds, onNavigate }) {
         })()
       : React.createElement(AssetDetail, { item: detail, detailLoading: detailLoad, onNavigate: onNavigate, creds: creds, sectionId: 'software-capabilities' })
     )
-  );
+  ));
 }
 
 // ── Annotation components ─────────────────────────────────────────────────────
@@ -3098,7 +3111,8 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
 
   var hasItems = !loading && !err && items && items.length > 0;
 
-  return el('div', { style: { display: 'flex', flex: 1, overflow: 'hidden', flexDirection: 'column' } },
+  // AsOfContext: the shared widgets inside (diagrams, assigned elements, raw JSON, feedback) follow the slider.
+  return React.createElement(AsOfContext.Provider, { value: asOf }, el('div', { style: { display: 'flex', flex: 1, overflow: 'hidden', flexDirection: 'column' } },
     // Toolbar
     el('div', { style: { padding: '6px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
       el(TimeSlider, { onChange: function(t) { setAsOf(t); load(q, filter, t); }, label: 'As of' }),
@@ -3221,7 +3235,7 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
         el(AnnotationCard, { ann: sel, onNavigate: onNavigate, annotTypeVals: annotTypeVals })
       )
     )
-  );
+  ));
 }
 
 

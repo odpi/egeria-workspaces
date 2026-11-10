@@ -10,8 +10,9 @@ that lists the outstanding "next steps" for this very feature, tracked as
 actual Egeria Work Items rather than a paragraph of prose.
 
 See also: [`OVERVIEW_REPORTING_MODEL.md`](https://github.com/odpi/egeria-workspaces/blob/main/compose-configs/egeria-quickstart/PyegeriaWebHandler/OVERVIEW_REPORTING_MODEL.md) §10
-for the design history and open decisions (Dashboard Sheet → Egeria
-Collection subtype migration, generic execution engine),
+for the design history,
+[`report-specs-dashboards-egeria-model.md`](../Internals/report-specs-dashboards-egeria-model.md)
+for how sheets are held in Egeria,
 [Digital Product & Subscription Dashboard](digital-product-subscription.md)
 for a business-oriented worked example focusing on Data Products and
 Subscriptions,
@@ -35,13 +36,12 @@ see "Analytic reports" below) — another Dashboard Sheet (nesting), or
 literal **markdown text** (`Add Text on Dashboard Sheet` — a caption/section
 header, no Egeria element at all), plus two layout hints:
 `span` (`"1"` / `"2"` / `"full"`, how wide the tile is) and `emphasis`
-(`"kpi"` compact vs `"panel"` larger/detailed). Dashboard Sheets themselves
-still live in a local JSON file (`~/.pyegeria/dashboard_sheets.json` by
-default, override with `PYEGERIA_DASHBOARD_SHEETS_STORE`) — they are **not
-yet** Egeria elements (that's planned; see the design doc) — but as of
-2026-07-29 a Placement's target *is* a real element, resolved with a live
-Egeria lookup, not a local-registry-only reference. Local Dashboards is the
-portal app that lists and renders Dashboard Sheets.
+(`"kpi"` compact vs `"panel"` larger/detailed). Since pyegeria 6.2.29 a
+Dashboard Sheet is **held in Egeria** as a small chain of elements (see
+"Where Dashboard Sheets live" below). The older local JSON file
+(`~/.pyegeria/dashboard_sheets.json`) is now only a fallback for sheets
+that have not been moved into Egeria yet. Local Dashboards is the portal
+app that lists and renders Dashboard Sheets.
 
 **Report vs. Report Spec — don't confuse them.** A Report Spec (`FormatSet`)
 is a *template*: what to query and how it can be formatted, with no fixed
@@ -59,6 +59,85 @@ computed tiles like the growth chart, not stored Report Specs). Dashboard
 Sheets are the **user-authored** model — anyone can build one without
 touching Python.
 
+## Where Dashboard Sheets live
+
+*(Updated 2026-11-10, pyegeria 6.2.29.)*
+
+### In Egeria
+
+A sheet is stored in Egeria as this chain of elements. Each one is named
+after the sheet's `Display Name`:
+
+| Element | Qualified name | What it holds |
+|---|---|---|
+| `Dashboard` (an asset) | `Dashboard::<sheet name>` | the sheet itself; its display name is the sheet's heading. It carries an `Ownership` classification naming the sheet's owner |
+| `DisplayDataSchemaType` | `DashboardSchema::<sheet name>` | the sheet's layout, linked from the Dashboard by a `Schema` relationship |
+| `DisplayDataContainer` | `DashboardSheet::<sheet name>` | the ordered list of placements |
+| `DisplayDataField`, one per placement | `DashboardPlacement::<sheet name>::<position>::<placement name>` | the span and style of a tile, or the markdown of a text placement |
+
+A report placement is linked to its `Report` with a `DataSetContent`
+relationship from the Dashboard. Deleting a sheet removes this chain only.
+It never deletes a `Report` or a Report Spec, because a sheet shows reports,
+it does not own them.
+
+### The local file, as a fallback
+
+Before 6.2.29 every sheet lived in a JSON file
+(`PYEGERIA_DASHBOARD_SHEETS_STORE`, default `~/.pyegeria/dashboard_sheets.json`).
+The Portal still reads that file, but only for sheet names Egeria does not
+hold:
+
+- The Portal reads Egeria first. **If a name is in Egeria, the Egeria copy
+  wins** and the local copy is ignored.
+- Each sheet card, sheet heading and placement shows a small tag saying
+  where it is held: **Egeria** or **local file**.
+- If Egeria cannot be read, the page says so in a note ("Egeria could not
+  be read, so only sheets from the local file are shown…") instead of
+  showing a shorter list as if it were complete.
+- If a sheet's chain in Egeria is broken (for example a `Dashboard` made with
+  plain `Create Dashboard`, which has no layout), the sheet is still listed,
+  with a note naming what is missing.
+
+On the quickstart demo the five sheets that used to be in the file — Chief
+Data Officer Dashboard, `local-dashboards-next-steps`, Assets by Type and
+Location Demo, `digital-product-portfolio` and `my-team-dashboard` — were
+moved into Egeria on 2026-11-10. They kept their names and are owned by
+`erinoverview`. Their entries were then removed from the local file, so
+each name now opens only the Egeria copy.
+
+### Commands for sheets held in Egeria
+
+pyegeria 6.2.29 has a small command-line tool. Inside the Portal's container
+it already has the connection settings it needs (`EGERIA_VIEW_SERVER`,
+`EGERIA_PLATFORM_URL`, `EGERIA_USER`, `EGERIA_USER_PASSWORD`); elsewhere,
+set those first.
+
+```bash
+python -m pyegeria.view.dashboards list                 # every sheet held in Egeria
+python -m pyegeria.view.dashboards show "my-team-dashboard"   # one sheet and its placements
+python -m pyegeria.view.dashboards migrate --dry-run    # what migrate WOULD write; writes nothing
+python -m pyegeria.view.dashboards migrate [--sheet NAME] [--rename NEW_NAME] [--store PATH] [--owner USER]
+python -m pyegeria.view.dashboards delete --sheet NAME [--dry-run] [--local]
+```
+
+- `list` and `show` only read. `show` says so plainly if no sheet of that
+  name is in Egeria.
+- `migrate` copies sheets from the local file into Egeria. With no
+  `--sheet` it copies every sheet in the file. `--rename` writes one
+  `--sheet` under a different name (a scratch copy you can try out first).
+  `--owner` sets the owner (default: the signed-in user); a sheet that
+  already has an owner keeps it. Running it again changes nothing that is
+  already right. It **never changes the local file**: remove the old entry
+  yourself once you have checked the Egeria copy (`delete --local` does
+  not help here, because it also deletes the Egeria copy).
+- `delete` removes a sheet's chain from Egeria (never its Reports).
+  `--local` also removes the sheet's entry from the local file.
+
+> **`migrate` and `delete` are shared writes.** Everyone using this Egeria
+> sees the result. On a shared environment, agree it with whoever looks
+> after that Egeria before you run them, run them once, and use
+> `--dry-run` first to see exactly what will be written.
+
 ## Prerequisites
 
 - A running Egeria platform + view server you can reach (the quickstart
@@ -69,39 +148,36 @@ touching Python.
   `/egeria-explorer#report-specs`, or `GET /api/report-specs` — each one's
   `name` (or any of its `aliases`) is what a Placement's `ref` needs.
 
-### Where `dr_egeria` has to run — this is the #1 gotcha
+### Where `dr_egeria` writes, and where to run it
 
-`Create Dashboard Sheet` and `Link Report to Dashboard Sheet` don't write to
-Egeria — they write to a **local JSON file** on whatever machine/container
-runs `dr_egeria` (`PYEGERIA_DASHBOARD_SHEETS_STORE`, default
-`~/.pyegeria/dashboard_sheets.json`). The Local Dashboards portal app only
-ever reads the copy of that file **inside the running
-`quickstart-pyegeria-web` container** (`/root/.pyegeria/dashboard_sheets.json`)
-— that path **is** bind-mounted to the host, at
-`runtime-volumes/quickstart-pyegeria-state/dashboard_sheets.json` (verified
-2026-07-31 via `docker inspect quickstart-pyegeria-web`; an earlier version
-of this doc said "not bind-mounted", which was wrong — it just isn't the
-*default* path, so running `dr_egeria` with no override still misses it).
+Since pyegeria 6.2.29, `Create Dashboard Sheet`, `Link Report to Dashboard
+Sheet` and `Add Text on Dashboard Sheet` write each sheet **into Egeria**
+(the chain described above) **and** into the local file
+(`PYEGERIA_DASHBOARD_SHEETS_STORE`, default `~/.pyegeria/dashboard_sheets.json`)
+on whatever machine or container runs `dr_egeria`. The local copy is kept so
+the file stays a complete fallback while the move to Egeria is under way.
+The command output has an **Egeria** line that says whether Egeria was
+written.
 
-So if you run `dr_egeria` on your own machine with default settings (your
-laptop's `~/.pyegeria/`), the run succeeds, but it writes to a completely
-different file the portal never sees — the dashboard looks unchanged even
-though `dr_egeria` reported `SUCCESS`. There's no error to catch this; the
-file paths just quietly don't match.
+- Every write is an update-or-create by name, so re-running a whole
+  `.dr-egeria.md` file is safe and changes nothing that is already right.
+- If Egeria cannot be reached, the command writes only the local file and
+  says so. `dr_egeria --local-only` (or `PYEGERIA_DASHBOARD_SHEETS_LOCAL_ONLY=1`)
+  does the same on purpose. A sheet written only to a local file shows up in
+  the Portal only if that file is the one the Portal reads (see below).
+- If you place a report on a sheet that is still only in the local file,
+  the whole sheet is first written to Egeria, so the Egeria copy is never
+  partial.
+- Because the Portal reads Egeria first, it no longer matters much which
+  machine you run `dr_egeria` on: any machine connected to the same Egeria
+  updates the sheet the Portal shows.
 
-**Recommended fix: point `dr_egeria` at the bind-mounted path directly**,
-so it updates the exact file the container reads, in place — no separate
-copy step, and no risk of clobbering other placements a `docker cp` of a
-stale host file would overwrite (see the warning at the end of this
-section):
-
-```bash
-export PYEGERIA_DASHBOARD_SHEETS_STORE="/path/to/egeria-workspaces-fs/runtime-volumes/quickstart-pyegeria-state/dashboard_sheets.json"
-dr_egeria --validate my-dashboard.dr-egeria.md
-dr_egeria --process  my-dashboard.dr-egeria.md
-```
-
-**Always run it inside the container** that's actually serving the portal:
+The local file the Portal falls back to is the one **inside the
+`quickstart-pyegeria-web` container** (`/root/.pyegeria/dashboard_sheets.json`),
+bind-mounted to the host at
+`runtime-volumes/quickstart-pyegeria-state/dashboard_sheets.json`.
+`GET /api/local-dashboards` reports it as `storePath`. To run `dr_egeria`
+inside that container:
 
 ```bash
 docker cp my-dashboard.dr-egeria.md quickstart-pyegeria-web:/tmp/my-dashboard.md
@@ -109,40 +185,10 @@ docker exec quickstart-pyegeria-web dr_egeria --validate /tmp/my-dashboard.md
 docker exec quickstart-pyegeria-web dr_egeria --process  /tmp/my-dashboard.md
 ```
 
-If you edit an existing sheet's `.dr-egeria.md` file in the repo and rerun
-it this way, `Create` commands upsert and placements merge by `ref`, so
-it's always safe to rerun the whole file — no need to hand-pick just the
-new commands. If you want to sanity-check which file the running portal is
-actually reading before or after a run, `GET /api/local-dashboards`'s
-`storePath` field tells you.
-
-**Caveat as of 2026-07-29**: `Create Report` and the updated `Link Report to
-Dashboard Sheet` (`Report Name`, not `Report Spec`) only exist in the
-egeria-python dev checkout's own `.venv` so far, not yet in a pyegeria
-release published to PyPI — so they aren't available via `docker exec
-quickstart-pyegeria-web dr_egeria ...` (that container's installed pyegeria
-predates them) until the next release lands. Until then, run those two
-commands from `egeria-python`'s own `.venv` (`source .venv/bin/activate`,
-same host/container distinction applies to *that* run too) with
-`PYEGERIA_DASHBOARD_SHEETS_STORE` set to the bind-mounted path shown above.
-`Create Dashboard Sheet` and the original `Link Report to Dashboard Sheet`
-(pre-cutover) both still work fine via `docker exec` as described above —
-only the two Report-related commands need the venv/store-path workaround
-for now.
-
-**⚠️ If you use `docker cp` instead of the store-path override above,
-`docker cp` *replaces* the destination file — it doesn't merge.** Copying
-in a host `~/.pyegeria/dashboard_sheets.json` that's missing placements the
-container's copy already has (e.g. ones added earlier via the browser's Run
-Dr.Egeria Document panel, which always writes straight to the container's
-own file) silently deletes those placements — no warning, no error. Hit
-this firsthand while building the Analytics Demo addition below: a
-`docker cp` from a stale host file dropped three placements
-(`Tasks`/`Test-MD`/`My own mermaid`) that only existed in the container's
-copy, recovered by re-running the source `.dr-egeria.md` files (upsert-safe)
-against the bind-mounted path directly. Prefer the
-`PYEGERIA_DASHBOARD_SHEETS_STORE` override — it updates the live file in
-place, so there's nothing to merge or lose.
+**Do not `docker cp` a `dashboard_sheets.json` into the container.** It
+replaces the file rather than merging it, so any sheet or placement only in
+the container's copy is lost without a warning. Re-run the source
+`.dr-egeria.md` files instead.
 
 ### No shell/Docker access? Run it from the browser instead
 
@@ -152,8 +198,8 @@ document (single command or many, same syntax as any `.dr-egeria.md` file)
 and hit Validate or Process. This calls
 `POST /api/dr-egeria/execute-document`
 (`dr_egeria_commands_handler.py`), which runs in the same backend process
-that serves this page — so it always writes to the store this portal reads,
-sidestepping the "wrong machine" problem above entirely. On a successful
+that serves this page — so it writes to Egeria and to the local file this
+portal falls back to, with no "wrong machine" problem at all. On a successful
 Process the page refreshes itself, so a newly-added placement shows up
 immediately.
 
@@ -240,7 +286,8 @@ ___
 
 One gotcha worth knowing up front:
 
-- `Display Name` is what the processor keys the local JSON store on — it's
+- `Display Name` is the sheet's name. It names the sheet in Egeria
+  (`Dashboard::<Display Name>`) and in the local file. It's
   also what every `Link Report to Dashboard Sheet`/`Add Text on Dashboard
   Sheet` placement's `Dashboard Sheet Name` attribute must match exactly
   (that attribute references an *existing* sheet by name; it's a different
@@ -249,14 +296,14 @@ One gotcha worth knowing up front:
   separate `Dashboard Sheet Name` attribute alongside `Display Name` — now
   it's `Display Name` only.)
 - Re-running `Create Dashboard Sheet` with the same name **upserts** — it
-  merges into the existing record rather than erroring, so it's safe to
+  updates the existing sheet rather than erroring, so it's safe to
   re-run this step while iterating on heading/description text.
 
 Run it:
 
 ```bash
 dr_egeria --validate my-team-dashboard.md   # catches typos/attribute issues, no changes made
-dr_egeria --process  my-team-dashboard.md   # writes to the local JSON store
+dr_egeria --process  my-team-dashboard.md   # writes the sheet to Egeria (and the local file)
 ```
 
 ## Step 3 — Create a Report, then place it
@@ -418,34 +465,44 @@ Sheet`'s `Report Name`), so it's safe to iterate on copy.
 
 Open `/local-dashboards` in the portal (or navigate straight to
 `/local-dashboards?sheet=my-team-dashboard`). The list view shows every
-sheet in the store; the detail view resolves each placement, runs the
-auto-runnable ones inline, and shows a pointer for the rest.
+sheet held in Egeria plus any sheet that is only in the local file, each
+tagged **Egeria** or **local file**; the detail view resolves each
+placement, runs the auto-runnable ones inline, and shows a pointer for the
+rest.
 
-If nothing shows up: check `storePath` in `GET /api/local-dashboards`'s
-response matches where `dr_egeria` actually wrote (same
-`PYEGERIA_DASHBOARD_SHEETS_STORE` env var, same container/host).
+To check from the command line that the sheet reached Egeria:
+
+```bash
+python -m pyegeria.view.dashboards show "my-team-dashboard"
+```
+
+If nothing shows up: check the `dr_egeria` output's **Egeria** line. If it
+says Egeria was not written, the sheet is only in a local file — check that
+`storePath` in `GET /api/local-dashboards`'s response matches where
+`dr_egeria` wrote it, or re-run with a working Egeria connection.
 
 ### Deleting a Dashboard Sheet
 
-Both the list view (a 🗑 icon on each card) and the detail view (a "Delete
-Dashboard" button next to the heading) let you delete a Dashboard Sheet
-after a confirmation prompt — backed by `DELETE
-/api/local-dashboards/{name}`. This removes the Sheet and its Placement
-list only; it never deletes the underlying Egeria `Report` elements any
-placement referenced, since a Report is an independent, reusable object
-that may be linked from other sheets too. If some other sheet nests the
-deleted one as a Placement, that placement just starts rendering
-"Unresolved reference" on its next load — the same graceful degrade every
-other missing reference already gets, not a hard constraint this endpoint
-enforces.
+**A sheet held in Egeria** (tagged **Egeria**) has no delete button in the
+Portal. Delete it with the command-line tool, which is a shared write (see
+"Commands for sheets held in Egeria" above):
 
-**This is a local-JSON-store operation today, not an Egeria delete** — see
-the "Concepts" section above and `_output_dashboard_sheet_models.py`'s own
-docstring: Dashboard Sheet isn't yet a real Egeria element. When it becomes
-one (a planned `Collection` subtype migration, not yet started), this
-endpoint's implementation changes to a real Egeria delete instead of a
-dict pop + JSON rewrite — the frontend delete flow (confirm → call → return
-to list) shouldn't need to change, only what's behind the endpoint.
+```bash
+python -m pyegeria.view.dashboards delete --sheet "my-team-dashboard" --dry-run   # see what would go
+python -m pyegeria.view.dashboards delete --sheet "my-team-dashboard" --local     # Egeria chain + local entry
+```
+
+**A sheet only in the local file** (tagged **local file**) can still be
+deleted in the Portal: the list view has a 🗑 icon on each card and the
+detail view a "Delete Dashboard" button, both behind a confirmation prompt
+(`DELETE /api/local-dashboards/{name}`). You need to be signed in to use
+them. This removes only the local entry.
+
+Either way, deleting a sheet never deletes the Egeria `Report` elements its
+placements show, since a Report is an independent, reusable object that may
+be linked from other sheets too. If some other sheet nests the deleted one
+as a Placement, that placement shows "Unresolved reference" on its next
+load.
 
 ## Troubleshooting
 
@@ -461,13 +518,22 @@ to list) shouldn't need to change, only what's behind the endpoint.
 | Tile shows a red box "THE SPEC REFUSED TO RUN (400)" | pyegeria raised an error when the tile ran: a role it needs is not supplied, or a parameter value it refuses (for example `*` over the root type) | Read the words in the box; they name the cause. Change the Report's `Search String` or parameters and re-run `Create Report` |
 | Tile shows "SIGN-IN NEEDED (401)" | Egeria refused the user the tile ran as, or the token had expired | The words are `Not authorized for this operation — the current user does not have permission for this report`. Sign in again, or check the user has access to the elements the spec reads |
 | A count reads "not measured" with a note under it | pyegeria could not measure it: the query failed or timed out, or a scan stopped before reading every page | Expected, and not zero. Fix the cause named in the note and refresh the tile |
-| Sheet doesn't appear in the list at all | Wrong store path, or `--validate` was the last run instead of `--process` | Compare `storePath` from `GET /api/local-dashboards` against your `PYEGERIA_DASHBOARD_SHEETS_STORE`; re-run with `--process` |
-| `dr_egeria` reports `SUCCESS` but the dashboard doesn't change at all — new/edited placement never shows up | Either ran on the wrong machine (host instead of inside `quickstart-pyegeria-web` — see "Where `dr_egeria` has to run" above), or `Create Report`/the updated `Link Report to Dashboard Sheet` aren't in the pyegeria version that machine has installed yet | Re-run via `docker exec quickstart-pyegeria-web dr_egeria --process ...` once those commands are in a published pyegeria release; until then, run from the egeria-python dev checkout's own `.venv` and `docker cp` the resulting `~/.pyegeria/dashboard_sheets.json` into the container afterward |
+| Sheet doesn't appear in the list at all | `--validate` was the last run instead of `--process`; or Egeria was not written (see the **Egeria** line of the `dr_egeria` output) and the sheet went to a local file the Portal doesn't read | Re-run with `--process` against a working Egeria connection; `python -m pyegeria.view.dashboards show NAME` confirms it is in Egeria |
+| Edits to a sheet don't show, though `dr_egeria` reports `SUCCESS` | The sheet is held in Egeria (tag **Egeria**) and the run wrote only a local file (`--local-only`, or Egeria could not be reached). Egeria's copy wins | Re-run without `--local-only` once Egeria can be reached |
+| Note: "Egeria could not be read, so only sheets from the local file are shown" | The Portal could not read Egeria; sheets held there are missing from the list | Fix the Egeria connection (sign in again, or check the platform) and reload |
+| Note: "Chain broken in Egeria: …" | A part of the sheet's element chain is missing in Egeria (for example a `Dashboard` made with plain `Create Dashboard`) | Re-run the sheet's `.dr-egeria.md` file: every write is update-or-create, so missing parts are written again. `python -m pyegeria.view.dashboards show NAME` lists what is still missing |
 | Nested sheet placement | Currently shows an "Open nested sheet →" link, not inline rendering | By design for now — recursive inline rendering needs cycle detection first (see the Next Steps dashboard below) |
 | Tile shows a huge, unrelated wall of text/diagram, or a "*(truncated...)*" note | The Report's `Search String` is blank/unscoped against a broad spec | Rerun `Create Report` for that Report with a real `Search String` — this is exactly what the worked example's "Membership Diagram" Report demonstrates fixing |
 | Diagram doesn't render, raw ` ```mermaid ` text shows instead | Content was truncated mid-diagram by the 20,000-character cap, so the fence never closes | The diagram was too large to render at all; same underlying scoping gap as above |
 
 ## Worked example: the "Next Steps" dashboard
+
+> **These example sheets are now held in Egeria.** On the quickstart demo,
+> `local-dashboards-next-steps`, Assets by Type and Location Demo,
+> `digital-product-portfolio`, `my-team-dashboard` and the Chief Data
+> Officer Dashboard were moved into Egeria on 2026-11-10 and are owned by
+> `erinoverview`. The `.dr-egeria.md` files below still work: re-running one
+> updates the Egeria copy (and writes a fresh local copy as the fallback).
 
 Rather than a toy example, the shared folder's
 [`LOCAL_DASHBOARDS_ROADMAP.dr-egeria.md`](https://github.com/odpi/egeria-workspaces/blob/main/exchange-quickstart/loading-bay/dr-egeria-inbox/Local%20Dashboards/LOCAL_DASHBOARDS_ROADMAP.dr-egeria.md)

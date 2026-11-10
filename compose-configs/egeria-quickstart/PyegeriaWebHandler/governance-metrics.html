@@ -13,6 +13,7 @@
 <script src="/static/bootstrap-banner.js?v=2026-08-18a"></script>
 <script src="/static/diagram-viewer.js?v=2026-11-06a"></script>
 <script src="/static/egeria-not-measured.js?v=2026-11-08a"></script>
+<script src="/static/report-spec-source.js?v=2026-11-10a"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 <style>
   :root {
@@ -67,6 +68,8 @@
   .run-panel { margin-top:16px; }
   .run-out { background:var(--card2); border:1px solid var(--border); border-radius:8px; padding:12px 14px; margin-top:10px; font-size:.78rem; font-family:ui-monospace,monospace; white-space:pre-wrap; overflow-x:auto; max-height:340px; overflow-y:auto; }
   .loading { color:var(--muted); font-size:.85rem; padding:20px; text-align:center; }
+  .eg-embedded #_bootstrap-banner { display:none !important; }
+  .eg-embedded .wrap { padding-top:16px; }
 </style>
 </head>
 <body>
@@ -74,23 +77,94 @@
         data-subtitle="GovernanceMetric → GovernanceResults → Report lineage" data-feedback="governance-metrics">
   <div class="eg-appbar-extras"><a class="btn" href="/egeria-overview">📊 Overview Dashboard</a></div>
 </header>
+<script>
+// Embedded as Egeria Audit's "Governance Metrics" tab (?embed=1): Audit's own app bar and
+// bootstrap banner are already on screen, so drop this page's bar and banner.
+if (/[?&]embed=1(&|$)/.test(location.search)) {
+  document.documentElement.classList.add('eg-embedded');
+  var _gmBar = document.querySelector('header.eg-appbar');
+  if (_gmBar) _gmBar.remove();
+}
+</script>
 <div class="wrap" id="app">
   <div class="loading">Loading…</div>
 </div>
 
 <script>
+// Embedded in Egeria Audit (?embed=1): wait briefly for Audit's selected viewer, then read Egeria
+// as that viewer (X-Egeria-Token). Standalone, or with no viewer, the Portal's service user reads.
+var EMBEDDED = /[?&]embed=1(&|$)/.test(location.search);
+var GM = { viewer: null, done: false, resolve: null };   // viewer: { token, userId, label } from Audit
+var VIEWER = null;   // always GM.viewer; what the fetches and the note use
+
+// What to do with a message from Audit (pure: tests/test_governance_metrics_viewer_js.py).
+// Before the first load: take the viewer and start. After it (a late answer, or a new viewer):
+// take it and reload, so the list, the note and later runs are all the same identity.
+// Returns 'ignored' | 'first' | 'reload' | 'same'.
+function gmReceiveViewer(gm, data, reload) {
+  if (!data || data.type !== 'egeria-viewer') return 'ignored';
+  var v = { token: data.token || '', userId: data.userId || '', label: data.label || '' };
+  var changed = !gm.viewer || gm.viewer.token !== v.token || gm.viewer.label !== v.label;
+  gm.viewer = v;
+  if (!gm.done) { gm.done = true; if (gm.resolve) gm.resolve(); return 'first'; }
+  if (changed) { reload(); return 'reload'; }
+  return 'same';
+}
+// The 2 s wait ran out with no viewer: start as the service user (the note says so).
+function gmTimeout(gm) {
+  if (gm.done) return false;
+  gm.done = true;
+  if (gm.resolve) gm.resolve();
+  return true;
+}
+
+var _viewerReady = new Promise(function(resolve){
+  GM.resolve = resolve;
+  if (!EMBEDDED || window.parent === window) { GM.done = true; resolve(); return; }
+  window.addEventListener('message', function(e){
+    if (e.origin !== location.origin || e.source !== window.parent) return;
+    gmReceiveViewer(GM, e.data, function(){ VIEWER = GM.viewer; STATE.loaded = false; route(); fetchMetrics().then(route); });
+    VIEWER = GM.viewer;
+  });
+  try { window.parent.postMessage({ type: 'egeria-viewer-request' }, location.origin); } catch (e) {}
+  setTimeout(function(){ gmTimeout(GM); }, 2000);
+});
+function viewerHeaders(h){
+  h = h || {};
+  if (VIEWER && VIEWER.token) h['X-Egeria-Token'] = VIEWER.token;
+  return h;
+}
+function viewerNote(){
+  if (!EMBEDDED) return '';
+  var who = (VIEWER && VIEWER.token)
+    ? 'Shown as <b>' + esc(VIEWER.label || VIEWER.userId || 'the selected viewer') + '</b>, the viewer selected in Egeria Audit.'
+    : "Shown as the Portal's service user: no viewer is selected in Egeria Audit (choose a persona or connect).";
+  return '<div class="p-note" style="margin:-6px 0 8px">' + who + '</div>';
+}
+
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 
 var STATE = { metrics: [], loaded: false, error: null };
 
+// Only the newest load may change the page (pure: tests/test_governance_metrics_viewer_js.py).
+// A load started for an earlier viewer that answers after a newer one is dropped, so the
+// service user's list can never land under the selected viewer's note.
+function gmLoadTicket(gm) {
+  gm.seq = (gm.seq || 0) + 1;
+  var mine = gm.seq;
+  return function isCurrent() { return gm.seq === mine; };
+}
+
 function fetchMetrics(){
-  return fetch('/api/governance-metrics')
+  var current = gmLoadTicket(GM);
+  return fetch('/api/governance-metrics', { headers: viewerHeaders() })
     .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-    .then(function(d){ STATE.metrics = d.metrics || []; STATE.loaded = true; STATE.error = null; })
-    .catch(function(e){ STATE.error = String(e); STATE.loaded = true; });
+    .then(function(d){ if (!current()) return; STATE.metrics = d.metrics || []; STATE.loaded = true; STATE.error = null; })
+    .catch(function(e){ if (!current()) return; STATE.error = String(e); STATE.loaded = true; });
 }
 
 function route(){
+  if (!STATE.loaded) { document.getElementById('app').innerHTML = '<div class="loading">Loading…</div>'; return; }
   var hash = location.hash.replace(/^#/, '');
   if (hash.startsWith('metric=')) {
     renderDetail(decodeURIComponent(hash.slice('metric='.length)));
@@ -109,6 +183,7 @@ function renderList(){
     return;
   }
   var html = '';
+  html += viewerNote();
   html += '<div class="pagehead"><div><h1>Governance Metrics <span class="badge badge-live">' + STATE.metrics.length + ' live</span></h1>';
   html += '<p>Each card is a real <code>GovernanceMetric</code> Egeria element (model 0450), linked via a real <code>GovernanceResults</code> relationship to the <code>Report</code> that computes it. This is Tier 1 of the lineage design — it stops at the Report; the analytic function and its data source aren\'t Egeria elements yet (see BACKLOG.md).</p></div></div>';
   if (!STATE.metrics.length) {
@@ -121,7 +196,6 @@ function renderList(){
       html += '<div class="desc">' + esc(m.summary || 'No summary set.') + '</div>';
       html += '<div class="meta">';
       html += m.report ? '<span class="badge badge-live">→ ' + esc(m.report.name) + '</span>' : '<span class="badge">no linked Report</span>';
-      if (m.dataFlow) html += '<span class="badge">🔗 data flow</span>';
       html += '</div></div>';
     });
     html += '</div>';
@@ -136,6 +210,7 @@ function renderDetail(name){
 
   var html = '';
   html += '<div class="back"><a class="btn" href="#">← All metrics</a></div>';
+  html += viewerNote();
   html += '<div class="pagehead"><div><h1>' + esc(m.name) + '</h1></div></div>';
 
   html += '<div class="detail-grid">';
@@ -155,9 +230,6 @@ function renderDetail(name){
     setTimeout(function(){ renderMermaidBlock(mermaidId, code); }, 0);
   } else {
     html += '<div class="p-note">No GovernanceResults link found — this metric has no Report attached.</div>';
-  }
-  if (m.dataFlow && m.dataFlow.purposes) {
-    html += '<div class="field full" style="margin-top:12px"><div class="lab">Data Flow — ' + esc(m.dataFlow.name) + '</div><div class="val">' + esc(m.dataFlow.purposes) + '</div></div>';
   }
   html += '</div>';
 
@@ -209,9 +281,13 @@ function runReport(specName, btn){
   out.style.display = 'block';
   out.textContent = 'Running…';
   btn.disabled = true;
+  // As the viewer when Audit gave one (X-Egeria-Token); otherwise as before.
+  var runBody = (VIEWER && VIEWER.token)
+    ? { spec_name: specName, server: 'qs-view-server', output_format: 'DICT' }
+    : { spec_name: specName, server: 'qs-view-server', user_id: 'erinoverview', output_format: 'DICT' };
   fetch('/api/report-specs/execute', {
-    method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ spec_name: specName, server: 'qs-view-server', user_id: 'erinoverview', output_format: 'DICT' }),
+    method: 'POST', headers: viewerHeaders({'Content-Type': 'application/json'}),
+    body: JSON.stringify(runBody),
   })
     .then(function(r){ return r.json(); })
     .then(function(d){ renderRunOutput(out, d); btn.disabled = false; })
@@ -224,11 +300,14 @@ function runReport(specName, btn){
 // each note underneath. Every other result: the same JSON text as before.
 function renderRunOutput(out, d){
   var NM = window.EgeriaNotMeasured;
-  if (NM && NM.isAbsent(d)) { out.innerHTML = NM.absentHtml(d); return; }
+  // Where the spec that ran came from (same badge as Egeria Explorer's Report Specs view).
+  var src = window.EgeriaSpecSource ? window.EgeriaSpecSource.blockHtml(d) : '';
+  if (NM && NM.isAbsent(d)) { out.innerHTML = NM.absentHtml(d); if (src) out.insertAdjacentHTML('afterbegin', src); return; }
   var unmeasured = !!(NM && NM.hasUnmeasured(d));
   if (unmeasured && d.data === undefined) out.textContent = 'No results.';  // kind:"empty" — its notes follow
   else out.textContent = JSON.stringify(d.data !== undefined ? d.data : d, unmeasured ? NM.nullReplacer : null, 2);
   if (unmeasured) out.insertAdjacentHTML('beforeend', NM.footnoteHtml(d));
+  if (src) out.insertAdjacentHTML('afterbegin', src);
 }
 
 // Event delegation for card clicks / run buttons — inline onclick="..."
@@ -250,7 +329,7 @@ document.getElementById('app').addEventListener('click', function(e){
   }
 });
 
-fetchMetrics().then(route);
+_viewerReady.then(fetchMetrics).then(route);
 </script>
 </body>
 </html>

@@ -254,10 +254,10 @@ def list_actor_profiles(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -273,9 +273,9 @@ def get_actor_profile(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -308,10 +308,10 @@ def list_actor_roles(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -327,9 +327,9 @@ def get_actor_role(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -359,10 +359,10 @@ def list_user_identities(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -378,9 +378,9 @@ def get_user_identity(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:

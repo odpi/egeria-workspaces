@@ -566,7 +566,7 @@ Run this file where the Egeria Portal can see the dashboard it writes:
         dr_egeria --directive process --userid juleskeeper --user_pass secret chief-data-officer-dashboard.md
     ```
 
-Running it from JupyterLab or Obsidian also works, but the dashboard sheet is then written to that environment's own `~/.pyegeria/dashboard_sheets.json`, so the portal will not show it.
+Running it from JupyterLab or Obsidian also works: since pyegeria 6.2.29 the sheet is written into Egeria, which is where the portal reads it.  (If Egeria cannot be reached, the sheet is written only to that environment's own local file, `~/.pyegeria/dashboard_sheets.json`, and the portal will not show it; the command output says so.)
 
 Load it after the rest of this directory, and preferably after `1. coco-data-hub/` too, since the digital product and supply chain tiles count what the data hub team builds.  Then open **Local Dashboards** in the Egeria Portal and select **Chief Data Officer Dashboard**.
 

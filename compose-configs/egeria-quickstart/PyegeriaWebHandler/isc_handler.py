@@ -194,6 +194,21 @@ def _serialize_isc(element: dict) -> dict:
     return d
 
 
+def _isc_detail_body(for_lineage: bool, as_of_time: Optional[str]) -> dict:
+    """The explicit AnyTimeRequestBody for the ISC detail get, used when the
+    request carries forLineage and/or a point-in-time (the view's As-of slider)."""
+    body = {
+        "class": "AnyTimeRequestBody",
+        "graphQueryDepth": _ISC_GRAPH_QUERY_DEPTH,
+        "maxMermaidNodeCount": _ISC_MAX_MERMAID_NODES,
+    }
+    if for_lineage:
+        body["forLineage"] = True
+    if as_of_time:
+        body["asOfTime"] = as_of_time
+    return body
+
+
 @router.get("/api/isc", summary="List all information supply chains")
 def list_isc(
     start_from: int = Query(0,   ge=0),
@@ -201,10 +216,11 @@ def list_isc(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
     for_lineage: bool = Query(False, description="When True, also return elements classified with Memento/Promise (hidden by default)"),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -221,6 +237,7 @@ def list_isc(
             sequencing_order="PROPERTY_ASCENDING",
             sequencing_property="displayName",
             graph_query_depth=_ISC_LIST_GRAPH_QUERY_DEPTH,
+            as_of_time=as_of_time or None,  # point-in-time (the view's As-of slider)
             **({"for_lineage": True} if for_lineage else {}),
         )
     except Exception as exc:
@@ -244,9 +261,10 @@ def get_isc(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     for_lineage: bool = Query(False, description="When True, also return elements classified with Memento/Promise (hidden by default)"),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -265,14 +283,10 @@ def get_isc(
             add_implementation=True,
             graph_query_depth=_ISC_GRAPH_QUERY_DEPTH,
             max_mermaid_node_count=_ISC_MAX_MERMAID_NODES,
-            # An explicit body is needed to carry forLineage; it replaces the
-            # default body pyegeria builds, so graph settings are repeated here.
-            **({"body": {
-                "class": "AnyTimeRequestBody",
-                "forLineage": True,
-                "graphQueryDepth": _ISC_GRAPH_QUERY_DEPTH,
-                "maxMermaidNodeCount": _ISC_MAX_MERMAID_NODES,
-            }} if for_lineage else {}),
+            # An explicit body is needed to carry forLineage or asOfTime; it
+            # replaces the default body pyegeria builds, so graph settings are
+            # repeated here.
+            **({"body": _isc_detail_body(for_lineage, as_of_time)} if (for_lineage or as_of_time) else {}),
         )
     except PyegeriaNotFoundException:
         # A stale GUID -- typically a page still open across a demo store
@@ -297,7 +311,8 @@ def get_isc(
     if owner and owner.get("guid"):
         try:
             exp = _get_classifier(url, server, user_id, user_pwd)
-            owner_el = exp.get_element_by_guid(owner["guid"], output_format="JSON")
+            owner_el = exp.get_element_by_guid(owner["guid"], output_format="JSON",
+                                               as_of_time=as_of_time or None)
             if isinstance(owner_el, dict):
                 op = owner_el.get("properties") or {}
                 oh = (owner_el.get("elementHeader") or {}).get("type") or {}

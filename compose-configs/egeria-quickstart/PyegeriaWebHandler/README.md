@@ -1029,8 +1029,22 @@ The workspace includes professional-grade analytic report specifications that ar
 
 ### Available Analytic Specs
 
-- **Analytic - Element Count by Type** — A generic spec to count any metadata type (e.g., `DigitalProduct`, `Agreement`, `Person`).
 - **Analytic - Generic Metric Trend** — A powerful spec that can trend any metadata metric over time (e.g., daily growth of active subscriptions).
+
+To count any metadata type (e.g., `DigitalProduct`, `Agreement`, `Person`), use pyegeria's built-in **Analytic Demo - Element Count by Type** with `type_name` in the analytic parameters. The Portal's own copy, "Analytic - Element Count by Type", was removed on 2026-11-10 because it duplicated that built-in (same function, `count_elements`; the built-in also sets `strict: true`).
+
+### Where each report spec comes from
+
+`GET /api/report-specs` gives every spec a `source`, and Egeria Explorer's Report Specs view shows it (a badge, plus a source filter):
+
+- **builtin**: pyegeria's packaged seed.
+- **egeria**: held in Egeria, read from the local cache that `report_spec_sync.py` fills.
+- **local**: registered by Portal code at runtime (`register_local_specs`, `re_analytics.py`).
+- **user**: JSON spec files in the user report specs directory.
+
+A spec that shadows a copy from a lower tier says which one (`shadows`). That copy still runs as `builtin:<name>` or `egeria:<name>`. The response's `egeriaHeld.message` says in words when no specs are held in Egeria, and why: no folders configured, no sync run yet, the folders were not found, or the folders are empty.
+
+**Syncing specs held in Egeria.** The Portal syncs the CollectionFolders named in `PYEGERIA_REPORT_SPEC_FOLDERS` (set in `egeria-quickstart.yaml`; default `ReportSpecFolder::Consumer::Portal`, the Portal's consumer folder under the root `RootCollection::ReportSpecs`; renamed in place from `ReportSpecFolder::EgeriaPortal` on 2026-11-10) into the shared cache under `/root/.pyegeria/cache/report_specs/`. It does this at startup, in a daemon thread that waits 30 s and retries while Egeria comes up; startup never waits for it, and `PORTAL_REPORT_SPEC_SYNC_AT_STARTUP=0` turns it off. Administrators can also sync from the Report Specs view (**Sync from Egeria**, `POST /api/report-specs/sync`; `GET` returns the last outcome). The sync reads Egeria as the Portal's service user and never writes to it. With pyegeria after 6.2.32 the sync also follows sub-folders of a consumer folder (cycle-safe, at most 5 levels; never up to the root or across into another consumer) and refreshes the **consumer index**: which tools each Egeria-held spec is published to. The Report Specs view shows it as a **Used by** chip row beside the family and source badges, with a consumer filter ("Used by none" lists specs held in Egeria that no consumer folder holds). When the index was not read (no sync yet, the root not visible, or an older pyegeria) the view says **not read** and why, never "none"; built-in and local specs say **not tracked** until built-in references arrive (phase 3). The Portal's cache is shared by every viewer, so the sync never takes a spec that carries a governance zone; the sync report lists it as "zoned: not synced into a shared cache". A sub-folder the service user can no longer see, or that was deleted, unpublishes its specs; a timeout or server error keeps what was cached.
 
 ### How report specs name analytic functions
 

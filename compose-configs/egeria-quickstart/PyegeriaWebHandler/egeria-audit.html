@@ -639,7 +639,47 @@ var TABS = [
   { id: 'certifications', label: 'Certifications', relType: 'Certification' },
   { id: 'licenses',       label: 'Licenses',       relType: 'License' },
   { id: 'users',          label: 'Users' },
+  // Governance Metrics (was its own home-page card): the /governance-metrics page, embedded
+  // without its own app bar (?embed=1), so its list, detail, lineage diagram and live run all work as before.
+  { id: 'metrics',        label: 'Governance Metrics', embed: '/governance-metrics?embed=1' },
 ];
+
+// An embedded page (the Governance Metrics tab) is told who the selected viewer is, so it reads
+// Egeria as that viewer, like the other tabs. The token goes by postMessage to a same-origin
+// frame only, never in the URL. The page asks ('egeria-viewer-request') when it loads; Audit
+// also sends on the frame's load event. A new viewer re-keys the frame (see credKey below).
+// A short, non-reversible tag of the token, for the frame's React key (never the token itself).
+function _tokenTag(t) {
+  if (!t) return '';
+  var h = 5381;
+  for (var i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+
+function EmbedTab({ src, title, creds, who }) {
+  var ref = React.useRef(null);
+  var viewer = {
+    type: 'egeria-viewer',
+    token: (creds && creds.token) || '',
+    userId: (creds && creds.userId) || '',
+    label: who ? who.label : '',
+  };
+  function send() {
+    var f = ref.current;
+    if (f && f.contentWindow) f.contentWindow.postMessage(viewer, window.location.origin);
+  }
+  useEffect(function() {
+    function onMsg(e) {
+      if (e.origin !== window.location.origin) return;
+      if (!ref.current || e.source !== ref.current.contentWindow) return;
+      if (e.data && e.data.type === 'egeria-viewer-request') send();
+    }
+    window.addEventListener('message', onMsg);
+    return function() { window.removeEventListener('message', onMsg); };
+  });
+  return el('iframe', { ref: ref, src: src, title: title, onLoad: send,
+    style: { width: '100%', height: '100%', border: 0, display: 'block', background: 'var(--bg)' } });
+}
 
 // Account-status values the change control offers. The exact Egeria
 // UserAccountStatus enum isn't introspectable here (demo connector is
@@ -908,6 +948,9 @@ function App() {
   var credKey = (who ? who.label : 'anon');
   var content = !ready
     ? el('div', { style: pad }, 'Connecting…')
+    : active.embed
+      ? el(EmbedTab, { key: active.id + '@' + credKey + '@' + _tokenTag(creds && creds.token),
+          src: active.embed, title: active.label, creds: creds, who: who })
     : active.id === 'users'
       ? el(UsersTab, { key: 'users@' + credKey, creds: creds })
       : el(AuditRelationshipTab, { key: active.id + '@' + credKey, relType: active.relType, columns: COLS[active.relType],
@@ -934,7 +977,7 @@ function App() {
   return el(PersonaContext.Provider, { value: personaId },
     el(CredContext.Provider, { value: creds },
     el('div', { style: { display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', color: 'var(--text)' } },
-      el(AppHeader, { icon: '🛡️', title: 'Egeria Audit', subtitle: 'Exceptions · Certifications · Licenses · Users', identity: identity,
+      el(AppHeader, { icon: '🛡️', title: 'Egeria Audit', subtitle: 'Exceptions · Certifications · Licenses · Users · Governance Metrics', identity: identity,
         extras: el(React.Fragment, null,
           who && !srvManaged && el('button', { onClick: disconnect, title: 'Switch user', style: { fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' } }, 'Switch'),
           !who && !srvManaged && el('button', { onClick: function(){ setShowConn(!showConn); }, style: { fontSize: 12, padding: '3px 10px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer' } }, '🔌 Connect'),

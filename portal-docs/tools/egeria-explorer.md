@@ -173,6 +173,90 @@ The **Analytic Functions** sub-tab is the registry of routines a report spec can
 
 *Analytic Functions, `ai_ready_assets`, deployed Portal, 2026-11-09. It declares two client inputs, `egeria_client:MetadataExpert` and `egeria_client:ClassificationExplorer`. 29 functions were registered.*
 
+### Where a report spec comes from
+
+Report specs come from four places. In the Report Specs view each spec carries a **source** badge,
+and a **source** filter (*All sources*, or one source with its count, for example *held in Egeria (0)*)
+narrows the list to one of them:
+
+| Badge | List tag | Where the spec comes from |
+|---|---|---|
+| **pyegeria built-in** | none | Ships with pyegeria, for example *Analytic Demo - Element Count by Type* |
+| **held in Egeria** | **EG** | A report spec element held in Egeria, in one of the folders the Portal is set up to read (see below) |
+| **Portal (local)** | **P** | Added by the Portal's own code when it starts, for example *Analytic - Generic Metric Trend* and Resource Explorer's tiles |
+| **user spec file** | **U** | A JSON spec file in the user report specs directory |
+
+If two sources hold a spec with the same name, the spec's details say which copy is used and which is
+hidden ("Shadows the … copy" or "Shadowed: the … copy of …"). The hidden copy can still be run by
+name with a prefix: `builtin:<name>` or `egeria:<name>`. A spec held in Egeria also shows its Egeria
+qualified name, when it was last synced, and *DRAFT* if it is a draft.
+
+**Specs held in Egeria are read from folders.** In Egeria, report specs are filed in collection folders.
+The Portal reads the folders named in `PYEGERIA_REPORT_SPEC_FOLDERS`; on the quickstart the default is
+`ReportSpecFolder::Consumer::Portal`, the Portal's *consumer folder*. Report specs in Egeria are organised by
+the tool that uses them: the root collection `RootCollection::ReportSpecs` holds one consumer folder per tool
+(Portal, Egeria Advisor, Resource Explorer, pyegeria, My Egeria, Jupyter), and putting a spec in a tool's
+folder publishes it to that tool. A spec can be in several folders. (Until November 2026 the Portal's folder was
+named `ReportSpecFolder::EgeriaPortal`; it is the same folder, renamed.) A tool's folder can hold sub-folders for its
+own grouping, and the sync follows them (at most 5 levels down, reading each folder once; never up to the root or
+into another tool's folder). A banner at the top of the Report Specs view lists those folders and
+says how many specs are held in Egeria. When there are none it says why, for example:
+
+- *None held in Egeria: no report spec folders are configured for this Portal (PYEGERIA_REPORT_SPEC_FOLDERS)*
+- *None held in Egeria yet: no sync from Egeria has run*
+- *None held in Egeria: the configured folders were not found in Egeria (or are not visible to the Portal's user)*
+- *None held in Egeria: the configured folders hold no active report specs*
+
+On the quickstart the Portal's folder holds the Portal's own two specs ("Analytic - Generic Metric Trend"
+and "Resource Explorer - Curation Coverage"). To show another spec held in Egeria, add its ReportSpec element
+(an active one, not a draft) to that folder as a member, then sync.
+
+**Used by.** Each spec's details show a **Used by** row beside its family and source badges: the tools
+the spec is published to, one chip per consumer folder that holds it (for example *Portal · Egeria Advisor*).
+The **consumer filter** in the sidebar lists every consumer folder, with a count, and *Used by none*: specs
+held in Egeria that no consumer folder holds, which is useful when curating. The row never guesses:
+
+- *Used by: none*: a spec held in Egeria that is in no consumer folder.
+- *Used by: not read (reason)*: the Portal could not read the consumer folders (no sync has run yet, the root
+  `RootCollection::ReportSpecs` is not visible to the Portal's user, or the installed pyegeria is older than
+  the release that reads them). The sidebar says the same instead of offering the filter.
+- *Used by: not tracked*: a built-in or Portal (local) spec. Built-in specs live in pyegeria, not in Egeria, so
+  they cannot be folder members yet.
+
+**The Portal works from a local copy of those specs.** It copies the specs in its folders from Egeria
+into its own cache:
+
+- automatically, shortly after the Portal starts (about 30 seconds; it retries while Egeria is still
+  starting, and never delays the Portal's start). `PORTAL_REPORT_SPEC_SYNC_AT_STARTUP=0` turns this off;
+- on demand: administrators can click **⇣ Sync from Egeria** in the banner (`POST /api/report-specs/sync`;
+  `GET /api/report-specs/sync` gives the last result, such as *Synced …: 2 added, 0 updated, …*, or
+  *The configured folders were not found in Egeria, or are not visible to the Portal's user: …*).
+
+On a quickstart without sign-in (`DEMO_MODE` false and `SERVER_MANAGED_AUTH` unset), everyone counts as
+an administrator, so the Sync button and the full sync status are open to all. On the public demo, only
+administrators get them.
+
+After someone changes a spec in Egeria, sync again to see the change. A sync only **reads** Egeria; it
+never writes to it.
+
+Outside the Portal, the same copy is made with pyegeria's command:
+
+```bash
+pyegeria report-specs sync                      # every configured folder
+pyegeria report-specs sync --folder QN          # one folder, by its qualified name (repeatable)
+pyegeria report-specs sync --spec "LABEL"       # just this spec; leaves every other cached spec alone
+pyegeria report-specs sync --include-drafts     # also DRAFT and PROPOSED specs, kept apart in drafts/
+```
+
+It writes to a local cache (`PYEGERIA_REPORT_SPEC_CACHE_DIR`, default
+`~/.pyegeria/cache/report_specs/<platform>/<server>`), not to Egeria.
+
+**The duplicate count spec is gone.** The Portal used to add its own spec, *Analytic - Element Count by Type*,
+which did the same as pyegeria's built-in *Analytic Demo - Element Count by Type*. It was removed on
+2026-11-10. Use the built-in one and set `type_name` in its `Analytic Parameters` to count any type. A
+Report that still names the old spec should be repointed: update its Report Spec to
+*Analytic Demo - Element Count by Type* (re-running its `Create Report` command with the new name does this).
+
 ### Further reading
 
 - pyegeria: [Routines, declarations and roles](https://github.com/odpi/egeria-python/blob/main/docs/output-formats-and-report-specs.md#routines-declarations-and-roles) and [Will this spec run? Load-time resolution](https://github.com/odpi/egeria-python/blob/main/docs/output-formats-and-report-specs.md#will-this-spec-run-load-time-resolution) (the declarations, the seven checks, `supply=`, and migrating off `analytic_binders`).

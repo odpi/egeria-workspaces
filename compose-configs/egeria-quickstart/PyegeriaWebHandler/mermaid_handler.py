@@ -15,6 +15,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
+from pyegeria import PyegeriaNotFoundException
 
 router = APIRouter(tags=["mermaid"])
 
@@ -72,13 +73,14 @@ def get_anchored_graph(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now (the view's As-of slider)"),
 ):
     """
     Return a Mermaid diagram showing the element and all its anchored elements.
     Uses MetadataExpert.get_anchored_element_graph — a broader, more expensive traversal.
     Returns {guid, mermaidGraph}.
     """
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_expert(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -86,7 +88,15 @@ def get_anchored_graph(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     try:
-        graph = _normalise(mgr.get_anchored_element_graph(guid, mermaid_only=True))
+        # Without a time this is exactly the call it always was; with one, pyegeria puts asOfTime in the
+        # GetRequestBody it builds (get_anchored_element_graph takes as_of_time natively).
+        graph = _normalise(mgr.get_anchored_element_graph(
+            guid, mermaid_only=True, **({"as_of_time": as_of_time} if as_of_time else {})))
+    except PyegeriaNotFoundException:
+        if as_of_time:      # the element did not exist yet at that time: say so, not an empty diagram
+            raise HTTPException(status_code=404, detail=f"{guid!r} did not exist at {as_of_time}")
+        logger.warning(f"get_anchored_element_graph: {guid} not found")
+        graph = ""
     except Exception as exc:
         logger.warning(f"get_anchored_element_graph failed for {guid}: {exc}")
         graph = ""
@@ -100,13 +110,14 @@ def get_mermaid_graph(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now (the view's As-of slider)"),
 ):
     """
     Return a Mermaid context diagram using ClassificationExplorer.get_element_by_guid.
     Extracts the top-level mermaidGraph field from the response.
     Returns {guid, mermaidGraph}.
     """
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_classifier(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -114,14 +125,26 @@ def get_mermaid_graph(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     try:
-        element = mgr.get_element_by_guid(
-            guid, output_format="JSON",
-            graph_query_depth=_MERMAID_GRAPH_QUERY_DEPTH,
-            max_mermaid_node_count=_MERMAID_MAX_NODES,
-        )
+        if as_of_time:
+            # An explicit body replaces the one pyegeria builds from the graph kwargs, so it repeats them.
+            element = mgr.get_element_by_guid(guid, output_format="JSON", body={
+                "class": "GetRequestBody", "asOfTime": as_of_time,
+                "graphQueryDepth": _MERMAID_GRAPH_QUERY_DEPTH, "maxMermaidNodeCount": _MERMAID_MAX_NODES,
+            })
+        else:                                   # no time: exactly the call it always was
+            element = mgr.get_element_by_guid(
+                guid, output_format="JSON",
+                graph_query_depth=_MERMAID_GRAPH_QUERY_DEPTH,
+                max_mermaid_node_count=_MERMAID_MAX_NODES,
+            )
         # Every diagram field the element carries, found by shape (graph_keys.py): a fixed list here is what
         # hid activityMermaidGraph and every other new graph kind.
         graphs = extract_graph_fields(element) if isinstance(element, dict) else {}
+    except PyegeriaNotFoundException:
+        if as_of_time:      # the element did not exist yet at that time: say so, not an empty diagram
+            raise HTTPException(status_code=404, detail=f"{guid!r} did not exist at {as_of_time}")
+        logger.warning(f"get_element_by_guid: {guid} not found")
+        graphs = {}
     except Exception as exc:
         logger.warning(f"get_element_by_guid failed for {guid}: {exc}")
         graphs = {}

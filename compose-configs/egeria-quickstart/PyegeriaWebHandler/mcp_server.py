@@ -432,6 +432,11 @@ async def run_report(
     """Execute an Egeria report and return the results."""
     if not mcp_adapter:
         return {"error": "no adapter"}
+    from egeria_auth import PlatformRefused, is_caller_password, resolve_platform
+    try:   # the Portal's own password only goes to an allow-listed platform (egeria_auth.resolve_platform)
+        url = resolve_platform(url, has_caller_password=is_caller_password(user_pass))
+    except PlatformRefused as exc:
+        return {"error": exc.detail}
     params = {
         "search_string": search_string,
         "page_size": page_size,

@@ -373,11 +373,11 @@ def get_glossaries(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     """Return all Egeria glossaries with summary information."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -418,10 +418,10 @@ def get_glossary_folders(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """Return the CollectionFolder children of a glossary (organisational hierarchy)."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -457,7 +457,6 @@ def get_terms_in_collection(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
@@ -467,6 +466,7 @@ def get_terms_in_collection(
     Uses get_collection_members which fetches only the members of this specific collection,
     then filters for GlossaryTerm type elements. Much faster than a full-table scan.
     """
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -503,7 +503,6 @@ def search_all_terms(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
@@ -511,6 +510,7 @@ def search_all_terms(
     Search for GlossaryTerms across all glossaries using a text search string.
     Terms can belong to multiple glossaries; this view is independent of glossary membership.
     """
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -558,10 +558,10 @@ def get_term(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """Return full detail for a single glossary term."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -592,7 +592,7 @@ def get_term_assigned_elements(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now (the view's As-of slider)"),
 ):
     """The reverse of a schema/data-field's "assigned terms" badge: given a
     term, everything SemanticAssignment-linked to it, split physical vs
@@ -600,8 +600,9 @@ def get_term_assigned_elements(
     "lives in these physical columns" and "modeled by these logical fields"
     as two lists rather than one undifferentiated blob.
     """
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     from catalog_search_handler import _TYPE_CATEGORY
-    from semantic_links import elements_for_term_guid
+    from semantic_links import READ_LIMIT, elements_for_term_guid
 
     try:
         ce = _get_classification_explorer(url, server, user_id, user_pwd)
@@ -609,7 +610,10 @@ def get_term_assigned_elements(
         _raise_http(exc, "Failed to create ClassificationExplorer")
 
     try:
-        elements = elements_for_term_guid(ce, term_guid)
+        from result_cache import request_identity
+        # identity keys semantic_links' short shared cache of the assignment read (None = expired: no cache)
+        elements, capped = elements_for_term_guid(ce, term_guid, as_of_time or None,
+                                                  identity=request_identity(user_id, user_pwd))
     except Exception as exc:
         _raise_http(exc, "elements_for_term_guid failed")
 
@@ -629,4 +633,8 @@ def get_term_assigned_elements(
         "logical":  logical,
         "other":    other,
         "total":    len(elements),
+        # capped: the SemanticAssignment read stopped at readLimit, so total is a lower bound ("at least N"),
+        # and an empty list means "none in the part that was read", not "none assigned".
+        "capped":   capped,
+        "readLimit": READ_LIMIT,
     })

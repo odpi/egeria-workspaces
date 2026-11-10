@@ -268,9 +268,9 @@ def list_specs(
     url:     Optional[str] = Query(None),
     server:  Optional[str] = Query(None),
     user_id: Optional[str] = Query(None),
-    user_pwd:Optional[str] = Query(None),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_collection_mgr(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -296,9 +296,9 @@ def list_structures(
     url:     Optional[str] = Query(None),
     server:  Optional[str] = Query(None),
     user_id: Optional[str] = Query(None),
-    user_pwd:Optional[str] = Query(None),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_designer(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -321,9 +321,9 @@ def list_fields(
     url:     Optional[str] = Query(None),
     server:  Optional[str] = Query(None),
     user_id: Optional[str] = Query(None),
-    user_pwd:Optional[str] = Query(None),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_designer(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -346,9 +346,9 @@ def list_grains(
     url:     Optional[str] = Query(None),
     server:  Optional[str] = Query(None),
     user_id: Optional[str] = Query(None),
-    user_pwd:Optional[str] = Query(None),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_designer(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -372,9 +372,9 @@ def list_classes(
     url:     Optional[str] = Query(None),
     server:  Optional[str] = Query(None),
     user_id: Optional[str] = Query(None),
-    user_pwd:Optional[str] = Query(None),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_designer(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -401,8 +401,8 @@ def get_spec(
     url:     Optional[str] = Query(None),
     server:  Optional[str] = Query(None),
     user_id: Optional[str] = Query(None),
-    user_pwd:Optional[str] = Query(None),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_collection_mgr(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -458,8 +458,8 @@ def get_structure(
     url:     Optional[str] = Query(None),
     server:  Optional[str] = Query(None),
     user_id: Optional[str] = Query(None),
-    user_pwd:Optional[str] = Query(None),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_designer(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -485,8 +485,8 @@ def get_field(
     url:     Optional[str] = Query(None),
     server:  Optional[str] = Query(None),
     user_id: Optional[str] = Query(None),
-    user_pwd:Optional[str] = Query(None),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_designer(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -512,8 +512,8 @@ def get_grain(
     url:     Optional[str] = Query(None),
     server:  Optional[str] = Query(None),
     user_id: Optional[str] = Query(None),
-    user_pwd:Optional[str] = Query(None),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_designer(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -539,8 +539,8 @@ def get_class(
     url:     Optional[str] = Query(None),
     server:  Optional[str] = Query(None),
     user_id: Optional[str] = Query(None),
-    user_pwd:Optional[str] = Query(None),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_designer(url, server, user_id, user_pwd)
     except Exception as exc:

@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 
 from egeria_auth import apply_token
+from result_cache import request_identity
 from pyegeria.omvs.classification_explorer import ClassificationExplorer
 from valid_values_handler import _extract_name_from_element as _vv_property_name
 from pyegeria_docs_handler import search_pyegeria_docs
@@ -270,7 +271,6 @@ def catalog_search(
     url: Optional[str] = Query(None),
     server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
 ):
     """Search across all element types using ClassificationExplorer.
 
@@ -295,6 +295,7 @@ def catalog_search(
     retries unrestricted rather than 500ing.
     """
     # Egeria treats '*' as None in the request body → 400 error.
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     if q.strip() in ("*", ""):
         raise HTTPException(status_code=400, detail="Wildcard '*' search is not supported. Enter a specific search term.")
 
@@ -417,7 +418,6 @@ def oldest_create_time(
     url: Optional[str] = Query(None),
     server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
 ):
     """Creation time of the oldest element the caller can see, or null.
 
@@ -425,9 +425,11 @@ def oldest_create_time(
     carries no createTime. ``{"createTime": null}`` means "could not tell" (not
     "nothing exists") -- the slider then falls back to its default window.
     """
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     import time
-    key = f"{url or ''}|{server or ''}|{user_id or ''}"
-    hit = _oldest_cache.get(key)
+    who = request_identity(user_id, user_pwd)  # hashed credential; None = expired token, bypass the cache
+    key = f"{url or ''}|{server or ''}|{who}"
+    hit = (_oldest_cache.get(key) if who else None)
     if hit and time.time() - hit[0] < _OLDEST_TTL:
         return JSONResponse({"createTime": hit[1]})
     try:
@@ -447,5 +449,6 @@ def oldest_create_time(
     if isinstance(raw, list) and raw and isinstance(raw[0], dict):
         created = ((raw[0].get("elementHeader") or {}).get("versions") or {}).get("createTime")
     if created:
-        _oldest_cache[key] = (time.time(), created)
+        if who:
+            _oldest_cache[key] = (time.time(), created)
     return JSONResponse({"createTime": created})

@@ -320,10 +320,10 @@ def get_catalogs(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     """Return all DigitalProductCatalog collections (paginated through all available collections)."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -351,7 +351,6 @@ def get_catalog_tree(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """
@@ -360,6 +359,7 @@ def get_catalog_tree(
 
     Tree nodes: {guid, typeName, displayName, ..., isContainer: bool, children: []}
     """
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -391,10 +391,10 @@ def get_node_children(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """One level of children for a container node, fetched when the user expands it."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -417,13 +417,13 @@ def get_node(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
 ):
     """Return detail for a single digital product, family, or asset node.
 
     Tries CollectionManager first (covers all Collection subtypes). If the node is
     a non-collection asset (e.g. TabularDataSet), falls back to AssetMaker.get_asset_by_guid.
     """
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     url_val  = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
     svr_val  = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
     uid      = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
@@ -505,9 +505,9 @@ def get_tabular_data(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
 ):
     """Fetch a page of rows from a TabularDataSet via DataEngineer.get_tabular_data_set."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         from pyegeria import DataEngineer
         url_val     = url     or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")

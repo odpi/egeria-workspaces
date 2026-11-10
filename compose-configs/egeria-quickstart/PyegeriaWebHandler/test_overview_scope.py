@@ -107,7 +107,7 @@ def test_ratios_with_find_numerators_never_use_the_scoped_total():
 
 
 
-def _ai_context(monkeypatch, default_scope, viewer_total=(None, True, False, None)):
+def _ai_context(monkeypatch, default_scope, grounding=None, owned=120):
     """get_ai_context with every Egeria call stubbed; returns (payload, scopes count_elements received).
     `default_scope` is the default of count_elements' scope parameter: "repository" from pyegeria 6.2.27
     (and so the population of context_readiness_funnel, which takes none), None before it."""
@@ -116,29 +116,37 @@ def _ai_context(monkeypatch, default_scope, viewer_total=(None, True, False, Non
 
     def count_elements(mgr, type_name=None, as_of=None, classifications=None, strict=False, scope=default_scope):
         seen.append(scope)
-        return 1000 if classifications is None else 300
+        if classifications is None:
+            return 1000
+        return owned if tuple(classifications) == ("Ownership",) else 300
     monkeypatch.setattr(oh, "count_elements", count_elements)
     monkeypatch.setattr(oh, "_expert", lambda *a, **k: object())
     monkeypatch.setattr(oh, "_make", lambda *a, **k: object())
     monkeypatch.setattr(oh, "context_readiness_funnel", lambda mgr, ce, as_of=None: {
         "cataloged": 1000, "documented": 400, "classified": 300, "lineage": 200, "aiReady": None})
-    monkeypatch.setattr(oh, "semantic_grounding", lambda mgr, ce, as_of=None: {"groundingLinks": 50, "groundingPct": 5})
-    monkeypatch.setattr(oh, "ownership_coverage", lambda mgr, as_of=None: {"ownershipCount": 120})
+    monkeypatch.setattr(oh, "semantic_grounding", lambda mgr, ce, as_of=None: grounding or {"groundingLinks": 50, "groundingPct": 5})
+
+    def no_ownership_find(*a, **k):
+        raise AssertionError("Ownership Coverage must not use the any-type find any more")
+    monkeypatch.setattr(oh, "ownership_coverage", no_ownership_find)
     monkeypatch.setattr(oh, "ai_ready_assets", lambda mgr, ce, as_of=None: {"aiReadyCount": 40, "total": 500})
     monkeypatch.setattr(oh, "drl_readiness_gates", None, raising=False)
     monkeypatch.setattr(oh, "_section_fetch", lambda key, compute, ok=None: (compute(), {}))   # compute inline
     monkeypatch.setattr(oh, "_env", lambda *a, **k: ("u", "view-server", "x", "y"))
-    monkeypatch.setattr(oh, "_viewer_total_state", lambda *a, **k: viewer_total)
-    resp = oh.get_ai_context(as_of_time=None, url=None, server=None, user_id=None, user_pwd=None)
+
+    def no_viewer_total(*a, **k):
+        raise AssertionError("ai-context must not wait on the (uncountable) viewer Asset total")
+    monkeypatch.setattr(oh, "_viewer_total_state", no_viewer_total)
+    resp = oh.get_ai_context(as_of_time=None, url=None, server=None, user_id=None)
     return json.loads(resp.body), seen
 
 
 def test_ai_context_on_a_viewer_default_pyegeria_is_unchanged(monkeypatch):
     out, seen = _ai_context(monkeypatch, None)
     assert out["countScope"] == oh.VIEWER
-    assert seen == [oh.VIEWER, oh.VIEWER]                    # the strict re-count: explicit, the funnel's population
+    assert seen == [oh.VIEWER] * 3                           # Cataloged, Classified, owned Assets: one population
     assert out["funnel"]["aiReady"] == 40 and out["aiReadyCount"] == 40
-    assert out["ownershipPct"] == 12.0                       # 120 / 1000: viewer over viewer, as before
+    assert out["ownershipPct"] == 12.0 and out["ownershipScope"] == oh.VIEWER   # 120 owned Assets / 1000 Assets
     assert "ownershipPctLoading" not in out
 
 
@@ -147,20 +155,87 @@ def test_ai_context_on_a_repository_default_pyegeria_never_mixes_populations(mon
     # finds (what the viewer can see) and are never divided by, or drawn beside, the repository total.
     out, seen = _ai_context(monkeypatch, oh.REPOSITORY)
     assert out["countScope"] == oh.REPOSITORY                # funnel stages labelled repository
-    assert seen == [oh.REPOSITORY, oh.REPOSITORY]
+    assert seen == [oh.REPOSITORY] * 3                       # Cataloged, Classified, owned Assets
     assert out["funnel"]["cataloged"] == 1000 and out["funnel"]["classified"] == 300
     assert out["funnel"]["aiReady"] is None                   # not a stage of a repository funnel
     assert out["aiReadyCount"] == 40 and out["aiReadyScope"] == oh.VIEWER
     assert out["aiReadyPct"] == 8.0                           # 40 / 500: its own (viewer) total
-    assert out["ownershipScope"] == oh.VIEWER
-    # the viewer Asset total is still counting: not measured, never 120 / 1000 (a viewer find over the repository)
-    assert out["ownershipCount"] == 120 and out["ownershipPct"] is None and out["ownershipPctLoading"] is True
+    # Ownership Coverage (2026-11-10): owned ASSETS (strict native, repository) over Cataloged (same count, same
+    # population) -- the shape of Governed Coverage. Always measurable; never a viewer find over a viewer total.
+    assert out["ownershipScope"] == oh.REPOSITORY
+    assert out["ownershipCount"] == 120 and out["ownershipPct"] == 12.0
+    assert "ownershipPctLoading" not in out
 
 
-def test_ai_context_ownership_divides_by_the_viewer_total(monkeypatch):
-    out, _ = _ai_context(monkeypatch, oh.REPOSITORY, viewer_total=(600, False, False, 1.0))
-    assert out["ownershipPct"] == 20.0                        # 120 / 600 (viewer), not 120 / 1000 (repository)
-    assert out["ownershipPctLoading"] is False
+def test_ai_context_ownership_unmeasured_is_none_not_a_guess(monkeypatch):
+    out, _ = _ai_context(monkeypatch, oh.REPOSITORY, owned=None)
+    assert out["ownershipCount"] is None and out["ownershipPct"] is None
+
+
+def test_owned_asset_share_never_exceeds_100_and_needs_a_total():
+    seen = []
+    def n(mgr, type_name=None, as_of=None, classifications=None, strict=False, scope=None):
+        seen.append((type_name, tuple(classifications or ()), strict, scope)); return 50
+    orig = oh.count_elements
+    try:
+        oh.count_elements = n
+        assert oh._owned_asset_share(None, None, oh.REPOSITORY, 40) == (50, None)     # owned > total: not a %
+        assert oh._owned_asset_share(None, None, oh.REPOSITORY, None) == (50, None)   # no total: not measured
+        assert oh._owned_asset_share(None, None, oh.REPOSITORY, 200) == (50, 25.0)
+    finally:
+        oh.count_elements = orig
+    assert seen[0] == ("Asset", ("Ownership",), True, oh.REPOSITORY)
+
+
+def test_grounding_is_links_per_100_assets_never_a_percent_today(monkeypatch):
+    # pyegeria 6.2.30: groundingPct = links / Assets x 100. Not a share of Assets -> not shown as one.
+    out, _ = _ai_context(monkeypatch, oh.REPOSITORY)
+    assert out["groundingMeasure"] == "linksPer100Assets"
+    assert out["groundingValue"] == 5 and out["groundingLinksPer100"] == 5 and out["groundingLinks"] == 50
+    assert out["groundingPct"] is None and out["groundedAssets"] is None
+
+
+def test_grounding_switches_to_the_asset_share_when_pyegeria_reports_it(monkeypatch):
+    g = {"groundingLinks": 50, "groundingPct": 5, "groundedAssets": 30, "groundedAssetPct": 3.0}
+    out, _ = _ai_context(monkeypatch, oh.REPOSITORY, grounding=g)
+    assert out["groundingMeasure"] == "assetShare"
+    assert out["groundingValue"] == 3.0 and out["groundingPct"] == 3.0 and out["groundedAssets"] == 30
+    assert out["groundingLinksPer100"] == 5
+
+
+def test_grounding_forwards_grounded_assets_and_note_when_the_share_is_unmeasured(monkeypatch):
+    # pyegeria 6.2.31 live shape: 41 distinct grounded Assets, but the viewer Asset total timed out,
+    # so groundedAssetPct is None and the note says why. The tile stays links per 100 Assets and
+    # still carries the count and the note (Architect, 2026-11-10).
+    note = ("The share of Assets grounded was not measured: the total of Assets you can see could not be "
+            "counted (the count timed out, or it stopped at its page limit).")
+    g = {"groundingLinks": 767, "groundingPct": 1, "groundedAssets": 41, "groundedAssetTotal": None,
+         "groundedAssetPct": None, "groundedAssetNote": note, "groundingLinksScanned": 767,
+         "groundingLinksNotOnAsset": 0}
+    out, _ = _ai_context(monkeypatch, oh.REPOSITORY, grounding=g)
+    assert out["groundingMeasure"] == "linksPer100Assets" and out["groundingPct"] is None
+    assert out["groundedAssets"] == 41 and out["groundedAssetNote"] == note
+    assert out["groundingLinksScanned"] == 767
+
+
+def test_grounding_forwards_grounded_assets_in_the_share_branch_too():
+    g = {"groundingLinks": 50, "groundedAssets": 30, "groundedAssetPct": 3, "groundedAssetNote": None,
+         "groundingLinksScanned": 48}
+    f = oh._grounding_fields(g, 1000, oh.REPOSITORY)
+    assert f["groundingMeasure"] == "assetShare" and f["groundedAssets"] == 30
+    assert "groundedAssetNote" in f and f["groundedAssetNote"] is None and f["groundingLinksScanned"] == 48
+
+
+def test_grounded_assets_not_measured_stays_none_not_zero():
+    note = "Grounded Assets were not measured: the scan of glossary-term assignments failed or was incomplete."
+    f = oh._grounding_fields({"groundingLinks": 767, "groundingPct": 1, "groundedAssets": None,
+                              "groundedAssetPct": None, "groundedAssetNote": note}, 56357, oh.REPOSITORY)
+    assert f["groundedAssets"] is None and f["groundedAssetNote"] == note
+
+
+def test_grounding_unmeasured_is_none():
+    assert oh._grounding_fields(None)["groundingValue"] is None
+    assert oh._grounding_fields({"groundingLinks": None, "groundingPct": None})["groundingMeasure"] == "linksPer100Assets"
 
 
 def test_strict_funnel_counts_pass_the_scope_explicitly(monkeypatch):
@@ -258,7 +333,7 @@ def stubbed_summary(monkeypatch):
         monkeypatch.setattr(oh, "_assets_by_technology", lambda *a, **k: {"technologies": None, "unrecorded": None, "placeholders": None, "total": None})
         for name, value in overrides.items():          # a test's own stub for any of the above
             monkeypatch.setattr(oh, name, value)
-        resp = oh.get_summary(as_of_time=None, url=None, server=None, user_id=None, user_pwd=None)
+        resp = oh.get_summary(as_of_time=None, url=None, server=None, user_id=None)
         return json.loads(resp.body)
     return run
 
@@ -352,12 +427,12 @@ def test_people_and_usage_report_their_scope(monkeypatch):
     monkeypatch.setattr(oh, "count_elements", ce)
     monkeypatch.setattr(oh, "count_relationships", rel)
     monkeypatch.setattr(oh, "usage_context_counts", uc)
-    people = json.loads(oh.get_people(as_of_time=None, url=None, server=None, user_id=None, user_pwd=None).body)
-    usage = json.loads(oh.get_usage_context(as_of_time=None, url=None, server=None, user_id=None, user_pwd=None).body)
+    people = json.loads(oh.get_people(as_of_time=None, url=None, server=None, user_id=None).body)
+    usage = json.loads(oh.get_usage_context(as_of_time=None, url=None, server=None, user_id=None).body)
     assert people["countScope"] == usage["countScope"] == "repository"
     # and back to viewer when one helper lacks the parameter
     monkeypatch.setattr(oh, "count_relationships", lambda c, r, as_of=None, expert=None: 3)
-    people = json.loads(oh.get_people(as_of_time=None, url=None, server=None, user_id=None, user_pwd=None).body)
+    people = json.loads(oh.get_people(as_of_time=None, url=None, server=None, user_id=None).body)
     assert people["countScope"] == "viewer"
 
 
@@ -376,3 +451,24 @@ def test_repository_relationship_counts_are_given_the_expert():
     assert seen == [(None, None)]
     src = inspect.getsource(oh._compute_summary) + inspect.getsource(oh.get_people)
     assert src.count("expert=mgr") + src.count("expert=expert") >= 2
+
+
+def test_grounding_shows_one_decimal_under_10():
+    # Architect P3: 767 links over 56,357 Assets is 1.36 per 100 -> 1.4, not pyegeria's whole-number "1"
+    g = {"groundingLinks": 767, "groundingPct": 1}
+    f = oh._grounding_fields(g, 56357, oh.REPOSITORY)
+    assert f["groundingValue"] == 1.4 and f["groundingLinksPer100"] == 1.4 and f["groundingPct"] is None
+    # 10 and up: a whole number
+    assert oh._grounding_fields({"groundingLinks": 1234, "groundingPct": 12}, 10000, oh.REPOSITORY)["groundingValue"] == 12
+    # the asset share is rounded the same way
+    s = oh._grounding_fields({"groundingLinks": 767, "groundedAssets": 700, "groundedAssetPct": 1.2421}, 56357, oh.REPOSITORY)
+    assert s["groundingMeasure"] == "assetShare" and s["groundingValue"] == 1.2 and s["groundingLinksPer100"] == 1.4
+
+
+def test_grounding_never_recomputes_across_populations():
+    # a viewer funnel's Cataloged is not semantic_grounding's population: keep pyegeria's own figure
+    g = {"groundingLinks": 767, "groundingPct": 1}
+    assert oh._grounding_fields(g, 56357, oh.VIEWER)["groundingValue"] == 1
+    assert oh._grounding_fields(g, None, oh.REPOSITORY)["groundingValue"] == 1     # no Asset total: pyegeria's
+    assert oh._grounding_fields(g, 0, oh.REPOSITORY)["groundingValue"] == 1
+    assert oh._display_round(None) is None and oh._display_round(9.96) == 10.0 and oh._display_round(0.04) == 0.0

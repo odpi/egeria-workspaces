@@ -19,7 +19,9 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from loguru import logger
 from pydantic import BaseModel
+from egeria_auth import PlatformBody  # platform gate on the body's url (see egeria_auth)
 
+import report_spec_consumers
 from pyegeria.view.base_report_formats import get_report_registry, register_report_specs
 from pyegeria.view._output_format_models import FormatSet, Format, Column, ActionParameter
 
@@ -31,21 +33,28 @@ def register_local_specs():
     This allows us to provide professional, generally useful analytic specs
     directly in the workspace before they are formally released into the
     core pyegeria library.
+
+    A label the EGERIA tier holds (a spec synced from Egeria) is not registered locally: the
+    Egeria copy is then the source and pyegeria's precedence (local > egeria) would otherwise
+    shadow it. Returns the labels registered.
     """
-    register_report_specs({
-        "Analytic - Element Count by Type": FormatSet(
-            heading="Element Count by Type",
-            description="Counts active elements of a given type. Use type_name in "
-                        "analytic_spec_params to set the target type.",
-            family="Analytic",
-            target_type=None,
-            formats=[Format(types=["DICT", "JSON"], attributes=[])],
-            action=ActionParameter(
-                function="",
-                analytic_function="count_elements",
-                analytic_spec_params={"type_name": "GlossaryTerm"}
-            )
-        ),
+    try:
+        from pyegeria.view.egeria_spec_cache import egeria_tier
+        held = set(egeria_tier(force=True).keys())
+    except Exception as exc:  # noqa: BLE001 -- no tier: register the local copy
+        logger.debug(f"report specs: EGERIA tier unavailable: {exc}")
+        held = set()
+    specs = {label: fs for label, fs in _local_specs().items() if label not in held}
+    for label in sorted(set(_local_specs()) & held):
+        logger.info(f"report spec '{label}': Egeria holds it; the local copy is not registered")
+    if specs:
+        register_report_specs(specs, source="workspace_local")
+    return sorted(specs)
+
+
+def _local_specs() -> dict:
+    """The workspace-local report specs, keyed by label."""
+    return {
         "Analytic - Generic Metric Trend": FormatSet(
             heading="Generic Metric Trend",
             description="Trend any analytic function over time. metric_path is the target function; "
@@ -63,7 +72,7 @@ def register_local_specs():
                 }
             )
         )
-    }, source="workspace_local")
+    }
 
 
 try:
@@ -163,9 +172,13 @@ def get_report_specs(
     persp_lower = perspective.strip().lower() if perspective else None
     q_lower     = q.strip().lower()           if q         else None
 
+    # "Used by" (report_spec_consumers.py): this environment does not sync report specs from Egeria,
+    # so the consumer index is usually "not read", and every row says so rather than "none".
+    consumers = report_spec_consumers.index()
     result: list[dict] = []
     for name, fs in registry.items():
         s = _serialize(name, fs)
+        s.update(report_spec_consumers.used_by(name, None, None, consumers))
 
         if persp_lower is not None:
             all_p = [p.lower() for qs in s["question_spec"] for p in qs["perspectives"]]
@@ -197,12 +210,13 @@ def get_report_specs(
         "families":     families,
         "perspectives": all_perspectives,
         "total":        len(result),
+        "consumers":    report_spec_consumers.summary(consumers),
     })
 
 
 # ── Execute ───────────────────────────────────────────────────────────────────
 
-class ExecuteRequest(BaseModel):
+class ExecuteRequest(PlatformBody):
     spec_name:     str
     output_format: str = "REPORT"
     params:        dict = {}

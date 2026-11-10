@@ -231,14 +231,56 @@ def counts(resolutions: Dict[str, Any], names) -> Dict[str, int]:
     return c
 
 
-def placement_status(spec_name: Optional[str], resolutions: Dict[str, Any]) -> Dict[str, Any]:
+def _function_valued_param_refusal(analytic_params: Optional[Dict[str, Any]],
+                                   action: Any = None) -> Optional[str]:
+    """pyegeria's words refusing a function-valued parameter (e.g. metric_trend's `metric_path`)
+    that a placement's own analyticParams supply, or None. The resolver checks only the spec's fixed
+    analytic_spec_params; a dashboard Report's analyticParams override them at run time, so a
+    placement can name a routine the spec never did. The check is pyegeria's own
+    (resolve_report_spec_function, the call the routine makes at run time), not a re-implementation.
+    Only parameters the spec's routine declares are checked, as the resolver does."""
+    if not analytic_params:
+        return None
+    try:
+        from pyegeria.view.spec_resolver import FUNCTION_VALUED_PARAMS
+        from pyegeria.view.format_set_executor import AnalyticFunctionRefused, resolve_report_spec_function
+    except ImportError:
+        return None
+    declared = None
+    analytic = getattr(action, "analytic_function", None) if action is not None else None
+    if analytic:
+        entry = routine_entry(analytic)
+        if entry is not None:
+            declared = {getattr(p, "name", "") for p in (getattr(entry, "params", None) or [])}
+    for param in FUNCTION_VALUED_PARAMS:
+        value = analytic_params.get(param)
+        if value in (None, "") or (declared is not None and param not in declared):
+            continue
+        try:
+            resolve_report_spec_function(value)
+        except AnalyticFunctionRefused as exc:
+            return f"This placement's {param} '{value}' is refused: {exc}"
+        except Exception as exc:  # noqa: BLE001 -- a resolver failure is not a verdict either way
+            logger.debug(f"placement {param} {value!r} not checked: {exc}")
+    return None
+
+
+def placement_status(spec_name: Optional[str], resolutions: Dict[str, Any],
+                     analytic_params: Optional[Dict[str, Any]] = None,
+                     action: Any = None) -> Dict[str, Any]:
     """{runnable, refusal, bindersDeprecated} for a dashboard placement's spec. runnable is None when
-    the spec is not resolved (unknown, not "runnable"); refusal is the resolver's words when not."""
+    the spec is not resolved (unknown, not "runnable"); refusal is the resolver's words when not.
+    A runnable spec is still refused when the placement's own analyticParams name a routine pyegeria
+    refuses (a function-valued parameter such as metric_path)."""
     res = resolutions.get(spec_name) if spec_name else None
     if res is None:
         return {"runnable": None, "refusal": None, "bindersDeprecated": False}
     runnable = bool(getattr(res, "runnable", False))
     words = list(getattr(res, "words", None) or [])
+    if runnable:
+        param_refusal = _function_valued_param_refusal(analytic_params, action)
+        if param_refusal:
+            runnable, words = False, [param_refusal]
     return {
         "runnable": runnable,
         "refusal": None if runnable else (" ".join(words) or f"Spec '{spec_name}' cannot run."),

@@ -108,10 +108,10 @@ def get_projects(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -229,11 +229,11 @@ def get_projects_tree(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """Project hierarchy forest: roots (not managed by another) with nested
     sub-projects (managedProjects children / managingProjects parents)."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     return _cached_forest("hierarchy", "managedProjects", "managingProjects", url, server, user_id, user_pwd, as_of_time)
 
 
@@ -242,12 +242,12 @@ def get_projects_dependencies(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """Project dependency forest: roots (projects nothing depends on) expanding to
     the projects they depend on (dependsOnProjects children / dependentProject
     parents, per the ProjectDependency relationship)."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     return _cached_forest("dependencies", "dependsOnProjects", "dependentProject", url, server, user_id, user_pwd, as_of_time)
 
 
@@ -257,9 +257,9 @@ def get_project(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:

@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Report specs are organised by the tools that use them (consumer folders)**. The root collection `RootCollection::ReportSpecs` holds one folder per tool (`ReportSpecFolder::Consumer::<Portal|EgeriaAdvisor|ResourceExplorer|Pyegeria|MyEgeria|Jupyter>`); putting a spec in a tool's folder publishes it to that tool. `egeria-held-specs/REPORT_SPEC_CONSUMER_FOLDERS.dr-egeria.md` builds the tree. The Portal reads `ReportSpecFolder::Consumer::Portal` (the old `ReportSpecFolder::EgeriaPortal`, renamed in place).
+  - **Egeria Explorer's Report Specs view** shows a **Used by** chip row on each spec and a consumer filter, including "Used by none". It says "not read" (with the reason) when the consumer folders could not be read, and "not tracked" for built-in and local specs; with pyegeria 6.2.32 or earlier every spec says "not read".
+  - See *Upgrade notes* in RELEASE_NOTES.md for other deployments' Egeria.
 - **Relationships are organised by Egeria's relationship purpose** ([#752](https://github.com/odpi/egeria-workspaces/pull/752) and a follow-up). Egeria gives every relationship type a purpose; the portal groups the eleven purposes into six families (Composition, Governance & Description, Organization, Associations, Design & Deployment, Operations) plus Unclassified.
   - **Egeria Explorer's Type Explorer:** relationship type pages show the purpose, Egeria's description and an anchored-graph chip. An entity type's Relationships tab groups by family, with purpose filter chips. The sidebar's RELATIONSHIPS list is grouped into folded families.
   - **Detail panels, Data Mesh and The Catalog:** relationships are grouped into families that start folded and remember being opened. Purpose badges appear where they add information.

@@ -2799,8 +2799,11 @@ function ReportSpecDetail({ spec, onSelectSpec, portalSupply }) {
       spec.target_type && React.createElement('span', { className: 'badge', style: BADGE_STYLE.entity }, spec.target_type),
       spec.resolution && React.createElement(RsStatusBadge, { status: spec.resolution.status }),
       spec.resolution && spec.resolution.bindersDeprecated && React.createElement(RsBindersTag, null),
+      React.createElement(RsSourceBadge, { spec: spec }),
+      React.createElement(RsUsedBy, { spec: spec }),
       React.createElement(CopyJsonButton, { data: spec })
     ),
+    React.createElement(RsSourceDetail, { spec: spec, onSelectSpec: onSelectSpec }),
     spec.heading && React.createElement('div', { style: { marginTop: 12, fontWeight: 600, fontSize: 13, color: 'var(--text)' } }, spec.heading),
     spec.description && React.createElement('div', { className: 'detail-desc', style: { marginTop: 6 } }, spec.description),
     spec.aliases && spec.aliases.length > 0 && React.createElement('div', { style: { marginTop: 8, fontSize: 11, color: 'var(--dim)' } },
@@ -3026,6 +3029,115 @@ function ReportSpecDetail({ spec, onSelectSpec, portalSupply }) {
   );
 }
 
+// ── Report spec source (builtin / egeria / local / user) ─────────────────────
+var _RS_SOURCES = ['builtin', 'egeria', 'local', 'user'];
+var _RS_SOURCE_TAG = {
+  egeria:  { mark: 'EG', color: '#34d399' },
+  local:   { mark: 'P',  color: '#60a5fa' },
+  user:    { mark: 'U',  color: '#c084fc' }
+  // builtin: no tag in the list (most specs); the detail badge still says so.
+};
+
+function _rsCap(t) { return t ? t.charAt(0).toUpperCase() + t.slice(1) : t; }
+
+function _rsSyncWords(st) {
+  if (!st) return '';
+  // A running sync says what it is doing (starting / running / retrying), never "already running".
+  if (st.running) return _rsCap(st.running_words || 'a sync from Egeria is running') + '…';
+  if (st.outcome === 'folders_missing') return 'The configured folders were not found in Egeria, or are not visible to the Portal\'s user: ' +
+    ((st.missing_folders || []).join(', ') || (st.folders || []).join(', ')) + '.';
+  if (st.outcome === 'not_configured') return 'No report spec folders are configured, so nothing was synced.';
+  if (st.outcome === 'failed') return 'Sync failed: ' + (st.error || 'no detail');
+  if (st.outcome === 'already_running') return 'Another process was syncing this cache; try again shortly.';
+  if (st.outcome === 'synced') {
+    var r = st.report || {};
+    var n = function(k) { return (r[k] || []).length; };
+    return 'Synced ' + (st.finished_at || '') + ': ' + n('added') + ' added, ' + n('updated') + ' updated, ' +
+      n('unchanged') + ' unchanged, ' + n('pruned') + ' pruned, ' + n('skipped') + ' skipped.';
+  }
+  return 'No sync has run yet.';
+}
+
+function RsEgeriaHeldBanner({ held, onSync, syncing, syncMsg, onShow }) {
+  var none = !held.count;
+  var sync = held.sync || {};
+  var skipped = ((sync.report || {}).skipped || []);
+  return React.createElement('div', { style: { margin: '6px 10px', padding: '6px 8px', fontSize: 11, borderRadius: 5,
+      border: '1px solid ' + (none ? 'rgba(148,163,184,.3)' : 'rgba(52,211,153,.35)'),
+      background: none ? 'rgba(148,163,184,.06)' : 'rgba(52,211,153,.06)', color: 'var(--text)' } },
+    React.createElement('div', { style: { fontWeight: 600 } },
+      none ? held.message : React.createElement('a', { href: '#', onClick: function(e) { e.preventDefault(); onShow(); },
+        style: { color: '#34d399' } }, held.message)),
+    React.createElement('div', { style: { color: 'var(--dim)', marginTop: 2, overflowWrap: 'anywhere' } },
+      'Folders: ' + ((held.folders || []).length ? held.folders.join(', ') : 'none configured')),
+    !syncMsg && (sync.outcome || sync.running) && React.createElement('div', { style: { color: 'var(--dim)', marginTop: 2 } }, _rsSyncWords(Object.assign({}, sync, { running_words: held.running || sync.running_words }))),
+    !syncMsg && skipped.length > 0 && React.createElement('div', { style: { color: '#fbbf24', marginTop: 2, overflowWrap: 'anywhere' } },
+      skipped.map(function(sk, i) { return React.createElement('div', { key: i }, sk[0] + ': ' + sk[1]); })),
+    syncMsg && React.createElement('div', { style: { color: 'var(--dim)', marginTop: 2, overflowWrap: 'anywhere' } }, syncMsg),
+    React.createElement('button', { className: 'btn-sm', style: { marginTop: 4 }, disabled: syncing,
+      title: "Administrators: read the configured folders in Egeria into the Portal's report spec cache (reads Egeria only)",
+      onClick: onSync }, syncing ? 'Syncing…' : '⇣ Sync from Egeria')
+  );
+}
+
+function RsSourceBadge({ spec }) {
+  if (!spec.source) return React.createElement('span', { className: 'badge', style: BADGE_STYLE.base,
+    title: 'pyegeria did not report where this spec came from' }, 'source not reported');
+  var tag = _RS_SOURCE_TAG[spec.source];
+  var color = tag ? tag.color : '#94a3b8';
+  return React.createElement('span', { className: 'badge',
+    style: { color: color, border: '1px solid ' + color, background: 'transparent' },
+    title: 'Source: where this spec definition came from' }, spec.sourceLabel || spec.source);
+}
+
+// "Used by": the tools a spec is published to (its consumer folders). Absence is never "none":
+// "not read" (the consumer index was not read, with the reason) and "not tracked" (built-in and
+// local specs are not consumer-folder members yet) are said as such; "none" means a spec held in
+// Egeria that no consumer folder holds.
+var _RS_CHIP = { fontSize: 10, padding: '1px 6px', borderRadius: 9, border: '1px solid rgba(167,139,250,.55)', color: '#c4b5fd', background: 'rgba(167,139,250,.08)' };
+var _RS_MUTED = { fontSize: 10, color: 'var(--dim)' };
+function RsUsedBy({ spec }) {
+  var st = spec.usedByState;
+  if (!st) return null;
+  var label = React.createElement('span', { key: 'l', style: _RS_MUTED }, 'Used by:');
+  var wrap = { className: 'rs-used-by', style: { display: 'inline-flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' } };
+  // The reason is the same for every spec; it is said once in the sidebar, and here as a tooltip.
+  if (st === 'not read') return React.createElement('span', wrap, label,
+    React.createElement('span', { key: 'n', className: 'rs-used-by-not-read', style: { fontSize: 10, color: '#fbbf24', cursor: 'help' },
+      title: 'Consumers not read' + (spec.usedByReason ? ': ' + spec.usedByReason : '') }, 'not read'));
+  if (st === 'not tracked') return React.createElement('span', Object.assign({ title: spec.usedByReason || '' }, wrap), label,
+    React.createElement('span', { key: 'n', style: _RS_MUTED }, 'not tracked'));
+  var names = spec.usedBy || [];
+  var partial = st === 'partial' ? ' (the consumer folders were only partly read: ' + (spec.usedByReason || '') + ')' : '';
+  var chips = names.length
+    ? names.map(function(n) { return React.createElement('span', { key: 'c-' + n, className: 'rs-used-by-chip', style: _RS_CHIP, title: 'Published to ' + n + ' (a member of its consumer folder)' + partial }, n); })
+    : [React.createElement('span', { key: 'none', className: 'rs-used-by-none', style: { fontSize: 10, color: 'var(--text)' }, title: 'Held in Egeria, but in no consumer folder: published to no tool' + partial },
+        st === 'partial' ? 'none found (partly read)' : 'none')];
+  return React.createElement('span', wrap, [label].concat(chips));
+}
+
+function RsSourceDetail({ spec, onSelectSpec }) {
+  var lines = [];
+  if (spec.shadowedBy) {
+    var base = spec.name.indexOf(':') >= 0 ? spec.name.split(':').slice(1).join(':') : spec.name;
+    lines.push(React.createElement('div', { key: 'sb' }, 'Shadowed: the ' + spec.shadowedBy + ' copy of ',
+      React.createElement('a', { href: '#', onClick: function(e) { e.preventDefault(); onSelectSpec && onSelectSpec(base); } }, base),
+      ' is the one that runs. This copy stays addressable as ' + spec.name + '.'));
+  }
+  if (spec.shadows) lines.push(React.createElement('div', { key: 'sh' },
+    'Shadows the ' + spec.shadows + ' copy, still addressable as ' + (spec.shadows === 'egeria' ? 'egeria:' : 'builtin:') + spec.name + '.'));
+  var eg = spec.egeria;
+  if (eg) {
+    lines.push(React.createElement('div', { key: 'eg', style: { overflowWrap: 'anywhere' } },
+      'Held in Egeria: ' + (eg.qualified_name || '') + (eg.guid ? ' (' + eg.guid + ')' : '') +
+      (eg.version ? ', version ' + eg.version : '') +
+      ((eg.folders || []).length ? '; folder ' + eg.folders.join(', ') : '') +
+      (eg.synced_at ? '; synced ' + eg.synced_at : '') + (eg.draft ? '; DRAFT' : '')));
+  }
+  if (!lines.length) return null;
+  return React.createElement('div', { style: { marginTop: 8, fontSize: 11, color: 'var(--dim)' } }, lines);
+}
+
 function ReportSpecView() {
   const [loadState, setLoadState] = useState('loading');
   const [attempt, setAttempt]     = useState(0);
@@ -3036,9 +3148,47 @@ function ReportSpecView() {
   const [search, setSearch]       = useState('');
   const [perspFilter, setPerspFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState(''); // '' | runnable | unrunnable | format_only
+  // "Used by": '' | a consumer name | '__none__' (held in Egeria, in no consumer folder).
+  const [consumerFilter, setConsumerFilter] = useState('');
+  const [consumersInfo, setConsumersInfo] = useState(null);
   const [counts, setCounts]       = useState(null);
   const [portalSupply, setPortalSupply] = useState('');
   const [error, setError]         = useState('');
+  // Where each spec came from: builtin | egeria | local | user (pyegeria tiers; local split by the Portal).
+  const [sourceFilter, setSourceFilter] = useState('');
+  const [sources, setSources]     = useState(null);
+  const [sourceWords, setSourceWords] = useState({});
+  const [egeriaHeld, setEgeriaHeld] = useState(null);
+  const [syncMsg, setSyncMsg]     = useState('');
+  const [syncing, setSyncing]     = useState(false);
+
+  // Admin: sync report specs held in Egeria into the Portal's cache, then reload the list.
+  const startSync = useCallback(() => {
+    setSyncing(true);
+    setSyncMsg('Syncing from Egeria…');
+    fetch('/api/report-specs/sync', { method: 'POST' })
+      .then(r => r.json().then(d => ({ ok: r.ok, status: r.status, d })))
+      .then(({ ok, status, d }) => {
+        if (!ok) throw new Error(d.detail || ('HTTP ' + status));
+        if (d.already_running) {
+          // Not started: say what the running sync is doing (e.g. the startup sync retrying).
+          setSyncing(false);
+          setSyncMsg('Not started: ' + (d.running_words || 'a sync from Egeria is running') + '. Refresh when it finishes.');
+          return;
+        }
+        let tries = 0;
+        const poll = () => {
+          fetch('/api/report-specs/sync').then(r => r.json()).then(st => {
+            if (st.running && tries++ < 90) { setTimeout(poll, 2000); return; }
+            setSyncing(false);
+            setSyncMsg(_rsSyncWords(st));
+            setAttempt(a => a + 1);
+          }).catch(e => { setSyncing(false); setSyncMsg('Sync status unavailable: ' + e.message); });
+        };
+        setTimeout(poll, 1500);
+      })
+      .catch(e => { setSyncing(false); setSyncMsg('Sync not started: ' + e.message); });
+  }, []);
 
   useEffect(() => {
     setLoadState('loading');
@@ -3049,7 +3199,11 @@ function ReportSpecView() {
         const list = data.specs || [];
         setSpecs(list);
         setCounts(data.counts || null);
+        setConsumersInfo(data.consumers || null);
         setPortalSupply(data.portalSupply || '');
+        setSources(data.sources || null);
+        setSourceWords(data.sourceWords || {});
+        setEgeriaHeld(data.egeriaHeld || null);
         setLoadState('ready');
         if (list.length > 0) setSelected(list[0].name);
       })
@@ -3083,6 +3237,9 @@ function ReportSpecView() {
     const sp = perspFilter.toLowerCase();
     return specs.filter(s => {
       if (statusFilter && !(s.resolution && s.resolution.status === statusFilter)) return false;
+      if (consumerFilter === '__none__' && !(Array.isArray(s.usedBy) && s.usedBy.length === 0)) return false;
+      if (consumerFilter && consumerFilter !== '__none__' && !(s.usedBy || []).includes(consumerFilter)) return false;
+      if (sourceFilter && (s.source || 'unknown') !== sourceFilter) return false;
       if (sp) {
         const perps = s.question_spec.flatMap(qs => qs.perspectives.map(p => p.toLowerCase()));
         if (!perps.includes(sp) && !perps.includes('any')) return false;
@@ -3093,7 +3250,18 @@ function ReportSpecView() {
       if (s.family && s.family.toLowerCase().includes(sq)) return true;
       return s.question_spec.some(qs => qs.questions.some(qText => qText.toLowerCase().includes(sq)));
     });
-  }, [specs, search, perspFilter, statusFilter]);
+  }, [specs, search, perspFilter, statusFilter, sourceFilter, consumerFilter]);
+
+  // Consumer filter options: every consumer folder the index lists (a zero count still shows), plus
+  // "used by none". Counted over the loaded specs.
+  const consumerCounts = useMemo(() => {
+    const c = { __none__: 0 };
+    specs.forEach(s => {
+      if (Array.isArray(s.usedBy) && s.usedBy.length === 0) c.__none__ += 1;
+      (s.usedBy || []).forEach(n => { c[n] = (c[n] || 0) + 1; });
+    });
+    return c;
+  }, [specs]);
 
   const selectedSpec = specs.find(s => s.name === selected) || null;
 
@@ -3146,11 +3314,40 @@ function ReportSpecView() {
           React.createElement('option', { value: 'unrunnable' }, 'Cannot run (' + counts.unrunnable + ')'),
           React.createElement('option', { value: 'format_only' }, 'Format only (' + counts.formatOnly + ')')
         ),
+        // Source: a zero count is still listed, so "held in Egeria (0)" says none, not nothing.
+        sources && React.createElement('select', {
+          className: 'area-select', 'aria-label': 'Filter by source',
+          style: { width: '100%', marginTop: 6 },
+          value: sourceFilter,
+          onChange: e => setSourceFilter(e.target.value)
+        },
+          React.createElement('option', { value: '' }, 'All sources'),
+          _RS_SOURCES.concat(Object.keys(sources).filter(k => _RS_SOURCES.indexOf(k) < 0))
+            .map(k => React.createElement('option', { key: k, value: k }, (sourceWords[k] || k) + ' (' + (sources[k] || 0) + ')'))
+        ),
+        // Used by: when the consumer index was not read, say so (and why) instead of offering an empty filter.
+        consumersInfo && (consumersInfo.status === 'not read'
+          ? React.createElement('div', { className: 'rs-consumers-not-read', style: { marginTop: 6, fontSize: 11, color: '#fbbf24', overflowWrap: 'anywhere' } },
+              'Consumers: not read' + (consumersInfo.reason ? ' (' + consumersInfo.reason + ')' : ''))
+          : React.createElement('select', {
+              className: 'area-select', 'aria-label': 'Filter by consumer',
+              style: { width: '100%', marginTop: 6 },
+              title: consumersInfo.status === 'partial' ? 'Consumers partly read: ' + (consumersInfo.reason || '') : 'The tools each spec is published to (its consumer folders)',
+              value: consumerFilter,
+              onChange: e => setConsumerFilter(e.target.value)
+            },
+              React.createElement('option', { value: '' }, 'All consumers' + (consumersInfo.status === 'partial' ? ' (partly read)' : '')),
+              (consumersInfo.consumers || []).map(c => React.createElement('option', { key: c.name, value: c.name },
+                'Used by ' + c.name + ' (' + (consumerCounts[c.name] || 0) + ')' + (c.status !== 'read' ? ', ' + c.status : ''))),
+              React.createElement('option', { value: '__none__' }, 'Used by none (' + consumerCounts.__none__ + ')')
+            )),
         React.createElement('button', {
           className: 'btn-sm', style: { marginTop: 6 },
           onClick: () => setAttempt(a => a + 1)
         }, '↻ Refresh')
       ),
+      egeriaHeld && React.createElement(RsEgeriaHeldBanner, { held: egeriaHeld, onSync: startSync, syncing: syncing, syncMsg: syncMsg,
+        onShow: () => setSourceFilter('egeria') }),
       React.createElement('div', { className: 'stats', style: { flexWrap: 'wrap', rowGap: 2 } },
         React.createElement('span', null,
           React.createElement('span', { style: { color: 'var(--accent)' } }, filtered.length),
@@ -3190,6 +3387,9 @@ function ReportSpecView() {
                  (function() {
                    var res = s.resolution, st = res && _RS_STATUS[res.status];
                    var marks = [];
+                   var tag = _RS_SOURCE_TAG[s.source];
+                   if (tag) marks.push(React.createElement('span', { key: 's', title: (s.sourceLabel || s.source) + (s.shadowedBy ? ' (shadowed by the ' + s.shadowedBy + ' copy)' : ''),
+                     style: { marginLeft: 6, fontSize: 9, fontWeight: 700, color: tag.color, border: '1px solid ' + tag.color, borderRadius: 3, padding: '0 3px' } }, tag.mark));
                    if (st && st.mark) marks.push(React.createElement('span', { key: 'm', title: st.title,
                      style: { marginLeft: 6, fontSize: 10, color: st.style.color } }, st.mark));
                    if (res && res.bindersDeprecated) marks.push(React.createElement('span', { key: 'b', title: _RS_BINDERS_TITLE,
@@ -3715,7 +3915,8 @@ function GlossaryTermsTab({ navGuid, onNavigateToDataDesign, onNavigateToElement
         (terms.length >= 500 ? ' ⚠ first 500 shown' : '')
       ));
 
-  return React.createElement("div", { className: "body" },
+  // AsOfContext: the shared widgets inside (diagrams, assigned elements, raw JSON, feedback) follow the slider.
+  return React.createElement(AsOfContext.Provider, { value: asOfTime }, React.createElement("div", { className: "body" },
     // Left: glossary list
     React.createElement("div", { className: "sidebar", style: { width: sideW } },
       React.createElement("div", { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)' } },
@@ -3853,7 +4054,7 @@ function GlossaryTermsTab({ navGuid, onNavigateToDataDesign, onNavigateToElement
       onClose: function() { setClassifyModalOpen(false); },
       onDone: function() { selection.clear(); },
     })
-  );
+  ));
 }
 
 // ── Subject Area Explorer ─────────────────────────────────────────────────────
@@ -5159,7 +5360,10 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
   useEffect(() => {
     setCatState('loading');
     setCatError('');
-    egeriaFetch('/api/digital-products/catalogs' + (inclTempl ? '?include_templates=true' : ''), creds)
+    const qs = [];
+    if (inclTempl) qs.push('include_templates=true');
+    if (asOfTime) qs.push('as_of_time=' + encodeURIComponent(asOfTime));  // As-of slider (point-in-time)
+    egeriaFetch('/api/digital-products/catalogs' + (qs.length ? '?' + qs.join('&') : ''), creds)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => {
         const list = (data.catalogs || []).slice().sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
@@ -5168,7 +5372,7 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
         if (list.length > 0 && !navGuidRef.current) setSelectedCat(list[0].guid);
       })
       .catch(err => { setCatError(err.message); setCatState('error'); });
-  }, [catAttempt, inclTempl]);
+  }, [catAttempt, inclTempl, asOfTime]);
 
   // Load tree for selected catalog
   useEffect(() => {
@@ -5228,12 +5432,12 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
     if (!selectedNode) { setNodeDetail(null); return; }
     let cancelled = false;
     setNodeDetail(null);
-    egeriaFetch('/api/digital-products/' + encodeURIComponent(selectedNode), creds)
+    egeriaFetch('/api/digital-products/' + encodeURIComponent(selectedNode) + (asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : ''), creds)
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (!cancelled && data) setNodeDetail(data); })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [selectedNode]);
+  }, [selectedNode, asOfTime]);
 
   // Handle deep-link navigation: select the given GUID without requiring tree traversal
   useEffect(() => {
@@ -5253,7 +5457,8 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
     )
   );
 
-  return React.createElement("div", { className: "body" },
+  // AsOfContext: the shared widgets inside (diagrams, assigned elements, raw JSON, feedback) follow the slider.
+  return React.createElement(AsOfContext.Provider, { value: asOfTime }, React.createElement("div", { className: "body" },
     // Catalog list (left)
     React.createElement("div", { className: "sidebar", style: { width: sideW } },
       React.createElement("div", { style: { padding: '10px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 } },
@@ -5318,7 +5523,7 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
             React.createElement("span", { style: { color: 'var(--muted)' } }, "Select a node to view details")
           )
     )
-  );
+  ));
 }
 
 // ── Collections (collections by type → type-agnostic hierarchy) ──────────────
@@ -5403,6 +5608,7 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
     const qs = [];
     qs.push('all_collections=true');
     if (inclTempl) qs.push('include_templates=true');
+    if (asOfTime) qs.push('as_of_time=' + encodeURIComponent(asOfTime));  // As-of slider (point-in-time)
     egeriaFetch('/api/collections/roots' + (qs.length ? '?' + qs.join('&') : ''), creds)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => {
@@ -5416,7 +5622,7 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
         setOpenTypes(new Set(linked ? [linked.typeName || 'Collection'] : []));
       })
       .catch(err => { setRootError(err.message); setRootState('error'); });
-  }, [rootAttempt, inclTempl]);
+  }, [rootAttempt, inclTempl, asOfTime]);
 
   // Distinct typeNames present in the currently-loaded roots, for the filter
   // dropdown below — recomputed whenever the dataset changes.
@@ -5512,12 +5718,12 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
     if (!selectedNode) { setNodeDetail(null); return; }
     let cancelled = false;
     setNodeDetail(null);
-    egeriaFetch('/api/collections/' + encodeURIComponent(selectedNode), creds)
+    egeriaFetch('/api/collections/' + encodeURIComponent(selectedNode) + (asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : ''), creds)
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (!cancelled && data) setNodeDetail(data); })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [selectedNode]);
+  }, [selectedNode, asOfTime]);
 
   // Handle deep-link navigation: select the given GUID without requiring tree traversal
   useEffect(() => {
@@ -5537,7 +5743,8 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
     )
   );
 
-  return React.createElement("div", { className: "body" },
+  // AsOfContext: the shared widgets inside (diagrams, assigned elements, raw JSON, feedback) follow the slider.
+  return React.createElement(AsOfContext.Provider, { value: asOfTime }, React.createElement("div", { className: "body" },
     // Collections by type (left): one collapsible group per type, all collapsed to start
     React.createElement("div", { className: "sidebar", style: { width: sideW } },
       React.createElement("div", { style: { padding: '10px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 } },
@@ -5673,7 +5880,7 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
       onClose: function() { setClassifyModalAction(null); },
       onDone: function() { selection.clear(); },
     })
-  );
+  ));
 }
 
 // ── Placeholder (shown for sections not yet implemented) ─────────────────────
@@ -8223,7 +8430,7 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
   }
 
   // Reset questions so they re-fetch with new inclTempl value
-  useEffect(() => { setQState('idle'); setQList([]); selection.clear(); }, [inclTempl]);
+  useEffect(() => { setQState('idle'); setQList([]); selection.clear(); }, [inclTempl, asOfTime]);
 
   // Load perspectives on mount
   useEffect(() => {
@@ -8249,31 +8456,34 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
   useEffect(() => {
     if (subNav !== 'questions' || qState !== 'idle') return;
     setQState('loading');
-    egeriaFetch('/api/questions' + (inclTempl ? '?include_templates=true' : ''), creds)
+    const qp = [];
+    if (inclTempl) qp.push('include_templates=true');
+    if (asOfTime) qp.push('as_of_time=' + encodeURIComponent(asOfTime));  // As-of slider (point-in-time)
+    egeriaFetch('/api/questions' + (qp.length ? '?' + qp.join('&') : ''), creds)
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(data => { setQList(data.questions || []); setQState('ready'); })
       .catch(() => setQState('error'));
-  }, [subNav, qState, inclTempl]);
+  }, [subNav, qState, inclTempl, asOfTime]);
 
   // Load perspective detail
   useEffect(() => {
     if (!selectedPersp) { setPerspDetail(null); return; }
     setPerspDetailState('loading');
-    egeriaFetch('/api/perspectives/' + encodeURIComponent(selectedPersp), creds)
+    egeriaFetch('/api/perspectives/' + encodeURIComponent(selectedPersp) + (asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : ''), creds)
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(data => { setPerspDetail(data); setPerspDetailState('ready'); })
       .catch(() => setPerspDetailState('error'));
-  }, [selectedPersp]);
+  }, [selectedPersp, asOfTime]);
 
   // Load question detail
   useEffect(() => {
     if (!selectedQ) { setQDetail(null); return; }
     setQDetailState('loading');
-    egeriaFetch('/api/questions/' + encodeURIComponent(selectedQ), creds)
+    egeriaFetch('/api/questions/' + encodeURIComponent(selectedQ) + (asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : ''), creds)
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(data => { setQDetail(data); setQDetailState('ready'); })
       .catch(() => setQDetailState('error'));
-  }, [selectedQ]);
+  }, [selectedQ, asOfTime]);
 
   // Relationship section renderer with context-aware navigation
   function renderRelSection(key, items, isInPerspectiveContext) {
@@ -8368,7 +8578,8 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
       color: subNav === key ? 'var(--bg)' : 'var(--dim)' };
   };
 
-  return React.createElement("div", { className: "body" },
+  // AsOfContext: the shared widgets inside (diagrams, assigned elements, raw JSON, feedback) follow the slider.
+  return React.createElement(AsOfContext.Provider, { value: asOfTime }, React.createElement("div", { className: "body" },
     // Left pane
     React.createElement("div", { className: "sidebar", style: { width: sideW, display: 'flex', flexDirection: 'column' } },
       React.createElement("div", { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 6 } },
@@ -8441,7 +8652,7 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
       onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
-  );
+  ));
 }
 
 function getDualTitle(title) {
@@ -8987,20 +9198,28 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
   useEffect(function() {
     setState('loading'); setError('');
     selection.clear();
-    egeriaFetch('/api/isc' + (inclTempl ? '?include_templates=true' : ''), creds)
+    var p = [];
+    if (inclTempl) p.push('include_templates=true');
+    if (asOfTime) p.push('as_of_time=' + encodeURIComponent(asOfTime));  // As-of slider (point-in-time)
+    egeriaFetch('/api/isc' + (p.length ? '?' + p.join('&') : ''), creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setItems(data.supply_chains || []); setState('ready'); })
       .catch(function(e) { setError(e.message); setState('error'); });
-  }, [attempt, inclTempl]);
+  }, [attempt, inclTempl, asOfTime]);
 
   useEffect(function() {
     if (!selected) { setDetail(null); return; }
     setDetailState('loading');
-    egeriaFetch('/api/isc/' + selected, creds)
-      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    egeriaFetch('/api/isc/' + selected + (asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : ''), creds)
+      .then(function(r) {
+        // 404 at a past As-of time = the chain did not exist yet (or was deleted): say so, not "failed".
+        if (r.status === 404 && asOfTime) { var e = new Error('absent'); e.absent = true; throw e; }
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
       .then(function(data) { setDetail(data); setDetailState('ready'); })
-      .catch(function() { setDetailState('error'); });
-  }, [selected]);
+      .catch(function(e) { setDetail(null); setDetailState(e && e.absent ? 'absent' : 'error'); });
+  }, [selected, asOfTime]);
 
   var sidebar = React.createElement("div", { style: { width: sideW, minWidth: sideW, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflowY: 'auto', height: '100%' } },
     React.createElement("div", { style: { padding: '8px 10px' } }, React.createElement(TimeSlider, { items: items, onChange: setAsOfTime, label: 'As of' })),
@@ -9080,10 +9299,12 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
     ),
     selected && detailState === 'loading' && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "Loading…"),
     selected && detailState === 'error'   && React.createElement("div", { style: { padding: 24, color: '#f87171' } }, "Failed to load ISC detail"),
-    selected && (detailState === 'ready' || selectedItem) && React.createElement(ISCDetail, { data: selectedItem, detail: detail, onNavigateToElement: onNavigateToElement })
+    selected && detailState === 'absent'  && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "This supply chain did not exist at " + new Date(asOfTime).toLocaleString() + "."),
+    selected && (detailState === 'ready' || (selectedItem && detailState !== 'absent')) && React.createElement(ISCDetail, { data: selectedItem, detail: detail, onNavigateToElement: onNavigateToElement })
   );
 
-  return React.createElement("div", { className: "body" },
+  // AsOfContext: the shared widgets inside (diagrams, assigned elements, raw JSON, feedback) follow the slider.
+  return React.createElement(AsOfContext.Provider, { value: asOfTime }, React.createElement("div", { className: "body" },
     sidebar,
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
     mainPanel,
@@ -9101,7 +9322,7 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
       onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
-  );
+  ));
 }
 
 // ── Shared cross-link helpers ─────────────────────────────────────────────────
@@ -9847,7 +10068,8 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
     })
   );
 
-  return React.createElement("div", { className: "body" },
+  // AsOfContext: the shared widgets inside (diagrams, assigned elements, raw JSON, feedback) follow the slider.
+  return React.createElement(AsOfContext.Provider, { value: asOfTime }, React.createElement("div", { className: "body" },
     sidebar,
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
     mainPanel,
@@ -9865,7 +10087,7 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
       onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
-  );
+  ));
 }
 
 function CommunityDetail({ data, detail, onNavigateToElement }) {
@@ -10599,11 +10821,16 @@ function CommunityView({ navGuid, onNavigateToElement }) {
   useEffect(function() {
     if (!selected) { setDetail(null); return; }
     setDetailState('loading');
-    egeriaFetch('/api/communities/' + selected, creds)
-      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    egeriaFetch('/api/communities/' + selected + (asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : ''), creds)
+      .then(function(r) {
+        // 404 at a past As-of time = it did not exist yet (or was deleted): say so, not "failed".
+        if (r.status === 404 && asOfTime) { var e = new Error('absent'); e.absent = true; throw e; }
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
       .then(function(data) { setDetail(data); setDetailState('ready'); })
-      .catch(function() { setDetailState('error'); });
-  }, [selected]);
+      .catch(function(e) { setDetail(null); setDetailState(e && e.absent ? 'absent' : 'error'); });
+  }, [selected, asOfTime]);
 
   // Cross-tab arrival: another tab called onNavigateToElement on a Community item.
   useEffect(function() {
@@ -10665,10 +10892,12 @@ function CommunityView({ navGuid, onNavigateToElement }) {
     ),
     selected && detailState === 'loading' && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "Loading…"),
     selected && detailState === 'error'   && React.createElement("div", { style: { padding: 24, color: '#f87171' } }, "Failed to load community detail"),
-    selected && (detailState === 'ready' || selectedItem) && React.createElement(CommunityDetail, { data: selectedItem, detail: detail, onNavigateToElement: onNavigateToElement })
+    selected && detailState === 'absent'  && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "This community did not exist at " + new Date(asOfTime).toLocaleString() + "."),
+    selected && (detailState === 'ready' || (selectedItem && detailState !== 'absent')) && React.createElement(CommunityDetail, { data: selectedItem, detail: detail, onNavigateToElement: onNavigateToElement })
   );
 
-  return React.createElement("div", { className: "body" },
+  // AsOfContext: the shared widgets inside (diagrams, assigned elements, raw JSON, feedback) follow the slider.
+  return React.createElement(AsOfContext.Provider, { value: asOfTime }, React.createElement("div", { className: "body" },
     sidebar,
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
     mainPanel,
@@ -10686,7 +10915,7 @@ function CommunityView({ navGuid, onNavigateToElement }) {
       onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
-  );
+  ));
 }
 
 function BusinessCapabilityDetail({ data, detail, onNavigateToElement }) {
@@ -10763,11 +10992,16 @@ function BusinessCapabilityView({ navGuid, onNavigateToElement }) {
   useEffect(function() {
     if (!selected) { setDetail(null); return; }
     setDetailState('loading');
-    egeriaFetch('/api/business-capabilities/' + selected, creds)
-      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    egeriaFetch('/api/business-capabilities/' + selected + (asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : ''), creds)
+      .then(function(r) {
+        // 404 at a past As-of time = it did not exist yet (or was deleted): say so, not "failed".
+        if (r.status === 404 && asOfTime) { var e = new Error('absent'); e.absent = true; throw e; }
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
       .then(function(data) { setDetail(data); setDetailState('ready'); })
-      .catch(function() { setDetailState('error'); });
-  }, [selected]);
+      .catch(function(e) { setDetail(null); setDetailState(e && e.absent ? 'absent' : 'error'); });
+  }, [selected, asOfTime]);
 
   // Cross-tab arrival: another tab called onNavigateToElement on a BusinessCapability item.
   useEffect(function() {
@@ -10830,10 +11064,12 @@ function BusinessCapabilityView({ navGuid, onNavigateToElement }) {
     ),
     selected && detailState === 'loading' && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "Loading…"),
     selected && detailState === 'error'   && React.createElement("div", { style: { padding: 24, color: '#f87171' } }, "Failed to load business capability detail"),
-    selected && (detailState === 'ready' || selectedItem) && React.createElement(BusinessCapabilityDetail, { data: selectedItem, detail: detail, onNavigateToElement: onNavigateToElement })
+    selected && detailState === 'absent'  && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "This business capability did not exist at " + new Date(asOfTime).toLocaleString() + "."),
+    selected && (detailState === 'ready' || (selectedItem && detailState !== 'absent')) && React.createElement(BusinessCapabilityDetail, { data: selectedItem, detail: detail, onNavigateToElement: onNavigateToElement })
   );
 
-  return React.createElement("div", { className: "body" },
+  // AsOfContext: the shared widgets inside (diagrams, assigned elements, raw JSON, feedback) follow the slider.
+  return React.createElement(AsOfContext.Provider, { value: asOfTime }, React.createElement("div", { className: "body" },
     sidebar,
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
     mainPanel,
@@ -10851,7 +11087,7 @@ function BusinessCapabilityView({ navGuid, onNavigateToElement }) {
       onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
-  );
+  ));
 }
 
 function _fmtNoteDate(s) {
@@ -12006,7 +12242,8 @@ function ProjectsView({ navGuid, onNavigateToElement }) {
   var activeForestState = projSubNav === 'dependencies' ? depTreeState : projTreeState;
   var emptyForestMsg = projSubNav === 'dependencies' ? 'No project dependencies defined.' : 'No projects found.';
 
-  return React.createElement('div', { className: 'body' },
+  // AsOfContext: the shared widgets inside (diagrams, assigned elements, raw JSON, feedback) follow the slider.
+  return React.createElement(AsOfContext.Provider, { value: asOfTime }, React.createElement('div', { className: 'body' },
     // Sidebar
     React.createElement('div', { style: sidebarStyle },
       // Time slider
@@ -12107,7 +12344,7 @@ function ProjectsView({ navGuid, onNavigateToElement }) {
       onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
-  );
+  ));
 }
 
 function ProjectDetail({ project, children, onSelectChild, onNavigateToElement }) {

@@ -22,6 +22,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
+from pyegeria import PyegeriaNotFoundException
 
 from common_serialize import _authored_fields, _header_summary, _classifications
 
@@ -169,6 +170,17 @@ def _serialize_question(element: dict) -> dict:
 
 # ── Endpoints ──────────────────────────────────────────────────────────────────
 
+def _detail_body(as_of_time: Optional[str] = None) -> dict:
+    """GetRequestBody for single-element detail. maxMermaidNodeCount must live in the
+    body (a sibling kwarg is ignored once an explicit body is passed; pyegeria's default
+    of 5 truncates mermaid diagrams -- egeria-python PYEGERIA_ISSUES.md ISSUE-23).
+    asOfTime carries the view's As-of slider (point-in-time) when set."""
+    body = {"class": "GetRequestBody", "graphQueryDepth": 5, "maxMermaidNodeCount": 250}
+    if as_of_time:
+        body["asOfTime"] = as_of_time
+    return body
+
+
 @router.get("/api/perspectives", summary="List all Perspective actor profiles")
 def get_perspectives(
     start_from: int = Query(0,   ge=0),
@@ -176,11 +188,11 @@ def get_perspectives(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     """Return all Perspective elements from the metadata repository."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_actor_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -221,7 +233,7 @@ def get_perspective(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """Return full detail for a single Perspective, including linked Questions via ScopedBy."""
     # get_actor_profile_by_guid enforces ActorProfile type server-side and Perspective is
@@ -229,13 +241,17 @@ def get_perspective(
     # get_element_by_guid accepts any element and returns the same shape (confirmed
     # live: identical keys incl. mermaidGraph/scopedElements) in ~0.15 s. This used
     # to list up to 200 Perspectives at depth 5 and filter by guid (~2.4 s for 14).
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         ce = _get_classification_explorer(url, server, user_id, user_pwd)
         raw = ce.get_element_by_guid(
             perspective_guid,
             output_format="JSON",
-            body={"class": "GetRequestBody", "graphQueryDepth": 5, "maxMermaidNodeCount": 250},
+            body=_detail_body(as_of_time),
         )
+    except PyegeriaNotFoundException:
+        # Stale GUID, or (with as_of_time) the perspective did not exist yet.
+        raise HTTPException(status_code=404, detail=f"Perspective {perspective_guid!r} not found")
     except Exception as exc:
         logger.exception("get_element_by_guid (perspective detail) failed")
         raise HTTPException(status_code=500, detail=f"Perspective retrieval failed: {exc}")
@@ -257,10 +273,11 @@ def get_questions(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """Return all GlossaryTerms classified as Questions (Question classification)."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_glossary_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -299,6 +316,7 @@ def get_questions(
             output_format="JSON",
             start_from=0,
             page_size=1000,
+            as_of_time=as_of_time or None,  # point-in-time (the view's As-of slider)
         )
     except Exception as exc:
         logger.exception("find_glossary_terms (Question) failed")
@@ -332,9 +350,10 @@ def get_question(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """Return full detail for a single Question (GlossaryTerm with Question classification)."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_glossary_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -349,8 +368,11 @@ def get_question(
         raw = mgr.get_term_by_guid(
             question_guid,
             output_format="JSON",
-            body={"class": "GetRequestBody", "graphQueryDepth": 5, "maxMermaidNodeCount": 250},
+            body=_detail_body(as_of_time),
         )
+    except PyegeriaNotFoundException:
+        # Stale GUID, or (with as_of_time) the question did not exist yet.
+        raise HTTPException(status_code=404, detail=f"Question {question_guid!r} not found")
     except Exception as exc:
         logger.exception("get_term_by_guid failed")
         raise HTTPException(status_code=500, detail=f"Question retrieval failed: {exc}")

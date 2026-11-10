@@ -292,6 +292,16 @@ services:
       # _batch.json manifests -- each topmost one is a batch, which may list
       # notebooks as well as Dr.Egeria docs. See PyegeriaWebHandler/PORTAL_STARTUP.md §3.1.
       EGERIA_BOOTSTRAP_SCAN_ROOTS: "${EGERIA_BOOTSTRAP_SCAN_ROOTS:-/coco-workbooks}"
+      # Report specs held in Egeria: the CollectionFolder qualified names (comma-separated) the
+      # Portal syncs into pyegeria's EGERIA tier, at startup and from Egeria Explorer's Report Specs
+      # "Sync from Egeria" button. The cache lives under /root/.pyegeria/cache (the state mount
+      # below), so it survives a recreate. Set to "" to sync nothing. See report_spec_sync.py.
+      # The Portal's consumer folder is ReportSpecFolder::Consumer::Portal, under the root
+      # RootCollection::ReportSpecs (renamed in place from ReportSpecFolder::EgeriaPortal on
+      # 2026-11-10 by egeria-held-specs/REPORT_SPEC_CONSUMER_FOLDERS.dr-egeria.md). Sub-folders of a
+      # consumer folder are followed (pyegeria after 6.2.32: cycle-safe, depth cap 5), and each
+      # sync refreshes the consumer index behind the Report Specs view's "Used by" chips.
+      PYEGERIA_REPORT_SPEC_FOLDERS: "${PYEGERIA_REPORT_SPEC_FOLDERS:-ReportSpecFolder::Consumer::Portal}"
       MCP_ACCESS_TOKEN: "egeria-secret-mcp-token"
       # ── Demo mode — set DEMO_MODE=true to enable public access with auth ──────
       DEMO_MODE: "false"

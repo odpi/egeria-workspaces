@@ -38,7 +38,7 @@ The included `mcp_server.py` now supports dynamic execution. You can use the `eg
 
 ## Analytic Report Specifications
 
-`report_specs_handler.py` registers two workspace analytic specs at import time: **Analytic - Element Count by Type** and **Analytic - Generic Metric Trend**.
+`report_specs_handler.py` registers one workspace analytic spec at import time: **Analytic - Generic Metric Trend**. To count elements of a type, use pyegeria's built-in **Analytic Demo - Element Count by Type** (the Portal's own copy, "Analytic - Element Count by Type", was removed on 2026-11-10 because it duplicated the built-in).
 
 A report spec is data, so it names its analytic function by **registered name** (`count_elements`, `metric_trend`), not by Python dotted path. Registered names come from pyegeria's analytic registry; installed packages add functions through the `pyegeria.analytics` entry-point group, and report specs through the `pyegeria.report_specs` entry-point group (pyegeria 6.2.18+). Dotted paths in report specs resolve with a `DeprecationWarning` in pyegeria 6.2.18 and are refused in 6.2.19. `metric_trend`'s `metric_path` accepts a registered name only from 6.2.18; the Generic Metric Trend spec uses `count_elements`, so it needs pyegeria 6.2.18 or later.
 
