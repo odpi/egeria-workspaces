@@ -31,14 +31,14 @@ The DATA domain is a *systemic* domain: it exists so that the manufacturing, pri
 
 | | |
 |---|---|
-| 1 Dashboard Sheet | `Chief Data Officer Dashboard` — a local record held by pyegeria, not an Egeria element |
+| 1 Dashboard Sheet | `Chief Data Officer Dashboard` — held in Egeria as a `Dashboard` asset and its layout elements (pyegeria 6.2.29+) |
 | 15 Reports | Egeria `Report` assets, each a Report Spec plus the parameters that scope it |
 | 15 placements | `Link Report to Dashboard Sheet`, in display order |
 | 7 text placements | Section headings and captions explaining what each group of tiles means |
 
 ### Loading the dashboard
 
-Dashboard Sheets are stored in a local JSON file belonging to whoever runs `dr_egeria`, and the Egeria Portal's **Local Dashboards** app reads the copy inside the `quickstart-pyegeria-web` container.  So run this file **there**, or the dashboard will be written somewhere the portal never looks:
+Since pyegeria 6.2.29 the Dashboard Sheet commands write the sheet into Egeria, and also keep a copy in a local file (`~/.pyegeria/dashboard_sheets.json`) on whatever machine runs `dr_egeria`.  The Portal's **Local Dashboards** app reads Egeria first and uses the local file inside the `quickstart-pyegeria-web` container only for sheets Egeria does not hold.  On the quickstart this sheet was moved into Egeria on 2026-11-10 and is owned by `erinoverview`; re-running this file updates that Egeria copy.  Either of these works:
 
 1. From the Portal — open **Local Dashboards**, click **▶ Run Dr.Egeria Document**, paste this file, then **Validate** and **Process**.
 2. From the command line:

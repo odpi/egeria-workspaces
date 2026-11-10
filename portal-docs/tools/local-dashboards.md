@@ -8,7 +8,7 @@ Access it from the portal tile (🗂️ Local Dashboards) or directly at `/local
 
 ## Browsing sheets
 
-The landing page lists every Dashboard Sheet that exists. Selecting one renders its Placements in order — each Report placement runs live against Egeria and renders the result inline (table, chart, or whatever the underlying Report Spec produces); a nested Dashboard Sheet placement renders that sheet inline too.
+The landing page lists every Dashboard Sheet held in Egeria, plus any sheet still only in the Portal's local file. Each card carries a small tag saying where the sheet is held: **Egeria** or **local file**. Selecting one renders its Placements in order — each Report placement runs live against Egeria and renders the result inline (table, chart, or whatever the underlying Report Spec produces); a nested Dashboard Sheet placement renders that sheet inline too.
 
 Because Report placements resolve live, a sheet always reflects Egeria's current state — there's no separate "refresh the dashboard" step, and no stale cached snapshot to worry about.
 
@@ -54,7 +54,26 @@ On the quickstart on 2026-11-09 all 20 Report placements across the five sheets 
 
 ## Where the data lives
 
-Unlike most of the Portal, a Dashboard Sheet's own structure (its name, its ordered list of Placements) is **not** an Egeria element — it's a small local JSON record the Portal itself maintains. The *Report* each Placement references, and the data the Report queries, are both real Egeria elements. This is why Dashboard Sheets need their own [Data Initialization](data-initialization.md) batch to survive an Egeria wipe: re-running their seed documents recreates both the Egeria Reports and the local sheet records that reference them.
+*(Updated 2026-11-10, pyegeria 6.2.29.)*
+
+**Dashboard Sheets are held in Egeria.** A sheet is a `Dashboard` asset (qualified name `Dashboard::<sheet name>`, with an `Ownership` classification naming its owner), linked to a `DisplayDataSchemaType` (the layout), a `DisplayDataContainer` (the sheet) and one `DisplayDataField` per placement. The *Reports* each placement shows, and the data they query, are Egeria elements too. Deleting a sheet never deletes its Reports.
+
+**The local file is a fallback.** Before 6.2.29 sheets lived in a JSON file the Portal kept (`~/.pyegeria/dashboard_sheets.json` in the Portal's container). The Portal reads Egeria first and uses the file only for sheet names Egeria does not hold. **If a name is in both, Egeria wins.** If Egeria cannot be read, the page says so ("Egeria could not be read, so only sheets from the local file are shown…") rather than showing a shorter list as if it were complete.
+
+On the quickstart, the five sheets that were in the file (Chief Data Officer Dashboard, `local-dashboards-next-steps`, Assets by Type and Location Demo, `digital-product-portfolio`, `my-team-dashboard`) were moved into Egeria on 2026-11-10, keep their names, and are owned by `erinoverview`. Their entries were removed from the file, so each name opens only the Egeria copy.
+
+**Managing sheets held in Egeria.** The Dr.Egeria sheet commands write to Egeria (and keep a local copy as the fallback). pyegeria also has a command-line tool:
+
+```bash
+python -m pyegeria.view.dashboards list                # sheets held in Egeria
+python -m pyegeria.view.dashboards show NAME           # one sheet and its placements
+python -m pyegeria.view.dashboards migrate --dry-run   # copy sheets from the local file into Egeria (dry run first)
+python -m pyegeria.view.dashboards delete --sheet NAME [--local]
+```
+
+`migrate` and `delete` are **shared writes**: everyone using that Egeria sees the result, so agree them with whoever looks after it, use `--dry-run` first, and run them once. `migrate` never edits the local file; remove a migrated sheet's old entry from it yourself. A sheet held in Egeria has no Delete button in the Portal; use `delete`. A sheet still only in the local file can be deleted from the Portal as before. Details: [Building a Local Dashboard](../tutorials/local-dashboards.md#where-dashboard-sheets-live).
+
+Dashboard Sheets have their own [Data Initialization](data-initialization.md) batch: after an Egeria wipe, re-running their seed documents recreates both the Reports and the sheets.
 
 ---
 

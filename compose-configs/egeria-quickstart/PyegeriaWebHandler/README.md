@@ -1029,8 +1029,9 @@ The workspace includes professional-grade analytic report specifications that ar
 
 ### Available Analytic Specs
 
-- **Analytic - Element Count by Type** — A generic spec to count any metadata type (e.g., `DigitalProduct`, `Agreement`, `Person`).
 - **Analytic - Generic Metric Trend** — A powerful spec that can trend any metadata metric over time (e.g., daily growth of active subscriptions).
+
+To count any metadata type (e.g. `DigitalProduct`, `Agreement`, `Person`), use pyegeria's built-in **Analytic Demo - Element Count by Type** and set `type_name` in its `Analytic Parameters`. The Portal's own copy, *Analytic - Element Count by Type*, was removed on 2026-11-10 because it duplicated the built-in one.
 
 ### How report specs name analytic functions
 

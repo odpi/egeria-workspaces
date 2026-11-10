@@ -53,7 +53,7 @@ ___
 ### Display Name
 Total Products Count
 ### Report Spec
-Analytic - Element Count by Type
+Analytic Demo - Element Count by Type
 ### Output Format
 DICT
 ### Analytic Parameters
@@ -77,7 +77,7 @@ ___
 ### Display Name
 Active Subscriptions Count
 ### Report Spec
-Analytic - Element Count by Type
+Analytic Demo - Element Count by Type
 ### Output Format
 DICT
 ### Analytic Parameters
