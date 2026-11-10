@@ -93,6 +93,14 @@ ___
 >	**Description**: A list of search keywords.
 
 
+### Zone Membership
+>	**Input Required**: False
+
+>	**Attribute Type**: Simple List
+
+>	**Description**: Zones scope visibility of elements to different users.
+
+
 ### GUID
 >	**Input Required**: False
 
@@ -136,7 +144,7 @@ ___
 
 >	**Attribute Type**: Simple
 
->	**Description**: The ordered list of stages to run, with their parameters, as a JSON string.
+>	**Description**: The report spec's micro-flow, parameters and formatters, as microflow/1 JSON: {"format": "microflow/1", "params": {name: {type, default, required}}, "stages": [...], "formatters": {OUTPUT_TYPE: {"columns": [...]}}}. A find stage names its method as Class.method (read-only: find_, get_ or list_); an analytic stage names a registered analytic. A bare JSON list of stages (the older format 0) is accepted and converted to microflow/1 when written. Invalid JSON is an error.
 
 
 ### Target Type Name
@@ -329,14 +337,6 @@ ___
 >	**Description**: Repository or element header status for an element.
 
 >	**Default Value**: ACTIVE
-
-
-### Zone Membership
->	**Input Required**: False
-
->	**Attribute Type**: Simple List
-
->	**Description**: Zones scope visibility of elements to different users.
 
 
 ### Additional Properties
