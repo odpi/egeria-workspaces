@@ -1601,13 +1601,13 @@ Term::overview-kpi-blueprints
 Semantic Grounding
 
 ### Summary
-Count and percentage of SemanticAssignment relationships, as a proxy for assets grounded with business meaning for AI.
+SemanticAssignment relationships ÷ the Asset total × 100 (groundingMeasure 'linksPer100Assets'). Switches to distinct grounded Assets ÷ Assets × 100 (groundingMeasure 'assetShare', shown with a %) when the installed pyegeria's semantic_grounding returns groundedAssetPct (overview_handler._grounding_fields).
 
 ### Description
-Share of assets linked to glossary terms via SemanticAssignment — the meaning layer that grounds AI.
+Glossary-term links (SemanticAssignment) per 100 Assets — the meaning layer that grounds AI. A link count, not a share of Assets; it becomes the share of Assets with at least one term once pyegeria reports distinct grounded Assets.
 
 ### Usage
-CAVEAT, confirmed live 2026-08-01: SemanticAssignment is NOT Asset-scoped. In this dataset, of 397 SemanticAssignment relationships, 348 (87.7%) connect to GovernanceActionProcess elements (governance workflow automation, e.g. subscription-management processes) -- not data assets. The remainder connect to schema-level elements (DataField, TabularColumn, APIParameter, ...), which are not Asset-typed themselves either (they'd need one more hop to their anchor Asset). Zero of the 397 relationships connect directly to an Asset element. Treat this percentage as an upper bound on true asset grounding, not a measured grounded-asset rate, until NEXT-24's audit resolves the scoping (e.g. by filtering to relationships whose non-term end is Asset-typed, or by following schema elements up to their anchor Asset).
+Not a share of Assets today: one Asset with three terms counts three times, and a link to a non-Asset element counts too (confirmed live 2026-08-01: most SemanticAssignment links end on GovernanceActionProcess or schema elements, not Assets). So the tile shows a plain number with the label 'term links per 100 Assets', never a %. Verified 2026-11-10 against the seed spec 'Analytic Demo - Semantic Grounding': same function, same value (767 links, 1 per 100 Assets).
 
 ### Glossary Name
 Egeria Dashboard Analytics
@@ -1736,13 +1736,13 @@ Term::overview-kpi-grounding
 Ownership Coverage
 
 ### Summary
-Count and percentage of elements carrying an Ownership classification, as a percentage of Assets.
+Assets carrying an Ownership classification (strict native count) ÷ all Assets (the funnel's Cataloged), both counted in the same population. Same shape as Governed Coverage.
 
 ### Description
-Share of assets carrying an Ownership classification — a named owner responsible for management/governance decisions. Distinct from Governed Coverage (classification-based); data mesh names 'clean, owned, product-based data' as its own foundation for trustworthy AI consumption.
+Share of Assets carrying an Ownership classification — a named owner responsible for management/governance decisions. Distinct from Governed Coverage (classification-based); data mesh names 'clean, owned, product-based data' as its own foundation for trustworthy AI consumption.
 
 ### Usage
-Same scoping shape as Governed Coverage's caveat: the numerator (Ownership-classified elements) is NOT Asset-scoped -- ANY element type with the classification counts -- while the denominator (percentage base) IS Asset-only. Not yet fully audited for exactly which element types carry Ownership in this dataset (spot-checked live 2026-08-01: at least SolutionActorRole appears as an owner-type value) -- a fuller by-owner-type breakdown is what `byOwnerType` in the raw payload already returns, just not yet surfaced in this tile's UI.
+Asset-only on both sides since 2026-11-10 (owner decision). It used to divide a find of Ownership-classified elements of ANY type (what the viewer can see) by a viewer Asset total, which cannot be counted at this catalogue size (the native viewer count times out, the find fallback stops at 500), so the tile never got a value. The seed spec 'Analytic Demo - Ownership Coverage' still reports the any-type count (with byOwnerType) and no percentage.
 
 ### Glossary Name
 Egeria Dashboard Analytics

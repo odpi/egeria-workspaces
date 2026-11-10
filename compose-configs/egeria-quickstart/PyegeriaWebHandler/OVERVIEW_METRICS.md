@@ -54,8 +54,8 @@ The Overview dashboard's KPI tiles are defined once in `overview_specs.py` as Fo
 | `communities` | Active Communities | 🟢 live | Community | people → `communities` | kpi | `people` | community |
 | `isc` | Supply Chains | 🟢 live | InformationSupplyChain | usage-context → `informationSupplyChains` | kpi | `isc` | consumer, app-ai-builder, data-expert, architecture |
 | `blueprints` | Solution Blueprints | 🟢 live | SolutionBlueprint | usage-context → `blueprints` | kpi | `blueprints` | consumer, app-ai-builder, data-expert, architecture |
-| `grounding` | Semantic Grounding | 🟢 live | — | ai-context → `groundingPct` | kpi | `grounding` | steward, owner, consumer, app-ai-builder, privacy, data-expert, security, architecture |
-| `ownership` | Ownership Coverage | 🟢 live | — | ai-context → `ownershipPct` | kpi | `ownership` |  |
+| `grounding` | Semantic Grounding | 🟢 live | — | ai-context → `groundingValue` | kpi | `grounding` | steward, owner, consumer, app-ai-builder, privacy, data-expert, security, architecture |
+| `ownership` | Ownership Coverage | 🟢 live | Asset | ai-context → `ownershipPct` | kpi | `ownership` |  |
 | `ai-ready` | AI-Ready Assets | 🟢 live | Asset | ai-context → `aiReadyPct` | kpi | `ai-ready` | security |
 
 **Compute** (each spec's `action` — the how-it's-computed / P3 report-runner hook):
@@ -70,8 +70,8 @@ The Overview dashboard's KPI tiles are defined once in `overview_specs.py` as Fo
 - `communities` — `MetadataExpert.count_metadata_elements(type_name=Community)`
 - `isc` — `MetadataExpert.count_metadata_elements(type_name=InformationSupplyChain)`
 - `blueprints` — `MetadataExpert.count_metadata_elements(type_name=SolutionBlueprint)`
-- `grounding` — `ClassificationExplorer.get_relationships(relationship_type=SemanticAssignment, as=percent_of_assets)`
-- `ownership` — `pyegeria.view.overview_metrics.ownership_coverage()`
+- `grounding` — `pyegeria.view.overview_metrics.semantic_grounding()`
+- `ownership` — `MetadataExpert.count_metadata_elements(type_name=Asset, classifications=['Ownership'], strict=True)`
 - `ai-ready` — `pyegeria.view.overview_metrics.ai_ready_assets()`
 
 **Provenance tally:** 13 live · 0 mixed · 0 illustrative.
