@@ -161,6 +161,13 @@ lineage") is resolved across several types inside this app and can't be
 expressed as the single REST call the connector needs, so the checkbox is
 disabled for it. Those queries are refreshed manually.
 
+**Keep live and other parameter values do not mix.** The connector re-runs the
+query about every 30 minutes with its **stored** values. If you refresh a
+kept-live query with different values (for example another element type),
+its answer is overwritten with the stored values at the connector's next run.
+To see the answer for other values, run the query live (the Query tab's
+**Run query**) instead of refreshing it.
+
 ---
 
 ## Step 3 — Refresh it and look at the answer
@@ -405,6 +412,10 @@ What you see:
   in the Query tool's Saved Queries tab.
 - **If the `ResultsSet` is missing**, the tile shows an error rather than an
   empty table.
+- **No connector re-runs it.** The seeded query is not registered as a Smart
+  Collection (**Keep live**), so a refresh with other parameter values keeps
+  its answer until the next refresh. (A kept-live query is re-run about every
+  30 minutes with its stored values; see *Keep live* above.)
 
 *Checked 2026-11-10 (Portal on pyegeria 6.2.33).* The seed file passes
 `dr_egeria --validate`. The spec ran in a separate Python process against a

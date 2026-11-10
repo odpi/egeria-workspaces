@@ -23,7 +23,10 @@
 > **Not refreshed until someone refreshes it.** Seeding leaves the Results Set empty. The first refresh is the
 > Coordinator's (an Egeria write): the Query tool's Saved Queries tab, **Refresh**, or
 > `POST /api/insights/queries/{guid}/refresh`. Until then the tile shows no rows. "Keep live" does not apply:
-> a relationship condition cannot be run by the Smart Collections connector.
+> a relationship condition cannot be run by the Smart Collections connector. Because it is not registered as
+> a Smart Collection, nothing re-runs it with its stored values, so a refresh with another `type_name` keeps that
+> answer until the next refresh. (A query registered as a Smart Collection is re-run about every 30 minutes with
+> its stored values, which overwrites a refresh made with other values.)
 >
 > **"As of".** The refresh time is stamped on the SavedQuery (`lastRefreshedTime`, and after the Portal change
 > `lastRefreshParams`), not on the Results Set. **TODO:** the "Saved Query Status" tile (name, refresh time,
