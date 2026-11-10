@@ -197,8 +197,9 @@ The Portal reads the folders named in `PYEGERIA_REPORT_SPEC_FOLDERS`; on the qui
 the tool that uses them: the root collection `RootCollection::ReportSpecs` holds one consumer folder per tool
 (Portal, Egeria Advisor, Resource Explorer, pyegeria, My Egeria, Jupyter), and putting a spec in a tool's
 folder publishes it to that tool. A spec can be in several folders. (Until November 2026 the Portal's folder was
-named `ReportSpecFolder::EgeriaPortal`; the default still lists that name for one release while the folder is
-renamed, and a banner note says which of the two was not found.) A banner at the top of the Report Specs view lists those folders and
+named `ReportSpecFolder::EgeriaPortal`; it is the same folder, renamed.) A tool's folder can hold sub-folders for its
+own grouping, and the sync follows them (at most 5 levels down, reading each folder once; never up to the root or
+into another tool's folder). A banner at the top of the Report Specs view lists those folders and
 says how many specs are held in Egeria. When there are none it says why, for example:
 
 - *None held in Egeria: no report spec folders are configured for this Portal (PYEGERIA_REPORT_SPEC_FOLDERS)*
@@ -209,6 +210,18 @@ says how many specs are held in Egeria. When there are none it says why, for exa
 On the quickstart the Portal's folder holds the Portal's own two specs ("Analytic - Generic Metric Trend"
 and "Resource Explorer - Curation Coverage"). To show another spec held in Egeria, add its ReportSpec element
 (an active one, not a draft) to that folder as a member, then sync.
+
+**Used by.** Each spec's details show a **Used by** row beside its family and source badges: the tools
+the spec is published to, one chip per consumer folder that holds it (for example *Portal · Egeria Advisor*).
+The **consumer filter** in the sidebar lists every consumer folder, with a count, and *Used by none*: specs
+held in Egeria that no consumer folder holds, which is useful when curating. The row never guesses:
+
+- *Used by: none*: a spec held in Egeria that is in no consumer folder.
+- *Used by: not read (reason)*: the Portal could not read the consumer folders (no sync has run yet, the root
+  `RootCollection::ReportSpecs` is not visible to the Portal's user, or the installed pyegeria is older than
+  the release that reads them). The sidebar says the same instead of offering the filter.
+- *Used by: not tracked*: a built-in or Portal (local) spec. Built-in specs live in pyegeria, not in Egeria, so
+  they cannot be folder members yet.
 
 **The Portal works from a local copy of those specs.** It copies the specs in its folders from Egeria
 into its own cache:

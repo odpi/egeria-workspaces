@@ -2,9 +2,10 @@
 
 The Portal folder `ReportSpecFolder::EgeriaPortal` (fe5aad27) is renamed in place to
 `ReportSpecFolder::Consumer::Portal` (egeria-held-specs/REPORT_SPEC_CONSUMER_FOLDERS.dr-egeria.md).
-For one deploy the Portal's default PYEGERIA_REPORT_SPEC_FOLDERS lists both names, so the rename
-and the deploy can land in either order. The sync tests run pyegeria's own sync_report_specs
-against an in-memory Egeria. No Egeria call is made.
+For the phase 1 deploy the Portal's default PYEGERIA_REPORT_SPEC_FOLDERS listed both names, so the
+rename and the deploy could land in either order; the rename ran on 2026-11-10 and phase 2 drops
+the old name. The sync tests run pyegeria's own sync_report_specs against an in-memory Egeria. No
+Egeria call is made.
 """
 import json
 import re
@@ -76,10 +77,12 @@ def test_the_portal_spec_document_points_at_the_new_name():
 
 
 @pytest.mark.skipif(not COMPOSE.is_file(), reason="egeria-quickstart.yaml is not beside this checkout (a container's /app)")
-def test_compose_default_takes_both_names_for_one_deploy():
+def test_compose_default_is_the_consumer_folder_alone():
+    """The rename is live (2026-11-10), so the old name is dropped: it would only add a
+    "folder not found" line to every sync report."""
     line = next(l for l in COMPOSE.read_text().splitlines() if "PYEGERIA_REPORT_SPEC_FOLDERS:" in l)
     default = re.search(r":-([^}]*)}", line).group(1)
-    assert [p.strip() for p in default.split(",")] == [NEW, OLD]
+    assert [p.strip() for p in default.split(",")] == [NEW]
 
 
 # ── The Portal across the rename (pyegeria's own sync, in-memory Egeria) ──

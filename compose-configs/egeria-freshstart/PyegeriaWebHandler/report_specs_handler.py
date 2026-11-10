@@ -21,6 +21,7 @@ from loguru import logger
 from pydantic import BaseModel
 from egeria_auth import PlatformBody  # platform gate on the body's url (see egeria_auth)
 
+import report_spec_consumers
 from pyegeria.view.base_report_formats import get_report_registry, register_report_specs
 from pyegeria.view._output_format_models import FormatSet, Format, Column, ActionParameter
 
@@ -171,9 +172,13 @@ def get_report_specs(
     persp_lower = perspective.strip().lower() if perspective else None
     q_lower     = q.strip().lower()           if q         else None
 
+    # "Used by" (report_spec_consumers.py): this environment does not sync report specs from Egeria,
+    # so the consumer index is usually "not read", and every row says so rather than "none".
+    consumers = report_spec_consumers.index()
     result: list[dict] = []
     for name, fs in registry.items():
         s = _serialize(name, fs)
+        s.update(report_spec_consumers.used_by(name, None, None, consumers))
 
         if persp_lower is not None:
             all_p = [p.lower() for qs in s["question_spec"] for p in qs["perspectives"]]
@@ -205,6 +210,7 @@ def get_report_specs(
         "families":     families,
         "perspectives": all_perspectives,
         "total":        len(result),
+        "consumers":    report_spec_consumers.summary(consumers),
     })
 
 
