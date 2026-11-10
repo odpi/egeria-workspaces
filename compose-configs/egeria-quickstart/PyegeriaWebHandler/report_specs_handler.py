@@ -10,7 +10,8 @@ Provides one endpoint:
 Report specs are pyegeria formatting specifications. Most are pyegeria built-ins or
 Portal/user specs; some may be held in Egeria and synced into a local cache
 (report_spec_sync.py). Listing them needs no Egeria connection: the Egeria-held ones are
-read from the cache. Each spec says where it came from (`source`).
+read from the cache. Each spec says where it came from (`source`), and which tools it is
+published to (`usedBy`, from pyegeria's consumer index; report_spec_consumers.py).
 """
 
 import contextvars
@@ -27,6 +28,7 @@ from loguru import logger
 from pydantic import BaseModel
 from egeria_auth import PlatformBody  # platform gate on the body's url (see egeria_auth)
 
+import report_spec_consumers
 import spec_resolution
 from result_cache import FRESH, MISS, STALE, ResultCache, credential_identity
 
@@ -305,6 +307,7 @@ def get_report_specs(
     resolutions = spec_resolution.resolve_all()
     statuses = _spec_statuses()
     user_labels = _user_labels()
+    consumers = report_spec_consumers.index()
 
     # The list stays the registry's names (RS-W2-4). A spec that shadows a lower-tier copy says so
     # on its own row (`shadows`), and that copy stays runnable as "builtin:<name>" / "egeria:<name>".
@@ -313,6 +316,7 @@ def get_report_specs(
         s = _serialize(name, fs)
         s["resolution"] = spec_resolution.resolution(name, fs, resolutions.get(name))
         s.update(_source_fields(name, statuses.get(name), user_labels))
+        s.update(report_spec_consumers.used_by(name, s.get("source"), s.get("egeria"), consumers))
 
         if persp_lower is not None:
             all_p = [p.lower() for qs in s["question_spec"] for p in qs["perspectives"]]
@@ -349,6 +353,8 @@ def get_report_specs(
         "sources":      source_counts,
         "sourceWords":  SOURCE_WORDS,
         "egeriaHeld":   _egeria_held_summary(source_counts, request),
+        # "Used by": how the consumer index was read ("read" | "partial" | "not read" + reason).
+        "consumers":    report_spec_consumers.summary(consumers),
         "families":     families,
         "perspectives": all_perspectives,
         "total":        len(result),

@@ -2800,6 +2800,7 @@ function ReportSpecDetail({ spec, onSelectSpec, portalSupply }) {
       spec.resolution && React.createElement(RsStatusBadge, { status: spec.resolution.status }),
       spec.resolution && spec.resolution.bindersDeprecated && React.createElement(RsBindersTag, null),
       React.createElement(RsSourceBadge, { spec: spec }),
+      React.createElement(RsUsedBy, { spec: spec }),
       React.createElement(CopyJsonButton, { data: spec })
     ),
     React.createElement(RsSourceDetail, { spec: spec, onSelectSpec: onSelectSpec }),
@@ -3089,6 +3090,32 @@ function RsSourceBadge({ spec }) {
     title: 'Source: where this spec definition came from' }, spec.sourceLabel || spec.source);
 }
 
+// "Used by": the tools a spec is published to (its consumer folders). Absence is never "none":
+// "not read" (the consumer index was not read, with the reason) and "not tracked" (built-in and
+// local specs are not consumer-folder members yet) are said as such; "none" means a spec held in
+// Egeria that no consumer folder holds.
+var _RS_CHIP = { fontSize: 10, padding: '1px 6px', borderRadius: 9, border: '1px solid rgba(167,139,250,.55)', color: '#c4b5fd', background: 'rgba(167,139,250,.08)' };
+var _RS_MUTED = { fontSize: 10, color: 'var(--dim)' };
+function RsUsedBy({ spec }) {
+  var st = spec.usedByState;
+  if (!st) return null;
+  var label = React.createElement('span', { key: 'l', style: _RS_MUTED }, 'Used by:');
+  var wrap = { className: 'rs-used-by', style: { display: 'inline-flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' } };
+  // The reason is the same for every spec; it is said once in the sidebar, and here as a tooltip.
+  if (st === 'not read') return React.createElement('span', wrap, label,
+    React.createElement('span', { key: 'n', className: 'rs-used-by-not-read', style: { fontSize: 10, color: '#fbbf24', cursor: 'help' },
+      title: 'Consumers not read' + (spec.usedByReason ? ': ' + spec.usedByReason : '') }, 'not read'));
+  if (st === 'not tracked') return React.createElement('span', Object.assign({ title: spec.usedByReason || '' }, wrap), label,
+    React.createElement('span', { key: 'n', style: _RS_MUTED }, 'not tracked'));
+  var names = spec.usedBy || [];
+  var partial = st === 'partial' ? ' (the consumer folders were only partly read: ' + (spec.usedByReason || '') + ')' : '';
+  var chips = names.length
+    ? names.map(function(n) { return React.createElement('span', { key: 'c-' + n, className: 'rs-used-by-chip', style: _RS_CHIP, title: 'Published to ' + n + ' (a member of its consumer folder)' + partial }, n); })
+    : [React.createElement('span', { key: 'none', className: 'rs-used-by-none', style: { fontSize: 10, color: 'var(--text)' }, title: 'Held in Egeria, but in no consumer folder: published to no tool' + partial },
+        st === 'partial' ? 'none found (partly read)' : 'none')];
+  return React.createElement('span', wrap, [label].concat(chips));
+}
+
 function RsSourceDetail({ spec, onSelectSpec }) {
   var lines = [];
   if (spec.shadowedBy) {
@@ -3121,6 +3148,9 @@ function ReportSpecView() {
   const [search, setSearch]       = useState('');
   const [perspFilter, setPerspFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState(''); // '' | runnable | unrunnable | format_only
+  // "Used by": '' | a consumer name | '__none__' (held in Egeria, in no consumer folder).
+  const [consumerFilter, setConsumerFilter] = useState('');
+  const [consumersInfo, setConsumersInfo] = useState(null);
   const [counts, setCounts]       = useState(null);
   const [portalSupply, setPortalSupply] = useState('');
   const [error, setError]         = useState('');
@@ -3169,6 +3199,7 @@ function ReportSpecView() {
         const list = data.specs || [];
         setSpecs(list);
         setCounts(data.counts || null);
+        setConsumersInfo(data.consumers || null);
         setPortalSupply(data.portalSupply || '');
         setSources(data.sources || null);
         setSourceWords(data.sourceWords || {});
@@ -3206,6 +3237,8 @@ function ReportSpecView() {
     const sp = perspFilter.toLowerCase();
     return specs.filter(s => {
       if (statusFilter && !(s.resolution && s.resolution.status === statusFilter)) return false;
+      if (consumerFilter === '__none__' && !(Array.isArray(s.usedBy) && s.usedBy.length === 0)) return false;
+      if (consumerFilter && consumerFilter !== '__none__' && !(s.usedBy || []).includes(consumerFilter)) return false;
       if (sourceFilter && (s.source || 'unknown') !== sourceFilter) return false;
       if (sp) {
         const perps = s.question_spec.flatMap(qs => qs.perspectives.map(p => p.toLowerCase()));
@@ -3217,7 +3250,18 @@ function ReportSpecView() {
       if (s.family && s.family.toLowerCase().includes(sq)) return true;
       return s.question_spec.some(qs => qs.questions.some(qText => qText.toLowerCase().includes(sq)));
     });
-  }, [specs, search, perspFilter, statusFilter, sourceFilter]);
+  }, [specs, search, perspFilter, statusFilter, sourceFilter, consumerFilter]);
+
+  // Consumer filter options: every consumer folder the index lists (a zero count still shows), plus
+  // "used by none". Counted over the loaded specs.
+  const consumerCounts = useMemo(() => {
+    const c = { __none__: 0 };
+    specs.forEach(s => {
+      if (Array.isArray(s.usedBy) && s.usedBy.length === 0) c.__none__ += 1;
+      (s.usedBy || []).forEach(n => { c[n] = (c[n] || 0) + 1; });
+    });
+    return c;
+  }, [specs]);
 
   const selectedSpec = specs.find(s => s.name === selected) || null;
 
@@ -3281,6 +3325,22 @@ function ReportSpecView() {
           _RS_SOURCES.concat(Object.keys(sources).filter(k => _RS_SOURCES.indexOf(k) < 0))
             .map(k => React.createElement('option', { key: k, value: k }, (sourceWords[k] || k) + ' (' + (sources[k] || 0) + ')'))
         ),
+        // Used by: when the consumer index was not read, say so (and why) instead of offering an empty filter.
+        consumersInfo && (consumersInfo.status === 'not read'
+          ? React.createElement('div', { className: 'rs-consumers-not-read', style: { marginTop: 6, fontSize: 11, color: '#fbbf24', overflowWrap: 'anywhere' } },
+              'Consumers: not read' + (consumersInfo.reason ? ' (' + consumersInfo.reason + ')' : ''))
+          : React.createElement('select', {
+              className: 'area-select', 'aria-label': 'Filter by consumer',
+              style: { width: '100%', marginTop: 6 },
+              title: consumersInfo.status === 'partial' ? 'Consumers partly read: ' + (consumersInfo.reason || '') : 'The tools each spec is published to (its consumer folders)',
+              value: consumerFilter,
+              onChange: e => setConsumerFilter(e.target.value)
+            },
+              React.createElement('option', { value: '' }, 'All consumers' + (consumersInfo.status === 'partial' ? ' (partly read)' : '')),
+              (consumersInfo.consumers || []).map(c => React.createElement('option', { key: c.name, value: c.name },
+                'Used by ' + c.name + ' (' + (consumerCounts[c.name] || 0) + ')' + (c.status !== 'read' ? ', ' + c.status : ''))),
+              React.createElement('option', { value: '__none__' }, 'Used by none (' + consumerCounts.__none__ + ')')
+            )),
         React.createElement('button', {
           className: 'btn-sm', style: { marginTop: 6 },
           onClick: () => setAttempt(a => a + 1)
