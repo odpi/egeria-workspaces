@@ -242,7 +242,7 @@ def _egeria_held_summary(source_counts: dict, request: Optional[Request] = None)
     elif outcome == "failed":
         message = "None held in Egeria: the last sync from Egeria failed, so nothing is cached"
     elif outcome == "folders_missing":
-        message = "None held in Egeria: the configured folders were not found in Egeria"
+        message = "None held in Egeria: the configured folders were not found in Egeria (or are not visible to the Portal's user)"
     elif outcome == "not_configured":
         message = "None held in Egeria: no report spec folders were configured when the last sync ran"
     elif outcome == "already_running":
@@ -250,7 +250,7 @@ def _egeria_held_summary(source_counts: dict, request: Optional[Request] = None)
     else:
         message = "None held in Egeria: the configured folders hold no active report specs"
         if sync.get("missing_folders"):
-            message += " (not found: " + ", ".join(sync["missing_folders"]) + ")"
+            message += " (not found or not visible: " + ", ".join(sync["missing_folders"]) + ")"
     return {"count": count, "message": message, "folders": folders, "running": doing, "sync": sync}
 
 
