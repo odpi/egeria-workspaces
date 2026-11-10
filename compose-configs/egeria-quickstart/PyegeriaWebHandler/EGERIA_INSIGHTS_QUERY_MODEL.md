@@ -211,17 +211,28 @@ to queries specifically.
   which the platform allowlist has already checked.
 - **No declaration:** any search field may be overridden. Other keys are
   refused.
-- **Declared parameters:** `additionalProperties.parameters` is a JSON list,
-  e.g. `[{"name": "type_name", "type": "string", "default": "Asset"}]`.
-  - When it is present, only those names may be overridden.
-  - Each name is a search field, or a dotted path into one, e.g.
-    `relationship_conditions.0.relationship_type`.
+- **Declared parameters:** `additionalProperties.parameters` is a JSON list
+  of `{"name", "type", "default"?, "searchPath"?, "requestPath"?}`. This one
+  model is shared with pyegeria's `saved_query` report source (Architect
+  P-2).
+  - When it is present, only those names may be overridden, by name.
+  - `searchPath` (default: `name`) is a search field, or a dotted path into
+    one, e.g. `relationship_conditions.0.relationship_type`. That is where
+    the Portal applies the value.
+  - `requestPath` is the dotted path into the Egeria `queryRequestBody`
+    where pyegeria applies the value. The Portal only carries it.
+  - There are no `{{name}}` placeholders, so both stored bodies stay
+    runnable. A Smart Collection's connector runs `queryRequestBody`
+    verbatim.
   - Each value must match the declared type: string, integer, number,
     boolean or list.
-  - A `default` is used only when the stored search lacks that path.
-- **What ran is recorded:** the values the run used are written to
-  `additionalProperties.lastRefreshParams` (JSON), next to
-  `lastRefreshedTime`.
+- **The effective value**, the same rule on both sides: the request, else
+  the stored value at `searchPath` in `formula`, else the `default`.
+- **What ran is recorded:** that value for **every** declared name is
+  written to `additionalProperties.lastRefreshParams` (a JSON string), next
+  to `lastRefreshedTime`.
+- **The shared fixture** is
+  `tests/fixtures/saved_query_portal_shaped.json`.
 
 **A Dr.Egeria-seeded SavedQuery is refreshable** without any GUID in it:
 - The marker `pyegeriaInsightsQuery: true` is matched case-insensitively.

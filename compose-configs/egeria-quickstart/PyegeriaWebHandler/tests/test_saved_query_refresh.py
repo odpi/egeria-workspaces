@@ -309,3 +309,94 @@ def test_the_ui_shows_a_failed_stamp():
     import pathlib
     html = (pathlib.Path(ih.__file__).parent / "egeria-insights.html").read_text()
     assert "d.stamped === false" in html and "d.stampError" in html
+
+
+# ── one parameter model with pyegeria (Architect P-2): searchPath + shared fixture ──
+
+def test_search_path_applies_the_value_and_name_keys_the_record(run):
+    params = [{"name": "kind", "type": "string", "default": "Asset", "searchPath": "type_name",
+               "requestPath": "metadataElementTypeName"}]
+    fake = Fake({"pyegeriaInsightsQuery": "true", "searchSpec": json.dumps({"type_name": "DataSet"}),
+                 "parameters": json.dumps(params)})
+    out = run(fake, overrides={"kind": "Process"})
+    assert fake.searched[0].type_name == "Process"
+    assert out["lastRefreshParams"] == {"kind": "Process"}
+
+
+def test_overrides_go_by_name_not_by_search_path(run):
+    params = [{"name": "kind", "type": "string", "searchPath": "type_name"}]
+    fake = Fake({"pyegeriaInsightsQuery": "true", "searchSpec": json.dumps({"type_name": "DataSet"}),
+                 "parameters": json.dumps(params)})
+    with pytest.raises(HTTPException) as e:
+        run(fake, overrides={"type_name": "Process"})
+    assert "only accepts kind" in e.value.detail
+
+
+def test_a_stored_value_wins_over_a_differing_default(run):
+    params = [{"name": "kind", "type": "string", "default": "Asset", "searchPath": "type_name"}]
+    fake = Fake({"pyegeriaInsightsQuery": "true", "searchSpec": json.dumps({"type_name": "DataSet"}),
+                 "parameters": json.dumps(params)})
+    assert run(fake)["lastRefreshParams"] == {"kind": "DataSet"}
+
+
+def test_a_search_path_outside_the_search_is_refused(run):
+    params = [{"name": "where", "type": "string", "searchPath": "url"}]
+    fake = Fake({"pyegeriaInsightsQuery": "true", "searchSpec": json.dumps({"type_name": "Asset"}),
+                 "parameters": json.dumps(params)})
+    with pytest.raises(HTTPException) as e:
+        run(fake)
+    assert "searchPath 'url'" in e.value.detail and "not a search field" in e.value.detail
+
+
+def test_a_duplicate_name_is_refused(run):
+    params = [{"name": "kind", "type": "string", "searchPath": "type_name"},
+              {"name": "kind", "type": "string", "searchPath": "sort_by"}]
+    fake = Fake({"pyegeriaInsightsQuery": "true", "searchSpec": json.dumps({"type_name": "Asset"}),
+                 "parameters": json.dumps(params)})
+    with pytest.raises(HTTPException) as e:
+        run(fake)
+    assert "declared twice" in e.value.detail
+
+
+FIXTURE = __import__("pathlib").Path(__file__).parent / "fixtures" / "saved_query_portal_shaped.json"
+
+
+def _fixture():
+    return json.loads(FIXTURE.read_text())
+
+
+def test_shared_fixture_effective_values_match_this_rule():
+    fx = _fixture()
+    props = fx["savedQuery"]["properties"]
+    spec, _ = ih._stored_search_spec(props)
+    declared = ih._declared_parameters(props["additionalProperties"])
+    for case in fx["cases"]:
+        assert ih.effective_parameters(spec, case["request"], declared) == case["effective"], case["why"]
+
+
+def test_shared_fixture_last_refresh_params_are_what_a_refresh_writes(run):
+    fx = _fixture()
+    el = json.loads(json.dumps(fx["savedQuery"]))
+    add = el["properties"]["additionalProperties"]
+    recorded = add.pop("lastRefreshParams")
+    add["resultsSetGuid"] = RS  # the fake's Results Set
+    fake = Fake({})
+    fake.el = el
+    out = run(fake, overrides=fx["lastRefresh"]["overrides"])
+    assert out["lastRefreshParams"] == fx["lastRefresh"]["lastRefreshParams"]
+    assert _stamped(fake)["lastRefreshParams"] == recorded  # byte-identical JSON string
+
+
+def test_shared_fixture_request_paths_hold_the_same_values_the_portal_ran():
+    """With no request, each requestPath in the stored queryRequestBody holds the
+    value the Portal recorded, so pyegeria's comparison agrees with ours."""
+    fx = _fixture()
+    props = fx["savedQuery"]["properties"]
+    body = json.loads(props["queryRequestBody"])
+    no_request = next(c for c in fx["cases"] if c["request"] == {})["effective"]
+    declared = ih._declared_parameters(props["additionalProperties"])
+    with_request_path = [p for p in declared if p.get("requestPath")]
+    assert with_request_path and any(not p.get("requestPath") for p in declared)
+    for p in with_request_path:
+        assert ih._get_path(body, p["requestPath"]) == no_request[p["name"]], p["name"]
+    assert "{{" not in props["queryRequestBody"] and "{{" not in props["formula"]

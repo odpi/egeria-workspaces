@@ -71,6 +71,7 @@ filtering runs AFTER classification/type paging, so with `full_count=false`
 whole matching population — `relationshipFilterNote` in the response says so
 explicitly rather than silently under-counting.
 """
+import copy
 import json
 import os
 import uuid
@@ -1357,29 +1358,47 @@ def _stored_search_spec(props: dict) -> tuple:
 
 
 def _declared_parameters(additional: dict) -> list:
-    """The `parameters` declaration, checked: [{"name", "type", "default"?}, …]."""
+    """The `parameters` declaration, checked. One model shared with pyegeria's
+    saved_query report source (Architect P-2, 2026-11-10):
+
+        {"name", "type", "default"?, "searchPath"?, "requestPath"?}
+
+    `searchPath` (default: `name`) is a dotted path into this Portal's
+    SearchBody (the `formula`), where the Portal applies the value.
+    `requestPath` is a dotted path into the Egeria `queryRequestBody`, where
+    pyegeria applies it; the Portal only carries it. There are no `{{name}}`
+    placeholders: both stored bodies stay valid, runnable requests (a Smart
+    Collection's connector runs `queryRequestBody` verbatim)."""
     declared = _json_value((additional or {}).get("parameters"), "parameters declaration")
     if declared is None:
         return []
     if not isinstance(declared, list):
         raise HTTPException(status_code=400, detail="The saved query's parameters declaration must be a list.")
-    out = []
+    out, seen = [], set()
     for p in declared:
-        name = (p or {}).get("name") if isinstance(p, dict) else None
-        ptype = str((p or {}).get("type") or "string").lower() if isinstance(p, dict) else ""
-        if not name or not isinstance(name, str):
+        if not isinstance(p, dict) or not isinstance(p.get("name"), str) or not p["name"]:
             raise HTTPException(status_code=400, detail="Every declared parameter needs a name.")
-        if name.split(".")[0] not in _OVERRIDABLE_KEYS:
+        name = p["name"]
+        if name in seen:
+            raise HTTPException(status_code=400, detail=f"Parameter '{name}' is declared twice.")
+        seen.add(name)
+        ptype = str(p.get("type") or "string").lower()
+        search_path = p.get("searchPath") or name
+        request_path = p.get("requestPath")
+        if not isinstance(search_path, str) or (request_path is not None and not isinstance(request_path, str)):
+            raise HTTPException(status_code=400,
+                                detail=f"Parameter '{name}': searchPath and requestPath must be dotted paths (strings).")
+        if search_path.split(".")[0] not in _OVERRIDABLE_KEYS:
             raise HTTPException(
                 status_code=400,
-                detail=f"Declared parameter '{name}' is not a search field; it must start with one of "
-                       f"{', '.join(sorted(_OVERRIDABLE_KEYS))}.")
+                detail=f"Parameter '{name}' has searchPath '{search_path}', which is not a search field; it must "
+                       f"start with one of {', '.join(sorted(_OVERRIDABLE_KEYS))}.")
         if ptype not in _PARAM_TYPES:
             raise HTTPException(
                 status_code=400,
                 detail=f"Declared parameter '{name}' has unknown type '{ptype}'; use one of "
                        f"string, integer, number, boolean, list.")
-        out.append({**p, "type": ptype})
+        out.append({**p, "type": ptype, "searchPath": search_path})
     return out
 
 
@@ -1389,13 +1408,13 @@ def _type_ok(value, ptype: str) -> bool:
     return isinstance(value, _PARAM_TYPES[ptype])
 
 
-def _path_parts(name: str) -> list:
-    return [int(s) if s.isdigit() else s for s in name.split(".")]
+def _path_parts(path: str) -> list:
+    return [int(s) if s.isdigit() else s for s in path.split(".")]
 
 
-def _get_path(spec: dict, name: str):
+def _get_path(spec: dict, path: str):
     cur = spec
-    for part in _path_parts(name):
+    for part in _path_parts(path):
         try:
             cur = cur[part]
         except (KeyError, IndexError, TypeError):
@@ -1403,8 +1422,8 @@ def _get_path(spec: dict, name: str):
     return cur
 
 
-def _set_path(spec: dict, name: str, value) -> None:
-    parts = _path_parts(name)
+def _set_path(spec: dict, path: str, value, name: str) -> None:
+    parts = _path_parts(path)
     cur = spec
     for part in parts[:-1]:
         try:
@@ -1412,25 +1431,43 @@ def _set_path(spec: dict, name: str, value) -> None:
         except (KeyError, IndexError, TypeError):
             raise HTTPException(
                 status_code=400,
-                detail=f"Parameter '{name}' points at nothing in the stored search (no '{part}').")
+                detail=f"Parameter '{name}' points at nothing in the stored search ('{path}' has no '{part}').")
     last = parts[-1]
     try:
         cur[last] = value
     except (IndexError, TypeError):
         raise HTTPException(
             status_code=400,
-            detail=f"Parameter '{name}' points at nothing in the stored search (no '{last}').")
+            detail=f"Parameter '{name}' points at nothing in the stored search ('{path}' has no '{last}').")
+
+
+def effective_parameters(spec: dict, overrides: Optional[dict], declared: list) -> dict:
+    """The value each declared parameter runs with: the override, else the
+    stored value at its searchPath, else its default (else None). Keyed by
+    name. This is the map recorded as lastRefreshParams, and pyegeria computes
+    the same map before comparing a cached answer against a request."""
+    overrides = overrides or {}
+    out = {}
+    for p in declared:
+        name = p["name"]
+        if name in overrides:
+            out[name] = overrides[name]
+            continue
+        stored = _get_path(spec, p["searchPath"])
+        out[name] = stored if stored is not None else p.get("default")
+    return out
 
 
 def _apply_overrides(spec: dict, overrides: Optional[dict], declared: list) -> tuple:
     """Merge a caller's overrides into the stored spec. Returns (spec, params):
-    `params` is what the run used for each declared parameter (or the
-    overrides applied, when none are declared), recorded as lastRefreshParams.
+    `params` is effective_parameters() for a declaration (every declared name),
+    or the overrides applied when none is declared; it is recorded as
+    lastRefreshParams.
 
     Connection keys are dropped outright. With a declaration only declared
     names may be overridden, each with its declared type; without one, any
     search field may be (today's §2.2 behaviour)."""
-    spec = dict(spec)
+    spec = copy.deepcopy(spec)
     overrides = {k: v for k, v in (overrides or {}).items() if k not in _CONNECTION_KEYS}
     if not declared:
         unknown = sorted(k for k in overrides if k not in _OVERRIDABLE_KEYS)
@@ -1440,28 +1477,23 @@ def _apply_overrides(spec: dict, overrides: Optional[dict], declared: list) -> t
                 detail=f"Cannot override {', '.join(unknown)}: not a search field.")
         spec.update(overrides)
         return spec, overrides
-    by_name = {p["name"]: p for p in declared}
-    undeclared = sorted(k for k in overrides if k not in by_name)
+    names = [p["name"] for p in declared]
+    undeclared = sorted(k for k in overrides if k not in names)
     if undeclared:
         raise HTTPException(
             status_code=400,
             detail=f"Cannot override {', '.join(undeclared)}: this saved query only accepts "
-                   f"{', '.join(by_name)}.")
-    params = {}
-    for name, p in by_name.items():
-        if name in overrides:
-            value = overrides[name]
-        elif _get_path(spec, name) is None and "default" in p:
-            value = p["default"]
-        else:
-            params[name] = _get_path(spec, name)
-            continue
+                   f"{', '.join(names)}.")
+    params = effective_parameters(spec, overrides, declared)
+    for p in declared:
+        name, value = p["name"], params[p["name"]]
+        if value is None:
+            continue  # nothing stored, no default, no override: leave the search as it is
         if not _type_ok(value, p["type"]):
             raise HTTPException(
                 status_code=400,
                 detail=f"Parameter '{name}' must be a {p['type']}, not {type(value).__name__} ({value!r}).")
-        _set_path(spec, name, value)
-        params[name] = value
+        _set_path(spec, p["searchPath"], value, name)
     return spec, params
 
 
