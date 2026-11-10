@@ -67,6 +67,8 @@
   .run-panel { margin-top:16px; }
   .run-out { background:var(--card2); border:1px solid var(--border); border-radius:8px; padding:12px 14px; margin-top:10px; font-size:.78rem; font-family:ui-monospace,monospace; white-space:pre-wrap; overflow-x:auto; max-height:340px; overflow-y:auto; }
   .loading { color:var(--muted); font-size:.85rem; padding:20px; text-align:center; }
+  .eg-embedded #_bootstrap-banner { display:none !important; }
+  .eg-embedded .wrap { padding-top:16px; }
 </style>
 </head>
 <body>
@@ -74,6 +76,15 @@
         data-subtitle="GovernanceMetric → GovernanceResults → Report lineage" data-feedback="governance-metrics">
   <div class="eg-appbar-extras"><a class="btn" href="/egeria-overview">📊 Overview Dashboard</a></div>
 </header>
+<script>
+// Embedded as Egeria Audit's "Governance Metrics" tab (?embed=1): Audit's own app bar and
+// bootstrap banner are already on screen, so drop this page's bar and banner.
+if (/[?&]embed=1(&|$)/.test(location.search)) {
+  document.documentElement.classList.add('eg-embedded');
+  var _gmBar = document.querySelector('header.eg-appbar');
+  if (_gmBar) _gmBar.remove();
+}
+</script>
 <div class="wrap" id="app">
   <div class="loading">Loading…</div>
 </div>
