@@ -52,7 +52,7 @@ def _egeria_copy(attrs: dict):
                          "purpose": attrs["Purpose"], "description": attrs["Description"],
                          "category": attrs["Category"], "contentStatus": attrs["Content Status"],
                          "microflow": attrs["Microflow"]}}
-    return esc._build(el, folders=["ReportSpecFolder::EgeriaPortal"], identity="test").format_set
+    return esc._build(el, folders=["ReportSpecFolder::Consumer::Portal"], identity="test").format_set
 
 
 @pytest.fixture
@@ -90,7 +90,7 @@ def test_document_matches_the_local_definitions():
         assert attrs["Qualified Name"] == f"ReportSpec::{label}"
         assert esc.label_from_qualified_name(attrs["Qualified Name"]) == label
         assert attrs["Content Status"] == "ACTIVE"
-        assert attrs["Parent ID"] == "ReportSpecFolder::EgeriaPortal"
+        assert attrs["Parent ID"] == "ReportSpecFolder::Consumer::Portal"
         assert json.loads(attrs["Microflow"]) == json.loads(format_set_to_microflow(fs).to_json())
         assert attrs["Purpose"] == fs.heading and attrs["Description"] == fs.description
         assert attrs["Category"] == fs.family
@@ -160,7 +160,7 @@ def test_reconcile_is_idempotent(egeria_holds):
 def test_a_sync_reconciles(monkeypatch):
     calls = []
     monkeypatch.setattr(lsf, "reconcile", lambda: calls.append(1) or {})
-    monkeypatch.setattr(report_spec_sync, "configured_folders", lambda: ["ReportSpecFolder::EgeriaPortal"])
+    monkeypatch.setattr(report_spec_sync, "configured_folders", lambda: ["ReportSpecFolder::Consumer::Portal"])
 
     class _Client:
         def close_session(self):
@@ -168,7 +168,7 @@ def test_a_sync_reconciles(monkeypatch):
 
     class _Report:
         def to_dict(self):
-            return {"folders": ["ReportSpecFolder::EgeriaPortal"], "added": [], "updated": [], "unchanged": [],
+            return {"folders": ["ReportSpecFolder::Consumer::Portal"], "added": [], "updated": [], "unchanged": [],
                     "pruned": [], "notes": [], "skipped": []}
 
     monkeypatch.setattr(report_spec_sync, "_service_client", lambda: _Client())
