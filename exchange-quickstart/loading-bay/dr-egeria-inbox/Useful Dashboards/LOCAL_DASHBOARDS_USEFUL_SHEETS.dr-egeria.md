@@ -8,7 +8,7 @@
 >
 > | Sheet | Family | Tiles |
 > |---|---|---|
-> | `catalog-health` | Overview | AI context readiness, AI-ready assets, ownership, stale assets, asset composition |
+> | `catalog-health` | Overview | AI context readiness, ownership, stale assets, asset composition |
 > | `glossary-and-meaning` | Glossary | term total, definition completeness, terms in use, active and draft terms, semantic grounding |
 > | `governance-and-compliance` | Governance | governance coverage, certifications and exceptions, usage context, solution design context |
 > | `community-and-feedback` | Community | feedback, engagement over twelve weeks, active contributors, karma leaderboard, people |
@@ -39,20 +39,6 @@ Assets at each step from cataloged to AI-ready.
 
 ### Report Spec
 Analytic Demo - AI Context Readiness
-
-### Output Format
-DICT
-
-___
-## Create Report
-### Display Name
-Catalog Health - AI-Ready Assets
-
-### Description
-Assets that meet the AI-readiness checks.
-
-### Report Spec
-Analytic Demo - AI-Ready Assets
 
 ### Output Format
 DICT
@@ -150,20 +136,6 @@ Catalog Health - AI Context Readiness
 
 ### Placement Emphasis
 panel
-
-___
-## Link Report to Dashboard Sheet
-### Dashboard Sheet Name
-catalog-health
-
-### Report Name
-Catalog Health - AI-Ready Assets
-
-### Placement Span
-1
-
-### Placement Emphasis
-kpi
 
 ___
 ## Link Report to Dashboard Sheet
