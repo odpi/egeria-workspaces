@@ -31,8 +31,28 @@ def register_local_specs():
     This allows us to provide professional, generally useful analytic specs
     directly in the workspace before they are formally released into the
     core pyegeria library.
+
+    A label the EGERIA tier holds (a spec synced from Egeria) is not registered locally: the
+    Egeria copy is then the source and pyegeria's precedence (local > egeria) would otherwise
+    shadow it. Returns the labels registered.
     """
-    register_report_specs({
+    try:
+        from pyegeria.view.egeria_spec_cache import egeria_tier
+        held = set(egeria_tier(force=True).keys())
+    except Exception as exc:  # noqa: BLE001 -- no tier: register the local copy
+        logger.debug(f"report specs: EGERIA tier unavailable: {exc}")
+        held = set()
+    specs = {label: fs for label, fs in _local_specs().items() if label not in held}
+    for label in sorted(set(_local_specs()) & held):
+        logger.info(f"report spec '{label}': Egeria holds it; the local copy is not registered")
+    if specs:
+        register_report_specs(specs, source="workspace_local")
+    return sorted(specs)
+
+
+def _local_specs() -> dict:
+    """The workspace-local report specs, keyed by label."""
+    return {
         "Analytic - Generic Metric Trend": FormatSet(
             heading="Generic Metric Trend",
             description="Trend any analytic function over time. metric_path is the target function; "
@@ -50,7 +70,7 @@ def register_local_specs():
                 }
             )
         )
-    }, source="workspace_local")
+    }
 
 
 try:

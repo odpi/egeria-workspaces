@@ -43,8 +43,14 @@ def test_every_spec_carries_its_source(api):
     # Another test may register pyegeria's analytic demos at runtime; that local copy then shadows
     # the built-in, and the row must say so.
     assert demo["source"] == "builtin" or (demo["source"] == "local" and demo["shadows"] == "builtin")
-    assert by_name["Analytic - Generic Metric Trend"]["source"] == "local"
-    assert by_name["Analytic - Generic Metric Trend"]["sourceLabel"] == "Portal (local)"
+    # The Portal's own spec is a fallback for its Egeria-held copy (local_spec_fallback.py): local
+    # only while the synced EGERIA tier does not hold the label.
+    from pyegeria.view.egeria_spec_cache import egeria_tier
+    if "Analytic - Generic Metric Trend" in egeria_tier().keys():
+        assert by_name["Analytic - Generic Metric Trend"]["source"] == "egeria"
+    else:
+        assert by_name["Analytic - Generic Metric Trend"]["source"] == "local"
+        assert by_name["Analytic - Generic Metric Trend"]["sourceLabel"] == "Portal (local)"
     for s in data["specs"]:
         assert "source" in s and "shadowedBy" in s and "shadows" in s
     assert sum(data["sources"].values()) == data["total"]
