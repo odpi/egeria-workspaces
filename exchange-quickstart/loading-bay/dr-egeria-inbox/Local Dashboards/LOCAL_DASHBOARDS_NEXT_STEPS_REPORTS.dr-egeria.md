@@ -94,13 +94,10 @@ Tasks for the project
 Collection Members
 
 ### Output Format
-MERMAID
+TABLE
 
 ### Report Parameters
 collection_qname : Coco Pharmaceuticals::WorkItemList::Local-Dashboards---Next-Steps::1.0
-
-### OUTPUT Format
-TABLE
 
 ---
 ## Link Report to Dashboard Sheet
