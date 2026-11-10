@@ -3037,18 +3037,24 @@ var _RS_SOURCE_TAG = {
   // builtin: no tag in the list (most specs); the detail badge still says so.
 };
 
+function _rsCap(t) { return t ? t.charAt(0).toUpperCase() + t.slice(1) : t; }
+
 function _rsSyncWords(st) {
   if (!st) return '';
+  // A running sync says what it is doing (starting / running / retrying), never "already running".
+  if (st.running) return _rsCap(st.running_words || 'a sync from Egeria is running') + '…';
+  if (st.outcome === 'folders_missing') return 'The configured folders were not found in Egeria: ' +
+    ((st.missing_folders || []).join(', ') || (st.folders || []).join(', ')) + '.';
   if (st.outcome === 'not_configured') return 'No report spec folders are configured, so nothing was synced.';
   if (st.outcome === 'failed') return 'Sync failed: ' + (st.error || 'no detail');
-  if (st.outcome === 'already_running') return 'Another sync of this cache is running; try again shortly.';
+  if (st.outcome === 'already_running') return 'Another process was syncing this cache; try again shortly.';
   if (st.outcome === 'synced') {
     var r = st.report || {};
     var n = function(k) { return (r[k] || []).length; };
     return 'Synced ' + (st.finished_at || '') + ': ' + n('added') + ' added, ' + n('updated') + ' updated, ' +
       n('unchanged') + ' unchanged, ' + n('pruned') + ' pruned, ' + n('skipped') + ' skipped.';
   }
-  return st.running ? 'A sync is running…' : 'No sync has run yet.';
+  return 'No sync has run yet.';
 }
 
 function RsEgeriaHeldBanner({ held, onSync, syncing, syncMsg, onShow }) {
@@ -3063,7 +3069,7 @@ function RsEgeriaHeldBanner({ held, onSync, syncing, syncMsg, onShow }) {
         style: { color: '#34d399' } }, held.message)),
     React.createElement('div', { style: { color: 'var(--dim)', marginTop: 2, overflowWrap: 'anywhere' } },
       'Folders: ' + ((held.folders || []).length ? held.folders.join(', ') : 'none configured')),
-    !syncMsg && sync.outcome && React.createElement('div', { style: { color: 'var(--dim)', marginTop: 2 } }, _rsSyncWords(sync)),
+    !syncMsg && (sync.outcome || sync.running) && React.createElement('div', { style: { color: 'var(--dim)', marginTop: 2 } }, _rsSyncWords(Object.assign({}, sync, { running_words: held.running || sync.running_words }))),
     !syncMsg && skipped.length > 0 && React.createElement('div', { style: { color: '#fbbf24', marginTop: 2, overflowWrap: 'anywhere' } },
       skipped.map(function(sk, i) { return React.createElement('div', { key: i }, sk[0] + ': ' + sk[1]); })),
     syncMsg && React.createElement('div', { style: { color: 'var(--dim)', marginTop: 2, overflowWrap: 'anywhere' } }, syncMsg),
@@ -3134,6 +3140,12 @@ function ReportSpecView() {
       .then(r => r.json().then(d => ({ ok: r.ok, status: r.status, d })))
       .then(({ ok, status, d }) => {
         if (!ok) throw new Error(d.detail || ('HTTP ' + status));
+        if (d.already_running) {
+          // Not started: say what the running sync is doing (e.g. the startup sync retrying).
+          setSyncing(false);
+          setSyncMsg('Not started: ' + (d.running_words || 'a sync from Egeria is running') + '. Refresh when it finishes.');
+          return;
+        }
         let tries = 0;
         const poll = () => {
           fetch('/api/report-specs/sync').then(r => r.json()).then(st => {

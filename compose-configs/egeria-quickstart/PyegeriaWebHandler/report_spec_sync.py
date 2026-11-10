@@ -46,11 +46,18 @@ _STATE: Dict[str, Any] = {
     "trigger": None,      # "startup" | "admin" for the current or last run
     "started_at": None,
     "finished_at": None,
-    "outcome": None,      # None (never ran) | "synced" | "not_configured" | "already_running" | "failed"
+    # None (never ran) | "synced" | "folders_missing" (every configured folder was not found) |
+    # "not_configured" | "already_running" (another process held the cache lock) | "failed"
+    "outcome": None,
     "report": None,       # SyncReport.to_dict() of the last completed sync
     "error": None,        # the words of the last failure
-    "attempt": 0,         # startup attempt number, for the status line
+    "missing_folders": [],  # configured folders the last sync did not find in Egeria
+    "phase": None,        # while running: "waiting" (startup delay) | "syncing" | "retry_wait"
+    "attempt": 0,         # attempt number of the current or last run
+    "attempts": 0,        # attempts this run may make (startup retries; 1 for the admin button)
 }
+
+_NOT_FOUND = "folder not found"
 
 
 def _now() -> str:
@@ -68,11 +75,33 @@ def configured_folders() -> List[str]:
 
 
 def status() -> Dict[str, Any]:
-    """A copy of the sync state plus the configured folders."""
+    """A copy of the sync state plus the configured folders. Holds error text and skip reasons:
+    give it only to callers allowed the detail (see public_status)."""
     with _LOCK:
         out = dict(_STATE)
     out["folders"] = configured_folders()
     return out
+
+
+def public_status() -> Dict[str, Any]:
+    """The sync state without error text, skip reasons or the sync identity, for callers not
+    allowed the detail. The outcome word and counts stay, so it is still honest."""
+    full = status()
+    rep = full.get("report") or {}
+    out = {k: full.get(k) for k in ("running", "trigger", "started_at", "finished_at", "outcome", "phase",
+                                     "attempt", "attempts", "folders", "missing_folders")}
+    out["report"] = ({k: list(rep.get(k) or []) for k in ("added", "updated", "unchanged", "pruned")}
+                     | {"skipped": [[who, "(detail withheld)"] for who, _why in (rep.get("skipped") or [])]}
+                     if rep else None)
+    out["error"] = "(detail withheld: sign in as an administrator to see it)" if full.get("error") else None
+    out["detail"] = False
+    return out
+
+
+def missing_folders(report: Dict[str, Any], folders: List[str]) -> List[str]:
+    """Configured folders the sync reported as not found (not unreadable: those keep their specs)."""
+    return [who for who, why in (report.get("skipped") or [])
+            if who in folders and str(why).startswith(_NOT_FOUND)]
 
 
 def _service_client():
@@ -92,7 +121,7 @@ def _sync_once() -> str:
     folders = configured_folders()
     if not folders:
         with _LOCK:
-            _STATE.update(outcome="not_configured", report=None, error=None, finished_at=_now())
+            _STATE.update(outcome="not_configured", report=None, error=None, missing_folders=[], finished_at=_now())
         logger.info("report-spec sync: no report spec folders configured (PYEGERIA_REPORT_SPEC_FOLDERS); "
                     "nothing synced, so no report specs are held in Egeria for this Portal")
         return "not_configured"
@@ -108,12 +137,14 @@ def _sync_once() -> str:
             logger.info(f"report-spec sync: another process is syncing this cache: {exc}")
             return "already_running"
         rep = report.to_dict()
+        missing = missing_folders(rep, folders)
+        outcome = "folders_missing" if missing and len(missing) == len(folders) else "synced"
         with _LOCK:
-            _STATE.update(outcome="synced", report=rep, error=None, finished_at=_now())
+            _STATE.update(outcome=outcome, report=rep, error=None, missing_folders=missing, finished_at=_now())
         logger.info(f"report-spec sync: folders {rep.get('folders')}: {len(rep.get('added', []))} added, "
                     f"{len(rep.get('updated', []))} updated, {len(rep.get('unchanged', []))} unchanged, "
                     f"{len(rep.get('pruned', []))} pruned, {len(rep.get('skipped', []))} skipped")
-        return "synced"
+        return outcome
     except Exception as exc:  # noqa: BLE001 -- Egeria down, bad credentials, ...: record and carry on
         with _LOCK:
             _STATE.update(outcome="failed", error=f"{type(exc).__name__}: {exc}"[:600], finished_at=_now())
@@ -130,17 +161,35 @@ def _sync_once() -> str:
 def _run(trigger: str, attempts: int, delay: float) -> None:
     try:
         if delay:
+            with _LOCK:
+                _STATE.update(phase="waiting")
             time.sleep(delay)
         for attempt in range(1, attempts + 1):
             with _LOCK:
-                _STATE.update(attempt=attempt, started_at=_now())
+                _STATE.update(attempt=attempt, phase="syncing", started_at=_now())
             outcome = _sync_once()
             if outcome != "failed" or attempt == attempts:
                 return
+            with _LOCK:
+                _STATE.update(phase="retry_wait")
             time.sleep(_RETRY_INTERVAL_S)   # Egeria may still be starting; try again later
     finally:
         with _LOCK:
-            _STATE["running"] = False
+            _STATE.update(running=False, phase=None)
+
+
+def running_words(st: Dict[str, Any]) -> Optional[str]:
+    """What a running sync is doing, in words; None when no sync is running."""
+    if not st.get("running"):
+        return None
+    if st.get("trigger") != "startup":
+        return "a sync from Egeria is running"
+    n, of = st.get("attempt") or 0, st.get("attempts") or 0
+    if st.get("phase") == "waiting" or n == 0:
+        return "the startup sync from Egeria is starting"
+    if n <= 1 and st.get("phase") == "syncing":
+        return "the startup sync from Egeria is running"
+    return f"the startup sync from Egeria is retrying (attempt {n} of {of}; Egeria may still be starting)"
 
 
 def start(trigger: str = "admin") -> bool:
@@ -150,11 +199,9 @@ def start(trigger: str = "admin") -> bool:
     with _LOCK:
         if _STATE["running"]:
             return False
-        _STATE.update(running=True, trigger=trigger, attempt=0)
-    if trigger == "startup":
-        args = (trigger, max(1, _STARTUP_ATTEMPTS), _STARTUP_DELAY_S)
-    else:
-        args = (trigger, 1, 0.0)
+        attempts = max(1, _STARTUP_ATTEMPTS) if trigger == "startup" else 1
+        _STATE.update(running=True, trigger=trigger, attempt=0, attempts=attempts, phase="syncing")
+    args = (trigger, attempts, _STARTUP_DELAY_S if trigger == "startup" else 0.0)
     threading.Thread(target=_run, args=args, daemon=True, name=f"report-spec-sync-{trigger}").start()
     return True
 
