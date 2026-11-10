@@ -21,3 +21,9 @@ def test_grounding_static_tile_and_sources_use_the_new_fields():
 
 def test_ownership_tile_reads_owned_assets():
     assert "num(LIVE.ownershipCount) + ' owned assets'" in HTML
+
+
+def test_ownership_tile_names_its_population():
+    # "416 owned assets · whole catalog": a screenshotted tile says whose Assets it counts (Architect P3)
+    assert "ownership:'scopeOwnership'" in HTML
+    assert "store.scopeOwnership = d.ownershipScope || null;" in HTML
