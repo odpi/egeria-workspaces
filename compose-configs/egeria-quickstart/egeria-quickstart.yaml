@@ -297,11 +297,11 @@ services:
       # "Sync from Egeria" button. The cache lives under /root/.pyegeria/cache (the state mount
       # below), so it survives a recreate. Set to "" to sync nothing. See report_spec_sync.py.
       # The Portal's consumer folder is ReportSpecFolder::Consumer::Portal, under the root
-      # RootCollection::ReportSpecs. Until 2026-11 it was ReportSpecFolder::EgeriaPortal (the same
-      # element, renamed by egeria-held-specs/REPORT_SPEC_CONSUMER_FOLDERS.dr-egeria.md). The old
-      # name stays in the default for one deploy, so the rename and this deploy can land in either
-      # order; whichever is missing is reported as "folder not found". Drop it once renamed.
-      PYEGERIA_REPORT_SPEC_FOLDERS: "${PYEGERIA_REPORT_SPEC_FOLDERS:-ReportSpecFolder::Consumer::Portal,ReportSpecFolder::EgeriaPortal}"
+      # RootCollection::ReportSpecs (renamed in place from ReportSpecFolder::EgeriaPortal on
+      # 2026-11-10 by egeria-held-specs/REPORT_SPEC_CONSUMER_FOLDERS.dr-egeria.md). Sub-folders of a
+      # consumer folder are followed (pyegeria after 6.2.32: cycle-safe, depth cap 5), and each
+      # sync refreshes the consumer index behind the Report Specs view's "Used by" chips.
+      PYEGERIA_REPORT_SPEC_FOLDERS: "${PYEGERIA_REPORT_SPEC_FOLDERS:-ReportSpecFolder::Consumer::Portal}"
       MCP_ACCESS_TOKEN: "egeria-secret-mcp-token"
       # ── Demo mode — set DEMO_MODE=true to enable public access with auth ──────
       DEMO_MODE: "false"
