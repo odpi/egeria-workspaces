@@ -37,6 +37,7 @@ from fastapi import APIRouter, Body, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
 from pydantic import BaseModel
+from egeria_auth import PlatformBody  # platform gate on the body's url (see egeria_auth)
 
 from egeria_auth import apply_token
 from egeria_error_mapping import raise_egeria_http_error, describe_bulk_item_error, EGERIA_ERROR_RESPONSES
@@ -68,7 +69,7 @@ def _current_zone_membership(ce, guid: str) -> list[str]:
     return list((zm.get("classificationProperties") or {}).get("zoneMembership") or [])
 
 
-class BulkZoneMembershipBody(BaseModel):
+class BulkZoneMembershipBody(PlatformBody):
     guids: list[str]
     url: Optional[str] = None
     server: Optional[str] = None

@@ -274,7 +274,7 @@ def _verify_token_with_egeria(token: str, user: str) -> None:
     class and its 404 status only, never by text in a message. Anything else (Egeria unreachable, an
     unexpected error) refuses the write with 503 -- fail closed, never "unverified but OK".
     Sync: this runs in sync routes only (see CLAUDE.md's async invariants)."""
-    from egeria_auth import use_token
+    from egeria_auth import check_client_platform, use_token
     from egeria_error_mapping import _is_auth_error
     import pyegeria
     from pyegeria import MyProfile, PyegeriaNotFoundException
@@ -284,6 +284,7 @@ def _verify_token_with_egeria(token: str, user: str) -> None:
         client = MyProfile(os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server"),
                            os.environ.get("EGERIA_PLATFORM_URL", "https://localhost:9443"),
                            user_id=user, user_pwd=None)
+        check_client_platform(client, token)
         use_token(client, token)          # no password on the client: a 401 can never re-login as anyone
         client.get_my_profile()           # returns NO_ELEMENTS_FOUND (no exception) for a user with no profile
     except PyegeriaNotFoundException as exc:

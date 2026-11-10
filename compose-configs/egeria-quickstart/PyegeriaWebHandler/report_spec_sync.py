@@ -111,6 +111,8 @@ def _service_client():
     user_id = os.environ.get("EGERIA_USER", "erinoverview")
     user_pwd = os.environ.get("EGERIA_USER_PASSWORD", "secret")
     client = CollectionManager(server, url, user_id=user_id, user_pwd=user_pwd)
+    from egeria_auth import check_client_platform
+    check_client_platform(client)         # env-configured platform: always allow-listed
     client.create_egeria_bearer_token()   # sync: fine here, this runs in its own thread
     return client
 

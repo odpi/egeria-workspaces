@@ -42,7 +42,6 @@ def get_subject_area_hierarchy(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     """
@@ -51,6 +50,7 @@ def get_subject_area_hierarchy(
     taxonomy is small (governance classification, not a data catalog), so the
     whole tree is assembled in one fetch rather than lazily per-node.
     """
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:

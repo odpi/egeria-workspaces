@@ -82,6 +82,7 @@ from fastapi import APIRouter, Body, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
 from pydantic import BaseModel
+from egeria_auth import PlatformBody  # platform gate on the body's url (see egeria_auth)
 
 from egeria_auth import apply_token
 from pyegeria.core._globals import max_paging_size
@@ -217,7 +218,7 @@ class ValueCondition(BaseModel):
     value_type: str = "string"          # string | int | boolean
 
 
-class SearchBody(BaseModel):
+class SearchBody(PlatformBody):
     type_name: Optional[str] = None     # metadataElementTypeName; omit = search all types
     match_criteria: str = "ALL"         # ALL | ANY | NONE across the conditions
     conditions: List[Condition] = []
@@ -255,7 +256,7 @@ class SearchBody(BaseModel):
     user_pwd: Optional[str] = None
 
 
-class SavedQueryBody(BaseModel):
+class SavedQueryBody(PlatformBody):
     """Track A save/load prototype (EGERIA_INSIGHTS_QUERY_MODEL.md §2.1/§2.3).
     `search` reuses SearchBody as-is — the persisted spec is whatever's
     reachable by POSTing this same shape to /api/insights/search, deliberately
@@ -273,7 +274,7 @@ class SavedQueryBody(BaseModel):
     user_pwd: Optional[str] = None
 
 
-class RefreshQueryBody(BaseModel):
+class RefreshQueryBody(PlatformBody):
     """`overrides` is shallow-merged onto the stored spec immediately before
     execution — the caller decides at the point of use (§2.2), same as any
     other saved-query invocation."""
@@ -722,8 +723,9 @@ def serve_insights():
 @router.get("/api/insights/summary", summary="Dashboard card counts (capped tally)")
 def get_summary(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _expert(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -784,8 +786,9 @@ def get_summary(
 def get_classification_count(
     name: str = Query(..., description="Classification type name, e.g. Confidentiality"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _expert(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -813,8 +816,9 @@ def get_classification_count(
 @router.get("/api/insights/zones", summary="Governance zone definitions with usage counts")
 def get_zones(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _expert(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -927,8 +931,9 @@ def _relationship_type_stats(ce, rel_type: str) -> dict:
 @router.get("/api/insights/relationships", summary="Relationship-type usage counts (curated set, capped tally)")
 def get_relationships(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         ce = _ce(url, server, user_id, user_pwd)
     except Exception as exc:  # noqa: BLE001
@@ -949,8 +954,9 @@ def get_relationships(
 def get_relationship_count(
     rel_type: str = Query(..., alias="type", description="Relationship type name, e.g. DataFlow"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         ce = _ce(url, server, user_id, user_pwd)
     except Exception as exc:  # noqa: BLE001
@@ -1476,8 +1482,9 @@ def create_saved_query(body: SavedQueryBody = Body(...)):
 def list_saved_queries(
     search_string: str = Query("*"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         am = _am(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -1506,8 +1513,9 @@ def list_saved_queries(
 def get_saved_query(
     guid: str,
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         am = _am(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -1618,7 +1626,7 @@ def update_saved_query(guid: str, body: SavedQueryBody = Body(...)):
     return JSONResponse({"guid": guid, "name": body.name, "smartCollection": smart_now})
 
 
-class FavoriteBody(BaseModel):
+class FavoriteBody(PlatformBody):
     favorite: bool
     url: Optional[str] = None
     server: Optional[str] = None
@@ -1667,8 +1675,9 @@ def set_saved_query_favorite(guid: str, body: FavoriteBody = Body(...)):
 def delete_saved_query(
     guid: str,
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         am = _am(url, server, user_id, user_pwd)
         cm = _cm(url, server, user_id, user_pwd)
@@ -1734,8 +1743,9 @@ def delete_saved_query(
 def get_saved_query_results(
     guid: str,
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         am = _am(url, server, user_id, user_pwd)
         cm = _cm(url, server, user_id, user_pwd)

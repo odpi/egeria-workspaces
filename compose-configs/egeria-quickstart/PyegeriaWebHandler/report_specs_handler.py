@@ -25,6 +25,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, Response
 from loguru import logger
 from pydantic import BaseModel
+from egeria_auth import PlatformBody  # platform gate on the body's url (see egeria_auth)
 
 import spec_resolution
 from result_cache import FRESH, MISS, STALE, ResultCache, credential_identity
@@ -377,7 +378,7 @@ def sync_status(request: Request):
 
 # ── Execute ───────────────────────────────────────────────────────────────────
 
-class ExecuteRequest(BaseModel):
+class ExecuteRequest(PlatformBody):
     spec_name:     str
     output_format: str = "REPORT"
     params:        dict = {}

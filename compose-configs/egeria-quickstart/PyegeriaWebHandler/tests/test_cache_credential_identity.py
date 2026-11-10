@@ -218,6 +218,9 @@ def test_survey_types_are_built_once_as_the_service_user_for_everyone(monkeypatc
 
     monkeypatch.setattr(tc, "_automated_curation_async", fake_client)
     monkeypatch.setattr(tc, "_build_survey_types", fake_build)
+    # elsewhere.example is allow-listed so the platform gate (egeria_auth.resolve_platform) lets the request
+    # through; the point here is that the route still ignores the caller's url and credentials.
+    monkeypatch.setenv("PORTAL_ALLOWED_PLATFORM_URLS", "https://elsewhere.example")
     c = _app(tc)
     first = c.get("/api/tech-catalog/survey-types", headers={"X-Egeria-Token": PETER},
                   params={"url": "https://elsewhere.example", "user_id": "x", "user_pwd": "y"})

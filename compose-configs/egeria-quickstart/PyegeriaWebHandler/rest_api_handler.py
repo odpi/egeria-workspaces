@@ -89,6 +89,8 @@ def _bearer_token_for_spec_fetch(user_id: str, user_pwd: str, url: str, server: 
     try:
         from pyegeria import ValidMetadataManager
         vmm = ValidMetadataManager(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+        from egeria_auth import check_client_platform
+        check_client_platform(vmm)
         token = vmm.create_egeria_bearer_token()
         vmm.close_session()
         return token
@@ -111,6 +113,8 @@ async def _async_bearer_token_for_spec_fetch(user_id: str, user_pwd: str, url: s
     try:
         from pyegeria import ValidMetadataManager
         vmm = ValidMetadataManager(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+        from egeria_auth import check_client_platform
+        check_client_platform(vmm)
         token = await vmm._async_create_egeria_bearer_token()
         vmm.close_session()
         return token
@@ -597,7 +601,6 @@ def get_rest_apis(
     url:      Optional[str] = Query(None, description="Egeria platform URL"),
     server:   Optional[str] = Query(None, description="Egeria view server name"),
     user_id:  Optional[str] = Query(None, description="Egeria user id (overrides env)"),
-    user_pwd: Optional[str] = Query(None, description="Egeria user password (overrides env)"),
 ):
     """
     Fetch the Egeria OpenAPI spec and return a structured endpoint catalog,
@@ -606,6 +609,7 @@ def get_rest_apis(
     Results are cached in process for one hour; call POST /api/rest-apis/refresh
     to force an immediate re-fetch.
     """
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     d = _env_defaults()
     platform_url = url      or d["url"]
     server       = server   or d["server"]

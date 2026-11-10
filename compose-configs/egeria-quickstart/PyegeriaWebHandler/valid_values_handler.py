@@ -151,13 +151,13 @@ def get_valid_value_properties(
     url:     Optional[str] = Query(None, description="Egeria platform URL (overrides env)"),
     server:  Optional[str] = Query(None, description="View server name (overrides env)"),
     user_id: Optional[str] = Query(None, description="User ID (overrides env)"),
-    user_pwd:Optional[str] = Query(None, description="Password (overrides env)"),
 ):
     """
     Return the sorted list of property names that have at least one registered valid value.
     Uses find_metadata_elements to query ValidMetadataValue entries where preferredValue IS_NULL
     (these are the header registrations that identify a property as having a controlled vocabulary).
     """
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_expert(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -250,7 +250,6 @@ def lookup_valid_values(
     url:     Optional[str] = Query(None, description="Egeria platform URL (overrides env)"),
     server:  Optional[str] = Query(None, description="View server name (overrides env)"),
     user_id: Optional[str] = Query(None, description="User ID (overrides env)"),
-    user_pwd:Optional[str] = Query(None, description="Password (overrides env)"),
 ):
     """
     Return valid metadata values registered for a given Egeria property name.
@@ -258,6 +257,7 @@ def lookup_valid_values(
     When the primary REST lookup returns nothing and no type_name was specified,
     falls back to find_metadata_elements to catch type-scoped valid value sets.
     """
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -306,12 +306,12 @@ def get_specification_property_types(
     url:     Optional[str] = Query(None, description="Egeria platform URL (overrides env)"),
     server:  Optional[str] = Query(None, description="View server name (overrides env)"),
     user_id: Optional[str] = Query(None, description="User ID (overrides env)"),
-    user_pwd:Optional[str] = Query(None, description="Password (overrides env)"),
 ):
     """
     Return the sorted list of specification property type names (e.g. TemplateSubstitute,
     ReplacementProperty) that can be used to look up specification property values.
     """
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_spec_props(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -352,7 +352,6 @@ def lookup_specification_property_values(
     url:     Optional[str] = Query(None, description="Egeria platform URL (overrides env)"),
     server:  Optional[str] = Query(None, description="View server name (overrides env)"),
     user_id: Optional[str] = Query(None, description="User ID (overrides env)"),
-    user_pwd:Optional[str] = Query(None, description="Password (overrides env)"),
 ):
     """
     Return specification property values registered for a given specification property type.
@@ -369,6 +368,7 @@ def lookup_specification_property_values(
     relationship graph/mermaid diagram per element, which takes ~50s for 1000 elements
     vs <1s with depth=0 (same O(n) cost pattern as the Note Logs graph_query_depth issue).
     """
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_spec_props(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -414,8 +414,8 @@ def resolve_element_name(
     url:     Optional[str] = Query(None, description="Egeria platform URL (overrides env)"),
     server:  Optional[str] = Query(None, description="View server name (overrides env)"),
     user_id: Optional[str] = Query(None, description="User ID (overrides env)"),
-    user_pwd:Optional[str] = Query(None, description="Password (overrides env)"),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     from pyegeria import ClassificationExplorer
     url      = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
     server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
@@ -459,7 +459,6 @@ def get_valid_value_detail(
     url:     Optional[str] = Query(None, description="Egeria platform URL (overrides env)"),
     server:  Optional[str] = Query(None, description="View server name (overrides env)"),
     user_id: Optional[str] = Query(None, description="User ID (overrides env)"),
-    user_pwd:Optional[str] = Query(None, description="Password (overrides env)"),
 ):
     """The list endpoints above (lookup / spec-property-lookup) intentionally return flat
     summaries only, no relationships or classifications — fetching those per-item across a
@@ -471,6 +470,7 @@ def get_valid_value_detail(
     elements aren't Collections or Assets, so that's the right tool here directly, not a
     fallback. graph_query_depth=2 (not 0) is intentional: this is a single-element detail
     fetch, not a list — the cost that matters elsewhere doesn't apply to one guid."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     from pyegeria import ClassificationExplorer
     url      = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
     server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
