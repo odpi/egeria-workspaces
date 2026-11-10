@@ -41,19 +41,6 @@ def register_local_specs():
     core pyegeria library.
     """
     register_report_specs({
-        "Analytic - Element Count by Type": FormatSet(
-            heading="Element Count by Type",
-            description="Counts active elements of a given type. Use type_name in "
-                        "analytic_spec_params to set the target type.",
-            family="Analytic",
-            target_type=None,
-            formats=[Format(types=["DICT", "JSON"], attributes=[])],
-            action=ActionParameter(
-                function="",
-                analytic_function="count_elements",
-                analytic_spec_params={"type_name": "GlossaryTerm"}
-            )
-        ),
         "Analytic - Generic Metric Trend": FormatSet(
             heading="Generic Metric Trend",
             description="Trend any analytic function over time. metric_path is the target function; "
