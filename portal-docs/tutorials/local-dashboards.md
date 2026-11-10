@@ -421,15 +421,25 @@ these, `Output Format: SERIES` renders a Vega-Lite line chart (time series),
 that function's parameters — as **defaults**, not fixed pins, so a later
 `Create Report` re-run (or a caller override) can still change them:
 
-```markdown
-## Create Report
-Display Name: Catalog Growth
-Report Spec: Analytic Demo - Catalog Growth Trend
-Output Format: SERIES
-Analytic Parameters:
-  window: 90d
-  points: 12
-```
+    ## Create Report
+    ### Display Name
+    Catalog Growth
+
+    ### Report Spec
+    Analytic Demo - Catalog Growth Trend
+
+    ### Output Format
+    SERIES
+
+    ### Analytic Parameters
+    window: 90d
+    points: 12
+
+(This example and the next are indented code blocks on purpose: Dr.Egeria
+skips indented blocks, and the *Local Dashboards* data-initialization batch
+processes the copy of this tutorial in the shared Dr.Egeria folder, so a
+fenced block would create these Reports on every batch run. Remove the
+four-space indent when you copy them.)
 
 Link it exactly like any other Report (`Link Report to Dashboard Sheet`,
 `Report Name: Catalog Growth`) — Local Dashboards renders the chart
@@ -445,21 +455,33 @@ wrap the *same* result differently. Two Reports pointed at the same
 Parameters: type_name`, is the clearest illustration of what "generic"
 means:
 
-```markdown
-## Create Report
-Display Name: Project Count
-Report Spec: Analytic Demo - Element Count by Type
-Output Format: DICT
-Analytic Parameters:
-  type_name: Project
+    ## Create Report
+    ### Display Name
+    Project Count
 
-## Create Report
-Display Name: Term Count
-Report Spec: Analytic Demo - Element Count by Type
-Output Format: DICT
-Analytic Parameters:
-  type_name: GlossaryTerm
-```
+    ### Report Spec
+    Analytic Demo - Element Count by Type
+
+    ### Output Format
+    DICT
+
+    ### Analytic Parameters
+    type_name: Project
+
+    ___
+
+    ## Create Report
+    ### Display Name
+    Term Count
+
+    ### Report Spec
+    Analytic Demo - Element Count by Type
+
+    ### Output Format
+    DICT
+
+    ### Analytic Parameters
+    type_name: GlossaryTerm
 
 Same Report Spec, same Python function, two different Reports — no code
 change needed to count a different type. Contrast this with a **FIXED**
@@ -719,11 +741,22 @@ them) — added BACKLOG.md NEXT-19/NEXT-21:
 
 ```markdown
 ## Link Report to Dashboard Sheet
-Dashboard Sheet Name: my-team-dashboard
-Report Name: Governance Coverage
-Placement Perspectives: governance, steward
-Placement Detail Spec: Collection Members
+### Dashboard Sheet Name
+<your-sheet-name>
+
+### Report Name
+Governance Coverage
+
+### Placement Perspectives
+governance, steward
+
+### Placement Detail Spec
+Collection Members
 ```
+
+Replace `<your-sheet-name>` with your sheet's `Display Name` (the placeholder
+makes the copy of this tutorial that the data-initialization batch processes
+stop with "Dashboard Sheet … does not exist" instead of writing).
 
 **Viewer-facing parameter overrides (no Dr.Egeria command needed).**
 Independent of both attributes above: anyone looking at a Local Dashboard
