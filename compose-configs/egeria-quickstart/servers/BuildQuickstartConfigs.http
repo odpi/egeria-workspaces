@@ -1103,6 +1103,15 @@ Content-Type: application/json
     "secretsStoreProvider" : "~{secretsStoreProvider}~",
     "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
     "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~",
+    "integrationGroupQualifiedName" : "Egeria:IntegrationGroup:Pasteur"
+  },
+  {
+    "class": "IntegrationGroupConfig",
+    "omagserverPlatformRootURL": "~{egeriaLocalEndpoint}~",
+    "omagserverName" : "qs-metadata-store",
+    "secretsStoreProvider" : "~{secretsStoreProvider}~",
+    "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
+    "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~",
     "integrationGroupQualifiedName" : "Egeria:IntegrationGroup:Liskov"
   },
   {
