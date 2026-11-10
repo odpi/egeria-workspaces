@@ -113,6 +113,10 @@ services:
     volumes:
       - "${HARDENED_KAFKA_DATA_DIR}:/var/lib/kafka-data"
       - ./kafka-entrypoint.sh:/usr/local/bin/egeria-kafka-entrypoint.sh:ro
+      # Caps Kafka's own server logs (rotations older than 2 days are deleted) and quiets the
+      # group-coordinator failAll() spam; see the file's header. Added 2026-11-10 after the
+      # container's writable layer reached 3.1 GB of server.log.*.
+      - ./kafka-log4j2.yaml:/usr/lib/kafka/config/log4j2.yaml:ro
 
   postgres:
     # Postgres is also pinned via .env so updates are explicit.
