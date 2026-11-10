@@ -114,3 +114,55 @@ def test_the_scan_accepts_delegated_and_real_names():
                "    m = ExternalReferences('v', 'u', 'x', 'p')\n    m.server_name\n"
                "    client = make_httpx()\n    client.get('/x')\n")
     assert pyegeria_calls.scan_source(snippet, "<snippet>").findings == []
+
+
+# --------------------------------------------------------------------------- shapes from the read-back probe
+# The Architect's read-back of 124bf0d0 planted stale calls the scan missed; each is caught now.
+@pytest.mark.parametrize("snippet", [
+    # self.<attr>, typed from the assignment in __init__ (or any method of the class)
+    "from pyegeria import CollectionManager\n"
+    "class Svc:\n    def __init__(self):\n        self.mgr = CollectionManager('v', 'u', 'x', 'p')\n"
+    "    def run(self):\n        return self.mgr.get_collection_graph('g')\n",
+    # self.<attr> set to None first, then to a client
+    "from pyegeria import CollectionManager\n"
+    "class Svc:\n    def __init__(self):\n        self.mgr = None\n"
+    "    def connect(self):\n        self.mgr = CollectionManager('v', 'u', 'x', 'p')\n"
+    "    def run(self):\n        return self.mgr.get_collection_graph('g')\n",
+    # a sub-client reached through EgeriaTech's delegate map
+    "from pyegeria import EgeriaTech\n"
+    "def f():\n    t = EgeriaTech('v', 'u', 'x', 'p')\n    t.collection_manager.get_collection_graph('g')\n",
+    # the same chain assigned first
+    "from pyegeria import EgeriaTech\n"
+    "def f():\n    t = EgeriaTech('v', 'u', 'x', 'p')\n    cm = t.collection_manager\n    cm.get_collection_graph('g')\n",
+])
+def test_the_scan_catches_self_attributes_and_sub_client_chains(snippet):
+    findings = pyegeria_calls.scan_source(snippet, "<snippet>").findings
+    assert [(f.kind, f.name) for f in findings] == [("missing", "get_collection_graph")], [str(f) for f in findings]
+
+
+def test_the_scan_follows_a_factory_from_a_module_it_was_not_given(tmp_path):
+    """A factory imported from another project module, into a name that is not client-like, with only the
+    importing file passed in: the scan finds the factory module next to it."""
+    (tmp_path / "probe_factories.py").write_text(
+        "from pyegeria import ExternalReferences\n"
+        "def _get_manager():\n    return ExternalReferences('v', 'u', 'x', 'p')\n")
+    use = tmp_path / "probe_use.py"
+    use.write_text("from probe_factories import _get_manager\n"
+                   "def f():\n    thing = _get_manager()\n    thing.get_external_identifier_by_guid('g')\n")
+    findings = pyegeria_calls.scan_paths([use]).findings
+    assert [(f.kind, f.name) for f in findings] == [("missing", "get_external_identifier_by_guid")], \
+        [str(f) for f in findings]
+
+
+def test_setting_an_attribute_on_a_client_keeps_it_typed():
+    snippet = ("from pyegeria import ExternalReferences\n"
+               "def f():\n    mgr = ExternalReferences('v', 'u', 'x', 'p')\n    mgr.timeout = 5\n"
+               "    mgr.get_external_identifier_by_guid('g')\n")
+    assert [f.kind for f in pyegeria_calls.scan_source(snippet, "<snippet>").findings] == ["missing"]
+
+
+def test_expected_miss_a_method_name_held_in_a_variable():
+    """Known limit, written down: getattr(client, some_variable) cannot be checked statically."""
+    snippet = ("from pyegeria import ExternalReferences\n"
+               "def f(name):\n    mgr = ExternalReferences('v', 'u', 'x', 'p')\n    getattr(mgr, name)('g')\n")
+    assert pyegeria_calls.scan_source(snippet, "<snippet>").findings == []
