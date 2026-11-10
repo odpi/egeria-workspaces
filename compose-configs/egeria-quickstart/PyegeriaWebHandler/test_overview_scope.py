@@ -203,6 +203,36 @@ def test_grounding_switches_to_the_asset_share_when_pyegeria_reports_it(monkeypa
     assert out["groundingLinksPer100"] == 5
 
 
+def test_grounding_forwards_grounded_assets_and_note_when_the_share_is_unmeasured(monkeypatch):
+    # pyegeria 6.2.31 live shape: 41 distinct grounded Assets, but the viewer Asset total timed out,
+    # so groundedAssetPct is None and the note says why. The tile stays links per 100 Assets and
+    # still carries the count and the note (Architect, 2026-11-10).
+    note = ("The share of Assets grounded was not measured: the total of Assets you can see could not be "
+            "counted (the count timed out, or it stopped at its page limit).")
+    g = {"groundingLinks": 767, "groundingPct": 1, "groundedAssets": 41, "groundedAssetTotal": None,
+         "groundedAssetPct": None, "groundedAssetNote": note, "groundingLinksScanned": 767,
+         "groundingLinksNotOnAsset": 0}
+    out, _ = _ai_context(monkeypatch, oh.REPOSITORY, grounding=g)
+    assert out["groundingMeasure"] == "linksPer100Assets" and out["groundingPct"] is None
+    assert out["groundedAssets"] == 41 and out["groundedAssetNote"] == note
+    assert out["groundingLinksScanned"] == 767
+
+
+def test_grounding_forwards_grounded_assets_in_the_share_branch_too():
+    g = {"groundingLinks": 50, "groundedAssets": 30, "groundedAssetPct": 3, "groundedAssetNote": None,
+         "groundingLinksScanned": 48}
+    f = oh._grounding_fields(g, 1000, oh.REPOSITORY)
+    assert f["groundingMeasure"] == "assetShare" and f["groundedAssets"] == 30
+    assert "groundedAssetNote" in f and f["groundedAssetNote"] is None and f["groundingLinksScanned"] == 48
+
+
+def test_grounded_assets_not_measured_stays_none_not_zero():
+    note = "Grounded Assets were not measured: the scan of glossary-term assignments failed or was incomplete."
+    f = oh._grounding_fields({"groundingLinks": 767, "groundingPct": 1, "groundedAssets": None,
+                              "groundedAssetPct": None, "groundedAssetNote": note}, 56357, oh.REPOSITORY)
+    assert f["groundedAssets"] is None and f["groundedAssetNote"] == note
+
+
 def test_grounding_unmeasured_is_none():
     assert oh._grounding_fields(None)["groundingValue"] is None
     assert oh._grounding_fields({"groundingLinks": None, "groundingPct": None})["groundingMeasure"] == "linksPer100Assets"

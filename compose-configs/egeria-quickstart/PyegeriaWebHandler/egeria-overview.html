@@ -1017,9 +1017,19 @@ const num = n => (n != null ? Number(n).toLocaleString() : null);
 const groundingIsShare = s => s.groundingMeasure === 'assetShare';
 const groundingVal = s => s.groundingValue == null ? null
   : (groundingIsShare(s) ? s.groundingValue + '%' : num(s.groundingValue));
+// pyegeria 6.2.31 measures distinct grounded Assets even when their share cannot be measured (the
+// viewer Asset total times out); groundedAssetNote says why. A count that was not measured is never 0.
+const groundedAssetsSub = s => s.groundedAssets != null
+  ? ' · ' + num(s.groundedAssets) + ' Assets grounded' + (s.groundedAssetNote ? ' (share not measured)' : '')
+  : (s.groundedAssetNote ? ' · grounded Assets not measured' : '');
 const groundingSub = s => groundingIsShare(s)
   ? (s.groundedAssets != null ? num(s.groundedAssets) + ' Assets with a glossary term' : 'of Assets have a glossary term')
-  : 'term links per 100 Assets' + (s.groundingLinks != null ? ' (' + num(s.groundingLinks) + ' links)' : '');
+  : 'term links per 100 Assets' + (s.groundingLinks != null ? ' (' + num(s.groundingLinks) + ' links)' : '')
+    + groundedAssetsSub(s);
+// The full reason goes on the sub-label's tooltip and in the drill panel.
+const groundingNote = s => s.groundedAssetNote
+  ? s.groundedAssetNote + (s.groundedAssets != null ? ' Grounded Assets are counted among the Assets you can see.' : '')
+  : (s.groundedAssets != null ? 'Grounded Assets: an Asset counts once if it, or one of its parts, carries a glossary term; counted among the Assets you can see.' : '');
 // A tile with no measurement says so. It never shows a plausible-looking sample number:
 // an em dash means "not measured" (endpoint failed, or the backend returned null),
 // which is a different statement from a real 0.
@@ -1765,7 +1775,10 @@ function drillLivePatch(key, d){
       d.s = 'Share of Assets with at least one glossary term (SemanticAssignment) — the meaning layer that grounds AI';
     }
     set(1, LIVE.groundingLinks); set(2, LIVE.terms);
-    if (LIVE.orphanTermCount != null) d.list = [['Orphan terms (no asset links)', LIVE.orphanTermCount]];
+    d.list = [];
+    if (LIVE.groundedAssets != null) d.list.push(['Assets grounded (you can see)', num(LIVE.groundedAssets)]);
+    if (LIVE.groundedAssetNote) d.list.push([LIVE.groundedAssetNote, ND]);   // why the share is missing
+    if (LIVE.orphanTermCount != null) d.list.push(['Orphan terms (no asset links)', LIVE.orphanTermCount]);
   }
   if (key === 'ownership' && LIVE.ownershipPct != null) {
     d.stats[0][0] = LIVE.ownershipPct + '%';
@@ -2348,8 +2361,9 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     if (!d) return;
     if (d.groundingValue != null) {
       store.groundingValue = d.groundingValue; store.groundingMeasure = d.groundingMeasure;
-      store.groundingPct = d.groundingPct; store.groundedAssets = d.groundedAssets;
+      store.groundingPct = d.groundingPct;
     }
+    if ('groundedAssets' in d) { store.groundedAssets = d.groundedAssets; store.groundedAssetNote = d.groundedAssetNote || null; }
     if (d.groundingLinks != null) store.groundingLinks = d.groundingLinks;
     if (d.ownershipPct != null) store.ownershipPct = d.ownershipPct;
     if (d.ownershipCount != null) store.ownershipCount = d.ownershipCount;
@@ -2378,6 +2392,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     if (d.groundingValue != null) {
       setTxt('ai-grounding', groundingVal(d));
       setTxt('ai-grounding-sub', groundingSub(d));
+      var gsEl = document.getElementById('ai-grounding-sub'); if (gsEl) gsEl.title = groundingNote(d);
     }
     var f = d.funnel || {};
     if (f.cataloged != null) setTxt('uc-cataloged', fmt(f.cataloged));
