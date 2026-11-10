@@ -98,6 +98,10 @@
   // mousedown (capture phase) and stopped it, so the page's handler only ran
   // in the few pixels outside EDGE, and the widths written here lost to the
   // page's <col> widths, so the column did not follow the pointer.
+  // Ownership is read from a cell descendant's resting cursor (inline or
+  // computed). A handle that only gets col-resize on :hover is not detected;
+  // none does today — give such a handle a resting cursor, or put
+  // data-no-col-resize on the table.
   function cursorOf(el) {
     var c = el.style && el.style.cursor;
     if (!c && window.getComputedStyle) c = getComputedStyle(el).cursor;
