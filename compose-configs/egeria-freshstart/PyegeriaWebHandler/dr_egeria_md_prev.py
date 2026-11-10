@@ -86,6 +86,8 @@ def process_md_file(input_file: str, output_folder:str, directive: str, server: 
 
     cmd_list = command_list
     console = Console(width=int(EGERIA_WIDTH))
+    from egeria_auth import is_caller_password, resolve_platform
+    url = resolve_platform(url, has_caller_password=is_caller_password(user_pass))   # before the client: its constructor calls url
     client = EgeriaTech(server, url, user_id=userid)
     token = client.create_egeria_bearer_token(userid, user_pass)
 
@@ -431,6 +433,8 @@ def process_md_file(input_file: str, output_folder: str, directive: str, server:
 
     cmd_list = command_list
     console = Console(width=int(EGERIA_WIDTH))
+    from egeria_auth import is_caller_password, resolve_platform
+    url = resolve_platform(url, has_caller_password=is_caller_password(user_pass))   # before the client: its constructor calls url
     client = EgeriaTech(server, url, user_id=userid)
     token = client.create_egeria_bearer_token(userid, user_pass)
 

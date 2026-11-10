@@ -174,7 +174,6 @@ def get_perspectives(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
@@ -184,6 +183,7 @@ def get_perspectives(
     # get_element_by_guid accepts any element and returns the same shape (identical
     # keys incl. mermaidGraph/scopedElements) in ~0.15 s. This used to list up to 200
     # Perspectives and filter by guid.
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         ce = _get_classification_explorer(url, server, user_id, user_pwd)
         raw = ce.get_element_by_guid(
@@ -212,10 +212,10 @@ def get_questions(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     """Return all GlossaryTerms classified as Questions (Question classification)."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_glossary_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -287,9 +287,9 @@ def get_question(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
 ):
     """Return full detail for a single Question (GlossaryTerm with Question classification)."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_glossary_manager(url, server, user_id, user_pwd)
     except Exception as exc:

@@ -65,6 +65,9 @@ def test_run_block_unknown_command_returns_message(tmp_path, monkeypatch):
 
     # Stub EgeriaTech to prevent real calls
     monkeypatch.setattr(mcp_server.dr_egeria_md, "EgeriaTech", FakeEgeriaTech, raising=True)
+    # Allow-list the fake platform: dr_egeria_md gates its url (egeria_auth.resolve_platform) before the
+    # client is built, and example.invalid would otherwise be refused for not resolving.
+    monkeypatch.setenv("PORTAL_ALLOWED_PLATFORM_URLS", "https://example.invalid:9443")
 
     # Provide a block that is very likely NOT a known command so the processor prints a no-op message
     block = "# Totally Unknown Command\nSome text\n___\n"

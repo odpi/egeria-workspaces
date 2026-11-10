@@ -270,8 +270,9 @@ def serve_operations():
 @router.get("/api/operations/platforms", summary="OMAG Server Platforms + their deployed servers")
 def list_platforms(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         rm = _runtime_manager(url, server, user_id, user_pwd)
         body = {"class": "FilterRequestBody", "filter": "OMAG Server Platform",
@@ -309,8 +310,9 @@ def _report_element(raw):
 def server_report(
     guid: str,
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         rm = _runtime_manager(url, server, user_id, user_pwd)
         raw = rm.get_server_report(server_guid=guid, output_format="JSON")
@@ -348,8 +350,9 @@ async def _platform_server_guids_async(rm, platform_guid: str) -> list:
 async def server_status_overview(
     platform_guid: str = Query(...),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         rm = await _runtime_manager_async(url, server, user_id, user_pwd)
         stubs = [s for s in await _platform_server_guids_async(rm, platform_guid) if s.get("guid")]
@@ -447,8 +450,9 @@ def _target_list(raw) -> list:
 async def list_integration_connectors(
     server_guid: str = Query(...),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     cache_key = _report_cache_key(server_guid, url or "", server or "", user_id or "")
     try:
         rm = await _runtime_manager_async(url, server, user_id, user_pwd)
@@ -515,7 +519,8 @@ class _ConnectorActionBody(BaseModel):
 @router.post("/api/operations/connector/{action}", summary="Start/stop/refresh a connector (admin only)")
 def connector_action(action: str, request: Request, body: _ConnectorActionBody,
                      url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-                     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None)):
+                     user_id: Optional[str] = Query(None)):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     if action not in ("restart", "refresh"):
         raise HTTPException(status_code=400, detail=f"Unsupported connector action {action!r}")
     _admin_gate(request)
@@ -551,8 +556,9 @@ def connector_action(action: str, request: Request, body: _ConnectorActionBody,
 def list_governance_engines(
     server_guid: str = Query(...),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         rm = _runtime_manager(url, server, user_id, user_pwd)
         rep = _report_element(rm.get_server_report(server_guid=server_guid, output_format="JSON")) or {}
@@ -584,7 +590,8 @@ class _EngineActionBody(BaseModel):
 @router.post("/api/operations/engine/refresh", summary="Refresh a governance engine's config (admin only)")
 def engine_refresh(request: Request, body: _EngineActionBody,
                    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-                   user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None)):
+                   user_id: Optional[str] = Query(None)):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     _admin_gate(request)
     try:
         rm = _runtime_manager(url, server, user_id, user_pwd)
@@ -601,8 +608,9 @@ def engine_refresh(request: Request, body: _EngineActionBody,
 def list_engine_actions(
     search_string: str = Query("*"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         ac = _automated_curation(url, server, user_id, user_pwd)
         raw = ac.find_engine_actions(search_string=search_string, page_size=500, output_format="JSON")
@@ -638,7 +646,8 @@ class _CancelActionBody(BaseModel):
 @router.post("/api/operations/engine-action/cancel", summary="Cancel an engine action (admin only)")
 def cancel_engine_action_route(request: Request, body: _CancelActionBody,
                                url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-                               user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None)):
+                               user_id: Optional[str] = Query(None)):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     _admin_gate(request)
     try:
         ac = _automated_curation(url, server, user_id, user_pwd)
@@ -658,7 +667,8 @@ class _ServerActionBody(BaseModel):
 @router.post("/api/operations/server/{action}", summary="Start/stop a server (admin only)")
 def server_action(action: str, request: Request, body: _ServerActionBody,
                   url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-                  user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None)):
+                  user_id: Optional[str] = Query(None)):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     if action not in ("activate", "shutdown"):
         raise HTTPException(status_code=400, detail=f"Unsupported server action {action!r}")
     _admin_gate(request)
