@@ -15,7 +15,7 @@ actual Egeria Work Items rather than a paragraph of prose.
 
 See also: [Report Specs](../../../../portal-docs/tutorials/report-specs.md) and
 [Add and Use Analytic Functions](../../../../portal-docs/tutorials/analytic-functions.md) for the specs and
-functions a Report runs, [`OVERVIEW_REPORTING_MODEL.md`](OVERVIEW_REPORTING_MODEL.md) §10
+functions a Report runs, [`OVERVIEW_REPORTING_MODEL.md`](../../../../compose-configs/egeria-quickstart/PyegeriaWebHandler/OVERVIEW_REPORTING_MODEL.md) §10
 for the design history,
 [`report-specs-dashboards-egeria-model.md`](../../../../portal-docs/Internals/report-specs-dashboards-egeria-model.md)
 for how sheets are held in Egeria,
@@ -24,7 +24,7 @@ for a business-oriented worked example focusing on Data Products and
 Subscriptions,
 [Create and Use Saved Queries](../../../../portal-docs/tutorials/saved-queries.md) for building a saved
 query in the Query tool and putting its results on a dashboard, and
-[`BACKLOG.md`](../../../BACKLOG.md) NEXT-10 for where this fits in the
+[`BACKLOG.md`](../../../../BACKLOG.md) NEXT-10 for where this fits in the
 larger Overview/Dashboard roadmap.
 
 ## Concepts, in one paragraph
@@ -608,7 +608,7 @@ load.
 > updates the Egeria copy (and writes a fresh local copy as the fallback).
 
 Rather than a toy example, the shared folder's
-[`LOCAL_DASHBOARDS_ROADMAP.dr-egeria.md`](../../../exchange-quickstart/loading-bay/dr-egeria-inbox/Local%20Dashboards/LOCAL_DASHBOARDS_ROADMAP.dr-egeria.md)
+[`LOCAL_DASHBOARDS_ROADMAP.dr-egeria.md`](LOCAL_DASHBOARDS_ROADMAP.dr-egeria.md)
 is a complete, runnable Dr.Egeria document that:
 
 1. Creates a real **Work Item List** collection, `Local Dashboards - Next
@@ -618,18 +618,18 @@ is a complete, runnable Dr.Egeria document that:
    parity, the Advisor dashboard editor, and the `find_method` gap on
    Dashboard Sheet commands) and adds each as a member of the Work Item
    List — split out into its own file,
-   [`LOCAL_DASHBOARDS_WORK_ITEMS.dr-egeria.md`](../../../exchange-quickstart/loading-bay/dr-egeria-inbox/Local%20Dashboards/LOCAL_DASHBOARDS_WORK_ITEMS.dr-egeria.md),
+   [`LOCAL_DASHBOARDS_WORK_ITEMS.dr-egeria.md`](LOCAL_DASHBOARDS_WORK_ITEMS.dr-egeria.md),
    so the work items can be recreated/re-linked without recreating the Work
    Item List or Dashboard Sheet.
 3. Creates a Dashboard Sheet, `local-dashboards-next-steps`.
 4. A third file,
-   [`LOCAL_DASHBOARDS_NEXT_STEPS_REPORTS.dr-egeria.md`](../../../exchange-quickstart/loading-bay/dr-egeria-inbox/Local%20Dashboards/LOCAL_DASHBOARDS_NEXT_STEPS_REPORTS.dr-egeria.md),
+   [`LOCAL_DASHBOARDS_NEXT_STEPS_REPORTS.dr-egeria.md`](LOCAL_DASHBOARDS_NEXT_STEPS_REPORTS.dr-egeria.md),
    creates two **Report** elements (`Create Report` — see below) and places
    them on the sheet: one showing the Work Item List's own attributes, one a
    Mermaid diagram of the list and its Task members, correctly *scoped* with
    a real `Search String` rather than matching the whole dataset.
 5. A fourth file,
-   [`LOCAL_DASHBOARDS_ANALYTICS_DEMO.dr-egeria.md`](../../../exchange-quickstart/loading-bay/dr-egeria-inbox/Local%20Dashboards/LOCAL_DASHBOARDS_ANALYTICS_DEMO.dr-egeria.md),
+   [`LOCAL_DASHBOARDS_ANALYTICS_DEMO.dr-egeria.md`](LOCAL_DASHBOARDS_ANALYTICS_DEMO.dr-egeria.md),
    adds three more Reports demonstrating **analytic-function-backed** Report
    Specs (see "Analytic reports" above): `Project Count` and `Term Count`
    both run the same **GENERIC** `count_elements` function retargeted at two
@@ -653,7 +653,7 @@ is a complete, runnable Dr.Egeria document that:
 A second, **standalone** worked example — it doesn't extend the "Next
 Steps" dashboard above, it builds a complete dashboard from scratch in one
 file,
-[`LOCAL_DASHBOARDS_ASSETS_BY_TYPE_LOCATION_DEMO.dr-egeria.md`](../../../exchange-quickstart/loading-bay/dr-egeria-inbox/Local%20Dashboards/LOCAL_DASHBOARDS_ASSETS_BY_TYPE_LOCATION_DEMO.dr-egeria.md).
+[`LOCAL_DASHBOARDS_ASSETS_BY_TYPE_LOCATION_DEMO.dr-egeria.md`](LOCAL_DASHBOARDS_ASSETS_BY_TYPE_LOCATION_DEMO.dr-egeria.md).
 Built to answer "how many assets, of which type, are cataloged, and where
 are they" with a mix of techniques on one dashboard:
 

@@ -40,9 +40,11 @@ The included `mcp_server.py` now supports dynamic execution. You can use the `eg
 
 `report_specs_handler.py` registers one workspace analytic spec at import time: **Analytic - Generic Metric Trend**. To count elements of a type, use pyegeria's built-in **Analytic Demo - Element Count by Type** (the Portal's own copy, "Analytic - Element Count by Type", was removed on 2026-11-10 because it duplicated the built-in).
 
-A report spec is data, so it names its analytic function by **registered name** (`count_elements`, `metric_trend`), not by Python dotted path. Registered names come from pyegeria's analytic registry; installed packages add functions through the `pyegeria.analytics` entry-point group, and report specs through the `pyegeria.report_specs` entry-point group (pyegeria 6.2.18+). Dotted paths in report specs resolve with a `DeprecationWarning` in pyegeria 6.2.18 and are refused in 6.2.19. `metric_trend`'s `metric_path` accepts a registered name only from 6.2.18; the Generic Metric Trend spec uses `count_elements`, so it needs pyegeria 6.2.18 or later.
+A report spec is data, so it names its analytic function by **registered name** (`count_elements`, `metric_trend`), not by Python dotted path. Registered names come from pyegeria's analytic registry; installed packages add functions through the `pyegeria.analytics` entry-point group, and report specs through the `pyegeria.report_specs` entry-point group (pyegeria 6.2.18+). Dotted paths in report specs are refused (since pyegeria 6.2.19; freshstart runs `>=6.2.21,<6.2.27`). The Generic Metric Trend spec names `count_elements` as its `metric_path`.
 
-`PYEGERIA_REPORT_SPEC_MODULES` is deprecated from pyegeria 6.2.18 (it still loads, with a warning) and removed in 6.2.19. Use the `pyegeria.report_specs` entry point instead. See the quickstart `PyegeriaWebHandler/README.md` ("Analytic Report Specifications") for the full description.
+`PYEGERIA_REPORT_SPEC_MODULES` was removed in pyegeria 6.2.19 (a refresh that finds it set only logs a warning). Use the `pyegeria.report_specs` entry point instead.
+
+**What freshstart does not have.** Freshstart's Portal has no Local Dashboards page, no Query tool (saved queries), no Analytic Functions view (`/api/analytics`) and no sync of report specs held in Egeria: it runs pyegeria's built-in specs and its own local spec. The tutorials in `portal-docs/tutorials/` that use those features are quickstart only; [Add and Use Analytic Functions](../../../portal-docs/tutorials/analytic-functions.md#freshstart) says how to add a function here. See the quickstart `PyegeriaWebHandler/README.md` ("Analytic Report Specifications") for the full description.
 
 ## Model Context Protocol (MCP) Support
 

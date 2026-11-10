@@ -4,6 +4,10 @@ Local Dashboards renders **Dashboard Sheets** — named, ordered pages of report
 
 Access it from the portal tile (🗂️ Local Dashboards) or directly at `/local-dashboards`.
 
+Local Dashboards is part of the quickstart Portal; freshstart does not have it.
+
+**Who sees what.** Each report on a sheet is read as the person viewing it. A Report (or the Egeria-held report spec it names) in a governance zone you cannot see shows as a dashed tile reading 🔒 *Report not visible to you.*; the rest of the sheet still shows. See [Who sees what](../tutorials/local-dashboards.md#who-sees-what-zones-and-the-not-visible-to-you-tile).
+
 ---
 
 ## Browsing sheets

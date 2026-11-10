@@ -4,6 +4,8 @@ Query is the Portal's cross-cutting governance search tool: build a faceted quer
 
 Access it from the portal tile (🧭 Query) or directly at `/egeria-insights`.
 
+Query is part of the quickstart Portal; freshstart does not have it. Tutorial: [Create and Use Saved Queries](../tutorials/saved-queries.md).
+
 ---
 
 ## Dashboard tab
