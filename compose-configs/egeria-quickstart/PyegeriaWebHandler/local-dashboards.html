@@ -73,6 +73,7 @@
   .placement.emph-panel { padding:20px 22px; }
   .placement.kind-missing { border-color:rgba(233,69,96,.5); background:rgba(233,69,96,.06); }
   .placement.kind-sheet { border-style:dashed; }
+  .placement.kind-restricted { border-style:dashed; border-color:rgba(160,160,160,.5); }
   .placement h4 { font-size:.92rem; font-weight:650; margin-bottom:4px; display:flex; align-items:center; gap:8px; }
   .placement .p-desc { font-size:.78rem; color:var(--muted); margin-bottom:10px; }
   .placement .p-body { font-size:.82rem; line-height:1.6; }
@@ -686,6 +687,12 @@ function renderPlacementBody(p, i, force) {
   var target = document.getElementById('placement-body-' + i);
   if (p.kind === 'missing') {
     target.innerHTML = '<div class="p-note">⚠ ' + esc(p.description) + '</div>';
+    return;
+  }
+  // A Report or Report Spec in a zone this viewer cannot see (pyegeria's resolver, B4): say so, never
+  // run it, never show it as broken.
+  if (p.kind === 'restricted') {
+    target.innerHTML = '<div class="p-note">🔒 ' + esc(p.description || 'Not visible to you.') + '</div>';
     return;
   }
   if (p.kind === 'sheet') {
