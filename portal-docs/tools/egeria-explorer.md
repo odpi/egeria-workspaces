@@ -173,31 +173,52 @@ The **Analytic Functions** sub-tab is the registry of routines a report spec can
 
 *Analytic Functions, `ai_ready_assets`, deployed Portal, 2026-11-09. It declares two client inputs, `egeria_client:MetadataExpert` and `egeria_client:ClassificationExplorer`. 29 functions were registered.*
 
-### Where a report spec comes from (coming soon)
+### Where a report spec comes from
 
-> **Status: being built (2026-11-10).** This section describes a Portal change that has not shipped yet
-> (branch `feat/portal-report-specs-egeria-held`). The `pyegeria report-specs sync` command below is in
-> pyegeria 6.2.29 today; the Portal labels and folders are not. Until the change lands, the Portal does
-> not show report specs held in Egeria.
+> **Status (2026-11-10):** this Portal change is merged on its branch but not yet deployed to the
+> quickstart. Until the Portal container is recreated, the Report Specs view does not show sources.
 
-<!-- TODO(report-specs-egeria-held): replace the label names, folder wording and any button text below with
-     the exact UI wording once feat/portal-report-specs-egeria-held lands, add a screenshot, and remove the
-     "coming soon" status note. -->
+Report specs come from four places. In the Report Specs view each spec carries a **source** badge,
+and a **source** filter (*All sources*, or one source with its count, for example *held in Egeria (0)*)
+narrows the list to one of them:
 
-Report specs can come from four places. Each spec in the Reports tab will carry a label saying which one:
+| Badge | List tag | Where the spec comes from |
+|---|---|---|
+| **pyegeria built-in** | none | Ships with pyegeria, for example *Analytic Demo - Element Count by Type* |
+| **held in Egeria** | **EG** | A report spec element held in Egeria, in one of the folders the Portal is set up to read (see below) |
+| **Portal (local)** | **P** | Added by the Portal's own code when it starts, for example *Analytic - Generic Metric Trend* and Resource Explorer's tiles |
+| **user spec file** | **U** | A JSON spec file in the user report specs directory |
 
-| Label | Where the spec comes from |
-|---|---|
-| **builtin** | Ships with pyegeria, for example `Analytic Demo - Element Count by Type` |
-| **local** | Added by the Portal itself (its own spec files), for example `Analytic - Generic Metric Trend` |
-| **egeria** | Held in Egeria as a report spec element, filed in a folder (a `CollectionFolder`) |
-| **user** | Your own spec files <!-- TODO(report-specs-egeria-held): confirm what "user" covers --> |
+If two sources hold a spec with the same name, the spec's details say which copy is used and which is
+hidden ("Shadows the … copy" or "Shadowed: the … copy of …"). The hidden copy can still be run by
+name with a prefix: `builtin:<name>` or `egeria:<name>`. A spec held in Egeria also shows its Egeria
+qualified name, when it was last synced, and *DRAFT* if it is a draft.
 
-**Specs held in Egeria are grouped by folder.** In Egeria, report specs are filed in folders. The
-Reports tab will show those folders, so you can find a team's specs together.
+**Specs held in Egeria are read from folders.** In Egeria, report specs are filed in collection folders.
+The Portal reads the folders named in `PYEGERIA_REPORT_SPEC_FOLDERS`; on the quickstart the default is
+`ReportSpecFolder::EgeriaPortal`. A banner at the top of the Report Specs view lists those folders and
+says how many specs are held in Egeria. When there are none it says why, for example:
 
-**The Portal reads Egeria-held specs from a local copy.** `pyegeria report-specs sync` reads the specs
-held in Egeria and saves a copy in a local cache, which is what the Portal uses:
+- *None held in Egeria: no report spec folders are configured for this Portal (PYEGERIA_REPORT_SPEC_FOLDERS)*
+- *None held in Egeria yet: no sync from Egeria has run*
+- *None held in Egeria: the configured folders were not found in Egeria*
+- *None held in Egeria: the configured folders hold no active report specs*
+
+On the quickstart today you will see *the configured folders were not found in Egeria*: the
+`ReportSpecFolder::EgeriaPortal` folder has not been created yet.
+
+**The Portal works from a local copy of those specs.** It copies the specs in its folders from Egeria
+into its own cache:
+
+- automatically, shortly after the Portal starts (about 30 seconds; it retries while Egeria is still
+  starting, and never delays the Portal's start). `PORTAL_REPORT_SPEC_SYNC_AT_STARTUP=0` turns this off;
+- on demand: administrators can click **⇣ Sync from Egeria** in the banner (`POST /api/report-specs/sync`;
+  `GET /api/report-specs/sync` gives the last result, such as *Synced …: 2 added, 0 updated, …*).
+
+After someone changes a spec in Egeria, sync again to see the change. A sync only **reads** Egeria; it
+never writes to it.
+
+Outside the Portal, the same copy is made with pyegeria's command:
 
 ```bash
 pyegeria report-specs sync                      # every configured folder
@@ -206,10 +227,8 @@ pyegeria report-specs sync --spec "LABEL"       # just this spec; leaves every o
 pyegeria report-specs sync --include-drafts     # also DRAFT and PROPOSED specs, kept apart in drafts/
 ```
 
-- `sync` only **reads** Egeria. It writes to the local cache
-  (`PYEGERIA_REPORT_SPEC_CACHE_DIR`, default `~/.pyegeria/cache/report_specs/<platform>/<server>`), not to Egeria.
-- Without `--include-drafts`, only specs that are ready for use are copied.
-- After someone changes a spec in Egeria, run `sync` again to see the change.
+It writes to a local cache (`PYEGERIA_REPORT_SPEC_CACHE_DIR`, default
+`~/.pyegeria/cache/report_specs/<platform>/<server>`), not to Egeria.
 
 **The duplicate count spec is gone.** The Portal used to add its own spec, *Analytic - Element Count by Type*,
 which did the same as pyegeria's built-in *Analytic Demo - Element Count by Type*. It was removed on
