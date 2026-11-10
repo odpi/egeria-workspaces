@@ -374,8 +374,12 @@ def verify(monkeypatch):
     return st
 
 
-class _NotFound(Exception):
-    response_code = 404
+def _not_found():
+    """The exception pyegeria's _base_server_client raises on an HTTP 404."""
+    from pyegeria import PyegeriaNotFoundException
+    resp = NS(status_code=404, url="https://egeria/my-profile", reason_phrase="Not Found",
+              json=lambda: {}, text="")
+    return PyegeriaNotFoundException(resp)
 
 
 def test_delete_with_a_token_egeria_refuses_is_a_401_and_deletes_nothing(env, verify):
@@ -394,7 +398,7 @@ def test_delete_fails_closed_when_the_token_cannot_be_checked(env, verify):
 
 
 def test_delete_with_a_verified_token_deletes_even_without_a_profile(env, verify):
-    verify["raise"] = _NotFound("no profile")
+    verify["raise"] = _not_found()
     r = env["client"].delete("/api/local-dashboards/json-only", headers={"X-Egeria-Token": _jwt("alice")})
     assert r.status_code == 200 and r.json() == {"deleted": "json-only"}
 
@@ -405,3 +409,21 @@ def test_egeria_held_sheets_show_delete_disabled_with_the_cli_hint():
     assert html.count("s.source === 'egeria' ? egeriaDeleteDisabled(") == 1               # list card
     assert html.count("sheet.source === 'egeria' ? egeriaDeleteDisabled(") == 1           # detail view
     assert "disabled aria-disabled=\"true\"" in html
+
+
+def test_not_found_is_matched_by_class_and_status_never_by_message_text(env, verify):
+    c, tok = env["client"], {"X-Egeria-Token": _jwt("alice")}
+    class Coded404(Exception):
+        response_code = 404                                   # a 404 code on something that is not pyegeria's 404
+    for exc in (ConnectionError("upstream said OMAG-404 NOT_FOUND"), Coded404("not pyegeria's not-found")):
+        verify["raise"] = exc
+        assert c.delete("/api/local-dashboards/json-only", headers=tok).status_code == 503, exc
+    assert "json-only" in [s["name"] for s in c.get("/api/local-dashboards").json()["sheets"]]
+
+
+def test_no_profile_marker_counts_as_verified(env, verify, monkeypatch):
+    import pyegeria
+    real = pyegeria.MyProfile
+    monkeypatch.setattr(real, "get_my_profile", lambda self: "No elements found")   # pyegeria's NO_ELEMENTS_FOUND
+    r = env["client"].delete("/api/local-dashboards/json-only", headers={"X-Egeria-Token": _jwt("alice")})
+    assert r.status_code == 200
