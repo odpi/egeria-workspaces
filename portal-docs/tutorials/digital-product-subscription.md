@@ -81,7 +81,7 @@ ___
 
 ## Step 3 — Define and Place KPI Tiles
 
-We want two compact tiles at the top to show current totals. We use the `Analytic Demo - Element Count by Type` Report Spec, which is a **GENERIC** analytic function that we can retarget via `Analytic Parameters`.
+We want two compact tiles at the top to show current totals. We use the `Analytic Demo - Element Count by Type` Report Spec, which is a **GENERIC** analytic function that we can retarget via `Analytic Parameters`. It is one of pyegeria's built-in specs. (Before 2026-11-10 the Portal also had its own copy named `Analytic - Element Count by Type`; that copy was removed, so a Report that still names it should be repointed by updating its Report Spec to the new name.)
 
 ### Total Digital Products
 ```markdown

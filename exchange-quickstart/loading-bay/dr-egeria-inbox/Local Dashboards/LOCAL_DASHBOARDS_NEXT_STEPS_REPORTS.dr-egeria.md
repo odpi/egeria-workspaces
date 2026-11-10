@@ -23,15 +23,13 @@
 >   this same placement returned a diagram of the *entire* dataset (observed
 >   80–150KB) rather than just this one Work Item List and its Task members.
 >
-> **Requires the `Create Report` / updated `Link Report to Dashboard Sheet`
-> commands** — only available via the egeria-python dev checkout's own
-> `.venv` (`source .venv/bin/activate`) at the time this was written, not yet
-> in a published pyegeria release. Run **inside that venv**, not via
-> `docker exec` against `quickstart-pyegeria-web` (its installed `pyegeria`
-> package predates these commands) — but the Dashboard Sheet store still has
-> to end up in the *container's* `~/.pyegeria/dashboard_sheets.json`
-> (`docker cp` it over afterward), not the host's copy. See
-> `LOCAL_DASHBOARDS_TUTORIAL.md`'s "Where dr_egeria has to run" section.
+> **Where it writes (updated 2026-11-10).** `Create Report` and the updated
+> `Link Report to Dashboard Sheet` ship in published pyegeria, so this file
+> runs anywhere, including `docker exec quickstart-pyegeria-web dr_egeria` or
+> the Portal's **▶ Run Dr.Egeria Document** panel. Since pyegeria 6.2.29 the
+> sheet is written into Egeria (plus a local fallback copy); the
+> `local-dashboards-next-steps` sheet was moved into Egeria on 2026-11-10.
+> See `LOCAL_DASHBOARDS_TUTORIAL.md`, "Where Dashboard Sheets live".
 >
 > **Run with VALIDATE first, then PROCESS.** The two `Link Report to
 > Dashboard Sheet` steps reference the Reports created earlier in this same
@@ -41,8 +39,8 @@
 >
 > This file only re-links; it doesn't remove the two old direct-Report-Spec
 > placements (`Work-Item-List-DrE-Basic`, `Collections`) — those were removed
-> by hand-editing the JSON store after this ran, since there's no
-> "Remove Placement" Dr.Egeria command yet.
+> by hand-editing the old JSON store after this ran, before the sheet moved
+> into Egeria.
 
 ___
 
