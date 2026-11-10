@@ -2090,13 +2090,22 @@ def refresh_saved_query(guid: str, body: RefreshQueryBody = Body(...)):
             "additionalProperties": additional,
         },
     }
+    # The membership above is the answer; this stamp is its label (the pin,
+    # lastRefreshedTime, lastRefreshParams). A failed stamp doesn't fail the
+    # call, but it is reported: otherwise a Status tile says "never refreshed"
+    # or an old time beside a fresh answer, and nobody knows why.
+    stamped, stamp_error = True, None
     try:
         am.update_asset(guid, update_body)
-    except Exception:  # noqa: BLE001 — the refresh itself succeeded; failing to stamp the badge shouldn't fail the call
+    except Exception as exc:  # noqa: BLE001
         logger.exception(f"insights: failed to stamp lastRefreshedTime on saved query {guid}")
+        stamped = False
+        stamp_error = (f"The results were refreshed, but recording the refresh on the saved query failed, "
+                       f"so its refresh time and parameters still show the previous run: {exc}")
 
     return JSONResponse({
         "guid": guid, "resultCount": len(hit_guids),
+        "stamped": stamped, "stampError": stamp_error,
         "added": len(added), "removed": len(removed),
         "lastRefreshedTime": now,
         "lastRefreshParams": run_params,

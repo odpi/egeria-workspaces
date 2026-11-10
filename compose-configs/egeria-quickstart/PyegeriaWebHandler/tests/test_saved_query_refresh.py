@@ -279,3 +279,33 @@ def test_summary_shows_a_seeded_spec_and_its_parameters():
     s = ih._saved_query_summary(fake.el)
     assert s["spec"]["type_name"] == "Asset" and s["specSource"] == "searchSpec"
     assert [p["name"] for p in s["parameters"]] == [p["name"] for p in PARAMS]
+
+
+# ── a failed stamp is reported, not swallowed (SQ-1) ─────────────────────────
+
+def test_a_successful_stamp_says_so(run):
+    out = run(Fake(dict(SEED)))
+    assert out["stamped"] is True and out["stampError"] is None
+
+
+def test_a_failed_stamp_is_reported_and_the_results_still_return(run):
+    fake = Fake(dict(SEED), members=("b", "c"))
+
+    def boom(guid, body):
+        fake.updates.append(body)
+        raise RuntimeError("OMAG-REPOSITORY-HANDLER-500-001 update failed")
+
+    fake.update_asset = boom
+    out = run(fake)
+    assert out["stamped"] is False
+    assert "update failed" in out["stampError"] and "previous run" in out["stampError"]
+    # The answer itself is fresh and fully reported.
+    assert out["resultCount"] == 2 and out["added"] == 1 and out["removed"] == 1
+    assert sorted(fake.added) == ["a"] and fake.removed == ["c"]
+    assert out["resultsSetGuid"] == RS and "lastRefreshedTime" in out
+
+
+def test_the_ui_shows_a_failed_stamp():
+    import pathlib
+    html = (pathlib.Path(ih.__file__).parent / "egeria-insights.html").read_text()
+    assert "d.stamped === false" in html and "d.stampError" in html
