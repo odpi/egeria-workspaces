@@ -122,7 +122,7 @@ var _viewerReady = new Promise(function(resolve){
   if (!EMBEDDED || window.parent === window) { GM.done = true; resolve(); return; }
   window.addEventListener('message', function(e){
     if (e.origin !== location.origin || e.source !== window.parent) return;
-    gmReceiveViewer(GM, e.data, function(){ VIEWER = GM.viewer; fetchMetrics().then(route); });
+    gmReceiveViewer(GM, e.data, function(){ VIEWER = GM.viewer; STATE.loaded = false; route(); fetchMetrics().then(route); });
     VIEWER = GM.viewer;
   });
   try { window.parent.postMessage({ type: 'egeria-viewer-request' }, location.origin); } catch (e) {}
@@ -145,14 +145,25 @@ function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(
 
 var STATE = { metrics: [], loaded: false, error: null };
 
+// Only the newest load may change the page (pure: tests/test_governance_metrics_viewer_js.py).
+// A load started for an earlier viewer that answers after a newer one is dropped, so the
+// service user's list can never land under the selected viewer's note.
+function gmLoadTicket(gm) {
+  gm.seq = (gm.seq || 0) + 1;
+  var mine = gm.seq;
+  return function isCurrent() { return gm.seq === mine; };
+}
+
 function fetchMetrics(){
+  var current = gmLoadTicket(GM);
   return fetch('/api/governance-metrics', { headers: viewerHeaders() })
     .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-    .then(function(d){ STATE.metrics = d.metrics || []; STATE.loaded = true; STATE.error = null; })
-    .catch(function(e){ STATE.error = String(e); STATE.loaded = true; });
+    .then(function(d){ if (!current()) return; STATE.metrics = d.metrics || []; STATE.loaded = true; STATE.error = null; })
+    .catch(function(e){ if (!current()) return; STATE.error = String(e); STATE.loaded = true; });
 }
 
 function route(){
+  if (!STATE.loaded) { document.getElementById('app').innerHTML = '<div class="loading">Loading…</div>'; return; }
   var hash = location.hash.replace(/^#/, '');
   if (hash.startsWith('metric=')) {
     renderDetail(decodeURIComponent(hash.slice('metric='.length)));
