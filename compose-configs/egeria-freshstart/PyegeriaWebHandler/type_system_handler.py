@@ -361,9 +361,9 @@ async def get_type_names(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
 ):
     """Return a sorted list of type names for the given kind. Results are cached process-wide."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     cache_key = kind.lower()
     if cache_key in _TYPE_NAMES_CACHE:
         return JSONResponse({"kind": kind, "names": _TYPE_NAMES_CACHE[cache_key]})
@@ -411,7 +411,6 @@ async def get_all_types(
     url:      Optional[str] = Query(None, description="Egeria platform URL (overrides env)"),
     server:   Optional[str] = Query(None, description="Egeria view server name (overrides env)"),
     user_id:  Optional[str] = Query(None, description="Egeria user id (overrides env)"),
-    user_pwd: Optional[str] = Query(None, description="Egeria user password (overrides env)"),
 ):
     """
     Return the complete Egeria open metadata type system.
@@ -426,6 +425,7 @@ async def get_all_types(
     (freshstart) the logged-in user's Egeria bearer token is used, falling back
     to the env service account if that token is rejected (e.g. expired).
     """
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     d = _env_defaults()
     url      = url      or d["url"]
     server   = server   or d["server"]
@@ -585,7 +585,6 @@ async def get_relationship_purposes(
     url:      Optional[str] = Query(None, description="Egeria platform URL (overrides env)"),
     server:   Optional[str] = Query(None, description="Egeria view server name (overrides env)"),
     user_id:  Optional[str] = Query(None, description="Egeria user id (overrides env)"),
-    user_pwd: Optional[str] = Query(None, description="Egeria user password (overrides env)"),
 ):
     """
     Return ``{"purposes": {typeName: purpose | null}, "serverReportsPurpose": bool}``.
@@ -598,6 +597,7 @@ async def get_relationship_purposes(
     Connection: as ``/api/types`` -- the logged-in user's Egeria token under
     server-managed auth, falling back to the env service account.
     """
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     d = _env_defaults()
     url      = url      or d["url"]
     server   = server   or d["server"]

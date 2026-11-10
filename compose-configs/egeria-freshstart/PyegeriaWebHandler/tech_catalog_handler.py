@@ -40,7 +40,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from egeria_auth import lineage_key as _lineage_key, token_user as _token_user, use_token
+from egeria_auth import check_client_platform, lineage_key as _lineage_key, token_user as _token_user, use_token
 from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
 
@@ -94,7 +94,9 @@ def _token_from_request(request: Request) -> Optional[str]:
 
 
 def _apply_token(client, token: Optional[str]):
-    """Set a pre-obtained bearer token on a pyegeria client, or obtain a fresh one."""
+    """Set a pre-obtained bearer token on a pyegeria client, or obtain a fresh one.
+    Refuses (PlatformRefused) a platform the credentials may not go to; see egeria_auth.resolve_platform."""
+    check_client_platform(client, token)
     if token:
         use_token(client, token)   # never falls back to the service user; see egeria_auth.use_token
     else:
@@ -139,6 +141,7 @@ async def _governance_officer_async(url, server, user_id, user_pwd, token: Optio
     from pyegeria import GovernanceOfficer
     u, s, uid, pwd = _creds(url, server, user_id, user_pwd)
     mgr = GovernanceOfficer(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
+    check_client_platform(mgr, token)
     if token:
         mgr.set_bearer_token(token)
     else:
@@ -525,6 +528,7 @@ async def _automated_curation_async(url, server, user_id, user_pwd, token: Optio
     from pyegeria import AutomatedCuration
     u, s, uid, pwd = _creds(url, server, user_id, user_pwd)
     ac = AutomatedCuration(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
+    check_client_platform(ac, token)
     if token:
         ac.set_bearer_token(token)
     else:
@@ -545,20 +549,35 @@ def _discovery_client(url, server, user_id, user_pwd, token: Optional[str] = Non
 @router.post("/api/egeria-token", summary="Exchange Egeria credentials for a bearer token")
 async def get_egeria_bearer_token(request: Request):
     """Called once at login. Returns a short-lived Egeria bearer token so that
-    subsequent catalog API calls can pass X-Egeria-Token instead of user_pwd."""
+    subsequent catalog API calls can pass X-Egeria-Token instead of user_pwd.
+
+    The platform gate (egeria_auth.resolve_platform): the service password is only ever used for an
+    allow-listed platform; any other `url` needs the caller's own password (and
+    PORTAL_ALLOW_CUSTOM_PLATFORMS). The token is bound to the platform it was minted for, and the response
+    names that platform. The body is read only as application/json (415 otherwise), so a cross-site
+    text/plain "simple" POST cannot reach here."""
+    from egeria_auth import bind_token_platform, is_caller_password, resolve_platform
+    ctype = (request.headers.get("content-type") or "").split(";")[0].strip().lower()
+    if ctype != "application/json":
+        raise HTTPException(status_code=415, detail="Send the credentials as application/json.")
     try:
         body = await request.json()
     except Exception:
         body = {}
+    if not isinstance(body, dict):
+        body = {}
+    caller_pwd = body.get("password") or None
+    # Raises PlatformRefused (400) before any outbound call; outside the try below, so it is not a 500.
+    url = resolve_platform(body.get("url"), has_caller_password=is_caller_password(caller_pwd))
     user_id  = body.get("user_id")  or os.environ.get("EGERIA_USER",          "erinoverview")
-    user_pwd = body.get("password") or os.environ.get("EGERIA_USER_PASSWORD",  "secret")
-    url      = body.get("url")      or os.environ.get("EGERIA_PLATFORM_URL",   "https://localhost:9443")
+    user_pwd = caller_pwd           or os.environ.get("EGERIA_USER_PASSWORD",  "secret")
     server   = body.get("server")   or os.environ.get("EGERIA_VIEW_SERVER",    "qs-view-server")
     try:
         from pyegeria import AssetMaker
         mgr = AssetMaker(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
         token = await mgr._async_create_egeria_bearer_token()
-        return JSONResponse({"token": token, "user_id": user_id})
+        bind_token_platform(token, url)
+        return JSONResponse({"token": token, "user_id": user_id, "platform_url": url})
     except Exception as exc:
         logger.exception("get_egeria_bearer_token failed")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -1058,7 +1077,7 @@ def debug_raw_element(
     guid: str,
     depth: int = Query(1, ge=0, le=5, description="graphQueryDepth to request from Egeria"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """Return the raw pyegeria/Egeria element response for any GUID — for advanced
     users who want to see the actual payload Egeria returns, rather than the
@@ -1076,6 +1095,7 @@ def debug_raw_element(
     - classifications: normalized (typeName + properties) for convenience,
       alongside the untouched raw classification data inside `raw` itself
     """
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     token = _token_from_request(request)
     el = None
     fetch_method = "unknown"
@@ -1169,8 +1189,7 @@ _CRED_PARAMS = dict(
     url      = Query(None),
     server   = Query(None),
     user_id  = Query(None),
-    user_pwd = Query(None),
-)
+)   # no user_pwd: a password never travels in a query string
 
 
 # ── Infrastructure subtypes ───────────────────────────────────────────────────
@@ -1221,11 +1240,12 @@ def _is_or_descends_from(name: str, root: str, types: dict) -> bool:
 def list_infrastructure_types(
     request: Request,
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
     refresh: bool = Query(False, description="Reload the type system instead of using the cached copy"),
 ):
     """Direct subtypes of Infrastructure, each with how many types descend from
     it (itself included), for the Infrastructure section's tabs."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         types = _entity_type_map(url, server, user_id, user_pwd, token=_token_from_request(request), refresh=refresh)
     except Exception as exc:
@@ -1257,10 +1277,11 @@ def list_infrastructure(
     start_from: int = Query(0, ge=0),
     page_size:  int = Query(_LIST_PAGE, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     token = _token_from_request(request)
     if type_name != _INFRA_DEFAULT:
         try:
@@ -1303,10 +1324,11 @@ def list_software_capabilities(
     start_from: int = Query(0, ge=0),
     page_size:  int = Query(_LIST_PAGE, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
     except Exception as exc:
@@ -1336,10 +1358,11 @@ def list_endpoints(
     start_from: int = Query(0, ge=0),
     page_size:  int = Query(_LIST_PAGE, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _connection_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
     except Exception as exc:
@@ -1458,6 +1481,7 @@ async def _async_asset_maker(url, server, user_id, user_pwd, token: Optional[str
     from pyegeria import AssetMaker
     u, s, uid, pwd = _creds(url, server, user_id, user_pwd)
     mgr = AssetMaker(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
+    check_client_platform(mgr, token)
     if token:
         mgr.set_bearer_token(token)
     else:
@@ -1559,11 +1583,12 @@ async def _list_data_assets(request: Request, type_name: str, url, server, user_
 async def list_data_stores(
     request: Request,
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
     refresh: bool = Query(False, description="Drop the cached list and load it again"),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     return await _list_data_assets(request, "DataStore", url, server, user_id, user_pwd, as_of_time, include_templates, refresh)
 
 
@@ -1571,11 +1596,12 @@ async def list_data_stores(
 async def list_data_feeds(
     request: Request,
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
     refresh: bool = Query(False, description="Drop the cached list and load it again"),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     return await _list_data_assets(request, "DataFeed", url, server, user_id, user_pwd, as_of_time, include_templates, refresh)
 
 
@@ -1583,11 +1609,12 @@ async def list_data_feeds(
 async def list_data_sets(
     request: Request,
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
     refresh: bool = Query(False, description="Drop the cached list and load it again"),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     return await _list_data_assets(request, "DataSet", url, server, user_id, user_pwd, as_of_time, include_templates, refresh)
 
 
@@ -1598,10 +1625,11 @@ def list_apis(
     start_from: int = Query(0, ge=0),
     page_size:  int = Query(_LIST_PAGE, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
     except Exception as exc:
@@ -1630,12 +1658,13 @@ def list_apis(
 async def list_software_components(
     request: Request,
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
     refresh: bool = Query(False, description="Drop the cached list and load it again"),
 ):
     """Every DeployedSoftwareComponent, from the whole-list cache (see _DA_TTL)."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = await _async_asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
     except Exception as exc:
@@ -1667,12 +1696,13 @@ def list_actions(
     start_from: int = Query(0, ge=0),
     page_size:  int = Query(_SCROLL_PAGE, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     """One page of Actions, newest first. There are thousands, so the UI loads
     a page, searches/filters in Egeria, and offers "Load more" (hasMore)."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
     except Exception as exc:
@@ -1705,12 +1735,13 @@ def list_actions(
 async def list_governance_processes(
     request: Request,
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
     refresh: bool = Query(False, description="Drop the cached list and load it again"),
 ):
     """Every GovernanceActionProcess definition (0462 Governance Action
     Processes), from the whole-list cache (see _DA_TTL)."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = await _governance_officer_async(url, server, user_id, user_pwd, token=_token_from_request(request))
     except Exception as exc:
@@ -1737,11 +1768,12 @@ def get_governance_process_detail(
     request: Request,
     guid: str,
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """Full step/flow/target detail for one GovernanceActionProcess, via
     GovernanceOfficer.get_governance_action_process_graph — the 0462 structural API,
     not the generic Asset graph (which has no concept of process steps)."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _governance_officer(url, server, user_id, user_pwd, token=_token_from_request(request))
     except Exception as exc:
@@ -1765,9 +1797,10 @@ def get_element_nav(
     request: Request,
     guid: str = Query(...),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """Return typeName and superTypeNames for a GUID so the frontend can route to the correct section."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
     except Exception as exc:
@@ -1805,8 +1838,9 @@ def get_asset_detail(
     section: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
     except Exception as exc:
@@ -1831,7 +1865,7 @@ def get_asset_schema(
     request: Request,
     guid: str,
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """Return the schema type + nested attribute tree for any asset with a Schema relationship.
 
@@ -1846,6 +1880,7 @@ def get_asset_schema(
     to walk it into a real tree instead of the schema data being buried
     (unlabeled) in the generic flattened "Relationships" section.
     """
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
         ac = _asset_catalog_from_asset_maker(mgr)
@@ -1906,11 +1941,12 @@ def get_asset_preview(
     max_row_count:  int = Query(100, ge=1, le=2000),
     section: Optional[str] = Query(None),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """Read a bounded page of rows from a file asset's backing store, normalised to
     {columns, rows, has_more} for the tabular preview modal. The file must be under
     an allowed /deployments root and reachable from this container ('when accessible')."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
         el = _fetch_detail(mgr, guid, section)
@@ -1977,12 +2013,13 @@ def list_survey_reports(
     start_from: int = Query(0, ge=0),
     page_size:  int = Query(_LIST_PAGE, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     """List SurveyReport elements. SurveyReports are DataAsset subtypes but use an
     empty content_status_list because they are not given ACTIVE status by Egeria."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
     except Exception as exc:
@@ -2019,13 +2056,14 @@ def get_survey_annotations(
     page_size: int = Query(500, ge=1, le=1000),
     as_of_time: Optional[str] = Query(None),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """Return all Annotation elements for a specific SurveyReport GUID.
 
     Fetches annotations with graph_query_depth=1 (to get the fromSurveyReports links)
     then filters to those belonging to the requested report.
     """
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         dd = _discovery_client(url, server, user_id, user_pwd, token=_token_from_request(request))
     except Exception as exc:
@@ -2064,9 +2102,10 @@ def list_annotations(
     page_size:       int = Query(_SCROLL_PAGE, ge=1, le=500),
     as_of_time:      Optional[str] = Query(None),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """List or search Annotation elements across all survey reports."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         dd = _discovery_client(url, server, user_id, user_pwd, token=_token_from_request(request))
     except Exception as exc:
@@ -2107,9 +2146,10 @@ def get_tech_type_hierarchy(
     request: Request,
     root: str = Query("Root Technology Type"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """Return the technology type hierarchy tree starting from root."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         ac = _automated_curation(url, server, user_id, user_pwd, token=_token_from_request(request))
         raw = ac.get_tech_type_hierarchy(filter_string=root or "Root Technology Type",
@@ -2127,10 +2167,11 @@ def list_tech_types(
     start_from: int = Query(0, ge=0),
     page_size:  int = Query(_LIST_PAGE, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     """List or search technology types."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         ac = _automated_curation(url, server, user_id, user_pwd, token=_token_from_request(request))
         raw, capped = _page_all(lambda start, size: ac.find_technology_types(
@@ -2165,7 +2206,7 @@ def get_tech_type_elements(
     start_from: int = Query(0, ge=0),
     page_size:  int = Query(100, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """Return catalog instances of the given technology type.
 
@@ -2173,6 +2214,7 @@ def get_tech_type_elements(
     Pass it via the ?display_name= query param, populated from the already-loaded detail.
     Falls back to qualifiedName if display_name is absent.
     """
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         ac = _automated_curation(url, server, user_id, user_pwd, token=_token_from_request(request))
         filter_str = display_name or (qualified_name.split(":")[-1] if ":" in qualified_name else qualified_name)
@@ -2201,13 +2243,14 @@ def get_tech_type_detail(
     deployed_implementation_type: Optional[str] = Query(None),
     display_name: Optional[str] = Query(None),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """Return full detail for a technology type.
 
     get_tech_type_detail matches by deployedImplementationType (the preferred lookup
     field).  Falls back to display_name or qualified_name if not supplied.
     """
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     filter_str = deployed_implementation_type or display_name or qualified_name
     try:
         ac = _automated_curation(url, server, user_id, user_pwd, token=_token_from_request(request))
@@ -2325,7 +2368,7 @@ async def _fetch_and_cache_survey_types(cache_key: str, ac):
 async def list_survey_types(
     request: Request,
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """Return survey type definitions extracted from all TechnologyTypes.
 
@@ -2338,6 +2381,7 @@ async def list_survey_types(
     returns at once. Cold -> {"items": [], "loading": true}; stale -> the old items
     plus "stale": true and "loading": true. The UI polls until loading is false.
     """
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     cache_key = f"{url}|{server}|{user_id}"
     cached = _SURVEY_TYPES_CACHE.get(cache_key)
     fresh = bool(cached) and (time.time() - cached["ts"]) < _SURVEY_TYPES_TTL
@@ -2483,6 +2527,7 @@ def _connection_maker_from_asset_maker(mgr):
         user_id=mgr.user_id,
         user_pwd=mgr.user_pwd,
     )
+    check_client_platform(cm)
     cm.create_egeria_bearer_token()
     return cm
 

@@ -167,6 +167,9 @@ def _is_unrecognized_type_error(exc: Exception) -> bool:
 
 def _classification_explorer(url, server, user_id, user_pwd, token=None):
     resolved_url, resolved_server, resolved_uid, resolved_pwd = _creds(url, server, user_id, user_pwd)
+    # Gate before the client: the constructor already calls platform_url, carrying the token passed below.
+    from egeria_auth import is_caller_password, resolve_platform
+    resolve_platform(resolved_url, has_caller_password=is_caller_password(resolved_pwd), token=token)
     ce = ClassificationExplorer(
         view_server=resolved_server,
         platform_url=resolved_url,
@@ -276,7 +279,6 @@ def catalog_search(
     url: Optional[str] = Query(None),
     server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
 ):
     """Search across all element types using ClassificationExplorer.
 
@@ -301,6 +303,7 @@ def catalog_search(
     retries unrestricted rather than 500ing.
     """
     # Egeria treats '*' as None in the request body → 400 error.
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     if q.strip() in ("*", ""):
         raise HTTPException(status_code=400, detail="Wildcard '*' search is not supported. Enter a specific search term.")
 
@@ -424,7 +427,6 @@ def oldest_create_time(
     url: Optional[str] = Query(None),
     server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
 ):
     """Creation time of the oldest element the caller can see, or null.
 
@@ -432,6 +434,7 @@ def oldest_create_time(
     carries no createTime. ``{"createTime": null}`` means "could not tell" (not
     "nothing exists") -- the slider then falls back to its default window.
     """
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     import time
     key = f"{url or ''}|{server or ''}|{user_id or ''}"
     hit = _oldest_cache.get(key)

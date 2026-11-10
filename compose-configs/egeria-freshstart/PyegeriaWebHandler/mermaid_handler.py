@@ -96,13 +96,13 @@ def get_anchored_graph(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
 ):
     """
     Return a Mermaid diagram showing the element and all its anchored elements.
     Uses MetadataExpert.get_anchored_element_graph — a broader, more expensive traversal.
     Returns {guid, mermaidGraph}.
     """
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_expert(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -124,13 +124,13 @@ def get_mermaid_graph(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
 ):
     """
     Return a Mermaid context diagram using ClassificationExplorer.get_element_by_guid.
     Extracts the top-level mermaidGraph field from the response.
     Returns {guid, mermaidGraph}.
     """
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_classifier(url, server, user_id, user_pwd)
     except Exception as exc:

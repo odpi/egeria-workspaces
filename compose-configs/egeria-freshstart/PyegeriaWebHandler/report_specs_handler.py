@@ -19,6 +19,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from loguru import logger
 from pydantic import BaseModel
+from egeria_auth import PlatformBody  # platform gate on the body's url (see egeria_auth)
 
 from pyegeria.view.base_report_formats import get_report_registry, register_report_specs
 from pyegeria.view._output_format_models import FormatSet, Format, Column, ActionParameter
@@ -189,7 +190,7 @@ def get_report_specs(
 
 # ── Execute ───────────────────────────────────────────────────────────────────
 
-class ExecuteRequest(BaseModel):
+class ExecuteRequest(PlatformBody):
     spec_name:     str
     output_format: str = "REPORT"
     params:        dict = {}

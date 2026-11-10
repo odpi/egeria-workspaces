@@ -46,6 +46,8 @@ async def process_md_file_async(input_file: str, output_folder: str, directive: 
     outbox_env = os.environ.get("EGERIA_OUTBOX_PATH", "dr-egeria-outbox")
 
     console = Console(width=width, force_terminal=False)
+    from egeria_auth import is_caller_password, resolve_platform
+    url = resolve_platform(url, has_caller_password=is_caller_password(user_pass))   # before the client: its constructor calls url
     client = EgeriaTech(server, url, user_id=userid)
     client.create_egeria_bearer_token(userid, user_pass)
     
@@ -107,6 +109,8 @@ async def process_md_file_structured_async(
     inbox_path = os.environ.get("EGERIA_INBOX_PATH", "dr-egeria-inbox")
 
     Console(width=width, force_terminal=False)
+    from egeria_auth import is_caller_password, resolve_platform
+    url = resolve_platform(url, has_caller_password=is_caller_password(user_pass))   # before the client: its constructor calls url
     client = EgeriaTech(server, url, user_id=userid)
     client.create_egeria_bearer_token(userid, user_pass)
 
