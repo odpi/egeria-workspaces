@@ -2464,9 +2464,10 @@ function RsUsedBy({ spec }) {
   if (!st) return null;
   var label = React.createElement('span', { key: 'l', style: _RS_MUTED }, 'Used by:');
   var wrap = { className: 'rs-used-by', style: { display: 'inline-flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' } };
+  // The reason is the same for every spec; it is said once in the sidebar, and here as a tooltip.
   if (st === 'not read') return React.createElement('span', wrap, label,
-    React.createElement('span', { key: 'n', style: { fontSize: 10, color: '#fbbf24', overflowWrap: 'anywhere' }, title: spec.usedByReason || '' },
-      'not read' + (spec.usedByReason ? ' (' + spec.usedByReason + ')' : '')));
+    React.createElement('span', { key: 'n', className: 'rs-used-by-not-read', style: { fontSize: 10, color: '#fbbf24', cursor: 'help' },
+      title: 'Consumers not read' + (spec.usedByReason ? ': ' + spec.usedByReason : '') }, 'not read'));
   if (st === 'not tracked') return React.createElement('span', Object.assign({ title: spec.usedByReason || '' }, wrap), label,
     React.createElement('span', { key: 'n', style: _RS_MUTED }, 'not tracked'));
   var names = spec.usedBy || [];

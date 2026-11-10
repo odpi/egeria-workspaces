@@ -165,7 +165,9 @@ def test_chip_row_says_each_state(page):
     assert _render(page, {"usedBy": ["Portal", "Egeria Advisor"], "usedByState": "read"}) == "Used by: Portal Egeria Advisor"
     assert _render(page, {"usedBy": [], "usedByState": "read"}) == "Used by: none"
     assert _render(page, {"usedBy": [], "usedByState": "partial", "usedByReason": "x"}) == "Used by: none found (partly read)"
-    assert _render(page, {"usedBy": None, "usedByState": "not read", "usedByReason": "no sync yet"}) == "Used by: not read (no sync yet)"
+    # The reason is said once in the sidebar; on each spec it is a tooltip.
+    assert _render(page, {"usedBy": None, "usedByState": "not read", "usedByReason": "no sync yet"}) == "Used by: not read"
+    assert "'Consumers not read' + (spec.usedByReason ? ': ' + spec.usedByReason : '')" in page.read_text()
     assert _render(page, {"usedBy": None, "usedByState": "not tracked"}) == "Used by: not tracked"
     assert _render(page, {"name": "older API"}) == ""
 
