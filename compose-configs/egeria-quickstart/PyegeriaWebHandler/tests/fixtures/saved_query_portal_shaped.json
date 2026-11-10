@@ -1,5 +1,5 @@
 {
-  "about": "A Portal-shaped SavedQuery as the Egeria Portal (insights_handler, fix/portal-saved-query-seedable) stores it after a refresh; shared with pyegeria's saved_query report source (Architect P-2, 2026-11-10). One parameter model: {name, type, default?, searchPath?, requestPath?}; searchPath defaults to name; no {{}} placeholders. Effective value = request, else the stored value at the path, else the default. lastRefreshParams records that value for EVERY declared name, as a JSON string (Egeria additionalProperties are strings). formula and queryRequestBody come from the Portal's own _search_spec and _smart_collection_query_call. 'sort' has no requestPath, so pyegeria must refuse live with it. 'The stored value' means the value at searchPath in formula (what the Portal ran); with no request, each requestPath in queryRequestBody holds that same value here, so both sides agree.",
+  "about": "A Portal-shaped SavedQuery as the Egeria Portal (insights_handler, fix/portal-saved-query-seedable) stores it after a refresh; shared with pyegeria's saved_query report source (Architect P-2, 2026-11-10). One parameter model: {name, type, default?, searchPath?, requestPath?}; searchPath defaults to name; no {{}} placeholders. Effective value = request, else the stored value at the path, else the default. lastRefreshParams records that value for EVERY declared name, as a JSON string (Egeria additionalProperties are strings). formula and queryRequestBody come from the Portal's own _search_spec and _smart_collection_query_call. 'sort' has no requestPath, so pyegeria must refuse live with it. 'The stored value' means the value at searchPath in formula (what the Portal ran); with no request, each requestPath in queryRequestBody holds that same value here, so both sides agree. This query is registered as a Smart Collection (smartCollection: true): Egeria re-runs queryRequestBody itself, so a Portal refresh refuses values other than the stored ones (P-3) and stamps the stored effective values, as lastRefresh shows.",
   "savedQuery": {
     "elementHeader": {
       "guid": "3f1c2b9e-0000-4000-8000-000000000001",
@@ -26,19 +26,17 @@
         "parameters": "[{\"name\": \"asset_type\", \"type\": \"string\", \"default\": \"Asset\", \"searchPath\": \"type_name\", \"requestPath\": \"metadataElementTypeName\"}, {\"name\": \"min_level\", \"type\": \"integer\", \"default\": 3, \"searchPath\": \"conditions.0.value\", \"requestPath\": \"matchClassifications.conditions.0.searchProperties.conditions.0.value.primitiveValue\"}, {\"name\": \"page_size\", \"type\": \"integer\", \"default\": 500, \"requestPath\": \"pageSize\"}, {\"name\": \"sort\", \"type\": \"string\", \"default\": \"displayName\", \"searchPath\": \"sort_by\"}]",
         "lastRefreshedTime": "2026-11-10T18:00:00+00:00",
         "resultCount": "7",
-        "lastRefreshParams": "{\"asset_type\": \"DataSet\", \"min_level\": 4, \"page_size\": 500, \"sort\": \"displayName\"}",
+        "lastRefreshParams": "{\"asset_type\": \"DataSet\", \"min_level\": 3, \"page_size\": 500, \"sort\": \"displayName\"}",
         "favorite": "false",
         "smartCollection": "true"
       }
     }
   },
   "lastRefresh": {
-    "overrides": {
-      "min_level": 4
-    },
+    "overrides": {},
     "lastRefreshParams": {
       "asset_type": "DataSet",
-      "min_level": 4,
+      "min_level": 3,
       "page_size": 500,
       "sort": "displayName"
     }

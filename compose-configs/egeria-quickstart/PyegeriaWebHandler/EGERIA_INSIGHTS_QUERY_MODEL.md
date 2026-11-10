@@ -231,6 +231,12 @@ to queries specifically.
 - **What ran is recorded:** that value for **every** declared name is
   written to `additionalProperties.lastRefreshParams` (a JSON string), next
   to `lastRefreshedTime`.
+- **A registered Smart Collection** (`smartCollection: true`) is re-run by
+  Egeria's SmartCollectionsMembershipManager from the stored
+  `queryRequestBody`, with no overrides. Other values would be overwritten
+  within about 30 minutes, so its refresh refuses any override that changes
+  a value (409: "kept current by Egeria with its stored values; run other
+  values live"). It records the stored effective values (P-3).
 - **The shared fixture** is
   `tests/fixtures/saved_query_portal_shaped.json`.
 

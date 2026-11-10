@@ -1497,6 +1497,32 @@ def _apply_overrides(spec: dict, overrides: Optional[dict], declared: list) -> t
     return spec, params
 
 
+def _is_registered_smart_collection(additional: dict) -> bool:
+    return str((additional or {}).get("smartCollection") or "").strip().lower() == "true"
+
+
+def _refuse_changed_values_for_registered(stored_spec: dict, overrides: Optional[dict], declared: list) -> None:
+    """A query registered as a Smart Collection has its Results Set re-run by
+    Egeria's SmartCollectionsMembershipManager (~every 30 min) from the stored
+    queryRequestBody, with no overrides. A refresh with other values would be
+    overwritten within the half hour while lastRefreshParams still named them,
+    so only the stored values may run here (Architect P-3). An override equal
+    to the stored effective value changes nothing and is allowed."""
+    overrides = {k: v for k, v in (overrides or {}).items() if k not in _CONNECTION_KEYS}
+    if not overrides:
+        return
+    if declared:
+        stored = effective_parameters(stored_spec, None, declared)
+    else:
+        stored = {k: stored_spec.get(k) for k in overrides}
+    changed = sorted(k for k, v in overrides.items() if v != stored.get(k))
+    if changed:
+        raise HTTPException(
+            status_code=409,
+            detail=f"This saved query is a Smart Collection, kept current by Egeria with its stored values; "
+                   f"run other values live. Not applied: {', '.join(changed)}.")
+
+
 def _results_set_candidates(guid: str, url=None, server=None, user_id=None, user_pwd=None) -> list:
     """[(resultsSetGuid, smartQueryRelGuid)] linked to this SavedQuery by SmartQuery."""
     ex = _expert(url, server, user_id, user_pwd)
@@ -2049,10 +2075,13 @@ def refresh_saved_query(guid: str, body: RefreshQueryBody = Body(...)):
     if not _is_insights_query(additional):
         raise HTTPException(status_code=404, detail="Not a saved query")
 
-    spec, spec_source = _stored_search_spec(props)
+    stored_spec, spec_source = _stored_search_spec(props)
+    declared = _declared_parameters(additional)
     # §2.2 — the caller decides at point of use, within the declared parameters
     # (if any) and never for connection keys.
-    spec, run_params = _apply_overrides(spec, body.overrides, _declared_parameters(additional))
+    spec, run_params = _apply_overrides(stored_spec, body.overrides, declared)
+    if _is_registered_smart_collection(additional):
+        _refuse_changed_values_for_registered(stored_spec, body.overrides, declared)
     results_set_guid, rel_guid = _linked_results_set(
         guid, additional, body.url, body.server, body.user_id, body.user_pwd)
     # Connection details come only from the request, which PlatformBody has

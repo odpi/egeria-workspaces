@@ -400,3 +400,66 @@ def test_shared_fixture_request_paths_hold_the_same_values_the_portal_ran():
     for p in with_request_path:
         assert ih._get_path(body, p["requestPath"]) == no_request[p["name"]], p["name"]
     assert "{{" not in props["queryRequestBody"] and "{{" not in props["formula"]
+
+
+# ── a registered Smart Collection runs only its stored values (Architect P-3) ──
+
+def _registered(**extra):
+    return Fake({"pyegeriaInsightsQuery": "true", "smartCollection": "true",
+                 "searchSpec": json.dumps(PSPEC), "parameters": json.dumps(PARAMS), **extra})
+
+
+def test_registered_query_refuses_a_changed_value(run):
+    fake = _registered()
+    with pytest.raises(HTTPException) as e:
+        run(fake, overrides={"type_name": "DataSet"})
+    assert e.value.status_code == 409
+    assert "kept current by Egeria with its stored values; run other values live" in e.value.detail
+    assert "type_name" in e.value.detail
+    assert not fake.searched and not fake.added and not fake.updates
+
+
+def test_registered_query_without_overrides_stamps_the_stored_effective_values(run):
+    fake = _registered()
+    out = run(fake)
+    want = {"type_name": "Asset", "relationship_conditions.0.relationship_type": "DataContentForDataSet",
+            "page_size": 50}
+    assert out["lastRefreshParams"] == want
+    assert json.loads(_stamped(fake)["lastRefreshParams"]) == want
+    assert fake.searched[0].type_name == "Asset"
+
+
+def test_registered_query_allows_an_override_equal_to_the_stored_value(run):
+    fake = _registered()
+    out = run(fake, overrides={"type_name": "Asset", "page_size": 50})  # stored value / default: changes nothing
+    assert out["lastRefreshParams"]["type_name"] == "Asset"
+
+
+def test_registered_query_without_a_declaration_refuses_a_changed_value(run):
+    fake = Fake({"pyegeriaInsightsQuery": "true", "smartCollection": "true",
+                 "searchSpec": json.dumps({"type_name": "Asset"})})
+    with pytest.raises(HTTPException) as e:
+        run(fake, overrides={"page_size": 10})
+    assert e.value.status_code == 409 and "page_size" in e.value.detail
+
+
+def test_registered_query_still_drops_connection_keys_rather_than_refusing(run):
+    fake = _registered()
+    run(fake, overrides={"url": "https://attacker.example:9443"})
+    assert fake.searched[0].url != "https://attacker.example:9443"
+
+
+def test_unregistered_query_still_takes_a_changed_value(run):
+    fake = _declared()
+    out = run(fake, overrides={"type_name": "DataSet"})
+    assert out["lastRefreshParams"]["type_name"] == "DataSet"
+
+
+def test_shared_fixture_is_registered_and_refuses_a_changed_value(run):
+    fx = _fixture()
+    fake = Fake({})
+    fake.el = json.loads(json.dumps(fx["savedQuery"]))
+    fake.el["properties"]["additionalProperties"]["resultsSetGuid"] = RS
+    with pytest.raises(HTTPException) as e:
+        run(fake, overrides={"min_level": 4})
+    assert e.value.status_code == 409
