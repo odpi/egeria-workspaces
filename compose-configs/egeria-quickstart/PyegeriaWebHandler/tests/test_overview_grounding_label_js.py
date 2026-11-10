@@ -27,3 +27,16 @@ def test_ownership_tile_names_its_population():
     # "416 owned assets · whole catalog": a screenshotted tile says whose Assets it counts (Architect P3)
     assert "ownership:'scopeOwnership'" in HTML
     assert "store.scopeOwnership = d.ownershipScope || null;" in HTML
+
+
+def test_grounding_sub_label_shows_grounded_assets_and_why_the_share_is_missing():
+    # "term links per 100 Assets (767 links) · 41 Assets grounded (share not measured)", full note on hover
+    assert "' · ' + num(s.groundedAssets) + ' Assets grounded' + (s.groundedAssetNote ? ' (share not measured)' : '')" in HTML
+    assert "(s.groundedAssetNote ? ' · grounded Assets not measured' : '')" in HTML   # unmeasured is never 0
+    assert "+ groundedAssetsSub(s);" in HTML
+    assert "gsEl.title = groundingNote(d);" in HTML
+    # the store keeps the count and note even when the links value is missing
+    assert "if ('groundedAssets' in d) { store.groundedAssets = d.groundedAssets; store.groundedAssetNote = d.groundedAssetNote || null; }" in HTML
+    # the drill panel lists them
+    assert "d.list.push(['Assets grounded (you can see)', num(LIVE.groundedAssets)]);" in HTML
+    assert "if (LIVE.groundedAssetNote) d.list.push([LIVE.groundedAssetNote, ND]);" in HTML

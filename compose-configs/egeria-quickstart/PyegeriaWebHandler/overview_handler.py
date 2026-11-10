@@ -1705,23 +1705,28 @@ def _grounding_fields(grounding: Optional[dict], cataloged: Optional[int] = None
     counts three times, and a link to a non-Asset element counts too. So it is reported as "links per 100
     Assets" (groundingMeasure "linksPer100Assets") and groundingPct -- the share -- stays None.
 
-    TODO(pyegeria next release): semantic_grounding is to report distinct grounded Assets as
-    `groundedAssets` (int) and `groundedAssetPct` (groundedAssets ÷ its own Asset total × 100). The
-    feature check below switches the tile to that real share (groundingMeasure "assetShare") as soon as an
-    installed pyegeria returns it; no Portal change is needed then.
+    pyegeria 6.2.31 also reports distinct grounded Assets as `groundedAssets` (an Asset counts when it,
+    or one of its anchored parts, carries a term; counted among the Assets the caller can see) and
+    `groundedAssetPct` (groundedAssets ÷ the viewer's Asset total × 100). When that total cannot be
+    measured, groundedAssetPct is None and `groundedAssetNote` says why. The tile switches to the real
+    share (groundingMeasure "assetShare") whenever groundedAssetPct is set; otherwise it stays links per
+    100 Assets and still shows groundedAssets and the note.
 
     Values for display are rounded by _display_round: one decimal under 10 (767 links over 56,357 Assets
     is 1.4 per 100, not "1")."""
     g = grounding or {}
     per100 = _display_round(_links_per_100(g, cataloged, population))
     share = _display_round(g.get("groundedAssetPct"))
+    # Forwarded in both branches (6.2.31+): the distinct grounded Assets are measured even when their share
+    # is not (the viewer Asset total times out on a large catalog), and the note says why the share is
+    # missing. None stays None: never shown as 0.
+    grounded = {"groundedAssets": g.get("groundedAssets"), "groundedAssetNote": g.get("groundedAssetNote"),
+                "groundingLinksScanned": g.get("groundingLinksScanned")}
     if share is not None:
         return {"groundingMeasure": "assetShare", "groundingValue": share, "groundingPct": share,
-                "groundedAssets": g.get("groundedAssets"), "groundingLinks": g.get("groundingLinks"),
-                "groundingLinksPer100": per100}
+                **grounded, "groundingLinks": g.get("groundingLinks"), "groundingLinksPer100": per100}
     return {"groundingMeasure": "linksPer100Assets", "groundingValue": per100, "groundingPct": None,
-            "groundedAssets": None, "groundingLinks": g.get("groundingLinks"),
-            "groundingLinksPer100": per100}
+            **grounded, "groundingLinks": g.get("groundingLinks"), "groundingLinksPer100": per100}
 
 
 def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
