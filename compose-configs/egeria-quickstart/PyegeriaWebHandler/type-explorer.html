@@ -2799,8 +2799,10 @@ function ReportSpecDetail({ spec, onSelectSpec, portalSupply }) {
       spec.target_type && React.createElement('span', { className: 'badge', style: BADGE_STYLE.entity }, spec.target_type),
       spec.resolution && React.createElement(RsStatusBadge, { status: spec.resolution.status }),
       spec.resolution && spec.resolution.bindersDeprecated && React.createElement(RsBindersTag, null),
+      React.createElement(RsSourceBadge, { spec: spec }),
       React.createElement(CopyJsonButton, { data: spec })
     ),
+    React.createElement(RsSourceDetail, { spec: spec, onSelectSpec: onSelectSpec }),
     spec.heading && React.createElement('div', { style: { marginTop: 12, fontWeight: 600, fontSize: 13, color: 'var(--text)' } }, spec.heading),
     spec.description && React.createElement('div', { className: 'detail-desc', style: { marginTop: 6 } }, spec.description),
     spec.aliases && spec.aliases.length > 0 && React.createElement('div', { style: { marginTop: 8, fontSize: 11, color: 'var(--dim)' } },
@@ -3026,6 +3028,83 @@ function ReportSpecDetail({ spec, onSelectSpec, portalSupply }) {
   );
 }
 
+// ── Report spec source (builtin / egeria / local / user) ─────────────────────
+var _RS_SOURCES = ['builtin', 'egeria', 'local', 'user'];
+var _RS_SOURCE_TAG = {
+  egeria:  { mark: 'EG', color: '#34d399' },
+  local:   { mark: 'P',  color: '#60a5fa' },
+  user:    { mark: 'U',  color: '#c084fc' }
+  // builtin: no tag in the list (most specs); the detail badge still says so.
+};
+
+function _rsSyncWords(st) {
+  if (!st) return '';
+  if (st.outcome === 'not_configured') return 'No report spec folders are configured, so nothing was synced.';
+  if (st.outcome === 'failed') return 'Sync failed: ' + (st.error || 'no detail');
+  if (st.outcome === 'already_running') return 'Another sync of this cache is running; try again shortly.';
+  if (st.outcome === 'synced') {
+    var r = st.report || {};
+    var n = function(k) { return (r[k] || []).length; };
+    return 'Synced ' + (st.finished_at || '') + ': ' + n('added') + ' added, ' + n('updated') + ' updated, ' +
+      n('unchanged') + ' unchanged, ' + n('pruned') + ' pruned, ' + n('skipped') + ' skipped.';
+  }
+  return st.running ? 'A sync is running…' : 'No sync has run yet.';
+}
+
+function RsEgeriaHeldBanner({ held, onSync, syncing, syncMsg, onShow }) {
+  var none = !held.count;
+  var sync = held.sync || {};
+  var skipped = ((sync.report || {}).skipped || []);
+  return React.createElement('div', { style: { margin: '6px 10px', padding: '6px 8px', fontSize: 11, borderRadius: 5,
+      border: '1px solid ' + (none ? 'rgba(148,163,184,.3)' : 'rgba(52,211,153,.35)'),
+      background: none ? 'rgba(148,163,184,.06)' : 'rgba(52,211,153,.06)', color: 'var(--text)' } },
+    React.createElement('div', { style: { fontWeight: 600 } },
+      none ? held.message : React.createElement('a', { href: '#', onClick: function(e) { e.preventDefault(); onShow(); },
+        style: { color: '#34d399' } }, held.message)),
+    React.createElement('div', { style: { color: 'var(--dim)', marginTop: 2, overflowWrap: 'anywhere' } },
+      'Folders: ' + ((held.folders || []).length ? held.folders.join(', ') : 'none configured')),
+    !syncMsg && sync.outcome && React.createElement('div', { style: { color: 'var(--dim)', marginTop: 2 } }, _rsSyncWords(sync)),
+    !syncMsg && skipped.length > 0 && React.createElement('div', { style: { color: '#fbbf24', marginTop: 2, overflowWrap: 'anywhere' } },
+      skipped.map(function(sk, i) { return React.createElement('div', { key: i }, sk[0] + ': ' + sk[1]); })),
+    syncMsg && React.createElement('div', { style: { color: 'var(--dim)', marginTop: 2, overflowWrap: 'anywhere' } }, syncMsg),
+    React.createElement('button', { className: 'btn-sm', style: { marginTop: 4 }, disabled: syncing,
+      title: "Administrators: read the configured folders in Egeria into the Portal's report spec cache (reads Egeria only)",
+      onClick: onSync }, syncing ? 'Syncing…' : '⇣ Sync from Egeria')
+  );
+}
+
+function RsSourceBadge({ spec }) {
+  if (!spec.source) return React.createElement('span', { className: 'badge', style: BADGE_STYLE.base,
+    title: 'pyegeria did not report where this spec came from' }, 'source not reported');
+  var tag = _RS_SOURCE_TAG[spec.source];
+  var color = tag ? tag.color : '#94a3b8';
+  return React.createElement('span', { className: 'badge',
+    style: { color: color, border: '1px solid ' + color, background: 'transparent' },
+    title: 'Source: where this spec definition came from' }, spec.sourceLabel || spec.source);
+}
+
+function RsSourceDetail({ spec, onSelectSpec }) {
+  var lines = [];
+  if (spec.shadowedBy) {
+    var base = spec.name.indexOf(':') >= 0 ? spec.name.split(':').slice(1).join(':') : spec.name;
+    lines.push(React.createElement('div', { key: 'sb' }, 'Shadowed: the ' + spec.shadowedBy + ' copy of ',
+      React.createElement('a', { href: '#', onClick: function(e) { e.preventDefault(); onSelectSpec && onSelectSpec(base); } }, base),
+      ' is the one that runs. This copy stays addressable as ' + spec.name + '.'));
+  }
+  if (spec.shadows) lines.push(React.createElement('div', { key: 'sh' },
+    'Shadows the ' + spec.shadows + ' copy, still addressable as ' + (spec.shadows === 'egeria' ? 'egeria:' : 'builtin:') + spec.name + '.'));
+  var eg = spec.egeria;
+  if (eg) {
+    lines.push(React.createElement('div', { key: 'eg', style: { overflowWrap: 'anywhere' } },
+      'Held in Egeria: ' + (eg.qualified_name || '') + (eg.guid ? ' (' + eg.guid + ')' : '') +
+      (eg.version ? ', version ' + eg.version : '') +
+      ((eg.folders || []).length ? '; folder ' + eg.folders.join(', ') : '') +
+      (eg.synced_at ? '; synced ' + eg.synced_at : '') + (eg.draft ? '; DRAFT' : '')));
+  }
+  if (!lines.length) return null;
+  return React.createElement('div', { style: { marginTop: 8, fontSize: 11, color: 'var(--dim)' } }, lines);
+}
+
 function ReportSpecView() {
   const [loadState, setLoadState] = useState('loading');
   const [attempt, setAttempt]     = useState(0);
@@ -3039,6 +3118,35 @@ function ReportSpecView() {
   const [counts, setCounts]       = useState(null);
   const [portalSupply, setPortalSupply] = useState('');
   const [error, setError]         = useState('');
+  // Where each spec came from: builtin | egeria | local | user (pyegeria tiers; local split by the Portal).
+  const [sourceFilter, setSourceFilter] = useState('');
+  const [sources, setSources]     = useState(null);
+  const [sourceWords, setSourceWords] = useState({});
+  const [egeriaHeld, setEgeriaHeld] = useState(null);
+  const [syncMsg, setSyncMsg]     = useState('');
+  const [syncing, setSyncing]     = useState(false);
+
+  // Admin: sync report specs held in Egeria into the Portal's cache, then reload the list.
+  const startSync = useCallback(() => {
+    setSyncing(true);
+    setSyncMsg('Syncing from Egeria…');
+    fetch('/api/report-specs/sync', { method: 'POST' })
+      .then(r => r.json().then(d => ({ ok: r.ok, status: r.status, d })))
+      .then(({ ok, status, d }) => {
+        if (!ok) throw new Error(d.detail || ('HTTP ' + status));
+        let tries = 0;
+        const poll = () => {
+          fetch('/api/report-specs/sync').then(r => r.json()).then(st => {
+            if (st.running && tries++ < 90) { setTimeout(poll, 2000); return; }
+            setSyncing(false);
+            setSyncMsg(_rsSyncWords(st));
+            setAttempt(a => a + 1);
+          }).catch(e => { setSyncing(false); setSyncMsg('Sync status unavailable: ' + e.message); });
+        };
+        setTimeout(poll, 1500);
+      })
+      .catch(e => { setSyncing(false); setSyncMsg('Sync not started: ' + e.message); });
+  }, []);
 
   useEffect(() => {
     setLoadState('loading');
@@ -3050,6 +3158,9 @@ function ReportSpecView() {
         setSpecs(list);
         setCounts(data.counts || null);
         setPortalSupply(data.portalSupply || '');
+        setSources(data.sources || null);
+        setSourceWords(data.sourceWords || {});
+        setEgeriaHeld(data.egeriaHeld || null);
         setLoadState('ready');
         if (list.length > 0) setSelected(list[0].name);
       })
@@ -3083,6 +3194,7 @@ function ReportSpecView() {
     const sp = perspFilter.toLowerCase();
     return specs.filter(s => {
       if (statusFilter && !(s.resolution && s.resolution.status === statusFilter)) return false;
+      if (sourceFilter && (s.source || 'unknown') !== sourceFilter) return false;
       if (sp) {
         const perps = s.question_spec.flatMap(qs => qs.perspectives.map(p => p.toLowerCase()));
         if (!perps.includes(sp) && !perps.includes('any')) return false;
@@ -3093,7 +3205,7 @@ function ReportSpecView() {
       if (s.family && s.family.toLowerCase().includes(sq)) return true;
       return s.question_spec.some(qs => qs.questions.some(qText => qText.toLowerCase().includes(sq)));
     });
-  }, [specs, search, perspFilter, statusFilter]);
+  }, [specs, search, perspFilter, statusFilter, sourceFilter]);
 
   const selectedSpec = specs.find(s => s.name === selected) || null;
 
@@ -3146,11 +3258,24 @@ function ReportSpecView() {
           React.createElement('option', { value: 'unrunnable' }, 'Cannot run (' + counts.unrunnable + ')'),
           React.createElement('option', { value: 'format_only' }, 'Format only (' + counts.formatOnly + ')')
         ),
+        // Source: a zero count is still listed, so "held in Egeria (0)" says none, not nothing.
+        sources && React.createElement('select', {
+          className: 'area-select', 'aria-label': 'Filter by source',
+          style: { width: '100%', marginTop: 6 },
+          value: sourceFilter,
+          onChange: e => setSourceFilter(e.target.value)
+        },
+          React.createElement('option', { value: '' }, 'All sources'),
+          _RS_SOURCES.concat(Object.keys(sources).filter(k => _RS_SOURCES.indexOf(k) < 0))
+            .map(k => React.createElement('option', { key: k, value: k }, (sourceWords[k] || k) + ' (' + (sources[k] || 0) + ')'))
+        ),
         React.createElement('button', {
           className: 'btn-sm', style: { marginTop: 6 },
           onClick: () => setAttempt(a => a + 1)
         }, '↻ Refresh')
       ),
+      egeriaHeld && React.createElement(RsEgeriaHeldBanner, { held: egeriaHeld, onSync: startSync, syncing: syncing, syncMsg: syncMsg,
+        onShow: () => setSourceFilter('egeria') }),
       React.createElement('div', { className: 'stats', style: { flexWrap: 'wrap', rowGap: 2 } },
         React.createElement('span', null,
           React.createElement('span', { style: { color: 'var(--accent)' } }, filtered.length),
@@ -3190,6 +3315,9 @@ function ReportSpecView() {
                  (function() {
                    var res = s.resolution, st = res && _RS_STATUS[res.status];
                    var marks = [];
+                   var tag = _RS_SOURCE_TAG[s.source];
+                   if (tag) marks.push(React.createElement('span', { key: 's', title: (s.sourceLabel || s.source) + (s.shadowedBy ? ' (shadowed by the ' + s.shadowedBy + ' copy)' : ''),
+                     style: { marginLeft: 6, fontSize: 9, fontWeight: 700, color: tag.color, border: '1px solid ' + tag.color, borderRadius: 3, padding: '0 3px' } }, tag.mark));
                    if (st && st.mark) marks.push(React.createElement('span', { key: 'm', title: st.title,
                      style: { marginLeft: 6, fontSize: 10, color: st.style.color } }, st.mark));
                    if (res && res.bindersDeprecated) marks.push(React.createElement('span', { key: 'b', title: _RS_BINDERS_TITLE,

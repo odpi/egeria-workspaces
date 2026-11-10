@@ -109,6 +109,14 @@ async def _lifespan(app: FastAPI):
     if os.environ.get("PORTAL_WARM_COLLECTIONS", "1") != "0":
         from collections_handler import warm_roots_cache
         threading.Thread(target=warm_roots_cache, daemon=True, name="warm-collections").start()
+    # Sync report specs held in Egeria into the shared cache the registry's EGERIA tier reads, in a
+    # daemon thread after a short delay, retrying while Egeria is still coming up. Never blocks startup.
+    # PORTAL_REPORT_SPEC_SYNC_AT_STARTUP=0 turns it off; see report_spec_sync.py.
+    try:
+        import report_spec_sync
+        report_spec_sync.start_at_startup()
+    except Exception as exc:  # noqa: BLE001 -- best effort; the Portal comes up regardless
+        logger.warning(f"report-spec sync at startup not started: {exc}")
     yield
     if DEMO_MODE:
         from demo_reset_handler import stop_scheduler
