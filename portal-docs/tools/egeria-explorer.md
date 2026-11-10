@@ -214,7 +214,8 @@ pyegeria report-specs sync --include-drafts     # also DRAFT and PROPOSED specs,
 **The duplicate count spec is gone.** The Portal used to add its own spec, *Analytic - Element Count by Type*,
 which did the same as pyegeria's built-in *Analytic Demo - Element Count by Type*. It was removed on
 2026-11-10. Use the built-in one and set `type_name` in its `Analytic Parameters` to count any type. A
-Report that still names the old spec has to be re-created with the new name.
+Report that still names the old spec should be repointed: update its Report Spec to
+*Analytic Demo - Element Count by Type* (re-running its `Create Report` command with the new name does this).
 
 ### Further reading
 

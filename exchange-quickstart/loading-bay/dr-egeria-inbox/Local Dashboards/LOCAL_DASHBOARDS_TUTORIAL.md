@@ -492,7 +492,8 @@ python -m pyegeria.view.dashboards delete --sheet "my-team-dashboard" --local   
 **A sheet only in the local file** (tagged **local file**) can still be
 deleted in the Portal: the list view has a 🗑 icon on each card and the
 detail view a "Delete Dashboard" button, both behind a confirmation prompt
-(`DELETE /api/local-dashboards/{name}`). This removes only the local entry.
+(`DELETE /api/local-dashboards/{name}`). You need to be signed in to use
+them. This removes only the local entry.
 
 Either way, deleting a sheet never deletes the Egeria `Report` elements its
 placements show, since a Report is an independent, reusable object that may
