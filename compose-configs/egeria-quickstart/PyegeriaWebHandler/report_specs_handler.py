@@ -221,6 +221,39 @@ def _sync_status_for(request: Optional[Request]) -> dict:
     return report_spec_sync.public_status()
 
 
+def spec_source_for(name: str, run_source: Optional[dict] = None) -> Optional[dict]:
+    """Where the spec a run used came from, in the Report Specs view's words: {"source",
+    "sourceLabel", "shadows", "shadowedBy"}. `run_source` is the run's own `spec_source` (pyegeria
+    resolved it with the same lookup that ran it); without one, pyegeria's report_spec_source(name)
+    is asked. None when neither can say: the page then shows no badge, never a guessed tier."""
+    src = run_source if isinstance(run_source, dict) else None
+    if src is None:
+        try:
+            from pyegeria.view.base_report_formats import report_spec_source
+            src = report_spec_source(name)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"report specs: spec source for {name!r} unavailable: {exc}")
+            src = None
+    tier = (src or {}).get("tier")
+    if tier not in ("builtin", "egeria", "local"):
+        return None
+    label = (src or {}).get("label") or name
+    source = "user" if tier == "local" and label in _user_labels() else tier
+    shadows = shadowed_by = None
+    try:
+        from pyegeria.view import base_report_formats as brf
+        shadow = (getattr(brf, "_REGISTRY_SHADOWS", {}) or {}).get(label)
+    except Exception:  # noqa: BLE001
+        shadow = None
+    if shadow:
+        if shadow.get("winner") == tier:
+            shadows = shadow.get("loser")
+        elif shadow.get("loser") == tier:
+            shadowed_by = shadow.get("winner")
+    return {"source": source, "sourceLabel": SOURCE_WORDS.get(source, source), "label": label,
+            "shadows": shadows, "shadowedBy": shadowed_by}
+
+
 def _egeria_held_summary(source_counts: dict, request: Optional[Request] = None) -> dict:
     """What the Report Specs view says about specs held in Egeria. Never just an empty list: when
     there are none, `message` says so and why."""
@@ -551,6 +584,8 @@ def _run_spec(req, request, token, url, server, user_id, user_pwd):
             token=token,
             supply=PortalSupply(request, view_server=server, view_url=url, user_id=user_id, user_pwd=user_pwd),
         )
+        if isinstance(result, dict):
+            result["specSource"] = spec_source_for(req.spec_name, result.get("spec_source"))
         return result
     except CallerTokenExpired:
         # Refused before any Egeria call; same 401 words as an Egeria 401 below.

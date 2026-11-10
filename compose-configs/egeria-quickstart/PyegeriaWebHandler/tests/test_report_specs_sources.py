@@ -197,3 +197,45 @@ def test_startup_sync_can_be_turned_off(monkeypatch):
     monkeypatch.setattr(report_spec_sync, "start", lambda trigger="admin": started.append(trigger) or True)
     report_spec_sync.start_at_startup()
     assert started == []
+
+
+# ── Where the spec a RUN used came from (POST /api/report-specs/execute → specSource) ──
+
+def _fake_exec(monkeypatch, result):
+    import pyegeria.view.format_set_executor as fse
+    monkeypatch.setattr(fse, "exec_report_spec", lambda *a, **k: dict(result))
+
+
+def test_execute_response_carries_the_run_specs_source(api, monkeypatch):
+    _fake_exec(monkeypatch, {"kind": "json", "data": 3,
+                             "spec_source": {"tier": "builtin", "label": "Analytic Demo - Element Count by Type"}})
+    r = api.post("/api/report-specs/execute", json={"spec_name": "Analytic Demo - Element Count by Type",
+                                                     "output_format": "DICT"})
+    assert r.status_code == 200, r.text
+    ss = r.json()["specSource"]
+    assert ss["source"] == "builtin" and ss["sourceLabel"] == "pyegeria built-in"
+    assert r.json()["data"] == 3          # the result itself is untouched
+
+
+def test_execute_response_portal_spec_is_local(api, monkeypatch):
+    _fake_exec(monkeypatch, {"kind": "json", "data": [], "spec_source": {"tier": "local",
+                                                                        "label": "Analytic - Generic Metric Trend"}})
+    ss = api.post("/api/report-specs/execute", json={"spec_name": "Analytic - Generic Metric Trend"}).json()["specSource"]
+    assert ss["source"] == "local" and ss["sourceLabel"] == "Portal (local)"
+
+
+def test_execute_response_unknown_source_is_null_not_guessed(api, monkeypatch):
+    _fake_exec(monkeypatch, {"kind": "json", "data": 1})            # no spec_source from the run
+    monkeypatch.setattr("pyegeria.view.base_report_formats.report_spec_source", lambda name: None)
+    assert api.post("/api/report-specs/execute", json={"spec_name": "No Such Spec"}).json()["specSource"] is None
+    assert report_specs_handler.spec_source_for("x", {"tier": "something-new"}) is None
+
+
+def test_spec_source_for_user_file_and_shadows(monkeypatch):
+    from pyegeria.view import base_report_formats as brf
+    monkeypatch.setattr(report_specs_handler, "_user_labels", lambda: {"My Spec"})
+    monkeypatch.setattr(brf, "_REGISTRY_SHADOWS", {"My Spec": {"winner": "local", "loser": "builtin", "differ": True}})
+    ss = report_specs_handler.spec_source_for("My Spec", {"tier": "local", "label": "My Spec"})
+    assert ss["source"] == "user" and ss["sourceLabel"] == "user spec file" and ss["shadows"] == "builtin"
+    ss2 = report_specs_handler.spec_source_for("builtin:My Spec", {"tier": "builtin", "label": "My Spec"})
+    assert ss2["source"] == "builtin" and ss2["shadowedBy"] == "local" and ss2["shadows"] is None

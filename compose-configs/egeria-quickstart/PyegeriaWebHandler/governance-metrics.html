@@ -13,6 +13,7 @@
 <script src="/static/bootstrap-banner.js?v=2026-08-18a"></script>
 <script src="/static/diagram-viewer.js?v=2026-11-06a"></script>
 <script src="/static/egeria-not-measured.js?v=2026-11-08a"></script>
+<script src="/static/report-spec-source.js?v=2026-11-10a"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 <style>
   :root {
@@ -299,11 +300,14 @@ function runReport(specName, btn){
 // each note underneath. Every other result: the same JSON text as before.
 function renderRunOutput(out, d){
   var NM = window.EgeriaNotMeasured;
-  if (NM && NM.isAbsent(d)) { out.innerHTML = NM.absentHtml(d); return; }
+  // Where the spec that ran came from (same badge as Egeria Explorer's Report Specs view).
+  var src = window.EgeriaSpecSource ? window.EgeriaSpecSource.blockHtml(d) : '';
+  if (NM && NM.isAbsent(d)) { out.innerHTML = NM.absentHtml(d); if (src) out.insertAdjacentHTML('afterbegin', src); return; }
   var unmeasured = !!(NM && NM.hasUnmeasured(d));
   if (unmeasured && d.data === undefined) out.textContent = 'No results.';  // kind:"empty" — its notes follow
   else out.textContent = JSON.stringify(d.data !== undefined ? d.data : d, unmeasured ? NM.nullReplacer : null, 2);
   if (unmeasured) out.insertAdjacentHTML('beforeend', NM.footnoteHtml(d));
+  if (src) out.insertAdjacentHTML('afterbegin', src);
 }
 
 // Event delegation for card clicks / run buttons — inline onclick="..."
