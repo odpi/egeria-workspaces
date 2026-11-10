@@ -184,37 +184,79 @@ def _source_fields(name: str, row: Optional[dict], user_labels: set) -> dict:
     return out
 
 
-def _egeria_held_summary(source_counts: dict) -> dict:
+def _is_admin_closed(request: Request) -> bool:
+    """The Portal's admin check, failing CLOSED: if the check itself cannot be loaded, nobody is
+    an administrator. (Local quickstart without auth: _is_admin says everyone is.)"""
+    try:
+        from demo_feedback_handler import _is_admin
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"report specs: admin check unavailable, refusing admin-only access: {exc}")
+        return False
+    try:
+        return bool(_is_admin(request))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"report specs: admin check failed, refusing admin-only access: {exc}")
+        return False
+
+
+def _sync_detail_allowed(request: Optional[Request]) -> bool:
+    """Error text and skip reasons from the sync go to administrators and to signed-in callers
+    (an unexpired X-Egeria-Token); anonymous callers get the outcome without the detail."""
+    if request is None:
+        return False
+    try:
+        from egeria_auth import _token_expired, get_request_token
+        token = get_request_token()
+        if token and not _token_expired(token):
+            return True
+    except Exception:  # noqa: BLE001
+        pass
+    return _is_admin_closed(request)
+
+
+def _sync_status_for(request: Optional[Request]) -> dict:
+    import report_spec_sync
+    if _sync_detail_allowed(request):
+        return dict(report_spec_sync.status(), detail=True)
+    return report_spec_sync.public_status()
+
+
+def _egeria_held_summary(source_counts: dict, request: Optional[Request] = None) -> dict:
     """What the Report Specs view says about specs held in Egeria. Never just an empty list: when
     there are none, `message` says so and why."""
     import report_spec_sync
-    sync = report_spec_sync.status()
+    sync = _sync_status_for(request)
     count = source_counts.get("egeria", 0)
     folders = sync.get("folders") or []
     outcome = sync.get("outcome")
-    report = sync.get("report") or {}
+    doing = report_spec_sync.running_words(sync)
     if count:
         message = f"{count} report spec{'s' if count != 1 else ''} held in Egeria"
     elif not folders:
         message = ("None held in Egeria: no report spec folders are configured for this Portal "
                    "(PYEGERIA_REPORT_SPEC_FOLDERS)")
-    elif sync.get("running") and outcome is None:
-        message = "None held in Egeria yet: the first sync from Egeria is running"
+    elif doing and outcome in (None, "failed"):
+        message = f"None held in Egeria yet: {doing}"
     elif outcome is None:
         message = "None held in Egeria yet: no sync from Egeria has run"
     elif outcome == "failed":
         message = "None held in Egeria: the last sync from Egeria failed, so nothing is cached"
+    elif outcome == "folders_missing":
+        message = "None held in Egeria: the configured folders were not found in Egeria"
+    elif outcome == "not_configured":
+        message = "None held in Egeria: no report spec folders were configured when the last sync ran"
+    elif outcome == "already_running":
+        message = "None held in Egeria yet: another process was syncing this cache; try again shortly"
     else:
-        missing = [who for who, _why in (report.get("skipped") or [])
-                   if who in folders]
         message = "None held in Egeria: the configured folders hold no active report specs"
-        if missing and len(missing) == len(folders):
-            message = "None held in Egeria: the configured folders were not found in Egeria"
-    return {"count": count, "message": message, "folders": folders, "sync": sync}
+        if sync.get("missing_folders"):
+            message += " (not found: " + ", ".join(sync["missing_folders"]) + ")"
+    return {"count": count, "message": message, "folders": folders, "running": doing, "sync": sync}
 
 
 @router.get("/api/report-specs", summary="List all pyegeria report spec definitions")
 def get_report_specs(
+    request: Request,
     perspective: Optional[str] = Query(
         None,
         description="Filter to specs whose question_spec includes this perspective (case-insensitive).",
@@ -291,7 +333,7 @@ def get_report_specs(
         "specs":        result,
         "sources":      source_counts,
         "sourceWords":  SOURCE_WORDS,
-        "egeriaHeld":   _egeria_held_summary(source_counts),
+        "egeriaHeld":   _egeria_held_summary(source_counts, request),
         "families":     families,
         "perspectives": all_perspectives,
         "total":        len(result),
@@ -306,12 +348,9 @@ def get_report_specs(
 # ── Sync from Egeria ─────────────────────────────────────────────────────────
 
 def _admin_gate(request: Request):
-    """Same admin gate as bootstrap_admin_handler.py / operations_handler.py."""
-    try:
-        from demo_feedback_handler import _is_admin
-    except Exception:
-        _is_admin = None
-    if _is_admin is not None and not _is_admin(request):
+    """The Portal's admin check (as bootstrap_admin_handler.py uses), but failing CLOSED: if the
+    check cannot be loaded, the sync is refused."""
+    if not _is_admin_closed(request):
         raise HTTPException(status_code=403, detail="Syncing report specs from Egeria requires an administrator.")
 
 
@@ -322,13 +361,18 @@ def sync_from_egeria(request: Request):
     _admin_gate(request)
     import report_spec_sync
     started = report_spec_sync.start("admin")
-    return JSONResponse({"started": started, "already_running": not started, **report_spec_sync.status()})
+    st = dict(report_spec_sync.status(), detail=True)
+    return JSONResponse({"started": started, "already_running": not started,
+                         "running_words": report_spec_sync.running_words(st), **st})
 
 
 @router.get("/api/report-specs/sync", summary="The last sync of report specs from Egeria")
-def sync_status():
+def sync_status(request: Request):
+    """Outcome, counts and what a running sync is doing, for everyone. Error text and skip
+    reasons only for administrators and signed-in callers (detail: true)."""
     import report_spec_sync
-    return JSONResponse(report_spec_sync.status())
+    st = _sync_status_for(request)
+    return JSONResponse(dict(st, running_words=report_spec_sync.running_words(st)))
 
 
 # ── Execute ───────────────────────────────────────────────────────────────────
