@@ -254,6 +254,14 @@ def _refuse_internal_address(norm: str) -> None:
 
 
 SERVICE_ACCOUNT_REFUSAL = "This Portal does not sign in to other platforms with its own account"
+# What the caller can do about a refusal. A saved Connection-form URL that is not allow-listed hits the
+# 400s below on every call; a token bound to a custom platform is forgotten when the Portal restarts
+# (_TOKEN_PLATFORMS is process memory), which surfaces as the 401s.
+_RECONNECT_OR_CLEAR = ("Reconnect with your own user and password, or clear the platform URL in the "
+                       "connection settings to use this Portal's own platform.")
+_CLEAR_ONLY = "Clear the platform URL in the connection settings to use this Portal's own platform."
+_CONNECT_AGAIN = ("Connect again: sign-ins to another platform are not kept when the Portal restarts. "
+                  "Or clear the platform URL in the connection settings to use this Portal's own platform.")
 
 
 def resolve_platform(url: Optional[str], *, has_caller_password: bool = False,
@@ -276,17 +284,21 @@ def resolve_platform(url: Optional[str], *, has_caller_password: bool = False,
         raise PlatformRefused(400, "Invalid platform URL.")
     bound = token_platform(token)
     if token and bound and bound != norm:
-        raise PlatformRefused(401, "This sign-in was issued for a different platform.")
+        raise PlatformRefused(401, f"This sign-in was issued for a different platform. {_CONNECT_AGAIN if custom_platforms_allowed() else _CLEAR_ONLY}")
     if norm in allowed_platform_urls():
         return url
     if token:
         if bound == norm:
             return url
-        raise PlatformRefused(401, "This sign-in was not issued for that platform.")
+        raise PlatformRefused(401, f"This sign-in was not issued for that platform ({norm}). {_CONNECT_AGAIN if custom_platforms_allowed() else _CLEAR_ONLY}")
     if not has_caller_password:
-        raise PlatformRefused(400, f"{SERVICE_ACCOUNT_REFUSAL} ({norm}).")
+        # With custom platforms off (DEMO_MODE) reconnecting with your own password would only hit the
+        # "only connects to its own platform" refusal, so then the one way out is to clear the URL.
+        advice = _RECONNECT_OR_CLEAR if custom_platforms_allowed() else _CLEAR_ONLY
+        raise PlatformRefused(400, f"{SERVICE_ACCOUNT_REFUSAL} ({norm}). {advice}")
     if not custom_platforms_allowed():
-        raise PlatformRefused(400, "This Portal only connects to its own platform.")
+        raise PlatformRefused(400, f"This Portal only connects to its own platform, not {norm}. "
+                                   "Clear the platform URL in the connection settings.")
     _refuse_internal_address(norm)
     return url
 
