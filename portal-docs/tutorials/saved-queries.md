@@ -78,10 +78,24 @@ dashboard in Step 5.
 ## Prerequisites
 
 - The quickstart stack is running (`./quick-start-local`) and you can open
-  `https://localhost:8843` (freshstart: `https://localhost:7843`).
+  `https://localhost:8843`.
 - Some metadata to query. The example below uses the Coco Pharmaceuticals
-  glossary that the quickstart loads. On freshstart, substitute any type and
-  property that exist in your repository.
+  glossary that the quickstart loads.
+
+> **Quickstart only.** The Query tool, its Saved Queries tab and Local
+> Dashboards are part of the quickstart Portal. The freshstart Portal has
+> none of them, so this tutorial cannot be followed there. On freshstart you
+> can still create a `SavedQuery` with Dr.Egeria (see
+> [Authoring with Dr.Egeria](#authoring-with-dregeria-instead-of-the-ui)), but
+> nothing in freshstart runs or shows it.
+>
+> **What was checked (2026-11-10, Portal commit 81d6e636, pyegeria 6.2.32).**
+> The Query tool's API (`GET /api/insights/queries`) answered; the
+> *Collection Members* report spec exists and can run; the Dr.Egeria
+> documents in Step 5 and in "Authoring with Dr.Egeria" pass
+> `dr_egeria --validate`. Saving, refreshing and the dashboard steps write to
+> Egeria, so they were not re-run; the screenshots are from the tutorial's
+> original run.
 
 ---
 
@@ -370,6 +384,29 @@ in `templates/basic/Views & Reports/` (`Create_Saved_Query.md`,
 `Link_Saved_Query_to_Results_Set.md`). They let you define a `SavedQuery` with a
 **Query URL** and **Query Request Body** (a raw Egeria REST call) and attach it
 to a results set.
+
+A minimal example (it passes `dr_egeria --validate` on pyegeria 6.2.32; the
+request body is an example of a raw Egeria search body, not one the Query tool
+writes):
+
+```markdown
+## Create Saved Query
+### Display Name
+Patient Terms (Dr.Egeria)
+
+### Description
+Glossary terms mentioning Patient.
+
+### Query URL
+/servers/qs-view-server/api/open-metadata/glossary-manager/glossaries/terms/by-search-string
+
+### Query Request Body
+{"class": "SearchStringRequestBody", "searchString": "Patient"}
+```
+
+`Link Saved Query to Results Set` then names the `Saved Query` and the
+`Results Set` (a collection made with `Create Results Set`) by their qualified
+names.
 
 Be aware of the difference: the **Query** tool tags the queries it saves with a
 marker and stores its own search spec, which is what its **Refresh** and **Open
