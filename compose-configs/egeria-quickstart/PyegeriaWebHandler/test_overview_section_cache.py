@@ -166,17 +166,38 @@ def test_different_keys_are_bounded_by_the_global_semaphore():
 
 # ── keys ─────────────────────────────────────────────────────────────────────
 
-def test_key_separates_viewer_args_and_forlineage(monkeypatch):
+def test_key_separates_population_args_and_forlineage(monkeypatch):
     monkeypatch.setattr(oh, "_env", lambda *a: ("u", "srv", "envuser", "pw"))
-    monkeypatch.setattr(oh, "token_user", lambda: None)
     monkeypatch.setattr(oh, "lineage_key", lambda: "")
-    base = oh._section_key("summary", None)
-    assert base == "summary|u|srv|envuser|None"
-    assert oh._section_key("summary", "2026-01-01T00:00:00+00:00") != base
-    monkeypatch.setattr(oh, "token_user", lambda: "peterprofile")
-    assert oh._section_key("summary", None) == "summary|u|srv|peterprofile|None"
+    who = {"v": "t:hash-of-peters-token"}
+    monkeypatch.setattr(oh, "request_identity", lambda *a: who["v"])
+    # viewer-scoped section: the hashed credential, never a user name or the token's sub
+    base = oh._section_key("summary", None, population=oh.VIEWER)
+    assert base == "summary|u|srv|t:hash-of-peters-token|None"
+    assert oh._section_key("summary", "2026-01-01T00:00:00+00:00", population=oh.VIEWER) != base
+    who["v"] = "t:hash-of-erins-token"
+    assert oh._section_key("summary", None, population=oh.VIEWER) != base
+    # repository-population section: no identity at all, the same key for every viewer
+    assert oh._section_key("growth", "6mo", 7, population=oh.REPOSITORY) == "growth|u|srv|repository|6mo|7"
+    # expired token: no key (the route answers 401 instead of building)
+    who["v"] = None
+    assert oh._section_key("summary", None, population=oh.VIEWER) is None
+    assert oh._section_key("growth", "6mo", 7, population=oh.REPOSITORY) == "growth|u|srv|repository|6mo|7"
+    with pytest.raises(oh.HTTPException) as e:
+        oh._section_key_or_401("summary", None, population=oh.VIEWER)
+    assert e.value.status_code == 401
+    who["v"] = "t:x"
     monkeypatch.setattr(oh, "lineage_key", lambda: "|fl")
-    assert oh._section_key("summary", None).endswith("|fl")
+    assert oh._section_key("summary", None, population=oh.VIEWER).endswith("|fl")
+
+
+def test_growth_population_follows_pyegeria_default(monkeypatch):
+    def repo_default(mgr, window="6mo", points=None, type_map=None, population="repository"): ...
+    def old_signature(mgr, window="6mo", points=None, type_map=None): ...
+    monkeypatch.setattr(oh, "growth_series", repo_default)
+    assert oh._growth_population() == oh.REPOSITORY
+    monkeypatch.setattr(oh, "growth_series", old_signature)
+    assert oh._growth_population() == oh.VIEWER
 
 
 def test_old_keys_are_pruned_but_running_ones_are_kept(monkeypatch):

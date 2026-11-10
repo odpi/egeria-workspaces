@@ -38,9 +38,9 @@ from digital_products_handler import (
     _get_manager, _serialize_node, _header, _type_name, _extract_all_rels, _is_template,
     _extract_mermaid_fields,
 )
-from egeria_error_mapping import raise_egeria_http_error, describe_bulk_item_error, EGERIA_ERROR_RESPONSES
+from egeria_error_mapping import raise_egeria_http_error, raise_if_auth_error, describe_bulk_item_error, EGERIA_ERROR_RESPONSES
 from egeria_auth import apply_token
-from result_cache import credential_identity
+from result_cache import credential_identity, request_identity
 import os
 
 router = APIRouter(tags=["collections"])
@@ -70,7 +70,8 @@ _ISC_ENRICH_GRAPH_QUERY_DEPTH = 10
 _ISC_ENRICH_MAX_MERMAID_NODES = 250
 
 
-def _enrich_isc_implementation_graph(node: dict, node_guid: str, url, server, user_id, user_pwd) -> None:
+def _enrich_isc_implementation_graph(node: dict, node_guid: str, url, server, user_id, user_pwd,
+                                     as_of_time: Optional[str] = None) -> None:
     """When a collection reached through this type-agnostic view turns out to
     be an InformationSupplyChain, fetch its implementation graph the way
     isc_handler.py's own detail view does and merge the mermaid fields in --
@@ -88,6 +89,10 @@ def _enrich_isc_implementation_graph(node: dict, node_guid: str, url, server, us
             add_implementation=True,
             graph_query_depth=_ISC_ENRICH_GRAPH_QUERY_DEPTH,
             max_mermaid_node_count=_ISC_ENRICH_MAX_MERMAID_NODES,
+            # An explicit body replaces the one pyegeria builds, so the graph settings repeat here.
+            **({"body": {"class": "AnyTimeRequestBody", "asOfTime": as_of_time,
+                         "graphQueryDepth": _ISC_ENRICH_GRAPH_QUERY_DEPTH,
+                         "maxMermaidNodeCount": _ISC_ENRICH_MAX_MERMAID_NODES}} if as_of_time else {}),
         )
     except Exception:
         logger.exception("ISC implementation-graph enrichment failed for %s", node_guid)
@@ -137,7 +142,7 @@ def _is_collection(node: dict) -> bool:
 
 
 def _find_all_collections_with_members(mgr, url=None, server=None, user_id=None, user_pwd=None,
-                                       with_parents: bool = True) -> tuple:
+                                       with_parents: bool = True, as_of_time: Optional[str] = None) -> tuple:
     """Return (all Collection elements, set of guids that have a parent, status).
 
     `status` says how far to trust the first two, so the UI never shows a partial list as the whole
@@ -185,6 +190,7 @@ def _find_all_collections_with_members(mgr, url=None, server=None, user_id=None,
                 start_from=start_from,
                 page_size=page_size,
                 graph_query_depth=0,
+                as_of_time=as_of_time or None,  # point-in-time (the view's As-of slider)
             )
         except Exception as exc:
             logger.warning(f"find_collections page {start_from} failed: {exc}")
@@ -206,6 +212,8 @@ def _find_all_collections_with_members(mgr, url=None, server=None, user_id=None,
         try:
             expert = _get_expert(url, server, user_id, user_pwd)
             body = {"class": "FindRelationshipRequestBody", "relationshipTypeName": "CollectionMembership"}
+            if as_of_time:
+                body["asOfTime"] = as_of_time
             res = expert.find_relationships_between_elements(body, start_from=0, page_size=1000)
             rels = res.get("relationships", []) if isinstance(res, dict) else res
             if isinstance(rels, list):
@@ -218,6 +226,16 @@ def _find_all_collections_with_members(mgr, url=None, server=None, user_id=None,
             logger.warning(f"CollectionMembership relationship fetch failed: {exc}")
 
     return list(all_elements.values()), has_parent, status
+
+
+def _detail_body(as_of_time: Optional[str] = None) -> dict:
+    """GetRequestBody for single-element detail: graphQueryDepth=5 / maxMermaidNodeCount=250 (pyegeria's
+    shared get-by-guid defaults are 3 / 5-10 -- egeria-python PYEGERIA_ISSUES.md ISSUE-23) and, when set,
+    asOfTime for the view's As-of slider."""
+    body = {"class": "GetRequestBody", "graphQueryDepth": 5, "maxMermaidNodeCount": 250}
+    if as_of_time:
+        body["asOfTime"] = as_of_time
+    return body
 
 
 def _children_level(mgr, collection_guid: str, as_of_time: Optional[str] = None) -> list:
@@ -238,6 +256,7 @@ def _children_level(mgr, collection_guid: str, as_of_time: Optional[str] = None)
             body=body,
         )
     except Exception as exc:
+        raise_if_auth_error(exc)   # an expired/refused token is a 401/403, not an empty tree
         logger.warning(f"get_collection_members failed for {collection_guid}: {exc}")
         return []
 
@@ -285,6 +304,7 @@ def get_roots(
     only_root_type: bool = Query(False, description="When True, restrict to the RootCollection open metadata type instead of any parentless collection"),
     all_collections: bool = Query(False, description="When True, return EVERY collection (any subtype) as summary rows (guid, typeName, names, a short description) without working out parents (fast), for the type-grouped list"),
     parentless: bool = Query(False, description="Opt in to the OLD 'collections without a parent' answer. It costs ~10 s and is only a best effort (parentsKnown=false): CollectionMembership is too big to read in full. Without this flag, and without only_root_type, the answer is all_collections."),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """Default: every collection (any subtype) that is not itself a member of any
     other collection. When only_root_type=True: just the RootCollection-typed
@@ -297,21 +317,25 @@ def get_roots(
     if not only_root_type and not parentless:
         all_collections = True          # the default: the cheap, complete answer
     meta: dict = {}
-    result = _roots_payload(url, server, user_id, user_pwd, include_templates, only_root_type, all_collections, meta)
+    result = _roots_payload(url, server, user_id, user_pwd, include_templates, only_root_type, all_collections, meta,
+                            as_of_time=as_of_time)
     from report_specs_handler import _stamp      # same X-Cache / X-Cache-At / X-Cache-Age headers as the other caches
     return JSONResponse(result, headers={"X-Cache": meta.get("state", "miss"), **_stamp(meta.get("at") or time.time())})
 
 
-def _roots_cache_key(url, server, user_id, user_pwd, include_templates, only_root_type, all_collections) -> str:
+def _roots_cache_key(url, server, user_id, user_pwd, include_templates, only_root_type, all_collections,
+                     as_of_time: Optional[str] = None) -> str:
     """Who asked (the credential PRESENTED, hashed, never a bare user_id: see result_cache.credential_identity),
-    what they asked for, and the forLineage toggle. The warm-up builds its keys with this too."""
+    what they asked for (including the As-of point in time), and the forLineage toggle. The warm-up builds its
+    keys with this too."""
     from egeria_auth import get_request_token
     identity = credential_identity(get_request_token(), user_id, user_pwd, os.environ.get("EGERIA_USER", "erinoverview"))
-    return f"{url or ''}|{server or ''}|{identity}|{include_templates}|{only_root_type}|{all_collections}{_lineage_key()}"
+    return (f"{url or ''}|{server or ''}|{identity}|{include_templates}|{only_root_type}|{all_collections}"
+            f"|{as_of_time or ''}{_lineage_key()}")
 
 
 def _roots_payload(url, server, user_id, user_pwd, include_templates, only_root_type, all_collections,
-                   meta: Optional[dict] = None) -> dict:
+                   meta: Optional[dict] = None, as_of_time: Optional[str] = None) -> dict:
     """The roots answer, from the cache when fresh. Raises HTTPException on a failure; a partial answer is
     returned but never cached. Shared by the route and the startup warm-up. If `meta` is given it is filled
     with state ("hit" or "miss") and at (when the answer was computed), for the X-Cache headers."""
@@ -319,7 +343,8 @@ def _roots_payload(url, server, user_id, user_pwd, include_templates, only_root_
     from egeria_auth import _token_expired, get_request_token
     token = get_request_token()
     use_cache = not (token and _token_expired(token))    # an expired token must reach Egeria and be refused
-    cache_key = _roots_cache_key(url, server, user_id, user_pwd, include_templates, only_root_type, all_collections)
+    cache_key = _roots_cache_key(url, server, user_id, user_pwd, include_templates, only_root_type, all_collections,
+                                 as_of_time)
     cached = _ROOTS_CACHE.get(cache_key) if use_cache else None
     if cached and (time.time() - cached[0]) < _ROOTS_CACHE_TTL:
         meta.update(state="hit", at=cached[0])
@@ -342,6 +367,7 @@ def _roots_payload(url, server, user_id, user_pwd, include_templates, only_root_
                 page_size=500,
                 graph_query_depth=0,
                 metadata_element_type="RootCollection",
+                as_of_time=as_of_time or None,
             )
         except Exception as exc:
             raise_egeria_http_error(exc, "RootCollection discovery failed")
@@ -357,7 +383,7 @@ def _roots_payload(url, server, user_id, user_pwd, include_templates, only_root_
 
     try:
         all_elements, has_parent, status = _find_all_collections_with_members(
-            mgr, url, server, user_id, user_pwd, with_parents=not all_collections)
+            mgr, url, server, user_id, user_pwd, with_parents=not all_collections, as_of_time=as_of_time)
     except Exception as exc:
         raise_egeria_http_error(exc, "Collection discovery failed")
 
@@ -375,8 +401,13 @@ def _roots_payload(url, server, user_id, user_pwd, include_templates, only_root_
 
 
 def warm_roots_cache() -> None:
-    """Fill the all-collections list cache for the Portal's own service user, for BOTH forLineage settings,
-    so the first visitor after a restart rarely waits ~8-11 s. The Promise/Memento toggle defaults ON in
+    """Fill the all-collections list cache for the Portal's own service user, for BOTH forLineage settings.
+
+    Who this helps: only requests that present NO credential (no X-Egeria-Token, no user_id/user_pwd), whose
+    key is `svc:<EGERIA_USER>` (result_cache.credential_identity). A signed-in Explorer user's key is a hash
+    of their own token, so they never read this entry and still pay the ~8-11 s cold read once per sign-in
+    (and per token renewal). Kept anyway: it is cheap, runs off the request path, and serves the service-user
+    callers. The Promise/Memento toggle defaults ON in
     the browser (egeriaFetch then sends X-Egeria-For-Lineage: true, a different cache key and a different,
     larger list), so that key is warmed first, then the OFF key, one after the other. Each pass runs inside
     egeria_auth.lineage_scope, i.e. the same state the middleware sets per request.
@@ -413,8 +444,9 @@ def get_tree(
     except Exception as exc:
         raise_egeria_http_error(exc, "Failed to create CollectionManager")
 
-    cache_key = f"{root_guid}|{url or ''}|{server or ''}|{user_id or ''}|{as_of_time or ''}{_lineage_key()}"
-    cached = _TREE_CACHE.get(cache_key)
+    who = request_identity(user_id, user_pwd)  # hashed credential; None = expired token, bypass the cache
+    cache_key = f"{root_guid}|{url or ''}|{server or ''}|{who}|{as_of_time or ''}{_lineage_key()}"
+    cached = (_TREE_CACHE.get(cache_key) if who else None)
     if cached and (time.time() - cached[0]) < _TREE_CACHE_TTL:
         return JSONResponse(cached[1])
 
@@ -424,7 +456,8 @@ def get_tree(
     children = _children_level(mgr, root_guid, as_of_time)
 
     result = {"root": root, "children": children}
-    _TREE_CACHE[cache_key] = (time.time(), result)
+    if who:
+        _TREE_CACHE[cache_key] = (time.time(), result)
     return JSONResponse(result)
 
 
@@ -445,13 +478,15 @@ def get_node_children(
     except Exception as exc:
         raise_egeria_http_error(exc, "Failed to create CollectionManager")
 
-    cache_key = f"children|{node_guid}|{url or ''}|{server or ''}|{user_id or ''}|{as_of_time or ''}{_lineage_key()}"
-    cached = _TREE_CACHE.get(cache_key)
+    who = request_identity(user_id, user_pwd)  # hashed credential; None = expired token, bypass the cache
+    cache_key = f"children|{node_guid}|{url or ''}|{server or ''}|{who}|{as_of_time or ''}{_lineage_key()}"
+    cached = (_TREE_CACHE.get(cache_key) if who else None)
     if cached and (time.time() - cached[0]) < _TREE_CACHE_TTL:
         return JSONResponse(cached[1])
 
     result = {"children": _children_level(mgr, node_guid, as_of_time)}
-    _TREE_CACHE[cache_key] = (time.time(), result)
+    if who:
+        _TREE_CACHE[cache_key] = (time.time(), result)
     return JSONResponse(result)
 
 
@@ -545,6 +580,7 @@ def get_node(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """Detail for a single collection node: properties, members, relationships."""
     try:
@@ -561,23 +597,28 @@ def get_node(
         # viewed here (e.g. an InformationSupplyChain, before _enrich_isc_implementation_graph
         # patches in its ISC-specific mermaid fields) resolves fewer relationship hops than
         # the type-specific viewer for the same element.
-        raw = mgr.get_collection_by_guid(node_guid, output_format="JSON", graph_query_depth=5, max_mermaid_node_count=250)
+        # Explicit body (pyegeria ignores the graph kwargs once a body is given) so asOfTime --
+        # the view's As-of slider -- reaches Egeria.
+        raw = mgr.get_collection_by_guid(node_guid, output_format="JSON", body=_detail_body(as_of_time))
     except Exception:
         pass
     if not raw:
         # Non-collection member (e.g. an asset) — fall back to the digital-products node lookup.
         from digital_products_handler import get_node as dp_get_node
-        return dp_get_node(node_guid, url, server, user_id, user_pwd)
+        return dp_get_node(node_guid, url, server, user_id, user_pwd, as_of_time=as_of_time)
 
     node = _serialize_node(raw)
     node["relationships"] = _extract_all_rels(raw)
-    _enrich_isc_implementation_graph(node, node_guid, url, server, user_id, user_pwd)
+    _enrich_isc_implementation_graph(node, node_guid, url, server, user_id, user_pwd, as_of_time)
     try:
+        members_body = {"class": "ResultsRequestBody", "graphQueryDepth": 0}
+        if as_of_time:
+            members_body["asOfTime"] = as_of_time
         raw_members = mgr.get_collection_members(
             collection_guid=node_guid,
             output_format="JSON",
             page_size=200,
-            body={"class": "ResultsRequestBody", "graphQueryDepth": 0},
+            body=members_body,
         )
     except Exception:
         raw_members = []

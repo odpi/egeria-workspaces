@@ -129,6 +129,12 @@
   .placement .p-note { font-size:.76rem; color:var(--amber); background:rgba(245,183,78,.08); border:1px solid rgba(245,183,78,.25); border-radius:6px; padding:8px 10px; margin-top:4px; }
   .placement .p-cache { font-size:.68rem; color:var(--muted); margin-top:6px; }
   .placement .p-cache.stale { color:var(--amber); }
+  .src-tag { display:inline-block; font-size:.62rem; font-weight:500; padding:1px 6px; margin-left:6px; border-radius:8px;
+             border:1px solid var(--border); color:var(--muted); vertical-align:middle; white-space:nowrap; }
+  .src-tag.src-egeria { color:var(--accent, #2a6fdb); border-color:currentColor; }
+  .icon-btn:disabled, .btn:disabled { opacity:.45; cursor:not-allowed; }
+  .src-note { margin:0 0 12px; padding:8px 12px; border-radius:6px; font-size:.78rem;
+              border:1px solid var(--amber); color:var(--amber); overflow-wrap:anywhere; }
   .placement .p-note a { color:#4f9cf9; text-decoration:underline; }
   /* RS-W2-4: a refusal in the server's (or the resolver's) own words, labelled by status. */
   .p-refusal { font-size:.78rem; background:rgba(248,113,113,.08); border:1px solid rgba(248,113,113,.35); border-radius:6px; padding:8px 10px; margin-top:4px; }
@@ -328,6 +334,26 @@ function viewerPersona() {
   return _viewerPersonaPromise;
 }
 
+// An Egeria bearer token for the persona picked in this browser, or null (no persona, or minting failed).
+// Same exchange as lineage-explorer.html: /api/demo/select-persona, then /api/egeria-token (POST bodies only).
+function viewerToken() {
+  return viewerPersona().then(function(persona) {
+    if (!persona) return null;
+    return fetch('/api/demo/select-persona', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ persona: persona })
+    }).then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(sel) {
+        if (!sel || !sel.egeria_user) return null;
+        return fetch('/api/egeria-token', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: sel.egeria_user, password: sel.egeria_password || '' })
+        }).then(function(r) { return r.ok ? r.json() : null; })
+          .then(function(t) { return (t && t.token) || null; });
+      });
+  }).catch(function() { return null; });
+}
+
 function fetchExecuteCached(body, force) {
   return viewerPersona().then(function(persona) {
     return _fetchExecuteCached(persona ? Object.assign({}, body, { persona: persona }) : body, force);
@@ -467,9 +493,39 @@ function render() {
 // backend endpoint's own docstring) -- and the whole delete mechanism is
 // local-JSON-store-specific; it'll need to change to a real Egeria delete
 // once Dashboard Sheet becomes a Collection subtype.
+// Where a sheet is held: 'egeria' or 'local file'. A small label, never the only cue.
+function srcTag(source, title) {
+  if (!source) return '';
+  return '<span class="src-tag ' + (source === 'egeria' ? 'src-egeria' : '') + '" title="' + esc(title || ('Held in: ' + source)) + '">'
+    + (source === 'egeria' ? 'Egeria' : 'local file') + '</span>';
+}
+// Said whenever Egeria could not be read, so a shorter list is never mistaken for "no dashboards in Egeria".
+function egeriaNote(eg) {
+  if (!eg || eg.available !== false) return '';
+  return '<div class="src-note">Egeria could not be read, so only sheets from the local file are shown. '
+    + 'Sheets held in Egeria may be missing. (' + esc(eg.error || 'unknown error') + ')</div>';
+}
+
+// Egeria-held sheets cannot be deleted here (this page deletes from the local file only): Delete is shown
+// disabled, saying how they are deleted. That command is a shared Egeria write: coordinate it first.
+var EGERIA_DELETE_HINT = 'This sheet is held in Egeria; the Portal deletes only sheets in the local file. '
+  + 'Delete it with: python -m pyegeria.view.dashboards delete (a shared Egeria write).';
+function egeriaDeleteDisabled(label, cls) {
+  return '<span title="' + esc(EGERIA_DELETE_HINT) + '" onclick="event.stopPropagation()">'
+    + '<button class="' + cls + '" disabled aria-disabled="true" aria-label="' + esc(EGERIA_DELETE_HINT) + '">'
+    + label + '</button></span>';
+}
+
 function deleteSheet(name, heading) {
   if (!confirm('Delete dashboard "' + heading + '"?\n\nThis removes the Dashboard Sheet and its placements only -- any Reports it references are left untouched. This cannot be undone.')) return;
-  fetch('/api/local-dashboards/' + encodeURIComponent(name), { method: 'DELETE' })
+  // A delete is made as the signed-in user, never the Portal's service user: the server refuses one with
+  // no X-Egeria-Token (401). Mint a token for the persona picked in this browser (the password travels only
+  // in a POST body, never a URL) and send it as the header.
+  viewerToken()
+    .then(function(token) {
+      return fetch('/api/local-dashboards/' + encodeURIComponent(name),
+                   { method: 'DELETE', headers: token ? { 'X-Egeria-Token': token } : {} });
+    })
     .then(function(r) {
       if (!r.ok) return r.json().catch(function(){ return {}; }).then(function(b) {
         throw new Error(b.detail || ('HTTP ' + r.status));
@@ -488,7 +544,7 @@ function deleteSheet(name, heading) {
 
 function renderList() {
   app.innerHTML = '<div class="pagehead"><div><h1>Local Dashboards</h1>'
-    + '<p>Dashboard Sheets authored locally via the Dr.Egeria <code>Create Dashboard Sheet</code> command — '
+    + '<p>Dashboard Sheets held in Egeria or in the local file, authored with the Dr.Egeria <code>Create Dashboard Sheet</code> command — '
     + 'each an ordered layout of Report Spec placements.</p></div>'
     + '<button class="icon-btn" title="Refresh Dashboard Sheet list" aria-label="Refresh Dashboard Sheet list" onclick="renderList()">↻</button></div>'
     + '<div id="list-body"><div style="padding:40px;text-align:center;color:var(--muted)"><span class="spinner"></span> Loading…</div></div>';
@@ -497,18 +553,20 @@ function renderList() {
     .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
     .then(function(data) {
       var body = document.getElementById('list-body');
+      var note = egeriaNote(data.egeria);
       if (!data.sheets || !data.sheets.length) {
-        body.innerHTML = '<div class="empty">No Dashboard Sheets yet.<br><br>'
+        body.innerHTML = note + '<div class="empty">No Dashboard Sheets ' + (note ? 'in the local file' : 'yet') + '.<br><br>'
           + 'Author one with the Dr.Egeria <code>Create Dashboard Sheet</code> command, then '
           + '<code>Link Report to Dashboard Sheet</code> to add placements.<br><br>'
           + '<span style="font-size:.72rem">Store: <code>' + esc(data.storePath) + '</code></span></div>';
         return;
       }
-      body.innerHTML = '<div class="sheet-grid">' + data.sheets.map(function(s) {
+      body.innerHTML = note + '<div class="sheet-grid">' + data.sheets.map(function(s) {
         return '<div class="sheet-card" onclick="navigateToSheet(' + attrJson(s.name) + ')">'
-          + '<div class="card-top"><h3>' + esc(s.heading || s.name) + '</h3>'
-          + '<button class="icon-btn" title="Delete this Dashboard Sheet" '
-          + 'onclick="event.stopPropagation();deleteSheet(' + attrJson(s.name) + ',' + attrJson(s.heading || s.name) + ')">🗑</button></div>'
+          + '<div class="card-top"><h3>' + esc(s.heading || s.name) + srcTag(s.source) + '</h3>'
+          + (s.source === 'egeria' ? egeriaDeleteDisabled('🗑', 'icon-btn') : '<button class="icon-btn" title="Delete this Dashboard Sheet" '
+          + 'onclick="event.stopPropagation();deleteSheet(' + attrJson(s.name) + ',' + attrJson(s.heading || s.name) + ')">🗑</button>') + '</div>'
+          + (s.breaks && s.breaks.length ? '<div class="desc" style="color:var(--amber)">Chain broken in Egeria: ' + esc(s.breaks.join('; ')) + '</div>' : '')
           + '<div class="desc">' + esc(s.description || 'No description.') + '</div>'
           + '<div class="meta">'
           + (s.family ? '<span class="badge badge-fam">' + esc(s.family) + '</span>' : '')
@@ -545,13 +603,15 @@ function renderDetail(name, force) {
       var perspOptions = '<option value="">All perspectives</option>' + PERSPECTIVES.map(function(p) {
         return '<option value="' + p + '"' + (p === perspective ? ' selected' : '') + '>' + p.charAt(0).toUpperCase() + p.slice(1) + '</option>';
       }).join('');
-      body.innerHTML = '<div class="pagehead"><div><h1>' + esc(sheet.heading || sheet.name) + '</h1>'
+      body.innerHTML = egeriaNote(sheet.egeria)
+        + (sheet.breaks && sheet.breaks.length ? '<div class="src-note">This sheet\'s chain is broken in Egeria: ' + esc(sheet.breaks.join('; ')) + '</div>' : '')
+        + '<div class="pagehead"><div><h1>' + esc(sheet.heading || sheet.name) + srcTag(sheet.source) + '</h1>'
         + '<p>' + esc(sheet.description || '') + '</p></div>'
         + '<div style="display:flex;align-items:center;gap:8px">'
         + (sheet.family ? '<span class="badge badge-fam">' + esc(sheet.family) + '</span>' : '')
         + '<select class="btn" onchange="setPerspective(this.value)" title="Filter placements by viewer-role perspective">' + perspOptions + '</select>'
         + '<button class="icon-btn" title="Refresh everything: re-resolve this sheet and re-run every report now (bypasses the caches)" aria-label="Refresh this Dashboard Sheet and re-run every report" onclick="renderDetail(' + attrJson(sheet.name) + ',true)">↻</button>'
-        + '<button class="btn btn-danger" onclick="deleteSheet(' + attrJson(sheet.name) + ',' + attrJson(sheet.heading || sheet.name) + ')">Delete Dashboard</button>'
+        + (sheet.source === 'egeria' ? egeriaDeleteDisabled('Delete Dashboard', 'btn btn-danger') : '<button class="btn btn-danger" onclick="deleteSheet(' + attrJson(sheet.name) + ',' + attrJson(sheet.heading || sheet.name) + ')">Delete Dashboard</button>')
         + '</div></div>'
         + '<div class="placements" id="placements"></div>';
 
@@ -591,7 +651,7 @@ function renderDetail(name, force) {
         var bindersTag = p.bindersDeprecated
           ? '<span class="badge-binders" title="This placement\'s spec carried analytic_binders, which pyegeria now ignores: the routine\'s declared inputs are supplied instead.">BINDERS IGNORED</span>'
           : '';
-        el.innerHTML = '<h4>' + esc(p.heading) + bindersTag + refreshBtn + adjustBtn + drillBtn + '</h4>'
+        el.innerHTML = '<h4>' + esc(p.heading) + srcTag(p.source, 'This placement is held in: ' + (p.source || '?')) + bindersTag + refreshBtn + adjustBtn + drillBtn + '</h4>'
           + (p.description ? '<div class="p-desc">' + esc(p.description) + '</div>' : '')
           + (p.kind === 'report' ? '<div class="adjust-panel" id="adjust-panel-' + i + '" style="display:none"></div>' : '')
           + '<div class="p-body" id="placement-body-' + i + '"></div>';

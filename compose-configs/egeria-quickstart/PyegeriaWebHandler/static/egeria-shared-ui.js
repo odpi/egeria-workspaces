@@ -1953,6 +1953,7 @@ function EgeriaFeedbackWidget({ guid, creds, readOnly }) {
   return React.createElement('div', {
     style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, marginBottom: 2, fontSize: 12, userSelect: 'none' }
   },
+    React.createElement(CurrentNotAsOfNote, null),
     React.createElement('span', { onClick: handleLike, title: readOnly ? 'Sign in to like' : (liked ? 'Unlike' : 'Like'), style: likeStyle },
       '♥ ' + feedbackData.likes_count),
     React.createElement('span', { style: { color: 'var(--border)' } }, '|'),
@@ -2091,7 +2092,8 @@ function EgeriaCommentsSection({ guid, creds, readOnly }) {
   return React.createElement('div', { style: { marginTop: 28, borderTop: '1px solid var(--border)', paddingTop: 16 } },
     React.createElement('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 } },
       'Comments',
-      !loading && React.createElement('span', { style: { background: 'rgba(96,165,250,.12)', color: 'var(--accent)', borderRadius: 8, padding: '0 6px', fontSize: 10, fontWeight: 600 } }, comments.length)
+      !loading && React.createElement('span', { style: { background: 'rgba(96,165,250,.12)', color: 'var(--accent)', borderRadius: 8, padding: '0 6px', fontSize: 10, fontWeight: 600 } }, comments.length),
+      React.createElement(CurrentNotAsOfNote, null)
     ),
     loading
       ? React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', marginBottom: 12 } }, 'Loading…')
@@ -2475,6 +2477,36 @@ var CredContext = (typeof React !== 'undefined') ? React.createContext({ url: ''
 // Set by each SPA's App via PersonaContext.Provider and read by detail panels.
 var PersonaContext = (typeof React !== 'undefined') ? React.createContext(null) : null;
 
+// AsOfContext — the As-of slider's point in time (ISO string), or null for "now". Every view that renders a
+// TimeSlider provides it (AsOfContext.Provider value={asOfTime}); the shared secondary widgets read it, so a
+// widget added to such a view later follows the slider without any prop threading:
+//   MermaidSection, AssignedElementsSection, RawJsonViewer -> add as_of_time to their request, refetch on change
+//   EgeriaFeedbackWidget, EgeriaCommentsSection            -> stay current, and say so ("current — not as of …")
+var AsOfContext = (typeof React !== 'undefined') ? React.createContext(null) : null;
+
+function useAsOf() {
+  return AsOfContext ? React.useContext(AsOfContext) : null;
+}
+
+// "&as_of_time=…" / "?as_of_time=…" for a set time, "" for now (so a "now" request is byte-identical to before).
+function asOfParam(asOf, sep) {
+  return asOf ? (sep || '?') + 'as_of_time=' + encodeURIComponent(asOf) : '';
+}
+
+function asOfLabel(asOf) {
+  try { return new Date(asOf).toLocaleString(); } catch (e) { return String(asOf); }
+}
+
+// The small "current — not as of <time>" note for widgets that show live reactions inside a past view.
+function CurrentNotAsOfNote() {
+  var asOf = useAsOf();
+  if (!asOf) return null;
+  return React.createElement('span', {
+    title: 'Likes, ratings and comments are always shown as they are now; the As-of slider does not apply to them.',
+    style: { fontSize: 10, color: 'var(--dim)', fontStyle: 'italic', marginLeft: 6 }
+  }, 'current — not as of ' + asOfLabel(asOf));
+}
+
 /* Single lazy-loading diagram panel. fetchUrl is called on first open; label
  * appears in the header. field: which key to read from the JSON response
  * (default 'mermaidGraph'). Reads creds from CredContext + uses egeriaFetch so
@@ -2522,25 +2554,31 @@ function DiagramPanel({ fetchUrl, label, buttonLabel, field }) {
  * appear. The Anchored graph is its own, costlier read and loads only when its chip is chosen. */
 function MermaidSection({ guid, data }) {
   var creds = React.useContext(CredContext);
+  var asOf = useAsOf();                                                   // the view's As-of slider (null = now)
   var _g = React.useState(null), graphs = _g[0], setGraphs = _g[1];        // null = not loaded yet
   var _b = React.useState(false), busy = _b[0], setBusy = _b[1];
   var _o = React.useState(false), open = _o[0], setOpen = _o[1];
-  React.useEffect(function() { setGraphs(null); setBusy(false); setOpen(false); }, [guid]);
+  var _a = React.useState(false), absent = _a[0], setAbsent = _a[1];       // 404 at a past time
+  // A new element or a new time: drop what was loaded (it described another element or another time).
+  React.useEffect(function() { setGraphs(null); setBusy(false); setOpen(false); setAbsent(false); }, [guid, asOf]);
   if (!guid) return null;
   var btnStyle = { fontSize: 12, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer' };
   function loadAll() {
     setOpen(true);
     if (graphs !== null || busy) return;
     setBusy(true);
-    egeriaFetch('/api/mermaid/' + encodeURIComponent(guid), creds)
-      .then(function(r) { return r.ok ? r.json() : null; })
+    egeriaFetch('/api/mermaid/' + encodeURIComponent(guid) + asOfParam(asOf), creds)
+      .then(function(r) {
+        if (r.status === 404 && asOf) { setAbsent(true); return null; }   // did not exist yet at that time
+        return r.ok ? r.json() : null;
+      })
       .then(function(d) { setGraphs((d && d.graphs) || (d && d.mermaidGraph ? { mermaidGraph: d.mermaidGraph } : {})); setBusy(false); })
       .catch(function() { setGraphs({}); setBusy(false); });
   }
   var extra = [{
     key: '__anchored', label: 'Anchored Graph',
     load: function() {
-      return egeriaFetch('/api/mermaid/' + encodeURIComponent(guid) + '/anchored', creds)
+      return egeriaFetch('/api/mermaid/' + encodeURIComponent(guid) + '/anchored' + asOfParam(asOf), creds)
         .then(function(r) { return r.ok ? r.json() : null; })
         .then(function(d) { return (d && d.mermaidGraph) || ''; });
     }
@@ -2557,7 +2595,8 @@ function MermaidSection({ guid, data }) {
   return React.createElement('div', { style: { margin: '8px 0' } },
     !open && React.createElement('button', { onClick: loadAll, style: btnStyle }, '▦ Load Diagrams (context, action, activity, anchored…)'),
     open && busy && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '6px 0' } }, 'Loading diagrams…'),
-    open && graphs !== null && !busy && React.createElement(GraphTabs, { graphs: shown, extra: extra, initial: shown.mermaidGraph ? 'mermaidGraph' : null })
+    open && absent && !busy && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '6px 0' } }, 'This element did not exist at ' + asOfLabel(asOf) + ', so it has no diagrams then.'),
+    open && graphs !== null && !busy && !absent && React.createElement(GraphTabs, { graphs: shown, extra: extra, initial: shown.mermaidGraph ? 'mermaidGraph' : null })
   );
 }
 
@@ -2571,16 +2610,22 @@ function AssignedElementsSection({ termGuid, onNavigateToElement, isElementLinka
   const [data, setData]       = React.useState(null);
   const [loading, setLoading] = React.useState(false);
   const [visible, setVisible] = React.useState(false);
+  const [failed, setFailed]   = React.useState(false);
   const creds = React.useContext(CredContext);
+  const asOf = useAsOf();                                   // the view's As-of slider (null = now)
   var btnStyle = { fontSize: 12, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer' };
+
+  // A new term or a new time: what was loaded described another term or another time.
+  React.useEffect(function() { setData(null); setLoading(false); setVisible(false); setFailed(false); }, [termGuid, asOf]);
 
   function toggle() {
     if (data === null && !loading) {
-      setLoading(true); setVisible(true);
-      egeriaFetch('/api/glossary/term/' + encodeURIComponent(termGuid) + '/assigned-elements', creds)
-        .then(function(r) { return r.ok ? r.json() : null; })
+      setLoading(true); setVisible(true); setFailed(false);
+      egeriaFetch('/api/glossary/term/' + encodeURIComponent(termGuid) + '/assigned-elements' + asOfParam(asOf), creds)
+        .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(function(j) { setData(j || { physical: [], logical: [], other: [], total: 0 }); setLoading(false); })
-        .catch(function() { setData({ physical: [], logical: [], other: [], total: 0 }); setLoading(false); });
+        // a failed lookup is not "nothing is assigned": say it failed
+        .catch(function() { setFailed(true); setLoading(false); });
     } else {
       setVisible(function(v) { return !v; });
     }
@@ -2607,7 +2652,12 @@ function AssignedElementsSection({ termGuid, onNavigateToElement, isElementLinka
   return React.createElement('div', { style: { margin: '4px 0 12px' } },
     React.createElement('button', { onClick: toggle, style: btnStyle }, btnLabel),
     visible && loading && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '6px 0' } }, 'Looking up assigned elements…'),
-    visible && !loading && data && data.total === 0 && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '4px 0' } }, 'No physical or logical elements are assigned this term yet.'),
+    visible && !loading && failed && React.createElement('div', { style: { fontSize: 11, color: '#f87171', padding: '4px 0' } }, 'Could not look up the assigned elements. ', React.createElement('a', { href: '#', onClick: function(e) { e.preventDefault(); setVisible(false); toggle(); } }, 'Try again')),
+    // capped: the assignment read stopped at readLimit, so the list is a lower bound and an empty one means
+    // "none in the part that was read" -- never shown as complete.
+    visible && !loading && data && data.capped && React.createElement('div', { style: { fontSize: 11, color: '#fbbf24', padding: '4px 0' } },
+      'At least ' + data.total + ' — the assignment read stopped at ' + (data.readLimit || 5000).toLocaleString() + ', so more may exist.'),
+    visible && !loading && data && data.total === 0 && !data.capped && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '4px 0' } }, asOf ? 'No physical or logical elements were assigned this term at ' + asOfLabel(asOf) + '.' : 'No physical or logical elements are assigned this term yet.'),
     visible && !loading && data && data.total > 0 && React.createElement('div', { style: { marginTop: 8 } },
       renderGroup('Physical elements', data.physical),
       renderGroup('Logical elements', data.logical),
@@ -3157,11 +3207,13 @@ function Collapsible({ title, defaultOpen, count, children }) {
 // no inline display, just a copy action with a brief confirmation.
 function RawJsonViewer({ guid, creds, depth }) {
   var _s = React.useState('idle'), state = _s[0], setState = _s[1]; // idle | loading | copied | error
+  var asOf = useAsOf();                                              // the view's As-of slider (null = now)
 
   function handleClick() {
     if (state === 'loading') return;
     setState('loading');
-    var url = '/api/debug/raw/' + encodeURIComponent(guid) + (depth != null ? '?depth=' + depth : '');
+    var url = '/api/debug/raw/' + encodeURIComponent(guid) + (depth != null ? '?depth=' + depth : '')
+      + asOfParam(asOf, depth != null ? '&' : '?');
     egeriaFetch(url, creds).then(function(r) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.json();
@@ -3180,7 +3232,7 @@ function RawJsonViewer({ guid, creds, depth }) {
   var label = state === 'loading' ? 'Copying…'
     : state === 'copied' ? '✓ Copied raw JSON'
     : state === 'error' ? 'Copy failed'
-    : 'Copy raw JSON (debug)';
+    : 'Copy raw JSON (debug)' + (asOf ? ' as of ' + asOfLabel(asOf) : '');
 
   return React.createElement('div', {
     onClick: handleClick,

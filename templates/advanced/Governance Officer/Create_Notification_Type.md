@@ -101,36 +101,12 @@ ___
 >	**Default Value**: True
 
 
-### Next Scheduled Notification
->	**Input Required**: False
-
->	**Attribute Type**: Simple
-
->	**Description**: The date of the next scheduled notification.
-
-
 ### Notification Count
 >	**Input Required**: False
 
 >	**Attribute Type**: Simple Int
 
 >	**Description**: The number of notifications sent so far.
-
-
-### Notification Interval
->	**Input Required**: False
-
->	**Attribute Type**: Simple Int
-
->	**Description**: The interval between scheduled notifications in milliseconds.
-
-
-### Minimum Notification Interval
->	**Input Required**: False
-
->	**Attribute Type**: Simple Int
-
->	**Description**: The minimum interval between notifications in milliseconds.
 
 
 ### Planned Start Date
@@ -211,6 +187,14 @@ ___
 >	**Description**: A list of search keywords.
 
 
+### Zone Membership
+>	**Input Required**: False
+
+>	**Attribute Type**: Simple List
+
+>	**Description**: Zones scope visibility of elements to different users.
+
+
 ### GUID
 >	**Input Required**: False
 
@@ -247,6 +231,16 @@ ___
 >	**Attribute Type**: Simple List
 
 >	**Description**: The authors.
+
+
+### Minimum Notification Interval
+>	**Input Required**: False
+
+>	**Attribute Type**: Simple Int
+
+>	**Description**: Minimum minutes between notifications. For a Notification Type with no monitored resources it is the period between notifications; with monitored resources it throttles how often notifications are sent. For a Subscription Type it is the delivery interval of a PERIODIC subscription and the minimum interval of an ONGOING_UPDATE one. In MINUTES.
+
+>	**Alternative Labels**: Subscription Notification Interval
 
 
 ### Effective From
@@ -413,14 +407,6 @@ ___
 >	**Description**: Repository or element header status for an element.
 
 >	**Default Value**: ACTIVE
-
-
-### Zone Membership
->	**Input Required**: False
-
->	**Attribute Type**: Simple List
-
->	**Description**: Zones scope visibility of elements to different users.
 
 
 ### Additional Properties

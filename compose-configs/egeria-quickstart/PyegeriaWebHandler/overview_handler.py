@@ -54,7 +54,8 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
 
-from egeria_auth import apply_token, lineage_key, token_user
+from egeria_auth import apply_token, lineage_key
+from result_cache import request_identity
 
 # generate_vega_bar_chart/generate_vega_pie_chart ship with pyegeria (the
 # requirements.txt-pinned version has them). generate_vega_line_chart and
@@ -197,16 +198,29 @@ _CACHE_TTL   = 60.0          # seconds; summary is not real-time critical
 _cache: dict[str, tuple[float, Any]] = {}
 
 
-def _cache_get(key: str):
+def _cache_get(key: Optional[str]):
+    """key None = do not use the cache (see _viewer_key: an expired token)."""
+    if key is None:
+        return None
     hit = _cache.get(key)
     if hit and (time.time() - hit[0]) < _CACHE_TTL:
         return hit[1]
     return None
 
 
-def _cache_put(key: str, value: Any):
-    _cache[key] = (time.time(), value)
+def _cache_put(key: Optional[str], value: Any):
+    if key is not None:
+        _cache[key] = (time.time(), value)
     return value
+
+
+def _viewer_key(prefix: str, url, server, user_id, user_pwd) -> Optional[str]:
+    """Cache key for viewer-scoped data: the hashed credential the caller presented
+    (result_cache.request_identity), never the bare user_id -- that is None for every token-authenticated
+    viewer, so they would all share one entry and see each other's zone-filtered results. None (an
+    expired token) means bypass the cache so Egeria refuses the request."""
+    who = request_identity(user_id, user_pwd)
+    return None if who is None else f"{prefix}|{url}|{server}|{who}"
 
 
 # ── client factory ───────────────────────────────────────────────────────────
@@ -499,7 +513,10 @@ def _viewer_total_state(url, server, user_id, user_pwd, as_of):
     caller should ask again; stale means value is the previous measurement, being refreshed;
     counted_at is the epoch time the value was measured (None if never measured)."""
     u, sv, uid, pwd = _env(url, server, user_id, user_pwd)
-    key = f"{u}|{sv}|{uid}|{as_of}"
+    who = request_identity(user_id, user_pwd)   # was uid: the env service user for EVERY token-authenticated viewer
+    if who is None:
+        return None, False, False, None         # expired token: not measured (the rest of the page shows the 401)
+    key = f"{u}|{sv}|{who}|{as_of}"
     with _viewer_lock:                 # no await/IO between the check and the start
         hit = _viewer_totals.get(key)
         fresh = hit is not None and hit[0] > time.time()
@@ -545,8 +562,11 @@ def _overlay_viewer_total(payload: dict, url, server, user_id, user_pwd, as_of) 
 #               otherwise the route answers 503 "not measured" (never a zero-filled payload)
 #   partial  -> a payload whose headline value could not be measured is served but re-measured after
 #               _SECTION_PARTIAL_TTL instead of an hour
-# The key is section|url|server|viewer|args (+ lineage_key(): forLineage changes which elements are found);
-# the viewer is the bearer token's user when there is one, since find calls are filtered by zone access.
+# The key is section|url|server|population|args (+ lineage_key(): forLineage changes which elements are found).
+# population (see _section_key) is either "repository" -- the section's figures are whole-repository native
+# counts, identical for every viewer, so no identity is in the key and there is nothing to forge -- or the
+# viewer's hashed credential (result_cache.request_identity), because the section's find calls are filtered by
+# zone access. Never the token's `sub`: it is read unverified, and a hit makes no Egeria call to check it.
 # At most _SECTION_WORKERS sections compute at once across all users (_section_gate): a page load asks for
 # four sections, and Egeria's database pool is 10 connections. Workers are plain threads with copied
 # contextvars, for the same reason as _viewer_total_worker.
@@ -562,10 +582,43 @@ _section_lock = threading.Lock()     # makes check-and-start atomic: at most one
 _section_gate = threading.Semaphore(_SECTION_WORKERS)
 
 
-def _section_key(section: str, *args, url=None, server=None, user_id=None, user_pwd=None) -> str:
-    u, sv, uid, _ = _env(url, server, user_id, user_pwd)
-    viewer = token_user() or uid
-    return "|".join([section, u, sv, viewer, *(str(a) for a in args)]) + lineage_key()
+# Which population each section's cached payload describes (checked 2026-11-09 against pyegeria 6.2.29):
+#   composition    REPOSITORY -- asset_composition(scopes=(REPOSITORY,)); the viewer column is overlaid per
+#                  request from the per-viewer Asset count (_viewer_total_state), never cached with the payload.
+#   growth         REPOSITORY when growth_series counts the whole repository by default (6.2.27+), else viewer.
+#   summary        viewer -- besides native counts it holds find-based figures (survey coverage, governed
+#                  byClassification / topZones, business-value signals), and on a pyegeria without repository
+#                  scope every count is viewer-scoped.
+#   ai-context     viewer -- the ownership count is a find; the readiness funnel is viewer-scoped before 6.2.27.
+#   usage-context  viewer -- the "% contextualised" coverage is a relationship fetch the viewer's zones filter.
+def _growth_population() -> str:
+    try:
+        param = inspect.signature(growth_series).parameters.get("population")
+    except (TypeError, ValueError):
+        return VIEWER
+    return REPOSITORY if param is not None and param.default == REPOSITORY else VIEWER
+
+
+def _section_key(section: str, *args, population: str, url=None, server=None, user_id=None,
+                 user_pwd=None) -> Optional[str]:
+    """Cache key for one background section. population=REPOSITORY: no identity at all (the figures are the
+    same for every viewer). Otherwise the viewer's hashed credential; None for an expired token, which the
+    route turns into a 401 (see _section_key_or_401) rather than starting a minutes-long build to be refused."""
+    u, sv, _, _ = _env(url, server, user_id, user_pwd)
+    if population == REPOSITORY:
+        who = REPOSITORY
+    else:
+        who = request_identity(user_id, user_pwd)
+        if who is None:
+            return None
+    return "|".join([section, u, sv, who, *(str(a) for a in args)]) + lineage_key()
+
+
+def _section_key_or_401(section: str, *args, **kw) -> str:
+    key = _section_key(section, *args, **kw)
+    if key is None:
+        raise HTTPException(status_code=401, detail="Egeria token expired; sign in again")
+    return key
 
 
 def _iso(epoch: Optional[float]) -> Optional[str]:
@@ -749,7 +802,8 @@ def get_composition(
     as_of_time = _norm_asof(as_of_time)
     if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", root):
         raise HTTPException(status_code=422, detail="root must be an open metadata type name")
-    key = _section_key("composition", root, depth, as_of_time, url=url, server=server, user_id=user_id, user_pwd=user_pwd)
+    key = _section_key_or_401("composition", root, depth, as_of_time, population=REPOSITORY,
+                              url=url, server=server, user_id=user_id, user_pwd=user_pwd)
     payload, meta = _section_fetch(
         key, functools.partial(_compute_composition, root, depth, as_of_time, url, server, user_id, user_pwd),
         ok=lambda p: p.get("state") == "measured" and not p.get("not_measured"))
@@ -771,7 +825,8 @@ def get_summary(
 ):
     """Served from the background section cache (see "Background section cache"); computed by _compute_summary."""
     as_of_time = _norm_asof(as_of_time)
-    key = _section_key("summary", as_of_time, url=url, server=server, user_id=user_id, user_pwd=user_pwd)
+    key = _section_key_or_401("summary", as_of_time, population=VIEWER,
+                              url=url, server=server, user_id=user_id, user_pwd=user_pwd)
     payload, meta = _section_fetch(
         key, functools.partial(_compute_summary, as_of_time, url, server, user_id, user_pwd),
         ok=lambda p: p.get("assetTotal") is not None)
@@ -1221,7 +1276,7 @@ def get_activity(
     """Change stream, activity by type and most active stewards for curated content types (glossary terms,
     collections/products, governance definitions, projects). Always "now": Egeria's asOfTime cannot
     say who changed what. `activity` is None when a query failed -- the page then shows "Not measured"."""
-    ckey = f"activity|{url}|{server}|{user_id}"
+    ckey = _viewer_key("activity", url, server, user_id, user_pwd)
     cached = _cache_get(ckey)
     if cached is not None:
         return JSONResponse(cached)
@@ -1591,7 +1646,8 @@ def get_ai_context(
     """Context-readiness funnel + grounding. Consumers/guardrails are not natively
     queryable yet — returned as null so the SPA shows its sample baseline."""
     as_of_time = _norm_asof(as_of_time)
-    key = _section_key("ai-context", as_of_time, url=url, server=server, user_id=user_id, user_pwd=user_pwd)
+    key = _section_key_or_401("ai-context", as_of_time, population=VIEWER,
+                              url=url, server=server, user_id=user_id, user_pwd=user_pwd)
     payload, meta = _section_fetch(
         key, functools.partial(_compute_ai_context, as_of_time, url, server, user_id, user_pwd),
         ok=lambda p: (p.get("funnel") or {}).get("cataloged") is not None)
@@ -1788,7 +1844,7 @@ def get_people(
     find-and-bucket returned a curated set, so a few totals differ (that raw count
     is the authoritative repository count). Karma / feedback below."""
     as_of_time = _norm_asof(as_of_time)
-    ckey = f"people|{as_of_time}|{url}|{server}|{user_id}"
+    ckey = _viewer_key(f"people|{as_of_time}", url, server, user_id, user_pwd)
     cached = _cache_get(ckey)
     if cached is not None:
         return JSONResponse(cached)
@@ -1905,7 +1961,8 @@ def get_usage_context(
     given *some* solution-design context, not that its specific
     SolutionComponent is itself wired into an ISC/blueprint)."""
     as_of_time = _norm_asof(as_of_time)
-    key = _section_key("usage-context", as_of_time, url=url, server=server, user_id=user_id, user_pwd=user_pwd)
+    key = _section_key_or_401("usage-context", as_of_time, population=VIEWER,
+                              url=url, server=server, user_id=user_id, user_pwd=user_pwd)
     payload, meta = _section_fetch(
         key, functools.partial(_compute_usage_context, as_of_time, url, server, user_id, user_pwd),
         ok=lambda p: p.get("informationSupplyChains") is not None)
@@ -1993,7 +2050,8 @@ def get_growth(
     span_s, default_pts = _WINDOWS.get(window, _WINDOWS["6mo"])
     n = points or default_pts
 
-    key = _section_key("growth", window, n, url=url, server=server, user_id=user_id, user_pwd=user_pwd)
+    key = _section_key_or_401("growth", window, n, population=_growth_population(),
+                              url=url, server=server, user_id=user_id, user_pwd=user_pwd)
     payload, meta = _section_fetch(
         key, functools.partial(_compute_growth, window, n, url, server, user_id, user_pwd),
         ok=lambda p: bool(p.get("series")))

@@ -160,6 +160,34 @@ def _is_auth_error(exc: Exception) -> bool:
     return False
 
 
+def _auth_status(exc: Exception) -> int:
+    """403 when Egeria said 403 anywhere in the cause chain, else 401 (call only when _is_auth_error)."""
+    seen, node = set(), exc
+    while node is not None and id(node) not in seen:
+        seen.add(id(node))
+        code = getattr(node, "response_code", None) or getattr(node, "http_status_code", None)
+        resp = getattr(node, "response", None)
+        if code == 403 or (resp is not None and getattr(resp, "status_code", None) == 403) \
+                or "HTTP CODE: 403" in str(node).upper() or "CLIENT ERROR '403" in str(node).upper():
+            return 403
+        node = getattr(node, "__cause__", None) or getattr(node, "__context__", None)
+    return 401
+
+
+def raise_if_auth_error(exc: Exception) -> None:
+    """Re-raise an Egeria 401/403 as an HTTPException; return normally for anything else.
+
+    For best-effort helpers that otherwise degrade to an empty answer: an expired or refused token must not
+    read as "nothing here" (an empty 200 tree), but as a sign-in problem the UI can act on."""
+    if _is_auth_error(exc):
+        status = _auth_status(exc)
+        raise HTTPException(
+            status_code=status,
+            detail=("Egeria refused the sign-in token (it may have expired); sign in again" if status == 401
+                    else "Not authorized for this request"),
+        )
+
+
 def describe_bulk_item_error(exc: Exception) -> str:
     """Friendly one-line message for a single failed item in a partial-failure-
     tolerant bulk endpoint (collections/zones/classifications' `{added|removed,

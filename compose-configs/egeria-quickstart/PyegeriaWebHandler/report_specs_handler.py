@@ -7,9 +7,10 @@ Report Spec Browser — FastAPI router.
 Provides one endpoint:
   GET /api/report-specs   → returns all pyegeria report spec definitions as JSON
 
-Report specs are client-side pyegeria formatting specifications stored in
-pyegeria.view.base_report_formats.  They are not stored in Egeria and this
-endpoint requires no Egeria connection.
+Report specs are pyegeria formatting specifications. Most are pyegeria built-ins or
+Portal/user specs; some may be held in Egeria and synced into a local cache
+(report_spec_sync.py). Listing them needs no Egeria connection: the Egeria-held ones are
+read from the cache. Each spec says where it came from (`source`).
 """
 
 import contextvars
@@ -41,19 +42,6 @@ def register_local_specs():
     core pyegeria library.
     """
     register_report_specs({
-        "Analytic - Element Count by Type": FormatSet(
-            heading="Element Count by Type",
-            description="Counts active elements of a given type. Use type_name in "
-                        "analytic_spec_params to set the target type.",
-            family="Analytic",
-            target_type=None,
-            formats=[Format(types=["DICT", "JSON"], attributes=[])],
-            action=ActionParameter(
-                function="",
-                analytic_function="count_elements",
-                analytic_spec_params={"type_name": "GlossaryTerm"}
-            )
-        ),
         "Analytic - Generic Metric Trend": FormatSet(
             heading="Generic Metric Trend",
             description="Trend any analytic function over time. metric_path is the target function; "
@@ -141,8 +129,134 @@ def _serialize(name: str, fs) -> dict:
     }
 
 
+# ── Where each spec came from ────────────────────────────────────────────────
+# pyegeria's registry has three tiers: builtin (the packaged seed), egeria (synced from Egeria into
+# a local cache) and local. The Portal splits local into "local" (registered at runtime by Portal
+# code, e.g. register_local_specs above) and "user" (JSON spec files in the user report specs
+# directory, pyegeria's CONFIG tier).
+SOURCE_WORDS = {
+    "builtin": "pyegeria built-in",
+    "egeria":  "held in Egeria",
+    "local":   "Portal (local)",
+    "user":    "user spec file",
+}
+
+
+def _spec_statuses() -> dict:
+    """name -> pyegeria's list_report_specs(with_status=True) row; {} on a pyegeria without it."""
+    try:
+        from pyegeria.view.base_report_formats import list_report_specs
+        return {row["name"]: row for row in list_report_specs(with_status=True)
+                if isinstance(row, dict) and row.get("name")}
+    except Exception as exc:  # noqa: BLE001 -- the source column is extra; never fail the list on it
+        logger.warning(f"report specs: list_report_specs(with_status=True) unavailable: {exc}")
+        return {}
+
+
+def _user_labels() -> set:
+    try:
+        from pyegeria.view import base_report_formats as brf
+        return set(getattr(brf, "_CONFIG_REPORT_FORMATS", {}) or {})
+    except Exception:  # noqa: BLE001
+        return set()
+
+
+def _source_fields(name: str, row: Optional[dict], user_labels: set) -> dict:
+    """The source/shadow fields for one spec. `source` is None when pyegeria did not say."""
+    if not row:
+        return {"source": None, "sourceLabel": "not reported", "shadowedBy": None, "shadows": None,
+                "cacheAgeS": None, "egeria": None}
+    source = row.get("source")
+    base = name
+    if source == "local" and base in user_labels:
+        source = "user"
+    out = {"source": source, "sourceLabel": SOURCE_WORDS.get(source, source or "not reported"),
+           "shadowedBy": row.get("shadowed_by"), "shadows": row.get("shadows"),
+           "cacheAgeS": row.get("cache_age_s"), "egeria": None}
+    if source == "egeria":
+        try:
+            from pyegeria.view.egeria_spec_cache import egeria_tier_info
+            info = egeria_tier_info(base) or {}
+            out["egeria"] = {k: info.get(k) for k in ("guid", "qualified_name", "version", "header_version",
+                                                      "synced_at", "fetched_at", "folders", "draft")}
+        except Exception:  # noqa: BLE001
+            pass
+    return out
+
+
+def _is_admin_closed(request: Request) -> bool:
+    """The Portal's admin check, failing CLOSED: if the check itself cannot be loaded, nobody is
+    an administrator. (Local quickstart without auth: _is_admin says everyone is.)"""
+    try:
+        from demo_feedback_handler import _is_admin
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"report specs: admin check unavailable, refusing admin-only access: {exc}")
+        return False
+    try:
+        return bool(_is_admin(request))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"report specs: admin check failed, refusing admin-only access: {exc}")
+        return False
+
+
+def _sync_detail_allowed(request: Optional[Request]) -> bool:
+    """Error text and skip reasons from the sync go to administrators and to signed-in callers
+    (an unexpired X-Egeria-Token); anonymous callers get the outcome without the detail."""
+    if request is None:
+        return False
+    try:
+        from egeria_auth import _token_expired, get_request_token
+        token = get_request_token()
+        if token and not _token_expired(token):
+            return True
+    except Exception:  # noqa: BLE001
+        pass
+    return _is_admin_closed(request)
+
+
+def _sync_status_for(request: Optional[Request]) -> dict:
+    import report_spec_sync
+    if _sync_detail_allowed(request):
+        return dict(report_spec_sync.status(), detail=True)
+    return report_spec_sync.public_status()
+
+
+def _egeria_held_summary(source_counts: dict, request: Optional[Request] = None) -> dict:
+    """What the Report Specs view says about specs held in Egeria. Never just an empty list: when
+    there are none, `message` says so and why."""
+    import report_spec_sync
+    sync = _sync_status_for(request)
+    count = source_counts.get("egeria", 0)
+    folders = sync.get("folders") or []
+    outcome = sync.get("outcome")
+    doing = report_spec_sync.running_words(sync)
+    if count:
+        message = f"{count} report spec{'s' if count != 1 else ''} held in Egeria"
+    elif not folders:
+        message = ("None held in Egeria: no report spec folders are configured for this Portal "
+                   "(PYEGERIA_REPORT_SPEC_FOLDERS)")
+    elif doing and outcome in (None, "failed"):
+        message = f"None held in Egeria yet: {doing}"
+    elif outcome is None:
+        message = "None held in Egeria yet: no sync from Egeria has run"
+    elif outcome == "failed":
+        message = "None held in Egeria: the last sync from Egeria failed, so nothing is cached"
+    elif outcome == "folders_missing":
+        message = "None held in Egeria: the configured folders were not found in Egeria (or are not visible to the Portal's user)"
+    elif outcome == "not_configured":
+        message = "None held in Egeria: no report spec folders were configured when the last sync ran"
+    elif outcome == "already_running":
+        message = "None held in Egeria yet: another process was syncing this cache; try again shortly"
+    else:
+        message = "None held in Egeria: the configured folders hold no active report specs"
+        if sync.get("missing_folders"):
+            message += " (not found or not visible: " + ", ".join(sync["missing_folders"]) + ")"
+    return {"count": count, "message": message, "folders": folders, "running": doing, "sync": sync}
+
+
 @router.get("/api/report-specs", summary="List all pyegeria report spec definitions")
 def get_report_specs(
+    request: Request,
     perspective: Optional[str] = Query(
         None,
         description="Filter to specs whose question_spec includes this perspective (case-insensitive).",
@@ -174,11 +288,16 @@ def get_report_specs(
     # Load-time resolution (pyegeria spec_resolver, cached): runnable, unrunnable with the
     # resolver's words, or format-only. Keyed on the existing spec name (RS-W2-4).
     resolutions = spec_resolution.resolve_all()
+    statuses = _spec_statuses()
+    user_labels = _user_labels()
 
+    # The list stays the registry's names (RS-W2-4). A spec that shadows a lower-tier copy says so
+    # on its own row (`shadows`), and that copy stays runnable as "builtin:<name>" / "egeria:<name>".
     result: list[dict] = []
     for name, fs in registry.items():
         s = _serialize(name, fs)
         s["resolution"] = spec_resolution.resolution(name, fs, resolutions.get(name))
+        s.update(_source_fields(name, statuses.get(name), user_labels))
 
         if persp_lower is not None:
             all_p = [p.lower() for qs in s["question_spec"] for p in qs["perspectives"]]
@@ -205,8 +324,16 @@ def get_report_specs(
         for p in qs["perspectives"]
     })
 
+    source_counts: dict = {}
+    for s in result:
+        key = s.get("source") or "unknown"
+        source_counts[key] = source_counts.get(key, 0) + 1
+
     return JSONResponse({
         "specs":        result,
+        "sources":      source_counts,
+        "sourceWords":  SOURCE_WORDS,
+        "egeriaHeld":   _egeria_held_summary(source_counts, request),
         "families":     families,
         "perspectives": all_perspectives,
         "total":        len(result),
@@ -216,6 +343,36 @@ def get_report_specs(
         "portalSupply": spec_resolution.PORTAL_SUPPLY_NOTE,
         "bindersDeprecatedPrefix": spec_resolution.binders_prefix(),
     })
+
+
+# ── Sync from Egeria ─────────────────────────────────────────────────────────
+
+def _admin_gate(request: Request):
+    """The Portal's admin check (as bootstrap_admin_handler.py uses), but failing CLOSED: if the
+    check cannot be loaded, the sync is refused."""
+    if not _is_admin_closed(request):
+        raise HTTPException(status_code=403, detail="Syncing report specs from Egeria requires an administrator.")
+
+
+@router.post("/api/report-specs/sync", summary="Sync report specs held in Egeria into the Portal's cache (admin only)")
+def sync_from_egeria(request: Request):
+    """Start `sync_report_specs` for the configured folders in the background. Reads Egeria only.
+    Poll GET /api/report-specs/sync for the outcome."""
+    _admin_gate(request)
+    import report_spec_sync
+    started = report_spec_sync.start("admin")
+    st = dict(report_spec_sync.status(), detail=True)
+    return JSONResponse({"started": started, "already_running": not started,
+                         "running_words": report_spec_sync.running_words(st), **st})
+
+
+@router.get("/api/report-specs/sync", summary="The last sync of report specs from Egeria")
+def sync_status(request: Request):
+    """Outcome, counts and what a running sync is doing, for everyone. Error text and skip
+    reasons only for administrators and signed-in callers (detail: true)."""
+    import report_spec_sync
+    st = _sync_status_for(request)
+    return JSONResponse(dict(st, running_words=report_spec_sync.running_words(st)))
 
 
 # ── Execute ───────────────────────────────────────────────────────────────────

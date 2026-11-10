@@ -16,6 +16,7 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from egeria_auth import lineage_key as _lineage_key
+from result_cache import request_identity
 from fastapi.responses import JSONResponse
 from loguru import logger
 
@@ -208,8 +209,9 @@ def _project_forest(mgr, child_key: str, parent_key: str, as_of_time=None) -> di
 
 
 def _cached_forest(kind: str, child_key: str, parent_key: str, url, server, user_id, user_pwd, as_of_time=None):
-    cache_key = f"{kind}|{url or ''}|{server or ''}|{user_id or ''}|{as_of_time or ''}{_lineage_key()}"
-    cached = _PROJ_TREE_CACHE.get(cache_key)
+    who = request_identity(user_id, user_pwd)  # hashed credential; None = expired token, bypass the cache
+    cache_key = f"{kind}|{url or ''}|{server or ''}|{who}|{as_of_time or ''}{_lineage_key()}"
+    cached = (_PROJ_TREE_CACHE.get(cache_key) if who else None)
     if cached and (time.time() - cached[0]) < _PROJ_TREE_TTL:
         return JSONResponse(cached[1])
     try:
@@ -220,7 +222,8 @@ def _cached_forest(kind: str, child_key: str, parent_key: str, url, server, user
         result = _project_forest(mgr, child_key, parent_key, as_of_time)
     except Exception as exc:
         raise_egeria_http_error(exc, f"project {kind} forest failed")
-    _PROJ_TREE_CACHE[cache_key] = (time.time(), result)
+    if who:
+        _PROJ_TREE_CACHE[cache_key] = (time.time(), result)
     return JSONResponse(result)
 
 

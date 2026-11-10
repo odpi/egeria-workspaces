@@ -63,6 +63,7 @@ from loguru import logger
 from pydantic import BaseModel
 
 from egeria_auth import async_apply_token, lineage_key as _lineage_key, token_user as _token_user
+from result_cache import request_identity
 from egeria_error_mapping import raise_egeria_http_error
 
 router = APIRouter(tags=["resource-browser"])
@@ -1549,8 +1550,16 @@ _cache_locks: dict = {}
 
 async def _cached(name: str, producer, ttl: int = _CACHE_TTL):
     """(value, as_of) for `name`, per signed-in user and lineage mode: zone security
-    can show two users different elements, and forLineage changes the results."""
-    key = f"{name}|{_token_user() or '-'}{_lineage_key()}"
+    can show two users different elements, and forLineage changes the results.
+
+    "Per signed-in user" = the hashed token presented (result_cache.request_identity), not the token's
+    `sub`: that claim is read unverified, and a cache hit makes no Egeria call to check it, so keying on
+    it let a forged token read another user's entry. An expired token bypasses the cache."""
+    who = request_identity()
+    if who is None:
+        value = await producer()
+        return value, datetime.now(timezone.utc)
+    key = f"{name}|{who}{_lineage_key()}"
     now = datetime.now(timezone.utc)
     hit = _cache.get(key)
     if hit and (now - hit[1]).total_seconds() < ttl:

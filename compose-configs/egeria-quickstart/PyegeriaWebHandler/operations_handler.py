@@ -86,6 +86,7 @@ from loguru import logger
 from pydantic import BaseModel
 
 from egeria_auth import apply_token, async_apply_token
+from result_cache import request_identity
 
 router = APIRouter(tags=["egeria-operations"])
 
@@ -109,8 +110,10 @@ _fetch_in_progress: dict[str, asyncio.Task] = {}
 _REPORT_TTL = 60.0  # seconds before a cached entry is considered stale
 
 
-def _report_cache_key(server_guid: str, url: str, server: str, user_id: str) -> str:
-    return f"{server_guid}|{url}|{server}|{user_id}"
+def _report_cache_key(server_guid: str, url: str, server: str, identity: str) -> str:
+    """identity = result_cache.request_identity(...) (a hashed credential). server_guid stays first:
+    _invalidate_server_cache drops every caller's entry for a server by that prefix."""
+    return f"{server_guid}|{url}|{server}|{identity}"
 
 
 def _invalidate_server_cache(server_guid: str) -> None:
@@ -449,7 +452,12 @@ async def list_integration_connectors(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
-    cache_key = _report_cache_key(server_guid, url or "", server or "", user_id or "")
+    who = request_identity(user_id, user_pwd)  # hashed credential, never a bare user_id (None under token auth)
+    if who is None:
+        # Expired token: never serve (or start) a cached report for it. The report itself takes minutes,
+        # so refuse here rather than sending a minutes-long call to Egeria just to be refused.
+        raise HTTPException(status_code=401, detail="Egeria token expired; sign in again")
+    cache_key = _report_cache_key(server_guid, url or "", server or "", who)
     try:
         rm = await _runtime_manager_async(url, server, user_id, user_pwd)
         ac = await _automated_curation_async(url, server, user_id, user_pwd)
@@ -610,8 +618,9 @@ def list_engine_actions(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
-    cache_key = f"{search_string}|{url or ''}|{server or ''}|{user_id or ''}"
-    cached = _ENGINE_ACTIONS_CACHE.get(cache_key)
+    who = request_identity(user_id, user_pwd)  # hashed credential; None = expired token, bypass the cache
+    cache_key = f"{search_string}|{url or ''}|{server or ''}|{who}"
+    cached = (_ENGINE_ACTIONS_CACHE.get(cache_key) if who else None)
     if cached and (time.time() - cached[0]) < _ENGINE_ACTIONS_TTL:
         return JSONResponse(cached[1])
 
@@ -641,7 +650,8 @@ def list_engine_actions(
         })
     rows.sort(key=lambda r: r.get("requestedStartTime") or "", reverse=True)
     result = {"actions": rows, "total": len(rows)}
-    _ENGINE_ACTIONS_CACHE[cache_key] = (time.time(), result)
+    if who:
+        _ENGINE_ACTIONS_CACHE[cache_key] = (time.time(), result)
     return JSONResponse(result)
 
 

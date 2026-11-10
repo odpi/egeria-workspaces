@@ -40,7 +40,8 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from egeria_auth import lineage_key as _lineage_key, token_user as _token_user, use_token
+from egeria_auth import lineage_key as _lineage_key, use_token
+from result_cache import credential_identity, request_identity
 from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
 
@@ -614,7 +615,8 @@ def _node_from_metadata_expert_element(el: dict) -> dict:
     }
 
 
-def _serialize_schema(el: dict, mgr=None) -> dict:
+def _serialize_schema(el: dict, mgr=None, as_of_time: Optional[str] = None,
+                      identity_user_id: Optional[str] = None, identity_user_pwd: Optional[str] = None) -> dict:
     """Build the nested schemaType -> attribute -> nested-attribute tree.
 
     AssetCatalog.get_asset_graph_by_guid's response flattens the ENTIRE
@@ -712,7 +714,8 @@ def _serialize_schema(el: dict, mgr=None) -> dict:
                 me = _metadata_expert_from_asset_maker(mgr)
                 for guid in all_guids:
                     try:
-                        raw_el = me.get_metadata_element_by_guid(guid, graph_query_depth=0, output_format="JSON")
+                        raw_el = me.get_metadata_element_by_guid(guid, graph_query_depth=0, output_format="JSON",
+                                                                 **({"as_of_time": as_of_time} if as_of_time else {}))
                     except Exception:
                         logger.debug("schema tree: could not resolve node %s", guid)
                         continue
@@ -747,7 +750,13 @@ def _serialize_schema(el: dict, mgr=None) -> dict:
 
     # Badge each node with its assigned glossary term(s), if any -- one bounded
     # SemanticAssignment fetch for the whole tree (see semantic_links.py), not
-    # one relationship call per node.
+    # one relationship call per node. termsStatus says how far to trust the
+    # badges, so a missing badge is never silently read as "no term":
+    #   "complete" -- every assignment was read; "capped" -- the read stopped at
+    #   termsReadLimit, so some badges may be missing; "failed" -- the read failed,
+    #   no badges at all; None -- no attributes to badge.
+    terms_status = None
+    from semantic_links import READ_LIMIT
     if mgr is not None and attributes:
         def _collect_guids(nodes, out):
             for n in nodes:
@@ -759,10 +768,14 @@ def _serialize_schema(el: dict, mgr=None) -> dict:
         try:
             from semantic_links import terms_for_element_guids
             ce = _classification_explorer_from_asset_maker(mgr)
-            terms_by_guid = terms_for_element_guids(ce, _collect_guids(attributes, set()))
+            # identity keys semantic_links' short shared cache of the assignment read; _serialize_schema runs
+            # inside the request, so request_identity() sees this request's token (None = expired: no cache)
+            terms_by_guid, capped = terms_for_element_guids(ce, _collect_guids(attributes, set()), as_of_time,
+                                                            identity=request_identity(identity_user_id, identity_user_pwd))
+            terms_status = "capped" if capped else "complete"
         except Exception:
             logger.debug("schema tree: could not resolve assigned glossary terms")
-            terms_by_guid = {}
+            terms_by_guid, terms_status = {}, "failed"
 
         if terms_by_guid:
             def _apply_terms(nodes):
@@ -771,7 +784,8 @@ def _serialize_schema(el: dict, mgr=None) -> dict:
                     _apply_terms(n.get("children") or [])
             _apply_terms(attributes)
 
-    return {"schemaType": schema_type, "attributes": attributes}
+    return {"schemaType": schema_type, "attributes": attributes,
+            "termsStatus": terms_status, "termsReadLimit": READ_LIMIT}
 
 
 def _serialize_tech_type(el: dict) -> dict:
@@ -1087,6 +1101,7 @@ def debug_raw_element(
     depth: int = Query(1, ge=0, le=5, description="graphQueryDepth to request from Egeria"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now (the view's As-of slider)"),
 ):
     """Return the raw pyegeria/Egeria element response for any GUID — for advanced
     users who want to see the actual payload Egeria returns, rather than the
@@ -1117,7 +1132,8 @@ def debug_raw_element(
         u, s, uid, pwd = _creds(url, server, user_id, user_pwd)
         me = MetadataExpert(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
         _apply_token(me, token)
-        raw_el = me.get_metadata_element_by_guid(guid, graph_query_depth=depth, output_format="JSON")
+        raw_el = me.get_metadata_element_by_guid(guid, graph_query_depth=depth, output_format="JSON",
+                                                 **({"as_of_time": as_of_time} if as_of_time else {}))
         if isinstance(raw_el, dict) and raw_el:
             el = raw_el
             fetch_method = f"MetadataExpert.get_metadata_element_by_guid(depth={depth})"
@@ -1135,7 +1151,8 @@ def debug_raw_element(
             raw = mgr.get_asset_by_guid(
                 guid=guid,
                 output_format="JSON",
-                body={"class": "GetRequestBody", "graphQueryDepth": depth},
+                body={"class": "GetRequestBody", "graphQueryDepth": depth,
+                      **({"asOfTime": as_of_time} if as_of_time else {})},
             )
             el = raw[0] if isinstance(raw, list) else raw
             fetch_method = f"AssetMaker.get_asset_by_guid(depth={depth})"
@@ -1146,7 +1163,8 @@ def debug_raw_element(
     if not el:
         try:
             mgr = _asset_maker(url, server, user_id, user_pwd, token=token)
-            raw = mgr.find_infrastructure(search_string="*", output_format="JSON", graph_query_depth=depth)
+            raw = mgr.find_infrastructure(search_string="*", output_format="JSON", graph_query_depth=depth,
+                                          **({"as_of_time": as_of_time} if as_of_time else {}))
             found = _find_by_guid(raw, guid)
             if found:
                 el = found
@@ -1161,7 +1179,8 @@ def debug_raw_element(
             u, s, uid, pwd = _creds(url, server, user_id, user_pwd)
             gm = GlossaryManager(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
             _apply_token(gm, token)
-            raw = gm.get_term_by_guid(guid, output_format="JSON", body={"class": "GetRequestBody", "graphQueryDepth": depth})
+            raw = gm.get_term_by_guid(guid, output_format="JSON", body={"class": "GetRequestBody", "graphQueryDepth": depth,
+                                                                     **({"asOfTime": as_of_time} if as_of_time else {})})
             el = raw
             fetch_method = f"GlossaryManager.get_term_by_guid(depth={depth})"
             classifications = _extract_classifications(_header(el))
@@ -1169,7 +1188,8 @@ def debug_raw_element(
             pass
 
     if not el:
-        raise HTTPException(status_code=404, detail=f"Could not fetch element {guid!r} via any method")
+        raise HTTPException(status_code=404, detail=(f"{guid!r} did not exist at {as_of_time}" if as_of_time
+                                                     else f"Could not fetch element {guid!r} via any method"))
 
     return JSONResponse({
         "guid":            guid,
@@ -1550,7 +1570,12 @@ def _get_list_cached(key: str, refresh: bool, start_fill):
 
 
 def _list_key(kind: str, url, server, user_id, user_pwd, include_templates: bool, as_of_time: Optional[str]) -> str:
-    who = _token_user() or _creds(url, server, user_id, user_pwd)[2]
+    # The hashed credential presented (result_cache.request_identity), not the token's unverified `sub`
+    # or a bare user id: zone security shows users different elements and a cache hit checks nothing.
+    who = request_identity(user_id, user_pwd)
+    if who is None:
+        # Expired token: never serve (or start) a cached list for it; these fills read many pages.
+        raise HTTPException(status_code=401, detail="Egeria token expired; sign in again")
     return f"{kind}|{who}|{url or ''}|{server or ''}|{include_templates}|{as_of_time or ''}{_lineage_key()}"
 
 
@@ -1860,6 +1885,7 @@ def get_asset_schema(
     guid: str,
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now (the view's As-of slider)"),
 ):
     """Return the schema type + nested attribute tree for any asset with a Schema relationship.
 
@@ -1877,14 +1903,17 @@ def get_asset_schema(
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
         ac = _asset_catalog_from_asset_maker(mgr)
-        raw = ac.get_asset_graph_by_guid(
-            guid,
-            output_format="JSON",
-            body={"class": "ResultsRequestBody", "graphQueryDepth": 5},
-        )
+        body = {"class": "ResultsRequestBody", "graphQueryDepth": 5}
+        if as_of_time:
+            body["asOfTime"] = as_of_time       # the whole tree, its node lookups and term badges share one time
+        raw = ac.get_asset_graph_by_guid(guid, output_format="JSON", body=body)
         el = raw[0] if isinstance(raw, list) else raw
-        return JSONResponse(_serialize_schema(el or {}, mgr=mgr))
+        return JSONResponse(_serialize_schema(el or {}, mgr=mgr, as_of_time=as_of_time or None,
+                                              identity_user_id=user_id, identity_user_pwd=user_pwd))
     except Exception as exc:
+        from pyegeria import PyegeriaNotFoundException
+        if as_of_time and isinstance(exc, PyegeriaNotFoundException):
+            raise HTTPException(status_code=404, detail=f"{guid!r} did not exist at {as_of_time}")
         logger.exception("get_asset_schema failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
@@ -2406,8 +2435,18 @@ async def list_survey_types(
     so a cold/stale cache spawns one background Task per cache key and the request
     returns at once. Cold -> {"items": [], "loading": true}; stale -> the old items
     plus "stale": true and "loading": true. The UI polls until loading is false.
+
+    Built as the Portal's service user on the configured platform, for every caller alike: survey types
+    come from TechnologyType reference data, the same for everyone, so one shared entry (key `svc:<user>`)
+    is correct by construction -- unlike a key on the caller's bare user_id, which every token user shared
+    while the entry held whichever caller's view filled it first. The caller's url/server/user_id/user_pwd
+    are deliberately ignored: the service password is never sent to a platform the request names.
     """
-    cache_key = f"{url}|{server}|{user_id}{_lineage_key()}"
+    # Reference data, shared by construction: built with an explicit service-credential client (below,
+    # never the request token) and keyed on that service identity plus the platform/server it reads.
+    svc_url, svc_server, _, _ = _creds(None, None, None, None)
+    svc_identity = credential_identity(None, None, None, os.environ.get("EGERIA_USER", "erinoverview"))  # "svc:<user>"
+    cache_key = f"{svc_identity}|{svc_url}|{svc_server}{_lineage_key()}"
     cached = _SURVEY_TYPES_CACHE.get(cache_key)
     fresh = bool(cached) and (time.time() - cached["ts"]) < _SURVEY_TYPES_TTL
     if fresh:
@@ -2416,9 +2455,8 @@ async def list_survey_types(
     if cache_key not in _SURVEY_TYPES_TASKS:
         # No await between this check and the registration below, so only one
         # Task per key can ever be created.
-        token = _token_from_request(request)
         try:
-            ac = await _automated_curation_async(url, server, user_id, user_pwd, token=token)
+            ac = await _automated_curation_async(None, None, None, None, token=None)   # env service user
         except Exception as exc:
             logger.exception("list_survey_types: client creation failed")
             raise HTTPException(status_code=500, detail=str(exc))
@@ -2461,7 +2499,10 @@ def _fetch_detail(mgr, guid: str, section: Optional[str], as_of_time: Optional[s
     if section == "endpoints":
         try:
             cm = _connection_maker_from_asset_maker(mgr)
-            raw = cm.get_endpoint_by_guid(guid=guid, output_format="JSON", graph_query_depth=5)
+            # An explicit body when as_of_time is set (pyegeria ignores graph kwargs once a body is given).
+            raw = cm.get_endpoint_by_guid(guid=guid, output_format="JSON", graph_query_depth=5,
+                                          **({"body": {"class": "GetRequestBody", "graphQueryDepth": 5,
+                                                       "asOfTime": as_of_time}} if as_of_time else {}))
             el = raw[0] if isinstance(raw, list) else raw
             if el:
                 return el
@@ -2499,7 +2540,8 @@ def _fetch_detail(mgr, guid: str, section: Optional[str], as_of_time: Optional[s
         raw = mgr.get_asset_by_guid(
             guid=guid,
             output_format="JSON",
-            body={"class": "GetRequestBody", "graphQueryDepth": 5, "relationshipsPageSize": 50},
+            body={"class": "GetRequestBody", "graphQueryDepth": 5, "relationshipsPageSize": 50,
+                  **({"asOfTime": as_of_time} if as_of_time else {})},
         )
         el = raw[0] if isinstance(raw, list) else raw
         if el:

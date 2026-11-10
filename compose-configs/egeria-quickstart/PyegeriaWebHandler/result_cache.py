@@ -21,6 +21,7 @@ Sync on purpose: ``execute_spec`` is a sync route (it runs in a worker thread), 
 lock is the right primitive and no asyncio loop is involved.
 """
 import hashlib
+import os
 import threading
 import time
 from collections import OrderedDict
@@ -162,3 +163,18 @@ def credential_identity(token: Optional[str], user_id: Optional[str], user_pwd: 
     if user_id:
         return "u:" + hashlib.sha256(f"{user_id}\0{user_pwd or ''}".encode()).hexdigest()
     return "svc:" + default_user      # the Portal's own service user (server-side env)
+
+
+def request_identity(user_id: Optional[str] = None, user_pwd: Optional[str] = None) -> Optional[str]:
+    """credential_identity for the CURRENT request (its X-Egeria-Token, else user_id + password, else the
+    Portal's service user), for keying a per-process cache of user-visible Egeria data.
+
+    Returns None when the presented token has expired: the caller must then neither read nor write its
+    cache, so the request reaches Egeria and is refused (a cache hit would otherwise keep serving an
+    expired token). Never key such a cache on a bare user_id (None for every token-authenticated user,
+    so all of them would share one entry) or on a token's unverified `sub` (forgeable)."""
+    from egeria_auth import _token_expired, get_request_token   # lazy: egeria_auth must not import this module first
+    token = get_request_token()
+    if token and _token_expired(token):
+        return None
+    return credential_identity(token, user_id, user_pwd, os.environ.get("EGERIA_USER", "erinoverview"))

@@ -1165,12 +1165,12 @@ function MainPanel({ focusAsset, creds, onSetFocus, activePersona, favPersonaId 
     if (!lineageData) loadLineage(buildLineageOpts());
   }
 
-  // Re-fetch lineage when ISC, allAnchors or hop/relationship options change (if already showing)
+  // Re-fetch lineage when ISC, allAnchors, hop/relationship options or the As-of time change (if already showing)
   useEffect(function() {
     if (!showFull) { setLineageData(null); return; }  // stale for the new options; reload on next open
     if (!guid || !creds) return;
     loadLineage(buildLineageOpts());
-  }, [selectedISC, iscMode, allAnchors, maxHops, noLimit, followActions, advApplied]);
+  }, [selectedISC, iscMode, allAnchors, maxHops, noLimit, followActions, advApplied, asOfTime]);
 
   function startWithISC(isc) {
     var h = isc.elementHeader || {}, p = isc.properties || {};
@@ -1227,7 +1227,8 @@ function MainPanel({ focusAsset, creds, onSetFocus, activePersona, favPersonaId 
   }
   var advDirty = advInclude !== advApplied.include || advSkip !== advApplied.skip;
 
-  return React.createElement('div', null,
+  // AsOfContext: the shared widgets inside (diagrams, assigned elements, raw JSON, feedback) follow the slider.
+  return React.createElement(AsOfContext.Provider, { value: asOfTime }, React.createElement('div', null,
     // ── Focus Asset Card
     React.createElement('div', { className: 'asset-card' },
       React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
@@ -1439,7 +1440,7 @@ function MainPanel({ focusAsset, creds, onSetFocus, activePersona, favPersonaId 
         )
       )
     )
-  );
+  ));
 }
 
 // ── App ────────────────────────────────────────────────────────────────────────
