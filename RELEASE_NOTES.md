@@ -144,6 +144,15 @@ Work merged after the 6.2 notes were compiled; see the `[Unreleased]` section of
   `--refresh-platform` re-pins to the newest `latest` image instead, which takes you off 6.2.
 - **Docker Desktop publishes ports on `127.0.0.1` only.** Add `--lan` to `quick-start-local` / `fresh-start-local`
   to reach the stack by machine name or from other machines.
+- **Report specs held in Egeria are read from the Portal's consumer folder.** The quickstart's default
+  `PYEGERIA_REPORT_SPEC_FOLDERS` is now `ReportSpecFolder::Consumer::Portal`, under the root collection
+  `RootCollection::ReportSpecs`; the old folder `ReportSpecFolder::EgeriaPortal` is no longer read. On each
+  Egeria that a quickstart Portal reads (for example a separately hosted demo), run
+  `compose-configs/egeria-quickstart/PyegeriaWebHandler/egeria-held-specs/REPORT_SPEC_CONSUMER_FOLDERS.dr-egeria.md`
+  once with Dr.Egeria: it creates the root and the six consumer folders and renames the old folder in place, keeping
+  its specs. Run `--validate` first. Until it has run, the Portal's sync reports `Consumer::Portal` as "folder not
+  found", the Portal uses its local copies of its two specs, and the Report Specs view's "Used by" row says
+  "not read". To keep the old folder instead, set `PYEGERIA_REPORT_SPEC_FOLDERS=ReportSpecFolder::EgeriaPortal`.
 
 ## Where the detail lives
 
