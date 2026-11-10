@@ -76,7 +76,7 @@ def test_folder_not_found_is_named(api, monkeypatch):
         "notes": [], "skipped": [["ReportSpecFolder::test-only", "folder not found, or not visible to erinoverview"]]})
     held = api.get("/api/report-specs").json()["egeriaHeld"]
     if held["count"] == 0:
-        assert held["message"] == "None held in Egeria: the configured folders were not found in Egeria"
+        assert held["message"] == "None held in Egeria: the configured folders were not found in Egeria (or are not visible to the Portal's user)"
 
 
 class _FakeReport:

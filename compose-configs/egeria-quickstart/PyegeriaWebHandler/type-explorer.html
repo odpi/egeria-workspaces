@@ -3043,7 +3043,7 @@ function _rsSyncWords(st) {
   if (!st) return '';
   // A running sync says what it is doing (starting / running / retrying), never "already running".
   if (st.running) return _rsCap(st.running_words || 'a sync from Egeria is running') + '…';
-  if (st.outcome === 'folders_missing') return 'The configured folders were not found in Egeria: ' +
+  if (st.outcome === 'folders_missing') return 'The configured folders were not found in Egeria, or are not visible to the Portal\'s user: ' +
     ((st.missing_folders || []).join(', ') || (st.folders || []).join(', ')) + '.';
   if (st.outcome === 'not_configured') return 'No report spec folders are configured, so nothing was synced.';
   if (st.outcome === 'failed') return 'Sync failed: ' + (st.error || 'no detail');
