@@ -336,7 +336,7 @@ def _expired(sub="alice"):
     return f"{enc({'alg': 'none'})}.{enc({'sub': sub, 'exp': int(time.time()) - 60})}.sig"
 
 
-def test_delete_without_a_token_user_is_refused_and_deletes_nothing(env):
+def test_delete_without_a_token_user_is_refused_and_deletes_nothing(env, verify):
     c = env["client"]
     for headers in ({}, {"X-Egeria-Token": _expired()}, {"X-Egeria-Token": "not-a-jwt"}):
         r = c.delete("/api/local-dashboards/json-only", headers=headers)
@@ -353,3 +353,55 @@ def test_page_sends_the_token_header_on_delete():
     i = html.index("function deleteSheet(")
     body = html[i:html.index("\n}\n", i)]
     assert "viewerToken()" in body and "'X-Egeria-Token': token" in body
+
+
+# ── P3s (2026-11-10): DELETE verifies the token with Egeria; Egeria-held sheets show Delete disabled ─────
+
+@pytest.fixture
+def verify(monkeypatch):
+    """Fake MyProfile: what Egeria does with get_my_profile under the presented token."""
+    st = {"raise": None, "tokens": []}
+
+    class FakeProfile:
+        def __init__(self, *a, **k): self.user_id, self.user_pwd = k.get("user_id"), k.get("user_pwd")
+        def set_bearer_token(self, t): st["tokens"].append(t)
+        def get_my_profile(self):
+            if st["raise"]: raise st["raise"]
+            return {"class": "OpenMetadataRootElement"}
+
+    import pyegeria
+    monkeypatch.setattr(pyegeria, "MyProfile", FakeProfile)
+    return st
+
+
+class _NotFound(Exception):
+    response_code = 404
+
+
+def test_delete_with_a_token_egeria_refuses_is_a_401_and_deletes_nothing(env, verify):
+    verify["raise"] = _Refused("forged: Egeria said 401")
+    c, forged = env["client"], _jwt("garygeeke", salt="hand-made")
+    r = c.delete("/api/local-dashboards/json-only", headers={"X-Egeria-Token": forged})
+    assert r.status_code == 401 and verify["tokens"] == [forged]           # Egeria was asked, with that token
+    assert "json-only" in [s["name"] for s in c.get("/api/local-dashboards").json()["sheets"]]
+
+
+def test_delete_fails_closed_when_the_token_cannot_be_checked(env, verify):
+    verify["raise"] = ConnectionError("Egeria down")
+    r = env["client"].delete("/api/local-dashboards/json-only", headers={"X-Egeria-Token": _jwt("alice")})
+    assert r.status_code == 503
+    assert "json-only" in [s["name"] for s in env["client"].get("/api/local-dashboards").json()["sheets"]]
+
+
+def test_delete_with_a_verified_token_deletes_even_without_a_profile(env, verify):
+    verify["raise"] = _NotFound("no profile")
+    r = env["client"].delete("/api/local-dashboards/json-only", headers={"X-Egeria-Token": _jwt("alice")})
+    assert r.status_code == 200 and r.json() == {"deleted": "json-only"}
+
+
+def test_egeria_held_sheets_show_delete_disabled_with_the_cli_hint():
+    html = (Path(__file__).resolve().parent.parent / "local-dashboards.html").read_text()
+    assert "python -m pyegeria.view.dashboards delete" in html and "shared Egeria write" in html
+    assert html.count("s.source === 'egeria' ? egeriaDeleteDisabled(") == 1               # list card
+    assert html.count("sheet.source === 'egeria' ? egeriaDeleteDisabled(") == 1           # detail view
+    assert "disabled aria-disabled=\"true\"" in html

@@ -132,6 +132,7 @@
   .src-tag { display:inline-block; font-size:.62rem; font-weight:500; padding:1px 6px; margin-left:6px; border-radius:8px;
              border:1px solid var(--border); color:var(--muted); vertical-align:middle; white-space:nowrap; }
   .src-tag.src-egeria { color:var(--accent, #2a6fdb); border-color:currentColor; }
+  .icon-btn:disabled, .btn:disabled { opacity:.45; cursor:not-allowed; }
   .src-note { margin:0 0 12px; padding:8px 12px; border-radius:6px; font-size:.78rem;
               border:1px solid var(--amber); color:var(--amber); overflow-wrap:anywhere; }
   .placement .p-note a { color:#4f9cf9; text-decoration:underline; }
@@ -505,6 +506,16 @@ function egeriaNote(eg) {
     + 'Sheets held in Egeria may be missing. (' + esc(eg.error || 'unknown error') + ')</div>';
 }
 
+// Egeria-held sheets cannot be deleted here (this page deletes from the local file only): Delete is shown
+// disabled, saying how they are deleted. That command is a shared Egeria write: coordinate it first.
+var EGERIA_DELETE_HINT = 'This sheet is held in Egeria; the Portal deletes only sheets in the local file. '
+  + 'Delete it with: python -m pyegeria.view.dashboards delete (a shared Egeria write).';
+function egeriaDeleteDisabled(label, cls) {
+  return '<span title="' + esc(EGERIA_DELETE_HINT) + '" onclick="event.stopPropagation()">'
+    + '<button class="' + cls + '" disabled aria-disabled="true" aria-label="' + esc(EGERIA_DELETE_HINT) + '">'
+    + label + '</button></span>';
+}
+
 function deleteSheet(name, heading) {
   if (!confirm('Delete dashboard "' + heading + '"?\n\nThis removes the Dashboard Sheet and its placements only -- any Reports it references are left untouched. This cannot be undone.')) return;
   // A delete is made as the signed-in user, never the Portal's service user: the server refuses one with
@@ -553,7 +564,7 @@ function renderList() {
       body.innerHTML = note + '<div class="sheet-grid">' + data.sheets.map(function(s) {
         return '<div class="sheet-card" onclick="navigateToSheet(' + attrJson(s.name) + ')">'
           + '<div class="card-top"><h3>' + esc(s.heading || s.name) + srcTag(s.source) + '</h3>'
-          + (s.source === 'egeria' ? '' : '<button class="icon-btn" title="Delete this Dashboard Sheet" '
+          + (s.source === 'egeria' ? egeriaDeleteDisabled('🗑', 'icon-btn') : '<button class="icon-btn" title="Delete this Dashboard Sheet" '
           + 'onclick="event.stopPropagation();deleteSheet(' + attrJson(s.name) + ',' + attrJson(s.heading || s.name) + ')">🗑</button>') + '</div>'
           + (s.breaks && s.breaks.length ? '<div class="desc" style="color:var(--amber)">Chain broken in Egeria: ' + esc(s.breaks.join('; ')) + '</div>' : '')
           + '<div class="desc">' + esc(s.description || 'No description.') + '</div>'
@@ -600,7 +611,7 @@ function renderDetail(name, force) {
         + (sheet.family ? '<span class="badge badge-fam">' + esc(sheet.family) + '</span>' : '')
         + '<select class="btn" onchange="setPerspective(this.value)" title="Filter placements by viewer-role perspective">' + perspOptions + '</select>'
         + '<button class="icon-btn" title="Refresh everything: re-resolve this sheet and re-run every report now (bypasses the caches)" aria-label="Refresh this Dashboard Sheet and re-run every report" onclick="renderDetail(' + attrJson(sheet.name) + ',true)">↻</button>'
-        + (sheet.source === 'egeria' ? '' : '<button class="btn btn-danger" onclick="deleteSheet(' + attrJson(sheet.name) + ',' + attrJson(sheet.heading || sheet.name) + ')">Delete Dashboard</button>')
+        + (sheet.source === 'egeria' ? egeriaDeleteDisabled('Delete Dashboard', 'btn btn-danger') : '<button class="btn btn-danger" onclick="deleteSheet(' + attrJson(sheet.name) + ',' + attrJson(sheet.heading || sheet.name) + ')">Delete Dashboard</button>')
         + '</div></div>'
         + '<div class="placements" id="placements"></div>';
 

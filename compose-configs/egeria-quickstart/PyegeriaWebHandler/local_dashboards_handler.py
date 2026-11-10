@@ -262,7 +262,37 @@ def _require_token_user() -> str:
     user = token_user()
     if not user:
         raise HTTPException(status_code=401, detail="The sign-in token names no user; sign in again")
+    _verify_token_with_egeria(token, user)
     return user
+
+
+def _verify_token_with_egeria(token: str, user: str) -> None:
+    """token_user() reads the JWT WITHOUT checking its signature, so a hand-made token with a future exp
+    would pass. Before a write, let Egeria check it: one cheap read (my profile, ~0.6 s) as that token.
+    A refused token is a 401; "no profile" (404) still proves Egeria accepted it; anything else (Egeria
+    unreachable, an unexpected error) refuses the write with 503 -- fail closed, never "unverified but OK".
+    Sync: this runs in sync routes only (see CLAUDE.md's async invariants)."""
+    from egeria_auth import use_token
+    from egeria_error_mapping import _is_auth_error
+    import pyegeria
+    from pyegeria import MyProfile
+    pyegeria.enable_ssl_check = False
+    pyegeria.disable_ssl_warnings = True
+    try:
+        client = MyProfile(os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server"),
+                           os.environ.get("EGERIA_PLATFORM_URL", "https://localhost:9443"),
+                           user_id=user, user_pwd=None)
+        use_token(client, token)          # no password on the client: a 401 can never re-login as anyone
+        client.get_my_profile()
+    except Exception as exc:  # noqa: BLE001
+        if _is_auth_error(exc):
+            raise HTTPException(status_code=401, detail="Egeria refused the sign-in token; sign in again")
+        code = getattr(exc, "response_code", None) or getattr(exc, "http_status_code", None)
+        if code == 404 or "NOT_FOUND" in str(exc).upper():
+            return                        # Egeria accepted the token; this user just has no profile
+        logger.warning(f"local-dashboards: could not verify the token of {user!r}: {exc}")
+        raise HTTPException(status_code=503, detail="Could not check your sign-in with Egeria, so nothing "
+                                                    "was changed; try again shortly")
 
 
 def _egeria_sheets(url=None, server=None, user_id=None, user_pwd=None) -> dict:
