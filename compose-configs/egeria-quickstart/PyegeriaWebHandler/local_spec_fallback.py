@@ -10,7 +10,8 @@ The Portal defines two report specs in code:
 - "Resource Explorer - Curation Coverage" (re_analytics.py), which runs
   `re_curation_coverage_tile`, an analytic the Portal registers.
 
-Both are also held in Egeria, in the CollectionFolder `ReportSpecFolder::EgeriaPortal`, which
+Both are also held in Egeria, in the CollectionFolder `ReportSpecFolder::Consumer::Portal` (the
+Portal's consumer folder; until 2026-11 named `ReportSpecFolder::EgeriaPortal`), which
 report_spec_sync.py syncs into pyegeria's EGERIA tier. pyegeria resolves a label local > egeria >
 builtin, so a local copy registered in the RUNTIME tier would always shadow the Egeria copy.
 `reconcile()` therefore registers a local copy only while the EGERIA tier does not hold that

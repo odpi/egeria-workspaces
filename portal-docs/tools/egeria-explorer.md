@@ -193,7 +193,12 @@ qualified name, when it was last synced, and *DRAFT* if it is a draft.
 
 **Specs held in Egeria are read from folders.** In Egeria, report specs are filed in collection folders.
 The Portal reads the folders named in `PYEGERIA_REPORT_SPEC_FOLDERS`; on the quickstart the default is
-`ReportSpecFolder::EgeriaPortal`. A banner at the top of the Report Specs view lists those folders and
+`ReportSpecFolder::Consumer::Portal`, the Portal's *consumer folder*. Report specs in Egeria are organised by
+the tool that uses them: the root collection `RootCollection::ReportSpecs` holds one consumer folder per tool
+(Portal, Egeria Advisor, Resource Explorer, pyegeria, My Egeria, Jupyter), and putting a spec in a tool's
+folder publishes it to that tool. A spec can be in several folders. (Until November 2026 the Portal's folder was
+named `ReportSpecFolder::EgeriaPortal`; the default still lists that name for one release while the folder is
+renamed, and a banner note says which of the two was not found.) A banner at the top of the Report Specs view lists those folders and
 says how many specs are held in Egeria. When there are none it says why, for example:
 
 - *None held in Egeria: no report spec folders are configured for this Portal (PYEGERIA_REPORT_SPEC_FOLDERS)*
@@ -201,9 +206,9 @@ says how many specs are held in Egeria. When there are none it says why, for exa
 - *None held in Egeria: the configured folders were not found in Egeria (or are not visible to the Portal's user)*
 - *None held in Egeria: the configured folders hold no active report specs*
 
-On the quickstart the folder `ReportSpecFolder::EgeriaPortal` exists (created 2026-11-10) but is empty,
-so the banner says *the configured folders hold no active report specs*. To show a spec held in Egeria,
-add its ReportSpec element (an active one, not a draft) to that folder as a member, then sync.
+On the quickstart the Portal's folder holds the Portal's own two specs ("Analytic - Generic Metric Trend"
+and "Resource Explorer - Curation Coverage"). To show another spec held in Egeria, add its ReportSpec element
+(an active one, not a draft) to that folder as a member, then sync.
 
 **The Portal works from a local copy of those specs.** It copies the specs in its folders from Egeria
 into its own cache:

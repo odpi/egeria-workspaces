@@ -5,8 +5,13 @@
 
 > Loadable **Dr.Egeria** document. It creates the Portal's two code-defined report specs as
 > `ReportSpec` elements in Egeria and makes each a member of the CollectionFolder
-> `ReportSpecFolder::EgeriaPortal` (guid `fe5aad27-1587-4d4e-a7c0-ab806650a6e2`). That is the
+> `ReportSpecFolder::Consumer::Portal` (guid `fe5aad27-1587-4d4e-a7c0-ab806650a6e2`). That is the
 > folder the Portal syncs at startup (`PYEGERIA_REPORT_SPEC_FOLDERS`).
+>
+> This document was run on 2026-11-10, when the folder was named `ReportSpecFolder::EgeriaPortal`.
+> `REPORT_SPEC_CONSUMER_FOLDERS.dr-egeria.md` renames that same element to
+> `ReportSpecFolder::Consumer::Portal` and nests it under `RootCollection::ReportSpecs`. The
+> Parent IDs below use the new name, so run this document again only after the rename.
 >
 > **This is a shared Egeria write. Run it once, under the shared-write peer check.** Run
 > `--validate` first; it makes no changes.
@@ -77,7 +82,7 @@ DICT, JSON, SERIES
 {"format": "microflow/1", "params": {}, "stages": [{"stage": "producer/analytic", "function": "metric_trend", "params": {"metric_path": "count_elements", "metric_params": {"type_name": "Asset"}, "window": "6mo"}}], "formatters": {"DICT": {"columns": []}, "JSON": {"same_as": "DICT"}, "SERIES": {"same_as": "DICT"}}}
 
 ### Parent ID
-ReportSpecFolder::EgeriaPortal
+ReportSpecFolder::Consumer::Portal
 
 ### Parent Relationship Type Name
 CollectionMembership
@@ -118,7 +123,7 @@ DICT, JSON, BAR
 {"format": "microflow/1", "params": {}, "stages": [{"stage": "producer/analytic", "function": "re_curation_coverage_tile", "params": {"resource_type": "database"}}], "formatters": {"DICT": {"columns": []}, "JSON": {"same_as": "DICT"}, "BAR": {"same_as": "DICT"}}}
 
 ### Parent ID
-ReportSpecFolder::EgeriaPortal
+ReportSpecFolder::Consumer::Portal
 
 ### Parent Relationship Type Name
 CollectionMembership
