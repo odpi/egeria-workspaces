@@ -644,6 +644,35 @@ var TABS = [
   { id: 'metrics',        label: 'Governance Metrics', embed: '/governance-metrics?embed=1' },
 ];
 
+// An embedded page (the Governance Metrics tab) is told who the selected viewer is, so it reads
+// Egeria as that viewer, like the other tabs. The token goes by postMessage to a same-origin
+// frame only, never in the URL. The page asks ('egeria-viewer-request') when it loads; Audit
+// also sends on the frame's load event. A new viewer re-keys the frame (see credKey below).
+function EmbedTab({ src, title, creds, who }) {
+  var ref = React.useRef(null);
+  var viewer = {
+    type: 'egeria-viewer',
+    token: (creds && creds.token) || '',
+    userId: (creds && creds.userId) || '',
+    label: who ? who.label : '',
+  };
+  function send() {
+    var f = ref.current;
+    if (f && f.contentWindow) f.contentWindow.postMessage(viewer, window.location.origin);
+  }
+  useEffect(function() {
+    function onMsg(e) {
+      if (e.origin !== window.location.origin) return;
+      if (!ref.current || e.source !== ref.current.contentWindow) return;
+      if (e.data && e.data.type === 'egeria-viewer-request') send();
+    }
+    window.addEventListener('message', onMsg);
+    return function() { window.removeEventListener('message', onMsg); };
+  });
+  return el('iframe', { ref: ref, src: src, title: title, onLoad: send,
+    style: { width: '100%', height: '100%', border: 0, display: 'block', background: 'var(--bg)' } });
+}
+
 // Account-status values the change control offers. The exact Egeria
 // UserAccountStatus enum isn't introspectable here (demo connector is
 // unpopulated) — confirm + extend against a populated platform.
@@ -912,8 +941,8 @@ function App() {
   var content = !ready
     ? el('div', { style: pad }, 'Connecting…')
     : active.embed
-      ? el('iframe', { key: active.id, src: active.embed, title: active.label,
-          style: { width: '100%', height: '100%', border: 0, display: 'block', background: 'var(--bg)' } })
+      ? el(EmbedTab, { key: active.id + '@' + credKey + '@' + ((creds && creds.token) ? creds.token.slice(-12) : ''),
+          src: active.embed, title: active.label, creds: creds, who: who })
     : active.id === 'users'
       ? el(UsersTab, { key: 'users@' + credKey, creds: creds })
       : el(AuditRelationshipTab, { key: active.id + '@' + credKey, relType: active.relType, columns: COLS[active.relType],

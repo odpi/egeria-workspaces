@@ -90,12 +90,42 @@ if (/[?&]embed=1(&|$)/.test(location.search)) {
 </div>
 
 <script>
+// Embedded in Egeria Audit (?embed=1): wait briefly for Audit's selected viewer, then read Egeria
+// as that viewer (X-Egeria-Token). Standalone, or with no viewer, the Portal's service user reads.
+var EMBEDDED = /[?&]embed=1(&|$)/.test(location.search);
+var VIEWER = null;   // { token, userId, label } from Audit
+var _viewerReady = new Promise(function(resolve){
+  if (!EMBEDDED || window.parent === window) { resolve(); return; }
+  var done = false;
+  function finish(){ if (!done) { done = true; resolve(); } }
+  window.addEventListener('message', function(e){
+    if (e.origin !== location.origin || e.source !== window.parent) return;
+    if (!e.data || e.data.type !== 'egeria-viewer') return;
+    VIEWER = { token: e.data.token || '', userId: e.data.userId || '', label: e.data.label || '' };
+    finish();
+  });
+  try { window.parent.postMessage({ type: 'egeria-viewer-request' }, location.origin); } catch (e) {}
+  setTimeout(finish, 2000);   // no answer: read as the service user, and say so
+});
+function viewerHeaders(h){
+  h = h || {};
+  if (VIEWER && VIEWER.token) h['X-Egeria-Token'] = VIEWER.token;
+  return h;
+}
+function viewerNote(){
+  if (!EMBEDDED) return '';
+  var who = (VIEWER && VIEWER.token)
+    ? 'Shown as <b>' + esc(VIEWER.label || VIEWER.userId || 'the selected viewer') + '</b>, the viewer selected in Egeria Audit.'
+    : "Shown as the Portal's service user: no viewer is selected in Egeria Audit (choose a persona or connect).";
+  return '<div class="p-note" style="margin:-6px 0 8px">' + who + '</div>';
+}
+
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 
 var STATE = { metrics: [], loaded: false, error: null };
 
 function fetchMetrics(){
-  return fetch('/api/governance-metrics')
+  return fetch('/api/governance-metrics', { headers: viewerHeaders() })
     .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
     .then(function(d){ STATE.metrics = d.metrics || []; STATE.loaded = true; STATE.error = null; })
     .catch(function(e){ STATE.error = String(e); STATE.loaded = true; });
@@ -120,6 +150,7 @@ function renderList(){
     return;
   }
   var html = '';
+  html += viewerNote();
   html += '<div class="pagehead"><div><h1>Governance Metrics <span class="badge badge-live">' + STATE.metrics.length + ' live</span></h1>';
   html += '<p>Each card is a real <code>GovernanceMetric</code> Egeria element (model 0450), linked via a real <code>GovernanceResults</code> relationship to the <code>Report</code> that computes it. This is Tier 1 of the lineage design — it stops at the Report; the analytic function and its data source aren\'t Egeria elements yet (see BACKLOG.md).</p></div></div>';
   if (!STATE.metrics.length) {
@@ -146,6 +177,7 @@ function renderDetail(name){
 
   var html = '';
   html += '<div class="back"><a class="btn" href="#">← All metrics</a></div>';
+  html += viewerNote();
   html += '<div class="pagehead"><div><h1>' + esc(m.name) + '</h1></div></div>';
 
   html += '<div class="detail-grid">';
@@ -216,9 +248,13 @@ function runReport(specName, btn){
   out.style.display = 'block';
   out.textContent = 'Running…';
   btn.disabled = true;
+  // As the viewer when Audit gave one (X-Egeria-Token); otherwise as before.
+  var runBody = (VIEWER && VIEWER.token)
+    ? { spec_name: specName, server: 'qs-view-server', output_format: 'DICT' }
+    : { spec_name: specName, server: 'qs-view-server', user_id: 'erinoverview', output_format: 'DICT' };
   fetch('/api/report-specs/execute', {
-    method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ spec_name: specName, server: 'qs-view-server', user_id: 'erinoverview', output_format: 'DICT' }),
+    method: 'POST', headers: viewerHeaders({'Content-Type': 'application/json'}),
+    body: JSON.stringify(runBody),
   })
     .then(function(r){ return r.json(); })
     .then(function(d){ renderRunOutput(out, d); btn.disabled = false; })
@@ -257,7 +293,7 @@ document.getElementById('app').addEventListener('click', function(e){
   }
 });
 
-fetchMetrics().then(route);
+_viewerReady.then(fetchMetrics).then(route);
 </script>
 </body>
 </html>
