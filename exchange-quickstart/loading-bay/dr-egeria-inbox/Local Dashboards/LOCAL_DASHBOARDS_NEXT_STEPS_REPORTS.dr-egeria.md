@@ -97,7 +97,7 @@ Collection Members
 MERMAID
 
 ### Report Parameters
-collection_guid : 0affb580-fa81-4d00-9438-b26faf11845d
+collection_qname : Coco Pharmaceuticals::WorkItemList::Local-Dashboards---Next-Steps::1.0
 
 ### OUTPUT Format
 TABLE

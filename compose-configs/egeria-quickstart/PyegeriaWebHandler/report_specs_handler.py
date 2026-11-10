@@ -17,6 +17,7 @@ published to (`usedBy`, from pyegeria's consumer index; report_spec_consumers.py
 import contextvars
 import json
 import os
+import re
 import threading
 import time
 from datetime import datetime, timezone
@@ -554,6 +555,47 @@ def _background_refresh(key, req, request, token, url, server, user_id, user_pwd
         _RESULT_CACHE.release_refresh(key, failed=failed)
 
 
+# A Report that pins one element (collection_guid, collection_qname, ...) fails in Egeria's words once that
+# element is gone: a stale GUID comes back as CLIENT_ERROR_400 naming it, a name that matches nothing as a
+# pyegeria not-found (404). Either way the honest sentence is that the element is gone (W1).
+_PINNED_PARAM = re.compile(r"^([a-z][a-z0-9_]*?)_(guid|qname|qualified_name)$")
+
+
+def _http_code(exc) -> Optional[int]:
+    for attr in ("related_http_code", "http_error_code", "http_status_code", "response_code"):
+        v = getattr(exc, attr, None)
+        try:
+            if v is not None and int(v) >= 400:   # an Egeria 200 wrapper carries the real code elsewhere
+                return int(v)
+        except (TypeError, ValueError):
+            continue
+    text = str(exc)
+    for code in (404, 400):
+        if f"CLIENT_ERROR_{code}" in text or f"HTTP Code: {code}" in text:
+            return code
+    return None
+
+
+def missing_pinned_element(exc, params: Optional[dict]) -> Optional[str]:
+    """The sentence for a Report whose pinned element no longer exists, or None if `exc` is something else.
+
+    Only a 404, or a 400 whose text names the pinned value, counts: any other 400 is a real refusal and keeps
+    its own words."""
+    pins = []
+    for key, value in (params or {}).items():
+        m = _PINNED_PARAM.match(str(key))
+        if m and isinstance(value, str) and value.strip():
+            pins.append((m.group(1).replace("_", " "), value.strip()))
+    if not pins:
+        return None
+    code = _http_code(exc)
+    text = str(exc)
+    for thing, value in pins:
+        if code == 404 or (code == 400 and value in text):
+            return f"The {thing} this report names no longer exists ({value})."
+    return None
+
+
 def _run_spec(req, request, token, url, server, user_id, user_pwd):
     """Run the spec; return the result, or raise the HTTPException the browser should see."""
     from pyegeria.view.format_set_executor import exec_report_spec
@@ -585,5 +627,9 @@ def _run_spec(req, request, token, url, server, user_id, user_pwd):
         exc_text = str(exc)
         if "HTTP Code: 401" in exc_text or getattr(exc, "http_error_code", None) == 401:
             raise HTTPException(status_code=401, detail="Not authorized for this operation — the current user does not have permission for this report")
+        gone = missing_pinned_element(exc, req.params)
+        if gone:
+            logger.info(f"exec_report_spec {req.spec_name!r}: {gone}")
+            raise HTTPException(status_code=404, detail=gone)
         logger.exception("exec_report_spec failed")
         raise HTTPException(status_code=500, detail=f"Execution failed: {exc}")

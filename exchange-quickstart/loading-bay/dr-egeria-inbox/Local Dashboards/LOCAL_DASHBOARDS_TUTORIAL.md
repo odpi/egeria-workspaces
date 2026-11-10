@@ -248,15 +248,21 @@ Report Spec" above). Two things matter when picking the underlying spec:
    "*(truncated...)*" note if you hit it), but a correctly-scoped Report
    shouldn't come close to that.
 
-Check `GET /api/report-specs` for a spec's `action.required_params` and
-`output_types` before authoring the Report. If `required_params` lists
-something outside the standard 22 (e.g. `Collection Members`'s
-`collection_guid`), set it via `Report Parameters` (added 2026-07-31) —
-a Dictionary attribute, keys matching the required param name exactly:
+Check `GET /api/report-specs` for a spec's `action.required_params`,
+`optional_params` and `output_types` before authoring the Report. A param
+outside the standard 22 (e.g. `Collection Members`'s collection) is set via
+`Report Parameters` (added 2026-07-31) — a Dictionary attribute, keys
+matching the param name exactly.
+
+Name an element by its **qualifiedName**, not its GUID: a GUID changes when
+the element is re-created (a platform reset or a re-run seed), and the tile
+then reports that the collection no longer exists. `Collection Members`
+takes `collection_qname` (or `collection_name`, or `collection_guid`) from
+pyegeria 6.2.34:
 
 ```markdown
 ### Report Parameters
-collection_guid: 0affb580-fa81-4d00-9438-b26faf11845d
+collection_qname: Coco Pharmaceuticals::WorkItemList::Local-Dashboards---Next-Steps::1.0
 ```
 
 ## Step 2 — Create the Dashboard Sheet
