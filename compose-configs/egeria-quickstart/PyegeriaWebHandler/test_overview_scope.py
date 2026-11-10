@@ -421,3 +421,24 @@ def test_repository_relationship_counts_are_given_the_expert():
     assert seen == [(None, None)]
     src = inspect.getsource(oh._compute_summary) + inspect.getsource(oh.get_people)
     assert src.count("expert=mgr") + src.count("expert=expert") >= 2
+
+
+def test_grounding_shows_one_decimal_under_10():
+    # Architect P3: 767 links over 56,357 Assets is 1.36 per 100 -> 1.4, not pyegeria's whole-number "1"
+    g = {"groundingLinks": 767, "groundingPct": 1}
+    f = oh._grounding_fields(g, 56357, oh.REPOSITORY)
+    assert f["groundingValue"] == 1.4 and f["groundingLinksPer100"] == 1.4 and f["groundingPct"] is None
+    # 10 and up: a whole number
+    assert oh._grounding_fields({"groundingLinks": 1234, "groundingPct": 12}, 10000, oh.REPOSITORY)["groundingValue"] == 12
+    # the asset share is rounded the same way
+    s = oh._grounding_fields({"groundingLinks": 767, "groundedAssets": 700, "groundedAssetPct": 1.2421}, 56357, oh.REPOSITORY)
+    assert s["groundingMeasure"] == "assetShare" and s["groundingValue"] == 1.2 and s["groundingLinksPer100"] == 1.4
+
+
+def test_grounding_never_recomputes_across_populations():
+    # a viewer funnel's Cataloged is not semantic_grounding's population: keep pyegeria's own figure
+    g = {"groundingLinks": 767, "groundingPct": 1}
+    assert oh._grounding_fields(g, 56357, oh.VIEWER)["groundingValue"] == 1
+    assert oh._grounding_fields(g, None, oh.REPOSITORY)["groundingValue"] == 1     # no Asset total: pyegeria's
+    assert oh._grounding_fields(g, 0, oh.REPOSITORY)["groundingValue"] == 1
+    assert oh._display_round(None) is None and oh._display_round(9.96) == 10.0 and oh._display_round(0.04) == 0.0

@@ -1677,7 +1677,27 @@ def _owned_asset_share(mgr, as_of, population: str, cataloged: Optional[int]):
     return owned, pct
 
 
-def _grounding_fields(grounding: Optional[dict]) -> dict:
+def _display_round(v):
+    """One decimal under 10 (1.36 -> 1.4, not 1), whole numbers from 10 up. None stays None."""
+    if v is None:
+        return None
+    return round(v, 1) if abs(v) < 10 else round(v)
+
+
+def _links_per_100(grounding: dict, cataloged: Optional[int], population: Optional[str]):
+    """SemanticAssignment links ÷ Assets × 100, unrounded, or pyegeria's whole-number groundingPct.
+
+    Recomputed from groundingLinks and the funnel's Cataloged only when the funnel counts the whole
+    repository -- the population semantic_grounding counts both of its numbers in (6.2.27+) -- so the
+    ratio never mixes populations. Otherwise pyegeria's own figure is used as it is."""
+    links = grounding.get("groundingLinks")
+    if population == REPOSITORY and links is not None and cataloged:
+        return 100 * links / cataloged
+    return grounding.get("groundingPct")
+
+
+def _grounding_fields(grounding: Optional[dict], cataloged: Optional[int] = None,
+                      population: Optional[str] = None) -> dict:
     """What the Semantic Grounding tile shows, labelled by what it measures.
 
     pyegeria 6.2.30's semantic_grounding returns groundingLinks (SemanticAssignment relationships) and
@@ -1688,14 +1708,17 @@ def _grounding_fields(grounding: Optional[dict]) -> dict:
     TODO(pyegeria next release): semantic_grounding is to report distinct grounded Assets as
     `groundedAssets` (int) and `groundedAssetPct` (groundedAssets ÷ its own Asset total × 100). The
     feature check below switches the tile to that real share (groundingMeasure "assetShare") as soon as an
-    installed pyegeria returns it; no Portal change is needed then."""
+    installed pyegeria returns it; no Portal change is needed then.
+
+    Values for display are rounded by _display_round: one decimal under 10 (767 links over 56,357 Assets
+    is 1.4 per 100, not "1")."""
     g = grounding or {}
-    share = g.get("groundedAssetPct")
+    per100 = _display_round(_links_per_100(g, cataloged, population))
+    share = _display_round(g.get("groundedAssetPct"))
     if share is not None:
         return {"groundingMeasure": "assetShare", "groundingValue": share, "groundingPct": share,
                 "groundedAssets": g.get("groundedAssets"), "groundingLinks": g.get("groundingLinks"),
-                "groundingLinksPer100": g.get("groundingPct")}
-    per100 = g.get("groundingPct")
+                "groundingLinksPer100": per100}
     return {"groundingMeasure": "linksPer100Assets", "groundingValue": per100, "groundingPct": None,
             "groundedAssets": None, "groundingLinks": g.get("groundingLinks"),
             "groundingLinksPer100": per100}
@@ -1781,7 +1804,7 @@ def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
 
     readiness = _strict_funnel_counts(readiness, mgr, as_of_time, scope=population)
     ownership_count, ownership_pct = _owned_asset_share(mgr, as_of_time, population, readiness.get("cataloged"))
-    grounding_fields = _grounding_fields(grounding)
+    grounding_fields = _grounding_fields(grounding, readiness.get("cataloged"), population)
 
     funnel = {
         "Cataloged":       readiness["cataloged"],
