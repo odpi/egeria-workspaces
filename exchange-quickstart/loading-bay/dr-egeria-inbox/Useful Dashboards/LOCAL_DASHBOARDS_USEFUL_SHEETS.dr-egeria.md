@@ -8,15 +8,17 @@
 >
 > | Sheet | Family | Tiles |
 > |---|---|---|
-> | `catalog-health` | Overview | AI context readiness, ownership, stale assets, asset composition |
-> | `glossary-and-meaning` | Glossary | term total, definition completeness, terms in use, active and draft terms, semantic grounding |
-> | `governance-and-compliance` | Governance | governance coverage, certifications and exceptions, usage context, solution design context |
+> | `catalog-health` | Overview | AI context readiness, ownership, stale assets, asset composition, growth over 90 days |
+> | `glossary-and-meaning` | Glossary | term total, definition completeness, terms in use, active and draft terms, semantic grounding, terms over 90 days |
+> | `governance-and-compliance` | Governance | governance coverage, certifications and exceptions, usage context, solution design context, governed elements over 90 days |
 > | `community-and-feedback` | Community | feedback, engagement over twelve weeks, active contributors, karma leaderboard, people |
 >
 > Rules this file keeps (brief BRIEF-USEFUL-SHEETS-AND-SAVED-QUERY-REPORTS-2026-11-10):
-> - **No GUIDs** in any parameter, **no zones** on any element, **no trend over past counts** (`metric_trend`,
->   `growth_series`) until pyegeria 6.2.34. `engagement_series` is kept: it buckets each feedback
->   relationship by its create time and reads every page, so it is not a past-count trend.
+> - **No GUIDs** in any parameter, **no zones** on any element.
+> - **Trends only over repository counts** (owner, 2026-11-10: "Yes, allow trends now"): `metric_trend` over
+>   `count_elements` and `growth_series`, both repository-scoped by default. Trends over what one viewer can see
+>   wait for pyegeria 6.2.34 (W2). `engagement_series` buckets each feedback relationship by its create time
+>   and reads every page, so it is not a past-count trend.
 > - Every Report name starts with its sheet's heading, so this file never updates a Report another sheet uses.
 > - Every value seen when the tiles were checked is recorded in the PR, not here (the data changes).
 >
@@ -90,6 +92,24 @@ PIE
 
 ### Analytic Parameters
 type_map: [["Data Stores", "DataStore"], ["Data Sets", "DataSet"], ["Software Components", "DeployedSoftwareComponent"], ["Infrastructure", "ITInfrastructure"], ["APIs", "DeployedAPI"], ["Processes", "Process"]]
+
+___
+## Create Report
+### Display Name
+Catalog Health - Catalog Growth, 90 Days
+
+### Description
+Assets, glossary terms, governed elements and digital products at six points over 90 days. Repository counts: they include elements you may not be able to see.
+
+### Report Spec
+Analytic Demo - Catalog Growth Trend
+
+### Output Format
+SERIES
+
+### Analytic Parameters
+window: 90d
+points: 6
 
 ___
 ## Create Dashboard Sheet
@@ -180,6 +200,21 @@ Catalog Health - Asset Composition
 panel
 
 ___
+## Link Report to Dashboard Sheet
+### Dashboard Sheet Name
+catalog-health
+
+### Report Name
+Catalog Health - Catalog Growth, 90 Days
+
+### Placement Span
+full
+
+### Placement Emphasis
+panel
+
+___
+
 # Glossary & Meaning
 
 ## Create Report
@@ -277,6 +312,26 @@ Analytic Demo - Semantic Grounding
 
 ### Output Format
 DICT
+
+___
+## Create Report
+### Display Name
+Glossary & Meaning - Glossary Terms, 90 Days
+
+### Description
+Glossary terms at six points over 90 days. Repository counts: they include terms you may not be able to see.
+
+### Report Spec
+Analytic - Generic Metric Trend
+
+### Output Format
+SERIES
+
+### Analytic Parameters
+window: 90d
+points: 6
+metric_path: count_elements
+metric_params: {"type_name": "GlossaryTerm"}
 
 ___
 ## Create Dashboard Sheet
@@ -395,6 +450,21 @@ Glossary & Meaning - Semantic Grounding
 kpi
 
 ___
+## Link Report to Dashboard Sheet
+### Dashboard Sheet Name
+glossary-and-meaning
+
+### Report Name
+Glossary & Meaning - Glossary Terms, 90 Days
+
+### Placement Span
+full
+
+### Placement Emphasis
+panel
+
+___
+
 # Governance & Compliance
 
 ## Create Report
@@ -451,6 +521,26 @@ Analytic Demo - Contextualised Coverage
 
 ### Output Format
 DICT
+
+___
+## Create Report
+### Display Name
+Governance & Compliance - Governed Elements, 90 Days
+
+### Description
+Elements carrying a governance classification or zone, at six points over 90 days. Repository counts: they include elements you may not be able to see, so they run higher than the Governance Coverage tile, which counts only what you can see.
+
+### Report Spec
+Analytic - Generic Metric Trend
+
+### Output Format
+SERIES
+
+### Analytic Parameters
+window: 90d
+points: 6
+metric_path: count_elements
+metric_params: {"classifications": ["ZoneMembership", "Confidentiality", "Criticality", "Impact", "Retention"]}
 
 ___
 ## Create Dashboard Sheet
@@ -541,6 +631,21 @@ Governance & Compliance - Solution Design Context
 kpi
 
 ___
+## Link Report to Dashboard Sheet
+### Dashboard Sheet Name
+governance-and-compliance
+
+### Report Name
+Governance & Compliance - Governed Elements, 90 Days
+
+### Placement Span
+full
+
+### Placement Emphasis
+panel
+
+___
+
 # Community & Feedback
 
 ## Create Report

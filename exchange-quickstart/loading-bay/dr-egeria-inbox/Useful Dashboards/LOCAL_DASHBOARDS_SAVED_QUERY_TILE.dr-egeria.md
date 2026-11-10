@@ -3,35 +3,74 @@
 
 # A saved query's last answer on a Dashboard Sheet (Route A)
 
-> Loadable **Dr.Egeria** document. It shows the last answer of the Portal-saved query **Assets with no
-> lineage** on the `catalog-health` sheet (made by `LOCAL_DASHBOARDS_USEFUL_SHEETS.dr-egeria.md`).
+> Loadable **Dr.Egeria** document. It seeds the saved query **Assets with no lineage** and its Results Set
+> under fixed qualified names, an Egeria-held report spec that lists a collection named by qualified name,
+> and a tile on the `catalog-health` sheet (made by `LOCAL_DASHBOARDS_USEFUL_SHEETS.dr-egeria.md`) that
+> shows the query's last refreshed answer.
 >
-> **Not in the heal batch.** The Portal names a saved query's Results Set
-> `ResultsSet::insights-query::<query name>::<8 random hex>`, so its qualified name is known only after the
-> query is saved, and it changes if the query is saved again (for example after a platform reset). This file
-> therefore stays out of `_batch.json`: after each save, put the Results Set's qualified name below, then
-> validate and run it once.
+> **Depends on a Portal change that has not merged yet**
+> (`~/.re-gate/BRIEF-PORTAL-SAVED-QUERY-SEEDABLE-2026-11-10.md`). Until it does, the Portal's
+> `POST /api/insights/queries/{guid}/refresh` refuses this query: it wants `additionalProperties.resultsSetGuid`
+> (a GUID) and a `formula`. After the change it finds the Results Set through the `SmartQuery` link and reads the
+> search from `additionalProperties.searchSpec`. **So this file stays in `_batch.json`'s `exclude` list until that
+> change merges**; then move it into `files`, after the sheets file.
 >
-> **Before running it:**
-> 1. In the Portal's Query tool, build the query: **Element type** `Asset`; **+ Add relationship** `DataFlow`
->    **lacks**; **Exclude types** `Notification, Action`. Save it as `Assets with no lineage` (leave
->    **Keep live** off: a relationship-only query cannot be kept live), then click **Refresh**.
-> 2. Read its Results Set's qualified name: `GET /api/insights/queries` gives each query's
->    `resultsSetGuid`; the Results Set element's `qualifiedName` is what goes below. Replace
->    `<ResultsSet qualifiedName>`.
+> **What the query is.** The Query tool's search for assets with no `DataFlow` relationship, leaving out
+> `Notification` and `Action` (worked example S3). `type_name` is declared as a parameter, so a refresh may
+> override it (for example `DataSet`) and nothing else; the refresh records the value it ran with
+> (`lastRefreshParams`).
 >
-> **Why a spec of its own.** pyegeria's built-in `Collection Members` spec requires `collection_guid` and
-> forwards no other way to name the collection, and a Report must never pin a GUID. `Saved Query Answer`
-> is the same call (`CollectionManager.get_collection_members`) with the collection named by qualified name.
-> It is held in Egeria, in the Portal's consumer folder, so the Portal picks it up at its next sync.
+> **Not refreshed until someone refreshes it.** Seeding leaves the Results Set empty. The first refresh is the
+> Coordinator's (an Egeria write): the Query tool's Saved Queries tab, **Refresh**, or
+> `POST /api/insights/queries/{guid}/refresh`. Until then the tile shows no rows. "Keep live" does not apply:
+> a relationship condition cannot be run by the Smart Collections connector.
 >
-> **"As of".** The refresh time is stamped on the SavedQuery (`additionalProperties.lastRefreshedTime`),
-> not on the Results Set, so this tile shows the members only; its description says it is the last
-> refreshed answer. **TODO (live check):** a second tile that shows the SavedQuery's `lastRefreshedTime`.
+> **"As of".** The refresh time is stamped on the SavedQuery (`lastRefreshedTime`, and after the Portal change
+> `lastRefreshParams`), not on the Results Set. **TODO:** the "Saved Query Status" tile (name, refresh time,
+> result count, parameter values, "never refreshed" when the time is missing). Its spec is written once a seeded,
+> refreshed query exists to check which fields a find returns.
 >
 > **This is a shared Egeria write.** Run `--validate` first, `--process` once under the peer check.
-> **Undo:** remove the placement (re-run the sheet file without it, or `python -m pyegeria.view.dashboards`);
-> the Report and spec can be deleted by GUID if asked.
+> **Undo:** delete the placement, the Report, the spec, the Results Set and the SavedQuery, by GUID, as the
+> seeding user.
+
+___
+
+## Create Saved Query
+### Display Name
+Assets with no lineage
+
+### Qualified Name
+SavedQuery::useful-sheets::Assets with no lineage
+
+### Description
+Assets with no DataFlow relationship, leaving out notifications and actions. The Query tool's search; refresh it to update the answer.
+
+### Additional Properties
+pyegeriaInsightsQuery: true
+searchSpec: {"type_name": "Asset", "relationship_conditions": [{"relationship_type": "DataFlow", "presence": "lacks"}], "exclude_types": ["Notification", "Action"]}
+parameters: [{"name": "type_name", "type": "string", "default": "Asset"}]
+
+___
+
+## Create Results Set
+### Display Name
+Assets with no lineage (results)
+
+### Qualified Name
+ResultsSet::useful-sheets::Assets with no lineage
+
+### Description
+The last refreshed answer of the saved query "Assets with no lineage".
+
+___
+
+## Link Saved Query to Results Set
+### Saved Query
+SavedQuery::useful-sheets::Assets with no lineage
+
+### Results Set
+ResultsSet::useful-sheets::Assets with no lineage
 
 ___
 
@@ -79,7 +118,7 @@ Saved Query Answer
 TABLE
 
 ### Report Parameters
-collection_qname : <ResultsSet qualifiedName>
+collection_qname : ResultsSet::useful-sheets::Assets with no lineage
 
 ___
 
