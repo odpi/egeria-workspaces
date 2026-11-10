@@ -98,9 +98,11 @@ def all_lib_names() -> frozenset:
     return frozenset(names)
 
 
-def _delegates(cls) -> set:
-    """Classes an EgeriaTech-style ``__getattr__`` hands unknown names to."""
-    out = set()
+@functools.lru_cache(maxsize=None)
+def _delegate_map(cls) -> dict:
+    """{sub-client attribute: class} from an EgeriaTech-style ``_subclient_map = {"collection_manager":
+    CollectionManager, ...}`` -- what ``t.collection_manager`` is, and where ``__getattr__`` sends other names."""
+    out = {}
     try:
         mod = sys.modules[cls.__module__]
         tree = ast.parse(inspect.getsource(cls))
@@ -108,10 +110,16 @@ def _delegates(cls) -> set:
         return out
     for node in ast.walk(tree):
         if isinstance(node, ast.Dict):
-            for v in node.values:
+            for k, v in zip(node.keys, node.values):
                 if isinstance(v, ast.Name) and _is_lib_class(getattr(mod, v.id, None)):
-                    out.add(getattr(mod, v.id))
+                    key = k.value if isinstance(k, ast.Constant) and isinstance(k.value, str) else f"<{v.id}>"
+                    out[key] = getattr(mod, v.id)
     return out
+
+
+def _delegates(cls) -> set:
+    """Classes an EgeriaTech-style ``__getattr__`` hands unknown names to."""
+    return set(_delegate_map(cls).values())
 
 
 @functools.lru_cache(maxsize=None)
@@ -222,11 +230,16 @@ class _ModuleScan:
         self._collect_factories()
 
     def _sibling_factories(self) -> dict:
-        """Factories imported from another scanned module: ``from digital_products_handler import _get_manager``."""
+        """Factories imported from another module of the project: ``from digital_products_handler import
+        _get_manager``. A module not among the scanned files is looked up next to this file, then on
+        sys.path (never inside pyegeria itself), and scanned for its factories."""
         out = {}
         for node in ast.walk(self.tree):
-            if isinstance(node, ast.ImportFrom) and node.module in self.siblings and node.level == 0:
-                sib = self.siblings[node.module]
+            if not (isinstance(node, ast.ImportFrom) and node.module and node.level == 0) \
+                    or node.module.split(".")[0] in LIB_ROOTS:
+                continue
+            sib = self.siblings.get(node.module) or _module_scan_for(node.module, Path(self.fname))
+            if sib is not None:
                 for a in node.names:
                     if a.name in sib.factories:
                         out[a.asname or a.name] = sib.factories[a.name]
@@ -304,6 +317,18 @@ class _ModuleScan:
         if isinstance(expr, ast.Name):
             t = env.get(expr.id)
             return t if t is not _UNTYPED else None
+        if isinstance(expr, ast.Attribute):
+            # self.mgr, typed from `self.mgr = Client(...)` in the class's methods (see _class_attrs)
+            if isinstance(expr.value, ast.Name):
+                t = env.get(f"{expr.value.id}.{expr.attr}")
+                if isinstance(t, frozenset):
+                    return t
+            # t.collection_manager where t is an EgeriaTech: the sub-client's class
+            base = self._expr_type(expr.value, env)
+            if isinstance(base, frozenset):
+                subs = {d for c in base for k, d in _delegate_map(c).items() if k == expr.attr}
+                if subs:
+                    return frozenset(subs)
         return None
 
     def _ann_type(self, ann):
@@ -381,9 +406,16 @@ class _ModuleScan:
                         t = self._expr_type(value, {**env, **local})
                         seen.setdefault(tgt.id, set()).add(t or _UNTYPED)
                     else:
-                        for nm in ast.walk(tgt):
-                            if isinstance(nm, ast.Name):
-                                seen.setdefault(nm.id, set()).add(_UNTYPED)
+                        # tuple/list unpacking rebinds names; `mgr.timeout = 5` or `d[k] = v` does not
+                        stack = [tgt]
+                        while stack:
+                            e = stack.pop()
+                            if isinstance(e, ast.Name):
+                                seen.setdefault(e.id, set()).add(_UNTYPED)
+                            elif isinstance(e, (ast.Tuple, ast.List)):
+                                stack.extend(e.elts)
+                            elif isinstance(e, ast.Starred):
+                                stack.append(e.value)
             for name, ts in seen.items():
                 if name in local and local[name] is not _UNTYPED and isinstance(local[name], frozenset):
                     ts = ts | {local[name]}
@@ -414,9 +446,56 @@ class _ModuleScan:
                     scopes.append((n, fenv))
                     visit(n, fenv)
                 elif isinstance(n, ast.ClassDef):
-                    visit(n, env)
+                    attrs = self._class_attrs(n, env)
+                    for m in n.body:
+                        if isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                            fenv = self._scope_env(m, {**env, **self._self_keys(m, attrs)})
+                            scopes.append((m, fenv))
+                            visit(m, fenv)
+                        elif isinstance(m, ast.ClassDef):
+                            visit(ast.Module(body=[m], type_ignores=[]), env)
         visit(self.tree, module_env)
         return scopes
+
+    @staticmethod
+    def _self_name(fn):
+        args = fn.args.posonlyargs + fn.args.args
+        if not args or any(isinstance(d, ast.Name) and d.id == "staticmethod" for d in fn.decorator_list):
+            return None
+        return args[0].arg
+
+    def _self_keys(self, fn, attrs) -> dict:
+        me = self._self_name(fn)
+        return {f"{me}.{k}": v for k, v in attrs.items()} if me else {}
+
+    def _class_attrs(self, cls: ast.ClassDef, env) -> dict:
+        """{attr: classes} for ``self.attr = <client>`` in any method of the class, when every assignment
+        to that attribute is the same kind of client (``self.mgr = None`` then a client also counts)."""
+        seen: dict = {}
+        for _ in range(2):   # a second pass sees self.a typed when `self.b = self.a`
+            known = {k: frozenset().union(*v) for k, v in seen.items() if v and _UNTYPED not in v}
+            seen = {}
+            for m in cls.body:
+                if not isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                me = self._self_name(m)
+                if not me:
+                    continue
+                menv = self._scope_env(m, {**env, **{f"{me}.{k}": v for k, v in known.items()}})
+                for n in self._own_nodes(m.body):
+                    if isinstance(n, ast.Assign):
+                        targets, value = n.targets, n.value
+                    elif isinstance(n, ast.AnnAssign) and n.value is not None:
+                        targets, value = [n.target], n.value
+                    else:
+                        continue
+                    for tgt in targets:
+                        if isinstance(tgt, ast.Attribute) and isinstance(tgt.value, ast.Name) and tgt.value.id == me:
+                            if isinstance(value, ast.Constant) and value.value is None:
+                                seen.setdefault(tgt.attr, set())
+                                continue
+                            seen.setdefault(tgt.attr, set()).add(self._expr_type(value, menv) or _UNTYPED)
+        return {k: frozenset().union(*v) for k, v in seen.items() if v and _UNTYPED not in v}
 
     def _infer_params(self, scopes) -> bool:
         """A parameter of a same-module function is typed when EVERY call site passes it a typed client."""
@@ -484,8 +563,9 @@ class _ModuleScan:
             return
         if isinstance(recv, ast.Name):
             t, label = env.get(recv.id), recv.id
-        elif isinstance(recv, (ast.Call, ast.Await)):
-            t, label = self._expr_type(recv, env), ast.unparse(recv)[:40]   # ExternalReferences(...).get_x()
+        elif isinstance(recv, (ast.Call, ast.Await, ast.Attribute)):
+            # ExternalReferences(...).get_x(), self.mgr.get_x(), t.collection_manager.get_x()
+            t, label = self._expr_type(recv, env), ast.unparse(recv)[:40]
         else:
             return
         name = node.attr
@@ -590,6 +670,36 @@ def notebook_source(path: Path) -> tuple[str, list[int]]:
         lines.append("")
         cell_of.append(i)
     return "\n".join(lines), cell_of
+
+
+_MODULE_SCANS: dict = {}      # resolved path -> _ModuleScan (None while being built: an import cycle)
+
+
+def _module_scan_for(module: str, near: Path):
+    """The _ModuleScan of a project module imported by name, found next to ``near`` or on sys.path.
+    Standard-library and installed packages are skipped: their factories are not pyegeria clients we track."""
+    import importlib.util
+    import sysconfig
+    candidates = [near.resolve().parent / (module.replace(".", "/") + ".py")]
+    try:
+        spec = importlib.util.find_spec(module) if "." not in module else None
+    except (ImportError, ValueError):
+        spec = None
+    if spec is not None and spec.origin and spec.origin.endswith(".py"):
+        candidates.append(Path(spec.origin))
+    skip = {sysconfig.get_paths().get(k) for k in ("stdlib", "platstdlib", "purelib", "platlib")} - {None}
+    for path in candidates:
+        path = path.resolve()
+        if not path.is_file() or any(str(path).startswith(str(Path(d).resolve())) for d in skip):
+            continue
+        if path not in _MODULE_SCANS:
+            _MODULE_SCANS[path] = None
+            try:
+                _MODULE_SCANS[path] = _ModuleScan(ast.parse(path.read_text()), str(path), Report())
+            except (SyntaxError, UnicodeDecodeError, OSError):
+                pass
+        return _MODULE_SCANS[path]
+    return None
 
 
 def _siblings_for(paths) -> dict:
