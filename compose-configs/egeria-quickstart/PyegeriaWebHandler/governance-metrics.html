@@ -93,19 +93,40 @@ if (/[?&]embed=1(&|$)/.test(location.search)) {
 // Embedded in Egeria Audit (?embed=1): wait briefly for Audit's selected viewer, then read Egeria
 // as that viewer (X-Egeria-Token). Standalone, or with no viewer, the Portal's service user reads.
 var EMBEDDED = /[?&]embed=1(&|$)/.test(location.search);
-var VIEWER = null;   // { token, userId, label } from Audit
+var GM = { viewer: null, done: false, resolve: null };   // viewer: { token, userId, label } from Audit
+var VIEWER = null;   // always GM.viewer; what the fetches and the note use
+
+// What to do with a message from Audit (pure: tests/test_governance_metrics_viewer_js.py).
+// Before the first load: take the viewer and start. After it (a late answer, or a new viewer):
+// take it and reload, so the list, the note and later runs are all the same identity.
+// Returns 'ignored' | 'first' | 'reload' | 'same'.
+function gmReceiveViewer(gm, data, reload) {
+  if (!data || data.type !== 'egeria-viewer') return 'ignored';
+  var v = { token: data.token || '', userId: data.userId || '', label: data.label || '' };
+  var changed = !gm.viewer || gm.viewer.token !== v.token || gm.viewer.label !== v.label;
+  gm.viewer = v;
+  if (!gm.done) { gm.done = true; if (gm.resolve) gm.resolve(); return 'first'; }
+  if (changed) { reload(); return 'reload'; }
+  return 'same';
+}
+// The 2 s wait ran out with no viewer: start as the service user (the note says so).
+function gmTimeout(gm) {
+  if (gm.done) return false;
+  gm.done = true;
+  if (gm.resolve) gm.resolve();
+  return true;
+}
+
 var _viewerReady = new Promise(function(resolve){
-  if (!EMBEDDED || window.parent === window) { resolve(); return; }
-  var done = false;
-  function finish(){ if (!done) { done = true; resolve(); } }
+  GM.resolve = resolve;
+  if (!EMBEDDED || window.parent === window) { GM.done = true; resolve(); return; }
   window.addEventListener('message', function(e){
     if (e.origin !== location.origin || e.source !== window.parent) return;
-    if (!e.data || e.data.type !== 'egeria-viewer') return;
-    VIEWER = { token: e.data.token || '', userId: e.data.userId || '', label: e.data.label || '' };
-    finish();
+    gmReceiveViewer(GM, e.data, function(){ VIEWER = GM.viewer; fetchMetrics().then(route); });
+    VIEWER = GM.viewer;
   });
   try { window.parent.postMessage({ type: 'egeria-viewer-request' }, location.origin); } catch (e) {}
-  setTimeout(finish, 2000);   // no answer: read as the service user, and say so
+  setTimeout(function(){ gmTimeout(GM); }, 2000);
 });
 function viewerHeaders(h){
   h = h || {};

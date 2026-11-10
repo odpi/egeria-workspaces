@@ -648,6 +648,14 @@ var TABS = [
 // Egeria as that viewer, like the other tabs. The token goes by postMessage to a same-origin
 // frame only, never in the URL. The page asks ('egeria-viewer-request') when it loads; Audit
 // also sends on the frame's load event. A new viewer re-keys the frame (see credKey below).
+// A short, non-reversible tag of the token, for the frame's React key (never the token itself).
+function _tokenTag(t) {
+  if (!t) return '';
+  var h = 5381;
+  for (var i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+
 function EmbedTab({ src, title, creds, who }) {
   var ref = React.useRef(null);
   var viewer = {
@@ -941,7 +949,7 @@ function App() {
   var content = !ready
     ? el('div', { style: pad }, 'Connecting…')
     : active.embed
-      ? el(EmbedTab, { key: active.id + '@' + credKey + '@' + ((creds && creds.token) ? creds.token.slice(-12) : ''),
+      ? el(EmbedTab, { key: active.id + '@' + credKey + '@' + _tokenTag(creds && creds.token),
           src: active.embed, title: active.label, creds: creds, who: who })
     : active.id === 'users'
       ? el(UsersTab, { key: 'users@' + credKey, creds: creds })
