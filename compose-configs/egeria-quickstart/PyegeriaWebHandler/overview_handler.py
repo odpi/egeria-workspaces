@@ -1657,24 +1657,48 @@ def get_ai_context(
         ok=lambda p: (p.get("funnel") or {}).get("cataloged") is not None)
     if payload is None:
         return _section_unready("ai-context", meta)
-    payload = _overlay_ai_ownership(payload, url, server, user_id, user_pwd, as_of_time)
     return JSONResponse({**payload, **meta})
 
 
-def _overlay_ai_ownership(payload: dict, url, server, user_id, user_pwd, as_of) -> dict:
-    """ownershipPct for a repository-population ai-context payload: the owner count is a find (what the
-    viewer can see), so its denominator is the viewer's Asset total -- the main Overview's background count
-    (never blocks; None while it is counting, with ownershipPctLoading). A viewer payload already divided
-    by its own viewer `cataloged` and is returned unchanged."""
-    if payload.get("countScope") != REPOSITORY:
-        return payload
-    out = dict(payload)
-    value, loading, _stale, _counted_at = _viewer_total_state(url, server, user_id, user_pwd, as_of)
-    count = out.get("ownershipCount")
-    out["ownershipPct"] = (round(100 * count / value, 1)
-                           if count is not None and value and count <= value else None)
-    out["ownershipPctLoading"] = loading
-    return out
+def _owned_asset_share(mgr, as_of, population: str, cataloged: Optional[int]):
+    """(owned Assets, % of Cataloged) -- Ownership Coverage, the same shape as Governed Coverage.
+
+    The numerator is a strict native count of Assets carrying an Ownership classification, taken in the
+    SAME population as `cataloged` (the funnel's strict Asset count), so the ratio never mixes a viewer
+    count with a repository one. Either count unmeasured (None) -> the % is None, never a guess."""
+    n = functools.partial(count_elements, scope=population) if _accepts_scope(count_elements) else count_elements
+    try:
+        owned = n(mgr, "Asset", as_of, classifications=("Ownership",), strict=True)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview ai-context: owned-Asset count failed: {exc}")
+        owned = None
+    pct = (round(100 * owned / cataloged, 1)
+           if owned is not None and cataloged and owned <= cataloged else None)
+    return owned, pct
+
+
+def _grounding_fields(grounding: Optional[dict]) -> dict:
+    """What the Semantic Grounding tile shows, labelled by what it measures.
+
+    pyegeria 6.2.30's semantic_grounding returns groundingLinks (SemanticAssignment relationships) and
+    groundingPct = links ÷ Asset total × 100. That is NOT a share of Assets: one Asset with three terms
+    counts three times, and a link to a non-Asset element counts too. So it is reported as "links per 100
+    Assets" (groundingMeasure "linksPer100Assets") and groundingPct -- the share -- stays None.
+
+    TODO(pyegeria next release): semantic_grounding is to report distinct grounded Assets as
+    `groundedAssets` (int) and `groundedAssetPct` (groundedAssets ÷ its own Asset total × 100). The
+    feature check below switches the tile to that real share (groundingMeasure "assetShare") as soon as an
+    installed pyegeria returns it; no Portal change is needed then."""
+    g = grounding or {}
+    share = g.get("groundedAssetPct")
+    if share is not None:
+        return {"groundingMeasure": "assetShare", "groundingValue": share, "groundingPct": share,
+                "groundedAssets": g.get("groundedAssets"), "groundingLinks": g.get("groundingLinks"),
+                "groundingLinksPer100": g.get("groundingPct")}
+    per100 = g.get("groundingPct")
+    return {"groundingMeasure": "linksPer100Assets", "groundingValue": per100, "groundingPct": None,
+            "groundedAssets": None, "groundingLinks": g.get("groundingLinks"),
+            "groundingLinksPer100": per100}
 
 
 def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
@@ -1718,14 +1742,11 @@ def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
         readiness = {"cataloged": None, "documented": None, "classified": None,
                      "lineage": None, "aiReady": None}
 
-    # Semantic grounding: SemanticAssignment relationships (term ↔ asset) — the
-    # meaning layer that grounds AI. Count of assignments as a proxy for grounded links.
-    grounding_links = None
-    grounding_pct = None
+    # Semantic grounding: SemanticAssignment relationships (term ↔ element) — the meaning layer that grounds
+    # AI. See _grounding_fields: today it is links per 100 Assets, never shown as a share of Assets.
+    grounding = None
     try:
         grounding = semantic_grounding(mgr, ce, as_of_time)
-        grounding_links = grounding["groundingLinks"]
-        grounding_pct = grounding["groundingPct"]
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview ai-context: grounding query failed: {exc}")
 
@@ -1733,19 +1754,10 @@ def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
     # (OVERVIEW_CONTEXT_INTELLIGENCE.md §2.2) — data-mesh literature names "clean,
     # owned, product-based data" as its own foundation for trustworthy AI
     # consumption, distinct from governance-classification coverage above.
-    ownership_count = None
-    ownership_pct = None
-    try:
-        ownership = ownership_coverage(mgr, as_of_time)
-        ownership_count = ownership["ownershipCount"]
-        total = readiness.get("cataloged")
-        # the owner count comes from a find (what the viewer can see): divide only by a viewer total. In a
-        # repository funnel that total is the background viewer Asset count, applied per request
-        # (_overlay_ai_ownership), never `cataloged`.
-        if total and population == VIEWER:
-            ownership_pct = round(100 * ownership_count / total, 1)
-    except Exception as exc:  # noqa: BLE001
-        logger.debug(f"overview ai-context: ownership query failed: {exc}")
+    # Same shape as Governed Coverage (owner decision 2026-11-10): owned ASSETS, a strict native count in the
+    # funnel's own population, over the funnel's Cataloged (that same count's Asset total). Always measurable
+    # -- it used to divide a viewer find (any element type) by a viewer Asset total that cannot be counted at
+    # this catalogue size, so the tile never got a value. Computed after the strict funnel re-count below.
 
     # True AI-Ready composite (governed AND documented AND lineage-traced
     # simultaneously) — the actual claim the "AI-Ready Assets" tile already
@@ -1768,6 +1780,8 @@ def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
         logger.debug(f"overview ai-context: ai_ready_assets query failed: {exc}")
 
     readiness = _strict_funnel_counts(readiness, mgr, as_of_time, scope=population)
+    ownership_count, ownership_pct = _owned_asset_share(mgr, as_of_time, population, readiness.get("cataloged"))
+    grounding_fields = _grounding_fields(grounding)
 
     funnel = {
         "Cataloged":       readiness["cataloged"],
@@ -1808,7 +1822,7 @@ def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
         "countScope": population,
         "aiReadyCount":    ai_ready_count,
         "aiReadyScope":    VIEWER,       # ai_ready_assets is a find
-        "ownershipScope":  VIEWER,       # ownership_coverage is a find
+        "ownershipScope":  population,   # owned Assets ÷ Cataloged: both strict counts in the funnel's population
         "funnel": {
             "cataloged":  funnel["Cataloged"],
             "documented": funnel["Documented"],
@@ -1819,8 +1833,7 @@ def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
         "funnelChart":     funnel_chart,
         "consumers":       None,         # not natively tracked (MCP/API access logs)
         "guardrails":      None,
-        "groundingLinks":  grounding_links,
-        "groundingPct":    grounding_pct,
+        **grounding_fields,
         "ownershipCount":  ownership_count,
         "ownershipPct":    ownership_pct,
         "aiReadyPct":      ai_ready_pct,

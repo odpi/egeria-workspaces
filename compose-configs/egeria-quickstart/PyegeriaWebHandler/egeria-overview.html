@@ -589,7 +589,7 @@
     </div>
     <div class="kpi clickable" data-drill="grounding">
       <span class="k-ico">🧠</span><span class="k-label">Semantic Grounding</span><button type="button" id="ai-ctx-info-grounding" class="k-info" data-info="grounding" style="display:none" title="What does this measure?" aria-label="What does this measure?">ⓘ</button>
-      <span class="k-val" id="ai-grounding">—</span><span class="k-sub">glossary-linked</span>
+      <span class="k-val" id="ai-grounding">—</span><span class="k-sub" id="ai-grounding-sub">term links per 100 Assets</span>
     </div>
   </div>
 
@@ -1007,9 +1007,19 @@ const RAW = {
   assets:s=>s.assets, terms:s=>s.terms, governed:s=>s.governedPctNum,
   certs:s=>s.certs, products:s=>s.products, exceptions:s=>s.exceptions,
   people:s=>s.people, communities:s=>s.communities, isc:s=>s.isc,
-  blueprints:s=>s.blueprints, grounding:s=>s.groundingPct
+  blueprints:s=>s.blueprints, grounding:s=>s.groundingValue
 };
 const num = n => (n != null ? Number(n).toLocaleString() : null);
+// Semantic Grounding says what it measures (ai-context's groundingMeasure). pyegeria 6.2.30 reports
+// SemanticAssignment links ÷ Assets × 100 -- links per 100 Assets, NOT a share of Assets (one Asset with
+// three terms counts three times), so it is never shown with a % sign. When pyegeria reports distinct
+// grounded Assets (groundingMeasure "assetShare"; see overview_handler._grounding_fields) it becomes a %.
+const groundingIsShare = s => s.groundingMeasure === 'assetShare';
+const groundingVal = s => s.groundingValue == null ? null
+  : (groundingIsShare(s) ? s.groundingValue + '%' : num(s.groundingValue));
+const groundingSub = s => groundingIsShare(s)
+  ? (s.groundedAssets != null ? num(s.groundedAssets) + ' Assets with a glossary term' : 'of Assets have a glossary term')
+  : 'term links per 100 Assets' + (s.groundingLinks != null ? ' (' + num(s.groundingLinks) + ' links)' : '');
 // A tile with no measurement says so. It never shows a plausible-looking sample number:
 // an em dash means "not measured" (endpoint failed, or the backend returned null),
 // which is a different statement from a real 0.
@@ -1057,8 +1067,8 @@ const METRICS = {
   blueprints: { label:'Solution Blueprints',   ico:'🧱', color:'var(--c3)', drill:'blueprints',
                 get:()=>({ val: cnt(LIVE.blueprints), sub: LIVE.blueprints == null ? NM_SUB : 'reusable designs' }) },
   grounding:  { label:'Semantic Grounding',    ico:'🧠', color:'var(--c1)', drill:'grounding',
-                get:()=>({ val: LIVE.groundingPct != null ? LIVE.groundingPct + '%' : NO_DATA,
-                           sub: LIVE.groundingLinks != null ? num(LIVE.groundingLinks) + ' term links' : 'glossary-linked' }) },
+                get:()=>({ val: groundingVal(LIVE) != null ? groundingVal(LIVE) : NO_DATA,
+                           sub: groundingSub(LIVE) }) },
   ownership:  { label:'Ownership Coverage',    ico:'🧑‍💼', color:'var(--c4)', drill:'ownership',
                 get:()=>({ val: LIVE.ownershipPct != null ? LIVE.ownershipPct + '%' : '—',
                            sub: LIVE.ownershipCount != null ? num(LIVE.ownershipCount) + ' owned assets' : 'named owner assigned' }) },
@@ -1262,7 +1272,7 @@ function renderKPIs(){
     if (comparing && RAW[k]) {
       const cur = RAW[k](LIVE), base = RAW[k](BASE);
       if (cur != null && base != null) {
-        const dv = cur - base, unit = (k === 'governed' || k === 'grounding') ? ' pts' : '';
+        const dv = cur - base, unit = (k === 'governed' || (k === 'grounding' && groundingIsShare(LIVE))) ? ' pts' : '';
         sub = `<span class="delta ${dv >= 0 ? 'up' : 'down'}">${dv >= 0 ? '▲' : '▼'} ${Math.abs(dv).toLocaleString()}${unit}</span> `+
               `<span style="color:var(--muted)">since ${ASOF_LABEL}</span>`;
       } else {
@@ -1663,8 +1673,8 @@ const DRILL = {
     stats:[], list:[],
     cta:['AI &amp; MCP docs','/docs/'], sec:['Context audit trail','/egeria-audit'],
     note:'MCP / API access logs are not read by the Overview, so there is no honest count of consumers or calls.' },
-  grounding: { eb:'AI & context intelligence', t:'🧠 Semantic Grounding', s:'Share of assets linked to glossary terms — the meaning layer that grounds AI',
-    stats:[[ND,'grounded'],[ND,'term links'],[ND,'terms']], list:[],
+  grounding: { eb:'AI & context intelligence', t:'🧠 Semantic Grounding', s:'Glossary-term links (SemanticAssignment) per 100 Assets — the meaning layer that grounds AI. A link count, not a share of Assets: one Asset with several terms counts several times.',
+    stats:[[ND,'links per 100 Assets'],[ND,'term links'],[ND,'terms']], list:[],
     cta:['Open Glossary in Explorer','/egeria-explorer#glossary'], sec:null,
     note:'Semantic assignments (term ↔ asset) counted by <code>overview_metrics.semantic_grounding</code> (<code>/api/overview/ai-context</code>).' },
   ownership: { eb:'AI & context intelligence', t:'🧑‍💼 Ownership Coverage', s:'Share of assets carrying a named, accountable owner (Ownership classification)',
@@ -1748,7 +1758,11 @@ function drillLivePatch(key, d){
     if (Array.isArray(LIVE.certSoon) && LIVE.certSoon.length) d.list = LIVE.certSoon.map(c => [c.name, c.days != null ? c.days + 'd' : ND]);
   }
   if (key === 'grounding') {
-    if (LIVE.groundingPct != null) d.stats[0][0] = LIVE.groundingPct + '%';
+    if (groundingVal(LIVE) != null) d.stats[0][0] = groundingVal(LIVE);
+    if (groundingIsShare(LIVE)) {
+      d.stats[0][1] = 'of Assets grounded';
+      d.s = 'Share of Assets with at least one glossary term (SemanticAssignment) — the meaning layer that grounds AI';
+    }
     set(1, LIVE.groundingLinks); set(2, LIVE.terms);
     if (LIVE.orphanTermCount != null) d.list = [['Orphan terms (no asset links)', LIVE.orphanTermCount]];
   }
@@ -2331,7 +2345,10 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
 
   function applyAI(d, store, primary){
     if (!d) return;
-    if (d.groundingPct != null) store.groundingPct = d.groundingPct;
+    if (d.groundingValue != null) {
+      store.groundingValue = d.groundingValue; store.groundingMeasure = d.groundingMeasure;
+      store.groundingPct = d.groundingPct; store.groundedAssets = d.groundedAssets;
+    }
     if (d.groundingLinks != null) store.groundingLinks = d.groundingLinks;
     if (d.ownershipPct != null) store.ownershipPct = d.ownershipPct;
     if (d.ownershipCount != null) store.ownershipCount = d.ownershipCount;
@@ -2356,7 +2373,10 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     // lineage-traced simultaneously, not three independent counts — see
     // NEXT-18). Context Products/Active AI Consumers/AI Guardrails are not
     // measured -- no backend signal for those yet.
-    if (d.groundingPct != null) setTxt('ai-grounding', d.groundingPct + '%');
+    if (d.groundingValue != null) {
+      setTxt('ai-grounding', groundingVal(d));
+      setTxt('ai-grounding-sub', groundingSub(d));
+    }
     var f = d.funnel || {};
     if (f.cataloged != null) setTxt('uc-cataloged', fmt(f.cataloged));
     if (f.classified != null) setTxt('uc-classified', fmt(f.classified));
@@ -2607,7 +2627,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
   // Badge for a finished load: all sources -> the requested mode; some -> "partial"; none -> "no data".
   // A refresh that fails leaves the last successfully loaded numbers on screen; say so rather than
   // implying there is no data. (A first load that fails has nothing loaded, so the tiles show dashes.)
-  var SRC_FIELD = { 'summary': 'assets', 'people': 'people', 'usage-context': 'isc', 'ai-context': 'groundingPct' };
+  var SRC_FIELD = { 'summary': 'assets', 'people': 'people', 'usage-context': 'isc', 'ai-context': 'groundingLinks' };
   function statusBadge(st, mode, label){
     if (st.failed.length === 0) return setBadge(mode, label);
     var stale = st.failed.some(function(n){ return LIVE[SRC_FIELD[n]] != null; });
