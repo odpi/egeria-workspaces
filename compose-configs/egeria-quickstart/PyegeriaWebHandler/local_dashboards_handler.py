@@ -566,10 +566,12 @@ def serve_local_dashboards():
 @router.get("/api/local-dashboards", summary="List Dashboard Sheets (Egeria-held first, then the local store)")
 def list_local_dashboards(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
+    # Auth is the X-Egeria-Token header only (EgeriaTokenMiddleware); with none, the Portal's service user
+    # from the environment. No user_id/user_pwd query params: a password in a URL lands in access logs,
+    # and a bare user_id would sign in as that user with the service password.
     try:
-        sheets, egeria_status = _merged_sheets(url, server, user_id, user_pwd)
+        sheets, egeria_status = _merged_sheets(url, server, None, None)
     except Exception as exc:  # noqa: BLE001
         logger.exception("local-dashboards: failed to load store")
         raise HTTPException(status_code=500, detail=f"Dashboard Sheet store unavailable: {exc}")
@@ -764,10 +766,10 @@ def get_local_dashboard(
     perspective: Optional[str] = Query(None, description="Keep only placements tagged with this "
                                         "perspective, plus any untagged ones (fail-open)."),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
     refresh: bool = Query(False, description="Resolve now and store the result, ignoring the cache."),
 ):
     from egeria_auth import _token_expired, get_request_token, lineage_key
+    user_id = user_pwd = None       # X-Egeria-Token header only (see list_local_dashboards); never from the URL
     token = get_request_token()
     args = (name, perspective, url, server, user_id, user_pwd)
     if token and _token_expired(token):          # never serve an expired token from cache: let it be refused

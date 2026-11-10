@@ -273,3 +273,44 @@ def test_egeria_edit_changes_the_built_sheet_key(env, monkeypatch):
     ld._cache.clear()                                                                  # the 60 s Egeria read has expired
     r = c.get("/api/local-dashboards/e1")
     assert r.headers["X-Cache"] == "miss" and r.json()["placements"][0]["ref"] == "Rep B"
+
+
+# ── Token-header auth only (P3 2026-11-09: passwords in access logs) ─────────────────────────────────────
+
+def test_no_route_accepts_user_id_or_user_pwd():
+    for route in ld.router.routes:
+        names = {p.name for p in route.dependant.query_params} | {p.alias for p in route.dependant.query_params}
+        assert not names & {"user_id", "user_pwd", "password"}, route.path
+
+
+def test_credentials_in_the_url_are_ignored_never_signed_in_as(env, monkeypatch):
+    seen = []
+    monkeypatch.setattr(ld, "_egeria_client", lambda url=None, server=None, user_id=None, user_pwd=None:
+                        seen.append((user_id, user_pwd)) or object())
+    monkeypatch.setattr(ld, "_expert", lambda url=None, server=None, user_id=None, user_pwd=None:
+                        seen.append((user_id, user_pwd)) or object())
+    env["egeria"] = {"e1": _sheet("e1", [_pl("Rep E")], source="egeria", breaks=[])}
+    q = {"user_id": "garygeeke", "user_pwd": "secret"}
+    c = env["client"]
+    assert c.get("/api/local-dashboards", params=q).status_code == 200
+    assert c.get("/api/local-dashboards/e1", params=q).status_code == 200
+    assert seen and all(s == (None, None) for s in seen)          # the env service user, never garygeeke
+    assert not any("garygeeke" in k for k in ld._cache)
+
+
+def test_no_token_never_gets_a_signed_in_users_cached_data(env):
+    env["egeria"] = {}
+    c = env["client"]
+    c.get("/api/local-dashboards", headers={"X-Egeria-Token": _jwt("alice")})
+    n = env["calls"]
+    c.get("/api/local-dashboards")                                   # no token: its own (service) entry
+    assert env["calls"] == n + 1
+    c.get("/api/local-dashboards", params={"user_id": "alice"})       # a claimed user_id does not reach alice's entry
+    assert env["calls"] == n + 1                                      # shares the service entry, not alice's
+
+
+def test_page_never_puts_credentials_in_a_local_dashboards_url():
+    import re
+    html = (Path(__file__).resolve().parent.parent / "local-dashboards.html").read_text()
+    for m in re.finditer(r"/api/local-dashboards[^\n]*", html):
+        assert not re.search(r"user_pwd|user_id|password", m.group(0)), m.group(0)

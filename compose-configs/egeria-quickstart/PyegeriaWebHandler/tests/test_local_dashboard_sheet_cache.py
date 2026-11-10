@@ -69,9 +69,10 @@ def test_miss_then_hit(env):
 def test_forged_sub_and_wrong_password_miss(env):
     real = _jwt("peter"); _get(env, real)
     assert _get(env, _jwt("peter", salt="forged")).headers["X-Cache"] == "miss"
-    _get(env, user_id="peter", user_pwd="right")
-    assert _get(env, user_id="peter", user_pwd="wrong").headers["X-Cache"] == "miss"
+    # user_id/user_pwd query params are not accepted (token header only): they never pick a cache entry
+    _get(env)                                                    # the service user's own entry
     assert _get(env, user_id="peter", user_pwd="right").headers["X-Cache"] == "hit"
+    assert _get(env, user_id="peter", user_pwd="wrong").headers["X-Cache"] == "hit"
 
 
 def test_sheet_perspective_lineage_are_separate(env):
