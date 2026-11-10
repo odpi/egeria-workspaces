@@ -36,30 +36,11 @@ router = APIRouter(tags=["report-specs"])
 
 
 def register_local_specs():
-    """Register workspace-local report specs into the pyegeria registry.
-    This allows us to provide professional, generally useful analytic specs
-    directly in the workspace before they are formally released into the
-    core pyegeria library.
+    """Register the Portal's own report specs as fallbacks for their Egeria-held copies: a local
+    copy is registered only while the EGERIA tier does not hold its label (local_spec_fallback.py).
     """
-    register_report_specs({
-        "Analytic - Generic Metric Trend": FormatSet(
-            heading="Generic Metric Trend",
-            description="Trend any analytic function over time. metric_path is the target function; "
-                        "metric_params are its keyword arguments. Default trends count_elements(type_name=Asset).",
-            family="Analytic",
-            target_type=None,
-            formats=[Format(types=["DICT", "JSON", "SERIES"], attributes=[])],
-            action=ActionParameter(
-                function="",
-                analytic_function="metric_trend",
-                analytic_spec_params={
-                    "metric_path": "count_elements",
-                    "metric_params": {"type_name": "Asset"},
-                    "window": "6mo"
-                }
-            )
-        )
-    }, source="workspace_local")
+    import local_spec_fallback
+    return local_spec_fallback.reconcile()
 
 
 try:

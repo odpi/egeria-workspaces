@@ -23,7 +23,9 @@ rather than Tinderbox-authored. Loading them is pyegeria's own job: from
 
 Registers Resource Explorer's Curation Coverage tile (re_analytics.py) in
 pyegeria's RUNTIME tier with register_report_specs(), which survives
-refresh_report_specs(). The Portal no longer sets PYEGERIA_REPORT_SPEC_MODULES:
+refresh_report_specs(), unless the EGERIA tier holds that label
+(local_spec_fallback.py: the Egeria copy is the source, the local one the
+fallback). The Portal no longer sets PYEGERIA_REPORT_SPEC_MODULES:
 pyegeria 6.2.18 deprecates it and 6.2.19 removes it (ISSUE-173).
 """
 
@@ -38,16 +40,12 @@ import spec_resolution
 router = APIRouter(tags=["analytics"])
 
 # Resource Explorer's Curation Coverage tile (re_analytics.py), fetched from RE
-# over HTTP as the viewer. A reload of this module (WatchFiles) registers it
-# again; pyegeria 6.2.18 raises ReportFormatCollision for that, 6.2.19 makes a
-# same-source re-registration a no-op.
+# over HTTP as the viewer. Its analytic function is always registered; its spec
+# is registered locally only while the EGERIA tier does not hold the label
+# (local_spec_fallback.py). Safe to run again on a module reload.
 try:
-    from pyegeria.view.base_report_formats import ReportFormatCollision, register_report_specs
-    import re_analytics
-    try:
-        register_report_specs(re_analytics.report_specs(), source="re_analytics")
-    except ReportFormatCollision:
-        logger.debug("analytics: Resource Explorer tile spec already registered")
+    import local_spec_fallback
+    local_spec_fallback.reconcile()
 except Exception as _exc:  # noqa: BLE001  never stop the app over an optional spec
     logger.warning(f"analytics: could not register the Resource Explorer tile spec: {_exc}")
 
