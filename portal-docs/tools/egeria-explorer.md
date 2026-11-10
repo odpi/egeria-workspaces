@@ -214,6 +214,10 @@ into its own cache:
   `GET /api/report-specs/sync` gives the last result, such as *Synced …: 2 added, 0 updated, …*, or
   *The configured folders were not found in Egeria, or are not visible to the Portal's user: …*).
 
+On a quickstart without sign-in (`DEMO_MODE` false and `SERVER_MANAGED_AUTH` unset), everyone counts as
+an administrator, so the Sync button and the full sync status are open to all. On the public demo, only
+administrators get them.
+
 After someone changes a spec in Egeria, sync again to see the change. A sync only **reads** Egeria; it
 never writes to it.
 
