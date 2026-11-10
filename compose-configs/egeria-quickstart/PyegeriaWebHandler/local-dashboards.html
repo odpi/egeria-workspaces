@@ -333,6 +333,26 @@ function viewerPersona() {
   return _viewerPersonaPromise;
 }
 
+// An Egeria bearer token for the persona picked in this browser, or null (no persona, or minting failed).
+// Same exchange as lineage-explorer.html: /api/demo/select-persona, then /api/egeria-token (POST bodies only).
+function viewerToken() {
+  return viewerPersona().then(function(persona) {
+    if (!persona) return null;
+    return fetch('/api/demo/select-persona', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ persona: persona })
+    }).then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(sel) {
+        if (!sel || !sel.egeria_user) return null;
+        return fetch('/api/egeria-token', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: sel.egeria_user, password: sel.egeria_password || '' })
+        }).then(function(r) { return r.ok ? r.json() : null; })
+          .then(function(t) { return (t && t.token) || null; });
+      });
+  }).catch(function() { return null; });
+}
+
 function fetchExecuteCached(body, force) {
   return viewerPersona().then(function(persona) {
     return _fetchExecuteCached(persona ? Object.assign({}, body, { persona: persona }) : body, force);
@@ -487,7 +507,14 @@ function egeriaNote(eg) {
 
 function deleteSheet(name, heading) {
   if (!confirm('Delete dashboard "' + heading + '"?\n\nThis removes the Dashboard Sheet and its placements only -- any Reports it references are left untouched. This cannot be undone.')) return;
-  fetch('/api/local-dashboards/' + encodeURIComponent(name), { method: 'DELETE' })
+  // A delete is made as the signed-in user, never the Portal's service user: the server refuses one with
+  // no X-Egeria-Token (401). Mint a token for the persona picked in this browser (the password travels only
+  // in a POST body, never a URL) and send it as the header.
+  viewerToken()
+    .then(function(token) {
+      return fetch('/api/local-dashboards/' + encodeURIComponent(name),
+                   { method: 'DELETE', headers: token ? { 'X-Egeria-Token': token } : {} });
+    })
     .then(function(r) {
       if (!r.ok) return r.json().catch(function(){ return {}; }).then(function(b) {
         throw new Error(b.detail || ('HTTP ' + r.status));

@@ -159,7 +159,7 @@ def test_refresh_param_resolves_now(env):
 def test_expired_token_bypasses_the_cache(env):
     _get(env, _jwt("peter"))
     r = _get(env, _jwt("peter", exp_in=-60))
-    assert "X-Cache" not in r.headers and len(env["calls"]) == 2
+    assert r.status_code == 401 and "X-Cache" not in r.headers and len(env["calls"]) == 1   # refused, never built
 
 
 def test_sheet_refresh_button_refreshes_every_tile():

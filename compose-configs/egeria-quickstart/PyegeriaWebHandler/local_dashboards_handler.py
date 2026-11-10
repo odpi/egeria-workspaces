@@ -229,6 +229,42 @@ def _keyed(prefix, url, server, user_id, user_pwd) -> Optional[str]:
     return None if ident is None else f"{prefix}|{ident}"
 
 
+_TOKEN_EXPIRED = "Egeria token expired; sign in again"
+
+
+def _reject_expired_token() -> None:
+    """401 for a presented token whose exp has passed, before any cache or Egeria call: the page mints a
+    new token for its own user. No token at all is not refused here (the Portal's service user answers)."""
+    from egeria_auth import _token_expired, get_request_token
+    token = get_request_token()
+    if token and _token_expired(token):
+        raise HTTPException(status_code=401, detail=_TOKEN_EXPIRED)
+
+
+def _raise_if_token_refused(exc: Exception) -> None:
+    """Egeria refused the CALLER's token (401/403): say so, never degrade to the JSON store as if Egeria
+    were merely down. The service user's own failures (no token) keep degrading."""
+    from egeria_auth import get_request_token
+    from egeria_error_mapping import raise_if_auth_error
+    if get_request_token():
+        raise_if_auth_error(exc)
+
+
+def _require_token_user() -> str:
+    """The signed-in user of a write: a real, unexpired X-Egeria-Token, never the Portal's service user."""
+    from egeria_auth import _token_expired, get_request_token, token_user
+    token = get_request_token()
+    if not token:
+        raise HTTPException(status_code=401, detail="Sign in to change Dashboard Sheets: a change is made "
+                                                    "as your own Egeria user, never the Portal's service user.")
+    if _token_expired(token):
+        raise HTTPException(status_code=401, detail=_TOKEN_EXPIRED)
+    user = token_user()
+    if not user:
+        raise HTTPException(status_code=401, detail="The sign-in token names no user; sign in again")
+    return user
+
+
 def _egeria_sheets(url=None, server=None, user_id=None, user_pwd=None) -> dict:
     """{name: EgeriaDashboardSheet} for every sheet Egeria holds. Raises _EgeriaUnavailable (never caches
     a failure). Cached _CACHE_TTL s per presented credential + platform/server + forLineage toggle."""
@@ -240,6 +276,7 @@ def _egeria_sheets(url=None, server=None, user_id=None, user_pwd=None) -> dict:
         from pyegeria.view.dashboards import list_dashboard_sheets
         sheets = list_dashboard_sheets(_egeria_client(url, server, user_id, user_pwd))
     except Exception as exc:  # noqa: BLE001
+        _raise_if_token_refused(exc)
         logger.warning(f"local-dashboards: Egeria sheets unavailable: {exc}")
         raise _EgeriaUnavailable(f"{type(exc).__name__}: {' '.join(str(exc).split())[:240]}") from exc
     found = {s.name: s for s in sheets}
@@ -263,6 +300,7 @@ def _egeria_one(name, url=None, server=None, user_id=None, user_pwd=None):
             from pyegeria.view.dashboards import load_dashboard_sheet
             found = load_dashboard_sheet(name, _egeria_client(url, server, user_id, user_pwd))
         except Exception as exc:  # noqa: BLE001
+            _raise_if_token_refused(exc)
             logger.warning(f"local-dashboards: Egeria sheet {name!r} unavailable: {exc}")
             raise _EgeriaUnavailable(f"{type(exc).__name__}: {' '.join(str(exc).split())[:240]}") from exc
     if ckey:
@@ -570,8 +608,11 @@ def list_local_dashboards(
     # Auth is the X-Egeria-Token header only (EgeriaTokenMiddleware); with none, the Portal's service user
     # from the environment. No user_id/user_pwd query params: a password in a URL lands in access logs,
     # and a bare user_id would sign in as that user with the service password.
+    _reject_expired_token()
     try:
         sheets, egeria_status = _merged_sheets(url, server, None, None)
+    except HTTPException:
+        raise                   # a refused token is a 401/403, not "store unavailable"
     except Exception as exc:  # noqa: BLE001
         logger.exception("local-dashboards: failed to load store")
         raise HTTPException(status_code=500, detail=f"Dashboard Sheet store unavailable: {exc}")
@@ -686,6 +727,8 @@ def _build_sheet(name, perspective, url, server, user_id, user_pwd):
     """Resolve one sheet. Returns (payload, cacheable); raises the HTTPException the browser should see."""
     try:
         sheets, egeria_status = _merged_sheet_for(name, url, server, user_id, user_pwd)
+    except HTTPException:
+        raise                   # a refused token is a 401/403, not "store unavailable"
     except Exception as exc:  # noqa: BLE001
         logger.exception("local-dashboards: failed to load store")
         raise HTTPException(status_code=500, detail=f"Dashboard Sheet store unavailable: {exc}")
@@ -768,13 +811,11 @@ def get_local_dashboard(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     refresh: bool = Query(False, description="Resolve now and store the result, ignoring the cache."),
 ):
-    from egeria_auth import _token_expired, get_request_token, lineage_key
+    from egeria_auth import get_request_token, lineage_key
     user_id = user_pwd = None       # X-Egeria-Token header only (see list_local_dashboards); never from the URL
+    _reject_expired_token()         # never served from (or stored in) the cache: refused before any read
     token = get_request_token()
     args = (name, perspective, url, server, user_id, user_pwd)
-    if token and _token_expired(token):          # never serve an expired token from cache: let it be refused
-        payload, _ = _build_sheet(*args)
-        return JSONResponse(payload)
     identity = credential_identity(token, user_id, user_pwd, os.environ.get("EGERIA_USER", "erinoverview"))
     key = ("sheet", name, perspective, _store_mtime_ns(), _egeria_fingerprint(name, url, server, user_id, user_pwd),
            identity, url, server, lineage_key())
@@ -843,7 +884,11 @@ def delete_local_dashboard(name: str):
     `Collection` subtype (planned, not yet started), this needs to become a
     real Egeria delete (e.g. `CollectionManager.delete_collection`) instead.
     Kept deliberately thin for that reason.
+
+    Requires a signed-in user (a real, unexpired X-Egeria-Token): never the Portal's service user, so an
+    anonymous request cannot delete anyone's sheet.
     """
+    who = _require_token_user()
     try:
         sheets = _load_sheets()
     except Exception as exc:  # noqa: BLE001
@@ -865,5 +910,5 @@ def delete_local_dashboard(name: str):
         logger.exception("local-dashboards: failed to save store after delete")
         raise HTTPException(status_code=500, detail=f"Failed to persist deletion: {exc}")
 
-    logger.info(f"local-dashboards: deleted Dashboard Sheet {sheet.name!r}")
+    logger.info(f"local-dashboards: {who} deleted Dashboard Sheet {sheet.name!r}")
     return JSONResponse({"deleted": sheet.name})
