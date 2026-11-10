@@ -114,7 +114,9 @@
 
     /* ── App grid ── */
     .section-label { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
-    .app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+    .app-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+    @media (max-width: 900px) { .app-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 520px) { .app-grid { grid-template-columns: 1fr; } }
     .app-tile { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 24px 20px; display: flex; flex-direction: column; gap: 8px; transition: border-color 0.15s; }
     .app-tile:not(.disabled):hover { border-color: var(--accent); }
     .app-tile.disabled { opacity: 0.42; }
@@ -489,7 +491,9 @@ function renderAppGrid(demoMode) {
   var jupyterUrl = 'http://' + window.location.hostname + ':8888/?token=egeria';
   _jupUrl = jupyterUrl;
   var apps = [
-    // Row 1 — primary tools
+    // Four tools per row on a wide screen (.app-grid is 4 columns). Governance Metrics is now a tab
+    // in Egeria Audit (egeria-audit.html#metrics), not a card here.
+    // Row 1 — overview and browsing
     { icon: '📊', name: 'Egeria Overview',
       desc: 'At-a-glance summary of the metadata landscape — scale, governance coverage, quality, AI-readiness, and community engagement, with trends and drill-down.',
       url: '/egeria-overview', newTab: false, enabled: true },
@@ -502,6 +506,7 @@ function renderAppGrid(demoMode) {
     { icon: '🔍', name: 'Egeria Explorer',
       desc: 'Browse Egeria metadata — types, glossary, lineage, governance blueprints, information supply chains, and more.',
       url: '/egeria-explorer', newTab: false, enabled: true },
+    // Row 2 — find, trace and audit
     { icon: '🔗', name: 'Lineage Explorer',
       desc: 'Trace data flow and dependencies across the metadata landscape.',
       url: '/lineage', newTab: false, enabled: true },
@@ -513,39 +518,40 @@ function renderAppGrid(demoMode) {
       desc: 'Explore Digital Products and their dependencies as an interactive graph — search, select, and highlight relationships belonging to an information supply chain.',
       url: '/data-mesh', newTab: false, enabled: true },
     { icon: '🛡️', name: 'Egeria Audit',
-      desc: 'Review exceptions, certifications and licenses in use, plus who has access to Egeria.',
+      desc: 'Review exceptions, certifications and licenses in use, who has access to Egeria, and the governance metrics behind the Overview.',
       url: '/egeria-audit', newTab: false, enabled: true },
+    // Row 3 — query, operate and administer
     { icon: '🧭', name: 'Query',
       desc: 'Cross-cutting governance query — find elements by zone, confidentiality, criticality, retention, and impact, combined with AND/OR.',
       url: '/egeria-insights', newTab: false, enabled: true },
     { icon: '🎛️', name: 'Egeria Operations',
       desc: 'Monitor and operate the Egeria runtime — servers, integration connectors, governance engines, and engine actions.',
       url: '/egeria-operations', newTab: false, enabled: true },
+    { icon: '🖥️', name: 'My Egeria',
+      desc: 'Explore your Egeria profile, roles, teams, actions, and data catalog.',
+      url: '/my-egeria/', newTab: true, enabled: true },
+    { icon: '⚙️', name: 'Admin',
+      desc: 'Manage the Obsidian session lock, view audit log, and add reservations.',
+      url: '/admin', newTab: false, enabled: !demoMode },
+    // Row 4 — explorers, assistants and workspaces
     { icon: '🔭', name: 'Alpha: Resource Explorer',
       desc: 'Scout, Assess, Discover, Enrich Resources.',
       enabled: true, resourceExplorer: true },
-    // Row 2 — workspaces & assistants
-    { icon: '📓', name: 'Jupyter Lab',
-      desc: 'Interactive notebooks for data science and hands-on Egeria API exploration.',
-      enabled: true, jupyter: true },
+    { icon: '🤖', name: 'Alpha: Egeria Advisor',
+      desc: 'AI-powered guidance for your Egeria environment.',
+      enabled: true, advisor: true },
     { icon: '🗒️', name: 'Obsidian Vault',
       desc: _obsidianUrl
         ? 'Open the Coco Pharmaceuticals workbook vault in your local Obsidian install.'
         : 'Open the workbook vault in the shared browser-based Obsidian, or browse on GitHub.',
       enabled: true, obsidian: true },
-    { icon: '🖥️', name: 'My Egeria',
-      desc: 'Explore your Egeria profile, roles, teams, actions, and data catalog.',
-      url: '/my-egeria/', newTab: true, enabled: true },
-    { icon: '🤖', name: 'Alpha: Egeria Advisor',
-      desc: 'AI-powered guidance for your Egeria environment.',
-      enabled: true, advisor: true },
-    // Remaining — docs, admin & API references
+    { icon: '📓', name: 'Jupyter Lab',
+      desc: 'Interactive notebooks for data science and hands-on Egeria API exploration.',
+      enabled: true, jupyter: true },
+    // Documentation and API references (their own sections below)
     { icon: '📚', name: 'Egeria Workspaces Documentation',
       desc: 'User guides, tool reference, Dr. Egeria templates, Coco Pharmaceuticals scenarios, and admin docs.',
       url: '/docs/', newTab: true, enabled: true, isDoc: true },
-    { icon: '⚙️', name: 'Admin',
-      desc: 'Manage the Obsidian session lock, view audit log, and add reservations.',
-      url: '/admin', newTab: false, enabled: !demoMode },
     { icon: '📖', name: 'Egeria Documentation',
       desc: 'Official Egeria project documentation, guides, and community resources.',
       url: 'https://egeria.ai', newTab: true, enabled: true, isDoc: true },
@@ -558,9 +564,6 @@ function renderAppGrid(demoMode) {
     { icon: '🔌', name: 'REST APIs',
       desc: 'Live Egeria REST API browser — all open metadata services with endpoints and parameters.',
       url: '/egeria-explorer#rest-apis', newTab: false, enabled: true, isDoc: true, isApi: true },
-    { icon: '🎯', name: 'Governance Metrics',
-      desc: 'Browse the Overview dashboard\'s metrics as real GovernanceMetric elements — each one\'s definition, its linked Report, and a diagram of how the value is computed.',
-      url: '/governance-metrics', newTab: false, enabled: true },
   ];
   function _renderTile(a) {
     var action;
