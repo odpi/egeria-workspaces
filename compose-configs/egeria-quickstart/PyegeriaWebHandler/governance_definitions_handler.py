@@ -383,10 +383,10 @@ def find_definitions(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     """Return governance definitions, optionally filtered by type and search string."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -436,9 +436,9 @@ def get_definition(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
 ):
     """Return full detail for a single governance definition, including relationships."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -491,12 +491,12 @@ def get_process_graph(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
 ):
     """Return a GovernanceActionProcess's full step structure: every
     GovernanceActionProcessStep it's made of, the NextGovernanceActionProcessStep
     links between them (with guard/mandatoryGuard), and the full-chain mermaid
     diagram — everything needed to drill down into a process's sub-actions."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:

@@ -333,8 +333,9 @@ def get_container(
 def get_summary(
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now (time-machine)"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     as_of_time = _norm_asof(as_of_time)
     ckey = f"summary|{as_of_time}|{url}|{server}|{user_id}"
     cached = _cache_get(ckey)
@@ -747,11 +748,12 @@ def _recent_changes(mgr, now=None) -> Optional[dict]:
 @router.get("/api/overview/activity", summary="Recent changes to curated content")
 def get_activity(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """Change stream, activity by type and most active stewards for curated content types (glossary terms,
     collections/products, governance definitions, projects). Always "now": Egeria's asOfTime cannot
     say who changed what. `activity` is None when a query failed -- the page then shows "Not measured"."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     ckey = f"activity|{url}|{server}|{user_id}"
     cached = _cache_get(ckey)
     if cached is not None:
@@ -1112,10 +1114,11 @@ def _certifications(url, server, user_id, user_pwd, as_of: Optional[str] = None)
 def get_ai_context(
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """Context-readiness funnel + grounding. Consumers/guardrails are not natively
     queryable yet — returned as null so the SPA shows its sample baseline."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     as_of_time = _norm_asof(as_of_time)
     ckey = f"ai|{as_of_time}|{url}|{server}|{user_id}"
     cached = _cache_get(ckey)
@@ -1262,7 +1265,7 @@ def get_ai_context(
 def get_people(
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """People counts (persons / teams / orgs / communities) via native element
     counts — one `count_metadata_elements` per type (SELECT COUNT(*)), so this is
@@ -1270,6 +1273,7 @@ def get_people(
     NB: native counts every entity of the type; the previous ActorManager
     find-and-bucket returned a curated set, so a few totals differ (that raw count
     is the authoritative repository count). Karma / feedback below."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     as_of_time = _norm_asof(as_of_time)
     ckey = f"people|{as_of_time}|{url}|{server}|{user_id}"
     cached = _cache_get(ckey)
@@ -1368,13 +1372,14 @@ def get_people(
 def get_usage_context(
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """ISCs and Blueprints are what put assets in a *usage context* — "this store
     feeds the Clinical Trial supply chain", "this component realises the Sales
     blueprint". Counted natively (count_metadata_elements) — sub-second, vs the old
     find-and-filter that materialized every element. The "% of assets contextualised"
     coverage figure needs graph traversal and is deferred (SPA shows sample)."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     as_of_time = _norm_asof(as_of_time)
     ckey = f"usage|{as_of_time}|{url}|{server}|{user_id}"
     cached = _cache_get(ckey)
@@ -1432,13 +1437,14 @@ def get_growth(
     points: Optional[int] = Query(None, ge=2, le=24, description="override #snapshots"),
     months: Optional[int] = Query(None, ge=2, le=12, description="deprecated — use window"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """Real growth series: one count per snapshot date with asOfTime set — Egeria
     answers historical queries natively, so no separate time-series store is needed.
     The window sets the span and (by default) the granularity; points can override
     the snapshot count. Snapshots assets / terms / governed / data-products.
     Cached 15 min (this is the expensive endpoint until the count API lands)."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     if months:                              # back-compat: months → an N*30d window
         window = f"{months * 30}d"
 

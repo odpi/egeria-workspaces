@@ -13,6 +13,7 @@
 <script src="/static/bootstrap-banner.js?v=2026-08-18a"></script>
 <script src="/static/diagram-viewer.js?v=2026-11-06a"></script>
 <script src="/static/egeria-not-measured.js?v=2026-11-08a"></script>
+<script src="/static/report-spec-source.js?v=2026-11-10a"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
@@ -72,6 +73,7 @@
   .placement.emph-panel { padding:20px 22px; }
   .placement.kind-missing { border-color:rgba(233,69,96,.5); background:rgba(233,69,96,.06); }
   .placement.kind-sheet { border-style:dashed; }
+  .placement.kind-restricted { border-style:dashed; border-color:rgba(160,160,160,.5); }
   .placement h4 { font-size:.92rem; font-weight:650; margin-bottom:4px; display:flex; align-items:center; gap:8px; }
   .placement .p-desc { font-size:.78rem; color:var(--muted); margin-bottom:10px; }
   .placement .p-body { font-size:.82rem; line-height:1.6; }
@@ -408,6 +410,9 @@ function cacheNoteHtml(result) {
 }
 // After a placement renders, add the cache note; a stale one re-checks once the background refresh has had time.
 function afterPlacementResult(p, i, result, target) {
+  // Where the spec that ran came from (same badge as Egeria Explorer's Report Specs view).
+  var src = window.EgeriaSpecSource ? window.EgeriaSpecSource.blockHtml(result) : '';
+  if (src) target.insertAdjacentHTML('beforeend', src);
   var note = cacheNoteHtml(result);
   if (note) target.insertAdjacentHTML('beforeend', note);
   var m = (result !== null && typeof result === 'object') ? _execMeta.get(result) : null;
@@ -682,6 +687,12 @@ function renderPlacementBody(p, i, force) {
   var target = document.getElementById('placement-body-' + i);
   if (p.kind === 'missing') {
     target.innerHTML = '<div class="p-note">⚠ ' + esc(p.description) + '</div>';
+    return;
+  }
+  // A Report or Report Spec in a zone this viewer cannot see (pyegeria's resolver, B4): say so, never
+  // run it, never show it as broken.
+  if (p.kind === 'restricted') {
+    target.innerHTML = '<div class="p-note">🔒 ' + esc(p.description || 'Not visible to you.') + '</div>';
     return;
   }
   if (p.kind === 'sheet') {

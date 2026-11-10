@@ -50,6 +50,7 @@ from fastapi import APIRouter, Body, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
 from pydantic import BaseModel
+from egeria_auth import PlatformBody  # platform gate on the body's url (see egeria_auth)
 
 from egeria_auth import apply_token
 from egeria_error_mapping import describe_bulk_item_error
@@ -127,10 +128,11 @@ def _zone_names(el: dict) -> list:
 @router.get("/api/insights/zones", summary="Governance zone definitions with usage counts")
 def get_zones(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """Minimal picker-data endpoint for ZoneMembershipModal — see module
     docstring for why this lives here rather than in a full insights_handler.py."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _expert(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -189,7 +191,7 @@ def get_zones(
     return JSONResponse({"zones": zones, "countsCapped": counts_capped})
 
 
-class BulkZoneMembershipBody(BaseModel):
+class BulkZoneMembershipBody(PlatformBody):
     guids: list[str]
     url: Optional[str] = None
     server: Optional[str] = None

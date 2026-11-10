@@ -22,6 +22,7 @@ from typing import Optional
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from egeria_auth import PlatformBody  # platform gate on the body's url (see egeria_auth)
 from loguru import logger
 
 router = APIRouter(tags=["dr-egeria"])
@@ -160,7 +161,7 @@ def get_commands():
     return JSONResponse(result)
 
 
-class ExecuteRequest(BaseModel):
+class ExecuteRequest(PlatformBody):
     title:     str
     params:    dict = {}
     directive: str  = "display"

@@ -274,7 +274,7 @@ def _verify_token_with_egeria(token: str, user: str) -> None:
     class and its 404 status only, never by text in a message. Anything else (Egeria unreachable, an
     unexpected error) refuses the write with 503 -- fail closed, never "unverified but OK".
     Sync: this runs in sync routes only (see CLAUDE.md's async invariants)."""
-    from egeria_auth import use_token
+    from egeria_auth import check_client_platform, use_token
     from egeria_error_mapping import _is_auth_error
     import pyegeria
     from pyegeria import MyProfile, PyegeriaNotFoundException
@@ -284,6 +284,7 @@ def _verify_token_with_egeria(token: str, user: str) -> None:
         client = MyProfile(os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server"),
                            os.environ.get("EGERIA_PLATFORM_URL", "https://localhost:9443"),
                            user_id=user, user_pwd=None)
+        check_client_platform(client, token)
         use_token(client, token)          # no password on the client: a 401 can never re-login as anyone
         client.get_my_profile()           # returns NO_ELEMENTS_FOUND (no exception) for a user with no profile
     except PyegeriaNotFoundException as exc:
@@ -575,46 +576,7 @@ def _serialize_placement(p, sheets, registry, mgr, url=None, server=None, user_i
         }
     report = _find_report_by_name(p.ref, mgr, url, server, user_id, user_pwd) if mgr is not None else None
     if report is not None:
-        fs = registry.get(report["reportSpec"]) if report["reportSpec"] else None
-        action = getattr(fs, "action", None) if fs is not None else None
-        return {
-            "ref":            p.ref,
-            "span":           p.span,
-            "emphasis":       p.emphasis,
-            "kind":           "report",
-            "heading":        report["heading"],
-            "description":    report["description"] or (getattr(fs, "description", None) if fs else "") or "",
-            "reportSpec":     report["reportSpec"],
-            "outputFormat":   report["outputFormat"],
-            "params":         report["params"],
-            "analyticParams": report["analyticParams"],
-            "family":         getattr(fs, "family", None) if fs else None,
-            "outputTypes":    sorted({str(t) for fmt in (getattr(fs, "formats", []) or [])
-                                       for t in (getattr(fmt, "types", []) or [])}) if fs else [],
-            "requiredParams": list(getattr(action, "required_params", []) or []) if action else [],
-            # True iff the underlying FormatSet's action runs an analytic function
-            # (extra_find) rather than a live find-method query -- the frontend uses
-            # this, not outputFormat=='SERIES', to decide whether to send
-            # analyticParams or the standard find-vocabulary params. SERIES is one
-            # possible rendering of an analytic result (a chart), not the signal
-            # for "this is analytic" -- an analytic function can render as DICT/JSON
-            # too (see analytic_demo_specs.py's count_elements demos), and using
-            # outputFormat as the proxy silently sent search_string/graphQueryDepth
-            # etc. to functions that don't accept them (TypeError: unexpected
-            # keyword argument 'search_string').
-            "isAnalytic":     bool(getattr(action, "analytic_function", None)) if action else False,
-            "perspectives":   list(getattr(p, "perspectives", None) or []),
-            # BACKLOG.md NEXT-21 (egeria-workspaces-fs) -- drill-down target,
-            # a Report Spec name for local-dashboards.html to run in the
-            # detail drawer. getattr, not p.detail_spec, so this degrades to
-            # None on the currently-deployed pyegeria (predates this field)
-            # instead of raising AttributeError and taking the whole sheet down.
-            "detailSpec":     getattr(p, "detail_spec", None),
-            # RS-W2-4: runnable (True/False, None = not resolved) and refusal (the resolver's
-            # words when not runnable). The page shows the refusal instead of executing.
-            **spec_resolution.placement_status(report["reportSpec"], resolutions or {},
-                                                report["analyticParams"], action),
-        }
+        return _report_placement(p, report, registry, resolutions)
     sub = sheets.get(p.ref)
     if sub is not None:
         return {
@@ -626,6 +588,125 @@ def _serialize_placement(p, sheets, registry, mgr, url=None, server=None, user_i
         "ref": p.ref, "span": p.span, "emphasis": p.emphasis, "kind": "missing",
         "heading": p.ref,
         "description": "Unresolved reference — no matching Report or Dashboard Sheet.",
+        "perspectives": list(getattr(p, "perspectives", None) or []),
+    }
+
+
+def _report_placement(p, report: dict, registry, resolutions) -> dict:
+    """A kind:"report" placement from its Report (the dict _find_report_by_name_uncached returns, or the same
+    shape built from pyegeria's resolver), so both paths serialise a report identically."""
+    fs = registry.get(report["reportSpec"]) if report["reportSpec"] else None
+    action = getattr(fs, "action", None) if fs is not None else None
+    return {
+        "ref":            p.ref,
+        "span":           p.span,
+        "emphasis":       p.emphasis,
+        "kind":           "report",
+        "heading":        report["heading"],
+        "description":    report["description"] or (getattr(fs, "description", None) if fs else "") or "",
+        "reportSpec":     report["reportSpec"],
+        "outputFormat":   report["outputFormat"],
+        "params":         report["params"],
+        "analyticParams": report["analyticParams"],
+        "family":         getattr(fs, "family", None) if fs else None,
+        "outputTypes":    sorted({str(t) for fmt in (getattr(fs, "formats", []) or [])
+                                   for t in (getattr(fmt, "types", []) or [])}) if fs else [],
+        "requiredParams": list(getattr(action, "required_params", []) or []) if action else [],
+        # True iff the underlying FormatSet's action runs an analytic function
+        # (extra_find) rather than a live find-method query -- the frontend uses
+        # this, not outputFormat=='SERIES', to decide whether to send
+        # analyticParams or the standard find-vocabulary params. SERIES is one
+        # possible rendering of an analytic result (a chart), not the signal
+        # for "this is analytic" -- an analytic function can render as DICT/JSON
+        # too (see analytic_demo_specs.py's count_elements demos), and using
+        # outputFormat as the proxy silently sent search_string/graphQueryDepth
+        # etc. to functions that don't accept them (TypeError: unexpected
+        # keyword argument 'search_string').
+        "isAnalytic":     bool(getattr(action, "analytic_function", None)) if action else False,
+        "perspectives":   list(getattr(p, "perspectives", None) or []),
+        # BACKLOG.md NEXT-21 (egeria-workspaces-fs) -- drill-down target,
+        # a Report Spec name for local-dashboards.html to run in the
+        # detail drawer. getattr, not p.detail_spec, so this degrades to
+        # None on the currently-deployed pyegeria (predates this field)
+        # instead of raising AttributeError and taking the whole sheet down.
+        "detailSpec":     getattr(p, "detail_spec", None),
+        # RS-W2-4: runnable (True/False, None = not resolved) and refusal (the resolver's
+        # words when not runnable). The page shows the refusal instead of executing.
+        **spec_resolution.placement_status(report["reportSpec"], resolutions or {},
+                                            report["analyticParams"], action),
+    }
+
+
+# ── pyegeria's shared dashboard data step (B4 / D4) ──────────────────────────
+# For a sheet held in Egeria, the Reports are read by pyegeria's resolver
+# (pyegeria.view.dashboard_resolver.resolve_sheet, the same data step Egeria Advisor uses): by the GUID
+# each placement links to, as the viewer, concurrently. It also says when a Report or an EGERIA-tier
+# ReportSpec is in a zone the viewer cannot see (kind "restricted", "not visible to you"), which a
+# lookup by name cannot: Egeria drops such an element from searches without a word. The sheet read, the
+# caches and the serialised shape stay the Portal's. Feature-detected: on a pyegeria without the
+# resolver, or if it fails, every placement takes the by-name path above, as before.
+RESTRICTED_REASON = "not visible to you"
+
+
+def _resolver():
+    try:
+        from pyegeria.view.dashboard_resolver import resolve_sheet
+        return resolve_sheet
+    except ImportError:
+        return None
+
+
+def _spec_lookup(registry):
+    """The resolver's spec lookup: the Portal's own registry (as the by-name path uses it), plus pyegeria's
+    spec_source, whose GUID lets the resolver re-check an EGERIA-tier spec as the viewer."""
+    try:
+        from pyegeria.view.base_report_formats import report_spec_source
+    except ImportError:
+        report_spec_source = None
+
+    def lookup(label):
+        fs = registry.get(label) if label else None
+        if fs is None:
+            return None, None
+        try:
+            return fs, (report_spec_source(label) if report_spec_source else None)
+        except Exception as exc:  # noqa: BLE001 -- the source tag is extra; the spec was found
+            logger.debug(f"local-dashboards: no spec_source for {label!r}: {exc}")
+            return fs, None
+    return lookup
+
+
+def _resolve_egeria_sheet(sheet, perspective, registry, url, server, user_id, user_pwd):
+    """{position: ResolvedPlacement} for an Egeria-held sheet, or None (no resolver, or it failed: the
+    caller then resolves every placement by name). A refused token is raised, never swallowed."""
+    resolve_sheet = _resolver()
+    if resolve_sheet is None:
+        return None
+    try:
+        resolved = resolve_sheet(_egeria_client(url, server, user_id, user_pwd), sheet,
+                                 perspective=perspective, spec_lookup=_spec_lookup(registry))
+    except Exception as exc:  # noqa: BLE001
+        _raise_if_token_refused(exc)
+        logger.warning(f"local-dashboards: pyegeria's sheet resolver failed for {sheet.name!r}, "
+                       f"resolving by name instead: {exc}")
+        return None
+    return {rp.position: rp for rp in resolved.placements}
+
+
+def _report_from_resolved(rp, p) -> dict:
+    r = rp.report
+    return {"guid": r.guid, "heading": r.name or p.ref, "description": r.description or "",
+            "reportSpec": r.report_spec, "outputFormat": r.output_format,
+            "analyticParams": dict(r.analytic_params or {}), "params": dict(r.params or {})}
+
+
+def _restricted_placement(p, rp) -> dict:
+    return {
+        "ref": p.ref, "span": p.span, "emphasis": p.emphasis, "kind": "restricted",
+        "heading": p.ref, "restricted": True, "restrictedElement": rp.restricted_element,
+        "reason": rp.reason or RESTRICTED_REASON,
+        "description": f"{'Report spec' if rp.restricted_element == 'ReportSpec' else 'Report'} "
+                       f"{rp.reason or RESTRICTED_REASON}.",
         "perspectives": list(getattr(p, "perspectives", None) or []),
     }
 
@@ -798,9 +879,28 @@ def _build_sheet(name, perspective, url, server, user_id, user_pwd):
         mgr = None
 
     visible = _view_for_perspective(sheet.placements, perspective)
+    resolved = (_resolve_egeria_sheet(sheet, perspective, registry, url, server, user_id, user_pwd)
+                if source == SOURCE_EGERIA else None)
+    position = {id(p): i for i, p in enumerate(sheet.placements, start=1)}
+
+    def by_resolver(p):
+        """The resolver's answer for p when it has one the by-name path would agree with: a Report it
+        read, or a restricted one. Text, the reader's own "missing" and a Report it could not read keep
+        the by-name path (so a nested-sheet or legacy fallback still applies)."""
+        rp = (resolved or {}).get(position[id(p)])
+        if rp is None or rp.ref != p.ref:
+            return None
+        if rp.kind == "restricted":
+            return _restricted_placement(p, rp)
+        if rp.kind == "report" and rp.report is not None:
+            return _report_placement(p, _report_from_resolved(rp, p), registry, resolutions)
+        return None
+
+    done = {id(p): by_resolver(p) for p in visible} if resolved is not None else {}
     if mgr is not None:
-        _prime_report_lookups(visible, url, server, user_id, user_pwd)
-    placements = [_serialize_placement(p, sheets, registry, mgr, url, server, user_id, resolutions, user_pwd)
+        _prime_report_lookups([p for p in visible if done.get(id(p)) is None], url, server, user_id, user_pwd)
+    placements = [done.get(id(p)) or _serialize_placement(p, sheets, registry, mgr, url, server, user_id,
+                                                          resolutions, user_pwd)
                   for p in visible]
     for pl in placements:
         pl["source"] = source        # a placement is held where its sheet is

@@ -59,6 +59,7 @@ def env(monkeypatch, tmp_path):
     monkeypatch.setattr(ld, "_report_registry", lambda: {})
     monkeypatch.setattr(ld.spec_resolution, "resolve_all", lambda: {})
     monkeypatch.setattr(ld, "_expert", lambda *a, **k: object())
+    monkeypatch.setattr(ld, "_resolver", lambda: None)      # the by-name path; the resolver path is tested below
     monkeypatch.setattr(ld, "_find_report_by_name",
                         lambda name, *a, **k: {"guid": "g", "heading": name, "description": "", "reportSpec": None,
                                                "outputFormat": "DICT", "params": {}, "analyticParams": {}})
@@ -427,3 +428,123 @@ def test_no_profile_marker_counts_as_verified(env, verify, monkeypatch):
     monkeypatch.setattr(real, "get_my_profile", lambda self: "No elements found")   # pyegeria's NO_ELEMENTS_FOUND
     r = env["client"].delete("/api/local-dashboards/json-only", headers={"X-Egeria-Token": _jwt("alice")})
     assert r.status_code == 200
+
+
+# ── pyegeria's shared resolver (B4 / D4) ─────────────────────────────────────
+# The resolver is faked here (pyegeria's own tests cover it on a fake Egeria); these check the Portal's side:
+# same shape as the by-name path, the restricted kind, and the fallbacks.
+
+def _report(name, **kw):
+    r = dict(guid=f"g-{name}", name=name, description="", report_spec=None, output_format="DICT", params={},
+             analytic_params={})
+    r.update(kw)
+    return NS(**r)
+
+
+def _rp(position, ref, kind, **kw):
+    base = dict(position=position, ref=ref, kind=kind, report=None, restricted=kind == "restricted",
+                restricted_element=None, reason=None)
+    base.update(kw)
+    return NS(**base)
+
+
+def _with_resolver(monkeypatch, answer, seen=None):
+    def fake_resolve_sheet(client, sheet, *, perspective=None, spec_lookup=None, **kw):
+        if seen is not None:
+            seen.append((sheet.name, perspective, spec_lookup))
+        if isinstance(answer, Exception):
+            raise answer
+        return NS(placements=[rp for rp in answer if perspective is None or rp.ref != "Owner Only"])
+    monkeypatch.setattr(ld, "_resolver", lambda: fake_resolve_sheet)
+
+
+def test_resolver_report_is_serialised_exactly_as_the_by_name_path(env, monkeypatch):
+    env["egeria"] = {"e": _sheet("e", [_pl("Rep"), _pl("Words", content="hi")], source="egeria", breaks=[])}
+    by_name = env["client"].get("/api/local-dashboards/e").json()
+    monkeypatch.setattr(ld, "_SHEET_CACHE", ResultCache(ttl=300, max_entries=8))
+    monkeypatch.setattr(ld, "_find_report_by_name", lambda *a, **k: pytest.fail("resolved reports are not looked up by name"))
+    _with_resolver(monkeypatch, [_rp(1, "Rep", "report", report=_report("Rep", guid="g")),
+                                 _rp(2, "Words", "text")])
+    via_resolver = env["client"].get("/api/local-dashboards/e").json()
+    assert via_resolver == by_name
+
+
+def test_restricted_placement_says_not_visible_and_the_rest_resolve(env, monkeypatch):
+    env["egeria"] = {"e": _sheet("e", [_pl("Open"), _pl("Secret"), _pl("Hidden Spec")], source="egeria", breaks=[])}
+    _with_resolver(monkeypatch, [
+        _rp(1, "Open", "report", report=_report("Open")),
+        _rp(2, "Secret", "restricted", restricted_element="Report", reason="not visible to you"),
+        _rp(3, "Hidden Spec", "restricted", restricted_element="ReportSpec", reason="not visible to you",
+            report=_report("Hidden Spec"))])
+    ps = env["client"].get("/api/local-dashboards/e").json()["placements"]
+    assert [p["kind"] for p in ps] == ["report", "restricted", "restricted"]
+    assert ps[1]["restricted"] is True and ps[1]["reason"] == "not visible to you"
+    assert ps[1]["description"] == "Report not visible to you." and ps[1]["source"] == "egeria"
+    assert ps[2]["restrictedElement"] == "ReportSpec" and ps[2]["description"] == "Report spec not visible to you."
+    assert "reportSpec" not in ps[1] and "params" not in ps[2]     # nothing to run
+
+
+def test_readers_missing_and_unreadable_reports_keep_the_by_name_path(env, monkeypatch):
+    miss = _pl("Gone", kind="missing", note="report link missing in Egeria")
+    env["egeria"] = {"e": _sheet("e", [miss, _pl("Raced")], source="egeria", breaks=[])}
+    monkeypatch.setattr(ld, "_find_report_by_name", lambda *a, **k: None)
+    _with_resolver(monkeypatch, [_rp(1, "Gone", "missing", reason="report link missing in Egeria"),
+                                 _rp(2, "Raced", "missing", reason="the Report this placement shows is no longer in Egeria")])
+    ps = env["client"].get("/api/local-dashboards/e").json()["placements"]
+    assert ps[0]["description"] == "report link missing in Egeria"
+    assert ps[1]["description"] == "Unresolved reference — no matching Report or Dashboard Sheet."
+
+
+def test_resolver_failure_falls_back_to_by_name(env, monkeypatch):
+    env["egeria"] = {"e": _sheet("e", [_pl("Rep")], source="egeria", breaks=[])}
+    _with_resolver(monkeypatch, RuntimeError("resolver broke"))
+    d = env["client"].get("/api/local-dashboards/e").json()
+    assert d["placements"][0]["kind"] == "report" and d["placements"][0]["heading"] == "Rep"
+
+
+def test_resolver_token_refusal_is_a_401(env, monkeypatch):
+    env["egeria"] = {"e": _sheet("e", [_pl("Rep")], source="egeria", breaks=[])}
+    _with_resolver(monkeypatch, _Refused("Egeria said 401"))
+    assert env["client"].get("/api/local-dashboards/e", headers={"X-Egeria-Token": _jwt("bob")}).status_code == 401
+
+
+def test_resolver_gets_the_perspective_and_the_portals_registry(env, monkeypatch):
+    env["egeria"] = {"e": _sheet("e", [_pl("Rep", perspectives=["Owner"]), _pl("Other", perspectives=["Steward"])],
+                                 source="egeria", breaks=[])}
+    seen = []
+    monkeypatch.setattr(ld, "_report_registry", lambda: {"Spec-X": NS(action=None, description="d", family="F",
+                                                                       formats=[])})
+    _with_resolver(monkeypatch, [_rp(1, "Rep", "report", report=_report("Rep", report_spec="Spec-X"))], seen)
+    ps = env["client"].get("/api/local-dashboards/e?perspective=Owner").json()["placements"]
+    assert [p["ref"] for p in ps] == ["Rep"] and ps[0]["family"] == "F"
+    name, perspective, lookup = seen[0]
+    assert (name, perspective) == ("e", "Owner")
+    assert lookup("Spec-X")[0].family == "F" and lookup("Nope") == (None, None)
+
+
+def test_local_file_sheets_never_use_the_resolver(env, monkeypatch):
+    _with_resolver(monkeypatch, AssertionError("not for a local-file sheet"))
+    d = env["client"].get("/api/local-dashboards/json-only").json()
+    assert d["source"] == "local file" and d["placements"][0]["kind"] == "report"
+
+
+def test_no_resolver_in_pyegeria_means_by_name():
+    import builtins
+    real = builtins.__import__
+
+    def no_resolver(name, *a, **k):
+        if name == "pyegeria.view.dashboard_resolver":
+            raise ImportError(name)
+        return real(name, *a, **k)
+    builtins.__import__ = no_resolver
+    try:
+        assert ld._resolver() is None
+    finally:
+        builtins.__import__ = real
+
+
+def test_page_shows_a_restricted_placement_and_never_runs_it():
+    html = (Path(ld.__file__).parent / "local-dashboards.html").read_text()
+    branch = html.index("if (p.kind === 'restricted')")
+    assert branch < html.index("if (p.runnable === false)")          # before any execute path
+    assert ".placement.kind-restricted" in html

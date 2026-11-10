@@ -111,8 +111,20 @@ def _service_client():
     user_id = os.environ.get("EGERIA_USER", "erinoverview")
     user_pwd = os.environ.get("EGERIA_USER_PASSWORD", "secret")
     client = CollectionManager(server, url, user_id=user_id, user_pwd=user_pwd)
+    from egeria_auth import check_client_platform
+    check_client_platform(client)         # env-configured platform: always allow-listed
     client.create_egeria_bearer_token()   # sync: fine here, this runs in its own thread
     return client
+
+
+def _reconcile_fallbacks() -> None:
+    """After a sync: withdraw the Portal's local copy of a spec Egeria now holds, or restore it
+    for one Egeria no longer holds (local_spec_fallback.py). Never raises."""
+    try:
+        import local_spec_fallback
+        local_spec_fallback.reconcile()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"report-spec sync: could not reconcile the local fallback specs: {exc}")
 
 
 def _sync_once() -> str:
@@ -144,6 +156,7 @@ def _sync_once() -> str:
         logger.info(f"report-spec sync: folders {rep.get('folders')}: {len(rep.get('added', []))} added, "
                     f"{len(rep.get('updated', []))} updated, {len(rep.get('unchanged', []))} unchanged, "
                     f"{len(rep.get('pruned', []))} pruned, {len(rep.get('skipped', []))} skipped")
+        _reconcile_fallbacks()
         return outcome
     except Exception as exc:  # noqa: BLE001 -- Egeria down, bad credentials, ...: record and carry on
         with _LOCK:

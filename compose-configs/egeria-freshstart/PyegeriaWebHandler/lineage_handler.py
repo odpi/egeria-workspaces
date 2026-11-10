@@ -27,7 +27,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
 
-from egeria_auth import use_token
+from egeria_auth import check_client_platform, use_token
 from egeria_error_mapping import _is_auth_error
 
 router = APIRouter(tags=["lineage"])
@@ -54,7 +54,9 @@ def _token_from_request(request: Request) -> Optional[str]:
 
 
 def _apply_token(client, token: Optional[str]):
-    """Set a pre-obtained bearer token on a pyegeria client, or obtain a fresh one."""
+    """Set a pre-obtained bearer token on a pyegeria client, or obtain a fresh one.
+    Refuses (PlatformRefused) a platform the credentials may not go to; see egeria_auth.resolve_platform."""
+    check_client_platform(client, token)
     if token:
         use_token(client, token)   # never falls back to the service user; see egeria_auth.use_token
     else:

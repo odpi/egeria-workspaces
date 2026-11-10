@@ -793,12 +793,13 @@ def get_composition(
     depth: int = Query(1, ge=0, le=COMPOSITION_DEPTH_MAX),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now (time-machine)"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """Served from the background section cache (cold -> {"loading": true}); see "Asset composition" above.
 
     countScope is always "repository". viewerCounts is "total-only": the Asset total of the viewer column comes
     from the hourly per-viewer cache (and only when root is Asset), every other viewer cell is not_measured."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     as_of_time = _norm_asof(as_of_time)
     if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", root):
         raise HTTPException(status_code=422, detail="root must be an open metadata type name")
@@ -821,9 +822,10 @@ def get_composition(
 def get_summary(
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now (time-machine)"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """Served from the background section cache (see "Background section cache"); computed by _compute_summary."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     as_of_time = _norm_asof(as_of_time)
     key = _section_key_or_401("summary", as_of_time, population=VIEWER,
                               url=url, server=server, user_id=user_id, user_pwd=user_pwd)
@@ -1271,11 +1273,12 @@ def _recent_changes(mgr, now=None) -> Optional[dict]:
 @router.get("/api/overview/activity", summary="Recent changes to curated content")
 def get_activity(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """Change stream, activity by type and most active stewards for curated content types (glossary terms,
     collections/products, governance definitions, projects). Always "now": Egeria's asOfTime cannot
     say who changed what. `activity` is None when a query failed -- the page then shows "Not measured"."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     ckey = _viewer_key("activity", url, server, user_id, user_pwd)
     cached = _cache_get(ckey)
     if cached is not None:
@@ -1641,10 +1644,11 @@ def _certifications(url, server, user_id, user_pwd, as_of: Optional[str] = None)
 def get_ai_context(
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """Context-readiness funnel + grounding. Consumers/guardrails are not natively
     queryable yet — returned as null so the SPA shows its sample baseline."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     as_of_time = _norm_asof(as_of_time)
     key = _section_key_or_401("ai-context", as_of_time, population=VIEWER,
                               url=url, server=server, user_id=user_id, user_pwd=user_pwd)
@@ -1653,24 +1657,76 @@ def get_ai_context(
         ok=lambda p: (p.get("funnel") or {}).get("cataloged") is not None)
     if payload is None:
         return _section_unready("ai-context", meta)
-    payload = _overlay_ai_ownership(payload, url, server, user_id, user_pwd, as_of_time)
     return JSONResponse({**payload, **meta})
 
 
-def _overlay_ai_ownership(payload: dict, url, server, user_id, user_pwd, as_of) -> dict:
-    """ownershipPct for a repository-population ai-context payload: the owner count is a find (what the
-    viewer can see), so its denominator is the viewer's Asset total -- the main Overview's background count
-    (never blocks; None while it is counting, with ownershipPctLoading). A viewer payload already divided
-    by its own viewer `cataloged` and is returned unchanged."""
-    if payload.get("countScope") != REPOSITORY:
-        return payload
-    out = dict(payload)
-    value, loading, _stale, _counted_at = _viewer_total_state(url, server, user_id, user_pwd, as_of)
-    count = out.get("ownershipCount")
-    out["ownershipPct"] = (round(100 * count / value, 1)
-                           if count is not None and value and count <= value else None)
-    out["ownershipPctLoading"] = loading
-    return out
+def _owned_asset_share(mgr, as_of, population: str, cataloged: Optional[int]):
+    """(owned Assets, % of Cataloged) -- Ownership Coverage, the same shape as Governed Coverage.
+
+    The numerator is a strict native count of Assets carrying an Ownership classification, taken in the
+    SAME population as `cataloged` (the funnel's strict Asset count), so the ratio never mixes a viewer
+    count with a repository one. Either count unmeasured (None) -> the % is None, never a guess."""
+    n = functools.partial(count_elements, scope=population) if _accepts_scope(count_elements) else count_elements
+    try:
+        owned = n(mgr, "Asset", as_of, classifications=("Ownership",), strict=True)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview ai-context: owned-Asset count failed: {exc}")
+        owned = None
+    pct = (round(100 * owned / cataloged, 1)
+           if owned is not None and cataloged and owned <= cataloged else None)
+    return owned, pct
+
+
+def _display_round(v):
+    """One decimal under 10 (1.36 -> 1.4, not 1), whole numbers from 10 up. None stays None."""
+    if v is None:
+        return None
+    return round(v, 1) if abs(v) < 10 else round(v)
+
+
+def _links_per_100(grounding: dict, cataloged: Optional[int], population: Optional[str]):
+    """SemanticAssignment links ÷ Assets × 100, unrounded, or pyegeria's whole-number groundingPct.
+
+    Recomputed from groundingLinks and the funnel's Cataloged only when the funnel counts the whole
+    repository -- the population semantic_grounding counts both of its numbers in (6.2.27+) -- so the
+    ratio never mixes populations. Otherwise pyegeria's own figure is used as it is."""
+    links = grounding.get("groundingLinks")
+    if population == REPOSITORY and links is not None and cataloged:
+        return 100 * links / cataloged
+    return grounding.get("groundingPct")
+
+
+def _grounding_fields(grounding: Optional[dict], cataloged: Optional[int] = None,
+                      population: Optional[str] = None) -> dict:
+    """What the Semantic Grounding tile shows, labelled by what it measures.
+
+    pyegeria 6.2.30's semantic_grounding returns groundingLinks (SemanticAssignment relationships) and
+    groundingPct = links ÷ Asset total × 100. That is NOT a share of Assets: one Asset with three terms
+    counts three times, and a link to a non-Asset element counts too. So it is reported as "links per 100
+    Assets" (groundingMeasure "linksPer100Assets") and groundingPct -- the share -- stays None.
+
+    pyegeria 6.2.31 also reports distinct grounded Assets as `groundedAssets` (an Asset counts when it,
+    or one of its anchored parts, carries a term; counted among the Assets the caller can see) and
+    `groundedAssetPct` (groundedAssets ÷ the viewer's Asset total × 100). When that total cannot be
+    measured, groundedAssetPct is None and `groundedAssetNote` says why. The tile switches to the real
+    share (groundingMeasure "assetShare") whenever groundedAssetPct is set; otherwise it stays links per
+    100 Assets and still shows groundedAssets and the note.
+
+    Values for display are rounded by _display_round: one decimal under 10 (767 links over 56,357 Assets
+    is 1.4 per 100, not "1")."""
+    g = grounding or {}
+    per100 = _display_round(_links_per_100(g, cataloged, population))
+    share = _display_round(g.get("groundedAssetPct"))
+    # Forwarded in both branches (6.2.31+): the distinct grounded Assets are measured even when their share
+    # is not (the viewer Asset total times out on a large catalog), and the note says why the share is
+    # missing. None stays None: never shown as 0.
+    grounded = {"groundedAssets": g.get("groundedAssets"), "groundedAssetNote": g.get("groundedAssetNote"),
+                "groundingLinksScanned": g.get("groundingLinksScanned")}
+    if share is not None:
+        return {"groundingMeasure": "assetShare", "groundingValue": share, "groundingPct": share,
+                **grounded, "groundingLinks": g.get("groundingLinks"), "groundingLinksPer100": per100}
+    return {"groundingMeasure": "linksPer100Assets", "groundingValue": per100, "groundingPct": None,
+            **grounded, "groundingLinks": g.get("groundingLinks"), "groundingLinksPer100": per100}
 
 
 def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
@@ -1714,14 +1770,11 @@ def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
         readiness = {"cataloged": None, "documented": None, "classified": None,
                      "lineage": None, "aiReady": None}
 
-    # Semantic grounding: SemanticAssignment relationships (term ↔ asset) — the
-    # meaning layer that grounds AI. Count of assignments as a proxy for grounded links.
-    grounding_links = None
-    grounding_pct = None
+    # Semantic grounding: SemanticAssignment relationships (term ↔ element) — the meaning layer that grounds
+    # AI. See _grounding_fields: today it is links per 100 Assets, never shown as a share of Assets.
+    grounding = None
     try:
         grounding = semantic_grounding(mgr, ce, as_of_time)
-        grounding_links = grounding["groundingLinks"]
-        grounding_pct = grounding["groundingPct"]
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview ai-context: grounding query failed: {exc}")
 
@@ -1729,19 +1782,10 @@ def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
     # (OVERVIEW_CONTEXT_INTELLIGENCE.md §2.2) — data-mesh literature names "clean,
     # owned, product-based data" as its own foundation for trustworthy AI
     # consumption, distinct from governance-classification coverage above.
-    ownership_count = None
-    ownership_pct = None
-    try:
-        ownership = ownership_coverage(mgr, as_of_time)
-        ownership_count = ownership["ownershipCount"]
-        total = readiness.get("cataloged")
-        # the owner count comes from a find (what the viewer can see): divide only by a viewer total. In a
-        # repository funnel that total is the background viewer Asset count, applied per request
-        # (_overlay_ai_ownership), never `cataloged`.
-        if total and population == VIEWER:
-            ownership_pct = round(100 * ownership_count / total, 1)
-    except Exception as exc:  # noqa: BLE001
-        logger.debug(f"overview ai-context: ownership query failed: {exc}")
+    # Same shape as Governed Coverage (owner decision 2026-11-10): owned ASSETS, a strict native count in the
+    # funnel's own population, over the funnel's Cataloged (that same count's Asset total). Always measurable
+    # -- it used to divide a viewer find (any element type) by a viewer Asset total that cannot be counted at
+    # this catalogue size, so the tile never got a value. Computed after the strict funnel re-count below.
 
     # True AI-Ready composite (governed AND documented AND lineage-traced
     # simultaneously) — the actual claim the "AI-Ready Assets" tile already
@@ -1764,6 +1808,8 @@ def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
         logger.debug(f"overview ai-context: ai_ready_assets query failed: {exc}")
 
     readiness = _strict_funnel_counts(readiness, mgr, as_of_time, scope=population)
+    ownership_count, ownership_pct = _owned_asset_share(mgr, as_of_time, population, readiness.get("cataloged"))
+    grounding_fields = _grounding_fields(grounding, readiness.get("cataloged"), population)
 
     funnel = {
         "Cataloged":       readiness["cataloged"],
@@ -1804,7 +1850,7 @@ def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
         "countScope": population,
         "aiReadyCount":    ai_ready_count,
         "aiReadyScope":    VIEWER,       # ai_ready_assets is a find
-        "ownershipScope":  VIEWER,       # ownership_coverage is a find
+        "ownershipScope":  population,   # owned Assets ÷ Cataloged: both strict counts in the funnel's population
         "funnel": {
             "cataloged":  funnel["Cataloged"],
             "documented": funnel["Documented"],
@@ -1815,8 +1861,7 @@ def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
         "funnelChart":     funnel_chart,
         "consumers":       None,         # not natively tracked (MCP/API access logs)
         "guardrails":      None,
-        "groundingLinks":  grounding_links,
-        "groundingPct":    grounding_pct,
+        **grounding_fields,
         "ownershipCount":  ownership_count,
         "ownershipPct":    ownership_pct,
         "aiReadyPct":      ai_ready_pct,
@@ -1835,7 +1880,7 @@ def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
 def get_people(
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """People counts (persons / teams / orgs / communities) via native element
     counts — one `count_metadata_elements` per type (SELECT COUNT(*)), so this is
@@ -1843,6 +1888,7 @@ def get_people(
     NB: native counts every entity of the type; the previous ActorManager
     find-and-bucket returned a curated set, so a few totals differ (that raw count
     is the authoritative repository count). Karma / feedback below."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     as_of_time = _norm_asof(as_of_time)
     ckey = _viewer_key(f"people|{as_of_time}", url, server, user_id, user_pwd)
     cached = _cache_get(ckey)
@@ -1948,7 +1994,7 @@ def get_people(
 def get_usage_context(
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """ISCs and Blueprints are what put assets in a *usage context* — "this store
     feeds the Clinical Trial supply chain", "this component realises the Sales
@@ -1960,6 +2006,7 @@ def get_usage_context(
     docstring for the honest "this is a proxy" caveat (confirms an asset was
     given *some* solution-design context, not that its specific
     SolutionComponent is itself wired into an ISC/blueprint)."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     as_of_time = _norm_asof(as_of_time)
     key = _section_key_or_401("usage-context", as_of_time, population=VIEWER,
                               url=url, server=server, user_id=user_id, user_pwd=user_pwd)
@@ -2037,13 +2084,14 @@ def get_growth(
     points: Optional[int] = Query(None, ge=2, le=24, description="override #snapshots"),
     months: Optional[int] = Query(None, ge=2, le=12, description="deprecated — use window"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
 ):
     """Real growth series: one count per snapshot date with asOfTime set — Egeria
     answers historical queries natively, so no separate time-series store is needed.
     The window sets the span and (by default) the granularity; points can override
     the snapshot count. Snapshots assets / terms / governed / data-products.
     Served from the background section cache (refreshed hourly; see "Background section cache")."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     if months:                              # back-compat: months → an N*30d window
         window = f"{months * 30}d"
 

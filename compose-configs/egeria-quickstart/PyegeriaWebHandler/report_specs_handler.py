@@ -25,6 +25,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, Response
 from loguru import logger
 from pydantic import BaseModel
+from egeria_auth import PlatformBody  # platform gate on the body's url (see egeria_auth)
 
 import spec_resolution
 from result_cache import FRESH, MISS, STALE, ResultCache, credential_identity
@@ -36,30 +37,11 @@ router = APIRouter(tags=["report-specs"])
 
 
 def register_local_specs():
-    """Register workspace-local report specs into the pyegeria registry.
-    This allows us to provide professional, generally useful analytic specs
-    directly in the workspace before they are formally released into the
-    core pyegeria library.
+    """Register the Portal's own report specs as fallbacks for their Egeria-held copies: a local
+    copy is registered only while the EGERIA tier does not hold its label (local_spec_fallback.py).
     """
-    register_report_specs({
-        "Analytic - Generic Metric Trend": FormatSet(
-            heading="Generic Metric Trend",
-            description="Trend any analytic function over time. metric_path is the target function; "
-                        "metric_params are its keyword arguments. Default trends count_elements(type_name=Asset).",
-            family="Analytic",
-            target_type=None,
-            formats=[Format(types=["DICT", "JSON", "SERIES"], attributes=[])],
-            action=ActionParameter(
-                function="",
-                analytic_function="metric_trend",
-                analytic_spec_params={
-                    "metric_path": "count_elements",
-                    "metric_params": {"type_name": "Asset"},
-                    "window": "6mo"
-                }
-            )
-        )
-    }, source="workspace_local")
+    import local_spec_fallback
+    return local_spec_fallback.reconcile()
 
 
 try:
@@ -221,6 +203,39 @@ def _sync_status_for(request: Optional[Request]) -> dict:
     return report_spec_sync.public_status()
 
 
+def spec_source_for(name: str, run_source: Optional[dict] = None) -> Optional[dict]:
+    """Where the spec a run used came from, in the Report Specs view's words: {"source",
+    "sourceLabel", "shadows", "shadowedBy"}. `run_source` is the run's own `spec_source` (pyegeria
+    resolved it with the same lookup that ran it); without one, pyegeria's report_spec_source(name)
+    is asked. None when neither can say: the page then shows no badge, never a guessed tier."""
+    src = run_source if isinstance(run_source, dict) else None
+    if src is None:
+        try:
+            from pyegeria.view.base_report_formats import report_spec_source
+            src = report_spec_source(name)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"report specs: spec source for {name!r} unavailable: {exc}")
+            src = None
+    tier = (src or {}).get("tier")
+    if tier not in ("builtin", "egeria", "local"):
+        return None
+    label = (src or {}).get("label") or name
+    source = "user" if tier == "local" and label in _user_labels() else tier
+    shadows = shadowed_by = None
+    try:
+        from pyegeria.view import base_report_formats as brf
+        shadow = (getattr(brf, "_REGISTRY_SHADOWS", {}) or {}).get(label)
+    except Exception:  # noqa: BLE001
+        shadow = None
+    if shadow:
+        if shadow.get("winner") == tier:
+            shadows = shadow.get("loser")
+        elif shadow.get("loser") == tier:
+            shadowed_by = shadow.get("winner")
+    return {"source": source, "sourceLabel": SOURCE_WORDS.get(source, source), "label": label,
+            "shadows": shadows, "shadowedBy": shadowed_by}
+
+
 def _egeria_held_summary(source_counts: dict, request: Optional[Request] = None) -> dict:
     """What the Report Specs view says about specs held in Egeria. Never just an empty list: when
     there are none, `message` says so and why."""
@@ -377,7 +392,7 @@ def sync_status(request: Request):
 
 # ── Execute ───────────────────────────────────────────────────────────────────
 
-class ExecuteRequest(BaseModel):
+class ExecuteRequest(PlatformBody):
     spec_name:     str
     output_format: str = "REPORT"
     params:        dict = {}
@@ -551,6 +566,8 @@ def _run_spec(req, request, token, url, server, user_id, user_pwd):
             token=token,
             supply=PortalSupply(request, view_server=server, view_url=url, user_id=user_id, user_pwd=user_pwd),
         )
+        if isinstance(result, dict):
+            result["specSource"] = spec_source_for(req.spec_name, result.get("spec_source"))
         return result
     except CallerTokenExpired:
         # Refused before any Egeria call; same 401 words as an Egeria 401 below.

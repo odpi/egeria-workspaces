@@ -24,7 +24,7 @@ def _run(body):
     node = shutil.which("node")
     if not node:
         pytest.skip("node not available")
-    js = _fn(GM, "gmReceiveViewer") + _fn(GM, "gmTimeout") + body
+    js = _fn(GM, "gmReceiveViewer") + _fn(GM, "gmTimeout") + _fn(GM, "gmLoadTicket") + body
     out = subprocess.run([node, "-e", js], capture_output=True, text=True, timeout=20)
     assert out.returncode == 0, out.stderr
     return json.loads(out.stdout)
@@ -60,8 +60,38 @@ console.log(JSON.stringify({same:same, other:other, junk:junk, reloads:reloads, 
     assert r == {"same": "same", "other": "reload", "junk": "ignored", "reloads": 1, "label": "gary"}
 
 
+def test_an_older_load_answering_last_is_dropped():
+    # Service-user load (1) starts; the viewer arrives and its load (2) starts; (2) answers first,
+    # then (1) answers last. Only (2) may change the page.
+    r = _run("""
+var gm = {}, state = {who: null}, applied = [];
+function load(who) { var cur = gmLoadTicket(gm); return function answer() { if (!cur()) return; state.who = who; applied.push(who); }; }
+var first = load('service-user');
+var second = load('peter');
+second(); first();
+console.log(JSON.stringify({who: state.who, applied: applied, seq: gm.seq}));""")
+    assert r == {"who": "peter", "applied": ["peter"], "seq": 2}
+
+
+def test_a_single_load_is_current_and_a_newer_one_retires_it():
+    r = _run("""
+var gm = {};
+var a = gmLoadTicket(gm), aBefore = a();
+var b = gmLoadTicket(gm);
+console.log(JSON.stringify({aBefore: aBefore, aAfter: a(), b: b()}));""")
+    assert r == {"aBefore": True, "aAfter": False, "b": True}
+
+
+def test_fetch_is_guarded_and_a_new_viewer_shows_loading_first():
+    assert "var current = gmLoadTicket(GM);" in GM
+    assert ".then(function(d){ if (!current()) return; STATE.metrics" in GM
+    assert ".catch(function(e){ if (!current()) return; STATE.error" in GM
+    assert "if (!STATE.loaded) { document.getElementById('app').innerHTML = '<div class=\"loading\">Loading…</div>'; return; }" in GM
+
+
 def test_wiring_uses_the_helpers_and_checks_origin_and_source():
-    assert "gmReceiveViewer(GM, e.data, function(){ VIEWER = GM.viewer; fetchMetrics().then(route); });" in GM
+    assert ("gmReceiveViewer(GM, e.data, function(){ VIEWER = GM.viewer; STATE.loaded = false; route(); "
+            "fetchMetrics().then(route); });") in GM
     assert "setTimeout(function(){ gmTimeout(GM); }, 2000);" in GM
     assert "if (e.origin !== location.origin || e.source !== window.parent) return;" in GM
     assert "_viewerReady.then(fetchMetrics).then(route);" in GM

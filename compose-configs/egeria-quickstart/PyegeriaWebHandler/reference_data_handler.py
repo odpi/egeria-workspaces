@@ -107,7 +107,6 @@ def get_valid_value_definitions(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     """
@@ -116,6 +115,7 @@ def get_valid_value_definitions(
     Searches by display name / description using `find_valid_value_definitions`.
     Returns a flat list suitable for client-side grouping by typeName (ValidValueSet vs ValidValueDefinition).
     """
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -168,13 +168,13 @@ def get_metadata_values(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
 ):
     """
     Return the valid metadata values registered for a given property name.
     Optionally restricted to a specific open metadata type.
     Does not require Egeria connection (uses local ValidMetadataManager registry).
     """
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -204,9 +204,9 @@ def get_valid_value_definition(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
 ):
     """Return full detail for a single valid value definition."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:

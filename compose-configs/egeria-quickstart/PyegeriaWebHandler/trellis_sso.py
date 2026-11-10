@@ -60,6 +60,8 @@ async def _acquire_egeria_bearer_for_handoff(user_id: str, user_pwd: str) -> Opt
             view_server=defaults["server"], platform_url=defaults["url"],
             user_id=user_id, user_pwd=user_pwd,
         )
+        from egeria_auth import check_client_platform
+        check_client_platform(vmm)
         token = await vmm._async_create_egeria_bearer_token()
         vmm.close_session()
         return token
