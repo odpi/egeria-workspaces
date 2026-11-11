@@ -30,12 +30,11 @@
 > (`LOCAL_DASHBOARDS_USEFUL_SHEETS_FOLDERS.dr-egeria.md`) files its four sheets in these folders.
 >
 > **Why `Add Member`, never `Parent ID`.** On a command that ends as an Update, Dr.Egeria's `Parent ID`
-> handling can delete an unrelated CollectionMembership of the element before linking the parent. `Add
-> Member` calls Egeria's `CollectionHandler.addToCollection`, which updates an existing membership in place,
-> so re-running it is safe.
+> handling can delete an unrelated CollectionMembership of the element before linking the parent.
 >
-> **Re-running it is a no-op in effect.** Every element carries an explicit Qualified Name, so a second run
-> finds it and becomes an Update with the same values; each `Add Member` updates the existing membership.
+> **Run it once.** `Add Member to Collection` does not dedupe: a second run adds a second membership for each
+> link. (The root and folders carry explicit Qualified Names, so they alone would be updated in place.) The
+> batch's canary, the root, prevents heal re-runs: a heal runs this file only when the root is missing.
 >
 > **This is a shared Egeria write.** Run `--validate` first; `--process` once, under the peer check.
 >

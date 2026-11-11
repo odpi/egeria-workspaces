@@ -17,8 +17,11 @@
 > `ReportSpecFolder::Consumer::Portal`. A tool that doesn't take that report-spec folder shows that one tile as
 > a missing spec; the rest of the sheet works.
 >
-> `Add Member`, never `Parent ID` (see `LOCAL_DASHBOARDS_FOLDERS.dr-egeria.md`). Re-running it updates the same
-> memberships. **This is a shared Egeria write:** `--validate` first, `--process` once under the peer check.
+> `Add Member`, never `Parent ID` (see `LOCAL_DASHBOARDS_FOLDERS.dr-egeria.md`). **Run it once:** `Add Member to
+> Collection` does not dedupe, so a second run adds a second membership for each sheet. The batch's canary (the
+> Dashboard "Catalog Health", the `catalog-health` sheet) prevents heal re-runs: a heal runs this batch only when
+> that sheet is missing.
+> **This is a shared Egeria write:** `--validate` first, `--process` once under the peer check.
 > **Undo:** `Remove Member from Collection` with the same Collection Id and Element Id.
 
 ___
