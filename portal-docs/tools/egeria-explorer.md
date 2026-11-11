@@ -66,7 +66,7 @@ Read-only reference material; most don't require a live server connection.
 
 | Tab | What it shows |
 |---|---|
-| **Type Explorer** | The open metadata type system — entities, classifications, relationships, and full inheritance hierarchy. Relationship types are grouped by [relationship purpose](#relationship-purposes) |
+| **Type Explorer** | The open metadata type system — entities, classifications, relationships, and full inheritance hierarchy. Relationship types are grouped by [relationship purpose](#relationship-purposes), and classification types by [classification purpose](#classification-purposes) |
 | **REST APIs** | REST endpoints exposed by the view server — operations, parameters, and response shapes |
 | **Valid Values** | Registered valid metadata values for a specific Egeria property name |
 | **Python API** | The pyegeria Python client API — classes by functional domain, methods with docstrings, inherited-vs-own filter |
@@ -291,7 +291,7 @@ Your browser remembers each width for that page. Grids still switch to a single 
 
 Every list-driven tab's sidebar also has a **↻ Refresh** button below its filter box, to reload that list on demand (e.g. after adding something via Dr. Egeria or Obsidian) without waiting for a full page reload.
 
-Properties are shown generically — any scalar property Egeria returns for an element (including `authors`, `contentStatus`, and other `AuthoredReferenceable` fields) is displayed automatically, without needing per-type code changes. Relationships not otherwise shown in a dedicated section appear in a catch-all **Relationships** block at the bottom of the panel, so nothing linked to an element is silently hidden. That block is grouped into [relationship purpose](#relationship-purposes) families.
+Properties are shown generically — any scalar property Egeria returns for an element (including `authors`, `contentStatus`, and other `AuthoredReferenceable` fields) is displayed automatically, without needing per-type code changes. Relationships not otherwise shown in a dedicated section appear in a catch-all **Relationships** block at the bottom of the panel, so nothing linked to an element is silently hidden. That block is grouped into [relationship purpose](#relationship-purposes) families. The **Classifications** section is grouped by [classification purpose](#classification-purposes).
 
 ---
 
@@ -342,6 +342,51 @@ are grouped into families:
 
 If the Egeria server doesn't report relationship purposes (older servers), panels keep a flat list and say
 *"This Egeria server doesn't report relationship purposes, so relationships aren't grouped."* If the
+purpose lookup fails, panels show the flat list without that message.
+
+---
+
+## Classification purposes
+
+Egeria also gives every classification type a **purpose**: why the type exists. It helps decide which
+classifications to show to which audience. See Egeria's
+[classification purpose](https://egeria-project.org/concepts/classification-purpose/) concept page.
+
+Classification purposes are their own list, separate from relationship purposes. There are six, so the
+portal shows each one as its own group, in this order:
+
+| Purpose | What it holds | Examples |
+|---|---|---|
+| **Governance** | The element's governance characteristics, which decide the governance actions that apply | Ownership, Confidentiality, Criticality, Retention, DataScope |
+| **Governance Implementation** | Marks the element as a place where governance is implemented | ControlPoint, PolicyEnforcementPoint, VerificationPoint |
+| **Category** | Refines the kind of element | Taxonomy, GlossaryProject, AuditLog, FixedLocation |
+| **Descriptive** | Detail about the shape or encoding of the data the element describes | PrimaryKey, CalculatedValue, DataAssetEncoding |
+| **Analytical** | Statistics and profiles about the element and its use, kept by Egeria's own services | UsageActivity, GovernanceMeasurements, RunMetrics |
+| **Management** | Used by Egeria to manage the element | Anchors, ZoneMembership, Template, Memento, KnownDuplicate |
+| **Unclassified** | Classification types the server reports no purpose for | |
+
+A coloured **purpose badge** shows a classification type's purpose. Hover over it for Egeria's description.
+Category is Egeria's default purpose, but a type with no reported purpose is shown as Unclassified, not
+Category.
+
+### In the Type Explorer
+
+- **Classification type pages** show the purpose badge, Egeria's description and a link to the concept
+  page. A type with no purpose says *"The server reports no purpose for this classification type."*
+- **An entity type's Classifications tab** groups the classifications by purpose (all open). Use **Group**
+  to switch to a flat list with a **Purpose** column. The **Purpose** chips filter to one or more purposes,
+  together with the text filter and **Show inherited**.
+- **The sidebar's CLASSIFICATIONS list** is grouped by purpose. The groups start folded and open while you
+  search.
+
+### On detail panels
+
+The **Classifications** section of detail panels (in the Egeria Explorer, Data Mesh and The Catalog) still
+starts folded. Inside it, the classifications are grouped by purpose. Each group starts open, and the
+browser remembers any group you close, for every panel and app.
+
+If the Egeria server doesn't report classification purposes (older servers), the lists stay flat and say
+*"This Egeria server doesn't report classification purposes, so classifications aren't grouped."* If the
 purpose lookup fails, panels show the flat list without that message.
 
 ---

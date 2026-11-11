@@ -12,6 +12,8 @@ Provides these endpoints:
   GET /api/types/relationship-purposes
                             → relationship type name → purpose map, for pages
                               that don't load the full type system
+  GET /api/types/classification-purposes
+                            → classification type name → purpose map, likewise
 
 Consumed by the type-explorer UI and can be called directly.
 """
@@ -315,6 +317,68 @@ _PURPOSE_TTL = 600.0
 _PURPOSE_CACHE: dict[str, tuple[float, dict]] = {}
 
 
+# ── Classification purpose ────────────────────────────────────────────────────
+# Mirrors Egeria's OpenMetadataClassificationPurpose enum (added to Egeria in
+# 392de4bd48, "Add a classification purpose to every classification type"):
+# why a classification type exists. It is a separate, smaller enum than the
+# relationship one -- six values, none shared with relationships -- so it gets
+# its own normaliser rather than reusing _norm_purpose.
+#
+# Wire format (checked 2026-11-11 against the laz quickstart platform, read-only
+# GET .../open-metadata-types/classification-defs as erinoverview): each
+# OpenMetadataClassificationDef carries classificationPurpose as the constant
+# name. 94 defs: CATEGORY 46, GOVERNANCE 15, GOVERNANCE_IMPLEMENTATION 10,
+# MANAGEMENT 10, ANALYTICAL 6, DESCRIPTIVE 6, and one with the field absent
+# (ReviewedByClinicalTrials, a custom Coco type with no supertype). Egeria marks
+# CATEGORY as the enum default; an absent value is still None here, never
+# CATEGORY, for the same reason relationships never default to ASSOCIATION.
+
+CLS_PURPOSES: tuple[str, ...] = (
+    "MANAGEMENT", "ANALYTICAL", "GOVERNANCE", "GOVERNANCE_IMPLEMENTATION",
+    "CATEGORY", "DESCRIPTIVE",
+)
+
+_CLS_PURPOSE_BY_KEY: dict[str, str] = {re.sub(r"[^a-z]", "", p.lower()): p for p in CLS_PURPOSES}
+_WARNED_CLS_PURPOSES: set[str] = set()
+
+
+def _norm_cls_purpose(value) -> str | None:
+    """Return the OpenMetadataClassificationPurpose constant name for
+    ``value``, or None when it is missing or unrecognised. Same rules as
+    _norm_purpose: constant name, display name or {name|displayName} dict;
+    unknown values logged once each and treated as None (never CATEGORY)."""
+    if isinstance(value, dict):
+        value = value.get("name") or value.get("displayName")
+    if value is None:
+        return None
+    key = re.sub(r"[^a-z]", "", value.lower()) if isinstance(value, str) else None
+    if key == "":
+        return None
+    purpose = _CLS_PURPOSE_BY_KEY.get(key) if key else None
+    value = value if isinstance(value, str) else repr(value)
+    if purpose is None and value not in _WARNED_CLS_PURPOSES:
+        _WARNED_CLS_PURPOSES.add(value)
+        logger.warning(f"Unrecognised classificationPurpose {value!r}; treating as unknown")
+    return purpose
+
+
+def _cls_purpose_map(classification_raw: list[dict]) -> dict:
+    """Build the /api/types/classification-purposes payload from raw
+    classification defs, shaped like _purpose_map: unpurposed types kept as
+    null, ``serverReportsPurpose`` False when no def carries a purpose."""
+    purposes = {
+        td["name"]: _norm_cls_purpose(td.get("classificationPurpose"))
+        for td in classification_raw if td.get("name")
+    }
+    return {
+        "purposes": purposes,
+        "serverReportsPurpose": any(v is not None for v in purposes.values()),
+    }
+
+
+_CLS_PURPOSE_CACHE: dict[str, tuple[float, dict]] = {}
+
+
 # ── Module-level caches (process-lifetime, cleared on restart) ────────────────
 
 _TYPE_NAMES_CACHE: dict[str, list[str]] = {}
@@ -569,7 +633,13 @@ async def get_all_types(
             # elements automatically) -- a real TypeDef field, not
             # previously surfaced.
             "propagatable": td.get("propagatable", False),
+            # Why this classification type exists (OpenMetadataClassificationPurpose
+            # constant name), or None when the server doesn't report one.
+            "classificationPurpose": _norm_cls_purpose(td.get("classificationPurpose")),
         }
+
+    # Prime the classification purpose-map cache from data we already hold.
+    _CLS_PURPOSE_CACHE[f"{url}|{server}"] = (time.monotonic(), _cls_purpose_map(classification_raw))
 
     return JSONResponse({
         "areaNames":       AREA_NAMES,
@@ -637,4 +707,67 @@ async def get_relationship_purposes(
 
     payload = _purpose_map(raw)
     _PURPOSE_CACHE[cache_key] = (time.monotonic(), payload)
+    return JSONResponse(payload)
+
+
+@router.get("/api/types/classification-purposes",
+            summary="Get the classification type name to purpose map")
+async def get_classification_purposes(
+    request: Request,
+    url:      Optional[str] = Query(None, description="Egeria platform URL (overrides env)"),
+    server:   Optional[str] = Query(None, description="Egeria view server name (overrides env)"),
+    user_id:  Optional[str] = Query(None, description="Egeria user id (overrides env)"),
+):
+    """
+    Return ``{"purposes": {typeName: purpose | null}, "serverReportsPurpose": bool}``.
+
+    The classification twin of ``/api/types/relationship-purposes``, for pages
+    that group or badge an element's classifications by purpose without
+    loading the whole type system. Purpose values are
+    OpenMetadataClassificationPurpose constant names (e.g. ``"GOVERNANCE"``).
+    Cached in-process for 10 minutes per platform URL and view server.
+
+    Connection: as ``/api/types`` -- the logged-in user's Egeria token under
+    server-managed auth, falling back to the env service account.
+    """
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
+    d = _env_defaults()
+    url      = url      or d["url"]
+    server   = server   or d["server"]
+    user_id  = user_id  or d["user_id"]
+    user_pwd = user_pwd or d["user_pwd"]
+
+    cache_key = f"{url}|{server}"
+    hit = _CLS_PURPOSE_CACHE.get(cache_key)
+    if hit and time.monotonic() - hit[0] < _PURPOSE_TTL:
+        return JSONResponse(hit[1])
+
+    async def _fetch(c) -> list[dict]:
+        try:
+            return _normalize_raw(await c._async_get_all_classification_defs(),
+                                  "Classification definitions")
+        finally:
+            await c._async_close_session()
+
+    egeria_token = _egeria_token_from_request(request)
+    try:
+        if egeria_token:
+            try:
+                raw = await _fetch(_get_client_from_token(url, server, user_id, egeria_token))
+            except Exception as token_exc:
+                logger.warning(f"Token-based auth failed ({token_exc}); retrying with env-var credentials")
+                raw = await _fetch(await _get_client_async(url, server, user_id, user_pwd))
+        else:
+            raw = await _fetch(await _get_client_async(url, server, user_id, user_pwd))
+    except PyegeriaException as exc:
+        logger.exception(f"Pyegeria error in get_classification_purposes: {exc}")
+        if "HTTP Code: 401" in str(exc) or getattr(exc, "http_error_code", None) == 401:
+            raise HTTPException(status_code=401, detail="Not authorized — check credentials or user permissions")
+        raise HTTPException(status_code=502, detail=f"Egeria error: {exc}")
+    except Exception as exc:
+        logger.exception(f"Unexpected error in get_classification_purposes: {exc}")
+        raise HTTPException(status_code=500, detail=f"Classification purpose query failed: {exc}")
+
+    payload = _cls_purpose_map(raw)
+    _CLS_PURPOSE_CACHE[cache_key] = (time.monotonic(), payload)
     return JSONResponse(payload)

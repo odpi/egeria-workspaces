@@ -260,6 +260,13 @@ Data Mesh and The Catalog. Design: `design-docs/relationship-purpose-plan.md`. D
   and `relPurposeBadgeWanted(purpose, groupFamily)` decides whether a row shows its `PurposeBadge`.
 - **Families and colours:** `REL_PURPOSES` and `REL_PURPOSE_FAMILIES` hold the labels, Egeria's
   descriptions and the defaults. Colours are the `--purpose-<family>` CSS variables (dark and light themes).
+- **Classification purposes** work the same way, with their own six-value list and no families:
+  `useClassificationPurposes(creds)` (`GET /api/types/classification-purposes`) or
+  `seedClassificationPurposes(data.classifications, undefined, creds)`; `groupByClassificationPurpose(items,
+  getTypeName, purposeOf)` returns `[{purpose, info, items}]` in `CLS_PURPOSE_ORDER`, Unclassified last;
+  `ClsPurposeGroup`, `ClsPurposeBadge`, `ClsPurposeChips` and `CLS_PURPOSE_NONE_HINT` are the UI pieces.
+  Colours are the `--cls-purpose-<key>` CSS variables. `ClassificationsAndRawJson` already uses them, so
+  any detail panel that renders it gets the grouping.
 - **After changing `egeria-shared-ui.js`**, bump its `?v=` cache-buster in every page that loads it.
 
 ## Keeping the REST API catalog current after Egeria upgrades
