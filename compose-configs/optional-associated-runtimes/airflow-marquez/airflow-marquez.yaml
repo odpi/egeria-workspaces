@@ -16,6 +16,10 @@ x-airflow-common: &airflow-common
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow_user:${AIRFLOW_DATABASE_PASSWORD}@host.docker.internal:5442/airflow
     AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow_user:${AIRFLOW_DATABASE_PASSWORD}@host.docker.internal:5442/airflow
     AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
+    # Send tasks to Celery from the scheduler's own thread.  The default (0 = CPU count - 1) forks a
+    # ProcessPoolExecutor from the multi-threaded scheduler whenever several tasks are queued at once, which
+    # deadlocked it on Python 3.13 (2026-11-10: hung in ProcessPoolExecutor.shutdown for 26 h, no DAG ran).
+    AIRFLOW__CELERY__SYNC_PARALLELISM: '1'
     AIRFLOW__CORE__FERNET_KEY: 'b-sqW-rmexFAOebsRs_o2sB3eXfHi1b1-0tMVhYWxdY='
     AIRFLOW__API_AUTH__JWT_SECRET: 'b-sqW-rmexFAOebsRs_o2sB3eXfHi1b1-0tMVhYWxdY='
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
