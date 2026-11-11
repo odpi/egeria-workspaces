@@ -3359,8 +3359,8 @@ function ClassificationsAndRawJson({ item, creds }) {
         style: { fontSize: 11, color: 'var(--dim)', fontStyle: 'italic', padding: '0 0 6px' }
       }, CLS_PURPOSE_NONE_HINT),
       grouped
-        ? groupByClassificationPurpose(classifs, function(c) { return c.typeName; }, cp.purposeOf).map(function(g) {
-            return React.createElement(ClsPurposeGroup, { key: g.info.key, purpose: g.purpose, count: g.items.length }, g.items.map(card));
+        ? groupByClassificationPurpose(classifs, function(c) { return c.typeName; }, cp.purposeOf, cp.unrecognisedOf).map(function(g) {
+            return React.createElement(ClsPurposeGroup, { key: g.key, groupKey: g.key, count: g.items.length }, g.items.map(card));
           })
         : classifs.map(card)
     ),
@@ -4587,15 +4587,23 @@ function GenericRelationshipsSection({ relationships, onNavigateToElement, skip,
  *
  * Purpose is per type: callers map a classification's typeName through the map
  * from GET /api/types/classification-purposes (or seedClassificationPurposes()
- * when the page already holds /api/types). A type with no reported purpose
- * goes to "Unclassified" — never to CATEGORY, Egeria's enum default, which
- * would claim something the server never said. A server that reports no
- * purposes at all gets a one-line hint and the flat list, never empty groups.
+ * when the page already holds /api/types). Three different answers stay
+ * distinct:
+ *   - a recognised purpose (one of the six);
+ *   - "Purpose not recognised by this Portal: X" — the server sent a value
+ *     this Portal doesn't know (say a seventh purpose added to Egeria later);
+ *   - "No purpose reported" — the server sent none. Never CATEGORY, Egeria's
+ *     enum default, which would claim something the server never said.
+ * Group keys: the purpose constant, '__unrec:<raw value>', or '__none'.
+ * A server that reports no purposes at all gets a one-line hint and the flat
+ * list, never empty groups.
  *
  * Exports (globals):
  *   CLS_PURPOSES, CLS_PURPOSE_ORDER, CLS_PURPOSE_CONCEPT_URL, CLS_PURPOSE_NONE_HINT,
- *   clsPurposeInfo(purpose), seedClassificationPurposes(map, serverReportsPurpose, creds),
- *   useClassificationPurposes(creds), groupByClassificationPurpose(items, getTypeName, purposeOf),
+ *   clsPurposeInfo(purpose), clsPurposeKey(purpose, unrecognised), clsPurposeInfoForKey(key),
+ *   seedClassificationPurposes(map, serverReportsPurpose, creds, unrecognised),
+ *   useClassificationPurposes(creds),
+ *   groupByClassificationPurpose(items, getTypeName, purposeOf, unrecognisedOf),
  *   ClsPurposeBadge({purpose, compact}), ClsPurposeChips({keys, counts, selected, onToggle, onClear}),
  *   useClsPurposeOpen(key, defaultOpen), CLS_PURPOSE_FOLD_KEY.
  * CSS vars injected here: --cls-purpose-<key> (dark on :root, light on :root.light). */
@@ -4622,12 +4630,31 @@ var CLS_PURPOSES = {
 // element is, then Egeria's own bookkeeping. Unclassified always last.
 var CLS_PURPOSE_ORDER = ['GOVERNANCE', 'GOVERNANCE_IMPLEMENTATION', 'CATEGORY', 'DESCRIPTIVE', 'ANALYTICAL', 'MANAGEMENT'];
 Object.keys(CLS_PURPOSES).forEach(function(p) { CLS_PURPOSES[p].color = 'var(--cls-purpose-' + CLS_PURPOSES[p].key + ')'; });
-var _CLS_UNCLASSIFIED = { label: 'Unclassified', key: 'unclassified', color: 'var(--cls-purpose-unclassified)',
-                          desc: 'The server reports no purpose for these classification types.' };
+var _CLS_NO_PURPOSE = { label: 'No purpose reported', key: 'unclassified', color: 'var(--cls-purpose-unclassified)',
+                        desc: 'The server reports no purpose for these classification types.' };
 
-/* Info for a purpose constant; the Unclassified entry for null/unknown. */
+/* Info for a purpose constant; the "No purpose reported" entry for null. */
 function clsPurposeInfo(purpose) {
-  return (purpose && CLS_PURPOSES[purpose]) || _CLS_UNCLASSIFIED;
+  return (purpose && CLS_PURPOSES[purpose]) || _CLS_NO_PURPOSE;
+}
+
+/* Group key for one type: its recognised purpose, '__unrec:<raw>' when the
+ * server sent a value this Portal doesn't know, else '__none'. */
+function clsPurposeKey(purpose, unrecognised) {
+  if (purpose && CLS_PURPOSES[purpose]) return purpose;
+  if (unrecognised != null && unrecognised !== '') return '__unrec:' + unrecognised;
+  return '__none';
+}
+
+/* Info (label, desc, colour, fold key) for a group key from clsPurposeKey. */
+function clsPurposeInfoForKey(key) {
+  if (key && key.indexOf('__unrec:') === 0) {
+    var raw = key.slice(8);
+    return { label: 'Not recognised: ' + raw, key: 'unrecognised', raw: raw, color: 'var(--cls-purpose-unclassified)',
+             desc: 'Purpose not recognised by this Portal: ' + raw + '. The server reports it, but this Portal ' +
+                   "doesn't know it yet (it may be newer than the Portal)." };
+  }
+  return clsPurposeInfo(key === '__none' ? null : key);
 }
 
 (function injectClsPurposeTokens() {
@@ -4652,7 +4679,7 @@ var _clsPurposeCache = {};
 function _clsPurposeEntry(creds) {
   var k = ((creds && creds.url) || '') + '|' + ((creds && creds.server) || '');
   if (!_clsPurposeCache[k]) {
-    _clsPurposeCache[k] = { purposes: null, serverReportsPurpose: null, error: null, promise: null, listeners: new Set() };
+    _clsPurposeCache[k] = { purposes: null, unrecognised: {}, serverReportsPurpose: null, error: null, promise: null, listeners: new Set() };
   }
   return _clsPurposeCache[k];
 }
@@ -4662,21 +4689,31 @@ function _clsPurposeNotify(entry) {
 }
 
 /* Seed the map from data the page already holds. `map` may be
- * {typeName: 'GOVERNANCE'} or the /api/types `classifications` dict
- * ({typeName: {classificationPurpose: ...}}). When serverReportsPurpose is
- * omitted it is derived: true if any type has one. */
-function seedClassificationPurposes(map, serverReportsPurpose, creds) {
+ * {typeName: 'GOVERNANCE'} (the endpoint's `purposes`, with its
+ * `unrecognised` dict passed as the 4th argument) or the /api/types
+ * `classifications` dict ({typeName: {classificationPurpose,
+ * classificationPurposeUnrecognised}}). A string this page doesn't know is
+ * kept as unrecognised, never dropped to "none". When serverReportsPurpose is
+ * omitted it is derived: true if any type has a purpose value of any kind. */
+function seedClassificationPurposes(map, serverReportsPurpose, creds, unrecognised) {
   var entry = _clsPurposeEntry(creds);
-  var purposes = {};
+  var purposes = {}, unrec = {};
+  Object.keys(unrecognised || {}).forEach(function(name) {
+    if (unrecognised[name] != null && unrecognised[name] !== '') unrec[name] = String(unrecognised[name]);
+  });
   Object.keys(map || {}).forEach(function(name) {
-    var v = map[name];
-    if (v && typeof v === 'object') v = v.classificationPurpose;
-    purposes[name] = (v && CLS_PURPOSES[v]) ? v : null;
+    var v = map[name], raw = null;
+    if (v && typeof v === 'object') { raw = v.classificationPurposeUnrecognised; v = v.classificationPurpose; }
+    if (v && CLS_PURPOSES[v]) { purposes[name] = v; return; }
+    purposes[name] = null;
+    if (typeof v === 'string' && v) raw = v;           // a value the backend knew but this page doesn't
+    if (raw != null && raw !== '') unrec[name] = String(raw);
   });
   entry.purposes = purposes;
+  entry.unrecognised = unrec;
   entry.serverReportsPurpose = (serverReportsPurpose != null)
     ? !!serverReportsPurpose
-    : Object.keys(purposes).some(function(n) { return purposes[n] != null; });
+    : (Object.keys(purposes).some(function(n) { return purposes[n] != null; }) || Object.keys(unrec).length > 0);
   entry.error = null;
   entry.promise = entry.promise || Promise.resolve();
   _clsPurposeNotify(entry);
@@ -4691,7 +4728,7 @@ function _loadClassificationPurposes(creds) {
     if (!r.ok) throw new Error('HTTP ' + r.status);
     return r.json();
   }).then(function(body) {
-    seedClassificationPurposes((body && body.purposes) || {}, body && body.serverReportsPurpose, creds);
+    seedClassificationPurposes((body && body.purposes) || {}, body && body.serverReportsPurpose, creds, body && body.unrecognised);
   }).catch(function(err) {
     // A failed lookup is NOT "the server reports no purposes": leave
     // serverReportsPurpose null (flat list, no hint) and let the next mount retry.
@@ -4702,8 +4739,9 @@ function _loadClassificationPurposes(creds) {
   return entry.promise;
 }
 
-/* Hook: { ready, error, serverReportsPurpose, purposeOf(typeName) }. Keep the
- * flat layout until ready && serverReportsPurpose === true. */
+/* Hook: { ready, error, serverReportsPurpose, purposeOf(typeName),
+ * unrecognisedOf(typeName) }. Keep the flat layout until
+ * ready && serverReportsPurpose === true. */
 function useClassificationPurposes(creds) {
   var entry = _clsPurposeEntry(creds);
   var _t = React.useState(0), bump = _t[1];
@@ -4719,24 +4757,26 @@ function useClassificationPurposes(creds) {
     error: entry.error,
     serverReportsPurpose: entry.serverReportsPurpose,
     purposeOf: function(typeName) { return (purposes && typeName && purposes[typeName]) || null; },
+    unrecognisedOf: function(typeName) { return (typeName && entry.unrecognised[typeName]) || null; },
   };
 }
 
-/* Split items into [{ purpose, info, items }] in CLS_PURPOSE_ORDER, then
- * Unclassified (purpose null); empty groups are dropped. Item order within a
- * group is preserved, so sort first. */
-function groupByClassificationPurpose(items, getTypeName, purposeOf) {
+/* Split items into [{ key, purpose, info, items }]: CLS_PURPOSE_ORDER, then
+ * one group per unrecognised value (A–Z), then "No purpose reported"; empty
+ * groups are dropped. purpose is the recognised constant or null. Item order
+ * within a group is preserved, so sort first. */
+function groupByClassificationPurpose(items, getTypeName, purposeOf, unrecognisedOf) {
   var buckets = {};
   (items || []).forEach(function(item) {
-    var p = purposeOf(getTypeName(item));
-    var k = (p && CLS_PURPOSES[p]) ? p : '__none';
+    var n = getTypeName(item);
+    var k = clsPurposeKey(purposeOf(n), unrecognisedOf ? unrecognisedOf(n) : null);
     (buckets[k] = buckets[k] || []).push(item);
   });
-  return CLS_PURPOSE_ORDER.concat(['__none'])
+  var unrecKeys = Object.keys(buckets).filter(function(k) { return k.indexOf('__unrec:') === 0; }).sort();
+  return CLS_PURPOSE_ORDER.concat(unrecKeys, ['__none'])
     .filter(function(k) { return buckets[k]; })
     .map(function(k) {
-      var purpose = k === '__none' ? null : k;
-      return { purpose: purpose, info: clsPurposeInfo(purpose), items: buckets[k] };
+      return { key: k, purpose: CLS_PURPOSES[k] ? k : null, info: clsPurposeInfoForKey(k), items: buckets[k] };
     });
 }
 
@@ -4756,15 +4796,15 @@ function ClsPurposeBadge({ purpose, compact }) {
   }, info.label);
 }
 
-/* Multi-select purpose filter chips. keys: purpose constants present plus
- * '__none'; counts: key -> number of rows. */
+/* Multi-select purpose filter chips. keys: group keys present (clsPurposeKey);
+ * counts: key -> number of rows. */
 function ClsPurposeChips({ keys, counts, selected, onToggle, onClear }) {
   return React.createElement('div', {
       style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, margin: '0 0 10px' }
     },
     React.createElement('span', { style: { fontSize: 11, color: 'var(--muted)' } }, 'Purpose'),
     keys.map(function(k) {
-      var info = clsPurposeInfo(k === '__none' ? null : k);
+      var info = clsPurposeInfoForKey(k);
       var on = selected.has(k);
       return React.createElement('button', {
         key: k, onClick: function() { onToggle(k); }, title: info.desc, 'aria-pressed': on,
@@ -4809,8 +4849,8 @@ function useClsPurposeOpen(key, defaultOpen) {
 /* One purpose group inside an element's Classifications section: a foldable
  * header in the purpose hue with its count. Open by default, because the
  * Classifications section around it already starts folded. */
-function ClsPurposeGroup({ purpose, count, children }) {
-  var info = clsPurposeInfo(purpose);
+function ClsPurposeGroup({ groupKey, count, children }) {
+  var info = clsPurposeInfoForKey(groupKey);
   var _o = useClsPurposeOpen(info.key, true), open = _o[0], toggle = _o[1];
   return React.createElement('div', { 'data-cls-purpose': info.key, style: { marginBottom: 4 } },
     React.createElement('div', {

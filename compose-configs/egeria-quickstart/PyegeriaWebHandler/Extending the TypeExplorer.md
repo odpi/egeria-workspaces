@@ -262,8 +262,13 @@ Data Mesh and The Catalog. Design: `design-docs/relationship-purpose-plan.md`. D
   descriptions and the defaults. Colours are the `--purpose-<family>` CSS variables (dark and light themes).
 - **Classification purposes** work the same way, with their own six-value list and no families:
   `useClassificationPurposes(creds)` (`GET /api/types/classification-purposes`) or
-  `seedClassificationPurposes(data.classifications, undefined, creds)`; `groupByClassificationPurpose(items,
-  getTypeName, purposeOf)` returns `[{purpose, info, items}]` in `CLS_PURPOSE_ORDER`, Unclassified last;
+  `seedClassificationPurposes(data.classifications, undefined, creds)`. Keep three answers apart: a
+  recognised purpose, a value this Portal doesn't know (`unrecognisedOf(typeName)`, API field
+  `classificationPurposeUnrecognised` / the endpoint's `unrecognised` dict), and none reported.
+  `clsPurposeKey(purpose, unrecognised)` gives the group key (constant, `'__unrec:<raw>'` or `'__none'`) and
+  `clsPurposeInfoForKey(key)` its label. `groupByClassificationPurpose(items, getTypeName, purposeOf,
+  unrecognisedOf)` returns `[{key, purpose, info, items}]`: `CLS_PURPOSE_ORDER`, then unrecognised values,
+  then "No purpose reported";
   `ClsPurposeGroup`, `ClsPurposeBadge`, `ClsPurposeChips` and `CLS_PURPOSE_NONE_HINT` are the UI pieces.
   Colours are the `--cls-purpose-<key>` CSS variables. `ClassificationsAndRawJson` already uses them, so
   any detail panel that renders it gets the grouping.

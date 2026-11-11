@@ -592,7 +592,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   <!-- Bump ?v= whenever egeria-shared-ui.js changes — see tech-catalog.html for why. -->
   <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
   <script>window.EGERIA_FOR_LINEAGE = true; window.EGERIA_FOR_LINEAGE_VISIBLE = false;  /* shown per-section by App */</script>
-  <script src="/static/egeria-shared-ui.js?v=2026-11-04o"></script>
+  <script src="/static/egeria-shared-ui.js?v=2026-11-11c"></script>
   <script src="/static/egeria-not-measured.js?v=2026-11-08a"></script>
   <script>"use strict";
 
@@ -1122,22 +1122,25 @@ function TypeDetail({
   const relVia = r => r.source;
   const allClassifs = getValidClassifs(name, entities, classifications);
   const classifs = showInheritedClassifs ? allClassifs : allClassifs.filter(c => c.source === name);
-  const clsPurposeKey = c => (c.classificationPurpose && CLS_PURPOSES[c.classificationPurpose]) ? c.classificationPurpose : '__none';
-  // Sort key per column; Purpose sorts in display order, Unclassified last.
-  const clsPurposeRank = c => { const i = CLS_PURPOSE_ORDER.indexOf(c.classificationPurpose); return String(i < 0 ? 99 : i).padStart(2, '0'); };
-  const shownClassifs = applySort(classifs.map(c => ({ ...c, _purposeRank: clsPurposeRank(c) })).filter(c => (clsPurposeSel.size === 0 || clsPurposeSel.has(clsPurposeKey(c))) && listMatches(classifLc.query, [c.name, c.source, c.desc, c.classificationPurpose && CLS_PURPOSES[c.classificationPurpose] ? CLS_PURPOSES[c.classificationPurpose].label : ''])), classifSort, ['name', 'source', '_purposeRank', 'propagatable', 'desc']);
+  // Group key per row: recognised purpose, '__unrec:<raw>' (a value this
+  // Portal doesn't know) or '__none' (no purpose reported).
+  const clsKeyOf = c => clsPurposeKey(c.classificationPurpose, c.classificationPurposeUnrecognised);
+  // Sort key per column; Purpose sorts in display order, then unrecognised
+  // values, then "No purpose reported".
+  const clsPurposeRank = c => { const k = clsKeyOf(c); const i = CLS_PURPOSE_ORDER.indexOf(k); return i >= 0 ? String(i).padStart(2, '0') : k === '__none' ? '99' : '50' + k; };
+  const shownClassifs = applySort(classifs.map(c => ({ ...c, _purposeRank: clsPurposeRank(c) })).filter(c => (clsPurposeSel.size === 0 || clsPurposeSel.has(clsKeyOf(c))) && listMatches(classifLc.query, [c.name, c.source, c.desc, clsPurposeInfoForKey(clsKeyOf(c)).label])), classifSort, ['name', 'source', '_purposeRank', 'propagatable', 'desc']);
   // Purpose is per classification TYPE, server-resolved -- read it from each type.
-  const clsPurposesReported = Object.values(classifications).some(x => x.classificationPurpose);
+  const clsPurposesReported = Object.values(classifications).some(x => x.classificationPurpose || x.classificationPurposeUnrecognised);
   const clsPurposeCounts = {};
-  classifs.forEach(c => { const k = clsPurposeKey(c); clsPurposeCounts[k] = (clsPurposeCounts[k] || 0) + 1; });
-  const clsPurposeChips = CLS_PURPOSE_ORDER.concat(['__none']).filter(k => clsPurposeCounts[k]);
+  classifs.forEach(c => { const k = clsKeyOf(c); clsPurposeCounts[k] = (clsPurposeCounts[k] || 0) + 1; });
+  const clsPurposeChips = CLS_PURPOSE_ORDER.concat(Object.keys(clsPurposeCounts).filter(k => k.indexOf('__unrec:') === 0).sort(), ['__none']).filter(k => clsPurposeCounts[k]);
   const toggleClsPurpose = k => setClsPurposeSel(prev => {
     const next = new Set(prev);
     next.has(k) ? next.delete(k) : next.add(k);
     return next;
   });
   const clsGroups = clsPurposesReported && clsGroup === 'purpose'
-    ? groupByClassificationPurpose(shownClassifs, c => c.name, n => (classifications[n] && classifications[n].classificationPurpose) || null)
+    ? groupByClassificationPurpose(shownClassifs, c => c.name, n => (classifications[n] && classifications[n].classificationPurpose) || null, n => (classifications[n] && classifications[n].classificationPurposeUnrecognised) || null)
     : null;
   const REL_SORTS = {
     name: r => r.name,
@@ -1185,6 +1188,8 @@ function TypeDetail({
         style: { background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'ui-monospace,monospace', fontSize: 11, color: isOwn ? '#60a5fa' : '#64748b', textAlign: 'left' }
     }, c.source)), !hidePurpose && /*#__PURE__*/React.createElement("td", null, c.classificationPurpose && CLS_PURPOSES[c.classificationPurpose]
           ? /*#__PURE__*/React.createElement(ClsPurposeBadge, { purpose: c.classificationPurpose })
+          : c.classificationPurposeUnrecognised
+          ? /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: 'var(--muted)' }, title: clsPurposeInfoForKey(clsKeyOf(c)).desc }, "not recognised: ", /*#__PURE__*/React.createElement("span", { className: "mono" }, c.classificationPurposeUnrecognised))
           : /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: 'var(--dim)' }, title: 'The server reports no purpose for this classification type.' }, "none reported")),
       /*#__PURE__*/React.createElement("td", { style: { fontSize: 11, color: c.propagatable ? '#fbbf24' : 'var(--dim)' } }, c.propagatable ? 'yes' : 'no'), /*#__PURE__*/React.createElement("td", {
         style: { color: 'var(--muted)', lineHeight: 1.4 }
@@ -1508,7 +1513,7 @@ function TypeDetail({
       fontStyle: 'italic'
     }
   }, allClassifs.length === 0 ? "No classifications are valid for this type." : classifs.length === 0 ? "No classifications name this type itself — tick Show inherited to see those valid for its supertypes." : "No classifications match the filter.") : clsGroups ? clsGroups.map(g => /*#__PURE__*/React.createElement(Collapsible, {
-    key: g.info.key,
+    key: g.key,
     defaultOpen: true,
     count: g.items.length,
     title: /*#__PURE__*/React.createElement("span", {
@@ -1654,9 +1659,16 @@ function ClassifDetail({
     rel: 'noopener noreferrer',
     style: { fontSize: 11, color: 'var(--accent)' }
   }, "About classification purposes ↗")),
-  !c.classificationPurpose && Object.values(classifications).some(x => x.classificationPurpose) && /*#__PURE__*/React.createElement("p", {
+  // The server sent a purpose this Portal doesn't know (e.g. one added to
+  // Egeria later): say so, with the value -- never "no purpose".
+  !c.classificationPurpose && c.classificationPurposeUnrecognised && /*#__PURE__*/React.createElement("p", {
+    style: { fontSize: 11, color: 'var(--muted)', margin: '6px 0 4px' }
+  }, "Purpose not recognised by this Portal: ", /*#__PURE__*/React.createElement("span", { className: "mono" }, c.classificationPurposeUnrecognised), " ", /*#__PURE__*/React.createElement("a", {
+    href: CLS_PURPOSE_CONCEPT_URL, target: '_blank', rel: 'noopener noreferrer', style: { color: 'var(--accent)' }
+  }, "About classification purposes \u2197")),
+  !c.classificationPurpose && !c.classificationPurposeUnrecognised && Object.values(classifications).some(x => x.classificationPurpose || x.classificationPurposeUnrecognised) && /*#__PURE__*/React.createElement("p", {
     style: { fontSize: 11, color: 'var(--dim)', fontStyle: 'italic', margin: '6px 0 4px' }
-  }, "The server reports no purpose for this classification type."),
+  }, "No purpose reported: the server gives this classification type no purpose."),
   /*#__PURE__*/React.createElement(TypeDefHeaderMeta, { header: c.header }),
   /*#__PURE__*/React.createElement("p", {
     style: {
@@ -1953,16 +1965,17 @@ function Sidebar({
   // default, all open while searching, flat A–Z when the server reports none.
   const [clsPurposeOpen, setClsPurposeOpen] = useState({});
   const clsPurposeOf = n => (classifications[n] && classifications[n].classificationPurpose) || null;
-  const clsHavePurpose = Object.keys(classifications).some(clsPurposeOf);
+  const clsUnrecOf = n => (classifications[n] && classifications[n].classificationPurposeUnrecognised) || null;
+  const clsHavePurpose = Object.keys(classifications).some(n => clsPurposeOf(n) || clsUnrecOf(n));
   const renderClassifRows = (names, forceOpen) => {
     const row = n => mkSideRow('classif', n, '#5a7290', '#5eead4', 'rgba(34,211,176,.1)');
     if (!clsHavePurpose) return names.map(row);
-    return groupByClassificationPurpose(names, n => n, clsPurposeOf).map(({ info, items }) => {
-      const open = forceOpen || !!clsPurposeOpen[info.key];
+    return groupByClassificationPurpose(names, n => n, clsPurposeOf, clsUnrecOf).map(({ key, info, items }) => {
+      const open = forceOpen || !!clsPurposeOpen[key];
       return /*#__PURE__*/React.createElement("div", {
-        key: info.key
+        key: key
       }, /*#__PURE__*/React.createElement("div", {
-        onClick: forceOpen ? undefined : () => setClsPurposeOpen(s => ({ ...s, [info.key]: !s[info.key] })),
+        onClick: forceOpen ? undefined : () => setClsPurposeOpen(s => ({ ...s, [key]: !s[key] })),
         title: info.desc,
         style: { display: 'flex', alignItems: 'center', gap: 6, padding: '3px 10px 3px 16px', fontSize: 10, letterSpacing: 0.5, color: info.color, cursor: forceOpen ? 'default' : 'pointer', userSelect: 'none' }
       }, !forceOpen && /*#__PURE__*/React.createElement(FoldTriangle, { open: open, size: 10, style: { color: info.color } }),

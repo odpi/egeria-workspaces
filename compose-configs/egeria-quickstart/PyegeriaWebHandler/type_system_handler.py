@@ -362,17 +362,50 @@ def _norm_cls_purpose(value) -> str | None:
     return purpose
 
 
+def _raw_cls_purpose(value) -> str | None:
+    """The purpose as the server sent it, as a string, or None when the server
+    sent none (key absent, null or blank). Kept so that a value this Portal
+    doesn't recognise -- e.g. a seventh purpose added to Egeria later -- is
+    shown as "not recognised: X", never as "no purpose reported"."""
+    if isinstance(value, dict):
+        value = value.get("name") or value.get("displayName")
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value.strip() or None
+    return repr(value)
+
+
+def _cls_purpose_fields(td: dict) -> tuple[str | None, str | None]:
+    """(purpose, unrecognised) for one def: purpose is the recognised constant
+    or None; unrecognised is the raw value when the server sent one this
+    Portal doesn't know, else None. Both None means no purpose reported."""
+    value = td.get("classificationPurpose")
+    purpose = _norm_cls_purpose(value)
+    return purpose, (None if purpose else _raw_cls_purpose(value))
+
+
 def _cls_purpose_map(classification_raw: list[dict]) -> dict:
     """Build the /api/types/classification-purposes payload from raw
-    classification defs, shaped like _purpose_map: unpurposed types kept as
-    null, ``serverReportsPurpose`` False when no def carries a purpose."""
-    purposes = {
-        td["name"]: _norm_cls_purpose(td.get("classificationPurpose"))
-        for td in classification_raw if td.get("name")
-    }
+    classification defs, shaped like _purpose_map: ``purposes`` maps every
+    type to its recognised purpose or null; ``unrecognised`` maps the types
+    whose purpose this Portal doesn't know to the raw value, so the UI can
+    tell "not recognised" from "none reported". ``serverReportsPurpose`` is
+    False only when no def carries any purpose value at all."""
+    purposes: dict[str, str | None] = {}
+    unrecognised: dict[str, str] = {}
+    for td in classification_raw:
+        name = td.get("name")
+        if not name:
+            continue
+        purpose, raw = _cls_purpose_fields(td)
+        purposes[name] = purpose
+        if raw is not None:
+            unrecognised[name] = raw
     return {
         "purposes": purposes,
-        "serverReportsPurpose": any(v is not None for v in purposes.values()),
+        "unrecognised": unrecognised,
+        "serverReportsPurpose": any(v is not None for v in purposes.values()) or bool(unrecognised),
     }
 
 
@@ -424,7 +457,6 @@ async def get_type_names(
     kind: str = Query("entity", description="Type kind: entity, classification, or relationship"),
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
-    user_id:  Optional[str] = Query(None),
 ):
     """Return a sorted list of type names for the given kind. Results are cached process-wide."""
     user_pwd = None  # never from the URL: a password in a query string lands in access logs
@@ -438,7 +470,10 @@ async def get_type_names(
     d = _env_defaults()
     url      = url      or d["url"]
     server   = server   or d["server"]
-    user_id  = user_id  or d["user_id"]
+    # Never from the URL: with the env password, ?user_id=<persona> would sign
+    # in as that persona (they share the demo password). Identity comes from
+    # the X-Egeria-Token bearer token, else the env service account.
+    user_id  = d["user_id"]
     user_pwd = user_pwd or d["user_pwd"]
     egeria_token = _egeria_token_from_request(request)
 
@@ -474,7 +509,6 @@ async def get_all_types(
     ),
     url:      Optional[str] = Query(None, description="Egeria platform URL (overrides env)"),
     server:   Optional[str] = Query(None, description="Egeria view server name (overrides env)"),
-    user_id:  Optional[str] = Query(None, description="Egeria user id (overrides env)"),
 ):
     """
     Return the complete Egeria open metadata type system.
@@ -493,7 +527,10 @@ async def get_all_types(
     d = _env_defaults()
     url      = url      or d["url"]
     server   = server   or d["server"]
-    user_id  = user_id  or d["user_id"]
+    # Never from the URL: with the env password, ?user_id=<persona> would sign
+    # in as that persona (they share the demo password). Identity comes from
+    # the X-Egeria-Token bearer token, else the env service account.
+    user_id  = d["user_id"]
     user_pwd = user_pwd or d["user_pwd"]
     egeria_token = _egeria_token_from_request(request)
 
@@ -616,6 +653,7 @@ async def get_all_types(
         valid_for = td.get("validEntityDefs") or []
         if not isinstance(valid_for, list):
             valid_for = []
+        cls_purpose, cls_purpose_unrecognised = _cls_purpose_fields(td)
         classifications[name] = {
             "guid":       td.get("guid"),
             "supertype":  _sup_name(td),   # classifications inherit too; see relationships
@@ -634,8 +672,11 @@ async def get_all_types(
             # previously surfaced.
             "propagatable": td.get("propagatable", False),
             # Why this classification type exists (OpenMetadataClassificationPurpose
-            # constant name), or None when the server doesn't report one.
-            "classificationPurpose": _norm_cls_purpose(td.get("classificationPurpose")),
+            # constant name), or None. classificationPurposeUnrecognised holds the
+            # raw value when the server sent one this Portal doesn't know; both
+            # None means the server reports no purpose for the type.
+            "classificationPurpose":             cls_purpose,
+            "classificationPurposeUnrecognised": cls_purpose_unrecognised,
         }
 
     # Prime the classification purpose-map cache from data we already hold.
@@ -654,7 +695,6 @@ async def get_relationship_purposes(
     request: Request,
     url:      Optional[str] = Query(None, description="Egeria platform URL (overrides env)"),
     server:   Optional[str] = Query(None, description="Egeria view server name (overrides env)"),
-    user_id:  Optional[str] = Query(None, description="Egeria user id (overrides env)"),
 ):
     """
     Return ``{"purposes": {typeName: purpose | null}, "serverReportsPurpose": bool}``.
@@ -671,7 +711,10 @@ async def get_relationship_purposes(
     d = _env_defaults()
     url      = url      or d["url"]
     server   = server   or d["server"]
-    user_id  = user_id  or d["user_id"]
+    # Never from the URL: with the env password, ?user_id=<persona> would sign
+    # in as that persona (they share the demo password). Identity comes from
+    # the X-Egeria-Token bearer token, else the env service account.
+    user_id  = d["user_id"]
     user_pwd = user_pwd or d["user_pwd"]
 
     cache_key = f"{url}|{server}"
@@ -716,10 +759,12 @@ async def get_classification_purposes(
     request: Request,
     url:      Optional[str] = Query(None, description="Egeria platform URL (overrides env)"),
     server:   Optional[str] = Query(None, description="Egeria view server name (overrides env)"),
-    user_id:  Optional[str] = Query(None, description="Egeria user id (overrides env)"),
 ):
     """
-    Return ``{"purposes": {typeName: purpose | null}, "serverReportsPurpose": bool}``.
+    Return ``{"purposes": {typeName: purpose | null},
+    "unrecognised": {typeName: rawValue}, "serverReportsPurpose": bool}``.
+    ``unrecognised`` lists the types whose purpose value this Portal doesn't
+    know (e.g. one added to Egeria later), so it is never shown as "none".
 
     The classification twin of ``/api/types/relationship-purposes``, for pages
     that group or badge an element's classifications by purpose without
@@ -734,7 +779,10 @@ async def get_classification_purposes(
     d = _env_defaults()
     url      = url      or d["url"]
     server   = server   or d["server"]
-    user_id  = user_id  or d["user_id"]
+    # Never from the URL: with the env password, ?user_id=<persona> would sign
+    # in as that persona (they share the demo password). Identity comes from
+    # the X-Egeria-Token bearer token, else the env service account.
+    user_id  = d["user_id"]
     user_pwd = user_pwd or d["user_pwd"]
 
     cache_key = f"{url}|{server}"

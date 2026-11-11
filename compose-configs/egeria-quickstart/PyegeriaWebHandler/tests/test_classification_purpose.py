@@ -143,10 +143,11 @@ class _FakeClient:
 @pytest.fixture
 def purposes_client(monkeypatch):
     """(TestClient, state, calls) with Egeria mocked out."""
-    state = {"classification": LAZ_DEFS, "relationship": []}
+    state = {"classification": LAZ_DEFS, "relationship": [], "users": []}
     calls: list[str] = []
 
     async def fake_get_client_async(url, server, user_id, user_pwd):
+        state["users"].append(user_id)
         return _FakeClient(state, calls)
 
     monkeypatch.setattr(h, "_get_client_async", fake_get_client_async)
@@ -200,6 +201,7 @@ def test_endpoint_server_without_purposes(purposes_client):
     state["classification"] = [{"name": "Confidentiality"}, {"name": "Anchors"}]
     assert client.get(_URL).json() == {
         "purposes": {"Confidentiality": None, "Anchors": None},
+        "unrecognised": {},
         "serverReportsPurpose": False,
     }
 
@@ -208,7 +210,7 @@ def test_endpoint_no_defs(purposes_client):
     """pyegeria returns a 'No elements found' string when the list is empty."""
     client, state, _ = purposes_client
     state["classification"] = "No elements found"
-    assert client.get(_URL).json() == {"purposes": {}, "serverReportsPurpose": False}
+    assert client.get(_URL).json() == {"purposes": {}, "unrecognised": {}, "serverReportsPurpose": False}
 
 
 def test_endpoint_error_is_not_cached(purposes_client, monkeypatch):
@@ -253,6 +255,114 @@ def test_api_types_classifications_carry_purpose(monkeypatch):
     assert cls["Confidentiality"]["classificationPurpose"] == "GOVERNANCE"
     assert cls["Taxonomy"]["classificationPurpose"] == "CATEGORY"
     assert cls["ReviewedByClinicalTrials"]["classificationPurpose"] is None
+    assert cls["ReviewedByClinicalTrials"]["classificationPurposeUnrecognised"] is None
+    assert cls["Confidentiality"]["classificationPurposeUnrecognised"] is None
     assert body["relationships"]["DataFlow"]["relationshipPurpose"] == "DESIGN_LINEAGE"
     # /api/types primes the map cache, so the lighter endpoint needs no second fetch.
     assert h._CLS_PURPOSE_CACHE["https://p:9443|vs"][1]["purposes"]["Anchors"] == "MANAGEMENT"
+
+
+# ── C2: "not recognised" is not "none reported" ──────────────────────────────
+
+def _with_seventh_purpose():
+    """laz's defs plus one carrying a purpose this Portal doesn't know -- what
+    a later Egeria adding a seventh purpose would send."""
+    future = dict(next(d for d in LAZ_DEFS if d["name"] == "Taxonomy"))
+    future["name"] = "FutureKind"
+    future["classificationPurpose"] = "PROVENANCE"
+    return LAZ_DEFS + [future]
+
+
+def test_unrecognised_value_is_kept_not_called_none():
+    m = h._cls_purpose_map(_with_seventh_purpose())
+    assert m["purposes"]["FutureKind"] is None                 # not one of the six
+    assert m["unrecognised"] == {"FutureKind": "PROVENANCE"}  # ...but the server did send one
+    assert "ReviewedByClinicalTrials" not in m["unrecognised"]  # absent stays "none reported"
+    assert m["purposes"]["ReviewedByClinicalTrials"] is None
+
+
+def test_server_sending_only_unknown_values_still_reports_purposes():
+    m = h._cls_purpose_map([{"name": "A", "classificationPurpose": "PROVENANCE"}, {"name": "B"}])
+    assert m["serverReportsPurpose"] is True
+    assert m["unrecognised"] == {"A": "PROVENANCE"}
+
+
+@pytest.mark.parametrize("value, raw", [
+    (None, None), ("", None), ("   ", None), ({}, None), ({"name": None}, None),
+    ("GOVERNANCE", "GOVERNANCE"), ("PROVENANCE", "PROVENANCE"), ({"name": "PROVENANCE"}, "PROVENANCE"),
+    (42, "42"),
+])
+def test_raw_cls_purpose(value, raw):
+    assert h._raw_cls_purpose(value) == raw
+
+
+@pytest.mark.parametrize("td, expected", [
+    ({"classificationPurpose": "GOVERNANCE"}, ("GOVERNANCE", None)),
+    ({"classificationPurpose": "PROVENANCE"}, (None, "PROVENANCE")),
+    ({}, (None, None)),
+    ({"classificationPurpose": None}, (None, None)),
+])
+def test_cls_purpose_fields(td, expected):
+    assert h._cls_purpose_fields(td) == expected
+
+
+def test_endpoint_and_api_types_carry_unrecognised(purposes_client, monkeypatch):
+    client, state, _ = purposes_client
+    state["classification"] = _with_seventh_purpose()
+    body = client.get(_URL).json()
+    assert body["unrecognised"] == {"FutureKind": "PROVENANCE"}
+    assert body["purposes"]["FutureKind"] is None
+
+    class _Full(_FullClient):
+        def get_all_classification_defs(self):
+            return _with_seventh_purpose()
+
+    async def fake(url, server, user_id, user_pwd):
+        return _Full()
+
+    monkeypatch.setattr(h, "_get_client_async", fake)
+    cls = client.get("/api/types?url=https://p:9443&server=vs2").json()["classifications"]
+    assert cls["FutureKind"]["classificationPurpose"] is None
+    assert cls["FutureKind"]["classificationPurposeUnrecognised"] == "PROVENANCE"
+
+
+# ── C1: no user_id from the URL ───────────────────────────────────────────────
+# With the env password, ?user_id=<persona> would sign in as that persona
+# (the demo personas share one password). Identity is the X-Egeria-Token
+# bearer token, else the env service account -- a user_id param is ignored.
+
+_PURPOSE_ROUTES = ["/api/types/classification-purposes", "/api/types/relationship-purposes"]
+
+
+@pytest.mark.parametrize("route", _PURPOSE_ROUTES)
+def test_user_id_param_is_ignored_without_token(purposes_client, monkeypatch, route):
+    client, state, _ = purposes_client
+    monkeypatch.setattr(h, "_env_defaults", lambda: dict(url="https://p:9443", server="vs", user_id="svc-account", user_pwd="pw"))
+    r = client.get(route + "?user_id=garygeeke")
+    assert r.status_code == 200
+    assert state["users"] == ["svc-account"]
+
+
+@pytest.mark.parametrize("route", _PURPOSE_ROUTES)
+def test_user_id_param_is_ignored_with_token(purposes_client, monkeypatch, route):
+    client, state, _ = purposes_client
+    seen = []
+
+    def fake_from_token(url, server, user_id, egeria_token):
+        seen.append((user_id, egeria_token))
+        return _FakeClient(state, [])
+
+    monkeypatch.setattr(h, "_env_defaults", lambda: dict(url="https://p:9443", server="vs", user_id="svc-account", user_pwd="pw"))
+    monkeypatch.setattr(h, "_egeria_token_from_request", lambda request: "tok-123")
+    monkeypatch.setattr(h, "_get_client_from_token", fake_from_token)
+    assert client.get(route + "?user_id=garygeeke").status_code == 200
+    assert seen == [("svc-account", "tok-123")]
+    assert state["users"] == []                       # no password sign-in at all
+
+
+@pytest.mark.parametrize("route", ["/api/types", "/api/types/names", *_PURPOSE_ROUTES])
+def test_no_type_route_declares_a_user_id_param(route):
+    import inspect
+    endpoint = next(r.endpoint for r in h.router.routes if getattr(r, "path", None) == route)
+    assert "user_id" not in inspect.signature(endpoint).parameters
+    assert "user_pwd" not in inspect.signature(endpoint).parameters

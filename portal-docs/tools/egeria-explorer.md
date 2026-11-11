@@ -363,16 +363,19 @@ portal shows each one as its own group, in this order:
 | **Descriptive** | Detail about the shape or encoding of the data the element describes | PrimaryKey, CalculatedValue, DataAssetEncoding |
 | **Analytical** | Statistics and profiles about the element and its use, kept by Egeria's own services | UsageActivity, GovernanceMeasurements, RunMetrics |
 | **Management** | Used by Egeria to manage the element | Anchors, ZoneMembership, Template, Memento, KnownDuplicate |
-| **Unclassified** | Classification types the server reports no purpose for | |
+| **Not recognised: *X*** | The server reports a purpose *X* that this Portal doesn't know yet (for example one added to Egeria later) | |
+| **No purpose reported** | Classification types the server reports no purpose for | ReviewedByClinicalTrials (a custom Coco type) |
 
 A coloured **purpose badge** shows a classification type's purpose. Hover over it for Egeria's description.
-Category is Egeria's default purpose, but a type with no reported purpose is shown as Unclassified, not
-Category.
+Category is Egeria's default purpose, but a type with no reported purpose is shown as *No purpose reported*,
+not Category. A purpose the Portal doesn't recognise is never shown as *No purpose reported*: it keeps its
+own group and says *"Purpose not recognised by this Portal: X"*.
 
 ### In the Type Explorer
 
 - **Classification type pages** show the purpose badge, Egeria's description and a link to the concept
-  page. A type with no purpose says *"The server reports no purpose for this classification type."*
+  page. A type with no purpose says *"No purpose reported: the server gives this classification type no
+  purpose."* A type whose purpose the Portal doesn't know says *"Purpose not recognised by this Portal: X"*.
 - **An entity type's Classifications tab** groups the classifications by purpose (all open). Use **Group**
   to switch to a flat list with a **Purpose** column. The **Purpose** chips filter to one or more purposes,
   together with the text filter and **Show inherited**.

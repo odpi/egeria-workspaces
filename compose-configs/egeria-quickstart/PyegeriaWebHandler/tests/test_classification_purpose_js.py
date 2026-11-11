@@ -25,13 +25,15 @@ def _block():
         grab(r"var CLS_PURPOSES = \{.*?\n\};"),
         grab(r"var CLS_PURPOSE_ORDER = [^\n]*;"),
         grab(r"Object\.keys\(CLS_PURPOSES\)\.forEach[^\n]*\n"),
-        grab(r"var _CLS_UNCLASSIFIED = \{.*?\};"),
+        grab(r"var _CLS_NO_PURPOSE = \{.*?\};"),
         grab(r"function clsPurposeInfo\(purpose\) \{.*?\n\}"),
+        grab(r"function clsPurposeKey\(purpose, unrecognised\) \{.*?\n\}"),
+        grab(r"function clsPurposeInfoForKey\(key\) \{.*?\n\}"),
         grab(r"var _clsPurposeCache = \{\};"),
         grab(r"function _clsPurposeEntry\(creds\) \{.*?\n\}"),
         grab(r"function _clsPurposeNotify\(entry\) \{.*?\n\}"),
-        grab(r"function seedClassificationPurposes\(map, serverReportsPurpose, creds\) \{.*?\n\}"),
-        grab(r"function groupByClassificationPurpose\(items, getTypeName, purposeOf\) \{.*?\n\}"),
+        grab(r"function seedClassificationPurposes\(map, serverReportsPurpose, creds, unrecognised\) \{.*?\n\}"),
+        grab(r"function groupByClassificationPurpose\(items, getTypeName, purposeOf, unrecognisedOf\) \{.*?\n\}"),
     ])
 
 
@@ -69,7 +71,7 @@ def test_group_laz_types_in_display_order_unclassified_last():
         ["DESCRIPTIVE", "Descriptive", 6],
         ["ANALYTICAL", "Analytical", 6],
         ["MANAGEMENT", "Management", 10],
-        [None, "Unclassified", 1],
+        [None, "No purpose reported", 1],
     ]
 
 
@@ -79,6 +81,7 @@ def test_empty_groups_are_dropped_and_unknown_is_unclassified_not_category():
         "var g = groupByClassificationPurpose(['Confidentiality','Odd','Bare','NotInMap'], function(n){return n;}, function(n){return m[n] || null;});"
         "console.log(JSON.stringify(g.map(function(x){return [x.purpose, x.items];})));"
     )
+    # A value with no recognised purpose and no raw value is "No purpose reported".
     assert groups == [["GOVERNANCE", ["Confidentiality"]], [None, ["Odd", "Bare", "NotInMap"]]]
 
 
@@ -91,6 +94,40 @@ def test_seed_from_api_types_dict_derives_server_reports():
         "console.log(JSON.stringify([e.purposes, e.serverReportsPurpose, o.purposes, o.serverReportsPurpose]));"
     )
     assert res == [{"A": "CATEGORY", "B": None, "C": None}, True, {"X": None, "Y": None}, False]
+
+
+def test_unrecognised_is_its_own_group_between_known_and_none():
+    groups = _node(
+        "var p = {Confidentiality: 'GOVERNANCE', FutureKind: null, Other: null, Bare: null};"
+        "var u = {FutureKind: 'PROVENANCE', Other: 'ARCHIVAL'};"
+        "var g = groupByClassificationPurpose(Object.keys(p), function(n){return n;}, function(n){return p[n];}, function(n){return u[n] || null;});"
+        "console.log(JSON.stringify(g.map(function(x){return [x.key, x.info.label, x.items];})));"
+    )
+    assert groups == [
+        ["GOVERNANCE", "Governance", ["Confidentiality"]],
+        ["__unrec:ARCHIVAL", "Not recognised: ARCHIVAL", ["Other"]],
+        ["__unrec:PROVENANCE", "Not recognised: PROVENANCE", ["FutureKind"]],
+        ["__none", "No purpose reported", ["Bare"]],
+    ]
+
+
+def test_unrecognised_info_names_the_value():
+    info = _node("console.log(JSON.stringify([clsPurposeInfoForKey('__unrec:PROVENANCE'), clsPurposeInfoForKey('__none').desc]));")
+    assert info[0]["desc"].startswith("Purpose not recognised by this Portal: PROVENANCE")
+    assert info[0]["raw"] == "PROVENANCE"
+    assert info[1] == "The server reports no purpose for these classification types."
+
+
+def test_seed_keeps_unrecognised_values():
+    res = _node(
+        "seedClassificationPurposes({A: {classificationPurpose: null, classificationPurposeUnrecognised: 'PROVENANCE'}, "
+        "B: {classificationPurpose: 'NEWER_THAN_PAGE'}, C: {}}, undefined, {url:'u', server:'s3'});"
+        "var e = _clsPurposeEntry({url:'u', server:'s3'});"
+        "seedClassificationPurposes({X: null}, true, {url:'u', server:'s4'}, {X: 'PROVENANCE'});"
+        "var f = _clsPurposeEntry({url:'u', server:'s4'});"
+        "console.log(JSON.stringify([e.purposes, e.unrecognised, e.serverReportsPurpose, f.unrecognised]));"
+    )
+    assert res == [{"A": None, "B": None, "C": None}, {"A": "PROVENANCE", "B": "NEWER_THAN_PAGE"}, True, {"X": "PROVENANCE"}]
 
 
 def test_seed_from_endpoint_payload_keeps_explicit_flag():
@@ -127,3 +164,6 @@ def test_type_explorer_wiring():
     assert "React.createElement(ClsPurposeChips, {" in TE
     assert "About classification purposes" in TE
     assert "allClassifs.length > 0 && !clsPurposesReported" in TE                        # hint, not empty groups
+    assert "Purpose not recognised by this Portal: " in TE                               # C2: type page
+    assert "No purpose reported: the server gives this classification type no purpose." in TE
+    assert "cp.purposeOf, cp.unrecognisedOf" in UI                                         # C2: detail panels
