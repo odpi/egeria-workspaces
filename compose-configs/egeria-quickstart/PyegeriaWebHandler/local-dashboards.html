@@ -279,6 +279,7 @@ function attrJson(v) {
 function refusalLabel(status) {
   return status === 400 ? 'The spec refused to run'
        : status === 401 ? 'Sign-in needed'
+       : status === 404 ? 'Not found'
        : (status === 504 || status === 408 || status === 524) ? 'Timed out'
        : status === 500 ? 'Server error'
        : status === 'unrunnable' ? 'This spec cannot run'
