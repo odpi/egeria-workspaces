@@ -8,9 +8,9 @@
 > consumer folders of the dashboard folder tree: `DashboardFolder::Consumer::Portal` and
 > `DashboardFolder::Consumer::EgeriaAdvisor`. The member is each sheet's `Dashboard` element (`Dashboard::<sheet>`).
 >
-> **Needs, already run:** `Useful Dashboards/LOCAL_DASHBOARDS_USEFUL_SHEETS.dr-egeria.md` (the sheets) and
-> `LOCAL_DASHBOARDS_FOLDERS.dr-egeria.md` (the root and the folders), which runs just before this file in the
-> "Dashboard Folders" batch. `_folder_order.json` runs that batch after "Useful Dashboards".
+> **Needs, already run:** the sheets document, earlier in this "Useful Dashboards" batch (this file is its last), and
+> `Dashboard Folders/LOCAL_DASHBOARDS_FOLDERS.dr-egeria.md` (the root and the folders), whose batch
+> `_folder_order.json` runs before this one. So the memberships seed with the sheets, and only where they are seeded.
 >
 > Every tile uses a built-in pyegeria spec except `catalog-health`'s "Assets with No Lineage" tile (from
 > `LOCAL_DASHBOARDS_SAVED_QUERY_TILE.dr-egeria.md`), whose spec "Saved Query Answer" is filed only in
