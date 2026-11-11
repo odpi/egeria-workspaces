@@ -366,6 +366,21 @@ def _consumer_index(url=None, server=None, user_id=None, user_pwd=None) -> dict:
     return idx
 
 
+def _consumer_display(name: str, consumers: dict) -> str:
+    """One consumer, one name. The consumer index names a consumer by its folder's display name ("Egeria
+    Advisor"); pyegeria's folder-scoped listing tags a sheet found in a SUB-folder with the qualifiedName
+    segment instead ("EgeriaAdvisor"). Map the segment to the index's display name, so a chip or a filter
+    never shows one consumer twice. A name the index does not know is kept as it is."""
+    for c in consumers.get("consumers") or []:
+        if not isinstance(c, dict):
+            continue
+        qn = c.get("qualifiedName") or ""
+        segment = qn.split("::")[2] if qn.count("::") >= 2 else None
+        if name and name in (c.get("name"), segment) and c.get("name"):
+            return c["name"]
+    return name
+
+
 def _used_by(sheet, source: str, consumers: dict) -> dict:
     """A list row's "Used by": the consumers whose dashboard folders hold the sheet. `usedBy` is a list only
     when it is known; `usedByState` says how it was read ("read" / "partial" / "not read" / "not tracked")."""
@@ -375,7 +390,8 @@ def _used_by(sheet, source: str, consumers: dict) -> dict:
     st = consumers.get("status")
     if st in ("read", "partial"):
         names = list((consumers.get("index") or {}).get(sheet.name) or [])
-        return {"usedBy": sorted(set(names) | set(getattr(sheet, "used_by", None) or [])),
+        own = [_consumer_display(n, consumers) for n in (getattr(sheet, "used_by", None) or [])]
+        return {"usedBy": sorted(set(names) | set(own)),
                 "usedByState": st, "usedByReason": consumers.get("reason")}
     own = list(getattr(sheet, "used_by", None) or [])
     if own:     # the folder-scoped listing found it in a consumer folder: that much is known

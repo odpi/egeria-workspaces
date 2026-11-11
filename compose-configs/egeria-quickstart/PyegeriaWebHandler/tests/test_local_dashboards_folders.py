@@ -229,3 +229,49 @@ def test_wiring():
     assert "filterSheets(data.sheets, LIST_FILTER)" in HTML
     assert "usedByLine(s)" in HTML and "In Egeria folder" in HTML
     assert "the Egeria-held ones are unknown" in HTML
+
+
+# ── the real shape (live read-back 2026-11-11, after LD-2's seeds) ───────────────
+# The consumer index names consumers by DISPLAY name ("Egeria Advisor"); the folder-scoped listing tags a
+# sheet in a top consumer folder with that same name, but one in a SUB-folder with the qualifiedName
+# segment ("EgeriaAdvisor"). Captured from laz: RootCollection::DashboardSheets, 2 consumers x 5 sheets.
+REAL_INDEX = {
+    "format": "pyegeria-dashboard-consumers/1", "root": "RootCollection::DashboardSheets",
+    "status": "read", "reason": None, "notes": [],
+    "consumers": [
+        {"name": "Egeria Advisor", "qualifiedName": "DashboardFolder::Consumer::EgeriaAdvisor",
+         "guid": "3e261b6f-6d9b-41f2-b109-47022fb3c432", "status": "read", "reason": None, "sheets": 5},
+        {"name": "Portal", "qualifiedName": "DashboardFolder::Consumer::Portal",
+         "guid": "6e0a053f-3def-4618-8020-562b8f63b531", "status": "read", "reason": None, "sheets": 5}],
+    "index": {n: ["Egeria Advisor", "Portal"] for n in
+              ("catalog-health", "community-and-feedback", "glossary-and-meaning",
+               "governance-and-compliance", "local-dashboards-next-steps")},
+}
+
+
+def test_real_shape_used_by_is_display_names_and_matches_the_filter(ld3):
+    ld3["index"] = REAL_INDEX
+    ld3["folders"] = [{"qualifiedName": PORTAL, "status": "read", "reason": None, "sheets": 5}]
+    ld3["egeria"] = {n: _eg(n, [PORTAL], ["Portal"]) for n in REAL_INDEX["index"]}
+    body, by = _rows(ld3)
+    assert all(by[n]["usedBy"] == ["Egeria Advisor", "Portal"] and by[n]["usedByState"] == "read"
+               for n in REAL_INDEX["index"])
+    names = [c["name"] for c in body["consumers"]["consumers"]]
+    assert names == ["Egeria Advisor", "Portal"]
+    # every chip value is a filter option value: the filter compares like with like
+    assert {u for s in body["sheets"] for u in (s["usedBy"] or [])} <= set(names)
+
+
+def test_a_sub_folder_segment_name_is_mapped_to_the_display_name_never_shown_twice(ld3):
+    ld3["index"] = dict(REAL_INDEX, index={"deep": ["Portal"]})
+    sub = "DashboardFolder::Consumer::EgeriaAdvisor::Finance"
+    ld3["egeria"] = {"deep": _eg("deep", [sub], ["EgeriaAdvisor"])}      # the listing's segment form
+    _, by = _rows(ld3)
+    assert by["deep"]["usedBy"] == ["Egeria Advisor", "Portal"]
+
+
+def test_real_shape_filter_on_the_page():
+    sheets = [{"name": "catalog-health", "source": "egeria", "usedBy": ["Egeria Advisor", "Portal"]},
+              {"name": "json-only", "source": "local file", "usedBy": None}]
+    assert [s["name"] for s in _call("filterSheets", sheets, {"usedBy": "Egeria Advisor"})] == ["catalog-health"]
+    assert _call("filterSheets", sheets, {"usedBy": "EgeriaAdvisor"}) == []
