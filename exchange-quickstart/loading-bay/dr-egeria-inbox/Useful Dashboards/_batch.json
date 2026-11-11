@@ -12,6 +12,7 @@
     "LOCAL_DASHBOARDS_USEFUL_SHEETS_FOLDERS.dr-egeria.md"
   ],
   "exclude": [
-    "FIXUP_2026_11_11_USEFUL_SHEETS_TEXT.dr-egeria.md"
+    "FIXUP_2026_11_11_USEFUL_SHEETS_TEXT.dr-egeria.md",
+    "FIXUP_2026_11_11_SAVED_QUERY_TILE_ROUTE_B.dr-egeria.md"
   ]
 }

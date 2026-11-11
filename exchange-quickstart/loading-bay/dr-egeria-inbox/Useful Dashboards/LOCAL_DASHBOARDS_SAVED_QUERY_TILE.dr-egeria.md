@@ -1,35 +1,40 @@
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 <!-- Copyright Contributors to the ODPi Egeria project. -->
 
-# A saved query's last answer on a Dashboard Sheet (Route A)
+# A saved query's last answer on a Dashboard Sheet (Route B)
 
 > Loadable **Dr.Egeria** document. It seeds the saved query **Assets with no lineage** and its Results Set
-> under fixed qualified names, an Egeria-held report spec that lists a collection named by qualified name,
-> and a tile on the `catalog-health` sheet (made by `LOCAL_DASHBOARDS_USEFUL_SHEETS.dr-egeria.md`) that
-> shows the query's last refreshed answer.
+> under fixed qualified names, the Egeria-held report spec **Saved Query Result**, and a tile on the
+> `catalog-health` sheet (made by `LOCAL_DASHBOARDS_USEFUL_SHEETS.dr-egeria.md`) that shows how many assets the
+> query found at its last refresh.
 >
-> **Needs the Portal refresh change of odpi/egeria-workspaces#823** (merged 2026-11-11). Without it the Portal's
-> `POST /api/insights/queries/{guid}/refresh` refuses this query (it wanted `additionalProperties.resultsSetGuid`
-> and a `formula`). With it, the refresh finds the Results Set through the `SmartQuery` link and reads the search
-> from `additionalProperties.searchSpec`. This file runs after the sheets file in the "Useful Dashboards" batch.
+> **Route B (owner, 2026-11-11).** The tile runs pyegeria's registered analytic function `saved_query`
+> (pyegeria 6.2.34 or later) with `name` = the SavedQuery's qualified name, `mode: cached`, `output: count`. It reads
+> the Results Set the last refresh filled and says "as of" that refresh. **Until the first refresh it says the
+> answer was not read (never refreshed), not "0".** Route A (listing the Results Set's members with a
+> `get_collection_members` spec) showed an unrefreshed query as an empty answer, which read as "no assets
+> without lineage".
+>
+> **Count, not list.** `output: list` also works in pyegeria, but the Portal's tile shows an analytic result as a
+> one-row table of its first eight keys, and the elements are not among them. A list tile needs a Portal change.
+>
+> **Needs the Portal refresh change of odpi/egeria-workspaces#823** (merged 2026-11-11): the refresh finds the
+> Results Set through the `SmartQuery` link, reads the search from `additionalProperties.searchSpec`, and stamps
+> `resultsSetGuid`, `lastRefreshedTime` and `lastRefreshParams` on the SavedQuery, which `saved_query` reads.
+> This file runs after the sheets file in the "Useful Dashboards" batch.
 >
 > **What the query is.** The Query tool's search for assets with no `DataFlow` relationship, leaving out
-> `Notification` and `Action` (worked example S3). `type_name` is declared as a parameter, so a refresh may
-> override it (for example `DataSet`) and nothing else; the refresh records the value it ran with
-> (`lastRefreshParams`).
+> `Notification` and `Action` (worked example S3). `type_name` is declared as a parameter (default `Asset`);
+> a cached answer stands only for the values its refresh recorded, so the tile (which gives no `params`) shows
+> the answer of a refresh made with the default.
 >
-> **Not refreshed until someone refreshes it.** Seeding leaves the Results Set empty. The first refresh is the
-> Coordinator's (an Egeria write): the Query tool's Saved Queries tab, **Refresh**, or
-> `POST /api/insights/queries/{guid}/refresh`. Until then the tile shows no rows. "Keep live" does not apply:
-> a relationship condition cannot be run by the Smart Collections connector. Because it is not registered as
-> a Smart Collection, nothing re-runs it with its stored values, so a refresh with another `type_name` keeps that
-> answer until the next refresh. (A query registered as a Smart Collection is re-run about every 30 minutes with
-> its stored values, which overwrites a refresh made with other values.)
+> **The first refresh is a shared Egeria write:** the Query tool's Saved Queries tab, **Refresh**, or
+> `POST /api/insights/queries/{guid}/refresh`. "Keep live" does not apply: a relationship condition cannot be run
+> by the Smart Collections connector, so nothing re-runs it; the tile shows the last refresh until the next one.
 >
-> **"As of".** The refresh time is stamped on the SavedQuery (`lastRefreshedTime`, and after the Portal change
-> `lastRefreshParams`), not on the Results Set. **TODO:** the "Saved Query Status" tile (name, refresh time,
-> result count, parameter values, "never refreshed" when the time is missing). Its spec is written once a seeded,
-> refreshed query exists to check which fields a find returns.
+> **The spec is filed with `Add Member to Collection`**, not `Parent ID` (the Update hazard), in
+> `ReportSpecFolder::Consumer::Portal`, which the Portal syncs. Egeria Advisor takes specs from
+> `ReportSpecFolder::Consumer::EgeriaAdvisor`, where this one is not filed.
 >
 > **This is a shared Egeria write.** Run `--validate` first, `--process` once under the peer check.
 > **Undo:** delete the placement, the Report, the spec, the Results Set and the SavedQuery, by GUID, as the
@@ -77,16 +82,16 @@ ___
 
 ## Create Report Spec
 ### Display Name
-Saved Query Answer
+Saved Query Result
 
 ### Qualified Name
-ReportSpec::Saved Query Answer
+ReportSpec::Saved Query Result
 
 ### Description
-The members of a collection named by its qualified name: for a saved query, the Results Set that holds its last refreshed answer.
+The answer of a saved query named by its qualified name, through pyegeria's analytic function saved_query: a count as of its last refresh (mode cached), or never refreshed. Params: name (required), mode (cached or live), output (count or list), params (values for its declared parameters).
 
 ### Purpose
-Saved query answer
+Saved query answer, as of its last refresh
 
 ### Category
 Saved Queries
@@ -95,13 +100,27 @@ Saved Queries
 ACTIVE
 
 ### Output Types
-TABLE, DICT
+DICT, JSON
 
 ### Microflow
-{"format":"microflow/1","params":{"collection_qname":{"type":"string","required":true}},"stages":[{"stage":"producer/find","type":"Collection","function":"CollectionManager.get_collection_members","params":{"collection_qname":"$collection_qname"}}],"formatters":{"TABLE":{"columns":[{"field":"display_name","label":"Name"},{"field":"type_name","label":"Type"},{"field":"qualified_name","label":"Qualified Name"}]},"DICT":{"same_as":"TABLE"}}}
+{"format":"microflow/1","params":{"name":{"type":"string","required":true},"mode":{"type":"string"},"output":{"type":"string"},"params":{"type":"object"}},"stages":[{"stage":"producer/analytic","function":"saved_query","params":{"mode":"cached","output":"count"}}],"formatters":{"DICT":{"columns":["display"]},"JSON":{"same_as":"DICT"}}}
 
-### Parent ID
+___
+
+## Add Member to Collection
+> File the spec in the Portal's report-spec folder (no Parent ID: see the header).
+
+### Collection Id
 ReportSpecFolder::Consumer::Portal
+
+### Element Id
+ReportSpec::Saved Query Result
+
+### Membership Status
+VALIDATED
+
+### Membership Rationale
+Report spec used by a seeded Portal tile.
 
 ___
 
@@ -110,16 +129,18 @@ ___
 Catalog Health - Assets with No Lineage
 
 ### Description
-Assets with no DataFlow relationship, as of the last refresh of the saved query "Assets with no lineage" (Query tool, Saved Queries tab). The tile does not re-run the query.
+How many assets have no DataFlow relationship, as of the last refresh of the saved query "Assets with no lineage" (Query tool, Saved Queries tab). The tile does not re-run the query; before the first refresh it says the answer was not read.
 
 ### Report Spec
-Saved Query Answer
+Saved Query Result
 
 ### Output Format
-TABLE
+DICT
 
-### Report Parameters
-collection_qname : ResultsSet::useful-sheets::Assets with no lineage
+### Analytic Parameters
+name : SavedQuery::useful-sheets::Assets with no lineage
+mode : cached
+output : count
 
 ___
 
