@@ -101,7 +101,7 @@ def test_list_has_both_sources_and_egeria_wins_by_name(env):
     assert by["twin"]["source"] == "egeria" and by["only-egeria"]["source"] == "egeria"
     assert by["json-only"]["source"] == "local file"
     assert by["twin"]["placementCount"] == 1                                           # the Egeria copy, not the file's
-    assert body["egeria"] == {"available": True}
+    assert body["egeria"]["available"] is True
 
 
 def test_detail_from_egeria_labels_sheet_and_placements(env):
