@@ -135,6 +135,13 @@
              border:1px solid var(--border); color:var(--muted); vertical-align:middle; white-space:nowrap; }
   .src-tag.src-egeria { color:var(--accent, #2a6fdb); border-color:currentColor; }
   .icon-btn:disabled, .btn:disabled { opacity:.45; cursor:not-allowed; }
+  /* LD-3: where an Egeria-held sheet was found, who uses it, and the list's filters. */
+  .sheet-card .folders { font-size:.7rem; color:var(--muted); margin-top:4px; overflow-wrap:anywhere; }
+  .sheet-card .used-by { font-size:.7rem; color:var(--muted); margin-top:4px; display:flex; gap:4px; flex-wrap:wrap; align-items:center; }
+  .chip { display:inline-block; font-size:.66rem; padding:1px 7px; border-radius:8px; border:1px solid var(--border); color:var(--text); }
+  .list-filters { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin:0 0 12px; font-size:.78rem; color:var(--muted); }
+  .list-filters select { font-size:.78rem; padding:3px 6px; background:var(--panel, transparent); color:var(--text); border:1px solid var(--border); border-radius:6px; max-width:100%; }
+  .src-info { margin:0 0 12px; padding:8px 12px; border-radius:6px; font-size:.78rem; border:1px solid var(--border); color:var(--muted); overflow-wrap:anywhere; }
   .src-note { margin:0 0 12px; padding:8px 12px; border-radius:6px; font-size:.78rem;
               border:1px solid var(--amber); color:var(--amber); overflow-wrap:anywhere; }
   .placement .p-note a { color:#4f9cf9; text-decoration:underline; }
@@ -512,6 +519,61 @@ function egeriaNote(eg) {
     + 'Sheets held in Egeria may be missing. (' + esc(eg.error || 'unknown error') + ')</div>';
 }
 
+// LD-3: which Egeria dashboard folders the list was read from, and every folder that could not be read.
+// A folder not found, or not read, is said in words: its sheets are unknown, never "no sheets".
+function folderNote(eg) {
+  if (!eg || eg.available === false) return '';
+  var conf = eg.configuredFolders || [];
+  if (!conf.length) {
+    return '<div class="src-info">No dashboard folders are configured (<code>PYEGERIA_DASHBOARD_FOLDERS</code>), '
+      + 'so every Dashboard Sheet held in Egeria is listed.</div>';
+  }
+  var bad = (eg.folders || []).filter(function(f) { return f && f.status !== 'read'; });
+  var lines = bad.map(function(f) {
+    var what = f.status === 'not found' ? 'was not found, or is not visible to you'
+      : f.status === 'partial' ? 'was only partly read' : 'could not be read';
+    return '<div>Egeria folder <code>' + esc(f.qualifiedName) + '</code> ' + what
+      + (f.status === 'partial' ? ': some of its sheets may be missing.' : ': the sheets in it are unknown, not "none".')
+      + (f.reason ? ' <span style="opacity:.8">(' + esc(f.reason) + ')</span>' : '') + '</div>';
+  });
+  var head = '<div class="' + (bad.length ? 'src-note' : 'src-info') + '">'
+    + 'Egeria-held sheets are listed from ' + (conf.length === 1 ? 'the folder ' : 'the folders ')
+    + conf.map(function(q) { return '<code>' + esc(q) + '</code>'; }).join(', ') + '.';
+  return head + (lines.length ? lines.join('') : '') + '</div>';
+}
+
+// "Used by": the tools a sheet is published to (its consumer folders). Absence is never "none":
+// a local-file sheet is "not tracked", and an index that could not be read is "not read".
+function usedByLine(s) {
+  var st = s.usedByState;
+  if (st === 'not tracked') return '';
+  var label = '<span>Used by:</span>';
+  if (st === 'not read' || !Array.isArray(s.usedBy)) {
+    return '<div class="used-by" title="' + esc('Consumers not read' + (s.usedByReason ? ': ' + s.usedByReason : '')) + '">'
+      + label + '<span class="chip" style="color:var(--amber);border-color:var(--amber)">not read</span></div>';
+  }
+  var partial = st === 'partial' ? ' title="' + esc('Only partly read: ' + (s.usedByReason || '')) + '"' : '';
+  if (!s.usedBy.length) return '<div class="used-by"' + partial + '>' + label + '<span class="chip">no consumer folder</span></div>';
+  return '<div class="used-by"' + partial + '>' + label + s.usedBy.map(function(n) {
+    return '<span class="chip">' + esc(n) + '</span>'; }).join('')
+    + (st === 'partial' ? '<span style="color:var(--amber)">(partly read)</span>' : '') + '</div>';
+}
+
+// The list's filters: by source, and by consumer. Pure, so it can be tested.
+// filter.source: '' | 'egeria' | 'local file'; filter.usedBy: '' | a consumer | '__none__' (held in Egeria,
+// read, in no consumer folder) | '__unknown__' (held in Egeria, consumers not read).
+function filterSheets(sheets, filter) {
+  filter = filter || {};
+  return (sheets || []).filter(function(s) {
+    if (filter.source && s.source !== filter.source) return false;
+    var u = filter.usedBy;
+    if (!u) return true;
+    if (u === '__none__') return s.source === 'egeria' && Array.isArray(s.usedBy) && s.usedBy.length === 0;
+    if (u === '__unknown__') return s.source === 'egeria' && !Array.isArray(s.usedBy);
+    return Array.isArray(s.usedBy) && s.usedBy.indexOf(u) >= 0;
+  });
+}
+
 // Egeria-held sheets cannot be deleted here (this page deletes from the local file only): Delete is shown
 // disabled, saying how they are deleted. That command is a shared Egeria write: coordinate it first.
 var EGERIA_DELETE_HINT = 'This sheet is held in Egeria; the Portal deletes only sheets in the local file. '
@@ -557,32 +619,75 @@ function renderList() {
 
   fetch('/api/local-dashboards')
     .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-    .then(function(data) {
-      var body = document.getElementById('list-body');
-      var note = egeriaNote(data.egeria);
-      if (!data.sheets || !data.sheets.length) {
-        body.innerHTML = note + '<div class="empty">No Dashboard Sheets ' + (note ? 'in the local file' : 'yet') + '.<br><br>'
-          + 'Author one with the Dr.Egeria <code>Create Dashboard Sheet</code> command, then '
-          + '<code>Link Report to Dashboard Sheet</code> to add placements.<br><br>'
-          + '<span style="font-size:.72rem">Store: <code>' + esc(data.storePath) + '</code></span></div>';
-        return;
-      }
-      body.innerHTML = note + '<div class="sheet-grid">' + data.sheets.map(function(s) {
-        return '<div class="sheet-card" onclick="navigateToSheet(' + attrJson(s.name) + ')">'
-          + '<div class="card-top"><h3>' + esc(s.heading || s.name) + srcTag(s.source) + '</h3>'
-          + (s.source === 'egeria' ? egeriaDeleteDisabled('🗑', 'icon-btn') : '<button class="icon-btn" title="Delete this Dashboard Sheet" '
-          + 'onclick="event.stopPropagation();deleteSheet(' + attrJson(s.name) + ',' + attrJson(s.heading || s.name) + ')">🗑</button>') + '</div>'
-          + (s.breaks && s.breaks.length ? '<div class="desc" style="color:var(--amber)">Chain broken in Egeria: ' + esc(s.breaks.join('; ')) + '</div>' : '')
-          + '<div class="desc">' + esc(s.description || 'No description.') + '</div>'
-          + '<div class="meta">'
-          + (s.family ? '<span class="badge badge-fam">' + esc(s.family) + '</span>' : '')
-          + '<span class="count">' + s.placementCount + ' placement' + (s.placementCount === 1 ? '' : 's') + '</span>'
-          + '</div></div>';
-      }).join('') + '</div>';
-    })
+    .then(function(data) { LIST_DATA = data; renderListBody(); })
     .catch(function(err) {
       document.getElementById('list-body').innerHTML = '<div class="err">Failed to load Dashboard Sheets: ' + esc(err.message) + '</div>';
     });
+}
+
+var LIST_DATA = null;
+var LIST_FILTER = { source: '', usedBy: '' };
+
+function setListFilter(key, value) { LIST_FILTER[key] = value; renderListBody(); }
+
+function listFilterBar(data) {
+  var sheets = data.sheets || [];
+  var nEg = sheets.filter(function(s) { return s.source === 'egeria'; }).length;
+  var counts = {}, none = 0, unknown = 0;
+  sheets.forEach(function(s) {
+    if (s.source !== 'egeria') return;
+    if (!Array.isArray(s.usedBy)) { unknown += 1; return; }
+    if (!s.usedBy.length) none += 1;
+    s.usedBy.forEach(function(n) { counts[n] = (counts[n] || 0) + 1; });
+  });
+  ((data.consumers && data.consumers.consumers) || []).forEach(function(c) { if (c.name && !(c.name in counts)) counts[c.name] = 0; });
+  var opt = function(v, label, cur) { return '<option value="' + esc(v) + '"' + (cur === v ? ' selected' : '') + '>' + esc(label) + '</option>'; };
+  var src = '<label>Source <select aria-label="Filter by source" onchange="setListFilter(\'source\', this.value)">'
+    + opt('', 'All (' + sheets.length + ')', LIST_FILTER.source)
+    + opt('egeria', 'Egeria folder (' + nEg + ')', LIST_FILTER.source)
+    + opt('local file', 'Local file (' + (sheets.length - nEg) + ')', LIST_FILTER.source) + '</select></label>';
+  var cs = data.consumers || {};
+  var used = '<label>Used by <select aria-label="Filter by consumer" onchange="setListFilter(\'usedBy\', this.value)">'
+    + opt('', 'Any', LIST_FILTER.usedBy)
+    + Object.keys(counts).sort().map(function(n) { return opt(n, n + ' (' + counts[n] + ')', LIST_FILTER.usedBy); }).join('')
+    + (cs.status === 'read' || cs.status === 'partial' ? opt('__none__', 'No consumer folder (' + none + ')', LIST_FILTER.usedBy) : '')
+    + (unknown ? opt('__unknown__', 'Not read (' + unknown + ')', LIST_FILTER.usedBy) : '') + '</select></label>';
+  var why = (cs.status && cs.status !== 'read')
+    ? '<span title="' + esc(cs.reason || '') + '" style="color:var(--amber)">Consumers ' + esc(cs.status) + (cs.reason ? ': ' + esc(cs.reason) : '') + '</span>' : '';
+  return '<div class="list-filters">' + src + used + why + '</div>';
+}
+
+function renderListBody() {
+  var data = LIST_DATA, body = document.getElementById('list-body');
+  if (!data || !body) return;
+  var note = egeriaNote(data.egeria) + folderNote(data.egeria);
+  var unknownEgeria = (data.egeria && data.egeria.available === false)
+    || ((data.egeria && data.egeria.folders) || []).some(function(f) { return f && (f.status === 'not found' || f.status === 'not read'); });
+  if (!data.sheets || !data.sheets.length) {
+    body.innerHTML = note + '<div class="empty">No Dashboard Sheets ' + (unknownEgeria ? 'in the local file; the Egeria-held ones are unknown (above)' : 'yet') + '.<br><br>'
+      + 'Author one with the Dr.Egeria <code>Create Dashboard Sheet</code> command, then '
+      + '<code>Link Report to Dashboard Sheet</code> to add placements.<br><br>'
+      + '<span style="font-size:.72rem">Store: <code>' + esc(data.storePath) + '</code></span></div>';
+    return;
+  }
+  var shown = filterSheets(data.sheets, LIST_FILTER);
+  body.innerHTML = note + listFilterBar(data)
+    + (shown.length ? '' : '<div class="empty">No sheet matches these filters.</div>')
+    + '<div class="sheet-grid">' + shown.map(function(s) {
+      return '<div class="sheet-card" onclick="navigateToSheet(' + attrJson(s.name) + ')">'
+        + '<div class="card-top"><h3>' + esc(s.heading || s.name) + srcTag(s.source) + '</h3>'
+        + (s.source === 'egeria' ? egeriaDeleteDisabled('🗑', 'icon-btn') : '<button class="icon-btn" title="Delete this Dashboard Sheet" '
+        + 'onclick="event.stopPropagation();deleteSheet(' + attrJson(s.name) + ',' + attrJson(s.heading || s.name) + ')">🗑</button>') + '</div>'
+        + (s.breaks && s.breaks.length ? '<div class="desc" style="color:var(--amber)">Chain broken in Egeria: ' + esc(s.breaks.join('; ')) + '</div>' : '')
+        + '<div class="desc">' + esc(s.description || 'No description.') + '</div>'
+        + (s.source === 'egeria' && s.folders && s.folders.length
+            ? '<div class="folders">In Egeria folder' + (s.folders.length === 1 ? ' ' : 's ') + s.folders.map(function(f) { return '<code>' + esc(f) + '</code>'; }).join(', ') + '</div>' : '')
+        + usedByLine(s)
+        + '<div class="meta">'
+        + (s.family ? '<span class="badge badge-fam">' + esc(s.family) + '</span>' : '')
+        + '<span class="count">' + s.placementCount + ' placement' + (s.placementCount === 1 ? '' : 's') + '</span>'
+        + '</div></div>';
+    }).join('') + '</div>';
 }
 
 // ── detail view ────────────────────────────────────────────────────────────

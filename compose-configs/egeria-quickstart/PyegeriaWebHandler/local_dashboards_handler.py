@@ -303,9 +303,30 @@ def _refuse_unverified(user: str, exc: Exception) -> None:
                                                 "was changed; try again shortly")
 
 
-def _egeria_sheets(url=None, server=None, user_id=None, user_pwd=None) -> dict:
-    """{name: EgeriaDashboardSheet} for every sheet Egeria holds. Raises _EgeriaUnavailable (never caches
-    a failure). Cached _CACHE_TTL s per presented credential + platform/server + forLineage toggle."""
+class _Listing(dict):
+    """{name: EgeriaDashboardSheet}, plus how pyegeria read them (LD-1's DashboardSheetListing): `notes`, and
+    `folders`, one entry per configured dashboard folder (qualifiedName, status "read" / "partial" /
+    "not found" / "not read", reason, sheets). An older reader's plain list has neither: empty here."""
+    def __init__(self, sheets=(), notes=None, folders=None):
+        super().__init__((s.name, s) for s in sheets)
+        self.notes = list(notes or [])
+        self.folders = [dict(f) for f in (folders or [])]
+
+
+def _configured_folders() -> list:
+    """The dashboard folders the Portal lists from: pyegeria's configured_dashboard_folders()
+    (PYEGERIA_DASHBOARD_FOLDERS, else config.json "Pyegeria Dashboard Folders"); empty means unscoped."""
+    try:
+        from pyegeria.view.dashboards import configured_dashboard_folders
+        return list(configured_dashboard_folders())
+    except Exception:  # noqa: BLE001 -- an older pyegeria: read the same variable directly
+        return [p.strip() for p in (os.getenv("PYEGERIA_DASHBOARD_FOLDERS") or "").split(",") if p.strip()]
+
+
+def _egeria_sheets(url=None, server=None, user_id=None, user_pwd=None) -> "_Listing":
+    """The sheets Egeria holds in the configured dashboard folders (all Dashboard:: sheets when none are
+    configured), as a _Listing. Raises _EgeriaUnavailable (never caches a failure). Cached _CACHE_TTL s per
+    presented credential + platform/server + forLineage toggle: listing is per viewer."""
     ckey = _keyed("egeria-sheets", url, server, user_id, user_pwd)
     hit = _cache_get(ckey) if ckey else None
     if hit is not None:
@@ -317,8 +338,51 @@ def _egeria_sheets(url=None, server=None, user_id=None, user_pwd=None) -> dict:
         _raise_if_token_refused(exc)
         logger.warning(f"local-dashboards: Egeria sheets unavailable: {exc}")
         raise _EgeriaUnavailable(f"{type(exc).__name__}: {' '.join(str(exc).split())[:240]}") from exc
-    found = {s.name: s for s in sheets}
+    found = _Listing(sheets, getattr(sheets, "notes", None), getattr(sheets, "folders", None))
     return _cache_put(ckey, found) if ckey else found
+
+
+def _consumer_index(url=None, server=None, user_id=None, user_pwd=None) -> dict:
+    """pyegeria's dashboard consumer index ({sheet: [consumer, ...]} over RootCollection::DashboardSheets),
+    for the "Used by" chips. Never raises: a failure is status "not read" with the reason, never an empty
+    index passed off as "used by none". Only a clean read ("read" / "partial") is cached."""
+    ckey = _keyed("egeria-consumers", url, server, user_id, user_pwd)
+    hit = _cache_get(ckey) if ckey else None
+    if hit is not None:
+        return hit
+    try:
+        from pyegeria.view.dashboards import read_dashboard_consumer_index
+        idx = read_dashboard_consumer_index(_egeria_client(url, server, user_id, user_pwd))
+    except Exception as exc:  # noqa: BLE001
+        _raise_if_token_refused(exc)
+        return {"status": "not read", "reason": f"could not be read: {' '.join(str(exc).split())[:240]}",
+                "consumers": [], "index": {}}
+    if not isinstance(idx, dict):
+        return {"status": "not read", "reason": "pyegeria returned no index", "consumers": [], "index": {}}
+    # Cache a clean answer: read, partial, or a root that is simply not there ("not found"); never a failure.
+    clean = idx.get("status") in ("read", "partial") or "not found" in str(idx.get("reason") or "")
+    if clean and ckey:
+        _cache_put(ckey, idx)
+    return idx
+
+
+def _used_by(sheet, source: str, consumers: dict) -> dict:
+    """A list row's "Used by": the consumers whose dashboard folders hold the sheet. `usedBy` is a list only
+    when it is known; `usedByState` says how it was read ("read" / "partial" / "not read" / "not tracked")."""
+    if source != SOURCE_EGERIA:
+        return {"usedBy": None, "usedByState": "not tracked",
+                "usedByReason": "a sheet in the local file is in no Egeria folder"}
+    st = consumers.get("status")
+    if st in ("read", "partial"):
+        names = list((consumers.get("index") or {}).get(sheet.name) or [])
+        return {"usedBy": sorted(set(names) | set(getattr(sheet, "used_by", None) or [])),
+                "usedByState": st, "usedByReason": consumers.get("reason")}
+    own = list(getattr(sheet, "used_by", None) or [])
+    if own:     # the folder-scoped listing found it in a consumer folder: that much is known
+        return {"usedBy": sorted(own), "usedByState": "partial",
+                "usedByReason": "the consumer index was not read (" + str(consumers.get("reason") or "unknown")
+                                + "); shown: the configured folders it was found in"}
+    return {"usedBy": None, "usedByState": "not read", "usedByReason": consumers.get("reason")}
 
 
 def _egeria_one(name, url=None, server=None, user_id=None, user_pwd=None):
@@ -331,8 +395,8 @@ def _egeria_one(name, url=None, server=None, user_id=None, user_pwd=None):
         return None if hit is _MISS else hit
     lkey = _keyed("egeria-sheets", url, server, user_id, user_pwd)
     listed = _cache_get(lkey) if lkey else None
-    if listed is not None:
-        found = listed.get(name)
+    if listed is not None and name in listed:
+        found = listed[name]       # a miss is not "Egeria does not hold it": the list may be folder-scoped
     else:
         try:
             from pyegeria.view.dashboards import load_dashboard_sheet
@@ -420,9 +484,11 @@ def _merged_sheets(url=None, server=None, user_id=None, user_pwd=None):
     {"available": False, "error": ...}; the JSON store failing still raises."""
     local = _load_sheets()
     try:
-        return _MergedSheets(_egeria_sheets(url, server, user_id, user_pwd), local), {"available": True}
+        listing = _egeria_sheets(url, server, user_id, user_pwd)
     except _EgeriaUnavailable as exc:
-        return _MergedSheets({}, local), {"available": False, "error": str(exc)}
+        return _MergedSheets({}, local), {"available": False, "error": str(exc), "configuredFolders": _configured_folders()}
+    return _MergedSheets(listing, local), {"available": True, "configuredFolders": _configured_folders(),
+                                           "folders": listing.folders, "notes": listing.notes}
 
 
 def _flatten_property_value_map(pvm: dict) -> dict:
@@ -734,16 +800,27 @@ def list_local_dashboards(
     except Exception as exc:  # noqa: BLE001
         logger.exception("local-dashboards: failed to load store")
         raise HTTPException(status_code=500, detail=f"Dashboard Sheet store unavailable: {exc}")
+    consumers = (_consumer_index(url, server, None, None) if egeria_status.get("available")
+                 else {"status": "not read", "reason": "Egeria could not be read", "consumers": [], "index": {}})
+    rows = []
+    for s in sheets.values():
+        src = sheets.source_of(s)
+        row = {"name": s.name, "heading": s.heading, "description": s.description,
+               "family": s.family, "placementCount": len(s.placements),
+               "source": src, "breaks": list(getattr(s, "breaks", None) or []),
+               "folders": list(getattr(s, "folders", None) or []) if src == SOURCE_EGERIA else []}
+        row.update(_used_by(s, src, consumers))
+        rows.append(row)
     return JSONResponse({
-        "sheets": [
-            {"name": s.name, "heading": s.heading, "description": s.description,
-             "family": s.family, "placementCount": len(s.placements),
-             "source": sheets.source_of(s), "breaks": list(getattr(s, "breaks", None) or [])}
-            for s in sheets.values()
-        ],
+        "sheets": rows,
         "storePath": _store_path(),
         "total": len(sheets),
         "egeria": egeria_status,
+        # How the "Used by" index was read ("read" | "partial" | "not read" + reason) and its consumers.
+        "consumers": {"status": consumers.get("status"), "reason": consumers.get("reason"),
+                      "root": consumers.get("root"),
+                      "consumers": [{"name": c.get("name"), "status": c.get("status"), "sheets": c.get("sheets")}
+                                    for c in (consumers.get("consumers") or []) if isinstance(c, dict)]},
     })
 
 
