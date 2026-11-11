@@ -1,0 +1,1112 @@
+{
+ "_captured": "2026-11-11, laz quickstart platform, read-only GET /servers/qs-view-server/api/open-metadata/valid-metadata/open-metadata-types/classification-defs as erinoverview (pyegeria 6.2.36 make_request). 'response' keeps the real envelope with 8 of the 94 defs verbatim; 'allPurposes' is every def's name -> classificationPurpose (null = field absent).",
+ "response": {
+  "class": "TypeDefListResponse",
+  "requestId": "5153593b-3897-439a-ae8d-cb7d6cedb9a5",
+  "relatedHTTPCode": 200,
+  "typeDefList": {
+   "typeDefs": [
+    {
+     "class": "OpenMetadataClassificationDef",
+     "guid": "ecdcd472-6701-4303-8dec-267bcb54feb9",
+     "name": "Memento",
+     "status": "ACTIVE_TYPEDEF",
+     "version": 1,
+     "versionName": "6.3-SNAPSHOT",
+     "category": "CLASSIFICATION_DEF",
+     "description": "An element whose real-world counterpart has been deleted or moved to offline archived.",
+     "descriptionGUID": "7332d853-1c43-4518-ab96-44f374b9966d",
+     "descriptionWiki": "https://egeria-project.org/types/0/0010-Base-Model/",
+     "beanClassName": "MementoProperties",
+     "origin": "bce3b0a0-662a-4f87-b8dc-844078a11a6e",
+     "createdBy": "ODPi Egeria",
+     "createTime": "2020-04-30T15:42:46.992+00:00",
+     "validElementStatusList": [
+      "ACTIVE",
+      "DELETED"
+     ],
+     "initialStatus": "ACTIVE",
+     "attributeDefinitions": [
+      {
+       "attributeName": "archiveDate",
+       "attributeType": {
+        "class": "OpenMetadataPrimitiveDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "PRIMITIVE",
+        "guid": "1bef35ca-d4f9-48db-87c2-afce4649362d",
+        "name": "date",
+        "primitiveDefCategory": "OM_PRIMITIVE_TYPE_DATE"
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "Timestamp when the archive occurred or was detected.",
+       "attributeDescriptionGUID": "5235c1b1-fa03-4d17-80e2-7826242dfc75",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      },
+      {
+       "attributeName": "archiveUser",
+       "attributeType": {
+        "class": "OpenMetadataPrimitiveDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "PRIMITIVE",
+        "guid": "b34a64b9-554a-42b1-8f8a-7d5c2339f9c4",
+        "name": "string",
+        "primitiveDefCategory": "OM_PRIMITIVE_TYPE_STRING"
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "Name of user that performed the archive - or detected the archive.",
+       "attributeDescriptionGUID": "fe81b808-3d78-4e84-a1de-b0b273a89bec",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      },
+      {
+       "attributeName": "archiveProcess",
+       "attributeType": {
+        "class": "OpenMetadataPrimitiveDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "PRIMITIVE",
+        "guid": "b34a64b9-554a-42b1-8f8a-7d5c2339f9c4",
+        "name": "string",
+        "primitiveDefCategory": "OM_PRIMITIVE_TYPE_STRING"
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "Name of process that performed the archive - or detected the archive.",
+       "attributeDescriptionGUID": "0aef1b3a-50dc-4a6c-981f-93bf8815e7f4",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      },
+      {
+       "attributeName": "archiveService",
+       "attributeType": {
+        "class": "OpenMetadataPrimitiveDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "PRIMITIVE",
+        "guid": "b34a64b9-554a-42b1-8f8a-7d5c2339f9c4",
+        "name": "string",
+        "primitiveDefCategory": "OM_PRIMITIVE_TYPE_STRING"
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "Name of service that created this classification.",
+       "attributeDescriptionGUID": "c2170958-998e-4d8c-8e33-e91ef4872c8a",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      },
+      {
+       "attributeName": "archiveMethod",
+       "attributeType": {
+        "class": "OpenMetadataPrimitiveDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "PRIMITIVE",
+        "guid": "b34a64b9-554a-42b1-8f8a-7d5c2339f9c4",
+        "name": "string",
+        "primitiveDefCategory": "OM_PRIMITIVE_TYPE_STRING"
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "Name of method that created this classification.",
+       "attributeDescriptionGUID": "45d558ba-00b4-4a67-9226-590b100da7e9",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      },
+      {
+       "attributeName": "archiveProperties",
+       "attributeType": {
+        "class": "OpenMetadataCollectionDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "COLLECTION",
+        "guid": "005c7c14-ac84-4136-beed-959401b041f8",
+        "name": "map<string,string>",
+        "description": "A map from string to string.",
+        "descriptionGUID": "f285d0ca-50ab-4564-b129-c7e3ba4e8545",
+        "collectionDefCategory": "OM_COLLECTION_MAP",
+        "argumentCount": 2,
+        "argumentTypes": [
+         "OM_PRIMITIVE_TYPE_STRING",
+         "OM_PRIMITIVE_TYPE_STRING"
+        ]
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "Properties to locate the real-world counterpart in the archive.",
+       "attributeDescriptionGUID": "d149d2d8-f181-4c20-8d68-5460f54bece5",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      }
+     ],
+     "validEntityDefs": [
+      {
+       "guid": "4e7761e8-3969-4627-8f40-bfe3cde85a1d",
+       "name": "OpenMetadataRoot",
+       "status": "ACTIVE_TYPEDEF"
+      }
+     ],
+     "propagatable": true,
+     "classificationPurpose": "MANAGEMENT"
+    },
+    {
+     "class": "OpenMetadataClassificationDef",
+     "guid": "37116c51-e6c9-4c37-942e-35d48c8c69a0",
+     "name": "Taxonomy",
+     "status": "ACTIVE_TYPEDEF",
+     "version": 1,
+     "versionName": "6.3-SNAPSHOT",
+     "category": "CLASSIFICATION_DEF",
+     "superType": {
+      "guid": "a68bae73-40c7-4a93-8e07-a1247baaae3d",
+      "name": "CollectionKind",
+      "status": "ACTIVE_TYPEDEF"
+     },
+     "description": "Identifies a glossary organized as a taxonomy.",
+     "descriptionGUID": "9a0562c5-7654-46c7-a216-0c85e7027562",
+     "descriptionWiki": "https://egeria-project.org/types/3/0310-Glossary/",
+     "beanClassName": "TaxonomyProperties",
+     "origin": "bce3b0a0-662a-4f87-b8dc-844078a11a6e",
+     "createdBy": "ODPi Egeria",
+     "createTime": "2020-01-01T13:42:11.090+00:00",
+     "validElementStatusList": [
+      "ACTIVE",
+      "DELETED"
+     ],
+     "initialStatus": "ACTIVE",
+     "attributeDefinitions": [
+      {
+       "attributeName": "organizingPrinciple",
+       "attributeType": {
+        "class": "OpenMetadataPrimitiveDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "PRIMITIVE",
+        "guid": "b34a64b9-554a-42b1-8f8a-7d5c2339f9c4",
+        "name": "string",
+        "primitiveDefCategory": "OM_PRIMITIVE_TYPE_STRING"
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "Characteristics that influence the organization of the taxonomy.",
+       "attributeDescriptionGUID": "980250ab-c0e1-4cdb-851e-b6622d68fb41",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      }
+     ],
+     "validEntityDefs": [
+      {
+       "guid": "36f66863-9726-4b41-97ee-714fd0dc6fe4",
+       "name": "Glossary",
+       "status": "ACTIVE_TYPEDEF"
+      }
+     ],
+     "propagatable": false,
+     "classificationPurpose": "CATEGORY"
+    },
+    {
+     "class": "OpenMetadataClassificationDef",
+     "guid": "742ddb7d-9a4a-4eb5-8ac2-1d69953bd2b6",
+     "name": "Confidentiality",
+     "status": "ACTIVE_TYPEDEF",
+     "version": 1,
+     "versionName": "6.3-SNAPSHOT",
+     "category": "CLASSIFICATION_DEF",
+     "description": "Defines the level of confidentiality of related data items.",
+     "descriptionGUID": "0d791cad-bac5-4df3-8e0b-9bf326b4faf1",
+     "descriptionWiki": "https://egeria-project.org/types/4/0422-Governed-Data-Classifications/",
+     "beanClassName": "ConfidentialityProperties",
+     "origin": "bce3b0a0-662a-4f87-b8dc-844078a11a6e",
+     "createdBy": "ODPi Egeria",
+     "createTime": "2020-01-01T13:42:11.090+00:00",
+     "validElementStatusList": [
+      "ACTIVE",
+      "DELETED"
+     ],
+     "initialStatus": "ACTIVE",
+     "attributeDefinitions": [
+      {
+       "attributeName": "confidentialityLevel",
+       "attributeType": {
+        "class": "OpenMetadataPrimitiveDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "PRIMITIVE",
+        "guid": "7fc49104-fd3a-46c8-b6bf-f16b6074cd35",
+        "name": "int",
+        "primitiveDefCategory": "OM_PRIMITIVE_TYPE_INT"
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "Defines the level of confidence to place in the accuracy of a data item.",
+       "attributeDescriptionGUID": "908488a2-13f2-469d-b28d-20a7af6be4a1",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      },
+      {
+       "attributeName": "confidence",
+       "attributeType": {
+        "class": "OpenMetadataPrimitiveDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "PRIMITIVE",
+        "guid": "7fc49104-fd3a-46c8-b6bf-f16b6074cd35",
+        "name": "int",
+        "primitiveDefCategory": "OM_PRIMITIVE_TYPE_INT"
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "Level of confidence in the correctness of the element. 0=unknown; 1=low confidence; 100=total confidence.",
+       "attributeDescriptionGUID": "26dd007a-cff3-45e7-963d-2a753c2b7000",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      },
+      {
+       "attributeName": "steward",
+       "attributeType": {
+        "class": "OpenMetadataPrimitiveDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "PRIMITIVE",
+        "guid": "b34a64b9-554a-42b1-8f8a-7d5c2339f9c4",
+        "name": "string",
+        "primitiveDefCategory": "OM_PRIMITIVE_TYPE_STRING"
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "Unique identifier for the steward performing the action.",
+       "attributeDescriptionGUID": "6777fa1e-3289-4896-a032-1097b4ad78b2",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      },
+      {
+       "attributeName": "statusIdentifier",
+       "attributeType": {
+        "class": "OpenMetadataPrimitiveDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "PRIMITIVE",
+        "guid": "7fc49104-fd3a-46c8-b6bf-f16b6074cd35",
+        "name": "int",
+        "primitiveDefCategory": "OM_PRIMITIVE_TYPE_INT"
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "Defines the status values of a governance action classification.",
+       "attributeDescriptionGUID": "8279602a-c86d-4cf7-b66d-1ea98b75c491",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      },
+      {
+       "attributeName": "stewardTypeName",
+       "attributeType": {
+        "class": "OpenMetadataPrimitiveDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "PRIMITIVE",
+        "guid": "b34a64b9-554a-42b1-8f8a-7d5c2339f9c4",
+        "name": "string",
+        "primitiveDefCategory": "OM_PRIMITIVE_TYPE_STRING"
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "Type name of the Actor entity identifying the steward.",
+       "attributeDescriptionGUID": "b4c4637d-b196-4268-86a2-c6daf444dd7d",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      },
+      {
+       "attributeName": "stewardPropertyName",
+       "attributeType": {
+        "class": "OpenMetadataPrimitiveDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "PRIMITIVE",
+        "guid": "b34a64b9-554a-42b1-8f8a-7d5c2339f9c4",
+        "name": "string",
+        "primitiveDefCategory": "OM_PRIMITIVE_TYPE_STRING"
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "Property name for the steward's unique identifier (typically guid or qualifiedName).",
+       "attributeDescriptionGUID": "b9e55ebe-43fb-4eb0-8485-6ef22e07f0a8",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      },
+      {
+       "attributeName": "source",
+       "attributeType": {
+        "class": "OpenMetadataPrimitiveDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "PRIMITIVE",
+        "guid": "b34a64b9-554a-42b1-8f8a-7d5c2339f9c4",
+        "name": "string",
+        "primitiveDefCategory": "OM_PRIMITIVE_TYPE_STRING"
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "Details of the organization, person or process that created the element, or provided the information used to create the element.",
+       "attributeDescriptionGUID": "9c40c4e3-1d6d-45fd-8df0-f1a2e09db636",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      },
+      {
+       "attributeName": "notes",
+       "attributeType": {
+        "class": "OpenMetadataPrimitiveDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "PRIMITIVE",
+        "guid": "b34a64b9-554a-42b1-8f8a-7d5c2339f9c4",
+        "name": "string",
+        "primitiveDefCategory": "OM_PRIMITIVE_TYPE_STRING"
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "Notes on why decision were made relating to this element, and other useful information.",
+       "attributeDescriptionGUID": "577281c3-82f8-4c1d-ad95-04ef5919e57c",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      }
+     ],
+     "validEntityDefs": [
+      {
+       "guid": "a32316b8-dc8c-48c5-b12b-71c1b2a080bf",
+       "name": "Referenceable",
+       "status": "ACTIVE_TYPEDEF"
+      }
+     ],
+     "propagatable": false,
+     "classificationPurpose": "GOVERNANCE"
+    },
+    {
+     "class": "OpenMetadataClassificationDef",
+     "guid": "c2fa7555-f366-4869-88f3-897d6f2ec5a4",
+     "name": "ReviewedByClinicalTrials",
+     "status": "ACTIVE_TYPEDEF",
+     "version": 1787846091693,
+     "versionName": "1.0",
+     "category": "CLASSIFICATION_DEF",
+     "description": "Declares that a report or data set has been assessed by the clinical trials team.",
+     "beanClassName": "ReviewedByClinicalTrialsProperties",
+     "origin": "50874908-01f1-47e2-83ea-e571109a946e",
+     "createdBy": "Egeria Project",
+     "createTime": "2021-12-20T07:20:40.038+00:00",
+     "validElementStatusList": [
+      "ACTIVE",
+      "DELETED"
+     ],
+     "initialStatus": "ACTIVE",
+     "attributeDefinitions": [
+      {
+       "attributeName": "reviewer",
+       "attributeType": {
+        "class": "OpenMetadataPrimitiveDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "PRIMITIVE",
+        "guid": "b34a64b9-554a-42b1-8f8a-7d5c2339f9c4",
+        "name": "string",
+        "primitiveDefCategory": "OM_PRIMITIVE_TYPE_STRING"
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "Person responsible for maintaining this relationship.",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      },
+      {
+       "attributeName": "reviewerTypeName",
+       "attributeType": {
+        "class": "OpenMetadataPrimitiveDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "PRIMITIVE",
+        "guid": "b34a64b9-554a-42b1-8f8a-7d5c2339f9c4",
+        "name": "string",
+        "primitiveDefCategory": "OM_PRIMITIVE_TYPE_STRING"
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "Type of element used to identify the reviewer.",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      },
+      {
+       "attributeName": "reviewerPropertyName",
+       "attributeType": {
+        "class": "OpenMetadataPrimitiveDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "PRIMITIVE",
+        "guid": "b34a64b9-554a-42b1-8f8a-7d5c2339f9c4",
+        "name": "string",
+        "primitiveDefCategory": "OM_PRIMITIVE_TYPE_STRING"
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "Name of property used to identify the reviewer.",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      },
+      {
+       "attributeName": "notes",
+       "attributeType": {
+        "class": "OpenMetadataCollectionDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "COLLECTION",
+        "guid": "005c7c14-ac84-4136-beed-959401b041f8",
+        "name": "map<string,string>",
+        "description": "A map from string to string.",
+        "descriptionGUID": "f285d0ca-50ab-4564-b129-c7e3ba4e8545",
+        "collectionDefCategory": "OM_COLLECTION_MAP",
+        "argumentCount": 2,
+        "argumentTypes": [
+         "OM_PRIMITIVE_TYPE_STRING",
+         "OM_PRIMITIVE_TYPE_STRING"
+        ]
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "Information for the clinical trials team relating to the review.",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      }
+     ],
+     "validEntityDefs": [
+      {
+       "guid": "896d14c2-7522-4f6c-8519-757711943fe6",
+       "name": "Asset",
+       "status": "ACTIVE_TYPEDEF"
+      }
+     ],
+     "propagatable": false
+    },
+    {
+     "class": "OpenMetadataClassificationDef",
+     "guid": "b239d832-50bd-471b-b17a-15a335fc7f40",
+     "name": "PrimaryKey",
+     "status": "ACTIVE_TYPEDEF",
+     "version": 2,
+     "versionName": "6.3-SNAPSHOT",
+     "category": "CLASSIFICATION_DEF",
+     "description": "A uniquely identifying relational column.",
+     "descriptionGUID": "b3298706-52de-40d3-8c70-9f4ed2c55ffe",
+     "descriptionWiki": "https://egeria-project.org/types/5/0534-Relational-Schemas/",
+     "beanClassName": "PrimaryKeyProperties",
+     "origin": "bce3b0a0-662a-4f87-b8dc-844078a11a6e",
+     "createdBy": "ODPi Egeria",
+     "updatedBy": "Egeria",
+     "createTime": "2020-01-01T13:42:11.090+00:00",
+     "updateTime": "2026-01-24T17:59:57.779+00:00",
+     "validElementStatusList": [
+      "ACTIVE",
+      "DELETED"
+     ],
+     "initialStatus": "ACTIVE",
+     "attributeDefinitions": [
+      {
+       "attributeName": "keyPattern",
+       "attributeType": {
+        "class": "OpenMetadataEnumDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "ENUM",
+        "guid": "8904df8f-1aca-4de8-9abd-1ef2aadba300",
+        "name": "KeyPattern",
+        "description": "Defines the type of identifier used for a digital resource.",
+        "descriptionGUID": "c6812f55-cc75-4e60-af29-74b53f03ddb5",
+        "elementDefs": [
+         {
+          "ordinal": 0,
+          "value": "LOCAL_KEY",
+          "description": "Unique key allocated and used within the scope of a single system.",
+          "descriptionGUID": "b5bcf0a5-19a3-4755-ac52-518bd4783952"
+         },
+         {
+          "ordinal": 1,
+          "value": "RECYCLED_KEY",
+          "description": "Key allocated and used within the scope of a single system that is periodically reused for different records.",
+          "descriptionGUID": "fe1e739e-4825-49a2-84af-aeb5096c6a75"
+         },
+         {
+          "ordinal": 2,
+          "value": "NATURAL_KEY",
+          "description": "Key derived from an attribute of the entity, such as email address, passport number.",
+          "descriptionGUID": "8828af2a-dcaa-4024-8b14-3d4082779d5c"
+         },
+         {
+          "ordinal": 3,
+          "value": "MIRROR_KEY",
+          "description": "Key value copied from another system.",
+          "descriptionGUID": "840a9ccb-45d4-4569-b76b-b88c3a814d1a"
+         },
+         {
+          "ordinal": 4,
+          "value": "AGGREGATE_KEY",
+          "description": "Key formed by combining keys from multiple systems.",
+          "descriptionGUID": "d9a3e37f-6bd8-414b-a37c-f24b5af08d27"
+         },
+         {
+          "ordinal": 5,
+          "value": "CALLERS_KEY",
+          "description": "Key from another system can bey used if system name provided.",
+          "descriptionGUID": "292fd669-f3c9-436e-af61-2a4ad184dbb7"
+         },
+         {
+          "ordinal": 6,
+          "value": "STABLE_KEY",
+          "description": "Key value will remain active even if records are merged.",
+          "descriptionGUID": "1820a91d-0d8a-4567-9fbd-d27d444f646a"
+         },
+         {
+          "ordinal": 99,
+          "value": "OTHER",
+          "description": "Another key pattern.",
+          "descriptionGUID": "d97a668e-bfc9-4ed6-a3a9-b133a4c2ef49"
+         }
+        ],
+        "defaultValue": {
+         "ordinal": 99
+        }
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "Type of identifier that identifies its lifecycle, for example, its scope and whether the value is reused.",
+       "attributeDescriptionGUID": "a8805753-865d-4860-ab95-1e83c3eaf01d",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      },
+      {
+       "attributeName": "displayName",
+       "attributeType": {
+        "class": "OpenMetadataPrimitiveDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "PRIMITIVE",
+        "guid": "b34a64b9-554a-42b1-8f8a-7d5c2339f9c4",
+        "name": "string",
+        "primitiveDefCategory": "OM_PRIMITIVE_TYPE_STRING"
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "Display name of the element used for summary tables and titles.",
+       "attributeDescriptionGUID": "a42ceece-6cd8-4c71-9920-e3c96df3c8bb",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      }
+     ],
+     "validEntityDefs": [
+      {
+       "guid": "aa8d5470-6dbc-4648-9e2f-045e5df9d2f9",
+       "name": "RelationalColumn",
+       "status": "ACTIVE_TYPEDEF"
+      },
+      {
+       "guid": "3c5bbc8b-d562-4b04-b189-c7b7f0bf2cea",
+       "name": "DataField",
+       "status": "ACTIVE_TYPEDEF"
+      }
+     ],
+     "propagatable": false,
+     "classificationPurpose": "DESCRIPTIVE"
+    },
+    {
+     "class": "OpenMetadataClassificationDef",
+     "guid": "9a68b20b-3f84-4d7d-bc9e-790c4b27e685",
+     "name": "PolicyEnforcementPoint",
+     "status": "ACTIVE_TYPEDEF",
+     "version": 1,
+     "versionName": "6.3-SNAPSHOT",
+     "category": "CLASSIFICATION_DEF",
+     "superType": {
+      "guid": "7e2c5cd3-637b-4258-965a-2ba65786acde",
+      "name": "PolicyManagementPoint",
+      "status": "ACTIVE_TYPEDEF"
+     },
+     "description": "Describes the capability where the result of a policy decision are enforced.",
+     "descriptionGUID": "35831bed-0e90-4bd8-afce-3a88317f78d8",
+     "descriptionWiki": "https://egeria-project.org/types/4/0435-Policy-Management-Capabilities/",
+     "beanClassName": "PolicyEnforcementPointProperties",
+     "origin": "bce3b0a0-662a-4f87-b8dc-844078a11a6e",
+     "createdBy": "ODPi Egeria",
+     "createTime": "2018-01-18T22:04:00.008+00:00",
+     "validElementStatusList": [
+      "ACTIVE",
+      "DELETED"
+     ],
+     "initialStatus": "ACTIVE",
+     "validEntityDefs": [
+      {
+       "guid": "a32316b8-dc8c-48c5-b12b-71c1b2a080bf",
+       "name": "Referenceable",
+       "status": "ACTIVE_TYPEDEF"
+      }
+     ],
+     "propagatable": false,
+     "classificationPurpose": "GOVERNANCE_IMPLEMENTATION"
+    },
+    {
+     "class": "OpenMetadataClassificationDef",
+     "guid": "cfae23a1-8020-431f-a603-1f1bb0e01cb3",
+     "name": "UsageActivity",
+     "status": "ACTIVE_TYPEDEF",
+     "version": 1,
+     "versionName": "6.3-SNAPSHOT",
+     "category": "CLASSIFICATION_DEF",
+     "description": "Describes the usage activity around an anchor element and its anchored elements: how often it is explicitly retrieved, found through searches, has its properties updated, and has its attachments and feedback updated or deleted.",
+     "descriptionGUID": "8762e743-d139-4f05-bd8f-2bfadb59f919",
+     "descriptionWiki": "https://egeria-project.org/types/7/0795-Usage-Activity/",
+     "beanClassName": "UsageActivityProperties",
+     "origin": "bce3b0a0-662a-4f87-b8dc-844078a11a6e",
+     "createdBy": "Egeria",
+     "createTime": "2026-01-24T17:59:57.779+00:00",
+     "validElementStatusList": [
+      "ACTIVE",
+      "DELETED"
+     ],
+     "initialStatus": "ACTIVE",
+     "attributeDefinitions": [
+      {
+       "attributeName": "explicitGetCount",
+       "attributeType": {
+        "class": "OpenMetadataPrimitiveDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "PRIMITIVE",
+        "guid": "33a91510-92ee-4825-9f49-facd7a6f9db6",
+        "name": "long",
+        "primitiveDefCategory": "OM_PRIMITIVE_TYPE_LONG"
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "The number of times the element, or one of its anchored elements, has been explicitly retrieved from the repository by an identifier or name.",
+       "attributeDescriptionGUID": "6acf7394-379a-4394-9199-70b5c7535495",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      },
+      {
+       "attributeName": "findCount",
+       "attributeType": {
+        "class": "OpenMetadataPrimitiveDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "PRIMITIVE",
+        "guid": "33a91510-92ee-4825-9f49-facd7a6f9db6",
+        "name": "long",
+        "primitiveDefCategory": "OM_PRIMITIVE_TYPE_LONG"
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "The number of times the element, or one of its anchored elements, has been retrieved from the repository as part of a search request.",
+       "attributeDescriptionGUID": "87aa0371-5813-4895-a3c7-c2251a199895",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      },
+      {
+       "attributeName": "updatePropertyCount",
+       "attributeType": {
+        "class": "OpenMetadataPrimitiveDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "PRIMITIVE",
+        "guid": "33a91510-92ee-4825-9f49-facd7a6f9db6",
+        "name": "long",
+        "primitiveDefCategory": "OM_PRIMITIVE_TYPE_LONG"
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "The number of times the properties of the element have been updated.",
+       "attributeDescriptionGUID": "8013f2b6-143c-4d6e-a1cf-5d3ceca6c645",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      },
+      {
+       "attributeName": "updateAttachmentCount",
+       "attributeType": {
+        "class": "OpenMetadataPrimitiveDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "PRIMITIVE",
+        "guid": "33a91510-92ee-4825-9f49-facd7a6f9db6",
+        "name": "long",
+        "primitiveDefCategory": "OM_PRIMITIVE_TYPE_LONG"
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "The number of times an element anchored to the element has been created, linked, unlinked or updated.",
+       "attributeDescriptionGUID": "d663e94c-707d-458b-a28c-be1864a2645e",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      },
+      {
+       "attributeName": "updateFeedbackCount",
+       "attributeType": {
+        "class": "OpenMetadataPrimitiveDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "PRIMITIVE",
+        "guid": "33a91510-92ee-4825-9f49-facd7a6f9db6",
+        "name": "long",
+        "primitiveDefCategory": "OM_PRIMITIVE_TYPE_LONG"
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "The number of times feedback (comments, likes, ratings and informal tags) attached to the element has been added or updated.",
+       "attributeDescriptionGUID": "d47299fe-39b5-417b-aff3-c2f4c80be2e8",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      },
+      {
+       "attributeName": "deleteAttachmentCount",
+       "attributeType": {
+        "class": "OpenMetadataPrimitiveDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "PRIMITIVE",
+        "guid": "33a91510-92ee-4825-9f49-facd7a6f9db6",
+        "name": "long",
+        "primitiveDefCategory": "OM_PRIMITIVE_TYPE_LONG"
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "The number of times an element anchored to the element has been deleted.",
+       "attributeDescriptionGUID": "e1058147-017e-4370-a79a-baabf9ee5c15",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      },
+      {
+       "attributeName": "deleteFeedbackCount",
+       "attributeType": {
+        "class": "OpenMetadataPrimitiveDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "PRIMITIVE",
+        "guid": "33a91510-92ee-4825-9f49-facd7a6f9db6",
+        "name": "long",
+        "primitiveDefCategory": "OM_PRIMITIVE_TYPE_LONG"
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "The number of times feedback (comments, likes, ratings and informal tags) attached to the element has been deleted.",
+       "attributeDescriptionGUID": "0ddcdc6e-df87-4e1a-91bd-d27464504571",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      }
+     ],
+     "validEntityDefs": [
+      {
+       "guid": "a32316b8-dc8c-48c5-b12b-71c1b2a080bf",
+       "name": "Referenceable",
+       "status": "ACTIVE_TYPEDEF"
+      }
+     ],
+     "propagatable": false,
+     "classificationPurpose": "ANALYTICAL"
+    },
+    {
+     "class": "OpenMetadataClassificationDef",
+     "guid": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+     "name": "Anchors",
+     "status": "ACTIVE_TYPEDEF",
+     "version": 1,
+     "versionName": "6.3-SNAPSHOT",
+     "category": "CLASSIFICATION_DEF",
+     "description": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+     "descriptionGUID": "09708101-5b38-4c3c-b1e5-983f9c731e5c",
+     "descriptionWiki": "https://egeria-project.org/types/0/0010-Base-Model/",
+     "beanClassName": "AnchorsProperties",
+     "origin": "bce3b0a0-662a-4f87-b8dc-844078a11a6e",
+     "createdBy": "ODPi Egeria",
+     "createTime": "2020-04-30T15:42:46.992+00:00",
+     "validElementStatusList": [
+      "ACTIVE",
+      "DELETED"
+     ],
+     "initialStatus": "ACTIVE",
+     "attributeDefinitions": [
+      {
+       "attributeName": "anchorGUID",
+       "attributeType": {
+        "class": "OpenMetadataPrimitiveDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "PRIMITIVE",
+        "guid": "b34a64b9-554a-42b1-8f8a-7d5c2339f9c4",
+        "name": "string",
+        "primitiveDefCategory": "OM_PRIMITIVE_TYPE_STRING"
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "The unique identifier of the referenceable that this element is directly or indirectly anchored to.",
+       "attributeDescriptionGUID": "e7de4efc-6fa4-4942-97eb-e9b5be701875",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      },
+      {
+       "attributeName": "anchorTypeName",
+       "attributeType": {
+        "class": "OpenMetadataPrimitiveDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "PRIMITIVE",
+        "guid": "b34a64b9-554a-42b1-8f8a-7d5c2339f9c4",
+        "name": "string",
+        "primitiveDefCategory": "OM_PRIMITIVE_TYPE_STRING"
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "Unique name of the anchor element's type.",
+       "attributeDescriptionGUID": "605c9dd5-fa79-4457-b299-9169c5567f97",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      },
+      {
+       "attributeName": "anchorDomainName",
+       "attributeType": {
+        "class": "OpenMetadataPrimitiveDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "PRIMITIVE",
+        "guid": "b34a64b9-554a-42b1-8f8a-7d5c2339f9c4",
+        "name": "string",
+        "primitiveDefCategory": "OM_PRIMITIVE_TYPE_STRING"
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "Unique name of the domain of the anchor.  This is an Open Metadata Type Name that either directly inherits from OpenMetadataRoot or Referenceable.",
+       "attributeDescriptionGUID": "00ba532f-792f-4b78-8940-b5a9fd72f854",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      },
+      {
+       "attributeName": "anchorScopeGUIDs",
+       "attributeType": {
+        "class": "OpenMetadataCollectionDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "COLLECTION",
+        "guid": "0428b5d3-f824-459c-b7f5-f8151de59707",
+        "name": "array<string>",
+        "description": "An array of strings.",
+        "descriptionGUID": "4a384611-d8c1-4909-a6f8-1385ffe210e2",
+        "collectionDefCategory": "OM_COLLECTION_ARRAY",
+        "argumentCount": 1,
+        "argumentTypes": [
+         "OM_PRIMITIVE_TYPE_STRING"
+        ]
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "Unique identifiers of the scope of the anchor.  These are the Open Metadata GUID of elements that represents a scope/ownership of an anchor element.  It is used to restrict searches.",
+       "attributeDescriptionGUID": "65afae9b-54d5-440f-b955-6ebe9c0eba21",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      },
+      {
+       "attributeName": "zoneMembership",
+       "attributeType": {
+        "class": "OpenMetadataCollectionDef",
+        "version": 1,
+        "versionName": "6.3-SNAPSHOT",
+        "category": "COLLECTION",
+        "guid": "0428b5d3-f824-459c-b7f5-f8151de59707",
+        "name": "array<string>",
+        "description": "An array of strings.",
+        "descriptionGUID": "4a384611-d8c1-4909-a6f8-1385ffe210e2",
+        "collectionDefCategory": "OM_COLLECTION_ARRAY",
+        "argumentCount": 1,
+        "argumentTypes": [
+         "OM_PRIMITIVE_TYPE_STRING"
+        ]
+       },
+       "attributeStatus": "ACTIVE_ATTRIBUTE",
+       "attributeDescription": "The list of governance zones that this element belongs to.",
+       "attributeDescriptionGUID": "2af69520-6991-4097-aa94-543127b73066",
+       "valuesMinCount": 0,
+       "valuesMaxCount": 1,
+       "indexable": true,
+       "unique": false,
+       "attributeCardinality": "AT_MOST_ONE"
+      }
+     ],
+     "validEntityDefs": [
+      {
+       "guid": "4e7761e8-3969-4627-8f40-bfe3cde85a1d",
+       "name": "OpenMetadataRoot",
+       "status": "ACTIVE_TYPEDEF"
+      }
+     ],
+     "propagatable": true,
+     "classificationPurpose": "MANAGEMENT"
+    }
+   ]
+  }
+ },
+ "allPurposes": {
+  "AbstractConcept": "CATEGORY",
+  "AccountingCodes": "GOVERNANCE",
+  "ActivityDescription": "CATEGORY",
+  "Anchors": "MANAGEMENT",
+  "AuditLog": "CATEGORY",
+  "BusinessSignificant": "GOVERNANCE",
+  "CalculatedValue": "DESCRIPTIVE",
+  "Campaign": "CATEGORY",
+  "CanonicalVocabulary": "CATEGORY",
+  "ClassWord": "CATEGORY",
+  "CloudPlatform": "CATEGORY",
+  "CloudProvider": "CATEGORY",
+  "CloudService": "CATEGORY",
+  "CloudTenant": "CATEGORY",
+  "CollectionKind": "CATEGORY",
+  "Confidence": "GOVERNANCE",
+  "Confidentiality": "GOVERNANCE",
+  "ConsolidatedDuplicate": "MANAGEMENT",
+  "ContextDefinition": "CATEGORY",
+  "ControlPoint": "GOVERNANCE_IMPLEMENTATION",
+  "Criticality": "GOVERNANCE",
+  "CyberLocation": "CATEGORY",
+  "DataAssetEncoding": "DESCRIPTIVE",
+  "DataScope": "GOVERNANCE",
+  "DataSharingAgreement": "CATEGORY",
+  "DataValueMeaning": "CATEGORY",
+  "DigitalResourceOrigin": "GOVERNANCE",
+  "EditingCollection": "CATEGORY",
+  "ElementSupplement": "CATEGORY",
+  "EnforcementPoint": "GOVERNANCE_IMPLEMENTATION",
+  "ExceptionBacklog": "CATEGORY",
+  "ExecutionPoint": "GOVERNANCE_IMPLEMENTATION",
+  "Experiment": "CATEGORY",
+  "FixedLocation": "CATEGORY",
+  "GeneratedTarget": "GOVERNANCE",
+  "GlossaryProject": "CATEGORY",
+  "GovernanceExpectations": "GOVERNANCE",
+  "GovernanceMeasurements": "ANALYTICAL",
+  "GovernanceProject": "CATEGORY",
+  "Impact": "GOVERNANCE",
+  "Incomplete": "MANAGEMENT",
+  "InstanceMetadata": "DESCRIPTIVE",
+  "Investigation": "CATEGORY",
+  "KnownDuplicate": "MANAGEMENT",
+  "LineageLog": "CATEGORY",
+  "ListenerInterface": "CATEGORY",
+  "LogAnalysis": "CATEGORY",
+  "MemberPopularityProfile": "ANALYTICAL",
+  "Memento": "MANAGEMENT",
+  "MetamodelInstance": "MANAGEMENT",
+  "MeteringLog": "CATEGORY",
+  "MobileResource": "CATEGORY",
+  "Modifier": "CATEGORY",
+  "NamingStandardsVocabulary": "CATEGORY",
+  "ObjectIdentifier": "DESCRIPTIVE",
+  "Ownership": "GOVERNANCE",
+  "PersonalProject": "CATEGORY",
+  "PolicyAdministrationPoint": "GOVERNANCE_IMPLEMENTATION",
+  "PolicyDecisionPoint": "GOVERNANCE_IMPLEMENTATION",
+  "PolicyEnforcementPoint": "GOVERNANCE_IMPLEMENTATION",
+  "PolicyInformationPoint": "GOVERNANCE_IMPLEMENTATION",
+  "PolicyManagementPoint": "GOVERNANCE_IMPLEMENTATION",
+  "PolicyRetrievalPoint": "GOVERNANCE_IMPLEMENTATION",
+  "PrimaryKey": "DESCRIPTIVE",
+  "PrimeWord": "CATEGORY",
+  "ProjectClassification": "GOVERNANCE",
+  "ProjectKind": "CATEGORY",
+  "Promise": "MANAGEMENT",
+  "PublisherInterface": "CATEGORY",
+  "Question": "CATEGORY",
+  "ReferenceData": "CATEGORY",
+  "RequestResponseInterface": "CATEGORY",
+  "Retention": "GOVERNANCE",
+  "ReusableTechnique": "CATEGORY",
+  "ReviewedByClinicalTrials": null,
+  "RunMetrics": "ANALYTICAL",
+  "ScopingCollection": "CATEGORY",
+  "SecureLocation": "CATEGORY",
+  "SecurityListMembership": "GOVERNANCE",
+  "SecurityLog": "CATEGORY",
+  "SecurityTags": "GOVERNANCE",
+  "SoftwarePackageManifest": "CATEGORY",
+  "StagingCollection": "CATEGORY",
+  "StudyProject": "CATEGORY",
+  "Task": "CATEGORY",
+  "Taxonomy": "CATEGORY",
+  "Template": "MANAGEMENT",
+  "TemplateSubstitute": "MANAGEMENT",
+  "TypeEmbeddedAttribute": "DESCRIPTIVE",
+  "UsageActivity": "ANALYTICAL",
+  "UserAccountProfile": "ANALYTICAL",
+  "VerificationPoint": "GOVERNANCE_IMPLEMENTATION",
+  "ZoneMembership": "MANAGEMENT",
+  "ZoneMembershipProfile": "ANALYTICAL"
+ }
+}

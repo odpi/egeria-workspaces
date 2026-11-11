@@ -588,7 +588,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
      URL guarantees a fresh fetch regardless of prior cache state. -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
 <script>window.EGERIA_FOR_LINEAGE = true; window.EGERIA_FOR_LINEAGE_VISIBLE = false;  /* shown per-section by App */</script>
-<script src="/static/egeria-shared-ui.js?v=2026-11-04o"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-11-11c"></script>
 <script>
 'use strict';
 // React hook aliases (mirror type-explorer.html)
@@ -603,6 +603,16 @@ var useMemo     = React.useMemo;
 // with the Egeria Explorer). fetchWithToken is kept as a thin alias so existing
 // call sites are untouched; the App still registers _tokenRefresher.refresh.
 var fetchWithToken = egeriaFetch;
+
+// creds is null until a connection exists (a persona chosen, or server-managed
+// auth answered); egeriaFetch handles null by letting the server use its
+// defaults. Effect dependency lists that track the connection use this rather
+// than reading creds.<field>, which threw during render and blanked the whole
+// SPA for a fresh visitor opening e.g. Namespaces.
+function credsDep(creds) {
+  var c = creds || {};
+  return [c.url, c.server, c.userId, c.userPwd].join('|');
+}
 
 // ── Markdown renderer (shared with type-explorer.html) ───────────────────────
 // renderMd + _renderMdHtml now live in /static/egeria-shared-ui.js (shared with
@@ -3438,7 +3448,7 @@ function SurveyTypesView({ creds }) {
     }
     load();
     return function() { cancelled = true; if (timer) clearTimeout(timer); };
-  }, [creds.url, creds.server, creds.userId, creds.userPwd, attempt]);
+  }, [credsDep(creds), attempt]);
 
   var card = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 10 };
   var filtered = !data ? [] : data.filter(function(st) {
@@ -3757,7 +3767,7 @@ function GovernanceProcessesView({ creds, navTarget, onNavigate }) {
       })
       .catch(function(e) { if (!stop) { setError(e.message || String(e)); setLoading(false); } });
     return function() { stop = true; clearTimeout(timer); };
-  }, [creds.url, creds.server, creds.userId, creds.userPwd, attempt, pollTick]);
+  }, [credsDep(creds), attempt, pollTick]);
 
   function toggleNode(name) {
     setExpanded(function(prev) { var n = new Set(prev); if (n.has(name)) n.delete(name); else n.add(name); return n; });
@@ -4027,7 +4037,7 @@ function NamespacesView({ creds, navTarget, onNavigate }) {
       .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || r.status); }); })
       .then(function(d) { setItems(d.namespaces || []); setLoading(false); })
       .catch(function(e) { setError(e.message || String(e)); setLoading(false); });
-  }, [creds.url, creds.server, creds.userId, creds.userPwd, attempt]);
+  }, [credsDep(creds), attempt]);
 
   function handleSelect(item) {
     setSelected(item);
