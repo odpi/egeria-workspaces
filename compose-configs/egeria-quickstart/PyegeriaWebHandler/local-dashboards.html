@@ -12,7 +12,7 @@
 <script>EgeriaResize.grids('.placements');</script>
 <script src="/static/bootstrap-banner.js?v=2026-08-18a"></script>
 <script src="/static/diagram-viewer.js?v=2026-11-06a"></script>
-<script src="/static/egeria-not-measured.js?v=2026-11-08a"></script>
+<script src="/static/egeria-not-measured.js?v=2026-11-11a"></script>
 <script src="/static/report-spec-source.js?v=2026-11-10a"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
@@ -1095,6 +1095,12 @@ function renderExecResult(result, params) {
   // every older result shape, which renders exactly as before.
   if (result && result.kind !== 'absent' && window.EgeriaNotMeasured && EgeriaNotMeasured.hasUnmeasured(result)) {
     out.html += EgeriaNotMeasured.footnoteHtml(result);
+  }
+  // pyegeria's own notes beside the result (6.2.37+): a capped query says
+  // "more may exist", and so on. Shown under every tile and in the drawer;
+  // nothing for a result without notes.
+  if (window.EgeriaNotMeasured && EgeriaNotMeasured.resultNotesHtml) {
+    out.html += EgeriaNotMeasured.resultNotesHtml(result);
   }
   return out;
 }
