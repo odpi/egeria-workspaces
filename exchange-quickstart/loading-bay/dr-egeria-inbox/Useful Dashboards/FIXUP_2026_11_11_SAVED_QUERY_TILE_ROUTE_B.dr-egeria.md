@@ -19,8 +19,9 @@
 > **After it runs:** the Portal must load the new spec from its folder (`POST /api/report-specs/sync`, or its
 > periodic sync), then the tile says "not read: never refreshed" until the first refresh of the saved query.
 >
-> **Not in any batch** (`_batch.json` lists it under `exclude`). Shared Egeria write: `--validate` first,
-> `--process` once under the peer check. Re-running it updates the same elements.
+> **Not in any batch** (`_batch.json` lists it under `exclude`). Shared Egeria write: `--validate` first, then
+> `--process` **ONCE** under the peer check. Do not re-run it: the spec and the Report would be updated in place,
+> but `Add Member to Collection` does not dedupe, so a second run adds a second folder membership.
 
 ___
 
