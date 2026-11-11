@@ -207,8 +207,8 @@ type_name: DigitalProduct
 Some report specs need a parameter their own action requires that isn't
 part of the standard find/search set (`Search String`, `Output Format`,
 `Page Size`, ...) and isn't an analytic-function parameter either — e.g.
-the `Collection Members` report needs a `collection_guid` to know which
-collection to list members of. Use `Report Parameters` for these — same
+the `Collection Members` report needs to know which collection to list
+members of. Use `Report Parameters` for these — same
 mechanism as `Analytic Parameters`, different keys.
 
 ### Create a report needing a report-spec-specific parameter
@@ -224,11 +224,16 @@ Collection Members
 TABLE
 
 ### Report Parameters
-collection_guid: 0affb580-fa81-4d00-9438-b26faf11845d
+collection_qname: ReportSpecFolder::Consumer::Portal
 ```
 
+> Name the collection by its qualified name (`collection_qname`, or
+> `collection_name`), not its GUID: a GUID changes when the data is reloaded.
+> `Collection Members` accepts these from pyegeria 6.2.34; on 6.2.33 and
+> earlier it requires `collection_guid`.
+
 > Keys under `Report Parameters` must match exactly what the target report
-> spec's action expects (snake_case, e.g. `collection_guid`) — there's no
+> spec's action expects (snake_case, e.g. `collection_qname`) — there's no
 > aliasing. Also works on `View Report` for a one-off ad-hoc run instead of
 > a persisted Report.
 
