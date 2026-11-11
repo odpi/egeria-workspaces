@@ -9,6 +9,65 @@ what's actually open — a stub with a link is left in place of each moved
 section. Sections with any open/pending sub-items stay here even if their
 header says "done", since part of the work is still live.
 ---
+## LD-FOLDERS Local dashboards held in Egeria folders, like report specs (2026-11-11) — open, MEDIUM
+
+**Ask (owner, 2026-11-11):** use the same folder approach for local dashboards as for report specs.
+
+**Model to copy:** report specs (pyegeria 6.2.33 and Portal phase 2). They have:
+- configured spec folders, synced recursively into a Portal cache;
+- consumer folders that say which tool a spec is published to ("Used by"), read through pyegeria's consumer index;
+- zoned specs, read per user token;
+- absence worded honestly (not configured / folders missing / not visible).
+
+**Scope sketch:**
+- Dashboard Sheets held in Egeria folders and synced the same way. Today they are seeded as files in `exchange-quickstart/loading-bay`.
+- Consumer folders for the Portal and EA.
+- The local-dashboards page lists sheets by source (local / Egeria folder) with "Used by".
+- The shared `resolve_dashboard_sheet` data step in pyegeria (EA plan D4) reads both.
+
+**Depends on:** EA catch-up B6/B7, which author and publish sheets; they should land on the same folder model.
+
+## ERR-403 pyegeria labels Egeria's 403 refusals as 401 (ISSUE-182) (2026-11-10) — open, MEDIUM
+
+**Problem.** pyegeria shows Egeria's zone refusal (403, `OPEN-METADATA-SECURITY-403-020`, "not visible to
+you") as `AUTHORIZATION_ERROR_401`, which reads as "sign in again". Found during the B4 zoned test sheet proof.
+
+**Fix ready, not released.** egeria-python branch `docs/issue-182-unauthorized-banner` (fix `de35de47`, tip `bf5321fc`) (origin,
+off upstream/main 3ba92f02):
+- a wrapped 403 gets id `AUTHORIZATION_ERROR_403` and Egeria's own id and message;
+- a 401, the exception class, `related_http_code` and the token-refresh retry are unchanged;
+- 3.13 micro-tests: 2779 passed.
+**Architect read-back: PASS** (2026-11-10, `~/.re-gate/READBACK-pyegeria-issue182-forbidden-banner-de35de47-2026-11-10.md`).
+It includes a live A/B on laz: same class, `related_http_code` 403 and 403 marker as 6.2.32, now "HTTP Code: 403
+OPEN-METADATA-SECURITY-403-020 …". trellis callers are confirmed unchanged.
+
+**Why it's not urgent.** The owner said no rush: this needs coordinating across repos rather than a lone
+pyegeria release.
+- The Portal and trellis match on the error *text* ("AUTHORIZATION_ERROR", "HTTP CODE: 403"):
+  - 10 Portal handlers;
+  - trellis `egeria_clients.py`.
+- One known effect of releasing the fix: the Portal's `egeria_error_mapping._auth_status` would return 403
+  instead of 401 for a 403-020. The Architect checked the front end: it's **safe and more correct**.
+  - No page clears the token on a 401 from these routes.
+  - lineage-explorer's refresh-and-retry is 401-only, so a pointless refresh stops.
+  - tech-catalog treats 401 and 403 alike.
+  - local-dashboards shows "Error 403" instead of a false "Sign-in needed".
+- Portal follow-ups that ride with this:
+  - local-dashboards `refusalLabel` should label 403 "Not permitted";
+  - operations, audit, glossary and tech_catalog still map every auth error to 401 "session expired"; switch them to
+    `_auth_status`.
+
+**To finish (one coordinated change):**
+1. Portal and trellis match on class + `related_http_code` instead of text:
+   - Portal: `egeria_error_mapping.py`, `glossary_handler.py`, `operations_handler.py`, `tech_catalog_handler.py`,
+     `audit_handler.py`, in quickstart and freshstart;
+   - trellis: `resource_explorer/egeria_clients.py`.
+2. Release the pyegeria fix, plus the deferred rename of the swapped `PyegeriaErrorCode` 401/403 names.
+3. Bump the floors and deploy together.
+
+The full caller list is in the 2026-11-10 Coordinator log (`~/.re-gate/HANDOFF.md`).
+
+---
 ## VV-ARCHIVE Report-spec valid values as Egeria content-pack archives (2026-11-07) — deferred
 
 The owner's decision for now: the valid metadata values for Egeria 6.3's report-spec and dashboard attributes are
