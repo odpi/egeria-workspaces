@@ -78,10 +78,24 @@ dashboard in Step 5.
 ## Prerequisites
 
 - The quickstart stack is running (`./quick-start-local`) and you can open
-  `https://localhost:8843` (freshstart: `https://localhost:7843`).
+  `https://localhost:8843`.
 - Some metadata to query. The example below uses the Coco Pharmaceuticals
-  glossary that the quickstart loads. On freshstart, substitute any type and
-  property that exist in your repository.
+  glossary that the quickstart loads.
+
+> **Quickstart only.** The Query tool, its Saved Queries tab and Local
+> Dashboards are part of the quickstart Portal. The freshstart Portal has
+> none of them, so this tutorial cannot be followed there. On freshstart you
+> can still create a `SavedQuery` with Dr.Egeria (see
+> [Authoring with Dr.Egeria](#authoring-with-dregeria-instead-of-the-ui)), but
+> nothing in freshstart runs or shows it.
+>
+> **What was checked (2026-11-10, Portal commit 81d6e636, pyegeria 6.2.32).**
+> The Query tool's API (`GET /api/insights/queries`) answered; the
+> *Collection Members* report spec exists and can run; the Dr.Egeria
+> documents in Step 5 and in "Authoring with Dr.Egeria" pass
+> `dr_egeria --validate`. Saving, refreshing and the dashboard steps write to
+> Egeria, so they were not re-run; the screenshots are from the tutorial's
+> original run.
 
 ---
 
@@ -146,6 +160,13 @@ condition. A **relationship-only** query (for example, "assets that lack
 lineage") is resolved across several types inside this app and can't be
 expressed as the single REST call the connector needs, so the checkbox is
 disabled for it. Those queries are refreshed manually.
+
+**Keep live and other parameter values do not mix.** The connector re-runs the
+query about every 30 minutes with its **stored** values. If you refresh a
+kept-live query with different values (for example another element type),
+its answer is overwritten with the stored values at the connector's next run.
+To see the answer for other values, run the query live (the Query tab's
+**Run query**) instead of refreshing it.
 
 ---
 
@@ -347,6 +368,76 @@ sequenceDiagram
 
 ---
 
+## Q1: name the saved query, not its GUID
+
+The Report in Step 5 pins the `ResultsSet` by GUID. That breaks as soon as the
+query is saved again, or the demo data is reloaded: the new `ResultsSet` gets a
+new GUID, and the tile shows an error. A Report should name the **saved query**
+by its qualified name instead, and let pyegeria find its answer.
+
+From pyegeria 6.2.34 the registered analytic function `saved_query` does that
+(*Route B*). The seeded spec *Saved Query Result* runs it, and a Report gives it
+the saved query's qualified name:
+
+```markdown
+## Create Report
+### Display Name
+Catalog Health - Assets with No Lineage
+
+### Report Spec
+Saved Query Result
+
+### Output Format
+DICT
+
+### Analytic Parameters
+name : SavedQuery::useful-sheets::Assets with no lineage
+mode : cached
+output : count
+```
+
+`mode: cached` reads the `ResultsSet` the last refresh filled, "as of" that
+refresh; `mode: live` runs the stored request now, as the viewer. `output` is
+`count` (a number) or `list` (the elements). On the Portal's tile use `count`:
+the tile shows an analytic result as a one-row table of its first eight keys,
+and a list's elements are not among them.
+
+The whole worked example is the seed file
+[`LOCAL_DASHBOARDS_SAVED_QUERY_TILE.dr-egeria.md`](https://github.com/odpi/egeria-workspaces/blob/main/exchange-quickstart/loading-bay/dr-egeria-inbox/Useful%20Dashboards/LOCAL_DASHBOARDS_SAVED_QUERY_TILE.dr-egeria.md).
+It creates, under fixed qualified names, the saved query (worked example S3:
+assets with no `DataFlow`, leaving out notifications and actions), its
+`ResultsSet`, the link between them, the *Saved Query Result* spec (held in
+Egeria, in the Portal's consumer folder) and this tile on the `catalog-health`
+sheet.
+
+What you see:
+
+- **Before the first refresh**, the tile says the answer was **not read**
+  (never refreshed), not "0". An earlier version of this tile (*Route A*: list
+  the `ResultsSet`'s members) showed an unrefreshed query as an empty table,
+  which read as "no assets without lineage".
+- **After a refresh**, the tile shows how many assets the query found at that
+  refresh, "as of" its time. It never re-runs the query.
+- **Parameters.** The query declares `type_name` (default `Asset`). A cached
+  answer stands only for the values its refresh recorded; the tile gives none,
+  so it shows the answer of a refresh made with the default. For other values,
+  use `mode: live`.
+- **No connector re-runs it.** The seeded query is not registered as a Smart
+  Collection (**Keep live**), so a refresh with other parameter values keeps
+  its answer until the next refresh. (A kept-live query is re-run about every
+  30 minutes with its stored values; see *Keep live* above.)
+
+*Checked 2026-11-11 (Portal on pyegeria 6.2.34).* The seed file passes
+`dr_egeria --validate`. The spec ran in a separate Python process against the
+seeded, not yet refreshed saved query, as count and as list: both reported the
+answer as not read, with the reason. The Portal's **Refresh** runs a seeded
+query like this one since odpi/egeria-workspaces#823: it finds the `ResultsSet`
+through the saved query's `SmartQuery` link, reads the search from
+`additionalProperties.searchSpec`, and records `lastRefreshedTime` and
+`lastRefreshParams`, which `saved_query` reads.
+
+---
+
 ## More query ideas
 
 These are starting points to adapt; they were not all run against the Coco data
@@ -370,6 +461,29 @@ in `templates/basic/Views & Reports/` (`Create_Saved_Query.md`,
 `Link_Saved_Query_to_Results_Set.md`). They let you define a `SavedQuery` with a
 **Query URL** and **Query Request Body** (a raw Egeria REST call) and attach it
 to a results set.
+
+A minimal example (it passes `dr_egeria --validate` on pyegeria 6.2.32; the
+request body is an example of a raw Egeria search body, not one the Query tool
+writes):
+
+```markdown
+## Create Saved Query
+### Display Name
+Patient Terms (Dr.Egeria)
+
+### Description
+Glossary terms mentioning Patient.
+
+### Query URL
+/servers/qs-view-server/api/open-metadata/glossary-manager/glossaries/terms/by-search-string
+
+### Query Request Body
+{"class": "SearchStringRequestBody", "searchString": "Patient"}
+```
+
+`Link Saved Query to Results Set` then names the `Saved Query` and the
+`Results Set` (a collection made with `Create Results Set`) by their qualified
+names.
 
 Be aware of the difference: the **Query** tool tags the queries it saves with a
 marker and stores its own search spec, which is what its **Refresh** and **Open
@@ -408,6 +522,7 @@ build-save-refresh-dashboard workflow in this tutorial, use the Query tool.
 
 ## Where next
 
+- **[Worked Examples](worked-examples.md)** — saved queries of different kinds (property, classification, missing relationship, Dr.Egeria), with their results.
 - **[Building a Local Dashboard](local-dashboards.md)** — Reports, Report
   Specs, KPI tiles, analytic charts, perspectives, drill-downs.
 - **[Digital Product & Subscription Dashboard](digital-product-subscription.md)**

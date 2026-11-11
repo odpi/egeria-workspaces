@@ -1,4 +1,4 @@
-goo<!-- SPDX-License-Identifier: CC-BY-4.0 -->
+<!-- SPDX-License-Identifier: CC-BY-4.0 -->
 <!-- Copyright Contributors to the ODPi Egeria project. -->
 
 # Tutorial: Building a Digital Product & Subscription Dashboard

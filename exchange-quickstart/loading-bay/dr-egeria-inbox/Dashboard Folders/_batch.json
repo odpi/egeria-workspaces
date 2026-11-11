@@ -1,0 +1,12 @@
+{
+  "displayName": "Dashboard Folders",
+  "description": "The dashboard folder tree (RootCollection::DashboardSheets, consumer folders for the Portal and Egeria Advisor) and the local-dashboards-next-steps sheet's memberships. Runs after Local Dashboards (that sheet) and before Useful Dashboards, which files its own sheets in these folders.",
+  "canary": {
+    "type": "RootCollection",
+    "name": "Dashboard Sheets"
+  },
+  "defaultEnabled": true,
+  "files": [
+    "LOCAL_DASHBOARDS_FOLDERS.dr-egeria.md"
+  ]
+}

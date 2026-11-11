@@ -43,7 +43,7 @@ Lives at the root of a batch folder (a sibling of that folder's `.md` files), e.
 }
 ```
 
-No `userid`, so every file runs as dr_egeria's default user. The canary is an agreement created by the last file that writes to Egeria (the report and dashboard-sheet commands write to a local file, not to Egeria).
+No `userid`, so every file runs as dr_egeria's default user. The canary is an agreement created by the last file that wrote to Egeria when this manifest was made. At that time the dashboard-sheet commands wrote only to a local file. Since pyegeria 6.2.29 the report and dashboard-sheet commands write to Egeria as well (sheets keep a local copy as a fallback), so the agreement is no longer the last element this batch writes.
 
 ### Example — `coco-workbooks/0. data-governance-program/_batch.json` (real, shipped, abridged)
 

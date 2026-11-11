@@ -13,6 +13,10 @@ the live Egeria 6.3 type system read from the quickstart platform (`/api/types`)
 > declarations, resolution and refusals (odpi/egeria-workspaces#809; see [Egeria Explorer: Reports](../tools/egeria-explorer.md)).
 > Sections 1 to 3 (the as-is model) are still accurate for what they describe. What this note proposes beyond that is
 > still a proposal unless a line below says it shipped.
+>
+> **Update 2026-11-10.** One part of the as-is model has changed: since pyegeria 6.2.29 Dashboard Sheets are held in
+> Egeria (see [Where Dashboard Sheets live](../tutorials/local-dashboards.md#where-dashboard-sheets-live)); the JSON
+> file in sections 1 to 3 is now only a fallback.
 
 > **Superseded in part by Egeria 6.3 (odpi/egeria#9432, merged 2026-11-07).** The types this note proposes have
 > shipped, with four differences the owner accepted on 2026-11-07: no `DashboardPlacement` type (the placement

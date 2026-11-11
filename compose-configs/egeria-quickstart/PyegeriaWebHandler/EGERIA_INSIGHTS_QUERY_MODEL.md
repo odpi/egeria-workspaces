@@ -204,6 +204,50 @@ mechanism being invented from scratch, it's the same pattern that command
 already establishes for `ReportSpec`/`FormatSet` execution, applied here
 to queries specifically.
 
+**As built (2026-11-10): both, plus seedable queries.** The refresh
+(`POST /api/insights/queries/{guid}/refresh`) works like this:
+- **Connection keys** (`url`, `server`, `user_id`, `user_pwd`) are removed
+  from the stored spec and from `overrides`. They come only from the request,
+  which the platform allowlist has already checked.
+- **No declaration:** any search field may be overridden. Other keys are
+  refused.
+- **Declared parameters:** `additionalProperties.parameters` is a JSON list
+  of `{"name", "type", "default"?, "searchPath"?, "requestPath"?}`. This one
+  model is shared with pyegeria's `saved_query` report source (Architect
+  P-2).
+  - When it is present, only those names may be overridden, by name.
+  - `searchPath` (default: `name`) is a search field, or a dotted path into
+    one, e.g. `relationship_conditions.0.relationship_type`. That is where
+    the Portal applies the value.
+  - `requestPath` is the dotted path into the Egeria `queryRequestBody`
+    where pyegeria applies the value. The Portal only carries it.
+  - There are no `{{name}}` placeholders, so both stored bodies stay
+    runnable. A Smart Collection's connector runs `queryRequestBody`
+    verbatim.
+  - Each value must match the declared type: string, integer, number,
+    boolean or list.
+- **The effective value**, the same rule on both sides: the request, else
+  the stored value at `searchPath` in `formula`, else the `default`.
+- **What ran is recorded:** that value for **every** declared name is
+  written to `additionalProperties.lastRefreshParams` (a JSON string), next
+  to `lastRefreshedTime`.
+- **A registered Smart Collection** (`smartCollection: true`) is re-run by
+  Egeria's SmartCollectionsMembershipManager from the stored
+  `queryRequestBody`, with no overrides. Other values would be overwritten
+  within about 30 minutes, so its refresh refuses any override that changes
+  a value (409: "kept current by Egeria with its stored values; run other
+  values live"). It records the stored effective values (P-3).
+- **The shared fixture** is
+  `tests/fixtures/saved_query_portal_shaped.json`.
+
+**A Dr.Egeria-seeded SavedQuery is refreshable** without any GUID in it:
+- The marker `pyegeriaInsightsQuery: true` is matched case-insensitively.
+- The search comes from `formula`, or from `additionalProperties.searchSpec`
+  (the same JSON) when `formula` is empty.
+- The Results Set comes from `resultsSetGuid`, or else from the one
+  ResultsSet linked by `SmartQuery`. If zero or two are linked, the refresh is
+  refused with a sentence saying so. The first refresh pins the GUID it found.
+
 ### 2.3 Storage location: `SavedQuery`, related to `ResultsSet` via `SmartQuery` — shipped 2026-08-10, `ResultsSet.additionalProperties` retired
 
 > **Naming trap (found building Track A, 2026-08-05):** the real Egeria
@@ -248,7 +292,7 @@ into `SavedQuery.formula`; only its storage location moved.
 
 This mirrors the same trajectory `Dashboard Sheet` already went through —
 pyegeria-local model first, explicit plan to converge onto a real Egeria
-Collection-family type later (`OVERVIEW_REPORTING_MODEL.md` §10.4's
+type later (done for Dashboard Sheets in pyegeria 6.2.29, as an Egeria `Dashboard` with `DisplayData*` elements, not a Collection) (`OVERVIEW_REPORTING_MODEL.md` §10.4's
 `Collection Base` note). Worth watching for where these two efforts might
 eventually meet — a Dashboard Sheet placement pointing at a `SavedQuery`-
 backed result set is a natural pairing now that both exist properly.
@@ -475,8 +519,11 @@ performance caveat (see the Track A build notes above) — that needs C.1.**
   item (call it **C.1b**) rather than assuming C.1's completion implies this
   too.
 - C.2: Dr.Egeria lifecycle commands (Create/Update/Refresh/Delete) for
-  `SavedQuery` — still open; `md_processing/v2/dashboard_sheet.py`
-  (referenced in §2.4) remains the closest existing template.
+  `SavedQuery` — partly done. *Update 2026-11-10:* pyegeria 6.2.32 has
+  `Create Saved Query` (Query URL, Query Request Body; upserts, so it also
+  updates) and `Link Saved Query to Results Set`. There is still no Dr.Egeria
+  Refresh, and a `SavedQuery` made this way is not one the Query tool's Saved
+  Queries tab manages (see `portal-docs/tutorials/saved-queries.md`).
 - C.3: connect saved queries to the `FormatSet`/dashboard model (§1.2 b/c)
   — a saved query becomes a usable `ActionParameter` for a report spec /
   dashboard placement. Still open.

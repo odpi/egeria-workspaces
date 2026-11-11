@@ -66,7 +66,7 @@ Read-only reference material; most don't require a live server connection.
 
 | Tab | What it shows |
 |---|---|
-| **Type Explorer** | The open metadata type system — entities, classifications, relationships, and full inheritance hierarchy. Relationship types are grouped by [relationship purpose](#relationship-purposes) |
+| **Type Explorer** | The open metadata type system — entities, classifications, relationships, and full inheritance hierarchy. Relationship types are grouped by [relationship purpose](#relationship-purposes), and classification types by [classification purpose](#classification-purposes) |
 | **REST APIs** | REST endpoints exposed by the view server — operations, parameters, and response shapes |
 | **Valid Values** | Registered valid metadata values for a specific Egeria property name |
 | **Python API** | The pyegeria Python client API — classes by functional domain, methods with docstrings, inherited-vs-own filter |
@@ -148,7 +148,7 @@ This was checked against the code on 2026-11-09. When the browser starts sending
 Two refusals you may meet on pyegeria 6.2.28:
 
 - **`*` with no type, or with `OpenMetadataRoot` or `Referenceable`** is refused (`give a search string or a narrower type`). `*` with a real type lists at most 100 elements of that type per call.
-- **A find method that is not on the allowlist** is refused with words. Specs held in Egeria may name only the find methods on pyegeria's positive allowlist (`FIND_METHOD_ALLOWLIST`), whatever the method's prefix. pyegeria loads such specs when it is set up to; the Portal lists whatever pyegeria has loaded and does not mark where a spec came from, and none of the 440 on the quickstart on 2026-11-09 has an `egeria:` name.
+- **A find method that is not on the allowlist** is refused with words. Specs held in Egeria may name only the find methods on pyegeria's positive allowlist (`FIND_METHOD_ALLOWLIST`), whatever the method's prefix. Each spec's source is shown with a badge (see [Where a report spec comes from](#where-a-report-spec-comes-from)); on 2026-11-10 the quickstart had 437 built-in specs and 2 held in Egeria.
 
 ### Technology parameter and type filters
 
@@ -197,9 +197,9 @@ The Portal reads the folders named in `PYEGERIA_REPORT_SPEC_FOLDERS`; on the qui
 the tool that uses them: the root collection `RootCollection::ReportSpecs` holds one consumer folder per tool
 (Portal, Egeria Advisor, Resource Explorer, pyegeria, My Egeria, Jupyter), and putting a spec in a tool's
 folder publishes it to that tool. A spec can be in several folders. (Until November 2026 the Portal's folder was
-named `ReportSpecFolder::EgeriaPortal`; it is the same folder, renamed.) A tool's folder can hold sub-folders for its
-own grouping, and the sync follows them (at most 5 levels down, reading each folder once; never up to the root or
-into another tool's folder). A banner at the top of the Report Specs view lists those folders and
+named `ReportSpecFolder::EgeriaPortal`; it is the same folder, renamed.) With pyegeria after 6.2.32, a tool's folder can hold sub-folders for its own grouping, and the sync follows them
+(at most 5 levels down, reading each folder once; never up to the root or into another tool's folder). pyegeria
+6.2.32, which the quickstart runs on 2026-11-10, reads only the folder's direct members. A banner at the top of the Report Specs view lists those folders and
 says how many specs are held in Egeria. When there are none it says why, for example:
 
 - *None held in Egeria: no report spec folders are configured for this Portal (PYEGERIA_REPORT_SPEC_FOLDERS)*
@@ -209,7 +209,13 @@ says how many specs are held in Egeria. When there are none it says why, for exa
 
 On the quickstart the Portal's folder holds the Portal's own two specs ("Analytic - Generic Metric Trend"
 and "Resource Explorer - Curation Coverage"). To show another spec held in Egeria, add its ReportSpec element
-(an active one, not a draft) to that folder as a member, then sync.
+(an active one, not a draft) to that folder as a member, then sync. Leave its **Zone Membership** empty: the Portal
+copies its folder into one cache that every viewer reads, so a zoned spec does not belong in a consumer folder until
+per-user reading of restricted specs (B6) lands. Step by step:
+[Report Specs: Local and Held in Egeria](../tutorials/report-specs.md).
+
+When two sources hold a spec with the same name, pyegeria uses **local > held in Egeria > built-in** (Portal (local)
+and user spec files are both local).
 
 **Used by.** Each spec's details show a **Used by** row beside its family and source badges: the tools
 the spec is published to, one chip per consumer folder that holds it (for example *Portal · Egeria Advisor*).
@@ -219,7 +225,8 @@ held in Egeria that no consumer folder holds, which is useful when curating. The
 - *Used by: none*: a spec held in Egeria that is in no consumer folder.
 - *Used by: not read (reason)*: the Portal could not read the consumer folders (no sync has run yet, the root
   `RootCollection::ReportSpecs` is not visible to the Portal's user, or the installed pyegeria is older than
-  the release that reads them). The sidebar says the same instead of offering the filter.
+  the release that reads them). The sidebar says the same instead of offering the filter. With pyegeria 6.2.32
+  (the quickstart on 2026-11-10) every spec says *Used by: not read*; hover it for the reason.
 - *Used by: not tracked*: a built-in or Portal (local) spec. Built-in specs live in pyegeria, not in Egeria, so
   they cannot be folder members yet.
 
@@ -284,7 +291,7 @@ Your browser remembers each width for that page. Grids still switch to a single 
 
 Every list-driven tab's sidebar also has a **↻ Refresh** button below its filter box, to reload that list on demand (e.g. after adding something via Dr. Egeria or Obsidian) without waiting for a full page reload.
 
-Properties are shown generically — any scalar property Egeria returns for an element (including `authors`, `contentStatus`, and other `AuthoredReferenceable` fields) is displayed automatically, without needing per-type code changes. Relationships not otherwise shown in a dedicated section appear in a catch-all **Relationships** block at the bottom of the panel, so nothing linked to an element is silently hidden. That block is grouped into [relationship purpose](#relationship-purposes) families.
+Properties are shown generically — any scalar property Egeria returns for an element (including `authors`, `contentStatus`, and other `AuthoredReferenceable` fields) is displayed automatically, without needing per-type code changes. Relationships not otherwise shown in a dedicated section appear in a catch-all **Relationships** block at the bottom of the panel, so nothing linked to an element is silently hidden. That block is grouped into [relationship purpose](#relationship-purposes) families. The **Classifications** section is grouped by [classification purpose](#classification-purposes).
 
 ---
 
@@ -335,6 +342,54 @@ are grouped into families:
 
 If the Egeria server doesn't report relationship purposes (older servers), panels keep a flat list and say
 *"This Egeria server doesn't report relationship purposes, so relationships aren't grouped."* If the
+purpose lookup fails, panels show the flat list without that message.
+
+---
+
+## Classification purposes
+
+Egeria also gives every classification type a **purpose**: why the type exists. It helps decide which
+classifications to show to which audience. See Egeria's
+[classification purpose](https://egeria-project.org/concepts/classification-purpose/) concept page.
+
+Classification purposes are their own list, separate from relationship purposes. There are six, so the
+portal shows each one as its own group, in this order:
+
+| Purpose | What it holds | Examples |
+|---|---|---|
+| **Governance** | The element's governance characteristics, which decide the governance actions that apply | Ownership, Confidentiality, Criticality, Retention, DataScope |
+| **Governance Implementation** | Marks the element as a place where governance is implemented | ControlPoint, PolicyEnforcementPoint, VerificationPoint |
+| **Category** | Refines the kind of element | Taxonomy, GlossaryProject, AuditLog, FixedLocation |
+| **Descriptive** | Detail about the shape or encoding of the data the element describes | PrimaryKey, CalculatedValue, DataAssetEncoding |
+| **Analytical** | Statistics and profiles about the element and its use, kept by Egeria's own services | UsageActivity, GovernanceMeasurements, RunMetrics |
+| **Management** | Used by Egeria to manage the element | Anchors, ZoneMembership, Template, Memento, KnownDuplicate |
+| **Not recognised: *X*** | The server reports a purpose *X* that this Portal doesn't know yet (for example one added to Egeria later) | |
+| **No purpose reported** | Classification types the server reports no purpose for | ReviewedByClinicalTrials (a custom Coco type) |
+
+A coloured **purpose badge** shows a classification type's purpose. Hover over it for Egeria's description.
+Category is Egeria's default purpose, but a type with no reported purpose is shown as *No purpose reported*,
+not Category. A purpose the Portal doesn't recognise is never shown as *No purpose reported*: it keeps its
+own group and says *"Purpose not recognised by this Portal: X"*.
+
+### In the Type Explorer
+
+- **Classification type pages** show the purpose badge, Egeria's description and a link to the concept
+  page. A type with no purpose says *"No purpose reported: the server gives this classification type no
+  purpose."* A type whose purpose the Portal doesn't know says *"Purpose not recognised by this Portal: X"*.
+- **An entity type's Classifications tab** groups the classifications by purpose (all open). Use **Group**
+  to switch to a flat list with a **Purpose** column. The **Purpose** chips filter to one or more purposes,
+  together with the text filter and **Show inherited**.
+- **The sidebar's CLASSIFICATIONS list** is grouped by purpose. The groups start folded and open while you
+  search.
+
+### On detail panels
+
+The **Classifications** section of detail panels (in the Egeria Explorer, Data Mesh and The Catalog) still
+starts folded. Inside it, the classifications are grouped by purpose. Each group starts open, and the
+browser remembers any group you close, for every panel and app.
+
+If the Egeria server doesn't report classification purposes (older servers), the lists stay flat and say
+*"This Egeria server doesn't report classification purposes, so classifications aren't grouped."* If the
 purpose lookup fails, panels show the flat list without that message.
 
 ---

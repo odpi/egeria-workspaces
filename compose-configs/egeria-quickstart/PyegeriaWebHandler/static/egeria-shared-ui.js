@@ -6,7 +6,8 @@
  * BEFORE each SPA's app script, so these are plain globals referenced by name.
  * Scope: robust clipboard + the mermaid diagram family + useResizable +
  *        markdown renderer + glossary tree + Egeria Feedback widgets +
- *        relationship-purpose metadata, hook, badge and grouping helpers.
+ *        relationship- and classification-purpose metadata, hooks, badges
+ *        and grouping helpers.
  * Depends on host globals: React, window.mermaid; CSS: .mermaid-wrap;
  * CSS vars: --accent --border --panel --muted --dim --md-code-bg.
  * Feedback widgets use bare fetch() against /api/egeria-feedback/* (cookie auth).
@@ -575,6 +576,16 @@ function GlossaryTreeNode({ folder, depth, selected, onSelect, showTemplates, fe
  * GitHub-style tables). Inline-code background uses the --md-code-bg CSS var so
  * it adapts to each host SPA's light/dark theme. Depends on host globals React,
  * MermaidDiagram and CSS vars --accent --border --muted --md-code-bg. */
+// pyegeria (6.2.37+) writes <br> inside markdown table cells for a newline in
+// a value and between LIST bullets; GFM tables accept it. Cells are escaped
+// first, so turn back ONLY the exact escaped forms of <br>, <br/> and <br />
+// into a line break -- nothing else is unescaped. Text that spells the entity
+// itself ("&lt;br&gt;" in the source) is escaped to "&amp;lt;br&amp;gt;", does
+// not match, and stays visible text.
+function _mdCellBreaks(s) {
+  return s.replace(/&lt;br( ?\/)?&gt;/g, '<br>');
+}
+
 function _renderMdHtml(rawText) {
   if (!rawText || !rawText.trim()) return '';
   const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -597,11 +608,11 @@ function _renderMdHtml(rawText) {
       const aligns  = seps.map(s => s.startsWith(':') && s.endsWith(':') ? 'center' : s.endsWith(':') ? 'right' : 'left');
       const rows    = tlines.slice(2).map(r => r.split('|').slice(1, -1).map(c => c.trim()));
       let t = '<div style="overflow-x:auto;margin:8px 0"><table style="border-collapse:collapse;font-size:12px"><thead><tr>';
-      headers.forEach(function(h, j) { t += '<th style="text-align:' + (aligns[j]||'left') + ';padding:5px 8px;border:1px solid var(--border);color:var(--muted);white-space:nowrap">' + inlineMarkup(esc(h)) + '</th>'; });
+      headers.forEach(function(h, j) { t += '<th style="text-align:' + (aligns[j]||'left') + ';padding:5px 8px;border:1px solid var(--border);color:var(--muted);white-space:nowrap">' + _mdCellBreaks(inlineMarkup(esc(h))) + '</th>'; });
       t += '</tr></thead><tbody>';
       rows.forEach(function(row) {
         t += '<tr>';
-        headers.forEach(function(_, j) { t += '<td style="text-align:' + (aligns[j]||'left') + ';padding:5px 8px;border:1px solid var(--border)">' + inlineMarkup(esc(row[j] || '')) + '</td>'; });
+        headers.forEach(function(_, j) { t += '<td style="text-align:' + (aligns[j]||'left') + ';padding:5px 8px;border:1px solid var(--border)">' + _mdCellBreaks(inlineMarkup(esc(row[j] || ''))) + '</td>'; });
         t += '</tr>';
       });
       t += '</tbody></table></div>';
@@ -3337,19 +3348,31 @@ function ClassificationPropertyValue({ value, creds }) {
 function ClassificationsAndRawJson({ item, creds }) {
   var ctxCreds = React.useContext(CredContext);
   var effectiveCreds = creds || ctxCreds;
+  // Hook before the early return (rules of hooks). Grouped by classification
+  // purpose once the map is ready; flat until then, or if the lookup failed.
+  var cp = useClassificationPurposes(effectiveCreds);
   if (!item) return null;
   var classifs = item.classifications || [];
+  function card(c) {
+    return React.createElement('div', { key: c.typeName, style: { borderLeft: '3px solid var(--classif)', paddingLeft: 8, marginBottom: 6 } },
+      React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--classif)', marginBottom: Object.keys(c.properties || {}).length ? 4 : 0 } }, c.typeName),
+      Object.entries(c.properties || {}).map(function(e) {
+        return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
+          e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, React.createElement(ClassificationPropertyValue, { value: e[1], creds: effectiveCreds })));
+      })
+    );
+  }
+  var grouped = cp.ready && cp.serverReportsPurpose === true;
   return React.createElement(React.Fragment, null,
     classifs.length > 0 && React.createElement(Collapsible, { title: 'Classifications', count: classifs.length, defaultOpen: false },
-      classifs.map(function(c) {
-        return React.createElement('div', { key: c.typeName, style: { borderLeft: '3px solid var(--classif)', paddingLeft: 8, marginBottom: 6 } },
-          React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--classif)', marginBottom: Object.keys(c.properties || {}).length ? 4 : 0 } }, c.typeName),
-          Object.entries(c.properties || {}).map(function(e) {
-            return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
-              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, React.createElement(ClassificationPropertyValue, { value: e[1], creds: effectiveCreds })));
+      cp.serverReportsPurpose === false && React.createElement('div', {
+        style: { fontSize: 11, color: 'var(--dim)', fontStyle: 'italic', padding: '0 0 6px' }
+      }, CLS_PURPOSE_NONE_HINT),
+      grouped
+        ? groupByClassificationPurpose(classifs, function(c) { return c.typeName; }, cp.purposeOf, cp.unrecognisedOf).map(function(g) {
+            return React.createElement(ClsPurposeGroup, { key: g.key, groupKey: g.key, count: g.items.length }, g.items.map(card));
           })
-        );
-      })
+        : classifs.map(card)
     ),
     item.guid && React.createElement(RawJsonViewer, { guid: item.guid, creds: effectiveCreds })
   );
@@ -4563,5 +4586,293 @@ function GenericRelationshipsSection({ relationships, onNavigateToElement, skip,
       return React.createElement(PurposeFamilySection, { key: f.key, familyKey: f.key, count: count },
         famKeys.map(function(k) { return section(k, f.key); }));
     })
+  );
+}
+
+/* ── Classification purpose ──────────────────────────────────────────────────
+ * Egeria gives every classification TYPE a purpose (OpenMetadataClassificationPurpose,
+ * https://egeria-project.org/concepts/classification-purpose/) saying why the
+ * type exists. It is its own six-value enum, not the relationship one, and six
+ * groups are few enough that each purpose is its own group (no families).
+ *
+ * Purpose is per type: callers map a classification's typeName through the map
+ * from GET /api/types/classification-purposes (or seedClassificationPurposes()
+ * when the page already holds /api/types). Three different answers stay
+ * distinct:
+ *   - a recognised purpose (one of the six);
+ *   - "Purpose not recognised by this Portal: X" — the server sent a value
+ *     this Portal doesn't know (say a seventh purpose added to Egeria later);
+ *   - "No purpose reported" — the server sent none. Never CATEGORY, Egeria's
+ *     enum default, which would claim something the server never said.
+ * Group keys: the purpose constant, '__unrec:<raw value>', or '__none'.
+ * A server that reports no purposes at all gets a one-line hint and the flat
+ * list, never empty groups.
+ *
+ * Exports (globals):
+ *   CLS_PURPOSES, CLS_PURPOSE_ORDER, CLS_PURPOSE_CONCEPT_URL, CLS_PURPOSE_NONE_HINT,
+ *   clsPurposeInfo(purpose), clsPurposeKey(purpose, unrecognised), clsPurposeInfoForKey(key),
+ *   seedClassificationPurposes(map, serverReportsPurpose, creds, unrecognised),
+ *   useClassificationPurposes(creds),
+ *   groupByClassificationPurpose(items, getTypeName, purposeOf, unrecognisedOf),
+ *   ClsPurposeBadge({purpose, compact}), ClsPurposeChips({keys, counts, selected, onToggle, onClear}),
+ *   useClsPurposeOpen(key, defaultOpen), CLS_PURPOSE_FOLD_KEY.
+ * CSS vars injected here: --cls-purpose-<key> (dark on :root, light on :root.light). */
+
+var CLS_PURPOSE_CONCEPT_URL = 'https://egeria-project.org/concepts/classification-purpose/';
+var CLS_PURPOSE_NONE_HINT = "This Egeria server doesn't report classification purposes, so classifications aren't grouped.";
+
+// Descriptions are Egeria's own (OpenMetadataClassificationPurpose.java).
+var CLS_PURPOSES = {
+  GOVERNANCE:                { label: 'Governance',                key: 'governance',
+                               desc: 'Describes the governance characteristics of the element, such as its owner, confidentiality, criticality, or retention, which determine the governance actions that are appropriate.' },
+  GOVERNANCE_IMPLEMENTATION: { label: 'Governance Implementation', key: 'govimpl',
+                               desc: 'Identifies the element as a place where governance is implemented, such as a control, verification, or enforcement point, or a policy management point.' },
+  CATEGORY:                  { label: 'Category',                  key: 'category',
+                               desc: 'Refines the kind of element, such as the kind of project, collection, location, log, or glossary term.' },
+  DESCRIPTIVE:               { label: 'Descriptive',               key: 'descriptive',
+                               desc: 'Adds detail about the shape or encoding of the data that the element describes, such as a primary key or a calculated value.' },
+  ANALYTICAL:                { label: 'Analytical',                key: 'analytical',
+                               desc: "Statistics and profiles gathered about the element and its use, typically maintained by Egeria's own services such as the nanny connectors." },
+  MANAGEMENT:                { label: 'Management',                key: 'management',
+                               desc: 'Used by Egeria to manage the element, for example its anchor, zone membership, template status, or whether it is a memento or a known duplicate.' },
+};
+// Display order: what a reader acts on first (governance), then what the
+// element is, then Egeria's own bookkeeping. Unclassified always last.
+var CLS_PURPOSE_ORDER = ['GOVERNANCE', 'GOVERNANCE_IMPLEMENTATION', 'CATEGORY', 'DESCRIPTIVE', 'ANALYTICAL', 'MANAGEMENT'];
+Object.keys(CLS_PURPOSES).forEach(function(p) { CLS_PURPOSES[p].color = 'var(--cls-purpose-' + CLS_PURPOSES[p].key + ')'; });
+var _CLS_NO_PURPOSE = { label: 'No purpose reported', key: 'unclassified', color: 'var(--cls-purpose-unclassified)',
+                        desc: 'The server reports no purpose for these classification types.' };
+
+/* Info for a purpose constant; the "No purpose reported" entry for null. */
+function clsPurposeInfo(purpose) {
+  return (purpose && CLS_PURPOSES[purpose]) || _CLS_NO_PURPOSE;
+}
+
+/* Group key for one type: its recognised purpose, '__unrec:<raw>' when the
+ * server sent a value this Portal doesn't know, else '__none'. */
+function clsPurposeKey(purpose, unrecognised) {
+  if (purpose && CLS_PURPOSES[purpose]) return purpose;
+  if (unrecognised != null && unrecognised !== '') return '__unrec:' + unrecognised;
+  return '__none';
+}
+
+/* Info (label, desc, colour, fold key) for a group key from clsPurposeKey. */
+function clsPurposeInfoForKey(key) {
+  if (key && key.indexOf('__unrec:') === 0) {
+    var raw = key.slice(8);
+    return { label: 'Not recognised: ' + raw, key: 'unrecognised', raw: raw, color: 'var(--cls-purpose-unclassified)',
+             desc: 'Purpose not recognised by this Portal: ' + raw + '. The server reports it, but this Portal ' +
+                   "doesn't know it yet (it may be newer than the Portal)." };
+  }
+  return clsPurposeInfo(key === '__none' ? null : key);
+}
+
+(function injectClsPurposeTokens() {
+  if (typeof document === 'undefined' || document.getElementById('egeria-cls-purpose-tokens')) return;
+  var css =
+    ':root{--cls-purpose-governance:#a78bfa;--cls-purpose-govimpl:#f472b6;--cls-purpose-category:#38bdf8;' +
+    '--cls-purpose-descriptive:#4ade80;--cls-purpose-analytical:#fbbf24;--cls-purpose-management:#94a3b8;--cls-purpose-unclassified:#9ca3af;}' +
+    ':root.light{--cls-purpose-governance:#6d28d9;--cls-purpose-govimpl:#be185d;--cls-purpose-category:#0369a1;' +
+    '--cls-purpose-descriptive:#15803d;--cls-purpose-analytical:#b45309;--cls-purpose-management:#475569;--cls-purpose-unclassified:#6b7280;}';
+  var el = document.createElement('style');
+  el.id = 'egeria-cls-purpose-tokens';
+  el.textContent = css;
+  (document.head || document.documentElement).appendChild(el);
+})();
+
+// One cache entry per "url|server", same shape as the relationship one:
+//   { purposes: {typeName: purpose|null} | null,
+//     serverReportsPurpose: true | false | null,   // null = not known yet / fetch failed
+//     error, promise, listeners }
+var _clsPurposeCache = {};
+
+function _clsPurposeEntry(creds) {
+  var k = ((creds && creds.url) || '') + '|' + ((creds && creds.server) || '');
+  if (!_clsPurposeCache[k]) {
+    _clsPurposeCache[k] = { purposes: null, unrecognised: {}, serverReportsPurpose: null, error: null, promise: null, listeners: new Set() };
+  }
+  return _clsPurposeCache[k];
+}
+
+function _clsPurposeNotify(entry) {
+  entry.listeners.forEach(function(fn) { try { fn(); } catch (e) {} });
+}
+
+/* Seed the map from data the page already holds. `map` may be
+ * {typeName: 'GOVERNANCE'} (the endpoint's `purposes`, with its
+ * `unrecognised` dict passed as the 4th argument) or the /api/types
+ * `classifications` dict ({typeName: {classificationPurpose,
+ * classificationPurposeUnrecognised}}). A string this page doesn't know is
+ * kept as unrecognised, never dropped to "none". When serverReportsPurpose is
+ * omitted it is derived: true if any type has a purpose value of any kind. */
+function seedClassificationPurposes(map, serverReportsPurpose, creds, unrecognised) {
+  var entry = _clsPurposeEntry(creds);
+  var purposes = {}, unrec = {};
+  Object.keys(unrecognised || {}).forEach(function(name) {
+    if (unrecognised[name] != null && unrecognised[name] !== '') unrec[name] = String(unrecognised[name]);
+  });
+  Object.keys(map || {}).forEach(function(name) {
+    var v = map[name], raw = null;
+    if (v && typeof v === 'object') { raw = v.classificationPurposeUnrecognised; v = v.classificationPurpose; }
+    if (v && CLS_PURPOSES[v]) { purposes[name] = v; return; }
+    purposes[name] = null;
+    if (typeof v === 'string' && v) raw = v;           // a value the backend knew but this page doesn't
+    if (raw != null && raw !== '') unrec[name] = String(raw);
+  });
+  entry.purposes = purposes;
+  entry.unrecognised = unrec;
+  entry.serverReportsPurpose = (serverReportsPurpose != null)
+    ? !!serverReportsPurpose
+    : (Object.keys(purposes).some(function(n) { return purposes[n] != null; }) || Object.keys(unrec).length > 0);
+  entry.error = null;
+  entry.promise = entry.promise || Promise.resolve();
+  _clsPurposeNotify(entry);
+}
+
+function _loadClassificationPurposes(creds) {
+  var entry = _clsPurposeEntry(creds);
+  if (entry.promise) return entry.promise;
+  var url = '/api/types/classification-purposes';
+  var req = (creds && typeof egeriaFetch === 'function') ? egeriaFetch(url, creds) : fetch(url);
+  entry.promise = req.then(function(r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }).then(function(body) {
+    seedClassificationPurposes((body && body.purposes) || {}, body && body.serverReportsPurpose, creds, body && body.unrecognised);
+  }).catch(function(err) {
+    // A failed lookup is NOT "the server reports no purposes": leave
+    // serverReportsPurpose null (flat list, no hint) and let the next mount retry.
+    entry.error = String((err && err.message) || err);
+    entry.promise = null;
+    _clsPurposeNotify(entry);
+  });
+  return entry.promise;
+}
+
+/* Hook: { ready, error, serverReportsPurpose, purposeOf(typeName),
+ * unrecognisedOf(typeName) }. Keep the flat layout until
+ * ready && serverReportsPurpose === true. */
+function useClassificationPurposes(creds) {
+  var entry = _clsPurposeEntry(creds);
+  var _t = React.useState(0), bump = _t[1];
+  React.useEffect(function() {
+    var fn = function() { bump(function(n) { return n + 1; }); };
+    entry.listeners.add(fn);
+    if (!entry.purposes) _loadClassificationPurposes(creds);
+    return function() { entry.listeners.delete(fn); };
+  }, [entry]);
+  var purposes = entry.purposes;
+  return {
+    ready: !!purposes || !!entry.error,
+    error: entry.error,
+    serverReportsPurpose: entry.serverReportsPurpose,
+    purposeOf: function(typeName) { return (purposes && typeName && purposes[typeName]) || null; },
+    unrecognisedOf: function(typeName) { return (typeName && entry.unrecognised[typeName]) || null; },
+  };
+}
+
+/* Split items into [{ key, purpose, info, items }]: CLS_PURPOSE_ORDER, then
+ * one group per unrecognised value (A–Z), then "No purpose reported"; empty
+ * groups are dropped. purpose is the recognised constant or null. Item order
+ * within a group is preserved, so sort first. */
+function groupByClassificationPurpose(items, getTypeName, purposeOf, unrecognisedOf) {
+  var buckets = {};
+  (items || []).forEach(function(item) {
+    var n = getTypeName(item);
+    var k = clsPurposeKey(purposeOf(n), unrecognisedOf ? unrecognisedOf(n) : null);
+    (buckets[k] = buckets[k] || []).push(item);
+  });
+  var unrecKeys = Object.keys(buckets).filter(function(k) { return k.indexOf('__unrec:') === 0; }).sort();
+  return CLS_PURPOSE_ORDER.concat(unrecKeys, ['__none'])
+    .filter(function(k) { return buckets[k]; })
+    .map(function(k) {
+      return { key: k, purpose: CLS_PURPOSES[k] ? k : null, info: clsPurposeInfoForKey(k), items: buckets[k] };
+    });
+}
+
+/* Small badge for one purpose; renders nothing for null/unknown (no fake default). */
+function ClsPurposeBadge({ purpose, compact }) {
+  var info = purpose && CLS_PURPOSES[purpose];
+  if (!info) return null;
+  return React.createElement('span', {
+    title: info.label + ' — ' + info.desc,
+    style: {
+      display: 'inline-block', flexShrink: 0, whiteSpace: 'nowrap',
+      fontSize: compact ? 9 : 10, fontWeight: 600, letterSpacing: '0.02em',
+      padding: compact ? '0 5px' : '1px 6px', borderRadius: 3, lineHeight: 1.5,
+      color: info.color, border: '1px solid ' + info.color,
+      background: 'color-mix(in srgb, ' + info.color + ' 12%, transparent)',
+    }
+  }, info.label);
+}
+
+/* Multi-select purpose filter chips. keys: group keys present (clsPurposeKey);
+ * counts: key -> number of rows. */
+function ClsPurposeChips({ keys, counts, selected, onToggle, onClear }) {
+  return React.createElement('div', {
+      style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, margin: '0 0 10px' }
+    },
+    React.createElement('span', { style: { fontSize: 11, color: 'var(--muted)' } }, 'Purpose'),
+    keys.map(function(k) {
+      var info = clsPurposeInfoForKey(k);
+      var on = selected.has(k);
+      return React.createElement('button', {
+        key: k, onClick: function() { onToggle(k); }, title: info.desc, 'aria-pressed': on,
+        style: {
+          fontSize: 11, padding: '1px 8px', borderRadius: 10, cursor: 'pointer',
+          border: '1px solid ' + info.color, color: on ? 'var(--bg)' : info.color,
+          background: on ? info.color : 'transparent', fontWeight: on ? 700 : 500
+        }
+      }, info.label, ' ', counts[k]);
+    }),
+    selected.size > 0 && React.createElement('button', {
+      onClick: onClear,
+      style: { fontSize: 11, background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', padding: 0 }
+    }, 'Clear'));
+}
+
+/* Fold state per purpose group, shared by every panel and app in this browser
+ * (like the relationship families, but its own key). */
+var CLS_PURPOSE_FOLD_KEY = 'egeria-cls-purpose-open';
+
+function useClsPurposeOpen(key, defaultOpen) {
+  var _s = React.useState(function() {
+    try {
+      var saved = (JSON.parse(localStorage.getItem(CLS_PURPOSE_FOLD_KEY) || '{}') || {})[key];
+      if (typeof saved === 'boolean') return saved;
+    } catch (e) {}
+    return !!defaultOpen;
+  });
+  var open = _s[0], setOpen = _s[1];
+  function toggle() {
+    var next = !open;
+    setOpen(next);
+    try {
+      var all = JSON.parse(localStorage.getItem(CLS_PURPOSE_FOLD_KEY) || '{}') || {};
+      all[key] = next;
+      localStorage.setItem(CLS_PURPOSE_FOLD_KEY, JSON.stringify(all));
+    } catch (e) {}
+  }
+  return [open, toggle];
+}
+
+/* One purpose group inside an element's Classifications section: a foldable
+ * header in the purpose hue with its count. Open by default, because the
+ * Classifications section around it already starts folded. */
+function ClsPurposeGroup({ groupKey, count, children }) {
+  var info = clsPurposeInfoForKey(groupKey);
+  var _o = useClsPurposeOpen(info.key, true), open = _o[0], toggle = _o[1];
+  return React.createElement('div', { 'data-cls-purpose': info.key, style: { marginBottom: 4 } },
+    React.createElement('div', {
+      onClick: toggle, role: 'button', 'aria-expanded': open, title: info.desc,
+      style: { display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', cursor: 'pointer', userSelect: 'none',
+               fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: info.color }
+    },
+      React.createElement(FoldTriangle, { open: open, size: 10, style: { color: info.color } }),
+      React.createElement('span', { style: { width: 8, height: 8, borderRadius: 2, background: info.color, display: 'inline-block' } }),
+      info.label,
+      React.createElement('span', { style: { color: 'var(--dim)', fontWeight: 600 } }, '(' + count + ')')
+    ),
+    open && React.createElement('div', { style: { paddingLeft: 12 } }, children)
   );
 }

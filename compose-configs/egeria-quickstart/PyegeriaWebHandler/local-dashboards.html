@@ -123,6 +123,41 @@
   .dd-body { padding:16px 18px; overflow-y:auto; flex:1; font-size:.85rem; line-height:1.6; }
   .dd-body table { border-collapse:collapse; font-size:12px; width:100%; table-layout:fixed; }
   .dd-body th, .dd-body td { padding:5px 8px; border:1px solid var(--border); text-align:left; overflow-wrap:break-word; }
+  /* Large tables scroll inside their tile or the drill-down drawer instead of
+     growing the tile or squeezing columns (owner, 2026-11-11: "scroll bars in
+     large tables"). Every result table is wrapped in .tbl-scroll by
+     tableWrapOpen(). Tall tables stop at a max height in a tile (the drawer
+     already scrolls as a whole); tables with TABLE_WIDE_COLS or more columns
+     keep a minimum column width and scroll sideways rather than wrapping
+     every few characters. The header row stays in view. Column widths stay
+     draggable (egeria-resize.js); a widened table scrolls sideways. Small
+     tables lay out exactly as before. */
+  .tbl-scroll { overflow:auto; max-width:100%; }
+  .placement .tbl-scroll { max-height:420px; }
+  /* In the drawer too: the drawer body scrolls as a whole, so without a cap
+     the header would scroll away with it. */
+  .dd-body .tbl-scroll { max-height:70vh; }
+  .tbl-scroll table.tbl-wide { min-width:calc(var(--tbl-cols) * 120px); }
+  .tbl-scroll thead th { position:sticky; top:0; z-index:1; background:var(--card); box-shadow:inset 0 -1px 0 var(--border); }
+  /* With border-collapse:collapse the shared borders scroll with the table and
+     a sticky header cell's background doesn't cover them, so scrolled rows
+     showed through a 1-2px strip above the header. Separate borders with no
+     spacing look the same (each cell draws its right and bottom edge; the
+     table its top and left) and the header paints over its own. */
+  .tbl-scroll table { border-collapse:separate; border-spacing:0; border-top:1px solid var(--border); border-left:1px solid var(--border); }
+  .p-body .tbl-scroll th, .p-body .tbl-scroll td, .dd-body .tbl-scroll th, .dd-body .tbl-scroll td { border-width:0 1px 1px 0; }
+  /* Always-visible scroll bars (WebKit/Blink hide overlay bars until you scroll). */
+  .tbl-scroll::-webkit-scrollbar { width:10px; height:10px; }
+  .tbl-scroll::-webkit-scrollbar-track { background:var(--card2); border-radius:5px; }
+  .tbl-scroll::-webkit-scrollbar-thumb { background:rgba(128,128,128,.55); border-radius:5px; border:2px solid var(--card2); }
+  .tbl-scroll::-webkit-scrollbar-corner { background:var(--card2); }
+  /* Firefox. Scoped by a Firefox-only feature query because Chrome 121+
+     ignores the ::-webkit-scrollbar rules above once scrollbar-width or
+     scrollbar-color is set. */
+  @supports (-moz-appearance:none) {
+    .tbl-scroll { scrollbar-width:thin; scrollbar-color:rgba(128,128,128,.55) var(--card2); }
+  }
+  .tbl-more { font-size:.7rem; color:var(--muted); margin-top:4px; }
   .dd-body th { color:var(--muted); }
   .mermaid-block { margin:10px 0; overflow-x:auto; }
   .mermaid-block svg { max-width:100%; }
@@ -135,6 +170,13 @@
              border:1px solid var(--border); color:var(--muted); vertical-align:middle; white-space:nowrap; }
   .src-tag.src-egeria { color:var(--accent, #2a6fdb); border-color:currentColor; }
   .icon-btn:disabled, .btn:disabled { opacity:.45; cursor:not-allowed; }
+  /* LD-3: where an Egeria-held sheet was found, who uses it, and the list's filters. */
+  .sheet-card .folders { font-size:.7rem; color:var(--muted); margin-top:4px; overflow-wrap:anywhere; }
+  .sheet-card .used-by { font-size:.7rem; color:var(--muted); margin-top:4px; display:flex; gap:4px; flex-wrap:wrap; align-items:center; }
+  .chip { display:inline-block; font-size:.66rem; padding:1px 7px; border-radius:8px; border:1px solid var(--border); color:var(--text); }
+  .list-filters { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin:0 0 12px; font-size:.78rem; color:var(--muted); }
+  .list-filters select { font-size:.78rem; padding:3px 6px; background:var(--panel, transparent); color:var(--text); border:1px solid var(--border); border-radius:6px; max-width:100%; }
+  .src-info { margin:0 0 12px; padding:8px 12px; border-radius:6px; font-size:.78rem; border:1px solid var(--border); color:var(--muted); overflow-wrap:anywhere; }
   .src-note { margin:0 0 12px; padding:8px 12px; border-radius:6px; font-size:.78rem;
               border:1px solid var(--amber); color:var(--amber); overflow-wrap:anywhere; }
   .placement .p-note a { color:#4f9cf9; text-decoration:underline; }
@@ -279,6 +321,7 @@ function attrJson(v) {
 function refusalLabel(status) {
   return status === 400 ? 'The spec refused to run'
        : status === 401 ? 'Sign-in needed'
+       : status === 404 ? 'Not found'
        : (status === 504 || status === 408 || status === 524) ? 'Timed out'
        : status === 500 ? 'Server error'
        : status === 'unrunnable' ? 'This spec cannot run'
@@ -511,6 +554,61 @@ function egeriaNote(eg) {
     + 'Sheets held in Egeria may be missing. (' + esc(eg.error || 'unknown error') + ')</div>';
 }
 
+// LD-3: which Egeria dashboard folders the list was read from, and every folder that could not be read.
+// A folder not found, or not read, is said in words: its sheets are unknown, never "no sheets".
+function folderNote(eg) {
+  if (!eg || eg.available === false) return '';
+  var conf = eg.configuredFolders || [];
+  if (!conf.length) {
+    return '<div class="src-info">No dashboard folders are configured (<code>PYEGERIA_DASHBOARD_FOLDERS</code>), '
+      + 'so every Dashboard Sheet held in Egeria is listed.</div>';
+  }
+  var bad = (eg.folders || []).filter(function(f) { return f && f.status !== 'read'; });
+  var lines = bad.map(function(f) {
+    var what = f.status === 'not found' ? 'was not found, or is not visible to you'
+      : f.status === 'partial' ? 'was only partly read' : 'could not be read';
+    return '<div>Egeria folder <code>' + esc(f.qualifiedName) + '</code> ' + what
+      + (f.status === 'partial' ? ': some of its sheets may be missing.' : ': the sheets in it are unknown, not "none".')
+      + (f.reason ? ' <span style="opacity:.8">(' + esc(f.reason) + ')</span>' : '') + '</div>';
+  });
+  var head = '<div class="' + (bad.length ? 'src-note' : 'src-info') + '">'
+    + 'Egeria-held sheets are listed from ' + (conf.length === 1 ? 'the folder ' : 'the folders ')
+    + conf.map(function(q) { return '<code>' + esc(q) + '</code>'; }).join(', ') + '.';
+  return head + (lines.length ? lines.join('') : '') + '</div>';
+}
+
+// "Used by": the tools a sheet is published to (its consumer folders). Absence is never "none":
+// a local-file sheet is "not tracked", and an index that could not be read is "not read".
+function usedByLine(s) {
+  var st = s.usedByState;
+  if (st === 'not tracked') return '';
+  var label = '<span>Used by:</span>';
+  if (st === 'not read' || !Array.isArray(s.usedBy)) {
+    return '<div class="used-by" title="' + esc('Consumers not read' + (s.usedByReason ? ': ' + s.usedByReason : '')) + '">'
+      + label + '<span class="chip" style="color:var(--amber);border-color:var(--amber)">not read</span></div>';
+  }
+  var partial = st === 'partial' ? ' title="' + esc('Only partly read: ' + (s.usedByReason || '')) + '"' : '';
+  if (!s.usedBy.length) return '<div class="used-by"' + partial + '>' + label + '<span class="chip">no consumer folder</span></div>';
+  return '<div class="used-by"' + partial + '>' + label + s.usedBy.map(function(n) {
+    return '<span class="chip">' + esc(n) + '</span>'; }).join('')
+    + (st === 'partial' ? '<span style="color:var(--amber)">(partly read)</span>' : '') + '</div>';
+}
+
+// The list's filters: by source, and by consumer. Pure, so it can be tested.
+// filter.source: '' | 'egeria' | 'local file'; filter.usedBy: '' | a consumer | '__none__' (held in Egeria,
+// read, in no consumer folder) | '__unknown__' (held in Egeria, consumers not read).
+function filterSheets(sheets, filter) {
+  filter = filter || {};
+  return (sheets || []).filter(function(s) {
+    if (filter.source && s.source !== filter.source) return false;
+    var u = filter.usedBy;
+    if (!u) return true;
+    if (u === '__none__') return s.source === 'egeria' && Array.isArray(s.usedBy) && s.usedBy.length === 0;
+    if (u === '__unknown__') return s.source === 'egeria' && !Array.isArray(s.usedBy);
+    return Array.isArray(s.usedBy) && s.usedBy.indexOf(u) >= 0;
+  });
+}
+
 // Egeria-held sheets cannot be deleted here (this page deletes from the local file only): Delete is shown
 // disabled, saying how they are deleted. That command is a shared Egeria write: coordinate it first.
 var EGERIA_DELETE_HINT = 'This sheet is held in Egeria; the Portal deletes only sheets in the local file. '
@@ -556,32 +654,75 @@ function renderList() {
 
   fetch('/api/local-dashboards')
     .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-    .then(function(data) {
-      var body = document.getElementById('list-body');
-      var note = egeriaNote(data.egeria);
-      if (!data.sheets || !data.sheets.length) {
-        body.innerHTML = note + '<div class="empty">No Dashboard Sheets ' + (note ? 'in the local file' : 'yet') + '.<br><br>'
-          + 'Author one with the Dr.Egeria <code>Create Dashboard Sheet</code> command, then '
-          + '<code>Link Report to Dashboard Sheet</code> to add placements.<br><br>'
-          + '<span style="font-size:.72rem">Store: <code>' + esc(data.storePath) + '</code></span></div>';
-        return;
-      }
-      body.innerHTML = note + '<div class="sheet-grid">' + data.sheets.map(function(s) {
-        return '<div class="sheet-card" onclick="navigateToSheet(' + attrJson(s.name) + ')">'
-          + '<div class="card-top"><h3>' + esc(s.heading || s.name) + srcTag(s.source) + '</h3>'
-          + (s.source === 'egeria' ? egeriaDeleteDisabled('🗑', 'icon-btn') : '<button class="icon-btn" title="Delete this Dashboard Sheet" '
-          + 'onclick="event.stopPropagation();deleteSheet(' + attrJson(s.name) + ',' + attrJson(s.heading || s.name) + ')">🗑</button>') + '</div>'
-          + (s.breaks && s.breaks.length ? '<div class="desc" style="color:var(--amber)">Chain broken in Egeria: ' + esc(s.breaks.join('; ')) + '</div>' : '')
-          + '<div class="desc">' + esc(s.description || 'No description.') + '</div>'
-          + '<div class="meta">'
-          + (s.family ? '<span class="badge badge-fam">' + esc(s.family) + '</span>' : '')
-          + '<span class="count">' + s.placementCount + ' placement' + (s.placementCount === 1 ? '' : 's') + '</span>'
-          + '</div></div>';
-      }).join('') + '</div>';
-    })
+    .then(function(data) { LIST_DATA = data; renderListBody(); })
     .catch(function(err) {
       document.getElementById('list-body').innerHTML = '<div class="err">Failed to load Dashboard Sheets: ' + esc(err.message) + '</div>';
     });
+}
+
+var LIST_DATA = null;
+var LIST_FILTER = { source: '', usedBy: '' };
+
+function setListFilter(key, value) { LIST_FILTER[key] = value; renderListBody(); }
+
+function listFilterBar(data) {
+  var sheets = data.sheets || [];
+  var nEg = sheets.filter(function(s) { return s.source === 'egeria'; }).length;
+  var counts = {}, none = 0, unknown = 0;
+  sheets.forEach(function(s) {
+    if (s.source !== 'egeria') return;
+    if (!Array.isArray(s.usedBy)) { unknown += 1; return; }
+    if (!s.usedBy.length) none += 1;
+    s.usedBy.forEach(function(n) { counts[n] = (counts[n] || 0) + 1; });
+  });
+  ((data.consumers && data.consumers.consumers) || []).forEach(function(c) { if (c.name && !(c.name in counts)) counts[c.name] = 0; });
+  var opt = function(v, label, cur) { return '<option value="' + esc(v) + '"' + (cur === v ? ' selected' : '') + '>' + esc(label) + '</option>'; };
+  var src = '<label>Source <select aria-label="Filter by source" onchange="setListFilter(\'source\', this.value)">'
+    + opt('', 'All (' + sheets.length + ')', LIST_FILTER.source)
+    + opt('egeria', 'Egeria folder (' + nEg + ')', LIST_FILTER.source)
+    + opt('local file', 'Local file (' + (sheets.length - nEg) + ')', LIST_FILTER.source) + '</select></label>';
+  var cs = data.consumers || {};
+  var used = '<label>Used by <select aria-label="Filter by consumer" onchange="setListFilter(\'usedBy\', this.value)">'
+    + opt('', 'Any', LIST_FILTER.usedBy)
+    + Object.keys(counts).sort().map(function(n) { return opt(n, n + ' (' + counts[n] + ')', LIST_FILTER.usedBy); }).join('')
+    + (cs.status === 'read' || cs.status === 'partial' ? opt('__none__', 'No consumer folder (' + none + ')', LIST_FILTER.usedBy) : '')
+    + (unknown ? opt('__unknown__', 'Not read (' + unknown + ')', LIST_FILTER.usedBy) : '') + '</select></label>';
+  var why = (cs.status && cs.status !== 'read')
+    ? '<span title="' + esc(cs.reason || '') + '" style="color:var(--amber)">Consumers ' + esc(cs.status) + (cs.reason ? ': ' + esc(cs.reason) : '') + '</span>' : '';
+  return '<div class="list-filters">' + src + used + why + '</div>';
+}
+
+function renderListBody() {
+  var data = LIST_DATA, body = document.getElementById('list-body');
+  if (!data || !body) return;
+  var note = egeriaNote(data.egeria) + folderNote(data.egeria);
+  var unknownEgeria = (data.egeria && data.egeria.available === false)
+    || ((data.egeria && data.egeria.folders) || []).some(function(f) { return f && (f.status === 'not found' || f.status === 'not read'); });
+  if (!data.sheets || !data.sheets.length) {
+    body.innerHTML = note + '<div class="empty">No Dashboard Sheets ' + (unknownEgeria ? 'in the local file; the Egeria-held ones are unknown (above)' : 'yet') + '.<br><br>'
+      + 'Author one with the Dr.Egeria <code>Create Dashboard Sheet</code> command, then '
+      + '<code>Link Report to Dashboard Sheet</code> to add placements.<br><br>'
+      + '<span style="font-size:.72rem">Store: <code>' + esc(data.storePath) + '</code></span></div>';
+    return;
+  }
+  var shown = filterSheets(data.sheets, LIST_FILTER);
+  body.innerHTML = note + listFilterBar(data)
+    + (shown.length ? '' : '<div class="empty">No sheet matches these filters.</div>')
+    + '<div class="sheet-grid">' + shown.map(function(s) {
+      return '<div class="sheet-card" onclick="navigateToSheet(' + attrJson(s.name) + ')">'
+        + '<div class="card-top"><h3>' + esc(s.heading || s.name) + srcTag(s.source) + '</h3>'
+        + (s.source === 'egeria' ? egeriaDeleteDisabled('🗑', 'icon-btn') : '<button class="icon-btn" title="Delete this Dashboard Sheet" '
+        + 'onclick="event.stopPropagation();deleteSheet(' + attrJson(s.name) + ',' + attrJson(s.heading || s.name) + ')">🗑</button>') + '</div>'
+        + (s.breaks && s.breaks.length ? '<div class="desc" style="color:var(--amber)">Chain broken in Egeria: ' + esc(s.breaks.join('; ')) + '</div>' : '')
+        + '<div class="desc">' + esc(s.description || 'No description.') + '</div>'
+        + (s.source === 'egeria' && s.folders && s.folders.length
+            ? '<div class="folders">In Egeria folder' + (s.folders.length === 1 ? ' ' : 's ') + s.folders.map(function(f) { return '<code>' + esc(f) + '</code>'; }).join(', ') + '</div>' : '')
+        + usedByLine(s)
+        + '<div class="meta">'
+        + (s.family ? '<span class="badge badge-fam">' + esc(s.family) + '</span>' : '')
+        + '<span class="count">' + s.placementCount + ' placement' + (s.placementCount === 1 ? '' : 's') + '</span>'
+        + '</div></div>';
+    }).join('') + '</div>';
 }
 
 // ── detail view ────────────────────────────────────────────────────────────
@@ -1105,6 +1246,25 @@ function renderMermaidBlocks(blocks) {
 // React dependency — this page deliberately has no React runtime (mirrors
 // egeria-overview.html). Trimmed from static/egeria-shared-ui.js's
 // _renderMdHtml (that one needs React.createContext at module load time).
+// Every result table goes in a .tbl-scroll wrapper (see the CSS): it scrolls
+// in both directions when large, and is laid out exactly as before when small.
+var TABLE_WIDE_COLS = 5;
+function tableWrapOpen(nCols) {
+  var wide = nCols >= TABLE_WIDE_COLS;
+  return '<div class="tbl-scroll"><table' + (wide ? ' class="tbl-wide" style="--tbl-cols:' + nCols + '"' : '') + '>';
+}
+var TABLE_WRAP_CLOSE = '</table></div>';
+
+// pyegeria (6.2.37+) writes <br> inside markdown table cells for a newline in
+// a value and between LIST bullets; GFM tables accept it. Cells are escaped
+// first, so turn back ONLY the exact escaped forms of <br>, <br/> and <br />
+// into a line break -- nothing else is unescaped. Text that spells the entity
+// itself ("&lt;br&gt;" in the source) is escaped to "&amp;lt;br&amp;gt;", does
+// not match, and stays visible text.
+function restoreCellBreaks(s) {
+  return s.replace(/&lt;br( ?\/)?&gt;/g, '<br>');
+}
+
 function renderMdToHtml(rawText) {
   if (!rawText || !rawText.trim()) return '';
   var inlineMarkup = function(s) {
@@ -1123,11 +1283,11 @@ function renderMdToHtml(rawText) {
       while (i < lines.length && /^\|/.test(lines[i].trim())) { tlines.push(lines[i]); i++; }
       var headers = tlines[0].split('|').slice(1, -1).map(function(h) { return h.trim(); });
       var rows    = tlines.slice(2).map(function(r) { return r.split('|').slice(1, -1).map(function(c) { return c.trim(); }); });
-      var t = '<table><thead><tr>' + headers.map(function(h) { return '<th>' + inlineMarkup(esc(h)) + '</th>'; }).join('') + '</tr></thead><tbody>';
+      var t = tableWrapOpen(headers.length) + '<thead><tr>' + headers.map(function(h) { return '<th>' + restoreCellBreaks(inlineMarkup(esc(h))) + '</th>'; }).join('') + '</tr></thead><tbody>';
       rows.forEach(function(row) {
-        t += '<tr>' + headers.map(function(_, j) { return '<td>' + inlineMarkup(esc(row[j] || '')) + '</td>'; }).join('') + '</tr>';
+        t += '<tr>' + headers.map(function(_, j) { return '<td>' + restoreCellBreaks(inlineMarkup(esc(row[j] || ''))) + '</td>'; }).join('') + '</tr>';
       });
-      t += '</tbody></table>';
+      t += '</tbody>' + TABLE_WRAP_CLOSE;
       parts.push(t);
     } else {
       var nonTable = [];
@@ -1152,6 +1312,15 @@ function renderMdToHtml(rawText) {
 // unmeasured: the result carries #555 `unmeasured` notes, so a null cell is a
 // count that was not measured and reads "not measured" (never blank). False
 // (every older result): cells render exactly as before.
+var JSON_TABLE_MAX_ROWS = 200, JSON_TABLE_MAX_COLS = 20, HIDDEN_COLS_NAMED = 6;
+// "+2 more columns: x, y" -- names the columns past the cap, so a reader knows
+// what isn't shown. A long list names the first HIDDEN_COLS_NAMED and counts the rest.
+function hiddenColumnsNote(hidden) {
+  var n = hidden.length;
+  var named = hidden.slice(0, HIDDEN_COLS_NAMED).join(', ');
+  var rest = n - Math.min(n, HIDDEN_COLS_NAMED);
+  return '+' + n + ' more column' + (n === 1 ? '' : 's') + ': ' + named + (rest ? ', and ' + rest + ' more' : '');
+}
 function renderJsonTableHtml(data, unmeasured) {
   var rows = Array.isArray(data) ? data : (data && typeof data === 'object' ? [data] : []);
   if (!rows.length) return '<div class="p-loading">No results.</div>';
@@ -1160,9 +1329,13 @@ function renderJsonTableHtml(data, unmeasured) {
   rows.forEach(function(r) {
     if (r && typeof r === 'object') Object.keys(r).forEach(function(k) { if (!seen[k]) { seen[k] = true; cols.push(k); } });
   });
-  cols = cols.slice(0, 8);   // keep tile-sized tables readable
-  var html = '<table><thead><tr>' + cols.map(function(c) { return '<th>' + esc(c) + '</th>'; }).join('') + '</tr></thead><tbody>';
-  rows.slice(0, 25).forEach(function(r) {
+  // The table scrolls inside its tile now, so it can show far more than the
+  // old 8 columns x 25 rows; anything beyond these caps is still named below.
+  var allCols = cols.length;
+  var hiddenCols = cols.slice(JSON_TABLE_MAX_COLS);
+  cols = cols.slice(0, JSON_TABLE_MAX_COLS);
+  var html = tableWrapOpen(cols.length) + '<thead><tr>' + cols.map(function(c) { return '<th>' + esc(c) + '</th>'; }).join('') + '</tr></thead><tbody>';
+  rows.slice(0, JSON_TABLE_MAX_ROWS).forEach(function(r) {
     html += '<tr>' + cols.map(function(c) {
       var v = r ? r[c] : undefined;
       if (unmeasured && v === null) return '<td class="nm-cell">' + esc(EgeriaNotMeasured.NULL_TEXT) + '</td>';
@@ -1170,8 +1343,9 @@ function renderJsonTableHtml(data, unmeasured) {
       return '<td>' + esc(v == null ? '' : v) + '</td>';
     }).join('') + '</tr>';
   });
-  html += '</tbody></table>';
-  if (rows.length > 25) html += '<div style="font-size:.7rem;color:var(--muted);margin-top:4px">+' + (rows.length - 25) + ' more rows</div>';
+  html += '</tbody>' + TABLE_WRAP_CLOSE;
+  if (rows.length > JSON_TABLE_MAX_ROWS) html += '<div class="tbl-more">+' + (rows.length - JSON_TABLE_MAX_ROWS) + ' more rows</div>';
+  if (allCols > JSON_TABLE_MAX_COLS) html += '<div class="tbl-more">' + esc(hiddenColumnsNote(hiddenCols)) + '</div>';
   return html;
 }
 

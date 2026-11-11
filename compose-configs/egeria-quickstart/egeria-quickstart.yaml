@@ -302,6 +302,12 @@ services:
       # consumer folder are followed (pyegeria after 6.2.32: cycle-safe, depth cap 5), and each
       # sync refreshes the consumer index behind the Report Specs view's "Used by" chips.
       PYEGERIA_REPORT_SPEC_FOLDERS: "${PYEGERIA_REPORT_SPEC_FOLDERS:-ReportSpecFolder::Consumer::Portal}"
+      # Dashboard Sheets held in Egeria (pyegeria 6.2.34+, LD-1): the dashboard folders the Local
+      # Dashboards page lists from. The Portal's consumer folder is DashboardFolder::Consumer::Portal,
+      # under RootCollection::DashboardSheets (PYEGERIA_DASHBOARD_ROOT); sub-folders are followed.
+      # A folder not found, or not visible to the viewer, is said on the page, never shown as "no
+      # sheets". Set to "" (unset is the default, not "") to list every Dashboard:: sheet Egeria holds (slow).
+      PYEGERIA_DASHBOARD_FOLDERS: "${PYEGERIA_DASHBOARD_FOLDERS-DashboardFolder::Consumer::Portal}"
       MCP_ACCESS_TOKEN: "egeria-secret-mcp-token"
       # ── Demo mode — set DEMO_MODE=true to enable public access with auth ──────
       DEMO_MODE: "false"

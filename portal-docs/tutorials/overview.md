@@ -10,6 +10,9 @@ Step-by-step, worked guides for getting things done in the Egeria Workspaces por
 | [Building a Local Dashboard](local-dashboards.md) | Author a Dashboard Sheet: pick a Report Spec, create a Report, place it on the sheet, add KPI tiles and analytic charts, set perspectives and drill-downs. | [Local Dashboards](../tools/local-dashboards.md), Dr.Egeria |
 | [Create and Use Saved Queries](saved-queries.md) | Build a faceted query, save it as a real Egeria `SavedQuery`, refresh it, and show its results on a Local Dashboard. | [Query tool](../tools/egeria-insights.md), [Local Dashboards](../tools/local-dashboards.md) |
 | [Digital Product & Subscription Dashboard](digital-product-subscription.md) | Track Data Product adoption and historic growth with analytic trends and relationship diagrams. | [Local Dashboards](../tools/local-dashboards.md), Dr.Egeria |
+| [Report Specs: Local and Held in Egeria](report-specs.md) | Add report specs as files or as Egeria elements, publish them to a tool's consumer folder, sync them, and see which copy wins (local > egeria > builtin). | [Egeria Explorer](../tools/egeria-explorer.md), Dr.Egeria, pyegeria |
+| [Worked Examples](worked-examples.md) | Try end-to-end examples of different kinds: list, parameterised and analytic specs; local and Egeria-held specs; functions in each environment; saved queries; dashboards mixing report, text and restricted tiles. Each shows its input, steps and output. | All of the above |
+| [Add and Use Analytic Functions](analytic-functions.md) | Use the built-in analytic functions, write your own, and register it in Jupyter, the quickstart Portal, freshstart or Egeria Advisor. | [Egeria Explorer](../tools/egeria-explorer.md), pyegeria |
 
 ## Suggested order
 
@@ -17,13 +20,15 @@ Step-by-step, worked guides for getting things done in the Egeria Workspaces por
 flowchart LR
     A["Building a Local Dashboard"] --> B["Create and Use Saved Queries"]
     A --> C["Digital Product & Subscription Dashboard"]
+    A --> D["Report Specs"]
+    D --> E["Analytic Functions"]
 ```
 
-Start with **Building a Local Dashboard**: the other two reuse its Report, Report Spec and Dashboard Sheet concepts.
+Start with **Building a Local Dashboard**: the others reuse its Report, Report Spec and Dashboard Sheet concepts. Read **Report Specs** before **Analytic Functions**, which writes a function for a spec to run.
 
 ## Prerequisites
 
-- The Quickstart stack is running (`./quick-start-local`) and the portal is open at `https://localhost:8843`.
+- The Quickstart stack is running (`./quick-start-local`) and the portal is open at `https://localhost:8843`. Local Dashboards and the Query tool are quickstart only; freshstart has neither.
 - For the Dr.Egeria steps, either the `dr_egeria` CLI or the **▶ Run Dr.Egeria Document** panel in [Local Dashboards](../tools/local-dashboards.md).
 
 ## Adding a tutorial

@@ -590,7 +590,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
      browsers that cached the file before that header existed. -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
 <script>window.EGERIA_FOR_LINEAGE = true;</script>
-<script src="/static/egeria-shared-ui.js?v=2026-11-04o"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-11-11d"></script>
 
 <script>
 'use strict';
@@ -1654,6 +1654,11 @@ function SavedQueries({ creds, onOpenInBuilder }) {
   var _exp  = useState(null),    expandedGuid = _exp[0], setExpandedGuid = _exp[1];
   var _cache = useState({}),     cached = _cache[0], setCached = _cache[1]; // guid -> {results, total}
   var _attempt = useState(0),    attempt = _attempt[0], setAttempt = _attempt[1];
+  var _note = useState({}),      notes = _note[0], setNotes = _note[1];      // guid -> refresh problem to show
+
+  function setNote(guid, text) {
+    setNotes(function(prev) { var next = Object.assign({}, prev); if (text) next[guid] = text; else delete next[guid]; return next; });
+  }
 
   function load() {
     setState('loading');
@@ -1669,12 +1674,19 @@ function SavedQueries({ creds, onOpenInBuilder }) {
     setBusyGuid(q.guid);
     egeriaFetch('/api/insights/queries/' + q.guid + '/refresh', creds, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({})
-    }).then(function(r) { return r.json(); })
-      .then(function() {
+    }).then(function(r) {
+        return r.json().catch(function() { return {}; }).then(function(d) {
+          if (!r.ok) throw new Error((d && d.detail) || ('HTTP ' + r.status));
+          return d;
+        });
+      })
+      .then(function(d) {
         setBusyGuid(null);
+        // stamped:false = the results are fresh but the "as of" label is not.
+        setNote(q.guid, d && d.stamped === false ? (d.stampError || 'The refresh was not recorded on the saved query.') : null);
         setCached(function(prev) { var next = Object.assign({}, prev); delete next[q.guid]; return next; }); // force a re-fetch if expanded
         load();
-      }).catch(function() { setBusyGuid(null); });
+      }).catch(function(e) { setBusyGuid(null); setNote(q.guid, 'Refresh failed: ' + (e && e.message || e)); });
   }
   function doDelete(q) {
     if (!window.confirm('Delete saved query "' + q.name + '"? This cannot be undone.')) return;
@@ -1740,7 +1752,11 @@ function SavedQueries({ creds, onOpenInBuilder }) {
                 el('span', null, fmtAsOf(q.lastRefreshedTime)),
                 q.resultCount != null && el('span', null, q.resultCount + ' materialized result' + (q.resultCount === 1 ? '' : 's')),
                 q.spec && q.spec.type_name && el('span', { className: 'mono' }, 'type=' + q.spec.type_name)
-              )
+              ),
+              notes[q.guid] && el('div', { role: 'status',
+                  style: { fontSize: 11, marginTop: 6, padding: '4px 8px', borderRadius: 4, overflowWrap: 'anywhere',
+                           background: 'rgba(251,191,36,.10)', border: '1px solid rgba(251,191,36,.40)', color: '#fbbf24' } },
+                '⚠ ' + notes[q.guid])
             ),
             el('div', { style: { display: 'flex', gap: 6, flexShrink: 0 } },
               el('button', { onClick: function(){ onOpenInBuilder(q); }, disabled: busy,
