@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **README**: the OpenSSF Scorecard badge now links to this repository's scorecard (it pointed at `odpi/egeria`), the license badge points at this repository, and the Airflow/Marquez and Unity Catalog startup flags are documented.
 
 ### Fixed
+- **The Catalog no longer goes blank when Namespaces, Survey Types or Governance Processes is opened before a connection exists** (a fresh visitor with no persona chosen). Those views read the connection settings while they were still empty; they now load with the server's defaults, as the other sections do.
 - **Related-element rows no longer clip their "View →" button in narrow panes.** Badges and actions wrap under the element name. In Data Mesh's default 380px detail pane, 58 of 60 buttons on a busy product were cut off.
 - **The Catalog's Survey Annotations detail pane dragged the wrong way**: it sits to the right of its divider, so dragging left now widens it.
 - **OpenSSF Scorecard workflow never ran, so the README badge showed "invalid repo path".** `.github/workflows/scorecard.yml` pinned an `ossf/scorecard-action` commit that does not exist; it is now pinned to the v2.4.3 commit, so results are published for `odpi/egeria-workspaces`. The README badge link also pointed at `odpi/egeria` and now points at this repository.
