@@ -21,12 +21,14 @@
 > 1. Creates the root and the two consumer folders. No zones are set, so they are public, like the
 >    report-spec tree. Each is its own anchor.
 > 2. Makes each folder a member of the root.
-> 3. Files the `local-dashboards-next-steps` sheet (made by `LOCAL_DASHBOARDS_ROADMAP.dr-egeria.md`, earlier
->    in this batch) in both consumer folders. It uses only a built-in spec (`Work-Item-List-DrE-Basic`).
+> 3. Files the `local-dashboards-next-steps` sheet (made by `Local Dashboards/LOCAL_DASHBOARDS_ROADMAP.dr-egeria.md`)
+>    in both consumer folders. It uses only a built-in spec (`Work-Item-List-DrE-Basic`).
 >
-> The four sheets of the "Useful Dashboards" batch are filed by that batch's own
-> `LOCAL_DASHBOARDS_USEFUL_SHEETS_FOLDERS.dr-egeria.md`, which runs after the sheets exist. This document
-> must have run first (it makes the folders).
+> **Its batch.** "Dashboard Folders", with `LOCAL_DASHBOARDS_USEFUL_SHEETS_FOLDERS.dr-egeria.md` after it (the four
+> sheets of "Useful Dashboards"). Canary: the root (`RootCollection` "Dashboard Sheets"), so the tree heals on its
+> own even where the sheets' batches already ran. `_folder_order.json` runs it after "Local Dashboards" and
+> "Useful Dashboards", whose sheets it files. Where a sheet is not seeded, its `Add Member` fails with "not found"
+> and the rest still applies.
 >
 > **Why `Add Member`, never `Parent ID`.** On a command that ends as an Update, Dr.Egeria's `Parent ID`
 > handling can delete an unrelated CollectionMembership of the element before linking the parent. `Add

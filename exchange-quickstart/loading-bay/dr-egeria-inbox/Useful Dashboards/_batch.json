@@ -8,7 +8,9 @@
   "defaultEnabled": false,
   "files": [
     "LOCAL_DASHBOARDS_USEFUL_SHEETS.dr-egeria.md",
-    "LOCAL_DASHBOARDS_SAVED_QUERY_TILE.dr-egeria.md",
-    "LOCAL_DASHBOARDS_USEFUL_SHEETS_FOLDERS.dr-egeria.md"
+    "LOCAL_DASHBOARDS_SAVED_QUERY_TILE.dr-egeria.md"
+  ],
+  "exclude": [
+    "FIXUP_2026_11_11_USEFUL_SHEETS_TEXT.dr-egeria.md"
   ]
 }
