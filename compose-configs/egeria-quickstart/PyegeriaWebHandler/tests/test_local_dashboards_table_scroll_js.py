@@ -38,6 +38,7 @@ def _node(expr):
         _grab(r"var TABLE_WRAP_CLOSE = [^\n]*;"),
         _grab(r"function renderMdToHtml\(rawText\) \{.*?\n\}\n"),
         _grab(r"var JSON_TABLE_MAX_ROWS = [^\n]*;"),
+        _grab(r"function hiddenColumnsNote\(hidden\) \{.*?\n\}"),
         _grab(r"function renderJsonTableHtml\(data, unmeasured\) \{.*?\n\}\n"),
         f"console.log(JSON.stringify({expr}));",
     ])
@@ -92,7 +93,24 @@ def test_json_table_names_what_is_beyond_its_caps():
     rows = [{f"k{j}": j for j in range(25)} for _ in range(230)]
     html = _node(f"renderJsonTableHtml({json.dumps(rows)}, false)")
     assert html.count("<tr>") == 201 and html.count("<th>") == 20
-    assert "+30 more rows" in html and "+5 more columns" in html
+    assert "+30 more rows" in html
+    assert "+5 more columns: k20, k21, k22, k23, k24<" in html   # n1: names what isn't shown
+
+
+def test_hidden_columns_note_names_and_truncates():
+    notes = _node("[hiddenColumnsNote(['a']), hiddenColumnsNote(['a', 'b']), "
+                  "hiddenColumnsNote(['c1','c2','c3','c4','c5','c6','c7','c8','c9'])]")
+    assert notes == [
+        "+1 more column: a",
+        "+2 more columns: a, b",
+        "+9 more columns: c1, c2, c3, c4, c5, c6, and 3 more",
+    ]
+
+
+def test_hidden_column_names_are_escaped():
+    rows = [{**{f"k{j}": j for j in range(20)}, "<b>x</b>": 1}]
+    html = _node(f"renderJsonTableHtml({json.dumps(rows)}, false)")
+    assert "+1 more column: &lt;b&gt;x&lt;/b&gt;" in html and "<b>x</b>" not in html
 
 
 def test_css_scrolls_caps_height_and_keeps_header():
@@ -103,6 +121,15 @@ def test_css_scrolls_caps_height_and_keeps_header():
     assert re.search(r"\.tbl-scroll thead th \{[^}]*background:var\(--card\)", css)   # opaque, rows don't show through
     assert re.search(r"\.tbl-scroll::-webkit-scrollbar \{[^}]*width:", css)           # always-visible bars
     assert re.search(r"\.tbl-scroll table\.tbl-wide \{[^}]*min-width:calc\(var\(--tbl-cols\)", css)
+    # n3: separate borders, so scrolled rows can't show through above the sticky header.
+    assert re.search(r"\.tbl-scroll table \{[^}]*border-collapse:separate;[^}]*border-spacing:0", css)
+    # n2: the drawer caps its table too, so the header sticks while it scrolls.
+    assert re.search(r"\.dd-body \.tbl-scroll \{[^}]*max-height:\d+vh", css)
+    # n4: Firefox bars, scoped so Chrome 121+ keeps the ::-webkit-scrollbar styling.
+    ff = re.search(r"@supports \(-moz-appearance:none\) \{(.*?)\n  \}", css, re.S)
+    assert ff and "scrollbar-width:thin" in ff.group(1) and "scrollbar-color:" in ff.group(1)
+    outside = css.replace(ff.group(0), "")
+    assert "scrollbar-width:" not in outside and "scrollbar-color:" not in outside   # declarations, not the comment
 
 
 def test_no_table_bypasses_the_wrapper():

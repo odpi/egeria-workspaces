@@ -134,13 +134,29 @@
      tables lay out exactly as before. */
   .tbl-scroll { overflow:auto; max-width:100%; }
   .placement .tbl-scroll { max-height:420px; }
+  /* In the drawer too: the drawer body scrolls as a whole, so without a cap
+     the header would scroll away with it. */
+  .dd-body .tbl-scroll { max-height:70vh; }
   .tbl-scroll table.tbl-wide { min-width:calc(var(--tbl-cols) * 120px); }
   .tbl-scroll thead th { position:sticky; top:0; z-index:1; background:var(--card); box-shadow:inset 0 -1px 0 var(--border); }
+  /* With border-collapse:collapse the shared borders scroll with the table and
+     a sticky header cell's background doesn't cover them, so scrolled rows
+     showed through a 1-2px strip above the header. Separate borders with no
+     spacing look the same (each cell draws its right and bottom edge; the
+     table its top and left) and the header paints over its own. */
+  .tbl-scroll table { border-collapse:separate; border-spacing:0; border-top:1px solid var(--border); border-left:1px solid var(--border); }
+  .p-body .tbl-scroll th, .p-body .tbl-scroll td, .dd-body .tbl-scroll th, .dd-body .tbl-scroll td { border-width:0 1px 1px 0; }
   /* Always-visible scroll bars (WebKit/Blink hide overlay bars until you scroll). */
   .tbl-scroll::-webkit-scrollbar { width:10px; height:10px; }
   .tbl-scroll::-webkit-scrollbar-track { background:var(--card2); border-radius:5px; }
   .tbl-scroll::-webkit-scrollbar-thumb { background:rgba(128,128,128,.55); border-radius:5px; border:2px solid var(--card2); }
   .tbl-scroll::-webkit-scrollbar-corner { background:var(--card2); }
+  /* Firefox. Scoped by a Firefox-only feature query because Chrome 121+
+     ignores the ::-webkit-scrollbar rules above once scrollbar-width or
+     scrollbar-color is set. */
+  @supports (-moz-appearance:none) {
+    .tbl-scroll { scrollbar-width:thin; scrollbar-color:rgba(128,128,128,.55) var(--card2); }
+  }
   .tbl-more { font-size:.7rem; color:var(--muted); margin-top:4px; }
   .dd-body th { color:var(--muted); }
   .mermaid-block { margin:10px 0; overflow-x:auto; }
@@ -1286,7 +1302,15 @@ function renderMdToHtml(rawText) {
 // unmeasured: the result carries #555 `unmeasured` notes, so a null cell is a
 // count that was not measured and reads "not measured" (never blank). False
 // (every older result): cells render exactly as before.
-var JSON_TABLE_MAX_ROWS = 200, JSON_TABLE_MAX_COLS = 20;
+var JSON_TABLE_MAX_ROWS = 200, JSON_TABLE_MAX_COLS = 20, HIDDEN_COLS_NAMED = 6;
+// "+2 more columns: x, y" -- names the columns past the cap, so a reader knows
+// what isn't shown. A long list names the first HIDDEN_COLS_NAMED and counts the rest.
+function hiddenColumnsNote(hidden) {
+  var n = hidden.length;
+  var named = hidden.slice(0, HIDDEN_COLS_NAMED).join(', ');
+  var rest = n - Math.min(n, HIDDEN_COLS_NAMED);
+  return '+' + n + ' more column' + (n === 1 ? '' : 's') + ': ' + named + (rest ? ', and ' + rest + ' more' : '');
+}
 function renderJsonTableHtml(data, unmeasured) {
   var rows = Array.isArray(data) ? data : (data && typeof data === 'object' ? [data] : []);
   if (!rows.length) return '<div class="p-loading">No results.</div>';
@@ -1298,6 +1322,7 @@ function renderJsonTableHtml(data, unmeasured) {
   // The table scrolls inside its tile now, so it can show far more than the
   // old 8 columns x 25 rows; anything beyond these caps is still named below.
   var allCols = cols.length;
+  var hiddenCols = cols.slice(JSON_TABLE_MAX_COLS);
   cols = cols.slice(0, JSON_TABLE_MAX_COLS);
   var html = tableWrapOpen(cols.length) + '<thead><tr>' + cols.map(function(c) { return '<th>' + esc(c) + '</th>'; }).join('') + '</tr></thead><tbody>';
   rows.slice(0, JSON_TABLE_MAX_ROWS).forEach(function(r) {
@@ -1310,7 +1335,7 @@ function renderJsonTableHtml(data, unmeasured) {
   });
   html += '</tbody>' + TABLE_WRAP_CLOSE;
   if (rows.length > JSON_TABLE_MAX_ROWS) html += '<div class="tbl-more">+' + (rows.length - JSON_TABLE_MAX_ROWS) + ' more rows</div>';
-  if (allCols > JSON_TABLE_MAX_COLS) html += '<div class="tbl-more">+' + (allCols - JSON_TABLE_MAX_COLS) + ' more columns</div>';
+  if (allCols > JSON_TABLE_MAX_COLS) html += '<div class="tbl-more">' + esc(hiddenColumnsNote(hiddenCols)) + '</div>';
   return html;
 }
 
