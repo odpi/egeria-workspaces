@@ -1255,6 +1255,16 @@ function tableWrapOpen(nCols) {
 }
 var TABLE_WRAP_CLOSE = '</table></div>';
 
+// pyegeria (6.2.37+) writes <br> inside markdown table cells for a newline in
+// a value and between LIST bullets; GFM tables accept it. Cells are escaped
+// first, so turn back ONLY the exact escaped forms of <br>, <br/> and <br />
+// into a line break -- nothing else is unescaped. Text that spells the entity
+// itself ("&lt;br&gt;" in the source) is escaped to "&amp;lt;br&amp;gt;", does
+// not match, and stays visible text.
+function restoreCellBreaks(s) {
+  return s.replace(/&lt;br( ?\/)?&gt;/g, '<br>');
+}
+
 function renderMdToHtml(rawText) {
   if (!rawText || !rawText.trim()) return '';
   var inlineMarkup = function(s) {
@@ -1273,9 +1283,9 @@ function renderMdToHtml(rawText) {
       while (i < lines.length && /^\|/.test(lines[i].trim())) { tlines.push(lines[i]); i++; }
       var headers = tlines[0].split('|').slice(1, -1).map(function(h) { return h.trim(); });
       var rows    = tlines.slice(2).map(function(r) { return r.split('|').slice(1, -1).map(function(c) { return c.trim(); }); });
-      var t = tableWrapOpen(headers.length) + '<thead><tr>' + headers.map(function(h) { return '<th>' + inlineMarkup(esc(h)) + '</th>'; }).join('') + '</tr></thead><tbody>';
+      var t = tableWrapOpen(headers.length) + '<thead><tr>' + headers.map(function(h) { return '<th>' + restoreCellBreaks(inlineMarkup(esc(h))) + '</th>'; }).join('') + '</tr></thead><tbody>';
       rows.forEach(function(row) {
-        t += '<tr>' + headers.map(function(_, j) { return '<td>' + inlineMarkup(esc(row[j] || '')) + '</td>'; }).join('') + '</tr>';
+        t += '<tr>' + headers.map(function(_, j) { return '<td>' + restoreCellBreaks(inlineMarkup(esc(row[j] || ''))) + '</td>'; }).join('') + '</tr>';
       });
       t += '</tbody>' + TABLE_WRAP_CLOSE;
       parts.push(t);
