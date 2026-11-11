@@ -576,6 +576,16 @@ function GlossaryTreeNode({ folder, depth, selected, onSelect, showTemplates, fe
  * GitHub-style tables). Inline-code background uses the --md-code-bg CSS var so
  * it adapts to each host SPA's light/dark theme. Depends on host globals React,
  * MermaidDiagram and CSS vars --accent --border --muted --md-code-bg. */
+// pyegeria (6.2.37+) writes <br> inside markdown table cells for a newline in
+// a value and between LIST bullets; GFM tables accept it. Cells are escaped
+// first, so turn back ONLY the exact escaped forms of <br>, <br/> and <br />
+// into a line break -- nothing else is unescaped. Text that spells the entity
+// itself ("&lt;br&gt;" in the source) is escaped to "&amp;lt;br&amp;gt;", does
+// not match, and stays visible text.
+function _mdCellBreaks(s) {
+  return s.replace(/&lt;br( ?\/)?&gt;/g, '<br>');
+}
+
 function _renderMdHtml(rawText) {
   if (!rawText || !rawText.trim()) return '';
   const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -598,11 +608,11 @@ function _renderMdHtml(rawText) {
       const aligns  = seps.map(s => s.startsWith(':') && s.endsWith(':') ? 'center' : s.endsWith(':') ? 'right' : 'left');
       const rows    = tlines.slice(2).map(r => r.split('|').slice(1, -1).map(c => c.trim()));
       let t = '<div style="overflow-x:auto;margin:8px 0"><table style="border-collapse:collapse;font-size:12px"><thead><tr>';
-      headers.forEach(function(h, j) { t += '<th style="text-align:' + (aligns[j]||'left') + ';padding:5px 8px;border:1px solid var(--border);color:var(--muted);white-space:nowrap">' + inlineMarkup(esc(h)) + '</th>'; });
+      headers.forEach(function(h, j) { t += '<th style="text-align:' + (aligns[j]||'left') + ';padding:5px 8px;border:1px solid var(--border);color:var(--muted);white-space:nowrap">' + _mdCellBreaks(inlineMarkup(esc(h))) + '</th>'; });
       t += '</tr></thead><tbody>';
       rows.forEach(function(row) {
         t += '<tr>';
-        headers.forEach(function(_, j) { t += '<td style="text-align:' + (aligns[j]||'left') + ';padding:5px 8px;border:1px solid var(--border)">' + inlineMarkup(esc(row[j] || '')) + '</td>'; });
+        headers.forEach(function(_, j) { t += '<td style="text-align:' + (aligns[j]||'left') + ';padding:5px 8px;border:1px solid var(--border)">' + _mdCellBreaks(inlineMarkup(esc(row[j] || ''))) + '</td>'; });
         t += '</tr>';
       });
       t += '</tbody></table></div>';
