@@ -134,7 +134,8 @@ catalog-health
 What these tiles measure
 
 ### MD Content
-#### What these tiles measure
+**What these tiles measure**
+
 The readiness funnel counts assets at each step from cataloged to AI-ready. Ownership counts assets with an owner, by the kind of owner. Stale assets have not changed in 180 days. The composition chart shows the asset types the catalog holds.
 
 ### Placement Span
@@ -356,7 +357,8 @@ glossary-and-meaning
 What these tiles measure
 
 ### MD Content
-#### What these tiles measure
+**What these tiles measure**
+
 Definition completeness is the share of terms with a description. Terms in use counts terms that something refers to; the rest are orphans. Active and draft count terms by content status. Semantic grounding counts assets linked to a term.
 
 ### Placement Span
@@ -565,7 +567,8 @@ governance-and-compliance
 What these tiles measure
 
 ### MD Content
-#### What these tiles measure
+**What these tiles measure**
+
 Governance coverage counts elements that carry a governance classification or zone. Certifications counts active and expiring certifications, licenses and exceptions. Usage context counts information supply chains and blueprints; solution design context counts assets placed in a solution design.
 
 ### Placement Span
@@ -746,7 +749,8 @@ community-and-feedback
 What these tiles measure
 
 ### MD Content
-#### What these tiles measure
+**What these tiles measure**
+
 Feedback counts comments, ratings, likes, tags and note logs. Engagement shows the same events by the week they were made, over the last twelve weeks. Contributors and the karma leaderboard show who is adding to the catalog.
 
 ### Placement Span

@@ -368,18 +368,16 @@ sequenceDiagram
 
 ---
 
-## Q1: name the answer, not its GUID
+## Q1: name the saved query, not its GUID
 
 The Report in Step 5 pins the `ResultsSet` by GUID. That breaks as soon as the
 query is saved again, or the demo data is reloaded: the new `ResultsSet` gets a
-new GUID, and the tile shows an error. A Report should name the collection by
-its **qualified name** instead.
+new GUID, and the tile shows an error. A Report should name the **saved query**
+by its qualified name instead, and let pyegeria find its answer.
 
-On pyegeria 6.2.33 and earlier the built-in `Collection Members` spec cannot
-do that: it requires `collection_guid` (from 6.2.34 it also takes
-`collection_qname`). The *Saved Query Answer* spec makes the same call
-(`CollectionManager.get_collection_members`) with the collection named by
-qualified name, on any of these versions:
+From pyegeria 6.2.34 the registered analytic function `saved_query` does that
+(*Route B*). The seeded spec *Saved Query Result* runs it, and a Report gives it
+the saved query's qualified name:
 
 ```markdown
 ## Create Report
@@ -387,44 +385,56 @@ qualified name, on any of these versions:
 Catalog Health - Assets with No Lineage
 
 ### Report Spec
-Saved Query Answer
+Saved Query Result
 
 ### Output Format
-TABLE
+DICT
 
-### Report Parameters
-collection_qname : ResultsSet::useful-sheets::Assets with no lineage
+### Analytic Parameters
+name : SavedQuery::useful-sheets::Assets with no lineage
+mode : cached
+output : count
 ```
+
+`mode: cached` reads the `ResultsSet` the last refresh filled, "as of" that
+refresh; `mode: live` runs the stored request now, as the viewer. `output` is
+`count` (a number) or `list` (the elements). On the Portal's tile use `count`:
+the tile shows an analytic result as a one-row table of its first eight keys,
+and a list's elements are not among them.
 
 The whole worked example is the seed file
 [`LOCAL_DASHBOARDS_SAVED_QUERY_TILE.dr-egeria.md`](https://github.com/odpi/egeria-workspaces/blob/main/exchange-quickstart/loading-bay/dr-egeria-inbox/Useful%20Dashboards/LOCAL_DASHBOARDS_SAVED_QUERY_TILE.dr-egeria.md).
 It creates, under fixed qualified names, the saved query (worked example S3:
 assets with no `DataFlow`, leaving out notifications and actions), its
-`ResultsSet`, the link between them, the *Saved Query Answer* spec (held in
+`ResultsSet`, the link between them, the *Saved Query Result* spec (held in
 Egeria, in the Portal's consumer folder) and this tile on the `catalog-health`
 sheet.
 
 What you see:
 
-- **Before the first refresh**, the tile has no rows: seeding creates an empty
-  `ResultsSet`.
-- **After a refresh**, the tile lists the assets the query found at that
-  refresh. It never re-runs the query. The refresh time is on the saved query,
-  in the Query tool's Saved Queries tab.
-- **If the `ResultsSet` is missing**, the tile shows an error rather than an
-  empty table.
+- **Before the first refresh**, the tile says the answer was **not read**
+  (never refreshed), not "0". An earlier version of this tile (*Route A*: list
+  the `ResultsSet`'s members) showed an unrefreshed query as an empty table,
+  which read as "no assets without lineage".
+- **After a refresh**, the tile shows how many assets the query found at that
+  refresh, "as of" its time. It never re-runs the query.
+- **Parameters.** The query declares `type_name` (default `Asset`). A cached
+  answer stands only for the values its refresh recorded; the tile gives none,
+  so it shows the answer of a refresh made with the default. For other values,
+  use `mode: live`.
 - **No connector re-runs it.** The seeded query is not registered as a Smart
   Collection (**Keep live**), so a refresh with other parameter values keeps
   its answer until the next refresh. (A kept-live query is re-run about every
   30 minutes with its stored values; see *Keep live* above.)
 
-*Checked 2026-11-10 (Portal on pyegeria 6.2.33).* The seed file passes
-`dr_egeria --validate`. The spec ran in a separate Python process against a
-real collection named by qualified name (`ReportSpecFolder::Consumer::Portal`
-returned its 2 members); a name that does not exist raised an error. The
-Portal's **Refresh** runs a seeded query like this one since
-odpi/egeria-workspaces#823: it finds the `ResultsSet` through the saved query's
-`SmartQuery` link and reads the search from `additionalProperties.searchSpec`.
+*Checked 2026-11-11 (Portal on pyegeria 6.2.34).* The seed file passes
+`dr_egeria --validate`. The spec ran in a separate Python process against the
+seeded, not yet refreshed saved query, as count and as list: both reported the
+answer as not read, with the reason. The Portal's **Refresh** runs a seeded
+query like this one since odpi/egeria-workspaces#823: it finds the `ResultsSet`
+through the saved query's `SmartQuery` link, reads the search from
+`additionalProperties.searchSpec`, and records `lastRefreshedTime` and
+`lastRefreshParams`, which `saved_query` reads.
 
 ---
 
