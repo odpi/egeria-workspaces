@@ -71,6 +71,7 @@ filtering runs AFTER classification/type paging, so with `full_count=false`
 whole matching population — `relationshipFilterNote` in the response says so
 explicitly rather than silently under-counting.
 """
+import copy
 import json
 import os
 import uuid
@@ -1291,21 +1292,298 @@ def _search_spec(search: SearchBody) -> dict:
     return {k: d[k] for k in _SEARCH_SPEC_FIELDS if k in d}
 
 
+# ── Seedable saved queries ───────────────────────────────────────────────────
+# A SavedQuery made by Dr.Egeria (the heal batch's seed) differs from one this
+# app made in three ways, and the refresh below handles each:
+# - no `resultsSetGuid`: the Results Set is found through the SmartQuery
+#   relationship instead (ResultsSet at end 1, SavedQuery at end 2);
+# - no `formula` (Dr.Egeria's Create Saved Query has no Formula attribute yet):
+#   the same SearchBody JSON may sit in `additionalProperties.searchSpec`;
+# - the marker may arrive as "True" rather than "true".
+# Additional properties are a string map in Egeria, so `searchSpec`,
+# `parameters` and `lastRefreshParams` are JSON strings there.
+
+# Never part of a query: these choose where (and as whom) the query runs. They
+# are stripped from the stored spec AND from overrides, so neither a seed nor a
+# caller can point a refresh at another platform. resolve_platform would refuse
+# a foreign url anyway; this does not rely on it.
+_CONNECTION_KEYS = frozenset({"url", "server", "user_id", "user_pwd"})
+
+# What an undeclared override may still change (the persisted filter fields
+# plus the per-run paging knobs §2.2 always allowed).
+_OVERRIDABLE_KEYS = frozenset(_SEARCH_SPEC_FIELDS) | {"full_count", "start_from", "page_size"}
+
+_PARAM_TYPES = {
+    "string": (str,), "str": (str,),
+    "integer": (int,), "int": (int,),
+    "number": (int, float), "float": (int, float),
+    "boolean": (bool,), "bool": (bool,),
+    "list": (list,), "array": (list,),
+}
+
+
+def _is_insights_query(additional: dict) -> bool:
+    return str((additional or {}).get(_QUERY_MARKER_KEY) or "").strip().lower() == _QUERY_MARKER_VALUE
+
+
+def _json_value(raw, what: str):
+    """An additional property that holds JSON: a string in Egeria, though a
+    caller-built element may already carry the parsed value."""
+    if raw is None or raw == "":
+        return None
+    if not isinstance(raw, str):
+        return raw
+    try:
+        return json.loads(raw)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"The saved query's {what} is not valid JSON: {exc}")
+
+
+def _stored_search_spec(props: dict) -> tuple:
+    """(spec, source): `formula` when it holds a query, else
+    `additionalProperties.searchSpec`. Connection keys are removed."""
+    additional = props.get("additionalProperties") or {}
+    formula = _json_value(props.get("formula"), "formula")
+    if isinstance(formula, dict) and formula:
+        spec, source = formula, "formula"
+    else:
+        fallback = _json_value(additional.get("searchSpec"), "additionalProperties.searchSpec")
+        if not (isinstance(fallback, dict) and fallback):
+            raise HTTPException(
+                status_code=400,
+                detail="This saved query has no search to run: its formula is empty and it has no "
+                       "additionalProperties.searchSpec. Set one of them to the search's JSON.")
+        spec, source = fallback, "searchSpec"
+    return {k: v for k, v in spec.items() if k not in _CONNECTION_KEYS}, source
+
+
+def _declared_parameters(additional: dict) -> list:
+    """The `parameters` declaration, checked. One model shared with pyegeria's
+    saved_query report source (Architect P-2, 2026-11-10):
+
+        {"name", "type", "default"?, "searchPath"?, "requestPath"?}
+
+    `searchPath` (default: `name`) is a dotted path into this Portal's
+    SearchBody (the `formula`), where the Portal applies the value.
+    `requestPath` is a dotted path into the Egeria `queryRequestBody`, where
+    pyegeria applies it; the Portal only carries it. There are no `{{name}}`
+    placeholders: both stored bodies stay valid, runnable requests (a Smart
+    Collection's connector runs `queryRequestBody` verbatim)."""
+    declared = _json_value((additional or {}).get("parameters"), "parameters declaration")
+    if declared is None:
+        return []
+    if not isinstance(declared, list):
+        raise HTTPException(status_code=400, detail="The saved query's parameters declaration must be a list.")
+    out, seen = [], set()
+    for p in declared:
+        if not isinstance(p, dict) or not isinstance(p.get("name"), str) or not p["name"]:
+            raise HTTPException(status_code=400, detail="Every declared parameter needs a name.")
+        name = p["name"]
+        if name in seen:
+            raise HTTPException(status_code=400, detail=f"Parameter '{name}' is declared twice.")
+        seen.add(name)
+        ptype = str(p.get("type") or "string").lower()
+        search_path = p.get("searchPath") or name
+        request_path = p.get("requestPath")
+        if not isinstance(search_path, str) or (request_path is not None and not isinstance(request_path, str)):
+            raise HTTPException(status_code=400,
+                                detail=f"Parameter '{name}': searchPath and requestPath must be dotted paths (strings).")
+        if search_path.split(".")[0] not in _OVERRIDABLE_KEYS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Parameter '{name}' has searchPath '{search_path}', which is not a search field; it must "
+                       f"start with one of {', '.join(sorted(_OVERRIDABLE_KEYS))}.")
+        if ptype not in _PARAM_TYPES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Declared parameter '{name}' has unknown type '{ptype}'; use one of "
+                       f"string, integer, number, boolean, list.")
+        out.append({**p, "type": ptype, "searchPath": search_path})
+    return out
+
+
+def _type_ok(value, ptype: str) -> bool:
+    if isinstance(value, bool) and ptype not in ("boolean", "bool"):
+        return False  # bool is an int subclass; True is not a page size
+    return isinstance(value, _PARAM_TYPES[ptype])
+
+
+def _path_parts(path: str) -> list:
+    return [int(s) if s.isdigit() else s for s in path.split(".")]
+
+
+def _get_path(spec: dict, path: str):
+    cur = spec
+    for part in _path_parts(path):
+        try:
+            cur = cur[part]
+        except (KeyError, IndexError, TypeError):
+            return None
+    return cur
+
+
+def _set_path(spec: dict, path: str, value, name: str) -> None:
+    parts = _path_parts(path)
+    cur = spec
+    for part in parts[:-1]:
+        try:
+            cur = cur[part]
+        except (KeyError, IndexError, TypeError):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Parameter '{name}' points at nothing in the stored search ('{path}' has no '{part}').")
+    last = parts[-1]
+    try:
+        cur[last] = value
+    except (IndexError, TypeError):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Parameter '{name}' points at nothing in the stored search ('{path}' has no '{last}').")
+
+
+def effective_parameters(spec: dict, overrides: Optional[dict], declared: list) -> dict:
+    """The value each declared parameter runs with: the override, else the
+    stored value at its searchPath, else its default (else None). Keyed by
+    name. This is the map recorded as lastRefreshParams, and pyegeria computes
+    the same map before comparing a cached answer against a request."""
+    overrides = overrides or {}
+    out = {}
+    for p in declared:
+        name = p["name"]
+        if name in overrides:
+            out[name] = overrides[name]
+            continue
+        stored = _get_path(spec, p["searchPath"])
+        out[name] = stored if stored is not None else p.get("default")
+    return out
+
+
+def _apply_overrides(spec: dict, overrides: Optional[dict], declared: list) -> tuple:
+    """Merge a caller's overrides into the stored spec. Returns (spec, params):
+    `params` is effective_parameters() for a declaration (every declared name),
+    or the overrides applied when none is declared; it is recorded as
+    lastRefreshParams.
+
+    Connection keys are dropped outright. With a declaration only declared
+    names may be overridden, each with its declared type; without one, any
+    search field may be (today's §2.2 behaviour)."""
+    spec = copy.deepcopy(spec)
+    overrides = {k: v for k, v in (overrides or {}).items() if k not in _CONNECTION_KEYS}
+    if not declared:
+        unknown = sorted(k for k in overrides if k not in _OVERRIDABLE_KEYS)
+        if unknown:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot override {', '.join(unknown)}: not a search field.")
+        spec.update(overrides)
+        return spec, overrides
+    names = [p["name"] for p in declared]
+    undeclared = sorted(k for k in overrides if k not in names)
+    if undeclared:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot override {', '.join(undeclared)}: this saved query only accepts "
+                   f"{', '.join(names)}.")
+    params = effective_parameters(spec, overrides, declared)
+    for p in declared:
+        name, value = p["name"], params[p["name"]]
+        if value is None:
+            continue  # nothing stored, no default, no override: leave the search as it is
+        if not _type_ok(value, p["type"]):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Parameter '{name}' must be a {p['type']}, not {type(value).__name__} ({value!r}).")
+        _set_path(spec, p["searchPath"], value, name)
+    return spec, params
+
+
+def _is_registered_smart_collection(additional: dict) -> bool:
+    return str((additional or {}).get("smartCollection") or "").strip().lower() == "true"
+
+
+def _refuse_changed_values_for_registered(stored_spec: dict, overrides: Optional[dict], declared: list) -> None:
+    """A query registered as a Smart Collection has its Results Set re-run by
+    Egeria's SmartCollectionsMembershipManager (~every 30 min) from the stored
+    queryRequestBody, with no overrides. A refresh with other values would be
+    overwritten within the half hour while lastRefreshParams still named them,
+    so only the stored values may run here (Architect P-3). An override equal
+    to the stored effective value changes nothing and is allowed."""
+    overrides = {k: v for k, v in (overrides or {}).items() if k not in _CONNECTION_KEYS}
+    if not overrides:
+        return
+    if declared:
+        stored = effective_parameters(stored_spec, None, declared)
+    else:
+        stored = {k: stored_spec.get(k) for k in overrides}
+    changed = sorted(k for k, v in overrides.items() if v != stored.get(k))
+    if changed:
+        raise HTTPException(
+            status_code=409,
+            detail=f"This saved query is a Smart Collection, kept current by Egeria with its stored values; "
+                   f"run other values live. Not applied: {', '.join(changed)}.")
+
+
+def _results_set_candidates(guid: str, url=None, server=None, user_id=None, user_pwd=None) -> list:
+    """[(resultsSetGuid, smartQueryRelGuid)] linked to this SavedQuery by SmartQuery."""
+    ex = _expert(url, server, user_id, user_pwd)
+    res = ex.get_related_metadata_elements(guid, "SmartQuery", {"class": "ResultsRequestBody"},
+                                           starting_at_end=0)
+    out = []
+    for item in (res.get("elementList") or []) if isinstance(res, dict) else []:
+        e = (item or {}).get("element") or {}
+        t = e.get("type") or {}
+        if _RESULTS_TYPE == t.get("typeName") or _RESULTS_TYPE in (t.get("superTypeNames") or []):
+            if e.get("elementGUID"):
+                out.append((e["elementGUID"], item.get("relationshipGUID")))
+    return out
+
+
+def _linked_results_set(guid: str, additional: dict, url=None, server=None, user_id=None, user_pwd=None) -> tuple:
+    """(resultsSetGuid, smartQueryRelGuid): the pinned GUID when the query was
+    made here, else the one Results Set the SmartQuery relationship names."""
+    pinned = (additional or {}).get("resultsSetGuid")
+    if pinned:
+        return pinned, (additional or {}).get("smartQueryRelGuid")
+    found = _results_set_candidates(guid, url, server, user_id, user_pwd)
+    if not found:
+        raise HTTPException(
+            status_code=409,
+            detail="This saved query has no linked ResultsSet: link one to it with the SmartQuery "
+                   "relationship (Dr.Egeria: Link Saved Query to Results Set).")
+    if len(found) > 1:
+        raise HTTPException(
+            status_code=409,
+            detail=f"{len(found)} ResultsSets are linked to this saved query; expected one. "
+                   f"Detach the extra SmartQuery links.")
+    return found[0]
+
+
 def _saved_query_summary(el: dict) -> dict:
     header = el.get("elementHeader") or {}
     props = el.get("properties") or {}
     additional = props.get("additionalProperties") or {}
     try:
-        spec = json.loads(props.get("formula") or "{}")
-    except Exception:  # noqa: BLE001 — a corrupted spec shouldn't break the whole list
-        spec = {}
-    result_count = additional.get("resultCount") or ""
+        spec, spec_source = _stored_search_spec(props)
+    except HTTPException:  # a corrupted or missing spec shouldn't break the whole list
+        spec, spec_source = {}, None
+    try:
+        parameters = _declared_parameters(additional)
+    except HTTPException:
+        parameters = []
+    try:
+        last_params = _json_value(additional.get("lastRefreshParams"), "lastRefreshParams")
+    except HTTPException:
+        last_params = None
+    result_count = str(additional.get("resultCount") or "")
     return {
         "guid":              header.get("guid", ""),
         "name":              props.get("displayName") or "",
         "description":       props.get("description") or "",
         "qualifiedName":     props.get("qualifiedName") or "",
         "spec":              spec,
+        "specSource":        spec_source,
+        "parameters":        parameters,
+        "lastRefreshParams": last_params,
         "lastRefreshedTime": additional.get("lastRefreshedTime") or None,
         "resultCount":       int(result_count) if result_count.isdigit() else None,
         "favorite":          additional.get("favorite") == "true",
@@ -1502,7 +1780,7 @@ def list_saved_queries(
         if not isinstance(el, dict):
             continue
         additional = (el.get("properties") or {}).get("additionalProperties") or {}
-        if additional.get(_QUERY_MARKER_KEY) != _QUERY_MARKER_VALUE:
+        if not _is_insights_query(additional):
             continue  # a SavedQuery from elsewhere in the repo, not an Insights-authored one
         out.append(_saved_query_summary(el))
     out.sort(key=lambda q: (q["name"] or "").lower())
@@ -1525,7 +1803,7 @@ def get_saved_query(
     except Exception as exc:
         raise HTTPException(status_code=404, detail=f"Saved query not found: {exc}")
     additional = ((el or {}).get("properties") or {}).get("additionalProperties") or {}
-    if additional.get(_QUERY_MARKER_KEY) != _QUERY_MARKER_VALUE:
+    if not _is_insights_query(additional):
         raise HTTPException(status_code=404, detail="Not a saved query")
     return JSONResponse(_saved_query_summary(el))
 
@@ -1542,7 +1820,7 @@ def update_saved_query(guid: str, body: SavedQueryBody = Body(...)):
         raise HTTPException(status_code=404, detail=f"Saved query not found: {exc}")
     props = (el or {}).get("properties") or {}
     existing_additional = props.get("additionalProperties") or {}
-    if existing_additional.get(_QUERY_MARKER_KEY) != _QUERY_MARKER_VALUE:
+    if not _is_insights_query(existing_additional):
         raise HTTPException(status_code=404, detail="Not a saved query")
 
     was_smart = existing_additional.get("smartCollection") == "true"
@@ -1646,7 +1924,7 @@ def set_saved_query_favorite(guid: str, body: FavoriteBody = Body(...)):
         raise HTTPException(status_code=404, detail=f"Saved query not found: {exc}")
     props = (el or {}).get("properties") or {}
     existing_additional = props.get("additionalProperties") or {}
-    if existing_additional.get(_QUERY_MARKER_KEY) != _QUERY_MARKER_VALUE:
+    if not _is_insights_query(existing_additional):
         raise HTTPException(status_code=404, detail="Not a saved query")
 
     additional = dict(existing_additional)
@@ -1688,7 +1966,7 @@ def delete_saved_query(
     except Exception as exc:
         raise HTTPException(status_code=404, detail=f"Saved query not found: {exc}")
     additional = ((el or {}).get("properties") or {}).get("additionalProperties") or {}
-    if additional.get(_QUERY_MARKER_KEY) != _QUERY_MARKER_VALUE:
+    if not _is_insights_query(additional):
         raise HTTPException(status_code=404, detail="Not a saved query")
 
     results_set_guid = additional.get("resultsSetGuid")
@@ -1756,11 +2034,22 @@ def get_saved_query_results(
     except Exception as exc:
         raise HTTPException(status_code=404, detail=f"Saved query not found: {exc}")
     additional = ((el or {}).get("properties") or {}).get("additionalProperties") or {}
-    if additional.get(_QUERY_MARKER_KEY) != _QUERY_MARKER_VALUE:
+    if not _is_insights_query(additional):
         raise HTTPException(status_code=404, detail="Not a saved query")
     results_set_guid = additional.get("resultsSetGuid")
     if not results_set_guid:
-        return JSONResponse({"results": [], "total": 0})
+        # A seeded query before its first refresh: find it by relationship.
+        try:
+            found = _results_set_candidates(guid, url, server, user_id, user_pwd)
+        except Exception:  # noqa: BLE001 — nothing cached is the honest answer here
+            logger.exception(f"insights: SmartQuery lookup failed for saved query {guid}")
+            found = []
+        if len(found) > 1:
+            raise HTTPException(status_code=409, detail=f"{len(found)} ResultsSets are linked to this "
+                                                        f"saved query; expected one.")
+        if not found:
+            return JSONResponse({"results": [], "total": 0})
+        results_set_guid = found[0][0]
     try:
         members = cm.get_collection_members(collection_guid=results_set_guid, output_format="JSON", page_size=500)
     except Exception as exc:
@@ -1783,22 +2072,22 @@ def refresh_saved_query(guid: str, body: RefreshQueryBody = Body(...)):
         raise HTTPException(status_code=404, detail=f"Saved query not found: {exc}")
     props = (el or {}).get("properties") or {}
     additional = props.get("additionalProperties") or {}
-    if additional.get(_QUERY_MARKER_KEY) != _QUERY_MARKER_VALUE:
+    if not _is_insights_query(additional):
         raise HTTPException(status_code=404, detail="Not a saved query")
-    results_set_guid = additional.get("resultsSetGuid")
-    if not results_set_guid:
-        raise HTTPException(status_code=500, detail="Saved query has no linked ResultsSet — cannot materialize results")
 
-    try:
-        spec = json.loads(props.get("formula") or "{}")
-    except Exception:  # noqa: BLE001
-        spec = {}
-    if body.overrides:
-        spec = {**spec, **body.overrides}  # §2.2 — the caller decides at point of use
-    spec.setdefault("url", body.url)
-    spec.setdefault("server", body.server)
-    spec.setdefault("user_id", body.user_id)
-    spec.setdefault("user_pwd", body.user_pwd)
+    stored_spec, spec_source = _stored_search_spec(props)
+    declared = _declared_parameters(additional)
+    # §2.2 — the caller decides at point of use, within the declared parameters
+    # (if any) and never for connection keys.
+    spec, run_params = _apply_overrides(stored_spec, body.overrides, declared)
+    if _is_registered_smart_collection(additional):
+        _refuse_changed_values_for_registered(stored_spec, body.overrides, declared)
+    results_set_guid, rel_guid = _linked_results_set(
+        guid, additional, body.url, body.server, body.user_id, body.user_pwd)
+    # Connection details come only from the request, which PlatformBody has
+    # already checked against the platform allowlist.
+    spec.update({"url": body.url, "server": body.server,
+                 "user_id": body.user_id, "user_pwd": body.user_pwd})
     try:
         search = SearchBody(**spec)
     except Exception as exc:
@@ -1844,6 +2133,12 @@ def refresh_saved_query(guid: str, body: RefreshQueryBody = Body(...)):
     additional = dict(additional)
     additional["lastRefreshedTime"] = now
     additional["resultCount"] = str(len(hit_guids))
+    additional["lastRefreshParams"] = json.dumps(run_params, sort_keys=True, default=str)
+    # Pin what the relationship lookup found (a seeded query has neither), so
+    # later loads, the cached-results view and delete need no lookup.
+    additional["resultsSetGuid"] = results_set_guid
+    if rel_guid:
+        additional["smartQueryRelGuid"] = rel_guid
     update_body = {
         "class": "UpdateElementRequestBody",
         "properties": {
@@ -1856,13 +2151,25 @@ def refresh_saved_query(guid: str, body: RefreshQueryBody = Body(...)):
             "additionalProperties": additional,
         },
     }
+    # The membership above is the answer; this stamp is its label (the pin,
+    # lastRefreshedTime, lastRefreshParams). A failed stamp doesn't fail the
+    # call, but it is reported: otherwise a Status tile says "never refreshed"
+    # or an old time beside a fresh answer, and nobody knows why.
+    stamped, stamp_error = True, None
     try:
         am.update_asset(guid, update_body)
-    except Exception:  # noqa: BLE001 — the refresh itself succeeded; failing to stamp the badge shouldn't fail the call
+    except Exception as exc:  # noqa: BLE001
         logger.exception(f"insights: failed to stamp lastRefreshedTime on saved query {guid}")
+        stamped = False
+        stamp_error = (f"The results were refreshed, but recording the refresh on the saved query failed, "
+                       f"so its refresh time and parameters still show the previous run: {exc}")
 
     return JSONResponse({
         "guid": guid, "resultCount": len(hit_guids),
+        "stamped": stamped, "stampError": stamp_error,
         "added": len(added), "removed": len(removed),
         "lastRefreshedTime": now,
+        "lastRefreshParams": run_params,
+        "specSource": spec_source,
+        "resultsSetGuid": results_set_guid,
     })
