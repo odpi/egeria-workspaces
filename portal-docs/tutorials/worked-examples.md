@@ -533,7 +533,8 @@ tutorial-mixed-sheet
 Introduction
 
 ### MD Content
-#### Glossary at a glance
+**Glossary at a glance**
+
 The first tile counts every glossary term. The second shows the trend. The last one is only visible to people who can see the *clinical-trials* zone.
 
 ### Placement Span

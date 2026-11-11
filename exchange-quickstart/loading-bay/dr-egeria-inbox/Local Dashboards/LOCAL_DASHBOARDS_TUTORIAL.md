@@ -529,7 +529,8 @@ looked up when the page shows it:
 Intro Caption
 
 ### MD Content
-#### This sprint
+**This sprint**
+
 This dashboard tracks **team work items** for the current sprint.
 
 ### Placement Span
@@ -554,11 +555,12 @@ Two things that trip people up (both checked with `dr_egeria --validate` on
 - **Write each attribute as a `###` heading with its value underneath.** The
   inline form `Dashboard Sheet Name: my-team-dashboard` is not read: validation
   fails with *Missing required attribute: 'Dashboard Sheet Name'*.
-- **Inside `MD Content`, use `####` or smaller for headings.** A line starting
-  with `##` or `###` is read as the next command or attribute, so the text stops
-  there and validation fails (with `##`: *Missing required attribute: 'MD
-  Content'*; with `###`, the heading is taken as an unknown attribute). Bold
-  text works too.
+- **Inside `MD Content`, write a heading as bold text, never with `#`.** The
+  value ends at the first line that starts with `###`, and that includes `####`
+  and smaller headings; a line starting with `##` is read as the next command.
+  `--validate` does not catch the `####` case: `--process` then fails with
+  *MD Content is required* when the heading is the first line, or keeps only the
+  text above it. (Checked 2026-11-11, pyegeria 6.2.34.)
 
 ## Step 4 — View it
 
