@@ -8,12 +8,10 @@
 > and a tile on the `catalog-health` sheet (made by `LOCAL_DASHBOARDS_USEFUL_SHEETS.dr-egeria.md`) that
 > shows the query's last refreshed answer.
 >
-> **Depends on a Portal change that has not merged yet**
-> (`~/.re-gate/BRIEF-PORTAL-SAVED-QUERY-SEEDABLE-2026-11-10.md`). Until it does, the Portal's
-> `POST /api/insights/queries/{guid}/refresh` refuses this query: it wants `additionalProperties.resultsSetGuid`
-> (a GUID) and a `formula`. After the change it finds the Results Set through the `SmartQuery` link and reads the
-> search from `additionalProperties.searchSpec`. **So this file stays in `_batch.json`'s `exclude` list until that
-> change merges**; then move it into `files`, after the sheets file.
+> **Needs the Portal refresh change of odpi/egeria-workspaces#823** (merged 2026-11-11). Without it the Portal's
+> `POST /api/insights/queries/{guid}/refresh` refuses this query (it wanted `additionalProperties.resultsSetGuid`
+> and a `formula`). With it, the refresh finds the Results Set through the `SmartQuery` link and reads the search
+> from `additionalProperties.searchSpec`. This file runs after the sheets file in the "Useful Dashboards" batch.
 >
 > **What the query is.** The Query tool's search for assets with no `DataFlow` relationship, leaving out
 > `Notification` and `Action` (worked example S3). `type_name` is declared as a parameter, so a refresh may

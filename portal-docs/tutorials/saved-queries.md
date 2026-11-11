@@ -375,10 +375,11 @@ query is saved again, or the demo data is reloaded: the new `ResultsSet` gets a
 new GUID, and the tile shows an error. A Report should name the collection by
 its **qualified name** instead.
 
-The built-in `Collection Members` spec cannot do that: it requires
-`collection_guid`. The *Saved Query Answer* spec makes the same call
+On pyegeria 6.2.33 and earlier the built-in `Collection Members` spec cannot
+do that: it requires `collection_guid` (from 6.2.34 it also takes
+`collection_qname`). The *Saved Query Answer* spec makes the same call
 (`CollectionManager.get_collection_members`) with the collection named by
-qualified name:
+qualified name, on any of these versions:
 
 ```markdown
 ## Create Report
@@ -420,11 +421,10 @@ What you see:
 *Checked 2026-11-10 (Portal on pyegeria 6.2.33).* The seed file passes
 `dr_egeria --validate`. The spec ran in a separate Python process against a
 real collection named by qualified name (`ReportSpecFolder::Consumer::Portal`
-returned its 2 members); a name that does not exist raised an error. **Not yet
-runnable end to end:** the Portal's **Refresh** only accepts saved queries it
-created itself until a Portal change lands that finds the `ResultsSet`
-through the saved query's `SmartQuery` link. Until then the seed file is kept
-out of its data-initialization batch.
+returned its 2 members); a name that does not exist raised an error. The
+Portal's **Refresh** runs a seeded query like this one since
+odpi/egeria-workspaces#823: it finds the `ResultsSet` through the saved query's
+`SmartQuery` link and reads the search from `additionalProperties.searchSpec`.
 
 ---
 
