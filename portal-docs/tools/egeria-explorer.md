@@ -148,7 +148,7 @@ This was checked against the code on 2026-11-09. When the browser starts sending
 Two refusals you may meet on pyegeria 6.2.28:
 
 - **`*` with no type, or with `OpenMetadataRoot` or `Referenceable`** is refused (`give a search string or a narrower type`). `*` with a real type lists at most 100 elements of that type per call.
-- **A find method that is not on the allowlist** is refused with words. Specs held in Egeria may name only the find methods on pyegeria's positive allowlist (`FIND_METHOD_ALLOWLIST`), whatever the method's prefix. pyegeria loads such specs when it is set up to; the Portal lists whatever pyegeria has loaded and does not mark where a spec came from, and none of the 440 on the quickstart on 2026-11-09 has an `egeria:` name.
+- **A find method that is not on the allowlist** is refused with words. Specs held in Egeria may name only the find methods on pyegeria's positive allowlist (`FIND_METHOD_ALLOWLIST`), whatever the method's prefix. Each spec's source is shown with a badge (see [Where a report spec comes from](#where-a-report-spec-comes-from)); on 2026-11-10 the quickstart had 437 built-in specs and 2 held in Egeria.
 
 ### Technology parameter and type filters
 
@@ -197,9 +197,9 @@ The Portal reads the folders named in `PYEGERIA_REPORT_SPEC_FOLDERS`; on the qui
 the tool that uses them: the root collection `RootCollection::ReportSpecs` holds one consumer folder per tool
 (Portal, Egeria Advisor, Resource Explorer, pyegeria, My Egeria, Jupyter), and putting a spec in a tool's
 folder publishes it to that tool. A spec can be in several folders. (Until November 2026 the Portal's folder was
-named `ReportSpecFolder::EgeriaPortal`; it is the same folder, renamed.) A tool's folder can hold sub-folders for its
-own grouping, and the sync follows them (at most 5 levels down, reading each folder once; never up to the root or
-into another tool's folder). A banner at the top of the Report Specs view lists those folders and
+named `ReportSpecFolder::EgeriaPortal`; it is the same folder, renamed.) With pyegeria after 6.2.32, a tool's folder can hold sub-folders for its own grouping, and the sync follows them
+(at most 5 levels down, reading each folder once; never up to the root or into another tool's folder). pyegeria
+6.2.32, which the quickstart runs on 2026-11-10, reads only the folder's direct members. A banner at the top of the Report Specs view lists those folders and
 says how many specs are held in Egeria. When there are none it says why, for example:
 
 - *None held in Egeria: no report spec folders are configured for this Portal (PYEGERIA_REPORT_SPEC_FOLDERS)*
@@ -209,7 +209,13 @@ says how many specs are held in Egeria. When there are none it says why, for exa
 
 On the quickstart the Portal's folder holds the Portal's own two specs ("Analytic - Generic Metric Trend"
 and "Resource Explorer - Curation Coverage"). To show another spec held in Egeria, add its ReportSpec element
-(an active one, not a draft) to that folder as a member, then sync.
+(an active one, not a draft) to that folder as a member, then sync. Leave its **Zone Membership** empty: the Portal
+copies its folder into one cache that every viewer reads, so a zoned spec does not belong in a consumer folder until
+per-user reading of restricted specs (B6) lands. Step by step:
+[Report Specs: Local and Held in Egeria](../tutorials/report-specs.md).
+
+When two sources hold a spec with the same name, pyegeria uses **local > held in Egeria > built-in** (Portal (local)
+and user spec files are both local).
 
 **Used by.** Each spec's details show a **Used by** row beside its family and source badges: the tools
 the spec is published to, one chip per consumer folder that holds it (for example *Portal · Egeria Advisor*).
@@ -219,7 +225,8 @@ held in Egeria that no consumer folder holds, which is useful when curating. The
 - *Used by: none*: a spec held in Egeria that is in no consumer folder.
 - *Used by: not read (reason)*: the Portal could not read the consumer folders (no sync has run yet, the root
   `RootCollection::ReportSpecs` is not visible to the Portal's user, or the installed pyegeria is older than
-  the release that reads them). The sidebar says the same instead of offering the filter.
+  the release that reads them). The sidebar says the same instead of offering the filter. With pyegeria 6.2.32
+  (the quickstart on 2026-11-10) every spec says *Used by: not read*; hover it for the reason.
 - *Used by: not tracked*: a built-in or Portal (local) spec. Built-in specs live in pyegeria, not in Egeria, so
   they cannot be folder members yet.
 

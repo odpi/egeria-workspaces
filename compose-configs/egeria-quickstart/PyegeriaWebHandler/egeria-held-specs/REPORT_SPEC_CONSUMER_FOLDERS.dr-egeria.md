@@ -46,11 +46,12 @@
 > No element or relationship is added. An Update may raise an element's version; that is all.
 >
 > **The Portal side.** The Portal syncs the folders named in `PYEGERIA_REPORT_SPEC_FOLDERS`. Its
-> default lists both `ReportSpecFolder::Consumer::Portal` and `ReportSpecFolder::EgeriaPortal` for
-> one deploy, so the order of this write and the Portal deploy doesn't matter. Whichever name
-> exists is found, and the other is reported as "folder not found". A sync that sees the
-> renamed folder keeps both specs as `unchanged`: same GUIDs and versions, with only the
-> recorded folder name changed. Drop the old name in the next Portal deploy.
+> default is now `ReportSpecFolder::Consumer::Portal` only (`egeria-quickstart.yaml`); the old name
+> `ReportSpecFolder::EgeriaPortal` is no longer read. (For one deploy the default listed both names,
+> so the order of this write and that deploy did not matter.) A sync that sees the renamed folder
+> keeps both specs as `unchanged`: same GUIDs and versions, with only the recorded folder name
+> changed. On an Egeria where this document has not run yet, the sync reports the folder as
+> "not found" and the Portal uses its local copies of its two specs.
 >
 > **Undo** (every step reads or writes only these seven elements):
 > 1. Remove the six root memberships: `Remove Member from Collection` with the same Collection Id
@@ -60,8 +61,9 @@
 > 3. Delete the root and the five new folders, which are empty. Delete by GUID; `--process` prints
 >    each one, as `CollectionManager(...).delete_collection("<guid>")`, run as the user who created them.
 >    Never delete fe5aad27: it holds the Portal's specs.
-> 4. Re-sync the Portal (`POST /api/report-specs/sync`). The old folder name is still in the
->    default, so both specs are found again.
+> 4. Set `PYEGERIA_REPORT_SPEC_FOLDERS=ReportSpecFolder::EgeriaPortal` for the Portal (the default
+>    no longer names the old folder), restart it, and re-sync (`POST /api/report-specs/sync`). Both
+>    specs are then found again.
 
 ___
 

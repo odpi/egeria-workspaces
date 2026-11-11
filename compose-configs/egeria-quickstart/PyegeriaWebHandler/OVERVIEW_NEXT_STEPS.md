@@ -606,8 +606,9 @@ it's the reasoning behind what got built vs. deferred):
   `GovernanceMetric` elements, resolve their real `GovernanceResults →
   Report` edge, run the Report live. **Done.**
 - **Tier 2 — needs Dashboard Sheet/Placement (and Overview's own tiles) to
-  become real Egeria elements** — not started, tracked as `BACKLOG.md`
-  NEXT-26/NEXT-27.
+  become real Egeria elements** — tracked as `BACKLOG.md` NEXT-26/NEXT-27.
+  *Update 2026-11-10:* Dashboard Sheets and their placements are Egeria
+  elements since pyegeria 6.2.29; Overview's own tiles are not.
 - **Tier 3 — true relationship/classification-level lineage** (the actual
   "back through calculations to data sources" ask) — needs either a
   `GovernanceRule` per function or `DataFlow` edges to type-level targets,
@@ -701,8 +702,8 @@ database container being reset).
 background-task shape (same `asyncio.Lock` + module-level state pattern),
 wired into `pyegeria_handler.py`'s existing `_lifespan`. Two families
 registered today: `local-dashboards` (canary: the `Local Dashboards - Next
-Steps` `WorkItemList`; heals by re-running all 5 checked-in Local
-Dashboards `.dr-egeria.md` docs in dependency order) and
+Steps` `WorkItemList`; heals by re-running the checked-in Local
+Dashboards documents in dependency order; 5 when this was written, 8 in its `_batch.json` on 2026-11-10) and
 `overview-governance-metrics` (canary: the `Orphan Glossary Terms`
 `GovernanceMetric`; heals via `OVERVIEW_GOVERNANCE_METRICS.dr-egeria.md`).
 Healing shells out to the real `dr_egeria --process <doc>` CLI via

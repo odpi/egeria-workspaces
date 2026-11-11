@@ -9,7 +9,14 @@ Dr.Egeria and getting it live in the **Local Dashboards** portal app
 that lists the outstanding "next steps" for this very feature, tracked as
 actual Egeria Work Items rather than a paragraph of prose.
 
-See also: [`OVERVIEW_REPORTING_MODEL.md`](https://github.com/odpi/egeria-workspaces/blob/main/compose-configs/egeria-quickstart/PyegeriaWebHandler/OVERVIEW_REPORTING_MODEL.md) §10
+> **Quickstart only.** Local Dashboards is part of the quickstart Portal. The
+> freshstart Portal has no Local Dashboards page; the Dr.Egeria commands below
+> still write sheets into Egeria from there, but nothing in freshstart shows them.
+
+See also: [Worked Examples](worked-examples.md) for dashboards, specs, functions and queries of
+different kinds with their outputs, [Report Specs](report-specs.md) and
+[Add and Use Analytic Functions](analytic-functions.md) for the specs and
+functions a Report runs, [`OVERVIEW_REPORTING_MODEL.md`](https://github.com/odpi/egeria-workspaces/blob/main/compose-configs/egeria-quickstart/PyegeriaWebHandler/OVERVIEW_REPORTING_MODEL.md) §10
 for the design history,
 [`report-specs-dashboards-egeria-model.md`](../Internals/report-specs-dashboards-egeria-model.md)
 for how sheets are held in Egeria,
@@ -34,7 +41,7 @@ and the rest of the same 22-attribute vocabulary `View Report` exposes
 ad-hoc — plus, for an analytic-function-backed spec, `Analytic Parameters`;
 see "Analytic reports" below) — another Dashboard Sheet (nesting), or
 literal **markdown text** (`Add Text on Dashboard Sheet` — a caption/section
-header, no Egeria element at all), plus two layout hints:
+header; no Report, the text is held on the sheet itself), plus two layout hints:
 `span` (`"1"` / `"2"` / `"full"`, how wide the tile is) and `emphasis`
 (`"kpi"` compact vs `"panel"` larger/detailed). Since pyegeria 6.2.29 a
 Dashboard Sheet is **held in Egeria** as a small chain of elements (see
@@ -137,6 +144,42 @@ python -m pyegeria.view.dashboards delete --sheet NAME [--dry-run] [--local]
 > sees the result. On a shared environment, agree it with whoever looks
 > after that Egeria before you run them, run them once, and use
 > `--dry-run` first to see exactly what will be written.
+
+### Who sees what: zones and the "not visible to you" tile
+
+*(Checked 2026-11-10 on the quickstart: Portal at commit 81d6e636, pyegeria 6.2.32.)*
+
+Every read for a sheet held in Egeria is made **as the person viewing it**,
+so Egeria's governance zones decide what each person sees. One sheet can show
+different tiles to different people.
+
+The Portal reads a sheet with pyegeria's shared dashboard step
+(`pyegeria.view.dashboard_resolver`; Egeria Advisor uses the same one). When
+`Link Report to Dashboard Sheet` places a Report, it records that Report's GUID
+on the placement (`reportGUID`). The Portal reads each Report by that GUID.
+Each placement then comes back as one of four kinds:
+
+| Kind | What the tile shows | Why |
+|---|---|---|
+| report | the report | the Report was read, and its spec was found |
+| text | the markdown | an `Add Text on Dashboard Sheet` placement |
+| restricted | 🔒 *Report not visible to you.* (dashed border) | the Report, or the Egeria-held report spec it names, is in a zone this viewer cannot see. The other tiles still show |
+| missing | "Unresolved reference — no matching Report or Dashboard Sheet." | the Report was deleted, or its link was removed. The Portal then looks the Report up by name, and finds nothing |
+
+Reading by GUID is what tells *restricted* apart from *missing*: Egeria
+answers "not authorized" for an element in a hidden zone and "not found" for
+one that is gone. A placement written before the GUID was recorded, whose link
+is gone, can only be *missing*. Re-running its `Link Report to Dashboard
+Sheet` records the GUID.
+
+To restrict a tile, set **Zone Membership** on the `Create Report` (it is a
+Basic attribute). Use pyegeria 6.2.30 or later to update a Report: in 6.2.29
+and earlier, an update with **Zone Membership** left empty removed the
+Report's zones.
+
+On the quickstart the sheet `scratch-restricted-demo` shows both kinds side by
+side: *Project Count* as a report, and *B4 Scratch Restricted Report* as
+restricted for the Portal's service user.
 
 ## Prerequisites
 
@@ -378,15 +421,25 @@ these, `Output Format: SERIES` renders a Vega-Lite line chart (time series),
 that function's parameters — as **defaults**, not fixed pins, so a later
 `Create Report` re-run (or a caller override) can still change them:
 
-```markdown
-## Create Report
-Display Name: Catalog Growth
-Report Spec: Analytic Demo - Catalog Growth Trend
-Output Format: SERIES
-Analytic Parameters:
-  window: 90d
-  points: 12
-```
+    ## Create Report
+    ### Display Name
+    Catalog Growth
+
+    ### Report Spec
+    Analytic Demo - Catalog Growth Trend
+
+    ### Output Format
+    SERIES
+
+    ### Analytic Parameters
+    window: 90d
+    points: 12
+
+(This example and the next are indented code blocks on purpose: Dr.Egeria
+skips indented blocks, and the *Local Dashboards* data-initialization batch
+processes the copy of this tutorial in the shared Dr.Egeria folder, so a
+fenced block would create these Reports on every batch run. Remove the
+four-space indent when you copy them.)
 
 Link it exactly like any other Report (`Link Report to Dashboard Sheet`,
 `Report Name: Catalog Growth`) — Local Dashboards renders the chart
@@ -402,21 +455,33 @@ wrap the *same* result differently. Two Reports pointed at the same
 Parameters: type_name`, is the clearest illustration of what "generic"
 means:
 
-```markdown
-## Create Report
-Display Name: Project Count
-Report Spec: Analytic Demo - Element Count by Type
-Output Format: DICT
-Analytic Parameters:
-  type_name: Project
+    ## Create Report
+    ### Display Name
+    Project Count
 
-## Create Report
-Display Name: Term Count
-Report Spec: Analytic Demo - Element Count by Type
-Output Format: DICT
-Analytic Parameters:
-  type_name: GlossaryTerm
-```
+    ### Report Spec
+    Analytic Demo - Element Count by Type
+
+    ### Output Format
+    DICT
+
+    ### Analytic Parameters
+    type_name: Project
+
+    ___
+
+    ## Create Report
+    ### Display Name
+    Term Count
+
+    ### Report Spec
+    Analytic Demo - Element Count by Type
+
+    ### Output Format
+    DICT
+
+    ### Analytic Parameters
+    type_name: GlossaryTerm
 
 Same Report Spec, same Python function, two different Reports — no code
 change needed to count a different type. Contrast this with a **FIXED**
@@ -445,21 +510,49 @@ this fix.
 
 For section headers or captions — content that isn't backed by a Report Spec
 at all — use `Add Text on Dashboard Sheet` instead of `Create Report`/`Link
-Report to Dashboard Sheet`. It writes straight to the Placement (no Egeria
-element, no live lookup when rendering):
+Report to Dashboard Sheet`. No Report is involved: the text is held on the
+sheet itself (in Egeria, as the placement's `markdownContent`), and nothing is
+looked up when the page shows it:
 
 ```markdown
 ## Add Text on Dashboard Sheet
-Dashboard Sheet Name: my-team-dashboard
-Placement Name: Intro Caption
-MD Content: This dashboard tracks **team work items** for the current sprint.
-Placement Span: full
-Placement Emphasis: panel
+### Dashboard Sheet Name
+<your-sheet-name>
+
+### Placement Name
+Intro Caption
+
+### MD Content
+#### This sprint
+This dashboard tracks **team work items** for the current sprint.
+
+### Placement Span
+full
+
+### Placement Emphasis
+panel
 ```
+
+Replace `<your-sheet-name>` with the sheet's `Display Name`. (The placeholder is
+deliberate: the *Local Dashboards* data-initialization batch processes the copy
+of this tutorial in the shared Dr.Egeria folder, and a sheet that does not
+exist makes the command stop instead of writing to Egeria.)
 
 Re-running with the same `Dashboard Sheet Name` + `Placement Name` updates
 the text in place (same replace-by-name behavior as `Link Report to Dashboard
 Sheet`'s `Report Name`), so it's safe to iterate on copy.
+
+Two things that trip people up (both checked with `dr_egeria --validate` on
+2026-11-10, pyegeria 6.2.32):
+
+- **Write each attribute as a `###` heading with its value underneath.** The
+  inline form `Dashboard Sheet Name: my-team-dashboard` is not read: validation
+  fails with *Missing required attribute: 'Dashboard Sheet Name'*.
+- **Inside `MD Content`, use `####` or smaller for headings.** A line starting
+  with `##` or `###` is read as the next command or attribute, so the text stops
+  there and validation fails (with `##`: *Missing required attribute: 'MD
+  Content'*; with `###`, the heading is taken as an unknown attribute). Bold
+  text works too.
 
 ## Step 4 — View it
 
@@ -483,9 +576,10 @@ says Egeria was not written, the sheet is only in a local file — check that
 
 ### Deleting a Dashboard Sheet
 
-**A sheet held in Egeria** (tagged **Egeria**) has no delete button in the
-Portal. Delete it with the command-line tool, which is a shared write (see
-"Commands for sheets held in Egeria" above):
+**A sheet held in Egeria** (tagged **Egeria**) cannot be deleted in the
+Portal: its 🗑 icon and "Delete Dashboard" button are greyed out, and
+hovering them says how to delete it. Delete it with the command-line tool,
+which is a shared write (see "Commands for sheets held in Egeria" above):
 
 ```bash
 python -m pyegeria.view.dashboards delete --sheet "my-team-dashboard" --dry-run   # see what would go
@@ -522,6 +616,7 @@ load.
 | Edits to a sheet don't show, though `dr_egeria` reports `SUCCESS` | The sheet is held in Egeria (tag **Egeria**) and the run wrote only a local file (`--local-only`, or Egeria could not be reached). Egeria's copy wins | Re-run without `--local-only` once Egeria can be reached |
 | Note: "Egeria could not be read, so only sheets from the local file are shown" | The Portal could not read Egeria; sheets held there are missing from the list | Fix the Egeria connection (sign in again, or check the platform) and reload |
 | Note: "Chain broken in Egeria: …" | A part of the sheet's element chain is missing in Egeria (for example a `Dashboard` made with plain `Create Dashboard`) | Re-run the sheet's `.dr-egeria.md` file: every write is update-or-create, so missing parts are written again. `python -m pyegeria.view.dashboards show NAME` lists what is still missing |
+| Tile shows 🔒 "Report not visible to you." (or "Report spec not visible to you.") | The Report, or the report spec held in Egeria that it names, is in a governance zone you cannot see | By design. Ask whoever owns the Report for access to its zone, or remove the zone from the Report if it should be public |
 | Nested sheet placement | Currently shows an "Open nested sheet →" link, not inline rendering | By design for now — recursive inline rendering needs cycle detection first (see the Next Steps dashboard below) |
 | Tile shows a huge, unrelated wall of text/diagram, or a "*(truncated...)*" note | The Report's `Search String` is blank/unscoped against a broad spec | Rerun `Create Report` for that Report with a real `Search String` — this is exactly what the worked example's "Membership Diagram" Report demonstrates fixing |
 | Diagram doesn't render, raw ` ```mermaid ` text shows instead | Content was truncated mid-diagram by the 20,000-character cap, so the fence never closes | The diagram was too large to render at all; same underlying scoping gap as above |
@@ -646,11 +741,22 @@ them) — added BACKLOG.md NEXT-19/NEXT-21:
 
 ```markdown
 ## Link Report to Dashboard Sheet
-Dashboard Sheet Name: my-team-dashboard
-Report Name: Governance Coverage
-Placement Perspectives: governance, steward
-Placement Detail Spec: Collection Members
+### Dashboard Sheet Name
+<your-sheet-name>
+
+### Report Name
+Governance Coverage
+
+### Placement Perspectives
+governance, steward
+
+### Placement Detail Spec
+Collection Members
 ```
+
+Replace `<your-sheet-name>` with your sheet's `Display Name` (the placeholder
+makes the copy of this tutorial that the data-initialization batch processes
+stop with "Dashboard Sheet … does not exist" instead of writing).
 
 **Viewer-facing parameter overrides (no Dr.Egeria command needed).**
 Independent of both attributes above: anyone looking at a Local Dashboard

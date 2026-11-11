@@ -447,7 +447,8 @@ own gap data?); what triggers bundling enriched assets into a
 whether this becomes a Dr.Egeria command family (in the shape of
 `Create Dashboard Sheet`'s own local-first precedent, or fully
 Egeria-native from the start since `DigitalProduct`/`Certification` are
-already real Egeria types, unlike Dashboard Sheet). BACKLOG.md NEXT-25.
+already real Egeria types, unlike Dashboard Sheet at the time). BACKLOG.md NEXT-25.
+(Dashboard Sheets have been held in Egeria since pyegeria 6.2.29.)
 
 ---
 

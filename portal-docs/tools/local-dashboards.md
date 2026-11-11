@@ -4,6 +4,10 @@ Local Dashboards renders **Dashboard Sheets** — named, ordered pages of report
 
 Access it from the portal tile (🗂️ Local Dashboards) or directly at `/local-dashboards`.
 
+Local Dashboards is part of the quickstart Portal; freshstart does not have it.
+
+**Who sees what.** Each report on a sheet is read as the person viewing it. A Report (or the Egeria-held report spec it names) in a governance zone you cannot see shows as a dashed tile reading 🔒 *Report not visible to you.*; the rest of the sheet still shows. See [Who sees what](../tutorials/local-dashboards.md#who-sees-what-zones-and-the-not-visible-to-you-tile).
+
 ---
 
 ## Browsing sheets
@@ -71,7 +75,7 @@ python -m pyegeria.view.dashboards migrate --dry-run   # copy sheets from the lo
 python -m pyegeria.view.dashboards delete --sheet NAME [--local]
 ```
 
-`migrate` and `delete` are **shared writes**: everyone using that Egeria sees the result, so agree them with whoever looks after it, use `--dry-run` first, and run them once. `migrate` never edits the local file; remove a migrated sheet's old entry from it yourself. The Portal's Delete button (which needs you to be signed in) removes only a sheet that is held in the local file; a sheet held in Egeria has no Delete button. Delete a sheet held in Egeria with `python -m pyegeria.view.dashboards delete --sheet NAME`, which is a shared write. Details: [Building a Local Dashboard](../tutorials/local-dashboards.md#where-dashboard-sheets-live).
+`migrate` and `delete` are **shared writes**: everyone using that Egeria sees the result, so agree them with whoever looks after it, use `--dry-run` first, and run them once. `migrate` never edits the local file; remove a migrated sheet's old entry from it yourself. The Portal's Delete button (which needs you to be signed in) removes only a sheet that is held in the local file; for a sheet held in Egeria the button is greyed out, and hovering it says how to delete the sheet. Delete a sheet held in Egeria with `python -m pyegeria.view.dashboards delete --sheet NAME`, which is a shared write. Details: [Building a Local Dashboard](../tutorials/local-dashboards.md#where-dashboard-sheets-live).
 
 After an Egeria wipe, the [Data Initialization](data-initialization.md) batch **Local Dashboards** (`dr-egeria-inbox/Local Dashboards/_batch.json`) re-runs the documents that create four of the quickstart sheets and their Reports: `local-dashboards-next-steps`, Assets by Type and Location Demo, `digital-product-portfolio` and `my-team-dashboard`. The Chief Data Officer Dashboard is not in that batch: load `coco-workbooks/0. data-governance-program/chief-data-officer-dashboard.md` again to recreate it.
 

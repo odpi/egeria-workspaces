@@ -333,6 +333,9 @@ much of the same destination without that migration:
   still open), but real and shipping today via `local-dashboards.html`/
   `local_dashboards_handler.py` (egeria-workspaces-fs), documented in
   `portal-docs/tutorials/local-dashboards.md`.
+  *Update 2026-11-10:* since pyegeria 6.2.29 a sheet is held in Egeria (a `Dashboard` with a
+  `DisplayDataSchemaType`, a `DisplayDataContainer` and one `DisplayDataField` per placement); the JSON
+  store is only a fallback for sheets not yet in Egeria. Freshstart has no Local Dashboards page; this is a quickstart feature.
 - **Generic analytic execution — §9 P3's "unify on the report runner" landed**,
   but via a second `ActionParameter` execution path (`analytic_function` /
   Dr.Egeria's `extra_find`) rather than migrating `action_function`'s

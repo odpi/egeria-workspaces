@@ -292,7 +292,7 @@ into `SavedQuery.formula`; only its storage location moved.
 
 This mirrors the same trajectory `Dashboard Sheet` already went through —
 pyegeria-local model first, explicit plan to converge onto a real Egeria
-Collection-family type later (`OVERVIEW_REPORTING_MODEL.md` §10.4's
+type later (done for Dashboard Sheets in pyegeria 6.2.29, as an Egeria `Dashboard` with `DisplayData*` elements, not a Collection) (`OVERVIEW_REPORTING_MODEL.md` §10.4's
 `Collection Base` note). Worth watching for where these two efforts might
 eventually meet — a Dashboard Sheet placement pointing at a `SavedQuery`-
 backed result set is a natural pairing now that both exist properly.
@@ -519,8 +519,11 @@ performance caveat (see the Track A build notes above) — that needs C.1.**
   item (call it **C.1b**) rather than assuming C.1's completion implies this
   too.
 - C.2: Dr.Egeria lifecycle commands (Create/Update/Refresh/Delete) for
-  `SavedQuery` — still open; `md_processing/v2/dashboard_sheet.py`
-  (referenced in §2.4) remains the closest existing template.
+  `SavedQuery` — partly done. *Update 2026-11-10:* pyegeria 6.2.32 has
+  `Create Saved Query` (Query URL, Query Request Body; upserts, so it also
+  updates) and `Link Saved Query to Results Set`. There is still no Dr.Egeria
+  Refresh, and a `SavedQuery` made this way is not one the Query tool's Saved
+  Queries tab manages (see `portal-docs/tutorials/saved-queries.md`).
 - C.3: connect saved queries to the `FormatSet`/dashboard model (§1.2 b/c)
   — a saved query becomes a usable `ActionParameter` for a report spec /
   dashboard placement. Still open.
