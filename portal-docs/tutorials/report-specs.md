@@ -358,9 +358,9 @@ of DICT and JSON results keep their shape.
 - **A capped result says so.** When a query fills its page, the output says "Showing the first 100: the
   query stopped at its page size of 100; more may exist." A short page is not promised to be the last
   (Egeria's paging contract), so pyegeria never claims a total it did not count.
-  - A LIST, REPORT or MD tile shows this as a line in the text.
-  - For DICT and TABLE it is a `notes` list beside the rows. **The Portal does not show those notes on a
-    tile yet**, so check a DICT or TABLE tile's row count against the page size.
+  - In LIST, REPORT and MD output it is a line in the text.
+  - In DICT and TABLE results it is a `notes` list beside the rows. The Portal shows these notes under the
+    result: on Local Dashboards tiles, in the drill-down drawer and in the Explorer's Run Report panel.
 - **The terminal table** (`run_report --output-format TABLE`) keeps the author's column order and names
   the columns it cannot fit ("+2 more columns: …") instead of dropping them silently.
 
@@ -470,7 +470,7 @@ The Portal has no viewer for DOCUMENT results yet: run them with `run_report` or
 | A different copy runs from the one you edited | A local copy with the same name shadows it | The spec's details say which copy is shadowed; run the other with `egeria:` or `builtin:` |
 | The spec cannot run (Resolution panel) | It names an analytic function that is not registered in this process, or a Python path | Register the function where the spec runs; name it by its registered name |
 | A table cell shows "a&lt;br&gt;b" as text | pyegeria 6.2.37 or later, with a Portal from before its `<br>` support | Update the Portal (egeria-workspaces after 2026-11-11) |
-| A DICT or TABLE tile shows exactly 100 (or 200) rows | The query filled its page; pyegeria's "more may exist" note is in the result but not shown on the tile | Narrow the Report's `Search String`, or raise its page size |
+| "Showing the first 100: …; more may exist." under a result | The query filled its page, so Egeria may hold more | Narrow the Report's `Search String`, or raise its page size |
 | A Report shows "cannot run" after a spec was removed | The Report still names the old spec, for example *Analytic - Element Count by Type* | Re-run its `Create Report` naming the replacement, *Analytic Demo - Element Count by Type* |
 
 ## Where next

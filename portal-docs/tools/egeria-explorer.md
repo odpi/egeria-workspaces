@@ -157,8 +157,8 @@ Two refusals you may meet on pyegeria 6.2.28:
   as line breaks and treats nothing else in a cell as HTML.
 - **Classifications** read "A, B"; **`False` and `0`** are shown, not dropped.
 - **A capped query** says "Showing the first 100: the query stopped at its page size of 100; more may exist."
-  in markdown output. In DICT and TABLE results the same words are in a `notes` list beside the rows, which
-  the Run Report panel does not show yet.
+  In markdown output it is a line in the text; in DICT and TABLE results it is in a `notes` list beside the
+  rows, which the Run Report panel shows under the result (as it does every note pyegeria returns).
 - **DOCUMENT** specs (for example *DCAT Catalog*) have no viewer in the Portal yet; run them with `run_report`.
 
 Which output type to pick, how a column can choose bullets, names or a count, and the opt-in structured

@@ -651,11 +651,11 @@ says Egeria was not written, the sheet is only in a local file — check that
     than shown broken. The note names the placement's real scope ("This
     placement is scoped by search_string=…"), or says it has no query scope
     when that is true.
-- **Capped queries.** When the query itself filled its page, a LIST or
-  REPORT tile carries pyegeria's line "Showing the first 100: the query
-  stopped at its page size of 100; more may exist." A DICT or TABLE tile
-  does not show that note yet, so treat a round row count (100, 200) as
-  "maybe more".
+- **pyegeria's own notes** show under the result, in small muted text, one
+  per line, on every tile and in the drill-down drawer. The most common is
+  for a query that filled its page: "Showing the first 100: the query
+  stopped at its page size of 100; more may exist." A LIST or REPORT tile
+  already has that line in its text and does not repeat it.
 
 See [Report Specs, Part C](report-specs.md#part-c-how-a-specs-output-looks)
 for what changed in pyegeria 6.2.37 and how a column can choose bullets,
@@ -711,7 +711,7 @@ load.
 | "+N more columns: …" under a table | A DICT/JSON result has more than 20 columns | Expected; the hidden columns are named. Pick a spec, or output format, with fewer columns |
 | A diagram tile shows a truncation note and no diagram | The diagram's source was longer than 20,000 characters; a half-written diagram is dropped rather than shown broken | Scope the Report more narrowly; the diagram was too large to draw usefully |
 | A table cell shows `a<br>b` as text | pyegeria 6.2.37 or later with a Portal from before 2026-11-11 | Update the Portal |
-| A DICT or TABLE tile shows exactly 100 or 200 rows | The query filled its page. pyegeria's "more may exist" note is in the result, but a DICT/TABLE tile does not show it yet | Narrow the Report's `Search String`, or raise its `Page Size` |
+| Note under a tile: "Showing the first 100: the query stopped at its page size of 100; more may exist." | The query filled its page, so Egeria may hold more | Narrow the Report's `Search String`, or raise its `Page Size` |
 
 ## Worked example: the "Next Steps" dashboard
 

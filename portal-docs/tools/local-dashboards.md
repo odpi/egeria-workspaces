@@ -28,7 +28,7 @@ Because Report placements resolve live, a sheet always reflects Egeria's current
   - A DICT/JSON table shows up to 200 rows and 20 columns, then "+N more rows" and "+N more columns: *names*".
   - A markdown table is cut only at a whole row, after 1,000 rows: "Showing the first N of M rows (this tile's render limit)".
   - Text outside tables is cut at 20,000 characters, and the note names the placement's actual scope (or says it has none).
-- **A query that filled its page** says "more may exist" in LIST and REPORT tiles. DICT and TABLE tiles do not show that note yet.
+- **pyegeria's notes beside a result** show under every tile and in the drill-down drawer, for example "Showing the first 100: the query stopped at its page size of 100; more may exist." for a query that filled its page.
 
 Details and the worked example (the CDO sheet's registers): [How results look in a tile](../tutorials/local-dashboards.md#how-results-look-in-a-tile). For choosing an output type: [Report Specs, Part C](../tutorials/report-specs.md#part-c-how-a-specs-output-looks).
 
