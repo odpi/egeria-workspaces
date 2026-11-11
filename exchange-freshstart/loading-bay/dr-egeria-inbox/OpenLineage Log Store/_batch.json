@@ -1,0 +1,15 @@
+{
+  "displayName": "OpenLineage Log Store",
+  "description": "Sets up Egeria's PostgreSQL OpenLineage log store: catalogs the open_lineage_log_store schema of the egeria_freshstart database, makes it the OpenLineagePostgresPublisher connector's catalog target, and links it to the three Lovelace OpenLineage governance action types as their openLineageLogStore action target, and stops the OpenLineageFilePublisher saving the events as files in logs/openlineage. Each step checks whether it is already done, so it is safe to re-run. Re-runs after a demo reset, which deletes that set-up.",
+  "canary": {
+    "type": "DeployedDatabaseSchema",
+    "name": "egeria_freshstart.open_lineage_log_store"
+  },
+  "idempotent": true,
+  "defaultEnabled": true,
+  "files": [
+    {
+      "file": "store-open-lineage-events-in-postgres.ipynb"
+    }
+  ]
+}

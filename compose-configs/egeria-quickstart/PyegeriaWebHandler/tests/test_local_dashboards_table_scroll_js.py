@@ -36,6 +36,7 @@ def _node(expr):
         _grab(r"var TABLE_WIDE_COLS = [^\n]*;"),
         _grab(r"function tableWrapOpen\(nCols\) \{.*?\n\}"),
         _grab(r"var TABLE_WRAP_CLOSE = [^\n]*;"),
+        _grab(r"function restoreCellBreaks\(s\) \{.*?\n\}"),
         _grab(r"function renderMdToHtml\(rawText\) \{.*?\n\}\n"),
         _grab(r"var JSON_TABLE_MAX_ROWS = [^\n]*;"),
         _grab(r"function hiddenColumnsNote\(hidden\) \{.*?\n\}"),
