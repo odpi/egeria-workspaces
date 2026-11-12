@@ -122,10 +122,11 @@ def _platform(token: str) -> str:
 
 
 def _user_client(token: str):
-    """A pyegeria client that acts only as the token's user: no password, so no silent re-login."""
+    """A pyegeria client that acts only as the token's user: no password, so no silent re-login. The
+    platform gate is called here, in the same function as the token attach (test_platform_allowlist's scan)."""
     from pyegeria import EgeriaTech
-    from egeria_auth import use_token
-    url = _platform(token)
+    from egeria_auth import default_platform_url, resolve_platform, token_platform, use_token
+    url = resolve_platform(token_platform(token) or default_platform_url(), token=token)
     server = os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server")
     client = EgeriaTech(server, url, user_id=os.environ.get("EGERIA_USER", "erinoverview"))
     use_token(client, token)
