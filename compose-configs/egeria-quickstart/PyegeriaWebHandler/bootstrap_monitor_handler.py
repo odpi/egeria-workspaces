@@ -50,8 +50,8 @@ router = APIRouter(prefix="/api/bootstrap", tags=["bootstrap-monitor"])
 # _dynamic_families() below with no seed file needed, while also being
 # visible/toggleable in the admin panel's Data Initialization tab.
 #
-# The dr-egeria help Glossary is a batch too (dr-egeria-inbox/Dr.Egeria Help Glossary/): a
-# fixed-name copy of the generated help doc, refreshed by the dr-egeria-command-sync skill.
+# The dr-egeria help Glossary is deliberately not a batch: the owner (2026-11-12) does not want the
+# large help glossary loaded in this dev environment.
 BOOTSTRAP_FAMILIES = []
 
 _CHECK_INTERVAL = int(os.environ.get("BOOTSTRAP_CHECK_INTERVAL_SECONDS", "600"))  # 10 min

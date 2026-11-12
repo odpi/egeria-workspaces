@@ -17,8 +17,10 @@
 > `ReportSpecFolder::Consumer::Portal`. A tool that doesn't take that report-spec folder shows that one tile as
 > a missing spec; the rest of the sheet works.
 >
-> `Add Member`, never `Parent ID` (see `LOCAL_DASHBOARDS_FOLDERS.dr-egeria.md`). **Run it once:** `Add Member to
-> Collection` does not dedupe, so a second run adds a second membership for each sheet. The batch's canary (the
+> `Add Member`, never `Parent ID` (see `LOCAL_DASHBOARDS_FOLDERS.dr-egeria.md`). `Add Member to Collection`
+> updates an existing membership instead of adding a second one (Egeria `CollectionHandler.addToCollection`, CollectionHandler.java:2309–2322 at origin/main 0f5bf00c; it sees only memberships the
+> running user can see), so this file is safe to re-run. The batch as a whole is not (its sheets document
+> uses `Add Text on Dashboard Sheet`, not proven to check first). The batch's canary (the
 > last element the batch creates: the placement "catalog-health / Catalog Health - Assets with No Lineage", made by
 > `LOCAL_DASHBOARDS_SAVED_QUERY_TILE.dr-egeria.md`) prevents heal re-runs: a heal runs this batch only when that
 > placement is missing. This file creates no element, so the canary cannot tell whether it ran; check the

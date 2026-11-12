@@ -301,22 +301,6 @@ Prefer `--validate` first if there's any doubt about the diff size — this
 file can be large (100+ commands) and a validate pass shows exactly what will
 change without committing it.
 
-**Also refresh the bootstrap batch copy (egeria-workspaces).** After an Egeria
-reset the Portal's auto-heal recreates the glossary from a fixed-name copy:
-`exchange-quickstart/loading-bay/dr-egeria-inbox/Dr.Egeria Help Glossary/dr-egeria-help.dr-egeria.md`.
-Copy the new timestamped file over it, and set that folder's `_batch.json`
-canary name to the **last** `## Create Term`'s Display Name (the last command
-in pyegeria's command order):
-
-```bash
-grep -A3 '^## Create Term' dr-egeria-help.dr-egeria.md | grep -v '^#\|^--\|^$' | tail -1
-```
-
-`tests/test_bootstrap_heal_seeds.py` fails if the canary and the copy disagree.
-The batch is `idempotent: false` (folders use `Parent ID`, terms `Folders`):
-it runs only when the canary is missing, so never process the copy by hand on
-a populated Egeria.
-
 ## Step 5 — Propagate templates to downstream repos
 
 Run the bundled sync script, which mirrors (not merges) the generated

@@ -2,8 +2,8 @@
 
 Offline: discovery reads this checkout's dr-egeria-inbox and extra roots; nothing talks to Egeria.
 
-- egeria-held-specs is an extra-root batch; Security and the Dr.Egeria Help Glossary are inbox
-  batches; Useful Dashboards is on by default.
+- egeria-held-specs is an extra-root batch; Security is an inbox batch; Useful Dashboards is on
+  by default. The Dr.Egeria help glossary is NOT a batch (owner, 2026-11-12).
 - _folder_order.json runs each batch after the batches it depends on.
 - Each of these batches' canary is the LAST element its files create, so a batch that stops
   part-way still shows as not healed.
@@ -42,16 +42,17 @@ def test_new_batches_are_discovered_with_their_flags(batches):
     assert held["files"][0]["name"] == "REPORT_SPEC_CONSUMER_FOLDERS.dr-egeria.md"
     assert [f["name"] for f in held["files"]] == ["REPORT_SPEC_CONSUMER_FOLDERS.dr-egeria.md",
                                                  "PORTAL_REPORT_SPECS.dr-egeria.md"]
-    assert held["enabled"] and held["idempotent"] is False      # 7 Add Member: not proven to dedupe
+    assert held["enabled"] and held["idempotent"] is True       # upsert Creates, Add Member and Parent ID check first
+    reason = json.loads((HANDLER / "egeria-held-specs" / "_batch.json").read_text())["idempotentReason"]
+    assert "CollectionHandler.java:2309" in reason and "processors.py:519" in reason
 
     sec = batches["Security"]
     assert sec["enabled"] and sec["idempotent"] is True        # one Create, upsert: true in the compact spec
     assert sec["canary"] == {"type": "ExternalReference",
                              "name": "Guidelines for API Protection of Cloud-Native Systems"}
 
-    helpb = batches["Dr.Egeria Help Glossary"]
-    assert helpb["enabled"] and helpb["idempotent"] is False   # Parent ID and Folders links
-    assert [f["name"] for f in helpb["files"]] == ["dr-egeria-help.dr-egeria.md"]
+    assert "Dr.Egeria Help Glossary" not in batches             # owner: not loaded in this dev environment
+    assert not (INBOX / "Dr.Egeria Help Glossary").exists()
 
     useful = batches["Useful Dashboards"]
     assert useful["enabled"] and useful["idempotent"] is False  # Add Text / Add Member re-add
@@ -122,7 +123,7 @@ def _created(command, attrs):
     return None                       # Add Member, Link ... between existing elements
 
 
-@pytest.mark.parametrize("bid", ["egeria-held-specs", "Security", "Useful Dashboards", "Dr.Egeria Help Glossary"])
+@pytest.mark.parametrize("bid", ["egeria-held-specs", "Security", "Useful Dashboards"])
 def test_canary_is_the_last_element_created(batches, bid):
     b = batches[bid]
     last = None
@@ -132,15 +133,6 @@ def test_canary_is_the_last_element_created(batches, bid):
             if made:
                 last = made
     assert last == (b["canary"]["type"], b["canary"]["name"])
-
-
-def test_help_glossary_copy_is_the_generated_shape():
-    text = (INBOX / "Dr.Egeria Help Glossary" / "dr-egeria-help.dr-egeria.md").read_text()
-    counts = {}
-    for command, _ in _blocks(text):
-        counts[command] = counts.get(command, 0) + 1
-    assert set(counts) == {"Create Glossary", "Create Collection Folder", "Create Term"}
-    assert counts["Create Glossary"] == 1 and counts["Create Term"] > 400
 
 
 # ── FIXUPs archived ───────────────────────────────────────────────────────────
