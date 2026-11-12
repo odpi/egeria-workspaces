@@ -20,6 +20,7 @@ cd compose-configs/egeria-quickstart/bin
 ./egeria-upgrade-reset plan --no-clear               # rebuild/upgrade only; keep the metadata store
 ./egeria-upgrade-reset apply --plan ../../../runtime-volumes/egeria-resets/<UTC> --dry-run   # list the steps; run nothing
 ./egeria-upgrade-reset apply --plan ../../../runtime-volumes/egeria-resets/<UTC>
+./egeria-upgrade-reset apply --plan … --personas skip    # in the background: answer verify's persona check up front
 ./egeria-upgrade-reset status --plan …                # each step's state
 ./egeria-upgrade-reset record --plan …                # write the Portal's reset row now (after a failed run)
 ./egeria-upgrade-reset infra-check [--record] [--json] [--log FILE] # shared-infra health; read-only, restarts nothing
@@ -80,12 +81,17 @@ database's size class or the Dockerfile pin has changed since the plan. Make a n
   readable is NOT MEASURED.
 - **Persona sign-ins (checkpoint):** the CLI never signs in as anyone. It asks you to sign in as each
   persona you use and open a sheet, then records what you answer: `ok`, `skip` (NOT MEASURED), or the
-  failure.
+  failure. For a run in the background, answer up front with `apply --personas ok|skip` (or
+  `EGERIA_RESET_PERSONAS`). With no terminal and no answer, or if the prompt hits end of input, the check
+  is NOT MEASURED: the run goes on (2026-11-12: a background run crashed here).
 - **Shared infrastructure:** one line per service of `compose-configs/shared-infra/shared-infra.yaml`
   (see *The shared-infrastructure check* below). A FAIL fails verify; WARN and EXPECTED STOPPED are
   reported and don't; the latest OpenLineage event is information only.
 - **10 minutes of watching:** connections to the `egeria` database, sampled every minute (the leak
-  shows as `idle in transaction` climbing), and `401`/`UNAUTHORIZED` lines in the platform log.
+  shows as `idle in transaction` climbing), and authentication failures in the platform log:
+  `UNAUTHORIZED` / `NOT_AUTHORIZED`, an Egeria `-401-NNN` message code, or `401` as a number of its own.
+  A `401` inside a GUID (`aee401cf-…`) or a timestamp's milliseconds is not one (2026-11-12: that read as
+  a false FAIL). The evidence quotes the first three lines found.
 
 ## The Portal's "Last Egeria reset" panel
 

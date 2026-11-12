@@ -620,3 +620,100 @@ def test_verify_infra_error_is_not_measured(world, monkeypatch):
     c = [c for c in _state(run_dir)["steps"]["verify"]["evidence"]["checks"] if c["check"].startswith("infra")]
     assert c == [{"check": "infra (shared-infra compose)", "verdict": "NOT MEASURED",
                   "evidence": "RuntimeError: docker not on PATH"}]
+
+
+# ── verify in the background: the persona checkpoint (2026-11-12, first real run) ────────
+
+def _bare_env(ask=input, personas=None):
+    return m.Env(runner=None, http=None, ask=ask, say=lambda s: None, personas=personas)
+
+
+@pytest.mark.parametrize("answer,verdict", [("ok", "PASS"), ("skip", "NOT MEASURED"), ("OK", "PASS")])
+def test_persona_answer_given_up_front_never_asks(answer, verdict):
+    def ask(prompt):
+        raise AssertionError("asked although the answer was given up front")
+    c = m.persona_check(_bare_env(ask=ask, personas=answer))
+    assert c["verdict"] == verdict and c["evidence"] == f"answered up front: {answer.lower()}"
+
+
+def test_persona_answer_from_the_environment(monkeypatch):
+    monkeypatch.setenv("EGERIA_RESET_PERSONAS", "skip")
+    assert m.persona_check(_bare_env(ask=lambda p: "ok"))["verdict"] == "NOT MEASURED"
+
+
+def test_a_bad_up_front_answer_is_not_measured():
+    c = m.persona_check(_bare_env(personas="yes"))
+    assert c["verdict"] == "NOT MEASURED" and "not one of ok, skip" in c["evidence"]
+
+
+def test_no_terminal_and_no_answer_is_not_measured_without_asking(monkeypatch):
+    monkeypatch.delenv("EGERIA_RESET_PERSONAS", raising=False)
+    monkeypatch.setattr(m.sys.stdin, "isatty", lambda: False, raising=False)
+    c = m.persona_check(_bare_env(ask=input))
+    assert c == {"check": "persona sign-ins", "verdict": "NOT MEASURED",
+                 "evidence": "no terminal to ask and no --personas answer (a background run)"}
+
+
+def test_end_of_input_at_the_prompt_is_not_measured_never_a_crash(monkeypatch):
+    monkeypatch.delenv("EGERIA_RESET_PERSONAS", raising=False)
+    def eof(prompt):
+        raise EOFError
+    c = m.persona_check(_bare_env(ask=eof))
+    assert c["verdict"] == "NOT MEASURED" and "end of input" in c["evidence"] and "--personas" in c["evidence"]
+
+
+def test_the_operator_answer_is_still_recorded(monkeypatch):
+    monkeypatch.delenv("EGERIA_RESET_PERSONAS", raising=False)
+    assert m.persona_check(_bare_env(ask=lambda p: "ok"))["verdict"] == "PASS"
+    c = m.persona_check(_bare_env(ask=lambda p: "garygeeke cannot open the CDO sheet"))
+    assert c["verdict"] == "FAIL" and "garygeeke" in c["evidence"]
+
+
+def test_apply_personas_flag_reaches_verify(world, monkeypatch):
+    """apply --personas skip: verify records NOT MEASURED and the persona prompt is never shown."""
+    world["answers"]["persona"] = "THIS WAS ASKED"
+    run_dir = _plan(world)
+    assert m.main(["apply", "--plan", str(run_dir), "--personas", "skip"], env=world["env"]) == 0
+    checks = {c["check"]: c for c in _state(run_dir)["steps"]["verify"]["evidence"]["checks"]}
+    assert checks["persona sign-ins"]["verdict"] == "NOT MEASURED"
+    assert checks["persona sign-ins"]["evidence"] == "answered up front: skip"
+
+
+# ── the watch: genuine authentication failures only ───────────────────────────
+
+GUID_LINE = ("Thu Nov 12 13:05:11 GMT 2026 qs-engine-host Information OMES-GOVERNANCE-ACTION-0011 The governance "
+             "action aee401cf-6b2e-4c51-9f3b-0d2b1a40128e has completed with status ACTIONED")
+TIMESTAMP_LINE = "2026-11-12 13:05:11.401 INFO  [qs-view-server] request completed in 0.401 s"
+REAL = [
+    "Thu Nov 12 13:06:01 GMT 2026 qs-view-server Error OMAG-USER-SECURITY-401-001 The user erinoverview is not authorized",
+    "WARN request to https://localhost:9443/servers/qs-view-server/api failed with HTTP Code: 401",
+    "org.odpi.openmetadata.frameworks.openmetadata.ffdc.UserNotAuthorizedException: USER_NOT_AUTHORIZED",
+    "status=UNAUTHORIZED for peterprofile",
+]
+
+
+def test_a_guid_or_a_timestamp_holding_401_is_not_a_failure():
+    assert m.auth_failure_lines(GUID_LINE + "\n" + TIMESTAMP_LINE + "\nINFO started") == []
+    assert m.auth_failure_lines("element 4011-abcd and 9401 and v1.401.2 and /api/401x") == []
+
+
+@pytest.mark.parametrize("line", REAL)
+def test_genuine_authentication_failures_are_found(line):
+    assert m.auth_failure_lines(line) == [line]
+
+
+def test_the_watch_passes_on_guids_and_fails_on_a_real_401(world):
+    env, runner = world["env"], world["runner"]
+    logs = {"text": GUID_LINE + "\n" + TIMESTAMP_LINE + "\n"}
+    orig = runner._answer
+
+    def answer(cmd, j, input_text):
+        if cmd[:2] == ["docker", "logs"]:
+            return m.Result(0, logs["text"], "")
+        return orig(cmd, j, input_text)
+    runner._answer = answer
+    verdict, evidence = m._watch(env, 0, 60)
+    assert verdict == "PASS" and "0 authentication-failure lines" in evidence
+    logs["text"] += REAL[0] + "\n"
+    verdict, evidence = m._watch(env, 0, 60)
+    assert verdict == "FAIL" and "1 authentication-failure lines" in evidence and "OMAG-USER-SECURITY-401-001" in evidence

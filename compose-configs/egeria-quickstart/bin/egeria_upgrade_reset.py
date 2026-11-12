@@ -189,6 +189,9 @@ class Env:
     now: Callable[[], float] = time.time
     port_open: Callable[[int], bool] = None  # type: ignore[assignment]
     repo: Path = REPO
+    #: verify's persona-check answer given up front ("ok" or "skip": `apply --personas`, or
+    #: EGERIA_RESET_PERSONAS), so a background run never waits on a prompt.
+    personas: Optional[str] = None
 
     def __post_init__(self):
         if self.port_open is None:
@@ -957,12 +960,7 @@ def step_verify(env, plan, state, run_dir, *, watch_s: float = 600, watch_every_
 
     checks.append(_check("classification purposes", lambda: classification_verdict(plan, classification_count(env))))
 
-    personas = env.ask("Persona checks (the CLI never signs in): sign in to the Portal as each demo persona you use "
-                       "and open a sheet. Type 'ok' when they all work, 'skip' to leave them unchecked, or describe the "
-                       "failure: ").strip()
-    checks.append({"check": "persona sign-ins", "verdict": "PASS" if personas.lower() == "ok" else
-                   ("NOT MEASURED" if personas.lower() in ("", "skip") else "FAIL"),
-                   "evidence": f"operator said: {personas or '(nothing)'}"})
+    checks.append(persona_check(env))
 
     try:
         infra = infra_check(env, Path(plan.get("deployRoot") or env.repo))
@@ -1031,6 +1029,47 @@ def _manifest_canaries(env: Env) -> list[tuple[str, dict]]:
     return out
 
 
+PERSONA_PROMPT = ("Persona checks (the CLI never signs in): sign in to the Portal as each demo persona you use "
+                  "and open a sheet. Type 'ok' when they all work, 'skip' to leave them unchecked, or describe the "
+                  "failure: ")
+PERSONA_ANSWERS = ("ok", "skip")
+
+
+def persona_check(env: Env) -> dict:
+    """The persona sign-in checkpoint. The answer given up front (`apply --personas ok|skip`, or
+    EGERIA_RESET_PERSONAS) wins; otherwise the operator is asked. With no terminal to ask (a background
+    run) and no answer given, or when the prompt hits end of input, it is NOT MEASURED: never a crash,
+    and never PASS."""
+    given = (env.personas or os.environ.get("EGERIA_RESET_PERSONAS") or "").strip().lower()
+    if given:
+        if given not in PERSONA_ANSWERS:
+            return {"check": "persona sign-ins", "verdict": "NOT MEASURED",
+                    "evidence": f"the up-front answer {given!r} is not one of {', '.join(PERSONA_ANSWERS)}"}
+        return {"check": "persona sign-ins", "verdict": "PASS" if given == "ok" else "NOT MEASURED",
+                "evidence": f"answered up front: {given}"}
+    if env.ask is input and not sys.stdin.isatty():
+        return {"check": "persona sign-ins", "verdict": "NOT MEASURED",
+                "evidence": "no terminal to ask and no --personas answer (a background run)"}
+    try:
+        answer = env.ask(PERSONA_PROMPT).strip()
+    except (EOFError, OSError) as exc:
+        return {"check": "persona sign-ins", "verdict": "NOT MEASURED",
+                "evidence": f"could not ask ({type(exc).__name__}: end of input); pass --personas ok|skip"}
+    return {"check": "persona sign-ins", "verdict": "PASS" if answer.lower() == "ok" else
+            ("NOT MEASURED" if answer.lower() in ("", "skip") else "FAIL"),
+            "evidence": f"operator said: {answer or '(nothing)'}"}
+
+
+#: A genuine authentication failure in the platform log: UNAUTHORIZED / NOT_AUTHORIZED, an Egeria message
+#: code -401-NNN, or 401 as a number of its own (an HTTP status). Never "401" inside a GUID (engine action
+#: aee401cf-..., 2026-11-12) or other hex, nor a timestamp's milliseconds (12:00:00.401).
+AUTH_FAILURE = re.compile(r"UNAUTHORIZED|NOT_AUTHORIZED|-401-\d{3}(?!\d)|(?<![\w.:/-])401(?![\w-])", re.I)
+
+
+def auth_failure_lines(text: str) -> list[str]:
+    return [l for l in text.splitlines() if AUTH_FAILURE.search(l)]
+
+
 def _watch(env: Env, total_s: float, every_s: float) -> tuple[str, str]:
     """PG connections on the egeria DB (the leak pattern: idle in transaction climbing) and
     UNAUTHORIZED/401 lines in the platform log, sampled every `every_s` for `total_s`."""
@@ -1045,13 +1084,16 @@ def _watch(env: Env, total_s: float, every_s: float) -> tuple[str, str]:
             break
         env.sleep(every_s)
     logs = env.runner.run(["docker", "logs", "--since", since, PLATFORM_CONTAINER], check=False)
-    n401 = sum(1 for l in (logs.out + logs.err).splitlines() if "401" in l or "UNAUTHORIZED" in l.upper())
+    hits = auth_failure_lines(logs.out + logs.err)
+    n401 = len(hits)
     iit = [int(s.get("idle in transaction", 0)) for s in samples]
     total = [sum(int(v) for v in s.values()) for s in samples]
     growing = len(total) > 2 and total[-1] > total[0] + 10
     ok = n401 == 0 and max(iit or [0]) <= 2 and not growing
+    shown = "; ".join(h.strip()[:160] for h in hits[:3])
     return ("PASS" if ok else "FAIL"), (f"{len(samples)} samples: connections {total}, idle in transaction {iit}; "
-                                        f"{n401} 401/UNAUTHORIZED lines in the platform log")
+                                        f"{n401} authentication-failure lines in the platform log"
+                                        + (f" (first: {shown})" if hits else ""))
 
 
 # ── Shared-infrastructure health (BRIEF-SHARED-INFRA-HEALTH-2026-11-12) ───────
@@ -1563,6 +1605,9 @@ def main(argv: Optional[list[str]] = None, env: Optional[Env] = None) -> int:
     a.add_argument("--plan", required=True)
     a.add_argument("--dry-run", action="store_true", help="print the steps and their state; run nothing")
     a.add_argument("--redo", help="run this step again (a run-once step needs its name typed)")
+    a.add_argument("--personas", choices=PERSONA_ANSWERS,
+                   help="answer verify's persona sign-in check up front (ok = checked and working; skip = not "
+                        "checked, NOT MEASURED), so the run never waits on a prompt (also EGERIA_RESET_PERSONAS)")
     s = sub.add_parser("status", help="show a plan's step states")
     s.add_argument("--plan", required=True)
     r = sub.add_parser("record", help="write the Portal's reset row now (e.g. after a failed run)")
@@ -1590,6 +1635,8 @@ def main(argv: Optional[list[str]] = None, env: Optional[Env] = None) -> int:
                       allow_other_checkout=args.allow_other_checkout, launcher_overrides=overrides)
             return 0
         if args.cmd == "apply":
+            if args.personas:
+                env.personas = args.personas
             return apply(env, args.plan, dry_run=args.dry_run, redo=args.redo)
         if args.cmd == "infra-check" and args.log:
             return infra_check_logged(env, Path(args.log), record=args.record,
