@@ -2716,7 +2716,89 @@ function RsResolutionPanel({ spec, portalSupply }) {
   );
 }
 
-function ReportSpecDetail({ spec, onSelectSpec, portalSupply }) {
+// ── Publish to / Withdraw from a consumer folder (stage 2: public specs only) ──────────────────────
+// POST /api/report-specs/publish (report_spec_publish_handler.py) runs pyegeria's own publish documents
+// as the signed-in user (X-Egeria-Token): preview (the exact document, read-only) -> validate -> confirm
+// -> process. The server rebuilds the document at process and refuses one that changed since the
+// preview. Built-in and restricted specs, a missing sign-in and folders that were not read are refused
+// in words; Egeria decides whether this user may write the folder, and its refusal is shown as it says.
+function RsPublishControl({ spec, consumers }) {
+  const creds = React.useContext(CredContext);
+  const [action, setAction] = React.useState('publish');
+  const [folder, setFolder] = React.useState('');
+  const [plan, setPlan] = React.useState(null);          // the previewed plan (markdown, digest, steps)
+  const [result, setResult] = React.useState(null);      // the last validate/process answer
+  const [busy, setBusy] = React.useState('');
+  const [confirmed, setConfirmed] = React.useState(false);
+  const [error, setError] = React.useState('');
+  React.useEffect(() => { setPlan(null); setResult(null); setConfirmed(false); setError(''); }, [spec && spec.name, action, folder]);
+  if (!spec) return null;
+  const muted = { fontSize: 11, color: 'var(--dim)', marginTop: 8 };
+  if (spec.source === 'builtin')
+    return React.createElement('div', { className: 'rs-publish rs-publish-later', style: muted },
+      'Publish: built-in specs are published later, after consumer-folders phase 3.');
+  if (!consumers || consumers.status === 'not read')
+    return React.createElement('div', { className: 'rs-publish rs-publish-not-read', style: muted },
+      'Publish: the consumer folders were not read' + (consumers && consumers.reason ? ' (' + consumers.reason + ')' : '') + ', so there is nowhere to publish to yet.');
+  if (!creds || !creds.token)
+    return React.createElement('div', { className: 'rs-publish rs-publish-sign-in', style: muted },
+      'Sign in to publish or withdraw this spec: it runs as you, never as the Portal\'s service account.');
+  const names = (consumers.consumers || []).map(c => c.name).filter(Boolean);
+  const usedBy = spec.usedBy || [];
+  const chosen = folder || names[0] || '';
+  function call(step) {
+    setBusy(step); setError('');
+    const body = { spec_name: spec.name, action: action, folder: chosen, step: step,
+                   confirmed: step === 'process' ? confirmed : false, digest: plan ? plan.digest : null };
+    return egeriaFetch('/api/report-specs/publish', creds, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(r => r.json().then(d => ({ ok: r.ok, d: d })))
+      .then(({ ok, d }) => {
+        if (!ok || d.refused) { setError(d.message || d.detail || 'Refused.'); if (step === 'preview') setPlan(null); return; }
+        if (step === 'preview') { setPlan(d); setResult(null); setConfirmed(false); }
+        else setResult(d);
+      })
+      .catch(e => setError(String(e)))
+      .finally(() => setBusy(''));
+  }
+  const r = result && result.result;
+  const errs = r ? [].concat(r.validation_errors || [], r.execution_errors || []) : [];
+  return React.createElement('div', { className: 'rs-publish', style: { marginTop: 10, padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12, overflowWrap: 'anywhere' } },
+    React.createElement('div', { style: { display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' } },
+      React.createElement('select', { className: 'area-select rs-publish-action', 'aria-label': 'Publish or withdraw', value: action,
+        onChange: e => setAction(e.target.value) },
+        React.createElement('option', { value: 'publish' }, 'Publish to'),
+        React.createElement('option', { value: 'withdraw' }, 'Withdraw from')),
+      React.createElement('select', { className: 'area-select rs-publish-folder', 'aria-label': 'Consumer folder', value: chosen,
+        onChange: e => setFolder(e.target.value) },
+        names.map(n => React.createElement('option', { key: n, value: n },
+          n + (spec.usedByState === 'read' || spec.usedByState === 'partial'
+                 ? (usedBy.indexOf(n) >= 0 ? ' (published)' : ' (not published)') : '')))),
+      React.createElement('button', { className: 'btn-xs rs-publish-preview', disabled: !!busy || !chosen, onClick: () => call('preview') },
+        busy === 'preview' ? 'Previewing…' : 'Preview')),
+    error && React.createElement('div', { className: 'rs-publish-refused', style: { marginTop: 6, color: '#fbbf24' } }, error),
+    plan && React.createElement('div', { className: 'rs-publish-plan', style: { marginTop: 8 } },
+      React.createElement('div', { style: { color: 'var(--dim)', fontSize: 11 } },
+        'This document runs as you (' + (plan.verb || plan.action) + '); ' + (plan.how || '') + '. Nothing has been sent yet.'),
+      React.createElement('ul', { style: { margin: '4px 0 4px 16px' } }, (plan.steps || []).map((s, i) => React.createElement('li', { key: i }, s))),
+      React.createElement('pre', { className: 'rs-publish-doc', 'aria-label': 'The Dr.Egeria document', style: { maxHeight: 260, overflow: 'auto', fontSize: 11, whiteSpace: 'pre-wrap', background: 'var(--surface)', padding: 6, borderRadius: 4 } }, plan.markdown),
+      React.createElement('div', { style: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 6 } },
+        React.createElement('button', { className: 'btn-xs rs-publish-validate', disabled: !!busy, onClick: () => call('validate') },
+          busy === 'validate' ? 'Validating…' : 'Validate'),
+        React.createElement('label', { style: { display: 'inline-flex', gap: 4, alignItems: 'center' } },
+          React.createElement('input', { type: 'checkbox', className: 'rs-publish-confirm', checked: confirmed, onChange: e => setConfirmed(e.target.checked) }),
+          'I confirm: run this document as me, writing to Egeria'),
+        React.createElement('button', { className: 'btn-xs rs-publish-process', disabled: !!busy || !confirmed, onClick: () => call('process') },
+          busy === 'process' ? 'Running…' : (action === 'publish' ? 'Publish' : 'Withdraw')))),
+    r && React.createElement('div', { className: 'rs-publish-result', style: { marginTop: 6, color: r.success ? 'var(--ok, #4ade80)' : '#fbbf24' } },
+      (result.step === 'validate' ? 'Validate: ' : 'Process: ') + (r.success ? 'succeeded' : 'did not succeed')
+        + (r.commands_total != null ? ' (' + (r.commands_succeeded || 0) + ' of ' + r.commands_total + ' commands)' : ''),
+      errs.length > 0 && React.createElement('ul', { style: { margin: '4px 0 0 16px', color: '#fbbf24' } },
+        errs.map((e, i) => React.createElement('li', { key: i }, (e.command ? e.command + ': ' : '') + (e.message || String(e))))),
+      result.after && React.createElement('div', { className: 'rs-publish-after', style: { color: 'var(--dim)', marginTop: 4 } }, result.after.message || '')));
+}
+
+function ReportSpecDetail({ spec, onSelectSpec, portalSupply, consumers }) {
   const creds = React.useContext(CredContext);
   const _favPersonaId = React.useContext(PersonaContext);
   const [selFormat, setSelFormat] = useState(0);
@@ -2940,6 +3022,7 @@ function ReportSpecDetail({ spec, onSelectSpec, portalSupply }) {
       React.createElement(CopyJsonButton, { data: spec })
     ),
     React.createElement(RsSourceDetail, { spec: spec, onSelectSpec: onSelectSpec }),
+    React.createElement(RsPublishControl, { spec: spec, consumers: consumers }),
     spec.heading && React.createElement('div', { style: { marginTop: 12, fontWeight: 600, fontSize: 13, color: 'var(--text)' } }, spec.heading),
     spec.description && React.createElement('div', { className: 'detail-desc', style: { marginTop: 6 } }, spec.description),
     spec.aliases && spec.aliases.length > 0 && React.createElement('div', { style: { marginTop: 8, fontSize: 11, color: 'var(--dim)' } },
@@ -3550,7 +3633,7 @@ function ReportSpecView() {
               }, '← Back to ', history[history.length - 1])
             ),
             React.createElement('div', { style: { flex: 1, overflowY: 'auto' } },
-              React.createElement(ReportSpecDetail, { spec: selectedSpec, onSelectSpec: navigateTo, portalSupply: portalSupply })
+              React.createElement(ReportSpecDetail, { spec: selectedSpec, onSelectSpec: navigateTo, portalSupply: portalSupply, consumers: consumersInfo })
             )
           )
         : React.createElement('div', { className: 'center' },

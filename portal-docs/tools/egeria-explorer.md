@@ -247,6 +247,11 @@ held in Egeria that no consumer folder holds, which is useful when curating. The
 - *Used by: not tracked*: a built-in or Portal (local) spec. Built-in specs live in pyegeria, not in Egeria, so
   they cannot be folder members yet.
 
+**Publish to / Withdraw from.** Under the badges, a signed-in user can put a public spec in a tool's consumer
+folder, or take it out: preview the exact document, validate, confirm, then run it as yourself. Built-in and
+restricted specs are refused in words. See
+[Report Specs, B4a](../tutorials/report-specs.md#b4a-publish-a-spec-to-a-tool-or-withdraw-it-from-the-portal).
+
 **The Portal works from a local copy of those specs.** It copies the specs in its folders from Egeria
 into its own cache:
 
