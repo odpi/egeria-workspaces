@@ -40,6 +40,8 @@ Full field reference, the shipped `Local Dashboards` example, and a worked coco-
 
 A batch that declares a **canary** — one specific element the Portal can check for — gets auto-healed: the Portal periodically searches for an `ACTIVE` element of type `canary.type` whose `displayName` exactly matches `canary.name` (a cheap bounded, page-size-1 lookup). If nothing matches, it silently re-runs the batch's files in the background. You'll see a banner across the top of most pages while this is happening. A connection failure during the check is treated as "can't tell," not "missing" — it never triggers a heal pass on its own.
 
+A batch can also declare **manual steps**: things a person must do after it runs, which the Portal does not do itself. The Useful Dashboards batch has one: the first refresh of the saved query behind the Catalog Health "Assets with No Lineage" tile, which must run as a signed-in user because the answer is what that user can see. `/api/bootstrap/status` reports each step as **done** (with when and the count), **pending** ("saved query not yet refreshed"), or **not checked** (with the reason). Until it is done, the tile itself says the answer was not read, never 0.
+
 A batch with no canary is **manual only** — it never runs on its own. This is the safe default for a folder someone just dropped in: nothing runs until an admin explicitly opts in, either by giving it a canary (if you maintain the folder yourself — ask whoever built the feature that owns it) or by running it manually from this panel.
 
 ---
