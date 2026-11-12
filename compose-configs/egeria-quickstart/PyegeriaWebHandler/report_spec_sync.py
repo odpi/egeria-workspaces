@@ -157,6 +157,11 @@ def _sync_once() -> str:
                     f"{len(rep.get('updated', []))} updated, {len(rep.get('unchanged', []))} unchanged, "
                     f"{len(rep.get('pruned', []))} pruned, {len(rep.get('skipped', []))} skipped")
         _reconcile_fallbacks()
+        try:                                   # per-user restricted listings may now be out of date
+            import report_spec_restricted
+            report_spec_restricted.invalidate()
+        except Exception:  # noqa: BLE001
+            pass
         return outcome
     except Exception as exc:  # noqa: BLE001 -- Egeria down, bad credentials, ...: record and carry on
         with _LOCK:

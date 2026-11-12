@@ -415,6 +415,9 @@ class ExecuteRequest(PlatformBody):
     cache:         bool = False
     # With cache=True: skip the cache read, run now, and store the fresh result (a viewer's refresh click).
     refresh:       bool = False
+    # A zone-restricted spec (Portal-3): run as the signed-in user's token only, fetched from Egeria for
+    # this call (report_spec_restricted.run), never cached and never a shared copy.
+    restricted:    bool = False
     # "structured" asks pyegeria (>= 6.2.37) for the structured TABLE result (kind "table", native values,
     # rendered by static/egeria-table.js). Only for output_format TABLE; ignored for every other format.
     # The default (None / "rows") is today's kind "json" rows, so other callers are unchanged.
@@ -461,6 +464,15 @@ def execute_spec(req: ExecuteRequest, request: Request):
     token    = get_request_token()
     _table_shape(req)            # refuse a bad value before any cache read or Egeria call
 
+    import report_spec_restricted as rsr
+    if req.restricted:
+        return _execute_restricted(req, token)
+    if rsr.is_restricted_fetch(req.spec_name):
+        # pyegeria keeps a restricted spec fetched for a user in this process by an internal name; that name
+        # is never run on the public path (it would run a definition its zones hide).
+        raise HTTPException(status_code=403, detail="This is a restricted report spec: run it from Report Specs "
+                                                    "while signed in as a user who can see it.")
+
     from report_viewer import reset_viewer, resolve_viewer, set_viewer
     viewer = resolve_viewer(request, req.persona)
     viewer_token = set_viewer(viewer)
@@ -472,6 +484,67 @@ def execute_spec(req: ExecuteRequest, request: Request):
         return _cached_execute(key, req, request, token, url, server, user_id, user_pwd)
     finally:
         reset_viewer(viewer_token)
+
+
+def _execute_restricted(req, token):
+    """A restricted spec, as the signed-in user only: never the service account, never cached."""
+    import report_spec_restricted as rsr
+    from egeria_auth import _token_expired
+    if not token or _token_expired(token):
+        raise HTTPException(status_code=401, detail=rsr.SIGN_IN)
+    try:
+        result = rsr.run(token, req.spec_name, output_format=req.output_format, params=req.params,
+                         table_shape=_table_shape(req))
+    except rsr.TokenRefused as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception:
+        logger.exception("restricted report spec run failed")
+        raise HTTPException(status_code=500, detail=f"'{req.spec_name}' did not run; the server log has the details.")
+    if isinstance(result, dict):
+        result["specSource"] = {"source": "restricted", "sourceLabel": rsr.BADGE, "label": req.spec_name,
+                                "shadows": None, "shadowedBy": None}
+    return JSONResponse(result)
+
+
+@router.get("/api/report-specs/restricted",
+            summary="The zone-restricted report specs the signed-in user can see (read as them, per credential)")
+def restricted_specs(request: Request, refresh: bool = False):
+    import report_spec_restricted as rsr
+    from egeria_auth import _token_expired, get_request_token
+    token = get_request_token()
+    if token and _token_expired(token):
+        token = None
+    try:
+        return JSONResponse(rsr.restricted_specs(token, refresh=refresh))
+    except rsr.TokenRefused as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+
+
+@router.get("/api/report-specs/restricted/{label:path}",
+            summary="One restricted report spec's definition, fetched from Egeria as the signed-in user")
+def restricted_spec(label: str, request: Request):
+    import report_spec_restricted as rsr
+    from egeria_auth import _token_expired, get_request_token
+    token = get_request_token()
+    if not token or _token_expired(token):
+        raise HTTPException(status_code=401, detail=rsr.SIGN_IN)
+    try:
+        return JSONResponse(rsr.describe(token, label))
+    except rsr.TokenRefused as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("restricted report spec describe failed")
+        raise HTTPException(status_code=500, detail=f"'{label}' could not be read; the server log has the details.")
 
 
 # ── Result cache for local-dashboard placements ─────────────────────────────
