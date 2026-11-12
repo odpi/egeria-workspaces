@@ -236,9 +236,58 @@ def test_public_execute_refuses_a_restricted_fetched_name(app):
     c, runs = app
     rsr._RESTRICTED_FETCHED.add(("Finance Secrets", 3))
     r = c.post("/api/report-specs/execute", json={"spec_name": "egeria:Finance Secrets@v3", "output_format": "TABLE"})
-    assert r.status_code == 403 and "restricted report spec" in r.json()["detail"] and runs == []
-    r = c.post("/api/report-specs/execute", json={"spec_name": "egeria:Public Spec@v2", "output_format": "DICT"})
-    assert r.status_code == 200                                              # other fetched names pass
+    assert r.status_code == 403 and "fetched for one user's call" in r.json()["detail"] and runs == []
+
+
+def test_public_execute_denies_fetched_names_by_default(app, monkeypatch):
+    """Only a shared-tier (public) spec at exactly that version passes; any other fetched name is refused."""
+    c, runs = app
+    monkeypatch.setattr(rsr, "_shared_tier_version", lambda label: 2 if label == "Public Spec" else None)
+    post = lambda n: c.post("/api/report-specs/execute", json={"spec_name": n, "output_format": "DICT"}).status_code
+    assert post("egeria:Public Spec@v2") == 200 and post("Public Spec@v2") == 200
+    assert post("egeria:Public Spec@v1") == 403                             # another version: not the tier's
+    assert post("egeria:Unknown Spec@v4") == 403                            # not in the shared tier
+    assert post("Public Spec") == 200                                       # not a fetched name: unchanged
+    rsr._RESTRICTED_LABELS.add("Public Spec")                                # ... unless restricted-fetched
+    assert post("egeria:Public Spec@v2") == 403
+
+
+def test_a_concurrent_public_execute_during_a_restricted_run_is_refused(app, monkeypatch):
+    """The window the read-back found: pyegeria holds "egeria:<label>@vN" while the restricted run is
+    still going. The label is recorded before the fetch, so a public execute of that name is refused
+    during the run, not only after it."""
+    import pyegeria.view.format_set_executor as fse
+    import report_specs_handler as rh
+    from fastapi import HTTPException
+    c, _ = app
+    during = []
+
+    def slow_restricted_exec(name, **kw):
+        assert kw.get("refresh_spec") is True
+        try:                                           # someone else, mid-run, asks for the fetched name
+            rh._refuse_fetched_name(f"egeria:{name}@v3")
+            during.append("ran")
+        except HTTPException as exc:
+            during.append(exc.status_code)
+        return {"kind": "json", "data": []}
+    monkeypatch.setattr(fse, "exec_report_spec", slow_restricted_exec)
+    assert not rsr._RESTRICTED_LABELS and not rsr._RESTRICTED_FETCHED       # nothing recorded beforehand
+    r = c.post("/api/report-specs/execute", json={"spec_name": "Finance Secrets", "output_format": "TABLE",
+                                                  "restricted": True}, headers={"X-Egeria-Token": TOKEN})
+    assert r.status_code == 200 and during == [403]
+
+
+def test_describe_records_the_label_before_the_fetch(world, monkeypatch):
+    import pyegeria.view.egeria_spec_cache as esc
+    seen = []
+
+    def fetch(client, label):
+        seen.append(rsr.public_fetched_name_allowed(f"egeria:{label}@v3"))
+        raise ConnectionError("platform went away")
+    monkeypatch.setattr(esc, "fetch_spec_for_call", fetch)
+    with pytest.raises(ConnectionError):
+        rsr.describe(TOKEN, "Finance Secrets")
+    assert seen == [False] and rsr.is_restricted_fetch("egeria:Finance Secrets@v9")
 
 
 def test_describe_route_needs_a_token(app):

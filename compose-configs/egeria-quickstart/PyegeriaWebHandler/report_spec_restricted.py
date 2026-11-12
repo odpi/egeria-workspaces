@@ -15,8 +15,9 @@ exactly the restricted specs their zones allow.
   a publish, drops these listings (`invalidate`).
 - **Describing** one (its full definition, for the Report Specs detail) and **running** one fetch it from
   Egeria for that call, as the user (`refresh_spec`); never a shared copy. pyegeria keeps a fetched spec in
-  this process under an internal name ("egeria:<label>@v<N>"); `is_restricted_fetch` lets the public
-  execute route refuse that name, so a restricted definition is never run by name by someone else.
+  this process under an internal name ("egeria:<label>@v<N>"). The public execute route denies every such
+  name by default (`public_fetched_name_allowed`): only a shared-tier spec at exactly that version passes,
+  and a label the restricted path fetches is recorded before its fetch starts.
 - No token: "sign in". No function in pyegeria, folders not read, and "read, and nothing restricted is
   visible to you" are each their own answer, never one empty list.
 """
@@ -24,6 +25,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import threading
 import time
 from typing import Any, Dict, List, Optional
@@ -36,6 +38,10 @@ _lock = threading.Lock()
 _cache: Dict[str, Any] = {}
 #: (label, header version) of every spec this process fetched through the restricted path.
 _RESTRICTED_FETCHED: set = set()
+#: Every label the restricted path has fetched or is fetching. Recorded BEFORE the fetch starts: pyegeria
+#: holds the definition under its internal name while the run is still going (read-back, 2026-11-12).
+_RESTRICTED_LABELS: set = set()
+_FETCHED_NAME = re.compile(r"^(?:egeria:)?(?P<label>.+)@v(?P<version>\d+)$")
 
 BADGE = "restricted (visible to you)"
 SIGN_IN = "Sign in to see restricted report specs: they are read from Egeria as you."
@@ -212,11 +218,33 @@ def _remember_fetch(label: str) -> None:
 
 
 def is_restricted_fetch(name: str) -> bool:
-    """True for an internal fetched name ("egeria:<label>@v<N>" or "<label>@v<N>") that this process
-    fetched through the restricted path: the public execute route refuses it."""
-    import re
-    m = re.match(r"^(?:egeria:)?(?P<label>.+)@v(?P<version>\d+)$", (name or "").strip())
-    return bool(m and (m.group("label"), int(m.group("version"))) in _RESTRICTED_FETCHED)
+    """True for an internal fetched name ("egeria:<label>@v<N>" or "<label>@v<N>") whose label the
+    restricted path has fetched, or is fetching now (recorded before the fetch starts)."""
+    m = _FETCHED_NAME.match((name or "").strip())
+    return bool(m and (m.group("label") in _RESTRICTED_LABELS
+                       or (m.group("label"), int(m.group("version"))) in _RESTRICTED_FETCHED))
+
+
+def _shared_tier_version(label: str) -> Optional[int]:
+    try:
+        from pyegeria.view.egeria_spec_cache import egeria_tier_info
+        info = egeria_tier_info(label) or {}
+    except Exception:  # noqa: BLE001
+        return None
+    v = info.get("header_version")
+    return v if isinstance(v, int) and not info.get("fetched") else None
+
+
+def public_fetched_name_allowed(name: str) -> bool:
+    """The public execute route's rule for an internal fetched name, deny by default: allowed only when it
+    names a spec of the shared (public) tier at exactly that version, and the restricted path has never
+    fetched that label. Any other name is not a fetched name and is not this rule's business (True)."""
+    m = _FETCHED_NAME.match((name or "").strip())
+    if not m:
+        return True
+    if is_restricted_fetch(name):
+        return False
+    return _shared_tier_version(m.group("label")) == int(m.group("version"))
 
 
 def describe(token: str, label: str) -> Dict[str, Any]:
@@ -226,6 +254,7 @@ def describe(token: str, label: str) -> Dict[str, Any]:
     if listed is None:
         raise LookupError(f"No restricted report spec named '{label}' is visible to you.")
     from pyegeria.view.egeria_spec_cache import fetch_spec_for_call, fetched_spec
+    _RESTRICTED_LABELS.add(label)          # before the fetch: the public path refuses its name from now on
     try:
         internal = fetch_spec_for_call(_user_client(token), label)
     except Exception as exc:  # noqa: BLE001
@@ -255,6 +284,7 @@ def run(token: str, label: str, *, output_format: str, params: Optional[Dict[str
     from pyegeria.view.format_set_executor import exec_report_spec
     url, server = _platform(token)
     kw = {"table_shape": table_shape} if table_shape else {}
+    _RESTRICTED_LABELS.add(label)          # before the fetch: the public path refuses its name from now on
     try:
         result = exec_report_spec(label, output_format=output_format, params=params or {}, view_server=server,
                                   view_url=url, user=_token_user(token) or "", user_pass="", token=token,
@@ -271,3 +301,4 @@ def run(token: str, label: str, *, output_format: str, params: Optional[Dict[str
 def _reset_for_tests() -> None:
     invalidate()
     _RESTRICTED_FETCHED.clear()
+    _RESTRICTED_LABELS.clear()

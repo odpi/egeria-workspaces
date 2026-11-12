@@ -467,11 +467,7 @@ def execute_spec(req: ExecuteRequest, request: Request):
     import report_spec_restricted as rsr
     if req.restricted:
         return _execute_restricted(req, token)
-    if rsr.is_restricted_fetch(req.spec_name):
-        # pyegeria keeps a restricted spec fetched for a user in this process by an internal name; that name
-        # is never run on the public path (it would run a definition its zones hide).
-        raise HTTPException(status_code=403, detail="This is a restricted report spec: run it from Report Specs "
-                                                    "while signed in as a user who can see it.")
+    _refuse_fetched_name(req.spec_name)
 
     from report_viewer import reset_viewer, resolve_viewer, set_viewer
     viewer = resolve_viewer(request, req.persona)
@@ -484,6 +480,18 @@ def execute_spec(req: ExecuteRequest, request: Request):
         return _cached_execute(key, req, request, token, url, server, user_id, user_pwd)
     finally:
         reset_viewer(viewer_token)
+
+
+def _refuse_fetched_name(name: str) -> None:
+    """pyegeria keeps a spec fetched for a call in this process under an internal name
+    ("egeria:<label>@v<N>"). On the public path such a name is refused by default: it could name a restricted
+    definition someone else fetched (even while that run is still going). Only a spec of the shared, public
+    tier at exactly that version passes (report_spec_restricted.public_fetched_name_allowed)."""
+    import report_spec_restricted as rsr
+    if not rsr.public_fetched_name_allowed(name):
+        raise HTTPException(status_code=403, detail="This names a report spec fetched for one user's call; it is "
+                                                    "not run here. Run the spec by its name, or a restricted spec "
+                                                    "from Report Specs while signed in as a user who can see it.")
 
 
 def _execute_restricted(req, token):
