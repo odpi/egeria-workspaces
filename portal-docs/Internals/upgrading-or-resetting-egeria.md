@@ -58,6 +58,7 @@ database's size class or the Dockerfile pin has changed since the plan. Make a n
 | `secrets-sync` | While the platform is stopped: copies `compose-configs/egeria-quickstart/secrets/*.omsecrets` into `runtime-volumes/quickstart-platform-data/secrets` in place. Prints accounts added, removed or changed **by name only**. Files that are not in the compose secrets (e.g. `resource-explorer.omsecrets`) are kept | New accounts (such as `olpgpubnpa`) reach the platform; a value never reaches a terminal or a log. Done **before** the recreate so the new container mounts the final files |
 | `recreate` | `docker compose … up -d --no-deps --force-recreate egeria-main`, checks the running image is the one just built, then checks the container sees the same secrets files as the host and restarts it **once** if its bind mount is stale | **Never `docker start`**: on 2026-11-11, `reset-egeria-db.sh` restarted the old container, which kept the old image. The one restart happens while Egeria is still starting, before the Portal's heal can begin: a restart mid-heal could half-run a batch that is not safe to re-run |
 | `heal-wait` | Polls `/api/bootstrap/status` until the heal has finished **and** a monitor pass started at least 600 s after the last heal ended. Then lists ERROR lines from the Portal's `pyegeria.log` and its rotated zips since the recreate | An early read of `present` is stale. Canaries still missing fail the step |
+| `report-spec-sync` | `POST /api/report-specs/sync` on the Portal, then waits for the sync and requires the consumer index to come back "read". Not run-once: it writes only the Portal's own cache, never Egeria, so it is safe to repeat. A Portal that wants an administrator answers 401/403: the step is *needs a person*, with the remedy | The Portal syncs report specs at its own startup; a sync during the restart leaves **Used by** "not read" (2026-11-12) |
 | `unfreeze` | Restarts RE and EA through their **launcher scripts** (default `~/.re-gate/start-8813.sh` and `~/.re-gate/start-ea-8880.sh`; `plan --launcher PORT=PATH` or `EGERIA_RESET_LAUNCHER_<port>` to change), run from the script's folder, and waits for their ports. A writer with no usable launcher is **not** restarted: the step is marked *needs a person* and prints the command it ran with; the rest of the run goes on, and `apply` exits 3. Prints the RE recovery command | The launchers set the environment RE and EA need; replaying a recorded command line would lose it. RE recovery (re-attaching RE's Egeria links) is Part 3; until it exists, follow trellis `docs/egeria-operations.md` §8.1 |
 | `verify` | Read-only, each **PASS / FAIL / NOT MEASURED** with evidence (below) | |
 | `record` | Writes a row to Postgres `coco_pharma.demo.egeria_resets` and prints a HANDOFF-ready summary | The Portal's "Last Egeria reset" panel |
@@ -87,11 +88,17 @@ database's size class or the Dockerfile pin has changed since the plan. Make a n
 - **Shared infrastructure:** one line per service of `compose-configs/shared-infra/shared-infra.yaml`
   (see *The shared-infrastructure check* below). A FAIL fails verify; WARN and EXPECTED STOPPED are
   reported and don't; the latest OpenLineage event is information only.
+- **Report-spec consumer index:** read-only (`GET /api/report-specs/sync`, which starts nothing): the last sync's
+  consumer index is "read" and the sync finished after `quickstart-egeria-main` started. Otherwise FAIL, with the
+  remedy: re-sync report specs (Report Specs → Sync from Egeria as an administrator, or `POST /api/report-specs/sync`),
+  or wait for the Portal's self-heal. NOT MEASURED when the status or the start time cannot be read.
 - **10 minutes of watching:** connections to the `egeria` database, sampled every minute (the leak
   shows as `idle in transaction` climbing), and authentication failures in the platform log:
   `UNAUTHORIZED` / `NOT_AUTHORIZED`, an Egeria `-401-NNN` message code, or `401` as a number of its own.
   A `401` inside a GUID (`aee401cf-…`) or a timestamp's milliseconds is not one (2026-11-12: that read as
   a false FAIL). The evidence quotes the first three lines found.
+
+**After any egeria-main restart: re-sync report specs** (Egeria Explorer → Report Specs → **Sync from Egeria**, as an administrator, or `POST /api/report-specs/sync`), or wait for the Portal's self-heal: while the consumer index is "not read" it syncs again at most every 2 minutes, on the next Report Specs or publish request. A sync that ran while Egeria was restarting leaves **Used by** "not read" (2026-11-12).
 
 ## The Portal's "Last Egeria reset" panel
 

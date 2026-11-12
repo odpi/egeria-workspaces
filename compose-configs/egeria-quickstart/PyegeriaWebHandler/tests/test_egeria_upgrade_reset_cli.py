@@ -88,6 +88,8 @@ class FakeRunner(m.Runner):
         if j.startswith("docker inspect quickstart-egeria-main --format {{index"):
             wd = self.deploy / "compose-configs" / "egeria-quickstart"
             return R(0, f"egeria-quickstart|{wd}/egeria-quickstart.yaml,{wd}/egeria-quickstart-local.yaml|{wd}|{self.running_image}\n")
+        if j.startswith("docker inspect quickstart-egeria-main --format {{.State.StartedAt}}"):
+            return R(0, "2026-11-12T16:59:47.123456789Z\n")
         if j.startswith("docker inspect quickstart-egeria-main --format {{.State.Running}}"):
             return R(0, "false\n")
         if j.startswith("docker inspect egeria-shared-postgres"):
@@ -142,9 +144,16 @@ class FakeHttp:
         self.status = {"reinitializing": False, "lastCheckAt": None, "families": {}}
         self.purposes = {"purposes": {f"T{i}": "GOVERNANCE" for i in range(94)}, "serverReportsPurpose": True}
         self.find_count = 1
+        # the Portal's report-spec sync (POST to start, GET for the outcome)
+        self.sync_post = 200
+        self.sync_post_body = {"started": True, "already_running": False}
+        self.sync = {"running": False, "outcome": "synced", "finished_at": "2099-01-01T00:00:00+00:00",
+                     "error": None, "report": {"consumers": {"status": "read", "consumers": 2, "labels": 7}}}
 
     def request(self, method, url, body=None, headers=None, timeout=30):
         self.calls.append((method, url))
+        if url.endswith("/api/report-specs/sync"):
+            return (self.sync_post, self.sync_post_body) if method == "POST" else (200, self.sync)
         if url.endswith("/api/bootstrap/status"):
             return 200, self.status
         if url.endswith("/api/bootstrap/batches"):
@@ -717,3 +726,93 @@ def test_the_watch_passes_on_guids_and_fails_on_a_real_401(world):
     logs["text"] += REAL[0] + "\n"
     verdict, evidence = m._watch(env, 0, 60)
     assert verdict == "FAIL" and "1 authentication-failure lines" in evidence and "OMAG-USER-SECURITY-401-001" in evidence
+
+
+
+# ── report specs after the restart (BRIEF-CDO-SHEET-TABLE-2026-11-12 sec. 5) ────────────
+
+def test_report_spec_sync_step_runs_after_heal_wait_and_the_index_is_read(world):
+    assert m.STEPS.index("heal-wait") < m.STEPS.index("report-spec-sync") < m.STEPS.index("verify")
+    assert "report-spec-sync" not in m.RUN_ONCE                 # only the Portal's cache: safe to repeat
+    run_dir = _plan(world)
+    assert m.apply(world["env"], str(run_dir)) == 0
+    st = _state(run_dir)
+    ev = st["steps"]["report-spec-sync"]["evidence"]
+    assert ev == {"outcome": "synced", "finishedAt": "2099-01-01T00:00:00+00:00", "alreadyRunning": False,
+                  "consumerIndex": "read", "consumers": 2, "specs": 7}
+    assert ("POST", m.PORTAL_URL + "/api/report-specs/sync") in world["http"].calls
+    checks = {c["check"]: c for c in st["steps"]["verify"]["evidence"]["checks"]}
+    assert checks["report-spec consumer index"]["verdict"] == "PASS"
+    assert "egeria-main started 2026-11-12T16:59:47" in checks["report-spec consumer index"]["evidence"]
+
+
+def test_report_spec_sync_with_an_unread_index_fails_with_the_remedy(world):
+    world["http"].sync.update(outcome="index_not_read", error="the consumer index was not read: root not found",
+                              report={"consumers": {"status": "not read", "consumers": 0, "labels": 0}})
+    run_dir = _plan(world)
+    m.apply(world["env"], str(run_dir))
+    step = _state(run_dir)["steps"]["report-spec-sync"]
+    assert step["status"] == "failed" and "index_not_read" in step["error"]
+    assert "POST /api/report-specs/sync on the Portal as an administrator" in step["error"]
+
+
+def test_report_spec_sync_refused_needs_a_person(world):
+    world["http"].sync_post = 403
+    run_dir = _plan(world)
+    m.apply(world["env"], str(run_dir))
+    st = _state(run_dir)
+    assert st["steps"]["report-spec-sync"]["status"] == "needs a person"
+    assert st["steps"]["verify"]["status"] == "done"            # the run goes on
+
+
+def _verdict(world, **sync):
+    world["http"].sync.update(sync)
+    return m.report_spec_index_verdict(world["env"])
+
+
+def test_verify_index_read_after_the_start_passes(world):
+    v, ev = _verdict(world)
+    assert v == "PASS" and "read (2 consumer folders, 7 specs)" in ev
+
+
+def test_verify_index_not_read_fails_with_the_remedy(world):
+    v, ev = _verdict(world, report={"consumers": {"status": "not read", "reason": "root not visible"}})
+    assert v == "FAIL" and "the consumer index is 'not read' (root not visible)" in ev
+    assert "Remedy: re-sync report specs" in ev
+
+
+def test_verify_index_read_before_the_restart_fails(world):
+    v, ev = _verdict(world, finished_at="2026-11-12T16:00:00+00:00")
+    assert v == "FAIL" and "read before quickstart-egeria-main last started" in ev and "Remedy" in ev
+
+
+def test_verify_without_an_answer_is_not_measured(world, monkeypatch):
+    v, ev = _verdict(world, report=None)
+    assert v == "NOT MEASURED" and "says nothing about the consumer index" in ev
+    orig = world["http"].request
+    world["http"].request = lambda method, url, **k: (502, "bad gateway") if url.endswith("/sync") else orig(method, url, **k)
+    v, ev = m.report_spec_index_verdict(world["env"])
+    assert v == "NOT MEASURED" and "HTTP 502" in ev
+
+
+def test_verify_check_is_read_only(world):
+    world["http"].calls.clear()
+    m.report_spec_index_verdict(world["env"])
+    assert world["http"].calls == [("GET", m.PORTAL_URL + "/api/report-specs/sync")]
+
+
+@pytest.mark.parametrize("raw,expected", [
+    ("2026-11-12T16:59:47.123456789Z", "2026-11-12T16:59:47"), ("2026-11-12T16:59:47Z", "2026-11-12T16:59:47"),
+    ("0001-01-01T00:00:00Z", None), ("", None), ("garbage", None)])
+def test_docker_start_times(raw, expected):
+    t = m._docker_time(raw)
+    assert (m.iso(t)[:19] if t is not None else None) == expected
+
+
+
+def test_report_spec_sync_records_a_run_it_did_not_start(world):
+    world["http"].sync_post_body = {"started": False, "already_running": True}
+    run_dir = _plan(world)
+    assert m.apply(world["env"], str(run_dir)) == 0
+    ev = _state(run_dir)["steps"]["report-spec-sync"]["evidence"]
+    assert ev["alreadyRunning"] is True and ev["consumerIndex"] == "read"

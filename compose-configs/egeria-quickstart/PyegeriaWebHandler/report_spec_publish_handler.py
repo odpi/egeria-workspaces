@@ -53,7 +53,7 @@ RESTRICTED_LATER = ("'{label}' is held in Egeria with zones ({zones}): restricte
 NOT_HELD = "'{label}' is not held in Egeria, so there is nothing to withdraw."
 SIGN_IN = "Sign in to publish or withdraw a report spec: it runs as you, never as the Portal's service account."
 NO_FOLDERS = ("The consumer folders were not read ({reason}), so there is nowhere to publish to yet. "
-              "Run the report-spec sync first.")
+              "Run the report-spec sync, or wait: the Portal tries again every 2 minutes.")
 PUBLISH_REFUSED_FALLBACK = "pyegeria refused the request (no reason was given)."
 STALE = ("'{label}' changed in Egeria since the Portal's last sync (Egeria has version {live}, the Portal's copy "
          "is version {cached}). Publishing would write the older copy back: sync first, then publish.")
@@ -192,6 +192,12 @@ def _after_success(label: str) -> Dict[str, Any]:
 def _folder_qn(folder: str) -> tuple[str, List[str]]:
     idx = _consumers()
     if (idx.get("status") or "not read") == "not read":
+        try:                                   # heal it for the next try (at most every 2 minutes)
+            import report_spec_sync
+            report_spec_sync.retry_if_index_not_read("not read", supported=idx.get("supported", True),
+                                                     reason=idx.get("reason"))
+        except Exception:  # noqa: BLE001
+            pass
         raise Refused(NO_FOLDERS.format(reason=idx.get("reason") or "no reason given"), 409)
     names = {c.get("name"): c.get("qualifiedName") for c in idx.get("consumers") or [] if c.get("qualifiedName")}
     if folder not in names:

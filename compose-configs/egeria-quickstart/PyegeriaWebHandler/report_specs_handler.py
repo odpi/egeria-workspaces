@@ -263,6 +263,9 @@ def _egeria_held_summary(source_counts: dict, request: Optional[Request] = None)
         message = "None held in Egeria: the configured folders were not found in Egeria (or are not visible to the Portal's user)"
     elif outcome == "not_configured":
         message = "None held in Egeria: no report spec folders were configured when the last sync ran"
+    elif outcome == "index_not_read":
+        message = ("None held in Egeria yet: the last sync could not read the consumer folders; it is tried "
+                   "again (at most every 2 minutes)")
     elif outcome == "already_running":
         message = "None held in Egeria yet: another process was syncing this cache; try again shortly"
     else:
@@ -309,6 +312,14 @@ def get_report_specs(
     statuses = _spec_statuses()
     user_labels = _user_labels()
     consumers = report_spec_consumers.index()
+    # The consumer index can be "not read" after an egeria-main restart the Portal never saw: sync again,
+    # at most every 2 minutes (report_spec_sync.retry_if_index_not_read). Never blocks this listing.
+    try:
+        import report_spec_sync
+        report_spec_sync.retry_if_index_not_read(consumers.get("status"), supported=consumers.get("supported", True),
+                                                 reason=consumers.get("reason"))
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"report specs: lazy sync not started: {exc}")
 
     # The list stays the registry's names (RS-W2-4). A spec that shadows a lower-tier copy says so
     # on its own row (`shadows`), and that copy stays runnable as "builtin:<name>" / "egeria:<name>".
