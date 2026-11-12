@@ -167,7 +167,7 @@ def test_chip_row_says_each_state(page):
     assert _render(page, {"usedBy": [], "usedByState": "partial", "usedByReason": "x"}) == "Used by: none found (partly read)"
     # The reason is said once in the sidebar; on each spec it is a tooltip.
     assert _render(page, {"usedBy": None, "usedByState": "not read", "usedByReason": "no sync yet"}) == "Used by: not read"
-    assert "'Consumers not read' + (spec.usedByReason ? ': ' + spec.usedByReason : '')" in page.read_text()
+    assert "'Used by: not read' + (spec.usedByReason ? ' (' + spec.usedByReason + ')' : '')" in page.read_text()
     assert _render(page, {"usedBy": None, "usedByState": "not tracked"}) == "Used by: not tracked"
     assert _render(page, {"name": "older API"}) == ""
 
@@ -178,7 +178,20 @@ def test_view_wires_the_chip_row_and_the_consumer_filter(page):
         pytest.skip(f"{page} not in this checkout")
     text = page.read_text()
     assert "React.createElement(RsUsedBy, { spec: spec })" in text
-    assert "'aria-label': 'Filter by consumer'" in text
+    assert "'aria-label': 'Filter by tool (Used by)'" in text
+    assert "'Used by: any tool' + (consumersInfo.status === 'partial' ? ' (partly read)' : '')" in text
     assert "'Used by none (' + consumerCounts.__none__ + ')'" in text
-    assert "'Consumers: not read'" in text  # the sidebar says not read instead of an empty filter
+    assert "'Used by: not read'" in text  # the sidebar says not read instead of an empty filter
+    for old in ("All consumers", "Filter by consumer", "Consumers: not read", "Consumers not read",
+                "Consumers partly read"):
+        assert old not in text, old
     assert "consumerFilter]);" in text       # the filter is a dependency of the filtered list
+
+
+
+def test_run_status_filter_wording():
+    """Owner, 2026-11-12: "Any run status / tool"."""
+    text = (HERE / "type-explorer.html").read_text()
+    assert "'aria-label': 'Filter by run status'" in text
+    assert "React.createElement('option', { value: '' }, 'Any run status')" in text
+    assert "All resolutions" not in text and "Filter by resolution" not in text
