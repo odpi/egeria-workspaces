@@ -117,6 +117,12 @@ def test_every_local_dashboards_path_goes_through_render_exec_result():
 def test_run_report_panel_wraps_every_result_kind_with_notes():
     body = TE[TE.index("var notesHtml = (NM && NM.resultNotesHtml)"):]
     body = body[:body.index("\n  return React.createElement('div', { className: 'detail'")]
+    # A structured TABLE (kind "table", P1b) lists the notes in its own footer (egeria-table.js), so it is
+    # the one branch not wrapped: wrapping it would show every note twice.
+    start = body.index("if (execResult.kind === 'table' && window.EgeriaTable) {")
+    end = body.index("if (execResult.kind === 'json') {", start)
+    table_branch, body = body[start:end], body[:start] + body[end:]
+    assert "withNotes(" not in table_branch and "EgeriaTable.renderHtml(execResult" in table_branch
     returns = re.findall(r"^\s*(?:if \([^)]*\) )?return (.*)$", body, re.M)
     real = [r for r in returns if not r.startswith("notesHtml ?")]   # skip withNotes' own body
     assert real and all(r.startswith("withNotes(") for r in real), real

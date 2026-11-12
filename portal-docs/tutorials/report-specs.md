@@ -377,8 +377,8 @@ related elements are joined).
 |---|---|---|
 | `render` | How the value is drawn: `text`, `join`, `bullets`, `kv` (key/value), `subtable`, `count` or `link` | from the value's kind |
 | `max_items` | List items shown before "+N more" | 10 |
-| `max_lines` | Lines of long text shown before it is cut with "…". The terminal table applies it today; the Portal will once it uses the structured table. REPORT and LIST are documents and are not cut | 3 |
-| `label` | Which name a related element shows in text outputs: `qualified_name` or `display_name` | `qualified_name` |
+| `max_lines` | Lines of long text shown before it is cut: with "…" in the terminal table, and with a **more** / **less** toggle in the Portal's TABLE. REPORT and LIST are documents and are not cut | 3 |
+| `label` | Which name a related element shows in text outputs: `qualified_name` or `display_name`. The Portal's TABLE shows the display name unless the column says `qualified_name`, and always puts the qualified name in the tooltip | `qualified_name` (text outputs) |
 
 Example: a risk register where the implications are a list, the authors are names, and the description
 is long:
@@ -434,8 +434,9 @@ the values themselves, rather than strings, asks for them:
   [m["displayName"] for m in r["data"][0]["members"]]
   ```
 
-Neither is a spec setting: the program that calls asks for it. The Portal and Egeria Advisor still use
-the default shapes; they will switch to the structured table in a later release.
+Neither is a spec setting: the program that calls asks for it. **The Portal asks for the structured table
+for every TABLE** (Local Dashboards placements and Report Specs → Run), see C6. Egeria Advisor still uses
+the default shapes and will switch to the same renderer.
 
 ### C5. DOCUMENT output and the DCAT catalog
 
@@ -460,6 +461,42 @@ The Portal has no viewer for DOCUMENT results yet: run them with `run_report` or
 (`exec_report_spec(name, output_format="DOCUMENT", params=...)`).
 
 ---
+
+### C6. How the Portal draws a TABLE
+
+A **TABLE** in Local Dashboards, or from **Report Specs → Run**, is drawn in the browser from the
+structured table (C4), by one shared renderer (`static/egeria-table.js`; Egeria Advisor will use the same
+file). Each column is drawn by its `render` (C3):
+
+| render | In the Portal |
+|---|---|
+| `text` | the text; long text shows its first 3 lines (`max_lines`) and a **more** / **less** toggle. A line break in the value is kept |
+| `join` | names separated by commas; past `max_items` (10) a **+N more** that opens to the rest |
+| `bullets` | a bulleted list in the cell (the rest behind **+N more**, past `max_items`) |
+| `kv` | a small two-column key/value table in the cell |
+| `subtable` | **▸ N rows** in the cell; clicking it opens a table under the row, titled "*row* · *column*" |
+| `count` | the number, with the first names as a tooltip |
+| `link` | the element's name as a link |
+
+Related elements show their display name, with the qualified name as the tooltip, and link to The
+Catalog, which opens the element's own view (or says that there is none).
+
+What the table says, and never hides:
+
+- **No column limit.** A wide table scrolls sideways, in the author's column order. Every column edge can
+  be dragged to resize it, and cell text wraps.
+- **Every row the result carries.** pyegeria pages; the footer says how many there are:
+  "First 100; more may exist." when the query filled its page, "First N of M." when more were counted,
+  and "N rows (one page; Egeria doesn't promise it is the last)." for a single short page (Egeria only
+  promises that an empty page is the last).
+- **Every note** pyegeria sent, and every note of the renderer, listed under the table.
+- **"none"** in a relationship cell means it was read and there is none; a dash means no value in that
+  row (the notes say "not read" where the relationship was not asked for).
+- **Two levels at most.** Something nested inside a sub-table shows as a count and names, with a note.
+- Values are text: markdown in a cell is not interpreted (a `<br>` in a text cell is a line break).
+
+DICT and JSON results are drawn as before (a table of up to 200 rows and 20 columns, with the rest
+named).
 
 ## Troubleshooting
 

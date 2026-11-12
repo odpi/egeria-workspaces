@@ -594,6 +594,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   <script>window.EGERIA_FOR_LINEAGE = true; window.EGERIA_FOR_LINEAGE_VISIBLE = false;  /* shown per-section by App */</script>
   <script src="/static/egeria-shared-ui.js?v=2026-11-11d"></script>
   <script src="/static/egeria-not-measured.js?v=2026-11-11a"></script>
+  <script src="/static/egeria-table.js?v=2026-11-12a"></script>
   <script>"use strict";
 
 const {
@@ -2815,6 +2816,8 @@ function ReportSpecDetail({ spec, onSelectSpec, portalSupply }) {
         var v = e[1]; return Array.isArray(v) ? v.length > 0 : v !== '';
       })),
     };
+    // TABLE asks for pyegeria's structured TABLE (kind "table"), rendered by static/egeria-table.js.
+    if (actualFmt === 'TABLE' && window.EgeriaTable) body.table_shape = 'structured';
     if (creds.url)      body.url      = creds.url;
     if (creds.server)   body.server   = creds.server;
     if (creds.userId)   body.user_id  = creds.userId;
@@ -2875,6 +2878,21 @@ function ReportSpecDetail({ spec, onSelectSpec, portalSupply }) {
       return withNotes(React.createElement('div', { style: { fontSize: 13, lineHeight: 1.6 } },
         React.createElement(SmartReportRenderer, { content: execResult.content })
       ));
+    }
+    // The structured TABLE: no column cap (it scrolls), every row, and its footer says "first N of M" /
+    // "more may exist" and lists pyegeria's notes itself (so no withNotes). Related elements link to
+    // The Catalog's ?guid= resolver.
+    if (execResult.kind === 'table' && window.EgeriaTable) {
+      return React.createElement('div', null,
+        React.createElement('div', {
+          dangerouslySetInnerHTML: { __html: window.EgeriaTable.renderHtml(execResult, { linkBuilder: function(el) {
+            return el && el.guid ? '/tech-catalog?guid=' + encodeURIComponent(el.guid) : null; } }) },
+          ref: function(el) {
+            if (!el) return;
+            if (!el.__etDetach) el.__etDetach = window.EgeriaTable.attach(el);
+            window.EgeriaTable.trim(el);
+          } }),
+        footnote);
     }
     if (execResult.kind === 'json') {
       var rawData = execResult.data;

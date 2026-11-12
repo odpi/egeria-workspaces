@@ -23,6 +23,9 @@
  *                                           subtable rows inside root; returns
  *                                           a function that unwires them
  *   EgeriaTable.render(result, opts)     -> a <div> (needs a DOM), attached
+ *   EgeriaTable.trim(root)               -> hide "more" where text was not cut
+ *                                           (for a page that attached once, at
+ *                                           its body, and renders tables later)
  *   EgeriaTable.CSS                       -> the stylesheet (injected once by
  *                                           attach/render; ensureStyles(doc))
  *
@@ -160,8 +163,13 @@
     return String(v);                 // 0 stays "0": never dropped
   }
 
+  // A column's `label` (pyegeria Column.label / related_label) names which name an element shows:
+  // "qualified_name" or "display_name"; an element's own key (e.g. "qualifiedName") also works.
+  var LABEL_KEYS = { qualified_name: 'qualifiedName', display_name: 'displayName' };
+
   function nameOf(item, labelKey) {
     if (!isObj(item)) return scalarText(item);
+    if (labelKey && LABEL_KEYS[labelKey]) labelKey = LABEL_KEYS[labelKey];
     var n = (labelKey && item[labelKey]) || item.displayName || item.name || item.qualifiedName ||
             item['Display Name'] || item['Qualified Name'];
     return n ? String(n) : '(unnamed)';
@@ -489,7 +497,10 @@
     var btn = closestAttr(ev.target, 'data-et-sub', root);
     if (btn) {
       var id = btn.getAttribute('data-et-sub');
-      var tr = root.querySelector('tr[data-et-sub-row="' + id + '"]');
+      // Sub-row ids restart in every rendered table, so look only inside the
+      // table this button belongs to (a page may attach once, at its body).
+      var scope = closestAttr(btn, 'data-et-table', null) || root;
+      var tr = scope.querySelector('tr[data-et-sub-row="' + id + '"]');
       if (!tr) return;
       var opened = btn.getAttribute('aria-expanded') === 'true';
       if (opened) tr.setAttribute('hidden', ''); else tr.removeAttribute('hidden');
@@ -532,6 +543,7 @@
 
   return {
     renderHtml: renderHtml, attach: attach, render: render, ensureStyles: ensureStyles, CSS: CSS,
+    trim: trimToggles,
     esc: esc, DEFAULT_MAX_ITEMS: DEFAULT_MAX_ITEMS, DEFAULT_MAX_LINES: DEFAULT_MAX_LINES,
   };
 }));

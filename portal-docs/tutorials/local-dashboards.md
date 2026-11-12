@@ -639,6 +639,15 @@ says Egeria was not written, the sheet is only in a local file — check that
   LIST table cell as bullets, one per line, and a property map as one
   `key: value` per line. The Portal shows these as line breaks. Nothing else
   in a cell is treated as HTML.
+- **A TABLE placement is drawn from pyegeria's structured table** (from
+  2026-11-12). Lists show as bullets in the cell, names are joined (with
+  "+N more" past ten), long text shows three lines and a **more** toggle, and
+  a sub-table opens under its row with **▸ N rows**. There is no column limit
+  (the table scrolls sideways) and every row is shown; the footer says
+  "First 100; more may exist.", "First N of M." or "N rows (one page; Egeria
+  doesn't promise it is the last)." and lists pyegeria's notes. Related
+  elements link to The Catalog. See
+  [Report Specs, C6](report-specs.md#c6-how-the-portal-draws-a-table).
 - **Nothing is cut silently.**
   - A DICT/JSON table shows up to 200 rows and 20 columns. Past that it says
     "+N more rows", and names the hidden columns: "+2 more columns:
@@ -655,7 +664,8 @@ says Egeria was not written, the sheet is only in a local file — check that
   per line, on every tile and in the drill-down drawer. The most common is
   for a query that filled its page: "Showing the first 100: the query
   stopped at its page size of 100; more may exist." A LIST or REPORT tile
-  already has that line in its text and does not repeat it.
+  already has that line in its text and does not repeat it, and a TABLE
+  lists the notes in its own footer.
 
 See [Report Specs, Part C](report-specs.md#part-c-how-a-specs-output-looks)
 for what changed in pyegeria 6.2.37 and how a column can choose bullets,
