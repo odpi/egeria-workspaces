@@ -150,6 +150,20 @@ Two refusals you may meet on pyegeria 6.2.28:
 - **`*` with no type, or with `OpenMetadataRoot` or `Referenceable`** is refused (`give a search string or a narrower type`). `*` with a real type lists at most 100 elements of that type per call.
 - **A find method that is not on the allowlist** is refused with words. Specs held in Egeria may name only the find methods on pyegeria's positive allowlist (`FIND_METHOD_ALLOWLIST`), whatever the method's prefix. Each spec's source is shown with a badge (see [Where a report spec comes from](#where-a-report-spec-comes-from)); on 2026-11-10 the quickstart had 437 built-in specs and 2 held in Egeria.
 
+### What a result looks like (pyegeria 6.2.37)
+
+- **Markdown output** (LIST, REPORT, MD) is drawn as formatted text. pyegeria 6.2.37 puts each item of a list,
+  and each `key: value` pair of a map, on its own line inside a LIST table cell (`<br>`); the Portal shows these
+  as line breaks and treats nothing else in a cell as HTML.
+- **Classifications** read "A, B"; **`False` and `0`** are shown, not dropped.
+- **A capped query** says "Showing the first 100: the query stopped at its page size of 100; more may exist."
+  In markdown output it is a line in the text; in DICT and TABLE results it is in a `notes` list beside the
+  rows, which the Run Report panel shows under the result (as it does every note pyegeria returns).
+- **DOCUMENT** specs (for example *DCAT Catalog*) have no viewer in the Portal yet; run them with `run_report`.
+
+Which output type to pick, how a column can choose bullets, names or a count, and the opt-in structured
+shapes: [Report Specs, Part C](../tutorials/report-specs.md#part-c-how-a-specs-output-looks).
+
 ### Technology parameter and type filters
 
 pyegeria 6.2.28 made the generic-search `*-DrE-*` specs name their type. The nine technology commands (Kafka, Postgres server and database, the Unity Catalog elements) take an optional run parameter **`deployed_implementation_type`**. The default is the spec's own technology (an exact match, ignoring case). Set it to `*` to search every element of the type, whatever its technology; any other value is an exact match on that technology, ignoring case. On pyegeria 6.2.28 these specs are slow, about 18 s a run; a fix is planned. You see it under *Optional Parameters* in the Run panel, and as a parameter in the Resolution table.
@@ -199,7 +213,7 @@ the tool that uses them: the root collection `RootCollection::ReportSpecs` holds
 folder publishes it to that tool. A spec can be in several folders. (Until November 2026 the Portal's folder was
 named `ReportSpecFolder::EgeriaPortal`; it is the same folder, renamed.) With pyegeria after 6.2.32, a tool's folder can hold sub-folders for its own grouping, and the sync follows them
 (at most 5 levels down, reading each folder once; never up to the root or into another tool's folder). pyegeria
-6.2.32, which the quickstart runs on 2026-11-10, reads only the folder's direct members. A banner at the top of the Report Specs view lists those folders and
+6.2.32 and earlier read only the folder's direct members. A banner at the top of the Report Specs view lists those folders and
 says how many specs are held in Egeria. When there are none it says why, for example:
 
 - *None held in Egeria: no report spec folders are configured for this Portal (PYEGERIA_REPORT_SPEC_FOLDERS)*
@@ -226,7 +240,8 @@ held in Egeria that no consumer folder holds, which is useful when curating. The
 - *Used by: not read (reason)*: the Portal could not read the consumer folders (no sync has run yet, the root
   `RootCollection::ReportSpecs` is not visible to the Portal's user, or the installed pyegeria is older than
   the release that reads them). The sidebar says the same instead of offering the filter. With pyegeria 6.2.32
-  (the quickstart on 2026-11-10) every spec says *Used by: not read*; hover it for the reason.
+  or earlier every spec says *Used by: not read*; hover it for the reason. pyegeria 6.2.33 and later read the
+  consumer index.
 - *Used by: not tracked*: a built-in or Portal (local) spec. Built-in specs live in pyegeria, not in Egeria, so
   they cannot be folder members yet.
 
@@ -391,6 +406,17 @@ browser remembers any group you close, for every panel and app.
 If the Egeria server doesn't report classification purposes (older servers), the lists stay flat and say
 *"This Egeria server doesn't report classification purposes, so classifications aren't grouped."* If the
 purpose lookup fails, panels show the flat list without that message.
+
+### The type API
+
+The Type Explorer reads `GET /api/types`. Pages that only need purposes read
+`GET /api/types/relationship-purposes` or `GET /api/types/classification-purposes`, each returning
+`{purposes: {type name: purpose or null}, serverReportsPurpose}`; the classification map also returns
+`unrecognised: {type name: value}` for a purpose this Portal does not know yet.
+
+These routes, and `GET /api/types/names`, **do not take a `user_id` parameter** (since 2026-11-11). They read
+Egeria with your Egeria sign-in token, or the Portal's service account when there is none. Before, a
+`user_id` in the URL could sign in as any demo persona with the shared demo password.
 
 ---
 

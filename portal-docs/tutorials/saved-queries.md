@@ -399,8 +399,9 @@ output : count
 `mode: cached` reads the `ResultsSet` the last refresh filled, "as of" that
 refresh; `mode: live` runs the stored request now, as the viewer. `output` is
 `count` (a number) or `list` (the elements). On the Portal's tile use `count`:
-the tile shows an analytic result as a one-row table of its first eight keys,
-and a list's elements are not among them.
+the tile shows an analytic result as a one-row table of its keys (up to 20,
+naming any more under the table), and a list of elements in one cell is hard
+to read.
 
 The whole worked example is the seed file
 [`LOCAL_DASHBOARDS_SAVED_QUERY_TILE.dr-egeria.md`](https://github.com/odpi/egeria-workspaces/blob/main/exchange-quickstart/loading-bay/dr-egeria-inbox/Useful%20Dashboards/LOCAL_DASHBOARDS_SAVED_QUERY_TILE.dr-egeria.md).
