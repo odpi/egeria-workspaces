@@ -23,8 +23,10 @@
 > - Every value seen when the tiles were checked is recorded in the PR, not here (the data changes).
 >
 > **This is a shared Egeria write.** Run `--validate` first; run `--process` once, under the shared-write peer
-> check. It is also the *Useful Dashboards* data-initialization batch (`_batch.json` in this folder), whose
-> canary is the Catalog Health sheet's Dashboard element.
+> check. It is also the *Useful Dashboards* data-initialization batch (`_batch.json` in this folder), on by
+> default, whose canary is the last element the batch creates: the `catalog-health` placement of the
+> "Assets with No Lineage" tile (from `LOCAL_DASHBOARDS_SAVED_QUERY_TILE.dr-egeria.md`). A batch that stops
+> part-way therefore shows as not healed.
 >
 > **Undo:** for each sheet, `python -m pyegeria.view.dashboards delete --sheet <name> --dry-run`, then without
 > `--dry-run` (removes the sheet's chain only). The Reports stay; delete them only if asked.

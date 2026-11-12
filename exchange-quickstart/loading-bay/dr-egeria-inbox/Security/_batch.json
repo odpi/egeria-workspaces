@@ -1,0 +1,13 @@
+{
+  "displayName": "Security references",
+  "description": "External references to security guidance for Egeria's keeping-safe solutions. One Create External Reference with a qualified name, which is an upsert, so a re-run is safe.",
+  "canary": {
+    "type": "ExternalReference",
+    "name": "Guidelines for API Protection of Cloud-Native Systems"
+  },
+  "defaultEnabled": true,
+  "idempotent": true,
+  "files": [
+    "security-references.md"
+  ]
+}
