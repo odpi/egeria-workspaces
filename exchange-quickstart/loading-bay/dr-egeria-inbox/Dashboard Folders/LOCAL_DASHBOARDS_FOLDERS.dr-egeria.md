@@ -32,8 +32,9 @@
 > **Why `Add Member`, never `Parent ID`.** On a command that ends as an Update, Dr.Egeria's `Parent ID`
 > handling can delete an unrelated CollectionMembership of the element before linking the parent.
 >
-> **Run it once.** `Add Member to Collection` does not dedupe: a second run adds a second membership for each
-> link. (The root and folders carry explicit Qualified Names, so they alone would be updated in place.) The
+> **Re-running is safe.** `Add Member to Collection` updates an existing membership instead of adding a second
+> one (Egeria `CollectionHandler.addToCollection`, CollectionHandler.java:2309–2322 at origin/main 0f5bf00c; it sees only memberships the running user can see), and the root and folders carry explicit
+> Qualified Names, so they are updated in place. (Corrected 2026-11-12: this said Add Member does not dedupe.) The
 > batch's canary, the root, prevents heal re-runs: a heal runs this file only when the root is missing.
 >
 > **This is a shared Egeria write.** Run `--validate` first; `--process` once, under the peer check.

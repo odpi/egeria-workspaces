@@ -1,0 +1,223 @@
+{
+ "_about": "`docker inspect` of the six shared-infra containers on laz, read-only, 2026-11-12 ~12:35Z; trimmed to Id, Name, Image, State, HostConfig.RestartPolicy and Config.Image/compose labels (no environment). The checkout path is __CHECKOUT__; kroki's label names a temporary compose file that no longer exists (__SCRATCH__).",
+ "containers": {
+  "egeria-shared-openlineage-proxy-backend": {
+   "Id": "2e7d22d80943",
+   "Name": "/egeria-shared-openlineage-proxy-backend",
+   "Image": "sha256:dee0b8388d03d4044585793c8ae0bbbd7e507b10f6234dd4d2ef0e01c4976454",
+   "State": {
+    "Status": "running",
+    "Running": true,
+    "Restarting": false,
+    "ExitCode": 0,
+    "StartedAt": "2026-11-12T12:21:42.633643513Z",
+    "FinishedAt": "0001-01-01T00:00:00Z"
+   },
+   "HostConfig": {
+    "RestartPolicy": {
+     "Name": "always",
+     "MaximumRetryCount": 0
+    }
+   },
+   "Config": {
+    "Image": "egeria-shared-infra-proxy:latest",
+    "Labels": {
+     "com.docker.compose.config-hash": "b3845ca7984bd32d825c403710cb9ccf446e71bb9f4bdcfb5548c3ccadeb54c2",
+     "com.docker.compose.container-number": "1",
+     "com.docker.compose.depends_on": "",
+     "com.docker.compose.image": "sha256:5afd89e5db7ecc848adb0ef880a5c79d3e99c40fb8ca80e0a77d37fdd69741d5",
+     "com.docker.compose.oneoff": "False",
+     "com.docker.compose.project": "egeria-shared-infra",
+     "com.docker.compose.project.config_files": "__CHECKOUT__/compose-configs/shared-infra/shared-infra.yaml",
+     "com.docker.compose.project.working_dir": "__CHECKOUT__/compose-configs/shared-infra",
+     "com.docker.compose.replace": "egeria-shared-openlineage-proxy-backend",
+     "com.docker.compose.service": "proxy",
+     "com.docker.compose.version": "5.5.1"
+    }
+   }
+  },
+  "egeria-shared-kafka": {
+   "Id": "9f0fd56a05e9",
+   "Name": "/egeria-shared-kafka",
+   "Image": "sha256:3bfad519feac67e6bd1ae2b18b3e4770cdf2fedf53ecff7b38a520a7c5d77564",
+   "State": {
+    "Status": "running",
+    "Running": true,
+    "Restarting": false,
+    "ExitCode": 0,
+    "StartedAt": "2026-11-10T19:18:19.335631513Z",
+    "FinishedAt": "0001-01-01T00:00:00Z",
+    "Health": {
+     "Status": "healthy"
+    }
+   },
+   "HostConfig": {
+    "RestartPolicy": {
+     "Name": "always",
+     "MaximumRetryCount": 0
+    }
+   },
+   "Config": {
+    "Image": "docker.io/cleanstart/kafka@sha256:3bfad519feac67e6bd1ae2b18b3e4770cdf2fedf53ecff7b38a520a7c5d77564",
+    "Labels": {
+     "com.docker.compose.config-hash": "b5b0cd4fd6aed370b18c4079d685f906386a234df70424f931a2627410311bba",
+     "com.docker.compose.container-number": "1",
+     "com.docker.compose.depends_on": "",
+     "com.docker.compose.image": "sha256:9d13e86bef804bb33730f170fbde0a2205b03ba671906013867fe526bcdc14c8",
+     "com.docker.compose.oneoff": "False",
+     "com.docker.compose.project": "egeria-shared-infra",
+     "com.docker.compose.project.config_files": "__CHECKOUT__/compose-configs/shared-infra/shared-infra.yaml",
+     "com.docker.compose.project.working_dir": "__CHECKOUT__/compose-configs/shared-infra",
+     "com.docker.compose.replace": "egeria-shared-kafka",
+     "com.docker.compose.service": "kafka",
+     "com.docker.compose.version": "5.5.1",
+     "egeria.autoheal": "true"
+    }
+   }
+  },
+  "egeria-shared-postgres": {
+   "Id": "d8e8dec07b56",
+   "Name": "/egeria-shared-postgres",
+   "Image": "sha256:d2ef61f42ef767baa5a1475393303cc235bcd92febd9d7014eddb48b41f3bad0",
+   "State": {
+    "Status": "running",
+    "Running": true,
+    "Restarting": false,
+    "ExitCode": 0,
+    "StartedAt": "2026-11-10T09:25:45.498428542Z",
+    "FinishedAt": "2026-11-10T08:22:43.100135462Z",
+    "Health": {
+     "Status": "healthy"
+    }
+   },
+   "HostConfig": {
+    "RestartPolicy": {
+     "Name": "always",
+     "MaximumRetryCount": 0
+    }
+   },
+   "Config": {
+    "Image": "docker.io/pgvector/pgvector:pg17",
+    "Labels": {
+     "com.docker.compose.config-hash": "3f1308875ee5650a1e91b92fdf4aaa2cc9b878803b4c8dd35c5dc323677ecfeb",
+     "com.docker.compose.container-number": "1",
+     "com.docker.compose.depends_on": "",
+     "com.docker.compose.image": "sha256:555f6d1b6373d0f50ab7eb83062f0a7214ca17b9e5885fb60aaceeb082d58cb5",
+     "com.docker.compose.oneoff": "False",
+     "com.docker.compose.project": "egeria-shared-infra",
+     "com.docker.compose.project.config_files": "__CHECKOUT__/compose-configs/shared-infra/shared-infra.yaml",
+     "com.docker.compose.project.working_dir": "__CHECKOUT__/compose-configs/shared-infra",
+     "com.docker.compose.replace": "egeria-shared-postgres",
+     "com.docker.compose.service": "postgres",
+     "com.docker.compose.version": "5.5.1"
+    }
+   }
+  },
+  "egeria-shared-kroki": {
+   "Id": "d6a0b80873a4",
+   "Name": "/egeria-shared-kroki",
+   "Image": "sha256:9cdc4aac5f54fabc7f8bb041ea7c4c0f0a0ffa178cc0a31541a6d312daa3731b",
+   "State": {
+    "Status": "running",
+    "Running": true,
+    "Restarting": false,
+    "ExitCode": 0,
+    "StartedAt": "2026-11-10T09:25:45.519881792Z",
+    "FinishedAt": "2026-11-10T08:22:42.621700712Z",
+    "Health": {
+     "Status": "healthy"
+    }
+   },
+   "HostConfig": {
+    "RestartPolicy": {
+     "Name": "unless-stopped",
+     "MaximumRetryCount": 0
+    }
+   },
+   "Config": {
+    "Image": "yuzutech/kroki:latest",
+    "Labels": {
+     "com.docker.compose.config-hash": "0b11d8ba5a0c924edcdd089f1ff293e5efbbe44c8d4594a9dba1cd40127b44b5",
+     "com.docker.compose.container-number": "1",
+     "com.docker.compose.depends_on": "kroki-mermaid:service_started:false",
+     "com.docker.compose.image": "sha256:b0e128cbce9f666706a76ec209c64099bc9f9d09c91d9e2a1e916c8b7145d226",
+     "com.docker.compose.oneoff": "False",
+     "com.docker.compose.project": "egeria-shared-infra",
+     "com.docker.compose.project.config_files": "/private/tmp/claude-501/__SCRATCH__/scratchpad/bind/egeria-shared-infra/shared-infra.yaml",
+     "com.docker.compose.project.working_dir": "__CHECKOUT__/compose-configs/shared-infra",
+     "com.docker.compose.replace": "egeria-shared-kroki",
+     "com.docker.compose.service": "kroki",
+     "com.docker.compose.version": "5.5.1"
+    }
+   }
+  },
+  "egeria-shared-autoheal": {
+   "Id": "666d23af14ca",
+   "Name": "/egeria-shared-autoheal",
+   "Image": "sha256:5b7c47543b501ad13db2c50acd2d3898912d0048ebb6515c2b3155512c159473",
+   "State": {
+    "Status": "running",
+    "Running": true,
+    "Restarting": false,
+    "ExitCode": 0,
+    "StartedAt": "2026-11-10T09:25:45.480040417Z",
+    "FinishedAt": "2026-11-10T08:22:43.263272671Z"
+   },
+   "HostConfig": {
+    "RestartPolicy": {
+     "Name": "always",
+     "MaximumRetryCount": 0
+    }
+   },
+   "Config": {
+    "Image": "egeria-shared-autoheal:latest",
+    "Labels": {
+     "com.docker.compose.config-hash": "625938f77ccd48680668b83411bd0952f97198bd0ff0cced26bacf5dae678296",
+     "com.docker.compose.container-number": "1",
+     "com.docker.compose.depends_on": "",
+     "com.docker.compose.image": "sha256:7ddd7389caac439e94aab647b696700ac9b75e57b60dcf9e7ce074565a3ea13b",
+     "com.docker.compose.oneoff": "False",
+     "com.docker.compose.project": "egeria-shared-infra",
+     "com.docker.compose.project.config_files": "__CHECKOUT__/compose-configs/shared-infra/shared-infra.yaml",
+     "com.docker.compose.project.working_dir": "__CHECKOUT__/compose-configs/shared-infra",
+     "com.docker.compose.service": "autoheal",
+     "com.docker.compose.version": "5.5.1"
+    }
+   }
+  },
+  "egeria-shared-kroki-mermaid": {
+   "Id": "3a2ed726357a",
+   "Name": "/egeria-shared-kroki-mermaid",
+   "Image": "sha256:d711507b5c4c0ab5764a188e5643119dc084f222c1cc951e8c2512fc20f80a0f",
+   "State": {
+    "Status": "running",
+    "Running": true,
+    "Restarting": false,
+    "ExitCode": 0,
+    "StartedAt": "2026-11-10T09:25:45.513600042Z",
+    "FinishedAt": "2026-11-10T08:22:43.305236212Z"
+   },
+   "HostConfig": {
+    "RestartPolicy": {
+     "Name": "unless-stopped",
+     "MaximumRetryCount": 0
+    }
+   },
+   "Config": {
+    "Image": "yuzutech/kroki-mermaid:latest",
+    "Labels": {
+     "com.docker.compose.config-hash": "134e723d931944460911a5b3bb6ffe598cb45c0e8dbe05f4404996a97420da76",
+     "com.docker.compose.container-number": "1",
+     "com.docker.compose.depends_on": "",
+     "com.docker.compose.image": "sha256:d247a3c32df3da7c58a77c28486420868de0f7b04421624998b3c78a945d8862",
+     "com.docker.compose.oneoff": "False",
+     "com.docker.compose.project": "egeria-shared-infra",
+     "com.docker.compose.project.config_files": "__CHECKOUT__/compose-configs/shared-infra/shared-infra.yaml",
+     "com.docker.compose.project.working_dir": "__CHECKOUT__/compose-configs/shared-infra",
+     "com.docker.compose.service": "kroki-mermaid",
+     "com.docker.compose.version": "5.4.0"
+    }
+   }
+  }
+ }
+}

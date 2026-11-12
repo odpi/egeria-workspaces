@@ -12,9 +12,25 @@ Local Dashboards is part of the quickstart Portal; freshstart does not have it.
 
 ## Browsing sheets
 
-The landing page lists every Dashboard Sheet held in Egeria, plus any sheet still only in the Portal's local file. Each card carries a small tag saying where the sheet is held: **Egeria** or **local file**. Selecting one renders its Placements in order — each Report placement runs live against Egeria and renders the result inline (table, chart, or whatever the underlying Report Spec produces); a nested Dashboard Sheet placement renders that sheet inline too.
+The landing page lists the Dashboard Sheets held in Egeria **in the Portal's dashboard folder** (`DashboardFolder::Consumer::Portal`, set by `PYEGERIA_DASHBOARD_FOLDERS`), plus any sheet still only in the Portal's local file. Each card carries a small tag saying where the sheet is held, **Egeria** or **local file**, and a **Used by** row naming every tool whose folder holds the sheet (for example *Egeria Advisor*, *Portal*). The **Source** and **Used by** filters narrow the list. A sheet whose tools could not be read says *not read*, never *none*; a sheet outside the folder still opens by name (`/local-dashboards?sheet=NAME`). See [dashboard folders](../tutorials/local-dashboards.md#which-tools-show-a-sheet-dashboard-folders-and-used-by).
+
+Selecting a sheet renders its Placements in order — each Report placement runs live against Egeria and renders the result inline (table, chart, or whatever the underlying Report Spec produces); a nested Dashboard Sheet placement renders that sheet inline too.
 
 Because Report placements resolve live, a sheet always reflects Egeria's current state — there's no separate "refresh the dashboard" step, and no stale cached snapshot to worry about.
+
+---
+
+## How results are drawn
+
+- **Tables scroll inside their tile** (420px high; 70% of the window in the drill-down drawer), with always-visible scroll bars and a header row that stays in view. Wide tables keep each column at least 120px and scroll sideways; column edges can be dragged.
+- **Cells can hold several lines.** pyegeria 6.2.37 puts each list item, and each `key: value` pair, on its own line in a LIST table cell (`<br>`). The Portal shows these as line breaks; nothing else in a cell is treated as HTML.
+- **Caps are always stated, never silent.**
+  - A DICT/JSON table shows up to 200 rows and 20 columns, then "+N more rows" and "+N more columns: *names*".
+  - A markdown table is cut only at a whole row, after 1,000 rows: "Showing the first N of M rows (this tile's render limit)".
+  - Text outside tables is cut at 20,000 characters, and the note names the placement's actual scope (or says it has none).
+- **pyegeria's notes beside a result** show under every tile and in the drill-down drawer, for example "Showing the first 100: the query stopped at its page size of 100; more may exist." for a query that filled its page.
+
+Details and the worked example (the CDO sheet's registers): [How results look in a tile](../tutorials/local-dashboards.md#how-results-look-in-a-tile). For choosing an output type: [Report Specs, Part C](../tutorials/report-specs.md#part-c-how-a-specs-output-looks).
 
 ---
 
@@ -62,6 +78,8 @@ On the quickstart on 2026-11-09 all 20 Report placements across the five sheets 
 
 **Dashboard Sheets are held in Egeria.** A sheet is a `Dashboard` asset (qualified name `Dashboard::<sheet name>`, with an `Ownership` classification naming its owner), linked to a `DisplayDataSchemaType` (the layout), a `DisplayDataContainer` (the sheet) and one `DisplayDataField` per placement. The *Reports* each placement shows, and the data they query, are Egeria elements too. Deleting a sheet never deletes its Reports.
 
+**Which tool shows a sheet** is decided by dashboard folders: a sheet's `Dashboard` element is a member of `DashboardFolder::Consumer::<tool>` under `RootCollection::DashboardSheets`. On the quickstart the **Dashboard Folders** batch builds the tree.
+
 **The local file is a fallback.** Before 6.2.29 sheets lived in a JSON file the Portal kept (`~/.pyegeria/dashboard_sheets.json` in the Portal's container). The Portal reads Egeria first and uses the file only for sheet names Egeria does not hold. **If a name is in both, Egeria wins.** If Egeria cannot be read, the page says so ("Egeria could not be read, so only sheets from the local file are shown…") rather than showing a shorter list as if it were complete.
 
 On the quickstart, the five sheets that were in the file (Chief Data Officer Dashboard, `local-dashboards-next-steps`, Assets by Type and Location Demo, `digital-product-portfolio`, `my-team-dashboard`) were moved into Egeria on 2026-11-10, keep their names, and are owned by `erinoverview`. Their entries were removed from the file, so each name opens only the Egeria copy.
@@ -77,7 +95,7 @@ python -m pyegeria.view.dashboards delete --sheet NAME [--local]
 
 `migrate` and `delete` are **shared writes**: everyone using that Egeria sees the result, so agree them with whoever looks after it, use `--dry-run` first, and run them once. `migrate` never edits the local file; remove a migrated sheet's old entry from it yourself. The Portal's Delete button (which needs you to be signed in) removes only a sheet that is held in the local file; for a sheet held in Egeria the button is greyed out, and hovering it says how to delete the sheet. Delete a sheet held in Egeria with `python -m pyegeria.view.dashboards delete --sheet NAME`, which is a shared write. Details: [Building a Local Dashboard](../tutorials/local-dashboards.md#where-dashboard-sheets-live).
 
-After an Egeria wipe, the [Data Initialization](data-initialization.md) batch **Local Dashboards** (`dr-egeria-inbox/Local Dashboards/_batch.json`) re-runs the documents that create four of the quickstart sheets and their Reports: `local-dashboards-next-steps`, Assets by Type and Location Demo, `digital-product-portfolio` and `my-team-dashboard`. The Chief Data Officer Dashboard is not in that batch: load `coco-workbooks/0. data-governance-program/chief-data-officer-dashboard.md` again to recreate it.
+After an Egeria wipe, the [Data Initialization](data-initialization.md) batch **Local Dashboards** (`dr-egeria-inbox/Local Dashboards/_batch.json`) re-runs the documents that create four of the quickstart sheets and their Reports: `local-dashboards-next-steps`, Assets by Type and Location Demo, `digital-product-portfolio` and `my-team-dashboard`. The Chief Data Officer Dashboard is not in that batch: load `coco-workbooks/0. data-governance-program/chief-data-officer-dashboard.md` again to recreate it. Three more batches heal with it, in this order: **Dashboard Folders** (the dashboard folder tree), **`egeria-held-specs`** (the report-spec consumer folders and the Portal's own held specs) and **Useful Dashboards** (on by default; Catalog Health, Glossary & Meaning, Governance & Compliance, Community & Feedback). The Catalog Health "Assets with No Lineage" tile then needs its saved query refreshed once by a signed-in user; until then the tile says the answer was not read, and `/api/bootstrap/status` reports the step as pending (see [Data Initialization](data-initialization.md#auto-heal-vs-manual-only)).
 
 ---
 

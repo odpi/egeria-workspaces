@@ -181,6 +181,48 @@ On the quickstart the sheet `scratch-restricted-demo` shows both kinds side by
 side: *Project Count* as a report, and *B4 Scratch Restricted Report* as
 restricted for the Portal's service user.
 
+### Which tools show a sheet: dashboard folders and "Used by"
+
+*(Portal from 2026-11-11, pyegeria 6.2.34 or later.)*
+
+Sheets held in Egeria are organised by the tool that shows them, the same
+way report specs are (see [consumer folders](report-specs.md#b1-how-specs-are-organised-consumer-folders)):
+
+```
+RootCollection   "Dashboard Sheets"   RootCollection::DashboardSheets
+ ├─ CollectionFolder "Portal"          DashboardFolder::Consumer::Portal
+ └─ CollectionFolder "Egeria Advisor"  DashboardFolder::Consumer::EgeriaAdvisor
+```
+
+- **Putting a sheet's `Dashboard` element in a tool's folder publishes the
+  sheet to that tool.** One sheet can be in several folders. Use
+  `Add Member to Collection` with the folder's qualified name and
+  `Dashboard::<sheet name>`. Removing the membership unpublishes it; never
+  delete the `Dashboard` element to do that.
+- **The Portal lists the sheets in the folders named by
+  `PYEGERIA_DASHBOARD_FOLDERS`**, `DashboardFolder::Consumer::Portal` on the
+  quickstart. Unset means that default; an empty value means every
+  `Dashboard::` sheet, whatever its folder.
+- **The list page** says which folder it read ("Egeria-held sheets are
+  listed from the folder DashboardFolder::Consumer::Portal"). Each card
+  shows the folder it was found in and a **Used by** row naming every tool
+  whose folder holds the sheet (for example *Egeria Advisor*, *Portal*).
+  Two filters narrow the list:
+  - **Source:** All, Egeria folder or Local file;
+  - **Used by:** Any, one tool, or *No consumer folder*.
+- **Absence is said, never shown as an empty list.** No folders configured,
+  a folder not found or not visible to you, or a read that failed: each gets
+  a note. A sheet whose tools could not be read says *Used by: not read*,
+  and is never counted as used by none. A sheet in the local file says *not
+  tracked*.
+- **A sheet outside the folders still opens by name**
+  (`/local-dashboards?sheet=NAME`); it is just not listed.
+
+On the quickstart the tree is built by the **Dashboard Folders** batch
+(`dr-egeria-inbox/Dashboard Folders/LOCAL_DASHBOARDS_FOLDERS.dr-egeria.md`),
+and the **Useful Dashboards** batch files its own sheets in both folders.
+Run each once: `Add Member to Collection` does not de-duplicate.
+
 ## Prerequisites
 
 - A running Egeria platform + view server you can reach (the quickstart
@@ -281,7 +323,8 @@ Report Spec" above). Two things matter when picking the underlying spec:
    spec's `output_types` lists. This used to be silently ignored (fixed
    `REPORT`→`TABLE`→`DICT` preference, no per-placement override) — fixed
    as of 2026-07-29 once Reports gave placements somewhere to actually store
-   a chosen format.
+   a chosen format. For which type suits what, see
+   [Which output type for which surface](report-specs.md#c1-which-output-type-for-which-surface).
 2. **Does the spec need scoping to be useful?** Set `Search String` (and any
    other of the 22 execution-parameter attributes `View Report` supports —
    `Starts With`, `Metadata Element Type Name`, `Page Size`, etc.) on the
@@ -289,10 +332,9 @@ Report Spec" above). Two things matter when picking the underlying spec:
    with no `Search String` returns *everything* (observed 80–150KB from one
    placement, before Reports existed to carry real scope) — always give a
    broad spec a real `Search String` unless you deliberately want the whole
-   dataset. Rendered content is still capped at 20,000 characters as a
-   defense-in-depth safety net regardless (you'll see a
-   "*(truncated...)*" note if you hit it), but a correctly-scoped Report
-   shouldn't come close to that.
+   dataset. A tile still has render limits as a safety net, described in
+   [How results look in a tile](#how-results-look-in-a-tile); a
+   correctly scoped Report rarely reaches them.
 
 Check `GET /api/report-specs` for a spec's `action.required_params`,
 `optional_params` and `output_types` before authoring the Report. A param
@@ -582,6 +624,43 @@ says Egeria was not written, the sheet is only in a local file — check that
 `storePath` in `GET /api/local-dashboards`'s response matches where
 `dr_egeria` wrote it, or re-run with a working Egeria connection.
 
+### How results look in a tile
+
+*(Portal from 2026-11-11, with pyegeria 6.2.37 or later.)*
+
+- **Large tables scroll inside the tile.** A tall table stops at 420px and
+  scrolls; a wide one scrolls sideways. The scroll bars are always visible
+  and the header row stays in view. In the drill-down drawer a table stops
+  at 70% of the window height. Small tables look as they always did.
+- **Columns keep a readable width.** A table with five or more columns gives
+  each column at least 120px rather than wrapping every few characters.
+  Drag a column's edge to widen it; the table then scrolls further.
+- **Line breaks and bullets in cells.** pyegeria 6.2.37 draws a list in a
+  LIST table cell as bullets, one per line, and a property map as one
+  `key: value` per line. The Portal shows these as line breaks. Nothing else
+  in a cell is treated as HTML.
+- **Nothing is cut silently.**
+  - A DICT/JSON table shows up to 200 rows and 20 columns. Past that it says
+    "+N more rows", and names the hidden columns: "+2 more columns:
+    Glossary, Subject Area".
+  - A markdown table (LIST, TABLE or REPORT output) is only ever cut at a
+    whole row, after 1,000 rows (or about 1 MB). It then says "Showing the
+    first N of M rows (this tile's render limit)".
+  - Text outside tables (prose, a mermaid diagram) is cut at 20,000
+    characters, at a line break; a half-written diagram is dropped rather
+    than shown broken. The note names the placement's real scope ("This
+    placement is scoped by search_string=…"), or says it has no query scope
+    when that is true.
+- **pyegeria's own notes** show under the result, in small muted text, one
+  per line, on every tile and in the drill-down drawer. The most common is
+  for a query that filled its page: "Showing the first 100: the query
+  stopped at its page size of 100; more may exist." A LIST or REPORT tile
+  already has that line in its text and does not repeat it.
+
+See [Report Specs, Part C](report-specs.md#part-c-how-a-specs-output-looks)
+for what changed in pyegeria 6.2.37 and how a column can choose bullets,
+names or a count.
+
 ### Deleting a Dashboard Sheet
 
 **A sheet held in Egeria** (tagged **Egeria**) cannot be deleted in the
@@ -626,8 +705,13 @@ load.
 | Note: "Chain broken in Egeria: …" | A part of the sheet's element chain is missing in Egeria (for example a `Dashboard` made with plain `Create Dashboard`) | Re-run the sheet's `.dr-egeria.md` file: every write is update-or-create, so missing parts are written again. `python -m pyegeria.view.dashboards show NAME` lists what is still missing |
 | Tile shows 🔒 "Report not visible to you." (or "Report spec not visible to you.") | The Report, or the report spec held in Egeria that it names, is in a governance zone you cannot see | By design. Ask whoever owns the Report for access to its zone, or remove the zone from the Report if it should be public |
 | Nested sheet placement | Currently shows an "Open nested sheet →" link, not inline rendering | By design for now — recursive inline rendering needs cycle detection first (see the Next Steps dashboard below) |
-| Tile shows a huge, unrelated wall of text/diagram, or a "*(truncated...)*" note | The Report's `Search String` is blank/unscoped against a broad spec | Rerun `Create Report` for that Report with a real `Search String` — this is exactly what the worked example's "Membership Diagram" Report demonstrates fixing |
-| Diagram doesn't render, raw ` ```mermaid ` text shows instead | Content was truncated mid-diagram by the 20,000-character cap, so the fence never closes | The diagram was too large to render at all; same underlying scoping gap as above |
+| Tile shows a huge, unrelated wall of text/diagram, or a note "This placement has no query scope…" | The Report's `Search String` is blank/unscoped against a broad spec | Rerun `Create Report` for that Report with a real `Search String` — this is exactly what the worked example's "Membership Diagram" Report demonstrates fixing |
+| Note: "Text truncated at this tile's render limit … This placement is scoped by …" | The placement is scoped, but its text (outside tables) is still longer than 20,000 characters | Narrow the scope further, or choose an output type that is a table (LIST or TABLE), which is cut only at whole rows |
+| Note: "Showing the first N of M rows (this tile's render limit)" | A markdown table has more than 1,000 rows (or about 1 MB) | Narrow the Report's scope; the full result is still available from `View Report` or `run_report` |
+| "+N more columns: …" under a table | A DICT/JSON result has more than 20 columns | Expected; the hidden columns are named. Pick a spec, or output format, with fewer columns |
+| A diagram tile shows a truncation note and no diagram | The diagram's source was longer than 20,000 characters; a half-written diagram is dropped rather than shown broken | Scope the Report more narrowly; the diagram was too large to draw usefully |
+| A table cell shows `a<br>b` as text | pyegeria 6.2.37 or later with a Portal from before 2026-11-11 | Update the Portal |
+| Note under a tile: "Showing the first 100: the query stopped at its page size of 100; more may exist." | The query filled its page, so Egeria may hold more | Narrow the Report's `Search String`, or raise its `Page Size` |
 
 ## Worked example: the "Next Steps" dashboard
 
@@ -720,6 +804,57 @@ as a compact tile (BACKLOG.md NEXT-20) — decided from each placement's
 actual result shape once it resolves, not just the static attribute, so a
 KPI-emphasis placement that happened to return something large would still
 render in full rather than being squeezed into a tiny tile.
+
+## Worked example: the CDO sheet's register tiles
+
+Mandy's sheet **Chief Data Officer Dashboard** (heading *How the Data
+Governance Program is Going*, from
+`coco-workbooks/0. data-governance-program/chief-data-officer-dashboard.md`)
+ends with three registers. Each is a `LIST` Report scoped by a
+`Search String`:
+
+| Tile | Report Spec | Search String |
+|---|---|---|
+| My Ninety Day Plan Progress | `Project-DrE-Basic` | `JulesKeeper::` |
+| Company Risk Register | `Risk-DrE-Basic` | `CocoPharma::Risk::` |
+| Governance Metric Register | `Governance-Metric-DrE-Basic` | `CocoPharma::GovernanceMetric::` |
+
+```markdown
+## Create Report
+
+### Display Name
+Governance Metric Register
+
+### Report Spec
+Governance-Metric-DrE-Basic
+
+### Output Format
+LIST
+
+### Search String
+CocoPharma::GovernanceMetric::
+```
+
+What they show with pyegeria 6.2.37 and the Portal from 2026-11-11 (checked
+on the quickstart on 2026-11-11):
+
+- **All rows.** The Governance Metric Register's LIST answer is 46 rows and
+  84 KB of markdown. It used to be cut at 20,000 characters, part-way
+  through a row, so the tile showed 12 of the 46, followed by a note saying
+  the placement had no query scope (it has one). Now all 46 rows show, in a
+  table that scrolls inside the tile, with no note.
+- **Lists as bullets.** *Implications* and *Outcomes* are lists. They used
+  to be one comma-joined string, so the boundary between two items and a
+  comma inside a sentence looked the same. pyegeria 6.2.37 puts each item
+  on its own line, and the Portal shows the breaks. Long descriptions wrap
+  within their column.
+- **Readable columns.** With 21 columns, the table keeps each one at least
+  120px wide and scrolls sideways; *Measurement* and *Target*, the two
+  columns a metric register exists for, are reached by scrolling, not
+  hidden.
+
+Screenshots of these tiles will be added once the quickstart's data has been
+re-seeded.
 
 ## Perspectives and drill-down
 
