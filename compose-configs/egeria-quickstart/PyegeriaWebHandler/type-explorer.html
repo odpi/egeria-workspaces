@@ -593,7 +593,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
   <script>window.EGERIA_FOR_LINEAGE = true; window.EGERIA_FOR_LINEAGE_VISIBLE = false;  /* shown per-section by App */</script>
   <script src="/static/egeria-shared-ui.js?v=2026-11-11d"></script>
-  <script src="/static/egeria-not-measured.js?v=2026-11-08a"></script>
+  <script src="/static/egeria-not-measured.js?v=2026-11-11a"></script>
   <script>"use strict";
 
 const {
@@ -2850,23 +2850,31 @@ function ReportSpecDetail({ spec, onSelectSpec, portalSupply }) {
     if (execState === 'error')   return React.createElement(RsRefusalBox, execError || { status: 0, detail: 'Request failed' });
     if (!execResult) return null;
     var NM = window.EgeriaNotMeasured;
+    // pyegeria's own notes beside the result (6.2.37+, e.g. a capped query's
+    // "more may exist"), under whatever the result renders as; nothing when
+    // there are none.
+    var notesHtml = (NM && NM.resultNotesHtml) ? NM.resultNotesHtml(execResult) : '';
+    var withNotes = function(el) {
+      return notesHtml ? React.createElement('div', null, el,
+        React.createElement('div', { dangerouslySetInnerHTML: { __html: notesHtml } })) : el;
+    };
     // kind:"absent" (ISSUE-171 / odpi/egeria-python #555): the value was not
     // established, does not apply, or is a count that was not measured. Say
     // so — never the raw envelope JSON, a chart or a big number.
     if (NM && NM.isAbsent(execResult)) {
-      return React.createElement('div', { dangerouslySetInnerHTML: { __html: NM.absentHtml(execResult) } });
+      return withNotes(React.createElement('div', { dangerouslySetInnerHTML: { __html: NM.absentHtml(execResult) } }));
     }
     // Counts that were not measured are listed under the result; '' (nothing
     // rendered) for every older result shape.
     var unmeasured = !!(NM && NM.hasUnmeasured(execResult));
     var footnote = unmeasured ? React.createElement('div', { dangerouslySetInnerHTML: { __html: NM.footnoteHtml(execResult) } }) : null;
-    if (execResult.kind === 'empty') return React.createElement('div', null,
+    if (execResult.kind === 'empty') return withNotes(React.createElement('div', null,
       React.createElement('div', { style: { padding: '8px 0', color: 'var(--dim)', fontSize: 13, fontStyle: 'italic' } }, 'No results found.'),
-      footnote);
+      footnote));
     if (execResult.kind === 'text') {
-      return React.createElement('div', { style: { fontSize: 13, lineHeight: 1.6 } },
+      return withNotes(React.createElement('div', { style: { fontSize: 13, lineHeight: 1.6 } },
         React.createElement(SmartReportRenderer, { content: execResult.content })
-      );
+      ));
     }
     if (execResult.kind === 'json') {
       var rawData = execResult.data;
@@ -2876,27 +2884,27 @@ function ReportSpecDetail({ spec, onSelectSpec, portalSupply }) {
       // show up as a garbled dump of the spec's own internal structure.
       var topLevelChart = _asVegaLiteSpec(rawData);
       if (topLevelChart) {
-        return React.createElement(VegaChart, { spec: topLevelChart });
+        return withNotes(React.createElement(VegaChart, { spec: topLevelChart }));
       }
       // A scalar analytic result (e.g. count_elements -> a bare int) has no
       // rows/columns to tabulate — DictResultView only accepts objects/arrays
       // and silently shows "No data." for anything else. Show it directly.
       if (rawData == null || typeof rawData !== 'object') {
-        return React.createElement('div', null, React.createElement('div', {
+        return withNotes(React.createElement('div', null, React.createElement('div', {
           style: { fontSize: 32, fontWeight: 700, padding: '16px 0', color: 'var(--text)' }
-        }, rawData == null ? '—' : String(rawData)), footnote);
+        }, rawData == null ? '—' : String(rawData)), footnote));
       }
       var rows = Array.isArray(rawData) ? rawData : [rawData];
       var fmtForCols = sentFmt || execFmt;
       var fmtObj = (spec.formats || []).find(function(f) { return (f.types || []).includes(fmtForCols); });
       var columns = fmtObj ? (fmtObj.attributes || []) : [];
-      return React.createElement('div', null,
+      return withNotes(React.createElement('div', null,
         React.createElement(AvailableCharts, { data: rawData }),
         React.createElement(DictResultView, { rows: rows, columns: columns, depth: 0, unmeasured: unmeasured }),
         footnote
-      );
+      ));
     }
-    return React.createElement('pre', { style: { fontSize: 11 } }, JSON.stringify(execResult, null, 2));
+    return withNotes(React.createElement('pre', { style: { fontSize: 11 } }, JSON.stringify(execResult, null, 2)));
   }
 
   return React.createElement('div', { className: 'detail', style: { overflowY: 'auto', height: '100%' } },

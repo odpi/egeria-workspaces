@@ -121,6 +121,10 @@ _EXTRA_BATCH_ROOTS = [
     # Admin-only workload generator, kept out of coco-workbooks and the inbox
     # so Coco users never see it; not selected by default. See its README.md.
     ("portal-usage-workload", Path(__file__).parent / "portal-workloads" / "usage-driver"),
+    # The report-spec consumer folders and the Portal's own Egeria-held specs. Kept beside the
+    # handler (tests and docs name these files here); _folder_order.json runs this batch after
+    # "Dashboard Folders" and before "Useful Dashboards", which files a spec into its Portal folder.
+    ("egeria-held-specs", Path(__file__).parent / "egeria-held-specs"),
 ]
 
 # Folders searched recursively for manifests -- see "Scan roots" above.
@@ -657,6 +661,10 @@ def _batch_dict(batch_id: str, folder: Path, manifest: dict, files: list[str], w
         # Notebooks seldom check before creating -- see "Notebooks" above.
         "idempotent":     bool(manifest.get("idempotent", not any(f.lower().endswith(".ipynb") for f in files))),
         "hasNotebooks":   any(f.lower().endswith(".ipynb") for f in files),
+        # Steps a person must do after this batch runs (e.g. a first refresh that must run as
+        # a signed-in user). bootstrap_monitor_handler reports each as done / pending / not
+        # checked in /api/bootstrap/status; nothing runs them automatically.
+        "manualSteps":    [st for st in (manifest.get("manualSteps") or []) if isinstance(st, dict)],
         "warnings":       warnings,
         "userids":        userids or {},
     }

@@ -335,6 +335,8 @@ from bootstrap_monitor_handler import router as bootstrap_monitor_router
 app.include_router(bootstrap_monitor_router)
 from bootstrap_admin_handler import router as bootstrap_admin_router
 app.include_router(bootstrap_admin_router)
+from egeria_resets_handler import router as egeria_resets_router
+app.include_router(egeria_resets_router)
 from operations_handler import router as operations_router
 app.include_router(operations_router)
 from lineage_handler import router as lineage_router
