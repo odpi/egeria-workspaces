@@ -243,7 +243,9 @@ connect the listener if they are not.
 `openlineage.events`: it catalogues it (as `Topic::LocalKafka2.openlineage.events::inOut`) after every reset.  So
 before it registers anything, the notebook looks for any `Topic` whose display name is `openlineage.events`, whatever
 its qualified name.  If one exists it prints *already catalogued as &lt;qualified name&gt; (&lt;GUID&gt;); skipping* and
-creates nothing.  A second topic would make the listener read every event twice (on 2026-11-12 the quickstart had two,
+creates nothing.  If it cannot tell (an error, or any answer other than Egeria's *No elements found*), it prints
+*could not read whether openlineage.events is catalogued (&lt;reason&gt;); not creating one* and creates nothing
+either: only an explicit "none" lets it register the topic.  A second topic would make the listener read every event twice (on 2026-11-12 the quickstart had two,
 and every event was consumed twice).  For the same reason this notebook is not part of the *Coco - 1. Data Hub*
 data-initialization batch (it is listed under `exclude` in `_batch.json`): run it by hand, as a tutorial.
 
