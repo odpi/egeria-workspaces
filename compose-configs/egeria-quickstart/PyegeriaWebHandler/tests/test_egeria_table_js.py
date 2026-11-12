@@ -459,3 +459,53 @@ def test_link_builder_href_scheme_is_allow_listed(href, allowed):
         assert not find(cell, "a") and text(cell) == "Name 1"
         assert REFUSED in find(cell, "span")[0]["attrs"]["title"]
         assert footer(src)[1] == [REFUSED]
+
+
+def test_one_listener_for_many_tables_opens_the_right_sub_row():
+    """A page may attach once, at its body (Local Dashboards). Sub-row ids restart in every table, so a
+    click must open the row of ITS table, not the first table's row with the same id."""
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node not available")
+    js = """
+const T = require(%s);
+function el(attrs, parent) {
+  return { attrs: Object.assign({}, attrs), parentNode: parent || null, textContent: attrs.__t || '',
+    getAttribute(n) { return n in this.attrs ? this.attrs[n] : null; },
+    setAttribute(n, v) { this.attrs[n] = String(v); }, removeAttribute(n) { delete this.attrs[n]; } };
+}
+const listeners = [];
+const body = el({});
+function table(name) {
+  const wrap = el({'data-et-table': ''}, body);
+  const row = el({'data-et-sub-row': '1', hidden: ''}, wrap);
+  wrap.querySelector = (sel) => sel === 'tr[data-et-sub-row="1"]' ? row : null;
+  const btn = el({'data-et-sub': '1', 'aria-expanded': 'false', __t: '\\u25b8 2 rows'}, wrap);
+  return { wrap, row, btn, name };
+}
+const a = table('a'), b = table('b');
+body.addEventListener = (t, fn) => listeners.push(fn);
+body.removeEventListener = () => {};
+body.querySelector = (sel) => a.wrap.querySelector(sel);   // the whole page: the FIRST match is table a's
+body.querySelectorAll = () => [];
+T.attach(body);
+listeners.forEach((fn) => fn({ target: b.btn }));
+console.log(JSON.stringify({ aHidden: 'hidden' in a.row.attrs, bHidden: 'hidden' in b.row.attrs, b: b.btn.textContent }));
+""" % json.dumps(str(MODULE))
+    out = subprocess.run([node, "-"], input=js, capture_output=True, text=True, timeout=20)
+    assert out.returncode == 0, out.stderr
+    assert json.loads(out.stdout) == {"aHidden": True, "bHidden": False, "b": "▾ 2 rows"}
+
+
+def test_trim_is_exported_for_pages_that_attach_once():
+    assert "trim: trimToggles" in MODULE.read_text()
+
+
+@pytest.mark.parametrize("label,shown", [("qualified_name", "QN::1"), ("display_name", "Name 1"),
+                                         ("qualifiedName", "QN::1"), (None, "Name 1")])
+def test_column_label_uses_pyegerias_values(label, shown):
+    c = col("m", "join", type="elements")
+    if label:
+        c["label"] = label
+    cell = cells(body_rows(html(table([c], [{"m": [el(1)]}], total="n")))[0][0])[0]
+    assert text(cell) == shown

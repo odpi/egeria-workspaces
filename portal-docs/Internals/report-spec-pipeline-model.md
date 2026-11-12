@@ -492,6 +492,16 @@ renderer read one list.
 `{"kind": "absent", "content": <sentence>, "absence": {…}, "envelope": {…}}` with no top-level `data`, so no tile can
 show placeholder zeros as an answer (ISSUE-171). The MCP tools and the CLI read these unchanged.
 
+**Where a TABLE is rendered (2026-11-12).** A caller may opt in to a fifth kind, the structured table
+(`table_shape="structured"`, pyegeria ≥ 6.2.37): `{"kind": "table", "columns": [{key, name, type, render, detail_spec,
+valid_values, max_items, max_lines}], "rows": [native values], "total", "total_basis", "shown", "notes"}`. pyegeria
+extracts native values and says, per column, how it should render; **the drawing happens at the edge**. In the Portal
+that is the browser: `/api/report-specs/execute` passes `table_shape` through only for output format TABLE (anything
+other than `rows`/`structured` is a 400; the result cache keys on it), Local Dashboards and Report Specs → Run ask for
+it, and `static/egeria-table.js` renders it (per-column render, the two-level rule, the "first N of M" / "more may
+exist" / "one page" footer and every note, no column cap). The same file is vendored unchanged into trellis-ui for
+Egeria Advisor, so the HTML grid in the table above has one implementation. DICT and JSON stay `kind: "json"`.
+
 **One rendering library (owner point 5).** The renderers live in pyegeria, one module per renderer under the view
 package, with the shapes above as their input contract. Plain pyegeria calls them directly. The Portal and Trellis call
 the same functions for the data-to-shape-to-markup step and add presentation on top (CSS, interactivity, the Portal's

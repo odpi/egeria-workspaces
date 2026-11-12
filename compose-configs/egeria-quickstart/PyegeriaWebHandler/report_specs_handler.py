@@ -415,6 +415,24 @@ class ExecuteRequest(PlatformBody):
     cache:         bool = False
     # With cache=True: skip the cache read, run now, and store the fresh result (a viewer's refresh click).
     refresh:       bool = False
+    # "structured" asks pyegeria (>= 6.2.37) for the structured TABLE result (kind "table", native values,
+    # rendered by static/egeria-table.js). Only for output_format TABLE; ignored for every other format.
+    # The default (None / "rows") is today's kind "json" rows, so other callers are unchanged.
+    table_shape:   Optional[str] = None
+
+
+TABLE_SHAPES = ("rows", "structured")
+
+
+def _table_shape(req) -> Optional[str]:
+    """The table_shape to pass to exec_report_spec: None unless the format is TABLE and a shape was
+    asked for. A value other than "rows" / "structured" is refused (400) whatever the format."""
+    shape = req.table_shape
+    if shape is not None and shape not in TABLE_SHAPES:
+        raise HTTPException(status_code=400, detail=f'table_shape must be "rows" or "structured", not {shape!r}.')
+    if shape is None or str(req.output_format or "").upper() != "TABLE":
+        return None
+    return shape
 
 
 @router.post("/api/report-specs/execute", summary="Execute a report spec action")
@@ -441,6 +459,7 @@ def execute_spec(req: ExecuteRequest, request: Request):
     user_id  = req.user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
     user_pwd = req.user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
     token    = get_request_token()
+    _table_shape(req)            # refuse a bad value before any cache read or Egeria call
 
     from report_viewer import reset_viewer, resolve_viewer, set_viewer
     viewer = resolve_viewer(request, req.persona)
@@ -473,10 +492,11 @@ def _credential_identity(req, token, user_id) -> str:
 
 def _cache_key(req, url, server, identity, viewer, lineage) -> tuple:
     """Everything that can change the answer: the spec, format, params, platform, the signed-in
-    identity (zone visibility differs per viewer), the chosen persona, and the forLineage toggle."""
+    identity (zone visibility differs per viewer), the chosen persona, the forLineage toggle, and the
+    table shape (a structured TABLE and TABLE rows are different results)."""
     params = json.dumps(req.params, sort_keys=True, default=str)
     return (req.spec_name, req.output_format, params, url, server, identity,
-            (viewer or {}).get("persona_id"), lineage)
+            (viewer or {}).get("persona_id"), lineage, _table_shape(req))
 
 
 def _stamp(stored_at: float) -> dict:
@@ -602,9 +622,11 @@ def _run_spec(req, request, token, url, server, user_id, user_pwd):
     from egeria_auth import TOKEN_REFUSED_WORDS, PortalSupply
     from pyegeria.view.role_supply import CallerTokenExpired
 
+    shape = {"table_shape": _table_shape(req)} if _table_shape(req) else {}
     try:
         result = exec_report_spec(
             req.spec_name,
+            **shape,
             output_format=req.output_format,
             params=req.params,
             view_server=server,
