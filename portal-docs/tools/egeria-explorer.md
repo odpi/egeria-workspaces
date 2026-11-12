@@ -79,7 +79,7 @@ The **Reports** tab shows what pyegeria knows about every report spec *before* y
 
 ### Three states, never two
 
-Every spec is in exactly one of three states. The **Resolution** filter above the list, and the counts line under it, use the same three words.
+Every spec is in exactly one of three states. The **run status** filter above the list (*Any run status*, *Runnable*, *Cannot run*, *Format only*, each with its count), and the counts line under it, use the same three words.
 
 | State | Mark | Meaning |
 |---|---|---|
@@ -89,7 +89,7 @@ Every spec is in exactly one of three states. The **Resolution** filter above th
 
 On the quickstart on 2026-11-09 the counts line read **379 runnable · 0 cannot run · 61 format-only** (440 specs). Choosing **Cannot run** in the filter, or clicking the *N cannot run* link, lists only the specs the resolver refused; today that list is empty. (pyegeria 6.2.27 had two, `Asset-Graph` and `Data-Classes`; 6.2.28 repointed both.)
 
-![The Report Specs tab: the Resolution filter, the counts line, and a format-only spec's panel](../images/report-specs-portal/01-report-specs-list.png)
+![The Report Specs tab: the run status filter, the counts line, and a format-only spec's panel](../images/report-specs-portal/01-report-specs-list.png)
 
 *Report Specs tab, deployed Portal, 2026-11-09. The selected spec, `Referenceable`, is format-only: its box says so and gives the resolver's words.*
 
@@ -233,13 +233,15 @@ and user spec files are both local).
 
 **Used by.** Each spec's details show a **Used by** row beside its family and source badges: the tools
 the spec is published to, one chip per consumer folder that holds it (for example *Portal · Egeria Advisor*).
-The **consumer filter** in the sidebar lists every consumer folder, with a count, and *Used by none*: specs
+The **Used by** filter in the sidebar (*Used by: any tool*, with *(partly read)* when some consumer folders
+could not be read) lists every consumer folder, with a count, and *Used by none*: specs
 held in Egeria that no consumer folder holds, which is useful when curating. The row never guesses:
 
 - *Used by: none*: a spec held in Egeria that is in no consumer folder.
 - *Used by: not read (reason)*: the Portal could not read the consumer folders (no sync has run yet, the root
   `RootCollection::ReportSpecs` is not visible to the Portal's user, or the installed pyegeria is older than
-  the release that reads them). The sidebar says the same instead of offering the filter. With pyegeria 6.2.32
+  the release that reads them). The sidebar says the same (*Used by: not read (reason)*) instead of offering
+  the filter. With pyegeria 6.2.32
   or earlier every spec says *Used by: not read*; hover it for the reason. pyegeria 6.2.33 and later read the
   consumer index.
 - *Used by: not tracked*: a built-in or Portal (local) spec. Built-in specs live in pyegeria, not in Egeria, so

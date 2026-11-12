@@ -3240,7 +3240,7 @@ function RsUsedBy({ spec }) {
   // The reason is the same for every spec; it is said once in the sidebar, and here as a tooltip.
   if (st === 'not read') return React.createElement('span', wrap, label,
     React.createElement('span', { key: 'n', className: 'rs-used-by-not-read', style: { fontSize: 10, color: '#fbbf24', cursor: 'help' },
-      title: 'Consumers not read' + (spec.usedByReason ? ': ' + spec.usedByReason : '') }, 'not read'));
+      title: 'Used by: not read' + (spec.usedByReason ? ' (' + spec.usedByReason + ')' : '') }, 'not read'));
   if (st === 'not tracked') return React.createElement('span', Object.assign({ title: spec.usedByReason || '' }, wrap), label,
     React.createElement('span', { key: 'n', style: _RS_MUTED }, 'not tracked'));
   var names = spec.usedBy || [];
@@ -3440,12 +3440,12 @@ function ReportSpecView() {
         ),
         // Three states, never two: format-only specs are not counted as unrunnable.
         counts && React.createElement('select', {
-          className: 'area-select', 'aria-label': 'Filter by resolution',
+          className: 'area-select', 'aria-label': 'Filter by run status',
           style: { width: '100%', marginTop: 6 },
           value: statusFilter,
           onChange: e => setStatusFilter(e.target.value)
         },
-          React.createElement('option', { value: '' }, 'All resolutions'),
+          React.createElement('option', { value: '' }, 'Any run status'),
           React.createElement('option', { value: 'runnable' }, 'Runnable (' + counts.runnable + ')'),
           React.createElement('option', { value: 'unrunnable' }, 'Cannot run (' + counts.unrunnable + ')'),
           React.createElement('option', { value: 'format_only' }, 'Format only (' + counts.formatOnly + ')')
@@ -3464,15 +3464,15 @@ function ReportSpecView() {
         // Used by: when the consumer index was not read, say so (and why) instead of offering an empty filter.
         consumersInfo && (consumersInfo.status === 'not read'
           ? React.createElement('div', { className: 'rs-consumers-not-read', style: { marginTop: 6, fontSize: 11, color: '#fbbf24', overflowWrap: 'anywhere' } },
-              'Consumers: not read' + (consumersInfo.reason ? ' (' + consumersInfo.reason + ')' : ''))
+              'Used by: not read' + (consumersInfo.reason ? ' (' + consumersInfo.reason + ')' : ''))
           : React.createElement('select', {
-              className: 'area-select', 'aria-label': 'Filter by consumer',
+              className: 'area-select', 'aria-label': 'Filter by tool (Used by)',
               style: { width: '100%', marginTop: 6 },
-              title: consumersInfo.status === 'partial' ? 'Consumers partly read: ' + (consumersInfo.reason || '') : 'The tools each spec is published to (its consumer folders)',
+              title: consumersInfo.status === 'partial' ? 'Used by: partly read (' + (consumersInfo.reason || '') + ')' : 'The tools each spec is published to (its consumer folders)',
               value: consumerFilter,
               onChange: e => setConsumerFilter(e.target.value)
             },
-              React.createElement('option', { value: '' }, 'All consumers' + (consumersInfo.status === 'partial' ? ' (partly read)' : '')),
+              React.createElement('option', { value: '' }, 'Used by: any tool' + (consumersInfo.status === 'partial' ? ' (partly read)' : '')),
               (consumersInfo.consumers || []).map(c => React.createElement('option', { key: c.name, value: c.name },
                 'Used by ' + c.name + ' (' + (consumerCounts[c.name] || 0) + ')' + (c.status !== 'read' ? ', ' + c.status : ''))),
               React.createElement('option', { value: '__none__' }, 'Used by none (' + consumerCounts.__none__ + ')')
