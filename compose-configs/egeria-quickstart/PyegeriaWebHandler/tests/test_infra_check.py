@@ -504,8 +504,11 @@ PLIST = QS / "bin" / "org.odpi.egeria.infra-check.plist"
 def test_plist_runs_the_read_only_record_every_10_minutes():
     p = plistlib.loads(PLIST.read_text().replace("__REPO__", "/repo").encode())
     assert p["Label"] == "org.odpi.egeria.infra-check" and p["StartInterval"] == 600
-    assert p["ProgramArguments"][-2:] == ["infra-check", "--record"]
+    assert p["ProgramArguments"][3:] == ["infra-check", "--record", "--log",
+                                         "/repo/runtime-volumes/egeria-resets/infra-check.log"]
     assert p["ProgramArguments"][2] == "/repo/compose-configs/egeria-quickstart/bin/egeria-upgrade-reset"
+    # launchd's own output is discarded: the CLI's --log is the only, bounded, log
+    assert p["StandardOutPath"] == "/dev/null" and p["StandardErrorPath"] == "/dev/null"
     assert "/usr/local/bin" in p["EnvironmentVariables"]["PATH"]
 
 
@@ -524,3 +527,51 @@ def test_nothing_installs_the_plist():
     assert hits == [] or all(h.endswith("test_infra_check.py") for h in hits), hits
     doc = (REPO / "portal-docs" / "Internals" / "upgrading-or-resetting-egeria.md").read_text()
     assert "Nothing installs it" in doc and "launchctl bootout" in doc
+
+
+# ── The scheduled form: one bounded line per run ──────────────────────────────
+
+def test_log_mode_prints_nothing_and_appends_one_line(checkout, tmp_path):
+    said, log = [], tmp_path / "logs" / "infra-check.log"
+    runner = InfraRunner(checkout)
+    assert m.main(["infra-check", "--checkout", str(checkout), "--record", "--log", str(log)],
+                  env=_env(runner, checkout, said)) == 0
+    assert said == []
+    lines = log.read_text().splitlines()
+    assert len(lines) == 1
+    assert re.fullmatch(r"\S+ WARN 5 pass, 1 warn \[kroki WARN\]; openlineage offset 902071 at \S+; recorded", lines[0])
+    runner.containers["egeria-shared-openlineage-proxy-backend"]["HostConfig"]["RestartPolicy"]["Name"] = "no"
+    assert m.main(["infra-check", "--checkout", str(checkout), "--log", str(log)], env=_env(runner, checkout, said)) == 1
+    lines = log.read_text().splitlines()
+    assert len(lines) == 2 and " FAIL " in lines[1] and "proxy FAIL" in lines[1] and "recorded" not in lines[1]
+    _assert_read_only([c for c in runner.calls if "psql" not in c])
+
+
+def test_log_keeps_only_the_newest_lines(tmp_path):
+    log = tmp_path / "l.log"
+    log.write_text("".join(f"old {i}\n" for i in range(5000)))
+    m.append_bounded(log, "new\nline", keep=m.INFRA_LOG_KEEP)
+    lines = log.read_text().splitlines()
+    assert len(lines) == m.INFRA_LOG_KEEP == 2000
+    assert lines[-1] == "new line" and lines[0] == "old 3001"
+    assert not (tmp_path / "l.log.tmp").exists()
+
+
+def test_log_mode_records_errors_as_a_line(checkout, tmp_path, monkeypatch):
+    log = tmp_path / "e.log"
+    def boom(env, checkout=None):
+        raise RuntimeError("docker: command not found")
+    monkeypatch.setattr(m, "infra_check", boom)
+    said = []
+    assert m.main(["infra-check", "--log", str(log)], env=_env(InfraRunner(checkout), checkout, said)) == 1
+    assert said == [] and re.fullmatch(r"\S+ ERROR RuntimeError: docker: command not found", log.read_text().strip())
+
+
+def test_log_mode_says_when_the_record_failed(checkout, tmp_path, monkeypatch):
+    log = tmp_path / "r.log"
+    def no_pg(env, result):
+        raise m.StepFailed("docker exec egeria-shared-postgres psql exited 2")
+    monkeypatch.setattr(m, "record_infra", no_pg)
+    assert m.main(["infra-check", "--checkout", str(checkout), "--record", "--log", str(log)],
+                  env=_env(InfraRunner(checkout), checkout, [])) == 0
+    assert log.read_text().strip().endswith("; NOT recorded: StepFailed: docker exec egeria-shared-postgres psql exited 2")

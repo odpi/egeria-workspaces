@@ -9,7 +9,7 @@ Postgres superuser (through `docker exec`), which no container, and never the Po
     egeria-upgrade-reset apply --plan <reset dir or plan.json> [--dry-run] [--redo STEP]
     egeria-upgrade-reset status --plan <reset dir>
     egeria-upgrade-reset record --plan <reset dir>        # write the Portal's "last reset" row now
-    egeria-upgrade-reset infra-check [--record] [--json]   # shared-infra health; read-only, restarts nothing
+    egeria-upgrade-reset infra-check [--record] [--json] [--log FILE]   # shared-infra health; read-only
 
 `plan` changes nothing. It reads the current state (pinned and target image digests, the running
 container's image, the database size, Docker's free disk, the RE/EA writers, the secrets accounts)
@@ -1337,6 +1337,49 @@ def infra_verify_checks(result: dict) -> list[dict]:
     return checks
 
 
+INFRA_LOG_KEEP = 2000            # ~2 weeks of 10-minute runs, one line each
+
+
+def infra_summary(result: dict) -> str:
+    """One line for a scheduled run's log: time, overall verdict, counts, and the services not PASS."""
+    counts = result.get("counts") or {}
+    bad = [f"{s['service']} {s['verdict']}" for s in result.get("services") or [] if s.get("verdict") != "PASS"]
+    ol = result.get("openlineage") or {}
+    ol_text = ("openlineage not read" if "notRead" in ol
+               else f"openlineage offset {ol.get('offset')} at {ol.get('latestAt')}")
+    return (f"{result.get('checkedAt')} {result.get('verdict')} "
+            + ", ".join(f"{n} {v.lower()}" for v, n in counts.items() if n)
+            + (f" [{'; '.join(bad)}]" if bad else "") + f"; {ol_text}")
+
+
+def append_bounded(path: Path, line: str, keep: int = INFRA_LOG_KEEP) -> None:
+    """Append one line and keep only the newest `keep` lines (rewritten through a temp file)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = path.read_text(errors="replace").splitlines() if path.exists() else []
+    lines = (lines + [line.replace("\n", " ")])[-keep:]
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text("\n".join(lines) + "\n")
+    os.replace(tmp, path)
+
+
+def infra_check_logged(env: Env, log: Path, *, record: bool, checkout: Optional[Path]) -> int:
+    """The scheduled form: nothing on stdout/stderr, one bounded log line per run, whatever happens."""
+    try:
+        result = infra_check(env, checkout)
+        line = infra_summary(result)
+        if record:
+            try:
+                record_infra(env, result)
+                line += "; recorded"
+            except Exception as exc:  # noqa: BLE001
+                line += f"; NOT recorded: {type(exc).__name__}: {str(exc)[:200]}"
+        rc = 1 if result["counts"]["FAIL"] else 0
+    except Exception as exc:  # noqa: BLE001
+        line, rc = f"{iso(env.now())} ERROR {type(exc).__name__}: {str(exc)[:300]}", 1
+    append_bounded(log, line)
+    return rc
+
+
 INFRA_DDL = (
     "CREATE SCHEMA IF NOT EXISTS demo; "
     "CREATE TABLE IF NOT EXISTS demo.infra_checks ("
@@ -1498,6 +1541,9 @@ def main(argv: Optional[list[str]] = None, env: Optional[Env] = None) -> int:
     ic = sub.add_parser("infra-check", help="read-only health of the shared-infra containers; restarts nothing")
     ic.add_argument("--record", action="store_true", help="also write the result to coco_pharma.demo.infra_checks")
     ic.add_argument("--json", action="store_true", help="print the result as JSON")
+    ic.add_argument("--log", default=None, metavar="FILE",
+                    help="for scheduled runs: print nothing; append ONE line per run to FILE, keeping its newest "
+                         f"{INFRA_LOG_KEEP} lines (errors too)")
     ic.add_argument("--checkout", default=None,
                     help="the checkout whose compose files to compare with (default: the running platform's)")
     args = ap.parse_args(argv)
@@ -1516,6 +1562,9 @@ def main(argv: Optional[list[str]] = None, env: Optional[Env] = None) -> int:
             return 0
         if args.cmd == "apply":
             return apply(env, args.plan, dry_run=args.dry_run, redo=args.redo)
+        if args.cmd == "infra-check" and args.log:
+            return infra_check_logged(env, Path(args.log), record=args.record,
+                                      checkout=Path(args.checkout).resolve() if args.checkout else None)
         if args.cmd == "infra-check":
             result = infra_check(env, Path(args.checkout).resolve() if args.checkout else None)
             env.say(json.dumps(result, indent=2) if args.json else "\n".join(infra_lines(result)))
