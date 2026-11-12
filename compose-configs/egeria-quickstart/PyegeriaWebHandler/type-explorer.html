@@ -2743,9 +2743,11 @@ function RsPublishControl({ spec, consumers }) {
   if (!creds || !creds.token)
     return React.createElement('div', { className: 'rs-publish rs-publish-sign-in', style: muted },
       'Sign in to publish or withdraw this spec: it runs as you, never as the Portal\'s service account.');
-  const names = (consumers.consumers || []).map(c => c.name).filter(Boolean);
+  const allNames = (consumers.consumers || []).map(c => c.name).filter(Boolean);
   const usedBy = spec.usedBy || [];
-  const chosen = folder || names[0] || '';
+  // Withdraw is offered only from the folders Used by shows (the server refuses the others too: "not in").
+  const names = action === 'withdraw' ? allNames.filter(n => usedBy.indexOf(n) >= 0) : allNames;
+  const chosen = (folder && names.indexOf(folder) >= 0) ? folder : (names[0] || '');
   function call(step) {
     setBusy(step); setError('');
     const body = { spec_name: spec.name, action: action, folder: chosen, step: step,
@@ -2769,7 +2771,10 @@ function RsPublishControl({ spec, consumers }) {
         onChange: e => setAction(e.target.value) },
         React.createElement('option', { value: 'publish' }, 'Publish to'),
         React.createElement('option', { value: 'withdraw' }, 'Withdraw from')),
-      React.createElement('select', { className: 'area-select rs-publish-folder', 'aria-label': 'Consumer folder', value: chosen,
+      action === 'withdraw' && names.length === 0
+        ? React.createElement('span', { className: 'rs-publish-none', style: { fontSize: 11, color: 'var(--dim)' } },
+            'from none: Used by shows no consumer folder holding this spec')
+        : React.createElement('select', { className: 'area-select rs-publish-folder', 'aria-label': 'Consumer folder', value: chosen,
         onChange: e => setFolder(e.target.value) },
         names.map(n => React.createElement('option', { key: n, value: n },
           n + (spec.usedByState === 'read' || spec.usedByState === 'partial'
