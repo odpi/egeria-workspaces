@@ -142,6 +142,15 @@ class ResultCache:
         with self._lock:
             return len(self._data)
 
+    def drop(self, predicate) -> int:
+        """Remove every stored result whose key satisfies `predicate(key)`; returns how many. For a
+        change that makes some cached answers wrong (a report spec published or withdrawn)."""
+        with self._lock:
+            keys = [k for k in self._data if predicate(k)]
+            for k in keys:
+                del self._data[k]
+            return len(keys)
+
     def clear(self) -> None:
         with self._lock:
             self._data.clear()

@@ -298,6 +298,39 @@ Open **Egeria Explorer → Reports → Report Specs**:
   reason). It never shows *none* when it simply could not read the folders.
 - The **Resolution** panel says whether the spec can run, in pyegeria's own words if not.
 
+### B4a. Publish a spec to a tool, or withdraw it, from the Portal
+
+Under a spec's badges in **Report Specs**, **Publish to / Withdraw from** puts the spec in a tool's consumer
+folder, or takes it out (pyegeria 6.2.40 and later; public specs only). Pick the action and the folder (each
+says whether the spec is in it now), then:
+
+1. **Preview** shows the exact Dr.Egeria document, read-only, and what it does in words. Nothing is sent.
+   Publishing is `Create Report Spec` (or `Update Report Spec` when Egeria already holds the spec) and
+   `Add Member to Collection`, never a Parent ID. Withdrawing is `Remove Member from Collection`; the spec
+   itself stays in Egeria.
+2. **Validate** runs Dr.Egeria's checks on it.
+3. Tick **I confirm** and press **Publish** (or **Withdraw**). The document runs **as you**, with your own
+   sign-in, never as the Portal's service account, so Egeria records who did it and decides whether you may
+   write that folder. If Egeria refuses, its words are shown.
+
+The Portal refuses, and says why:
+
+- you are not signed in;
+- a **built-in** spec: built-ins are published later, after consumer-folders phase 3;
+- a spec held with **zones**: restricted publish comes later, after the zone proof (it is never made
+  public by this control);
+- the consumer folders were not read (run the sync first), or the folder is not one of them;
+- **the document changed since your preview** (the spec, or what Egeria holds): preview it again;
+- a spec held in Egeria that someone changed **after the Portal's last sync**: publishing would write the
+  older copy back, so sync first;
+- withdrawing a spec Egeria does not hold.
+
+After a successful publish or withdraw, the Portal drops its cached results for that spec and starts the
+report-spec sync; **Used by** shows the change when the sync finishes.
+
+The documents and their checks are pyegeria's (`pyegeria.view.report_spec_publish`), the same ones Egeria
+Advisor uses, so the two tools publish a spec the same way.
+
 ### B5. The Portal's own two specs
 
 The Portal defines two specs in its code and also holds copies in its Egeria folder: *Analytic - Generic

@@ -337,6 +337,8 @@ from bootstrap_admin_handler import router as bootstrap_admin_router
 app.include_router(bootstrap_admin_router)
 from egeria_resets_handler import router as egeria_resets_router
 app.include_router(egeria_resets_router)
+from report_spec_publish_handler import router as report_spec_publish_router
+app.include_router(report_spec_publish_router)
 from operations_handler import router as operations_router
 app.include_router(operations_router)
 from lineage_handler import router as lineage_router
