@@ -31,6 +31,9 @@
 #   --yes                      don't ask for confirmation
 #   --dry-run                  print what would be done, change nothing
 #
+# To UPGRADE the platform as well, use egeria-quickstart/bin/egeria-upgrade-reset instead: this
+# script restarts the existing container (docker start), which keeps the OLD image.
+#
 # Before running: stop anything else that writes to Egeria (e.g. the Resource
 # Explorer web server on 8810) -- Egeria is empty until its bootstrap finishes.
 # After running: the platform reloads its content packs on startup, and the
@@ -42,7 +45,8 @@ database="egeria"
 platform_container="quickstart-egeria-main"
 pg_container="egeria-shared-postgres"
 pg_port="5442"
-grant_roles="egeria_admin, egeria_user"   # matches init_egeria.sql
+grant_roles="egeria_admin, egeria_user"   # matches init_egeria.sql and reset-egeria-db.sql
+reset_sql="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/reset-egeria-db.sql"   # shared with bin/egeria-upgrade-reset
 assume_yes=0
 do_backup=0
 dry_run=0
@@ -120,10 +124,9 @@ echo "[reset-egeria-db] dropping and recreating ${database}"
 if [[ "$dry_run" -eq 1 ]]; then
   echo "[dry-run] DROP DATABASE ${database} WITH (FORCE); CREATE DATABASE ${database}; GRANT ALL PRIVILEGES ON DATABASE ${database} TO ${grant_roles};"
 else
-  # WITH (FORCE) disconnects anything still attached (pgAdmin, DBeaver, ...).
-  psql_admin "DROP DATABASE IF EXISTS ${database} WITH (FORCE)"
-  psql_admin "CREATE DATABASE ${database}"
-  psql_admin "GRANT ALL PRIVILEGES ON DATABASE ${database} TO ${grant_roles}"
+  # The SQL lives in reset-egeria-db.sql, shared with egeria-quickstart/bin/egeria-upgrade-reset.
+  docker exec -i "$pg_container" psql -h localhost -p "$pg_port" -U postgres -v ON_ERROR_STOP=1 \
+    -v db="$database" -f - < "$reset_sql"
 fi
 
 echo "[reset-egeria-db] starting ${platform_container}"

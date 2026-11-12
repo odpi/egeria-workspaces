@@ -2,7 +2,7 @@
 # `assert task is not None` in textual/rlock.py, which the current My Profile app
 # hits at startup (pyegeria ISSUE-120). .github/dependabot.yml blocks python>=3.14
 # bumps for this directory -- don't move this image to 3.14 until Textual supports it.
-FROM python:3.13-slim@sha256:70729b46c69b4f1e97c4822c1af3df53a1476cf5ddc6c087c0c10bc3a5678c2f
+FROM python:3.13-slim@sha256:e48f59cdba69a3cbd9ed2cf0f348d90d45a8d350d98134cf1070bc106ee9ed90
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 # pyegeria in its own layer, same pattern as Dockerfile-jupyter — Docker caches
 # it, so a plain rebuild keeps the previously-installed version. Override with

@@ -2,17 +2,28 @@
   "displayName": "Useful Dashboards",
   "description": "Four public Dashboard Sheets built from pyegeria's analytic report specs: Catalog Health, Glossary & Meaning, Governance & Compliance, and Community & Feedback.",
   "canary": {
-    "type": "Dashboard",
-    "name": "Catalog Health"
+    "type": "DisplayDataField",
+    "name": "catalog-health / Catalog Health - Assets with No Lineage"
   },
-  "defaultEnabled": false,
+  "defaultEnabled": true,
+  "idempotent": false,
   "files": [
     "LOCAL_DASHBOARDS_USEFUL_SHEETS.dr-egeria.md",
     "LOCAL_DASHBOARDS_SAVED_QUERY_TILE.dr-egeria.md",
     "LOCAL_DASHBOARDS_USEFUL_SHEETS_FOLDERS.dr-egeria.md"
   ],
-  "exclude": [
-    "FIXUP_2026_11_11_USEFUL_SHEETS_TEXT.dr-egeria.md",
-    "FIXUP_2026_11_11_SAVED_QUERY_TILE_ROUTE_B.dr-egeria.md"
+  "manualSteps": [
+    {
+      "id": "saved-query-first-refresh",
+      "description": "First refresh of the saved query behind the Catalog Health \"Assets with No Lineage\" tile.",
+      "how": "Query tool, Saved Queries tab: refresh \"Assets with no lineage\" once, signed in as the user whose view the tile should show.",
+      "type": "SavedQuery",
+      "qualifiedName": "SavedQuery::useful-sheets::Assets with no lineage",
+      "doneProperty": "lastRefreshedTime",
+      "reportProperties": [
+        "resultCount"
+      ],
+      "pendingText": "saved query not yet refreshed: the tile says the answer was not read until someone refreshes it"
+    }
   ]
 }

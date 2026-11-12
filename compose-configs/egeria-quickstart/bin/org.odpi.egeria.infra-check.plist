@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  SPDX-License-Identifier: Apache-2.0
+  Copyright Contributors to the ODPi Egeria project.
+
+  A launchd agent (macOS) that records the shared-infrastructure check every 10 minutes for the
+  Portal's Admin "Shared infrastructure" line. NOT installed by anything in this repo: installing it
+  is a standing host change and needs the owner's word. __REPO__ is replaced by the checkout path
+  and __PYTHON3__ by an absolute python3 that was checked to run the CLI, when it is installed
+  (never `/usr/bin/env python3`: under launchd's PATH that found a framework python3 on laz that
+  exited silently, 2026-11-12); see portal-docs/Internals/upgrading-or-resetting-egeria.md
+  ("Recording it every 10 minutes"). The check only reads; it restarts nothing.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>org.odpi.egeria.infra-check</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__PYTHON3__</string>
+    <string>__REPO__/compose-configs/egeria-quickstart/bin/egeria-upgrade-reset</string>
+    <string>infra-check</string>
+    <string>--record</string>
+    <string>--log</string>
+    <string>__REPO__/runtime-volumes/egeria-resets/infra-check.log</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>__REPO__</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+  <key>StartInterval</key>
+  <integer>600</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <!-- With log the CLI writes one line per run and keeps the newest 2000 (about two weeks), errors
+       included, so launchd's own output is discarded instead of growing a file forever. -->
+  <key>StandardOutPath</key>
+  <string>/dev/null</string>
+  <key>StandardErrorPath</key>
+  <string>/dev/null</string>
+</dict>
+</plist>

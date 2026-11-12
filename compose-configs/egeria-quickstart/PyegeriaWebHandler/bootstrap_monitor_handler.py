@@ -50,10 +50,8 @@ router = APIRouter(prefix="/api/bootstrap", tags=["bootstrap-monitor"])
 # _dynamic_families() below with no seed file needed, while also being
 # visible/toggleable in the admin panel's Data Initialization tab.
 #
-# The dr-egeria help Glossary is deliberately NOT a family here yet -- its
-# generated help doc is a NEW timestamped file every `refresh_specs` run
-# (see the dr-egeria-command-sync skill), so there's no single canonical
-# checked-in file to re-run automatically today. Revisit once one exists.
+# The dr-egeria help Glossary is deliberately not a batch: the owner (2026-11-12) does not want the
+# large help glossary loaded in this dev environment.
 BOOTSTRAP_FAMILIES = []
 
 _CHECK_INTERVAL = int(os.environ.get("BOOTSTRAP_CHECK_INTERVAL_SECONDS", "600"))  # 10 min
@@ -77,6 +75,11 @@ _DR_EGERIA_TIMEOUT = int(os.environ.get("BOOTSTRAP_HEAL_TIMEOUT_SECONDS", "900")
 # unbounded or over-generous value here blocks the whole app's startup for
 # as long as Egeria stays slow, times number of families.
 _CANARY_CHECK_TIMEOUT = int(os.environ.get("BOOTSTRAP_CANARY_TIMEOUT_SECONDS", "15"))
+# A canary lookup asks for a page of 25, not 1. Egeria 8840035f (2026-11-12) answers a find with
+# pageSize 1 with "No elements found" even when a match exists (the page limit is applied before the
+# displayName condition), so a one-result lookup read a present canary as missing and the monitor
+# re-healed OpenLineage Events every pass. Presence only needs len(results) > 0.
+_CANARY_PAGE_SIZE = 25
 # Startup fast-retry window -- see start_scheduler()'s docstring comment.
 _STARTUP_RETRY_INTERVAL = int(os.environ.get("BOOTSTRAP_STARTUP_RETRY_SECONDS", "20"))
 _STARTUP_RETRY_WINDOW = int(os.environ.get("BOOTSTRAP_STARTUP_RETRY_WINDOW_SECONDS", "300"))  # 5 min
@@ -96,7 +99,8 @@ def _now_iso() -> str:
 
 
 async def _canary_present(family: dict) -> tuple[bool, bool]:
-    """Cheap bounded point lookup -- one Egeria find, pageSize=1. Returns
+    """Cheap bounded point lookup -- one Egeria find, pageSize=_CANARY_PAGE_SIZE (25, not 1: Egeria
+    8840035f answers pageSize 1 with "No elements found" when a match exists; see the constant). Returns
     (present, reachable). `present` fails open to True on any error
     (connection failure isn't evidence of a reset -- don't trigger a heal
     pass just because Egeria was briefly unreachable); `reachable` tells
@@ -140,7 +144,7 @@ async def _canary_present(family: dict) -> tuple[bool, bool]:
                                      "value": {"class": "PrimitiveTypePropertyValue", "typeName": "string",
                                                "primitiveValue": family["canary_name"]}}],
                 },
-                "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0, "startFrom": 0, "pageSize": 1,
+                "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0, "startFrom": 0, "pageSize": _CANARY_PAGE_SIZE,
             }
             els = await mgr._async_find_metadata_elements(body)
             await mgr._async_close_session()
@@ -180,6 +184,64 @@ async def _canary_present(family: dict) -> tuple[bool, bool]:
 # upserting cleanly. See cleanup notes in PYEGERIA... (this repo's) git log
 # for the one-off dedup this caused.
 _active_procs: set = set()
+
+
+async def _manual_step_state(step: dict) -> dict:
+    """One manual step's state, read-only: look the step's element up by qualifiedName and read
+    one of its additionalProperties. `done` when the property is set, `pending` when the element
+    is there without it, `not checked` (with the reason) when the lookup could not answer -- an
+    unanswered lookup is never reported as pending or done."""
+    base = {"id": step.get("id"), "description": step.get("description"), "how": step.get("how")}
+    etype, qn, prop = step.get("type"), step.get("qualifiedName"), step.get("doneProperty")
+    if not (etype and qn and prop):
+        return {**base, "state": "not checked", "detail": "the step's manifest entry has no type, qualifiedName or doneProperty"}
+    try:
+        from pyegeria import MetadataExpert
+        import pyegeria
+        from egeria_auth import async_apply_token
+        pyegeria.enable_ssl_check = False
+        pyegeria.disable_ssl_warnings = True
+        mgr = MetadataExpert(view_server=os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server"),
+                             platform_url=os.environ.get("EGERIA_PLATFORM_URL", "https://localhost:9443"),
+                             user_id=os.environ.get("EGERIA_USER", "erinoverview"),
+                             user_pwd=os.environ.get("EGERIA_USER_PASSWORD", "secret"))
+
+        async def _do():
+            await async_apply_token(mgr)
+            body = {
+                "class": "FindRequestBody", "metadataElementTypeName": etype,
+                "searchProperties": {
+                    "class": "SearchProperties", "matchCriteria": "ALL",
+                    "conditions": [{"property": "qualifiedName", "operator": "EQ",
+                                     "value": {"class": "PrimitiveTypePropertyValue", "typeName": "string",
+                                               "primitiveValue": qn}}],
+                },
+                "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0, "startFrom": 0, "pageSize": _CANARY_PAGE_SIZE,
+            }
+            els = await mgr._async_find_metadata_elements(body)
+            await mgr._async_close_session()
+            return els
+
+        els = await asyncio.wait_for(_do(), timeout=_CANARY_CHECK_TIMEOUT)
+    except Exception as exc:  # noqa: BLE001
+        return {**base, "state": "not checked", "detail": f"lookup of {qn} failed: {type(exc).__name__}"}
+    return _manual_step_from_elements(step, base, els)
+
+
+def _manual_step_from_elements(step: dict, base: dict, els) -> dict:
+    """The state from a find result (split out so it is testable without Egeria)."""
+    qn, prop = step.get("qualifiedName"), step.get("doneProperty")
+    if not isinstance(els, list) or not els:
+        return {**base, "state": "not checked", "detail": f"{qn} was not found, so the step cannot apply yet"}
+    props = (els[0] or {}).get("properties") or {}
+    additional = props.get("additionalProperties") or {}
+    if isinstance(additional, dict) and additional.get(prop):
+        detail = f"{prop} = {additional.get(prop)}"
+        for extra in step.get("reportProperties") or []:
+            if additional.get(extra) not in (None, ""):
+                detail += f"; {extra} = {additional.get(extra)}"
+        return {**base, "state": "done", "detail": detail}
+    return {**base, "state": "pending", "detail": step.get("pendingText") or f"{qn} has no {prop} yet"}
 
 
 async def _kill_proc(proc) -> None:
@@ -293,6 +355,7 @@ def _dynamic_families() -> list[dict]:
             "name":        f"batch:{batch['id']}",
             "canary_type": canary["type"],
             "canary_name": canary["name"],
+            "manual_steps": batch.get("manualSteps") or [],
             "docs":        [str(Path(batch["path"]) / f) for f in batch["files"]],
             "userids":     {str(Path(batch["path"]) / f): u for f, u in batch.get("userids", {}).items()},
         })
@@ -339,6 +402,7 @@ async def check_and_heal_all() -> bool:
         _state["lastCheckAt"] = _now_iso()
 
     if not to_heal:
+        await _record_manual_steps(all_families)
         return any_unreachable
 
     async with _mu:
@@ -357,7 +421,26 @@ async def check_and_heal_all() -> bool:
         _state["reinitializing"] = False
         _state["message"] = None
 
+    await _record_manual_steps(all_families)
     return any_unreachable
+
+
+async def _record_manual_steps(families: list[dict]) -> None:
+    """Record each present family's manual steps (done / pending / not checked) in the status.
+    A family whose canary is missing reports its steps as not checked: the batch has not run."""
+    for family in families:
+        steps = family.get("manual_steps") or []
+        if not steps:
+            continue
+        async with _mu:
+            present = _state["families"].get(family["name"], {}).get("present")
+        if present is False and not _state["families"][family["name"]].get("lastHealResult"):
+            states = [{"id": st.get("id"), "description": st.get("description"), "how": st.get("how"),
+                       "state": "not checked", "detail": "the batch has not run yet"} for st in steps]
+        else:
+            states = list(await asyncio.gather(*(_manual_step_state(st) for st in steps)))
+        async with _mu:
+            _state["families"][family["name"]]["manualSteps"] = states
 
 
 _startup_deadline: Optional[float] = None  # time.monotonic() cutoff; None once settled

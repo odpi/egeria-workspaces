@@ -12,8 +12,9 @@
 <script>EgeriaResize.grids('.placements');</script>
 <script src="/static/bootstrap-banner.js?v=2026-08-18a"></script>
 <script src="/static/diagram-viewer.js?v=2026-11-06a"></script>
-<script src="/static/egeria-not-measured.js?v=2026-11-08a"></script>
+<script src="/static/egeria-not-measured.js?v=2026-11-11a"></script>
 <script src="/static/report-spec-source.js?v=2026-11-10a"></script>
+<script src="/static/egeria-table.js?v=2026-11-12a"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
@@ -414,6 +415,11 @@ function _fetchExecuteCached(body, force) {
   // cache:true opts this run in to the server-side result cache (5 min, stale-while-revalidate);
   // refresh:true (the placement's refresh button) makes the server run it now and store the result.
   var sent = Object.assign({}, body, { cache: true }, force ? { refresh: true } : {});
+  // A TABLE placement asks for pyegeria's structured TABLE (kind "table", native values), rendered by
+  // static/egeria-table.js; every other format is unchanged. The server ignores the flag for non-TABLE.
+  if (String(sent.output_format || '').toUpperCase() === 'TABLE' && window.EgeriaTable && !sent.table_shape) {
+    sent.table_shape = 'structured';
+  }
   var meta = null;
   return fetch('/api/report-specs/execute', {
     method: 'POST',
@@ -453,6 +459,8 @@ function cacheNoteHtml(result) {
 }
 // After a placement renders, add the cache note; a stale one re-checks once the background refresh has had time.
 function afterPlacementResult(p, i, result, target) {
+  // egeria-table.js: hide "more" on text that the browser did not cut after all.
+  if (window.EgeriaTable && result && result.kind === 'table') EgeriaTable.trim(target);
   // Where the spec that ran came from (same badge as Egeria Explorer's Report Specs view).
   var src = window.EgeriaSpecSource ? window.EgeriaSpecSource.blockHtml(result) : '';
   if (src) target.insertAdjacentHTML('beforeend', src);
@@ -517,7 +525,7 @@ function openDrillDrawer(p, i) {
   var effParams = (i != null && _currentPlacements[i]) ? _effectiveParams(_currentPlacements[i], i) : (p.params || {});
   fetchExecuteCached({ spec_name: p.detailSpec, output_format: 'DICT', params: effParams })
     .then(function(result) {
-      var out = renderExecResult(result);
+      var out = renderExecResult(result, effParams);
       body.innerHTML = out.html;
       renderMermaidBlocks(out.mermaidBlocks);
       renderVegaBlocks(out.vegaBlocks);
@@ -874,9 +882,10 @@ function renderPlacementBody(p, i, force) {
   // 'search_string').
   if (p.isAnalytic) {
     target.innerHTML = '<div class="p-loading"><span class="spinner"></span> Running analytic…</div>';
-    fetchExecuteCached({ spec_name: p.reportSpec, output_format: _effectiveOutputFormat(p, i), params: _effectiveParams(p, i) }, force)
+    var analyticParams = _effectiveParams(p, i);
+    fetchExecuteCached({ spec_name: p.reportSpec, output_format: _effectiveOutputFormat(p, i), params: analyticParams }, force)
       .then(function(result) {
-        var out = renderExecResult(result);
+        var out = renderExecResult(result, analyticParams);
         target.innerHTML = out.html;
         renderMermaidBlocks(out.mermaidBlocks);
         renderVegaBlocks(out.vegaBlocks);
@@ -921,7 +930,7 @@ function renderPlacementBody(p, i, force) {
   target.innerHTML = '<div class="p-loading"><span class="spinner"></span> Running report…</div>';
   fetchExecuteCached({ spec_name: p.reportSpec, output_format: effOutputFormat, params: params }, force)
     .then(function(result) {
-      var out = renderExecResult(result);
+      var out = renderExecResult(result, params);
       target.innerHTML = out.html;
       renderMermaidBlocks(out.mermaidBlocks);
       renderVegaBlocks(out.vegaBlocks);
@@ -1046,7 +1055,14 @@ function resetPlacementOverride(i) {
 // observed up to 150KB from a single broad spec. Cap what actually gets
 // parsed/rendered so one such placement can't make the whole page huge or
 // unresponsive (mermaid.js parsing a giant diagram is the slowest part).
-var _MAX_RENDER_CHARS = 20000;
+//
+// Tables are capped separately and only at whole rows: they scroll inside the
+// tile (#833), so they can be much larger, and cutting one mid-row loses rows
+// with no honest count (F-LD1: the CDO Governance Metric register showed 12
+// of 46 rows). The character cap applies to the text outside tables.
+var _MAX_RENDER_CHARS = 20000;       // text outside tables (prose, mermaid)
+var _MAX_TABLE_ROWS = 1000;          // per table
+var _MAX_TABLE_CHARS = 1000000;      // per table, whole rows only
 
 var _vegaSeq = 0;
 
@@ -1078,8 +1094,9 @@ function _seriesValues(data) {
   return vals.every(function(v) { return v != null; }) ? vals : null;
 }
 
-function renderExecResult(result) {
-  var out = _renderExecResultBody(result);
+// params: the placement's effective params (only used to word a truncation note).
+function renderExecResult(result, params) {
+  var out = _renderExecResultBody(result, params);
   // A count pyegeria could not measure (odpi/egeria-python #555) is null in
   // the data and named in result.unmeasured — list each one under the result,
   // so a "No results." or a table never reads as the whole answer. Absent for
@@ -1087,10 +1104,23 @@ function renderExecResult(result) {
   if (result && result.kind !== 'absent' && window.EgeriaNotMeasured && EgeriaNotMeasured.hasUnmeasured(result)) {
     out.html += EgeriaNotMeasured.footnoteHtml(result);
   }
+  // pyegeria's own notes beside the result (6.2.37+): a capped query says
+  // "more may exist", and so on. Shown under every tile and in the drawer;
+  // nothing for a result without notes.
+  // A structured TABLE lists pyegeria's notes in its own footer (egeria-table.js), so not twice.
+  if (window.EgeriaNotMeasured && EgeriaNotMeasured.resultNotesHtml && !(result && result.kind === 'table')) {
+    out.html += EgeriaNotMeasured.resultNotesHtml(result);
+  }
   return out;
 }
 
-function _renderExecResultBody(result) {
+// Related elements in a structured TABLE link to The Catalog's ?guid= deep link, the Portal's
+// generic resolver: it opens the element's own view, or says honestly that none exists.
+function tableLinkBuilder(el) {
+  return el && el.guid ? '/tech-catalog?guid=' + encodeURIComponent(el.guid) : null;
+}
+
+function _renderExecResultBody(result, params) {
   // kind:"absent" — the value is not established, does not apply, or is a
   // count that was not measured (ISSUE-171 / #555). Say so: never the raw
   // JSON, an empty chart or a KPI number that reads as an answer.
@@ -1098,7 +1128,12 @@ function _renderExecResultBody(result) {
     return { html: EgeriaNotMeasured.absentHtml(result), mermaidBlocks: [], vegaBlocks: [], isKpiShaped: result.detail === undefined };
   }
   if (!result || result.kind === 'empty') return { html: '<div class="p-loading">No results.</div>', mermaidBlocks: [], vegaBlocks: [] };
-  if (result.kind === 'text') return Object.assign({ vegaBlocks: [] }, renderMdWithMermaid(_capContent(result.content)));
+  // pyegeria's structured TABLE (table_shape "structured"): no column cap (it scrolls), every row the
+  // result carries, the footer says "first N of M" / "more may exist" and lists every note.
+  if (result.kind === 'table' && window.EgeriaTable) {
+    return { html: EgeriaTable.renderHtml(result, { linkBuilder: tableLinkBuilder }), mermaidBlocks: [], vegaBlocks: [] };
+  }
+  if (result.kind === 'text') return Object.assign({ vegaBlocks: [] }, renderMdWithMermaid(_capContent(result.content, params)));
   if (result.kind === 'json') {
     // A SERIES/analytic-function result comes back as a ready-made Vega-Lite
     // spec dict (produced by generate_vega_line_chart in format_set_executor.py)
@@ -1116,8 +1151,14 @@ function _renderExecResultBody(result) {
     }
     // Some auto-generated "Basic" report specs return pre-rendered markdown
     // text even under kind:"json" (their TABLE format isn't truly tabular) —
-    // render it as markdown rather than showing an empty table.
-    if (typeof result.data === 'string') return Object.assign({ vegaBlocks: [] }, renderMdWithMermaid(_capContent(result.data)));
+    // render it as markdown rather than showing an empty table. TABLE
+    // placements now ask for the structured TABLE (kind "table"), which
+    // should never reach here; kept, with a warning, until nothing does
+    // (P1b: not confirmed on every live sheet).
+    if (typeof result.data === 'string') {
+      if (window.console && console.warn) console.warn('local-dashboards: kind "json" with a text body (the old TABLE-as-markdown case); still rendered as markdown');
+      return Object.assign({ vegaBlocks: [] }, renderMdWithMermaid(_capContent(result.data, params)));
+    }
     // A scalar analytic result (e.g. count_elements' "scalar (int)" result
     // shape — see analytic_demo_specs.py) isn't a row/column table at all —
     // renderJsonTableHtml only handles arrays/objects, so a bare number or
@@ -1195,11 +1236,76 @@ function renderVegaBlocks(blocks) {
   });
 }
 
-function _capContent(text) {
-  if (!text || text.length <= _MAX_RENDER_CHARS) return text;
-  return text.slice(0, _MAX_RENDER_CHARS)
-    + '\n\n*(truncated — this placement has no query scope, so it matched far '
-    + 'more than fits here; see "No scoping params yet" in portal-docs/tutorials/local-dashboards.md)*';
+// The placement's actual scope, in words: its non-empty params as k=v
+// (search_string first), or null when it has none.
+function _scopeWords(params) {
+  if (!params || typeof params !== 'object') return null;
+  var keys = Object.keys(params).filter(function(k) {
+    var v = params[k];
+    if (v == null || v === '' || v === false) return false;
+    if (Array.isArray(v)) return v.length > 0;
+    if (typeof v === 'string') return v.trim() !== '';
+    return true;
+  });
+  if (!keys.length) return null;
+  keys.sort(function(a, b) { return (a === 'search_string' ? -1 : 0) - (b === 'search_string' ? -1 : 0) || (a < b ? -1 : a > b ? 1 : 0); });
+  return keys.map(function(k) {
+    var v = params[k];
+    v = typeof v === 'string' ? v : JSON.stringify(v);
+    if (v.length > 80) v = v.slice(0, 77) + '...';
+    return k + '=' + v;
+  }).join(', ');
+}
+
+function _truncationNote(params) {
+  var scope = _scopeWords(params);
+  return scope
+    ? '*(Text truncated at this tile\'s render limit of ' + _MAX_RENDER_CHARS.toLocaleString('en') + ' characters. '
+      + 'This placement is scoped by ' + scope + ', and the result is still longer than a tile shows.)*'
+    : '*(Text truncated at this tile\'s render limit of ' + _MAX_RENDER_CHARS.toLocaleString('en') + ' characters. '
+      + 'This placement has no query scope, so it matched more than fits here; see "No scoping params yet" '
+      + 'in portal-docs/tutorials/local-dashboards.md.)*';
+}
+
+// Same table test as renderMdToHtml: a pipe row followed by a separator row.
+function _isTableStart(lines, i) {
+  return i + 1 < lines.length && /^\|.+\|/.test(lines[i]) && /^\|[\s\-:|]+\|/.test(lines[i + 1]);
+}
+
+// params: the placement's effective params, so a truncation note can state
+// its real scope (F-LD1: the old note always said "no query scope").
+function _capContent(text, params) {
+  if (!text) return text;
+  var lines = text.split('\n');
+  var out = [], textChars = 0, cut = false, fenceAt = -1, i = 0;
+  while (i < lines.length) {
+    if (fenceAt < 0 && _isTableStart(lines, i)) {
+      var tl = [];
+      while (i < lines.length && /^\|/.test(lines[i].trim())) { tl.push(lines[i]); i++; }
+      var rows = tl.slice(2), kept = 0, chars = 0;
+      out.push(tl[0], tl[1]);
+      while (kept < rows.length && kept < _MAX_TABLE_ROWS && chars + rows[kept].length + 1 <= _MAX_TABLE_CHARS) {
+        chars += rows[kept].length + 1;
+        out.push(rows[kept]);
+        kept++;
+      }
+      if (kept < rows.length) {
+        out.push('', '*Showing the first ' + kept + ' of ' + rows.length + ' rows (this tile\'s render limit).*', '');
+      }
+      continue;
+    }
+    var line = lines[i];
+    if (textChars + line.length + 1 > _MAX_RENDER_CHARS) { cut = true; break; }
+    if (/^```/.test(line.trim())) fenceAt = fenceAt < 0 ? out.length : -1;
+    out.push(line);
+    textChars += line.length + 1;
+    i++;
+  }
+  if (cut) {
+    if (fenceAt >= 0) out = out.slice(0, fenceAt);   // drop a half-open ```mermaid block rather than show it broken
+    out.push('', _truncationNote(params));
+  }
+  return out.join('\n');
 }
 
 // Splits markdown on ```mermaid fences (same contract as static/egeria-
@@ -1255,6 +1361,16 @@ function tableWrapOpen(nCols) {
 }
 var TABLE_WRAP_CLOSE = '</table></div>';
 
+// pyegeria (6.2.37+) writes <br> inside markdown table cells for a newline in
+// a value and between LIST bullets; GFM tables accept it. Cells are escaped
+// first, so turn back ONLY the exact escaped forms of <br>, <br/> and <br />
+// into a line break -- nothing else is unescaped. Text that spells the entity
+// itself ("&lt;br&gt;" in the source) is escaped to "&amp;lt;br&amp;gt;", does
+// not match, and stays visible text.
+function restoreCellBreaks(s) {
+  return s.replace(/&lt;br( ?\/)?&gt;/g, '<br>');
+}
+
 function renderMdToHtml(rawText) {
   if (!rawText || !rawText.trim()) return '';
   var inlineMarkup = function(s) {
@@ -1273,9 +1389,9 @@ function renderMdToHtml(rawText) {
       while (i < lines.length && /^\|/.test(lines[i].trim())) { tlines.push(lines[i]); i++; }
       var headers = tlines[0].split('|').slice(1, -1).map(function(h) { return h.trim(); });
       var rows    = tlines.slice(2).map(function(r) { return r.split('|').slice(1, -1).map(function(c) { return c.trim(); }); });
-      var t = tableWrapOpen(headers.length) + '<thead><tr>' + headers.map(function(h) { return '<th>' + inlineMarkup(esc(h)) + '</th>'; }).join('') + '</tr></thead><tbody>';
+      var t = tableWrapOpen(headers.length) + '<thead><tr>' + headers.map(function(h) { return '<th>' + restoreCellBreaks(inlineMarkup(esc(h))) + '</th>'; }).join('') + '</tr></thead><tbody>';
       rows.forEach(function(row) {
-        t += '<tr>' + headers.map(function(_, j) { return '<td>' + inlineMarkup(esc(row[j] || '')) + '</td>'; }).join('') + '</tr>';
+        t += '<tr>' + headers.map(function(_, j) { return '<td>' + restoreCellBreaks(inlineMarkup(esc(row[j] || ''))) + '</td>'; }).join('') + '</tr>';
       });
       t += '</tbody>' + TABLE_WRAP_CLOSE;
       parts.push(t);
@@ -1470,6 +1586,8 @@ function renderRunDocResult(data, directive) {
   resultEl.innerHTML = html;
 }
 
+// Structured TABLE interactions (more/less, subtable rows): one listener for every tile and the drawer.
+if (window.EgeriaTable) EgeriaTable.attach(document.body);
 render();
 </script>
 

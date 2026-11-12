@@ -1,0 +1,2042 @@
+{
+ "_about": "pyegeria 6.2.39 exec_report_spec(output_format='TABLE', table_shape='structured', params={'search_string': '*'}), read-only on laz as erinoverview, 2026-11-12 (after the Egeria clear + reseed). Rows trimmed to a few per spec for size; columns, shown, total, total_basis and notes are as captured.",
+ "Risk-DrE-Basic": {
+  "kind": "table",
+  "columns": [
+   {
+    "key": "zone_membership",
+    "name": "Zone Membership",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "category",
+    "name": "Category",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "description",
+    "name": "Description",
+    "type": "text",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "display_name",
+    "name": "Display Name",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "guid",
+    "name": "GUID",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "legal",
+    "name": "Legal",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "qualified_name",
+    "name": "Qualified Name",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "url",
+    "name": "URL",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "version_identifier",
+    "name": "Version Identifier",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "authors",
+    "name": "Authors",
+    "type": "list",
+    "render": "bullets",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "content_status",
+    "name": "Content Status",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": [
+     "DRAFT",
+     "PREPARED",
+     "PROPOSED",
+     "APPROVED",
+     "REJECTED",
+     "ACTIVE",
+     "DEPRECATED",
+     "OTHER"
+    ],
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "domain_identifier",
+    "name": "Domain Identifier",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": [
+     "All Domains",
+     "Data",
+     "Privacy",
+     "Security",
+     "IT Infrastructure",
+     "Software Development",
+     "Corporate",
+     "Asset Management",
+     "Other"
+    ],
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "implications",
+    "name": "Implications",
+    "type": "list",
+    "render": "bullets",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "importance",
+    "name": "Importance",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "outcomes",
+    "name": "Outcomes",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "results",
+    "name": "Results",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "scope",
+    "name": "Scope",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "summary",
+    "name": "Summary",
+    "type": "text",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "usage",
+    "name": "Usage",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   }
+  ],
+  "total": 12,
+  "total_basis": "one page",
+  "shown": 12,
+  "notes": [],
+  "spec_source": {
+   "tier": "builtin",
+   "label": "Risk-DrE-Basic",
+   "version": null,
+   "seed": "Governance Officer.json"
+  },
+  "rows": [
+   {
+    "zone_membership": [],
+    "category": "Event Security",
+    "description": "**Likelihood:** Low — there is no specific intelligence suggesting Coco Pharmaceuticals or its conference is a targeted risk, but any large public gathering carries a baseline exposure to this threat. **Impact:** Critical — any incident affecting attendee safety would be catastrophic in human terms and would carry severe legal and reputational consequences for the organisation. **Overall rating:** Medium-High, reflecting low likelihood combined with critical impact.",
+    "display_name": "Terrorism-Related Incident at the Annual Conference",
+    "guid": "9c4b7824-d2f0-4b0d-8900-3042b7b6ba2d",
+    "legal": null,
+    "qualified_name": "CocoPharma::Risk::TerrorismIncidentAtAnnualConference",
+    "url": null,
+    "version_identifier": "1.0",
+    "authors": [
+     "Ivor Padlock"
+    ],
+    "content_status": "ACTIVE",
+    "domain_identifier": 0,
+    "implications": [
+     "Public protection procedures (evacuation, invacuation, lockdown, communication) must be documented and rehearsed before each conference",
+     "Venue security assessments must be refreshed for each event, particularly if attendance approaches the 800-attendee enhanced tier threshold",
+     "Staff working at the event must be briefed on their role in the public protection procedures"
+    ],
+    "importance": "Medium-High",
+    "outcomes": null,
+    "results": null,
+    "scope": null,
+    "summary": "Coco Pharmaceuticals' annual conference, attracting around 700 attendees, could be the scene of, or affected by, a terrorism-related incident.",
+    "usage": null
+   },
+   {
+    "zone_membership": [],
+    "category": "Knowledge Management",
+    "description": "**Likelihood:** Medium — this pattern already exists at Coco Pharmaceuticals today, as a direct consequence of historically siloed, informally governed departments; the common glossary intended to fix it is still being populated. **Impact:** Medium-High — reports and analytics that silently combine inconsistently defined data can drive incorrect business, clinical, or financial decisions without any error being visible to the people relying on them. **Overall rating:** Medium-High.",
+    "display_name": "Inconsistent Data Definitions Undermining Cross-Department Reporting",
+    "guid": "7875cf66-5e1e-4130-bbe9-a6af7901c657",
+    "legal": null,
+    "qualified_name": "CocoPharma::Risk::InconsistentDataDefinitionsReportingErrors",
+    "url": null,
+    "version_identifier": "1.0",
+    "authors": [
+     "Jules Keeper"
+    ],
+    "content_status": "ACTIVE",
+    "domain_identifier": 0,
+    "implications": [
+     "Cross-department reports must state which glossary definitions their inputs conform to",
+     "New data sharing between departments should trigger a check that shared terms have agreed definitions",
+     "Discrepancies discovered between departmental definitions must be escalated for resolution, not silently reconciled"
+    ],
+    "importance": "Medium-High",
+    "outcomes": null,
+    "results": null,
+    "scope": null,
+    "summary": "Different departments could continue to define the same data (such as \"patient\", \"batch\", or \"revenue\") differently, causing combined reports to be wrong without anyone noticing.",
+    "usage": null
+   },
+   {
+    "zone_membership": [],
+    "category": "Knowledge Management",
+    "description": "**Likelihood:** Medium — Coco Pharmaceuticals has historically relied on informal knowledge sharing, and the formal metadata-driven governance program is still being built out, so there is currently more undocumented knowledge than documented. **Impact:** High — loss of this knowledge could stall governance activity, cause inconsistent decisions by successors, and delay onboarding of replacement staff. **Overall rating:** High.",
+    "display_name": "Loss of Undocumented Governance Knowledge on Staff Departure",
+    "guid": "20ba93d1-e36a-4120-9b24-c1b4753ce7a9",
+    "legal": null,
+    "qualified_name": "CocoPharma::Risk::LossOfUndocumentedGovernanceKnowledge",
+    "url": null,
+    "version_identifier": "1.0",
+    "authors": [
+     "Jules Keeper"
+    ],
+    "content_status": "ACTIVE",
+    "domain_identifier": 0,
+    "implications": [
+     "Governance decisions and rationale must be captured in the metadata catalog as they are made, not reconstructed afterwards",
+     "Domain leads should identify and document undocumented knowledge as a standing responsibility, not a one-off exercise",
+     "Handover documentation must be required as part of any planned staff transition"
+    ],
+    "importance": "High",
+    "outcomes": null,
+    "results": null,
+    "scope": null,
+    "summary": "Departure of a domain lead or other key member of staff could remove undocumented knowledge of governance decisions, data definitions, or processes.",
+    "usage": null
+   }
+  ]
+ },
+ "Governance-Metric-DrE-Basic": {
+  "kind": "table",
+  "columns": [
+   {
+    "key": "zone_membership",
+    "name": "Zone Membership",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "category",
+    "name": "Category",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "description",
+    "name": "Description",
+    "type": "text",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "display_name",
+    "name": "Display Name",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "guid",
+    "name": "GUID",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "legal",
+    "name": "Legal",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "qualified_name",
+    "name": "Qualified Name",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "url",
+    "name": "URL",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "version_identifier",
+    "name": "Version Identifier",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "authors",
+    "name": "Authors",
+    "type": "list",
+    "render": "bullets",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "content_status",
+    "name": "Content Status",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": [
+     "DRAFT",
+     "PREPARED",
+     "PROPOSED",
+     "APPROVED",
+     "REJECTED",
+     "ACTIVE",
+     "DEPRECATED",
+     "OTHER"
+    ],
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "domain_identifier",
+    "name": "Domain Identifier",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": [
+     "All Domains",
+     "Data",
+     "Privacy",
+     "Security",
+     "IT Infrastructure",
+     "Software Development",
+     "Corporate",
+     "Asset Management",
+     "Other"
+    ],
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "implications",
+    "name": "Implications",
+    "type": "list",
+    "render": "bullets",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "importance",
+    "name": "Importance",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "outcomes",
+    "name": "Outcomes",
+    "type": "list",
+    "render": "bullets",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "results",
+    "name": "Results",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "scope",
+    "name": "Scope",
+    "type": "text",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "summary",
+    "name": "Summary",
+    "type": "text",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "usage",
+    "name": "Usage",
+    "type": "text",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "implementation_description",
+    "name": "Implementation Description",
+    "type": "text",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "measurement",
+    "name": "Measurement",
+    "type": "text",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "target",
+    "name": "Target",
+    "type": "text",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   }
+  ],
+  "total": 69,
+  "total_basis": "one page",
+  "shown": 69,
+  "notes": [],
+  "spec_source": {
+   "tier": "builtin",
+   "label": "Governance-Metric-DrE-Basic",
+   "version": null,
+   "seed": "Governance Officer.json"
+  },
+  "rows": [
+   {
+    "zone_membership": [],
+    "category": "",
+    "description": "",
+    "display_name": "Documentation Signal Count",
+    "guid": "34049ab1-cc9c-4d30-87e8-1fba260d6b68",
+    "legal": null,
+    "qualified_name": "GovernanceMetric::ResourceExplorer::DocumentationSignalCount::1.0",
+    "url": null,
+    "version_identifier": "",
+    "authors": null,
+    "content_status": "ACTIVE",
+    "domain_identifier": 1,
+    "implications": null,
+    "importance": "Medium",
+    "outcomes": null,
+    "results": null,
+    "scope": null,
+    "summary": "How many distinct kinds of documentation a repository provides.",
+    "usage": null,
+    "implementation_description": null,
+    "measurement": "The count of distinct documentation collection types present, plus the count of\ndocumentation hygiene files found (README, CONTRIBUTING, CODE_OF_CONDUCT and\nsimilar). Computed by\n`resource_explorer/surveyors/sub_surveyors/documentation.py` from the file\ninventory.",
+    "target": "5 or above, which the UI labels Comprehensive; 2 to 4 is Partial and below 2 is\nMinimal. This counts KINDS of documentation, not quality or quantity of it — a\nrepository with one excellent guide scores lower than one with five stubs, and\nthat is a real limitation of the metric rather than a judgement about either\nrepository."
+   },
+   {
+    "zone_membership": [],
+    "category": "",
+    "description": "",
+    "display_name": "Overall Repository Health",
+    "guid": "06903f7b-4f7a-47f8-af78-368d306459a6",
+    "legal": null,
+    "qualified_name": "GovernanceMetric::ResourceExplorer::OverallRepositoryHealth::1.0",
+    "url": null,
+    "version_identifier": "",
+    "authors": null,
+    "content_status": "ACTIVE",
+    "domain_identifier": 1,
+    "implications": null,
+    "importance": "High",
+    "outcomes": null,
+    "results": null,
+    "scope": null,
+    "summary": "A single headline score combining activity, community, release cadence and\nfreshness.",
+    "usage": null,
+    "implementation_description": null,
+    "measurement": "The unweighted mean of Repository Activity, Repository Community, Repository\nRelease Cadence and Repository Freshness. Unweighted is a deliberate choice, not\nan absence of one: no evidence supports weighting these against each other, so\nasserting weights would claim knowledge RE does not have.",
+    "target": "70 or above, which is the band the UI already renders as healthy. Between 40 and\n70 renders as a warning and below 40 as a gap. A repository can miss this target\nfor entirely legitimate reasons — a finished library needs no recent commits —\nso this is a prompt to look, never a verdict."
+   },
+   {
+    "zone_membership": [],
+    "category": "",
+    "description": "",
+    "display_name": "Repository Freshness",
+    "guid": "5835e046-45c9-4833-85f4-9ba5db28e36a",
+    "legal": null,
+    "qualified_name": "GovernanceMetric::ResourceExplorer::RepositoryFreshness::1.0",
+    "url": null,
+    "version_identifier": "",
+    "authors": null,
+    "content_status": "ACTIVE",
+    "domain_identifier": 1,
+    "implications": null,
+    "importance": "Medium",
+    "outcomes": null,
+    "results": null,
+    "scope": null,
+    "summary": "How recently a repository was last touched.",
+    "usage": null,
+    "implementation_description": null,
+    "measurement": "100 minus twice the number of days since the last push, floored at 0. Where the\nlast push date is unknown the value is 50, which is a declared placeholder and\nnot a measurement.",
+    "target": "60 or above, meaning pushed within roughly the last 20 days. The 50-for-unknown\ncase sits below target on purpose: an unknown push date should not read as\nhealthy."
+   }
+  ]
+ },
+ "Project-DrE-Basic": {
+  "kind": "table",
+  "columns": [
+   {
+    "key": "zone_membership",
+    "name": "Zone Membership",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "category",
+    "name": "Category",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "description",
+    "name": "Description",
+    "type": "text",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "display_name",
+    "name": "Display Name",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "guid",
+    "name": "GUID",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "legal",
+    "name": "Legal",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "qualified_name",
+    "name": "Qualified Name",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "url",
+    "name": "URL",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "version_identifier",
+    "name": "Version Identifier",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "authors",
+    "name": "Authors",
+    "type": "list",
+    "render": "bullets",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "content_status",
+    "name": "Content Status",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": [
+     "DRAFT",
+     "PREPARED",
+     "PROPOSED",
+     "APPROVED",
+     "REJECTED",
+     "ACTIVE",
+     "DEPRECATED",
+     "OTHER"
+    ],
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "actual_completion_date",
+    "name": "Actual Completion Date",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "actual_start_date",
+    "name": "Actual Start Date",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "mission",
+    "name": "Mission",
+    "type": "text",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "planned_completion_date",
+    "name": "Planned Completion Date",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "planned_start_date",
+    "name": "Planned Start Date",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "priority",
+    "name": "Priority",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "approach",
+    "name": "Project Approach",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "project_health",
+    "name": "Project Health",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "project_identifier",
+    "name": "Project Identifier",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "management_style",
+    "name": "Project Management Style",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "project_phase",
+    "name": "Project Phase",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "results_usage",
+    "name": "Project Results Usage",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "project_scope",
+    "name": "Project Scope",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "project_status",
+    "name": "Project Status",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "project_type",
+    "name": "Project Type",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": [
+     "Project",
+     "Campaign",
+     "Task",
+     "PersonalProject",
+     "StudyProject",
+     "Experiment"
+    ],
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "purposes",
+    "name": "Purposes",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "sub_projects",
+    "name": "Sub-Projects",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "success_criteria",
+    "name": "Success Criteria",
+    "type": "list",
+    "render": "bullets",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   }
+  ],
+  "total": 64,
+  "total_basis": "one page",
+  "shown": 64,
+  "notes": [],
+  "spec_source": {
+   "tier": "builtin",
+   "label": "Project-DrE-Basic",
+   "version": null,
+   "seed": "Projects.json"
+  },
+  "rows": [
+   {
+    "zone_membership": [],
+    "category": "In-person Meetings and Events",
+    "description": "Coco Pharmaceuticals' annual conference in London, bringing together employees, partners and customers.  Attendance has grown steadily and is now around 700 people, which places the conference in the standard tier of the Terrorism (Protection of Premises) Act 2025 (Martyn's Law).  If attendance reaches 800 the conference becomes a qualifying event in the enhanced tier, with additional duties for the Responsible Person.",
+    "display_name": "Coco Pharmaceuticals Annual Conference (London)",
+    "guid": null,
+    "legal": null,
+    "qualified_name": "CocoPharma::Project::AnnualConferenceLondon",
+    "url": null,
+    "version_identifier": "1.0",
+    "authors": [
+     "Ivor Padlock"
+    ],
+    "content_status": "ACTIVE",
+    "actual_completion_date": null,
+    "actual_start_date": null,
+    "mission": "Deliver a safe, well-run annual conference that meets the duties of Martyn's Law for every attendee, member of staff and venue partner.",
+    "planned_completion_date": null,
+    "planned_start_date": null,
+    "priority": null,
+    "approach": null,
+    "project_health": null,
+    "project_identifier": null,
+    "management_style": null,
+    "project_phase": null,
+    "results_usage": null,
+    "project_scope": null,
+    "project_status": null,
+    "project_type": null,
+    "purposes": null,
+    "sub_projects": null,
+    "success_criteria": [
+     "Public protection procedures (evacuation, invacuation, lockdown and communication) are documented and rehearsed before each conference",
+     "The venue security assessment is refreshed for each conference",
+     "Staff working at the event are briefed on their role in the public protection procedures",
+     "Attendance is monitored against the 800-attendee enhanced tier threshold"
+    ]
+   },
+   {
+    "zone_membership": [],
+    "category": null,
+    "description": "With the landscape understood, I need to model the threats, agree a shared vocabulary, and plan the testing and monitoring that will tell us whether our defences work.",
+    "display_name": "Next 30 Days (Establishing Phase)",
+    "guid": null,
+    "legal": null,
+    "qualified_name": "SimonBurr::Project::Next30DaysEstablishingPhase",
+    "url": null,
+    "version_identifier": "1.0",
+    "authors": [
+     "Simon Burr"
+    ],
+    "content_status": "ACTIVE",
+    "actual_completion_date": null,
+    "actual_start_date": null,
+    "mission": "To put in place the models, vocabulary and plans the security program needs.",
+    "planned_completion_date": null,
+    "planned_start_date": null,
+    "priority": null,
+    "approach": null,
+    "project_health": null,
+    "project_identifier": null,
+    "management_style": null,
+    "project_phase": "Establishing",
+    "results_usage": null,
+    "project_scope": null,
+    "project_status": null,
+    "project_type": null,
+    "purposes": null,
+    "sub_projects": null,
+    "success_criteria": [
+     "Threat models built for the strategic information supply chains, with risks scoped to the components they threaten",
+     "A security glossary agreed with Ivor and Sidney",
+     "A plan for continuous penetration testing, scoped by the inventory and prioritized by the risk register",
+     "A design for extending security monitoring to the original Coco Pharmaceuticals systems"
+    ]
+   },
+   {
+    "zone_membership": [],
+    "category": null,
+    "description": "My first job is to listen.  I need to get to know Ivor, Sidney, Gary and Lemmie, read the data security strategy and the risk register, and understand what is actually running.  The systems inventory in Egeria is my starting point.  The two acquisitions run security monitoring and testing that the original Coco Pharmaceuticals estate does not have, so I want to learn from the people who run it there.",
+    "display_name": "First 30 Days (Learning Phase)",
+    "guid": null,
+    "legal": null,
+    "qualified_name": "SimonBurr::Project::First30DaysLearningPhase",
+    "url": null,
+    "version_identifier": "1.0",
+    "authors": [
+     "Simon Burr"
+    ],
+    "content_status": "ACTIVE",
+    "actual_completion_date": null,
+    "actual_start_date": null,
+    "mission": "To understand Coco Pharmaceuticals' security position - its people, its systems, its strategy and its risks - before changing anything.",
+    "planned_completion_date": null,
+    "planned_start_date": null,
+    "priority": null,
+    "approach": null,
+    "project_health": null,
+    "project_identifier": null,
+    "management_style": null,
+    "project_phase": "Learning",
+    "results_usage": null,
+    "project_scope": null,
+    "project_status": null,
+    "project_type": null,
+    "purposes": null,
+    "sub_projects": null,
+    "success_criteria": [
+     "Met the security team and the IT colleagues they rely on",
+     "Reviewed the data security strategy, the risk register and the systems inventory",
+     "Learnt how security is monitored and tested at Austin and Bucharest",
+     "Audited the users of Egeria itself"
+    ]
+   }
+  ]
+ },
+ "Digital-Products": {
+  "kind": "table",
+  "columns": [
+   {
+    "key": "display_name",
+    "name": "Display Name",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "qualified_name",
+    "name": "Qualified Name",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "category",
+    "name": "Category",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "description",
+    "name": "Description",
+    "type": "text",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "type_name",
+    "name": "Type Name",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "url",
+    "name": "URL",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "status",
+    "name": "Status",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "product_name",
+    "name": "Product Name",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "identifier",
+    "name": "Identifier",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "maturity",
+    "name": "Maturity",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "service_life",
+    "name": "Service Life",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "next_version",
+    "name": "Next Version",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "withdraw_date",
+    "name": "Withdraw Date",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "members",
+    "name": "Members",
+    "type": "elements",
+    "render": "join",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "uses_digital_products",
+    "name": "Uses Products",
+    "type": "elements",
+    "render": "join",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "used_by_digital_products",
+    "name": "Used by Products",
+    "type": "elements",
+    "render": "join",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "assigned_actors",
+    "name": "Product Manager",
+    "type": "elements",
+    "render": "join",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "governed_by",
+    "name": "License",
+    "type": "elements",
+    "render": "join",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "solution_designs",
+    "name": "Solution Blueprint",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   }
+  ],
+  "total": 78,
+  "total_basis": "one page",
+  "shown": 78,
+  "notes": [
+   "Members: none on 2 rows (read at graph depth 3).",
+   "Uses Products: none on 55 rows (read at graph depth 3).",
+   "Used by Products: none on 51 rows (read at graph depth 3).",
+   "Product Manager: none on 8 rows (read at graph depth 3).",
+   "License: none on 35 rows (read at graph depth 3).",
+   "Solution Blueprint: none on 78 rows (read at graph depth 3)."
+  ],
+  "spec_source": {
+   "tier": "builtin",
+   "label": "Digital-Products",
+   "version": null,
+   "seed": "Product Manager.json"
+  },
+  "rows": [
+   {
+    "display_name": "Worker Qualifications",
+    "qualified_name": "DigitalProduct::Coco::Worker Qualifications",
+    "category": "Master Data",
+    "description": "The authoritative statement of what each worker is currently qualified to do, with the evidence and the expiry, read by manufacturing, shipping, drug development and the batch record as compliance evidence.  A local copy that has drifted is worse than no copy at all.",
+    "type_name": "DigitalProduct",
+    "url": null,
+    "status": "ACTIVE",
+    "product_name": null,
+    "identifier": null,
+    "maturity": null,
+    "service_life": null,
+    "next_version": null,
+    "withdraw_date": null,
+    "members": [
+     {
+      "guid": "ad5d077e-f31d-48aa-a1e5-48a8987f5a54",
+      "qualifiedName": "PostgreSQL Tabular Data Set Collection::Coco PostgreSQL Server 1::coco_data_hub.worker_qualifications",
+      "displayName": "coco_data_hub.worker_qualifications",
+      "type": "TabularDataSetCollection"
+     }
+    ],
+    "uses_digital_products": [
+     {
+      "guid": "1ce78a22-7d64-46bc-8b06-c2e8a6639a1b",
+      "qualifiedName": "DigitalProduct::Coco::Training Completions",
+      "displayName": "Training Completions",
+      "type": "DigitalProduct"
+     },
+     {
+      "guid": "df284216-6e9b-44fb-9f58-aa838eded33f",
+      "qualifiedName": "DigitalProduct::Coco::Worker Master Data",
+      "displayName": "Worker Master Data",
+      "type": "DigitalProduct"
+     },
+     {
+      "guid": "df284216-6e9b-44fb-9f58-aa838eded33f",
+      "qualifiedName": "DigitalProduct::Coco::Worker Master Data",
+      "displayName": "Worker Master Data",
+      "type": "DigitalProduct"
+     }
+    ],
+    "used_by_digital_products": [
+     {
+      "guid": "0ab916df-bf84-4e81-ab9f-c1e021cdf8ba",
+      "qualifiedName": "DigitalProduct::Coco::Dangerous Goods Consignment Records",
+      "displayName": "Dangerous Goods Consignment Records",
+      "type": "DigitalProduct"
+     },
+     {
+      "guid": "0ab916df-bf84-4e81-ab9f-c1e021cdf8ba",
+      "qualifiedName": "DigitalProduct::Coco::Dangerous Goods Consignment Records",
+      "displayName": "Dangerous Goods Consignment Records",
+      "type": "DigitalProduct"
+     },
+     {
+      "guid": "1629f50b-7992-47cd-8607-fa9737579ddb",
+      "qualifiedName": "DigitalProduct::Coco::Electronic Batch Records",
+      "displayName": "Electronic Batch Records",
+      "type": "DigitalProduct"
+     },
+     {
+      "guid": "1629f50b-7992-47cd-8607-fa9737579ddb",
+      "qualifiedName": "DigitalProduct::Coco::Electronic Batch Records",
+      "displayName": "Electronic Batch Records",
+      "type": "DigitalProduct"
+     },
+     {
+      "guid": "1ebb3c95-6f6f-4882-8d9b-792812993575",
+      "qualifiedName": "DigitalProduct::Coco::Batch Execution Records",
+      "displayName": "Batch Execution Records",
+      "type": "DigitalProduct"
+     },
+     {
+      "guid": "df9623ac-f3d8-460d-9e02-1bab14b73872",
+      "qualifiedName": "DigitalProduct::Coco::Hospital Certifications",
+      "displayName": "Hospital Certifications",
+      "type": "DigitalProduct"
+     }
+    ],
+    "assigned_actors": [
+     {
+      "guid": "436eaeae-06f9-4fee-ba5a-5465205113e5",
+      "qualifiedName": "PersonRole::Coco::Digital Product Manager::People Systems",
+      "displayName": "People Systems Digital Product Manager",
+      "type": "PersonRole"
+     }
+    ],
+    "governed_by": [],
+    "solution_designs": []
+   },
+   {
+    "display_name": "Training Completions",
+    "qualified_name": "DigitalProduct::Coco::Training Completions",
+    "category": "Evidence Record",
+    "description": "Training delivered, completion and assessment recorded, and refreshers scheduled for lapsing qualifications.  Its output is evidence consumed by two regulated processes, which is a heavier duty than the system was originally bought for.",
+    "type_name": "DigitalProduct",
+    "url": null,
+    "status": "ACTIVE",
+    "product_name": null,
+    "identifier": null,
+    "maturity": null,
+    "service_life": null,
+    "next_version": null,
+    "withdraw_date": null,
+    "members": [
+     {
+      "guid": "3f1eb668-b3a9-4353-93e6-0679f525162e",
+      "qualifiedName": "PostgreSQL Tabular Data Set Collection::Coco PostgreSQL Server 1::coco_data_hub.training_completions",
+      "displayName": "coco_data_hub.training_completions",
+      "type": "TabularDataSetCollection"
+     }
+    ],
+    "uses_digital_products": [
+     {
+      "guid": "df284216-6e9b-44fb-9f58-aa838eded33f",
+      "qualifiedName": "DigitalProduct::Coco::Worker Master Data",
+      "displayName": "Worker Master Data",
+      "type": "DigitalProduct"
+     },
+     {
+      "guid": "970e12b5-d78a-4b49-81ae-04515f4b4495",
+      "qualifiedName": "DigitalProduct::Coco::Role Competency Requirements",
+      "displayName": "Role Competency Requirements",
+      "type": "DigitalProduct"
+     }
+    ],
+    "used_by_digital_products": [
+     {
+      "guid": "50519734-908d-443e-9ef8-5f1a1197dcc2",
+      "qualifiedName": "DigitalProduct::Coco::Worker Qualifications",
+      "displayName": "Worker Qualifications",
+      "type": "DigitalProduct"
+     }
+    ],
+    "assigned_actors": [
+     {
+      "guid": "436eaeae-06f9-4fee-ba5a-5465205113e5",
+      "qualifiedName": "PersonRole::Coco::Digital Product Manager::People Systems",
+      "displayName": "People Systems Digital Product Manager",
+      "type": "PersonRole"
+     }
+    ],
+    "governed_by": [],
+    "solution_designs": []
+   },
+   {
+    "display_name": "null Reference Data Set",
+    "qualified_name": "DigitalProduct::Jacquard::null::null Reference Data Set",
+    "category": "Reference Data",
+    "description": "Describes the type of employment contract that a person has with Coco Pharmaceuticals.",
+    "type_name": "DigitalProduct",
+    "url": null,
+    "status": "ACTIVE",
+    "product_name": "Reference Data Set: null",
+    "identifier": null,
+    "maturity": null,
+    "service_life": null,
+    "next_version": null,
+    "withdraw_date": null,
+    "members": [
+     {
+      "guid": "20da7470-1230-41db-bbc2-41cdeb952ad5",
+      "qualifiedName": "DigitalProduct::Jacquard::null::null Reference Data Set_solutionComponent",
+      "displayName": "Reference Data Set: null",
+      "type": "SolutionComponent"
+     },
+     {
+      "guid": "dbf65936-730e-42d4-b126-df6883aa4338",
+      "qualifiedName": "DigitalProduct::Jacquard::null::null Reference Data Set_Data set",
+      "displayName": "Data set for null Reference Data Set",
+      "type": "ReferenceCodeTable"
+     }
+    ],
+    "uses_digital_products": [],
+    "used_by_digital_products": [],
+    "assigned_actors": [
+     {
+      "guid": "1614ffd9-41e1-4b1e-b311-878f13a2dd41",
+      "qualifiedName": "DigitalProduct::Jacquard::null::null Reference Data Set_productManager",
+      "displayName": "Product Manager for Reference Data Set: null",
+      "type": "PersonRole"
+     }
+    ],
+    "governed_by": [
+     {
+      "guid": "45c2b963-b819-42aa-8706-89dd8a8a6830",
+      "qualifiedName": "LicenseType::Jacquard::LICENSE-TYPE-IOU::Data for Internal Use",
+      "displayName": "Data for Internal Use",
+      "type": "LicenseType"
+     }
+    ],
+    "solution_designs": []
+   },
+   {
+    "display_name": "Span Valid Values",
+    "qualified_name": "DigitalProduct::Jacquard::span::Span Valid Values",
+    "category": "Reference Data",
+    "description": "The number of columns/cells the element spans.",
+    "type_name": "DigitalProduct",
+    "url": null,
+    "status": "ACTIVE",
+    "product_name": "Valid Metadata Value Set: span",
+    "identifier": "span",
+    "maturity": null,
+    "service_life": null,
+    "next_version": null,
+    "withdraw_date": null,
+    "members": [
+     {
+      "guid": "9e8fa405-0744-421a-9e1d-08b928bf3e58",
+      "qualifiedName": "DigitalProduct::Jacquard::span::Span Valid Values_solutionComponent",
+      "displayName": "Valid Metadata Value Set: span",
+      "type": "SolutionComponent"
+     },
+     {
+      "guid": "c69fa701-09a7-419e-b006-6b42d5664ca9",
+      "qualifiedName": "DigitalProduct::Jacquard::span::Span Valid Values_Data set",
+      "displayName": "Data set for Span Valid Values",
+      "type": "ReferenceCodeTable"
+     }
+    ],
+    "uses_digital_products": [],
+    "used_by_digital_products": [],
+    "assigned_actors": [
+     {
+      "guid": "379e5880-2016-42fc-96f5-8231ef607743",
+      "qualifiedName": "DigitalProduct::Jacquard::span::Span Valid Values_productManager",
+      "displayName": "Product Manager for Valid Metadata Value Set: span",
+      "type": "PersonRole"
+     }
+    ],
+    "governed_by": [
+     {
+      "guid": "45c2b963-b819-42aa-8706-89dd8a8a6830",
+      "qualifiedName": "LicenseType::Jacquard::LICENSE-TYPE-IOU::Data for Internal Use",
+      "displayName": "Data for Internal Use",
+      "type": "LicenseType"
+     }
+    ],
+    "solution_designs": []
+   }
+  ]
+ },
+ "Collections": {
+  "kind": "table",
+  "columns": [
+   {
+    "key": "display_name",
+    "name": "Display Name",
+    "type": "text",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "qualified_name",
+    "name": "Qualified Name",
+    "type": "text",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "category",
+    "name": "Category",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "description",
+    "name": "Description",
+    "type": "text",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "type_name",
+    "name": "Type Name",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "url",
+    "name": "URL",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "classifications",
+    "name": "Classifications",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "created_by",
+    "name": "Created By",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "create_time",
+    "name": "Create Time",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "updated_by",
+    "name": "Updated By",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "update_time",
+    "name": "Update Time",
+    "type": "scalar",
+    "render": "text",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "collection_members",
+    "name": "Containing Members",
+    "type": "elements",
+    "render": "count",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   },
+   {
+    "key": "member_of_collections",
+    "name": "Member Of",
+    "type": "elements",
+    "render": "join",
+    "detail_spec": null,
+    "valid_values": null,
+    "max_items": null,
+    "max_lines": null
+   }
+  ],
+  "total": null,
+  "total_basis": "one page",
+  "shown": 100,
+  "notes": [
+   "Showing the first 100: the query stopped at its page size of 100; more may exist.",
+   "Containing Members: none on 62 rows (read at graph depth 3).",
+   "Member Of: none on 72 rows (read at graph depth 3)."
+  ],
+  "spec_source": {
+   "tier": "builtin",
+   "label": "Collections",
+   "version": null,
+   "seed": "Collection Manager.json"
+  },
+  "rows": [
+   {
+    "display_name": "Schema Maker",
+    "qualified_name": "CollectionFolder::dr-egeria:schema-maker",
+    "category": "",
+    "description": "",
+    "type_name": "CollectionFolder",
+    "url": null,
+    "classifications": [],
+    "created_by": "erinoverview",
+    "create_time": "2026-11-11T21:57:09.430+00:00",
+    "updated_by": "erinoverview",
+    "update_time": null,
+    "collection_members": [
+     {
+      "guid": "9e9bc6e1-e582-471a-9e01-329d9307469d",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Create-Display-Data-Field::1.0",
+      "displayName": "Create Display Data Field",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "d5d2d208-66fb-4a92-9146-618a980c8a8f",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Create-Display-Data-Container::1.0",
+      "displayName": "Create Display Data Container",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "234b0e1b-10e3-416b-b40b-a6b66968c3ff",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Remove-Calculated-Value::1.0",
+      "displayName": "Remove Calculated Value",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "54edd3c4-6a28-4e27-9719-2186addcf8cd",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Add-Calculated-Value::1.0",
+      "displayName": "Add Calculated Value",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "8fd1ec3d-4ba7-485f-afc5-c077d95311a2",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Remove-Type-Embedded-Attribute::1.0",
+      "displayName": "Remove Type Embedded Attribute",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "9c577ced-8bed-45a3-af53-f2fc8ea87adb",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Add-Type-Embedded-Attribute::1.0",
+      "displayName": "Add Type Embedded Attribute",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "8a6b1c59-5e08-4a26-848d-ce873b5ad42d",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Remove-Primary-Key-Classification::1.0",
+      "displayName": "Remove Primary Key Classification",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "cfe2bb62-319b-47c9-8ea7-8944c4ef7d39",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Add-Primary-Key-Classification::1.0",
+      "displayName": "Add Primary Key Classification",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "c4071df8-6bc5-408d-a247-ee43d45956a2",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Detach-Schema-Type-Option::1.0",
+      "displayName": "Detach Schema Type Option",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "e3c170e8-a469-4edd-b82a-16eff5a9db74",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Link-Schema-Type-Option::1.0",
+      "displayName": "Link Schema Type Option",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "d5d63615-fba8-447d-82e6-4515d2845743",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Detach-API-Response::1.0",
+      "displayName": "Detach API Response",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "e7ed8138-f76c-4ffb-94b3-7395acb67167",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Link-API-Response::1.0",
+      "displayName": "Link API Response",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "662d49ff-711e-4b80-8799-edb1b561ea04",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Detach-API-Request::1.0",
+      "displayName": "Detach API Request",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "a9a09d0d-b2d4-4ed5-bb66-a25270119d67",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Link-API-Request::1.0",
+      "displayName": "Link API Request",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "e6b9a1a8-2e0a-4e07-9042-2d2caaa46757",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Detach-API-Header::1.0",
+      "displayName": "Detach API Header",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "bdd17cdc-e1a0-49fd-9601-4fb2efcd51cc",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Link-API-Header::1.0",
+      "displayName": "Link API Header",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "21db50aa-7d89-48d5-81ed-e73c818ea1f8",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Detach-API-Operations::1.0",
+      "displayName": "Detach API Operations",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "ee004431-cf7e-48a5-9a9c-bf63b5e1993a",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Link-API-Operations::1.0",
+      "displayName": "Link API Operations",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "0b127960-982e-4a00-a11b-865bc5d5bf2f",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Detach-Relational-DB-Schema::1.0",
+      "displayName": "Detach Relational DB Schema",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "fb1b5908-fa42-4cea-ad45-b8173ed8d7a1",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Link-Relational-DB-Schema::1.0",
+      "displayName": "Link Relational DB Schema",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "ed99fc72-10f4-4e43-ab31-656a624cd371",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Detach-Schema::1.0",
+      "displayName": "Detach Schema",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "305ffcc5-e45b-49e3-a1aa-be6558dc125b",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Link-Schema::1.0",
+      "displayName": "Link Schema",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "67ecf66d-1c6c-43d6-b48d-f07758b4bf4c",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Detach-Query-Target::1.0",
+      "displayName": "Detach Query Target",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "a9ed0c21-8bbf-4751-abdd-a1da630e0f55",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Link-Query-Target::1.0",
+      "displayName": "Link Query Target",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "99d94818-d929-4aca-bf58-58a61a8fff42",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Detach-Graph-Edge::1.0",
+      "displayName": "Detach Graph Edge",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "2ad2f94b-b51e-41ab-a6fa-25206d7614e4",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Link-Graph-Edge::1.0",
+      "displayName": "Link Graph Edge",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "864c67ce-eb6e-48c6-9f2e-36af0f53488e",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Detach-Map-To-Schema-Type::1.0",
+      "displayName": "Detach Map To Schema Type",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "209fbfa3-987a-4829-bb14-f24a107d5b20",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Link-Map-To-Schema-Type::1.0",
+      "displayName": "Link Map To Schema Type",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "4df10c81-7f81-47dc-bafb-d84b23eddea2",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Detach-Map-From-Schema-Type::1.0",
+      "displayName": "Detach Map From Schema Type",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "651fefeb-3ff2-42ba-b8fb-4b84d4ec503b",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Link-Map-From-Schema-Type::1.0",
+      "displayName": "Link Map From Schema Type",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "a4ea7f29-ce56-43ba-ad56-abdb4ea6f5d8",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Detach-External-Schema-Type::1.0",
+      "displayName": "Detach External Schema Type",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "420fe416-b3b5-454e-b204-68fefec4e961",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Link-External-Schema-Type::1.0",
+      "displayName": "Link External Schema Type",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "37a7d2d4-6009-4394-883f-96855221c02a",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Detach-Foreign-Key::1.0",
+      "displayName": "Detach Foreign Key",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "b706da1f-5559-4978-a9ff-6045cf86e5fa",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Link-Foreign-Key::1.0",
+      "displayName": "Link Foreign Key",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "4ad4f4fa-0ce5-4f56-b061-2b46e464db11",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Detach-Attribute-for-Schema::1.0",
+      "displayName": "Detach Attribute for Schema",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "d05b1f1a-5147-480c-986d-d0cb811d8f46",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Link-Attribute-for-Schema::1.0",
+      "displayName": "Link Attribute for Schema",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "72a62fed-4a7d-495c-8155-d46d2b890716",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Detach-Nested-Schema-Attribute::1.0",
+      "displayName": "Detach Nested Schema Attribute",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "4872b45f-936a-41d3-ada7-17e2f5458a21",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Link-Nested-Schema-Attribute::1.0",
+      "displayName": "Link Nested Schema Attribute",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "f3b5f5bf-a324-4253-9791-848153d01064",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Create-Schema-Attribute-From-Template::1.0",
+      "displayName": "Create Schema Attribute From Template",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "08dcc27d-e2b7-4f2d-8f1f-3588e7e05ee9",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Create-Schema-Attribute::1.0",
+      "displayName": "Create Schema Attribute",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "c7d62b47-f0a0-4cc2-ba60-0db8b1e2e73c",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Create-Schema-Type-From-Template::1.0",
+      "displayName": "Create Schema Type From Template",
+      "type": "GlossaryTerm"
+     },
+     {
+      "guid": "84e9a271-84be-44a8-8302-a3cf11c9e2e8",
+      "qualifiedName": "Coco Pharmaceuticals::Term::Create-Schema-Type::1.0",
+      "displayName": "Create Schema Type",
+      "type": "GlossaryTerm"
+     }
+    ],
+    "member_of_collections": [
+     {
+      "guid": "084d3c35-d89f-467d-8083-c95a1eecfc92",
+      "qualifiedName": "Glossary::dr-egeria",
+      "displayName": "dr-egeria",
+      "type": "Glossary"
+     }
+    ]
+   },
+   {
+    "display_name": "null Reference Data Set",
+    "qualified_name": "DigitalProduct::Jacquard::null::null Reference Data Set",
+    "category": "Reference Data",
+    "description": "Describes the type of employment contract that a person has with Coco Pharmaceuticals.",
+    "type_name": "DigitalProduct",
+    "url": null,
+    "classifications": [],
+    "created_by": "jacquardnpa",
+    "create_time": "2026-11-11T21:03:19.512+00:00",
+    "updated_by": "jacquardnpa",
+    "update_time": null,
+    "collection_members": [
+     {
+      "guid": "20da7470-1230-41db-bbc2-41cdeb952ad5",
+      "qualifiedName": "DigitalProduct::Jacquard::null::null Reference Data Set_solutionComponent",
+      "displayName": "Reference Data Set: null",
+      "type": "SolutionComponent"
+     },
+     {
+      "guid": "dbf65936-730e-42d4-b126-df6883aa4338",
+      "qualifiedName": "DigitalProduct::Jacquard::null::null Reference Data Set_Data set",
+      "displayName": "Data set for null Reference Data Set",
+      "type": "ReferenceCodeTable"
+     }
+    ],
+    "member_of_collections": [
+     {
+      "guid": "4ab28e5e-c526-49c7-a9c7-efa31489ec3e",
+      "qualifiedName": "DigitalProductFamily::Jacquard::REFERENCE-DATA-SETS-FAMILY::Reference Data Sets",
+      "displayName": "Reference Data Sets",
+      "type": "DigitalProductFamily"
+     }
+    ]
+   },
+   {
+    "display_name": "Span Valid Values",
+    "qualified_name": "DigitalProduct::Jacquard::span::Span Valid Values",
+    "category": "Reference Data",
+    "description": "The number of columns/cells the element spans.",
+    "type_name": "DigitalProduct",
+    "url": null,
+    "classifications": [],
+    "created_by": "jacquardnpa",
+    "create_time": "2026-11-12T08:43:30.249+00:00",
+    "updated_by": "jacquardnpa",
+    "update_time": null,
+    "collection_members": [
+     {
+      "guid": "9e8fa405-0744-421a-9e1d-08b928bf3e58",
+      "qualifiedName": "DigitalProduct::Jacquard::span::Span Valid Values_solutionComponent",
+      "displayName": "Valid Metadata Value Set: span",
+      "type": "SolutionComponent"
+     },
+     {
+      "guid": "c69fa701-09a7-419e-b006-6b42d5664ca9",
+      "qualifiedName": "DigitalProduct::Jacquard::span::Span Valid Values_Data set",
+      "displayName": "Data set for Span Valid Values",
+      "type": "ReferenceCodeTable"
+     }
+    ],
+    "member_of_collections": [
+     {
+      "guid": "2cd739be-0638-4042-9cb9-f50affe4e7c0",
+      "qualifiedName": "DigitalProductFamily::Jacquard::OPEN-METADATA-VALID-VALUES-FAMILY::Valid Metadata Value Sets",
+      "displayName": "Valid Metadata Value Sets",
+      "type": "DigitalProductFamily"
+     }
+    ]
+   },
+   {
+    "display_name": "Ongoing update subscription contract for Valid Metadata Value Set: span",
+    "qualified_name": "DataContract::span::ONGOING-UPDATE-SUBSCRIPTION::6.3-SNAPSHOT",
+    "category": "",
+    "description": "The data delivered by the Valid Metadata Value Set: span product through the Ongoing update subscription.  This subscription delivers data updates to the target destination within an hour of receiving the new data.",
+    "type_name": "Agreement",
+    "url": null,
+    "classifications": [],
+    "created_by": "jacquardnpa",
+    "create_time": "2026-11-12T08:43:43.042+00:00",
+    "updated_by": "jacquardnpa",
+    "update_time": null,
+    "collection_members": [],
+    "member_of_collections": []
+   }
+  ]
+ }
+}
