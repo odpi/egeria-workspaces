@@ -22,7 +22,7 @@ cd compose-configs/egeria-quickstart/bin
 ./egeria-upgrade-reset apply --plan ../../../runtime-volumes/egeria-resets/<UTC>
 ./egeria-upgrade-reset status --plan …                # each step's state
 ./egeria-upgrade-reset record --plan …                # write the Portal's reset row now (after a failed run)
-./egeria-upgrade-reset infra-check [--record] [--json] # shared-infra health; read-only, restarts nothing
+./egeria-upgrade-reset infra-check [--record] [--json] [--log FILE] # shared-infra health; read-only, restarts nothing
 ```
 
 `plan` writes `runtime-volumes/egeria-resets/<UTC>/plan.json` and `state.json` (git-ignored, with the
@@ -158,7 +158,7 @@ launchctl bootout gui/$(id -u)/org.odpi.egeria.infra-check
 rm ~/Library/LaunchAgents/org.odpi.egeria.infra-check.plist
 ```
 
-Its output goes to `runtime-volumes/egeria-resets/infra-check.log` (git-ignored).
+It runs `infra-check --record --log runtime-volumes/egeria-resets/infra-check.log`: one line per run (time, overall verdict, counts, the services that are not PASS, the OpenLineage offset, and whether the row was recorded; an error is a line too), and the file keeps only its newest 2000 lines, about two weeks. launchd's own output is discarded, so nothing grows without bound. The folder is git-ignored.
 
 ## Limits
 

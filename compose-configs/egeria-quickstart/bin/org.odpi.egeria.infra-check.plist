@@ -21,6 +21,8 @@
     <string>__REPO__/compose-configs/egeria-quickstart/bin/egeria-upgrade-reset</string>
     <string>infra-check</string>
     <string>--record</string>
+    <string>--log</string>
+    <string>__REPO__/runtime-volumes/egeria-resets/infra-check.log</string>
   </array>
   <key>WorkingDirectory</key>
   <string>__REPO__</string>
@@ -33,9 +35,11 @@
   <integer>600</integer>
   <key>RunAtLoad</key>
   <true/>
+  <!-- With log the CLI writes one line per run and keeps the newest 2000 (about two weeks), errors
+       included, so launchd's own output is discarded instead of growing a file forever. -->
   <key>StandardOutPath</key>
-  <string>__REPO__/runtime-volumes/egeria-resets/infra-check.log</string>
+  <string>/dev/null</string>
   <key>StandardErrorPath</key>
-  <string>__REPO__/runtime-volumes/egeria-resets/infra-check.log</string>
+  <string>/dev/null</string>
 </dict>
 </plist>
