@@ -2734,6 +2734,9 @@ function RsPublishControl({ spec, consumers }) {
   React.useEffect(() => { setPlan(null); setResult(null); setConfirmed(false); setError(''); }, [spec && spec.name, action, folder]);
   if (!spec) return null;
   const muted = { fontSize: 11, color: 'var(--dim)', marginTop: 8 };
+  if (spec.restricted)
+    return React.createElement('div', { className: 'rs-publish rs-publish-restricted', style: muted },
+      'Publish: restricted specs are published later, after the zone proof.');
   if (spec.source === 'builtin')
     return React.createElement('div', { className: 'rs-publish rs-publish-later', style: muted },
       'Publish: built-in specs are published later, after consumer-folders phase 3.');
@@ -2909,7 +2912,7 @@ function ReportSpecDetail({ spec, onSelectSpec, portalSupply, consumers }) {
     }
     setSentFmt(actualFmt);
     var body = {
-      spec_name:     spec.name,
+      spec_name:     spec.restricted ? (spec.label || spec.name) : spec.name,
       output_format: actualFmt,
       params:        Object.fromEntries(Object.entries(execParams).filter(function(e) {
         var v = e[1]; return Array.isArray(v) ? v.length > 0 : v !== '';
@@ -2917,15 +2920,19 @@ function ReportSpecDetail({ spec, onSelectSpec, portalSupply, consumers }) {
     };
     // TABLE asks for pyegeria's structured TABLE (kind "table"), rendered by static/egeria-table.js.
     if (actualFmt === 'TABLE' && window.EgeriaTable) body.table_shape = 'structured';
+    if (spec.restricted) body.restricted = true;   // run as you (X-Egeria-Token), fetched from Egeria
     if (creds.url)      body.url      = creds.url;
     if (creds.server)   body.server   = creds.server;
-    if (creds.userId)   body.user_id  = creds.userId;
-    if (creds.password) body.user_pwd = creds.password;
-    fetch('/api/report-specs/execute', {
+    if (creds.userId && !spec.restricted)   body.user_id  = creds.userId;
+    if (creds.password && !spec.restricted) body.user_pwd = creds.password;
+    (spec.restricted
+      ? egeriaFetch('/api/report-specs/execute', creds, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                          body: JSON.stringify(body) })
+      : fetch('/api/report-specs/execute', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
-    })
+    }))
       .then(function(r) {
         if (r.ok) return r.json();
         // Read body as text first — error responses may be HTML (e.g. gateway timeout), not JSON.
@@ -3039,6 +3046,10 @@ function ReportSpecDetail({ spec, onSelectSpec, portalSupply, consumers }) {
       React.createElement(CopyJsonButton, { data: spec })
     ),
     React.createElement(RsSourceDetail, { spec: spec, onSelectSpec: onSelectSpec }),
+    spec.restricted && React.createElement('div', { className: 'rs-restricted-detail', style: { marginTop: 8, fontSize: 11, color: 'var(--dim)', overflowWrap: 'anywhere' } },
+      'Restricted to zones ' + ((spec.zones || []).join(', ') || '(not reported)') + ': read from Egeria as you, never kept in the Portal\'s shared cache.',
+      spec.detailError ? React.createElement('div', { style: { color: '#fbbf24' } }, 'Its definition was not read: ' + spec.detailError)
+        : (!spec.detailLoaded && !spec.formats.length ? React.createElement('div', null, 'Reading its definition from Egeria…') : null)),
     React.createElement(RsPublishControl, { spec: spec, consumers: consumers }),
     spec.heading && React.createElement('div', { style: { marginTop: 12, fontWeight: 600, fontSize: 13, color: 'var(--text)' } }, spec.heading),
     spec.description && React.createElement('div', { className: 'detail-desc', style: { marginTop: 6 } }, spec.description),
@@ -3266,8 +3277,9 @@ function ReportSpecDetail({ spec, onSelectSpec, portalSupply, consumers }) {
 }
 
 // ── Report spec source (builtin / egeria / local / user) ─────────────────────
-var _RS_SOURCES = ['builtin', 'egeria', 'local', 'user'];
+var _RS_SOURCES = ['builtin', 'egeria', 'local', 'user', 'restricted'];
 var _RS_SOURCE_TAG = {
+  restricted: { mark: 'R', color: '#f59e0b' },   // Portal-3: zone-restricted, read as you
   egeria:  { mark: 'EG', color: '#34d399' },
   local:   { mark: 'P',  color: '#60a5fa' },
   user:    { mark: 'U',  color: '#c084fc' }
@@ -3374,7 +3386,36 @@ function RsSourceDetail({ spec, onSelectSpec }) {
   return React.createElement('div', { style: { marginTop: 8, fontSize: 11, color: 'var(--dim)' } }, lines);
 }
 
+// Portal-3: the zone-restricted specs this user can see (GET /api/report-specs/restricted, read as them).
+// Each becomes a list row marked `restricted`, with the badge "restricted (visible to you)"; selecting one
+// fetches its definition as the user (GET /api/report-specs/restricted/<label>). The shared list stays
+// public-only. The answer is always said: not signed in, not read, or none visible.
+function rsRestrictedRows(info, publicNames) {
+  return ((info && info.specs) || []).map(function(r) {
+    var clash = publicNames.indexOf(r.label) >= 0;
+    return { name: clash ? r.label + ' (restricted)' : r.label, label: r.label, restricted: true,
+             source: 'restricted', sourceLabel: (info && info.badge) || 'restricted (visible to you)',
+             family: 'Restricted (visible to you)', description: '', question_spec: [], formats: [],
+             output_types: [], zones: r.zones || [], usedBy: r.usedBy || [], usedByState: 'read',
+             egeria: { guid: r.guid, qualified_name: r.qualified_name, version: r.version, folders: r.folders },
+             detailLoaded: false };
+  });
+}
+
+// What the restricted listing said, in a sentence: never an empty silence.
+function RsRestrictedNote({ info }) {
+  var n = (info.specs || []).length;
+  var text = info.state === 'ok' || (info.state === 'partial' && n)
+    ? n + ' restricted report spec' + (n === 1 ? '' : 's') + ' visible to you' + (info.viewer ? ' (read as ' + info.viewer + ')' : '')
+      + (info.state === 'partial' ? '; ' + (info.message || 'partly read') : '')
+    : (info.message || 'Restricted report specs: ' + (info.state || 'not read'));
+  return React.createElement('div', { className: 'rs-restricted-note rs-restricted-' + (info.state || 'unknown'),
+    style: { fontSize: 11, color: info.state === 'read_failed' ? '#fbbf24' : 'var(--dim)', margin: '4px 12px', overflowWrap: 'anywhere' } }, text);
+}
+
 function ReportSpecView() {
+  const creds = React.useContext(CredContext);
+  const [restrictedInfo, setRestrictedInfo] = useState(null);
   const [loadState, setLoadState] = useState('loading');
   const [attempt, setAttempt]     = useState(0);
   const [sideW, onDivDown] = useResizable(254, null, null, 'ReportSpecView.sideW');
@@ -3442,9 +3483,35 @@ function ReportSpecView() {
         setEgeriaHeld(data.egeriaHeld || null);
         setLoadState('ready');
         if (list.length > 0) setSelected(list[0].name);
+        // The restricted specs this user can see, read as them; merged after the public list.
+        egeriaFetch('/api/report-specs/restricted', creds)
+          .then(r => r.json().then(d => ({ ok: r.ok, d: d })))
+          .then(({ ok, d }) => {
+            const info = ok ? d : { state: 'read_failed', specs: [], message: d.detail || 'Restricted report specs were not read.' };
+            setRestrictedInfo(info);
+            const rows = rsRestrictedRows(info, list.map(s => s.name));
+            if (rows.length) {
+              setSpecs(prev => prev.filter(s => !s.restricted).concat(rows));
+              setSources(prev => Object.assign({}, prev || {}, { restricted: rows.length }));
+              setSourceWords(prev => Object.assign({}, prev || {}, { restricted: info.badge || 'restricted (visible to you)' }));
+            }
+          })
+          .catch(e => setRestrictedInfo({ state: 'read_failed', specs: [], message: 'Restricted report specs were not read: ' + e }));
       })
       .catch(err => { setError(err.message); setLoadState('error'); });
-  }, [attempt]);
+  }, [attempt, creds && creds.token]);
+
+  // A restricted spec's definition is fetched as the user when it is first selected.
+  useEffect(() => {
+    const row = specs.find(s => s.name === selected);
+    if (!row || !row.restricted || row.detailLoaded || row.detailError) return;
+    egeriaFetch('/api/report-specs/restricted/' + encodeURIComponent(row.label), creds)
+      .then(r => r.json().then(d => ({ ok: r.ok, d: d })))
+      .then(({ ok, d }) => setSpecs(prev => prev.map(s => s.name !== row.name ? s
+        : (ok ? Object.assign({}, d, { name: row.name, label: row.label, detailLoaded: true })
+              : Object.assign({}, s, { detailError: d.detail || 'Its definition was not read.' })))))
+      .catch(e => setSpecs(prev => prev.map(s => s.name !== row.name ? s : Object.assign({}, s, { detailError: String(e) }))));
+  }, [selected, specs, creds]);
 
   // Collect all unique perspectives client-side from all loaded specs
   const allPerspectives = useMemo(() => {
@@ -3582,6 +3649,7 @@ function ReportSpecView() {
           onClick: () => setAttempt(a => a + 1)
         }, '↻ Refresh')
       ),
+      restrictedInfo && React.createElement(RsRestrictedNote, { info: restrictedInfo }),
       egeriaHeld && React.createElement(RsEgeriaHeldBanner, { held: egeriaHeld, onSync: startSync, syncing: syncing, syncMsg: syncMsg,
         onShow: () => setSourceFilter('egeria') }),
       React.createElement('div', { className: 'stats', style: { flexWrap: 'wrap', rowGap: 2 } },
