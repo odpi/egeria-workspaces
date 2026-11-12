@@ -52,7 +52,7 @@ Then open `/local-dashboards?sheet=Chief%20Data%20Officer%20Dashboard`.
 
 Load it after the rest of this directory.  It reads better still after `1. coco-data-hub/`, because the digital product and supply chain tiles count what the data hub team builds.  Running **Validate** first will report each `Link Report to Dashboard Sheet` as "not found" — that is expected, because the Reports are created earlier in the same file; they resolve on **Process**.
 
-Every command upserts, so the file is safe to re-run after changing a tile.
+Every command upserts, but **none of the 15 `Create Report` blocks is safe to re-run** until pyegeria merges a Report's `additionalProperties` key by key on an update (proposed, 2026-11-12). When a Create becomes an Update, Dr.Egeria drops the attributes that were only defaults, and the map the block writes replaces the stored map whole, so every key the block does not spell out is deleted. The three register blocks below write `Starts With`, `Ends With`, `Ignore Case`, `Limit Result by Status`, `Graph Query Depth`, `Page Size` and `Start From` explicitly, the seven keys those Reports held on 2026-11-12, but any other key would still be lost.
 
 ---
 
@@ -817,7 +817,7 @@ ___
 
 ## 5. The plan, the risks and the metrics
 
-The last group is the working detail behind the numbers: where Jules stands against the ninety day plan, what the risk register says could go wrong, and the full list of governance metrics every domain has committed to.
+The last group is the working detail behind the numbers: where Jules stands against the ninety day plan, what the risk register says could go wrong, and the full list of governance metrics every domain has committed to. The three registers are TABLE tiles: lists show as bullets, wide tables scroll.
 
 ___
 
@@ -859,10 +859,31 @@ The campaign, phases and tasks of Jules Keeper's ninety day plan, from jules-90-
 Project-DrE-Basic
 
 ### Output Format
-LIST
+TABLE
 
 ### Search String
 JulesKeeper::
+
+### Starts With
+True
+
+### Ends With
+False
+
+### Ignore Case
+False
+
+### Limit Result by Status
+['ACTIVE']
+
+### Graph Query Depth
+1
+
+### Page Size
+0
+
+### Start From
+0
 
 ___
 
@@ -885,10 +906,31 @@ The risks in the company risk register, from risk-register.md, built and owned j
 Risk-DrE-Basic
 
 ### Output Format
-LIST
+TABLE
 
 ### Search String
 CocoPharma::Risk::
+
+### Starts With
+True
+
+### Ends With
+False
+
+### Ignore Case
+False
+
+### Limit Result by Status
+['ACTIVE']
+
+### Graph Query Depth
+1
+
+### Page Size
+0
+
+### Start From
+0
 
 ___
 
@@ -911,10 +953,31 @@ Every governance metric defined by the governance domains — what the program h
 Governance-Metric-DrE-Basic
 
 ### Output Format
-LIST
+TABLE
 
 ### Search String
 CocoPharma::GovernanceMetric::
+
+### Starts With
+True
+
+### Ends With
+False
+
+### Ignore Case
+False
+
+### Limit Result by Status
+['ACTIVE']
+
+### Graph Query Depth
+1
+
+### Page Size
+0
+
+### Start From
+0
 
 ___
 

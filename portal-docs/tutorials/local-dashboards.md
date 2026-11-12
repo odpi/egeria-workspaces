@@ -820,8 +820,8 @@ render in full rather than being squeezed into a tiny tile.
 Mandy's sheet **Chief Data Officer Dashboard** (heading *How the Data
 Governance Program is Going*, from
 `coco-workbooks/0. data-governance-program/chief-data-officer-dashboard.md`)
-ends with three registers. Each is a `LIST` Report scoped by a
-`Search String`:
+ends with three registers. Each is a `TABLE` Report scoped by a
+`Search String` (they were `LIST` until 2026-11-12):
 
 | Tile | Report Spec | Search String |
 |---|---|---|
@@ -839,29 +839,30 @@ Governance Metric Register
 Governance-Metric-DrE-Basic
 
 ### Output Format
-LIST
+TABLE
 
 ### Search String
 CocoPharma::GovernanceMetric::
 ```
 
-What they show with pyegeria 6.2.37 and the Portal from 2026-11-11 (checked
-on the quickstart on 2026-11-11):
+What they show as `TABLE` tiles (the Portal asks pyegeria for its structured table, drawn by
+`egeria-table.js`; the three specs were run as structured `TABLE` through the Portal's execute API on the
+quickstart on 2026-11-12):
 
-- **All rows.** The Governance Metric Register's LIST answer is 46 rows and
-  84 KB of markdown. It used to be cut at 20,000 characters, part-way
-  through a row, so the tile showed 12 of the 46, followed by a note saying
-  the placement had no query scope (it has one). Now all 46 rows show, in a
-  table that scrolls inside the tile, with no note.
-- **Lists as bullets.** *Implications* and *Outcomes* are lists. They used
-  to be one comma-joined string, so the boundary between two items and a
-  comma inside a sentence looked the same. pyegeria 6.2.37 puts each item
-  on its own line, and the Portal shows the breaks. Long descriptions wrap
-  within their column.
-- **Readable columns.** With 21 columns, the table keeps each one at least
-  120px wide and scrolls sideways; *Measurement* and *Target*, the two
-  columns a metric register exists for, are reached by scrolling, not
-  hidden.
+- **All rows.** Each tile shows every row the query returned: 17 for the ninety day plan, 12 risks and
+  46 governance metrics. The footer says *N rows (one page; Egeria doesn't promise it is the last)*, never
+  *All*.
+- **Lists as bullets.** *Authors*, *Implications*, *Outcomes* and *Success Criteria* are lists, and each
+  item is a bullet in its cell, so an item boundary and a comma inside a sentence never look the same.
+- **Long text clamped.** *Description* and *Summary* show three lines with **more** / **less**; the toggles
+  in one table don't affect another.
+- **Wide tables scroll.** These are the generic *DrE-Basic* specs, 19 to 29 columns (several usually
+  empty). The tiles are full width and scroll sideways; *Measurement* and *Target*, the two columns a
+  metric register exists for, are reached by scrolling, never hidden. Every column can be dragged wider
+  or narrower.
+
+As `LIST` tiles (until 2026-11-12) the same registers were markdown tables: the lists were one item per
+line, and the Governance Metric Register's 46 rows were 84 KB of markdown.
 
 Screenshots of these tiles will be added once the quickstart's data has been
 re-seeded.
