@@ -206,6 +206,19 @@ def _folder_qn(folder: str) -> tuple[str, List[str]]:
     return names[folder], [q for q in names.values() if q]
 
 
+NOT_IN_FOLDER = "'{label}' is not in {folder}, so there is nothing to withdraw."
+
+
+def _in_folder(label: str, folder: str) -> Optional[bool]:
+    """Whether the last sync's consumer index puts `label` in the consumer folder named `folder`: True or
+    False when that folder was read, None when it was not (then nobody can tell, and Egeria answers)."""
+    idx = _consumers()
+    consumer = next((c for c in idx.get("consumers") or [] if c.get("name") == folder), None)
+    if not consumer or consumer.get("status") != "read" or (idx.get("status") or "not read") == "not read":
+        return None
+    return folder in ((idx.get("index") or {}).get(label) or [])
+
+
 def _plan(req: PublishRequest, token: str) -> Dict[str, Any]:
     rsp = _publish_module()
     if req.action not in ACTIONS:
@@ -223,6 +236,8 @@ def _plan(req: PublishRequest, token: str) -> Dict[str, Any]:
     if req.action == "withdraw":
         if not held.get("held"):
             raise Refused(NOT_HELD.format(label=label) + f" ({held.get('how')})")
+        if _in_folder(label, req.folder) is False:
+            raise Refused(NOT_IN_FOLDER.format(label=label, folder=req.folder), 409)
         plan = rsp.build_withdraw_document(label, [folder_qn], allowed=allowed,
                                            allowed_words="the consumer folders the last sync found")
     else:
