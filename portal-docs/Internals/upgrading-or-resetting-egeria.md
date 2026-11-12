@@ -115,7 +115,7 @@ updates anything**: fixing a drift is a person's decision. It exits 1 when any s
 | **PASS** | running (and `healthy`, where there is a healthcheck), restart policy as the yaml says, created from this checkout's compose file |
 | **FAIL** | missing, not running, `unhealthy`, or **restart-policy drift** ("container restart=no, yaml says always": the 2026-11-10 proxy case, two days of lost lineage) |
 | **WARN** | created from another compose file, or one that no longer exists ("a recreate from the repo may change it"); a digest-pinned yaml image the container doesn't run; running though listed as expected stopped |
-| **EXPECTED STOPPED** | down, and listed in `infra-health.json`'s `expectedStopped` with a reason and who said so |
+| **EXPECTED STOPPED** | down, and listed in `infra-health.json`'s `expectedStopped` with a reason and who said so. An entry may also give `"exitCode"`: a container that exited with another code is a **FAIL** ("exited 1 (expected 0)"); the exit code is shown either way |
 | **NOT MEASURED** | the container could not be inspected, or the compose file is missing |
 
 The **OpenLineage** line ("latest event <time> (offset N)") is **information only**: a quiet topic can mean no
@@ -129,7 +129,7 @@ the compose file that no longer exists.
 "Start marquez", and cover it). Its services have no `container_name`, so each is found by its compose
 project (`name: airflow-marquez`) **and** service labels; two containers for one service is NOT MEASURED,
 never a guess. `airflow-init` is a one-shot setup container that exits by design: it is listed under
-`expectedStopped`. `marquez` and `marquez-web` had no restart policy and stayed down after the 2026-11-10
+`expectedStopped` with `"exitCode": 0`, so a failed database migration (a non-zero exit) is a FAIL. `marquez` and `marquez-web` had no restart policy and stayed down after the 2026-11-10
 reboot; the yaml now says `unless-stopped`, so a container created before that change reports
 **FAIL drift** (restart=no) until it is recreated from the yaml.
 

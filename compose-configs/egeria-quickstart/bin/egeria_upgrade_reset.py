@@ -1231,8 +1231,17 @@ def service_verdict(svc: dict, insp: Optional[dict], why: Optional[str], compose
 
     if st.get("Status") != "running":
         if expected:
-            line.update(verdict="EXPECTED STOPPED",
-                        words=f"{st.get('Status')}, as expected: {expected.get('reason')} ({expected.get('by')})")
+            # An entry may say how it should have stopped ("exitCode": 0 for a one-shot setup container):
+            # a failed run is then a FAIL, not "as expected".
+            code, want = st.get("ExitCode"), expected.get("exitCode")
+            if want is not None and code != want:
+                line.update(verdict="FAIL",
+                            words=f"exited {code} (expected {want}), state {st.get('Status')}; listed as expected "
+                                  f"stopped ({expected.get('reason')})")
+            else:
+                line.update(verdict="EXPECTED STOPPED",
+                            words=f"{st.get('Status')} (exit code {code}), as expected: {expected.get('reason')} "
+                                  f"({expected.get('by')})")
             return line
         fails.append(f"{st.get('Status') or 'not running'} (exit code {st.get('ExitCode')})")
     elif line["health"] == "unhealthy":

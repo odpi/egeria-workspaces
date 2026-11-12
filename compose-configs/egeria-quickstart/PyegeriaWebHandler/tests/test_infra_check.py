@@ -619,7 +619,8 @@ def _marquez_runner(root):
 def test_repo_config_covers_airflow_marquez():
     cfg = json.loads((REPO / m.INFRA_CONFIG).read_text())
     assert cfg["extraComposeFiles"] == [str(AIRFLOW_YAML)]
-    assert [(e["service"], bool(e["reason"]), bool(e["by"])) for e in cfg["expectedStopped"]] == [("airflow-init", True, True)]
+    assert [(e["service"], bool(e["reason"]), bool(e["by"]), e.get("exitCode")) for e in cfg["expectedStopped"]] \
+        == [("airflow-init", True, True, 0)]
 
 
 def test_marquez_restarts_unless_stopped_in_the_yaml():
@@ -695,3 +696,30 @@ def test_docker_ps_error_is_not_measured_not_missing(checkout_marquez):
 def test_compose_project_name():
     assert m.compose_project(REPO / AIRFLOW_YAML) == "airflow-marquez"
     assert m.compose_project(REPO / m.INFRA_COMPOSE) is None    # no name: started with -p, not guessed
+
+
+
+# ── expectedStopped with an exit code ─────────────────────────────────────────
+
+def test_airflow_init_exited_0_is_expected_stopped_and_says_the_code(checkout_marquez):
+    by = {s["service"]: s for s in _check(checkout_marquez, _marquez_runner(checkout_marquez))[0]["services"]}
+    init = by["airflow-init"]
+    assert init["verdict"] == "EXPECTED STOPPED"
+    assert init["words"].startswith("exited (exit code 0), as expected: a one-shot setup container")
+
+
+def test_airflow_init_failed_migration_is_a_fail(checkout_marquez):
+    runner = _marquez_runner(checkout_marquez)
+    runner.containers["airflow-marquez-airflow-init-1"]["State"]["ExitCode"] = 1
+    init = {s["service"]: s for s in _check(checkout_marquez, runner)[0]["services"]}["airflow-init"]
+    assert init["verdict"] == "FAIL"
+    assert init["words"].startswith("exited 1 (expected 0), state exited; listed as expected stopped (a one-shot setup")
+
+
+def test_an_entry_without_an_exit_code_accepts_any_and_shows_it(checkout):
+    (checkout / m.INFRA_CONFIG).write_text(json.dumps({"expectedStopped": [{"service": "proxy", "reason": "r", "by": "b"}]}))
+    runner = InfraRunner(checkout)
+    runner.containers["egeria-shared-openlineage-proxy-backend"]["State"].update(Status="exited", Running=False,
+                                                                                 ExitCode=137)
+    p = _by(_check(checkout, runner)[0])["proxy"]
+    assert p["verdict"] == "EXPECTED STOPPED" and p["words"] == "exited (exit code 137), as expected: r (b)"
