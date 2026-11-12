@@ -20,6 +20,13 @@
  *      those cells as "not measured" (never blank or 0) and list each note
  *      under the result.
  *
+ * 3. {kind:..., notes:["..."]}  (pyegeria 6.2.37+, F8/R1) Words pyegeria
+ *    adds beside a result: a capped query ("Showing the first 100: the query
+ *    stopped at its page size of 100; more may exist."), a structured table's
+ *    "none" / "not read" cells, and so on. resultNotesHtml() lists them under
+ *    the result, escaped, one per line, so a capped answer never reads as the
+ *    whole answer.
+ *
  * Results without these keys (all other pyegeria output) are untouched:
  * every helper here answers false / "" / [] for them, so callers keep their
  * old rendering byte-for-byte.
@@ -108,6 +115,26 @@
       + '</div>';
   }
 
+  // pyegeria's result.notes (F8, R1): strings only, blank ones dropped. A text
+  // result (LIST/REPORT/MD) already carries the same words as a line in its
+  // markdown, so a note its content contains is not repeated.
+  function resultNotes(result) {
+    var ns = result && typeof result === 'object' ? result.notes : null;
+    if (!Array.isArray(ns)) return [];
+    var content = (result.kind === 'text' && typeof result.content === 'string') ? result.content : '';
+    return ns.map(function (n) { return n == null ? '' : String(n).trim(); })
+      .filter(function (n) { return n && !(content && content.indexOf(n) !== -1); });
+  }
+
+  // The notes under a result, one per line, muted; "" when there are none.
+  function resultNotesHtml(result) {
+    var ns = resultNotes(result);
+    if (!ns.length) return '';
+    return '<div class="nm-result-notes" data-nm="result-notes">'
+      + ns.map(function (n) { return '<div class="nm-result-note">' + esc(n) + '</div>'; }).join('')
+      + '</div>';
+  }
+
   // The whole kind:"absent" block: headline, sentence, lower bound, and the
   // partial result (if any) collapsed. No number in KPI style, no chart.
   function absentHtml(result) {
@@ -151,7 +178,9 @@
       + '.nm-footnote{font-size:.72rem;color:var(--muted,var(--dim,#8b93a7));margin-top:6px;white-space:normal;font-family:inherit;}'
       + '.nm-footnote-head{font-weight:600;color:var(--amber,#f5b74e);}'
       + '.nm-footnote ul{margin:2px 0 0 16px;padding:0;}'
-      + '.nm-cell{font-style:italic;color:var(--amber,#f5b74e);}';
+      + '.nm-cell{font-style:italic;color:var(--amber,#f5b74e);}'
+      + '.nm-result-notes{font-size:.72rem;line-height:1.45;color:var(--muted,var(--dim,#8b93a7));margin-top:6px;white-space:normal;overflow-wrap:anywhere;}'
+      + '.nm-result-note{font-style:italic;}';
     var el = document.createElement('style');
     el.id = 'egeria-nm-styles';
     el.textContent = css;
@@ -167,6 +196,8 @@
     sentence: sentence,
     atLeastText: atLeastText,
     footnoteHtml: footnoteHtml,
+    resultNotes: resultNotes,
+    resultNotesHtml: resultNotesHtml,
     absentHtml: absentHtml,
     nullReplacer: nullReplacer,
     cellText: cellText,
