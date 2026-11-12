@@ -105,11 +105,17 @@ def _tier_info(label: str) -> Optional[Dict[str, Any]]:
     return egeria_tier_info(label)
 
 
+def _platform(token: str) -> str:
+    """The platform this token may be used on (egeria_auth's one gate); raises PlatformRefused (401/400)."""
+    from egeria_auth import default_platform_url, resolve_platform, token_platform
+    return resolve_platform(token_platform(token) or default_platform_url(), token=token)
+
+
 def _user_client(token: str):
     """A pyegeria client that acts only as the token's user: no password, so no silent re-login."""
     from pyegeria import EgeriaTech
-    from egeria_auth import default_platform_url, resolve_platform, token_platform, use_token
-    url = resolve_platform(token_platform(token) or default_platform_url(), token=token)
+    from egeria_auth import use_token
+    url = _platform(token)
     server = os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server")
     client = EgeriaTech(server, url, user_id=os.environ.get("EGERIA_USER", "erinoverview"))
     use_token(client, token)
@@ -211,11 +217,14 @@ def _plan(req: PublishRequest, token: str) -> Dict[str, Any]:
             if info.get("guid"):
                 try:
                     live = _live_version(token, info["guid"])
+                except HTTPException as exc:          # PlatformRefused: its own status and words
+                    raise Refused(str(exc.detail), exc.status_code)
                 except Exception as exc:  # noqa: BLE001
                     raise Refused(f"Could not read '{label}' in Egeria to check it is not newer than the "
                                   f"Portal's copy ({type(exc).__name__}: {exc}); nothing is changed.", 502)
                 cached = info.get("header_version")
-                if live is None or not isinstance(cached, int):
+                # pyegeria's cache records version 0 when it could not read one: that is unknown, not "0"
+                if not isinstance(live, int) or live <= 0 or not isinstance(cached, int) or cached <= 0:
                     raise Refused(f"Could not tell whether '{label}' in Egeria is newer than the Portal's copy "
                                   f"(Egeria version {live}, the Portal's {cached}); nothing is changed.", 409)
                 if live > cached:
@@ -234,6 +243,10 @@ def publish_spec(req: PublishRequest, request: Request):
     try:
         if not token or _token_expired(token):
             raise Refused(SIGN_IN, 401)
+        try:
+            _platform(token)          # a token for another platform, or a refused URL: its own 401/400 and words
+        except HTTPException as exc:
+            raise Refused(str(exc.detail), exc.status_code)
         rsp = _publish_module()
         plan = _plan(req, token)
         out = rsp.run_document(plan, step=req.step, run=_run_as_user(token),

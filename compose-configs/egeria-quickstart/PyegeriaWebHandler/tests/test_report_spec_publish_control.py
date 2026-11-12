@@ -71,6 +71,7 @@ def client(monkeypatch):
     monkeypatch.setattr(h, "_tier_info", lambda label: w.tier)
     monkeypatch.setattr(h, "_restricted_reader", lambda token: (lambda: w.restricted))
     monkeypatch.setattr(h, "_live_version", lambda token, guid: w.live)
+    monkeypatch.setattr(h, "_platform", lambda token: "https://localhost:9443")
 
     def run_as(token):
         def run(markdown, directive):
@@ -340,3 +341,42 @@ def test_the_runner_dispatches_as_the_token_user_with_no_password(monkeypatch):
     assert seen == {"n": len(UniversalExtractor(plan["markdown"]).extract_commands()), "directive": "process"}
     assert out["success"] is True and out["commands_total"] == 2 and out["commands_succeeded"] == 2
     assert out["created_elements"][0]["qualified_name"] == "ReportSpec::Team Projects"
+
+
+
+# ── read-back fixes (2026-11-12) ──────────────────────────────────────────────
+
+def test_a_refused_platform_keeps_its_own_status_and_words(client, monkeypatch):
+    import report_spec_publish_handler as h
+    from egeria_auth import PlatformRefused
+    c, w = client
+
+    def refuse(token):
+        raise PlatformRefused(401, "This sign-in was issued for a different platform.")
+    monkeypatch.setattr(h, "_platform", refuse)
+    r = post(c, step="preview")
+    assert r.status_code == 401 and r.json() == {"refused": True,
+                                                 "message": "This sign-in was issued for a different platform."}
+    assert w.runs == []
+
+
+def test_a_refused_platform_during_the_version_read_keeps_its_status(client, monkeypatch):
+    import report_spec_publish_handler as h
+    from egeria_auth import PlatformRefused
+    c, w = client
+    w.tier = {"guid": "g-1", "header_version": 4}
+
+    def live(token, guid):
+        raise PlatformRefused(400, "Invalid platform URL.")
+    monkeypatch.setattr(h, "_live_version", live)
+    r = post(c, step="preview")
+    assert r.status_code == 400 and r.json()["message"] == "Invalid platform URL."
+
+
+@pytest.mark.parametrize("cached,live", [(0, 4), (-1, 4), (4, 0)])
+def test_a_version_of_0_is_unknown_not_stale(client, cached, live):
+    c, w = client
+    w.tier, w.live = {"guid": "g-1", "header_version": cached}, live
+    r = post(c, step="preview")
+    assert r.status_code == 409 and r.json()["message"].startswith("Could not tell whether 'Team Projects' in Egeria")
+    assert "sync first" not in r.json()["message"]
