@@ -6,7 +6,8 @@
     "name": "Resource Explorer - Curation Coverage"
   },
   "defaultEnabled": true,
-  "idempotent": false,
+  "idempotent": true,
+  "idempotentReason": "Every command is check-then-create: Creates carry a qualifiedName (upsert); Add Member to Collection updates an existing membership (Egeria CollectionHandler.addToCollection, CollectionHandler.java:2309-2322, origin/main 0f5bf00c; it sees only memberships the running user can see); Parent ID on Create Report Spec is add-only and returns when already linked (pyegeria md_processing/v2/processors.py:519-520, upstream 18178917, since 6.2.32).",
   "files": [
     "REPORT_SPEC_CONSUMER_FOLDERS.dr-egeria.md",
     "PORTAL_REPORT_SPECS.dr-egeria.md"

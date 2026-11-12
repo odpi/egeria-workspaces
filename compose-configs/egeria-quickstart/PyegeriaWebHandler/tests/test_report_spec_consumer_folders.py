@@ -116,9 +116,11 @@ class _Egeria:
                      "properties": {"qualifiedName": self.folder_qn}}]
         return "No elements found"
 
-    def get_collection_members(self, collection_guid=None, output_format=None):
+    def get_collection_members(self, collection_guid=None, output_format=None, start_from=0, page_size=None, **_):
+        # The spec sync pages member reads (pyegeria 6.2.36+). One spec on the first page, then an
+        # empty page, which is how a reader knows it has them all (Egeria's paging contract).
         assert collection_guid == PORTAL_GUID
-        return [_spec_element()]
+        return [_spec_element()] if not start_from else []
 
     def get_collection_by_guid(self, guid, output_format=None):
         assert guid == SPEC_GUID
