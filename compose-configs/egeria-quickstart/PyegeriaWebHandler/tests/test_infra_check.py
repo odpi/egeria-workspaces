@@ -29,18 +29,21 @@ sys.path.insert(0, str(ROOT))
 import egeria_upgrade_reset as m  # noqa: E402
 
 LAZ = json.loads((HERE / "fixtures" / "shared_infra_inspect_laz_2026_11_12.json").read_text())["containers"]
+AIRFLOW = json.loads((HERE / "fixtures" / "airflow_marquez_inspect_laz_2026_11_12.json").read_text())["containers"]
+AIRFLOW_YAML = Path("compose-configs") / "optional-associated-runtimes" / "airflow-marquez" / "airflow-marquez.yaml"
 KAFKA_DIGEST = "docker.io/cleanstart/kafka@sha256:3bfad519feac67e6bd1ae2b18b3e4770cdf2fedf53ecff7b38a520a7c5d77564"
 SECRET = "do-not-print-this-resend-key"
 
 
 @pytest.fixture
 def checkout(tmp_path):
-    """A stand-in deployment checkout: the repo's real shared-infra.yaml and infra-health.json, and a .env."""
+    """A stand-in deployment checkout: the repo's real shared-infra.yaml, a .env, and an infra-health.json
+    that lists nothing else (the optional runtimes have their own fixture, checkout_marquez)."""
     root = tmp_path / "checkout"
     si = root / "compose-configs" / "shared-infra"
     si.mkdir(parents=True)
     shutil.copy(REPO / m.INFRA_COMPOSE, si / "shared-infra.yaml")
-    shutil.copy(REPO / m.INFRA_CONFIG, si / "infra-health.json")
+    (si / "infra-health.json").write_text(json.dumps({"extraComposeFiles": [], "expectedStopped": []}))
     (si / ".env").write_text(f"SHARED_KAFKA_IMAGE={KAFKA_DIGEST}\nSHARED_POSTGRES_IMAGE=docker.io/pgvector/pgvector:pg17\n"
                              f"RESEND_API_KEY={SECRET}\n")
     return root
@@ -57,6 +60,7 @@ class InfraRunner(m.Runner):
         self.offsets_rc = 0
         self.stat = "1794487082\n"
         self.docker_down = False
+        self.ps_rc = 0
 
     def run(self, cmd, *, input_text=None, cwd=None, check=True, timeout=None):
         self.calls.append(list(cmd))
@@ -69,7 +73,12 @@ class InfraRunner(m.Runner):
         if cmd[:2] == ["docker", "inspect"]:                     # compose_setup's --format read
             return R(1, "", "Error: No such object: quickstart-egeria-main")
         if cmd[:2] == ["docker", "ps"]:
-            return R(0, "")
+            if self.ps_rc:
+                return R(self.ps_rc, "", "permission denied while trying to connect to the Docker daemon socket")
+            want = {a.split("=", 1)[1].split("=", 1)[0]: a.split("=", 2)[2] for a in cmd if a.startswith("label=")}
+            names = [n for n, c in self.containers.items()
+                     if all(((c.get("Config") or {}).get("Labels") or {}).get(k) == v for k, v in want.items())]
+            return R(0, "".join(n + "\n" for n in sorted(names)))
         if cmd[:3] == ["docker", "exec", m.INFRA_KAFKA] and "kafka-get-offsets.sh" in cmd[3]:
             return R(self.offsets_rc, self.offsets if self.offsets_rc == 0 else "",
                      "" if self.offsets_rc == 0 else "Error: timed out waiting for a node assignment")
@@ -118,8 +127,10 @@ def test_a_new_service_is_covered_and_restart_defaults_to_no(tmp_path):
     f = tmp_path / "c.yaml"
     f.write_text("services:\n  extra:\n    image: x:1\n    ports:\n      - \"${EGERIA_BIND_IP:-127.0.0.1}:1:1\"\n"
                  "  named:\n    container_name: n1\n    restart: always\n")
-    assert m.compose_services(f) == [{"service": "extra", "container": None, "restart": "no", "image": "x:1"},
-                                     {"service": "named", "container": "n1", "restart": "always", "image": None}]
+    assert m.compose_services(f) == [{"service": "extra", "container": None, "restart": "no", "image": "x:1",
+                                      "project": None},
+                                     {"service": "named", "container": "n1", "restart": "always", "image": None,
+                                      "project": None}]
     assert {k: v.get("restart") for k, v in m._mini_compose_services(f.read_text()).items()} == {"extra": None, "named": "always"}
 
 
@@ -502,11 +513,14 @@ PLIST = QS / "bin" / "org.odpi.egeria.infra-check.plist"
 
 
 def test_plist_runs_the_read_only_record_every_10_minutes():
-    p = plistlib.loads(PLIST.read_text().replace("__REPO__", "/repo").encode())
+    p = plistlib.loads(PLIST.read_text().replace("__REPO__", "/repo").replace("__PYTHON3__", "/opt/py/bin/python3")
+                       .encode())
     assert p["Label"] == "org.odpi.egeria.infra-check" and p["StartInterval"] == 600
-    assert p["ProgramArguments"][3:] == ["infra-check", "--record", "--log",
+    assert p["ProgramArguments"][2:] == ["infra-check", "--record", "--log",
                                          "/repo/runtime-volumes/egeria-resets/infra-check.log"]
-    assert p["ProgramArguments"][2] == "/repo/compose-configs/egeria-quickstart/bin/egeria-upgrade-reset"
+    assert p["ProgramArguments"][1] == "/repo/compose-configs/egeria-quickstart/bin/egeria-upgrade-reset"
+    # an absolute, install-time interpreter: /usr/bin/env python3 found a silent framework 3.12 under launchd
+    assert p["ProgramArguments"][0] == "/opt/py/bin/python3" and "/usr/bin/env" not in p["ProgramArguments"]
     # launchd's own output is discarded: the CLI's --log is the only, bounded, log
     assert p["StandardOutPath"] == "/dev/null" and p["StandardErrorPath"] == "/dev/null"
     assert "/usr/local/bin" in p["EnvironmentVariables"]["PATH"]
@@ -575,3 +589,137 @@ def test_log_mode_says_when_the_record_failed(checkout, tmp_path, monkeypatch):
     assert m.main(["infra-check", "--checkout", str(checkout), "--record", "--log", str(log)],
                   env=_env(InfraRunner(checkout), checkout, [])) == 0
     assert log.read_text().strip().endswith("; NOT recorded: StepFailed: docker exec egeria-shared-postgres psql exited 2")
+
+
+
+def test_install_docs_choose_and_check_the_interpreter():
+    doc = (REPO / "portal-docs" / "Internals" / "upgrading-or-resetting-egeria.md").read_text()
+    assert 's|__PYTHON3__|$PY|g' in doc and "env -i HOME=" in doc and "infra-check --log /tmp/infra-check-probe.log" in doc
+    assert "No line\n   means this `python3` does not work under launchd" in doc
+
+
+# ── Optional runtimes: airflow-marquez (owner 2026-11-12: "Start marquez", and cover it) ─────────
+
+@pytest.fixture
+def checkout_marquez(checkout):
+    """The checkout with the repo's real infra-health.json and the airflow-marquez compose file."""
+    shutil.copy(REPO / m.INFRA_CONFIG, checkout / m.INFRA_CONFIG)
+    (checkout / AIRFLOW_YAML).parent.mkdir(parents=True)
+    shutil.copy(REPO / AIRFLOW_YAML, checkout / AIRFLOW_YAML)
+    return checkout
+
+
+def _marquez_runner(root):
+    runner = InfraRunner(root)
+    runner.containers.update({k: json.loads(json.dumps(v).replace("__CHECKOUT__", str(root)))
+                              for k, v in copy.deepcopy(AIRFLOW).items()})
+    return runner
+
+
+def test_repo_config_covers_airflow_marquez():
+    cfg = json.loads((REPO / m.INFRA_CONFIG).read_text())
+    assert cfg["extraComposeFiles"] == [str(AIRFLOW_YAML)]
+    assert [(e["service"], bool(e["reason"]), bool(e["by"]), e.get("exitCode")) for e in cfg["expectedStopped"]] \
+        == [("airflow-init", True, True, 0)]
+
+
+def test_marquez_restarts_unless_stopped_in_the_yaml():
+    svcs = {s["service"]: s for s in m.compose_services(REPO / AIRFLOW_YAML)}
+    assert svcs["marquez"]["restart"] == svcs["marquez-web"]["restart"] == "unless-stopped"
+    assert {s["project"] for s in svcs.values()} == {"airflow-marquez"}
+    assert all(s["container"] is None for s in svcs.values())
+    raw = m._mini_compose_services((REPO / AIRFLOW_YAML).read_text())
+    assert raw["marquez"]["restart"] == raw["marquez-web"]["restart"] == "unless-stopped"
+
+
+def test_laz_today_with_marquez(checkout_marquez):
+    """The laz containers of 2026-11-12: marquez and marquez-web were created with restart=no (FAIL drift
+    until recreated from the yaml); airflow-init exited by design; the airflow-* containers were created
+    from a temporary compose file (WARN)."""
+    result, runner = _check(checkout_marquez, _marquez_runner(checkout_marquez))
+    by = {s["service"]: s for s in result["services"]}
+    assert {k: by[k]["verdict"] for k in ("redis", "marquez", "marquez-web", "airflow-init", "airflow-scheduler",
+                                          "airflow-apiserver", "airflow-worker")} == {
+        "redis": "PASS", "marquez": "FAIL", "marquez-web": "FAIL", "airflow-init": "EXPECTED STOPPED",
+        "airflow-scheduler": "WARN", "airflow-apiserver": "WARN", "airflow-worker": "WARN"}
+    assert "drift: container restart=no, yaml says unless-stopped" in by["marquez"]["words"]
+    assert "one-shot setup container" in by["airflow-init"]["words"]
+    assert by["marquez"]["container"] == "airflow-marquez-marquez-1"
+    assert result["verdict"] == "FAIL"
+    # found by project AND service label, read-only
+    ps = [c for c in runner.calls if c[:2] == ["docker", "ps"]]
+    assert ps and all("label=com.docker.compose.project=airflow-marquez" in c for c in ps)
+    _assert_read_only(runner.calls)
+
+
+def test_marquez_recreated_from_the_yaml_passes(checkout_marquez):
+    runner = _marquez_runner(checkout_marquez)
+    for name in ("airflow-marquez-marquez-1", "airflow-marquez-marquez-web-1"):
+        runner.containers[name]["HostConfig"]["RestartPolicy"]["Name"] = "unless-stopped"
+    by = {s["service"]: s for s in _check(checkout_marquez, runner)[0]["services"]}
+    assert by["marquez"]["verdict"] == "PASS" and by["marquez-web"]["verdict"] == "PASS"
+
+
+def test_another_projects_container_never_answers(checkout_marquez):
+    runner = _marquez_runner(checkout_marquez)
+    other = copy.deepcopy(runner.containers["airflow-marquez-redis-1"])
+    other["Config"]["Labels"]["com.docker.compose.project"] = "some-other-project"
+    other["HostConfig"]["RestartPolicy"]["Name"] = "no"
+    runner.containers["some-other-project-redis-1"] = other
+    by = {s["service"]: s for s in _check(checkout_marquez, runner)[0]["services"]}
+    assert by["redis"]["container"] == "airflow-marquez-redis-1" and by["redis"]["verdict"] == "PASS"
+
+
+def test_two_containers_for_one_service_is_not_measured(checkout_marquez):
+    runner = _marquez_runner(checkout_marquez)
+    runner.containers["airflow-marquez-redis-2"] = copy.deepcopy(runner.containers["airflow-marquez-redis-1"])
+    r = {s["service"]: s for s in _check(checkout_marquez, runner)[0]["services"]}["redis"]
+    assert r["verdict"] == "NOT MEASURED"
+    assert r["words"] == ("not read: 2 containers for this service (airflow-marquez-redis-1, airflow-marquez-redis-2); "
+                          "not checked")
+
+
+def test_missing_marquez_container_fails(checkout_marquez):
+    runner = _marquez_runner(checkout_marquez)
+    del runner.containers["airflow-marquez-marquez-web-1"]
+    w = {s["service"]: s for s in _check(checkout_marquez, runner)[0]["services"]}["marquez-web"]
+    assert w["verdict"] == "FAIL" and w["state"] == "missing"
+
+
+def test_docker_ps_error_is_not_measured_not_missing(checkout_marquez):
+    runner = _marquez_runner(checkout_marquez)
+    runner.ps_rc = 1
+    r = {s["service"]: s for s in _check(checkout_marquez, runner)[0]["services"]}["marquez"]
+    assert r["verdict"] == "NOT MEASURED" and "permission denied" in r["words"]
+
+
+def test_compose_project_name():
+    assert m.compose_project(REPO / AIRFLOW_YAML) == "airflow-marquez"
+    assert m.compose_project(REPO / m.INFRA_COMPOSE) is None    # no name: started with -p, not guessed
+
+
+
+# ── expectedStopped with an exit code ─────────────────────────────────────────
+
+def test_airflow_init_exited_0_is_expected_stopped_and_says_the_code(checkout_marquez):
+    by = {s["service"]: s for s in _check(checkout_marquez, _marquez_runner(checkout_marquez))[0]["services"]}
+    init = by["airflow-init"]
+    assert init["verdict"] == "EXPECTED STOPPED"
+    assert init["words"].startswith("exited (exit code 0), as expected: a one-shot setup container")
+
+
+def test_airflow_init_failed_migration_is_a_fail(checkout_marquez):
+    runner = _marquez_runner(checkout_marquez)
+    runner.containers["airflow-marquez-airflow-init-1"]["State"]["ExitCode"] = 1
+    init = {s["service"]: s for s in _check(checkout_marquez, runner)[0]["services"]}["airflow-init"]
+    assert init["verdict"] == "FAIL"
+    assert init["words"].startswith("exited 1 (expected 0), state exited; listed as expected stopped (a one-shot setup")
+
+
+def test_an_entry_without_an_exit_code_accepts_any_and_shows_it(checkout):
+    (checkout / m.INFRA_CONFIG).write_text(json.dumps({"expectedStopped": [{"service": "proxy", "reason": "r", "by": "b"}]}))
+    runner = InfraRunner(checkout)
+    runner.containers["egeria-shared-openlineage-proxy-backend"]["State"].update(Status="exited", Running=False,
+                                                                                 ExitCode=137)
+    p = _by(_check(checkout, runner)[0])["proxy"]
+    assert p["verdict"] == "EXPECTED STOPPED" and p["words"] == "exited (exit code 137), as expected: r (b)"
