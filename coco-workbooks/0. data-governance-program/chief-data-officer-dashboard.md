@@ -817,7 +817,7 @@ ___
 
 ## 5. The plan, the risks and the metrics
 
-The last group is the working detail behind the numbers: where Jules stands against the ninety day plan, what the risk register says could go wrong, and the full list of governance metrics every domain has committed to.
+The last group is the working detail behind the numbers: where Jules stands against the ninety day plan, what the risk register says could go wrong, and the full list of governance metrics every domain has committed to. The three registers are TABLE tiles: lists show as bullets, wide tables scroll.
 
 ___
 
@@ -859,7 +859,7 @@ The campaign, phases and tasks of Jules Keeper's ninety day plan, from jules-90-
 Project-DrE-Basic
 
 ### Output Format
-LIST
+TABLE
 
 ### Search String
 JulesKeeper::
@@ -885,7 +885,7 @@ The risks in the company risk register, from risk-register.md, built and owned j
 Risk-DrE-Basic
 
 ### Output Format
-LIST
+TABLE
 
 ### Search String
 CocoPharma::Risk::
@@ -911,7 +911,7 @@ Every governance metric defined by the governance domains — what the program h
 Governance-Metric-DrE-Basic
 
 ### Output Format
-LIST
+TABLE
 
 ### Search String
 CocoPharma::GovernanceMetric::

@@ -2798,6 +2798,18 @@ function RsPublishControl({ spec, consumers }) {
       result.after && React.createElement('div', { className: 'rs-publish-after', style: { color: 'var(--dim)', marginTop: 4 } }, result.after.message || '')));
 }
 
+// The formats Report Specs -> Run offers: the spec's own output types, then, when one of its format sets
+// says ALL, every format ALL covers (pyegeria picks the ALL format set for a format no set names). Without
+// this a spec whose sets are "ALL" and "LIST" (Risk-DrE-Basic) could not be run as TABLE, though it works.
+// Charts and DOCUMENT are not covered by ALL: they need their own definitions.
+var RS_ALL_COVERS = ['TABLE', 'DICT', 'LIST', 'REPORT', 'MD', 'FORM', 'JSON'];
+function rsRunFormats(spec) {
+  var own = (spec && spec.output_types && spec.output_types.length) ? spec.output_types.slice() : ['DICT'];
+  if (own.indexOf('ALL') < 0) return own;
+  RS_ALL_COVERS.forEach(function(f) { if (own.indexOf(f) < 0) own.push(f); });
+  return own;
+}
+
 function ReportSpecDetail({ spec, onSelectSpec, portalSupply, consumers }) {
   const creds = React.useContext(CredContext);
   const _favPersonaId = React.useContext(PersonaContext);
@@ -3165,7 +3177,7 @@ function ReportSpecDetail({ spec, onSelectSpec, portalSupply, consumers }) {
             value: execFmt,
             onChange: function(e) { setExecFmt(e.target.value); },
             style: { padding: '4px 8px', fontSize: 12 }
-          }, (spec.output_types && spec.output_types.length ? spec.output_types : ['DICT']).map(function(t) {
+          }, rsRunFormats(spec).map(function(t) {
             return React.createElement('option', { key: t, value: t }, t);
           }))
         ),
