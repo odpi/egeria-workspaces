@@ -14,6 +14,12 @@ runs that sync for the Portal:
   for it. Set PORTAL_REPORT_SPEC_SYNC_AT_STARTUP=0 to turn this off.
 - on demand, from the admin "Sync from Egeria" button in Egeria Explorer's Report Specs view
   (POST /api/report-specs/sync).
+- lazily (`retry_if_index_not_read`), at most every LAZY_RETRY_S (2 minutes), on a Report Specs listing
+  or a publish request while the consumer index is "not read". A sync can succeed while Egeria is still
+  starting and leave the index "not read" (2026-11-12: the startup sync at 17:02:58Z, during an
+  egeria-main restart at 16:59:47Z, counted as done); and nothing else re-syncs when egeria-main
+  restarts after the Portal. A sync whose index comes back "not read" has outcome "index_not_read",
+  which the startup run retries like a failure.
 
 The sync runs as the Portal's service identity (EGERIA_USER), not as the signed-in viewer,
 because the cache is shared by everyone who uses this Portal. It marks the cache `shared`, so
@@ -39,6 +45,13 @@ from loguru import logger
 _STARTUP_DELAY_S = float(os.environ.get("PORTAL_REPORT_SPEC_SYNC_DELAY", "30"))
 _RETRY_INTERVAL_S = float(os.environ.get("PORTAL_REPORT_SPEC_SYNC_RETRY", "120"))
 _STARTUP_ATTEMPTS = int(os.environ.get("PORTAL_REPORT_SPEC_SYNC_ATTEMPTS", "10"))
+#: The least time between two lazy syncs while the consumer index stays "not read".
+LAZY_RETRY_S = float(os.environ.get("PORTAL_REPORT_SPEC_INDEX_RETRY", "120"))
+#: Outcomes the startup run tries again: a failed sync, and a sync whose consumer index was not read.
+RETRY_OUTCOMES = ("failed", "index_not_read")
+#: "enabled" is False only in the test suite (tests/conftest.py), so a listing in one test never starts a
+#: real background sync that races another test's sync state.
+_LAZY = {"last": None, "enabled": True}
 
 _LOCK = threading.Lock()
 _STATE: Dict[str, Any] = {
@@ -47,7 +60,8 @@ _STATE: Dict[str, Any] = {
     "started_at": None,
     "finished_at": None,
     # None (never ran) | "synced" | "folders_missing" (every configured folder was not found) |
-    # "not_configured" | "already_running" (another process held the cache lock) | "failed"
+    # "not_configured" | "already_running" (another process held the cache lock) | "failed" |
+    # "index_not_read" (the specs synced, but the consumer index came back "not read": retried"
     "outcome": None,
     "report": None,       # SyncReport.to_dict() of the last completed sync
     "error": None,        # the words of the last failure
@@ -151,8 +165,15 @@ def _sync_once() -> str:
         rep = report.to_dict()
         missing = missing_folders(rep, folders)
         outcome = "folders_missing" if missing and len(missing) == len(folders) else "synced"
+        index = rep.get("consumers") if isinstance(rep.get("consumers"), dict) else {}
+        error = None
+        if outcome == "synced" and index.get("status") == "not read":
+            # The specs synced, but "Used by" and publishing need the consumer index: try again.
+            outcome = "index_not_read"
+            error = f"the consumer index was not read: {index.get('reason') or 'no reason given'}"[:600]
+            logger.warning(f"report-spec sync: {error}; it will be tried again")
         with _LOCK:
-            _STATE.update(outcome=outcome, report=rep, error=None, missing_folders=missing, finished_at=_now())
+            _STATE.update(outcome=outcome, report=rep, error=error, missing_folders=missing, finished_at=_now())
         logger.info(f"report-spec sync: folders {rep.get('folders')}: {len(rep.get('added', []))} added, "
                     f"{len(rep.get('updated', []))} updated, {len(rep.get('unchanged', []))} unchanged, "
                     f"{len(rep.get('pruned', []))} pruned, {len(rep.get('skipped', []))} skipped")
@@ -181,7 +202,7 @@ def _run(trigger: str, attempts: int, delay: float) -> None:
             with _LOCK:
                 _STATE.update(attempt=attempt, phase="syncing", started_at=_now())
             outcome = _sync_once()
-            if outcome != "failed" or attempt == attempts:
+            if outcome not in RETRY_OUTCOMES or attempt == attempts:
                 return
             with _LOCK:
                 _STATE.update(phase="retry_wait")
@@ -195,6 +216,8 @@ def running_words(st: Dict[str, Any]) -> Optional[str]:
     """What a running sync is doing, in words; None when no sync is running."""
     if not st.get("running"):
         return None
+    if st.get("trigger") == "lazy":
+        return "a sync from Egeria is running (the consumer index was not read)"
     if st.get("trigger") != "startup":
         return "a sync from Egeria is running"
     n, of = st.get("attempt") or 0, st.get("attempts") or 0
@@ -217,6 +240,37 @@ def start(trigger: str = "admin") -> bool:
     args = (trigger, attempts, _STARTUP_DELAY_S if trigger == "startup" else 0.0)
     threading.Thread(target=_run, args=args, daemon=True, name=f"report-spec-sync-{trigger}").start()
     return True
+
+
+def retry_if_index_not_read(index_status: Optional[str] = None, now: Optional[float] = None) -> bool:
+    """Start a sync when the consumer index is "not read", a sync has finished before (the startup sync
+    owns the first read), and none ran in the last LAZY_RETRY_S. Called
+    on a Report Specs listing or a publish request, so an egeria-main restart the Portal never saw heals
+    itself. `index_status` is the index status the caller already read (report_spec_consumers.index()).
+    Never blocks; True when a sync was started."""
+    if index_status is None:
+        try:
+            import report_spec_consumers
+            index_status = report_spec_consumers.index().get("status")
+        except Exception:  # noqa: BLE001
+            return False
+    if not _LAZY.get("enabled", True) or index_status != "not read" or not configured_folders():
+        return False
+    now = time.monotonic() if now is None else now
+    with _LOCK:
+        # Only after a sync has finished at least once: before that, the startup sync owns the first
+        # read (or it is turned off, and "no sync from Egeria has run" is the honest answer).
+        if _STATE["running"] or _STATE["outcome"] is None:
+            return False
+        last = _LAZY["last"]
+        if last is not None and now - last < LAZY_RETRY_S:
+            return False
+        _LAZY["last"] = now
+    started = start("lazy")
+    if started:
+        logger.info("report-spec sync: the consumer index is not read; syncing again (at most every "
+                    f"{LAZY_RETRY_S:.0f}s)")
+    return started
 
 
 def start_at_startup() -> None:
