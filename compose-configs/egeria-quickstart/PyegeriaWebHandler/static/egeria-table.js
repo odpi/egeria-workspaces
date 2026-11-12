@@ -138,13 +138,16 @@
   function isEmpty(v) { return v === null || v === undefined || v === ''; }
   function isElement(v) { return isObj(v) && !!(v.guid || v.qualifiedName); }
   function isReduced(v) { return isObj(v) && typeof v.count === 'number' && Array.isArray(v.names); }
-  // A link from the host's linkBuilder is used only when it is relative or
-  // http(s). Browsers ignore control characters and whitespace inside a
+  // A link from the host's linkBuilder is used only when it is relative
+  // (same host) or http(s). Browsers ignore control characters and whitespace inside a
   // scheme ("java\tscript:"), so those are removed before the check.
   function safeHref(href) {
     if (typeof href !== 'string') return false;
     var h = href.replace(/[\u0000-\u0020\u007f-\u009f]/g, '');
     if (!h) return false;
+    // Protocol-relative ("//host", and browsers read "\\host", "/\\host" and
+    // "\\/host" the same way) points at another host: not a relative link.
+    if (/^[\/\\]{2}/.test(h)) return false;
     var scheme = /^([a-z][a-z0-9+.-]*):/i.exec(h);
     return scheme ? /^https?$/i.test(scheme[1]) : true;
   }

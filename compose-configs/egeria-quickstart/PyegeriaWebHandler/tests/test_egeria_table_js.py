@@ -441,6 +441,13 @@ REFUSED = "A link was not shown: only relative, http and https links are allowed
     ("data:text/html,<b>x</b>", False),
     ("vbscript:x", False),
     ("file:///etc/passwd", False),
+    # protocol-relative: another host, not a relative link
+    ("//other.host/x", False),
+    ("\\\\other.host/x", False),
+    ("/\\other.host/x", False),
+    ("\\/other.host/x", False),
+    (" //other.host/x", False),
+    ("/\t/other.host/x", False),
 ])
 def test_link_builder_href_scheme_is_allow_listed(href, allowed):
     r = table([col("l", "link", type="elements")], [{"l": el(1)}], total="n")
