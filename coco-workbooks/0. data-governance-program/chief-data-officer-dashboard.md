@@ -52,7 +52,7 @@ Then open `/local-dashboards?sheet=Chief%20Data%20Officer%20Dashboard`.
 
 Load it after the rest of this directory.  It reads better still after `1. coco-data-hub/`, because the digital product and supply chain tiles count what the data hub team builds.  Running **Validate** first will report each `Link Report to Dashboard Sheet` as "not found" — that is expected, because the Reports are created earlier in the same file; they resolve on **Process**.
 
-Every command upserts, so the file is safe to re-run after changing a tile.
+Every command upserts, but **re-running a `Create Report` block is not yet safe**: when a Create becomes an Update, Dr.Egeria drops the attributes that were only defaults, and the Report's `additionalProperties` map is replaced whole, so any search parameter the block does not spell out is deleted. That is why the three register blocks below write `Starts With`, `Ends With`, `Ignore Case`, `Limit Result by Status`, `Graph Query Depth`, `Page Size` and `Start From` explicitly. The other twelve `Create Report` blocks do not, so do not re-run them until pyegeria merges `additionalProperties` key by key on an update (proposed, 2026-11-12).
 
 ---
 
@@ -864,6 +864,27 @@ TABLE
 ### Search String
 JulesKeeper::
 
+### Starts With
+True
+
+### Ends With
+False
+
+### Ignore Case
+False
+
+### Limit Result by Status
+['ACTIVE']
+
+### Graph Query Depth
+1
+
+### Page Size
+0
+
+### Start From
+0
+
 ___
 
 ---
@@ -890,6 +911,27 @@ TABLE
 ### Search String
 CocoPharma::Risk::
 
+### Starts With
+True
+
+### Ends With
+False
+
+### Ignore Case
+False
+
+### Limit Result by Status
+['ACTIVE']
+
+### Graph Query Depth
+1
+
+### Page Size
+0
+
+### Start From
+0
+
 ___
 
 ---
@@ -915,6 +957,27 @@ TABLE
 
 ### Search String
 CocoPharma::GovernanceMetric::
+
+### Starts With
+True
+
+### Ends With
+False
+
+### Ignore Case
+False
+
+### Limit Result by Status
+['ACTIVE']
+
+### Graph Query Depth
+1
+
+### Page Size
+0
+
+### Start From
+0
 
 ___
 
