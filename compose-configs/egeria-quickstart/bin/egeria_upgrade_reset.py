@@ -81,10 +81,18 @@ FOLDER_WALKS = [
     ("RootCollection::DashboardSheets", 2),
     ("ReportSpecFolder::Consumer::Portal", None),     # listed, no fixed count
 ]
-CLASSIFICATION_TYPES = int(os.environ.get("EGERIA_RESET_CLASSIFICATION_TYPES", "94"))
+# RE / EA are restarted ONLY through their own launcher scripts, which set the environment they need
+# (a dozen EGERIA_* variables for RE, its venv and steps). Recorded argv is never replayed: it loses
+# that environment, splits quoted arguments, and a bare `uv run --package` drops RE's survey steps.
+# Override per port with EGERIA_RESET_LAUNCHER_<port> or `plan --launcher PORT=PATH`.
+DEFAULT_LAUNCHERS = {8813: "~/.re-gate/start-8813.sh", 8880: "~/.re-gate/start-ea-8880.sh"}
 
+# secrets-sync runs BEFORE recreate (read-back R-B1): the copy is host-side and in place, so the new
+# container mounts the final files, and the only restart (a stale bind mount) happens in recreate,
+# before Egeria is up and the Portal's heal can start. A restart mid-heal could half-run a batch that
+# is not safe to re-run.
 STEPS = ["disk-check", "repin", "build", "freeze-writers", "stop-platform", "backup", "clear",
-         "recreate", "secrets-sync", "heal-wait", "unfreeze", "verify", "record"]
+         "secrets-sync", "recreate", "heal-wait", "unfreeze", "verify", "record"]
 RUN_ONCE = {"backup", "clear", "secrets-sync"}
 CLEAR_STEPS = {"backup", "clear"}       # left out by `plan --no-clear` (an image upgrade only)
 
@@ -304,7 +312,7 @@ def _is_writer(command: str) -> bool:
 
 
 def find_writers(env: Env) -> dict:
-    """{known: [{port, name, pid, launcherPid, argv, cwd}], unknown: [{pid, command}]}.
+    """{known: [{port, name, pid, launcherPid, command, cwd}], unknown: [{pid, command}]}.
     The launcher is the topmost ancestor that is still an RE/EA command (for RE that is the
     `uv run … resource-explorer web` wrapper, so stopping it stops the child too). Any other
     RE/EA process on this host is unknown, and the procedure refuses to go on while one runs:
@@ -326,11 +334,34 @@ def find_writers(env: Env) -> dict:
         claimed |= tree
         cmd = procs.get(top, (0, ""))[1]
         known.append({"port": port, "name": name, "pid": pid, "launcherPid": top,
-                      "argv": cmd.split(), "cwd": _cwd(env, top)})
+                      "command": cmd, "cwd": _cwd(env, top)})
     unknown = [{"pid": p, "command": c[:200]} for p, (pp, c) in procs.items()
                if _is_writer(c) and p not in claimed and pp not in claimed and "egeria-upgrade-reset" not in c
                and "grep" not in c]
     return {"known": known, "unknown": unknown}
+
+
+def launchers(overrides: Optional[dict] = None) -> dict:
+    """{port: {"path", "usable"}} for each writer port: --launcher, else EGERIA_RESET_LAUNCHER_<port>,
+    else the default. `usable` means the file exists and is executable."""
+    out = {}
+    for port, default in DEFAULT_LAUNCHERS.items():
+        raw = (overrides or {}).get(port) or os.environ.get(f"EGERIA_RESET_LAUNCHER_{port}") or default
+        path = Path(os.path.expanduser(raw)) if raw else None
+        out[str(port)] = {"path": str(path) if path else None,
+                          "usable": bool(path and path.is_file() and os.access(path, os.X_OK))}
+    return out
+
+
+def classification_count(env: "Env") -> dict:
+    """{count, serverReportsPurpose} from the Portal, or {notRead: reason}."""
+    try:
+        code, body = env.http.request("GET", f"{PORTAL_URL}/api/types/classification-purposes", timeout=120)
+    except Exception as exc:  # noqa: BLE001
+        return {"notRead": f"{type(exc).__name__}: {exc}"}
+    if code != 200 or not isinstance(body, dict):
+        return {"notRead": f"HTTP {code}"}
+    return {"count": len(body.get("purposes") or {}), "serverReportsPurpose": body.get("serverReportsPurpose")}
 
 
 # ── Secrets ───────────────────────────────────────────────────────────────────
@@ -393,7 +424,8 @@ def secrets_line(d: dict) -> str:
 
 # ── Plan ──────────────────────────────────────────────────────────────────────
 
-def make_plan(env: Env, *, digest: Optional[str], latest: bool, clear: bool, reset_root: Optional[Path]) -> Path:
+def make_plan(env: Env, *, digest: Optional[str], latest: bool, clear: bool, reset_root: Optional[Path],
+              allow_other_checkout: bool = False, launcher_overrides: Optional[dict] = None) -> Path:
     """Read everything; change nothing; write plan.json and state.json."""
     t = env.now()
     setup = compose_setup(env)
@@ -401,6 +433,11 @@ def make_plan(env: Env, *, digest: Optional[str], latest: bool, clear: bool, res
     # folder's repo), not wherever this script sits: the Dockerfile, the secrets and the logs
     # are that checkout's.
     deploy = Path(setup["workingDir"]).resolve().parents[1]
+    env.say(f"Deployment (the running platform's compose folder): {setup['workingDir']}")
+    env.say(f"This CLI's checkout:                                {env.repo}")
+    if deploy != Path(env.repo).resolve() and not allow_other_checkout:
+        raise Refused(f"the platform was started from {deploy}, but this CLI is in {env.repo}. Run the CLI from "
+                      "the deployment's checkout, or pass --allow-other-checkout to mix them on purpose.")
     dfile = dockerfile_path(deploy)
     current = pinned_digest(dfile)
     target = check_digest(digest) if digest else (resolve_latest(env) if latest else current)
@@ -424,6 +461,9 @@ def make_plan(env: Env, *, digest: Optional[str], latest: bool, clear: bool, res
         "compose": setup, "databaseBytes": size, "databaseSizeClass": db_size_class(size),
         "dockerFreeGb": free,
         "writers": writers,
+        "launchers": launchers(launcher_overrides),
+        "classificationTypes": classification_count(env),
+        "allowOtherCheckout": allow_other_checkout,
         "secrets": {"from": str(src), "to": str(dst), "diff": secrets_diff(src, dst)},
         "backup": {"to": None},
         "blockers": blockers,
@@ -451,7 +491,13 @@ def print_plan(env: Env, plan: dict, run_dir: Path) -> None:
         say(f"  backup  -> {plan['backup']['to']}")
     say(f"  Docker free disk {plan['dockerFreeGb']} GB (need >= {MIN_FREE_GB})")
     for w in plan["writers"]["known"]:
-        say(f"  writer  {w['name']} on {w['port']}: launcher pid {w['launcherPid']}: {' '.join(w['argv'])[:120]}")
+        ln = plan["launchers"].get(str(w["port"])) or {}
+        say(f"  writer  {w['name']} on {w['port']}: pid {w['launcherPid']}: {w['command'][:100]}")
+        say(f"          restarted by {ln.get('path')}" if ln.get("usable") else
+            f"          NO usable launcher ({ln.get('path')}): it will NOT be restarted automatically; a person must")
+    ct = plan["classificationTypes"]
+    say(f"  classification types {ct['count']} (serverReportsPurpose={ct.get('serverReportsPurpose')})"
+        if "count" in ct else f"  classification types not read: {ct['notRead']} (verify will say NOT MEASURED)")
     for f, d in plan["secrets"]["diff"].items():
         say(f"  secrets {f}: {secrets_line(d)}")
     say("  steps   " + ", ".join(plan["steps"]))
@@ -497,6 +543,9 @@ def check_still_matches(env: Env, plan: dict, state: dict) -> None:
         if cls != plan["databaseSizeClass"]:
             raise Refused(f"database '{plan['database']}' is now {cls}, the plan read {plan['databaseSizeClass']}. "
                           "Make a new plan.")
+    deploy = Path(plan.get("deployRoot") or env.repo).resolve()
+    if deploy != Path(env.repo).resolve() and not plan.get("allowOtherCheckout"):
+        raise Refused(f"the plan's deployment is {deploy}, but this CLI is in {env.repo} (plan without --allow-other-checkout)")
     current = pinned_digest(Path(plan["image"]["dockerfile"]))
     if current not in (plan["image"]["currentDigest"], plan["image"]["targetDigest"]):
         raise Refused(f"the Dockerfile is pinned to {current}, neither the plan's current nor target digest")
@@ -623,42 +672,55 @@ def step_clear(env, plan, state, run_dir):
 def step_recreate(env, plan, state, run_dir):
     """`compose up -d --no-deps --force-recreate egeria-main`, never `docker start` (2026-11-11:
     reset-egeria-db.sh restarted the old container, which kept the OLD image). Then the running
-    container's image must be the one build made."""
+    container's image must be the one build made, and its /deployments/secrets must match the host
+    (one restart if the bind mount is stale, while Egeria is still starting)."""
     built = state["steps"].get("build", {}).get("evidence", {}).get("builtImageId")
     env.runner.run(compose_cmd(plan["compose"], "up", "-d", "--no-deps", "--force-recreate", PLATFORM_SERVICE),
                    cwd=Path(plan["compose"]["workingDir"]), timeout=600)
     running = compose_setup(env)["imageId"]
     if built and running != built:
         raise StepFailed(f"{PLATFORM_CONTAINER} runs {running}, not the image build made ({built})")
+    # The stale-mount check, at once: Egeria is still starting, so the Portal's heal cannot have begun,
+    # and the one restart it may need cannot interrupt a batch (read-back R-B1).
+    host = _host_sizes(Path(plan["secrets"]["to"]))
+    restarted = False
+    seen = _container_sizes(env)
+    if seen != host:
+        env.runner.run(["docker", "restart", PLATFORM_CONTAINER], timeout=300)
+        restarted = True
+        seen = _container_sizes(env)
+        if seen != host:
+            raise StepFailed(f"after one restart the container still sees {seen} in /deployments/secrets; "
+                             f"the host has {host}")
     return {"runningImageId": running, "matchesBuild": running == built if built else None,
-            "recreatedAt": iso(env.now())}
+            "recreatedAt": iso(env.now()), "secretsMountMatches": True, "restartedForStaleMount": restarted}
 
 
 def step_secrets_sync(env, plan, state, run_dir):
-    """Copy the compose secrets into runtime-volumes IN PLACE (never replacing the folder: that
-    empties the container's bind-mounted view), list the accounts added/removed/changed by NAME
-    only, then check the container sees the same files: a stale bind mount shows an empty
-    /deployments/secrets, fixed by one `docker restart`. Unlike quick-start-local, files that are
-    not in the compose secrets are KEPT and reported (laz holds resource-explorer.omsecrets there)."""
+    """Copy the compose secrets into runtime-volumes IN PLACE, while the platform is stopped, so the
+    recreated container mounts the final files. Accounts added/removed/changed are listed by NAME only;
+    files not in the compose secrets are KEPT (laz holds resource-explorer.omsecrets there). The
+    container's view is checked in recreate, before Egeria is up (read-back R-B1)."""
     src, dst = Path(plan["secrets"]["from"]), Path(plan["secrets"]["to"])
     diff = secrets_diff(src, dst)
     dst.mkdir(parents=True, exist_ok=True)
     for f in src.glob("*.omsecrets"):
-        shutil.copyfile(f, dst / f.name)
+        shutil.copyfile(f, dst / f.name)    # truncates and rewrites the same inode: the bind mount stays valid
     for name, d in diff.items():
         env.say(f"  secrets {name}: {secrets_line(d)}")
-    host = {f.name: f.stat().st_size for f in dst.iterdir() if f.is_file()}
-    restarted = False
-    for attempt in range(2):
-        seen = _container_sizes(env)
-        if seen == host:
-            break
-        if attempt == 0:
-            env.runner.run(["docker", "restart", PLATFORM_CONTAINER], timeout=300)
-            restarted = True
-    else:
-        raise StepFailed(f"the container sees {seen} in /deployments/secrets, the host has {host}")
-    return {"diff": diff, "hostFiles": sorted(host), "containerMatches": True, "restartedForStaleMount": restarted}
+    ev = {"diff": diff, "hostFiles": sorted(f.name for f in dst.iterdir() if f.is_file())}
+    if done(state, "recreate"):
+        # A redo after the recreate: Egeria may be healing, so no restart here. Check and report.
+        seen, host = _container_sizes(env), _host_sizes(dst)
+        if seen != host:
+            raise StepFailed(f"the running container sees {seen}, the host has {host}; restart "
+                             f"{PLATFORM_CONTAINER} only when no heal is running")
+        ev["containerMatches"] = True
+    return ev
+
+
+def _host_sizes(dst: Path) -> dict:
+    return {f.name: f.stat().st_size for f in dst.iterdir() if f.is_file()}
 
 
 def _container_sizes(env: Env) -> dict:
@@ -746,25 +808,46 @@ def scan_logs(env: Env, since: float, root: Path) -> list[str]:
     return lines
 
 
+class NeedsPerson(Exception):
+    """The step did what it could; a person must finish it. Recorded as `needs a person`; the run goes on."""
+
+    def __init__(self, message: str, evidence: dict):
+        super().__init__(message)
+        self.evidence = evidence
+
+
 def step_unfreeze(env, plan, state, run_dir):
-    """Restart RE and EA the way they were started (argv, folder), then print the RE recovery step."""
+    """Restart RE and EA through their configured launcher scripts (never by replaying their command
+    line), then print the RE recovery step. A writer with no usable launcher is left for a person."""
     stopped = state["steps"].get("freeze-writers", {}).get("evidence", {}).get("stopped", [])
-    started = []
+    started, manual = [], []
     for k in stopped:
         if env.port_open(k["port"]):
-            started.append({**k, "restarted": "already running"})
+            started.append({"name": k["name"], "port": k["port"], "restarted": "already running"})
             continue
-        pid = env.runner.spawn(k["argv"], k["cwd"], run_dir / f"{k['name'].replace(' ', '-').lower()}.log")
+        ln = (plan.get("launchers") or {}).get(str(k["port"])) or {}
+        path = ln.get("path")
+        if not (path and Path(path).is_file() and os.access(path, os.X_OK)):
+            manual.append({"name": k["name"], "port": k["port"], "launcher": path,
+                           "command": k.get("command"), "cwd": k.get("cwd")})
+            env.say(f"  {k['name']} ({k['port']}) NOT restarted: no usable launcher ({path}). It ran as:\n"
+                    f"    cd {k.get('cwd')} && {k.get('command')}")
+            continue
+        log = run_dir / f"{k['name'].replace(' ', '-').lower()}.log"
+        pid = env.runner.spawn([path], str(Path(path).parent), log)
         deadline = env.now() + 120
         while not env.port_open(k["port"]) and env.now() < deadline:
             env.sleep(3)
         if not env.port_open(k["port"]):
-            raise StepFailed(f"{k['name']} did not listen on {k['port']} within 120 s (pid {pid}; log in {run_dir})")
-        started.append({"name": k["name"], "port": k["port"], "pid": pid})
+            raise StepFailed(f"{k['name']} did not listen on {k['port']} within 120 s ({path}, pid {pid}, log {log})")
+        started.append({"name": k["name"], "port": k["port"], "pid": pid, "launcher": path, "log": str(log)})
     nxt = (f"resource-explorer registry recover-after-egeria-reset --reset-at {iso(_reset_time(plan, state))}  "
            "(Part 3; until it exists, follow trellis docs/egeria-operations.md §8.1)")
     env.say("Next, RE recovery: " + nxt)
-    return {"started": started, "next": nxt}
+    ev = {"started": started, "needsPerson": manual, "next": nxt}
+    if manual:
+        raise NeedsPerson("restart by hand: " + ", ".join(f"{m['name']} ({m['port']})" for m in manual), ev)
+    return ev
 
 
 def _reset_time(plan, state) -> float:
@@ -865,14 +948,7 @@ def step_verify(env, plan, state, run_dir, *, watch_s: float = 600, watch_every_
             f"{s['state']}: {s.get('detail')}"
     checks.append(_check("saved-query tile", sq))
 
-    def purposes():
-        code, body = env.http.request("GET", f"{PORTAL_URL}/api/types/classification-purposes", timeout=120)
-        if code != 200 or not isinstance(body, dict):
-            return "NOT MEASURED", f"HTTP {code}"
-        n = len(body.get("purposes") or {})
-        ok = body.get("serverReportsPurpose") is True and n == CLASSIFICATION_TYPES
-        return ("PASS" if ok else "FAIL"), f"{n} classification types (want {CLASSIFICATION_TYPES}), serverReportsPurpose={body.get('serverReportsPurpose')}"
-    checks.append(_check("classification purposes", purposes))
+    checks.append(_check("classification purposes", lambda: classification_verdict(plan, classification_count(env))))
 
     personas = env.ask("Persona checks (the CLI never signs in): sign in to the Portal as each demo persona you use "
                        "and open a sheet. Type 'ok' when they all work, 'skip' to leave them unchecked, or describe the "
@@ -886,6 +962,28 @@ def step_verify(env, plan, state, run_dir, *, watch_s: float = 600, watch_every_
     for c in checks:
         env.say(f"  {c['verdict']:<12} {c['check']}: {c['evidence']}")
     return {"checks": checks, "failed": failed, "notMeasured": [c["check"] for c in checks if c["verdict"] == "NOT MEASURED"]}
+
+
+def classification_verdict(plan: dict, now: dict) -> tuple[str, str]:
+    """Compare the count with the plan's baseline (read-back R-B3): equal PASS; changed with a new image
+    CHANGED (reported for review, not a failure); fewer, or changed on the same image, FAIL; unreadable
+    NOT MEASURED. Purposes no longer reported is a FAIL."""
+    base = plan.get("classificationTypes") or {"notRead": "no baseline in the plan"}
+    if "count" not in now:
+        return "NOT MEASURED", f"not read now: {now.get('notRead')}"
+    if "count" not in base:
+        return "NOT MEASURED", f"{now['count']} types now; no baseline ({base.get('notRead')})"
+    a, b = base["count"], now["count"]
+    if base.get("serverReportsPurpose") and not now.get("serverReportsPurpose"):
+        return "FAIL", f"{b} types, but the server no longer reports purposes (it did: {a})"
+    if a == b:
+        return "PASS", f"{b} classification types, as before"
+    new_image = plan["image"]["targetDigest"] != plan["image"]["currentDigest"]
+    if b < a:
+        return "FAIL", f"{a}→{b}: fewer classification types"
+    if new_image:
+        return "CHANGED", f"CHANGED {a}→{b} (new image): review"
+    return "FAIL", f"{a}→{b} on the same image"
 
 
 def _canaries(env: Env) -> tuple[list[tuple[str, dict]], str]:
@@ -963,8 +1061,11 @@ def _sql_str(v) -> str:
 def record_row(env: Env, plan: dict, state: dict, run_dir: Path) -> dict:
     ev = lambda s: state["steps"].get(s, {}).get("evidence") or {}
     statuses = {s: v.get("status") for s, v in state["steps"].items()}
-    outcome = ("completed" if all(v == "done" for k, v in statuses.items() if k != "record")
-               else ("failed" if "failed" in statuses.values() else "incomplete"))
+    rest = {k: v for k, v in statuses.items() if k != "record"}
+    outcome = ("completed" if all(v == "done" for v in rest.values())
+               else "failed" if "failed" in rest.values()
+               else "completed, needs a person" if all(v in ("done", "needs a person") for v in rest.values())
+               else "incomplete")
     row = {
         "started_at": plan["createdAt"], "finished_at": iso(env.now()), "outcome": outcome,
         "operator": plan.get("createdBy"), "host": plan.get("host"), "database": plan["database"] if plan["clear"] else None,
@@ -1029,6 +1130,7 @@ def apply(env: Env, plan_arg: str, *, dry_run: bool = False, redo: Optional[str]
         state["steps"][redo] = {"status": "pending", "redoneFrom": state["steps"].get(redo)}
         write_json(run_dir / "state.json", state)
     check_still_matches(env, plan, state)
+    needs_person = False
     for s in plan["steps"]:
         if done(state, s):
             continue
@@ -1038,6 +1140,13 @@ def apply(env: Env, plan_arg: str, *, dry_run: bool = False, redo: Optional[str]
         write_json(run_dir / "state.json", state)
         try:
             evidence = STEP_FUNCS[s](env, plan, state, run_dir)
+        except NeedsPerson as exc:
+            state["steps"][s] = {"status": "needs a person", "startedAt": started, "finishedAt": env.now(),
+                                 "error": str(exc), "evidence": exc.evidence}
+            write_json(run_dir / "state.json", state)
+            env.say(f"NEEDS A PERSON {s}: {exc}. The run goes on; run apply again after, to mark it done.")
+            needs_person = True
+            continue
         except (StepFailed, Refused) as exc:
             state["steps"][s] = {"status": "failed", "startedAt": started, "finishedAt": env.now(), "error": str(exc)}
             write_json(run_dir / "state.json", state)
@@ -1045,7 +1154,7 @@ def apply(env: Env, plan_arg: str, *, dry_run: bool = False, redo: Optional[str]
             return 1
         state["steps"][s] = {"status": "done", "startedAt": started, "finishedAt": env.now(), "evidence": evidence}
         write_json(run_dir / "state.json", state)
-    return 0
+    return 3 if needs_person else 0
 
 
 def main(argv: Optional[list[str]] = None, env: Optional[Env] = None) -> int:
@@ -1057,6 +1166,11 @@ def main(argv: Optional[list[str]] = None, env: Optional[Env] = None) -> int:
     g.add_argument("--latest", action="store_true", help=f"resolve {UPSTREAM_IMAGE}'s current digest")
     p.add_argument("--no-clear", action="store_true", help="upgrade the image only; keep the metadata store")
     p.add_argument("--reset-root", default=None, help="where reset folders go (default runtime-volumes/egeria-resets)")
+    p.add_argument("--allow-other-checkout", action="store_true",
+                   help="allow this CLI to run from another checkout than the one the platform was started from")
+    p.add_argument("--launcher", action="append", default=[], metavar="PORT=PATH",
+                   help="the script that restarts the writer on PORT (default: " +
+                        ", ".join(f"{k}={v}" for k, v in DEFAULT_LAUNCHERS.items()) + ")")
     a = sub.add_parser("apply", help="run (or resume) a plan")
     a.add_argument("--plan", required=True)
     a.add_argument("--dry-run", action="store_true", help="print the steps and their state; run nothing")
@@ -1070,7 +1184,14 @@ def main(argv: Optional[list[str]] = None, env: Optional[Env] = None) -> int:
     try:
         if args.cmd == "plan":
             root = Path(args.reset_root) if args.reset_root else None
-            make_plan(env, digest=args.digest, latest=args.latest, clear=not args.no_clear, reset_root=root)
+            overrides = {}
+            for item in args.launcher:
+                port, _, path = item.partition("=")
+                if not port.isdigit() or int(port) not in DEFAULT_LAUNCHERS or not path:
+                    raise Refused(f"--launcher wants PORT=PATH with PORT one of {sorted(DEFAULT_LAUNCHERS)}: {item!r}")
+                overrides[int(port)] = path
+            make_plan(env, digest=args.digest, latest=args.latest, clear=not args.no_clear, reset_root=root,
+                      allow_other_checkout=args.allow_other_checkout, launcher_overrides=overrides)
             return 0
         if args.cmd == "apply":
             return apply(env, args.plan, dry_run=args.dry_run, redo=args.redo)

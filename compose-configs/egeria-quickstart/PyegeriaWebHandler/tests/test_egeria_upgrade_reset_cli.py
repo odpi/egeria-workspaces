@@ -24,7 +24,9 @@ OLD = "sha256:" + "1" * 64
 NEW = "sha256:" + "2" * 64
 OLD_IMG, NEW_IMG = "sha256:oldimage", "sha256:newimage"
 SECRET_VALUE = "s3cr3t-value-never-printed"
-DUMP = "--\n-- PostgreSQL database dump\n--\nCREATE TABLE x();\n\n--\n-- PostgreSQL database dump complete\n--\n"
+# The real pg_dump 17.6+ tail: the marker, then `\unrestrict <token>` (read-back: pg_dump 17.10 on laz).
+DUMP = ("--\n-- PostgreSQL database dump\n--\n\\restrict Abc123\nCREATE TABLE x();\n\n--\n"
+        "-- PostgreSQL database dump complete\n--\n\n\\unrestrict Abc123\n")
 
 
 def _secrets(users: dict) -> str:
@@ -216,10 +218,23 @@ def world(deploy, monkeypatch):
             "deploy": deploy, "ports": ports}
 
 
+def _launchers(root: Path) -> dict:
+    out = {}
+    for port, name in ((8813, "start-8813.sh"), (8880, "start-ea-8880.sh")):
+        p = root / "launchers" / name
+        p.parent.mkdir(exist_ok=True)
+        p.write_text("#!/bin/sh\nexit 0\n")
+        p.chmod(0o755)
+        out[port] = str(p)
+    return out
+
+
 def _plan(w, **kw):
     kw.setdefault("digest", NEW)
     run_dir = m.make_plan(w["env"], digest=kw["digest"], latest=False, clear=kw.get("clear", True),
-                          reset_root=w["deploy"] / "runtime-volumes" / "egeria-resets")
+                          reset_root=w["deploy"] / "runtime-volumes" / "egeria-resets",
+                          allow_other_checkout=kw.get("allow_other_checkout", False),
+                          launcher_overrides=kw.get("launchers", _launchers(w["deploy"])))
     return run_dir
 
 
@@ -279,6 +294,7 @@ def test_plan_blockers_and_apply_refuses(world, setup, words):
 def test_dry_run_touches_nothing(world):
     run_dir = _plan(world)
     world["runner"].calls.clear()
+    world["http"].calls.clear()
     state_before = (run_dir / "state.json").read_text()
     assert m.apply(world["env"], str(run_dir), dry_run=True) == 0
     assert world["runner"].calls == [] and world["http"].calls == []
@@ -327,7 +343,16 @@ def test_full_apply(world):
     assert any(c.endswith("-v db=egeria -f -") for c in calls)
     # writers stopped then restarted the way they were started
     assert world["runner"].killed == [79299, 79339]
-    assert [a for a, _ in world["runner"].spawned] == [w["argv"] for w in st["steps"]["freeze-writers"]["evidence"]["stopped"]]
+    # restarted through the launcher scripts, run from their own folder; never the recorded command
+    assert [a for a, _ in world["runner"].spawned] == [[str(world["deploy"] / "launchers" / "start-8813.sh")],
+                                                       [str(world["deploy"] / "launchers" / "start-ea-8880.sh")]]
+    assert all(cwd == str(world["deploy"] / "launchers") for _, cwd in world["runner"].spawned)
+    stopped = st["steps"]["freeze-writers"]["evidence"]["stopped"]
+    assert stopped[0]["command"].startswith("uv run --package resource-explorer")       # kept as evidence
+    # R-B1: secrets synced while stopped, before the recreate; the mount checked in the recreate
+    order = list(st["steps"])
+    assert order.index("secrets-sync") < order.index("recreate") < order.index("heal-wait")
+    assert st["steps"]["recreate"]["evidence"]["secretsMountMatches"] is True
     # heal waited a full monitor cycle after the recreate
     rec = st["steps"]["recreate"]["finishedAt"]
     assert world["clock"].now() >= rec + m.MONITOR_CYCLE_S
@@ -414,8 +439,13 @@ def test_stale_secrets_mount_restarts_once(world):
     run_dir = _plan(world)
     world["runner"].container_secrets = ""            # the container sees an empty folder
     assert m.apply(world["env"], str(run_dir)) == 0
-    ev = _state(run_dir)["steps"]["secrets-sync"]["evidence"]
-    assert ev["restartedForStaleMount"] is True
+    st = _state(run_dir)
+    assert st["steps"]["recreate"]["evidence"]["restartedForStaleMount"] is True
+    # the restart came after the recreate and before the heal started waiting (R-B1)
+    restart_i = next(i for i, c in enumerate(world["runner"].calls) if c[:2] == ["docker", "restart"])
+    up_i = next(i for i, c in enumerate(world["runner"].calls) if "up" in c and "compose" in c)
+    assert up_i < restart_i
+    assert st["steps"]["heal-wait"]["startedAt"] >= st["steps"]["recreate"]["finishedAt"]
     assert sum(1 for c in world["runner"].calls if c[:2] == ["docker", "restart"]) == 1
 
 
@@ -461,3 +491,92 @@ def test_resets_table_columns_match_initdb():
 def test_database_name_guard():
     for bad in ("postgres", "template1", "Egeria", "egeria; drop", ""):
         assert not (m.DB_NAME_RE.match(bad) and bad != "postgres" and not bad.startswith("template"))
+
+
+# ── read-back R-B2: no usable launcher, no auto-restart ──────────────────────
+
+def test_writer_without_a_launcher_needs_a_person(world):
+    lns = _launchers(world["deploy"])
+    lns[8880] = str(world["deploy"] / "launchers" / "missing.sh")
+    run_dir = _plan(world, launchers=lns)
+    assert "NO usable launcher" in "\n".join(world["said"])
+    assert m.apply(world["env"], str(run_dir)) == 3
+    st = _state(run_dir)
+    assert st["steps"]["unfreeze"]["status"] == "needs a person"
+    manual = st["steps"]["unfreeze"]["evidence"]["needsPerson"]
+    assert [x["port"] for x in manual] == [8880] and "egeria-advisor-web" in manual[0]["command"]
+    assert [a for a, _ in world["runner"].spawned] == [[lns[8813]]]           # only RE restarted
+    assert st["steps"]["verify"]["status"] == "done" and st["steps"]["record"]["status"] == "done"
+    assert st["steps"]["record"]["evidence"]["outcome"] == "completed, needs a person"
+
+
+def test_launcher_flag_must_name_a_writer_port(world, monkeypatch):
+    monkeypatch.setattr(m, "make_plan", lambda *a, **k: None)
+    assert m.main(["plan", "--launcher", "9999=/x"], env=world["env"]) == 2
+    assert m.main(["plan", "--launcher", "8813=/x"], env=world["env"]) == 0
+
+
+# ── read-back R-B3: the classification count against the plan's baseline ────
+
+def _cplan(count, new_image=True, reports=True):
+    return {"classificationTypes": {"count": count, "serverReportsPurpose": reports},
+            "image": {"currentDigest": OLD, "targetDigest": NEW if new_image else OLD}}
+
+
+@pytest.mark.parametrize("plan, now, verdict, words", [
+    (_cplan(94), {"count": 94, "serverReportsPurpose": True}, "PASS", "as before"),
+    (_cplan(94), {"count": 96, "serverReportsPurpose": True}, "CHANGED", "CHANGED 94→96 (new image): review"),
+    (_cplan(94, new_image=False), {"count": 96, "serverReportsPurpose": True}, "FAIL", "same image"),
+    (_cplan(94), {"count": 90, "serverReportsPurpose": True}, "FAIL", "fewer"),
+    (_cplan(94), {"count": 94, "serverReportsPurpose": False}, "FAIL", "no longer reports"),
+    (_cplan(94), {"notRead": "HTTP 502"}, "NOT MEASURED", "HTTP 502"),
+    ({"classificationTypes": {"notRead": "HTTP 401"}, "image": {"currentDigest": OLD, "targetDigest": NEW}},
+     {"count": 94, "serverReportsPurpose": True}, "NOT MEASURED", "no baseline"),
+])
+def test_classification_verdicts(plan, now, verdict, words):
+    v, ev = m.classification_verdict(plan, now)
+    assert v == verdict and words in ev
+
+
+def test_plan_records_the_baseline(world):
+    plan = json.loads((_plan(world) / "plan.json").read_text())
+    assert plan["classificationTypes"] == {"count": 94, "serverReportsPurpose": True}
+    assert not hasattr(m, "CLASSIFICATION_TYPES")
+
+
+def test_changed_count_on_a_new_image_does_not_fail_the_reset(world):
+    run_dir = _plan(world)
+    world["http"].purposes = {"purposes": {f"T{i}": "GOVERNANCE" for i in range(97)}, "serverReportsPurpose": True}
+    assert m.apply(world["env"], str(run_dir)) == 0
+    checks = {c["check"]: c for c in _state(run_dir)["steps"]["verify"]["evidence"]["checks"]}
+    assert checks["classification purposes"]["verdict"] == "CHANGED"
+    assert "classification purposes" not in _state(run_dir)["steps"]["verify"]["evidence"]["failed"]
+
+
+# ── read-back small item: the CLI and the deployment must be one checkout ─────
+
+def test_other_checkout_refused_unless_allowed(world, tmp_path):
+    world["env"].repo = tmp_path / "some-worktree"
+    with pytest.raises(m.Refused, match="allow-other-checkout"):
+        _plan(world)
+    run_dir = _plan(world, allow_other_checkout=True)
+    out = "\n".join(world["said"])
+    assert "Deployment (the running platform's compose folder)" in out and "This CLI's checkout" in out
+    assert json.loads((run_dir / "plan.json").read_text())["allowOtherCheckout"] is True
+
+
+def test_apply_refuses_a_plan_from_another_checkout(world, tmp_path):
+    run_dir = _plan(world)
+    world["env"].repo = tmp_path / "some-worktree"
+    with pytest.raises(m.Refused, match="allow-other-checkout"):
+        m.apply(world["env"], str(run_dir))
+
+
+def test_dump_with_the_real_pg17_tail_passes():
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        p = Path(d) / "x.sql.gz"
+        with gzip.open(p, "wt") as f:
+            f.write(DUMP)
+        assert m.verify_dump(p)["endMarker"] == "found"
+        assert DUMP.rstrip().splitlines()[-1].startswith("\\unrestrict")

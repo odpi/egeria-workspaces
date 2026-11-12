@@ -34,9 +34,10 @@
   function verifyLine(verify) {
     var v = parse(verify);
     if (!v || !v.checks) return 'not run';
-    var c = { PASS: 0, FAIL: 0, 'NOT MEASURED': 0 };
+    var c = { PASS: 0, FAIL: 0, 'NOT MEASURED': 0, CHANGED: 0 };
     v.checks.forEach(function (x) { c[x.verdict] = (c[x.verdict] || 0) + 1; });
     return c.PASS + ' pass, ' + c.FAIL + ' fail, ' + c['NOT MEASURED'] + ' not measured'
+      + (c.CHANGED ? ', ' + c.CHANGED + ' changed (review)' : '')
       + (v.failed && v.failed.length ? ' (failed: ' + esc(v.failed.join(', ')) + ')' : '');
   }
   function healLine(heal) {
