@@ -28,7 +28,8 @@
  *
  *   opts.linkBuilder(element, column) -> URL string or null. Called for each
  *     related element ({guid, qualifiedName, displayName, type}). Without it,
- *     names are plain text and their title says there is no link.
+ *     names are plain text and their title says there is no link. Only a
+ *     relative or http(s) URL is used; any other is plain text with a note.
  *
  * Rendering (section 2.5, Portal column):
  *   text      clamped to max_lines (default 3) with "more" / "less"
@@ -47,7 +48,9 @@
  * Absence is an answer: nothing is dropped or capped without words on screen.
  * There is no column cap (the table scrolls sideways) and no row cap (pyegeria
  * pages; every row the result carries is shown). The footer says "first N of
- * M" or "first N; more may exist", never a bare N, then every pyegeria note
+ * M", "first N; more may exist" or "N rows (one page; Egeria doesn't promise
+ * it is the last)" -- "All N of N" only for a total_basis that proves it
+ * ("counted", "paged to empty") -- never a bare N, then every pyegeria note
  * and every note of this renderer. An empty relationship list ([]) reads
  * "none"; a missing value (null) reads as a dash and the notes say why.
  *
@@ -72,6 +75,11 @@
   var WIDE_COLS = 5;           // from this many columns the table keeps a minimum column width and scrolls
   var NO_LINK = 'No link: this page gave the table no link builder.';
   var STYLE_ID = 'egeria-table-css';
+  var REFUSED_LINK = 'A link was not shown: only relative, http and https links are allowed.';
+  // total_basis values that prove the total is every row; any other basis
+  // (today pyegeria's "one page") does not: Egeria's paging contract does not
+  // promise that a short page is the last one, only an empty page is.
+  var COMPLETE_BASES = ['counted', 'paged to empty'];
 
   var CSS = [
     '.et { font-size: 12px; line-height: 1.45; }',
@@ -130,6 +138,16 @@
   function isEmpty(v) { return v === null || v === undefined || v === ''; }
   function isElement(v) { return isObj(v) && !!(v.guid || v.qualifiedName); }
   function isReduced(v) { return isObj(v) && typeof v.count === 'number' && Array.isArray(v.names); }
+  // A link from the host's linkBuilder is used only when it is relative or
+  // http(s). Browsers ignore control characters and whitespace inside a
+  // scheme ("java\tscript:"), so those are removed before the check.
+  function safeHref(href) {
+    if (typeof href !== 'string') return false;
+    var h = href.replace(/[\u0000-\u0020\u007f-\u009f]/g, '');
+    if (!h) return false;
+    var scheme = /^([a-z][a-z0-9+.-]*):/i.exec(h);
+    return scheme ? /^https?$/i.test(scheme[1]) : true;
+  }
   function plural(n, one, many) { return n + ' ' + (n === 1 ? one : (many || one + 's')); }
   function posInt(v, dflt) { return (typeof v === 'number' && v > 0) ? Math.floor(v) : dflt; }
 
@@ -165,10 +183,13 @@
     if (ctx.linkBuilder) {
       try { href = ctx.linkBuilder(el, col); } catch (e) { href = null; }
     }
-    if (href) {
+    var refused = href ? !safeHref(href) : false;
+    if (href && !refused) {
       return '<a href="' + esc(href) + '" title="' + esc(qn || name) + '">' + esc(name) + '</a>';
     }
-    var title = (qn ? qn + ' — ' : '') + (ctx.linkBuilder ? 'No link for this element.' : NO_LINK);
+    if (refused) ctx.note(REFUSED_LINK);
+    var title = (qn ? qn + ' — ' : '') +
+                (refused ? REFUSED_LINK : ctx.linkBuilder ? 'No link for this element.' : NO_LINK);
     return '<span title="' + esc(title) + '">' + esc(name) + '</span>';
   }
 
@@ -381,12 +402,14 @@
   function footerHtml(result, ctx) {
     var shown = typeof result.shown === 'number' ? result.shown : (result.rows || []).length;
     var total = result.total;
-    var basis = result.total_basis ? ' (total from ' + result.total_basis + ')' : '';
+    var basis = result.total_basis ? String(result.total_basis) : '';
     var line;
     if (typeof total !== 'number') line = 'First ' + shown + '; more may exist.';
     else if (total > shown) line = 'First ' + shown + ' of ' + total + '.';
-    else if (shown === 0) line = 'No rows' + basis + '.';
-    else line = 'All ' + shown + ' of ' + total + ' rows' + basis + '.';
+    else if (shown === 0) line = 'No rows.';                  // an empty page: the paging contract's "done"
+    else if (COMPLETE_BASES.indexOf(basis) >= 0) line = 'All ' + shown + ' of ' + total + ' rows (' + basis + ').';
+    else if (basis === 'one page') line = plural(shown, 'row') + " (one page; Egeria doesn't promise it is the last).";
+    else line = plural(shown, 'row') + ' (' + (basis ? basis + '; ' : '') + 'not shown to be every row).';
     var notes = (Array.isArray(result.notes) ? result.notes : []).map(String).concat(ctx.notes);
     var html = '<div class="et-foot"><div class="et-count">' + esc(line) + '</div>';
     if (notes.length) html += '<ul class="et-notes">' + notes.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul>';

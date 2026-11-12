@@ -17,6 +17,7 @@ const req = JSON.parse(fs.readFileSync(0, 'utf8'));
 const linkBuilder = (el) => (el && el.guid ? '/egeria-explorer?guid=' + encodeURIComponent(el.guid) : null);
 
 function html() {
+  if (req.hrefs) return T.renderHtml(req.result, { linkBuilder: (el) => req.hrefs[el.guid] });
   return T.renderHtml(req.result, req.link ? { linkBuilder } : {});
 }
 

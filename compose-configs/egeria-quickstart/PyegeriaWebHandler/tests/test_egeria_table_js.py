@@ -129,7 +129,8 @@ def test_every_laz_result_renders_every_row_and_column(spec):
     count, notes = footer(src)
     for n in r["notes"]:
         assert n in notes                                                  # every pyegeria note is shown
-    assert re.search(r"\d", count) and ("of" in count or "more may exist" in count)   # never a bare N
+    assert re.search(r"\d", count) and not count.startswith("All")          # one page is never "All N of N"
+    assert "more may exist" in count or "Egeria doesn't promise it is the last" in count   # never a bare N
 
 
 def test_risk_implications_are_bullets_and_description_is_clamped():
@@ -169,7 +170,7 @@ def test_digital_products_elements_none_and_footer():
     uses = col_index(r, "uses_digital_products")
     assert text(cells(rows[2])[uses]) == "none"                            # [] = read, and none
     count, notes = footer(src)
-    assert count == "All 78 of 78 rows (total from one page)."
+    assert count == "78 rows (one page; Egeria doesn't promise it is the last)."   # never "All" on one page
     assert "Uses Products: none on 55 rows (read at graph depth 3)." in notes
 
 
@@ -326,10 +327,20 @@ def test_short_text_has_no_more_button_and_max_lines_is_honoured():
 # ── Footer wording ────────────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("total,shown,nrows,basis,expected", [
+    # pyegeria's only basis today: the rows fit one page, which Egeria does not promise is the last
+    (12, 12, 2, "one page", "12 rows (one page; Egeria doesn't promise it is the last)."),
+    (1, 1, 1, "one page", "1 row (one page; Egeria doesn't promise it is the last)."),
+    # the bases that prove the total is every row
+    (12, 12, 2, "counted", "All 12 of 12 rows (counted)."),
+    (12, 12, 2, "paged to empty", "All 12 of 12 rows (paged to empty)."),
+    # a basis this renderer does not know, or none at all: not claimed complete
+    (12, 12, 2, "sampled", "12 rows (sampled; not shown to be every row)."),
+    (12, 12, 2, None, "12 rows (not shown to be every row)."),
+    # a full page, or more counted than shown, whatever the basis
     (None, 100, 2, "one page", "First 100; more may exist."),
     (445, 100, 2, "counted", "First 100 of 445."),
-    (12, 12, 2, "one page", "All 12 of 12 rows (total from one page)."),
-    (0, 0, 0, "one page", "No rows (total from one page)."),
+    # an empty page is the paging contract's "done"
+    (0, 0, 0, "one page", "No rows."),
     (None, 0, 0, "one page", "First 0; more may exist."),
 ])
 def test_footer_never_says_a_bare_n(total, shown, nrows, basis, expected):
@@ -411,3 +422,33 @@ def test_module_loads_in_a_bare_vm_context():
     out = subprocess.run([node, "-e", js], capture_output=True, text=True, timeout=20)
     assert out.returncode == 0, out.stderr
     assert out.stdout.strip() == "function EgeriaTable"
+
+
+# ── Link schemes ──────────────────────────────────────────────────────────────
+
+REFUSED = "A link was not shown: only relative, http and https links are allowed."
+
+
+@pytest.mark.parametrize("href,allowed", [
+    ("/egeria-explorer?guid=g-1", True),
+    ("type-explorer.html#g-1", True),
+    ("?guid=g-1", True),
+    ("https://example.org/x", True),
+    ("HTTP://example.org/x", True),
+    ("javascript:alert(1)", False),
+    ("JavaScript:alert(1)", False),
+    (" java\tscript:alert(1)", False),
+    ("data:text/html,<b>x</b>", False),
+    ("vbscript:x", False),
+    ("file:///etc/passwd", False),
+])
+def test_link_builder_href_scheme_is_allow_listed(href, allowed):
+    r = table([col("l", "link", type="elements")], [{"l": el(1)}], total="n")
+    src = _node({"op": "html", "result": r, "hrefs": {"g-1": href}})["html"]
+    cell = cells(body_rows(src)[0][0])[0]
+    if allowed:
+        assert find(cell, "a")[0]["attrs"]["href"] == href and REFUSED not in src
+    else:
+        assert not find(cell, "a") and text(cell) == "Name 1"
+        assert REFUSED in find(cell, "span")[0]["attrs"]["title"]
+        assert footer(src)[1] == [REFUSED]
