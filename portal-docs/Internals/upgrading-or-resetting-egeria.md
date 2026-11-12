@@ -124,6 +124,15 @@ DAG ran, so there is no alert and no age threshold. The time is the last write t
 On 2026-11-12 it reported five PASS and one WARN: `egeria-shared-kroki` was created from a temporary copy of
 the compose file that no longer exists.
 
+**Optional runtimes.** `infra-health.json` also lists
+`compose-configs/optional-associated-runtimes/airflow-marquez/airflow-marquez.yaml` (owner, 2026-11-12:
+"Start marquez", and cover it). Its services have no `container_name`, so each is found by its compose
+project (`name: airflow-marquez`) **and** service labels; two containers for one service is NOT MEASURED,
+never a guess. `airflow-init` is a one-shot setup container that exits by design: it is listed under
+`expectedStopped`. `marquez` and `marquez-web` had no restart policy and stayed down after the 2026-11-10
+reboot; the yaml now says `unless-stopped`, so a container created before that change reports
+**FAIL drift** (restart=no) until it is recreated from the yaml.
+
 ### The Portal's "Shared infrastructure" line
 
 `infra-check --record` writes one row to `coco_pharma.demo.infra_checks` (created by `init_egeria.sql` and by
@@ -143,13 +152,36 @@ gets none: it only reads the row.
 `infra-check --record` every 10 minutes. **Nothing installs it**: it is a standing change to the host, so it
 needs the owner's word. Until it is installed, the panel shows the last manual record as *not current*.
 
-To install it (macOS, from the deployment's checkout):
+To install it (macOS, from the deployment's checkout), **choose the interpreter first, and check it**.
+The plist names an absolute `python3` (`__PYTHON3__`), never `/usr/bin/env python3`: under launchd's
+PATH that found `/usr/local/bin/python3` on laz, a framework Python 3.12 that exited silently, so the
+agent ran and recorded nothing (2026-11-12).
+
+1. Pick a `python3` (3.10 or later) by its absolute path, for example `PY=$(command -v python3)` in your
+   own shell, or a Homebrew one such as `/opt/homebrew/bin/python3`.
+2. Check that it runs the CLI the way launchd will (an empty environment and the plist's PATH). It is
+   read-only and writes one line to a probe log:
+
+```bash
+PY=/opt/homebrew/bin/python3
+```
+
+```bash
+env -i HOME="$HOME" PATH=/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin "$PY" compose-configs/egeria-quickstart/bin/egeria-upgrade-reset infra-check --log /tmp/infra-check-probe.log; tail -1 /tmp/infra-check-probe.log
+```
+
+   It must print one line starting with the time and a verdict (`PASS`, `WARN`, `FAIL` ...). No line
+   means this `python3` does not work under launchd: choose another.
+3. Install it with that interpreter:
 
 ```bash
 mkdir -p runtime-volumes/egeria-resets
-sed "s|__REPO__|$PWD|g" compose-configs/egeria-quickstart/bin/org.odpi.egeria.infra-check.plist > ~/Library/LaunchAgents/org.odpi.egeria.infra-check.plist
+sed -e "s|__REPO__|$PWD|g" -e "s|__PYTHON3__|$PY|g" compose-configs/egeria-quickstart/bin/org.odpi.egeria.infra-check.plist > ~/Library/LaunchAgents/org.odpi.egeria.infra-check.plist
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/org.odpi.egeria.infra-check.plist
 ```
+
+4. After 10 minutes, `tail -1 runtime-volumes/egeria-resets/infra-check.log` shows the agent's first
+   line, and the Portal's panel is current.
 
 To uninstall it:
 

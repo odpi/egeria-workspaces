@@ -1,0 +1,337 @@
+{
+ "_about": "docker inspect of the airflow-marquez containers on laz, read-only, 2026-11-12 ~14:00Z: marquez and marquez-web created with restart=no; airflow-init exited by design; most created from a temporary compose file that no longer exists (__SCRATCH__). Trimmed to Id, Name, Image, State, HostConfig.RestartPolicy and Config.Image/compose labels (no environment). The checkout path is __CHECKOUT__.",
+ "containers": {
+  "airflow-marquez-marquez-web-1": {
+   "Id": "60e87f4b1233",
+   "Name": "/airflow-marquez-marquez-web-1",
+   "Image": "sha256:e8d53e10ab141cde1b121b01ff47776a58b407813fb6e10f490842d20c184346",
+   "State": {
+    "Status": "running",
+    "Running": true,
+    "Restarting": false,
+    "ExitCode": 0,
+    "StartedAt": "2026-11-12T14:02:59.69258334Z",
+    "FinishedAt": "0001-01-01T00:00:00Z"
+   },
+   "HostConfig": {
+    "RestartPolicy": {
+     "Name": "no",
+     "MaximumRetryCount": 0
+    }
+   },
+   "Config": {
+    "Image": "marquezproject/marquez-web:latest",
+    "Labels": {
+     "com.docker.compose.config-hash": "5cc3699a7e96b6fcbdb8e4e316c25b3f0ec828f2f967a8fbd7e327c418b690cc",
+     "com.docker.compose.container-number": "1",
+     "com.docker.compose.depends_on": "marquez:service_healthy:false",
+     "com.docker.compose.image": "sha256:e8d53e10ab141cde1b121b01ff47776a58b407813fb6e10f490842d20c184346",
+     "com.docker.compose.oneoff": "False",
+     "com.docker.compose.project": "airflow-marquez",
+     "com.docker.compose.project.config_files": "__CHECKOUT__/compose-configs/optional-associated-runtimes/airflow-marquez/airflow-marquez.yaml",
+     "com.docker.compose.project.working_dir": "__CHECKOUT__/compose-configs/optional-associated-runtimes/airflow-marquez",
+     "com.docker.compose.replace": "marquez-web-1",
+     "com.docker.compose.service": "marquez-web",
+     "com.docker.compose.version": "5.5.1"
+    }
+   }
+  },
+  "airflow-marquez-marquez-1": {
+   "Id": "7d7047a4a69a",
+   "Name": "/airflow-marquez-marquez-1",
+   "Image": "sha256:6d8a2c2cdb28a4f6d13f9ca6f8cc055d8312c4dee204ebeb848efdd76e6ab30e",
+   "State": {
+    "Status": "running",
+    "Running": true,
+    "Restarting": false,
+    "ExitCode": 0,
+    "StartedAt": "2026-11-12T14:02:38.986588469Z",
+    "FinishedAt": "0001-01-01T00:00:00Z",
+    "Health": {
+     "Status": "healthy"
+    }
+   },
+   "HostConfig": {
+    "RestartPolicy": {
+     "Name": "no",
+     "MaximumRetryCount": 0
+    }
+   },
+   "Config": {
+    "Image": "marquezproject/marquez:latest",
+    "Labels": {
+     "com.docker.compose.config-hash": "357e2b4ccd47b216ae5d6358fdbe32b6a53a0f77d6c5bd29d42625700caa1f3d",
+     "com.docker.compose.container-number": "1",
+     "com.docker.compose.depends_on": "",
+     "com.docker.compose.image": "sha256:6d8a2c2cdb28a4f6d13f9ca6f8cc055d8312c4dee204ebeb848efdd76e6ab30e",
+     "com.docker.compose.oneoff": "False",
+     "com.docker.compose.project": "airflow-marquez",
+     "com.docker.compose.project.config_files": "__CHECKOUT__/compose-configs/optional-associated-runtimes/airflow-marquez/airflow-marquez.yaml",
+     "com.docker.compose.project.working_dir": "__CHECKOUT__/compose-configs/optional-associated-runtimes/airflow-marquez",
+     "com.docker.compose.replace": "marquez-1",
+     "com.docker.compose.service": "marquez",
+     "com.docker.compose.version": "5.5.1"
+    }
+   }
+  },
+  "airflow-marquez-airflow-worker-1": {
+   "Id": "01acd3eae30d",
+   "Name": "/airflow-marquez-airflow-worker-1",
+   "Image": "sha256:3ba242e76c3962d54956053f64e085dfdd1609e259b6eef94e89d19e9e82ab2d",
+   "State": {
+    "Status": "running",
+    "Running": true,
+    "Restarting": false,
+    "ExitCode": 0,
+    "StartedAt": "2026-11-10T09:25:45.527492875Z",
+    "FinishedAt": "2026-11-10T08:22:43.352515379Z",
+    "Health": {
+     "Status": "healthy"
+    }
+   },
+   "HostConfig": {
+    "RestartPolicy": {
+     "Name": "always",
+     "MaximumRetryCount": 0
+    }
+   },
+   "Config": {
+    "Image": "airflow-egeria:3.3.1",
+    "Labels": {
+     "com.docker.compose.config-hash": "3c24a2d01bbc2bff8dd8b83be97f816175c188e00e6c9bf544d647cdf85102db",
+     "com.docker.compose.container-number": "1",
+     "com.docker.compose.depends_on": "airflow-apiserver:service_healthy:false",
+     "com.docker.compose.image": "sha256:8e46519441aa0da932c11bd87c38650163accfc35efc29fd46d4349971ac978d",
+     "com.docker.compose.oneoff": "False",
+     "com.docker.compose.project": "airflow-marquez",
+     "com.docker.compose.project.config_files": "/private/tmp/claude-501/__SCRATCH__/scratchpad/bind/airflow-marquez/airflow-marquez.yaml",
+     "com.docker.compose.project.working_dir": "__CHECKOUT__/compose-configs/optional-associated-runtimes/airflow-marquez",
+     "com.docker.compose.replace": "airflow-worker-1",
+     "com.docker.compose.service": "airflow-worker",
+     "com.docker.compose.version": "5.5.1"
+    }
+   }
+  },
+  "airflow-marquez-airflow-apiserver-1": {
+   "Id": "fc241de208a4",
+   "Name": "/airflow-marquez-airflow-apiserver-1",
+   "Image": "sha256:3ba242e76c3962d54956053f64e085dfdd1609e259b6eef94e89d19e9e82ab2d",
+   "State": {
+    "Status": "running",
+    "Running": true,
+    "Restarting": false,
+    "ExitCode": 0,
+    "StartedAt": "2026-11-10T09:25:45.526394292Z",
+    "FinishedAt": "2026-11-10T08:22:43.350157296Z",
+    "Health": {
+     "Status": "healthy"
+    }
+   },
+   "HostConfig": {
+    "RestartPolicy": {
+     "Name": "always",
+     "MaximumRetryCount": 0
+    }
+   },
+   "Config": {
+    "Image": "airflow-egeria:3.3.1",
+    "Labels": {
+     "com.docker.compose.config-hash": "c6f0b40a3ca18fcc5dee3cb7d4958b6c09e2716aaf57e34d6da3e26120f386d4",
+     "com.docker.compose.container-number": "1",
+     "com.docker.compose.depends_on": "",
+     "com.docker.compose.image": "sha256:8e46519441aa0da932c11bd87c38650163accfc35efc29fd46d4349971ac978d",
+     "com.docker.compose.oneoff": "False",
+     "com.docker.compose.project": "airflow-marquez",
+     "com.docker.compose.project.config_files": "/private/tmp/claude-501/__SCRATCH__/scratchpad/bind/airflow-marquez/airflow-marquez.yaml",
+     "com.docker.compose.project.working_dir": "__CHECKOUT__/compose-configs/optional-associated-runtimes/airflow-marquez",
+     "com.docker.compose.replace": "airflow-apiserver-1",
+     "com.docker.compose.service": "airflow-apiserver",
+     "com.docker.compose.version": "5.5.1"
+    }
+   }
+  },
+  "airflow-marquez-airflow-dag-processor-1": {
+   "Id": "5bff2a241511",
+   "Name": "/airflow-marquez-airflow-dag-processor-1",
+   "Image": "sha256:3ba242e76c3962d54956053f64e085dfdd1609e259b6eef94e89d19e9e82ab2d",
+   "State": {
+    "Status": "running",
+    "Running": true,
+    "Restarting": false,
+    "ExitCode": 0,
+    "StartedAt": "2026-11-10T09:25:45.523830709Z",
+    "FinishedAt": "2026-11-10T08:22:43.387851087Z"
+   },
+   "HostConfig": {
+    "RestartPolicy": {
+     "Name": "always",
+     "MaximumRetryCount": 0
+    }
+   },
+   "Config": {
+    "Image": "airflow-egeria:3.3.1",
+    "Labels": {
+     "com.docker.compose.config-hash": "d4a1fd3de3e6a89114c8156993677aacdaa634ae2b679de2b6761cdd6cd161ce",
+     "com.docker.compose.container-number": "1",
+     "com.docker.compose.depends_on": "",
+     "com.docker.compose.image": "sha256:8e46519441aa0da932c11bd87c38650163accfc35efc29fd46d4349971ac978d",
+     "com.docker.compose.oneoff": "False",
+     "com.docker.compose.project": "airflow-marquez",
+     "com.docker.compose.project.config_files": "/private/tmp/claude-501/__SCRATCH__/scratchpad/bind/airflow-marquez/airflow-marquez.yaml",
+     "com.docker.compose.project.working_dir": "__CHECKOUT__/compose-configs/optional-associated-runtimes/airflow-marquez",
+     "com.docker.compose.replace": "airflow-dag-processor-1",
+     "com.docker.compose.service": "airflow-dag-processor",
+     "com.docker.compose.version": "5.5.1"
+    }
+   }
+  },
+  "airflow-marquez-airflow-triggerer-1": {
+   "Id": "f0799e565094",
+   "Name": "/airflow-marquez-airflow-triggerer-1",
+   "Image": "sha256:3ba242e76c3962d54956053f64e085dfdd1609e259b6eef94e89d19e9e82ab2d",
+   "State": {
+    "Status": "running",
+    "Running": true,
+    "Restarting": false,
+    "ExitCode": 0,
+    "StartedAt": "2026-11-10T09:25:45.527918709Z",
+    "FinishedAt": "2026-11-10T08:22:43.402785712Z",
+    "Health": {
+     "Status": "healthy"
+    }
+   },
+   "HostConfig": {
+    "RestartPolicy": {
+     "Name": "always",
+     "MaximumRetryCount": 0
+    }
+   },
+   "Config": {
+    "Image": "airflow-egeria:3.3.1",
+    "Labels": {
+     "com.docker.compose.config-hash": "b0442cad7601e737184c8c758ae61b7c7c93b5064823cff18fef02ee53547ad7",
+     "com.docker.compose.container-number": "1",
+     "com.docker.compose.depends_on": "",
+     "com.docker.compose.image": "sha256:8e46519441aa0da932c11bd87c38650163accfc35efc29fd46d4349971ac978d",
+     "com.docker.compose.oneoff": "False",
+     "com.docker.compose.project": "airflow-marquez",
+     "com.docker.compose.project.config_files": "/private/tmp/claude-501/__SCRATCH__/scratchpad/bind/airflow-marquez/airflow-marquez.yaml",
+     "com.docker.compose.project.working_dir": "__CHECKOUT__/compose-configs/optional-associated-runtimes/airflow-marquez",
+     "com.docker.compose.replace": "airflow-triggerer-1",
+     "com.docker.compose.service": "airflow-triggerer",
+     "com.docker.compose.version": "5.5.1"
+    }
+   }
+  },
+  "airflow-marquez-airflow-scheduler-1": {
+   "Id": "490f642f273a",
+   "Name": "/airflow-marquez-airflow-scheduler-1",
+   "Image": "sha256:3ba242e76c3962d54956053f64e085dfdd1609e259b6eef94e89d19e9e82ab2d",
+   "State": {
+    "Status": "running",
+    "Running": true,
+    "Restarting": false,
+    "ExitCode": 0,
+    "StartedAt": "2026-11-10T09:25:45.524196084Z",
+    "FinishedAt": "2026-11-10T08:22:43.367895546Z",
+    "Health": {
+     "Status": "healthy"
+    }
+   },
+   "HostConfig": {
+    "RestartPolicy": {
+     "Name": "always",
+     "MaximumRetryCount": 0
+    }
+   },
+   "Config": {
+    "Image": "airflow-egeria:3.3.1",
+    "Labels": {
+     "com.docker.compose.config-hash": "464fbc573faee76cc47982351816b5f1b0bda85eebaec2f1b48cbff2d0f60722",
+     "com.docker.compose.container-number": "1",
+     "com.docker.compose.depends_on": "",
+     "com.docker.compose.image": "sha256:8e46519441aa0da932c11bd87c38650163accfc35efc29fd46d4349971ac978d",
+     "com.docker.compose.oneoff": "False",
+     "com.docker.compose.project": "airflow-marquez",
+     "com.docker.compose.project.config_files": "/private/tmp/claude-501/__SCRATCH__/scratchpad/bind/airflow-marquez/airflow-marquez.yaml",
+     "com.docker.compose.project.working_dir": "__CHECKOUT__/compose-configs/optional-associated-runtimes/airflow-marquez",
+     "com.docker.compose.replace": "airflow-scheduler-1",
+     "com.docker.compose.service": "airflow-scheduler",
+     "com.docker.compose.version": "5.5.1"
+    }
+   }
+  },
+  "airflow-marquez-airflow-init-1": {
+   "Id": "e7b9e31c3be5",
+   "Name": "/airflow-marquez-airflow-init-1",
+   "Image": "sha256:3ba242e76c3962d54956053f64e085dfdd1609e259b6eef94e89d19e9e82ab2d",
+   "State": {
+    "Status": "exited",
+    "Running": false,
+    "Restarting": false,
+    "ExitCode": 0,
+    "StartedAt": "2026-10-03T20:47:58.330527753Z",
+    "FinishedAt": "2026-10-03T20:48:42.933013927Z"
+   },
+   "HostConfig": {
+    "RestartPolicy": {
+     "Name": "no",
+     "MaximumRetryCount": 0
+    }
+   },
+   "Config": {
+    "Image": "airflow-egeria:3.3.1",
+    "Labels": {
+     "com.docker.compose.config-hash": "50a03f18cde20f6f7364d021be2ed0e1ac71e6dcf12070416f312758573eefa2",
+     "com.docker.compose.container-number": "1",
+     "com.docker.compose.depends_on": "",
+     "com.docker.compose.image": "sha256:8e46519441aa0da932c11bd87c38650163accfc35efc29fd46d4349971ac978d",
+     "com.docker.compose.oneoff": "False",
+     "com.docker.compose.project": "airflow-marquez",
+     "com.docker.compose.project.config_files": "__CHECKOUT__/compose-configs/optional-associated-runtimes/airflow-marquez/airflow-marquez.yaml",
+     "com.docker.compose.project.working_dir": "__CHECKOUT__/compose-configs/optional-associated-runtimes/airflow-marquez",
+     "com.docker.compose.replace": "airflow-init-1",
+     "com.docker.compose.service": "airflow-init",
+     "com.docker.compose.version": "5.5.1"
+    }
+   }
+  },
+  "airflow-marquez-redis-1": {
+   "Id": "2c42b5193255",
+   "Name": "/airflow-marquez-redis-1",
+   "Image": "sha256:f65071a370de1370af3fa8cf5f6eda01e42e734bb4e0f0a78e42e736b6a98480",
+   "State": {
+    "Status": "running",
+    "Running": true,
+    "Restarting": false,
+    "ExitCode": 0,
+    "StartedAt": "2026-11-10T09:25:45.455353458Z",
+    "FinishedAt": "2026-11-10T08:22:40.419012669Z",
+    "Health": {
+     "Status": "healthy"
+    }
+   },
+   "HostConfig": {
+    "RestartPolicy": {
+     "Name": "always",
+     "MaximumRetryCount": 0
+    }
+   },
+   "Config": {
+    "Image": "redis:7.2-bookworm",
+    "Labels": {
+     "com.docker.compose.config-hash": "8468d45db974e316e54158c8c1712239406e5f1614af2b9db7a74eadad2ec3ce",
+     "com.docker.compose.container-number": "1",
+     "com.docker.compose.depends_on": "",
+     "com.docker.compose.image": "sha256:8c84dccd3852781994f3a3a332e8b980b990c510b674dbb3e3342976e4488222",
+     "com.docker.compose.oneoff": "False",
+     "com.docker.compose.project": "airflow-marquez",
+     "com.docker.compose.project.config_files": "__CHECKOUT__/compose-configs/optional-associated-runtimes/airflow-marquez/airflow-marquez.yaml",
+     "com.docker.compose.project.working_dir": "__CHECKOUT__/compose-configs/optional-associated-runtimes/airflow-marquez",
+     "com.docker.compose.service": "redis",
+     "com.docker.compose.version": "5.5.1"
+    }
+   }
+  }
+ }
+}

@@ -1107,10 +1107,19 @@ def compose_services(path: Path) -> list[dict]:
     except ImportError:
         raw = _mini_compose_services(text)
     out = []
+    project = compose_project(path, text)
     for name, svc in raw.items():
         out.append({"service": name, "container": svc.get("container_name"),
-                    "restart": str(svc.get("restart") or "no"), "image": svc.get("image")})
+                    "restart": str(svc.get("restart") or "no"), "image": svc.get("image"), "project": project})
     return out
+
+
+def compose_project(path: Path, text: Optional[str] = None) -> Optional[str]:
+    """The compose project the file names (its top-level `name:`), else None: without one the project
+    is whatever `-p` the stack was started with (shared-infra runs as egeria-shared-infra, not its
+    folder's name), so it is not guessed."""
+    m = re.search(r"^name:\s*['\"]?([^'\"\s#]+)", text if text is not None else path.read_text(), re.M)
+    return m.group(1) if m else None
 
 
 def _env_values(env_file: Path, names: set) -> dict:
@@ -1173,13 +1182,25 @@ def _inspect(env: Env, container: str) -> tuple[Optional[dict], Optional[str]]:
         return None, f"docker inspect gave no JSON ({exc})"
 
 
-def _container_for(env: Env, svc: dict) -> Optional[str]:
+def _container_for(env: Env, svc: dict) -> tuple[Optional[str], Optional[str]]:
+    """(container name, None), (None, "missing"), or (None, why it is not known). A service without a
+    container_name is found by its compose project AND service labels, so another project's "redis"
+    never answers for this one."""
     if svc["container"]:
-        return svc["container"]
-    r = env.runner.run(["docker", "ps", "-a", "--filter", f"label=com.docker.compose.service={svc['service']}",
-                        "--format", "{{.Names}}"], check=False)
-    names = [n for n in r.out.split() if n] if r.rc == 0 else []
-    return names[0] if len(names) == 1 else None
+        return svc["container"], None
+    cmd = ["docker", "ps", "-a", "--filter", f"label=com.docker.compose.service={svc['service']}"]
+    if svc.get("project"):
+        cmd += ["--filter", f"label=com.docker.compose.project={svc['project']}"]
+    r = env.runner.run(cmd + ["--format", "{{.Names}}"], check=False)
+    if r.rc != 0:
+        text = (r.err or r.out or "").strip()
+        return None, (text.splitlines()[-1][:200] if text else f"docker ps exited {r.rc}")
+    names = [n for n in r.out.split() if n]
+    if not names:
+        return None, "missing"
+    if len(names) > 1:
+        return None, f"{len(names)} containers for this service ({', '.join(sorted(names))}); not checked"
+    return names[0], None
 
 
 def service_verdict(svc: dict, insp: Optional[dict], why: Optional[str], compose_file: Path,
@@ -1293,11 +1314,10 @@ def infra_check(env: Env, root: Optional[Path] = None) -> dict:
             continue
         env_file = f.parent / ".env"
         for svc in compose_services(f):
-            container = _container_for(env, svc)
+            container, why = _container_for(env, svc)
             svc = {**svc, "container": container}
-            if container is None:
-                insp, why = None, "missing"
-            else:
+            insp = None
+            if container is not None:
                 insp, why = _inspect(env, container)
             result["services"].append(service_verdict(svc, insp, why, f, cfg["expectedStopped"].get(svc["service"]),
                                                       env_file))

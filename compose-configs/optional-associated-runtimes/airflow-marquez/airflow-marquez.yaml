@@ -168,6 +168,9 @@ services:
   marquez:
     image: marquezproject/marquez:latest
     platform: linux/amd64
+    # Without a restart policy it stayed down after the 2026-11-10 host reboot. unless-stopped, not always:
+    # an optional runtime someone stopped on purpose stays stopped (infra-health.json lists it).
+    restart: unless-stopped
     env_file:
       - .env
     ports:
@@ -196,6 +199,8 @@ services:
   marquez-web:
     image: marquezproject/marquez-web:latest
     platform: linux/amd64
+    # Same as marquez: back after a reboot unless someone stopped it.
+    restart: unless-stopped
     ports:
       - "${EGERIA_BIND_IP:-127.0.0.1}:3000:3000"
     environment:

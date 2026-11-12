@@ -7,7 +7,9 @@
   A launchd agent (macOS) that records the shared-infrastructure check every 10 minutes for the
   Portal's Admin "Shared infrastructure" line. NOT installed by anything in this repo: installing it
   is a standing host change and needs the owner's word. __REPO__ is replaced by the checkout path
-  when it is installed; see portal-docs/Internals/upgrading-or-resetting-egeria.md
+  and __PYTHON3__ by an absolute python3 that was checked to run the CLI, when it is installed
+  (never `/usr/bin/env python3`: under launchd's PATH that found a framework python3 on laz that
+  exited silently, 2026-11-12); see portal-docs/Internals/upgrading-or-resetting-egeria.md
   ("Recording it every 10 minutes"). The check only reads; it restarts nothing.
 -->
 <plist version="1.0">
@@ -16,8 +18,7 @@
   <string>org.odpi.egeria.infra-check</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/usr/bin/env</string>
-    <string>python3</string>
+    <string>__PYTHON3__</string>
     <string>__REPO__/compose-configs/egeria-quickstart/bin/egeria-upgrade-reset</string>
     <string>infra-check</string>
     <string>--record</string>
