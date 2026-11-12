@@ -890,6 +890,9 @@ def step_report_spec_sync(env, plan, state, run_dir, *, timeout_s: float = 900, 
                           {"http": code})
     if code != 200:
         raise StepFailed(f"POST /api/report-specs/sync: HTTP {code}")
+    # The Portal answers {"started": false, "already_running": true} when a sync was running already: this
+    # step then waits for that one, and says so in its evidence.
+    already = bool(isinstance(body, dict) and (body.get("already_running") or body.get("started") is False))
     while True:
         st, err = _sync_status(env)
         if st and not st.get("running") and (_parse_iso(st.get("finished_at")) or 0) >= t0 - 1:
@@ -898,7 +901,7 @@ def step_report_spec_sync(env, plan, state, run_dir, *, timeout_s: float = 900, 
             raise StepFailed(f"the report-spec sync did not finish within {timeout_s:.0f}s ({err or 'still running'})")
         env.sleep(poll_s)
     consumers = (st.get("report") or {}).get("consumers") or {}
-    evidence = {"outcome": st.get("outcome"), "finishedAt": st.get("finished_at"),
+    evidence = {"outcome": st.get("outcome"), "finishedAt": st.get("finished_at"), "alreadyRunning": already,
                 "consumerIndex": consumers.get("status"), "consumers": consumers.get("consumers"),
                 "specs": consumers.get("labels")}
     env.say(f"  report-spec sync: {st.get('outcome')}; consumer index {consumers.get('status') or 'not reported'}")

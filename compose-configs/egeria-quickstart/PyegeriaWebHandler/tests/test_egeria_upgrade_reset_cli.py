@@ -146,13 +146,14 @@ class FakeHttp:
         self.find_count = 1
         # the Portal's report-spec sync (POST to start, GET for the outcome)
         self.sync_post = 200
+        self.sync_post_body = {"started": True, "already_running": False}
         self.sync = {"running": False, "outcome": "synced", "finished_at": "2099-01-01T00:00:00+00:00",
                      "error": None, "report": {"consumers": {"status": "read", "consumers": 2, "labels": 7}}}
 
     def request(self, method, url, body=None, headers=None, timeout=30):
         self.calls.append((method, url))
         if url.endswith("/api/report-specs/sync"):
-            return (self.sync_post, {"started": True}) if method == "POST" else (200, self.sync)
+            return (self.sync_post, self.sync_post_body) if method == "POST" else (200, self.sync)
         if url.endswith("/api/bootstrap/status"):
             return 200, self.status
         if url.endswith("/api/bootstrap/batches"):
@@ -737,8 +738,8 @@ def test_report_spec_sync_step_runs_after_heal_wait_and_the_index_is_read(world)
     assert m.apply(world["env"], str(run_dir)) == 0
     st = _state(run_dir)
     ev = st["steps"]["report-spec-sync"]["evidence"]
-    assert ev == {"outcome": "synced", "finishedAt": "2099-01-01T00:00:00+00:00", "consumerIndex": "read",
-                  "consumers": 2, "specs": 7}
+    assert ev == {"outcome": "synced", "finishedAt": "2099-01-01T00:00:00+00:00", "alreadyRunning": False,
+                  "consumerIndex": "read", "consumers": 2, "specs": 7}
     assert ("POST", m.PORTAL_URL + "/api/report-specs/sync") in world["http"].calls
     checks = {c["check"]: c for c in st["steps"]["verify"]["evidence"]["checks"]}
     assert checks["report-spec consumer index"]["verdict"] == "PASS"
@@ -806,3 +807,12 @@ def test_verify_check_is_read_only(world):
 def test_docker_start_times(raw, expected):
     t = m._docker_time(raw)
     assert (m.iso(t)[:19] if t is not None else None) == expected
+
+
+
+def test_report_spec_sync_records_a_run_it_did_not_start(world):
+    world["http"].sync_post_body = {"started": False, "already_running": True}
+    run_dir = _plan(world)
+    assert m.apply(world["env"], str(run_dir)) == 0
+    ev = _state(run_dir)["steps"]["report-spec-sync"]["evidence"]
+    assert ev["alreadyRunning"] is True and ev["consumerIndex"] == "read"
