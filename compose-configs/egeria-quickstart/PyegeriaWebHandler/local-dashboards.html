@@ -12,8 +12,9 @@
 <script>EgeriaResize.grids('.placements');</script>
 <script src="/static/bootstrap-banner.js?v=2026-08-18a"></script>
 <script src="/static/diagram-viewer.js?v=2026-11-06a"></script>
-<script src="/static/egeria-not-measured.js?v=2026-11-08a"></script>
+<script src="/static/egeria-not-measured.js?v=2026-11-11a"></script>
 <script src="/static/report-spec-source.js?v=2026-11-10a"></script>
+<script src="/static/egeria-table.js?v=2026-11-12a"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
@@ -414,6 +415,11 @@ function _fetchExecuteCached(body, force) {
   // cache:true opts this run in to the server-side result cache (5 min, stale-while-revalidate);
   // refresh:true (the placement's refresh button) makes the server run it now and store the result.
   var sent = Object.assign({}, body, { cache: true }, force ? { refresh: true } : {});
+  // A TABLE placement asks for pyegeria's structured TABLE (kind "table", native values), rendered by
+  // static/egeria-table.js; every other format is unchanged. The server ignores the flag for non-TABLE.
+  if (String(sent.output_format || '').toUpperCase() === 'TABLE' && window.EgeriaTable && !sent.table_shape) {
+    sent.table_shape = 'structured';
+  }
   var meta = null;
   return fetch('/api/report-specs/execute', {
     method: 'POST',
@@ -453,6 +459,8 @@ function cacheNoteHtml(result) {
 }
 // After a placement renders, add the cache note; a stale one re-checks once the background refresh has had time.
 function afterPlacementResult(p, i, result, target) {
+  // egeria-table.js: hide "more" on text that the browser did not cut after all.
+  if (window.EgeriaTable && result && result.kind === 'table') EgeriaTable.trim(target);
   // Where the spec that ran came from (same badge as Egeria Explorer's Report Specs view).
   var src = window.EgeriaSpecSource ? window.EgeriaSpecSource.blockHtml(result) : '';
   if (src) target.insertAdjacentHTML('beforeend', src);
@@ -1096,7 +1104,20 @@ function renderExecResult(result, params) {
   if (result && result.kind !== 'absent' && window.EgeriaNotMeasured && EgeriaNotMeasured.hasUnmeasured(result)) {
     out.html += EgeriaNotMeasured.footnoteHtml(result);
   }
+  // pyegeria's own notes beside the result (6.2.37+): a capped query says
+  // "more may exist", and so on. Shown under every tile and in the drawer;
+  // nothing for a result without notes.
+  // A structured TABLE lists pyegeria's notes in its own footer (egeria-table.js), so not twice.
+  if (window.EgeriaNotMeasured && EgeriaNotMeasured.resultNotesHtml && !(result && result.kind === 'table')) {
+    out.html += EgeriaNotMeasured.resultNotesHtml(result);
+  }
   return out;
+}
+
+// Related elements in a structured TABLE link to The Catalog's ?guid= deep link, the Portal's
+// generic resolver: it opens the element's own view, or says honestly that none exists.
+function tableLinkBuilder(el) {
+  return el && el.guid ? '/tech-catalog?guid=' + encodeURIComponent(el.guid) : null;
 }
 
 function _renderExecResultBody(result, params) {
@@ -1107,6 +1128,11 @@ function _renderExecResultBody(result, params) {
     return { html: EgeriaNotMeasured.absentHtml(result), mermaidBlocks: [], vegaBlocks: [], isKpiShaped: result.detail === undefined };
   }
   if (!result || result.kind === 'empty') return { html: '<div class="p-loading">No results.</div>', mermaidBlocks: [], vegaBlocks: [] };
+  // pyegeria's structured TABLE (table_shape "structured"): no column cap (it scrolls), every row the
+  // result carries, the footer says "first N of M" / "more may exist" and lists every note.
+  if (result.kind === 'table' && window.EgeriaTable) {
+    return { html: EgeriaTable.renderHtml(result, { linkBuilder: tableLinkBuilder }), mermaidBlocks: [], vegaBlocks: [] };
+  }
   if (result.kind === 'text') return Object.assign({ vegaBlocks: [] }, renderMdWithMermaid(_capContent(result.content, params)));
   if (result.kind === 'json') {
     // A SERIES/analytic-function result comes back as a ready-made Vega-Lite
@@ -1125,8 +1151,14 @@ function _renderExecResultBody(result, params) {
     }
     // Some auto-generated "Basic" report specs return pre-rendered markdown
     // text even under kind:"json" (their TABLE format isn't truly tabular) —
-    // render it as markdown rather than showing an empty table.
-    if (typeof result.data === 'string') return Object.assign({ vegaBlocks: [] }, renderMdWithMermaid(_capContent(result.data, params)));
+    // render it as markdown rather than showing an empty table. TABLE
+    // placements now ask for the structured TABLE (kind "table"), which
+    // should never reach here; kept, with a warning, until nothing does
+    // (P1b: not confirmed on every live sheet).
+    if (typeof result.data === 'string') {
+      if (window.console && console.warn) console.warn('local-dashboards: kind "json" with a text body (the old TABLE-as-markdown case); still rendered as markdown');
+      return Object.assign({ vegaBlocks: [] }, renderMdWithMermaid(_capContent(result.data, params)));
+    }
     // A scalar analytic result (e.g. count_elements' "scalar (int)" result
     // shape — see analytic_demo_specs.py) isn't a row/column table at all —
     // renderJsonTableHtml only handles arrays/objects, so a bare number or
@@ -1554,6 +1586,8 @@ function renderRunDocResult(data, directive) {
   resultEl.innerHTML = html;
 }
 
+// Structured TABLE interactions (more/less, subtable rows): one listener for every tile and the drawer.
+if (window.EgeriaTable) EgeriaTable.attach(document.body);
 render();
 </script>
 

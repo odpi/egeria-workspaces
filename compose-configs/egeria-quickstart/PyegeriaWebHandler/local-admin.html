@@ -8,6 +8,8 @@
   <title>Egeria — Local Admin</title>
   <script src="/static/app-bar.js?v=2026-10-05a"></script>
   <script src="/static/egeria-resize.js?v=2026-11-04b"></script>
+  <script src="/static/egeria-resets-panel.js?v=2026-11-12b"></script>
+  <script src="/static/infra-health-panel.js?v=2026-11-12a"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -192,6 +194,26 @@
       <h2>Data Initialization</h2>
       <button class="btn-xs" onclick="loadBatches()">↻ Refresh</button>
     </div>
+
+    <div style="display:flex;align-items:center;gap:0.6rem;margin-top:0.2rem">
+      <h3 style="margin:0;font-size:0.95rem">Last Egeria reset</h3>
+      <button class="btn-xs" onclick="EgeriaResetsPanel.load('egeriaResets')">↻ Refresh</button>
+    </div>
+    <p style="margin:0.2rem 0 0.6rem;font-size:0.76rem;color:var(--muted);line-height:1.5">
+      Recorded by the host-only <code>bin/egeria-upgrade-reset</code> (image upgrade, metadata-store backup and
+      clear, heal and checks). Read only: a reset cannot be started from the Portal.
+    </p>
+    <div id="egeriaResets" style="margin-bottom:1rem"></div>
+    <div style="display:flex;align-items:center;gap:0.6rem;margin-top:0.2rem">
+      <h3 style="margin:0;font-size:0.95rem">Shared infrastructure</h3>
+      <button class="btn-xs" onclick="InfraHealthPanel.load('infraHealth')">↻ Refresh</button>
+    </div>
+    <p style="margin:0.2rem 0 0.6rem;font-size:0.76rem;color:var(--muted);line-height:1.5">
+      Recorded on the host by <code>bin/egeria-upgrade-reset infra-check --record</code>: each shared-infra
+      container running, restart policy as the yaml says, created from this checkout's compose file. The Portal
+      has no Docker access, so it only shows the latest record; nothing here restarts anything.
+    </p>
+    <div id="infraHealth" style="margin-bottom:1rem"></div>
     <p class="note" style="margin-top:-0.5rem;margin-bottom:0.9rem">
       Folders of Dr.Egeria documents discovered under <code>dr-egeria-inbox</code>. Enable a folder
       to include it when the Portal reinitializes after Egeria is wiped (a folder with a canary
@@ -316,7 +338,7 @@
     document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
     document.getElementById('panel-' + name).classList.add('active');
     if (name === 'obsidian')  loadLock();
-    if (name === 'data-init') loadBatches();
+    if (name === 'data-init') { loadBatches(); EgeriaResetsPanel.load('egeriaResets'); InfraHealthPanel.load('infraHealth'); }
     if (name === 'activity')  { loadBootstrapLog(); loadDrEgeriaIssues(); }
     if (name === 'feedback')  loadFeedback();
   }

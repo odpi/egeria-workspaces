@@ -24,6 +24,9 @@ The concepts are explained in the tutorials; this page is for trying things out:
 >   These examples are listed for the owner at the end of this page.
 > - **Not verified:** written from the code; not run.
 >
+> R6 to R9 (pyegeria 6.2.37 and 6.2.38) were added on 2026-11-11: R6 was run that day; R7 to R9 are not
+> verified yet, because the quickstart's data was being reloaded.
+>
 > Counts change as the demo data changes, so your numbers may differ.
 
 **Running a report spec from the command line.** Several examples run a spec through the Portal's own
@@ -192,6 +195,92 @@ ReportSpecFolder::Consumer::Portal
 Expected after `--process` and a sync (**⇣ Sync from Egeria**): the Report Specs banner says
 *3 report specs held in Egeria*, and the spec shows the **held in Egeria** badge. Running it with
 `search_string` `Patient` gives the same terms as R1, with these three columns.
+
+### R6. A LIST register with lists in its cells (pyegeria 6.2.37)
+
+*Ran* on 2026-11-11 (quickstart Portal on pyegeria 6.2.37, before the evening's data reset). This is the
+spec and scope of the CDO sheet's *Governance Metric Register* tile.
+
+```bash
+curl -sk -X POST https://localhost:8843/api/report-specs/execute -H 'Content-Type: application/json' \
+  -d '{"spec_name": "Governance-Metric-DrE-Basic", "output_format": "LIST",
+       "params": {"search_string": "CocoPharma::GovernanceMetric::"}}'
+```
+
+Output: `kind: "text"`, 84,333 characters of markdown: a heading, a line naming the search string, and a
+table of 46 rows and 21 columns (*Display Name* … *Implications*, *Importance*, *Outcomes* … *Measurement*,
+*Target* … *Category*). A list column puts each item on its own line inside the cell, for example in
+*Implications*:
+
+```
+Coverage and achievement are distinct measures and both are required<br>Results go to the Service Owner and …
+```
+
+On the Local Dashboards tile all 46 rows show, in a table that scrolls inside the tile, with the line
+breaks drawn. See [the CDO sheet's register tiles](local-dashboards.md#worked-example-the-cdo-sheets-register-tiles).
+
+### R7. Choosing how a column draws its values
+
+*Not verified* (written from pyegeria 6.2.37's documentation). A local spec, as in R4, whose columns
+choose bullets, names and a count:
+
+```json
+{
+  "Tutorial Demo - Risks": {
+    "target_type": "Risk",
+    "heading": "Risks",
+    "description": "Risks with their implications as bullets and their authors as names.",
+    "family": "Demo",
+    "formats": [{"types": ["LIST", "TABLE", "DICT"], "attributes": [
+      {"name": "Risk", "key": "display_name"},
+      {"name": "Implications", "key": "implications", "render": "bullets", "max_items": 5},
+      {"name": "Authors", "key": "authors", "render": "join"},
+      {"name": "Description", "key": "description", "max_lines": 2}
+    ]}],
+    "action": {"function": "GovernanceOfficer.find_governance_definitions",
+               "required_params": ["search_string"],
+               "spec_params": {"metadata_element_type": "Risk"}}
+  }
+}
+```
+
+Expected, as LIST: *Implications* one item per line, at most five, then "+N more"; *Authors* joined with
+commas; in the terminal table (`run_report --output-format TABLE`), *Description* cut at two lines. For a related
+element shown by its display name, see the built-in *Digital-Products* spec (`label: display_name`). Explained in
+[Report Specs, C3](report-specs.md#c3-telling-a-column-how-to-draw-its-values).
+
+### R8. Native values for a program (structured TABLE, native DICT)
+
+*Not verified.* In Python (a notebook in the quickstart's Jupyter has the connection settings):
+
+```python
+from pyegeria import exec_report_spec
+
+t = exec_report_spec("Risk-DrE-Basic", output_format="TABLE", table_shape="structured",
+                     params={"search_string": "CocoPharma::Risk::"})
+t["kind"], t["shown"], t["total"], t["notes"]       # "table", rows shown, total or None, every cap in words
+[c["key"] + ":" + c["render"] for c in t["columns"]]
+
+d = exec_report_spec("Digital-Products", output_format="DICT", dict_shape="native")
+d["data"][0]["members"]                               # a list of {guid, qualifiedName, displayName, type}
+```
+
+Without `table_shape` or `dict_shape` the same calls return the old shapes.
+
+### R9. A DCAT catalog (DOCUMENT)
+
+*Not verified.* In the Portal's container (or anywhere pyegeria 6.2.38 is installed with the connection
+settings):
+
+```bash
+run_report --report "DCAT Catalog" --output-format DOCUMENT --output /tmp/dcat \
+           --param scope=DashboardFolder::Consumer::Portal
+```
+
+Expected: a file `/tmp/dcat/DashboardFolder_Consumer_Portal-dcat.jsonld` (the scope made file-name safe), a
+validation line (`valid`, `invalid` with findings, or `not_validated` with the reason), and notes naming
+everything left out, for example *a DigitalProduct, not a DCAT dataset (Bitol)*. `--param
+search_string=...` works instead of `scope` from 6.2.38. The Portal cannot show DOCUMENT results yet.
 
 ---
 

@@ -1,0 +1,14 @@
+{
+  "_about": "Read by `egeria-upgrade-reset infra-check` (compose-configs/egeria-quickstart/bin). extraComposeFiles: more compose files to check, relative to the repo root (e.g. an optional runtime once the owner decides its state). expectedStopped: services deliberately down, each {\"service\", \"reason\", \"by\"}, optionally \"exitCode\" (how it must have stopped; another exit code is a FAIL); they report EXPECTED STOPPED instead of FAIL. Empty lists = shared-infra.yaml only, nothing expected stopped.",
+  "extraComposeFiles": [
+    "compose-configs/optional-associated-runtimes/airflow-marquez/airflow-marquez.yaml"
+  ],
+  "expectedStopped": [
+    {
+      "service": "airflow-init",
+      "reason": "a one-shot setup container: it migrates the Airflow database and exits",
+      "by": "the compose file's design",
+      "exitCode": 0
+    }
+  ]
+}
