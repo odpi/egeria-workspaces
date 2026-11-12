@@ -291,3 +291,6 @@ compose-configs/*/.env.pyegeria
 .claude/worktrees/
 .claude/projects/
 .claude/scheduled_tasks.lock
+
+# egeria-upgrade-reset plans, state and database backups (host-only CLI)
+runtime-volumes/egeria-resets/
