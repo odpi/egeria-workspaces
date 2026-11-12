@@ -57,7 +57,9 @@ Airflow reports what each DAG reads and writes as OpenLineage events.  For those
    events about the product tables to the tables it has catalogued, which are what the ongoing update subscriptions in
    step 13 monitor.  If the events arrive first, Egeria creates separate `DataSet` elements for the tables instead, and
    those subscriptions are not triggered.  The listener starts reading at the end of the topic, so only events
-   published after it is connected are catalogued.  The notebook can be re-run safely.
+   published after it is connected are catalogued.  The notebook can be re-run safely.  On the quickstart the
+   **OpenLineage Events** data-initialization batch has usually done this already (it owns `openlineage.events`):
+   the notebook then finds the existing topic and registers nothing.
 
    To also send Egeria's own lineage events on to Marquez, run
    [publish-to-marquez.ipynb](../../workbooks/cataloguing-and-surveys/marquez/publish-to-marquez.ipynb) once in
@@ -235,8 +237,15 @@ system tables and product tables it reads and writes.  It needs Airflow to be se
 *Before you start* - and it must run after `setting-up-the-data-hub.ipynb`.  Since the `JDBCDatabaseCataloguer` carries
 on cataloguing the tables in the background after the earlier workbooks finish, the notebook first waits - for up to 20
 minutes - until every system table and every product table the `coco_feed_*` DAGs write to is catalogued, and does not
-connect the listener if they are not.  If the listener is already connected, the notebook does not add a second catalog
-target.
+connect the listener if they are not.
+
+**One topic, one owner.**  On the quickstart the **OpenLineage Events** data-initialization batch owns
+`openlineage.events`: it catalogues it (as `Topic::LocalKafka2.openlineage.events::inOut`) after every reset.  So
+before it registers anything, the notebook looks for any `Topic` whose display name is `openlineage.events`, whatever
+its qualified name.  If one exists it prints *already catalogued as &lt;qualified name&gt; (&lt;GUID&gt;); skipping* and
+creates nothing.  A second topic would make the listener read every event twice (on 2026-11-12 the quickstart had two,
+and every event was consumed twice).  For the same reason this notebook is not part of the *Coco - 1. Data Hub*
+data-initialization batch (it is listed under `exclude` in `_batch.json`): run it by hand, as a tutorial.
 
 ----
 
