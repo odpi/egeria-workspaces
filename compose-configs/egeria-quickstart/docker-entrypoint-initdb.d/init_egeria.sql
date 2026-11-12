@@ -174,6 +174,19 @@ CREATE TABLE IF NOT EXISTS demo.egeria_resets (
 );
 ALTER TABLE demo.egeria_resets OWNER TO demo_user;
 
+-- Shared-infrastructure health, recorded by `egeria-upgrade-reset infra-check --record` on the host
+-- (the Portal has no Docker socket; its "Shared infrastructure" line in Admin only reads this table,
+-- egeria_resets_handler.py). The CLI runs the same CREATE TABLE IF NOT EXISTS and keeps the newest
+-- 500 rows. Keep the two column lists the same (tests/test_infra_check.py checks).
+CREATE TABLE IF NOT EXISTS demo.infra_checks (
+  id            serial PRIMARY KEY,
+  checked_at    timestamptz NOT NULL,
+  host          text,
+  compose_files jsonb,
+  result        jsonb
+);
+ALTER TABLE demo.infra_checks OWNER TO demo_user;
+
 -- Pre-create the tables too (not just the schemas) so a fresh install has
 -- them ready before the app ever starts, and so this migration is a complete
 -- description of what demo_db.py / demo_feedback_handler.py expect to find.

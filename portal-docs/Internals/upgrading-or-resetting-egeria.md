@@ -22,6 +22,7 @@ cd compose-configs/egeria-quickstart/bin
 ./egeria-upgrade-reset apply --plan ../../../runtime-volumes/egeria-resets/<UTC>
 ./egeria-upgrade-reset status --plan …                # each step's state
 ./egeria-upgrade-reset record --plan …                # write the Portal's reset row now (after a failed run)
+./egeria-upgrade-reset infra-check [--record] [--json] # shared-infra health; read-only, restarts nothing
 ```
 
 `plan` writes `runtime-volumes/egeria-resets/<UTC>/plan.json` and `state.json` (git-ignored, with the
@@ -80,6 +81,9 @@ database's size class or the Dockerfile pin has changed since the plan. Make a n
 - **Persona sign-ins (checkpoint):** the CLI never signs in as anyone. It asks you to sign in as each
   persona you use and open a sheet, then records what you answer: `ok`, `skip` (NOT MEASURED), or the
   failure.
+- **Shared infrastructure:** one line per service of `compose-configs/shared-infra/shared-infra.yaml`
+  (see *The shared-infrastructure check* below). A FAIL fails verify; WARN and EXPECTED STOPPED are
+  reported and don't; the latest OpenLineage event is information only.
 - **10 minutes of watching:** connections to the `egeria` database, sampled every minute (the leak
   shows as `idle in transaction` climbing), and `401`/`UNAUTHORIZED` lines in the platform log.
 
@@ -96,6 +100,65 @@ database's size class or the Dockerfile pin has changed since the plan. Make a n
 
 With no row it says *No reset recorded by egeria-upgrade-reset.* If the table cannot be read it says
 *Reset history not read:* and the reason. It has no buttons: a reset can only start on the host.
+
+## The shared-infrastructure check
+
+`egeria-upgrade-reset infra-check` reports on every service in `compose-configs/shared-infra/shared-infra.yaml`
+(read when it runs, so a new service is covered without a code change), plus any `extraComposeFiles` in
+`compose-configs/shared-infra/infra-health.json`. It compares with the checkout the running platform was
+started from (or `--checkout PATH`). It only reads: `docker inspect`, `docker ps`, and inside
+`egeria-shared-kafka` `kafka-get-offsets.sh` and `stat`. **It never starts, stops, restarts, recreates or
+updates anything**: fixing a drift is a person's decision. It exits 1 when any service FAILs.
+
+| Verdict | When |
+|---|---|
+| **PASS** | running (and `healthy`, where there is a healthcheck), restart policy as the yaml says, created from this checkout's compose file |
+| **FAIL** | missing, not running, `unhealthy`, or **restart-policy drift** ("container restart=no, yaml says always": the 2026-11-10 proxy case, two days of lost lineage) |
+| **WARN** | created from another compose file, or one that no longer exists ("a recreate from the repo may change it"); a digest-pinned yaml image the container doesn't run; running though listed as expected stopped |
+| **EXPECTED STOPPED** | down, and listed in `infra-health.json`'s `expectedStopped` with a reason and who said so |
+| **NOT MEASURED** | the container could not be inspected, or the compose file is missing |
+
+The **OpenLineage** line ("latest event <time> (offset N)") is **information only**: a quiet topic can mean no
+DAG ran, so there is no alert and no age threshold. The time is the last write to the topic's newest log segment.
+
+On 2026-11-12 it reported five PASS and one WARN: `egeria-shared-kroki` was created from a temporary copy of
+the compose file that no longer exists.
+
+### The Portal's "Shared infrastructure" line
+
+`infra-check --record` writes one row to `coco_pharma.demo.infra_checks` (created by `init_egeria.sql` and by
+the CLI; the newest 500 rows are kept). **Admin → Data Initialization** shows the latest row under
+"Last Egeria reset" (`GET /api/admin/infra-health`, administrators only). The Portal has no Docker socket and
+gets none: it only reads the row.
+
+- A row older than **30 minutes** is greyed and says *last checked <time>: not current*. It never shows green.
+- With no row: *not checked yet (run `egeria-upgrade-reset infra-check --record` on the host)*.
+- Separately labelled, **reachable from the Portal now**: a TCP connection from the Portal's container to
+  postgres 5442, kafka 9192, the OpenLineage proxy 6000 and kroki 8000. It is a different fact: it says
+  nothing about restart policies.
+
+### Recording it every 10 minutes (not installed)
+
+`compose-configs/egeria-quickstart/bin/org.odpi.egeria.infra-check.plist` is a launchd agent that runs
+`infra-check --record` every 10 minutes. **Nothing installs it**: it is a standing change to the host, so it
+needs the owner's word. Until it is installed, the panel shows the last manual record as *not current*.
+
+To install it (macOS, from the deployment's checkout):
+
+```bash
+mkdir -p runtime-volumes/egeria-resets
+sed "s|__REPO__|$PWD|g" compose-configs/egeria-quickstart/bin/org.odpi.egeria.infra-check.plist > ~/Library/LaunchAgents/org.odpi.egeria.infra-check.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/org.odpi.egeria.infra-check.plist
+```
+
+To uninstall it:
+
+```bash
+launchctl bootout gui/$(id -u)/org.odpi.egeria.infra-check
+rm ~/Library/LaunchAgents/org.odpi.egeria.infra-check.plist
+```
+
+Its output goes to `runtime-volumes/egeria-resets/infra-check.log` (git-ignored).
 
 ## Limits
 

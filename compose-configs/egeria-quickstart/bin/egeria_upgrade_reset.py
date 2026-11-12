@@ -9,6 +9,7 @@ Postgres superuser (through `docker exec`), which no container, and never the Po
     egeria-upgrade-reset apply --plan <reset dir or plan.json> [--dry-run] [--redo STEP]
     egeria-upgrade-reset status --plan <reset dir>
     egeria-upgrade-reset record --plan <reset dir>        # write the Portal's "last reset" row now
+    egeria-upgrade-reset infra-check [--record] [--json]   # shared-infra health; read-only, restarts nothing
 
 `plan` changes nothing. It reads the current state (pinned and target image digests, the running
 container's image, the database size, Docker's free disk, the RE/EA writers, the secrets accounts)
@@ -23,7 +24,13 @@ the clear, and the persona sign-in checks in verify (the CLI never signs in as a
 
 Every check reports PASS / FAIL / NOT MEASURED with its evidence; nothing is reported as fine
 because it could not be looked at. Lessons from the 2026-11-11 reset are encoded per step (see
-each step's docstring). Standard library only.
+each step's docstring). Standard library only (PyYAML is used for compose files when installed;
+a small reader covers its absence).
+
+`infra-check` (also run by verify) reports each shared-infra service as PASS / FAIL / WARN /
+EXPECTED STOPPED / NOT MEASURED: running and healthy, restart policy as the yaml says, created from
+this checkout's compose file. It only reads (`docker inspect`, `docker ps`, and kafka-get-offsets.sh
+and stat inside the Kafka container); fixing a drift is a person's decision.
 """
 from __future__ import annotations
 
@@ -957,11 +964,19 @@ def step_verify(env, plan, state, run_dir, *, watch_s: float = 600, watch_every_
                    ("NOT MEASURED" if personas.lower() in ("", "skip") else "FAIL"),
                    "evidence": f"operator said: {personas or '(nothing)'}"})
 
+    try:
+        infra = infra_check(env, Path(plan.get("deployRoot") or env.repo))
+        checks += infra_verify_checks(infra)
+    except Exception as exc:  # noqa: BLE001
+        checks.append({"check": "infra (shared-infra compose)", "verdict": "NOT MEASURED",
+                       "evidence": f"{type(exc).__name__}: {exc}"})
+
     checks.append(_check("connections and 401s", lambda: _watch(env, watch_s, watch_every_s)))
     failed = [c["check"] for c in checks if c["verdict"] == "FAIL"]
     for c in checks:
         env.say(f"  {c['verdict']:<12} {c['check']}: {c['evidence']}")
-    return {"checks": checks, "failed": failed, "notMeasured": [c["check"] for c in checks if c["verdict"] == "NOT MEASURED"]}
+    return {"checks": checks, "failed": failed, "notMeasured": [c["check"] for c in checks if c["verdict"] == "NOT MEASURED"],
+            "warnings": [c["check"] for c in checks if c["verdict"] in ("WARN", "EXPECTED STOPPED")]}
 
 
 def classification_verdict(plan: dict, now: dict) -> tuple[str, str]:
@@ -1037,6 +1052,307 @@ def _watch(env: Env, total_s: float, every_s: float) -> tuple[str, str]:
     ok = n401 == 0 and max(iit or [0]) <= 2 and not growing
     return ("PASS" if ok else "FAIL"), (f"{len(samples)} samples: connections {total}, idle in transaction {iit}; "
                                         f"{n401} 401/UNAUTHORIZED lines in the platform log")
+
+
+# ── Shared-infrastructure health (BRIEF-SHARED-INFRA-HEALTH-2026-11-12) ───────
+# Report only: this section runs `docker inspect`, `docker ps` and, inside the Kafka container,
+# `kafka-get-offsets.sh` and `stat`. It never starts, stops, restarts, recreates or updates anything
+# (tests/test_infra_check.py asserts the verbs). On 2026-11-10 the OpenLineage proxy came back from a
+# reboot with restart=no (the yaml says always) and stayed down two days with nothing showing it.
+
+INFRA_COMPOSE = Path("compose-configs") / "shared-infra" / "shared-infra.yaml"
+INFRA_CONFIG = Path("compose-configs") / "shared-infra" / "infra-health.json"
+INFRA_KAFKA = "egeria-shared-kafka"
+OPENLINEAGE_TOPIC = "openlineage.events"
+INFRA_STALE_S = 30 * 60          # the Portal greys a row older than this (egeria_resets_handler.py)
+INFRA_KEEP_ROWS = 500
+INFRA_VERDICTS = ("PASS", "FAIL", "WARN", "EXPECTED STOPPED", "NOT MEASURED")
+
+
+def _mini_compose_services(text: str) -> dict:
+    """The `services:` mapping of a compose file, for hosts without PyYAML: each service's scalar
+    keys (container_name, restart, image) at the indentation compose files use."""
+    services, current, in_services, svc_indent = {}, None, False, None
+    for raw in text.splitlines():
+        line = raw.split(" #", 1)[0].rstrip() if not raw.lstrip().startswith("#") else ""
+        if not line.strip():
+            continue
+        indent = len(line) - len(line.lstrip())
+        if indent == 0:
+            in_services = line.strip() == "services:"
+            current = None
+            continue
+        if not in_services:
+            continue
+        if svc_indent is None:
+            svc_indent = indent
+        if indent == svc_indent and line.strip().endswith(":"):
+            current = line.strip()[:-1].strip("'\"")
+            services[current] = {}
+        elif current is not None and indent > svc_indent and ":" in line:
+            key, _, val = line.strip().partition(":")
+            if indent == svc_indent * 2 and val.strip():
+                services[current][key.strip()] = val.strip().strip("'\"")
+    return services
+
+
+def compose_services(path: Path) -> list[dict]:
+    """[{service, container, restart, image}] from a compose file, read at check time so a new
+    service is covered without a code change. restart defaults to compose's own default, "no"."""
+    text = path.read_text()
+    try:
+        import yaml  # type: ignore
+        doc = yaml.safe_load(text) or {}
+        raw = {k: (v or {}) for k, v in (doc.get("services") or {}).items()}
+    except ImportError:
+        raw = _mini_compose_services(text)
+    out = []
+    for name, svc in raw.items():
+        out.append({"service": name, "container": svc.get("container_name"),
+                    "restart": str(svc.get("restart") or "no"), "image": svc.get("image")})
+    return out
+
+
+def _env_values(env_file: Path, names: set) -> dict:
+    """Only the named keys of a .env file (image variables): nothing else is read into memory."""
+    out = {}
+    if not env_file.exists():
+        return out
+    for line in env_file.read_text().splitlines():
+        key, sep, val = line.partition("=")
+        if sep and key.strip() in names:
+            out[key.strip()] = val.strip().strip("'\"")
+    return out
+
+
+_VAR_RE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?::?-([^}]*))?\}")
+
+
+def _resolve_image(image: Optional[str], env_file: Path) -> Optional[str]:
+    if not image:
+        return image
+    names = {m_.group(1) for m_ in _VAR_RE.finditer(image)}
+    values = _env_values(env_file, names)
+    return _VAR_RE.sub(lambda m_: values.get(m_.group(1)) or os.environ.get(m_.group(1)) or (m_.group(2) or m_.group(0)),
+                       image)
+
+
+def infra_config(root: Path) -> dict:
+    """infra-health.json: extra compose files and services deliberately stopped. Missing or empty =
+    shared-infra only, nothing expected stopped."""
+    p = root / INFRA_CONFIG
+    cfg = {}
+    if p.exists() and p.read_text().strip():
+        cfg = json.loads(p.read_text())
+    return {"extraComposeFiles": list(cfg.get("extraComposeFiles") or []),
+            "expectedStopped": {e["service"]: e for e in (cfg.get("expectedStopped") or []) if e.get("service")}}
+
+
+def infra_reference(env: Env) -> tuple[Path, str]:
+    """The checkout the stack was deployed from: the running platform's compose folder (as `plan`
+    reads it); this CLI's own checkout when that cannot be read."""
+    try:
+        setup = compose_setup(env)
+        return Path(setup["workingDir"]).resolve().parents[1], "the running platform's compose folder"
+    except Exception as exc:  # noqa: BLE001
+        return Path(env.repo), f"this CLI's checkout (the platform's compose folder was not read: {exc})"
+
+
+def _inspect(env: Env, container: str) -> tuple[Optional[dict], Optional[str]]:
+    """(inspect JSON, None), (None, "missing") or (None, <why it was not read>)."""
+    r = env.runner.run(["docker", "inspect", container], check=False)
+    if r.rc != 0:
+        text = (r.err or r.out or "").strip()
+        if "No such object" in text or "No such container" in text:
+            return None, "missing"
+        return None, text.splitlines()[-1][:200] if text else f"docker inspect exited {r.rc}"
+    try:
+        data = json.loads(r.out)
+        return (data[0] if isinstance(data, list) and data else None), (None if data else "missing")
+    except ValueError as exc:
+        return None, f"docker inspect gave no JSON ({exc})"
+
+
+def _container_for(env: Env, svc: dict) -> Optional[str]:
+    if svc["container"]:
+        return svc["container"]
+    r = env.runner.run(["docker", "ps", "-a", "--filter", f"label=com.docker.compose.service={svc['service']}",
+                        "--format", "{{.Names}}"], check=False)
+    names = [n for n in r.out.split() if n] if r.rc == 0 else []
+    return names[0] if len(names) == 1 else None
+
+
+def service_verdict(svc: dict, insp: Optional[dict], why: Optional[str], compose_file: Path,
+                    expected: Optional[dict], env_file: Path) -> dict:
+    """One line of the check: PASS / FAIL / WARN / EXPECTED STOPPED / NOT MEASURED, with words."""
+    line = {"service": svc["service"], "container": svc.get("container"), "composeFile": str(compose_file),
+            "state": None, "health": None, "restartYaml": svc["restart"], "restartContainer": None,
+            "configFiles": None, "configFilesMatch": None, "image": None,
+            "imageYaml": _resolve_image(svc.get("image"), env_file), "verdict": None, "words": ""}
+    if insp is None:
+        if why == "missing" or why is None:
+            if expected:
+                line.update(verdict="EXPECTED STOPPED", state="missing",
+                            words=f"not created, as expected: {expected.get('reason')} ({expected.get('by')})")
+            else:
+                line.update(verdict="FAIL", state="missing", words="no such container")
+        else:
+            line.update(verdict="NOT MEASURED", words=f"not read: {why}")
+        return line
+    st = insp.get("State") or {}
+    hc = insp.get("HostConfig") or {}
+    labels = ((insp.get("Config") or {}).get("Labels")) or {}
+    line["state"] = st.get("Status")
+    line["health"] = (st.get("Health") or {}).get("Status")
+    line["restartContainer"] = ((hc.get("RestartPolicy") or {}).get("Name")) or "no"
+    line["image"] = (insp.get("Config") or {}).get("Image")
+    fails, warns, notes = [], [], []
+
+    if st.get("Status") != "running":
+        if expected:
+            line.update(verdict="EXPECTED STOPPED",
+                        words=f"{st.get('Status')}, as expected: {expected.get('reason')} ({expected.get('by')})")
+            return line
+        fails.append(f"{st.get('Status') or 'not running'} (exit code {st.get('ExitCode')})")
+    elif line["health"] == "unhealthy":
+        fails.append("running but unhealthy")
+    elif expected:
+        warns.append(f"running, though listed as expected stopped ({expected.get('reason')})")
+
+    if line["restartContainer"] != svc["restart"]:
+        fails.append(f"drift: container restart={line['restartContainer']}, yaml says {svc['restart']} "
+                     "(recreate it from the yaml to fix; this check never does)")
+
+    cfg = labels.get("com.docker.compose.project.config_files")
+    if cfg:
+        files = [f.strip() for f in cfg.split(",") if f.strip()]
+        line["configFiles"] = files
+        want = str(compose_file.resolve())
+        line["configFilesMatch"] = any(str(Path(f).resolve()) == want for f in files)
+        if not line["configFilesMatch"]:
+            gone = [f for f in files if not Path(f).exists()]
+            shown = "; ".join(f + (" (missing)" if f in gone else "") for f in files)
+            warns.append(f"created from {shown}: a recreate from the repo may change it")
+    else:
+        warns.append("no compose config_files label: not created by docker compose")
+
+    pinned = line["imageYaml"] if line["imageYaml"] and "@sha256:" in line["imageYaml"] else None
+    if pinned and line["image"] != pinned:
+        warns.append(f"image {line['image']} differs from the yaml's pinned {pinned}")
+    elif line["image"]:
+        notes.append(f"image {line['image']}")
+
+    head = f"{line['state']}" + (f", {line['health']}" if line["health"] else "") + \
+           f", restart {line['restartContainer']} (yaml {svc['restart']})"
+    line["verdict"] = "FAIL" if fails else ("WARN" if warns else "PASS")
+    line["words"] = "; ".join([head] + fails + warns + notes)
+    return line
+
+
+def openlineage_info(env: Env) -> dict:
+    """Information only, never an alert and no age threshold: the topic's latest offset (read-only
+    kafka-get-offsets.sh) and the last write to its newest log segment (stat) inside the Kafka container."""
+    r = env.runner.run(["docker", "exec", INFRA_KAFKA, "/usr/lib/kafka/bin/kafka-get-offsets.sh",
+                        "--bootstrap-server", "localhost:9192", "--topic", OPENLINEAGE_TOPIC, "--time", "-1"],
+                       check=False, timeout=60)
+    offsets = {}
+    for ln in (r.out or "").splitlines():
+        parts = ln.strip().split(":")
+        if len(parts) == 3 and parts[0] == OPENLINEAGE_TOPIC and parts[2].isdigit():
+            offsets[parts[1]] = int(parts[2])
+    if r.rc != 0 or not offsets:
+        why = ((r.err or r.out or "").strip().splitlines() or [f"exited {r.rc}"])[-1][:200]
+        return {"notRead": f"offsets of {OPENLINEAGE_TOPIC} not read: {why}"}
+    out = {"offset": sum(offsets.values()), "partitions": offsets, "latestAt": None}
+    t = env.runner.run(["docker", "exec", INFRA_KAFKA, "sh", "-c",
+                        f'stat -c %Y "$KAFKA_CFG_LOG_DIRS"/{OPENLINEAGE_TOPIC}-*/*.log'], check=False, timeout=30)
+    stamps = [int(x) for x in (t.out or "").split() if x.isdigit()]
+    if t.rc == 0 and stamps:
+        out["latestAt"] = iso(max(stamps))
+        out["latestAtBasis"] = "the last write to the topic's newest log segment"
+    else:
+        out["latestAtNotRead"] = ((t.err or "").strip().splitlines() or [f"stat exited {t.rc}"])[-1][:200]
+    return out
+
+
+def infra_check(env: Env, root: Optional[Path] = None) -> dict:
+    """Read-only: every service of the shared-infra compose file (plus infra-health.json's extra files)."""
+    ref_words = "given"
+    if root is None:
+        root, ref_words = infra_reference(env)
+    cfg = infra_config(root)
+    files = [root / INFRA_COMPOSE] + [root / f for f in cfg["extraComposeFiles"]]
+    result = {"checkedAt": iso(env.now()), "host": socket.gethostname(), "checkout": str(root),
+              "checkoutFrom": ref_words, "composeFiles": [str(f) for f in files], "services": [],
+              "openlineage": None, "errors": []}
+    for f in files:
+        if not f.exists():
+            result["errors"].append(f"compose file {f} not found")
+            result["services"].append({"service": f"(all of {f.name})", "container": None, "verdict": "NOT MEASURED",
+                                       "words": f"compose file {f} not found"})
+            continue
+        env_file = f.parent / ".env"
+        for svc in compose_services(f):
+            container = _container_for(env, svc)
+            svc = {**svc, "container": container}
+            if container is None:
+                insp, why = None, "missing"
+            else:
+                insp, why = _inspect(env, container)
+            result["services"].append(service_verdict(svc, insp, why, f, cfg["expectedStopped"].get(svc["service"]),
+                                                      env_file))
+    try:
+        result["openlineage"] = openlineage_info(env)
+    except Exception as exc:  # noqa: BLE001
+        result["openlineage"] = {"notRead": f"{type(exc).__name__}: {exc}"}
+    counts = {v: sum(1 for s in result["services"] if s["verdict"] == v) for v in INFRA_VERDICTS}
+    result["counts"] = counts
+    result["verdict"] = "FAIL" if counts["FAIL"] else ("NOT MEASURED" if counts["NOT MEASURED"] else
+                                                       ("WARN" if counts["WARN"] else "PASS"))
+    return result
+
+
+def infra_lines(result: dict) -> list[str]:
+    out = [f"Shared infrastructure, {result['checkedAt']} (checkout {result['checkout']}, {result['checkoutFrom']}):"]
+    for s in result["services"]:
+        name = s["service"] + (f" ({s['container']})" if s.get("container") else "")
+        out.append(f"  {s['verdict']:<16} {name}: {s['words']}")
+    ol = result.get("openlineage") or {}
+    if "notRead" in ol:
+        out.append(f"  {'INFO':<16} {OPENLINEAGE_TOPIC}: {ol['notRead']}")
+    else:
+        at = ol.get("latestAt") or f"time not read ({ol.get('latestAtNotRead')})"
+        out.append(f"  {'INFO':<16} {OPENLINEAGE_TOPIC}: latest event {at} (offset {ol.get('offset')})")
+    return out
+
+
+def infra_verify_checks(result: dict) -> list[dict]:
+    """The verify step's lines: one per service. A FAIL fails verify; WARN and EXPECTED STOPPED are
+    reported and do not; the OpenLineage line is information (INFO), never a verdict."""
+    checks = [{"check": f"infra {s['service']}", "verdict": s["verdict"], "evidence": s["words"]}
+              for s in result["services"]]
+    ol = result.get("openlineage") or {}
+    checks.append({"check": f"infra {OPENLINEAGE_TOPIC}", "verdict": "INFO",
+                   "evidence": ol.get("notRead") or f"latest event {ol.get('latestAt')} (offset {ol.get('offset')})"})
+    return checks
+
+
+INFRA_DDL = (
+    "CREATE SCHEMA IF NOT EXISTS demo; "
+    "CREATE TABLE IF NOT EXISTS demo.infra_checks ("
+    " id serial PRIMARY KEY, checked_at timestamptz NOT NULL, host text, compose_files jsonb, result jsonb); "
+    "ALTER TABLE demo.infra_checks OWNER TO demo_user")
+
+
+def record_infra(env: Env, result: dict) -> None:
+    """One row in coco_pharma.demo.infra_checks for the Portal; keeps the newest INFRA_KEEP_ROWS (this
+    table only)."""
+    sql = (INFRA_DDL + "; INSERT INTO demo.infra_checks (checked_at, host, compose_files, result) VALUES ("
+           + _sql_str(result["checkedAt"]) + ", " + _sql_str(result["host"]) + ", "
+           + _sql_str(json.dumps(result["composeFiles"])) + "::jsonb, " + _sql_str(json.dumps(result)) + "::jsonb); "
+           + "DELETE FROM demo.infra_checks WHERE id NOT IN (SELECT id FROM demo.infra_checks "
+           + f"ORDER BY checked_at DESC, id DESC LIMIT {INFRA_KEEP_ROWS})")
+    psql(env, sql, db=DEMO_DB)
 
 
 # ── Record (the Portal's "last reset" panel) ──────────────────────────────────
@@ -1179,6 +1495,11 @@ def main(argv: Optional[list[str]] = None, env: Optional[Env] = None) -> int:
     s.add_argument("--plan", required=True)
     r = sub.add_parser("record", help="write the Portal's reset row now (e.g. after a failed run)")
     r.add_argument("--plan", required=True)
+    ic = sub.add_parser("infra-check", help="read-only health of the shared-infra containers; restarts nothing")
+    ic.add_argument("--record", action="store_true", help="also write the result to coco_pharma.demo.infra_checks")
+    ic.add_argument("--json", action="store_true", help="print the result as JSON")
+    ic.add_argument("--checkout", default=None,
+                    help="the checkout whose compose files to compare with (default: the running platform's)")
     args = ap.parse_args(argv)
     env = env or Env(runner=Runner(), http=Http())
     try:
@@ -1195,6 +1516,13 @@ def main(argv: Optional[list[str]] = None, env: Optional[Env] = None) -> int:
             return 0
         if args.cmd == "apply":
             return apply(env, args.plan, dry_run=args.dry_run, redo=args.redo)
+        if args.cmd == "infra-check":
+            result = infra_check(env, Path(args.checkout).resolve() if args.checkout else None)
+            env.say(json.dumps(result, indent=2) if args.json else "\n".join(infra_lines(result)))
+            if args.record:
+                record_infra(env, result)
+                env.say(f"recorded in {DEMO_DB}.demo.infra_checks")
+            return 1 if result["counts"]["FAIL"] else 0
         run_dir, plan, state = load_run(args.plan)
         if args.cmd == "status":
             env.say(handoff_summary(plan, state, "status"))

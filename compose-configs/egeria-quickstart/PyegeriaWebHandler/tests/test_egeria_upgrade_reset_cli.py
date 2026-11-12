@@ -580,3 +580,43 @@ def test_dump_with_the_real_pg17_tail_passes():
             f.write(DUMP)
         assert m.verify_dump(p)["endMarker"] == "found"
         assert DUMP.rstrip().splitlines()[-1].startswith("\\unrestrict")
+
+
+# ── Shared-infrastructure lines in verify (BRIEF-SHARED-INFRA-HEALTH-2026-11-12) ─
+
+def _infra(verdicts):
+    return {"services": [{"service": k, "verdict": v, "words": f"{k} words"} for k, v in verdicts.items()],
+            "openlineage": {"offset": 5, "latestAt": "2026-11-12T12:00:00+00:00"}}
+
+
+def test_verify_fails_on_an_infra_fail_and_reports_warn(world, monkeypatch):
+    seen = []
+    monkeypatch.setattr(m, "infra_check", lambda env, root: seen.append(root) or
+                        _infra({"proxy": "FAIL", "kroki": "WARN", "airflow": "EXPECTED STOPPED"}))
+    run_dir = _plan(world)
+    assert m.apply(world["env"], str(run_dir)) == 0
+    ev = _state(run_dir)["steps"]["verify"]["evidence"]
+    v = {c["check"]: c["verdict"] for c in ev["checks"]}
+    assert v["infra proxy"] == "FAIL" and v["infra kroki"] == "WARN" and v["infra openlineage.events"] == "INFO"
+    assert "infra proxy" in ev["failed"] and "infra kroki" not in ev["failed"]
+    assert ev["warnings"] == ["infra kroki", "infra airflow"]
+    assert seen == [world["deploy"]]                      # the deployment checkout from the plan
+
+
+def test_verify_with_infra_warn_only_does_not_fail(world, monkeypatch):
+    monkeypatch.setattr(m, "infra_check", lambda env, root: _infra({"proxy": "PASS", "kroki": "WARN"}))
+    run_dir = _plan(world)
+    m.apply(world["env"], str(run_dir))
+    ev = _state(run_dir)["steps"]["verify"]["evidence"]
+    assert not [f for f in ev["failed"] if f.startswith("infra")]
+
+
+def test_verify_infra_error_is_not_measured(world, monkeypatch):
+    def boom(env, root):
+        raise RuntimeError("docker not on PATH")
+    monkeypatch.setattr(m, "infra_check", boom)
+    run_dir = _plan(world)
+    m.apply(world["env"], str(run_dir))
+    c = [c for c in _state(run_dir)["steps"]["verify"]["evidence"]["checks"] if c["check"].startswith("infra")]
+    assert c == [{"check": "infra (shared-infra compose)", "verdict": "NOT MEASURED",
+                  "evidence": "RuntimeError: docker not on PATH"}]
