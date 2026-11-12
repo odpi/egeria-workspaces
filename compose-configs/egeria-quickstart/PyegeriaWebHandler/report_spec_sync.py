@@ -106,6 +106,8 @@ def public_status() -> Dict[str, Any]:
                                      "attempt", "attempts", "folders", "missing_folders")}
     out["report"] = ({k: list(rep.get(k) or []) for k in ("added", "updated", "unchanged", "pruned")}
                      | {"skipped": [[who, "(detail withheld)"] for who, _why in (rep.get("skipped") or [])]}
+                     | ({"consumers": {k: rep["consumers"].get(k) for k in ("status", "consumers", "labels")}}
+                        if isinstance(rep.get("consumers"), dict) else {})
                      if rep else None)
     out["error"] = "(detail withheld: sign in as an administrator to see it)" if full.get("error") else None
     out["detail"] = False

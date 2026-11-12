@@ -99,7 +99,7 @@ DEFAULT_LAUNCHERS = {8813: "~/.re-gate/start-8813.sh", 8880: "~/.re-gate/start-e
 # before Egeria is up and the Portal's heal can start. A restart mid-heal could half-run a batch that
 # is not safe to re-run.
 STEPS = ["disk-check", "repin", "build", "freeze-writers", "stop-platform", "backup", "clear",
-         "secrets-sync", "recreate", "heal-wait", "unfreeze", "verify", "record"]
+         "secrets-sync", "recreate", "heal-wait", "report-spec-sync", "unfreeze", "verify", "record"]
 RUN_ONCE = {"backup", "clear", "secrets-sync"}
 CLEAR_STEPS = {"backup", "clear"}       # left out by `plan --no-clear` (an image upgrade only)
 
@@ -818,6 +818,97 @@ def scan_logs(env: Env, since: float, root: Path) -> list[str]:
     return lines
 
 
+REPORT_SPEC_SYNC_REMEDY = ("re-sync report specs: POST /api/report-specs/sync on the Portal as an administrator "
+                           "(Egeria Explorer -> Report Specs -> Sync from Egeria), or wait for the Portal's self-heal "
+                           "(it syncs again at most every 2 minutes while the consumer index is not read)")
+
+
+def _docker_time(v) -> Optional[float]:
+    """A Docker timestamp (nanoseconds, "Z") as epoch seconds; None when it cannot be read."""
+    if not v or str(v).startswith("0001-"):
+        return None
+    m = re.match(r"^(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(\.\d+)?(Z|[+-]\d\d:\d\d)?$", str(v).strip())
+    if not m:
+        return None
+    frac = (m.group(2) or "")[:7]
+    return _parse_iso(m.group(1) + frac + (m.group(3) or "Z"))
+
+
+def platform_started_at(env: Env) -> Optional[float]:
+    r = env.runner.run(["docker", "inspect", PLATFORM_CONTAINER, "--format", "{{.State.StartedAt}}"], check=False)
+    return _docker_time(r.out.strip()) if r.rc == 0 else None
+
+
+def _sync_status(env: Env) -> tuple[Optional[dict], Optional[str]]:
+    """The Portal's last report-spec sync (GET /api/report-specs/sync): read-only, starts nothing."""
+    try:
+        code, body = env.http.request("GET", f"{PORTAL_URL}/api/report-specs/sync", timeout=15)
+    except Exception as exc:  # noqa: BLE001
+        return None, f"{type(exc).__name__}: {exc}"
+    if code != 200 or not isinstance(body, dict):
+        return None, f"HTTP {code}"
+    return body, None
+
+
+def report_spec_index_verdict(env: Env) -> tuple[str, str]:
+    """Read-only (verify): the Portal's report-spec consumer index is "read", by a sync that finished
+    after egeria-main started. A sync that ran while Egeria was restarting leaves it "not read"
+    (2026-11-12), and Used by and publishing then say "not read"."""
+    st, err = _sync_status(env)
+    if st is None:
+        return "NOT MEASURED", f"the Portal's report-spec sync status was not read: {err}"
+    started = platform_started_at(env)
+    if started is None:
+        return "NOT MEASURED", f"{PLATFORM_CONTAINER}'s start time was not read"
+    consumers = (st.get("report") or {}).get("consumers") if isinstance(st.get("report"), dict) else None
+    if not isinstance(consumers, dict) or not consumers.get("status"):
+        return "NOT MEASURED", (f"the last sync (outcome {st.get('outcome')}) says nothing about the consumer "
+                                "index (no sync has run, or a Portal before 2026-11-12)")
+    finished = _parse_iso(st.get("finished_at"))
+    status = consumers.get("status")
+    when = f"the last sync finished {st.get('finished_at')}; {PLATFORM_CONTAINER} started {iso(started)}"
+    if status != "read":
+        return "FAIL", (f"the consumer index is {status!r}" + (f" ({consumers['reason']})" if consumers.get("reason") else "")
+                        + f"; {when}. Remedy: {REPORT_SPEC_SYNC_REMEDY}")
+    if finished is None or finished < started:
+        return "FAIL", f"the consumer index was read before {PLATFORM_CONTAINER} last started; {when}. Remedy: {REPORT_SPEC_SYNC_REMEDY}"
+    return "PASS", f"read ({consumers.get('consumers')} consumer folders, {consumers.get('labels')} specs); {when}"
+
+
+def step_report_spec_sync(env, plan, state, run_dir, *, timeout_s: float = 900, poll_s: float = 10):
+    """Re-sync the Portal's report specs from the restarted Egeria (POST /api/report-specs/sync) and wait
+    for it; the consumer index must come back "read". Writes only the Portal's own cache, never Egeria, so
+    it is safe to repeat. 2026-11-12: the Portal's startup sync ran during an egeria-main restart and left
+    Used by "not read"."""
+    t0 = env.now()
+    try:
+        code, body = env.http.request("POST", f"{PORTAL_URL}/api/report-specs/sync", body={}, timeout=30)
+    except Exception as exc:  # noqa: BLE001
+        raise StepFailed(f"POST /api/report-specs/sync: {type(exc).__name__}: {exc}")
+    if code in (401, 403):
+        raise NeedsPerson(f"the Portal's report-spec sync needs an administrator (HTTP {code}): {REPORT_SPEC_SYNC_REMEDY}",
+                          {"http": code})
+    if code != 200:
+        raise StepFailed(f"POST /api/report-specs/sync: HTTP {code}")
+    while True:
+        st, err = _sync_status(env)
+        if st and not st.get("running") and (_parse_iso(st.get("finished_at")) or 0) >= t0 - 1:
+            break
+        if env.now() - t0 > timeout_s:
+            raise StepFailed(f"the report-spec sync did not finish within {timeout_s:.0f}s ({err or 'still running'})")
+        env.sleep(poll_s)
+    consumers = (st.get("report") or {}).get("consumers") or {}
+    evidence = {"outcome": st.get("outcome"), "finishedAt": st.get("finished_at"),
+                "consumerIndex": consumers.get("status"), "consumers": consumers.get("consumers"),
+                "specs": consumers.get("labels")}
+    env.say(f"  report-spec sync: {st.get('outcome')}; consumer index {consumers.get('status') or 'not reported'}")
+    if st.get("outcome") not in ("synced", "folders_missing", "not_configured") or consumers.get("status") == "not read":
+        raise StepFailed(f"the report-spec sync ended {st.get('outcome')!r}, consumer index "
+                         f"{consumers.get('status') or 'not reported'}: {st.get('error') or 'no error given'}. "
+                         f"Remedy: {REPORT_SPEC_SYNC_REMEDY}")
+    return evidence
+
+
 class NeedsPerson(Exception):
     """The step did what it could; a person must finish it. Recorded as `needs a person`; the run goes on."""
 
@@ -959,6 +1050,7 @@ def step_verify(env, plan, state, run_dir, *, watch_s: float = 600, watch_every_
     checks.append(_check("saved-query tile", sq))
 
     checks.append(_check("classification purposes", lambda: classification_verdict(plan, classification_count(env))))
+    checks.append(_check("report-spec consumer index", lambda: report_spec_index_verdict(env)))
 
     checks.append(persona_check(env))
 
@@ -1537,7 +1629,8 @@ STEP_FUNCS = {
     "disk-check": step_disk_check, "repin": step_repin, "build": step_build,
     "freeze-writers": step_freeze_writers, "stop-platform": step_stop_platform, "backup": step_backup,
     "clear": step_clear, "recreate": step_recreate, "secrets-sync": step_secrets_sync,
-    "heal-wait": step_heal_wait, "unfreeze": step_unfreeze, "verify": step_verify, "record": step_record,
+    "heal-wait": step_heal_wait, "report-spec-sync": step_report_spec_sync, "unfreeze": step_unfreeze,
+    "verify": step_verify, "record": step_record,
 }
 
 

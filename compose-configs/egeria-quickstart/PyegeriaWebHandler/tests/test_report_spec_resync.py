@@ -165,3 +165,13 @@ def test_no_lazy_sync_before_any_sync_has_finished(starts):
 def test_the_suite_switch_turns_it_off(starts):
     rss._LAZY["enabled"] = False
     assert rss.retry_if_index_not_read("not read", now=1000.0) is False and starts == []
+
+
+def test_public_status_carries_the_index_status_but_not_its_reason(monkeypatch):
+    full = {"running": False, "outcome": "index_not_read", "finished_at": "t", "error": "secret words",
+            "report": {"added": [], "updated": [], "unchanged": ["A"], "pruned": [], "skipped": [],
+                       "consumers": {"status": "not read", "reason": "internal reason", "consumers": 0, "labels": 0}}}
+    monkeypatch.setattr(rss, "status", lambda: full)
+    pub = rss.public_status()
+    assert pub["report"]["consumers"] == {"status": "not read", "consumers": 0, "labels": 0}
+    assert "internal reason" not in str(pub) and "secret words" not in str(pub)
