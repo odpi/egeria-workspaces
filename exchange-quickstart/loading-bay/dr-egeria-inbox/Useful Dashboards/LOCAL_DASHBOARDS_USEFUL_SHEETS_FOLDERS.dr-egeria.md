@@ -13,14 +13,16 @@
 > `_folder_order.json` runs before this one. So the memberships seed with the sheets, and only where they are seeded.
 >
 > Every tile uses a built-in pyegeria spec except `catalog-health`'s "Assets with No Lineage" tile (from
-> `LOCAL_DASHBOARDS_SAVED_QUERY_TILE.dr-egeria.md`), whose spec "Saved Query Answer" is filed only in
+> `LOCAL_DASHBOARDS_SAVED_QUERY_TILE.dr-egeria.md`), whose spec "Saved Query Result" is filed only in
 > `ReportSpecFolder::Consumer::Portal`. A tool that doesn't take that report-spec folder shows that one tile as
 > a missing spec; the rest of the sheet works.
 >
 > `Add Member`, never `Parent ID` (see `LOCAL_DASHBOARDS_FOLDERS.dr-egeria.md`). **Run it once:** `Add Member to
 > Collection` does not dedupe, so a second run adds a second membership for each sheet. The batch's canary (the
-> Dashboard "Catalog Health", the `catalog-health` sheet) prevents heal re-runs: a heal runs this batch only when
-> that sheet is missing.
+> last element the batch creates: the placement "catalog-health / Catalog Health - Assets with No Lineage", made by
+> `LOCAL_DASHBOARDS_SAVED_QUERY_TILE.dr-egeria.md`) prevents heal re-runs: a heal runs this batch only when that
+> placement is missing. This file creates no element, so the canary cannot tell whether it ran; check the
+> folder members instead.
 > **This is a shared Egeria write:** `--validate` first, `--process` once under the peer check.
 > **Undo:** `Remove Member from Collection` with the same Collection Id and Element Id.
 

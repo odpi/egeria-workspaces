@@ -20,7 +20,8 @@ Lives at the root of a batch folder (a sibling of that folder's `.md` files), e.
 | `files` | *(none — alphabetical)* | Explicit execution order, in the order listed. An entry can be a Dr.Egeria file (`"glossary.md"`), a Jupyter notebook (`"load-reference-data.ipynb"`), a file in a subfolder (`"mapping-the-systems/egeria-implementation.md"`), or a whole subfolder (`"strategic-digital-products/"`), which runs in place, in its own order (its own `_batch.json`, recursively). Anything **not** listed is appended afterward: `.md` files alphabetically, then subfolders alphabetically. Notebooks are appended only when `notebooks` is `"all"`. Each appended item is flagged in the panel, because its position was defaulted rather than chosen. A stale entry (no longer present) is skipped and flagged. |
 | `userid` | *(none — dr_egeria's default user)* | The Egeria user this folder's files are loaded as, and the default for its subfolders. A single entry in `files` can override it with the object form `{"file": "risk-register.md", "userid": "juleskeeper"}`. That form also works for a subfolder entry (`{"file": "mapping-the-systems/", "userid": "peterprofile"}`), where it sets the default for that subfolder. See [Run-as identity](#run-as-identity). |
 | `notebooks` | *(none — listed notebooks only)* | `"all"` runs every notebook in this folder, the unlisted ones after the listed files, alphabetically with the unlisted `.md` files. Without it, a notebook runs only if `files` lists it, since workbook folders are mostly tutorials. Applies to this folder only, not its subfolders. See [Running notebooks during Data Initialization](data-initialization-notebooks.md). |
-| `exclude` | *(none)* | Files or subfolders in this folder that should never run, e.g. prose documents that sit next to the command files. `README.md` and the plumbing/output folders `dr-egeria-outbox`, `egeria-outbox`, `logs`, `data`, `templates`, `__pycache__` and `.ipynb_checkpoints` are always skipped, unless named explicitly in `files`. |
+| `exclude` | *(none)* | Files or subfolders in this folder that should never run, e.g. prose documents that sit next to the command files. `README.md` and the plumbing/output folders `dr-egeria-outbox`, `egeria-outbox`, `logs`, `data`, `templates`, `__pycache__` and `.ipynb_checkpoints` are always skipped, unless named explicitly in `files`. A document that must never run again (a one-off fix-up) is better moved out of `dr-egeria-inbox` altogether, as the 2026-11-11 fix-ups were (`dr-egeria-archive/2026-11-11/`). |
+| `manualSteps` | *(none)* | Steps a person must do after the batch runs, which the Portal must not do itself (for example a first refresh that has to run as a signed-in user). Each is `{"id", "description", "how", "type", "qualifiedName", "doneProperty", "reportProperties"?, "pendingText"?}`. After each check, `/api/bootstrap/status` reports each step under its batch as **done** (the element's `doneProperty` additional property is set, with its value and any `reportProperties`), **pending** (the element exists without it; `pendingText`), or **not checked** (the element was not found, the lookup failed, or the batch has not run; with the reason). Nothing runs these steps automatically. |
 
 ### Example — `Local Dashboards/_batch.json` (real, shipped)
 
@@ -122,7 +123,7 @@ Each file the Portal runs successfully is recorded in `~/.pyegeria/bootstrap_led
 
 ### The core-portal exception
 
-A manifest is optional for every folder under `dr-egeria-inbox` — but it's the *only* way to register one of the handful of core-portal seed batches that ship as `.md` files alongside the Portal's own code rather than under `dr-egeria-inbox` (e.g. the Governance Metrics seed doc next to `gen_governance_metrics.py`). For those, a manifest is **required** — no manifest means that batch simply doesn't appear — and their `files` list is used exactly as given, with **no** alphabetical-remainder auto-append (that folder also holds unrelated `.py`/`.html` source, so "every other file in the folder" isn't a safe rule there).
+A manifest is optional for every folder under `dr-egeria-inbox` — but it's the *only* way to register one of the handful of core-portal seed batches that ship as `.md` files alongside the Portal's own code rather than under `dr-egeria-inbox` (e.g. the Governance Metrics seed doc next to `gen_governance_metrics.py`, and `egeria-held-specs`: the report-spec consumer folders and the Portal's own report specs held in Egeria). For those, a manifest is **required** — no manifest means that batch simply doesn't appear — and their `files` list is used exactly as given, with **no** alphabetical-remainder auto-append (that folder also holds unrelated `.py`/`.html` source, so "every other file in the folder" isn't a safe rule there).
 
 ---
 
@@ -160,6 +161,19 @@ The `Coco - *` batches carry number prefixes, but the dependency order in the co
  "Coco - 1. Data Hub", "Coco - 4. Keeping Safe", "Coco - 3. Sustainability",
  "Coco - 4. Martyns Law", "Coco - 5. Sales Forecast Consolidation"]
 ```
+
+### Batches that depend on each other (quickstart)
+
+After the Coco batches, the shipped order runs:
+
+| Batch | Runs after | Because |
+|---|---|---|
+| Dashboard Folders | Local Dashboards | it files the next-steps sheet in both dashboard folders |
+| `egeria-held-specs` | Dashboard Folders | creates `ReportSpecFolder::Consumer::Portal` and the Portal's held specs |
+| Useful Dashboards | Dashboard Folders, `egeria-held-specs` | files its sheets in the dashboard folders, and a spec in `ReportSpecFolder::Consumer::Portal` |
+| Security, Dr.Egeria Help Glossary | — | no dependencies; the help glossary (about five minutes) runs last so the dashboards come back first |
+
+`tests/test_bootstrap_heal_seeds.py` checks this order, and that each of these batches' canary is the last element it creates.
 
 This file is deployment-specific (it lives under `dr-egeria-inbox`, which is environment data, not Portal code) — quickstart and freshstart each have their own `dr-egeria-inbox` and so their own independent `_folder_order.json`, even though the coco-workbooks batches themselves are the same symlinked content in both.
 

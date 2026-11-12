@@ -1,0 +1,14 @@
+{
+  "displayName": "Report-spec folders and the Portal's held specs",
+  "description": "The report-spec consumer folder tree (RootCollection::ReportSpecs and one folder per tool), then the Portal's two report specs held in Egeria, filed in ReportSpecFolder::Consumer::Portal. Runs after Dashboard Folders and before Useful Dashboards (see _folder_order.json).",
+  "canary": {
+    "type": "ReportSpec",
+    "name": "Resource Explorer - Curation Coverage"
+  },
+  "defaultEnabled": true,
+  "idempotent": false,
+  "files": [
+    "REPORT_SPEC_CONSUMER_FOLDERS.dr-egeria.md",
+    "PORTAL_REPORT_SPECS.dr-egeria.md"
+  ]
+}

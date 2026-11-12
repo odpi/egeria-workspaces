@@ -1,0 +1,13 @@
+{
+  "displayName": "Dr.Egeria Help Glossary",
+  "description": "The dr-egeria Glossary: one term per Dr.Egeria command, with its attributes, used by the dr_egeria_help search tool. A copy of pyegeria's generated help document (gen_dr_help), refreshed by the dr-egeria-command-sync skill. Collection folders are linked with Parent ID and terms with Folders, so a re-run is not proven safe: run it only when the canary is missing.",
+  "canary": {
+    "type": "GlossaryTerm",
+    "name": "Detach Specification Property Assignment"
+  },
+  "defaultEnabled": true,
+  "idempotent": false,
+  "files": [
+    "dr-egeria-help.dr-egeria.md"
+  ]
+}
