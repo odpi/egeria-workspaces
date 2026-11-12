@@ -193,7 +193,8 @@ def _folder_qn(folder: str) -> tuple[str, List[str]]:
     if (idx.get("status") or "not read") == "not read":
         try:                                   # heal it for the next try (at most every 2 minutes)
             import report_spec_sync
-            report_spec_sync.retry_if_index_not_read("not read")
+            report_spec_sync.retry_if_index_not_read("not read", supported=idx.get("supported", True),
+                                                     reason=idx.get("reason"))
         except Exception:  # noqa: BLE001
             pass
         raise Refused(NO_FOLDERS.format(reason=idx.get("reason") or "no reason given"), 409)

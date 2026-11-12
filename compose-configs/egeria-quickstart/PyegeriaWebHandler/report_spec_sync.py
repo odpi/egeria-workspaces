@@ -51,7 +51,16 @@ LAZY_RETRY_S = float(os.environ.get("PORTAL_REPORT_SPEC_INDEX_RETRY", "120"))
 RETRY_OUTCOMES = ("failed", "index_not_read")
 #: "enabled" is False only in the test suite (tests/conftest.py), so a listing in one test never starts a
 #: real background sync that races another test's sync state.
-_LAZY = {"last": None, "enabled": True}
+#: The longest wait between two syncs for the same "not read" reason (lazy and startup retries back off,
+#: doubling, up to this): a permanent cause (the consumer root missing) must not mean a full sync every
+#: two minutes for ever.
+BACKOFF_CAP_S = float(os.environ.get("PORTAL_REPORT_SPEC_INDEX_RETRY_CAP", "1800"))
+_LAZY = {"last": None, "enabled": True, "reason": None, "fires": 0}
+
+
+def backoff(base: float, repeats: int) -> float:
+    """The wait before the next try after `repeats` tries for the same reason: base, 2x, 4x ... capped."""
+    return min(BACKOFF_CAP_S, base * (2 ** max(0, repeats - 1)))
 
 _LOCK = threading.Lock()
 _STATE: Dict[str, Any] = {
@@ -200,6 +209,7 @@ def _run(trigger: str, attempts: int, delay: float) -> None:
             with _LOCK:
                 _STATE.update(phase="waiting")
             time.sleep(delay)
+        same, last_error = 0, None
         for attempt in range(1, attempts + 1):
             with _LOCK:
                 _STATE.update(attempt=attempt, phase="syncing", started_at=_now())
@@ -208,7 +218,12 @@ def _run(trigger: str, attempts: int, delay: float) -> None:
                 return
             with _LOCK:
                 _STATE.update(phase="retry_wait")
-            time.sleep(_RETRY_INTERVAL_S)   # Egeria may still be starting; try again later
+                error = _STATE.get("error")
+            # Egeria may still be starting: try again later. A "not read" index for the same reason again
+            # backs off (doubling, capped); a failed sync (Egeria down) keeps the plain interval.
+            same = same + 1 if outcome == "index_not_read" and error == last_error else (1 if outcome == "index_not_read" else 0)
+            last_error = error if outcome == "index_not_read" else None
+            time.sleep(backoff(_RETRY_INTERVAL_S, same) if same else _RETRY_INTERVAL_S)
     finally:
         with _LOCK:
             _STATE.update(running=False, phase=None)
@@ -244,19 +259,30 @@ def start(trigger: str = "admin") -> bool:
     return True
 
 
-def retry_if_index_not_read(index_status: Optional[str] = None, now: Optional[float] = None) -> bool:
+def retry_if_index_not_read(index_status: Optional[str] = None, now: Optional[float] = None, *,
+                            supported: bool = True, reason: Optional[str] = None) -> bool:
     """Start a sync when the consumer index is "not read", a sync has finished before (the startup sync
-    owns the first read), and none ran in the last LAZY_RETRY_S. Called
-    on a Report Specs listing or a publish request, so an egeria-main restart the Portal never saw heals
-    itself. `index_status` is the index status the caller already read (report_spec_consumers.index()).
+    owns the first read), and the wait for this reason has passed. Called on a Report Specs listing or a
+    publish request, so an egeria-main restart the Portal never saw heals itself. `index_status`,
+    `supported` and `reason` are what the caller already read (report_spec_consumers.index()).
+
+    - `supported` False (a pyegeria without the consumer index): never; a sync cannot change it.
+    - The same reason again: the wait doubles from LAZY_RETRY_S (2 min) up to BACKOFF_CAP_S (30 min), so
+      a permanent cause (the consumer root missing) is not a full sync every two minutes. A new reason
+      starts again at 2 minutes; the index reading "read" resets it.
     Never blocks; True when a sync was started."""
     if index_status is None:
         try:
             import report_spec_consumers
-            index_status = report_spec_consumers.index().get("status")
+            idx = report_spec_consumers.index()
+            index_status, supported, reason = idx.get("status"), idx.get("supported", True), idx.get("reason")
         except Exception:  # noqa: BLE001
             return False
-    if not _LAZY.get("enabled", True) or index_status != "not read" or not configured_folders():
+    if index_status != "not read":
+        with _LOCK:
+            _LAZY.update(reason=None, fires=0)          # read (or partly): the next "not read" starts afresh
+        return False
+    if not _LAZY.get("enabled", True) or supported is False or not configured_folders():
         return False
     now = time.monotonic() if now is None else now
     with _LOCK:
@@ -264,14 +290,17 @@ def retry_if_index_not_read(index_status: Optional[str] = None, now: Optional[fl
         # read (or it is turned off, and "no sync from Egeria has run" is the honest answer).
         if _STATE["running"] or _STATE["outcome"] is None:
             return False
-        last = _LAZY["last"]
-        if last is not None and now - last < LAZY_RETRY_S:
+        if reason != _LAZY["reason"]:
+            _LAZY.update(reason=reason, fires=0)
+        last, fires = _LAZY["last"], _LAZY["fires"]
+        wait = backoff(LAZY_RETRY_S, fires) if fires else LAZY_RETRY_S
+        if last is not None and now - last < wait:
             return False
-        _LAZY["last"] = now
+        _LAZY.update(last=now, fires=fires + 1)
     started = start("lazy")
     if started:
-        logger.info("report-spec sync: the consumer index is not read; syncing again (at most every "
-                    f"{LAZY_RETRY_S:.0f}s)")
+        logger.info(f"report-spec sync: the consumer index is not read ({reason or 'no reason given'}); syncing "
+                    f"again; the next try for the same reason waits {backoff(LAZY_RETRY_S, fires + 1):.0f}s")
     return started
 
 

@@ -316,7 +316,8 @@ def get_report_specs(
     # at most every 2 minutes (report_spec_sync.retry_if_index_not_read). Never blocks this listing.
     try:
         import report_spec_sync
-        report_spec_sync.retry_if_index_not_read(consumers.get("status"))
+        report_spec_sync.retry_if_index_not_read(consumers.get("status"), supported=consumers.get("supported", True),
+                                                 reason=consumers.get("reason"))
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"report specs: lazy sync not started: {exc}")
 

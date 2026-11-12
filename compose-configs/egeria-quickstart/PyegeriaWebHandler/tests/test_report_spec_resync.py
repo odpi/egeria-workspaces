@@ -88,7 +88,7 @@ def starts(monkeypatch):
     monkeypatch.setattr(rss, "start", lambda trigger="admin": out.append(trigger) or True)
     monkeypatch.setattr(rss, "configured_folders", lambda: ["ReportSpecFolder::Consumer::Portal"])
     rss._STATE.update(running=False, outcome="index_not_read")
-    rss._LAZY.update(last=None, enabled=True)     # tests/conftest.py turns it off for the rest of the suite
+    rss._LAZY.update(last=None, enabled=True, reason=None, fires=0)   # conftest turns it off elsewhere
     yield out
     rss._STATE.update(outcome=None)
 
@@ -127,22 +127,22 @@ def test_the_report_specs_listing_asks_for_the_lazy_retry(monkeypatch):
     seen = []
     monkeypatch.setattr(report_spec_consumers, "index",
                         lambda: {"status": "not read", "reason": "no sync yet", "consumers": [], "index": {}})
-    monkeypatch.setattr(rss, "retry_if_index_not_read", lambda status=None, now=None: seen.append(status) or True)
+    monkeypatch.setattr(rss, "retry_if_index_not_read", lambda status=None, now=None, **k: seen.append((status, k)) or True)
     app = FastAPI()
     app.include_router(rsh.router)
     r = TestClient(app).get("/api/report-specs")
-    assert r.status_code == 200 and seen == ["not read"]
+    assert r.status_code == 200 and seen == [("not read", {"supported": True, "reason": "no sync yet"})]
 
 
 def test_the_publish_control_asks_for_the_lazy_retry(monkeypatch):
     import report_spec_publish_handler as h
     seen = []
     monkeypatch.setattr(h, "_consumers", lambda: {"status": "not read", "reason": "no sync yet", "consumers": []})
-    monkeypatch.setattr(rss, "retry_if_index_not_read", lambda status=None, now=None: seen.append(status) or True)
+    monkeypatch.setattr(rss, "retry_if_index_not_read", lambda status=None, now=None, **k: seen.append((status, k)) or True)
     with pytest.raises(h.Refused) as exc:
         h._folder_qn("Portal")
     assert exc.value.status == 409 and "the Portal tries again every 2 minutes" in exc.value.message
-    assert seen == ["not read"]
+    assert seen == [("not read", {"supported": True, "reason": "no sync yet"})]
 
 
 def test_the_held_summary_says_index_not_read():
@@ -175,3 +175,77 @@ def test_public_status_carries_the_index_status_but_not_its_reason(monkeypatch):
     pub = rss.public_status()
     assert pub["report"]["consumers"] == {"status": "not read", "consumers": 0, "labels": 0}
     assert "internal reason" not in str(pub) and "secret words" not in str(pub)
+
+
+
+# ── back off on a permanent "not read" (read-back, 2026-11-12) ─────────────────
+
+def test_an_unsupported_index_never_triggers_a_sync(starts):
+    assert rss.retry_if_index_not_read("not read", now=1000.0, supported=False, reason="old pyegeria") is False
+    assert starts == []
+
+
+def _fire_times(starts, reason, times, status="not read"):
+    out = []
+    for t in times:
+        if rss.retry_if_index_not_read(status, now=float(t), reason=reason):
+            out.append(t)
+    return out
+
+
+def test_the_same_reason_backs_off_doubling_to_30_minutes(starts):
+    assert rss.BACKOFF_CAP_S == 1800
+    times = range(0, 20000, 10)
+    fired = _fire_times(starts, "root missing", times)
+    gaps = [b - a for a, b in zip(fired, fired[1:])]
+    assert gaps[:5] == [120, 240, 480, 960, 1800]
+    assert all(g == 1800 for g in gaps[4:])
+
+
+def test_a_new_reason_starts_again_at_2_minutes(starts):
+    _fire_times(starts, "root missing", [0, 120, 360, 840])          # now waiting 960 for this reason
+    assert rss.retry_if_index_not_read("not read", now=960.0, reason="root missing") is False
+    assert rss.retry_if_index_not_read("not read", now=960.0, reason="Egeria unreachable") is True
+
+
+def test_reading_the_index_resets_the_back_off(starts):
+    _fire_times(starts, "root missing", [0, 120, 360, 840])
+    assert rss.retry_if_index_not_read("read", now=900.0, reason=None) is False
+    assert rss._LAZY["fires"] == 0
+    assert rss.retry_if_index_not_read("not read", now=960.0, reason="root missing") is True   # 120 s after 840
+
+
+def test_backoff_values():
+    assert [rss.backoff(120, n) for n in range(1, 8)] == [120, 240, 480, 960, 1800, 1800, 1800]
+
+
+def _startup_sleeps(monkeypatch, results):
+    """Run the startup loop over (outcome, error) results; return the waits between attempts."""
+    seq = iter(results)
+
+    def once():
+        outcome, error = next(seq)
+        rss._STATE.update(outcome=outcome, error=error)
+        return outcome
+    sleeps = []
+    monkeypatch.setattr(rss, "_sync_once", once)
+    monkeypatch.setattr(rss.time, "sleep", lambda s: sleeps.append(s))
+    monkeypatch.setattr(rss, "_RETRY_INTERVAL_S", 120)
+    rss._run("startup", len(results), 0)
+    return sleeps
+
+
+def test_startup_backs_off_on_the_same_unread_index(monkeypatch):
+    sleeps = _startup_sleeps(monkeypatch, [("index_not_read", "root missing")] * 7)
+    assert sleeps == [120, 240, 480, 960, 1800, 1800]
+
+
+def test_startup_keeps_the_plain_interval_while_egeria_is_down(monkeypatch):
+    sleeps = _startup_sleeps(monkeypatch, [("failed", "ConnectionError")] * 4 + [("synced", None)])
+    assert sleeps == [120, 120, 120, 120]
+
+
+def test_startup_restarts_the_back_off_for_a_new_reason(monkeypatch):
+    sleeps = _startup_sleeps(monkeypatch, [("index_not_read", "a"), ("index_not_read", "a"), ("index_not_read", "b"),
+                                           ("failed", "x"), ("index_not_read", "b"), ("synced", None)])
+    assert sleeps == [120, 240, 120, 120, 120]
