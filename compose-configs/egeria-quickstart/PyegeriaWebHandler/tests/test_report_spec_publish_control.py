@@ -380,3 +380,93 @@ def test_a_version_of_0_is_unknown_not_stale(client, cached, live):
     r = post(c, step="preview")
     assert r.status_code == 409 and r.json()["message"].startswith("Could not tell whether 'Team Projects' in Egeria")
     assert "sync first" not in r.json()["message"]
+
+
+# ── no exception text to the client (CodeQL "information exposure", #864) ──────
+
+SECRET = "internal detail /app/secret_path token=abc"
+
+
+@pytest.fixture
+def log_lines():
+    from loguru import logger
+    lines = []
+    sink = logger.add(lambda m: lines.append(str(m)), level="DEBUG")
+    yield lines
+    logger.remove(sink)
+
+
+def test_an_unexpected_failure_returns_a_reference_never_the_exception(client, monkeypatch, log_lines):
+    import report_spec_publish_handler as h
+    c, w = client
+
+    def run_as(token):
+        def run(markdown, directive):
+            raise RuntimeError(SECRET)
+        return run
+    monkeypatch.setattr(h, "_run_as_user", run_as)
+    r = post(c, step="validate")
+    body = r.json()
+    assert r.status_code == 500
+    assert SECRET not in r.text and "RuntimeError" not in r.text
+    ref = body["reference"]
+    assert len(ref) == 8 and body["message"] == (f"Publishing failed in the Portal; the server log has the details "
+                                                 f"(reference {ref}).")
+    logged = "\n".join(log_lines)
+    assert f"[{ref}]" in logged and SECRET in logged and "RuntimeError" in logged     # the detail is in the log
+
+
+def test_a_failed_sync_start_after_the_write_is_a_reference(client, monkeypatch, log_lines):
+    import report_spec_publish_handler as h
+    c, w = client
+
+    def boom(label):
+        raise OSError(SECRET)
+    monkeypatch.setattr(h, "_after_success", boom)
+    digest = post(c, step="preview").json()["digest"]
+    r = post(c, step="process", digest=digest, confirmed=True)
+    after = r.json()["after"]
+    assert r.status_code == 200 and SECRET not in r.text and "OSError" not in r.text
+    assert after["syncStarted"] is False
+    assert after["message"] == f"Done in Egeria, but the Portal could not start its sync (reference {after['reference']})."
+    assert f"[{after['reference']}]" in "\n".join(log_lines) and SECRET in "\n".join(log_lines)
+
+
+def test_a_failed_live_version_read_is_a_reference(client, monkeypatch, log_lines):
+    import report_spec_publish_handler as h
+    c, w = client
+    w.tier = {"guid": "g-1", "header_version": 4}
+
+    def live(token, guid):
+        raise ConnectionError(SECRET)
+    monkeypatch.setattr(h, "_live_version", live)
+    r = post(c, step="preview")
+    assert r.status_code == 502 and SECRET not in r.text and "ConnectionError" not in r.text
+    assert r.json()["message"].startswith("Could not read 'Team Projects' in Egeria to check it is not newer")
+    assert SECRET in "\n".join(log_lines)
+
+
+def test_pyegerias_refusal_words_are_kept_and_a_non_text_one_has_a_fixed_sentence(client, monkeypatch):
+    import report_spec_publish_handler as h
+    c, w = client
+    real = h._publish_module()
+
+    class Fake:
+        PublishRefused = real.PublishRefused
+
+        def __getattr__(self, name):
+            return getattr(real, name)
+
+        def run_document(self, *a, **k):
+            raise real.PublishRefused({"not": "text"})
+    monkeypatch.setattr(h, "_publish_module", lambda: Fake())
+    r = post(c, step="preview")
+    assert r.status_code == 400 and r.json()["message"] == "pyegeria refused the request (no reason was given)."
+    monkeypatch.setattr(h, "_publish_module", lambda: real)
+    assert post(c, step="preview", confirmed=False, action="publish").status_code == 200
+
+
+def test_no_exception_text_is_put_in_a_response():
+    src = (ROOT / "report_spec_publish_handler.py").read_text()
+    assert "str(exc)" not in src and "{exc}" not in src
+    assert '"message": exc.message' in src

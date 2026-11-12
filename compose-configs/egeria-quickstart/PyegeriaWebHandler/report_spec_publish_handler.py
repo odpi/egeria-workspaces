@@ -54,6 +54,7 @@ NOT_HELD = "'{label}' is not held in Egeria, so there is nothing to withdraw."
 SIGN_IN = "Sign in to publish or withdraw a report spec: it runs as you, never as the Portal's service account."
 NO_FOLDERS = ("The consumer folders were not read ({reason}), so there is nowhere to publish to yet. "
               "Run the report-spec sync first.")
+PUBLISH_REFUSED_FALLBACK = "pyegeria refused the request (no reason was given)."
 STALE = ("'{label}' changed in Egeria since the Portal's last sync (Egeria has version {live}, the Portal's copy "
          "is version {cached}). Publishing would write the older copy back: sync first, then publish.")
 
@@ -68,11 +69,19 @@ class PublishRequest(BaseModel):
 
 
 class Refused(Exception):
-    """A request the control will not run, with the words (and the HTTP status) to show."""
+    """A request the control will not run, with the words (and the HTTP status) to show. `message` is
+    the only text a caller sees: written for users, never an exception's own text."""
 
     def __init__(self, words: str, status: int = 400):
         super().__init__(words)
+        self.message = words
         self.status = status
+
+
+def _reference() -> str:
+    """A short id that ties a fixed message the user sees to the server log line with the details."""
+    import secrets
+    return secrets.token_hex(4)
 
 
 # ── seams (replaced in tests) ─────────────────────────────────────────────────
@@ -80,8 +89,9 @@ class Refused(Exception):
 def _publish_module():
     try:
         from pyegeria.view import report_spec_publish as rsp
-    except ImportError as exc:
-        raise Refused(f"Publishing needs pyegeria 6.2.40 or later (pyegeria.view.report_spec_publish): {exc}", 501)
+    except ImportError:
+        logger.exception("report spec publish: pyegeria.view.report_spec_publish could not be imported")
+        raise Refused("Publishing needs pyegeria 6.2.40 or later (pyegeria.view.report_spec_publish).", 501)
     return rsp
 
 
@@ -219,9 +229,11 @@ def _plan(req: PublishRequest, token: str) -> Dict[str, Any]:
                     live = _live_version(token, info["guid"])
                 except HTTPException as exc:          # PlatformRefused: its own status and words
                     raise Refused(str(exc.detail), exc.status_code)
-                except Exception as exc:  # noqa: BLE001
+                except Exception:  # noqa: BLE001
+                    ref = _reference()
+                    logger.exception(f"report spec publish [{ref}]: the live version of {label!r} could not be read")
                     raise Refused(f"Could not read '{label}' in Egeria to check it is not newer than the "
-                                  f"Portal's copy ({type(exc).__name__}: {exc}); nothing is changed.", 502)
+                                  f"Portal's copy; nothing is changed (reference {ref}).", 502)
                 cached = info.get("header_version")
                 # pyegeria's cache records version 0 when it could not read one: that is unknown, not "0"
                 if not isinstance(live, int) or live <= 0 or not isinstance(cached, int) or cached <= 0:
@@ -252,20 +264,26 @@ def publish_spec(req: PublishRequest, request: Request):
         out = rsp.run_document(plan, step=req.step, run=_run_as_user(token),
                                confirmed=req.confirmed, digest=req.digest)
     except Refused as exc:
-        return JSONResponse({"refused": True, "message": str(exc)}, status_code=exc.status)
+        return JSONResponse({"refused": True, "message": exc.message}, status_code=exc.status)
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001 -- pyegeria's PublishRefused, or a run that failed
         if type(exc).__name__ == "PublishRefused":
-            return JSONResponse({"refused": True, "message": str(exc)}, status_code=400)
-        logger.exception("report spec publish failed")
-        return JSONResponse({"refused": True, "message": f"Publishing failed: {type(exc).__name__}: {exc}"},
-                            status_code=500)
+            # pyegeria's refusal words are written for users (the shared helper's checks); nothing else is sent
+            words = exc.args[0] if exc.args and isinstance(exc.args[0], str) else PUBLISH_REFUSED_FALLBACK
+            return JSONResponse({"refused": True, "message": words}, status_code=400)
+        ref = _reference()
+        logger.exception(f"report spec publish [{ref}] failed")
+        return JSONResponse({"refused": True, "reference": ref,
+                             "message": f"Publishing failed in the Portal; the server log has the details "
+                                        f"(reference {ref})."}, status_code=500)
     if out.get("after"):
         try:
             out["after"] = {**out["after"], **_after_success(out["label"])}
-        except Exception as exc:  # noqa: BLE001 -- the write happened; say the follow-up did not
-            out["after"] = {**out["after"], "syncStarted": False,
-                            "message": f"Done in Egeria, but the Portal could not start its sync: {exc}"}
+        except Exception:  # noqa: BLE001 -- the write happened; say the follow-up did not
+            ref = _reference()
+            logger.exception(f"report spec publish [{ref}]: the sync after {out.get('label')!r} could not start")
+            out["after"] = {**out["after"], "syncStarted": False, "reference": ref,
+                            "message": f"Done in Egeria, but the Portal could not start its sync (reference {ref})."}
     out.pop("held", None)
     return JSONResponse(out)
