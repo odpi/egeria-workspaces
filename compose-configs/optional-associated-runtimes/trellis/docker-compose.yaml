@@ -121,8 +121,11 @@ services:
       # Same value as EGERIA_PLATFORM_URL: single-platform deployment.
       EGERIA_VIEW_SERVER_URL: https://host.docker.internal:9443
       EGERIA_VIEW_SERVER: qs-view-server
-      EGERIA_USER: "${EGERIA_USER:-erinoverview}"
-      EGERIA_USER_PASSWORD: "${EGERIA_USER_PASSWORD:-secret}"
+      # RE's own service account (resource_explorer/config.py reads EGERIA_USER_ID / EGERIA_USER_PASSWORD; it
+      # never read EGERIA_USER, so the persona default here gave RE no account at all). resourceexplorernpa;
+      # no default on purpose. Set both in this directory's .env (see .env.example).
+      EGERIA_USER_ID: "${RE_DAEMON_USER_ID:?set RE_DAEMON_USER_ID in .env (RE's service account, resourceexplorernpa)}"
+      EGERIA_USER_PASSWORD: "${RE_DAEMON_USER_PASSWORD:?set RE_DAEMON_USER_PASSWORD in .env (see .env.example)}"
       PYEGERIA_TIMEOUT_SECONDS: "30"
 
       # ── LLM backend — Ollama in this same optional runtime, reached by
@@ -189,8 +192,11 @@ services:
       # process that actually runs bootstrap's heal_batch()/dr_egeria calls.
       EGERIA_VIEW_SERVER_URL: https://host.docker.internal:9443
       EGERIA_VIEW_SERVER: qs-view-server
-      EGERIA_USER: "${EGERIA_USER:-erinoverview}"
-      EGERIA_USER_PASSWORD: "${EGERIA_USER_PASSWORD:-secret}"
+      # RE's own service account (resource_explorer/config.py reads EGERIA_USER_ID / EGERIA_USER_PASSWORD; it
+      # never read EGERIA_USER, so the persona default here gave RE no account at all). resourceexplorernpa;
+      # no default on purpose. Set both in this directory's .env (see .env.example).
+      EGERIA_USER_ID: "${RE_DAEMON_USER_ID:?set RE_DAEMON_USER_ID in .env (RE's service account, resourceexplorernpa)}"
+      EGERIA_USER_PASSWORD: "${RE_DAEMON_USER_PASSWORD:?set RE_DAEMON_USER_PASSWORD in .env (see .env.example)}"
       PYEGERIA_TIMEOUT_SECONDS: "30"
       LLM__BACKEND: ollama
       LLM__OLLAMA__BASE_URL: http://ollama:11434
@@ -240,8 +246,11 @@ services:
       # feature (or a future one) ends up needing.
       EGERIA_PLATFORM_URL: https://host.docker.internal:9443
       EGERIA_VIEW_SERVER: qs-view-server
-      EGERIA_USER: "${EGERIA_USER:-garygeeke}"
-      EGERIA_PASSWORD: "${EGERIA_USER_PASSWORD:-secret}"
+      # EA's own service account, egeriaadvisornpa, never a persona: EA treats whatever EGERIA_USER names as its
+      # service account and refuses that user at sign-in (advisor/auth.py), so a persona default would lock that
+      # persona out of EA. No default on purpose. Set both in this directory's .env (see .env.example).
+      EGERIA_USER: "${EA_DAEMON_USER_ID:?set EA_DAEMON_USER_ID in .env (EA's service account, egeriaadvisornpa)}"
+      EGERIA_PASSWORD: "${EA_DAEMON_USER_PASSWORD:?set EA_DAEMON_USER_PASSWORD in .env (see .env.example)}"
 
       OLLAMA_BASE_URL: http://ollama:11434
       OLLAMA_MODEL: "${TRELLIS_MODEL_GENERAL:-llama3.1:8b}"
