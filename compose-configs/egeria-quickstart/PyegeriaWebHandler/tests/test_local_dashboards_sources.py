@@ -613,11 +613,17 @@ def test_a_published_reports_authoring_stamps_are_not_report_parameters():
 
 
 def test_the_authoring_keys_include_pyegerias_own_when_it_has_them():
-    try:
-        from pyegeria.authoring.publication import AUTHORING_KEYS
-    except ImportError:
+    import importlib
+    found = []
+    for module in ("pyegeria.authoring", "pyegeria.authoring.publication"):
+        try:
+            found.append(frozenset(importlib.import_module(module).AUTHORING_KEYS))
+        except (ImportError, AttributeError):
+            pass
+    if not found:
         pytest.skip("this pyegeria has no pyegeria.authoring (the 6.2.40 floor): the literal set applies")
-    assert set(AUTHORING_KEYS) <= ld._AUTHORING_KEYS
+    assert all(keys <= ld._AUTHORING_KEYS for keys in found)
+    assert ld._PYEGERIA_AUTHORING_KEYS == found[0]
 
 
 def test_a_report_miss_is_not_cached_so_a_false_miss_heals_on_the_next_build(monkeypatch):

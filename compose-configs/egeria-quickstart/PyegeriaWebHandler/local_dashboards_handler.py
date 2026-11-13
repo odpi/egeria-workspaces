@@ -562,16 +562,20 @@ def _find_report_by_name(name: str, mgr, url=None, server=None, user_id=None, us
 # additionalProperties keys pyegeria's authoring API writes for itself (publication stamps, the draft
 # state, the spec version). They are bookkeeping, never a Report parameter. pyegeria 6.2.41 stamps
 # published Reports with publishedVersion/publishedAt/publishedBy; the floor is 6.2.40, which has no
-# pyegeria.authoring, so the same five keys are named here (pyegeria c6857416, publication.py). pyegeria's
+# pyegeria.authoring, so the same five keys are named here (pyegeria/authoring/publication.py, c6857416 and
+# 4328c5f7). The stable public path is `from pyegeria.authoring import AUTHORING_KEYS` (4328c5f7 on);
+# pyegeria.authoring.publication is where it is defined (c6857416). pyegeria's
 # own set is looked up at run time, not with a static import, because on the floor it does not exist yet
 # (tests/test_pyegeria_methods_exist.py rightly refuses a static import of a missing name);
 # tests/test_local_dashboards_sources.py checks pyegeria's set is covered whenever it is installed.
 def _pyegeria_authoring_keys() -> frozenset:
     import importlib
-    try:
-        return frozenset(getattr(importlib.import_module("pyegeria.authoring.publication"), "AUTHORING_KEYS"))
-    except (ImportError, AttributeError, TypeError):
-        return frozenset()
+    for module in ("pyegeria.authoring", "pyegeria.authoring.publication"):
+        try:
+            return frozenset(getattr(importlib.import_module(module), "AUTHORING_KEYS"))
+        except (ImportError, AttributeError, TypeError):
+            continue
+    return frozenset()
 
 
 _PYEGERIA_AUTHORING_KEYS = _pyegeria_authoring_keys()
