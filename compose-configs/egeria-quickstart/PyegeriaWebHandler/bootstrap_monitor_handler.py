@@ -228,14 +228,33 @@ async def _manual_step_state(step: dict) -> dict:
     return _manual_step_from_elements(step, base, els)
 
 
+def _additional_properties(el) -> dict:
+    """An element's additionalProperties as a flat {key: value} dict.
+
+    find_metadata_elements returns raw OpenMetadataElements: the map sits at
+    elementProperties.propertyValueMap.additionalProperties as a
+    MapTypePropertyValue, each value at mapValues.propertyValueMap.<key>.primitiveValue.
+    A flat {"properties": {"additionalProperties": {...}}} element (pyegeria's
+    reshaped output) is read as a fallback. Anything else is an empty dict."""
+    if not isinstance(el, dict):
+        return {}
+    raw = ((el.get("elementProperties") or {}).get("propertyValueMap") or {}).get("additionalProperties")
+    if isinstance(raw, dict):
+        entries = (raw.get("mapValues") or {}).get("propertyValueMap") or {}
+        if isinstance(entries, dict):
+            return {k: (v.get("primitiveValue") if isinstance(v, dict) else v) for k, v in entries.items()}
+        return {}
+    flat = (el.get("properties") or {}).get("additionalProperties")
+    return flat if isinstance(flat, dict) else {}
+
+
 def _manual_step_from_elements(step: dict, base: dict, els) -> dict:
     """The state from a find result (split out so it is testable without Egeria)."""
     qn, prop = step.get("qualifiedName"), step.get("doneProperty")
     if not isinstance(els, list) or not els:
         return {**base, "state": "not checked", "detail": f"{qn} was not found, so the step cannot apply yet"}
-    props = (els[0] or {}).get("properties") or {}
-    additional = props.get("additionalProperties") or {}
-    if isinstance(additional, dict) and additional.get(prop):
+    additional = _additional_properties(els[0])
+    if additional.get(prop):
         detail = f"{prop} = {additional.get(prop)}"
         for extra in step.get("reportProperties") or []:
             if additional.get(extra) not in (None, ""):

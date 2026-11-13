@@ -9,6 +9,7 @@ The fakes here behave like 8840035f: "No elements found" for pageSize 1, the ele
 Offline: nothing talks to Egeria.
 """
 import asyncio
+import json
 import sys
 from pathlib import Path
 
@@ -86,15 +87,18 @@ def test_what_pagesize_1_would_have_said(expert):
     assert asyncio.run(find({"pageSize": 1})) == NO and asyncio.run(find({"pageSize": 25})) == [TOPIC]
 
 
-STEP = {"id": "saved-query-first-refresh", "type": "SavedQuery", "qualifiedName": "SavedQuery::X",
-        "doneProperty": "lastRefreshedTime", "description": "d", "how": "h"}
+# The real find response (raw OpenMetadataElement), fetched read-only as erinoverview on laz.
+REAL = json.loads((Path(__file__).parent / "fixtures" / "saved_query_find_raw_laz_2026_11_13.json").read_text())
+STEP = {"id": "saved-query-first-refresh", "type": "SavedQuery",
+        "qualifiedName": "SavedQuery::useful-sheets::Assets with no lineage",
+        "doneProperty": "lastRefreshedTime", "reportProperties": ["resultCount"], "description": "d", "how": "h"}
 
 
 def test_the_manual_step_lookup_reads_the_element_under_b5(expert):
-    el = {"properties": {"qualifiedName": "SavedQuery::X", "additionalProperties": {"lastRefreshedTime": "t"}}}
-    expert["find"], calls = _b5([el])
+    expert["find"], calls = _b5(REAL)
     st = asyncio.run(bm._manual_step_state(STEP))
     assert st["state"] == "done" and [c["pageSize"] for c in calls] == [bm._CANARY_PAGE_SIZE]
+    assert "resultCount = 48" in st["detail"]
 
 
 def test_an_absent_manual_step_element_is_still_not_found(expert):
