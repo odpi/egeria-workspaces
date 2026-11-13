@@ -46,7 +46,7 @@ RUN /usr/local/apache2/venv/bin/pip install --no-cache-dir --retries 10 --timeou
 #   docker compose build --build-arg PYEGERIA_BUST=$(date +%s) apache-web
 #   docker compose build --build-arg PYEGERIA_VERSION=pyegeria==6.1.0 apache-web
 # NO_CACHE=1 ./redeploy-demo does the same thing for every image at once.
-ARG PYEGERIA_VERSION=pyegeria>=6.2.21
+ARG PYEGERIA_VERSION=pyegeria>=6.2.41
 ARG PYEGERIA_BUST=0
 RUN echo "pyegeria layer ${PYEGERIA_BUST}" \
     && /usr/local/apache2/venv/bin/pip install --no-cache-dir --retries 10 --timeout 60 --upgrade "${PYEGERIA_VERSION}"
