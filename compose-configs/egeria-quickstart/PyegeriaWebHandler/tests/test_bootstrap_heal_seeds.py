@@ -189,6 +189,34 @@ def test_manual_step_element_without_additional_properties_is_pending():
     assert bm._manual_step_from_elements(STEP, BASE, [el])["state"] == "pending"
 
 
+def _raw_additional(value):
+    el = copy.deepcopy(REAL[0])
+    el["elementProperties"]["propertyValueMap"]["additionalProperties"] = value
+    return el
+
+
+@pytest.mark.parametrize("el", [
+    {"elementGUID": "g"},                                         # neither raw nor flat
+    {"elementHeader": {}, "props": {"additionalProperties": {}}},  # some other reshaping
+    "not an element",
+    None,
+    {"elementProperties": "x"},
+    _raw_additional({"class": "MapTypePropertyValue"}),           # raw, map without mapValues
+    _raw_additional("lastRefreshedTime=t"),                       # raw, map not a map
+    {"properties": {"additionalProperties": ["lastRefreshedTime"]}},  # flat, map not a dict
+], ids=["no-properties", "other-reshape", "string", "none", "elementProperties-not-dict",
+        "raw-no-mapValues", "raw-map-is-string", "flat-map-is-list"])
+def test_manual_step_unrecognised_element_shape_is_not_checked(el):
+    st = bm._manual_step_from_elements(STEP, BASE, [el])
+    assert st["state"] == "not checked"            # never "pending" on a shape we could not read
+    assert "unrecognised element shape" in st["detail"]
+
+
+def test_manual_step_flat_element_without_additional_properties_is_pending():
+    flat = [{"properties": {"qualifiedName": STEP["qualifiedName"]}}]
+    assert bm._manual_step_from_elements(STEP, BASE, flat)["state"] == "pending"
+
+
 def test_manual_step_done_names_time_and_count():
     st = bm._manual_step_from_elements(STEP, BASE, _el({"lastRefreshedTime": "2026-11-12T10:00:00Z", "resultCount": "17"}))
     assert st["state"] == "done"

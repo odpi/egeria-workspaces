@@ -228,24 +228,35 @@ async def _manual_step_state(step: dict) -> dict:
     return _manual_step_from_elements(step, base, els)
 
 
-def _additional_properties(el) -> dict:
-    """An element's additionalProperties as a flat {key: value} dict.
+def _additional_properties(el) -> Optional[dict]:
+    """An element's additionalProperties as a flat {key: value} dict, or None when the element's
+    shape is not one this reader recognises.
 
     find_metadata_elements returns raw OpenMetadataElements: the map sits at
     elementProperties.propertyValueMap.additionalProperties as a
     MapTypePropertyValue, each value at mapValues.propertyValueMap.<key>.primitiveValue.
     A flat {"properties": {"additionalProperties": {...}}} element (pyegeria's
-    reshaped output) is read as a fallback. Anything else is an empty dict."""
+    reshaped output) is read as a fallback. A recognised element without the map
+    is an empty dict (nothing set yet); anything else is None, so the caller can
+    say "not checked" instead of guessing "pending"."""
     if not isinstance(el, dict):
-        return {}
-    raw = ((el.get("elementProperties") or {}).get("propertyValueMap") or {}).get("additionalProperties")
-    if isinstance(raw, dict):
-        entries = (raw.get("mapValues") or {}).get("propertyValueMap") or {}
-        if isinstance(entries, dict):
-            return {k: (v.get("primitiveValue") if isinstance(v, dict) else v) for k, v in entries.items()}
-        return {}
-    flat = (el.get("properties") or {}).get("additionalProperties")
-    return flat if isinstance(flat, dict) else {}
+        return None
+    pvm = (el.get("elementProperties") or {}).get("propertyValueMap") if isinstance(el.get("elementProperties"), dict) else None
+    if isinstance(pvm, dict):
+        raw = pvm.get("additionalProperties")
+        if raw is None:
+            return {}
+        entries = (raw.get("mapValues") or {}).get("propertyValueMap") if isinstance(raw, dict) and isinstance(raw.get("mapValues"), dict) else None
+        if not isinstance(entries, dict):
+            return None
+        return {k: (v.get("primitiveValue") if isinstance(v, dict) else v) for k, v in entries.items()}
+    props = el.get("properties")
+    if isinstance(props, dict):
+        flat = props.get("additionalProperties")
+        if flat is None:
+            return {}
+        return flat if isinstance(flat, dict) else None
+    return None
 
 
 def _manual_step_from_elements(step: dict, base: dict, els) -> dict:
@@ -254,6 +265,9 @@ def _manual_step_from_elements(step: dict, base: dict, els) -> dict:
     if not isinstance(els, list) or not els:
         return {**base, "state": "not checked", "detail": f"{qn} was not found, so the step cannot apply yet"}
     additional = _additional_properties(els[0])
+    if additional is None:
+        return {**base, "state": "not checked",
+                "detail": f"{qn} was found, but in an unrecognised element shape, so {prop} could not be read"}
     if additional.get(prop):
         detail = f"{prop} = {additional.get(prop)}"
         for extra in step.get("reportProperties") or []:
