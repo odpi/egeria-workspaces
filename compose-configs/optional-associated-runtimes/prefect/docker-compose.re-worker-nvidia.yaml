@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Linux + NVIDIA only (the demo machine): give Resource Explorer's Prefect worker the GPUs. Needs the NVIDIA
+# Container Toolkit on the host. Docker on Apple silicon has no GPU passthrough, so never use this on a Mac.
+#
+#   docker compose -f docker-compose.yaml -f docker-compose.re-worker-nvidia.yaml up -d re-prefect-worker
+#
+# The reservation alone changes no step: trellis's RE image installs CPU-only torch
+# (docker/Dockerfile.resource-explorer), so EMBEDDINGS__DEVICE stays cpu until a CUDA build of the image
+# exists. Steps that use the GPU through their own libraries see the devices.
+services:
+  re-prefect-worker:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

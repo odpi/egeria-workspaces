@@ -36,37 +36,46 @@ Once started, the Prefect UI is available at **[http://localhost:4200](http://lo
 
 ---
 
-## 3. Development and Examples
+## 3. Resource Explorer's worker (`re-prefect-worker`)
 
-Flow code is located in the host directory [runtime-volumes/prefect/user_code/](file:///../../../runtime-volumes/prefect/user_code/). The worker is configured with a `process` work pool named `egeria-pool` and executes flows inside the container environment.
+Prefect's only user here is Trellis's Resource Explorer (RE). This service is RE's worker for the
+`resource-explorer-pool` work pool. It replaced the July example worker on 2026-11-13, when the owner deleted
+that worker's pool and both its deployments.
 
-We have included two Egeria-centric example flows in this directory:
+* **Image:** trellis's own RE image, role `prefect-worker`. In the trellis repo, `make image-re` builds
+  `trellis/resource-explorer:local` and `:<sha12>` and bakes in the build commit. Set `TRELLIS_RE_IMAGE` to
+  pick another tag.
+* **Version parity:** the worker advertises its commit (`re-worker-<sha12>-<host>`) and serves only its own
+  deployment and queue (`re-survey-step-<sha12>`, `re-<sha12>`). RE dispatches a step to it only when RE runs
+  the same commit. Otherwise RE warns and runs the step itself. Build RE's web image and this one from the
+  same commit.
+* **It refuses to start** without a build commit, or with a library survey step missing from the image. The
+  first lines of `docker logs egeria-optional-re-prefect-worker` say which.
+* **What it can reach:**
+  * Postgres, Egeria and the Prefect API, by service name;
+  * the trellis data volume, `trellis_trellis-re-data` (the trellis stack creates it, so bring that up first);
+  * one read-only survey root, `RE_WORKER_SURVEY_ROOT` mounted at `/survey`.
 
-### A. PostgreSQL Schema Inspector (`postgres_schema_flow.py`)
-Queries the shared Postgres instance (`egeria-shared-postgres:5442`) inside the Docker network. It identifies all active databases and dynamically connects to each database to list user schemas, tables, and views in a formatted `rich` console summary.
+  A database registered as `localhost`, or a host path outside the survey root, is not reachable from the
+  container.
+* **GPU (Linux + NVIDIA only):** add `-f docker-compose.re-worker-nvidia.yaml`. Never use it on a Mac, where
+  Docker has no GPU passthrough.
+* **Before relying on it:** run the A/B proof in trellis
+  `packages/resource-explorer/docs/design-notes/PREFECT-CONTAINER-WORKER-2026-11-13.md`.
 
-* **Deploy to Server:**
-  Run the command with `-w /` to bypass OCI mount namespace restrictions on macOS:
-  ```bash
-  docker exec -w / egeria-optional-prefect-worker prefect deploy /opt/prefect/flows/postgres_schema_flow.py:postgres_schema_flow --name postgres-inspector --pool egeria-pool
-  ```
+```bash
+docker compose up -d prefect-server re-prefect-worker
+docker compose logs re-prefect-worker | head -5   # "library steps ... (none missing)", then "Worker ... started!"
+```
 
-### B. Egeria Glossary Inspector (`egeria_glossary_flow.py`)
-Utilizes the `pyegeria` library (`GlossaryManager`) to connect to the Egeria quickstart OMAG platform (`https://host.docker.internal:9443`) inside the network. It authenticates, fetches all configured business glossaries, and prints a formatted summary table of active glossaries.
-
-* **Deploy to Server:**
-  Run the command with `-w /` to bypass OCI mount namespace restrictions on macOS:
-  ```bash
-  docker exec -w / egeria-optional-prefect-worker prefect deploy /opt/prefect/flows/egeria_glossary_flow.py:egeria_glossary_flow --name glossary-inspector --pool egeria-pool
-  ```
+On laz (macOS), RE's worker runs on the host under launchd instead (trellis
+`packages/resource-explorer/scripts/launchd/`). It can reach `localhost` resources and host paths, and it runs
+the same checkout as the RE app.
 
 ---
 
-## 4. Running the Flows
+## 4. The retired example flows
 
-1. Run the `prefect deploy` command for the flow you wish to run (shown above).
-2. Open the Prefect UI at **[http://localhost:4200](http://localhost:4200)**.
-3. Click on the **Deployments** tab on the left.
-4. Select your deployment (e.g., `postgres-inspector` or `glossary-inspector`) and click **Run** -> **Quick Run** in the top right.
-5. Navigate to the **Runs** tab to watch the execution logs and view the printed schema/glossary tables.
-
+`runtime-volumes/prefect/user_code/` still holds the two July example flows: `postgres_schema_flow.py` and
+`egeria_glossary_flow.py`. No worker runs them now: the pool they were deployed to, and their deployments
+(`postgres-inspector`, `glossary-inspector`), were deleted on 2026-11-13. They remain as examples only.
