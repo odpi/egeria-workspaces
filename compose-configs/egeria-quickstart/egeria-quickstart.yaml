@@ -318,6 +318,14 @@ services:
       # Resend — set RESEND_API_KEY and RESEND_FROM in .env (never in the yaml)
       RESEND_API_KEY: "${RESEND_API_KEY:-}"
       RESEND_FROM: "${RESEND_FROM:-}"
+      # SMTP — used when RESEND_API_KEY is unset. Values live in .env / .env.demo
+      # (quick-start-local carries them); the password has no default here.
+      SMTP_HOST: "${SMTP_HOST:-}"
+      SMTP_PORT: "${SMTP_PORT:-}"
+      SMTP_SSL: "${SMTP_SSL:-}"
+      SMTP_USER: "${SMTP_USER:-}"
+      SMTP_PASSWORD: "${SMTP_PASSWORD:-}"
+      SMTP_FROM: "${SMTP_FROM:-}"
       ADMIN_BOOTSTRAP_EMAIL: "${ADMIN_BOOTSTRAP_EMAIL:-}"
       ADMIN_BOOTSTRAP_PASSWORD: "${ADMIN_BOOTSTRAP_PASSWORD:-}"
       # ── Portal tile config ────────────────────────────────────────────────────

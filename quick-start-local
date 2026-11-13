@@ -494,7 +494,9 @@ pushd compose-configs/egeria-quickstart >/dev/null
     if [[ -z "$_resend_key" ]]; then
       echo "[quick-start-local]   Resend API key for email verification / password reset."
       echo "[quick-start-local]   Leave blank to skip email (accounts must be verified manually via /admin)."
-      read -r -p "[quick-start-local]   RESEND_API_KEY: " _resend_key
+      # -s: an API key is a secret; it must not be echoed to the terminal (or a screen share).
+      read -r -s -p "[quick-start-local]   RESEND_API_KEY (input hidden): " _resend_key
+      echo
     fi
     if [[ -n "$_resend_key" && -z "$_resend_from" ]]; then
       read -r -p "[quick-start-local]   Sender address (e.g. 'Egeria Demo <noreply@yourdomain.com>'): " _resend_from

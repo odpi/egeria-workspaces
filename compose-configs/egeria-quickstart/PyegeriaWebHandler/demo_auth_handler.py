@@ -28,6 +28,9 @@ Routes:
 import json
 import os
 import secrets
+import smtplib
+import ssl
+from email.message import EmailMessage
 import resend as _resend
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -45,6 +48,7 @@ from demo_config import (
     DEMO_MODE, SERVER_MANAGED_AUTH,
     JWT_ALGORITHM, JWT_EXPIRY_ADMIN_SEC, JWT_EXPIRY_USER_SEC, JWT_SECRET,
     SITE_URL, RESEND_API_KEY, RESEND_FROM,
+    SMTP_HOST, SMTP_PORT, SMTP_SSL, SMTP_USER, SMTP_PASSWORD, SMTP_FROM, SMTP_TIMEOUT_S,
 )
 from demo_db import Config, Event, User, get_db, get_config, log_event, set_config
 
@@ -111,31 +115,86 @@ def require_admin(request: Request, db: Session = Depends(get_db)) -> User:
     return user
 
 
-# ── Email via Resend ───────────────────────────────────────────────────────────
+# ── Email: Resend, else SMTP ───────────────────────────────────────────────────
+# Precedence (the same as infra-check's): RESEND_API_KEY set -> Resend, which also
+# needs RESEND_FROM (no fall-back to SMTP); else SMTP_HOST set -> SMTP; else skipped,
+# said in the log. Secrets are never logged; error text has them masked.
+
+def _scrub(text: str) -> str:
+    for secret in (SMTP_PASSWORD, RESEND_API_KEY):
+        if secret:
+            text = text.replace(secret, "***")
+    return text
+
+
+def _smtp_connect(host: str, port: int, use_ssl: bool):
+    """An open, encrypted connection: implicit TLS (SMTP_SSL) or STARTTLS. Certificates
+    are verified; SMTP_TIMEOUT_S bounds the connect and every command."""
+    context = ssl.create_default_context()
+    if use_ssl:
+        return smtplib.SMTP_SSL(host, port, timeout=SMTP_TIMEOUT_S, context=context)
+    conn = smtplib.SMTP(host, port, timeout=SMTP_TIMEOUT_S)
+    try:
+        conn.starttls(context=context)
+    except Exception:
+        conn.close()
+        raise
+    return conn
+
+
+def _send_via_smtp(to: str, subject: str, html: str, text: str, bcc: list[str] | None) -> None:
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = SMTP_FROM
+    msg["To"] = to                  # bcc goes only into the envelope, never a header
+    msg.set_content(text or "This message is HTML; view it in an HTML-capable mail client.")
+    msg.add_alternative(html, subtype="html")
+    conn = _smtp_connect(SMTP_HOST, SMTP_PORT, SMTP_SSL)
+    try:
+        if SMTP_USER and SMTP_PASSWORD:
+            conn.login(SMTP_USER, SMTP_PASSWORD)
+        conn.send_message(msg, to_addrs=[to] + list(bcc or []))
+    finally:
+        try:
+            conn.quit()
+        except Exception:  # noqa: BLE001 -- the message is already sent or already failed
+            pass
+
 
 def _send_email(to: str, subject: str, html: str, text: str = "", bcc: list[str] | None = None) -> None:
-    if not RESEND_API_KEY:
-        logger.warning(f"RESEND_API_KEY not set — skipped email to {to!r}: {subject}")
+    if RESEND_API_KEY:
+        if not RESEND_FROM:
+            logger.warning(f"RESEND_FROM not set — skipped email to {to!r}: {subject}")
+            return
+        _resend.api_key = RESEND_API_KEY
+        try:
+            params: _resend.Emails.SendParams = {
+                "from": RESEND_FROM,
+                "to": [to],
+                "subject": subject,
+                "html": html,
+            }
+            if text:
+                params["text"] = text
+            if bcc:
+                params["bcc"] = bcc
+            _resend.Emails.send(params)
+            logger.info(f"Email sent to {to!r} (resend): {subject}")
+        except Exception as exc:
+            logger.error(f"Failed to send email to {to!r} (resend): {_scrub(str(exc))}")
         return
-    if not RESEND_FROM:
-        logger.warning(f"RESEND_FROM not set — skipped email to {to!r}: {subject}")
+    if SMTP_HOST:
+        if not SMTP_FROM:
+            logger.warning(f"SMTP_FROM (or SMTP_USER / ADMIN_BOOTSTRAP_EMAIL) not set — skipped email to {to!r}: {subject}")
+            return
+        try:
+            _send_via_smtp(to, subject, html, text, bcc)
+            logger.info(f"Email sent to {to!r} (smtp): {subject}")
+        except Exception as exc:
+            logger.error(f"Failed to send email to {to!r} (smtp): {type(exc).__name__}: {_scrub(str(exc))}")
         return
-    _resend.api_key = RESEND_API_KEY
-    try:
-        params: _resend.Emails.SendParams = {
-            "from": RESEND_FROM,
-            "to": [to],
-            "subject": subject,
-            "html": html,
-        }
-        if text:
-            params["text"] = text
-        if bcc:
-            params["bcc"] = bcc
-        _resend.Emails.send(params)
-        logger.info(f"Email sent to {to!r}: {subject}")
-    except Exception as exc:
-        logger.error(f"Failed to send email to {to!r}: {exc}")
+    logger.warning(f"Email not configured (RESEND_API_KEY + RESEND_FROM, or SMTP_HOST, unset) — "
+                   f"skipped email to {to!r}: {subject}")
 
 
 def _send_welcome_email(user) -> None:

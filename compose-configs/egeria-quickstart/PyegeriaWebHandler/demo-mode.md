@@ -140,23 +140,29 @@ Egeria Advisor is a separate AI-assistant service (its own repo/process, not par
 
 **Why Advisor needs to bind `0.0.0.0`, not `127.0.0.1`:** if Advisor is started via its own CLI default (`egeria-advisor-web`, no flags), it binds `127.0.0.1` only — reachable from the host but not from the `quickstart-pyegeria-web` container's reachability check, nor from any other machine. Start it with `scripts/run_web.sh` (from the Advisor repo) instead, which honors `ADVISOR_BIND_HOST=0.0.0.0` from its own `.env`, or pass `--host 0.0.0.0` explicitly. HTTPS (`ADVISOR_HTTPS_PORT`, default 8881) only starts if `ADVISOR_SSL_CERTFILE`/`ADVISOR_SSL_KEYFILE` are set and exist.
 
-### SMTP email
+### Email (verification, password reset, welcome, workbench alerts)
+
+The Portal sends mail through **Resend if `RESEND_API_KEY` is set, otherwise SMTP if `SMTP_HOST` is set, otherwise not at all** (`demo_auth_handler._send_email`; infra-check uses the same keys and order). A Resend key without `RESEND_FROM` skips the mail; it does not fall back to SMTP. Every skip is logged in words, e.g. `Email not configured (RESEND_API_KEY + RESEND_FROM, or SMTP_HOST, unset) — skipped email to …`. Secrets are never logged, and a failed send has the password and API key masked. A failed send never fails the request that triggered it (registration still succeeds).
+
+#### Resend
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SMTP_HOST` | _(blank)_ | SMTP server hostname. If blank, email sending is skipped |
-| `SMTP_PORT` | `587` | SMTP port (587 = STARTTLS) |
-| `SMTP_SSL` | `false` | Set `true` for implicit TLS (port 465) |
-| `SMTP_USER` | _(blank)_ | SMTP authentication username (falls back to `ADMIN_BOOTSTRAP_EMAIL`) |
-| `SMTP_PASSWORD` | _(blank)_ | SMTP password — **set in `.env`, never in yaml** |
-| `SMTP_FROM` | _(same as `SMTP_USER`)_ | Sender address for outbound emails |
+| `RESEND_API_KEY` | _(blank)_ | Resend.com API key. If set, Resend is used and SMTP is ignored |
+| `RESEND_FROM` | _(blank)_ | Sender address; must be on a domain verified in Resend. Required with the key |
 
-### Resend email provider (alternative to SMTP)
+#### SMTP (when `RESEND_API_KEY` is blank)
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `RESEND_API_KEY` | _(blank)_ | Resend.com API key. If set, Resend is used instead of SMTP |
-| `RESEND_FROM` | _(blank)_ | Sender address when using Resend |
+| `SMTP_HOST` | _(blank)_ | SMTP server hostname. If blank (and no Resend key), email sending is skipped |
+| `SMTP_PORT` | `587`, or `465` with `SMTP_SSL=true` | SMTP port. A value that isn't a number falls back to the default |
+| `SMTP_SSL` | `false` | `true` = implicit TLS (SMTPS). Otherwise the connection is upgraded with STARTTLS, which is required: there is no plain-text mode |
+| `SMTP_USER` | `ADMIN_BOOTSTRAP_EMAIL` | Login user. No login is attempted unless both a user and `SMTP_PASSWORD` are set |
+| `SMTP_PASSWORD` | _(blank)_ | SMTP password — **set in `.env` / `.env.demo`, never in yaml** (the compose file passes `${SMTP_PASSWORD:-}` with no default) |
+| `SMTP_FROM` | the login user | Sender address. If it resolves to blank, the mail is skipped in words |
+
+Server certificates are verified (Python's default TLS context), and the connect and each SMTP command time out after 20 s. A `bcc` (the welcome mail's) goes in the envelope only, never in a header. `quick-start-local` carries all of these keys through its rewrite of `.env`, in both plain and `--demo` runs.
 
 ### Bootstrap admin
 
@@ -165,7 +171,7 @@ Egeria Advisor is a separate AI-assistant service (its own repo/process, not par
 | `ADMIN_BOOTSTRAP_EMAIL` | _(blank)_ | Email for the auto-created admin. Only used when no admin exists yet |
 | `ADMIN_BOOTSTRAP_PASSWORD` | _(blank)_ | Password for the auto-created admin — **set in `.env`, never in yaml** |
 
-**Development without SMTP/Resend:** Leave both blank. Registrations will not receive a verification email. Use the admin panel to manually verify accounts.
+**Development without email:** Leave `RESEND_API_KEY` and `SMTP_HOST` blank. Registrations will not receive a verification email. Use the admin panel to manually verify accounts.
 
 ---
 

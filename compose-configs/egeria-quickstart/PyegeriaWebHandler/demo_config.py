@@ -54,6 +54,35 @@ JWT_EXPIRY_ADMIN_SEC: int = int(os.environ.get("JWT_EXPIRY_ADMIN_SECONDS", "6048
 RESEND_API_KEY: str = os.environ.get("RESEND_API_KEY", "")
 RESEND_FROM:    str = os.environ.get("RESEND_FROM",    "")
 
+# ── SMTP (email, when Resend is not configured) ────────────────────────────────
+# Used only when RESEND_API_KEY is unset (Resend wins; a key without RESEND_FROM
+# skips rather than falling back). Set SMTP_PASSWORD in .env / .env.demo, never in
+# the yaml. The same keys and defaults as infra-check (bin/egeria_upgrade_reset.py).
+#   SMTP_PORT  default 587 with STARTTLS; SMTP_SSL=true means implicit TLS, default 465
+#   SMTP_USER  login user, else ADMIN_BOOTSTRAP_EMAIL (no login when either user or
+#              password is empty)
+#   SMTP_FROM  sender, else the user
+
+def _env_flag(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _env_port(name: str, default: int) -> int:
+    raw = os.environ.get(name, "").strip()
+    try:
+        return int(raw) if raw else default
+    except ValueError:      # a typo must not take the Portal down at import
+        return default
+
+
+SMTP_HOST:     str  = os.environ.get("SMTP_HOST", "").strip()
+SMTP_SSL:      bool = _env_flag("SMTP_SSL")
+SMTP_PORT:     int  = _env_port("SMTP_PORT", 465 if SMTP_SSL else 587)
+SMTP_USER:     str  = os.environ.get("SMTP_USER", "").strip() or os.environ.get("ADMIN_BOOTSTRAP_EMAIL", "").strip()
+SMTP_PASSWORD: str  = os.environ.get("SMTP_PASSWORD", "")
+SMTP_FROM:     str  = os.environ.get("SMTP_FROM", "").strip() or SMTP_USER
+SMTP_TIMEOUT_S: int = 20    # connect + each command; a dead server must not hang a registration
+
 # ── URLs ───────────────────────────────────────────────────────────────────────
 
 SITE_URL: str = os.environ.get("SITE_URL", "https://localhost:8843").rstrip("/")
