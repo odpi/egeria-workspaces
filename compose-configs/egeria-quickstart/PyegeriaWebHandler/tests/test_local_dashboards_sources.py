@@ -589,6 +589,43 @@ def test_the_report_search_asks_for_a_page_of_25_and_filters_on_the_exact_name()
     assert asked == [25] and ld._REPORT_SEARCH_PAGE == 25
 
 
+def _pv(v):
+    return {"class": "PrimitiveTypePropertyValue", "primitiveValue": v}
+
+
+def test_a_published_reports_authoring_stamps_are_not_report_parameters():
+    """pyegeria 6.2.41 stamps a published Report's additionalProperties (D14); the by-name path (local-file
+    sheets, and the fallback when the resolver fails) must not pass the stamps to the spec as parameters."""
+    extra = {"reportSpec": "Risk-DrE-Basic", "outputFormat": "TABLE", "searchString": "CocoPharma::Risk::",
+             "startsWith": "True", "publishedVersion": "3", "publishedAt": "2026-11-13T10:00:00+00:00",
+             "publishedBy": "erinoverview", "authoringState": "PUBLISHED", "reportSpecVersion": "2"}
+    stamped = {"elementGUID": "g1", "elementProperties": {"propertyValueMap": {
+        "displayName": _pv("Company Risk Register"),
+        # the real MapTypePropertyValue shape (laz, 2026-11-13): typed map plus pyegeria's flat strings
+        "additionalProperties": {"class": "MapTypePropertyValue", "mapValues": {
+            "propertyValueMap": {k: _pv(v) for k, v in extra.items()}, "propertyCount": len(extra),
+            "propertyNames": list(extra), "propertiesAsStrings": dict(extra)}}}}}
+    mgr = NS(find_metadata_elements_with_string=lambda **kw: [stamped])
+    report = ld._find_report_by_name_uncached("Company Risk Register", mgr)
+    assert report["reportSpec"] == "Risk-DrE-Basic" and report["outputFormat"] == "TABLE"
+    assert report["params"] == {"searchString": "CocoPharma::Risk::", "startsWith": "True"}
+    assert {"publishedVersion", "publishedAt", "publishedBy", "authoringState", "reportSpecVersion"} <= ld._AUTHORING_KEYS
+
+
+def test_the_authoring_keys_include_pyegerias_own_when_it_has_them():
+    import importlib
+    found = []
+    for module in ("pyegeria.authoring", "pyegeria.authoring.publication"):
+        try:
+            found.append(frozenset(importlib.import_module(module).AUTHORING_KEYS))
+        except (ImportError, AttributeError):
+            pass
+    if not found:
+        pytest.skip("this pyegeria has no pyegeria.authoring (the 6.2.40 floor): the literal set applies")
+    assert all(keys <= ld._AUTHORING_KEYS for keys in found)
+    assert ld._PYEGERIA_AUTHORING_KEYS == found[0]
+
+
 def test_a_report_miss_is_not_cached_so_a_false_miss_heals_on_the_next_build(monkeypatch):
     monkeypatch.setattr(ld, "_cache", {})
     answers = [None, {"guid": "g", "heading": "Rep"}]

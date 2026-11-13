@@ -559,6 +559,31 @@ def _find_report_by_name(name: str, mgr, url=None, server=None, user_id=None, us
     return result
 
 
+# additionalProperties keys pyegeria's authoring API writes for itself (publication stamps, the draft
+# state, the spec version). They are bookkeeping, never a Report parameter. pyegeria 6.2.41 stamps
+# published Reports with publishedVersion/publishedAt/publishedBy; the floor is 6.2.40, which has no
+# pyegeria.authoring, so the same five keys are named here (pyegeria/authoring/publication.py, c6857416 and
+# 4328c5f7). The stable public path is `from pyegeria.authoring import AUTHORING_KEYS` (4328c5f7 on);
+# pyegeria.authoring.publication is where it is defined (c6857416). pyegeria's
+# own set is looked up at run time, not with a static import, because on the floor it does not exist yet
+# (tests/test_pyegeria_methods_exist.py rightly refuses a static import of a missing name);
+# tests/test_local_dashboards_sources.py checks pyegeria's set is covered whenever it is installed.
+def _pyegeria_authoring_keys() -> frozenset:
+    import importlib
+    for module in ("pyegeria.authoring", "pyegeria.authoring.publication"):
+        try:
+            return frozenset(getattr(importlib.import_module(module), "AUTHORING_KEYS"))
+        except (ImportError, AttributeError, TypeError):
+            continue
+    return frozenset()
+
+
+_PYEGERIA_AUTHORING_KEYS = _pyegeria_authoring_keys()
+_AUTHORING_KEYS = frozenset({"authoringState", "reportSpecVersion", "publishedAt", "publishedBy",
+                             "publishedVersion"}) | frozenset(_PYEGERIA_AUTHORING_KEYS)
+#: A Report's additionalProperties that are not its parameters.
+_NOT_REPORT_PARAMS = frozenset({"reportSpec", "outputFormat", "analyticParams"}) | _AUTHORING_KEYS
+
 #: Page size of the by-name Report search. Egeria 8840035f answers a small page wrongly (a page of 1 says
 #: "No elements found" though a match exists; a page of 5 can miss a Report whose same-named twin was
 #: deleted), so ask for 25 and filter on the exact name below.
@@ -602,8 +627,7 @@ def _find_report_by_name_uncached(name: str, mgr) -> Optional[dict]:
             "reportSpec":  extra.get("reportSpec"),
             "outputFormat": extra.get("outputFormat"),
             "analyticParams": analytic_params,
-            "params":      {k: v for k, v in extra.items()
-                             if k not in ("reportSpec", "outputFormat", "analyticParams")},
+            "params":      {k: v for k, v in extra.items() if k not in _NOT_REPORT_PARAMS},
         }
     return None
 
