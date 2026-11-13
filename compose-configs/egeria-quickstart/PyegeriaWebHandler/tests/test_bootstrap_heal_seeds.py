@@ -10,6 +10,7 @@ Offline: discovery reads this checkout's dr-egeria-inbox and extra roots; nothin
 - The FIXUP_2026_11_11 documents are archived outside the inbox and never discovered.
 - Manual steps (the saved query's first refresh) report done / pending / not checked.
 """
+import copy
 import json
 import re
 import sys
@@ -154,8 +155,66 @@ STEP = json.loads((INBOX / "Useful Dashboards" / "_batch.json").read_text())["ma
 BASE = {"id": STEP["id"], "description": STEP["description"], "how": STEP["how"]}
 
 
+# The real find response for the step's element, fetched read-only as erinoverview on laz
+# (2026-11-13): a raw OpenMetadataElement, additionalProperties as a MapTypePropertyValue.
+REAL = json.loads((Path(__file__).parent / "fixtures" / "saved_query_find_raw_laz_2026_11_13.json").read_text())
+
+
 def _el(additional):
-    return [{"properties": {"qualifiedName": STEP["qualifiedName"], "additionalProperties": additional}}]
+    """The real element with its additionalProperties map replaced, in the real (raw) shape."""
+    el = copy.deepcopy(REAL[0])
+    el["elementProperties"]["propertyValueMap"]["additionalProperties"]["mapValues"]["propertyValueMap"] = {
+        k: {"class": "PrimitiveTypePropertyValue", "typeName": "string",
+            "primitiveTypeCategory": "OM_PRIMITIVE_TYPE_STRING", "primitiveValue": v}
+        for k, v in additional.items()}
+    return [el]
+
+
+def test_manual_step_done_on_the_real_find_response():
+    assert REAL[0]["elementProperties"]["propertyValueMap"]["qualifiedName"]["primitiveValue"] == STEP["qualifiedName"]
+    st = bm._manual_step_from_elements(STEP, BASE, REAL)
+    assert st["state"] == "done"
+    assert st["detail"] == "lastRefreshedTime = 2026-11-12T16:58:59.395564+00:00; resultCount = 48"
+
+
+def test_manual_step_flat_shape_still_read_as_a_fallback():
+    flat = [{"properties": {"qualifiedName": STEP["qualifiedName"],
+                            "additionalProperties": {"lastRefreshedTime": "t", "resultCount": "3"}}}]
+    assert bm._manual_step_from_elements(STEP, BASE, flat)["detail"] == "lastRefreshedTime = t; resultCount = 3"
+
+
+def test_manual_step_element_without_additional_properties_is_pending():
+    el = copy.deepcopy(REAL[0])
+    del el["elementProperties"]["propertyValueMap"]["additionalProperties"]
+    assert bm._manual_step_from_elements(STEP, BASE, [el])["state"] == "pending"
+
+
+def _raw_additional(value):
+    el = copy.deepcopy(REAL[0])
+    el["elementProperties"]["propertyValueMap"]["additionalProperties"] = value
+    return el
+
+
+@pytest.mark.parametrize("el", [
+    {"elementGUID": "g"},                                         # neither raw nor flat
+    {"elementHeader": {}, "props": {"additionalProperties": {}}},  # some other reshaping
+    "not an element",
+    None,
+    {"elementProperties": "x"},
+    _raw_additional({"class": "MapTypePropertyValue"}),           # raw, map without mapValues
+    _raw_additional("lastRefreshedTime=t"),                       # raw, map not a map
+    {"properties": {"additionalProperties": ["lastRefreshedTime"]}},  # flat, map not a dict
+], ids=["no-properties", "other-reshape", "string", "none", "elementProperties-not-dict",
+        "raw-no-mapValues", "raw-map-is-string", "flat-map-is-list"])
+def test_manual_step_unrecognised_element_shape_is_not_checked(el):
+    st = bm._manual_step_from_elements(STEP, BASE, [el])
+    assert st["state"] == "not checked"            # never "pending" on a shape we could not read
+    assert "unrecognised element shape" in st["detail"]
+
+
+def test_manual_step_flat_element_without_additional_properties_is_pending():
+    flat = [{"properties": {"qualifiedName": STEP["qualifiedName"]}}]
+    assert bm._manual_step_from_elements(STEP, BASE, flat)["state"] == "pending"
 
 
 def test_manual_step_done_names_time_and_count():

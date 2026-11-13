@@ -1,0 +1,64 @@
+{
+  "_note": "Read-only GETs/POST filter against the Prefect API on laz (http://localhost:4200/api), 2026-11-13 ~11:35Z, Prefect 3.8.6. base_job_template dropped (not read).",
+  "health": true,
+  "pool": {
+    "id": "fad87b98-65ff-47c9-afc7-6b07377704e6",
+    "created": "2026-09-19T01:44:05.179315Z",
+    "updated": "2026-11-13T11:01:03.142742Z",
+    "name": "resource-explorer-pool",
+    "description": null,
+    "type": "process",
+    "is_paused": false,
+    "concurrency_limit": null,
+    "status": "READY",
+    "default_queue_id": "46e0596c-f343-43e8-8320-a9eef4cbf885",
+    "storage_configuration": {
+      "bundle_upload_step": null,
+      "bundle_execution_step": null,
+      "default_result_storage_block_id": null
+    },
+    "active_slots": null
+  },
+  "workers": [
+    {
+      "id": "b9fb4a42-d048-4641-aff0-2178ad04b5cd",
+      "created": "2026-11-13T11:01:03.149254Z",
+      "updated": "2026-11-13T11:01:03.149262Z",
+      "name": "ProcessWorker 856bbae1-634c-420f-b59d-ceaa9100a4be",
+      "work_pool_id": "fad87b98-65ff-47c9-afc7-6b07377704e6",
+      "last_heartbeat_time": "2026-11-13T11:33:33.325486Z",
+      "heartbeat_interval_seconds": 30,
+      "status": "ONLINE"
+    },
+    {
+      "id": "8ae2d127-8c0f-446b-b496-97ed39cb5e41",
+      "created": "2026-10-02T15:06:25.925860Z",
+      "updated": "2026-10-12T12:27:35.337605Z",
+      "name": "ProcessWorker 222eb9c8-dc68-4fe4-9f3c-591e0fa1a1ba",
+      "work_pool_id": "fad87b98-65ff-47c9-afc7-6b07377704e6",
+      "last_heartbeat_time": "2026-10-12T12:17:13.494765Z",
+      "heartbeat_interval_seconds": 30,
+      "status": "OFFLINE"
+    },
+    {
+      "id": "a167cb0a-e797-4d92-baa7-52f60d91131b",
+      "created": "2026-09-28T15:01:18.403707Z",
+      "updated": "2026-09-30T00:04:55.128957Z",
+      "name": "ProcessWorker 1bdd2530-4179-42ac-83e3-6055b2d29741",
+      "work_pool_id": "fad87b98-65ff-47c9-afc7-6b07377704e6",
+      "last_heartbeat_time": "2026-09-29T21:20:45.133165Z",
+      "heartbeat_interval_seconds": 30,
+      "status": "OFFLINE"
+    },
+    {
+      "id": "8e4af1b7-b182-4b0f-9fc2-85008990c155",
+      "created": "2026-09-19T01:44:24.414496Z",
+      "updated": "2026-09-26T02:29:55.207828Z",
+      "name": "ProcessWorker 7069edda-f657-487f-bf63-2adc0913c3ec",
+      "work_pool_id": "fad87b98-65ff-47c9-afc7-6b07377704e6",
+      "last_heartbeat_time": "2026-09-26T02:15:23.478085Z",
+      "heartbeat_interval_seconds": 30,
+      "status": "OFFLINE"
+    }
+  ]
+}

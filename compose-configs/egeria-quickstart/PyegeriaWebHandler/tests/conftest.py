@@ -32,3 +32,15 @@ import pyegeria_handler as handler  # type: ignore  # noqa: E402
 @pytest.fixture(scope="session")
 def client() -> TestClient:
     return TestClient(handler.app)
+
+
+
+@pytest.fixture(autouse=True)
+def _no_lazy_report_spec_sync():
+    """A Report Specs listing starts a background sync while the consumer index is "not read"
+    (report_spec_sync.retry_if_index_not_read). In the suite that thread would race other tests' sync
+    state, so it is off; tests/test_report_spec_resync.py turns it on for its own tests."""
+    import report_spec_sync
+    report_spec_sync._LAZY["enabled"] = False
+    yield
+    report_spec_sync._LAZY["enabled"] = False

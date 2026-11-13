@@ -35,6 +35,13 @@ KAFKA_DIGEST = "docker.io/cleanstart/kafka@sha256:3bfad519feac67e6bd1ae2b18b3e47
 SECRET = "do-not-print-this-resend-key"
 
 
+@pytest.fixture(autouse=True)
+def _no_alert_settings_from_the_host(monkeypatch):
+    """Alert settings come from the process environment first: never from the machine running the tests."""
+    for k in m.ALERT_KEYS:
+        monkeypatch.delenv(k, raising=False)
+
+
 @pytest.fixture
 def checkout(tmp_path):
     """A stand-in deployment checkout: the repo's real shared-infra.yaml, a .env, and an infra-health.json
@@ -208,9 +215,9 @@ def test_expected_stopped_but_running_warns(checkout):
 
 def test_an_empty_config_file_means_shared_infra_only(checkout):
     (checkout / m.INFRA_CONFIG).write_text("")
-    assert m.infra_config(checkout) == {"extraComposeFiles": [], "expectedStopped": {}}
+    assert m.infra_config(checkout) == {"extraComposeFiles": [], "expectedStopped": {}, "prefect": None}
     (checkout / m.INFRA_CONFIG).unlink()
-    assert m.infra_config(checkout) == {"extraComposeFiles": [], "expectedStopped": {}}
+    assert m.infra_config(checkout) == {"extraComposeFiles": [], "expectedStopped": {}, "prefect": None}
 
 
 def test_a_pinned_image_that_differs_warns(checkout):
@@ -499,6 +506,34 @@ def test_panel_escapes():
     assert "<script>" not in html and "<img" not in html and "&lt;script&gt;" in html
 
 
+def test_panel_says_alerting_is_not_configured():
+    res = {**RESULT, "alerting": {"outcome": "alerting not configured", "configured": False,
+                                  "unset": ["INFRA_ALERT_EMAIL (or ALERT_EMAIL_TO)", "RESEND_API_KEY + RESEND_FROM (or SMTP_HOST)"]}}
+    html = _render({"state": "read", "stale": False, "checkedAt": "t", "result": res})
+    assert ("Alert email: not configured (unset: INFRA_ALERT_EMAIL (or ALERT_EMAIL_TO), "
+            "RESEND_API_KEY + RESEND_FROM (or SMTP_HOST)): nothing is mailed") in html
+    assert "var(--amber" in html.split("Alert email")[0].rsplit("<div", 1)[1]
+
+
+def test_panel_says_alerting_is_configured_and_when_mail_last_went():
+    res = {**RESULT, "alerting": {"outcome": "no change", "configured": True, "route": "resend",
+                                  "lastSentAt": "2026-11-13T12:00:00+00:00"}}
+    html = _render({"state": "read", "stale": False, "checkedAt": "t", "result": res})
+    assert "Alert email: configured (resend) · this run: no change · last sent 2026-11-13T12:00:00+00:00" in html
+    res["alerting"] = {"outcome": "change pending (1 of 2 runs)", "configured": True, "route": "smtp", "lastSentAt": None}
+    assert "configured (smtp) · this run: change pending (1 of 2 runs) · last sent never" in _render(
+        {"state": "read", "stale": False, "checkedAt": "t", "result": res})
+
+
+def test_panel_never_leaves_alerting_blank():
+    html = _render({"state": "read", "stale": False, "checkedAt": "t", "result": RESULT})   # no alerting key
+    assert "Alert email: not reported by this check" in html
+    off = {**RESULT, "alerting": {"outcome": "off for this run (--no-alert)", "configured": None}}
+    assert "Alert email: off for this run (--no-alert)" in _render({"state": "read", "stale": False, "checkedAt": "t", "result": off})
+    bad = {**RESULT, "alerting": {"outcome": "<b>x</b>", "configured": True, "route": "<i>"}}
+    assert "<b>x" not in _render({"state": "read", "stale": False, "checkedAt": "t", "result": bad})
+
+
 def test_pages_load_the_panel():
     for page in ("local-admin.html", "demo-admin.html"):
         html = (ROOT / page).read_text()
@@ -553,7 +588,8 @@ def test_log_mode_prints_nothing_and_appends_one_line(checkout, tmp_path):
     assert said == []
     lines = log.read_text().splitlines()
     assert len(lines) == 1
-    assert re.fullmatch(r"\S+ WARN 5 pass, 1 warn \[kroki WARN\]; openlineage offset 902071 at \S+; recorded", lines[0])
+    assert re.fullmatch(r"\S+ WARN 5 pass, 1 warn \[kroki WARN\]; openlineage offset 902071 at \S+; "
+                        r"alerting not configured \(unset: INFRA_ALERT_EMAIL \(or ALERT_EMAIL_TO\), RESEND_API_KEY \+ RESEND_FROM \(or SMTP_HOST\)\); recorded", lines[0])
     runner.containers["egeria-shared-openlineage-proxy-backend"]["HostConfig"]["RestartPolicy"]["Name"] = "no"
     assert m.main(["infra-check", "--checkout", str(checkout), "--log", str(log)], env=_env(runner, checkout, said)) == 1
     lines = log.read_text().splitlines()
@@ -578,7 +614,8 @@ def test_log_mode_records_errors_as_a_line(checkout, tmp_path, monkeypatch):
     monkeypatch.setattr(m, "infra_check", boom)
     said = []
     assert m.main(["infra-check", "--log", str(log)], env=_env(InfraRunner(checkout), checkout, said)) == 1
-    assert said == [] and re.fullmatch(r"\S+ ERROR RuntimeError: docker: command not found", log.read_text().strip())
+    assert said == [] and re.fullmatch(r"\S+ ERROR RuntimeError: docker: command not found; alerting not configured "
+                                       r"\(unset: INFRA_ALERT_EMAIL \(or ALERT_EMAIL_TO\), RESEND_API_KEY \+ RESEND_FROM \(or SMTP_HOST\)\)", log.read_text().strip())
 
 
 def test_log_mode_says_when_the_record_failed(checkout, tmp_path, monkeypatch):
@@ -723,3 +760,416 @@ def test_an_entry_without_an_exit_code_accepts_any_and_shows_it(checkout):
                                                                                  ExitCode=137)
     p = _by(_check(checkout, runner)[0])["proxy"]
     assert p["verdict"] == "EXPECTED STOPPED" and p["words"] == "exited (exit code 137), as expected: r (b)"
+
+
+# ── Prefect rows (DESIGN-PREFECT-ROLE-AND-RE-WORKER-2026-11-13 §4): WARN at worst, never FAIL ──────
+# tests/fixtures/prefect_pool_laz_2026_11_13.json is the Prefect API's real answers on laz (read only).
+
+PREFECT = json.loads((HERE / "fixtures" / "prefect_pool_laz_2026_11_13.json").read_text())
+ONLINE_BEAT = m._parse_iso(next(w for w in PREFECT["workers"] if w["status"] == "ONLINE")["last_heartbeat_time"])
+PREFECT_CFG = {"apiUrl": "http://localhost:4200/api", "pools": ["resource-explorer-pool"]}
+
+
+class PrefectHttp:
+    """Answers the three Prefect reads from the laz fixture; records every request."""
+
+    def __init__(self, workers=None, health=True, down=False, pool_code=200):
+        self.calls, self.down, self.health, self.pool_code = [], down, health, pool_code
+        self.workers = copy.deepcopy(PREFECT["workers"] if workers is None else workers)
+
+    def request(self, method, url, body=None, headers=None, timeout=30):
+        import urllib.error
+        self.calls.append((method, url))
+        if self.down:
+            raise urllib.error.URLError(ConnectionRefusedError(61, "Connection refused"))
+        path = url.split("/api", 1)[1]
+        if path == "/health":
+            return 200, self.health
+        if path == "/admin/version":
+            return 200, "3.8.6"
+        if path == "/work_pools/resource-explorer-pool" and method == "GET":
+            return (200, PREFECT["pool"]) if self.pool_code == 200 else (self.pool_code, {"detail": "not found"})
+        if path == "/work_pools/resource-explorer-pool/workers/filter" and method == "POST":
+            return 200, self.workers
+        raise AssertionError(f"unexpected request {method} {url}")
+
+
+def _prefect(http, now=ONLINE_BEAT + 20):
+    env = m.Env(runner=None, http=http, ask=lambda p: "", say=lambda s: None, now=lambda: now)
+    return {r["service"]: r for r in m.prefect_rows(env, PREFECT_CFG)}
+
+
+def _read_only_prefect(calls):
+    assert all(meth == "GET" or url.endswith("/workers/filter") for meth, url in calls), calls
+
+
+def test_prefect_on_laz_today_one_live_worker_of_four():
+    http = PrefectHttp()
+    rows = _prefect(http)
+    assert rows["Prefect server"]["verdict"] == "PASS"
+    assert rows["Prefect server"]["words"] == "API healthy at http://localhost:4200/api (Prefect 3.8.6)"
+    pool = rows["Prefect pool resource-explorer-pool live workers"]
+    assert pool["verdict"] == "PASS"
+    assert pool["words"] == "1 live worker(s) of 4 registered; last heartbeat 20 s ago; pool READY"
+    _read_only_prefect(http.calls)
+
+
+def test_prefect_registered_but_silent_workers_warn_with_their_age():
+    """The 2026-11-13 finding: 3 registered, last heartbeat 2026-10-12, no process running."""
+    workers = [w for w in PREFECT["workers"] if w["status"] == "OFFLINE"]
+    pool = _prefect(PrefectHttp(workers))["Prefect pool resource-explorer-pool live workers"]
+    assert pool["verdict"] == "WARN"
+    # 2026-10-12T12:17:13Z to 11:32:53Z on 11-13 is 31.97 days: whole days, floored
+    assert pool["words"].startswith("no live worker: 3 registered, last heartbeat 31 days ago (2026-10-12T12:17:13")
+
+
+def test_prefect_status_wins_and_a_heartbeat_decides_only_without_one():
+    online_old = {"status": "ONLINE", "last_heartbeat_time": "2026-01-01T00:00:00Z", "heartbeat_interval_seconds": 30}
+    offline_new = {"status": "OFFLINE", "last_heartbeat_time": m.iso(ONLINE_BEAT), "heartbeat_interval_seconds": 30}
+    no_status_recent = {"last_heartbeat_time": m.iso(ONLINE_BEAT - 60), "heartbeat_interval_seconds": 30}
+    no_status_stale = {"last_heartbeat_time": m.iso(ONLINE_BEAT - 200), "heartbeat_interval_seconds": 30}
+    never = {"last_heartbeat_time": None}
+    now = ONLINE_BEAT + 20
+    assert [m._worker_live(w, now) for w in (online_old, offline_new, no_status_recent, no_status_stale, never)] \
+        == [True, False, True, False, False]
+    pool = _prefect(PrefectHttp([offline_new, never]))["Prefect pool resource-explorer-pool live workers"]
+    assert pool["verdict"] == "WARN" and pool["words"].startswith("no live worker: 2 registered, last heartbeat 20 s ago")
+    assert "1 never heard from" in pool["words"]
+
+
+def test_prefect_pool_with_no_workers_warns():
+    pool = _prefect(PrefectHttp([]))["Prefect pool resource-explorer-pool live workers"]
+    assert pool["verdict"] == "WARN" and pool["words"].startswith("no registered workers")
+
+
+def test_prefect_server_unreachable_warns_and_the_pool_is_not_checked():
+    http = PrefectHttp(down=True)
+    rows = _prefect(http)
+    assert {r["verdict"] for r in rows.values()} == {"WARN"}
+    assert "not reachable: URLError" in rows["Prefect server"]["words"]
+    assert "runs are not recorded in Prefect" in rows["Prefect server"]["words"]
+    assert rows["Prefect pool resource-explorer-pool live workers"]["words"] == \
+        "not checked: the Prefect server is not reachable"
+    assert [u for _, u in http.calls] == ["http://localhost:4200/api/health"]
+
+
+@pytest.mark.parametrize("http, words", [
+    (PrefectHttp(health=False), "answered HTTP 200 False"),
+    (PrefectHttp(pool_code=404), "no such pool on http://localhost:4200/api"),
+])
+def test_prefect_other_answers_warn_never_fail(http, words):
+    rows = _prefect(http)
+    assert "FAIL" not in {r["verdict"] for r in rows.values()}
+    assert any(words in r["words"] for r in rows.values())
+
+
+def test_prefect_rows_join_the_check_only_when_configured(checkout):
+    http = PrefectHttp(workers=[])
+    env = m.Env(runner=InfraRunner(checkout), http=http, ask=lambda p: "", say=lambda s: None,
+                now=lambda: ONLINE_BEAT + 20, repo=checkout)
+    assert not [s for s in m.infra_check(env, checkout)["services"] if s.get("kind") == "prefect"]
+    assert http.calls == []
+    (checkout / m.INFRA_CONFIG).write_text(json.dumps({"prefect": PREFECT_CFG}))
+    result = m.infra_check(env, checkout)
+    by = _by(result)
+    assert by["Prefect pool resource-explorer-pool live workers"]["verdict"] == "WARN"
+    assert result["verdict"] == "WARN" and result["counts"]["FAIL"] == 0
+    assert any("Prefect pool resource-explorer-pool live workers WARN" in x for x in [m.infra_summary(result)])
+
+
+def test_repo_config_checks_the_re_pool():
+    assert json.loads((REPO / m.INFRA_CONFIG).read_text())["prefect"] == PREFECT_CFG
+
+
+# ── Alert email on a change of state (owner 2026-11-13), through the Portal's mail settings ─────
+
+API_KEY = "re_do-not-print-this-resend-key"
+PASSWORD = "do-not-print-this-smtp-password"
+RESEND = {"ALERT_EMAIL_TO": "ops@example.test", "RESEND_API_KEY": API_KEY, "RESEND_FROM": "Egeria <noreply@example.test>"}
+SMTP = {"INFRA_ALERT_EMAIL": "ops@example.test", "SMTP_HOST": "smtp.example.test", "SMTP_USER": "sender@example.test",
+        "SMTP_PASSWORD": PASSWORD}
+
+
+class FakeMail:
+    """Stands in for both senders: Resend (api_key, payload) and an smtplib-like connection."""
+
+    def __init__(self, fail=None):
+        self.resend_sent, self.smtp_sent, self.opened, self.logins, self.fail = [], [], [], [], fail
+
+    def resend(self, api_key, payload):
+        if self.fail:
+            raise self.fail
+        self.resend_sent.append((api_key, payload))
+
+    def smtp(self, host, port, security):
+        self.opened.append((host, port, security))
+        return self
+
+    def login(self, user, pwd):
+        self.logins.append((user, pwd))
+
+    def send_message(self, msg):
+        if self.fail:
+            raise self.fail
+        self.smtp_sent.append(msg)
+
+    def quit(self):
+        pass
+
+
+def _write_env(checkout, demo=None, main=None):
+    qs = checkout / m.QS_DIR
+    qs.mkdir(parents=True, exist_ok=True)
+    for name, values in ((".env.demo", demo), (".env", main)):
+        if values is not None:
+            (qs / name).write_text("".join(f"{k}={v}\n" for k, v in values.items()) + "OTHER_SECRET=nope\n")
+
+
+def _results(*states):
+    """infra_check results whose rows have the given verdicts: {"kafka": "PASS", ...}."""
+    for i, st in enumerate(states):
+        yield {"checkedAt": f"2026-11-13T12:{i:02d}:00+00:00", "checkout": None, "verdict": "x",
+               "services": [{"service": k, "verdict": v, "words": f"{k} is {v}"} for k, v in st.items()],
+               "counts": {"PASS": 0, "FAIL": sum(v == "FAIL" for v in st.values())}, "openlineage": {}}
+
+
+def _run(monkeypatch, checkout, tmp_path, states, mail):
+    it = _results(*states)
+    monkeypatch.setattr(m, "infra_check", lambda env, c=None: next(it))
+    log = tmp_path / "rv" / "infra-check.log"
+    env = m.Env(runner=None, http=None, ask=lambda p: "", say=lambda s: None, now=lambda: 1_794_487_200.0,
+                repo=checkout, smtp=mail.smtp, resend=mail.resend)
+    for _ in states:
+        m.infra_check_logged(env, log, record=False, checkout=checkout)
+    return log.read_text().splitlines(), log.with_name("infra-check-alert-state.json")
+
+
+def test_alerts_only_on_changes_and_on_recovery_through_resend(monkeypatch, checkout, tmp_path):
+    _write_env(checkout, demo=RESEND)
+    mail = FakeMail()
+    lines, state = _run(monkeypatch, checkout, tmp_path, [
+        {"kafka": "PASS", "pool": "PASS"},                    # fine from the start: nothing to say
+        {"kafka": "PASS", "pool": "WARN"},                    # into WARN: pending
+        {"kafka": "PASS", "pool": "WARN"},                    # held twice: email
+        {"kafka": "PASS", "pool": "WARN"},                    # same: nothing, however many runs
+        {"kafka": "FAIL", "pool": "WARN"},                    # a second row goes bad: pending
+        {"kafka": "FAIL", "pool": "WARN"},                    # held: email
+        {"kafka": "PASS", "pool": "PASS", "x": "EXPECTED STOPPED"},  # recovery: pending
+        {"kafka": "PASS", "pool": "PASS"},                    # held: one recovery email
+    ], mail)
+    assert [ln.rsplit("; ", 1)[1] for ln in lines] == [
+        "no change", "change pending (1 of 2 runs)", "alert sent (resend)", "no change",
+        "change pending (1 of 2 runs)", "alert sent (resend)", "change pending (1 of 2 runs)", "recovery sent (resend)"]
+    assert mail.smtp_sent == [] and {k for k, _ in mail.resend_sent} == {API_KEY}
+    payloads = [p for _, p in mail.resend_sent]
+    assert {p["from"] for p in payloads} == {"Egeria <noreply@example.test>"}
+    assert {tuple(p["to"]) for p in payloads} == {("ops@example.test",)}
+    assert payloads[0]["subject"].endswith("] WARN: pool") and payloads[1]["subject"].endswith("] FAIL: kafka, pool")
+    assert "recovered: everything PASS" in payloads[2]["subject"]
+    assert "NOW FAIL: kafka: kafka is FAIL" in payloads[1]["text"] and "still WARN: pool" in payloads[1]["text"]
+    assert "recovered (was WARN): pool" in payloads[2]["text"]
+    assert json.loads(state.read_text())["degraded"] == {} and state.parent == tmp_path / "rv"
+    everything = "\n".join(lines) + json.dumps(payloads) + state.read_text()
+    assert API_KEY not in everything and "OTHER_SECRET" not in everything and "nope" not in everything
+
+
+def test_resend_wins_over_smtp_as_in_the_portal(monkeypatch, checkout, tmp_path):
+    _write_env(checkout, demo={**SMTP, **RESEND})
+    mail = FakeMail()
+    lines, _ = _run(monkeypatch, checkout, tmp_path, [{"kafka": "FAIL"}] * 2, mail)
+    assert lines[-1].endswith("; alert sent (resend)") and mail.opened == [] and len(mail.resend_sent) == 1
+
+
+def test_a_resend_key_without_a_sender_is_not_configured_and_does_not_fall_back(monkeypatch, checkout, tmp_path):
+    """The Portal skips when RESEND_API_KEY is set without RESEND_FROM; it does not try SMTP."""
+    _write_env(checkout, demo={**SMTP, "RESEND_API_KEY": API_KEY})
+    mail = FakeMail()
+    lines, _ = _run(monkeypatch, checkout, tmp_path, [{"kafka": "FAIL"}], mail)
+    assert lines[-1].endswith("; alerting not configured (unset: RESEND_FROM)")
+    assert mail.opened == [] and mail.resend_sent == []
+
+
+def test_smtp_when_resend_is_unset(monkeypatch, checkout, tmp_path):
+    _write_env(checkout, demo=SMTP)
+    mail = FakeMail()
+    lines, _ = _run(monkeypatch, checkout, tmp_path, [{"kafka": "WARN"}] * 2, mail)
+    assert lines[-1].endswith("; alert sent (smtp)")
+    assert mail.opened == [("smtp.example.test", 587, "starttls")]
+    assert mail.logins == [("sender@example.test", PASSWORD)]
+    msg = mail.smtp_sent[0]
+    assert msg["From"] == "sender@example.test" and msg["To"] == "ops@example.test"
+    assert PASSWORD not in msg.as_string() + "\n".join(lines)
+
+
+def test_smtp_ssl_and_the_documented_user_fallback(monkeypatch, checkout, tmp_path):
+    _write_env(checkout, demo={"ALERT_EMAIL_TO": "a@example.test, b@example.test", "SMTP_HOST": "smtp.example.test",
+                               "SMTP_SSL": "true", "SMTP_PASSWORD": PASSWORD, "SMTP_FROM": "infra@example.test",
+                               "ADMIN_BOOTSTRAP_EMAIL": "admin@example.test"})
+    mail = FakeMail()
+    _run(monkeypatch, checkout, tmp_path, [{"kafka": "WARN"}] * 2, mail)
+    assert mail.opened == [("smtp.example.test", 465, "ssl")]
+    assert mail.logins == [("admin@example.test", PASSWORD)]
+    assert mail.smtp_sent[0]["From"] == "infra@example.test"
+    assert mail.smtp_sent[0]["To"] == "a@example.test, b@example.test"
+
+
+def test_where_settings_come_from(monkeypatch, checkout):
+    """Process environment, else .env.demo (where quick-start-local keeps secrets), else .env; only the
+    named keys are read."""
+    _write_env(checkout, demo={"RESEND_FROM": "demo@example.test"},
+               main={"RESEND_FROM": "main@example.test", "RESEND_API_KEY": API_KEY, "ALERT_EMAIL_TO": "to@example.test"})
+    got = m.alert_settings(checkout)
+    assert got["RESEND_FROM"] == "demo@example.test" and got["RESEND_API_KEY"] == API_KEY
+    assert set(got) == set(m.ALERT_KEYS) and "OTHER_SECRET" not in got
+    monkeypatch.setenv("RESEND_FROM", "env@example.test")
+    monkeypatch.setenv("INFRA_ALERT_EMAIL", "infra@example.test")
+    got = m.alert_settings(checkout)
+    assert got["RESEND_FROM"] == "env@example.test"
+    assert m.mail_route(got) == ("resend", "infra@example.test", [])     # INFRA_ALERT_EMAIL over ALERT_EMAIL_TO
+
+
+def test_not_configured_says_so_every_run_and_sends_nothing(monkeypatch, checkout, tmp_path):
+    _write_env(checkout, demo={"RESEND_API_KEY": API_KEY, "RESEND_FROM": "x@example.test"})   # no recipient
+    mail = FakeMail()
+    lines, state = _run(monkeypatch, checkout, tmp_path, [{"kafka": "PASS"}, {"kafka": "FAIL"}, {"kafka": "FAIL"}], mail)
+    assert all(ln.endswith("; alerting not configured (unset: INFRA_ALERT_EMAIL (or ALERT_EMAIL_TO))") for ln in lines)
+    assert mail.resend_sent == [] and not state.exists()
+    assert API_KEY not in "\n".join(lines)
+
+
+def test_once_configured_the_first_run_reports_what_is_already_wrong(monkeypatch, checkout, tmp_path):
+    mail = FakeMail()
+    _run(monkeypatch, checkout, tmp_path, [{"kafka": "FAIL"}], mail)
+    assert mail.resend_sent == []
+    _write_env(checkout, demo=RESEND)
+    lines, _ = _run(monkeypatch, checkout, tmp_path, [{"kafka": "FAIL"}] * 2, mail)
+    assert lines[-1].endswith("; alert sent (resend)") and len(mail.resend_sent) == 1
+
+
+def test_a_failed_send_is_logged_without_the_key_and_retried(monkeypatch, checkout, tmp_path):
+    _write_env(checkout, demo=RESEND)
+    mail = FakeMail(fail=RuntimeError(f"Resend answered HTTP 401: bad key {API_KEY}"))
+    lines, state = _run(monkeypatch, checkout, tmp_path, [{"kafka": "FAIL"}] * 2, mail)
+    assert "; alert NOT sent (resend): RuntimeError: Resend answered HTTP 401: bad key ***" in lines[-1]
+    st = json.loads(state.read_text())     # not notified: still pending, so the next run tries again
+    assert API_KEY not in lines[-1] + state.read_text() and "degraded" not in st and st["pending"]["runs"] == 2
+    mail.fail = None
+    lines, _ = _run(monkeypatch, checkout, tmp_path, [{"kafka": "FAIL"}], mail)
+    assert lines[-1].endswith("; alert sent (resend)") and len(mail.resend_sent) == 1
+
+
+def test_an_infra_check_error_alerts_too(monkeypatch, checkout, tmp_path):
+    _write_env(checkout, demo=RESEND)
+    mail = FakeMail()
+    def boom(env, c=None):
+        raise RuntimeError("docker: command not found")
+    monkeypatch.setattr(m, "infra_check", boom)
+    log = tmp_path / "rv" / "infra-check.log"
+    env = m.Env(runner=None, http=None, ask=lambda p: "", say=lambda s: None, now=lambda: 1.0, repo=checkout,
+                resend=mail.resend)
+    assert m.infra_check_logged(env, log, record=False, checkout=checkout) == 1
+    assert log.read_text().strip().endswith("; change pending (1 of 2 runs)") and mail.resend_sent == []
+    assert m.infra_check_logged(env, log, record=False, checkout=checkout) == 1
+    assert log.read_text().strip().endswith("; alert sent (resend)")
+    payload = mail.resend_sent[0][1]
+    assert payload["subject"].endswith("] ERROR: infra-check") and "docker: command not found" in payload["text"]
+
+
+def test_no_alert_flag_sends_nothing(monkeypatch, checkout, tmp_path):
+    _write_env(checkout, demo=RESEND)
+    mail = FakeMail()
+    it = _results({"kafka": "FAIL"})
+    monkeypatch.setattr(m, "infra_check", lambda env, c=None: next(it))
+    log = tmp_path / "n.log"
+    env = m.Env(runner=None, http=None, ask=lambda p: "", say=lambda s: None, now=lambda: 1.0, repo=checkout,
+                resend=mail.resend)
+    m.main(["infra-check", "--checkout", str(checkout), "--log", str(log), "--no-alert"], env=env)
+    assert mail.resend_sent == [] and "alert" not in log.read_text()
+
+
+def test_a_flapping_row_sends_nothing(monkeypatch, checkout, tmp_path):
+    """A worker OFFLINE -> ONLINE -> OFFLINE -> ONLINE never holds for two runs: no mail at all."""
+    _write_env(checkout, demo=RESEND)
+    mail = FakeMail()
+    lines, state = _run(monkeypatch, checkout, tmp_path,
+                        [{"pool": "WARN"}, {"pool": "PASS"}, {"pool": "WARN"}, {"pool": "PASS"}, {"pool": "WARN"}], mail)
+    assert mail.resend_sent == []
+    assert [ln.rsplit("; ", 1)[1] for ln in lines] == [
+        "change pending (1 of 2 runs)", "no change (pending change did not hold)", "change pending (1 of 2 runs)",
+        "no change (pending change did not hold)", "change pending (1 of 2 runs)"]
+    assert json.loads(state.read_text())["pending"]["runs"] == 1
+
+
+def test_a_flap_between_two_bad_sets_sends_nothing(monkeypatch, checkout, tmp_path):
+    """WARN -> FAIL -> WARN -> FAIL: each new set restarts the count, so none is mailed."""
+    _write_env(checkout, demo=RESEND)
+    mail = FakeMail()
+    _run(monkeypatch, checkout, tmp_path, [{"k": "WARN"}, {"k": "FAIL"}, {"k": "WARN"}, {"k": "FAIL"}], mail)
+    assert mail.resend_sent == []
+
+
+def test_a_change_held_twice_sends_exactly_once(monkeypatch, checkout, tmp_path):
+    _write_env(checkout, demo=RESEND)
+    mail = FakeMail()
+    lines, state = _run(monkeypatch, checkout, tmp_path, [{"pool": "WARN"}] * 5, mail)
+    assert len(mail.resend_sent) == 1 and lines[1].endswith("; alert sent (resend)")
+    assert all(ln.endswith("; no change") for ln in lines[2:])
+    st = json.loads(state.read_text())
+    assert st["degraded"] == {"pool": "WARN"} and "pending" not in st
+
+
+def test_a_recovery_held_twice_sends_one_recovery_mail(monkeypatch, checkout, tmp_path):
+    _write_env(checkout, demo=RESEND)
+    mail = FakeMail()
+    lines, _ = _run(monkeypatch, checkout, tmp_path,
+                    [{"pool": "WARN"}, {"pool": "WARN"}, {"pool": "PASS"}, {"pool": "WARN"},   # recovery did not hold
+                     {"pool": "PASS"}, {"pool": "PASS"}, {"pool": "PASS"}], mail)
+    subjects = [p["subject"] for _, p in mail.resend_sent]
+    assert len(subjects) == 2 and "recovered" in subjects[1]
+    assert lines[3].endswith("; no change (pending change did not hold)")
+    assert lines[5].endswith("; recovery sent (resend)") and lines[6].endswith("; no change")
+
+
+def test_the_recorded_result_carries_alerting_for_the_panel(monkeypatch, checkout, tmp_path):
+    _write_env(checkout, demo=RESEND)
+    mail = FakeMail()
+    recorded = []
+    monkeypatch.setattr(m, "record_infra", lambda env, result: recorded.append(result))
+    it = _results({"pool": "WARN"}, {"pool": "WARN"}, {"pool": "WARN"})
+    monkeypatch.setattr(m, "infra_check", lambda env, c=None: next(it))
+    log = tmp_path / "rv" / "infra-check.log"
+    env = m.Env(runner=None, http=None, ask=lambda p: "", say=lambda s: None, now=lambda: 1_794_487_200.0,
+                repo=checkout, resend=mail.resend)
+    for _ in range(3):
+        m.infra_check_logged(env, log, record=True, checkout=checkout)
+    a = [r["alerting"] for r in recorded]
+    assert [x["outcome"] for x in a] == ["change pending (1 of 2 runs)", "alert sent (resend)", "no change"]
+    assert a[0]["lastSentAt"] is None and a[2]["lastSentAt"] == a[1]["lastSentAt"] is not None
+    assert all(x["configured"] is True and x["route"] == "resend" for x in a)
+    assert API_KEY not in json.dumps(recorded)
+    recorded.clear()
+    it2 = _results({"pool": "WARN"})
+    monkeypatch.setattr(m, "infra_check", lambda env, c=None: next(it2))
+    m.infra_check_logged(env, log, record=True, checkout=checkout, alert=False)
+    assert recorded[0]["alerting"] == {"outcome": "off for this run (--no-alert)", "configured": None}
+
+
+def test_the_resend_request_verifies_tls_and_matches_cert_watch(monkeypatch):
+    seen = {}
+
+    class Resp:
+        status = 200
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    def urlopen(req, timeout=None, context=None):
+        seen.update(url=req.full_url, method=req.get_method(), auth=req.get_header("Authorization"),
+                    body=json.loads(req.data), verify=context.verify_mode, hostname=context.check_hostname)
+        return Resp()
+
+    monkeypatch.setattr(m.urllib.request, "urlopen", urlopen)
+    m._resend_default(API_KEY, {"from": "f", "to": ["t"], "subject": "s", "text": "b"})
+    import ssl as _ssl
+    assert seen["url"] == "https://api.resend.com/emails" and seen["method"] == "POST"
+    assert seen["auth"] == f"Bearer {API_KEY}" and seen["body"]["to"] == ["t"]
+    assert seen["verify"] == _ssl.CERT_REQUIRED and seen["hostname"] is True

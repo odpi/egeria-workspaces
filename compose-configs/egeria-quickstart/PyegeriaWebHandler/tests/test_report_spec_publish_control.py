@@ -249,6 +249,7 @@ def test_held_public_spec_version_unreadable_is_refused(client):
 def test_withdraw_a_held_spec(client):
     c, w = client
     w.tier = {"guid": "g-1", "header_version": 4}
+    w.consumers["index"] = {"Team Projects": ["EgeriaAdvisor"]}         # it is in that folder
     d = post(c, action="withdraw", folder="EgeriaAdvisor", step="preview").json()
     assert "## Remove Member from Collection" in d["markdown"] and ADVISOR_QN in d["markdown"]
     assert "Create Report Spec" not in d["markdown"] and "Update Report Spec" not in d["markdown"]
@@ -270,10 +271,10 @@ def test_result_cache_drop():
     assert cache.drop(lambda k: k[0] == "a") == 1 and cache.lookup(("a",))[0] == "miss"
 
 
-def test_router_is_registered_and_the_floor_is_6_2_40():
+def test_router_is_registered_and_the_floor_is_6_2_41():
     assert "from report_spec_publish_handler import router as report_spec_publish_router" in (ROOT / "pyegeria_handler.py").read_text()
-    assert (ROOT / "requirements.txt").read_text().splitlines()[6].startswith("pyegeria>=6.2.40")
-    assert "ARG PYEGERIA_VERSION=pyegeria>=6.2.40" in (ROOT / "Dockerfile-fast-api").read_text()
+    assert (ROOT / "requirements.txt").read_text().splitlines()[6].startswith("pyegeria>=6.2.41")
+    assert "ARG PYEGERIA_VERSION=pyegeria>=6.2.41" in (ROOT / "Dockerfile-fast-api").read_text()
 
 
 def test_the_handler_never_falls_back_to_a_password():
@@ -470,3 +471,75 @@ def test_no_exception_text_is_put_in_a_response():
     src = (ROOT / "report_spec_publish_handler.py").read_text()
     assert "str(exc)" not in src and "{exc}" not in src
     assert '"message": exc.message' in src
+
+
+# ── withdraw from a folder the spec is not in (live test, 2026-11-12) ─────────
+
+def test_withdraw_from_a_folder_the_spec_is_not_in_is_refused(client):
+    c, w = client
+    w.tier = {"guid": "g-1", "header_version": 4}
+    w.consumers["index"] = {"Team Projects": ["EgeriaAdvisor"]}
+    r = post(c, action="withdraw", folder="Portal", step="preview")
+    assert r.status_code == 409
+    assert r.json()["message"] == "'Team Projects' is not in Portal, so there is nothing to withdraw."
+    assert w.runs == []
+
+
+def test_withdraw_from_a_folder_the_spec_is_in_is_planned(client):
+    c, w = client
+    w.tier = {"guid": "g-1", "header_version": 4}
+    w.consumers["index"] = {"Team Projects": ["EgeriaAdvisor"]}
+    d = post(c, action="withdraw", folder="EgeriaAdvisor", step="preview").json()
+    assert "## Remove Member from Collection" in d["markdown"] and ADVISOR_QN in d["markdown"]
+
+
+def test_withdraw_from_a_folder_that_was_not_read_is_left_to_egeria(client):
+    """Absence is not "not in": a folder the last sync could not read cannot say the spec is not there."""
+    c, w = client
+    w.tier = {"guid": "g-1", "header_version": 4}
+    w.consumers["status"] = "partial"
+    w.consumers["consumers"][0]["status"] = "not read"          # Portal
+    w.consumers["index"] = {}
+    r = post(c, action="withdraw", folder="Portal", step="preview")
+    assert r.status_code == 200 and "## Remove Member from Collection" in r.json()["markdown"]
+
+
+def test_publish_is_not_affected_by_membership(client):
+    c, w = client
+    w.consumers["index"] = {"Team Projects": ["Portal"]}
+    assert post(c, folder="Portal", step="preview").status_code == 200       # re-publishing is an upsert
+
+
+def test_the_page_offers_withdraw_only_from_used_by_folders():
+    te = (ROOT / "type-explorer.html").read_text()
+    control = te[te.index("function RsPublishControl("):te.index("function ReportSpecDetail(")]
+    assert "action === 'withdraw' ? allNames.filter(n => usedBy.indexOf(n) >= 0) : allNames" in control
+    assert "from none: Used by shows no consumer folder holding this spec" in control
+    assert "(folder && names.indexOf(folder) >= 0) ? folder : (names[0] || '')" in control
+
+
+def test_the_page_withdraw_folders_under_node():
+    import shutil
+    import subprocess
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node not available")
+    te = (ROOT / "type-explorer.html").read_text()
+    control = te[te.index("function RsPublishControl("):te.index("function ReportSpecDetail(")]
+    start = control.index("  const allNames =")
+    end = control.index("  function call(step)")
+    js = ("function pick(action, folder, consumers, spec) {\n" + control[start:end]
+          + "return { names: names, chosen: chosen };}\n"
+          "var cons = {consumers: [{name: 'Portal'}, {name: 'EgeriaAdvisor'}]};\n"
+          "console.log(JSON.stringify([pick('withdraw', '', cons, {usedBy: ['EgeriaAdvisor']}),"
+          " pick('withdraw', 'Portal', cons, {usedBy: ['EgeriaAdvisor']}),"
+          " pick('publish', 'Portal', cons, {usedBy: ['EgeriaAdvisor']}),"
+          " pick('withdraw', '', cons, {usedBy: []})]));")
+    out = subprocess.run([node, "-e", js], capture_output=True, text=True, timeout=20)
+    assert out.returncode == 0, out.stderr
+    import json as _json
+    assert _json.loads(out.stdout) == [
+        {"names": ["EgeriaAdvisor"], "chosen": "EgeriaAdvisor"},
+        {"names": ["EgeriaAdvisor"], "chosen": "EgeriaAdvisor"},      # a folder it is not in is not kept
+        {"names": ["Portal", "EgeriaAdvisor"], "chosen": "Portal"},
+        {"names": [], "chosen": ""}]

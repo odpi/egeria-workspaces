@@ -54,12 +54,14 @@ before starting either app.
 
 ### 1.3 Identities
 
-All identities are the QuickStart's demo users, defined in
-`compose-configs/egeria-quickstart/secrets/coco-user-directory.omsecrets` (password `secret`):
+The people are the QuickStart's demo users, defined in
+`compose-configs/egeria-quickstart/secrets/coco-user-directory.omsecrets`. Each app's background work runs as its
+own non-person service account, never a demo user (2026-11-13):
 
 | Purpose | User |
 |---|---|
-| Service account for background work (the RE worker role, EA's non-interactive calls) | `erinoverview` |
+| RE's service account (web and worker roles: background work, calls with no signed-in user) | `resourceexplorernpa` |
+| EA's service account (non-interactive calls). EA refuses this user at sign-in, so it must never be a person's login | `egeriaadvisornpa` |
 | Signing in to either app, in the browser or on the command line | any demo user, e.g. `peterprofile` |
 | Platform-services reads used in the checks below | `garygeeke` |
 
@@ -76,7 +78,8 @@ platform tokens last one hour; an app session is the shorter of that and the app
 | `ADVISOR_PORTAL_SECRET` / `TRELLIS_PORTAL_SECRET` | lets the Portal hand a signed-in user to EA and RE | the same value as the QuickStart's `EGERIA_ADVISOR_SSO_SECRET` |
 | `PGVECTOR_PASSWORD` | the `egeria_advisor` Postgres role | `shared-infra/docker-entrypoint-initdb.d/init_egeria.sql` (default `advisor`) |
 | `GITHUB_TOKEN` | RE's GitHub API access for surveys and discovery | a personal token with read scope; without it GitHub's 60 calls/hour are gone in one survey |
-| `EGERIA_USER` / `EGERIA_USER_PASSWORD` | the service account above | `erinoverview` / `secret` |
+| `RE_DAEMON_USER_ID` / `RE_DAEMON_USER_PASSWORD` | RE's service account above (compose passes them as `EGERIA_USER_ID` / `EGERIA_USER_PASSWORD`) | `resourceexplorernpa`; its password from the QuickStart's user directory. Required, no default |
+| `EA_DAEMON_USER_ID` / `EA_DAEMON_USER_PASSWORD` | EA's service account above (compose passes them as `EGERIA_USER` / `EGERIA_PASSWORD`) | `egeriaadvisornpa`; its password from the QuickStart's user directory. Required, no default |
 
 Never commit any of these, and never bake them into an image (the trellis `.dockerignore`
 excludes `.env` files for that reason).
@@ -320,7 +323,7 @@ Minimum edits:
 | File | Keys |
 |---|---|
 | both | `TRELLIS_JWT_SECRET=<one value shared by both files>` so sessions survive restarts (`RE_JWT_SECRET` / `ADVISOR_JWT_SECRET` per app also work) |
-| RE | `GITHUB_TOKEN`; `EGERIA_PLATFORM_URL=https://localhost:9443`, `EGERIA_VIEW_SERVER=qs-view-server`, `EGERIA_USER=erinoverview`, `EGERIA_USER_PASSWORD=secret`; `LLM__OLLAMA__BASE_URL=http://localhost:11434` |
+| RE | `GITHUB_TOKEN`; `EGERIA_PLATFORM_URL=https://localhost:9443`, `EGERIA_VIEW_SERVER=qs-view-server`, `EGERIA_USER_ID=resourceexplorernpa` and its `EGERIA_USER_PASSWORD` (RE's service account; RE reads `EGERIA_USER_ID`, never `EGERIA_USER`, and never a person's login); `LLM__OLLAMA__BASE_URL=http://localhost:11434` |
 | EA | `EGERIA_VIEW_SERVER_URL=https://localhost:9443`, `EGERIA_VIEW_SERVER=qs-view-server`, `EGERIA_USER` / `EGERIA_PASSWORD`; `OLLAMA_BASE_URL=http://localhost:11434`; `ADVISOR_DATA_PATH` to where EA's corpus should live |
 | optional | `ADVISOR_PORTAL_SECRET` / `RE_PORTAL_SECRET` equal to the QuickStart's `EGERIA_ADVISOR_SSO_SECRET` for tile handoff; `EXPLORER_MODEL_TIER` / `ADVISOR_MODEL_TIER` (default `dev`) |
 
@@ -416,7 +419,7 @@ Keys the apps read, grouped by concern. `<APP>_` forms override the shared `TREL
 | Session lifetime | `RE_JWT_TTL_HOURS` (default 8; Egeria's token caps it at 1 h) | same mechanism | inherited |
 | Portal handoff secret | `RE_PORTAL_SECRET` or `TRELLIS_PORTAL_SECRET` | `ADVISOR_PORTAL_SECRET` | `ADVISOR_PORTAL_SECRET` (fed to both) |
 | Login policy | `TRELLIS_REQUIRE_LOGIN` (default true), `TRELLIS_ANONYMOUS_READ` (dev only), `RE_PUBLIC_PATHS` | same, `TRELLIS_PUBLIC_PATHS` | defaults |
-| Egeria platform | `EGERIA_PLATFORM_URL`, `EGERIA_VIEW_SERVER`, `EGERIA_USER`, `EGERIA_USER_PASSWORD`, `PYEGERIA_TIMEOUT_SECONDS` | `EGERIA_VIEW_SERVER_URL`, `EGERIA_VIEW_SERVER`, `EGERIA_USER`, `EGERIA_PASSWORD` | set in compose; service account from `EGERIA_USER` / `EGERIA_USER_PASSWORD` |
+| Egeria platform | `EGERIA_PLATFORM_URL`, `EGERIA_VIEW_SERVER`, `EGERIA_USER`, `EGERIA_USER_PASSWORD`, `PYEGERIA_TIMEOUT_SECONDS` | `EGERIA_VIEW_SERVER_URL`, `EGERIA_VIEW_SERVER`, `EGERIA_USER`, `EGERIA_PASSWORD` | set in compose; service accounts from `RE_DAEMON_USER_*` / `EA_DAEMON_USER_*` in `.env` (required) |
 | Ollama | `LLM__OLLAMA__BASE_URL`, `LLM__OLLAMA__MODEL` | `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, `OLLAMA_CODE_MODEL` | `TRELLIS_MODEL_GENERAL`, `TRELLIS_MODEL_CODE`, plus the overlay choice |
 | Model tier | `EXPLORER_MODEL_TIER` | `ADVISOR_MODEL_TIER` | `TRELLIS_MODEL_TIER` |
 | Postgres / pgvector | `PGVECTOR_*` or `REGISTRY_DATABASE_URL` | `PGVECTOR_*` | `PGVECTOR_PASSWORD` |
