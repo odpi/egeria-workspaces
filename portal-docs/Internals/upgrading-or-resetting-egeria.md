@@ -166,6 +166,13 @@ There's no email every 10 minutes while nothing changes. The rows last notified 
 `infra-check-alert-state.json`, next to `infra-check.log`. The email lists what changed and what is still
 wrong, with each row's words.
 
+**A change must hold for 2 consecutive runs** (about 20 minutes) before it's mailed, and so must a
+recovery. Until then the state file keeps it as `pending` and the log line says "change pending (1 of 2
+runs)". A row that flaps (a worker OFFLINE, ONLINE, OFFLINE…) sends nothing: going back to the notified
+state drops the pending change ("no change (pending change did not hold)"), and a different bad set
+restarts the count. FAIL is held the same way, so a FAIL is mailed one run later; one that clears on the
+next run is a flap, not news.
+
 **It uses egeria-workspaces' own mail settings**, not new ones (owner, 2026-11-13: "use the same mail
 configuration as we use in Egeria-Workspaces"). The precedence is the Portal's (`demo-mode.md`, "SMTP
 email" and "Resend"):
@@ -191,8 +198,13 @@ failed send has the API key and password masked.
 **Unconfigured is visible, never silent.** While the recipient or the sender is missing, every log line ends
 "alerting not configured (unset: …)", naming what's missing, and nothing is sent. The state isn't advanced,
 so the first run after configuring emails whatever is already wrong. A failed send is logged ("alert NOT
-sent (resend): …") and tried again on the next run. Successful lines say which route was used ("alert sent
-(resend)"). `--no-alert` turns the email off for a run.
+sent (resend): …") and stays pending, so the next run tries again. Successful lines say which route was
+used ("alert sent (resend)"). `--no-alert` turns the email off for a run.
+
+The recorded check carries the same outcome as `alerting`, and the Portal's Shared infrastructure panel
+shows it as an "Alert email:" line: "not configured (unset: …): nothing is mailed" in amber, or
+"configured (resend) · this run: … · last sent …". A run that didn't alert says so ("off for this run
+(--no-alert)", or "not reported by this check" for a manual run without `--log`).
 
 ### The Portal's "Shared infrastructure" line
 

@@ -506,6 +506,34 @@ def test_panel_escapes():
     assert "<script>" not in html and "<img" not in html and "&lt;script&gt;" in html
 
 
+def test_panel_says_alerting_is_not_configured():
+    res = {**RESULT, "alerting": {"outcome": "alerting not configured", "configured": False,
+                                  "unset": ["INFRA_ALERT_EMAIL (or ALERT_EMAIL_TO)", "RESEND_API_KEY + RESEND_FROM (or SMTP_HOST)"]}}
+    html = _render({"state": "read", "stale": False, "checkedAt": "t", "result": res})
+    assert ("Alert email: not configured (unset: INFRA_ALERT_EMAIL (or ALERT_EMAIL_TO), "
+            "RESEND_API_KEY + RESEND_FROM (or SMTP_HOST)): nothing is mailed") in html
+    assert "var(--amber" in html.split("Alert email")[0].rsplit("<div", 1)[1]
+
+
+def test_panel_says_alerting_is_configured_and_when_mail_last_went():
+    res = {**RESULT, "alerting": {"outcome": "no change", "configured": True, "route": "resend",
+                                  "lastSentAt": "2026-11-13T12:00:00+00:00"}}
+    html = _render({"state": "read", "stale": False, "checkedAt": "t", "result": res})
+    assert "Alert email: configured (resend) · this run: no change · last sent 2026-11-13T12:00:00+00:00" in html
+    res["alerting"] = {"outcome": "change pending (1 of 2 runs)", "configured": True, "route": "smtp", "lastSentAt": None}
+    assert "configured (smtp) · this run: change pending (1 of 2 runs) · last sent never" in _render(
+        {"state": "read", "stale": False, "checkedAt": "t", "result": res})
+
+
+def test_panel_never_leaves_alerting_blank():
+    html = _render({"state": "read", "stale": False, "checkedAt": "t", "result": RESULT})   # no alerting key
+    assert "Alert email: not reported by this check" in html
+    off = {**RESULT, "alerting": {"outcome": "off for this run (--no-alert)", "configured": None}}
+    assert "Alert email: off for this run (--no-alert)" in _render({"state": "read", "stale": False, "checkedAt": "t", "result": off})
+    bad = {**RESULT, "alerting": {"outcome": "<b>x</b>", "configured": True, "route": "<i>"}}
+    assert "<b>x" not in _render({"state": "read", "stale": False, "checkedAt": "t", "result": bad})
+
+
 def test_pages_load_the_panel():
     for page in ("local-admin.html", "demo-admin.html"):
         html = (ROOT / page).read_text()
@@ -921,13 +949,17 @@ def test_alerts_only_on_changes_and_on_recovery_through_resend(monkeypatch, chec
     mail = FakeMail()
     lines, state = _run(monkeypatch, checkout, tmp_path, [
         {"kafka": "PASS", "pool": "PASS"},                    # fine from the start: nothing to say
-        {"kafka": "PASS", "pool": "WARN"},                    # into WARN: email
+        {"kafka": "PASS", "pool": "WARN"},                    # into WARN: pending
+        {"kafka": "PASS", "pool": "WARN"},                    # held twice: email
         {"kafka": "PASS", "pool": "WARN"},                    # same: nothing, however many runs
-        {"kafka": "FAIL", "pool": "WARN"},                    # a second row goes bad: email
-        {"kafka": "PASS", "pool": "PASS", "x": "EXPECTED STOPPED"},  # recovery: email
+        {"kafka": "FAIL", "pool": "WARN"},                    # a second row goes bad: pending
+        {"kafka": "FAIL", "pool": "WARN"},                    # held: email
+        {"kafka": "PASS", "pool": "PASS", "x": "EXPECTED STOPPED"},  # recovery: pending
+        {"kafka": "PASS", "pool": "PASS"},                    # held: one recovery email
     ], mail)
-    assert [ln.rsplit("; ", 1)[1] for ln in lines] == ["no change", "alert sent (resend)", "no change",
-                                                       "alert sent (resend)", "recovery sent (resend)"]
+    assert [ln.rsplit("; ", 1)[1] for ln in lines] == [
+        "no change", "change pending (1 of 2 runs)", "alert sent (resend)", "no change",
+        "change pending (1 of 2 runs)", "alert sent (resend)", "change pending (1 of 2 runs)", "recovery sent (resend)"]
     assert mail.smtp_sent == [] and {k for k, _ in mail.resend_sent} == {API_KEY}
     payloads = [p for _, p in mail.resend_sent]
     assert {p["from"] for p in payloads} == {"Egeria <noreply@example.test>"}
@@ -944,7 +976,7 @@ def test_alerts_only_on_changes_and_on_recovery_through_resend(monkeypatch, chec
 def test_resend_wins_over_smtp_as_in_the_portal(monkeypatch, checkout, tmp_path):
     _write_env(checkout, demo={**SMTP, **RESEND})
     mail = FakeMail()
-    lines, _ = _run(monkeypatch, checkout, tmp_path, [{"kafka": "FAIL"}], mail)
+    lines, _ = _run(monkeypatch, checkout, tmp_path, [{"kafka": "FAIL"}] * 2, mail)
     assert lines[-1].endswith("; alert sent (resend)") and mail.opened == [] and len(mail.resend_sent) == 1
 
 
@@ -960,7 +992,7 @@ def test_a_resend_key_without_a_sender_is_not_configured_and_does_not_fall_back(
 def test_smtp_when_resend_is_unset(monkeypatch, checkout, tmp_path):
     _write_env(checkout, demo=SMTP)
     mail = FakeMail()
-    lines, _ = _run(monkeypatch, checkout, tmp_path, [{"kafka": "WARN"}], mail)
+    lines, _ = _run(monkeypatch, checkout, tmp_path, [{"kafka": "WARN"}] * 2, mail)
     assert lines[-1].endswith("; alert sent (smtp)")
     assert mail.opened == [("smtp.example.test", 587, "starttls")]
     assert mail.logins == [("sender@example.test", PASSWORD)]
@@ -974,7 +1006,7 @@ def test_smtp_ssl_and_the_documented_user_fallback(monkeypatch, checkout, tmp_pa
                                "SMTP_SSL": "true", "SMTP_PASSWORD": PASSWORD, "SMTP_FROM": "infra@example.test",
                                "ADMIN_BOOTSTRAP_EMAIL": "admin@example.test"})
     mail = FakeMail()
-    _run(monkeypatch, checkout, tmp_path, [{"kafka": "WARN"}], mail)
+    _run(monkeypatch, checkout, tmp_path, [{"kafka": "WARN"}] * 2, mail)
     assert mail.opened == [("smtp.example.test", 465, "ssl")]
     assert mail.logins == [("admin@example.test", PASSWORD)]
     assert mail.smtp_sent[0]["From"] == "infra@example.test"
@@ -1010,19 +1042,20 @@ def test_once_configured_the_first_run_reports_what_is_already_wrong(monkeypatch
     _run(monkeypatch, checkout, tmp_path, [{"kafka": "FAIL"}], mail)
     assert mail.resend_sent == []
     _write_env(checkout, demo=RESEND)
-    lines, _ = _run(monkeypatch, checkout, tmp_path, [{"kafka": "FAIL"}], mail)
+    lines, _ = _run(monkeypatch, checkout, tmp_path, [{"kafka": "FAIL"}] * 2, mail)
     assert lines[-1].endswith("; alert sent (resend)") and len(mail.resend_sent) == 1
 
 
 def test_a_failed_send_is_logged_without_the_key_and_retried(monkeypatch, checkout, tmp_path):
     _write_env(checkout, demo=RESEND)
     mail = FakeMail(fail=RuntimeError(f"Resend answered HTTP 401: bad key {API_KEY}"))
-    lines, state = _run(monkeypatch, checkout, tmp_path, [{"kafka": "FAIL"}], mail)
+    lines, state = _run(monkeypatch, checkout, tmp_path, [{"kafka": "FAIL"}] * 2, mail)
     assert "; alert NOT sent (resend): RuntimeError: Resend answered HTTP 401: bad key ***" in lines[-1]
-    assert API_KEY not in lines[-1] and not state.exists()       # not advanced: the next run tries again
+    st = json.loads(state.read_text())     # not notified: still pending, so the next run tries again
+    assert API_KEY not in lines[-1] + state.read_text() and "degraded" not in st and st["pending"]["runs"] == 2
     mail.fail = None
     lines, _ = _run(monkeypatch, checkout, tmp_path, [{"kafka": "FAIL"}], mail)
-    assert lines[-1].endswith("; alert sent (resend)")
+    assert lines[-1].endswith("; alert sent (resend)") and len(mail.resend_sent) == 1
 
 
 def test_an_infra_check_error_alerts_too(monkeypatch, checkout, tmp_path):
@@ -1034,6 +1067,8 @@ def test_an_infra_check_error_alerts_too(monkeypatch, checkout, tmp_path):
     log = tmp_path / "rv" / "infra-check.log"
     env = m.Env(runner=None, http=None, ask=lambda p: "", say=lambda s: None, now=lambda: 1.0, repo=checkout,
                 resend=mail.resend)
+    assert m.infra_check_logged(env, log, record=False, checkout=checkout) == 1
+    assert log.read_text().strip().endswith("; change pending (1 of 2 runs)") and mail.resend_sent == []
     assert m.infra_check_logged(env, log, record=False, checkout=checkout) == 1
     assert log.read_text().strip().endswith("; alert sent (resend)")
     payload = mail.resend_sent[0][1]
@@ -1050,6 +1085,73 @@ def test_no_alert_flag_sends_nothing(monkeypatch, checkout, tmp_path):
                 resend=mail.resend)
     m.main(["infra-check", "--checkout", str(checkout), "--log", str(log), "--no-alert"], env=env)
     assert mail.resend_sent == [] and "alert" not in log.read_text()
+
+
+def test_a_flapping_row_sends_nothing(monkeypatch, checkout, tmp_path):
+    """A worker OFFLINE -> ONLINE -> OFFLINE -> ONLINE never holds for two runs: no mail at all."""
+    _write_env(checkout, demo=RESEND)
+    mail = FakeMail()
+    lines, state = _run(monkeypatch, checkout, tmp_path,
+                        [{"pool": "WARN"}, {"pool": "PASS"}, {"pool": "WARN"}, {"pool": "PASS"}, {"pool": "WARN"}], mail)
+    assert mail.resend_sent == []
+    assert [ln.rsplit("; ", 1)[1] for ln in lines] == [
+        "change pending (1 of 2 runs)", "no change (pending change did not hold)", "change pending (1 of 2 runs)",
+        "no change (pending change did not hold)", "change pending (1 of 2 runs)"]
+    assert json.loads(state.read_text())["pending"]["runs"] == 1
+
+
+def test_a_flap_between_two_bad_sets_sends_nothing(monkeypatch, checkout, tmp_path):
+    """WARN -> FAIL -> WARN -> FAIL: each new set restarts the count, so none is mailed."""
+    _write_env(checkout, demo=RESEND)
+    mail = FakeMail()
+    _run(monkeypatch, checkout, tmp_path, [{"k": "WARN"}, {"k": "FAIL"}, {"k": "WARN"}, {"k": "FAIL"}], mail)
+    assert mail.resend_sent == []
+
+
+def test_a_change_held_twice_sends_exactly_once(monkeypatch, checkout, tmp_path):
+    _write_env(checkout, demo=RESEND)
+    mail = FakeMail()
+    lines, state = _run(monkeypatch, checkout, tmp_path, [{"pool": "WARN"}] * 5, mail)
+    assert len(mail.resend_sent) == 1 and lines[1].endswith("; alert sent (resend)")
+    assert all(ln.endswith("; no change") for ln in lines[2:])
+    st = json.loads(state.read_text())
+    assert st["degraded"] == {"pool": "WARN"} and "pending" not in st
+
+
+def test_a_recovery_held_twice_sends_one_recovery_mail(monkeypatch, checkout, tmp_path):
+    _write_env(checkout, demo=RESEND)
+    mail = FakeMail()
+    lines, _ = _run(monkeypatch, checkout, tmp_path,
+                    [{"pool": "WARN"}, {"pool": "WARN"}, {"pool": "PASS"}, {"pool": "WARN"},   # recovery did not hold
+                     {"pool": "PASS"}, {"pool": "PASS"}, {"pool": "PASS"}], mail)
+    subjects = [p["subject"] for _, p in mail.resend_sent]
+    assert len(subjects) == 2 and "recovered" in subjects[1]
+    assert lines[3].endswith("; no change (pending change did not hold)")
+    assert lines[5].endswith("; recovery sent (resend)") and lines[6].endswith("; no change")
+
+
+def test_the_recorded_result_carries_alerting_for_the_panel(monkeypatch, checkout, tmp_path):
+    _write_env(checkout, demo=RESEND)
+    mail = FakeMail()
+    recorded = []
+    monkeypatch.setattr(m, "record_infra", lambda env, result: recorded.append(result))
+    it = _results({"pool": "WARN"}, {"pool": "WARN"}, {"pool": "WARN"})
+    monkeypatch.setattr(m, "infra_check", lambda env, c=None: next(it))
+    log = tmp_path / "rv" / "infra-check.log"
+    env = m.Env(runner=None, http=None, ask=lambda p: "", say=lambda s: None, now=lambda: 1_794_487_200.0,
+                repo=checkout, resend=mail.resend)
+    for _ in range(3):
+        m.infra_check_logged(env, log, record=True, checkout=checkout)
+    a = [r["alerting"] for r in recorded]
+    assert [x["outcome"] for x in a] == ["change pending (1 of 2 runs)", "alert sent (resend)", "no change"]
+    assert a[0]["lastSentAt"] is None and a[2]["lastSentAt"] == a[1]["lastSentAt"] is not None
+    assert all(x["configured"] is True and x["route"] == "resend" for x in a)
+    assert API_KEY not in json.dumps(recorded)
+    recorded.clear()
+    it2 = _results({"pool": "WARN"})
+    monkeypatch.setattr(m, "infra_check", lambda env, c=None: next(it2))
+    m.infra_check_logged(env, log, record=True, checkout=checkout, alert=False)
+    assert recorded[0]["alerting"] == {"outcome": "off for this run (--no-alert)", "configured": None}
 
 
 def test_the_resend_request_verifies_tls_and_matches_cert_watch(monkeypatch):

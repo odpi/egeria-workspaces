@@ -1683,10 +1683,27 @@ def send_alert(env: Env, settings: dict, route: str, to: str, subject: str, body
             pass
 
 
+ALERT_HOLD_RUNS = 2   # a change is mailed only once it has held this many consecutive runs
+
+
+def _write_alert_state(state_path: Path, state: dict) -> None:
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = state_path.with_name(state_path.name + ".tmp")
+    tmp.write_text(json.dumps(state, indent=2) + "\n")
+    os.replace(tmp, state_path)
+
+
 def alert_on_change(env: Env, state_path: Path, root: Path, result: Optional[dict],
                     error: Optional[str] = None) -> dict:
-    """Compare this run's not-fine rows with the last notified ones; email on a change. Returns
-    {"outcome": ..., "configured": bool, ...} for the log line and the recorded result. Never raises."""
+    """Compare this run's not-fine rows with the last notified ones; email on a change that has HELD.
+
+    Debounce: a new set of degraded rows, or a recovery, is mailed only after the same set has been
+    seen on ALERT_HOLD_RUNS (2) consecutive runs. Until then it is kept as "pending" in the state file
+    and the log says "change pending (1 of 2 runs)". A row that flaps (OFFLINE, ONLINE, OFFLINE …)
+    therefore sends nothing; going back to the notified set drops the pending change. FAIL is debounced
+    the same way (one 10-minute run of delay): a FAIL that clears on the next run is a flap, not news.
+
+    Returns {"outcome": ..., "configured": bool, ...} for the log line and the recorded result. Never raises."""
     now_rows = degraded_rows(result, error)
     try:
         settings = alert_settings(root)
@@ -1696,27 +1713,40 @@ def alert_on_change(env: Env, state_path: Path, root: Path, result: Optional[dic
     if missing:        # said on every run, changed or not: an unconfigured alert is never silent
         return {"outcome": "alerting not configured", "configured": False, "unset": missing}
     try:
-        before = (json.loads(state_path.read_text()).get("degraded") or {}) if state_path.exists() else {}
-    except (ValueError, OSError, AttributeError):
-        before = {}
+        state = json.loads(state_path.read_text()) if state_path.exists() else {}
+        if not isinstance(state, dict):
+            state = {}
+    except (ValueError, OSError):
+        state = {}
+    before = state.get("degraded") or {}
+    pending = state.get("pending") if isinstance(state.get("pending"), dict) else None
+    base = {k: v for k, v in state.items() if k != "pending"}
+    told = {"configured": True, "route": route, "lastSentAt": base.get("notifiedAt")}
     if now_rows == before:
-        return {"outcome": "no change", "configured": True}
+        if pending:    # the change did not hold: forget it
+            _write_alert_state(state_path, base)
+            return {"outcome": "no change (pending change did not hold)", **told}
+        return {"outcome": "no change", **told}
+    runs = (int(pending.get("runs") or 0) + 1) if pending and pending.get("degraded") == now_rows else 1
+    if runs < ALERT_HOLD_RUNS:
+        _write_alert_state(state_path, {**base, "pending": {"degraded": now_rows, "runs": runs,
+                                                             "since": iso(env.now())}})
+        return {"outcome": f"change pending ({runs} of {ALERT_HOLD_RUNS} runs)", **told}
     at = (result or {}).get("checkedAt") or iso(env.now())
     subject, body = alert_message(socket.gethostname(), at, before, now_rows, result, error)
     try:
         send_alert(env, settings, route, to, subject, body)
-    except Exception as exc:  # noqa: BLE001 -- the state is not advanced, so the next run tries again
+    except Exception as exc:  # noqa: BLE001 -- still pending, so the next run tries again
         text = str(exc)
         for k in ALERT_SECRETS:
             if settings.get(k):
                 text = text.replace(settings[k], "***")
-        return {"outcome": f"alert NOT sent ({route}): {type(exc).__name__}: {text[:200]}", "configured": True}
-    state_path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = state_path.with_name(state_path.name + ".tmp")
-    tmp.write_text(json.dumps({"degraded": now_rows, "notifiedAt": iso(env.now()), "subject": subject}, indent=2) + "\n")
-    os.replace(tmp, state_path)
-    return {"outcome": ("alert sent" if now_rows else "recovery sent") + f" ({route})", "configured": True,
-            "subject": subject}
+        _write_alert_state(state_path, {**base, "pending": {"degraded": now_rows, "runs": runs,
+                                                             "since": (pending or {}).get("since") or iso(env.now())}})
+        return {"outcome": f"alert NOT sent ({route}): {type(exc).__name__}: {text[:200]}", **told}
+    _write_alert_state(state_path, {"degraded": now_rows, "notifiedAt": iso(env.now()), "subject": subject})
+    return {"outcome": ("alert sent" if now_rows else "recovery sent") + f" ({route})", **told,
+            "lastSentAt": iso(env.now()), "subject": subject}
 
 
 def alert_words(a: dict) -> str:
@@ -1737,6 +1767,8 @@ def infra_check_logged(env: Env, log: Path, *, record: bool, checkout: Optional[
             a = alert_on_change(env, state_path, Path(result.get("checkout") or env.repo), result)
             result["alerting"] = a
             line += "; " + alert_words(a)
+        else:   # recorded, so the Portal panel says alerting was off rather than showing nothing
+            result["alerting"] = {"outcome": "off for this run (--no-alert)", "configured": None}
         if record:
             try:
                 record_infra(env, result)
