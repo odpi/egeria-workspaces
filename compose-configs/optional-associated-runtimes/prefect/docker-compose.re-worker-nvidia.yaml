@@ -5,9 +5,10 @@
 #
 #   docker compose -f docker-compose.yaml -f docker-compose.re-worker-nvidia.yaml up -d re-prefect-worker
 #
-# The reservation alone changes no step: trellis's RE image installs CPU-only torch
-# (docker/Dockerfile.resource-explorer), so EMBEDDINGS__DEVICE stays cpu until a CUDA build of the image
-# exists. Steps that use the GPU through their own libraries see the devices.
+# This reserves the GPU; RE's steps don't use it until the image carries a CUDA torch. Do not read the
+# reservation as acceleration: trellis's RE image installs CPU-only torch (docker/Dockerfile.resource-explorer),
+# so EMBEDDINGS__DEVICE stays cpu. A CUDA torch build variant (a build argument, Linux/NVIDIA deployment images
+# only; laz and every Apple-silicon host never get it) is a stated follow-up (Architect ruling, 2026-11-13).
 services:
   re-prefect-worker:
     deploy:
