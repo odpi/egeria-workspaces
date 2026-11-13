@@ -1,0 +1,90 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Resource Explorer's Prefect worker, in its own file (2026-11-13) so docker-compose.yaml's Prefect server starts
+# on its own: compose interpolates every `${VAR:?}` in a file before it looks at which services were asked for,
+# so the worker's required service account would otherwise be required to start the server too. Its own
+# project name, so bringing one file up or down never treats the other's container as an orphan. It joins the
+# same egeria_network and reaches the server by its service name; start the server first (README §3):
+#
+#   docker compose up -d prefect-server
+#   docker compose -f docker-compose.re-worker.yaml --env-file .env.re-worker up -d
+name: egeria-optional-re-prefect-worker
+
+services:
+  # Resource Explorer's Prefect worker (2026-11-13). It replaces the July example worker, whose pool the owner
+  # deleted with its two deployments on 2026-11-13; nothing here creates or names that pool.
+  #
+  # The image is trellis's own (docker/Dockerfile.resource-explorer, `make image-re`), role `prefect-worker`:
+  # it refuses to start without its build commit (TRELLIS_RE_SHA, baked in by the build) or with a library
+  # survey step missing, deploys its own deployment `re-survey-step-<sha12>`, and polls only queue
+  # `re-<sha12>` as `re-worker-<sha12>-<host>`. Resource Explorer dispatches a step here only when it runs
+  # the SAME commit; otherwise it warns and runs the step locally. So build the RE web image and this one
+  # from one commit (TRELLIS_RE_IMAGE names it). Design: trellis
+  # packages/resource-explorer/docs/design-notes/PREFECT-CONTAINER-WORKER-2026-11-13.md.
+  #
+  # Before switching a deployment to it, run the A/B proof in that note (same definition, local vs this
+  # worker, compare step_runs and the stored results).
+  re-prefect-worker:
+    image: "${TRELLIS_RE_IMAGE:-trellis/resource-explorer:local}"
+    container_name: egeria-optional-re-prefect-worker
+    command: ["prefect-worker"]
+    # The image's HEALTHCHECK curls the web port; a worker serves no HTTP. Its liveness is Prefect's own
+    # worker status, which Resource Explorer's bootstrap check and banner read.
+    healthcheck:
+      disable: true
+    environment:
+      # Prefect, by service name on egeria_network (never localhost inside a container).
+      PREFECT_API_URL: http://prefect-server:4200/api
+      PREFECT_WORK_POOL: resource-explorer-pool
+      PREFECT_ENABLED: "true"
+      PREFECT_SERVER_EPHEMERAL_ENABLED: "false"
+      # The registry and pgvector: shared-infra's Postgres by service name, RE's own schema. Same values
+      # as the trellis services (../trellis/docker-compose.yaml); the password comes from the environment.
+      PGVECTOR_HOST: egeria-shared-postgres
+      PGVECTOR_PORT: "5442"
+      PGVECTOR_DBNAME: egeria_advisor
+      PGVECTOR_USER: egeria_advisor
+      PGVECTOR_PASSWORD: "${PGVECTOR_PASSWORD:-advisor}"
+      PGVECTOR_SCHEMA: resource_explorer
+      REGISTRY_DATABASE_URL: "postgresql://egeria_advisor:${PGVECTOR_PASSWORD:-advisor}@egeria-shared-postgres:5442/egeria_advisor?options=-csearch_path%3Dresource_explorer"
+      # Egeria: the platform's TLS certificate names host.docker.internal, not the network alias (see the
+      # trellis compose for why both URLs are set).
+      EGERIA_PLATFORM_URL: https://host.docker.internal:9443
+      EGERIA_VIEW_SERVER_URL: https://host.docker.internal:9443
+      EGERIA_VIEW_SERVER: qs-view-server
+      # RE's own service account (resource_explorer/config.py `user_id`/`user_password`, read from EGERIA_USER_ID /
+      # EGERIA_USER_PASSWORD). No default on purpose: a persona default once made RE act as a person, and RE
+      # refuses every service-account path when it is unset (NoServiceAccount). Compose refuses to start without
+      # them. Put both in the gitignored .env.re-worker next to this file and pass it with --env-file (README §3).
+      EGERIA_USER_ID: "${RE_DAEMON_USER_ID:?set RE_DAEMON_USER_ID in .env.re-worker (RE's service account; see README)}"
+      EGERIA_USER_PASSWORD: "${RE_DAEMON_USER_PASSWORD:?set RE_DAEMON_USER_PASSWORD in .env.re-worker (see README)}"
+      PYEGERIA_TIMEOUT_SECONDS: "30"
+      GITHUB_TOKEN: "${GITHUB_TOKEN:-}"
+      # The image's torch is CPU-only (see the NVIDIA overlay before changing this).
+      EMBEDDINGS__DEVICE: cpu
+      OBSERVABILITY__MLFLOW__ENABLED: "false"
+      OBSERVABILITY__PHOENIX__ENABLED: "false"
+    volumes:
+      # The same data volume the trellis web and worker use (cloned survey checkouts, caches), so a step
+      # here reads what they wrote. It belongs to the trellis stack: bring that up first.
+      - trellis-re-data:/app/data
+      # The only host path a step can survey from inside this container, read only. Register file-system
+      # resources under /survey/... for this worker to reach them; a host path anywhere else, or a
+      # database registered as `localhost`, is not reachable from here.
+      - "${RE_WORKER_SURVEY_ROOT:-./survey-root}:/survey:ro"
+    networks:
+      - egeria_network
+    extra_hosts:
+      - "host.docker.internal:${HOST_GATEWAY_IP:-host-gateway}"
+    restart: always
+
+networks:
+  egeria_network:
+    name: egeria_network
+    external: true
+
+volumes:
+  # Created by the trellis stack (../trellis/docker-compose.yaml, project "trellis").
+  trellis-re-data:
+    name: "${TRELLIS_RE_DATA_VOLUME:-trellis_trellis-re-data}"
+    external: true
