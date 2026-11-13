@@ -38,6 +38,11 @@ Once started, the Prefect UI is available at **[http://localhost:4200](http://lo
 
 ## 3. Resource Explorer's worker (`re-prefect-worker`)
 
+The worker has **its own compose file**, `docker-compose.re-worker.yaml` (project `egeria-optional-re-prefect-worker`),
+so §2's commands start and stop the Prefect server alone, without the worker's service-account env file. Compose
+checks every required `${VAR:?}` in a file before it looks at which services you asked for. The worker joins the
+same `egeria_network` and reaches the server by name, so start the server first.
+
 Prefect's only user here is Trellis's Resource Explorer (RE). This service is RE's worker for the
 `resource-explorer-pool` work pool. It replaced the July example worker on 2026-11-13, when the owner deleted
 that worker's pool and both its deployments.
@@ -58,7 +63,7 @@ that worker's pool and both its deployments.
 
   A database registered as `localhost`, or a host path outside the survey root, is not reachable from the
   container.
-* **GPU (Linux + NVIDIA only):** add `-f docker-compose.re-worker-nvidia.yaml`. Never use it on a Mac, where
+* **GPU (Linux + NVIDIA only):** add `-f docker-compose.re-worker-nvidia.yaml` after `-f docker-compose.re-worker.yaml`. Never use it on a Mac, where
   Docker has no GPU passthrough.
 * **Before relying on it:** run the A/B proof in trellis
   `packages/resource-explorer/docs/design-notes/PREFECT-CONTAINER-WORKER-2026-11-13.md`.
@@ -77,8 +82,10 @@ that worker's pool and both its deployments.
   Compose refuses to start the worker while either value is missing.
 
 ```bash
-docker compose --env-file .env.re-worker up -d prefect-server re-prefect-worker
-docker compose --env-file .env.re-worker logs re-prefect-worker | head -5   # "library steps ... (none missing)", then "Worker ... started!"
+docker compose up -d prefect-server        # the server: this directory's docker-compose.yaml, no env file needed
+docker compose -f docker-compose.re-worker.yaml --env-file .env.re-worker up -d
+docker compose -f docker-compose.re-worker.yaml --env-file .env.re-worker logs re-prefect-worker | head -5
+#   expect "library steps ... (none missing)", then "Worker ... started!"
 ```
 
 On laz (macOS), RE's worker runs on the host under launchd instead (trellis

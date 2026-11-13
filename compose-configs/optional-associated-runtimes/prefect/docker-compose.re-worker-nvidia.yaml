@@ -3,7 +3,7 @@
 # Linux + NVIDIA only (the demo machine): give Resource Explorer's Prefect worker the GPUs. Needs the NVIDIA
 # Container Toolkit on the host. Docker on Apple silicon has no GPU passthrough, so never use this on a Mac.
 #
-#   docker compose -f docker-compose.yaml -f docker-compose.re-worker-nvidia.yaml up -d re-prefect-worker
+#   docker compose -f docker-compose.re-worker.yaml -f docker-compose.re-worker-nvidia.yaml --env-file .env.re-worker up -d
 #
 # This reserves the GPU; RE's steps don't use it until the image carries a CUDA torch. Do not read the
 # reservation as acceleration: trellis's RE image installs CPU-only torch (docker/Dockerfile.resource-explorer),
