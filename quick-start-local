@@ -398,6 +398,31 @@ pushd compose-configs/egeria-quickstart >/dev/null
   # 13-day-old httpd still answered for them.
   _re_server_name="$(_get_env_var EGERIA_RE_SERVER_NAME .env)"
   _ea_server_name="$(_get_env_var EGERIA_EA_SERVER_NAME .env)"
+  # The mail sender settings and infra-check's recipient: a fourth time. The
+  # Portal, cert-watch, the egeria-watchdog and infra-check all send through
+  # RESEND_* or SMTP_*, and an install without .env.demo (laz, by design) keeps
+  # them in .env -- which gen-env.sh rewrites below, so a plain run silently
+  # dropped them (and with them every alert email). --demo had the same hole
+  # for SMTP_* and INFRA_ALERT_EMAIL: its fixed .env.demo rewrite below kept
+  # only RESEND_*. RESEND_* go through _resend_key/_resend_from as before; the
+  # rest are carried generically. Values are written to the files only, never
+  # echoed. Bash 3.2-safe (no associative arrays): each key's value lives in
+  # _carry_<KEY>.
+  _resend_key="$(_get_env_var RESEND_API_KEY .env)"
+  _resend_from="$(_get_env_var RESEND_FROM .env)"
+  _CARRY_MAIL_KEYS="SMTP_HOST SMTP_PORT SMTP_SSL SMTP_USER SMTP_PASSWORD SMTP_FROM INFRA_ALERT_EMAIL"
+  for _k in $_CARRY_MAIL_KEYS; do
+    printf -v "_carry_${_k}" '%s' "$(_get_env_var "$_k" .env)"
+  done
+  # Print KEY=value for every carried mail key that has a value (into a file
+  # via redirection only -- never to the terminal).
+  _carried_mail_lines() {
+    local _k _v
+    for _k in $_CARRY_MAIL_KEYS; do
+      _v="_carry_${_k}"
+      if [[ -n "${!_v}" ]]; then printf '%s=%s\n' "$_k" "${!_v}"; fi
+    done
+  }
 
   if [[ "$DEMO_MODE_FLAG" -eq 1 ]]; then
     ENV_DEMO=".env.demo"
@@ -435,6 +460,9 @@ pushd compose-configs/egeria-quickstart >/dev/null
     _explorer_url="$(_pick EGERIA_RESOURCE_EXPLORER_URL)"
     _re_server_name="$(_pick EGERIA_RE_SERVER_NAME)"
     _ea_server_name="$(_pick EGERIA_EA_SERVER_NAME)"
+    for _k in $_CARRY_MAIL_KEYS; do
+      printf -v "_carry_${_k}" '%s' "$(_pick "$_k")"
+    done
 
     # Generate JWT_SECRET if not already set
     if [[ -z "$_jwt" ]]; then
@@ -543,6 +571,7 @@ EGERIA_RE_SERVER_NAME=${_re_server_name}
 EGERIA_EA_SERVER_NAME=${_ea_server_name}
 ALERT_EMAIL_TO=${_alert_email}
 EOF
+    _carried_mail_lines >> "$ENV_DEMO"
     chmod 600 "$ENV_DEMO"
     echo "[quick-start-local]   Demo credentials saved to ${ENV_DEMO}."
   fi
@@ -630,6 +659,7 @@ EOF
       echo "EGERIA_RE_SERVER_NAME=${_re_server_name}"
       echo "EGERIA_EA_SERVER_NAME=${_ea_server_name}"
       echo "ALERT_EMAIL_TO=${_alert_email}"
+      _carried_mail_lines
     } >> .env
     echo "[quick-start-local]   Demo SSL_SERVER_NAME: ${_host_fqdn} — SITE_URL: ${_site_url}"
     # Apache's RewriteMap must exist before apache-web starts; pyegeria-web
@@ -659,6 +689,9 @@ EOF
       if [[ -n "$_re_server_name" ]]; then echo "EGERIA_RE_SERVER_NAME=${_re_server_name}"; fi
       if [[ -n "$_ea_server_name" ]]; then echo "EGERIA_EA_SERVER_NAME=${_ea_server_name}"; fi
       if [[ -n "$_alert_email" ]];    then echo "ALERT_EMAIL_TO=${_alert_email}"; fi
+      if [[ -n "$_resend_key" ]];     then echo "RESEND_API_KEY=${_resend_key}"; fi
+      if [[ -n "$_resend_from" ]];    then echo "RESEND_FROM=${_resend_from}"; fi
+      _carried_mail_lines
     } >> .env
     echo "[quick-start-local]   Self-signed HTTPS on port ${_https_port_num} (CERT_DIR=${_cert_dir}) — SITE_URL: ${_site_url}"
   fi
