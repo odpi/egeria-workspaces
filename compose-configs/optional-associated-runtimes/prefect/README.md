@@ -63,9 +63,22 @@ that worker's pool and both its deployments.
 * **Before relying on it:** run the A/B proof in trellis
   `packages/resource-explorer/docs/design-notes/PREFECT-CONTAINER-WORKER-2026-11-13.md`.
 
+* **Its service account (required):** RE reads its own Egeria service account from `EGERIA_USER_ID` and
+  `EGERIA_USER_PASSWORD`. Without one, every path that needs it refuses (`NoServiceAccount`). The compose file has
+  no default on purpose: a persona default once made RE act as a person. Put the account in `.env.re-worker` in
+  this directory. Git ignores that file; never commit it, and never paste its values anywhere:
+
+  ```bash
+  # .env.re-worker (this directory; gitignored). Fill in RE's service account, not a person's login.
+  RE_DAEMON_USER_ID=
+  RE_DAEMON_USER_PASSWORD=
+  ```
+
+  Compose refuses to start the worker while either value is missing.
+
 ```bash
-docker compose up -d prefect-server re-prefect-worker
-docker compose logs re-prefect-worker | head -5   # "library steps ... (none missing)", then "Worker ... started!"
+docker compose --env-file .env.re-worker up -d prefect-server re-prefect-worker
+docker compose --env-file .env.re-worker logs re-prefect-worker | head -5   # "library steps ... (none missing)", then "Worker ... started!"
 ```
 
 On laz (macOS), RE's worker runs on the host under launchd instead (trellis

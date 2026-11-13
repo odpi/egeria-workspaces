@@ -59,8 +59,12 @@ services:
       EGERIA_PLATFORM_URL: https://host.docker.internal:9443
       EGERIA_VIEW_SERVER_URL: https://host.docker.internal:9443
       EGERIA_VIEW_SERVER: qs-view-server
-      EGERIA_USER: "${EGERIA_USER:-erinoverview}"
-      EGERIA_USER_PASSWORD: "${EGERIA_USER_PASSWORD:-secret}"
+      # RE's own service account (resource_explorer/config.py `user_id`/`user_password`, read from EGERIA_USER_ID /
+      # EGERIA_USER_PASSWORD). No default on purpose: a persona default once made RE act as a person, and RE
+      # refuses every service-account path when it is unset (NoServiceAccount). Compose refuses to start without
+      # them. Put both in the gitignored .env.re-worker next to this file and pass it with --env-file (README §3).
+      EGERIA_USER_ID: "${RE_DAEMON_USER_ID:?set RE_DAEMON_USER_ID in .env.re-worker (RE's service account; see README)}"
+      EGERIA_USER_PASSWORD: "${RE_DAEMON_USER_PASSWORD:?set RE_DAEMON_USER_PASSWORD in .env.re-worker (see README)}"
       PYEGERIA_TIMEOUT_SECONDS: "30"
       GITHUB_TOKEN: "${GITHUB_TOKEN:-}"
       # The image's torch is CPU-only (see the NVIDIA overlay before changing this).
