@@ -88,6 +88,8 @@ class FakeRunner(m.Runner):
         if j.startswith("docker inspect quickstart-egeria-main --format {{index"):
             wd = self.deploy / "compose-configs" / "egeria-quickstart"
             return R(0, f"egeria-quickstart|{wd}/egeria-quickstart.yaml,{wd}/egeria-quickstart-local.yaml|{wd}|{self.running_image}\n")
+        if j.startswith("docker inspect quickstart-egeria-main --format {{.State.StartedAt}}"):
+            return R(0, "2026-11-12T16:59:47.123456789Z\n")
         if j.startswith("docker inspect quickstart-egeria-main --format {{.State.Running}}"):
             return R(0, "false\n")
         if j.startswith("docker inspect egeria-shared-postgres"):
@@ -142,9 +144,16 @@ class FakeHttp:
         self.status = {"reinitializing": False, "lastCheckAt": None, "families": {}}
         self.purposes = {"purposes": {f"T{i}": "GOVERNANCE" for i in range(94)}, "serverReportsPurpose": True}
         self.find_count = 1
+        # the Portal's report-spec sync (POST to start, GET for the outcome)
+        self.sync_post = 200
+        self.sync_post_body = {"started": True, "already_running": False}
+        self.sync = {"running": False, "outcome": "synced", "finished_at": "2099-01-01T00:00:00+00:00",
+                     "error": None, "report": {"consumers": {"status": "read", "consumers": 2, "labels": 7}}}
 
     def request(self, method, url, body=None, headers=None, timeout=30):
         self.calls.append((method, url))
+        if url.endswith("/api/report-specs/sync"):
+            return (self.sync_post, self.sync_post_body) if method == "POST" else (200, self.sync)
         if url.endswith("/api/bootstrap/status"):
             return 200, self.status
         if url.endswith("/api/bootstrap/batches"):
@@ -620,3 +629,264 @@ def test_verify_infra_error_is_not_measured(world, monkeypatch):
     c = [c for c in _state(run_dir)["steps"]["verify"]["evidence"]["checks"] if c["check"].startswith("infra")]
     assert c == [{"check": "infra (shared-infra compose)", "verdict": "NOT MEASURED",
                   "evidence": "RuntimeError: docker not on PATH"}]
+
+
+# ── verify in the background: the persona checkpoint (2026-11-12, first real run) ────────
+
+def _bare_env(ask=input, personas=None):
+    return m.Env(runner=None, http=None, ask=ask, say=lambda s: None, personas=personas)
+
+
+@pytest.mark.parametrize("answer,verdict", [("ok", "PASS"), ("skip", "NOT MEASURED"), ("OK", "PASS")])
+def test_persona_answer_given_up_front_never_asks(answer, verdict):
+    def ask(prompt):
+        raise AssertionError("asked although the answer was given up front")
+    c = m.persona_check(_bare_env(ask=ask, personas=answer))
+    assert c["verdict"] == verdict and c["evidence"] == f"answered up front: {answer.lower()}"
+
+
+def test_persona_answer_from_the_environment(monkeypatch):
+    monkeypatch.setenv("EGERIA_RESET_PERSONAS", "skip")
+    assert m.persona_check(_bare_env(ask=lambda p: "ok"))["verdict"] == "NOT MEASURED"
+
+
+def test_a_bad_up_front_answer_is_not_measured():
+    c = m.persona_check(_bare_env(personas="yes"))
+    assert c["verdict"] == "NOT MEASURED" and "not one of ok, skip" in c["evidence"]
+
+
+def test_no_terminal_and_no_answer_is_not_measured_without_asking(monkeypatch):
+    monkeypatch.delenv("EGERIA_RESET_PERSONAS", raising=False)
+    monkeypatch.setattr(m.sys.stdin, "isatty", lambda: False, raising=False)
+    c = m.persona_check(_bare_env(ask=input))
+    assert c == {"check": "persona sign-ins", "verdict": "NOT MEASURED",
+                 "evidence": "no terminal to ask and no --personas answer (a background run)"}
+
+
+def test_end_of_input_at_the_prompt_is_not_measured_never_a_crash(monkeypatch):
+    monkeypatch.delenv("EGERIA_RESET_PERSONAS", raising=False)
+    def eof(prompt):
+        raise EOFError
+    c = m.persona_check(_bare_env(ask=eof))
+    assert c["verdict"] == "NOT MEASURED" and "end of input" in c["evidence"] and "--personas" in c["evidence"]
+
+
+def test_the_operator_answer_is_still_recorded(monkeypatch):
+    monkeypatch.delenv("EGERIA_RESET_PERSONAS", raising=False)
+    assert m.persona_check(_bare_env(ask=lambda p: "ok"))["verdict"] == "PASS"
+    c = m.persona_check(_bare_env(ask=lambda p: "garygeeke cannot open the CDO sheet"))
+    assert c["verdict"] == "FAIL" and "garygeeke" in c["evidence"]
+
+
+def test_apply_personas_flag_reaches_verify(world, monkeypatch):
+    """apply --personas skip: verify records NOT MEASURED and the persona prompt is never shown."""
+    world["answers"]["persona"] = "THIS WAS ASKED"
+    run_dir = _plan(world)
+    assert m.main(["apply", "--plan", str(run_dir), "--personas", "skip"], env=world["env"]) == 0
+    checks = {c["check"]: c for c in _state(run_dir)["steps"]["verify"]["evidence"]["checks"]}
+    assert checks["persona sign-ins"]["verdict"] == "NOT MEASURED"
+    assert checks["persona sign-ins"]["evidence"] == "answered up front: skip"
+
+
+# ── the watch: genuine authentication failures only ───────────────────────────
+
+GUID_LINE = ("Thu Nov 12 13:05:11 GMT 2026 qs-engine-host Information OMES-GOVERNANCE-ACTION-0011 The governance "
+             "action aee401cf-6b2e-4c51-9f3b-0d2b1a40128e has completed with status ACTIONED")
+TIMESTAMP_LINE = "2026-11-12 13:05:11.401 INFO  [qs-view-server] request completed in 0.401 s"
+REAL = [
+    "Thu Nov 12 13:06:01 GMT 2026 qs-view-server Error OMAG-USER-SECURITY-401-001 The user erinoverview is not authorized",
+    "WARN request to https://localhost:9443/servers/qs-view-server/api failed with HTTP Code: 401",
+    "org.odpi.openmetadata.frameworks.openmetadata.ffdc.UserNotAuthorizedException: USER_NOT_AUTHORIZED",
+    "status=UNAUTHORIZED for peterprofile",
+]
+
+
+def test_a_guid_or_a_timestamp_holding_401_is_not_a_failure():
+    assert m.auth_failure_lines(GUID_LINE + "\n" + TIMESTAMP_LINE + "\nINFO started") == []
+    assert m.auth_failure_lines("element 4011-abcd and 9401 and v1.401.2 and /api/401x") == []
+
+
+@pytest.mark.parametrize("line", REAL)
+def test_genuine_authentication_failures_are_found(line):
+    assert m.auth_failure_lines(line) == [line]
+
+
+def test_the_watch_passes_on_guids_and_fails_on_a_real_401(world):
+    env, runner = world["env"], world["runner"]
+    logs = {"text": GUID_LINE + "\n" + TIMESTAMP_LINE + "\n"}
+    orig = runner._answer
+
+    def answer(cmd, j, input_text):
+        if cmd[:2] == ["docker", "logs"]:
+            return m.Result(0, logs["text"], "")
+        return orig(cmd, j, input_text)
+    runner._answer = answer
+    verdict, evidence = m._watch(env, 0, 60)
+    assert verdict == "PASS" and "0 authentication-failure lines" in evidence
+    logs["text"] += REAL[0] + "\n"
+    verdict, evidence = m._watch(env, 0, 60)
+    assert verdict == "FAIL" and "1 authentication-failure lines" in evidence and "OMAG-USER-SECURITY-401-001" in evidence
+
+
+
+# ── report specs after the restart (BRIEF-CDO-SHEET-TABLE-2026-11-12 sec. 5) ────────────
+
+def test_report_spec_sync_step_runs_after_heal_wait_and_the_index_is_read(world):
+    assert m.STEPS.index("heal-wait") < m.STEPS.index("report-spec-sync") < m.STEPS.index("verify")
+    assert "report-spec-sync" not in m.RUN_ONCE                 # only the Portal's cache: safe to repeat
+    run_dir = _plan(world)
+    assert m.apply(world["env"], str(run_dir)) == 0
+    st = _state(run_dir)
+    ev = st["steps"]["report-spec-sync"]["evidence"]
+    assert ev == {"outcome": "synced", "finishedAt": "2099-01-01T00:00:00+00:00", "alreadyRunning": False,
+                  "consumerIndex": "read", "consumers": 2, "specs": 7}
+    assert ("POST", m.PORTAL_URL + "/api/report-specs/sync") in world["http"].calls
+    checks = {c["check"]: c for c in st["steps"]["verify"]["evidence"]["checks"]}
+    assert checks["report-spec consumer index"]["verdict"] == "PASS"
+    assert "egeria-main started 2026-11-12T16:59:47" in checks["report-spec consumer index"]["evidence"]
+
+
+def test_report_spec_sync_with_an_unread_index_fails_with_the_remedy(world):
+    world["http"].sync.update(outcome="index_not_read", error="the consumer index was not read: root not found",
+                              report={"consumers": {"status": "not read", "consumers": 0, "labels": 0}})
+    run_dir = _plan(world)
+    m.apply(world["env"], str(run_dir))
+    step = _state(run_dir)["steps"]["report-spec-sync"]
+    assert step["status"] == "failed" and "index_not_read" in step["error"]
+    assert "POST /api/report-specs/sync on the Portal as an administrator" in step["error"]
+
+
+def test_report_spec_sync_refused_needs_a_person(world):
+    world["http"].sync_post = 403
+    run_dir = _plan(world)
+    m.apply(world["env"], str(run_dir))
+    st = _state(run_dir)
+    assert st["steps"]["report-spec-sync"]["status"] == "needs a person"
+    assert st["steps"]["verify"]["status"] == "done"            # the run goes on
+
+
+def _verdict(world, **sync):
+    world["http"].sync.update(sync)
+    return m.report_spec_index_verdict(world["env"])
+
+
+def test_verify_index_read_after_the_start_passes(world):
+    v, ev = _verdict(world)
+    assert v == "PASS" and "read (2 consumer folders, 7 specs)" in ev
+
+
+def test_verify_index_not_read_fails_with_the_remedy(world):
+    v, ev = _verdict(world, report={"consumers": {"status": "not read", "reason": "root not visible"}})
+    assert v == "FAIL" and "the consumer index is 'not read' (root not visible)" in ev
+    assert "Remedy: re-sync report specs" in ev
+
+
+def test_verify_index_read_before_the_restart_fails(world):
+    v, ev = _verdict(world, finished_at="2026-11-12T16:00:00+00:00")
+    assert v == "FAIL" and "read before quickstart-egeria-main last started" in ev and "Remedy" in ev
+
+
+def test_verify_without_an_answer_is_not_measured(world, monkeypatch):
+    v, ev = _verdict(world, report=None)
+    assert v == "NOT MEASURED" and "says nothing about the consumer index" in ev
+    orig = world["http"].request
+    world["http"].request = lambda method, url, **k: (502, "bad gateway") if url.endswith("/sync") else orig(method, url, **k)
+    v, ev = m.report_spec_index_verdict(world["env"])
+    assert v == "NOT MEASURED" and "HTTP 502" in ev
+
+
+def test_verify_check_is_read_only(world):
+    world["http"].calls.clear()
+    m.report_spec_index_verdict(world["env"])
+    assert world["http"].calls == [("GET", m.PORTAL_URL + "/api/report-specs/sync")]
+
+
+@pytest.mark.parametrize("raw,expected", [
+    ("2026-11-12T16:59:47.123456789Z", "2026-11-12T16:59:47"), ("2026-11-12T16:59:47Z", "2026-11-12T16:59:47"),
+    ("0001-01-01T00:00:00Z", None), ("", None), ("garbage", None)])
+def test_docker_start_times(raw, expected):
+    t = m._docker_time(raw)
+    assert (m.iso(t)[:19] if t is not None else None) == expected
+
+
+
+def test_report_spec_sync_records_a_run_it_did_not_start(world):
+    world["http"].sync_post_body = {"started": False, "already_running": True}
+    run_dir = _plan(world)
+    assert m.apply(world["env"], str(run_dir)) == 0
+    ev = _state(run_dir)["steps"]["report-spec-sync"]["evidence"]
+    assert ev["alreadyRunning"] is True and ev["consumerIndex"] == "read"
+
+# ── heal-wait: the view server must answer a real lookup first ────────────────
+
+def _flaky(world, fail_first, failure):
+    """Wrap the world's http so the first `fail_first` lookups (token or find) fail with
+    `failure(url)`; record the order of what was asked."""
+    http, inner = world["http"], world["http"].request
+    seen = {"lookups": 0, "order": []}
+
+    def request(method, url, body=None, headers=None, timeout=30):
+        lookup = url.endswith("/api/token") or url.endswith("/by-search-conditions")
+        seen["order"].append("status" if url.endswith("/api/bootstrap/status") else
+                             ("lookup" if lookup else url))
+        if lookup and url.endswith("/api/token"):
+            seen["lookups"] += 1
+        if lookup and seen["lookups"] <= fail_first:
+            return failure(url)
+        return inner(method, url, body, headers, timeout)
+
+    http.request = request
+    return seen
+
+
+def _refused(url):
+    import urllib.error
+    raise urllib.error.URLError(ConnectionRefusedError(61, "Connection refused"))
+
+
+def _heal_wait(world, **kw):
+    clock = world["clock"]
+    state = {"steps": {"recreate": {"finishedAt": clock.now()}}}
+    return m.step_heal_wait(world["env"], {"deployRoot": str(world["deploy"])}, state, None, **kw)
+
+
+def test_heal_wait_first_waits_out_connection_errors(world):
+    seen = _flaky(world, 4, _refused)
+    t0 = world["clock"].now()
+    ev = _heal_wait(world)
+    vs = ev["viewServer"]
+    assert vs["attempts"] == 5 and "URLError" in vs["lastError"] and vs["readyAfterS"] == 4 * 15
+    # the Portal's canaries are not judged until the view server has answered
+    first_status = seen["order"].index("status")
+    assert seen["order"][:first_status].count("lookup") == 5 * 2 - 4   # 4 refused tokens, then token + find
+    # ...and only from a check pass that started a full cycle after it answered
+    assert m._parse_iso(world["http"].status["lastCheckAt"]) >= t0 + vs["readyAfterS"] + m.MONITOR_CYCLE_S
+    assert ev["missing"] == []
+
+
+def test_heal_wait_counts_an_egeria_error_body_as_not_answered(world):
+    def error_body(url):
+        if url.endswith("/api/token"):
+            return 200, "tok"
+        return 200, {"class": "VoidResponse", "relatedHTTPCode": 503,
+                     "exceptionErrorMessageId": "OMAG-REPOSITORY-HANDLER-503-002"}
+
+    # the token call is what _flaky counts, so the find fails on the same attempts
+    _flaky(world, 2, error_body)
+    ev = _heal_wait(world)
+    assert ev["viewServer"]["attempts"] == 3 and "503" in ev["viewServer"]["lastError"]
+
+
+def test_heal_wait_fails_when_the_view_server_never_answers(world):
+    seen = _flaky(world, 10 ** 6, _refused)
+    with pytest.raises(m.StepFailed, match=r"view server did not answer a lookup .* within 30 min"):
+        _heal_wait(world)
+    assert "status" not in seen["order"]          # never judged the canaries on an outage
+
+
+def test_find_error_body_is_not_none_found(world):
+    world["http"].request = lambda *a, **k: (200, {"relatedHTTPCode": 500, "exceptionClassName": "X"})
+    eg = m.Egeria(world["env"], "u", "p")
+    eg.token = "tok"
+    with pytest.raises(m.StepFailed, match="Egeria answered 500"):
+        eg.find("T", "displayName", "n")

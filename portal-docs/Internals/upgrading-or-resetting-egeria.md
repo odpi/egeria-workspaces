@@ -20,6 +20,7 @@ cd compose-configs/egeria-quickstart/bin
 ./egeria-upgrade-reset plan --no-clear               # rebuild/upgrade only; keep the metadata store
 ./egeria-upgrade-reset apply --plan ../../../runtime-volumes/egeria-resets/<UTC> --dry-run   # list the steps; run nothing
 ./egeria-upgrade-reset apply --plan ../../../runtime-volumes/egeria-resets/<UTC>
+./egeria-upgrade-reset apply --plan … --personas skip    # in the background: answer verify's persona check up front
 ./egeria-upgrade-reset status --plan …                # each step's state
 ./egeria-upgrade-reset record --plan …                # write the Portal's reset row now (after a failed run)
 ./egeria-upgrade-reset infra-check [--record] [--json] [--log FILE] # shared-infra health; read-only, restarts nothing
@@ -56,7 +57,8 @@ database's size class or the Dockerfile pin has changed since the plan. Make a n
 | `clear` | **Checkpoint:** type the database name. Then `compose-configs/shared-infra/reset-egeria-db.sql`: `DROP DATABASE … WITH (FORCE)`, `CREATE`, `GRANT ALL … TO egeria_admin, egeria_user` | The same SQL `reset-egeria-db.sh` uses: one copy |
 | `secrets-sync` | While the platform is stopped: copies `compose-configs/egeria-quickstart/secrets/*.omsecrets` into `runtime-volumes/quickstart-platform-data/secrets` in place. Prints accounts added, removed or changed **by name only**. Files that are not in the compose secrets (e.g. `resource-explorer.omsecrets`) are kept | New accounts (such as `olpgpubnpa`) reach the platform; a value never reaches a terminal or a log. Done **before** the recreate so the new container mounts the final files |
 | `recreate` | `docker compose … up -d --no-deps --force-recreate egeria-main`, checks the running image is the one just built, then checks the container sees the same secrets files as the host and restarts it **once** if its bind mount is stale | **Never `docker start`**: on 2026-11-11, `reset-egeria-db.sh` restarted the old container, which kept the old image. The one restart happens while Egeria is still starting, before the Portal's heal can begin: a restart mid-heal could half-run a batch that is not safe to re-run |
-| `heal-wait` | Polls `/api/bootstrap/status` until the heal has finished **and** a monitor pass started at least 600 s after the last heal ended. Then lists ERROR lines from the Portal's `pyegeria.log` and its rotated zips since the recreate | An early read of `present` is stale. Canaries still missing fail the step |
+| `heal-wait` | First waits (up to 30 min) until the view server answers a real lookup: a token plus one find, both succeeding. Then polls `/api/bootstrap/status` until the heal has finished **and** a monitor pass started at least 600 s after both the last heal ended and the view server answered. Then lists ERROR lines from the Portal's `pyegeria.log` and its rotated zips since the recreate | A started container is not an answering view server, and an early read of `present` is stale. A view server that never answers, or canaries still missing, fail the step |
+| `report-spec-sync` | `POST /api/report-specs/sync` on the Portal, then waits for the sync and requires the consumer index to come back "read". Not run-once: it writes only the Portal's own cache, never Egeria, so it is safe to repeat. A Portal that wants an administrator answers 401/403: the step is *needs a person*, with the remedy | The Portal syncs report specs at its own startup; a sync during the restart leaves **Used by** "not read" (2026-11-12) |
 | `unfreeze` | Restarts RE and EA through their **launcher scripts** (default `~/.re-gate/start-8813.sh` and `~/.re-gate/start-ea-8880.sh`; `plan --launcher PORT=PATH` or `EGERIA_RESET_LAUNCHER_<port>` to change), run from the script's folder, and waits for their ports. A writer with no usable launcher is **not** restarted: the step is marked *needs a person* and prints the command it ran with; the rest of the run goes on, and `apply` exits 3. Prints the RE recovery command | The launchers set the environment RE and EA need; replaying a recorded command line would lose it. RE recovery (re-attaching RE's Egeria links) is Part 3; until it exists, follow trellis `docs/egeria-operations.md` §8.1 |
 | `verify` | Read-only, each **PASS / FAIL / NOT MEASURED** with evidence (below) | |
 | `record` | Writes a row to Postgres `coco_pharma.demo.egeria_resets` and prints a HANDOFF-ready summary | The Portal's "Last Egeria reset" panel |
@@ -80,12 +82,23 @@ database's size class or the Dockerfile pin has changed since the plan. Make a n
   readable is NOT MEASURED.
 - **Persona sign-ins (checkpoint):** the CLI never signs in as anyone. It asks you to sign in as each
   persona you use and open a sheet, then records what you answer: `ok`, `skip` (NOT MEASURED), or the
-  failure.
+  failure. For a run in the background, answer up front with `apply --personas ok|skip` (or
+  `EGERIA_RESET_PERSONAS`). With no terminal and no answer, or if the prompt hits end of input, the check
+  is NOT MEASURED: the run goes on (2026-11-12: a background run crashed here).
 - **Shared infrastructure:** one line per service of `compose-configs/shared-infra/shared-infra.yaml`
   (see *The shared-infrastructure check* below). A FAIL fails verify; WARN and EXPECTED STOPPED are
   reported and don't; the latest OpenLineage event is information only.
+- **Report-spec consumer index:** read-only (`GET /api/report-specs/sync`, which starts nothing): the last sync's
+  consumer index is "read" and the sync finished after `quickstart-egeria-main` started. Otherwise FAIL, with the
+  remedy: re-sync report specs (Report Specs → Sync from Egeria as an administrator, or `POST /api/report-specs/sync`),
+  or wait for the Portal's self-heal. NOT MEASURED when the status or the start time cannot be read.
 - **10 minutes of watching:** connections to the `egeria` database, sampled every minute (the leak
-  shows as `idle in transaction` climbing), and `401`/`UNAUTHORIZED` lines in the platform log.
+  shows as `idle in transaction` climbing), and authentication failures in the platform log:
+  `UNAUTHORIZED` / `NOT_AUTHORIZED`, an Egeria `-401-NNN` message code, or `401` as a number of its own.
+  A `401` inside a GUID (`aee401cf-…`) or a timestamp's milliseconds is not one (2026-11-12: that read as
+  a false FAIL). The evidence quotes the first three lines found.
+
+**After any egeria-main restart: re-sync report specs** (Egeria Explorer → Report Specs → **Sync from Egeria**, as an administrator, or `POST /api/report-specs/sync`), or wait for the Portal's self-heal: while the consumer index is "not read" it syncs again at most every 2 minutes, on the next Report Specs or publish request. A sync that ran while Egeria was restarting leaves **Used by** "not read" (2026-11-12).
 
 ## The Portal's "Last Egeria reset" panel
 
@@ -132,6 +145,73 @@ never a guess. `airflow-init` is a one-shot setup container that exits by design
 `expectedStopped` with `"exitCode": 0`, so a failed database migration (a non-zero exit) is a FAIL. `marquez` and `marquez-web` had no restart policy and stayed down after the 2026-11-10
 reboot; the yaml now says `unless-stopped`, so a container created before that change reports
 **FAIL drift** (restart=no) until it is recreated from the yaml.
+
+**Prefect.** When `infra-health.json` has a `prefect` entry (`{"apiUrl": "http://localhost:4200/api",
+"pools": ["resource-explorer-pool"]}`; the repo's file has one), two more read-only rows are added:
+`GET /health`, `GET` the pool, and `POST …/workers/filter` (a query). They are **PASS or WARN, never FAIL**:
+with no live worker, RE runs steps in its own process, so a run loses its Prefect history and dispatch, not
+its result.
+
+| Row | WARN when |
+|---|---|
+| **Prefect server** | `/health` doesn't answer `true`: "not reachable: …" or the HTTP answer. Runs are then not recorded in Prefect |
+| **Prefect pool `<name>` live workers** | the pool is missing or paused, it has no registered workers, or none is live: "no live worker: 3 registered, last heartbeat 31 days ago (…)". When the server is down: "not checked: the Prefect server is not reachable" |
+
+A worker is **live** when Prefect says `ONLINE`. A worker with no status is live when its last heartbeat is
+within 3 × its `heartbeat_interval_seconds` (default 30 s); RE's own pool check uses the same rule. A worker
+that has never sent a heartbeat is not live, and is counted as "never heard from". On laz, 2026-11-13: one
+live worker of four registered. Remove the `prefect` entry on a host where Prefect isn't deployed.
+
+### Alert email
+
+Run with `--log` (the launchd agent), infra-check emails **when the state changes**:
+- a row goes into WARN, FAIL or NOT MEASURED, or from one of those to another;
+- infra-check itself errors;
+- everything recovers ("recovered: everything PASS").
+
+There's no email every 10 minutes while nothing changes. The rows last notified are kept in
+`infra-check-alert-state.json`, next to `infra-check.log`. The email lists what changed and what is still
+wrong, with each row's words.
+
+**A change must hold for 2 consecutive runs** (about 20 minutes) before it's mailed, and so must a
+recovery. Until then the state file keeps it as `pending` and the log line says "change pending (1 of 2
+runs)". A row that flaps (a worker OFFLINE, ONLINE, OFFLINE…) sends nothing: going back to the notified
+state drops the pending change ("no change (pending change did not hold)"), and a different bad set
+restarts the count. FAIL is held the same way, so a FAIL is mailed one run later; one that clears on the
+next run is a flap, not news.
+
+**It uses egeria-workspaces' own mail settings**, not new ones (owner, 2026-11-13: "use the same mail
+configuration as we use in Egeria-Workspaces"). The precedence is the Portal's (`demo-mode.md`, "SMTP
+email" and "Resend"):
+
+1. **Resend**, when `RESEND_API_KEY` is set. It then needs `RESEND_FROM`, as the Portal does; a key without
+   a sender is "not configured", with no fall-back to SMTP. It's the same request cert-watch.sh and the
+   egeria-watchdog make: `POST https://api.resend.com/emails`, TLS verified.
+2. **SMTP**, when `SMTP_HOST` is set. `SMTP_PORT` defaults to 587 with STARTTLS; `SMTP_SSL=true` means
+   implicit TLS (port 465 by default). The login is `SMTP_USER` (else `ADMIN_BOOTSTRAP_EMAIL`) with
+   `SMTP_PASSWORD`, and the sender is `SMTP_FROM` (else the user).
+3. Neither set: nothing is sent.
+
+**The recipient** is `INFRA_ALERT_EMAIL`, the one new variable. When it's unset, infra-check uses
+`ALERT_EMAIL_TO`, the recipient the egeria-watchdog, cert-watch and the workbench watchdog already use.
+Several addresses can be given, comma-separated.
+
+**Where the values are read.** The process environment comes first, then
+`compose-configs/egeria-quickstart/.env.demo` (where `quick-start-local` keeps secrets), then `.env` (which is
+regenerated on every `quick-start-local` run). infra-check runs on the host, so it doesn't see the
+containers' environment. Only the keys above are read from those files, and no value is ever logged; a
+failed send has the API key and password masked.
+
+**Unconfigured is visible, never silent.** While the recipient or the sender is missing, every log line ends
+"alerting not configured (unset: …)", naming what's missing, and nothing is sent. The state isn't advanced,
+so the first run after configuring emails whatever is already wrong. A failed send is logged ("alert NOT
+sent (resend): …") and stays pending, so the next run tries again. Successful lines say which route was
+used ("alert sent (resend)"). `--no-alert` turns the email off for a run.
+
+The recorded check carries the same outcome as `alerting`, and the Portal's Shared infrastructure panel
+shows it as an "Alert email:" line: "not configured (unset: …): nothing is mailed" in amber, or
+"configured (resend) · this run: … · last sent …". A run that didn't alert says so ("off for this run
+(--no-alert)", or "not reported by this check" for a manual run without `--log`).
 
 ### The Portal's "Shared infrastructure" line
 
@@ -190,7 +270,7 @@ launchctl bootout gui/$(id -u)/org.odpi.egeria.infra-check
 rm ~/Library/LaunchAgents/org.odpi.egeria.infra-check.plist
 ```
 
-It runs `infra-check --record --log runtime-volumes/egeria-resets/infra-check.log`: one line per run (time, overall verdict, counts, the services that are not PASS, the OpenLineage offset, and whether the row was recorded; an error is a line too), and the file keeps only its newest 2000 lines, about two weeks. launchd's own output is discarded, so nothing grows without bound. The folder is git-ignored.
+It runs `infra-check --record --log runtime-volumes/egeria-resets/infra-check.log`: one line per run (time, overall verdict, counts, the services that are not PASS, the OpenLineage offset, the alert outcome, and whether the row was recorded; an error is a line too), and the file keeps only its newest 2000 lines, about two weeks. launchd's own output is discarded, so nothing grows without bound. The folder is git-ignored.
 
 ## Limits
 

@@ -2716,7 +2716,109 @@ function RsResolutionPanel({ spec, portalSupply }) {
   );
 }
 
-function ReportSpecDetail({ spec, onSelectSpec, portalSupply }) {
+// ── Publish to / Withdraw from a consumer folder (stage 2: public specs only) ──────────────────────
+// POST /api/report-specs/publish (report_spec_publish_handler.py) runs pyegeria's own publish documents
+// as the signed-in user (X-Egeria-Token): preview (the exact document, read-only) -> validate -> confirm
+// -> process. The server rebuilds the document at process and refuses one that changed since the
+// preview. Built-in and restricted specs, a missing sign-in and folders that were not read are refused
+// in words; Egeria decides whether this user may write the folder, and its refusal is shown as it says.
+function RsPublishControl({ spec, consumers }) {
+  const creds = React.useContext(CredContext);
+  const [action, setAction] = React.useState('publish');
+  const [folder, setFolder] = React.useState('');
+  const [plan, setPlan] = React.useState(null);          // the previewed plan (markdown, digest, steps)
+  const [result, setResult] = React.useState(null);      // the last validate/process answer
+  const [busy, setBusy] = React.useState('');
+  const [confirmed, setConfirmed] = React.useState(false);
+  const [error, setError] = React.useState('');
+  React.useEffect(() => { setPlan(null); setResult(null); setConfirmed(false); setError(''); }, [spec && spec.name, action, folder]);
+  if (!spec) return null;
+  const muted = { fontSize: 11, color: 'var(--dim)', marginTop: 8 };
+  if (spec.restricted)
+    return React.createElement('div', { className: 'rs-publish rs-publish-restricted', style: muted },
+      'Publish: restricted specs are published later, after the zone proof.');
+  if (spec.source === 'builtin')
+    return React.createElement('div', { className: 'rs-publish rs-publish-later', style: muted },
+      'Publish: built-in specs are published later, after consumer-folders phase 3.');
+  if (!consumers || consumers.status === 'not read')
+    return React.createElement('div', { className: 'rs-publish rs-publish-not-read', style: muted },
+      'Publish: the consumer folders were not read' + (consumers && consumers.reason ? ' (' + consumers.reason + ')' : '') + ', so there is nowhere to publish to yet.');
+  if (!creds || !creds.token)
+    return React.createElement('div', { className: 'rs-publish rs-publish-sign-in', style: muted },
+      'Sign in to publish or withdraw this spec: it runs as you, never as the Portal\'s service account.');
+  const allNames = (consumers.consumers || []).map(c => c.name).filter(Boolean);
+  const usedBy = spec.usedBy || [];
+  // Withdraw is offered only from the folders Used by shows (the server refuses the others too: "not in").
+  const names = action === 'withdraw' ? allNames.filter(n => usedBy.indexOf(n) >= 0) : allNames;
+  const chosen = (folder && names.indexOf(folder) >= 0) ? folder : (names[0] || '');
+  function call(step) {
+    setBusy(step); setError('');
+    const body = { spec_name: spec.name, action: action, folder: chosen, step: step,
+                   confirmed: step === 'process' ? confirmed : false, digest: plan ? plan.digest : null };
+    return egeriaFetch('/api/report-specs/publish', creds, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(r => r.json().then(d => ({ ok: r.ok, d: d })))
+      .then(({ ok, d }) => {
+        if (!ok || d.refused) { setError(d.message || d.detail || 'Refused.'); if (step === 'preview') setPlan(null); return; }
+        if (step === 'preview') { setPlan(d); setResult(null); setConfirmed(false); }
+        else setResult(d);
+      })
+      .catch(e => setError(String(e)))
+      .finally(() => setBusy(''));
+  }
+  const r = result && result.result;
+  const errs = r ? [].concat(r.validation_errors || [], r.execution_errors || []) : [];
+  return React.createElement('div', { className: 'rs-publish', style: { marginTop: 10, padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12, overflowWrap: 'anywhere' } },
+    React.createElement('div', { style: { display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' } },
+      React.createElement('select', { className: 'area-select rs-publish-action', 'aria-label': 'Publish or withdraw', value: action,
+        onChange: e => setAction(e.target.value) },
+        React.createElement('option', { value: 'publish' }, 'Publish to'),
+        React.createElement('option', { value: 'withdraw' }, 'Withdraw from')),
+      action === 'withdraw' && names.length === 0
+        ? React.createElement('span', { className: 'rs-publish-none', style: { fontSize: 11, color: 'var(--dim)' } },
+            'from none: Used by shows no consumer folder holding this spec')
+        : React.createElement('select', { className: 'area-select rs-publish-folder', 'aria-label': 'Consumer folder', value: chosen,
+        onChange: e => setFolder(e.target.value) },
+        names.map(n => React.createElement('option', { key: n, value: n },
+          n + (spec.usedByState === 'read' || spec.usedByState === 'partial'
+                 ? (usedBy.indexOf(n) >= 0 ? ' (published)' : ' (not published)') : '')))),
+      React.createElement('button', { className: 'btn-xs rs-publish-preview', disabled: !!busy || !chosen, onClick: () => call('preview') },
+        busy === 'preview' ? 'Previewing…' : 'Preview')),
+    error && React.createElement('div', { className: 'rs-publish-refused', style: { marginTop: 6, color: '#fbbf24' } }, error),
+    plan && React.createElement('div', { className: 'rs-publish-plan', style: { marginTop: 8 } },
+      React.createElement('div', { style: { color: 'var(--dim)', fontSize: 11 } },
+        'This document runs as you (' + (plan.verb || plan.action) + '); ' + (plan.how || '') + '. Nothing has been sent yet.'),
+      React.createElement('ul', { style: { margin: '4px 0 4px 16px' } }, (plan.steps || []).map((s, i) => React.createElement('li', { key: i }, s))),
+      React.createElement('pre', { className: 'rs-publish-doc', 'aria-label': 'The Dr.Egeria document', style: { maxHeight: 260, overflow: 'auto', fontSize: 11, whiteSpace: 'pre-wrap', background: 'var(--surface)', padding: 6, borderRadius: 4 } }, plan.markdown),
+      React.createElement('div', { style: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 6 } },
+        React.createElement('button', { className: 'btn-xs rs-publish-validate', disabled: !!busy, onClick: () => call('validate') },
+          busy === 'validate' ? 'Validating…' : 'Validate'),
+        React.createElement('label', { style: { display: 'inline-flex', gap: 4, alignItems: 'center' } },
+          React.createElement('input', { type: 'checkbox', className: 'rs-publish-confirm', checked: confirmed, onChange: e => setConfirmed(e.target.checked) }),
+          'I confirm: run this document as me, writing to Egeria'),
+        React.createElement('button', { className: 'btn-xs rs-publish-process', disabled: !!busy || !confirmed, onClick: () => call('process') },
+          busy === 'process' ? 'Running…' : (action === 'publish' ? 'Publish' : 'Withdraw')))),
+    r && React.createElement('div', { className: 'rs-publish-result', style: { marginTop: 6, color: r.success ? 'var(--ok, #4ade80)' : '#fbbf24' } },
+      (result.step === 'validate' ? 'Validate: ' : 'Process: ') + (r.success ? 'succeeded' : 'did not succeed')
+        + (r.commands_total != null ? ' (' + (r.commands_succeeded || 0) + ' of ' + r.commands_total + ' commands)' : ''),
+      errs.length > 0 && React.createElement('ul', { style: { margin: '4px 0 0 16px', color: '#fbbf24' } },
+        errs.map((e, i) => React.createElement('li', { key: i }, (e.command ? e.command + ': ' : '') + (e.message || String(e))))),
+      result.after && React.createElement('div', { className: 'rs-publish-after', style: { color: 'var(--dim)', marginTop: 4 } }, result.after.message || '')));
+}
+
+// The formats Report Specs -> Run offers: the spec's own output types, then, when one of its format sets
+// says ALL, every format ALL covers (pyegeria picks the ALL format set for a format no set names). Without
+// this a spec whose sets are "ALL" and "LIST" (Risk-DrE-Basic) could not be run as TABLE, though it works.
+// Charts and DOCUMENT are not covered by ALL: they need their own definitions.
+var RS_ALL_COVERS = ['TABLE', 'DICT', 'LIST', 'REPORT', 'MD', 'FORM', 'JSON'];
+function rsRunFormats(spec) {
+  var own = (spec && spec.output_types && spec.output_types.length) ? spec.output_types.slice() : ['DICT'];
+  if (own.indexOf('ALL') < 0) return own;
+  RS_ALL_COVERS.forEach(function(f) { if (own.indexOf(f) < 0) own.push(f); });
+  return own;
+}
+
+function ReportSpecDetail({ spec, onSelectSpec, portalSupply, consumers }) {
   const creds = React.useContext(CredContext);
   const _favPersonaId = React.useContext(PersonaContext);
   const [selFormat, setSelFormat] = useState(0);
@@ -2810,7 +2912,7 @@ function ReportSpecDetail({ spec, onSelectSpec, portalSupply }) {
     }
     setSentFmt(actualFmt);
     var body = {
-      spec_name:     spec.name,
+      spec_name:     spec.restricted ? (spec.label || spec.name) : spec.name,
       output_format: actualFmt,
       params:        Object.fromEntries(Object.entries(execParams).filter(function(e) {
         var v = e[1]; return Array.isArray(v) ? v.length > 0 : v !== '';
@@ -2818,15 +2920,19 @@ function ReportSpecDetail({ spec, onSelectSpec, portalSupply }) {
     };
     // TABLE asks for pyegeria's structured TABLE (kind "table"), rendered by static/egeria-table.js.
     if (actualFmt === 'TABLE' && window.EgeriaTable) body.table_shape = 'structured';
+    if (spec.restricted) body.restricted = true;   // run as you (X-Egeria-Token), fetched from Egeria
     if (creds.url)      body.url      = creds.url;
     if (creds.server)   body.server   = creds.server;
-    if (creds.userId)   body.user_id  = creds.userId;
-    if (creds.password) body.user_pwd = creds.password;
-    fetch('/api/report-specs/execute', {
+    if (creds.userId && !spec.restricted)   body.user_id  = creds.userId;
+    if (creds.password && !spec.restricted) body.user_pwd = creds.password;
+    (spec.restricted
+      ? egeriaFetch('/api/report-specs/execute', creds, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                          body: JSON.stringify(body) })
+      : fetch('/api/report-specs/execute', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
-    })
+    }))
       .then(function(r) {
         if (r.ok) return r.json();
         // Read body as text first — error responses may be HTML (e.g. gateway timeout), not JSON.
@@ -2940,6 +3046,11 @@ function ReportSpecDetail({ spec, onSelectSpec, portalSupply }) {
       React.createElement(CopyJsonButton, { data: spec })
     ),
     React.createElement(RsSourceDetail, { spec: spec, onSelectSpec: onSelectSpec }),
+    spec.restricted && React.createElement('div', { className: 'rs-restricted-detail', style: { marginTop: 8, fontSize: 11, color: 'var(--dim)', overflowWrap: 'anywhere' } },
+      'Restricted to zones ' + ((spec.zones || []).join(', ') || '(not reported)') + ': read from Egeria as you, never kept in the Portal\'s shared cache.',
+      spec.detailError ? React.createElement('div', { style: { color: '#fbbf24' } }, 'Its definition was not read: ' + spec.detailError)
+        : (!spec.detailLoaded && !spec.formats.length ? React.createElement('div', null, 'Reading its definition from Egeria…') : null)),
+    React.createElement(RsPublishControl, { spec: spec, consumers: consumers }),
     spec.heading && React.createElement('div', { style: { marginTop: 12, fontWeight: 600, fontSize: 13, color: 'var(--text)' } }, spec.heading),
     spec.description && React.createElement('div', { className: 'detail-desc', style: { marginTop: 6 } }, spec.description),
     spec.aliases && spec.aliases.length > 0 && React.createElement('div', { style: { marginTop: 8, fontSize: 11, color: 'var(--dim)' } },
@@ -3082,7 +3193,7 @@ function ReportSpecDetail({ spec, onSelectSpec, portalSupply }) {
             value: execFmt,
             onChange: function(e) { setExecFmt(e.target.value); },
             style: { padding: '4px 8px', fontSize: 12 }
-          }, (spec.output_types && spec.output_types.length ? spec.output_types : ['DICT']).map(function(t) {
+          }, rsRunFormats(spec).map(function(t) {
             return React.createElement('option', { key: t, value: t }, t);
           }))
         ),
@@ -3166,8 +3277,9 @@ function ReportSpecDetail({ spec, onSelectSpec, portalSupply }) {
 }
 
 // ── Report spec source (builtin / egeria / local / user) ─────────────────────
-var _RS_SOURCES = ['builtin', 'egeria', 'local', 'user'];
+var _RS_SOURCES = ['builtin', 'egeria', 'local', 'user', 'restricted'];
 var _RS_SOURCE_TAG = {
+  restricted: { mark: 'R', color: '#f59e0b' },   // Portal-3: zone-restricted, read as you
   egeria:  { mark: 'EG', color: '#34d399' },
   local:   { mark: 'P',  color: '#60a5fa' },
   user:    { mark: 'U',  color: '#c084fc' }
@@ -3240,7 +3352,7 @@ function RsUsedBy({ spec }) {
   // The reason is the same for every spec; it is said once in the sidebar, and here as a tooltip.
   if (st === 'not read') return React.createElement('span', wrap, label,
     React.createElement('span', { key: 'n', className: 'rs-used-by-not-read', style: { fontSize: 10, color: '#fbbf24', cursor: 'help' },
-      title: 'Consumers not read' + (spec.usedByReason ? ': ' + spec.usedByReason : '') }, 'not read'));
+      title: 'Used by: not read' + (spec.usedByReason ? ' (' + spec.usedByReason + ')' : '') }, 'not read'));
   if (st === 'not tracked') return React.createElement('span', Object.assign({ title: spec.usedByReason || '' }, wrap), label,
     React.createElement('span', { key: 'n', style: _RS_MUTED }, 'not tracked'));
   var names = spec.usedBy || [];
@@ -3274,7 +3386,36 @@ function RsSourceDetail({ spec, onSelectSpec }) {
   return React.createElement('div', { style: { marginTop: 8, fontSize: 11, color: 'var(--dim)' } }, lines);
 }
 
+// Portal-3: the zone-restricted specs this user can see (GET /api/report-specs/restricted, read as them).
+// Each becomes a list row marked `restricted`, with the badge "restricted (visible to you)"; selecting one
+// fetches its definition as the user (GET /api/report-specs/restricted/<label>). The shared list stays
+// public-only. The answer is always said: not signed in, not read, or none visible.
+function rsRestrictedRows(info, publicNames) {
+  return ((info && info.specs) || []).map(function(r) {
+    var clash = publicNames.indexOf(r.label) >= 0;
+    return { name: clash ? r.label + ' (restricted)' : r.label, label: r.label, restricted: true,
+             source: 'restricted', sourceLabel: (info && info.badge) || 'restricted (visible to you)',
+             family: 'Restricted (visible to you)', description: '', question_spec: [], formats: [],
+             output_types: [], zones: r.zones || [], usedBy: r.usedBy || [], usedByState: 'read',
+             egeria: { guid: r.guid, qualified_name: r.qualified_name, version: r.version, folders: r.folders },
+             detailLoaded: false };
+  });
+}
+
+// What the restricted listing said, in a sentence: never an empty silence.
+function RsRestrictedNote({ info }) {
+  var n = (info.specs || []).length;
+  var text = info.state === 'ok' || (info.state === 'partial' && n)
+    ? n + ' restricted report spec' + (n === 1 ? '' : 's') + ' visible to you' + (info.viewer ? ' (read as ' + info.viewer + ')' : '')
+      + (info.state === 'partial' ? '; ' + (info.message || 'partly read') : '')
+    : (info.message || 'Restricted report specs: ' + (info.state || 'not read'));
+  return React.createElement('div', { className: 'rs-restricted-note rs-restricted-' + (info.state || 'unknown'),
+    style: { fontSize: 11, color: info.state === 'read_failed' ? '#fbbf24' : 'var(--dim)', margin: '4px 12px', overflowWrap: 'anywhere' } }, text);
+}
+
 function ReportSpecView() {
+  const creds = React.useContext(CredContext);
+  const [restrictedInfo, setRestrictedInfo] = useState(null);
   const [loadState, setLoadState] = useState('loading');
   const [attempt, setAttempt]     = useState(0);
   const [sideW, onDivDown] = useResizable(254, null, null, 'ReportSpecView.sideW');
@@ -3342,9 +3483,35 @@ function ReportSpecView() {
         setEgeriaHeld(data.egeriaHeld || null);
         setLoadState('ready');
         if (list.length > 0) setSelected(list[0].name);
+        // The restricted specs this user can see, read as them; merged after the public list.
+        egeriaFetch('/api/report-specs/restricted', creds)
+          .then(r => r.json().then(d => ({ ok: r.ok, d: d })))
+          .then(({ ok, d }) => {
+            const info = ok ? d : { state: 'read_failed', specs: [], message: d.detail || 'Restricted report specs were not read.' };
+            setRestrictedInfo(info);
+            const rows = rsRestrictedRows(info, list.map(s => s.name));
+            if (rows.length) {
+              setSpecs(prev => prev.filter(s => !s.restricted).concat(rows));
+              setSources(prev => Object.assign({}, prev || {}, { restricted: rows.length }));
+              setSourceWords(prev => Object.assign({}, prev || {}, { restricted: info.badge || 'restricted (visible to you)' }));
+            }
+          })
+          .catch(e => setRestrictedInfo({ state: 'read_failed', specs: [], message: 'Restricted report specs were not read: ' + e }));
       })
       .catch(err => { setError(err.message); setLoadState('error'); });
-  }, [attempt]);
+  }, [attempt, creds && creds.token]);
+
+  // A restricted spec's definition is fetched as the user when it is first selected.
+  useEffect(() => {
+    const row = specs.find(s => s.name === selected);
+    if (!row || !row.restricted || row.detailLoaded || row.detailError) return;
+    egeriaFetch('/api/report-specs/restricted/' + encodeURIComponent(row.label), creds)
+      .then(r => r.json().then(d => ({ ok: r.ok, d: d })))
+      .then(({ ok, d }) => setSpecs(prev => prev.map(s => s.name !== row.name ? s
+        : (ok ? Object.assign({}, d, { name: row.name, label: row.label, detailLoaded: true })
+              : Object.assign({}, s, { detailError: d.detail || 'Its definition was not read.' })))))
+      .catch(e => setSpecs(prev => prev.map(s => s.name !== row.name ? s : Object.assign({}, s, { detailError: String(e) }))));
+  }, [selected, specs, creds]);
 
   // Collect all unique perspectives client-side from all loaded specs
   const allPerspectives = useMemo(() => {
@@ -3440,12 +3607,12 @@ function ReportSpecView() {
         ),
         // Three states, never two: format-only specs are not counted as unrunnable.
         counts && React.createElement('select', {
-          className: 'area-select', 'aria-label': 'Filter by resolution',
+          className: 'area-select', 'aria-label': 'Filter by run status',
           style: { width: '100%', marginTop: 6 },
           value: statusFilter,
           onChange: e => setStatusFilter(e.target.value)
         },
-          React.createElement('option', { value: '' }, 'All resolutions'),
+          React.createElement('option', { value: '' }, 'Any run status'),
           React.createElement('option', { value: 'runnable' }, 'Runnable (' + counts.runnable + ')'),
           React.createElement('option', { value: 'unrunnable' }, 'Cannot run (' + counts.unrunnable + ')'),
           React.createElement('option', { value: 'format_only' }, 'Format only (' + counts.formatOnly + ')')
@@ -3464,15 +3631,15 @@ function ReportSpecView() {
         // Used by: when the consumer index was not read, say so (and why) instead of offering an empty filter.
         consumersInfo && (consumersInfo.status === 'not read'
           ? React.createElement('div', { className: 'rs-consumers-not-read', style: { marginTop: 6, fontSize: 11, color: '#fbbf24', overflowWrap: 'anywhere' } },
-              'Consumers: not read' + (consumersInfo.reason ? ' (' + consumersInfo.reason + ')' : ''))
+              'Used by: not read' + (consumersInfo.reason ? ' (' + consumersInfo.reason + ')' : ''))
           : React.createElement('select', {
-              className: 'area-select', 'aria-label': 'Filter by consumer',
+              className: 'area-select', 'aria-label': 'Filter by tool (Used by)',
               style: { width: '100%', marginTop: 6 },
-              title: consumersInfo.status === 'partial' ? 'Consumers partly read: ' + (consumersInfo.reason || '') : 'The tools each spec is published to (its consumer folders)',
+              title: consumersInfo.status === 'partial' ? 'Used by: partly read (' + (consumersInfo.reason || '') + ')' : 'The tools each spec is published to (its consumer folders)',
               value: consumerFilter,
               onChange: e => setConsumerFilter(e.target.value)
             },
-              React.createElement('option', { value: '' }, 'All consumers' + (consumersInfo.status === 'partial' ? ' (partly read)' : '')),
+              React.createElement('option', { value: '' }, 'Used by: any tool' + (consumersInfo.status === 'partial' ? ' (partly read)' : '')),
               (consumersInfo.consumers || []).map(c => React.createElement('option', { key: c.name, value: c.name },
                 'Used by ' + c.name + ' (' + (consumerCounts[c.name] || 0) + ')' + (c.status !== 'read' ? ', ' + c.status : ''))),
               React.createElement('option', { value: '__none__' }, 'Used by none (' + consumerCounts.__none__ + ')')
@@ -3482,6 +3649,7 @@ function ReportSpecView() {
           onClick: () => setAttempt(a => a + 1)
         }, '↻ Refresh')
       ),
+      restrictedInfo && React.createElement(RsRestrictedNote, { info: restrictedInfo }),
       egeriaHeld && React.createElement(RsEgeriaHeldBanner, { held: egeriaHeld, onSync: startSync, syncing: syncing, syncMsg: syncMsg,
         onShow: () => setSourceFilter('egeria') }),
       React.createElement('div', { className: 'stats', style: { flexWrap: 'wrap', rowGap: 2 } },
@@ -3550,7 +3718,7 @@ function ReportSpecView() {
               }, '← Back to ', history[history.length - 1])
             ),
             React.createElement('div', { style: { flex: 1, overflowY: 'auto' } },
-              React.createElement(ReportSpecDetail, { spec: selectedSpec, onSelectSpec: navigateTo, portalSupply: portalSupply })
+              React.createElement(ReportSpecDetail, { spec: selectedSpec, onSelectSpec: navigateTo, portalSupply: portalSupply, consumers: consumersInfo })
             )
           )
         : React.createElement('div', { className: 'center' },
