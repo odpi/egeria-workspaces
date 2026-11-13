@@ -35,6 +35,13 @@ KAFKA_DIGEST = "docker.io/cleanstart/kafka@sha256:3bfad519feac67e6bd1ae2b18b3e47
 SECRET = "do-not-print-this-resend-key"
 
 
+@pytest.fixture(autouse=True)
+def _no_alert_settings_from_the_host(monkeypatch):
+    """Alert settings come from the process environment first: never from the machine running the tests."""
+    for k in m.ALERT_KEYS:
+        monkeypatch.delenv(k, raising=False)
+
+
 @pytest.fixture
 def checkout(tmp_path):
     """A stand-in deployment checkout: the repo's real shared-infra.yaml, a .env, and an infra-health.json
@@ -208,9 +215,9 @@ def test_expected_stopped_but_running_warns(checkout):
 
 def test_an_empty_config_file_means_shared_infra_only(checkout):
     (checkout / m.INFRA_CONFIG).write_text("")
-    assert m.infra_config(checkout) == {"extraComposeFiles": [], "expectedStopped": {}}
+    assert m.infra_config(checkout) == {"extraComposeFiles": [], "expectedStopped": {}, "prefect": None}
     (checkout / m.INFRA_CONFIG).unlink()
-    assert m.infra_config(checkout) == {"extraComposeFiles": [], "expectedStopped": {}}
+    assert m.infra_config(checkout) == {"extraComposeFiles": [], "expectedStopped": {}, "prefect": None}
 
 
 def test_a_pinned_image_that_differs_warns(checkout):
@@ -553,7 +560,8 @@ def test_log_mode_prints_nothing_and_appends_one_line(checkout, tmp_path):
     assert said == []
     lines = log.read_text().splitlines()
     assert len(lines) == 1
-    assert re.fullmatch(r"\S+ WARN 5 pass, 1 warn \[kroki WARN\]; openlineage offset 902071 at \S+; recorded", lines[0])
+    assert re.fullmatch(r"\S+ WARN 5 pass, 1 warn \[kroki WARN\]; openlineage offset 902071 at \S+; "
+                        r"alerting not configured \(unset: INFRA_ALERT_EMAIL, INFRA_ALERT_SMTP_HOST\); recorded", lines[0])
     runner.containers["egeria-shared-openlineage-proxy-backend"]["HostConfig"]["RestartPolicy"]["Name"] = "no"
     assert m.main(["infra-check", "--checkout", str(checkout), "--log", str(log)], env=_env(runner, checkout, said)) == 1
     lines = log.read_text().splitlines()
@@ -578,7 +586,8 @@ def test_log_mode_records_errors_as_a_line(checkout, tmp_path, monkeypatch):
     monkeypatch.setattr(m, "infra_check", boom)
     said = []
     assert m.main(["infra-check", "--log", str(log)], env=_env(InfraRunner(checkout), checkout, said)) == 1
-    assert said == [] and re.fullmatch(r"\S+ ERROR RuntimeError: docker: command not found", log.read_text().strip())
+    assert said == [] and re.fullmatch(r"\S+ ERROR RuntimeError: docker: command not found; alerting not configured "
+                                       r"\(unset: INFRA_ALERT_EMAIL, INFRA_ALERT_SMTP_HOST\)", log.read_text().strip())
 
 
 def test_log_mode_says_when_the_record_failed(checkout, tmp_path, monkeypatch):
@@ -723,3 +732,261 @@ def test_an_entry_without_an_exit_code_accepts_any_and_shows_it(checkout):
                                                                                  ExitCode=137)
     p = _by(_check(checkout, runner)[0])["proxy"]
     assert p["verdict"] == "EXPECTED STOPPED" and p["words"] == "exited (exit code 137), as expected: r (b)"
+
+
+# ── Prefect rows (DESIGN-PREFECT-ROLE-AND-RE-WORKER-2026-11-13 §4): WARN at worst, never FAIL ──────
+# tests/fixtures/prefect_pool_laz_2026_11_13.json is the Prefect API's real answers on laz (read only).
+
+PREFECT = json.loads((HERE / "fixtures" / "prefect_pool_laz_2026_11_13.json").read_text())
+ONLINE_BEAT = m._parse_iso(next(w for w in PREFECT["workers"] if w["status"] == "ONLINE")["last_heartbeat_time"])
+PREFECT_CFG = {"apiUrl": "http://localhost:4200/api", "pools": ["resource-explorer-pool"]}
+
+
+class PrefectHttp:
+    """Answers the three Prefect reads from the laz fixture; records every request."""
+
+    def __init__(self, workers=None, health=True, down=False, pool_code=200):
+        self.calls, self.down, self.health, self.pool_code = [], down, health, pool_code
+        self.workers = copy.deepcopy(PREFECT["workers"] if workers is None else workers)
+
+    def request(self, method, url, body=None, headers=None, timeout=30):
+        import urllib.error
+        self.calls.append((method, url))
+        if self.down:
+            raise urllib.error.URLError(ConnectionRefusedError(61, "Connection refused"))
+        path = url.split("/api", 1)[1]
+        if path == "/health":
+            return 200, self.health
+        if path == "/admin/version":
+            return 200, "3.8.6"
+        if path == "/work_pools/resource-explorer-pool" and method == "GET":
+            return (200, PREFECT["pool"]) if self.pool_code == 200 else (self.pool_code, {"detail": "not found"})
+        if path == "/work_pools/resource-explorer-pool/workers/filter" and method == "POST":
+            return 200, self.workers
+        raise AssertionError(f"unexpected request {method} {url}")
+
+
+def _prefect(http, now=ONLINE_BEAT + 20):
+    env = m.Env(runner=None, http=http, ask=lambda p: "", say=lambda s: None, now=lambda: now)
+    return {r["service"]: r for r in m.prefect_rows(env, PREFECT_CFG)}
+
+
+def _read_only_prefect(calls):
+    assert all(meth == "GET" or url.endswith("/workers/filter") for meth, url in calls), calls
+
+
+def test_prefect_on_laz_today_one_live_worker_of_four():
+    http = PrefectHttp()
+    rows = _prefect(http)
+    assert rows["Prefect server"]["verdict"] == "PASS"
+    assert rows["Prefect server"]["words"] == "API healthy at http://localhost:4200/api (Prefect 3.8.6)"
+    pool = rows["Prefect pool resource-explorer-pool live workers"]
+    assert pool["verdict"] == "PASS"
+    assert pool["words"] == "1 live worker(s) of 4 registered; last heartbeat 20 s ago; pool READY"
+    _read_only_prefect(http.calls)
+
+
+def test_prefect_registered_but_silent_workers_warn_with_their_age():
+    """The 2026-11-13 finding: 3 registered, last heartbeat 2026-10-12, no process running."""
+    workers = [w for w in PREFECT["workers"] if w["status"] == "OFFLINE"]
+    pool = _prefect(PrefectHttp(workers))["Prefect pool resource-explorer-pool live workers"]
+    assert pool["verdict"] == "WARN"
+    # 2026-10-12T12:17:13Z to 11:32:53Z on 11-13 is 31.97 days: whole days, floored
+    assert pool["words"].startswith("no live worker: 3 registered, last heartbeat 31 days ago (2026-10-12T12:17:13")
+
+
+def test_prefect_status_wins_and_a_heartbeat_decides_only_without_one():
+    online_old = {"status": "ONLINE", "last_heartbeat_time": "2026-01-01T00:00:00Z", "heartbeat_interval_seconds": 30}
+    offline_new = {"status": "OFFLINE", "last_heartbeat_time": m.iso(ONLINE_BEAT), "heartbeat_interval_seconds": 30}
+    no_status_recent = {"last_heartbeat_time": m.iso(ONLINE_BEAT - 60), "heartbeat_interval_seconds": 30}
+    no_status_stale = {"last_heartbeat_time": m.iso(ONLINE_BEAT - 200), "heartbeat_interval_seconds": 30}
+    never = {"last_heartbeat_time": None}
+    now = ONLINE_BEAT + 20
+    assert [m._worker_live(w, now) for w in (online_old, offline_new, no_status_recent, no_status_stale, never)] \
+        == [True, False, True, False, False]
+    pool = _prefect(PrefectHttp([offline_new, never]))["Prefect pool resource-explorer-pool live workers"]
+    assert pool["verdict"] == "WARN" and pool["words"].startswith("no live worker: 2 registered, last heartbeat 20 s ago")
+    assert "1 never heard from" in pool["words"]
+
+
+def test_prefect_pool_with_no_workers_warns():
+    pool = _prefect(PrefectHttp([]))["Prefect pool resource-explorer-pool live workers"]
+    assert pool["verdict"] == "WARN" and pool["words"].startswith("no registered workers")
+
+
+def test_prefect_server_unreachable_warns_and_the_pool_is_not_checked():
+    http = PrefectHttp(down=True)
+    rows = _prefect(http)
+    assert {r["verdict"] for r in rows.values()} == {"WARN"}
+    assert "not reachable: URLError" in rows["Prefect server"]["words"]
+    assert "runs are not recorded in Prefect" in rows["Prefect server"]["words"]
+    assert rows["Prefect pool resource-explorer-pool live workers"]["words"] == \
+        "not checked: the Prefect server is not reachable"
+    assert [u for _, u in http.calls] == ["http://localhost:4200/api/health"]
+
+
+@pytest.mark.parametrize("http, words", [
+    (PrefectHttp(health=False), "answered HTTP 200 False"),
+    (PrefectHttp(pool_code=404), "no such pool on http://localhost:4200/api"),
+])
+def test_prefect_other_answers_warn_never_fail(http, words):
+    rows = _prefect(http)
+    assert "FAIL" not in {r["verdict"] for r in rows.values()}
+    assert any(words in r["words"] for r in rows.values())
+
+
+def test_prefect_rows_join_the_check_only_when_configured(checkout):
+    http = PrefectHttp(workers=[])
+    env = m.Env(runner=InfraRunner(checkout), http=http, ask=lambda p: "", say=lambda s: None,
+                now=lambda: ONLINE_BEAT + 20, repo=checkout)
+    assert not [s for s in m.infra_check(env, checkout)["services"] if s.get("kind") == "prefect"]
+    assert http.calls == []
+    (checkout / m.INFRA_CONFIG).write_text(json.dumps({"prefect": PREFECT_CFG}))
+    result = m.infra_check(env, checkout)
+    by = _by(result)
+    assert by["Prefect pool resource-explorer-pool live workers"]["verdict"] == "WARN"
+    assert result["verdict"] == "WARN" and result["counts"]["FAIL"] == 0
+    assert any("Prefect pool resource-explorer-pool live workers WARN" in x for x in [m.infra_summary(result)])
+
+
+def test_repo_config_checks_the_re_pool():
+    assert json.loads((REPO / m.INFRA_CONFIG).read_text())["prefect"] == PREFECT_CFG
+
+
+# ── Alert email on a change of state (owner 2026-11-13) ───────────────────────────────────────
+
+PASSWORD = "do-not-print-this-smtp-password"
+ALERT_ENV = {"INFRA_ALERT_EMAIL": "ops@example.test", "INFRA_ALERT_SMTP_HOST": "smtp.example.test",
+             "INFRA_ALERT_SMTP_PORT": "587", "INFRA_ALERT_SMTP_USER": "sender@example.test",
+             "INFRA_ALERT_SMTP_PASSWORD": PASSWORD}
+
+
+class FakeSMTP:
+    def __init__(self, fail=None):
+        self.sent, self.opened, self.logins, self.fail = [], [], [], fail
+
+    def __call__(self, host, port, security):
+        self.opened.append((host, port, security))
+        return self
+
+    def login(self, user, pwd):
+        self.logins.append((user, pwd))
+
+    def send_message(self, msg):
+        if self.fail:
+            raise self.fail
+        self.sent.append(msg)
+
+    def quit(self):
+        pass
+
+
+def _results(*states):
+    """infra_check results whose rows have the given verdicts: {"kafka": "PASS", ...}."""
+    for i, st in enumerate(states):
+        yield {"checkedAt": f"2026-11-13T12:{i:02d}:00+00:00", "checkout": None, "verdict": "x",
+               "services": [{"service": k, "verdict": v, "words": f"{k} is {v}"} for k, v in st.items()],
+               "counts": {"PASS": 0, "FAIL": sum(v == "FAIL" for v in st.values())}, "openlineage": {}}
+
+
+def _run(monkeypatch, checkout, tmp_path, states, smtp, env_file=ALERT_ENV):
+    if env_file is not None:
+        qs = checkout / m.ALERT_ENV_FILE
+        qs.parent.mkdir(parents=True, exist_ok=True)
+        qs.write_text("".join(f"{k}={v}\n" for k, v in env_file.items()) + "OTHER_SECRET=nope\n")
+    it = _results(*states)
+    monkeypatch.setattr(m, "infra_check", lambda env, c=None: next(it))
+    log = tmp_path / "rv" / "infra-check.log"
+    env = m.Env(runner=None, http=None, ask=lambda p: "", say=lambda s: None, now=lambda: 1_794_487_200.0,
+                repo=checkout, smtp=smtp)
+    for _ in states:
+        m.infra_check_logged(env, log, record=False, checkout=checkout)
+    return log.read_text().splitlines(), log.with_name("infra-check-alert-state.json")
+
+
+def test_alerts_only_on_changes_and_on_recovery(monkeypatch, checkout, tmp_path):
+    smtp = FakeSMTP()
+    lines, state = _run(monkeypatch, checkout, tmp_path, [
+        {"kafka": "PASS", "pool": "PASS"},                    # fine from the start: nothing to say
+        {"kafka": "PASS", "pool": "WARN"},                    # into WARN: email
+        {"kafka": "PASS", "pool": "WARN"},                    # same: nothing, however many runs
+        {"kafka": "FAIL", "pool": "WARN"},                    # a second row goes bad: email
+        {"kafka": "PASS", "pool": "PASS", "x": "EXPECTED STOPPED"},  # recovery: email
+    ], smtp)
+    assert [ln.rsplit("; ", 1)[1] for ln in lines] == ["no change", "alert sent", "no change", "alert sent",
+                                                       "recovery sent"]
+    subjects = [msg["Subject"] for msg in smtp.sent]
+    assert subjects[0].endswith("] WARN: pool") and subjects[1].endswith("] FAIL: kafka, pool")
+    assert "recovered: everything PASS" in subjects[2]
+    body = smtp.sent[1].get_content()
+    assert "NOW FAIL (was None)" not in body and "NOW FAIL: kafka: kafka is FAIL" in body and "still WARN: pool" in body
+    assert "recovered (was WARN): pool" in smtp.sent[2].get_content()
+    assert {msg["To"] for msg in smtp.sent} == {"ops@example.test"}
+    assert smtp.opened[0] == ("smtp.example.test", 587, "starttls")
+    assert smtp.logins[0] == ("sender@example.test", PASSWORD)
+    assert json.loads(state.read_text())["degraded"] == {}
+    assert state.parent == (tmp_path / "rv")
+    everything = "\n".join(lines) + "".join(msg.as_string() for msg in smtp.sent) + state.read_text()
+    assert PASSWORD not in everything and "OTHER_SECRET" not in everything and "nope" not in everything
+
+
+def test_not_configured_says_so_every_run_and_sends_nothing(monkeypatch, checkout, tmp_path):
+    smtp = FakeSMTP()
+    lines, state = _run(monkeypatch, checkout, tmp_path, [{"kafka": "PASS"}, {"kafka": "FAIL"}, {"kafka": "FAIL"}],
+                        smtp, env_file={"INFRA_ALERT_SMTP_HOST": "smtp.example.test"})
+    assert all(ln.endswith("; alerting not configured (unset: INFRA_ALERT_EMAIL)") for ln in lines)
+    assert smtp.opened == [] and not state.exists()
+
+
+def test_once_configured_the_first_run_reports_what_is_already_wrong(monkeypatch, checkout, tmp_path):
+    smtp = FakeSMTP()
+    _run(monkeypatch, checkout, tmp_path, [{"kafka": "FAIL"}], smtp, env_file={})
+    assert smtp.sent == []
+    lines, _ = _run(monkeypatch, checkout, tmp_path, [{"kafka": "FAIL"}], smtp)
+    assert lines[-1].endswith("; alert sent") and len(smtp.sent) == 1
+
+
+def test_a_failed_send_is_logged_without_the_password_and_retried(monkeypatch, checkout, tmp_path):
+    import smtplib
+    smtp = FakeSMTP(fail=smtplib.SMTPAuthenticationError(535, f"bad credentials {PASSWORD}".encode()))
+    lines, state = _run(monkeypatch, checkout, tmp_path, [{"kafka": "FAIL"}], smtp)
+    assert "; alert NOT sent: SMTPAuthenticationError" in lines[-1] and PASSWORD not in lines[-1]
+    assert not state.exists()                                   # not advanced: the next run tries again
+    smtp.fail = None
+    lines, _ = _run(monkeypatch, checkout, tmp_path, [{"kafka": "FAIL"}], smtp)
+    assert lines[-1].endswith("; alert sent")
+
+
+def test_an_infra_check_error_alerts_too(monkeypatch, checkout, tmp_path):
+    smtp = FakeSMTP()
+    (checkout / m.ALERT_ENV_FILE).parent.mkdir(parents=True, exist_ok=True)
+    (checkout / m.ALERT_ENV_FILE).write_text("".join(f"{k}={v}\n" for k, v in ALERT_ENV.items()))
+    def boom(env, c=None):
+        raise RuntimeError("docker: command not found")
+    monkeypatch.setattr(m, "infra_check", boom)
+    log = tmp_path / "rv" / "infra-check.log"
+    env = m.Env(runner=None, http=None, ask=lambda p: "", say=lambda s: None, now=lambda: 1.0, repo=checkout, smtp=smtp)
+    assert m.infra_check_logged(env, log, record=False, checkout=checkout) == 1
+    assert log.read_text().strip().endswith("; alert sent")
+    assert smtp.sent[0]["Subject"].endswith("] ERROR: infra-check")
+    assert "docker: command not found" in smtp.sent[0].get_content()
+
+
+def test_the_process_environment_wins_and_465_means_ssl(monkeypatch, checkout, tmp_path):
+    monkeypatch.setenv("INFRA_ALERT_EMAIL", "owner@example.test")
+    monkeypatch.setenv("INFRA_ALERT_SMTP_PORT", "465")
+    smtp = FakeSMTP()
+    _run(monkeypatch, checkout, tmp_path, [{"kafka": "WARN"}], smtp)
+    assert smtp.sent[0]["To"] == "owner@example.test" and smtp.opened == [("smtp.example.test", 465, "ssl")]
+
+
+def test_no_alert_flag_sends_nothing(monkeypatch, checkout, tmp_path):
+    smtp = FakeSMTP()
+    (checkout / m.ALERT_ENV_FILE).parent.mkdir(parents=True, exist_ok=True)
+    (checkout / m.ALERT_ENV_FILE).write_text("".join(f"{k}={v}\n" for k, v in ALERT_ENV.items()))
+    it = _results({"kafka": "FAIL"})
+    monkeypatch.setattr(m, "infra_check", lambda env, c=None: next(it))
+    log = tmp_path / "n.log"
+    env = m.Env(runner=None, http=None, ask=lambda p: "", say=lambda s: None, now=lambda: 1.0, repo=checkout, smtp=smtp)
+    m.main(["infra-check", "--checkout", str(checkout), "--log", str(log), "--no-alert"], env=env)
+    assert smtp.opened == [] and "alert" not in log.read_text()

@@ -139,6 +139,50 @@ never a guess. `airflow-init` is a one-shot setup container that exits by design
 reboot; the yaml now says `unless-stopped`, so a container created before that change reports
 **FAIL drift** (restart=no) until it is recreated from the yaml.
 
+**Prefect.** When `infra-health.json` has a `prefect` entry (`{"apiUrl": "http://localhost:4200/api",
+"pools": ["resource-explorer-pool"]}`; the repo's file has one), two more read-only rows are added:
+`GET /health`, `GET` the pool, and `POST …/workers/filter` (a query). They are **PASS or WARN, never FAIL**:
+with no live worker, RE runs steps in its own process, so a run loses its Prefect history and dispatch, not
+its result.
+
+| Row | WARN when |
+|---|---|
+| **Prefect server** | `/health` doesn't answer `true`: "not reachable: …" or the HTTP answer. Runs are then not recorded in Prefect |
+| **Prefect pool `<name>` live workers** | the pool is missing or paused, it has no registered workers, or none is live: "no live worker: 3 registered, last heartbeat 31 days ago (…)". When the server is down: "not checked: the Prefect server is not reachable" |
+
+A worker is **live** when Prefect says `ONLINE`. A worker with no status is live when its last heartbeat is
+within 3 × its `heartbeat_interval_seconds` (default 30 s); RE's own pool check uses the same rule. A worker
+that has never sent a heartbeat is not live, and is counted as "never heard from". On laz, 2026-11-13: one
+live worker of four registered. Remove the `prefect` entry on a host where Prefect isn't deployed.
+
+### Alert email
+
+Run with `--log` (the launchd agent), infra-check emails **when the state changes**:
+- a row goes into WARN, FAIL or NOT MEASURED, or from one of those to another;
+- infra-check itself errors;
+- everything recovers ("recovered: everything PASS").
+
+There's no email every 10 minutes while nothing changes. The rows last notified are kept in
+`infra-check-alert-state.json`, next to `infra-check.log`. The email lists what changed and what is still
+wrong, with each row's words.
+
+The settings come from the process environment, else from these keys in `compose-configs/egeria-quickstart/.env`.
+Only these keys are read from it, and no value is ever logged:
+
+| Variable | |
+|---|---|
+| `INFRA_ALERT_EMAIL` | **required**: the recipient (comma-separated for several) |
+| `INFRA_ALERT_SMTP_HOST` | **required**: the SMTP server |
+| `INFRA_ALERT_SMTP_PORT` | default 587 (465 when the security is `ssl`) |
+| `INFRA_ALERT_SMTP_SECURITY` | `starttls` (the default), `ssl` (the default for port 465) or `none` |
+| `INFRA_ALERT_SMTP_USER`, `INFRA_ALERT_SMTP_PASSWORD` | the login, if the server needs one |
+| `INFRA_ALERT_FROM` | the sender; default the SMTP user, else `infra-check@<host>` |
+
+**Unconfigured is visible, never silent.** While either required variable is unset, every log line ends
+"alerting not configured (unset: …)", and nothing is sent. The state isn't advanced, so the first run after
+configuring emails whatever is already wrong. A failed send is logged ("alert NOT sent: …", with the password
+masked) and tried again on the next run. `--no-alert` turns the email off for a run.
+
 ### The Portal's "Shared infrastructure" line
 
 `infra-check --record` writes one row to `coco_pharma.demo.infra_checks` (created by `init_egeria.sql` and by
@@ -196,7 +240,7 @@ launchctl bootout gui/$(id -u)/org.odpi.egeria.infra-check
 rm ~/Library/LaunchAgents/org.odpi.egeria.infra-check.plist
 ```
 
-It runs `infra-check --record --log runtime-volumes/egeria-resets/infra-check.log`: one line per run (time, overall verdict, counts, the services that are not PASS, the OpenLineage offset, and whether the row was recorded; an error is a line too), and the file keeps only its newest 2000 lines, about two weeks. launchd's own output is discarded, so nothing grows without bound. The folder is git-ignored.
+It runs `infra-check --record --log runtime-volumes/egeria-resets/infra-check.log`: one line per run (time, overall verdict, counts, the services that are not PASS, the OpenLineage offset, the alert outcome, and whether the row was recorded; an error is a line too), and the file keeps only its newest 2000 lines, about two weeks. launchd's own output is discarded, so nothing grows without bound. The folder is git-ignored.
 
 ## Limits
 
