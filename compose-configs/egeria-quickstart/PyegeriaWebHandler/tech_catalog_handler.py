@@ -349,6 +349,7 @@ def _extract_relationships(el: dict) -> list:
     - Single-dict keys: e.g. 'schemaType' which is a single RelatedMetadataElementSummary
     """
     _SKIP_KEYS = {"elementHeader", "properties", "classifications", "class"}
+    own_guid = (el.get("elementHeader") or {}).get("guid") if isinstance(el, dict) else None
     result = []
     # Each relationship once -- the graph's flat `relationships` list repeats
     # the ones already under their typed keys (see _relationship_items_once).
@@ -356,6 +357,19 @@ def _extract_relationships(el: dict) -> list:
         # Single-dict values (e.g. schemaType) only count with a relationshipHeader
         if isinstance(el.get(key), dict) and not item.get("relationshipHeader"):
             continue
+        # The graph's flat `relationships` list holds the WHOLE reachable subgraph
+        # (get_asset_graph_by_guid, depth 5): each entry's startingElementGUID says
+        # which element the relationship was recorded from. Only the element's own
+        # are its relationships; the rest belong to nested elements (an API's
+        # parameters, a schema's attributes) and were shown as the asset's own --
+        # e.g. Customer API listed SemanticAssignment -> UniqueCustomerIdentifier
+        # twice, once per customerNo parameter. The nested ones are still read by
+        # _serialize_schema straight from el["relationships"]. Typed keys are not
+        # filtered, and an entry without startingElementGUID is kept.
+        if key == "relationships" and own_guid:
+            start = item.get("startingElementGUID")
+            if start and start != own_guid:
+                continue
         r = _unwrap_rel_item(item, key)
         if r:
             result.append(r)
