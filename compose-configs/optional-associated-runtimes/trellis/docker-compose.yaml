@@ -133,13 +133,14 @@ services:
 
       EMBEDDINGS__DEVICE: cpu
 
-      # ── Prefect — explicitly off for this runtime. RE's own default is
-      # now on (config.py PrefectConfig.enabled; the 2026-09-04 orphaned-
-      # ephemeral-server leak is fixed independently), but dispatch needs
-      # RE's registered deployment and a worker running RE's code, and
-      # nothing here (nor ../prefect's generic worker) provides either —
-      # enabled, every step would fail dispatch and fall back to local
-      # execution. See README "What is not here". ────
+      # ── Prefect — off for this runtime until the A/B proof. As of
+      # 2026-11-13 ../prefect runs RE's own worker (re-prefect-worker, the
+      # same image, role prefect-worker), which deploys and serves its own
+      # deployment; RE dispatches to it only when both run one commit. Turn
+      # this on (with PREFECT_API_URL=http://prefect-server:4200/api) only
+      # after the A/B proof in trellis
+      # packages/resource-explorer/docs/design-notes/PREFECT-CONTAINER-WORKER-2026-11-13.md.
+      # Off, every step runs in this process. ────
       PREFECT_ENABLED: "false"
       EXPLORER_MODEL_TIER: "${TRELLIS_MODEL_TIER:-demo-cpu}"
 
