@@ -717,3 +717,78 @@ def test_the_watch_passes_on_guids_and_fails_on_a_real_401(world):
     logs["text"] += REAL[0] + "\n"
     verdict, evidence = m._watch(env, 0, 60)
     assert verdict == "FAIL" and "1 authentication-failure lines" in evidence and "OMAG-USER-SECURITY-401-001" in evidence
+
+
+# ── heal-wait: the view server must answer a real lookup first ────────────────
+
+def _flaky(world, fail_first, failure):
+    """Wrap the world's http so the first `fail_first` lookups (token or find) fail with
+    `failure(url)`; record the order of what was asked."""
+    http, inner = world["http"], world["http"].request
+    seen = {"lookups": 0, "order": []}
+
+    def request(method, url, body=None, headers=None, timeout=30):
+        lookup = url.endswith("/api/token") or url.endswith("/by-search-conditions")
+        seen["order"].append("status" if url.endswith("/api/bootstrap/status") else
+                             ("lookup" if lookup else url))
+        if lookup and url.endswith("/api/token"):
+            seen["lookups"] += 1
+        if lookup and seen["lookups"] <= fail_first:
+            return failure(url)
+        return inner(method, url, body, headers, timeout)
+
+    http.request = request
+    return seen
+
+
+def _refused(url):
+    import urllib.error
+    raise urllib.error.URLError(ConnectionRefusedError(61, "Connection refused"))
+
+
+def _heal_wait(world, **kw):
+    clock = world["clock"]
+    state = {"steps": {"recreate": {"finishedAt": clock.now()}}}
+    return m.step_heal_wait(world["env"], {"deployRoot": str(world["deploy"])}, state, None, **kw)
+
+
+def test_heal_wait_first_waits_out_connection_errors(world):
+    seen = _flaky(world, 4, _refused)
+    t0 = world["clock"].now()
+    ev = _heal_wait(world)
+    vs = ev["viewServer"]
+    assert vs["attempts"] == 5 and "URLError" in vs["lastError"] and vs["readyAfterS"] == 4 * 15
+    # the Portal's canaries are not judged until the view server has answered
+    first_status = seen["order"].index("status")
+    assert seen["order"][:first_status].count("lookup") == 5 * 2 - 4   # 4 refused tokens, then token + find
+    # ...and only from a check pass that started a full cycle after it answered
+    assert m._parse_iso(world["http"].status["lastCheckAt"]) >= t0 + vs["readyAfterS"] + m.MONITOR_CYCLE_S
+    assert ev["missing"] == []
+
+
+def test_heal_wait_counts_an_egeria_error_body_as_not_answered(world):
+    def error_body(url):
+        if url.endswith("/api/token"):
+            return 200, "tok"
+        return 200, {"class": "VoidResponse", "relatedHTTPCode": 503,
+                     "exceptionErrorMessageId": "OMAG-REPOSITORY-HANDLER-503-002"}
+
+    # the token call is what _flaky counts, so the find fails on the same attempts
+    _flaky(world, 2, error_body)
+    ev = _heal_wait(world)
+    assert ev["viewServer"]["attempts"] == 3 and "503" in ev["viewServer"]["lastError"]
+
+
+def test_heal_wait_fails_when_the_view_server_never_answers(world):
+    seen = _flaky(world, 10 ** 6, _refused)
+    with pytest.raises(m.StepFailed, match=r"view server did not answer a lookup .* within 30 min"):
+        _heal_wait(world)
+    assert "status" not in seen["order"]          # never judged the canaries on an outage
+
+
+def test_find_error_body_is_not_none_found(world):
+    world["http"].request = lambda *a, **k: (200, {"relatedHTTPCode": 500, "exceptionClassName": "X"})
+    eg = m.Egeria(world["env"], "u", "p")
+    eg.token = "tok"
+    with pytest.raises(m.StepFailed, match="Egeria answered 500"):
+        eg.find("T", "displayName", "n")

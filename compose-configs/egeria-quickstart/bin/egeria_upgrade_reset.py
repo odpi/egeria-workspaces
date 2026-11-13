@@ -755,13 +755,43 @@ def portal_status(env: Env) -> tuple[Optional[dict], Optional[str]]:
     return body, None
 
 
-def step_heal_wait(env, plan, state, run_dir, *, timeout_s: float = 3 * 3600, poll_s: float = 30):
-    """Wait for the Portal's heal: reinitializing false, and a check pass that STARTED at least one
-    full monitor cycle (600 s) after the last heal ended, so `present` is not a stale read. Then the
-    rotated Portal logs are read for errors since the recreate."""
+def wait_view_server(env, *, timeout_s: float = 1800, poll_s: float = 15) -> dict:
+    """Wait until the view server answers a real lookup: a fresh token plus one find, both
+    succeeding. A started container (or an open port) is not an answer -- right after a recreate
+    the platform accepts connections long before the view server can serve a find, and anything
+    judged before then (the Portal's canaries, a report-spec sync) reads an outage as a result.
+    Read-only. Returns evidence; raises StepFailed with the last error after timeout_s."""
+    start, attempts, last_err = env.now(), 0, None
+    while True:
+        attempts += 1
+        eg = Egeria(env, os.environ.get("EGERIA_USER", "erinoverview"), os.environ.get("EGERIA_USER_PASSWORD", "secret"))
+        try:
+            # page 25, not 1 or 2: Egeria 8840035f answers "No elements found" to pageSize 1 (B5)
+            eg.find("Referenceable", "qualifiedName", "egeria-upgrade-reset::view-server-ready-probe", page=25)
+            return {"attempts": attempts, "readyAfterS": round(env.now() - start, 1), "readyAt": iso(env.now()),
+                    "lastError": last_err}
+        except Exception as exc:  # noqa: BLE001 -- a refused connection, a timeout, an HTTP error: all "not yet"
+            last_err = f"{type(exc).__name__}: {exc}"
+        if env.now() - start > timeout_s:
+            raise StepFailed(f"the view server did not answer a lookup (token + find) within "
+                             f"{timeout_s / 60:.0f} min after {attempts} attempts; last error: {last_err}")
+        env.sleep(poll_s)
+
+
+def step_heal_wait(env, plan, state, run_dir, *, timeout_s: float = 3 * 3600, poll_s: float = 30,
+                   ready_timeout_s: float = 1800, ready_poll_s: float = 15):
+    """First wait until the view server answers a real lookup (wait_view_server). Then wait for the
+    Portal's heal: reinitializing false, and a check pass that STARTED at least one full monitor
+    cycle (600 s) after both the last heal ended and the view server answered, so `present` is not
+    a stale read or one taken while Egeria could not answer. Then the rotated Portal logs are read
+    for errors since the recreate."""
+    ready = wait_view_server(env, timeout_s=ready_timeout_s, poll_s=ready_poll_s)
+    env.say(f"  view server answered a lookup after {ready['readyAfterS']} s ({ready['attempts']} attempt(s))")
+    ready_at = env.now()
     start = env.now()
     last_heal_end = state["steps"].get("recreate", {}).get("finishedAt") or start
     last_heal_end = last_heal_end if isinstance(last_heal_end, (int, float)) else start
+    last_heal_end = max(last_heal_end, ready_at)
     while True:
         st, err = portal_status(env)
         if st is not None:
@@ -782,8 +812,8 @@ def step_heal_wait(env, plan, state, run_dir, *, timeout_s: float = 3 * 3600, po
                   "manualSteps": f.get("manualSteps")} for n, f in fams.items()}
     errors = scan_logs(env, since=state["steps"].get("recreate", {}).get("finishedAt") or start,
                        root=Path(plan.get("deployRoot") or env.repo))
-    ev = {"families": result, "missing": missing, "logErrors": errors[:50], "logErrorCount": len(errors),
-          "settledAt": iso(env.now())}
+    ev = {"viewServer": ready, "families": result, "missing": missing, "logErrors": errors[:50],
+          "logErrorCount": len(errors), "settledAt": iso(env.now())}
     if missing:
         raise StepFailed("canaries still missing after the heal: " + ", ".join(missing))
     return ev
@@ -893,6 +923,12 @@ class Egeria:
             body, headers={"Authorization": f"Bearer {self._token()}"})
         if code != 200 or not isinstance(resp, dict):
             raise StepFailed(f"find {type_name} {value!r}: HTTP {code}")
+        rel = resp.get("relatedHTTPCode")
+        if rel not in (None, 200):
+            # Egeria reports a server-side failure as HTTP 200 with an error body: that is "not
+            # answered", never "none found".
+            raise StepFailed(f"find {type_name} {value!r}: Egeria answered {rel} "
+                             f"{resp.get('exceptionErrorMessageId') or resp.get('exceptionClassName') or ''}".rstrip())
         # OpenMetadataElementsResponse: {"elements": [{"elementGUID", "elementProperties", ...}]}
         # (checked on laz, 2026-11-12). No "elements" key means none found.
         return resp.get("elements") or []
