@@ -10,6 +10,7 @@ Offline: discovery reads this checkout's dr-egeria-inbox and extra roots; nothin
 - The FIXUP_2026_11_11 documents are archived outside the inbox and never discovered.
 - Manual steps (the saved query's first refresh) report done / pending / not checked.
 """
+import copy
 import json
 import re
 import sys
@@ -154,8 +155,38 @@ STEP = json.loads((INBOX / "Useful Dashboards" / "_batch.json").read_text())["ma
 BASE = {"id": STEP["id"], "description": STEP["description"], "how": STEP["how"]}
 
 
+# The real find response for the step's element, fetched read-only as erinoverview on laz
+# (2026-11-13): a raw OpenMetadataElement, additionalProperties as a MapTypePropertyValue.
+REAL = json.loads((Path(__file__).parent / "fixtures" / "saved_query_find_raw_laz_2026_11_13.json").read_text())
+
+
 def _el(additional):
-    return [{"properties": {"qualifiedName": STEP["qualifiedName"], "additionalProperties": additional}}]
+    """The real element with its additionalProperties map replaced, in the real (raw) shape."""
+    el = copy.deepcopy(REAL[0])
+    el["elementProperties"]["propertyValueMap"]["additionalProperties"]["mapValues"]["propertyValueMap"] = {
+        k: {"class": "PrimitiveTypePropertyValue", "typeName": "string",
+            "primitiveTypeCategory": "OM_PRIMITIVE_TYPE_STRING", "primitiveValue": v}
+        for k, v in additional.items()}
+    return [el]
+
+
+def test_manual_step_done_on_the_real_find_response():
+    assert REAL[0]["elementProperties"]["propertyValueMap"]["qualifiedName"]["primitiveValue"] == STEP["qualifiedName"]
+    st = bm._manual_step_from_elements(STEP, BASE, REAL)
+    assert st["state"] == "done"
+    assert st["detail"] == "lastRefreshedTime = 2026-11-12T16:58:59.395564+00:00; resultCount = 48"
+
+
+def test_manual_step_flat_shape_still_read_as_a_fallback():
+    flat = [{"properties": {"qualifiedName": STEP["qualifiedName"],
+                            "additionalProperties": {"lastRefreshedTime": "t", "resultCount": "3"}}}]
+    assert bm._manual_step_from_elements(STEP, BASE, flat)["detail"] == "lastRefreshedTime = t; resultCount = 3"
+
+
+def test_manual_step_element_without_additional_properties_is_pending():
+    el = copy.deepcopy(REAL[0])
+    del el["elementProperties"]["propertyValueMap"]["additionalProperties"]
+    assert bm._manual_step_from_elements(STEP, BASE, [el])["state"] == "pending"
 
 
 def test_manual_step_done_names_time_and_count():
