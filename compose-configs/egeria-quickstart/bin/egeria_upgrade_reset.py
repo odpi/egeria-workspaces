@@ -32,7 +32,7 @@ EXPECTED STOPPED / NOT MEASURED: running and healthy, restart policy as the yaml
 this checkout's compose file. It only reads (`docker inspect`, `docker ps`, and kafka-get-offsets.sh
 and stat inside the Kafka container; with a "prefect" entry in infra-health.json, the Prefect API's
 health, pool and worker list); fixing a drift is a person's decision. With --log it emails on a change
-of state, when INFRA_ALERT_EMAIL and INFRA_ALERT_SMTP_HOST are set (see alert_on_change).
+of state, through the Portal's mail settings (Resend, else SMTP; see alert_on_change).
 """
 from __future__ import annotations
 
@@ -194,8 +194,10 @@ class Env:
     #: verify's persona-check answer given up front ("ok" or "skip": `apply --personas`, or
     #: EGERIA_RESET_PERSONAS), so a background run never waits on a prompt.
     personas: Optional[str] = None
-    #: (host, port, security) -> an smtplib.SMTP-like object; infra-check's alert email. Tests pass a fake.
+    #: infra-check's alert email: (host, port, "ssl"/"starttls") -> an smtplib.SMTP-like object, and
+    #: (api_key, payload) -> None for Resend. Tests pass fakes.
     smtp: Optional[Callable[[str, int, str], Any]] = None
+    resend: Optional[Callable[[str, dict], None]] = None
 
     def __post_init__(self):
         if self.port_open is None:
@@ -1550,24 +1552,54 @@ def append_bounded(path: Path, line: str, keep: int = INFRA_LOG_KEEP) -> None:
     os.replace(tmp, path)
 
 
-# ── Alert email (owner, 2026-11-13: "Email is good - the address should be in the .env") ──────────
+# ── Alert email (owner, 2026-11-13: "Email is good - the address should be in the .env"; "use the same
+# mail configuration as we use in Egeria-Workspaces") ──────────────────────────────────────────────────
 # Sent only on a change: a row going into WARN / FAIL / NOT MEASURED (or a different one of those), and
-# on recovery to all PASS. The last notified state is kept next to the log. Settings come from the
-# process environment, else from these keys of the quickstart .env (only these keys are read, and no
-# value is ever logged). Unset recipient or SMTP host = "alerting not configured" on every log line,
-# nothing sent, and the state is not advanced, so the first run after configuring reports what is wrong.
+# on recovery to all PASS. The last notified state is kept next to the log.
+#
+# The mail settings are egeria-workspaces' own, not new ones, with the Portal's precedence
+# (demo_auth_handler._send_email, demo-mode.md "SMTP email" / "Resend"): Resend when RESEND_API_KEY is
+# set (it then needs RESEND_FROM, as the Portal does), else SMTP when SMTP_HOST is set, else nothing.
+# Resend goes out the way cert-watch.sh and the egeria-watchdog send it (POST api.resend.com/emails,
+# TLS verified); the Portal's sender needs the `resend` package and its config module, which this
+# host-side stdlib script does not have. The recipient is INFRA_ALERT_EMAIL, else the existing alert
+# recipient ALERT_EMAIL_TO.
+#
+# Values come from the process environment, else compose-configs/egeria-quickstart/.env.demo (where
+# quick-start-local keeps secrets), else .env (regenerated on every quick-start-local run). Only the
+# keys below are read from those files, and no value is ever logged. Without a recipient and a sender:
+# "alerting not configured" on every log line, nothing sent, and the state is not advanced, so the first
+# run after configuring reports what is already wrong.
 
-ALERT_ENV_FILE = Path("compose-configs") / "egeria-quickstart" / ".env"
-ALERT_KEYS = ("INFRA_ALERT_EMAIL", "INFRA_ALERT_SMTP_HOST", "INFRA_ALERT_SMTP_PORT", "INFRA_ALERT_SMTP_USER",
-              "INFRA_ALERT_SMTP_PASSWORD", "INFRA_ALERT_FROM", "INFRA_ALERT_SMTP_SECURITY")
-ALERT_REQUIRED = ("INFRA_ALERT_EMAIL", "INFRA_ALERT_SMTP_HOST")
+QS_DIR = Path("compose-configs") / "egeria-quickstart"
+ALERT_ENV_FILES = (QS_DIR / ".env.demo", QS_DIR / ".env")      # earlier wins
+ALERT_KEYS = ("INFRA_ALERT_EMAIL", "ALERT_EMAIL_TO", "RESEND_API_KEY", "RESEND_FROM", "SMTP_HOST", "SMTP_PORT",
+              "SMTP_SSL", "SMTP_USER", "SMTP_PASSWORD", "SMTP_FROM", "ADMIN_BOOTSTRAP_EMAIL")
+ALERT_SECRETS = ("RESEND_API_KEY", "SMTP_PASSWORD")
 ALERT_DEGRADED = ("FAIL", "WARN", "NOT MEASURED", "ERROR")
+RESEND_URL = "https://api.resend.com/emails"
 
 
 def alert_settings(root: Path) -> dict:
-    """{key: value} for ALERT_KEYS: the process environment first, then the quickstart .env."""
-    from_file = _env_values(Path(root) / ALERT_ENV_FILE, set(ALERT_KEYS))
-    return {k: (os.environ.get(k) or from_file.get(k) or "") for k in ALERT_KEYS}
+    """{key: value} for ALERT_KEYS: the process environment, else .env.demo, else .env."""
+    files = [_env_values(Path(root) / f, set(ALERT_KEYS)) for f in ALERT_ENV_FILES]
+    return {k: (os.environ.get(k) or next((f[k] for f in files if f.get(k)), "")) for k in ALERT_KEYS}
+
+
+def mail_route(settings: dict) -> tuple[Optional[str], Optional[str], list[str]]:
+    """(route "resend" / "smtp" / None, recipient, what is missing), in the Portal's precedence."""
+    to = settings.get("INFRA_ALERT_EMAIL") or settings.get("ALERT_EMAIL_TO") or None
+    missing = [] if to else ["INFRA_ALERT_EMAIL (or ALERT_EMAIL_TO)"]
+    if settings.get("RESEND_API_KEY"):
+        route = "resend"
+        if not settings.get("RESEND_FROM"):
+            missing.append("RESEND_FROM")
+    elif settings.get("SMTP_HOST"):
+        route = "smtp"
+    else:
+        route = None
+        missing.append("RESEND_API_KEY + RESEND_FROM (or SMTP_HOST)")
+    return (route if not missing else None), to, missing
 
 
 def degraded_rows(result: Optional[dict], error: Optional[str] = None) -> dict:
@@ -1605,30 +1637,44 @@ def alert_message(host: str, at: str, before: dict, now: dict, result: Optional[
 def _smtp_default(host: str, port: int, security: str):
     import smtplib
     if security == "ssl":
-        return smtplib.SMTP_SSL(host, port, timeout=30)
+        return smtplib.SMTP_SSL(host, port, timeout=30, context=ssl.create_default_context())
     conn = smtplib.SMTP(host, port, timeout=30)
-    if security == "starttls":
-        conn.starttls(context=ssl.create_default_context())
+    conn.starttls(context=ssl.create_default_context())
     return conn
 
 
-def send_alert(env: Env, settings: dict, subject: str, body: str) -> None:
+def _resend_default(api_key: str, payload: dict) -> None:
+    """The request cert-watch.sh makes with curl: TLS verified (never the localhost Http's CERT_NONE)."""
+    req = urllib.request.Request(RESEND_URL, data=json.dumps(payload).encode(), method="POST",
+                                 headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json",
+                                          "User-Agent": "egeria-infra-check"})
+    try:
+        with urllib.request.urlopen(req, timeout=20, context=ssl.create_default_context()) as r:
+            if not 200 <= r.status < 300:
+                raise RuntimeError(f"Resend answered HTTP {r.status}")
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f"Resend answered HTTP {e.code}: {e.read().decode('utf-8', 'replace')[:160]}") from None
+
+
+def send_alert(env: Env, settings: dict, route: str, to: str, subject: str, body: str) -> None:
+    recipients = [a.strip() for a in to.split(",") if a.strip()]
+    if route == "resend":
+        (env.resend or _resend_default)(settings["RESEND_API_KEY"], {
+            "from": settings["RESEND_FROM"], "to": recipients, "subject": subject, "text": body})
+        return
     from email.message import EmailMessage
-    security = (settings.get("INFRA_ALERT_SMTP_SECURITY") or "").lower() or \
-        ("ssl" if settings.get("INFRA_ALERT_SMTP_PORT") == "465" else "starttls")
-    if security not in ("starttls", "ssl", "none"):
-        raise ValueError(f"INFRA_ALERT_SMTP_SECURITY must be starttls, ssl or none, not {security!r}")
-    port = int(settings.get("INFRA_ALERT_SMTP_PORT") or (465 if security == "ssl" else 587))
+    use_ssl = (settings.get("SMTP_SSL") or "").strip().lower() in ("1", "true", "yes")
+    port = int(settings.get("SMTP_PORT") or (465 if use_ssl else 587))
+    user = settings.get("SMTP_USER") or settings.get("ADMIN_BOOTSTRAP_EMAIL") or ""
     msg = EmailMessage()
     msg["Subject"] = subject
-    msg["From"] = settings.get("INFRA_ALERT_FROM") or settings.get("INFRA_ALERT_SMTP_USER") or \
-        f"infra-check@{socket.gethostname()}"
-    msg["To"] = settings["INFRA_ALERT_EMAIL"]
+    msg["From"] = settings.get("SMTP_FROM") or user or f"infra-check@{socket.gethostname()}"
+    msg["To"] = ", ".join(recipients)
     msg.set_content(body)
-    conn = (env.smtp or _smtp_default)(settings["INFRA_ALERT_SMTP_HOST"], port, security)
+    conn = (env.smtp or _smtp_default)(settings["SMTP_HOST"], port, "ssl" if use_ssl else "starttls")
     try:
-        if settings.get("INFRA_ALERT_SMTP_USER"):
-            conn.login(settings["INFRA_ALERT_SMTP_USER"], settings.get("INFRA_ALERT_SMTP_PASSWORD") or "")
+        if user and settings.get("SMTP_PASSWORD"):
+            conn.login(user, settings["SMTP_PASSWORD"])
         conn.send_message(msg)
     finally:
         try:
@@ -1646,7 +1692,7 @@ def alert_on_change(env: Env, state_path: Path, root: Path, result: Optional[dic
         settings = alert_settings(root)
     except Exception as exc:  # noqa: BLE001
         return {"outcome": f"alerting not configured: settings not read ({type(exc).__name__})", "configured": False}
-    missing = [k for k in ALERT_REQUIRED if not settings.get(k)]
+    route, to, missing = mail_route(settings)
     if missing:        # said on every run, changed or not: an unconfigured alert is never silent
         return {"outcome": "alerting not configured", "configured": False, "unset": missing}
     try:
@@ -1658,15 +1704,19 @@ def alert_on_change(env: Env, state_path: Path, root: Path, result: Optional[dic
     at = (result or {}).get("checkedAt") or iso(env.now())
     subject, body = alert_message(socket.gethostname(), at, before, now_rows, result, error)
     try:
-        send_alert(env, settings, subject, body)
+        send_alert(env, settings, route, to, subject, body)
     except Exception as exc:  # noqa: BLE001 -- the state is not advanced, so the next run tries again
-        text = str(exc).replace(settings.get("INFRA_ALERT_SMTP_PASSWORD") or "\0", "***")[:200]
-        return {"outcome": f"alert NOT sent: {type(exc).__name__}: {text}", "configured": True}
+        text = str(exc)
+        for k in ALERT_SECRETS:
+            if settings.get(k):
+                text = text.replace(settings[k], "***")
+        return {"outcome": f"alert NOT sent ({route}): {type(exc).__name__}: {text[:200]}", "configured": True}
     state_path.parent.mkdir(parents=True, exist_ok=True)
     tmp = state_path.with_name(state_path.name + ".tmp")
     tmp.write_text(json.dumps({"degraded": now_rows, "notifiedAt": iso(env.now()), "subject": subject}, indent=2) + "\n")
     os.replace(tmp, state_path)
-    return {"outcome": "alert sent" if now_rows else "recovery sent", "configured": True, "subject": subject}
+    return {"outcome": ("alert sent" if now_rows else "recovery sent") + f" ({route})", "configured": True,
+            "subject": subject}
 
 
 def alert_words(a: dict) -> str:
@@ -1871,8 +1921,8 @@ def main(argv: Optional[list[str]] = None, env: Optional[Env] = None) -> int:
                     help="for scheduled runs: print nothing; append ONE line per run to FILE, keeping its newest "
                          f"{INFRA_LOG_KEEP} lines (errors too)")
     ic.add_argument("--no-alert", action="store_true",
-                    help="with --log: send no alert email (by default one is sent when the state changes, if "
-                         "INFRA_ALERT_EMAIL and INFRA_ALERT_SMTP_HOST are set)")
+                    help="with --log: send no alert email (by default one is sent when the state changes, "
+                         "when a recipient and the Portal's mail settings are set)")
     ic.add_argument("--checkout", default=None,
                     help="the checkout whose compose files to compare with (default: the running platform's)")
     args = ap.parse_args(argv)

@@ -166,22 +166,33 @@ There's no email every 10 minutes while nothing changes. The rows last notified 
 `infra-check-alert-state.json`, next to `infra-check.log`. The email lists what changed and what is still
 wrong, with each row's words.
 
-The settings come from the process environment, else from these keys in `compose-configs/egeria-quickstart/.env`.
-Only these keys are read from it, and no value is ever logged:
+**It uses egeria-workspaces' own mail settings**, not new ones (owner, 2026-11-13: "use the same mail
+configuration as we use in Egeria-Workspaces"). The precedence is the Portal's (`demo-mode.md`, "SMTP
+email" and "Resend"):
 
-| Variable | |
-|---|---|
-| `INFRA_ALERT_EMAIL` | **required**: the recipient (comma-separated for several) |
-| `INFRA_ALERT_SMTP_HOST` | **required**: the SMTP server |
-| `INFRA_ALERT_SMTP_PORT` | default 587 (465 when the security is `ssl`) |
-| `INFRA_ALERT_SMTP_SECURITY` | `starttls` (the default), `ssl` (the default for port 465) or `none` |
-| `INFRA_ALERT_SMTP_USER`, `INFRA_ALERT_SMTP_PASSWORD` | the login, if the server needs one |
-| `INFRA_ALERT_FROM` | the sender; default the SMTP user, else `infra-check@<host>` |
+1. **Resend**, when `RESEND_API_KEY` is set. It then needs `RESEND_FROM`, as the Portal does; a key without
+   a sender is "not configured", with no fall-back to SMTP. It's the same request cert-watch.sh and the
+   egeria-watchdog make: `POST https://api.resend.com/emails`, TLS verified.
+2. **SMTP**, when `SMTP_HOST` is set. `SMTP_PORT` defaults to 587 with STARTTLS; `SMTP_SSL=true` means
+   implicit TLS (port 465 by default). The login is `SMTP_USER` (else `ADMIN_BOOTSTRAP_EMAIL`) with
+   `SMTP_PASSWORD`, and the sender is `SMTP_FROM` (else the user).
+3. Neither set: nothing is sent.
 
-**Unconfigured is visible, never silent.** While either required variable is unset, every log line ends
-"alerting not configured (unset: …)", and nothing is sent. The state isn't advanced, so the first run after
-configuring emails whatever is already wrong. A failed send is logged ("alert NOT sent: …", with the password
-masked) and tried again on the next run. `--no-alert` turns the email off for a run.
+**The recipient** is `INFRA_ALERT_EMAIL`, the one new variable. When it's unset, infra-check uses
+`ALERT_EMAIL_TO`, the recipient the egeria-watchdog, cert-watch and the workbench watchdog already use.
+Several addresses can be given, comma-separated.
+
+**Where the values are read.** The process environment comes first, then
+`compose-configs/egeria-quickstart/.env.demo` (where `quick-start-local` keeps secrets), then `.env` (which is
+regenerated on every `quick-start-local` run). infra-check runs on the host, so it doesn't see the
+containers' environment. Only the keys above are read from those files, and no value is ever logged; a
+failed send has the API key and password masked.
+
+**Unconfigured is visible, never silent.** While the recipient or the sender is missing, every log line ends
+"alerting not configured (unset: …)", naming what's missing, and nothing is sent. The state isn't advanced,
+so the first run after configuring emails whatever is already wrong. A failed send is logged ("alert NOT
+sent (resend): …") and tried again on the next run. Successful lines say which route was used ("alert sent
+(resend)"). `--no-alert` turns the email off for a run.
 
 ### The Portal's "Shared infrastructure" line
 

@@ -561,7 +561,7 @@ def test_log_mode_prints_nothing_and_appends_one_line(checkout, tmp_path):
     lines = log.read_text().splitlines()
     assert len(lines) == 1
     assert re.fullmatch(r"\S+ WARN 5 pass, 1 warn \[kroki WARN\]; openlineage offset 902071 at \S+; "
-                        r"alerting not configured \(unset: INFRA_ALERT_EMAIL, INFRA_ALERT_SMTP_HOST\); recorded", lines[0])
+                        r"alerting not configured \(unset: INFRA_ALERT_EMAIL \(or ALERT_EMAIL_TO\), RESEND_API_KEY \+ RESEND_FROM \(or SMTP_HOST\)\); recorded", lines[0])
     runner.containers["egeria-shared-openlineage-proxy-backend"]["HostConfig"]["RestartPolicy"]["Name"] = "no"
     assert m.main(["infra-check", "--checkout", str(checkout), "--log", str(log)], env=_env(runner, checkout, said)) == 1
     lines = log.read_text().splitlines()
@@ -587,7 +587,7 @@ def test_log_mode_records_errors_as_a_line(checkout, tmp_path, monkeypatch):
     said = []
     assert m.main(["infra-check", "--log", str(log)], env=_env(InfraRunner(checkout), checkout, said)) == 1
     assert said == [] and re.fullmatch(r"\S+ ERROR RuntimeError: docker: command not found; alerting not configured "
-                                       r"\(unset: INFRA_ALERT_EMAIL, INFRA_ALERT_SMTP_HOST\)", log.read_text().strip())
+                                       r"\(unset: INFRA_ALERT_EMAIL \(or ALERT_EMAIL_TO\), RESEND_API_KEY \+ RESEND_FROM \(or SMTP_HOST\)\)", log.read_text().strip())
 
 
 def test_log_mode_says_when_the_record_failed(checkout, tmp_path, monkeypatch):
@@ -853,19 +853,27 @@ def test_repo_config_checks_the_re_pool():
     assert json.loads((REPO / m.INFRA_CONFIG).read_text())["prefect"] == PREFECT_CFG
 
 
-# ── Alert email on a change of state (owner 2026-11-13) ───────────────────────────────────────
+# ── Alert email on a change of state (owner 2026-11-13), through the Portal's mail settings ─────
 
+API_KEY = "re_do-not-print-this-resend-key"
 PASSWORD = "do-not-print-this-smtp-password"
-ALERT_ENV = {"INFRA_ALERT_EMAIL": "ops@example.test", "INFRA_ALERT_SMTP_HOST": "smtp.example.test",
-             "INFRA_ALERT_SMTP_PORT": "587", "INFRA_ALERT_SMTP_USER": "sender@example.test",
-             "INFRA_ALERT_SMTP_PASSWORD": PASSWORD}
+RESEND = {"ALERT_EMAIL_TO": "ops@example.test", "RESEND_API_KEY": API_KEY, "RESEND_FROM": "Egeria <noreply@example.test>"}
+SMTP = {"INFRA_ALERT_EMAIL": "ops@example.test", "SMTP_HOST": "smtp.example.test", "SMTP_USER": "sender@example.test",
+        "SMTP_PASSWORD": PASSWORD}
 
 
-class FakeSMTP:
+class FakeMail:
+    """Stands in for both senders: Resend (api_key, payload) and an smtplib-like connection."""
+
     def __init__(self, fail=None):
-        self.sent, self.opened, self.logins, self.fail = [], [], [], fail
+        self.resend_sent, self.smtp_sent, self.opened, self.logins, self.fail = [], [], [], [], fail
 
-    def __call__(self, host, port, security):
+    def resend(self, api_key, payload):
+        if self.fail:
+            raise self.fail
+        self.resend_sent.append((api_key, payload))
+
+    def smtp(self, host, port, security):
         self.opened.append((host, port, security))
         return self
 
@@ -875,10 +883,18 @@ class FakeSMTP:
     def send_message(self, msg):
         if self.fail:
             raise self.fail
-        self.sent.append(msg)
+        self.smtp_sent.append(msg)
 
     def quit(self):
         pass
+
+
+def _write_env(checkout, demo=None, main=None):
+    qs = checkout / m.QS_DIR
+    qs.mkdir(parents=True, exist_ok=True)
+    for name, values in ((".env.demo", demo), (".env", main)):
+        if values is not None:
+            (qs / name).write_text("".join(f"{k}={v}\n" for k, v in values.items()) + "OTHER_SECRET=nope\n")
 
 
 def _results(*states):
@@ -889,104 +905,169 @@ def _results(*states):
                "counts": {"PASS": 0, "FAIL": sum(v == "FAIL" for v in st.values())}, "openlineage": {}}
 
 
-def _run(monkeypatch, checkout, tmp_path, states, smtp, env_file=ALERT_ENV):
-    if env_file is not None:
-        qs = checkout / m.ALERT_ENV_FILE
-        qs.parent.mkdir(parents=True, exist_ok=True)
-        qs.write_text("".join(f"{k}={v}\n" for k, v in env_file.items()) + "OTHER_SECRET=nope\n")
+def _run(monkeypatch, checkout, tmp_path, states, mail):
     it = _results(*states)
     monkeypatch.setattr(m, "infra_check", lambda env, c=None: next(it))
     log = tmp_path / "rv" / "infra-check.log"
     env = m.Env(runner=None, http=None, ask=lambda p: "", say=lambda s: None, now=lambda: 1_794_487_200.0,
-                repo=checkout, smtp=smtp)
+                repo=checkout, smtp=mail.smtp, resend=mail.resend)
     for _ in states:
         m.infra_check_logged(env, log, record=False, checkout=checkout)
     return log.read_text().splitlines(), log.with_name("infra-check-alert-state.json")
 
 
-def test_alerts_only_on_changes_and_on_recovery(monkeypatch, checkout, tmp_path):
-    smtp = FakeSMTP()
+def test_alerts_only_on_changes_and_on_recovery_through_resend(monkeypatch, checkout, tmp_path):
+    _write_env(checkout, demo=RESEND)
+    mail = FakeMail()
     lines, state = _run(monkeypatch, checkout, tmp_path, [
         {"kafka": "PASS", "pool": "PASS"},                    # fine from the start: nothing to say
         {"kafka": "PASS", "pool": "WARN"},                    # into WARN: email
         {"kafka": "PASS", "pool": "WARN"},                    # same: nothing, however many runs
         {"kafka": "FAIL", "pool": "WARN"},                    # a second row goes bad: email
         {"kafka": "PASS", "pool": "PASS", "x": "EXPECTED STOPPED"},  # recovery: email
-    ], smtp)
-    assert [ln.rsplit("; ", 1)[1] for ln in lines] == ["no change", "alert sent", "no change", "alert sent",
-                                                       "recovery sent"]
-    subjects = [msg["Subject"] for msg in smtp.sent]
-    assert subjects[0].endswith("] WARN: pool") and subjects[1].endswith("] FAIL: kafka, pool")
-    assert "recovered: everything PASS" in subjects[2]
-    body = smtp.sent[1].get_content()
-    assert "NOW FAIL (was None)" not in body and "NOW FAIL: kafka: kafka is FAIL" in body and "still WARN: pool" in body
-    assert "recovered (was WARN): pool" in smtp.sent[2].get_content()
-    assert {msg["To"] for msg in smtp.sent} == {"ops@example.test"}
-    assert smtp.opened[0] == ("smtp.example.test", 587, "starttls")
-    assert smtp.logins[0] == ("sender@example.test", PASSWORD)
-    assert json.loads(state.read_text())["degraded"] == {}
-    assert state.parent == (tmp_path / "rv")
-    everything = "\n".join(lines) + "".join(msg.as_string() for msg in smtp.sent) + state.read_text()
-    assert PASSWORD not in everything and "OTHER_SECRET" not in everything and "nope" not in everything
+    ], mail)
+    assert [ln.rsplit("; ", 1)[1] for ln in lines] == ["no change", "alert sent (resend)", "no change",
+                                                       "alert sent (resend)", "recovery sent (resend)"]
+    assert mail.smtp_sent == [] and {k for k, _ in mail.resend_sent} == {API_KEY}
+    payloads = [p for _, p in mail.resend_sent]
+    assert {p["from"] for p in payloads} == {"Egeria <noreply@example.test>"}
+    assert {tuple(p["to"]) for p in payloads} == {("ops@example.test",)}
+    assert payloads[0]["subject"].endswith("] WARN: pool") and payloads[1]["subject"].endswith("] FAIL: kafka, pool")
+    assert "recovered: everything PASS" in payloads[2]["subject"]
+    assert "NOW FAIL: kafka: kafka is FAIL" in payloads[1]["text"] and "still WARN: pool" in payloads[1]["text"]
+    assert "recovered (was WARN): pool" in payloads[2]["text"]
+    assert json.loads(state.read_text())["degraded"] == {} and state.parent == tmp_path / "rv"
+    everything = "\n".join(lines) + json.dumps(payloads) + state.read_text()
+    assert API_KEY not in everything and "OTHER_SECRET" not in everything and "nope" not in everything
+
+
+def test_resend_wins_over_smtp_as_in_the_portal(monkeypatch, checkout, tmp_path):
+    _write_env(checkout, demo={**SMTP, **RESEND})
+    mail = FakeMail()
+    lines, _ = _run(monkeypatch, checkout, tmp_path, [{"kafka": "FAIL"}], mail)
+    assert lines[-1].endswith("; alert sent (resend)") and mail.opened == [] and len(mail.resend_sent) == 1
+
+
+def test_a_resend_key_without_a_sender_is_not_configured_and_does_not_fall_back(monkeypatch, checkout, tmp_path):
+    """The Portal skips when RESEND_API_KEY is set without RESEND_FROM; it does not try SMTP."""
+    _write_env(checkout, demo={**SMTP, "RESEND_API_KEY": API_KEY})
+    mail = FakeMail()
+    lines, _ = _run(monkeypatch, checkout, tmp_path, [{"kafka": "FAIL"}], mail)
+    assert lines[-1].endswith("; alerting not configured (unset: RESEND_FROM)")
+    assert mail.opened == [] and mail.resend_sent == []
+
+
+def test_smtp_when_resend_is_unset(monkeypatch, checkout, tmp_path):
+    _write_env(checkout, demo=SMTP)
+    mail = FakeMail()
+    lines, _ = _run(monkeypatch, checkout, tmp_path, [{"kafka": "WARN"}], mail)
+    assert lines[-1].endswith("; alert sent (smtp)")
+    assert mail.opened == [("smtp.example.test", 587, "starttls")]
+    assert mail.logins == [("sender@example.test", PASSWORD)]
+    msg = mail.smtp_sent[0]
+    assert msg["From"] == "sender@example.test" and msg["To"] == "ops@example.test"
+    assert PASSWORD not in msg.as_string() + "\n".join(lines)
+
+
+def test_smtp_ssl_and_the_documented_user_fallback(monkeypatch, checkout, tmp_path):
+    _write_env(checkout, demo={"ALERT_EMAIL_TO": "a@example.test, b@example.test", "SMTP_HOST": "smtp.example.test",
+                               "SMTP_SSL": "true", "SMTP_PASSWORD": PASSWORD, "SMTP_FROM": "infra@example.test",
+                               "ADMIN_BOOTSTRAP_EMAIL": "admin@example.test"})
+    mail = FakeMail()
+    _run(monkeypatch, checkout, tmp_path, [{"kafka": "WARN"}], mail)
+    assert mail.opened == [("smtp.example.test", 465, "ssl")]
+    assert mail.logins == [("admin@example.test", PASSWORD)]
+    assert mail.smtp_sent[0]["From"] == "infra@example.test"
+    assert mail.smtp_sent[0]["To"] == "a@example.test, b@example.test"
+
+
+def test_where_settings_come_from(monkeypatch, checkout):
+    """Process environment, else .env.demo (where quick-start-local keeps secrets), else .env; only the
+    named keys are read."""
+    _write_env(checkout, demo={"RESEND_FROM": "demo@example.test"},
+               main={"RESEND_FROM": "main@example.test", "RESEND_API_KEY": API_KEY, "ALERT_EMAIL_TO": "to@example.test"})
+    got = m.alert_settings(checkout)
+    assert got["RESEND_FROM"] == "demo@example.test" and got["RESEND_API_KEY"] == API_KEY
+    assert set(got) == set(m.ALERT_KEYS) and "OTHER_SECRET" not in got
+    monkeypatch.setenv("RESEND_FROM", "env@example.test")
+    monkeypatch.setenv("INFRA_ALERT_EMAIL", "infra@example.test")
+    got = m.alert_settings(checkout)
+    assert got["RESEND_FROM"] == "env@example.test"
+    assert m.mail_route(got) == ("resend", "infra@example.test", [])     # INFRA_ALERT_EMAIL over ALERT_EMAIL_TO
 
 
 def test_not_configured_says_so_every_run_and_sends_nothing(monkeypatch, checkout, tmp_path):
-    smtp = FakeSMTP()
-    lines, state = _run(monkeypatch, checkout, tmp_path, [{"kafka": "PASS"}, {"kafka": "FAIL"}, {"kafka": "FAIL"}],
-                        smtp, env_file={"INFRA_ALERT_SMTP_HOST": "smtp.example.test"})
-    assert all(ln.endswith("; alerting not configured (unset: INFRA_ALERT_EMAIL)") for ln in lines)
-    assert smtp.opened == [] and not state.exists()
+    _write_env(checkout, demo={"RESEND_API_KEY": API_KEY, "RESEND_FROM": "x@example.test"})   # no recipient
+    mail = FakeMail()
+    lines, state = _run(monkeypatch, checkout, tmp_path, [{"kafka": "PASS"}, {"kafka": "FAIL"}, {"kafka": "FAIL"}], mail)
+    assert all(ln.endswith("; alerting not configured (unset: INFRA_ALERT_EMAIL (or ALERT_EMAIL_TO))") for ln in lines)
+    assert mail.resend_sent == [] and not state.exists()
+    assert API_KEY not in "\n".join(lines)
 
 
 def test_once_configured_the_first_run_reports_what_is_already_wrong(monkeypatch, checkout, tmp_path):
-    smtp = FakeSMTP()
-    _run(monkeypatch, checkout, tmp_path, [{"kafka": "FAIL"}], smtp, env_file={})
-    assert smtp.sent == []
-    lines, _ = _run(monkeypatch, checkout, tmp_path, [{"kafka": "FAIL"}], smtp)
-    assert lines[-1].endswith("; alert sent") and len(smtp.sent) == 1
+    mail = FakeMail()
+    _run(monkeypatch, checkout, tmp_path, [{"kafka": "FAIL"}], mail)
+    assert mail.resend_sent == []
+    _write_env(checkout, demo=RESEND)
+    lines, _ = _run(monkeypatch, checkout, tmp_path, [{"kafka": "FAIL"}], mail)
+    assert lines[-1].endswith("; alert sent (resend)") and len(mail.resend_sent) == 1
 
 
-def test_a_failed_send_is_logged_without_the_password_and_retried(monkeypatch, checkout, tmp_path):
-    import smtplib
-    smtp = FakeSMTP(fail=smtplib.SMTPAuthenticationError(535, f"bad credentials {PASSWORD}".encode()))
-    lines, state = _run(monkeypatch, checkout, tmp_path, [{"kafka": "FAIL"}], smtp)
-    assert "; alert NOT sent: SMTPAuthenticationError" in lines[-1] and PASSWORD not in lines[-1]
-    assert not state.exists()                                   # not advanced: the next run tries again
-    smtp.fail = None
-    lines, _ = _run(monkeypatch, checkout, tmp_path, [{"kafka": "FAIL"}], smtp)
-    assert lines[-1].endswith("; alert sent")
+def test_a_failed_send_is_logged_without_the_key_and_retried(monkeypatch, checkout, tmp_path):
+    _write_env(checkout, demo=RESEND)
+    mail = FakeMail(fail=RuntimeError(f"Resend answered HTTP 401: bad key {API_KEY}"))
+    lines, state = _run(monkeypatch, checkout, tmp_path, [{"kafka": "FAIL"}], mail)
+    assert "; alert NOT sent (resend): RuntimeError: Resend answered HTTP 401: bad key ***" in lines[-1]
+    assert API_KEY not in lines[-1] and not state.exists()       # not advanced: the next run tries again
+    mail.fail = None
+    lines, _ = _run(monkeypatch, checkout, tmp_path, [{"kafka": "FAIL"}], mail)
+    assert lines[-1].endswith("; alert sent (resend)")
 
 
 def test_an_infra_check_error_alerts_too(monkeypatch, checkout, tmp_path):
-    smtp = FakeSMTP()
-    (checkout / m.ALERT_ENV_FILE).parent.mkdir(parents=True, exist_ok=True)
-    (checkout / m.ALERT_ENV_FILE).write_text("".join(f"{k}={v}\n" for k, v in ALERT_ENV.items()))
+    _write_env(checkout, demo=RESEND)
+    mail = FakeMail()
     def boom(env, c=None):
         raise RuntimeError("docker: command not found")
     monkeypatch.setattr(m, "infra_check", boom)
     log = tmp_path / "rv" / "infra-check.log"
-    env = m.Env(runner=None, http=None, ask=lambda p: "", say=lambda s: None, now=lambda: 1.0, repo=checkout, smtp=smtp)
+    env = m.Env(runner=None, http=None, ask=lambda p: "", say=lambda s: None, now=lambda: 1.0, repo=checkout,
+                resend=mail.resend)
     assert m.infra_check_logged(env, log, record=False, checkout=checkout) == 1
-    assert log.read_text().strip().endswith("; alert sent")
-    assert smtp.sent[0]["Subject"].endswith("] ERROR: infra-check")
-    assert "docker: command not found" in smtp.sent[0].get_content()
-
-
-def test_the_process_environment_wins_and_465_means_ssl(monkeypatch, checkout, tmp_path):
-    monkeypatch.setenv("INFRA_ALERT_EMAIL", "owner@example.test")
-    monkeypatch.setenv("INFRA_ALERT_SMTP_PORT", "465")
-    smtp = FakeSMTP()
-    _run(monkeypatch, checkout, tmp_path, [{"kafka": "WARN"}], smtp)
-    assert smtp.sent[0]["To"] == "owner@example.test" and smtp.opened == [("smtp.example.test", 465, "ssl")]
+    assert log.read_text().strip().endswith("; alert sent (resend)")
+    payload = mail.resend_sent[0][1]
+    assert payload["subject"].endswith("] ERROR: infra-check") and "docker: command not found" in payload["text"]
 
 
 def test_no_alert_flag_sends_nothing(monkeypatch, checkout, tmp_path):
-    smtp = FakeSMTP()
-    (checkout / m.ALERT_ENV_FILE).parent.mkdir(parents=True, exist_ok=True)
-    (checkout / m.ALERT_ENV_FILE).write_text("".join(f"{k}={v}\n" for k, v in ALERT_ENV.items()))
+    _write_env(checkout, demo=RESEND)
+    mail = FakeMail()
     it = _results({"kafka": "FAIL"})
     monkeypatch.setattr(m, "infra_check", lambda env, c=None: next(it))
     log = tmp_path / "n.log"
-    env = m.Env(runner=None, http=None, ask=lambda p: "", say=lambda s: None, now=lambda: 1.0, repo=checkout, smtp=smtp)
+    env = m.Env(runner=None, http=None, ask=lambda p: "", say=lambda s: None, now=lambda: 1.0, repo=checkout,
+                resend=mail.resend)
     m.main(["infra-check", "--checkout", str(checkout), "--log", str(log), "--no-alert"], env=env)
-    assert smtp.opened == [] and "alert" not in log.read_text()
+    assert mail.resend_sent == [] and "alert" not in log.read_text()
+
+
+def test_the_resend_request_verifies_tls_and_matches_cert_watch(monkeypatch):
+    seen = {}
+
+    class Resp:
+        status = 200
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    def urlopen(req, timeout=None, context=None):
+        seen.update(url=req.full_url, method=req.get_method(), auth=req.get_header("Authorization"),
+                    body=json.loads(req.data), verify=context.verify_mode, hostname=context.check_hostname)
+        return Resp()
+
+    monkeypatch.setattr(m.urllib.request, "urlopen", urlopen)
+    m._resend_default(API_KEY, {"from": "f", "to": ["t"], "subject": "s", "text": "b"})
+    import ssl as _ssl
+    assert seen["url"] == "https://api.resend.com/emails" and seen["method"] == "POST"
+    assert seen["auth"] == f"Bearer {API_KEY}" and seen["body"]["to"] == ["t"]
+    assert seen["verify"] == _ssl.CERT_REQUIRED and seen["hostname"] is True
