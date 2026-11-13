@@ -1020,7 +1020,11 @@ function SearchResults({ results, selection }) {
     el('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, fontSize: 12.5, color: 'var(--muted)' } },
       el('b', { style: { color: 'var(--text)', fontSize: 14 } }, results.total),
       results.fullCount
-        ? ('matching elements (exact' + (results.truncated ? ', truncated at 10,000' : '') + ')')
+        ? (results.truncated
+            ? (results.total >= 10000
+                ? 'matching elements found — stopped at the 10,000 cap, there may be more'
+                : 'matching elements found — stopped early (Egeria repeated a page), there may be more')
+            : 'matching elements (counted until Egeria reported no more)')
         : ('matching elements' + (results.capped ? ' (showing top ' + results.total + ' — refine to see more, or run an exact count)' : '')),
       items.length > 0 && el('input', { type: 'search', placeholder: 'Filter results…', value: filter,
         onChange: function(e){ setFilter(e.target.value); },

@@ -441,7 +441,7 @@ async def check_and_heal_all() -> bool:
     async with _mu:
         _state["reinitializing"] = True
         _state["message"] = "Reinitializing Portal — re-seeding " + ", ".join(f["name"] for f in to_heal)
-    logger.info(f"bootstrap monitor: healing {[f['name'] for f in to_heal]} (canary missing)")
+    logger.info(f"bootstrap monitor: healing {[f['name'] for f in to_heal]} (canary not found in the first {_CANARY_PAGE_SIZE})")
 
     seen: set = set()
     for family in to_heal:

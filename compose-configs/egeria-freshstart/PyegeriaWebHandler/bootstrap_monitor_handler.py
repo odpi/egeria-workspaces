@@ -78,6 +78,11 @@ _DR_EGERIA_TIMEOUT = int(os.environ.get("BOOTSTRAP_HEAL_TIMEOUT_SECONDS", "900")
 # unbounded or over-generous value here blocks the whole app's startup for
 # as long as Egeria stays slow, times number of families.
 _CANARY_CHECK_TIMEOUT = int(os.environ.get("BOOTSTRAP_CANARY_TIMEOUT_SECONDS", "15"))
+# A canary lookup asks for a page of 25, not 1. Egeria 8840035f (2026-11-12) answers a find with
+# pageSize 1 with "No elements found" even when a match exists (the page limit is applied before the
+# displayName condition), so a one-result lookup read a present canary as missing and the monitor
+# re-healed OpenLineage Events every pass. Presence only needs len(results) > 0.
+_CANARY_PAGE_SIZE = 25
 # Startup fast-retry window -- see start_scheduler()'s docstring comment.
 _STARTUP_RETRY_INTERVAL = int(os.environ.get("BOOTSTRAP_STARTUP_RETRY_SECONDS", "20"))
 _STARTUP_RETRY_WINDOW = int(os.environ.get("BOOTSTRAP_STARTUP_RETRY_WINDOW_SECONDS", "300"))  # 5 min
@@ -97,7 +102,8 @@ def _now_iso() -> str:
 
 
 async def _canary_present(family: dict) -> tuple[bool, bool]:
-    """Cheap bounded point lookup -- one Egeria find, pageSize=1. Returns
+    """Cheap bounded point lookup -- one Egeria find, pageSize=_CANARY_PAGE_SIZE (25, not 1: Egeria
+    8840035f answers pageSize 1 with "No elements found" when a match exists; see the constant). Returns
     (present, reachable). `present` fails open to True on any error
     (connection failure isn't evidence of a reset -- don't trigger a heal
     pass just because Egeria was briefly unreachable); `reachable` tells
@@ -141,7 +147,7 @@ async def _canary_present(family: dict) -> tuple[bool, bool]:
                                      "value": {"class": "PrimitiveTypePropertyValue", "typeName": "string",
                                                "primitiveValue": family["canary_name"]}}],
                 },
-                "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0, "startFrom": 0, "pageSize": 1,
+                "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0, "startFrom": 0, "pageSize": _CANARY_PAGE_SIZE,
             }
             els = await mgr._async_find_metadata_elements(body)
             await mgr._async_close_session()
@@ -343,7 +349,7 @@ async def check_and_heal_all() -> bool:
     async with _mu:
         _state["reinitializing"] = True
         _state["message"] = "Reinitializing Portal — re-seeding " + ", ".join(f["name"] for f in to_heal)
-    logger.info(f"bootstrap monitor: healing {[f['name'] for f in to_heal]} (canary missing)")
+    logger.info(f"bootstrap monitor: healing {[f['name'] for f in to_heal]} (canary not found in the first {_CANARY_PAGE_SIZE})")
 
     seen: set = set()
     for family in to_heal:

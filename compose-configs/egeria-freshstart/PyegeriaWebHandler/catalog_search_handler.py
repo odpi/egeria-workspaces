@@ -415,10 +415,13 @@ def catalog_search(
 
 
 # Oldest element creation time (the time sliders' left bound). Egeria has no
-# "min(createTime)" query, but it can sort by creation date, so one row is enough.
+# "min(createTime)" query, but it can sort by creation date, so the first row is the answer (a page of
+# _OLDEST_PAGE_SIZE is asked for, not one row: bug B5, below).
 # Repository-wide, so cache it -- it only ever moves earlier when older data is
 # loaded.
 _OLDEST_TTL = 3600
+#: The oldest-createTime lookup's page (see oldest_create_time): 25, the canary lookups' size (B5).
+_OLDEST_PAGE_SIZE = 25
 _oldest_cache: dict = {}
 
 
@@ -445,9 +448,12 @@ def oldest_create_time(
         # find_root_elements takes sequencing only via an explicit body (kwargs
         # are not forwarded to it); a plain wildcard property search is rejected
         # by Egeria (null propertyValue).
+        # A page of _OLDEST_PAGE_SIZE, not 1: Egeria 8840035f answers a find with pageSize 1 with "No
+        # elements found" even when matches exist (bug B5, 2026-11-12), which read here as "could not tell".
+        # The results are sorted oldest first, so the oldest is still raw[0].
         raw = ce.find_root_elements(
             body={"class": "FindRequestBody", "sequencingOrder": "CREATION_DATE_OLDEST",
-                  "pageSize": 1, "graphQueryDepth": 0},
+                  "pageSize": _OLDEST_PAGE_SIZE, "graphQueryDepth": 0},
             output_format="JSON",
         )
     except Exception:

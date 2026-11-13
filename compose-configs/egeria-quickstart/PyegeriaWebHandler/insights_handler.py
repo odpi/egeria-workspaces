@@ -96,6 +96,39 @@ _HTML = _HERE / "egeria-insights.html"
 _DEFAULT_CAP = 500            # same ceiling used elsewhere in the app (see module docstring)
 _FULL_COUNT_HARD_CAP = 10000  # safety valve for the opt-in exhaustive count
 
+
+def _page_all(fetch, page_size: int, cap: int, seen: set, out: list) -> bool:
+    """Page a find until Egeria returns an empty or null page, appending new hits to ``out``.
+
+    A SHORT page is not the last page (Egeria's paging contract: the server filters each page after
+    reading it, so a page can come back with fewer than ``page_size`` results while more follow), so
+    this never stops on ``len(page) < page_size``. It stops on an empty or null page (pyegeria gives
+    both as a non-list; the best signal it exposes), on a page that adds no new GUID (paging that
+    repeats itself, ISSUE-34's old shape), or once ``out`` holds ``cap`` hits. Returns True when the
+    answer may be incomplete: stopped at the cap, or on a repeating page.
+    """
+    start = 0
+    while True:
+        if len(out) >= cap:
+            return True
+        page = fetch(start)
+        page = [el for el in (page if isinstance(page, list) else []) if isinstance(el, dict)]
+        if not page:
+            return False
+        added = 0
+        for el in page:
+            g = el.get("elementGUID")
+            if g and g in seen:
+                continue
+            seen.add(g)
+            out.append(el)
+            added += 1
+            if len(out) >= cap:
+                return True
+        if added == 0:
+            return True
+        start += page_size
+
 # Governed-data classifications a "governance search" cares about by default —
 # see GovernedDataClassificationBase subclasses in the Egeria source.
 _GOVERNANCE_CLASSIFICATIONS = ("ZoneMembership", "Confidentiality", "Criticality", "Impact", "Retention")
@@ -1050,28 +1083,18 @@ def search_elements(body: SearchBody = Body(...)):
             seen_guids: set = set()
             for t in sorted(participant_types):
                 type_body = {**find_body, "metadataElementTypeName": t}
-                start = 0
-                while True:
+
+                def _fetch(start, type_body=type_body, t=t):
                     try:
-                        page = mgr.find_metadata_elements({**type_body, "graphQueryDepth": 0,
+                        return mgr.find_metadata_elements({**type_body, "graphQueryDepth": 0,
                                                              "startFrom": start, "pageSize": page_size})
                     except Exception as exc:
                         logger.exception(f"insights: relationship-only search failed for type {t!r}")
                         raise HTTPException(status_code=500, detail=str(exc))
-                    page = [el for el in (page if isinstance(page, list) else []) if isinstance(el, dict)]
-                    added = 0
-                    for el in page:
-                        g = el.get("elementGUID")
-                        if g and g in seen_guids:
-                            continue
-                        seen_guids.add(g)
-                        hits.append(el)
-                        added += 1
-                    if added == 0 or len(page) < page_size or len(hits) >= _FULL_COUNT_HARD_CAP:
-                        truncated = truncated or (added > 0 and len(hits) >= _FULL_COUNT_HARD_CAP)
-                        break
-                    start += page_size
+                # Pages until an empty/null page, never a short one (see _page_all).
+                truncated = _page_all(_fetch, page_size, _FULL_COUNT_HARD_CAP, seen_guids, hits) or truncated
                 if len(hits) >= _FULL_COUNT_HARD_CAP:
+                    truncated = True
                     break
         effective_full_count = True  # this path always searches the true population per type, by construction
     elif body.full_count:
@@ -1095,28 +1118,18 @@ def search_elements(body: SearchBody = Body(...)):
         # pages are genuinely distinct (each page contributes only new GUIDs,
         # so `added` naturally reaches 0 right after the last real page), and
         # it stays correct if this endpoint's pagination ever regresses again.
-        start = 0
-        seen_guids: set = set()
-        while True:
+        #
+        # 2026-11-13: it no longer stops on a SHORT page (len < page_size). Egeria filters each page
+        # after reading it, so a short page can come before more results; _page_all pages until an
+        # empty/null page, with _FULL_COUNT_HARD_CAP as the cap ("may be more" when it is reached).
+        def _fetch(start):
             try:
-                page = mgr.find_metadata_elements({**find_body, "graphQueryDepth": 0,
+                return mgr.find_metadata_elements({**find_body, "graphQueryDepth": 0,
                                                      "startFrom": start, "pageSize": page_size})
             except Exception as exc:
                 logger.exception("insights: full-count search page failed")
                 raise HTTPException(status_code=500, detail=str(exc))
-            page = [el for el in (page if isinstance(page, list) else []) if isinstance(el, dict)]
-            added = 0
-            for el in page:
-                g = el.get("elementGUID")
-                if g and g in seen_guids:
-                    continue
-                seen_guids.add(g)
-                hits.append(el)
-                added += 1
-            if added == 0 or len(page) < page_size or len(hits) >= _FULL_COUNT_HARD_CAP:
-                truncated = added > 0 and len(hits) >= _FULL_COUNT_HARD_CAP
-                break
-            start += page_size
+        truncated = _page_all(_fetch, page_size, _FULL_COUNT_HARD_CAP, set(), hits)
         effective_full_count = True
     else:
         try:
