@@ -199,3 +199,41 @@ def test_step5_solution_components_through_the_real_pager(pager_fakes):
     p = oh._compute_usage_context(None, None, None, None, None)
     assert p["unconfirmed"]["solutionComponentsRealised"]["words"] == f"0 found; {REASON}"
     assert p["unconfirmedScans"] == []
+
+
+@pytest.fixture
+def summary_stubs(monkeypatch):
+    """Everything behind freshstart's _compute_summary stubbed to a quiet, confirmed default."""
+    monkeypatch.setattr(oh, "_expert", lambda *a, **k: object())
+    monkeypatch.setattr(oh, "_make", lambda *a, **k: object())
+    monkeypatch.setattr(oh, "counts_by_type", lambda *a, **k: {})
+    monkeypatch.setattr(oh, "_exclusive_by_type", lambda *a, **k: [], raising=False)
+    monkeypatch.setattr(oh, "count_elements", lambda *a, **k: 300)
+    monkeypatch.setattr(oh, "count_elements_by_property", lambda *a, **k: 1, raising=False)
+    monkeypatch.setattr(oh, "count_relationships", lambda *a, **k: 0)
+    monkeypatch.setattr(oh, "governed_coverage", lambda mgr, as_of: {
+        "governedCount": 40, "governedCapped": False, "fullyGoverned": 30, "partialZoneOnly": 10,
+        "byClassification": {}, "topZones": []})
+    monkeypatch.setattr(oh, "_certifications", lambda *a, **k: {
+        "active": 1, "expiring90": 0, "soon": [], "licenses": 0, "exceptions": 0})
+    monkeypatch.setattr(oh, "business_value_signals", None)
+    monkeypatch.setattr(oh, "stale_assets", None)
+    monkeypatch.setattr(oh, "_survey_coverage", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("off")))
+    monkeypatch.setattr(oh, "_schema_coverage", lambda *a, **k: {"assetsWithSchema": None,
+                                                                 "schemaAnalysedAssets": None, "schemaTypes": None})
+    monkeypatch.setattr(oh, "_engine_action_health", lambda *a, **k: None)
+    monkeypatch.setattr(oh, "_confidentiality_levels", lambda *a, **k: {"levels": None, "classified": None,
+                                                                        "capped": None})
+    monkeypatch.setattr(oh, "_assets_by_technology", lambda *a, **k: {"technologies": None, "unrecorded": None,
+                                                                      "placeholders": None, "total": None})
+
+
+def test_unconfirmed_term_total_is_marked_and_orphans_not_measured(monkeypatch, summary_stubs):
+    # pager step 5: termTotal is a viewer count; when its own count is unconfirmed pyegeria marks it
+    # ("count_of"), and orphanCount (termTotal - referenced) has no bound
+    monkeypatch.setattr(oh, "orphan_glossary_terms", lambda mgr, ce, as_of: {
+        "termTotal": 80, "referencedCount": 50, "orphanCount": 30,
+        "unconfirmed": {"termTotal": _mark("at least 80")}})
+    p = oh._compute_summary(None, None, None, None, None)
+    assert p["orphanTermCount"] is None and p["notMeasured"]["orphanTermCount"]
+    assert p["orphanTermTotal"] == 80 and p["unconfirmed"]["orphanTermTotal"]["words"] == "at least 80"
