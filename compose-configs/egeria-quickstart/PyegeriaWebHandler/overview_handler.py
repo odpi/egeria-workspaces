@@ -39,6 +39,7 @@ Known constraints (see PYEGERIA_ISSUES.md):
   - PY-15: Postgres connector ignores matchCriteria once 2+ classification
     conditions are present → keep every query to 0 or 1 classification.
 """
+import contextlib
 import contextvars
 from datetime import datetime, timezone
 import functools
@@ -148,6 +149,11 @@ try:
     from pyegeria.view.overview_metrics import recording_unmeasured
 except ImportError:
     recording_unmeasured = None
+# Pager step 4: the scans that ended without Egeria confirming there are no more. Optional, like the above.
+try:
+    from pyegeria.view.overview_metrics import recording_unconfirmed
+except ImportError:
+    recording_unconfirmed = None
 
 # ownership_coverage is new (2026-08-01), not yet in a published pyegeria release
 # (same "container runs the published package, not this dev checkout" gap already
@@ -401,6 +407,158 @@ def _feedback_counts(ce, as_of: Optional[str] = None, count_rel=None) -> dict:
     return {"byType": by_type, "total": total, "unmeasured": unmeasured}
 
 
+# ── Unconfirmed figures (pyegeria pager step 4) ──────────────────────────────
+#
+# Egeria ends a page set with null, but on the suspect paths (find_metadata_elements, get_relationships) a
+# null can come mid-set. pyegeria's overview_metrics marks each figure computed from such a scan:
+#   result["unconfirmed"][<figure key, dotted if nested>] = {unconfirmed, positions_read, reason, words}
+# The figure is a lower bound ("at least N"), not a total. A share of a separate count, or a figure that needs
+# the whole set (orphanCount), is not measured at all. The page shows an unconfirmed figure with a marker and
+# its words, and a not-measured one as "—" with the reason; it never shows a bare number for either.
+# Each payload carries `unconfirmed` ({payload key: mark}) and `notMeasured` ({payload key: reason}).
+UNCONFIRMED_REASON = "Egeria didn't confirm there are no more"
+
+
+def _carry_unconfirmed(result, mapping: dict, into: dict, since=None) -> dict:
+    """Copy pyegeria's marks for the figures in `mapping` ({pyegeria key: payload key}) into `into`, keyed
+    by payload key. A mark is copied only when the payload figure has a value (a None is not measured, and a
+    mark on it would read as a number). With `since` (a _scan_pos taken before the routine ran), a result
+    that carries marks covers the scans since then. Returns `into`."""
+    marks = (result or {}).get("unconfirmed") if isinstance(result, dict) else None
+    if not isinstance(marks, dict):
+        return into
+    if since is not None and marks:
+        _scan_cover(since)
+    for src, dst in mapping.items():
+        mark = marks.get(src)
+        if not isinstance(mark, dict) or not mark.get("unconfirmed"):
+            continue
+        value = _dotted(result, src)
+        if value is None or value == {} or value == []:
+            continue
+        words = mark.get("words")
+        if not words:   # pyegeria always sends words; never leave the page with a bare marker
+            words = (f"at least {value}" if isinstance(value, (int, float)) and not isinstance(value, bool)
+                     else f"each count is at least what is shown; {UNCONFIRMED_REASON}")
+        into[dst] = {"unconfirmed": True, "positions_read": mark.get("positions_read"),
+                     "reason": mark.get("reason") or UNCONFIRMED_REASON, "words": words}
+    return into
+
+
+def _any_unconfirmed(result) -> bool:
+    """True when any scan behind a pyegeria figure function's result ended unconfirmed."""
+    return isinstance(result, dict) and bool(result.get("unconfirmed"))
+
+
+def _dotted(d, path: str):
+    for part in path.split("."):
+        d = d.get(part) if isinstance(d, dict) else None
+    return d
+
+
+def _share_unconfirmed_reason(what: str) -> str:
+    return (f"{what} was read without Egeria confirming there are no more, and the total it is "
+            f"divided by is a separate count, so the share isn't from one read")
+
+
+# A routine that returns a bare int or list (count_relationships, count_elements' find fallback,
+# karma_leaderboard, engagement_series) has no per-figure mark: pyegeria reports its unconfirmed scans only
+# through recording_unconfirmed(). Each payload is computed inside one recording (_scan_net), each figure call
+# notes where its scans start (_scan_pos), and a figure that is marked covers its scans (_scan_cover). Any scan
+# left uncovered goes into the payload's `unconfirmedScans`, and the page says "Some figures here are lower
+# bounds" on that tab: no unconfirmed figure reaches the page unmarked, even one this file has no mapping for.
+UNCONFIRMED_SCANS_LINE = f"Some figures here are lower bounds: {UNCONFIRMED_REASON}"
+CHART_UNCONFIRMED_SUBTITLE = f"at least what was read: {UNCONFIRMED_REASON}"
+
+
+class _ScanLedger:
+    def __init__(self, scans: list):
+        self.scans = scans
+        self.covered: set = set()
+
+    def uncovered(self) -> list:
+        return [dict(s) for i, s in enumerate(self.scans) if i not in self.covered]
+
+
+_LEDGER: "contextvars.ContextVar[Optional[_ScanLedger]]" = contextvars.ContextVar("overview_scan_ledger",
+                                                                                  default=None)
+
+
+def _scan_pos() -> int:
+    """Where the next figure's scans start in this payload's recording (0 outside one)."""
+    ledger = _LEDGER.get()
+    return len(ledger.scans) if ledger is not None else 0
+
+
+def _scans_since(start: int) -> list:
+    ledger = _LEDGER.get()
+    return list(ledger.scans[start:]) if ledger is not None else []
+
+
+def _scan_cover(start, end: Optional[int] = None) -> None:
+    """The scans from `start` (to `end`, or to now) are accounted for by figure marks (or a not-measured
+    figure). `start` may also be a (start, end) pair."""
+    if isinstance(start, tuple):
+        start, end = start
+    ledger = _LEDGER.get()
+    if ledger is not None:
+        ledger.covered.update(range(start, len(ledger.scans) if end is None else end))
+
+
+def _mark_from_scans(start: int, figures: dict, into: dict) -> bool:
+    """Mark figures whose routine returns no marks of its own: when a scan since `start` ended unconfirmed,
+    each figure in `figures` ({payload key: (kind, value)}, kind "count" or "counts") that has a value gets
+    a mark in `into`, and the scans are covered. Returns whether any scan ended unconfirmed."""
+    scans = _scans_since(start)
+    if not scans:
+        return False
+    positions = (scans[0].get("positions_read") if len(scans) == 1
+                 else {s.get("count"): s.get("positions_read") for s in scans})
+    marked = False
+    for key, (kind, value) in figures.items():
+        if value is None or value == {} or value == []:
+            continue
+        words = (f"at least {value}" if kind == "count"
+                 else f"each count is at least what is shown; {UNCONFIRMED_REASON}")
+        into[key] = {"unconfirmed": True, "positions_read": positions, "reason": UNCONFIRMED_REASON,
+                     "words": words}
+        marked = True
+    if marked:
+        _scan_cover(start)
+    return True
+
+
+def _chart_unconfirmed(chart):
+    """A chart drawn from an unconfirmed read says so in its subtitle (as pyegeria's report charts do)."""
+    if isinstance(chart, dict):
+        title = chart.get("title")
+        text = title.get("text") if isinstance(title, dict) else title
+        chart["title"] = {"text": text or "", "subtitle": CHART_UNCONFIRMED_SUBTITLE}
+    return chart
+
+
+def _scan_net(fn):
+    """Compute a payload inside one unconfirmed-scan recording; scans no figure mark covers become the
+    payload's `unconfirmedScans` (plus the line the page shows). A no-op on a pyegeria without the recording."""
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        if recording_unconfirmed is None:
+            return fn(*args, **kwargs)
+        with recording_unconfirmed() as scans:
+            ledger = _ScanLedger(scans)
+            token = _LEDGER.set(ledger)
+            try:
+                payload = fn(*args, **kwargs)
+            finally:
+                _LEDGER.reset(token)
+            uncovered = ledger.uncovered()
+        if isinstance(payload, dict):
+            payload["unconfirmedScans"] = uncovered
+            payload["unconfirmedScansLine"] = UNCONFIRMED_SCANS_LINE if uncovered else None
+        return payload
+    return wrapper
+
+
 _SUBSTANTIVE_GOVERNANCE = tuple(c for c in GOVERNANCE_CLASSIFICATIONS if c != "ZoneMembership")
 
 
@@ -494,7 +652,15 @@ def _viewer_total_worker(key, url, server, user_id, user_pwd, as_of):
     try:
         with _viewer_gate:
             mgr = _expert(url, server, user_id, user_pwd, timeout=_VIEWER_TOTAL_TIMEOUT)
-            value = _viewer_count(mgr, as_of)
+            if recording_unconfirmed is not None:
+                with recording_unconfirmed() as scans:
+                    value = _viewer_count(mgr, as_of)
+                # pager step 4: a find-based count Egeria didn't confirm is complete is a lower bound, never a
+                # denominator; kept for the normal TTL (recounting would give the same answer)
+                with _viewer_lock:
+                    _viewer_unconfirmed[key] = [dict(x) for x in scans]
+            else:
+                value = _viewer_count(mgr, as_of)
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview: viewer Asset count failed: {exc}")
         value = None
@@ -504,6 +670,18 @@ def _viewer_total_worker(key, url, server, user_id, user_pwd, as_of):
             now = time.time()
             _viewer_totals[key] = (now + ttl, value, now)
             _viewer_inflight.pop(key, None)
+
+
+_viewer_unconfirmed: dict = {}       # key -> the unconfirmed scans behind that key's count ([] = confirmed)
+
+
+def _viewer_total_unconfirmed(url, server, user_id, user_pwd, as_of) -> list:
+    """The unconfirmed scans behind this viewer's cached Asset count ([] when confirmed or not counted)."""
+    u, sv, _uid, _pwd = _env(url, server, user_id, user_pwd)
+    who = request_identity(user_id, user_pwd)
+    if who is None:
+        return []
+    return list(_viewer_unconfirmed.get(f"{u}|{sv}|{who}|{as_of}") or [])
 
 
 def _viewer_total_state(url, server, user_id, user_pwd, as_of):
@@ -527,8 +705,13 @@ def _viewer_total_state(url, server, user_id, user_pwd, as_of):
             _viewer_inflight[key] = t
             t.start()
         value = hit[1] if hit else None
+        unconfirmed = bool(_viewer_unconfirmed.get(key))
     if hit is None or (value is None and not fresh):
         return None, True, False, None
+    if unconfirmed and value is not None:
+        # counted, but from a read Egeria didn't confirm is complete: a lower bound, not measured as a total.
+        # The background refresh above still runs on the normal TTL.
+        return None, False, False, None
     return value, False, (value is not None and not fresh), (hit[2] if value is not None else None)
 
 
@@ -543,6 +726,10 @@ def _overlay_viewer_total(payload: dict, url, server, user_id, user_pwd, as_of) 
         out.update(assetTotalViewer=value, assetTotalViewerLoading=loading, assetTotalViewerStale=stale,
                    assetTotalViewerAsOf=(datetime.fromtimestamp(counted_at, timezone.utc).isoformat()
                                          if counted_at is not None else None))
+        if value is None and not loading and _viewer_total_unconfirmed(url, server, user_id, user_pwd, as_of):
+            out["assetTotalViewerNote"] = ("the count of assets you can see was read without Egeria confirming "
+                                           "there are no more, so it is a lower bound and no percentage is "
+                                           "taken from it")
     else:
         out.update(assetTotalViewer=out.get("assetTotal"), assetTotalViewerLoading=False,
                    assetTotalViewerStale=False,
@@ -839,6 +1026,7 @@ def get_summary(
     return JSONResponse({**_overlay_viewer_total(payload, url, server, user_id, user_pwd, as_of_time), **meta})
 
 
+@_scan_net
 def _compute_summary(as_of_time, url, server, user_id, user_pwd) -> dict:
     """Every Egeria call behind the summary (~2 min cold, mostly find calls). Runs in a background worker."""
     try:
@@ -859,7 +1047,13 @@ def _compute_summary(as_of_time, url, server, user_id, user_pwd) -> dict:
     n_relationships = _scoped(count_relationships, scope, expert=mgr)
     n_by_property = _scoped(count_elements_by_property, scope) if count_elements_by_property else None
 
+    unconfirmed: dict = {}    # payload key -> pyegeria's mark: a lower bound, shown "at least N" (see above)
+    not_measured: dict = {}   # payload key -> why the figure is None
+    _n0 = _scan_pos()
     gov = governed_coverage(mgr, as_of_time)
+    # governedCount / fullyGoverned / partialZoneOnly are replaced by strict native counts just below, so
+    # only the element-wide breakdowns keep pyegeria's marks.
+    _carry_unconfirmed(gov, {"byClassification": "byClassification", "topZones": "topZones"}, unconfirmed, since=_n0)
     gov = _asset_scoped_governed(gov, *_governed_asset_counts(n_elements, mgr, as_of_time))
 
     # Headline total: the native `Asset` supertype count (OVERVIEW_NEXT_STEPS.md
@@ -925,14 +1119,19 @@ def _compute_summary(as_of_time, url, server, user_id, user_pwd) -> dict:
     # dataset today.
     ratings_total = None
     ce = None
+    _n0 = _scan_pos()
     try:
         ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
         ratings_total = n_relationships(ce, "AttachedRating", as_of_time)
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview summary: ratings count failed: {exc}")
+    _mark_from_scans(_n0, {"dataProductsRatings": ("count", ratings_total)}, unconfirmed)
 
     # Certifications, licenses & open exceptions (governance relationships).
+    _n0 = _scan_pos()
     certs = _certifications(url, server, user_id, user_pwd, as_of_time)
+    _carry_unconfirmed(certs, {"active": "certifications", "expiring90": "certExpiring90", "soon": "certSoon",
+                               "licenses": "licenses", "exceptions": "openExceptions"}, unconfirmed, since=_n0)
 
     # Business Value tiles (NEXT-9) -- defensive: business_value_signals is
     # new, not yet in a published pyegeria release (see the import above).
@@ -949,11 +1148,21 @@ def _compute_summary(as_of_time, url, server, user_id, user_pwd) -> dict:
     # Attention Queue rows (NEXT-25): orphan glossary terms + stale assets.
     # Both defensive -- new pyegeria, not yet in a published release.
     orphan_terms: dict = {"termTotal": None, "referencedCount": None, "orphanCount": None}
+    _n0 = _scan_pos()
     if orphan_glossary_terms is not None and ce is not None:
         try:
             orphan_terms = orphan_glossary_terms(mgr, ce, as_of_time)
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"overview summary: orphan_glossary_terms failed: {exc}")
+    # orphanCount = termTotal - referenced terms: it needs the whole assignment set, so an unconfirmed scan
+    # leaves it not measured (no bound either way), whatever value the routine returned.
+    if _any_unconfirmed(orphan_terms):
+        _scan_cover(_n0)   # shown as not measured, with the reason
+        # pager step 5: termTotal is a viewer count that can itself be unconfirmed ("count_of"): "at least N"
+        _carry_unconfirmed(orphan_terms, {"termTotal": "orphanTermTotal"}, unconfirmed)
+        orphan_terms = {**orphan_terms, "orphanCount": None}
+        not_measured["orphanTermCount"] = ("the read of glossary-term assignments ended without Egeria "
+                                           "confirming there are no more, and the count needs every one")
     stale: dict = {"staleCount": None, "assetTotal": None}
     stale_note = None   # why staleCount is None (e.g. the 500-element page cap), from pyegeria's note
     if stale_assets is not None:
@@ -1047,6 +1256,8 @@ def _compute_summary(as_of_time, url, server, user_id, user_pwd) -> dict:
         "staleAssetCount":    stale["staleCount"],           # no update in 180d
         "staleAssetTotal":    stale["assetTotal"],
         "staleAssetNote":     stale_note if stale["staleCount"] is None else None,  # why the count is "—"
+        "unconfirmed":      unconfirmed,
+        "notMeasured":      not_measured,
         "partial":          True,
         "source":           "live:summary",
     }
@@ -1729,6 +1940,7 @@ def _grounding_fields(grounding: Optional[dict], cataloged: Optional[int] = None
             **grounded, "groundingLinks": g.get("groundingLinks"), "groundingLinksPer100": per100}
 
 
+@_scan_net
 def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
     """Every Egeria call behind ai-context (~2 min cold). Runs in a background worker."""
     # The funnel, its strict re-count and grounding take no scope here, so they count pyegeria's default
@@ -1773,10 +1985,12 @@ def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
     # Semantic grounding: SemanticAssignment relationships (term ↔ element) — the meaning layer that grounds
     # AI. See _grounding_fields: today it is links per 100 Assets, never shown as a share of Assets.
     grounding = None
+    _g0 = _scan_pos()
     try:
         grounding = semantic_grounding(mgr, ce, as_of_time)
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview ai-context: grounding query failed: {exc}")
+    _grounding_scans = (_g0, _scan_pos())   # its scans only: other routines run before it is carried
 
     # Ownership coverage: Context Intelligence / NEXT-7 Tier-1 "Capture" signal
     # (OVERVIEW_CONTEXT_INTELLIGENCE.md §2.2) — data-mesh literature names "clean,
@@ -1786,6 +2000,8 @@ def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
     # funnel's own population, over the funnel's Cataloged (that same count's Asset total). Always measurable
     # -- it used to divide a viewer find (any element type) by a viewer Asset total that cannot be counted at
     # this catalogue size, so the tile never got a value. Computed after the strict funnel re-count below.
+    unconfirmed: dict = {}    # payload key -> pyegeria's mark: a lower bound, shown "at least N"
+    not_measured: dict = {}   # payload key -> why the figure is None
 
     # True AI-Ready composite (governed AND documented AND lineage-traced
     # simultaneously) — the actual claim the "AI-Ready Assets" tile already
@@ -1796,20 +2012,33 @@ def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
     ai_ready_count = None
     ai_ready_pct = None
     try:
+        _n0 = _scan_pos()
         ready = ai_ready_assets(mgr, ce, as_of_time)
         ai_ready_count = ready["aiReadyCount"]
-        if ready["total"]:
+        _carry_unconfirmed(ready, {"aiReadyCount": "aiReadyCount"}, unconfirmed, since=_n0)
+        if _any_unconfirmed(ready):
+            # the scans behind the count and its checked total ended unconfirmed: no share from them
+            if ai_ready_count is not None:
+                not_measured["aiReadyPct"] = _share_unconfirmed_reason("the AI-Ready count")
+        elif ready["total"]:
             ai_ready_pct = round(100 * ai_ready_count / ready["total"], 1)
         # a funnel stage only in a viewer funnel: ai_ready_assets is a find (what the viewer can see), so it
         # is not a stage of a whole-repository funnel; it stays in the payload as aiReadyCount (viewer)
         if population == VIEWER:
             readiness["aiReady"] = ai_ready_count
+            _carry_unconfirmed(ready, {"aiReadyCount": "funnel.aiReady"}, unconfirmed)
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview ai-context: ai_ready_assets query failed: {exc}")
 
     readiness = _strict_funnel_counts(readiness, mgr, as_of_time, scope=population)
     ownership_count, ownership_pct = _owned_asset_share(mgr, as_of_time, population, readiness.get("cataloged"))
     grounding_fields = _grounding_fields(grounding, readiness.get("cataloged"), population)
+    # groundedAssets / groundingLinksScanned come from the SemanticAssignment scan (pager step 4: maybe a lower
+    # bound); groundingLinks is a native count. pyegeria already sets an unconfirmed groundedAssetPct to None and
+    # says why in groundedAssetNote, so the tile falls back to links per 100 Assets.
+    _carry_unconfirmed(grounding, {"groundedAssets": "groundedAssets",
+                                   "groundingLinksScanned": "groundingLinksScanned"}, unconfirmed,
+                       since=_grounding_scans)
 
     funnel = {
         "Cataloged":       readiness["cataloged"],
@@ -1833,11 +2062,23 @@ def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
     drl_by_modality = None
     if drl_readiness_gates is not None:
         try:
+            _n0 = _scan_pos()
             drl = drl_readiness_gates(mgr, ce, as_of_time)
             drl_recent_count = drl["aiReadyRecentCount"]
-            if drl["aiReadyCount"]:
-                drl_recent_pct = round(100 * drl_recent_count / drl["aiReadyCount"], 1)
+            _carry_unconfirmed(drl, {"aiReadyRecentCount": "drlRecentCount"}, unconfirmed, since=_n0)
             drl_by_modality = drl["byModality"]
+            if _any_unconfirmed(drl):
+                # recent / AI-Ready are both lower bounds: their ratio has no bound
+                if drl_recent_count is not None:
+                    not_measured["drlRecentPct"] = ("the AI-Ready assets were read without Egeria "
+                                                    "confirming there are no more, so the share updated "
+                                                    "recently isn't from a complete read")
+                if drl_by_modality:   # counted from the same scan, though pyegeria doesn't mark it
+                    unconfirmed["drlByModality"] = {
+                        "unconfirmed": True, "positions_read": None, "reason": UNCONFIRMED_REASON,
+                        "words": f"each count is at least what is shown; {UNCONFIRMED_REASON}"}
+            elif drl["aiReadyCount"]:
+                drl_recent_pct = round(100 * drl_recent_count / drl["aiReadyCount"], 1)
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"overview ai-context: drl_readiness_gates query failed: {exc}")
 
@@ -1868,6 +2109,8 @@ def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
         "drlRecentCount":  drl_recent_count,
         "drlRecentPct":    drl_recent_pct,
         "drlByModality":   drl_by_modality,
+        "unconfirmed":     unconfirmed,
+        "notMeasured":     not_measured,
         "partial":         True,
         "source":          "live:ai-context",
     }
@@ -1895,11 +2138,20 @@ def get_people(
     if cached is not None:
         return JSONResponse(cached)
 
+    payload = _compute_people(as_of_time, url, server, user_id, user_pwd)
+    return JSONResponse(_cache_put(ckey, payload))
+
+@_scan_net
+def _compute_people(as_of_time, url, server, user_id, user_pwd) -> dict:
+    """Every Egeria call behind the People section, inside one unconfirmed-scan recording (see _scan_net)."""
     persons = teams = orgs = it_profiles = communities = None
     expert = None
     scope = _count_scope(people_counts, count_elements, count_relationships)
     n_people = _scoped(people_counts, scope)
     n_elements = _scoped(count_elements, scope)
+    unconfirmed: dict = {}   # payload key -> mark (pager step 4): these routines return bare numbers and lists,
+    #                          so each figure is marked from the scans recorded while it was computed
+    _n0 = _scan_pos()
     try:
         expert = _expert(url, server, user_id, user_pwd)
         people = n_people(expert, as_of_time, strict=True)
@@ -1910,6 +2162,9 @@ def get_people(
         communities = people["communities"]
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview people: identity counts failed: {exc}")
+    _mark_from_scans(_n0, {"activeContributors": ("count", persons), "teams": ("count", teams),
+                           "organizations": ("count", orgs), "itProfiles": ("count", it_profiles),
+                           "communities": ("count", communities)}, unconfirmed)
 
     # Crowd-sourced feedback — Collaboration OMAS relationship counts (cheap). Often
     # sparse in demo data, but real. Leaderboard/engagement need per-person rollups
@@ -1919,6 +2174,7 @@ def get_people(
     feedback_unmeasured = None
     karma = None
     ce = None
+    _n0 = _scan_pos()
     try:
         ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
         fb = _feedback_counts(ce, as_of_time, _scoped(count_relationships, scope, expert=expert))
@@ -1927,26 +2183,34 @@ def get_people(
         feedback_unmeasured = fb["unmeasured"]
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview people: feedback query failed: {exc}")
+    feedback_unconfirmed = _mark_from_scans(_n0, {"feedbackItems": ("count", feedback_items),
+                                                  "feedbackByType": ("counts", feedback_by_type)}, unconfirmed)
+    _n0 = _scan_pos()
     try:
         if expert is not None:
             karma = n_elements(expert, "ContributionRecord", as_of_time, strict=True)
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview people: karma query failed: {exc}")
+    _mark_from_scans(_n0, {"karmaRecords": ("count", karma)}, unconfirmed)
 
     feedback_chart = generate_vega_bar_chart(
         {k: v for k, v in (feedback_by_type or {}).items() if v},
         title="Feedback by Type", x_label="Items", y_label="Type",
     ) if feedback_by_type else None
+    if feedback_unconfirmed:
+        feedback_chart = _chart_unconfirmed(feedback_chart)
 
     # Leaderboard — per-person karma rollup. Cheap: one bounded find over
     # ContributionRecord elements (already anchored to their owning Person via
     # the standard Anchors classification), no per-person loop.
     leaderboard = None
     if karma_leaderboard is not None and expert is not None:
+        _n0 = _scan_pos()
         try:
             leaderboard = karma_leaderboard(expert, as_of_time)
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"overview people: karma_leaderboard failed: {exc}")
+        _mark_from_scans(_n0, {"leaderboard": ("counts", leaderboard)}, unconfirmed)
 
     # Engagement over time — weekly feedback-event trend. Reuses the same
     # relationship types feedback_summary() already queries, just keeps the
@@ -1954,14 +2218,19 @@ def get_people(
     engagement_series_data = None
     engagement_chart = None
     if engagement_series is not None and ce is not None:
+        _n0 = _scan_pos()
         try:
             engagement_series_data = engagement_series(ce, as_of_time)
+            engagement_unconfirmed = _mark_from_scans(
+                _n0, {"engagementSeries": ("counts", engagement_series_data)}, unconfirmed)
             if generate_vega_line_chart and engagement_series_data:
                 engagement_chart = generate_vega_line_chart(
                     engagement_series_data, x_field="week",
                     y_fields=["comments", "ratings", "likes", "tags", "noteLogs"],
                     title="Engagement Over Time", x_label="Week", y_label="Events",
                 )
+                if engagement_unconfirmed:
+                    engagement_chart = _chart_unconfirmed(engagement_chart)
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"overview people: engagement_series failed: {exc}")
 
@@ -1981,10 +2250,12 @@ def get_people(
         "leaderboard":        leaderboard,       # per-person karma rollup, top 10
         "engagementSeries":   engagement_series_data,  # weekly feedback trend, 12wk
         "engagementChart":    engagement_chart,
+        "unconfirmed":        unconfirmed,
+        "notMeasured":        {},
         "partial":            True,
         "source":             "live:people",
     }
-    return JSONResponse(_cache_put(ckey, payload))
+    return payload
 
 
 # ── Usage Context — ISC & Blueprints ─────────────────────────────────────────
@@ -2018,6 +2289,7 @@ def get_usage_context(
     return JSONResponse({**payload, **meta})
 
 
+@_scan_net
 def _compute_usage_context(as_of_time, url, server, user_id, user_pwd) -> dict:
     """Every Egeria call behind usage-context (~40 s cold). Runs in a background worker."""
     iscs = blueprints = None
@@ -2031,14 +2303,28 @@ def _compute_usage_context(as_of_time, url, server, user_id, user_pwd) -> dict:
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview usage-context: query failed: {exc}")
 
+    unconfirmed: dict = {}    # payload key -> pyegeria's mark: a lower bound, shown "at least N"
+    not_measured: dict = {}   # payload key -> why the figure is None
     contextualised_count = asset_total_for_pct = contextualised_pct = None
     if contextualised_coverage is not None:
         try:
             ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
+            _n0 = _scan_pos()
             cov = contextualised_coverage(mgr, ce, as_of_time)
             contextualised_count = cov["contextualisedCount"]
             asset_total_for_pct  = cov["assetTotal"]
             contextualised_pct   = cov["contextualisedPct"]
+            _carry_unconfirmed(cov, {"contextualisedCount": "contextualisedCount",
+                                     # pager step 5: the Asset total is a viewer count that can be unconfirmed
+                                     "assetTotal": "contextualisedAssetTotal"}, unconfirmed, since=_n0)
+            if _any_unconfirmed(cov):
+                # either side of the share read without Egeria confirming the end: no share (pyegeria nulls it
+                # too); a share over a lower-bound total is no bound at all
+                contextualised_pct = None
+                not_measured["contextualisedPct"] = (
+                    "the Asset total it is divided by was counted without Egeria confirming there are no more, "
+                    "so the share isn't from complete reads" if "contextualisedAssetTotal" in unconfirmed
+                    else _share_unconfirmed_reason("the contextualised-asset count"))
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"overview usage-context: contextualised_coverage failed: {exc}")
 
@@ -2046,9 +2332,13 @@ def _compute_usage_context(as_of_time, url, server, user_id, user_pwd) -> dict:
     if solution_component_realisation is not None:
         try:
             ce2 = _make("ClassificationExplorer", url, server, user_id, user_pwd)
+            _n0 = _scan_pos()
             comp = solution_component_realisation(mgr, ce2, as_of_time)
             solution_components_total    = comp["solutionComponentsTotal"]
             solution_components_realised = comp["solutionComponentsRealised"]
+            _carry_unconfirmed(comp, {"solutionComponentsRealised": "solutionComponentsRealised",
+                                       # pager step 5: the total is a viewer count that can be unconfirmed
+                                       "solutionComponentsTotal": "solutionComponents"}, unconfirmed, since=_n0)
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"overview usage-context: solution_component_realisation failed: {exc}")
 
@@ -2062,6 +2352,8 @@ def _compute_usage_context(as_of_time, url, server, user_id, user_pwd) -> dict:
         "contextualisedPct":       contextualised_pct,
         "solutionComponents":         solution_components_total,
         "solutionComponentsRealised": solution_components_realised,
+        "unconfirmed":             unconfirmed,
+        "notMeasured":             not_measured,
         "partial":                 True,
         "source":                  "live:usage-context",
     }
