@@ -1017,16 +1017,25 @@ const num = n => (n != null ? Number(n).toLocaleString() : null);
 // three terms counts three times), so it is never shown with a % sign. When pyegeria reports distinct
 // grounded Assets (groundingMeasure "assetShare"; see overview_handler._grounding_fields) it becomes a %.
 const groundingIsShare = s => s.groundingMeasure === 'assetShare';
-const groundingVal = s => s.groundingValue == null ? null
+// Pager step 4: groundingLinks / groundingPct are native repository counts (confirmed); groundedAssets comes from
+// the viewer's SemanticAssignment scan and is marked when that scan is unconfirmed. If the link count itself is
+// ever marked, links per 100 Assets is a share of a lower bound over a separate count: not measured.
+const groundingLinksUnc = s => !groundingIsShare(s) && uncMark('groundingLinks', s);
+const groundingVal = s => (s.groundingValue == null || groundingLinksUnc(s)) ? null
   : (groundingIsShare(s) ? s.groundingValue + '%' : num(s.groundingValue));
 // pyegeria 6.2.31 measures distinct grounded Assets even when their share cannot be measured (the
 // viewer Asset total times out); groundedAssetNote says why. A count that was not measured is never 0.
 const groundedAssetsSub = s => s.groundedAssets != null
-  ? ' · ' + uncNum('groundedAssets', s.groundedAssets, s) + ' Assets grounded' + (s.groundedAssetNote ? ' (share not measured)' : '')
+  ? ' · ' + uncNum('groundedAssets', s.groundedAssets, s) + ' Assets grounded'
+    + (uncMark('groundedAssets', s) ? ' (' + uncWords(uncMark('groundedAssets', s)) + ')' : '')
+    + (s.groundedAssetNote ? ' (share not measured)' : '')
   : (s.groundedAssetNote ? ' · grounded Assets not measured' : '');
 const groundingSub = s => groundingIsShare(s)
-  ? (s.groundedAssets != null ? num(s.groundedAssets) + ' Assets with a glossary term' : 'of Assets have a glossary term')
-  : 'term links per 100 Assets' + (s.groundingLinks != null ? ' (' + num(s.groundingLinks) + ' links)' : '')
+  ? (s.groundedAssets != null ? uncNum('groundedAssets', s.groundedAssets, s) + ' Assets with a glossary term' : 'of Assets have a glossary term')
+  : (groundingLinksUnc(s)
+      ? 'term links per 100 Assets not measured: ' + (nmReason('groundingLinksPer100', s) || 'the link count is a lower bound')
+        + ' (' + uncNum('groundingLinks', s.groundingLinks, s) + ' links; ' + uncWords(uncMark('groundingLinks', s)) + ')'
+      : 'term links per 100 Assets' + (s.groundingLinks != null ? ' (' + num(s.groundingLinks) + ' links)' : ''))
     + groundedAssetsSub(s);
 // The full reason goes on the sub-label's tooltip and in the drill panel.
 const groundingNote = s => (s.groundedAssetNote
@@ -1049,6 +1058,9 @@ const UNC_REASON = "Egeria didn't confirm there are no more";
 const UNC_STORES = ['uncSummary', 'uncAi', 'uncUsage', 'uncPeople'], NM_STORES = ['nmSummary', 'nmAi', 'nmUsage', 'nmPeople'];
 function uncMark(key, store){
   store = store || LIVE;
+  // a raw /api/overview payload carries its own map; the page store keeps one per section
+  const own = store.unconfirmed && store.unconfirmed[key];
+  if (own && own.unconfirmed) return own;
   for (const s of UNC_STORES) { const m = store[s] && store[s][key]; if (m && m.unconfirmed) return m; }
   return null;
 }
@@ -1059,6 +1071,7 @@ function uncWords(m){
 }
 function nmReason(key, store){
   store = store || LIVE;
+  if (store.notMeasured && store.notMeasured[key]) return store.notMeasured[key];
   for (const s of NM_STORES) { const r = store[s] && store[s][key]; if (r) return r; }
   return null;
 }
@@ -1848,12 +1861,14 @@ function drillLivePatch(key, d){
     markStat(2, 'solutionComponentsRealised', LIVE.solutionComponentsRealised); noteUnc('Realised components', 'solutionComponentsRealised');
   }
   if (key === 'grounding') {
-    if (groundingVal(LIVE) != null) d.stats[0][0] = groundingVal(LIVE);
+    d.stats[0][0] = groundingVal(LIVE) != null ? groundingVal(LIVE) : ND;   // never a previous view's value
+    if (groundingLinksUnc(LIVE)) uncNotes.push('Links per 100 Assets: not measured — ' + (nmReason('groundingLinksPer100') || 'the link count is a lower bound'));
     if (groundingIsShare(LIVE)) {
       d.stats[0][1] = 'of Assets grounded';
       d.s = 'Share of Assets with at least one glossary term (SemanticAssignment) — the meaning layer that grounds AI';
     }
     set(1, LIVE.groundingLinks); set(2, LIVE.terms);
+    markStat(1, 'groundingLinks', LIVE.groundingLinks);
     d.list = [];
     if (LIVE.groundedAssets != null) d.list.push(['Assets grounded (you can see)', uncNum('groundedAssets', LIVE.groundedAssets)]);
     noteUnc('Assets grounded', 'groundedAssets');

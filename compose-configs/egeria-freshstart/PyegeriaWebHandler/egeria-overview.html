@@ -1008,6 +1008,9 @@ const UNC_REASON = "Egeria didn't confirm there are no more";
 const UNC_STORES = ['uncSummary', 'uncAi', 'uncUsage', 'uncPeople'], NM_STORES = ['nmSummary', 'nmAi', 'nmUsage', 'nmPeople'];
 function uncMark(key, store){
   store = store || LIVE;
+  // a raw /api/overview payload carries its own map; the page store keeps one per section
+  const own = store.unconfirmed && store.unconfirmed[key];
+  if (own && own.unconfirmed) return own;
   for (const s of UNC_STORES) { const m = store[s] && store[s][key]; if (m && m.unconfirmed) return m; }
   return null;
 }
@@ -1018,6 +1021,7 @@ function uncWords(m){
 }
 function nmReason(key, store){
   store = store || LIVE;
+  if (store.notMeasured && store.notMeasured[key]) return store.notMeasured[key];
   for (const s of NM_STORES) { const r = store[s] && store[s][key]; if (r) return r; }
   return null;
 }
@@ -1087,7 +1091,9 @@ const METRICS = {
                 get:()=>({ val: cnt(LIVE.blueprints), sub: 'reusable designs' }) },
   grounding:  { label:'Semantic Grounding',    ico:'🧠', color:'var(--c1)', drill:'grounding',
                 get:()=>({ val: LIVE.groundingPct != null ? LIVE.groundingPct + '%' : NO_DATA,
-                           sub: LIVE.groundingLinks != null ? num(LIVE.groundingLinks) + ' term links' : 'glossary-linked' }) },
+                           sub: nmReason('groundingPct')
+                                ? 'not measured — ' + nmReason('groundingPct') + (LIVE.groundingLinks != null ? ' (' + uncLine('groundingLinks', LIVE.groundingLinks, 'term links') + ')' : '')
+                                : LIVE.groundingLinks != null ? uncLine('groundingLinks', LIVE.groundingLinks, 'term links') : 'glossary-linked' }) },
   ownership:  { label:'Ownership Coverage',    ico:'🧑‍💼', color:'var(--c4)', drill:'ownership',
                 get:()=>({ val: LIVE.ownershipPct != null ? LIVE.ownershipPct + '%' : '—',
                            sub: LIVE.ownershipCount == null ? 'named owner assigned'
@@ -2295,6 +2301,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     store.uncAi = d.unconfirmed || {}; store.nmAi = d.notMeasured || {};   // see uncMark()
     if (primary) scanLine('refresh-ai-context', d);
     if (d.groundingPct != null) store.groundingPct = d.groundingPct;
+    if (store.nmAi && store.nmAi.groundingPct) store.groundingPct = null;   // not measured: never a previous value
     // a share not measured from an unconfirmed read clears any earlier value (never a stale number)
     if (store.nmAi.ownershipPct) store.ownershipPct = null;
     if (store.nmAi.aiReadyPct) store.aiReadyPct = null;
@@ -2316,6 +2323,10 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     // NEXT-18). Context Products/Active AI Consumers/AI Guardrails remain
     // sample — no backend signal for those yet.
     if (d.groundingPct != null) setTxt('ai-grounding', d.groundingPct + '%');
+    else if (nmReason('groundingPct', d)) {
+      setTxt('ai-grounding', '—');
+      var agEl = document.getElementById('ai-grounding'); if (agEl) agEl.title = 'Not measured — ' + nmReason('groundingPct', d);
+    }
     var f = d.funnel || {};
     if (f.cataloged != null) setTxt('uc-cataloged', fmt(f.cataloged));
     if (f.classified != null) setTxt('uc-classified', fmt(f.classified));
