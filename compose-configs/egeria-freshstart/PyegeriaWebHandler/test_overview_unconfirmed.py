@@ -161,3 +161,41 @@ def test_safety_net_lists_a_scan_no_figure_mark_covers():
     p = compute()
     assert [s["count"] for s in p["unconfirmedScans"]] == ["AttachedLike relationships"]
     assert p["unconfirmedScansLine"] == f"Some figures here are lower bounds: {REASON}"
+
+
+# ── pager step 5 (part 1): viewer totals ("count_of") ────────────────────────
+
+def _step5():
+    try:
+        from pyegeria.view import overview_metrics as om
+        return om._figure_words(("count_of", "Asset"), "k", 1, {}) == "at least 1"
+    except Exception:  # noqa: BLE001
+        return False
+
+
+needs_step5 = pytest.mark.skipif(oh.recording_unconfirmed is None or not _step5(),
+                                 reason="needs pyegeria with pager step 5 part 1 (count_of marks)")
+
+
+@pytest.fixture
+def usage_stubs(monkeypatch):
+    monkeypatch.setattr(oh, "_expert", lambda *a, **k: object())
+    monkeypatch.setattr(oh, "_make", lambda *a, **k: object())
+    monkeypatch.setattr(oh, "usage_context_counts", lambda mgr, as_of: {"informationSupplyChains": 2,
+                                                                         "blueprints": 3})
+
+
+def test_unconfirmed_solution_component_total_is_marked(monkeypatch, usage_stubs):
+    monkeypatch.setattr(oh, "solution_component_realisation", lambda mgr, ce, as_of: {
+        "solutionComponentsTotal": 9, "solutionComponentsRealised": 4,
+        "unconfirmed": {"solutionComponentsTotal": _mark("at least 9")}})
+    p = oh._compute_usage_context(None, None, None, None, None)
+    assert p["unconfirmed"]["solutionComponents"]["words"] == "at least 9"
+    assert "solutionComponentsRealised" not in p["unconfirmed"]
+
+
+@needs_step5
+def test_step5_solution_components_through_the_real_pager(pager_fakes):
+    p = oh._compute_usage_context(None, None, None, None, None)
+    assert p["unconfirmed"]["solutionComponentsRealised"]["words"] == f"0 found; {REASON}"
+    assert p["unconfirmedScans"] == []

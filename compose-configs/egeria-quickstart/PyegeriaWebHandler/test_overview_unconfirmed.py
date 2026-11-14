@@ -436,3 +436,75 @@ def test_unconfirmed_viewer_asset_total_is_not_a_denominator(monkeypatch):
     out = oh._overlay_viewer_total({"countScope": oh.REPOSITORY}, None, None, None, None, None)
     assert out["assetTotalViewer"] is None and out["assetTotalViewerLoading"] is False
     assert "lower bound" in out["assetTotalViewerNote"]
+
+
+# ── pager step 5 (part 1): viewer totals ("count_of") ────────────────────────
+#
+# termTotal, the contextualised assetTotal, solutionComponentsTotal and groundedAssetTotal are viewer counts
+# that can themselves end unconfirmed. pyegeria marks them "at least N" only when their own count was
+# unconfirmed. Anything the Portal derives from one (a share, a difference) is not measured.
+
+def _step5():
+    try:
+        from pyegeria.view import overview_metrics as om
+        return om._figure_words(("count_of", "Asset"), "k", 1, {}) == "at least 1"
+    except Exception:  # noqa: BLE001
+        return False
+
+
+needs_step5 = pytest.mark.skipif(oh.recording_unconfirmed is None or not _step5(),
+                                 reason="needs pyegeria with pager step 5 part 1 (count_of marks)")
+
+
+def test_share_over_an_unconfirmed_asset_total_is_not_measured(monkeypatch, usage_stubs):
+    # only the total is unconfirmed (its own count ended unconfirmed); the numerator alone would be fine
+    monkeypatch.setattr(oh, "contextualised_coverage", lambda mgr, ce, as_of: {
+        "contextualisedCount": 17, "assetTotal": 300, "contextualisedPct": 6,
+        "unconfirmed": {"assetTotal": _mark("at least 300")}})
+    monkeypatch.setattr(oh, "solution_component_realisation", lambda mgr, ce, as_of: {
+        "solutionComponentsTotal": 9, "solutionComponentsRealised": 4,
+        "unconfirmed": {"solutionComponentsTotal": _mark("at least 9")}})
+    p = oh._compute_usage_context(None, None, None, None, None)
+    assert p["contextualisedPct"] is None and "Asset total" in p["notMeasured"]["contextualisedPct"]
+    assert p["unconfirmed"]["contextualisedAssetTotal"]["words"] == "at least 300"
+    assert p["unconfirmed"]["solutionComponents"]["words"] == "at least 9"
+    assert "solutionComponentsRealised" not in p["unconfirmed"]
+
+
+def test_orphan_difference_over_an_unconfirmed_term_total_is_not_measured(monkeypatch, summary_stubs):
+    monkeypatch.setattr(oh, "governed_coverage", lambda mgr, as_of: {
+        "governedCount": 40, "governedCapped": False, "fullyGoverned": 30, "partialZoneOnly": 10,
+        "byClassification": {}, "topZones": []})
+    monkeypatch.setattr(oh, "certifications_summary", lambda ce, as_of: _certs_confirmed())
+    monkeypatch.setattr(oh, "orphan_glossary_terms", lambda mgr, ce, as_of: {
+        "termTotal": 80, "referencedCount": 50, "orphanCount": 30,
+        "unconfirmed": {"termTotal": _mark("at least 80")}})
+    p = oh._compute_summary(None, None, None, None, None)
+    assert p["orphanTermCount"] is None and "orphanTermCount" in p["notMeasured"]
+    assert p["unconfirmed"]["orphanTermTotal"]["words"] == "at least 80"
+
+
+@needs_step5
+def test_step5_viewer_totals_through_the_real_pager(pager_fakes):
+    # real contextualised_coverage / solution_component_realisation on fakes whose reads end at a null:
+    # the Asset count (viewer find fallback) and the ImplementedBy scan are both unconfirmed
+    p = oh._compute_usage_context(None, None, None, None, None)
+    u = p["unconfirmed"]
+    assert p["contextualisedAssetTotal"] == 2 and u["contextualisedAssetTotal"]["words"] == "at least 2"
+    assert p["contextualisedPct"] is None and p["notMeasured"]["contextualisedPct"]
+    assert u["contextualisedCount"]["words"] == f"0 found; {REASON}"   # a lower bound of 0, not "none"
+    assert "solutionComponentsRealised" in u
+    assert p["unconfirmedScans"] == []   # every scan is accounted for by a mark
+
+
+@needs_step5
+def test_step5_term_total_through_the_real_pager(pager_fakes, summary_stubs, monkeypatch):
+    monkeypatch.setattr(oh, "_make", lambda *a, **k: _NullAfterFirstPageCE())
+    monkeypatch.setattr(oh, "_expert", lambda *a, **k: _NullAfterFirstPageExpert())
+    monkeypatch.setattr(oh, "governed_coverage", lambda mgr, as_of: {
+        "governedCount": 40, "governedCapped": False, "fullyGoverned": 30, "partialZoneOnly": 10,
+        "byClassification": {}, "topZones": []})
+    monkeypatch.setattr(oh, "certifications_summary", lambda ce, as_of: _certs_confirmed())
+    p = oh._compute_summary(None, None, None, None, None)
+    assert p["orphanTermCount"] is None and p["notMeasured"]["orphanTermCount"]
+    assert p["unconfirmed"]["orphanTermTotal"]["words"].startswith("at least")

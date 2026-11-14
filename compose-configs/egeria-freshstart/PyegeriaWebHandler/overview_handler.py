@@ -623,6 +623,8 @@ def _compute_summary(as_of_time, url, server, user_id, user_pwd) -> dict:
     # leaves it not measured (no bound either way), whatever value the routine returned.
     if _any_unconfirmed(orphan_terms):
         _scan_cover(_n0)   # shown as not measured, with the reason
+        # pager step 5: termTotal is a viewer count that can itself be unconfirmed ("count_of"): "at least N"
+        _carry_unconfirmed(orphan_terms, {"termTotal": "orphanTermTotal"}, unconfirmed)
         orphan_terms = {**orphan_terms, "orphanCount": None}
         not_measured["orphanTermCount"] = ("the read of glossary-term assignments ended without Egeria "
                                            "confirming there are no more, and the count needs every one")
@@ -1662,7 +1664,9 @@ def _compute_usage_context(as_of_time, url, server, user_id, user_pwd) -> dict:
             comp = solution_component_realisation(mgr, ce2, as_of_time)
             solution_components_total    = comp["solutionComponentsTotal"]
             solution_components_realised = comp["solutionComponentsRealised"]
-            _carry_unconfirmed(comp, {"solutionComponentsRealised": "solutionComponentsRealised"}, unconfirmed, since=_n0)
+            _carry_unconfirmed(comp, {"solutionComponentsRealised": "solutionComponentsRealised",
+                                       # pager step 5: the total is a viewer count that can be unconfirmed
+                                       "solutionComponentsTotal": "solutionComponents"}, unconfirmed, since=_n0)
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"overview usage-context: solution_component_realisation failed: {exc}")
 

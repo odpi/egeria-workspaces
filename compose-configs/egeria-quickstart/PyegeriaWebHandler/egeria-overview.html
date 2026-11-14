@@ -1843,7 +1843,10 @@ function drillLivePatch(key, d){
     noteUnc('Active', 'certifications'); noteUnc('Expiring ≤90d', 'certExpiring90'); noteUnc('Expiring soon list', 'certSoon'); noteUnc('Open exceptions', 'openExceptions');
   }
   if (key === 'exceptions') { markStat(0, 'openExceptions', LIVE.exceptions); noteUnc('Open exceptions', 'openExceptions'); }
-  if (key === 'blueprints') { markStat(2, 'solutionComponentsRealised', LIVE.solutionComponentsRealised); noteUnc('Realised components', 'solutionComponentsRealised'); }
+  if (key === 'blueprints') {
+    markStat(1, 'solutionComponents', LIVE.solutionComponents); noteUnc('Components', 'solutionComponents');
+    markStat(2, 'solutionComponentsRealised', LIVE.solutionComponentsRealised); noteUnc('Realised components', 'solutionComponentsRealised');
+  }
   if (key === 'grounding') {
     if (groundingVal(LIVE) != null) d.stats[0][0] = groundingVal(LIVE);
     if (groundingIsShare(LIVE)) {
@@ -2326,7 +2329,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     if (d.orphanTermCount != null) {
       setTxt('aq-orphan-count', fmt(d.orphanTermCount));
       setTxt('aq-orphan-desc', 'Approved terms with no semantic assignment to any asset' +
-        (d.orphanTermTotal ? ' (' + fmt(d.orphanTermCount) + ' of ' + fmt(d.orphanTermTotal) + ' terms)' : ''));
+        (d.orphanTermTotal ? ' (' + fmt(d.orphanTermCount) + ' of ' + uncNum('orphanTermTotal', d.orphanTermTotal, store) + ' terms)' : ''));
     }
     if (d.staleAssetCount == null) {
       // "—" must say why: the backend's note (page cap / query failed), else the generic not-measured words
@@ -2460,7 +2463,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     if (typeof DRILL === 'object') {
       if (d.informationSupplyChains != null && DRILL.isc) DRILL.isc.stats[0] = [String(d.informationSupplyChains), 'supply chains'];
       if (d.blueprints != null && DRILL.blueprints) DRILL.blueprints.stats[0] = [String(d.blueprints), 'blueprints'];
-      if (d.solutionComponents != null && DRILL.blueprints) DRILL.blueprints.stats[1] = [String(d.solutionComponents), 'components'];
+      if (d.solutionComponents != null && DRILL.blueprints) DRILL.blueprints.stats[1] = [uncNum('solutionComponents', d.solutionComponents, store), 'components'];
       if (d.solutionComponentsRealised != null && DRILL.blueprints) DRILL.blueprints.stats[2] = [uncNum('solutionComponentsRealised', d.solutionComponentsRealised, store), 'realised by ≥1 implementation'];
     }
   }
