@@ -273,3 +273,166 @@ def test_summary_confirmed_is_unchanged(monkeypatch, summary_stubs):
     p = oh._compute_summary(None, None, None, None, None)
     assert p["unconfirmed"] == {} and p["notMeasured"] == {}
     assert p["certifications"] == 229 and p["orphanTermCount"] == 30 and p["openExceptions"] == 0
+
+
+# ── R1: routines that return bare numbers / lists (recording_unconfirmed) ────
+#
+# These run pyegeria's real pager (pager step 4, 7379bd83+) on fakes that return rows on the first page and
+# null after it: on get_relationships and find_metadata_elements (both NULL_NOT_END) that ends as
+# null_then_empty_probes, i.e. unconfirmed. Skipped on a pyegeria without recording_unconfirmed.
+
+import time
+from datetime import datetime, timezone
+
+needs_pager = pytest.mark.skipif(oh.recording_unconfirmed is None,
+                                 reason="needs pyegeria with pager step 4 (recording_unconfirmed)")
+
+_NOW = datetime.now(timezone.utc).isoformat()
+
+
+def _rel(rel_type, i):
+    return {"relationshipHeader": {"guid": f"{rel_type}-{i}", "type": {"typeName": rel_type},
+                                   "versions": {"createTime": _NOW}}}
+
+
+def _karma_record(i, points):
+    return {"elementHeader": {"guid": f"cr-{i}"},
+            "elementProperties": {"propertyValueMap": {
+                "karmaPoints": {"primitiveValue": points},
+                "displayName": {"primitiveValue": f"Contribution record for Person {i}"}}},
+            "classifications": [{"classificationName": "Anchors", "classificationProperties": {"propertyValueMap": {
+                "anchorTypeName": {"primitiveValue": "Person"}, "anchorGUID": {"primitiveValue": f"p-{i}"}}}}]}
+
+
+class _NullAfterFirstPageCE:
+    """get_relationships: two rows of every type on the first page, then null (no native count)."""
+    def get_relationships(self, relationship_type=None, output_format=None, start_from=0, page_size=0, body=None):
+        start = (body or {}).get("startFrom", start_from)
+        return [_rel(relationship_type, 0), _rel(relationship_type, 1)] if start == 0 else None
+
+
+class _NullAfterFirstPageExpert:
+    """find_metadata_elements: three ContributionRecords on the first page, then null; Assets: two, then null."""
+    def find_metadata_elements(self, body):
+        if body.get("startFrom", 0) == 0 and body.get("metadataElementTypeName") == "Asset":
+            return [{"elementHeader": {"guid": "a-1"}}, {"elementHeader": {"guid": "a-2"}}]
+        if body.get("startFrom", 0) == 0 and body.get("metadataElementTypeName") == "ContributionRecord":
+            return [_karma_record(1, 30), _karma_record(2, 20), _karma_record(3, 10)]
+        return "No elements found"   # pyegeria's null for a find
+
+
+@pytest.fixture
+def pager_fakes(monkeypatch):
+    from pyegeria.view import overview_metrics as om
+    monkeypatch.setattr(om, "_native_count_method", lambda *a, **k: None)   # the paged (find/get) paths
+    monkeypatch.setattr(oh, "_expert", lambda *a, **k: _NullAfterFirstPageExpert())
+    monkeypatch.setattr(oh, "_make", lambda *a, **k: _NullAfterFirstPageCE())
+    monkeypatch.setattr(oh, "_count_scope", lambda *fns: oh.VIEWER)
+    # the viewer population: count_relationships reads get_relationships through the pager (the path that can
+    # end unconfirmed); from pyegeria 6.2.27 an unscoped call is a repository count, so force the viewer one
+    monkeypatch.setattr(oh, "count_relationships",
+                        lambda ce, rel, as_of=None, expert=None, **kw: om.count_relationships(ce, rel, as_of,
+                                                                                               scope="viewer"))
+    monkeypatch.setattr(oh, "people_counts", lambda mgr, as_of, strict=False, scope=None: {
+        "persons": 4, "teams": 1, "organizations": 1, "itProfiles": 0, "communities": 2})
+
+
+def _bare_numbers(payload, keys):
+    """The figures among `keys` that have a value and no mark: each would show as a confirmed total."""
+    return [k for k in keys if payload.get(k) not in (None, [], {}) and k not in payload["unconfirmed"]]
+
+
+@needs_pager
+def test_people_figures_from_unconfirmed_scans_are_marked(pager_fakes):
+    p = oh._compute_people(None, None, None, None, None)
+    u = p["unconfirmed"]
+    # count_relationships (feedback), karma_leaderboard and engagement_series all ended unconfirmed
+    assert p["feedbackItems"] == 10 and u["feedbackItems"]["words"] == "at least 10"
+    assert u["feedbackByType"]["words"].startswith("each count is at least what is shown")
+    assert [e["karmaPoints"] for e in p["leaderboard"]] == [30, 20, 10]
+    assert u["leaderboard"]["words"].startswith("each count is at least what is shown")
+    assert u["engagementSeries"]["unconfirmed"] is True
+    assert u["feedbackItems"]["reason"] == REASON
+    # the charts drawn from them say so
+    for chart in ("feedbackChart", "engagementChart"):
+        if p[chart] is not None:
+            assert p[chart]["title"]["subtitle"] == oh.CHART_UNCONFIRMED_SUBTITLE, chart
+    # no bare number left: every figure from a scan is marked, and nothing slipped past the marks
+    assert _bare_numbers(p, ("feedbackItems", "feedbackByType", "leaderboard", "engagementSeries")) == []
+    # people_counts is stubbed (no scan): confirmed, unmarked
+    assert p["activeContributors"] == 4 and "activeContributors" not in u
+
+
+@needs_pager
+def test_safety_net_lists_a_scan_no_figure_mark_covers():
+    from pyegeria.view import overview_metrics as om
+
+    @oh._scan_net
+    def compute():
+        rels = om._all_relationships(_NullAfterFirstPageCE(), "AttachedLike")
+        return {"likes": len(rels), "unconfirmed": {}}
+
+    p = compute()
+    assert p["likes"] == 2
+    assert [s["count"] for s in p["unconfirmedScans"]] == ["AttachedLike relationships"]
+    assert p["unconfirmedScansLine"] == f"Some figures here are lower bounds: {REASON}"
+
+
+@needs_pager
+def test_safety_net_is_empty_when_the_figure_is_marked():
+    from pyegeria.view import overview_metrics as om
+
+    @oh._scan_net
+    def compute():
+        unconfirmed: dict = {}
+        n0 = oh._scan_pos()
+        likes = len(om._all_relationships(_NullAfterFirstPageCE(), "AttachedLike"))
+        oh._mark_from_scans(n0, {"likes": ("count", likes)}, unconfirmed)
+        return {"likes": likes, "unconfirmed": unconfirmed}
+
+    p = compute()
+    assert p["unconfirmed"]["likes"]["words"] == "at least 2"
+    assert p["unconfirmedScans"] == [] and p["unconfirmedScansLine"] is None
+
+
+@needs_pager
+def test_confirmed_scan_needs_no_mark_and_no_net():
+    from pyegeria.view import overview_metrics as om
+
+    class _Done:   # rows, then an empty page and a trusted end: a confirmed read
+        def get_relationships(self, relationship_type=None, output_format=None, start_from=0, page_size=0,
+                              body=None):
+            return [_rel(relationship_type, 0)] if (body or {}).get("startFrom", 0) == 0 else []
+
+    @oh._scan_net
+    def compute():
+        unconfirmed: dict = {}
+        n0 = oh._scan_pos()
+        rels = om._all_relationships(_Done(), "AttachedLike")
+        oh._mark_from_scans(n0, {"likes": ("count", None if rels is None else len(rels))}, unconfirmed)
+        return {"likes": None if rels is None else len(rels), "unconfirmed": unconfirmed}
+
+    p = compute()
+    assert p["unconfirmed"] == {}   # never marked: confirmed, or not measured (None), never a lower bound
+
+
+@needs_pager
+def test_unconfirmed_viewer_asset_total_is_not_a_denominator(monkeypatch):
+    from pyegeria.view import overview_metrics as om
+    monkeypatch.setattr(om, "_native_count_method", lambda *a, **k: None)
+    monkeypatch.setattr(oh, "_expert", lambda *a, **k: _NullAfterFirstPageExpert())
+    # 7379bd83's viewer count still takes one find page (step 5 moves it onto the pager); drive the worker
+    # through a paged read so the recording sees the unconfirmed end it will see then
+    monkeypatch.setattr(oh, "_viewer_count", lambda mgr, as_of: len(
+        om._all_elements(mgr, {"class": "FindRequestBody", "metadataElementTypeName": "Asset"})))
+    monkeypatch.setattr(oh, "_env", lambda *a: ("U", "S", None, None))
+    monkeypatch.setattr(oh, "request_identity", lambda *a: "viewer-1")
+    key = "U|S|viewer-1|None"
+    monkeypatch.setattr(oh, "_viewer_totals", {})
+    monkeypatch.setattr(oh, "_viewer_unconfirmed", {})
+    oh._viewer_total_worker(key, None, None, None, None, None)   # the find fallback ends unconfirmed
+    assert oh._viewer_unconfirmed[key], "the worker records the unconfirmed scan"
+    assert oh._viewer_totals[key][0] > time.time() + 60, "kept for the normal TTL, not retried every minute"
+    out = oh._overlay_viewer_total({"countScope": oh.REPOSITORY}, None, None, None, None, None)
+    assert out["assetTotalViewer"] is None and out["assetTotalViewerLoading"] is False
+    assert "lower bound" in out["assetTotalViewerNote"]

@@ -1005,7 +1005,7 @@ const cnt = n => (n != null ? String(n) : NO_DATA);
 // figure is null in `notMeasured` ({key: reason}). An unconfirmed figure shows "≥N" plus its words; a
 // not-measured one shows "—" plus the reason; a confirmed figure is unchanged.
 const UNC_REASON = "Egeria didn't confirm there are no more";
-const UNC_STORES = ['uncSummary', 'uncAi', 'uncUsage'], NM_STORES = ['nmSummary', 'nmAi', 'nmUsage'];
+const UNC_STORES = ['uncSummary', 'uncAi', 'uncUsage', 'uncPeople'], NM_STORES = ['nmSummary', 'nmAi', 'nmUsage', 'nmPeople'];
 function uncMark(key, store){
   store = store || LIVE;
   for (const s of UNC_STORES) { const m = store[s] && store[s][key]; if (m && m.unconfirmed) return m; }
@@ -1032,6 +1032,20 @@ function uncLine(key, v, noun, store){
   const m = uncMark(key, store), t = (typeof v === 'number') ? v.toLocaleString() : String(v);
   if (!m) return t + ' ' + noun;
   return (/^at least/.test(m.words || 'at least') ? 'at least ' + t + ' ' + noun : t + ' ' + noun + ' found') + '; ' + (m.reason || UNC_REASON);
+}
+// The safety net: a payload whose read had an unconfirmed scan that no figure mark covers carries
+// `unconfirmedScans` and a line; the section it feeds shows that line under its heading (anchored on the
+// section's refresh button), and removes it when the next read is confirmed.
+function scanLine(btnId, d){
+  const btn = document.getElementById(btnId); if (!btn || !d) return;
+  const head = btn.closest('.section-label') || btn.parentElement; if (!head) return;
+  let n = head.nextElementSibling;
+  if (!(n && n.classList.contains('scan-line'))) n = null;
+  const scans = Array.isArray(d.unconfirmedScans) ? d.unconfirmedScans : [];
+  if (!scans.length) { if (n) n.remove(); return; }
+  if (!n) { n = document.createElement('div'); n.className = 'unc-note scan-line'; head.after(n); }
+  n.textContent = '≥ ' + (d.unconfirmedScansLine || ('Some figures here are lower bounds: ' + UNC_REASON));
+  n.title = scans.map(x => (x.count || 'a read') + ': ' + (x.read != null ? x.read + ' read' : '')).join('\n');
 }
 // a visible note under a chart or list whose counts are lower bounds (removed when they are confirmed)
 function uncNote(id, m){
@@ -1062,9 +1076,11 @@ const METRICS = {
                 get:()=>({ val: uncNum('openExceptions', LIVE.exceptions),
                            sub: (LIVE.exceptions != null && uncMark('openExceptions')) ? uncLine('openExceptions', LIVE.exceptions, 'governance issues open') : 'governance issues open' }) },
   people:     { label:'People / Contributors', ico:'👥', color:'var(--c2)', drill:'people',
-                get:()=>({ val: num(LIVE.people) || NO_DATA, sub: 'registered persons' }) },
+                get:()=>({ val: uncNum('activeContributors', LIVE.people),
+                           sub: (LIVE.people != null && uncMark('activeContributors')) ? uncLine('activeContributors', LIVE.people, 'registered persons') : 'registered persons' }) },
   communities:{ label:'Active Communities',    ico:'🌐', color:'var(--c6)', drill:'people',
-                get:()=>({ val: cnt(LIVE.communities), sub: 'collaboration groups' }) },
+                get:()=>({ val: uncNum('communities', LIVE.communities),
+                           sub: (LIVE.communities != null && uncMark('communities')) ? uncLine('communities', LIVE.communities, 'collaboration groups') : 'collaboration groups' }) },
   isc:        { label:'Supply Chains',         ico:'🔗', color:'var(--c2)', drill:'isc',
                 get:()=>({ val: cnt(LIVE.isc), sub: 'end-to-end data flows' }) },
   blueprints: { label:'Solution Blueprints',   ico:'🧱', color:'var(--c3)', drill:'blueprints',
@@ -2029,6 +2045,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
   function applySummary(d, store, primary){
     if (!d) return;
     store.uncSummary = d.unconfirmed || {}; store.nmSummary = d.notMeasured || {};   // see uncMark()
+    if (primary) scanLine('refresh-summary', d);
     store.assets = d.assetTotal; store.terms = d.termCount;
     store.byType = d.byType; store.topZones = d.topZones;                    // drill panels
     store.certSoon = d.certSoon; store.certExpiring90 = d.certExpiring90;
@@ -2146,22 +2163,27 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
 
   function applyPeople(d, store, primary){
     if (!d) return;
+    store.uncPeople = d.unconfirmed || {}; store.nmPeople = d.notMeasured || {};   // see uncMark()
     store.people = d.activeContributors; store.communities = d.communities;
     store.teams = d.teams; store.orgs = d.organizations;
     if (!primary) return;
+    scanLine('refresh-people', d);
     // People & Community section sub-band
-    setTxt('kpi-people', fmt(d.activeContributors));
+    setTxt('kpi-people', uncNum('activeContributors', d.activeContributors, store));
+    if (d.activeContributors != null && uncMark('activeContributors', store))
+      setTxt('kpi-people-sub', uncLine('activeContributors', d.activeContributors, 'registered persons', store));
     if (d.teams != null || d.organizations != null) {
       setTxt('kpi-orgs', fmt((d.teams || 0) + (d.organizations || 0)));
       setTxt('kpi-orgs-sub', (d.teams || 0) + ' teams · ' + (d.organizations || 0) + ' orgs');
     }
-    setTxt('kpi-communities', fmt(d.communities));
+    setTxt('kpi-communities', uncNum('communities', d.communities, store));
     // Crowd-sourced feedback (Collaboration OMAS) — real, though sparse in demo.
     if (d.feedbackItems != null) {
-      setTxt('kpi-feedback', fmt(d.feedbackItems));
+      setTxt('kpi-feedback', uncNum('feedbackItems', d.feedbackItems, store));
       var fsub = document.querySelector('#kpi-feedback + .k-sub');
-      var fb = d.feedbackByType || {};
-      if (fsub) fsub.textContent = (fb.comments||0) + ' comments · ' + (fb.ratings||0) + ' ratings · ' + (fb.tags||0) + ' tags';
+      var fb = d.feedbackByType || {}, fge = uncMark('feedbackByType', store) ? '≥' : '';
+      if (fsub) fsub.textContent = fge + (fb.comments||0) + ' comments · ' + fge + (fb.ratings||0) + ' ratings · ' + fge + (fb.tags||0) + ' tags' +
+        (uncMark('feedbackItems', store) ? ' — ' + uncWords(uncMark('feedbackItems', store)) : '');
     }
     // Real Vega-Lite bar chart when the backend has one (NEXT-10 P1); falls
     // back to hbars() rows otherwise.
@@ -2173,6 +2195,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
         ['Note logs', t.noteLogs||0, 'var(--c6)']
       ]);
     }
+    uncNote('fbType', uncMark('feedbackByType', store));
     // Karma leaderboard — real per-person rollup (ContributionRecord.karmaPoints,
     // anchored via Anchors classification). No role/avatar data exists on the
     // real payload, so rows show rank/name/points only, not the old sample
@@ -2207,15 +2230,18 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
           leadEl.appendChild(row);
         });
       }
+      uncNote('leaderboard', uncMark('leaderboard', store));
     }
     // Engagement over time — real weekly feedback trend (renderVega falls
     // through silently when engagementChart is null on an older pyegeria).
     renderVega('engage', d.engagementChart);
+    uncNote('engage', d.engagementChart ? uncMark('engagementSeries', store) : null);
   }
 
   function applyUsage(d, store, primary){
     if (!d) return;
     store.uncUsage = d.unconfirmed || {}; store.nmUsage = d.notMeasured || {};   // see uncMark()
+    if (primary) scanLine('refresh-usage', d);
     store.isc = d.informationSupplyChains; store.blueprints = d.blueprints;
     store.solutionComponents = d.solutionComponents;
     store.solutionComponentsRealised = d.solutionComponentsRealised;
@@ -2264,6 +2290,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
   function applyAI(d, store, primary){
     if (!d) return;
     store.uncAi = d.unconfirmed || {}; store.nmAi = d.notMeasured || {};   // see uncMark()
+    if (primary) scanLine('refresh-ai-context', d);
     if (d.groundingPct != null) store.groundingPct = d.groundingPct;
     // a share not measured from an unconfirmed read clears any earlier value (never a stale number)
     if (store.nmAi.ownershipPct) store.ownershipPct = null;

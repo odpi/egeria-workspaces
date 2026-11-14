@@ -139,7 +139,7 @@ def test_handler_passes_strict_for_headline_counts():
                    'n_elements(mgr, "GlossaryTerm", as_of_time, strict=True)',
                    'n_elements(mgr, "DigitalProduct", as_of_time, strict=True)'):
         assert needle in src, needle
-    assert "strict=True" in inspect.getsource(oh.get_people)
+    assert "strict=True" in inspect.getsource(oh._compute_people)   # get_people serves it
     assert "strict=True" in inspect.getsource(oh._compute_usage_context)
 
 
