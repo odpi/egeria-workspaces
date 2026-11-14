@@ -162,12 +162,64 @@ def test_describe_fetches_as_the_user(world, monkeypatch):
     monkeypatch.setattr(esc, "fetch_spec_for_call", lambda client, label: calls.append((client.token, label))
                         or f"egeria:{label}@v3")
     monkeypatch.setattr(esc, "_FETCHED", {("Finance Secrets", 3): (_fs(), {})})
-    monkeypatch.setattr(esc, "fetched_spec", lambda name: _fs())
+    monkeypatch.setattr(esc, "fetched_spec", lambda name, identity=None: _fs())
     row = rsr.describe(TOKEN, "Finance Secrets")
     assert calls == [(TOKEN, "Finance Secrets")]
     assert row["restricted"] is True and row["source"] == "restricted" and row["sourceLabel"] == rsr.BADGE
     assert row["zones"] == ["finance"] and row["output_types"] == ["DICT", "TABLE"]
     assert rsr.is_restricted_fetch("egeria:Finance Secrets@v3") and rsr.is_restricted_fetch("Finance Secrets@v3")
+
+
+def _needs_identity_cache():
+    import pyegeria.view.egeria_spec_cache as esc
+    if not hasattr(esc, "client_credential_identity"):
+        pytest.skip("pyegeria without the spec-cache identity change (client_credential_identity)")
+    return esc
+
+
+class _UserClient:
+    """The shape the restricted path's client has after use_token: the token's user, platform, view server."""
+    def __init__(self, token):
+        self.token = token
+        self.user_id = json.loads(base64.urlsafe_b64decode(token.split(".")[1] + "==="))["sub"]
+        self.platform_url = "https://localhost:9443"
+        self.view_server = "qs-view-server"
+
+
+def _fetch_like_pyegeria(esc, stored):
+    """fetch_spec_for_call's effect on the store: the copy is keyed by the FETCHING client's identity."""
+    def fetch(client, label):
+        if stored:
+            esc._FETCHED[(esc.client_credential_identity(client), label, 3)] = (_fs(), {"label": label})
+        return f"egeria:{label}@v3"
+    return fetch
+
+
+def test_describe_reads_back_the_copy_its_user_fetched(world, monkeypatch):
+    """Outside any spec_identity: the lookup must use the fetching client's identity, not the service user's."""
+    esc = _needs_identity_cache()
+    monkeypatch.setenv("EGERIA_USER", "erinoverview")
+    monkeypatch.setattr(esc, "_FETCHED", {})
+    monkeypatch.setattr(rsr, "_user_client", lambda token: _UserClient(token))
+    monkeypatch.setattr(esc, "fetch_spec_for_call", _fetch_like_pyegeria(esc, stored=True))
+    row = rsr.describe(TOKEN, "Finance Secrets")
+    assert row["restricted"] is True and row["label"] == "Finance Secrets"
+    assert ("Finance Secrets", 3) in rsr._RESTRICTED_FETCHED        # identity-keyed store read by _remember_fetch
+
+
+def test_describe_never_reads_another_users_copy(world, monkeypatch):
+    esc = _needs_identity_cache()
+    monkeypatch.setattr(esc, "_FETCHED", {})
+    monkeypatch.setattr(rsr, "_user_client", lambda token: _UserClient(token))
+    monkeypatch.setattr(esc, "fetch_spec_for_call", _fetch_like_pyegeria(esc, stored=True))
+    rsr.describe(TOKEN, "Finance Secrets")                         # peterprofile fetched it
+    other = _jwt(sub="calliequartile", nonce="b")
+    monkeypatch.setattr(esc, "fetch_spec_for_call", _fetch_like_pyegeria(esc, stored=False))
+    with pytest.raises(LookupError, match="could not be read"):
+        rsr.describe(other, "Finance Secrets")                     # calliequartile's own fetch stored nothing
+    assert esc.fetched_spec("Finance Secrets@v3", identity=esc.client_credential_identity(_UserClient(other))) is None
+    assert esc.fetched_spec("Finance Secrets@v3",
+                            identity=esc.client_credential_identity(_UserClient(TOKEN))) is not None
 
 
 def test_describe_and_run_refuse_a_spec_not_visible(world):
