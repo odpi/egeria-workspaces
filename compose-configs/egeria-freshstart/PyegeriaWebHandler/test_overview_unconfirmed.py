@@ -237,3 +237,33 @@ def test_unconfirmed_term_total_is_marked_and_orphans_not_measured(monkeypatch, 
     p = oh._compute_summary(None, None, None, None, None)
     assert p["orphanTermCount"] is None and p["notMeasured"]["orphanTermCount"]
     assert p["orphanTermTotal"] == 80 and p["unconfirmed"]["orphanTermTotal"]["words"] == "at least 80"
+
+
+# ── R4: Semantic Grounding ───────────────────────────────────────────────────
+# groundingLinks / groundingPct are native repository counts (count_relationships / count_elements with
+# population=repository: no find fallback), so they are confirmed. If a pyegeria ever marks the link count,
+# the per-100 figure built on it (groundingPct) is a share of a lower bound: not measured.
+
+def test_grounding_native_figures_stay_confirmed(monkeypatch, ai_stubs):
+    monkeypatch.setattr(oh, "semantic_grounding", lambda mgr, ce, as_of: {
+        "groundedAssets": 3, "groundingLinksScanned": 715, "groundingLinks": 723, "groundingPct": 5,
+        "unconfirmed": {"groundedAssets": _mark(f"3 found; {REASON}"), "groundingLinksScanned": _mark("at least 715")}})
+    monkeypatch.setattr(oh, "ownership_coverage", lambda mgr, as_of: {"ownershipCount": 60})
+    monkeypatch.setattr(oh, "ai_ready_assets", lambda mgr, ce, as_of: {"aiReadyCount": 25, "total": 250})
+    monkeypatch.setattr(oh, "drl_readiness_gates", lambda mgr, ce, as_of: {
+        "aiReadyCount": 25, "aiReadyRecentCount": 5, "byModality": {"tabular": 3}})
+    p = _get_ai()
+    assert p["groundingPct"] == 5 and p["groundingLinks"] == 723
+    assert "groundingLinks" not in p["unconfirmed"] and "groundingPct" not in p["notMeasured"]
+
+
+def test_grounding_per_100_over_an_unconfirmed_link_count_is_not_measured(monkeypatch, ai_stubs):
+    monkeypatch.setattr(oh, "semantic_grounding", lambda mgr, ce, as_of: {
+        "groundingLinks": 723, "groundingPct": 5, "unconfirmed": {"groundingLinks": _mark("at least 723")}})
+    monkeypatch.setattr(oh, "ownership_coverage", lambda mgr, as_of: {"ownershipCount": 60})
+    monkeypatch.setattr(oh, "ai_ready_assets", lambda mgr, ce, as_of: {"aiReadyCount": 25, "total": 250})
+    monkeypatch.setattr(oh, "drl_readiness_gates", lambda mgr, ce, as_of: {
+        "aiReadyCount": 25, "aiReadyRecentCount": 5, "byModality": {"tabular": 3}})
+    p = _get_ai()
+    assert p["groundingPct"] is None and "separate count" in p["notMeasured"]["groundingPct"]
+    assert p["unconfirmed"]["groundingLinks"]["words"] == "at least 723"

@@ -2037,8 +2037,17 @@ def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
     # bound); groundingLinks is a native count. pyegeria already sets an unconfirmed groundedAssetPct to None and
     # says why in groundedAssetNote, so the tile falls back to links per 100 Assets.
     _carry_unconfirmed(grounding, {"groundedAssets": "groundedAssets",
-                                   "groundingLinksScanned": "groundingLinksScanned"}, unconfirmed,
+                                   "groundingLinksScanned": "groundingLinksScanned",
+                                   # native repository counts today (never marked); if a later pyegeria marks
+                                   # the link count, the per-100 figure built on it is not measured (below)
+                                   "groundingLinks": "groundingLinks"}, unconfirmed,
                        since=_grounding_scans)
+    if "groundingLinks" in unconfirmed:
+        # links per 100 Assets = links / the Asset total: a lower-bound numerator over a separate count
+        grounding_fields = {**grounding_fields, "groundingLinksPer100": None}
+        if grounding_fields.get("groundingMeasure") == "linksPer100Assets":
+            grounding_fields["groundingValue"] = None
+        not_measured["groundingLinksPer100"] = _share_unconfirmed_reason("the glossary-term link count")
 
     funnel = {
         "Cataloged":       readiness["cataloged"],

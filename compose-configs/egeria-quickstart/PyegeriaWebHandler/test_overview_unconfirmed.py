@@ -508,3 +508,47 @@ def test_step5_term_total_through_the_real_pager(pager_fakes, summary_stubs, mon
     p = oh._compute_summary(None, None, None, None, None)
     assert p["orphanTermCount"] is None and p["notMeasured"]["orphanTermCount"]
     assert p["unconfirmed"]["orphanTermTotal"]["words"].startswith("at least")
+
+
+# ── R4: Semantic Grounding ───────────────────────────────────────────────────
+# Shape from pyegeria release/next 45add51a on laz (the browser read-back): groundedAssets "3 found; ..." and
+# groundingLinksScanned "at least 715" are marked (the viewer's SemanticAssignment scan); groundingLinks (723)
+# and groundingPct are native repository counts, so links per 100 Assets is confirmed and stays.
+
+def _laz_grounding(**over):
+    g = {"groundedAssets": 3, "groundedAssetTotal": None, "groundedAssetPct": None,
+         "groundedAssetNote": "The share was not measured: its numerator was read without Egeria confirming "
+                              "there are no more.",
+         "groundingLinksScanned": 715, "groundingLinksNotOnAsset": 0, "groundingLinks": 723, "groundingPct": 5,
+         "unconfirmed": {"groundedAssets": _mark(f"3 found; {REASON}"),
+                         "groundingLinksScanned": _mark("at least 715")}}
+    g.update(over)
+    return g
+
+
+def _ai_confirmed_rest(monkeypatch):
+    monkeypatch.setattr(oh, "ai_ready_assets", lambda mgr, ce, as_of: {"aiReadyCount": 12, "total": 250})
+    monkeypatch.setattr(oh, "drl_readiness_gates", lambda mgr, ce, as_of: {
+        "aiReadyCount": 12, "aiReadyRecentCount": 6, "byModality": {"tabular": 3}})
+
+
+def test_grounding_tile_carries_the_scan_marks_and_keeps_native_per_100(monkeypatch, ai_stubs):
+    monkeypatch.setattr(oh, "semantic_grounding", lambda mgr, ce, as_of: _laz_grounding())
+    _ai_confirmed_rest(monkeypatch)
+    p = oh._compute_ai_context(None, None, None, None, None)
+    u = p["unconfirmed"]
+    assert u["groundedAssets"]["words"] == f"3 found; {REASON}" and p["groundedAssets"] == 3
+    assert u["groundingLinksScanned"]["words"] == "at least 715"
+    # native: links per 100 Assets is confirmed and shown; the native link count is unmarked
+    assert p["groundingMeasure"] == "linksPer100Assets" and p["groundingValue"] == 5
+    assert "groundingLinks" not in u and "groundingLinksPer100" not in p["notMeasured"]
+
+
+def test_grounding_per_100_over_an_unconfirmed_link_count_is_not_measured(monkeypatch, ai_stubs):
+    marks = {**_laz_grounding()["unconfirmed"], "groundingLinks": _mark("at least 723")}
+    monkeypatch.setattr(oh, "semantic_grounding", lambda mgr, ce, as_of: _laz_grounding(unconfirmed=marks))
+    _ai_confirmed_rest(monkeypatch)
+    p = oh._compute_ai_context(None, None, None, None, None)
+    assert p["groundingValue"] is None and p["groundingLinksPer100"] is None
+    assert "separate count" in p["notMeasured"]["groundingLinksPer100"]
+    assert p["unconfirmed"]["groundingLinks"]["words"] == "at least 723"

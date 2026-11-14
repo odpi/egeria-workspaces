@@ -1358,8 +1358,11 @@ def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
 
     # Semantic grounding: SemanticAssignment relationships (term ↔ asset) — the
     # meaning layer that grounds AI. Count of assignments as a proxy for grounded links.
+    unconfirmed: dict = {}    # payload key -> pyegeria's mark: a lower bound, shown "at least N"
+    not_measured: dict = {}   # payload key -> why the figure is None
     grounding_links = None
     grounding_pct = None
+    grounding = None
     _n0 = _scan_pos()
     try:
         grounding = semantic_grounding(mgr, ce, as_of_time)
@@ -1370,13 +1373,17 @@ def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
     # only the native-count figures (links, links per 100 Assets) are shown here; its SemanticAssignment scan
     # feeds none of them, so it needs no mark
     _scan_cover(_n0)
+    # groundingLinks is a native repository count today (never marked). If a later pyegeria marks it, the
+    # per-100 figure (groundingPct = links / the Asset total) is a share of a lower bound: not measured.
+    _carry_unconfirmed(grounding, {"groundingLinks": "groundingLinks"}, unconfirmed)
+    if "groundingLinks" in unconfirmed:
+        grounding_pct = None
+        not_measured["groundingPct"] = _share_unconfirmed_reason("the glossary-term link count")
 
     # Ownership coverage: Context Intelligence / NEXT-7 Tier-1 "Capture" signal
     # (OVERVIEW_CONTEXT_INTELLIGENCE.md §2.2) — data-mesh literature names "clean,
     # owned, product-based data" as its own foundation for trustworthy AI
     # consumption, distinct from governance-classification coverage above.
-    unconfirmed: dict = {}    # payload key -> pyegeria's mark: a lower bound, shown "at least N"
-    not_measured: dict = {}   # payload key -> why the figure is None
     ownership_count = None
     ownership_pct = None
     try:
