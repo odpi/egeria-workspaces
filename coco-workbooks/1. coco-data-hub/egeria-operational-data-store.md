@@ -21,7 +21,7 @@ with SQL, joined, and used by the reporting tools alongside Coco's own data.
 
 Egeria's products are organized into **product families**.  A subscription to a family delivers every product in
 it - including the products of the families nested inside it, and products that are added later.  The families sit
-in a catalog folder called *Digital Products*.  The folder itself is not a product, so it cannot be subscribed to;
+in a catalog folder called *Digital Products derived from Open Metadata*.  The folder itself is not a product, so it cannot be subscribed to;
 instead this file subscribes to each of the families directly beneath it:
 
 | Product family | Schema in `egeria_ods` | What it delivers |
@@ -57,7 +57,7 @@ Run this file once.  Its commands are actions rather than definitions.  Running 
 harmless - it finds the database it has already catalogued - but the other commands do not look for what is already
 there, so a second run asks for a second description of each destination and a second subscription to it.
 
-When Egeria adds a top-level family to the *Digital Products* folder, add a section for it here.
+When Egeria adds a top-level family to the catalog folder, add a section for it here.
 
 ---
 

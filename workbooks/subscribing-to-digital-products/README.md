@@ -13,10 +13,10 @@ The notebooks in this folder put subscriptions to work:
 
 These workbooks are for the *freshstart* environment.  `egeria_ods` is a database in the shared PostgreSQL server.  It is created empty when the environment starts (see `compose-configs/shared-infra/docker-entrypoint-initdb.d/init_egeria_ods.sql`).
 
-The products are organized into product families, held in a catalog folder called *Digital Products*.  The folder is not a product, so it cannot be subscribed to; the notebook subscribes to each family directly beneath it instead.  A subscription to a family delivers every product in it, including those of the families nested inside it.  The notebook:
+The products are organized into product families, held in a catalog folder called *Digital Products derived from Open Metadata*.  The folder is not a product, so it cannot be subscribed to; the notebook subscribes to each family directly beneath it instead.  A subscription to a family delivers every product in it, including those of the families nested inside it.  The notebook:
 
 1. makes sure the database is catalogued in Egeria;
-2. lists the product families in the *Digital Products* folder;
+2. lists the product families in the catalog folder;
 3. for each family, describes a schema named after the family as its destination data set, and subscribes that destination to the family using its daily refresh subscription type - unless the destination already has a subscription.
 
 Egeria's provisioning services create each schema and a table for each product in its family, and refresh them once a day, starting from the time of the subscription.
