@@ -3425,7 +3425,16 @@ function RsRestrictedNote({ info }) {
 // request with no persona token (F1b): so a signed-in persona's token must go with them, or peter's
 // browser reads as the local owner. Plain fetch only when no one is signed in.
 function rsSpecFetch(url, creds, opts) {
+  if (!rsCredsReady(creds)) return Promise.reject(new Error('signing in to Egeria has not finished'));
   return creds && creds.token ? egeriaFetch(url, creds, opts) : fetch(url, opts);
+}
+
+// A persona identity whose token is still being minted is NOT READY, not anonymous (F1b R2): on load
+// the creds come from localStorage as userId + password with no token, and a bare fetch then would
+// read as the local owner. Ready: a token; or no identity to mint for (no userId or no password,
+// acquireToken never mints then); or the mint has settled without one (tokenTried: not signed in).
+function rsCredsReady(creds) {
+  return !(creds && creds.userId && creds.password && !creds.token && !creds.tokenTried);
 }
 
 function ReportSpecView() {
@@ -3485,6 +3494,7 @@ function ReportSpecView() {
   useEffect(() => {
     setLoadState('loading');
     setError('');
+    if (!rsCredsReady(creds)) return;          // re-runs when the token lands or the mint settles
     rsSpecFetch('/api/report-specs', creds)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => {
@@ -3514,7 +3524,7 @@ function ReportSpecView() {
           .catch(e => setRestrictedInfo({ state: 'read_failed', specs: [], message: 'Restricted report specs were not read: ' + e }));
       })
       .catch(err => { setError(err.message); setLoadState('error'); });
-  }, [attempt, creds && creds.token]);
+  }, [attempt, creds && creds.token, rsCredsReady(creds)]);
 
   // A restricted spec's definition is fetched as the user when it is first selected.
   useEffect(() => {
@@ -13672,8 +13682,9 @@ function App() {
         password: c.password || undefined
       })
     }).then(function(r) { return r.ok ? r.json() : null; })
-      .then(function(t) { return (t && t.token) ? Object.assign({}, c, { token: t.token }) : c; })
-      .catch(function() { return c; });
+      // tokenTried: the mint has settled, with or without a token (rsCredsReady waits for it).
+      .then(function(t) { return Object.assign({}, c, (t && t.token) ? { token: t.token, tokenTried: true } : { tokenTried: true }); })
+      .catch(function() { return Object.assign({}, c, { tokenTried: true }); });
   }, []);
 
   const saveCreds = useCallback(function(c) {
@@ -13690,8 +13701,9 @@ function App() {
   // On load (and whenever the identity changes) ensure we hold a token. The
   // token field changing does not re-trigger this (guarded), avoiding loops.
   useEffect(function() {
-    if (creds.token) return;
-    acquireToken(creds).then(function(withTok) { if (withTok.token) setCreds(withTok); });
+    if (creds.token || creds.tokenTried) return;   // settled for this identity (saveCreds minted it)
+    // Also on a failed mint (tokenTried), so views waiting for the token stop waiting.
+    acquireToken(creds).then(function(withTok) { if (withTok.token || withTok.tokenTried) setCreds(withTok); });
   }, [creds.url, creds.server, creds.userId, creds.password]);
 
   // Let egeriaFetch refresh an expired token on a 401 and retry once.

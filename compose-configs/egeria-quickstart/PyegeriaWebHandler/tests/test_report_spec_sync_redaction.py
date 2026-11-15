@@ -235,7 +235,9 @@ def test_the_list_the_sync_and_its_poll_go_through_rs_spec_fetch():
 def test_rs_spec_fetch_sends_the_token_when_signed_in_and_plain_fetch_otherwise():
     body = re.search(r"function rsSpecFetch\(url, creds, opts\) \{(.*?)\n\}", _explorer(), re.S)
     assert body, "rsSpecFetch is missing"
-    assert body.group(1).strip() == "return creds && creds.token ? egeriaFetch(url, creds, opts) : fetch(url, opts);"
+    assert body.group(1).strip() == (
+        "if (!rsCredsReady(creds)) return Promise.reject(new Error('signing in to Egeria has not finished'));\n"
+        "  return creds && creds.token ? egeriaFetch(url, creds, opts) : fetch(url, opts);")
 
 
 def test_the_sync_callback_sees_the_current_creds():
@@ -267,6 +269,7 @@ def test_rs_spec_fetch_puts_the_token_on_the_wire_under_node(tmp_path):
         "var _tokenRefresher = {};",
         _js_function(shared, "egeriaFetch"),
         _js_function(_explorer(), "rsSpecFetch"),
+        _js_function(_explorer(), "rsCredsReady"),
         "Promise.all([",
         "  rsSpecFetch('/api/report-specs', { token: 'PETER-TOKEN', userId: 'peterprofile' }),",
         "  rsSpecFetch('/api/report-specs/sync', { token: 'PETER-TOKEN' }, { method: 'POST' }),",
@@ -281,3 +284,76 @@ def test_rs_spec_fetch_puts_the_token_on_the_wire_under_node(tmp_path):
     sent = json.loads(out.stdout)
     assert [s["token"] for s in sent] == ["PETER-TOKEN", "PETER-TOKEN", None, None]
     assert sent[2]["url"] == "/api/report-specs" and sent[3]["url"] == "/api/report-specs/sync"   # plain fetch
+
+
+# ── F1b R2: a persona whose token is still being minted is not ready, not anonymous ─────────────
+
+def _run_node(tmp_path, body):
+    import shutil
+    import subprocess
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node is not installed (the Portal container has none)")
+    shared = (ROOT / "static" / "egeria-shared-ui.js").read_text(encoding="utf-8")
+    script = "\n".join([
+        "var sent = [];",
+        "function fetch(url, opts) { sent.push({ url: url, token: ((opts || {}).headers || {})['X-Egeria-Token'] || null });",
+        "  return Promise.resolve({ status: 200 }); }",
+        "function egeriaForLineageOn() { return false; }",
+        "var _tokenRefresher = {};",
+        _js_function(shared, "egeriaFetch"),
+        _js_function(_explorer(), "rsSpecFetch"),
+        _js_function(_explorer(), "rsCredsReady"),
+        body,
+    ])
+    js = tmp_path / "rs_ready.js"
+    js.write_text(script, encoding="utf-8")
+    out = subprocess.run([node, str(js)], capture_output=True, text=True, timeout=30)
+    assert out.returncode == 0, out.stderr
+    return json.loads(out.stdout)
+
+
+def test_a_persona_without_its_token_sends_no_request_until_the_token_lands(tmp_path):
+    got = _run_node(tmp_path, """
+var loading = { url: '', server: '', userId: 'peterprofile', password: 'pw' };   // as localStorage gives it
+var out = { ready: rsCredsReady(loading) };
+rsSpecFetch('/api/report-specs', loading).then(function() { out.loadingSent = true; },
+                                               function(e) { out.refused = e.message; })
+  .then(function() {
+    out.sentWhileLoading = sent.length;
+    return rsSpecFetch('/api/report-specs', Object.assign({}, loading, { token: 'PETER-TOKEN', tokenTried: true }));
+  })
+  .then(function() { out.sent = sent; console.log(JSON.stringify(out)); });
+""")
+    assert got["ready"] is False and got["sentWhileLoading"] == 0 and "loadingSent" not in got
+    assert got["refused"] == "signing in to Egeria has not finished"
+    assert [s["token"] for s in got["sent"]] == ["PETER-TOKEN"]              # the first request carries it
+
+
+def test_who_is_ready_and_who_gets_a_plain_fetch(tmp_path):
+    got = _run_node(tmp_path, """
+var cases = {
+  anonymous:     { url: '', server: '', userId: '', password: '' },
+  failedMint:    { userId: 'peterprofile', password: 'pw', tokenTried: true },   // not signed in to Egeria
+  noPassword:    { userId: 'peterprofile', password: '' },                       // acquireToken never mints
+  none:          null,
+};
+var ready = {};
+Object.keys(cases).forEach(function(k) { ready[k] = rsCredsReady(cases[k]); });
+Promise.all(Object.keys(cases).map(function(k) { return rsSpecFetch('/api/report-specs', cases[k]); }))
+  .then(function() { console.log(JSON.stringify({ ready: ready, sent: sent })); });
+""")
+    assert all(got["ready"].values()), got["ready"]
+    assert [s["token"] for s in got["sent"]] == [None] * 4
+    assert all(s["url"] == "/api/report-specs" for s in got["sent"])        # plain fetch, no query string
+
+
+def test_the_list_waits_and_the_token_attempt_marks_itself_settled():
+    html = _explorer()
+    assert "if (!rsCredsReady(creds)) return;          // re-runs when the token lands" in html
+    assert "}, [attempt, creds && creds.token, rsCredsReady(creds)]);" in html
+    # acquireToken marks a settled attempt, with or without a token, and the load effect keeps it.
+    assert "{ token: t.token, tokenTried: true } : { tokenTried: true }" in html
+    assert ".catch(function() { return Object.assign({}, c, { tokenTried: true }); });" in html
+    assert "if (withTok.token || withTok.tokenTried) setCreds(withTok);" in html
+    assert "if (creds.token || creds.tokenTried) return;" in html
