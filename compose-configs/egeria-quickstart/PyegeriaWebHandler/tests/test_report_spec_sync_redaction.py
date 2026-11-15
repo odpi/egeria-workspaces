@@ -34,8 +34,7 @@ def _unsigned(sub):
     return f"{enc({'alg': 'none'})}.{enc({'sub': sub, 'exp': time.time() + 3600})}.sig"
 
 
-@pytest.fixture
-def get(monkeypatch):
+def _app(monkeypatch, demo_mode):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
     from jose import jwt
@@ -43,7 +42,10 @@ def get(monkeypatch):
     import report_specs_handler as rsh
     from egeria_auth import EgeriaTokenMiddleware
 
-    monkeypatch.setattr(dfh, "DEMO_MODE", True)          # auth on: _is_admin really checks
+    monkeypatch.setattr(dfh, "DEMO_MODE", demo_mode)     # on: _is_admin really checks; off: laz
+    monkeypatch.setattr(dfh, "SERVER_MANAGED_AUTH", False)
+    monkeypatch.setattr(rss, "start", lambda trigger: False)   # POST never starts a real sync here
+    monkeypatch.delenv("PORTAL_SYNC_DETAIL_USERS", raising=False)
     monkeypatch.setattr(rss, "configured_folders", lambda: [FOLDER])
     monkeypatch.setitem(rss._STATE, "outcome", "synced")
     monkeypatch.setitem(rss._STATE, "running", False)
@@ -70,7 +72,12 @@ def get(monkeypatch):
         r = client.get("/api/report-specs/sync", headers=headers, cookies=cookies)
         assert r.status_code == 200, r.text
         return r.json()
-    return _get
+    return _get, client, demo
+
+
+@pytest.fixture
+def get(monkeypatch):
+    return _app(monkeypatch, demo_mode=True)[0]
 
 
 @pytest.mark.parametrize("who", ["peter", "anonymous"])
@@ -117,3 +124,80 @@ def test_the_explorer_counts_and_shows_the_categories():
     assert "r.skipped_count != null ? r.skipped_count" in html          # "N skipped" uses the count
     assert "skipped_categories" in html and "shown to administrators only" in html
     assert "Whether a restricted report spec can run is not checked here" in html   # A1
+
+
+# ── F1b: a Portal without auth (laz: DEMO_MODE and SERVER_MANAGED_AUTH off) ──────────────────────
+# There _is_admin says everyone is an administrator, so the sync detail has its own rule: no
+# X-Egeria-Token (the local owner) gets it; a persona token only if its user is listed.
+
+SECRETS = (HIDDEN, "ZZ other zoned", "Draft Thing", ZONE, "financeteam")
+
+
+@pytest.fixture
+def noauth(monkeypatch):
+    _get, client, demo = _app(monkeypatch, demo_mode=False)
+
+    def call(token=None, method="get"):
+        headers = {"X-Egeria-Token": token} if token else {}
+        r = (client.post if method == "post" else client.get)("/api/report-specs/sync", headers=headers)
+        assert r.status_code == 200, r.text
+        return r.json()
+    call.persona = lambda sub, exp=3600: demo(sub) if exp > 0 else _expired(demo, sub)
+    return call
+
+
+def _expired(demo, sub):
+    from jose import jwt
+    import demo_feedback_handler as dfh
+    return jwt.encode({"sub": sub, "role": "user", "exp": int(time.time()) - 60}, dfh._JWT_SECRET, algorithm="HS256")
+
+
+def _redacted(st):
+    text = json.dumps(st)
+    for secret in SECRETS:
+        assert secret not in text, f"{secret!r} reached a persona"
+    assert st["detail"] is False and "skipped" not in st["report"]
+    assert st["report"]["skipped_count"] == 3
+    assert st["report"]["skipped_categories"] == [["zoned", 2], ["not active", 1]]
+
+
+@pytest.mark.parametrize("method", ["get", "post"])
+def test_noauth_without_a_token_the_local_owner_gets_the_detail(noauth, method):
+    st = noauth(method=method)
+    assert st["detail"] is True and HIDDEN in [who for who, _ in st["report"]["skipped"]]
+
+
+@pytest.mark.parametrize("method", ["get", "post"])
+def test_noauth_a_persona_token_gets_counts_and_categories_only(noauth, method):
+    _redacted(noauth(noauth.persona("peterprofile"), method=method))
+
+
+def test_noauth_an_expired_persona_token_gets_no_names(noauth):
+    _redacted(noauth(noauth.persona("peterprofile", exp=0)))
+
+
+@pytest.mark.parametrize("method", ["get", "post"])
+def test_noauth_a_listed_persona_gets_the_detail(noauth, monkeypatch, method):
+    monkeypatch.setenv("PORTAL_SYNC_DETAIL_USERS", " garygeeke , someoneelse")
+    assert noauth(noauth.persona("garygeeke"), method=method)["detail"] is True
+    _redacted(noauth(noauth.persona("peterprofile"), method=method))       # the list is exact
+
+
+def test_noauth_egeria_admin_users_from_demo_config_count(noauth, monkeypatch):
+    import demo_config
+    monkeypatch.setattr(demo_config, "EGERIA_ADMIN_USERS", {"garygeeke"}, raising=False)
+    assert noauth(noauth.persona("garygeeke"))["detail"] is True
+
+
+@pytest.mark.parametrize("token", ["not-a-jwt", "a.b.c", "x.eyJzdWIiOiAxfQ.y"])   # no readable string sub
+def test_noauth_an_unreadable_token_gets_the_public_status(noauth, monkeypatch, token):
+    monkeypatch.setenv("PORTAL_SYNC_DETAIL_USERS", "garygeeke")
+    _redacted(noauth(token))
+
+
+def test_noauth_any_error_withholds_the_detail(noauth, monkeypatch):
+    import egeria_auth
+    def boom(token):
+        raise RuntimeError("cannot read")
+    monkeypatch.setattr(egeria_auth, "_token_sub", boom)
+    _redacted(noauth(noauth.persona("garygeeke")))

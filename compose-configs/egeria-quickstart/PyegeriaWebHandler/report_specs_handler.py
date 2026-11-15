@@ -188,10 +188,48 @@ def _sync_detail_allowed(request: Optional[Request]) -> bool:
     """Error text, skip names and skip reasons from the sync go to administrators only. The sync
     reads as the service account, so its skip list can name zoned specs (and their zones) that a
     signed-in viewer cannot read (F1, 2026-11-15). Everyone else gets the outcome, the counts and
-    the skip categories (report_spec_sync.public_status)."""
+    the skip categories (report_spec_sync.public_status).
+
+    With auth on (DEMO_MODE or SERVER_MANAGED_AUTH) that is the Portal's admin check, failing
+    closed. With auth off (a local quickstart such as laz) that check says everyone is an
+    administrator, so the sync detail has its own rule (F1b, 2026-11-15): a request with no
+    X-Egeria-Token (the local owner, not signed in as a persona) gets the detail; a request with a
+    persona token, valid or expired, gets it only if the token's user is listed in
+    EGERIA_ADMIN_USERS (demo_config) or PORTAL_SYNC_DETAIL_USERS (comma-separated, empty by
+    default). Any doubt, an unreadable token or an error gives the public status."""
     if request is None:
         return False
-    return _is_admin_closed(request)
+    try:
+        import demo_feedback_handler as dfh
+        auth_on = bool(dfh.DEMO_MODE or dfh.SERVER_MANAGED_AUTH)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"report specs: auth mode unknown, withholding sync detail: {exc}")
+        return False
+    if auth_on:
+        return _is_admin_closed(request)
+    try:
+        from egeria_auth import _token_sub, get_request_token
+        token = get_request_token()
+        if not token:
+            return True
+        user = _token_sub(token)
+        return bool(user) and user in _sync_detail_users()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"report specs: sync detail check failed, withholding it: {exc}")
+        return False
+
+
+def _sync_detail_users() -> set:
+    """The persona users who see the sync detail on a Portal without auth: EGERIA_ADMIN_USERS from
+    demo_config if it has one, plus PORTAL_SYNC_DETAIL_USERS. Empty by default."""
+    users = set()
+    try:
+        import demo_config
+        users |= {str(u).strip() for u in (getattr(demo_config, "EGERIA_ADMIN_USERS", None) or ()) if str(u).strip()}
+    except Exception:  # noqa: BLE001
+        pass
+    users |= {u.strip() for u in os.environ.get("PORTAL_SYNC_DETAIL_USERS", "").split(",") if u.strip()}
+    return users
 
 
 def _sync_status_for(request: Optional[Request]) -> dict:
@@ -389,7 +427,7 @@ def sync_from_egeria(request: Request):
     _admin_gate(request)
     import report_spec_sync
     started = report_spec_sync.start("admin")
-    st = dict(report_spec_sync.status(), detail=True)
+    st = _sync_status_for(request)      # the same detail rule as GET (F1b: a persona on laz sees counts)
     return JSONResponse({"started": started, "already_running": not started,
                          "running_words": report_spec_sync.running_words(st), **st})
 
