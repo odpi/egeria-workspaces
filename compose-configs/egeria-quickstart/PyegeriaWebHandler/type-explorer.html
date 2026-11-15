@@ -3420,6 +3420,14 @@ function RsRestrictedNote({ info }) {
     style: { fontSize: 11, color: info.state === 'read_failed' ? '#fbbf24' : 'var(--dim)', margin: '4px 12px', overflowWrap: 'anywhere' } }, text);
 }
 
+// The Report Specs view's own calls (list, sync, sync poll). The list and sync status carry the sync's
+// skip detail, which the server gives only to an administrator, or on a Portal without auth to a
+// request with no persona token (F1b): so a signed-in persona's token must go with them, or peter's
+// browser reads as the local owner. Plain fetch only when no one is signed in.
+function rsSpecFetch(url, creds, opts) {
+  return creds && creds.token ? egeriaFetch(url, creds, opts) : fetch(url, opts);
+}
+
 function ReportSpecView() {
   const creds = React.useContext(CredContext);
   const [restrictedInfo, setRestrictedInfo] = useState(null);
@@ -3450,7 +3458,7 @@ function ReportSpecView() {
   const startSync = useCallback(() => {
     setSyncing(true);
     setSyncMsg('Syncing from Egeria…');
-    fetch('/api/report-specs/sync', { method: 'POST' })
+    rsSpecFetch('/api/report-specs/sync', creds, { method: 'POST' })
       .then(r => r.json().then(d => ({ ok: r.ok, status: r.status, d })))
       .then(({ ok, status, d }) => {
         if (!ok) throw new Error(d.detail || ('HTTP ' + status));
@@ -3462,7 +3470,7 @@ function ReportSpecView() {
         }
         let tries = 0;
         const poll = () => {
-          fetch('/api/report-specs/sync').then(r => r.json()).then(st => {
+          rsSpecFetch('/api/report-specs/sync', creds).then(r => r.json()).then(st => {
             if (st.running && tries++ < 90) { setTimeout(poll, 2000); return; }
             setSyncing(false);
             setSyncMsg(_rsSyncWords(st));
@@ -3472,12 +3480,12 @@ function ReportSpecView() {
         setTimeout(poll, 1500);
       })
       .catch(e => { setSyncing(false); setSyncMsg('Sync not started: ' + e.message); });
-  }, []);
+  }, [creds]);   // the token goes with the sync and its poll (F1b)
 
   useEffect(() => {
     setLoadState('loading');
     setError('');
-    fetch('/api/report-specs')
+    rsSpecFetch('/api/report-specs', creds)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => {
         const list = data.specs || [];

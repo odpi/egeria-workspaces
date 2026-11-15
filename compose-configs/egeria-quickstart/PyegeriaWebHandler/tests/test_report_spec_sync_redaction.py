@@ -7,6 +7,7 @@ Through the real route, EgeriaTokenMiddleware and the real admin check (a signed
 """
 import base64
 import json
+import re
 import sys
 import time
 from pathlib import Path
@@ -201,3 +202,82 @@ def test_noauth_any_error_withholds_the_detail(noauth, monkeypatch):
         raise RuntimeError("cannot read")
     monkeypatch.setattr(egeria_auth, "_token_sub", boom)
     _redacted(noauth(noauth.persona("garygeeke")))
+
+
+# ── F1b R1: the Explorer sends the persona's token with the calls that carry the sync detail ──────
+# Without auth a request with no token is the local owner and gets the names, so a bare fetch from a
+# signed-in persona's page (peter on laz) would still show them.
+
+
+# A bare fetch of a report-specs URL that is allowed, and why. Nothing here carries the sync detail.
+_BARE_FETCH_ALLOWED = {
+    "/api/report-specs/execute": "the non-restricted run: its answer holds no sync status (restricted runs use egeriaFetch)",
+}
+
+
+def _explorer():
+    return (ROOT / "type-explorer.html").read_text(encoding="utf-8")
+
+
+def test_no_bare_fetch_of_a_report_specs_url_is_left():
+    bare = re.findall(r"(?<![\w.])fetch\(\s*['\"`](/api/report-specs[^'\"`?]*)", _explorer())
+    left = [u for u in bare if u not in _BARE_FETCH_ALLOWED]
+    assert not left, f"bare fetch of {left}: use rsSpecFetch(url, creds, ...) so a persona's token goes with it"
+
+
+def test_the_list_the_sync_and_its_poll_go_through_rs_spec_fetch():
+    html = _explorer()
+    assert "rsSpecFetch('/api/report-specs', creds)" in html
+    assert "rsSpecFetch('/api/report-specs/sync', creds, { method: 'POST' })" in html
+    assert "rsSpecFetch('/api/report-specs/sync', creds).then" in html
+
+
+def test_rs_spec_fetch_sends_the_token_when_signed_in_and_plain_fetch_otherwise():
+    body = re.search(r"function rsSpecFetch\(url, creds, opts\) \{(.*?)\n\}", _explorer(), re.S)
+    assert body, "rsSpecFetch is missing"
+    assert body.group(1).strip() == "return creds && creds.token ? egeriaFetch(url, creds, opts) : fetch(url, opts);"
+
+
+def test_the_sync_callback_sees_the_current_creds():
+    html = _explorer()
+    start = html.index("const startSync = useCallback(")
+    deps = re.compile(r"\n  \}, \[([^\]]*)\]\);").search(html, start)       # the callback's own close
+    assert deps and deps.group(1) == "creds", "startSync must re-bind when the token changes"
+
+
+def _js_function(source, name):
+    m = re.search(r"\nfunction " + name + r"\(.*?\n\}\n", source, re.S)
+    assert m, f"{name} not found"
+    return m.group(0)
+
+
+def test_rs_spec_fetch_puts_the_token_on_the_wire_under_node(tmp_path):
+    """Runs the page's rsSpecFetch and the shared egeriaFetch with a stub fetch: what a request carries."""
+    import shutil
+    import subprocess
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node is not installed (the Portal container has none)")
+    shared = (ROOT / "static" / "egeria-shared-ui.js").read_text(encoding="utf-8")
+    script = "\n".join([
+        "var sent = [];",
+        "function fetch(url, opts) { sent.push({ url: url, token: ((opts || {}).headers || {})['X-Egeria-Token'] || null });",
+        "  return Promise.resolve({ status: 200 }); }",
+        "function egeriaForLineageOn() { return false; }",
+        "var _tokenRefresher = {};",
+        _js_function(shared, "egeriaFetch"),
+        _js_function(_explorer(), "rsSpecFetch"),
+        "Promise.all([",
+        "  rsSpecFetch('/api/report-specs', { token: 'PETER-TOKEN', userId: 'peterprofile' }),",
+        "  rsSpecFetch('/api/report-specs/sync', { token: 'PETER-TOKEN' }, { method: 'POST' }),",
+        "  rsSpecFetch('/api/report-specs', {}),",
+        "  rsSpecFetch('/api/report-specs/sync', null),",
+        "]).then(function() { console.log(JSON.stringify(sent)); });",
+    ])
+    js = tmp_path / "rs_spec_fetch.js"
+    js.write_text(script, encoding="utf-8")
+    out = subprocess.run([node, str(js)], capture_output=True, text=True, timeout=30)
+    assert out.returncode == 0, out.stderr
+    sent = json.loads(out.stdout)
+    assert [s["token"] for s in sent] == ["PETER-TOKEN", "PETER-TOKEN", None, None]
+    assert sent[2]["url"] == "/api/report-specs" and sent[3]["url"] == "/api/report-specs/sync"   # plain fetch
