@@ -2655,7 +2655,9 @@ function RsResolutionPanel({ spec, portalSupply }) {
   var r = spec.resolution;
   const [showNotes, setShowNotes] = useState(false);
   if (!r) return React.createElement('div', { style: { marginTop: 12, fontSize: 12, color: 'var(--dim)', fontStyle: 'italic' } },
-    'This pyegeria does not resolve report specs, so whether this spec can run is not known here.');
+    spec.restricted
+      ? 'Whether a restricted report spec can run is not checked here: it runs as you, so use Run to find out.'
+      : 'This pyegeria does not resolve report specs, so whether this spec can run is not known here.');
   var isFind = (r.kind || '').indexOf('find') >= 0;
   return React.createElement('div', { style: { marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' } },
     React.createElement('div', { style: { display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' } },
@@ -3299,7 +3301,8 @@ function _rsSyncWords(st) {
   if (st.outcome === 'already_running') return 'Another process was syncing this cache; try again shortly.';
   if (st.outcome === 'synced') {
     var r = st.report || {};
-    var n = function(k) { return (r[k] || []).length; };
+    // Without the detail (non-admins) the skips come as a count and categories, never names (F1).
+    var n = function(k) { return k === 'skipped' && r.skipped_count != null ? r.skipped_count : (r[k] || []).length; };
     return 'Synced ' + (st.finished_at || '') + ': ' + n('added') + ' added, ' + n('updated') + ' updated, ' +
       n('unchanged') + ' unchanged, ' + n('pruned') + ' pruned, ' + n('skipped') + ' skipped.';
   }
@@ -3310,6 +3313,7 @@ function RsEgeriaHeldBanner({ held, onSync, syncing, syncMsg, onShow }) {
   var none = !held.count;
   var sync = held.sync || {};
   var skipped = ((sync.report || {}).skipped || []);
+  var skipCats = ((sync.report || {}).skipped_categories || []);
   return React.createElement('div', { style: { margin: '6px 10px', padding: '6px 8px', fontSize: 11, borderRadius: 5,
       border: '1px solid ' + (none ? 'rgba(148,163,184,.3)' : 'rgba(52,211,153,.35)'),
       background: none ? 'rgba(148,163,184,.06)' : 'rgba(52,211,153,.06)', color: 'var(--text)' } },
@@ -3321,6 +3325,9 @@ function RsEgeriaHeldBanner({ held, onSync, syncing, syncMsg, onShow }) {
     !syncMsg && (sync.outcome || sync.running) && React.createElement('div', { style: { color: 'var(--dim)', marginTop: 2 } }, _rsSyncWords(Object.assign({}, sync, { running_words: held.running || sync.running_words }))),
     !syncMsg && skipped.length > 0 && React.createElement('div', { style: { color: '#fbbf24', marginTop: 2, overflowWrap: 'anywhere' } },
       skipped.map(function(sk, i) { return React.createElement('div', { key: i }, sk[0] + ': ' + sk[1]); })),
+    !syncMsg && !skipped.length && skipCats.length > 0 && React.createElement('div', { style: { color: '#fbbf24', marginTop: 2, overflowWrap: 'anywhere' } },
+      'Skipped: ' + skipCats.map(function(c) { return c[1] + ' ' + c[0]; }).join(', ') +
+      ' (which specs is shown to administrators only)'),
     syncMsg && React.createElement('div', { style: { color: 'var(--dim)', marginTop: 2, overflowWrap: 'anywhere' } }, syncMsg),
     React.createElement('button', { className: 'btn-sm', style: { marginTop: 4 }, disabled: syncing,
       title: "Administrators: read the configured folders in Egeria into the Portal's report spec cache (reads Egeria only)",

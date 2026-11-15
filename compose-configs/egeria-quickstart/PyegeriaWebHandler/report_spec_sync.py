@@ -106,15 +106,54 @@ def status() -> Dict[str, Any]:
     return out
 
 
+# Skip-reason categories a caller without the detail may see. The sync reads as the service
+# account, so a skip's own words can name a spec, its zones or a folder the caller cannot read
+# (F1, 2026-11-15): only the category and the count leave this module for them.
+_SKIP_CATEGORIES = (
+    ("zoned:", "zoned"),
+    ("folder not found", "folder not found or not visible"),
+    ("the folder could not be read", "folder not read"),
+    ("the folder's members could not be read", "folder not read"),
+    ("the sub-folder's members could not be read", "folder not read"),
+    ("not found in Egeria", "not found or not visible"),
+    ("the spec could not be looked up", "lookup failed"),
+    ("one label held by two elements", "duplicate label"),
+    ("contentStatus", "not active"),
+    ("could not be fetched or converted", "fetch failed"),
+)
+
+
+def skip_category(why: Any) -> str:
+    """The category of one skip reason, never its words: 'other' for a reason not listed."""
+    text = str(why or "")
+    for prefix, category in _SKIP_CATEGORIES:
+        if text.startswith(prefix):
+            return category
+    return "other"
+
+
+def skip_summary(skipped: List[Any]) -> List[List[Any]]:
+    """[[category, count], ...] in first-seen order: what a caller without the detail sees."""
+    counts: Dict[str, int] = {}
+    for entry in skipped or []:
+        why = entry[1] if isinstance(entry, (list, tuple)) and len(entry) > 1 else ""
+        cat = skip_category(why)
+        counts[cat] = counts.get(cat, 0) + 1
+    return [[cat, n] for cat, n in counts.items()]
+
+
 def public_status() -> Dict[str, Any]:
-    """The sync state without error text, skip reasons or the sync identity, for callers not
-    allowed the detail. The outcome word and counts stay, so it is still honest."""
+    """The sync state without error text, skip names or reasons, or the sync identity, for callers
+    not allowed the detail. The outcome word and counts stay, so it is still honest: `skipped_count`
+    and `skipped_categories` say how many were skipped and why in general, never which or with what
+    zones (the skipped specs may be ones the caller cannot read)."""
     full = status()
     rep = full.get("report") or {}
+    skipped = rep.get("skipped") or []
     out = {k: full.get(k) for k in ("running", "trigger", "started_at", "finished_at", "outcome", "phase",
                                      "attempt", "attempts", "folders", "missing_folders")}
     out["report"] = ({k: list(rep.get(k) or []) for k in ("added", "updated", "unchanged", "pruned")}
-                     | {"skipped": [[who, "(detail withheld)"] for who, _why in (rep.get("skipped") or [])]}
+                     | {"skipped_count": len(skipped), "skipped_categories": skip_summary(skipped)}
                      | ({"consumers": {k: rep["consumers"].get(k) for k in ("status", "consumers", "labels")}}
                         if isinstance(rep.get("consumers"), dict) else {})
                      if rep else None)

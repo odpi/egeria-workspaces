@@ -185,17 +185,12 @@ def _is_admin_closed(request: Request) -> bool:
 
 
 def _sync_detail_allowed(request: Optional[Request]) -> bool:
-    """Error text and skip reasons from the sync go to administrators and to signed-in callers
-    (an unexpired X-Egeria-Token); anonymous callers get the outcome without the detail."""
+    """Error text, skip names and skip reasons from the sync go to administrators only. The sync
+    reads as the service account, so its skip list can name zoned specs (and their zones) that a
+    signed-in viewer cannot read (F1, 2026-11-15). Everyone else gets the outcome, the counts and
+    the skip categories (report_spec_sync.public_status)."""
     if request is None:
         return False
-    try:
-        from egeria_auth import _token_expired, get_request_token
-        token = get_request_token()
-        if token and not _token_expired(token):
-            return True
-    except Exception:  # noqa: BLE001
-        pass
     return _is_admin_closed(request)
 
 
@@ -401,8 +396,8 @@ def sync_from_egeria(request: Request):
 
 @router.get("/api/report-specs/sync", summary="The last sync of report specs from Egeria")
 def sync_status(request: Request):
-    """Outcome, counts and what a running sync is doing, for everyone. Error text and skip
-    reasons only for administrators and signed-in callers (detail: true)."""
+    """Outcome, counts, skip categories and what a running sync is doing, for everyone. Error
+    text and skip names and reasons only for administrators (detail: true)."""
     import report_spec_sync
     st = _sync_status_for(request)
     return JSONResponse(dict(st, running_words=report_spec_sync.running_words(st)))
