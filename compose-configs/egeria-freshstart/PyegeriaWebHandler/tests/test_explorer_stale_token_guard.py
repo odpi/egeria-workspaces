@@ -32,7 +32,12 @@ def _node(tmp_path, body):
     if not node:
         pytest.skip("node is not installed (the Portal container has none)")
     js = tmp_path / "stale_token.js"
-    js.write_text(_js_function(_page(), "credsIfStillCurrent") + "\n" + body, encoding="utf-8")
+    page = _page()
+    shared = (ROOT / "static" / "egeria-shared-ui.js").read_text(encoding="utf-8")
+    parts = [_js_function(page, n) for n in ("credsIfStillCurrent", "takeSaveTicket", "refreshedOrRefused")]
+    parts += ["function egeriaForLineageOn() { return false; }", "var _tokenRefresher = {};",
+              _js_function(shared, "egeriaFetch")]
+    js.write_text("\n".join(parts) + "\n" + body, encoding="utf-8")
     out = subprocess.run([node, str(js)], capture_output=True, text=True, timeout=30)
     assert out.returncode == 0, out.stderr
     return json.loads(out.stdout)
@@ -87,3 +92,77 @@ def test_the_load_effect_and_the_refresher_set_creds_through_the_guard():
     bare = [m.start() for m in re.finditer(r"setCreds\(withTok\)", html)]
     save = html.index("const saveCreds = useCallback(")
     assert len(bare) == 1 and save < bare[0] < html.index("}, [acquireToken]);", save)
+
+
+# ── A2 R1: saveCreds as well; and a stale 401 refresh is refused ────────────────────────────────
+
+def test_quick_switches_whose_mints_resolve_out_of_order_end_with_the_last_save(tmp_path):
+    """The page's saveCreds shape, with mints resolved by hand: the first save's mint lands last."""
+    got = _node(tmp_path, """
+var creds = null, saveSeq = { current: 0 }, pending = {};
+function setCreds(v) { creds = v; }
+function acquireToken(c) { return new Promise(function(res) { pending[c.userId] = function() { res(Object.assign({}, c, { token: c.userId + '-T' })); }; }); }
+function saveCreds(c) {                       // as in type-explorer.html
+  var isLatest = takeSaveTicket(saveSeq);
+  return acquireToken(c).then(function(withTok) { if (!isLatest()) return; setCreds(withTok); });
+}
+var out = {};
+var a = saveCreds({ userId: 'peterprofile', password: 'p' });
+var b = saveCreds({ userId: 'calliequartile', password: 'c' });
+pending.calliequartile(); b.then(function() {
+  out.afterSecond = creds.userId;
+  pending.peterprofile(); return a;
+}).then(function() {
+  out.afterFirstLate = creds.userId;
+  // three switches: erin -> peter -> rover, resolved rover, erin, peter
+  var e = saveCreds({ userId: 'erinoverview', password: 'e' }), p = saveCreds({ userId: 'peterprofile', password: 'p' }),
+      r = saveCreds({ userId: 'roverrevenue', password: 'r' });
+  pending.roverrevenue();
+  return r.then(function() { pending.erinoverview(); return e; }).then(function() { pending.peterprofile(); return p; });
+}).then(function() { out.three = creds.userId; out.token = creds.token; console.log(JSON.stringify(out)); });
+""")
+    assert got == {"afterSecond": "calliequartile", "afterFirstLate": "calliequartile",
+                   "three": "roverrevenue", "token": "roverrevenue-T"}
+
+
+def test_a_stale_refresh_keeps_the_401_and_does_not_retry_as_the_old_identity(tmp_path):
+    """Through the shared egeriaFetch: a 401, a refresh minted for erin while the view is now peter's."""
+    got = _node(tmp_path, """
+var sent = [];
+function fetch(url, opts) {
+  var tok = ((opts || {}).headers || {})['X-Egeria-Token'] || null;
+  sent.push(tok);
+  return Promise.resolve({ status: tok === 'OLD' ? 401 : 200 });
+}
+var current = null;
+function installRefresher() {                // as in type-explorer.html
+  _tokenRefresher.refresh = function(oldCreds) {
+    return Promise.resolve(Object.assign({}, oldCreds, { token: 'NEW-' + oldCreds.userId })).then(function(withTok) {
+      refreshedOrRefused(current, withTok);
+      return withTok;
+    });
+  };
+}
+installRefresher();
+var erin = { userId: 'erinoverview', password: 'e', token: 'OLD' };
+var out = {};
+current = { userId: 'peterprofile', password: 'p', token: 'PETER' };          // switched while erin's call ran
+egeriaFetch('/api/x', erin).then(function(r) {
+  out.staleStatus = r.status; out.staleSent = sent.slice();
+  sent.length = 0; current = { userId: 'erinoverview', password: 'e', token: 'OLD' };   // still erin
+  return egeriaFetch('/api/x', erin);
+}).then(function(r) { out.liveStatus = r.status; out.liveSent = sent.slice(); console.log(JSON.stringify(out)); });
+""")
+    assert got["staleStatus"] == 401 and got["staleSent"] == ["OLD"]            # no retry as erin
+    assert got["liveStatus"] == 200 and got["liveSent"] == ["OLD", "NEW-erinoverview"]
+
+
+def test_save_creds_and_the_refresher_use_the_guards():
+    html = _page()
+    save = html.index("const saveCreds = useCallback(")
+    body = html[save:html.index("}, [acquireToken]);", save)]
+    assert "var isLatest = takeSaveTicket(saveSeq);" in body and "if (!isLatest()) return;" in body
+    assert body.index("if (!isLatest()) return;") < body.index("setCreds(withTok);")
+    assert "const saveSeq = React.useRef(0);" in html
+    assert "credsNow.current = creds;" in html
+    assert "refreshedOrRefused(credsNow.current, withTok);" in html

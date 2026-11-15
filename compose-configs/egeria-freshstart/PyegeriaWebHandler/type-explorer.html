@@ -608,6 +608,20 @@ const {
 // creds read from localStorage on load (or a 401 refresh) can resolve after the user switched persona
 // (saveCreds); setting its result then would put the stale identity back. Used as a functional
 // setCreds: keep the result only while the current creds are still the identity it was minted for.
+// Each saveCreds call takes a ticket; a mint's result is kept only while its ticket is still the latest
+// (A2 R1): two quick switches (erin -> peter -> rover) whose mints resolve out of order end with rover.
+function takeSaveTicket(seqRef) {
+  var ticket = ++seqRef.current;
+  return function isLatest() { return ticket === seqRef.current; };
+}
+
+// A 401 refresh minted for an identity the user has since left is refused, so egeriaFetch does not retry
+// that request as the old identity and land its answer in the new identity's view (it keeps the 401).
+function refreshedOrRefused(current, withTok) {
+  if (credsIfStillCurrent(current, withTok) !== withTok) throw new Error('the identity changed during the token refresh');
+  return withTok;
+}
+
 function credsIfStillCurrent(cur, result) {
   if (!cur || !result) return cur;
   var same = ['url', 'server', 'userId', 'password'].every(function(k) { return (cur[k] || '') === (result[k] || ''); });
@@ -11496,8 +11510,11 @@ function App() {
       .catch(function() { return c; });
   }, []);
 
+  const saveSeq = React.useRef(0);
   const saveCreds = useCallback(function(c) {
+    var isLatest = takeSaveTicket(saveSeq);
     acquireToken(c).then(function(withTok) {
+      if (!isLatest()) return;              // a later save superseded this one (A2 R1)
       setCreds(withTok);
       setConnected(true);
       setCredsKey(function(k) { return k + 1; });
@@ -11517,9 +11534,12 @@ function App() {
   }, [creds.url, creds.server, creds.userId, creds.password]);
 
   // Let egeriaFetch refresh an expired token on a 401 and retry once.
+  const credsNow = React.useRef(creds);
+  credsNow.current = creds;
   useEffect(function() {
     _tokenRefresher.refresh = function(oldCreds) {
       return acquireToken(oldCreds).then(function(withTok) {
+        refreshedOrRefused(credsNow.current, withTok);   // rejects: egeriaFetch keeps the 401, no stale retry
         setCreds(function(cur) { return credsIfStillCurrent(cur, withTok); });   // never a switched-away identity
         return withTok;
       });
