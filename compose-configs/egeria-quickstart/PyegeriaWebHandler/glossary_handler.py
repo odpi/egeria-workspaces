@@ -23,37 +23,16 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
 
+from egeria_error_mapping import _is_auth_error, auth_http_exception  # noqa: E402
+
 router = APIRouter(tags=["glossary"])
-
-
-def _is_auth_error(exc: Exception) -> bool:
-    seen = set()
-    node = exc
-    while node is not None and id(node) not in seen:
-        seen.add(id(node))
-        code = getattr(node, "response_code", None) or getattr(node, "http_status_code", None)
-        if code in (401, 403):
-            return True
-        # httpx.HTTPStatusError stores status_code on response
-        resp = getattr(node, "response", None)
-        if resp is not None and getattr(resp, "status_code", None) in (401, 403):
-            return True
-        s = str(node).upper()
-        if ("HTTP CODE: 401" in s or "HTTP CODE: 403" in s
-                or "USER_NOT_AUTHORIZED" in s or "NOT_AUTHORIZED" in s
-                or "AUTHORIZATION_ERROR" in s or "401 " in s
-                or "CLIENT ERROR '401" in s or "CLIENT ERROR '403" in s):
-            return True
-        node = getattr(node, "__cause__", None) or getattr(node, "__context__", None)
-    return False
 
 
 def _raise_http(exc: Exception, log_msg: str = "") -> None:
     if log_msg:
         logger.exception(log_msg)
-    if _is_auth_error(exc):
-        raise HTTPException(status_code=401,
-                            detail="Session expired or token invalid — please reconnect.")
+    if _is_auth_error(exc):   # 403 "Not permitted", or 401 sign in again (by class + code, PO-9)
+        raise auth_http_exception(exc, "Session expired or token invalid — please reconnect.")
     raise HTTPException(status_code=500, detail=str(exc))
 
 
