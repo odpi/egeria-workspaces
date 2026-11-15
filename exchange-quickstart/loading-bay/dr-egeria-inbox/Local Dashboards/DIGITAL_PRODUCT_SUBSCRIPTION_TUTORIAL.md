@@ -27,7 +27,7 @@ We want to answer four key questions for the Data Office:
 
 For this dashboard to be meaningful, we need `DataProduct` and `Agreement` elements in Egeria. We will use a Dr.Egeria document to seed these if they don't exist, or just reference them if they do.
 
-A "Subscription" in this context is modeled as an **Agreement** linked to a **Digital Product**.
+A "Subscription" in this context is modeled as a **Digital Subscription** — Egeria's subtype of **Agreement** — linked to a **Digital Product**.
 
 ```markdown
 ## Create Digital Product
@@ -42,13 +42,11 @@ Clinical Trial Progress
 ### Description
 Real-time tracking of clinical trial recruitment and milestones.
 
-## Create Agreement
+## Create Digital Subscription
 ### Display Name
 Marketing Subscription - C360
 ### Description
 Subscription for the Marketing team to Customer 360 Insights.
-### Agreement Type
-Subscription
 
 ## Link Agreement Item
 ### Agreement Name
