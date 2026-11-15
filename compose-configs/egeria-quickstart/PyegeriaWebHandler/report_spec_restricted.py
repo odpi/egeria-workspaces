@@ -230,7 +230,9 @@ def is_restricted_fetch(name: str) -> bool:
 def _shared_tier_version(label: str) -> Optional[int]:
     try:
         from pyegeria.view.egeria_spec_cache import egeria_tier_info
-        info = egeria_tier_info(label) or {}
+        from portal_spec_identity import anonymous_spec_identity
+        with anonymous_spec_identity():    # the shared tier, as no one: never the caller's private specs
+            info = egeria_tier_info(label) or {}
     except Exception:  # noqa: BLE001
         return None
     v = info.get("header_version")
@@ -254,9 +256,9 @@ def _fetched_as(client: Any, name: str, fetched_spec) -> Any:
     keys a fetched spec by the fetching client's identity, with no fallback (spec-cache identity change); asked
     outside any `spec_identity`, it would look up as the Portal's service user and find nothing. A pyegeria
     without `client_credential_identity` keys by name alone."""
-    try:
-        from pyegeria.view.egeria_spec_cache import client_credential_identity
-    except ImportError:
+    from portal_spec_identity import spec_cache_attr
+    client_credential_identity = spec_cache_attr("client_credential_identity")
+    if client_credential_identity is None:
         return fetched_spec(name)
     return fetched_spec(name, identity=client_credential_identity(client))
 

@@ -189,6 +189,10 @@ if DEMO_MODE:
 # handlers (apply_token) reuse a pre-obtained bearer token (LE-4).
 from egeria_auth import EgeriaTokenMiddleware
 app.add_middleware(EgeriaTokenMiddleware)
+# The Portal serves many users: an identity-less report-spec read must see no private specs, not the
+# service user's (portal_spec_identity; pyegeria R-A). The middleware above gives each request its user.
+import portal_spec_identity  # noqa: E402
+portal_spec_identity.declare_multi_user()
 app.add_middleware(SlowAPIMiddleware)
 
 # CORS configuration for Obsidian security

@@ -708,6 +708,16 @@ def missing_pinned_element(exc, params: Optional[dict]) -> Optional[str]:
     return None
 
 
+def _run_user(token, user_id):
+    """The user a run is made as. With a token, the token's user: pyegeria reads the EGERIA tier for
+    credential_identity(user, ...), so passing the service user (EGERIA_USER, Erin) would run a signed-in
+    user's report against Erin's specs."""
+    if token:
+        from egeria_auth import _token_sub
+        return _token_sub(token) or user_id
+    return user_id
+
+
 def _run_spec(req, request, token, url, server, user_id, user_pwd):
     """Run the spec; return the result, or raise the HTTPException the browser should see."""
     from pyegeria.view.format_set_executor import exec_report_spec
@@ -723,7 +733,7 @@ def _run_spec(req, request, token, url, server, user_id, user_pwd):
             params=req.params,
             view_server=server,
             view_url=url,
-            user=user_id,
+            user=_run_user(token, user_id),
             user_pass=user_pwd,
             token=token,
             supply=PortalSupply(request, view_server=server, view_url=url, user_id=user_id, user_pwd=user_pwd),

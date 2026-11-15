@@ -247,7 +247,7 @@ def execute_spec(req: ExecuteRequest, request: Request):
     token flow is a separate, larger piece of work.
     """
     from pyegeria.view.format_set_executor import exec_report_spec
-    from egeria_auth import get_request_token
+    from egeria_auth import _token_sub, get_request_token
 
     url      = req.url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
     server   = req.server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
@@ -264,7 +264,9 @@ def execute_spec(req: ExecuteRequest, request: Request):
             params=req.params,
             view_server=server,
             view_url=url,
-            user=user_id,
+            # With a token, the token's user: pyegeria reads the EGERIA tier for credential_identity(user, ...),
+            # so the service user (EGERIA_USER, Erin) would run a signed-in user's report against Erin's specs.
+            user=(_token_sub(token) or user_id) if token else user_id,
             user_pass=user_pwd,
             token=token,
         )
