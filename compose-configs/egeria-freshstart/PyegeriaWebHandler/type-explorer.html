@@ -604,6 +604,15 @@ const {
 } = React;
 
 // ── Credential context ────────────────────────────────────────────────────────
+// A token minted for one identity must not land on another (A2, 2026-11-15). A mint started for the
+// creds read from localStorage on load (or a 401 refresh) can resolve after the user switched persona
+// (saveCreds); setting its result then would put the stale identity back. Used as a functional
+// setCreds: keep the result only while the current creds are still the identity it was minted for.
+function credsIfStillCurrent(cur, result) {
+  if (!cur || !result) return cur;
+  var same = ['url', 'server', 'userId', 'password'].every(function(k) { return (cur[k] || '') === (result[k] || ''); });
+  return same ? result : cur;
+}
 // CredContext now lives in /static/egeria-shared-ui.js (shared with the Tech
 // Catalog). This SPA still provides it via CredContext.Provider value={creds}.
 
@@ -11502,13 +11511,18 @@ function App() {
   // token field changing does not re-trigger this (guarded), avoiding loops.
   useEffect(function() {
     if (creds.token) return;
-    acquireToken(creds).then(function(withTok) { if (withTok.token) setCreds(withTok); });
+    acquireToken(creds).then(function(withTok) {
+      if (withTok.token) setCreds(function(cur) { return credsIfStillCurrent(cur, withTok); });
+    });
   }, [creds.url, creds.server, creds.userId, creds.password]);
 
   // Let egeriaFetch refresh an expired token on a 401 and retry once.
   useEffect(function() {
     _tokenRefresher.refresh = function(oldCreds) {
-      return acquireToken(oldCreds).then(function(withTok) { setCreds(withTok); return withTok; });
+      return acquireToken(oldCreds).then(function(withTok) {
+        setCreds(function(cur) { return credsIfStillCurrent(cur, withTok); });   // never a switched-away identity
+        return withTok;
+      });
     };
     return function() { _tokenRefresher.refresh = null; };
   }, [acquireToken]);

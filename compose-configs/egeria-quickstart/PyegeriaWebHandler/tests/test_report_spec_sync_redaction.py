@@ -355,5 +355,5 @@ def test_the_list_waits_and_the_token_attempt_marks_itself_settled():
     # acquireToken marks a settled attempt, with or without a token, and the load effect keeps it.
     assert "{ token: t.token, tokenTried: true } : { tokenTried: true }" in html
     assert ".catch(function() { return Object.assign({}, c, { tokenTried: true }); });" in html
-    assert "if (withTok.token || withTok.tokenTried) setCreds(withTok);" in html
+    assert "if (withTok.token || withTok.tokenTried) setCreds(function(cur) { return credsIfStillCurrent(cur, withTok); });" in html
     assert "if (creds.token || creds.tokenTried) return;" in html
