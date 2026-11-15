@@ -17,6 +17,12 @@
 >  └─ CollectionFolder "Jupyter"           ReportSpecFolder::Consumer::Jupyter
 > ```
 >
+> **The GUID in this document belongs to one install.** `fe5aad27-1587-4d4e-a7c0-ab806650a6e2` is the
+> Portal folder's GUID on laz before its metadata store was reset; a GUID differs on every install and
+> changes with a reset. This is a one-time migration that was run on 2026-11-10. To run it anywhere
+> else, put your own `ReportSpecFolder::EgeriaPortal` GUID in the rename block (look the qualified
+> name up). A store that never had that folder needs no rename: drop the GUID block.
+>
 > **This is a shared Egeria write. Run it once, under the shared-write peer check.** Run
 > `--validate` first; it makes no changes.
 >

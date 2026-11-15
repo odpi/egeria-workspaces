@@ -66,12 +66,14 @@ than the name, which is why *Reported* is there.
 ### R2. A parameterised spec (a required parameter that picks one element)
 
 *Ran.* `Collection Members` lists the members of one collection, named by its GUID. Here the collection is
-the Portal's report-spec folder, `ReportSpecFolder::Consumer::Portal`.
+the Portal's report-spec folder, `ReportSpecFolder::Consumer::Portal`. Its GUID is different on every
+install (and changes when the metadata store is reset), so look it up by that qualified name first, for
+example in Egeria Explorer's search, and put it where `<the folder's GUID>` is below.
 
 ```bash
 curl -sk -X POST https://localhost:8843/api/report-specs/execute -H 'Content-Type: application/json' \
   -d '{"spec_name": "Collection Members", "output_format": "TABLE",
-       "params": {"collection_guid": "fe5aad27-1587-4d4e-a7c0-ab806650a6e2"}}'
+       "params": {"collection_guid": "<the folder's GUID>"}}}'
 ```
 
 Output: 2 rows, *Resource Explorer - Curation Coverage* and *Analytic - Generic Metric Trend*, each with
@@ -94,7 +96,7 @@ Collection Members
 TABLE
 
 ### Report Parameters
-collection_guid : fe5aad27-1587-4d4e-a7c0-ab806650a6e2
+collection_guid : <the folder's GUID>
 ```
 
 ### R3. An analytic spec: a count, and a trend held in Egeria
