@@ -27,6 +27,7 @@ document rather than one title+params form.
 import os
 import re
 import tempfile
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
@@ -184,10 +185,12 @@ class ExecuteRequest(PlatformBody):
 
 # ── whose identity a Dr.Egeria run uses (PO-20) ───────────────────────────────────────────────────────────
 
-class DrEgeriaIdentity(BaseModel):
-    """Who a Dr.Egeria run acts as. With `token` set the run uses that token only: the client holds no password
-    (NO_PASSWORD), so it can never sign in again as anyone; `user_pwd` is then None."""
-    url:      str
+@dataclass(frozen=True)
+class DrEgeriaIdentity:
+    """Who a Dr.Egeria run acts as (an internal record, not a request body). With `token` set the run uses that
+    token only: the client holds no password (NO_PASSWORD), so it can never sign in again as anyone; `user_pwd`
+    is then None."""
+    platform_url: str
     server:   str
     user_id:  str
     user_pwd: Optional[str] = None
@@ -229,10 +232,10 @@ def dr_egeria_identity(req) -> DrEgeriaIdentity:
             raise HTTPException(status_code=401, detail="Egeria sign-in expired or unreadable; sign in again")
         if req.user_id and req.user_id != user:
             logger.warning(f"Dr.Egeria: body user_id {req.user_id!r} ignored; running as the token's user {user!r}")
-        return DrEgeriaIdentity(url=url, server=server, user_id=user, user_pwd=None, token=token)
+        return DrEgeriaIdentity(platform_url=url, server=server, user_id=user, user_pwd=None, token=token)
     if _auth_on():
         raise HTTPException(status_code=401, detail="Sign in to run Dr.Egeria commands")
-    return DrEgeriaIdentity(url=url, server=server,
+    return DrEgeriaIdentity(platform_url=url, server=server,
                             user_id=req.user_id  or os.environ.get("EGERIA_USER",          "erinoverview"),
                             user_pwd=req.user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret"))
 
@@ -289,7 +292,7 @@ def _write_and_execute(markdown_block: str, directive: str, ident: "DrEgeriaIden
                 output_folder=outbox_dir,
                 directive=directive,
                 server=ident.server,
-                url=ident.url,
+                url=ident.platform_url,
                 userid=ident.user_id,
                 user_pass=ident.user_pwd,
                 outbox_path=EGERIA_OUTBOX_PATH,
@@ -298,7 +301,7 @@ def _write_and_execute(markdown_block: str, directive: str, ident: "DrEgeriaIden
         else:
             func = getattr(dr_egeria_md.process_markdown_file, "callback", dr_egeria_md.process_markdown_file)
             md = func(input_file=file_path, output_folder=outbox_dir, directive=directive,
-                      server=ident.server, url=ident.url, userid=ident.user_id, user_pass=ident.user_pwd,
+                      server=ident.server, url=ident.platform_url, userid=ident.user_id, user_pass=ident.user_pwd,
                       outbox_path=EGERIA_OUTBOX_PATH, token=ident.token)
             raw = {"output": md or "", "results": []}
     finally:
