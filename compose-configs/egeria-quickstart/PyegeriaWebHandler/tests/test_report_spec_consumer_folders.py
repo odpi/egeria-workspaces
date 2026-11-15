@@ -110,10 +110,24 @@ class _Egeria:
         self.platform_url = "https://test:9443"
         self.view_server = "test-view"
 
+    def _folder(self):
+        return {"elementHeader": {"guid": PORTAL_GUID, "type": {"typeName": "CollectionFolder",
+                                                                "superTypeNames": ["Collection"]}},
+                "properties": {"qualifiedName": self.folder_qn}}
+
     def get_collections_by_name(self, name, metadata_element_type=None, output_format=None):
+        # The folder read before pyegeria's unique-name reads (kept for an older pyegeria).
         if name == self.folder_qn and metadata_element_type == "CollectionFolder":
-            return [{"elementHeader": {"guid": PORTAL_GUID, "type": {"typeName": "CollectionFolder"}},
-                     "properties": {"qualifiedName": self.folder_qn}}]
+            return [self._folder()]
+        return "No elements found"
+
+    def get_element_by_unique_name(self, qualified_name, *_, **__):
+        # Egeria's exact unique-name read (classification explorer), which pyegeria's folder and root
+        # reads use when the client has it. Without it here, pyegeria builds a real ClassificationExplorer
+        # on https://test:9443, and every folder reads as "couldn't tell". Only the Portal folder exists;
+        # anything else (the consumers root included) is Egeria's not-found, as the paged read said.
+        if qualified_name == self.folder_qn:
+            return self._folder()
         return "No elements found"
 
     def get_collection_members(self, collection_guid=None, output_format=None, start_from=0, page_size=None, **_):
@@ -139,6 +153,25 @@ def _manifest(tmp_path) -> dict:
 def _fresh_tier():
     yield
     esc._invalidate_tier()
+
+
+@pytest.fixture(autouse=True)
+def _no_real_explorer(monkeypatch):
+    """The fake answers every read; a real ClassificationExplorer would try to reach https://test:9443."""
+    built = []
+    try:
+        import pyegeria.omvs.classification_explorer as ce
+    except ImportError:
+        yield built
+        return
+
+    class _Refused:
+        def __init__(self, *a, **k):
+            built.append(a)
+            raise AssertionError("a real ClassificationExplorer was built: the fake lacks a read pyegeria uses")
+    monkeypatch.setattr(ce, "ClassificationExplorer", _Refused)
+    yield built
+    assert not built, "a real ClassificationExplorer was built: the fake lacks a read pyegeria uses"
 
 
 def test_deploy_first_then_rename_keeps_the_spec(tmp_path):
