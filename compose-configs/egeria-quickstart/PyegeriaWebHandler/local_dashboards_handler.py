@@ -274,7 +274,7 @@ def _verify_token_with_egeria(token: str, user: str) -> None:
     unexpected error) refuses the write with 503 -- fail closed, never "unverified but OK".
     Sync: this runs in sync routes only (see CLAUDE.md's async invariants)."""
     from egeria_auth import check_client_platform, use_token
-    from egeria_error_mapping import _is_auth_error
+    from egeria_error_mapping import _is_auth_error, auth_http_exception
     import pyegeria
     from pyegeria import MyProfile, PyegeriaNotFoundException
     pyegeria.enable_ssl_check = False
@@ -291,8 +291,8 @@ def _verify_token_with_egeria(token: str, user: str) -> None:
             return                        # HTTP 404 from Egeria: it accepted the token; no profile for this user
         _refuse_unverified(user, exc)
     except Exception as exc:  # noqa: BLE001
-        if _is_auth_error(exc):
-            raise HTTPException(status_code=401, detail="Egeria refused the sign-in token; sign in again")
+        if _is_auth_error(exc):   # 401 sign in again; 403 "Not permitted" refuses the write too (PO-9)
+            raise auth_http_exception(exc, "Egeria refused the sign-in token; sign in again")
         _refuse_unverified(user, exc)
 
 

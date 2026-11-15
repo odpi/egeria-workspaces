@@ -25,6 +25,7 @@ from egeria_auth import apply_token, async_apply_token
 from pathlib import Path
 from typing import Optional
 
+from egeria_error_mapping import _is_auth_error, auth_http_exception  # PO-9
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from pyegeria import ValidMetadataManager, PyegeriaException
@@ -559,9 +560,8 @@ async def get_all_types(
             logger.info(f"Entity def sample wiki: {sample.get('descriptionWiki', '<missing>')}")
     except PyegeriaException as exc:
         logger.exception(f"Pyegeria error in get_all_types: {exc}")
-        exc_text = str(exc)
-        if "HTTP Code: 401" in exc_text or getattr(exc, "http_error_code", None) == 401:
-            raise HTTPException(status_code=401, detail="Not authorized — check credentials or user permissions")
+        if _is_auth_error(exc):   # 403 "Not permitted", or 401 sign in again (PO-9)
+            raise auth_http_exception(exc, "Not authorized — check credentials or user permissions")
         raise HTTPException(status_code=502, detail=f"Egeria error: {exc}")
     except Exception as exc:
         logger.exception(f"Unexpected error in get_all_types: {exc}")
@@ -741,8 +741,8 @@ async def get_relationship_purposes(
             raw = await _fetch(await _get_client_async(url, server, user_id, user_pwd))
     except PyegeriaException as exc:
         logger.exception(f"Pyegeria error in get_relationship_purposes: {exc}")
-        if "HTTP Code: 401" in str(exc) or getattr(exc, "http_error_code", None) == 401:
-            raise HTTPException(status_code=401, detail="Not authorized — check credentials or user permissions")
+        if _is_auth_error(exc):   # 403 "Not permitted", or 401 sign in again (PO-9)
+            raise auth_http_exception(exc, "Not authorized — check credentials or user permissions")
         raise HTTPException(status_code=502, detail=f"Egeria error: {exc}")
     except Exception as exc:
         logger.exception(f"Unexpected error in get_relationship_purposes: {exc}")
@@ -809,8 +809,8 @@ async def get_classification_purposes(
             raw = await _fetch(await _get_client_async(url, server, user_id, user_pwd))
     except PyegeriaException as exc:
         logger.exception(f"Pyegeria error in get_classification_purposes: {exc}")
-        if "HTTP Code: 401" in str(exc) or getattr(exc, "http_error_code", None) == 401:
-            raise HTTPException(status_code=401, detail="Not authorized — check credentials or user permissions")
+        if _is_auth_error(exc):   # 403 "Not permitted", or 401 sign in again (PO-9)
+            raise auth_http_exception(exc, "Not authorized — check credentials or user permissions")
         raise HTTPException(status_code=502, detail=f"Egeria error: {exc}")
     except Exception as exc:
         logger.exception(f"Unexpected error in get_classification_purposes: {exc}")

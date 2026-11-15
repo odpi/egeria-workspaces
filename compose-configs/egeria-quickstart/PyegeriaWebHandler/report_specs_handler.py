@@ -737,10 +737,14 @@ def _run_spec(req, request, token, url, server, user_id, user_pwd):
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
-        # Propagate Egeria 401s as HTTP 401 so the client can show a meaningful message.
-        exc_text = str(exc)
-        if "HTTP Code: 401" in exc_text or getattr(exc, "http_error_code", None) == 401:
-            raise HTTPException(status_code=401, detail="Not authorized for this operation — the current user does not have permission for this report")
+        # An Egeria auth refusal keeps its kind (PO-9, by class + code): 401 the sign-in was refused, so sign
+        # in again; 403 the user is signed in and may not run this, so a new token will not help.
+        from egeria_error_mapping import AUTH_403_DETAIL, auth_error_status
+        status = auth_error_status(exc)
+        if status == 403:
+            raise HTTPException(status_code=403, detail=AUTH_403_DETAIL)
+        if status == 401:
+            raise HTTPException(status_code=401, detail=TOKEN_REFUSED_WORDS)
         gone = missing_pinned_element(exc, req.params)
         if gone:
             logger.info(f"exec_report_spec {req.spec_name!r}: {gone}")

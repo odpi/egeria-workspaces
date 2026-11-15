@@ -178,3 +178,48 @@ def test_refusal_label_says_not_permitted_for_403():
     out = subprocess.run([node, "-e", js], capture_output=True, text=True, timeout=20)
     assert out.returncode == 0, out.stderr
     assert out.stdout.strip() == '["Not permitted","Sign-in needed"]'
+
+
+# ── the report-spec execute route, type system, lineage ──────────────────────
+
+@pytest.mark.parametrize("exc,status", [(_forbidden, 403), (_expired, 401)])
+def test_execute_route_tells_403_from_401(monkeypatch, exc, status):
+    import types
+    import pyegeria.view.format_set_executor as fse
+    import report_specs_handler as rsh
+    from egeria_auth import TOKEN_REFUSED_WORDS
+
+    def boom(*a, **k):
+        raise exc()
+    monkeypatch.setattr(fse, "exec_report_spec", boom)
+    req = types.SimpleNamespace(spec_name="Any Spec", output_format="REPORT", params={}, table_shape=None)
+    with pytest.raises(HTTPException) as ei:
+        rsh._run_spec(req, None, None, "https://egeria.test:9443", "qs-view-server", "u", None)
+    assert ei.value.status_code == status
+    assert ei.value.detail == (em.AUTH_403_DETAIL if status == 403 else TOKEN_REFUSED_WORDS)
+
+
+def test_execute_route_text_alone_is_not_401(monkeypatch):
+    import types
+    import pyegeria.view.format_set_executor as fse
+    import report_specs_handler as rsh
+
+    def boom(*a, **k):
+        raise RuntimeError("HTTP Code: 401 somewhere in the words")
+    monkeypatch.setattr(fse, "exec_report_spec", boom)
+    req = types.SimpleNamespace(spec_name="Any Spec", output_format="REPORT", params={}, table_shape=None)
+    with pytest.raises(HTTPException) as ei:
+        rsh._run_spec(req, None, None, "https://egeria.test:9443", "qs-view-server", "u", None)
+    assert ei.value.status_code == 500
+
+
+def test_no_text_matching_is_left():
+    for name in ("report_specs_handler.py", "report_spec_restricted.py", "type_system_handler.py",
+                 "lineage_handler.py", "local_dashboards_handler.py", "glossary_handler.py",
+                 "operations_handler.py", "tech_catalog_handler.py", "audit_handler.py"):
+        src = (ROOT / name).read_text()
+        for needle in ('"HTTP Code: 401" in', '"AUTHORIZATION_ERROR" in', '"NOT_AUTHORIZED" in', '"401 " in',
+                       'http_error_code", None) == 401'):
+            assert needle not in src, (name, needle)
+    assert (ROOT / "type_system_handler.py").read_text().count("raise auth_http_exception(exc,") == 3
+    assert (ROOT / "lineage_handler.py").read_text().count("raise auth_http_exception(exc,") == 2
