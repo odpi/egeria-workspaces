@@ -5,7 +5,8 @@ without PGVECTOR_PASSWORD, by name. A compose file that writes `${PGVECTOR_PASSW
 carrying `egeria_advisor:advisor@`, would quietly put the old password back inside the container, so after a rotation
 the container would fail to connect for a reason nobody can see. Use `${PGVECTOR_PASSWORD:?...}` instead.
 
-Scope: compose and env-example files under compose-configs/. Deliberately NOT the shared-infra init SQL or the
+Scope: compose, env-example and template files under compose-configs/ (`:-advisor`, `:advisor@`,
+`PGVECTOR_PASSWORD=advisor`). Deliberately NOT the shared-infra init SQL or the
 README, whose role password is the owner's decision.
 """
 from __future__ import annotations
@@ -14,8 +15,9 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1] / "compose-configs"
-PATTERNS = (re.compile(r":-advisor\b"), re.compile(r"egeria_advisor:advisor@"))
-GLOBS = ("*.yaml", "*.yml", "*.env.example", ".env.example", "*.env.template")
+PATTERNS = (re.compile(r":-advisor\b"), re.compile(r":advisor@"), re.compile(r"PGVECTOR_PASSWORD\s*[=:]\s*['\"]?advisor\b"))
+GLOBS = ("*.yaml", "*.yml", "*.env.example", ".env.example", "*.env.template", ".env.template", "*.env.sample",
+         ".env.sample", "*.template")
 
 
 def _files():
@@ -40,5 +42,9 @@ def test_no_compose_file_defaults_the_postgres_password():
 def test_the_guard_sees_the_shapes_it_must_refuse():
     assert PATTERNS[0].search('PGVECTOR_PASSWORD: "${PGVECTOR_PASSWORD:-advisor}"')
     assert PATTERNS[1].search("postgresql://egeria_advisor:advisor@egeria-shared-postgres:5442/egeria_advisor")
-    assert not any(rx.search('PGVECTOR_PASSWORD: "${PGVECTOR_PASSWORD:?set PGVECTOR_PASSWORD (TR-12)}"')
-                   for rx in PATTERNS)
+    assert PATTERNS[2].search("PGVECTOR_PASSWORD=advisor")
+    assert PATTERNS[2].search('PGVECTOR_PASSWORD: "advisor"')
+    assert PATTERNS[1].search("postgresql://someone:advisor@host:5442/db")
+    for fine in ('PGVECTOR_PASSWORD: "${PGVECTOR_PASSWORD:?set PGVECTOR_PASSWORD (TR-12)}"', "PGVECTOR_PASSWORD=",
+                 "PGVECTOR_DBNAME: egeria_advisor"):
+        assert not any(rx.search(fine) for rx in PATTERNS), fine
