@@ -193,6 +193,8 @@ A batch with no notes is running exactly the order its `_batch.json` sets.
 4. If it depends on another folder, add it to `_folder_order.json` after that folder.
 5. In the admin panel, enable the batch, read its notes, and click **Run Now**.
 
+Files that are reloaded need to be safe to run more than once; see [Dr.Egeria techniques and best practices](portal-docs/tools/dr-egeria/best-practices.md#make-documents-safe-to-load-again).
+
 ### Add a notebook to a folder
 
 1. List the notebook in the folder's `_batch.json` `files`, at its place in the order, with a `userid` if it has an owner. Unlike `.md` files, an unlisted notebook never runs.
