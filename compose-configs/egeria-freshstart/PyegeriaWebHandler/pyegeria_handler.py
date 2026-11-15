@@ -42,6 +42,7 @@ def _bootstrap_runtime_defaults() -> None:
 _bootstrap_runtime_defaults()
 
 import asyncio
+import contextvars
 import concurrent.futures
 import io
 import threading
@@ -756,7 +757,10 @@ async def process_markdown(request: ProcessRequest):
     try:
         logger.debug(f"Received request for input_file: {request.input_file}")
         loop = asyncio.get_event_loop()
-        result: ProcessResponse = await loop.run_in_executor(executor, _invoke_processor, request)
+        # copy_context: the worker thread sees this request's X-Egeria-Token, forLineage and report-spec
+        # identity contextvars (run_in_executor does not carry them; PO-21).
+        result: ProcessResponse = await loop.run_in_executor(
+            executor, contextvars.copy_context().run, _invoke_processor, request)
         return JSONResponse(content=result.model_dump())
     except Exception as e:
         print_basic_exception(e)
