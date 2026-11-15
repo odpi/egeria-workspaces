@@ -78,6 +78,8 @@ def subscription_kind(row: dict, group: str, sourced: bool) -> str:
     system = row["subscriber_schema"]
     if system in ("coco_ods", "coco_sus"):
         return "daily"           # reporting stores, rebuilt overnight
+    if system == "egeria":
+        return "daily"           # the catalogue's people and organization, refreshed overnight
     if row["estate"] == "Bucharest" and group in ("Master Data Management", "Privacy Operations", "Patient Treatment"):
         return "evaluation"      # EKG is assessing the group's master data and patient-facing products first
     if system in ARCHIVES:
@@ -176,6 +178,10 @@ subscriber's **destination** - the subscriber's own schema in the `subscription_
 product's tables plus delivery columns.  The `coco_subscriptions_*` DAGs then apply what has been delivered to the
 subscribing system's own tables.
 
+Egeria is a subscriber too.  It takes Worker Master Data, Corporate Directory Entries and Access Entitlements once a
+day, and the `coco_subscriptions_egeria` DAG turns what is delivered into the actor profiles, actor roles, user
+identities, departments and locations of the open metadata catalogue, through Egeria's REST APIs.
+
 ## What a subscription needs
 
 A product can be subscribed to once it has
@@ -196,7 +202,8 @@ The subscriptions use five subscription types, so that each way Egeria delivers 
 |---|---|---|---|---|""")
     used = {"ongoing": "operational systems that act on the data as it arrives",
             "hourly": "batch interfaces into the ERP, finance and people systems",
-            "daily": "the `coco_ods` and `coco_sus` reporting stores",
+            "daily": "the `coco_ods` and `coco_sus` reporting stores, and Egeria's own catalogue of people and "
+                     "organization",
             "weekly": "records, regulatory and catalogue systems",
             "evaluation": "EKG Pharmaceuticals (Bucharest), assessing the group's master data, privacy and patient "
                           "treatment products before integrating with them"}

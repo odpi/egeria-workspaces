@@ -148,6 +148,50 @@ The apply scripts are written so that applying the same rows twice changes nothi
 loop: once delivered data has been applied, the `coco_feed_*` DAGs must not see it as new product data. Each apply
 task declares the staging tables it reads, and the system tables it writes, as Airflow assets for OpenLineage.
 
+## Subscription loads for Egeria
+
+[coco_egeria_loads.py](coco_egeria_loads.py) makes Egeria a subscriber like any other system. Egeria takes three
+of the products, as daily refresh subscriptions, so that its catalogue of people and organization is filled from
+Coco's own systems:
+
+| Product | Staging schema | Becomes, in Egeria |
+|---|---|---|
+| Worker Master Data | `coco_egeria__worker_master_data` | Actor profiles (a `Person` for each worker), actor roles (a `PersonRole` for each job role), links to locations |
+| Corporate Directory Entries | `coco_egeria__corporate_directory_entries` | The people's names, job titles and work phones, and their departments (`Team`s with a `TeamMembers` role) |
+| Access Entitlements | `coco_egeria__access_entitlements` | User identities linked to the people, with their current entitlements as security groups |
+
+Egeria's provisioning services deliver the products into the staging schemas as they do for every subscriber. The
+destination is not a database, so there are no apply scripts: the DAG `coco_subscriptions_egeria` converts the
+delivered rows into calls to Egeria's REST APIs, through the small client in
+[coco_egeria_client.py](coco_egeria_client.py). It runs continuously:
+
+1. **`wait_for_deliveries`** looks every five minutes for rows with `processing_status` `delivered` in the three
+   schemas.
+2. **`egeria.apply__worker_master_data`**, **`egeria.apply__corporate_directory_entries`** and
+   **`egeria.apply__access_entitlements`** run one after the other, since the later ones add to the people the
+   first creates. Each marks its rows `processed`, or `failed` with the error. One row failing does not stop the
+   others.
+
+### Things to know
+
+- **Matching people.** The products know a worker only by a pseudonym. Where a `Person` with an employee number
+  and the same name as the worker's directory entry is already in the catalogue, that is the worker. Those
+  profiles come from the CocoComboArchive: the archive is their master, and Egeria does not let a content pack's
+  elements be changed, so only links are added to them. Every other worker gets a new `Person::Coco::<pseudonym>`
+  that is kept in step with the products. A worker with no directory entry, such as someone who left long ago, is
+  named by their pseudonym.
+- **Locations.** The products carry only a site code. [site-locations.csv](coco-egeria-loads/site-locations.csv)
+  names the catalogued `Location` for each known code. A code that is not listed gets a new `Site::Coco::<code>`.
+- **Departments.** A catalogued department is reused when its name matches and that is unambiguous. Otherwise
+  `Department::Coco::<site code>::<department name>` is created. Cost centres are not departments: one cost centre
+  can pay for people in several, so the cost centre code is kept on the person instead.
+- **Leavers** keep their profile and user identities, and lose their job role and department.
+- **Applying is repeatable.** Each task compares the rows with what Egeria holds and changes only what differs.
+  Reading that state takes about a minute per task, which is why this is a daily load.
+- **Qualified names.** Everything the DAG creates is under `Person::Coco::`, `Department::Coco::`,
+  `TeamMembers::Department::Coco::`, `PersonRole::Coco::Job Role::`, `UserIdentity::Coco::`,
+  `ContactDetails::Coco::` or `Site::Coco::`.
+
 ## Information supply chains
 
 [coco_lineage_facets.py](coco_lineage_facets.py) adds Egeria's `egeria_informationSupplyChain` run facet to the
@@ -166,7 +210,8 @@ compose-configs/egeria-quickstart/bin/gen-coco-supply-chains.py "coco-workbooks/
 
 - A **subscription** task follows the product dependency named in its subscription's basis, and takes that
   dependency's chain. Reporting subscriptions (`coco_ods`, `coco_sus`) and subscriptions along a wire that crosses
-  between chains have none.
+  between chains have none. Of Egeria's three, only Access Entitlements follows a dependency (of Open Metadata
+  Catalogue Holdings, in New Employee Onboarding).
 - A **feed** task publishes a product, so it takes the chains of the dependencies on that product. A product nothing
   depends on takes the chains of its own dependencies.
 - The facet (version 1-1-0) lists every chain in `iscQualifiedNames`, and Egeria creates each lineage relationship
@@ -183,7 +228,9 @@ The connections are set as `AIRFLOW_CONN_*` environment variables in `airflow-ma
 | `coco_pharma`, `austin_systems`, `bucharest_systems` | The system databases | `airflow_user` |
 | `coco_data_hub` | The Data Sharing Hub | `provisioner`, which can read and write every product table |
 | `subscription_staging` | The subscribers' copies of the products | `airflow_user` |
+| `egeria` | Egeria's REST APIs: the platform URL, with the view server as the connection's schema | `generalnpa` |
 
-The `coco_feed_*` DAGs read the system databases, and the `coco_subscriptions_*` DAGs write to them.
+The `coco_feed_*` DAGs read the system databases, and the `coco_subscriptions_*` DAGs write to them, apart from
+`coco_subscriptions_egeria`, which writes to Egeria.
 The databases themselves are created by the quickstart's PostgreSQL set-up
 (`compose-configs/egeria-quickstart/bin/apply-postgres-init.sh`), so start `egeria-quickstart` before Airflow.

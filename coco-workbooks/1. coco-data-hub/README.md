@@ -25,6 +25,7 @@ With the flows, the components, and the systems in one place, Erin sets the stan
 | 11 | Set up the data sharing hub | [setting-up-the-data-hub.ipynb](setting-up-the-data-hub.ipynb) |
 | 12 | Receive the OpenLineage events from Airflow | [receiving-open-lineage-events.ipynb](receiving-open-lineage-events.ipynb) |
 | 13 | Subscribe the systems to the digital products | [digital-product-subscriptions.md](digital-product-subscriptions.md) |
+| 14 | Subscribe to Egeria's own digital products | [egeria-operational-data-store.md](egeria-operational-data-store.md) |
 
 ----
 
@@ -275,6 +276,42 @@ load, which runs it as Peter Profile, who builds the hub's pipelines.  To load i
 
 Each delivery lands in the subscriber's schema in `subscription_staging`, where the `coco_subscriptions_*` DAGs
 apply it to the subscribing system - see [exchange-quickstart/coco-dags](../../exchange-quickstart/coco-dags/README.md).
+
+Egeria is one of the subscribers.  It takes Worker Master Data, Corporate Directory Entries and Access Entitlements
+once a day, and the `coco_subscriptions_egeria` DAG converts what is delivered into calls to Egeria's REST APIs.  So
+the people, job roles, departments, locations and user identities in the catalogue come from Coco's own systems:
+the people already defined by the CocoComboArchive gain their location, role, department, accounts and work phone,
+and every other worker of the three estates gets a profile of their own.
+
+----
+
+## Building Egeria's operational data store
+
+The file [egeria-operational-data-store.md](egeria-operational-data-store.md) subscribes in the other direction:
+instead of delivering Coco's products to Coco's systems, it takes delivery of Egeria's own *open metadata digital
+products* - extracts of the open metadata ecosystem, each a table of values.  It catalogues the `egeria_ods`
+database (created empty with the PostgreSQL server), then takes out a daily subscription to each of the product
+families at the top of the *Open Metadata Digital Product Catalog*, giving each family its own schema in the
+database as its destination.  A subscription to a family delivers every product in it, including those of the
+families nested inside it, so these subscriptions fill the database with a table for each product.  The *Digital
+Products* folder that holds the families is not a product, so it cannot be subscribed to itself; when Egeria adds a
+top-level family, add a section for it to the file.
+
+All of the steps are Dr.Egeria commands - `Initiate Governance Action Process`, `Create Element` and
+`Initiate Subscription` - so the file can be validated before it is run.  It is the last file in the directory's
+batch load, run as Peter Profile.  To load it by hand:
+
+    ```
+    dr_egeria --directive process --userid peterprofile --user_pass secret egeria-operational-data-store.md
+    ```
+
+Each subscription needs its family to offer a daily refresh subscription type
+(`ProvisioningActionProcess::<family>::Create Subscription::DAILY-REFRESH-SUBSCRIPTION`).  On a platform that does
+not have one of the families yet, that family's `Initiate Subscription` fails, naming the subscription type it could
+not find, and the others are unaffected; run that command again once the platform offers it.
+
+The freshstart environment builds the same database from a notebook instead:
+`workbooks/subscribing-to-digital-products/build-egeria-ods.ipynb`.
 
 ----
 License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/),
