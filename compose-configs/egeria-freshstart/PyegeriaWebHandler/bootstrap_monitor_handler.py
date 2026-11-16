@@ -81,7 +81,7 @@ _CANARY_CHECK_TIMEOUT = int(os.environ.get("BOOTSTRAP_CANARY_TIMEOUT_SECONDS", "
 # A canary lookup asks for a page of 25, not 1. Egeria 8840035f (2026-11-12) answers a find with
 # pageSize 1 with "No elements found" even when a match exists (the page limit is applied before the
 # displayName condition), so a one-result lookup read a present canary as missing and the monitor
-# re-healed OpenLineage Events every pass. Presence only needs len(results) > 0.
+# re-healed it every pass (quickstart 30788c6b; PO-15). Presence only needs len(results) > 0.
 _CANARY_PAGE_SIZE = 25
 # Startup fast-retry window -- see start_scheduler()'s docstring comment.
 _STARTUP_RETRY_INTERVAL = int(os.environ.get("BOOTSTRAP_STARTUP_RETRY_SECONDS", "20"))
