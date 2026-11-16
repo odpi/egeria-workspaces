@@ -46,6 +46,8 @@ reliable — verified against pyegeria's source (_base_server_client.py):
   - anything else                       -> genuinely unexpected -> 500
 """
 
+from typing import Optional
+
 from fastapi import HTTPException
 from loguru import logger
 
@@ -56,6 +58,7 @@ from loguru import logger
 EGERIA_ERROR_RESPONSES = {
     400: {"description": "Malformed request parameters (e.g. invalid platform URL)"},
     401: {"description": "Egeria rejected the supplied credentials"},
+    403: {"description": "Not permitted: the user is signed in, and Egeria refused this request for them"},
     404: {"description": "The requested element does not exist"},
     502: {"description": "Could not reach the Egeria platform, or Egeria returned an unmapped error"},
     504: {"description": "Egeria did not respond in time"},
@@ -134,44 +137,74 @@ def raise_egeria_http_error(exc: Exception, log_msg: str = "") -> None:
     raise HTTPException(status_code=500, detail=str(exc))
 
 
-def _is_auth_error(exc: Exception) -> bool:
-    """Return True if exc represents a 401/403 from Egeria (expired token /
-    access denied). Shared copy of operations_handler.py's own helper of the
-    same name — that one predates this module and is kept local there rather
-    than retrofitted to import this, to avoid an unrelated diff; new callers
-    should use this one."""
-    seen = set()
-    node = exc
-    while node is not None and id(node) not in seen:
-        seen.add(id(node))
-        code = getattr(node, "response_code", None) or getattr(node, "http_status_code", None)
-        if code in (401, 403):
-            return True
-        resp = getattr(node, "response", None)
-        if resp is not None and getattr(resp, "status_code", None) in (401, 403):
-            return True
-        s = str(node).upper()
-        if ("HTTP CODE: 401" in s or "HTTP CODE: 403" in s
-                or "USER_NOT_AUTHORIZED" in s or "NOT_AUTHORIZED" in s
-                or "AUTHORIZATION_ERROR" in s or "401 " in s
-                or "CLIENT ERROR '401" in s or "CLIENT ERROR '403" in s):
-            return True
-        node = getattr(node, "__cause__", None) or getattr(node, "__context__", None)
-    return False
+#: HTTPException detail for each kind of auth refusal (PO-9 / ERR-403). A 401 means the sign-in itself was
+#: refused (a bad or expired token): signing in again is the fix. A 403 means the user IS signed in and Egeria
+#: refused this request for them (a zone they cannot see, a role they lack): a new token changes nothing.
+AUTH_401_DETAIL = "Egeria refused the sign-in token (it may have expired); sign in again"
+AUTH_403_DETAIL = "Not permitted: Egeria refused this request for your user (signing in again will not help)"
 
 
-def _auth_status(exc: Exception) -> int:
-    """403 when Egeria said 403 anywhere in the cause chain, else 401 (call only when _is_auth_error)."""
+def _as_code(value) -> Optional[int]:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def auth_error_status(exc: BaseException) -> Optional[int]:
+    """401 or 403 when exc, or anything in its cause chain, is Egeria refusing the caller; else None.
+
+    Decided by exception class and HTTP code, never by message text (PO-9 / ERR-403):
+      - a FastAPI HTTPException 401/403 (the Portal's own, e.g. an expired token) -> its status;
+      - pyegeria's PyegeriaUnauthorizedException -> 403 when its related_http_code is 403 (Egeria's own
+        UserNotAuthorizedException, AUTHORIZATION_ERROR_403 since pyegeria 6.2.34, PY-3), else 401;
+      - a PyegeriaClientException (an HTTP error status on the wire) or an httpx.HTTPStatusError with a
+        401/403 status -> that status.
+    Not an auth error: an Egeria-wrapped relatedHTTPCode 403 that pyegeria raised as a plain
+    PyegeriaAPIException (e.g. OMAG-GENERIC-HANDLERS-403-005, deleting an element that still has
+    dependents: pyegeria's _is_authorization_failure says no). The old text match ("HTTP CODE: 403")
+    read that as a sign-in problem; so did "401 " anywhere in a message."""
+    try:
+        from pyegeria.core._exceptions import PyegeriaClientException, PyegeriaUnauthorizedException
+    except ImportError:            # pyegeria's exception module moved: no class to match, so no auth verdict
+        PyegeriaClientException = PyegeriaUnauthorizedException = ()
+    import httpx
+
     seen, node = set(), exc
     while node is not None and id(node) not in seen:
         seen.add(id(node))
-        code = getattr(node, "response_code", None) or getattr(node, "http_status_code", None)
-        resp = getattr(node, "response", None)
-        if code == 403 or (resp is not None and getattr(resp, "status_code", None) == 403) \
-                or "HTTP CODE: 403" in str(node).upper() or "CLIENT ERROR '403" in str(node).upper():
-            return 403
+        if isinstance(node, HTTPException) and node.status_code in (401, 403):
+            return node.status_code
+        if PyegeriaUnauthorizedException and isinstance(node, PyegeriaUnauthorizedException):
+            return 403 if _as_code(getattr(node, "related_http_code", None)) == 403 else 401
+        if PyegeriaClientException and isinstance(node, PyegeriaClientException):
+            code = _as_code(getattr(node, "response_code", None) or getattr(node, "http_status_code", None))
+            if code in (401, 403):
+                return code
+        if isinstance(node, httpx.HTTPStatusError):
+            code = _as_code(getattr(node.response, "status_code", None))
+            if code in (401, 403):
+                return code
         node = getattr(node, "__cause__", None) or getattr(node, "__context__", None)
-    return 401
+    return None
+
+
+def _is_auth_error(exc: Exception) -> bool:
+    """True when exc is Egeria refusing the caller, a 401 or a 403 (see auth_error_status)."""
+    return auth_error_status(exc) is not None
+
+
+def _auth_status(exc: Exception) -> int:
+    """403 or 401 for an auth error (see auth_error_status); 401 if called on anything else."""
+    return auth_error_status(exc) or 401
+
+
+def auth_http_exception(exc: Exception, detail_401: Optional[str] = None) -> HTTPException:
+    """The HTTPException for an auth error: 403 "Not permitted", or 401 with detail_401 (default
+    AUTH_401_DETAIL). Call only when _is_auth_error(exc): `raise auth_http_exception(exc)`."""
+    if _auth_status(exc) == 403:
+        return HTTPException(status_code=403, detail=AUTH_403_DETAIL)
+    return HTTPException(status_code=401, detail=detail_401 or AUTH_401_DETAIL)
 
 
 def raise_if_auth_error(exc: Exception) -> None:
@@ -180,12 +213,7 @@ def raise_if_auth_error(exc: Exception) -> None:
     For best-effort helpers that otherwise degrade to an empty answer: an expired or refused token must not
     read as "nothing here" (an empty 200 tree), but as a sign-in problem the UI can act on."""
     if _is_auth_error(exc):
-        status = _auth_status(exc)
-        raise HTTPException(
-            status_code=status,
-            detail=("Egeria refused the sign-in token (it may have expired); sign in again" if status == 401
-                    else "Not authorized for this request"),
-        )
+        raise auth_http_exception(exc)
 
 
 def describe_bulk_item_error(exc: Exception) -> str:

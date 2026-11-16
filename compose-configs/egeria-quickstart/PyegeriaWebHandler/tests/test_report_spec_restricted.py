@@ -116,12 +116,36 @@ def test_a_failed_read_is_said_and_never_cached(world):
     assert rsr.restricted_specs(TOKEN)["state"] == "ok"
 
 
+def _unauthorized(status):
+    """pyegeria's own exception: a transport 401 (refused token), or Egeria's 403 (signed in, not permitted)."""
+    import httpx
+    from pyegeria.core._exceptions import PyegeriaUnauthorizedException
+    req = httpx.Request("POST", "https://egeria.test:9443/x")
+    if status == 401:
+        return PyegeriaUnauthorizedException(httpx.Response(401, request=req, text="expired"), {},
+                                             additional_info={"userid": "peterprofile"})
+    body = {"relatedHTTPCode": 403, "exceptionClassName": "UserNotAuthorizedException",
+            "exceptionErrorMessageId": "OPEN-METADATA-SECURITY-403-020", "exceptionErrorMessage": "not visible"}
+    return PyegeriaUnauthorizedException(httpx.Response(200, request=req, json=body), {},
+                                         additional_info={**body, "userid": "peterprofile"})
+
+
 def test_a_refused_token_raises(world):
-    class Refused(Exception):
-        http_error_code = 401
-    world.raise_read = Refused("HTTP Code: 401")
+    world.raise_read = _unauthorized(401)
     with pytest.raises(rsr.TokenRefused):
         rsr.restricted_specs(TOKEN)
+
+
+def test_text_alone_is_not_a_refused_token(world):
+    # PO-9: by class and code, never by message text
+    world.raise_read = RuntimeError("HTTP Code: 401")
+    assert rsr.restricted_specs(TOKEN)["state"] == "read_failed"
+
+
+def test_egerias_403_is_not_a_refused_token(world):
+    # signed in, not permitted: a new token would not help, so it is said, not turned into "sign in again"
+    world.raise_read = _unauthorized(403)
+    assert rsr.restricted_specs(TOKEN)["state"] == "read_failed"
 
 
 def test_nothing_reaches_the_shared_registry(world):

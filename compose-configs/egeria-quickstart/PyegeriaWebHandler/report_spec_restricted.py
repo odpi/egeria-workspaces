@@ -92,8 +92,10 @@ def _token_user(token: str) -> Optional[str]:
 
 
 def _is_token_refused(exc: BaseException) -> bool:
-    """The same test the execute route uses for an Egeria 401."""
-    return getattr(exc, "http_error_code", None) == 401 or "HTTP Code: 401" in str(exc)
+    """The same test the execute route uses for an Egeria 401: by exception class and code, never by text
+    (PO-9). A 403 is not a refused token: the user is signed in and Egeria refused this read for them."""
+    from egeria_error_mapping import auth_error_status
+    return auth_error_status(exc) == 401
 
 
 # ── the cache ─────────────────────────────────────────────────────────────────

@@ -36,6 +36,7 @@ import re
 from pathlib import Path
 from typing import Optional
 
+from egeria_error_mapping import raise_if_auth_error
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
@@ -150,6 +151,7 @@ def list_relationships(
         mgr = _classifier(url, server, user_id, user_pwd)
     except Exception as exc:
         logger.exception("audit: failed to create ClassificationExplorer")
+        raise_if_auth_error(exc)   # a 401/403 from Egeria is not a 500 (PO-9)
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     # Point-in-time: asOfTime goes in the request body (get_relationships has no
@@ -167,6 +169,7 @@ def list_relationships(
         )
     except Exception as exc:
         logger.exception("audit: get_relationships(%s) failed", type)
+        raise_if_auth_error(exc)   # a 401/403 from Egeria is not a 500 (PO-9)
         raise HTTPException(status_code=500, detail=str(exc))
 
     rows = [_serialize_relationship(r) for r in _rel_list(raw)]
@@ -197,6 +200,7 @@ def get_audit_element(
         raw = mgr.get_element_by_guid(guid=guid, graph_query_depth=0, output_format="JSON", body=body)
     except Exception as exc:
         logger.exception("audit: get_element_by_guid(%s) failed", guid)
+        raise_if_auth_error(exc)   # a 401/403 from Egeria is not a 500 (PO-9)
         raise HTTPException(status_code=500, detail=str(exc))
     el = _first_element(raw)
     if not el:
@@ -248,6 +252,7 @@ def resolve_audit_actor(
             raw = mgr.get_element_by_guid(guid=value, graph_query_depth=0, output_format="JSON", body=body)
     except Exception as exc:
         logger.exception("audit: resolve_actor(%s) failed", value)
+        raise_if_auth_error(exc)   # a 401/403 from Egeria is not a 500 (PO-9)
         raise HTTPException(status_code=500, detail=str(exc))
     el = _first_element(raw)
     if not el:
@@ -307,6 +312,7 @@ def list_platforms(
         raw = rm.get_platforms_by_type(filter_string="OMAG Server Platform", output_format="JSON")
     except Exception as exc:
         logger.exception("audit: get_platforms_by_type failed")
+        raise_if_auth_error(exc)   # a 401/403 from Egeria is not a 500 (PO-9)
         raise HTTPException(status_code=500, detail=str(exc))
     out = []
     for e in (raw if isinstance(raw, list) else []):
@@ -354,6 +360,7 @@ async def list_users(
         names = await _user_names(so, platform_name, platform_guid)
     except Exception as exc:
         logger.exception("audit: get_user_list failed")
+        raise_if_auth_error(exc)   # a 401/403 from Egeria is not a 500 (PO-9)
         raise HTTPException(status_code=500, detail=str(exc))
     if not isinstance(names, list):
         names = []
@@ -418,10 +425,11 @@ def set_user_status(request: Request, body: _UserStatusBody):
     except HTTPException:
         raise
     except Exception as exc:
-        http_code = getattr(exc, "response_code", None) or getattr(exc, "http_status_code", None)
-        s = str(exc).upper()
-        if http_code in (401, 403) or "USER_NOT_AUTHORIZED" in s or "NOT_AUTHORIZED" in s or "AUTHORIZATION_ERROR" in s:
-            raise HTTPException(status_code=403, detail="Insufficient privilege — your Egeria user does not have permission to change account status.")
+        from egeria_error_mapping import _auth_status, _is_auth_error, auth_http_exception
+        if _is_auth_error(exc):   # by class + code, not message text (PO-9)
+            if _auth_status(exc) == 403:
+                raise HTTPException(status_code=403, detail="Insufficient privilege — your Egeria user does not have permission to change account status.")
+            raise auth_http_exception(exc)   # 401: the sign-in was refused; signing in again is the fix
         logger.exception("audit: set_user_account failed")
         raise HTTPException(status_code=500, detail=str(exc))
     logger.info("audit: user %s status set to %s on platform %s", body.user_id, body.status, body.platform_guid)
