@@ -16,8 +16,15 @@ The Portal also searches its **scan roots** (`EGERIA_BOOTSTRAP_SCAN_ROOTS`; in q
 
 Each batch shows:
 - A checkbox to **enable** it — only enabled batches ever run, whether automatically or via Run All Enabled.
+- A **status line**, rolled up from its enabled files, with the time of the latest run:
+  - **● running** with the file it is on (`file 3/33: glossary.md`) and when the batch started, while Run Now, Run All Enabled or auto-heal is working through it; labelled **(auto-heal)** when that is what's running it
+  - **queued**, for a batch waiting behind others in Run All Enabled or an auto-heal pass
+  - **✓ ok**, **✗ N failed**, **partly run** (some files have never run), **changed since last run**, or **never run**
+
+  The page refreshes itself every few seconds while anything is running or queued, including runs started from another tab or by auto-heal, and stops once all is idle.
 - Its files, in run order and each individually checkable, so you can enable a folder but leave specific files out. Files in subfolders show their path (`strategic-digital-products/catalog.md`). Next to each file:
-  - ✓ if the Portal last ran it successfully and it hasn't changed since, **changed since last run** if it has, or `·` if the Portal has no record of running it (it may still have been loaded some other way)
+  - **failed** with the time, if its last run (manual or auto-heal) failed; hover for the error and when it last succeeded
+  - otherwise ✓ if the Portal last ran it successfully and it hasn't changed since, **changed since last run** if it has, or `·` if the Portal has no record of running it (it may still have been loaded some other way)
   - **no commands** if it contains no Dr.Egeria commands
   - the Egeria user it loads as ("as juleskeeper"), or **default user**
 - An expandable list of **ordering/validation notes**: files whose position in the order was defaulted rather than set in `_batch.json`, stale manifest entries, files with no commands, subfolders that run as their own batch, and files that more than one batch reaches.
@@ -39,6 +46,8 @@ Full field reference, the shipped `Local Dashboards` example, and a worked coco-
 ## Auto-heal vs. manual-only
 
 A batch that declares a **canary** — one specific element the Portal can check for — gets auto-healed: the Portal periodically searches for an `ACTIVE` element of type `canary.type` whose `displayName` exactly matches `canary.name` (a cheap bounded, page-size-1 lookup). If nothing matches, it silently re-runs the batch's files in the background. You'll see a banner across the top of most pages while this is happening. A connection failure during the check is treated as "can't tell," not "missing" — it never triggers a heal pass on its own.
+
+Auto-heal stops a batch at its first failing file, since later files usually depend on earlier ones. A canary created by a later file then never appears, so the batch is retried on every check (every 10 minutes by default) and fails at the same place each time. When this is happening the batch's status line shows **✗ 1 failed**, and hovering the failing file's **failed** tag shows the error and that it was an auto-heal run. Fix the failing file, or make the failing part non-blocking (for notebooks, see [`check-only` cells](data-initialization-notebooks.md#check-only-cells)).
 
 A batch can also declare **manual steps**: things a person must do after it runs, which the Portal does not do itself. The Useful Dashboards batch has one: the first refresh of the saved query behind the Catalog Health "Assets with No Lineage" tile, which must run as a signed-in user because the answer is what that user can see. `/api/bootstrap/status` reports each step as **done** (with when and the count), **pending** ("saved query not yet refreshed"), or **not checked** (with the reason). Until it is done, the tile itself says the answer was not read, never 0.
 

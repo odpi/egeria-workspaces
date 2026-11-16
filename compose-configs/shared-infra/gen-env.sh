@@ -94,6 +94,19 @@ if [[ -z "$ALERT_EMAIL_TO_VAL" ]]; then
   ALERT_EMAIL_TO_VAL="$(read_existing_env ALERT_EMAIL_TO)"
 fi
 
+# egeria_advisor's password (Trellis). Taken from the environment or the existing
+# .env. A random one is generated ONLY for a brand-new install (no shared Postgres
+# volume yet): Postgres's init scripts run only then, so a value generated for an
+# existing volume would not match the real password. Never a built-in default.
+PGVECTOR_PASSWORD_VAL="${PGVECTOR_PASSWORD:-}"
+if [[ -z "$PGVECTOR_PASSWORD_VAL" ]]; then
+  PGVECTOR_PASSWORD_VAL="$(read_existing_env PGVECTOR_PASSWORD)"
+fi
+if [[ -z "$PGVECTOR_PASSWORD_VAL" ]] && ! ${CONTAINER_ENGINE:-docker} volume inspect egeria-shared-infra_shared_postgres_data >/dev/null 2>&1; then
+  PGVECTOR_PASSWORD_VAL="$(openssl rand -hex 24 2>/dev/null || python3 -c 'import secrets; print(secrets.token_hex(24))')"
+  echo "[shared-infra/gen-env.sh] Generated PGVECTOR_PASSWORD for the new egeria_advisor role (in .env; give Trellis the same value)." >&2
+fi
+
 TMP_ENV=".env.tmp"
 cat > "$TMP_ENV" <<EOF
 HOST_FQDN=${HOST_FQDN}
@@ -107,9 +120,10 @@ HOST_GATEWAY_IP=${HOST_GATEWAY_IP}
 RESEND_API_KEY='${RESEND_API_KEY_VAL}'
 RESEND_FROM='${RESEND_FROM_VAL}'
 ALERT_EMAIL_TO='${ALERT_EMAIL_TO_VAL}'
+PGVECTOR_PASSWORD='${PGVECTOR_PASSWORD_VAL}'
 EOF
 mv -f "$TMP_ENV" .env
-# This file can now hold a Resend API key, so it must not be world-readable.
+# This file can now hold a Resend API key and the egeria_advisor password, so it must not be world-readable.
 # The temp file above is created under the caller's umask (typically 0664), so
 # the mode has to be set explicitly after the move — same reasoning as
 # quick-start-local's `chmod 600` on .env.demo.

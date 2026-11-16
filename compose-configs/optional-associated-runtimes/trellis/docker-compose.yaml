@@ -88,7 +88,7 @@ services:
       # physical instance + database Egeria Advisor uses, RE's own
       # `resource_explorer` schema within it. Defaults match
       # PgVectorConfig in resource_explorer/config.py and
-      # docker-entrypoint-initdb.d/init_egeria.sql's `egeria_advisor` role. ─
+      # docker-entrypoint-initdb.d/init_trellis.sh's `egeria_advisor` role. ─
       PGVECTOR_HOST: egeria-shared-postgres
       PGVECTOR_PORT: "5442"
       PGVECTOR_DBNAME: egeria_advisor

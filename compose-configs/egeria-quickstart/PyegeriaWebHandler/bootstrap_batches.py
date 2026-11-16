@@ -512,13 +512,34 @@ def _load_ledger() -> dict:
         return {}
 
 
-def record_run(doc: Path) -> None:
-    """Note a successful `dr_egeria --process` of `doc`. Sync, no awaits --
-    the read-modify-write can't interleave with another caller in the event
-    loop."""
+def _now_iso() -> str:
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+def record_run(doc: Path, source: str = "manual") -> None:
+    """Note a successful `dr_egeria --process` of `doc`."""
+    record_result(doc, "ok", source=source)
+
+
+def record_result(doc: Path, status: str, message: str = "", source: str = "manual") -> None:
+    """Note the outcome of one run of `doc` ("ok" or "failed"), from a manual
+    run ("manual") or an auto-heal ("auto-heal"). Sync, no awaits -- the
+    read-modify-write can't interleave with another caller in the event loop.
+
+    `lastRunAt` and `sha256` describe the last *successful* run, as they
+    always have (they drive the "changed since last run" tag). The
+    `lastAttempt*`/`lastStatus`/`lastMessage` fields record every attempt,
+    so a failure is visible on the Data Initialization page instead of only
+    in bootstrap.log -- before 2026-11-15 failures weren't recorded at all."""
     real = doc.resolve()
     ledger = _load_ledger()
-    ledger[str(real)] = {"sha256": _file_sha(real), "lastRunAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+    entry = dict(ledger.get(str(real)) or {})
+    now = _now_iso()
+    entry.update({"lastAttemptAt": now, "lastStatus": status, "lastSource": source,
+                  "lastMessage": _one_line(message, 300) if status != "ok" else ""})
+    if status == "ok":
+        entry.update({"sha256": _file_sha(real), "lastRunAt": now})
+    ledger[str(real)] = entry
     path = _ledger_path()
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -531,12 +552,122 @@ def record_run(doc: Path) -> None:
 
 
 def _ledger_state(doc: Path, ledger: dict) -> dict:
-    entry = ledger.get(str(doc.resolve()))
-    if not entry:
-        return {"runState": "no_record", "lastRunAt": None}
+    entry = ledger.get(str(doc.resolve())) or {}
+    attempt = {
+        # Pre-2026-11-15 entries only have lastRunAt (a success) -- treat
+        # that as the last attempt.
+        "lastAttemptAt": entry.get("lastAttemptAt") or entry.get("lastRunAt"),
+        "lastStatus":    entry.get("lastStatus") or ("ok" if entry.get("lastRunAt") else None),
+        "lastMessage":   entry.get("lastMessage") or "",
+        "lastSource":    entry.get("lastSource"),
+    }
+    if not entry.get("lastRunAt"):
+        # Never succeeded (no entry, or only failures recorded).
+        return {"runState": "no_record", "lastRunAt": None, **attempt}
     current = _file_sha(doc)
     changed = current is not None and entry.get("sha256") not in (None, current)
-    return {"runState": "changed" if changed else "current", "lastRunAt": entry.get("lastRunAt")}
+    return {"runState": "changed" if changed else "current", "lastRunAt": entry.get("lastRunAt"), **attempt}
+
+
+# ---------------------------------------------------------------------------
+# Live progress -- which batch is running right now, on which file, and which
+# are queued behind it in a run-all. In-memory only (like _run_state below):
+# it describes subprocesses of this process, which a restart kills anyway.
+# Keyed by batch id; shared by manual runs (run_batch) and auto-heal
+# (bootstrap_monitor_handler._heal_family) so the Data Initialization page
+# shows either.
+_progress: dict[str, dict] = {}
+_queued: dict[str, str] = {}   # batch id -> source, waiting in a run-all / heal pass
+
+
+# Which run currently owns each batch: batch id -> source ("manual" or
+# "auto-heal"). Manual runs (Run Now, Run All Enabled) and auto-heal are
+# independent tasks, and without this they could run the same batch at the
+# same time -- on a freshly wiped Egeria auto-heal starts on every batch
+# with a canary, so an admin pressing Run All then ran each one twice
+# (harmful for batches that aren't safe to re-run), and whichever finished
+# first cleared the other's progress line. Claim/release happen on the
+# event loop with no await between check and set, so no lock is needed.
+_owners: dict[str, str] = {}
+
+
+def claim_batch(batch_id: str, source: str) -> Optional[str]:
+    """Claim `batch_id` for a run by `source`. Returns None if the claim
+    succeeded, or the source of the run already holding it."""
+    holder = _owners.get(batch_id)
+    if holder is not None:
+        return holder
+    _owners[batch_id] = source
+    return None
+
+
+def release_batch(batch_id: str) -> None:
+    _owners.pop(batch_id, None)
+    clear_progress(batch_id)
+
+
+def batch_owner(batch_id: str) -> Optional[str]:
+    return _owners.get(batch_id)
+
+
+def set_progress(batch_id: str, filename: str, index: int, total: int, source: str = "manual") -> None:
+    prev = _progress.get(batch_id) or {}
+    _progress[batch_id] = {
+        "file": filename, "index": index, "total": total, "source": source,
+        "startedAt": prev.get("startedAt") or _now_iso(),
+    }
+    _queued.pop(batch_id, None)
+
+
+def clear_progress(batch_id: str) -> None:
+    _progress.pop(batch_id, None)
+    _queued.pop(batch_id, None)
+
+
+def set_queued(batch_ids: list[str], source: str = "manual") -> None:
+    for bid in batch_ids:
+        if bid not in _progress and bid not in _owners:
+            _queued[bid] = source
+
+
+def clear_queued(batch_ids: list[str]) -> None:
+    for bid in batch_ids:
+        _queued.pop(bid, None)
+
+
+def _batch_run_summary(batch_id: str, files: list[dict]) -> dict:
+    """Roll the enabled files' ledger state up into one batch status for the
+    admin page: running / queued / failed / never_run / partial / changed / ok,
+    plus the latest attempt time."""
+    live = _progress.get(batch_id)
+    enabled = [f for f in files if f.get("enabled")] or files
+    attempts = [f["lastAttemptAt"] for f in enabled if f.get("lastAttemptAt")]
+    failed = [f["name"] for f in enabled if f.get("lastStatus") == "failed"]
+    never = [f["name"] for f in enabled if not f.get("lastAttemptAt")]
+    changed = [f["name"] for f in enabled if f.get("runState") == "changed"]
+    if live:
+        status = "running"
+    elif batch_id in _queued:
+        status = "queued"
+    elif failed:
+        status = "failed"
+    elif len(never) == len(enabled):
+        status = "never_run"
+    elif never:
+        status = "partial"
+    elif changed:
+        status = "changed"
+    else:
+        status = "ok"
+    return {
+        "status": status,
+        "lastRunAt": max(attempts) if attempts else None,
+        "failedFiles": failed,
+        "neverRunFiles": never,
+        "changedFiles": changed,
+        "progress": live,
+        "queuedBy": _queued.get(batch_id),
+    }
 
 
 def _ordered_inbox_files(entry: Path, other_roots: dict, warnings: list) -> tuple[list[str], dict]:
@@ -582,23 +713,60 @@ _NOTEBOOK_CELL_TIMEOUT = int(os.environ.get("BOOTSTRAP_NOTEBOOK_CELL_TIMEOUT_SEC
 # when a cell fails -- the executed copy, with its traceback, is exactly what
 # a failed run needs. Prints one summary line ("cell 3: ImportError: ...")
 # for the admin panel; exit 1 on failure.
+# Cells tagged "check-only" (cell metadata tags) only report on what earlier
+# cells loaded -- counts, coverage tables -- and change nothing in Egeria. Their
+# failure or timeout must not fail the notebook: auto-heal stops a batch at the
+# first failing file, so a slow check cell used to block every file after it,
+# the batch's canary never appeared, and auto-heal re-ran the (non-idempotent)
+# batch every check interval (Coco - 1. Data Hub, creating-system-data-layer
+# cell 12, 2026-11-15). A check-only cell gets its own, shorter timeout; when it
+# fails or times out the kernel is interrupted, the error is reported in the
+# summary line, and the remaining cells still run. Every other cell keeps the
+# old behaviour: any error or timeout fails the notebook.
+_NOTEBOOK_CHECK_CELL_TIMEOUT = int(os.environ.get("BOOTSTRAP_NOTEBOOK_CHECK_CELL_TIMEOUT_SECONDS", "180"))
+
 _NOTEBOOK_RUNNER = r"""
 import sys, nbformat
 from nbclient import NotebookClient
-src, out, timeout = sys.argv[1], sys.argv[2], int(sys.argv[3])
+src, out, timeout, check_timeout = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4])
 nb = nbformat.read(src, as_version=4)
 code = [c for c in nb.cells if c.cell_type == "code"]
+check = {id(c) for c in code if "check-only" in c.get("metadata", {}).get("tags", [])}
+for c in code:
+    if id(c) in check:
+        # nbclient's own allow-this-cell-to-error tag; added in memory only.
+        c.metadata.setdefault("tags", []).append("raises-exception")
+tolerated, failed_at = [], []
+
+def on_cell_error(cell, cell_index, execute_reply):
+    content = execute_reply.get("content", {})
+    n = next(i for i, c in enumerate(code, 1) if c is cell)
+    if id(cell) in check:
+        tolerated.append(f"cell {n} ({content.get('ename', 'error')}: {str(content.get('evalue', ''))[:120]})")
+    else:
+        failed_at.append(n)
+
+client = NotebookClient(
+    nb, kernel_name="python3", timeout=timeout,
+    timeout_func=lambda cell: check_timeout if id(cell) in check else timeout,
+    interrupt_on_timeout=True,
+    error_on_timeout={"ename": "CellTimeoutError", "evalue": "cell timed out", "traceback": []},
+    on_cell_error=on_cell_error,
+)
 try:
-    NotebookClient(nb, timeout=timeout, kernel_name="python3").execute()
+    client.execute()
 except Exception as exc:
     nbformat.write(nb, out)
-    where = next((i for i, c in enumerate(code, 1)
-                  if any(o.get("output_type") == "error" for o in c.get("outputs", []))), None)
+    # A timed-out cell has no error output (the reply is synthesised), so
+    # prefer the cell the error hook saw.
+    where = failed_at[0] if failed_at else next((i for i, c in enumerate(code, 1)
+                  if id(c) not in check and any(o.get("output_type") == "error" for o in c.get("outputs", []))), None)
     what = f"{exc.ename}: {exc.evalue}" if getattr(exc, "ename", None) else f"{type(exc).__name__}: {exc}"
     print((f"cell {where} of {len(code)}: " if where else "") + what.splitlines()[0][:300])
     sys.exit(1)
 nbformat.write(nb, out)
-print(f"ran {len(code)} code cells")
+print(f"ran {len(code)} code cells" +
+      (f"; check-only {', '.join(tolerated)} failed and was skipped" if tolerated else ""))
 """
 
 
@@ -617,7 +785,8 @@ def run_command(doc: Path, userid: Optional[str]) -> tuple[list[str], Optional[s
         return dr_egeria_command(doc, userid), None, None
     out = notebook_output_path(doc)
     out.parent.mkdir(parents=True, exist_ok=True)
-    argv = [sys.executable, "-c", _NOTEBOOK_RUNNER, str(doc), str(out), str(_NOTEBOOK_CELL_TIMEOUT)]
+    argv = [sys.executable, "-c", _NOTEBOOK_RUNNER, str(doc), str(out), str(_NOTEBOOK_CELL_TIMEOUT),
+            str(_NOTEBOOK_CHECK_CELL_TIMEOUT)]
     env = None
     if userid:
         env = {**os.environ, "EGERIA_USER": userid, "EGERIA_USER_PASSWORD": _password_for(userid)}
@@ -823,6 +992,7 @@ def batches_with_selection() -> list[dict]:
             "enabled": bool(sel.get("enabled", batch.get("defaultEnabled", False))),
             "files": files,
             "warnings": warnings,
+            "run": _batch_run_summary(batch["id"], files),
         })
     return result
 
@@ -906,7 +1076,23 @@ async def run_batch(batch: dict, timeout_seconds: int = _BATCH_TIMEOUT,
     folder = Path(batch["path"])
     if seen is None:
         seen = set()
-    for filename in batch["files"]:
+    holder = claim_batch(batch["id"], "manual")
+    if holder is not None:
+        what = "auto-heal is" if holder == "auto-heal" else "another run is"
+        logger.info(f"bootstrap batches: {batch['id']!r} not run: {what} already running it")
+        return [{"file": "*", "status": "busy",
+                 "message": f"not run: {what} already running this batch; try again when it finishes"}]
+    try:
+        return await _run_batch_files(batch, folder, timeout_seconds, seen, results)
+    finally:
+        release_batch(batch["id"])
+
+
+async def _run_batch_files(batch: dict, folder: Path, timeout_seconds: int, seen: set,
+                           results: list[dict]) -> list[dict]:
+    total = len(batch["files"])
+    for index, filename in enumerate(batch["files"], start=1):
+        set_progress(batch["id"], filename, index, total)
         doc = folder / filename
         if not doc.exists():
             results.append({"file": filename, "status": "skipped", "message": "file not found"})
@@ -940,6 +1126,7 @@ async def run_batch(batch: dict, timeout_seconds: int = _BATCH_TIMEOUT,
                 logger.info(f"bootstrap batches: {batch['id']!r} — {filename}: ok")
             else:
                 results.append({"file": filename, "status": "failed", "message": tail})
+                record_result(doc, "failed", f"exit {proc.returncode}: {tail}")
                 logger.warning(
                     f"bootstrap batches: {batch['id']!r} — {filename}: failed "
                     f"(exit {proc.returncode}) — {_one_line(tail)}"
@@ -951,6 +1138,7 @@ async def run_batch(batch: dict, timeout_seconds: int = _BATCH_TIMEOUT,
                 await _kill_proc(proc)
             results.append({"file": filename, "status": "failed",
                             "message": f"timed out after {timeout_seconds}s"})
+            record_result(doc, "failed", f"timed out after {timeout_seconds}s")
             logger.warning(f"bootstrap batches: {batch['id']!r} — {filename}: timed out after {timeout_seconds}s")
         except asyncio.CancelledError:
             # App reload/shutdown cancelled the background run task -- kill the
@@ -961,6 +1149,7 @@ async def run_batch(batch: dict, timeout_seconds: int = _BATCH_TIMEOUT,
             raise
         except Exception as exc:  # noqa: BLE001
             results.append({"file": filename, "status": "failed", "message": str(exc)})
+            record_result(doc, "failed", str(exc))
             logger.warning(f"bootstrap batches: {batch['id']!r} — {filename}: failed — {exc}")
         finally:
             if proc is not None:
@@ -996,8 +1185,14 @@ async def run_all_enabled(timeout_seconds: int = _BATCH_TIMEOUT) -> list[dict]:
     detected. Returns one entry per batch: {batch, results}."""
     out = []
     seen: set = set()
-    for batch in enabled_batches():
-        out.append({"batch": batch["id"], "results": await run_batch(batch, timeout_seconds, seen)})
+    batches = enabled_batches()
+    set_queued([b["id"] for b in batches if b["id"] not in _owners])
+    try:
+        for batch in batches:
+            out.append({"batch": batch["id"], "results": await run_batch(batch, timeout_seconds, seen)})
+    finally:
+        for b in batches:  # a crash/cancel mustn't leave batches showing "queued" forever
+            _queued.pop(b["id"], None)
     ok = sum(1 for run in out for r in run["results"] if r["status"] in _SUCCESS_STATUSES)
     total = sum(len(run["results"]) for run in out)
     logger.log(

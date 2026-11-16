@@ -890,3 +890,16 @@ def test_find_error_body_is_not_none_found(world):
     eg.token = "tok"
     with pytest.raises(m.StepFailed, match="Egeria answered 500"):
         eg.find("T", "displayName", "n")
+
+
+def test_upgrade_target_is_the_released_stable_image():
+    # :latest is the next release's SNAPSHOT; an upgrade resolves the newest released Egeria.
+    assert m.UPSTREAM_IMAGE == "docker.io/odpi/egeria-platform:stable"
+
+
+def test_stable_flag_and_its_old_name_resolve_the_same(monkeypatch):
+    seen = []
+    monkeypatch.setattr(m, "make_plan", lambda env, **kw: seen.append(kw["latest"]) or Path("."))
+    for flag in ("--stable", "--latest"):
+        assert m.main(["plan", flag], env=object()) == 0
+    assert seen == [True, True]
