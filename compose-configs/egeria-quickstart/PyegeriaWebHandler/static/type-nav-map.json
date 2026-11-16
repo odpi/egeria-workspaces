@@ -146,6 +146,7 @@
 
   "InformalTag": { "explorerHash": "informal-tags" },
   "ContextEvent": { "explorerHash": "context-events" },
+  "StatementOfApplicability": { "explorerHash": "statements-of-applicability" },
 
   "ToDo": { "explorerHash": "action-center" },
   "Notification": { "explorerHash": "action-center" },
