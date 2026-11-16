@@ -5,7 +5,7 @@
 store, as a resumable, checked procedure. HOST ONLY: it needs the Docker CLI and the shared
 Postgres superuser (through `docker exec`), which no container, and never the Portal, has.
 
-    egeria-upgrade-reset plan  [--digest sha256:... | --latest] [--no-clear]
+    egeria-upgrade-reset plan  [--digest sha256:... | --stable] [--no-clear]
     egeria-upgrade-reset apply --plan <reset dir or plan.json> [--dry-run] [--redo STEP]
     egeria-upgrade-reset status --plan <reset dir>
     egeria-upgrade-reset record --plan <reset dir>        # write the Portal's "last reset" row now
@@ -68,7 +68,9 @@ RESET_SQL = REPO / "compose-configs" / "shared-infra" / "reset-egeria-db.sql"
 PLATFORM_CONTAINER = "quickstart-egeria-main"
 PLATFORM_SERVICE = "egeria-main"
 PLATFORM_IMAGE = "egeria-quickstart-platform:local"
-UPSTREAM_IMAGE = "docker.io/odpi/egeria-platform:latest"
+# :stable is the newest released Egeria (e.g. 6.3). :latest is the development SNAPSHOT of the
+# next release, so it is never what an upgrade resolves unless --digest names it (owner, 2026-11-16).
+UPSTREAM_IMAGE = "docker.io/odpi/egeria-platform:stable"
 PG_CONTAINER = "egeria-shared-postgres"
 PG_PORT = "5442"
 DATABASE = "egeria"
@@ -2059,7 +2061,9 @@ def main(argv: Optional[list[str]] = None, env: Optional[Env] = None) -> int:
     p = sub.add_parser("plan", help="read the current state and write a plan; changes nothing")
     g = p.add_mutually_exclusive_group()
     g.add_argument("--digest", help="target odpi/egeria-platform digest (sha256:...)")
-    g.add_argument("--latest", action="store_true", help=f"resolve {UPSTREAM_IMAGE}'s current digest")
+    g.add_argument("--stable", "--latest", dest="latest", action="store_true",
+                   help=f"resolve {UPSTREAM_IMAGE}'s current digest, the newest released Egeria "
+                        "(--latest is the old name for this flag)")
     p.add_argument("--no-clear", action="store_true", help="upgrade the image only; keep the metadata store")
     p.add_argument("--reset-root", default=None, help="where reset folders go (default runtime-volumes/egeria-resets)")
     p.add_argument("--allow-other-checkout", action="store_true",
