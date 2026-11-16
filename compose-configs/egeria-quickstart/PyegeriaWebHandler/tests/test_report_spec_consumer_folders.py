@@ -1,6 +1,6 @@
 """Report-spec consumer folders, phase 1: the Dr.Egeria document, and the Portal surviving the rename.
 
-The Portal folder `ReportSpecFolder::EgeriaPortal` (fe5aad27) is renamed in place to
+The Portal folder `ReportSpecFolder::EgeriaPortal` was renamed in place (on laz, 2026-11-10) to
 `ReportSpecFolder::Consumer::Portal` (egeria-held-specs/REPORT_SPEC_CONSUMER_FOLDERS.dr-egeria.md).
 For the phase 1 deploy the Portal's default PYEGERIA_REPORT_SPEC_FOLDERS listed both names, so the
 rename and the deploy could land in either order; the rename ran on 2026-11-10 and phase 2 drops
@@ -52,9 +52,10 @@ def test_document_builds_the_tree():
     assert [(a["Qualified Name"], a["Display Name"]) for a in roots] == [(ROOT, "Report Specs")]
     folders = {a["Qualified Name"]: a for c, a in blocks if c == "Create Collection Folder"}
     assert sorted(folders) == sorted(CONSUMERS)
-    # The rename is an in-place update of the existing element, picked by its GUID.
-    assert folders[NEW]["GUID"] == PORTAL_GUID and folders[NEW]["Display Name"] == "Portal"
-    assert [q for q, a in folders.items() if "GUID" in a] == [NEW]
+    assert folders[NEW]["Display Name"] == "Portal"
+    # No command names a GUID: a GUID belongs to one Egeria, and elsewhere it matches nothing (the
+    # 2026-11-10 rename on laz used one; that is done). Elements are found by Qualified Name.
+    assert not [c for c, a in blocks if "GUID" in a]
     # Every element command names its Qualified Name, so a re-run finds it and updates in place.
     assert all(a.get("Qualified Name") for c, a in blocks if c.startswith("Create "))
     links = [a for c, a in blocks if c == "Add Member to Collection"]
@@ -110,10 +111,19 @@ class _Egeria:
         self.platform_url = "https://test:9443"
         self.view_server = "test-view"
 
-    def get_collections_by_name(self, name, metadata_element_type=None, output_format=None):
-        if name == self.folder_qn and metadata_element_type == "CollectionFolder":
-            return [{"elementHeader": {"guid": PORTAL_GUID, "type": {"typeName": "CollectionFolder"}},
-                     "properties": {"qualifiedName": self.folder_qn}}]
+    def _folder(self) -> dict:
+        return {"elementHeader": {"guid": PORTAL_GUID, "type": {"typeName": "CollectionFolder"}},
+                "properties": {"qualifiedName": self.folder_qn}}
+
+    def get_element_by_unique_name(self, name, *_, **__):
+        # pyegeria 6.3.0+ finds a folder by Egeria's exact unique-name read (pyegeria.core.unique_name).
+        return self._folder() if name == self.folder_qn else "No elements found"
+
+    def get_collections_by_name(self, name, metadata_element_type=None, output_format=None, start_from=0,
+                                page_size=None, **_):
+        # pyegeria before 6.3.0 found the folder by this by-name search.
+        if name == self.folder_qn and metadata_element_type == "CollectionFolder" and not start_from:
+            return [self._folder()]
         return "No elements found"
 
     def get_collection_members(self, collection_guid=None, output_format=None, start_from=0, page_size=None, **_):

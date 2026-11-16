@@ -5,8 +5,8 @@
 
 > Loadable **Dr.Egeria** document. It creates the Portal's two code-defined report specs as
 > `ReportSpec` elements in Egeria and makes each a member of the CollectionFolder
-> `ReportSpecFolder::Consumer::Portal` (guid `fe5aad27-1587-4d4e-a7c0-ab806650a6e2`). That is the
-> folder the Portal syncs at startup (`PYEGERIA_REPORT_SPEC_FOLDERS`).
+> `ReportSpecFolder::Consumer::Portal`, named by its Qualified Name (its GUID differs on each Egeria).
+> That is the folder the Portal syncs at startup (`PYEGERIA_REPORT_SPEC_FOLDERS`).
 >
 > This document was run on 2026-11-10, when the folder was named `ReportSpecFolder::EgeriaPortal`.
 > `REPORT_SPEC_CONSUMER_FOLDERS.dr-egeria.md` renames that same element to

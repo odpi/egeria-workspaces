@@ -9,7 +9,7 @@
 >
 > ```
 > RootCollection   "Report Specs"        RootCollection::ReportSpecs
->  ├─ CollectionFolder "Portal"            ReportSpecFolder::Consumer::Portal   (was ReportSpecFolder::EgeriaPortal, guid fe5aad27-…, renamed)
+>  ├─ CollectionFolder "Portal"            ReportSpecFolder::Consumer::Portal   (was ReportSpecFolder::EgeriaPortal on laz, renamed 2026-11-10)
 >  ├─ CollectionFolder "Egeria Advisor"    ReportSpecFolder::Consumer::EgeriaAdvisor
 >  ├─ CollectionFolder "Resource Explorer" ReportSpecFolder::Consumer::ResourceExplorer
 >  ├─ CollectionFolder "pyegeria"          ReportSpecFolder::Consumer::Pyegeria
@@ -23,11 +23,12 @@
 > **What it does, in order:**
 > 1. Creates the RootCollection and the five new consumer folders. No zones are set, so the
 >    root and the folders are public (D6), like the existing folder. Each is its own anchor.
-> 2. Renames the existing folder `ReportSpecFolder::EgeriaPortal` to
->    `ReportSpecFolder::Consumer::Portal`, with Display Name "Portal". It is the **same element**: the
->    `GUID` attribute makes Dr.Egeria update guid `fe5aad27-1587-4d4e-a7c0-ab806650a6e2` in place,
->    so its GUID and both spec memberships stay as they are. Description is left out, so the
->    merge update keeps the stored one.
+> 2. Creates or updates the Portal folder `ReportSpecFolder::Consumer::Portal`, with Display Name
+>    "Portal", found by its Qualified Name. Description is left out, so a merge update keeps the
+>    stored one. (On laz this command first ran on 2026-11-10 with a `GUID` attribute, renaming the
+>    existing folder `ReportSpecFolder::EgeriaPortal` in place so its spec memberships stayed. That
+>    rename is done, and a GUID is specific to one Egeria, so the document no longer names one: on any
+>    other Egeria the GUID matched nothing and Dr.Egeria warned before falling back to the name.)
 > 3. Makes each of the six folders a member of the root (`Add Member to Collection`,
 >    CollectionMembership with the root at end 1, status VALIDATED). Nothing is anchored to the
 >    root (`Make Anchor` false), so deleting the root never deletes a folder.
@@ -41,7 +42,7 @@
 > of adding a second one, so it is safe to run again.
 >
 > **Re-running it is a no-op in effect.** Every element command carries an explicit Qualified Name
-> (the rename also carries a `GUID`), so a second run finds each element and becomes an Update
+> , so a second run finds each element and becomes an Update
 > with the same values. Each `Add Member` finds the existing membership and updates it in place.
 > No element or relationship is added. An Update may raise an element's version; that is all.
 >
@@ -57,10 +58,11 @@
 > 1. Remove the six root memberships: `Remove Member from Collection` with the same Collection Id
 >    and Element Id (or `CollectionManager.remove_from_collection(root_guid, folder_guid)` for each).
 > 2. Rename the Portal folder back: the same `Create Collection Folder` block with Qualified Name
->    `ReportSpecFolder::EgeriaPortal` and Display Name `EgeriaPortal` (the GUID keeps it the same element).
+>    `ReportSpecFolder::EgeriaPortal` and Display Name `EgeriaPortal`, plus a `GUID` attribute set to
+>    the Portal folder's GUID on that Egeria, so it stays the same element.
 > 3. Delete the root and the five new folders, which are empty. Delete by GUID; `--process` prints
 >    each one, as `CollectionManager(...).delete_collection("<guid>")`, run as the user who created them.
->    Never delete fe5aad27: it holds the Portal's specs.
+>    Never delete the Portal folder: it holds the Portal's specs.
 > 4. Set `PYEGERIA_REPORT_SPEC_FOLDERS=ReportSpecFolder::EgeriaPortal` for the Portal (the default
 >    no longer names the old folder), restart it, and re-sync (`POST /api/report-specs/sync`). Both
 >    specs are then found again.
@@ -170,11 +172,8 @@ Consumer folder: Jupyter
 ___
 
 ## Create Collection Folder
-> Renames the existing Portal folder in place. The GUID makes this the same element, so its
-> two spec memberships stay. No Parent ID here: see the header.
-
-### GUID
-fe5aad27-1587-4d4e-a7c0-ab806650a6e2
+> The Portal folder, found by its Qualified Name, so a re-run updates it in place and its spec
+> memberships stay. No Parent ID here: see the header.
 
 ### Display Name
 Portal
