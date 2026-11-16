@@ -472,6 +472,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 <!-- Bump ?v= whenever egeria-shared-ui.js changes. -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
 <script src="/static/egeria-shared-ui.js?v=2026-11-11d"></script>
+<script src="/static/data-scope-editor.js?v=2026-11-16a"></script>
 
 <script>
 'use strict';
@@ -1374,6 +1375,7 @@ function currentRoute() {
   if (p.get('guid')) return { page: 'resource', guid: p.get('guid') };
   if (p.has('q')) return { page: 'search', q: p.get('q') || '', kind: p.get('kind') || '' };
   if (p.get('list')) return { page: 'list', guid: p.get('list') };
+  if (p.get('lens')) return { page: 'lens', guid: p.get('lens') };
   if (p.get('browse')) return { page: 'browse', facet: p.get('browse'), value: p.get('value') || '' };
   return { page: 'home' };
 }
@@ -1754,6 +1756,144 @@ function ListsTile({ creds }) {
             : el('div', { className: 'rb-absent' }, 'No Resource Explorer list has been published to Egeria yet.'))));
 }
 
+// ── Data lenses ──────────────────────────────────────────────────────────────
+// A Data Lens says what scope of data a piece of work needs (time, place, scope
+// elements). It governs work lists, and resources whose data scope falls inside it are
+// shown on its page so they can be added. Its fields come from Egeria's DataLens type
+// definition (static/data-scope-editor.js), so new dimensions appear without a change here.
+
+function openLens(guid) { navigate({ lens: guid }); }
+
+function LensesTile({ creds }) {
+  var _d = useState(null), d = _d[0], setD = _d[1];
+  var lists = useLists(creds);
+  useEffect(function() {
+    getJson(API + '/lenses', creds).then(setD).catch(function(e) { setD({ error: e.message }); });
+  }, [creds && creds.token]);
+  var canWrite = lists && lists.canWrite;
+  return el(Tile, { help: 'dataLens', title: 'Data lenses', note: 'the scope of data a piece of work needs' },
+    !d ? el('div', { className: 'rb-absent' }, 'Loading…')
+    : d.error ? el('div', { className: 'rb-err' }, 'Lenses could not be read: ' + d.error)
+    : !d.typeKnown ? el('div', { className: 'rb-absent' }, 'This Egeria does not know the DataLens type.')
+    : el('div', null,
+        d.lenses.length ? el('ul', { className: 'rb-list' }, d.lenses.map(function(l) {
+          return el('li', { key: l.guid },
+            el('button', { className: 'rb-link', onClick: function() { openLens(l.guid); } }, l.displayName),
+            el('span', { className: 't' }, (l.dimensions.length ? l.dimensions.length + ' dimension' + (l.dimensions.length === 1 ? '' : 's') : 'no dimensions yet')
+              + (l.governs.length ? ' · governs ' + l.governs.map(function(g) { return g.displayName; }).join(', ') : '')
+              + (l.origin !== 'mine' && l.createdBy ? ' · by ' + l.createdBy : '')));
+        })) : el('div', { className: 'rb-absent' }, 'No data lens exists yet.'),
+        d.capped && el('div', { className: 'rb-note' }, 'The read stopped at its limit; there may be more lenses.'),
+        canWrite ? el('button', { className: 'rb-btn', style: { marginTop: 8 }, onClick: function() { openLens('new'); } }, 'New data lens')
+                 : el('div', { className: 'rb-note', style: { marginTop: 8 } }, 'Sign in or choose a persona to make a data lens.')));
+}
+
+function LensForm({ creds, lens, groups, onDone, onCancel }) {
+  var lists = useLists(creds);
+  var _n = useState(lens ? lens.displayName : ''), name = _n[0], setName = _n[1];
+  var _s = useState(lens ? lens.description : ''), desc = _s[0], setDesc = _s[1];
+  var _l = useState(''), listGuid = _l[0], setListGuid = _l[1];
+  var _b = useState(false), busy = _b[0], setBusy = _b[1];
+  var _e = useState(''), err = _e[0], setErr = _e[1];
+  function save(values) {
+    if (!name.trim()) { setErr('A data lens needs a name.'); return; }
+    setBusy(true); setErr('');
+    var body = { name: name.trim(), description: desc, values: values };
+    if (!lens && listGuid) body.listGuid = listGuid;
+    sendJson(API + '/lenses' + (lens ? '/' + encodeURIComponent(lens.guid) : ''), creds, lens ? 'PUT' : 'POST', body)
+      .then(onDone).catch(function(x) { setErr(x.message); }).finally(function() { setBusy(false); });
+  }
+  return el('div', null,
+    el('label', { className: 'rb-note', style: { display: 'block', marginBottom: 4 } }, 'Name'),
+    el('input', { className: 'rb-text', style: { width: '100%', padding: '4px 8px', marginBottom: 10 }, value: name,
+      placeholder: 'e.g. UK sales 2024', onChange: function(e) { setName(e.target.value); } }),
+    el('label', { className: 'rb-note', style: { display: 'block', marginBottom: 4 } }, 'What the work needs, in words'),
+    el('textarea', { className: 'rb-text', style: { width: '100%', minHeight: 54, padding: '4px 8px', marginBottom: 12, resize: 'vertical' }, value: desc,
+      onChange: function(e) { setDesc(e.target.value); } }),
+    !lens && el('div', { style: { marginBottom: 12 } },
+      el('label', { className: 'rb-note', style: { display: 'block', marginBottom: 4 } }, 'Governs one of your lists (optional)'),
+      el('select', { className: 'rb-select', value: listGuid, onChange: function(e) { setListGuid(e.target.value); } },
+        el('option', { value: '' }, 'no list yet'),
+        (lists && lists.mine || []).map(function(l) { return el('option', { key: l.guid, value: l.guid }, l.displayName); }))),
+    el('div', { className: 'rb-note', style: { marginBottom: 8 } }, 'Scope: fill in only the dimensions the work cares about. A resource is matched on the dimensions it records.'),
+    el(DataScopeEditor, { groups: groups.filter(function(g) { return !g.readOnly; }), scope: lens ? lens.scope : null, busy: busy, error: err,
+      saveLabel: lens ? 'Save lens' : 'Create lens', onSave: save, onCancel: onCancel }));
+}
+
+function LensPage({ guid, creds }) {
+  var isNew = guid === 'new';
+  var lists = useLists(creds);
+  var idx = useFlavours(creds);
+  var _d = useState(null), d = _d[0], setD = _d[1];
+  var _g = useState(null), groups = _g[0], setGroups = _g[1];
+  var _e = useState(''), err = _e[0], setErr = _e[1];
+  var _m = useState(isNew), editing = _m[0], setEditing = _m[1];
+  var _b = useState(false), busy = _b[0], setBusy = _b[1];
+  var _p = useState(''), pick = _p[0], setPick = _p[1];
+  useEffect(function() {
+    document.title = (isNew ? 'New data lens' : 'Data lens') + ' · Resource Locator';
+    dataScopeFetchDimensions('DataLens', creds).then(setGroups).catch(function(e) { setErr(e.message); });
+    if (!isNew) getJson(API + '/lenses/' + encodeURIComponent(guid), creds).then(function(x) { setD(x); document.title = x.lens.displayName + ' · Data lens · Resource Locator'; })
+      .catch(function(e) { setErr(e.message); });
+  }, [guid, creds && creds.token]);
+  function act(method, path, body) {
+    setBusy(true); setErr('');
+    sendJson(API + '/lenses/' + encodeURIComponent(guid) + path, creds, method, body)
+      .then(function(x) { setD(x); setPick(''); }).catch(function(e) { setErr(e.message); }).finally(function() { setBusy(false); });
+  }
+  var head = el('div', { className: 'rb-row', style: { gap: 8, marginBottom: 12 } },
+    el('button', { className: 'rb-link', onClick: function() { navigate({}); } }, '← Home'),
+    el('span', { className: 'rb-note' }, 'Data lens', el(Help, { term: 'dataLens' })));
+  if (err && !d && !(isNew && groups)) return el('div', { className: 'rb-page' }, head, el('div', { className: 'rb-err' }, err));
+  if (!groups || (!isNew && !d)) return el('div', { className: 'rb-page' }, head, el('div', { className: 'center', style: { height: 160 } }, el('div', { className: 'spinner' }), 'Loading…'));
+  if (isNew) {
+    if (!(lists && lists.canWrite)) return el('div', { className: 'rb-page' }, head, el('div', { className: 'rb-absent' }, 'Sign in or choose a persona to make a data lens.'));
+    return el('div', { className: 'rb-page' }, head,
+      el(Card, { help: 'dataLens', title: 'New data lens' },
+        el(LensForm, { creds: creds, groups: groups, onDone: function(x) { openLens(x.lens.guid); }, onCancel: function() { navigate({}); } })));
+  }
+  var lens = d.lens;
+  var governed = {};
+  lens.governs.forEach(function(g) { governed[g.guid] = true; });
+  var myLists = (lists && lists.mine || []).filter(function(l) { return !governed[l.guid]; });
+  return el('div', { className: 'rb-page' }, head,
+    el('h1', { style: { fontSize: 22, margin: '0 0 4px' } }, lens.displayName),
+    el('div', { className: 'rb-qn' }, lens.qualifiedName),
+    el('div', { className: 'rb-note', style: { margin: '4px 0 12px' } },
+      'made by ' + (lens.createdBy || 'unknown') + (lens.updateTime ? ' · updated ' + fmtDate(lens.updateTime) : '') + (lens.editable ? '' : ' · read-only: only its creator changes it')),
+    err && el('div', { className: 'rb-err', style: { marginBottom: 10 } }, err),
+    el('div', { className: 'rb-grid' },
+      el('div', null,
+        el(Card, { help: 'dataLens', title: 'What the work needs', source: 'the DataLens' },
+          editing ? el(LensForm, { creds: creds, lens: lens, groups: groups, onDone: function(x) { setD(x); setEditing(false); }, onCancel: function() { setEditing(false); } })
+          : el('div', null,
+              lens.description ? el('div', { style: { marginBottom: 10 } }, lens.description) : el('div', { className: 'rb-absent', style: { marginBottom: 10 } }, 'No description.'),
+              el(DataScopeView, { groups: groups, scope: Object.keys(lens.scope).length ? lens.scope : null, absent: 'No dimensions set yet, so no resource can be matched.' }),
+              lens.editable && el('button', { className: 'rb-edit', style: { marginTop: 10 }, onClick: function() { setEditing(true); } }, 'Edit'))),
+        el(Card, { help: 'workList', title: 'Lists it governs', source: 'GovernedBy' },
+          lens.governs.length ? el('ul', { className: 'rb-list' }, lens.governs.map(function(g) {
+            return el('li', { key: g.guid },
+              el('button', { className: 'rb-link', onClick: function() { openList(g.guid); } }, g.displayName),
+              lens.editable && el('button', { className: 'rb-edit', disabled: busy, title: 'The lens stops governing this list (the list is kept)',
+                onClick: function() { act('DELETE', '/lists/' + encodeURIComponent(g.guid)); } }, 'unlink'));
+          })) : el('div', { className: 'rb-absent' }, 'It governs no list yet.'),
+          lens.editable && myLists.length > 0 && el('div', { className: 'rb-row', style: { gap: 6, marginTop: 8 } },
+            el('select', { className: 'rb-select', value: pick, onChange: function(e) { setPick(e.target.value); } },
+              el('option', { value: '' }, 'govern one of your lists…'),
+              myLists.map(function(l) { return el('option', { key: l.guid, value: l.guid }, l.displayName); })),
+            el('button', { className: 'rb-btn', disabled: busy || !pick, onClick: function() { act('POST', '/lists', { listGuid: pick }); } }, 'Link')))),
+      el('div', null,
+        el(Card, { help: 'dataScope', title: 'Resources inside it', source: 'matched on their data scope' },
+          el('div', { className: 'rb-note', style: { marginBottom: 8 } },
+            d.insideCount + ' inside · ' + d.outsideCount + ' outside · ' + d.notComparable + ' record none of the lens’s dimensions, so cannot be compared · of ' +
+            d.scopedCount + ' resources with a data scope' + (d.capped ? ' (the read stopped at its limit)' : '') + '. ' + d.rule),
+          d.insideCount > d.inside.length && el('div', { className: 'rb-note', style: { marginBottom: 8 } }, 'The first ' + d.inside.length + ' are listed.'),
+          d.inside.length ? el(ResultList, { rows: d.inside, creds: creds, idx: idx, showMatched: true,
+              renderExtra: function(r) { return el(AddToList, { guid: r.guid, creds: creds }); } })
+            : el('div', { className: 'rb-absent' }, Object.keys(lens.scope).length ? 'No resource visible to you is inside this lens.' : 'Set the lens’s dimensions to match resources.'),
+          el(SourceLine, { data: d })))));
+}
+
 // Add the current resource to one of my lists, or to a new one.
 function AddToList({ guid, creds }) {
   var d = useLists(creds);
@@ -2014,6 +2154,7 @@ function HomePage({ creds, personaId }) {
       el('div', null,
         el(Boundary, { what: 'Favourites tile' }, el(FavouritesTile, { personaId: personaId })),
         el(Boundary, { what: 'Work lists tile' }, el(ListsTile, { creds: creds })),
+        el(Boundary, { what: 'Data lenses tile' }, el(LensesTile, { creds: creds })),
         el(Tile, { help: 'browse', title: 'Browse' },
           el('div', { className: 'rb-row', style: { gap: 6 } }, FACETS.map(function(f) {
             return el('button', { key: f.id, className: 'rb-facet', title: TERMS[f.term].def, onClick: function() { navigate({ browse: f.id }); } }, f.label);
@@ -2138,6 +2279,7 @@ function App() {
     : route.page === 'resource' ? el(ResourcePage, { key: route.guid, guid: route.guid, creds: creds, personaId: personaId })
     : route.page === 'search' ? el(SearchPage, { q: route.q, kind: route.kind, creds: creds })
     : route.page === 'list' ? el(ListPage, { key: route.guid, guid: route.guid, creds: creds })
+    : route.page === 'lens' ? el(LensPage, { key: route.guid, guid: route.guid, creds: creds })
     : route.page === 'browse' ? el(BrowsePage, { facet: route.facet, value: route.value, creds: creds })
     : el(HomePage, { creds: creds, personaId: personaId });
 

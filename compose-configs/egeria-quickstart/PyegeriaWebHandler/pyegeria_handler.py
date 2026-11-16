@@ -348,6 +348,8 @@ app.include_router(resource_browser_router)
 
 from data_scope_handler import router as data_scope_router
 app.include_router(data_scope_router)
+from resource_locator_lens_handler import router as resource_locator_lens_router
+app.include_router(resource_locator_lens_router)
 from context_events_handler import router as context_events_router
 app.include_router(context_events_router)
 from soa_handler import router as soa_router
