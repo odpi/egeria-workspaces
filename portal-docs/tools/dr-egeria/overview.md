@@ -93,6 +93,8 @@ A person or organisation that purchases products or services.
 
 See the [Basic Templates](templates-basic.md) and [Advanced Templates](templates-advanced.md) for ready-to-use examples.
 
+Before writing a longer document, with prose around the commands, or one that will be loaded more than once, read [Techniques and best practices](best-practices.md). It covers closing commands with `___`, prose that Dr.Egeria mistakes for a command, fenced examples, validating first, re-run safety, and what the status filters mean.
+
 ---
 
 ## Output
@@ -119,6 +121,7 @@ If you update Dr. Egeria command definitions on the backend, click **Refresh Now
 
 ## Further reading
 
+- [Techniques and best practices](best-practices.md) — avoiding the common mistakes in longer documents
 - [Basic Templates](templates-basic.md) — ready-to-use command templates
 - [Advanced Templates](templates-advanced.md) — complex operations and batch commands
 - [Obsidian setup](../obsidian.md) — configuring the plugin and vault
