@@ -13301,25 +13301,6 @@ function SoaStatusBadge({ status }) {
   return React.createElement('span', { className: 'badge', style: { color: c, border: '0.5px solid ' + c, background: 'transparent', whiteSpace: 'normal' } }, _soaStatusLabel(status));
 }
 
-function SoaSummary({ summary }) {
-  if (!summary) return null;
-  var chip = function(key, label, n, color) {
-    return React.createElement('div', { key: key, style: { padding: '6px 10px', border: '1px solid var(--border)', borderLeft: '3px solid ' + color, borderRadius: 6, minWidth: 110 } },
-      React.createElement('div', { style: { fontSize: 18, fontWeight: 700, color: color } }, String(n)),
-      React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)' } }, label));
-  };
-  var chips = [chip('applicable', 'Applicable', summary.applicable, 'var(--accent)')];
-  Object.keys(summary.byStatus || {}).forEach(function(s) {
-    chips.push(chip(s, _soaStatusLabel(s), summary.byStatus[s], _SOA_STATUS_COLORS[s] || 'var(--muted)'));
-  });
-  if (summary.statusUnset) chips.push(chip('unset', 'Status not recorded', summary.statusUnset, '#f87171'));
-  chips.push(chip('na', 'Not applicable', summary.notApplicable, 'var(--muted)'));
-  return React.createElement('div', null,
-    React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', marginBottom: 6 } },
-      summary.total + ' control' + (summary.total === 1 ? '' : 's') + ' assessed; status counts cover applicable controls only.'),
-    React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 8 } }, chips));
-}
-
 // Long assessment text is clamped to a few lines; a click on "more" shows the rest.
 function SoaClampText({ text }) {
   const [open, setOpen] = useState(false);
@@ -13333,24 +13314,192 @@ function SoaClampText({ text }) {
     }, open ? 'less' : 'more'));
 }
 
+// Pure helpers for the controls table (tested under node by tests/test_soa_controls_js.py).
+// A row's status bucket: a not-applicable control has no implementation to rate, and an
+// applicable one with no status is "not recorded" (kept apart from NOT_STARTED).
+var SOA_STATUS_ORDER = ['NOT_STARTED', 'PLANNED', 'PARTIALLY_IMPLEMENTED', 'IMPLEMENTED', 'OTHER', 'NOT_RECORDED', 'NOT_APPLICABLE'];
+
+function soaStatusBucket(row) {
+  if (row.isApplicable === false) return 'NOT_APPLICABLE';
+  return row.implementationStatus || 'NOT_RECORDED';
+}
+
+// "A.5.12" -> ['a', 5, 12]: numeric parts compare as numbers, so 5.9 < 5.12 < 8.30.
+function soaLabelParts(label) {
+  return String(label || '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).map(function(p) {
+    return /^\d+$/.test(p) ? parseInt(p, 10) : p;
+  });
+}
+
+function soaCompareLabels(a, b) {
+  var pa = soaLabelParts(a), pb = soaLabelParts(b);
+  for (var i = 0; i < Math.min(pa.length, pb.length); i++) {
+    var x = pa[i], y = pb[i];
+    if (x === y) continue;
+    if (typeof x === 'number' && typeof y === 'number') return x - y;
+    if (typeof x === 'number') return -1;
+    if (typeof y === 'number') return 1;
+    return x < y ? -1 : 1;
+  }
+  return pa.length - pb.length;
+}
+
+// The value a column sorts on; null means "no value" and always sorts last.
+function soaSortValue(row, key) {
+  switch (key) {
+    case 'status':         return SOA_STATUS_ORDER.indexOf(soaStatusBucket(row));
+    case 'applicable':     return row.isApplicable === false ? 1 : 0;
+    case 'reviewDate':     { var t = row.reviewDate ? Date.parse(row.reviewDate) : NaN; return isNaN(t) ? null : t; }
+    case 'control':        return row.displayName || row.qualifiedName || null;
+    case 'implementation': return row.implementationDescription || null;
+    default:               return row[key] || null;
+  }
+}
+
+// Stable sort; dir 'asc' | 'desc'. Rows with no value stay at the bottom in both directions.
+function soaSortRows(rows, key, dir) {
+  var sign = dir === 'desc' ? -1 : 1;
+  return rows.map(function(r, i) { return [r, i]; }).sort(function(a, b) {
+    var va = soaSortValue(a[0], key), vb = soaSortValue(b[0], key);
+    if (va == null && vb == null) return a[1] - b[1];
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    var c = key === 'label' ? soaCompareLabels(va, vb)
+      : (typeof va === 'number' && typeof vb === 'number') ? va - vb
+      : String(va).localeCompare(String(vb), undefined, { sensitivity: 'base', numeric: true });
+    return c * sign || a[1] - b[1];
+  }).map(function(p) { return p[0]; });
+}
+
+// f: { statuses: [bucket…], applicable: ['yes'|'no'…], reasons: [reason…], text: '' }; an empty list means any.
+// Text matches control number, name, justification, implementation description, notes and reasons (listMatches).
+function soaFilterRows(rows, f) {
+  f = f || {};
+  return rows.filter(function(r) {
+    if (f.statuses && f.statuses.length && f.statuses.indexOf(soaStatusBucket(r)) === -1) return false;
+    if (f.applicable && f.applicable.length && f.applicable.indexOf(r.isApplicable === false ? 'no' : 'yes') === -1) return false;
+    if (f.reasons && f.reasons.length && !(r.inclusionReasons || []).some(function(x) { return f.reasons.indexOf(x) !== -1; })) return false;
+    return listMatches(f.text, [r.label, r.displayName, r.qualifiedName, r.justification, r.implementationDescription, r.notes, r.inclusionReasons]);
+  });
+}
+
+function soaFiltersActive(f) {
+  return !!(f && ((f.statuses && f.statuses.length) || (f.applicable && f.applicable.length) ||
+                  (f.reasons && f.reasons.length) || (f.text && f.text.trim())));
+}
+
+var _SOA_BUCKET_LABELS = { NOT_RECORDED: 'Status not recorded', NOT_APPLICABLE: 'Not applicable' };
+function _soaBucketLabel(b) { return _SOA_BUCKET_LABELS[b] || _soaStatusLabel(b); }
+var _SOA_EMPTY_FILTERS = { statuses: [], applicable: [], reasons: [], text: '' };
+
+function _soaToggle(list, v) {
+  return list.indexOf(v) === -1 ? list.concat([v]) : list.filter(function(x) { return x !== v; });
+}
+
+// Each tile is a button that filters the controls table to what it counts (click again to clear).
+function SoaSummary({ summary, filters, onPick }) {
+  if (!summary) return null;
+  var only = function(list, v) { return list.length === 1 && list[0] === v; };
+  var tile = function(key, label, n, color, active, patch) {
+    return React.createElement('button', {
+      key: key, type: 'button', 'aria-pressed': active,
+      title: active ? 'Showing only these controls; click to show all' : 'Show only these controls',
+      onClick: function() { onPick(active ? _SOA_EMPTY_FILTERS : Object.assign({}, _SOA_EMPTY_FILTERS, patch)); },
+      style: { textAlign: 'left', cursor: 'pointer', font: 'inherit', color: 'inherit', padding: '6px 10px', minWidth: 110,
+               background: active ? 'rgba(96,165,250,.12)' : 'transparent',
+               border: '1px solid ' + (active ? 'var(--accent)' : 'var(--border)'), borderLeft: '3px solid ' + color, borderRadius: 6 },
+    },
+      React.createElement('div', { style: { fontSize: 18, fontWeight: 700, color: color } }, String(n)),
+      React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)' } }, label));
+  };
+  var noOther = !filters.statuses.length && !filters.reasons.length && !filters.text.trim();
+  var tiles = [tile('applicable', 'Applicable', summary.applicable, 'var(--accent)',
+                    noOther && only(filters.applicable, 'yes'), { applicable: ['yes'] })];
+  Object.keys(summary.byStatus || {}).forEach(function(s) {
+    tiles.push(tile(s, _soaStatusLabel(s), summary.byStatus[s], _SOA_STATUS_COLORS[s] || 'var(--muted)',
+                    !filters.applicable.length && !filters.reasons.length && !filters.text.trim() && only(filters.statuses, s), { statuses: [s] }));
+  });
+  if (summary.statusUnset) tiles.push(tile('unset', 'Status not recorded', summary.statusUnset, '#f87171',
+                    !filters.applicable.length && !filters.reasons.length && !filters.text.trim() && only(filters.statuses, 'NOT_RECORDED'), { statuses: ['NOT_RECORDED'] }));
+  tiles.push(tile('na', 'Not applicable', summary.notApplicable, 'var(--muted)',
+                  noOther && only(filters.applicable, 'no'), { applicable: ['no'] }));
+  return React.createElement('div', null,
+    React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', marginBottom: 6 } },
+      summary.total + ' control' + (summary.total === 1 ? '' : 's') + ' assessed; status counts cover applicable controls only. Click a tile to filter the table.'),
+    React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 8 } }, tiles));
+}
+
+function _SoaChip({ label, on, onClick, color }) {
+  return React.createElement('button', {
+    type: 'button', 'aria-pressed': on, onClick: onClick,
+    style: { padding: '2px 9px', borderRadius: 10, fontSize: 11, cursor: 'pointer', font: 'inherit', fontSize: 11,
+             border: '1px solid ' + (on ? (color || 'var(--accent)') : 'var(--border)'),
+             background: on ? 'rgba(96,165,250,.12)' : 'transparent', color: on ? (color || 'var(--accent)') : 'var(--dim)' },
+  }, label);
+}
+
+function SoaControlFilters({ controls, filters, setFilters }) {
+  var el = React.createElement;
+  var present = function(fn) { var s = {}; controls.forEach(function(r) { [].concat(fn(r)).forEach(function(v) { if (v) s[v] = true; }); }); return s; };
+  var buckets = present(soaStatusBucket);
+  var statusOpts = SOA_STATUS_ORDER.filter(function(b) { return buckets[b]; });
+  var reasonSet = present(function(r) { return r.inclusionReasons || []; });
+  var reasons = Object.keys(reasonSet).sort();
+  var group = function(title, children) {
+    return el('div', { style: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4 } },
+      el('span', { style: { fontSize: 11, color: 'var(--dim)', marginRight: 2 } }, title), children);
+  };
+  return el('div', { style: { display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 } },
+    el('input', { type: 'search', className: 'search-input', 'aria-label': 'Filter controls',
+      placeholder: 'Filter by control number, name, justification or implementation…', value: filters.text,
+      onChange: function(e) { setFilters(Object.assign({}, filters, { text: e.target.value })); },
+      onKeyDown: function(e) { if (e.key === 'Escape') setFilters(Object.assign({}, filters, { text: '' })); },
+      style: { maxWidth: 520 } }),
+    group('Status', statusOpts.map(function(b) {
+      return el(_SoaChip, { key: b, label: _soaBucketLabel(b), on: filters.statuses.indexOf(b) !== -1, color: _SOA_STATUS_COLORS[b],
+        onClick: function() { setFilters(Object.assign({}, filters, { statuses: _soaToggle(filters.statuses, b) })); } });
+    })),
+    group('Applicable', [['yes', 'Yes'], ['no', 'No']].map(function(p) {
+      return el(_SoaChip, { key: p[0], label: p[1], on: filters.applicable.indexOf(p[0]) !== -1,
+        onClick: function() { setFilters(Object.assign({}, filters, { applicable: _soaToggle(filters.applicable, p[0]) })); } });
+    })),
+    reasons.length > 0 && reasons.length <= 12 && group('Inclusion reasons', reasons.map(function(r) {
+      return el(_SoaChip, { key: r, label: r, on: filters.reasons.indexOf(r) !== -1,
+        onClick: function() { setFilters(Object.assign({}, filters, { reasons: _soaToggle(filters.reasons, r) })); } });
+    })));
+}
+
 // Column widths (px). The table never shrinks below their sum: a narrower pane scrolls the
 // table sideways instead of squeezing the long-text columns to a word per line. Every column
-// can still be dragged wider or narrower (egeria-resize.js sets the <col> widths).
-var _SOA_COLS = [['Label', 80], ['Control', 190], ['Applicable', 100], ['Status', 140],
-                 ['Justification', 280], ['Implementation', 280], ['Review date', 110], ['Notes', 220]];
+// can be dragged wider or narrower at its header's right edge (egeria-resize.js, the
+// mechanism every Explorer table uses; widths are remembered for the page). The label in
+// each header is a separate button that sorts, so a drag never sorts and a click never resizes.
+// Defaults sum to 1065 px, so a 1440 px window shows the whole table (the spare width is shared out).
+var _SOA_COLS = [['label', 'Control no.', 80], ['control', 'Control', 150], ['applicable', 'Applicable', 85], ['status', 'Status', 120],
+                 ['justification', 'Justification', 210], ['implementation', 'Implementation', 210], ['reviewDate', 'Review date', 100], ['notes', 'Notes', 110]];
 
-function SoaControlsTable({ controls, onNavigateToElement }) {
-  var th = { textAlign: 'left', padding: '6px 8px', fontSize: 11, color: 'var(--dim)', fontWeight: 600, borderBottom: '1px solid var(--border)', verticalAlign: 'bottom' };
+function SoaControlsTable({ rows, sort, setSort, onNavigateToElement }) {
+  var th = { textAlign: 'left', padding: '0', fontSize: 11, color: 'var(--dim)', fontWeight: 600, borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)', verticalAlign: 'bottom' };
   var td = { padding: '6px 8px', fontSize: 12, verticalAlign: 'top', whiteSpace: 'normal', wordBreak: 'break-word', overflowWrap: 'anywhere' };
-  var minW = _SOA_COLS.reduce(function(n, c) { return n + c[1]; }, 0);
+  var minW = _SOA_COLS.reduce(function(n, c) { return n + c[2]; }, 0);
   return React.createElement('div', { style: { overflowX: 'auto', maxWidth: '100%' } },
     React.createElement('table', { style: { width: '100%', minWidth: minW, borderCollapse: 'collapse', tableLayout: 'fixed' } },
       React.createElement('colgroup', null, _SOA_COLS.map(function(c) {
-        return React.createElement('col', { key: c[0], style: { width: c[1] } });
+        return React.createElement('col', { key: c[0], style: { width: c[2] } });
       })),
       React.createElement('thead', null, React.createElement('tr', null,
-        _SOA_COLS.map(function(c) { return React.createElement('th', { key: c[0], style: th }, c[0]); }))),
-      React.createElement('tbody', null, controls.map(function(c) {
+        _SOA_COLS.map(function(c) {
+          var on = sort.key === c[0];
+          var aria = on ? (sort.dir === 'desc' ? 'descending' : 'ascending') : 'none';
+          return React.createElement('th', { key: c[0], 'aria-sort': aria, style: th },
+            React.createElement('button', {
+              type: 'button', title: 'Sort by ' + c[1].toLowerCase() + ' — drag the column edge to resize',
+              onClick: function() { setSort({ key: c[0], dir: on && sort.dir === 'asc' ? 'desc' : 'asc' }); },
+              style: { display: 'block', width: 'calc(100% - 8px)', textAlign: 'left', padding: '6px 8px', background: 'none', border: 'none',
+                       font: 'inherit', fontWeight: 600, color: on ? 'var(--accent)' : 'var(--dim)', cursor: 'pointer', whiteSpace: 'normal', overflowWrap: 'anywhere', textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: 10 },
+            }, c[1], on ? (sort.dir === 'desc' ? ' ▼' : ' ▲') : ''));
+        }))),
+      React.createElement('tbody', null, rows.map(function(c) {
         var applicable = c.isApplicable === false
           ? React.createElement('span', { style: { color: 'var(--muted)' } }, 'No')
           : c.isApplicable === true ? 'Yes'
@@ -13375,8 +13524,33 @@ function SoaControlsTable({ controls, onNavigateToElement }) {
       }))));
 }
 
+// The controls section: filters, an honest count, and the table (or why it is empty).
+function SoaControlsSection({ detail, filters, setFilters, onNavigateToElement }) {
+  const [sort, setSort] = useState({ key: 'label', dir: 'asc' });
+  var controls = detail.controls || [];
+  var sectionHdr = { fontWeight: 700, fontSize: 13, marginBottom: 10, marginTop: 20, paddingBottom: 6, borderBottom: '1px solid var(--border)', color: 'var(--accent)' };
+  var shown = soaSortRows(soaFilterRows(controls, filters), sort.key, sort.dir);
+  var active = soaFiltersActive(filters);
+  var clear = React.createElement('button', { type: 'button', onClick: function() { setFilters(_SOA_EMPTY_FILTERS); },
+    style: { background: 'none', border: 'none', padding: 0, color: 'var(--accent)', cursor: 'pointer', font: 'inherit', fontSize: 12 } }, 'clear filters');
+  return React.createElement('div', null,
+    React.createElement('div', { style: sectionHdr }, 'Controls (' + controls.length + ')'),
+    !detail.controlsRead
+      ? React.createElement('div', { style: { color: '#f87171', fontSize: 12 } }, 'The controls for this statement could not be read.')
+      : controls.length === 0
+      ? React.createElement('div', { style: { color: 'var(--dim)', fontSize: 12 } }, 'No controls are linked to this statement of applicability yet.')
+      : React.createElement('div', null,
+          React.createElement(SoaControlFilters, { controls: controls, filters: filters, setFilters: setFilters }),
+          React.createElement('div', { role: 'status', style: { fontSize: 12, color: 'var(--dim)', marginBottom: 6 } },
+            'Showing ' + shown.length + ' of ' + controls.length, active && ' · ', active && clear),
+          shown.length === 0
+            ? React.createElement('div', { style: { fontSize: 12, color: '#fbbf24', padding: '8px 0' } }, 'No controls match these filters (', clear, ').')
+            : React.createElement(SoaControlsTable, { rows: shown, sort: sort, setSort: setSort, onNavigateToElement: onNavigateToElement })));
+}
+
 function SoaDetail({ detail, onNavigateToElement }) {
   var personaId = React.useContext(PersonaContext);
+  const [filters, setFilters] = useState(_SOA_EMPTY_FILTERS);
   var sectionHdr = { fontWeight: 700, fontSize: 13, marginBottom: 10, marginTop: 20, paddingBottom: 6, borderBottom: '1px solid var(--border)', color: 'var(--accent)' };
   var controls = detail.controls || [];
   return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%', minWidth: 0, overflowWrap: 'anywhere' } },
@@ -13399,13 +13573,8 @@ function SoaDetail({ detail, onNavigateToElement }) {
     }),
     React.createElement(AdditionalPropertiesTable, { data: detail.additionalProperties }),
     React.createElement('div', { style: sectionHdr }, 'Implementation summary'),
-    React.createElement(SoaSummary, { summary: detail.summary }),
-    React.createElement('div', { style: sectionHdr }, 'Controls (' + controls.length + ')'),
-    !detail.controlsRead
-      ? React.createElement('div', { style: { color: '#f87171', fontSize: 12 } }, 'The controls for this statement could not be read.')
-      : controls.length === 0
-      ? React.createElement('div', { style: { color: 'var(--dim)', fontSize: 12 } }, 'No controls are linked to this statement of applicability yet.')
-      : React.createElement(SoaControlsTable, { controls: controls, onNavigateToElement: onNavigateToElement }),
+    React.createElement(SoaSummary, { summary: detail.summary, filters: filters, onPick: setFilters }),
+    React.createElement(SoaControlsSection, { detail: detail, filters: filters, setFilters: setFilters, onNavigateToElement: onNavigateToElement }),
     React.createElement('div', { style: { marginTop: 20 } },
       React.createElement(AvailableMermaidDiagrams, { data: detail }),
       React.createElement(MermaidSection, { guid: detail.guid, data: detail })),
@@ -13494,7 +13663,7 @@ function StatementsOfApplicabilityView({ navGuid, onNavigateToElement }) {
       : detail.state === 'loading' ? msg('Loading…')
       : detail.state === 'missing' ? msg('Statement of applicability ' + selected + ' was not found — it may have been deleted, or you may not have access to it.', '#fbbf24')
       : detail.state === 'error' ? msg('Couldn\'t read this statement of applicability (' + (detail.status ? 'HTTP ' + detail.status + ': ' : '') + detail.error + ').', '#f87171')
-      : detail.data && React.createElement(SoaDetail, { detail: detail.data, onNavigateToElement: onNavigateToElement })
+      : detail.data && React.createElement(SoaDetail, { key: detail.data.guid, detail: detail.data, onNavigateToElement: onNavigateToElement })
     )
   );
 }
