@@ -37,10 +37,11 @@
 > forward-reference, same pattern as `LOCAL_DASHBOARDS_ROADMAP.dr-egeria.md`);
 > clears up on PROCESS since each step runs in order.
 >
-> This file only re-links; it doesn't remove the two old direct-Report-Spec
-> placements (`Work-Item-List-DrE-Basic`, `Collections`) — those were removed
-> by hand-editing the old JSON store after this ran, before the sheet moved
-> into Egeria.
+> The two old direct-Report-Spec placements (`Work-Item-List-DrE-Basic`,
+> `Collections`) were originally removed by hand-editing the JSON store, since
+> there's no "Remove Placement" Dr.Egeria command yet. Since 2026-11-15
+> `LOCAL_DASHBOARDS_ROADMAP.dr-egeria.md` no longer creates them, so a fresh
+> run needs no cleanup.
 
 ___
 

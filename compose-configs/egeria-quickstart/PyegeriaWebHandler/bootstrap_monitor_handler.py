@@ -297,7 +297,48 @@ async def _heal_family(family: dict, seen: Optional[set] = None) -> str:
     check_and_heal_all pass, so a doc two families both reach runs once."""
     if seen is None:
         seen = set()
-    for doc in family["docs"]:
+    batch_id = family.get("batch_id")
+    if batch_id:
+        holder = _bb_claim(batch_id)
+        if holder is not None:
+            # A manual run already has it; the next check will see whether
+            # that run brought the canary back.
+            logger.info(f"bootstrap monitor: {family['name']} -- {holder} run in progress, not healing this pass")
+            return f"skipped: {holder} run in progress"
+    try:
+        return await _heal_family_docs(family, seen, batch_id)
+    finally:
+        if batch_id:
+            _bb_call("release_batch", batch_id)
+
+
+def _bb_claim(batch_id: str) -> Optional[str]:
+    """Claim a batch for auto-heal. Returns the holder's source if a run
+    already owns it, else None. If the bookkeeping isn't available, heal
+    anyway, as before this guard existed."""
+    try:
+        import bootstrap_batches as bb
+        return bb.claim_batch(batch_id, "auto-heal")
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"bootstrap monitor: claim_batch failed: {exc}")
+        return None
+
+
+def _bb_call(name: str, *args, **kwargs) -> None:
+    """Call a bootstrap_batches progress/ledger helper; never let a
+    bookkeeping problem fail a heal."""
+    try:
+        import bootstrap_batches as bb
+        getattr(bb, name)(*args, **kwargs)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"bootstrap monitor: {name} failed: {exc}")
+
+
+async def _heal_family_docs(family: dict, seen: set, batch_id: Optional[str]) -> str:
+    total = len(family["docs"])
+    for index, doc in enumerate(family["docs"], start=1):
+        if batch_id:
+            _bb_call("set_progress", batch_id, Path(doc).name, index, total, source="auto-heal")
         if not Path(doc).exists():
             logger.warning(f"bootstrap monitor: {family['name']} doc missing, skipping: {doc}")
             continue
@@ -318,6 +359,8 @@ async def _heal_family(family: dict, seen: Optional[set] = None) -> str:
             if proc.returncode != 0:
                 tail = stdout.decode(errors="replace")[-800:] if stdout else ""
                 logger.error(f"bootstrap monitor: heal failed for {family['name']} on {doc}: {tail}")
+                _bb_call("record_result", Path(doc), "failed", f"auto-heal exit {proc.returncode}: {tail}",
+                         source="auto-heal")
                 return f"failed on {Path(doc).name}"
             _record_run(doc)
             logger.info(f"bootstrap monitor: healed {family['name']} via {Path(doc).name}")
@@ -326,6 +369,8 @@ async def _heal_family(family: dict, seen: Optional[set] = None) -> str:
                          f"(was previously left running orphaned; see _active_procs comment above)")
             if proc is not None:
                 await _kill_proc(proc)
+            _bb_call("record_result", Path(doc), "failed", f"auto-heal timed out after {_DR_EGERIA_TIMEOUT}s",
+                     source="auto-heal")
             return f"timed out on {Path(doc).name}"
         except asyncio.CancelledError:
             # App shutdown/reload mid-heal (stop_scheduler()) -- kill the
@@ -336,6 +381,7 @@ async def _heal_family(family: dict, seen: Optional[set] = None) -> str:
             raise
         except Exception as exc:  # noqa: BLE001
             logger.error(f"bootstrap monitor: heal error for {family['name']} on {doc}: {exc}")
+            _bb_call("record_result", Path(doc), "failed", f"auto-heal error: {exc}", source="auto-heal")
             return f"error on {Path(doc).name}: {exc}"
         finally:
             if proc is not None:
@@ -361,7 +407,7 @@ def _record_run(doc: str) -> None:
     (advisory -- see that module). Never lets a ledger problem fail a heal."""
     try:
         import bootstrap_batches as bb
-        bb.record_run(Path(doc))
+        bb.record_run(Path(doc), source="auto-heal")
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"bootstrap monitor: could not record run of {doc}: {exc}")
 
@@ -386,6 +432,7 @@ def _dynamic_families() -> list[dict]:
             continue
         families.append({
             "name":        f"batch:{batch['id']}",
+            "batch_id":    batch["id"],
             "canary_type": canary["type"],
             "canary_name": canary["name"],
             "manual_steps": batch.get("manualSteps") or [],
@@ -444,15 +491,19 @@ async def check_and_heal_all() -> bool:
     logger.info(f"bootstrap monitor: healing {[f['name'] for f in to_heal]} (canary missing)")
 
     seen: set = set()
-    for family in to_heal:
-        result = await _heal_family(family, seen)
+    queued = [f["batch_id"] for f in to_heal if f.get("batch_id")]
+    _bb_call("set_queued", queued, source="auto-heal")
+    try:
+        for family in to_heal:
+            result = await _heal_family(family, seen)
+            async with _mu:
+                _state["families"][family["name"]]["lastHealedAt"] = _now_iso()
+                _state["families"][family["name"]]["lastHealResult"] = result
+    finally:
+        _bb_call("clear_queued", queued)  # a crash/cancel mustn't leave batches showing "queued"
         async with _mu:
-            _state["families"][family["name"]]["lastHealedAt"] = _now_iso()
-            _state["families"][family["name"]]["lastHealResult"] = result
-
-    async with _mu:
-        _state["reinitializing"] = False
-        _state["message"] = None
+            _state["reinitializing"] = False
+            _state["message"] = None
 
     await _record_manual_steps(all_families)
     return any_unreachable

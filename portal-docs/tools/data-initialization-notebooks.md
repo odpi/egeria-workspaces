@@ -8,6 +8,7 @@ This guide covers:
 
 - [How it works](#how-it-works): which notebooks run, where, as whom, and what you get back
 - [Writing a notebook that runs here](#writing-a-notebook-that-runs-here)
+- [Techniques and best practices](#techniques-and-best-practices): searching efficiently, `check-only` cells, bounded waits, re-run safety
 - [Adding a notebook to a batch](#adding-a-notebook-to-a-batch), with recipes
 - [Walkthrough: try it end to end](#walkthrough-try-it-end-to-end)
 - [Troubleshooting](#troubleshooting)
@@ -42,7 +43,7 @@ A notebook runs inside the Portal's own container (`quickstart-pyegeria-web`), n
 - **With the Portal's Python environment:** its pyegeria release (6.2.x), `pandas`, `requests`, `sqlalchemy`, `psycopg2`, `rich` and `nest_asyncio`. `matplotlib` is not installed, and nor is anything that only the Jupyter image has, such as its `commands.*` modules.
 - **Using the `python3` kernel,** whatever kernel the notebook names.
 - **With no keyboard,** so a cell that calls `input()` fails at once rather than waiting.
-- **Within time limits:** 10 minutes per cell (`BOOTSTRAP_NOTEBOOK_CELL_TIMEOUT_SECONDS`) and 15 minutes for the whole notebook (`BOOTSTRAP_BATCH_TIMEOUT_SECONDS`).
+- **Within time limits:** 10 minutes per cell (`BOOTSTRAP_NOTEBOOK_CELL_TIMEOUT_SECONDS`), 3 minutes for a cell tagged [`check-only`](#check-only-cells) (`BOOTSTRAP_NOTEBOOK_CHECK_CELL_TIMEOUT_SECONDS`), and 15 minutes for the whole notebook (`BOOTSTRAP_BATCH_TIMEOUT_SECONDS`).
 
 The notebook file itself is never changed. The run works on a copy.
 
@@ -56,14 +57,14 @@ The result appears under the batch in the panel. Each failed file has its own li
   Executed copy: /root/.pyegeria/notebook-runs/pyegeria-b7b8c666/initialize-pyegeria.ipynb
 ```
 
-- A notebook **fails** as soon as one of its cells raises an error. The rest of its cells don't run. The result names the cell, counting code cells only, and gives the error.
+- A notebook **fails** as soon as one of its cells raises an error or times out. The rest of its cells don't run. The result names the cell, counting code cells only, and gives the error. The exception is a cell tagged [`check-only`](#check-only-cells): its failure is noted in the result and the notebook carries on.
 - The **executed copy** is the notebook as it ran, with every cell's output, and the traceback if a cell failed. It is written on success and on failure, overwriting the previous run's copy. The path shown is inside the container. On the host it is:
   - quickstart: `runtime-volumes/quickstart-pyegeria-state/notebook-runs/…`
   - freshstart: `runtime-volumes/freshstart-pyegeria-state/notebook-runs/…`
 
   Open it in Jupyter or any notebook viewer.
 - A failed file does **not** stop the batch. The next file in the order still runs, so a notebook that depends on an earlier one will fail too, with the same error.
-- A notebook that ran cleanly is recorded in the run ledger like a Dr.Egeria file, so the panel shows ✓, or **changed since last run** once the notebook is edited.
+- Every run is recorded in the run ledger like a Dr.Egeria file's. The panel shows ✓ after a clean run, **changed since last run** once the notebook is edited, or **failed** with the time and error after a failed run, whether Run Now or auto-heal ran it.
 
 ### Re-run safety
 
@@ -90,7 +91,7 @@ A notebook that runs top to bottom in Jupyter with **Restart & Run All** will us
    The Portal sets all four. Don't hard-code a user, or the manifest's `userid` has no effect.
 2. **Import only what the Portal has.** Use pyegeria's public API for the current release, and avoid `commands.*`, `matplotlib`, and other packages from the Jupyter image. If a notebook needs an extra package, ask for it to be added to the Portal image rather than calling `pip install` in a cell.
 3. **No interaction.** No `input()`, and no widgets that must be clicked before the next cell can run.
-4. **Make it safe to re-run** if you can: look an element up before creating it. Then set `"idempotent": true`.
+4. **Make it safe to re-run** if you can: look an element up before creating it (see [Make every create safe to run twice](#make-every-create-safe-to-run-twice)). Then set `"idempotent": true`.
 5. **Mind what it writes to disk.** The notebook runs in its real folder in the repository, and `coco-workbooks` is mounted read-write, so files it saves land in your checkout. Write scratch output to a temporary directory instead.
 6. **Create something recognisable last,** if the batch should heal itself after a reset. A canary is one element, found by type and exact display name (see [Choosing a canary](#choosing-a-canary)).
 
@@ -103,7 +104,116 @@ docker exec -w "/coco-workbooks/<folder>" \
   jupyter nbconvert --to notebook --execute --output /tmp/check.ipynb <notebook>.ipynb
 ```
 
-This shows the same errors the Portal would.
+This shows the same errors the Portal would. It doesn't apply the Portal's time limits or its handling of [`check-only` cells](#check-only-cells), though.
+
+---
+
+## Techniques and best practices
+
+These come from getting the Coco workbooks to load reliably on a full quickstart, where a notebook that worked in Jupyter against a small repository timed out, blocked auto-heal, or failed on a second run.
+
+### Search the repository once, not once per item
+
+Each starts-with or contains search (`find_elements_by_property_value` with `starts_with=True`, or any `find_*` with a search string) is a regular-expression scan of the repository. One is cheap; one per row of a CSV is not. A cell that ran one starts-with search for each of 66 schemas took more than 10 minutes on a loaded quickstart. That was over the cell limit, so the batch stopped there.
+
+List the elements **by type** instead, page through them, and do the matching in Python:
+
+```python
+PAGE_SIZE = 100    # the most a by-type listing returns per page
+
+def list_by_type(type_name):
+    """Every element of type_name, as returned by a by-type listing."""
+    elements, start = [], 0
+    while True:
+        page = classification_explorer.find_elements_by_property_value(
+            property_value="*", property_names=["qualifiedName"],
+            metadata_element_type=type_name, graph_query_depth=0,
+            start_from=start, page_size=PAGE_SIZE)
+        if not isinstance(page, list) or not page:
+            return elements
+        elements += page
+        if len(page) < PAGE_SIZE:
+            return elements
+        start += PAGE_SIZE
+
+tables_by_schema = defaultdict(list)
+for table in list_by_type("RelationalTable"):
+    qualified_name = table["properties"]["qualifiedName"]
+    if qualified_name.startswith(TABLE_PREFIX):
+        schema, _, _ = qualified_name[len(TABLE_PREFIX):].partition("::")
+        tables_by_schema[schema].append(qualified_name)
+```
+
+On the same repository this takes about 4 seconds for 555 tables. Narrowing it instead to one starts-with search on the common prefix still took about 150 seconds, because that is still a scan.
+
+- With `property_value="*"` and a type, pyegeria lists elements by type, and caps each page at 100 (`STAR_PAGE_MAX`). Use a page size of 100, or the loop's "last page" test stops after the first page.
+- Pass `metadata_element_type`. The older name `metadata_element_type_name` still works, but logs a deprecation warning in every executed copy.
+- Pass `graph_query_depth=0` when only the element's own properties are needed.
+
+### Check-only cells
+
+Many workbooks end with cells that only report on what the earlier cells loaded: counts, coverage tables, a walk from one system to its tables. If one of those is slow or fails, it should not fail the notebook. A failed notebook stops auto-heal for the whole batch, so a canary created by a later file never appears, and the batch is retried, and fails again, on every check.
+
+Add the tag `check-only` to such a cell (in Jupyter Lab: the property inspector's **Cell Tags**, or `"tags": ["check-only"]` in the cell's `metadata`). When the Portal runs the notebook, a `check-only` cell:
+
+- gets its own, shorter limit: 3 minutes (`BOOTSTRAP_NOTEBOOK_CHECK_CELL_TIMEOUT_SECONDS`)
+- is interrupted if it runs past it, and the error or timeout is noted in the result instead of failing the notebook: `ran 13 code cells; check-only cell 12 (CellTimeoutError: cell timed out) failed and was skipped`
+- doesn't stop the cells after it from running
+
+Tag only cells that change nothing in Egeria and that later cells don't depend on. A cell that waits for something the next cells need, such as the cataloguer finishing before a listener is connected, is not `check-only`. It needs [a bounded wait](#keep-waits-inside-the-cell-limit) instead.
+
+The tag has no effect in Jupyter.
+
+### Keep waits inside the cell limit
+
+A cell that polls until Egeria has finished something must give up within the 10-minute cell limit, and leave room for its last check. Use a deadline below the limit, and make each check cheap (see [Search the repository once](#search-the-repository-once-not-once-per-item)):
+
+```python
+WAIT_MINUTES = 9          # the Portal allows 10 minutes per cell
+
+deadline = time.time() + WAIT_MINUTES * 60
+while True:
+    missing = still_missing()          # one listing per check, not one search per item
+    if not missing or time.time() > deadline:
+        break
+    time.sleep(30)
+```
+
+If the wait runs out, report what is still missing and skip the step that depended on it, rather than raising. The next run, manual or auto-heal, tries again.
+
+The whole notebook also has to finish within 15 minutes (`BOOTSTRAP_BATCH_TIMEOUT_SECONDS`), so count every wait toward that too.
+
+### Make every create safe to run twice
+
+Auto-heal reruns a batch whenever its canary is missing, and Run Now reruns it on request. So each create should first check whether the element is there:
+
+```python
+def get_guid(qualified_name):
+    guid = client.get_element_guid_by_unique_name(qualified_name)
+    return None if guid in (None, NO_ELEMENTS_FOUND) else guid
+
+if get_guid(qualified_name) is None:
+    client.create_...(body)
+```
+
+A lookup can say "not found" for an element that exists, because the running user can't see it. `UserIdentity` elements, for example, are not returned to ordinary users' searches. The create then fails with `OMAG-COMMON-409-001` (the `qualifiedName` is already in use). That rejection means the element is there, so treat it as success:
+
+```python
+def create_unless_present(create, body):
+    """Call create(body), treating Egeria's unique-name rejection as "already there"."""
+    try:
+        return create(body)
+    except Exception as exc:
+        if "OMAG-COMMON-409-001" in str(exc):
+            return None
+        raise
+```
+
+Only once every create in the notebook is guarded like this should the manifest say `"idempotent": true`.
+
+### Find the slow cell from the result
+
+The result line names the cell that failed or timed out, counting code cells only (`cell 12 of 13`). The executed copy has every cell's output up to that point. A cell that timed out has no traceback, because the Portal interrupted it. Its partial output, and any `DeprecationWarning` lines, usually show what it was doing.
 
 ---
 
@@ -253,8 +363,14 @@ Relative paths are resolved from the notebook's own folder. A path written relat
 **Authentication errors, or elements created as the wrong user.**
 The notebook isn't reading `EGERIA_USER` and `EGERIA_USER_PASSWORD`, or the manifest gives no `userid`. The panel shows which user each file runs as. A user's password comes from `EGERIA_BOOTSTRAP_PASSWORD_<USERID>`, then `EGERIA_USER_PASSWORD`, then the demo password `secret`.
 
-**"timed out".**
-A cell took more than 10 minutes, or the notebook more than 15. Increase `BOOTSTRAP_NOTEBOOK_CELL_TIMEOUT_SECONDS` or `BOOTSTRAP_BATCH_TIMEOUT_SECONDS` on the Portal container, or split the notebook.
+**"timed out", or `CellTimeoutError`.**
+A cell took more than 10 minutes, or the notebook more than 15. First look for a search run once per item, or a wait with no deadline: see [Techniques and best practices](#techniques-and-best-practices). If the slow cell only reports, tag it [`check-only`](#check-only-cells). Otherwise increase `BOOTSTRAP_NOTEBOOK_CELL_TIMEOUT_SECONDS` or `BOOTSTRAP_BATCH_TIMEOUT_SECONDS` on the Portal container, or split the notebook.
+
+**The same batch keeps re-running every few minutes.**
+Auto-heal stops a batch at its first failing file, so its canary, created later, never appears, and every check retries the batch. The batch's status line shows **✗ failed**. Fix that file, or tag its report-only cells `check-only`.
+
+**`OMAG-COMMON-409-001` on a second run.**
+The notebook looked an element up, didn't see it, and tried to create it again. See [Make every create safe to run twice](#make-every-create-safe-to-run-twice).
 
 **Run Now asks for confirmation.**
 The batch contains a notebook and its manifest doesn't say `"idempotent": true`. Confirm only if the batch's data isn't loaded yet, or if running it again is harmless.
