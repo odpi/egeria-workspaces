@@ -1376,6 +1376,7 @@ function currentRoute() {
   if (p.has('q')) return { page: 'search', q: p.get('q') || '', kind: p.get('kind') || '' };
   if (p.get('list')) return { page: 'list', guid: p.get('list') };
   if (p.get('lens')) return { page: 'lens', guid: p.get('lens') };
+  if (p.has('help')) return { page: 'help' };
   if (p.get('browse')) return { page: 'browse', facet: p.get('browse'), value: p.get('value') || '' };
   return { page: 'home' };
 }
@@ -1533,6 +1534,7 @@ function NavBar({ route }) {
   return el('div', { className: 'rb-nav' },
     tab('home', 'Home', {}),
     tab('browse', 'Browse', { browse: 'tag' }),
+    tab('help', 'Help', { help: '' }),
     el('form', { onSubmit: submit, style: { flex: 1, display: 'flex', maxWidth: 560, marginLeft: 'auto' } },
       el('input', { className: 'rb-search', value: q, placeholder: 'Search names, descriptions, columns, tags, keywords, owners…',
         onChange: function(e) { setQ(e.target.value); } })));
@@ -1754,6 +1756,39 @@ function ListsTile({ creds }) {
           el('div', { className: 'rb-note', style: { marginBottom: 4 } }, 'From Resource Explorer (read-only: copy what you want)'),
           d.fromResourceExplorer.length ? list(d.fromResourceExplorer)
             : el('div', { className: 'rb-absent' }, 'No Resource Explorer list has been published to Egeria yet.'))));
+}
+
+// ── Help: how the Locator works, and every term it uses ─────────────────────
+// The glossary is the same TERMS table the "?" markers show, so the two never disagree.
+
+var DOCS_URL = '/docs/viewer.html?src=tools/resource-locator.md';
+
+function HelpPage() {
+  useEffect(function() { document.title = 'Help · Resource Locator'; }, []);
+  var sec = function(title, body) { return el(Card, { title: title }, body); };
+  var p = function(t) { return el('p', { style: { margin: '0 0 8px', lineHeight: 1.55 } }, t); };
+  return el('div', { className: 'rb-page' },
+    el('h1', { style: { fontSize: 22, margin: '0 0 6px' } }, 'How the Resource Locator works'),
+    el('div', { className: 'rb-note', style: { marginBottom: 14 } }, 'The full guide is in the ',
+      el('a', { href: DOCS_URL, target: '_blank', rel: 'noopener' }, 'Portal documentation ↗'), '.'),
+    el('div', { className: 'rb-grid' },
+      el('div', null,
+        sec('Search', el('div', null,
+          p('Search matches names, qualified names and descriptions, informal tags, search keywords and owners. It also finds the parts of resources: columns and other schema attributes, and data fields. Each part shows what holds it, and the resource that holds it is found too ("contains: …").'),
+          p('Pick one kind or several with the Kind buttons (for example Schemas and Tables together); All clears them. Results are ordered by how directly the text matches: Egeria holds no usage measure the Locator reads yet.'),
+          p('"Load more results" stays offered until Egeria returns an empty page: a short page is not the last page.'))),
+        sec('Browse and the resource page', el('div', null,
+          p('Browse lists resources by tag, badge, owner, source system, collection, flavour or data scope. A resource page shows what Egeria holds about one resource, and says what is missing rather than showing an empty table.'),
+          p('You can improve a description, add informal tags, notes and meanings, like or rate a resource, and keep it in a work list. Every change is made as you, with your own Egeria token.'))),
+        sec('Data scope and data lenses', el('div', null,
+          p('A data scope says what time and place a resource’s data covers. It is shown on result rows (◷ scope) and resource pages, and set or changed in The Catalog. Some scopes hold only usage readings that Egeria’s lineage service keeps; those are shown as usage, not as a scope.'),
+          p('A data lens says what scope of data a piece of work needs. Make one from the Data lenses tile on Home, link it to your work lists, and its page lists the resources whose data scope falls inside it. A resource that records none of the lens’s dimensions cannot be compared, and is counted as such.')))),
+      el('div', null,
+        sec('Terms', el('dl', { style: { margin: 0 } }, Object.keys(TERMS).map(function(k) {
+          return el(React.Fragment, { key: k },
+            el('dt', { style: { fontWeight: 600, marginTop: 8 } }, TERMS[k].label),
+            el('dd', { style: { margin: '2px 0 0', color: 'var(--muted)', lineHeight: 1.5 } }, TERMS[k].def));
+        }))))));
 }
 
 // ── Data lenses ──────────────────────────────────────────────────────────────
@@ -2280,6 +2315,7 @@ function App() {
     : route.page === 'search' ? el(SearchPage, { q: route.q, kind: route.kind, creds: creds })
     : route.page === 'list' ? el(ListPage, { key: route.guid, guid: route.guid, creds: creds })
     : route.page === 'lens' ? el(LensPage, { key: route.guid, guid: route.guid, creds: creds })
+    : route.page === 'help' ? el(HelpPage, null)
     : route.page === 'browse' ? el(BrowsePage, { facet: route.facet, value: route.value, creds: creds })
     : el(HomePage, { creds: creds, personaId: personaId });
 
