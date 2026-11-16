@@ -93,9 +93,10 @@ services:
       PGVECTOR_PORT: "5442"
       PGVECTOR_DBNAME: egeria_advisor
       PGVECTOR_USER: egeria_advisor
-      PGVECTOR_PASSWORD: "${PGVECTOR_PASSWORD:-advisor}"
+      PGVECTOR_PASSWORD: "${PGVECTOR_PASSWORD:?set PGVECTOR_PASSWORD (TR-12)}"
       PGVECTOR_SCHEMA: resource_explorer
-      REGISTRY_DATABASE_URL: "postgresql://egeria_advisor:${PGVECTOR_PASSWORD:-advisor}@egeria-shared-postgres:5442/egeria_advisor?options=-csearch_path%3Dresource_explorer"
+      # No REGISTRY_/FEEDBACK_/METRICS_DATABASE_URL: RE builds all three from PGVECTOR_* (trellis TR-12), and
+      # there is no default password: compose refuses to start without PGVECTOR_PASSWORD in the env/.env.
 
       # ── Kroki — container-to-container URL (egeria-shared-kroki:8000, the
       # internal port; NOT the host-published 6002 shared-infra.yaml uses for
@@ -181,9 +182,10 @@ services:
       PGVECTOR_PORT: "5442"
       PGVECTOR_DBNAME: egeria_advisor
       PGVECTOR_USER: egeria_advisor
-      PGVECTOR_PASSWORD: "${PGVECTOR_PASSWORD:-advisor}"
+      PGVECTOR_PASSWORD: "${PGVECTOR_PASSWORD:?set PGVECTOR_PASSWORD (TR-12)}"
       PGVECTOR_SCHEMA: resource_explorer
-      REGISTRY_DATABASE_URL: "postgresql://egeria_advisor:${PGVECTOR_PASSWORD:-advisor}@egeria-shared-postgres:5442/egeria_advisor?options=-csearch_path%3Dresource_explorer"
+      # No REGISTRY_/FEEDBACK_/METRICS_DATABASE_URL: RE builds all three from PGVECTOR_* (trellis TR-12), and
+      # there is no default password: compose refuses to start without PGVECTOR_PASSWORD in the env/.env.
       KROKI_URL: http://egeria-shared-kroki:8000
       EGERIA_PLATFORM_URL: https://host.docker.internal:9443
       # See trellis-re-web's identical block above for why this is also
@@ -233,7 +235,7 @@ services:
       PGVECTOR_PORT: "5442"
       PGVECTOR_DBNAME: egeria_advisor
       PGVECTOR_USER: egeria_advisor
-      PGVECTOR_PASSWORD: "${PGVECTOR_PASSWORD:-advisor}"
+      PGVECTOR_PASSWORD: "${PGVECTOR_PASSWORD:?set PGVECTOR_PASSWORD (TR-12)}"
 
       KROKI_URL: http://egeria-shared-kroki:8000
 

@@ -76,7 +76,7 @@ platform tokens last one hour; an app session is the shorter of that and the app
 |---|---|---|
 | `TRELLIS_JWT_SECRET` | signs the apps' own session tokens; every RE/EA process on a box must share it | generate once per box: `openssl rand -hex 32` |
 | `ADVISOR_PORTAL_SECRET` / `TRELLIS_PORTAL_SECRET` | lets the Portal hand a signed-in user to EA and RE | the same value as the QuickStart's `EGERIA_ADVISOR_SSO_SECRET` |
-| `PGVECTOR_PASSWORD` | the `egeria_advisor` Postgres role | `shared-infra/docker-entrypoint-initdb.d/init_egeria.sql` (default `advisor`) |
+| `PGVECTOR_PASSWORD` | the `egeria_advisor` Postgres role. Required, no default (trellis TR-12): compose, RE and EA refuse to start without it | rotate the role with `ALTER ROLE egeria_advisor PASSWORD '…'` before first use (`shared-infra/docker-entrypoint-initdb.d/init_egeria.sql` creates it with a well-known value), and put the new one in `.env` |
 | `GITHUB_TOKEN` | RE's GitHub API access for surveys and discovery | a personal token with read scope; without it GitHub's 60 calls/hour are gone in one survey |
 | `RE_DAEMON_USER_ID` / `RE_DAEMON_USER_PASSWORD` | RE's service account above (compose passes them as `EGERIA_USER_ID` / `EGERIA_USER_PASSWORD`) | `resourceexplorernpa`; its password from the QuickStart's user directory. Required, no default |
 | `EA_DAEMON_USER_ID` / `EA_DAEMON_USER_PASSWORD` | EA's service account above (compose passes them as `EGERIA_USER` / `EGERIA_PASSWORD`) | `egeriaadvisornpa`; its password from the QuickStart's user directory. Required, no default |
