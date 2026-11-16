@@ -16,6 +16,7 @@ Endpoints:
 import os
 import re
 import tempfile
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
@@ -171,6 +172,63 @@ class ExecuteRequest(PlatformBody):
     user_pwd:  Optional[str] = None
 
 
+# ── whose identity a Dr.Egeria run uses (PO-20) ───────────────────────────────────────────────────────────
+
+@dataclass(frozen=True)
+class DrEgeriaIdentity:
+    """Who a Dr.Egeria run acts as (an internal record, not a request body). With `token` set the run uses that
+    token only: the client holds no password (NO_PASSWORD), so it can never sign in again as anyone; `user_pwd`
+    is then None."""
+    platform_url: str
+    server:   str
+    user_id:  str
+    user_pwd: Optional[str] = None
+    token:    Optional[str] = None
+
+
+def _auth_on() -> bool:
+    """DEMO_MODE or SERVER_MANAGED_AUTH: a Portal where every user signs in. Read from demo_feedback_handler (as
+    report_specs_handler's sync rule does), so one place decides; fail closed (auth on) if it cannot be read."""
+    try:
+        import demo_feedback_handler as dfh
+        return bool(dfh.DEMO_MODE or dfh.SERVER_MANAGED_AUTH)
+    except Exception:  # noqa: BLE001
+        logger.warning("Dr.Egeria: auth mode unreadable, so treated as on")
+        return True
+
+
+def dr_egeria_identity(req) -> DrEgeriaIdentity:
+    """The identity /api/dr-egeria/execute and execute-document run as (PO-20; Architect brief 2026-11-15).
+
+    - With an X-Egeria-Token: the token's user, ONLY. The body's user_id is ignored (and logged when it names
+      someone else), and its user_pwd is never read; no configured password is used. An expired token, or one
+      with no user in it, is a 401: never a fallback to the body's user or the service account.
+    - Without a token, on a Portal where users sign in (DEMO_MODE / SERVER_MANAGED_AUTH): 401, because a
+      Dr.Egeria run (which may write) needs a signed-in user.
+    - Without a token on a no-auth local Portal (laz quickstart, neither flag): today's behaviour, unchanged:
+      the body's user_id/user_pwd, else the configured service user (EGERIA_USER / EGERIA_USER_PASSWORD).
+    """
+    from fastapi import HTTPException
+    import time
+    from egeria_auth import _token_exp, _token_sub, get_request_token   # _token_exp: in both twins' egeria_auth
+    url    = req.url    or os.environ.get("EGERIA_PLATFORM_URL", "https://egeria-main:9443")
+    server = req.server or os.environ.get("EGERIA_VIEW_SERVER",  "qs-view-server")
+    token  = get_request_token()
+    if token:
+        user = _token_sub(token)
+        exp = _token_exp(token)
+        if not user or (exp is not None and exp <= time.time()):
+            raise HTTPException(status_code=401, detail="Egeria sign-in expired or unreadable; sign in again")
+        if req.user_id and req.user_id != user:
+            logger.warning(f"Dr.Egeria: body user_id {req.user_id!r} ignored; running as the token's user {user!r}")
+        return DrEgeriaIdentity(platform_url=url, server=server, user_id=user, user_pwd=None, token=token)
+    if _auth_on():
+        raise HTTPException(status_code=401, detail="Sign in to run Dr.Egeria commands")
+    return DrEgeriaIdentity(platform_url=url, server=server,
+                            user_id=req.user_id  or os.environ.get("EGERIA_USER",          "erinoverview"),
+                            user_pwd=req.user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret"))
+
+
 def _build_markdown_block(title: str, params: dict, directive: str = "display") -> str:
     """Build a Dr. Egeria markdown block from a command title and parameter dict.
 
@@ -189,8 +247,7 @@ def _build_markdown_block(title: str, params: dict, directive: str = "display") 
     return "".join(lines)
 
 
-def _write_and_execute(markdown_block: str, directive: str,
-                       url: str, server: str, user_id: str, user_pwd: str) -> dict:
+def _write_and_execute(markdown_block: str, directive: str, ident: "DrEgeriaIdentity") -> dict:
     """Write block to temp inbox file, execute, return structured result dict.
 
     Captures output from two sources:
@@ -223,17 +280,18 @@ def _write_and_execute(markdown_block: str, directive: str,
                 input_file=file_path,
                 output_folder=outbox_dir,
                 directive=directive,
-                server=server,
-                url=url,
-                userid=user_id,
-                user_pass=user_pwd,
+                server=ident.server,
+                url=ident.platform_url,
+                userid=ident.user_id,
+                user_pass=ident.user_pwd,
                 outbox_path=EGERIA_OUTBOX_PATH,
+                token=ident.token,
             )
         else:
             func = getattr(dr_egeria_md.process_markdown_file, "callback", dr_egeria_md.process_markdown_file)
             md = func(input_file=file_path, output_folder=outbox_dir, directive=directive,
-                      server=server, url=url, userid=user_id, user_pass=user_pwd,
-                      outbox_path=EGERIA_OUTBOX_PATH)
+                      server=ident.server, url=ident.platform_url, userid=ident.user_id, user_pass=ident.user_pwd,
+                      outbox_path=EGERIA_OUTBOX_PATH, token=ident.token)
             raw = {"output": md or "", "results": []}
     finally:
         try:
@@ -352,16 +410,14 @@ def _build_execute_response(raw: dict, directive: str) -> dict:
 @router.post("/api/dr-egeria/execute", summary="Execute a Dr. Egeria command block")
 def execute_command(req: ExecuteRequest):
     """Build a markdown block from the given command title + params and execute it."""
-    url     = req.url     or os.environ.get("EGERIA_PLATFORM_URL",  "https://egeria-main:9443")
-    server  = req.server  or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
-    user_id = req.user_id or os.environ.get("EGERIA_USER",          "erinoverview")
-    user_pwd = req.user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    ident = dr_egeria_identity(req)   # the token's user only, or 401 (PO-20)
 
     block = _build_markdown_block(req.title, req.params, directive=req.directive)
-    logger.info(f"Dr. Egeria execute: title={req.title!r} directive={req.directive!r}")
+    logger.info(f"Dr. Egeria execute: title={req.title!r} directive={req.directive!r} as {ident.user_id!r}"
+                f"{' (token)' if ident.token else ''}")
 
     try:
-        raw = _write_and_execute(block, req.directive, url, server, user_id, user_pwd)
+        raw = _write_and_execute(block, req.directive, ident)
     except Exception as exc:
         logger.exception("Dr. Egeria execute failed")
         return JSONResponse(

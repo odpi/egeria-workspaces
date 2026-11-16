@@ -1530,14 +1530,26 @@ function runDocument(directive) {
   status.textContent = (directive === 'process' ? 'Processing…' : 'Validating…');
   resultEl.innerHTML = '';
 
-  fetch('/api/dr-egeria/execute-document', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content: content, directive: directive }),
-  })
-    .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
+  // PO-20: the run is made as the signed-in user's token, never the Portal's service user. viewerToken() waits
+  // for the persona's token (F1b's first-load rule: never send before it is minted); with no token a Portal where
+  // users sign in refuses the run (401), and a no-auth local Portal runs as its configured user, as before.
+  viewerToken()
+    .then(function(token) {
+      var headers = { 'Content-Type': 'application/json' };
+      if (token) headers['X-Egeria-Token'] = token;
+      return fetch('/api/dr-egeria/execute-document', {
+        method: 'POST', headers: headers,
+        body: JSON.stringify({ content: content, directive: directive }),
+      });
+    })
+    .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, status: r.status, data: data }; }); })
     .then(function(res) {
       status.textContent = '';
+      if (res.status === 401 || res.status === 403) {
+        resultEl.innerHTML = '<div class="rd-summary bad">' + (res.status === 401 ? 'Sign in again: ' : 'Not permitted: ')
+          + esc((res.data && res.data.detail) || ('HTTP ' + res.status)) + '</div>';
+        return;
+      }
       renderRunDocResult(res.data, directive);
       // If anything actually changed, refresh whatever the user's looking at.
       if (directive === 'process' && res.data && res.data.commands_succeeded > 0) {

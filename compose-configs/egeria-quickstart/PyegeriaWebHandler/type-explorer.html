@@ -627,6 +627,12 @@ const {
   useRef
 } = React;
 
+// PO-20: a persona identity is ready for a Dr.Egeria run once its token is minted (or the mint was tried
+// and failed, `tokenTried`, F1b R2). Same rule as F1b's rsCredsReady.
+function dreCredsReady(creds) {
+  return !(creds && creds.userId && creds.password && !creds.token && !creds.tokenTried);
+}
+
 // ── Credential context ────────────────────────────────────────────────────────
 // A token minted for one identity must not land on another (A2, 2026-11-15). A mint started for the
 // creds read from localStorage on load (or a 401 refresh) can resolve after the user switched persona
@@ -9156,23 +9162,33 @@ function DrEgeriaCommandsView() {
     var effectiveTitle = execVerb
       ? execVerb + ' ' + titleParts.slice(1).join(' ')
       : activeItem.title;
-    fetch('/api/dr-egeria/execute', {
+    // PO-20: the run is made as the sign-in token's user. A persona whose token is still being minted
+    // is not ready: say so rather than send the request early (F1b's first-load rule). With a token the
+    // server ignores user_id and never reads a password; only a token-less no-auth Portal uses them.
+    if (!dreCredsReady(creds)) {
+      setExecResult({ authError: 'Signing in to Egeria has not finished yet; try again in a moment.' });
+      setExecState('error');
+      return;
+    }
+    var execBody = { title: effectiveTitle, params: execParams, directive: directive,
+                     url: creds && creds.url, server: creds && creds.server };
+    if (!(creds && creds.token)) { execBody.user_id = creds && creds.userId; execBody.user_pwd = creds && creds.password; }
+    egeriaFetch('/api/dr-egeria/execute', creds, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title:    effectiveTitle,
-        params:   execParams,
-        directive: directive,
-        url:      creds.url,
-        server:   creds.server,
-        user_id:  creds.userId,
-        user_pwd: creds.password,
-      })
+      body: JSON.stringify(execBody)
     })
-    .then(function(r) { return r.json(); })
+    .then(function(r) {
+      if (r.status === 401 || r.status === 403) {
+        return r.json().catch(function() { return {}; }).then(function(b) {
+          return { authError: (r.status === 401 ? 'Sign in again: ' : 'Not permitted: ') + (b.detail || ('HTTP ' + r.status)) };
+        });
+      }
+      return r.json();
+    })
     .then(function(data) {
       setExecResult(data);
-      setExecState('done');
+      setExecState(data && data.authError ? 'error' : 'done');
     })
     .catch(function(e) {
       setExecResult({ networkError: String(e) });
@@ -9264,7 +9280,8 @@ function DrEgeriaCommandsView() {
             background: 'rgba(248,113,113,.08)', border: '1px solid rgba(248,113,113,.2)' } },
           React.createElement("span", { style: { fontSize: 16 } }, "✗"),
           React.createElement("span", { style: { fontSize: 12, color: '#f87171', fontWeight: 600 } },
-            execResult && execResult.networkError ? "Network error: " + execResult.networkError : "Execution failed")
+            execResult && execResult.authError ? execResult.authError
+              : execResult && execResult.networkError ? "Network error: " + execResult.networkError : "Execution failed")
         ),
         execState === 'done' && execResult && (function() {
           var success  = execResult.success;
