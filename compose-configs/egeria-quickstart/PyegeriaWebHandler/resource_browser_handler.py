@@ -227,6 +227,19 @@ def _data_scope(classifications: list) -> Optional[dict]:
     return None
 
 
+def _has_scope(scope: Optional[dict]) -> bool:
+    """Whether a DataScope records a dimension: any value other than additionalProperties
+    (usage readings Egeria's lineage service keeps there) and other than an unset bound
+    (Egeria returns 0 for min/max values never set)."""
+    for k, v in (scope or {}).items():
+        if k == "additionalProperties" or v in (None, "", [], {}):
+            continue
+        if re.fullmatch(r"(min|max)[A-Z]\w*", k) and isinstance(v, (int, float)) and v == 0:
+            continue
+        return True
+    return False
+
+
 def _flavour(type_name: str, super_types: list, collections: list) -> dict:
     """Which of the spec's three flavours a resource is (§3).
 
@@ -1471,6 +1484,7 @@ def _row(el: dict, any_type: bool = False) -> Optional[dict]:
         "owner": _owner(cls),
         "badges": [c["name"] for c in cls if c["name"] in _BADGES],
         "dataScope": _data_scope(cls),
+        "hasScope": _has_scope(_data_scope(cls)),
         "updatedBy": versions.get("updatedBy") or versions.get("createdBy") or "",
         "updateTime": versions.get("updateTime") or versions.get("createTime") or "",
         "automated": _looks_automated(versions.get("updatedBy") or versions.get("createdBy")),
@@ -2527,7 +2541,7 @@ async def _facet_values(facet: str) -> dict:
         return {"values": [{"id": "hub", "label": "Hub"}, {"id": "product", "label": "Product"},
                            {"id": "known", "label": "Known"}]}
     if facet == "scope":
-        return {"values": [{"id": "all", "label": "Resources with a data scope (time or place)"}]}
+        return {"values": [{"id": "all", "label": "Resources with a data scope (time, place or another dimension)"}]}
     raise HTTPException(status_code=404, detail=f"Unknown browse facet {facet!r}.")
 
 
@@ -2623,7 +2637,13 @@ async def browse_list(facet: str, value: str):
             source = "the flavour index, then ClassificationExplorer.get_element_by_guid per resource"
         elif facet == "scope":
             els, capped = await _classified(client, "DataScope")
+            scoped = [_has_scope(_data_scope(_classifications(e.get("elementHeader") or {}))) for e in els]
+            usage_only = [e for e, keep in zip(els, scoped) if not keep]
+            els = [e for e, keep in zip(els, scoped) if keep]
             title = "Resources with a data scope"
+            if usage_only:
+                note = (f"{len(usage_only)} more carry a DataScope classification holding only usage readings "
+                        "from Egeria's lineage service (no time, place or other dimension), so they are not listed.")
             source = "ClassificationExplorer.get_elements_by_classification (DataScope)"
     except HTTPException:
         raise

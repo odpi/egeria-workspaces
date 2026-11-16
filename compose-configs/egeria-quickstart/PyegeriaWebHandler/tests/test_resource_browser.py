@@ -37,6 +37,9 @@ _NEEDED = {"_type_names", "_display_name", "_related", "_classifications", "_dat
            # structure
            "_related_recs", "_is_schema_attribute", "_is_schema_element", "_container_of", "_part_record",
            "_group_label", "_attribute_noun", "_merge_reads", "_is_term", "_meanings_of"}
+# Helpers only the quickstart copy has yet (the freshstart copy is stale; see BACKLOG
+# "Mirror egeria-freshstart"): loaded when present, so _row can call them.
+_OPTIONAL = {"_has_scope"}
 _CONSTS = {"_SKIP_CLASSIFICATIONS", "_LINEAGE_RELATIONSHIPS", "_TABLE_STATS_QN", "_COLUMN_STATS_QN",
            "_RESOURCE_TYPES", "_NOT_RESOURCES", "_KINDS", "_BADGES",
            "_REPO_QN_PREFIX", "_RE_LIST_PREFIX", "_PORTAL_LIST_PREFIX", "_COPY_KEYS", "_GROUP_TYPES",
@@ -47,8 +50,8 @@ def _load(path: Path):
     if not path.exists():
         pytest.skip(f"{path} not present in this checkout")
     tree = ast.parse(path.read_text(encoding="utf-8"))
-    funcs = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in _NEEDED]
-    assert {n.name for n in funcs} == _NEEDED
+    funcs = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in _NEEDED | _OPTIONAL]
+    assert {n.name for n in funcs} - _OPTIONAL == _NEEDED
     consts = [n for n in tree.body if isinstance(n, ast.Assign)
               and isinstance(n.targets[0], ast.Name) and n.targets[0].id in _CONSTS]
     ns = {"Optional": Optional, "re": re}

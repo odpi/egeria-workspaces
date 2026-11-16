@@ -1161,35 +1161,59 @@ function PartOfCrumb({ res, structure }) {
     el('span', { className: 'rb-type' }, res.typeName));
 }
 
-// DataScope (time and place). Egeria returns 0 for spatial bounds that were never
-// set, so all-zero bounds mean "no place recorded", not the point (0, 0).
-var SPATIAL_KEYS = ['minLongitude', 'minLatitude', 'maxLongitude', 'maxLatitude', 'minHeight', 'maxHeight'];
-function ScopeChips({ scope }) {
+// DataScope chips, worked out from the property names so a dimension Egeria adds later
+// still shows: <x>StartTime/<x>EndTime pairs are periods, min<X>/max<X> pairs are bounds
+// (Egeria returns 0 for bounds never set, so all-zero means "none"), maps are listed.
+// additionalProperties holds usage readings Egeria's lineage service keeps; they are
+// usage, not scope, so a scope holding only them is shown as "no time or place recorded".
+var SCOPE_PERIOD_LABELS = { dataCollection: 'collected', dataValidity: 'valid', dataCoverage: 'covers' };
+function scopeParts(scope) {
+  var parts = [], used = {};
+  Object.keys(scope || {}).forEach(function(k) {
+    var m = /^(\w+)StartTime$/.exec(k);
+    if (!m) return;
+    var e = m[1] + 'EndTime'; used[k] = used[e] = true;
+    if (!scope[k] && !scope[e]) return;
+    parts.push({ key: m[1], k: SCOPE_PERIOD_LABELS[m[1]] || _titleCase(m[1]).toLowerCase(),
+      v: (scope[k] ? fmtDate(scope[k]) : '…') + ' → ' + (scope[e] ? fmtDate(scope[e]) : '…'), title: 'Period: ' + _titleCase(m[1]) });
+  });
+  Object.keys(scope || {}).forEach(function(k) {
+    var m = /^min([A-Z]\w*)$/.exec(k);
+    if (!m || used[k]) return;
+    var x = 'max' + m[1]; used[k] = used[x] = true;
+    if (!Number(scope[k]) && !Number(scope[x])) return;
+    parts.push({ key: m[1], k: m[1].toLowerCase(), v: (scope[k] || 0) + ' … ' + (scope[x] || 0), title: 'Bound on ' + m[1].toLowerCase() });
+  });
+  Object.keys(scope || {}).forEach(function(k) {
+    if (used[k] || k === 'additionalProperties') return;
+    var v = scope[k];
+    if (v === null || v === undefined || v === '') return;
+    if (typeof v === 'object') {
+      var keys = Object.keys(v);
+      if (keys.length) parts.push({ key: k, k: _titleCase(k).toLowerCase(), v: keys.length + '', title: keys.map(function(n) { return n + ': ' + v[n]; }).join('\n') });
+      return;
+    }
+    parts.push({ key: k, k: _titleCase(k).toLowerCase(), v: String(v) });
+  });
+  return parts;
+}
+function ScopeChips({ scope, guid }) {
   var chip = function(key, k, v, title) {
     return el('span', { key: key, className: 'rb-chip', title: title || '' }, el('span', { className: 'k' }, k), v);
   };
-  if (!scope) return chip('none', 'data scope', 'not recorded', 'No DataScope classification on this resource');
-  var chips = [];
-  var start = scope.dataCollectionStartTime, end = scope.dataCollectionEndTime;
-  if (start || end) chips.push(chip('time', 'time', (start ? fmtDate(start) : '…') + ' → ' + (end ? fmtDate(end) : '…'), 'Data collection period'));
-  var spatial = SPATIAL_KEYS.filter(function(k) { return scope[k] !== undefined && Number(scope[k]) !== 0; });
-  if (spatial.length) {
-    chips.push(chip('place', 'place', 'lat ' + (scope.minLatitude || 0) + '…' + (scope.maxLatitude || 0) +
-      ', long ' + (scope.minLongitude || 0) + '…' + (scope.maxLongitude || 0), 'Spatial bounds'));
+  var setIt = guid && el('a', { key: 'set', className: 'rb-note', href: '/tech-catalog?guid=' + encodeURIComponent(guid) + '#assets',
+    title: 'Data scopes are set and changed in The Catalog' }, scope ? 'change in The Catalog ↗' : 'set in The Catalog ↗');
+  var head = el('span', { key: 'h', className: 'rb-note' }, 'data scope', el(Help, { term: 'dataScope' }));
+  if (!scope) return el(React.Fragment, null, head, chip('none', 'data scope', 'not recorded', 'No DataScope classification on this resource'), setIt);
+  var chips = scopeParts(scope).map(function(p) { return chip(p.key, p.k, p.v, p.title); });
+  if (!chips.length) chips.push(chip('bare', 'data scope', 'no time or place recorded', 'The DataScope classification carries no time, place or other dimension'));
+  var readings = scope.additionalProperties && typeof scope.additionalProperties === 'object' ? scope.additionalProperties : null;
+  if (readings && Object.keys(readings).length) {
+    chips.push(chip('usage', 'usage', readings.readCount !== undefined ? readings.readCount + ' reads' : Object.keys(readings).length + ' readings',
+      (readings.analysisService ? 'From ' + readings.analysisService + '\n' : '') +
+      Object.keys(readings).map(function(k) { return k + ': ' + readings[k]; }).join('\n')));
   }
-  Object.keys(scope).forEach(function(k) {
-    if (SPATIAL_KEYS.indexOf(k) >= 0 || k === 'dataCollectionStartTime' || k === 'dataCollectionEndTime' || k === 'additionalProperties') return;
-    var v = scope[k];
-    if (v === null || typeof v === 'object') return;
-    chips.push(chip(k, _titleCase(k), String(v)));
-  });
-  var extra = scope.additionalProperties && typeof scope.additionalProperties === 'object' ? Object.keys(scope.additionalProperties) : [];
-  if (!chips.length) chips.push(chip('bare', 'data scope', 'no time or place recorded', 'The DataScope classification is present but carries no bounds'));
-  if (extra.length) {
-    chips.push(chip('extra', 'scope details', extra.length + ' more',
-      extra.map(function(k) { return k + ': ' + scope.additionalProperties[k]; }).join('\n')));
-  }
-  return el(React.Fragment, null, chips);
+  return el(React.Fragment, null, head, chips, setIt);
 }
 
 function ClassificationsCard({ res }) {
@@ -1308,7 +1332,7 @@ function ResourcePage({ guid, creds, personaId }) {
       el('span', { className: 'rb-note' }, '·'),
       el('span', { className: 'rb-attrib' }, 'owner: ', res.owner ? el('b', null, res.owner) : el('span', { className: 'rb-absent' }, 'not recorded')),
       el(EgeriaFeedbackWidget, { guid: guid, creds: creds, readOnly: !res.canWrite })),
-    el('div', { className: 'rb-row', style: { marginTop: 10, gap: 6 } }, el(ScopeChips, { scope: res.dataScope })),
+    el('div', { className: 'rb-row', style: { marginTop: 10, gap: 6 } }, el(ScopeChips, { scope: res.dataScope, guid: guid })),
     el(TagsRow, { guid: guid, creds: creds, canWrite: res.canWrite }),
 
     el('div', { className: 'rb-grid' },
@@ -1435,7 +1459,7 @@ function ResultRow({ row, idx, extras, showMatched, inLists, extra }) {
       el('span', { className: 'rb-type' }, row.typeName),
       row.partOf !== undefined ? el(PartOfLine, { row: row }) : el(FlavourBadge, { flavour: flav }),
       row.badges.map(function(b) { return el('span', { key: b, className: 'rb-chip' }, b); }),
-      row.dataScope && el('span', { className: 'rb-chip', title: 'This resource records its data scope (time or place)' }, '◷ scope')),
+      row.hasScope && el('span', { className: 'rb-chip', title: 'This resource records a data scope (time, place or another dimension)' }, '◷ scope')),
     row.qualifiedName && row.qualifiedName !== row.displayName && el('div', { className: 'rb-qn' }, row.qualifiedName),
     row.description
       ? el('div', { className: 'd' }, row.description)
@@ -1567,7 +1591,7 @@ function SearchPage({ q, kind, creds }) {
     if (filt.flavour && rowFlavour(idx, r) !== filt.flavour) return false;
     if (filt.owner && (r.owner || '(not recorded)') !== filt.owner) return false;
     if (filt.badge && r.badges.indexOf(filt.badge) < 0) return false;
-    if (filt.scope && !r.dataScope) return false;
+    if (filt.scope && !r.hasScope) return false;
     return true;
   });
   var owners = uniqueValues(items, function(r) { return [r.owner || '(not recorded)']; });
