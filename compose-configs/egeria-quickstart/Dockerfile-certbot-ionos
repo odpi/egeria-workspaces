@@ -9,5 +9,5 @@
 # invocation. No webroot, no port 80: DNS-01 proves control of the domain via
 # a TXT record IONOS's API creates and removes, so unlike letsencrypt-cert.sh
 # (HTTP-01) this never depends on the router forwarding port 80 inbound.
-FROM docker.io/certbot/certbot@sha256:bc93cb710b413e6b456d622f9b0133b3e109c0a78c2ed9976af43d209b0a1805
+FROM docker.io/certbot/certbot@sha256:c5698da859429ccee0fcc299a8000368198222d1f9e789ab6e388b491e8ce06d
 RUN pip install --no-cache-dir certbot-dns-ionos
