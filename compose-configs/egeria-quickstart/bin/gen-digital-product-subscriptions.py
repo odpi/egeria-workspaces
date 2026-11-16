@@ -37,10 +37,10 @@ LICENSES = {
 HOURLY_SLO = "ServiceLevelObjective::Jacquard::SLO-WITHIN-HOUR::Updates are delivered within 1 hour of receipt"
 KINDS = {
     "ongoing": {"kind": "ONGOING_UPDATE", "identifier": "ONGOING-UPDATE-SUBSCRIPTION",
-                "name": "Ongoing update subscription", "interval": 5,
+                "name": "Ongoing update subscription", "interval": 30,
                 "slo": "ServiceLevelObjective::Jacquard::SLO-WITHIN-HOUR::Updates are delivered within 1 hour of receipt",
                 "description": "Delivers the changes to the product's data to the subscriber's destination as they "
-                               "arrive in the Data Sharing Hub, at most every five minutes."},
+                               "arrive in the Data Sharing Hub, at most every thirty minutes."},
     "hourly": {"kind": "PERIODIC", "identifier": "HOURLY-REFRESH-SUBSCRIPTION",
                "name": "Hourly refresh subscription", "interval": 60, "slo": HOURLY_SLO,
                "description": "Delivers the product's data to the subscriber's destination every hour."},
@@ -200,7 +200,7 @@ The subscriptions use five subscription types, so that each way Egeria delivers 
             "weekly": "records, regulatory and catalogue systems",
             "evaluation": "EKG Pharmaceuticals (Bucharest), assessing the group's master data, privacy and patient "
                           "treatment products before integrating with them"}
-    delivery = {"ongoing": "when the product's data changes, at most every 5 minutes",
+    delivery = {"ongoing": "when the product's data changes, at most every 30 minutes",
                 "hourly": "every hour", "daily": "every day", "weekly": "every week", "evaluation": "once"}
     for k in ORDER:
         out.append(f"| {KINDS[k]['name']} | `{KINDS[k]['kind']}` | {delivery[k]} | {used[k]} | {kind_counts[k]} |")
@@ -212,6 +212,14 @@ Each time a `coco_feed_*` DAG loads a product table, Airflow's OpenLineage event
 table, its `DataScope` classification is refreshed, and Egeria's subscription manager (Baudot) runs the deliveries.
 So connect OpenLineage to Egeria after the hub has been catalogued - see *Before you start* in the
 [README](README.md).  Periodic and one-time subscriptions are run by Baudot on its ten-minute refresh.
+
+The ongoing update interval is thirty minutes.  The `coco_operations_fast` and `coco_feed_*` DAGs reload their tables
+every few minutes, and a product can have several subscribers, each of which is a full delivery: at five minutes the
+busiest products were being delivered to every subscriber more than ten times an hour.  A change that arrives inside
+the interval is not lost - Baudot holds the latest one back and delivers it as soon as the interval ends - so the
+longest wait is the interval itself, well inside the one-hour service level objective these subscriptions carry.
+(Before Egeria 6.3, Baudot waited for its next ten-minute refresh instead, so keep the interval at fifty minutes or
+less on an older platform.)
 
 ## Products waiting for a source
 

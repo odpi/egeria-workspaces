@@ -40,7 +40,7 @@ The subscriptions use five subscription types, so that each way Egeria delivers 
 
 | Subscription type | Kind | Delivery | Used for | Subscriptions |
 |---|---|---|---|---|
-| Ongoing update subscription | `ONGOING_UPDATE` | when the product's data changes, at most every 5 minutes | operational systems that act on the data as it arrives | 129 |
+| Ongoing update subscription | `ONGOING_UPDATE` | when the product's data changes, at most every 30 minutes | operational systems that act on the data as it arrives | 129 |
 | Hourly refresh subscription | `PERIODIC` | every hour | batch interfaces into the ERP, finance and people systems | 50 |
 | Daily refresh subscription | `PERIODIC` | every day | the `coco_ods` and `coco_sus` reporting stores | 11 |
 | Weekly refresh subscription | `PERIODIC` | every week | records, regulatory and catalogue systems | 13 |
@@ -53,6 +53,14 @@ Each time a `coco_feed_*` DAG loads a product table, Airflow's OpenLineage event
 table, its `DataScope` classification is refreshed, and Egeria's subscription manager (Baudot) runs the deliveries.
 So connect OpenLineage to Egeria after the hub has been catalogued - see *Before you start* in the
 [README](README.md).  Periodic and one-time subscriptions are run by Baudot on its ten-minute refresh.
+
+The ongoing update interval is thirty minutes.  The `coco_operations_fast` and `coco_feed_*` DAGs reload their tables
+every few minutes, and a product can have several subscribers, each of which is a full delivery: at five minutes the
+busiest products were being delivered to every subscriber more than ten times an hour.  A change that arrives inside
+the interval is not lost - Baudot holds the latest one back and delivers it as soon as the interval ends - so the
+longest wait is the interval itself, well inside the one-hour service level objective these subscriptions carry.
+(Before Egeria 6.3, Baudot waited for its next ten-minute refresh instead, so keep the interval at fifty minutes or
+less on an older platform.)
 
 ## Products waiting for a source
 
@@ -271,10 +279,10 @@ Ongoing update subscription
 ONGOING-UPDATE-SUBSCRIPTION
 
 ### Description
-Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every five minutes.
+Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every thirty minutes.
 
 ### Subscription Notification Interval
-5
+30
 
 ### Monitored Resources
 - PostgreSQL Relational Database::Coco PostgreSQL Server 1::coco_data_hub::carrier_transit_events::transit_event
@@ -395,10 +403,10 @@ Ongoing update subscription
 ONGOING-UPDATE-SUBSCRIPTION
 
 ### Description
-Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every five minutes.
+Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every thirty minutes.
 
 ### Subscription Notification Interval
-5
+30
 
 ### Monitored Resources
 - PostgreSQL Relational Database::Coco PostgreSQL Server 1::coco_data_hub::dangerous_goods_consignment_records::consignment_declaration
@@ -594,10 +602,10 @@ Ongoing update subscription
 ONGOING-UPDATE-SUBSCRIPTION
 
 ### Description
-Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every five minutes.
+Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every thirty minutes.
 
 ### Subscription Notification Interval
-5
+30
 
 ### Monitored Resources
 - PostgreSQL Relational Database::Coco PostgreSQL Server 1::coco_data_hub::in_transit_temperature_readings::temperature_reading
@@ -718,10 +726,10 @@ Ongoing update subscription
 ONGOING-UPDATE-SUBSCRIPTION
 
 ### Description
-Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every five minutes.
+Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every thirty minutes.
 
 ### Subscription Notification Interval
-5
+30
 
 ### Monitored Resources
 - PostgreSQL Relational Database::Coco PostgreSQL Server 1::coco_data_hub::therapy_delivery_events::administration_confirmation
@@ -982,10 +990,10 @@ Ongoing update subscription
 ONGOING-UPDATE-SUBSCRIPTION
 
 ### Description
-Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every five minutes.
+Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every thirty minutes.
 
 ### Subscription Notification Interval
-5
+30
 
 ### Monitored Resources
 - PostgreSQL Relational Database::Coco PostgreSQL Server 1::coco_data_hub::transport_classifications::transport_classification
@@ -2113,10 +2121,10 @@ Ongoing update subscription
 ONGOING-UPDATE-SUBSCRIPTION
 
 ### Description
-Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every five minutes.
+Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every thirty minutes.
 
 ### Subscription Notification Interval
-5
+30
 
 ### Monitored Resources
 - PostgreSQL Relational Database::Coco PostgreSQL Server 1::coco_data_hub::supplier_payment_detail_changes::payment_detail_change
@@ -2716,10 +2724,10 @@ Ongoing update subscription
 ONGOING-UPDATE-SUBSCRIPTION
 
 ### Description
-Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every five minutes.
+Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every thirty minutes.
 
 ### Subscription Notification Interval
-5
+30
 
 ### Monitored Resources
 - PostgreSQL Relational Database::Coco PostgreSQL Server 1::coco_data_hub::batch_execution_records::equipment_usage
@@ -3129,10 +3137,10 @@ Ongoing update subscription
 ONGOING-UPDATE-SUBSCRIPTION
 
 ### Description
-Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every five minutes.
+Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every thirty minutes.
 
 ### Subscription Notification Interval
-5
+30
 
 ### Monitored Resources
 - PostgreSQL Relational Database::Coco PostgreSQL Server 1::coco_data_hub::electronic_batch_records::batch_record
@@ -3329,10 +3337,10 @@ Ongoing update subscription
 ONGOING-UPDATE-SUBSCRIPTION
 
 ### Description
-Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every five minutes.
+Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every thirty minutes.
 
 ### Subscription Notification Interval
-5
+30
 
 ### Monitored Resources
 - PostgreSQL Relational Database::Coco PostgreSQL Server 1::coco_data_hub::equipment_qualification_status::equipment
@@ -3565,10 +3573,10 @@ Ongoing update subscription
 ONGOING-UPDATE-SUBSCRIPTION
 
 ### Description
-Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every five minutes.
+Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every thirty minutes.
 
 ### Subscription Notification Interval
-5
+30
 
 ### Monitored Resources
 - PostgreSQL Relational Database::Coco PostgreSQL Server 1::coco_data_hub::personalised_manufacturing_schedule::manufacturing_slot
@@ -3866,10 +3874,10 @@ Ongoing update subscription
 ONGOING-UPDATE-SUBSCRIPTION
 
 ### Description
-Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every five minutes.
+Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every thirty minutes.
 
 ### Subscription Notification Interval
-5
+30
 
 ### Monitored Resources
 - PostgreSQL Relational Database::Coco PostgreSQL Server 1::coco_data_hub::process_parameter_time_series::process_parameter_reading
@@ -4170,10 +4178,10 @@ Ongoing update subscription
 ONGOING-UPDATE-SUBSCRIPTION
 
 ### Description
-Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every five minutes.
+Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every thirty minutes.
 
 ### Subscription Notification Interval
-5
+30
 
 ### Monitored Resources
 - PostgreSQL Relational Database::Coco PostgreSQL Server 1::coco_data_hub::product_master_data::authorised_market_assignment
@@ -4641,10 +4649,10 @@ Ongoing update subscription
 ONGOING-UPDATE-SUBSCRIPTION
 
 ### Description
-Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every five minutes.
+Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every thirty minutes.
 
 ### Subscription Notification Interval
-5
+30
 
 ### Monitored Resources
 - PostgreSQL Relational Database::Coco PostgreSQL Server 1::coco_data_hub::clinician_adverse_reaction_reports::clinician_reaction_report
@@ -5449,10 +5457,10 @@ Ongoing update subscription
 ONGOING-UPDATE-SUBSCRIPTION
 
 ### Description
-Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every five minutes.
+Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every thirty minutes.
 
 ### Subscription Notification Interval
-5
+30
 
 ### Monitored Resources
 - PostgreSQL Relational Database::Coco PostgreSQL Server 1::coco_data_hub::worker_master_data::worker
@@ -6287,10 +6295,10 @@ Ongoing update subscription
 ONGOING-UPDATE-SUBSCRIPTION
 
 ### Description
-Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every five minutes.
+Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every thirty minutes.
 
 ### Subscription Notification Interval
-5
+30
 
 ### Monitored Resources
 - PostgreSQL Relational Database::Coco PostgreSQL Server 1::coco_data_hub::worker_qualifications::worker_qualification
@@ -6850,10 +6858,10 @@ Ongoing update subscription
 ONGOING-UPDATE-SUBSCRIPTION
 
 ### Description
-Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every five minutes.
+Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every thirty minutes.
 
 ### Subscription Notification Interval
-5
+30
 
 ### Monitored Resources
 - PostgreSQL Relational Database::Coco PostgreSQL Server 1::coco_data_hub::supplier_master_data::supplier
@@ -7541,10 +7549,10 @@ Ongoing update subscription
 ONGOING-UPDATE-SUBSCRIPTION
 
 ### Description
-Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every five minutes.
+Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every thirty minutes.
 
 ### Subscription Notification Interval
-5
+30
 
 ### Monitored Resources
 - PostgreSQL Relational Database::Coco PostgreSQL Server 1::coco_data_hub::supplier_material_certificates::certificate_of_analysis
@@ -7851,10 +7859,10 @@ Ongoing update subscription
 ONGOING-UPDATE-SUBSCRIPTION
 
 ### Description
-Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every five minutes.
+Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every thirty minutes.
 
 ### Subscription Notification Interval
-5
+30
 
 ### Monitored Resources
 - PostgreSQL Relational Database::Coco PostgreSQL Server 1::coco_data_hub::third_party_onboarding_cases::onboarding_case
@@ -8045,10 +8053,10 @@ Ongoing update subscription
 ONGOING-UPDATE-SUBSCRIPTION
 
 ### Description
-Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every five minutes.
+Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every thirty minutes.
 
 ### Subscription Notification Interval
-5
+30
 
 ### Monitored Resources
 - PostgreSQL Relational Database::Coco PostgreSQL Server 1::coco_data_hub::batch_certification_decisions::certification_decision
@@ -8169,10 +8177,10 @@ Ongoing update subscription
 ONGOING-UPDATE-SUBSCRIPTION
 
 ### Description
-Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every five minutes.
+Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every thirty minutes.
 
 ### Subscription Notification Interval
-5
+30
 
 ### Monitored Resources
 - PostgreSQL Relational Database::Coco PostgreSQL Server 1::coco_data_hub::deviations_and_capas::corrective_action
@@ -8471,10 +8479,10 @@ Ongoing update subscription
 ONGOING-UPDATE-SUBSCRIPTION
 
 ### Description
-Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every five minutes.
+Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every thirty minutes.
 
 ### Subscription Notification Interval
-5
+30
 
 ### Monitored Resources
 - PostgreSQL Relational Database::Coco PostgreSQL Server 1::coco_data_hub::laboratory_test_results::certificate_of_analysis
@@ -9060,10 +9068,10 @@ Ongoing update subscription
 ONGOING-UPDATE-SUBSCRIPTION
 
 ### Description
-Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every five minutes.
+Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every thirty minutes.
 
 ### Subscription Notification Interval
-5
+30
 
 ### Monitored Resources
 - PostgreSQL Relational Database::Coco PostgreSQL Server 1::coco_data_hub::market_authorisations::authorisation_condition
@@ -9185,10 +9193,10 @@ Ongoing update subscription
 ONGOING-UPDATE-SUBSCRIPTION
 
 ### Description
-Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every five minutes.
+Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every thirty minutes.
 
 ### Subscription Notification Interval
-5
+30
 
 ### Monitored Resources
 - PostgreSQL Relational Database::Coco PostgreSQL Server 1::coco_data_hub::occupational_exposure_bands::band_containment_requirement
@@ -9310,10 +9318,10 @@ Ongoing update subscription
 ONGOING-UPDATE-SUBSCRIPTION
 
 ### Description
-Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every five minutes.
+Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every thirty minutes.
 
 ### Subscription Notification Interval
-5
+30
 
 ### Monitored Resources
 - PostgreSQL Relational Database::Coco PostgreSQL Server 1::coco_data_hub::product_complaints::complaint
@@ -9439,10 +9447,10 @@ Ongoing update subscription
 ONGOING-UPDATE-SUBSCRIPTION
 
 ### Description
-Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every five minutes.
+Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every thirty minutes.
 
 ### Subscription Notification Interval
-5
+30
 
 ### Monitored Resources
 - PostgreSQL Relational Database::Coco PostgreSQL Server 1::coco_data_hub::goods_inventory_stock::material_issue
@@ -9815,10 +9823,10 @@ Ongoing update subscription
 ONGOING-UPDATE-SUBSCRIPTION
 
 ### Description
-Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every five minutes.
+Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every thirty minutes.
 
 ### Subscription Notification Interval
-5
+30
 
 ### Monitored Resources
 - PostgreSQL Relational Database::Coco PostgreSQL Server 1::coco_data_hub::goods_receipts::goods_receipt
@@ -10181,10 +10189,10 @@ Ongoing update subscription
 ONGOING-UPDATE-SUBSCRIPTION
 
 ### Description
-Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every five minutes.
+Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every thirty minutes.
 
 ### Subscription Notification Interval
-5
+30
 
 ### Monitored Resources
 - PostgreSQL Relational Database::Coco PostgreSQL Server 1::coco_data_hub::hazardous_material_holdings::substance_hazard_data
@@ -10306,10 +10314,10 @@ Ongoing update subscription
 ONGOING-UPDATE-SUBSCRIPTION
 
 ### Description
-Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every five minutes.
+Delivers the changes to the product's data to the subscriber's destination as they arrive in the Data Sharing Hub, at most every thirty minutes.
 
 ### Subscription Notification Interval
-5
+30
 
 ### Monitored Resources
 - PostgreSQL Relational Database::Coco PostgreSQL Server 1::coco_data_hub::material_quarantine_dispositions::quarantine_record

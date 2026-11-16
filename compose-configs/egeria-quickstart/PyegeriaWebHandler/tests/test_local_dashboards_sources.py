@@ -59,7 +59,9 @@ def env(monkeypatch, tmp_path):
     monkeypatch.setattr(ld, "_report_registry", lambda: {})
     monkeypatch.setattr(ld.spec_resolution, "resolve_all", lambda: {})
     monkeypatch.setattr(ld, "_expert", lambda *a, **k: object())
-    monkeypatch.setattr(ld, "_resolver", lambda: None)      # the by-name path; the resolver path is tested below
+    # pyegeria's resolver for an Egeria-held sheet, faked like the real one on these placements: text with
+    # content is text, the reader's "missing" keeps its words, any other placement is its linked Report.
+    monkeypatch.setattr(ld, "_resolve_sheet", _default_resolver)
     monkeypatch.setattr(ld, "_find_report_by_name",
                         lambda name, *a, **k: {"guid": "g", "heading": name, "description": "", "reportSpec": None,
                                                "outputFormat": "DICT", "params": {}, "analyticParams": {}})
@@ -179,11 +181,14 @@ def test_egeria_read_is_cached_per_credential_and_lineage(env):
     assert env["calls"] == 4                                                    # same sub, different token: miss
 
 
-def test_nested_sheet_placement_resolves_across_sources(env, monkeypatch):
+def test_nested_sheet_placement_resolves_across_sources(env, monkeypatch, tmp_path):
+    """A sheet in the local file whose placement names a sheet held in Egeria (Egeria's own chain has no
+    nested-sheet placement: an unlinked one is "missing")."""
     monkeypatch.setattr(ld, "_find_report_by_name", lambda *a, **k: None)
-    env["egeria"] = {"outer": _sheet("outer", [_pl("json-only")], source="egeria", breaks=[])}
+    monkeypatch.setenv("PYEGERIA_DASHBOARD_SHEETS_STORE", str(_local_store(tmp_path, {"outer": ["inner"]})))
+    env["egeria"] = {"inner": _sheet("inner", [], heading="Inner Sheet", source="egeria", breaks=[])}
     p = env["client"].get("/api/local-dashboards/outer").json()["placements"][0]
-    assert p["kind"] == "sheet" and p["heading"] == "Json-Only"
+    assert p["kind"] == "sheet" and p["heading"] == "Inner Sheet"
 
 
 def test_report_lookup_cache_key_is_per_credential_and_lineage(env):
@@ -318,6 +323,19 @@ def test_page_never_puts_credentials_in_a_local_dashboards_url():
         assert not re.search(r"user_pwd|user_id|password", m.group(0)), m.group(0)
 
 
+def _default_resolver(client, sheet, *, perspective=None, spec_lookup=None, **kw):
+    pos = {id(p): i for i, p in enumerate(sheet.placements, start=1)}
+    out = []
+    for p in ld._view_for_perspective(sheet.placements, perspective):
+        if p.content:
+            out.append(_rp(pos[id(p)], p.ref, "text", content=p.content))
+        elif getattr(p, "kind", None) == "missing":
+            out.append(_rp(pos[id(p)], p.ref, "missing", reason=p.note, note=p.note))
+        else:
+            out.append(_rp(pos[id(p)], p.ref, "report", report=_report(p.ref, guid="g")))
+    return NS(placements=out)
+
+
 class _Refused(Exception):
     response_code = 401
 
@@ -430,7 +448,7 @@ def test_no_profile_marker_counts_as_verified(env, verify, monkeypatch):
     assert r.status_code == 200
 
 
-# ── pyegeria's shared resolver (B4 / D4) ─────────────────────────────────────
+# ── pyegeria's shared resolver (B4 / D4, Portal-2) ───────────────────────────
 # The resolver is faked here (pyegeria's own tests cover it on a fake Egeria); these check the Portal's side:
 # same shape as the by-name path, the restricted kind, and the fallbacks.
 
@@ -443,7 +461,7 @@ def _report(name, **kw):
 
 def _rp(position, ref, kind, **kw):
     base = dict(position=position, ref=ref, kind=kind, report=None, restricted=kind == "restricted",
-                restricted_element=None, reason=None)
+                restricted_element=None, reason=None, note=None, content=None)
     base.update(kw)
     return NS(**base)
 
@@ -455,16 +473,18 @@ def _with_resolver(monkeypatch, answer, seen=None):
         if isinstance(answer, Exception):
             raise answer
         return NS(placements=[rp for rp in answer if perspective is None or rp.ref != "Owner Only"])
-    monkeypatch.setattr(ld, "_resolver", lambda: fake_resolve_sheet)
+    monkeypatch.setattr(ld, "_resolve_sheet", fake_resolve_sheet)
 
 
 def test_resolver_report_is_serialised_exactly_as_the_by_name_path(env, monkeypatch):
     env["egeria"] = {"e": _sheet("e", [_pl("Rep"), _pl("Words", content="hi")], source="egeria", breaks=[])}
+    _with_resolver(monkeypatch, RuntimeError("resolver down: the by-name fallback answers"))
     by_name = env["client"].get("/api/local-dashboards/e").json()
     monkeypatch.setattr(ld, "_SHEET_CACHE", ResultCache(ttl=300, max_entries=8))
+    monkeypatch.setattr(ld, "_SHEET_DEGRADED", ResultCache(ttl=60, max_stale=60, max_entries=8))
     monkeypatch.setattr(ld, "_find_report_by_name", lambda *a, **k: pytest.fail("resolved reports are not looked up by name"))
     _with_resolver(monkeypatch, [_rp(1, "Rep", "report", report=_report("Rep", guid="g")),
-                                 _rp(2, "Words", "text")])
+                                 _rp(2, "Words", "text", content="hi")])
     via_resolver = env["client"].get("/api/local-dashboards/e").json()
     assert via_resolver == by_name
 
@@ -484,15 +504,20 @@ def test_restricted_placement_says_not_visible_and_the_rest_resolve(env, monkeyp
     assert "reportSpec" not in ps[1] and "params" not in ps[2]     # nothing to run
 
 
-def test_readers_missing_and_unreadable_reports_keep_the_by_name_path(env, monkeypatch):
+def test_missing_placements_say_the_resolvers_words_and_are_never_looked_up_by_name(env, monkeypatch):
+    """Portal-2: an Egeria-held placement is never searched by name. Before, a resolver "missing" fell back to a
+    name search, which could only find a different, same-named Report or say "Unresolved reference"."""
     miss = _pl("Gone", kind="missing", note="report link missing in Egeria")
-    env["egeria"] = {"e": _sheet("e", [miss, _pl("Raced")], source="egeria", breaks=[])}
-    monkeypatch.setattr(ld, "_find_report_by_name", lambda *a, **k: None)
+    env["egeria"] = {"e": _sheet("e", [miss, _pl("Raced"), _pl("Blank", content="")], source="egeria", breaks=[])}
+    monkeypatch.setattr(ld, "_find_report_by_name", lambda *a, **k: pytest.fail("no by-name lookup"))
     _with_resolver(monkeypatch, [_rp(1, "Gone", "missing", reason="report link missing in Egeria"),
-                                 _rp(2, "Raced", "missing", reason="the Report this placement shows is no longer in Egeria")])
+                                 _rp(2, "Raced", "missing", reason="the Report this placement shows is no longer in Egeria"),
+                                 _rp(3, "Blank", "text", content="", note="text placement with no markdownContent in Egeria")])
     ps = env["client"].get("/api/local-dashboards/e").json()["placements"]
+    assert [p["kind"] for p in ps] == ["missing", "missing", "missing"]
     assert ps[0]["description"] == "report link missing in Egeria"
-    assert ps[1]["description"] == "Unresolved reference — no matching Report or Dashboard Sheet."
+    assert ps[1]["description"] == "the Report this placement shows is no longer in Egeria"
+    assert ps[2]["description"] == "text placement with no markdownContent in Egeria"    # never an empty tile
 
 
 def test_resolver_failure_falls_back_to_by_name(env, monkeypatch):
@@ -528,19 +553,20 @@ def test_local_file_sheets_never_use_the_resolver(env, monkeypatch):
     assert d["source"] == "local file" and d["placements"][0]["kind"] == "report"
 
 
-def test_no_resolver_in_pyegeria_means_by_name():
-    import builtins
-    real = builtins.__import__
+def test_resolver_answering_other_placements_falls_back_to_by_name(env, monkeypatch):
+    env["egeria"] = {"e": _sheet("e", [_pl("Rep"), _pl("Two")], source="egeria", breaks=[])}
+    for answer in ([_rp(1, "Rep", "report", report=_report("Rep"))],                         # one short
+                   [_rp(1, "Rep", "report", report=_report("Rep")), _rp(2, "Other", "report", report=_report("Other"))]):
+        _with_resolver(monkeypatch, answer)
+        d = env["client"].get("/api/local-dashboards/e", params={"refresh": "true"}).json()
+        assert [p["heading"] for p in d["placements"]] == ["Rep", "Two"]                      # by name, as the sheet says
 
-    def no_resolver(name, *a, **k):
-        if name == "pyegeria.view.dashboard_resolver":
-            raise ImportError(name)
-        return real(name, *a, **k)
-    builtins.__import__ = no_resolver
-    try:
-        assert ld._resolver() is None
-    finally:
-        builtins.__import__ = real
+
+def test_the_portal_calls_pyegeria_s_resolver_with_the_sheet_it_already_read(monkeypatch):
+    from pyegeria.view import dashboard_resolver
+    seen = []
+    monkeypatch.setattr(dashboard_resolver, "resolve_sheet", lambda client, sheet, **kw: seen.append((client, sheet, kw)) or "r")
+    assert ld._resolve_sheet("c", "s", perspective="p") == "r" and seen == [("c", "s", {"perspective": "p"})]
 
 
 def test_page_shows_a_restricted_placement_and_never_runs_it():
@@ -548,3 +574,76 @@ def test_page_shows_a_restricted_placement_and_never_runs_it():
     branch = html.index("if (p.kind === 'restricted')")
     assert branch < html.index("if (p.runnable === false)")          # before any execute path
     assert ".placement.kind-restricted" in html
+
+
+# ── B5 (Egeria 8840035f): a small page can miss a Report; a miss is never cached ───────────────────────────
+
+def test_the_report_search_asks_for_a_page_of_25_and_filters_on_the_exact_name():
+    asked = []
+    hit = {"elementGUID": "g1", "elementProperties": {"propertyValueMap": {
+        "displayName": {"class": "PrimitiveTypePropertyValue", "primitiveValue": "Rep"}}}}
+    near = {"elementGUID": "g0", "elementProperties": {"propertyValueMap": {
+        "displayName": {"class": "PrimitiveTypePropertyValue", "primitiveValue": "Rep (old)"}}}}
+    mgr = NS(find_metadata_elements_with_string=lambda **kw: asked.append(kw["page_size"]) or [near, hit])
+    assert ld._find_report_by_name_uncached("Rep", mgr)["guid"] == "g1"
+    assert asked == [25] and ld._REPORT_SEARCH_PAGE == 25
+
+
+def _pv(v):
+    return {"class": "PrimitiveTypePropertyValue", "primitiveValue": v}
+
+
+def test_a_published_reports_authoring_stamps_are_not_report_parameters():
+    """pyegeria 6.2.41 stamps a published Report's additionalProperties (D14); the by-name path (local-file
+    sheets, and the fallback when the resolver fails) must not pass the stamps to the spec as parameters."""
+    extra = {"reportSpec": "Risk-DrE-Basic", "outputFormat": "TABLE", "searchString": "CocoPharma::Risk::",
+             "startsWith": "True", "publishedVersion": "3", "publishedAt": "2026-11-13T10:00:00+00:00",
+             "publishedBy": "erinoverview", "authoringState": "PUBLISHED", "reportSpecVersion": "2"}
+    stamped = {"elementGUID": "g1", "elementProperties": {"propertyValueMap": {
+        "displayName": _pv("Company Risk Register"),
+        # the real MapTypePropertyValue shape (laz, 2026-11-13): typed map plus pyegeria's flat strings
+        "additionalProperties": {"class": "MapTypePropertyValue", "mapValues": {
+            "propertyValueMap": {k: _pv(v) for k, v in extra.items()}, "propertyCount": len(extra),
+            "propertyNames": list(extra), "propertiesAsStrings": dict(extra)}}}}}
+    mgr = NS(find_metadata_elements_with_string=lambda **kw: [stamped])
+    report = ld._find_report_by_name_uncached("Company Risk Register", mgr)
+    assert report["reportSpec"] == "Risk-DrE-Basic" and report["outputFormat"] == "TABLE"
+    assert report["params"] == {"searchString": "CocoPharma::Risk::", "startsWith": "True"}
+    assert {"publishedVersion", "publishedAt", "publishedBy", "authoringState", "reportSpecVersion"} <= ld._AUTHORING_KEYS
+
+
+def test_the_authoring_keys_include_pyegerias_own_when_it_has_them():
+    import importlib
+    found = []
+    for module in ("pyegeria.authoring", "pyegeria.authoring.publication"):
+        try:
+            found.append(frozenset(importlib.import_module(module).AUTHORING_KEYS))
+        except (ImportError, AttributeError):
+            pass
+    if not found:
+        pytest.skip("this pyegeria has no pyegeria.authoring (the 6.2.40 floor): the literal set applies")
+    assert all(keys <= ld._AUTHORING_KEYS for keys in found)
+    assert ld._PYEGERIA_AUTHORING_KEYS == found[0]
+
+
+def test_a_report_miss_is_not_cached_so_a_false_miss_heals_on_the_next_build(monkeypatch):
+    monkeypatch.setattr(ld, "_cache", {})
+    answers = [None, {"guid": "g", "heading": "Rep"}]
+    monkeypatch.setattr(ld, "_find_report_by_name_uncached", lambda name, mgr: answers.pop(0))
+    assert ld._find_report_by_name("Rep", object()) is None
+    assert ld._find_report_by_name("Rep", object())["guid"] == "g"           # asked again, not a pinned miss
+    monkeypatch.setattr(ld, "_find_report_by_name_uncached", lambda *a: pytest.fail("a hit is cached"))
+    assert ld._find_report_by_name("Rep", object())["guid"] == "g"
+
+
+def test_a_spec_fetched_as_the_viewer_is_never_named_by_its_fetched_name(env, monkeypatch):
+    """pyegeria's resolver can answer fetched_as="egeria:<label>@vN" for a spec no tier holds. The Portal runs a
+    placement through /api/report-specs/execute by its reportSpec, which (Portal-3) refuses a fetched name: so
+    the placement carries the Report's own label, never the fetched name."""
+    env["egeria"] = {"e": _sheet("e", [_pl("Rep")], source="egeria", breaks=[])}
+    _with_resolver(monkeypatch, [_rp(1, "Rep", "report", report=_report("Rep", report_spec="Held Elsewhere"),
+                                     fetched_as="egeria:Held Elsewhere@v3", spec="Held Elsewhere")])
+    r = env["client"].get("/api/local-dashboards/e")
+    p = r.json()["placements"][0]
+    assert p["kind"] == "report" and p["reportSpec"] == "Held Elsewhere"
+    assert "egeria:" not in r.text

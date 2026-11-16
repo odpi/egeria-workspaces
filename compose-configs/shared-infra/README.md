@@ -86,6 +86,8 @@ re-applies the grant, and restarts the platform:
 All metadata in that database is lost. Stop anything else that writes to Egeria first, and do not hand-run Dr.Egeria documents
 afterwards; the portal's bootstrap heal repopulates the content.
 
+**After any egeria-main restart: re-sync report specs** (Egeria Explorer → Report Specs → **Sync from Egeria**, as an administrator, or `POST /api/report-specs/sync`), or wait for the Portal's self-heal: while the consumer index is "not read" it syncs again at most every 2 minutes, on the next Report Specs or publish request. A sync that ran while Egeria was restarting leaves **Used by** "not read" (2026-11-12).
+
 For the quickstart, prefer `compose-configs/egeria-quickstart/bin/egeria-upgrade-reset`: it also upgrades the platform image,
 backs up and verifies the dump, recreates the container on the new image (this script's `docker start` keeps the old one),
 waits for the heal and checks the result. Both use the same SQL, `reset-egeria-db.sql`. See

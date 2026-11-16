@@ -97,10 +97,9 @@ _DOCS_DIR = Path(os.getenv(
 _CACHE_TTL = 60.0  # seconds; matches overview_handler.py's default general TTL
 _cache: dict[str, tuple[float, Any]] = {}
 
-# Sentinel so a cached "no Report found" result is distinguishable from
-# "nothing cached yet" -- _find_report_by_name legitimately returns None for
-# unresolved placements, and that negative result is worth caching too
-# (otherwise a "missing" placement retries its failed lookup every request).
+# Sentinel so a cached "Egeria does not hold this sheet" (_egeria_one) is
+# distinguishable from "nothing cached yet". A Report lookup's miss is not
+# cached at all (see _find_report_by_name).
 _MISS = object()
 
 
@@ -542,23 +541,60 @@ def _find_report_by_name(name: str, mgr, url=None, server=None, user_id=None, us
     only (mgr already carries the resolved connection); a stale hit within
     the TTL simply means a Report renamed/reconfigured via Dr.Egeria can take
     up to _CACHE_TTL seconds to show up here, same tradeoff overview_handler.py
-    already accepts for its own cached endpoints."""
+    already accepts for its own cached endpoints.
+
+    A miss is NOT cached (B5): on Egeria 8840035f a search can miss a Report whose same-named twin was
+    deleted, so a miss may be false, and pinning it would hide the Report for a minute. A sheet with a
+    missing placement is already kept in the short-lived degraded sheet cache (_SHEET_DEGRADED), which
+    bounds how often a real miss is searched again."""
     ckey = _report_ckey(name, url, server, user_id, user_pwd)
     if ckey is None:            # expired token: no read, no fill, so Egeria decides
         return _find_report_by_name_uncached(name, mgr)
     cached = _cache_get(ckey)
     if cached is not None:
-        return None if cached is _MISS else cached
+        return cached
     result = _find_report_by_name_uncached(name, mgr)
-    _cache_put(ckey, result if result is not None else _MISS)
+    if result is not None:
+        _cache_put(ckey, result)
     return result
+
+
+# additionalProperties keys pyegeria's authoring API writes for itself (publication stamps, the draft
+# state, the spec version). They are bookkeeping, never a Report parameter. pyegeria 6.2.41 stamps
+# published Reports with publishedVersion/publishedAt/publishedBy; the floor is 6.2.40, which has no
+# pyegeria.authoring, so the same five keys are named here (pyegeria/authoring/publication.py, c6857416 and
+# 4328c5f7). The stable public path is `from pyegeria.authoring import AUTHORING_KEYS` (4328c5f7 on);
+# pyegeria.authoring.publication is where it is defined (c6857416). pyegeria's
+# own set is looked up at run time, not with a static import, because on the floor it does not exist yet
+# (tests/test_pyegeria_methods_exist.py rightly refuses a static import of a missing name);
+# tests/test_local_dashboards_sources.py checks pyegeria's set is covered whenever it is installed.
+def _pyegeria_authoring_keys() -> frozenset:
+    import importlib
+    for module in ("pyegeria.authoring", "pyegeria.authoring.publication"):
+        try:
+            return frozenset(getattr(importlib.import_module(module), "AUTHORING_KEYS"))
+        except (ImportError, AttributeError, TypeError):
+            continue
+    return frozenset()
+
+
+_PYEGERIA_AUTHORING_KEYS = _pyegeria_authoring_keys()
+_AUTHORING_KEYS = frozenset({"authoringState", "reportSpecVersion", "publishedAt", "publishedBy",
+                             "publishedVersion"}) | frozenset(_PYEGERIA_AUTHORING_KEYS)
+#: A Report's additionalProperties that are not its parameters.
+_NOT_REPORT_PARAMS = frozenset({"reportSpec", "outputFormat", "analyticParams"}) | _AUTHORING_KEYS
+
+#: Page size of the by-name Report search. Egeria 8840035f answers a small page wrongly (a page of 1 says
+#: "No elements found" though a match exists; a page of 5 can miss a Report whose same-named twin was
+#: deleted), so ask for 25 and filter on the exact name below.
+_REPORT_SEARCH_PAGE = 25
 
 
 def _find_report_by_name_uncached(name: str, mgr) -> Optional[dict]:
     try:
         results = mgr.find_metadata_elements_with_string(
             search_string=name, starts_with=False, ends_with=False, ignore_case=False,
-            metadata_element_type="Report", page_size=5,
+            metadata_element_type="Report", page_size=_REPORT_SEARCH_PAGE,
             graph_query_depth=0,  # PY-6/PY-14 perf lesson — only flat propertyValueMap fields read below;
                                   # this method's default (5) is worse than the usual 3.
         )
@@ -591,8 +627,7 @@ def _find_report_by_name_uncached(name: str, mgr) -> Optional[dict]:
             "reportSpec":  extra.get("reportSpec"),
             "outputFormat": extra.get("outputFormat"),
             "analyticParams": analytic_params,
-            "params":      {k: v for k, v in extra.items()
-                             if k not in ("reportSpec", "outputFormat", "analyticParams")},
+            "params":      {k: v for k, v in extra.items() if k not in _NOT_REPORT_PARAMS},
         }
     return None
 
@@ -644,18 +679,10 @@ def _serialize_placement(p, sheets, registry, mgr, url=None, server=None, user_i
     # attempting a Report/Sheet resolution (which would otherwise treat a
     # text placement's own Placement Name as an unresolved "missing" ref).
     if getattr(p, "content", None):
-        return {
-            "ref": p.ref, "span": p.span, "emphasis": p.emphasis, "kind": "text",
-            "heading": p.ref, "content": p.content,
-            "perspectives": list(getattr(p, "perspectives", None) or []),
-        }
+        return _text_placement(p, p.content)
     if getattr(p, "kind", None) == "missing" and getattr(p, "note", None):
-        # An Egeria-held placement whose report link is gone: the reader's own words, no lookup.
-        return {
-            "ref": p.ref, "span": p.span, "emphasis": p.emphasis, "kind": "missing",
-            "heading": p.ref, "description": p.note,
-            "perspectives": list(getattr(p, "perspectives", None) or []),
-        }
+        # An Egeria-held placement whose report link is gone (resolver fallback only): the reader's own words.
+        return _missing_placement(p, p.note)
     report = _find_report_by_name(p.ref, mgr, url, server, user_id, user_pwd) if mgr is not None else None
     if report is not None:
         return _report_placement(p, report, registry, resolutions)
@@ -666,10 +693,21 @@ def _serialize_placement(p, sheets, registry, mgr, url=None, server=None, user_i
             "heading": sub.heading, "description": sub.description or "",
             "perspectives": list(getattr(p, "perspectives", None) or []),
         }
+    return _missing_placement(p, "Unresolved reference — no matching Report or Dashboard Sheet.")
+
+
+def _text_placement(p, content) -> dict:
+    return {
+        "ref": p.ref, "span": p.span, "emphasis": p.emphasis, "kind": "text",
+        "heading": p.ref, "content": content,
+        "perspectives": list(getattr(p, "perspectives", None) or []),
+    }
+
+
+def _missing_placement(p, description) -> dict:
     return {
         "ref": p.ref, "span": p.span, "emphasis": p.emphasis, "kind": "missing",
-        "heading": p.ref,
-        "description": "Unresolved reference — no matching Report or Dashboard Sheet.",
+        "heading": p.ref, "description": description,
         "perspectives": list(getattr(p, "perspectives", None) or []),
     }
 
@@ -719,23 +757,27 @@ def _report_placement(p, report: dict, registry, resolutions) -> dict:
     }
 
 
-# ── pyegeria's shared dashboard data step (B4 / D4) ──────────────────────────
-# For a sheet held in Egeria, the Reports are read by pyegeria's resolver
-# (pyegeria.view.dashboard_resolver.resolve_sheet, the same data step Egeria Advisor uses): by the GUID
-# each placement links to, as the viewer, concurrently. It also says when a Report or an EGERIA-tier
-# ReportSpec is in a zone the viewer cannot see (kind "restricted", "not visible to you"), which a
-# lookup by name cannot: Egeria drops such an element from searches without a word. The sheet read, the
-# caches and the serialised shape stay the Portal's. Feature-detected: on a pyegeria without the
-# resolver, or if it fails, every placement takes the by-name path above, as before.
+# ── pyegeria's shared dashboard data step (B4 / D4, Portal-2) ────────────────
+# A sheet held in Egeria is resolved by pyegeria's resolver (pyegeria.view.dashboard_resolver, the same
+# data step Egeria Advisor uses), and only by it: every placement's kind, Report and words come from the
+# resolver. It reads each Report by the GUID its placement links to, as the viewer, concurrently, and says
+# when a Report or an EGERIA-tier ReportSpec is in a zone the viewer cannot see (kind "restricted", "not
+# visible to you"), which a lookup by name cannot: Egeria drops such an element from searches without a
+# word. The Portal keeps the sheet read (cached, fingerprinted), the caches and the serialised shape.
+#
+# resolve_sheet, not resolve_dashboard_sheet: the same data step, given the sheet the Portal has ALREADY
+# read as this viewer (_egeria_one, cached and part of the built-sheet key), so the chain is not walked twice.
+#
+# The by-name path above is for sheets in the local file (no GUIDs to read by), and for an Egeria-held sheet
+# only when the resolver fails as a whole (a refused token is raised, never degraded).
 RESTRICTED_REASON = "not visible to you"
+EMPTY_TEXT = "text placement with no content"
 
 
-def _resolver():
-    try:
-        from pyegeria.view.dashboard_resolver import resolve_sheet
-        return resolve_sheet
-    except ImportError:
-        return None
+def _resolve_sheet(client, sheet, **kw):
+    """pyegeria's resolver (pyegeria>=6.2.40 is the floor, so it is always there)."""
+    from pyegeria.view.dashboard_resolver import resolve_sheet
+    return resolve_sheet(client, sheet, **kw)
 
 
 def _spec_lookup(registry):
@@ -758,21 +800,48 @@ def _spec_lookup(registry):
     return lookup
 
 
-def _resolve_egeria_sheet(sheet, perspective, registry, url, server, user_id, user_pwd):
-    """{position: ResolvedPlacement} for an Egeria-held sheet, or None (no resolver, or it failed: the
-    caller then resolves every placement by name). A refused token is raised, never swallowed."""
-    resolve_sheet = _resolver()
-    if resolve_sheet is None:
-        return None
+def _resolve_egeria_sheet(sheet, perspective, registry, resolutions, url, server, user_id, user_pwd):
+    """The serialised placements of an Egeria-held sheet, all from pyegeria's resolver, in sheet order for
+    `perspective`; or None when the resolver failed as a whole, or answered for other placements than the
+    sheet's (the caller then resolves every placement by name). A refused token is raised, never swallowed."""
     try:
-        resolved = resolve_sheet(_egeria_client(url, server, user_id, user_pwd), sheet,
-                                 perspective=perspective, spec_lookup=_spec_lookup(registry))
+        resolved = _resolve_sheet(_egeria_client(url, server, user_id, user_pwd), sheet,
+                                  perspective=perspective, spec_lookup=_spec_lookup(registry))
     except Exception as exc:  # noqa: BLE001
         _raise_if_token_refused(exc)
         logger.warning(f"local-dashboards: pyegeria's sheet resolver failed for {sheet.name!r}, "
                        f"resolving by name instead: {exc}")
         return None
-    return {rp.position: rp for rp in resolved.placements}
+    position = {id(p): i for i, p in enumerate(sheet.placements, start=1)}
+    visible = _view_for_perspective(sheet.placements, perspective)
+    by_position = {rp.position: rp for rp in resolved.placements}
+    if len(by_position) != len(visible):
+        logger.warning(f"local-dashboards: the resolver answered {len(by_position)} placements of "
+                       f"{sheet.name!r} for {len(visible)} shown; resolving by name instead")
+        return None
+    out = []
+    for p in visible:
+        rp = by_position.get(position[id(p)])
+        if rp is None or rp.ref != p.ref:
+            logger.warning(f"local-dashboards: the resolver's placements of {sheet.name!r} do not match the "
+                           f"sheet's (at {p.ref!r}); resolving by name instead")
+            return None
+        out.append(_from_resolved(p, rp, registry, resolutions))
+    return out
+
+
+def _from_resolved(p, rp, registry, resolutions) -> dict:
+    """One placement, serialised from the resolver's answer: the same dicts the by-name path makes."""
+    if rp.kind == "restricted":
+        return _restricted_placement(p, rp)
+    if rp.kind == "report" and rp.report is not None:
+        return _report_placement(p, _report_from_resolved(rp, p), registry, resolutions)
+    if rp.kind == "text" and rp.content:
+        return _text_placement(p, rp.content)
+    # "missing" in the resolver's words: the reader's own (a report link gone) or the Report no longer in
+    # Egeria. A text placement with no content says so in words, never as an empty tile.
+    reason = rp.reason or rp.note or (EMPTY_TEXT if rp.kind == "text" else None) or "not resolved"
+    return _missing_placement(p, reason)
 
 
 def _report_from_resolved(rp, p) -> dict:
@@ -962,39 +1031,24 @@ def _build_sheet(name, perspective, url, server, user_id, user_pwd):
     # pyegeria's load-time resolution (cached); {} on a pyegeria without the resolver.
     resolutions = spec_resolution.resolve_all()
 
-    # Best-effort: if Egeria's unreachable, placements just fall through to
-    # "missing" rather than failing the whole sheet — same degrade-don't-fail
-    # philosophy as overview_handler.py.
-    try:
-        mgr = _expert(url, server, user_id, user_pwd)
-    except Exception as exc:  # noqa: BLE001
-        logger.debug(f"local-dashboards: Egeria connection unavailable: {exc}")
-        mgr = None
-
-    visible = _view_for_perspective(sheet.placements, perspective)
-    resolved = (_resolve_egeria_sheet(sheet, perspective, registry, url, server, user_id, user_pwd)
-                if source == SOURCE_EGERIA else None)
-    position = {id(p): i for i, p in enumerate(sheet.placements, start=1)}
-
-    def by_resolver(p):
-        """The resolver's answer for p when it has one the by-name path would agree with: a Report it
-        read, or a restricted one. Text, the reader's own "missing" and a Report it could not read keep
-        the by-name path (so a nested-sheet or legacy fallback still applies)."""
-        rp = (resolved or {}).get(position[id(p)])
-        if rp is None or rp.ref != p.ref:
-            return None
-        if rp.kind == "restricted":
-            return _restricted_placement(p, rp)
-        if rp.kind == "report" and rp.report is not None:
-            return _report_placement(p, _report_from_resolved(rp, p), registry, resolutions)
-        return None
-
-    done = {id(p): by_resolver(p) for p in visible} if resolved is not None else {}
-    if mgr is not None:
-        _prime_report_lookups([p for p in visible if done.get(id(p)) is None], url, server, user_id, user_pwd)
-    placements = [done.get(id(p)) or _serialize_placement(p, sheets, registry, mgr, url, server, user_id,
-                                                          resolutions, user_pwd)
-                  for p in visible]
+    placements = (_resolve_egeria_sheet(sheet, perspective, registry, resolutions, url, server, user_id, user_pwd)
+                  if source == SOURCE_EGERIA else None)
+    connected = True
+    if placements is None:
+        # By name: a sheet in the local file, or an Egeria-held one the resolver failed on. Best-effort: if
+        # Egeria's unreachable, placements just fall through to "missing" rather than failing the whole
+        # sheet — same degrade-don't-fail philosophy as overview_handler.py.
+        try:
+            mgr = _expert(url, server, user_id, user_pwd)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"local-dashboards: Egeria connection unavailable: {exc}")
+            mgr = None
+        connected = mgr is not None
+        visible = _view_for_perspective(sheet.placements, perspective)
+        if mgr is not None:
+            _prime_report_lookups(visible, url, server, user_id, user_pwd)
+        placements = [_serialize_placement(p, sheets, registry, mgr, url, server, user_id, resolutions, user_pwd)
+                      for p in visible]
     for pl in placements:
         pl["source"] = source        # a placement is held where its sheet is
     payload = {
@@ -1008,7 +1062,7 @@ def _build_sheet(name, perspective, url, server, user_id, user_pwd):
         "placements":  placements,
         "perspective": perspective,
     }
-    cacheable = mgr is not None and egeria_status["available"] and all(pl.get("kind") != "missing" for pl in placements)
+    cacheable = connected and egeria_status["available"] and all(pl.get("kind") != "missing" for pl in placements)
     return payload, cacheable
 
 

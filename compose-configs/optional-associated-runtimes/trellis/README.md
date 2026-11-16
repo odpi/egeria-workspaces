@@ -86,7 +86,11 @@ CPU-only (`ollama/ollama:latest`, no GPU stanza), so the CPU path is just the ba
 overlay, as in the command above.
 
 Set `ADVISOR_MODEL_TIER` (and `TRELLIS_MODEL_CODE`) in `.env` per box first. Owner's decision 2026-09-04: trevor runs the 8B model in every slot including code, because codellama:13b (7.4 GB) does not fit beside llama3.1:8b in 8 GB of VRAM; hedwig can afford the 13B. Copy
-`.env.example` to `.env` in this directory and see its tier table.
+`.env.example` to `.env` in this directory and see its tier table. Also fill in each app's **service
+account** there: `RE_DAEMON_USER_ID`/`RE_DAEMON_USER_PASSWORD` (`resourceexplorernpa`) and
+`EA_DAEMON_USER_ID`/`EA_DAEMON_USER_PASSWORD` (`egeriaadvisornpa`). They have no defaults, so compose refuses to
+start until they're set. Never put a demo person's login there: RE would act as that person, and EA refuses its
+service account at sign-in. `.env` is gitignored; never commit it.
 
 ## Pulling models
 

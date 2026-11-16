@@ -30,7 +30,9 @@ a small reader covers its absence).
 `infra-check` (also run by verify) reports each shared-infra service as PASS / FAIL / WARN /
 EXPECTED STOPPED / NOT MEASURED: running and healthy, restart policy as the yaml says, created from
 this checkout's compose file. It only reads (`docker inspect`, `docker ps`, and kafka-get-offsets.sh
-and stat inside the Kafka container); fixing a drift is a person's decision.
+and stat inside the Kafka container; with a "prefect" entry in infra-health.json, the Prefect API's
+health, pool and worker list); fixing a drift is a person's decision. With --log it emails on a change
+of state, through the Portal's mail settings (Resend, else SMTP; see alert_on_change).
 """
 from __future__ import annotations
 
@@ -99,7 +101,7 @@ DEFAULT_LAUNCHERS = {8813: "~/.re-gate/start-8813.sh", 8880: "~/.re-gate/start-e
 # before Egeria is up and the Portal's heal can start. A restart mid-heal could half-run a batch that
 # is not safe to re-run.
 STEPS = ["disk-check", "repin", "build", "freeze-writers", "stop-platform", "backup", "clear",
-         "secrets-sync", "recreate", "heal-wait", "unfreeze", "verify", "record"]
+         "secrets-sync", "recreate", "heal-wait", "report-spec-sync", "unfreeze", "verify", "record"]
 RUN_ONCE = {"backup", "clear", "secrets-sync"}
 CLEAR_STEPS = {"backup", "clear"}       # left out by `plan --no-clear` (an image upgrade only)
 
@@ -192,6 +194,10 @@ class Env:
     #: verify's persona-check answer given up front ("ok" or "skip": `apply --personas`, or
     #: EGERIA_RESET_PERSONAS), so a background run never waits on a prompt.
     personas: Optional[str] = None
+    #: infra-check's alert email: (host, port, "ssl"/"starttls") -> an smtplib.SMTP-like object, and
+    #: (api_key, payload) -> None for Resend. Tests pass fakes.
+    smtp: Optional[Callable[[str, int, str], Any]] = None
+    resend: Optional[Callable[[str, dict], None]] = None
 
     def __post_init__(self):
         if self.port_open is None:
@@ -755,13 +761,43 @@ def portal_status(env: Env) -> tuple[Optional[dict], Optional[str]]:
     return body, None
 
 
-def step_heal_wait(env, plan, state, run_dir, *, timeout_s: float = 3 * 3600, poll_s: float = 30):
-    """Wait for the Portal's heal: reinitializing false, and a check pass that STARTED at least one
-    full monitor cycle (600 s) after the last heal ended, so `present` is not a stale read. Then the
-    rotated Portal logs are read for errors since the recreate."""
+def wait_view_server(env, *, timeout_s: float = 1800, poll_s: float = 15) -> dict:
+    """Wait until the view server answers a real lookup: a fresh token plus one find, both
+    succeeding. A started container (or an open port) is not an answer -- right after a recreate
+    the platform accepts connections long before the view server can serve a find, and anything
+    judged before then (the Portal's canaries, a report-spec sync) reads an outage as a result.
+    Read-only. Returns evidence; raises StepFailed with the last error after timeout_s."""
+    start, attempts, last_err = env.now(), 0, None
+    while True:
+        attempts += 1
+        eg = Egeria(env, os.environ.get("EGERIA_USER", "erinoverview"), os.environ.get("EGERIA_USER_PASSWORD", "secret"))
+        try:
+            # page 25, not 1 or 2: Egeria 8840035f answers "No elements found" to pageSize 1 (B5)
+            eg.find("Referenceable", "qualifiedName", "egeria-upgrade-reset::view-server-ready-probe", page=25)
+            return {"attempts": attempts, "readyAfterS": round(env.now() - start, 1), "readyAt": iso(env.now()),
+                    "lastError": last_err}
+        except Exception as exc:  # noqa: BLE001 -- a refused connection, a timeout, an HTTP error: all "not yet"
+            last_err = f"{type(exc).__name__}: {exc}"
+        if env.now() - start > timeout_s:
+            raise StepFailed(f"the view server did not answer a lookup (token + find) within "
+                             f"{timeout_s / 60:.0f} min after {attempts} attempts; last error: {last_err}")
+        env.sleep(poll_s)
+
+
+def step_heal_wait(env, plan, state, run_dir, *, timeout_s: float = 3 * 3600, poll_s: float = 30,
+                   ready_timeout_s: float = 1800, ready_poll_s: float = 15):
+    """First wait until the view server answers a real lookup (wait_view_server). Then wait for the
+    Portal's heal: reinitializing false, and a check pass that STARTED at least one full monitor
+    cycle (600 s) after both the last heal ended and the view server answered, so `present` is not
+    a stale read or one taken while Egeria could not answer. Then the rotated Portal logs are read
+    for errors since the recreate."""
+    ready = wait_view_server(env, timeout_s=ready_timeout_s, poll_s=ready_poll_s)
+    env.say(f"  view server answered a lookup after {ready['readyAfterS']} s ({ready['attempts']} attempt(s))")
+    ready_at = env.now()
     start = env.now()
     last_heal_end = state["steps"].get("recreate", {}).get("finishedAt") or start
     last_heal_end = last_heal_end if isinstance(last_heal_end, (int, float)) else start
+    last_heal_end = max(last_heal_end, ready_at)
     while True:
         st, err = portal_status(env)
         if st is not None:
@@ -782,8 +818,8 @@ def step_heal_wait(env, plan, state, run_dir, *, timeout_s: float = 3 * 3600, po
                   "manualSteps": f.get("manualSteps")} for n, f in fams.items()}
     errors = scan_logs(env, since=state["steps"].get("recreate", {}).get("finishedAt") or start,
                        root=Path(plan.get("deployRoot") or env.repo))
-    ev = {"families": result, "missing": missing, "logErrors": errors[:50], "logErrorCount": len(errors),
-          "settledAt": iso(env.now())}
+    ev = {"viewServer": ready, "families": result, "missing": missing, "logErrors": errors[:50],
+          "logErrorCount": len(errors), "settledAt": iso(env.now())}
     if missing:
         raise StepFailed("canaries still missing after the heal: " + ", ".join(missing))
     return ev
@@ -816,6 +852,100 @@ def scan_logs(env: Env, since: float, root: Path) -> list[str]:
             lines += [f"{f.name}: {l}" for l in f.read_text(errors="replace").splitlines()
                       if " ERROR " in l or "| ERROR |" in l]
     return lines
+
+
+REPORT_SPEC_SYNC_REMEDY = ("re-sync report specs: POST /api/report-specs/sync on the Portal as an administrator "
+                           "(Egeria Explorer -> Report Specs -> Sync from Egeria), or wait for the Portal's self-heal "
+                           "(it syncs again at most every 2 minutes while the consumer index is not read)")
+
+
+def _docker_time(v) -> Optional[float]:
+    """A Docker timestamp (nanoseconds, "Z") as epoch seconds; None when it cannot be read."""
+    if not v or str(v).startswith("0001-"):
+        return None
+    m = re.match(r"^(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(\.\d+)?(Z|[+-]\d\d:\d\d)?$", str(v).strip())
+    if not m:
+        return None
+    frac = (m.group(2) or "")[:7]
+    return _parse_iso(m.group(1) + frac + (m.group(3) or "Z"))
+
+
+def platform_started_at(env: Env) -> Optional[float]:
+    r = env.runner.run(["docker", "inspect", PLATFORM_CONTAINER, "--format", "{{.State.StartedAt}}"], check=False)
+    return _docker_time(r.out.strip()) if r.rc == 0 else None
+
+
+def _sync_status(env: Env) -> tuple[Optional[dict], Optional[str]]:
+    """The Portal's last report-spec sync (GET /api/report-specs/sync): read-only, starts nothing."""
+    try:
+        code, body = env.http.request("GET", f"{PORTAL_URL}/api/report-specs/sync", timeout=15)
+    except Exception as exc:  # noqa: BLE001
+        return None, f"{type(exc).__name__}: {exc}"
+    if code != 200 or not isinstance(body, dict):
+        return None, f"HTTP {code}"
+    return body, None
+
+
+def report_spec_index_verdict(env: Env) -> tuple[str, str]:
+    """Read-only (verify): the Portal's report-spec consumer index is "read", by a sync that finished
+    after egeria-main started. A sync that ran while Egeria was restarting leaves it "not read"
+    (2026-11-12), and Used by and publishing then say "not read"."""
+    st, err = _sync_status(env)
+    if st is None:
+        return "NOT MEASURED", f"the Portal's report-spec sync status was not read: {err}"
+    started = platform_started_at(env)
+    if started is None:
+        return "NOT MEASURED", f"{PLATFORM_CONTAINER}'s start time was not read"
+    consumers = (st.get("report") or {}).get("consumers") if isinstance(st.get("report"), dict) else None
+    if not isinstance(consumers, dict) or not consumers.get("status"):
+        return "NOT MEASURED", (f"the last sync (outcome {st.get('outcome')}) says nothing about the consumer "
+                                "index (no sync has run, or a Portal before 2026-11-12)")
+    finished = _parse_iso(st.get("finished_at"))
+    status = consumers.get("status")
+    when = f"the last sync finished {st.get('finished_at')}; {PLATFORM_CONTAINER} started {iso(started)}"
+    if status != "read":
+        return "FAIL", (f"the consumer index is {status!r}" + (f" ({consumers['reason']})" if consumers.get("reason") else "")
+                        + f"; {when}. Remedy: {REPORT_SPEC_SYNC_REMEDY}")
+    if finished is None or finished < started:
+        return "FAIL", f"the consumer index was read before {PLATFORM_CONTAINER} last started; {when}. Remedy: {REPORT_SPEC_SYNC_REMEDY}"
+    return "PASS", f"read ({consumers.get('consumers')} consumer folders, {consumers.get('labels')} specs); {when}"
+
+
+def step_report_spec_sync(env, plan, state, run_dir, *, timeout_s: float = 900, poll_s: float = 10):
+    """Re-sync the Portal's report specs from the restarted Egeria (POST /api/report-specs/sync) and wait
+    for it; the consumer index must come back "read". Writes only the Portal's own cache, never Egeria, so
+    it is safe to repeat. 2026-11-12: the Portal's startup sync ran during an egeria-main restart and left
+    Used by "not read"."""
+    t0 = env.now()
+    try:
+        code, body = env.http.request("POST", f"{PORTAL_URL}/api/report-specs/sync", body={}, timeout=30)
+    except Exception as exc:  # noqa: BLE001
+        raise StepFailed(f"POST /api/report-specs/sync: {type(exc).__name__}: {exc}")
+    if code in (401, 403):
+        raise NeedsPerson(f"the Portal's report-spec sync needs an administrator (HTTP {code}): {REPORT_SPEC_SYNC_REMEDY}",
+                          {"http": code})
+    if code != 200:
+        raise StepFailed(f"POST /api/report-specs/sync: HTTP {code}")
+    # The Portal answers {"started": false, "already_running": true} when a sync was running already: this
+    # step then waits for that one, and says so in its evidence.
+    already = bool(isinstance(body, dict) and (body.get("already_running") or body.get("started") is False))
+    while True:
+        st, err = _sync_status(env)
+        if st and not st.get("running") and (_parse_iso(st.get("finished_at")) or 0) >= t0 - 1:
+            break
+        if env.now() - t0 > timeout_s:
+            raise StepFailed(f"the report-spec sync did not finish within {timeout_s:.0f}s ({err or 'still running'})")
+        env.sleep(poll_s)
+    consumers = (st.get("report") or {}).get("consumers") or {}
+    evidence = {"outcome": st.get("outcome"), "finishedAt": st.get("finished_at"), "alreadyRunning": already,
+                "consumerIndex": consumers.get("status"), "consumers": consumers.get("consumers"),
+                "specs": consumers.get("labels")}
+    env.say(f"  report-spec sync: {st.get('outcome')}; consumer index {consumers.get('status') or 'not reported'}")
+    if st.get("outcome") not in ("synced", "folders_missing", "not_configured") or consumers.get("status") == "not read":
+        raise StepFailed(f"the report-spec sync ended {st.get('outcome')!r}, consumer index "
+                         f"{consumers.get('status') or 'not reported'}: {st.get('error') or 'no error given'}. "
+                         f"Remedy: {REPORT_SPEC_SYNC_REMEDY}")
+    return evidence
 
 
 class NeedsPerson(Exception):
@@ -893,6 +1023,12 @@ class Egeria:
             body, headers={"Authorization": f"Bearer {self._token()}"})
         if code != 200 or not isinstance(resp, dict):
             raise StepFailed(f"find {type_name} {value!r}: HTTP {code}")
+        rel = resp.get("relatedHTTPCode")
+        if rel not in (None, 200):
+            # Egeria reports a server-side failure as HTTP 200 with an error body: that is "not
+            # answered", never "none found".
+            raise StepFailed(f"find {type_name} {value!r}: Egeria answered {rel} "
+                             f"{resp.get('exceptionErrorMessageId') or resp.get('exceptionClassName') or ''}".rstrip())
         # OpenMetadataElementsResponse: {"elements": [{"elementGUID", "elementProperties", ...}]}
         # (checked on laz, 2026-11-12). No "elements" key means none found.
         return resp.get("elements") or []
@@ -959,6 +1095,7 @@ def step_verify(env, plan, state, run_dir, *, watch_s: float = 600, watch_every_
     checks.append(_check("saved-query tile", sq))
 
     checks.append(_check("classification purposes", lambda: classification_verdict(plan, classification_count(env))))
+    checks.append(_check("report-spec consumer index", lambda: report_spec_index_verdict(env)))
 
     checks.append(persona_check(env))
 
@@ -1196,7 +1333,8 @@ def infra_config(root: Path) -> dict:
     if p.exists() and p.read_text().strip():
         cfg = json.loads(p.read_text())
     return {"extraComposeFiles": list(cfg.get("extraComposeFiles") or []),
-            "expectedStopped": {e["service"]: e for e in (cfg.get("expectedStopped") or []) if e.get("service")}}
+            "expectedStopped": {e["service"]: e for e in (cfg.get("expectedStopped") or []) if e.get("service")},
+            "prefect": cfg.get("prefect") or None}
 
 
 def infra_reference(env: Env) -> tuple[Path, str]:
@@ -1347,6 +1485,113 @@ def openlineage_info(env: Env) -> dict:
     return out
 
 
+# ── Prefect: server health and live pool workers (DESIGN-PREFECT-ROLE-AND-RE-WORKER-2026-11-13 §4) ──
+# Read only: GET /health, GET the pool, POST .../workers/filter (a query). Never FAIL, only WARN: RE
+# falls back to running steps in its own process when no worker is live, so a missing worker loses
+# Prefect run history and dispatch, not the run. Turned on by a "prefect" entry in infra-health.json.
+
+PREFECT_LIVE_FACTOR = 3            # a heartbeat within 3 x the worker's interval is live (as RE's check)
+PREFECT_DEFAULT_INTERVAL_S = 30    # Prefect's default worker heartbeat interval
+
+
+def _age_words(seconds: float) -> str:
+    """The same age wording as RE's pool check: s / min under 2 h, hours under 2 days, then days."""
+    s = max(0, int(seconds))
+    if s < 120:
+        return f"{s} s"
+    if s < 2 * 3600:
+        return f"{s // 60} min"
+    if s < 2 * 86400:
+        return f"{s // 3600} hours"
+    return f"{s // 86400} days"
+
+
+def _worker_live(w: dict, now: float, factor: int = PREFECT_LIVE_FACTOR) -> bool:
+    """Prefect's own status wins when it gives one (ONLINE = live, anything else = not); otherwise
+    a heartbeat within factor x the worker's heartbeat interval. No heartbeat at all = not live."""
+    status = w.get("status")
+    if status:
+        return status == "ONLINE"
+    beat = _parse_iso(w.get("last_heartbeat_time"))
+    interval = w.get("heartbeat_interval_seconds") or PREFECT_DEFAULT_INTERVAL_S
+    return beat is not None and now - beat <= factor * interval
+
+
+def _prefect_row(service: str, verdict: str, words: str) -> dict:
+    return {"service": service, "container": None, "kind": "prefect", "verdict": verdict, "words": words}
+
+
+def prefect_rows(env: Env, cfg: dict) -> list[dict]:
+    """Two rows: "Prefect server" (API health) and, per pool, "Prefect pool <name> live workers".
+    PASS or WARN only. An unread pool is WARN with the reason, never a 0 that looks like an empty pool."""
+    api = str(cfg.get("apiUrl") or "http://localhost:4200/api").rstrip("/")
+    pools = list(cfg.get("pools") or ["resource-explorer-pool"])
+    now = env.now()
+
+    def get(method, path, body=None):
+        return env.http.request(method, api + path, body, timeout=15)
+
+    rows = []
+    server_ok, why = False, None
+    try:
+        code, body = get("GET", "/health")
+        if code == 200 and body is True:
+            server_ok = True
+            try:
+                vcode, version = get("GET", "/admin/version")
+            except Exception:  # noqa: BLE001 -- the version is a note, not the check
+                vcode, version = None, None
+            rows.append(_prefect_row("Prefect server", "PASS", f"API healthy at {api}"
+                                     + (f" (Prefect {version})" if vcode == 200 and isinstance(version, str) else "")))
+        else:
+            why = f"answered HTTP {code} {str(body)[:120]}"
+    except Exception as exc:  # noqa: BLE001
+        why = f"not reachable: {type(exc).__name__}: {str(exc)[:160]}"
+    if not server_ok:
+        rows.append(_prefect_row("Prefect server", "WARN",
+                                 f"{api} {why}; runs are not recorded in Prefect, and dispatched steps run in "
+                                 "RE's own process"))
+    for pool in pools:
+        name = f"Prefect pool {pool} live workers"
+        if not server_ok:
+            rows.append(_prefect_row(name, "WARN", "not checked: the Prefect server is not reachable"))
+            continue
+        try:
+            code, info = get("GET", f"/work_pools/{pool}")
+            if code == 404:
+                rows.append(_prefect_row(name, "WARN", f"no such pool on {api}"))
+                continue
+            if code != 200 or not isinstance(info, dict):
+                rows.append(_prefect_row(name, "WARN", f"pool not read: HTTP {code}"))
+                continue
+            code, workers = get("POST", f"/work_pools/{pool}/workers/filter", {})
+            if code != 200 or not isinstance(workers, list):
+                rows.append(_prefect_row(name, "WARN", f"workers not read: HTTP {code}"))
+                continue
+        except Exception as exc:  # noqa: BLE001
+            rows.append(_prefect_row(name, "WARN", f"not read: {type(exc).__name__}: {str(exc)[:160]}"))
+            continue
+        registered = len(workers)
+        live = [w for w in workers if isinstance(w, dict) and _worker_live(w, now)]
+        beats = [t for t in (_parse_iso(w.get("last_heartbeat_time")) for w in workers if isinstance(w, dict)) if t]
+        never = sum(1 for w in workers if isinstance(w, dict) and not w.get("last_heartbeat_time"))
+        latest = max(beats) if beats else None
+        pool_note = f"pool {info.get('status') or 'status not given'}" + ("; PAUSED" if info.get("is_paused") else "")
+        if registered == 0:
+            verdict, words = "WARN", "no registered workers"
+        elif live:
+            verdict = "WARN" if info.get("is_paused") else "PASS"
+            words = f"{len(live)} live worker(s) of {registered} registered; last heartbeat {_age_words(now - latest)} ago"
+        else:
+            verdict = "WARN"
+            words = (f"no live worker: {registered} registered, last heartbeat "
+                     + (f"{_age_words(now - latest)} ago ({iso(latest)})" if latest else "never"))
+        if never:
+            words += f"; {never} never heard from"
+        rows.append(_prefect_row(name, verdict, f"{words}; {pool_note}"))
+    return rows
+
+
 def infra_check(env: Env, root: Optional[Path] = None) -> dict:
     """Read-only: every service of the shared-infra compose file (plus infra-health.json's extra files)."""
     ref_words = "given"
@@ -1372,6 +1617,11 @@ def infra_check(env: Env, root: Optional[Path] = None) -> dict:
                 insp, why = _inspect(env, container)
             result["services"].append(service_verdict(svc, insp, why, f, cfg["expectedStopped"].get(svc["service"]),
                                                       env_file))
+    if cfg["prefect"]:
+        try:
+            result["services"] += prefect_rows(env, cfg["prefect"])
+        except Exception as exc:  # noqa: BLE001
+            result["services"].append(_prefect_row("Prefect", "WARN", f"not checked: {type(exc).__name__}: {exc}"))
     try:
         result["openlineage"] = openlineage_info(env)
     except Exception as exc:  # noqa: BLE001
@@ -1433,11 +1683,223 @@ def append_bounded(path: Path, line: str, keep: int = INFRA_LOG_KEEP) -> None:
     os.replace(tmp, path)
 
 
-def infra_check_logged(env: Env, log: Path, *, record: bool, checkout: Optional[Path]) -> int:
-    """The scheduled form: nothing on stdout/stderr, one bounded log line per run, whatever happens."""
+# ── Alert email (owner, 2026-11-13: "Email is good - the address should be in the .env"; "use the same
+# mail configuration as we use in Egeria-Workspaces") ──────────────────────────────────────────────────
+# Sent only on a change: a row going into WARN / FAIL / NOT MEASURED (or a different one of those), and
+# on recovery to all PASS. The last notified state is kept next to the log.
+#
+# The mail settings are egeria-workspaces' own, not new ones, with the Portal's precedence
+# (demo_auth_handler._send_email, demo-mode.md "SMTP email" / "Resend"): Resend when RESEND_API_KEY is
+# set (it then needs RESEND_FROM, as the Portal does), else SMTP when SMTP_HOST is set, else nothing.
+# Resend goes out the way cert-watch.sh and the egeria-watchdog send it (POST api.resend.com/emails,
+# TLS verified); the Portal's sender needs the `resend` package and its config module, which this
+# host-side stdlib script does not have. The recipient is INFRA_ALERT_EMAIL, else the existing alert
+# recipient ALERT_EMAIL_TO.
+#
+# Values come from the process environment, else compose-configs/egeria-quickstart/.env.demo (where
+# quick-start-local keeps secrets), else .env (regenerated on every quick-start-local run). Only the
+# keys below are read from those files, and no value is ever logged. Without a recipient and a sender:
+# "alerting not configured" on every log line, nothing sent, and the state is not advanced, so the first
+# run after configuring reports what is already wrong.
+
+QS_DIR = Path("compose-configs") / "egeria-quickstart"
+ALERT_ENV_FILES = (QS_DIR / ".env.demo", QS_DIR / ".env")      # earlier wins
+ALERT_KEYS = ("INFRA_ALERT_EMAIL", "ALERT_EMAIL_TO", "RESEND_API_KEY", "RESEND_FROM", "SMTP_HOST", "SMTP_PORT",
+              "SMTP_SSL", "SMTP_USER", "SMTP_PASSWORD", "SMTP_FROM", "ADMIN_BOOTSTRAP_EMAIL")
+ALERT_SECRETS = ("RESEND_API_KEY", "SMTP_PASSWORD")
+ALERT_DEGRADED = ("FAIL", "WARN", "NOT MEASURED", "ERROR")
+RESEND_URL = "https://api.resend.com/emails"
+
+
+def alert_settings(root: Path) -> dict:
+    """{key: value} for ALERT_KEYS: the process environment, else .env.demo, else .env."""
+    files = [_env_values(Path(root) / f, set(ALERT_KEYS)) for f in ALERT_ENV_FILES]
+    return {k: (os.environ.get(k) or next((f[k] for f in files if f.get(k)), "")) for k in ALERT_KEYS}
+
+
+def mail_route(settings: dict) -> tuple[Optional[str], Optional[str], list[str]]:
+    """(route "resend" / "smtp" / None, recipient, what is missing), in the Portal's precedence."""
+    to = settings.get("INFRA_ALERT_EMAIL") or settings.get("ALERT_EMAIL_TO") or None
+    missing = [] if to else ["INFRA_ALERT_EMAIL (or ALERT_EMAIL_TO)"]
+    if settings.get("RESEND_API_KEY"):
+        route = "resend"
+        if not settings.get("RESEND_FROM"):
+            missing.append("RESEND_FROM")
+    elif settings.get("SMTP_HOST"):
+        route = "smtp"
+    else:
+        route = None
+        missing.append("RESEND_API_KEY + RESEND_FROM (or SMTP_HOST)")
+    return (route if not missing else None), to, missing
+
+
+def degraded_rows(result: Optional[dict], error: Optional[str] = None) -> dict:
+    """{row name: verdict} for every row that is not fine. EXPECTED STOPPED and PASS are fine."""
+    if error is not None:
+        return {"infra-check": "ERROR"}
+    return {s["service"]: s["verdict"] for s in (result or {}).get("services") or []
+            if s.get("verdict") in ALERT_DEGRADED}
+
+
+def alert_message(host: str, at: str, before: dict, now: dict, result: Optional[dict], error: Optional[str]) -> tuple[str, str]:
+    words = {s["service"]: s.get("words", "") for s in (result or {}).get("services") or []}
+    if error is not None:
+        words["infra-check"] = error
+    if not now:
+        subject = f"[infra-check {host}] recovered: everything PASS"
+    else:
+        worst = next(v for v in ALERT_DEGRADED if v in now.values())
+        subject = f"[infra-check {host}] {worst}: " + ", ".join(sorted(now))[:150]
+    lines = [f"infra-check on {host} at {at}.", ""]
+    for name in sorted(set(now) | set(before)):
+        old, new = before.get(name), now.get(name)
+        if new and old != new:
+            lines.append(f"NOW {new}{f' (was {old})' if old else ''}: {name}: {words.get(name, '')}")
+    for name in sorted(now):
+        if before.get(name) == now[name]:
+            lines.append(f"still {now[name]}: {name}: {words.get(name, '')}")
+    for name in sorted(set(before) - set(now)):
+        lines.append(f"recovered (was {before[name]}): {name}")
+    lines += ["", "Read only: infra-check fixes nothing. The full result is in the Portal's Shared "
+              "infrastructure panel and in infra-check.log on the host."]
+    return subject, "\n".join(lines) + "\n"
+
+
+def _smtp_default(host: str, port: int, security: str):
+    import smtplib
+    if security == "ssl":
+        return smtplib.SMTP_SSL(host, port, timeout=30, context=ssl.create_default_context())
+    conn = smtplib.SMTP(host, port, timeout=30)
+    conn.starttls(context=ssl.create_default_context())
+    return conn
+
+
+def _resend_default(api_key: str, payload: dict) -> None:
+    """The request cert-watch.sh makes with curl: TLS verified (never the localhost Http's CERT_NONE)."""
+    req = urllib.request.Request(RESEND_URL, data=json.dumps(payload).encode(), method="POST",
+                                 headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json",
+                                          "User-Agent": "egeria-infra-check"})
+    try:
+        with urllib.request.urlopen(req, timeout=20, context=ssl.create_default_context()) as r:
+            if not 200 <= r.status < 300:
+                raise RuntimeError(f"Resend answered HTTP {r.status}")
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f"Resend answered HTTP {e.code}: {e.read().decode('utf-8', 'replace')[:160]}") from None
+
+
+def send_alert(env: Env, settings: dict, route: str, to: str, subject: str, body: str) -> None:
+    recipients = [a.strip() for a in to.split(",") if a.strip()]
+    if route == "resend":
+        (env.resend or _resend_default)(settings["RESEND_API_KEY"], {
+            "from": settings["RESEND_FROM"], "to": recipients, "subject": subject, "text": body})
+        return
+    from email.message import EmailMessage
+    use_ssl = (settings.get("SMTP_SSL") or "").strip().lower() in ("1", "true", "yes")
+    port = int(settings.get("SMTP_PORT") or (465 if use_ssl else 587))
+    user = settings.get("SMTP_USER") or settings.get("ADMIN_BOOTSTRAP_EMAIL") or ""
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = settings.get("SMTP_FROM") or user or f"infra-check@{socket.gethostname()}"
+    msg["To"] = ", ".join(recipients)
+    msg.set_content(body)
+    conn = (env.smtp or _smtp_default)(settings["SMTP_HOST"], port, "ssl" if use_ssl else "starttls")
+    try:
+        if user and settings.get("SMTP_PASSWORD"):
+            conn.login(user, settings["SMTP_PASSWORD"])
+        conn.send_message(msg)
+    finally:
+        try:
+            conn.quit()
+        except Exception:  # noqa: BLE001
+            pass
+
+
+ALERT_HOLD_RUNS = 2   # a change is mailed only once it has held this many consecutive runs
+
+
+def _write_alert_state(state_path: Path, state: dict) -> None:
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = state_path.with_name(state_path.name + ".tmp")
+    tmp.write_text(json.dumps(state, indent=2) + "\n")
+    os.replace(tmp, state_path)
+
+
+def alert_on_change(env: Env, state_path: Path, root: Path, result: Optional[dict],
+                    error: Optional[str] = None) -> dict:
+    """Compare this run's not-fine rows with the last notified ones; email on a change that has HELD.
+
+    Debounce: a new set of degraded rows, or a recovery, is mailed only after the same set has been
+    seen on ALERT_HOLD_RUNS (2) consecutive runs. Until then it is kept as "pending" in the state file
+    and the log says "change pending (1 of 2 runs)". A row that flaps (OFFLINE, ONLINE, OFFLINE …)
+    therefore sends nothing; going back to the notified set drops the pending change. FAIL is debounced
+    the same way (one 10-minute run of delay): a FAIL that clears on the next run is a flap, not news.
+
+    Returns {"outcome": ..., "configured": bool, ...} for the log line and the recorded result. Never raises."""
+    now_rows = degraded_rows(result, error)
+    try:
+        settings = alert_settings(root)
+    except Exception as exc:  # noqa: BLE001
+        return {"outcome": f"alerting not configured: settings not read ({type(exc).__name__})", "configured": False}
+    route, to, missing = mail_route(settings)
+    if missing:        # said on every run, changed or not: an unconfigured alert is never silent
+        return {"outcome": "alerting not configured", "configured": False, "unset": missing}
+    try:
+        state = json.loads(state_path.read_text()) if state_path.exists() else {}
+        if not isinstance(state, dict):
+            state = {}
+    except (ValueError, OSError):
+        state = {}
+    before = state.get("degraded") or {}
+    pending = state.get("pending") if isinstance(state.get("pending"), dict) else None
+    base = {k: v for k, v in state.items() if k != "pending"}
+    told = {"configured": True, "route": route, "lastSentAt": base.get("notifiedAt")}
+    if now_rows == before:
+        if pending:    # the change did not hold: forget it
+            _write_alert_state(state_path, base)
+            return {"outcome": "no change (pending change did not hold)", **told}
+        return {"outcome": "no change", **told}
+    runs = (int(pending.get("runs") or 0) + 1) if pending and pending.get("degraded") == now_rows else 1
+    if runs < ALERT_HOLD_RUNS:
+        _write_alert_state(state_path, {**base, "pending": {"degraded": now_rows, "runs": runs,
+                                                             "since": iso(env.now())}})
+        return {"outcome": f"change pending ({runs} of {ALERT_HOLD_RUNS} runs)", **told}
+    at = (result or {}).get("checkedAt") or iso(env.now())
+    subject, body = alert_message(socket.gethostname(), at, before, now_rows, result, error)
+    try:
+        send_alert(env, settings, route, to, subject, body)
+    except Exception as exc:  # noqa: BLE001 -- still pending, so the next run tries again
+        text = str(exc)
+        for k in ALERT_SECRETS:
+            if settings.get(k):
+                text = text.replace(settings[k], "***")
+        _write_alert_state(state_path, {**base, "pending": {"degraded": now_rows, "runs": runs,
+                                                             "since": (pending or {}).get("since") or iso(env.now())}})
+        return {"outcome": f"alert NOT sent ({route}): {type(exc).__name__}: {text[:200]}", **told}
+    _write_alert_state(state_path, {"degraded": now_rows, "notifiedAt": iso(env.now()), "subject": subject})
+    return {"outcome": ("alert sent" if now_rows else "recovery sent") + f" ({route})", **told,
+            "lastSentAt": iso(env.now()), "subject": subject}
+
+
+def alert_words(a: dict) -> str:
+    if a["outcome"] == "alerting not configured":
+        return "alerting not configured (unset: " + ", ".join(a.get("unset") or []) + ")"
+    return a["outcome"]
+
+
+def infra_check_logged(env: Env, log: Path, *, record: bool, checkout: Optional[Path],
+                       alert: bool = True) -> int:
+    """The scheduled form: nothing on stdout/stderr, one bounded log line per run, whatever happens.
+    With `alert`, an email on a change of state (alert_on_change); the state file sits next to the log."""
+    state_path = log.with_name(log.stem + "-alert-state.json")
     try:
         result = infra_check(env, checkout)
         line = infra_summary(result)
+        if alert:
+            a = alert_on_change(env, state_path, Path(result.get("checkout") or env.repo), result)
+            result["alerting"] = a
+            line += "; " + alert_words(a)
+        else:   # recorded, so the Portal panel says alerting was off rather than showing nothing
+            result["alerting"] = {"outcome": "off for this run (--no-alert)", "configured": None}
         if record:
             try:
                 record_infra(env, result)
@@ -1446,7 +1908,10 @@ def infra_check_logged(env: Env, log: Path, *, record: bool, checkout: Optional[
                 line += f"; NOT recorded: {type(exc).__name__}: {str(exc)[:200]}"
         rc = 1 if result["counts"]["FAIL"] else 0
     except Exception as exc:  # noqa: BLE001
-        line, rc = f"{iso(env.now())} ERROR {type(exc).__name__}: {str(exc)[:300]}", 1
+        err = f"{type(exc).__name__}: {str(exc)[:300]}"
+        line, rc = f"{iso(env.now())} ERROR {err}", 1
+        if alert:
+            line += "; " + alert_words(alert_on_change(env, state_path, Path(checkout or env.repo), None, err))
     append_bounded(log, line)
     return rc
 
@@ -1537,7 +2002,8 @@ STEP_FUNCS = {
     "disk-check": step_disk_check, "repin": step_repin, "build": step_build,
     "freeze-writers": step_freeze_writers, "stop-platform": step_stop_platform, "backup": step_backup,
     "clear": step_clear, "recreate": step_recreate, "secrets-sync": step_secrets_sync,
-    "heal-wait": step_heal_wait, "unfreeze": step_unfreeze, "verify": step_verify, "record": step_record,
+    "heal-wait": step_heal_wait, "report-spec-sync": step_report_spec_sync, "unfreeze": step_unfreeze,
+    "verify": step_verify, "record": step_record,
 }
 
 
@@ -1618,6 +2084,9 @@ def main(argv: Optional[list[str]] = None, env: Optional[Env] = None) -> int:
     ic.add_argument("--log", default=None, metavar="FILE",
                     help="for scheduled runs: print nothing; append ONE line per run to FILE, keeping its newest "
                          f"{INFRA_LOG_KEEP} lines (errors too)")
+    ic.add_argument("--no-alert", action="store_true",
+                    help="with --log: send no alert email (by default one is sent when the state changes, "
+                         "when a recipient and the Portal's mail settings are set)")
     ic.add_argument("--checkout", default=None,
                     help="the checkout whose compose files to compare with (default: the running platform's)")
     args = ap.parse_args(argv)
@@ -1639,7 +2108,7 @@ def main(argv: Optional[list[str]] = None, env: Optional[Env] = None) -> int:
                 env.personas = args.personas
             return apply(env, args.plan, dry_run=args.dry_run, redo=args.redo)
         if args.cmd == "infra-check" and args.log:
-            return infra_check_logged(env, Path(args.log), record=args.record,
+            return infra_check_logged(env, Path(args.log), record=args.record, alert=not args.no_alert,
                                       checkout=Path(args.checkout).resolve() if args.checkout else None)
         if args.cmd == "infra-check":
             result = infra_check(env, Path(args.checkout).resolve() if args.checkout else None)

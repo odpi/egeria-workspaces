@@ -53,7 +53,7 @@ RESTRICTED_LATER = ("'{label}' is held in Egeria with zones ({zones}): restricte
 NOT_HELD = "'{label}' is not held in Egeria, so there is nothing to withdraw."
 SIGN_IN = "Sign in to publish or withdraw a report spec: it runs as you, never as the Portal's service account."
 NO_FOLDERS = ("The consumer folders were not read ({reason}), so there is nowhere to publish to yet. "
-              "Run the report-spec sync first.")
+              "Run the report-spec sync, or wait: the Portal tries again every 2 minutes.")
 PUBLISH_REFUSED_FALLBACK = "pyegeria refused the request (no reason was given)."
 STALE = ("'{label}' changed in Egeria since the Portal's last sync (Egeria has version {live}, the Portal's copy "
          "is version {cached}). Publishing would write the older copy back: sync first, then publish.")
@@ -192,12 +192,31 @@ def _after_success(label: str) -> Dict[str, Any]:
 def _folder_qn(folder: str) -> tuple[str, List[str]]:
     idx = _consumers()
     if (idx.get("status") or "not read") == "not read":
+        try:                                   # heal it for the next try (at most every 2 minutes)
+            import report_spec_sync
+            report_spec_sync.retry_if_index_not_read("not read", supported=idx.get("supported", True),
+                                                     reason=idx.get("reason"))
+        except Exception:  # noqa: BLE001
+            pass
         raise Refused(NO_FOLDERS.format(reason=idx.get("reason") or "no reason given"), 409)
     names = {c.get("name"): c.get("qualifiedName") for c in idx.get("consumers") or [] if c.get("qualifiedName")}
     if folder not in names:
         raise Refused(f"'{folder}' is not one of the consumer folders the last sync found "
                       f"({', '.join(sorted(n for n in names if n)) or 'none'}).")
     return names[folder], [q for q in names.values() if q]
+
+
+NOT_IN_FOLDER = "'{label}' is not in {folder}, so there is nothing to withdraw."
+
+
+def _in_folder(label: str, folder: str) -> Optional[bool]:
+    """Whether the last sync's consumer index puts `label` in the consumer folder named `folder`: True or
+    False when that folder was read, None when it was not (then nobody can tell, and Egeria answers)."""
+    idx = _consumers()
+    consumer = next((c for c in idx.get("consumers") or [] if c.get("name") == folder), None)
+    if not consumer or consumer.get("status") != "read" or (idx.get("status") or "not read") == "not read":
+        return None
+    return folder in ((idx.get("index") or {}).get(label) or [])
 
 
 def _plan(req: PublishRequest, token: str) -> Dict[str, Any]:
@@ -217,6 +236,8 @@ def _plan(req: PublishRequest, token: str) -> Dict[str, Any]:
     if req.action == "withdraw":
         if not held.get("held"):
             raise Refused(NOT_HELD.format(label=label) + f" ({held.get('how')})")
+        if _in_folder(label, req.folder) is False:
+            raise Refused(NOT_IN_FOLDER.format(label=label, folder=req.folder), 409)
         plan = rsp.build_withdraw_document(label, [folder_qn], allowed=allowed,
                                            allowed_words="the consumer folders the last sync found")
     else:

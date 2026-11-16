@@ -1,5 +1,5 @@
 {
-  "_about": "Read by `egeria-upgrade-reset infra-check` (compose-configs/egeria-quickstart/bin). extraComposeFiles: more compose files to check, relative to the repo root (e.g. an optional runtime once the owner decides its state). expectedStopped: services deliberately down, each {\"service\", \"reason\", \"by\"}, optionally \"exitCode\" (how it must have stopped; another exit code is a FAIL); they report EXPECTED STOPPED instead of FAIL. Empty lists = shared-infra.yaml only, nothing expected stopped.",
+  "_about": "Read by `egeria-upgrade-reset infra-check` (compose-configs/egeria-quickstart/bin). extraComposeFiles: more compose files to check, relative to the repo root (e.g. an optional runtime once the owner decides its state). expectedStopped: services deliberately down, each {\"service\", \"reason\", \"by\"}, optionally \"exitCode\" (how it must have stopped; another exit code is a FAIL); they report EXPECTED STOPPED instead of FAIL. Empty lists = shared-infra.yaml only, nothing expected stopped. prefect: optional; when present, two read-only rows: \"Prefect server\" (API health) and, per pool, \"Prefect pool <name> live workers\" (a worker is live when Prefect says ONLINE, else when its heartbeat is within 3x its interval). Both are WARN at worst, never FAIL: RE runs steps in its own process when no worker is live. Remove the entry where Prefect is not deployed.",
   "extraComposeFiles": [
     "compose-configs/optional-associated-runtimes/airflow-marquez/airflow-marquez.yaml"
   ],
@@ -10,5 +10,11 @@
       "by": "the compose file's design",
       "exitCode": 0
     }
-  ]
+  ],
+  "prefect": {
+    "apiUrl": "http://localhost:4200/api",
+    "pools": [
+      "resource-explorer-pool"
+    ]
+  }
 }
