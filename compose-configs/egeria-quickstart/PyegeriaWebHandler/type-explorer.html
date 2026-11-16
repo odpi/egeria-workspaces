@@ -628,6 +628,29 @@ const {
 } = React;
 
 // ── Credential context ────────────────────────────────────────────────────────
+// A token minted for one identity must not land on another (A2, 2026-11-15). A mint started for the
+// creds read from localStorage on load (or a 401 refresh) can resolve after the user switched persona
+// (saveCreds); setting its result then would put the stale identity back. Used as a functional
+// setCreds: keep the result only while the current creds are still the identity it was minted for.
+// Each saveCreds call takes a ticket; a mint's result is kept only while its ticket is still the latest
+// (A2 R1): two quick switches (erin -> peter -> rover) whose mints resolve out of order end with rover.
+function takeSaveTicket(seqRef) {
+  var ticket = ++seqRef.current;
+  return function isLatest() { return ticket === seqRef.current; };
+}
+
+// A 401 refresh minted for an identity the user has since left is refused, so egeriaFetch does not retry
+// that request as the old identity and land its answer in the new identity's view (it keeps the 401).
+function refreshedOrRefused(current, withTok) {
+  if (credsIfStillCurrent(current, withTok) !== withTok) throw new Error('the identity changed during the token refresh');
+  return withTok;
+}
+
+function credsIfStillCurrent(cur, result) {
+  if (!cur || !result) return cur;
+  var same = ['url', 'server', 'userId', 'password'].every(function(k) { return (cur[k] || '') === (result[k] || ''); });
+  return same ? result : cur;
+}
 // CredContext now lives in /static/egeria-shared-ui.js (shared with the Tech
 // Catalog). This SPA still provides it via CredContext.Provider value={creds}.
 
@@ -3442,6 +3465,23 @@ function RsRestrictedNote({ info }) {
     style: { fontSize: 11, color: info.state === 'read_failed' ? '#fbbf24' : 'var(--dim)', margin: '4px 12px', overflowWrap: 'anywhere' } }, text);
 }
 
+// The Report Specs view's own calls (list, sync, sync poll). The list and sync status carry the sync's
+// skip detail, which the server gives only to an administrator, or on a Portal without auth to a
+// request with no persona token (F1b): so a signed-in persona's token must go with them, or peter's
+// browser reads as the local owner. Plain fetch only when no one is signed in.
+function rsSpecFetch(url, creds, opts) {
+  if (!rsCredsReady(creds)) return Promise.reject(new Error('signing in to Egeria has not finished'));
+  return creds && creds.token ? egeriaFetch(url, creds, opts) : fetch(url, opts);
+}
+
+// A persona identity whose token is still being minted is NOT READY, not anonymous (F1b R2): on load
+// the creds come from localStorage as userId + password with no token, and a bare fetch then would
+// read as the local owner. Ready: a token; or no identity to mint for (no userId or no password,
+// acquireToken never mints then); or the mint has settled without one (tokenTried: not signed in).
+function rsCredsReady(creds) {
+  return !(creds && creds.userId && creds.password && !creds.token && !creds.tokenTried);
+}
+
 function ReportSpecView() {
   const creds = React.useContext(CredContext);
   const [restrictedInfo, setRestrictedInfo] = useState(null);
@@ -3472,7 +3512,7 @@ function ReportSpecView() {
   const startSync = useCallback(() => {
     setSyncing(true);
     setSyncMsg('Syncing from Egeria…');
-    fetch('/api/report-specs/sync', { method: 'POST' })
+    rsSpecFetch('/api/report-specs/sync', creds, { method: 'POST' })
       .then(r => r.json().then(d => ({ ok: r.ok, status: r.status, d })))
       .then(({ ok, status, d }) => {
         if (!ok) throw new Error(d.detail || ('HTTP ' + status));
@@ -3484,7 +3524,7 @@ function ReportSpecView() {
         }
         let tries = 0;
         const poll = () => {
-          fetch('/api/report-specs/sync').then(r => r.json()).then(st => {
+          rsSpecFetch('/api/report-specs/sync', creds).then(r => r.json()).then(st => {
             if (st.running && tries++ < 90) { setTimeout(poll, 2000); return; }
             setSyncing(false);
             setSyncMsg(_rsSyncWords(st));
@@ -3494,12 +3534,13 @@ function ReportSpecView() {
         setTimeout(poll, 1500);
       })
       .catch(e => { setSyncing(false); setSyncMsg('Sync not started: ' + e.message); });
-  }, []);
+  }, [creds]);   // the token goes with the sync and its poll (F1b)
 
   useEffect(() => {
     setLoadState('loading');
     setError('');
-    fetch('/api/report-specs')
+    if (!rsCredsReady(creds)) return;          // re-runs when the token lands or the mint settles
+    rsSpecFetch('/api/report-specs', creds)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => {
         const list = data.specs || [];
@@ -3528,7 +3569,7 @@ function ReportSpecView() {
           .catch(e => setRestrictedInfo({ state: 'read_failed', specs: [], message: 'Restricted report specs were not read: ' + e }));
       })
       .catch(err => { setError(err.message); setLoadState('error'); });
-  }, [attempt, creds && creds.token]);
+  }, [attempt, creds && creds.token, rsCredsReady(creds)]);
 
   // A restricted spec's definition is fetched as the user when it is first selected.
   useEffect(() => {
@@ -14104,12 +14145,16 @@ function App() {
         password: c.password || undefined
       })
     }).then(function(r) { return r.ok ? r.json() : null; })
-      .then(function(t) { return (t && t.token) ? Object.assign({}, c, { token: t.token }) : c; })
-      .catch(function() { return c; });
+      // tokenTried: the mint has settled, with or without a token (rsCredsReady waits for it).
+      .then(function(t) { return Object.assign({}, c, (t && t.token) ? { token: t.token, tokenTried: true } : { tokenTried: true }); })
+      .catch(function() { return Object.assign({}, c, { tokenTried: true }); });
   }, []);
 
+  const saveSeq = React.useRef(0);
   const saveCreds = useCallback(function(c) {
+    var isLatest = takeSaveTicket(saveSeq);
     acquireToken(c).then(function(withTok) {
+      if (!isLatest()) return;              // a later save superseded this one (A2 R1)
       setCreds(withTok);
       setConnected(true);
       setCredsKey(function(k) { return k + 1; });
@@ -14122,14 +14167,24 @@ function App() {
   // On load (and whenever the identity changes) ensure we hold a token. The
   // token field changing does not re-trigger this (guarded), avoiding loops.
   useEffect(function() {
-    if (creds.token) return;
-    acquireToken(creds).then(function(withTok) { if (withTok.token) setCreds(withTok); });
+    if (creds.token || creds.tokenTried) return;   // settled for this identity (saveCreds minted it)
+    // Also on a failed mint (tokenTried), so views waiting for the token stop waiting; never onto a
+    // persona the user has switched to meanwhile (A2).
+    acquireToken(creds).then(function(withTok) {
+      if (withTok.token || withTok.tokenTried) setCreds(function(cur) { return credsIfStillCurrent(cur, withTok); });
+    });
   }, [creds.url, creds.server, creds.userId, creds.password]);
 
   // Let egeriaFetch refresh an expired token on a 401 and retry once.
+  const credsNow = React.useRef(creds);
+  credsNow.current = creds;
   useEffect(function() {
     _tokenRefresher.refresh = function(oldCreds) {
-      return acquireToken(oldCreds).then(function(withTok) { setCreds(withTok); return withTok; });
+      return acquireToken(oldCreds).then(function(withTok) {
+        refreshedOrRefused(credsNow.current, withTok);   // rejects: egeriaFetch keeps the 401, no stale retry
+        setCreds(function(cur) { return credsIfStillCurrent(cur, withTok); });   // never a switched-away identity
+        return withTok;
+      });
     };
     return function() { _tokenRefresher.refresh = null; };
   }, [acquireToken]);
