@@ -9767,6 +9767,9 @@ function _elementIsLinkable(item) {
   if (item.typeName === 'Project') return true;
   if (item.typeName === 'InformalTag') return true;
   if (item.typeName === 'ContextEvent') return true;
+  // Security Officer (Egeria 6.3); supertypes are only AuthoredReferenceable/Referenceable, so no
+  // fallback below catches it. Routed by onNavigateToElement to the Statements of Applicability section.
+  if (item.typeName === 'StatementOfApplicability') return true;
   // Egeria's internal type-system registry — every entity/relationship/
   // classification typeName also exists as a ValidMetadataValue, which is why
   // a search for e.g. "SmartQuery" can legitimately match one. Routes to the
