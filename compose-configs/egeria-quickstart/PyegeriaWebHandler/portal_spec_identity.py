@@ -66,7 +66,10 @@ def token_spec_identity(token: Optional[str]) -> Optional[str]:
     if not token:
         return None
     from egeria_auth import _token_sub, default_platform_url, resolve_platform, token_platform
-    user = _token_sub(token)
+    try:
+        user = _token_sub(token)
+    except Exception:  # noqa: BLE001 -- an unreadable token: the request gets no identity, so public specs only
+        return None
     if not user:
         return None
     credential_identity = spec_cache_attr("credential_identity")
