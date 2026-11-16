@@ -1469,8 +1469,20 @@ function uniqueValues(rows, pick) {
   return Object.keys(s).sort(function(a, b) { return a.toLowerCase() < b.toLowerCase() ? -1 : 1; });
 }
 
+// The kinds a search is narrowed to, from the URL's kind=table,schema; [] for All.
+function pickedKinds(kind) {
+  return (kind || '').split(',').map(function(k) { return k.trim(); }).filter(Boolean);
+}
+
+// The route params after a kind button is pressed: add the kind, or drop it if it was picked.
+function toggleKind(picked, id) {
+  var next = picked.indexOf(id) >= 0 ? picked.filter(function(k) { return k !== id; }) : picked.concat([id]);
+  return next.length ? { kind: next.join(',') } : {};
+}
+
 function SearchPage({ q, kind, creds }) {
   var kinds = useKinds(creds);
+  var picked = pickedKinds(kind);
   var idx = useFlavours(creds);
   var _d = useState(null), data = _d[0], setData = _d[1];
   var _i = useState([]), items = _i[0], setItems = _i[1];
@@ -1480,7 +1492,7 @@ function SearchPage({ q, kind, creds }) {
 
   function load(page) {
     setLoading(true); setErr('');
-    var url = API + '/search?q=' + encodeURIComponent(q) + (kind ? '&kind=' + kind : '') + '&page=' + page;
+    var url = API + '/search?q=' + encodeURIComponent(q) + (kind ? '&kind=' + encodeURIComponent(kind) : '') + '&page=' + page;
     getJson(url, creds).then(function(d) {
       setData(d);
       setItems(function(prev) {
@@ -1516,11 +1528,12 @@ function SearchPage({ q, kind, creds }) {
 
   return el('div', { className: 'rb-page' },
     el('div', { className: 'rb-row', style: { gap: 6, marginBottom: 10 } },
-      el('span', { className: 'rb-note', style: { marginRight: 4 } }, 'Kind:'),
-      el('button', { className: 'rb-facet' + (!kind ? ' on' : ''), onClick: function() { navigate({ q: q }); } }, 'All'),
+      el('span', { className: 'rb-note', style: { marginRight: 4 }, title: 'Pick one kind or several; pick a kind again to drop it' }, 'Kind:'),
+      el('button', { className: 'rb-facet' + (!picked.length ? ' on' : ''), onClick: function() { navigate({ q: q }); } }, 'All'),
       kinds.map(function(k) {
-        return el('button', { key: k.id, className: 'rb-facet' + (kind === k.id ? ' on' : ''),
-          onClick: function() { navigate({ q: q, kind: k.id }); } }, (KIND_ICONS[k.id] || '') + ' ' + k.label);
+        var on = picked.indexOf(k.id) >= 0;
+        return el('button', { key: k.id, className: 'rb-facet' + (on ? ' on' : ''), 'aria-pressed': on,
+          onClick: function() { navigate(Object.assign({ q: q }, toggleKind(picked, k.id))); } }, (KIND_ICONS[k.id] || '') + ' ' + k.label);
       })),
     items.length > 0 && el('div', { className: 'rb-row', style: { gap: 10, marginBottom: 12 } },
       el('span', { className: 'rb-note' }, 'Narrow these results:'),
@@ -1543,7 +1556,8 @@ function SearchPage({ q, kind, creds }) {
       data.order),
     loading && !items.length && el('div', { className: 'center', style: { height: 160 } }, el('div', { className: 'spinner' }), 'Searching…'),
     data && !loading && items.length === 0 && el('div', { className: 'rb-card' },
-      el('div', null, 'Nothing visible to you matches “' + q + '”' + (kind ? ' among ' + kind + ' resources' : '') + '.'),
+      el('div', null, 'Nothing visible to you matches “' + q + '”' + (picked.length ? ' among ' + picked.map(function(id) {
+        var k = kinds.filter(function(x) { return x.id === id; })[0]; return k ? k.label.toLowerCase() : id; }).join(', ') : '') + '.'),
       el('div', { className: 'rb-note', style: { marginTop: 6 } }, 'Zone security may hide some resources from your user, so this may be incomplete.')),
     el(ResultList, { key: q + '|' + kind + '|' + JSON.stringify(filt), rows: shown, creds: creds, idx: idx, showMatched: true }),
     data && data.mayHaveMore && el('button', { className: 'rb-btn', style: { marginTop: 12 }, disabled: loading,

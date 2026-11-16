@@ -1664,24 +1664,33 @@ async def get_flavours():
 
 # ── Search ────────────────────────────────────────────────────────────────────
 
-def _kind_types(kind: Optional[str]) -> list:
-    for k, _label, types in _KINDS:
-        if k == kind:
-            return types
-    return _RESOURCE_TYPES
+def _parse_kinds(kind: Optional[str]) -> Optional[list]:
+    """The kinds asked for, from "table" or "table,schema"; None for All. Raises ValueError
+    naming any kind it does not know."""
+    wanted = [k.strip() for k in (kind or "").split(",") if k.strip()]
+    unknown = [k for k in wanted if k not in _KIND_IDS]
+    if unknown:
+        raise ValueError(", ".join(unknown))
+    return list(dict.fromkeys(wanted)) or None
 
 
-def _part_types(kind: Optional[str]) -> list:
+def _kind_types(kinds: Optional[list]) -> list:
+    """The resource types the text search asks for: every resource type for All (or when
+    "other" is asked for, since other is whatever is left), else the union of the kinds'
+    types. [] when only code repositories or parts are asked for."""
+    if kinds is None or "other" in kinds:
+        return _RESOURCE_TYPES
+    return list(dict.fromkeys(t for k, _label, types in _KINDS if k in kinds for t in types))
+
+
+def _part_types(kinds: Optional[list]) -> list:
     """The types the parts search asks for: every part for All, columns for Tables (they
-    roll up to their table), and the kind's own types for a part kind; [] for the rest."""
-    if kind is None:
+    roll up to their table), and the kinds' own types for part kinds; [] for the rest."""
+    if kinds is None:
         return [t for _k, _label, types in _PART_KINDS for t in types]
-    if kind == "table":
-        return ["SchemaAttribute"]
-    for k, _label, types in _PART_KINDS:
-        if k == kind:
-            return types
-    return []
+    out = ["SchemaAttribute"] if "table" in kinds else []
+    out += [t for k, _label, types in _PART_KINDS if k in kinds for t in types]
+    return list(dict.fromkeys(out))
 
 
 def _may_have_more(page_elements: list) -> bool:
@@ -1691,9 +1700,9 @@ def _may_have_more(page_elements: list) -> bool:
     return len(page_elements) > 0
 
 
-async def _search_text(client, q, kind, page):
+async def _search_text(client, q, types, page):
     raw = await client._async_find_elements_by_property_value(
-        property_value=q, property_names=_SEARCH_PROPS, metadata_element_subtypes=_kind_types(kind),
+        property_value=q, property_names=_SEARCH_PROPS, metadata_element_subtypes=types,
         starts_with=False, ends_with=False, ignore_case=True, graph_query_depth=0, output_format="JSON",
         start_from=page * _SEARCH_PAGE, page_size=_SEARCH_PAGE)
     return _elements(raw)
@@ -1800,24 +1809,28 @@ async def _search_owners(client, q):
 
 
 @router.get("/api/resource-browser/search", summary="L0 search over Egeria's own find")
-async def search(q: str = Query(..., min_length=1), kind: Optional[str] = Query(None),
+async def search(q: str = Query(..., min_length=1),
+                 kind: Optional[str] = Query(None, description="One kind, or several separated by commas (table,schema)"),
                  page: int = Query(0, ge=0, le=40)):
     q = q.strip()
     if q in ("", "*"):
         raise HTTPException(status_code=400, detail="Type a word to search for.")
-    if kind and kind not in _KIND_IDS:
-        raise HTTPException(status_code=400, detail=f"Unknown kind {kind!r}.")
+    try:
+        kinds = _parse_kinds(kind)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Unknown kind: {exc}.")
     try:
         client = await _explorer_async()
     except Exception as exc:
         raise_egeria_http_error(exc, "resource-browser: search client failed")
 
-    part_kinds = {k for k, _label, _types in _PART_KINDS}
-    jobs = {} if kind == "repo" or kind in part_kinds else {"text": _search_text(client, q, kind, page)}
-    if kind in (None, "repo") and page == 0:
+    jobs = {}
+    if _kind_types(kinds):
+        jobs["text"] = _search_text(client, q, _kind_types(kinds), page)
+    if (kinds is None or "repo" in kinds) and page == 0:
         jobs["repos"] = _search_repos(q)
-    if _part_types(kind):
-        jobs["parts"] = _search_parts(client, q, page, _part_types(kind))
+    if _part_types(kinds):
+        jobs["parts"] = _search_parts(client, q, page, _part_types(kinds))
     if page == 0:  # tag, keyword and owner matches are bounded and come on the first page only
         jobs.update(tags=_search_tags(client, q), keywords=_search_keywords(client, q), owners=_search_owners(client, q))
     results = dict(zip(jobs, await asyncio.gather(*jobs.values(), return_exceptions=True)))
@@ -1864,7 +1877,7 @@ async def search(q: str = Query(..., min_length=1), kind: Optional[str] = Query(
         for row in results["parts"]["rows"]:
             _merge(found, [row], "name")
 
-    items = [r for r in found.values() if not kind or r["kind"] == kind]
+    items = [r for r in found.values() if kinds is None or r["kind"] in kinds]
     items.sort(key=lambda r: _relevance(r, q))
     may_have_more = ("text" in results and "text" not in failed and _may_have_more(results["text"])) or \
                     (parts is not None and parts["found"] > 0)
@@ -1874,7 +1887,7 @@ async def search(q: str = Query(..., min_length=1), kind: Optional[str] = Query(
     capped += [f"tag: {name}" for name, els in (results.get("tags") if "tags" not in failed and "tags" in results else [])
                if len(els) == _SEARCH_PAGE]
     return JSONResponse({
-        "query": q, "kind": kind, "page": page, "items": items,
+        "query": q, "kind": ",".join(kinds) if kinds else None, "kinds": kinds, "page": page, "items": items,
         "mayHaveMore": may_have_more,
         "cappedSources": capped,
         "notShown": not_shown,

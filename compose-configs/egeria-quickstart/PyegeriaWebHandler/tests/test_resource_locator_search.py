@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright Contributors to the ODPi Egeria project.
-"""Resource Locator search finds the parts of resources: columns and other schema
+"""Resource Locator search: several kinds at once, and the parts of resources: columns and other schema
 attributes, and data fields. Each part is a row of its own that says what holds it,
 and still rolls up to the resource that holds it.
 
@@ -20,7 +20,7 @@ _HANDLER = Path(__file__).resolve().parent.parent / "resource_browser_handler.py
 _FUNCS = {"_type_names", "_display_name", "_related", "_related_recs", "_classifications", "_data_scope",
           "_owner", "_kind_of", "_is_resource", "_looks_automated", "_is_repo", "_row", "_elements",
           "_is_schema_attribute", "_is_schema_element", "_container_of",
-          "_part_kind", "_part_row", "_part_types", "_kind_types", "_may_have_more", "_search_parts", "_get_depth1"}
+          "_part_kind", "_part_row", "_part_types", "_kind_types", "_parse_kinds", "_may_have_more", "_search_parts", "_get_depth1"}
 _CONSTS = {"_SKIP_CLASSIFICATIONS", "_RESOURCE_TYPES", "_NOT_RESOURCES", "_KINDS", "_PART_KINDS", "_BADGES",
            "_REPO_QN_PREFIX", "_PART_OF_KEYS", "_COUNTED_TYPES", "_PART_LOOKUP_CAP", "_SEARCH_PAGE",
            "_LOOKUP_CONCURRENCY", "_KIND_IDS", "_STRUCTURE_INCLUDE"}
@@ -67,10 +67,27 @@ def test_part_kinds_are_columns_attributes_and_fields_not_tables(rb):
 
 def test_part_types_per_kind(rb):
     assert rb["_part_types"](None) == ["SchemaAttribute", "DataField"]
-    assert rb["_part_types"]("table") == ["SchemaAttribute"]   # columns roll up to their table
-    assert rb["_part_types"]("attribute") == ["SchemaAttribute"]
-    assert rb["_part_types"]("field") == ["DataField"]
-    assert rb["_part_types"]("report") == []
+    assert rb["_part_types"](["table"]) == ["SchemaAttribute"]   # columns roll up to their table
+    assert rb["_part_types"](["attribute"]) == ["SchemaAttribute"]
+    assert rb["_part_types"](["field"]) == ["DataField"]
+    assert rb["_part_types"](["report"]) == []
+    assert rb["_part_types"](["table", "attribute", "field"]) == ["SchemaAttribute", "DataField"]
+
+
+def test_several_kinds_parse_in_order_without_repeats(rb):
+    assert rb["_parse_kinds"](None) is None and rb["_parse_kinds"]("") is None and rb["_parse_kinds"](" , ") is None
+    assert rb["_parse_kinds"]("schema,table, schema") == ["schema", "table"]
+    with pytest.raises(ValueError, match="nonsense"):
+        rb["_parse_kinds"]("table,nonsense")
+
+
+def test_text_search_asks_for_the_union_of_the_kinds_types(rb):
+    assert rb["_kind_types"](None) == rb["_RESOURCE_TYPES"]
+    assert rb["_kind_types"](["schema", "table"]) == ["RelationalTable", "VirtualRelationalTable", "DeployedDatabaseSchema"]
+    # "other" is whatever is left over, so it needs every resource type, then the kind filter.
+    assert rb["_kind_types"](["table", "other"]) == rb["_RESOURCE_TYPES"]
+    # Code repositories are read from their own cache and parts from the parts search: no text search.
+    assert rb["_kind_types"](["repo"]) == [] and rb["_kind_types"](["attribute", "field"]) == []
 
 
 def test_part_row_says_what_holds_it_or_that_nothing_does(rb):
