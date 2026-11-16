@@ -107,6 +107,20 @@ if [[ -z "$PGVECTOR_PASSWORD_VAL" ]] && ! ${CONTAINER_ENGINE:-docker} volume ins
   echo "[shared-infra/gen-env.sh] Generated PGVECTOR_PASSWORD for the new egeria_advisor role (in .env; give Trellis the same value)." >&2
 fi
 
+# provisioner's password: the Postgres user that Egeria's provisioning services and Airflow's coco_data_hub
+# connection sign in with (TR-28). Taken from the environment or the existing .env, and generated when there is
+# neither - on an existing install too, because ensure-shared-infra.sh sets the role's password from this value on
+# every start (init_egeria_ods.sql), and the start scripts put the same value into the Egeria secrets and the
+# Airflow connection. Never a built-in default.
+PROVISIONER_PASSWORD_VAL="${PROVISIONER_PASSWORD:-}"
+if [[ -z "$PROVISIONER_PASSWORD_VAL" ]]; then
+  PROVISIONER_PASSWORD_VAL="$(read_existing_env PROVISIONER_PASSWORD)"
+fi
+if [[ -z "$PROVISIONER_PASSWORD_VAL" ]]; then
+  PROVISIONER_PASSWORD_VAL="$(openssl rand -hex 24 2>/dev/null || python3 -c 'import secrets; print(secrets.token_hex(24))')"
+  echo "[shared-infra/gen-env.sh] Generated PROVISIONER_PASSWORD for the provisioner role (in .env)." >&2
+fi
+
 TMP_ENV=".env.tmp"
 cat > "$TMP_ENV" <<EOF
 HOST_FQDN=${HOST_FQDN}
@@ -121,9 +135,10 @@ RESEND_API_KEY='${RESEND_API_KEY_VAL}'
 RESEND_FROM='${RESEND_FROM_VAL}'
 ALERT_EMAIL_TO='${ALERT_EMAIL_TO_VAL}'
 PGVECTOR_PASSWORD='${PGVECTOR_PASSWORD_VAL}'
+PROVISIONER_PASSWORD='${PROVISIONER_PASSWORD_VAL}'
 EOF
 mv -f "$TMP_ENV" .env
-# This file can now hold a Resend API key and the egeria_advisor password, so it must not be world-readable.
+# This file can now hold a Resend API key and the egeria_advisor and provisioner passwords, so it must not be world-readable.
 # The temp file above is created under the caller's umask (typically 0664), so
 # the mode has to be set explicitly after the move — same reasoning as
 # quick-start-local's `chmod 600` on .env.demo.
