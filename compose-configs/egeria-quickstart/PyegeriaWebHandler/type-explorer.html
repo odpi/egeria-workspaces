@@ -13320,20 +13320,36 @@ function SoaSummary({ summary }) {
     React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 8 } }, chips));
 }
 
+// Long assessment text is clamped to a few lines; a click on "more" shows the rest.
+function SoaClampText({ text }) {
+  const [open, setOpen] = useState(false);
+  if (!text) return null;
+  var long = String(text).length > 220;
+  return React.createElement('div', null,
+    React.createElement('div', { style: long && !open ? { display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical', overflow: 'hidden' } : null }, renderMd(text)),
+    long && React.createElement('button', {
+      onClick: function() { setOpen(!open); },
+      style: { background: 'none', border: 'none', padding: 0, marginTop: 2, color: 'var(--accent)', cursor: 'pointer', fontSize: 11 },
+    }, open ? 'less' : 'more'));
+}
+
+// Column widths (px). The table never shrinks below their sum: a narrower pane scrolls the
+// table sideways instead of squeezing the long-text columns to a word per line. Every column
+// can still be dragged wider or narrower (egeria-resize.js sets the <col> widths).
+var _SOA_COLS = [['Label', 80], ['Control', 190], ['Applicable', 100], ['Status', 140],
+                 ['Justification', 280], ['Implementation', 280], ['Review date', 110], ['Notes', 220]];
+
 function SoaControlsTable({ controls, onNavigateToElement }) {
   var th = { textAlign: 'left', padding: '6px 8px', fontSize: 11, color: 'var(--dim)', fontWeight: 600, borderBottom: '1px solid var(--border)', verticalAlign: 'bottom' };
   var td = { padding: '6px 8px', fontSize: 12, verticalAlign: 'top', whiteSpace: 'normal', wordBreak: 'break-word', overflowWrap: 'anywhere' };
-  return React.createElement('div', { style: { overflowX: 'auto' } },
-    React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', minWidth: 760 } },
-      React.createElement('colgroup', null,
-        React.createElement('col', { style: { width: 70 } }), React.createElement('col', { style: { width: '18%' } }),
-        React.createElement('col', { style: { width: 100 } }), React.createElement('col', { style: { width: 120 } }),
-        React.createElement('col', null), React.createElement('col', null),
-        React.createElement('col', { style: { width: 100 } }), React.createElement('col', null)),
+  var minW = _SOA_COLS.reduce(function(n, c) { return n + c[1]; }, 0);
+  return React.createElement('div', { style: { overflowX: 'auto', maxWidth: '100%' } },
+    React.createElement('table', { style: { width: '100%', minWidth: minW, borderCollapse: 'collapse', tableLayout: 'fixed' } },
+      React.createElement('colgroup', null, _SOA_COLS.map(function(c) {
+        return React.createElement('col', { key: c[0], style: { width: c[1] } });
+      })),
       React.createElement('thead', null, React.createElement('tr', null,
-        ['Label', 'Control', 'Applicable', 'Status', 'Justification', 'Implementation', 'Review date', 'Notes'].map(function(h) {
-          return React.createElement('th', { key: h, style: th }, h);
-        }))),
+        _SOA_COLS.map(function(c) { return React.createElement('th', { key: c[0], style: th }, c[0]); }))),
       React.createElement('tbody', null, controls.map(function(c) {
         var applicable = c.isApplicable === false
           ? React.createElement('span', { style: { color: 'var(--muted)' } }, 'No')
@@ -13343,18 +13359,18 @@ function SoaControlsTable({ controls, onNavigateToElement }) {
           React.createElement('td', { style: Object.assign({}, td, { fontFamily: 'ui-monospace,monospace' }) }, c.label || '—'),
           React.createElement('td', { style: td },
             c.guid
-              ? React.createElement('a', { href: '#', onClick: function(e) { e.preventDefault(); onNavigateToElement({ guid: c.guid, typeName: c.typeName, superTypeNames: ['GovernanceDefinition'] }); }, title: c.controlDescription || c.qualifiedName }, c.displayName || c.guid)
+              ? React.createElement('a', { href: '#', onClick: function(e) { e.preventDefault(); onNavigateToElement({ guid: c.guid, typeName: c.typeName, superTypeNames: (c.superTypeNames && c.superTypeNames.length) ? c.superTypeNames : ['GovernanceDefinition'] }); }, title: c.controlDescription || c.qualifiedName }, c.displayName || c.guid)
               : (c.displayName || '—'),
             c.identifier && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)' } }, c.identifier)),
           React.createElement('td', { style: td }, applicable),
           React.createElement('td', { style: td }, c.isApplicable === false ? '—' : React.createElement(SoaStatusBadge, { status: c.implementationStatus })),
           React.createElement('td', { style: td },
-            c.justification ? renderMd(c.justification) : null,
+            React.createElement(SoaClampText, { text: c.justification }),
             (c.inclusionReasons || []).length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 } },
               c.inclusionReasons.map(function(r) { return React.createElement('span', { key: r, className: 'badge', style: { fontSize: 10, whiteSpace: 'normal' } }, r); }))),
-          React.createElement('td', { style: td }, c.implementationDescription ? renderMd(c.implementationDescription) : null),
+          React.createElement('td', { style: td }, React.createElement(SoaClampText, { text: c.implementationDescription })),
           React.createElement('td', { style: td }, _soaFmtDate(c.reviewDate)),
-          React.createElement('td', { style: td }, c.notes ? renderMd(c.notes) : null)
+          React.createElement('td', { style: td }, React.createElement(SoaClampText, { text: c.notes }))
         );
       }))));
 }
@@ -13448,11 +13464,16 @@ function StatementsOfApplicabilityView({ navGuid, onNavigateToElement }) {
 
   return React.createElement('div', { className: 'body' },
     React.createElement('div', { className: 'sidebar', style: { width: sideW, display: 'flex', flexDirection: 'column' } },
-      React.createElement('div', { className: 'search-wrap' },
-        React.createElement('input', { className: 'search-box', placeholder: 'Filter statements…', value: filter, onChange: function(e) { setFilter(e.target.value); } }),
-        React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, padding: '4px 8px', color: 'var(--text-dim)' } },
-          React.createElement('input', { type: 'checkbox', checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); } }), 'Include Templates'),
-        React.createElement('button', { className: 'btn-sm', style: { margin: '0 8px 4px' }, onClick: function() { setAttempt(function(a) { return a + 1; }); } }, '↻ Refresh')),
+      React.createElement('div', { className: 'search-wrap', style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+        React.createElement('input', { className: 'search-input', type: 'search', placeholder: 'Filter statements…', value: filter, onChange: function(e) { setFilter(e.target.value); } }),
+        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+          React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' } },
+            React.createElement('input', { type: 'checkbox', checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { margin: 0, cursor: 'pointer', accentColor: 'var(--accent)' } }),
+            'Include templates'),
+          React.createElement('button', {
+            onClick: function() { setAttempt(function(a) { return a + 1; }); },
+            style: { marginLeft: 'auto', padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'rgba(20,32,52,.8)', color: 'var(--text)', cursor: 'pointer', fontSize: 11 },
+          }, '↻ Refresh'))),
       list.state === 'loading' && msg('Loading…'),
       list.state === 'error' && msg('Couldn\'t read statements of applicability: ' + list.error, '#f87171'),
       list.state === 'ready' && list.items.length === 0 && msg('No statements of applicability exist yet.'),
@@ -13461,10 +13482,10 @@ function StatementsOfApplicabilityView({ navGuid, onNavigateToElement }) {
       React.createElement('div', { style: { overflowY: 'auto', flex: 1 } },
         filtered.map(function(s) {
           var on = s.guid === selected;
-          return React.createElement('div', { key: s.guid, className: 'sidebar-item' + (on ? ' selected' : ''), onClick: function() { setSelected(s.guid); },
-            style: { cursor: 'pointer', padding: '6px 10px', whiteSpace: 'normal', overflowWrap: 'anywhere' } },
+          return React.createElement('div', { key: s.guid, className: 'tree-item' + (on ? ' sel' : ''), onClick: function() { setSelected(s.guid); },
+            style: { display: 'block', minWidth: 0, padding: '6px 10px', whiteSpace: 'normal', overflowWrap: 'anywhere' } },
             React.createElement('div', { style: { fontWeight: on ? 600 : 400, fontSize: 13 } }, s.displayName || s.qualifiedName || s.guid),
-            (s.scope || s.contentStatus) && React.createElement('div', { style: { fontSize: 11, color: 'var(--text-dim)', marginTop: 2 } },
+            (s.scope || s.contentStatus) && React.createElement('div', { title: s.scope || '', style: { fontSize: 11, color: 'var(--dim)', marginTop: 2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' } },
               [s.scope, s.contentStatus].filter(Boolean).join(' · ')));
         }))),
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),

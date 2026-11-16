@@ -152,6 +152,7 @@ def _control_rows(element: dict) -> list:
             rows.append({
                 "guid":                      ch.get("guid", ""),
                 "typeName":                  _type_name(control),
+                "superTypeNames":            (ch.get("type") or {}).get("superTypeNames") or [],
                 "displayName":               cp.get("displayName") or cp.get("name") or cp.get("qualifiedName") or "",
                 "qualifiedName":             cp.get("qualifiedName") or "",
                 "identifier":                cp.get("identifier") or "",
