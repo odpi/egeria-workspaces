@@ -135,12 +135,32 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 2
+    ignore:
+      # These images install pyegeria (dagster) or pin old wheels
+      # (duckdb==1.0.0, mlflow==2.11.3) with no Python 3.15 support;
+      # pyegeria declares requires-python <3.15. CI never builds images, so
+      # block >=3.15. Name both spellings: Dependabot reports "FROM python:"
+      # as "python" and "FROM docker.io/library/python:" as "library/python".
+      - dependency-name: "python"
+        versions: [">=3.15"]
+      - dependency-name: "library/python"
+        versions: [">=3.15"]
 
   - package-ecosystem: "docker"
     directory: "/compose-configs/optional-associated-runtimes/mlflow/mlflow_server"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 2
+    ignore:
+      # These images install pyegeria (dagster) or pin old wheels
+      # (duckdb==1.0.0, mlflow==2.11.3) with no Python 3.15 support;
+      # pyegeria declares requires-python <3.15. CI never builds images, so
+      # block >=3.15. Name both spellings: Dependabot reports "FROM python:"
+      # as "python" and "FROM docker.io/library/python:" as "library/python".
+      - dependency-name: "python"
+        versions: [">=3.15"]
+      - dependency-name: "library/python"
+        versions: [">=3.15"]
 
   - package-ecosystem: "docker"
     directory: "/compose-configs/optional-associated-runtimes/unity-catalog"
@@ -153,6 +173,16 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 2
+    ignore:
+      # These images install pyegeria (dagster) or pin old wheels
+      # (duckdb==1.0.0, mlflow==2.11.3) with no Python 3.15 support;
+      # pyegeria declares requires-python <3.15. CI never builds images, so
+      # block >=3.15. Name both spellings: Dependabot reports "FROM python:"
+      # as "python" and "FROM docker.io/library/python:" as "library/python".
+      - dependency-name: "python"
+        versions: [">=3.15"]
+      - dependency-name: "library/python"
+        versions: [">=3.15"]
 
   - package-ecosystem: "docker"
     directory: "/runtime-volumes/prefect/user_code"
