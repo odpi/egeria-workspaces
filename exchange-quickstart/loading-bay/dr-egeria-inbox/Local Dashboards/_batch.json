@@ -2,7 +2,7 @@
   "displayName": "Local Dashboards",
   "description": "Seeds the Local Dashboards feature's WorkItemList roadmap, work items, and demo report/analytics dashboard sheets, then the digital products demo and the worked examples from the two tutorials.",
   "canary": {
-    "type": "Agreement",
+    "type": "DigitalSubscription",
     "name": "Marketing Subscription - C360"
   },
   "defaultEnabled": true,
