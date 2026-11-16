@@ -925,6 +925,11 @@ class NoCacheStaticFiles(StaticFiles):
 
 
 # Static assets (logos, etc.) — must be mounted before the "/" catch-all below.
+# /static/egeria-table.js comes from pyegeria's package data when it ships one (PO-5); registered
+# before the /static mount so this route wins for that one path.
+from egeria_table_asset import router as egeria_table_router
+app.include_router(egeria_table_router)
+
 _static_dir = SCRIPT_DIR / "static"
 if _static_dir.is_dir():
     app.mount("/static", NoCacheStaticFiles(directory=str(_static_dir)), name="static")
