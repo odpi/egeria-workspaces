@@ -46,6 +46,22 @@ Its password is `PGVECTOR_PASSWORD` from `shared-infra/.env`. **There is no defa
 All other databases have pgvector available but not enabled — run `CREATE EXTENSION IF NOT EXISTS vector;` in any database
 that needs it.
 
+### The provisioner user
+`provisioner` is the Postgres user that Egeria's provisioning services deliver digital products with (into `egeria_ods`,
+`coco_data_hub` and `subscription_staging`), and that Airflow's `coco_data_hub` connection signs in with.
+Its password is `PROVISIONER_PASSWORD` from `shared-infra/.env`. **There is no default password.**
+- `gen-env.sh` generates a random `PROVISIONER_PASSWORD` into `.env` (mode 600) when neither the environment nor `.env`
+  has one, on an existing install too.
+- `ensure-shared-infra.sh` sets the role's password from it on every start (`init_egeria_ods.sql`). So to rotate it, put
+  a new value in `.env` (or delete the line to have a new one generated) and run the start script again.
+- The start scripts put the same value into the Egeria secrets as they copy them into `runtime-volumes`
+  (`install-secrets.py`: collection `PostgreSQL Provisioning Secret` in `integration.omsecrets`, whose template holds
+  the placeholder `__PROVISIONER_PASSWORD__`) and into Airflow's connection (`export-provisioner-password.sh`).
+  After a rotation, restart Airflow the same way (`quick-start-local --with-airflow-marquez`, or `switch-lineage.sh`),
+  or its `coco_data_hub` loads fail to sign in.
+- Before this change the role had a well-known password. The first start after it rotates that password, the Egeria
+  secrets and the Airflow connection together. Writing to the shared Postgres affects other users, so tell them first.
+
 ### Egeria operational data store (egeria_ods)
 
 The `egeria_ods` database receives Egeria's open metadata digital products - one table per product - so that the

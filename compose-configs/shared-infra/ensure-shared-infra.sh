@@ -88,7 +88,10 @@ SHARED_POSTGRES_UPDATE_SCRIPTS=(
   init_egeria_ods.sql
 )
 for update_script in "${SHARED_POSTGRES_UPDATE_SCRIPTS[@]}"; do
-  if $CONTAINER_ENGINE exec -e PGOPTIONS="-c client_min_messages=warning" egeria-shared-postgres \
+  # PROVISIONER_PASSWORD (exported from .env above) is passed by NAME, so its value is not on a command line:
+  # init_egeria_ods.sql sets the provisioner role's password from it on every start (TR-28). It is deliberately
+  # not in shared-infra.yaml's environment, so that adding it did not recreate the Postgres container.
+  if $CONTAINER_ENGINE exec -e PGOPTIONS="-c client_min_messages=warning" -e PROVISIONER_PASSWORD egeria-shared-postgres \
        psql -p 5442 -U postgres -d postgres -q -v ON_ERROR_STOP=1 -f "/docker-entrypoint-initdb.d/${update_script}" >/dev/null; then
     echo "[shared-infra] Postgres is up to date with ${update_script}."
   else

@@ -80,6 +80,11 @@ compose containers must already be running before you try to start the **airflow
 both Airflow and Marquez are configured to share the same PostgreSQL database server as Egeria. Here are the steps to get
 going:
 
+0. In the shell you start it from, export the `provisioner` password that the coco_data_hub connection signs in with
+(it is `PROVISIONER_PASSWORD` in `compose-configs/shared-infra/.env`; there is no default, and the compose file refuses to
+start without it):
+`source ../../shared-infra/export-provisioner-password.sh`
+(`quick-start-local --with-airflow-marquez`, `airflow.sh` and `switch-lineage.sh` do this for you.)
 1. Build the Airflow image with useful python packages and initialize Airflow:
 `docker compose -f airflow-marquez.yaml up airflow-init --build`
 2. Start up all the containers:
