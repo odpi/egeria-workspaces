@@ -24,7 +24,8 @@ between chains).  So:
   coco_subscriptions_*  <system>.apply__<product>  delivers the product to a subscriber because one of the
             subscriber's products depends on it - the subscription's basis names that product and the dependency's
             label.  The task's chains are the chains of those dependencies.  Reporting subscriptions (coco_ods,
-            coco_sus) follow no dependency, so have no chain.
+            coco_sus) follow no dependency, so have no chain.  Egeria's own subscriptions (coco_subscriptions_egeria,
+            applied by coco_egeria_loads.py rather than by an apply script) are treated the same way.
   coco_feed_*  <system>.load__<product>__<table>  publishes the product from the system that supplies it, which is
             the start of every wire the product travels along.  The task's chains are the chains of the
             dependencies on the product.  A product nothing depends on is the end of the chain that produced it, so
@@ -101,18 +102,27 @@ def main(workbook_dir, dags_dir):
     with open(workbook_dir / "mapping-the-systems" / "data" / "product-subscriptions.csv", newline="") as fh:
         for row in csv.DictReader(fh):
             subscriptions[(row["subscriber_database"], row["subscriber_schema"], row["product_schema"])] = row
-    for path in sorted((dags_dir / "coco-subscription-loads").glob("*/*/*.sql")):
-        database, system, product_schema = path.parent.parent.name, path.parent.name, path.stem
-        row = subscriptions[(database, system, product_schema)]
+    def followed_chains(row, where):
+        """The chains of the product dependencies that the subscription's basis names."""
         followed = []
         for consumer, label in re.findall(r"([^;]+?) depends on it \(([^)]*)\)", row["basis"]):
             consumer = by_name[consumer.strip()]
             matches = [d for d in dependencies
                        if d[0] == consumer and d[1] == row["product_qualified_name"] and d[2] == label]
             if not matches:
-                sys.exit(f"{path}: no dependency of {consumer} on {row['product_qualified_name']} labelled {label!r}")
+                sys.exit(f"{where}: no dependency of {consumer} on {row['product_qualified_name']} labelled {label!r}")
             followed += matches
-        tasks[f"coco_subscriptions_{database}"][f"{system}.apply__{product_schema}"] = chains_of(followed)
+        return chains_of(followed)
+
+    for path in sorted((dags_dir / "coco-subscription-loads").glob("*/*/*.sql")):
+        database, system, product_schema = path.parent.parent.name, path.parent.name, path.stem
+        row = subscriptions[(database, system, product_schema)]
+        tasks[f"coco_subscriptions_{database}"][f"{system}.apply__{product_schema}"] = followed_chains(row, path)
+    # Egeria's subscriptions are applied through its REST APIs by coco_egeria_loads.py, so they have no apply script.
+    for (database, system, product_schema), row in subscriptions.items():
+        if database == "egeria":
+            tasks["coco_subscriptions_egeria"][f"{system}.apply__{product_schema}"] = \
+                followed_chains(row, row["subscription_schema"])
 
     out = dags_dir / "coco-supply-chains.json"
     with open(out, "w") as fh:

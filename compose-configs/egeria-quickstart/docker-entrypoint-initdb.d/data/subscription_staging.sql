@@ -977,6 +977,176 @@ COMMENT ON COLUMN coco_ca_payroll__worker_master_data.worker_assignment.processi
 
 GRANT ALL ON ALL TABLES IN SCHEMA coco_ca_payroll__worker_master_data TO egeria_admin, egeria_user, airflow_user;
 
+-- Egeria Open Metadata and Governance (Coco core) subscribes to Access Entitlements
+CREATE SCHEMA IF NOT EXISTS coco_egeria__access_entitlements;
+GRANT ALL ON SCHEMA coco_egeria__access_entitlements TO egeria_admin, egeria_user, airflow_user;
+COMMENT ON SCHEMA coco_egeria__access_entitlements IS 'Subscription of Egeria Open Metadata and Governance (Coco core, OMAG Server Platform::https://localhost:9443) to the digital product Access Entitlements (DigitalProduct::Coco::Access Entitlements): a copy of the product''s data set coco_data_hub.access_entitlements delivered for this subscriber. Basis: Open Metadata Catalogue Holdings depends on it (access and ownership).';
+
+CREATE TABLE IF NOT EXISTS coco_egeria__access_entitlements.account (
+  user_account_identifier     varchar(60) NOT NULL,
+  worker_pseudonym_identifier varchar(40) NOT NULL,
+  system_identifier           varchar(60) NOT NULL,
+  user_account_start_date     date NOT NULL,
+  user_account_end_date       date,
+  user_account_current_status varchar(20) NOT NULL,
+  worker_event_identifier     varchar(40) NOT NULL,
+  delivery_identifier         varchar(100) NOT NULL,
+  delivery_timestamp          timestamptz NOT NULL DEFAULT now(),
+  processing_status           varchar(20) NOT NULL DEFAULT 'delivered',
+  processing_timestamp        timestamptz,
+  processing_message          text,
+  CONSTRAINT account_pk PRIMARY KEY (user_account_identifier)
+);
+COMMENT ON TABLE coco_egeria__access_entitlements.account IS 'One row per account held by a worker in a system. Delivered from coco_data_hub.access_entitlements.account.';
+COMMENT ON COLUMN coco_egeria__access_entitlements.account.user_account_identifier IS 'The account.';
+COMMENT ON COLUMN coco_egeria__access_entitlements.account.worker_pseudonym_identifier IS 'The worker.';
+COMMENT ON COLUMN coco_egeria__access_entitlements.account.system_identifier IS 'The system.';
+COMMENT ON COLUMN coco_egeria__access_entitlements.account.user_account_start_date IS 'When created.';
+COMMENT ON COLUMN coco_egeria__access_entitlements.account.user_account_end_date IS 'When removed, once removed.';
+COMMENT ON COLUMN coco_egeria__access_entitlements.account.user_account_current_status IS 'Active, suspended, removed.';
+COMMENT ON COLUMN coco_egeria__access_entitlements.account.worker_event_identifier IS 'The worker event that last changed it.';
+COMMENT ON COLUMN coco_egeria__access_entitlements.account.delivery_identifier IS 'The delivery (for example the pipeline run) that last wrote this row.';
+COMMENT ON COLUMN coco_egeria__access_entitlements.account.delivery_timestamp IS 'When this row was last delivered from the digital product.';
+COMMENT ON COLUMN coco_egeria__access_entitlements.account.processing_status IS 'delivered (waiting for the subscriber), processed, or failed. Set back to delivered to reprocess the row.';
+COMMENT ON COLUMN coco_egeria__access_entitlements.account.processing_timestamp IS 'When the subscriber last processed this row, successfully or not.';
+COMMENT ON COLUMN coco_egeria__access_entitlements.account.processing_message IS 'Why processing failed, or any note the subscriber records.';
+
+CREATE TABLE IF NOT EXISTS coco_egeria__access_entitlements.entitlement (
+  user_account_identifier     varchar(60) NOT NULL,
+  entitlement_code            varchar(60) NOT NULL,
+  entitlement_description     text NOT NULL,
+  entitlement_start_date      date NOT NULL,
+  entitlement_end_date        date,
+  entitlement_data_owner_flag boolean NOT NULL,
+  delivery_identifier         varchar(100) NOT NULL,
+  delivery_timestamp          timestamptz NOT NULL DEFAULT now(),
+  processing_status           varchar(20) NOT NULL DEFAULT 'delivered',
+  processing_timestamp        timestamptz,
+  processing_message          text,
+  CONSTRAINT entitlement_pk PRIMARY KEY (user_account_identifier, entitlement_code)
+);
+COMMENT ON TABLE coco_egeria__access_entitlements.entitlement IS 'One row per entitlement granted to an account. Delivered from coco_data_hub.access_entitlements.entitlement.';
+COMMENT ON COLUMN coco_egeria__access_entitlements.entitlement.user_account_identifier IS 'The account.';
+COMMENT ON COLUMN coco_egeria__access_entitlements.entitlement.entitlement_code IS 'The entitlement.';
+COMMENT ON COLUMN coco_egeria__access_entitlements.entitlement.entitlement_description IS 'What it permits.';
+COMMENT ON COLUMN coco_egeria__access_entitlements.entitlement.entitlement_start_date IS 'When granted.';
+COMMENT ON COLUMN coco_egeria__access_entitlements.entitlement.entitlement_end_date IS 'When revoked, once revoked.';
+COMMENT ON COLUMN coco_egeria__access_entitlements.entitlement.entitlement_data_owner_flag IS 'Whether the entitlement makes the worker a data owner in the catalogue.';
+COMMENT ON COLUMN coco_egeria__access_entitlements.entitlement.delivery_identifier IS 'The delivery (for example the pipeline run) that last wrote this row.';
+COMMENT ON COLUMN coco_egeria__access_entitlements.entitlement.delivery_timestamp IS 'When this row was last delivered from the digital product.';
+COMMENT ON COLUMN coco_egeria__access_entitlements.entitlement.processing_status IS 'delivered (waiting for the subscriber), processed, or failed. Set back to delivered to reprocess the row.';
+COMMENT ON COLUMN coco_egeria__access_entitlements.entitlement.processing_timestamp IS 'When the subscriber last processed this row, successfully or not.';
+COMMENT ON COLUMN coco_egeria__access_entitlements.entitlement.processing_message IS 'Why processing failed, or any note the subscriber records.';
+
+GRANT ALL ON ALL TABLES IN SCHEMA coco_egeria__access_entitlements TO egeria_admin, egeria_user, airflow_user;
+
+-- Egeria Open Metadata and Governance (Coco core) subscribes to Corporate Directory Entries
+CREATE SCHEMA IF NOT EXISTS coco_egeria__corporate_directory_entries;
+GRANT ALL ON SCHEMA coco_egeria__corporate_directory_entries TO egeria_admin, egeria_user, airflow_user;
+COMMENT ON SCHEMA coco_egeria__corporate_directory_entries IS 'Subscription of Egeria Open Metadata and Governance (Coco core, OMAG Server Platform::https://localhost:9443) to the digital product Corporate Directory Entries (DigitalProduct::Coco::Corporate Directory Entries): a copy of the product''s data set coco_data_hub.corporate_directory_entries delivered for this subscriber. Basis: catalogue: fills actor profiles (names, job titles, phones), departments.';
+
+CREATE TABLE IF NOT EXISTS coco_egeria__corporate_directory_entries.directory_entry (
+  worker_pseudonym_identifier       varchar(40) NOT NULL,
+  person_first_name                 varchar(80) NOT NULL,
+  person_last_name                  varchar(80) NOT NULL,
+  role_name                         varchar(120) NOT NULL,
+  department_name                   varchar(120) NOT NULL,
+  site_code                         varchar(20) NOT NULL,
+  manager_pseudonym_identifier      varchar(40),
+  person_work_phone_number          varchar(30),
+  directory_entry_current_timestamp timestamptz NOT NULL,
+  delivery_identifier               varchar(100) NOT NULL,
+  delivery_timestamp                timestamptz NOT NULL DEFAULT now(),
+  processing_status                 varchar(20) NOT NULL DEFAULT 'delivered',
+  processing_timestamp              timestamptz,
+  processing_message                text,
+  CONSTRAINT directory_entry_pk PRIMARY KEY (worker_pseudonym_identifier)
+);
+COMMENT ON TABLE coco_egeria__corporate_directory_entries.directory_entry IS 'One row per worker in the directory. Delivered from coco_data_hub.corporate_directory_entries.directory_entry.';
+COMMENT ON COLUMN coco_egeria__corporate_directory_entries.directory_entry.worker_pseudonym_identifier IS 'The worker.';
+COMMENT ON COLUMN coco_egeria__corporate_directory_entries.directory_entry.person_first_name IS 'Given name.';
+COMMENT ON COLUMN coco_egeria__corporate_directory_entries.directory_entry.person_last_name IS 'Family name.';
+COMMENT ON COLUMN coco_egeria__corporate_directory_entries.directory_entry.role_name IS 'The role.';
+COMMENT ON COLUMN coco_egeria__corporate_directory_entries.directory_entry.department_name IS 'The department.';
+COMMENT ON COLUMN coco_egeria__corporate_directory_entries.directory_entry.site_code IS 'The location.';
+COMMENT ON COLUMN coco_egeria__corporate_directory_entries.directory_entry.manager_pseudonym_identifier IS 'The reporting manager.';
+COMMENT ON COLUMN coco_egeria__corporate_directory_entries.directory_entry.person_work_phone_number IS 'Work telephone.';
+COMMENT ON COLUMN coco_egeria__corporate_directory_entries.directory_entry.directory_entry_current_timestamp IS 'When the entry was last updated from the worker record.';
+COMMENT ON COLUMN coco_egeria__corporate_directory_entries.directory_entry.delivery_identifier IS 'The delivery (for example the pipeline run) that last wrote this row.';
+COMMENT ON COLUMN coco_egeria__corporate_directory_entries.directory_entry.delivery_timestamp IS 'When this row was last delivered from the digital product.';
+COMMENT ON COLUMN coco_egeria__corporate_directory_entries.directory_entry.processing_status IS 'delivered (waiting for the subscriber), processed, or failed. Set back to delivered to reprocess the row.';
+COMMENT ON COLUMN coco_egeria__corporate_directory_entries.directory_entry.processing_timestamp IS 'When the subscriber last processed this row, successfully or not.';
+COMMENT ON COLUMN coco_egeria__corporate_directory_entries.directory_entry.processing_message IS 'Why processing failed, or any note the subscriber records.';
+
+GRANT ALL ON ALL TABLES IN SCHEMA coco_egeria__corporate_directory_entries TO egeria_admin, egeria_user, airflow_user;
+
+-- Egeria Open Metadata and Governance (Coco core) subscribes to Worker Master Data
+CREATE SCHEMA IF NOT EXISTS coco_egeria__worker_master_data;
+GRANT ALL ON SCHEMA coco_egeria__worker_master_data TO egeria_admin, egeria_user, airflow_user;
+COMMENT ON SCHEMA coco_egeria__worker_master_data IS 'Subscription of Egeria Open Metadata and Governance (Coco core, OMAG Server Platform::https://localhost:9443) to the digital product Worker Master Data (DigitalProduct::Coco::Worker Master Data): a copy of the product''s data set coco_data_hub.worker_master_data delivered for this subscriber. Basis: catalogue: fills actor profiles (workers), actor roles, locations.';
+
+CREATE TABLE IF NOT EXISTS coco_egeria__worker_master_data.worker (
+  worker_pseudonym_identifier varchar(40) NOT NULL,
+  worker_type                 varchar(20) NOT NULL,
+  legal_entity_code           varchar(10) NOT NULL,
+  site_code                   varchar(20) NOT NULL,
+  worker_hire_date            date NOT NULL,
+  worker_leave_date           date,
+  worker_current_status       varchar(20) NOT NULL,
+  delivery_identifier         varchar(100) NOT NULL,
+  delivery_timestamp          timestamptz NOT NULL DEFAULT now(),
+  processing_status           varchar(20) NOT NULL DEFAULT 'delivered',
+  processing_timestamp        timestamptz,
+  processing_message          text,
+  CONSTRAINT worker_pk PRIMARY KEY (worker_pseudonym_identifier)
+);
+COMMENT ON TABLE coco_egeria__worker_master_data.worker IS 'One row per worker, identified by pseudonym to every consuming system. Delivered from coco_data_hub.worker_master_data.worker.';
+COMMENT ON COLUMN coco_egeria__worker_master_data.worker.worker_pseudonym_identifier IS 'The worker''s pseudonym.';
+COMMENT ON COLUMN coco_egeria__worker_master_data.worker.worker_type IS 'Employee or contractor.';
+COMMENT ON COLUMN coco_egeria__worker_master_data.worker.legal_entity_code IS 'The employing entity.';
+COMMENT ON COLUMN coco_egeria__worker_master_data.worker.site_code IS 'The primary site.';
+COMMENT ON COLUMN coco_egeria__worker_master_data.worker.worker_hire_date IS 'When the worker joined.';
+COMMENT ON COLUMN coco_egeria__worker_master_data.worker.worker_leave_date IS 'When they left, once they have.';
+COMMENT ON COLUMN coco_egeria__worker_master_data.worker.worker_current_status IS 'Active, on leave, left.';
+COMMENT ON COLUMN coco_egeria__worker_master_data.worker.delivery_identifier IS 'The delivery (for example the pipeline run) that last wrote this row.';
+COMMENT ON COLUMN coco_egeria__worker_master_data.worker.delivery_timestamp IS 'When this row was last delivered from the digital product.';
+COMMENT ON COLUMN coco_egeria__worker_master_data.worker.processing_status IS 'delivered (waiting for the subscriber), processed, or failed. Set back to delivered to reprocess the row.';
+COMMENT ON COLUMN coco_egeria__worker_master_data.worker.processing_timestamp IS 'When the subscriber last processed this row, successfully or not.';
+COMMENT ON COLUMN coco_egeria__worker_master_data.worker.processing_message IS 'Why processing failed, or any note the subscriber records.';
+
+CREATE TABLE IF NOT EXISTS coco_egeria__worker_master_data.worker_assignment (
+  worker_pseudonym_identifier       varchar(40) NOT NULL,
+  role_code                         varchar(40) NOT NULL,
+  role_name                         varchar(120) NOT NULL,
+  cost_centre_code                  varchar(20) NOT NULL,
+  manager_pseudonym_identifier      varchar(40),
+  worker_assignment_start_date      date NOT NULL,
+  worker_spending_maximum_amount    numeric(18,2),
+  worker_hazard_profile_description text,
+  delivery_identifier               varchar(100) NOT NULL,
+  delivery_timestamp                timestamptz NOT NULL DEFAULT now(),
+  processing_status                 varchar(20) NOT NULL DEFAULT 'delivered',
+  processing_timestamp              timestamptz,
+  processing_message                text,
+  CONSTRAINT worker_assignment_pk PRIMARY KEY (worker_pseudonym_identifier)
+);
+COMMENT ON TABLE coco_egeria__worker_master_data.worker_assignment IS 'One row per worker, their current role, cost centre and reporting line. Delivered from coco_data_hub.worker_master_data.worker_assignment.';
+COMMENT ON COLUMN coco_egeria__worker_master_data.worker_assignment.worker_pseudonym_identifier IS 'The worker.';
+COMMENT ON COLUMN coco_egeria__worker_master_data.worker_assignment.role_code IS 'The role.';
+COMMENT ON COLUMN coco_egeria__worker_master_data.worker_assignment.role_name IS 'The role''s name.';
+COMMENT ON COLUMN coco_egeria__worker_master_data.worker_assignment.cost_centre_code IS 'The cost centre.';
+COMMENT ON COLUMN coco_egeria__worker_master_data.worker_assignment.manager_pseudonym_identifier IS 'The reporting manager.';
+COMMENT ON COLUMN coco_egeria__worker_master_data.worker_assignment.worker_assignment_start_date IS 'When the assignment began.';
+COMMENT ON COLUMN coco_egeria__worker_master_data.worker_assignment.worker_spending_maximum_amount IS 'The worker''s spending authority.';
+COMMENT ON COLUMN coco_egeria__worker_master_data.worker_assignment.worker_hazard_profile_description IS 'The substances and tasks the role exposes the worker to.';
+COMMENT ON COLUMN coco_egeria__worker_master_data.worker_assignment.delivery_identifier IS 'The delivery (for example the pipeline run) that last wrote this row.';
+COMMENT ON COLUMN coco_egeria__worker_master_data.worker_assignment.delivery_timestamp IS 'When this row was last delivered from the digital product.';
+COMMENT ON COLUMN coco_egeria__worker_master_data.worker_assignment.processing_status IS 'delivered (waiting for the subscriber), processed, or failed. Set back to delivered to reprocess the row.';
+COMMENT ON COLUMN coco_egeria__worker_master_data.worker_assignment.processing_timestamp IS 'When the subscriber last processed this row, successfully or not.';
+COMMENT ON COLUMN coco_egeria__worker_master_data.worker_assignment.processing_message IS 'Why processing failed, or any note the subscriber records.';
+
+GRANT ALL ON ALL TABLES IN SCHEMA coco_egeria__worker_master_data TO egeria_admin, egeria_user, airflow_user;
+
 -- Coco Expenses (Coco core) subscribes to Employee Expense Claims
 CREATE SCHEMA IF NOT EXISTS coco_expenses__employee_expense_claims;
 GRANT ALL ON SCHEMA coco_expenses__employee_expense_claims TO egeria_admin, egeria_user, airflow_user;

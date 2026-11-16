@@ -81,5 +81,20 @@ if command -v nc &> /dev/null; then
   done
 fi
 
+# Databases added to the shared Postgres after it was first released.  The scripts in docker-entrypoint-initdb.d
+# run only when the server's data volume is first created, so a script listed here is run again on every start to
+# bring an existing server up to date.  Each must be safe to repeat: it creates only what is missing.
+SHARED_POSTGRES_UPDATE_SCRIPTS=(
+  init_egeria_ods.sql
+)
+for update_script in "${SHARED_POSTGRES_UPDATE_SCRIPTS[@]}"; do
+  if $CONTAINER_ENGINE exec -e PGOPTIONS="-c client_min_messages=warning" egeria-shared-postgres \
+       psql -p 5442 -U postgres -d postgres -q -v ON_ERROR_STOP=1 -f "/docker-entrypoint-initdb.d/${update_script}" >/dev/null; then
+    echo "[shared-infra] Postgres is up to date with ${update_script}."
+  else
+    echo "[shared-infra] WARNING: could not apply ${update_script} to Postgres." >&2
+  fi
+done
+
 echo "[shared-infra] Shared Kafka, Postgres, and proxy are ready."
 popd >/dev/null
