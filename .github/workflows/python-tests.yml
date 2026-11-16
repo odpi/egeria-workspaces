@@ -36,6 +36,10 @@ jobs:
         pip install -r compose-configs/egeria-quickstart/PyegeriaWebHandler/requirements.txt
         pip install pytest pytest-asyncio
 
+    - name: Guard against a default Postgres password in compose files (trellis TR-12)
+      run: |
+        pytest tests/test_no_default_pg_password.py
+
     - name: Run Quickstart Handler tests
       run: |
         pytest compose-configs/egeria-quickstart/PyegeriaWebHandler/tests/test_fastapi_handler_health.py compose-configs/egeria-quickstart/PyegeriaWebHandler/tests/test_mcp_server_basic.py
