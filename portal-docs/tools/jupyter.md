@@ -47,3 +47,4 @@ egeria = EgeriaTech(
 
 - [pyegeria documentation](https://egeria-project.org/guides/developer/python-client/)
 - [Coco Pharmaceuticals scenarios](../quickstart/coco/scenarios.md)
+- [Techniques and best practices for notebooks](data-initialization-notebooks.md#techniques-and-best-practices): efficient searches, waits and re-runnable creates, which also apply to notebooks run here

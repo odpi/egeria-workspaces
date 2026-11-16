@@ -21,13 +21,11 @@ Real-time tracking of clinical trial recruitment and milestones.
 
 ___
 
-## Create Agreement
+## Create Digital Subscription
 ### Display Name
 Marketing Subscription - C360
 ### Description
 Subscription for the Marketing team to Customer 360 Insights.
-### Agreement Type
-Subscription
 
 ___
 

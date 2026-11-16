@@ -314,7 +314,7 @@
 <script>
   // ── Utilities ──────────────────────────────────────────────────────
   function esc(s) {
-    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
   function fmt(iso) {
     if (!iso) return '—';
@@ -540,7 +540,7 @@
 
   function loadBatches() {
     fetch('/api/bootstrap/batches').then(function(r) { return r.json(); })
-      .then(function(d) { _batches = d.batches || []; renderBatches(); })
+      .then(function(d) { _batches = d.batches || []; renderBatches(); _scheduleBatchPoll(); })
       .catch(function() {
         document.getElementById('batchList').innerHTML = '<div class="card empty">Failed to load batches</div>';
       });
@@ -581,13 +581,71 @@
         ';border:1px solid currentColor;border-radius:4px;padding:0 0.3rem;opacity:0.85">' + esc(text) + '</span>';
     };
     var out = '';
-    if (f.runState === 'changed') out += tag('changed since last run', 'var(--warning,#d97706)', 'Last run ' + (f.lastRunAt || '') + ' — the file has changed since');
+    if (f.lastStatus === 'failed') out += tag('failed ' + _fmtWhen(f.lastAttemptAt), 'var(--error,#dc2626)',
+      'Last ' + (f.lastSource || 'run') + ' failed ' + (f.lastAttemptAt || '') + (f.lastMessage ? ' — ' + f.lastMessage : '') +
+      (f.lastRunAt ? '\nLast success: ' + f.lastRunAt : '\nNever succeeded'));
+    else if (f.runState === 'changed') out += tag('changed since last run', 'var(--warning,#d97706)', 'Last run ' + (f.lastRunAt || '') + ' — the file has changed since');
     else if (f.runState === 'current') out += ' <span title="Last run by the Portal ' + esc(f.lastRunAt || '') + '" style="font-size:0.68rem;color:var(--muted)">✓</span>';
     else if (f.runState === 'no_record') out += ' <span title="No run by the Portal recorded — it may still have been loaded from a notebook, Obsidian or the CLI" style="font-size:0.68rem;color:var(--muted)">·</span>';
     if (f.commands === 0) out += tag('no commands', 'var(--muted)', 'No Dr.Egeria command headings found in this file');
     out += ' <span title="' + esc(f.userid ? 'Loaded as this Egeria user (_batch.json userid)' : 'No userid declared in _batch.json — runs as dr_egeria\'s default user') +
       '" style="font-size:0.68rem;color:var(--muted)">' + esc(f.userid ? 'as ' + f.userid : 'default user') + '</span>';
     return out;
+  }
+
+  // "2026-11-15T15:21:48Z" -> "today 09:21" / "Nov 14 18:02" in the browser's local time.
+  function _fmtWhen(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    if (isNaN(d)) return iso;
+    var hm = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return d.toDateString() === new Date().toDateString() ? 'today ' + hm
+      : d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + hm;
+  }
+
+  // Batch-level status line (bootstrap_batches._batch_run_summary): live
+  // progress while a manual run or auto-heal is on it, otherwise the rolled-up
+  // outcome of its enabled files' last runs plus when that was.
+  function _batchStatus(b) {
+    var r = b.run || {};
+    var who = function(src) { return src === 'auto-heal' ? ' (auto-heal)' : ''; };
+    var pill = function(text, color) {
+      return '<span style="font-size:0.72rem;font-weight:600;color:' + color +
+        ';border:1px solid currentColor;border-radius:999px;padding:0.05rem 0.5rem">' + esc(text) + '</span>';
+    };
+    var p = r.progress, line;
+    if (r.status === 'running' && p) {
+      line = pill('● running' + who(p.source), 'var(--accent,#2563eb)') + ' file ' + p.index + '/' + p.total +
+        ': <code>' + esc(p.file) + '</code> · started ' + esc(_fmtWhen(p.startedAt));
+    } else if (r.status === 'queued') {
+      line = pill('queued' + who(r.queuedBy), 'var(--muted)') + ' waiting for the batches ahead of it';
+    } else {
+      var map = {
+        ok:        ['✓ ok', 'var(--success,#16a34a)'],
+        failed:    ['✗ ' + (r.failedFiles || []).length + ' failed', 'var(--error,#dc2626)'],
+        changed:   ['changed since last run', 'var(--warning,#d97706)'],
+        partial:   ['partly run', 'var(--warning,#d97706)'],
+        never_run: ['never run', 'var(--muted)']
+      };
+      var m = map[r.status] || [r.status || 'unknown', 'var(--muted)'];
+      var title = r.status === 'failed' ? 'Failed: ' + r.failedFiles.join(', ')
+        : r.status === 'partial' ? 'Never run: ' + r.neverRunFiles.join(', ')
+        : r.status === 'changed' ? 'Changed since last run: ' + r.changedFiles.join(', ') : '';
+      line = '<span title="' + esc(title) + '">' + pill(m[0], m[1]) + '</span>' +
+        (r.lastRunAt ? ' last run ' + esc(_fmtWhen(r.lastRunAt)) : '');
+    }
+    return '<div class="note" style="margin-top:0.35rem;display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap">' + line + '</div>';
+  }
+
+  // While anything is running or queued, re-fetch every 5s so progress and
+  // per-file results update in place -- including runs started elsewhere
+  // (another tab, run-all, or auto-heal). Stops on its own once all is idle
+  // or the tab is left.
+  var _batchPollTimer = null;
+  function _scheduleBatchPoll() {
+    if (_batchPollTimer) { clearTimeout(_batchPollTimer); _batchPollTimer = null; }
+    var busy = _batches.some(function(b) { var s = (b.run || {}).status; return s === 'running' || s === 'queued'; });
+    if (busy && activeTab === 'data-init') _batchPollTimer = setTimeout(loadBatches, 5000);
   }
 
   // Ordering/validation notes from discovery (bootstrap_batches.py) -- unlisted
@@ -633,9 +691,11 @@
           '<span style="display:flex;align-items:center;gap:0.5rem">' + canaryBadge + warnBadge +
             '<button class="btn-xs" onclick="runBatch(' + bi + ')">▶ Run Now</button></span>' +
         '</div>' +
+        _batchStatus(b) +
         (b.description ? '<p class="note" style="margin-top:0.3rem">' + esc(b.description) + '</p>' : '') +
         '<div style="margin-top:0.5rem;padding-left:1.6rem">' + files + '</div>' + _batchWarnings(b) +
-        '<div id="batchResult-' + bi + '" class="note" style="display:none"></div>' +
+        '<div id="batchResult-' + bi + '" class="note" style="display:' + (_batchResultHtml[b.id] ? 'block' : 'none') + '">' +
+          (_batchResultHtml[b.id] || '') + '</div>' +
       '</div>';
     }).join('');
   }
@@ -724,21 +784,40 @@
     if (activeTab === 'activity') { loadBootstrapLog(); loadDrEgeriaIssues(); }
   }
 
+  // Per-batch Run Now result, kept by batch id so the 5s progress re-render
+  // (_scheduleBatchPoll) doesn't wipe it. `resultEl` below is a stand-in that
+  // writes through to whichever element currently renders that batch.
+  var _batchResultHtml = {};
+  function _resultSink(batchId) {
+    function apply() {
+      var i = _batches.findIndex(function(x) { return x.id === batchId; });
+      var el = i >= 0 && document.getElementById('batchResult-' + i);
+      if (el) { el.style.display = 'block'; el.innerHTML = _batchResultHtml[batchId]; }
+    }
+    return {
+      style: {},
+      set textContent(t) { _batchResultHtml[batchId] = esc(t); apply(); },
+      set innerHTML(h) { _batchResultHtml[batchId] = h; apply(); }
+    };
+  }
+
   function runBatch(bi) {
     var b = _batches[bi];
-    var resultEl = document.getElementById('batchResult-' + bi);
-    resultEl.style.display = 'block';
+    var resultEl = _resultSink(b.id);
     resultEl.textContent = 'Running…';
+    setTimeout(loadBatches, 1500); // pick up the live progress line
     var runUrl = '/api/bootstrap/batches/' + encodeURIComponent(b.id).replace(/%2F/g, '/') + '/run';
     var statusUrl = '/api/bootstrap/batches/' + encodeURIComponent(b.id).replace(/%2F/g, '/') + '/run-status';
     _postRun(runUrl, statusUrl, function(d) {
       if (!d.results) { resultEl.textContent = 'Run failed'; return; }
+      if (d.results.length === 1 && d.results[0].status === 'busy') { resultEl.textContent = d.results[0].message; loadBatches(); return; }
       var ok = d.results.filter(function(r) { return r.status === 'ok'; }).length;
       resultEl.innerHTML = (d.success ? '<span style="color:var(--success)">✓</span> ' : '<span style="color:var(--error)">✗</span> ') +
         ok + '/' + d.results.length + ' files ran clean' +
         (d.success ? '' : d.results.filter(function(r) { return r.status !== 'ok' && r.status !== 'duplicate'; })
           .map(function(r) { return '<br>• ' + esc(r.file) + ': ' + esc((r.message || '').slice(0, 600)).replace(/\n/g, '<br>&nbsp;&nbsp;'); }).join(''));
       showBanner(d.success ? 'success' : 'error', d.success ? b.displayName + ' ran successfully' : b.displayName + ' had failures — see details below');
+      loadBatches();
     }, function(msg) { resultEl.textContent = msg; }, function(secs) {
       resultEl.textContent = 'Running… (' + secs + 's — large batches can take several minutes; safe to leave this tab)';
     });
@@ -748,9 +827,12 @@
     var el = document.getElementById('runAllResult');
     el.style.display = 'block';
     el.textContent = 'Running all enabled batches, in order…';
+    setTimeout(loadBatches, 1500); // pick up the live progress/queued lines
     _postRun('/api/bootstrap/batches/run-all', '/api/bootstrap/batches/run-all/run-status', function(d) {
       if (!d.runs) { el.textContent = 'Run failed'; return; }
       el.innerHTML = d.runs.map(function(run) {
+        var busy = run.results.filter(function(r) { return r.status === 'busy'; })[0];
+        if (busy) return '<span style="color:var(--muted)">–</span> ' + esc(run.batch) + ': ' + esc(busy.message);
         var ok = run.results.filter(function(r) { return r.status === 'ok'; }).length;
         var allOk = ok === run.results.length;
         return (allOk ? '<span style="color:var(--success)">✓</span> ' : '<span style="color:var(--error)">✗</span> ') +
