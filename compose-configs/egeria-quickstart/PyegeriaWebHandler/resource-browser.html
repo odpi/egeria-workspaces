@@ -1304,14 +1304,15 @@ function currentRoute() {
 }
 
 var KIND_ICONS = { table: '▦', schema: '🗂', database: '🛢', report: '📊', dataset: '📋', file: '📄',
-                   topic: '📡', product: '📦', api: '🔌', repo: '⎇', other: '•' };
+                   topic: '📡', product: '📦', api: '🔌', repo: '⎇', attribute: '▥', field: '◇', other: '•' };
 
 // The kinds search filters on come from the server, so the two never disagree.
 var _kindsPromise = null;
 function useKinds(creds) {
   var _k = useState(null), kinds = _k[0], setKinds = _k[1];
   useEffect(function() {
-    if (!_kindsPromise) _kindsPromise = getJson(API + '/kinds', creds).then(function(d) { return d.kinds; })
+    // Resource kinds, then the parts of resources (columns and attributes, data fields) that search also finds.
+    if (!_kindsPromise) _kindsPromise = getJson(API + '/kinds', creds).then(function(d) { return d.kinds.concat(d.parts || []); })
       .catch(function() { _kindsPromise = null; return []; });
     var live = true;
     _kindsPromise.then(function(k) { if (live) setKinds(k); });
@@ -1363,6 +1364,17 @@ function RowExtras({ extras }) {
   return el('span', { className: 'rb-row', style: { gap: 8 } }, bits);
 }
 
+// What a column, attribute or data field found by search is part of.
+function PartOfLine({ row }) {
+  var p = row.partOf;
+  if (!p) return el('span', { className: 'rb-note', title: row.partOfKnown === false
+      ? 'Only the first 25 matching parts on each page have their container looked up'
+      : 'Nothing holds this element' }, row.partOfKnown === false ? 'in … (not looked up)' : 'not part of anything');
+  return el('span', { className: 'rb-note' }, 'in ',
+    el('button', { className: 'rb-link', title: (p.typeName || 'container') + ' that holds it', onClick: function() { openResource(p.guid); } },
+      p.displayName || p.guid), p.typeName ? ' (' + p.typeName + ')' : '');
+}
+
 function ResultRow({ row, idx, extras, showMatched, inLists, extra }) {
   var flav = rowFlavour(idx, row);
   return el('div', { className: 'rb-result' },
@@ -1370,7 +1382,7 @@ function ResultRow({ row, idx, extras, showMatched, inLists, extra }) {
       el('span', { className: 'rb-kind', title: row.typeName }, KIND_ICONS[row.kind] || '•'),
       el('button', { className: 'rb-link n', onClick: function() { openResource(row.guid); } }, row.displayName),
       el('span', { className: 'rb-type' }, row.typeName),
-      el(FlavourBadge, { flavour: flav }),
+      row.partOf !== undefined ? el(PartOfLine, { row: row }) : el(FlavourBadge, { flavour: flav }),
       row.badges.map(function(b) { return el('span', { key: b, className: 'rb-chip' }, b); }),
       row.dataScope && el('span', { className: 'rb-chip', title: 'This resource records its data scope (time or place)' }, '◷ scope')),
     row.qualifiedName && row.qualifiedName !== row.displayName && el('div', { className: 'rb-qn' }, row.qualifiedName),
@@ -1537,8 +1549,8 @@ function SearchPage({ q, kind, creds }) {
     data && data.mayHaveMore && el('button', { className: 'rb-btn', style: { marginTop: 12 }, disabled: loading,
       onClick: function() { load(data.page + 1); } }, loading ? 'Loading…' : 'Load more results'),
     data && el('div', { className: 'rb-note', style: { marginTop: 12, display: 'flex', flexDirection: 'column', gap: 3 } },
-      data.columns && data.columns.found > data.columns.rolledUp && el('span', null,
-        data.columns.found + ' matching columns found on this page; the tables of the first ' + data.columns.rolledUp + ' are shown.'),
+      data.parts && data.parts.shown > data.parts.lookedUp && el('span', null,
+        data.parts.shown + ' matching columns, attributes or fields on this page; what holds the first ' + data.parts.lookedUp + ' was looked up.'),
       data.cappedSources.length > 0 && el('span', null, 'These matches stopped at 50 and more may exist: ' + data.cappedSources.join(', ') + '.'),
       Object.keys(data.failedSources).length > 0 && el('span', { className: 'rb-err' },
         'Some sources could not be searched, so results may be incomplete: ' + Object.keys(data.failedSources).join(', ') + '.'),
