@@ -7,6 +7,7 @@ The scenarios in this directory focus on security and the IT infrastructure that
 - [onboarding-simon-burr.md](onboarding-simon-burr.md) records the arrival of Simon Burr as Coco Pharmaceuticals' first Chief Information Security Officer, reporting to Ivor Padlock as Chief Security Officer: his profile, the CISO role and his appointment, his governance folio, and his plan for his first ninety days - including setting up continuous penetration testing across the company.
 - [security-glossary.md](security-glossary.md) is the vocabulary that security people use - the goals and principles of security, the language of the ISMS, identity and access, kinds of attack, security testing and monitoring, and incident response.  Simon Burr wrote it with Ivor Padlock and Sidney Seeker when he found that words such as *threat*, *risk* and *vulnerability* meant different things to different people.  It underpins the security awareness training.
 - [risk-scopes.md](risk-scopes.md) is the security team's threat modelling output: it links the risks in the [risk register](../0.%20data-governance-program/risk-register.md) to the solution components of the strategic information supply chains that they threaten, using the `ScopedBy` relationship.  Since the components are linked to the systems that implement them in all three estates, scoping a risk to a component scopes it to every system that implements it.  It also lists the risks that have nothing to be scoped to yet.
+- [statement-of-applicability.md](statement-of-applicability.md) is Simon Burr's statement of applicability for the ISMS: the ISO/IEC 27001:2022 Annex A controls he has assessed so far as governance controls, the statement itself, and a `ControlApplicability` link to each control recording whether it applies, why, and how far it has been implemented.  The controls are linked to the security obligations they implement.
 
 ## Loading the IT governance program
 
@@ -44,6 +45,16 @@ dr_egeria --directive process --userid simonburr --user_pass secret risk-scopes.
 ```
 
 The Martyn's Law definitions load after this file.
+
+## Loading the statement of applicability
+
+`statement-of-applicability.md` links the statement to the ISO/IEC 27001 certification type and the security obligations in `0. data-governance-program/data-security-strategy.md`, and adds it to the Chief Information Security Officer's folio from `onboarding-simon-burr.md`, so load both of those first.  It is loaded as Simon Burr:
+
+```
+dr_egeria --directive process --userid simonburr --user_pass secret statement-of-applicability.md
+```
+
+To record progress on a control, change its implementation status, implementation description and review date in the file and process it again: linking a control that is already linked updates its applicability.
 
 
 ----

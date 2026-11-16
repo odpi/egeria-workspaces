@@ -30,6 +30,7 @@
       --text:     #c8d4e8;
       --muted:    #a3abc0;
       --dim:      #7088a2;
+      --text-dim: var(--dim);   /* used by several views but never defined; follows --dim in both themes */
       --accent:   #60a5fa;
       --abstract: #c4b5fd;
       --classif:  #5eead4;
@@ -66,6 +67,24 @@
     .search-input { width: 100%; background: rgba(20,32,52,.8); border: 1px solid var(--border);
                     border-radius: 5px; padding: 5px 8px; color: var(--text);
                     font-family: ui-monospace, monospace; font-size: 12px; }
+    /* Classes many views used but the stylesheet never defined, so their controls rendered as
+       unstyled native widgets (light grey in the dark theme): .btn-sm (the Refresh/Sync buttons in
+       ~35 places), and .search-box / .sidebar-item (Context Events). Same look as .search-input
+       and .tree-item; light-theme overrides below. */
+    .search-box { display: block; width: 100%; box-sizing: border-box; background: rgba(20,32,52,.8);
+                  border: 1px solid var(--border); border-radius: 5px; padding: 5px 8px; color: var(--text);
+                  font-family: ui-monospace, monospace; font-size: 12px; outline: none; }
+    .search-box:focus, .search-input:focus { border-color: var(--accent); }
+    .btn-sm { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 4px;
+              border: 1px solid var(--border); background: rgba(20,32,52,.8); color: var(--text);
+              font: inherit; font-size: 11px; font-weight: 400; line-height: 1.4; cursor: pointer; white-space: nowrap; }
+    .btn-sm:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+    .btn-sm:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .btn-sm:disabled { opacity: .5; cursor: default; }
+    .sidebar-item { cursor: pointer; border-left: 2px solid transparent; border-radius: 3px;
+                    white-space: normal; overflow-wrap: anywhere; }
+    .sidebar-item:hover { background: var(--hover); }
+    .sidebar-item.selected { background: rgba(96,165,250,.1); border-left-color: var(--accent); }
     .stats { padding: 5px 10px; border-bottom: 1px solid rgba(26,45,72,.5);
              display: flex; gap: 14px; font-size: 10px; color: var(--dim); }
     .tree-scroll { flex: 1; overflow-y: auto; overflow-x: auto; padding: 4px 0; }
@@ -142,6 +161,9 @@
     :root.light .sidebar      { background: var(--panel); }
     :root.light .search-wrap  { background: var(--panel); }
     :root.light .search-input { background: var(--hover); }
+    :root.light .search-box   { background: var(--hover); }
+    :root.light .btn-sm       { background: var(--panel); }
+    :root.light .sidebar-item.selected { background: rgba(37,99,235,.08); }
     :root.light .area-select option { background: var(--panel); }
     :root.light tr.own-row td { background: rgba(37,99,235,.05); }
     :root.light .rel-card     { background: var(--card); }
@@ -6216,6 +6238,7 @@ const SECTION_LABELS = {
   'notelogs':          'Note Logs',
   'perspectives':      'Perspectives',
   'governance':        'Governance Definitions',
+  'statements-of-applicability': 'Statements of Applicability',
   'report-specs':      'Reports',
   'analytics':         'Analytic Functions',
   'digital-products':  'Digital Products',
@@ -6892,6 +6915,14 @@ const _SPLASH_CAPABILITIES = [
     icon: '⚖',
     title: 'Governance Definitions',
     description: 'Browse governance drivers, policies, and controls. Search by subtype, navigate relationships between definitions, and view full property detail for each element.',
+    requiresConnection: true,
+  },
+  {
+    section: 'statements-of-applicability',
+    group: 'review',
+    icon: '☑',
+    title: 'Statements of Applicability',
+    description: 'Review statements of applicability: for each scope, which governance controls apply, why, and how far each is implemented — with an implementation summary and links to the controls.',
     requiresConnection: true,
   },
   {
@@ -13257,6 +13288,415 @@ function ContextEventsView({ navGuid, onNavigateToElement }) {
   );
 }
 
+// ── Statements of Applicability ──────────────────────────────────────────────
+// A StatementOfApplicability (Security Officer, Egeria 6.3) records which governance
+// controls apply to a scope and how far each is implemented. Each control is linked
+// by a ControlApplicability relationship carrying the assessment. Backend:
+// soa_handler.py (/api/statements-of-applicability). Three answers are kept apart:
+// a read that failed (error banner), an SoA that isn't there (404), and an SoA
+// with no controls linked (an empty, successfully read table).
+
+var _SOA_STATUS_COLORS = {
+  NOT_STARTED: '#94a3b8', PLANNED: '#60a5fa', PARTIALLY_IMPLEMENTED: '#fbbf24',
+  IMPLEMENTED: '#34d399', OTHER: '#c4b5fd',
+};
+
+function _soaStatusLabel(s) {
+  return String(s || '').toLowerCase().replace(/_/g, ' ').replace(/^./, function(c) { return c.toUpperCase(); });
+}
+
+function _soaFmtDate(s) {
+  if (!s) return '';
+  var d = new Date(s);
+  // UTC: Egeria dates are instants at UTC midnight; local time would show the day before in the Americas
+  return isNaN(d.getTime()) ? String(s) : d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
+}
+
+// fetch + JSON, rejecting with {status, message} so callers can tell 404 from a failed read
+function _soaFetchJson(url, creds) {
+  return egeriaFetch(url, creds).then(function(r) {
+    if (r.ok) return r.json();
+    return r.json().catch(function() { return {}; }).then(function(body) {
+      var err = new Error((body && body.detail) || ('HTTP ' + r.status));
+      err.status = r.status;
+      throw err;
+    });
+  });
+}
+
+function SoaStatusBadge({ status }) {
+  if (!status) return React.createElement('span', { style: { color: 'var(--dim)', fontStyle: 'italic' } }, 'not recorded');
+  var c = _SOA_STATUS_COLORS[status] || 'var(--muted)';
+  return React.createElement('span', { className: 'badge', style: { color: c, border: '0.5px solid ' + c, background: 'transparent', whiteSpace: 'normal' } }, _soaStatusLabel(status));
+}
+
+// Long assessment text is clamped to a few lines; a click on "more" shows the rest.
+function SoaClampText({ text }) {
+  const [open, setOpen] = useState(false);
+  if (!text) return null;
+  var long = String(text).length > 220;
+  return React.createElement('div', null,
+    React.createElement('div', { style: long && !open ? { display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical', overflow: 'hidden' } : null }, renderMd(text)),
+    long && React.createElement('button', {
+      onClick: function() { setOpen(!open); },
+      style: { background: 'none', border: 'none', padding: 0, marginTop: 2, color: 'var(--accent)', cursor: 'pointer', fontSize: 11 },
+    }, open ? 'less' : 'more'));
+}
+
+// Pure helpers for the controls table (tested under node by tests/test_soa_controls_js.py).
+// A row's status bucket: a not-applicable control has no implementation to rate, and an
+// applicable one with no status is "not recorded" (kept apart from NOT_STARTED).
+var SOA_STATUS_ORDER = ['NOT_STARTED', 'PLANNED', 'PARTIALLY_IMPLEMENTED', 'IMPLEMENTED', 'OTHER', 'NOT_RECORDED', 'NOT_APPLICABLE'];
+
+function soaStatusBucket(row) {
+  if (row.isApplicable === false) return 'NOT_APPLICABLE';
+  return row.implementationStatus || 'NOT_RECORDED';
+}
+
+// "A.5.12" -> ['a', 5, 12]: numeric parts compare as numbers, so 5.9 < 5.12 < 8.30.
+function soaLabelParts(label) {
+  return String(label || '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).map(function(p) {
+    return /^\d+$/.test(p) ? parseInt(p, 10) : p;
+  });
+}
+
+function soaCompareLabels(a, b) {
+  var pa = soaLabelParts(a), pb = soaLabelParts(b);
+  for (var i = 0; i < Math.min(pa.length, pb.length); i++) {
+    var x = pa[i], y = pb[i];
+    if (x === y) continue;
+    if (typeof x === 'number' && typeof y === 'number') return x - y;
+    if (typeof x === 'number') return -1;
+    if (typeof y === 'number') return 1;
+    return x < y ? -1 : 1;
+  }
+  return pa.length - pb.length;
+}
+
+// The value a column sorts on; null means "no value" and always sorts last.
+function soaSortValue(row, key) {
+  switch (key) {
+    case 'status':         return SOA_STATUS_ORDER.indexOf(soaStatusBucket(row));
+    case 'applicable':     return row.isApplicable === false ? 1 : 0;
+    case 'reviewDate':     { var t = row.reviewDate ? Date.parse(row.reviewDate) : NaN; return isNaN(t) ? null : t; }
+    case 'control':        return row.displayName || row.qualifiedName || null;
+    case 'implementation': return row.implementationDescription || null;
+    default:               return row[key] || null;
+  }
+}
+
+// Stable sort; dir 'asc' | 'desc'. Rows with no value stay at the bottom in both directions.
+function soaSortRows(rows, key, dir) {
+  var sign = dir === 'desc' ? -1 : 1;
+  return rows.map(function(r, i) { return [r, i]; }).sort(function(a, b) {
+    var va = soaSortValue(a[0], key), vb = soaSortValue(b[0], key);
+    if (va == null && vb == null) return a[1] - b[1];
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    var c = key === 'label' ? soaCompareLabels(va, vb)
+      : (typeof va === 'number' && typeof vb === 'number') ? va - vb
+      : String(va).localeCompare(String(vb), undefined, { sensitivity: 'base', numeric: true });
+    return c * sign || a[1] - b[1];
+  }).map(function(p) { return p[0]; });
+}
+
+// f: { statuses: [bucket…], applicable: ['yes'|'no'…], reasons: [reason…], text: '' }; an empty list means any.
+// Text matches control number, name, justification, implementation description, notes and reasons (listMatches).
+function soaFilterRows(rows, f) {
+  f = f || {};
+  return rows.filter(function(r) {
+    if (f.statuses && f.statuses.length && f.statuses.indexOf(soaStatusBucket(r)) === -1) return false;
+    if (f.applicable && f.applicable.length && f.applicable.indexOf(r.isApplicable === false ? 'no' : 'yes') === -1) return false;
+    if (f.reasons && f.reasons.length && !(r.inclusionReasons || []).some(function(x) { return f.reasons.indexOf(x) !== -1; })) return false;
+    return listMatches(f.text, [r.label, r.displayName, r.qualifiedName, r.justification, r.implementationDescription, r.notes, r.inclusionReasons]);
+  });
+}
+
+function soaFiltersActive(f) {
+  return !!(f && ((f.statuses && f.statuses.length) || (f.applicable && f.applicable.length) ||
+                  (f.reasons && f.reasons.length) || (f.text && f.text.trim())));
+}
+
+var _SOA_BUCKET_LABELS = { NOT_RECORDED: 'Status not recorded', NOT_APPLICABLE: 'Not applicable' };
+function _soaBucketLabel(b) { return _SOA_BUCKET_LABELS[b] || _soaStatusLabel(b); }
+var _SOA_EMPTY_FILTERS = { statuses: [], applicable: [], reasons: [], text: '' };
+
+function _soaToggle(list, v) {
+  return list.indexOf(v) === -1 ? list.concat([v]) : list.filter(function(x) { return x !== v; });
+}
+
+// Each tile is a button that filters the controls table to what it counts (click again to clear).
+function SoaSummary({ summary, filters, onPick }) {
+  if (!summary) return null;
+  var only = function(list, v) { return list.length === 1 && list[0] === v; };
+  var tile = function(key, label, n, color, active, patch) {
+    return React.createElement('button', {
+      key: key, type: 'button', 'aria-pressed': active,
+      title: active ? 'Showing only these controls; click to show all' : 'Show only these controls',
+      onClick: function() { onPick(active ? _SOA_EMPTY_FILTERS : Object.assign({}, _SOA_EMPTY_FILTERS, patch)); },
+      style: { textAlign: 'left', cursor: 'pointer', font: 'inherit', color: 'inherit', padding: '6px 10px', minWidth: 110,
+               background: active ? 'rgba(96,165,250,.12)' : 'transparent',
+               border: '1px solid ' + (active ? 'var(--accent)' : 'var(--border)'), borderLeft: '3px solid ' + color, borderRadius: 6 },
+    },
+      React.createElement('div', { style: { fontSize: 18, fontWeight: 700, color: color } }, String(n)),
+      React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)' } }, label));
+  };
+  var noOther = !filters.statuses.length && !filters.reasons.length && !filters.text.trim();
+  var tiles = [tile('applicable', 'Applicable', summary.applicable, 'var(--accent)',
+                    noOther && only(filters.applicable, 'yes'), { applicable: ['yes'] })];
+  Object.keys(summary.byStatus || {}).forEach(function(s) {
+    tiles.push(tile(s, _soaStatusLabel(s), summary.byStatus[s], _SOA_STATUS_COLORS[s] || 'var(--muted)',
+                    !filters.applicable.length && !filters.reasons.length && !filters.text.trim() && only(filters.statuses, s), { statuses: [s] }));
+  });
+  if (summary.statusUnset) tiles.push(tile('unset', 'Status not recorded', summary.statusUnset, '#f87171',
+                    !filters.applicable.length && !filters.reasons.length && !filters.text.trim() && only(filters.statuses, 'NOT_RECORDED'), { statuses: ['NOT_RECORDED'] }));
+  tiles.push(tile('na', 'Not applicable', summary.notApplicable, 'var(--muted)',
+                  noOther && only(filters.applicable, 'no'), { applicable: ['no'] }));
+  return React.createElement('div', null,
+    React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', marginBottom: 6 } },
+      summary.total + ' control' + (summary.total === 1 ? '' : 's') + ' assessed; status counts cover applicable controls only. Click a tile to filter the table.'),
+    React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 8 } }, tiles));
+}
+
+function _SoaChip({ label, on, onClick, color }) {
+  return React.createElement('button', {
+    type: 'button', 'aria-pressed': on, onClick: onClick,
+    style: { padding: '2px 9px', borderRadius: 10, fontSize: 11, cursor: 'pointer', font: 'inherit', fontSize: 11,
+             border: '1px solid ' + (on ? (color || 'var(--accent)') : 'var(--border)'),
+             background: on ? 'rgba(96,165,250,.12)' : 'transparent', color: on ? (color || 'var(--accent)') : 'var(--dim)' },
+  }, label);
+}
+
+function SoaControlFilters({ controls, filters, setFilters }) {
+  var el = React.createElement;
+  var present = function(fn) { var s = {}; controls.forEach(function(r) { [].concat(fn(r)).forEach(function(v) { if (v) s[v] = true; }); }); return s; };
+  var buckets = present(soaStatusBucket);
+  var statusOpts = SOA_STATUS_ORDER.filter(function(b) { return buckets[b]; });
+  var reasonSet = present(function(r) { return r.inclusionReasons || []; });
+  var reasons = Object.keys(reasonSet).sort();
+  var group = function(title, children) {
+    return el('div', { style: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4 } },
+      el('span', { style: { fontSize: 11, color: 'var(--dim)', marginRight: 2 } }, title), children);
+  };
+  return el('div', { style: { display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 } },
+    el('input', { type: 'search', className: 'search-input', 'aria-label': 'Filter controls',
+      placeholder: 'Filter by control number, name, justification or implementation…', value: filters.text,
+      onChange: function(e) { setFilters(Object.assign({}, filters, { text: e.target.value })); },
+      onKeyDown: function(e) { if (e.key === 'Escape') setFilters(Object.assign({}, filters, { text: '' })); },
+      style: { maxWidth: 520 } }),
+    group('Status', statusOpts.map(function(b) {
+      return el(_SoaChip, { key: b, label: _soaBucketLabel(b), on: filters.statuses.indexOf(b) !== -1, color: _SOA_STATUS_COLORS[b],
+        onClick: function() { setFilters(Object.assign({}, filters, { statuses: _soaToggle(filters.statuses, b) })); } });
+    })),
+    group('Applicable', [['yes', 'Yes'], ['no', 'No']].map(function(p) {
+      return el(_SoaChip, { key: p[0], label: p[1], on: filters.applicable.indexOf(p[0]) !== -1,
+        onClick: function() { setFilters(Object.assign({}, filters, { applicable: _soaToggle(filters.applicable, p[0]) })); } });
+    })),
+    reasons.length > 0 && reasons.length <= 12 && group('Inclusion reasons', reasons.map(function(r) {
+      return el(_SoaChip, { key: r, label: r, on: filters.reasons.indexOf(r) !== -1,
+        onClick: function() { setFilters(Object.assign({}, filters, { reasons: _soaToggle(filters.reasons, r) })); } });
+    })));
+}
+
+// Column widths (px). The table never shrinks below their sum: a narrower pane scrolls the
+// table sideways instead of squeezing the long-text columns to a word per line. Every column
+// can be dragged wider or narrower at its header's right edge (egeria-resize.js, the
+// mechanism every Explorer table uses; widths are remembered for the page). The label in
+// each header is a separate button that sorts, so a drag never sorts and a click never resizes.
+// Defaults sum to 1065 px, so a 1440 px window shows the whole table (the spare width is shared out).
+var _SOA_COLS = [['label', 'Control no.', 80], ['control', 'Control', 150], ['applicable', 'Applicable', 85], ['status', 'Status', 120],
+                 ['justification', 'Justification', 210], ['implementation', 'Implementation', 210], ['reviewDate', 'Review date', 100], ['notes', 'Notes', 110]];
+
+function SoaControlsTable({ rows, sort, setSort, onNavigateToElement }) {
+  var th = { textAlign: 'left', padding: '0', fontSize: 11, color: 'var(--dim)', fontWeight: 600, borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)', verticalAlign: 'bottom' };
+  var td = { padding: '6px 8px', fontSize: 12, verticalAlign: 'top', whiteSpace: 'normal', wordBreak: 'break-word', overflowWrap: 'anywhere' };
+  var minW = _SOA_COLS.reduce(function(n, c) { return n + c[2]; }, 0);
+  return React.createElement('div', { style: { overflowX: 'auto', maxWidth: '100%' } },
+    React.createElement('table', { style: { width: '100%', minWidth: minW, borderCollapse: 'collapse', tableLayout: 'fixed' } },
+      React.createElement('colgroup', null, _SOA_COLS.map(function(c) {
+        return React.createElement('col', { key: c[0], style: { width: c[2] } });
+      })),
+      React.createElement('thead', null, React.createElement('tr', null,
+        _SOA_COLS.map(function(c) {
+          var on = sort.key === c[0];
+          var aria = on ? (sort.dir === 'desc' ? 'descending' : 'ascending') : 'none';
+          return React.createElement('th', { key: c[0], 'aria-sort': aria, style: th },
+            React.createElement('button', {
+              type: 'button', title: 'Sort by ' + c[1].toLowerCase() + ' — drag the column edge to resize',
+              onClick: function() { setSort({ key: c[0], dir: on && sort.dir === 'asc' ? 'desc' : 'asc' }); },
+              style: { display: 'block', width: 'calc(100% - 8px)', textAlign: 'left', padding: '6px 8px', background: 'none', border: 'none',
+                       font: 'inherit', fontWeight: 600, color: on ? 'var(--accent)' : 'var(--dim)', cursor: 'pointer', whiteSpace: 'normal', overflowWrap: 'anywhere', textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: 10 },
+            }, c[1], on ? (sort.dir === 'desc' ? ' ▼' : ' ▲') : ''));
+        }))),
+      React.createElement('tbody', null, rows.map(function(c) {
+        var applicable = c.isApplicable === false
+          ? React.createElement('span', { style: { color: 'var(--muted)' } }, 'No')
+          : c.isApplicable === true ? 'Yes'
+          : React.createElement('span', { title: 'Not set — Egeria treats an unset flag as applicable', style: { color: 'var(--dim)' } }, 'Yes (default)');
+        return React.createElement('tr', { key: c.relationshipGuid || c.guid, style: { borderTop: '1px solid var(--border)', opacity: c.isApplicable === false ? 0.7 : 1 } },
+          React.createElement('td', { style: Object.assign({}, td, { fontFamily: 'ui-monospace,monospace' }) }, c.label || '—'),
+          React.createElement('td', { style: td },
+            c.guid
+              ? React.createElement('a', { href: '#', onClick: function(e) { e.preventDefault(); onNavigateToElement({ guid: c.guid, typeName: c.typeName, superTypeNames: (c.superTypeNames && c.superTypeNames.length) ? c.superTypeNames : ['GovernanceDefinition'] }); }, title: c.controlDescription || c.qualifiedName }, c.displayName || c.guid)
+              : (c.displayName || '—'),
+            c.identifier && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)' } }, c.identifier)),
+          React.createElement('td', { style: td }, applicable),
+          React.createElement('td', { style: td }, c.isApplicable === false ? '—' : React.createElement(SoaStatusBadge, { status: c.implementationStatus })),
+          React.createElement('td', { style: td },
+            React.createElement(SoaClampText, { text: c.justification }),
+            (c.inclusionReasons || []).length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 } },
+              c.inclusionReasons.map(function(r) { return React.createElement('span', { key: r, className: 'badge', style: { fontSize: 10, whiteSpace: 'normal' } }, r); }))),
+          React.createElement('td', { style: td }, React.createElement(SoaClampText, { text: c.implementationDescription })),
+          React.createElement('td', { style: td }, _soaFmtDate(c.reviewDate)),
+          React.createElement('td', { style: td }, React.createElement(SoaClampText, { text: c.notes }))
+        );
+      }))));
+}
+
+// The controls section: filters, an honest count, and the table (or why it is empty).
+function SoaControlsSection({ detail, filters, setFilters, onNavigateToElement }) {
+  const [sort, setSort] = useState({ key: 'label', dir: 'asc' });
+  var controls = detail.controls || [];
+  var sectionHdr = { fontWeight: 700, fontSize: 13, marginBottom: 10, marginTop: 20, paddingBottom: 6, borderBottom: '1px solid var(--border)', color: 'var(--accent)' };
+  var shown = soaSortRows(soaFilterRows(controls, filters), sort.key, sort.dir);
+  var active = soaFiltersActive(filters);
+  var clear = React.createElement('button', { type: 'button', onClick: function() { setFilters(_SOA_EMPTY_FILTERS); },
+    style: { background: 'none', border: 'none', padding: 0, color: 'var(--accent)', cursor: 'pointer', font: 'inherit', fontSize: 12 } }, 'clear filters');
+  return React.createElement('div', null,
+    React.createElement('div', { style: sectionHdr }, 'Controls (' + controls.length + ')'),
+    !detail.controlsRead
+      ? React.createElement('div', { style: { color: '#f87171', fontSize: 12 } }, 'The controls for this statement could not be read.')
+      : controls.length === 0
+      ? React.createElement('div', { style: { color: 'var(--dim)', fontSize: 12 } }, 'No controls are linked to this statement of applicability yet.')
+      : React.createElement('div', null,
+          React.createElement(SoaControlFilters, { controls: controls, filters: filters, setFilters: setFilters }),
+          React.createElement('div', { role: 'status', style: { fontSize: 12, color: 'var(--dim)', marginBottom: 6 } },
+            'Showing ' + shown.length + ' of ' + controls.length, active && ' · ', active && clear),
+          shown.length === 0
+            ? React.createElement('div', { style: { fontSize: 12, color: '#fbbf24', padding: '8px 0' } }, 'No controls match these filters (', clear, ').')
+            : React.createElement(SoaControlsTable, { rows: shown, sort: sort, setSort: setSort, onNavigateToElement: onNavigateToElement })));
+}
+
+function SoaDetail({ detail, onNavigateToElement }) {
+  var personaId = React.useContext(PersonaContext);
+  const [filters, setFilters] = useState(_SOA_EMPTY_FILTERS);
+  var sectionHdr = { fontWeight: 700, fontSize: 13, marginBottom: 10, marginTop: 20, paddingBottom: 6, borderBottom: '1px solid var(--border)', color: 'var(--accent)' };
+  var controls = detail.controls || [];
+  return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%', minWidth: 0, overflowWrap: 'anywhere' } },
+    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
+      React.createElement('div', { style: { fontSize: 18, fontWeight: 700 } }, detail.displayName || detail.qualifiedName || detail.guid),
+      detail.typeName && React.createElement('span', { className: 'badge', style: { background: 'rgba(167,139,250,.1)', color: '#c4b5fd', border: '0.5px solid rgba(167,139,250,.3)' } }, detail.typeName),
+      detail.contentStatus && React.createElement('span', { className: 'badge', style: { background: 'rgba(52,211,153,.1)', color: '#34d399', border: '0.5px solid rgba(52,211,153,.3)' } }, detail.contentStatus),
+      React.createElement('div', { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
+        personaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'statements-of-applicability', label: detail.displayName || detail.qualifiedName, icon: '☑', url: '/egeria-explorer?guid=' + encodeURIComponent(detail.guid) + '#statements-of-applicability', personaId: personaId }),
+        React.createElement(EgeriaFeedbackWidget, { guid: detail.guid })),
+      React.createElement(HeaderInfoButton, { header: detail._header }),
+      React.createElement(CopyJsonButton, { data: detail })),
+    React.createElement('code', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 12 } }, detail.guid),
+    detail.description && React.createElement('div', { style: { fontSize: 13, marginBottom: 16 } }, renderMd(detail.description)),
+    React.createElement(GenericPropertiesTable, {
+      item: detail,
+      priority: ['qualifiedName', 'scope', 'versionIdentifier', 'reviewDate', 'contentStatus', 'authors', 'category', 'usage', 'url'],
+      skip: ['controls', 'controlsRead', 'summary', 'status', 'additionalProperties'],
+      renderValue: function(key, val) { return key === 'reviewDate' ? _soaFmtDate(val) : renderMd(val); },
+    }),
+    React.createElement(AdditionalPropertiesTable, { data: detail.additionalProperties }),
+    React.createElement('div', { style: sectionHdr }, 'Implementation summary'),
+    React.createElement(SoaSummary, { summary: detail.summary, filters: filters, onPick: setFilters }),
+    React.createElement(SoaControlsSection, { detail: detail, filters: filters, setFilters: setFilters, onNavigateToElement: onNavigateToElement }),
+    React.createElement('div', { style: { marginTop: 20 } },
+      React.createElement(AvailableMermaidDiagrams, { data: detail }),
+      React.createElement(MermaidSection, { guid: detail.guid, data: detail })),
+    detail.relationships && Object.keys(detail.relationships).length > 0 && React.createElement('div', null,
+      React.createElement('div', { style: sectionHdr }, 'Relationships'),
+      Object.entries(detail.relationships).map(function(pair) {
+        return React.createElement(RelationshipSection, { key: pair[0], title: _prettyRelLabel(pair[0]), items: pair[1], onNavigateToElement: onNavigateToElement });
+      })),
+    React.createElement(ClassificationsAndRawJson, { item: detail }),
+    React.createElement(EgeriaCommentsSection, { guid: detail.guid })
+  );
+}
+
+function StatementsOfApplicabilityView({ navGuid, onNavigateToElement }) {
+  const creds = React.useContext(CredContext);
+  const [sideW, onDivDown] = useResizable(280, null, null, 'StatementsOfApplicabilityView.sideW');
+  const [filter, setFilter] = useState('');
+  const [inclTempl, setInclTempl] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [list, setList] = useState({ state: 'loading', items: [], capped: false, error: '' });
+  const [selected, setSelected] = useState(function() {
+    return new URLSearchParams(window.location.search).get('guid') || null;
+  });
+  usePublishNav(selected, null);
+  const [detail, setDetail] = useState({ state: 'idle', data: null, error: '', status: 0 });
+
+  useEffect(function() {
+    if (!creds) return;
+    setList({ state: 'loading', items: [], capped: false, error: '' });
+    _soaFetchJson('/api/statements-of-applicability' + (inclTempl ? '?include_templates=true' : ''), creds)
+      .then(function(d) { setList({ state: 'ready', items: d.items || [], capped: !!d.capped, error: '' }); })
+      .catch(function(e) { setList({ state: 'error', items: [], capped: false, error: e.message }); });
+  }, [creds, attempt, inclTempl]);
+
+  useEffect(function() { if (navGuid) setSelected(navGuid); }, [navGuid]);
+
+  useEffect(function() {
+    if (!selected || !creds) { setDetail({ state: 'idle', data: null, error: '', status: 0 }); return; }
+    var cancelled = false;
+    setDetail({ state: 'loading', data: null, error: '', status: 0 });
+    _soaFetchJson('/api/statements-of-applicability/' + encodeURIComponent(selected), creds)
+      .then(function(d) { if (!cancelled) setDetail({ state: 'ready', data: d, error: '', status: 200 }); })
+      .catch(function(e) { if (!cancelled) setDetail({ state: e.status === 404 ? 'missing' : 'error', data: null, error: e.message, status: e.status || 0 }); });
+    return function() { cancelled = true; };
+  }, [selected, creds, attempt]);
+
+  var filtered = useMemo(function() {
+    var q = filter.trim().toLowerCase();
+    if (!q) return list.items;
+    return list.items.filter(function(s) {
+      return [s.displayName, s.qualifiedName, s.scope].some(function(v) { return (v || '').toLowerCase().includes(q); });
+    });
+  }, [list.items, filter]);
+
+  var msg = function(text, color) { return React.createElement('div', { style: { padding: 12, color: color || 'var(--dim)', fontSize: 12, overflowWrap: 'anywhere' } }, text); };
+
+  return React.createElement('div', { className: 'body' },
+    React.createElement('div', { className: 'sidebar', style: { width: sideW, display: 'flex', flexDirection: 'column' } },
+      React.createElement('div', { className: 'search-wrap', style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+        React.createElement('input', { className: 'search-input', type: 'search', placeholder: 'Filter statements…', value: filter, onChange: function(e) { setFilter(e.target.value); } }),
+        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+          React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' } },
+            React.createElement('input', { type: 'checkbox', checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { margin: 0, cursor: 'pointer', accentColor: 'var(--accent)' } }),
+            'Include templates'),
+          React.createElement('button', {
+            onClick: function() { setAttempt(function(a) { return a + 1; }); },
+            style: { marginLeft: 'auto', padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'rgba(20,32,52,.8)', color: 'var(--text)', cursor: 'pointer', fontSize: 11 },
+          }, '↻ Refresh'))),
+      list.state === 'loading' && msg('Loading…'),
+      list.state === 'error' && msg('Couldn\'t read statements of applicability: ' + list.error, '#f87171'),
+      list.state === 'ready' && list.items.length === 0 && msg('No statements of applicability exist yet.'),
+      list.state === 'ready' && list.items.length > 0 && filtered.length === 0 && msg('No matches.'),
+      list.state === 'ready' && list.capped && msg('Showing the first ' + list.items.length + ' — the list may be incomplete.', '#fbbf24'),
+      React.createElement('div', { style: { overflowY: 'auto', flex: 1 } },
+        filtered.map(function(s) {
+          var on = s.guid === selected;
+          return React.createElement('div', { key: s.guid, className: 'tree-item' + (on ? ' sel' : ''), onClick: function() { setSelected(s.guid); },
+            style: { display: 'block', minWidth: 0, padding: '6px 10px', whiteSpace: 'normal', overflowWrap: 'anywhere' } },
+            React.createElement('div', { style: { fontWeight: on ? 600 : 400, fontSize: 13 } }, s.displayName || s.qualifiedName || s.guid),
+            (s.scope || s.contentStatus) && React.createElement('div', { title: s.scope || '', style: { fontSize: 11, color: 'var(--dim)', marginTop: 2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' } },
+              [s.scope, s.contentStatus].filter(Boolean).join(' · ')));
+        }))),
+    React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
+    React.createElement('div', { className: 'main', style: { minWidth: 0 } },
+      !selected ? msg('Select a statement of applicability to see its controls.')
+      : detail.state === 'loading' ? msg('Loading…')
+      : detail.state === 'missing' ? msg('Statement of applicability ' + selected + ' was not found — it may have been deleted, or you may not have access to it.', '#fbbf24')
+      : detail.state === 'error' ? msg('Couldn\'t read this statement of applicability (' + (detail.status ? 'HTTP ' + detail.status + ': ' : '') + detail.error + ').', '#f87171')
+      : detail.data && React.createElement(SoaDetail, { key: detail.data.guid, detail: detail.data, onNavigateToElement: onNavigateToElement })
+    )
+  );
+}
+
 function GovernanceView({ navTypeName, navGuid, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown]     = useResizable(220, null, null, 'GovernanceView.sideW');
@@ -13708,7 +14148,7 @@ function App() {
     var hash = window.location.hash.slice(1).split('?')[0];
     var valid = new Set(['type-system','reference-data','digital-products','collections','glossary',
       'report-specs','analytics','valid-values','rest-apis','python-api','solution-architect',
-      'data-design','perspectives','dr-egeria','isc','locations','actors','communities','business-capabilities','notelogs','governance','naming-vocabulary','policy-enforcement','action-center','duplicate-review','projects','informal-tags','context-events','external-references','external-identifiers','agreements','search']);
+      'data-design','perspectives','dr-egeria','isc','locations','actors','communities','business-capabilities','notelogs','governance','statements-of-applicability','naming-vocabulary','policy-enforcement','action-center','duplicate-review','projects','informal-tags','context-events','external-references','external-identifiers','agreements','search']);
     return valid.has(hash) ? hash : 'splash';
   });
   // Same setter as before, but a real section change also drops the one-shot ?guid=/?kind=.
@@ -13850,6 +14290,12 @@ function App() {
     setSection('informal-tags');
   }, []);
 
+  const [soaNavGuid, setSoaNavGuid] = useState(null);
+  const onNavigateToSoa = useCallback(function(guid) {
+    setSoaNavGuid(guid || null);
+    setSection('statements-of-applicability');
+  }, []);
+
   const [contextEventsNavGuid, setContextEventsNavGuid] = useState(null);
   const onNavigateToContextEvent = useCallback(function(guid) {
     setContextEventsNavGuid(guid || null);
@@ -13936,6 +14382,7 @@ function App() {
     if (typeName === 'Project') { onNavigateToProject(guid); return; }
     if (typeName === 'InformalTag') { onNavigateToInformalTag(guid); return; }
     if (typeName === 'ContextEvent') { onNavigateToContextEvent(guid); return; }
+    if (typeName === 'StatementOfApplicability') { onNavigateToSoa(guid); return; }
     // ValidValueDefinition's other concrete subtypes (ReferenceDataSet,
     // ValidValueSet, …) resolve through the same generic by-guid endpoint as
     // ReferenceDataValue — unlike ValidMetadataValue below, these don't need
@@ -13982,7 +14429,7 @@ function App() {
     // Endpoint — Referenceable, not Asset, so it needs its own branch;
     // Tech Catalog's Infrastructure tab already has a dedicated fetch path.
     if (typeName === 'Endpoint') { window.open('/tech-catalog?guid=' + encodeURIComponent(guid), '_blank'); return; }
-  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToCollection, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToBusinessCapability, onNavigateToAction, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDesignPattern, onNavigateToDataDesign, onNavigateToPerspective, onNavigateToExternalReference, onNavigateToExternalIdentifier, onNavigateToAgreement, onNavigateToProject, onNavigateToValidValues, onNavigateToInformalTag, onNavigateToContextEvent]);
+  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToCollection, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToBusinessCapability, onNavigateToAction, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDesignPattern, onNavigateToDataDesign, onNavigateToPerspective, onNavigateToExternalReference, onNavigateToExternalIdentifier, onNavigateToAgreement, onNavigateToProject, onNavigateToValidValues, onNavigateToInformalTag, onNavigateToContextEvent, onNavigateToSoa]);
 
   const [typeSideW, onTypeDivDown] = useResizable(254, null, null, 'App.typeSideW');
 
@@ -14118,7 +14565,7 @@ function App() {
         }),
         React.createElement(NavGroup, {
           label: 'Review', connected: connected, currentSection: section,
-          isActive: ['glossary','reference-data','data-design','collections','solution-architect','isc','locations','actors','communities','business-capabilities','notelogs','perspectives','governance','naming-vocabulary','policy-enforcement','action-center','duplicate-review','projects','informal-tags','context-events','external-references','external-identifiers','agreements'].includes(section),
+          isActive: ['glossary','reference-data','data-design','collections','solution-architect','isc','locations','actors','communities','business-capabilities','notelogs','perspectives','governance','statements-of-applicability','naming-vocabulary','policy-enforcement','action-center','duplicate-review','projects','informal-tags','context-events','external-references','external-identifiers','agreements'].includes(section),
           onSelect: setSection,
           items: [
             { id: 'glossary',           label: 'Glossary',                needsConnect: true },
@@ -14134,6 +14581,7 @@ function App() {
             { id: 'notelogs',           label: 'Note Logs',               needsConnect: true },
             { id: 'perspectives',       label: 'Perspectives',            needsConnect: true },
             { id: 'governance',         label: 'Governance Definitions',  needsConnect: true },
+            { id: 'statements-of-applicability', label: 'Statements of Applicability', needsConnect: true },
             { id: 'naming-vocabulary',  label: 'Naming Vocabulary',       needsConnect: true },
             { id: 'policy-enforcement', label: 'Policy Enforcement',     needsConnect: true },
             { id: 'action-center',      label: 'Action Center',           needsConnect: true },
@@ -14274,6 +14722,8 @@ function App() {
       ? React.createElement(DuplicateReviewView, { key: credsKey, onNavigateToElement: onNavigateToElement })
       : section === 'projects'
       ? React.createElement(ProjectsView, { key: credsKey, navGuid: projectNavGuid, onNavigateToElement: onNavigateToElement })
+      : section === 'statements-of-applicability'
+      ? React.createElement(StatementsOfApplicabilityView, { key: credsKey, navGuid: soaNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'context-events'
       ? React.createElement(ContextEventsView, { key: credsKey, navGuid: contextEventsNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'informal-tags'

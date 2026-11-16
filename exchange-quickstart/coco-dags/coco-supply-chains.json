@@ -1574,6 +1574,13 @@
         "InformationSupplyChain::Cold Chain and Dangerous Goods Consignment Information Supply Chain",
         "InformationSupplyChain::Workforce Competency and Qualification Information Supply Chain"
       ]
+    },
+    "coco_subscriptions_egeria": {
+      "egeria.apply__access_entitlements": [
+        "InformationSupplyChain::New Employee Onboarding Information Supply Chain"
+      ],
+      "egeria.apply__corporate_directory_entries": [],
+      "egeria.apply__worker_master_data": []
     }
   }
 }

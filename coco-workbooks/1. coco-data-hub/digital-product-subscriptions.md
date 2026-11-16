@@ -22,6 +22,10 @@ subscriber's **destination** - the subscriber's own schema in the `subscription_
 product's tables plus delivery columns.  The `coco_subscriptions_*` DAGs then apply what has been delivered to the
 subscribing system's own tables.
 
+Egeria is a subscriber too.  It takes Worker Master Data, Corporate Directory Entries and Access Entitlements once a
+day, and the `coco_subscriptions_egeria` DAG turns what is delivered into the actor profiles, actor roles, user
+identities, departments and locations of the open metadata catalogue, through Egeria's REST APIs.
+
 ## What a subscription needs
 
 A product can be subscribed to once it has
@@ -42,7 +46,7 @@ The subscriptions use five subscription types, so that each way Egeria delivers 
 |---|---|---|---|---|
 | Ongoing update subscription | `ONGOING_UPDATE` | when the product's data changes, at most every 30 minutes | operational systems that act on the data as it arrives | 129 |
 | Hourly refresh subscription | `PERIODIC` | every hour | batch interfaces into the ERP, finance and people systems | 50 |
-| Daily refresh subscription | `PERIODIC` | every day | the `coco_ods` and `coco_sus` reporting stores | 11 |
+| Daily refresh subscription | `PERIODIC` | every day | the `coco_ods` and `coco_sus` reporting stores, and Egeria's own catalogue of people and organization | 14 |
 | Weekly refresh subscription | `PERIODIC` | every week | records, regulatory and catalogue systems | 13 |
 | Evaluation subscription | `ONE_TIME` | once | EKG Pharmaceuticals (Bucharest), assessing the group's master data, privacy and patient treatment products before integrating with them | 2 |
 
@@ -64,7 +68,7 @@ less on an older platform.)
 
 ## Products waiting for a source
 
-44 of the 249 subscriptions in the list are to products that no system supplies yet - the
+44 of the 252 subscriptions in the list are to products that no system supplies yet - the
 products classified as promises in [promises.md](strategic-digital-products/promises.md).  They are not set up here,
 since there is nothing to deliver; add them when the products have a source.
 
@@ -4827,9 +4831,93 @@ ___
 
 # People Systems
 
+## Access Entitlements
+
+1 subscriber(s): Egeria Open Metadata and Governance (Coco core, daily refresh subscription).
+
+___
+
+## Link Assignment Scope
+
+### Assigned Actor
+PersonRole::Coco::Digital Product Manager::People Systems
+
+### Assignment Type
+Product Manager
+
+### Scope Element
+DigitalProduct::Coco::Access Entitlements
+
+___
+
+## Create Subscription Type
+
+### Digital Product
+DigitalProduct::Coco::Access Entitlements
+
+### Subscription Kind
+PERIODIC
+
+### Display Name
+Daily refresh subscription
+
+### Identifier
+DAILY-REFRESH-SUBSCRIPTION
+
+### Description
+Delivers the product's data to the subscriber's destination once a day.
+
+### Subscription Notification Interval
+1440
+
+### Subscription License Type
+LicenseType::Jacquard::LICENSE-TYPE-PERSONAL-DATA::Personal Information
+
+### Subscription Service Level Objective
+ServiceLevelObjective::Jacquard::SLO-DAILY-REFRESH::A complete refresh of the product data is delivered to the product data's destination each day
+
+___
+
+## Create Element
+
+### Element Type Name
+TabularDataSetCollection
+
+### Template GUID
+3f9a0ab3-072c-4cb1-a14f-6e0492e00dd7
+
+### Placeholder Property Values
+- hostIdentifier: host.docker.internal
+- serverName: Coco PostgreSQL Server 1
+- portNumber: 5442
+- secretsCollectionName: PostgreSQL Provisioning Secret
+- secretsStorePathName: secrets/integration.omsecrets
+- versionIdentifier: V1.0
+- databaseName: subscription_staging
+- schemaName: coco_egeria__access_entitlements
+- schemaDescription: Egeria Open Metadata and Governance (Coco core) copy of the Access Entitlements digital product.  Open Metadata Catalogue Holdings depends on it (access and ownership).
+
+___
+
+## Initiate Subscription
+
+### Subscription Type
+ProvisioningActionProcess::Access Entitlements::Create Subscription::DAILY-REFRESH-SUBSCRIPTION
+
+### Subscription Requester
+Person::UK::986419
+
+### Destination Data Set
+PostgreSQL Tabular Data Set Collection::Coco PostgreSQL Server 1::subscription_staging.coco_egeria__access_entitlements
+
+### Journal Entry
+Egeria Open Metadata and Governance subscribes to Access Entitlements: Open Metadata Catalogue Holdings depends on it (access and ownership).
+
+___
+
 ## Corporate Directory Entries
 
-1 subscriber(s): Coco Pharmaceuticals Operational Data Store (Coco core, daily refresh subscription).
+2 subscriber(s): Egeria Open Metadata and Governance (Coco core, daily refresh subscription), Coco Pharmaceuticals Operational Data Store (Coco core, daily refresh subscription).
 
 ___
 
@@ -4871,6 +4959,43 @@ LicenseType::Jacquard::LICENSE-TYPE-PERSONAL-DATA::Personal Information
 
 ### Subscription Service Level Objective
 ServiceLevelObjective::Jacquard::SLO-DAILY-REFRESH::A complete refresh of the product data is delivered to the product data's destination each day
+
+___
+
+## Create Element
+
+### Element Type Name
+TabularDataSetCollection
+
+### Template GUID
+3f9a0ab3-072c-4cb1-a14f-6e0492e00dd7
+
+### Placeholder Property Values
+- hostIdentifier: host.docker.internal
+- serverName: Coco PostgreSQL Server 1
+- portNumber: 5442
+- secretsCollectionName: PostgreSQL Provisioning Secret
+- secretsStorePathName: secrets/integration.omsecrets
+- versionIdentifier: V1.0
+- databaseName: subscription_staging
+- schemaName: coco_egeria__corporate_directory_entries
+- schemaDescription: Egeria Open Metadata and Governance (Coco core) copy of the Corporate Directory Entries digital product.  catalogue: fills actor profiles (names, job titles, phones), departments.
+
+___
+
+## Initiate Subscription
+
+### Subscription Type
+ProvisioningActionProcess::Corporate Directory Entries::Create Subscription::DAILY-REFRESH-SUBSCRIPTION
+
+### Subscription Requester
+Person::UK::986419
+
+### Destination Data Set
+PostgreSQL Tabular Data Set Collection::Coco PostgreSQL Server 1::subscription_staging.coco_egeria__corporate_directory_entries
+
+### Journal Entry
+Egeria Open Metadata and Governance subscribes to Corporate Directory Entries: catalogue: fills actor profiles (names, job titles, phones), departments.
 
 ___
 
@@ -5425,7 +5550,7 @@ ___
 
 ## Worker Master Data
 
-19 subscriber(s): Microsoft Active Directory (Austin, ongoing update subscription), Cornerstone OnDemand LMS (Austin, weekly refresh subscription), Microsoft Entra ID (Austin, ongoing update subscription), Microsoft 365 (Austin, weekly refresh subscription), UKG Dimensions (Austin, hourly refresh subscription), Workday Human Capital Management (Austin, hourly refresh subscription), Active Directory (Bucharest, ongoing update subscription), Kronos Workforce (Bucharest, hourly refresh subscription), Microsoft 365 (Bucharest, weekly refresh subscription), SAP Concur (Bucharest, hourly refresh subscription), Workday HCM (Bucharest, hourly refresh subscription), Canadian payroll (Coco core, hourly refresh subscription), Coco Expenses (Coco core, hourly refresh subscription), Human Resources Information Manager (HRIM) (Coco core, hourly refresh subscription), Netherlands payroll (Coco core, hourly refresh subscription), Coco Pharmaceuticals Operational Data Store (Coco core, daily refresh subscription), SecAdmin (Coco core, ongoing update subscription), UK payroll (Coco core, hourly refresh subscription), CocoPages (Coco core, ongoing update subscription).
+20 subscriber(s): Microsoft Active Directory (Austin, ongoing update subscription), Cornerstone OnDemand LMS (Austin, weekly refresh subscription), Microsoft Entra ID (Austin, ongoing update subscription), Microsoft 365 (Austin, weekly refresh subscription), UKG Dimensions (Austin, hourly refresh subscription), Workday Human Capital Management (Austin, hourly refresh subscription), Active Directory (Bucharest, ongoing update subscription), Kronos Workforce (Bucharest, hourly refresh subscription), Microsoft 365 (Bucharest, weekly refresh subscription), SAP Concur (Bucharest, hourly refresh subscription), Workday HCM (Bucharest, hourly refresh subscription), Canadian payroll (Coco core, hourly refresh subscription), Egeria Open Metadata and Governance (Coco core, daily refresh subscription), Coco Expenses (Coco core, hourly refresh subscription), Human Resources Information Manager (HRIM) (Coco core, hourly refresh subscription), Netherlands payroll (Coco core, hourly refresh subscription), Coco Pharmaceuticals Operational Data Store (Coco core, daily refresh subscription), SecAdmin (Coco core, ongoing update subscription), UK payroll (Coco core, hourly refresh subscription), CocoPages (Coco core, ongoing update subscription).
 
 ___
 
@@ -5999,6 +6124,43 @@ PostgreSQL Tabular Data Set Collection::Coco PostgreSQL Server 1::subscription_s
 
 ### Journal Entry
 Canadian payroll subscribes to Worker Master Data: Payroll Results depends on it (payroll record).
+
+___
+
+## Create Element
+
+### Element Type Name
+TabularDataSetCollection
+
+### Template GUID
+3f9a0ab3-072c-4cb1-a14f-6e0492e00dd7
+
+### Placeholder Property Values
+- hostIdentifier: host.docker.internal
+- serverName: Coco PostgreSQL Server 1
+- portNumber: 5442
+- secretsCollectionName: PostgreSQL Provisioning Secret
+- secretsStorePathName: secrets/integration.omsecrets
+- versionIdentifier: V1.0
+- databaseName: subscription_staging
+- schemaName: coco_egeria__worker_master_data
+- schemaDescription: Egeria Open Metadata and Governance (Coco core) copy of the Worker Master Data digital product.  catalogue: fills actor profiles (workers), actor roles, locations.
+
+___
+
+## Initiate Subscription
+
+### Subscription Type
+ProvisioningActionProcess::Worker Master Data::Create Subscription::DAILY-REFRESH-SUBSCRIPTION
+
+### Subscription Requester
+Person::UK::986419
+
+### Destination Data Set
+PostgreSQL Tabular Data Set Collection::Coco PostgreSQL Server 1::subscription_staging.coco_egeria__worker_master_data
+
+### Journal Entry
+Egeria Open Metadata and Governance subscribes to Worker Master Data: catalogue: fills actor profiles (workers), actor roles, locations.
 
 ___
 

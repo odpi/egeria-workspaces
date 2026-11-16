@@ -5,9 +5,8 @@
 
 > Loadable **Dr.Egeria** document that is the worked example in
 > `LOCAL_DASHBOARDS_TUTORIAL.md`. Creates a real Egeria Work Item List of the
-> open NEXT-10 punch-list items as Tasks, then a Dashboard Sheet that places
-> the `Work-Item-List-DrE-Basic` report spec so the list is browsable at
-> `/local-dashboards?sheet=local-dashboards-next-steps`.
+> open NEXT-10 punch-list items as Tasks, then the Dashboard Sheet that makes
+> the list browsable at `/local-dashboards?sheet=local-dashboards-next-steps`.
 >
 > **Run with VALIDATE first, then PROCESS.** `Add Member to Collection` steps
 > reference the Tasks/List by Display Name — they only resolve once those
@@ -16,15 +15,16 @@
 > earlier Creates have already landed in Egeria by the time each Add Member
 > step runs).
 >
-> **The two `Link Report to Dashboard Sheet` steps below are EXPECTED to
-> fail** with "Missing required attribute: 'Report Name'" — they still use
-> the original `Report Spec` attribute, which predates the hard cutover to
-> `Report Name` (a bare Report Spec can't carry fixed/scoped parameters; see
-> `LOCAL_DASHBOARDS_NEXT_STEPS_REPORTS.dr-egeria.md` and BACKLOG.md NEXT-14).
-> They're left as-is deliberately, as the worked example of the *original*
-> placement approach — run `LOCAL_DASHBOARDS_NEXT_STEPS_REPORTS.dr-egeria.md`
-> immediately afterward to create the two Reports and re-link them correctly;
-> that's what actually populates the Dashboard Sheet's placements.
+> **This file creates the Dashboard Sheet but places nothing on it.**
+> Placements come from `LOCAL_DASHBOARDS_NEXT_STEPS_REPORTS.dr-egeria.md`
+> (run it immediately afterward — the Local Dashboards batch does), which
+> creates the "Next Steps Work Item List" and "Next Steps Membership
+> Diagram" Reports and links them in. This file originally linked the
+> `Work-Item-List-DrE-Basic` and `Collections` Report Specs directly via a
+> `Report Spec` attribute; that predates the hard cutover of `Link Report to
+> Dashboard Sheet` to `Report Name` (a bare Report Spec can't carry
+> fixed/scoped parameters — see BACKLOG.md NEXT-14), so those two steps
+> failed validation on every run and were removed 2026-11-15.
 
 ___
 
@@ -211,41 +211,3 @@ The open punch list for the Local Dashboards / Egeria Overview feature, tracked 
 
 ___
 
-## Link Report to Dashboard Sheet
-> Link a Report Spec (placement) into a Dashboard Sheet.
-
-### Dashboard Sheet Name
-local-dashboards-next-steps
-
-### Report Spec
-Work-Item-List-DrE-Basic
-
-### Placement Span
-full
-
-### Placement Emphasis
-panel
-
-___
-
-
-## Link Report to Dashboard Sheet
-> Link a Report Spec (placement) into a Dashboard Sheet.
-
-### Dashboard Sheet Name
-local-dashboards-next-steps
-
-### Report Spec
-Collections
-
-### Metadata Element Type
-WorkItemList
-
-### Placement Span
-full
-
-### Placement Emphasis
-panel
-
-### Output Format
-REPORT

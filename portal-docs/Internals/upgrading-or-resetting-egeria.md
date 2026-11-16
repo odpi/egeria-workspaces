@@ -15,7 +15,7 @@ again to resume at the first step that is not done.
 
 ```bash
 cd compose-configs/egeria-quickstart/bin
-./egeria-upgrade-reset plan --latest                 # newest odpi/egeria-platform:latest, and clear the store
+./egeria-upgrade-reset plan --stable                 # newest released Egeria (odpi/egeria-platform:stable), and clear the store
 ./egeria-upgrade-reset plan --digest sha256:<digest> # a chosen platform build
 ./egeria-upgrade-reset plan --no-clear               # rebuild/upgrade only; keep the metadata store
 ./egeria-upgrade-reset apply --plan ../../../runtime-volumes/egeria-resets/<UTC> --dry-run   # list the steps; run nothing
@@ -287,5 +287,6 @@ It runs `infra-check --record --log runtime-volumes/egeria-resets/infra-check.lo
   `reset-egeria-db.sh --database egeria_freshstart --container …` there.
 - RE and EA are restarted only through their launcher scripts. Part 3 adds a maintenance mode to RE,
   which will replace stopping and restarting it.
-- The `--latest` digest comes from `docker buildx imagetools inspect`; without registry access, give
-  `--digest`.
+- The `--stable` digest comes from `docker buildx imagetools inspect`; without registry access, give
+  `--digest`. `--stable` resolves `odpi/egeria-platform:stable`, the newest released Egeria; for a
+  development (SNAPSHOT) build, give its `--digest`. `--latest` still works as the old name for `--stable`.

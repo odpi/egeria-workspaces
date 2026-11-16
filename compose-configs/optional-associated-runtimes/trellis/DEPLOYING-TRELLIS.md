@@ -76,7 +76,7 @@ platform tokens last one hour; an app session is the shorter of that and the app
 |---|---|---|
 | `TRELLIS_JWT_SECRET` | signs the apps' own session tokens; every RE/EA process on a box must share it | generate once per box: `openssl rand -hex 32` |
 | `ADVISOR_PORTAL_SECRET` / `TRELLIS_PORTAL_SECRET` | lets the Portal hand a signed-in user to EA and RE | the same value as the QuickStart's `EGERIA_ADVISOR_SSO_SECRET` |
-| `PGVECTOR_PASSWORD` | the `egeria_advisor` Postgres role | `shared-infra/docker-entrypoint-initdb.d/init_egeria.sql` (default `advisor`) |
+| `PGVECTOR_PASSWORD` | the `egeria_advisor` Postgres role. Required, no default (trellis TR-12): compose, RE and EA refuse to start without it | `compose-configs/shared-infra/.env` (`PGVECTOR_PASSWORD`): `gen-env.sh` generates it for a new install and `init_trellis.sh` creates the role with it. On an older install whose role was created with the well-known `advisor`, change it first (shared-infra README, "Setting or changing the egeria_advisor password") |
 | `GITHUB_TOKEN` | RE's GitHub API access for surveys and discovery | a personal token with read scope; without it GitHub's 60 calls/hour are gone in one survey |
 | `RE_DAEMON_USER_ID` / `RE_DAEMON_USER_PASSWORD` | RE's service account above (compose passes them as `EGERIA_USER_ID` / `EGERIA_USER_PASSWORD`) | `resourceexplorernpa`; its password from the QuickStart's user directory. Required, no default |
 | `EA_DAEMON_USER_ID` / `EA_DAEMON_USER_PASSWORD` | EA's service account above (compose passes them as `EGERIA_USER` / `EGERIA_PASSWORD`) | `egeriaadvisornpa`; its password from the QuickStart's user directory. Required, no default |
@@ -327,8 +327,9 @@ Minimum edits:
 | EA | `EGERIA_VIEW_SERVER_URL=https://localhost:9443`, `EGERIA_VIEW_SERVER=qs-view-server`, `EGERIA_USER` / `EGERIA_PASSWORD`; `OLLAMA_BASE_URL=http://localhost:11434`; `ADVISOR_DATA_PATH` to where EA's corpus should live |
 | optional | `ADVISOR_PORTAL_SECRET` / `RE_PORTAL_SECRET` equal to the QuickStart's `EGERIA_ADVISOR_SSO_SECRET` for tile handoff; `EXPLORER_MODEL_TIER` / `ADVISOR_MODEL_TIER` (default `dev`) |
 
-Postgres defaults (`localhost:5442`, database `egeria_advisor`, user `egeria_advisor`, password
-`advisor`) match `shared-infra`; override the `PGVECTOR_*` keys only if you changed the init SQL.
+Postgres defaults (`localhost:5442`, database `egeria_advisor`, user `egeria_advisor`) match `shared-infra`. There is
+**no default password**: set `PGVECTOR_PASSWORD` to the value in `compose-configs/shared-infra/.env` (see 1.4).
+Override the other `PGVECTOR_*` keys only if you changed the shared-infra init scripts.
 
 `TRELLIS_ANONYMOUS_READ=true` is a developer-only override that lets read-only requests through
 without a login. Do not use it on a demo box.
