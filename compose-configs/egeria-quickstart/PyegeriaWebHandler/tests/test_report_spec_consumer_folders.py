@@ -111,10 +111,19 @@ class _Egeria:
         self.platform_url = "https://test:9443"
         self.view_server = "test-view"
 
-    def get_collections_by_name(self, name, metadata_element_type=None, output_format=None):
-        if name == self.folder_qn and metadata_element_type == "CollectionFolder":
-            return [{"elementHeader": {"guid": PORTAL_GUID, "type": {"typeName": "CollectionFolder"}},
-                     "properties": {"qualifiedName": self.folder_qn}}]
+    def _folder(self) -> dict:
+        return {"elementHeader": {"guid": PORTAL_GUID, "type": {"typeName": "CollectionFolder"}},
+                "properties": {"qualifiedName": self.folder_qn}}
+
+    def get_element_by_unique_name(self, name, *_, **__):
+        # pyegeria 6.3.0+ finds a folder by Egeria's exact unique-name read (pyegeria.core.unique_name).
+        return self._folder() if name == self.folder_qn else "No elements found"
+
+    def get_collections_by_name(self, name, metadata_element_type=None, output_format=None, start_from=0,
+                                page_size=None, **_):
+        # pyegeria before 6.3.0 found the folder by this by-name search.
+        if name == self.folder_qn and metadata_element_type == "CollectionFolder" and not start_from:
+            return [self._folder()]
         return "No elements found"
 
     def get_collection_members(self, collection_guid=None, output_format=None, start_from=0, page_size=None, **_):
