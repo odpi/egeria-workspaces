@@ -6,7 +6,6 @@ create user marquez_user with superuser login password 'user4marquez';
 create user example_user with login password 'user4example';
 create user uc_user with superuser login password 'user4uc';
 create user mlflow_user with superuser login password 'mlflow_password';
-create user egeria_advisor with login password 'advisor';
 create user surveyor with login password 'surveyor4egeria';
 create user dagster_user with superuser login password 'user4dagster';
 create user prefect_user with superuser login password 'user4prefect';
@@ -21,7 +20,6 @@ create database examples;
 create database ucdb;
 create database hive_metastore;
 create database mlflow_db;
-create database egeria_advisor owner egeria_advisor;
 create database dagster;
 create database prefect;
 grant pg_monitor to surveyor;
@@ -35,7 +33,6 @@ grant all privileges on database examples to example_user, surveyor;
 alter database hive_metastore owner to egeria_admin;
 grant all privileges on database hive_metastore to egeria_admin, surveyor;
 grant all privileges on database mlflow_db to mlflow_user, surveyor;
-grant all privileges on database egeria_advisor to egeria_advisor, surveyor;
 
 grant all privileges on database dagster to dagster_user, surveyor;
 grant all privileges on database prefect to prefect_user, surveyor;
@@ -43,5 +40,4 @@ grant all privileges on database prefect to prefect_user, surveyor;
 \c egeria
 CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
 
-\c egeria_advisor
-CREATE EXTENSION IF NOT EXISTS vector;
+-- egeria_advisor (Trellis) is created by init_trellis.sh, with its password from PGVECTOR_PASSWORD.

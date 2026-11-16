@@ -140,6 +140,10 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: egeria
       PGDATA: /var/lib/postgresql/data/pgdata
+      # egeria_advisor's password, used only when the volume is first initialised
+      # (docker-entrypoint-initdb.d/init_trellis.sh). From .env; gen-env.sh
+      # generates one for a brand-new install. Empty = the role has no password.
+      PGVECTOR_PASSWORD: ${PGVECTOR_PASSWORD:-}
     logging:
       driver: "json-file"
       options:
