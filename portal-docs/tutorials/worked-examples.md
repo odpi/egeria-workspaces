@@ -68,16 +68,29 @@ than the name, which is why *Reported* is there.
 *Ran.* `Collection Members` lists the members of one collection, named by its GUID. Here the collection is
 the Portal's report-spec folder, `ReportSpecFolder::Consumer::Portal`.
 
+A GUID is different on every Egeria, so first look up the folder's GUID on yours. The `Collections` spec
+finds it by name; the *GUID* column holds it:
+
+```bash
+curl -sk -X POST https://localhost:8843/api/report-specs/execute -H 'Content-Type: application/json' \
+  -d '{"spec_name": "Collections", "output_format": "TABLE",
+       "params": {"search_string": "ReportSpecFolder::Consumer::Portal"}}'
+```
+
+Then run `Collection Members` with that GUID in place of `<portal-folder-guid>`:
+
 ```bash
 curl -sk -X POST https://localhost:8843/api/report-specs/execute -H 'Content-Type: application/json' \
   -d '{"spec_name": "Collection Members", "output_format": "TABLE",
-       "params": {"collection_guid": "fe5aad27-1587-4d4e-a7c0-ab806650a6e2"}}'
+       "params": {"collection_guid": "<portal-folder-guid>"}}'
 ```
 
-Output: 2 rows, *Resource Explorer - Curation Coverage* and *Analytic - Generic Metric Trend*, each with
-*Qualified Name* `ReportSpec::…`, *Type Name* `ReportSpec` and *Created By* `erinoverview`.
+Output: one row per report spec in the folder, each with *Qualified Name* `ReportSpec::…`, *Type Name*
+`ReportSpec` and *Created By* `erinoverview`. On 2026-11-16 that was 3 rows: *Saved Query Result*,
+*Resource Explorer - Curation Coverage* and *Analytic - Generic Metric Trend*.
 
-To put this on a dashboard you need a Report that stores the parameter. *Validated:*
+To put this on a dashboard you need a Report that stores the parameter, again with your folder's GUID.
+*Validated:*
 
 ```markdown
 ## Create Report
@@ -94,7 +107,7 @@ Collection Members
 TABLE
 
 ### Report Parameters
-collection_guid : fe5aad27-1587-4d4e-a7c0-ab806650a6e2
+collection_guid : <portal-folder-guid>
 ```
 
 ### R3. An analytic spec: a count, and a trend held in Egeria
