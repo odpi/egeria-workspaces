@@ -157,7 +157,7 @@ def _control_rows(element: dict) -> list:
                 "identifier":                cp.get("identifier") or "",
                 "controlDescription":        cp.get("description") or "",
                 "label":                     rp.get("label") or "",
-                "isApplicable":              rp.get("isApplicable"),
+                "isApplicable":              _as_bool(rp.get("isApplicable")),
                 "justification":             rp.get("justification") or "",
                 "inclusionReasons":          rp.get("inclusionReasons") or [],
                 "implementationStatus":      rp.get("implementationStatus") or "",
@@ -168,6 +168,15 @@ def _control_rows(element: dict) -> list:
             })
     rows.sort(key=lambda r: (_label_sort_key(r["label"]), r["displayName"].lower()))
     return rows
+
+
+def _as_bool(v):
+    """True/False/None; a "true"/"false" string (as markdown carries it) is read as the flag it names."""
+    if isinstance(v, bool) or v is None:
+        return v
+    if isinstance(v, str) and v.strip().lower() in ("true", "false"):
+        return v.strip().lower() == "true"
+    return None
 
 
 def _label_sort_key(label: str):

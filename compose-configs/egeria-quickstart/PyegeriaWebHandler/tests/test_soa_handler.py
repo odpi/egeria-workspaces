@@ -235,3 +235,54 @@ def test_detail_asks_for_full_mermaid(client):
     fake = _SO(detail=SOA_WITH_CONTROLS)
     client(fake).get("/api/statements-of-applicability/soa-guid")
     assert fake.calls[0]["max_mermaid_node_count"] == 250
+
+
+# ── the Coco sample (coco-workbooks/4. keeping-safe/statement-of-applicability.md) ──
+# Label, control, Is Applicable, Implementation Status as that workbook writes them through
+# Dr.Egeria's Link Control Applicability (properties label/isApplicable/implementationStatus/...).
+WORKBOOK_ROWS = [
+    ("A.5.1", True, "IMPLEMENTED"), ("A.5.9", True, "PARTIALLY_IMPLEMENTED"),
+    ("A.5.12", True, "PARTIALLY_IMPLEMENTED"), ("A.5.15", True, "PARTIALLY_IMPLEMENTED"),
+    ("A.5.19", True, "PARTIALLY_IMPLEMENTED"), ("A.5.24", True, "IMPLEMENTED"),
+    ("A.6.3", True, "IMPLEMENTED"), ("A.7.4", True, "IMPLEMENTED"), ("A.8.7", True, "IMPLEMENTED"),
+    ("A.8.8", True, "PLANNED"), ("A.8.13", True, "IMPLEMENTED"),
+    ("A.8.16", True, "PARTIALLY_IMPLEMENTED"), ("A.8.20", True, "PARTIALLY_IMPLEMENTED"),
+    ("A.8.25", True, "PLANNED"), ("A.8.30", False, None),
+]
+
+
+def _workbook_soa():
+    rels = []
+    for label, applicable, status in reversed(WORKBOOK_ROWS):      # stored order is not label order
+        rp = {"label": label, "isApplicable": applicable, "justification": "why",
+              "inclusionReasons": ["Best Practice", "Business Requirement"], "reviewDate": "2026-11-16"}
+        if status:
+            rp["implementationStatus"] = status
+            rp["implementationDescription"] = "what we do"
+        rels.append(_rel("ControlApplicability", "c-" + label, {"displayName": label}, rp))
+    soa = _soa(rels=rels, name="Coco Pharmaceuticals ISMS Statement of Applicability")
+    soa["properties"]["qualifiedName"] = "CocoPharma::StatementOfApplicability::ISMS"
+    soa["properties"]["reviewDate"] = "2026-11-16"
+    return soa
+
+
+def test_workbook_sample_summary_matches_the_workbook(client):
+    d = client(_SO(detail=_workbook_soa())).get("/api/statements-of-applicability/soa-guid").json()
+    s = d["summary"]
+    assert (s["total"], s["applicable"], s["notApplicable"], s["statusUnset"]) == (15, 14, 1, 0)
+    assert {k: v for k, v in s["byStatus"].items() if v} == {
+        "IMPLEMENTED": 6, "PARTIALLY_IMPLEMENTED": 6, "PLANNED": 2}
+
+
+def test_workbook_labels_sort_in_annex_order(client):
+    d = client(_SO(detail=_workbook_soa())).get("/api/statements-of-applicability/soa-guid").json()
+    assert [r["label"] for r in d["controls"]] == [r[0] for r in WORKBOOK_ROWS]
+    na = d["controls"][-1]
+    assert (na["label"], na["isApplicable"], na["implementationStatus"]) == ("A.8.30", False, "")
+    assert d["controls"][0]["inclusionReasons"] == ["Best Practice", "Business Requirement"]
+
+
+@pytest.mark.parametrize("raw,expected", [(True, True), (False, False), (None, None),
+                                          ("true", True), ("false", False), ("False", False), ("maybe", None)])
+def test_is_applicable_string_flags_are_read_as_flags(raw, expected):
+    assert sh._as_bool(raw) is expected
