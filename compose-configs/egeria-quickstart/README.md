@@ -65,7 +65,7 @@ File system volumes are mounted for:
     * **landing-area**: a convenient drop off point for files and folders you want to survey, analyze and perhaps catalog with Egeria.
     * **distribution-hub**: an area where information created by Egeria (such as logs and survey information) can be easily exposed.
     * **work**: a place for you to put your code and other artifacts.
-    * **workbooks**: an area where we have put some Jupyter notebooks and related information to help you complete common tasks with Egeria. 
+    * **workbooks**: an area where we have put some Jupyter notebooks and related information to help you complete common tasks with Egeria.
 
 ## Postgresql - configured for Egeria
 
@@ -187,12 +187,14 @@ primary key and comments as the product's table in `coco_data_hub`, followed by 
 A delivery is an upsert on the product's primary key that resets `processing_status` to `delivered`. The
 `provisioner` user reads and writes every subscription table; `surveyor` reads them.
 
-The subscriptions (249, from 63 subscribing systems to 56 products) are listed in
+The subscriptions (252, from 64 subscribers to 57 products) are listed in
 `coco-workbooks/1. coco-data-hub/mapping-the-systems/data/product-subscriptions.csv`. A system subscribes to a
 product when it implements a solution component whose own product depends on that product (one row per
 system and product, whatever the number of dependencies), in all three estates; `coco_ods` and `coco_sus`
 subscribe to the products that fill their reporting tables
-(see `coco-workbooks/1. coco-data-hub/reporting-subscription-gaps.md` for what no product supplies).
+(see `coco-workbooks/1. coco-data-hub/reporting-subscription-gaps.md` for what no product supplies). Egeria
+subscribes too (subscriber database and schema `egeria`, staging schemas `coco_egeria__*`), to the three products
+that fill its catalogue of people and organization.
 `data/subscription_staging.sql` is generated from the product definitions and that list:
 
 ```bash

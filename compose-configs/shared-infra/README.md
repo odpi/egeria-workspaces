@@ -40,6 +40,20 @@ The `egeria_advisor` database is created at first startup with pgvector already 
 All other databases have pgvector available but not enabled — run `CREATE EXTENSION IF NOT EXISTS vector;` in any database
 that needs it.
 
+### Egeria operational data store (egeria_ods)
+
+The `egeria_ods` database receives Egeria's open metadata digital products - one table per product - so that the
+content of the open metadata ecosystem can be queried with SQL. Both the quickstart and the freshstart environments
+use it. It is created empty by `docker-entrypoint-initdb.d/init_egeria_ods.sql`, along with the `provisioner` user
+that Egeria's provisioning services deliver the products with. Cataloguing the database and taking out the
+subscriptions that fill it - one for each top-level product family, each with its own schema - is done by `workbooks/subscribing-to-digital-products/build-egeria-ods.ipynb` in
+freshstart, and by `coco-workbooks/1. coco-data-hub/egeria-operational-data-store.md` in quickstart.
+
+The scripts in `docker-entrypoint-initdb.d` run only when the server's data volume is first created, so
+`ensure-shared-infra.sh` runs `init_egeria_ods.sql` again on every start to add the database to a server that
+predates it. The script creates only what is missing. To add another database later, write its script the same way
+and add it to `SHARED_POSTGRES_UPDATE_SCRIPTS` in `ensure-shared-infra.sh`.
+
 ### Query statistics (pg_stat_statements)
 
 PostgreSQL starts with `pg_stat_statements` preloaded and `track_activity_query_size=16384`, so slow or frequent

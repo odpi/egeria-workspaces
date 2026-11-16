@@ -1,0 +1,9 @@
+site_code,location_qualified_name,note
+AMS,Site::AMS-SITE,Amsterdam
+LON,Site::LDN-SITE,London
+NYC,Site::NY-SITE,New York
+WIN,Site::WINCH-SITE,Winchester
+EDM,Site::ED-SITE,Edmonton
+KCY,Site::KC-SITE,Kansas City
+US10,Site::AUS-SITE,Austin plant
+RO10,Site::BUC-SITE,Bucharest (EKG Pharmaceuticals)
