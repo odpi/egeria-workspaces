@@ -95,6 +95,9 @@ def _tracked_text_files():
 
 
 def test_no_tracked_file_carries_the_old_provisioner_password():
+    import pytest
+    if not (REPO / ".git").exists():
+        pytest.skip("not a git checkout (e.g. a git archive copy); `git grep` the literal instead")
     hits = [str(p.relative_to(REPO)) for p in _tracked_text_files()
             if OLD_PROVISIONER_PASSWORD in p.read_text(errors="replace")]
     assert not hits, "the old provisioner password is back (use PROVISIONER_PASSWORD):\n" + "\n".join(hits)
@@ -104,6 +107,8 @@ def test_the_ods_init_script_sets_provisioner_from_the_environment():
     sql = (SHARED_INFRA / "docker-entrypoint-initdb.d" / "init_egeria_ods.sql").read_text()
     assert "\\getenv prov_password PROVISIONER_PASSWORD" in sql
     assert "ALTER ROLE provisioner WITH PASSWORD :'prov_password';" in sql
+    # R1: the client-interpolated password must not reach pg_stat_statements' query-text file.
+    assert sql.index("SET pg_stat_statements.track_utility = off;") < sql.index("ALTER ROLE provisioner WITH PASSWORD")
     ensure = (SHARED_INFRA / "ensure-shared-infra.sh").read_text()
     assert "-e PROVISIONER_PASSWORD egeria-shared-postgres" in ensure  # by name: the value is not on a command line
 

@@ -59,6 +59,10 @@ Its password is `PROVISIONER_PASSWORD` from `shared-infra/.env`. **There is no d
   the placeholder `__PROVISIONER_PASSWORD__`) and into Airflow's connection (`export-provisioner-password.sh`).
   After a rotation, restart Airflow the same way (`quick-start-local --with-airflow-marquez`, or `switch-lineage.sh`),
   or its `coco_data_hub` loads fail to sign in.
+- `airflow-marquez.yaml` refuses to run without `PROVISIONER_PASSWORD` in the environment, so EVERY compose command on
+  that file (`up`, `down`, `ps`, `config`, …) needs it exported first: `source ../../shared-infra/export-provisioner-password.sh`.
+- Use letters and digits only (as the generated value is). The value is written as it is into YAML and into Airflow's
+  connection URI, where other characters can break them.
 - Before this change the role had a well-known password. The first start after it rotates that password, the Egeria
   secrets and the Airflow connection together. Writing to the shared Postgres affects other users, so tell them first.
 

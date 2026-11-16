@@ -144,7 +144,13 @@ def main(argv: list[str]) -> int:
     if len(args) != 2:
         print(__doc__.strip().splitlines()[2].strip(), file=sys.stderr)
         return 2
-    missing = install(Path(args[0]), Path(args[1]), placeholder_values(), keep_existing=keep_existing)
+    values = placeholder_values()
+    for name, value in values.items():
+        if value and not value.isalnum():
+            # Written as it is into YAML (and, for PROVISIONER_PASSWORD, into Airflow's connection URI).
+            print(f"[install-secrets] WARNING: {name} has characters other than letters and digits; it may break the "
+                  f"secrets file or Airflow's connection. Use letters and digits only.", file=sys.stderr)
+    missing = install(Path(args[0]), Path(args[1]), values, keep_existing=keep_existing)
     for name in missing:
         print(f"[install-secrets] WARNING: could not fill in {name}; that secret cannot sign in. Check "
               f"compose-configs/shared-infra/.env (run compose-configs/shared-infra/gen-env.sh), then run this again.",

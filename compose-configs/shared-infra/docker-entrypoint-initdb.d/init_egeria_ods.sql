@@ -39,7 +39,12 @@ SELECT :'prov_password' <> '' AS have_provisioner_password \gset
     CREATE ROLE provisioner WITH LOGIN;
 \endif
 \if :have_provisioner_password
+    -- psql puts the value into the statement text on the client side, so keep this statement out of
+    -- pg_stat_statements (preloaded on some installs), whose query-text file would otherwise hold the password.
+    -- A dotted name is accepted even when the extension is not loaded. Superuser only: this script runs as postgres.
+    SET pg_stat_statements.track_utility = off;
     ALTER ROLE provisioner WITH PASSWORD :'prov_password';
+    RESET pg_stat_statements.track_utility;
 \endif
 \unset prov_password
 

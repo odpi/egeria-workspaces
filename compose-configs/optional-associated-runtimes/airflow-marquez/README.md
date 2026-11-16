@@ -84,7 +84,8 @@ going:
 (it is `PROVISIONER_PASSWORD` in `compose-configs/shared-infra/.env`; there is no default, and the compose file refuses to
 start without it):
 `source ../../shared-infra/export-provisioner-password.sh`
-(`quick-start-local --with-airflow-marquez`, `airflow.sh` and `switch-lineage.sh` do this for you.)
+(`quick-start-local --with-airflow-marquez`, `airflow.sh` and `switch-lineage.sh` do this for you.) Every other compose
+command on `airflow-marquez.yaml` (`down`, `ps`, `logs`, `config`, …) needs it exported too.
 1. Build the Airflow image with useful python packages and initialize Airflow:
 `docker compose -f airflow-marquez.yaml up airflow-init --build`
 2. Start up all the containers:

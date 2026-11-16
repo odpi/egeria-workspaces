@@ -96,6 +96,12 @@ for update_script in "${SHARED_POSTGRES_UPDATE_SCRIPTS[@]}"; do
     echo "[shared-infra] Postgres is up to date with ${update_script}."
   else
     echo "[shared-infra] WARNING: could not apply ${update_script} to Postgres." >&2
+    if [[ "$update_script" == init_egeria_ods.sql && -n "${PROVISIONER_PASSWORD:-}" ]]; then
+      # The start scripts give Egeria's secrets and Airflow the value in .env; if this failed, the role may still
+      # have its previous password, so provisioning and the coco_data_hub loads would fail to sign in (TR-28 R2).
+      echo "[shared-infra] WARNING: the provisioner role's password may NOT have been set from PROVISIONER_PASSWORD in .env," >&2
+      echo "[shared-infra]          but Egeria's secrets and Airflow are given that value. Fix the error above and start again." >&2
+    fi
   fi
 done
 
