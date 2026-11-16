@@ -36,6 +36,11 @@ fi
 # appears on a command line.
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres <<'EOSQL'
 \getenv adv_password PGVECTOR_PASSWORD
+-- Unset (not just empty) leaves the variable undefined, and :'adv_password' would abort initdb.
+\if :{?adv_password}
+\else
+    \set adv_password ''
+\endif
 SELECT NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'egeria_advisor') AS need_role \gset
 SELECT coalesce(:'adv_password', '') <> '' AS have_password \gset
 \if :need_role
