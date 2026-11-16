@@ -36,7 +36,13 @@ also default to `8000`.
 PostgreSQL runs from the `pgvector/pgvector:pg17` image, which includes the pgvector extension pre-installed. This enables
 vector similarity search in any database where the extension is activated.
 
-The `egeria_advisor` database is created at first startup with pgvector already enabled, owned by the `egeria_advisor` user.
+The `egeria_advisor` database (used by Trellis: Resource Explorer, Egeria Advisor and Studio) is created at first startup
+by `docker-entrypoint-initdb.d/init_trellis.sh`, with pgvector already enabled and owned by the `egeria_advisor` user.
+Its password is `PGVECTOR_PASSWORD` from `shared-infra/.env`. **There is no default password.**
+- On a brand-new install, `gen-env.sh` generates a random `PGVECTOR_PASSWORD` into `.env` (mode 600).
+- To choose your own instead, set `PGVECTOR_PASSWORD` in the environment or in `.env` before the first start.
+- Give Trellis the same value as its `PGVECTOR_PASSWORD`. Trellis refuses to start without it.
+- If it is empty at first start, the role is created without a password and cannot log in until you set one (below).
 All other databases have pgvector available but not enabled — run `CREATE EXTENSION IF NOT EXISTS vector;` in any database
 that needs it.
 
@@ -151,21 +157,33 @@ automatically the next time `ensure-shared-infra.sh` runs — your existing data
 `egeria-shared-infra_shared_postgres_data` Docker volume, which is independent of the container image.
 
 However, the `egeria_advisor` database is not created automatically on an existing volume (init scripts only run on first
-start). Run the following commands once after the image upgrade to create it:
+start).
+
+#### Creating egeria_advisor on an existing volume
+Run the same init script once, with the password in your shell's environment. `-e PGVECTOR_PASSWORD` with no value
+passes it through, so it never appears on a command line:
 
 ```bash
-docker exec egeria-shared-postgres psql -U postgres -p 5442 \
-  -c "CREATE USER egeria_advisor WITH LOGIN PASSWORD 'advisor';"
-
-docker exec egeria-shared-postgres psql -U postgres -p 5442 \
-  -c "CREATE DATABASE egeria_advisor OWNER egeria_advisor;"
-
-docker exec egeria-shared-postgres psql -U postgres -p 5442 \
-  -c "GRANT ALL PRIVILEGES ON DATABASE egeria_advisor TO egeria_advisor;"
-
-docker exec egeria-shared-postgres psql -U postgres -p 5442 -d egeria_advisor \
-  -c "CREATE EXTENSION IF NOT EXISTS vector;"
+export PGVECTOR_PASSWORD='<choose a password>'   # or: set -a; . compose-configs/shared-infra/.env; set +a
+docker exec -e PGVECTOR_PASSWORD -e PGPORT=5442 egeria-shared-postgres \
+  bash /docker-entrypoint-initdb.d/init_trellis.sh
 ```
+
+The script is idempotent. It creates only what is missing, and it never changes the password of a role that already
+exists.
+
+#### Setting or changing the egeria_advisor password
+For example, a role created with no password, or one still on the old `advisor` default:
+
+```bash
+docker exec -i -e PGVECTOR_PASSWORD egeria-shared-postgres psql -U postgres -p 5442 -d postgres <<'EOSQL'
+\getenv p PGVECTOR_PASSWORD
+ALTER ROLE egeria_advisor WITH PASSWORD :'p';
+EOSQL
+```
+
+Then put the same value in `shared-infra/.env` (`PGVECTOR_PASSWORD=`) and in Trellis's environment, and restart Trellis.
+Installs made before this change created the role with the password `advisor`. Change it this way.
 
 ## Validation and rollback
 
