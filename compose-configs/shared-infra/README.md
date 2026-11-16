@@ -164,7 +164,8 @@ Run the same init script once, with the password in your shell's environment. `-
 passes it through, so it never appears on a command line:
 
 ```bash
-export PGVECTOR_PASSWORD='<choose a password>'   # or: set -a; . compose-configs/shared-infra/.env; set +a
+read -rs PGVECTOR_PASSWORD && export PGVECTOR_PASSWORD   # typed, not echoed, not in shell history
+# or: set -a; . compose-configs/shared-infra/.env; set +a
 docker exec -e PGVECTOR_PASSWORD -e PGPORT=5442 egeria-shared-postgres \
   bash /docker-entrypoint-initdb.d/init_trellis.sh
 ```
@@ -182,7 +183,10 @@ ALTER ROLE egeria_advisor WITH PASSWORD :'p';
 EOSQL
 ```
 
+Set `PGVECTOR_PASSWORD` first the same way (`read -rs PGVECTOR_PASSWORD && export PGVECTOR_PASSWORD`).
 Then put the same value in `shared-infra/.env` (`PGVECTOR_PASSWORD=`) and in Trellis's environment, and restart Trellis.
+If your Trellis keeps its password in a separate secrets file, leave `PGVECTOR_PASSWORD` in `shared-infra/.env` empty:
+it is used only when the volume is first created, and one source is easier to rotate.
 Installs made before this change created the role with the password `advisor`. Change it this way.
 
 ## Validation and rollback
