@@ -555,6 +555,7 @@ Boundary.prototype.render = function() {
 var TERMS = {
   flavour: { label: 'Flavour', def: 'How curated a resource is. Hub: a member of a data sharing hub, so it is authoritative and kept up to date. Product: a digital product, or a member of one. Known: anything else Egeria knows about. A resource shows the highest that applies.' },
   kind: { label: 'Kind', def: 'What sort of resource it is (table, schema, file, report…), worked out from its Egeria type. Columns and attributes, and Data fields, are parts of resources rather than resources. Glossary terms are not resources either, so All leaves them out: pick Glossary terms to search them. Pick several kinds to search them together.' },
+  category: { label: 'Category', def: 'The element\u2019s category property: a free-text name an author gives to group elements, matched exactly. Few resources have one yet; glossary terms and products use it more.' },
   term: { label: 'Glossary term', def: 'A word or phrase in a glossary, with what it means. A term opens in Egeria Explorer\u2019s glossary, which shows the glossary and folders that hold it.' },
   dataScope: { label: 'Data scope', def: 'The DataScope classification on a resource: the time and place its data covers (when it was collected, when it is valid, what period it covers, and a latitude, longitude and height box). Data lenses are matched against it. Set it in The Catalog.' },
   notComparable: { label: 'Cannot be compared', def: 'The resource records none of the dimensions the lens uses (for example the lens asks for a place and the resource records only a time), so it is neither inside nor outside the lens. It is counted on its own, never as outside.' },
@@ -1485,6 +1486,7 @@ function ResultRow({ row, idx, extras, showMatched, inLists, extra }) {
       : el('div', { className: 'd rb-absent' }, 'No description.'),
     el('div', { className: 'rb-row m' },
       el('span', null, 'owner: ', row.owner ? el('b', null, row.owner) : el('i', null, 'not recorded')),
+      row.category && el('span', null, 'category: ', el('b', null, row.category)),
       el('span', null, 'last updated by ', el('b', null, row.updatedBy || 'unknown'),
         row.automated ? el(React.Fragment, null, ' (automation', el(Help, { term: 'automation' }), ')') : '', ' · ', fmtDate(row.updateTime)),
       showMatched && row.matched.length > 0 && el('span', null, 'matched', el(Help, { term: 'matched' }), ': ' + row.matched.join('; ')),
@@ -1564,6 +1566,26 @@ function uniqueValues(rows, pick) {
   return Object.keys(s).sort(function(a, b) { return a.toLowerCase() < b.toLowerCase() ? -1 : 1; });
 }
 
+// Category (the element's category property, matched exactly): the choices are the loaded rows'
+// categories, plus NO_CATEGORY when some row has none. '' means any category.
+var NO_CATEGORY = '(no category)';
+function categoryOptions(rows) {
+  var named = uniqueValues(rows, function(r) { return r.category ? [r.category] : []; });
+  var blank = rows.some(function(r) { return !r.category; });
+  return named.length ? (blank ? named.concat([NO_CATEGORY]) : named) : [];
+}
+function inCategory(row, cat) {
+  return !cat || (cat === NO_CATEGORY ? !row.category : row.category === cat);
+}
+
+function CategorySelect({ value, options, onChange }) {
+  return el('span', { className: 'rb-row', style: { gap: 2 } },
+    el('select', { className: 'rb-select', value: value, onChange: function(e) { onChange(e.target.value); }, disabled: !options.length && !value },
+      el('option', { value: '' }, options.length ? 'any category' : 'no categories here'),
+      options.map(function(c) { return el('option', { key: c, value: c }, c); })),
+    el(Help, { term: 'category' }));
+}
+
 // The kinds a search is narrowed to, from the URL's kind=table,schema; [] for All.
 function pickedKinds(kind) {
   return (kind || '').split(',').map(function(k) { return k.trim(); }).filter(Boolean);
@@ -1583,7 +1605,7 @@ function SearchPage({ q, kind, creds }) {
   var _i = useState([]), items = _i[0], setItems = _i[1];
   var _e = useState(''), err = _e[0], setErr = _e[1];
   var _l = useState(false), loading = _l[0], setLoading = _l[1];
-  var _f = useState({ flavour: '', owner: '', badge: '', scope: false }), filt = _f[0], setFilt = _f[1];
+  var _f = useState({ flavour: '', owner: '', badge: '', category: '', scope: false }), filt = _f[0], setFilt = _f[1];
 
   function load(page) {
     setLoading(true); setErr('');
@@ -1602,7 +1624,7 @@ function SearchPage({ q, kind, creds }) {
     }).catch(function(e) { setErr(e.message); }).finally(function() { setLoading(false); });
   }
   useEffect(function() {
-    setItems([]); setData(null); setFilt({ flavour: '', owner: '', badge: '', scope: false });
+    setItems([]); setData(null); setFilt({ flavour: '', owner: '', badge: '', category: '', scope: false });
     document.title = (q ? q + ' · ' : '') + 'Search · Resource Locator';
     if (q) load(0);
   }, [q, kind, creds && creds.token]);
@@ -1611,12 +1633,14 @@ function SearchPage({ q, kind, creds }) {
     if (filt.flavour && rowFlavour(idx, r) !== filt.flavour) return false;
     if (filt.owner && (r.owner || '(not recorded)') !== filt.owner) return false;
     if (filt.badge && r.badges.indexOf(filt.badge) < 0) return false;
+    if (!inCategory(r, filt.category)) return false;
     if (filt.scope && !r.hasScope) return false;
     return true;
   });
   var owners = uniqueValues(items, function(r) { return [r.owner || '(not recorded)']; });
   var badges = uniqueValues(items, function(r) { return r.badges; });
-  var filtering = filt.flavour || filt.owner || filt.badge || filt.scope;
+  var categories = categoryOptions(items);
+  var filtering = filt.flavour || filt.owner || filt.badge || filt.category || filt.scope;
   function set(k, v) { var n = Object.assign({}, filt); n[k] = v; setFilt(n); }
 
   if (!q) return el('div', { className: 'rb-page' }, el('div', { className: 'rb-absent' }, 'Type a word in the search box above.'));
@@ -1642,9 +1666,10 @@ function SearchPage({ q, kind, creds }) {
       el('select', { className: 'rb-select', value: filt.badge, onChange: function(e) { set('badge', e.target.value); }, disabled: !badges.length },
         el('option', { value: '' }, badges.length ? 'any classification' : 'no classifications here'),
         badges.map(function(b) { return el('option', { key: b, value: b }, b); })),
+      el(CategorySelect, { value: filt.category, options: categories, onChange: function(v) { set('category', v); } }),
       el('label', { className: 'rb-note', style: { display: 'flex', gap: 4, alignItems: 'center' } },
         el('input', { type: 'checkbox', checked: filt.scope, onChange: function(e) { set('scope', e.target.checked); } }), 'has a data scope', el(Help, { term: 'dataScope' })),
-      filtering && el('button', { className: 'rb-edit', onClick: function() { setFilt({ flavour: '', owner: '', badge: '', scope: false }); } }, 'Clear')),
+      filtering && el('button', { className: 'rb-edit', onClick: function() { setFilt({ flavour: '', owner: '', badge: '', category: '', scope: false }); } }, 'Clear')),
     err && el('div', { className: 'rb-err', style: { marginBottom: 10 } }, 'Search failed: ' + err),
     data && el('div', { className: 'rb-note', style: { marginBottom: 10 } },
       filtering ? shown.length + ' of ' + items.length + ' loaded results match these filters (the filters apply to loaded results only). '
@@ -2315,7 +2340,10 @@ function BrowsePage({ facet, value, lens, creds }) {
   }, [f.id, effective, lens, tick, creds && creds.token]);
   function setLens(g) { navigate(Object.assign({ browse: f.id, value: effective }, g ? { lens: g } : {})); }
   function togglePick(id) { var n = Object.assign({}, picked); n[id] = !n[id]; setPicked(n); }
-  var shownRows = list ? lensRows(list.items, picked) : [];
+  var _c = useState(''), cat = _c[0], setCat = _c[1];
+  useEffect(function() { setCat(''); }, [f.id, effective]);
+  var shownRows = list ? lensRows(list.items, picked).filter(function(r) { return inCategory(r, cat); }) : [];
+  var listCategories = list ? categoryOptions(list.items) : [];
 
   return el('div', { className: 'rb-page' },
     el('div', { className: 'rb-row', style: { gap: 6, marginBottom: 14 } },
@@ -2362,16 +2390,20 @@ function BrowsePage({ facet, value, lens, creds }) {
           return el('button', { key: sf.guid, className: 'rb-facet', onClick: function() { navigate({ browse: 'folder', value: sf.guid }); } }, '\ud83d\udcc1 ' + sf.displayName);
         })),
       list.items.length > 0 && el(LensBar, { list: list, lensGuid: lens, creds: creds, picked: picked, onPick: togglePick, onLens: setLens }),
+      listCategories.length > 0 && el('div', { className: 'rb-row', style: { gap: 8, marginBottom: 10 } },
+        el('span', { className: 'rb-note' }, 'Narrow by category:'),
+        el(CategorySelect, { value: cat, options: listCategories, onChange: setCat }),
+        cat && el('span', { className: 'rb-note' }, shownRows.length + ' shown')),
       list.items.length === 0 && !list.note && !list.loading && !(list.subfolders && list.subfolders.length) && el('div', { className: 'rb-absent' }, 'No resource visible to you is here.'),
       list.items.length > 0 && el('div', { className: 'rb-note', style: { marginBottom: 8 } },
-        (list.lens ? shownRows.length + ' of ' : '') + (list.capped ? 'at least ' : '') + list.items.length + (list.notShownTypes ? ' item' : ' resource') + (list.items.length === 1 ? '' : 's') +
+        (list.lens || cat ? shownRows.length + ' of ' : '') + (list.capped ? 'at least ' : '') + list.items.length + (list.notShownTypes ? ' item' : ' resource') + (list.items.length === 1 ? '' : 's') +
         (list.lens ? ' shown for the lens \u201c' + list.lens.displayName + '\u201d' : '') + '. ' + (list.order || '')),
       list.loading && el('div', { className: 'center', style: { height: 90 } }, el('div', { className: 'spinner' }), 'Counting every resource\u2026'),
       list.refreshing && el('div', { className: 'rb-note', style: { marginBottom: 8 } }, 'A newer count is being made in the background; this is the last one.'),
       list.scopeListsAsOf && list.scopeListsAsOf.noneAsOf && el('div', { className: 'rb-note', style: { marginBottom: 8 } },
         'The recorded list is as of ' + fmtDate(list.scopeListsAsOf.recordedAsOf) + ' and the full resource read as of ' + fmtDate(list.scopeListsAsOf.noneAsOf) +
         ': a resource scoped in between may sit in neither list, or both, until both refresh (10 minutes).'),
-      el(ResultList, { key: (lens || '') + JSON.stringify(picked), rows: shownRows, creds: creds, idx: idx, showMatched: !!list.lens,
+      el(ResultList, { key: (lens || '') + JSON.stringify(picked) + '|' + cat, rows: shownRows, creds: creds, idx: idx, showMatched: !!list.lens,
         renderExtra: list.lens ? function(r) {
           var o = r.lensOutcome || {};
           return el('span', { className: 'rb-chip', title: TERMS[o.outcome === 'notComparable' ? 'notComparable' : o.outcome === 'notRead' ? 'scopeNotRead' : 'dataLens'].def },

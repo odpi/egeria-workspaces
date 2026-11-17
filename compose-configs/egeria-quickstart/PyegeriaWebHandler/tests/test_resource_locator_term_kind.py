@@ -109,3 +109,10 @@ def test_any_rows_keeps_resources_terms_and_parts_and_names_the_rest():
     assert [(r["guid"], r["kind"]) for r in rows] == [("r1", "table"), ("t1", "term"), ("c1", "attribute")]
     assert rows[2]["partOf"] is None and rows[2]["partOfKnown"] is False
     assert not_shown == {"GovernanceActionType": 2}
+
+
+def test_rows_carry_the_category_property():
+    el = _el("r2", "RelationalTable", ["SchemaAttribute", "DataAsset"], "visits", category=" Customer Domain ")
+    assert rb._row(el)["category"] == "Customer Domain"
+    assert rb._row(_TABLE)["category"] == ""
+    assert rb._term_row(_el("t2", "GlossaryTerm", ["Referenceable"], "Visit", category="Clinical Trials"))["category"] == "Clinical Trials"

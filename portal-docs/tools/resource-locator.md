@@ -30,7 +30,7 @@ A search matches names, qualified names and descriptions, and also:
 
 **Glossary terms** are not resources, so **All** leaves them out: about 1,500 terms would crowd resources out of the results. Pick **Glossary terms** to search them, on their own or with other kinds. When terms also match an All search, the page says how many and how to see them. A term row shows its summary and its content status, and opens the term in Egeria Explorer's glossary, which shows the glossary and folders that hold it. The row does not name its glossary: Egeria does not carry that on the term itself.
 
-Each result row shows why it matched, its tags, likes and rating summary, and **in N of your lists** when you have already saved it. **Narrow these results** filters the loaded results by flavour, owner, classification, or whether the resource records a data scope.
+Each result row shows why it matched, its tags, likes and rating summary, and **in N of your lists** when you have already saved it. **Narrow these results** filters the loaded results by flavour, owner, classification, **category**, or whether the resource records a data scope. Category is the element's own category property, a free-text name its author gives, matched exactly; the choices are the categories of the loaded results, plus "(no category)". Few resources on a new system have one. Browse lists that hold categorised rows (a folder, a keyword) offer the same choice.
 
 Ordering is by text relevance only. Egeria cannot rank by use yet, and the page says so.
 

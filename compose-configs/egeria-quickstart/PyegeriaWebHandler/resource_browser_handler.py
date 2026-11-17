@@ -1549,6 +1549,7 @@ def _row(el: dict, any_type: bool = False) -> Optional[dict]:
         "displayName": _display_name(props, guid),
         "qualifiedName": props.get("qualifiedName", ""),
         "description": desc if len(desc) <= 400 else desc[:397] + "…",
+        "category": (props.get("category") or "").strip(),
         "owner": _owner(cls),
         "badges": [c["name"] for c in cls if c["name"] in _BADGES],
         "dataScope": _data_scope(cls),
