@@ -60,3 +60,9 @@ def test_scope_lens_and_help_are_documented_and_linked():
     page = (_HANDLER_DIR / "resource-browser.html").read_text(encoding="utf-8")
     src = re.search(r"var DOCS_URL = '/docs/viewer\.html\?src=([^']+)'", page).group(1)
     assert (_DOCS / src).exists(), src
+
+
+def test_classification_label_is_documented_and_the_old_id_is_explained():
+    doc = _doc()
+    assert "**Tag, Classification**" in doc and "Badge" not in doc
+    assert "`badge`" in doc

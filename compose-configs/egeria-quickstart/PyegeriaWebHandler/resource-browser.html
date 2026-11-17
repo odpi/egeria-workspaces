@@ -550,7 +550,7 @@ var TERMS = {
   noneRecorded: { label: 'No data scope recorded', def: 'Of the resources you can see, those with no data scope that records a time, place or other dimension: no DataScope at all, or one holding only usage readings from Egeria\u2019s lineage service. What you can see depends on zone security and the Promise/Memento toggle. These are the resources that need a scope; set one in The Catalog.' },
   scopeNotRead: { label: 'Scope not read', def: 'This list was read in a way that did not bring each resource\u2019s classifications, so whether it records a data scope is unknown. It is counted on its own, not as \u201cnone recorded\u201d or \u201ccannot be compared\u201d.' },
   dataLens: { label: 'Data lens', def: 'The scope of data a piece of work needs, in time, place and other dimensions. A lens governs a work list, and resources whose data scope falls inside it are suggested for that list.' },
-  badge: { label: 'Badge', def: 'A governance classification on the resource, such as Confidentiality, Criticality, Impact or Retention.' },
+  badge: { label: 'Classification', def: 'A governance classification on the resource: Confidentiality, Confidence, Criticality, Impact, Retention or Security tags. Other classifications (data scope, ownership, zones) are shown elsewhere, not here.' },
   owner: { label: 'Owner', def: 'Who is accountable for the resource, from its Ownership classification.' },
   source: { label: 'Source system', def: 'The database or folder a resource comes from: the source itself and everything anchored to it.' },
   collection: { label: 'Collection', def: 'A group of resources in Egeria: a product family, a data sharing hub, or a work list.' },
@@ -573,7 +573,7 @@ var TERMS = {
   popular: { label: 'Popular', def: 'Resources ranked by how much they are used. Not shown until the Locator reads a usage measure.' },
   recent: { label: 'Recently changed', def: 'The resources changed most recently. Hide automation to see only changes people made.' },
   favourites: { label: 'Favourites', def: 'Resources you saved as favourites anywhere in the Portal.' },
-  browse: { label: 'Browse', def: 'Find resources without typing, by tag, badge, owner, source system, collection, flavour or data scope.' },
+  browse: { label: 'Browse', def: 'Find resources without typing, by tag, classification, owner, source system, collection, flavour or data scope.' },
 };
 
 // A small "?" whose definition shows on hover and on keyboard focus.
@@ -1627,7 +1627,7 @@ function SearchPage({ q, kind, creds }) {
         el('option', { value: '' }, 'any owner'),
         owners.map(function(o) { return el('option', { key: o, value: o }, o); })),
       el('select', { className: 'rb-select', value: filt.badge, onChange: function(e) { set('badge', e.target.value); }, disabled: !badges.length },
-        el('option', { value: '' }, badges.length ? 'any badge' : 'no badges here'),
+        el('option', { value: '' }, badges.length ? 'any classification' : 'no classifications here'),
         badges.map(function(b) { return el('option', { key: b, value: b }, b); })),
       el('label', { className: 'rb-note', style: { display: 'flex', gap: 4, alignItems: 'center' } },
         el('input', { type: 'checkbox', checked: filt.scope, onChange: function(e) { set('scope', e.target.checked); } }), 'has a data scope', el(Help, { term: 'dataScope' })),
@@ -1781,7 +1781,7 @@ function HelpPage() {
           p('Pick one kind or several with the Kind buttons (for example Schemas and Tables together); All clears them. Results are ordered by how directly the text matches: Egeria holds no usage measure the Locator reads yet.'),
           p('"Load more results" stays offered until Egeria returns an empty page: a short page is not the last page.'))),
         sec('Browse and the resource page', el('div', null,
-          p('Browse lists resources by tag, badge, owner, source system, collection, flavour or data scope. A resource page shows what Egeria holds about one resource, and says what is missing rather than showing an empty table.'),
+          p('Browse lists resources by tag, classification, owner, source system, collection, flavour or data scope. A resource page shows what Egeria holds about one resource, and says what is missing rather than showing an empty table.'),
           p('You can improve a description, add informal tags, notes and meanings, like or rate a resource, and keep it in a work list. Every change is made as you, with your own Egeria token.'))),
         sec('Data scope and data lenses', el('div', null,
           p('A data scope says what time and place a resource’s data covers. It is shown on result rows (◷ scope) and resource pages, and set or changed in The Catalog. Some scopes hold only usage readings that Egeria’s lineage service keeps; those are shown as usage, not as a scope.'),
@@ -2203,7 +2203,7 @@ function HomePage({ creds, personaId }) {
 
 var FACETS = [
   { id: 'tag', label: 'Tag', term: 'tag', empty: 'No informal tags exist yet.' },
-  { id: 'badge', label: 'Badge', term: 'badge', empty: '' },
+  { id: 'badge', label: 'Classification', term: 'badge', empty: '' },   // id kept: old ?browse=badge links work
   { id: 'owner', label: 'Owner', term: 'owner', empty: 'No resource has a recorded owner yet.' },
   { id: 'source', label: 'Source system', term: 'source', empty: 'No databases or folders are catalogued yet.' },
   { id: 'collection', label: 'Collection', term: 'collection', empty: 'No product families, data sharing hubs or work lists exist yet.' },

@@ -28,7 +28,7 @@ A search matches names, qualified names and descriptions, and also:
 - **informal tags** and **search keywords**;
 - **owners**.
 
-Each result row shows why it matched, its tags, likes and rating summary, and **in N of your lists** when you have already saved it. **Narrow these results** filters the loaded results by flavour, owner, badge, or whether the resource records a data scope.
+Each result row shows why it matched, its tags, likes and rating summary, and **in N of your lists** when you have already saved it. **Narrow these results** filters the loaded results by flavour, owner, classification, or whether the resource records a data scope.
 
 Ordering is by text relevance only. Egeria cannot rank by use yet, and the page says so.
 
@@ -38,7 +38,7 @@ Ordering is by text relevance only. Egeria cannot rank by use yet, and the page 
 
 ## Browse
 
-Browse without typing, by **Tag, Badge** (governance classification), **Owner, Source system, Collection, Flavour** (data, data product, or a member of a data-sharing hub) or **Data scope**. Each facet lists its values; pick a value to see the resources under it, with the same rows as Search. Hover over a facet button for its definition.
+Browse without typing, by **Tag, Classification** (the governance classifications Confidentiality, Confidence, Criticality, Impact, Retention and Security tags; the link id is still `badge`, so older links keep working), **Owner, Source system, Collection, Flavour** (data, data product, or a member of a data-sharing hub) or **Data scope**. Each facet lists its values; pick a value to see the resources under it, with the same rows as Search. Hover over a facet button for its definition.
 
 **Data scope** has two values:
 

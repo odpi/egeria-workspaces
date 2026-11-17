@@ -2636,7 +2636,7 @@ async def browse_list(facet: str, value: str, lens: Optional[str] = Query(None, 
             source = "ClassificationExplorer.get_elements_by_tag"
         elif facet == "badge":
             if value not in _BADGES:
-                raise HTTPException(status_code=404, detail=f"{value!r} is not a badge this app shows.")
+                raise HTTPException(status_code=404, detail=f"{value!r} is not a classification this app lists.")
             els, capped = await _classified(client, value)
             source = "ClassificationExplorer.get_elements_by_classification"
         elif facet == "owner":
