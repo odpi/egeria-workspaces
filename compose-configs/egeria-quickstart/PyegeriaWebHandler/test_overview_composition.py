@@ -66,7 +66,7 @@ def _get(monkeypatch, result, root="Asset", **kw):
         return result
     monkeypatch.setattr(oh, "_compute_composition", fake)
     # first call is cold; poll until the worker has measured (or failed)
-    out = oh.get_composition(root=root, depth=1, as_of_time=None, url="http://x", server="s", user_id="u", user_pwd="p")
+    out = oh.get_composition(root=root, depth=1, as_of_time=None, url="http://x", server="s", user_id="u")
     body = json.loads(out.body)
     assert body.get("loading") is True, "a cold request must answer at once with loading"
     deadline = time.time() + 5
@@ -76,7 +76,7 @@ def _get(monkeypatch, result, root="Asset", **kw):
 
 
 def _again(root="Asset"):
-    out = oh.get_composition(root=root, depth=1, as_of_time=None, url="http://x", server="s", user_id="u", user_pwd="p")
+    out = oh.get_composition(root=root, depth=1, as_of_time=None, url="http://x", server="s", user_id="u")
     return json.loads(out.body)
 
 
@@ -156,7 +156,7 @@ def test_failed_run_is_503_not_zero_filled(monkeypatch):
 
 def test_bad_root_is_rejected():
     with pytest.raises(HTTPException) as e:
-        oh.get_composition(root="Asset; drop", depth=1, as_of_time=None, url=None, server=None, user_id=None, user_pwd=None)
+        oh.get_composition(root="Asset; drop", depth=1, as_of_time=None, url=None, server=None, user_id=None)
     assert e.value.status_code == 422
 
 

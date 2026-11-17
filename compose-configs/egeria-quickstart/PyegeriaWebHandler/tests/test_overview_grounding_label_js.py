@@ -20,7 +20,10 @@ def test_grounding_static_tile_and_sources_use_the_new_fields():
 
 
 def test_ownership_tile_reads_owned_assets():
-    assert "num(LIVE.ownershipCount) + ' owned assets'" in HTML
+    # "416 owned assets", or "at least 416 owned assets; <reason>" when pyegeria marks the count unconfirmed
+    # (048e08f5, pager step 4): the tile goes through uncLine, never a bare num()
+    assert "uncLine('ownershipCount', LIVE.ownershipCount, 'owned assets')" in HTML
+    assert "num(LIVE.ownershipCount) + ' owned assets'" not in HTML
 
 
 def test_ownership_tile_names_its_population():
@@ -31,12 +34,17 @@ def test_ownership_tile_names_its_population():
 
 def test_grounding_sub_label_shows_grounded_assets_and_why_the_share_is_missing():
     # "term links per 100 Assets (767 links) · 41 Assets grounded (share not measured)", full note on hover
-    assert "' · ' + num(s.groundedAssets) + ' Assets grounded' + (s.groundedAssetNote ? ' (share not measured)' : '')" in HTML
+    # an unconfirmed count keeps its mark and says why: "≥3 Assets grounded (3 found; ...)" (327c6961, B1 read-back R4)
+    assert "' · ' + uncNum('groundedAssets', s.groundedAssets, s) + ' Assets grounded'" in HTML
+    assert "+ (uncMark('groundedAssets', s) ? ' (' + uncWords(uncMark('groundedAssets', s)) + ')' : '')" in HTML
+    assert "+ (s.groundedAssetNote ? ' (share not measured)' : '')" in HTML
+    assert "num(s.groundedAssets) + ' Assets grounded'" not in HTML
     assert "(s.groundedAssetNote ? ' · grounded Assets not measured' : '')" in HTML   # unmeasured is never 0
     assert "+ groundedAssetsSub(s);" in HTML
     assert "gsEl.title = groundingNote(d);" in HTML
     # the store keeps the count and note even when the links value is missing
     assert "if ('groundedAssets' in d) { store.groundedAssets = d.groundedAssets; store.groundedAssetNote = d.groundedAssetNote || null; }" in HTML
     # the drill panel lists them
-    assert "d.list.push(['Assets grounded (you can see)', num(LIVE.groundedAssets)]);" in HTML
+    assert "d.list.push(['Assets grounded (you can see)', uncNum('groundedAssets', LIVE.groundedAssets)]);" in HTML
+    assert "noteUnc('Assets grounded', 'groundedAssets');" in HTML
     assert "if (LIVE.groundedAssetNote) d.list.push([LIVE.groundedAssetNote, ND]);" in HTML
