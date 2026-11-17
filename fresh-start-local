@@ -180,6 +180,33 @@ cp -r compose-configs/egeria-quickstart/servers/fs-* "$TARGET_SERVER_DIR"/
 
 compose-configs/shared-infra/ensure-shared-infra.sh
 
+# Podman 3.x: podman-compose silently skips external networks at container creation.
+# Calling network connect on a running container takes effect immediately — the
+# container becomes resolvable on egeria_network without any restart. DO NOT
+# stop/start service containers after connecting; that reverts them to their
+# creation-time networks (podman only). Same as quick-start-local.
+_podman_fix_network() {
+  for c in "$@"; do
+    if podman network connect egeria_network "$c" 2>/dev/null; then
+      echo "[fresh-start-local] Connected $c to egeria_network"
+    fi
+    # exit 125 = already connected, or no such container — nothing to do
+  done
+}
+
+# Restart Apache so its DNS resolver picks up all containers now on egeria_network.
+# Apache retains egeria_network across a stop/start (unlike service containers).
+_podman_restart_apache() {
+  echo "[fresh-start-local] Restarting freshstart-apache-web to refresh DNS resolver..."
+  podman stop freshstart-web-server 2>/dev/null || true
+  podman start freshstart-web-server || echo "[fresh-start-local] WARNING: freshstart-apache-web failed to restart"
+}
+
+# freshstart-egeria-main has no container_name, so its container is named by compose:
+# podman-compose uses <project>_<service>_1, docker compose (incl. against a podman socket)
+# <project>-<service>-1. The podman steps below name both.
+_FS_EGERIA_MAIN_NAMES=(egeria-freshstart_freshstart-egeria-main_1 egeria-freshstart-freshstart-egeria-main-1)
+
 pushd compose-configs/egeria-freshstart >/dev/null
   # ── TLS: fall back to a self-signed cert unless the user has already ────
   # configured one in .env.ssl (or .env).
@@ -301,34 +328,68 @@ EOF
     APACHE_BUILD_OK=0
   fi
 
+  # Build the compose file list.
+  # - egeria-freshstart-docker.yaml restores service_healthy for Docker
+  #   (podman-compose 1.5.0 blocks indefinitely on service_healthy)
+  COMPOSE_FILES=(-f egeria-freshstart.yaml -f egeria-freshstart-local.yaml -f egeria-freshstart-ssl.yaml)
+  if [[ "$CONTAINER_ENGINE" != "podman" ]]; then
+    COMPOSE_FILES+=(-f egeria-freshstart-docker.yaml)
+  fi
+
   echo "[fresh-start-local] Starting core freshstart stack (host-gateway mappings enabled)..."
-  if ! $COMPOSE_CMD -p egeria-freshstart \
-    -f egeria-freshstart.yaml \
-    -f egeria-freshstart-local.yaml \
-    -f egeria-freshstart-ssl.yaml \
-    up -d ${COMPOSE_PULL_FLAGS} freshstart-egeria-main freshstart-pyegeria-web freshstart-jupyter-hub; then
-    echo "[fresh-start-local] Pull-enabled core up failed; retrying without pull and without build..."
-    $COMPOSE_CMD -p egeria-freshstart \
-      -f egeria-freshstart.yaml \
-      -f egeria-freshstart-local.yaml \
-      -f egeria-freshstart-ssl.yaml \
-      up -d --no-build freshstart-egeria-main freshstart-pyegeria-web freshstart-jupyter-hub
+  if [[ "$CONTAINER_ENGINE" == "podman" ]]; then
+    # podman-compose up -d can block indefinitely if prior containers are stuck stopping/starting.
+    # Force-remove any leftover freshstart containers before starting fresh.
+    for _cname in "${_FS_EGERIA_MAIN_NAMES[@]}" freshstart-pyegeria-web freshstart-jupyter-work-full \
+                  freshstart-web-server; do
+      $CONTAINER_ENGINE rm -f "$_cname" >/dev/null 2>&1 || true
+    done
+    # podman-compose up -d still blocks while polling container state (v1.5.0 bug).
+    # Use timeout: containers are created in ~30s; health may take minutes (handled below).
+    timeout 60 $COMPOSE_CMD -p egeria-freshstart \
+      "${COMPOSE_FILES[@]}" \
+      up -d freshstart-egeria-main freshstart-pyegeria-web freshstart-jupyter-hub 2>&1 || true
+    _podman_fix_network "${_FS_EGERIA_MAIN_NAMES[@]}" freshstart-pyegeria-web freshstart-jupyter-work-full
+    # Apache hasn't started yet — no DNS restart needed here
+  else
+    if ! $COMPOSE_CMD -p egeria-freshstart \
+      "${COMPOSE_FILES[@]}" \
+      up -d ${COMPOSE_PULL_FLAGS} freshstart-egeria-main freshstart-pyegeria-web freshstart-jupyter-hub; then
+      echo "[fresh-start-local] Pull-enabled core up failed; retrying without pull and without build..."
+      $COMPOSE_CMD -p egeria-freshstart \
+        "${COMPOSE_FILES[@]}" \
+        up -d --no-build freshstart-egeria-main freshstart-pyegeria-web freshstart-jupyter-hub
+    fi
   fi
 
   if [[ "$APACHE_BUILD_OK" -eq 1 ]]; then
     echo "[fresh-start-local] Starting freshstart-apache-web..."
-    if ! $COMPOSE_CMD -p egeria-freshstart \
-      -f egeria-freshstart.yaml \
-      -f egeria-freshstart-local.yaml \
-      -f egeria-freshstart-ssl.yaml \
-      up -d ${COMPOSE_PULL_FLAGS} freshstart-apache-web; then
-      echo "[fresh-start-local] Pull-enabled apache up failed; retrying without pull and without build..."
+    _apache_hint() {
+      echo "[fresh-start-local] WARNING: freshstart-apache-web did not start. Core services are running."
+      if [[ "${_https_port:-7843}" -lt 1024 && "$CONTAINER_ENGINE" == "podman" ]]; then
+        echo "[fresh-start-local]   Likely cause: rootless Podman cannot bind privileged port ${_https_port:-7843}."
+        echo "[fresh-start-local]   Fix A (session):   sudo sysctl -w net.ipv4.ip_unprivileged_port_start=${_https_port:-7843}"
+        echo "[fresh-start-local]   Fix B (permanent): set HTTPS_PORT=7843 in .env.ssl"
+      fi
+    }
+
+    if [[ "$CONTAINER_ENGINE" == "podman" ]]; then
+      $CONTAINER_ENGINE rm -f freshstart-web-server >/dev/null 2>&1 || true
+      timeout 30 $COMPOSE_CMD -p egeria-freshstart \
+        "${COMPOSE_FILES[@]}" \
+        up -d freshstart-apache-web 2>&1 || _apache_hint
+      _podman_fix_network freshstart-web-server
+      _podman_restart_apache
+    else
       if ! $COMPOSE_CMD -p egeria-freshstart \
-        -f egeria-freshstart.yaml \
-        -f egeria-freshstart-local.yaml \
-        -f egeria-freshstart-ssl.yaml \
-        up -d --no-build freshstart-apache-web; then
-        echo "[fresh-start-local] WARNING: freshstart-apache-web did not start. Core services are running."
+        "${COMPOSE_FILES[@]}" \
+        up -d ${COMPOSE_PULL_FLAGS} freshstart-apache-web; then
+        echo "[fresh-start-local] Pull-enabled apache up failed; retrying without pull and without build..."
+        if ! $COMPOSE_CMD -p egeria-freshstart \
+          "${COMPOSE_FILES[@]}" \
+          up -d --no-build freshstart-apache-web; then
+          _apache_hint
+        fi
       fi
     fi
   fi
@@ -338,10 +399,14 @@ EOF
   # its container. A warning, not a failure: the stack is started either way.
   echo "[fresh-start-local] Waiting for freshstart-egeria-main to become healthy (Egeria JVM typically takes 2-5 min)..."
   _egeria_cid=$($COMPOSE_CMD -p egeria-freshstart \
-    -f egeria-freshstart.yaml \
-    -f egeria-freshstart-local.yaml \
-    -f egeria-freshstart-ssl.yaml \
+    "${COMPOSE_FILES[@]}" \
     ps -q freshstart-egeria-main 2>/dev/null | head -n1)
+  if [[ -z "$_egeria_cid" ]]; then
+    # podman-compose's ps may not filter by service; podman-compose and docker compose both set these labels.
+    _egeria_cid=$($CONTAINER_ENGINE ps -aq \
+      --filter label=com.docker.compose.project=egeria-freshstart \
+      --filter label=com.docker.compose.service=freshstart-egeria-main 2>/dev/null | head -n1)
+  fi
   _egeria_healthy=0
   for _i in $(seq 1 20); do
     if [[ -n "$_egeria_cid" ]]; then
