@@ -2501,6 +2501,11 @@ _FACETS = ["tag", "badge", "owner", "source", "collection", "flavour", "scope"]
 # Topic 5/6 (one Memento), TabularDataSet 31/37 and TabularDataSetCollection 276/312 (5 templates
 # each; the other 1 and 31 have no zone, Memento or template, so they are unexplained). Not proven.
 ALL_ELEMENTS_UNVERIFIED = True
+
+# Architect R5 (2026-11-17): the "none recorded" sweep reads every resource (~4,800 on laz, ~19 s cold) and
+# is cached per user, so several users opening Data scope at once would each sweep Egeria. At most one
+# sweep runs at a time; the others wait for it and then hit their own cache entry or run in turn.
+_ALL_RESOURCES_SWEEPS = asyncio.Semaphore(1)
 _SOURCE_TYPES = ["Database", "DataFolder", "FileFolder"]
 _COLLECTION_TYPES = ["DataSharingHub", "DigitalProductFamily", "WorkingSet"]
 
@@ -2767,26 +2772,35 @@ async def _scope_split() -> tuple:
                 "capped": capped}
 
     async def all_value():
-        client = await _explorer_async()
-        rows, capped_types = {}, []
-        for t in _RESOURCE_TYPES:
-            try:
-                els, capped = await _all_elements(client, t)
-            except Exception as exc:
-                if _is_unknown_type(exc):
-                    continue
-                raise
-            if capped:
-                capped_types.append(t)
-            for r in _rows(els)[0]:
-                rows.setdefault(r["guid"], r)
-        repos, _stamp = await _cached("repos", _repos_value)
-        for r in repos:
-            rows.setdefault(r["guid"], r)
-        return {"rows": list(rows.values()), "cappedTypes": capped_types}
+        async with _ALL_RESOURCES_SWEEPS:
+            return await _all_resources_sweep()
 
     rec, rec_stamp = await _cached("scope-recorded", recorded_value)
     allr, all_stamp = await _cached("scope-all-resources", all_value)
+    return _split_from(rec, rec_stamp, allr, all_stamp)
+
+
+async def _all_resources_sweep() -> dict:
+    client = await _explorer_async()
+    rows, capped_types = {}, []
+    for t in _RESOURCE_TYPES:
+        try:
+            els, capped = await _all_elements(client, t)
+        except Exception as exc:
+            if _is_unknown_type(exc):
+                continue
+            raise
+        if capped:
+            capped_types.append(t)
+        for r in _rows(els)[0]:
+            rows.setdefault(r["guid"], r)
+    repos, _stamp = await _cached("repos", _repos_value)
+    for r in repos:
+        rows.setdefault(r["guid"], r)
+    return {"rows": list(rows.values()), "cappedTypes": capped_types}
+
+
+def _split_from(rec: dict, rec_stamp, allr: dict, all_stamp) -> tuple:
     scoped = {r["guid"] for r in rec["rows"]}
     none_rows = [r for r in allr["rows"] if r["guid"] not in scoped and r.get("scopeRead", True) and not r["hasScope"]]
     not_read = [r for r in allr["rows"] if r["guid"] not in scoped and not r.get("scopeRead", True)]
