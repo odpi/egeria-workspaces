@@ -360,11 +360,16 @@ _TOKEN_REUSE: dict = {}          # key -> (token, exp, stored_at)
 _TOKEN_REUSE_LOCKS: dict = {}    # key -> asyncio.Lock, bounded with _TOKEN_REUSE
 
 
+# The reuse key is only an in-memory lookup key under a per-process random salt, never stored. A key-stretching
+# function (PBKDF2) is used anyway, so the password is never put through a fast hash (CodeQL
+# py/weak-sensitive-data-hashing, #895 alert 101). About 20 ms on laz, once per /api/egeria-token call.
+_TOKEN_REUSE_ITERATIONS = 100_000
+
+
 def token_reuse_key(url: str, server: str, user_id: str, password: str) -> str:
     import hashlib
-    import hmac
     msg = "\0".join([normalize_platform_url(url) or url or "", server or "", user_id or "", password or ""])
-    return hmac.new(_TOKEN_REUSE_SECRET, msg.encode("utf-8"), hashlib.sha256).hexdigest()
+    return hashlib.pbkdf2_hmac("sha256", msg.encode("utf-8"), _TOKEN_REUSE_SECRET, _TOKEN_REUSE_ITERATIONS).hex()
 
 
 def _token_reuse_prune(now: float) -> None:

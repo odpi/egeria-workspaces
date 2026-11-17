@@ -239,3 +239,24 @@ def test_every_refresher_sends_renew():
     js = (_MODULE_DIR / "static" / "egeria-shared-ui.js").read_text()
     fn = js[js.index("function refreshPersonaToken("):]
     assert "renew: true" in fn[:fn.index("\n}\n")]
+
+
+def test_reuse_key_uses_pbkdf2_not_a_fast_hash(monkeypatch):
+    """CodeQL #895 alert 101: the password goes through a key-stretching function, never a fast hash."""
+    import hashlib
+    calls = []
+    real = hashlib.pbkdf2_hmac
+
+    def counting(*a, **k):
+        calls.append(a[3] if len(a) > 3 else k.get("iterations"))
+        return real(*a, **k)
+
+    monkeypatch.setattr(hashlib, "pbkdf2_hmac", counting)
+    egeria_auth.token_reuse_key(HOME, "s", "u", "pw")
+    assert calls == [egeria_auth._TOKEN_REUSE_ITERATIONS] and egeria_auth._TOKEN_REUSE_ITERATIONS >= 100_000
+
+
+def test_reuse_key_is_stable_and_password_sensitive():
+    a = egeria_auth.token_reuse_key(HOME, "s", "u", "pw")
+    assert a == egeria_auth.token_reuse_key(HOME, "s", "u", "pw")
+    assert a != egeria_auth.token_reuse_key(HOME, "s", "u", "pw2")
