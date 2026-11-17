@@ -70,15 +70,27 @@ If you prefer to run Docker Compose manually from this directory, use:
 
 ```bash
 docker compose -f egeria-freshstart.yaml build --pull
-docker compose -f egeria-freshstart.yaml -f egeria-freshstart-local.yaml up -d --pull always
+docker compose -f egeria-freshstart.yaml -f egeria-freshstart-local.yaml -f egeria-freshstart-docker.yaml up -d --pull always
 ```
 
 For the multi-host overlay:
 
 ```bash
 docker compose -f egeria-freshstart.yaml build --pull
-docker compose -f egeria-freshstart.yaml -f egeria-freshstart-cluster.yaml up -d --pull always
+docker compose -f egeria-freshstart.yaml -f egeria-freshstart-cluster.yaml -f egeria-freshstart-docker.yaml up -d --pull always
 ```
+
+`egeria-freshstart-docker.yaml` makes Jupyter wait for the Egeria platform to report healthy. Leave it out
+with Podman: podman-compose 1.5.0 blocks indefinitely on `service_healthy`.
+
+### Podman
+
+`./fresh-start-local` detects Podman (via `compose-configs/shared-infra/detect-engine.sh`) and then, as
+`./quick-start-local` does: skips the Docker overlay, force-removes leftover freshstart containers before
+starting, bounds the `podman-compose up` calls with a timeout (podman-compose 1.5.0 can block on them),
+connects the containers to `egeria_network` (podman-compose skips external networks at creation), and
+restarts Apache so it resolves its peers. Set `CONTAINER_ENGINE=docker` or `CONTAINER_ENGINE=podman` to
+override the detection.
 
 To bypass the local build cache during the manual build step, add `--no-cache`:
 
