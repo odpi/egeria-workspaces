@@ -40,7 +40,22 @@ Ordering is by text relevance only. Egeria cannot rank by use yet, and the page 
 
 Browse without typing, by **Tag, Badge** (governance classification), **Owner, Source system, Collection, Flavour** (data, data product, or a member of a data-sharing hub) or **Data scope**. Each facet lists its values; pick a value to see the resources under it, with the same rows as Search. Hover over a facet button for its definition.
 
-**Data scope** lists the resources whose data scope records a time, a place or another dimension. Resources whose DataScope classification holds only usage readings (see below) are left out, and the page says how many.
+**Data scope** has two values:
+
+- **Data scope recorded**: resources whose data scope records a time, a place or another dimension.
+- **No data scope recorded**: resources with no DataScope at all, or one holding only usage readings (see below). These are the resources that still need a scope. The list is every resource the Locator covers minus the recorded ones. Its count shows as "≥ N" (at least): a check against Egeria's repository on 2026-11-17 matched for 40 of 45 resource types, but some data sets were not returned for reasons not yet explained, so the list may be missing a few.
+
+A resource whose classifications were not read is in neither list; the page counts it as **scope not read**. Each list shows its own age: a resource scoped in the last ten minutes may sit in neither list, or both, until both refresh.
+
+### Filtering a Browse list by a data lens
+
+Every Browse list has a **Lens** choice. It lists your own data lenses and the lenses that govern a list you can see. Pick one and the list shows three counts, each a button you can turn on or off (inside is on to start):
+
+- **inside**: every dimension the resource and the lens both record overlaps;
+- **outside**: at least one of them does not;
+- **cannot be compared**: the resource records none of the lens's dimensions. It is never counted as outside, and it never silently drops out.
+
+A fourth count, **scope not read**, appears when some resources' classifications were not read with the list. Counts say "at least" when the list's read stopped at its page limit. Each row says its outcome and on which dimensions. The address keeps the lens (`&lens=…`), so a filtered list can be bookmarked.
 
 ---
 
