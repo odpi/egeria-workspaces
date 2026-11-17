@@ -5,7 +5,7 @@ DESIGN-RL-BULK-ADD-AND-BREADCRUMBS, Architect read-back R2, R3).
 
 Pinned here:
   - the crumb names where the resource came from (Search "q" (kinds), Browse › facet › value,
-    a work list, a lens, Resource Locator Home);
+    a working set, a lens, Resource Locator Home);
   - only a search string of this page is accepted as where to go back to; a full URL, "//x",
     a stale state for another resource, or none falls back to Resource Locator Home (R2);
   - view state round-trips through sessionStorage with a 30-minute expiry, and holds only what
@@ -49,7 +49,7 @@ def test_labels_name_where_the_resource_came_from():
   routeLabel({ page: 'list' }, 'Q3 sources'), routeLabel({ page: 'lens' }, 'UK'), routeLabel({ page: 'home' }, '')]));""")
     assert d == ["Search “customer” (Tables, Schemas)", "Search “x”",
                  "Browse › Search keyword › App/AI Builder", "Browse › Tag › pii",
-                 "Work list ‘Q3 sources’", "Data lens ‘UK’", "Resource Locator Home"]
+                 "Working set ‘Q3 sources’", "Data lens ‘UK’", "Resource Locator Home"]
 
 
 @needs_node

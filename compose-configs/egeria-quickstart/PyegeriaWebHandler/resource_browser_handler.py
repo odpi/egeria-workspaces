@@ -3,7 +3,7 @@ SPDX-License-Identifier: Apache-2.0
 Copyright Contributors to the ODPi Egeria project.
 
 Resource Locator — FastAPI router (phase 1: the Resource page; phase 2: search, Home, Browse;
-phase 3: work lists).
+phase 3: working sets).
 
 A shop-for-resources app for people who look for resources (data, code, APIs, products)
 rather than curate them.
@@ -26,7 +26,7 @@ Endpoints:
   GET    /api/resource-browser/flavours                      → which resources are product or hub members (cached)
   GET    /api/resource-browser/row-extras?guids=             → tags, likes and rating summary for visible rows
   GET    /api/resource-browser/home                          → recently changed resources; popularity status
-  GET    /api/resource-browser/lists                         → work lists the user can see, and which hold what
+  GET    /api/resource-browser/lists                         → working sets the user can see, and which hold what
   GET    /api/resource-browser/lists/{guid}                  → one list, every member with its rationale
   POST   /api/resource-browser/lists                         → create a list of your own
   PUT    /api/resource-browser/lists/{guid}                  → rename it or change its description
@@ -2087,9 +2087,9 @@ _RE_LIST_PREFIX = "WorkingSet::resource-explorer::"
 _PORTAL_LIST_PREFIX = "WorkingSet::portal::"
 
 
-# ── Work lists (phase 3, spec §5 option (a)) ─────────────────────────────────
+# ── Working sets (phase 3, spec §5 option (a)) ─────────────────────────────────
 #
-# A work list is an Egeria WorkingSet. The Portal's own lists are named
+# A working set (PO-42: called a work list until 2026-11-17) is an Egeria WorkingSet. The Portal's own lists are named
 # WorkingSet::portal::<user>::<slug> and only their creator changes them here.
 # Resource Explorer's published lists (WorkingSet::resource-explorer::<slug>) are
 # read-only: a person copies the members they want into a list of their own, and
@@ -2184,7 +2184,7 @@ async def _read_list(client, guid: str) -> dict:
         body={"class": "GetRequestBody", "graphQueryDepth": 1,
               "includeOnlyRelationships": ["CollectionMembership", "ResourceList"]})
     if not isinstance(el, dict) or _type_names(el.get("elementHeader") or {})[0] != "WorkingSet":
-        raise HTTPException(status_code=404, detail="That is not a work list visible to you.")
+        raise HTTPException(status_code=404, detail="That is not a working set visible to you.")
     return el
 
 
@@ -2194,13 +2194,13 @@ async def _my_list(client, guid: str) -> tuple:
     el = await _read_list(client, guid)
     rec = _list_record(el, me)
     if not rec["editable"]:
-        why = ("Resource Explorer lists are read-only here: copy the members you want into a list of your own."
-               if rec["origin"] == "resource-explorer" else "Only the person who made a list can change it.")
+        why = ("Resource Explorer working sets are read-only here: copy the members you want into a working set of your own."
+               if rec["origin"] == "resource-explorer" else "Only the person who made a working set can change it.")
         raise HTTPException(status_code=403, detail=why)
     return el, rec
 
 
-@router.get("/api/resource-browser/lists", summary="Work lists the user can see")
+@router.get("/api/resource-browser/lists", summary="Working sets the user can see")
 async def get_lists():
     try:
         client = await _explorer_async()
@@ -2211,7 +2211,7 @@ async def get_lists():
         if _is_unknown_type(exc):
             sets, capped = [], False
         else:
-            raise_egeria_http_error(exc, "resource-browser: work lists failed")
+            raise_egeria_http_error(exc, "resource-browser: working sets failed")
     me = _token_user()
     my_groups, groups_note = set(), None
     if me:
@@ -2249,7 +2249,7 @@ async def get_lists():
                          "asOf": _now_iso(), "source": "ClassificationExplorer.get_elements (WorkingSet, CollectionMembership)"})
 
 
-@router.get("/api/resource-browser/lists/{guid}", summary="One work list with its members and why each is on it")
+@router.get("/api/resource-browser/lists/{guid}", summary="One working set with its members and why each is on it")
 async def get_list(guid: str):
     try:
         client = await _explorer_async()
@@ -2257,7 +2257,7 @@ async def get_list(guid: str):
     except HTTPException:
         raise
     except Exception as exc:
-        _raise_not_visible_or_mapped(exc, f"resource-browser: work list {guid} failed")
+        _raise_not_visible_or_mapped(exc, f"resource-browser: working set {guid} failed")
     members = _list_members(el)
     members.sort(key=lambda r: (r["kind"], r["displayName"].lower()))
     return JSONResponse({**_list_record(el, _token_user()), "members": members,
@@ -2273,7 +2273,7 @@ class NewListBody(BaseModel):
 async def _create_list(client, me: str, name: str, description: str, extra: Optional[dict] = None) -> str:
     name = name.strip()
     if not name or len(name) > 120:
-        raise HTTPException(status_code=400, detail="A list needs a name of up to 120 characters.")
+        raise HTTPException(status_code=400, detail="A working set needs a name of up to 120 characters.")
     props = {"class": "CollectionProperties", "typeName": "WorkingSet",
              "qualifiedName": f"{_PORTAL_LIST_PREFIX}{me}::{_list_slug(name, uuid.uuid4().hex[:6])}",
              "displayName": name, "description": description or ""}
@@ -2282,7 +2282,7 @@ async def _create_list(client, me: str, name: str, description: str, extra: Opti
     return await client._async_create_collection(body={"class": "NewElementRequestBody", "properties": props})
 
 
-@router.post("/api/resource-browser/lists", summary="Create a work list of your own")
+@router.post("/api/resource-browser/lists", summary="Create a working set of your own")
 async def create_list(body: NewListBody):
     me = _require_signed_in()
     try:
@@ -2300,12 +2300,12 @@ class EditListBody(BaseModel):
     description: Optional[str] = None
 
 
-@router.put("/api/resource-browser/lists/{guid}", summary="Rename a list of yours or change its description")
+@router.put("/api/resource-browser/lists/{guid}", summary="Rename a working set of yours or change its description")
 async def edit_list(guid: str, body: EditListBody):
     props = {"class": "CollectionProperties"}
     if body.name is not None:
         if not body.name.strip() or len(body.name) > 120:
-            raise HTTPException(status_code=400, detail="A list needs a name of up to 120 characters.")
+            raise HTTPException(status_code=400, detail="A working set needs a name of up to 120 characters.")
         props["displayName"] = body.name.strip()
     if body.description is not None:
         props["description"] = body.description
@@ -2327,7 +2327,7 @@ class MembersBody(BaseModel):
     rationale: Optional[str] = None
 
 
-@router.post("/api/resource-browser/lists/{guid}/members", summary="Add resources to a list of yours")
+@router.post("/api/resource-browser/lists/{guid}/members", summary="Add resources to a working set of yours")
 async def add_members(guid: str, body: MembersBody):
     wanted = [g for g in dict.fromkeys(str(x).strip() for x in body.guids) if g]
     if not wanted or len(wanted) > _ADD_CAP:
@@ -2355,7 +2355,7 @@ async def add_members(guid: str, body: MembersBody):
     return out
 
 
-@router.delete("/api/resource-browser/lists/{guid}/members/{member_guid}", summary="Remove a resource from a list of yours")
+@router.delete("/api/resource-browser/lists/{guid}/members/{member_guid}", summary="Remove a resource from a working set of yours")
 async def remove_member(guid: str, member_guid: str):
     try:
         client = await _explorer_async()
@@ -2376,7 +2376,7 @@ class CopyBody(BaseModel):
 
 
 @router.post("/api/resource-browser/lists/{guid}/copy",
-             summary="Copy members of a list (e.g. from Resource Explorer) into a list of your own")
+             summary="Copy members of a working set (e.g. from Resource Explorer) into a working set of your own")
 async def copy_list(guid: str, body: CopyBody):
     me = _require_signed_in()
     try:
@@ -2391,7 +2391,7 @@ async def copy_list(guid: str, body: CopyBody):
     chosen = list(members) if body.members is None else [g for g in dict.fromkeys(body.members) if g in members]
     unknown = [] if body.members is None else [g for g in body.members if g not in members]
     if not chosen:
-        raise HTTPException(status_code=400, detail="Choose at least one member of this list to copy.")
+        raise HTTPException(status_code=400, detail="Choose at least one member of this working set to copy.")
     try:
         cm = await _collections_async()
         if body.into:
@@ -2534,7 +2534,7 @@ class ShareBody(BaseModel):
     group: str
 
 
-@router.post("/api/resource-browser/lists/{guid}/share", summary="Share a list of yours with a Team or Community you belong to")
+@router.post("/api/resource-browser/lists/{guid}/share", summary="Share a working set of yours with a Team or Community you belong to")
 async def share_list(guid: str, body: ShareBody):
     try:
         client = await _explorer_async()
@@ -2554,7 +2554,7 @@ async def share_list(guid: str, body: ShareBody):
     return await get_list(guid)
 
 
-@router.delete("/api/resource-browser/lists/{guid}/share/{group}", summary="Stop sharing a list of yours with a group")
+@router.delete("/api/resource-browser/lists/{guid}/share/{group}", summary="Stop sharing a working set of yours with a group")
 async def unshare_list(guid: str, group: str):
     try:
         client = await _explorer_async()

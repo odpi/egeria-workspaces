@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright Contributors to the ODPi Egeria project.
-"""Bulk add from Search and Browse to a work list (Dan, 2026-11-17, PO-37; design note
+"""Bulk add from Search and Browse to a working set (Dan, 2026-11-17, PO-37; design note
 DESIGN-RL-BULK-ADD-AND-BREADCRUMBS, Architect read-back R1, R4).
 
 Pinned here:
