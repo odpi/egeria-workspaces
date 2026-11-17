@@ -158,6 +158,7 @@ A working set (Egeria's `WorkingSet` collection) holds resources you gather for 
 - **Create** a working set, rename it, add resources with a reason, and remove them.
 - **Copy** chosen members of any working set you can see into one of your own.
 - **Share** a working set with a Team or Community you belong to, and stop sharing it.
+- **Delete** a working set of yours (**Delete working set…** on its page). The page first says what goes: the set, its links to its resources, its team shares, and your data lenses' links to it. The resources themselves stay. Delete is not offered while anything else is linked or anchored to the set (someone else's data lens, a tag, a comment, a parent collection), and the page names each one. If the delete stops part-way, the page says what was removed and what is left; **Delete** again carries on.
 - Working sets published from Resource Explorer show here too, because they are the same Egeria collections.
 
 ---

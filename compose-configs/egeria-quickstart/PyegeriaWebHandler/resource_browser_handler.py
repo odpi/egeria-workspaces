@@ -2568,6 +2568,221 @@ async def unshare_list(guid: str, group: str):
     return await get_list(guid)
 
 
+
+# ── Delete a working set (PO-43, Dan 2026-11-17) ──────────────────────────────
+# "provide a delete for working sets … removing the links and then the working set". Egeria refuses to
+# delete a collection that still has members (OMAG-GENERIC-HANDLERS-403-005), so the owner's delete
+# takes out the links the Locator makes (team shares, the owner's own lenses, the members) and then
+# deletes the set. Members are never deleted: only their CollectionMembership link goes. Anything else
+# linked or anchored to the set is a blocker, named, and nothing is written (Architect read-back
+# 2026-11-17, Q3/Q4: the Locator removes only what it creates). Design note
+# DESIGN-RL-PO42-PO43-WORKING-SETS-RENAME-AND-DELETE-2026-11-17.
+
+_DELETE_LOCKS: dict = {}          # guid -> asyncio.Lock while a delete runs; dropped when it ends (R3)
+_ANCHORED_READ = 500
+
+
+def _set_links(el: dict, guid: str, me: Optional[str]) -> dict:
+    """members / shares / lenses the delete removes, and blockers it will not touch, from a set read
+    with every relationship (depth 1)."""
+    from resource_locator_lens_handler import _lens_origin, _LENS_PREFIX
+    members, shares, lenses, blockers = {}, {}, {}, []
+    capped = False
+    for key, val in (el or {}).items():
+        if key in ("elementHeader", "properties") or not isinstance(val, list):
+            continue
+        if len(val) >= _RELATED_LIMIT:
+            capped = True
+        for r in _related_recs(val):
+            kind, other = r["relationshipType"], f"\u2018{r['displayName']}\u2019 ({r['typeName']})"
+            if kind == "CollectionMembership" and not r["atEnd1"]:
+                members[r["guid"]] = {"guid": r["guid"], "displayName": r["displayName"], "typeName": r["typeName"]}
+                anchor = ((r["elementHeader"].get("anchor") or {}).get("classificationProperties") or {})
+                if anchor.get("anchorGUID") == guid:
+                    blockers.append({"kind": "anchored", "guid": r["guid"],
+                                     "text": f"{other} belongs to this working set (it is anchored to it), so "
+                                             "deleting the set would delete it too. Remove it from Egeria, or "
+                                             "re-anchor it, first."})
+            elif kind == "ResourceList" and r["atEnd1"] and _is_group(r["typeName"], r["superTypeNames"]):
+                shares[r["guid"]] = {"guid": r["guid"], "displayName": r["displayName"], "typeName": r["typeName"]}
+            elif kind == "GovernedBy" and r["typeName"] == "DataLens":
+                qn = r["qualifiedName"]
+                if _lens_origin(qn, me) == "mine":
+                    lenses[r["guid"]] = {"guid": r["guid"], "displayName": r["displayName"]}
+                else:
+                    owner = qn[len(_LENS_PREFIX):].split("::")[0] if qn.startswith(_LENS_PREFIX) else None
+                    blockers.append({"kind": "lens", "guid": r["guid"],
+                                     "text": f"Data lens \u2018{r['displayName']}\u2019"
+                                             + (f" (owned by {owner})" if owner else " (not yours)")
+                                             + " governs this working set; ask its owner to unlink it."})
+            else:
+                blockers.append({"kind": "link", "guid": r["guid"],
+                                 "text": f"A {kind} link to {other}: the Locator removes only the links it "
+                                         "makes (members, team shares, your data lenses). Remove it where it "
+                                         "was made."})
+    if capped:
+        blockers.append({"kind": "capped", "text": f"This working set has more links than the Locator reads at "
+                                                   f"once ({_RELATED_LIMIT:,}+), so delete is not offered here."})
+    return {"members": list(members.values()), "shares": list(shares.values()),
+            "lenses": list(lenses.values()), "blockers": blockers}
+
+
+async def _delete_plan(client, guid: str, me: str) -> dict:
+    """What deleting this working set would do, read only: the owner check, every relationship, and
+    every element anchored to the set."""
+    el = await client._async_get_element_by_guid(guid, graph_query_depth=1, output_format="JSON",
+                                                 body={"class": "GetRequestBody", "graphQueryDepth": 1})
+    if not isinstance(el, dict) or _type_names(el.get("elementHeader") or {})[0] != "WorkingSet":
+        raise HTTPException(status_code=404, detail="That is not a working set visible to you.")
+    rec = _list_record(el, me)
+    if not rec["editable"]:
+        raise HTTPException(status_code=403, detail=(
+            "Resource Explorer working sets are managed in Resource Explorer: delete it there."
+            if rec["origin"] == "resource-explorer" else "Only the person who made a working set can delete it."))
+    plan = _set_links(el, guid, me)
+    flagged = {b.get("guid") for b in plan["blockers"]}
+    anchored = await _anchored(client, guid, None)
+    for a in anchored:
+        h = a.get("elementHeader") or {}
+        if h.get("guid") and h["guid"] != guid and h["guid"] not in flagged:
+            plan["blockers"].append({"kind": "anchored", "guid": h["guid"],
+                                     "text": f"\u2018{_display_name(a.get('properties'), h['guid'])}\u2019 "
+                                             f"({_type_names(h)[0]}) belongs to this working set (it is anchored "
+                                             "to it), so deleting the set would delete it too. Remove it first."})
+    if len(anchored) >= _ANCHORED_READ:
+        plan["blockers"].append({"kind": "capped", "text": "More elements are anchored to this working set than "
+                                                           "the Locator reads at once, so delete is not offered here."})
+    return dict(plan, guid=guid, displayName=rec["displayName"])
+
+
+def _plan_view(plan: dict) -> dict:
+    return {"guid": plan["guid"], "displayName": plan["displayName"], "members": len(plan["members"]),
+            "memberNames": [m["displayName"] for m in plan["members"][:20]],
+            "shares": plan["shares"], "lenses": plan["lenses"], "blockers": plan["blockers"],
+            "canDelete": not plan["blockers"]}
+
+
+@router.get("/api/resource-browser/lists/{guid}/delete-plan",
+            summary="What deleting a working set of yours would remove (read only)")
+async def delete_plan(guid: str):
+    me = _require_signed_in()
+    try:
+        client = await _explorer_async()
+        plan = await _delete_plan(client, guid, me)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise_egeria_http_error(exc, f"resource-browser: delete plan for working set {guid} failed")
+    return JSONResponse(_plan_view(plan))
+
+
+def _is_has_members(exc: Exception) -> bool:
+    return "OMAG-GENERIC-HANDLERS-403-005" in str(exc)
+
+
+@router.delete("/api/resource-browser/lists/{guid}", summary="Delete a working set of yours (its resources stay)")
+async def delete_list(guid: str):
+    me = _require_signed_in()
+    lock = _DELETE_LOCKS.get(guid)
+    if lock is not None and lock.locked():
+        raise HTTPException(status_code=409, detail="A delete of this working set is already running.")
+    lock = _DELETE_LOCKS.setdefault(guid, asyncio.Lock())
+    try:
+        async with lock:
+            return await _run_delete(guid, me)
+    finally:
+        if _DELETE_LOCKS.get(guid) is lock and not lock.locked():
+            _DELETE_LOCKS.pop(guid, None)
+
+
+async def _run_delete(guid: str, me: str):
+    try:
+        client = await _explorer_async()
+        plan = await _delete_plan(client, guid, me)       # rebuilt here: the client's copy is never trusted
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise_egeria_http_error(exc, f"resource-browser: delete plan for working set {guid} failed")
+    if plan["blockers"]:
+        return JSONResponse(dict(_plan_view(plan), deleted=False,
+                                 detail="Nothing was removed: " + " ".join(b["text"] for b in plan["blockers"])),
+                            status_code=409)
+    removed = {"shares": [], "lenses": [], "members": 0}
+
+    def partial(step: str, target: Optional[dict], exc: Exception, left: dict, why: Optional[str] = None):
+        logger.warning(f"resource-browser: delete working set {guid} stopped at {step}: {exc}")
+        return JSONResponse({"guid": guid, "displayName": plan["displayName"], "deleted": False,
+                             "removed": removed, "left": left,
+                             "failed": {"step": step, "guid": (target or {}).get("guid"),
+                                        "displayName": (target or {}).get("displayName"),
+                                        "message": why or str(exc)[:300]}}, status_code=207)
+
+    def left_now(shares, lenses, members):
+        return {"shares": shares, "lenses": lenses, "members": len(members)}
+
+    try:
+        cm = await _collections_async()
+    except Exception as exc:
+        raise_egeria_http_error(exc, f"resource-browser: delete working set {guid} failed")
+    shares, lenses, members = list(plan["shares"]), list(plan["lenses"]), list(plan["members"])
+    while shares:
+        g = shares[0]
+        try:
+            await cm._async_detach_collection(g["guid"], guid)
+        except Exception as exc:
+            return partial("unshare", g, exc, left_now(shares, lenses, members))
+        removed["shares"].append(shares.pop(0))
+    if lenses:
+        from resource_locator_lens_handler import _officer_async
+        try:
+            officer = await _officer_async()
+        except Exception as exc:
+            return partial("ungovern", lenses[0], exc, left_now(shares, lenses, members))
+        while lenses:
+            lens = lenses[0]
+            try:
+                await officer._async_detach_governed_by_definition(guid, lens["guid"])
+            except Exception as exc:
+                return partial("ungovern", lens, exc, left_now(shares, lenses, members))
+            removed["lenses"].append(lenses.pop(0))
+    while members:                                         # one at a time, as bulk add does
+        m = members[0]
+        try:
+            await cm._async_remove_from_collection(guid, m["guid"])
+        except Exception as exc:
+            return partial("unlink", m, exc, left_now(shares, lenses, members))
+        members.pop(0)
+        removed["members"] += 1
+    try:
+        again = await _delete_plan(client, guid, me)
+    except Exception as exc:
+        return partial("re-read", None, exc, left_now([], [], []))
+    if again["members"] or again["shares"] or again["lenses"] or again["blockers"]:
+        return partial("re-read", None, RuntimeError("changed"),
+                       left_now(again["shares"], again["lenses"], again["members"]),
+                       why="Something was added to the working set while deleting it, so it was not deleted; "
+                           "nothing more was removed. Delete again to carry on.")
+    try:
+        # R1: no body, so cascade=False reaches Egeria as cascadedDelete=false (a passed body would make
+        # cascade a no-op, ISSUE-127). A soft delete; nothing anchored is deleted with it.
+        await cm._async_delete_collection(guid, cascade=False)
+    except Exception as exc:
+        if _is_has_members(exc):                           # R4: a member added after the re-read
+            try:
+                late = await _delete_plan(client, guid, me)
+                left = left_now(late["shares"], late["lenses"], late["members"])
+            except Exception:
+                left = {"shares": [], "lenses": [], "members": None}
+            return partial("delete", None, exc, left,
+                           why="A resource was added while deleting, so Egeria kept the working set; nothing more "
+                               "was removed. Delete again to carry on.")
+        return partial("delete", None, exc, left_now([], [], []),
+                       why=f"Every link was removed, but Egeria refused to delete the working set "
+                           f"({str(exc)[:200]}). It is empty now: delete again.")
+    logger.info(f"resource-browser: {me} deleted working set {guid} ({removed['members']} members kept)")
+    return JSONResponse({"guid": guid, "displayName": plan["displayName"], "deleted": True, "removed": removed,
+                         "membersKept": removed["members"]})
+
 # ── Browse ────────────────────────────────────────────────────────────────────
 
 _FACETS = ["tag", "badge", "owner", "source", "collection", "folder", "keyword", "category", "flavour", "scope"]

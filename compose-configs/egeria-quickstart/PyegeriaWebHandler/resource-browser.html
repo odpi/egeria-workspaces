@@ -2426,6 +2426,90 @@ var ORIGINS = {
   other: 'Working set · read-only',
 };
 
+// ── Delete a working set (PO-43) ─────────────────────────────────────────────
+// The owner deletes a working set: its team shares, the owner's own lenses and its member links are
+// removed, then the set. Members are never deleted. The server rebuilds the plan and refuses, in words,
+// anything else linked or anchored to the set; a delete that stops part-way says what is left.
+function plural(n, one, many) { return n + ' ' + (n === 1 ? one : (many || one + 's')); }
+
+function deleteConfirmText(plan) {
+  var lines = [];
+  if (plan.shares && plan.shares.length)
+    lines.push('It stops being shared with ' + plan.shares.map(function(g) { return g.displayName; }).join(', ') + '.');
+  if (plan.lenses && plan.lenses.length)
+    lines.push(plan.lenses.map(function(l) { return 'Data lens ‘' + l.displayName + '’'; }).join(', ') +
+      (plan.lenses.length === 1 ? ' stops' : ' stop') + ' governing it.');
+  return {
+    question: 'Delete working set ‘' + plan.displayName + '’? Its ' + plural(plan.members, 'resource') +
+      (plan.members === 1 ? ' stays' : ' stay') + '; only the set and its links are removed.',
+    lines: lines,
+    blockers: (plan.blockers || []).map(function(b) { return b.text; }),
+    canDelete: !!plan.canDelete && !(plan.blockers || []).length,
+  };
+}
+
+function deleteOutcomeText(d) {
+  if (d.deleted) return 'Deleted ‘' + d.displayName + '’. Its ' + plural(d.membersKept || 0, 'resource') +
+    (d.membersKept === 1 ? ' is' : ' are') + ' unchanged.';
+  if (d.blockers && d.blockers.length) return d.detail || 'Nothing was removed.';
+  var r = d.removed || {}, left = d.left || {}, f = d.failed || {};
+  var done = [];
+  if (r.members) done.push(plural(r.members, 'resource') + ' taken out of it');
+  if (r.shares && r.shares.length) done.push('no longer shared with ' + r.shares.map(function(g) { return g.displayName; }).join(', '));
+  if (r.lenses && r.lenses.length) done.push('no longer governed by ' + r.lenses.map(function(l) { return '‘' + l.displayName + '’'; }).join(', '));
+  var still = [];
+  if (left.members) still.push('still holds ' + plural(left.members, 'resource'));
+  if (left.members === null) still.push('may still hold resources (it could not be read again)');
+  if (left.shares && left.shares.length) still.push('is still shared with ' + left.shares.map(function(g) { return g.displayName; }).join(', '));
+  if (left.lenses && left.lenses.length) still.push('is still governed by ' + left.lenses.map(function(l) { return '‘' + l.displayName + '’'; }).join(', '));
+  var what = f.step === 'unlink' ? 'taking ‘' + (f.displayName || f.guid) + '’ out of it failed'
+           : f.step === 'unshare' ? 'stopping the share with ' + (f.displayName || f.guid) + ' failed'
+           : f.step === 'ungovern' ? 'unlinking data lens ‘' + (f.displayName || f.guid) + '’ failed'
+           : null;
+  if (what && f.message) what += ' (' + f.message + ')';
+  var head = 'The working set was not deleted' + (done.length ? ': ' + done.join(', ') + (what ? ', then ' + what : '') : (what ? ': ' + what : '')) + '.';
+  return head + (!what && f.message ? ' ' + f.message : '') +
+    (still.length ? ' It ' + still.join(', and ') + '.' : '') + (what ? ' Delete again to carry on.' : '');
+}
+
+function DeleteSetCard({ lst, creds, onDeleted }) {
+  var _p = useState(null), plan = _p[0], setPlan = _p[1];
+  var _b = useState(false), busy = _b[0], setBusy = _b[1];
+  var _m = useState(''), msg = _m[0], setMsg = _m[1];
+  function ask() {
+    setBusy(true); setMsg('');
+    getJson(API + '/lists/' + encodeURIComponent(lst.guid) + '/delete-plan', creds)
+      .then(setPlan).catch(function(x) { setMsg('Could not check what deleting would remove: ' + x.message); })
+      .finally(function() { setBusy(false); });
+  }
+  function run() {
+    setBusy(true); setMsg('');
+    egeriaFetch(API + '/lists/' + encodeURIComponent(lst.guid), creds, { method: 'DELETE' })
+      .then(function(r) { return r.json().catch(function() { return {}; }).then(function(d) { return { status: r.status, d: d }; }); })
+      .then(function(x) {
+        if (x.status === 200 && x.d.deleted) { refreshLists(creds); onDeleted(deleteOutcomeText(x.d)); return; }
+        setPlan(null); setMsg(typeof x.d.detail === 'string' && !x.d.removed && !x.d.blockers ? x.d.detail : deleteOutcomeText(x.d));
+        refreshLists(creds);
+      })
+      .catch(function(x) { setMsg('The delete could not be sent: ' + x.message); })
+      .finally(function() { setBusy(false); });
+  }
+  if (!plan) return el('div', { style: { marginTop: 10 } },
+    el('button', { className: 'rb-edit', disabled: busy, onClick: ask }, busy ? 'Checking…' : 'Delete working set…'),
+    msg && el('div', { className: 'rb-err', style: { marginTop: 6 } }, msg));
+  var t = deleteConfirmText(plan);
+  return el('div', { className: 'rb-card', style: { marginTop: 10 } },
+    el('div', { style: { fontWeight: 600 } }, t.question),
+    t.lines.map(function(l, i) { return el('div', { key: i, className: 'rb-note', style: { marginTop: 4 } }, l); }),
+    t.blockers.length > 0 && el('div', { style: { marginTop: 8 } },
+      el('div', { className: 'rb-err' }, 'It cannot be deleted here yet:'),
+      el('ul', { style: { margin: '4px 0 0 18px' } }, t.blockers.map(function(b, i) { return el('li', { key: i }, b); }))),
+    el('div', { className: 'rb-row', style: { gap: 8, marginTop: 10 } },
+      el('button', { className: 'rb-btn', disabled: busy || !t.canDelete, onClick: run }, busy ? 'Deleting…' : 'Delete'),
+      el('button', { className: 'rb-edit', disabled: busy, onClick: function() { setPlan(null); } }, 'Keep it')),
+    msg && el('div', { className: 'rb-err', style: { marginTop: 6 } }, msg));
+}
+
 function ListPage({ guid, creds }) {
   var idx = useFlavours(creds);
   var lists = useLists(creds);
@@ -2436,14 +2520,18 @@ function ListPage({ guid, creds }) {
   var _n = useState(''), newName = _n[0], setNewName = _n[1];
   var _b = useState(false), busy = _b[0], setBusy = _b[1];
   var _m = useState(''), msg = _m[0], setMsg = _m[1];
+  var _g = useState(''), gone = _g[0], setGone = _g[1];
 
   function load() {
     return getJson(API + '/lists/' + encodeURIComponent(guid), creds)
       .then(function(d) { setLst(d); document.title = d.displayName + ' · Resource Locator'; setPageLabel(routeLabel({ page: 'list' }, d.displayName)); })
       .catch(function(x) { setErr(x.message); });
   }
-  useEffect(function() { setLst(null); setErr(''); setSel({}); setMsg(''); load(); }, [guid, creds && creds.token]);
+  useEffect(function() { setLst(null); setErr(''); setSel({}); setMsg(''); setGone(''); load(); }, [guid, creds && creds.token]);
 
+  if (gone) return el('div', { className: 'rb-page' }, el('div', { className: 'rb-card' },
+    el('div', null, gone), el('div', { style: { marginTop: 8 } },
+      el('button', { className: 'rb-link', onClick: function() { navigate({}); } }, '\u2190 ' + HOME_LABEL))));
   if (err) return el('div', { className: 'rb-page' }, el('div', { className: 'rb-card' }, el('div', { className: 'rb-err' }, err)));
   if (!lst) return el('div', { className: 'center', style: { height: 300 } }, el('div', { className: 'spinner' }), 'Loading…');
 
@@ -2499,6 +2587,7 @@ function ListPage({ guid, creds }) {
     el('div', { className: 'rb-attrib', style: { marginTop: 8 } },
       lst.creator ? ['made by ', el('b', { key: 'c' }, lst.creator), ' · '] : null,
       'last updated by ', el('b', null, lst.updatedBy || 'unknown'), ' · ', fmtDate(lst.updateTime)),
+    lst.editable && el(DeleteSetCard, { lst: lst, creds: creds, onDeleted: setGone }),
     lst.copiedFrom && el('div', { className: 'rb-note', style: { marginTop: 4 } },
       'Copied from ',
       el('button', { className: 'rb-link', onClick: function() { openList(lst.copiedFrom.copiedFromGUID); } }, lst.copiedFrom.copiedFromName || 'another working set'),
