@@ -332,6 +332,38 @@ EOF
       fi
     fi
   fi
+
+  # Same wait as quick-start-local: report when the platform is actually up, rather than printing the URLs
+  # while the JVM is still starting. freshstart-egeria-main has no fixed container_name, so ask compose for
+  # its container. A warning, not a failure: the stack is started either way.
+  echo "[fresh-start-local] Waiting for freshstart-egeria-main to become healthy (Egeria JVM typically takes 2-5 min)..."
+  _egeria_cid=$($COMPOSE_CMD -p egeria-freshstart \
+    -f egeria-freshstart.yaml \
+    -f egeria-freshstart-local.yaml \
+    -f egeria-freshstart-ssl.yaml \
+    ps -q freshstart-egeria-main 2>/dev/null | head -n1)
+  _egeria_healthy=0
+  for _i in $(seq 1 20); do
+    if [[ -n "$_egeria_cid" ]]; then
+      _status=$($CONTAINER_ENGINE inspect -f "$INSPECT_STATUS_FORMAT" "$_egeria_cid" 2>/dev/null || echo "not-found")
+    else
+      _status="not-found"
+    fi
+    if [[ "$_status" == "healthy" ]]; then
+      echo "[fresh-start-local] freshstart-egeria-main is healthy."
+      _egeria_healthy=1
+      break
+    fi
+    if [[ "$_status" == "not-found" || "$_status" == "exited" || "$_status" == "dead" ]]; then
+      break
+    fi
+    echo "[fresh-start-local]   attempt ${_i}/20 — current status: ${_status} (waiting 30s...)"
+    sleep 30
+  done
+  if [[ $_egeria_healthy -eq 0 ]]; then
+    echo "[fresh-start-local] WARNING: freshstart-egeria-main did not reach healthy state (last status: ${_status})." >&2
+    echo "[fresh-start-local]   Check logs: $COMPOSE_CMD -p egeria-freshstart -f compose-configs/egeria-freshstart/egeria-freshstart.yaml logs freshstart-egeria-main" >&2
+  fi
 popd >/dev/null
 
 echo "[fresh-start-local] Done. Useful URLs:"
