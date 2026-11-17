@@ -2491,13 +2491,17 @@ async def unshare_list(guid: str, group: str):
 _FACETS = ["tag", "badge", "owner", "source", "collection", "flavour", "scope"]
 
 # Architect R2 (2026-11-17): "none recorded" is every resource minus the recorded ones, so it is only
-# as complete as _all_elements, and its count is shown as "at least" while that is unproven.
+# as complete as _all_elements. Measurement kept for the record:
 # Read-only check on laz 2026-11-17 (service user, against repository_qs_metadata_store.entity, current
 # Active non-proxy rows by leaf type): 40 of 45 resource types matched exactly (4,794 read vs 4,879
 # stored). Short: DigitalProduct 181/218 and DigitalProductFamily 10/15 (most stored ones are zoned),
 # Topic 5/6 (one Memento), TabularDataSet 31/37 and TabularDataSetCollection 276/312 (5 templates
-# each; the other 1 and 31 have no zone, Memento or template, so they are unexplained). Not proven.
-ALL_ELEMENTS_UNVERIFIED = True
+# each; the other 1 and 31 had no zone, Memento or template).
+# Explained since (EG-15b, Rocky + Architect, 2026-11-17): the missing ones are hidden by visibility, Promise
+# anchors when forLineage is off, and zones. The sweep reads as the signed-in user, so the list is complete
+# for what that user can see. It is labelled "of the resources you can see", not "at least"; a page-limit
+# cap still makes a count "at least".
+ALL_ELEMENTS_UNVERIFIED = False
 
 # Architect R5 (2026-11-17): the "none recorded" sweep reads every resource (~4,800 on laz, ~19 s cold) and
 # is cached per user, so several users opening Data scope at once would each sweep Egeria. At most one
@@ -2583,7 +2587,7 @@ async def _facet_values(facet: str) -> dict:
              "counting": counting, "countAtLeast": none["capped"],
              "description": (("The count failed; retrying shortly" if none["error"] else
                               "Counting every resource in the background (about 20 s the first time)") if counting
-                             else "Needs a data scope (some hold only usage readings)")},
+                             else "Of the resources you can see: needs a data scope (some hold only usage readings)")},
         ], "notRead": len(none["notRead"]), "loading": counting, "error": none["error"],
            "countsAre": "at least these where marked (a read stopped at its page limit)" if (recorded["capped"] or none["capped"]) else None}
     raise HTTPException(status_code=404, detail=f"Unknown browse facet {facet!r}.")
@@ -2694,8 +2698,9 @@ async def browse_list(facet: str, value: str, lens: Optional[str] = Query(None, 
                 title = "No data scope recorded"
                 scope_loading = none["rows"] is None
                 scope_refreshing = none["refreshing"]
-                note = ("Resources whose data scope records no time, place or other dimension: no DataScope at all, "
-                        "or one holding only usage readings from Egeria's lineage service. Set one in The Catalog.")
+                note = ("Of the resources you can see, those whose data scope records no time, place or other dimension: "
+                        "no DataScope at all, or one holding only usage readings from Egeria's lineage service. "
+                        "Set one in The Catalog. What you can see depends on zone security and the Promise/Memento toggle.")
                 if none["notRead"]:
                     note += f" {len(none['notRead'])} more could not be checked: their classifications were not read."
                 if scope_loading:

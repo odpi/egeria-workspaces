@@ -8,8 +8,8 @@ Pinned here:
   - each row is inside / outside / cannot be compared / scope not read; "cannot be compared"
     is never counted as outside, and a row whose header carried no classifications is
     "scope not read" (R1), never "cannot be compared" or "none recorded";
-  - counts say partial when the list was capped, and "none recorded" is "at least" until
-    _all_elements is checked against the repository (R2);
+  - counts say partial when the list was capped; "none recorded" is complete for what the user
+    can see (R2, explained as visibility since), so it is "at least" only when a read was capped;
   - the old value id "all" answers with the old shape: value "all", title "Resources with a
     data scope" (R3).
 Endpoints run through the real app with fake Egeria clients; nothing is written.
@@ -166,7 +166,7 @@ def test_none_recorded_is_every_resource_minus_recorded_with_unread_apart(client
     d = client.get("/api/resource-browser/browse/scope/none").json()
     assert sorted(r["guid"] for r in d["items"]) == ["bare", "usage"]      # usage-only readings need a scope too
     assert "1 more could not be checked" in d["note"]                      # "unread" is neither none nor recorded
-    assert d["capped"] is True                                             # R2: at least, until cross-checked
+    assert d["capped"] is False and "you can see" in d["note"]            # complete for what this user sees
     assert set(d["scopeListsAsOf"]) == {"recordedAsOf", "noneAsOf"}
 
 
@@ -175,7 +175,8 @@ def test_scope_facet_values_count_both_lists(client, fake):
     d = client.get("/api/resource-browser/browse/scope").json()
     vals = {v["id"]: v for v in d["values"]}
     assert (vals["recorded"]["count"], vals["none"]["count"]) == (3, 2)
-    assert vals["none"]["countAtLeast"] is True and d["notRead"] == 1
+    assert vals["none"]["countAtLeast"] is False and d["notRead"] == 1
+    assert "you can see" in vals["none"]["description"]
 
 
 def test_unknown_scope_value_is_404(client, fake):
@@ -291,3 +292,12 @@ def test_idle_sweep_entries_are_evicted(monkeypatch):
             await asyncio.sleep(0)
     asyncio.run(main())
     assert "k|old-token" not in rb._SWEEP_STATE and "k|new-token" in rb._SWEEP_STATE
+
+
+def test_none_recorded_is_at_least_only_when_a_type_read_was_capped(client, fake):
+    _scoped_state(fake)
+    fake["sweep_value"]["cappedTypes"] = ["DataAsset"]
+    d = client.get("/api/resource-browser/browse/scope/none").json()
+    assert d["capped"] is True
+    vals = {v["id"]: v for v in client.get("/api/resource-browser/browse/scope").json()["values"]}
+    assert vals["none"]["countAtLeast"] is True

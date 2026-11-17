@@ -2303,7 +2303,7 @@ function BrowsePage({ facet, value, lens, creds }) {
               title: none ? 'No resource has this yet' : '',
               onClick: function() { if (f.id === 'collection' && v.description === 'WorkingSet') openList(v.id); else navigate({ browse: f.id, value: v.id }); } },
             el('span', { className: 'n' }, v.label),
-            (v.count !== undefined || v.counting) && el('span', { className: 'c', title: v.countAtLeast ? 'At least this many: a read stopped at its limit, or the full read is not proven complete against Egeria\u2019s repository' : '' },
+            (v.count !== undefined || v.counting) && el('span', { className: 'c', title: v.countAtLeast ? 'At least this many: a read stopped at its page limit' : '' },
               v.counting ? 'counting\u2026' : none ? 'none' : (v.countAtLeast ? '\u2265 ' : '') + v.count),
             v.description && el('span', { className: 'rb-note' }, v.description));
         })),
