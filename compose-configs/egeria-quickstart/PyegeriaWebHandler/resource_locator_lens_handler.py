@@ -18,7 +18,7 @@ elements share an element. A resource that records none of the lens's dimensions
 "outside" the lens: it cannot be compared, and the page says how many there are.
 
 The Portal's own lenses are named DataLens::portal::<user>::<slug>, and only their
-creator changes them here, as with work lists.
+creator changes them here, as with working sets.
 
 Endpoints (writes need an X-Egeria-Token: the signed-in user is the author):
   GET    /api/resource-browser/lenses                         → the lenses the user can see
@@ -241,7 +241,7 @@ async def get_lenses():
                          "source": "ClassificationExplorer.get_elements (DataLens; GovernedBy)"})
 
 
-@router.get("/api/resource-browser/lenses/{guid}", summary="One data lens, the lists it governs, and the resources inside it")
+@router.get("/api/resource-browser/lenses/{guid}", summary="One data lens, the working sets it governs, and the resources inside it")
 async def get_lens(guid: str):
     me = rb._token_user()
     try:
@@ -298,7 +298,7 @@ def _checked_name(name: Optional[str]) -> str:
     return name
 
 
-@router.post("/api/resource-browser/lenses", summary="Create a data lens, optionally governing a list of yours")
+@router.post("/api/resource-browser/lenses", summary="Create a data lens, optionally governing a working set of yours")
 async def create_lens(body: LensBody):
     me = rb._require_signed_in()
     name = _checked_name(body.name)
@@ -351,7 +351,7 @@ class LensListBody(BaseModel):
     listGuid: str
 
 
-@router.post("/api/resource-browser/lenses/{guid}/lists", summary="The lens governs a list of yours")
+@router.post("/api/resource-browser/lenses/{guid}/lists", summary="The lens governs a working set of yours")
 async def govern_list(guid: str, body: LensListBody):
     try:
         groups, _ = await ds._type_groups("DataLens")
@@ -368,7 +368,7 @@ async def govern_list(guid: str, body: LensListBody):
     return await get_lens(guid)
 
 
-@router.delete("/api/resource-browser/lenses/{guid}/lists/{list_guid}", summary="The lens stops governing a list")
+@router.delete("/api/resource-browser/lenses/{guid}/lists/{list_guid}", summary="The lens stops governing a working set")
 async def ungovern_list(guid: str, list_guid: str):
     try:
         groups, _ = await ds._type_groups("DataLens")
