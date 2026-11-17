@@ -63,6 +63,19 @@ Its password is `PROVISIONER_PASSWORD` from `shared-infra/.env`. **There is no d
   that file (`up`, `down`, `ps`, `config`, …) needs it exported first: `source ../../shared-infra/export-provisioner-password.sh`.
 - Use letters and digits only (as the generated value is). The value is written as it is into YAML and into Airflow's
   connection URI, where other characters can break them.
+- **Re-running a start script keeps the password.** `quick-start-local`, `fresh-start-local` and `gen-env.sh` read
+  `PROVISIONER_PASSWORD` from the environment or the existing `.env`. They generate a new one only when neither has
+  it. So a redeploy that leaves the databases alone keeps the same password, and nothing loses access.
+- **Only a missing `.env` (or a missing line in it) gives a new password**: for example a fresh clone, a cleaned-up
+  checkout, or a deleted `shared-infra/.env`. Keep that file, or keep a copy, if you want the password to stay the
+  same. If a new one is generated:
+  - The next start applies it to the role, the Egeria secrets and (for a freshstart with `--keep-existing`) the
+    placeholder secrets alike, so Egeria's provisioning services keep working.
+  - No data is lost. Changing a role's password doesn't drop or empty anything: `egeria_ods`, `coco_data_hub`,
+    `subscription_staging` and Egeria's metadata store keep their contents. Egeria's own metadata store doesn't sign
+    in as `provisioner` at all.
+  - Airflow picks up the new value only when its containers are recreated. Until then its `coco_data_hub` loads fail
+    with a sign-in error, visibly. Recreate them as after a rotation (above).
 - Before this change the role had a well-known password. The first start after it rotates that password, the Egeria
   secrets and the Airflow connection together. Writing to the shared Postgres affects other users, so tell them first.
 
