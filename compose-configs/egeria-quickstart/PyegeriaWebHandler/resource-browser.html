@@ -516,10 +516,85 @@ function sendJson(url, creds, method, body) {
     body: body === undefined ? undefined : JSON.stringify(body) });
 }
 
+// ── Back to where a resource was opened from (PO-38) ────────────────────────
+// A resource page remembers the page it was opened from (history.state: from = that page's search
+// string, fromLabel = how that page names itself), and each list page keeps its view (filters, pages
+// loaded, scroll) in sessionStorage, keyed by its search string, so the crumb returns to the same rows.
+// Only view state is kept there: no rows, no token (Architect R3).
+
+var VIEW_TTL_MS = 30 * 60 * 1000;
+var RESTORE_MAX_PAGES = 10;
+var _pageLabel = { search: null, label: '' };
+
+// What the current page calls itself, for the crumb of a page opened from it.
+function setPageLabel(label) { _pageLabel = { search: window.location.search, label: label || '' }; }
+
+function routeLabel(route, title) {
+  var t = title || '';
+  switch (route.page) {
+    case 'search': return 'Search \u201c' + (route.q || '') + '\u201d' + (t ? ' (' + t + ')' : '');
+    case 'browse': {
+      var f = (typeof FACETS !== 'undefined' ? FACETS : []).filter(function(x) { return x.id === route.facet; })[0];
+      return 'Browse \u203a ' + (f ? f.label : route.facet) + (route.value ? ' \u203a ' + (t || route.value) : '');
+    }
+    case 'list': return 'Work list' + (t ? ' \u2018' + t + '\u2019' : '');
+    case 'lens': return 'Data lens' + (t ? ' \u2018' + t + '\u2019' : '');
+    case 'resource': return t || 'the resource you came from';
+    case 'help': return 'Help';
+    default: return HOME_LABEL;
+  }
+}
+
+// The crumb's target, or null. Only a search string of this page (or none, for Home) is accepted,
+// and only for the resource the state was written for: anything else falls back to Home (Architect R2).
+function safeFrom(state, guid) {
+  if (!state || typeof state !== 'object' || state.guid !== guid || typeof state.from !== 'string') return null;
+  if (state.from.length > 2000 || !/^(\?[^#\s]*)?$/.test(state.from)) return null;
+  var label = typeof state.fromLabel === 'string' && state.fromLabel ? state.fromLabel.slice(0, 200) : 'the list you came from';
+  return { from: state.from, label: label };
+}
+
+function viewKey(search) { return 'rb-view:' + search; }
+function loadView(store, search, now) {
+  try {
+    var v = JSON.parse(store.getItem(viewKey(search)) || 'null');
+    return v && typeof v === 'object' && typeof v.at === 'number' && now - v.at <= VIEW_TTL_MS ? v : null;
+  } catch (e) { return null; }
+}
+function saveView(store, search, patch, now) {
+  try { store.setItem(viewKey(search), JSON.stringify(Object.assign({}, loadView(store, search, now) || {}, patch, { at: now }))); } catch (e) { /* storage full or off */ }
+}
+function viewStore() { try { return window.sessionStorage || null; } catch (e) { return null; } }
+
 function openResource(guid) {
   var url = PAGE + '?guid=' + encodeURIComponent(guid);
-  window.history.pushState({ guid: guid }, '', url);
+  var from = window.location.search;
+  var label = _pageLabel.search === from && _pageLabel.label ? _pageLabel.label : routeLabel(currentRoute(), '');
+  var store = viewStore();
+  if (store) saveView(store, from, { scrollY: window.scrollY || 0 }, Date.now());
+  window.history.pushState({ guid: guid, from: from, fromLabel: label }, '', url);
   window.dispatchEvent(new Event('rb-navigate'));
+}
+
+// One step back, like the browser's Back: when the entry before this one is the page it came from,
+// history.back() keeps the browser's own Back in step; if it was not (a new tab), go there instead.
+function goBackTo(back) {
+  if (!back) { navigate({}); return; }
+  var here = window.location.href;
+  window.history.back();
+  setTimeout(function() {
+    if (window.location.href === here) {
+      window.history.pushState({}, '', PAGE + back.from);
+      window.dispatchEvent(new Event('rb-navigate'));
+    }
+  }, 400);
+}
+
+function BackCrumb({ guid }) {
+  var back = safeFrom(window.history.state, guid);
+  return el('div', { className: 'rb-crumb' },
+    el('button', { className: 'rb-link', title: back ? 'Back to the list this was opened from, as you left it' : 'This page was opened directly',
+      onClick: function() { goBackTo(back); } }, '\u2190 ' + (back ? back.label : HOME_LABEL)));
 }
 
 // Where a row opens: a glossary term opens in Egeria Explorer's glossary (the Resource page is
@@ -1303,6 +1378,7 @@ function ResourcePage({ guid, creds, personaId }) {
       .then(function(d) {
         setRes(d);
         document.title = d.displayName + ' · Resource Locator';
+        setPageLabel(routeLabel({ page: 'resource' }, d.displayName));
         if (d.jdbcTableName) {
           getJson(API + '/resource/' + encodeURIComponent(guid) + '/statistics', creds)
             .then(setStats).catch(function(e) { setStats({ error: e.message }); });
@@ -1333,6 +1409,7 @@ function ResourcePage({ guid, creds, personaId }) {
   }
 
   return el('div', { className: 'rb-page' },
+    el(BackCrumb, { guid: guid }),
     el(PartOfCrumb, { res: res, structure: structure }),
     el('div', { className: 'rb-row', style: { alignItems: 'flex-start', justifyContent: 'space-between' } },
       el('div', { style: { minWidth: 0, flex: 1 } },
@@ -1763,6 +1840,47 @@ function toggleKind(picked, id) {
   return next.length ? { kind: next.join(',') } : {};
 }
 
+var NO_FILTERS = { flavour: '', owner: '', badge: '', category: '', scope: false };
+
+// Rows of a new page added to those loaded: a row seen again keeps one entry and gains its reasons.
+function mergeResults(prev, rows) {
+  var out = prev.slice(), have = {};
+  out.forEach(function(r) { have[r.guid] = r; });
+  rows.forEach(function(r) {
+    if (have[r.guid]) r.matched.forEach(function(m) { if (have[r.guid].matched.indexOf(m) < 0) have[r.guid].matched.push(m); });
+    else { have[r.guid] = r; out.push(r); }
+  });
+  return out;
+}
+
+// Read pages 0..n-1 again, one at a time, n at most RESTORE_MAX_PAGES. If a page fails, stop and say so:
+// a partial list is never shown as the rows you had (Architect R3). An empty or last page ends early.
+// fetchPage(page) returns a promise of the page; onRows(rows so far, page) shows progress.
+// Resolves to {rows, complete, note}; never rejects.
+function restorePages(pages, fetchPage, onProgress, onRows) {
+  var n = Math.min(pages, RESTORE_MAX_PAGES), acc = [], read = 0, error = null, done = false;
+  var step = Promise.resolve();
+  for (var i = 0; i < n; i++) {
+    (function(page) {
+      step = step.then(function() {
+        if (done || error) return;
+        onProgress('Restoring the results you had: page ' + (page + 1) + ' of ' + n + '\u2026');
+        return Promise.resolve().then(function() { return fetchPage(page); }).then(function(d) {
+          acc = mergeResults(acc, d.items || []); read = page + 1; onRows(acc, d);
+          if (!d.mayHaveMore) done = true;
+        }, function(e) { error = (e && e.message) || String(e); });
+      });
+    })(i);
+  }
+  return step.then(function() {
+    var note = '';
+    if (error) note = 'Only ' + read + ' of the ' + n + ' pages you had could be read again (' + error +
+      '), so this is not the full list you left. Load more continues from here.';
+    else if (pages > n) note = 'The first ' + n + ' of the ' + pages + ' pages you had are shown again; Load more continues from here.';
+    return { rows: acc, complete: !error, note: note };
+  });
+}
+
 function SearchPage({ q, kind, creds }) {
   var kinds = useKinds(creds);
   var picked = pickedKinds(kind);
@@ -1771,30 +1889,45 @@ function SearchPage({ q, kind, creds }) {
   var _i = useState([]), items = _i[0], setItems = _i[1];
   var _e = useState(''), err = _e[0], setErr = _e[1];
   var _l = useState(false), loading = _l[0], setLoading = _l[1];
-  var _f = useState({ flavour: '', owner: '', badge: '', category: '', scope: false }), filt = _f[0], setFilt = _f[1];
+  var _f = useState(NO_FILTERS), filt = _f[0], setFilt = _f[1];
+  var _rs = useState(''), restoring = _rs[0], setRestoring = _rs[1];
+  var _rn = useState(''), restoreNote = _rn[0], setRestoreNote = _rn[1];
   var sel = useBulkSelection(q + '|' + kind);
+  var here = window.location.search;
 
+  function pageUrl(page) {
+    return API + '/search?q=' + encodeURIComponent(q) + (kind ? '&kind=' + encodeURIComponent(kind) : '') + '&page=' + page;
+  }
   function load(page) {
     setLoading(true); setErr('');
-    var url = API + '/search?q=' + encodeURIComponent(q) + (kind ? '&kind=' + encodeURIComponent(kind) : '') + '&page=' + page;
-    getJson(url, creds).then(function(d) {
+    getJson(pageUrl(page), creds).then(function(d) {
       setData(d);
-      setItems(function(prev) {
-        var have = {}; var out = page ? prev.slice() : [];
-        out.forEach(function(r) { have[r.guid] = r; });
-        d.items.forEach(function(r) {
-          if (have[r.guid]) r.matched.forEach(function(m) { if (have[r.guid].matched.indexOf(m) < 0) have[r.guid].matched.push(m); });
-          else { have[r.guid] = r; out.push(r); }
-        });
-        return out;
-      });
+      setItems(function(prev) { return mergeResults(page ? prev : [], d.items); });
     }).catch(function(e) { setErr(e.message); }).finally(function() { setLoading(false); });
   }
+  // Coming back from a resource: the same pages again (see restorePages).
+  function restore(pages, scrollY) {
+    setLoading(true); setErr(''); setRestoreNote('');
+    restorePages(pages, function(page) { return getJson(pageUrl(page), creds); }, setRestoring, function(acc, d) { setItems(acc); setData(d); })
+      .then(function(r) {
+        setRestoring(''); setLoading(false);
+        setRestoreNote(r.note);
+        if (r.complete && scrollY) setTimeout(function() { window.scrollTo(0, scrollY); }, 0);
+      });
+  }
   useEffect(function() {
-    setItems([]); setData(null); setFilt({ flavour: '', owner: '', badge: '', category: '', scope: false });
+    setItems([]); setData(null); setRestoreNote('');
+    var store = viewStore(), v = store ? loadView(store, here, Date.now()) : null;
+    setFilt(v && v.filt ? Object.assign({}, NO_FILTERS, v.filt) : NO_FILTERS);
     document.title = (q ? q + ' · ' : '') + 'Search · Resource Locator';
-    if (q) load(0);
+    if (q) { if (v && v.pages >= 1) restore(v.pages, v.scrollY); else load(0); }
   }, [q, kind, creds && creds.token]);
+  useEffect(function() {
+    var store = viewStore();
+    if (store && q && data && !restoring) saveView(store, here, { filt: filt, pages: data.page + 1 }, Date.now());
+  }, [filt, data && data.page, restoring]);
+  setPageLabel(routeLabel({ page: 'search', q: q }, picked.map(function(id) {
+    var k = kinds.filter(function(x) { return x.id === id; })[0]; return k ? k.label : id; }).join(', ')));
 
   var shown = items.filter(function(r) {
     if (filt.flavour && rowFlavour(idx, r) !== filt.flavour) return false;
@@ -1836,7 +1969,9 @@ function SearchPage({ q, kind, creds }) {
       el(CategorySelect, { value: filt.category, options: categories, onChange: function(v) { set('category', v); } }),
       el('label', { className: 'rb-note', style: { display: 'flex', gap: 4, alignItems: 'center' } },
         el('input', { type: 'checkbox', checked: filt.scope, onChange: function(e) { set('scope', e.target.checked); } }), 'has a data scope', el(Help, { term: 'dataScope' })),
-      filtering && el('button', { className: 'rb-edit', onClick: function() { setFilt({ flavour: '', owner: '', badge: '', category: '', scope: false }); } }, 'Clear')),
+      filtering && el('button', { className: 'rb-edit', onClick: function() { setFilt(NO_FILTERS); } }, 'Clear')),
+    restoring && el('div', { className: 'rb-note', style: { marginBottom: 10 } }, el('span', { className: 'spinner', style: { width: 10, height: 10, display: 'inline-block', marginRight: 6 } }), restoring),
+    restoreNote && el('div', { className: 'rb-err', style: { marginBottom: 10 } }, restoreNote),
     err && el('div', { className: 'rb-err', style: { marginBottom: 10 } }, 'Search failed: ' + err),
     data && el('div', { className: 'rb-note', style: { marginBottom: 10 } },
       filtering ? shown.length + ' of ' + items.length + ' loaded results match these filters (the filters apply to loaded results only). '
@@ -2079,7 +2214,7 @@ function LensPage({ guid, creds }) {
   useEffect(function() {
     document.title = (isNew ? 'New data lens' : 'Data lens') + ' · Resource Locator';
     dataScopeFetchDimensions('DataLens', creds).then(setGroups).catch(function(e) { setErr(e.message); });
-    if (!isNew) getJson(API + '/lenses/' + encodeURIComponent(guid), creds).then(function(x) { setD(x); document.title = x.lens.displayName + ' · Data lens · Resource Locator'; })
+    if (!isNew) getJson(API + '/lenses/' + encodeURIComponent(guid), creds).then(function(x) { setD(x); document.title = x.lens.displayName + ' · Data lens · Resource Locator'; setPageLabel(routeLabel({ page: 'lens' }, x.lens.displayName)); })
       .catch(function(e) { setErr(e.message); });
   }, [guid, creds && creds.token]);
   function act(method, path, body) {
@@ -2268,7 +2403,7 @@ function ListPage({ guid, creds }) {
 
   function load() {
     return getJson(API + '/lists/' + encodeURIComponent(guid), creds)
-      .then(function(d) { setLst(d); document.title = d.displayName + ' · Resource Locator'; })
+      .then(function(d) { setLst(d); document.title = d.displayName + ' · Resource Locator'; setPageLabel(routeLabel({ page: 'list' }, d.displayName)); })
       .catch(function(x) { setErr(x.message); });
   }
   useEffect(function() { setLst(null); setErr(''); setSel({}); setMsg(''); load(); }, [guid, creds && creds.token]);
@@ -2370,6 +2505,7 @@ function HomePage({ creds, personaId }) {
   var _p = useState(true), peopleOnly = _p[0], setPeopleOnly = _p[1];
   useEffect(function() {
     document.title = 'Home · Resource Locator';
+    setPageLabel(HOME_LABEL);
     getJson(API + '/home', creds).then(function(h) {
       if (!h || !Array.isArray(h.recent) || !Array.isArray(h.recentPeople)) throw new Error('the server sent an unexpected response');
       setHome(h);
@@ -2512,7 +2648,12 @@ function BrowsePage({ facet, value, lens, creds }) {
   var _e = useState(''), err = _e[0], setErr = _e[1];
   var _vq = useState(''), vq = _vq[0], setVq = _vq[1];
   useEffect(function() { setTick(0); }, [f.id, effective, lens]);
-  useEffect(function() { setVq(''); }, [f.id]);
+  var browseHere = window.location.search;
+  var scrolled = useRef(false);
+  useEffect(function() {
+    var store = viewStore(), v = store ? loadView(store, browseHere, Date.now()) : null;
+    setVq(v && typeof v.vq === 'string' ? v.vq : '');
+  }, [f.id]);
   useEffect(function() {
     if (!tick) { setErr(''); setVals(null); setList(null); }
     document.title = f.label + ' · Browse · Resource Locator';
@@ -2531,7 +2672,24 @@ function BrowsePage({ facet, value, lens, creds }) {
   function togglePick(id) { var n = Object.assign({}, picked); n[id] = !n[id]; setPicked(n); }
   var _c = useState(''), cat = _c[0], setCat = _c[1];
   var sel = useBulkSelection(f.id + '|' + effective);
-  useEffect(function() { setCat(''); }, [f.id, effective]);
+  useEffect(function() {
+    var store = viewStore(), v = store ? loadView(store, browseHere, Date.now()) : null;
+    setCat(v && typeof v.cat === 'string' ? v.cat : '');
+    if (v && v.picked && typeof v.picked === 'object') setPicked(v.picked);
+    scrolled.current = false;
+  }, [f.id, effective]);
+  useEffect(function() {
+    var store = viewStore();
+    if (store) saveView(store, browseHere, { cat: cat, vq: vq, picked: picked }, Date.now());
+  }, [cat, vq, picked, browseHere]);
+  useEffect(function() {        // back from a resource: return to where the list was scrolled
+    if (scrolled.current || !list || list.loading) return;
+    scrolled.current = true;
+    var store = viewStore(), v = store ? loadView(store, browseHere, Date.now()) : null;
+    if (v && v.scrollY) setTimeout(function() { window.scrollTo(0, v.scrollY); }, 0);
+  }, [list]);
+  setPageLabel(routeLabel({ page: 'browse', facet: f.id, value: effective },
+    list && list.title ? String(list.title).replace(/^(Keyword|Category): /, '') : ''));
   var shownRows = list ? lensRows(list.items, picked).filter(function(r) { return inCategory(r, cat); }) : [];
   var listCategories = list ? categoryOptions(list.items) : [];
 

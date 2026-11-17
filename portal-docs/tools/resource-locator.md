@@ -73,6 +73,8 @@ A fourth count, **scope not read**, appears when some resources' classifications
 
 ## The resource page
 
+**Back to where you were.** The top of a resource page links back to the page you opened it from, by name: for example **← Search “customer” (Tables)**, **← Browse › Search keyword › App/AI Builder**, or a work list. It takes you back as you left it: the same narrowing filters, lens and category choices, the same number of loaded result pages (up to 10; the page says so if there were more, or if a page could not be read again, so a shorter list is never shown as the one you had), and the same scroll position. A page opened directly, from a bookmark or a link, links to **Resource Locator Home** instead. What you left is kept in this browser tab only, for 30 minutes.
+
 Open any result to see one resource on its own page (`/resource-locator?guid=…`). It has these cards, each shown only when Egeria holds something for it:
 
 | Card | What it shows |
