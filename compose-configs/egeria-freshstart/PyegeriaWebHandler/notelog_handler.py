@@ -21,7 +21,7 @@ Performance notes (qs-view-server, pyegeria 6.0.14.6):
     now returns the *notes* (not the log) and honours `page_size`, so DETAIL
     fetches entries directly and cheaply even for the giant logs
     (page_size=100 ≈ 7s on the worst log; small logs are sub-second). Do NOT
-    pass `metadata_element_type_name="NoteLog"` — that now returns zero notes.
+    pass `metadata_element_type="NoteLog"` — that now returns zero notes.
   - The subject the log is *about* is not present at depth 0 in `noteLogSubjects`,
     but every log carries an `Anchors` classification in its elementHeader
     (anchorGUID + anchorTypeName) — a cheap, reliable cross-link target. DETAIL
