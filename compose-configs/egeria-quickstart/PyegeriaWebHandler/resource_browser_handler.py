@@ -51,6 +51,7 @@ a service account.
 
 import asyncio
 import json
+import time
 import os
 import re
 import uuid
@@ -2580,7 +2581,8 @@ async def _facet_values(facet: str) -> dict:
              "description": "A time, place or other dimension is recorded"},
             {"id": "none", "label": "No data scope recorded", "count": None if counting else len(none["rows"]),
              "counting": counting, "countAtLeast": none["capped"],
-             "description": ("Counting every resource in the background (about 20 s the first time)" if counting
+             "description": (("The count failed; retrying shortly" if none["error"] else
+                              "Counting every resource in the background (about 20 s the first time)") if counting
                              else "Needs a data scope (some hold only usage readings)")},
         ], "notRead": len(none["notRead"]), "loading": counting, "error": none["error"],
            "countsAre": "at least these where marked (a read stopped at its page limit)" if (recorded["capped"] or none["capped"]) else None}
@@ -2698,7 +2700,8 @@ async def browse_list(facet: str, value: str, lens: Optional[str] = Query(None, 
                     note += f" {len(none['notRead'])} more could not be checked: their classifications were not read."
                 if scope_loading:
                     note = ("Counting every resource in the background: this takes about 20 seconds the first time, "
-                            "and this page refreshes itself." + (f" The last attempt failed: {none['error']}" if none["error"] else ""))
+                            "and this page refreshes itself." +
+                            (f" The last attempt failed ({none['error']}); retrying shortly." if none["error"] else ""))
                 source = ("every resource type (ClassificationExplorer.get_elements) minus those with a data scope "
                           "recorded (get_elements_by_classification DataScope)")
             else:
@@ -2790,6 +2793,12 @@ async def _scope_split() -> tuple:
 # for it: it gets the last result (marked refreshing while a new one runs) or "loading", and the page polls.
 # One state per user and lineage mode (zone security and forLineage change what is visible).
 _SWEEP_STATE: dict = {}
+_SWEEP_RETRY_S = 60                 # Architect R8: after a failed sweep, wait this long before another
+_SWEEP_EVICT_S = 2 * _CACHE_TTL     # Architect R7: drop idle entries this old (tokens rotate every ~2 h)
+
+
+def _sweep_clock() -> float:
+    return time.monotonic()
 
 
 def _sweep_key() -> Optional[str]:
@@ -2802,10 +2811,10 @@ async def _run_sweep(key: str) -> None:
     try:
         async with _ALL_RESOURCES_SWEEPS:
             value = await _all_resources_sweep()
-        st.update(value=value, stamp=datetime.now(timezone.utc), error=None)
+        st.update(value=value, stamp=datetime.now(timezone.utc), error=None, doneAt=_sweep_clock(), failedAt=None)
     except Exception as exc:
         logger.warning(f"resource-browser: full-resource sweep failed: {exc}")
-        st["error"] = str(exc)[:300]
+        st.update(error=str(exc)[:300], failedAt=_sweep_clock())
 
 
 def _all_resources_state() -> tuple:
@@ -2816,10 +2825,21 @@ def _all_resources_state() -> tuple:
     key = _sweep_key()
     if key is None:
         raise HTTPException(status_code=401, detail="Your sign-in has expired: sign in again to read this list.")
-    st = _SWEEP_STATE.setdefault(key, {"value": None, "stamp": None, "task": None, "error": None})
-    running = st["task"] is not None and not st["task"].done()
-    fresh = st["stamp"] is not None and (datetime.now(timezone.utc) - st["stamp"]).total_seconds() < _CACHE_TTL
-    if not fresh and not running:
+    now = _sweep_clock()
+
+    def is_running(entry):
+        return entry["task"] is not None and not entry["task"].done()
+    for k, entry in list(_SWEEP_STATE.items()):          # R7: evict idle entries (one per credential)
+        times = [t for t in (entry.get("doneAt"), entry.get("failedAt")) if t is not None]
+        last = max(times) if times else None
+        if k != key and not is_running(entry) and last is not None and now - last > _SWEEP_EVICT_S:
+            del _SWEEP_STATE[k]
+    st = _SWEEP_STATE.setdefault(key, {"value": None, "stamp": None, "task": None, "error": None,
+                                       "doneAt": None, "failedAt": None})
+    running = is_running(st)
+    fresh = st["doneAt"] is not None and now - st["doneAt"] < _CACHE_TTL
+    failed_recently = st["failedAt"] is not None and now - st["failedAt"] < _SWEEP_RETRY_S   # R8
+    if not fresh and not running and not failed_recently:
         st["task"] = asyncio.create_task(_run_sweep(key))
         running = True
     return st["value"], st["stamp"], running, st["error"]

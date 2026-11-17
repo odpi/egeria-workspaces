@@ -236,22 +236,58 @@ def test_concurrent_requests_start_one_background_sweep_and_never_wait(monkeypat
     assert value == {"rows": [], "cappedTypes": []} and stamp is not None and loading is False and error is None
 
 
-def test_a_failed_sweep_is_reported_and_retried(monkeypatch):
+def test_a_failed_sweep_is_reported_and_retried_only_after_a_pause(monkeypatch):
+    # Architect R8: while Egeria is down, 8 s polls must not start a new 19 s sweep each time.
     import asyncio
     calls, gate = _sweep_harness(monkeypatch, fail_first=True)
+    clock = {"t": 1000.0}
+    monkeypatch.setattr(rb, "_sweep_clock", lambda: clock["t"])
+
+    async def settle():
+        for _ in range(5):
+            await asyncio.sleep(0)
 
     async def main():
         gate["release"] = asyncio.Event()
         rb._ALL_RESOURCES_SWEEPS = asyncio.Semaphore(1)
         gate["release"].set()
         rb._all_resources_state()
-        for _ in range(5):
-            await asyncio.sleep(0)
-        after_fail = rb._all_resources_state()     # starts the retry
-        for _ in range(5):
-            await asyncio.sleep(0)
-        return after_fail, rb._all_resources_state()
-    after_fail, after_retry = asyncio.run(main())
-    assert after_fail[0] is None and after_fail[2] is True and "egeria down" in after_fail[3]
-    assert after_retry[0] == {"rows": [], "cappedTypes": []} and after_retry[3] is None
+        await settle()                                   # first sweep fails
+        clock["t"] += 8
+        polled = rb._all_resources_state()               # a poll 8 s later: no new sweep
+        await settle()
+        clock["t"] += rb._SWEEP_RETRY_S
+        retry = rb._all_resources_state()                # after the pause: retried
+        await settle()
+        return polled, retry, rb._all_resources_state()
+    polled, retry, done = asyncio.run(main())
+    assert polled[0] is None and polled[2] is False and "egeria down" in polled[3]
     assert calls["n"] == 2
+    assert retry[2] is True
+    assert done[0] == {"rows": [], "cappedTypes": []} and done[3] is None
+
+
+def test_idle_sweep_entries_are_evicted(monkeypatch):
+    # Architect R7: one entry per credential, each holding thousands of rows; tokens rotate.
+    import asyncio
+    calls, gate = _sweep_harness(monkeypatch)
+    clock = {"t": 0.0}
+    monkeypatch.setattr(rb, "_sweep_clock", lambda: clock["t"])
+    key = {"k": "k|old-token"}
+    monkeypatch.setattr(rb, "_sweep_key", lambda: key["k"])
+
+    async def main():
+        gate["release"] = asyncio.Event()
+        gate["release"].set()
+        rb._ALL_RESOURCES_SWEEPS = asyncio.Semaphore(1)
+        rb._all_resources_state()
+        for _ in range(5):
+            await asyncio.sleep(0)
+        assert "k|old-token" in rb._SWEEP_STATE
+        clock["t"] += rb._SWEEP_EVICT_S + 1
+        key["k"] = "k|new-token"
+        rb._all_resources_state()
+        for _ in range(5):
+            await asyncio.sleep(0)
+    asyncio.run(main())
+    assert "k|old-token" not in rb._SWEEP_STATE and "k|new-token" in rb._SWEEP_STATE
