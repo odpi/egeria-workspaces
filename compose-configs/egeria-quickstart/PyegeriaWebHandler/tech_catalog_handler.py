@@ -553,7 +553,8 @@ async def get_egeria_bearer_token(request: Request):
     PORTAL_ALLOW_CUSTOM_PLATFORMS). The token is bound to the platform it was minted for, and the response
     names that platform. The body is read only as application/json (415 otherwise), so a cross-site
     text/plain "simple" POST cannot reach here."""
-    from egeria_auth import bind_token_platform, is_caller_password, resolve_platform
+    from egeria_auth import (bind_token_platform, is_caller_password, named_user_refusal, resolve_platform,
+                             service_user)
     ctype = (request.headers.get("content-type") or "").split(";")[0].strip().lower()
     if ctype != "application/json":
         raise HTTPException(status_code=415, detail="Send the credentials as application/json.")
@@ -572,12 +573,11 @@ async def get_egeria_bearer_token(request: Request):
     # that is sent (even one equal to the service password, as the demo personas' are) may go with
     # any user_id, as before. "Sent" is tested, not is_caller_password: on the demo every persona
     # password equals the service password, so that test would refuse every persona sign-in.
-    service_user = os.environ.get("EGERIA_USER", "erinoverview")
     asked_user = body.get("user_id") or None
-    if caller_pwd is None and asked_user and asked_user != service_user:
-        raise HTTPException(status_code=400, detail="Send that user's own password to get a token for them, "
-                                                    "or leave user_id out to use the Portal's own user.")
-    user_id  = asked_user if caller_pwd is not None and asked_user else service_user
+    refusal = named_user_refusal(asked_user, caller_pwd is not None, None)
+    if refusal is not None:
+        raise refusal
+    user_id  = asked_user if caller_pwd is not None and asked_user else service_user()
     user_pwd = caller_pwd           or os.environ.get("EGERIA_USER_PASSWORD",  "secret")
     server   = body.get("server")   or os.environ.get("EGERIA_VIEW_SERVER",    "qs-view-server")
     try:

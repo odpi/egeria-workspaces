@@ -65,7 +65,7 @@ def _post(client, **body):
 def test_user_id_with_no_password_is_refused_and_mints_nothing(app_client):
     r = _post(app_client, user_id="peterprofile")
     assert r.status_code == 400, r.text
-    assert "own password" in r.json()["detail"]
+    assert "own password" in r.json()["detail"] and r.json()["detail"] == egeria_auth.NAMED_USER_NEEDS_PASSWORD_WORDS
     assert _Mint.calls == []
 
 
