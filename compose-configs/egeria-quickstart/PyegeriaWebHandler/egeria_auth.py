@@ -318,6 +318,74 @@ def bind_token_platform(token: str, url: str) -> None:
     _TOKEN_PLATFORMS[_token_hash(token)] = (norm, exp if exp and exp > now else now + _TOKEN_BIND_DEFAULT_TTL)
 
 
+# ── PO-40: reuse a still-valid token for the same presented credential ─────────────────────────────
+# Every Portal page load called POST /api/egeria-token, which minted a new token each time, and every
+# per-user cache is keyed on a hash of the token (result_cache.credential_identity), so a reload, a
+# direct link or a new tab started every cache cold. The endpoint now hands back the token it already
+# minted for the same credential while it has at least _TOKEN_REUSE_MIN_LEFT seconds left.
+# Safe: the caller has just presented that exact credential and could mint a token with it anyway.
+# Architect read-back 2026-11-17: R1' only when a password was SENT (the env-fallback path, nothing
+# sent, mints per call; not is_caller_password, since the demo personas' passwords equal the service
+# password and would never be reused); R2 the key is an HMAC under a per-process secret, never a bare hash of a password, and the
+# lock dict is bounded with the map; R3 exp comes from the token we minted, unknown exp never reuses;
+# R4 the key is (resolved url, server, user_id, password), looked up only after the platform gate.
+# Signing out does not end an Egeria token (Egeria tokens cannot be revoked), so nothing is dropped then.
+_TOKEN_REUSE_MIN_LEFT = 15 * 60
+_TOKEN_REUSE_MAX = 500
+_TOKEN_REUSE_SECRET = os.urandom(32)
+_TOKEN_REUSE: dict = {}          # key -> (token, exp, stored_at)
+_TOKEN_REUSE_LOCKS: dict = {}    # key -> asyncio.Lock, bounded with _TOKEN_REUSE
+
+
+def token_reuse_key(url: str, server: str, user_id: str, password: str) -> str:
+    import hashlib
+    import hmac
+    msg = "\0".join([normalize_platform_url(url) or url or "", server or "", user_id or "", password or ""])
+    return hmac.new(_TOKEN_REUSE_SECRET, msg.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def _token_reuse_prune(now: float) -> None:
+    for k in [k for k, (_, exp, _) in _TOKEN_REUSE.items() if exp <= now]:
+        _TOKEN_REUSE.pop(k, None)
+    if len(_TOKEN_REUSE) > _TOKEN_REUSE_MAX:
+        for k, _ in sorted(_TOKEN_REUSE.items(), key=lambda kv: kv[1][2])[:len(_TOKEN_REUSE) - _TOKEN_REUSE_MAX]:
+            _TOKEN_REUSE.pop(k, None)
+    for k in [k for k, lock in _TOKEN_REUSE_LOCKS.items() if k not in _TOKEN_REUSE and not lock.locked()]:
+        _TOKEN_REUSE_LOCKS.pop(k, None)
+
+
+def reusable_token(key: str) -> Optional[str]:
+    """The token stored for `key` if it still has at least _TOKEN_REUSE_MIN_LEFT seconds left."""
+    hit = _TOKEN_REUSE.get(key)
+    if not hit:
+        return None
+    token, exp, _ = hit
+    if exp - time.time() < _TOKEN_REUSE_MIN_LEFT or _token_expired(token):
+        _TOKEN_REUSE.pop(key, None)
+        return None
+    return token
+
+
+def remember_token(key: str, token: str) -> None:
+    """Keep a freshly minted token for reuse. A token whose exp cannot be read is never kept (R3)."""
+    now = time.time()
+    exp = _token_exp(token)
+    if exp is None or exp - now < _TOKEN_REUSE_MIN_LEFT:
+        _TOKEN_REUSE.pop(key, None)
+    else:
+        _TOKEN_REUSE[key] = (token, exp, now)
+    _token_reuse_prune(now)
+
+
+def token_reuse_lock(key: str):
+    import asyncio
+    lock = _TOKEN_REUSE_LOCKS.get(key)
+    if lock is None:
+        _token_reuse_prune(time.time())
+        lock = _TOKEN_REUSE_LOCKS[key] = asyncio.Lock()
+    return lock
+
+
 def token_platform(token: Optional[str]) -> Optional[str]:
     """The normalized platform a token was minted for here, or None if this Portal never minted it."""
     if not token:
