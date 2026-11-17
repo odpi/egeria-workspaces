@@ -1402,10 +1402,18 @@ _PART_KINDS = [
     ("field", "Data fields", ["DataField"]),
 ]
 
+# Glossary terms (Dan, 2026-11-17): a kind search filters on, though a term is neither a
+# resource nor a part of one. All does not include them (Architect Q1): about 1,500 terms
+# would crowd resources out of a relevance list. Browse lists that hold terms (a folder, a
+# keyword) show them as rows of their own.
+_OTHER_KINDS = [
+    ("term", "Glossary terms", ["GlossaryTerm"]),
+]
+
 # Resource Explorer publishes a GitHub repository as a plain Asset named
 # GitHubRepository::<url> (no subtype yet), so a repo is told by its name.
 _REPO_QN_PREFIX = "GitHubRepository::"
-_KIND_IDS = [k[0] for k in _KINDS] + [k[0] for k in _PART_KINDS] + ["other"]
+_KIND_IDS = [k[0] for k in _KINDS] + [k[0] for k in _PART_KINDS] + [k[0] for k in _OTHER_KINDS] + ["other"]
 
 # Governance classifications shown as badges.
 _BADGES = ["Confidentiality", "Confidence", "Criticality", "Impact", "Retention", "SecurityTags"]
@@ -1473,6 +1481,49 @@ def _part_row(el: dict, container: Optional[dict]) -> Optional[dict]:
     return row
 
 
+def _term_row(el: dict) -> Optional[dict]:
+    """A row for a glossary term: kind "term", with its summary and content status.
+
+    Which glossary holds a term is not in its header (a term anchors itself; the glossary is a
+    CollectionMembership), and its qualified name follows no single pattern on laz, so the row
+    names no glossary rather than guessing one; the term's page in Egeria Explorer shows it."""
+    hdr = (el or {}).get("elementHeader") or {}
+    type_name, supers = _type_names(hdr)
+    if "GlossaryTerm" not in [type_name] + list(supers or []):
+        return None
+    row = _row(el, any_type=True)
+    if not row:
+        return None
+    props = el.get("properties") or {}
+    row["kind"] = "term"
+    row["summary"] = props.get("summary") or ""
+    row["contentStatus"] = props.get("contentStatus") or ""
+    return row
+
+
+def _any_rows(elements: list) -> tuple:
+    """(rows, not_shown_by_type) for a Browse list that may hold more than resources (a folder,
+    a keyword): resources, glossary terms, and columns, attributes and data fields. A part's
+    container is not read here, so its row says only that it is part of something (partOf
+    unknown). Anything else is counted by its type name, so it is named, never just dropped."""
+    rows, not_shown = [], {}
+    for e in elements:
+        if not isinstance(e, dict):
+            continue
+        hdr = e.get("elementHeader") or {}
+        type_name, supers = _type_names(hdr)
+        r = _row(e) or _term_row(e)
+        if not r and _part_kind(type_name, supers):
+            r = _part_row(e, None)
+            if r:
+                r["partOfKnown"] = False
+        if r:
+            rows.append(r)
+        elif type_name:
+            not_shown[type_name] = not_shown.get(type_name, 0) + 1
+    return rows, not_shown
+
+
 def _is_repo(type_name: str, qualified_name: str) -> bool:
     return type_name == "Asset" and (qualified_name or "").startswith(_REPO_QN_PREFIX)
 
@@ -1502,6 +1553,7 @@ def _row(el: dict, any_type: bool = False) -> Optional[dict]:
         "displayName": _display_name(props, guid),
         "qualifiedName": props.get("qualifiedName", ""),
         "description": desc if len(desc) <= 400 else desc[:397] + "…",
+        "category": (props.get("category") or "").strip(),
         "owner": _owner(cls),
         "badges": [c["name"] for c in cls if c["name"] in _BADGES],
         "dataScope": _data_scope(cls),
@@ -1714,9 +1766,12 @@ def _kind_types(kinds: Optional[list]) -> list:
     """The resource types the text search asks for: every resource type for All (or when
     "other" is asked for, since other is whatever is left), else the union of the kinds'
     types. [] when only code repositories or parts are asked for."""
-    if kinds is None or "other" in kinds:
+    if kinds is None:
         return _RESOURCE_TYPES
-    return list(dict.fromkeys(t for k, _label, types in _KINDS if k in kinds for t in types))
+    extra = [t for k, _label, types in _OTHER_KINDS if k in kinds for t in types]
+    if "other" in kinds:
+        return _RESOURCE_TYPES + extra
+    return list(dict.fromkeys([t for k, _label, types in _KINDS if k in kinds for t in types] + extra))
 
 
 def _part_types(kinds: Optional[list]) -> list:
@@ -1882,25 +1937,47 @@ async def search(q: str = Query(..., min_length=1),
 
     found: dict = {}
     not_shown = 0
+    want_terms = bool(kinds) and "term" in kinds
+    terms_not_shown = 0
+
+    def rows_of(els):
+        """Resource rows, plus term rows when Glossary terms is picked. In All, a matching term
+        is counted apart (termsNotShown), not as an operational record."""
+        nonlocal terms_not_shown
+        rows, skipped = [], 0
+        for e in els:
+            r = _row(e)
+            if not r:
+                t = _term_row(e)
+                if t and want_terms:
+                    r = t
+                elif t:
+                    terms_not_shown += 1
+                    continue
+            if r:
+                rows.append(r)
+            else:
+                skipped += 1
+        return rows, skipped
     if "repos" in results and "repos" not in failed:
         for r in results["repos"]:
             _merge(found, [r], _text_reason(r, q))
     if "text" in results and "text" not in failed:
-        rows, skipped = _rows(results["text"])
+        rows, skipped = rows_of(results["text"])
         not_shown += skipped
         for r in rows:
             _merge(found, [r], _text_reason(r, q))
     if "tags" in results and "tags" not in failed:
         for name, els in results["tags"]:
-            rows, skipped = _rows(els)
+            rows, skipped = rows_of(els)
             not_shown += skipped
             _merge(found, rows, f"tag: {name}")
     if "keywords" in results and "keywords" not in failed:
-        rows, skipped = _rows(results["keywords"])
+        rows, skipped = rows_of(results["keywords"])
         not_shown += skipped
         _merge(found, rows, f"keyword: {q}")
     if "owners" in results and "owners" not in failed:
-        rows, skipped = _rows(results["owners"])
+        rows, skipped = rows_of(results["owners"])
         not_shown += skipped
         for r in rows:
             _merge(found, [r], f"owner: {r['owner']}")
@@ -1927,6 +2004,7 @@ async def search(q: str = Query(..., min_length=1),
         "mayHaveMore": may_have_more,
         "cappedSources": capped,
         "notShown": not_shown,
+        "termsNotShown": terms_not_shown,
         "parts": parts,
         "failedSources": failed,
         "order": _ORDER_NOTE,
@@ -1942,7 +2020,8 @@ async def search(q: str = Query(..., min_length=1),
 async def get_kinds():
     return JSONResponse({"kinds": [{"id": k, "label": label, "types": types} for k, label, types in _KINDS]
                          + [{"id": "other", "label": "Other", "types": []}],
-                         "parts": [{"id": k, "label": label, "types": types} for k, label, types in _PART_KINDS]})
+                         "parts": [{"id": k, "label": label, "types": types} for k, label, types in _PART_KINDS],
+                         "others": [{"id": k, "label": label, "types": types} for k, label, types in _OTHER_KINDS]})
 
 
 @router.get("/api/resource-browser/row-extras", summary="Tags, likes and rating summary for the rows on screen")
@@ -2153,6 +2232,9 @@ async def get_lists():
         members = [((i.get("relatedElement") or {}).get("elementHeader") or {}).get("guid")
                    for i in s.get("collectionMembers") or [] if isinstance(i, dict)]
         rec["memberCount"] = len([m for m in members if m])
+        # Architect R1 (PO-37): memberOf is only as complete as this read; a list at the read limit may
+        # hold more members than memberOf knows, so bulk add says "added or already in it" for it.
+        rec["membersCapped"] = rec["memberCount"] >= _LIST_CAP
         if rec["origin"] == "mine":
             mine.append(rec)
             for m in members:
@@ -2492,16 +2574,20 @@ async def unshare_list(guid: str, group: str):
 
 # ── Browse ────────────────────────────────────────────────────────────────────
 
-_FACETS = ["tag", "badge", "owner", "source", "collection", "flavour", "scope"]
+_FACETS = ["tag", "badge", "owner", "source", "collection", "folder", "keyword", "category", "flavour", "scope"]
 
 # Architect R2 (2026-11-17): "none recorded" is every resource minus the recorded ones, so it is only
-# as complete as _all_elements, and its count is shown as "at least" while that is unproven.
+# as complete as _all_elements. Measurement kept for the record:
 # Read-only check on laz 2026-11-17 (service user, against repository_qs_metadata_store.entity, current
 # Active non-proxy rows by leaf type): 40 of 45 resource types matched exactly (4,794 read vs 4,879
 # stored). Short: DigitalProduct 181/218 and DigitalProductFamily 10/15 (most stored ones are zoned),
 # Topic 5/6 (one Memento), TabularDataSet 31/37 and TabularDataSetCollection 276/312 (5 templates
-# each; the other 1 and 31 have no zone, Memento or template, so they are unexplained). Not proven.
-ALL_ELEMENTS_UNVERIFIED = True
+# each; the other 1 and 31 had no zone, Memento or template).
+# Explained since (EG-15b, Rocky + Architect, 2026-11-17): the missing ones are hidden by visibility, Promise
+# anchors when forLineage is off, and zones. The sweep reads as the signed-in user, so the list is complete
+# for what that user can see. It is labelled "of the resources you can see", not "at least"; a page-limit
+# cap still makes a count "at least".
+ALL_ELEMENTS_UNVERIFIED = False
 
 # Architect R5 (2026-11-17): the "none recorded" sweep reads every resource (~4,800 on laz, ~19 s cold) and
 # is cached per user, so several users opening Data scope at once would each sweep Egeria. At most one
@@ -2526,6 +2612,103 @@ async def _anchored(client, guid: str, type_name: str) -> list:
     return _elements(await client._async_get_elements_by_classification_with_property_value(
         "Anchors", guid, ["anchorGUID"], metadata_element_type=type_name, starts_with=True, ends_with=True,
         graph_query_depth=0, output_format="JSON", page_size=500))
+
+
+def _folder_value(e: dict) -> Optional[dict]:
+    """A Browse value for a CollectionFolder; None for a template.
+
+    The anchor is named (by type) only when the Anchors classification carries an anchorGUID other
+    than the folder's own. Without one, the anchor type is the folder's own type: the folder anchors
+    itself, which says nothing about a parent (Architect R1, 2026-11-17; on laz "Schema Maker" has
+    anchorTypeName CollectionFolder, no anchorGUID, and is held by the dr-egeria Glossary). Nesting
+    is shown only from memberOfCollections, on the folder's own page ("Held by")."""
+    hdr = (e or {}).get("elementHeader") or {}
+    guid = hdr.get("guid")
+    if not guid or any(c["name"] == "Template" for c in _classifications(hdr)):
+        return None
+    props = e.get("properties") or {}
+    ap = ((hdr.get("anchor") or {}).get("classificationProperties")) or {}
+    anchored = ap.get("anchorGUID") and ap.get("anchorGUID") != guid and ap.get("anchorTypeName")
+    where = f"anchored to a {ap['anchorTypeName']}" if anchored else ""
+    return {"id": guid, "label": _display_name(props, guid), "description": where,
+            "category": props.get("category") or ""}
+
+
+async def _keyword_groups_value() -> dict:
+    """Every search keyword the user can see, grouped by its text ignoring case.
+
+    A SearchKeyword is one element per attachment, so a group's guids are its attachments. The
+    keyword list reads exactly these elements, so the list always accounts for its count
+    (Architect R3: a by-keyword lookup is exact and case-sensitive, so it would disagree)."""
+    client = await _explorer_async()
+    kws, capped = [], True
+    for p in range(25):
+        batch = _elements(await client._async_find_search_keywords(
+            "*", start_from=p * 200, page_size=200, output_format="JSON", graph_query_depth=0))
+        if not batch:
+            capped = False
+            break
+        kws.extend(batch)
+    groups = {}
+    for k in kws:
+        hdr = k.get("elementHeader") or {}
+        text = _display_name(k.get("properties"), "").strip()
+        if not text or not hdr.get("guid"):
+            continue
+        g = groups.setdefault(text.casefold(), {"label": text, "guids": []})
+        g["guids"].append(hdr["guid"])
+    return {"groups": groups, "capped": capped}
+
+
+_KEYWORD_READ_CAP = 500   # attachments read per keyword list (one read each); the rest are counted, not read
+
+
+async def _keyword_attachments(client, guids: list) -> tuple:
+    """(elements, hidden, failed, not_read) for a keyword group: what each keyword element is attached to.
+    hidden counts keyword elements that came back with nothing attached that the user can see;
+    failed counts keyword elements that could not be read; not_read counts those past
+    _KEYWORD_READ_CAP (Architect R2). None of them is ever dropped silently."""
+    not_read = max(0, len(guids) - _KEYWORD_READ_CAP)
+    guids = guids[:_KEYWORD_READ_CAP]
+    sem = asyncio.Semaphore(_LOOKUP_CONCURRENCY)
+
+    async def read(g):
+        async with sem:
+            return await client._async_get_element_by_guid(
+                g, graph_query_depth=1, output_format="JSON",
+                body={"class": "GetRequestBody", "graphQueryDepth": 1, "includeOnlyRelationships": ["SearchKeywordLink"]})
+    got = await asyncio.gather(*(read(g) for g in guids), return_exceptions=True)
+    els, hidden, failed = [], 0, 0
+    for k in got:
+        if isinstance(k, Exception) or not isinstance(k, dict):
+            failed += 1
+            continue
+        linked = [i.get("relatedElement") for i in k.get("keywordElements") or [] if isinstance(i, dict) and i.get("relatedElement")]
+        if not linked:
+            hidden += 1
+        els.extend(linked)
+    return els, hidden, failed, not_read
+
+
+_NO_CATEGORY = "(no category)"
+
+
+def _category_index(allr: dict) -> dict:
+    """{category: {"resources": [...rows], "terms": [...rows]}} from a finished sweep, with every
+    resource and term without a category under _NO_CATEGORY. Matching is exact (Egeria's own
+    get_elements_by_category matches exactly too); only surrounding blanks are trimmed (in _row)."""
+    out: dict = {}
+    for bucket, rows in (("resources", allr.get("rows") or []), ("terms", allr.get("terms") or [])):
+        for r in rows:
+            cat = r.get("category") or _NO_CATEGORY
+            out.setdefault(cat, {"resources": [], "terms": []})[bucket].append(r)
+    return out
+
+
+def _category_capped(allr: dict) -> bool:
+    """Whether category counts are "at least" (R6): any capped resource type, the unverified flag, or a
+    capped term read. A failed term read is not "at least": it is reported as terms not read."""
+    return bool(allr.get("cappedTypes")) or ALL_ELEMENTS_UNVERIFIED or bool(allr.get("termsCapped"))
 
 
 async def _facet_values(facet: str) -> dict:
@@ -2573,6 +2756,42 @@ async def _facet_values(facet: str) -> dict:
                 out.append({"id": hdr.get("guid", ""), "label": _display_name(e.get("properties"), hdr.get("guid", "")),
                             "description": _type_names(hdr)[0]})
         return {"values": sorted(out, key=lambda v: (v["description"], v["label"].lower()))}
+    if facet == "folder":
+        els, capped = await _all_elements(client, "CollectionFolder")
+        vals = [v for v in (_folder_value(e) for e in els) if v]
+        return {"values": sorted(vals, key=lambda v: v["label"].lower()), "capped": capped,
+                "countsAre": "at least these folders (the read stopped at its page limit)" if capped else None,
+                "note": "Open a folder to see what it holds. Folders show no count here: counting what each "
+                        "holds would take one read per folder."}
+    if facet == "keyword":
+        kw, _stamp = await _cached("keyword-groups", _keyword_groups_value)
+        vals = [{"id": g["label"], "label": g["label"], "count": len(g["guids"]), "countAtLeast": kw["capped"]}
+                for g in kw["groups"].values()]
+        return {"values": sorted(vals, key=lambda v: v["label"].lower()),
+                "countsAre": "attachments: a search keyword is attached to one element each, which you may not "
+                             "be able to see" + ("; at least these (the read stopped at its page limit)" if kw["capped"] else "")}
+    if facet == "category":
+        allr, stamp, loading, error = _all_resources_state()
+        if allr is None:
+            return {"values": [], "loading": True, "error": error,
+                    "note": ("The count failed; retrying shortly." if error else
+                             "Counting every resource and glossary term in the background (about 20 s the first "
+                             "time); this page refreshes itself.")}
+        idx, capped = _category_index(allr), _category_capped(allr)
+        vals = []
+        for cat, b in idx.items():
+            n_r, n_t = len(b["resources"]), len(b["terms"])
+            vals.append({"id": cat, "label": cat, "count": n_r + n_t, "countAtLeast": capped,
+                         "description": f"{n_r} resource{'s' if n_r != 1 else ''}" +
+                                        (f", {n_t} glossary term{'s' if n_t != 1 else ''}" if n_t else "")})
+        vals.sort(key=lambda v: (v["id"] == _NO_CATEGORY, v["label"].lower()))
+        note = ("Of the resources and glossary terms you can see. Infrastructure, governance definitions and design "
+                "patterns carry categories too; the Locator lists resources and terms only.")
+        if allr.get("termsError"):
+            note += f" Glossary terms could not be read ({allr['termsError']}), so these counts are resources only."
+        return {"values": vals, "note": note, "countedAt": stamp.isoformat(timespec="seconds") if stamp else None,
+                "refreshing": loading, "error": error,
+                "countsAre": "at least these (a read stopped at its page limit)" if capped else None}
     if facet == "flavour":
         return {"values": [{"id": "hub", "label": "Hub"}, {"id": "product", "label": "Product"},
                            {"id": "known", "label": "Known"}]}
@@ -2587,18 +2806,26 @@ async def _facet_values(facet: str) -> dict:
              "counting": counting, "countAtLeast": none["capped"],
              "description": (("The count failed; retrying shortly" if none["error"] else
                               "Counting every resource in the background (about 20 s the first time)") if counting
-                             else "Needs a data scope (some hold only usage readings)")},
+                             else "Of the resources you can see: needs a data scope (some hold only usage readings)")},
         ], "notRead": len(none["notRead"]), "loading": counting, "error": none["error"],
            "countsAre": "at least these where marked (a read stopped at its page limit)" if (recorded["capped"] or none["capped"]) else None}
     raise HTTPException(status_code=404, detail=f"Unknown browse facet {facet!r}.")
 
 
-@router.get("/api/resource-browser/browse/{facet}", summary="The values of one browse facet")
-async def browse_values(facet: str):
+@router.get("/api/resource-browser/browse/{facet}", summary="The values of one browse facet, or with ?value= the resources under one")
+async def browse_values(facet: str,
+                        value: Optional[str] = Query(None, description="A facet value: answers as /browse/{facet}/{value}. "
+                                                     "Use this form for free-text values (keywords, categories, owners), "
+                                                     "which may hold a \"/\" that a path cannot carry"),
+                        lens: Optional[str] = Query(None, description="With value: a Data Lens guid, as on the list endpoint")):
+    # Architect R1 (2026-11-17): a "/" in a path segment goes out as %2F, which Apache refuses (no
+    # AllowEncodedSlashes) and Starlette decodes before routing; laz has the keyword "App/AI Builder".
+    if value is not None:
+        return await browse_list(facet, value, lens)
     if facet not in _FACETS:
         raise HTTPException(status_code=404, detail=f"Unknown browse facet {facet!r}.")
     try:
-        if facet == "scope":   # not cached here: its lists keep their own ages, and "counting" must not stick
+        if facet in ("scope", "category"):   # not cached here: they keep their own ages, and "counting" must not stick
             value, stamp = await _facet_values(facet), datetime.now(timezone.utc)
         else:
             value, stamp = await _cached(f"browse:{facet}", lambda: _facet_values(facet))
@@ -2610,13 +2837,26 @@ async def browse_values(facet: str):
 
 
 async def _members(client, collection_guid: str) -> tuple:
+    """(title, type name, members, capped, held_by) for a collection or folder, from one depth-1 read.
+
+    Egeria returns at most _RELATED_LIMIT relationships per key at depth 1, so a full key is
+    capped: more members may exist (Architect R5, 2026-11-17). held_by is the collections that
+    hold this one (memberOfCollections), as {guid, displayName, typeName}."""
     el = await client._async_get_element_by_guid(
         collection_guid, graph_query_depth=1, output_format="JSON",
         body={"class": "GetRequestBody", "graphQueryDepth": 1, "includeOnlyRelationships": ["CollectionMembership"]})
     hdr = (el or {}).get("elementHeader") or {}
     title = _display_name((el or {}).get("properties"), collection_guid)
-    members = [i.get("relatedElement") for i in (el or {}).get("collectionMembers") or [] if isinstance(i, dict)]
-    return title, _type_names(hdr)[0], members
+    items = [i for i in (el or {}).get("collectionMembers") or [] if isinstance(i, dict)]
+    members = [i.get("relatedElement") for i in items]
+    held_by = []
+    for i in (el or {}).get("memberOfCollections") or []:
+        rel = (i or {}).get("relatedElement") or {}
+        rh = rel.get("elementHeader") or {}
+        if rh.get("guid"):
+            held_by.append({"guid": rh["guid"], "displayName": _display_name(rel.get("properties"), rh["guid"]),
+                            "typeName": _type_names(rh)[0]})
+    return title, _type_names(hdr)[0], members, len(items) >= _RELATED_LIMIT, held_by
 
 
 @router.get("/api/resource-browser/browse/{facet}/{value}", summary="The resources under one browse facet value")
@@ -2625,6 +2865,7 @@ async def browse_list(facet: str, value: str, lens: Optional[str] = Query(None, 
         raise HTTPException(status_code=404, detail=f"Unknown browse facet {facet!r}.")
     title, note, source, capped = value, None, "", False
     rows_override, scope_ages = None, None
+    extra = {}
     scope_loading = scope_refreshing = False
     try:
         client = await _explorer_async()
@@ -2661,9 +2902,77 @@ async def browse_list(facet: str, value: str, lens: Optional[str] = Query(None, 
             note = "The source itself, what it anchors, and the tables of its schemas."
             source = "ClassificationExplorer.get_elements_by_classification_with_property_value (Anchors.anchorGUID)"
         elif facet == "collection":
-            title, ctype, els = await _members(client, value)
+            title, ctype, els, capped, _held = await _members(client, value)
             title = f"{title} ({ctype})" if ctype else title
             source = "ClassificationExplorer.get_element_by_guid (CollectionMembership)"
+        elif facet == "folder":
+            title, _ctype, members, capped, held_by = await _members(client, value)
+            subs = []
+            rest = []
+            for m in members:
+                mh = (m or {}).get("elementHeader") or {}
+                if _type_names(mh)[0] == "CollectionFolder" and mh.get("guid"):
+                    subs.append({"guid": mh["guid"], "displayName": _display_name((m or {}).get("properties"), mh["guid"])})
+                else:
+                    rest.append(m)
+            rows_override, by_type = _any_rows(rest)
+            extra.update(subfolders=sorted(subs, key=lambda f: f["displayName"].lower()), heldBy=held_by,
+                         notShownTypes=by_type, membersRead=len(members))
+            if not members:
+                note = "This folder holds nothing you can see. Zone security may hide some members from you."
+            elif not rows_override and not subs:
+                note = "This folder holds only elements the Locator does not list (named below)."
+            source = "ClassificationExplorer.get_element_by_guid (CollectionMembership, one level)"
+        elif facet == "keyword":
+            kw, _stamp = await _cached("keyword-groups", _keyword_groups_value)
+            group = kw["groups"].get(value.strip().casefold())
+            if not group:
+                raise HTTPException(status_code=404, detail=f"No search keyword {value!r} is visible to you.")
+            title = f"Keyword: {group['label']}"
+            linked, hidden, failed, past_cap = await _keyword_attachments(client, group["guids"])
+            seen, unique = set(), []
+            for e in linked:      # two spellings of a keyword on one element are two attachments, one row (R3)
+                g = ((e or {}).get("elementHeader") or {}).get("guid")
+                if g not in seen:
+                    seen.add(g)
+                    unique.append(e)
+            rows_override, by_type = _any_rows(unique)
+            capped = kw["capped"] or past_cap > 0
+            extra.update(notShownTypes=by_type, attachments=len(group["guids"]), hiddenAttachments=hidden,
+                         unreadAttachments=failed, attachmentsPastLimit=past_cap,
+                         duplicateLinks=len(linked) - len(unique))
+            if hidden:
+                note = (f"{hidden} of the {len(group['guids'])} attachments are to something you cannot see "
+                        "(zone security, or it was removed).")
+            if failed:
+                note = (note + " " if note else "") + f"{failed} attachments could not be read, so this list may be incomplete."
+            if past_cap:
+                note = (note + " " if note else "") + (f"Only the first {_KEYWORD_READ_CAP} attachments were read; "
+                                                      f"{past_cap} more were not (the read stopped at its limit).")
+            if len(linked) > len(unique):
+                dup = len(linked) - len(unique)
+                note = (note + " " if note else "") + (f"{dup} attachment{'s' if dup != 1 else ''} repeat an element already "
+                                                      "listed (the keyword in another spelling), so each element is listed once.")
+            source = ("ClassificationExplorer.find_search_keywords (every keyword, grouped ignoring case), then "
+                      "get_element_by_guid (SearchKeywordLink) per attachment")
+        elif facet == "category":
+            allr, stamp, loading, error = _all_resources_state()
+            title = "No category" if value == _NO_CATEGORY else f"Category: {value}"
+            source = ("the background read of every resource type and GlossaryTerm (ClassificationExplorer.get_elements), "
+                      "grouped by the category property")
+            if allr is None:
+                rows_override, scope_loading = [], True
+                note = ("Counting every resource and glossary term in the background: this takes about 20 seconds the "
+                        "first time, and this page refreshes itself." +
+                        (f" The last attempt failed ({error}); retrying shortly." if error else ""))
+            else:
+                b = _category_index(allr).get(value)
+                rows_override = (b["resources"] + b["terms"]) if b else []
+                capped, scope_refreshing = _category_capped(allr), loading
+                note = None if b else ("No resource or glossary term you can see has this category. "
+                                       "Zone security may hide some from you.")
+                if allr.get("termsError"):
+                    note = (note + " " if note else "") + "Glossary terms could not be read, so only resources are listed."
         elif facet == "flavour":
             if value not in ("hub", "product", "known"):
                 raise HTTPException(status_code=404, detail="Flavours are hub, product and known.")
@@ -2698,8 +3007,9 @@ async def browse_list(facet: str, value: str, lens: Optional[str] = Query(None, 
                 title = "No data scope recorded"
                 scope_loading = none["rows"] is None
                 scope_refreshing = none["refreshing"]
-                note = ("Resources whose data scope records no time, place or other dimension: no DataScope at all, "
-                        "or one holding only usage readings from Egeria's lineage service. Set one in The Catalog.")
+                note = ("Of the resources you can see, those whose data scope records no time, place or other dimension: "
+                        "no DataScope at all, or one holding only usage readings from Egeria's lineage service. "
+                        "Set one in The Catalog. What you can see depends on zone security and the Promise/Memento toggle.")
                 if none["notRead"]:
                     note += f" {len(none['notRead'])} more could not be checked: their classifications were not read."
                 if scope_loading:
@@ -2731,6 +3041,9 @@ async def browse_list(facet: str, value: str, lens: Optional[str] = Query(None, 
     out = {"facet": facet, "value": value, "title": title, "items": uniq, "notShown": not_shown,
            "note": note, "capped": capped, "order": "By kind, then name.",
            "asOf": _now_iso(), "source": source}
+    if extra:
+        out.update(extra)
+        out["notShown"] = not_shown + sum(extra.get("notShownTypes", {}).values())
     if scope_ages:
         out["scopeListsAsOf"] = scope_ages
     if scope_loading or scope_refreshing:
@@ -2866,7 +3179,19 @@ async def _all_resources_sweep() -> dict:
     repos, _stamp = await _cached("repos", _repos_value)
     for r in repos:
         rows.setdefault(r["guid"], r)
-    return {"rows": list(rows.values()), "cappedTypes": capped_types}
+    # Glossary terms, for Browse by category (Architect R2, 2026-11-17): read on their own, so a failed
+    # term read keeps the resource rows and the Data scope facet never fails because of terms. Terms are
+    # kept apart from "rows": they are not resources, so they never enter the data scope split (R1).
+    terms, terms_capped, terms_error = [], False, None
+    try:
+        els, terms_capped = await _all_elements(client, "GlossaryTerm")
+        terms = list({r["guid"]: r for r in (_term_row(e) for e in els) if r}.values())
+    except Exception as exc:
+        if not _is_unknown_type(exc):
+            logger.warning(f"resource-browser: glossary term read for categories failed: {exc}")
+            terms_error = str(exc)[:200]
+    return {"rows": list(rows.values()), "cappedTypes": capped_types,
+            "terms": terms, "termsCapped": terms_capped, "termsError": terms_error}
 
 
 def _split_from(rec: dict, rec_stamp, allr: Optional[dict], all_stamp, loading: bool = False,
@@ -2878,8 +3203,9 @@ def _split_from(rec: dict, rec_stamp, allr: Optional[dict], all_stamp, loading: 
         return recorded, {"rows": None, "notRead": [], "capped": True, "cappedTypes": [], "asOf": None,
                           "loading": loading, "refreshing": False, "error": error}
     scoped = {r["guid"] for r in rec["rows"]}
-    none_rows = [r for r in allr["rows"] if r["guid"] not in scoped and r.get("scopeRead", True) and not r["hasScope"]]
-    not_read = [r for r in allr["rows"] if r["guid"] not in scoped and not r.get("scopeRead", True)]
+    resources = [r for r in allr["rows"] if r.get("kind") != "term"]     # R1: a term is never "none recorded"
+    none_rows = [r for r in resources if r["guid"] not in scoped and r.get("scopeRead", True) and not r["hasScope"]]
+    not_read = [r for r in resources if r["guid"] not in scoped and not r.get("scopeRead", True)]
     none = {"rows": none_rows, "notRead": not_read, "capped": bool(allr["cappedTypes"]) or ALL_ELEMENTS_UNVERIFIED,
             "cappedTypes": allr["cappedTypes"], "asOf": all_stamp.isoformat(timespec="seconds"),
             "loading": False, "refreshing": loading, "error": error}
