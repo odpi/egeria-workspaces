@@ -147,6 +147,8 @@ def _build_structured_response(raw: dict, directive: str) -> str:
     results = raw.get("results", [])
     output  = raw.get("output", "")
 
+    hints = raw.get("hints") or []
+
     if raw.get("error"):
         return _json.dumps({
             "success": False,
@@ -157,6 +159,7 @@ def _build_structured_response(raw: dict, directive: str) -> str:
             "commands_total": 0,
             "commands_succeeded": 0,
             "commands_failed": 0,
+            "hints": hints,
         })
 
     validation_errors = []
@@ -203,8 +206,13 @@ def _build_structured_response(raw: dict, directive: str) -> str:
         else:
             commands_succeeded += 1
 
-    success = commands_failed == 0 and not raw.get("error")
+    # PY-30: a block that ran no command is not a success. Its headings were probably one level off, and the
+    # hints say which line and how to write it.
+    success = commands_failed == 0 and not raw.get("error") and commands_total > 0
     partial = commands_succeeded > 0 and commands_failed > 0
+    if commands_total == 0 and not hints:
+        hints = ["No Dr.Egeria command was found. A command is an H2 heading '## <Verb> <Object>' "
+                 "followed by '### <Attribute>' lines."]
 
     return _json.dumps({
         "success": success,
@@ -216,6 +224,7 @@ def _build_structured_response(raw: dict, directive: str) -> str:
         "commands_succeeded": commands_succeeded,
         "commands_failed": commands_failed,
         "commands_detail": commands_detail,
+        "hints": hints,
     })
 
 

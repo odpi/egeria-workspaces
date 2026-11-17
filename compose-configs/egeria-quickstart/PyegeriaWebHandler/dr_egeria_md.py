@@ -139,9 +139,16 @@ async def process_md_file_structured_async(
 
     extractor = UniversalExtractor(content)
     commands = extractor.extract_commands()
+    # PY-30: say why a block runs less than its author meant (an H1 command heading, an attribute written
+    # as H2). diagnose() is new in pyegeria; an older pyegeria simply gives no hints.
+    try:
+        hints = extractor.diagnose() if hasattr(extractor, "diagnose") else []
+    except Exception:
+        hints = []
 
     if not commands:
-        return {"output": "Warning: No valid Egeria commands found", "results": [], "error": "no_commands"}
+        return {"output": "Warning: No valid Egeria commands found", "results": [], "error": "no_commands",
+                "hints": hints}
 
     # Capture stdout so we receive Rich console output written by V2 processors
     import sys
@@ -183,7 +190,7 @@ async def process_md_file_structured_async(
         if parts:
             final_output = "\n\n".join(parts)
 
-    return {"output": final_output, "results": results}
+    return {"output": final_output, "results": results, "hints": hints}
 
 
 def process_markdown_file_structured(
