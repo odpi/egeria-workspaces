@@ -589,7 +589,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
 <script>window.EGERIA_FOR_LINEAGE = true; window.EGERIA_FOR_LINEAGE_VISIBLE = false;  /* shown per-section by App */</script>
 <script src="/static/egeria-shared-ui.js?v=2026-11-11d"></script>
-<script src="/static/data-scope-editor.js?v=2026-11-16a"></script>
+<script src="/static/data-scope-editor.js?v=2026-11-17a"></script>
 <script>
 'use strict';
 // React hook aliases (mirror type-explorer.html)
@@ -1903,6 +1903,11 @@ function DataScopeSection({ guid, creds }) {
   return React.createElement('div', { 'data-section': 'data-scope' },
     React.createElement('div', { style: hdr }, 'Data scope',
       React.createElement('span', { title: 'The time and place this resource’s data covers (the DataScope classification). Data lenses in the Resource Locator are matched against it.', tabIndex: 0, style: { cursor: 'help', color: 'var(--dim)' } }, '?'),
+      data && !editing && signedIn && scope && !(data.summary && data.summary.usageOnly) && React.createElement('button', { style: btn, disabled: busy,
+        title: readings ? 'Remove the time and place; the usage readings stay' : 'Remove the data scope from this resource',
+        onClick: function() {
+          if (window.confirm(readings ? 'Clear the time and place? The usage readings Egeria keeps here stay.' : 'Remove the data scope from this resource?')) write('DELETE');
+        } }, 'Clear'),
       data && !editing && (signedIn
         ? React.createElement('button', { style: btn, onClick: function() { setEditing(true); } }, scope ? 'Edit' : 'Set a data scope')
         : React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)', textTransform: 'none', letterSpacing: 0, fontWeight: 400 } }, 'Sign in to set or change it'))),
@@ -1910,8 +1915,18 @@ function DataScopeSection({ guid, creds }) {
     !err && !data && React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'Loading…'),
     data && !editing && React.createElement(DataScopeView, { groups: groups, scope: data.summary && data.summary.usageOnly ? null : dimsOnly,
       absent: data.summary && data.summary.usageOnly ? 'No time or place recorded.' : 'No data scope recorded.' }),
+    writeErr && !editing && React.createElement('div', { role: 'alert', style: { fontSize: 12, color: 'var(--err, #f87171)', marginBottom: 6 } }, writeErr),
     data && editing && React.createElement(DataScopeEditor, { groups: groups.filter(function(g) { return !g.readOnly; }), scope: scope, busy: busy, error: writeErr,
-      saveLabel: scope ? 'Save changes' : 'Set data scope', onSave: function(v) { write('PUT', { values: v }); },
+      saveLabel: scope ? 'Save changes' : 'Set data scope',
+      onSave: function(v) {
+        // Every field emptied on a stored scope clears it: ask first, as the Clear buttons do (Architect R1).
+        var allEmpty = Object.keys(v).length > 0 && Object.keys(v).every(function(k) {
+          var x = v[k]; return x === '' || x === null || x === undefined || (typeof x === 'object' && !Object.keys(x).length);
+        });
+        if (scope && allEmpty && !window.confirm(readings ? 'Every field is empty, so this clears the time and place. The usage readings Egeria keeps here stay. Clear it?'
+                                                          : 'Every field is empty, so this removes the data scope from this resource. Remove it?')) return;
+        write('PUT', { values: v });
+      },
       onCancel: function() { setEditing(false); setWriteErr(''); },
       onClear: scope && !(data.summary && data.summary.usageOnly) ? function() {
         if (window.confirm(readings ? 'Clear the time and place? The usage readings Egeria keeps here stay.' : 'Remove the data scope from this resource?')) write('DELETE');
