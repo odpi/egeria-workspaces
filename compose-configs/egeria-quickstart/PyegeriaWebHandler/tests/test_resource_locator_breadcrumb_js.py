@@ -159,3 +159,26 @@ def test_open_resource_saves_the_pane_scroll():
     opener = _PAGE[_PAGE.index("function openResource("):_PAGE.index("function goBackTo(")]
     assert "scrollY: readScroll(document, window)" in opener
     assert "window.scrollTo(0, scrollY)" not in _PAGE and "window.scrollTo(0, v.scrollY)" not in _PAGE
+
+
+@needs_node
+def test_the_rows_shown_come_back_for_the_same_list_only():
+    """Dan (2026-11-17): going back keeps the rows opened with "Show N more", so a deep scroll lands
+    where it was. The count is kept per list (query, kind, filters); another list starts at 25."""
+    js = "var ROWS_SHOWN = 25;\n" + _fn("initialShownCount") + r"""
+console.log(JSON.stringify({
+  same: initialShownCount({ shown: 75, shownKey: 'customer||{}' }, 'customer||{}'),
+  other: initialShownCount({ shown: 75, shownKey: 'customer||{}' }, 'customer||{"owner":"x"}'),
+  none: initialShownCount(null, 'k'), small: initialShownCount({ shown: 10, shownKey: 'k' }, 'k'),
+  junk: initialShownCount({ shown: '99', shownKey: 'k' }, 'k') }));"""
+    out = subprocess.run(["node", "-e", js], capture_output=True, text=True, timeout=30)
+    assert out.returncode == 0, out.stderr
+    assert json.loads(out.stdout.strip().splitlines()[-1]) == {"same": 75, "other": 25, "none": 25, "small": 25, "junk": 25}
+
+
+def test_search_and_browse_lists_keep_their_shown_count():
+    assert "if (store) saveView(store, viewSearch, { shown: n, shownKey: listKey }, Date.now());" in _PAGE
+    assert "viewSearch: here, listKey: q + '|' + kind + '|' + JSON.stringify(filt)" in _PAGE
+    assert "viewSearch: browseHere, listKey: (lens || '') + JSON.stringify(picked) + '|' + cat," in _PAGE
+    # the list key and the ResultList key are the same expression, so a restored count matches its list
+    assert _PAGE.count("key: q + '|' + kind + '|' + JSON.stringify(filt), rows: shown") == 1
