@@ -2607,17 +2607,21 @@ async def _anchored(client, guid: str, type_name: str) -> list:
 
 
 def _folder_value(e: dict) -> Optional[dict]:
-    """A Browse value for a CollectionFolder; None for a template. Where it sits comes from its
-    Anchors classification, which names the anchor's type but (on laz) not the anchor itself, so
-    the value says "anchored to a Glossary" rather than naming a glossary it cannot see."""
+    """A Browse value for a CollectionFolder; None for a template.
+
+    The anchor is named (by type) only when the Anchors classification carries an anchorGUID other
+    than the folder's own. Without one, the anchor type is the folder's own type: the folder anchors
+    itself, which says nothing about a parent (Architect R1, 2026-11-17; on laz "Schema Maker" has
+    anchorTypeName CollectionFolder, no anchorGUID, and is held by the dr-egeria Glossary). Nesting
+    is shown only from memberOfCollections, on the folder's own page ("Held by")."""
     hdr = (e or {}).get("elementHeader") or {}
     guid = hdr.get("guid")
     if not guid or any(c["name"] == "Template" for c in _classifications(hdr)):
         return None
     props = e.get("properties") or {}
-    anchor = (((hdr.get("anchor") or {}).get("classificationProperties")) or {}).get("anchorTypeName") or ""
-    where = ("inside another folder" if anchor == "CollectionFolder" else
-             f"anchored to a {anchor}" if anchor else "no anchor recorded")
+    ap = ((hdr.get("anchor") or {}).get("classificationProperties")) or {}
+    anchored = ap.get("anchorGUID") and ap.get("anchorGUID") != guid and ap.get("anchorTypeName")
+    where = f"anchored to a {ap['anchorTypeName']}" if anchored else ""
     return {"id": guid, "label": _display_name(props, guid), "description": where,
             "category": props.get("category") or ""}
 
@@ -2648,10 +2652,16 @@ async def _keyword_groups_value() -> dict:
     return {"groups": groups, "capped": capped}
 
 
+_KEYWORD_READ_CAP = 500   # attachments read per keyword list (one read each); the rest are counted, not read
+
+
 async def _keyword_attachments(client, guids: list) -> tuple:
-    """(elements, hidden, failed) for a keyword group: what each keyword element is attached to.
+    """(elements, hidden, failed, not_read) for a keyword group: what each keyword element is attached to.
     hidden counts keyword elements that came back with nothing attached that the user can see;
-    failed counts keyword elements that could not be read. Neither is ever dropped silently."""
+    failed counts keyword elements that could not be read; not_read counts those past
+    _KEYWORD_READ_CAP (Architect R2). None of them is ever dropped silently."""
+    not_read = max(0, len(guids) - _KEYWORD_READ_CAP)
+    guids = guids[:_KEYWORD_READ_CAP]
     sem = asyncio.Semaphore(_LOOKUP_CONCURRENCY)
 
     async def read(g):
@@ -2669,7 +2679,7 @@ async def _keyword_attachments(client, guids: list) -> tuple:
         if not linked:
             hidden += 1
         els.extend(linked)
-    return els, hidden, failed
+    return els, hidden, failed, not_read
 
 
 async def _facet_values(facet: str) -> dict:
@@ -2860,16 +2870,30 @@ async def browse_list(facet: str, value: str, lens: Optional[str] = Query(None, 
             if not group:
                 raise HTTPException(status_code=404, detail=f"No search keyword {value!r} is visible to you.")
             title = f"Keyword: {group['label']}"
-            linked, hidden, failed = await _keyword_attachments(client, group["guids"])
-            rows_override, by_type = _any_rows(linked)
-            capped = kw["capped"]
+            linked, hidden, failed, past_cap = await _keyword_attachments(client, group["guids"])
+            seen, unique = set(), []
+            for e in linked:      # two spellings of a keyword on one element are two attachments, one row (R3)
+                g = ((e or {}).get("elementHeader") or {}).get("guid")
+                if g not in seen:
+                    seen.add(g)
+                    unique.append(e)
+            rows_override, by_type = _any_rows(unique)
+            capped = kw["capped"] or past_cap > 0
             extra.update(notShownTypes=by_type, attachments=len(group["guids"]), hiddenAttachments=hidden,
-                         unreadAttachments=failed)
+                         unreadAttachments=failed, attachmentsPastLimit=past_cap,
+                         duplicateLinks=len(linked) - len(unique))
             if hidden:
                 note = (f"{hidden} of the {len(group['guids'])} attachments are to something you cannot see "
                         "(zone security, or it was removed).")
             if failed:
                 note = (note + " " if note else "") + f"{failed} attachments could not be read, so this list may be incomplete."
+            if past_cap:
+                note = (note + " " if note else "") + (f"Only the first {_KEYWORD_READ_CAP} attachments were read; "
+                                                      f"{past_cap} more were not (the read stopped at its limit).")
+            if len(linked) > len(unique):
+                dup = len(linked) - len(unique)
+                note = (note + " " if note else "") + (f"{dup} attachment{'s' if dup != 1 else ''} repeat an element already "
+                                                      "listed (the keyword in another spelling), so each element is listed once.")
             source = ("ClassificationExplorer.find_search_keywords (every keyword, grouped ignoring case), then "
                       "get_element_by_guid (SearchKeywordLink) per attachment")
         elif facet == "flavour":

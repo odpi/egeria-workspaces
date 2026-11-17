@@ -23,9 +23,14 @@ def _el(guid, type_name, supers, name, **hdr_extra):
     return {"elementHeader": hdr, "properties": {"displayName": name, "qualifiedName": f"qn::{name}"}}
 
 
-def _anchor(type_name):
-    return {"anchor": {"class": "ElementClassification", "classificationName": "Anchors",
-                       "classificationProperties": {"anchorTypeName": type_name}}}
+def _anchor(type_name, guid=None):
+    """The Anchors classification as laz holds it: a folder that anchors itself carries its own type
+    and no anchorGUID (e.g. "Schema Maker", held by the dr-egeria Glossary); one anchored elsewhere
+    carries the anchor's guid and type."""
+    props = {"anchorTypeName": type_name, "anchorDomainName": "AuthoredReferenceable"}
+    if guid:
+        props["anchorGUID"] = guid
+    return {"anchor": {"class": "ElementClassification", "classificationName": "Anchors", "classificationProperties": props}}
 
 
 def _tmpl():
@@ -87,13 +92,15 @@ def _folder(guid, members, parents=()):
 # ── Folder ──────────────────────────────────────────────────────────────────
 
 def test_folder_values_skip_templates_say_where_and_carry_no_count(client, fake):
-    fake["folders"] = [_el("a", "CollectionFolder", _FOLDER_T, "Beta", **_anchor("Glossary")),
+    fake["folders"] = [_el("a", "CollectionFolder", _FOLDER_T, "Beta", **_anchor("Glossary", "gl")),
                        _el("b", "CollectionFolder", _FOLDER_T, "alpha", **_anchor("CollectionFolder")),
+                       _el("e", "CollectionFolder", _FOLDER_T, "Delta", **_anchor("CollectionFolder", "e")),
                        _el("c", "CollectionFolder", _FOLDER_T, "Gamma"),
                        _el("d", "CollectionFolder", _FOLDER_T, "Template folder", **_tmpl())]
     d = client.get("/api/resource-browser/browse/folder").json()
+    # A self-anchored folder (own type, no anchorGUID, or its own guid) claims no parent (R1).
     assert [(v["label"], v["description"]) for v in d["values"]] == [
-        ("alpha", "inside another folder"), ("Beta", "anchored to a Glossary"), ("Gamma", "no anchor recorded")]
+        ("alpha", ""), ("Beta", "anchored to a Glossary"), ("Delta", ""), ("Gamma", "")]
     assert all("count" not in v for v in d["values"])
     assert "one read per folder" in d["note"] and d["countsAre"] is None
 
@@ -174,6 +181,7 @@ def test_keyword_list_accounts_for_its_count(client, fake):
     assert d["title"] == "Keyword: Reference Data"
     assert sorted(r["guid"] for r in d["items"]) == ["r1", "t1"]
     assert d["hiddenAttachments"] == 1 and d["unreadAttachments"] == 1 and d["notShownTypes"] == {"GovernanceActionType": 1}
+    assert d["attachmentsPastLimit"] == 0 and d["duplicateLinks"] == 0
     assert len(d["items"]) + d["hiddenAttachments"] + d["unreadAttachments"] + d["notShown"] == d["attachments"] == 5
     assert "cannot see" in d["note"] and "could not be read" in d["note"]
 
@@ -182,3 +190,26 @@ def test_a_keyword_you_cannot_see_is_404(client, fake):
     _keyword_state(fake)
     r = client.get("/api/resource-browser/browse/keyword/nope")
     assert r.status_code == 404 and "visible to you" in r.json()["detail"]
+
+
+def _accounted(d):
+    return (len(d["items"]) + d["hiddenAttachments"] + d["unreadAttachments"] + d["attachmentsPastLimit"]
+            + d["duplicateLinks"] + d["notShown"])
+
+
+def test_keyword_reads_stop_at_their_limit_and_still_account_for_the_count(client, fake, monkeypatch):
+    monkeypatch.setattr(rb, "_KEYWORD_READ_CAP", 2)
+    _keyword_state(fake)
+    d = client.get("/api/resource-browser/browse/keyword/Reference%20Data").json()
+    assert d["attachmentsPastLimit"] == 3 and d["capped"] is True
+    assert "first 2 attachments were read" in d["note"]
+    assert _accounted(d) == d["attachments"] == 5
+
+
+def test_two_spellings_on_one_element_are_one_row_and_counted(client, fake):
+    fake["keywords"] = [_kw("k1", "Finance"), _kw("k2", "finance")]
+    fake["elements"].update(k1=_kw_read("k1", [_TABLE]), k2=_kw_read("k2", [_TABLE]))
+    d = client.get("/api/resource-browser/browse/keyword/finance").json()
+    assert [r["guid"] for r in d["items"]] == ["r1"] and d["duplicateLinks"] == 1
+    assert "listed once" in d["note"]
+    assert _accounted(d) == d["attachments"] == 2
