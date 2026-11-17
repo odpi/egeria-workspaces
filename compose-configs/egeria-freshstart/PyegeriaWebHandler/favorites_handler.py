@@ -130,7 +130,11 @@ def _persona_pwd(persona_id: str) -> str:
                 _personas_data = json.load(f)
         except Exception:
             pass
-    return _personas_data.get(persona_id, {}).get("password", "secret")
+    pwd = _personas_data.get(persona_id, {}).get("password")
+    if not pwd:   # PO-45: no built-in "secret"
+        raise HTTPException(status_code=503, detail=f"No password is configured for persona {persona_id!r} "
+                                                    "in the personas file, so the Portal cannot sign in as them.")
+    return pwd
 
 
 async def _actor_manager(persona_id: str):

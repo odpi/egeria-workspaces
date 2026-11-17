@@ -168,9 +168,12 @@ def _inject_persona(persona_id: str) -> None:
         existing = json.loads(_PLUGIN_DATA_JSON.read_text())
     except Exception:
         existing = {}
+    if not personas[persona_id].get("password"):   # PO-45: no built-in "secret"
+        logger.warning(f"obsidian lock: persona '{persona_id}' has no password in the personas file — skipping inject")
+        return
     existing.update({
         "userId":   persona_id,
-        "userPass": personas[persona_id].get("password", "secret"),
+        "userPass": personas[persona_id]["password"],
         "mcpToken": os.environ.get("MCP_ACCESS_TOKEN", "egeria-secret-mcp-token"),
     })
     _PLUGIN_DATA_JSON.write_text(json.dumps(existing, indent=2))

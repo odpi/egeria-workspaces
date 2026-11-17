@@ -107,6 +107,9 @@ async def _get_admin_egeria_token() -> str:
             token, expires_at = _admin_token_cache
             if now < expires_at:
                 return token
+        if not EGERIA_ADMIN_CALLER_PASSWORD:   # PO-45: no built-in "secret"
+            raise HTTPException(status_code=503, detail="The Portal's admin caller password isn't configured "
+                                                        "(EGERIA_ADMIN_CALLER_PASSWORD), so it cannot act as an admin.")
         status, text = await _egeria_token_call(EGERIA_ADMIN_CALLER_ID, EGERIA_ADMIN_CALLER_PASSWORD)
         if status != 200 or not text.strip() or text.strip().startswith("{"):
             logger.error(

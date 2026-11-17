@@ -187,15 +187,38 @@ def custom_platforms_allowed() -> bool:
     return not bool(_env_flag("DEMO_MODE"))
 
 
+# PO-45 (TR-12 shape): no built-in service password. A deployment that forgot EGERIA_USER_PASSWORD
+# used to sign in with the well-known demo password "secret"; now the Portal refuses, in words, before
+# any Egeria call. Every handler gets the password from service_password(); a scan test keeps a
+# "secret" default from coming back.
+SERVICE_PASSWORD_MISSING_WORDS = "the Portal's service password isn't configured (EGERIA_USER_PASSWORD)"
+
+
+class ServicePasswordMissing(HTTPException):
+    """EGERIA_USER_PASSWORD is unset or empty. An HTTPException (503), so a route answers in words."""
+
+    def __init__(self):
+        super().__init__(status_code=503, detail=f"The Portal cannot sign in to Egeria: {SERVICE_PASSWORD_MISSING_WORDS}.")
+
+
+def configured_service_password() -> Optional[str]:
+    """EGERIA_USER_PASSWORD, or None when it is unset or empty. Never raises (for comparisons)."""
+    return os.environ.get("EGERIA_USER_PASSWORD") or None
+
+
 def service_password() -> str:
-    return os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    """The Portal's own Egeria password; ServicePasswordMissing (503, in words) when it isn't configured."""
+    pwd = configured_service_password()
+    if not pwd:
+        raise ServicePasswordMissing()
+    return pwd
 
 
 def is_caller_password(pwd: Optional[str]) -> bool:
     """True when `pwd` is a password the caller supplied, not the Portal's own. The Portal holds exactly one
     password (EGERIA_USER_PASSWORD); any client carrying it is carrying the service credential, whoever
     typed it, so it is treated as the service password."""
-    return bool(pwd) and pwd != service_password()
+    return bool(pwd) and pwd != configured_service_password()
 
 
 # sha256(token) -> (normalized platform URL, expires_at). Filled by POST /api/egeria-token; process memory.

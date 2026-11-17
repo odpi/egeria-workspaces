@@ -328,6 +328,7 @@ def _mcp_credentials(url: Optional[str], server_name: Optional[str], user_id: Op
     """
     from egeria_auth import (PlatformRefused, is_caller_password, named_user_refusal, resolve_platform,
                              service_user)
+    from egeria_auth import configured_service_password
     refusal = named_user_refusal(user_id or None, bool(user_pass), None)
     if refusal is not None:
         raise CredentialRefused(refusal.detail)
@@ -337,7 +338,7 @@ def _mcp_credentials(url: Optional[str], server_name: Optional[str], user_id: Op
         raise CredentialRefused(exc.detail) from None
     actual_server = server_name or os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server")
     actual_user = user_id or service_user()
-    actual_pass = user_pass or os.environ.get("EGERIA_USER_PASSWORD", "")
+    actual_pass = user_pass or configured_service_password()   # PO-45: the one getter
     if not actual_pass:
         raise CredentialRefused("the Portal's service password isn't configured (EGERIA_USER_PASSWORD)")
     return actual_url, actual_server, actual_user, actual_pass

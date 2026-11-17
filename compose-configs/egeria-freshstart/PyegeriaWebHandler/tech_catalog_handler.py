@@ -33,6 +33,7 @@ Endpoints:
   GET /api/tech-catalog/survey-types                          → Survey type definitions (aggregated from TechnologyTypes)
 """
 
+from egeria_auth import service_password  # PO-45: no built-in service password
 import asyncio
 import os
 import time
@@ -84,7 +85,7 @@ def _creds(url, server, user_id, user_pwd):
         url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443"),
         server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server"),
         user_id  or os.environ.get("EGERIA_USER",          "erinoverview"),
-        user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret"),
+        user_pwd or service_password(),
     )
 
 
@@ -581,7 +582,7 @@ async def get_egeria_bearer_token(request: Request):
     if refusal is not None:
         raise refusal
     user_id  = asked_user if caller_pwd is not None and asked_user else service_user()
-    user_pwd = caller_pwd           or os.environ.get("EGERIA_USER_PASSWORD",  "secret")
+    user_pwd = caller_pwd           or service_password()
     server   = body.get("server")   or os.environ.get("EGERIA_VIEW_SERVER",    "qs-view-server")
     try:
         from pyegeria import AssetMaker

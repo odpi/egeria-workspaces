@@ -15,6 +15,7 @@ PUT    /api/egeria-feedback/{guid}/comments/{comment_guid}→ update comment
 DELETE /api/egeria-feedback/{guid}/comments/{comment_guid}→ remove comment
 """
 
+from egeria_auth import service_password  # PO-45: no built-in service password
 import os
 from typing import Optional
 
@@ -40,7 +41,7 @@ def _get_client():
     url      = os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
     server   = os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
     user_id  = os.environ.get("EGERIA_USER",          "erinoverview")
-    user_pwd = os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    user_pwd = service_password()
     client = ServerClient(server_name=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
     # With an X-Egeria-Token the signed-in user is the author of every like,
     # rating and comment; without one this falls back to the configured user.
