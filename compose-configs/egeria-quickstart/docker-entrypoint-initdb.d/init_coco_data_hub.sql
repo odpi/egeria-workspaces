@@ -43,10 +43,14 @@ ALTER TABLE rights_fulfilment_actions.fulfilment_request        ALTER COLUMN dat
 --    hub, and the survey's column statistics (pg_stats) and column sizes are only
 --    visible to a user that can select from the table.  Guarded because an install
 --    whose Postgres predates that user has no surveyor role.
+-- provisioner is created, and its password set from PROVISIONER_PASSWORD, by shared-infra's init_egeria_ods.sql,
+-- which ensure-shared-infra.sh runs on every start before this script (TR-28: no password lives here).  The
+-- guarded CREATE below only covers a hand-run of this script on a server that predates that: the role then has
+-- no password, so it cannot sign in until the next start of the shared infrastructure sets one.
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'provisioner') THEN
-    CREATE USER provisioner WITH LOGIN PASSWORD 'provisioner4egeria';
+    CREATE ROLE provisioner WITH LOGIN;
   END IF;
 END
 $$;
