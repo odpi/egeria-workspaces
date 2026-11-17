@@ -16,6 +16,7 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from egeria_auth import lineage_key as _lineage_key
+from result_cache import request_identity
 from fastapi.responses import JSONResponse
 from loguru import logger
 
@@ -208,8 +209,9 @@ def _project_forest(mgr, child_key: str, parent_key: str, as_of_time=None) -> di
 
 
 def _cached_forest(kind: str, child_key: str, parent_key: str, url, server, user_id, user_pwd, as_of_time=None):
-    cache_key = f"{kind}|{url or ''}|{server or ''}|{user_id or ''}|{as_of_time or ''}{_lineage_key()}"
-    cached = _PROJ_TREE_CACHE.get(cache_key)
+    who = request_identity(user_id, user_pwd)  # hashed credential; None = expired token, bypass the cache
+    cache_key = f"{kind}|{url or ''}|{server or ''}|{who}|{as_of_time or ''}{_lineage_key()}"
+    cached = (_PROJ_TREE_CACHE.get(cache_key) if who else None)
     if cached and (time.time() - cached[0]) < _PROJ_TREE_TTL:
         return JSONResponse(cached[1])
     try:
@@ -220,7 +222,8 @@ def _cached_forest(kind: str, child_key: str, parent_key: str, url, server, user
         result = _project_forest(mgr, child_key, parent_key, as_of_time)
     except Exception as exc:
         raise_egeria_http_error(exc, f"project {kind} forest failed")
-    _PROJ_TREE_CACHE[cache_key] = (time.time(), result)
+    if who:
+        _PROJ_TREE_CACHE[cache_key] = (time.time(), result)
     return JSONResponse(result)
 
 
@@ -266,10 +269,12 @@ def get_project(
         raise_egeria_http_error(exc, "Failed to create ProjectManager")
 
     try:
-        # graphQueryDepth=2 so relationship arrays (resources, dependencies, etc.)
-        # are present for _generic_relationships to surface — without it the
-        # response has no relationship keys to extract at all.
-        body = {"class": "GetRequestBody", "graphQueryDepth": 2}
+        # graphQueryDepth=5 (default for single-element detail views) so relationship
+        # arrays (resources, dependencies, etc.) are present for _generic_relationships
+        # to surface — without an override the response has no relationship keys to
+        # extract at all. maxMermaidNodeCount=250 avoids the shared get-by-guid helper's
+        # default node cap truncating any mermaid diagram (PYEGERIA_ISSUES.md ISSUE-23).
+        body = {"class": "GetRequestBody", "graphQueryDepth": 5, "maxMermaidNodeCount": 250}
         if as_of_time:
             body["asOfTime"] = as_of_time
         raw = mgr.get_project_by_guid(guid, output_format="JSON", body=body)

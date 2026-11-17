@@ -21,7 +21,8 @@ Endpoints:
   DELETE /api/resource-browser/resource/{guid}/tags/{tag}    → detach a tag
   GET    /api/resource-browser/resource/{guid}/notes         → notes from the element's note logs
   POST   /api/resource-browser/resource/{guid}/notes         → add a note (creates the note log if needed)
-  GET    /api/resource-browser/search?q=&kind=&page=         → L0 search: text, columns, tags, keywords, owners
+  GET    /api/resource-browser/search?q=&kind=&page=         → L0 search: text, tags, keywords, owners, and the
+                                                               columns, attributes and data fields inside resources
   GET    /api/resource-browser/flavours                      → which resources are product or hub members (cached)
   GET    /api/resource-browser/row-extras?guids=             → tags, likes and rating summary for visible rows
   GET    /api/resource-browser/home                          → recently changed resources; popularity status
@@ -224,6 +225,19 @@ def _data_scope(classifications: list) -> Optional[dict]:
         if c["name"] == "DataScope":
             return c["properties"]
     return None
+
+
+def _has_scope(scope: Optional[dict]) -> bool:
+    """Whether a DataScope records a dimension: any value other than additionalProperties
+    (usage readings Egeria's lineage service keeps there) and other than an unset bound
+    (Egeria returns 0 for min/max values never set)."""
+    for k, v in (scope or {}).items():
+        if k == "additionalProperties" or v in (None, "", [], {}):
+            continue
+        if re.fullmatch(r"(min|max)[A-Z]\w*", k) and isinstance(v, (int, float)) and v == 0:
+            continue
+        return True
+    return False
 
 
 def _flavour(type_name: str, super_types: list, collections: list) -> dict:
@@ -746,11 +760,12 @@ _CONTAINS_KEYS = [                       # (key, relationship): the parts it hol
     ("nestedFiles", "NestedFile"),
     ("collectionMembers", "CollectionMembership"),
 ]
-_PART_OF_KEYS = ["dataSetContent", "parentFolder", "homeFolder"]   # its container
+# Its container. A data field's is the data structure it is a member of (MemberDataField).
+_PART_OF_KEYS = ["dataSetContent", "parentFolder", "homeFolder", "partOfDataStructures"]
 
 # Relationships the structure section shows, left out of "where it fits".
 _STRUCTURE_RELATIONSHIPS = {"DataSetContent", "FolderHierarchy", "NestedFile", "AttributeForSchema",
-                            "NestedSchemaAttribute", "APIOperations", "SchemaTypeOption"}
+                            "NestedSchemaAttribute", "APIOperations", "SchemaTypeOption", "MemberDataField"}
 _STRUCTURE_SHOWN_KEYS = {k for k, _ in _CONTAINS_KEYS} | set(_PART_OF_KEYS)
 
 _PATH_HOPS = 5          # containers walked up from a resource
@@ -776,7 +791,8 @@ def _is_schema_element(type_name: str, supers: list) -> bool:
 # about a thousand measurement annotations, and skipping them still costs ~13 s a
 # read where naming the wanted relationships takes ~0.2 s.
 _STRUCTURE_INCLUDE = ["DataSetContent", "FolderHierarchy", "NestedFile", "CollectionMembership",
-                      "Schema", "AttributeForSchema", "NestedSchemaAttribute", "APIOperations", "SchemaTypeOption"]
+                      "Schema", "AttributeForSchema", "NestedSchemaAttribute", "APIOperations", "SchemaTypeOption",
+                      "MemberDataField"]
 
 # What a schema type holds, by key: a schema's tables and a data set's fields
 # (schemaAttributes), an API's operations, a topic's event types (schema options).
@@ -1356,17 +1372,26 @@ _KINDS = [
     ("repo", "Code repositories", []),   # recognised by _REPO_QN_PREFIX, see _is_repo
 ]
 
+# Parts of resources that search also finds, as rows of their own: the columns and other
+# schema attributes inside tables, files, topics and APIs, and the data fields of data
+# designs. They are not resources (Browse and Home do not list them), so they are kept
+# apart from _KINDS; _kind_of never returns them.
+_PART_KINDS = [
+    ("attribute", "Columns and attributes", ["SchemaAttribute"]),
+    ("field", "Data fields", ["DataField"]),
+]
+
 # Resource Explorer publishes a GitHub repository as a plain Asset named
 # GitHubRepository::<url> (no subtype yet), so a repo is told by its name.
 _REPO_QN_PREFIX = "GitHubRepository::"
-_KIND_IDS = [k[0] for k in _KINDS] + ["other"]
+_KIND_IDS = [k[0] for k in _KINDS] + [k[0] for k in _PART_KINDS] + ["other"]
 
 # Governance classifications shown as badges.
 _BADGES = ["Confidentiality", "Confidence", "Criticality", "Impact", "Retention", "SecurityTags"]
 
 _SEARCH_PROPS = ["displayName", "name", "qualifiedName", "description"]
 _SEARCH_PAGE = 50
-_COLUMN_ROLLUP_CAP = 25      # columns per page whose table is looked up
+_PART_LOOKUP_CAP = 25        # matching columns, attributes and fields per page whose container is read
 _TAG_MATCH_CAP = 5           # tags (and keywords) per query whose elements are read
 _LOOKUP_CONCURRENCY = 4      # parallel per-element calls; Egeria's JDBC pool is 10 connections
 _ROW_EXTRAS_CAP = 25
@@ -1398,6 +1423,33 @@ def _looks_automated(user) -> bool:
     """Egeria's own service accounts end in "npa" (non-person account) or are engines."""
     u = str(user or "").lower()
     return u.endswith("npa") or "engine" in u
+
+
+def _part_kind(type_name: str, super_types: list) -> Optional[str]:
+    """"attribute" for a column or other schema attribute, "field" for a data field, else None.
+    A table is a schema attribute too, but it is a resource with a kind of its own."""
+    names = [type_name] + list(super_types or [])
+    if "DataField" in names:
+        return "field"
+    if "SchemaAttribute" in names and _kind_of(type_name, super_types) == "other":
+        return "attribute"
+    return None
+
+
+def _part_row(el: dict, container: Optional[dict]) -> Optional[dict]:
+    """A search row for a column, attribute or data field, saying what it is part of.
+
+    `container` is a record with guid, displayName and typeName (the display name is
+    empty when only the anchor's guid is known), or None when nothing holds it."""
+    hdr = (el or {}).get("elementHeader") or {}
+    kind = _part_kind(*_type_names(hdr))
+    row = _row(el, any_type=True) if kind else None
+    if not row:
+        return None
+    row["kind"] = kind
+    row["partOf"] = ({"guid": container["guid"], "displayName": container.get("displayName") or "",
+                      "typeName": container.get("typeName") or ""} if container else None)
+    return row
 
 
 def _is_repo(type_name: str, qualified_name: str) -> bool:
@@ -1432,6 +1484,7 @@ def _row(el: dict, any_type: bool = False) -> Optional[dict]:
         "owner": _owner(cls),
         "badges": [c["name"] for c in cls if c["name"] in _BADGES],
         "dataScope": _data_scope(cls),
+        "hasScope": _has_scope(_data_scope(cls)),
         "updatedBy": versions.get("updatedBy") or versions.get("createdBy") or "",
         "updateTime": versions.get("updateTime") or versions.get("createTime") or "",
         "automated": _looks_automated(versions.get("updatedBy") or versions.get("createdBy")),
@@ -1625,53 +1678,95 @@ async def get_flavours():
 
 # ── Search ────────────────────────────────────────────────────────────────────
 
-def _kind_types(kind: Optional[str]) -> list:
-    for k, _label, types in _KINDS:
-        if k == kind:
-            return types
-    return _RESOURCE_TYPES
+def _parse_kinds(kind: Optional[str]) -> Optional[list]:
+    """The kinds asked for, from "table" or "table,schema"; None for All. Raises ValueError
+    naming any kind it does not know."""
+    wanted = [k.strip() for k in (kind or "").split(",") if k.strip()]
+    unknown = [k for k in wanted if k not in _KIND_IDS]
+    if unknown:
+        raise ValueError(", ".join(unknown))
+    return list(dict.fromkeys(wanted)) or None
 
 
-async def _search_text(client, q, kind, page):
+def _kind_types(kinds: Optional[list]) -> list:
+    """The resource types the text search asks for: every resource type for All (or when
+    "other" is asked for, since other is whatever is left), else the union of the kinds'
+    types. [] when only code repositories or parts are asked for."""
+    if kinds is None or "other" in kinds:
+        return _RESOURCE_TYPES
+    return list(dict.fromkeys(t for k, _label, types in _KINDS if k in kinds for t in types))
+
+
+def _part_types(kinds: Optional[list]) -> list:
+    """The types the parts search asks for: every part for All, columns for Tables (they
+    roll up to their table), and the kinds' own types for part kinds; [] for the rest."""
+    if kinds is None:
+        return [t for _k, _label, types in _PART_KINDS for t in types]
+    out = ["SchemaAttribute"] if "table" in kinds else []
+    out += [t for k, _label, types in _PART_KINDS if k in kinds for t in types]
+    return list(dict.fromkeys(out))
+
+
+def _may_have_more(page_elements: list) -> bool:
+    """Whether to offer the next page. Egeria's paging contract: a short page is not the
+    last page, and only a null result means no more. pyegeria turns null and an empty page
+    alike into "No elements found", so an empty page is the only end that can be seen."""
+    return len(page_elements) > 0
+
+
+async def _search_text(client, q, types, page):
     raw = await client._async_find_elements_by_property_value(
-        property_value=q, property_names=_SEARCH_PROPS, metadata_element_subtypes=_kind_types(kind),
+        property_value=q, property_names=_SEARCH_PROPS, metadata_element_subtypes=types,
         starts_with=False, ends_with=False, ignore_case=True, graph_query_depth=0, output_format="JSON",
         start_from=page * _SEARCH_PAGE, page_size=_SEARCH_PAGE)
     return _elements(raw)
 
 
-async def _parent_table(client, sem, column_guid):
-    async with sem:
-        el = await client._async_get_element_by_guid(
-            column_guid, graph_query_depth=1, output_format="JSON",
-            body={"class": "GetRequestBody", "graphQueryDepth": 1, "includeOnlyRelationships": ["NestedSchemaAttribute"]})
-    for item in (el or {}).get("parentSchemaElements") or []:
-        if item.get("relatedElementAtEnd1"):
-            return item.get("relatedElement")
-    return None
+async def _search_parts(client, q, page, types):
+    """Columns, schema attributes and data fields whose name matches, each with what holds it.
 
-
-async def _search_columns(client, q, page):
-    """Column-name matches, rolled up to their tables (spec: children roll up)."""
+    Returns {"rows": part rows, "rollups": [(resource row, [part names])], "found", "lookedUp"}.
+    A part rolls up to the resource that holds it (a column to its table, a topic's field to
+    the topic) so the resource is found too. Only the first _PART_LOOKUP_CAP parts of a page
+    have their container read; the rest are listed with partOf unknown."""
     raw = await client._async_find_elements_by_property_value(
-        property_value=q, property_names=["displayName", "name"], metadata_element_subtypes=["RelationalColumn"],
+        property_value=q, property_names=["displayName", "name"], metadata_element_subtypes=types,
         starts_with=False, ends_with=False, ignore_case=True, graph_query_depth=0, output_format="JSON",
         start_from=page * _SEARCH_PAGE, page_size=_SEARCH_PAGE)
-    cols = _elements(raw)
+    found = _elements(raw)
+    parts = [e for e in found if _part_kind(*_type_names(e.get("elementHeader") or {}))]
+    looked = parts[:_PART_LOOKUP_CAP]
     sem = asyncio.Semaphore(_LOOKUP_CONCURRENCY)
-    looked = cols[:_COLUMN_ROLLUP_CAP]
-    parents = await asyncio.gather(*(_parent_table(client, sem, (c.get("elementHeader") or {}).get("guid"))
-                                     for c in looked), return_exceptions=True)
-    tables = {}
-    for col, parent in zip(looked, parents):
-        if isinstance(parent, Exception) or not parent:
-            continue
-        row = _row(parent)
+
+    async def read(guid, depth):
+        async with sem:
+            if depth:
+                return await _get_depth1(client, guid)
+            return await client._async_get_element_by_guid(guid, graph_query_depth=0, output_format="JSON")
+
+    reads = await asyncio.gather(*(read((p.get("elementHeader") or {}).get("guid"), 1) for p in looked),
+                                 return_exceptions=True)
+    containers = [None if isinstance(r, Exception) or not isinstance(r, dict) else _container_of(r) for r in reads]
+    wanted = list(dict.fromkeys(c["guid"] for c in containers if c))
+    got = await asyncio.gather(*(read(g, 0) for g in wanted), return_exceptions=True)
+    holders = {g: e for g, e in zip(wanted, got) if isinstance(e, dict)}
+
+    rows, rollups = [], {}
+    for i, p in enumerate(parts):
+        container = containers[i] if i < len(looked) else None
+        holder = holders.get(container["guid"]) if container else None
+        if container and holder and not container.get("displayName"):
+            container = dict(container, displayName=_display_name(holder.get("properties"), container["guid"]),
+                             typeName=_type_names(holder.get("elementHeader") or {})[0] or container.get("typeName"))
+        row = _part_row(p, container)
         if not row:
             continue
-        t = tables.setdefault(row["guid"], (row, []))
-        t[1].append(_display_name(col.get("properties"), ""))
-    return {"tables": list(tables.values()), "found": len(cols), "rolledUp": len(looked)}
+        row["partOfKnown"] = i < len(looked)
+        rows.append(row)
+        resource = _row(holder) if holder else None
+        if resource:
+            rollups.setdefault(resource["guid"], (resource, []))[1].append(row["displayName"])
+    return {"rows": rows, "rollups": list(rollups.values()), "found": len(found), "lookedUp": len(looked)}
 
 
 async def _search_tags(client, q):
@@ -1728,23 +1823,28 @@ async def _search_owners(client, q):
 
 
 @router.get("/api/resource-browser/search", summary="L0 search over Egeria's own find")
-async def search(q: str = Query(..., min_length=1), kind: Optional[str] = Query(None),
+async def search(q: str = Query(..., min_length=1),
+                 kind: Optional[str] = Query(None, description="One kind, or several separated by commas (table,schema)"),
                  page: int = Query(0, ge=0, le=40)):
     q = q.strip()
     if q in ("", "*"):
         raise HTTPException(status_code=400, detail="Type a word to search for.")
-    if kind and kind not in _KIND_IDS:
-        raise HTTPException(status_code=400, detail=f"Unknown kind {kind!r}.")
+    try:
+        kinds = _parse_kinds(kind)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Unknown kind: {exc}.")
     try:
         client = await _explorer_async()
     except Exception as exc:
         raise_egeria_http_error(exc, "resource-browser: search client failed")
 
-    jobs = {} if kind == "repo" else {"text": _search_text(client, q, kind, page)}
-    if kind in (None, "repo") and page == 0:
+    jobs = {}
+    if _kind_types(kinds):
+        jobs["text"] = _search_text(client, q, _kind_types(kinds), page)
+    if (kinds is None or "repo" in kinds) and page == 0:
         jobs["repos"] = _search_repos(q)
-    if kind in (None, "table"):
-        jobs["columns"] = _search_columns(client, q, page)
+    if _part_types(kinds):
+        jobs["parts"] = _search_parts(client, q, page, _part_types(kinds))
     if page == 0:  # tag, keyword and owner matches are bounded and come on the first page only
         jobs.update(tags=_search_tags(client, q), keywords=_search_keywords(client, q), owners=_search_owners(client, q))
     results = dict(zip(jobs, await asyncio.gather(*jobs.values(), return_exceptions=True)))
@@ -1782,32 +1882,36 @@ async def search(q: str = Query(..., min_length=1), kind: Optional[str] = Query(
         not_shown += skipped
         for r in rows:
             _merge(found, [r], f"owner: {r['owner']}")
-    columns = None
-    if "columns" in results and "columns" not in failed:
-        columns = {k: v for k, v in results["columns"].items() if k != "tables"}
-        for row, names in results["columns"]["tables"]:
-            _merge(found, [row], "column: " + ", ".join(sorted(set(names))))
+    parts = None
+    if "parts" in results and "parts" not in failed:
+        parts = {k: v for k, v in results["parts"].items() if k not in ("rows", "rollups")}
+        parts["shown"] = len(results["parts"]["rows"])
+        for row, names in results["parts"]["rollups"]:
+            _merge(found, [row], "contains: " + ", ".join(sorted(set(names))))
+        for row in results["parts"]["rows"]:
+            _merge(found, [row], "name")
 
-    items = [r for r in found.values() if not kind or r["kind"] == kind]
+    items = [r for r in found.values() if kinds is None or r["kind"] in kinds]
     items.sort(key=lambda r: _relevance(r, q))
-    may_have_more = ("text" in results and "text" not in failed and len(results["text"]) == _SEARCH_PAGE) or \
-                    (columns is not None and columns["found"] == _SEARCH_PAGE)
+    may_have_more = ("text" in results and "text" not in failed and _may_have_more(results["text"])) or \
+                    (parts is not None and parts["found"] > 0)
     # Sources read once (first page only) whose single read came back full: more may exist there.
     capped = [name for name in ("keywords", "owners") if name in results and name not in failed
               and len(results[name]) == _SEARCH_PAGE]
     capped += [f"tag: {name}" for name, els in (results.get("tags") if "tags" not in failed and "tags" in results else [])
                if len(els) == _SEARCH_PAGE]
     return JSONResponse({
-        "query": q, "kind": kind, "page": page, "items": items,
+        "query": q, "kind": ",".join(kinds) if kinds else None, "kinds": kinds, "page": page, "items": items,
         "mayHaveMore": may_have_more,
         "cappedSources": capped,
         "notShown": not_shown,
-        "columns": columns,
+        "parts": parts,
         "failedSources": failed,
         "order": _ORDER_NOTE,
         "layer": "L0",
         "asOf": _now_iso(),
-        "source": "ClassificationExplorer: find_elements_by_property_value, find_tags + get_elements_by_tag, "
+        "source": "ClassificationExplorer: find_elements_by_property_value (resources; SchemaAttribute and "
+                  "DataField parts, each read once for its container), find_tags + get_elements_by_tag, "
                   "get_search_keyword_by_keyword, get_elements_by_classification_with_property_value (Ownership)",
     })
 
@@ -1815,7 +1919,8 @@ async def search(q: str = Query(..., min_length=1), kind: Optional[str] = Query(
 @router.get("/api/resource-browser/kinds", summary="The resource kinds search and browse filter on")
 async def get_kinds():
     return JSONResponse({"kinds": [{"id": k, "label": label, "types": types} for k, label, types in _KINDS]
-                         + [{"id": "other", "label": "Other", "types": []}]})
+                         + [{"id": "other", "label": "Other", "types": []}],
+                         "parts": [{"id": k, "label": label, "types": types} for k, label, types in _PART_KINDS]})
 
 
 @router.get("/api/resource-browser/row-extras", summary="Tags, likes and rating summary for the rows on screen")
@@ -2436,7 +2541,7 @@ async def _facet_values(facet: str) -> dict:
         return {"values": [{"id": "hub", "label": "Hub"}, {"id": "product", "label": "Product"},
                            {"id": "known", "label": "Known"}]}
     if facet == "scope":
-        return {"values": [{"id": "all", "label": "Resources with a data scope (time or place)"}]}
+        return {"values": [{"id": "all", "label": "Resources with a data scope (time, place or another dimension)"}]}
     raise HTTPException(status_code=404, detail=f"Unknown browse facet {facet!r}.")
 
 
@@ -2532,7 +2637,13 @@ async def browse_list(facet: str, value: str):
             source = "the flavour index, then ClassificationExplorer.get_element_by_guid per resource"
         elif facet == "scope":
             els, capped = await _classified(client, "DataScope")
+            scoped = [_has_scope(_data_scope(_classifications(e.get("elementHeader") or {}))) for e in els]
+            usage_only = [e for e, keep in zip(els, scoped) if not keep]
+            els = [e for e, keep in zip(els, scoped) if keep]
             title = "Resources with a data scope"
+            if usage_only:
+                note = (f"{len(usage_only)} more carry a DataScope classification holding only usage readings "
+                        "from Egeria's lineage service (no time, place or other dimension), so they are not listed.")
             source = "ClassificationExplorer.get_elements_by_classification (DataScope)"
     except HTTPException:
         raise

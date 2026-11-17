@@ -16,6 +16,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
+from pyegeria import PyegeriaNotFoundException
 
 from common_serialize import _authored_fields, _header_summary, _classifications
 
@@ -68,15 +69,17 @@ def _serialize_rel_entries(rel_list: list) -> list:
         rh = re.get("elementHeader") or {}
         rp = re.get("properties") or {}
         rtype = rh.get("type") or {}
+        rel_hdr_type = (rel.get("relationshipHeader") or {}).get("type") or {}
         g = rh.get("guid", "")
         if g:
             result.append({
-                "guid":           g,
-                "displayName":    rp.get("displayName") or rp.get("fullName") or rp.get("name") or "",
-                "qualifiedName":  rp.get("qualifiedName") or "",
-                "description":    rp.get("description") or "",
-                "typeName":       rtype.get("typeName") or "",
-                "superTypeNames": rtype.get("superTypeNames") or [],
+                "guid":             g,
+                "displayName":      rp.get("displayName") or rp.get("fullName") or rp.get("name") or "",
+                "qualifiedName":    rp.get("qualifiedName") or "",
+                "description":      rp.get("description") or "",
+                "typeName":         rtype.get("typeName") or "",
+                "superTypeNames":   rtype.get("superTypeNames") or [],
+                "relationshipType": rel_hdr_type.get("typeName") or "",
             })
     return result
 
@@ -169,6 +172,7 @@ def get_community(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     user_pwd = None  # never from the URL: a password in a query string lands in access logs
     try:
@@ -181,7 +185,15 @@ def get_community(
         # max_mermaid_node_count defaults to 5 (pyegeria shared get-by-guid helper),
         # truncating any mermaid diagram for this element -- see egeria-python
         # PYEGERIA_ISSUES.md ISSUE-23.
-        element = mgr.get_community_by_guid(guid, output_format="JSON", graph_query_depth=1, max_mermaid_node_count=250)
+        # An explicit body (graph settings in it, since pyegeria ignores sibling kwargs once a
+        # body is given) so asOfTime -- the view's As-of slider -- reaches Egeria.
+        body = {"class": "GetRequestBody", "graphQueryDepth": 5, "maxMermaidNodeCount": 250}
+        if as_of_time:
+            body["asOfTime"] = as_of_time
+        element = mgr.get_community_by_guid(guid, output_format="JSON", body=body)
+    except PyegeriaNotFoundException:
+        # Stale GUID, or (with as_of_time) the community did not exist yet.
+        raise HTTPException(status_code=404, detail=f"Community {guid!r} not found")
     except Exception as exc:
         logger.exception(f"get_community_by_guid failed for {guid}")
         raise HTTPException(status_code=500, detail=f"Community detail retrieval failed: {exc}")

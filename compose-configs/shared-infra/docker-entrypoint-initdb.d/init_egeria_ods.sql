@@ -18,15 +18,35 @@
 -- it up.  Safe to run again: it creates only what is missing.
 
 -- provisioner is the user that Egeria's provisioning services deliver digital products with (secrets collection
--- "PostgreSQL Provisioning Secret" in secrets/integration.omsecrets).  The quickstart's init_coco_data_hub.sql
--- creates it in the same way for the Coco Pharmaceuticals data hub.
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'provisioner') THEN
-    CREATE USER provisioner WITH LOGIN PASSWORD 'provisioner4egeria';
-  END IF;
-END
-$$;
+-- "PostgreSQL Provisioning Secret" in secrets/integration.omsecrets), and that Airflow's coco_data_hub connection
+-- signs in with.  The quickstart's init_coco_data_hub.sql relies on it.
+--
+-- No password lives in this file (TR-28).  It comes from PROVISIONER_PASSWORD, which gen-env.sh keeps in
+-- shared-infra/.env and ensure-shared-infra.sh passes in on every start, so the role's password is set from .env
+-- each time: a new value in .env rotates it on the next start.  The start scripts put the same value into the
+-- Egeria secrets (install-secrets.py) and the Airflow connection.  When PROVISIONER_PASSWORD is not set (the
+-- container's first initialisation, or a hand-run psql), the role is created without a password - it cannot sign in
+-- over TCP - and an existing role's password is left as it is.
+\getenv prov_password PROVISIONER_PASSWORD
+-- Unset (not just empty) leaves the variable undefined, and :'prov_password' would stop the script.
+\if :{?prov_password}
+\else
+    \set prov_password ''
+\endif
+SELECT NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'provisioner') AS need_provisioner \gset
+SELECT :'prov_password' <> '' AS have_provisioner_password \gset
+\if :need_provisioner
+    CREATE ROLE provisioner WITH LOGIN;
+\endif
+\if :have_provisioner_password
+    -- psql puts the value into the statement text on the client side, so keep this statement out of
+    -- pg_stat_statements (preloaded on some installs), whose query-text file would otherwise hold the password.
+    -- A dotted name is accepted even when the extension is not loaded. Superuser only: this script runs as postgres.
+    SET pg_stat_statements.track_utility = off;
+    ALTER ROLE provisioner WITH PASSWORD :'prov_password';
+    RESET pg_stat_statements.track_utility;
+\endif
+\unset prov_password
 
 SELECT 'CREATE DATABASE egeria_ods'
 WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'egeria_ods')\gexec

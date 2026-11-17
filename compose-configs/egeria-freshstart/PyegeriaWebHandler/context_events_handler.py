@@ -70,15 +70,17 @@ def _serialize_rel_entries(rel_list: list) -> list:
         rh = re.get("elementHeader") or {}
         rp = re.get("properties") or {}
         rtype = rh.get("type") or {}
+        rel_hdr_type = (rel.get("relationshipHeader") or {}).get("type") or {}
         g = rh.get("guid", "")
         if g:
             result.append({
-                "guid":           g,
-                "displayName":    rp.get("displayName") or rp.get("name") or "",
-                "qualifiedName":  rp.get("qualifiedName") or "",
-                "description":    rp.get("description") or "",
-                "typeName":       rtype.get("typeName") or "",
-                "superTypeNames": rtype.get("superTypeNames") or [],
+                "guid":             g,
+                "displayName":      rp.get("displayName") or rp.get("name") or "",
+                "qualifiedName":    rp.get("qualifiedName") or "",
+                "description":      rp.get("description") or "",
+                "typeName":         rtype.get("typeName") or "",
+                "superTypeNames":   rtype.get("superTypeNames") or [],
+                "relationshipType": rel_hdr_type.get("typeName") or "",
                 "relationshipProperties": {
                     k: v for k, v in (rel.get("relationshipProperties") or {}).items()
                     if k not in ("class",) and v is not None and v != ""
@@ -205,6 +207,7 @@ def list_context_events(
         raw = [e for e in raw if isinstance(e, dict) and not _is_template(e)]
 
     events = [_serialize_context_event(e) for e in raw if isinstance(e, dict) and e.get("elementHeader")]
+    events.sort(key=lambda x: (x.get("displayName") or x.get("qualifiedName") or "").lower())
     return JSONResponse({"events": events})
 
 
@@ -229,7 +232,7 @@ def get_context_event(
         raw = mgr.get_context_event_by_guid(
             guid=guid,
             output_format="JSON",
-            graph_query_depth=3,
+            graph_query_depth=5,
             max_mermaid_node_count=250,
         )
     except Exception as exc:
