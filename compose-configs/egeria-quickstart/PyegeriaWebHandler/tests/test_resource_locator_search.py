@@ -23,7 +23,7 @@ _FUNCS = {"_type_names", "_display_name", "_related", "_related_recs", "_classif
           "_part_kind", "_part_row", "_part_types", "_kind_types", "_parse_kinds", "_may_have_more", "_search_parts", "_get_depth1"}
 _CONSTS = {"_SKIP_CLASSIFICATIONS", "_RESOURCE_TYPES", "_NOT_RESOURCES", "_KINDS", "_PART_KINDS", "_BADGES",
            "_REPO_QN_PREFIX", "_PART_OF_KEYS", "_COUNTED_TYPES", "_PART_LOOKUP_CAP", "_SEARCH_PAGE",
-           "_LOOKUP_CONCURRENCY", "_KIND_IDS", "_STRUCTURE_INCLUDE"}
+           "_LOOKUP_CONCURRENCY", "_KIND_IDS", "_STRUCTURE_INCLUDE", "_OTHER_KINDS"}
 
 
 @pytest.fixture(scope="module")

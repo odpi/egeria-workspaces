@@ -1398,10 +1398,18 @@ _PART_KINDS = [
     ("field", "Data fields", ["DataField"]),
 ]
 
+# Glossary terms (Dan, 2026-11-17): a kind search filters on, though a term is neither a
+# resource nor a part of one. All does not include them (Architect Q1): about 1,500 terms
+# would crowd resources out of a relevance list. Browse lists that hold terms (a folder, a
+# keyword) show them as rows of their own.
+_OTHER_KINDS = [
+    ("term", "Glossary terms", ["GlossaryTerm"]),
+]
+
 # Resource Explorer publishes a GitHub repository as a plain Asset named
 # GitHubRepository::<url> (no subtype yet), so a repo is told by its name.
 _REPO_QN_PREFIX = "GitHubRepository::"
-_KIND_IDS = [k[0] for k in _KINDS] + [k[0] for k in _PART_KINDS] + ["other"]
+_KIND_IDS = [k[0] for k in _KINDS] + [k[0] for k in _PART_KINDS] + [k[0] for k in _OTHER_KINDS] + ["other"]
 
 # Governance classifications shown as badges.
 _BADGES = ["Confidentiality", "Confidence", "Criticality", "Impact", "Retention", "SecurityTags"]
@@ -1467,6 +1475,49 @@ def _part_row(el: dict, container: Optional[dict]) -> Optional[dict]:
     row["partOf"] = ({"guid": container["guid"], "displayName": container.get("displayName") or "",
                       "typeName": container.get("typeName") or ""} if container else None)
     return row
+
+
+def _term_row(el: dict) -> Optional[dict]:
+    """A row for a glossary term: kind "term", with its summary and content status.
+
+    Which glossary holds a term is not in its header (a term anchors itself; the glossary is a
+    CollectionMembership), and its qualified name follows no single pattern on laz, so the row
+    names no glossary rather than guessing one; the term's page in Egeria Explorer shows it."""
+    hdr = (el or {}).get("elementHeader") or {}
+    type_name, supers = _type_names(hdr)
+    if "GlossaryTerm" not in [type_name] + list(supers or []):
+        return None
+    row = _row(el, any_type=True)
+    if not row:
+        return None
+    props = el.get("properties") or {}
+    row["kind"] = "term"
+    row["summary"] = props.get("summary") or ""
+    row["contentStatus"] = props.get("contentStatus") or ""
+    return row
+
+
+def _any_rows(elements: list) -> tuple:
+    """(rows, not_shown_by_type) for a Browse list that may hold more than resources (a folder,
+    a keyword): resources, glossary terms, and columns, attributes and data fields. A part's
+    container is not read here, so its row says only that it is part of something (partOf
+    unknown). Anything else is counted by its type name, so it is named, never just dropped."""
+    rows, not_shown = [], {}
+    for e in elements:
+        if not isinstance(e, dict):
+            continue
+        hdr = e.get("elementHeader") or {}
+        type_name, supers = _type_names(hdr)
+        r = _row(e) or _term_row(e)
+        if not r and _part_kind(type_name, supers):
+            r = _part_row(e, None)
+            if r:
+                r["partOfKnown"] = False
+        if r:
+            rows.append(r)
+        elif type_name:
+            not_shown[type_name] = not_shown.get(type_name, 0) + 1
+    return rows, not_shown
 
 
 def _is_repo(type_name: str, qualified_name: str) -> bool:
@@ -1710,9 +1761,12 @@ def _kind_types(kinds: Optional[list]) -> list:
     """The resource types the text search asks for: every resource type for All (or when
     "other" is asked for, since other is whatever is left), else the union of the kinds'
     types. [] when only code repositories or parts are asked for."""
-    if kinds is None or "other" in kinds:
+    if kinds is None:
         return _RESOURCE_TYPES
-    return list(dict.fromkeys(t for k, _label, types in _KINDS if k in kinds for t in types))
+    extra = [t for k, _label, types in _OTHER_KINDS if k in kinds for t in types]
+    if "other" in kinds:
+        return _RESOURCE_TYPES + extra
+    return list(dict.fromkeys([t for k, _label, types in _KINDS if k in kinds for t in types] + extra))
 
 
 def _part_types(kinds: Optional[list]) -> list:
@@ -1878,25 +1932,47 @@ async def search(q: str = Query(..., min_length=1),
 
     found: dict = {}
     not_shown = 0
+    want_terms = bool(kinds) and "term" in kinds
+    terms_not_shown = 0
+
+    def rows_of(els):
+        """Resource rows, plus term rows when Glossary terms is picked. In All, a matching term
+        is counted apart (termsNotShown), not as an operational record."""
+        nonlocal terms_not_shown
+        rows, skipped = [], 0
+        for e in els:
+            r = _row(e)
+            if not r:
+                t = _term_row(e)
+                if t and want_terms:
+                    r = t
+                elif t:
+                    terms_not_shown += 1
+                    continue
+            if r:
+                rows.append(r)
+            else:
+                skipped += 1
+        return rows, skipped
     if "repos" in results and "repos" not in failed:
         for r in results["repos"]:
             _merge(found, [r], _text_reason(r, q))
     if "text" in results and "text" not in failed:
-        rows, skipped = _rows(results["text"])
+        rows, skipped = rows_of(results["text"])
         not_shown += skipped
         for r in rows:
             _merge(found, [r], _text_reason(r, q))
     if "tags" in results and "tags" not in failed:
         for name, els in results["tags"]:
-            rows, skipped = _rows(els)
+            rows, skipped = rows_of(els)
             not_shown += skipped
             _merge(found, rows, f"tag: {name}")
     if "keywords" in results and "keywords" not in failed:
-        rows, skipped = _rows(results["keywords"])
+        rows, skipped = rows_of(results["keywords"])
         not_shown += skipped
         _merge(found, rows, f"keyword: {q}")
     if "owners" in results and "owners" not in failed:
-        rows, skipped = _rows(results["owners"])
+        rows, skipped = rows_of(results["owners"])
         not_shown += skipped
         for r in rows:
             _merge(found, [r], f"owner: {r['owner']}")
@@ -1923,6 +1999,7 @@ async def search(q: str = Query(..., min_length=1),
         "mayHaveMore": may_have_more,
         "cappedSources": capped,
         "notShown": not_shown,
+        "termsNotShown": terms_not_shown,
         "parts": parts,
         "failedSources": failed,
         "order": _ORDER_NOTE,
@@ -1938,7 +2015,8 @@ async def search(q: str = Query(..., min_length=1),
 async def get_kinds():
     return JSONResponse({"kinds": [{"id": k, "label": label, "types": types} for k, label, types in _KINDS]
                          + [{"id": "other", "label": "Other", "types": []}],
-                         "parts": [{"id": k, "label": label, "types": types} for k, label, types in _PART_KINDS]})
+                         "parts": [{"id": k, "label": label, "types": types} for k, label, types in _PART_KINDS],
+                         "others": [{"id": k, "label": label, "types": types} for k, label, types in _OTHER_KINDS]})
 
 
 @router.get("/api/resource-browser/row-extras", summary="Tags, likes and rating summary for the rows on screen")

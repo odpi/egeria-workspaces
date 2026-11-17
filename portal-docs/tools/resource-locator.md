@@ -21,12 +21,14 @@ Open it from the portal tile (🛒 Resource Locator) or directly at `/resource-l
 
 ## Search
 
-One search box. Narrow the results with the **Kind** buttons above them: **Tables, Schemas, Databases, Reports, Data sets, Files and folders, Topics and feeds, Products, APIs, Code repositories**, **Columns and attributes**, **Data fields**, or **All**. Pick several kinds to search them together (for example Schemas and Tables); pick a kind again to drop it. The address keeps the choice (`?q=customer&kind=table,schema`), so a search can be bookmarked or shared.
+One search box. Narrow the results with the **Kind** buttons above them: **Tables, Schemas, Databases, Reports, Data sets, Files and folders, Topics and feeds, Products, APIs, Code repositories**, **Columns and attributes**, **Data fields**, **Glossary terms**, or **All**. Pick several kinds to search them together (for example Schemas and Tables); pick a kind again to drop it. The address keeps the choice (`?q=customer&kind=table,schema`), so a search can be bookmarked or shared.
 
 A search matches names, qualified names and descriptions, and also:
 - **columns, attributes and data fields**. Columns and other schema attributes (table columns, the fields of a topic's event types, API parameters) and the data fields of data designs are results of their own. Each says what holds it ("in hz_cust_accounts (RelationalTable)", "in Invoice (DataStructure)"). The resource that holds the part is found too, with "matched: contains: …". Only the first 25 matching parts on each page have their container looked up, and the page says when there were more;
 - **informal tags** and **search keywords**;
 - **owners**.
+
+**Glossary terms** are not resources, so **All** leaves them out: about 1,500 terms would crowd resources out of the results. Pick **Glossary terms** to search them, on their own or with other kinds. When terms also match an All search, the page says how many and how to see them. A term row shows its summary and its content status, and opens the term in Egeria Explorer's glossary, which shows the glossary and folders that hold it. The row does not name its glossary: Egeria does not carry that on the term itself.
 
 Each result row shows why it matched, its tags, likes and rating summary, and **in N of your lists** when you have already saved it. **Narrow these results** filters the loaded results by flavour, owner, classification, or whether the resource records a data scope.
 

@@ -4,7 +4,7 @@
 on, every Browse facet, and the Data scope and Data lens sections are described, and the
 in-page Help links to a document that exists.
 
-Kinds come from the handler's _KINDS and _PART_KINDS (what /kinds serves); facets from
+Kinds come from the handler's _KINDS, _PART_KINDS and _OTHER_KINDS (what /kinds serves); facets from
 the page's FACETS. Skipped where the docs are not in the checkout (inside the container,
 /app has no portal-docs sibling)."""
 import ast
@@ -30,7 +30,7 @@ def _kind_labels() -> list:
     tree = ast.parse((_HANDLER_DIR / "resource_browser_handler.py").read_text(encoding="utf-8"))
     labels = []
     for n in tree.body:
-        if isinstance(n, ast.Assign) and isinstance(n.targets[0], ast.Name) and n.targets[0].id in ("_KINDS", "_PART_KINDS"):
+        if isinstance(n, ast.Assign) and isinstance(n.targets[0], ast.Name) and n.targets[0].id in ("_KINDS", "_PART_KINDS", "_OTHER_KINDS"):
             labels += [t.elts[1].value for t in n.value.elts]
     return labels
 
@@ -38,7 +38,7 @@ def _kind_labels() -> list:
 def test_every_search_kind_is_documented():
     doc = _doc()
     labels = _kind_labels()
-    assert "Columns and attributes" in labels and "Data fields" in labels
+    assert "Columns and attributes" in labels and "Data fields" in labels and "Glossary terms" in labels
     for label in labels:
         assert f"**{label}" in doc or f"{label}**" in doc or label in doc, label
 

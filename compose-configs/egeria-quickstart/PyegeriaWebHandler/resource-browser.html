@@ -519,8 +519,18 @@ function openResource(guid) {
   window.dispatchEvent(new Event('rb-navigate'));
 }
 
+// Where a row opens: a glossary term opens in Egeria Explorer's glossary (the Resource page is
+// built for data: structure, statistics, lineage); everything else opens its Resource page.
+var EXPLORER_TERM = '/egeria-explorer?guid=';
+function isTerm(item) { return !!item && (item.kind === 'term' || item.typeName === 'GlossaryTerm'); }
+function termUrl(guid) { return EXPLORER_TERM + encodeURIComponent(guid) + '#glossary'; }
+function openElement(item) {
+  if (isTerm(item)) { window.location.href = termUrl(item.guid); return; }
+  openResource(item.guid);
+}
+
 function ResourceLink({ item }) {
-  return el('button', { className: 'rb-link', title: item.typeName || '', onClick: function() { openResource(item.guid); } },
+  return el('button', { className: 'rb-link', title: item.typeName || '', onClick: function() { openElement(item); } },
     item.displayName || item.guid);
 }
 
@@ -544,7 +554,8 @@ Boundary.prototype.render = function() {
 
 var TERMS = {
   flavour: { label: 'Flavour', def: 'How curated a resource is. Hub: a member of a data sharing hub, so it is authoritative and kept up to date. Product: a digital product, or a member of one. Known: anything else Egeria knows about. A resource shows the highest that applies.' },
-  kind: { label: 'Kind', def: 'What sort of resource it is (table, schema, file, report…), worked out from its Egeria type. Columns and attributes, and Data fields, are parts of resources rather than resources. Pick several kinds to search them together.' },
+  kind: { label: 'Kind', def: 'What sort of resource it is (table, schema, file, report…), worked out from its Egeria type. Columns and attributes, and Data fields, are parts of resources rather than resources. Glossary terms are not resources either, so All leaves them out: pick Glossary terms to search them. Pick several kinds to search them together.' },
+  term: { label: 'Glossary term', def: 'A word or phrase in a glossary, with what it means. A term opens in Egeria Explorer\u2019s glossary, which shows the glossary and folders that hold it.' },
   dataScope: { label: 'Data scope', def: 'The DataScope classification on a resource: the time and place its data covers (when it was collected, when it is valid, what period it covers, and a latitude, longitude and height box). Data lenses are matched against it. Set it in The Catalog.' },
   notComparable: { label: 'Cannot be compared', def: 'The resource records none of the dimensions the lens uses (for example the lens asks for a place and the resource records only a time), so it is neither inside nor outside the lens. It is counted on its own, never as outside.' },
   noneRecorded: { label: 'No data scope recorded', def: 'Of the resources you can see, those with no data scope that records a time, place or other dimension: no DataScope at all, or one holding only usage readings from Egeria\u2019s lineage service. What you can see depends on zone security and the Promise/Memento toggle. These are the resources that need a scope; set one in The Catalog.' },
@@ -1385,7 +1396,7 @@ function currentRoute() {
 }
 
 var KIND_ICONS = { table: '▦', schema: '🗂', database: '🛢', report: '📊', dataset: '📋', file: '📄',
-                   topic: '📡', product: '📦', api: '🔌', repo: '⎇', attribute: '▥', field: '◇', other: '•' };
+                   topic: '📡', product: '📦', api: '🔌', repo: '⎇', attribute: '▥', field: '◇', term: '📖', other: '•' };
 
 // The kinds search filters on come from the server, so the two never disagree.
 var _kindsPromise = null;
@@ -1393,7 +1404,7 @@ function useKinds(creds) {
   var _k = useState(null), kinds = _k[0], setKinds = _k[1];
   useEffect(function() {
     // Resource kinds, then the parts of resources (columns and attributes, data fields) that search also finds.
-    if (!_kindsPromise) _kindsPromise = getJson(API + '/kinds', creds).then(function(d) { return d.kinds.concat(d.parts || []); })
+    if (!_kindsPromise) _kindsPromise = getJson(API + '/kinds', creds).then(function(d) { return d.kinds.concat(d.parts || [], d.others || []); })
       .catch(function() { _kindsPromise = null; return []; });
     var live = true;
     _kindsPromise.then(function(k) { if (live) setKinds(k); });
@@ -1461,9 +1472,10 @@ function ResultRow({ row, idx, extras, showMatched, inLists, extra }) {
   return el('div', { className: 'rb-result' },
     el('div', { className: 'rb-row', style: { gap: 8 } },
       el('span', { className: 'rb-kind', title: row.typeName }, KIND_ICONS[row.kind] || '•'),
-      el('button', { className: 'rb-link n', onClick: function() { openResource(row.guid); } }, row.displayName),
+      el('button', { className: 'rb-link n', title: isTerm(row) ? 'Opens the term in Egeria Explorer' : '', onClick: function() { openElement(row); } }, row.displayName),
       el('span', { className: 'rb-type' }, row.typeName),
-      row.partOf !== undefined ? el(PartOfLine, { row: row }) : el(FlavourBadge, { flavour: flav }),
+      isTerm(row) ? (row.contentStatus && el('span', { className: 'rb-chip', title: 'The term\u2019s content status' }, row.contentStatus.toLowerCase()))
+        : row.partOf !== undefined ? el(PartOfLine, { row: row }) : el(FlavourBadge, { flavour: flav }),
       row.badges.map(function(b) { return el('span', { key: b, className: 'rb-chip' }, b); }),
       row.hasScope && el('span', { className: 'rb-chip', title: 'This resource records a data scope (time, place or another dimension)' }, '◷ scope')),
     row.qualifiedName && row.qualifiedName !== row.displayName && el('div', { className: 'rb-qn' }, row.qualifiedName),
@@ -1651,6 +1663,8 @@ function SearchPage({ q, kind, creds }) {
       data.cappedSources.length > 0 && el('span', null, 'These matches stopped at 50 and more may exist: ' + data.cappedSources.join(', ') + '.'),
       Object.keys(data.failedSources).length > 0 && el('span', { className: 'rb-err' },
         'Some sources could not be searched, so results may be incomplete: ' + Object.keys(data.failedSources).join(', ') + '.'),
+      data.termsNotShown > 0 && el('span', null, data.termsNotShown + ' glossary term' + (data.termsNotShown === 1 ? '' : 's') +
+        ' also matched; All leaves terms out, so pick Glossary terms to see them', el(Help, { term: 'term' }), '.'),
       data.notShown > 0 && el('span', null, data.notShown + ' match' + (data.notShown === 1 ? ' is' : 'es are') +
         ' not shown because they are operational records rather than resources (for example survey or connector reports) or are templates.'),
       el('span', null, 'Zone security may hide resources from your user, so results may be incomplete.')),
@@ -1668,7 +1682,7 @@ function Tile({ title, children, note, help }) {
 function CompactRow({ row, idx }) {
   return el('li', { className: 'rb-row', style: { gap: 6 } },
     el('span', { className: 'rb-kind', title: row.typeName }, KIND_ICONS[row.kind] || '•'),
-    el('button', { className: 'rb-link', onClick: function() { openResource(row.guid); } }, row.displayName),
+    el('button', { className: 'rb-link', onClick: function() { openElement(row); } }, row.displayName),
     el(FlavourBadge, { flavour: rowFlavour(idx, row) }),
     el('span', { className: 'rb-note' }, (row.updatedBy || 'unknown') + (row.automated ? ' (automation)' : '') + ' · ' + fmtDate(row.updateTime)));
 }
