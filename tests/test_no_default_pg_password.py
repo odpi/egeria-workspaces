@@ -205,3 +205,20 @@ def test_env_file_values_are_unquoted_and_the_environment_wins(tmp_path):
     assert inst.placeholder_values(env, {}) == {"PROVISIONER_PASSWORD": "from-file"}
     assert inst.placeholder_values(env, {"PROVISIONER_PASSWORD": "from-env"}) == {"PROVISIONER_PASSWORD": "from-env"}
     assert inst.placeholder_values(tmp_path / "missing", {}) == {"PROVISIONER_PASSWORD": ""}
+
+
+def test_the_airflow_password_helper_finds_its_env_from_bash_and_zsh(tmp_path):
+    """TR-28b: the helper is sourced from bash (the launchers) and from zsh (macOS users, per the README)."""
+    import shutil
+    import subprocess
+    shared = tmp_path / "compose-configs" / "shared-infra"
+    shared.mkdir(parents=True)
+    shutil.copy(SHARED_INFRA / "export-provisioner-password.sh", shared)
+    (shared / ".env").write_text("PROVISIONER_PASSWORD='abc123'\n")
+    shells = [s for s in ("bash", "zsh") if shutil.which(s)]
+    assert "bash" in shells
+    for sh in shells:
+        out = subprocess.run([sh, "-c", "source compose-configs/shared-infra/export-provisioner-password.sh; "
+                                        "printf %s \"$PROVISIONER_PASSWORD\""],
+                             cwd=tmp_path, capture_output=True, text=True, check=True).stdout
+        assert out == "abc123", sh
