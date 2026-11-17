@@ -566,12 +566,33 @@ function saveView(store, search, patch, now) {
 }
 function viewStore() { try { return window.sessionStorage || null; } catch (e) { return null; } }
 
+// The page scrolls inside .rb-scroll (the app shell's content pane), not the window, at the usual
+// pane size; the window scrolls only when the pane does not (Coordinator's live check, PO-38 R4).
+function readScroll(doc, win) {
+  var pane = doc.querySelector('.rb-scroll');
+  return (pane && pane.scrollTop) || win.scrollY || 0;
+}
+function applyScroll(doc, win, y) {
+  var pane = doc.querySelector('.rb-scroll');
+  if (pane && pane.scrollHeight > pane.clientHeight) { pane.scrollTop = y; return pane.scrollTop; }
+  win.scrollTo(0, y);
+  return win.scrollY || 0;
+}
+// Restore once the rows are drawn: try a few frames until the position can be reached (the list may
+// still be laying out), then leave it where it got to.
+function restoreScroll(y, tries) {
+  if (!y) return;
+  var left = tries === undefined ? 20 : tries;
+  var got = applyScroll(document, window, y);
+  if (got < y - 2 && left > 0) setTimeout(function() { restoreScroll(y, left - 1); }, 50);
+}
+
 function openResource(guid) {
   var url = PAGE + '?guid=' + encodeURIComponent(guid);
   var from = window.location.search;
   var label = _pageLabel.search === from && _pageLabel.label ? _pageLabel.label : routeLabel(currentRoute(), '');
   var store = viewStore();
-  if (store) saveView(store, from, { scrollY: window.scrollY || 0 }, Date.now());
+  if (store) saveView(store, from, { scrollY: readScroll(document, window) }, Date.now());
   window.history.pushState({ guid: guid, from: from, fromLabel: label }, '', url);
   window.dispatchEvent(new Event('rb-navigate'));
 }
@@ -1734,9 +1755,23 @@ var ROWS_SHOWN = 25;
 
 // Shows rows 25 at a time and reads feedback only for the rows on screen
 // (spec §4: per-row lookups are lazy, so a list costs a handful of calls).
-function ResultList({ rows, creds, idx, showMatched, renderExtra, sel }) {
+// How many rows a list showed when it was left, so a return lands on the same rows (Dan, PO-38): the
+// saved count applies only to the same list (listKey: query, kind and filters), else ROWS_SHOWN.
+function initialShownCount(view, listKey) {
+  return view && view.shownKey === listKey && typeof view.shown === 'number' && view.shown > ROWS_SHOWN ? view.shown : ROWS_SHOWN;
+}
+
+function ResultList({ rows, creds, idx, showMatched, renderExtra, sel, viewSearch, listKey }) {
   var lists = useLists(creds);
-  var _n = useState(ROWS_SHOWN), shown = _n[0], setShown = _n[1];
+  var _n = useState(function() {
+    var store = viewSearch !== undefined ? viewStore() : null;
+    return initialShownCount(store ? loadView(store, viewSearch, Date.now()) : null, listKey);
+  }), shown = _n[0], setShown = _n[1];
+  function showMore() {
+    var n = shown + ROWS_SHOWN, store = viewSearch !== undefined ? viewStore() : null;
+    setShown(n);
+    if (store) saveView(store, viewSearch, { shown: n, shownKey: listKey }, Date.now());
+  }
   var _x = useState({}), extras = _x[0], setExtras = _x[1];
   var asked = useRef(new Set());
   var visible = rows.slice(0, shown);
@@ -1769,7 +1804,7 @@ function ResultList({ rows, creds, idx, showMatched, renderExtra, sel }) {
             o.state === 'failed' ? 'Not added: ' + o.message : OUTCOME_TEXT[o.state])));
     }),
     rows.length > shown && el('button', { className: 'rb-btn ghost', style: { marginTop: 10 },
-      onClick: function() { setShown(shown + ROWS_SHOWN); } }, 'Show ' + Math.min(ROWS_SHOWN, rows.length - shown) + ' more of ' + rows.length));
+      onClick: showMore }, 'Show ' + Math.min(ROWS_SHOWN, rows.length - shown) + ' more of ' + rows.length));
 }
 
 function SourceLine({ data, extra }) {
@@ -1912,7 +1947,7 @@ function SearchPage({ q, kind, creds }) {
       .then(function(r) {
         setRestoring(''); setLoading(false);
         setRestoreNote(r.note);
-        if (r.complete && scrollY) setTimeout(function() { window.scrollTo(0, scrollY); }, 0);
+        if (r.complete && scrollY) setTimeout(function() { restoreScroll(scrollY); }, 0);
       });
   }
   useEffect(function() {
@@ -1983,7 +2018,8 @@ function SearchPage({ q, kind, creds }) {
         var k = kinds.filter(function(x) { return x.id === id; })[0]; return k ? k.label.toLowerCase() : id; }).join(', ') : '') + '.'),
       el('div', { className: 'rb-note', style: { marginTop: 6 } }, 'Zone security may hide some resources from your user, so this may be incomplete.')),
     items.length > 0 && el(BulkBar, { rows: shown, sel: sel, creds: creds, mayHaveMore: !!(data && data.mayHaveMore) }),
-    el(ResultList, { key: q + '|' + kind + '|' + JSON.stringify(filt), rows: shown, creds: creds, idx: idx, showMatched: true, sel: sel }),
+    el(ResultList, { key: q + '|' + kind + '|' + JSON.stringify(filt), rows: shown, creds: creds, idx: idx, showMatched: true, sel: sel,
+      viewSearch: here, listKey: q + '|' + kind + '|' + JSON.stringify(filt) }),
     data && data.mayHaveMore && el('button', { className: 'rb-btn', style: { marginTop: 12 }, disabled: loading,
       onClick: function() { load(data.page + 1); } }, loading ? 'Loading…' : 'Load more results'),
     data && el('div', { className: 'rb-note', style: { marginTop: 12, display: 'flex', flexDirection: 'column', gap: 3 } },
@@ -2686,7 +2722,7 @@ function BrowsePage({ facet, value, lens, creds }) {
     if (scrolled.current || !list || list.loading) return;
     scrolled.current = true;
     var store = viewStore(), v = store ? loadView(store, browseHere, Date.now()) : null;
-    if (v && v.scrollY) setTimeout(function() { window.scrollTo(0, v.scrollY); }, 0);
+    if (v && v.scrollY) setTimeout(function() { restoreScroll(v.scrollY); }, 0);
   }, [list]);
   setPageLabel(routeLabel({ page: 'browse', facet: f.id, value: effective },
     list && list.title ? String(list.title).replace(/^(Keyword|Category): /, '') : ''));
@@ -2763,6 +2799,7 @@ function BrowsePage({ facet, value, lens, creds }) {
         ': a resource scoped in between may sit in neither list, or both, until both refresh (10 minutes).'),
       shownRows.length > 0 && el(BulkBar, { rows: shownRows, sel: sel, creds: creds, mayHaveMore: !!list.capped, what: 'rows' }),
       el(ResultList, { key: (lens || '') + JSON.stringify(picked) + '|' + cat, rows: shownRows, creds: creds, idx: idx, showMatched: !!list.lens, sel: sel,
+        viewSearch: browseHere, listKey: (lens || '') + JSON.stringify(picked) + '|' + cat,
         renderExtra: list.lens ? function(r) {
           var o = r.lensOutcome || {};
           return el('span', { className: 'rb-chip', title: TERMS[o.outcome === 'notComparable' ? 'notComparable' : o.outcome === 'notRead' ? 'scopeNotRead' : 'dataLens'].def },

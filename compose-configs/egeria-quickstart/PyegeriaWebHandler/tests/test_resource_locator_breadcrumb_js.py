@@ -121,3 +121,64 @@ def test_the_resource_page_shows_the_crumb_and_pages_name_themselves():
     assert _PAGE.count("setPageLabel(") >= 6
     store = _PAGE[_PAGE.index("function openResource("):_PAGE.index("function goBackTo(")]
     assert "saveView(store, from, { scrollY:" in store and "token" not in store
+
+
+@needs_node
+def test_scroll_is_read_from_and_restored_to_the_content_pane():
+    """PO-38 R4 (Coordinator's live check on laz, 2026-11-17): the list scrolls inside .rb-scroll
+    (scrollTop 1000) while window.scrollY stays 0, so the old save stored 0. The pane is used when
+    it scrolls, the window otherwise, and a restore retries until the rows are drawn."""
+    js = "\n".join(_fn(n) for n in ("readScroll", "applyScroll", "restoreScroll")) + r"""
+function pane(top, height, client) { return { scrollTop: top, scrollHeight: height, clientHeight: client }; }
+function doc(p) { return { querySelector: function(sel) { return sel === '.rb-scroll' ? p : null; } }; }
+var win = { scrollY: 0, scrollTo: function(x, y) { this.scrollY = y; } };
+var paneDoc = doc(pane(1000, 5000, 800)), noPane = doc(null), flat = doc(pane(0, 800, 800));
+var read = { pane: readScroll(paneDoc, { scrollY: 0 }), window: readScroll(noPane, { scrollY: 640 }), none: readScroll(flat, { scrollY: 0 }) };
+var p2 = pane(0, 5000, 800); applyScroll(doc(p2), win, 1200);
+var w2 = { scrollY: 0, scrollTo: function(x, y) { this.scrollY = y; } }; applyScroll(flat, w2, 300);
+// restoreScroll: the pane grows as rows are drawn; it keeps trying until 1500 can be reached.
+var growing = pane(0, 1000, 800);
+var document = doc(growing), window = { scrollY: 0, scrollTo: function() {} };
+growing.scrollHeight = 1000;
+Object.defineProperty(growing, 'scrollTop', { get: function() { return this._t || 0; },
+  set: function(v) { this._t = Math.min(v, this.scrollHeight - this.clientHeight); } });
+restoreScroll(1500);
+setTimeout(function() { growing.scrollHeight = 3000; }, 120);
+setTimeout(function() {
+  console.log(JSON.stringify({ read: read, paneSet: p2.scrollTop, windowSet: w2.scrollY, restored: growing.scrollTop }));
+}, 600);"""
+    out = subprocess.run(["node", "-e", js], capture_output=True, text=True, timeout=30)
+    assert out.returncode == 0, out.stderr
+    d = json.loads(out.stdout.strip().splitlines()[-1])
+    assert d["read"] == {"pane": 1000, "window": 640, "none": 0}
+    assert d["paneSet"] == 1200 and d["windowSet"] == 300
+    assert d["restored"] == 1500
+
+
+def test_open_resource_saves_the_pane_scroll():
+    opener = _PAGE[_PAGE.index("function openResource("):_PAGE.index("function goBackTo(")]
+    assert "scrollY: readScroll(document, window)" in opener
+    assert "window.scrollTo(0, scrollY)" not in _PAGE and "window.scrollTo(0, v.scrollY)" not in _PAGE
+
+
+@needs_node
+def test_the_rows_shown_come_back_for_the_same_list_only():
+    """Dan (2026-11-17): going back keeps the rows opened with "Show N more", so a deep scroll lands
+    where it was. The count is kept per list (query, kind, filters); another list starts at 25."""
+    js = "var ROWS_SHOWN = 25;\n" + _fn("initialShownCount") + r"""
+console.log(JSON.stringify({
+  same: initialShownCount({ shown: 75, shownKey: 'customer||{}' }, 'customer||{}'),
+  other: initialShownCount({ shown: 75, shownKey: 'customer||{}' }, 'customer||{"owner":"x"}'),
+  none: initialShownCount(null, 'k'), small: initialShownCount({ shown: 10, shownKey: 'k' }, 'k'),
+  junk: initialShownCount({ shown: '99', shownKey: 'k' }, 'k') }));"""
+    out = subprocess.run(["node", "-e", js], capture_output=True, text=True, timeout=30)
+    assert out.returncode == 0, out.stderr
+    assert json.loads(out.stdout.strip().splitlines()[-1]) == {"same": 75, "other": 25, "none": 25, "small": 25, "junk": 25}
+
+
+def test_search_and_browse_lists_keep_their_shown_count():
+    assert "if (store) saveView(store, viewSearch, { shown: n, shownKey: listKey }, Date.now());" in _PAGE
+    assert "viewSearch: here, listKey: q + '|' + kind + '|' + JSON.stringify(filt)" in _PAGE
+    assert "viewSearch: browseHere, listKey: (lens || '') + JSON.stringify(picked) + '|' + cat," in _PAGE
+    # the list key and the ResultList key are the same expression, so a restored count matches its list
+    assert _PAGE.count("key: q + '|' + kind + '|' + JSON.stringify(filt), rows: shown") == 1
