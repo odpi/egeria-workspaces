@@ -35,6 +35,7 @@ Endpoints:
 
 from egeria_auth import service_password  # PO-45: no built-in service password
 import asyncio
+import contextlib
 import os
 import time
 from pathlib import Path
@@ -554,8 +555,9 @@ async def get_egeria_bearer_token(request: Request):
     PORTAL_ALLOW_CUSTOM_PLATFORMS). The token is bound to the platform it was minted for, and the response
     names that platform. The body is read only as application/json (415 otherwise), so a cross-site
     text/plain "simple" POST cannot reach here."""
-    from egeria_auth import (bind_token_platform, is_caller_password, named_user_refusal, resolve_platform,
-                             service_user)
+    from egeria_auth import (bind_token_platform, is_caller_password, named_user_refusal, remember_token,
+                             resolve_platform, reusable_token, service_user, token_reuse_key,
+                             token_reuse_lock)
     ctype = (request.headers.get("content-type") or "").split(";")[0].strip().lower()
     if ctype != "application/json":
         raise HTTPException(status_code=415, detail="Send the credentials as application/json.")
@@ -582,10 +584,24 @@ async def get_egeria_bearer_token(request: Request):
     user_pwd = caller_pwd           or service_password()
     server   = body.get("server")   or os.environ.get("EGERIA_VIEW_SERVER",    "qs-view-server")
     try:
-        from pyegeria import AssetMaker
-        mgr = AssetMaker(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
-        token = await mgr._async_create_egeria_bearer_token()
-        bind_token_platform(token, url)
+        # PO-40: the same password sent for the same platform, server and user gets back the token
+        # already minted while it has 15 min left, so per-token caches survive a page load. Only when a
+        # password was SENT (R1', Architect 2026-11-17): the demo personas' passwords equal the service
+        # password, so is_caller_password would never reuse theirs. The key is the RESOLVED (url, server,
+        # user, password) after the PO-41 rule above; with nothing sent (the env fallback) it mints per
+        # call. `renew: true` (sent by every page's 401 refresher) always mints. The platform gate has
+        # already run above, so no lookup happens before it (R4).
+        reuse_key = token_reuse_key(url, server, user_id, user_pwd) if caller_pwd is not None else None
+        lock = token_reuse_lock(reuse_key) if reuse_key else contextlib.nullcontext()
+        async with lock:
+            token = reusable_token(reuse_key) if reuse_key and body.get("renew") is not True else None
+            if token is None:
+                from pyegeria import AssetMaker
+                mgr = AssetMaker(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+                token = await mgr._async_create_egeria_bearer_token()
+                bind_token_platform(token, url)
+                if reuse_key:
+                    remember_token(reuse_key, token)
         return JSONResponse({"token": token, "user_id": user_id, "platform_url": url})
     except Exception as exc:
         logger.exception("get_egeria_bearer_token failed")

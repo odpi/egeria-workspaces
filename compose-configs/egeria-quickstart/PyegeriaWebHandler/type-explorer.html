@@ -14082,7 +14082,7 @@ function App() {
   // egeriaFetch can send it as X-Egeria-Token (LE-4). The password travels only
   // in this POST body, never in a URL. Falls back to the unchanged creds on
   // failure (the backend then uses its env service account).
-  const acquireToken = useCallback(function(c) {
+  const acquireToken = useCallback(function(c, renew) {
     // Only the explicit "browse as a specific user + password" case needs a
     // token. Blank/persona/server-managed creds keep their existing auth path
     // (env service account or portal JWT) — never mint a service-account token.
@@ -14094,7 +14094,9 @@ function App() {
         url:      c.url      || undefined,
         server:   c.server   || undefined,
         user_id:  c.userId   || undefined,
-        password: c.password || undefined
+        password: c.password || undefined,
+        // PO-40: the server reuses a still-valid token for the same password; a 401 refresh must not get it back.
+        renew:    renew ? true : undefined
       })
     }).then(function(r) { return r.ok ? r.json() : null; })
       .then(function(t) { return (t && t.token) ? Object.assign({}, c, { token: t.token }) : c; })
@@ -14122,7 +14124,7 @@ function App() {
   // Let egeriaFetch refresh an expired token on a 401 and retry once.
   useEffect(function() {
     _tokenRefresher.refresh = function(oldCreds) {
-      return acquireToken(oldCreds).then(function(withTok) { setCreds(withTok); return withTok; });
+      return acquireToken(oldCreds, true).then(function(withTok) { setCreds(withTok); return withTok; });
     };
     return function() { _tokenRefresher.refresh = null; };
   }, [acquireToken]);
