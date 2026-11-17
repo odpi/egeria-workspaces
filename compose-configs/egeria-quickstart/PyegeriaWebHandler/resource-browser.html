@@ -2314,6 +2314,17 @@ function notShownLine(list) {
 }
 
 var BROWSE_POLL_MS = 8000;
+var VALUE_FILTER_MIN = 12;   // a values page with more than this many values gets a filter box
+
+// The values whose label or description holds every word typed, ignoring case.
+function filterValues(values, q) {
+  var words = String(q || '').toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return values;
+  return values.filter(function(v) {
+    var text = ((v.label || '') + ' ' + (v.description || '')).toLowerCase();
+    return words.every(function(w) { return text.indexOf(w) >= 0; });
+  });
+}
 
 function BrowsePage({ facet, value, lens, creds }) {
   var idx = useFlavours(creds);
@@ -2324,7 +2335,9 @@ function BrowsePage({ facet, value, lens, creds }) {
   var _v = useState(null), vals = _v[0], setVals = _v[1];
   var _l = useState(null), list = _l[0], setList = _l[1];
   var _e = useState(''), err = _e[0], setErr = _e[1];
+  var _vq = useState(''), vq = _vq[0], setVq = _vq[1];
   useEffect(function() { setTick(0); }, [f.id, effective, lens]);
+  useEffect(function() { setVq(''); }, [f.id]);
   useEffect(function() {
     if (!tick) { setErr(''); setVals(null); setList(null); }
     document.title = f.label + ' · Browse · Resource Locator';
@@ -2358,7 +2371,14 @@ function BrowsePage({ facet, value, lens, creds }) {
     vals && el('div', null,
       vals.loading && vals.values.length === 0 ? el('div', { className: 'center', style: { height: 120 } }, el('div', { className: 'spinner' }), vals.note || 'Counting\u2026')
       : vals.values.length === 0 ? el('div', { className: 'rb-absent' }, f.empty || 'Nothing to browse here yet.')
-      : el('div', { className: 'rb-values' }, vals.values.map(function(v) {
+      : el(React.Fragment, null,
+        vals.values.length > VALUE_FILTER_MIN && el('div', { className: 'rb-row', style: { gap: 8, marginBottom: 10 } },
+          el('input', { className: 'rb-text', value: vq, placeholder: 'Filter these ' + vals.values.length + ' ' + f.label.toLowerCase() + ' values\u2026',
+            'aria-label': 'Filter the ' + f.label.toLowerCase() + ' values', onChange: function(e) { setVq(e.target.value); }, style: { maxWidth: 360 } }),
+          vq && el('span', { className: 'rb-note' }, filterValues(vals.values, vq).length + ' of ' + vals.values.length),
+          vq && el('button', { className: 'rb-edit', onClick: function() { setVq(''); } }, 'Clear')),
+        vq && filterValues(vals.values, vq).length === 0 && el('div', { className: 'rb-absent' }, 'No ' + f.label.toLowerCase() + ' value matches \u201c' + vq + '\u201d.'),
+        el('div', { className: 'rb-values' }, filterValues(vals.values, vq).map(function(v) {
           var none = v.count === 0;
           return el('button', { key: v.id, className: 'rb-value' + (none ? ' none' : ''), disabled: none,
               title: none ? 'No resource has this yet' : '',
@@ -2367,7 +2387,7 @@ function BrowsePage({ facet, value, lens, creds }) {
             (v.count !== undefined || v.counting) && el('span', { className: 'c', title: v.countAtLeast ? 'At least this many: a read stopped at its page limit' : '' },
               v.counting ? 'counting\u2026' : none ? 'none' : (v.countAtLeast ? '\u2265 ' : '') + v.count),
             v.description && el('span', { className: 'rb-note' }, v.description));
-        })),
+        }))),
       vals.note && !(vals.loading && vals.values.length === 0) && el('div', { className: 'rb-note', style: { marginTop: 8 } }, vals.note),
       vals.refreshing && vals.values.length > 0 && el('div', { className: 'rb-note', style: { marginTop: 4 } },
         'A newer count is being made in the background; these are from ' + fmtDate(vals.countedAt) + '.'),
