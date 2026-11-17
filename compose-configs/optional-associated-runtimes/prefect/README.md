@@ -81,6 +81,17 @@ that worker's pool and both its deployments.
 
   Compose refuses to start the worker while either value is missing.
 
+* **The stored-database-password key (required):** RE encrypts the database passwords it stores under
+  `TRELLIS_DB_CREDENTIAL_KEY`, and a step dispatched to this worker decrypts them. Add the key to
+  `.env.re-worker` in this directory, with **exactly the same value** as in `../trellis/.env`, so all three RE
+  processes (`trellis-re-web`, `trellis-re-worker` and this worker) share ONE key. Never generate a second one.
+  Compose refuses to start the worker without it (see `../trellis/DEPLOYING-TRELLIS.md` §1.4).
+
+  ```bash
+  # .env.re-worker (gitignored): copy the value from ../trellis/.env
+  TRELLIS_DB_CREDENTIAL_KEY=
+  ```
+
 ```bash
 docker compose up -d prefect-server        # the server: this directory's docker-compose.yaml, no env file needed
 docker compose -f docker-compose.re-worker.yaml --env-file .env.re-worker up -d
