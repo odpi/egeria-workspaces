@@ -296,3 +296,36 @@ def test_r1_the_delete_request_carries_cascaded_delete_false_and_no_purge():
     body = json.loads(body) if isinstance(body, str) else (body or {})
     assert body.get("cascadedDelete") is False
     assert not any(k.lower().startswith("purge") or "purge" in k.lower() for k in body)
+
+
+# ── #895 alert 102 (CodeQL py/stack-trace-exposure): exception text never reaches the browser ─────────
+
+SENTINEL = "SENTINEL-internal-host-and-qualified-name-7f3a"
+
+
+def test_a_failed_unlink_returns_words_not_the_exception(client, world):
+    world.fail["_async_remove_from_collection"] = ("m2", RuntimeError(SENTINEL))
+    r = client.delete(f"/api/resource-browser/lists/{SET}")
+    assert r.status_code == 207
+    assert SENTINEL not in r.text
+    assert r.json()["failed"]["message"]                          # still says something, in words
+
+
+def test_a_refused_delete_returns_words_not_the_exception(client, world):
+    world.fail["_async_delete_collection"] = (None, RuntimeError(SENTINEL))
+    r = client.delete(f"/api/resource-browser/lists/{SET}")
+    assert r.status_code == 207 and SENTINEL not in r.text
+    assert "It is empty now" in r.json()["failed"]["message"]
+
+
+def test_no_locator_response_carries_exception_text():
+    """Source guard: in the Locator handler, str(exc)/repr(exc)/{exc} appear only in logs and in checks
+    that read the text without returning it."""
+    import re
+    from pathlib import Path
+    src = (Path(rb.__file__)).read_text().splitlines()
+    # "Unknown kind": _parse_kinds' own ValueError, which names only the user's own input
+    allowed = ("logger.", "in str(exc)", "_is_unknown_type", "s = str(exc)", 'detail=f"Unknown kind: {exc}.')
+    bad = [f"{i}: {l.strip()[:100]}" for i, l in enumerate(src, 1)
+           if re.search(r"str\(exc\)|repr\(exc\)|\{exc\}", l) and not any(a in l for a in allowed)]
+    assert bad == [], bad
