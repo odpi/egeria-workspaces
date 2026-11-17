@@ -38,7 +38,8 @@ def _bootstrap_runtime_defaults() -> None:
     os.makedirs(log_directory, exist_ok=True)
 
     os.environ.setdefault("EGERIA_USER", "erinoverview")
-    os.environ.setdefault("EGERIA_USER_PASSWORD", "secret")
+    # No built-in service password (PO-44 R1): the Portal's EGERIA_USER_PASSWORD must be configured; tools
+    # refuse in words without it.
     os.environ.setdefault("EGERIA_WIDTH", "100")
 
     if os.path.exists("/.dockerenv"):
@@ -337,6 +338,8 @@ def _mcp_credentials(url: Optional[str], server_name: Optional[str], user_id: Op
     actual_server = server_name or os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server")
     actual_user = user_id or service_user()
     actual_pass = user_pass or os.environ.get("EGERIA_USER_PASSWORD", "")
+    if not actual_pass:
+        raise CredentialRefused("the Portal's service password isn't configured (EGERIA_USER_PASSWORD)")
     return actual_url, actual_server, actual_user, actual_pass
 
 

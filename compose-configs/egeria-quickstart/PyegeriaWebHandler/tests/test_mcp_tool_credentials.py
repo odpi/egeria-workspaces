@@ -64,3 +64,16 @@ def test_service_path_resolves_at_call_time():
 def test_named_user_with_own_password_is_allowed():
     url, server, user, pwd = mcp_server._mcp_credentials(None, None, "peterprofile", "his-own")
     assert (user, pwd) == ("peterprofile", "his-own")
+
+
+def test_no_service_password_configured_is_refused_in_words(monkeypatch):
+    monkeypatch.delenv("EGERIA_USER_PASSWORD", raising=False)
+    called = []
+    monkeypatch.setattr(mcp_server, "_write_block_to_inbox", lambda *a, **k: called.append(1) or "x.md")
+    out = asyncio.run(_fn("dr_egeria_run_block")(None, "## View Glossaries\n"))
+    assert out == "❌ the Portal's service password isn't configured (EGERIA_USER_PASSWORD)" and not called
+
+
+def test_no_builtin_service_password_is_set_at_import():
+    import inspect as _inspect
+    assert 'setdefault("EGERIA_USER_PASSWORD"' not in _inspect.getsource(mcp_server._bootstrap_runtime_defaults)
