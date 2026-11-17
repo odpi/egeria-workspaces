@@ -31,6 +31,9 @@ These scripts:
 3. generate `.env` in this directory,
 4. start the freshstart compose stack.
 
+`./fresh-start-local` then waits (up to about 10 minutes) for `freshstart-egeria-main` to report healthy, as
+`./quick-start-local` does for quickstart, and warns if it does not; the stack is left running either way.
+
 They also build `freshstart-egeria-main` from `Dockerfile-egeria-platform`, which copies
 no deployment-specific secrets into the image. Runtime secrets are mounted from the runtime volume.
 
