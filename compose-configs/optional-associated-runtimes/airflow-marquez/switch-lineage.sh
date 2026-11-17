@@ -31,6 +31,8 @@ echo "AIRFLOW__OPENLINEAGE__TRANSPORT=$TRANSPORT" >> "$ENV_FILE.tmp"
 mv "$ENV_FILE.tmp" "$ENV_FILE"
 
 echo "Recreating the Airflow containers..."
+# airflow-marquez.yaml needs PROVISIONER_PASSWORD for the coco_data_hub connection (TR-28).
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../../shared-infra/export-provisioner-password.sh"
 docker compose -f airflow-marquez.yaml up -d --no-deps \
   airflow-apiserver airflow-scheduler airflow-dag-processor airflow-worker airflow-triggerer
 echo "Done. Lineage transport in $ENV_FILE:"

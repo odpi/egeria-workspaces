@@ -1,14 +1,14 @@
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 <!-- Copyright Contributors to the ODPi Egeria project. -->
-<!-- PROTOTYPE MOCKUP — Egeria Overview dashboard app. Sample Coco Pharmaceuticals data. -->
+<!-- Egeria Overview dashboard app. Every figure is measured from the connected Egeria platform. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Egeria Overview · Coco Pharmaceuticals</title>
+<title>Egeria Overview</title>
 <script src="/static/app-bar.js?v=2026-10-05a"></script>
-<script src="/static/egeria-resize.js?v=2026-11-04a"></script>
+<script src="/static/egeria-resize.js?v=2026-11-04b"></script>
 <script>EgeriaResize.grids('.g-2, .g-3, .g-12'); EgeriaResize.edges('.drawer', 'left');</script>
 <script src="/static/bootstrap-banner.js?v=2026-08-18a"></script>
 <style>
@@ -64,6 +64,8 @@
   .prov-live   { background:rgba(76,175,80,.16);  color:var(--green); }
   .prov-mix    { background:rgba(245,183,78,.16); color:var(--c4); }
   .prov-sample { background:rgba(139,147,167,.16); color:var(--muted); }
+  /* an unconfirmed figure (a lower bound: Egeria didn't confirm there are no more) -- see uncMark() */
+  .unc-note { font-size:.72rem; color:var(--c4); margin-top:6px; line-height:1.4; }
   .prov-legend { display:flex; align-items:center; gap:12px; flex-wrap:wrap; font-size:.7rem; color:var(--muted); margin-top:6px; }
   .prov-legend a { color:var(--c2); text-decoration:none; }
   .prov-legend a:hover { text-decoration:underline; }
@@ -267,7 +269,6 @@
         <option value="1y">1 year</option>
       </select>
     </label>
-    <button class="btn">⤓ Export</button>
   </div>
 </header>
 
@@ -275,7 +276,7 @@
 
   <div class="pagehead">
     <div>
-      <h1>Coco Pharmaceuticals — Metadata Landscape</h1>
+      <h1>Metadata Landscape</h1>
       <p>A single-glance summary of what Egeria knows: scale, governance coverage, quality, and how they're trending. <span class="drill-hint" style="margin-left:6px">tiles &amp; bars are clickable — drill in or jump to the app</span></p>
       <div class="prov-legend">Data source per section:
         <span><span class="prov prov-live">● live</span> queried from Egeria now</span>
@@ -285,10 +286,10 @@
       </div>
     </div>
     <div style="text-align:right">
-      <div class="asof" id="dataSrc">Snapshot as of <b id="asofTime">—</b> · <span id="srcBadge" style="color:var(--muted)">○ connecting…</span> · <span id="srcServer">fs-view-server</span></div>
+      <div class="asof" id="dataSrc">Snapshot as of <b id="asofTime">—</b> · <span id="srcBadge" style="color:var(--muted)">○ connecting…</span> · <span id="srcServer" title="Egeria view server queried">server: —</span></div>
       <div class="tm" title="Egeria answers historical queries natively (asOfTime) — no time-series store">
         <span class="tm-lab">⏳ Time machine</span>
-        <input type="date" id="asof-date" class="tm-date" max="2026-07-23">
+        <input type="date" id="asof-date" class="tm-date">
         <label class="tm-cmp"><input type="checkbox" id="cmp-toggle" disabled> Compare to now</label>
         <button class="btn tm-now" id="asof-now">Now</button>
       </div>
@@ -306,14 +307,14 @@
     <div class="persp-tabs">
       <button data-persp="governance" class="on">Governance</button>
       <button data-persp="steward">Steward</button>
-      <button data-persp="owner">Data&nbsp;Owner</button>
+      <button data-persp="owner">Owner</button>
       <button data-persp="consumer">Consumer</button>
-      <button data-persp="engineer">Engineering</button>
-      <button data-persp="architecture">Architecture</button>
-      <button data-persp="security">Security</button>
-      <button data-persp="builder">App/AI&nbsp;Builder</button>
+      <button data-persp="app-ai-builder">App/AI&nbsp;Builder</button>
       <button data-persp="privacy">Privacy</button>
       <button data-persp="community">Community</button>
+      <button data-persp="data-expert">Data&nbsp;Expert</button>
+      <button data-persp="security">Security</button>
+      <button data-persp="architecture">Architecture</button>
       <button onclick="document.getElementById('qpanel').classList.toggle('open')" style="border-color:var(--c3);color:var(--c3)">❓ Questions ▾</button>
     </div>
   </div>
@@ -384,6 +385,7 @@
       <div class="panel-head">
         <div>
           <h3>Catalog Growth</h3>
+          <div class="ph-sub" id="growth-asof-note" style="display:none;color:var(--c4)">⏳ Always runs up to now — a time series ignores the as-of date.</div>
           <div class="ph-sub" id="growth-sub">Snapshots via Egeria <code style="font-size:.7rem">asOfTime</code> historical queries</div>
         </div>
         <div class="legend" style="margin-top:0">
@@ -419,8 +421,9 @@
   <div class="grid g-3">
     <div class="panel">
       <h3>Assets by Type</h3>
-      <div class="ph-sub">Top asset categories in the catalog</div>
+      <div class="ph-sub" id="byType-sub">Direct subtypes of Asset — whole catalog</div>
       <div id="byType"></div>
+      <div class="ph-sub" id="byType-viewer" style="margin-top:8px"></div>
     </div>
     <div class="panel">
       <h3>Elements by Governance Zone</h3>
@@ -470,7 +473,7 @@
     <div class="panel" style="border-left:3px solid var(--c6)">
       <h3>🎯 Contextualised Coverage</h3>
       <div style="font-size:1.9rem;font-weight:700;margin:6px 0 2px" id="uc-cov">—</div>
-      <div class="ph-sub" style="margin-bottom:8px">assets participating in ≥1 supply chain or blueprint</div>
+      <div class="ph-sub" style="margin-bottom:8px" id="uc-cov-sub">assets connected to a solution component</div>
       <div style="font-size:.76rem;color:var(--muted);line-height:1.5">The gap = assets floating without a usage context — hard to trust, hard to prioritise. A stewardship target in its own right.</div>
     </div>
   </div>
@@ -588,7 +591,7 @@
     </div>
     <div class="kpi clickable" data-drill="grounding">
       <span class="k-ico">🧠</span><span class="k-label">Semantic Grounding</span><button type="button" id="ai-ctx-info-grounding" class="k-info" data-info="grounding" style="display:none" title="What does this measure?" aria-label="What does this measure?">ⓘ</button>
-      <span class="k-val" id="ai-grounding">—</span><span class="k-sub">glossary-linked</span>
+      <span class="k-val" id="ai-grounding">—</span><span class="k-sub" id="ai-grounding-sub">term links per 100 Assets</span>
     </div>
   </div>
 
@@ -689,6 +692,7 @@
 
   <!-- ── ACTIVITY ── -->
   <div class="section-label">Recent Activity <span class="prov prov-sample">○ not measured</span></div>
+  <div class="asof-note" id="activity-asof-note" style="display:none;color:var(--c4);font-size:.78rem;margin:-4px 0 10px">⏳ Always shows now — Egeria cannot say who changed what at a past time, so the as-of date does not apply to this section.</div>
   <div class="grid g-12">
     <div class="panel">
       <h3>Metadata Change Stream</h3>
@@ -710,7 +714,7 @@
   </div>
 
   <div class="foot-note">
-    <b>Live data only</b> · every figure is measured from the connected Egeria platform; anything shown as <code>—</code> or "Not measured" has no data (or no data source) yet. Every tile maps to data the portal already exposes — asset/type counts from the Tech Catalog handlers, classification &amp; zone tallies from <code>/api/insights/summary</code>, certifications from the Audit handler, glossary counts from the Glossary handler, survey coverage from <code>ReportSubject</code> links to <code>SurveyReport</code>s, and the <b>People &amp; Community</b> block from the Community Profile / Collaboration handlers (<code>actor</code>, <code>community</code>, karma / <code>egeria-feedback</code> likes·ratings·comments, <code>informal-tags</code>). The <b>Perspective → Question</b> framing is the existing <code>perspectives_handler</code> model (Perspective ⟶ <code>ScopedBy</code> ⟶ Question), with each question answered by a saved <b>report spec / view definition</b>. Trend lines use Egeria's native <code>asOfTime</code> historical queries — no separate time-series store required. The one new backend piece is a small <code>/api/overview/*</code> aggregation router that fans these out and caches them (mirroring the operations handler's non-blocking cache pattern).
+    <b>Live data only</b> · every figure is measured from the connected Egeria platform; anything shown as <code>—</code> or "Not measured" has no data (or no data source) yet. Every figure comes from the <code>/api/overview/*</code> aggregation router, which computes it with pyegeria's <code>overview_metrics</code> functions (native element counts, classification &amp; zone tallies, certification / license / exception relationships, <code>ReportSubject</code> links to <code>SurveyReport</code>s, people / community / feedback counts). The slow sections (summary, AI readiness, usage context, growth) are measured in the background and refreshed hourly, and each section says when its numbers were measured; people and activity are queried directly. The <b>Perspective → Question</b> framing is the <code>perspectives_handler</code> model (Perspective ⟶ <code>ScopedBy</code> ⟶ Question), with each question answered by a saved <b>report spec / view definition</b>. Trend lines use Egeria's native <code>asOfTime</code> historical queries — no separate time-series store. A number shown as <b>at least N</b> hit a page limit and is a lower bound; <b>Recent Activity</b> and the 24-hour engine-action row always show <i>now</i> (Egeria cannot say who changed what at a past time).
   </div>
 
 </div>
@@ -860,6 +864,24 @@ function renderVega(id, spec){
 }
 
 // ---- Horizontal bar helper (row = [lab,val,col,drillKey?]) ----
+// Governed Coverage text: the real share, never a rounding artefact. A non-zero share under 0.5%
+// shows its real small value ("0.3%", "0.02%"), not "<1%" or a "0%" that reads as nothing governed;
+// 0 governed is "0%". A capped (lower-bound) count is prefixed with "≥".
+function overviewGovernedPct(count, total, capped) {
+  if (!total || count == null || count > total) return null;
+  var pct = 100 * count / total, txt;
+  if (count === 0) txt = '0';
+  else if (pct >= 0.5) txt = String(Math.round(pct));
+  else txt = pct >= 0.1 ? pct.toFixed(1) : String(Number(pct.toPrecision(1)));
+  return (capped ? '\u2265' : '') + txt + '%';
+}
+// Engine-action failures tile: a capped read of 0 failures is "at least 0" -- not a measurement, so it
+// is "—" (the description says why); a capped read with failures is "≥N"; an exact read is N.
+function overviewPipelineCount(ph) {
+  if (!ph || ph.failed == null) return '\u2014';
+  if (ph.capped && !ph.failed) return '\u2014';
+  return (ph.capped ? '\u2265' : '') + ph.failed.toLocaleString();
+}
 function hbars(id,rows,max,emptyMsg){
   const el=document.getElementById(id); if(!el) return;
   if(!rows||!rows.length){ el.innerHTML=`<div style="color:var(--muted);font-size:.8rem;padding:10px 0">${emptyMsg||'No data yet'}</div>`; return; }
@@ -876,25 +898,20 @@ hbars('byKind',[],null,'No data yet'); hbars('byTech',[],null,'No data yet');
 hbars('activity',[],null,'Not measured: no activity feed yet');
 hbars('fbType',[],null,'No data yet');
 
-// ---- Engagement over time (stacked-ish multi-line) ----
+// ---- Time machine: the date picker reaches up to today (no future dates), computed at load ----
 (function(){
-  const svg=document.getElementById('engage');
-  const W=340,H=192,padL=30,padR=8,padT=10,padB=42,n=12;
-  const comments=[18,22,20,26,24,30,28,34,32,38,40,44];
-  const ratings =[24,26,30,28,34,32,38,36,42,44,48,52];
-  const tags    =[8,10,9,12,14,13,16,18,17,20,22,26];
-  const iw=W-padL-padR, ih=H-padT-padB, max=60;
-  const x=i=>padL+iw*i/(n-1), y=v=>padT+ih*(1-v/max);
-  let g='';
-  for(let i=0;i<=3;i++){const yy=padT+ih*i/3; g+=`<line x1="${padL}" y1="${yy}" x2="${W-padR}" y2="${yy}" stroke="var(--grid)"/>`;
-    g+=`<text x="${padL-5}" y="${yy+4}" text-anchor="end" font-size="9" fill="var(--axis)">${Math.round(max*(1-i/3))}</text>`;}
-  ['wk 1','','','','','wk 6','','','','','','wk 12'].forEach((m,i)=>{ if(m) g+=`<text x="${x(i)}" y="${H-24}" text-anchor="middle" font-size="9" fill="var(--axis)">${m}</text>`;});
-  g+=`<text x="${padL+iw/2}" y="${H-8}" text-anchor="middle" font-size="10" font-weight="600" fill="var(--muted)">Week (last 12 weeks) →</text>`;
-  g+=`<text transform="translate(10,${padT+ih/2}) rotate(-90)" text-anchor="middle" font-size="9" font-weight="600" fill="var(--muted)">Items / week</text>`;
-  const ln=(arr,col)=>{const pts=arr.map((v,i)=>`${x(i)},${y(v)}`).join(' ');return `<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2"/>`;};
-  g+=ln(ratings,'var(--c4)')+ln(comments,'var(--c1)')+ln(tags,'var(--c3)');
-  svg.innerHTML=g;
+  const el=document.getElementById('asof-date'); if(!el) return;
+  const t=new Date();
+  el.max=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
 })();
+
+// ---- Engagement over time ----
+// No sample series: until /api/overview/people returns a real chart, the panel says so.
+function engageNotMeasured(msg){
+  const el=document.getElementById('engage'); if(!el) return;
+  el.innerHTML='<div class="engage-nm" style="color:var(--muted);font-size:.8rem;padding:10px 0">'+(msg||'Not measured: no engagement chart yet')+'</div>';
+}
+engageNotMeasured();
 
 // ==== PERSPECTIVE-DRIVEN LAYOUT ====
 // Selecting a perspective reconfigures the whole dashboard: which sections show,
@@ -902,8 +919,14 @@ hbars('fbType',[],null,'No data yet');
 // (headline metrics are relevant to everyone); the sections below reflow.
 // Question starter sets are scavenged from DAMA-DMBOK / DCAM / FAIR / DataOps.
 const Q = (i,t,src,b,bc)=>({i:i,t:t,src:src,b:b,bc:bc||'qb-part'});
+// The ten Trellis perspectives (Financial and Admin are deliberately not shown — design note §10.8),
+// named and ordered as foundations.md names them. Each carries the qualified_name of its Egeria
+// Perspective element; the page matches /api/perspectives by qualifiedName and falls back to this
+// static entry (same ten) when Egeria is down or the element is missing.
+// The per-perspective `questions` below stay inline for now: brief RS-W1-3 puts the catalog questions
+// in the Trellis CSV, and a later brief makes this page read them from there.
 const PERSPECTIVES = {
-  governance: { icon:'🛡️', label:'Governance', q:'"Are we in control, and is it improving?"',
+  'governance': { icon:'🛡️', label:'Governance', qualified_name:'Perspective::Governance', q:'"Are we in control, and is it improving?"',
     show:['value','growth','quality','composition','usage','ai','people','activity'],
     questions:[
       Q('🟢','What share of critical assets is governed (owned, classified, certified)?','DCAM · Governance → <b style="color:var(--text)">Business value:</b> regulatory exposure &amp; audit-readiness','Governed Coverage','qb-ans'),
@@ -911,69 +934,69 @@ const PERSPECTIVES = {
       Q('🟠','Where is our regulatory exposure concentrated?','FAIR + Privacy → <b style="color:var(--text)">Business value:</b> avoided fines, breach-cost reduction','Confidential in open zones'),
       Q('🟢','How many policy exceptions are open, and are they aging down?','DCAM · Control → <b style="color:var(--text)">Business value:</b> operational risk &amp; SLA to remediation','Open exceptions','qb-ans'),
       Q('⚪','Is the community actively curating &amp; trusting the catalog?','Adoption → <b style="color:var(--text)">Business value:</b> self-service, less steward toil','→ People &amp; Community','qb-none') ] },
-  steward: { icon:'🧹', label:'Steward', q:'"What in my domain needs my attention?"',
+  'steward': { icon:'🧹', label:'Steward', qualified_name:'Perspective::Steward', q:'"What in my domain needs my attention?"',
     show:['quality','composition','usage','growth','people','activity'],
     questions:[
       Q('🟠','Which assets lack an owner, classification, or description?','DAMA · Metadata → <b style="color:var(--text)">Value:</b> trustable, findable catalog','Attention queue'),
       Q('🟠','Which glossary terms are unlinked or awaiting approval?','FAIR · Findable → <b style="color:var(--text)">Value:</b> semantic coverage','Orphan terms'),
       Q('🟠','Which data stores have never been surveyed / profiled?','DataOps · quality → <b style="color:var(--text)">Value:</b> known data quality','Unsurveyed'),
       Q('⚪','What changed in my domain since I last looked?','Observability → <b style="color:var(--text)">Value:</b> stay ahead of drift','→ Recent Activity','qb-none') ] },
-  owner: { icon:'📦', label:'Data Owner', q:'"Are the assets I&#39;m responsible for managing healthy, used, and trusted?"',
+  'owner': { icon:'📦', label:'Owner', qualified_name:'Perspective::Owner', q:'"Are the assets I&#39;m responsible for managing healthy, used, and trusted?"',
     show:['value','quality','people','usage','composition','activity'],
     questions:[
       Q('🟢','Who is using the data products I&#39;m responsible for, and how much?','Data-as-product → <b style="color:var(--text)">Value:</b> demonstrate impact','Most-engaged assets','qb-ans'),
       Q('🟠','What is the quality &amp; freshness of the assets I manage?','DataOps → <b style="color:var(--text)">Value:</b> reliability','DQ coverage'),
       Q('🟠','Are there open issues or low ratings on assets I&#39;m accountable for?','Feedback → <b style="color:var(--text)">Value:</b> trust signal','Ratings'),
       Q('🟠','Are the assets I manage properly classified &amp; access-controlled?','DCAM → <b style="color:var(--text)">Value:</b> compliance','Governed coverage') ] },
-  consumer: { icon:'🔎', label:'Consumer', q:'"Can I find and trust the data I need?"',
+  'consumer': { icon:'🔎', label:'Consumer', qualified_name:'Perspective::Consumer', q:'"Can I find and trust the data I need?"',
     show:['composition','usage','people','ai','growth'],
     questions:[
       Q('🟢','What certified data products exist for my domain?','FAIR · Findable → <b style="color:var(--text)">Value:</b> faster time-to-data','Data products','qb-ans'),
       Q('🟠','Where did this data come from, and how fresh is it?','FAIR · lineage → <b style="color:var(--text)">Value:</b> trust','Usage context'),
       Q('🟢','Which assets are used most (and least) across the organisation, and how is that changing?','Usage analytics → <b style="color:var(--text)">Value:</b> focus curation where it matters','Most/least used','qb-ans'),
       Q('🟠','Which datasets are safe to use with an LLM/agent?','AI governance → <b style="color:var(--text)">Value:</b> safe reuse','AI-ready') ] },
-  engineer: { icon:'🔧', label:'Engineering', q:'"Is the pipeline healthy and complete?"',
-    show:['composition','usage','quality','ai','growth','activity'],
-    questions:[
-      Q('🟠','Which assets are unsurveyed / missing schema?','DataOps → <b style="color:var(--text)">Value:</b> coverage','Schema captured'),
-      Q('🟠','How complete is lineage — any orphan nodes?','FAIR · lineage → <b style="color:var(--text)">Value:</b> impact analysis','Lineage-traced'),
-      Q('🟠','Are pipelines instrumented with open lineage end-to-end?','Observability → <b style="color:var(--text)">Value:</b> traceable failures','Instrumentation'),
-      Q('⚪','What structural change happened recently?','Observability → <b style="color:var(--text)">Value:</b> detect drift','→ Activity','qb-none') ] },
-  architecture: { icon:'🧱', label:'Architecture', q:'"Do our designs cover the landscape, and are they current?"',
-    show:['composition','usage','growth','activity'],
-    questions:[
-      Q('🟢','How many Solution Blueprints and Components are catalogued, and are they linked to real assets?','Solution architecture → <b style="color:var(--text)">Value:</b> traceable, reviewable designs','Blueprints &amp; Components','qb-ans'),
-      Q('🟢','How many Information Supply Chains trace data end-to-end, and where do they break?','FAIR · lineage → <b style="color:var(--text)">Value:</b> impact analysis, change safety','Supply chains','qb-ans'),
-      Q('🟠','Which architectures are stale — unreviewed since a major asset or process change?','Architecture governance → <b style="color:var(--text)">Value:</b> designs that stay trustworthy','Freshness'),
-      Q('⚪','Which supply chains or blueprints handle confidential or high-criticality data?','Risk-aware design → <b style="color:var(--text)">Value:</b> prioritised review','→ Security','qb-none') ] },
-  security: { icon:'🔐', label:'Security', q:'"Is our technical attack surface understood and controlled?"',
-    show:['value','composition','quality','ai'],
-    questions:[
-      Q('🟠','Which integration connectors and endpoints exist, and are any misconfigured or unmonitored?','Security architecture → <b style="color:var(--text)">Value:</b> reduced attack surface','Connector inventory'),
-      Q('🟠','Which service accounts, connectors, or AI agents have elevated platform access?','Access control · least privilege → <b style="color:var(--text)">Value:</b> breach containment','Elevated access'),
-      Q('🟢','Is confidential data blocked from AI training/RAG contexts?','AI safety → <b style="color:var(--text)">Value:</b> defensible AI','AI guardrails','qb-ans'),
-      Q('⚪','Are there open security-relevant governance exceptions (e.g. unencrypted, unclassified-for-risk assets)?','DCAM · Control → <b style="color:var(--text)">Value:</b> operational risk reduction','→ Governance','qb-none') ] },
-  builder: { icon:'🤖', label:'App/AI Builder', q:'"How much governed context can I safely build on?"',
+  'app-ai-builder': { icon:'🤖', label:'App/AI Builder', qualified_name:'Perspective::App/AI Builder', q:'"How much governed context can I safely build on?"',
     show:['ai','usage','composition','value','growth'],
     questions:[
       Q('🟠','How much data is AI-ready — governed, documented, lineage-traced?','AI governance → <b style="color:var(--text)">Value:</b> trustworthy AI faster','Context readiness funnel'),
       Q('🟢','What context products can I consume via MCP / API?','Context intelligence → <b style="color:var(--text)">Value:</b> ship without re-plumbing','Context products','qb-ans'),
       Q('🟠','What is semantically grounded (glossary-linked)?','RAG grounding → <b style="color:var(--text)">Value:</b> fewer hallucinations','Semantic grounding'),
       Q('🟢','What guardrails keep confidential data out of AI context?','AI safety → <b style="color:var(--text)">Value:</b> defensible AI','AI guardrails','qb-ans') ] },
-  privacy: { icon:'🔒', label:'Privacy', q:'"Where is our privacy risk and exposure?"',
+  'privacy': { icon:'🔒', label:'Privacy', qualified_name:'Perspective::Privacy', q:'"Where is our privacy risk and exposure?"',
     show:['value','quality','composition','ai','usage'],
     questions:[
       Q('🟠','Where is PII / sensitive data, and is it in the right zones?','Privacy → <b style="color:var(--text)">Value:</b> breach-cost reduction','Confidentiality dist.'),
       Q('🟠','What is our retention / certification compliance posture?','DCAM · Control → <b style="color:var(--text)">Value:</b> avoided fines','Certifications'),
       Q('🟠','Who / what can access restricted personal or sensitive data?','Access control → <b style="color:var(--text)">Value:</b> least privilege','Restricted-data access'),
       Q('⚪','Are data-processing purposes documented for regulated data flows?','Privacy by design → <b style="color:var(--text)">Value:</b> lawful-basis evidence','Processing purposes','qb-none') ] },
-  community: { icon:'🌐', label:'Community', q:'"Is the community healthy and engaged?"',
+  'community': { icon:'🌐', label:'Community', qualified_name:'Perspective::Community', q:'"Is the community healthy and engaged?"',
     show:['people','activity','usage','value','growth'],
     questions:[
       Q('🟢','Who are our most active contributors (karma leaders)?','Community Profile → <b style="color:var(--text)">Value:</b> recognise curation','Karma leaderboard','qb-ans'),
       Q('🟢','Is engagement (comments, ratings, tags) growing?','Adoption → <b style="color:var(--text)">Value:</b> trusted &amp; used catalog','Engagement trend','qb-ans'),
       Q('🟠','Which communities / teams are most (and least) engaged?','Collaboration → <b style="color:var(--text)">Value:</b> target enablement','By organization'),
-      Q('🟠','What questions are being asked but not answered?','Q&amp;A → <b style="color:var(--text)">Value:</b> new views to build','Open questions') ] }
+      Q('🟠','What questions are being asked but not answered?','Q&amp;A → <b style="color:var(--text)">Value:</b> new views to build','Open questions') ] },
+  'data-expert': { icon:'🔧', label:'Data Expert', qualified_name:'Perspective::Data Expert', q:'"Is the pipeline healthy and complete?"',
+    show:['composition','usage','quality','ai','growth','activity'],
+    questions:[
+      Q('🟠','Which assets are unsurveyed / missing schema?','DataOps → <b style="color:var(--text)">Value:</b> coverage','Schema captured'),
+      Q('🟠','How complete is lineage — any orphan nodes?','FAIR · lineage → <b style="color:var(--text)">Value:</b> impact analysis','Lineage-traced'),
+      Q('🟠','Are pipelines instrumented with open lineage end-to-end?','Observability → <b style="color:var(--text)">Value:</b> traceable failures','Instrumentation'),
+      Q('⚪','What structural change happened recently?','Observability → <b style="color:var(--text)">Value:</b> detect drift','→ Activity','qb-none') ] },
+  'security': { icon:'🔐', label:'Security', qualified_name:'Perspective::Security', q:'"Is our technical attack surface understood and controlled?"',
+    show:['value','composition','quality','ai'],
+    questions:[
+      Q('🟠','Which integration connectors and endpoints exist, and are any misconfigured or unmonitored?','Security architecture → <b style="color:var(--text)">Value:</b> reduced attack surface','Connector inventory'),
+      Q('🟠','Which service accounts, connectors, or AI agents have elevated platform access?','Access control · least privilege → <b style="color:var(--text)">Value:</b> breach containment','Elevated access'),
+      Q('🟢','Is confidential data blocked from AI training/RAG contexts?','AI safety → <b style="color:var(--text)">Value:</b> defensible AI','AI guardrails','qb-ans'),
+      Q('⚪','Are there open security-relevant governance exceptions (e.g. unencrypted, unclassified-for-risk assets)?','DCAM · Control → <b style="color:var(--text)">Value:</b> operational risk reduction','→ Governance','qb-none') ] },
+  'architecture': { icon:'🧱', label:'Architecture', qualified_name:'Perspective::Architecture', q:'"Do our designs cover the landscape, and are they current?"',
+    show:['composition','usage','growth','activity'],
+    questions:[
+      Q('🟢','How many Solution Blueprints and Components are catalogued, and are they linked to real assets?','Solution architecture → <b style="color:var(--text)">Value:</b> traceable, reviewable designs','Blueprints &amp; Components','qb-ans'),
+      Q('🟢','How many Information Supply Chains trace data end-to-end, and where do they break?','FAIR · lineage → <b style="color:var(--text)">Value:</b> impact analysis, change safety','Supply chains','qb-ans'),
+      Q('🟠','Which architectures are stale — unreviewed since a major asset or process change?','Architecture governance → <b style="color:var(--text)">Value:</b> designs that stay trustworthy','Freshness'),
+      Q('⚪','Which supply chains or blueprints handle confidential or high-criticality data?','Risk-aware design → <b style="color:var(--text)">Value:</b> prioritised review','→ Security','qb-none') ] }
 };
 
 // ==== PER-PERSPECTIVE KPI BAND ====
@@ -989,47 +1012,164 @@ const RAW = {
   assets:s=>s.assets, terms:s=>s.terms, governed:s=>s.governedPctNum,
   certs:s=>s.certs, products:s=>s.products, exceptions:s=>s.exceptions,
   people:s=>s.people, communities:s=>s.communities, isc:s=>s.isc,
-  blueprints:s=>s.blueprints, grounding:s=>s.groundingPct
+  blueprints:s=>s.blueprints, grounding:s=>s.groundingValue
 };
 const num = n => (n != null ? Number(n).toLocaleString() : null);
+// Semantic Grounding says what it measures (ai-context's groundingMeasure). pyegeria 6.2.30 reports
+// SemanticAssignment links ÷ Assets × 100 -- links per 100 Assets, NOT a share of Assets (one Asset with
+// three terms counts three times), so it is never shown with a % sign. When pyegeria reports distinct
+// grounded Assets (groundingMeasure "assetShare"; see overview_handler._grounding_fields) it becomes a %.
+const groundingIsShare = s => s.groundingMeasure === 'assetShare';
+// Pager step 4: groundingLinks / groundingPct are native repository counts (confirmed); groundedAssets comes from
+// the viewer's SemanticAssignment scan and is marked when that scan is unconfirmed. If the link count itself is
+// ever marked, links per 100 Assets is a share of a lower bound over a separate count: not measured.
+const groundingLinksUnc = s => !groundingIsShare(s) && uncMark('groundingLinks', s);
+const groundingVal = s => (s.groundingValue == null || groundingLinksUnc(s)) ? null
+  : (groundingIsShare(s) ? s.groundingValue + '%' : num(s.groundingValue));
+// pyegeria 6.2.31 measures distinct grounded Assets even when their share cannot be measured (the
+// viewer Asset total times out); groundedAssetNote says why. A count that was not measured is never 0.
+const groundedAssetsSub = s => s.groundedAssets != null
+  ? ' · ' + uncNum('groundedAssets', s.groundedAssets, s) + ' Assets grounded'
+    + (uncMark('groundedAssets', s) ? ' (' + uncWords(uncMark('groundedAssets', s)) + ')' : '')
+    + (s.groundedAssetNote ? ' (share not measured)' : '')
+  : (s.groundedAssetNote ? ' · grounded Assets not measured' : '');
+const groundingSub = s => groundingIsShare(s)
+  ? (s.groundedAssets != null ? uncNum('groundedAssets', s.groundedAssets, s) + ' Assets with a glossary term' : 'of Assets have a glossary term')
+  : (groundingLinksUnc(s)
+      ? 'term links per 100 Assets not measured: ' + (nmReason('groundingLinksPer100', s) || 'the link count is a lower bound')
+        + ' (' + uncNum('groundingLinks', s.groundingLinks, s) + ' links; ' + uncWords(uncMark('groundingLinks', s)) + ')'
+      : 'term links per 100 Assets' + (s.groundingLinks != null ? ' (' + num(s.groundingLinks) + ' links)' : ''))
+    + groundedAssetsSub(s);
+// The full reason goes on the sub-label's tooltip and in the drill panel.
+const groundingNote = s => (s.groundedAssetNote
+  ? s.groundedAssetNote + (s.groundedAssets != null ? ' Grounded Assets are counted among the Assets you can see.' : '')
+  : (s.groundedAssets != null ? 'Grounded Assets: an Asset counts once if it, or one of its parts, carries a glossary term; counted among the Assets you can see.' : ''))
+  // pager step 4: a grounded-Asset count from an unconfirmed read is a lower bound (see uncMark)
+  + ((s.groundedAssets != null && uncMark('groundedAssets', s)) ? ' Grounded Assets: ' + uncWords(uncMark('groundedAssets', s)) + '.' : '');
 // A tile with no measurement says so. It never shows a plausible-looking sample number:
 // an em dash means "not measured" (endpoint failed, or the backend returned null),
 // which is a different statement from a real 0.
 const NO_DATA = '—';
 const cnt = n => (n != null ? String(n) : NO_DATA);
+const NM_SUB = 'not measured — query failed or hit its page cap';
+// Unconfirmed figures (pyegeria pager step 4). Egeria ends a page set with null, but on some reads a null can
+// come mid-set, so a figure counted from such a read is a lower bound: "at least N", never a total. Each
+// /api/overview payload lists them in `unconfirmed` ({key: {words, reason, positions_read}}) and says why a
+// figure is null in `notMeasured` ({key: reason}). An unconfirmed figure shows "≥N" plus its words; a
+// not-measured one shows "—" plus the reason; a confirmed figure is unchanged.
+const UNC_REASON = "Egeria didn't confirm there are no more";
+const UNC_STORES = ['uncSummary', 'uncAi', 'uncUsage', 'uncPeople'], NM_STORES = ['nmSummary', 'nmAi', 'nmUsage', 'nmPeople'];
+function uncMark(key, store){
+  store = store || LIVE;
+  // a raw /api/overview payload carries its own map; the page store keeps one per section
+  const own = store.unconfirmed && store.unconfirmed[key];
+  if (own && own.unconfirmed) return own;
+  for (const s of UNC_STORES) { const m = store[s] && store[s][key]; if (m && m.unconfirmed) return m; }
+  return null;
+}
+function uncWords(m){
+  if (!m) return '';
+  const w = m.words || '', r = m.reason || UNC_REASON;
+  return w.indexOf(r) >= 0 ? w : (w ? w + '; ' + r : r);
+}
+function nmReason(key, store){
+  store = store || LIVE;
+  if (store.notMeasured && store.notMeasured[key]) return store.notMeasured[key];
+  for (const s of NM_STORES) { const r = store[s] && store[s][key]; if (r) return r; }
+  return null;
+}
+// the value as shown: "≥N" when unconfirmed, "—" when null
+function uncNum(key, v, store){
+  if (v == null) return NO_DATA;
+  const t = (typeof v === 'number') ? v.toLocaleString() : String(v);
+  return uncMark(key, store) ? '≥' + t : t;
+}
+// "N noun", or "at least N noun; Egeria didn't confirm there are no more" when unconfirmed
+function uncLine(key, v, noun, store){
+  const m = uncMark(key, store), t = (typeof v === 'number') ? v.toLocaleString() : String(v);
+  if (!m) return t + ' ' + noun;
+  return (/^at least/.test(m.words || 'at least') ? 'at least ' + t + ' ' + noun : t + ' ' + noun + ' found') + '; ' + (m.reason || UNC_REASON);
+}
+// The safety net: a payload whose read had an unconfirmed scan that no figure mark covers carries
+// `unconfirmedScans` and a line; the section it feeds shows that line under its heading (anchored on the
+// section's refresh button), and removes it when the next read is confirmed.
+function scanLine(btnId, d){
+  const btn = document.getElementById(btnId); if (!btn || !d) return;
+  const head = btn.closest('.section-label') || btn.parentElement; if (!head) return;
+  let n = head.nextElementSibling;
+  if (!(n && n.classList.contains('scan-line'))) n = null;
+  const scans = Array.isArray(d.unconfirmedScans) ? d.unconfirmedScans : [];
+  if (!scans.length) { if (n) n.remove(); return; }
+  if (!n) { n = document.createElement('div'); n.className = 'unc-note scan-line'; head.after(n); }
+  n.textContent = '≥ ' + (d.unconfirmedScansLine || ('Some figures here are lower bounds: ' + UNC_REASON));
+  n.title = scans.map(x => (x.count || 'a read') + ': ' + (x.read != null ? x.read + ' read' : '')).join('\n');
+}
+// a visible note under a chart or list whose counts are lower bounds (removed when they are confirmed)
+function uncNote(id, m){
+  const el = document.getElementById(id); if (!el) return;
+  let n = el.nextElementSibling;
+  if (!(n && n.classList.contains('unc-note'))) n = null;
+  if (!m) { if (n) n.remove(); return; }
+  if (!n) { n = document.createElement('div'); n.className = 'unc-note'; el.after(n); }
+  n.textContent = '≥ ' + uncWords(m);
+}
+// Which scope a native count used. "repository" = the whole catalog (Egeria counts without per-element
+// visibility, so it can include elements the signed-in user cannot open); "viewer" = only what they can see.
+// The backend reports it per payload (countScope); null = that payload has not answered.
+const SCOPE_TAG = { repository: 'whole catalog', viewer: 'what you can see' };
+const SCOPE_NOTE = {
+  repository: 'This count covers the whole catalog, including elements you may not have access to, so it can be higher than the list you reach by clicking through, which shows only what you can see.',
+  viewer: 'This count covers only the elements you can see.'
+};
+// tile -> the LIVE field holding the scope of the payload its count came from
+const TILE_SCOPE = { assets:'scopeSummary', terms:'scopeSummary', governed:'scopeSummary', products:'scopeSummary',
+                     people:'scopePeople', communities:'scopePeople', isc:'scopeUsage', blueprints:'scopeUsage',
+                     ownership:'scopeOwnership' };
+// tile -> the /api/overview source its value comes from (for the "measuring…" state)
+const TILE_SOURCE = { assets:'summary', terms:'summary', governed:'summary', products:'summary', exceptions:'summary', certs:'summary',
+                      people:'people', communities:'people', isc:'usage-context', blueprints:'usage-context',
+                      grounding:'ai-context', ownership:'ai-context' };
+const scopeSuffix = k => (TILE_SCOPE[k] && SCOPE_TAG[LIVE[TILE_SCOPE[k]]]) ? ' · ' + SCOPE_TAG[LIVE[TILE_SCOPE[k]]] : '';
 // A KPI shows a sparkline ONLY when we have a real historical series for it
 // (from /api/overview/growth asOfTime snapshots). `hist` names the series field;
 // metrics without one render no sparkline rather than a fake squiggle.
 const METRICS = {
   assets:     { label:'Cataloged Assets',      ico:'🗂️', color:'var(--c2)', drill:'assets', hist:'assets',
-                get:()=>({ val: num(LIVE.assets) || NO_DATA, sub: LIVE.assetsDelta || 'metadata assets' }) },
+                get:()=>({ val: num(LIVE.assets) || NO_DATA, sub: LIVE.assets == null ? NM_SUB : (LIVE.assetsDelta || 'metadata assets') }) },
   terms:      { label:'Glossary Terms',        ico:'📖', color:'var(--c1)', drill:'grounding', hist:'terms',
-                get:()=>({ val: num(LIVE.terms) || NO_DATA, sub: LIVE.termsDelta || 'business vocabulary' }) },
+                get:()=>({ val: num(LIVE.terms) || NO_DATA, sub: LIVE.terms == null ? NM_SUB : (LIVE.termsDelta || 'business vocabulary') }) },
   governed:   { label:'Governed Coverage',     ico:'🛡️', color:'var(--c6)', drill:'governed', hist:'gov',
-                get:()=>({ val: LIVE.governedPct || NO_DATA, sub: LIVE.governedSub || '≥1 governance classification' }) },
+                get:()=>({ val: LIVE.governedPct || NO_DATA, sub: LIVE.governedSub || (LIVE.governedPct == null ? NM_SUB : '≥1 governance classification') }) },
   certs:      { label:'Active Certifications', ico:'📜', color:'var(--c4)', drill:'certs',
-                get:()=>({ val: cnt(LIVE.certs), sub: LIVE.certsSub || (LIVE.certs != null ? 'certifications' : 'not measured') }) },
+                get:()=>({ val: uncNum('certifications', LIVE.certs),
+                           sub: (LIVE.certs != null && uncMark('certifications')) ? uncWords(uncMark('certifications')) + (LIVE.certsSub ? ' · ' + LIVE.certsSub : '')
+                                : LIVE.certsSub || (LIVE.certs != null ? 'certifications' : 'not measured') }) },
   products:   { label:'Data Products',         ico:'📦', color:'var(--c3)', drill:'products', hist:'products',
-                get:()=>({ val: cnt(LIVE.products), sub: LIVE.productsSub || LIVE.productsDelta || 'digital products' }) },
+                get:()=>({ val: cnt(LIVE.products), sub: LIVE.products == null ? NM_SUB : (LIVE.productsSub || LIVE.productsDelta || 'digital products') }) },
   exceptions: { label:'Open Exceptions',       ico:'⚠️', color:'var(--c5)', drill:'exceptions',
-                get:()=>({ val: cnt(LIVE.exceptions), sub: 'governance issues open' }) },
+                get:()=>({ val: uncNum('openExceptions', LIVE.exceptions),
+                           sub: LIVE.exceptions == null ? NM_SUB : uncMark('openExceptions') ? uncLine('openExceptions', LIVE.exceptions, 'governance issues open') : 'governance issues open' }) },
   people:     { label:'People / Contributors', ico:'👥', color:'var(--c2)', drill:'people',
-                get:()=>({ val: num(LIVE.people) || NO_DATA, sub: 'registered persons' }) },
+                get:()=>({ val: uncNum('activeContributors', LIVE.people),
+                           sub: LIVE.people == null ? NM_SUB : uncMark('activeContributors') ? uncLine('activeContributors', LIVE.people, 'registered persons') : 'registered persons' }) },
   communities:{ label:'Active Communities',    ico:'🌐', color:'var(--c6)', drill:'people',
-                get:()=>({ val: cnt(LIVE.communities), sub: 'collaboration groups' }) },
+                get:()=>({ val: uncNum('communities', LIVE.communities),
+                           sub: LIVE.communities == null ? NM_SUB : uncMark('communities') ? uncLine('communities', LIVE.communities, 'collaboration groups') : 'collaboration groups' }) },
   isc:        { label:'Supply Chains',         ico:'🔗', color:'var(--c2)', drill:'isc',
-                get:()=>({ val: cnt(LIVE.isc), sub: 'end-to-end data flows' }) },
+                get:()=>({ val: cnt(LIVE.isc), sub: LIVE.isc == null ? NM_SUB : 'end-to-end data flows' }) },
   blueprints: { label:'Solution Blueprints',   ico:'🧱', color:'var(--c3)', drill:'blueprints',
-                get:()=>({ val: cnt(LIVE.blueprints), sub: 'reusable designs' }) },
+                get:()=>({ val: cnt(LIVE.blueprints), sub: LIVE.blueprints == null ? NM_SUB : 'reusable designs' }) },
   grounding:  { label:'Semantic Grounding',    ico:'🧠', color:'var(--c1)', drill:'grounding',
-                get:()=>({ val: LIVE.groundingPct != null ? LIVE.groundingPct + '%' : NO_DATA,
-                           sub: LIVE.groundingLinks != null ? num(LIVE.groundingLinks) + ' term links' : 'glossary-linked' }) },
+                get:()=>({ val: groundingVal(LIVE) != null ? groundingVal(LIVE) : NO_DATA,
+                           sub: groundingSub(LIVE) }) },
   ownership:  { label:'Ownership Coverage',    ico:'🧑‍💼', color:'var(--c4)', drill:'ownership',
                 get:()=>({ val: LIVE.ownershipPct != null ? LIVE.ownershipPct + '%' : '—',
-                           sub: LIVE.ownershipCount != null ? num(LIVE.ownershipCount) + ' owned assets' : 'named owner assigned' }) },
+                           sub: LIVE.ownershipCount == null ? 'named owner assigned'
+                                : (nmReason('ownershipPct') ? 'share not measured · ' : '') + uncLine('ownershipCount', LIVE.ownershipCount, 'owned assets') }) },
   'ai-ready': { label:'AI-Ready Assets',       ico:'🤖', color:'var(--c1)', drill:'ai-ready',
                 get:()=>({ val: LIVE.aiReadyPct != null ? LIVE.aiReadyPct + '%' : '—',
-                           sub: LIVE.aiReadyCount != null ? num(LIVE.aiReadyCount) + ' assets, all gates' : 'governed + documented + lineage' }) }
+                           sub: LIVE.aiReadyCount == null ? 'governed + documented + lineage'
+                                : (nmReason('aiReadyPct') ? 'share not measured · ' : '') + uncLine('aiReadyCount', LIVE.aiReadyCount, 'assets, all gates') }) }
 };
 // Per-tile summary/usage text for the "ⓘ" info bubble (NEXT-24). Populated
 // live from /api/overview/specs — the same overview_specs.py _TILES data
@@ -1047,16 +1187,16 @@ function sparkPts(vals){
   return v.map((x,i) => (120 * i / (v.length - 1)).toFixed(1) + ',' + (23 - 18 * (x - mn) / rng).toFixed(1)).join(' ');
 }
 const PERSP_KPIS = {
-  governance: ['assets','terms','governed','certs','products','exceptions'],
-  steward:    ['assets','governed','exceptions','certs','terms','grounding'],
-  owner:      ['products','governed','certs','exceptions','people','grounding'],
-  consumer:   ['products','terms','grounding','isc','blueprints','people'],
-  engineer:   ['assets','isc','blueprints','grounding','exceptions','governed'],
-  architecture: ['isc','blueprints','assets','grounding','governed','exceptions'],
-  security:   ['governed','exceptions','ai-ready','certs','assets','grounding'],
-  builder:    ['assets','grounding','isc','blueprints','governed','products'],
-  privacy:    ['governed','certs','exceptions','assets','grounding','products'],
-  community:  ['people','communities','products','terms','governed','assets']
+  'governance': ['assets','terms','governed','certs','products','exceptions'],
+  'steward': ['assets','governed','exceptions','certs','terms','grounding'],
+  'owner': ['products','governed','certs','exceptions','people','grounding'],
+  'consumer': ['products','terms','grounding','isc','blueprints','people'],
+  'app-ai-builder': ['assets','grounding','isc','blueprints','governed','products'],
+  'privacy': ['governed','certs','exceptions','assets','grounding','products'],
+  'community': ['people','communities','products','terms','governed','assets'],
+  'data-expert': ['assets','isc','blueprints','grounding','exceptions','governed'],
+  'security': ['governed','exceptions','ai-ready','certs','assets','grounding'],
+  'architecture': ['isc','blueprints','assets','grounding','governed','exceptions']
 };
 // Topic — a second, independent axis from Perspective (who). Topic is *what
 // domain of concern*: AI-readiness, security/privacy, quality, usage/
@@ -1129,11 +1269,11 @@ const SECTION_VARIANTS = {
       '<div class="panel" style="border-left:3px solid var(--c6)">',
       '<h3>🎯 Contextualised Coverage</h3>',
       '<div style="font-size:1.9rem;font-weight:700;margin:6px 0 2px" id="uc-cov">—</div>',
-      '<div class="ph-sub" style="margin-bottom:8px">assets with any documented business context</div>',
+      '<div class="ph-sub" style="margin-bottom:8px" id="uc-cov-sub">assets connected to a solution component</div>',
       '<div style="font-size:.76rem;color:var(--muted);line-height:1.5">Same catalog-wide number shown to every perspective. A Privacy Officer\'s real question — which UNcontextualised assets are ALSO confidential — isn\'t computed yet; treat this as a general prioritisation signal, not that intersection.</div>',
       '</div>',
     ].join(''),
-    owner: [
+    'owner': [
       '<div class="panel clickable" data-drill="isc" style="border-left:3px solid var(--c2)">',
       '<h3>🔗 Information Supply Chains</h3>',
       '<div style="font-size:1.9rem;font-weight:700;margin:6px 0 2px" id="uc-isc">—</div>',
@@ -1149,7 +1289,7 @@ const SECTION_VARIANTS = {
       '<div class="panel" style="border-left:3px solid var(--c6)">',
       '<h3>🎯 Contextualised Coverage</h3>',
       '<div style="font-size:1.9rem;font-weight:700;margin:6px 0 2px" id="uc-cov">—</div>',
-      '<div class="ph-sub" style="margin-bottom:8px">assets with any documented business context</div>',
+      '<div class="ph-sub" style="margin-bottom:8px" id="uc-cov-sub">assets connected to a solution component</div>',
       '<div style="font-size:.76rem;color:var(--muted);line-height:1.5">Catalog-wide number, not scoped to your own assets. A true "my assets" view needs an ownership-based filter this dashboard doesn\'t have yet — Ownership Coverage (AI &amp; Context Intelligence section) is the closest existing signal.</div>',
       '</div>',
     ].join(''),
@@ -1173,13 +1313,13 @@ function applySectionVariants(){
     var variant = SECTION_VARIANTS[secKey][CUR_PERSP];
     grid.innerHTML = variant || _sectionDefaults[secKey];
   });
-  // uc-isc/uc-bp are re-applied from the already-fetched LIVE store so a
-  // freshly-swapped-in variant isn't left showing static sample numbers
-  // when live data has already loaded (uc-cov stays sample -- it always is,
-  // regardless of variant; see each variant's own "(sample)" label).
+  // uc-isc/uc-bp/uc-cov are re-applied from the already-fetched LIVE store so
+  // a freshly-swapped-in variant isn't left showing static sample numbers
+  // when live data has already loaded.
   if (typeof LIVE !== 'undefined' && LIVE) {
     if (LIVE.isc != null) setText('uc-isc', fmtNum(LIVE.isc));
     if (LIVE.blueprints != null) setText('uc-bp', fmtNum(LIVE.blueprints));
+    if (LIVE.contextualisedPct != null) setText('uc-cov', LIVE.contextualisedPct + '%');
   }
 }
 // The visible section list: Perspective's own `show` ∩ Topic's sections when
@@ -1221,16 +1361,20 @@ function renderKPIs(){
     const s = m.get();
     // Compare mode: replace the sub-label with a real delta vs the as-of baseline.
     let sub = s.sub || '';
+    // Still being measured for the first time: say so instead of "not measured".
+    const measuring = sub === NM_SUB && LOADING_SOURCES.has(TILE_SOURCE[k]);
+    if (measuring) { sub = MEASURING_SUB; s.val = '…'; }
     if (comparing && RAW[k]) {
       const cur = RAW[k](LIVE), base = RAW[k](BASE);
       if (cur != null && base != null) {
-        const dv = cur - base, unit = (k === 'governed' || k === 'grounding') ? ' pts' : '';
+        const dv = cur - base, unit = (k === 'governed' || (k === 'grounding' && groundingIsShare(LIVE))) ? ' pts' : '';
         sub = `<span class="delta ${dv >= 0 ? 'up' : 'down'}">${dv >= 0 ? '▲' : '▼'} ${Math.abs(dv).toLocaleString()}${unit}</span> `+
               `<span style="color:var(--muted)">since ${ASOF_LABEL}</span>`;
       } else {
         sub = `<span style="color:var(--muted)">no data at ${ASOF_LABEL}</span>`;
       }
     }
+    if (!comparing && !measuring && sub && sub !== NM_SUB) sub += scopeSuffix(k);
     let spark = '';
     const pts = (!comparing && m.hist && LIVE.series) ? sparkPts(LIVE.series[m.hist]) : null;
     if (pts) {
@@ -1265,7 +1409,8 @@ function toggleInfoPopover(btn, key){
   pop.className = 'k-info-popover';
   pop.dataset.forKey = key;
   pop.innerHTML = (info.summary ? `<div class="k-info-summary">${info.summary}</div>` : '') +
-    (info.usage ? `<div class="k-info-usage"><strong>Usage notes:</strong> ${info.usage}</div>` : '');
+    (info.usage ? `<div class="k-info-usage"><strong>Usage notes:</strong> ${info.usage}</div>` : '') +
+    ((TILE_SCOPE[key] && SCOPE_NOTE[LIVE[TILE_SCOPE[key]]]) ? `<div class="k-info-usage"><strong>Scope:</strong> ${SCOPE_NOTE[LIVE[TILE_SCOPE[key]]]}</div>` : '');
   document.body.appendChild(pop);
   var r = btn.getBoundingClientRect();
   var left = Math.min(r.left, window.innerWidth - 340);   // keep on-screen; popover is ~320px
@@ -1321,8 +1466,8 @@ const SECTION_PROVENANCE = {
   ],
   growth: [
     { name: 'Catalog Growth chart (assets/terms/governed/products)', status: 'live' },      // /api/overview/growth, real asOfTime snapshots
-    { name: 'Governed vs Ungoverned %',                              status: 'live' },      // governed_coverage
-    { name: 'Fully/Partial/Ungoverned breakdown',                    status: 'live' },  // governed_coverage's fullyGoverned/partialZoneOnly, ungoverned derived from assetTotal
+    { name: 'Governed vs Ungoverned %',                              status: 'live' },      // Asset-scoped strict native counts (summary.governedCount / assetTotal)
+    { name: 'Fully/Partial/Ungoverned breakdown',                    status: 'live' },  // Asset-scoped native counts (fullyGoverned / governed - fully), ungoverned derived from assetTotal
   ],
   composition: [
     { name: 'Assets by Type',                status: 'live' },  // counts_by_type via /api/overview/summary
@@ -1334,7 +1479,7 @@ const SECTION_PROVENANCE = {
   usage: [
     { name: 'Information Supply Chains',  status: 'live' },  // usage_context_counts
     { name: 'Solution Blueprints',        status: 'live' },  // usage_context_counts
-    { name: 'Contextualised Coverage %',  status: 'illustrative' }, // /api/overview/usage-context returns contextualisedPct: null (traversal TODO -- see NEXT-7)
+    { name: 'Contextualised Coverage %',  status: 'live' }, // added 2026-08-17 -- % assets connected to a SolutionComponent via ImplementedBy (a proxy, not the literal "participates in an ISC/blueprint" -- see contextualised_coverage's own docstring)
   ],
   quality: [
     // Attention Queue -- split per row (added 2026-08-17): the panel is
@@ -1353,7 +1498,7 @@ const SECTION_PROVENANCE = {
     { name: 'DQ: Has schema captured',       status: 'live' },  // distinct anchors of SchemaType elements / Asset total
     { name: 'DQ: Has assigned owner',        status: 'live' },  // ownership_coverage (already live elsewhere), now also wired into this panel
     { name: 'DQ: Has description',           status: 'live' },  // business_value_signals.describedCount (already live elsewhere), now also wired into this panel
-    { name: 'Certifications Expiring Soon',  status: 'illustrative' }, // "soon" table -- distinct from the AQ row above; certifications_summary's soon[] list has name/days, not the scope/pill-severity columns this table shows
+    { name: 'Certifications Expiring Soon',  status: 'live' }, // renderCertsSoon reads summary.certSoon (name + days from certifications_summary); the scope column is shown as a dash because the payload carries none
   ],
   ai: [
     { name: 'Semantic Grounding',      status: 'live' },  // semantic_grounding
@@ -1384,10 +1529,29 @@ const SECTION_PROVENANCE = {
 const SECTION_SOURCE = { value:'summary', growth:'growth', composition:'summary', usage:'usage-context',
                          quality:'summary', ai:'ai-context', people:'people', activity:'activity' };
 const FAILED_SOURCES = new Set();
+// Sources the server is still measuring for the first time (it answered {"loading": true}; the page polls).
+// Their tiles say "measuring…", never "not measured": nothing has failed yet.
+const LOADING_SOURCES = new Set();
+// source -> {measuredAt, stale, refreshSeconds} of the displayed measurement (the slow sections are measured
+// in the background and refreshed hourly, so each section says how old its numbers are).
+const SOURCE_AGE = {};
+const MEASURING_SUB = 'measuring… the first load after a refresh can take several minutes';
+function sourceAgeText(source){
+  const a = SOURCE_AGE[source];
+  if (!a || !a.measuredAt) return '';
+  const t = Date.parse(a.measuredAt);
+  if (isNaN(t)) return '';
+  const min = Math.max(0, Math.round((Date.now() - t) / 60000));
+  const ago = min < 1 ? 'just now' : min < 90 ? min + ' min ago' : Math.round(min / 60) + ' h ago';
+  const every = !a.refreshSeconds ? '' : a.refreshSeconds === 3600 ? ' · refreshed hourly'
+              : ' · refreshed every ' + Math.round(a.refreshSeconds / 60) + ' min';
+  return 'measured ' + ago + every + (a.stale ? ' · refreshing now' : '');
+}
 function computeSectionBadge(sectionKey){
   const items = SECTION_PROVENANCE[sectionKey];
   if (!items || !items.length) return null;
   if (FAILED_SOURCES.has(SECTION_SOURCE[sectionKey]) && items.some(i => i.status === 'live')) return 'unavailable';
+  if (LOADING_SOURCES.has(SECTION_SOURCE[sectionKey]) && items.some(i => i.status === 'live')) return 'measuring';
   const statuses = new Set(items.map(i => i.status));
   if (statuses.size === 1) return statuses.has('live') ? 'live' : 'illustrative';
   return 'mixed';
@@ -1397,13 +1561,33 @@ const PROV_BADGE_HTML = {
   mixed:        '<span class="prov prov-mix">◐ mixed</span>',
   illustrative: '<span class="prov prov-sample">○ not measured</span>',
   unavailable:  '<span class="prov prov-sample">○ no data</span>',
+  measuring:    '<span class="prov prov-mix" title="The server is measuring this section in the background; the page checks again every few seconds.">◌ measuring…</span>',
 };
 function renderSectionBadges(){
   document.querySelectorAll('.dash-sec').forEach(sec => {
     const badgeKind = computeSectionBadge(sec.dataset.sec);
     if (!badgeKind) return; // no SECTION_PROVENANCE entry -- leave static markup as-is
     const badgeEl = sec.querySelector('.section-label .prov');
-    if (badgeEl) badgeEl.outerHTML = PROV_BADGE_HTML[badgeKind];
+    if (badgeEl) {
+      // replace the badge but keep its id: renderBusinessValue finds #bv-prov by id after this has run
+      const tpl = document.createElement('template');
+      tpl.innerHTML = PROV_BADGE_HTML[badgeKind];
+      const fresh = tpl.content.firstElementChild;
+      if (badgeEl.id) fresh.id = badgeEl.id;
+      badgeEl.replaceWith(fresh);
+      // How old this section's numbers are ("measured 12 min ago · refreshed hourly").
+      const src = SECTION_SOURCE[sec.dataset.sec];
+      const txt = (badgeKind === 'live' || badgeKind === 'mixed') ? sourceAgeText(src) : '';
+      let age = sec.querySelector('.section-label .sec-age');
+      if (!txt) { if (age) age.remove(); }
+      else {
+        if (!age) { age = document.createElement('span'); age.className = 'sec-age';
+                    age.style.cssText = 'color:var(--muted);font-size:.68rem;margin-left:8px;font-weight:400;text-transform:none;letter-spacing:0;white-space:nowrap';
+                    age.title = 'Measured in the background and refreshed about once an hour, because a full measurement takes minutes.'; }
+        fresh.insertAdjacentElement('afterend', age);
+        age.textContent = txt;
+      }
+    }
   });
 }
 
@@ -1452,6 +1636,57 @@ const TOPIC_LABELS = {
   'quality':          '✅ Quality',
   'usage':            '📈 Popularity / Usage'
 };
+// Key = slug of the Trellis display name (lower-case, runs of non-alphanumerics -> "-").
+// Must stay identical to overview_specs.perspective_key() (test_overview_specs.py proves the two agree).
+function perspectiveKey(displayName){
+  return String(displayName || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+// Keys saved in localStorage before a Trellis rename -> current key. Unknown -> 'governance'.
+// 'data-owner' -> 'owner' (2026-11-07): Trellis moved to the content pack's Perspective::Owner. The older
+// saved key 'owner' needs no entry any more: it is the current key again.
+const LEGACY_PERSP_KEYS = { 'data-owner':'owner', engineer:'data-expert', builder:'app-ai-builder' };
+function migratePerspKey(k){
+  if (k && PERSPECTIVES[k]) return k;
+  if (k && LEGACY_PERSP_KEYS[k]) return LEGACY_PERSP_KEYS[k];
+  return 'governance';
+}
+// Where each perspective came from: 'pending' (fetch in flight) | 'live' (Egeria element found by
+// qualifiedName) | 'fallback' (fetch failed or element missing: the static entry is shown, and says so).
+const PERSP_SOURCE = {};
+const PERSP_LIVE_DESC = {};
+Object.keys(PERSPECTIVES).forEach(k => { PERSP_SOURCE[k] = 'pending'; });
+function perspTooltip(k){
+  const p = PERSPECTIVES[k], src = PERSP_SOURCE[k];
+  const text = (PERSP_LIVE_DESC[k] || p.q || '').replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/^"|"$/g, '');
+  if (src === 'live') return 'Egeria perspective · ' + p.qualified_name + (text ? ' — ' + text : '');
+  if (src === 'fallback') return 'Perspective not found in Egeria (' + p.qualified_name + ') — showing the built-in definition' + (text ? ' — ' + text : '');
+  return 'Checking Egeria for ' + p.qualified_name + '…';
+}
+function renderPerspTabs(){
+  document.querySelectorAll('.persp-tabs button[data-persp]').forEach(b => {
+    const k = b.getAttribute('data-persp');
+    if (PERSPECTIVES[k]) b.title = perspTooltip(k);
+  });
+}
+// Load the Trellis Perspective elements from Egeria (existing GET /api/perspectives) and match them to
+// the ten static entries by qualifiedName ONLY (Perspective::Financial and ::Administration are never
+// shown, nor the retired Trellis Perspective::Data Owner / ::Admin). Read-only; any failure leaves the static entries, marked fallback.
+function loadPerspectivesFromEgeria(creds){
+  const done = found => {
+    Object.keys(PERSPECTIVES).forEach(k => { PERSP_SOURCE[k] = found[PERSPECTIVES[k].qualified_name] ? 'live' : 'fallback'; });
+    Object.keys(PERSPECTIVES).forEach(k => { const el = found[PERSPECTIVES[k].qualified_name]; PERSP_LIVE_DESC[k] = (el && el.description) || ''; });
+    renderPerspTabs();
+  };
+  if (typeof egeriaFetch !== 'function') { done({}); return; }
+  egeriaFetch('/api/perspectives', creds)
+    .then(r => r.ok ? r.json() : null)
+    .then(d => {
+      const found = {};
+      ((d && d.perspectives) || []).forEach(e => { if (e && e.qualifiedName) found[e.qualifiedName] = e; });
+      done(found);
+    })
+    .catch(() => done({}));
+}
 function renderPerspCur(){
   const p = PERSPECTIVES[CUR_PERSP]; if (!p) return;
   const topicSuffix = CUR_TOPIC
@@ -1501,7 +1736,9 @@ if (_savedTopic && !(_savedTopic in TOPIC_KPIS)) _savedTopic = '';
 CUR_TOPIC = _savedTopic;
 document.querySelectorAll('.topic-tabs button[data-topic]').forEach(b =>
   b.classList.toggle('on', b.getAttribute('data-topic') === CUR_TOPIC));
-applyPerspective(PERSPECTIVES[_savedPersp] ? _savedPersp : 'governance');
+_savedPersp = migratePerspKey(_savedPersp);
+applyPerspective(_savedPersp);
+renderPerspTabs();
 
 // ==== DRILL-DOWN ====
 // Each entry = what a click reveals: a focused breakdown + the portal screen that owns the detail.
@@ -1510,15 +1747,15 @@ const DRILL = {
   assets: { eb:'Catalog · scale', t:'🗂️ Cataloged Assets', s:'Assets registered in the Egeria catalog',
     stats:[[ND,'total'],[ND,'change over window'],[ND,'asset types']], list:[],
     cta:['Open in The Catalog','/tech-catalog'], sec:['Query in Egeria Insights','/egeria-insights'],
-    note:'Counts from the Tech Catalog handlers (<code>/api/tech-catalog/*</code>). Trend via <code>asOfTime</code> snapshots.' },
+    note:'Native <code>Asset</code> element count (<code>overview_metrics.count_elements</code>, via <code>/api/overview/summary</code>). Trend via <code>asOfTime</code> snapshots.' },
   governed: { eb:'Governance posture', t:'🛡️ Governed Coverage', s:'Assets carrying ≥1 governance classification',
     stats:[[ND,'governed'],[ND,'ungoverned'],[ND,'assets']], list:[],
     cta:['Review in Egeria Insights','/egeria-insights'], sec:['See exceptions in Audit','/egeria-audit'],
-    note:'Classification &amp; zone tallies from <code>/api/insights/summary</code>.' },
+    note:'Assets only: Assets carrying at least one governance classification ÷ all Assets, both exact native counts (<code>overview_metrics.count_elements</code>, via <code>/api/overview/summary</code>). Usually lower than the earlier any-element-type tally.' },
   certs: { eb:'Compliance', t:'📜 Active Certifications', s:'Active certification relationships',
     stats:[[ND,'active'],[ND,'expiring ≤90d'],[ND,'open exceptions']], list:[],
     cta:['Open in Egeria Audit','/egeria-audit'], sec:null,
-    note:'Certification &amp; license relationships from the Audit handler (<code>/api/audit/relationships</code>).' },
+    note:'Certification &amp; license relationships via <code>overview_metrics.certifications_summary</code> (<code>/api/overview/summary</code>).' },
   'ai-ready': { eb:'AI & context intelligence', t:'🤖 AI-Ready Assets', s:'Assets that are governed + documented + lineage-traced — safe to serve as AI context',
     stats:[[ND,'AI-ready'],[ND,'of catalog'],[ND,'not yet AI-ready']], list:[],
     cta:['Find assets missing lineage','/egeria-insights?type=Asset&rel=DataFlow:lacks'], sec:['View lineage','/lineage'],
@@ -1531,10 +1768,10 @@ const DRILL = {
     stats:[], list:[],
     cta:['AI &amp; MCP docs','/docs/'], sec:['Context audit trail','/egeria-audit'],
     note:'MCP / API access logs are not read by the Overview, so there is no honest count of consumers or calls.' },
-  grounding: { eb:'AI & context intelligence', t:'🧠 Semantic Grounding', s:'Share of assets linked to glossary terms — the meaning layer that grounds AI',
-    stats:[[ND,'grounded'],[ND,'term links'],[ND,'terms']], list:[],
+  grounding: { eb:'AI & context intelligence', t:'🧠 Semantic Grounding', s:'Glossary-term links (SemanticAssignment) per 100 Assets — the meaning layer that grounds AI. A link count, not a share of Assets: one Asset with several terms counts several times.',
+    stats:[[ND,'links per 100 Assets'],[ND,'term links'],[ND,'terms']], list:[],
     cta:['Open Glossary in Explorer','/egeria-explorer#glossary'], sec:null,
-    note:'Semantic assignments (term ↔ asset) from the Glossary handler.' },
+    note:'Semantic assignments (term ↔ asset) counted by <code>overview_metrics.semantic_grounding</code> (<code>/api/overview/ai-context</code>).' },
   ownership: { eb:'AI & context intelligence', t:'🧑‍💼 Ownership Coverage', s:'Share of assets carrying a named, accountable owner (Ownership classification)',
     stats:[['—','owned'],['—','owner types'],['—','unowned']],
     list:[],
@@ -1551,15 +1788,15 @@ const DRILL = {
   people: { eb:'People & community', t:'👥 People & Community', s:'The human network behind the metadata — people, teams, organizations and communities',
     stats:[[ND,'people'],[ND,'teams'],[ND,'communities']], list:[],
     cta:['Open My Egeria','/my-egeria/'], sec:['Actors in Explorer','/egeria-explorer#actors'],
-    note:'Live counts from ActorManager (Person/Team/Organization) &amp; CommunityMatters. Karma/feedback aggregates are a later slice.' },
+    note:'Native element counts (<code>overview_metrics.people_counts</code>: Person / Team / Organization / ITProfile / Community) via <code>/api/overview/people</code>, with karma and feedback tallies.' },
   isc: { eb:'Usage context', t:'🔗 Information Supply Chains', s:'End-to-end flows that carry data through the business — the context that makes an asset meaningful',
     stats:[[ND,'supply chains']], list:[],
     cta:['Explore supply chains','/egeria-explorer#isc'], sec:['See in Lineage','/lineage'],
-    note:'Live count from <code>find_information_supply_chains</code> (SolutionArchitect). Per-ISC asset participation needs graph traversal — a later slice.' },
+    note:'Native <code>InformationSupplyChain</code> element count (<code>overview_metrics.usage_context_counts</code>, via <code>/api/overview/usage-context</code>). Per-ISC asset participation needs graph traversal — a later slice.' },
   blueprints: { eb:'Usage context', t:'🧱 Solution Blueprints', s:'Reusable solution designs that assets realise or participate in — the "why" behind an asset',
     stats:[[ND,'blueprints'],[ND,'components'],[ND,'realised by']], list:[],
     cta:['Explore blueprints','/egeria-explorer#solution-architect'], sec:null,
-    note:'Live count from <code>find_solution_blueprints</code> (SolutionArchitect). Blueprints link designs to the components that implement them.' },
+    note:'Native <code>SolutionBlueprint</code> element count (<code>overview_metrics.usage_context_counts</code>, via <code>/api/overview/usage-context</code>). Blueprints link designs to the components that implement them.' },
 };
 ['datastore','dataset','swcomp','infra','api','proc','feed'].forEach(k=>{});
 function typeDrill(name,type){
@@ -1581,8 +1818,10 @@ function drillFor(key){
   if(TYPE_NAMES[key]) return typeDrill(...TYPE_NAMES[key]);
   if(key.startsWith('zone-')) return zoneDrill(key.slice(5));
   if(key.startsWith('funnel-')){
-    const meta={'funnel-cataloged':['Cataloged','All registered assets',LIVE.assets],'funnel-documented':['Documented','Have a description / usage',LIVE.documented],'funnel-classified':['Classified','Carry governance classifications',LIVE.classified],'funnel-lineage':['Lineage-traced','Connected in the lineage graph',LIVE.lineage],'funnel-airead':['AI-Ready','Pass all context-readiness gates',LIVE.aiReadyCount]}[key];
-    const n=meta[2], tot=LIVE.assets, known=(n!=null), pct=(known&&tot)?Math.round(n/tot*100)+'%':ND;
+    const meta={'funnel-cataloged':['Cataloged','All registered assets',LIVE.cataloged],'funnel-documented':['Documented','Have a description / usage',LIVE.documented],'funnel-classified':['Classified','Carry governance classifications',LIVE.classified],'funnel-lineage':['Lineage-traced','Connected in the lineage graph',LIVE.lineage],'funnel-airead':['AI-Ready','Pass all context-readiness gates',LIVE.aiReadyCount]}[key];
+    // AI-Ready is a find (what you can see): no share of a whole-repository Cataloged count
+    const sameScope = key !== 'funnel-airead' || (LIVE.aiReadyScope || 'viewer') === (LIVE.scopeAi || 'viewer');
+    const n=meta[2], tot=sameScope?LIVE.cataloged:null, known=(n!=null), pct=(known&&tot)?Math.round(n/tot*100)+'%':ND;
     return { eb:'Context readiness', t:'🚦 '+meta[0], s:meta[1]+(known?' — '+n.toLocaleString()+' assets'+(tot?' ('+pct+' of catalog)':''):''),
       stats:[[known?n.toLocaleString():ND,'assets'],[pct,'of catalog']], list:(known&&tot&&n<=tot)?[['Reaches this stage',n],['Drops off before',tot-n]]:[],
       cta:['Open The Catalog','/tech-catalog'], sec:['Fix gaps via Query','/egeria-insights'],
@@ -1598,6 +1837,10 @@ function drillLivePatch(key, d){
   const map = { assets:LIVE.assets, terms:LIVE.terms, certs:LIVE.certs, products:LIVE.products,
                 exceptions:LIVE.exceptions, people:LIVE.people, isc:LIVE.isc, blueprints:LIVE.blueprints };
   if (key in map) set(0, map[key]);
+  // unconfirmed figures: "≥N" in the stat, the words in the note (see uncMark)
+  const markStat = (i, ukey, v) => { if (v != null && d.stats[i] && uncMark(ukey)) d.stats[i][0] = uncNum(ukey, v); };
+  const uncNotes = [];
+  const noteUnc = (label, ukey) => { const m = uncMark(ukey); if (m) uncNotes.push(label + ': ' + uncWords(m)); };
   if (key === 'assets') {
     set(1, LIVE.assetsDelta);
     const rows = (LIVE.byType || []).filter(r => r.count > 0).sort((a,b) => b.count - a.count);
@@ -1612,23 +1855,51 @@ function drillLivePatch(key, d){
     set(1, LIVE.certExpiring90);
     set(2, LIVE.exceptions);
     if (Array.isArray(LIVE.certSoon) && LIVE.certSoon.length) d.list = LIVE.certSoon.map(c => [c.name, c.days != null ? c.days + 'd' : ND]);
+    markStat(0, 'certifications', LIVE.certs); markStat(1, 'certExpiring90', LIVE.certExpiring90); markStat(2, 'openExceptions', LIVE.exceptions);
+    noteUnc('Active', 'certifications'); noteUnc('Expiring ≤90d', 'certExpiring90'); noteUnc('Expiring soon list', 'certSoon'); noteUnc('Open exceptions', 'openExceptions');
+  }
+  if (key === 'exceptions') { markStat(0, 'openExceptions', LIVE.exceptions); noteUnc('Open exceptions', 'openExceptions'); }
+  if (key === 'blueprints') {
+    markStat(1, 'solutionComponents', LIVE.solutionComponents); noteUnc('Components', 'solutionComponents');
+    markStat(2, 'solutionComponentsRealised', LIVE.solutionComponentsRealised); noteUnc('Realised components', 'solutionComponentsRealised');
   }
   if (key === 'grounding') {
-    if (LIVE.groundingPct != null) d.stats[0][0] = LIVE.groundingPct + '%';
+    d.stats[0][0] = groundingVal(LIVE) != null ? groundingVal(LIVE) : ND;   // never a previous view's value
+    if (groundingLinksUnc(LIVE)) uncNotes.push('Links per 100 Assets: not measured — ' + (nmReason('groundingLinksPer100') || 'the link count is a lower bound'));
+    if (groundingIsShare(LIVE)) {
+      d.stats[0][1] = 'of Assets grounded';
+      d.s = 'Share of Assets with at least one glossary term (SemanticAssignment) — the meaning layer that grounds AI';
+    }
     set(1, LIVE.groundingLinks); set(2, LIVE.terms);
-    if (LIVE.orphanTermCount != null) d.list = [['Orphan terms (no asset links)', LIVE.orphanTermCount]];
+    markStat(1, 'groundingLinks', LIVE.groundingLinks);
+    d.list = [];
+    if (LIVE.groundedAssets != null) d.list.push(['Assets grounded (you can see)', uncNum('groundedAssets', LIVE.groundedAssets)]);
+    noteUnc('Assets grounded', 'groundedAssets');
+    if (LIVE.groundedAssetNote) d.list.push([LIVE.groundedAssetNote, ND]);   // why the share is missing
+    if (LIVE.orphanTermCount != null) d.list.push(['Orphan terms (no asset links)', LIVE.orphanTermCount]);
+    else if (nmReason('orphanTermCount')) { d.list.push(['Orphan terms (no asset links)', ND]); uncNotes.push('Orphan terms: not measured — ' + nmReason('orphanTermCount')); }
   }
   if (key === 'ownership' && LIVE.ownershipPct != null) {
     d.stats[0][0] = LIVE.ownershipPct + '%';
     if (LIVE.ownershipCount != null) d.s = num(LIVE.ownershipCount) + ' assets carry a named, accountable owner (Ownership classification)';
   }
+  if (key === 'ownership' && LIVE.ownershipPct == null && LIVE.ownershipCount != null && uncMark('ownershipCount')) {
+    d.stats[0][0] = ND;
+    d.s = uncLine('ownershipCount', LIVE.ownershipCount, 'assets carry a named, accountable owner (Ownership classification)');
+    if (nmReason('ownershipPct')) uncNotes.push('Share not measured — ' + nmReason('ownershipPct'));
+  }
   // 'ai-ready': the live composite (governed AND documented AND lineage-traced simultaneously,
   // from ai_ready_assets); the list shows only the gates that were actually measured.
   if (key === 'ai-ready' && LIVE.aiReadyCount != null) {
-    d.stats[0][0] = String(LIVE.aiReadyCount);
-    if (LIVE.aiReadyPct != null) d.stats[1][0] = LIVE.aiReadyPct + '%';
-    if (LIVE.assets != null && LIVE.assets >= LIVE.aiReadyCount) set(2, LIVE.assets - LIVE.aiReadyCount);
-    d.s = num(LIVE.aiReadyCount) + ' assets are governed + documented + lineage-traced — safe to serve as AI context';
+    const aiUnc = uncMark('aiReadyCount');
+    d.stats[0][0] = uncNum('aiReadyCount', LIVE.aiReadyCount);
+    d.stats[1][0] = LIVE.aiReadyPct != null ? LIVE.aiReadyPct + '%' : ND;
+    // cataloged − a lower bound has no bound, so "not yet AI-ready" is left unmeasured when unconfirmed
+    d.stats[2][0] = ND;
+    if (!aiUnc && LIVE.cataloged != null && LIVE.cataloged >= LIVE.aiReadyCount
+        && (LIVE.aiReadyScope || 'viewer') === (LIVE.scopeAi || 'viewer')) set(2, LIVE.cataloged - LIVE.aiReadyCount);   // only within one population
+    d.s = uncLine('aiReadyCount', LIVE.aiReadyCount, 'assets are governed + documented + lineage-traced — safe to serve as AI context');
+    if (nmReason('aiReadyPct')) uncNotes.push('Share not measured — ' + nmReason('aiReadyPct'));
     d.list = [['Documented', LIVE.documented], ['Classified', LIVE.classified], ['Lineage-traced', LIVE.lineage], ['AI-ready (all gates)', LIVE.aiReadyCount]]
               .filter(r => r[1] != null);
   }
@@ -1641,6 +1912,11 @@ function drillLivePatch(key, d){
       ['Pending (draft / in development)', LIVE.productsPending],
     ];
   }
+  if (key === 'funnel-airead' && LIVE.aiReadyCount != null && uncMark('aiReadyCount')) {
+    d.stats[0][0] = uncNum('aiReadyCount', LIVE.aiReadyCount); d.stats[1][0] = ND; d.list = [];
+    noteUnc('AI-Ready', 'aiReadyCount');
+  }
+  if (uncNotes.length) d.uncNote = uncNotes.join(' · '); else delete d.uncNote;
   if (key === 'people') {
     set(1, LIVE.teams); set(2, LIVE.communities);
     d.list = [['Registered persons', LIVE.people], ['Teams', LIVE.teams], ['Organizations', LIVE.orgs], ['Communities', LIVE.communities]]
@@ -1661,6 +1937,7 @@ function openDrill(key){
   // otherwise the app's landing view — no false promise of element-level nav).
   if(d.cta){ h+=`<a class="d-cta" href="${d.cta[1]}" target="_blank" rel="noopener">${d.cta[0]} ↗</a>`; }
   if(d.sec){ h+=`<a class="d-cta sec" href="${d.sec[1]}" target="_blank" rel="noopener">${d.sec[0]} ↗</a>`; }
+  if(d.uncNote){ h+=`<div class="d-note unc-note">≥ ${String(d.uncNote).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}</div>`; }
   if(d.note){ h+=`<div class="d-note">${d.note}</div>`; }
   document.getElementById('d-body').innerHTML=h;
   document.getElementById('ovl').classList.add('open');
@@ -1773,25 +2050,66 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     var colors = { 0: '#33415c', 1: 'var(--c6)', 2: '#ff8c5a', 3: 'var(--c4)', 4: 'var(--c5)' };
     var rows = d.confidentialityLevels.map(function(l){ return [l.label, l.count, colors[l.level] || 'var(--c4)']; });
     hbars('byConf', rows, null, 'No element carries a Confidentiality classification');
+    var cEl = document.getElementById('byConf');
+    if (cEl && d.confidentialityCapped && rows.length) cEl.insertAdjacentHTML('beforeend', '<div style="color:var(--muted);font-size:.72rem;padding-top:6px">At least these counts: a page limit was reached, so more elements may carry a classification.</div>');
   }
   // Survey coverage: Data Quality "Surveyed" (assets with a SurveyReport) and the Attention Queue's
   // "Data stores never surveyed". Every unknown stays a dash; a real zero stays a zero.
+  // These percentages divide a find-based count (visible to you only) by the Asset total. If that total is
+  // whole-catalog scoped the ratio would mix scopes, so it is withheld and says why.
+  function noRatioMsg(st){
+    if (st.assets != null && st.assetsViewer == null && st.viewerNote) return 'Not measured: ' + st.viewerNote;
+    if (st.assets != null && st.assetsViewer == null && st.viewerLoading && !st.viewerGaveUp)
+      return 'Counting the assets you can see… this takes about two minutes the first time; the percentage appears when it finishes.';
+    if (st.assets != null && st.assetsViewer == null && st.viewerGaveUp)
+      return 'Not measured: counting the assets you can see did not finish in time. Refresh to try again.';
+    return (st.assets != null && st.assetsViewer == null)
+      ? 'Not measured: the count of assets you can see failed or timed out, so no percentage is shown (the whole-catalog total cannot be mixed with it)'
+      : 'Not measured';
+  }
+  // How old the count of assets this user can see is. It is refreshed about hourly (it takes ~2 minutes),
+  // so the percentages that use it say so rather than reading as live.
+  function viewerAge(st){
+    if (!st.viewerAsOf || st.assets == null || st.assetsViewer == null) return '';
+    var min = Math.max(0, Math.round((Date.now() - Date.parse(st.viewerAsOf)) / 60000));
+    var ago = min < 1 ? 'just now' : min < 90 ? min + ' min ago' : Math.round(min / 60) + ' h ago';
+    return 'counted ' + ago + ' · refreshed hourly';
+  }
+  function setViewerAge(el, st){
+    if (!el || !el.parentNode) return;
+    var span = el.parentNode.querySelector('.viewer-age');
+    var txt = viewerAge(st);
+    if (!txt) { if (span) span.remove(); return; }
+    if (!span) { span = document.createElement('span'); span.className = 'viewer-age';
+                 span.style.cssText = 'color:var(--muted);font-size:.68rem;margin-left:6px;white-space:nowrap';
+                 el.insertAdjacentElement('afterend', span); }
+    span.textContent = txt; span.title = VIEWER_NOTE;
+  }
+  var VIEWER_NOTE = 'The count of assets you can see is refreshed about once an hour because it takes about two minutes to count.';
+  // Placeholder text for a percentage whose denominator is still being counted
+  function pctPlaceholder(st){
+    return (st.assets != null && st.assetsViewer == null && st.viewerLoading && !st.viewerGaveUp) ? 'counting…' : '—';
+  }
   function renderSurveyCoverage(st){
     var pctEl = document.getElementById('dq-survey-pct'), fill = document.getElementById('dq-survey-fill');
-    var ok = st.surveyedAssets != null && st.assets;
+    var ok = st.surveyedAssets != null && st.assetsViewer;
     if (pctEl) {
-      var pct = ok ? 100 * st.surveyedAssets / st.assets : null;
-      pctEl.textContent = pct == null ? '—' : (pct > 0 && pct < 1 ? pct.toFixed(1) : String(Math.round(pct))) + '%';
-      pctEl.title = ok ? st.surveyedAssets.toLocaleString() + ' of ' + st.assets.toLocaleString() + ' assets have a completed survey'
-                         + (st.assetsSurveyFailedOnly ? ' (' + st.assetsSurveyFailedOnly.toLocaleString() + ' more only have failed surveys)' : '') : 'Not measured';
+      var pct = ok ? 100 * st.surveyedAssets / st.assetsViewer : null;
+      // surveyLinksCapped: the ReportSubject read stopped at its page limit, so the surveyed count is a lower bound
+      var sLb = st.surveyLinksCapped ? 'at least ' : '';
+      pctEl.textContent = pct == null ? pctPlaceholder(st) : (st.surveyLinksCapped ? '≥' : '') + (pct > 0 && pct < 1 ? pct.toFixed(1) : String(Math.round(pct))) + '%';
+      pctEl.title = ok ? sLb + st.surveyedAssets.toLocaleString() + ' of ' + st.assetsViewer.toLocaleString() + ' assets have a completed survey'
+                         + (st.assetsSurveyFailedOnly ? ' (' + st.assetsSurveyFailedOnly.toLocaleString() + ' more only have failed surveys)' : '') : noRatioMsg(st);
     }
-    if (fill) fill.style.width = (ok && st.surveyedAssets > 0 ? Math.max(100 * st.surveyedAssets / st.assets, 1) : 0) + '%';
+    if (pctEl && ok && st.viewerAsOf) pctEl.title += '. ' + VIEWER_NOTE;
+    setViewerAge(pctEl, st);
+    if (fill) fill.style.width = (ok && st.surveyedAssets > 0 ? Math.max(100 * st.surveyedAssets / st.assetsViewer, 1) : 0) + '%';
     // Has quality annotations: of the surveyed assets, how many have a report carrying a QualityAnnotation.
     var qEl = document.getElementById('dq-quality-pct'), qFill = document.getElementById('dq-quality-fill');
     var qOk = st.qualityAnnotatedAssets != null && st.surveyedAssets;
     if (qEl) {
       var qp = qOk ? 100 * st.qualityAnnotatedAssets / st.surveyedAssets : null;
-      qEl.textContent = qp == null ? '—' : (qp > 0 && qp < 1 ? qp.toFixed(1) : String(Math.round(qp))) + '%';
+      qEl.textContent = qp == null ? '—' : (st.surveyLinksCapped ? '~' : '') + (qp > 0 && qp < 1 ? qp.toFixed(1) : String(Math.round(qp))) + '%';
       var kinds = st.annotationsByType ? Object.keys(st.annotationsByType).map(function(k){ return st.annotationsByType[k] + ' ' + k; }).join(', ') : '';
       qEl.title = qOk ? st.qualityAnnotatedAssets.toLocaleString() + ' of ' + st.surveyedAssets.toLocaleString() + ' surveyed assets have a quality annotation' + (kinds ? ' (' + kinds + ')' : '')
                       : (st.surveyedAssets === 0 ? 'No surveys yet' : 'Not measured');
@@ -1799,14 +2117,16 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     if (qFill) qFill.style.width = (qOk && st.qualityAnnotatedAssets > 0 ? Math.max(100 * st.qualityAnnotatedAssets / st.surveyedAssets, 1) : 0) + '%';
     // Has schema captured: elements that anchor a captured schema, of all assets.
     var sEl = document.getElementById('dq-schema-pct'), sFill = document.getElementById('dq-schema-fill');
-    var sOk = st.assetsWithSchema != null && st.assets;
+    var sOk = st.assetsWithSchema != null && st.assetsViewer;
     if (sEl) {
-      var sp = sOk ? 100 * st.assetsWithSchema / st.assets : null;
-      sEl.textContent = sp == null ? '—' : (sp > 0 && sp < 1 ? sp.toFixed(1) : String(Math.round(sp))) + '%';
-      sEl.title = sOk ? st.assetsWithSchema.toLocaleString() + ' of ' + st.assets.toLocaleString() + ' assets have a captured schema'
-                        + (st.schemaAnalysedAssets ? ' (' + st.schemaAnalysedAssets.toLocaleString() + ' known only from a survey\'s schema analysis)' : '') : 'Not measured';
+      var sp = sOk ? 100 * st.assetsWithSchema / st.assetsViewer : null;
+      sEl.textContent = sp == null ? pctPlaceholder(st) : (sp > 0 && sp < 1 ? sp.toFixed(1) : String(Math.round(sp))) + '%';
+      sEl.title = sOk ? st.assetsWithSchema.toLocaleString() + ' of ' + st.assetsViewer.toLocaleString() + ' assets have a captured schema'
+                        + (st.schemaAnalysedAssets ? ' (' + st.schemaAnalysedAssets.toLocaleString() + ' known only from a survey\'s schema analysis)' : '') : noRatioMsg(st);
     }
-    if (sFill) sFill.style.width = (sOk && st.assetsWithSchema > 0 ? Math.max(100 * st.assetsWithSchema / st.assets, 1) : 0) + '%';
+    if (sEl && sOk && st.viewerAsOf) sEl.title += '. ' + VIEWER_NOTE;
+    setViewerAge(sEl, st);
+    if (sFill) sFill.style.width = (sOk && st.assetsWithSchema > 0 ? Math.max(100 * st.assetsWithSchema / st.assetsViewer, 1) : 0) + '%';
     // Surveys that failed: a failed survey still writes a report and partial findings, so it is counted here
     // and NOT in any coverage figure. Unknown outcomes are shown too, never folded into the successes.
     var fcnt = document.getElementById('aq-failedsurveys-count'), fdesc = document.getElementById('aq-failedsurveys-desc');
@@ -1845,10 +2165,14 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     }
     // Engine actions (survey runs and the platform's scheduled insight jobs) in the last 24 h.
     var pcnt = document.getElementById('aq-pipeline-count'), pdesc = document.getElementById('aq-pipeline-desc'), ph = st.engineActionHealth;
-    if (pcnt) pcnt.textContent = ph ? ph.failed.toLocaleString() : '\u2014';
+    if (pcnt) pcnt.textContent = overviewPipelineCount(ph);
     if (pdesc) {
-      if (!ph) pdesc.textContent = 'Not measured: engine actions could not be read (or a past as-of time is shown)';
+      if (!ph) pdesc.textContent = st.asOfTime
+        ? 'Not shown for a past as-of time: the engine-action list is only the current state, so it is not mixed with as-of figures'
+        : 'Not measured: engine actions could not be read';
       else if (ph.total === 0) pdesc.textContent = 'No engine actions in the last 24 hours';
+      else if (ph.capped && !ph.failed) pdesc.textContent = 'Not measured: only the first ' + ph.total.toLocaleString() +
+        ' engine actions of the last 24 h were read (page cap), and none of those failed; failures beyond them are not counted';
       else {
         var lb = ph.capped ? 'at least ' : '', pp = [lb + ph.failed.toLocaleString() + ' failed of ' + lb + ph.total.toLocaleString() + ' in the last 24 h'];
         if (ph.completed) pp.push(ph.completed.toLocaleString() + ' completed');
@@ -1880,12 +2204,16 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     var tb = document.getElementById('certs-soon-body'); if (!tb) return;
     var row = function(msg){ tb.innerHTML = '<tr><td colspan="3" style="color:var(--muted)">' + msg + '</td></tr>'; };
     var rows = Array.isArray(d.certSoon) ? d.certSoon : [];
+    var unc = d.unconfirmed || {}, m = unc.certSoon || unc.certExpiring90 || unc.certifications;   // a lower bound (see uncMark)
     if (d.certifications == null) return row('No data: the certification query did not return');
-    if (!rows.length) return row(d.certifications ? 'None expiring within 90 days' : 'No certifications recorded');
+    if (!rows.length) {
+      if (m) return row(escHtml((d.certifications ? 'None found expiring within 90 days' : 'No certifications found') + '; ' + (m.reason || UNC_REASON)));
+      return row(d.certifications ? 'None expiring within 90 days' : 'No certifications recorded');
+    }
     tb.innerHTML = rows.map(function(c){
       var cls = (c.days != null && c.days <= 30) ? 'pill-hi' : 'pill-warn';
       return '<tr><td>' + escHtml(c.name || '—') + '</td><td>' + (c.scope ? escHtml(c.scope) : '—') + '</td><td><span class="pill ' + cls + '">' + (c.days != null ? c.days + ' days' : '—') + '</span></td></tr>';
-    }).join('');
+    }).join('') + (m ? '<tr><td colspan="3" class="unc-note">≥ ' + escHtml('The list may be incomplete: ' + (m.reason || UNC_REASON)) + '</td></tr>' : '');
   }
   var badge = function(txt, color){ var b = document.getElementById('srcBadge'); if (b){ b.textContent = txt; b.style.color = color; } };
   var stamp = function(){ setTxt('asofTime', new Date().toLocaleString([], {dateStyle:'medium', timeStyle:'short'})); };
@@ -1918,39 +2246,46 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     });
   }
 
-  // Business Value tiles (NEXT-9) — real signals from business_value_signals(),
-  // overlaid onto the sample baseline the same way every other section works.
-  // Degrades per-field: business_value_signals is new pyegeria (2026-08-02),
-  // so on a container whose installed package predates it every bv* field is
-  // null and this function is a no-op, leaving the "(sample)" text in place.
+  // Business Value tiles (NEXT-9) — real signals from business_value_signals(). Every bv* field is
+  // null when it could not be measured (query failed, or the pyegeria in use predates the function);
+  // a null tile says "not measured" -- there is no sample text to fall back on.
   function renderBusinessValue(store){
-    var total = store.bvAssetTotal;
-    if (total == null) return;   // not live yet on this deployment — keep sample
-    setTxt('bv-prov', '● live'); var provEl = document.getElementById('bv-prov');
-    if (provEl) { provEl.className = 'prov prov-live'; }
-
-    if (store.bvConfidentialCount != null) {
-      setTxt('bv-risk-val', String(store.bvConfidentialCount));
-      setTxt('bv-risk-sub', 'Confidential-classified assets, of ' + num(total) + ' checked');
-    }
-    if (store.bvDescribedCount != null) {
-      var pct = total ? Math.round(100 * store.bvDescribedCount / total) : 0;
-      setTxt('bv-prod-val', pct + '%');
-      setTxt('bv-prod-sub', num(store.bvDescribedCount) + ' of ' + num(total) + ' assets have a description on file');
+    var total = store.bvAssetTotal, capped = !!store.bvAssetCapped;
+    var NM = 'not measured — the asset query failed or did not return';
+    // The Asset read is one page: when it is full the counts cover only that page, so they are lower bounds.
+    var lb = capped ? 'at least ' : '', of = capped ? ' (first ' + num(total) + ' assets only — page limit reached)' : '';
+    if (total == null) {
+      ['bv-risk', 'bv-prod'].forEach(function(k){ setTxt(k + '-val', '—'); setTxt(k + '-sub', NM); });
+    } else {
+      setTxt('bv-prov', '● live'); var provEl = document.getElementById('bv-prov');
+      if (provEl) { provEl.className = 'prov prov-live'; }
+      if (store.bvConfidentialCount != null) {
+        setTxt('bv-risk-val', (capped ? '≥' : '') + store.bvConfidentialCount);
+        setTxt('bv-risk-sub', 'Confidential-classified assets, ' + lb + 'of ' + num(total) + ' checked' + (capped ? ' (page limit reached)' : ''));
+      }
+      if (store.bvDescribedCount != null) {
+        var pct = total ? Math.round(100 * store.bvDescribedCount / total) : null;
+        setTxt('bv-prod-val', pct == null ? '—' : pct + '%');
+        setTxt('bv-prod-sub', pct == null ? 'no assets to measure' : num(store.bvDescribedCount) + ' of ' + num(total) + ' assets have a description on file' + of);
+      }
     }
     if (store.products != null) {
       setTxt('bv-trust-val', String(store.products));
       setTxt('bv-trust-sub', 'published data products');
-    }
+    } else { setTxt('bv-trust-val', '—'); setTxt('bv-trust-sub', NM_SUB); }
     if (store.bvDuplicateCount != null) {
       setTxt('bv-cost-val', String(store.bvDuplicateCount));
       setTxt('bv-cost-sub', 'elements flagged as consolidated duplicates');
-    }
+    } else { setTxt('bv-cost-val', '—'); setTxt('bv-cost-sub', NM_SUB); }
   }
 
   function applySummary(d, store, primary){
     if (!d) return;
+    store.uncSummary = d.unconfirmed || {}; store.nmSummary = d.notMeasured || {};   // see uncMark()
+    store.viewerNote = d.assetTotalViewerNote || null;   // the viewer Asset count was a lower bound: no %
+    if (primary) scanLine('refresh-summary', d);
     store.assets = d.assetTotal; store.terms = d.termCount;
+    store.assetsViewer = d.assetTotalViewer; store.viewerLoading = !!d.assetTotalViewerLoading; store.viewerStale = !!d.assetTotalViewerStale; store.viewerAsOf = d.assetTotalViewerAsOf || null; store.scopeSummary = d.countScope || null;   // viewer-scoped total for find-based ratios only
     store.byType = d.byType; store.topZones = d.topZones;                    // drill panels
     store.certSoon = d.certSoon; store.certExpiring90 = d.certExpiring90;
     store.orphanTermCount = d.orphanTermCount;
@@ -1965,30 +2300,38 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     // render only after every value above is stored (this used to run before the survey values were set)
     if (primary) { renderCertsSoon(d); renderSurveyCoverage(store); renderConfidentiality(d); renderDataStoreKinds(d); renderAssetsByTechnology(d); }
     store.governedCount = d.governedCount;
-    if (d.assetTotal && d.governedCount != null) {
-      store.governedPctNum = Math.round(100 * d.governedCount / Math.max(d.assetTotal, d.governedCount));
-      store.governedPct = store.governedPctNum + '%';
-      store.governedSub = fmt(d.governedCount) + ' of ' + fmt(d.assetTotal) + ' assets';
+    { store.governedPct = null; store.governedPctNum = null; store.governedSub = null; }
+    if (d.viewServer) setTxt('srcServer', 'server: ' + d.viewServer);
+    store.asOfTime = d.asOfTime || null;
+    store.surveyLinksCapped = d.surveyLinksCapped; store.confidentialityCapped = d.confidentialityCapped;
+    // Governed Coverage = Assets with >=1 governance classification / all Assets, both exact native counts
+    // (so governed <= total by construction; a governed count above the total means the two reads
+    // disagree, and no percentage is shown rather than a clamped one).
+    if (d.assetTotal && d.governedCount != null && d.governedCount <= d.assetTotal) {
+      store.governedPctNum = Math.round(100 * d.governedCount / d.assetTotal);
+      var gLb = d.governedCapped ? 'at least ' : '';   // false for the native counts; kept for a capped fallback
+      // the real share: a non-zero share under 0.5% shows its small value, not "<1%" or "0%"
+      store.governedPct = overviewGovernedPct(d.governedCount, d.assetTotal, d.governedCapped);
+      store.governedSub = gLb + fmt(d.governedCount) + ' of ' + fmt(d.assetTotal) + ' assets';
     }
     if (d.certifications != null) {
       store.certs = d.certifications;
       var parts = [];
-      if (d.certExpiring90) parts.push(d.certExpiring90 + ' expiring ≤90d');
-      if (d.licenses != null) parts.push(d.licenses + ' licenses');
+      if (d.certExpiring90) parts.push(uncNum('certExpiring90', d.certExpiring90, store) + ' expiring ≤90d');
+      if (d.licenses != null) parts.push(uncNum('licenses', d.licenses, store) + ' licenses');
       store.certsSub = parts.join(' · ') || 'none active';
     }
-    if (d.dataProducts != null) {
-      store.products = d.dataProducts;
-      var prodParts = [];
-      if (d.dataProductsActive != null) prodParts.push(d.dataProductsActive + ' active');
-      if (d.dataProductsPending) prodParts.push(d.dataProductsPending + ' pending');
-      if (d.dataProductsRatings) prodParts.push(d.dataProductsRatings + ' ratings');
-      store.productsSub = prodParts.join(' · ') || 'digital products';
-      store.productsActive = d.dataProductsActive;
-      store.productsPending = d.dataProductsPending;
-      store.productsRatings = d.dataProductsRatings;
-    }
-    if (d.openExceptions != null) store.exceptions = d.openExceptions;
+    store.products = d.dataProducts;          // null stays null: unmeasured, not the previous view's number
+    // freshstart: the Active/Pending split (deploymentStatus) and rating count come from the summary payload.
+    var prodParts = [];
+    if (d.dataProductsActive != null) prodParts.push(d.dataProductsActive + ' active');
+    if (d.dataProductsPending) prodParts.push(d.dataProductsPending + ' pending');
+    if (d.dataProductsRatings) prodParts.push(d.dataProductsRatings + ' ratings');
+    store.productsSub = d.dataProducts == null ? null : (prodParts.join(' · ') || 'digital products');
+    store.productsActive = d.dataProductsActive;
+    store.productsPending = d.dataProductsPending;
+    store.productsRatings = d.dataProductsRatings;
+    store.exceptions = d.openExceptions;
     store.bvAssetTotal = d.bvAssetTotal; store.bvAssetCapped = d.bvAssetCapped;
     store.bvConfidentialCount = d.bvConfidentialCount;
     store.bvDescribedCount = d.bvDescribedCount;
@@ -1997,20 +2340,37 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     if (!primary) return;
     renderDataQuality(store);
     // Attention Queue — Certifications expiring / Orphan glossary terms /
-    // Stale assets rows. "Confidential assets in open zones" and "Data
-    // stores never surveyed" stay illustrative (see OVERVIEW_NEXT_STEPS.md:
-    // too sparse / needs a 2-hop survey-annotation traversal not yet built).
+    // Stale assets rows are live. "Data stores never surveyed" and the engine-action row are live too
+    // (renderSurveyCoverage). Only "Confidential assets in open zones" is not wired (not measured).
     if (d.certExpiring90 != null) {
-      setTxt('aq-cert-count', fmt(d.certExpiring90));
+      var certUnc = uncMark('certExpiring90', store);
+      setTxt('aq-cert-count', uncNum('certExpiring90', d.certExpiring90, store));
       var certNames = (d.certSoon || []).map(function(c){ return c.name; }).slice(0, 2).join(', ');
-      setTxt('aq-cert-desc', d.certExpiring90 === 0 ? 'None due — all certifications current' :
-        d.certExpiring90 + ' certification' + (d.certExpiring90 === 1 ? '' : 's') + ' need renewal' +
-        (certNames ? ' (' + certNames + ')' : ''));
+      if (certUnc) {
+        // a lower bound: never "all certifications current"
+        setTxt('aq-cert-desc', (d.certExpiring90 === 0 ? 'None found due for renewal' :
+          'At least ' + fmt(d.certExpiring90) + ' certification' + (d.certExpiring90 === 1 ? '' : 's') + ' need renewal' +
+          (certNames ? ' (' + certNames + ')' : '')) + '; ' + (certUnc.reason || UNC_REASON));
+      } else {
+        setTxt('aq-cert-desc', d.certExpiring90 === 0 ? 'None due — all certifications current' :
+          d.certExpiring90 + ' certification' + (d.certExpiring90 === 1 ? '' : 's') + ' need renewal' +
+          (certNames ? ' (' + certNames + ')' : ''));
+      }
+    }
+    if (d.orphanTermCount == null && nmReason('orphanTermCount', store)) {
+      setTxt('aq-orphan-count', '—');
+      setTxt('aq-orphan-desc', 'Not measured — ' + nmReason('orphanTermCount', store) +
+        '. (Approved terms with no semantic assignment to any asset.)');
     }
     if (d.orphanTermCount != null) {
       setTxt('aq-orphan-count', fmt(d.orphanTermCount));
       setTxt('aq-orphan-desc', 'Approved terms with no semantic assignment to any asset' +
-        (d.orphanTermTotal ? ' (' + fmt(d.orphanTermCount) + ' of ' + fmt(d.orphanTermTotal) + ' terms)' : ''));
+        (d.orphanTermTotal ? ' (' + fmt(d.orphanTermCount) + ' of ' + uncNum('orphanTermTotal', d.orphanTermTotal, store) + ' terms)' : ''));
+    }
+    if (d.staleAssetCount == null) {
+      // "—" must say why: the backend's note (page cap / query failed), else the generic not-measured words
+      setTxt('aq-stale-desc', 'Not measured \u2014 ' + (d.staleAssetNote || 'query failed or hit its page cap') +
+        '. (Possibly abandoned assets; candidates for archival review.)');
     }
     if (d.staleAssetCount != null) {
       setTxt('aq-stale-count', fmt(d.staleAssetCount));
@@ -2018,12 +2378,12 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
         (d.staleAssetTotal ? ' (' + fmt(d.staleAssetCount) + ' of ' + fmt(d.staleAssetTotal) + ' assets)' : ''));
     }
     // Governed vs. Ungoverned donut + Fully/Partial/Ungoverned breakdown —
-    // fullyGoverned/partialZoneOnly are real (governed_coverage's own hits
-    // list, bucketed by which classifications each element carries);
-    // ungoverned is derived the same way the donut % badge already was
-    // (assetTotal - governed), not a separate query.
-    if (d.fullyGoverned != null && d.partialZoneOnly != null && d.assetTotal != null) {
-      var ungoverned = Math.max(d.assetTotal - d.fullyGoverned - d.partialZoneOnly, 0);
+    // fullyGoverned / partialZoneOnly are Asset-scoped native counts (fully = Assets with a Confidentiality,
+    // Criticality, Impact or Retention classification; zone only = governed minus fully); ungoverned is
+    // assetTotal - governed. Nothing is shown if the counts are inconsistent.
+    if (d.fullyGoverned != null && d.partialZoneOnly != null && d.assetTotal != null
+        && d.fullyGoverned + d.partialZoneOnly <= d.assetTotal) {
+      var ungoverned = d.assetTotal - d.fullyGoverned - d.partialZoneOnly;
       setTxt('gov-full', fmt(d.fullyGoverned));
       setTxt('gov-partial', fmt(d.partialZoneOnly));
       setTxt('gov-ungoverned', fmt(ungoverned));
@@ -2036,39 +2396,34 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     if (Array.isArray(d.topZones) && d.topZones.length && typeof hbars === 'function') {
       var zoneRows = d.topZones.map(function(z){ return [z.zone, z.count, 'var(--c3)']; });
       hbars('byZone', zoneRows);
+      uncNote('byZone', uncMark('topZones', store));
     }
-    // Assets-by-type live overlay (composition section) — real Vega-Lite bar
-    // chart when the backend has one (NEXT-10 P1); falls back to hbars() rows
-    // (which keep the per-bar drill click Vega doesn't have yet) otherwise.
-    if (!renderVega('byType', d.byTypeChart) &&
-        Array.isArray(d.byType) && d.byType.length && typeof hbars === 'function') {
-      var keymap = {DataStore:'type-datastore', DataSet:'type-dataset', DeployedSoftwareComponent:'type-swcomp',
-                    ITInfrastructure:'type-infra', DeployedAPI:'type-api', Process:'type-proc', DataFeed:'type-feed'};
-      var rows = d.byType.filter(function(r){ return r.count > 0; })
-                         .sort(function(a,b){ return b.count - a.count; })
-                         .map(function(r){ return [r.label, r.count, 'var(--c2)', keymap[r.type]]; });
-      if (rows.length) hbars('byType', rows);
-    }
+    // The Assets by Type panel is drawn by renderComposition() from /api/overview/composition.
   }
 
   function applyPeople(d, store, primary){
     if (!d) return;
-    store.people = d.activeContributors; store.communities = d.communities;
+    store.uncPeople = d.unconfirmed || {}; store.nmPeople = d.notMeasured || {};   // see uncMark()
+    store.people = d.activeContributors; store.communities = d.communities; store.scopePeople = d.countScope || null;
     store.teams = d.teams; store.orgs = d.organizations;
     if (!primary) return;
+    scanLine('refresh-people', d);
     // People & Community section sub-band
-    setTxt('kpi-people', fmt(d.activeContributors));
+    setTxt('kpi-people', uncNum('activeContributors', d.activeContributors, store));
+    if (d.activeContributors != null && uncMark('activeContributors', store))
+      setTxt('kpi-people-sub', uncLine('activeContributors', d.activeContributors, 'registered persons', store));
     if (d.teams != null || d.organizations != null) {
       setTxt('kpi-orgs', fmt((d.teams || 0) + (d.organizations || 0)));
       setTxt('kpi-orgs-sub', (d.teams || 0) + ' teams · ' + (d.organizations || 0) + ' orgs');
     }
-    setTxt('kpi-communities', fmt(d.communities));
+    setTxt('kpi-communities', uncNum('communities', d.communities, store));
     // Crowd-sourced feedback (Collaboration OMAS) — real, though sparse in demo.
     if (d.feedbackItems != null) {
-      setTxt('kpi-feedback', fmt(d.feedbackItems));
+      setTxt('kpi-feedback', uncNum('feedbackItems', d.feedbackItems, store));
       var fsub = document.querySelector('#kpi-feedback + .k-sub');
-      var fb = d.feedbackByType || {};
-      if (fsub) fsub.textContent = (fb.comments||0) + ' comments · ' + (fb.ratings||0) + ' ratings · ' + (fb.tags||0) + ' tags';
+      var fb = d.feedbackByType || {}, fge = uncMark('feedbackByType', store) ? '≥' : '';
+      if (fsub) fsub.textContent = fge + (fb.comments||0) + ' comments · ' + fge + (fb.ratings||0) + ' ratings · ' + fge + (fb.tags||0) + ' tags' +
+        (uncMark('feedbackItems', store) ? ' — ' + uncWords(uncMark('feedbackItems', store)) : '');
     }
     // Real Vega-Lite bar chart when the backend has one (NEXT-10 P1); falls
     // back to hbars() rows otherwise.
@@ -2080,6 +2435,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
         ['Note logs', t.noteLogs||0, 'var(--c6)']
       ]);
     }
+    uncNote('fbType', uncMark('feedbackByType', store));
     // Karma leaderboard — real per-person rollup (ContributionRecord.karmaPoints,
     // anchored via Anchors classification). No role/avatar data exists on the
     // real payload, so rows show rank/name/points only, not the old sample
@@ -2114,26 +2470,37 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
           leadEl.appendChild(row);
         });
       }
+      uncNote('leaderboard', uncMark('leaderboard', store));
     }
     // Engagement over time — real weekly feedback trend (renderVega falls
     // through silently when engagementChart is null on an older pyegeria).
-    renderVega('engage', d.engagementChart);
+    if (!renderVega('engage', d.engagementChart)) engageNotMeasured('Not measured: the weekly engagement series could not be built');
+    else { var nm = document.querySelector('#engage .engage-nm'); if (nm) nm.remove(); }
+    uncNote('engage', d.engagementChart ? uncMark('engagementSeries', store) : null);
   }
 
   function applyUsage(d, store, primary){
     if (!d) return;
-    store.isc = d.informationSupplyChains; store.blueprints = d.blueprints;
+    store.uncUsage = d.unconfirmed || {}; store.nmUsage = d.notMeasured || {};   // see uncMark()
+    if (primary) scanLine('refresh-usage', d);
+    store.isc = d.informationSupplyChains; store.blueprints = d.blueprints; store.scopeUsage = d.countScope || null;
+    store.contextualisedPct = d.contextualisedPct;
     store.solutionComponents = d.solutionComponents;
     store.solutionComponentsRealised = d.solutionComponentsRealised;
     if (!primary) return;
     setTxt('uc-isc', fmt(d.informationSupplyChains));
     setTxt('uc-bp',  fmt(d.blueprints));
     if (d.contextualisedPct != null) setTxt('uc-cov', d.contextualisedPct + '%');
+    else if (nmReason('contextualisedPct', store)) {
+      setTxt('uc-cov', '—');
+      setTxt('uc-cov-sub', 'Not measured — ' + nmReason('contextualisedPct', store) +
+        (d.contextualisedCount != null ? ' (' + uncLine('contextualisedCount', d.contextualisedCount, 'assets connected to a solution component', store) + ')' : ''));
+    }
     if (typeof DRILL === 'object') {
       if (d.informationSupplyChains != null && DRILL.isc) DRILL.isc.stats[0] = [String(d.informationSupplyChains), 'supply chains'];
       if (d.blueprints != null && DRILL.blueprints) DRILL.blueprints.stats[0] = [String(d.blueprints), 'blueprints'];
-      if (d.solutionComponents != null && DRILL.blueprints) DRILL.blueprints.stats[1] = [String(d.solutionComponents), 'components'];
-      if (d.solutionComponentsRealised != null && DRILL.blueprints) DRILL.blueprints.stats[2] = [String(d.solutionComponentsRealised), 'realised by ≥1 implementation'];
+      if (d.solutionComponents != null && DRILL.blueprints) DRILL.blueprints.stats[1] = [uncNum('solutionComponents', d.solutionComponents, store), 'components'];
+      if (d.solutionComponentsRealised != null && DRILL.blueprints) DRILL.blueprints.stats[2] = [uncNum('solutionComponentsRealised', d.solutionComponentsRealised, store), 'realised by ≥1 implementation'];
     }
   }
 
@@ -2142,17 +2509,22 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
   // coverage via ai-context, business_value_signals via summary), so this
   // is called from both applySummary() and applyAI() after each sets its
   // half of the store, whichever settles last completing the picture.
-  // "Surveyed" / "Has quality annotations" / "Has schema captured" remain
-  // illustrative — no backend signal for those yet (see OVERVIEW_NEXT_STEPS.md).
+  // "Surveyed" / "Has quality annotations" / "Has schema captured" are live (renderSurveyCoverage, from
+  // the summary's ReportSubject / SurveyReport / schema reads); this function adds owner + description.
   function renderDataQuality(store){
     if (store.ownershipPct != null) {
       setTxt('dq-owner-pct', store.ownershipPct + '%');
       var ownerFill = document.getElementById('dq-owner-fill');
       if (ownerFill) ownerFill.style.width = Math.max(store.ownershipPct, 2) + '%';
+    } else if (nmReason('ownershipPct', store)) {
+      var opEl = document.getElementById('dq-owner-pct');
+      if (opEl) { opEl.textContent = '—'; opEl.title = 'Not measured — ' + nmReason('ownershipPct', store); }
+      var ownerFill0 = document.getElementById('dq-owner-fill'); if (ownerFill0) ownerFill0.style.width = '0%';
     }
     if (store.bvDescribedCount != null && store.bvAssetTotal) {
       var descPct = Math.round(100 * store.bvDescribedCount / store.bvAssetTotal);
       setTxt('dq-desc-pct', descPct + '%');
+      var dpEl = document.getElementById('dq-desc-pct'); if (dpEl) dpEl.title = store.bvAssetCapped ? 'Of the first ' + num(store.bvAssetTotal) + ' assets only (page limit reached)' : '';
       var descFill = document.getElementById('dq-desc-fill');
       if (descFill) descFill.style.width = Math.max(descPct, 2) + '%';
     }
@@ -2160,36 +2532,60 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
 
   function applyAI(d, store, primary){
     if (!d) return;
-    if (d.groundingPct != null) store.groundingPct = d.groundingPct;
+    store.uncAi = d.unconfirmed || {}; store.nmAi = d.notMeasured || {};   // see uncMark()
+    if (primary) scanLine('refresh-ai-context', d);
+    // a share not measured from an unconfirmed read clears any earlier value (never a stale number)
+    if (store.nmAi.ownershipPct) store.ownershipPct = null;
+    if (store.nmAi.aiReadyPct) store.aiReadyPct = null;
+    if (d.groundingValue != null) {
+      store.groundingValue = d.groundingValue; store.groundingMeasure = d.groundingMeasure;
+      store.groundingPct = d.groundingPct;
+    }
+    if ('groundedAssets' in d) { store.groundedAssets = d.groundedAssets; store.groundedAssetNote = d.groundedAssetNote || null; }
     if (d.groundingLinks != null) store.groundingLinks = d.groundingLinks;
     if (d.ownershipPct != null) store.ownershipPct = d.ownershipPct;
     if (d.ownershipCount != null) store.ownershipCount = d.ownershipCount;
+    store.scopeOwnership = d.ownershipScope || null;   // owned Assets ÷ Assets: the funnel's population
     if (d.aiReadyPct != null) store.aiReadyPct = d.aiReadyPct;
+    // The funnel's population (countScope) and AI-Ready's (always a find: what you can see) differ once
+    // pyegeria counts totals over the whole repository; then AI-Ready is reported on its own and is not
+    // a funnel stage. A payload without these fields is all-viewer, as before.
+    store.scopeAi = d.countScope || 'viewer';
+    store.aiReadyScope = d.aiReadyScope || store.scopeAi;
+    if (d.aiReadyCount != null) store.aiReadyCount = d.aiReadyCount;
     if (d.funnel) {
       if (d.funnel.aiReady != null)   store.aiReadyCount = d.funnel.aiReady;
       if (d.funnel.documented != null) store.documented = d.funnel.documented;
       if (d.funnel.classified != null) store.classified = d.funnel.classified;
       if (d.funnel.lineage != null)    store.lineage = d.funnel.lineage;
+      store.cataloged = d.funnel.cataloged;   // countScope's population: the denominator for the funnel's own percentages
     }
     if (!primary) return;
     // AI section grounding tile + funnel — cataloged/classified/documented/
     // lineage/aiReady all live as of 2026-08-01 (aiReady is the true
     // composite from ai_ready_assets: governed AND documented AND
     // lineage-traced simultaneously, not three independent counts — see
-    // NEXT-18). Context Products/Active AI Consumers/AI Guardrails remain
-    // sample — no backend signal for those yet.
-    if (d.groundingPct != null) setTxt('ai-grounding', d.groundingPct + '%');
+    // NEXT-18). Context Products/Active AI Consumers/AI Guardrails are not
+    // measured -- no backend signal for those yet.
+    if (d.groundingValue != null) {
+      setTxt('ai-grounding', groundingVal(d));
+      setTxt('ai-grounding-sub', groundingSub(d));
+      var gsEl = document.getElementById('ai-grounding-sub'); if (gsEl) gsEl.title = groundingNote(d);
+    }
     var f = d.funnel || {};
     if (f.cataloged != null) setTxt('uc-cataloged', fmt(f.cataloged));
     if (f.classified != null) setTxt('uc-classified', fmt(f.classified));
     if (f.documented != null) setTxt('uc-documented', fmt(f.documented));
     if (f.lineage != null) setTxt('uc-lineage', fmt(f.lineage));
-    if (f.aiReady != null) setTxt('uc-airead', fmt(f.aiReady));
+    if (f.aiReady != null) setTxt('uc-airead', uncNum('funnel.aiReady', f.aiReady, store));
     setFunnel('uc-cataloged', f.cataloged, f.cataloged); setFunnel('uc-documented', f.documented, f.cataloged);
     setFunnel('uc-classified', f.classified, f.cataloged); setFunnel('uc-lineage', f.lineage, f.cataloged);
     setFunnel('uc-airead', f.aiReady, f.cataloged);
-    if (f.aiReady != null) setTxt('uc-ai-ready', fmt(f.aiReady));
+    if (store.aiReadyCount != null) setTxt('uc-ai-ready', uncNum('aiReadyCount', store.aiReadyCount, store));
     if (d.aiReadyPct != null) setTxt('uc-ai-ready-sub', d.aiReadyPct + '% — governed + documented + lineage');
+    else if (store.aiReadyCount != null && uncMark('aiReadyCount', store))
+      setTxt('uc-ai-ready-sub', uncLine('aiReadyCount', store.aiReadyCount, 'governed + documented + lineage', store) +
+        (nmReason('aiReadyPct', store) ? '; share not measured' : ''));
     // DRL recency + modality (NEXT-8 §1.9) — a narrowing of AI-Ready by last-
     // update recency, not yet a full Analytics-Ready/RAG-Ready band
     // distribution (Survey Annotation + Structural Readiness gates are still
@@ -2197,10 +2593,14 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     // "—" rather than faked when the backend hasn't computed it yet.
     if (d.drlRecentPct != null) {
       setTxt('drl-recent', d.drlRecentPct + '% of AI-Ready assets updated recently');
+    } else if (nmReason('drlRecentPct', store)) {
+      setTxt('drl-recent', 'share updated recently not measured — ' + nmReason('drlRecentPct', store) +
+        (d.drlRecentCount != null ? ' (' + uncLine('drlRecentCount', d.drlRecentCount, 'updated recently', store) + ')' : ''));
     }
     if (d.drlByModality) {
-      var m = d.drlByModality;
-      setTxt('drl-modality', fmt(m.tabular) + ' tabular · ' + fmt(m.text_media) + ' text/media · ' + fmt(m.other) + ' other');
+      var m = d.drlByModality, ge = uncMark('drlByModality', store) ? '≥' : '';
+      setTxt('drl-modality', ge + fmt(m.tabular) + ' tabular · ' + ge + fmt(m.text_media) + ' text/media · ' + ge + fmt(m.other) + ' other' +
+        (ge ? ' (each at least what is shown; ' + UNC_REASON + ')' : ''));
     }
     renderDataQuality(store);
   }
@@ -2218,7 +2618,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
       gov:    s.map(function(p){ return (p.assets && p.governed != null) ? Math.round(100 * p.governed / p.assets) : null; })
     };
     // Real Vega-Lite multi-series line chart when the backend has one (NEXT-10
-    // P1); falls back to the hand-drawn dual-axis SVG (which frames "% governed"
+    // P1); falls back to the hand-drawn dual-axis SVG (live data too, which frames "% governed"
     // on a second axis — a distinction the Vega chart doesn't make yet) otherwise.
     var growthSvg = document.getElementById('growth');
     var growthVegaEl = document.getElementById('growthVega');
@@ -2252,28 +2652,156 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     var q = asOf ? (path.indexOf('?') === -1 ? '?' : '&') + 'as_of_time=' + encodeURIComponent(asOf) : '';
     return egeriaFetch(path + q, CREDS).then(function(r){ if (!r.ok) throw 0; return r.json(); });
   }
+  // Background-measured sections (summary, ai-context, usage-context, growth). The server never blocks on
+  // Egeria: with nothing measured yet it answers {"loading": true} with no data fields, and this asks again
+  // every SECTION_POLL_MS until the numbers arrive (onData runs, the promise resolves) or SECTION_POLL_MAX
+  // tries pass (rejects, so the section reads "no data"). A stale answer is shown at once while the server
+  // re-measures; it is re-fetched quietly a few times so the fresh numbers replace it. A newer call for the
+  // same source and store cancels an older poll (it resolves null). People and activity are fast and are
+  // answered directly, so they keep plain getJSON. Only the primary (displayed) store drives badges and ages.
+  var SECTION_POLL_MS = 10000, SECTION_POLL_MAX = 90;      // 15 min: cold sections queue behind each other (2 at a time);
+                                                            // measured 2026-11-07 under heavy host load: 4–8 min until all four were ready
+  var REFRESH_POLL_MS = 30000, REFRESH_POLL_MAX = 10;
+  function getSection(source, path, asOf, store, primary, onData){
+    var tk = 'poll_' + source;
+    store[tk] = (store[tk] || 0) + 1;
+    var token = store[tk];
+    return new Promise(function(resolve, reject){
+      var settled = false;
+      (function attempt(n, refreshTries){
+        getJSON(path, asOf).then(function(d){
+          if (token !== store[tk]) { if (!settled) { settled = true; resolve(null); } return; }
+          if (d && d.loading) {
+            if (settled) return;                         // a quiet refresh poll: keep showing the old numbers
+            if (n >= SECTION_POLL_MAX) {
+              if (primary) { LOADING_SOURCES.delete(source); renderSectionBadges(); renderKPIs(); }
+              settled = true; reject(new Error(source + ' still measuring')); return;
+            }
+            if (primary && !LOADING_SOURCES.has(source)) { LOADING_SOURCES.add(source); renderSectionBadges(); renderKPIs(); }
+            setTimeout(function(){ attempt(n + 1, refreshTries); }, SECTION_POLL_MS);
+            return;
+          }
+          if (primary) {
+            LOADING_SOURCES.delete(source);
+            SOURCE_AGE[source] = d ? { measuredAt: d.measuredAt || null, stale: !!d.stale, refreshSeconds: d.refreshSeconds || null } : null;
+            renderSectionBadges();
+          }
+          onData(d);
+          if (!settled) { settled = true; resolve(d); }
+          if (d && d.refreshing && refreshTries < REFRESH_POLL_MAX)
+            setTimeout(function(){ attempt(n, refreshTries + 1); }, REFRESH_POLL_MS);
+        }, function(e){
+          if (token !== store[tk] || settled) { if (!settled) { settled = true; resolve(null); } return; }
+          if (primary) { LOADING_SOURCES.delete(source); renderSectionBadges(); renderKPIs(); }
+          settled = true; reject(e);
+        });
+      })(0, 0);
+    });
+  }
   // Growth chart for a given window (8h..1y); granularity follows the window server-side.
   function loadGrowth(win){
     var sub = document.getElementById('growth-sub');
+    win = win || '6mo';
     if (sub) sub.textContent = 'Loading ' + win + ' snapshots…';
-    return getJSON('/api/overview/growth?window=' + encodeURIComponent(win || '6mo'), null)
-      .then(function(d){ FAILED_SOURCES.delete('growth'); renderSectionBadges(); applyGrowth(d); })
+    var shown = false;
+    return getSection('growth', '/api/overview/growth?window=' + encodeURIComponent(win), null, LIVE, true,
+                      function(d){ shown = true; applyGrowth(d); })
+      .then(function(d){ if (d === null && !shown) return; FAILED_SOURCES.delete('growth'); renderSectionBadges(); })
       .catch(function(){ FAILED_SOURCES.add('growth'); renderSectionBadges(); if (sub) sub.textContent = 'Growth unavailable'; });
   }
+  // ---- Assets by Type: /api/overview/composition (repository counts per subtype; viewer total only) ----
+  // A bar is the repository count. not_measured shows the words (never a zero bar); nothing_found shows 0 with
+  // its sentence on hover. The viewer column is the hourly Asset total only: per-type viewer cells are
+  // not_measured, so the panel says so once instead of drawing viewer bars. A click on a bar re-queries with
+  // root=<that type>.
+  var COMP = { root: 'Asset', trail: [], asOf: null, polls: 0 };
+  function escHtml(t){ return String(t == null ? '' : t).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function renderComposition(d){
+    var el = document.getElementById('byType'); if (!el || !d) return;
+    var rows = (d.rows || []).filter(function(r){ return r.level === 1; });
+    var sub = document.getElementById('byType-sub');
+    if (sub) sub.innerHTML = 'Direct subtypes of ' + escHtml(d.root) + ' — whole catalog' +
+      (COMP.trail.length ? ' · <a href="#" data-comp-root="' + escHtml(COMP.trail[COMP.trail.length - 1]) + '">&larr; back</a>' : '');
+    if (!rows.length) { el.innerHTML = '<div style="color:var(--muted);font-size:.8rem;padding:10px 0">' + escHtml(d.root) + ' has no subtypes to show' + (d.state_reason ? ' — ' + escHtml(d.state_reason) : '') + '</div>'; return; }
+    var mx = Math.max.apply(null, rows.map(function(r){ var v = r.repository && r.repository.value; return v || 0; })) || 1;
+    el.innerHTML = rows.map(function(r){
+      var c = r.repository || {}, label = r.exact_type ? r.type_name + ' (exactly)' : r.type_name;
+      var drill = !r.exact_type && c.state !== 'nothing_found' ? ' data-comp-root="' + escHtml(r.type_name) + '"' : '';
+      var cls = 'hbar-row' + (drill ? ' drill' : '');
+      if (c.state === 'measured' || c.state === 'nothing_found') {
+        var v = c.value || 0;
+        return '<div class="' + cls + '"' + drill + ' title="' + escHtml(c.state === 'nothing_found' ? 'Nothing found: no ' + label + ' elements in the catalog' : label + ': ' + v.toLocaleString()) + '"><span class="lab">' + escHtml(label) + '</span>' +
+          '<div class="hbar-track"><div class="hbar-fill" style="width:' + (v ? Math.max(3, 100 * v / mx) : 0) + '%;background:var(--c2)"></div></div>' +
+          '<span class="num">' + v.toLocaleString() + '</span></div>';
+      }
+      return '<div class="' + cls + '" title="' + escHtml(c.reason || 'not measured') + '"><span class="lab">' + escHtml(label) + '</span>' +
+        '<div class="hbar-track"></div><span class="num" style="font-size:.7rem;color:var(--muted)">not measured</span></div>';
+    }).join('');
+    var vEl = document.getElementById('byType-viewer');
+    if (vEl) {
+      var top = (d.rows || []).filter(function(r){ return r.level === 0; })[0], v = top && top.viewer, nv = top && top.not_visible, txt;
+      if (d.root !== 'Asset' || !v) txt = 'Visible to you: per-type counts are not measured (only the total of all assets is cached).';
+      else if (v.state === 'measured' || v.state === 'nothing_found') {
+        txt = 'Visible to you: ' + v.value.toLocaleString() + ' of ' + ((top.repository || {}).value != null ? top.repository.value.toLocaleString() : 'not measured') + ' in the catalog' +
+          (nv && nv.value != null ? ' · not visible to you: ' + nv.value.toLocaleString() : '') +
+          (v.as_of ? ' · counted ' + new Date(v.as_of).toLocaleTimeString() + ', refreshed hourly' : '') + '. Per-type counts for you are not measured.';
+      } else txt = 'Visible to you: not measured — ' + (v.reason || '') + '. Per-type counts for you are not measured.';
+      vEl.textContent = txt;
+    }
+  }
+  function renderCompositionFailed(){
+    var el = document.getElementById('byType');
+    if (el) el.innerHTML = '<div style="color:var(--muted);font-size:.8rem;padding:10px 0">Not measured: the composition could not be read</div>';
+  }
+  function reloadComposition(store, asOf, primary, attempt){
+    if (!primary) return Promise.resolve();
+    attempt = attempt || 0;
+    if (attempt === 0) { COMP.asOf = asOf; COMP.polls += 1; }
+    var token = COMP.polls, root = COMP.root;
+    return getSection('composition', '/api/overview/composition?root=' + encodeURIComponent(root) + '&depth=1', asOf, {}, false, function(d){
+      if (token !== COMP.polls || root !== COMP.root) return;
+      renderComposition(d);
+      if (d && d.viewerTotalLoading && attempt < VIEWER_POLL_MAX)
+        setTimeout(function(){ reloadComposition(store, asOf, primary, attempt + 1).catch(function(){}); }, VIEWER_POLL_MS);
+    }).catch(function(){ if (token === COMP.polls) renderCompositionFailed(); });
+  }
+  document.addEventListener('click', function(e){
+    var a = e.target.closest ? e.target.closest('[data-comp-root]') : null; if (!a) return;
+    e.preventDefault(); e.stopPropagation();
+    var next = a.getAttribute('data-comp-root');
+    if (a.tagName === 'A') COMP.trail.pop(); else COMP.trail.push(COMP.root);
+    COMP.root = next;
+    reloadComposition({}, COMP.asOf, true).catch(function(){});
+  }, true);
   // Per-endpoint reloaders — each fetches one section's data into `store` and
   // re-renders the KPI band. Factored out of loadSet() so a section's own
   // refresh button can re-fetch just that section instead of all four.
-  function reloadSummary(store, asOf, primary){
-    return getJSON('/api/overview/summary', asOf).then(function(d){ applySummary(d, store, primary); renderKPIs(); });
+  // The summary may answer before the count of assets this user can see has finished (it takes about two
+  // minutes; the server counts in the background). While it says "loading", ask again every 15 s for up to
+  // 5 minutes, then show "not measured" with the reason. A newer load of the same store cancels an older poll.
+  var VIEWER_POLL_MS = 15000, VIEWER_POLL_MAX = 20;
+  function reloadSummary(store, asOf, primary, attempt){
+    attempt = attempt || 0;
+    if (attempt === 0) store.sumPoll = (store.sumPoll || 0) + 1;
+    var token = store.sumPoll;
+    return getSection('summary', '/api/overview/summary', asOf, store, primary, function(d){
+      if (token !== store.sumPoll) return;               // a newer load owns this store now
+      store.viewerGaveUp = !!(d && d.assetTotalViewerLoading && attempt >= VIEWER_POLL_MAX);
+      applySummary(d, store, primary); renderKPIs();
+      if (d && d.assetTotalViewerLoading && attempt < VIEWER_POLL_MAX)
+        setTimeout(function(){ reloadSummary(store, asOf, primary, attempt + 1).catch(function(){}); }, VIEWER_POLL_MS);
+    });
   }
   function reloadPeople(store, asOf, primary){
     return getJSON('/api/overview/people', asOf).then(function(d){ applyPeople(d, store, primary); renderKPIs(); });
   }
   function reloadUsage(store, asOf, primary){
-    return getJSON('/api/overview/usage-context', asOf).then(function(d){ applyUsage(d, store, primary); renderKPIs(); });
+    return getSection('usage-context', '/api/overview/usage-context', asOf, store, primary,
+                      function(d){ applyUsage(d, store, primary); renderKPIs(); });
   }
   function reloadAI(store, asOf, primary){
-    return getJSON('/api/overview/ai-context', asOf).then(function(d){ applyAI(d, store, primary); renderKPIs(); });
+    return getSection('ai-context', '/api/overview/ai-context', asOf, store, primary,
+                      function(d){ applyAI(d, store, primary); renderKPIs(); });
   }
   // Fetch the four point-in-time endpoints (optionally as-of) into a store.
   // Renders after EACH resolves so fast endpoints (summary ~3s) show immediately
@@ -2281,6 +2809,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
   // Resolves to {total, failed:[source names]} so the caller can say what actually loaded --
   // allSettled never rejects, so without this every outcome used to read as "live".
   function loadSet(store, asOf, primary){
+    if (primary) { COMP.root = 'Asset'; COMP.trail = []; reloadComposition(store, asOf, primary).catch(function(){}); }
     var names = ['summary', 'people', 'usage-context', 'ai-context'];
     return Promise.allSettled([
       reloadSummary(store, asOf, primary),
@@ -2300,7 +2829,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
   // Badge for a finished load: all sources -> the requested mode; some -> "partial"; none -> "no data".
   // A refresh that fails leaves the last successfully loaded numbers on screen; say so rather than
   // implying there is no data. (A first load that fails has nothing loaded, so the tiles show dashes.)
-  var SRC_FIELD = { 'summary': 'assets', 'people': 'people', 'usage-context': 'isc', 'ai-context': 'groundingPct' };
+  var SRC_FIELD = { 'summary': 'assets', 'people': 'people', 'usage-context': 'isc', 'ai-context': 'groundingLinks' };
   function statusBadge(st, mode, label){
     if (st.failed.length === 0) return setBadge(mode, label);
     var stale = st.failed.some(function(n){ return LIVE[SRC_FIELD[n]] != null; });
@@ -2345,6 +2874,11 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     ASOF_LABEL = dateVal ? new Date(dateVal + 'T00:00:00').toLocaleDateString([], {month:'short', day:'numeric', year:'numeric'}) : '';
     Object.keys(BASE).forEach(function(k){ delete BASE[k]; });   // clear baseline
     badge('◌ querying Egeria…', 'var(--muted)');   // as-of queries are slow (see count-API TODO)
+    // Activity and Growth are not as-of queries: say so while a past date is set, never answer silently with now.
+    // (Compare mode keeps LIVE = now as the primary view, so the notes apply only to a pure as-of view.)
+    ['activity-asof-note', 'growth-asof-note'].forEach(function(id){
+      var n = document.getElementById(id); if (n) n.style.display = (asOf && !COMPARE) ? '' : 'none';
+    });
 
     if (!asOf) {
       loadSet(LIVE, null, true).then(function(st){ renderKPIs(); statusBadge(st, 'live'); });
@@ -2451,6 +2985,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     wireControls();
     loadSet(LIVE, null, true).then(function(st){ renderKPIs(); statusBadge(st, 'live'); });
     loadTileInfo();
+    loadPerspectivesFromEgeria(CREDS);
     var rs = document.getElementById('range-sel');
     loadGrowth(rs ? rs.value : '6mo');
     loadActivity();
@@ -2458,6 +2993,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
   }
   function boot(){
     if (typeof egeriaFetch !== 'function') {   // shared UI not loaded — sample only
+      loadPerspectivesFromEgeria(null);
       badge('○ sample (offline)', 'var(--c4)'); stamp(); return;
     }
     // Freshstart port (NEXT-11, BACKLOG.md): mirrors tech-catalog.html's boot

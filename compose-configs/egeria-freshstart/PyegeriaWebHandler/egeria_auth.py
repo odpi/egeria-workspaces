@@ -91,6 +91,20 @@ def use_token(client, token: str) -> None:
     client.user_pwd = None
 
 
+def _token_expired(token: Optional[str]) -> bool:
+    """True when the token's ``exp`` claim is in the past. Read without verifying the signature
+    (Egeria verifies it on every call); a token with no readable ``exp`` is not called expired."""
+    parts = token.split(".") if token else []
+    if len(parts) != 3:
+        return False
+    try:
+        payload = json.loads(base64.urlsafe_b64decode(parts[1] + "=" * (-len(parts[1]) % 4)))
+    except (ValueError, TypeError):
+        return False
+    exp = payload.get("exp") if isinstance(payload, dict) else None
+    return isinstance(exp, (int, float)) and exp <= time.time()
+
+
 # ── Platform allowlist (BRIEF-PORTAL-PLATFORM-URL-ALLOWLIST-2026-11-10) ─────────────────────────────
 # The rule: the Portal's service credentials only ever go to an allow-listed platform, and a token only
 # ever goes to the platform it was minted for. A user's OWN password may go to a platform the user chose
