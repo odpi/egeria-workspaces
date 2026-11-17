@@ -115,7 +115,11 @@
   function DataScopeEditor(props) {
     var groups = props.groups || [];
     var _v = React.useState(function () { return dataScopeValues(groups, props.scope); }), values = _v[0], setValues = _v[1];
-    React.useEffect(function () { setValues(dataScopeValues(groups, props.scope)); }, [props.scope, groups]);
+    // Reset the form only when the stored scope or the dimensions really change. Pages pass
+    // groups.filter(...), a new array on every render, so depending on the array itself reset
+    // the form on every re-render: pressing Save put the stored values back (owner, 2026-11-17).
+    var resetKey = JSON.stringify(props.scope || null) + '|' + groups.map(function (g) { return g.id; }).join(',');
+    React.useEffect(function () { setValues(dataScopeValues(groups, props.scope)); }, [resetKey]);
     function setField(name, val) { var n = Object.assign({}, values); n[name] = val; setValues(n); }
     function submit(e) {
       e.preventDefault();
