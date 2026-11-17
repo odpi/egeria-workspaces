@@ -14,6 +14,13 @@
  *   DataScopeView({ groups, scope })           — what a scope records, "not recorded" when absent
  *   dataScopeValues(groups, scope)             — form values from stored properties
  *   dataScopeFetchDimensions(type, creds)      — cached GET of the groups
+ *   dataScopeDateText(iso, role)               — a stored time as the form shows it (UTC)
+ *   dataScopePeriodText(start, end)            — a period for a chip: "2026", "2026-03", or from → to
+ *
+ * Dates are typed, not picked (PO-35, 2026-11-17): a date-and-time picker filled in the time of
+ * day when only a date was chosen, so "2026" saved 09:04 → 09:05. A year, month or day now
+ * means the whole of it; the server turns a start into its first instant and an end into its
+ * last (…23:59:59.999Z). A time can still be typed (yyyy-mm-dd hh:mm, UTC).
  */
 (function () {
   var h = React.createElement;
@@ -38,6 +45,34 @@
     return g.fields.every(function (f) { var v = scope[f.name]; return v === undefined || v === null || Number(v) === 0; });
   }
 
+  function _pad(n) { return (n < 10 ? '0' : '') + n; }
+
+  // A stored time as the form shows it, in UTC: just the day when it is the first instant of a
+  // day (a start) or the last (an end), else the day and time.
+  function dataScopeDateText(iso, role) {
+    var d = new Date(iso);
+    if (iso === undefined || iso === null || iso === '' || isNaN(d)) return iso === undefined || iso === null ? '' : String(iso);
+    var day = d.getUTCFullYear() + '-' + _pad(d.getUTCMonth() + 1) + '-' + _pad(d.getUTCDate());
+    var h = d.getUTCHours(), m = d.getUTCMinutes(), sec = d.getUTCSeconds(), ms = d.getUTCMilliseconds();
+    if (role !== 'end' && !h && !m && !sec && !ms) return day;
+    if (role === 'end' && h === 23 && m === 59 && sec === 59) return day;
+    return day + ' ' + _pad(h) + ':' + _pad(m);
+  }
+
+  // A period for a chip: a whole year or month collapses to "2026" or "2026-03"; else from → to,
+  // with "UTC" when a time is shown. An open end is "…".
+  function dataScopePeriodText(start, end) {
+    var s = start ? dataScopeDateText(start, 'start') : '', e = end ? dataScopeDateText(end, 'end') : '';
+    var ms = /^(\d{4})-(\d{2})-01$/.exec(s), me = /^(\d{4})-(\d{2})-(\d{2})$/.exec(e);
+    if (ms && me && ms[1] === me[1]) {
+      var last = new Date(Date.UTC(+me[1], +me[2], 0)).getUTCDate();
+      if (ms[2] === '01' && me[2] === '12' && me[3] === '31') return ms[1];
+      if (ms[2] === me[2] && +me[3] === last) return ms[1] + '-' + ms[2];
+    }
+    var timed = s.indexOf(':') >= 0 || e.indexOf(':') >= 0;
+    return (s || '\u2026') + ' \u2192 ' + (e || '\u2026') + (timed ? ' UTC' : '');
+  }
+
   function dataScopeValues(groups, scope) {
     var out = {};
     scope = scope || {};
@@ -46,7 +81,7 @@
       g.fields.forEach(function (f) {
         var v = scope[f.name];
         if (v === undefined || v === null || emptyBound) { out[f.name] = f.kind === 'map' ? {} : ''; return; }
-        if (f.kind === 'date') { var d = new Date(v); out[f.name] = isNaN(d) ? String(v).slice(0, 16) : d.toISOString().slice(0, 16); }  // yyyy-mm-ddThh:mm, UTC
+        if (f.kind === 'date') out[f.name] = dataScopeDateText(v, f.role);   // yyyy-mm-dd, or yyyy-mm-dd hh:mm; UTC
         else if (f.kind === 'map') out[f.name] = Object.assign({}, v);
         else out[f.name] = String(v);
       });
@@ -55,7 +90,7 @@
   }
 
   function _fmt(f, v) {
-    if (f.kind === 'date') { var d = new Date(v); return isNaN(d) ? String(v) : d.toISOString().slice(0, 16).replace('T', ' ') + ' UTC'; }
+    if (f.kind === 'date') { var t = dataScopeDateText(v, f.role); return t.indexOf(':') >= 0 ? t + ' UTC' : t; }
     return String(v);
   }
 
@@ -105,7 +140,10 @@
   function Input(props) {
     var f = props.field, v = props.value, set = props.onChange, g = props.group;
     var common = { style: inp, value: v, title: f.help, 'aria-label': f.name, onChange: function (e) { set(e.target.value); } };
-    if (f.kind === 'date') return h('input', Object.assign({ type: 'datetime-local' }, common));
+    if (f.kind === 'date') return h('input', Object.assign({}, common, { type: 'text', inputMode: 'numeric',
+      placeholder: (f.role === 'end' ? 'to' : 'from') + ': yyyy, yyyy-mm or yyyy-mm-dd',
+      title: (f.help ? f.help + '\n' : '') + 'UTC. A year or month means all of it: as a start its first day, as an end its last. ' +
+        'Add a time (yyyy-mm-dd hh:mm) only when it matters.' }));
     if (f.kind === 'number') return h('input', Object.assign({ type: 'number', step: 'any', min: g.range ? g.range[0] : undefined,
       max: g.range ? g.range[1] : undefined, placeholder: f.role === 'min' ? 'min' : f.role === 'max' ? 'max' : '' }, common));
     if (f.kind === 'boolean') return h('input', { type: 'checkbox', checked: !!v, 'aria-label': f.name, onChange: function (e) { set(e.target.checked); } });
@@ -115,7 +153,11 @@
   function DataScopeEditor(props) {
     var groups = props.groups || [];
     var _v = React.useState(function () { return dataScopeValues(groups, props.scope); }), values = _v[0], setValues = _v[1];
-    React.useEffect(function () { setValues(dataScopeValues(groups, props.scope)); }, [props.scope, groups]);
+    // Reset the form only when the stored scope or the dimensions really change. Pages pass
+    // groups.filter(...), a new array on every render, so depending on the array itself reset
+    // the form on every re-render: pressing Save put the stored values back (owner, 2026-11-17).
+    var resetKey = JSON.stringify(props.scope || null) + '|' + groups.map(function (g) { return g.id; }).join(',');
+    React.useEffect(function () { setValues(dataScopeValues(groups, props.scope)); }, [resetKey]);
     function setField(name, val) { var n = Object.assign({}, values); n[name] = val; setValues(n); }
     function submit(e) {
       e.preventDefault();
@@ -182,4 +224,6 @@
   window.DataScopeView = DataScopeView;
   window.dataScopeValues = dataScopeValues;
   window.dataScopeFetchDimensions = dataScopeFetchDimensions;
+  window.dataScopeDateText = dataScopeDateText;
+  window.dataScopePeriodText = dataScopePeriodText;
 })();
