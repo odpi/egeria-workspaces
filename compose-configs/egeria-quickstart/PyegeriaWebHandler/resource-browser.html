@@ -2313,6 +2313,13 @@ function notShownLine(list) {
     (list.notShown === 1 ? 'it is' : 'they are') + ' not a resource this app lists or ' + (list.notShown === 1 ? 'is a template' : 'are templates') + '.';
 }
 
+// A Browse list's URL. The value goes in the query, never the path: keywords, categories and owners
+// are free text and may hold a "/", which a path segment cannot carry past Apache (Architect R1).
+function browseListUrl(facet, value, lens) {
+  return API + '/browse/' + encodeURIComponent(facet) + '?value=' + encodeURIComponent(value) +
+    (lens ? '&lens=' + encodeURIComponent(lens) : '');
+}
+
 var BROWSE_POLL_MS = 8000;
 var VALUE_FILTER_MIN = 12;   // a values page with more than this many values gets a filter box
 
@@ -2345,7 +2352,7 @@ function BrowsePage({ facet, value, lens, creds }) {
     // While the full-resource count runs in the background the server says loading; ask again shortly.
     function again(d) { if (live && d && d.loading) timer = setTimeout(function() { setTick(function(n) { return n + 1; }); }, BROWSE_POLL_MS); }
     if (effective) {
-      getJson(API + '/browse/' + f.id + '/' + encodeURIComponent(effective) + (lens ? '?lens=' + encodeURIComponent(lens) : ''), creds)
+      getJson(browseListUrl(f.id, effective, lens), creds)
         .then(function(d) { if (live) { setList(d); again(d); } }).catch(function(e) { if (live) setErr(e.message); });
     } else {
       getJson(API + '/browse/' + f.id, creds).then(function(d) { if (live) { setVals(d); again(d); } }).catch(function(e) { if (live) setErr(e.message); });

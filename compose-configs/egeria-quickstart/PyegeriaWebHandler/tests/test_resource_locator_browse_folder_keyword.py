@@ -213,3 +213,15 @@ def test_two_spellings_on_one_element_are_one_row_and_counted(client, fake):
     assert [r["guid"] for r in d["items"]] == ["r1"] and d["duplicateLinks"] == 1
     assert "listed once" in d["note"]
     assert _accounted(d) == d["attachments"] == 2
+
+
+def test_a_keyword_with_a_slash_opens_through_the_query_form(client, fake):
+    """laz has "App/AI Builder": a "/" cannot travel in a path segment (Architect R1), so the page
+    asks /browse/keyword?value=…; the path form keeps working for values without one."""
+    fake["keywords"] = [_kw("k1", "App/AI Builder"), _kw("k2", "Finance")]
+    fake["elements"].update(k1=_kw_read("k1", [_TABLE]), k2=_kw_read("k2", [_TERM]))
+    d = client.get("/api/resource-browser/browse/keyword", params={"value": "App/AI Builder"}).json()
+    assert d["title"] == "Keyword: App/AI Builder" and [r["guid"] for r in d["items"]] == ["r1"]
+    assert client.get("/api/resource-browser/browse/keyword/Finance").json()["items"][0]["guid"] == "t1"
+    assert client.get("/api/resource-browser/browse/keyword", params={"value": "nope"}).status_code == 404
+    assert client.get("/api/resource-browser/browse/nofacet", params={"value": "x"}).status_code == 404

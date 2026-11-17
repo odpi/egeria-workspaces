@@ -2805,8 +2805,16 @@ async def _facet_values(facet: str) -> dict:
     raise HTTPException(status_code=404, detail=f"Unknown browse facet {facet!r}.")
 
 
-@router.get("/api/resource-browser/browse/{facet}", summary="The values of one browse facet")
-async def browse_values(facet: str):
+@router.get("/api/resource-browser/browse/{facet}", summary="The values of one browse facet, or with ?value= the resources under one")
+async def browse_values(facet: str,
+                        value: Optional[str] = Query(None, description="A facet value: answers as /browse/{facet}/{value}. "
+                                                     "Use this form for free-text values (keywords, categories, owners), "
+                                                     "which may hold a \"/\" that a path cannot carry"),
+                        lens: Optional[str] = Query(None, description="With value: a Data Lens guid, as on the list endpoint")):
+    # Architect R1 (2026-11-17): a "/" in a path segment goes out as %2F, which Apache refuses (no
+    # AllowEncodedSlashes) and Starlette decodes before routing; laz has the keyword "App/AI Builder".
+    if value is not None:
+        return await browse_list(facet, value, lens)
     if facet not in _FACETS:
         raise HTTPException(status_code=404, detail=f"Unknown browse facet {facet!r}.")
     try:

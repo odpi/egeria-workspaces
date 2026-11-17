@@ -134,3 +134,11 @@ def test_r2_a_failed_term_read_keeps_the_resource_rows(monkeypatch):
     out = asyncio.run(rb._all_resources_sweep())
     assert [r["guid"] for r in out["rows"]] == ["db"]
     assert out["terms"] == [] and "timed out" in out["termsError"]
+
+
+def test_a_category_with_a_slash_opens_through_the_query_form(client, state):
+    state["value"] = _sweep([_el("rd", "DataSet", _ASSET, "rd set", category="R&D / Clinical"), _DB])
+    vals = [v["id"] for v in client.get("/api/resource-browser/browse/category").json()["values"]]
+    assert "R&D / Clinical" in vals
+    d = client.get("/api/resource-browser/browse/category", params={"value": "R&D / Clinical"}).json()
+    assert d["title"] == "Category: R&D / Clinical" and [r["guid"] for r in d["items"]] == ["rd"]
