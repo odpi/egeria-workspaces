@@ -53,6 +53,7 @@ generalization of `Format` itself is deliberately deferred to P1 (see
 
 from __future__ import annotations
 
+import re
 from typing import Dict, List
 
 # The FormatSet model moved to pyegeria.view in newer releases; keep a fallback
@@ -74,24 +75,46 @@ FAMILY = "overview-kpi"
 PROVENANCE = ("live", "mixed", "illustrative")
 
 # The backend endpoints a tile's value can be sourced from (the /api/overview/*
-# routes in overview_handler.py).
-ENDPOINTS = ("summary", "people", "usage-context", "ai-context")
+# routes in overview_handler.py). "growth" (time series) and "activity" (change
+# stream) feed panels rather than KPI tiles, but are listed so the registry
+# names every data route.
+ENDPOINTS = ("summary", "people", "usage-context", "ai-context", "growth", "activity")
 
 # Perspective → ordered KPI selection. This is the *source of truth* for which
 # tiles each perspective shows; the frontend PERSP_KPIS must match it (guarded by
 # test_overview_specs.py). Each tile's question_spec.perspectives is the inverse.
 PERSP_KPIS: Dict[str, List[str]] = {
-    "governance": ["assets", "terms", "governed", "certs", "products", "exceptions"],
-    "steward":    ["assets", "governed", "exceptions", "certs", "terms", "grounding"],
-    "owner":      ["products", "governed", "certs", "exceptions", "people", "grounding"],
-    "consumer":   ["products", "terms", "grounding", "isc", "blueprints", "people"],
-    "engineer":   ["assets", "isc", "blueprints", "grounding", "exceptions", "governed"],
-    "architecture": ["isc", "blueprints", "assets", "grounding", "governed", "exceptions"],
-    "security":   ["governed", "exceptions", "ai-ready", "certs", "assets", "grounding"],
-    "builder":    ["assets", "grounding", "isc", "blueprints", "governed", "products"],
-    "privacy":    ["governed", "certs", "exceptions", "assets", "grounding", "products"],
-    "community":  ["people", "communities", "products", "terms", "governed", "assets"],
+    "governance":     ["assets", "terms", "governed", "certs", "products", "exceptions"],
+    "steward":        ["assets", "governed", "exceptions", "certs", "terms", "grounding"],
+    "owner":          ["products", "governed", "certs", "exceptions", "people", "grounding"],
+    "consumer":       ["products", "terms", "grounding", "isc", "blueprints", "people"],
+    "app-ai-builder": ["assets", "grounding", "isc", "blueprints", "governed", "products"],
+    "privacy":        ["governed", "certs", "exceptions", "assets", "grounding", "products"],
+    "community":      ["people", "communities", "products", "terms", "governed", "assets"],
+    "data-expert":    ["assets", "isc", "blueprints", "grounding", "exceptions", "governed"],
+    "security":       ["governed", "exceptions", "ai-ready", "certs", "assets", "grounding"],
+    "architecture":   ["isc", "blueprints", "assets", "grounding", "governed", "exceptions"],
 }
+
+# The ten Trellis perspectives the Overview shows, in foundations.md order (Financial and Administration
+# are left out on purpose: design note §10.8). Egeria qualifiedName is "Perspective::<display name>".
+# "Owner" was "Data Owner" until 2026-11-07, when Trellis moved to the content pack's Perspective::Owner.
+PERSPECTIVE_DISPLAY_NAMES: List[str] = [
+    "Governance", "Steward", "Owner", "Consumer", "App/AI Builder",
+    "Privacy", "Community", "Data Expert", "Security", "Architecture",
+]
+
+# Keys the page saved in localStorage before a Trellis rename -> current key. "data-owner" -> "owner"
+# since 2026-11-07; the older saved "owner" is the current key again, so it needs no entry.
+LEGACY_PERSPECTIVE_KEYS: Dict[str, str] = {
+    "data-owner": "owner", "engineer": "data-expert", "builder": "app-ai-builder",
+}
+
+
+def perspective_key(display_name: str) -> str:
+    """Slug of a Trellis perspective display name: lower-case, runs of non-alphanumerics -> "-".
+    Mirrors perspectiveKey() in egeria-overview.html (test_overview_specs.py proves they agree)."""
+    return re.sub(r"[^a-z0-9]+", "-", (display_name or "").lower()).strip("-")
 
 
 def perspectives_for(kpi_key: str) -> List[str]:
@@ -181,25 +204,33 @@ _TILES = [
     },
     {
         "key": "governed", "label": "Governed Coverage", "icon": "🛡️", "color": "var(--c6)",
-        "description": "Share of assets carrying at least one governance classification "
+        "description": "Share of Assets carrying at least one governance classification "
                        "(ZoneMembership/Confidentiality/Criticality/Impact/Retention).",
         "target_type": None, "endpoint": "summary", "value_field": "governedCount",
         "detail_spec": "governed", "series": "gov", "unit": "percent", "provenance": "live",
-        "compute": ("MetadataExpert.find_metadata_elements",
-                    {"matchClassifications": ["ZoneMembership", "Confidentiality",
+        "compute": ("MetadataExpert.count_metadata_elements",
+                    {"metadataElementTypeName": "Asset",
+                     "matchClassifications": ["ZoneMembership", "Confidentiality",
                                               "Criticality", "Impact", "Retention"],
                      "matchCriteria": "ANY"}),
         "questions": ["Are we in control of the catalog?", "What's ungoverned?"],
-        "summary": "Count of elements carrying at least one governance classification, as a "
-                   "percentage of Assets.",
-        "usage": "The numerator (governance-classified elements) is NOT scoped to Asset -- ANY "
-                 "element type carrying one of the 5 classifications counts, matched ANY not ALL "
-                 "(one classification is enough). The denominator (percentage base) IS Asset-only. "
-                 "So this can legitimately exceed a naive expectation if many non-Asset elements "
-                 "(e.g. GovernanceDefinitions, Projects) are classified -- it is a coverage signal, "
-                 "not literally \"the fraction of assets meeting the label\". Also capped at "
-                 "DEFAULT_CAP (500) server elements per query -- governedCapped=true in the raw "
-                 "payload means the true count is a floor, not exact.",
+        "summary": "Count of Assets carrying at least one governance classification, as a "
+                   "percentage of all Assets. Counts Assets only, so it will usually be lower than "
+                   "before, when elements of any type counted.",
+        "usage": "Assets-only share (owner decision 2026-11-06): the numerator is the number of Asset "
+                 "elements carrying at least one of the 5 governance classifications "
+                 "(ZoneMembership/Confidentiality/Criticality/Impact/Retention, matched ANY not ALL), "
+                 "the denominator is the number of all Assets. Both are strict native counts, so the "
+                 "500-element cap no longer applies and the percentage cannot exceed 100. Elements "
+                 "that are not Assets (GovernanceDefinitions, Projects, glossary terms, ...) no longer "
+                 "count, so the figure is usually lower than the earlier any-type tally. A count that "
+                 "could not be measured shows as not measured, never 0. The Governed vs Ungoverned "
+                 "donut is Asset-scoped the same way; the zone and classification breakdowns beside "
+                 "it still count elements of any type. Scope: when the installed pyegeria supports "
+                 "whole-repository counts, both numerator and denominator count the whole catalog "
+                 "(including Assets you cannot open), so the share can be much smaller than the "
+                 "viewer-scoped figure because the denominator is every Asset in the repository; "
+                 "the tile says which scope it used.",
     },
     {
         "key": "certs", "label": "Active Certifications", "icon": "📜", "color": "var(--c4)",
@@ -306,47 +337,45 @@ _TILES = [
     },
     {
         "key": "grounding", "label": "Semantic Grounding", "icon": "🧠", "color": "var(--c1)",
-        "description": "Share of assets linked to glossary terms via SemanticAssignment "
-                       "— the meaning layer that grounds AI.",
-        "target_type": None, "endpoint": "ai-context", "value_field": "groundingPct",
-        "detail_spec": "grounding", "series": None, "unit": "percent", "provenance": "live",
-        "compute": ("ClassificationExplorer.get_relationships",
-                    {"relationship_type": "SemanticAssignment", "as": "percent_of_assets"}),
+        "description": "Glossary-term links (SemanticAssignment) per 100 Assets — the meaning layer "
+                       "that grounds AI. A link count, not a share of Assets; it becomes the share of "
+                       "Assets with at least one term once pyegeria reports distinct grounded Assets.",
+        "target_type": None, "endpoint": "ai-context", "value_field": "groundingValue",
+        "detail_spec": "grounding", "series": None, "unit": None, "provenance": "live",
+        "compute": ("pyegeria.view.overview_metrics.semantic_grounding", {}),
         "questions": ["How well grounded is the catalog for AI?"],
-        "summary": "Count and percentage of SemanticAssignment relationships, as a proxy for "
-                   "assets grounded with business meaning for AI.",
-        "usage": "CAVEAT, confirmed live 2026-08-01: SemanticAssignment is NOT Asset-scoped. In "
-                 "this dataset, of 397 SemanticAssignment relationships, 348 (87.7%) connect to "
-                 "GovernanceActionProcess elements (governance workflow automation, e.g. "
-                 "subscription-management processes) -- not data assets. The remainder connect to "
-                 "schema-level elements (DataField, TabularColumn, APIParameter, ...), which are "
-                 "not Asset-typed themselves either (they'd need one more hop to their anchor "
-                 "Asset). Zero of the 397 relationships connect directly to an Asset element. "
-                 "Treat this percentage as an upper bound on true asset grounding, not a measured "
-                 "grounded-asset rate, until NEXT-24's audit resolves the scoping (e.g. by "
-                 "filtering to relationships whose non-term end is Asset-typed, or by following "
-                 "schema elements up to their anchor Asset).",
+        "summary": "SemanticAssignment relationships ÷ the Asset total × 100 (groundingMeasure "
+                   "'linksPer100Assets'). Switches to distinct grounded Assets ÷ Assets × 100 "
+                   "(groundingMeasure 'assetShare', shown with a %) when the installed pyegeria's "
+                   "semantic_grounding returns groundedAssetPct (overview_handler._grounding_fields).",
+        "usage": "Not a share of Assets today: one Asset with three terms counts three times, and a "
+                 "link to a non-Asset element counts too (confirmed live 2026-08-01: most "
+                 "SemanticAssignment links end on GovernanceActionProcess or schema elements, not "
+                 "Assets). So the tile shows a plain number with the label 'term links per 100 "
+                 "Assets', never a %. Verified 2026-11-10 against the seed spec 'Analytic Demo - "
+                 "Semantic Grounding': same function, same value (767 links, 1 per 100 Assets).",
     },
     {
         "key": "ownership", "label": "Ownership Coverage", "icon": "🧑‍💼", "color": "var(--c4)",
-        "description": "Share of assets carrying an Ownership classification — a named "
+        "description": "Share of Assets carrying an Ownership classification — a named "
                        "owner responsible for management/governance decisions. Distinct "
                        "from Governed Coverage (classification-based); data mesh names "
                        "'clean, owned, product-based data' as its own foundation for "
                        "trustworthy AI consumption.",
-        "target_type": None, "endpoint": "ai-context", "value_field": "ownershipPct",
+        "target_type": "Asset", "endpoint": "ai-context", "value_field": "ownershipPct",
         "detail_spec": "ownership", "series": None, "unit": "percent", "provenance": "live",
-        "compute": ("pyegeria.view.overview_metrics.ownership_coverage", {}),
+        "compute": ("MetadataExpert.count_metadata_elements",
+                    {"type_name": "Asset", "classifications": ["Ownership"], "strict": True}),
         "questions": ["How much of the catalog has a named, accountable owner?"],
-        "summary": "Count and percentage of elements carrying an Ownership classification, as a "
-                   "percentage of Assets.",
-        "usage": "Same scoping shape as Governed Coverage's caveat: the numerator (Ownership-"
-                 "classified elements) is NOT Asset-scoped -- ANY element type with the "
-                 "classification counts -- while the denominator (percentage base) IS Asset-only. "
-                 "Not yet fully audited for exactly which element types carry Ownership in this "
-                 "dataset (spot-checked live 2026-08-01: at least SolutionActorRole appears as an "
-                 "owner-type value) -- a fuller by-owner-type breakdown is what `byOwnerType` in "
-                 "the raw payload already returns, just not yet surfaced in this tile's UI.",
+        "summary": "Assets carrying an Ownership classification (strict native count) ÷ all Assets "
+                   "(the funnel's Cataloged), both counted in the same population. Same shape as "
+                   "Governed Coverage.",
+        "usage": "Asset-only on both sides since 2026-11-10 (owner decision). It used to divide a "
+                 "find of Ownership-classified elements of ANY type (what the viewer can see) by a "
+                 "viewer Asset total, which cannot be counted at this catalogue size (the native "
+                 "viewer count times out, the find fallback stops at 500), so the tile never got a "
+                 "value. The seed spec 'Analytic Demo - Ownership Coverage' still reports the "
+                 "any-type count (with byOwnerType) and no percentage.",
     },
     {
         "key": "ai-ready", "label": "AI-Ready Assets", "icon": "🤖", "color": "var(--c1)",
