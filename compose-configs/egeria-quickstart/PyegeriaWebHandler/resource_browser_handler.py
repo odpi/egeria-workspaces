@@ -51,6 +51,7 @@ a service account.
 
 import asyncio
 import json
+import time
 import os
 import re
 import uuid
@@ -2577,14 +2578,17 @@ async def _facet_values(facet: str) -> dict:
                            {"id": "known", "label": "Known"}]}
     if facet == "scope":
         recorded, none = await _scope_split()
+        counting = none["rows"] is None
         return {"values": [
             {"id": "recorded", "label": "Data scope recorded", "count": len(recorded["rows"]),
              "countAtLeast": recorded["capped"],
              "description": "A time, place or other dimension is recorded"},
-            {"id": "none", "label": "No data scope recorded", "count": len(none["rows"]),
-             "countAtLeast": none["capped"],
-             "description": "Needs a data scope (some hold only usage readings)"},
-        ], "notRead": len(none["notRead"]),
+            {"id": "none", "label": "No data scope recorded", "count": None if counting else len(none["rows"]),
+             "counting": counting, "countAtLeast": none["capped"],
+             "description": (("The count failed; retrying shortly" if none["error"] else
+                              "Counting every resource in the background (about 20 s the first time)") if counting
+                             else "Needs a data scope (some hold only usage readings)")},
+        ], "notRead": len(none["notRead"]), "loading": counting, "error": none["error"],
            "countsAre": "at least these where marked (a read stopped at its page limit)" if (recorded["capped"] or none["capped"]) else None}
     raise HTTPException(status_code=404, detail=f"Unknown browse facet {facet!r}.")
 
@@ -2594,7 +2598,10 @@ async def browse_values(facet: str):
     if facet not in _FACETS:
         raise HTTPException(status_code=404, detail=f"Unknown browse facet {facet!r}.")
     try:
-        value, stamp = await _cached(f"browse:{facet}", lambda: _facet_values(facet))
+        if facet == "scope":   # not cached here: its lists keep their own ages, and "counting" must not stick
+            value, stamp = await _facet_values(facet), datetime.now(timezone.utc)
+        else:
+            value, stamp = await _cached(f"browse:{facet}", lambda: _facet_values(facet))
     except HTTPException:
         raise
     except Exception as exc:
@@ -2618,6 +2625,7 @@ async def browse_list(facet: str, value: str, lens: Optional[str] = Query(None, 
         raise HTTPException(status_code=404, detail=f"Unknown browse facet {facet!r}.")
     title, note, source, capped = value, None, "", False
     rows_override, scope_ages = None, None
+    scope_loading = scope_refreshing = False
     try:
         client = await _explorer_async()
         if facet == "tag":
@@ -2685,13 +2693,19 @@ async def browse_list(facet: str, value: str, lens: Optional[str] = Query(None, 
                 raise HTTPException(status_code=404, detail="Data scope values are recorded and none.")
             recorded, none = await _scope_split()
             if value == "none":
-                rows_override = none["rows"]
+                rows_override = none["rows"] if none["rows"] is not None else []
                 capped = none["capped"]
                 title = "No data scope recorded"
+                scope_loading = none["rows"] is None
+                scope_refreshing = none["refreshing"]
                 note = ("Resources whose data scope records no time, place or other dimension: no DataScope at all, "
                         "or one holding only usage readings from Egeria's lineage service. Set one in The Catalog.")
                 if none["notRead"]:
                     note += f" {len(none['notRead'])} more could not be checked: their classifications were not read."
+                if scope_loading:
+                    note = ("Counting every resource in the background: this takes about 20 seconds the first time, "
+                            "and this page refreshes itself." +
+                            (f" The last attempt failed ({none['error']}); retrying shortly." if none["error"] else ""))
                 source = ("every resource type (ClassificationExplorer.get_elements) minus those with a data scope "
                           "recorded (get_elements_by_classification DataScope)")
             else:
@@ -2719,6 +2733,8 @@ async def browse_list(facet: str, value: str, lens: Optional[str] = Query(None, 
            "asOf": _now_iso(), "source": source}
     if scope_ages:
         out["scopeListsAsOf"] = scope_ages
+    if scope_loading or scope_refreshing:
+        out.update(loading=scope_loading, refreshing=scope_refreshing)
     if lens:
         out.update(await _apply_lens(lens, uniq, capped))
     return JSONResponse(out)
@@ -2771,13 +2787,66 @@ async def _scope_split() -> tuple:
         return {"rows": [r for r in rows if r["hasScope"]], "usageOnly": sum(1 for r in rows if not r["hasScope"]),
                 "capped": capped}
 
-    async def all_value():
-        async with _ALL_RESOURCES_SWEEPS:
-            return await _all_resources_sweep()
-
     rec, rec_stamp = await _cached("scope-recorded", recorded_value)
-    allr, all_stamp = await _cached("scope-all-resources", all_value)
-    return _split_from(rec, rec_stamp, allr, all_stamp)
+    allr, all_stamp, loading, error = _all_resources_state()
+    return _split_from(rec, rec_stamp, allr, all_stamp, loading, error)
+
+
+# The full-resource sweep runs in the background (Architect, public-demo condition, 2026-11-17): a cold
+# read takes ~19 s and queued reads would add up past Apache's 300 s proxy timeout. A request never waits
+# for it: it gets the last result (marked refreshing while a new one runs) or "loading", and the page polls.
+# One state per user and lineage mode (zone security and forLineage change what is visible).
+_SWEEP_STATE: dict = {}
+_SWEEP_RETRY_S = 60                 # Architect R8: after a failed sweep, wait this long before another
+_SWEEP_EVICT_S = 2 * _CACHE_TTL     # Architect R7: drop idle entries this old (tokens rotate every ~2 h)
+
+
+def _sweep_clock() -> float:
+    return time.monotonic()
+
+
+def _sweep_key() -> Optional[str]:
+    who = request_identity()
+    return None if who is None else f"scope-all-resources|{who}{_lineage_key()}"
+
+
+async def _run_sweep(key: str) -> None:
+    st = _SWEEP_STATE[key]
+    try:
+        async with _ALL_RESOURCES_SWEEPS:
+            value = await _all_resources_sweep()
+        st.update(value=value, stamp=datetime.now(timezone.utc), error=None, doneAt=_sweep_clock(), failedAt=None)
+    except Exception as exc:
+        logger.warning(f"resource-browser: full-resource sweep failed: {exc}")
+        st.update(error=str(exc)[:300], failedAt=_sweep_clock())
+
+
+def _all_resources_state() -> tuple:
+    """(value, stamp, loading, error) for this user's full-resource sweep, starting one if needed.
+
+    Sync on purpose (no await): the check and the task start happen in one step on the event loop,
+    so concurrent requests start exactly one sweep per key (same rule as operations_handler)."""
+    key = _sweep_key()
+    if key is None:
+        raise HTTPException(status_code=401, detail="Your sign-in has expired: sign in again to read this list.")
+    now = _sweep_clock()
+
+    def is_running(entry):
+        return entry["task"] is not None and not entry["task"].done()
+    for k, entry in list(_SWEEP_STATE.items()):          # R7: evict idle entries (one per credential)
+        times = [t for t in (entry.get("doneAt"), entry.get("failedAt")) if t is not None]
+        last = max(times) if times else None
+        if k != key and not is_running(entry) and last is not None and now - last > _SWEEP_EVICT_S:
+            del _SWEEP_STATE[k]
+    st = _SWEEP_STATE.setdefault(key, {"value": None, "stamp": None, "task": None, "error": None,
+                                       "doneAt": None, "failedAt": None})
+    running = is_running(st)
+    fresh = st["doneAt"] is not None and now - st["doneAt"] < _CACHE_TTL
+    failed_recently = st["failedAt"] is not None and now - st["failedAt"] < _SWEEP_RETRY_S   # R8
+    if not fresh and not running and not failed_recently:
+        st["task"] = asyncio.create_task(_run_sweep(key))
+        running = True
+    return st["value"], st["stamp"], running, st["error"]
 
 
 async def _all_resources_sweep() -> dict:
@@ -2800,11 +2869,18 @@ async def _all_resources_sweep() -> dict:
     return {"rows": list(rows.values()), "cappedTypes": capped_types}
 
 
-def _split_from(rec: dict, rec_stamp, allr: dict, all_stamp) -> tuple:
+def _split_from(rec: dict, rec_stamp, allr: Optional[dict], all_stamp, loading: bool = False,
+                error: Optional[str] = None) -> tuple:
+    """recorded and none lists. While the first sweep runs, none has loading=True and no rows: it was
+    not counted yet, which is never shown as 0. A later sweep refreshes in the background."""
+    recorded = dict(rec, asOf=rec_stamp.isoformat(timespec="seconds"))
+    if allr is None:
+        return recorded, {"rows": None, "notRead": [], "capped": True, "cappedTypes": [], "asOf": None,
+                          "loading": loading, "refreshing": False, "error": error}
     scoped = {r["guid"] for r in rec["rows"]}
     none_rows = [r for r in allr["rows"] if r["guid"] not in scoped and r.get("scopeRead", True) and not r["hasScope"]]
     not_read = [r for r in allr["rows"] if r["guid"] not in scoped and not r.get("scopeRead", True)]
-    recorded = dict(rec, asOf=rec_stamp.isoformat(timespec="seconds"))
     none = {"rows": none_rows, "notRead": not_read, "capped": bool(allr["cappedTypes"]) or ALL_ELEMENTS_UNVERIFIED,
-            "cappedTypes": allr["cappedTypes"], "asOf": all_stamp.isoformat(timespec="seconds")}
+            "cappedTypes": allr["cappedTypes"], "asOf": all_stamp.isoformat(timespec="seconds"),
+            "loading": False, "refreshing": loading, "error": error}
     return recorded, none

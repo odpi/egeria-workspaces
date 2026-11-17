@@ -45,7 +45,7 @@ Browse without typing, by **Tag, Badge** (governance classification), **Owner, S
 - **Data scope recorded**: resources whose data scope records a time, a place or another dimension.
 - **No data scope recorded**: resources with no DataScope at all, or one holding only usage readings (see below). These are the resources that still need a scope. The list is every resource the Locator covers minus the recorded ones. Its count shows as "≥ N" (at least): a check against Egeria's repository on 2026-11-17 matched for 40 of 45 resource types, but some data sets were not returned for reasons not yet explained, so the list may be missing a few.
 
-A resource whose classifications were not read is in neither list; the page counts it as **scope not read**. Each list shows its own age: a resource scoped in the last ten minutes may sit in neither list, or both, until both refresh.
+The first time you open it, "No data scope recorded" says **counting…** while every resource is read in the background (about 20 seconds); the page refreshes itself when the count is ready. A resource whose classifications were not read is in neither list; the page counts it as **scope not read**. Each list shows its own age: a resource scoped in the last ten minutes may sit in neither list, or both, until both refresh.
 
 ### Filtering a Browse list by a data lens
 
