@@ -8,7 +8,8 @@
 #   2. else an existing, non-empty value in .env is kept;
 #   3. else the Coco demo persona password is written: the quickstart is the Coco demo, and its
 #      personas all share that password (PyegeriaWebHandler/personas.json, the user directory).
-# To change it, change it together with the user directory (personas.json and the .omsecrets files).
+# To change it, change it together with the user directory (personas.json and the .omsecrets files), and
+# use letters and digits only: .env is unquoted and compose interpolates it (a warning says so otherwise).
 
 # resolve_persona_password ENV_FILE PERSONAS_JSON
 # Sets QUICKSTART_PERSONA_PASSWORD_VAL (never echoed). Returns 1, saying why on stderr, when there is
@@ -31,6 +32,11 @@ resolve_persona_password() {
   if [[ -z "$QUICKSTART_PERSONA_PASSWORD_VAL" ]]; then
     echo "[gen-env.sh] ERROR: no QUICKSTART_PERSONA_PASSWORD: export it, or set it in ${env_file}" >&2
     return 1
+  fi
+  # .env is written unquoted and docker compose interpolates it: a "$", a quote, a space or a "#" would
+  # reach the Portal as a different password. Warn in words (never the value); letters and digits only.
+  if [[ ! "$QUICKSTART_PERSONA_PASSWORD_VAL" =~ ^[A-Za-z0-9]+$ ]]; then
+    echo "[gen-env.sh] WARNING: QUICKSTART_PERSONA_PASSWORD (${QUICKSTART_PERSONA_PASSWORD_SOURCE}) has characters other than letters and digits; docker compose reads .env unquoted and treats \$, quotes, spaces and # specially, so the Portal may sign in with a different password. Use letters and digits only (value not shown)." >&2
   fi
   return 0
 }

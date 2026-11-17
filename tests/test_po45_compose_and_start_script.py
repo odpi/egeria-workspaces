@@ -75,6 +75,7 @@ def _resolve(tmp_path: Path, env_lines: str | None, exported: str | None, person
     if exported is not None:
         env["QUICKSTART_PERSONA_PASSWORD"] = exported
     r = subprocess.run(["bash", "-c", script], env=env, capture_output=True, text=True, timeout=30)
+    _resolve.stderr = r.stderr
     if r.returncode:
         return None, r.stderr
     value, source = r.stdout.split("\n", 1)
@@ -125,3 +126,24 @@ def test_freshstart_gen_env_carries_the_value_over_and_never_makes_one_up():
     assert "chmod 600 .env" in src
     echoes = [l for l in src.splitlines() if l.strip().startswith("echo")]
     assert not any("PASSWORD_VAL" in l for l in echoes)
+
+
+# ── N1 (Architect, PO-45 read-back): .env is unquoted and compose interpolates it ──────────────────────
+
+def test_letters_and_digits_give_no_warning(tmp_path):
+    _resolve(tmp_path, "QUICKSTART_PERSONA_PASSWORD=Abc123xyz\n", None)
+    assert "WARNING" not in _resolve.stderr
+
+
+@pytest.mark.parametrize("pw", ["pa$$word", "it's", 'say"hi', "two words", "x#y", "p@ss-word"])
+def test_any_other_character_warns_in_words_without_the_value(tmp_path, pw):
+    value, _ = _resolve(tmp_path, None, pw)
+    assert value == pw                                              # still used: a warning, not a refusal
+    err = _resolve.stderr
+    assert "WARNING" in err and "letters and digits only" in err and "value not shown" in err
+    assert pw not in err
+
+
+def test_the_rule_is_documented():
+    doc = (ROOT / "portal-docs" / "quickstart" / "local" / "overview.md").read_text()
+    assert "letters and digits only" in doc

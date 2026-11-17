@@ -73,7 +73,7 @@ The Portal (`pyegeria-web`) and `my-profile` sign in to Egeria with `QUICKSTART_
 
 `./quick-start-local` takes care of it. An exported `QUICKSTART_PERSONA_PASSWORD` wins and is written to `.env`. Otherwise the value already in `.env` is kept. Otherwise the Coco demo persona password is written, because the quickstart is the Coco demo and its personas share one password. The value is never printed, and `.env` is written with mode 600.
 
-To use a different password, change it **together with the user directory**: the personas (`PyegeriaWebHandler/personas.json`) and the `.omsecrets` files above. Then export it, or set it in `.env`, before `./quick-start-local`.
+To use a different password, change it **together with the user directory**: the personas (`PyegeriaWebHandler/personas.json`) and the `.omsecrets` files above. Then export it, or set it in `.env`, before `./quick-start-local`. Use **letters and digits only**: `.env` is written unquoted and `docker compose` reads `$`, quotes, spaces and `#` specially, so any of them would reach the Portal as a different password. `./quick-start-local` warns if the password has any other character, without showing it.
 
 **Upgrading (6.3):** if you start the stack with plain `docker compose` rather than `./quick-start-local`, add `QUICKSTART_PERSONA_PASSWORD` to `.env` first. Running `./quick-start-local` once writes it for you.
 
