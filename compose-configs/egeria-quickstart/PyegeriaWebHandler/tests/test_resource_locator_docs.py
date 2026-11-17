@@ -62,7 +62,7 @@ def test_scope_lens_and_help_are_documented_and_linked():
     assert (_DOCS / src).exists(), src
 
 
-def test_classification_label_is_documented_and_the_old_id_is_explained():
+def test_badge_is_documented_as_a_curated_list():
     doc = _doc()
-    assert "**Tag, Classification**" in doc and "Badge" not in doc
-    assert "`badge`" in doc
+    assert "**Tag, Badge**" in doc and "curated list" in doc
+    assert "Classification**" not in doc
