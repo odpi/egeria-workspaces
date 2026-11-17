@@ -32,6 +32,8 @@ else
 fi
 
 export COMPOSE_FILE="${PROJECT_DIR}/airflow-marquez.yaml"
+# airflow-marquez.yaml needs PROVISIONER_PASSWORD for the coco_data_hub connection (TR-28).
+source "${PROJECT_DIR}/../../shared-infra/export-provisioner-password.sh"
 if [ $# -gt 0 ]; then
     exec $dc run --rm airflow-cli "${@}"
 else
