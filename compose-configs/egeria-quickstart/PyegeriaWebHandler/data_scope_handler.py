@@ -351,11 +351,19 @@ async def put_scope(guid: str, body: ScopeBody):
     props, problems = _clean_values(body.values, groups)
     if problems:
         raise HTTPException(status_code=422, detail="; ".join(problems))
-    if not props:
-        raise HTTPException(status_code=422, detail="Give at least one dimension, or clear the data scope instead.")
     try:
         client = await _explorer_async()
         stored, _el = await _read_scope(client, guid)
+        if not props:
+            # Every field emptied: the person means "no data scope" (2026-11-17, the owner emptied
+            # the fields and pressed Save to clear one). Clear it, keeping any lineage readings.
+            if stored is None:
+                raise HTTPException(status_code=422, detail="Give at least one dimension to set a data scope.")
+            action = await _clear(client, guid, stored)
+            after, el = await _read_scope(client, guid)
+            logger.info(f"data-scope: {action} (all fields emptied) on {guid} by {_token_user()}")
+            return _scope_response(guid, el, after, groups, "ClassificationExplorer.update_data_scope / clear_data_scope",
+                                   action=action)
         if stored is None:
             await client._async_add_data_scope(guid, _write_body(props, None, "NewClassificationRequestBody",
                                                                  "DataScopeProperties"))
@@ -374,6 +382,17 @@ async def put_scope(guid: str, body: ScopeBody):
                            action=action)
 
 
+async def _clear(client, guid: str, stored: dict) -> str:
+    """Remove the dimensions of a stored DataScope. With lineage readings in
+    additionalProperties the classification stays holding only them; without, it goes."""
+    if stored.get(_PRESERVED):
+        await client._async_update_data_scope(guid, _write_body({}, stored, "UpdateClassificationRequestBody",
+                                                                "DataScopeProperties"))
+        return "cleared-kept-readings"
+    await client._async_clear_data_scope(guid)
+    return "removed"
+
+
 @router.delete("/api/data-scope/{guid}", summary="Clear an element's data scope (keeping lineage readings)")
 async def delete_scope(guid: str):
     _require_signed_in()
@@ -383,13 +402,7 @@ async def delete_scope(guid: str):
         stored, el = await _read_scope(client, guid)
         if stored is None:
             return _scope_response(guid, el, None, groups, "nothing to clear", action="none")
-        if stored.get(_PRESERVED):
-            await client._async_update_data_scope(guid, _write_body({}, stored, "UpdateClassificationRequestBody",
-                                                                    "DataScopeProperties"))
-            action = "cleared-kept-readings"
-        else:
-            await client._async_clear_data_scope(guid)
-            action = "removed"
+        action = await _clear(client, guid, stored)
         after, el = await _read_scope(client, guid)
     except HTTPException:
         raise
