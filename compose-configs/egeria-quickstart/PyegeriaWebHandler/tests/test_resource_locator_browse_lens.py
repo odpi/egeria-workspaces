@@ -172,3 +172,37 @@ def test_scope_facet_values_count_both_lists(client, fake):
 
 def test_unknown_scope_value_is_404(client, fake):
     assert client.get("/api/resource-browser/browse/scope/everything").status_code == 404
+
+
+def test_full_resource_sweeps_run_one_at_a_time(monkeypatch):
+    # Architect R5: several users opening Data scope at once must not each sweep Egeria in parallel.
+    import asyncio
+    running, peak = {"n": 0}, {"n": 0}
+
+    async def sweep():
+        running["n"] += 1
+        peak["n"] = max(peak["n"], running["n"])
+        await asyncio.sleep(0.01)
+        running["n"] -= 1
+        return {"rows": [], "cappedTypes": []}
+
+    async def cached(name, producer, ttl=600):          # a cache miss for every caller (different users)
+        return await producer(), rb.datetime.now(rb.timezone.utc)
+
+    async def classified(_c, _n):
+        return [], False
+
+    async def explorer():
+        return None
+
+    monkeypatch.setattr(rb, "_all_resources_sweep", sweep)
+    monkeypatch.setattr(rb, "_cached", cached)
+    monkeypatch.setattr(rb, "_classified", classified)
+    monkeypatch.setattr(rb, "_explorer_async", explorer)
+    monkeypatch.setattr(rb, "_ALL_RESOURCES_SWEEPS", None)
+
+    async def main():
+        rb._ALL_RESOURCES_SWEEPS = asyncio.Semaphore(1)  # bound to this test's loop
+        await asyncio.gather(*(rb._scope_split() for _ in range(4)))
+    asyncio.run(main())
+    assert peak["n"] == 1
