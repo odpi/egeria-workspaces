@@ -371,7 +371,11 @@ def _jdbc_table_name(props: dict) -> Optional[str]:
 async def serve_resource_browser():
     if not _HTML.exists():
         raise HTTPException(status_code=404, detail="Resource Locator page not found")
-    return FileResponse(str(_HTML), media_type="text/html")
+    # no-store, like the Portal's other pages: without a Cache-Control header a browser
+    # guesses a freshness lifetime from Last-Modified and can keep showing the page from
+    # before a deploy for hours (2026-11-17: the Data lenses tile was missing for the owner).
+    return FileResponse(str(_HTML), media_type="text/html",
+                        headers={"Cache-Control": "no-store, must-revalidate"})
 
 
 # ── Reading a resource ────────────────────────────────────────────────────────
