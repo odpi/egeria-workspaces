@@ -222,10 +222,10 @@ def _build_structured_response(raw: dict, directive: str) -> str:
 async def dr_egeria_run_block(
     ctx: Context,
     markdown_block: str,
-    url: str = os.environ.get("EGERIA_PLATFORM_URL", "https://host.docker.internal:9443"),
-    server_name: str = os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server"),
-    user_id: str = os.environ.get("EGERIA_USER", "erinoverview"),
-    user_pass: str = os.environ.get("EGERIA_USER_PASSWORD", "secret"),
+    url: Optional[str] = None,
+    server_name: Optional[str] = None,
+    user_id: Optional[str] = None,
+    user_pass: Optional[str] = None,
     directive: str = "process",
     output_folder: str = "",
     outbox_path: Optional[str] = None,
@@ -243,10 +243,10 @@ async def dr_egeria_run_block(
     - input_file: optional source filename for output naming
     """
     # Use provided values or fall back to env if empty
-    actual_url = url or os.environ.get("EGERIA_PLATFORM_URL", "https://host.docker.internal:9443")
-    actual_server = server_name or os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server")
-    actual_user = user_id or os.environ.get("EGERIA_USER", "erinoverview")
-    actual_pass = user_pass or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    try:
+        actual_url, actual_server, actual_user, actual_pass = _mcp_credentials(url, server_name, user_id, user_pass)
+    except CredentialRefused as exc:
+        return f"❌ {exc}"
 
     # Write to inbox and invoke the existing file-based processor
     logger.info(f"Executing dr_egeria_run_block for {input_file or 'provided content'}...")
@@ -311,6 +311,35 @@ async def dr_egeria_run_block(
     return _build_structured_response(raw, directive)
 
 
+class CredentialRefused(Exception):
+    """An MCP tool call whose credentials or platform the Portal refuses (PO-44). The message is the reason."""
+
+
+def _mcp_credentials(url: Optional[str], server_name: Optional[str], user_id: Optional[str],
+                     user_pass: Optional[str]) -> tuple[str, str, str, str]:
+    """PO-44: resolve an MCP tool's credentials at CALL time.
+
+    - No parameter default carries a credential, so the published tool schema never shows the service password.
+    - A user_id other than the service user needs its own password (the PO-41 rule, named_user_refusal).
+    - The service password only goes to an allow-listed platform (egeria_auth.resolve_platform).
+    Raises CredentialRefused, which callers turn into an error reply. egeria_auth is imported here, not at
+    module load, so the MCP server still starts where FastAPI isn't installed.
+    """
+    from egeria_auth import (PlatformRefused, is_caller_password, named_user_refusal, resolve_platform,
+                             service_user)
+    refusal = named_user_refusal(user_id or None, bool(user_pass), None)
+    if refusal is not None:
+        raise CredentialRefused(refusal.detail)
+    try:
+        actual_url = resolve_platform(url or None, has_caller_password=is_caller_password(user_pass))
+    except PlatformRefused as exc:
+        raise CredentialRefused(exc.detail) from None
+    actual_server = server_name or os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server")
+    actual_user = user_id or service_user()
+    actual_pass = user_pass or os.environ.get("EGERIA_USER_PASSWORD", "")
+    return actual_url, actual_server, actual_user, actual_pass
+
+
 def _build_simple_block(title: str) -> str:
     return f"# {title}\n___\n"
 
@@ -318,16 +347,16 @@ def _build_simple_block(title: str) -> str:
 @server.tool()
 async def egeria_list_glossaries(
     ctx: Context,
-    url: str = os.environ.get("EGERIA_PLATFORM_URL", "https://host.docker.internal:9443"),
-    server_name: str = os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server"),
-    user_id: str = os.environ.get("EGERIA_USER", "erinoverview"),
-    user_pass: str = os.environ.get("EGERIA_USER_PASSWORD", "secret"),
+    url: Optional[str] = None,
+    server_name: Optional[str] = None,
+    user_id: Optional[str] = None,
+    user_pass: Optional[str] = None,
 ) -> str:
     """List or view glossaries in the connected Egeria environment."""
-    actual_url = url or os.environ.get("EGERIA_PLATFORM_URL", "https://host.docker.internal:9443")
-    actual_server = server_name or os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server")
-    actual_user = user_id or os.environ.get("EGERIA_USER", "erinoverview")
-    actual_pass = user_pass or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    try:
+        actual_url, actual_server, actual_user, actual_pass = _mcp_credentials(url, server_name, user_id, user_pass)
+    except CredentialRefused as exc:
+        return f"❌ {exc}"
     
     block = _build_simple_block("View Glossaries")
     return await dr_egeria_run_block(ctx, block, actual_url, actual_server, actual_user, actual_pass, directive="display")
@@ -336,16 +365,16 @@ async def egeria_list_glossaries(
 @server.tool()
 async def egeria_list_collections(
     ctx: Context,
-    url: str = os.environ.get("EGERIA_PLATFORM_URL", "https://host.docker.internal:9443"),
-    server_name: str = os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server"),
-    user_id: str = os.environ.get("EGERIA_USER", "erinoverview"),
-    user_pass: str = os.environ.get("EGERIA_USER_PASSWORD", "secret"),
+    url: Optional[str] = None,
+    server_name: Optional[str] = None,
+    user_id: Optional[str] = None,
+    user_pass: Optional[str] = None,
 ) -> str:
     """List or view collections/folders in the connected Egeria environment."""
-    actual_url = url or os.environ.get("EGERIA_PLATFORM_URL", "https://host.docker.internal:9443")
-    actual_server = server_name or os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server")
-    actual_user = user_id or os.environ.get("EGERIA_USER", "erinoverview")
-    actual_pass = user_pass or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    try:
+        actual_url, actual_server, actual_user, actual_pass = _mcp_credentials(url, server_name, user_id, user_pass)
+    except CredentialRefused as exc:
+        return f"❌ {exc}"
 
     # Many collection views are produced through the output command paths; use a generic View command
     block = _build_simple_block("View Collections")
