@@ -2566,7 +2566,7 @@ async def unshare_list(guid: str, group: str):
 
 # ── Browse ────────────────────────────────────────────────────────────────────
 
-_FACETS = ["tag", "badge", "owner", "source", "collection", "flavour", "scope"]
+_FACETS = ["tag", "badge", "owner", "source", "collection", "folder", "keyword", "flavour", "scope"]
 
 # Architect R2 (2026-11-17): "none recorded" is every resource minus the recorded ones, so it is only
 # as complete as _all_elements. Measurement kept for the record:
@@ -2604,6 +2604,72 @@ async def _anchored(client, guid: str, type_name: str) -> list:
     return _elements(await client._async_get_elements_by_classification_with_property_value(
         "Anchors", guid, ["anchorGUID"], metadata_element_type=type_name, starts_with=True, ends_with=True,
         graph_query_depth=0, output_format="JSON", page_size=500))
+
+
+def _folder_value(e: dict) -> Optional[dict]:
+    """A Browse value for a CollectionFolder; None for a template. Where it sits comes from its
+    Anchors classification, which names the anchor's type but (on laz) not the anchor itself, so
+    the value says "anchored to a Glossary" rather than naming a glossary it cannot see."""
+    hdr = (e or {}).get("elementHeader") or {}
+    guid = hdr.get("guid")
+    if not guid or any(c["name"] == "Template" for c in _classifications(hdr)):
+        return None
+    props = e.get("properties") or {}
+    anchor = (((hdr.get("anchor") or {}).get("classificationProperties")) or {}).get("anchorTypeName") or ""
+    where = ("inside another folder" if anchor == "CollectionFolder" else
+             f"anchored to a {anchor}" if anchor else "no anchor recorded")
+    return {"id": guid, "label": _display_name(props, guid), "description": where,
+            "category": props.get("category") or ""}
+
+
+async def _keyword_groups_value() -> dict:
+    """Every search keyword the user can see, grouped by its text ignoring case.
+
+    A SearchKeyword is one element per attachment, so a group's guids are its attachments. The
+    keyword list reads exactly these elements, so the list always accounts for its count
+    (Architect R3: a by-keyword lookup is exact and case-sensitive, so it would disagree)."""
+    client = await _explorer_async()
+    kws, capped = [], True
+    for p in range(25):
+        batch = _elements(await client._async_find_search_keywords(
+            "*", start_from=p * 200, page_size=200, output_format="JSON", graph_query_depth=0))
+        if not batch:
+            capped = False
+            break
+        kws.extend(batch)
+    groups = {}
+    for k in kws:
+        hdr = k.get("elementHeader") or {}
+        text = _display_name(k.get("properties"), "").strip()
+        if not text or not hdr.get("guid"):
+            continue
+        g = groups.setdefault(text.casefold(), {"label": text, "guids": []})
+        g["guids"].append(hdr["guid"])
+    return {"groups": groups, "capped": capped}
+
+
+async def _keyword_attachments(client, guids: list) -> tuple:
+    """(elements, hidden, failed) for a keyword group: what each keyword element is attached to.
+    hidden counts keyword elements that came back with nothing attached that the user can see;
+    failed counts keyword elements that could not be read. Neither is ever dropped silently."""
+    sem = asyncio.Semaphore(_LOOKUP_CONCURRENCY)
+
+    async def read(g):
+        async with sem:
+            return await client._async_get_element_by_guid(
+                g, graph_query_depth=1, output_format="JSON",
+                body={"class": "GetRequestBody", "graphQueryDepth": 1, "includeOnlyRelationships": ["SearchKeywordLink"]})
+    got = await asyncio.gather(*(read(g) for g in guids), return_exceptions=True)
+    els, hidden, failed = [], 0, 0
+    for k in got:
+        if isinstance(k, Exception) or not isinstance(k, dict):
+            failed += 1
+            continue
+        linked = [i.get("relatedElement") for i in k.get("keywordElements") or [] if isinstance(i, dict) and i.get("relatedElement")]
+        if not linked:
+            hidden += 1
+        els.extend(linked)
+    return els, hidden, failed
 
 
 async def _facet_values(facet: str) -> dict:
@@ -2651,6 +2717,20 @@ async def _facet_values(facet: str) -> dict:
                 out.append({"id": hdr.get("guid", ""), "label": _display_name(e.get("properties"), hdr.get("guid", "")),
                             "description": _type_names(hdr)[0]})
         return {"values": sorted(out, key=lambda v: (v["description"], v["label"].lower()))}
+    if facet == "folder":
+        els, capped = await _all_elements(client, "CollectionFolder")
+        vals = [v for v in (_folder_value(e) for e in els) if v]
+        return {"values": sorted(vals, key=lambda v: v["label"].lower()), "capped": capped,
+                "countsAre": "at least these folders (the read stopped at its page limit)" if capped else None,
+                "note": "Open a folder to see what it holds. Folders show no count here: counting what each "
+                        "holds would take one read per folder."}
+    if facet == "keyword":
+        kw, _stamp = await _cached("keyword-groups", _keyword_groups_value)
+        vals = [{"id": g["label"], "label": g["label"], "count": len(g["guids"]), "countAtLeast": kw["capped"]}
+                for g in kw["groups"].values()]
+        return {"values": sorted(vals, key=lambda v: v["label"].lower()),
+                "countsAre": "attachments: a search keyword is attached to one element each, which you may not "
+                             "be able to see" + ("; at least these (the read stopped at its page limit)" if kw["capped"] else "")}
     if facet == "flavour":
         return {"values": [{"id": "hub", "label": "Hub"}, {"id": "product", "label": "Product"},
                            {"id": "known", "label": "Known"}]}
@@ -2688,13 +2768,26 @@ async def browse_values(facet: str):
 
 
 async def _members(client, collection_guid: str) -> tuple:
+    """(title, type name, members, capped, held_by) for a collection or folder, from one depth-1 read.
+
+    Egeria returns at most _RELATED_LIMIT relationships per key at depth 1, so a full key is
+    capped: more members may exist (Architect R5, 2026-11-17). held_by is the collections that
+    hold this one (memberOfCollections), as {guid, displayName, typeName}."""
     el = await client._async_get_element_by_guid(
         collection_guid, graph_query_depth=1, output_format="JSON",
         body={"class": "GetRequestBody", "graphQueryDepth": 1, "includeOnlyRelationships": ["CollectionMembership"]})
     hdr = (el or {}).get("elementHeader") or {}
     title = _display_name((el or {}).get("properties"), collection_guid)
-    members = [i.get("relatedElement") for i in (el or {}).get("collectionMembers") or [] if isinstance(i, dict)]
-    return title, _type_names(hdr)[0], members
+    items = [i for i in (el or {}).get("collectionMembers") or [] if isinstance(i, dict)]
+    members = [i.get("relatedElement") for i in items]
+    held_by = []
+    for i in (el or {}).get("memberOfCollections") or []:
+        rel = (i or {}).get("relatedElement") or {}
+        rh = rel.get("elementHeader") or {}
+        if rh.get("guid"):
+            held_by.append({"guid": rh["guid"], "displayName": _display_name(rel.get("properties"), rh["guid"]),
+                            "typeName": _type_names(rh)[0]})
+    return title, _type_names(hdr)[0], members, len(items) >= _RELATED_LIMIT, held_by
 
 
 @router.get("/api/resource-browser/browse/{facet}/{value}", summary="The resources under one browse facet value")
@@ -2703,6 +2796,7 @@ async def browse_list(facet: str, value: str, lens: Optional[str] = Query(None, 
         raise HTTPException(status_code=404, detail=f"Unknown browse facet {facet!r}.")
     title, note, source, capped = value, None, "", False
     rows_override, scope_ages = None, None
+    extra = {}
     scope_loading = scope_refreshing = False
     try:
         client = await _explorer_async()
@@ -2739,9 +2833,45 @@ async def browse_list(facet: str, value: str, lens: Optional[str] = Query(None, 
             note = "The source itself, what it anchors, and the tables of its schemas."
             source = "ClassificationExplorer.get_elements_by_classification_with_property_value (Anchors.anchorGUID)"
         elif facet == "collection":
-            title, ctype, els = await _members(client, value)
+            title, ctype, els, capped, _held = await _members(client, value)
             title = f"{title} ({ctype})" if ctype else title
             source = "ClassificationExplorer.get_element_by_guid (CollectionMembership)"
+        elif facet == "folder":
+            title, _ctype, members, capped, held_by = await _members(client, value)
+            subs = []
+            rest = []
+            for m in members:
+                mh = (m or {}).get("elementHeader") or {}
+                if _type_names(mh)[0] == "CollectionFolder" and mh.get("guid"):
+                    subs.append({"guid": mh["guid"], "displayName": _display_name((m or {}).get("properties"), mh["guid"])})
+                else:
+                    rest.append(m)
+            rows_override, by_type = _any_rows(rest)
+            extra.update(subfolders=sorted(subs, key=lambda f: f["displayName"].lower()), heldBy=held_by,
+                         notShownTypes=by_type, membersRead=len(members))
+            if not members:
+                note = "This folder holds nothing you can see. Zone security may hide some members from you."
+            elif not rows_override and not subs:
+                note = "This folder holds only elements the Locator does not list (named below)."
+            source = "ClassificationExplorer.get_element_by_guid (CollectionMembership, one level)"
+        elif facet == "keyword":
+            kw, _stamp = await _cached("keyword-groups", _keyword_groups_value)
+            group = kw["groups"].get(value.strip().casefold())
+            if not group:
+                raise HTTPException(status_code=404, detail=f"No search keyword {value!r} is visible to you.")
+            title = f"Keyword: {group['label']}"
+            linked, hidden, failed = await _keyword_attachments(client, group["guids"])
+            rows_override, by_type = _any_rows(linked)
+            capped = kw["capped"]
+            extra.update(notShownTypes=by_type, attachments=len(group["guids"]), hiddenAttachments=hidden,
+                         unreadAttachments=failed)
+            if hidden:
+                note = (f"{hidden} of the {len(group['guids'])} attachments are to something you cannot see "
+                        "(zone security, or it was removed).")
+            if failed:
+                note = (note + " " if note else "") + f"{failed} attachments could not be read, so this list may be incomplete."
+            source = ("ClassificationExplorer.find_search_keywords (every keyword, grouped ignoring case), then "
+                      "get_element_by_guid (SearchKeywordLink) per attachment")
         elif facet == "flavour":
             if value not in ("hub", "product", "known"):
                 raise HTTPException(status_code=404, detail="Flavours are hub, product and known.")
@@ -2810,6 +2940,9 @@ async def browse_list(facet: str, value: str, lens: Optional[str] = Query(None, 
     out = {"facet": facet, "value": value, "title": title, "items": uniq, "notShown": not_shown,
            "note": note, "capped": capped, "order": "By kind, then name.",
            "asOf": _now_iso(), "source": source}
+    if extra:
+        out.update(extra)
+        out["notShown"] = not_shown + sum(extra.get("notShownTypes", {}).values())
     if scope_ages:
         out["scopeListsAsOf"] = scope_ages
     if scope_loading or scope_refreshing:

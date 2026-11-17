@@ -40,7 +40,13 @@ Ordering is by text relevance only. Egeria cannot rank by use yet, and the page 
 
 ## Browse
 
-Browse without typing, by **Tag, Classification** (the governance classifications Confidentiality, Confidence, Criticality, Impact, Retention and Security tags; the link id is still `badge`, so older links keep working), **Owner, Source system, Collection, Flavour** (data, data product, or a member of a data-sharing hub) or **Data scope**. Each facet lists its values; pick a value to see the resources under it, with the same rows as Search. Hover over a facet button for its definition.
+Browse without typing, by **Tag, Classification** (the governance classifications Confidentiality, Confidence, Criticality, Impact, Retention and Security tags; the link id is still `badge`, so older links keep working), **Owner, Source system, Collection, Folder, Search keyword, Flavour** (data, data product, or a member of a data-sharing hub) or **Data scope**. Each facet lists its values; pick a value to see the resources under it, with the same rows as Search. Hover over a facet button for its definition.
+
+**Folder** lists every folder in Egeria you can see (a CollectionFolder: the folders of a glossary, a product catalog or a hub), with where it is anchored. It shows no count beside each folder, because counting what every folder holds would take one read per folder; open a folder to see what it holds. A folder page lists the resources, glossary terms, columns and data fields in it, links to the folders inside it and to what holds it, and names by type anything else it holds that the Locator does not list. When a folder or collection holds more than Egeria returns in one read (1,000), the page says "at least".
+
+**Search keyword** lists each keyword by its text, ignoring case, with the number of attachments: a search keyword in Egeria is attached to one element each. A keyword page reads exactly those attachments, so it always accounts for its count: what it lists, what is attached to something you cannot see, what could not be read, and what is not a resource or term.
+
+Folder and keyword pages take the same **Lens** filter as the other lists. When nothing is there the page says so ("This folder holds nothing you can see"), which is different from a read that failed, which shows the error instead of an empty list.
 
 **Data scope** has two values:
 

@@ -565,8 +565,9 @@ var TERMS = {
   owner: { label: 'Owner', def: 'Who is accountable for the resource, from its Ownership classification.' },
   source: { label: 'Source system', def: 'The database or folder a resource comes from: the source itself and everything anchored to it.' },
   collection: { label: 'Collection', def: 'A group of resources in Egeria: a product family, a data sharing hub, or a work list.' },
+  folder: { label: 'Folder', def: 'A folder in Egeria (a CollectionFolder) that files elements: the folders of a glossary, of a product catalog or of a hub. A folder can hold resources, glossary terms, data fields and other folders.' },
   tag: { label: 'Tag', def: 'An informal tag: a free word anyone can attach to a resource to make it easier to find.' },
-  keyword: { label: 'Search keyword', def: 'A keyword a curator attached to a resource so search finds it.' },
+  keyword: { label: 'Search keyword', def: 'A keyword a curator attached to an element so search finds it. Browse groups keywords by their text, ignoring case; each attachment counts once.' },
   matched: { label: 'Matched', def: 'Why this result was found: which of its own fields matched, or a tag, keyword or owner, or "contains:" a column or field inside it that matched.' },
   partOf: { label: 'Part of', def: 'For a column, attribute or data field: the table, event type, data structure or asset that holds it.' },
   automation: { label: 'Automation', def: 'The last change was made by a service account (an engine, or a user name ending in npa), such as a survey or a connector, not by a person.' },
@@ -584,7 +585,7 @@ var TERMS = {
   popular: { label: 'Popular', def: 'Resources ranked by how much they are used. Not shown until the Locator reads a usage measure.' },
   recent: { label: 'Recently changed', def: 'The resources changed most recently. Hide automation to see only changes people made.' },
   favourites: { label: 'Favourites', def: 'Resources you saved as favourites anywhere in the Portal.' },
-  browse: { label: 'Browse', def: 'Find resources without typing, by tag, classification, owner, source system, collection, flavour or data scope.' },
+  browse: { label: 'Browse', def: 'Find resources without typing, by tag, classification, owner, source system, collection, folder, search keyword, flavour or data scope.' },
 };
 
 // A small "?" whose definition shows on hover and on keyboard focus.
@@ -1795,7 +1796,7 @@ function HelpPage() {
           p('Pick one kind or several with the Kind buttons (for example Schemas and Tables together); All clears them. Results are ordered by how directly the text matches: Egeria holds no usage measure the Locator reads yet.'),
           p('"Load more results" stays offered until Egeria returns an empty page: a short page is not the last page.'))),
         sec('Browse and the resource page', el('div', null,
-          p('Browse lists resources by tag, classification, owner, source system, collection, flavour or data scope. A resource page shows what Egeria holds about one resource, and says what is missing rather than showing an empty table.'),
+          p('Browse lists resources by tag, classification, owner, source system, collection, folder, search keyword, flavour or data scope. A resource page shows what Egeria holds about one resource, and says what is missing rather than showing an empty table.'),
           p('You can improve a description, add informal tags, notes and meanings, like or rate a resource, and keep it in a work list. Every change is made as you, with your own Egeria token.'))),
         sec('Data scope and data lenses', el('div', null,
           p('A data scope says what time and place a resource’s data covers. It is shown on result rows (◷ scope) and resource pages, and set or changed in The Catalog. Some scopes hold only usage readings that Egeria’s lineage service keeps; those are shown as usage, not as a scope.'),
@@ -2221,6 +2222,8 @@ var FACETS = [
   { id: 'owner', label: 'Owner', term: 'owner', empty: 'No resource has a recorded owner yet.' },
   { id: 'source', label: 'Source system', term: 'source', empty: 'No databases or folders are catalogued yet.' },
   { id: 'collection', label: 'Collection', term: 'collection', empty: 'No product families, data sharing hubs or work lists exist yet.' },
+  { id: 'folder', label: 'Folder', term: 'folder', empty: 'No folders exist in Egeria that you can see.' },
+  { id: 'keyword', label: 'Search keyword', term: 'keyword', empty: 'No search keywords are attached to anything you can see.' },
   { id: 'flavour', label: 'Flavour', term: 'flavour', empty: '' },
   { id: 'scope', label: 'Data scope', term: 'dataScope', empty: '' },
 ];
@@ -2268,6 +2271,20 @@ function LensBar({ list, lensGuid, creds, picked, onPick, onLens }) {
     }),
     c && el(Help, { term: 'notComparable' }),
     list.lens && !list.lens.dimensions.length && el('span', { className: 'rb-note' }, 'This lens has no dimensions yet, so no resource can be compared.'));
+}
+
+// What a Browse list read but does not show. Folder and keyword lists name the types (they can hold
+// anything); the older lists only count what is not a resource or is a template.
+function notShownLine(list) {
+  if (!list || !(list.notShown > 0)) return '';
+  var types = list.notShownTypes || null;
+  if (types && Object.keys(types).length) {
+    var named = Object.keys(types).sort(function(a, b) { return types[b] - types[a] || (a < b ? -1 : 1); })
+      .map(function(t) { return types[t] + ' ' + t; }).join(', ');
+    return list.notShown + ' not shown: ' + named + '. The Locator lists resources, glossary terms, columns and data fields.';
+  }
+  return list.notShown + ' element' + (list.notShown === 1 ? ' is' : 's are') + ' not shown because ' +
+    (list.notShown === 1 ? 'it is' : 'they are') + ' not a resource this app lists or ' + (list.notShown === 1 ? 'is a template' : 'are templates') + '.';
 }
 
 var BROWSE_POLL_MS = 8000;
@@ -2321,6 +2338,7 @@ function BrowsePage({ facet, value, lens, creds }) {
               v.counting ? 'counting\u2026' : none ? 'none' : (v.countAtLeast ? '\u2265 ' : '') + v.count),
             v.description && el('span', { className: 'rb-note' }, v.description));
         })),
+      vals.note && el('div', { className: 'rb-note', style: { marginTop: 8 } }, vals.note),
       vals.countsAre && el('div', { className: 'rb-note', style: { marginTop: 8 } }, 'Counts are ' + vals.countsAre + '.'),
       vals.notRead > 0 && el('div', { className: 'rb-note', style: { marginTop: 4 } }, vals.notRead + ' resource' + (vals.notRead === 1 ? '' : 's') +
         ' could not be checked', el(Help, { term: 'scopeNotRead' }), '.'),
@@ -2331,10 +2349,22 @@ function BrowsePage({ facet, value, lens, creds }) {
         el('button', { className: 'rb-link', onClick: function() { navigate({ browse: f.id }); } }, '← all ' + f.label.toLowerCase() + ' values'),
         el('h2', { style: { fontSize: 18 } }, list.title)),
       list.note && el('div', { className: 'rb-note', style: { marginBottom: 8 } }, list.note),
+      list.heldBy && list.heldBy.length > 0 && el('div', { className: 'rb-note', style: { marginBottom: 6 } }, 'Held by: ',
+        list.heldBy.map(function(h, i) {
+          return el(React.Fragment, { key: h.guid }, i ? ', ' : '',
+            el('button', { className: 'rb-link', title: h.typeName, onClick: function() {
+              if (h.typeName === 'CollectionFolder') navigate({ browse: 'folder', value: h.guid }); else openElement(h); } }, h.displayName),
+            ' (' + h.typeName + ')');
+        })),
+      list.subfolders && list.subfolders.length > 0 && el('div', { className: 'rb-row', style: { gap: 6, marginBottom: 10, flexWrap: 'wrap' } },
+        el('span', { className: 'rb-note' }, 'Folders inside:'),
+        list.subfolders.map(function(sf) {
+          return el('button', { key: sf.guid, className: 'rb-facet', onClick: function() { navigate({ browse: 'folder', value: sf.guid }); } }, '\ud83d\udcc1 ' + sf.displayName);
+        })),
       list.items.length > 0 && el(LensBar, { list: list, lensGuid: lens, creds: creds, picked: picked, onPick: togglePick, onLens: setLens }),
-      list.items.length === 0 && !list.note && !list.loading && el('div', { className: 'rb-absent' }, 'No resource visible to you is here.'),
+      list.items.length === 0 && !list.note && !list.loading && !(list.subfolders && list.subfolders.length) && el('div', { className: 'rb-absent' }, 'No resource visible to you is here.'),
       list.items.length > 0 && el('div', { className: 'rb-note', style: { marginBottom: 8 } },
-        (list.lens ? shownRows.length + ' of ' : '') + (list.capped ? 'at least ' : '') + list.items.length + ' resource' + (list.items.length === 1 ? '' : 's') +
+        (list.lens ? shownRows.length + ' of ' : '') + (list.capped ? 'at least ' : '') + list.items.length + (list.notShownTypes ? ' item' : ' resource') + (list.items.length === 1 ? '' : 's') +
         (list.lens ? ' shown for the lens \u201c' + list.lens.displayName + '\u201d' : '') + '. ' + (list.order || '')),
       list.loading && el('div', { className: 'center', style: { height: 90 } }, el('div', { className: 'spinner' }), 'Counting every resource\u2026'),
       list.refreshing && el('div', { className: 'rb-note', style: { marginBottom: 8 } }, 'A newer count is being made in the background; this is the last one.'),
@@ -2349,8 +2379,7 @@ function BrowsePage({ facet, value, lens, creds }) {
             o.outside && o.outside.length ? ' (outside on ' + o.outside.join(', ') + ')' : '');
         } : null }),
       el('div', { className: 'rb-note', style: { marginTop: 10, display: 'flex', flexDirection: 'column', gap: 3 } },
-        list.notShown > 0 && el('span', null, list.notShown + ' element' + (list.notShown === 1 ? ' is' : 's are') +
-          ' not shown because ' + (list.notShown === 1 ? 'it is' : 'they are') + ' not a resource this app lists or ' + (list.notShown === 1 ? 'is a template' : 'are templates') + '.'),
+        list.notShown > 0 && el('span', null, notShownLine(list)),
         list.capped && el('span', null, 'The read stopped at its page limit, so this list may be incomplete.'),
         el('span', null, 'Zone security may hide resources from your user, so this list may be incomplete.')),
       el(SourceLine, { data: list })));
