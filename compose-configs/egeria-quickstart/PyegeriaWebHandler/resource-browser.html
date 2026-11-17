@@ -546,6 +546,9 @@ var TERMS = {
   flavour: { label: 'Flavour', def: 'How curated a resource is. Hub: a member of a data sharing hub, so it is authoritative and kept up to date. Product: a digital product, or a member of one. Known: anything else Egeria knows about. A resource shows the highest that applies.' },
   kind: { label: 'Kind', def: 'What sort of resource it is (table, schema, file, report…), worked out from its Egeria type. Columns and attributes, and Data fields, are parts of resources rather than resources. Pick several kinds to search them together.' },
   dataScope: { label: 'Data scope', def: 'The DataScope classification on a resource: the time and place its data covers (when it was collected, when it is valid, what period it covers, and a latitude, longitude and height box). Data lenses are matched against it. Set it in The Catalog.' },
+  notComparable: { label: 'Cannot be compared', def: 'The resource records none of the dimensions the lens uses (for example the lens asks for a place and the resource records only a time), so it is neither inside nor outside the lens. It is counted on its own, never as outside.' },
+  noneRecorded: { label: 'No data scope recorded', def: 'The resource has no data scope that records a time, place or other dimension: no DataScope at all, or one holding only usage readings from Egeria\u2019s lineage service. These are the resources that need a scope; set one in The Catalog.' },
+  scopeNotRead: { label: 'Scope not read', def: 'This list was read in a way that did not bring each resource\u2019s classifications, so whether it records a data scope is unknown. It is counted on its own, not as \u201cnone recorded\u201d or \u201ccannot be compared\u201d.' },
   dataLens: { label: 'Data lens', def: 'The scope of data a piece of work needs, in time, place and other dimensions. A lens governs a work list, and resources whose data scope falls inside it are suggested for that list.' },
   badge: { label: 'Badge', def: 'A governance classification on the resource, such as Confidentiality, Criticality, Impact or Retention.' },
   owner: { label: 'Owner', def: 'Who is accountable for the resource, from its Ownership classification.' },
@@ -1377,7 +1380,7 @@ function currentRoute() {
   if (p.get('list')) return { page: 'list', guid: p.get('list') };
   if (p.get('lens')) return { page: 'lens', guid: p.get('lens') };
   if (p.has('help')) return { page: 'help' };
-  if (p.get('browse')) return { page: 'browse', facet: p.get('browse'), value: p.get('value') || '' };
+  if (p.get('browse')) return { page: 'browse', facet: p.get('browse'), value: p.get('value') || '', lens: p.get('lens') || '' };
   return { page: 'home' };
 }
 
@@ -2208,10 +2211,56 @@ var FACETS = [
   { id: 'scope', label: 'Data scope', term: 'dataScope', empty: '' },
 ];
 
-function BrowsePage({ facet, value, creds }) {
+// The lenses a Browse list can be filtered by: your own, and those governing a list you can see.
+function lensChoices(lenses, lists) {
+  var visible = {};
+  ((lists && lists.mine) || []).concat((lists && lists.sharedWithMe) || []).forEach(function(l) { visible[l.guid] = true; });
+  return (lenses || []).filter(function(l) {
+    return l.origin === 'mine' || (l.governs || []).some(function(g) { return visible[g.guid]; });
+  });
+}
+
+var LENS_OUTCOMES = [
+  { id: 'inside', label: 'inside', term: 'dataLens' },
+  { id: 'outside', label: 'outside', term: 'dataLens' },
+  { id: 'notComparable', label: 'cannot be compared', term: 'notComparable' },
+  { id: 'notRead', label: 'scope not read', term: 'scopeNotRead' },
+];
+var OUTCOME_CHIP = { inside: 'inside the lens', outside: 'outside the lens', notComparable: 'cannot be compared', notRead: 'scope not read' };
+
+// The rows shown for the outcomes picked; counts always describe the whole list.
+function lensRows(items, picked) {
+  return items.filter(function(r) { return !r.lensOutcome || picked[r.lensOutcome.outcome]; });
+}
+
+function LensBar({ list, lensGuid, creds, picked, onPick, onLens }) {
+  var lists = useLists(creds);
+  var _l = useState(null), lenses = _l[0], setLenses = _l[1];
+  useEffect(function() {
+    getJson(API + '/lenses', creds).then(function(d) { setLenses(d.lenses || []); }).catch(function() { setLenses([]); });
+  }, [creds && creds.token]);
+  var choices = lensChoices(lenses, lists);
+  var c = list.lensCounts;
+  return el('div', { className: 'rb-row', style: { gap: 8, marginBottom: 10, flexWrap: 'wrap' } },
+    el('span', { className: 'rb-note' }, 'Lens', el(Help, { term: 'dataLens' }), ':'),
+    el('select', { className: 'rb-select', value: lensGuid || '', onChange: function(e) { onLens(e.target.value); }, disabled: lenses === null },
+      el('option', { value: '' }, lenses === null ? 'lenses …' : choices.length ? 'none' : 'no lens yet'),
+      choices.map(function(l) { return el('option', { key: l.guid, value: l.guid }, l.displayName); })),
+    lenses !== null && !choices.length && el('button', { className: 'rb-link', onClick: function() { openLens('new'); } }, 'New data lens'),
+    c && LENS_OUTCOMES.filter(function(o) { return o.id !== 'notRead' || c.notRead > 0; }).map(function(o) {
+      return el('button', { key: o.id, className: 'rb-facet' + (picked[o.id] ? ' on' : ''), 'aria-pressed': !!picked[o.id],
+        title: TERMS[o.term].def, onClick: function() { onPick(o.id); } },
+        o.label + ' ' + (c.partial ? 'at least ' : '') + c[o.id]);
+    }),
+    c && el(Help, { term: 'notComparable' }),
+    list.lens && !list.lens.dimensions.length && el('span', { className: 'rb-note' }, 'This lens has no dimensions yet, so no resource can be compared.'));
+}
+
+function BrowsePage({ facet, value, lens, creds }) {
   var idx = useFlavours(creds);
   var f = FACETS.filter(function(x) { return x.id === facet; })[0] || FACETS[0];
-  var effective = f.id === 'scope' ? 'all' : value;
+  var effective = value;
+  var _p = useState({ inside: true }), picked = _p[0], setPicked = _p[1];
   var _v = useState(null), vals = _v[0], setVals = _v[1];
   var _l = useState(null), list = _l[0], setList = _l[1];
   var _e = useState(''), err = _e[0], setErr = _e[1];
@@ -2219,11 +2268,15 @@ function BrowsePage({ facet, value, creds }) {
     setErr(''); setVals(null); setList(null);
     document.title = f.label + ' · Browse · Resource Locator';
     if (effective) {
-      getJson(API + '/browse/' + f.id + '/' + encodeURIComponent(effective), creds).then(setList).catch(function(e) { setErr(e.message); });
+      getJson(API + '/browse/' + f.id + '/' + encodeURIComponent(effective) + (lens ? '?lens=' + encodeURIComponent(lens) : ''), creds)
+        .then(setList).catch(function(e) { setErr(e.message); });
     } else {
       getJson(API + '/browse/' + f.id, creds).then(setVals).catch(function(e) { setErr(e.message); });
     }
-  }, [f.id, effective, creds && creds.token]);
+  }, [f.id, effective, lens, creds && creds.token]);
+  function setLens(g) { navigate(Object.assign({ browse: f.id, value: effective }, g ? { lens: g } : {})); }
+  function togglePick(id) { var n = Object.assign({}, picked); n[id] = !n[id]; setPicked(n); }
+  var shownRows = list ? lensRows(list.items, picked) : [];
 
   return el('div', { className: 'rb-page' },
     el('div', { className: 'rb-row', style: { gap: 6, marginBottom: 14 } },
@@ -2242,21 +2295,35 @@ function BrowsePage({ facet, value, creds }) {
               title: none ? 'No resource has this yet' : '',
               onClick: function() { if (f.id === 'collection' && v.description === 'WorkingSet') openList(v.id); else navigate({ browse: f.id, value: v.id }); } },
             el('span', { className: 'n' }, v.label),
-            v.count !== undefined && el('span', { className: 'c' }, none ? 'none' : v.count),
+            v.count !== undefined && el('span', { className: 'c', title: v.countAtLeast ? 'At least this many: a read stopped at its limit, or the full read is not proven complete against Egeria\u2019s repository' : '' },
+              none ? 'none' : (v.countAtLeast ? '\u2265 ' : '') + v.count),
             v.description && el('span', { className: 'rb-note' }, v.description));
         })),
       vals.countsAre && el('div', { className: 'rb-note', style: { marginTop: 8 } }, 'Counts are ' + vals.countsAre + '.'),
+      vals.notRead > 0 && el('div', { className: 'rb-note', style: { marginTop: 4 } }, vals.notRead + ' resource' + (vals.notRead === 1 ? '' : 's') +
+        ' could not be checked', el(Help, { term: 'scopeNotRead' }), '.'),
       el(SourceLine, { data: vals })),
     effective && !list && !err && el('div', { className: 'center', style: { height: 160 } }, el('div', { className: 'spinner' }), 'Loading…'),
     list && el('div', null,
       el('div', { className: 'rb-row', style: { marginBottom: 6 } },
-        f.id !== 'scope' && el('button', { className: 'rb-link', onClick: function() { navigate({ browse: f.id }); } }, '← all ' + f.label.toLowerCase() + ' values'),
+        el('button', { className: 'rb-link', onClick: function() { navigate({ browse: f.id }); } }, '← all ' + f.label.toLowerCase() + ' values'),
         el('h2', { style: { fontSize: 18 } }, list.title)),
       list.note && el('div', { className: 'rb-note', style: { marginBottom: 8 } }, list.note),
+      list.items.length > 0 && el(LensBar, { list: list, lensGuid: lens, creds: creds, picked: picked, onPick: togglePick, onLens: setLens }),
       list.items.length === 0 && !list.note && el('div', { className: 'rb-absent' }, 'No resource visible to you is here.'),
       list.items.length > 0 && el('div', { className: 'rb-note', style: { marginBottom: 8 } },
-        list.items.length + ' resource' + (list.items.length === 1 ? '' : 's') + '. ' + (list.order || '')),
-      el(ResultList, { rows: list.items, creds: creds, idx: idx }),
+        (list.lens ? shownRows.length + ' of ' : '') + (list.capped ? 'at least ' : '') + list.items.length + ' resource' + (list.items.length === 1 ? '' : 's') +
+        (list.lens ? ' shown for the lens \u201c' + list.lens.displayName + '\u201d' : '') + '. ' + (list.order || '')),
+      list.scopeListsAsOf && el('div', { className: 'rb-note', style: { marginBottom: 8 } },
+        'The recorded list is as of ' + fmtDate(list.scopeListsAsOf.recordedAsOf) + ' and the full resource read as of ' + fmtDate(list.scopeListsAsOf.noneAsOf) +
+        ': a resource scoped in between may sit in neither list, or both, until both refresh (10 minutes).'),
+      el(ResultList, { key: (lens || '') + JSON.stringify(picked), rows: shownRows, creds: creds, idx: idx, showMatched: !!list.lens,
+        renderExtra: list.lens ? function(r) {
+          var o = r.lensOutcome || {};
+          return el('span', { className: 'rb-chip', title: TERMS[o.outcome === 'notComparable' ? 'notComparable' : o.outcome === 'notRead' ? 'scopeNotRead' : 'dataLens'].def },
+            OUTCOME_CHIP[o.outcome] || '', o.compared && o.compared.length ? ' on ' + o.compared.join(', ') : '',
+            o.outside && o.outside.length ? ' (outside on ' + o.outside.join(', ') + ')' : '');
+        } : null }),
       el('div', { className: 'rb-note', style: { marginTop: 10, display: 'flex', flexDirection: 'column', gap: 3 } },
         list.notShown > 0 && el('span', null, list.notShown + ' element' + (list.notShown === 1 ? ' is' : 's are') +
           ' not shown because ' + (list.notShown === 1 ? 'it is' : 'they are') + ' not a resource this app lists or ' + (list.notShown === 1 ? 'is a template' : 'are templates') + '.'),
@@ -2316,7 +2383,7 @@ function App() {
     : route.page === 'list' ? el(ListPage, { key: route.guid, guid: route.guid, creds: creds })
     : route.page === 'lens' ? el(LensPage, { key: route.guid, guid: route.guid, creds: creds })
     : route.page === 'help' ? el(HelpPage, null)
-    : route.page === 'browse' ? el(BrowsePage, { facet: route.facet, value: route.value, creds: creds })
+    : route.page === 'browse' ? el(BrowsePage, { facet: route.facet, value: route.value, lens: route.lens, creds: creds })
     : el(HomePage, { creds: creds, personaId: personaId });
 
   return el(PersonaContext.Provider, { value: personaId },

@@ -240,6 +240,22 @@ def _has_scope(scope: Optional[dict]) -> bool:
     return False
 
 
+def _classifications_read(hdr: dict) -> bool:
+    """Whether this element header carries its classifications, so that "no DataScope" means none is
+    recorded rather than "not read" (Architect R1, 2026-11-17).
+
+    Measured on laz: every Browse source returns headers with classifications (collection members as
+    related elements, the source facet's anchored find, get_elements_by_classification, get_element_by_guid,
+    and _all_elements: 0 of 3,889 DataAssets without). Tags could not be measured (laz has none). Every
+    resource carries at least Anchors, so a header with no classification entry at all was not read with
+    them, and its row is "scope not read"."""
+    for val in (hdr or {}).values():
+        for v in (val if isinstance(val, list) else [val]):
+            if isinstance(v, dict) and v.get("class") == "ElementClassification":
+                return True
+    return False
+
+
 def _flavour(type_name: str, super_types: list, collections: list) -> dict:
     """Which of the spec's three flavours a resource is (§3).
 
@@ -1485,6 +1501,7 @@ def _row(el: dict, any_type: bool = False) -> Optional[dict]:
         "badges": [c["name"] for c in cls if c["name"] in _BADGES],
         "dataScope": _data_scope(cls),
         "hasScope": _has_scope(_data_scope(cls)),
+        "scopeRead": _classifications_read(hdr),
         "updatedBy": versions.get("updatedBy") or versions.get("createdBy") or "",
         "updateTime": versions.get("updateTime") or versions.get("createTime") or "",
         "automated": _looks_automated(versions.get("updatedBy") or versions.get("createdBy")),
@@ -2471,6 +2488,15 @@ async def unshare_list(guid: str, group: str):
 # ── Browse ────────────────────────────────────────────────────────────────────
 
 _FACETS = ["tag", "badge", "owner", "source", "collection", "flavour", "scope"]
+
+# Architect R2 (2026-11-17): "none recorded" is every resource minus the recorded ones, so it is only
+# as complete as _all_elements, and its count is shown as "at least" while that is unproven.
+# Read-only check on laz 2026-11-17 (service user, against repository_qs_metadata_store.entity, current
+# Active non-proxy rows by leaf type): 40 of 45 resource types matched exactly (4,794 read vs 4,879
+# stored). Short: DigitalProduct 181/218 and DigitalProductFamily 10/15 (most stored ones are zoned),
+# Topic 5/6 (one Memento), TabularDataSet 31/37 and TabularDataSetCollection 276/312 (5 templates
+# each; the other 1 and 31 have no zone, Memento or template, so they are unexplained). Not proven.
+ALL_ELEMENTS_UNVERIFIED = True
 _SOURCE_TYPES = ["Database", "DataFolder", "FileFolder"]
 _COLLECTION_TYPES = ["DataSharingHub", "DigitalProductFamily", "WorkingSet"]
 
@@ -2541,7 +2567,16 @@ async def _facet_values(facet: str) -> dict:
         return {"values": [{"id": "hub", "label": "Hub"}, {"id": "product", "label": "Product"},
                            {"id": "known", "label": "Known"}]}
     if facet == "scope":
-        return {"values": [{"id": "all", "label": "Resources with a data scope (time, place or another dimension)"}]}
+        recorded, none = await _scope_split()
+        return {"values": [
+            {"id": "recorded", "label": "Data scope recorded", "count": len(recorded["rows"]),
+             "countAtLeast": recorded["capped"],
+             "description": "A time, place or other dimension is recorded"},
+            {"id": "none", "label": "No data scope recorded", "count": len(none["rows"]),
+             "countAtLeast": none["capped"],
+             "description": "Needs a data scope (some hold only usage readings)"},
+        ], "notRead": len(none["notRead"]),
+           "countsAre": "at least these where marked (a read stopped at its page limit)" if (recorded["capped"] or none["capped"]) else None}
     raise HTTPException(status_code=404, detail=f"Unknown browse facet {facet!r}.")
 
 
@@ -2569,10 +2604,11 @@ async def _members(client, collection_guid: str) -> tuple:
 
 
 @router.get("/api/resource-browser/browse/{facet}/{value}", summary="The resources under one browse facet value")
-async def browse_list(facet: str, value: str):
+async def browse_list(facet: str, value: str, lens: Optional[str] = Query(None, description="A Data Lens guid: mark each resource inside / outside / cannot be compared")):
     if facet not in _FACETS:
         raise HTTPException(status_code=404, detail=f"Unknown browse facet {facet!r}.")
     title, note, source, capped = value, None, "", False
+    rows_override, scope_ages = None, None
     try:
         client = await _explorer_async()
         if facet == "tag":
@@ -2636,22 +2672,121 @@ async def browse_list(facet: str, value: str):
             capped = idx.get("capped", False)
             source = "the flavour index, then ClassificationExplorer.get_element_by_guid per resource"
         elif facet == "scope":
-            els, capped = await _classified(client, "DataScope")
-            scoped = [_has_scope(_data_scope(_classifications(e.get("elementHeader") or {}))) for e in els]
-            usage_only = [e for e, keep in zip(els, scoped) if not keep]
-            els = [e for e, keep in zip(els, scoped) if keep]
-            title = "Resources with a data scope"
-            if usage_only:
-                note = (f"{len(usage_only)} more carry a DataScope classification holding only usage readings "
-                        "from Egeria's lineage service (no time, place or other dimension), so they are not listed.")
-            source = "ClassificationExplorer.get_elements_by_classification (DataScope)"
+            if value not in ("recorded", "all", "none"):
+                raise HTTPException(status_code=404, detail="Data scope values are recorded and none.")
+            recorded, none = await _scope_split()
+            if value == "none":
+                rows_override = none["rows"]
+                capped = none["capped"]
+                title = "No data scope recorded"
+                note = ("Resources whose data scope records no time, place or other dimension: no DataScope at all, "
+                        "or one holding only usage readings from Egeria's lineage service. Set one in The Catalog.")
+                if none["notRead"]:
+                    note += f" {len(none['notRead'])} more could not be checked: their classifications were not read."
+                source = ("every resource type (ClassificationExplorer.get_elements) minus those with a data scope "
+                          "recorded (get_elements_by_classification DataScope)")
+            else:
+                # "all" is the old value id; it answers exactly as before (same value and title).
+                rows_override = recorded["rows"]
+                capped = recorded["capped"]
+                title = "Resources with a data scope"
+                if recorded["usageOnly"]:
+                    note = (f"{recorded['usageOnly']} more carry a DataScope classification holding only usage readings "
+                            "from Egeria's lineage service (no time, place or other dimension), so they are not listed.")
+                source = "ClassificationExplorer.get_elements_by_classification (DataScope)"
+            scope_ages = {"recordedAsOf": recorded["asOf"], "noneAsOf": none["asOf"]}
     except HTTPException:
         raise
     except Exception as exc:
         _raise_not_visible_or_mapped(exc, f"resource-browser: browse {facet}/{value} failed")
-    rows, not_shown = _rows(els)
+    if rows_override is not None:
+        rows, not_shown = [dict(r) for r in rows_override], 0
+    else:
+        rows, not_shown = _rows(els)
     uniq = list({r["guid"]: r for r in rows}.values())
     uniq.sort(key=lambda r: (r["kind"], r["displayName"].lower()))
-    return JSONResponse({"facet": facet, "value": value, "title": title, "items": uniq, "notShown": not_shown,
-                         "note": note, "capped": capped, "order": "By kind, then name.",
-                         "asOf": _now_iso(), "source": source})
+    out = {"facet": facet, "value": value, "title": title, "items": uniq, "notShown": not_shown,
+           "note": note, "capped": capped, "order": "By kind, then name.",
+           "asOf": _now_iso(), "source": source}
+    if scope_ages:
+        out["scopeListsAsOf"] = scope_ages
+    if lens:
+        out.update(await _apply_lens(lens, uniq, capped))
+    return JSONResponse(out)
+
+
+async def _apply_lens(lens_guid: str, rows: list, capped: bool) -> dict:
+    """Mark each row inside / outside / cannot be compared / scope not read for a lens.
+
+    The rows' DataScope came with the list's own read, so this costs one read of the lens.
+    "Cannot be compared" (records none of the lens's dimensions) is never counted as outside,
+    and a row whose classifications were not read is "scope not read", apart from both."""
+    import data_scope_handler as ds
+    import resource_locator_lens_handler as lh
+    try:
+        groups, _ = await ds._type_groups("DataLens")
+        el = await lh._read_lens(await _explorer_async(), lens_guid)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        _raise_not_visible_or_mapped(exc, f"resource-browser: lens {lens_guid} for browse failed")
+    rec = lh._lens_record(el, _token_user(), groups)
+    counts = {"inside": 0, "outside": 0, "notComparable": 0, "notRead": 0}
+    for r in rows:
+        r["lensOutcome"] = _lens_outcome(rec["scope"], r, lh._lens_match)
+        counts[r["lensOutcome"]["outcome"]] += 1
+    return {"lens": {"guid": rec["guid"], "displayName": rec["displayName"], "dimensions": rec["dimensions"]},
+            "lensCounts": dict(counts, partial=bool(capped))}
+
+
+def _lens_outcome(lens_scope: dict, row: dict, match) -> dict:
+    """One row's outcome against a lens; "notRead" when its classifications were not read."""
+    if not row.get("scopeRead", True):
+        return {"outcome": "notRead", "compared": [], "outside": []}
+    m = match(lens_scope, row.get("dataScope"))
+    return {"outcome": "notComparable" if m["outcome"] == "unknown" else m["outcome"],
+            "compared": m["compared"], "outside": m["outside"]}
+
+
+async def _scope_split() -> tuple:
+    """(recorded, none) lists for the Data scope facet, each with rows, capped and asOf.
+
+    recorded: resources whose DataScope records a dimension. none: every resource (the types
+    Search covers, and published code repositories) without one, including those whose DataScope
+    holds only usage readings. A resource whose classifications were not read is put in neither;
+    it is counted in none["notRead"]. Each list is cached per user with its own age."""
+    async def recorded_value():
+        client = await _explorer_async()
+        els, capped = await _classified(client, "DataScope")
+        rows = _rows(els)[0]
+        return {"rows": [r for r in rows if r["hasScope"]], "usageOnly": sum(1 for r in rows if not r["hasScope"]),
+                "capped": capped}
+
+    async def all_value():
+        client = await _explorer_async()
+        rows, capped_types = {}, []
+        for t in _RESOURCE_TYPES:
+            try:
+                els, capped = await _all_elements(client, t)
+            except Exception as exc:
+                if _is_unknown_type(exc):
+                    continue
+                raise
+            if capped:
+                capped_types.append(t)
+            for r in _rows(els)[0]:
+                rows.setdefault(r["guid"], r)
+        repos, _stamp = await _cached("repos", _repos_value)
+        for r in repos:
+            rows.setdefault(r["guid"], r)
+        return {"rows": list(rows.values()), "cappedTypes": capped_types}
+
+    rec, rec_stamp = await _cached("scope-recorded", recorded_value)
+    allr, all_stamp = await _cached("scope-all-resources", all_value)
+    scoped = {r["guid"] for r in rec["rows"]}
+    none_rows = [r for r in allr["rows"] if r["guid"] not in scoped and r.get("scopeRead", True) and not r["hasScope"]]
+    not_read = [r for r in allr["rows"] if r["guid"] not in scoped and not r.get("scopeRead", True)]
+    recorded = dict(rec, asOf=rec_stamp.isoformat(timespec="seconds"))
+    none = {"rows": none_rows, "notRead": not_read, "capped": bool(allr["cappedTypes"]) or ALL_ELEMENTS_UNVERIFIED,
+            "cappedTypes": allr["cappedTypes"], "asOf": all_stamp.isoformat(timespec="seconds")}
+    return recorded, none
