@@ -4,9 +4,11 @@
 
 services:
   freshstart-jupyter-hub:
+    # service_started here; egeria-freshstart-docker.yaml restores service_healthy for Docker
+    # (podman-compose 1.5.0 blocks indefinitely on service_healthy). Same split as quickstart.
     depends_on:
       freshstart-egeria-main:
-        condition: service_healthy
+        condition: service_started
     image: egeria-freshstart-jupyter:local
     pull_policy: never
     container_name: freshstart-jupyter-work-full
