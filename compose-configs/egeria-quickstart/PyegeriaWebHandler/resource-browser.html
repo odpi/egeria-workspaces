@@ -1499,11 +1499,165 @@ function ResultRow({ row, idx, extras, showMatched, inLists, extra }) {
     extra);
 }
 
+// ── Bulk add: select rows, add them to a work list in one go (PO-37) ────────
+
+var BULK_CHUNK = 100;   // the server's _ADD_CAP: members added in one request
+
+// Every row shown: loaded and passing the current filters. Never a match that is not loaded.
+function selectAllShown(rows, selected) {
+  var n = Object.assign({}, selected || {});
+  rows.forEach(function(r) { n[r.guid] = true; });
+  return n;
+}
+
+// {count, hidden}: how many are selected, and how many of those the current filters hide.
+function selectionSummary(selected, shownRows) {
+  var shown = {};
+  shownRows.forEach(function(r) { shown[r.guid] = true; });
+  var keys = Object.keys(selected || {}).filter(function(g) { return selected[g]; });
+  return { count: keys.length, hidden: keys.filter(function(g) { return !shown[g]; }).length };
+}
+
+function chunk(arr, n) {
+  var out = [];
+  for (var i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
+  return out;
+}
+
+// What to send to a list. When the list's members were read in full, a row already in it is not
+// sent; when the read was capped (Architect R1), membership is not known, so everything is sent
+// and a success says "added or already in it".
+function planBulkAdd(guids, list, memberOf) {
+  var capped = !list || !!list.membersCapped;
+  var send = [], already = [];
+  guids.forEach(function(g) {
+    var inIt = !capped && ((memberOf || {})[g] || []).indexOf(list.guid) >= 0;
+    (inIt ? already : send).push(g);
+  });
+  return { send: send, already: already, capped: capped };
+}
+
+// Outcomes for one chunk from its response: a 207's failed map names the rows that failed; a request
+// that failed as a whole fails every row it carried (never counted as done).
+function chunkOutcomes(sent, result, capped) {
+  var out = {};
+  sent.forEach(function(g) {
+    if (result.error) out[g] = { state: 'failed', message: result.error };
+    else if (result.failed && result.failed[g]) out[g] = { state: 'failed', message: result.failed[g] };
+    else out[g] = { state: capped ? 'addedOrAlready' : 'added' };
+  });
+  return out;
+}
+
+function bulkSummary(outcomes, listName) {
+  var n = { added: 0, addedOrAlready: 0, already: 0, failed: 0 };
+  Object.keys(outcomes).forEach(function(g) { n[outcomes[g].state] = (n[outcomes[g].state] || 0) + 1; });
+  var total = n.added + n.addedOrAlready + n.already + n.failed;
+  var parts = [];
+  if (n.added) parts.push('added ' + n.added);
+  if (n.addedOrAlready) parts.push(n.addedOrAlready + ' added or already in it (the list is too long to check)');
+  if (n.already) parts.push(n.already + ' already in it');
+  if (n.failed) parts.push(n.failed + ' failed (see the row' + (n.failed === 1 ? '' : 's') + '; still selected, so Add again retries ' + (n.failed === 1 ? 'it' : 'them') + ')');
+  return total + ' to \u2018' + listName + '\u2019: ' + parts.join(', ') + '.';
+}
+
+// Add guids to a list, BULK_CHUNK at a time and one request at a time (Architect R4): a chunk is done
+// only when its response has arrived, and progress names the rows in flight. post(part) returns a
+// promise of the response body. Resolves to {guid: outcome}; it never rejects.
+function bulkAdd(list, guids, memberOf, post, onProgress) {
+  var plan = planBulkAdd(guids, list, memberOf);
+  var outcomes = {};
+  plan.already.forEach(function(g) { outcomes[g] = { state: 'already' }; });
+  return chunk(plan.send, BULK_CHUNK).reduce(function(p, part, i) {
+    return p.then(function() {
+      onProgress('Adding ' + (i * BULK_CHUNK + 1) + '\u2013' + (i * BULK_CHUNK + part.length) + ' of ' + plan.send.length + '\u2026');
+      return Promise.resolve().then(function() { return post(part); })
+        .then(function(d) { return { failed: (d && d.failed) || null }; }, function(e) { return { error: (e && e.message) || String(e) }; })
+        .then(function(res) { Object.assign(outcomes, chunkOutcomes(part, res, plan.capped)); });
+    });
+  }, Promise.resolve()).then(function() { return outcomes; });
+}
+
+var OUTCOME_TEXT = { added: 'added to the list', addedOrAlready: 'added or already in the list', already: 'already in the list' };
+
+// Selection state for one result list; cleared when the list itself changes (query, kind, facet value).
+function useBulkSelection(resetKey) {
+  var _s = useState({}), selected = _s[0], setSelected = _s[1];
+  var _o = useState({}), outcomes = _o[0], setOutcomes = _o[1];
+  useEffect(function() { setSelected({}); setOutcomes({}); }, [resetKey]);
+  return { selected: selected, setSelected: setSelected, outcomes: outcomes, setOutcomes: setOutcomes,
+    toggle: function(g, on) { var n = Object.assign({}, selected); if (on) n[g] = true; else delete n[g]; setSelected(n); } };
+}
+
+function BulkBar({ rows, sel, creds, mayHaveMore, what }) {
+  var lists = useLists(creds);
+  var _t = useState(''), target = _t[0], setTarget = _t[1];
+  var _w = useState(''), why = _w[0], setWhy = _w[1];
+  var _n = useState(''), newName = _n[0], setNewName = _n[1];
+  var _p = useState(''), progress = _p[0], setProgress = _p[1];
+  var _m = useState(''), msg = _m[0], setMsg = _m[1];
+  if (!lists || lists.error || !lists.canWrite || !rows.length) return null;
+  var sum = selectionSummary(sel.selected, rows);
+  var busy = !!progress;
+
+  function run(list) {
+    var guids = Object.keys(sel.selected).filter(function(g) { return sel.selected[g]; });
+    setMsg('');
+    setProgress('Adding\u2026');      // at once, so a second click finds Add disabled (Architect R4)
+    function post(part) {
+      // A 207 (some rows failed) is a success status, so its failed map arrives here.
+      return sendJson(API + '/lists/' + encodeURIComponent(list.guid) + '/members', creds, 'POST', { guids: part, rationale: why.trim() || null });
+    }
+    return bulkAdd(list, guids, lists.memberOf, post, setProgress).then(function(outcomes) {
+      return refreshLists(creds).catch(function() {}).then(function() {
+        setProgress('');
+        sel.setOutcomes(Object.assign({}, sel.outcomes, outcomes));
+        var keep = {};
+        Object.keys(outcomes).forEach(function(g) { if (outcomes[g].state === 'failed') keep[g] = true; });
+        sel.setSelected(keep);
+        setMsg(bulkSummary(outcomes, list.displayName));
+      });
+    });
+  }
+  function add() {
+    if (target === 'new') {
+      if (!newName.trim()) return;
+      setProgress('Creating the list\u2026');
+      sendJson(API + '/lists', creds, 'POST', { name: newName.trim() })
+        .then(function(l) { setNewName(''); setTarget(l.guid); return run(Object.assign({ membersCapped: false }, l)); })
+        .catch(function(e) { setProgress(''); setMsg('The list could not be created: ' + e.message); });
+      return;
+    }
+    var list = (lists.mine || []).filter(function(l) { return l.guid === target; })[0];
+    if (list) run(list);
+  }
+
+  return el('div', { className: 'rb-card', style: { padding: '8px 12px', marginBottom: 10 } },
+    el('div', { className: 'rb-row', style: { gap: 8, flexWrap: 'wrap' } },
+      el('button', { className: 'rb-edit', disabled: busy, onClick: function() { sel.setSelected(selectAllShown(rows, sel.selected)); } },
+        'Select all ' + rows.length + ' loaded ' + (what || 'results') + ' that match these filters'),
+      el('button', { className: 'rb-edit', disabled: busy || !sum.count, onClick: function() { sel.setSelected({}); } }, 'Clear all'),
+      el('span', { className: 'rb-note' }, sum.count + ' selected' + (sum.hidden ? ' (' + sum.hidden + ' hidden by the filters)' : '')),
+      el('select', { className: 'rb-select', value: target, disabled: busy, onChange: function(e) { setTarget(e.target.value); } },
+        el('option', { value: '' }, 'Add to list\u2026'),
+        (lists.mine || []).map(function(l) { return el('option', { key: l.guid, value: l.guid }, l.displayName); }),
+        el('option', { value: 'new' }, 'New list\u2026')),
+      target === 'new' && el('input', { className: 'rb-text', style: { maxWidth: 200, padding: '4px 8px' }, value: newName, placeholder: 'New list name',
+        disabled: busy, onChange: function(e) { setNewName(e.target.value); } }),
+      target && el('input', { className: 'rb-text', style: { maxWidth: 240, padding: '4px 8px' }, value: why, placeholder: 'Why (optional, kept with each item)',
+        disabled: busy, onChange: function(e) { setWhy(e.target.value); } }),
+      el('button', { className: 'rb-btn', disabled: busy || !sum.count || !target || (target === 'new' && !newName.trim()), onClick: add },
+        'Add ' + sum.count + ' to list')),
+    mayHaveMore && el('div', { className: 'rb-note', style: { marginTop: 4 } }, 'More results may exist: load more first to include them in Select all.'),
+    progress && el('div', { className: 'rb-note', style: { marginTop: 4 } }, el('span', { className: 'spinner', style: { width: 10, height: 10, display: 'inline-block', marginRight: 6 } }), progress),
+    msg && el('div', { className: msg.indexOf('failed') >= 0 || msg.indexOf('could not') >= 0 ? 'rb-err' : 'rb-note', style: { marginTop: 4 } }, msg));
+}
+
 var ROWS_SHOWN = 25;
 
 // Shows rows 25 at a time and reads feedback only for the rows on screen
 // (spec §4: per-row lookups are lazy, so a list costs a handful of calls).
-function ResultList({ rows, creds, idx, showMatched, renderExtra }) {
+function ResultList({ rows, creds, idx, showMatched, renderExtra, sel }) {
   var lists = useLists(creds);
   var _n = useState(ROWS_SHOWN), shown = _n[0], setShown = _n[1];
   var _x = useState({}), extras = _x[0], setExtras = _x[1];
@@ -1525,9 +1679,17 @@ function ResultList({ rows, creds, idx, showMatched, renderExtra }) {
   }, [rows, shown]);
   return el('div', null,
     visible.map(function(r) {
-      return el(ResultRow, { key: r.guid, row: r, idx: idx, extras: extras[r.guid], showMatched: showMatched,
+      var row = el(ResultRow, { key: r.guid, row: r, idx: idx, extras: extras[r.guid], showMatched: showMatched,
         inLists: lists && lists.memberOf && lists.memberOf[r.guid] ? lists.memberOf[r.guid].length : 0,
         extra: renderExtra ? renderExtra(r) : null });
+      if (!sel || !lists || !lists.canWrite) return row;
+      var o = sel.outcomes[r.guid];
+      return el('div', { key: r.guid, style: { display: 'flex', gap: 8, alignItems: 'flex-start' } },
+        el('input', { type: 'checkbox', style: { marginTop: 14 }, checked: !!sel.selected[r.guid], 'aria-label': 'Select ' + r.displayName,
+          onChange: function(e) { sel.toggle(r.guid, e.target.checked); } }),
+        el('div', { style: { flex: 1, minWidth: 0 } }, row,
+          o && el('div', { className: o.state === 'failed' ? 'rb-err' : 'rb-note', style: { margin: '-4px 0 8px' } },
+            o.state === 'failed' ? 'Not added: ' + o.message : OUTCOME_TEXT[o.state])));
     }),
     rows.length > shown && el('button', { className: 'rb-btn ghost', style: { marginTop: 10 },
       onClick: function() { setShown(shown + ROWS_SHOWN); } }, 'Show ' + Math.min(ROWS_SHOWN, rows.length - shown) + ' more of ' + rows.length));
@@ -1610,6 +1772,7 @@ function SearchPage({ q, kind, creds }) {
   var _e = useState(''), err = _e[0], setErr = _e[1];
   var _l = useState(false), loading = _l[0], setLoading = _l[1];
   var _f = useState({ flavour: '', owner: '', badge: '', category: '', scope: false }), filt = _f[0], setFilt = _f[1];
+  var sel = useBulkSelection(q + '|' + kind);
 
   function load(page) {
     setLoading(true); setErr('');
@@ -1684,7 +1847,8 @@ function SearchPage({ q, kind, creds }) {
       el('div', null, 'Nothing visible to you matches “' + q + '”' + (picked.length ? ' among ' + picked.map(function(id) {
         var k = kinds.filter(function(x) { return x.id === id; })[0]; return k ? k.label.toLowerCase() : id; }).join(', ') : '') + '.'),
       el('div', { className: 'rb-note', style: { marginTop: 6 } }, 'Zone security may hide some resources from your user, so this may be incomplete.')),
-    el(ResultList, { key: q + '|' + kind + '|' + JSON.stringify(filt), rows: shown, creds: creds, idx: idx, showMatched: true }),
+    items.length > 0 && el(BulkBar, { rows: shown, sel: sel, creds: creds, mayHaveMore: !!(data && data.mayHaveMore) }),
+    el(ResultList, { key: q + '|' + kind + '|' + JSON.stringify(filt), rows: shown, creds: creds, idx: idx, showMatched: true, sel: sel }),
     data && data.mayHaveMore && el('button', { className: 'rb-btn', style: { marginTop: 12 }, disabled: loading,
       onClick: function() { load(data.page + 1); } }, loading ? 'Loading…' : 'Load more results'),
     data && el('div', { className: 'rb-note', style: { marginTop: 12, display: 'flex', flexDirection: 'column', gap: 3 } },
@@ -2366,6 +2530,7 @@ function BrowsePage({ facet, value, lens, creds }) {
   function setLens(g) { navigate(Object.assign({ browse: f.id, value: effective }, g ? { lens: g } : {})); }
   function togglePick(id) { var n = Object.assign({}, picked); n[id] = !n[id]; setPicked(n); }
   var _c = useState(''), cat = _c[0], setCat = _c[1];
+  var sel = useBulkSelection(f.id + '|' + effective);
   useEffect(function() { setCat(''); }, [f.id, effective]);
   var shownRows = list ? lensRows(list.items, picked).filter(function(r) { return inCategory(r, cat); }) : [];
   var listCategories = list ? categoryOptions(list.items) : [];
@@ -2438,7 +2603,8 @@ function BrowsePage({ facet, value, lens, creds }) {
       list.scopeListsAsOf && list.scopeListsAsOf.noneAsOf && el('div', { className: 'rb-note', style: { marginBottom: 8 } },
         'The recorded list is as of ' + fmtDate(list.scopeListsAsOf.recordedAsOf) + ' and the full resource read as of ' + fmtDate(list.scopeListsAsOf.noneAsOf) +
         ': a resource scoped in between may sit in neither list, or both, until both refresh (10 minutes).'),
-      el(ResultList, { key: (lens || '') + JSON.stringify(picked) + '|' + cat, rows: shownRows, creds: creds, idx: idx, showMatched: !!list.lens,
+      shownRows.length > 0 && el(BulkBar, { rows: shownRows, sel: sel, creds: creds, mayHaveMore: !!list.capped, what: 'rows' }),
+      el(ResultList, { key: (lens || '') + JSON.stringify(picked) + '|' + cat, rows: shownRows, creds: creds, idx: idx, showMatched: !!list.lens, sel: sel,
         renderExtra: list.lens ? function(r) {
           var o = r.lensOutcome || {};
           return el('span', { className: 'rb-chip', title: TERMS[o.outcome === 'notComparable' ? 'notComparable' : o.outcome === 'notRead' ? 'scopeNotRead' : 'dataLens'].def },

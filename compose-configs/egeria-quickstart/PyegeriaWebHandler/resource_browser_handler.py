@@ -2228,6 +2228,9 @@ async def get_lists():
         members = [((i.get("relatedElement") or {}).get("elementHeader") or {}).get("guid")
                    for i in s.get("collectionMembers") or [] if isinstance(i, dict)]
         rec["memberCount"] = len([m for m in members if m])
+        # Architect R1 (PO-37): memberOf is only as complete as this read; a list at the read limit may
+        # hold more members than memberOf knows, so bulk add says "added or already in it" for it.
+        rec["membersCapped"] = rec["memberCount"] >= _LIST_CAP
         if rec["origin"] == "mine":
             mine.append(rec)
             for m in members:
