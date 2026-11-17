@@ -151,6 +151,17 @@
     .rb-value.none { opacity: .55; cursor: default; }
     .rb-value.none .c { color: var(--dim); }
     @media (max-width: 600px) { .rb-nav { padding: 8px 16px; } .rb-page { padding: 16px 16px 48px; } }
+    /* Hover help: a small "?" that shows a term's definition on hover and on keyboard focus. */
+    .rb-help { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px;
+               margin-left: 4px; border-radius: 50%; border: 1px solid var(--dim); color: var(--dim); font-size: 9px;
+               font-weight: 600; cursor: help; vertical-align: middle; text-transform: none; letter-spacing: 0; }
+    .rb-help:hover, .rb-help:focus { color: var(--accent); border-color: var(--accent); outline: none; }
+    .rb-help:hover::after, .rb-help:focus::after {
+      content: attr(data-tip); position: absolute; top: 18px; left: -8px; z-index: 30; width: max-content; max-width: 300px;
+      white-space: normal; text-align: left; font-size: 12px; font-weight: 400; line-height: 1.45; color: var(--text);
+      background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+    @media (max-width: 600px) { .rb-help:hover::after, .rb-help:focus::after { max-width: 80vw; } }
   </style>
 </head>
 <body>
@@ -461,6 +472,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 <!-- Bump ?v= whenever egeria-shared-ui.js changes. -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
 <script src="/static/egeria-shared-ui.js?v=2026-11-11d"></script>
+<script src="/static/data-scope-editor.js?v=2026-11-16a"></script>
 
 <script>
 'use strict';
@@ -528,9 +540,49 @@ Boundary.prototype.render = function() {
   return this.props.what === 'page' ? el('div', { className: 'rb-page' }, el('div', { className: 'rb-card' }, msg)) : msg;
 };
 
-function Card({ title, source, children }) {
+// ── Terms: one definition per term the page shows, for hover help and the help panel ──
+
+var TERMS = {
+  flavour: { label: 'Flavour', def: 'How curated a resource is. Hub: a member of a data sharing hub, so it is authoritative and kept up to date. Product: a digital product, or a member of one. Known: anything else Egeria knows about. A resource shows the highest that applies.' },
+  kind: { label: 'Kind', def: 'What sort of resource it is (table, schema, file, report…), worked out from its Egeria type. Columns and attributes, and Data fields, are parts of resources rather than resources. Pick several kinds to search them together.' },
+  dataScope: { label: 'Data scope', def: 'The DataScope classification on a resource: the time and place its data covers (when it was collected, when it is valid, what period it covers, and a latitude, longitude and height box). Data lenses are matched against it. Set it in The Catalog.' },
+  dataLens: { label: 'Data lens', def: 'The scope of data a piece of work needs, in time, place and other dimensions. A lens governs a work list, and resources whose data scope falls inside it are suggested for that list.' },
+  badge: { label: 'Badge', def: 'A governance classification on the resource, such as Confidentiality, Criticality, Impact or Retention.' },
+  owner: { label: 'Owner', def: 'Who is accountable for the resource, from its Ownership classification.' },
+  source: { label: 'Source system', def: 'The database or folder a resource comes from: the source itself and everything anchored to it.' },
+  collection: { label: 'Collection', def: 'A group of resources in Egeria: a product family, a data sharing hub, or a work list.' },
+  tag: { label: 'Tag', def: 'An informal tag: a free word anyone can attach to a resource to make it easier to find.' },
+  keyword: { label: 'Search keyword', def: 'A keyword a curator attached to a resource so search finds it.' },
+  matched: { label: 'Matched', def: 'Why this result was found: which of its own fields matched, or a tag, keyword or owner, or "contains:" a column or field inside it that matched.' },
+  partOf: { label: 'Part of', def: 'For a column, attribute or data field: the table, event type, data structure or asset that holds it.' },
+  automation: { label: 'Automation', def: 'The last change was made by a service account (an engine, or a user name ending in npa), such as a survey or a connector, not by a person.' },
+  workList: { label: 'Work list', def: 'An Egeria collection of resources you gather for a piece of work, each with the reason you added it. You can share it with a team or community.' },
+  meaning: { label: 'Meaning', def: 'Glossary terms assigned to the resource or its columns: what it means in business terms.' },
+  lineage: { label: 'Lineage', def: 'Where the data comes from and where it goes: data flows, process calls and mappings, one level each way.' },
+  statistics: { label: 'Statistics', def: 'Measurements from the latest survey of the resource, such as row counts and column profiles, each with its date.' },
+  whereItFits: { label: 'Where it fits', def: 'Other elements related to this one: collections, products, connections, governance definitions, external references and more.' },
+  contains: { label: 'What it contains', def: 'What this resource holds one level down (schemas, tables, columns, files), and what holds it.' },
+  governance: { label: 'Governance', def: 'Who owns the resource, how it is classified for governance, and its data scope.' },
+  notes: { label: 'Notes and journal', def: 'Notes in the resource\u2019s note log, which anyone who can see the resource can read, and your private notes, which stay in your own journal.' },
+  preview: { label: 'Preview', def: 'A sample of a file\u2019s content, where the file can be read.' },
+  description: { label: 'Description', def: 'The resource\u2019s official description. An edit you make is recorded as yours, with the time.' },
+  columns: { label: 'Columns', def: 'The resource\u2019s schema: each column with its type and description.' },
+  popular: { label: 'Popular', def: 'Resources ranked by how much they are used. Not shown until the Locator reads a usage measure.' },
+  recent: { label: 'Recently changed', def: 'The resources changed most recently. Hide automation to see only changes people made.' },
+  favourites: { label: 'Favourites', def: 'Resources you saved as favourites anywhere in the Portal.' },
+  browse: { label: 'Browse', def: 'Find resources without typing, by tag, badge, owner, source system, collection, flavour or data scope.' },
+};
+
+// A small "?" whose definition shows on hover and on keyboard focus.
+function Help({ term }) {
+  var t = TERMS[term];
+  if (!t) return null;
+  return el('span', { className: 'rb-help', tabIndex: 0, role: 'note', 'data-tip': t.def, 'aria-label': t.label + ': ' + t.def }, '?');
+}
+
+function Card({ title, source, help, children }) {
   return el('section', { className: 'rb-card' },
-    el('h3', null, title, source && el('span', { className: 'rb-src' }, source)),
+    el('h3', null, title, help && el(Help, { term: help }), source && el('span', { className: 'rb-src' }, source)),
     el(Boundary, null, children));
 }
 
@@ -624,7 +676,7 @@ function NotesCard({ guid, creds, canWrite, name }) {
       .catch(function(e) { (priv ? setMineErr : setErr)(e.message); })
       .finally(function() { setSaving(false); });
   }
-  return el(Card, { title: 'Notes and journal', source: 'beside the description' },
+  return el(Card, { help: 'notes', title: 'Notes and journal', source: 'beside the description' },
     !data && !err && el('div', { className: 'rb-absent' }, 'Loading notes…'),
     err && el('div', { className: 'rb-err' }, 'Notes could not be read: ' + err),
     data && data.notes.length === 0 && el('div', { className: 'rb-absent' }, 'No notes or journal entries yet.'),
@@ -733,7 +785,7 @@ function ColumnsCard({ res, stats, creds, onColumnSaved, meanings }) {
       (colTerms[c.guid] || []).map(function(t) { return t.displayName; })]);
   }).map(function(c) { return Object.assign({ _sortType: c.dataType || '' }, c); }), colSort, ['name', '_sortType', null, 'description']);
 
-  return el(Card, { title: 'Columns (' + cols.length + ')', source: 'catalogued by ' + (res.createdBy || 'unknown') },
+  return el(Card, { help: 'columns', title: 'Columns (' + cols.length + ')', source: 'catalogued by ' + (res.createdBy || 'unknown') },
     cols.length > COLUMNS_FILTER_MIN && el(ListControls, { lc: lc, shown: shownCols.length, total: cols.length, noun: 'columns',
       placeholder: 'Filter columns (name, type, meaning, description)…' }),
     cols.length === 0
@@ -823,7 +875,7 @@ function StatisticsCard({ res, stats }) {
   } else {
     body = el('div', { className: 'rb-absent' }, 'No survey yet: nothing has been measured for this resource.');
   }
-  return el(Card, { title: 'Statistics', source: 'from survey annotations' }, body);
+  return el(Card, { help: 'statistics', title: 'Statistics', source: 'from survey annotations' }, body);
 }
 
 // ── Lineage, related, scope, classifications ────────────────────────────────
@@ -837,7 +889,7 @@ function LineageCard({ res }) {
         }));
   }
   var none = !lin.upstream.length && !lin.downstream.length;
-  return el(Card, { title: 'Lineage', source: 'one level' },
+  return el(Card, { help: 'lineage', title: 'Lineage', source: 'one level' },
     none ? el('div', { className: 'rb-absent' }, 'No lineage recorded.')
          : el('div', null,
              el('div', { className: 'rb-note', style: { marginBottom: 4 } }, 'Upstream (feeds this)'), list(lin.upstream),
@@ -853,7 +905,7 @@ function RelatedCard({ res, structure }) {
   if (res.parent && !pathShown) parentAndCollections.push(['part of', [Object.assign({}, res.parent, { displayName: res.parent.displayName || res.parent.guid })]]);
   if (res.collections.length) parentAndCollections.push(['in collections', res.collections]);
   var all = parentAndCollections.concat(groups.map(function(g) { return [_titleCase(g), res.related[g]]; }));
-  return el(Card, { title: 'Where it fits' },
+  return el(Card, { help: 'whereItFits', title: 'Where it fits' },
     all.length === 0 ? el('div', { className: 'rb-absent' }, 'No other relationships recorded.')
       : all.map(function(pair) { return el(RelatedGroup, { key: pair[0], label: pair[0], items: pair[1] }); }));
 }
@@ -963,7 +1015,7 @@ function MeaningCard({ res, meanings, creds }) {
     p.then(function() { setPicking(false); meanings.reload(); }).catch(function(e) { setErr(e.message); });
   }
   var terms = (data && data.meanings) || [];
-  return el(Card, { title: 'Meaning', source: 'glossary terms' },
+  return el(Card, { help: 'meaning', title: 'Meaning', source: 'glossary terms' },
     !data && el('div', { className: 'rb-absent' }, 'Loading…'),
     data && data.error && el('div', { className: 'rb-err' }, 'Meanings could not be read: ' + data.error),
     data && !data.error && terms.length === 0 && el('div', { className: 'rb-absent' }, 'No glossary term says what this means yet.'),
@@ -1082,10 +1134,10 @@ function PartsGroup({ group }) {
 
 function StructureCard({ res, structure }) {
   var noun = containerNoun(res);
-  if (!structure) return noun ? el(Card, { title: 'What it contains' }, el('div', { className: 'rb-absent' }, 'Loading…')) : null;
+  if (!structure) return noun ? el(Card, { help: 'contains', title: 'What it contains' }, el('div', { className: 'rb-absent' }, 'Loading…')) : null;
   var groups = structure.contains || [];
   if (!groups.length && !noun && !structure.error) return null;
-  return el(Card, { title: 'What it contains', source: 'one level down' },
+  return el(Card, { help: 'contains', title: 'What it contains', source: 'one level down' },
     structure.error && el('div', { className: 'rb-err' }, 'Its parts could not be read: ' + structure.error),
     !structure.error && !groups.length && el('div', { className: 'rb-absent' }, 'No ' + noun + ' are recorded for it.'),
     groups.map(function(g) { return el(PartsGroup, { key: g.relationship + g.label, group: g }); }),
@@ -1110,40 +1162,64 @@ function PartOfCrumb({ res, structure }) {
     el('span', { className: 'rb-type' }, res.typeName));
 }
 
-// DataScope (time and place). Egeria returns 0 for spatial bounds that were never
-// set, so all-zero bounds mean "no place recorded", not the point (0, 0).
-var SPATIAL_KEYS = ['minLongitude', 'minLatitude', 'maxLongitude', 'maxLatitude', 'minHeight', 'maxHeight'];
-function ScopeChips({ scope }) {
+// DataScope chips, worked out from the property names so a dimension Egeria adds later
+// still shows: <x>StartTime/<x>EndTime pairs are periods, min<X>/max<X> pairs are bounds
+// (Egeria returns 0 for bounds never set, so all-zero means "none"), maps are listed.
+// additionalProperties holds usage readings Egeria's lineage service keeps; they are
+// usage, not scope, so a scope holding only them is shown as "no time or place recorded".
+var SCOPE_PERIOD_LABELS = { dataCollection: 'collected', dataValidity: 'valid', dataCoverage: 'covers' };
+function scopeParts(scope) {
+  var parts = [], used = {};
+  Object.keys(scope || {}).forEach(function(k) {
+    var m = /^(\w+)StartTime$/.exec(k);
+    if (!m) return;
+    var e = m[1] + 'EndTime'; used[k] = used[e] = true;
+    if (!scope[k] && !scope[e]) return;
+    parts.push({ key: m[1], k: SCOPE_PERIOD_LABELS[m[1]] || _titleCase(m[1]).toLowerCase(),
+      v: (scope[k] ? fmtDate(scope[k]) : '…') + ' → ' + (scope[e] ? fmtDate(scope[e]) : '…'), title: 'Period: ' + _titleCase(m[1]) });
+  });
+  Object.keys(scope || {}).forEach(function(k) {
+    var m = /^min([A-Z]\w*)$/.exec(k);
+    if (!m || used[k]) return;
+    var x = 'max' + m[1]; used[k] = used[x] = true;
+    if (!Number(scope[k]) && !Number(scope[x])) return;
+    parts.push({ key: m[1], k: m[1].toLowerCase(), v: (scope[k] || 0) + ' … ' + (scope[x] || 0), title: 'Bound on ' + m[1].toLowerCase() });
+  });
+  Object.keys(scope || {}).forEach(function(k) {
+    if (used[k] || k === 'additionalProperties') return;
+    var v = scope[k];
+    if (v === null || v === undefined || v === '') return;
+    if (typeof v === 'object') {
+      var keys = Object.keys(v);
+      if (keys.length) parts.push({ key: k, k: _titleCase(k).toLowerCase(), v: keys.length + '', title: keys.map(function(n) { return n + ': ' + v[n]; }).join('\n') });
+      return;
+    }
+    parts.push({ key: k, k: _titleCase(k).toLowerCase(), v: String(v) });
+  });
+  return parts;
+}
+function ScopeChips({ scope, guid }) {
   var chip = function(key, k, v, title) {
     return el('span', { key: key, className: 'rb-chip', title: title || '' }, el('span', { className: 'k' }, k), v);
   };
-  if (!scope) return chip('none', 'data scope', 'not recorded', 'No DataScope classification on this resource');
-  var chips = [];
-  var start = scope.dataCollectionStartTime, end = scope.dataCollectionEndTime;
-  if (start || end) chips.push(chip('time', 'time', (start ? fmtDate(start) : '…') + ' → ' + (end ? fmtDate(end) : '…'), 'Data collection period'));
-  var spatial = SPATIAL_KEYS.filter(function(k) { return scope[k] !== undefined && Number(scope[k]) !== 0; });
-  if (spatial.length) {
-    chips.push(chip('place', 'place', 'lat ' + (scope.minLatitude || 0) + '…' + (scope.maxLatitude || 0) +
-      ', long ' + (scope.minLongitude || 0) + '…' + (scope.maxLongitude || 0), 'Spatial bounds'));
+  var setIt = guid && el('a', { key: 'set', className: 'rb-note', href: '/tech-catalog?guid=' + encodeURIComponent(guid) + '#assets',
+    title: 'Data scopes are set and changed in The Catalog' }, scope ? 'change in The Catalog ↗' : 'set in The Catalog ↗');
+  var head = el('span', { key: 'h', className: 'rb-note' }, 'data scope', el(Help, { term: 'dataScope' }));
+  if (!scope) return el(React.Fragment, null, head, chip('none', 'data scope', 'not recorded', 'No DataScope classification on this resource'), setIt);
+  var chips = scopeParts(scope).map(function(p) { return chip(p.key, p.k, p.v, p.title); });
+  if (!chips.length) chips.push(chip('bare', 'data scope', 'no time or place recorded', 'The DataScope classification carries no time, place or other dimension'));
+  var readings = scope.additionalProperties && typeof scope.additionalProperties === 'object' ? scope.additionalProperties : null;
+  if (readings && Object.keys(readings).length) {
+    chips.push(chip('usage', 'usage', readings.readCount !== undefined ? readings.readCount + ' reads' : Object.keys(readings).length + ' readings',
+      (readings.analysisService ? 'From ' + readings.analysisService + '\n' : '') +
+      Object.keys(readings).map(function(k) { return k + ': ' + readings[k]; }).join('\n')));
   }
-  Object.keys(scope).forEach(function(k) {
-    if (SPATIAL_KEYS.indexOf(k) >= 0 || k === 'dataCollectionStartTime' || k === 'dataCollectionEndTime' || k === 'additionalProperties') return;
-    var v = scope[k];
-    if (v === null || typeof v === 'object') return;
-    chips.push(chip(k, _titleCase(k), String(v)));
-  });
-  var extra = scope.additionalProperties && typeof scope.additionalProperties === 'object' ? Object.keys(scope.additionalProperties) : [];
-  if (!chips.length) chips.push(chip('bare', 'data scope', 'no time or place recorded', 'The DataScope classification is present but carries no bounds'));
-  if (extra.length) {
-    chips.push(chip('extra', 'scope details', extra.length + ' more',
-      extra.map(function(k) { return k + ': ' + scope.additionalProperties[k]; }).join('\n')));
-  }
-  return el(React.Fragment, null, chips);
+  return el(React.Fragment, null, head, chips, setIt);
 }
 
 function ClassificationsCard({ res }) {
   var cls = res.classifications || [];
-  return el(Card, { title: 'Governance' },
+  return el(Card, { help: 'governance', title: 'Governance' },
     el('div', { className: 'rb-kv', style: { marginBottom: cls.length ? 10 : 0 } },
       el('span', { className: 'k' }, 'owner'), res.owner ? el('span', null, res.owner) : el('span', { className: 'rb-absent' }, 'no owner recorded')),
     cls.length === 0 ? el('div', { className: 'rb-absent' }, 'No classifications.')
@@ -1184,7 +1260,7 @@ function previewFor(res) {
 function PreviewCard({ res, creds }) {
   var _o = useState(false), open = _o[0], setOpen = _o[1];
   var pv = previewFor(res);
-  return el(Card, { title: 'Preview' },
+  return el(Card, { help: 'preview', title: 'Preview' },
     pv.url ? el('div', null,
                el('button', { className: 'rb-action', onClick: function() { setOpen(true); } }, pv.label),
                el('div', { className: 'rb-note', style: { marginTop: 6, wordBreak: 'break-all' } }, pv.note))
@@ -1257,12 +1333,12 @@ function ResourcePage({ guid, creds, personaId }) {
       el('span', { className: 'rb-note' }, '·'),
       el('span', { className: 'rb-attrib' }, 'owner: ', res.owner ? el('b', null, res.owner) : el('span', { className: 'rb-absent' }, 'not recorded')),
       el(EgeriaFeedbackWidget, { guid: guid, creds: creds, readOnly: !res.canWrite })),
-    el('div', { className: 'rb-row', style: { marginTop: 10, gap: 6 } }, el(ScopeChips, { scope: res.dataScope })),
+    el('div', { className: 'rb-row', style: { marginTop: 10, gap: 6 } }, el(ScopeChips, { scope: res.dataScope, guid: guid })),
     el(TagsRow, { guid: guid, creds: creds, canWrite: res.canWrite }),
 
     el('div', { className: 'rb-grid' },
       el('div', null,
-        el(Card, { title: 'Description', source: 'the official description' },
+        el(Card, { help: 'description', title: 'Description', source: 'the official description' },
           el(EditableText, { value: res.description, canWrite: res.canWrite, multiline: true,
             placeholder: 'No description yet.' + (res.canWrite ? ' Add one, or leave a note beside it.' : ''), onSave: saveDescription })),
         el(MeaningCard, { res: res, meanings: meanings, creds: creds }),
@@ -1299,19 +1375,22 @@ function currentRoute() {
   if (p.get('guid')) return { page: 'resource', guid: p.get('guid') };
   if (p.has('q')) return { page: 'search', q: p.get('q') || '', kind: p.get('kind') || '' };
   if (p.get('list')) return { page: 'list', guid: p.get('list') };
+  if (p.get('lens')) return { page: 'lens', guid: p.get('lens') };
+  if (p.has('help')) return { page: 'help' };
   if (p.get('browse')) return { page: 'browse', facet: p.get('browse'), value: p.get('value') || '' };
   return { page: 'home' };
 }
 
 var KIND_ICONS = { table: '▦', schema: '🗂', database: '🛢', report: '📊', dataset: '📋', file: '📄',
-                   topic: '📡', product: '📦', api: '🔌', repo: '⎇', other: '•' };
+                   topic: '📡', product: '📦', api: '🔌', repo: '⎇', attribute: '▥', field: '◇', other: '•' };
 
 // The kinds search filters on come from the server, so the two never disagree.
 var _kindsPromise = null;
 function useKinds(creds) {
   var _k = useState(null), kinds = _k[0], setKinds = _k[1];
   useEffect(function() {
-    if (!_kindsPromise) _kindsPromise = getJson(API + '/kinds', creds).then(function(d) { return d.kinds; })
+    // Resource kinds, then the parts of resources (columns and attributes, data fields) that search also finds.
+    if (!_kindsPromise) _kindsPromise = getJson(API + '/kinds', creds).then(function(d) { return d.kinds.concat(d.parts || []); })
       .catch(function() { _kindsPromise = null; return []; });
     var live = true;
     _kindsPromise.then(function(k) { if (live) setKinds(k); });
@@ -1363,6 +1442,17 @@ function RowExtras({ extras }) {
   return el('span', { className: 'rb-row', style: { gap: 8 } }, bits);
 }
 
+// What a column, attribute or data field found by search is part of.
+function PartOfLine({ row }) {
+  var p = row.partOf;
+  if (!p) return el('span', { className: 'rb-note', title: row.partOfKnown === false
+      ? 'Only the first 25 matching parts on each page have their container looked up'
+      : 'Nothing holds this element' }, row.partOfKnown === false ? 'in … (not looked up)' : 'not part of anything');
+  return el('span', { className: 'rb-note' }, 'in', el(Help, { term: 'partOf' }), ' ',
+    el('button', { className: 'rb-link', title: (p.typeName || 'container') + ' that holds it', onClick: function() { openResource(p.guid); } },
+      p.displayName || p.guid), p.typeName ? ' (' + p.typeName + ')' : '');
+}
+
 function ResultRow({ row, idx, extras, showMatched, inLists, extra }) {
   var flav = rowFlavour(idx, row);
   return el('div', { className: 'rb-result' },
@@ -1370,9 +1460,9 @@ function ResultRow({ row, idx, extras, showMatched, inLists, extra }) {
       el('span', { className: 'rb-kind', title: row.typeName }, KIND_ICONS[row.kind] || '•'),
       el('button', { className: 'rb-link n', onClick: function() { openResource(row.guid); } }, row.displayName),
       el('span', { className: 'rb-type' }, row.typeName),
-      el(FlavourBadge, { flavour: flav }),
+      row.partOf !== undefined ? el(PartOfLine, { row: row }) : el(FlavourBadge, { flavour: flav }),
       row.badges.map(function(b) { return el('span', { key: b, className: 'rb-chip' }, b); }),
-      row.dataScope && el('span', { className: 'rb-chip', title: 'This resource records its data scope (time or place)' }, '◷ scope')),
+      row.hasScope && el('span', { className: 'rb-chip', title: 'This resource records a data scope (time, place or another dimension)' }, '◷ scope')),
     row.qualifiedName && row.qualifiedName !== row.displayName && el('div', { className: 'rb-qn' }, row.qualifiedName),
     row.description
       ? el('div', { className: 'd' }, row.description)
@@ -1380,8 +1470,8 @@ function ResultRow({ row, idx, extras, showMatched, inLists, extra }) {
     el('div', { className: 'rb-row m' },
       el('span', null, 'owner: ', row.owner ? el('b', null, row.owner) : el('i', null, 'not recorded')),
       el('span', null, 'last updated by ', el('b', null, row.updatedBy || 'unknown'),
-        row.automated ? ' (automation)' : '', ' · ', fmtDate(row.updateTime)),
-      showMatched && row.matched.length > 0 && el('span', { title: 'Why this matched' }, 'matched: ' + row.matched.join('; ')),
+        row.automated ? el(React.Fragment, null, ' (automation', el(Help, { term: 'automation' }), ')') : '', ' · ', fmtDate(row.updateTime)),
+      showMatched && row.matched.length > 0 && el('span', null, 'matched', el(Help, { term: 'matched' }), ': ' + row.matched.join('; ')),
       inLists > 0 && el('span', null, 'in ' + inLists + ' of your lists'),
       el(RowExtras, { extras: extras })),
     extra);
@@ -1444,6 +1534,7 @@ function NavBar({ route }) {
   return el('div', { className: 'rb-nav' },
     tab('home', 'Home', {}),
     tab('browse', 'Browse', { browse: 'tag' }),
+    tab('help', 'Help', { help: '' }),
     el('form', { onSubmit: submit, style: { flex: 1, display: 'flex', maxWidth: 560, marginLeft: 'auto' } },
       el('input', { className: 'rb-search', value: q, placeholder: 'Search names, descriptions, columns, tags, keywords, owners…',
         onChange: function(e) { setQ(e.target.value); } })));
@@ -1457,8 +1548,20 @@ function uniqueValues(rows, pick) {
   return Object.keys(s).sort(function(a, b) { return a.toLowerCase() < b.toLowerCase() ? -1 : 1; });
 }
 
+// The kinds a search is narrowed to, from the URL's kind=table,schema; [] for All.
+function pickedKinds(kind) {
+  return (kind || '').split(',').map(function(k) { return k.trim(); }).filter(Boolean);
+}
+
+// The route params after a kind button is pressed: add the kind, or drop it if it was picked.
+function toggleKind(picked, id) {
+  var next = picked.indexOf(id) >= 0 ? picked.filter(function(k) { return k !== id; }) : picked.concat([id]);
+  return next.length ? { kind: next.join(',') } : {};
+}
+
 function SearchPage({ q, kind, creds }) {
   var kinds = useKinds(creds);
+  var picked = pickedKinds(kind);
   var idx = useFlavours(creds);
   var _d = useState(null), data = _d[0], setData = _d[1];
   var _i = useState([]), items = _i[0], setItems = _i[1];
@@ -1468,7 +1571,7 @@ function SearchPage({ q, kind, creds }) {
 
   function load(page) {
     setLoading(true); setErr('');
-    var url = API + '/search?q=' + encodeURIComponent(q) + (kind ? '&kind=' + kind : '') + '&page=' + page;
+    var url = API + '/search?q=' + encodeURIComponent(q) + (kind ? '&kind=' + encodeURIComponent(kind) : '') + '&page=' + page;
     getJson(url, creds).then(function(d) {
       setData(d);
       setItems(function(prev) {
@@ -1492,7 +1595,7 @@ function SearchPage({ q, kind, creds }) {
     if (filt.flavour && rowFlavour(idx, r) !== filt.flavour) return false;
     if (filt.owner && (r.owner || '(not recorded)') !== filt.owner) return false;
     if (filt.badge && r.badges.indexOf(filt.badge) < 0) return false;
-    if (filt.scope && !r.dataScope) return false;
+    if (filt.scope && !r.hasScope) return false;
     return true;
   });
   var owners = uniqueValues(items, function(r) { return [r.owner || '(not recorded)']; });
@@ -1504,14 +1607,16 @@ function SearchPage({ q, kind, creds }) {
 
   return el('div', { className: 'rb-page' },
     el('div', { className: 'rb-row', style: { gap: 6, marginBottom: 10 } },
-      el('span', { className: 'rb-note', style: { marginRight: 4 } }, 'Kind:'),
-      el('button', { className: 'rb-facet' + (!kind ? ' on' : ''), onClick: function() { navigate({ q: q }); } }, 'All'),
+      el('span', { className: 'rb-note', style: { marginRight: 4 }, title: 'Pick one kind or several; pick a kind again to drop it' }, 'Kind', el(Help, { term: 'kind' }), ':'),
+      el('button', { className: 'rb-facet' + (!picked.length ? ' on' : ''), onClick: function() { navigate({ q: q }); } }, 'All'),
       kinds.map(function(k) {
-        return el('button', { key: k.id, className: 'rb-facet' + (kind === k.id ? ' on' : ''),
-          onClick: function() { navigate({ q: q, kind: k.id }); } }, (KIND_ICONS[k.id] || '') + ' ' + k.label);
+        var on = picked.indexOf(k.id) >= 0;
+        return el('button', { key: k.id, className: 'rb-facet' + (on ? ' on' : ''), 'aria-pressed': on,
+          onClick: function() { navigate(Object.assign({ q: q }, toggleKind(picked, k.id))); } }, (KIND_ICONS[k.id] || '') + ' ' + k.label);
       })),
     items.length > 0 && el('div', { className: 'rb-row', style: { gap: 10, marginBottom: 12 } },
       el('span', { className: 'rb-note' }, 'Narrow these results:'),
+      el(Help, { term: 'flavour' }),
       el('select', { className: 'rb-select', value: filt.flavour, onChange: function(e) { set('flavour', e.target.value); }, disabled: !idx || !!idx.error },
         el('option', { value: '' }, idx ? (idx.error ? 'flavour unavailable' : 'any flavour') : 'flavour …'),
         ['hub', 'product', 'known'].map(function(f) { return el('option', { key: f, value: f }, FLAVOURS[f].label); })),
@@ -1522,7 +1627,7 @@ function SearchPage({ q, kind, creds }) {
         el('option', { value: '' }, badges.length ? 'any badge' : 'no badges here'),
         badges.map(function(b) { return el('option', { key: b, value: b }, b); })),
       el('label', { className: 'rb-note', style: { display: 'flex', gap: 4, alignItems: 'center' } },
-        el('input', { type: 'checkbox', checked: filt.scope, onChange: function(e) { set('scope', e.target.checked); } }), 'has a data scope'),
+        el('input', { type: 'checkbox', checked: filt.scope, onChange: function(e) { set('scope', e.target.checked); } }), 'has a data scope', el(Help, { term: 'dataScope' })),
       filtering && el('button', { className: 'rb-edit', onClick: function() { setFilt({ flavour: '', owner: '', badge: '', scope: false }); } }, 'Clear')),
     err && el('div', { className: 'rb-err', style: { marginBottom: 10 } }, 'Search failed: ' + err),
     data && el('div', { className: 'rb-note', style: { marginBottom: 10 } },
@@ -1531,14 +1636,15 @@ function SearchPage({ q, kind, creds }) {
       data.order),
     loading && !items.length && el('div', { className: 'center', style: { height: 160 } }, el('div', { className: 'spinner' }), 'Searching…'),
     data && !loading && items.length === 0 && el('div', { className: 'rb-card' },
-      el('div', null, 'Nothing visible to you matches “' + q + '”' + (kind ? ' among ' + kind + ' resources' : '') + '.'),
+      el('div', null, 'Nothing visible to you matches “' + q + '”' + (picked.length ? ' among ' + picked.map(function(id) {
+        var k = kinds.filter(function(x) { return x.id === id; })[0]; return k ? k.label.toLowerCase() : id; }).join(', ') : '') + '.'),
       el('div', { className: 'rb-note', style: { marginTop: 6 } }, 'Zone security may hide some resources from your user, so this may be incomplete.')),
     el(ResultList, { key: q + '|' + kind + '|' + JSON.stringify(filt), rows: shown, creds: creds, idx: idx, showMatched: true }),
     data && data.mayHaveMore && el('button', { className: 'rb-btn', style: { marginTop: 12 }, disabled: loading,
       onClick: function() { load(data.page + 1); } }, loading ? 'Loading…' : 'Load more results'),
     data && el('div', { className: 'rb-note', style: { marginTop: 12, display: 'flex', flexDirection: 'column', gap: 3 } },
-      data.columns && data.columns.found > data.columns.rolledUp && el('span', null,
-        data.columns.found + ' matching columns found on this page; the tables of the first ' + data.columns.rolledUp + ' are shown.'),
+      data.parts && data.parts.shown > data.parts.lookedUp && el('span', null,
+        data.parts.shown + ' matching columns, attributes or fields on this page; what holds the first ' + data.parts.lookedUp + ' was looked up.'),
       data.cappedSources.length > 0 && el('span', null, 'These matches stopped at 50 and more may exist: ' + data.cappedSources.join(', ') + '.'),
       Object.keys(data.failedSources).length > 0 && el('span', { className: 'rb-err' },
         'Some sources could not be searched, so results may be incomplete: ' + Object.keys(data.failedSources).join(', ') + '.'),
@@ -1550,9 +1656,9 @@ function SearchPage({ q, kind, creds }) {
 
 // ── Home ─────────────────────────────────────────────────────────────────────
 
-function Tile({ title, children, note }) {
+function Tile({ title, children, note, help }) {
   return el('section', { className: 'rb-card' },
-    el('h3', null, title, note && el('span', { className: 'rb-src' }, note)),
+    el('h3', null, title, help && el(Help, { term: help }), note && el('span', { className: 'rb-src' }, note)),
     el(Boundary, null, children));
 }
 
@@ -1574,7 +1680,7 @@ function FavouritesTile({ personaId }) {
       .then(function(d) { setFavs((d || []).filter(function(f) { return f.app === 'resource-browser'; })); })
       .catch(function(e) { setErr(e.message); });
   }, [personaId]);
-  return el(Tile, { title: 'Favourites', note: 'the Portal’s favourites' },
+  return el(Tile, { help: 'favourites', title: 'Favourites', note: 'the Portal’s favourites' },
     !personaId ? el('div', { className: 'rb-absent' }, 'Sign in or choose a persona to keep favourites.')
     : err ? el('div', { className: 'rb-err' }, 'Favourites could not be read: ' + err)
     : !favs ? el('div', { className: 'rb-absent' }, 'Loading…')
@@ -1631,7 +1737,7 @@ function ListsTile({ creds }) {
           + (l.sharedWith && l.sharedWith.length ? ' · shared with ' + l.sharedWith.map(function(g) { return g.displayName; }).join(', ') : '')));
     }));
   }
-  return el(Tile, { title: 'My lists', note: 'work lists' },
+  return el(Tile, { help: 'workList', title: 'My lists', note: 'work lists' },
     !d ? el('div', { className: 'rb-absent' }, 'Loading…')
     : d.error ? el('div', { className: 'rb-err' }, 'Lists could not be read: ' + d.error)
     : el('div', null,
@@ -1650,6 +1756,177 @@ function ListsTile({ creds }) {
           el('div', { className: 'rb-note', style: { marginBottom: 4 } }, 'From Resource Explorer (read-only: copy what you want)'),
           d.fromResourceExplorer.length ? list(d.fromResourceExplorer)
             : el('div', { className: 'rb-absent' }, 'No Resource Explorer list has been published to Egeria yet.'))));
+}
+
+// ── Help: how the Locator works, and every term it uses ─────────────────────
+// The glossary is the same TERMS table the "?" markers show, so the two never disagree.
+
+var DOCS_URL = '/docs/viewer.html?src=tools/resource-locator.md';
+
+function HelpPage() {
+  useEffect(function() { document.title = 'Help · Resource Locator'; }, []);
+  var sec = function(title, body) { return el(Card, { title: title }, body); };
+  var p = function(t) { return el('p', { style: { margin: '0 0 8px', lineHeight: 1.55 } }, t); };
+  return el('div', { className: 'rb-page' },
+    el('h1', { style: { fontSize: 22, margin: '0 0 6px' } }, 'How the Resource Locator works'),
+    el('div', { className: 'rb-note', style: { marginBottom: 14 } }, 'The full guide is in the ',
+      el('a', { href: DOCS_URL, target: '_blank', rel: 'noopener' }, 'Portal documentation ↗'), '.'),
+    el('div', { className: 'rb-grid' },
+      el('div', null,
+        sec('Search', el('div', null,
+          p('Search matches names, qualified names and descriptions, informal tags, search keywords and owners. It also finds the parts of resources: columns and other schema attributes, and data fields. Each part shows what holds it, and the resource that holds it is found too ("contains: …").'),
+          p('Pick one kind or several with the Kind buttons (for example Schemas and Tables together); All clears them. Results are ordered by how directly the text matches: Egeria holds no usage measure the Locator reads yet.'),
+          p('"Load more results" stays offered until Egeria returns an empty page: a short page is not the last page.'))),
+        sec('Browse and the resource page', el('div', null,
+          p('Browse lists resources by tag, badge, owner, source system, collection, flavour or data scope. A resource page shows what Egeria holds about one resource, and says what is missing rather than showing an empty table.'),
+          p('You can improve a description, add informal tags, notes and meanings, like or rate a resource, and keep it in a work list. Every change is made as you, with your own Egeria token.'))),
+        sec('Data scope and data lenses', el('div', null,
+          p('A data scope says what time and place a resource’s data covers. It is shown on result rows (◷ scope) and resource pages, and set or changed in The Catalog. Some scopes hold only usage readings that Egeria’s lineage service keeps; those are shown as usage, not as a scope.'),
+          p('A data lens says what scope of data a piece of work needs. Make one from the Data lenses tile on Home, link it to your work lists, and its page lists the resources whose data scope falls inside it. A resource that records none of the lens’s dimensions cannot be compared, and is counted as such.')))),
+      el('div', null,
+        sec('Terms', el('dl', { style: { margin: 0 } }, Object.keys(TERMS).map(function(k) {
+          return el(React.Fragment, { key: k },
+            el('dt', { style: { fontWeight: 600, marginTop: 8 } }, TERMS[k].label),
+            el('dd', { style: { margin: '2px 0 0', color: 'var(--muted)', lineHeight: 1.5 } }, TERMS[k].def));
+        }))))));
+}
+
+// ── Data lenses ──────────────────────────────────────────────────────────────
+// A Data Lens says what scope of data a piece of work needs (time, place, scope
+// elements). It governs work lists, and resources whose data scope falls inside it are
+// shown on its page so they can be added. Its fields come from Egeria's DataLens type
+// definition (static/data-scope-editor.js), so new dimensions appear without a change here.
+
+function openLens(guid) { navigate({ lens: guid }); }
+
+function LensesTile({ creds }) {
+  var _d = useState(null), d = _d[0], setD = _d[1];
+  var lists = useLists(creds);
+  useEffect(function() {
+    getJson(API + '/lenses', creds).then(setD).catch(function(e) { setD({ error: e.message }); });
+  }, [creds && creds.token]);
+  var canWrite = lists && lists.canWrite;
+  return el(Tile, { help: 'dataLens', title: 'Data lenses', note: 'the scope of data a piece of work needs' },
+    !d ? el('div', { className: 'rb-absent' }, 'Loading…')
+    : d.error ? el('div', { className: 'rb-err' }, 'Lenses could not be read: ' + d.error)
+    : !d.typeKnown ? el('div', { className: 'rb-absent' }, 'This Egeria does not know the DataLens type.')
+    : el('div', null,
+        d.lenses.length ? el('ul', { className: 'rb-list' }, d.lenses.map(function(l) {
+          return el('li', { key: l.guid },
+            el('button', { className: 'rb-link', onClick: function() { openLens(l.guid); } }, l.displayName),
+            el('span', { className: 't' }, (l.dimensions.length ? l.dimensions.length + ' dimension' + (l.dimensions.length === 1 ? '' : 's') : 'no dimensions yet')
+              + (l.governs.length ? ' · governs ' + l.governs.map(function(g) { return g.displayName; }).join(', ') : '')
+              + (l.origin !== 'mine' && l.createdBy ? ' · by ' + l.createdBy : '')));
+        })) : el('div', { className: 'rb-absent' }, 'No data lens exists yet.'),
+        d.capped && el('div', { className: 'rb-note' }, 'The read stopped at its limit; there may be more lenses.'),
+        canWrite ? el('button', { className: 'rb-btn', style: { marginTop: 8 }, onClick: function() { openLens('new'); } }, 'New data lens')
+                 : el('div', { className: 'rb-note', style: { marginTop: 8 } }, 'Sign in or choose a persona to make a data lens.')));
+}
+
+function LensForm({ creds, lens, groups, onDone, onCancel }) {
+  var lists = useLists(creds);
+  var _n = useState(lens ? lens.displayName : ''), name = _n[0], setName = _n[1];
+  var _s = useState(lens ? lens.description : ''), desc = _s[0], setDesc = _s[1];
+  var _l = useState(''), listGuid = _l[0], setListGuid = _l[1];
+  var _b = useState(false), busy = _b[0], setBusy = _b[1];
+  var _e = useState(''), err = _e[0], setErr = _e[1];
+  function save(values) {
+    if (!name.trim()) { setErr('A data lens needs a name.'); return; }
+    setBusy(true); setErr('');
+    var body = { name: name.trim(), description: desc, values: values };
+    if (!lens && listGuid) body.listGuid = listGuid;
+    sendJson(API + '/lenses' + (lens ? '/' + encodeURIComponent(lens.guid) : ''), creds, lens ? 'PUT' : 'POST', body)
+      .then(onDone).catch(function(x) { setErr(x.message); }).finally(function() { setBusy(false); });
+  }
+  return el('div', null,
+    el('label', { className: 'rb-note', style: { display: 'block', marginBottom: 4 } }, 'Name'),
+    el('input', { className: 'rb-text', style: { width: '100%', padding: '4px 8px', marginBottom: 10 }, value: name,
+      placeholder: 'e.g. UK sales 2024', onChange: function(e) { setName(e.target.value); } }),
+    el('label', { className: 'rb-note', style: { display: 'block', marginBottom: 4 } }, 'What the work needs, in words'),
+    el('textarea', { className: 'rb-text', style: { width: '100%', minHeight: 54, padding: '4px 8px', marginBottom: 12, resize: 'vertical' }, value: desc,
+      onChange: function(e) { setDesc(e.target.value); } }),
+    !lens && el('div', { style: { marginBottom: 12 } },
+      el('label', { className: 'rb-note', style: { display: 'block', marginBottom: 4 } }, 'Governs one of your lists (optional)'),
+      el('select', { className: 'rb-select', value: listGuid, onChange: function(e) { setListGuid(e.target.value); } },
+        el('option', { value: '' }, 'no list yet'),
+        (lists && lists.mine || []).map(function(l) { return el('option', { key: l.guid, value: l.guid }, l.displayName); }))),
+    el('div', { className: 'rb-note', style: { marginBottom: 8 } }, 'Scope: fill in only the dimensions the work cares about. A resource is matched on the dimensions it records.'),
+    el(DataScopeEditor, { groups: groups.filter(function(g) { return !g.readOnly; }), scope: lens ? lens.scope : null, busy: busy, error: err,
+      saveLabel: lens ? 'Save lens' : 'Create lens', onSave: save, onCancel: onCancel }));
+}
+
+function LensPage({ guid, creds }) {
+  var isNew = guid === 'new';
+  var lists = useLists(creds);
+  var idx = useFlavours(creds);
+  var _d = useState(null), d = _d[0], setD = _d[1];
+  var _g = useState(null), groups = _g[0], setGroups = _g[1];
+  var _e = useState(''), err = _e[0], setErr = _e[1];
+  var _m = useState(isNew), editing = _m[0], setEditing = _m[1];
+  var _b = useState(false), busy = _b[0], setBusy = _b[1];
+  var _p = useState(''), pick = _p[0], setPick = _p[1];
+  useEffect(function() {
+    document.title = (isNew ? 'New data lens' : 'Data lens') + ' · Resource Locator';
+    dataScopeFetchDimensions('DataLens', creds).then(setGroups).catch(function(e) { setErr(e.message); });
+    if (!isNew) getJson(API + '/lenses/' + encodeURIComponent(guid), creds).then(function(x) { setD(x); document.title = x.lens.displayName + ' · Data lens · Resource Locator'; })
+      .catch(function(e) { setErr(e.message); });
+  }, [guid, creds && creds.token]);
+  function act(method, path, body) {
+    setBusy(true); setErr('');
+    sendJson(API + '/lenses/' + encodeURIComponent(guid) + path, creds, method, body)
+      .then(function(x) { setD(x); setPick(''); }).catch(function(e) { setErr(e.message); }).finally(function() { setBusy(false); });
+  }
+  var head = el('div', { className: 'rb-row', style: { gap: 8, marginBottom: 12 } },
+    el('button', { className: 'rb-link', onClick: function() { navigate({}); } }, '← Home'),
+    el('span', { className: 'rb-note' }, 'Data lens', el(Help, { term: 'dataLens' })));
+  if (err && !d && !(isNew && groups)) return el('div', { className: 'rb-page' }, head, el('div', { className: 'rb-err' }, err));
+  if (!groups || (!isNew && !d)) return el('div', { className: 'rb-page' }, head, el('div', { className: 'center', style: { height: 160 } }, el('div', { className: 'spinner' }), 'Loading…'));
+  if (isNew) {
+    if (!(lists && lists.canWrite)) return el('div', { className: 'rb-page' }, head, el('div', { className: 'rb-absent' }, 'Sign in or choose a persona to make a data lens.'));
+    return el('div', { className: 'rb-page' }, head,
+      el(Card, { help: 'dataLens', title: 'New data lens' },
+        el(LensForm, { creds: creds, groups: groups, onDone: function(x) { openLens(x.lens.guid); }, onCancel: function() { navigate({}); } })));
+  }
+  var lens = d.lens;
+  var governed = {};
+  lens.governs.forEach(function(g) { governed[g.guid] = true; });
+  var myLists = (lists && lists.mine || []).filter(function(l) { return !governed[l.guid]; });
+  return el('div', { className: 'rb-page' }, head,
+    el('h1', { style: { fontSize: 22, margin: '0 0 4px' } }, lens.displayName),
+    el('div', { className: 'rb-qn' }, lens.qualifiedName),
+    el('div', { className: 'rb-note', style: { margin: '4px 0 12px' } },
+      'made by ' + (lens.createdBy || 'unknown') + (lens.updateTime ? ' · updated ' + fmtDate(lens.updateTime) : '') + (lens.editable ? '' : ' · read-only: only its creator changes it')),
+    err && el('div', { className: 'rb-err', style: { marginBottom: 10 } }, err),
+    el('div', { className: 'rb-grid' },
+      el('div', null,
+        el(Card, { help: 'dataLens', title: 'What the work needs', source: 'the DataLens' },
+          editing ? el(LensForm, { creds: creds, lens: lens, groups: groups, onDone: function(x) { setD(x); setEditing(false); }, onCancel: function() { setEditing(false); } })
+          : el('div', null,
+              lens.description ? el('div', { style: { marginBottom: 10 } }, lens.description) : el('div', { className: 'rb-absent', style: { marginBottom: 10 } }, 'No description.'),
+              el(DataScopeView, { groups: groups, scope: Object.keys(lens.scope).length ? lens.scope : null, absent: 'No dimensions set yet, so no resource can be matched.' }),
+              lens.editable && el('button', { className: 'rb-edit', style: { marginTop: 10 }, onClick: function() { setEditing(true); } }, 'Edit'))),
+        el(Card, { help: 'workList', title: 'Lists it governs', source: 'GovernedBy' },
+          lens.governs.length ? el('ul', { className: 'rb-list' }, lens.governs.map(function(g) {
+            return el('li', { key: g.guid },
+              el('button', { className: 'rb-link', onClick: function() { openList(g.guid); } }, g.displayName),
+              lens.editable && el('button', { className: 'rb-edit', disabled: busy, title: 'The lens stops governing this list (the list is kept)',
+                onClick: function() { act('DELETE', '/lists/' + encodeURIComponent(g.guid)); } }, 'unlink'));
+          })) : el('div', { className: 'rb-absent' }, 'It governs no list yet.'),
+          lens.editable && myLists.length > 0 && el('div', { className: 'rb-row', style: { gap: 6, marginTop: 8 } },
+            el('select', { className: 'rb-select', value: pick, onChange: function(e) { setPick(e.target.value); } },
+              el('option', { value: '' }, 'govern one of your lists…'),
+              myLists.map(function(l) { return el('option', { key: l.guid, value: l.guid }, l.displayName); })),
+            el('button', { className: 'rb-btn', disabled: busy || !pick, onClick: function() { act('POST', '/lists', { listGuid: pick }); } }, 'Link')))),
+      el('div', null,
+        el(Card, { help: 'dataScope', title: 'Resources inside it', source: 'matched on their data scope' },
+          el('div', { className: 'rb-note', style: { marginBottom: 8 } },
+            d.insideCount + ' inside · ' + d.outsideCount + ' outside · ' + d.notComparable + ' record none of the lens’s dimensions, so cannot be compared · of ' +
+            d.scopedCount + ' resources with a data scope' + (d.capped ? ' (the read stopped at its limit)' : '') + '. ' + d.rule),
+          d.insideCount > d.inside.length && el('div', { className: 'rb-note', style: { marginBottom: 8 } }, 'The first ' + d.inside.length + ' are listed.'),
+          d.inside.length ? el(ResultList, { rows: d.inside, creds: creds, idx: idx, showMatched: true,
+              renderExtra: function(r) { return el(AddToList, { guid: r.guid, creds: creds }); } })
+            : el('div', { className: 'rb-absent' }, Object.keys(lens.scope).length ? 'No resource visible to you is inside this lens.' : 'Set the lens’s dimensions to match resources.'),
+          el(SourceLine, { data: d })))));
 }
 
 // Add the current resource to one of my lists, or to a new one.
@@ -1894,10 +2171,10 @@ function HomePage({ creds, personaId }) {
       'Search above, browse by tag, owner, source or collection, or start from what changed recently.'),
     el('div', { className: 'rb-grid' },
       el('div', null,
-        el(Tile, { title: 'Popular', note: 'by use' },
+        el(Tile, { help: 'popular', title: 'Popular', note: 'by use' },
           el('div', { className: 'rb-absent' }, (home && home.popular && home.popular.reason) || 'Popularity is not available yet.'),
           el('div', { className: 'rb-note', style: { marginTop: 4 } }, 'Nothing is ranked by use until Egeria records it. Recently changed is below instead.')),
-        el(Tile, { title: 'Recently changed', note: 'newest first' },
+        el(Tile, { help: 'recent', title: 'Recently changed', note: 'newest first' },
           el('div', { className: 'rb-row', style: { gap: 6, marginBottom: 8 } },
             el('button', { className: 'rb-facet' + (peopleOnly ? ' on' : ''), onClick: function() { setPeopleOnly(true); } }, 'Changed by people'),
             el('button', { className: 'rb-facet' + (!peopleOnly ? ' on' : ''), onClick: function() { setPeopleOnly(false); } }, 'Including automation')),
@@ -1912,22 +2189,23 @@ function HomePage({ creds, personaId }) {
       el('div', null,
         el(Boundary, { what: 'Favourites tile' }, el(FavouritesTile, { personaId: personaId })),
         el(Boundary, { what: 'Work lists tile' }, el(ListsTile, { creds: creds })),
-        el(Tile, { title: 'Browse' },
+        el(Boundary, { what: 'Data lenses tile' }, el(LensesTile, { creds: creds })),
+        el(Tile, { help: 'browse', title: 'Browse' },
           el('div', { className: 'rb-row', style: { gap: 6 } }, FACETS.map(function(f) {
-            return el('button', { key: f.id, className: 'rb-facet', onClick: function() { navigate({ browse: f.id }); } }, f.label);
+            return el('button', { key: f.id, className: 'rb-facet', title: TERMS[f.term].def, onClick: function() { navigate({ browse: f.id }); } }, f.label);
           }))))));
 }
 
 // ── Browse ───────────────────────────────────────────────────────────────────
 
 var FACETS = [
-  { id: 'tag', label: 'Tag', empty: 'No informal tags exist yet.' },
-  { id: 'badge', label: 'Badge', empty: '' },
-  { id: 'owner', label: 'Owner', empty: 'No resource has a recorded owner yet.' },
-  { id: 'source', label: 'Source system', empty: 'No databases or folders are catalogued yet.' },
-  { id: 'collection', label: 'Collection', empty: 'No product families, data sharing hubs or work lists exist yet.' },
-  { id: 'flavour', label: 'Flavour', empty: '' },
-  { id: 'scope', label: 'Data scope', empty: '' },
+  { id: 'tag', label: 'Tag', term: 'tag', empty: 'No informal tags exist yet.' },
+  { id: 'badge', label: 'Badge', term: 'badge', empty: '' },
+  { id: 'owner', label: 'Owner', term: 'owner', empty: 'No resource has a recorded owner yet.' },
+  { id: 'source', label: 'Source system', term: 'source', empty: 'No databases or folders are catalogued yet.' },
+  { id: 'collection', label: 'Collection', term: 'collection', empty: 'No product families, data sharing hubs or work lists exist yet.' },
+  { id: 'flavour', label: 'Flavour', term: 'flavour', empty: '' },
+  { id: 'scope', label: 'Data scope', term: 'dataScope', empty: '' },
 ];
 
 function BrowsePage({ facet, value, creds }) {
@@ -1951,8 +2229,9 @@ function BrowsePage({ facet, value, creds }) {
     el('div', { className: 'rb-row', style: { gap: 6, marginBottom: 14 } },
       el('span', { className: 'rb-note', style: { marginRight: 4 } }, 'Browse by:'),
       FACETS.map(function(x) {
-        return el('button', { key: x.id, className: 'rb-facet' + (x.id === f.id ? ' on' : ''), onClick: function() { navigate({ browse: x.id }); } }, x.label);
-      })),
+        return el('button', { key: x.id, className: 'rb-facet' + (x.id === f.id ? ' on' : ''), title: TERMS[x.term].def,
+          onClick: function() { navigate({ browse: x.id }); } }, x.label);
+      }), el(Help, { term: f.term })),
     err && el('div', { className: 'rb-err' }, err),
     !err && !effective && !vals && el('div', { className: 'center', style: { height: 160 } }, el('div', { className: 'spinner' }), 'Loading…'),
     vals && el('div', null,
@@ -2035,6 +2314,8 @@ function App() {
     : route.page === 'resource' ? el(ResourcePage, { key: route.guid, guid: route.guid, creds: creds, personaId: personaId })
     : route.page === 'search' ? el(SearchPage, { q: route.q, kind: route.kind, creds: creds })
     : route.page === 'list' ? el(ListPage, { key: route.guid, guid: route.guid, creds: creds })
+    : route.page === 'lens' ? el(LensPage, { key: route.guid, guid: route.guid, creds: creds })
+    : route.page === 'help' ? el(HelpPage, null)
     : route.page === 'browse' ? el(BrowsePage, { facet: route.facet, value: route.value, creds: creds })
     : el(HomePage, { creds: creds, personaId: personaId });
 
