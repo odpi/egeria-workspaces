@@ -34,7 +34,7 @@ only them.
 
 import re
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
@@ -133,12 +133,32 @@ def _field_index(groups: list) -> dict:
     return {f["name"]: (g, f) for g in groups for f in g["fields"]}
 
 
-def _to_iso(value: str) -> str:
-    """A date or date-time from a form → an ISO-8601 UTC timestamp Egeria accepts."""
+_WHOLE_PERIOD = re.compile(r"(\d{4})(?:-(\d{1,2})(?:-(\d{1,2}))?)?")
+
+
+def _to_iso(value: str, role: str = "start") -> str:
+    """A date or date-time from a form → an ISO-8601 UTC timestamp Egeria accepts.
+
+    A year (2026), month (2026-03) or day (2026-03-14) means the whole of it (PO-35, 2026-11-17):
+    as a start it is the first instant, as an end the last (…T23:59:59.999Z). The lens overlap test
+    compares ends inclusively, so an end must be the period's last instant, not the next one's first,
+    and never a time of day the browser filled in. A value with a time is taken as given (UTC
+    unless it names a zone)."""
     v = value.strip()
-    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", v):
-        v += "T00:00:00"
-    dt = datetime.fromisoformat(v.replace("Z", "+00:00"))
+    m = _WHOLE_PERIOD.fullmatch(v)
+    if m:
+        y, mo, d = int(m.group(1)), int(m.group(2)) if m.group(2) else None, int(m.group(3)) if m.group(3) else None
+        first = datetime(y, mo or 1, d or 1)          # raises ValueError for a month or day that does not exist
+        if role != "end":
+            return first.isoformat(timespec="seconds") + "Z"
+        if d is not None:
+            nxt = first + timedelta(days=1)
+        elif mo is not None:
+            nxt = datetime(y + (mo == 12), mo % 12 + 1, 1)
+        else:
+            nxt = datetime(y + 1, 1, 1)
+        return (nxt - timedelta(milliseconds=1)).isoformat(timespec="milliseconds") + "Z"
+    dt = datetime.fromisoformat(v.replace("Z", "+00:00").replace(" ", "T", 1))
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
@@ -167,7 +187,7 @@ def _clean_values(values: dict, groups: list) -> tuple:
             if f["kind"] == "number":
                 props[name] = float(raw)
             elif f["kind"] == "date":
-                props[name] = _to_iso(str(raw))
+                props[name] = _to_iso(str(raw), f.get("role", "start"))
             elif f["kind"] == "map":
                 if not isinstance(raw, dict):
                     raise ValueError("expected name/value pairs")

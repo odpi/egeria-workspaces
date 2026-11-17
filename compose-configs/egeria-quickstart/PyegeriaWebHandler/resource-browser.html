@@ -472,7 +472,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 <!-- Bump ?v= whenever egeria-shared-ui.js changes. -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
 <script src="/static/egeria-shared-ui.js?v=2026-11-11d"></script>
-<script src="/static/data-scope-editor.js?v=2026-11-17a"></script>
+<script src="/static/data-scope-editor.js?v=2026-11-17b"></script>
 
 <script>
 'use strict';
@@ -1192,7 +1192,8 @@ function scopeParts(scope) {
     var e = m[1] + 'EndTime'; used[k] = used[e] = true;
     if (!scope[k] && !scope[e]) return;
     parts.push({ key: m[1], k: SCOPE_PERIOD_LABELS[m[1]] || _titleCase(m[1]).toLowerCase(),
-      v: (scope[k] ? fmtDate(scope[k]) : '…') + ' → ' + (scope[e] ? fmtDate(scope[e]) : '…'), title: 'Period: ' + _titleCase(m[1]) });
+      v: window.dataScopePeriodText ? dataScopePeriodText(scope[k], scope[e])
+         : (scope[k] ? fmtDate(scope[k]) : '…') + ' → ' + (scope[e] ? fmtDate(scope[e]) : '…'), title: 'Period: ' + _titleCase(m[1]) + ' (UTC)' });
   });
   Object.keys(scope || {}).forEach(function(k) {
     var m = /^min([A-Z]\w*)$/.exec(k);

@@ -127,6 +127,8 @@ A **data scope** is Egeria's `DataScope` classification on a resource. It says w
 
 A **data lens** (Egeria's `DataLens`, a governance definition) says what scope of data a piece of work needs, using the same dimensions as a data scope. In Egeria's model the lens **governs** a collection of the resources that meet it (the `GovernedBy` relationship); in the Locator that collection is one of your work lists.
 
+A lens's periods are typed the same way as a data scope's in The Catalog: a year (`2026`), month or day means the whole of it, so a 2026 lens runs from the first moment of 1 January to the last moment of 31 December (UTC), and a resource whose data starts at midnight on 1 January is inside it. A whole year or month shows as `2026` or `2026-03` on the lens.
+
 - **Make one** from the **Data lenses** tile on Home (**New data lens**): a name, what the work needs in words, the dimensions that matter, and optionally one of your lists for it to govern. Fill in only the dimensions the work cares about.
 - **Its page** (`/resource-locator?lens=…`) shows the lens, the lists it governs, and the **resources inside it**, each with **Add to list**.
 - **Matching.** A resource is compared on the dimensions both it and the lens record. It is **inside** when every one of them overlaps: periods and bounds overlap (an open end is unbounded), and scope elements share an element. It is **outside** when one does not. A resource that records none of the lens's dimensions **cannot be compared**, and is counted as such rather than as outside.
