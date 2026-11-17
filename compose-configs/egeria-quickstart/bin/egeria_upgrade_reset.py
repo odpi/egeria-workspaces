@@ -46,7 +46,6 @@ import hashlib
 import json
 import os
 import re
-import shutil
 import signal
 import socket
 import ssl
@@ -714,6 +713,18 @@ def step_recreate(env, plan, state, run_dir):
             "recreatedAt": iso(env.now()), "secretsMountMatches": True, "restartedForStaleMount": restarted}
 
 
+def _secrets_installer(src: Path):
+    """compose-configs/shared-infra/install-secrets.py, loaded from the same compose-configs as the secrets."""
+    import importlib.util
+    path = src.parents[1] / "shared-infra" / "install-secrets.py"
+    if not path.is_file():
+        path = Path(__file__).resolve().parents[2] / "shared-infra" / "install-secrets.py"
+    spec = importlib.util.spec_from_file_location("install_secrets", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def step_secrets_sync(env, plan, state, run_dir):
     """Copy the compose secrets into runtime-volumes IN PLACE, while the platform is stopped, so the
     recreated container mounts the final files. Accounts added/removed/changed are listed by NAME only;
@@ -722,8 +733,12 @@ def step_secrets_sync(env, plan, state, run_dir):
     src, dst = Path(plan["secrets"]["from"]), Path(plan["secrets"]["to"])
     diff = secrets_diff(src, dst)
     dst.mkdir(parents=True, exist_ok=True)
-    for f in src.glob("*.omsecrets"):
-        shutil.copyfile(f, dst / f.name)    # truncates and rewrites the same inode: the bind mount stays valid
+    # Filled in from shared-infra/.env as the start scripts do (TR-28: the provisioner password is not in git).
+    # install() truncates and rewrites the same inode, so the bind mount stays valid.
+    installer = _secrets_installer(src)
+    for name in installer.install(src, dst, installer.placeholder_values(src.parents[1] / "shared-infra" / ".env")):
+        env.say(f"  secrets: WARNING: could not fill in {name} (run compose-configs/shared-infra/gen-env.sh); "
+                f"that secret cannot sign in")
     for name, d in diff.items():
         env.say(f"  secrets {name}: {secrets_line(d)}")
     ev = {"diff": diff, "hostFiles": sorted(f.name for f in dst.iterdir() if f.is_file())}

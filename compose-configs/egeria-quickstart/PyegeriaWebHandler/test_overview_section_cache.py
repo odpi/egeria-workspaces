@@ -213,14 +213,14 @@ def test_old_keys_are_pruned_but_running_ones_are_kept(monkeypatch):
 # ── routes: absence is never zero ────────────────────────────────────────────
 
 ROUTES = [
-    ("summary", lambda: oh.get_summary(as_of_time=None, url=None, server=None, user_id=None, user_pwd=None),
+    ("summary", lambda: oh.get_summary(as_of_time=None, url=None, server=None, user_id=None),
      "_compute_summary"),
-    ("ai-context", lambda: oh.get_ai_context(as_of_time=None, url=None, server=None, user_id=None, user_pwd=None),
+    ("ai-context", lambda: oh.get_ai_context(as_of_time=None, url=None, server=None, user_id=None),
      "_compute_ai_context"),
-    ("usage-context", lambda: oh.get_usage_context(as_of_time=None, url=None, server=None, user_id=None,
-                                                   user_pwd=None), "_compute_usage_context"),
+    ("usage-context", lambda: oh.get_usage_context(as_of_time=None, url=None, server=None, user_id=None),
+     "_compute_usage_context"),
     ("growth", lambda: oh.get_growth(window="6mo", points=None, months=None, url=None, server=None,
-                                     user_id=None, user_pwd=None), "_compute_growth"),
+                                     user_id=None), "_compute_growth"),
 ]
 
 
@@ -267,3 +267,14 @@ def test_worker_runs_with_the_requests_contextvars(monkeypatch):
     oh._section_fetch("ctx", lambda: seen.append(probe.get()) or {"x": 1})
     _wait_idle()
     assert seen == ["request-token"]
+
+
+def test_no_overview_route_takes_a_password():
+    """Token-auth rule: the routes take no user_pwd at all (they set it to None themselves, so a password in
+    a query string never reaches an access log). The 22 failures this file and test_overview_composition
+    had were callers still passing user_pwd= after the parameter was removed (PO-8)."""
+    import inspect
+    from fastapi.routing import APIRoute
+    for route in oh.router.routes:
+        if isinstance(route, APIRoute):
+            assert "user_pwd" not in inspect.signature(route.endpoint).parameters, route.path

@@ -589,6 +589,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
 <script>window.EGERIA_FOR_LINEAGE = true; window.EGERIA_FOR_LINEAGE_VISIBLE = false;  /* shown per-section by App */</script>
 <script src="/static/egeria-shared-ui.js?v=2026-11-11d"></script>
+<script src="/static/data-scope-editor.js?v=2026-11-16a"></script>
 <script>
 'use strict';
 // React hook aliases (mirror type-explorer.html)
@@ -1863,6 +1864,67 @@ function AssetRelationships({ rels, cardStyle, onNavigate }) {
   );
 }
 
+// ── Data scope: show, set, change and clear an asset's DataScope classification ──
+// The fields come from Egeria's DataScope type definition (/api/data-scope/dimensions),
+// so new dimensions appear without a change here. Writes need a signed-in token.
+// additionalProperties holds readings Egeria's lineage service keeps; it is shown as
+// usage and always kept.
+function DataScopeSection({ guid, creds }) {
+  var _g = useState(null), groups = _g[0], setGroups = _g[1];
+  var _d = useState(null), data = _d[0], setData = _d[1];
+  var _e = useState(''), err = _e[0], setErr = _e[1];
+  var _m = useState(false), editing = _m[0], setEditing = _m[1];
+  var _b = useState(false), busy = _b[0], setBusy = _b[1];
+  var _w = useState(''), writeErr = _w[0], setWriteErr = _w[1];
+  function asJson(r) {
+    return r.json().catch(function() { return {}; }).then(function(d) {
+      if (!r.ok) throw new Error((d && d.detail) || ('HTTP ' + r.status)); return d; });
+  }
+  useEffect(function() {
+    setData(null); setErr(''); setEditing(false); setWriteErr('');
+    Promise.all([dataScopeFetchDimensions('DataScope', creds), egeriaFetch('/api/data-scope/' + encodeURIComponent(guid), creds).then(asJson)])
+      .then(function(r) { setGroups(r[0]); setData(r[1]); })
+      .catch(function(e) { setErr(e.message); });
+  }, [guid, (creds || {}).token]);
+  function write(method, body) {
+    setBusy(true); setWriteErr('');
+    egeriaFetch('/api/data-scope/' + encodeURIComponent(guid), creds, { method: method,
+        headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined })
+      .then(asJson).then(function(d) { setData(d); setEditing(false); })
+      .catch(function(e) { setWriteErr(e.message); })
+      .finally(function() { setBusy(false); });
+  }
+  var hdr = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20, display: 'flex', alignItems: 'center', gap: 8 };
+  var btn = { fontSize: 11, padding: '2px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--accent)', cursor: 'pointer', textTransform: 'none', letterSpacing: 0, fontWeight: 400 };
+  var signedIn = !!(creds || {}).token;
+  var scope = data && data.scope;
+  var readings = scope && scope.additionalProperties && Object.keys(scope.additionalProperties).length ? scope.additionalProperties : null;
+  var dimsOnly = scope ? Object.assign({}, scope, { additionalProperties: undefined }) : null;
+  return React.createElement('div', { 'data-section': 'data-scope' },
+    React.createElement('div', { style: hdr }, 'Data scope',
+      React.createElement('span', { title: 'The time and place this resource’s data covers (the DataScope classification). Data lenses in the Resource Locator are matched against it.', tabIndex: 0, style: { cursor: 'help', color: 'var(--dim)' } }, '?'),
+      data && !editing && (signedIn
+        ? React.createElement('button', { style: btn, onClick: function() { setEditing(true); } }, scope ? 'Edit' : 'Set a data scope')
+        : React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)', textTransform: 'none', letterSpacing: 0, fontWeight: 400 } }, 'Sign in to set or change it'))),
+    err && React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'Data scope could not be read: ' + err),
+    !err && !data && React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'Loading…'),
+    data && !editing && React.createElement(DataScopeView, { groups: groups, scope: data.summary && data.summary.usageOnly ? null : dimsOnly,
+      absent: data.summary && data.summary.usageOnly ? 'No time or place recorded.' : 'No data scope recorded.' }),
+    data && editing && React.createElement(DataScopeEditor, { groups: groups.filter(function(g) { return !g.readOnly; }), scope: scope, busy: busy, error: writeErr,
+      saveLabel: scope ? 'Save changes' : 'Set data scope', onSave: function(v) { write('PUT', { values: v }); },
+      onCancel: function() { setEditing(false); setWriteErr(''); },
+      onClear: scope && !(data.summary && data.summary.usageOnly) ? function() {
+        if (window.confirm(readings ? 'Clear the time and place? The usage readings Egeria keeps here stay.' : 'Remove the data scope from this resource?')) write('DELETE');
+      } : null,
+      clearLabel: 'Clear data scope' }),
+    readings && React.createElement('div', { style: { marginTop: 8 } },
+      React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', marginBottom: 4 } },
+        'Usage readings' + (readings.analysisService ? ' from ' + readings.analysisService : '') + ' (kept as they are)'),
+      React.createElement(DataScopeView, { groups: groups.filter(function(g) { return g.readOnly; }), scope: { additionalProperties: readings } })),
+    data && data.updatedBy && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 4 } },
+      'Resource last updated by ' + data.updatedBy + (data.updateTime ? ' · ' + new Date(data.updateTime).toLocaleString() : '')));
+}
+
 // ── Generic detail panel ──────────────────────────────────────────────────────
 function AssetDetail({ item, detailLoading, onNavigate, creds, sectionId }) {
   var _assetPersonaId = React.useContext(PersonaContext);
@@ -1935,6 +1997,8 @@ function AssetDetail({ item, detailLoading, onNavigate, creds, sectionId }) {
     // Classifications + Raw JSON (debug) — shared component (egeria-shared-ui.js)
     // so this stays in sync with the same collapsible used across Egeria Explorer.
     React.createElement(AdditionalPropertiesTable, { data: item.additionalProperties }),
+
+    item.guid && item.typeName !== 'SurveyReport' && React.createElement(DataScopeSection, { guid: item.guid, creds: creds }),
 
     React.createElement(ClassificationsAndRawJson, { item: item, creds: creds }),
 

@@ -139,7 +139,7 @@ def test_handler_passes_strict_for_headline_counts():
                    'n_elements(mgr, "GlossaryTerm", as_of_time, strict=True)',
                    'n_elements(mgr, "DigitalProduct", as_of_time, strict=True)'):
         assert needle in src, needle
-    assert "strict=True" in inspect.getsource(oh.get_people)
+    assert "strict=True" in inspect.getsource(oh._compute_people)   # get_people serves it
     assert "strict=True" in inspect.getsource(oh._compute_usage_context)
 
 
@@ -172,9 +172,40 @@ def test_feedback_failure_is_none_not_zero():
     assert om.feedback_summary(_FailingCE())["total"] in (0, None)
 
 
+# How Egeria answers a relationship read with nothing (more) in it. Real Egeria sends null; on a pager pyegeria
+# (step 4+) an empty list is a FILTERED page, so a fake answering [] pages on to the empty-run cap and the
+# count ends "not measured". get_relationships is NULL_NOT_END there: a null is not proof of the end either,
+# so the count is a lower bound -- 0 marked "at least 0". Before the pager, [] was the end (and a real 0).
+_PAGER = getattr(oh, "recording_unconfirmed", None) is not None
+_NOTHING = None if _PAGER else []
+
+
+class _NullCE:
+    """get_relationships: nothing of any type, answered the way Egeria answers it."""
+    def get_relationships(self, relationship_type=None, **kw):
+        return _NOTHING
+
+
+def _feedback_marked(ce):
+    """_feedback_counts inside a payload's recording, marked the way _compute_people marks it."""
+    @oh._scan_net
+    def compute():
+        unconfirmed: dict = {}
+        n0 = oh._scan_pos()
+        fb = oh._feedback_counts(ce, None, functools.partial(om.count_relationships, **VIEWER))
+        oh._mark_from_scans(n0, {"feedbackItems": ("count", fb["total"]),
+                                 "feedbackByType": ("counts", fb["byType"])}, unconfirmed)
+        return {"fb": fb, "unconfirmed": unconfirmed}
+    return compute()
+
+
 def test_feedback_real_zero_is_zero():
-    fb = oh._feedback_counts(_ZeroCE(), None, functools.partial(om.count_relationships, **VIEWER))
+    out = _feedback_marked(_NullCE())
+    fb = out["fb"]
     assert fb["total"] == 0 and fb["unmeasured"] == []
+    if _PAGER:   # a lower bound of 0 is "at least 0", never a bare "none"
+        assert out["unconfirmed"]["feedbackItems"]["words"] == "at least 0"
+        assert out["unconfirmedScans"] == []
 
 
 def test_feedback_real_zero_is_zero_in_the_repository(native):
@@ -189,10 +220,14 @@ def test_feedback_partial_failure_has_no_total():
         def get_relationships(self, relationship_type=None, **kw):
             if relationship_type == "AttachedTag":
                 raise RuntimeError("down")
-            return []
-    fb = oh._feedback_counts(_Mixed(), None, functools.partial(om.count_relationships, **VIEWER))
+            return _NOTHING
+    out = _feedback_marked(_Mixed())
+    fb = out["fb"]
     assert fb["byType"]["tags"] is None and fb["byType"]["ratings"] == 0
     assert fb["total"] is None and fb["unmeasured"] == ["tags"]
+    if _PAGER:   # no total to mark; the per-type counts that were read are lower bounds
+        assert "feedbackItems" not in out["unconfirmed"]
+        assert out["unconfirmed"]["feedbackByType"]["words"].startswith("each count is at least")
 
 
 def test_business_value_failed_find_is_not_a_zero():
