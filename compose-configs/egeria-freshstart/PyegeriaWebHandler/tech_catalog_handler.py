@@ -569,7 +569,18 @@ async def get_egeria_bearer_token(request: Request):
     caller_pwd = body.get("password") or None
     # Raises PlatformRefused (400) before any outbound call; outside the try below, so it is not a 500.
     url = resolve_platform(body.get("url"), has_caller_password=is_caller_password(caller_pwd))
-    user_id  = body.get("user_id")  or os.environ.get("EGERIA_USER",          "erinoverview")
+    # PO-41: with no password sent, the token is for the Portal's own user only. A user_id that is not
+    # EGERIA_USER is refused: signing in as a caller-named user with the Portal's password let
+    # {user_id: X} mint a token as X whenever X's password equals the service password. A password
+    # that is sent (even one equal to the service password, as the demo personas' are) may go with
+    # any user_id, as before. "Sent" is tested, not is_caller_password: on the demo every persona
+    # password equals the service password, so that test would refuse every persona sign-in.
+    service_user = os.environ.get("EGERIA_USER", "erinoverview")
+    asked_user = body.get("user_id") or None
+    if caller_pwd is None and asked_user and asked_user != service_user:
+        raise HTTPException(status_code=400, detail="Send that user's own password to get a token for them, "
+                                                    "or leave user_id out to use the Portal's own user.")
+    user_id  = asked_user if caller_pwd is not None and asked_user else service_user
     user_pwd = caller_pwd           or os.environ.get("EGERIA_USER_PASSWORD",  "secret")
     server   = body.get("server")   or os.environ.get("EGERIA_VIEW_SERVER",    "qs-view-server")
     try:
