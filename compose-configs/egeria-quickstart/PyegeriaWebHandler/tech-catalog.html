@@ -1917,7 +1917,16 @@ function DataScopeSection({ guid, creds }) {
       absent: data.summary && data.summary.usageOnly ? 'No time or place recorded.' : 'No data scope recorded.' }),
     writeErr && !editing && React.createElement('div', { role: 'alert', style: { fontSize: 12, color: 'var(--err, #f87171)', marginBottom: 6 } }, writeErr),
     data && editing && React.createElement(DataScopeEditor, { groups: groups.filter(function(g) { return !g.readOnly; }), scope: scope, busy: busy, error: writeErr,
-      saveLabel: scope ? 'Save changes' : 'Set data scope', onSave: function(v) { write('PUT', { values: v }); },
+      saveLabel: scope ? 'Save changes' : 'Set data scope',
+      onSave: function(v) {
+        // Every field emptied on a stored scope clears it: ask first, as the Clear buttons do (Architect R1).
+        var allEmpty = Object.keys(v).length > 0 && Object.keys(v).every(function(k) {
+          var x = v[k]; return x === '' || x === null || x === undefined || (typeof x === 'object' && !Object.keys(x).length);
+        });
+        if (scope && allEmpty && !window.confirm(readings ? 'Every field is empty, so this clears the time and place. The usage readings Egeria keeps here stay. Clear it?'
+                                                          : 'Every field is empty, so this removes the data scope from this resource. Remove it?')) return;
+        write('PUT', { values: v });
+      },
       onCancel: function() { setEditing(false); setWriteErr(''); },
       onClear: scope && !(data.summary && data.summary.usageOnly) ? function() {
         if (window.confirm(readings ? 'Clear the time and place? The usage readings Egeria keeps here stay.' : 'Remove the data scope from this resource?')) write('DELETE');

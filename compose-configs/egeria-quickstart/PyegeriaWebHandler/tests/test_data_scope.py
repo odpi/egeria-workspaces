@@ -241,3 +241,12 @@ def test_put_with_nothing_on_an_element_without_a_scope_is_refused(client, fake)
     c = fake(None)
     r = client.put("/api/data-scope/g1", json={"values": {"minLatitude": ""}}, headers={"X-Egeria-Token": _jwt()})
     assert r.status_code == 422 and c.calls == []
+
+
+def test_put_naming_no_dimension_never_clears(client, fake):
+    # Architect R2: only "every named dimension emptied" clears; an empty body must not wipe a scope.
+    c = fake({"minLatitude": 50.0, "maxLatitude": 51.0})
+    for body in ({"values": {}},):
+        r = client.put("/api/data-scope/g1", json=body, headers={"X-Egeria-Token": _jwt()})
+        assert r.status_code == 422, body
+    assert c.calls == [] and c.scope == {"minLatitude": 50.0, "maxLatitude": 51.0}

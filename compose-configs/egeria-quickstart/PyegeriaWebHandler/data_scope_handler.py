@@ -357,8 +357,11 @@ async def put_scope(guid: str, body: ScopeBody):
         if not props:
             # Every field emptied: the person means "no data scope" (2026-11-17, the owner emptied
             # the fields and pressed Save to clear one). Clear it, keeping any lineage readings.
-            if stored is None:
-                raise HTTPException(status_code=422, detail="Give at least one dimension to set a data scope.")
+            # Only when the body names at least one dimension, all empty: {"values": {}} from a
+            # malformed or stale client must not wipe a scope (Architect R2, 2026-11-17).
+            if stored is None or not body.values:
+                raise HTTPException(status_code=422, detail="Give at least one dimension to set a data scope, "
+                                                            "or name the dimensions to empty.")
             action = await _clear(client, guid, stored)
             after, el = await _read_scope(client, guid)
             logger.info(f"data-scope: {action} (all fields emptied) on {guid} by {_token_user()}")
