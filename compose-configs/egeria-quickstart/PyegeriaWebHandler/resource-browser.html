@@ -491,6 +491,9 @@ var el = React.createElement;
 var API = '/api/resource-browser';
 // Served at both /resource-locator and the original /resource-browser;
 // links stay on whichever path the page was opened from.
+// The Locator's own home page is called "Resource Locator Home", not just "Home": the Portal has many
+// homes (Dan, 2026-11-17, PO-39).
+var HOME_LABEL = 'Resource Locator Home';
 var PAGE = window.location.pathname.indexOf('/resource-locator') === 0 ? '/resource-locator' : '/resource-browser';
 
 function fmtDate(iso) {
@@ -1551,7 +1554,7 @@ function NavBar({ route }) {
     return el('button', { className: 'rb-navtab' + (route.page === page ? ' on' : ''), onClick: function() { navigate(params); } }, label);
   }
   return el('div', { className: 'rb-nav' },
-    tab('home', 'Home', {}),
+    tab('home', HOME_LABEL, {}),
     tab('browse', 'Browse', { browse: 'tag' }),
     tab('help', 'Help', { help: '' }),
     el('form', { onSubmit: submit, style: { flex: 1, display: 'flex', maxWidth: 560, marginLeft: 'auto' } },
@@ -1826,7 +1829,7 @@ function HelpPage() {
           p('You can improve a description, add informal tags, notes and meanings, like or rate a resource, and keep it in a work list. Every change is made as you, with your own Egeria token.'))),
         sec('Data scope and data lenses', el('div', null,
           p('A data scope says what time and place a resource’s data covers. It is shown on result rows (◷ scope) and resource pages, and set or changed in The Catalog. Some scopes hold only usage readings that Egeria’s lineage service keeps; those are shown as usage, not as a scope.'),
-          p('A data lens says what scope of data a piece of work needs. Make one from the Data lenses tile on Home, link it to your work lists, and its page lists the resources whose data scope falls inside it. A resource that records none of the lens’s dimensions cannot be compared, and is counted as such.')))),
+          p('A data lens says what scope of data a piece of work needs. Make one from the Data lenses tile on Resource Locator Home, link it to your work lists, and its page lists the resources whose data scope falls inside it. A resource that records none of the lens’s dimensions cannot be compared, and is counted as such.')))),
       el('div', null,
         sec('Terms', el('dl', { style: { margin: 0 } }, Object.keys(TERMS).map(function(k) {
           return el(React.Fragment, { key: k },
@@ -1921,7 +1924,7 @@ function LensPage({ guid, creds }) {
       .then(function(x) { setD(x); setPick(''); }).catch(function(e) { setErr(e.message); }).finally(function() { setBusy(false); });
   }
   var head = el('div', { className: 'rb-row', style: { gap: 8, marginBottom: 12 } },
-    el('button', { className: 'rb-link', onClick: function() { navigate({}); } }, '← Home'),
+    el('button', { className: 'rb-link', onClick: function() { navigate({}); } }, '← ' + HOME_LABEL),
     el('span', { className: 'rb-note' }, 'Data lens', el(Help, { term: 'dataLens' })));
   if (err && !d && !(isNew && groups)) return el('div', { className: 'rb-page' }, head, el('div', { className: 'rb-err' }, err));
   if (!groups || (!isNew && !d)) return el('div', { className: 'rb-page' }, head, el('div', { className: 'center', style: { height: 160 } }, el('div', { className: 'spinner' }), 'Loading…'));
@@ -2152,7 +2155,7 @@ function ListPage({ guid, creds }) {
 
   return el('div', { className: 'rb-page' },
     el('div', { className: 'rb-crumb' },
-      el('button', { className: 'rb-link', onClick: function() { navigate({}); } }, 'Home'), '›',
+      el('button', { className: 'rb-link', onClick: function() { navigate({}); } }, HOME_LABEL), '›',
       el('span', { className: 'rb-type' }, ORIGINS[lst.origin] || lst.origin)),
     lst.editable
       ? el('div', { className: 'rb-title' }, el(EditableText, { value: lst.displayName, canWrite: true, placeholder: 'Untitled', onSave: save('name') }))
@@ -2202,7 +2205,7 @@ function HomePage({ creds, personaId }) {
   var _e = useState(''), err = _e[0], setErr = _e[1];
   var _p = useState(true), peopleOnly = _p[0], setPeopleOnly = _p[1];
   useEffect(function() {
-    document.title = 'Resource Locator';
+    document.title = 'Home · Resource Locator';
     getJson(API + '/home', creds).then(function(h) {
       if (!h || !Array.isArray(h.recent) || !Array.isArray(h.recentPeople)) throw new Error('the server sent an unexpected response');
       setHome(h);
