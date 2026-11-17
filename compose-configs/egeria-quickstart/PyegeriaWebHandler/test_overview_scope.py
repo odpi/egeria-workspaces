@@ -449,7 +449,7 @@ def test_repository_relationship_counts_are_given_the_expert():
     seen.clear()
     oh._scoped(rel, oh.VIEWER, expert=marker)(None, "AttachedLike", None)   # viewer: untouched
     assert seen == [(None, None)]
-    src = inspect.getsource(oh._compute_summary) + inspect.getsource(oh.get_people)
+    src = inspect.getsource(oh._compute_summary) + inspect.getsource(oh._compute_people)
     assert src.count("expert=mgr") + src.count("expert=expert") >= 2
 
 
