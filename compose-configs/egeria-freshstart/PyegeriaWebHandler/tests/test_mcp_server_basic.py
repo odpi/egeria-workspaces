@@ -106,6 +106,8 @@ def test_wrapper_tools_delegate_to_run_block(tmp_path, monkeypatch):
         return f"OK:{title}:{directive}"
 
     monkeypatch.setattr(mcp_server, "dr_egeria_run_block", fake_run_block, raising=True)
+    # PO-44: the wrappers resolve the platform before delegating, so the test URL must be allow-listed.
+    monkeypatch.setenv("PORTAL_ALLOWED_PLATFORM_URLS", "https://example.invalid:9443")
 
     txt_g = asyncio.run(
         mcp_server.egeria_list_glossaries(
@@ -129,3 +131,20 @@ def test_wrapper_tools_delegate_to_run_block(tmp_path, monkeypatch):
     )
     # Collections wrapper uses display directive
     assert txt_c.startswith("OK:View Collections:"), txt_c
+
+
+def test_wrapper_refuses_an_unlisted_platform_before_delegating(tmp_path, monkeypatch):
+    """PO-44: the service password never goes to a platform outside the allow-list; the run is not reached."""
+    setup_temp_env(tmp_path)
+    mcp_server = importlib.import_module("mcp_server")
+    called = []
+
+    async def fake_run_block(*a, **k):
+        called.append(1)
+        return "OK"
+
+    monkeypatch.setattr(mcp_server, "dr_egeria_run_block", fake_run_block, raising=True)
+    monkeypatch.setenv("PORTAL_ALLOWED_PLATFORM_URLS", "https://example.invalid:9443")
+    monkeypatch.setenv("EGERIA_USER_PASSWORD", "svc-pw")
+    out = asyncio.run(mcp_server.egeria_list_glossaries(ctx=None, url="https://not-listed.example:9443"))
+    assert out.startswith("❌") and not called, out
