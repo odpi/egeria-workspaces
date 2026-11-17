@@ -178,7 +178,9 @@ services:
       # Service account used by handlers that don't receive a user's bearer token.
       # Uses the same account as the admin caller so credentials stay in sync.
       EGERIA_USER: "${EGERIA_ADMIN_CALLER_ID:-bootstrap}"
-      EGERIA_USER_PASSWORD: "${EGERIA_ADMIN_CALLER_PASSWORD:-secret}"
+      # No built-in default (PO-45): set EGERIA_ADMIN_CALLER_PASSWORD in .env. fresh-start-local never
+      # writes one (real users); without it, compose refuses to start.
+      EGERIA_USER_PASSWORD: "${EGERIA_ADMIN_CALLER_PASSWORD:?set EGERIA_ADMIN_CALLER_PASSWORD in compose-configs/egeria-freshstart/.env (the Portal service account password)}"
       EGERIA_ROOT_PATH: "/"
       EGERIA_INBOX_PATH: "dr-egeria-inbox"
       EGERIA_OUTBOX_PATH: "dr-egeria-outbox"
