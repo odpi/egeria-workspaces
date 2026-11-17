@@ -586,7 +586,7 @@ var TERMS = {
   popular: { label: 'Popular', def: 'Resources ranked by how much they are used. Not shown until the Locator reads a usage measure.' },
   recent: { label: 'Recently changed', def: 'The resources changed most recently. Hide automation to see only changes people made.' },
   favourites: { label: 'Favourites', def: 'Resources you saved as favourites anywhere in the Portal.' },
-  browse: { label: 'Browse', def: 'Find resources without typing, by tag, classification, owner, source system, collection, folder, search keyword, flavour or data scope.' },
+  browse: { label: 'Browse', def: 'Find resources without typing, by tag, classification, owner, source system, collection, folder, search keyword, category, flavour or data scope.' },
 };
 
 // A small "?" whose definition shows on hover and on keyboard focus.
@@ -1821,7 +1821,7 @@ function HelpPage() {
           p('Pick one kind or several with the Kind buttons (for example Schemas and Tables together); All clears them. Results are ordered by how directly the text matches: Egeria holds no usage measure the Locator reads yet.'),
           p('"Load more results" stays offered until Egeria returns an empty page: a short page is not the last page.'))),
         sec('Browse and the resource page', el('div', null,
-          p('Browse lists resources by tag, classification, owner, source system, collection, folder, search keyword, flavour or data scope. A resource page shows what Egeria holds about one resource, and says what is missing rather than showing an empty table.'),
+          p('Browse lists resources by tag, classification, owner, source system, collection, folder, search keyword, category, flavour or data scope. A resource page shows what Egeria holds about one resource, and says what is missing rather than showing an empty table.'),
           p('You can improve a description, add informal tags, notes and meanings, like or rate a resource, and keep it in a work list. Every change is made as you, with your own Egeria token.'))),
         sec('Data scope and data lenses', el('div', null,
           p('A data scope says what time and place a resource’s data covers. It is shown on result rows (◷ scope) and resource pages, and set or changed in The Catalog. Some scopes hold only usage readings that Egeria’s lineage service keeps; those are shown as usage, not as a scope.'),
@@ -2249,6 +2249,7 @@ var FACETS = [
   { id: 'collection', label: 'Collection', term: 'collection', empty: 'No product families, data sharing hubs or work lists exist yet.' },
   { id: 'folder', label: 'Folder', term: 'folder', empty: 'No folders exist in Egeria that you can see.' },
   { id: 'keyword', label: 'Search keyword', term: 'keyword', empty: 'No search keywords are attached to anything you can see.' },
+  { id: 'category', label: 'Category', term: 'category', empty: 'No resource or glossary term you can see has a category.' },
   { id: 'flavour', label: 'Flavour', term: 'flavour', empty: '' },
   { id: 'scope', label: 'Data scope', term: 'dataScope', empty: '' },
 ];
@@ -2355,7 +2356,8 @@ function BrowsePage({ facet, value, lens, creds }) {
     err && el('div', { className: 'rb-err' }, err),
     !err && !effective && !vals && el('div', { className: 'center', style: { height: 160 } }, el('div', { className: 'spinner' }), 'Loading…'),
     vals && el('div', null,
-      vals.values.length === 0 ? el('div', { className: 'rb-absent' }, f.empty || 'Nothing to browse here yet.')
+      vals.loading && vals.values.length === 0 ? el('div', { className: 'center', style: { height: 120 } }, el('div', { className: 'spinner' }), vals.note || 'Counting\u2026')
+      : vals.values.length === 0 ? el('div', { className: 'rb-absent' }, f.empty || 'Nothing to browse here yet.')
       : el('div', { className: 'rb-values' }, vals.values.map(function(v) {
           var none = v.count === 0;
           return el('button', { key: v.id, className: 'rb-value' + (none ? ' none' : ''), disabled: none,
@@ -2366,7 +2368,9 @@ function BrowsePage({ facet, value, lens, creds }) {
               v.counting ? 'counting\u2026' : none ? 'none' : (v.countAtLeast ? '\u2265 ' : '') + v.count),
             v.description && el('span', { className: 'rb-note' }, v.description));
         })),
-      vals.note && el('div', { className: 'rb-note', style: { marginTop: 8 } }, vals.note),
+      vals.note && !(vals.loading && vals.values.length === 0) && el('div', { className: 'rb-note', style: { marginTop: 8 } }, vals.note),
+      vals.refreshing && vals.values.length > 0 && el('div', { className: 'rb-note', style: { marginTop: 4 } },
+        'A newer count is being made in the background; these are from ' + fmtDate(vals.countedAt) + '.'),
       vals.countsAre && el('div', { className: 'rb-note', style: { marginTop: 8 } }, 'Counts are ' + vals.countsAre + '.'),
       vals.notRead > 0 && el('div', { className: 'rb-note', style: { marginTop: 4 } }, vals.notRead + ' resource' + (vals.notRead === 1 ? '' : 's') +
         ' could not be checked', el(Help, { term: 'scopeNotRead' }), '.'),

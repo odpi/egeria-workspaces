@@ -40,13 +40,15 @@ Ordering is by text relevance only. Egeria cannot rank by use yet, and the page 
 
 ## Browse
 
-Browse without typing, by **Tag, Classification** (the governance classifications Confidentiality, Confidence, Criticality, Impact, Retention and Security tags; the link id is still `badge`, so older links keep working), **Owner, Source system, Collection, Folder, Search keyword, Flavour** (data, data product, or a member of a data-sharing hub) or **Data scope**. Each facet lists its values; pick a value to see the resources under it, with the same rows as Search. Hover over a facet button for its definition.
+Browse without typing, by **Tag, Classification** (the governance classifications Confidentiality, Confidence, Criticality, Impact, Retention and Security tags; the link id is still `badge`, so older links keep working), **Owner, Source system, Collection, Folder, Search keyword, Category, Flavour** (data, data product, or a member of a data-sharing hub) or **Data scope**. Each facet lists its values; pick a value to see the resources under it, with the same rows as Search. Hover over a facet button for its definition.
 
 **Folder** lists every folder in Egeria you can see (a CollectionFolder: the folders of a glossary, a product catalog or a hub), with the type of element it is anchored to when that is another element. Which folder or glossary holds a folder is shown on the folder's own page ("Held by"). It shows no count beside each folder, because counting what every folder holds would take one read per folder; open a folder to see what it holds. A folder page lists the resources, glossary terms, columns and data fields in it, links to the folders inside it and to what holds it, and names by type anything else it holds that the Locator does not list. When a folder or collection holds more than Egeria returns in one read (1,000), the page says "at least".
 
 **Search keyword** lists each keyword by its text, ignoring case, with the number of attachments: a search keyword in Egeria is attached to one element each. A keyword page reads exactly those attachments, so it always accounts for its count: what it lists, what is attached to something you cannot see, what could not be read, what was not read because the list stops at 500 attachments, what is not a resource or term, and attachments that repeat an element already listed (the same keyword in another spelling).
 
-Folder and keyword pages take the same **Lens** filter as the other lists. When nothing is there the page says so ("This folder holds nothing you can see"), which is different from a read that failed, which shows the error instead of an empty list.
+**Category** lists the values of the category property found on the resources and glossary terms you can see, each with how many resources and terms carry it, and **(no category)** last. Egeria has no call that lists categories, so they come from the same background read of every resource that Data scope uses (about 15 seconds the first time): the page says "counting" until it finishes, never 0. A category page lists exactly the elements that count counted. Infrastructure, governance definitions and design patterns carry categories too; the Locator lists resources and terms only.
+
+Folder, keyword and category pages take the same **Lens** filter as the other lists. When nothing is there the page says so ("This folder holds nothing you can see"), which is different from a read that failed, which shows the error instead of an empty list.
 
 **Data scope** has two values:
 

@@ -2567,7 +2567,7 @@ async def unshare_list(guid: str, group: str):
 
 # ── Browse ────────────────────────────────────────────────────────────────────
 
-_FACETS = ["tag", "badge", "owner", "source", "collection", "folder", "keyword", "flavour", "scope"]
+_FACETS = ["tag", "badge", "owner", "source", "collection", "folder", "keyword", "category", "flavour", "scope"]
 
 # Architect R2 (2026-11-17): "none recorded" is every resource minus the recorded ones, so it is only
 # as complete as _all_elements. Measurement kept for the record:
@@ -2683,6 +2683,27 @@ async def _keyword_attachments(client, guids: list) -> tuple:
     return els, hidden, failed, not_read
 
 
+_NO_CATEGORY = "(no category)"
+
+
+def _category_index(allr: dict) -> dict:
+    """{category: {"resources": [...rows], "terms": [...rows]}} from a finished sweep, with every
+    resource and term without a category under _NO_CATEGORY. Matching is exact (Egeria's own
+    get_elements_by_category matches exactly too); only surrounding blanks are trimmed (in _row)."""
+    out: dict = {}
+    for bucket, rows in (("resources", allr.get("rows") or []), ("terms", allr.get("terms") or [])):
+        for r in rows:
+            cat = r.get("category") or _NO_CATEGORY
+            out.setdefault(cat, {"resources": [], "terms": []})[bucket].append(r)
+    return out
+
+
+def _category_capped(allr: dict) -> bool:
+    """Whether category counts are "at least" (R6): any capped resource type, the unverified flag, or a
+    capped term read. A failed term read is not "at least": it is reported as terms not read."""
+    return bool(allr.get("cappedTypes")) or ALL_ELEMENTS_UNVERIFIED or bool(allr.get("termsCapped"))
+
+
 async def _facet_values(facet: str) -> dict:
     client = await _explorer_async()
     if facet == "tag":
@@ -2742,6 +2763,28 @@ async def _facet_values(facet: str) -> dict:
         return {"values": sorted(vals, key=lambda v: v["label"].lower()),
                 "countsAre": "attachments: a search keyword is attached to one element each, which you may not "
                              "be able to see" + ("; at least these (the read stopped at its page limit)" if kw["capped"] else "")}
+    if facet == "category":
+        allr, stamp, loading, error = _all_resources_state()
+        if allr is None:
+            return {"values": [], "loading": True, "error": error,
+                    "note": ("The count failed; retrying shortly." if error else
+                             "Counting every resource and glossary term in the background (about 20 s the first "
+                             "time); this page refreshes itself.")}
+        idx, capped = _category_index(allr), _category_capped(allr)
+        vals = []
+        for cat, b in idx.items():
+            n_r, n_t = len(b["resources"]), len(b["terms"])
+            vals.append({"id": cat, "label": cat, "count": n_r + n_t, "countAtLeast": capped,
+                         "description": f"{n_r} resource{'s' if n_r != 1 else ''}" +
+                                        (f", {n_t} glossary term{'s' if n_t != 1 else ''}" if n_t else "")})
+        vals.sort(key=lambda v: (v["id"] == _NO_CATEGORY, v["label"].lower()))
+        note = ("Of the resources and glossary terms you can see. Infrastructure, governance definitions and design "
+                "patterns carry categories too; the Locator lists resources and terms only.")
+        if allr.get("termsError"):
+            note += f" Glossary terms could not be read ({allr['termsError']}), so these counts are resources only."
+        return {"values": vals, "note": note, "countedAt": stamp.isoformat(timespec="seconds") if stamp else None,
+                "refreshing": loading, "error": error,
+                "countsAre": "at least these (a read stopped at its page limit)" if capped else None}
     if facet == "flavour":
         return {"values": [{"id": "hub", "label": "Hub"}, {"id": "product", "label": "Product"},
                            {"id": "known", "label": "Known"}]}
@@ -2767,7 +2810,7 @@ async def browse_values(facet: str):
     if facet not in _FACETS:
         raise HTTPException(status_code=404, detail=f"Unknown browse facet {facet!r}.")
     try:
-        if facet == "scope":   # not cached here: its lists keep their own ages, and "counting" must not stick
+        if facet in ("scope", "category"):   # not cached here: they keep their own ages, and "counting" must not stick
             value, stamp = await _facet_values(facet), datetime.now(timezone.utc)
         else:
             value, stamp = await _cached(f"browse:{facet}", lambda: _facet_values(facet))
@@ -2897,6 +2940,24 @@ async def browse_list(facet: str, value: str, lens: Optional[str] = Query(None, 
                                                       "listed (the keyword in another spelling), so each element is listed once.")
             source = ("ClassificationExplorer.find_search_keywords (every keyword, grouped ignoring case), then "
                       "get_element_by_guid (SearchKeywordLink) per attachment")
+        elif facet == "category":
+            allr, stamp, loading, error = _all_resources_state()
+            title = "No category" if value == _NO_CATEGORY else f"Category: {value}"
+            source = ("the background read of every resource type and GlossaryTerm (ClassificationExplorer.get_elements), "
+                      "grouped by the category property")
+            if allr is None:
+                rows_override, scope_loading = [], True
+                note = ("Counting every resource and glossary term in the background: this takes about 20 seconds the "
+                        "first time, and this page refreshes itself." +
+                        (f" The last attempt failed ({error}); retrying shortly." if error else ""))
+            else:
+                b = _category_index(allr).get(value)
+                rows_override = (b["resources"] + b["terms"]) if b else []
+                capped, scope_refreshing = _category_capped(allr), loading
+                note = None if b else ("No resource or glossary term you can see has this category. "
+                                       "Zone security may hide some from you.")
+                if allr.get("termsError"):
+                    note = (note + " " if note else "") + "Glossary terms could not be read, so only resources are listed."
         elif facet == "flavour":
             if value not in ("hub", "product", "known"):
                 raise HTTPException(status_code=404, detail="Flavours are hub, product and known.")
@@ -3103,7 +3164,19 @@ async def _all_resources_sweep() -> dict:
     repos, _stamp = await _cached("repos", _repos_value)
     for r in repos:
         rows.setdefault(r["guid"], r)
-    return {"rows": list(rows.values()), "cappedTypes": capped_types}
+    # Glossary terms, for Browse by category (Architect R2, 2026-11-17): read on their own, so a failed
+    # term read keeps the resource rows and the Data scope facet never fails because of terms. Terms are
+    # kept apart from "rows": they are not resources, so they never enter the data scope split (R1).
+    terms, terms_capped, terms_error = [], False, None
+    try:
+        els, terms_capped = await _all_elements(client, "GlossaryTerm")
+        terms = list({r["guid"]: r for r in (_term_row(e) for e in els) if r}.values())
+    except Exception as exc:
+        if not _is_unknown_type(exc):
+            logger.warning(f"resource-browser: glossary term read for categories failed: {exc}")
+            terms_error = str(exc)[:200]
+    return {"rows": list(rows.values()), "cappedTypes": capped_types,
+            "terms": terms, "termsCapped": terms_capped, "termsError": terms_error}
 
 
 def _split_from(rec: dict, rec_stamp, allr: Optional[dict], all_stamp, loading: bool = False,
@@ -3115,8 +3188,9 @@ def _split_from(rec: dict, rec_stamp, allr: Optional[dict], all_stamp, loading: 
         return recorded, {"rows": None, "notRead": [], "capped": True, "cappedTypes": [], "asOf": None,
                           "loading": loading, "refreshing": False, "error": error}
     scoped = {r["guid"] for r in rec["rows"]}
-    none_rows = [r for r in allr["rows"] if r["guid"] not in scoped and r.get("scopeRead", True) and not r["hasScope"]]
-    not_read = [r for r in allr["rows"] if r["guid"] not in scoped and not r.get("scopeRead", True)]
+    resources = [r for r in allr["rows"] if r.get("kind") != "term"]     # R1: a term is never "none recorded"
+    none_rows = [r for r in resources if r["guid"] not in scoped and r.get("scopeRead", True) and not r["hasScope"]]
+    not_read = [r for r in resources if r["guid"] not in scoped and not r.get("scopeRead", True)]
     none = {"rows": none_rows, "notRead": not_read, "capped": bool(allr["cappedTypes"]) or ALL_ELEMENTS_UNVERIFIED,
             "cappedTypes": allr["cappedTypes"], "asOf": all_stamp.isoformat(timespec="seconds"),
             "loading": False, "refreshing": loading, "error": error}
