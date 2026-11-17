@@ -516,7 +516,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
      ones in the same global scope). -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
 <script>window.EGERIA_FOR_LINEAGE = true;</script>
-<script src="/static/egeria-shared-ui.js?v=2026-11-11d"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-11-17-po41"></script>
 
 </head>
 <body>
@@ -1504,15 +1504,11 @@ function App() {
   // Register token refresh callback
   useEffect(function() {
     _tokenRefresher.refresh = function(oldCreds) {
-      return fetch('/api/egeria-token', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: oldCreds.userId, url: oldCreds.url || '', server: oldCreds.server || '' })
-      }).then(function(r) { return r.json(); })
-        .then(function(t) {
-          var newCreds = Object.assign({}, oldCreds, { token: t.token || '' });
-          setCreds(newCreds);
-          return newCreds;
-        });
+      // PO-41: renew as the persona itself (its own login), never by user_id alone.
+      return refreshPersonaToken(oldCreds).then(function(newCreds) {
+        setCreds(newCreds);
+        return newCreds;
+      });
     };
     return function() { _tokenRefresher.refresh = null; };
   }, []);

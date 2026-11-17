@@ -30,6 +30,7 @@ _async_make_request directly with the corrected path. Read path
 (follow-up, not blocking this read-only pane).
 """
 
+from egeria_auth import service_password  # PO-45: no built-in service password
 import os
 from typing import Optional
 
@@ -50,7 +51,7 @@ def _get_manager(url=None, server=None, user_id=None, user_pwd=None):
     url      = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
     server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
     user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
-    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    user_pwd = user_pwd or service_password()
     mgr = ClassificationExplorer(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
     apply_token(mgr)
     return mgr

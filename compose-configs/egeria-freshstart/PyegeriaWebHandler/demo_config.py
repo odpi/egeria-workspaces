@@ -73,4 +73,5 @@ EGERIA_USER_SECRETS_PATH: str = os.environ.get("EGERIA_USER_SECRETS_PATH", "/sec
 # Set EGERIA_ADMIN_CALLER_PASSWORD in .env — never in yaml.
 
 EGERIA_ADMIN_CALLER_ID: str       = os.environ.get("EGERIA_ADMIN_CALLER_ID", "bootstrap")
-EGERIA_ADMIN_CALLER_PASSWORD: str = os.environ.get("EGERIA_ADMIN_CALLER_PASSWORD", "secret")
+# No built-in default (PO-45): unset, the admin token call refuses in words (demo_auth_handler).
+EGERIA_ADMIN_CALLER_PASSWORD: str = os.environ.get("EGERIA_ADMIN_CALLER_PASSWORD") or ""

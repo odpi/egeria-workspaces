@@ -28,6 +28,7 @@ start_scheduler()/stop_scheduler() background-task shape (same asyncio.Lock
 pyegeria_handler.py without introducing a new convention.
 """
 
+from egeria_auth import service_password  # PO-45: no built-in service password
 import asyncio
 import os
 import time
@@ -134,7 +135,7 @@ async def _canary_present(family: dict) -> tuple[bool, bool]:
         url    = os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
         server = os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
         user   = os.environ.get("EGERIA_USER",          "erinoverview")
-        pwd    = os.environ.get("EGERIA_USER_PASSWORD", "secret")
+        pwd    = service_password()
         mgr = MetadataExpert(view_server=server, platform_url=url, user_id=user, user_pwd=pwd)
 
         async def _do_check():

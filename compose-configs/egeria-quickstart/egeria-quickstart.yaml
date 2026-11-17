@@ -308,6 +308,10 @@ services:
       # A folder not found, or not visible to the viewer, is said on the page, never shown as "no
       # sheets". Set to "" (unset is the default, not "") to list every Dashboard:: sheet Egeria holds (slow).
       PYEGERIA_DASHBOARD_FOLDERS: "${PYEGERIA_DASHBOARD_FOLDERS-DashboardFolder::Consumer::Portal}"
+      # The Portal's own Egeria password (PO-45): no built-in default. quick-start-local writes the Coco
+      # demo persona password into .env when it is missing or empty (an exported value wins); a plain
+      # `docker compose up` without it refuses to start instead of signing in with a well-known password.
+      EGERIA_USER_PASSWORD: "${QUICKSTART_PERSONA_PASSWORD:?set QUICKSTART_PERSONA_PASSWORD in compose-configs/egeria-quickstart/.env (quick-start-local writes the demo password there)}"
       MCP_ACCESS_TOKEN: "egeria-secret-mcp-token"
       # ── Demo mode — set DEMO_MODE=true to enable public access with auth ──────
       DEMO_MODE: "false"
@@ -434,7 +438,7 @@ services:
       # peterprofile loads cleanly; erinoverview/garygeeke currently 401 on the
       # /my-profile endpoint despite a valid token (see ME-7 follow-up note).
       EGERIA_USER:          "${QUICKSTART_PERSONA_USER:-peterprofile}"
-      EGERIA_USER_PASSWORD: "${QUICKSTART_PERSONA_PASSWORD:-secret}"
+      EGERIA_USER_PASSWORD: "${QUICKSTART_PERSONA_PASSWORD:?set QUICKSTART_PERSONA_PASSWORD in compose-configs/egeria-quickstart/.env (quick-start-local writes the demo password there)}"
       MY_EGERIA_HOST:       "0.0.0.0"
       MY_PROFILE_PORT:      "8020"
       # Externally-visible URL via the Apache proxy — makes textual-serve emit

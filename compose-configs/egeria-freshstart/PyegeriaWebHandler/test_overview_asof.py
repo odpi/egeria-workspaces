@@ -56,6 +56,7 @@ FINDINGS (qs demo, 2026-07-23 — reproduce in your controlled env)
   * PERF: /api/overview/people as-of ~47s (page_size 500). as-of is expensive;
     strong argument for the native count API (see OVERVIEW_NEXT_STEPS.md).
 """
+from egeria_auth import service_password  # PO-45: no built-in service password
 import argparse
 import os
 import sys
@@ -83,7 +84,7 @@ def egeria_env():
         url=os.environ.get("EGERIA_PLATFORM_URL", "https://localhost:9443"),
         server=os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server"),
         user=os.environ.get("EGERIA_USER", "erinoverview"),
-        pwd=os.environ.get("EGERIA_USER_PASSWORD", "secret"),
+        pwd=service_password(),
     )
 
 

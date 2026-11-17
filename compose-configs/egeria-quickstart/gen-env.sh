@@ -145,8 +145,14 @@ if [[ -z "$EGERIA_CPU_LIMIT_VAL" ]]; then
   EGERIA_CPU_LIMIT_VAL="4"
 fi
 
-# Write .env atomically
+# QUICKSTART_PERSONA_PASSWORD (PO-45): the Portal's and my-profile's Egeria password. The compose file
+# has no default for it; exported > existing .env > the Coco demo persona password. Never printed.
+source "${SCRIPT_DIR}/persona-password.sh"
+resolve_persona_password .env "${SCRIPT_DIR}/PyegeriaWebHandler/personas.json"
+
+# Write .env atomically (mode 600: it now carries a password)
 TMP_ENV=".env.tmp"
+( umask 077; : > "$TMP_ENV" )
 cat > "$TMP_ENV" <<EOF
 HOST_FQDN=${HOST_FQDN}
 KAFKA_NODE_ID=1
@@ -157,7 +163,9 @@ HOST_GATEWAY_IP=${HOST_GATEWAY_IP}
 EGERIA_MEM_LIMIT=${EGERIA_MEM_LIMIT_VAL}
 EGERIA_CPU_LIMIT=${EGERIA_CPU_LIMIT_VAL}
 CONFIG_JSON="${CONFIG_JSON_ESCAPED}"
+QUICKSTART_PERSONA_PASSWORD=${QUICKSTART_PERSONA_PASSWORD_VAL}
 EOF
 mv -f "$TMP_ENV" .env
+chmod 600 .env
 
-echo "[gen-env.sh] Wrote .env with HOST_FQDN=${HOST_FQDN}, KAFKA_CLUSTER_ID=${KAFKA_CLUSTER_ID_VAL}, EGERIA_MEM_LIMIT=${EGERIA_MEM_LIMIT_VAL}, EGERIA_CPU_LIMIT=${EGERIA_CPU_LIMIT_VAL}" >&2
+echo "[gen-env.sh] Wrote .env with HOST_FQDN=${HOST_FQDN}, KAFKA_CLUSTER_ID=${KAFKA_CLUSTER_ID_VAL}, EGERIA_MEM_LIMIT=${EGERIA_MEM_LIMIT_VAL}, EGERIA_CPU_LIMIT=${EGERIA_CPU_LIMIT_VAL}, QUICKSTART_PERSONA_PASSWORD ${QUICKSTART_PERSONA_PASSWORD_SOURCE} (not shown)" >&2

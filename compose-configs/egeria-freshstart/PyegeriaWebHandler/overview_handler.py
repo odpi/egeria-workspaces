@@ -39,6 +39,7 @@ Known constraints (see PYEGERIA_ISSUES.md):
   - PY-15: Postgres connector ignores matchCriteria once 2+ classification
     conditions are present → keep every query to 0 or 1 classification.
 """
+from egeria_auth import service_password  # PO-45: no built-in service password
 import contextlib
 import contextvars
 from datetime import datetime, timezone
@@ -239,7 +240,7 @@ def _expert(url=None, server=None, user_id=None, user_pwd=None, timeout=None):
     url      = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
     server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "fs-view-server")
     user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
-    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    user_pwd = user_pwd or service_password()
     extra = {"timeout": timeout} if timeout is not None else {}
     mgr = MetadataExpert(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd, **extra)
     apply_token(mgr)
@@ -251,7 +252,7 @@ def _env(url, server, user_id, user_pwd):
         url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443"),
         server   or os.environ.get("EGERIA_VIEW_SERVER",   "fs-view-server"),
         user_id  or os.environ.get("EGERIA_USER",          "erinoverview"),
-        user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret"),
+        user_pwd or service_password(),
     )
 
 

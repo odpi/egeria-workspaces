@@ -71,8 +71,10 @@ def test_forged_sub_and_wrong_password_miss(env):
     assert _get(env, _jwt("peter", salt="forged")).headers["X-Cache"] == "miss"
     # user_id/user_pwd query params are not accepted (token header only): they never pick a cache entry
     _get(env)                                                    # the service user's own entry
-    assert _get(env, user_id="peter", user_pwd="right").headers["X-Cache"] == "hit"
-    assert _get(env, user_id="peter", user_pwd="wrong").headers["X-Cache"] == "hit"
+    assert _get(env, user_pwd="right").headers["X-Cache"] == "hit"
+    assert _get(env, user_pwd="wrong").headers["X-Cache"] == "hit"
+    # PO-41: naming a user in the URL without a token is refused before routing, so it picks no entry
+    assert _get(env, user_id="peter", user_pwd="right").status_code == 400
 
 
 def test_sheet_perspective_lineage_are_separate(env):
