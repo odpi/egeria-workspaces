@@ -67,7 +67,7 @@ from pydantic import BaseModel
 
 from egeria_auth import async_apply_token, lineage_key as _lineage_key, token_user as _token_user
 from result_cache import request_identity
-from egeria_error_mapping import raise_egeria_http_error
+from egeria_error_mapping import describe_bulk_item_error, raise_egeria_http_error
 
 router = APIRouter(tags=["resource-browser"])
 
@@ -1293,7 +1293,7 @@ async def add_private_note(guid: str, body: PrivateNoteBody):
         logger.warning(f"resource-browser: private note {note_guid} by {user} saved but not re-zoned: {exc}")
         raise HTTPException(status_code=502, detail=(
             "Your note was saved, but Egeria did not make it private, so other people may be able to read it. "
-            f"({exc})"))
+            f"({describe_bulk_item_error(exc).rstrip('.')})"))
     try:
         await (await _expert_async())._async_create_related_elements({
             "class": "NewRelatedElementsRequestBody", "typeName": "Actions",
@@ -1303,7 +1303,7 @@ async def add_private_note(guid: str, body: PrivateNoteBody):
         logger.warning(f"resource-browser: private note {note_guid} by {user} not linked to {guid}: {exc}")
         raise HTTPException(status_code=502, detail=(
             "Your note was saved in your journal and is private, but Egeria did not link it to this resource, "
-            f"so it will not show here. ({exc})"))
+            f"so it will not show here. ({describe_bulk_item_error(exc).rstrip('.')})"))
     return await get_private_notes(guid)
 
 
@@ -2350,7 +2350,7 @@ async def add_members(guid: str, body: MembersBody):
         try:
             await cm._async_add_to_collection(guid, g, body=_membership_body((body.rationale or "").strip() or None))
         except Exception as exc:
-            failed[g] = str(exc)[:200]
+            failed[g] = describe_bulk_item_error(exc)       # words only; the exception is logged
             logger.warning(f"resource-browser: add {g} to list {guid} failed: {exc}")
     out = await get_list(guid)
     if failed:
@@ -2418,7 +2418,7 @@ async def copy_list(guid: str, body: CopyBody):
         try:
             await cm._async_add_to_collection(target, g, body=_membership_body(m["rationale"] or None, m["confidence"]))
         except Exception as exc:
-            failed[g] = str(exc)[:200]
+            failed[g] = describe_bulk_item_error(exc)       # words only; the exception is logged
             logger.warning(f"resource-browser: copy {g} into list {target} failed: {exc}")
     out = await get_list(target)
     data = json.loads(out.body)
@@ -2720,7 +2720,9 @@ async def _run_delete(guid: str, me: str):
                              "removed": removed, "left": left,
                              "failed": {"step": step, "guid": (target or {}).get("guid"),
                                         "displayName": (target or {}).get("displayName"),
-                                        "message": why or str(exc)[:300]}}, status_code=207)
+                                        # words only (CodeQL py/stack-trace-exposure, #895 alert 102): the
+                                        # exception is logged above, never sent to the browser
+                                        "message": why or describe_bulk_item_error(exc)}}, status_code=207)
 
     def left_now(shares, lenses, members):
         return {"shares": shares, "lenses": lenses, "members": len(members)}
@@ -2783,7 +2785,7 @@ async def _run_delete(guid: str, me: str):
                                "was removed. Delete again to carry on.")
         return partial("delete", None, exc, left_now([], [], []),
                        why=f"Every link was removed, but Egeria refused to delete the working set "
-                           f"({str(exc)[:200]}). It is empty now: delete again.")
+                           f"({describe_bulk_item_error(exc).rstrip('.')}). It is empty now: delete again.")
     logger.info(f"resource-browser: {me} deleted working set {guid} ({removed['members']} members kept)")
     return JSONResponse({"guid": guid, "displayName": plan["displayName"], "deleted": True, "removed": removed,
                          "membersKept": removed["members"]})
@@ -3347,7 +3349,7 @@ async def _run_sweep(key: str) -> None:
         st.update(value=value, stamp=datetime.now(timezone.utc), error=None, doneAt=_sweep_clock(), failedAt=None)
     except Exception as exc:
         logger.warning(f"resource-browser: full-resource sweep failed: {exc}")
-        st.update(error=str(exc)[:300], failedAt=_sweep_clock())
+        st.update(error=describe_bulk_item_error(exc), failedAt=_sweep_clock())   # words only; logged above
 
 
 def _all_resources_state() -> tuple:
@@ -3405,7 +3407,7 @@ async def _all_resources_sweep() -> dict:
     except Exception as exc:
         if not _is_unknown_type(exc):
             logger.warning(f"resource-browser: glossary term read for categories failed: {exc}")
-            terms_error = str(exc)[:200]
+            terms_error = describe_bulk_item_error(exc).rstrip('.')   # words only; logged above
     return {"rows": list(rows.values()), "cappedTypes": capped_types,
             "terms": terms, "termsCapped": terms_capped, "termsError": terms_error}
 
