@@ -105,7 +105,11 @@ def fake(monkeypatch):
     async def repos():
         return []
 
+    def sweep_done():          # the endpoint tests see a finished background sweep (its own tests are below)
+        return state.get("sweep_value"), rb.datetime.now(rb.timezone.utc), state.get("sweep_loading", False), None
+
     monkeypatch.setattr(rb, "_explorer_async", explorer)
+    monkeypatch.setattr(rb, "_all_resources_state", sweep_done)
     monkeypatch.setattr(rb, "_classified", classified)
     monkeypatch.setattr(rb, "_all_elements", all_elements)
     monkeypatch.setattr(rb, "_cached", cached)
@@ -120,6 +124,10 @@ def _scoped_state(state):
                        _el("collected", {"dataCollectionStartTime": "2024-01-01T00:00:00Z"}),
                        _el("usage", {"additionalProperties": _READINGS})]
     state["all"] = {"DataAsset": state["scoped"] + [_el("bare"), _el("unread", read=False)]}
+    rows = {}
+    for r in rb._rows(state["all"]["DataAsset"])[0]:
+        rows.setdefault(r["guid"], r)
+    state["sweep_value"] = {"rows": list(rows.values()), "cappedTypes": []}
 
 
 def test_browse_list_with_a_lens_marks_every_row_and_counts_the_whole_list(client, fake):
@@ -174,35 +182,76 @@ def test_unknown_scope_value_is_404(client, fake):
     assert client.get("/api/resource-browser/browse/scope/everything").status_code == 404
 
 
-def test_full_resource_sweeps_run_one_at_a_time(monkeypatch):
-    # Architect R5: several users opening Data scope at once must not each sweep Egeria in parallel.
+def test_while_counting_none_is_never_zero(client, fake):
+    _scoped_state(fake)
+    fake["sweep_value"], fake["sweep_loading"] = None, True
+    vals = {v["id"]: v for v in client.get("/api/resource-browser/browse/scope").json()["values"]}
+    assert vals["none"]["count"] is None and vals["none"]["counting"] is True
+    assert vals["recorded"]["count"] == 3
+    d = client.get("/api/resource-browser/browse/scope/none").json()
+    assert d["loading"] is True and d["items"] == [] and "Counting every resource" in d["note"]
+
+
+# ── The background sweep itself (Architect public-demo condition) ───────────
+
+def _sweep_harness(monkeypatch, fail_first=False):
     import asyncio
-    running, peak = {"n": 0}, {"n": 0}
+    calls = {"n": 0, "running": 0, "peak": 0}
+    gate = {}
 
     async def sweep():
-        running["n"] += 1
-        peak["n"] = max(peak["n"], running["n"])
-        await asyncio.sleep(0.01)
-        running["n"] -= 1
-        return {"rows": [], "cappedTypes": []}
-
-    async def cached(name, producer, ttl=600):          # a cache miss for every caller (different users)
-        return await producer(), rb.datetime.now(rb.timezone.utc)
-
-    async def classified(_c, _n):
-        return [], False
-
-    async def explorer():
-        return None
+        calls["n"] += 1
+        calls["running"] += 1
+        calls["peak"] = max(calls["peak"], calls["running"])
+        try:
+            await gate["release"].wait()
+            if fail_first and calls["n"] == 1:
+                raise RuntimeError("egeria down")
+            return {"rows": [], "cappedTypes": []}
+        finally:
+            calls["running"] -= 1
 
     monkeypatch.setattr(rb, "_all_resources_sweep", sweep)
-    monkeypatch.setattr(rb, "_cached", cached)
-    monkeypatch.setattr(rb, "_classified", classified)
-    monkeypatch.setattr(rb, "_explorer_async", explorer)
-    monkeypatch.setattr(rb, "_ALL_RESOURCES_SWEEPS", None)
+    monkeypatch.setattr(rb, "_SWEEP_STATE", {})
+    monkeypatch.setattr(rb, "_sweep_key", lambda: "k|user")
+    return calls, gate
+
+
+def test_concurrent_requests_start_one_background_sweep_and_never_wait(monkeypatch):
+    import asyncio
+    calls, gate = _sweep_harness(monkeypatch)
 
     async def main():
-        rb._ALL_RESOURCES_SWEEPS = asyncio.Semaphore(1)  # bound to this test's loop
-        await asyncio.gather(*(rb._scope_split() for _ in range(4)))
-    asyncio.run(main())
-    assert peak["n"] == 1
+        gate["release"] = asyncio.Event()
+        rb._ALL_RESOURCES_SWEEPS = asyncio.Semaphore(1)
+        first = [rb._all_resources_state() for _ in range(5)]          # five requests, nothing awaited
+        await asyncio.sleep(0)
+        assert all(v is None and loading for v, _s, loading, _e in first)
+        gate["release"].set()
+        for _ in range(5):
+            await asyncio.sleep(0)
+        return rb._all_resources_state()
+    value, stamp, loading, error = asyncio.run(main())
+    assert calls["n"] == 1 and calls["peak"] == 1
+    assert value == {"rows": [], "cappedTypes": []} and stamp is not None and loading is False and error is None
+
+
+def test_a_failed_sweep_is_reported_and_retried(monkeypatch):
+    import asyncio
+    calls, gate = _sweep_harness(monkeypatch, fail_first=True)
+
+    async def main():
+        gate["release"] = asyncio.Event()
+        rb._ALL_RESOURCES_SWEEPS = asyncio.Semaphore(1)
+        gate["release"].set()
+        rb._all_resources_state()
+        for _ in range(5):
+            await asyncio.sleep(0)
+        after_fail = rb._all_resources_state()     # starts the retry
+        for _ in range(5):
+            await asyncio.sleep(0)
+        return after_fail, rb._all_resources_state()
+    after_fail, after_retry = asyncio.run(main())
+    assert after_fail[0] is None and after_fail[2] is True and "egeria down" in after_fail[3]
+    assert after_retry[0] == {"rows": [], "cappedTypes": []} and after_retry[3] is None
+    assert calls["n"] == 2

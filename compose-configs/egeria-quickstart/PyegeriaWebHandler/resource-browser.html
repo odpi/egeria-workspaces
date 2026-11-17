@@ -2256,24 +2256,32 @@ function LensBar({ list, lensGuid, creds, picked, onPick, onLens }) {
     list.lens && !list.lens.dimensions.length && el('span', { className: 'rb-note' }, 'This lens has no dimensions yet, so no resource can be compared.'));
 }
 
+var BROWSE_POLL_MS = 8000;
+
 function BrowsePage({ facet, value, lens, creds }) {
   var idx = useFlavours(creds);
   var f = FACETS.filter(function(x) { return x.id === facet; })[0] || FACETS[0];
   var effective = value;
   var _p = useState({ inside: true }), picked = _p[0], setPicked = _p[1];
+  var _t = useState(0), tick = _t[0], setTick = _t[1];   // re-read while a list is still being counted
   var _v = useState(null), vals = _v[0], setVals = _v[1];
   var _l = useState(null), list = _l[0], setList = _l[1];
   var _e = useState(''), err = _e[0], setErr = _e[1];
+  useEffect(function() { setTick(0); }, [f.id, effective, lens]);
   useEffect(function() {
-    setErr(''); setVals(null); setList(null);
+    if (!tick) { setErr(''); setVals(null); setList(null); }
     document.title = f.label + ' · Browse · Resource Locator';
+    var timer = null, live = true;
+    // While the full-resource count runs in the background the server says loading; ask again shortly.
+    function again(d) { if (live && d && d.loading) timer = setTimeout(function() { setTick(function(n) { return n + 1; }); }, BROWSE_POLL_MS); }
     if (effective) {
       getJson(API + '/browse/' + f.id + '/' + encodeURIComponent(effective) + (lens ? '?lens=' + encodeURIComponent(lens) : ''), creds)
-        .then(setList).catch(function(e) { setErr(e.message); });
+        .then(function(d) { if (live) { setList(d); again(d); } }).catch(function(e) { if (live) setErr(e.message); });
     } else {
-      getJson(API + '/browse/' + f.id, creds).then(setVals).catch(function(e) { setErr(e.message); });
+      getJson(API + '/browse/' + f.id, creds).then(function(d) { if (live) { setVals(d); again(d); } }).catch(function(e) { if (live) setErr(e.message); });
     }
-  }, [f.id, effective, lens, creds && creds.token]);
+    return function() { live = false; if (timer) clearTimeout(timer); };
+  }, [f.id, effective, lens, tick, creds && creds.token]);
   function setLens(g) { navigate(Object.assign({ browse: f.id, value: effective }, g ? { lens: g } : {})); }
   function togglePick(id) { var n = Object.assign({}, picked); n[id] = !n[id]; setPicked(n); }
   var shownRows = list ? lensRows(list.items, picked) : [];
@@ -2295,8 +2303,8 @@ function BrowsePage({ facet, value, lens, creds }) {
               title: none ? 'No resource has this yet' : '',
               onClick: function() { if (f.id === 'collection' && v.description === 'WorkingSet') openList(v.id); else navigate({ browse: f.id, value: v.id }); } },
             el('span', { className: 'n' }, v.label),
-            v.count !== undefined && el('span', { className: 'c', title: v.countAtLeast ? 'At least this many: a read stopped at its limit, or the full read is not proven complete against Egeria\u2019s repository' : '' },
-              none ? 'none' : (v.countAtLeast ? '\u2265 ' : '') + v.count),
+            (v.count !== undefined || v.counting) && el('span', { className: 'c', title: v.countAtLeast ? 'At least this many: a read stopped at its limit, or the full read is not proven complete against Egeria\u2019s repository' : '' },
+              v.counting ? 'counting\u2026' : none ? 'none' : (v.countAtLeast ? '\u2265 ' : '') + v.count),
             v.description && el('span', { className: 'rb-note' }, v.description));
         })),
       vals.countsAre && el('div', { className: 'rb-note', style: { marginTop: 8 } }, 'Counts are ' + vals.countsAre + '.'),
@@ -2310,11 +2318,13 @@ function BrowsePage({ facet, value, lens, creds }) {
         el('h2', { style: { fontSize: 18 } }, list.title)),
       list.note && el('div', { className: 'rb-note', style: { marginBottom: 8 } }, list.note),
       list.items.length > 0 && el(LensBar, { list: list, lensGuid: lens, creds: creds, picked: picked, onPick: togglePick, onLens: setLens }),
-      list.items.length === 0 && !list.note && el('div', { className: 'rb-absent' }, 'No resource visible to you is here.'),
+      list.items.length === 0 && !list.note && !list.loading && el('div', { className: 'rb-absent' }, 'No resource visible to you is here.'),
       list.items.length > 0 && el('div', { className: 'rb-note', style: { marginBottom: 8 } },
         (list.lens ? shownRows.length + ' of ' : '') + (list.capped ? 'at least ' : '') + list.items.length + ' resource' + (list.items.length === 1 ? '' : 's') +
         (list.lens ? ' shown for the lens \u201c' + list.lens.displayName + '\u201d' : '') + '. ' + (list.order || '')),
-      list.scopeListsAsOf && el('div', { className: 'rb-note', style: { marginBottom: 8 } },
+      list.loading && el('div', { className: 'center', style: { height: 90 } }, el('div', { className: 'spinner' }), 'Counting every resource\u2026'),
+      list.refreshing && el('div', { className: 'rb-note', style: { marginBottom: 8 } }, 'A newer count is being made in the background; this is the last one.'),
+      list.scopeListsAsOf && list.scopeListsAsOf.noneAsOf && el('div', { className: 'rb-note', style: { marginBottom: 8 } },
         'The recorded list is as of ' + fmtDate(list.scopeListsAsOf.recordedAsOf) + ' and the full resource read as of ' + fmtDate(list.scopeListsAsOf.noneAsOf) +
         ': a resource scoped in between may sit in neither list, or both, until both refresh (10 minutes).'),
       el(ResultList, { key: (lens || '') + JSON.stringify(picked), rows: shownRows, creds: creds, idx: idx, showMatched: !!list.lens,
