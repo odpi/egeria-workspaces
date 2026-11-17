@@ -106,7 +106,10 @@ cp -r compose-configs/egeria-quickstart/servers/qs-* "$TARGET_SERVER_DIR"/
 # never sees the directory empty.
 RUNTIME_SECRETS_DIR="runtime-volumes/quickstart-platform-data/secrets"
 mkdir -p "$RUNTIME_SECRETS_DIR"
-cp -f compose-configs/egeria-quickstart/secrets/*.omsecrets "$RUNTIME_SECRETS_DIR"/
+# gen-env.sh first: PROVISIONER_PASSWORD must be in shared-infra/.env before install-secrets.py fills it in
+# (TR-28). ensure-shared-infra.sh below runs it again, which keeps the same value.
+compose-configs/shared-infra/gen-env.sh
+python3 compose-configs/shared-infra/install-secrets.py compose-configs/egeria-quickstart/secrets "$RUNTIME_SECRETS_DIR"
 for _secret in "$RUNTIME_SECRETS_DIR"/*; do
   [[ -e "compose-configs/egeria-quickstart/secrets/$(basename "$_secret")" ]] || safe_rm_rf "$_secret"
 done

@@ -124,8 +124,8 @@ Creates the `coco_data_hub` database — the Coco Pharmaceuticals Data Sharing H
 (81), one table per data structure (153), one column per data field linked to it (1,015 columns - the
 shared Product Code field is a column of three tables) with the key columns first, a primary key on the
 fields whose link to their data structure has the coverage category `IDENTIFIER`, and the product,
-structure and field descriptions as comments.  It also creates the `provisioner` database user
-(password `provisioner4egeria`, secrets collection `PostgreSQL Provisioning Secret` in
+structure and field descriptions as comments.  It also uses the `provisioner` database user
+(password `PROVISIONER_PASSWORD` in `compose-configs/shared-infra/.env`, secrets collection `PostgreSQL Provisioning Secret` in
 `secrets/integration.omsecrets`), which reads and writes the rows of every product table, and gives the
 cataloguer's `surveyor` user read-only access to every product table, so that the Data Sharing Hub
 Manager (Liskov) can survey the hub.  The tables are empty.  `coco_pharma` keeps the existing
