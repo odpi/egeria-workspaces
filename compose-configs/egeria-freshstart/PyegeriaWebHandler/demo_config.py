@@ -35,14 +35,16 @@ DEMO_DB_URL:      str = (
 
 # RK-24b: no published default. fresh-start-local generates JWT_SECRET into .env; an unset key, or the value once
 # published as this default, is refused when a session is signed or checked (anyone could forge those sessions).
-PUBLIC_JWT_DEFAULT = "change-me-before-going-public"
+# PO-46b: the quickstart compose file published a second value; refuse both.
+PUBLIC_JWT_DEFAULTS = ("change-me-before-going-public", "change-me-before-going-public-meow")
+PUBLIC_JWT_DEFAULT = PUBLIC_JWT_DEFAULTS[0]
 JWT_SECRET: str       = os.environ.get("JWT_SECRET") or ""
 
 
 def jwt_signing_key() -> str:
     """The Portal's session-signing key, refusing an unset one or the published default (forgeable sessions)."""
-    if not JWT_SECRET or JWT_SECRET == PUBLIC_JWT_DEFAULT:
-        raise RuntimeError("JWT_SECRET is not set, or is the published default, so Portal sessions could be forged. "
+    if not JWT_SECRET or JWT_SECRET in PUBLIC_JWT_DEFAULTS:
+        raise RuntimeError("JWT_SECRET is not set, or is a published default, so Portal sessions could be forged. "
                            "Run ./fresh-start-local, which generates one into compose-configs/egeria-freshstart/.env.")
     return JWT_SECRET
 JWT_ALGORITHM: str    = "HS256"

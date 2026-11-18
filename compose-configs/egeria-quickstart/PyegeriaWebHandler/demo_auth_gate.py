@@ -27,6 +27,7 @@ Pure ASGI rather than BaseHTTPMiddleware so SSE responses stream untouched
 import time
 from typing import Optional
 
+from fastapi import HTTPException
 from fastapi.responses import JSONResponse, RedirectResponse
 from jose import JWTError
 from starlette.concurrency import run_in_threadpool
@@ -88,6 +89,8 @@ async def _authenticated(headers: dict) -> bool:
     try:
         user_id = _decode_jwt(token)["sub"]
     except (JWTError, KeyError):
+        return False
+    except HTTPException:   # PO-46b: no usable signing key, so no session can be trusted (fails closed)
         return False
     hit = _USER_CACHE.get(user_id)
     if hit and time.monotonic() - hit[1] < _USER_CACHE_TTL:

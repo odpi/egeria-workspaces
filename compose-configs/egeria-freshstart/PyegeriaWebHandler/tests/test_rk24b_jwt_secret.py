@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import demo_config  # noqa: E402
 
 
-@pytest.mark.parametrize("value", ["", demo_config.PUBLIC_JWT_DEFAULT])
+@pytest.mark.parametrize("value", ["", *demo_config.PUBLIC_JWT_DEFAULTS])   # PO-46b: both published values
 def test_the_signing_key_is_refused_when_unset_or_published(monkeypatch, value):
     monkeypatch.setattr(demo_config, "JWT_SECRET", value)
     with pytest.raises(RuntimeError) as info:
@@ -60,4 +60,5 @@ def test_the_compose_file_has_no_published_default():
         pytest.skip("egeria-freshstart.yaml isn't in this checkout (only PyegeriaWebHandler/ was copied)")
     yaml_text = compose.read_text(encoding="utf-8")
     assert "JWT_SECRET:-" not in yaml_text
-    assert demo_config.PUBLIC_JWT_DEFAULT not in yaml_text
+    for published in demo_config.PUBLIC_JWT_DEFAULTS:
+        assert published not in yaml_text
