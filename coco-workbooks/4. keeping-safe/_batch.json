@@ -1,6 +1,6 @@
 {
   "displayName": "Coco - 4. Keeping Safe",
-  "description": "Gary Geeke's IT infrastructure governance program, built on the systems inventory created in 1. coco-data-hub.",
+  "description": "Gary Geeke's IT infrastructure governance program, built on the systems inventory created in 1. coco-data-hub, followed by Simon Burr's security work in the README's order: his onboarding, the security glossary, the risk scopes, the statement of applicability and the STRIDE threat models for Batch Manufacturing and Release. The threat model links run as Gary Geeke because the systems are in the business-systems zone. Needs 0. data-governance-program and 1. coco-data-hub loaded first.",
   "canary": {
     "type": "BusinessImperative",
     "name": "Digital Services the Business Can Depend On"
@@ -8,6 +8,30 @@
   "defaultEnabled": false,
   "userid": "garygeeke",
   "files": [
-    "it-governance-program.md"
+    "it-governance-program.md",
+    {
+      "file": "onboarding-simon-burr.md",
+      "userid": "simonburr"
+    },
+    {
+      "file": "security-glossary.md",
+      "userid": "simonburr"
+    },
+    {
+      "file": "risk-scopes.md",
+      "userid": "simonburr"
+    },
+    {
+      "file": "statement-of-applicability.md",
+      "userid": "simonburr"
+    },
+    {
+      "file": "batch-manufacturing-threat-models.md",
+      "userid": "simonburr"
+    },
+    {
+      "file": "batch-manufacturing-threat-model-links.md",
+      "userid": "garygeeke"
+    }
   ]
 }
