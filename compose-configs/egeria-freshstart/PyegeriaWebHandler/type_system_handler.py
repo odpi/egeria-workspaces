@@ -16,6 +16,7 @@ Provides these endpoints:
 Consumed by the type-explorer UI and can be called directly.
 """
 
+from egeria_auth import service_password  # PO-45: no built-in service password
 import os
 import re
 import time
@@ -47,7 +48,7 @@ def _env_defaults() -> dict:
         url     =os.environ.get("EGERIA_PLATFORM_URL",  "https://egeria-main:9443"),
         server  =os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server"),
         user_id =os.environ.get("EGERIA_USER",          "erinoverview"),
-        user_pwd=os.environ.get("EGERIA_USER_PASSWORD", "secret"),
+        user_pwd=service_password(),
     )
 
 def _get_client(url: str, server: str, user_id: str, user_pwd: str) -> ValidMetadataManager:

@@ -12,6 +12,7 @@ pyegeria.view.base_report_formats.  They are not stored in Egeria and this
 endpoint requires no Egeria connection.
 """
 
+from egeria_auth import service_password  # PO-45: no built-in service password
 import os
 from typing import Optional
 
@@ -252,7 +253,7 @@ def execute_spec(req: ExecuteRequest, request: Request):
     url      = req.url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
     server   = req.server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
     user_id  = req.user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
-    user_pwd = req.user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    user_pwd = req.user_pwd or service_password()
     token    = get_request_token()
 
     from report_viewer import reset_viewer, resolve_viewer, set_viewer

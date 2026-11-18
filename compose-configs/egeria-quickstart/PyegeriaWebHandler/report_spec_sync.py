@@ -34,6 +34,7 @@ collections_handler.warm_roots_cache).
 
 from __future__ import annotations
 
+from egeria_auth import service_password  # PO-45: no built-in service password
 import os
 import threading
 import time
@@ -134,7 +135,7 @@ def _service_client():
     server = os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server")
     url = os.environ.get("EGERIA_VIEW_SERVER_URL") or os.environ.get("EGERIA_PLATFORM_URL", "https://localhost:9443")
     user_id = os.environ.get("EGERIA_USER", "erinoverview")
-    user_pwd = os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    user_pwd = service_password()
     client = CollectionManager(server, url, user_id=user_id, user_pwd=user_pwd)
     from egeria_auth import check_client_platform
     check_client_platform(client)         # env-configured platform: always allow-listed

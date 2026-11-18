@@ -262,7 +262,8 @@ def test_a_failed_sweep_is_reported_and_retried_only_after_a_pause(monkeypatch):
         await settle()
         return polled, retry, rb._all_resources_state()
     polled, retry, done = asyncio.run(main())
-    assert polled[0] is None and polled[2] is False and "egeria down" in polled[3]
+    # #895: the error the page shows is words (describe_bulk_item_error), never the exception text
+    assert polled[0] is None and polled[2] is False and polled[3] and "egeria down" not in polled[3]
     assert calls["n"] == 2
     assert retry[2] is True
     assert done[0] == {"rows": [], "cappedTypes": []} and done[3] is None

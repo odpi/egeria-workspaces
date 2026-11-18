@@ -110,7 +110,17 @@ if [[ -z "$EGERIA_MEM_LIMIT_VAL" ]]; then
   EGERIA_MEM_LIMIT_VAL="6g"
 fi
 
+# EGERIA_ADMIN_CALLER_PASSWORD (PO-45): the Portal's own Egeria account password. The compose file has no
+# default for it, and fresh-start-local NEVER makes one up (freshstart has real users): an exported value
+# wins, else the value already in .env is carried over (this script rewrites .env every run, which used to
+# drop it), else nothing is written and compose refuses to start until it is set. Never printed.
+EGERIA_ADMIN_CALLER_PASSWORD_VAL="${EGERIA_ADMIN_CALLER_PASSWORD:-}"
+if [[ -z "$EGERIA_ADMIN_CALLER_PASSWORD_VAL" && -f .env ]]; then
+  EGERIA_ADMIN_CALLER_PASSWORD_VAL="$(grep -E '^EGERIA_ADMIN_CALLER_PASSWORD=' .env | head -n1 | cut -d= -f2- || true)"
+fi
+
 TMP_ENV=".env.tmp"
+( umask 077; : > "$TMP_ENV" )
 cat > "$TMP_ENV" <<EOF
 HOST_FQDN=${HOST_FQDN}
 KAFKA_CLUSTER_ID=${KAFKA_CLUSTER_ID_VAL}
@@ -119,7 +129,13 @@ HOST_GATEWAY_IP=${HOST_GATEWAY_IP}
 EGERIA_MEM_LIMIT=${EGERIA_MEM_LIMIT_VAL}
 CONFIG_JSON="${CONFIG_JSON_ESCAPED}"
 EOF
+if [[ -n "$EGERIA_ADMIN_CALLER_PASSWORD_VAL" ]]; then
+  printf 'EGERIA_ADMIN_CALLER_PASSWORD=%s\n' "$EGERIA_ADMIN_CALLER_PASSWORD_VAL" >> "$TMP_ENV"
+else
+  echo "[gen-env.sh] WARNING: EGERIA_ADMIN_CALLER_PASSWORD is not set: the Portal will not start until you export it or add it to compose-configs/egeria-freshstart/.env (the password of the EGERIA_ADMIN_CALLER_ID account)" >&2
+fi
 mv -f "$TMP_ENV" .env
+chmod 600 .env
 
 echo "[gen-env.sh] Wrote .env with HOST_FQDN=${HOST_FQDN}, KAFKA_CLUSTER_ID=${KAFKA_CLUSTER_ID_VAL}, EGERIA_MEM_LIMIT=${EGERIA_MEM_LIMIT_VAL}" >&2
 

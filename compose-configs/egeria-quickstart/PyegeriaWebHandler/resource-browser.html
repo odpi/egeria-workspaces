@@ -5,7 +5,7 @@
 
   Resource Locator — find resources (data, code, APIs, products) on Egeria alone.
   Served by PyegeriaWebHandler at /resource-browser (resource_browser_handler.py).
-  Phase 1: the Resource page (?guid=). Phase 2: Home, Search (L0) and Browse. Phase 3: work lists (?list=).
+  Phase 1: the Resource page (?guid=). Phase 2: Home, Search (L0) and Browse. Phase 3: working sets (?list=).
   Spec: trellis/packages/resource-explorer/docs/design-notes/SPEC-RESOURCE-BROWSER-PORTAL-APP.md
 -->
 <html lang="en">
@@ -471,7 +471,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 </script>
 <!-- Bump ?v= whenever egeria-shared-ui.js changes. -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
-<script src="/static/egeria-shared-ui.js?v=2026-11-11d"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-11-17-po41"></script>
 <script src="/static/data-scope-editor.js?v=2026-11-17b"></script>
 
 <script>
@@ -480,7 +480,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 // Phase 1: one Resource page per element (?guid=), built as a standalone
 // component (ResourcePage, the guid its only data input) so other apps can
 // reuse it; Home, Search (L0) and Browse share one result row.
-// Routes: ?guid= (resource), ?q=&kind= (search), ?browse=&value= (browse), ?list= (work list), none (home).
+// Routes: ?guid= (resource), ?q=&kind= (search), ?browse=&value= (browse), ?list= (working set), none (home).
 // Honesty rules (spec §2): every figure carries its date and source; "never
 // measured" never renders as zero or as an empty table.
 var useState = React.useState;
@@ -537,7 +537,7 @@ function routeLabel(route, title) {
       var f = (typeof FACETS !== 'undefined' ? FACETS : []).filter(function(x) { return x.id === route.facet; })[0];
       return 'Browse \u203a ' + (f ? f.label : route.facet) + (route.value ? ' \u203a ' + (t || route.value) : '');
     }
-    case 'list': return 'Work list' + (t ? ' \u2018' + t + '\u2019' : '');
+    case 'list': return 'Working set' + (t ? ' \u2018' + t + '\u2019' : '');
     case 'lens': return 'Data lens' + (t ? ' \u2018' + t + '\u2019' : '');
     case 'resource': return t || 'the resource you came from';
     case 'help': return 'Help';
@@ -660,18 +660,18 @@ var TERMS = {
   notComparable: { label: 'Cannot be compared', def: 'The resource records none of the dimensions the lens uses (for example the lens asks for a place and the resource records only a time), so it is neither inside nor outside the lens. It is counted on its own, never as outside.' },
   noneRecorded: { label: 'No data scope recorded', def: 'Of the resources you can see, those with no data scope that records a time, place or other dimension: no DataScope at all, or one holding only usage readings from Egeria\u2019s lineage service. What you can see depends on zone security and the Promise/Memento toggle. These are the resources that need a scope; set one in The Catalog.' },
   scopeNotRead: { label: 'Scope not read', def: 'This list was read in a way that did not bring each resource\u2019s classifications, so whether it records a data scope is unknown. It is counted on its own, not as \u201cnone recorded\u201d or \u201ccannot be compared\u201d.' },
-  dataLens: { label: 'Data lens', def: 'The scope of data a piece of work needs, in time, place and other dimensions. A lens governs a work list, and resources whose data scope falls inside it are suggested for that list.' },
+  dataLens: { label: 'Data lens', def: 'The scope of data a piece of work needs, in time, place and other dimensions. A lens governs a working set, and resources whose data scope falls inside it are suggested for that working set.' },
   badge: { label: 'Badge', def: 'A badge from a curated list of governance classifications: Confidentiality, Confidence, Criticality, Impact, Retention or Security tags. Egeria has many more classifications; the badge list keeps Browse to the ones worth choosing from. Data scope and ownership are shown elsewhere.' },
   owner: { label: 'Owner', def: 'Who is accountable for the resource, from its Ownership classification.' },
   source: { label: 'Source system', def: 'The database or folder a resource comes from: the source itself and everything anchored to it.' },
-  collection: { label: 'Collection', def: 'A group of resources in Egeria: a product family, a data sharing hub, or a work list.' },
+  collection: { label: 'Collection', def: 'A group of resources in Egeria: a product family, a data sharing hub, or a working set.' },
   folder: { label: 'Folder', def: 'A folder in Egeria (a CollectionFolder) that files elements: the folders of a glossary, of a product catalog or of a hub. A folder can hold resources, glossary terms, data fields and other folders.' },
   tag: { label: 'Tag', def: 'An informal tag: a free word anyone can attach to a resource to make it easier to find.' },
   keyword: { label: 'Search keyword', def: 'A keyword a curator attached to an element so search finds it. Browse groups keywords by their text, ignoring case; each attachment counts once.' },
   matched: { label: 'Matched', def: 'Why this result was found: which of its own fields matched, or a tag, keyword or owner, or "contains:" a column or field inside it that matched.' },
   partOf: { label: 'Part of', def: 'For a column, attribute or data field: the table, event type, data structure or asset that holds it.' },
   automation: { label: 'Automation', def: 'The last change was made by a service account (an engine, or a user name ending in npa), such as a survey or a connector, not by a person.' },
-  workList: { label: 'Work list', def: 'An Egeria collection of resources you gather for a piece of work, each with the reason you added it. You can share it with a team or community.' },
+  workList: { label: 'Working set', def: 'An Egeria collection (WorkingSet) of resources you gather for a piece of work, each with the reason you added it. You can share it with a team or community.' },
   meaning: { label: 'Meaning', def: 'Glossary terms assigned to the resource or its columns: what it means in business terms.' },
   lineage: { label: 'Lineage', def: 'Where the data comes from and where it goes: data flows, process calls and mappings, one level each way.' },
   statistics: { label: 'Statistics', def: 'Measurements from the latest survey of the resource, such as row counts and column profiles, each with its date.' },
@@ -1592,12 +1592,12 @@ function ResultRow({ row, idx, extras, showMatched, inLists, extra }) {
       el('span', null, 'last updated by ', el('b', null, row.updatedBy || 'unknown'),
         row.automated ? el(React.Fragment, null, ' (automation', el(Help, { term: 'automation' }), ')') : '', ' · ', fmtDate(row.updateTime)),
       showMatched && row.matched.length > 0 && el('span', null, 'matched', el(Help, { term: 'matched' }), ': ' + row.matched.join('; ')),
-      inLists > 0 && el('span', null, 'in ' + inLists + ' of your lists'),
+      inLists > 0 && el('span', null, 'in ' + inLists + ' of your working sets'),
       el(RowExtras, { extras: extras })),
     extra);
 }
 
-// ── Bulk add: select rows, add them to a work list in one go (PO-37) ────────
+// ── Bulk add: select rows, add them to a working set in one go (PO-37) ────────
 
 var BULK_CHUNK = 100;   // the server's _ADD_CAP: members added in one request
 
@@ -1653,7 +1653,7 @@ function bulkSummary(outcomes, listName) {
   var total = n.added + n.addedOrAlready + n.already + n.failed;
   var parts = [];
   if (n.added) parts.push('added ' + n.added);
-  if (n.addedOrAlready) parts.push(n.addedOrAlready + ' added or already in it (the list is too long to check)');
+  if (n.addedOrAlready) parts.push(n.addedOrAlready + ' added or already in it (the working set is too long to check)');
   if (n.already) parts.push(n.already + ' already in it');
   if (n.failed) parts.push(n.failed + ' failed (see the row' + (n.failed === 1 ? '' : 's') + '; still selected, so Add again retries ' + (n.failed === 1 ? 'it' : 'them') + ')');
   return total + ' to \u2018' + listName + '\u2019: ' + parts.join(', ') + '.';
@@ -1676,7 +1676,7 @@ function bulkAdd(list, guids, memberOf, post, onProgress) {
   }, Promise.resolve()).then(function() { return outcomes; });
 }
 
-var OUTCOME_TEXT = { added: 'added to the list', addedOrAlready: 'added or already in the list', already: 'already in the list' };
+var OUTCOME_TEXT = { added: 'added to the working set', addedOrAlready: 'added or already in the working set', already: 'already in the working set' };
 
 // Selection state for one result list; cleared when the list itself changes (query, kind, facet value).
 function useBulkSelection(resetKey) {
@@ -1720,10 +1720,10 @@ function BulkBar({ rows, sel, creds, mayHaveMore, what }) {
   function add() {
     if (target === 'new') {
       if (!newName.trim()) return;
-      setProgress('Creating the list\u2026');
+      setProgress('Creating the working set\u2026');
       sendJson(API + '/lists', creds, 'POST', { name: newName.trim() })
         .then(function(l) { setNewName(''); setTarget(l.guid); return run(Object.assign({ membersCapped: false }, l)); })
-        .catch(function(e) { setProgress(''); setMsg('The list could not be created: ' + e.message); });
+        .catch(function(e) { setProgress(''); setMsg('The working set could not be created: ' + e.message); });
       return;
     }
     var list = (lists.mine || []).filter(function(l) { return l.guid === target; })[0];
@@ -1737,15 +1737,15 @@ function BulkBar({ rows, sel, creds, mayHaveMore, what }) {
       el('button', { className: 'rb-edit', disabled: busy || !sum.count, onClick: function() { sel.setSelected({}); } }, 'Clear all'),
       el('span', { className: 'rb-note' }, sum.count + ' selected' + (sum.hidden ? ' (' + sum.hidden + ' hidden by the filters)' : '')),
       el('select', { className: 'rb-select', value: target, disabled: busy, onChange: function(e) { setTarget(e.target.value); } },
-        el('option', { value: '' }, 'Add to list\u2026'),
+        el('option', { value: '' }, 'Add to working set\u2026'),
         (lists.mine || []).map(function(l) { return el('option', { key: l.guid, value: l.guid }, l.displayName); }),
-        el('option', { value: 'new' }, 'New list\u2026')),
-      target === 'new' && el('input', { className: 'rb-text', style: { maxWidth: 200, padding: '4px 8px' }, value: newName, placeholder: 'New list name',
+        el('option', { value: 'new' }, 'New working set\u2026')),
+      target === 'new' && el('input', { className: 'rb-text', style: { maxWidth: 200, padding: '4px 8px' }, value: newName, placeholder: 'New working set name',
         disabled: busy, onChange: function(e) { setNewName(e.target.value); } }),
       target && el('input', { className: 'rb-text', style: { maxWidth: 240, padding: '4px 8px' }, value: why, placeholder: 'Why (optional, kept with each item)',
         disabled: busy, onChange: function(e) { setWhy(e.target.value); } }),
       el('button', { className: 'rb-btn', disabled: busy || !sum.count || !target || (target === 'new' && !newName.trim()), onClick: add },
-        'Add ' + sum.count + ' to list')),
+        'Add ' + sum.count + ' to working set\u2026')),
     mayHaveMore && el('div', { className: 'rb-note', style: { marginTop: 4 } }, 'More results may exist: load more first to include them in Select all.'),
     progress && el('div', { className: 'rb-note', style: { marginTop: 4 } }, el('span', { className: 'spinner', style: { width: 10, height: 10, display: 'inline-block', marginRight: 6 } }), progress),
     msg && el('div', { className: msg.indexOf('failed') >= 0 || msg.indexOf('could not') >= 0 ? 'rb-err' : 'rb-note', style: { marginTop: 4 } }, msg));
@@ -2072,7 +2072,7 @@ function FavouritesTile({ personaId }) {
       })));
 }
 
-// ── Work lists (phase 3) ─────────────────────────────────────────────────────
+// ── Working sets (phase 3) ───────────────────────────────────────────────────
 // One shared copy of "which lists can I see, and which of mine hold what", so
 // every row's "in N of your lists" and every Add-to-list menu agree after a change.
 
@@ -2119,25 +2119,25 @@ function ListsTile({ creds }) {
           + (l.sharedWith && l.sharedWith.length ? ' · shared with ' + l.sharedWith.map(function(g) { return g.displayName; }).join(', ') : '')));
     }));
   }
-  return el(Tile, { help: 'workList', title: 'My lists', note: 'work lists' },
+  return el(Tile, { help: 'workList', title: 'My working sets', note: 'WorkingSet' },
     !d ? el('div', { className: 'rb-absent' }, 'Loading…')
-    : d.error ? el('div', { className: 'rb-err' }, 'Lists could not be read: ' + d.error)
+    : d.error ? el('div', { className: 'rb-err' }, 'Working sets could not be read: ' + d.error)
     : el('div', null,
         d.mine.length ? list(d.mine)
-          : el('div', { className: 'rb-absent' }, d.canWrite ? 'You have no work lists yet.' : 'Sign in or choose a persona to keep work lists.'),
+          : el('div', { className: 'rb-absent' }, d.canWrite ? 'You have no working sets yet.' : 'Sign in or choose a persona to keep working sets.'),
         d.canWrite && el('form', { onSubmit: create, className: 'rb-row', style: { marginTop: 8, gap: 6 } },
-          el('input', { className: 'rb-text', style: { flex: 1, padding: '4px 8px' }, value: name, placeholder: 'New list name',
+          el('input', { className: 'rb-text', style: { flex: 1, padding: '4px 8px' }, value: name, placeholder: 'New working set name',
             onChange: function(e) { setName(e.target.value); } }),
           el('button', { className: 'rb-btn', disabled: busy || !name.trim() }, busy ? 'Creating…' : 'Create')),
         err && el('div', { className: 'rb-err' }, err),
         d.canWrite && el('div', { style: { marginTop: 12 } },
           el('div', { className: 'rb-note', style: { marginBottom: 4 } }, 'Shared with your teams (read-only: copy what you want)'),
           d.sharedWithMe.length ? list(d.sharedWithMe)
-            : el('div', { className: 'rb-absent' }, d.groupsNote || 'No list has been shared with your teams yet.')),
+            : el('div', { className: 'rb-absent' }, d.groupsNote || 'No working set has been shared with your teams yet.')),
         el('div', { style: { marginTop: 12 } },
           el('div', { className: 'rb-note', style: { marginBottom: 4 } }, 'From Resource Explorer (read-only: copy what you want)'),
           d.fromResourceExplorer.length ? list(d.fromResourceExplorer)
-            : el('div', { className: 'rb-absent' }, 'No Resource Explorer list has been published to Egeria yet.'))));
+            : el('div', { className: 'rb-absent' }, 'No Resource Explorer working set has been published to Egeria yet.'))));
 }
 
 // ── Help: how the Locator works, and every term it uses ─────────────────────
@@ -2161,10 +2161,10 @@ function HelpPage() {
           p('"Load more results" stays offered until Egeria returns an empty page: a short page is not the last page.'))),
         sec('Browse and the resource page', el('div', null,
           p('Browse lists resources by tag, badge, owner, source system, collection, folder, search keyword, category, flavour or data scope. A resource page shows what Egeria holds about one resource, and says what is missing rather than showing an empty table.'),
-          p('You can improve a description, add informal tags, notes and meanings, like or rate a resource, and keep it in a work list. Every change is made as you, with your own Egeria token.'))),
+          p('You can improve a description, add informal tags, notes and meanings, like or rate a resource, and keep it in a working set. Every change is made as you, with your own Egeria token.'))),
         sec('Data scope and data lenses', el('div', null,
           p('A data scope says what time and place a resource’s data covers. It is shown on result rows (◷ scope) and resource pages, and set or changed in The Catalog. Some scopes hold only usage readings that Egeria’s lineage service keeps; those are shown as usage, not as a scope.'),
-          p('A data lens says what scope of data a piece of work needs. Make one from the Data lenses tile on Resource Locator Home, link it to your work lists, and its page lists the resources whose data scope falls inside it. A resource that records none of the lens’s dimensions cannot be compared, and is counted as such.')))),
+          p('A data lens says what scope of data a piece of work needs. Make one from the Data lenses tile on Resource Locator Home, link it to your working sets, and its page lists the resources whose data scope falls inside it. A resource that records none of the lens’s dimensions cannot be compared, and is counted as such.')))),
       el('div', null,
         sec('Terms', el('dl', { style: { margin: 0 } }, Object.keys(TERMS).map(function(k) {
           return el(React.Fragment, { key: k },
@@ -2175,7 +2175,7 @@ function HelpPage() {
 
 // ── Data lenses ──────────────────────────────────────────────────────────────
 // A Data Lens says what scope of data a piece of work needs (time, place, scope
-// elements). It governs work lists, and resources whose data scope falls inside it are
+// elements). It governs working sets, and resources whose data scope falls inside it are
 // shown on its page so they can be added. Its fields come from Egeria's DataLens type
 // definition (static/data-scope-editor.js), so new dimensions appear without a change here.
 
@@ -2228,9 +2228,9 @@ function LensForm({ creds, lens, groups, onDone, onCancel }) {
     el('textarea', { className: 'rb-text', style: { width: '100%', minHeight: 54, padding: '4px 8px', marginBottom: 12, resize: 'vertical' }, value: desc,
       onChange: function(e) { setDesc(e.target.value); } }),
     !lens && el('div', { style: { marginBottom: 12 } },
-      el('label', { className: 'rb-note', style: { display: 'block', marginBottom: 4 } }, 'Governs one of your lists (optional)'),
+      el('label', { className: 'rb-note', style: { display: 'block', marginBottom: 4 } }, 'Governs one of your working sets (optional)'),
       el('select', { className: 'rb-select', value: listGuid, onChange: function(e) { setListGuid(e.target.value); } },
-        el('option', { value: '' }, 'no list yet'),
+        el('option', { value: '' }, 'no working set yet'),
         (lists && lists.mine || []).map(function(l) { return el('option', { key: l.guid, value: l.guid }, l.displayName); }))),
     el('div', { className: 'rb-note', style: { marginBottom: 8 } }, 'Scope: fill in only the dimensions the work cares about. A resource is matched on the dimensions it records.'),
     el(DataScopeEditor, { groups: groups.filter(function(g) { return !g.readOnly; }), scope: lens ? lens.scope : null, busy: busy, error: err,
@@ -2287,16 +2287,16 @@ function LensPage({ guid, creds }) {
               lens.description ? el('div', { style: { marginBottom: 10 } }, lens.description) : el('div', { className: 'rb-absent', style: { marginBottom: 10 } }, 'No description.'),
               el(DataScopeView, { groups: groups, scope: Object.keys(lens.scope).length ? lens.scope : null, absent: 'No dimensions set yet, so no resource can be matched.' }),
               lens.editable && el('button', { className: 'rb-edit', style: { marginTop: 10 }, onClick: function() { setEditing(true); } }, 'Edit'))),
-        el(Card, { help: 'workList', title: 'Lists it governs', source: 'GovernedBy' },
+        el(Card, { help: 'workList', title: 'Working sets it governs', source: 'GovernedBy' },
           lens.governs.length ? el('ul', { className: 'rb-list' }, lens.governs.map(function(g) {
             return el('li', { key: g.guid },
               el('button', { className: 'rb-link', onClick: function() { openList(g.guid); } }, g.displayName),
-              lens.editable && el('button', { className: 'rb-edit', disabled: busy, title: 'The lens stops governing this list (the list is kept)',
+              lens.editable && el('button', { className: 'rb-edit', disabled: busy, title: 'The lens stops governing this working set (the working set is kept)',
                 onClick: function() { act('DELETE', '/lists/' + encodeURIComponent(g.guid)); } }, 'unlink'));
-          })) : el('div', { className: 'rb-absent' }, 'It governs no list yet.'),
+          })) : el('div', { className: 'rb-absent' }, 'It governs no working set yet.'),
           lens.editable && myLists.length > 0 && el('div', { className: 'rb-row', style: { gap: 6, marginTop: 8 } },
             el('select', { className: 'rb-select', value: pick, onChange: function(e) { setPick(e.target.value); } },
-              el('option', { value: '' }, 'govern one of your lists…'),
+              el('option', { value: '' }, 'govern one of your working sets…'),
               myLists.map(function(l) { return el('option', { key: l.guid, value: l.guid }, l.displayName); })),
             el('button', { className: 'rb-btn', disabled: busy || !pick, onClick: function() { act('POST', '/lists', { listGuid: pick }); } }, 'Link')))),
       el('div', null,
@@ -2341,11 +2341,11 @@ function AddToList({ guid, creds }) {
   }
   return el('span', { style: { position: 'relative' } },
     el('button', { className: 'rb-edit', onClick: function() { setOpen(!open); },
-      title: 'Add this resource to one of your work lists' },
-      inLists.length ? '✓ in ' + inLists.length + ' of your lists' : '＋ Add to list'),
+      title: 'Add this resource to one of your working sets' },
+      inLists.length ? '✓ in ' + inLists.length + ' of your working sets' : '＋ Add to working set'),
     open && el('div', { className: 'rb-pop' },
-      el('div', { className: 'rb-note', style: { marginBottom: 6 } }, 'Your lists'),
-      d.mine.length === 0 && el('div', { className: 'rb-absent' }, 'No lists yet: make one below.'),
+      el('div', { className: 'rb-note', style: { marginBottom: 6 } }, 'Your working sets'),
+      d.mine.length === 0 && el('div', { className: 'rb-absent' }, 'No working sets yet: make one below.'),
       d.mine.map(function(l) {
         var has = inLists.indexOf(l.guid) >= 0;
         return el('label', { key: l.guid, className: 'rb-row', style: { gap: 6, fontSize: 12, padding: '3px 0', cursor: 'pointer' } },
@@ -2356,7 +2356,7 @@ function AddToList({ guid, creds }) {
       el('input', { className: 'rb-text', style: { marginTop: 8, padding: '4px 8px' }, value: why, placeholder: 'Why (optional, kept with the item)',
         onChange: function(e) { setWhy(e.target.value); } }),
       el('form', { onSubmit: createAndAdd, className: 'rb-row', style: { marginTop: 6, gap: 6 } },
-        el('input', { className: 'rb-text', style: { flex: 1, padding: '4px 8px' }, value: name, placeholder: 'New list',
+        el('input', { className: 'rb-text', style: { flex: 1, padding: '4px 8px' }, value: name, placeholder: 'New working set',
           onChange: function(e) { setName(e.target.value); } }),
         el('button', { className: 'rb-btn', disabled: !!busy || !name.trim() }, 'Create & add')),
       err && el('div', { className: 'rb-err', style: { marginTop: 6 } }, err),
@@ -2395,7 +2395,7 @@ function ShareCard({ lst, creds, onChange }) {
   return el('div', { className: 'rb-card' },
     el('div', { className: 'rb-row', style: { gap: 8 } },
       el('b', { style: { fontSize: 13 } }, 'Shared with'),
-      shared.length === 0 && el('span', { className: 'rb-absent' }, 'nobody yet: only you can see it in your lists'),
+      shared.length === 0 && el('span', { className: 'rb-absent' }, 'nobody yet: only you can see it in your working sets'),
       shared.map(function(g) {
         return el('span', { key: g.guid, className: 'rb-chip', title: g.typeName },
           (g.typeName === 'Community' ? '👥 ' : '🏢 ') + g.displayName,
@@ -2415,16 +2415,100 @@ function ShareCard({ lst, creds, onChange }) {
         ],
       groups && groups.how && groups.groups && groups.groups.length > 0 && el('span', { className: 'rb-note' }, 'Your teams come from ' + groups.how + '.')),
     lst.editable && el('div', { className: 'rb-note', style: { marginTop: 6 } },
-      'Members of a team see this list under “Shared with your teams” and can copy from it; only you change it.'),
+      'Members of a team see this working set under “Shared with your teams” and can copy from it; only you change it.'),
     err && el('div', { className: 'rb-err', style: { marginTop: 6 } }, err));
 }
 
 var ORIGINS = {
-  mine: 'Your list',
+  mine: 'Your working set',
   'resource-explorer': 'From Resource Explorer · read-only',
   portal: 'Shared with you · read-only',
   other: 'Working set · read-only',
 };
+
+// ── Delete a working set (PO-43) ─────────────────────────────────────────────
+// The owner deletes a working set: its team shares, the owner's own lenses and its member links are
+// removed, then the set. Members are never deleted. The server rebuilds the plan and refuses, in words,
+// anything else linked or anchored to the set; a delete that stops part-way says what is left.
+function plural(n, one, many) { return n + ' ' + (n === 1 ? one : (many || one + 's')); }
+
+function deleteConfirmText(plan) {
+  var lines = [];
+  if (plan.shares && plan.shares.length)
+    lines.push('It stops being shared with ' + plan.shares.map(function(g) { return g.displayName; }).join(', ') + '.');
+  if (plan.lenses && plan.lenses.length)
+    lines.push(plan.lenses.map(function(l) { return 'Data lens ‘' + l.displayName + '’'; }).join(', ') +
+      (plan.lenses.length === 1 ? ' stops' : ' stop') + ' governing it.');
+  return {
+    question: 'Delete working set ‘' + plan.displayName + '’? Its ' + plural(plan.members, 'resource') +
+      (plan.members === 1 ? ' stays' : ' stay') + '; only the set and its links are removed.',
+    lines: lines,
+    blockers: (plan.blockers || []).map(function(b) { return b.text; }),
+    canDelete: !!plan.canDelete && !(plan.blockers || []).length,
+  };
+}
+
+function deleteOutcomeText(d) {
+  if (d.deleted) return 'Deleted ‘' + d.displayName + '’. Its ' + plural(d.membersKept || 0, 'resource') +
+    (d.membersKept === 1 ? ' is' : ' are') + ' unchanged.';
+  if (d.blockers && d.blockers.length) return d.detail || 'Nothing was removed.';
+  var r = d.removed || {}, left = d.left || {}, f = d.failed || {};
+  var done = [];
+  if (r.members) done.push(plural(r.members, 'resource') + ' taken out of it');
+  if (r.shares && r.shares.length) done.push('no longer shared with ' + r.shares.map(function(g) { return g.displayName; }).join(', '));
+  if (r.lenses && r.lenses.length) done.push('no longer governed by ' + r.lenses.map(function(l) { return '‘' + l.displayName + '’'; }).join(', '));
+  var still = [];
+  if (left.members) still.push('still holds ' + plural(left.members, 'resource'));
+  if (left.members === null) still.push('may still hold resources (it could not be read again)');
+  if (left.shares && left.shares.length) still.push('is still shared with ' + left.shares.map(function(g) { return g.displayName; }).join(', '));
+  if (left.lenses && left.lenses.length) still.push('is still governed by ' + left.lenses.map(function(l) { return '‘' + l.displayName + '’'; }).join(', '));
+  var what = f.step === 'unlink' ? 'taking ‘' + (f.displayName || f.guid) + '’ out of it failed'
+           : f.step === 'unshare' ? 'stopping the share with ' + (f.displayName || f.guid) + ' failed'
+           : f.step === 'ungovern' ? 'unlinking data lens ‘' + (f.displayName || f.guid) + '’ failed'
+           : null;
+  if (what && f.message) what += ' (' + f.message + ')';
+  var head = 'The working set was not deleted' + (done.length ? ': ' + done.join(', ') + (what ? ', then ' + what : '') : (what ? ': ' + what : '')) + '.';
+  return head + (!what && f.message ? ' ' + f.message : '') +
+    (still.length ? ' It ' + still.join(', and ') + '.' : '') + (what ? ' Delete again to carry on.' : '');
+}
+
+function DeleteSetCard({ lst, creds, onDeleted }) {
+  var _p = useState(null), plan = _p[0], setPlan = _p[1];
+  var _b = useState(false), busy = _b[0], setBusy = _b[1];
+  var _m = useState(''), msg = _m[0], setMsg = _m[1];
+  function ask() {
+    setBusy(true); setMsg('');
+    getJson(API + '/lists/' + encodeURIComponent(lst.guid) + '/delete-plan', creds)
+      .then(setPlan).catch(function(x) { setMsg('Could not check what deleting would remove: ' + x.message); })
+      .finally(function() { setBusy(false); });
+  }
+  function run() {
+    setBusy(true); setMsg('');
+    egeriaFetch(API + '/lists/' + encodeURIComponent(lst.guid), creds, { method: 'DELETE' })
+      .then(function(r) { return r.json().catch(function() { return {}; }).then(function(d) { return { status: r.status, d: d }; }); })
+      .then(function(x) {
+        if (x.status === 200 && x.d.deleted) { refreshLists(creds); onDeleted(deleteOutcomeText(x.d)); return; }
+        setPlan(null); setMsg(typeof x.d.detail === 'string' && !x.d.removed && !x.d.blockers ? x.d.detail : deleteOutcomeText(x.d));
+        refreshLists(creds);
+      })
+      .catch(function(x) { setMsg('The delete could not be sent: ' + x.message); })
+      .finally(function() { setBusy(false); });
+  }
+  if (!plan) return el('div', { style: { marginTop: 10 } },
+    el('button', { className: 'rb-edit', disabled: busy, onClick: ask }, busy ? 'Checking…' : 'Delete working set…'),
+    msg && el('div', { className: 'rb-err', style: { marginTop: 6 } }, msg));
+  var t = deleteConfirmText(plan);
+  return el('div', { className: 'rb-card', style: { marginTop: 10 } },
+    el('div', { style: { fontWeight: 600 } }, t.question),
+    t.lines.map(function(l, i) { return el('div', { key: i, className: 'rb-note', style: { marginTop: 4 } }, l); }),
+    t.blockers.length > 0 && el('div', { style: { marginTop: 8 } },
+      el('div', { className: 'rb-err' }, 'It cannot be deleted here yet:'),
+      el('ul', { style: { margin: '4px 0 0 18px' } }, t.blockers.map(function(b, i) { return el('li', { key: i }, b); }))),
+    el('div', { className: 'rb-row', style: { gap: 8, marginTop: 10 } },
+      el('button', { className: 'rb-btn', disabled: busy || !t.canDelete, onClick: run }, busy ? 'Deleting…' : 'Delete'),
+      el('button', { className: 'rb-edit', disabled: busy, onClick: function() { setPlan(null); } }, 'Keep it')),
+    msg && el('div', { className: 'rb-err', style: { marginTop: 6 } }, msg));
+}
 
 function ListPage({ guid, creds }) {
   var idx = useFlavours(creds);
@@ -2436,14 +2520,18 @@ function ListPage({ guid, creds }) {
   var _n = useState(''), newName = _n[0], setNewName = _n[1];
   var _b = useState(false), busy = _b[0], setBusy = _b[1];
   var _m = useState(''), msg = _m[0], setMsg = _m[1];
+  var _g = useState(''), gone = _g[0], setGone = _g[1];
 
   function load() {
     return getJson(API + '/lists/' + encodeURIComponent(guid), creds)
       .then(function(d) { setLst(d); document.title = d.displayName + ' · Resource Locator'; setPageLabel(routeLabel({ page: 'list' }, d.displayName)); })
       .catch(function(x) { setErr(x.message); });
   }
-  useEffect(function() { setLst(null); setErr(''); setSel({}); setMsg(''); load(); }, [guid, creds && creds.token]);
+  useEffect(function() { setLst(null); setErr(''); setSel({}); setMsg(''); setGone(''); load(); }, [guid, creds && creds.token]);
 
+  if (gone) return el('div', { className: 'rb-page' }, el('div', { className: 'rb-card' },
+    el('div', null, gone), el('div', { style: { marginTop: 8 } },
+      el('button', { className: 'rb-link', onClick: function() { navigate({}); } }, '\u2190 ' + HOME_LABEL))));
   if (err) return el('div', { className: 'rb-page' }, el('div', { className: 'rb-card' }, el('div', { className: 'rb-err' }, err)));
   if (!lst) return el('div', { className: 'center', style: { height: 300 } }, el('div', { className: 'spinner' }), 'Loading…');
 
@@ -2499,38 +2587,39 @@ function ListPage({ guid, creds }) {
     el('div', { className: 'rb-attrib', style: { marginTop: 8 } },
       lst.creator ? ['made by ', el('b', { key: 'c' }, lst.creator), ' · '] : null,
       'last updated by ', el('b', null, lst.updatedBy || 'unknown'), ' · ', fmtDate(lst.updateTime)),
+    lst.editable && el(DeleteSetCard, { lst: lst, creds: creds, onDeleted: setGone }),
     lst.copiedFrom && el('div', { className: 'rb-note', style: { marginTop: 4 } },
       'Copied from ',
-      el('button', { className: 'rb-link', onClick: function() { openList(lst.copiedFrom.copiedFromGUID); } }, lst.copiedFrom.copiedFromName || 'another list'),
-      ' on ', fmtDate(lst.copiedFrom.copiedAt), '. A snapshot: later changes to that list do not appear here.'),
+      el('button', { className: 'rb-link', onClick: function() { openList(lst.copiedFrom.copiedFromGUID); } }, lst.copiedFrom.copiedFromName || 'another working set'),
+      ' on ', fmtDate(lst.copiedFrom.copiedAt), '. A snapshot: later changes to that working set do not appear here.'),
     el('div', { className: 'rb-card', style: { marginTop: 14 } },
       el(EditableText, { value: lst.description, canWrite: lst.editable, multiline: true,
         placeholder: 'No description.', onSave: save('description') })),
 
     el(ShareCard, { lst: lst, creds: creds, onChange: setLst }),
     canCopy && !lst.editable && el('div', { className: 'rb-card rb-row', style: { gap: 10 } },
-      el('b', { style: { fontSize: 13 } }, 'Copy to your own list'),
+      el('b', { style: { fontSize: 13 } }, 'Copy to a working set of your own'),
       el('button', { className: 'rb-link', onClick: function() { selectAll(true); } }, 'select all'),
       el('button', { className: 'rb-link', onClick: function() { selectAll(false); } }, 'none'),
       el('span', { className: 'rb-note' }, chosen.length + ' of ' + lst.members.length + ' chosen'),
       el('select', { className: 'rb-select', value: target, onChange: function(e) { setTarget(e.target.value); } },
-        el('option', { value: 'new' }, 'into a new list'),
+        el('option', { value: 'new' }, 'into a new working set'),
         (lists && lists.mine || []).map(function(l) { return el('option', { key: l.guid, value: l.guid }, 'into ' + l.displayName); })),
       target === 'new' && el('input', { className: 'rb-text', style: { width: 220, padding: '4px 8px' }, value: newName,
         placeholder: lst.displayName + ' (copy)', onChange: function(e) { setNewName(e.target.value); } }),
       el('button', { className: 'rb-btn', disabled: busy || !chosen.length, onClick: copy }, busy ? 'Copying…' : 'Copy'),
       msg && el('span', { className: 'rb-err' }, msg),
       el('div', { className: 'rb-note', style: { width: '100%' } },
-        'Each item keeps its reason. Nothing is written back to ' + (lst.origin === 'resource-explorer' ? 'Resource Explorer' : 'the original list') + '.')),
-    !lst.canWrite && !lst.editable && el('div', { className: 'rb-note', style: { marginBottom: 10 } }, 'Sign in or choose a persona to copy from this list.'),
+        'Each item keeps its reason. Nothing is written back to ' + (lst.origin === 'resource-explorer' ? 'Resource Explorer' : 'the original working set') + '.')),
+    !lst.canWrite && !lst.editable && el('div', { className: 'rb-note', style: { marginBottom: 10 } }, 'Sign in or choose a persona to copy from this working set.'),
 
     el('div', { className: 'rb-note', style: { marginBottom: 4 } },
       lst.members.length + ' item' + (lst.members.length === 1 ? '' : 's') + (lst.capped ? ' (the read stopped at its limit; there may be more)' : '') + '. By kind, then name.'),
     lst.members.length === 0 && el('div', { className: 'rb-absent' },
-      lst.editable ? 'Nothing here yet. Use “＋ Add to list” on a resource’s page.' : 'This list has no members visible to you.'),
+      lst.editable ? 'Nothing here yet. Use “＋ Add to working set” on a resource’s page.' : 'This working set has no members visible to you.'),
     el(ResultList, { rows: lst.members, creds: creds, idx: idx, renderExtra: memberExtra }),
     lst.editable && msg && el('div', { className: 'rb-err' }, msg),
-    el('div', { className: 'rb-note', style: { marginTop: 10 } }, 'Zone security may hide members from your user, so this list may be incomplete.'),
+    el('div', { className: 'rb-note', style: { marginTop: 10 } }, 'Zone security may hide members from your user, so this working set may be incomplete.'),
     el(SourceLine, { data: lst }));
 }
 
@@ -2571,7 +2660,7 @@ function HomePage({ creds, personaId }) {
             'From the ' + home.recentWindow.perType + ' most recently updated of each resource type. As of ' + fmtDate(home.asOf) + '.'))),
       el('div', null,
         el(Boundary, { what: 'Favourites tile' }, el(FavouritesTile, { personaId: personaId })),
-        el(Boundary, { what: 'Work lists tile' }, el(ListsTile, { creds: creds })),
+        el(Boundary, { what: 'Working sets tile' }, el(ListsTile, { creds: creds })),
         el(Boundary, { what: 'Data lenses tile' }, el(LensesTile, { creds: creds })),
         el(Tile, { help: 'browse', title: 'Browse' },
           el('div', { className: 'rb-row', style: { gap: 6 } }, FACETS.map(function(f) {
@@ -2586,7 +2675,7 @@ var FACETS = [
   { id: 'badge', label: 'Badge', term: 'badge', empty: '' },   // a curated list (Dan, 2026-11-17, PO-34); PO-36 may make it a valid-value set
   { id: 'owner', label: 'Owner', term: 'owner', empty: 'No resource has a recorded owner yet.' },
   { id: 'source', label: 'Source system', term: 'source', empty: 'No databases or folders are catalogued yet.' },
-  { id: 'collection', label: 'Collection', term: 'collection', empty: 'No product families, data sharing hubs or work lists exist yet.' },
+  { id: 'collection', label: 'Collection', term: 'collection', empty: 'No product families, data sharing hubs or working sets exist yet.' },
   { id: 'folder', label: 'Folder', term: 'folder', empty: 'No folders exist in Egeria that you can see.' },
   { id: 'keyword', label: 'Search keyword', term: 'keyword', empty: 'No search keywords are attached to anything you can see.' },
   { id: 'category', label: 'Category', term: 'category', empty: 'No resource or glossary term you can see has a category.' },

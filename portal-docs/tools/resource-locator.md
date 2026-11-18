@@ -1,6 +1,6 @@
 # Resource Locator
 
-The Resource Locator is the Portal's "shop for resources" app. It is for people who look for resources (tables, files, reports, APIs, products, code repositories) rather than curate them. It reads Egeria, and writes back only what Egeria already models: descriptions, informal tags, notes, meanings, work lists and data lenses.
+The Resource Locator is the Portal's "shop for resources" app. It is for people who look for resources (tables, files, reports, APIs, products, code repositories) rather than curate them. It reads Egeria, and writes back only what Egeria already models: descriptions, informal tags, notes, meanings, working sets and data lenses.
 
 Every term the page shows has a small **?** beside it: hover over it, or tab to it, to read its definition. The **Help** tab gives a short guide and the full list of terms.
 
@@ -14,7 +14,7 @@ Open it from the portal tile (🛒 Resource Locator) or directly at `/resource-l
 
 - **Recently changed** lists the resources that changed most recently. Switch between **Changed by people** and **Including automation**: surveys and connectors change resources all the time, and this switch hides those changes.
 - **Popularity** says plainly that it is not available yet. Egeria holds no usage measure for these resources, so the Locator shows that rather than ranking on a guess.
-- **My lists** shows your work lists (see below).
+- **My working sets** shows your working sets (see below).
 - **Data lenses** lists the data lenses you can see, and makes a new one (see below).
 
 ---
@@ -30,9 +30,9 @@ A search matches names, qualified names and descriptions, and also:
 
 **Glossary terms** are not resources, so **All** leaves them out: about 1,500 terms would crowd resources out of the results. Pick **Glossary terms** to search them, on their own or with other kinds. When terms also match an All search, the page says how many and how to see them. A term row shows its summary and its content status, and opens the term in Egeria Explorer's glossary, which shows the glossary and folders that hold it. The row does not name its glossary: Egeria does not carry that on the term itself.
 
-Each result row shows why it matched, its tags, likes and rating summary, and **in N of your lists** when you have already saved it. **Narrow these results** filters the loaded results by flavour, owner, badge, **category**, or whether the resource records a data scope. Category is the element's own category property, a free-text name its author gives, matched exactly; the choices are the categories of the loaded results, plus "(no category)". Few resources on a new system have one. Browse lists that hold categorised rows (a folder, a keyword) offer the same choice.
+Each result row shows why it matched, its tags, likes and rating summary, and **in N of your working sets** when you have already saved it. **Narrow these results** filters the loaded results by flavour, owner, badge, **category**, or whether the resource records a data scope. Category is the element's own category property, a free-text name its author gives, matched exactly; the choices are the categories of the loaded results, plus "(no category)". Few resources on a new system have one. Browse lists that hold categorised rows (a folder, a keyword) offer the same choice.
 
-**Add several to a list at once.** When you can write work lists, each result row has a checkbox. **Select all** ticks every result that is loaded and matches the current filters: it never ticks matches not loaded yet, and says so when more may exist (load more first to include them). **Clear all** unticks everything. Ticked rows that a filter now hides stay ticked, and the bar says how many. Pick a list (or **New list…**), optionally say why, and **Add**: rows go 100 at a time, the bar says which ones are being added, and each row then says **added to the list**, **already in the list**, or why it was **not added**. Rows that failed stay ticked, so **Add** again retries just those. For a very long list (200 or more members) the Locator cannot tell what is already in it, so those rows say **added or already in the list**. Browse lists have the same checkboxes.
+**Add several to a working set at once.** When you can write working sets, each result row has a checkbox. **Select all** ticks every result that is loaded and matches the current filters: it never ticks matches not loaded yet, and says so when more may exist (load more first to include them). **Clear all** unticks everything. Ticked rows that a filter now hides stay ticked, and the bar says how many. Pick a working set (or **New working set…**), optionally say why, and **Add N to working set…**: rows go 100 at a time, the bar says which ones are being added, and each row then says **added to the working set**, **already in the working set**, or why it was **not added**. Rows that failed stay ticked, so **Add** again retries just those. For a very large working set (200 or more members) the Locator cannot tell what is already in it, so those rows say **added or already in the working set**. Browse lists have the same checkboxes.
 
 Ordering is by text relevance only. Egeria cannot rank by use yet, and the page says so.
 
@@ -61,7 +61,7 @@ The first time you open it, "No data scope recorded" says **counting…** while 
 
 ### Filtering a Browse list by a data lens
 
-Every Browse list has a **Lens** choice. It lists your own data lenses and the lenses that govern a list you can see. Pick one and the list shows three counts, each a button you can turn on or off (inside is on to start):
+Every Browse list has a **Lens** choice. It lists your own data lenses and the lenses that govern a working set you can see. Pick one and the list shows three counts, each a button you can turn on or off (inside is on to start):
 
 - **inside**: every dimension the resource and the lens both record overlaps;
 - **outside**: at least one of them does not;
@@ -73,7 +73,7 @@ A fourth count, **scope not read**, appears when some resources' classifications
 
 ## The resource page
 
-**Back to where you were.** The top of a resource page links back to the page you opened it from, by name: for example **← Search “customer” (Tables)**, **← Browse › Search keyword › App/AI Builder**, or a work list. It takes you back as you left it: the same narrowing filters, lens and category choices, the same rows opened with **Show N more**, the same number of loaded result pages (up to 10; the page says so if there were more, or if a page could not be read again, so a shorter list is never shown as the one you had), and the same scroll position. A page opened directly, from a bookmark or a link, links to **Resource Locator Home** instead. What you left is kept in this browser tab only, for 30 minutes.
+**Back to where you were.** The top of a resource page links back to the page you opened it from, by name: for example **← Search “customer” (Tables)**, **← Browse › Search keyword › App/AI Builder**, or a working set. It takes you back as you left it: the same narrowing filters, lens and category choices, the same rows opened with **Show N more**, the same number of loaded result pages (up to 10; the page says so if there were more, or if a page could not be read again, so a shorter list is never shown as the one you had), and the same scroll position. A page opened directly, from a bookmark or a link, links to **Resource Locator Home** instead. What you left is kept in this browser tab only, for 30 minutes.
 
 Open any result to see one resource on its own page (`/resource-locator?guid=…`). It has these cards, each shown only when Egeria holds something for it:
 
@@ -129,14 +129,14 @@ A **data scope** is Egeria's `DataScope` classification on a resource. It says w
 
 ## Data lenses
 
-A **data lens** (Egeria's `DataLens`, a governance definition) says what scope of data a piece of work needs, using the same dimensions as a data scope. In Egeria's model the lens **governs** a collection of the resources that meet it (the `GovernedBy` relationship); in the Locator that collection is one of your work lists.
+A **data lens** (Egeria's `DataLens`, a governance definition) says what scope of data a piece of work needs, using the same dimensions as a data scope. In Egeria's model the lens **governs** a collection of the resources that meet it (the `GovernedBy` relationship); in the Locator that collection is one of your working sets.
 
 A lens's periods are typed the same way as a data scope's in The Catalog: a year (`2026`), month or day means the whole of it, so a 2026 lens runs from the first moment of 1 January to the last moment of 31 December (UTC), and a resource whose data starts at midnight on 1 January is inside it. A whole year or month shows as `2026` or `2026-03` on the lens.
 
-- **Make one** from the **Data lenses** tile on Resource Locator Home (**New data lens**): a name, what the work needs in words, the dimensions that matter, and optionally one of your lists for it to govern. Fill in only the dimensions the work cares about.
-- **Its page** (`/resource-locator?lens=…`) shows the lens, the lists it governs, and the **resources inside it**, each with **Add to list**.
+- **Make one** from the **Data lenses** tile on Resource Locator Home (**New data lens**): a name, what the work needs in words, the dimensions that matter, and optionally one of your working sets for it to govern. Fill in only the dimensions the work cares about.
+- **Its page** (`/resource-locator?lens=…`) shows the lens, the working sets it governs, and the **resources inside it**, each with **Add to working set**.
 - **Matching.** A resource is compared on the dimensions both it and the lens record. It is **inside** when every one of them overlaps: periods and bounds overlap (an open end is unbounded), and scope elements share an element. It is **outside** when one does not. A resource that records none of the lens's dimensions **cannot be compared**, and is counted as such rather than as outside.
-- **Change it** (**Edit**), link it to another of your lists, or **unlink** a list (the list is kept). Only the person who made a lens changes it here; others see it read-only. The Portal names its lenses `DataLens::portal::<user>::<slug>`.
+- **Change it** (**Edit**), link it to another of your working sets, or **unlink** a working set (the working set is kept). Only the person who made a lens changes it here; others see it read-only. The Portal names its lenses `DataLens::portal::<user>::<slug>`.
 
 ---
 
@@ -151,20 +151,21 @@ Private notes cannot be deleted yet: Egeria has no way to delete a journal entry
 
 ---
 
-## Work lists
+## Working sets
 
-A work list is an Egeria collection of resources, each with the reason you added it.
+A working set (Egeria's `WorkingSet` collection) holds resources you gather for a piece of work, each with the reason you added it. The Locator called these "work lists" until November 2026.
 
-- **Create** a list, rename it, add resources with a reason, and remove them.
-- **Copy** chosen members of any list you can see into a list of your own.
-- **Share** a list with a Team or Community you belong to, and stop sharing it.
-- Lists published from Resource Explorer show here too, because they are the same Egeria collections.
+- **Create** a working set, rename it, add resources with a reason, and remove them.
+- **Copy** chosen members of any working set you can see into one of your own.
+- **Share** a working set with a Team or Community you belong to, and stop sharing it.
+- **Delete** a working set of yours (**Delete working set…** on its page). The page first says what goes: the set, its links to its resources, its team shares, and your data lenses' links to it. The resources themselves stay. Delete is not offered while anything else is linked or anchored to the set (someone else's data lens, a tag, a comment, a parent collection), and the page names each one. If the delete stops part-way, the page says what was removed and what is left; **Delete** again carries on.
+- Working sets published from Resource Explorer show here too, because they are the same Egeria collections.
 
 ---
 
 ## Who you are when you write
 
-Every change (descriptions, tags, notes, terms, lists, data lenses) is made as you, the signed-in user, with your own Egeria token. Without a signed-in persona, writes are refused rather than made under a shared account.
+Every change (descriptions, tags, notes, terms, working sets, data lenses) is made as you, the signed-in user, with your own Egeria token. Without a signed-in persona, writes are refused rather than made under a shared account.
 
 ---
 

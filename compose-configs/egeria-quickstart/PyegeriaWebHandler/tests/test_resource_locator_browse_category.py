@@ -133,7 +133,8 @@ def test_r2_a_failed_term_read_keeps_the_resource_rows(monkeypatch):
     monkeypatch.setattr(rb, "_cached", cached)
     out = asyncio.run(rb._all_resources_sweep())
     assert [r["guid"] for r in out["rows"]] == ["db"]
-    assert out["terms"] == [] and "timed out" in out["termsError"]
+    # #895: the page gets words (egeria_error_mapping.describe_bulk_item_error), never the exception text
+    assert out["terms"] == [] and out["termsError"] and "timed out" not in out["termsError"]
 
 
 def test_a_category_with_a_slash_opens_through_the_query_form(client, state):

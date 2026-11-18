@@ -13,7 +13,12 @@ Edit `.env`:
 ```
 HOST_FQDN=localhost
 KAFKA_BOOTSTRAP_SERVERS=localhost:9194
+EGERIA_ADMIN_CALLER_PASSWORD=<the password of the EGERIA_ADMIN_CALLER_ID account>
 ```
+
+`EGERIA_ADMIN_CALLER_PASSWORD` is the Portal's own Egeria account password. It has no default: without it the stack refuses to start, rather than signing in with a well-known password. `./fresh-start-local` never makes one up, because freshstart has real users. It keeps the value in `.env` (or an exported one) across runs, and never prints it.
+
+**Upgrading (6.3):** this is a breaking change. A freshstart that relied on the old built-in default must set `EGERIA_ADMIN_CALLER_PASSWORD` in `.env` (or export it) before its next start.
 
 ---
 

@@ -48,6 +48,7 @@ under the server's own identity) writes are refused with 401 rather than made as
 a service account.
 """
 
+from egeria_auth import service_password  # PO-45: no built-in service password
 import asyncio
 import json
 import os
@@ -102,7 +103,7 @@ def _client_kwargs() -> dict:
         view_server=os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server"),
         platform_url=os.environ.get("EGERIA_PLATFORM_URL", "https://localhost:9443"),
         user_id=os.environ.get("EGERIA_USER", "erinoverview"),
-        user_pwd=os.environ.get("EGERIA_USER_PASSWORD", "secret"),
+        user_pwd=service_password(),
     )
 
 

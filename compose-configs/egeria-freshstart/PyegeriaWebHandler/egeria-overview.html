@@ -736,7 +736,7 @@
      Cache-Control: no-cache, but a fresh URL guarantees revalidation for
      browsers that cached the file before that header existed. -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
-<script src="/static/egeria-shared-ui.js?v=2026-11-11a"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-11-17-po41"></script>
 <!-- Vega-Lite chart rendering (NEXT-10 P1) — same CDN trio pyegeria's own
      vega_to_html() assumes. Backend sends ready Vega-Lite specs; renderVega()
      below just embeds them. -->
@@ -2976,10 +2976,8 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     // letting every request fail until the page is reloaded (which would read as "Egeria unavailable").
     if (typeof _tokenRefresher !== 'undefined' && creds && creds.userId) {
       _tokenRefresher.refresh = function(old){
-        return fetch('/api/egeria-token', { method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ user_id: old.userId, url: old.url || '', server: old.server || '' }) })
-          .then(function(r){ return r.json(); })
-          .then(function(t){ var n = Object.assign({}, old, { token: t.token || '' }); CREDS = n; return n; });
+        // PO-41: renew as the persona itself (its own login), never by user_id alone.
+        return refreshPersonaToken(old).then(function(n){ CREDS = n; return n; });
       };
     }
     wireControls();

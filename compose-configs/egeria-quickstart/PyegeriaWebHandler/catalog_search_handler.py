@@ -8,6 +8,7 @@ Endpoints:
   GET /api/catalog/search?q=...  → cross-type keyword search via ClassificationExplorer
 """
 
+from egeria_auth import service_password  # PO-45: no built-in service password
 import os
 from typing import List, Optional
 
@@ -148,7 +149,7 @@ def _creds(url, server, user_id, user_pwd):
         url      or os.environ.get("EGERIA_PLATFORM_URL", "https://localhost:9443"),
         server   or os.environ.get("EGERIA_VIEW_SERVER",  "qs-view-server"),
         user_id  or os.environ.get("EGERIA_USER",         "erinoverview"),
-        user_pwd or os.environ.get("EGERIA_USER_PASSWORD","secret"),
+        user_pwd or service_password(),
     )
 
 

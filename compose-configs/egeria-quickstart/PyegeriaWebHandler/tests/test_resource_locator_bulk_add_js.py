@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright Contributors to the ODPi Egeria project.
-"""Bulk add from Search and Browse to a work list (Dan, 2026-11-17, PO-37; design note
+"""Bulk add from Search and Browse to a working set (Dan, 2026-11-17, PO-37; design note
 DESIGN-RL-BULK-ADD-AND-BREADCRUMBS, Architect read-back R1, R4).
 
 Pinned here:
@@ -148,3 +148,14 @@ def test_add_members_reports_only_the_failed_row_as_207(client, fake_lists):
 def test_add_members_caps_one_request_at_100(client, fake_lists):
     r = client.post("/api/resource-browser/lists/L/members", json={"guids": [f"g{i}" for i in range(101)]})
     assert r.status_code == 400 and fake_lists.added == []
+
+
+def test_add_members_failed_rows_carry_words_not_the_exception(client, fake_lists, monkeypatch):
+    """#895 (CodeQL py/stack-trace-exposure): a failed row says why in words; the exception is only logged."""
+    sentinel = "SENTINEL-internal-detail-9b2c"
+
+    async def boom(self, list_guid, guid, body=None):
+        raise RuntimeError(sentinel)
+    monkeypatch.setattr(_Collections, "_async_add_to_collection", boom)
+    r = client.post("/api/resource-browser/lists/L/members", json={"guids": ["a"]})
+    assert r.status_code == 207 and sentinel not in r.text and r.json()["failed"]["a"]
