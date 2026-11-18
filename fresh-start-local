@@ -430,7 +430,9 @@ MSG
       _status="not-found"
     fi
     if [[ "$_status" == "healthy" ]]; then
-      echo "[fresh-start-local] freshstart-egeria-main is healthy."
+      echo "[fresh-start-local] freshstart-egeria-main is healthy: the platform is up."
+      # RK-25: "healthy" tests only Tomcat. Egeria's servers start after it, so don't let a newcomer sign in too early.
+      echo "[fresh-start-local] Egeria's servers are still starting: allow about 4 more minutes before signing in."
       _egeria_healthy=1
       break
     fi

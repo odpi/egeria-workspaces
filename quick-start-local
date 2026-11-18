@@ -858,7 +858,10 @@ _egeria_healthy=0
 for _i in $(seq 1 20); do
   _status=$($CONTAINER_ENGINE inspect -f "$INSPECT_STATUS_FORMAT" quickstart-egeria-main 2>/dev/null || echo "not-found")
   if [[ "$_status" == "healthy" ]]; then
-    echo "[quick-start-local] egeria-main is healthy."
+    echo "[quick-start-local] egeria-main is healthy: the platform is up."
+    # RK-25: "healthy" tests only Tomcat. Egeria's servers start after it, so don't let a newcomer sign in too early.
+    echo "[quick-start-local] Egeria's servers are still starting: allow about 4 more minutes before signing in."
+    echo "[quick-start-local] Then open the Portal and pick a persona. The Catalog keeps filling in for a few minutes after that."
     _egeria_healthy=1
     break
   fi

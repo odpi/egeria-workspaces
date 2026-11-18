@@ -136,6 +136,9 @@ The recommended starting point for learning Egeria. Pre-loaded with [Coco Pharma
 
 Portal: `https://localhost:8843` · Platform: `https://localhost:9443` · Jupyter: `http://localhost:8888`
 
+When the script finishes, the platform is up but Egeria's servers are still starting: **allow about 4 minutes**, then open the
+Portal and **pick a persona** (for example Erin Overview). The Catalog keeps filling in with Coco's data for a few minutes after that.
+
 ### Egeria Freshstart — local, clean slate
 
 An empty Egeria environment for setting up your own metadata, governance policies and integrations. Suitable for a small team. Includes registration-gated access and a private data model.
@@ -149,6 +152,9 @@ Before the first run, set `JWT_SECRET` and `EGERIA_ADMIN_CALLER_PASSWORD` in `co
 The [Freshstart README](compose-configs/egeria-freshstart/README.md#required-env-settings) says what they are.
 
 Portal: `https://localhost:7843` · Platform: `https://localhost:8443` · Jupyter: `http://localhost:7888`
+
+When the script finishes, allow about 4 minutes for Egeria's servers to start before you sign in (see the
+[Freshstart README](compose-configs/egeria-freshstart/README.md#first-run) for the first sign-in).
 
 ### Quickstart vs Freshstart — detailed comparison
 
