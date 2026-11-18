@@ -148,8 +148,8 @@ An empty Egeria environment for setting up your own metadata, governance policie
 ./fresh-start-multi-host   # accessible from other hosts on your network
 ```
 
-Before the first run, set `JWT_SECRET` and `EGERIA_ADMIN_CALLER_PASSWORD` in `compose-configs/egeria-freshstart/.env`.
-The [Freshstart README](compose-configs/egeria-freshstart/README.md#required-env-settings) says what they are.
+Before the first run, set `EGERIA_ADMIN_CALLER_PASSWORD` in `compose-configs/egeria-freshstart/.env` (`JWT_SECRET` is
+generated for you). The [Freshstart README](compose-configs/egeria-freshstart/README.md#required-env-settings) says what it is.
 
 Portal: `https://localhost:7843` · Platform: `https://localhost:8443` · Jupyter: `http://localhost:7888`
 
