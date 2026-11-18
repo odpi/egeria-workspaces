@@ -227,7 +227,7 @@ def dr_egeria_identity(req) -> DrEgeriaIdentity:
         raise HTTPException(status_code=401, detail="Sign in to run Dr.Egeria commands")
     return DrEgeriaIdentity(platform_url=url, server=server,
                             user_id=req.user_id  or os.environ.get("EGERIA_USER",          "erinoverview"),
-                            user_pwd=req.user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret"))
+                            user_pwd=req.user_pwd or service_password())   # PO-45 / L10 R1: never a built-in password
 
 
 def _build_markdown_block(title: str, params: dict, directive: str = "display") -> str:
