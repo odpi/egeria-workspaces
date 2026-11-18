@@ -708,6 +708,42 @@ function egeriaFetch(url, creds, opts) {
   });
 }
 
+/* ── 401 token refresh for a persona page (PO-41) ─────────────────────────────
+ * A page's _tokenRefresher used to POST /api/egeria-token with only {user_id}:
+ * the server then signed in as that user with the Portal's own password. That
+ * is closed (PO-41): with no password sent, the server never signs in as a
+ * caller-named user. So a refresh re-reads the persona's own Egeria login
+ * (POST /api/demo/select-persona, the same exchange as page load) and sends
+ * its password. It never quietly becomes another user: when there is no
+ * persona login for the page's user, or the persona was changed in another
+ * tab, it rejects, and egeriaFetch returns the original 401. */
+function refreshPersonaToken(oldCreds) {
+  var persona = null;
+  try { persona = JSON.parse(localStorage.getItem('egeria-persona') || 'null'); } catch (e) {}
+  var body = { url: oldCreds.url || '', server: oldCreds.server || '', renew: true };
+  var pick = (persona && persona.id)
+    ? fetch('/api/demo/select-persona', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({ persona: persona.id }) })
+        .then(function(r) { if (!r.ok) throw new Error('persona login ' + r.status); return r.json(); })
+    : Promise.resolve(null);
+  return pick.then(function(sel) {
+    if (sel && sel.egeria_user && sel.egeria_password) {
+      if (oldCreds.userId && sel.egeria_user !== oldCreds.userId)
+        throw new Error('The persona was changed in another tab: reload this page.');
+      body.user_id = sel.egeria_user;
+      body.password = sel.egeria_password;
+    } else if (oldCreds.userId) {
+      throw new Error('No Egeria login to renew for ' + oldCreds.userId + ': reload this page.');
+    }
+    return fetch('/api/egeria-token', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify(body) });
+  }).then(function(r) { if (!r.ok) throw new Error('token ' + r.status); return r.json(); })
+    .then(function(t) {
+      if (!t.token) throw new Error('no token');
+      return Object.assign({}, oldCreds, { token: t.token, userId: t.user_id || oldCreds.userId });
+    });
+}
+
 /* ── Persona/session ownership (BACKLOG.md QS-10) ────────────────────────────
  * localStorage['egeria-persona'] is one shared key read by every Explorer SPA
  * and written by the Portal's persona picker — it has no relationship to

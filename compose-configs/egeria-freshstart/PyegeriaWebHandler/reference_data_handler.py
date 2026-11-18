@@ -10,6 +10,7 @@ Endpoints:
   GET /api/reference-data/metadata-values → valid values for a specific property/type name
 """
 
+from egeria_auth import service_password  # PO-45: no built-in service password
 import os
 from egeria_auth import apply_token
 from typing import Optional
@@ -28,7 +29,7 @@ def _get_manager(url=None, server=None, user_id=None, user_pwd=None):
     url     = url     or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
     server  = server  or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
     user_id = user_id or os.environ.get("EGERIA_USER",          "erinoverview")
-    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    user_pwd = user_pwd or service_password()
     mgr = ReferenceDataManager(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
     apply_token(mgr)
     return mgr
@@ -217,7 +218,7 @@ def get_valid_value_definition(
         # max_mermaid_node_count defaults to 5 (pyegeria shared get-by-guid helper),
         # truncating any mermaid diagram for this element -- see egeria-python
         # PYEGERIA_ISSUES.md ISSUE-23.
-        raw = mgr.get_valid_value_definition_by_guid(vv_guid, output_format="JSON", graph_query_depth=1, max_mermaid_node_count=250)
+        raw = mgr.get_valid_value_definition_by_guid(vv_guid, output_format="JSON", graph_query_depth=5, max_mermaid_node_count=250)
     except Exception as exc:
         logger.exception("get_valid_value_definition_by_guid failed")
         raise HTTPException(status_code=500, detail=f"Valid value retrieval failed: {exc}")

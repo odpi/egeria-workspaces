@@ -13,6 +13,7 @@ Endpoints:
   POST /api/dr-egeria/execute         → build and execute a command block
 """
 
+from egeria_auth import service_password  # PO-45: no built-in service password
 import os
 import re
 import tempfile

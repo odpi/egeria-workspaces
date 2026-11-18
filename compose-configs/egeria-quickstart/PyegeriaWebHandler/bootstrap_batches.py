@@ -681,12 +681,11 @@ def _ordered_inbox_files(entry: Path, other_roots: dict, warnings: list) -> tupl
 # as (the coco-workbooks READMEs load each file as the persona who owns it,
 # so definitions are attributed to them), but never a password: that comes
 # from EGERIA_BOOTSTRAP_PASSWORD_<USERID> (upper-cased), then
-# EGERIA_USER_PASSWORD, then "secret" -- the same fallback the rest of this
-# app's handlers use for the demo personas.
+# EGERIA_USER_PASSWORD (egeria_auth.service_password). There is no built-in "secret" any more
+# (PO-45): with neither set, the batch refuses in words instead of signing in with a well-known password.
 def _password_for(userid: str) -> str:
-    return (os.environ.get(f"EGERIA_BOOTSTRAP_PASSWORD_{userid.upper()}")
-            or os.environ.get("EGERIA_USER_PASSWORD")
-            or "secret")
+    from egeria_auth import service_password
+    return os.environ.get(f"EGERIA_BOOTSTRAP_PASSWORD_{userid.upper()}") or service_password()
 
 
 def dr_egeria_command(doc: Path, userid: Optional[str]) -> list[str]:

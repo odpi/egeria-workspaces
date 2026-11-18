@@ -13,6 +13,7 @@ To regenerate the catalog after an Egeria upgrade:
   or POST /api/request-bodies/rebuild with {"http_collections_path": "..."}
 """
 
+from egeria_auth import service_password  # PO-45: no built-in service password
 import asyncio
 import ipaddress
 import json
@@ -452,7 +453,7 @@ def _env_defaults() -> dict:
         "url":      os.environ.get("EGERIA_PLATFORM_URL",  "https://egeria-main:9443"),
         "server":   os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server"),
         "user_id":  os.environ.get("EGERIA_USER",          "erinoverview"),
-        "user_pwd": os.environ.get("EGERIA_USER_PASSWORD", "secret"),
+        "user_pwd": service_password(),
     }
 
 

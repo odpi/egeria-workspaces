@@ -1,0 +1,14 @@
+[Unit]
+Description=Block external access to shared Postgres 5442 (TR-28)
+After=docker.service
+Requires=docker.service
+PartOf=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'iptables -C DOCKER-USER -p tcp -m conntrack --ctorigdstport 5442 ! -s 172.16.0.0/12 -j DROP 2>/dev/null || iptables -I DOCKER-USER -p tcp -m conntrack --ctorigdstport 5442 ! -s 172.16.0.0/12 -j DROP'
+ExecStop=/bin/sh -c 'iptables -D DOCKER-USER -p tcp -m conntrack --ctorigdstport 5442 ! -s 172.16.0.0/12 -j DROP 2>/dev/null || true'
+
+[Install]
+WantedBy=multi-user.target

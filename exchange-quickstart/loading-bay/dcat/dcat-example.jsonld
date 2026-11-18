@@ -1,0 +1,16 @@
+{
+  "@context": {
+    "dcat": "http://www.w3.org/ns/dcat#",
+    "dct": "http://purl.org/dc/terms/"
+  },
+  "@id": "https://data.example.org/dataset/air-quality-2026",
+  "@type": "dcat:Dataset",
+  "dct:title": "Air quality measurements 2026",
+  "dct:description": "Hourly readings from the city's monitoring stations.",
+  "dcat:keyword": ["air quality", "environment"],
+  "dcat:distribution": {
+    "@type": "dcat:Distribution",
+    "dct:title": "CSV download",
+    "dcat:downloadURL": { "@id": "https://data.example.org/files/air-quality-2026.csv" }
+  }
+}

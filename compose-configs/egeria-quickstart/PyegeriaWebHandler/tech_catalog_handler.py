@@ -33,7 +33,9 @@ Endpoints:
   GET /api/tech-catalog/survey-types                          → Survey type definitions (aggregated from TechnologyTypes)
 """
 
+from egeria_auth import service_password  # PO-45: no built-in service password
 import asyncio
+import contextlib
 import os
 import time
 from pathlib import Path
@@ -86,7 +88,7 @@ def _creds(url, server, user_id, user_pwd):
         url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443"),
         server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server"),
         user_id  or os.environ.get("EGERIA_USER",          "erinoverview"),
-        user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret"),
+        user_pwd or service_password(),
     )
 
 
@@ -563,7 +565,9 @@ async def get_egeria_bearer_token(request: Request):
     PORTAL_ALLOW_CUSTOM_PLATFORMS). The token is bound to the platform it was minted for, and the response
     names that platform. The body is read only as application/json (415 otherwise), so a cross-site
     text/plain "simple" POST cannot reach here."""
-    from egeria_auth import bind_token_platform, is_caller_password, resolve_platform
+    from egeria_auth import (bind_token_platform, is_caller_password, named_user_refusal, remember_token,
+                             resolve_platform, reusable_token, service_user, token_reuse_key,
+                             token_reuse_lock)
     ctype = (request.headers.get("content-type") or "").split(";")[0].strip().lower()
     if ctype != "application/json":
         raise HTTPException(status_code=415, detail="Send the credentials as application/json.")
@@ -576,14 +580,38 @@ async def get_egeria_bearer_token(request: Request):
     caller_pwd = body.get("password") or None
     # Raises PlatformRefused (400) before any outbound call; outside the try below, so it is not a 500.
     url = resolve_platform(body.get("url"), has_caller_password=is_caller_password(caller_pwd))
-    user_id  = body.get("user_id")  or os.environ.get("EGERIA_USER",          "erinoverview")
-    user_pwd = caller_pwd           or os.environ.get("EGERIA_USER_PASSWORD",  "secret")
+    # PO-41: with no password sent, the token is for the Portal's own user only. A user_id that is not
+    # EGERIA_USER is refused: signing in as a caller-named user with the Portal's password let
+    # {user_id: X} mint a token as X whenever X's password equals the service password. A password
+    # that is sent (even one equal to the service password, as the demo personas' are) may go with
+    # any user_id, as before. "Sent" is tested, not is_caller_password: on the demo every persona
+    # password equals the service password, so that test would refuse every persona sign-in.
+    asked_user = body.get("user_id") or None
+    refusal = named_user_refusal(asked_user, caller_pwd is not None, None)
+    if refusal is not None:
+        raise refusal
+    user_id  = asked_user if caller_pwd is not None and asked_user else service_user()
+    user_pwd = caller_pwd           or service_password()
     server   = body.get("server")   or os.environ.get("EGERIA_VIEW_SERVER",    "qs-view-server")
     try:
-        from pyegeria import AssetMaker
-        mgr = AssetMaker(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
-        token = await mgr._async_create_egeria_bearer_token()
-        bind_token_platform(token, url)
+        # PO-40: the same password sent for the same platform, server and user gets back the token
+        # already minted while it has 15 min left, so per-token caches survive a page load. Only when a
+        # password was SENT (R1', Architect 2026-11-17): the demo personas' passwords equal the service
+        # password, so is_caller_password would never reuse theirs. The key is the RESOLVED (url, server,
+        # user, password) after the PO-41 rule above; with nothing sent (the env fallback) it mints per
+        # call. `renew: true` (sent by every page's 401 refresher) always mints. The platform gate has
+        # already run above, so no lookup happens before it (R4).
+        reuse_key = token_reuse_key(url, server, user_id, user_pwd) if caller_pwd is not None else None
+        lock = token_reuse_lock(reuse_key) if reuse_key else contextlib.nullcontext()
+        async with lock:
+            token = reusable_token(reuse_key) if reuse_key and body.get("renew") is not True else None
+            if token is None:
+                from pyegeria import AssetMaker
+                mgr = AssetMaker(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+                token = await mgr._async_create_egeria_bearer_token()
+                bind_token_platform(token, url)
+                if reuse_key:
+                    remember_token(reuse_key, token)
         return JSONResponse({"token": token, "user_id": user_id, "platform_url": url})
     except Exception as exc:
         logger.exception("get_egeria_bearer_token failed")

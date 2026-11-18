@@ -11,6 +11,7 @@ Endpoints:
   GET /api/context-events/{guid}       → full detail for a context event
 """
 
+from egeria_auth import service_password  # PO-45: no built-in service password
 import os
 from egeria_auth import apply_token
 from typing import Optional
@@ -32,7 +33,7 @@ def _get_manager(url=None, server=None, user_id=None, user_pwd=None):
     url      = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
     server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
     user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
-    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    user_pwd = user_pwd or service_password()
     mgr = TimeKeeper(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
     apply_token(mgr)
     return mgr
@@ -70,15 +71,17 @@ def _serialize_rel_entries(rel_list: list) -> list:
         rh = re.get("elementHeader") or {}
         rp = re.get("properties") or {}
         rtype = rh.get("type") or {}
+        rel_hdr_type = (rel.get("relationshipHeader") or {}).get("type") or {}
         g = rh.get("guid", "")
         if g:
             result.append({
-                "guid":           g,
-                "displayName":    rp.get("displayName") or rp.get("name") or "",
-                "qualifiedName":  rp.get("qualifiedName") or "",
-                "description":    rp.get("description") or "",
-                "typeName":       rtype.get("typeName") or "",
-                "superTypeNames": rtype.get("superTypeNames") or [],
+                "guid":             g,
+                "displayName":      rp.get("displayName") or rp.get("name") or "",
+                "qualifiedName":    rp.get("qualifiedName") or "",
+                "description":      rp.get("description") or "",
+                "typeName":         rtype.get("typeName") or "",
+                "superTypeNames":   rtype.get("superTypeNames") or [],
+                "relationshipType": rel_hdr_type.get("typeName") or "",
                 "relationshipProperties": {
                     k: v for k, v in (rel.get("relationshipProperties") or {}).items()
                     if k not in ("class",) and v is not None and v != ""
@@ -205,6 +208,7 @@ def list_context_events(
         raw = [e for e in raw if isinstance(e, dict) and not _is_template(e)]
 
     events = [_serialize_context_event(e) for e in raw if isinstance(e, dict) and e.get("elementHeader")]
+    events.sort(key=lambda x: (x.get("displayName") or x.get("qualifiedName") or "").lower())
     return JSONResponse({"events": events})
 
 
@@ -229,7 +233,7 @@ def get_context_event(
         raw = mgr.get_context_event_by_guid(
             guid=guid,
             output_format="JSON",
-            graph_query_depth=3,
+            graph_query_depth=5,
             max_mermaid_node_count=250,
         )
     except Exception as exc:

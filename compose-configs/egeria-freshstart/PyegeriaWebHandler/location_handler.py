@@ -9,6 +9,7 @@ Endpoints:
   GET /api/locations/{guid} → full detail for a location
 """
 
+from egeria_auth import service_password  # PO-45: no built-in service password
 import os
 from egeria_auth import apply_token
 from typing import Optional
@@ -30,7 +31,7 @@ def _get_manager(url=None, server=None, user_id=None, user_pwd=None):
     url      = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
     server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
     user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
-    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    user_pwd = user_pwd or service_password()
     mgr = LocationArena(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
     apply_token(mgr)
     return mgr
@@ -69,15 +70,17 @@ def _serialize_rel_entries(rel_list: list) -> list:
         rh = re.get("elementHeader") or {}
         rp = re.get("properties") or {}
         rtype = rh.get("type") or {}
+        rel_hdr_type = (rel.get("relationshipHeader") or {}).get("type") or {}
         g = rh.get("guid", "")
         if g:
             result.append({
-                "guid":           g,
-                "displayName":    rp.get("displayName") or rp.get("name") or "",
-                "qualifiedName":  rp.get("qualifiedName") or "",
-                "description":    rp.get("description") or "",
-                "typeName":       rtype.get("typeName") or "",
-                "superTypeNames": rtype.get("superTypeNames") or [],
+                "guid":             g,
+                "displayName":      rp.get("displayName") or rp.get("name") or "",
+                "qualifiedName":    rp.get("qualifiedName") or "",
+                "description":      rp.get("description") or "",
+                "typeName":         rtype.get("typeName") or "",
+                "superTypeNames":   rtype.get("superTypeNames") or [],
+                "relationshipType": rel_hdr_type.get("typeName") or "",
             })
     return result
 
@@ -189,7 +192,7 @@ def get_location(
         # max_mermaid_node_count defaults to 5 (pyegeria shared get-by-guid helper),
         # truncating any mermaid diagram for this element -- see egeria-python
         # PYEGERIA_ISSUES.md ISSUE-23.
-        element = mgr.get_location_by_guid(guid, output_format="JSON", graph_query_depth=1, max_mermaid_node_count=250)
+        element = mgr.get_location_by_guid(guid, output_format="JSON", graph_query_depth=5, max_mermaid_node_count=250)
     except Exception as exc:
         logger.exception(f"get_location_by_guid failed for location {guid}")
         raise HTTPException(status_code=500, detail=f"Location detail retrieval failed: {exc}")

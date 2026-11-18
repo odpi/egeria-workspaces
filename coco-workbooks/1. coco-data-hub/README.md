@@ -26,6 +26,7 @@ With the flows, the components, and the systems in one place, Erin sets the stan
 | 12 | Receive the OpenLineage events from Airflow | [receiving-open-lineage-events.ipynb](receiving-open-lineage-events.ipynb) |
 | 13 | Subscribe the systems to the digital products | [digital-product-subscriptions.md](digital-product-subscriptions.md) |
 | 14 | Subscribe to Egeria's own digital products | [egeria-operational-data-store.md](egeria-operational-data-store.md) |
+| 15 | Subscribe the security team to Egeria's security products | [security-operational-data-store.md](security-operational-data-store.md) |
 
 ----
 
@@ -298,8 +299,8 @@ Products* folder that holds the families is not a product, so it cannot be subsc
 top-level family, add a section for it to the file.
 
 All of the steps are Dr.Egeria commands - `Initiate Governance Action Process`, `Create Element` and
-`Initiate Subscription` - so the file can be validated before it is run.  It is the last file in the directory's
-batch load, run as Peter Profile.  To load it by hand:
+`Initiate Subscription` - so the file can be validated before it is run.  It is run as Peter Profile, near the end
+of the directory's batch load.  To load it by hand:
 
     ```
     dr_egeria --directive process --userid peterprofile --user_pass secret egeria-operational-data-store.md
@@ -309,6 +310,22 @@ Each subscription needs its family to offer a daily refresh subscription type
 (`ProvisioningActionProcess::<family>::Create Subscription::DAILY-REFRESH-SUBSCRIPTION`).  On a platform that does
 not have one of the families yet, that family's `Initiate Subscription` fails, naming the subscription type it could
 not find, and the others are unaffected; run that command again once the platform offers it.
+
+### The security operational data store
+
+One top-level family is missing from `egeria-operational-data-store.md`: *Security Observability*, with its nested
+Secrets Observability and User Observability families.  Its products are in the security governance zone, so Peter
+Profile cannot see them: to him the family's subscription type does not exist, and a subscription to it fails.
+
+The file [security-operational-data-store.md](security-operational-data-store.md) subscribes to that family
+instead.  It takes the same three steps, but catalogues a separate database, `security_ods` (created empty with the
+PostgreSQL server, and open only to the `provisioner` and `surveyor` database users), and delivers the family's
+products to its `security_observability` schema.  It is run as Ivor Padlock, the Chief Security Officer, who can see
+the security zone, and it is the last file in the directory's batch load.  To load it by hand:
+
+    ```
+    dr_egeria --directive process --userid ivorpadlock --user_pass secret security-operational-data-store.md
+    ```
 
 The freshstart environment builds the same database from a notebook instead:
 `workbooks/subscribing-to-digital-products/build-egeria-ods.ipynb`.

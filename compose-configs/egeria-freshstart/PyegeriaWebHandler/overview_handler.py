@@ -19,26 +19,35 @@ Routes:
   GET /api/overview/ai-context    → AI & context-intelligence readiness (best-effort)
   GET /api/overview/people        → people / community engagement (best-effort)
   GET /api/overview/growth        → catalog growth via asOfTime snapshots (best-effort)
+  GET /api/overview/specs         → the tile registry (overview_specs) as JSON (static; no Egeria call)
+  GET /api/overview/container     → the Overview dashboard as a Container of placements (static; no Egeria call)
+  GET /api/overview/activity      → recent changes to curated content (always "now"; no asOfTime)
+  GET /api/overview/usage-context → Information Supply Chains & Solution Blueprints (usage context)
 
 Aggregation reuses the same capped-tally philosophy as insights_handler (Egeria's
 find API returns paged element lists with no total-count metadata, so counts are
 capped at _DEFAULT_CAP unless full_count paging is requested). Endpoints degrade
 gracefully: a field that can't be computed yet is returned as null with
 `"partial": true` rather than failing the whole response, so the SPA can overlay
-whatever is live over its sample baseline. Results are held in a small in-process
-TTL cache (mirroring the operations_handler non-blocking pattern, but simpler —
-these queries are seconds, not minutes).
+whatever is live over its sample baseline. The slow sections (summary, ai-context,
+growth, usage-context: up to ~2 min cold) are measured by background workers and
+served from an hourly cache that never blocks a request (see "Background section
+cache"); people and activity are fast and keep a short in-request TTL cache.
 
 Known constraints (see PYEGERIA_ISSUES.md):
   - No total-count in find responses → capped tallies (cap 500).
   - PY-15: Postgres connector ignores matchCriteria once 2+ classification
     conditions are present → keep every query to 0 or 1 classification.
 """
+from egeria_auth import service_password  # PO-45: no built-in service password
 import contextlib
 import contextvars
+from datetime import datetime, timezone
 import functools
+import inspect
 import os
 import re
+import threading
 import time
 from pathlib import Path
 from typing import Any, Optional
@@ -47,7 +56,8 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
 
-from egeria_auth import apply_token
+from egeria_auth import apply_token, lineage_key
+from result_cache import request_identity
 
 # generate_vega_bar_chart/generate_vega_pie_chart ship with pyegeria (the
 # requirements.txt-pinned version has them). generate_vega_line_chart and
@@ -68,6 +78,7 @@ except ImportError:
 # docstring for the design boundary).
 from pyegeria.view.overview_metrics import (
     WINDOWS as _WINDOWS,
+    GOVERNANCE_CLASSIFICATIONS,
     count_elements,
     count_relationships,
     counts_by_type,
@@ -76,10 +87,13 @@ from pyegeria.view.overview_metrics import (
     semantic_grounding,
     context_readiness_funnel,
     people_counts,
-    feedback_summary,
     usage_context_counts,
     growth_series,
 )
+
+# asset_composition (pyegeria >= 6.2.23): the Asset subtype tree with repository counts. Imported plainly --
+# requirements.txt floors pyegeria at the release that has it.
+from pyegeria.view.overview_metrics import asset_composition
 
 # count_elements_by_property is new (2026-08-17, Data Products deploymentStatus
 # breakdown), not yet in a published pyegeria release -- same
@@ -91,6 +105,28 @@ try:
     from pyegeria.view.overview_metrics import count_elements_by_property
 except ImportError:
     count_elements_by_property = None
+
+# contextualised_coverage is new (2026-08-17, "Usage % contextualised"), not
+# yet in a published pyegeria release -- same gap as count_elements_by_property
+# just above. Defensive import so an older installed pyegeria keeps
+# contextualisedPct as the old None/TODO instead of crashing every
+# /api/overview/* route.
+try:
+    from pyegeria.view.overview_metrics import contextualised_coverage
+except ImportError:
+    contextualised_coverage = None
+
+# solution_component_realisation is new (2026-08-27, Solution Blueprints
+# drill-down panel's "components"/"realised by" secondary stats -- were
+# hardcoded placeholder dashes), not yet in a published pyegeria release --
+# same gap as contextualised_coverage just above. Defensive import so an
+# older installed pyegeria keeps those two fields None (frontend already
+# falls back to '—' when null) instead of crashing every /api/overview/*
+# route.
+try:
+    from pyegeria.view.overview_metrics import solution_component_realisation
+except ImportError:
+    solution_component_realisation = None
 
 # karma_leaderboard / engagement_series are new (2026-08-17, People panel's
 # leaderboard + engagementSeries -- previously left None as "deferred").
@@ -109,22 +145,28 @@ except ImportError:
     orphan_glossary_terms = None
     stale_assets = None
 
+# 6.2.28+: the words behind a count that is None. Optional so an older pyegeria still imports.
+try:
+    from pyegeria.view.overview_metrics import recording_unmeasured
+except ImportError:
+    recording_unmeasured = None
+# Pager step 4: the scans that ended without Egeria confirming there are no more. Optional, like the above.
+try:
+    from pyegeria.view.overview_metrics import recording_unconfirmed
+except ImportError:
+    recording_unconfirmed = None
+
 # ownership_coverage is new (2026-08-01), not yet in a published pyegeria release
 # (same "container runs the published package, not this dev checkout" gap already
 # documented for Create Report/Dashboard Sheet commands in portal-docs/tutorials/local-dashboards.md
 # — this import crashed the whole app on an installed pyegeria that predates it,
 # taking down every /api/overview/* route, not just ai-context). Defensive import,
 # matching the vega_utilities pattern just above this block.
-# Pager step 4: the scans that ended without Egeria confirming there are no more. Optional (older pyegeria).
-try:
-    from pyegeria.view.overview_metrics import recording_unconfirmed
-except ImportError:
-    recording_unconfirmed = None
-
 try:
     from pyegeria.view.overview_metrics import ownership_coverage
 except ImportError:
     ownership_coverage = None
+
 
 # ai_ready_assets is new (2026-08-01) -- same defensive-import reasoning as
 # ownership_coverage above. This is the true composite (governed AND
@@ -152,19 +194,6 @@ try:
 except ImportError:
     drl_readiness_gates = None
 
-# solution_component_realisation is new (2026-08-27, Solution Blueprints
-# drill-down panel's "components"/"realised by" secondary stats -- were
-# hardcoded placeholder dashes in egeria-overview.html), not yet in a
-# published pyegeria release. Defensive import, same reasoning as
-# ownership_coverage/ai_ready_assets above. Note: freshstart's usage-context
-# endpoint never picked up quickstart's later contextualised_coverage wiring
-# (contextualisedPct stays a deferred None here) -- that's a pre-existing
-# drift, out of scope for this change; only this new field is being added.
-try:
-    from pyegeria.view.overview_metrics import solution_component_realisation
-except ImportError:
-    solution_component_realisation = None
-
 router = APIRouter(tags=["egeria-overview"])
 
 _HERE = Path(__file__).parent
@@ -172,73 +201,38 @@ _HTML = _HERE / "egeria-overview.html"
 
 _CACHE_TTL   = 60.0          # seconds; summary is not real-time critical
 
-# Base open-metadata type names for the headline "assets by type" tally. Kept as a
-# small, override-safe list — a wrong/unknown type just yields 0 for that row
-# rather than failing the response.
-# The curated buckets overlap in the type system (verified against the live type chains):
-#   DeployedAPI -> DeployedSoftwareComponent -> Process -> Asset
-# so a plain count of "Processes" already contains every software component and API, and the bars summed
-# to more than the asset total. Each entry maps a type to the curated type nested directly inside it; its
-# count is reduced by that nested count, and the remainder of the Asset total is reported as "Other assets".
-_ASSET_TYPE_NESTED = {
-    "Process": ("DeployedSoftwareComponent", "software components"),
-    "DeployedSoftwareComponent": ("DeployedAPI", "APIs"),
-}
-
-
-def _exclusive_by_type(by_type: list, asset_total: Optional[int]) -> list:
-    """Turn inclusive per-type counts into non-overlapping buckets plus an "Other assets" remainder.
-
-    A bucket whose nested count is unknown gets count None rather than an inflated number, and no
-    "Other" bucket is invented unless every bucket is known and they do not exceed the total.
-    """
-    counts = {r.get("type"): r.get("count") for r in by_type}
-    out = []
-    for r in by_type:
-        c = r.get("count")
-        label = r.get("label")
-        nested = _ASSET_TYPE_NESTED.get(r.get("type"))
-        excl = c
-        if nested is not None:
-            ic = counts.get(nested[0])
-            excl = (c - ic) if (c is not None and ic is not None and ic <= c) else None
-            label = f"{label} (excl. {nested[1]})"
-        out.append({**r, "label": label, "count": excl, "inclusiveCount": c})
-    if asset_total is not None and out and all(r["count"] is not None for r in out):
-        other = asset_total - sum(r["count"] for r in out)
-        if other >= 0:
-            out.append({"label": "Other assets", "type": None, "count": other, "inclusiveCount": other})
-    return out
-
-
-_ASSET_TYPES = [
-    ("Data Stores",         "DataStore"),
-    ("Data Sets",           "DataSet"),
-    ("Software Components", "DeployedSoftwareComponent"),
-    ("Infrastructure",      "ITInfrastructure"),
-    ("APIs",                "DeployedAPI"),
-    ("Processes",           "Process"),
-]
-
 # ── tiny TTL cache ───────────────────────────────────────────────────────────
 _cache: dict[str, tuple[float, Any]] = {}
 
 
-def _cache_get(key: str):
+def _cache_get(key: Optional[str]):
+    """key None = do not use the cache (see _viewer_key: an expired token)."""
+    if key is None:
+        return None
     hit = _cache.get(key)
     if hit and (time.time() - hit[0]) < _CACHE_TTL:
         return hit[1]
     return None
 
 
-def _cache_put(key: str, value: Any):
-    _cache[key] = (time.time(), value)
+def _cache_put(key: Optional[str], value: Any):
+    if key is not None:
+        _cache[key] = (time.time(), value)
     return value
+
+
+def _viewer_key(prefix: str, url, server, user_id, user_pwd) -> Optional[str]:
+    """Cache key for viewer-scoped data: the hashed credential the caller presented
+    (result_cache.request_identity), never the bare user_id -- that is None for every token-authenticated
+    viewer, so they would all share one entry and see each other's zone-filtered results. None (an
+    expired token) means bypass the cache so Egeria refuses the request."""
+    who = request_identity(user_id, user_pwd)
+    return None if who is None else f"{prefix}|{url}|{server}|{who}"
 
 
 # ── client factory ───────────────────────────────────────────────────────────
 
-def _expert(url=None, server=None, user_id=None, user_pwd=None):
+def _expert(url=None, server=None, user_id=None, user_pwd=None, timeout=None):
     from pyegeria import MetadataExpert
     import pyegeria
     pyegeria.enable_ssl_check = False
@@ -246,8 +240,9 @@ def _expert(url=None, server=None, user_id=None, user_pwd=None):
     url      = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
     server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "fs-view-server")
     user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
-    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
-    mgr = MetadataExpert(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+    user_pwd = user_pwd or service_password()
+    extra = {"timeout": timeout} if timeout is not None else {}
+    mgr = MetadataExpert(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd, **extra)
     apply_token(mgr)
     return mgr
 
@@ -257,7 +252,7 @@ def _env(url, server, user_id, user_pwd):
         url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443"),
         server   or os.environ.get("EGERIA_VIEW_SERVER",   "fs-view-server"),
         user_id  or os.environ.get("EGERIA_USER",          "erinoverview"),
-        user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret"),
+        user_pwd or service_password(),
     )
 
 
@@ -336,7 +331,82 @@ def get_container(
         raise HTTPException(status_code=500, detail=f"Container resolution failed: {exc}")
 
 
-# ── Summary ──────────────────────────────────────────────────────────────────
+# ── Count scope (whole repository vs what the viewer can see) ────────────────
+#
+# Egeria's native count can push the count down to the repository (fast, 0.2-0.8 s at any size) or
+# apply per-element visibility (slow, ~100 s for Asset). Owner decision 2026-11-06: the Overview shows
+# whole-repository totals to anyone. pyegeria's count helpers take `scope="repository"|"viewer"` from
+# the release after 6.2.21; on an older pyegeria the parameter does not exist and every count stays
+# viewer-scoped. Support is detected from the signature at run time, never assumed from a version.
+#
+# One route uses ONE scope for all its native counts, and a ratio never mixes scopes: a numerator that
+# comes from a find (always viewer-scoped) is only ever divided by a viewer-scoped total.
+
+REPOSITORY = "repository"
+VIEWER = "viewer"
+_SCOPE_SUPPORT: dict = {}
+
+
+def _accepts_scope(fn) -> bool:
+    """True if `fn` takes a `scope` parameter. Cached per function object."""
+    if fn not in _SCOPE_SUPPORT:
+        try:
+            _SCOPE_SUPPORT[fn] = "scope" in inspect.signature(fn).parameters
+        except (TypeError, ValueError):
+            _SCOPE_SUPPORT[fn] = False
+    return _SCOPE_SUPPORT[fn]
+
+
+def _count_scope(*fns) -> str:
+    """The scope a route's native counts will actually use: repository only if EVERY helper the
+    route calls supports it, otherwise viewer for all of them (never a mix inside one payload)."""
+    return REPOSITORY if fns and all(_accepts_scope(f) for f in fns) else VIEWER
+
+
+def _default_population(fn) -> str:
+    """The population `fn` counts when no scope is passed, read from its signature (never a version).
+
+    Every count call in this module passes its population explicitly; this is only for the helpers that
+    cannot be told one -- context_readiness_funnel and semantic_grounding take no scope. They count in
+    pyegeria's default population: since the totals change (pyegeria 6.2.27, owner decision 2026-11-08) that
+    is the whole repository, the default of count_elements' scope; before it they reached the server's
+    default, which counts what the viewer can see. So `_default_population(count_elements)` names theirs."""
+    try:
+        param = inspect.signature(fn).parameters.get("scope")
+    except (TypeError, ValueError):
+        return VIEWER
+    return REPOSITORY if param is not None and param.default == REPOSITORY else VIEWER
+
+
+def _scoped(fn, scope: str, **extra):
+    """`fn` with `scope="repository"` (plus any `extra` kwargs) bound when requested and supported;
+    otherwise `fn` unchanged. count_relationships needs `expert=<MetadataExpert>` for a scope to apply
+    (repository scope without it returns None, i.e. not measured)."""
+    if scope == REPOSITORY and _accepts_scope(fn):
+        return functools.partial(fn, scope=REPOSITORY, **extra)
+    return fn
+
+
+# Collaboration relationship types behind the People tile's feedback tally (same set and keys as
+# pyegeria's overview_metrics.feedback_summary, which folds a failed count to 0).
+_FEEDBACK_RELATIONSHIPS = (
+    ("AttachedRating", "ratings"), ("AttachedComment", "comments"), ("AttachedLike", "likes"),
+    ("AttachedTag", "tags"), ("AttachedNoteLog", "noteLogs"),
+)
+
+
+def _feedback_counts(ce, as_of: Optional[str] = None, count_rel=None) -> dict:
+    """Feedback tally where a count that could not be read is None, not 0.
+
+    pyegeria's feedback_summary does `count_relationships(...) or 0`, so a failed query reads as "no
+    feedback". Here each type is None when unmeasured, and `total` is None unless every type was
+    measured -- a sum over a subset is a lower bound, not a total."""
+    count_rel = count_rel or count_relationships
+    by_type = {key: count_rel(ce, rel, as_of) for rel, key in _FEEDBACK_RELATIONSHIPS}
+    unmeasured = [k for k, v in by_type.items() if v is None]
+    total = None if unmeasured else sum(by_type.values())
+    return {"byType": by_type, "total": total, "unmeasured": unmeasured}
+
 
 # ── Unconfirmed figures (pyegeria pager step 4) ──────────────────────────────
 #
@@ -490,45 +560,502 @@ def _scan_net(fn):
     return wrapper
 
 
+_SUBSTANTIVE_GOVERNANCE = tuple(c for c in GOVERNANCE_CLASSIFICATIONS if c != "ZoneMembership")
+
+
+def _governed_asset_counts(count_fn, mgr, as_of: Optional[str] = None):
+    """(governed, fully governed) Asset counts, both taken through the SAME bound `count_fn` so the
+    numerator and denominator of Governed Coverage always share one scope (the denominator, the Asset
+    total, is taken through that same function by the caller)."""
+    return (count_fn(mgr, "Asset", as_of, classifications=GOVERNANCE_CLASSIFICATIONS, strict=True),
+            count_fn(mgr, "Asset", as_of, classifications=_SUBSTANTIVE_GOVERNANCE, strict=True))
+
+
+def _asset_scoped_governed(gov: dict, governed: Optional[int], fully: Optional[int]) -> dict:
+    """Governed Coverage is an Assets-only share (owner decision 2026-11-06).
+
+    `governed` = Assets carrying at least one of the five governance classifications; `fully` = Assets
+    carrying at least one of the four substantive ones (everything but ZoneMembership). Both are strict
+    native counts, so they are exact (never a capped lower bound) or None. The zone-only share is the
+    difference. `gov` (pyegeria's governed_coverage) contributes only byClassification / topZones, which
+    stay element-wide (any type) and are labelled so by the page."""
+    out = dict(gov)
+    out["governedCount"] = governed
+    out["governedCapped"] = False if governed is not None else None
+    out["fullyGoverned"] = fully
+    out["partialZoneOnly"] = (governed - fully) if governed is not None and fully is not None and governed >= fully else None
+    return out
+
+
+def _reconcile_business_value(bv: dict, asset_total: Optional[int], duplicate_count: Optional[int]) -> dict:
+    """Make business_value_signals honest about a failed find.
+
+    Its Asset find returns [] on failure, which it reports as assetTotal=0 and confidential/described=0.
+    The strict Asset count (`asset_total`) is the independent check: if the find came back empty but the
+    catalog is not known to be empty, the per-asset figures were not measured. The duplicate count is the
+    caller's strict one, replacing pyegeria's non-strict value."""
+    out = dict(bv)
+    out["duplicateCount"] = duplicate_count
+    if out.get("assetTotal") == 0 and asset_total != 0:
+        out.update(assetTotal=None, assetCapped=None, confidentialCount=None, describedCount=None)
+    return out
+
+
+def _strict_funnel_counts(readiness: dict, mgr, as_of: Optional[str] = None, scope: Optional[str] = None) -> dict:
+    """Re-measure the funnel's Cataloged/Classified stages strictly, in `scope` (the funnel's own
+    population, see _compute_ai_context), passed explicitly whenever count_elements takes it.
+
+    pyegeria's context_readiness_funnel returns `count or None`, turning a measured 0 into null (and a
+    failed count into 0 first). A measured 0 must stay 0 and a failure must stay None."""
+    n = functools.partial(count_elements, scope=scope) if scope and _accepts_scope(count_elements) else count_elements
+    out = dict(readiness)
+    out["cataloged"] = n(mgr, "Asset", as_of, strict=True)
+    out["classified"] = n(mgr, None, as_of, classifications=GOVERNANCE_CLASSIFICATIONS, strict=True)
+    return out
+
+
+# ── Background viewer Asset count ────────────────────────────────────────────
+#
+# Under repository scope the Asset headline is whole-catalog, so the survey % and schema % (find numerators,
+# viewer-scoped) need a count of the Assets THIS user can see. That count reads every Asset (~100 s), so it
+# is never taken inside a request. Same non-blocking pattern as operations_handler.py's report cache:
+#   cold    -> start one background worker, answer at once with value=None, loading=True
+#   fresh   -> the cached value (1 hour TTL; the page shows how old it is)
+#   stale   -> the cached value flagged stale, refreshed in the background
+#   failed  -> None is cached for _VIEWER_TOTAL_FAIL_TTL only, then retried ("not measured" until then)
+# One worker per key (url|server|user|as_of: the value is per viewer, Egeria filters by zone), and at most
+# ONE worker counting across all users (_viewer_gate): each count reads every Asset and Egeria's database
+# pool is 10 connections.
+#
+# These routes are sync `def` (they run in the threadpool), and pyegeria's count helpers are sync and call
+# run_until_complete internally, so the worker is a plain thread with its OWN client, not an asyncio Task
+# (an async Task or an executor on the main loop would hit "event loop already running"). The request's
+# contextvars (bearer token, forLineage) are copied into the worker so it counts as the same viewer.
+
+_VIEWER_TOTAL_TTL = 60 * 60          # seconds a measured value stays fresh (owner 2026-11-06: refresh ~hourly)
+_VIEWER_TOTAL_FAIL_TTL = 60          # seconds before a failed/timed-out count is retried
+_VIEWER_TOTAL_TIMEOUT = 240          # client timeout for this one count (the default is shorter than ~100 s+)
+_viewer_totals: dict = {}            # key -> (expires_at, value-or-None, counted_at)
+_viewer_inflight: dict = {}          # key -> Thread
+_viewer_lock = threading.Lock()      # makes check-and-start atomic: at most one worker per key
+_viewer_gate = threading.Semaphore(1)   # global cap: one viewer Asset count at a time, across all users
+
+
+def _viewer_count(mgr, as_of: Optional[str]) -> Optional[int]:
+    """Strict viewer-scoped Asset count (None if it failed or timed out)."""
+    if _accepts_scope(count_elements):
+        return count_elements(mgr, "Asset", as_of, strict=True, scope=VIEWER)
+    return count_elements(mgr, "Asset", as_of, strict=True)
+
+
+def _viewer_total_worker(key, url, server, user_id, user_pwd, as_of):
+    value = None
+    try:
+        with _viewer_gate:
+            mgr = _expert(url, server, user_id, user_pwd, timeout=_VIEWER_TOTAL_TIMEOUT)
+            if recording_unconfirmed is not None:
+                with recording_unconfirmed() as scans:
+                    value = _viewer_count(mgr, as_of)
+                # pager step 4: a find-based count Egeria didn't confirm is complete is a lower bound, never a
+                # denominator; kept for the normal TTL (recounting would give the same answer)
+                with _viewer_lock:
+                    _viewer_unconfirmed[key] = [dict(x) for x in scans]
+            else:
+                value = _viewer_count(mgr, as_of)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview: viewer Asset count failed: {exc}")
+        value = None
+    finally:
+        ttl = _VIEWER_TOTAL_TTL if value is not None else _VIEWER_TOTAL_FAIL_TTL
+        with _viewer_lock:
+            now = time.time()
+            _viewer_totals[key] = (now + ttl, value, now)
+            _viewer_inflight.pop(key, None)
+
+
+_viewer_unconfirmed: dict = {}       # key -> the unconfirmed scans behind that key's count ([] = confirmed)
+
+
+def _viewer_total_unconfirmed(url, server, user_id, user_pwd, as_of) -> list:
+    """The unconfirmed scans behind this viewer's cached Asset count ([] when confirmed or not counted)."""
+    u, sv, _uid, _pwd = _env(url, server, user_id, user_pwd)
+    who = request_identity(user_id, user_pwd)
+    if who is None:
+        return []
+    return list(_viewer_unconfirmed.get(f"{u}|{sv}|{who}|{as_of}") or [])
+
+
+def _viewer_total_state(url, server, user_id, user_pwd, as_of):
+    """(value, loading, stale, counted_at) for this viewer's Asset count; starts a background count if none is fresh.
+
+    Never blocks. value is None when not (yet) measured; loading means a count is running and the
+    caller should ask again; stale means value is the previous measurement, being refreshed;
+    counted_at is the epoch time the value was measured (None if never measured)."""
+    u, sv, uid, pwd = _env(url, server, user_id, user_pwd)
+    who = request_identity(user_id, user_pwd)   # was uid: the env service user for EVERY token-authenticated viewer
+    if who is None:
+        return None, False, False, None         # expired token: not measured (the rest of the page shows the 401)
+    key = f"{u}|{sv}|{who}|{as_of}"
+    with _viewer_lock:                 # no await/IO between the check and the start
+        hit = _viewer_totals.get(key)
+        fresh = hit is not None and hit[0] > time.time()
+        if not fresh and key not in _viewer_inflight:
+            ctx = contextvars.copy_context()
+            t = threading.Thread(target=ctx.run, daemon=True, name="overview-viewer-total",
+                                 args=(_viewer_total_worker, key, url, server, user_id, user_pwd, as_of))
+            _viewer_inflight[key] = t
+            t.start()
+        value = hit[1] if hit else None
+        unconfirmed = bool(_viewer_unconfirmed.get(key))
+    if hit is None or (value is None and not fresh):
+        return None, True, False, None
+    if unconfirmed and value is not None:
+        # counted, but from a read Egeria didn't confirm is complete: a lower bound, not measured as a total.
+        # The background refresh above still runs on the normal TTL.
+        return None, False, False, None
+    return value, False, (value is not None and not fresh), (hit[2] if value is not None else None)
+
+
+def _overlay_viewer_total(payload: dict, url, server, user_id, user_pwd, as_of) -> dict:
+    """Fill the viewer-scoped Asset total fields on a (possibly cached) summary payload.
+
+    Viewer scope: assetTotal already is the viewer total, no second count. Repository scope: the viewer
+    total comes from the background count; it is used only as the denominator of find-based percentages."""
+    out = dict(payload)
+    if out.get("countScope") == REPOSITORY:
+        value, loading, stale, counted_at = _viewer_total_state(url, server, user_id, user_pwd, as_of)
+        out.update(assetTotalViewer=value, assetTotalViewerLoading=loading, assetTotalViewerStale=stale,
+                   assetTotalViewerAsOf=(datetime.fromtimestamp(counted_at, timezone.utc).isoformat()
+                                         if counted_at is not None else None))
+        if value is None and not loading and _viewer_total_unconfirmed(url, server, user_id, user_pwd, as_of):
+            out["assetTotalViewerNote"] = ("the count of assets you can see was read without Egeria confirming "
+                                           "there are no more, so it is a lower bound and no percentage is "
+                                           "taken from it")
+    else:
+        out.update(assetTotalViewer=out.get("assetTotal"), assetTotalViewerLoading=False,
+                   assetTotalViewerStale=False,
+                   assetTotalViewerAsOf=None)
+    return out
+
+
+# ── Background section cache ─────────────────────────────────────────────────
+#
+# summary (~2 min cold), ai-context (~2 min), growth (~1 min) and usage-context (~40 s) spend their time in
+# find/search calls, so a cold request used to block for minutes and a client with a 60 s timeout got
+# nothing. Same non-blocking pattern as the viewer Asset count above, one entry per section key:
+#   cold     -> start one background worker, answer at once with {"loading": true} and NO data fields
+#   fresh    -> the cached payload (_SECTION_TTL, hourly; the page shows how old it is)
+#   stale    -> the cached payload flagged "stale", refreshed in the background
+#   failed   -> no new attempt for _SECTION_FAIL_TTL; a previous payload (if any) is still served as stale,
+#               otherwise the route answers 503 "not measured" (never a zero-filled payload)
+#   partial  -> a payload whose headline value could not be measured is served but re-measured after
+#               _SECTION_PARTIAL_TTL instead of an hour
+# The key is section|url|server|population|args (+ lineage_key(): forLineage changes which elements are found).
+# population (see _section_key) is either "repository" -- the section's figures are whole-repository native
+# counts, identical for every viewer, so no identity is in the key and there is nothing to forge -- or the
+# viewer's hashed credential (result_cache.request_identity), because the section's find calls are filtered by
+# zone access. Never the token's `sub`: it is read unverified, and a hit makes no Egeria call to check it.
+# At most _SECTION_WORKERS sections compute at once across all users (_section_gate): a page load asks for
+# four sections, and Egeria's database pool is 10 connections. Workers are plain threads with copied
+# contextvars, for the same reason as _viewer_total_worker.
+
+_SECTION_TTL = 60 * 60               # seconds a measured section stays fresh (owner 2026-11-06: hourly)
+_SECTION_PARTIAL_TTL = 5 * 60        # a payload missing its headline value is re-measured sooner
+_SECTION_FAIL_TTL = 60               # back-off before a failed measurement is retried
+_SECTION_WORKERS = 2                 # global cap on sections computing at once
+_SECTION_MAX_KEYS = 256              # bound on remembered keys (time-machine dates make many)
+_sections: dict = {}                 # key -> {"payload", "measured_at", "fresh_until", "retry_at", "error"}
+_section_inflight: dict = {}         # key -> Thread
+_section_lock = threading.Lock()     # makes check-and-start atomic: at most one worker per key
+_section_gate = threading.Semaphore(_SECTION_WORKERS)
+
+
+# Which population each section's cached payload describes (checked 2026-11-09 against pyegeria 6.2.29):
+#   composition    REPOSITORY -- asset_composition(scopes=(REPOSITORY,)); the viewer column is overlaid per
+#                  request from the per-viewer Asset count (_viewer_total_state), never cached with the payload.
+#   growth         REPOSITORY when growth_series counts the whole repository by default (6.2.27+), else viewer.
+#   summary        viewer -- besides native counts it holds find-based figures (survey coverage, governed
+#                  byClassification / topZones, business-value signals), and on a pyegeria without repository
+#                  scope every count is viewer-scoped.
+#   ai-context     viewer -- the ownership count is a find; the readiness funnel is viewer-scoped before 6.2.27.
+#   usage-context  viewer -- the "% contextualised" coverage is a relationship fetch the viewer's zones filter.
+def _growth_population() -> str:
+    try:
+        param = inspect.signature(growth_series).parameters.get("population")
+    except (TypeError, ValueError):
+        return VIEWER
+    return REPOSITORY if param is not None and param.default == REPOSITORY else VIEWER
+
+
+def _section_key(section: str, *args, population: str, url=None, server=None, user_id=None,
+                 user_pwd=None) -> Optional[str]:
+    """Cache key for one background section. population=REPOSITORY: no identity at all (the figures are the
+    same for every viewer). Otherwise the viewer's hashed credential; None for an expired token, which the
+    route turns into a 401 (see _section_key_or_401) rather than starting a minutes-long build to be refused."""
+    u, sv, _, _ = _env(url, server, user_id, user_pwd)
+    if population == REPOSITORY:
+        who = REPOSITORY
+    else:
+        who = request_identity(user_id, user_pwd)
+        if who is None:
+            return None
+    return "|".join([section, u, sv, who, *(str(a) for a in args)]) + lineage_key()
+
+
+def _section_key_or_401(section: str, *args, **kw) -> str:
+    key = _section_key(section, *args, **kw)
+    if key is None:
+        raise HTTPException(status_code=401, detail="Egeria token expired; sign in again")
+    return key
+
+
+def _iso(epoch: Optional[float]) -> Optional[str]:
+    return datetime.fromtimestamp(epoch, timezone.utc).isoformat() if epoch is not None else None
+
+
+def _prune_sections(now: float) -> None:
+    """Drop the least recently measured idle keys once there are too many (caller holds _section_lock)."""
+    extra = len(_sections) - _SECTION_MAX_KEYS
+    if extra <= 0:
+        return
+    idle = sorted((k for k in _sections if k not in _section_inflight),
+                  key=lambda k: _sections[k].get("measured_at") or 0)
+    for k in idle[:extra]:
+        _sections.pop(k, None)
+
+
+def _section_worker(key, compute, ok):
+    payload, error = None, None
+    try:
+        with _section_gate:
+            payload = compute()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"overview: section {key.split('|', 1)[0]} failed: {exc}")
+        error = str(exc) or type(exc).__name__
+    finally:
+        now = time.time()
+        with _section_lock:
+            prev = _sections.get(key) or {}
+            if payload is not None:
+                try:
+                    whole = bool(ok(payload))
+                except Exception:  # noqa: BLE001
+                    whole = False
+                ttl = _SECTION_TTL if whole else _SECTION_PARTIAL_TTL
+                _sections[key] = {"payload": payload, "measured_at": now, "fresh_until": now + ttl,
+                                  "retry_at": now + ttl, "error": None}
+            else:                       # keep any previous measurement (served as stale); back off the retry
+                _sections[key] = {"payload": prev.get("payload"), "measured_at": prev.get("measured_at"),
+                                  "fresh_until": prev.get("fresh_until", 0), "retry_at": now + _SECTION_FAIL_TTL,
+                                  "error": error or "no result"}
+            _section_inflight.pop(key, None)
+            _prune_sections(now)
+
+
+def _section_fetch(key: str, compute, ok=lambda p: True):
+    """(payload-or-None, meta) for one section key; starts a background measurement when none is fresh.
+
+    Never blocks on Egeria. meta carries loading (nothing measured yet, a worker is running: ask again),
+    stale (payload is an older measurement, past its TTL), refreshing (a worker is re-measuring it),
+    measuredAt (ISO time the payload was measured), refreshSeconds (the TTL) and error (the last failure,
+    while no worker is running)."""
+    now = time.time()
+    with _section_lock:                # no IO between the check and the start
+        e = _sections.get(key)
+        payload = e.get("payload") if e else None
+        fresh = payload is not None and e["fresh_until"] > now
+        running = key in _section_inflight
+        if not fresh and not running and (e is None or e["retry_at"] <= now):
+            ctx = contextvars.copy_context()
+            t = threading.Thread(target=ctx.run, daemon=True, name="overview-section",
+                                 args=(_section_worker, key, compute, ok))
+            _section_inflight[key] = t
+            t.start()
+            running = True
+        meta = {
+            "loading":        payload is None and running,
+            "stale":          payload is not None and not fresh,
+            "refreshing":     payload is not None and running,
+            "measuredAt":     _iso(e.get("measured_at")) if payload is not None else None,
+            "refreshSeconds": _SECTION_TTL,
+            "error":          (e.get("error") if e and not running else None),
+        }
+    return payload, meta
+
+
+def _section_unready(section: str, meta: dict):
+    """The answer when a section has no measurement to serve: loading (200, no data fields) or failed (503)."""
+    if meta.get("loading"):
+        return JSONResponse({"loading": True, "source": f"live:{section}", **meta})
+    raise HTTPException(status_code=503,
+                        detail=f"Not measured: {section} failed ({meta.get('error')}); retried within "
+                               f"{_SECTION_FAIL_TTL} s")
+
+
+# ── Asset composition ────────────────────────────────────────────────────────
+#
+# One routine (pyegeria asset_composition) returns the Asset subtype tree with a count per type. The Overview
+# asks it for the REPOSITORY population only (owner decision, design note 9.23: the Overview shows catalog-wide
+# totals to anyone, fast, ~3 s for ten counts). The viewer population is never counted here: a viewer count of
+# Process takes ~120 s. The one viewer figure on offer is the Asset total, read from the hourly per-viewer
+# cache above, and per-type viewer cells say so instead of showing a number. "not visible to you" is derived
+# (repository - viewer) and only where both operands are measured. A failed count is never a 0.
+
+COMPOSITION_DEPTH_MAX = 3
+_VIEWER_TOTAL_ONLY = "viewer counts are refreshed hourly; only the total is cached"
+
+
+def _composition_cell(value, state, reason, population, completeness="unknown", as_of=None) -> dict:
+    return {"value": value, "state": state, "completeness": completeness, "as_of": as_of,
+            "population": population, "reason": reason, "elapsed_s": None}
+
+
+def _compute_composition(root, depth, as_of_time, url, server, user_id, user_pwd) -> dict:
+    """Repository-scope asset_composition for `root`; runs in a background worker (never in the request)."""
+    vm = _make("ValidMetadataManager", url, server, user_id, user_pwd)
+    mgr = _expert(url, server, user_id, user_pwd)
+    return asset_composition(mgr, vm, root=root, depth=depth, as_of=as_of_time, scopes=(REPOSITORY,))
+
+
+def _viewer_cell_for_root(viewer: tuple) -> dict:
+    value, loading, stale, counted_at = viewer
+    if value is None:
+        return _composition_cell(None, "not_measured",
+                                 "being counted for you now (can take a couple of minutes)" if loading
+                                 else "the count of assets you can see did not complete", VIEWER)
+    return _composition_cell(value, "measured" if value else "nothing_found",
+                             "counted earlier and refreshed hourly" + (" (refreshing)" if stale else ""),
+                             VIEWER, as_of=_iso(counted_at))
+
+
+def _not_visible_cell(repo: dict, viewer: dict) -> dict:
+    rv, vv = repo.get("value"), viewer.get("value")
+    if repo.get("state") not in ("measured", "nothing_found") or viewer.get("state") not in ("measured", "nothing_found") \
+            or rv is None or vv is None:
+        return _composition_cell(None, "not_measured", "needs both the repository and the viewer count", "derived")
+    if vv > rv:      # the two counts were taken at different times; a negative difference is not a count
+        return _composition_cell(None, "not_measured",
+                                 "the viewer count is higher than the repository count (counted at different times)",
+                                 "derived")
+    return _composition_cell(rv - vv, "measured" if rv - vv else "nothing_found",
+                             f"repository count minus the count of assets you can see "
+                             f"(viewer counted {viewer.get('as_of') or 'earlier'})", "derived", completeness="unknown")
+
+
+def _composition_view(result: dict, viewer: Optional[tuple]) -> dict:
+    """The routine's result with the viewer column filled: the Asset total from the hourly cache, every other
+    row 'not measured, only the total is cached'. Rows are otherwise the routine's own (type_name, parent,
+    level, exact_type, repository, viewer, not_visible)."""
+    out = dict(result)
+    rows = []
+    for row in result.get("rows", []):
+        row = dict(row)
+        if row.get("level") == 0 and viewer is not None:
+            row["viewer"] = _viewer_cell_for_root(viewer)
+        else:
+            row["viewer"] = _composition_cell(None, "not_measured", _VIEWER_TOTAL_ONLY, VIEWER)
+        row["not_visible"] = _not_visible_cell(row.get("repository") or {}, row["viewer"])
+        rows.append(row)
+    out["rows"] = rows
+    out["scopes"] = [REPOSITORY, VIEWER]
+    return out
+
+
+def _level1_rows(result: dict) -> list:
+    """The direct-subtype rows (plus each 'other' row) of a composition result, repository cell flattened."""
+    out = []
+    for r in result.get("rows", []):
+        if r.get("level") != 1:
+            continue
+        cell = r.get("repository") or {}
+        label = f"{r['type_name']} (exactly)" if r.get("exact_type") else r["type_name"]
+        out.append({"label": label, "type": r["type_name"], "exactType": bool(r.get("exact_type")),
+                    "count": cell.get("value"), "state": cell.get("state"), "reason": cell.get("reason")})
+    return out
+
+
+@router.get("/api/overview/composition",
+            summary="Asset composition by subtype (repository totals; viewer total only)")
+def get_composition(
+    root: str = Query("Asset", description="Type whose subtypes are counted; a click on a bar re-queries with it"),
+    depth: int = Query(1, ge=0, le=COMPOSITION_DEPTH_MAX),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now (time-machine)"),
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
+):
+    """Served from the background section cache (cold -> {"loading": true}); see "Asset composition" above.
+
+    countScope is always "repository". viewerCounts is "total-only": the Asset total of the viewer column comes
+    from the hourly per-viewer cache (and only when root is Asset), every other viewer cell is not_measured."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
+    as_of_time = _norm_asof(as_of_time)
+    if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", root):
+        raise HTTPException(status_code=422, detail="root must be an open metadata type name")
+    key = _section_key_or_401("composition", root, depth, as_of_time, population=REPOSITORY,
+                              url=url, server=server, user_id=user_id, user_pwd=user_pwd)
+    payload, meta = _section_fetch(
+        key, functools.partial(_compute_composition, root, depth, as_of_time, url, server, user_id, user_pwd),
+        ok=lambda p: p.get("state") == "measured" and not p.get("not_measured"))
+    if payload is None:
+        return _section_unready("composition", meta)
+    viewer = _viewer_total_state(url, server, user_id, user_pwd, as_of_time) if root == "Asset" else None
+    view = _composition_view(payload, viewer)
+    return JSONResponse({**view, "countScope": REPOSITORY, "viewerCounts": "total-only",
+                         "viewerTotalLoading": bool(viewer and viewer[1]), "source": "live:composition", **meta})
+
+
+# ── Summary ──────────────────────────────────────────────────────────────────
+
 @router.get("/api/overview/summary", summary="Headline KPI counts for the Overview dashboard")
 def get_summary(
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now (time-machine)"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None),
 ):
+    """Served from the background section cache (see "Background section cache"); computed by _compute_summary."""
     user_pwd = None  # never from the URL: a password in a query string lands in access logs
     as_of_time = _norm_asof(as_of_time)
-    ckey = f"summary|{as_of_time}|{url}|{server}|{user_id}"
-    cached = _cache_get(ckey)
-    if cached is not None:
-        return JSONResponse(cached)
-    payload = _compute_summary(as_of_time, url, server, user_id, user_pwd)
-    return JSONResponse(_cache_put(ckey, payload))
+    key = _section_key_or_401("summary", as_of_time, population=VIEWER,
+                              url=url, server=server, user_id=user_id, user_pwd=user_pwd)
+    payload, meta = _section_fetch(
+        key, functools.partial(_compute_summary, as_of_time, url, server, user_id, user_pwd),
+        ok=lambda p: p.get("assetTotal") is not None)
+    if payload is None:
+        return _section_unready("summary", meta)
+    # assetTotalViewer* are filled per request by _overlay_viewer_total (never cached with the payload, so a
+    # background count that finishes is seen on the next poll without recomputing the whole summary).
+    return JSONResponse({**_overlay_viewer_total(payload, url, server, user_id, user_pwd, as_of_time), **meta})
 
 
 @_scan_net
 def _compute_summary(as_of_time, url, server, user_id, user_pwd) -> dict:
-    """Every Egeria call behind get_summary, inside one unconfirmed-scan recording (see _scan_net)."""
+    """Every Egeria call behind the summary (~2 min cold, mostly find calls). Runs in a background worker."""
     try:
         mgr = _expert(url, server, user_id, user_pwd)
     except Exception as exc:  # noqa: BLE001
         logger.exception("overview: failed to create MetadataExpert")
-        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+        raise RuntimeError(f"Connection failed: {exc}") from exc
 
     # Governed tally — single ANY over governance classifications (PY-15 note: this
     # 5-classification ANY is affected by the server bug; still correct at 0/1
     # conditions and used here as a best-effort coverage proxy).
+    # Every native count in this payload shares ONE scope (see "Count scope" above): the Governed share,
+    # the donut, Assets by Type's "Other" remainder and Data Products' pending count are all ratios or
+    # differences of these counts, so they must not mix repository- and viewer-scoped values.
+    scope = _count_scope(count_elements, counts_by_type, count_relationships,
+                         *([count_elements_by_property] if count_elements_by_property else []))
+    n_elements = _scoped(count_elements, scope)
+    n_relationships = _scoped(count_relationships, scope, expert=mgr)
+    n_by_property = _scoped(count_elements_by_property, scope) if count_elements_by_property else None
+
     unconfirmed: dict = {}    # payload key -> pyegeria's mark: a lower bound, shown "at least N" (see above)
     not_measured: dict = {}   # payload key -> why the figure is None
     _n0 = _scan_pos()
     gov = governed_coverage(mgr, as_of_time)
-    _carry_unconfirmed(gov, {k: k for k in ("governedCount", "fullyGoverned", "partialZoneOnly",
-                                             "byClassification", "topZones")}, unconfirmed, since=_n0)
-
-    # Assets by type (best-effort; unknown types yield 0) — kept purely as the
-    # composition breakdown behind the "Assets by Type" chart below; it is
-    # NOT summed for the headline total anymore (see asset_total below).
-    by_type = counts_by_type(mgr, _ASSET_TYPES, as_of_time)
+    # governedCount / fullyGoverned / partialZoneOnly are replaced by strict native counts just below, so
+    # only the element-wide breakdowns keep pyegeria's marks.
+    _carry_unconfirmed(gov, {"byClassification": "byClassification", "topZones": "topZones"}, unconfirmed, since=_n0)
+    gov = _asset_scoped_governed(gov, *_governed_asset_counts(n_elements, mgr, as_of_time))
 
     # Headline total: the native `Asset` supertype count (OVERVIEW_NEXT_STEPS.md
     # "Asset definition" open decision, resolved 2026-08-16) — one native count
@@ -539,11 +1066,18 @@ def _compute_summary(as_of_time, url, server, user_id, user_pwd) -> dict:
     # in that list — that mismatch (e.g. live: 2,668 curated-sum vs 2,523
     # Asset-supertype) is exactly what motivated unifying the two here, so the
     # tile's own headline number and its own sparkline finally agree.
-    asset_total = count_elements(mgr, "Asset", as_of_time)
+    asset_total = n_elements(mgr, "Asset", as_of_time, strict=True)
 
-    by_type = _exclusive_by_type(by_type, asset_total)
+    # Assets by type: the direct subtypes of Asset from the composition routine (repository counts, plus an
+    # "(exactly)" row for plain Asset elements). A count that failed is None, never 0; the chart leaves it out
+    # and the page says "not measured".
+    by_type = []
+    try:
+        by_type = _level1_rows(_compute_composition("Asset", 1, as_of_time, url, server, user_id, user_pwd))
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview summary: asset composition failed: {exc}")
 
-    term_count = count_elements(mgr, "GlossaryTerm", as_of_time)
+    term_count = n_elements(mgr, "GlossaryTerm", as_of_time, strict=True)
 
     # Vega-Lite bar chart for the assets-by-type composition (real chart —
     # supersedes the hand-drawn SVG bars; see OVERVIEW_REPORTING_MODEL.md P1).
@@ -563,12 +1097,12 @@ def _compute_summary(as_of_time, url, server, user_id, user_pwd) -> dict:
     # keeps this to 2 cheap native COUNT calls total, same cost class as the
     # single count this replaces, and stays correct regardless of which
     # status values actually appear in a given dataset.
-    data_products = count_elements(mgr, "DigitalProduct", as_of_time)
+    data_products = n_elements(mgr, "DigitalProduct", as_of_time, strict=True)
     data_products_active = None
-    if count_elements_by_property is not None:
+    if n_by_property is not None:
         try:
-            data_products_active = count_elements_by_property(
-                mgr, "DigitalProduct", "deploymentStatus", "ACTIVE", as_of_time)
+            data_products_active = n_by_property(
+                mgr, "DigitalProduct", "deploymentStatus", "ACTIVE", as_of_time, strict=True)
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"overview summary: data products deploymentStatus breakdown failed: {exc}")
     data_products_pending = (
@@ -589,7 +1123,7 @@ def _compute_summary(as_of_time, url, server, user_id, user_pwd) -> dict:
     _n0 = _scan_pos()
     try:
         ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
-        ratings_total = count_relationships(ce, "AttachedRating", as_of_time)
+        ratings_total = n_relationships(ce, "AttachedRating", as_of_time)
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview summary: ratings count failed: {exc}")
     _mark_from_scans(_n0, {"dataProductsRatings": ("count", ratings_total)}, unconfirmed)
@@ -606,7 +1140,9 @@ def _compute_summary(as_of_time, url, server, user_id, user_pwd) -> dict:
                         "describedCount": None, "duplicateCount": None}
     if business_value_signals is not None:
         try:
-            biz_value = business_value_signals(mgr, as_of_time)
+            biz_value = _reconcile_business_value(
+                _scoped(business_value_signals, scope)(mgr, as_of_time), asset_total,
+                n_elements(mgr, None, as_of_time, classifications=["ConsolidatedDuplicate"], strict=True))
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"overview summary: business_value_signals failed: {exc}")
 
@@ -629,9 +1165,16 @@ def _compute_summary(as_of_time, url, server, user_id, user_pwd) -> dict:
         not_measured["orphanTermCount"] = ("the read of glossary-term assignments ended without Egeria "
                                            "confirming there are no more, and the count needs every one")
     stale: dict = {"staleCount": None, "assetTotal": None}
+    stale_note = None   # why staleCount is None (e.g. the 500-element page cap), from pyegeria's note
     if stale_assets is not None:
         try:
-            stale = stale_assets(mgr, as_of_time)
+            if recording_unmeasured is not None:
+                with recording_unmeasured() as _notes:
+                    stale = stale_assets(mgr, as_of_time)
+                _why = [n.get("reason") for n in _notes if n.get("reason") and "not updated" in str(n.get("count", ""))]
+                stale_note = "; ".join(_why) if _why else None
+            else:
+                stale = stale_assets(mgr, as_of_time)
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"overview summary: stale_assets failed: {exc}")
 
@@ -645,7 +1188,7 @@ def _compute_summary(as_of_time, url, server, user_id, user_pwd) -> dict:
                     "surveysCompleted7d": None, "dataStoresByKind": None}
     if ce is not None:
         try:
-            survey = _survey_coverage(mgr, ce, as_of_time, asset_total)
+            survey = _survey_coverage(mgr, ce, as_of_time, asset_total, scope=scope)
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"overview summary: survey coverage failed: {exc}")
     schema = _schema_coverage(mgr, as_of_time, survey.get("schemaAnalysedGuids"))
@@ -655,7 +1198,11 @@ def _compute_summary(as_of_time, url, server, user_id, user_pwd) -> dict:
 
     payload = {
         "asOfTime":         as_of_time,
+        "viewServer":       _env(url, server, user_id, user_pwd)[1],   # the Egeria view server queried (page header)
         "assetTotal":       asset_total,
+        # Which scope every native count in this payload used: "repository" = the whole catalog (fast),
+        # "viewer" = only what the signed-in user can see. The page labels the tiles with it.
+        "countScope":       scope,
         "byType":           by_type,
         "byTypeChart":      by_type_chart,
         "termCount":        term_count,
@@ -709,6 +1256,7 @@ def _compute_summary(as_of_time, url, server, user_id, user_pwd) -> dict:
         "surveyLinksCapped":  survey["surveyLinksCapped"],
         "staleAssetCount":    stale["staleCount"],           # no update in 180d
         "staleAssetTotal":    stale["assetTotal"],
+        "staleAssetNote":     stale_note if stale["staleCount"] is None else None,  # why the count is "—"
         "unconfirmed":      unconfirmed,
         "notMeasured":      not_measured,
         "partial":          True,
@@ -943,7 +1491,7 @@ def get_activity(
     collections/products, governance definitions, projects). Always "now": Egeria's asOfTime cannot
     say who changed what. `activity` is None when a query failed -- the page then shows "Not measured"."""
     user_pwd = None  # never from the URL: a password in a query string lands in access logs
-    ckey = f"activity|{url}|{server}|{user_id}"
+    ckey = _viewer_key("activity", url, server, user_id, user_pwd)
     cached = _cache_get(ckey)
     if cached is not None:
         return JSONResponse(cached)
@@ -1126,7 +1674,8 @@ def _survey_outcomes(mgr, as_of: Optional[str] = None, times: Optional[dict] = N
         return None
 
 
-def _survey_coverage(mgr, ce, as_of: Optional[str] = None, asset_total: Optional[int] = None) -> dict:
+def _survey_coverage(mgr, ce, as_of: Optional[str] = None, asset_total: Optional[int] = None,
+                     scope: str = REPOSITORY) -> dict:
     """How much of the catalog has been successfully surveyed, and how many surveys failed.
 
     A SurveyReport is linked to the asset it describes by a ReportSubject relationship
@@ -1157,7 +1706,9 @@ def _survey_coverage(mgr, ce, as_of: Optional[str] = None, asset_total: Optional
            "surveysUnknown": None, "assetsSurveyFailedOnly": None, "latestSurveyTime": None,
            "surveysCompleted7d": None, "dataStoresByKind": None}
     try:
-        out["surveyReports"] = count_elements(mgr, "SurveyReport", as_of)
+        # the summary payload's population (`scope`, its countScope), passed explicitly; a lone figure, no ratio.
+        # strict: a repository count that cannot be taken is None -- non-strict, pyegeria <= 6.2.26 gives 0.
+        out["surveyReports"] = _scoped(count_elements, scope)(mgr, "SurveyReport", as_of, strict=True)
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview survey coverage: SurveyReport count failed: {exc}")
 
@@ -1267,7 +1818,9 @@ def _survey_coverage(mgr, ce, as_of: Optional[str] = None, asset_total: Optional
         found = [e for e in (found if isinstance(found, list) else []) if isinstance(e, dict)]
         store_guids = {g for g in (_guid_of(e) for e in found) if g}
         stores_capped = len(found) >= _SURVEY_LINK_CAP
-        out["dataStoreTotal"] = (count_elements(mgr, "DataStore", as_of) if stores_capped else len(store_guids))
+        # capped find: the native count, in the summary's population (neverSurveyedStores needs an uncapped find)
+        out["dataStoreTotal"] = (_scoped(count_elements, scope)(mgr, "DataStore", as_of, strict=True) if stores_capped
+                                 else len(store_guids))
         if not stores_capped:
             kinds: dict = {}
             for e in found:
@@ -1309,21 +1862,95 @@ def get_ai_context(
     queryable yet — returned as null so the SPA shows its sample baseline."""
     user_pwd = None  # never from the URL: a password in a query string lands in access logs
     as_of_time = _norm_asof(as_of_time)
-    ckey = f"ai|{as_of_time}|{url}|{server}|{user_id}"
-    cached = _cache_get(ckey)
-    if cached is not None:
-        return JSONResponse(cached)
-    payload = _compute_ai_context(as_of_time, url, server, user_id, user_pwd)
-    return JSONResponse(_cache_put(ckey, payload))
+    key = _section_key_or_401("ai-context", as_of_time, population=VIEWER,
+                              url=url, server=server, user_id=user_id, user_pwd=user_pwd)
+    payload, meta = _section_fetch(
+        key, functools.partial(_compute_ai_context, as_of_time, url, server, user_id, user_pwd),
+        ok=lambda p: (p.get("funnel") or {}).get("cataloged") is not None)
+    if payload is None:
+        return _section_unready("ai-context", meta)
+    return JSONResponse({**payload, **meta})
+
+
+def _owned_asset_share(mgr, as_of, population: str, cataloged: Optional[int]):
+    """(owned Assets, % of Cataloged) -- Ownership Coverage, the same shape as Governed Coverage.
+
+    The numerator is a strict native count of Assets carrying an Ownership classification, taken in the
+    SAME population as `cataloged` (the funnel's strict Asset count), so the ratio never mixes a viewer
+    count with a repository one. Either count unmeasured (None) -> the % is None, never a guess."""
+    n = functools.partial(count_elements, scope=population) if _accepts_scope(count_elements) else count_elements
+    try:
+        owned = n(mgr, "Asset", as_of, classifications=("Ownership",), strict=True)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview ai-context: owned-Asset count failed: {exc}")
+        owned = None
+    pct = (round(100 * owned / cataloged, 1)
+           if owned is not None and cataloged and owned <= cataloged else None)
+    return owned, pct
+
+
+def _display_round(v):
+    """One decimal under 10 (1.36 -> 1.4, not 1), whole numbers from 10 up. None stays None."""
+    if v is None:
+        return None
+    return round(v, 1) if abs(v) < 10 else round(v)
+
+
+def _links_per_100(grounding: dict, cataloged: Optional[int], population: Optional[str]):
+    """SemanticAssignment links ÷ Assets × 100, unrounded, or pyegeria's whole-number groundingPct.
+
+    Recomputed from groundingLinks and the funnel's Cataloged only when the funnel counts the whole
+    repository -- the population semantic_grounding counts both of its numbers in (6.2.27+) -- so the
+    ratio never mixes populations. Otherwise pyegeria's own figure is used as it is."""
+    links = grounding.get("groundingLinks")
+    if population == REPOSITORY and links is not None and cataloged:
+        return 100 * links / cataloged
+    return grounding.get("groundingPct")
+
+
+def _grounding_fields(grounding: Optional[dict], cataloged: Optional[int] = None,
+                      population: Optional[str] = None) -> dict:
+    """What the Semantic Grounding tile shows, labelled by what it measures.
+
+    pyegeria 6.2.30's semantic_grounding returns groundingLinks (SemanticAssignment relationships) and
+    groundingPct = links ÷ Asset total × 100. That is NOT a share of Assets: one Asset with three terms
+    counts three times, and a link to a non-Asset element counts too. So it is reported as "links per 100
+    Assets" (groundingMeasure "linksPer100Assets") and groundingPct -- the share -- stays None.
+
+    pyegeria 6.2.31 also reports distinct grounded Assets as `groundedAssets` (an Asset counts when it,
+    or one of its anchored parts, carries a term; counted among the Assets the caller can see) and
+    `groundedAssetPct` (groundedAssets ÷ the viewer's Asset total × 100). When that total cannot be
+    measured, groundedAssetPct is None and `groundedAssetNote` says why. The tile switches to the real
+    share (groundingMeasure "assetShare") whenever groundedAssetPct is set; otherwise it stays links per
+    100 Assets and still shows groundedAssets and the note.
+
+    Values for display are rounded by _display_round: one decimal under 10 (767 links over 56,357 Assets
+    is 1.4 per 100, not "1")."""
+    g = grounding or {}
+    per100 = _display_round(_links_per_100(g, cataloged, population))
+    share = _display_round(g.get("groundedAssetPct"))
+    # Forwarded in both branches (6.2.31+): the distinct grounded Assets are measured even when their share
+    # is not (the viewer Asset total times out on a large catalog), and the note says why the share is
+    # missing. None stays None: never shown as 0.
+    grounded = {"groundedAssets": g.get("groundedAssets"), "groundedAssetNote": g.get("groundedAssetNote"),
+                "groundingLinksScanned": g.get("groundingLinksScanned")}
+    if share is not None:
+        return {"groundingMeasure": "assetShare", "groundingValue": share, "groundingPct": share,
+                **grounded, "groundingLinks": g.get("groundingLinks"), "groundingLinksPer100": per100}
+    return {"groundingMeasure": "linksPer100Assets", "groundingValue": per100, "groundingPct": None,
+            **grounded, "groundingLinks": g.get("groundingLinks"), "groundingLinksPer100": per100}
 
 
 @_scan_net
 def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
-    """Every Egeria call behind get_ai_context, inside one unconfirmed-scan recording (see _scan_net)."""
+    """Every Egeria call behind ai-context (~2 min cold). Runs in a background worker."""
+    # The funnel, its strict re-count and grounding take no scope here, so they count pyegeria's default
+    # population: the whole repository from 6.2.27, what the viewer can see before it.
+    population = _default_population(count_elements)
     try:
         mgr = _expert(url, server, user_id, user_pwd)
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+        raise RuntimeError(f"Connection failed: {exc}") from exc
 
     try:
         ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
@@ -1356,48 +1983,26 @@ def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
         readiness = {"cataloged": None, "documented": None, "classified": None,
                      "lineage": None, "aiReady": None}
 
-    # Semantic grounding: SemanticAssignment relationships (term ↔ asset) — the
-    # meaning layer that grounds AI. Count of assignments as a proxy for grounded links.
-    unconfirmed: dict = {}    # payload key -> pyegeria's mark: a lower bound, shown "at least N"
-    not_measured: dict = {}   # payload key -> why the figure is None
-    grounding_links = None
-    grounding_pct = None
+    # Semantic grounding: SemanticAssignment relationships (term ↔ element) — the meaning layer that grounds
+    # AI. See _grounding_fields: today it is links per 100 Assets, never shown as a share of Assets.
     grounding = None
-    _n0 = _scan_pos()
+    _g0 = _scan_pos()
     try:
         grounding = semantic_grounding(mgr, ce, as_of_time)
-        grounding_links = grounding["groundingLinks"]
-        grounding_pct = grounding["groundingPct"]
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview ai-context: grounding query failed: {exc}")
-    # only the native-count figures (links, links per 100 Assets) are shown here; its SemanticAssignment scan
-    # feeds none of them, so it needs no mark
-    _scan_cover(_n0)
-    # groundingLinks is a native repository count today (never marked). If a later pyegeria marks it, the
-    # per-100 figure (groundingPct = links / the Asset total) is a share of a lower bound: not measured.
-    _carry_unconfirmed(grounding, {"groundingLinks": "groundingLinks"}, unconfirmed)
-    if "groundingLinks" in unconfirmed:
-        grounding_pct = None
-        not_measured["groundingPct"] = _share_unconfirmed_reason("the glossary-term link count")
+    _grounding_scans = (_g0, _scan_pos())   # its scans only: other routines run before it is carried
 
     # Ownership coverage: Context Intelligence / NEXT-7 Tier-1 "Capture" signal
     # (OVERVIEW_CONTEXT_INTELLIGENCE.md §2.2) — data-mesh literature names "clean,
     # owned, product-based data" as its own foundation for trustworthy AI
     # consumption, distinct from governance-classification coverage above.
-    ownership_count = None
-    ownership_pct = None
-    try:
-        _n0 = _scan_pos()
-        ownership = ownership_coverage(mgr, as_of_time)
-        ownership_count = ownership["ownershipCount"]
-        _carry_unconfirmed(ownership, {"ownershipCount": "ownershipCount"}, unconfirmed, since=_n0)
-        total = readiness.get("cataloged")
-        if "ownershipCount" in unconfirmed:
-            not_measured["ownershipPct"] = _share_unconfirmed_reason("the owned-asset count")
-        elif total:
-            ownership_pct = round(100 * ownership_count / total, 1)
-    except Exception as exc:  # noqa: BLE001
-        logger.debug(f"overview ai-context: ownership query failed: {exc}")
+    # Same shape as Governed Coverage (owner decision 2026-11-10): owned ASSETS, a strict native count in the
+    # funnel's own population, over the funnel's Cataloged (that same count's Asset total). Always measurable
+    # -- it used to divide a viewer find (any element type) by a viewer Asset total that cannot be counted at
+    # this catalogue size, so the tile never got a value. Computed after the strict funnel re-count below.
+    unconfirmed: dict = {}    # payload key -> pyegeria's mark: a lower bound, shown "at least N"
+    not_measured: dict = {}   # payload key -> why the figure is None
 
     # True AI-Ready composite (governed AND documented AND lineage-traced
     # simultaneously) — the actual claim the "AI-Ready Assets" tile already
@@ -1412,16 +2017,38 @@ def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
         ready = ai_ready_assets(mgr, ce, as_of_time)
         ai_ready_count = ready["aiReadyCount"]
         _carry_unconfirmed(ready, {"aiReadyCount": "aiReadyCount"}, unconfirmed, since=_n0)
-        _carry_unconfirmed(ready, {"aiReadyCount": "funnel.aiReady"}, unconfirmed)
         if _any_unconfirmed(ready):
             # the scans behind the count and its checked total ended unconfirmed: no share from them
             if ai_ready_count is not None:
                 not_measured["aiReadyPct"] = _share_unconfirmed_reason("the AI-Ready count")
         elif ready["total"]:
             ai_ready_pct = round(100 * ai_ready_count / ready["total"], 1)
-        readiness["aiReady"] = ai_ready_count
+        # a funnel stage only in a viewer funnel: ai_ready_assets is a find (what the viewer can see), so it
+        # is not a stage of a whole-repository funnel; it stays in the payload as aiReadyCount (viewer)
+        if population == VIEWER:
+            readiness["aiReady"] = ai_ready_count
+            _carry_unconfirmed(ready, {"aiReadyCount": "funnel.aiReady"}, unconfirmed)
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview ai-context: ai_ready_assets query failed: {exc}")
+
+    readiness = _strict_funnel_counts(readiness, mgr, as_of_time, scope=population)
+    ownership_count, ownership_pct = _owned_asset_share(mgr, as_of_time, population, readiness.get("cataloged"))
+    grounding_fields = _grounding_fields(grounding, readiness.get("cataloged"), population)
+    # groundedAssets / groundingLinksScanned come from the SemanticAssignment scan (pager step 4: maybe a lower
+    # bound); groundingLinks is a native count. pyegeria already sets an unconfirmed groundedAssetPct to None and
+    # says why in groundedAssetNote, so the tile falls back to links per 100 Assets.
+    _carry_unconfirmed(grounding, {"groundedAssets": "groundedAssets",
+                                   "groundingLinksScanned": "groundingLinksScanned",
+                                   # native repository counts today (never marked); if a later pyegeria marks
+                                   # the link count, the per-100 figure built on it is not measured (below)
+                                   "groundingLinks": "groundingLinks"}, unconfirmed,
+                       since=_grounding_scans)
+    if "groundingLinks" in unconfirmed:
+        # links per 100 Assets = links / the Asset total: a lower-bound numerator over a separate count
+        grounding_fields = {**grounding_fields, "groundingLinksPer100": None}
+        if grounding_fields.get("groundingMeasure") == "linksPer100Assets":
+            grounding_fields["groundingValue"] = None
+        not_measured["groundingLinksPer100"] = _share_unconfirmed_reason("the glossary-term link count")
 
     funnel = {
         "Cataloged":       readiness["cataloged"],
@@ -1467,6 +2094,14 @@ def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
 
     payload = {
         "asOfTime":  as_of_time,
+        # The population of the funnel's counts and grounding. On a pyegeria whose totals count the whole
+        # repository (6.2.27+), funnel and grounding are repository counts, and the two find-based figures
+        # below (ownership, AI-Ready) are viewer-scoped: they are reported on their own, never divided by a
+        # repository total and never drawn as a funnel stage. Older pyegeria: everything is viewer, as before.
+        "countScope": population,
+        "aiReadyCount":    ai_ready_count,
+        "aiReadyScope":    VIEWER,       # ai_ready_assets is a find
+        "ownershipScope":  population,   # owned Assets ÷ Cataloged: both strict counts in the funnel's population
         "funnel": {
             "cataloged":  funnel["Cataloged"],
             "documented": funnel["Documented"],
@@ -1477,8 +2112,7 @@ def _compute_ai_context(as_of_time, url, server, user_id, user_pwd) -> dict:
         "funnelChart":     funnel_chart,
         "consumers":       None,         # not natively tracked (MCP/API access logs)
         "guardrails":      None,
-        "groundingLinks":  grounding_links,
-        "groundingPct":    grounding_pct,
+        **grounding_fields,
         "ownershipCount":  ownership_count,
         "ownershipPct":    ownership_pct,
         "aiReadyPct":      ai_ready_pct,
@@ -1509,24 +2143,28 @@ def get_people(
     is the authoritative repository count). Karma / feedback below."""
     user_pwd = None  # never from the URL: a password in a query string lands in access logs
     as_of_time = _norm_asof(as_of_time)
-    ckey = f"people|{as_of_time}|{url}|{server}|{user_id}"
+    ckey = _viewer_key(f"people|{as_of_time}", url, server, user_id, user_pwd)
     cached = _cache_get(ckey)
     if cached is not None:
         return JSONResponse(cached)
+
     payload = _compute_people(as_of_time, url, server, user_id, user_pwd)
     return JSONResponse(_cache_put(ckey, payload))
 
-
 @_scan_net
 def _compute_people(as_of_time, url, server, user_id, user_pwd) -> dict:
-    """Every Egeria call behind get_people, inside one unconfirmed-scan recording (see _scan_net)."""
+    """Every Egeria call behind the People section, inside one unconfirmed-scan recording (see _scan_net)."""
     persons = teams = orgs = it_profiles = communities = None
     expert = None
-    unconfirmed: dict = {}   # payload key -> mark (pager step 4): marked from the scans recorded per figure
+    scope = _count_scope(people_counts, count_elements, count_relationships)
+    n_people = _scoped(people_counts, scope)
+    n_elements = _scoped(count_elements, scope)
+    unconfirmed: dict = {}   # payload key -> mark (pager step 4): these routines return bare numbers and lists,
+    #                          so each figure is marked from the scans recorded while it was computed
     _n0 = _scan_pos()
     try:
         expert = _expert(url, server, user_id, user_pwd)
-        people = people_counts(expert, as_of_time)
+        people = n_people(expert, as_of_time, strict=True)
         persons     = people["persons"]
         teams       = people["teams"]
         orgs        = people["organizations"]
@@ -1543,14 +2181,16 @@ def _compute_people(as_of_time, url, server, user_id, user_pwd) -> dict:
     # (deferred). karma = count of ContributionRecord elements.
     feedback_by_type = None
     feedback_items = None
+    feedback_unmeasured = None
     karma = None
     ce = None
     _n0 = _scan_pos()
     try:
         ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
-        fb = feedback_summary(ce, as_of_time)
+        fb = _feedback_counts(ce, as_of_time, _scoped(count_relationships, scope, expert=expert))
         feedback_by_type = fb["byType"]
         feedback_items = fb["total"]
+        feedback_unmeasured = fb["unmeasured"]
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview people: feedback query failed: {exc}")
     feedback_unconfirmed = _mark_from_scans(_n0, {"feedbackItems": ("count", feedback_items),
@@ -1558,7 +2198,7 @@ def _compute_people(as_of_time, url, server, user_id, user_pwd) -> dict:
     _n0 = _scan_pos()
     try:
         if expert is not None:
-            karma = count_elements(expert, "ContributionRecord", as_of_time)
+            karma = n_elements(expert, "ContributionRecord", as_of_time, strict=True)
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview people: karma query failed: {exc}")
     _mark_from_scans(_n0, {"karmaRecords": ("count", karma)}, unconfirmed)
@@ -1614,6 +2254,8 @@ def _compute_people(as_of_time, url, server, user_id, user_pwd) -> dict:
         "karmaRecords":       karma,             # count of ContributionRecord elements
         "feedbackItems":      feedback_items,    # Σ ratings+comments+likes+tags+noteLogs
         "feedbackByType":     feedback_by_type,
+        "countScope":         scope,            # "repository" (whole catalog) or "viewer" (what you can see)
+        "feedbackUnmeasured": feedback_unmeasured,   # relationship types whose count could not be read
         "feedbackChart":      feedback_chart,
         "leaderboard":        leaderboard,       # per-person karma rollup, top 10
         "engagementSeries":   engagement_series_data,  # weekly feedback trend, 12wk
@@ -1639,30 +2281,63 @@ def get_usage_context(
     feeds the Clinical Trial supply chain", "this component realises the Sales
     blueprint". Counted natively (count_metadata_elements) — sub-second, vs the old
     find-and-filter that materialized every element. The "% of assets contextualised"
-    coverage figure needs graph traversal and is deferred (SPA shows sample)."""
+    coverage figure is computed via contextualised_coverage — a single bounded
+    ImplementedBy relationship fetch (SolutionComponent -> its concrete
+    implementation), not a per-asset graph walk; see that function's own
+    docstring for the honest "this is a proxy" caveat (confirms an asset was
+    given *some* solution-design context, not that its specific
+    SolutionComponent is itself wired into an ISC/blueprint)."""
     user_pwd = None  # never from the URL: a password in a query string lands in access logs
     as_of_time = _norm_asof(as_of_time)
-    ckey = f"usage|{as_of_time}|{url}|{server}|{user_id}"
-    cached = _cache_get(ckey)
-    if cached is not None:
-        return JSONResponse(cached)
-    payload = _compute_usage_context(as_of_time, url, server, user_id, user_pwd)
-    return JSONResponse(_cache_put(ckey, payload))
+    key = _section_key_or_401("usage-context", as_of_time, population=VIEWER,
+                              url=url, server=server, user_id=user_id, user_pwd=user_pwd)
+    payload, meta = _section_fetch(
+        key, functools.partial(_compute_usage_context, as_of_time, url, server, user_id, user_pwd),
+        ok=lambda p: p.get("informationSupplyChains") is not None)
+    if payload is None:
+        return _section_unready("usage-context", meta)
+    return JSONResponse({**payload, **meta})
 
 
 @_scan_net
 def _compute_usage_context(as_of_time, url, server, user_id, user_pwd) -> dict:
-    """Every Egeria call behind get_usage_context, inside one unconfirmed-scan recording (see _scan_net)."""
+    """Every Egeria call behind usage-context (~40 s cold). Runs in a background worker."""
     iscs = blueprints = None
+    mgr = None
+    scope = _count_scope(usage_context_counts)
     try:
         mgr = _expert(url, server, user_id, user_pwd)
-        usage = usage_context_counts(mgr, as_of_time)
+        usage = _scoped(usage_context_counts, scope)(mgr, as_of_time, strict=True)
         iscs       = usage["informationSupplyChains"]
         blueprints = usage["blueprints"]
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview usage-context: query failed: {exc}")
 
     unconfirmed: dict = {}    # payload key -> pyegeria's mark: a lower bound, shown "at least N"
+    not_measured: dict = {}   # payload key -> why the figure is None
+    contextualised_count = asset_total_for_pct = contextualised_pct = None
+    if contextualised_coverage is not None:
+        try:
+            ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
+            _n0 = _scan_pos()
+            cov = contextualised_coverage(mgr, ce, as_of_time)
+            contextualised_count = cov["contextualisedCount"]
+            asset_total_for_pct  = cov["assetTotal"]
+            contextualised_pct   = cov["contextualisedPct"]
+            _carry_unconfirmed(cov, {"contextualisedCount": "contextualisedCount",
+                                     # pager step 5: the Asset total is a viewer count that can be unconfirmed
+                                     "assetTotal": "contextualisedAssetTotal"}, unconfirmed, since=_n0)
+            if _any_unconfirmed(cov):
+                # either side of the share read without Egeria confirming the end: no share (pyegeria nulls it
+                # too); a share over a lower-bound total is no bound at all
+                contextualised_pct = None
+                not_measured["contextualisedPct"] = (
+                    "the Asset total it is divided by was counted without Egeria confirming there are no more, "
+                    "so the share isn't from complete reads" if "contextualisedAssetTotal" in unconfirmed
+                    else _share_unconfirmed_reason("the contextualised-asset count"))
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"overview usage-context: contextualised_coverage failed: {exc}")
+
     solution_components_total = solution_components_realised = None
     if solution_component_realisation is not None:
         try:
@@ -1679,13 +2354,16 @@ def _compute_usage_context(as_of_time, url, server, user_id, user_pwd) -> dict:
 
     payload = {
         "asOfTime":                as_of_time,
+        "countScope":              scope,   # scope of the ISC / blueprint counts; the % contextualised is viewer-scoped
         "informationSupplyChains": iscs,
         "blueprints":              blueprints,
-        "contextualisedPct":       None,   # % assets participating in ≥1 ISC/blueprint — TODO (traversal)
+        "contextualisedCount":     contextualised_count,
+        "contextualisedAssetTotal": asset_total_for_pct,
+        "contextualisedPct":       contextualised_pct,
         "solutionComponents":         solution_components_total,
         "solutionComponentsRealised": solution_components_realised,
         "unconfirmed":             unconfirmed,
-        "notMeasured":             {},
+        "notMeasured":             not_measured,
         "partial":                 True,
         "source":                  "live:usage-context",
     }
@@ -1702,9 +2380,6 @@ def _is_template_el(el: dict) -> bool:
 
 # ── Growth (asOfTime snapshots) ──────────────────────────────────────────────
 
-_GROWTH_TTL = 900.0   # 15 min — growth is expensive (N snapshots) and slow-moving
-
-
 @router.get("/api/overview/growth", summary="Catalog growth via asOfTime snapshots")
 def get_growth(
     window: str = Query("6mo", description="8h|1d|3d|7d|30d|90d|6mo|1y"),
@@ -1717,7 +2392,7 @@ def get_growth(
     answers historical queries natively, so no separate time-series store is needed.
     The window sets the span and (by default) the granularity; points can override
     the snapshot count. Snapshots assets / terms / governed / data-products.
-    Cached 15 min (this is the expensive endpoint until the count API lands)."""
+    Served from the background section cache (refreshed hourly; see "Background section cache")."""
     user_pwd = None  # never from the URL: a password in a query string lands in access logs
     if months:                              # back-compat: months → an N*30d window
         window = f"{months * 30}d"
@@ -1725,15 +2400,22 @@ def get_growth(
     span_s, default_pts = _WINDOWS.get(window, _WINDOWS["6mo"])
     n = points or default_pts
 
-    ckey = f"growth|{window}|{n}|{url}|{server}|{user_id}"
-    hit = _cache.get(ckey)
-    if hit and (time.time() - hit[0]) < _GROWTH_TTL:
-        return JSONResponse(hit[1])
+    key = _section_key_or_401("growth", window, n, population=_growth_population(),
+                              url=url, server=server, user_id=user_id, user_pwd=user_pwd)
+    payload, meta = _section_fetch(
+        key, functools.partial(_compute_growth, window, n, url, server, user_id, user_pwd),
+        ok=lambda p: bool(p.get("series")))
+    if payload is None:
+        return _section_unready("growth", meta)
+    return JSONResponse({**payload, **meta})
 
+
+def _compute_growth(window, n, url, server, user_id, user_pwd) -> dict:
+    """The N asOfTime snapshots behind the growth chart (~1 min cold). Runs in a background worker."""
     try:
         mgr = _expert(url, server, user_id, user_pwd)
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+        raise RuntimeError(f"Connection failed: {exc}") from exc
 
     series = growth_series(mgr, window=window, points=n)
 
@@ -1752,5 +2434,4 @@ def get_growth(
                "rangeTo": series[-1]["date"] if series else None,
                "growthChart": growth_chart,
                "partial": False, "source": "live:growth"}
-    _cache[ckey] = (time.time(), payload)
-    return JSONResponse(payload)
+    return payload

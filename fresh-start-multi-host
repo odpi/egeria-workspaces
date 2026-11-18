@@ -113,10 +113,14 @@ EOF
   $COMPOSE_CMD -p egeria-freshstart -f egeria-freshstart.yaml build "${COMPOSE_BUILD_FLAGS[@]}"
 
   echo "[fresh-start-multi-host] Starting freshstart stack with external Kafka listeners..."
+  # egeria-freshstart-docker.yaml keeps Jupyter waiting for a healthy platform on Docker
+  # (left out for Podman: podman-compose 1.5.0 blocks indefinitely on service_healthy).
+  COMPOSE_FILES=(-f egeria-freshstart.yaml -f egeria-freshstart-cluster.yaml -f egeria-freshstart-ssl.yaml)
+  if [[ "$CONTAINER_ENGINE" != "podman" ]]; then
+    COMPOSE_FILES+=(-f egeria-freshstart-docker.yaml)
+  fi
   $COMPOSE_CMD -p egeria-freshstart \
-    -f egeria-freshstart.yaml \
-    -f egeria-freshstart-cluster.yaml \
-    -f egeria-freshstart-ssl.yaml \
+    "${COMPOSE_FILES[@]}" \
     up -d ${COMPOSE_PULL_FLAGS}
 popd >/dev/null
 

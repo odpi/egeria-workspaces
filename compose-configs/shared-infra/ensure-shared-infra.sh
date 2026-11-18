@@ -86,6 +86,7 @@ fi
 # bring an existing server up to date.  Each must be safe to repeat: it creates only what is missing.
 SHARED_POSTGRES_UPDATE_SCRIPTS=(
   init_egeria_ods.sql
+  init_security_ods.sql
 )
 for update_script in "${SHARED_POSTGRES_UPDATE_SCRIPTS[@]}"; do
   # PROVISIONER_PASSWORD (exported from .env above) is passed by NAME, so its value is not on a command line:

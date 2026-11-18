@@ -104,6 +104,20 @@ def _no_password(client) -> None:
             pass
 
 
+def _token_expired(token: Optional[str]) -> bool:
+    """True when the token's ``exp`` claim is in the past. Read without verifying the signature
+    (Egeria verifies it on every call); a token with no readable ``exp`` is not called expired."""
+    parts = token.split(".") if token else []
+    if len(parts) != 3:
+        return False
+    try:
+        payload = json.loads(base64.urlsafe_b64decode(parts[1] + "=" * (-len(parts[1]) % 4)))
+    except (ValueError, TypeError):
+        return False
+    exp = payload.get("exp") if isinstance(payload, dict) else None
+    return isinstance(exp, (int, float)) and exp <= time.time()
+
+
 # ── Platform allowlist (BRIEF-PORTAL-PLATFORM-URL-ALLOWLIST-2026-11-10) ─────────────────────────────
 # The rule: the Portal's service credentials only ever go to an allow-listed platform, and a token only
 # ever goes to the platform it was minted for. A user's OWN password may go to a platform the user chose
@@ -186,15 +200,38 @@ def custom_platforms_allowed() -> bool:
     return not bool(_env_flag("DEMO_MODE"))
 
 
+# PO-45 (TR-12 shape): no built-in service password. A deployment that forgot EGERIA_USER_PASSWORD
+# used to sign in with the well-known demo password "secret"; now the Portal refuses, in words, before
+# any Egeria call. Every handler gets the password from service_password(); a scan test keeps a
+# "secret" default from coming back.
+SERVICE_PASSWORD_MISSING_WORDS = "the Portal's service password isn't configured (EGERIA_USER_PASSWORD)"
+
+
+class ServicePasswordMissing(HTTPException):
+    """EGERIA_USER_PASSWORD is unset or empty. An HTTPException (503), so a route answers in words."""
+
+    def __init__(self):
+        super().__init__(status_code=503, detail=f"The Portal cannot sign in to Egeria: {SERVICE_PASSWORD_MISSING_WORDS}.")
+
+
+def configured_service_password() -> Optional[str]:
+    """EGERIA_USER_PASSWORD, or None when it is unset or empty. Never raises (for comparisons)."""
+    return os.environ.get("EGERIA_USER_PASSWORD") or None
+
+
 def service_password() -> str:
-    return os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    """The Portal's own Egeria password; ServicePasswordMissing (503, in words) when it isn't configured."""
+    pwd = configured_service_password()
+    if not pwd:
+        raise ServicePasswordMissing()
+    return pwd
 
 
 def is_caller_password(pwd: Optional[str]) -> bool:
     """True when `pwd` is a password the caller supplied, not the Portal's own. The Portal holds exactly one
     password (EGERIA_USER_PASSWORD); any client carrying it is carrying the service credential, whoever
     typed it, so it is treated as the service password."""
-    return bool(pwd) and pwd != service_password()
+    return bool(pwd) and pwd != configured_service_password()
 
 
 # sha256(token) -> (normalized platform URL, expires_at). Filled by POST /api/egeria-token; process memory.
@@ -361,6 +398,10 @@ class PlatformBody(BaseModel):
         resolve_platform(getattr(self, "url", None),
                          has_caller_password=is_caller_password(getattr(self, "user_pwd", None)),
                          token=_egeria_token.get())
+        refusal = named_user_refusal(getattr(self, "user_id", None), bool(getattr(self, "user_pwd", None)),
+                                     _egeria_token.get())
+        if refusal is not None:   # PO-41
+            raise refusal
         return self
 
 
@@ -389,6 +430,45 @@ def _query_platform_refusal(query_string: bytes, token: Optional[str],
             resolve_platform(u, has_caller_password=False, token=token)
     except PlatformRefused as exc:
         return exc
+    return None
+
+
+# ── PO-41: no Egeria sign-in as a caller-named user without that user's password ────────────────────
+# A request naming an Egeria user (query ?user_id=, a PlatformBody's user_id, /api/egeria-token's
+# user_id) used to be served by signing in as that user with the Portal's own password whenever no
+# password came with it, so anyone could act as any user whose password equals the service password
+# (on the demo, every persona). Now a named user other than EGERIA_USER needs a sign-in token
+# (X-Egeria-Token) or that user's password sent with the request; otherwise 400, before any client is
+# built. "Sent" is tested, not is_caller_password: the demo personas' passwords equal the service
+# password, so that test would refuse their own sign-ins. Background work (no request) is not touched.
+NAMED_USER_NEEDS_PASSWORD_WORDS = ("Send that user's own password (or a sign-in token) to act as them, "
+                                   "or leave user_id out to use the Portal's own user.")
+
+
+def service_user() -> str:
+    return os.environ.get("EGERIA_USER", "erinoverview")
+
+
+def named_user_refusal(user_id: Optional[str], password_sent: bool,
+                       token: Optional[str]) -> Optional["PlatformRefused"]:
+    """PlatformRefused(400) when `user_id` names a user other than EGERIA_USER and neither a token nor a
+    password came with it; None otherwise."""
+    if token or password_sent or not user_id or user_id == service_user():
+        return None
+    return PlatformRefused(400, NAMED_USER_NEEDS_PASSWORD_WORDS)
+
+
+def _query_named_user_refusal(query_string: bytes, token: Optional[str]) -> Optional["PlatformRefused"]:
+    """The PO-41 rule for a request's `user_id` query param(s). A query string never carries a password
+    (no route takes user_pwd from it), so a query user_id other than EGERIA_USER needs a token."""
+    from urllib.parse import parse_qsl
+    if token or not query_string:
+        return None
+    for k, v in parse_qsl(query_string.decode("latin-1"), keep_blank_values=True):
+        if k == "user_id":
+            refusal = named_user_refusal(v.strip() or None, False, token)
+            if refusal is not None:
+                return refusal
     return None
 
 
@@ -423,7 +503,8 @@ class EgeriaTokenMiddleware:
                 for_lineage = value.decode("latin-1").strip().lower() == "true"
             elif name == b"sec-fetch-site":
                 fetch_site = value.decode("latin-1").strip().lower()
-        refusal = _query_platform_refusal(scope.get("query_string") or b"", token, fetch_site)
+        refusal = (_query_platform_refusal(scope.get("query_string") or b"", token, fetch_site)
+                   or _query_named_user_refusal(scope.get("query_string") or b"", token))
         if refusal is not None:
             await _send_json(send, refusal.status_code, {"detail": refusal.detail})
             return

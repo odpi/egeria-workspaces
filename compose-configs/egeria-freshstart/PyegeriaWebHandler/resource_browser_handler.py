@@ -48,6 +48,7 @@ under the server's own identity) writes are refused with 401 rather than made as
 a service account.
 """
 
+from egeria_auth import service_password  # PO-45: no built-in service password
 import asyncio
 import json
 import os
@@ -63,6 +64,7 @@ from loguru import logger
 from pydantic import BaseModel
 
 from egeria_auth import async_apply_token, lineage_key as _lineage_key, token_user as _token_user
+from result_cache import request_identity
 from egeria_error_mapping import raise_egeria_http_error
 
 router = APIRouter(tags=["resource-browser"])
@@ -101,7 +103,7 @@ def _client_kwargs() -> dict:
         view_server=os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server"),
         platform_url=os.environ.get("EGERIA_PLATFORM_URL", "https://localhost:9443"),
         user_id=os.environ.get("EGERIA_USER", "erinoverview"),
-        user_pwd=os.environ.get("EGERIA_USER_PASSWORD", "secret"),
+        user_pwd=service_password(),
     )
 
 
@@ -339,7 +341,11 @@ def _jdbc_table_name(props: dict) -> Optional[str]:
 async def serve_resource_browser():
     if not _HTML.exists():
         raise HTTPException(status_code=404, detail="Resource Locator page not found")
-    return FileResponse(str(_HTML), media_type="text/html")
+    # no-store, like the Portal's other pages: without a Cache-Control header a browser
+    # guesses a freshness lifetime from Last-Modified and can keep showing the page from
+    # before a deploy for hours (2026-11-17: the Data lenses tile was missing for the owner).
+    return FileResponse(str(_HTML), media_type="text/html",
+                        headers={"Cache-Control": "no-store, must-revalidate"})
 
 
 # ── Reading a resource ────────────────────────────────────────────────────────
@@ -530,7 +536,7 @@ async def _find_all_annotations(client, prefix: str) -> tuple:
     for page in range(_STATS_MAX_PAGES):
         raw = await client._async_find_assets(
             search_string=prefix, starts_with=True, ignore_case=False,
-            metadata_element_type_name="ResourceMeasureAnnotation",
+            metadata_element_type="ResourceMeasureAnnotation",
             graph_query_depth=0, output_format="JSON",
             start_from=page * _STATS_PAGE, page_size=_STATS_PAGE,
         )
@@ -1549,8 +1555,16 @@ _cache_locks: dict = {}
 
 async def _cached(name: str, producer, ttl: int = _CACHE_TTL):
     """(value, as_of) for `name`, per signed-in user and lineage mode: zone security
-    can show two users different elements, and forLineage changes the results."""
-    key = f"{name}|{_token_user() or '-'}{_lineage_key()}"
+    can show two users different elements, and forLineage changes the results.
+
+    "Per signed-in user" = the hashed token presented (result_cache.request_identity), not the token's
+    `sub`: that claim is read unverified, and a cache hit makes no Egeria call to check it, so keying on
+    it let a forged token read another user's entry. An expired token bypasses the cache."""
+    who = request_identity()
+    if who is None:
+        value = await producer()
+        return value, datetime.now(timezone.utc)
+    key = f"{name}|{who}{_lineage_key()}"
     now = datetime.now(timezone.utc)
     hit = _cache.get(key)
     if hit and (now - hit[1]).total_seconds() < ttl:
@@ -2374,7 +2388,7 @@ async def _classified(client, name: str) -> tuple:
 
 async def _anchored(client, guid: str, type_name: str) -> list:
     return _elements(await client._async_get_elements_by_classification_with_property_value(
-        "Anchors", guid, ["anchorGUID"], metadata_element_type_name=type_name, starts_with=True, ends_with=True,
+        "Anchors", guid, ["anchorGUID"], metadata_element_type=type_name, starts_with=True, ends_with=True,
         graph_query_depth=0, output_format="JSON", page_size=500))
 
 

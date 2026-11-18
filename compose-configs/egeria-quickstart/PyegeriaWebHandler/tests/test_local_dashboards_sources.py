@@ -299,9 +299,14 @@ def test_credentials_in_the_url_are_ignored_never_signed_in_as(env, monkeypatch)
     env["egeria"] = {"e1": _sheet("e1", [_pl("Rep E")], source="egeria", breaks=[])}
     q = {"user_id": "garygeeke", "user_pwd": "secret"}
     c = env["client"]
-    assert c.get("/api/local-dashboards", params=q).status_code == 200
-    assert c.get("/api/local-dashboards/e1", params=q).status_code == 200
-    assert seen and all(s == (None, None) for s in seen)          # the env service user, never garygeeke
+    # PO-41: a named user with no token is refused before routing (a URL never carries a password)
+    import egeria_auth
+    for path in ("/api/local-dashboards", "/api/local-dashboards/e1"):
+        r = c.get(path, params=q)
+        assert r.status_code == 400 and r.json()["detail"] == egeria_auth.NAMED_USER_NEEDS_PASSWORD_WORDS
+    assert seen == []                                             # nothing signed in, as garygeeke or anyone
+    assert c.get("/api/local-dashboards", params={"user_pwd": "secret"}).status_code == 200
+    assert seen and all(s == (None, None) for s in seen)          # the env service user, never the URL's
     assert not any("garygeeke" in k for k in ld._cache)
 
 

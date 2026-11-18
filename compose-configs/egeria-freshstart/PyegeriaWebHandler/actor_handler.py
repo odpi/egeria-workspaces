@@ -18,6 +18,7 @@ Endpoints:
   GET /api/actors/identities/{guid}   → full detail for a user identity
 """
 
+from egeria_auth import service_password  # PO-45: no built-in service password
 import os
 from egeria_auth import apply_token
 from typing import Optional
@@ -39,7 +40,7 @@ def _get_manager(url=None, server=None, user_id=None, user_pwd=None):
     url      = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
     server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
     user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
-    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    user_pwd = user_pwd or service_password()
     mgr = ActorManager(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
     apply_token(mgr)
     return mgr
@@ -78,15 +79,17 @@ def _serialize_rel_entries(rel_list: list) -> list:
         rh = re.get("elementHeader") or {}
         rp = re.get("properties") or {}
         rtype = rh.get("type") or {}
+        rel_hdr_type = (rel.get("relationshipHeader") or {}).get("type") or {}
         g = rh.get("guid", "")
         if g:
             entry = {
-                "guid":           g,
-                "displayName":    rp.get("displayName") or rp.get("fullName") or rp.get("name") or "",
-                "qualifiedName":  rp.get("qualifiedName") or "",
-                "description":    rp.get("description") or "",
-                "typeName":       rtype.get("typeName") or "",
-                "superTypeNames": rtype.get("superTypeNames") or [],
+                "guid":             g,
+                "displayName":      rp.get("displayName") or rp.get("fullName") or rp.get("name") or "",
+                "qualifiedName":    rp.get("qualifiedName") or "",
+                "description":      rp.get("description") or "",
+                "typeName":         rtype.get("typeName") or "",
+                "superTypeNames":   rtype.get("superTypeNames") or [],
+                "relationshipType": rel_hdr_type.get("typeName") or "",
             }
             # Surface a few useful simple properties on the related element itself —
             # e.g. ContactDetails.contactMethodValue, which is the actually useful
@@ -284,7 +287,7 @@ def get_actor_profile(
         # the sibling graph_query_depth= kwarg is ignored once an explicit body is
         # passed. Default max_mermaid_node_count=5 otherwise truncates any mermaid
         # diagram for this element -- see egeria-python PYEGERIA_ISSUES.md ISSUE-23.
-        body = {"class": "GetRequestBody", "graphQueryDepth": 1, "maxMermaidNodeCount": 250}
+        body = {"class": "GetRequestBody", "graphQueryDepth": 5, "maxMermaidNodeCount": 250}
         if as_of_time:
             body["asOfTime"] = as_of_time
         element = mgr.get_actor_profile_by_guid(guid, output_format="JSON", body=body)
@@ -336,7 +339,7 @@ def get_actor_role(
     try:
         # See get_actor_profile above re: embedding graphQueryDepth/maxMermaidNodeCount
         # in the body dict (PYEGERIA_ISSUES.md ISSUE-23).
-        body = {"class": "GetRequestBody", "graphQueryDepth": 1, "maxMermaidNodeCount": 250}
+        body = {"class": "GetRequestBody", "graphQueryDepth": 5, "maxMermaidNodeCount": 250}
         if as_of_time:
             body["asOfTime"] = as_of_time
         element = mgr.get_actor_role_by_guid(guid, output_format="JSON", body=body)
@@ -387,7 +390,7 @@ def get_user_identity(
     try:
         # See get_actor_profile above re: embedding graphQueryDepth/maxMermaidNodeCount
         # in the body dict (PYEGERIA_ISSUES.md ISSUE-23).
-        body = {"class": "GetRequestBody", "graphQueryDepth": 1, "maxMermaidNodeCount": 250}
+        body = {"class": "GetRequestBody", "graphQueryDepth": 5, "maxMermaidNodeCount": 250}
         if as_of_time:
             body["asOfTime"] = as_of_time
         element = mgr.get_user_identity_by_guid(guid, output_format="JSON", body=body)

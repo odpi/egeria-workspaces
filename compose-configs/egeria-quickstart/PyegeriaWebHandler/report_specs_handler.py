@@ -14,6 +14,7 @@ read from the cache. Each spec says where it came from (`source`), and which too
 published to (`usedBy`, from pyegeria's consumer index; report_spec_consumers.py).
 """
 
+from egeria_auth import service_password  # PO-45: no built-in service password
 import contextvars
 import json
 import os
@@ -504,7 +505,7 @@ def execute_spec(req: ExecuteRequest, request: Request):
     url      = req.url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
     server   = req.server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
     user_id  = req.user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
-    user_pwd = req.user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    user_pwd = req.user_pwd or service_password()
     token    = get_request_token()
     _table_shape(req)            # refuse a bad value before any cache read or Egeria call
 

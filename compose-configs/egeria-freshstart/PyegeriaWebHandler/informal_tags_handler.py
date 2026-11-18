@@ -15,6 +15,7 @@ Endpoints:
   GET /api/informal-tags/{guid}   → full detail for a tag (includes tagged elements)
 """
 
+from egeria_auth import service_password  # PO-45: no built-in service password
 import os
 from egeria_auth import apply_token
 from typing import Optional
@@ -34,7 +35,7 @@ def _get_manager(url=None, server=None, user_id=None, user_pwd=None):
     url      = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
     server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
     user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
-    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    user_pwd = user_pwd or service_password()
     mgr = ClassificationExplorer(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
     apply_token(mgr)
     return mgr
@@ -124,7 +125,10 @@ def get_informal_tag(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     try:
-        element = mgr.get_tag_by_guid(guid, output_format="JSON")
+        # graph_query_depth/max_mermaid_node_count default to 3/5-10 in pyegeria's shared
+        # get-by-guid helper -- override both for this single-element detail view (see
+        # egeria-python PYEGERIA_ISSUES.md ISSUE-23).
+        element = mgr.get_tag_by_guid(guid, output_format="JSON", graph_query_depth=5, max_mermaid_node_count=250)
     except Exception as exc:
         logger.exception(f"get_tag_by_guid failed for {guid}")
         raise HTTPException(status_code=500, detail=f"Informal tag retrieval failed: {exc}")

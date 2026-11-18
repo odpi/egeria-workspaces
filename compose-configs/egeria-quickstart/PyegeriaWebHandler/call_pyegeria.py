@@ -1,4 +1,5 @@
 # Helper to call pyegeria from FastAPI endpoint(s)
+from egeria_auth import service_password  # PO-45: no built-in service password
 import os
 from typing import Optional
 
@@ -45,7 +46,7 @@ def _build_egeria_tech() -> Optional[object]:
         or "https://localhost:9443"
     )
     user = os.environ.get("EGERIA_USER", "erinoverview")
-    pwd = os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    pwd = service_password()
     try:
         return EgeriaTech(view_server, url, user, pwd)
     except Exception as e:

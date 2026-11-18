@@ -24,6 +24,7 @@ skipping _build_markdown_block() since the content is already a complete
 document rather than one title+params form.
 """
 
+from egeria_auth import service_password  # PO-45: no built-in service password
 import os
 import re
 import tempfile
