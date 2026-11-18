@@ -46,7 +46,7 @@ When you're ready to run your own copy, see [Getting started](#getting-started) 
 
 ### Requirements
 
-- [Docker Desktop](https://www.docker.com/get-started/) (or podman + podman-compose; see [Monitoring Podman with PyCharm](Monitoring%20Podman%20with%20PyCharm.md))
+- [Docker Desktop](https://www.docker.com/get-started/) (or podman + podman-compose; see [Monitoring Podman with PyCharm](design-docs/Monitoring%20Podman%20with%20PyCharm.md))
 - Egeria platform image `6.0` or later (use tag `stable` or a specific post-6.0 tag if you have older cached images)
 
 ### Start the platform
@@ -307,7 +307,7 @@ Execute Dr. Egeria commands directly from your Obsidian vault:
 
 **Call Dr. Egeria**: MCP-based (over SSE); dynamic command discovery, content-first architecture (results written via the Obsidian API, no Docker volume permissions required).
    - Source: `obsidian-plugins/call-dr-egeria/`
-   - Guide: [Call Dr. Egeria Guide](Configuring%20and%20Using%20the%20Call%20Dr.%20Egeria%20Obsidian%20Plugin.md) · [Call Dr. Egeria README](obsidian-plugins/call-dr-egeria/README.md)
+   - Guide: [Call Dr. Egeria Guide](docs/Configuring%20and%20Using%20the%20Call%20Dr.%20Egeria%20Obsidian%20Plugin.md) · [Call Dr. Egeria README](obsidian-plugins/call-dr-egeria/README.md)
 
 For workspace-specific profiles (`work/Work-Obsidian`, `coco-workbooks`): [OBSIDIAN_PROFILES.md](compose-configs/egeria-quickstart/OBSIDIAN_PROFILES.md)
 
