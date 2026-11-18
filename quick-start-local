@@ -729,7 +729,10 @@ EOF
     # pushd here, so repo-root-relative paths would not resolve.
     "$REPO_ROOT/compose-configs/shared-infra/pin-latest-digest.sh" \
       "$REPO_ROOT/compose-configs/egeria-quickstart/Dockerfile-egeria-platform" \
-      docker.io/odpi/egeria-platform:latest
+      docker.io/odpi/egeria-platform:6.3 || {
+        echo "[quick-start-local] ERROR: --refresh-platform could not re-pin the egeria-platform image in compose-configs/egeria-quickstart/Dockerfile-egeria-platform (see pin-latest-digest output above)." >&2
+        exit 1
+      }
   fi
 
   # pyegeria-web's, jupyter's and my-profile's `pip install --upgrade pyegeria` each sit in

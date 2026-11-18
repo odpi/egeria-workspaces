@@ -1,4 +1,7 @@
-FROM docker.io/odpi/egeria-platform:latest@sha256:67d20cb532598f97b70d54e11b9a3431f3e74d4578e85658dd8054c2cb417523
+# Both stacks (quickstart and freshstart) pin the released 6.3 image. The old
+# :latest digest predated DCATContentPack (#849), so fs-metadata-store failed
+# to start and the container looped (TR-36).
+FROM docker.io/odpi/egeria-platform:6.3@sha256:483726b69b9e789749995d114633eeeab0f70a9c26ec5e59ae0e3d300ebda29c
 
 # Freshstart secrets are runtime-mounted from runtime-volumes/freshstart-platform-data/secrets.
 
