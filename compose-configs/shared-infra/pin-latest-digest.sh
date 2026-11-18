@@ -21,6 +21,8 @@
 # automatically anywhere.
 #
 # Usage: pin-latest-digest.sh <dockerfile> <image:tag>
+# Exits non-zero (2) if no FROM line in the Dockerfile uses that image, so a
+# caller can't silently re-pin nothing.
 # Leaves the Dockerfile untouched (with a warning, not a hard failure) if the
 # registry can't be reached -- a refresh attempt failing offline shouldn't
 # block starting up with whatever's already pinned.
@@ -45,7 +47,7 @@ fi
 image_no_tag="${image_tag%%:*}"
 
 DOCKERFILE="$dockerfile" IMAGE_NO_TAG="$image_no_tag" IMAGE_TAG="$image_tag" DIGEST="$digest" python3 <<'PYEOF'
-import os, re
+import os, re, sys
 
 path = os.environ["DOCKERFILE"]
 image_no_tag = os.environ["IMAGE_NO_TAG"]
@@ -69,7 +71,10 @@ for line in lines:
 with open(path, 'w') as f:
     f.writelines(out)
 
-print(("updated" if changed else "no matching FROM line found in"), path)
+if not changed:
+    print(f"[pin-latest-digest] ERROR: no FROM line for {image_no_tag} found in {path} -- nothing was re-pinned.", file=sys.stderr)
+    sys.exit(2)
+print("updated", path)
 PYEOF
 
 echo "[pin-latest-digest] ${dockerfile}: pinned ${image_tag} -> ${digest}"

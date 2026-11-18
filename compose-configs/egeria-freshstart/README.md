@@ -149,19 +149,36 @@ between freshstart/quickstart/`--demo`, see
 
 ### First run
 
-1. Start the stack: `./fresh-start-local`
-2. Open `https://localhost:7843/login` (accept the self-signed cert warning once)
-3. Sign in with `bootstrap` / `secret`
-4. If redirected to the password-change form, set a new password and continue
-5. Go to **Admin → Egeria Users** to create accounts for your team
+1. Set `EGERIA_ADMIN_CALLER_PASSWORD` in `compose-configs/egeria-freshstart/.env` (see [Required `.env` settings](#required-env-settings) below).
+   On a brand-new freshstart it is `secret`, bootstrap's initial password.
+2. Start the stack: `./fresh-start-local`. The script stops with an explanation if a required value is missing.
+3. Open `https://localhost:7843/login` (accept the self-signed cert warning once)
+4. Sign in with `bootstrap` / `secret`
+5. If redirected to the password-change form, set a new password and continue.
+   **Then update `EGERIA_ADMIN_CALLER_PASSWORD` in `.env` to the new password and run `./fresh-start-local` again**:
+   the Portal signs in to Egeria as `bootstrap` for its own work, so it needs bootstrap's current password.
+6. Go to **Admin → Egeria Users** to create accounts for your team
 
 ### Required `.env` settings
 
 Create `compose-configs/egeria-freshstart/.env` (gitignored) with at minimum:
 
 ```ini
-JWT_SECRET=your-random-32-plus-char-string
+EGERIA_ADMIN_CALLER_PASSWORD=bootstraps-current-password
 ```
+
+- `EGERIA_ADMIN_CALLER_PASSWORD`: the password of the Egeria account the Portal acts as for its own work.
+  That account is `EGERIA_ADMIN_CALLER_ID`, which is `bootstrap` unless you change it. There is no default:
+  without it, `./fresh-start-local` stops and says so. On a brand-new freshstart it is `secret`.
+  **Whenever bootstrap's password changes** (for example at first sign-in), update this value and re-run
+  `./fresh-start-local`, or the Portal's own calls to Egeria fail.
+
+- `JWT_SECRET` (signs the Portal's session cookies): you don't need to set it. `./fresh-start-local` generates a
+  random one into `.env` on the first run and keeps it. If you set your own, use a long random string; the published
+  example value is refused, because anyone could forge sessions signed with it.
+
+`./fresh-start-local` rewrites `.env` on every run but keeps both values. It writes the file private (mode 600);
+never commit it.
 
 Optional:
 
