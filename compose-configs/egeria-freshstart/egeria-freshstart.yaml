@@ -188,7 +188,8 @@ services:
       # ── Auth (Egeria-backed, no SQLite) ──────────────────────────────────────
       DEMO_MODE: "false"
       FEEDBACK_DB_PATH: "/app/demo-data/feedback.db"
-      JWT_SECRET: "${JWT_SECRET:-change-me-before-going-public}"
+      # No published default (RK-24b): gen-env.sh generates JWT_SECRET into .env on the first run and keeps it.
+      JWT_SECRET: "${JWT_SECRET:?JWT_SECRET is not set: run ./fresh-start-local, which generates one into compose-configs/egeria-freshstart/.env}"
       SITE_URL: "${SITE_URL:-https://localhost:7843}"
       # Comma-separated Egeria user IDs that receive portal admin role.
       # Add your own admin userId here after first login.

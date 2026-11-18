@@ -79,7 +79,8 @@ EOF
 
   ./gen-env.sh
   # RK-24 (2026-11-18): stop here, in words, rather than let compose fail with "required variable … is missing".
-  if ! grep -qE '^EGERIA_ADMIN_CALLER_PASSWORD=.+' .env; then
+  # Not just present: a value of "" or '' counts as missing too (read-back N2).
+  if ! grep -E '^EGERIA_ADMIN_CALLER_PASSWORD=' .env | head -n1 | cut -d= -f2- | tr -d "\"'" | grep -q .; then
     cat >&2 <<'MSG'
 [fresh-start-multi-host] STOP: EGERIA_ADMIN_CALLER_PASSWORD is not set.
   It is the password of the Egeria account the Portal acts as: EGERIA_ADMIN_CALLER_ID, which is
