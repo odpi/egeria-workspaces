@@ -48,6 +48,7 @@ under the server's own identity) writes are refused with 401 rather than made as
 a service account.
 """
 
+from egeria_auth import service_password  # PO-45: no built-in service password
 import asyncio
 import json
 import os
@@ -102,7 +103,7 @@ def _client_kwargs() -> dict:
         view_server=os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server"),
         platform_url=os.environ.get("EGERIA_PLATFORM_URL", "https://localhost:9443"),
         user_id=os.environ.get("EGERIA_USER", "erinoverview"),
-        user_pwd=os.environ.get("EGERIA_USER_PASSWORD", "secret"),
+        user_pwd=service_password(),
     )
 
 
@@ -340,7 +341,11 @@ def _jdbc_table_name(props: dict) -> Optional[str]:
 async def serve_resource_browser():
     if not _HTML.exists():
         raise HTTPException(status_code=404, detail="Resource Locator page not found")
-    return FileResponse(str(_HTML), media_type="text/html")
+    # no-store, like the Portal's other pages: without a Cache-Control header a browser
+    # guesses a freshness lifetime from Last-Modified and can keep showing the page from
+    # before a deploy for hours (2026-11-17: the Data lenses tile was missing for the owner).
+    return FileResponse(str(_HTML), media_type="text/html",
+                        headers={"Cache-Control": "no-store, must-revalidate"})
 
 
 # ── Reading a resource ────────────────────────────────────────────────────────

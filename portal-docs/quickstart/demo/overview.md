@@ -57,6 +57,10 @@ Each persona represents a [Coco Pharmaceuticals](../coco/overview.md) employee w
 
 See [Coco Pharmaceuticals personas](../coco/personas.md) for the full list.
 
+**Egeria sign-in tokens.** Each Portal page gets an Egeria bearer token for the persona when it opens. The Portal hands back the persona's token while it has at least 15 minutes left. A reload, a direct link or a new tab then uses the same token, and that page's saved counts and lists, which are kept per token, load at once instead of being read again. When a request is refused with 401, the page asks for a new token.
+
+**Signing out does not end an Egeria token.** Egeria tokens can't be revoked. A token already issued stays valid at Egeria until it expires, which takes about 2 hours, even after the visitor signs out of the Portal.
+
 ---
 
 ## Obsidian in demo mode

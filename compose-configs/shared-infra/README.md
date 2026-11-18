@@ -63,8 +63,34 @@ Its password is `PROVISIONER_PASSWORD` from `shared-infra/.env`. **There is no d
   that file (`up`, `down`, `ps`, `config`, …) needs it exported first: `source ../../shared-infra/export-provisioner-password.sh`.
 - Use letters and digits only (as the generated value is). The value is written as it is into YAML and into Airflow's
   connection URI, where other characters can break them.
-- Before this change the role had a well-known password. The first start after it rotates that password, the Egeria
-  secrets and the Airflow connection together. Writing to the shared Postgres affects other users, so tell them first.
+- **Re-running a start script keeps the password.** `quick-start-local`, `fresh-start-local` and `gen-env.sh` take
+  `PROVISIONER_PASSWORD` from the environment first, then from the existing `.env`, and write the value they used
+  back into `.env`. They generate a new one only when neither has a value. So a redeploy that leaves the databases
+  alone keeps the same password, and nothing loses access.
+- **A new password comes only from:**
+  - a missing `.env`, or a missing or empty `PROVISIONER_PASSWORD` line in it: for example a fresh clone, a
+    cleaned-up checkout, or a deleted `shared-infra/.env`. Keep that file, or keep a copy, if you want the password
+    to stay the same;
+  - a different `PROVISIONER_PASSWORD` exported in the shell you start from. It replaces the value in `.env`, so
+    don't leave a different value exported when you start.
+
+  If a new password does come in:
+  - The next start applies it to the role and to the Egeria secrets **of the stack you start** (for a freshstart with
+    `--keep-existing`, its placeholder secrets), so that stack's provisioning services keep working.
+  - The role is shared. On a host that runs both the quickstart and a freshstart, re-run the start script of the other
+    one too (`quick-start-local` or `fresh-start-local`). Until then its Egeria secrets keep the old password, and its
+    provisioning connectors fail to sign in (HTTP 500, `PostgresTabularDataSetCollectionConnector` and
+    `password authentication failed for user "provisioner"` in the platform log).
+  - No data is lost. Changing a role's password doesn't drop or empty anything: `egeria_ods`, `coco_data_hub`,
+    `subscription_staging` and Egeria's metadata store keep their contents. Egeria's own metadata store doesn't sign
+    in as `provisioner` at all.
+  - Airflow picks up the new value only when its containers are recreated. A `quick-start-local` run that starts
+    Airflow (`--with-airflow-marquez`, or by default under `--demo`) does this itself. Otherwise recreate them as
+    after a rotation (above). Until then its `coco_data_hub` loads fail with a sign-in error, visibly.
+- Before this change the role had a well-known password. The first start after it rotates that password, together
+  with the Egeria secrets of the stack you start and the Airflow connection if that start brings Airflow up. If the
+  host also runs the other stack, re-run its start script straight after (see above). Writing to the shared Postgres
+  affects other users, so tell them first.
 
 ### Egeria operational data store (egeria_ods)
 
@@ -228,6 +254,10 @@ docker compose -p egeria-shared-infra -f shared-infra.yaml ps
 ./quick-start-local
 ./fresh-start-local
 ```
+
+If a provisioning connector fails after a start with `password authentication failed for user "provisioner"`, the
+provisioner password was rotated by the other stack's start. Re-run this stack's start script (`quick-start-local` or
+`fresh-start-local`) so its Egeria secrets get the current value from `shared-infra/.env`.
 
 Rollback to a previous Kafka or Postgres image reference:
 

@@ -67,6 +67,16 @@ To change a persistent default (e.g. `console_width`, Egeria paths, logging), ed
 
 The runtime copies are made from the templates **only when they are missing, and are never overwritten**. So a template change, such as PR #630's governance-zone fixes, does not reach a running quickstart by itself. To pick it up, either delete the runtime copy and restart the stack, or copy the template over the runtime copy (keeping any local additions) and run `docker restart quickstart-egeria-main`. Restarting the platform interrupts anyone using Egeria for about a minute, so warn other users first.
 
+### The Portal's Egeria password
+
+The Portal (`pyegeria-web`) and `my-profile` sign in to Egeria with `QUICKSTART_PERSONA_PASSWORD` from `compose-configs/egeria-quickstart/.env`. There is no built-in default: without it, `docker compose` refuses to start, and the Portal never falls back to a well-known password.
+
+`./quick-start-local` takes care of it. An exported `QUICKSTART_PERSONA_PASSWORD` wins and is written to `.env`. Otherwise the value already in `.env` is kept. Otherwise the Coco demo persona password is written, because the quickstart is the Coco demo and its personas share one password. The value is never printed, and `.env` is written with mode 600.
+
+To use a different password, change it **together with the user directory**: the personas (`PyegeriaWebHandler/personas.json`) and the `.omsecrets` files above. Then export it, or set it in `.env`, before `./quick-start-local`. Use **letters and digits only**: `.env` is written unquoted and `docker compose` reads `$`, quotes, spaces and `#` specially, so any of them would reach the Portal as a different password. `./quick-start-local` warns if the password has any other character, without showing it.
+
+**Upgrading (6.3):** if you start the stack with plain `docker compose` rather than `./quick-start-local`, add `QUICKSTART_PERSONA_PASSWORD` to `.env` first. Running `./quick-start-local` once writes it for you.
+
 ---
 
 ## Key differences from demo mode

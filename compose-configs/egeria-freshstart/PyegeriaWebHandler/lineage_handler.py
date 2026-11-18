@@ -17,6 +17,7 @@ Auth: token only (X-Egeria-Token header). No user_id/user_pwd query params.
 Credentials for pyegeria client construction come from env vars only.
 """
 
+from egeria_auth import service_password  # PO-45: no built-in service password
 import inspect
 import os
 import re
@@ -44,7 +45,7 @@ def _creds(url, server):
         url    or os.environ.get("EGERIA_PLATFORM_URL", "https://localhost:9443"),
         server or os.environ.get("EGERIA_VIEW_SERVER",  "qs-view-server"),
         os.environ.get("EGERIA_USER",          "erinoverview"),
-        os.environ.get("EGERIA_USER_PASSWORD", "secret"),
+        service_password(),
     )
 
 

@@ -5,7 +5,7 @@
 
   Resource Locator — find resources (data, code, APIs, products) on Egeria alone.
   Served by PyegeriaWebHandler at /resource-browser (resource_browser_handler.py).
-  Phase 1: the Resource page (?guid=). Phase 2: Home, Search (L0) and Browse. Phase 3: work lists (?list=).
+  Phase 1: the Resource page (?guid=). Phase 2: Home, Search (L0) and Browse. Phase 3: working sets (?list=).
   Spec: trellis/packages/resource-explorer/docs/design-notes/SPEC-RESOURCE-BROWSER-PORTAL-APP.md
 -->
 <html lang="en">
@@ -471,8 +471,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 </script>
 <!-- Bump ?v= whenever egeria-shared-ui.js changes. -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
-<script src="/static/egeria-shared-ui.js?v=2026-11-11d"></script>
-<script src="/static/data-scope-editor.js?v=2026-11-16a"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-11-17-po41"></script>
+<script src="/static/data-scope-editor.js?v=2026-11-17b"></script>
 
 <script>
 'use strict';
@@ -480,7 +480,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 // Phase 1: one Resource page per element (?guid=), built as a standalone
 // component (ResourcePage, the guid its only data input) so other apps can
 // reuse it; Home, Search (L0) and Browse share one result row.
-// Routes: ?guid= (resource), ?q=&kind= (search), ?browse=&value= (browse), ?list= (work list), none (home).
+// Routes: ?guid= (resource), ?q=&kind= (search), ?browse=&value= (browse), ?list= (working set), none (home).
 // Honesty rules (spec §2): every figure carries its date and source; "never
 // measured" never renders as zero or as an empty table.
 var useState = React.useState;
@@ -491,6 +491,9 @@ var el = React.createElement;
 var API = '/api/resource-browser';
 // Served at both /resource-locator and the original /resource-browser;
 // links stay on whichever path the page was opened from.
+// The Locator's own home page is called "Resource Locator Home", not just "Home": the Portal has many
+// homes (Dan, 2026-11-17, PO-39).
+var HOME_LABEL = 'Resource Locator Home';
 var PAGE = window.location.pathname.indexOf('/resource-locator') === 0 ? '/resource-locator' : '/resource-browser';
 
 function fmtDate(iso) {
@@ -513,14 +516,120 @@ function sendJson(url, creds, method, body) {
     body: body === undefined ? undefined : JSON.stringify(body) });
 }
 
+// ── Back to where a resource was opened from (PO-38) ────────────────────────
+// A resource page remembers the page it was opened from (history.state: from = that page's search
+// string, fromLabel = how that page names itself), and each list page keeps its view (filters, pages
+// loaded, scroll) in sessionStorage, keyed by its search string, so the crumb returns to the same rows.
+// Only view state is kept there: no rows, no token (Architect R3).
+
+var VIEW_TTL_MS = 30 * 60 * 1000;
+var RESTORE_MAX_PAGES = 10;
+var _pageLabel = { search: null, label: '' };
+
+// What the current page calls itself, for the crumb of a page opened from it.
+function setPageLabel(label) { _pageLabel = { search: window.location.search, label: label || '' }; }
+
+function routeLabel(route, title) {
+  var t = title || '';
+  switch (route.page) {
+    case 'search': return 'Search \u201c' + (route.q || '') + '\u201d' + (t ? ' (' + t + ')' : '');
+    case 'browse': {
+      var f = (typeof FACETS !== 'undefined' ? FACETS : []).filter(function(x) { return x.id === route.facet; })[0];
+      return 'Browse \u203a ' + (f ? f.label : route.facet) + (route.value ? ' \u203a ' + (t || route.value) : '');
+    }
+    case 'list': return 'Working set' + (t ? ' \u2018' + t + '\u2019' : '');
+    case 'lens': return 'Data lens' + (t ? ' \u2018' + t + '\u2019' : '');
+    case 'resource': return t || 'the resource you came from';
+    case 'help': return 'Help';
+    default: return HOME_LABEL;
+  }
+}
+
+// The crumb's target, or null. Only a search string of this page (or none, for Home) is accepted,
+// and only for the resource the state was written for: anything else falls back to Home (Architect R2).
+function safeFrom(state, guid) {
+  if (!state || typeof state !== 'object' || state.guid !== guid || typeof state.from !== 'string') return null;
+  if (state.from.length > 2000 || !/^(\?[^#\s]*)?$/.test(state.from)) return null;
+  var label = typeof state.fromLabel === 'string' && state.fromLabel ? state.fromLabel.slice(0, 200) : 'the list you came from';
+  return { from: state.from, label: label };
+}
+
+function viewKey(search) { return 'rb-view:' + search; }
+function loadView(store, search, now) {
+  try {
+    var v = JSON.parse(store.getItem(viewKey(search)) || 'null');
+    return v && typeof v === 'object' && typeof v.at === 'number' && now - v.at <= VIEW_TTL_MS ? v : null;
+  } catch (e) { return null; }
+}
+function saveView(store, search, patch, now) {
+  try { store.setItem(viewKey(search), JSON.stringify(Object.assign({}, loadView(store, search, now) || {}, patch, { at: now }))); } catch (e) { /* storage full or off */ }
+}
+function viewStore() { try { return window.sessionStorage || null; } catch (e) { return null; } }
+
+// The page scrolls inside .rb-scroll (the app shell's content pane), not the window, at the usual
+// pane size; the window scrolls only when the pane does not (Coordinator's live check, PO-38 R4).
+function readScroll(doc, win) {
+  var pane = doc.querySelector('.rb-scroll');
+  return (pane && pane.scrollTop) || win.scrollY || 0;
+}
+function applyScroll(doc, win, y) {
+  var pane = doc.querySelector('.rb-scroll');
+  if (pane && pane.scrollHeight > pane.clientHeight) { pane.scrollTop = y; return pane.scrollTop; }
+  win.scrollTo(0, y);
+  return win.scrollY || 0;
+}
+// Restore once the rows are drawn: try a few frames until the position can be reached (the list may
+// still be laying out), then leave it where it got to.
+function restoreScroll(y, tries) {
+  if (!y) return;
+  var left = tries === undefined ? 20 : tries;
+  var got = applyScroll(document, window, y);
+  if (got < y - 2 && left > 0) setTimeout(function() { restoreScroll(y, left - 1); }, 50);
+}
+
 function openResource(guid) {
   var url = PAGE + '?guid=' + encodeURIComponent(guid);
-  window.history.pushState({ guid: guid }, '', url);
+  var from = window.location.search;
+  var label = _pageLabel.search === from && _pageLabel.label ? _pageLabel.label : routeLabel(currentRoute(), '');
+  var store = viewStore();
+  if (store) saveView(store, from, { scrollY: readScroll(document, window) }, Date.now());
+  window.history.pushState({ guid: guid, from: from, fromLabel: label }, '', url);
   window.dispatchEvent(new Event('rb-navigate'));
 }
 
+// One step back, like the browser's Back: when the entry before this one is the page it came from,
+// history.back() keeps the browser's own Back in step; if it was not (a new tab), go there instead.
+function goBackTo(back) {
+  if (!back) { navigate({}); return; }
+  var here = window.location.href;
+  window.history.back();
+  setTimeout(function() {
+    if (window.location.href === here) {
+      window.history.pushState({}, '', PAGE + back.from);
+      window.dispatchEvent(new Event('rb-navigate'));
+    }
+  }, 400);
+}
+
+function BackCrumb({ guid }) {
+  var back = safeFrom(window.history.state, guid);
+  return el('div', { className: 'rb-crumb' },
+    el('button', { className: 'rb-link', title: back ? 'Back to the list this was opened from, as you left it' : 'This page was opened directly',
+      onClick: function() { goBackTo(back); } }, '\u2190 ' + (back ? back.label : HOME_LABEL)));
+}
+
+// Where a row opens: a glossary term opens in Egeria Explorer's glossary (the Resource page is
+// built for data: structure, statistics, lineage); everything else opens its Resource page.
+var EXPLORER_TERM = '/egeria-explorer?guid=';
+function isTerm(item) { return !!item && (item.kind === 'term' || item.typeName === 'GlossaryTerm'); }
+function termUrl(guid) { return EXPLORER_TERM + encodeURIComponent(guid) + '#glossary'; }
+function openElement(item) {
+  if (isTerm(item)) { window.location.href = termUrl(item.guid); return; }
+  openResource(item.guid);
+}
+
 function ResourceLink({ item }) {
-  return el('button', { className: 'rb-link', title: item.typeName || '', onClick: function() { openResource(item.guid); } },
+  return el('button', { className: 'rb-link', title: item.typeName || '', onClick: function() { openElement(item); } },
     item.displayName || item.guid);
 }
 
@@ -544,19 +653,25 @@ Boundary.prototype.render = function() {
 
 var TERMS = {
   flavour: { label: 'Flavour', def: 'How curated a resource is. Hub: a member of a data sharing hub, so it is authoritative and kept up to date. Product: a digital product, or a member of one. Known: anything else Egeria knows about. A resource shows the highest that applies.' },
-  kind: { label: 'Kind', def: 'What sort of resource it is (table, schema, file, report…), worked out from its Egeria type. Columns and attributes, and Data fields, are parts of resources rather than resources. Pick several kinds to search them together.' },
+  kind: { label: 'Kind', def: 'What sort of resource it is (table, schema, file, report…), worked out from its Egeria type. Columns and attributes, and Data fields, are parts of resources rather than resources. Glossary terms are not resources either, so All leaves them out: pick Glossary terms to search them. Pick several kinds to search them together.' },
+  category: { label: 'Category', def: 'The element\u2019s category property: a free-text name an author gives to group elements, matched exactly. Few resources have one yet; glossary terms and products use it more.' },
+  term: { label: 'Glossary term', def: 'A word or phrase in a glossary, with what it means. A term opens in Egeria Explorer\u2019s glossary, which shows the glossary and folders that hold it.' },
   dataScope: { label: 'Data scope', def: 'The DataScope classification on a resource: the time and place its data covers (when it was collected, when it is valid, what period it covers, and a latitude, longitude and height box). Data lenses are matched against it. Set it in The Catalog.' },
-  dataLens: { label: 'Data lens', def: 'The scope of data a piece of work needs, in time, place and other dimensions. A lens governs a work list, and resources whose data scope falls inside it are suggested for that list.' },
-  badge: { label: 'Badge', def: 'A governance classification on the resource, such as Confidentiality, Criticality, Impact or Retention.' },
+  notComparable: { label: 'Cannot be compared', def: 'The resource records none of the dimensions the lens uses (for example the lens asks for a place and the resource records only a time), so it is neither inside nor outside the lens. It is counted on its own, never as outside.' },
+  noneRecorded: { label: 'No data scope recorded', def: 'Of the resources you can see, those with no data scope that records a time, place or other dimension: no DataScope at all, or one holding only usage readings from Egeria\u2019s lineage service. What you can see depends on zone security and the Promise/Memento toggle. These are the resources that need a scope; set one in The Catalog.' },
+  scopeNotRead: { label: 'Scope not read', def: 'This list was read in a way that did not bring each resource\u2019s classifications, so whether it records a data scope is unknown. It is counted on its own, not as \u201cnone recorded\u201d or \u201ccannot be compared\u201d.' },
+  dataLens: { label: 'Data lens', def: 'The scope of data a piece of work needs, in time, place and other dimensions. A lens governs a working set, and resources whose data scope falls inside it are suggested for that working set.' },
+  badge: { label: 'Badge', def: 'A badge from a curated list of governance classifications: Confidentiality, Confidence, Criticality, Impact, Retention or Security tags. Egeria has many more classifications; the badge list keeps Browse to the ones worth choosing from. Data scope and ownership are shown elsewhere.' },
   owner: { label: 'Owner', def: 'Who is accountable for the resource, from its Ownership classification.' },
   source: { label: 'Source system', def: 'The database or folder a resource comes from: the source itself and everything anchored to it.' },
-  collection: { label: 'Collection', def: 'A group of resources in Egeria: a product family, a data sharing hub, or a work list.' },
+  collection: { label: 'Collection', def: 'A group of resources in Egeria: a product family, a data sharing hub, or a working set.' },
+  folder: { label: 'Folder', def: 'A folder in Egeria (a CollectionFolder) that files elements: the folders of a glossary, of a product catalog or of a hub. A folder can hold resources, glossary terms, data fields and other folders.' },
   tag: { label: 'Tag', def: 'An informal tag: a free word anyone can attach to a resource to make it easier to find.' },
-  keyword: { label: 'Search keyword', def: 'A keyword a curator attached to a resource so search finds it.' },
+  keyword: { label: 'Search keyword', def: 'A keyword a curator attached to an element so search finds it. Browse groups keywords by their text, ignoring case; each attachment counts once.' },
   matched: { label: 'Matched', def: 'Why this result was found: which of its own fields matched, or a tag, keyword or owner, or "contains:" a column or field inside it that matched.' },
   partOf: { label: 'Part of', def: 'For a column, attribute or data field: the table, event type, data structure or asset that holds it.' },
   automation: { label: 'Automation', def: 'The last change was made by a service account (an engine, or a user name ending in npa), such as a survey or a connector, not by a person.' },
-  workList: { label: 'Work list', def: 'An Egeria collection of resources you gather for a piece of work, each with the reason you added it. You can share it with a team or community.' },
+  workList: { label: 'Working set', def: 'An Egeria collection (WorkingSet) of resources you gather for a piece of work, each with the reason you added it. You can share it with a team or community.' },
   meaning: { label: 'Meaning', def: 'Glossary terms assigned to the resource or its columns: what it means in business terms.' },
   lineage: { label: 'Lineage', def: 'Where the data comes from and where it goes: data flows, process calls and mappings, one level each way.' },
   statistics: { label: 'Statistics', def: 'Measurements from the latest survey of the resource, such as row counts and column profiles, each with its date.' },
@@ -570,7 +685,7 @@ var TERMS = {
   popular: { label: 'Popular', def: 'Resources ranked by how much they are used. Not shown until the Locator reads a usage measure.' },
   recent: { label: 'Recently changed', def: 'The resources changed most recently. Hide automation to see only changes people made.' },
   favourites: { label: 'Favourites', def: 'Resources you saved as favourites anywhere in the Portal.' },
-  browse: { label: 'Browse', def: 'Find resources without typing, by tag, badge, owner, source system, collection, flavour or data scope.' },
+  browse: { label: 'Browse', def: 'Find resources without typing, by tag, badge, owner, source system, collection, folder, search keyword, category, flavour or data scope.' },
 };
 
 // A small "?" whose definition shows on hover and on keyboard focus.
@@ -1176,7 +1291,8 @@ function scopeParts(scope) {
     var e = m[1] + 'EndTime'; used[k] = used[e] = true;
     if (!scope[k] && !scope[e]) return;
     parts.push({ key: m[1], k: SCOPE_PERIOD_LABELS[m[1]] || _titleCase(m[1]).toLowerCase(),
-      v: (scope[k] ? fmtDate(scope[k]) : '…') + ' → ' + (scope[e] ? fmtDate(scope[e]) : '…'), title: 'Period: ' + _titleCase(m[1]) });
+      v: window.dataScopePeriodText ? dataScopePeriodText(scope[k], scope[e])
+         : (scope[k] ? fmtDate(scope[k]) : '…') + ' → ' + (scope[e] ? fmtDate(scope[e]) : '…'), title: 'Period: ' + _titleCase(m[1]) + ' (UTC)' });
   });
   Object.keys(scope || {}).forEach(function(k) {
     var m = /^min([A-Z]\w*)$/.exec(k);
@@ -1283,6 +1399,7 @@ function ResourcePage({ guid, creds, personaId }) {
       .then(function(d) {
         setRes(d);
         document.title = d.displayName + ' · Resource Locator';
+        setPageLabel(routeLabel({ page: 'resource' }, d.displayName));
         if (d.jdbcTableName) {
           getJson(API + '/resource/' + encodeURIComponent(guid) + '/statistics', creds)
             .then(setStats).catch(function(e) { setStats({ error: e.message }); });
@@ -1313,6 +1430,7 @@ function ResourcePage({ guid, creds, personaId }) {
   }
 
   return el('div', { className: 'rb-page' },
+    el(BackCrumb, { guid: guid }),
     el(PartOfCrumb, { res: res, structure: structure }),
     el('div', { className: 'rb-row', style: { alignItems: 'flex-start', justifyContent: 'space-between' } },
       el('div', { style: { minWidth: 0, flex: 1 } },
@@ -1377,12 +1495,12 @@ function currentRoute() {
   if (p.get('list')) return { page: 'list', guid: p.get('list') };
   if (p.get('lens')) return { page: 'lens', guid: p.get('lens') };
   if (p.has('help')) return { page: 'help' };
-  if (p.get('browse')) return { page: 'browse', facet: p.get('browse'), value: p.get('value') || '' };
+  if (p.get('browse')) return { page: 'browse', facet: p.get('browse'), value: p.get('value') || '', lens: p.get('lens') || '' };
   return { page: 'home' };
 }
 
 var KIND_ICONS = { table: '▦', schema: '🗂', database: '🛢', report: '📊', dataset: '📋', file: '📄',
-                   topic: '📡', product: '📦', api: '🔌', repo: '⎇', attribute: '▥', field: '◇', other: '•' };
+                   topic: '📡', product: '📦', api: '🔌', repo: '⎇', attribute: '▥', field: '◇', term: '📖', other: '•' };
 
 // The kinds search filters on come from the server, so the two never disagree.
 var _kindsPromise = null;
@@ -1390,7 +1508,7 @@ function useKinds(creds) {
   var _k = useState(null), kinds = _k[0], setKinds = _k[1];
   useEffect(function() {
     // Resource kinds, then the parts of resources (columns and attributes, data fields) that search also finds.
-    if (!_kindsPromise) _kindsPromise = getJson(API + '/kinds', creds).then(function(d) { return d.kinds.concat(d.parts || []); })
+    if (!_kindsPromise) _kindsPromise = getJson(API + '/kinds', creds).then(function(d) { return d.kinds.concat(d.parts || [], d.others || []); })
       .catch(function() { _kindsPromise = null; return []; });
     var live = true;
     _kindsPromise.then(function(k) { if (live) setKinds(k); });
@@ -1458,9 +1576,10 @@ function ResultRow({ row, idx, extras, showMatched, inLists, extra }) {
   return el('div', { className: 'rb-result' },
     el('div', { className: 'rb-row', style: { gap: 8 } },
       el('span', { className: 'rb-kind', title: row.typeName }, KIND_ICONS[row.kind] || '•'),
-      el('button', { className: 'rb-link n', onClick: function() { openResource(row.guid); } }, row.displayName),
+      el('button', { className: 'rb-link n', title: isTerm(row) ? 'Opens the term in Egeria Explorer' : '', onClick: function() { openElement(row); } }, row.displayName),
       el('span', { className: 'rb-type' }, row.typeName),
-      row.partOf !== undefined ? el(PartOfLine, { row: row }) : el(FlavourBadge, { flavour: flav }),
+      isTerm(row) ? (row.contentStatus && el('span', { className: 'rb-chip', title: 'The term\u2019s content status' }, row.contentStatus.toLowerCase()))
+        : row.partOf !== undefined ? el(PartOfLine, { row: row }) : el(FlavourBadge, { flavour: flav }),
       row.badges.map(function(b) { return el('span', { key: b, className: 'rb-chip' }, b); }),
       row.hasScope && el('span', { className: 'rb-chip', title: 'This resource records a data scope (time, place or another dimension)' }, '◷ scope')),
     row.qualifiedName && row.qualifiedName !== row.displayName && el('div', { className: 'rb-qn' }, row.qualifiedName),
@@ -1469,21 +1588,190 @@ function ResultRow({ row, idx, extras, showMatched, inLists, extra }) {
       : el('div', { className: 'd rb-absent' }, 'No description.'),
     el('div', { className: 'rb-row m' },
       el('span', null, 'owner: ', row.owner ? el('b', null, row.owner) : el('i', null, 'not recorded')),
+      row.category && el('span', null, 'category: ', el('b', null, row.category)),
       el('span', null, 'last updated by ', el('b', null, row.updatedBy || 'unknown'),
         row.automated ? el(React.Fragment, null, ' (automation', el(Help, { term: 'automation' }), ')') : '', ' · ', fmtDate(row.updateTime)),
       showMatched && row.matched.length > 0 && el('span', null, 'matched', el(Help, { term: 'matched' }), ': ' + row.matched.join('; ')),
-      inLists > 0 && el('span', null, 'in ' + inLists + ' of your lists'),
+      inLists > 0 && el('span', null, 'in ' + inLists + ' of your working sets'),
       el(RowExtras, { extras: extras })),
     extra);
+}
+
+// ── Bulk add: select rows, add them to a working set in one go (PO-37) ────────
+
+var BULK_CHUNK = 100;   // the server's _ADD_CAP: members added in one request
+
+// Every row shown: loaded and passing the current filters. Never a match that is not loaded.
+function selectAllShown(rows, selected) {
+  var n = Object.assign({}, selected || {});
+  rows.forEach(function(r) { n[r.guid] = true; });
+  return n;
+}
+
+// {count, hidden}: how many are selected, and how many of those the current filters hide.
+function selectionSummary(selected, shownRows) {
+  var shown = {};
+  shownRows.forEach(function(r) { shown[r.guid] = true; });
+  var keys = Object.keys(selected || {}).filter(function(g) { return selected[g]; });
+  return { count: keys.length, hidden: keys.filter(function(g) { return !shown[g]; }).length };
+}
+
+function chunk(arr, n) {
+  var out = [];
+  for (var i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
+  return out;
+}
+
+// What to send to a list. When the list's members were read in full, a row already in it is not
+// sent; when the read was capped (Architect R1), membership is not known, so everything is sent
+// and a success says "added or already in it".
+function planBulkAdd(guids, list, memberOf) {
+  var capped = !list || !!list.membersCapped;
+  var send = [], already = [];
+  guids.forEach(function(g) {
+    var inIt = !capped && ((memberOf || {})[g] || []).indexOf(list.guid) >= 0;
+    (inIt ? already : send).push(g);
+  });
+  return { send: send, already: already, capped: capped };
+}
+
+// Outcomes for one chunk from its response: a 207's failed map names the rows that failed; a request
+// that failed as a whole fails every row it carried (never counted as done).
+function chunkOutcomes(sent, result, capped) {
+  var out = {};
+  sent.forEach(function(g) {
+    if (result.error) out[g] = { state: 'failed', message: result.error };
+    else if (result.failed && result.failed[g]) out[g] = { state: 'failed', message: result.failed[g] };
+    else out[g] = { state: capped ? 'addedOrAlready' : 'added' };
+  });
+  return out;
+}
+
+function bulkSummary(outcomes, listName) {
+  var n = { added: 0, addedOrAlready: 0, already: 0, failed: 0 };
+  Object.keys(outcomes).forEach(function(g) { n[outcomes[g].state] = (n[outcomes[g].state] || 0) + 1; });
+  var total = n.added + n.addedOrAlready + n.already + n.failed;
+  var parts = [];
+  if (n.added) parts.push('added ' + n.added);
+  if (n.addedOrAlready) parts.push(n.addedOrAlready + ' added or already in it (the working set is too long to check)');
+  if (n.already) parts.push(n.already + ' already in it');
+  if (n.failed) parts.push(n.failed + ' failed (see the row' + (n.failed === 1 ? '' : 's') + '; still selected, so Add again retries ' + (n.failed === 1 ? 'it' : 'them') + ')');
+  return total + ' to \u2018' + listName + '\u2019: ' + parts.join(', ') + '.';
+}
+
+// Add guids to a list, BULK_CHUNK at a time and one request at a time (Architect R4): a chunk is done
+// only when its response has arrived, and progress names the rows in flight. post(part) returns a
+// promise of the response body. Resolves to {guid: outcome}; it never rejects.
+function bulkAdd(list, guids, memberOf, post, onProgress) {
+  var plan = planBulkAdd(guids, list, memberOf);
+  var outcomes = {};
+  plan.already.forEach(function(g) { outcomes[g] = { state: 'already' }; });
+  return chunk(plan.send, BULK_CHUNK).reduce(function(p, part, i) {
+    return p.then(function() {
+      onProgress('Adding ' + (i * BULK_CHUNK + 1) + '\u2013' + (i * BULK_CHUNK + part.length) + ' of ' + plan.send.length + '\u2026');
+      return Promise.resolve().then(function() { return post(part); })
+        .then(function(d) { return { failed: (d && d.failed) || null }; }, function(e) { return { error: (e && e.message) || String(e) }; })
+        .then(function(res) { Object.assign(outcomes, chunkOutcomes(part, res, plan.capped)); });
+    });
+  }, Promise.resolve()).then(function() { return outcomes; });
+}
+
+var OUTCOME_TEXT = { added: 'added to the working set', addedOrAlready: 'added or already in the working set', already: 'already in the working set' };
+
+// Selection state for one result list; cleared when the list itself changes (query, kind, facet value).
+function useBulkSelection(resetKey) {
+  var _s = useState({}), selected = _s[0], setSelected = _s[1];
+  var _o = useState({}), outcomes = _o[0], setOutcomes = _o[1];
+  useEffect(function() { setSelected({}); setOutcomes({}); }, [resetKey]);
+  return { selected: selected, setSelected: setSelected, outcomes: outcomes, setOutcomes: setOutcomes,
+    toggle: function(g, on) { var n = Object.assign({}, selected); if (on) n[g] = true; else delete n[g]; setSelected(n); } };
+}
+
+function BulkBar({ rows, sel, creds, mayHaveMore, what }) {
+  var lists = useLists(creds);
+  var _t = useState(''), target = _t[0], setTarget = _t[1];
+  var _w = useState(''), why = _w[0], setWhy = _w[1];
+  var _n = useState(''), newName = _n[0], setNewName = _n[1];
+  var _p = useState(''), progress = _p[0], setProgress = _p[1];
+  var _m = useState(''), msg = _m[0], setMsg = _m[1];
+  if (!lists || lists.error || !lists.canWrite || !rows.length) return null;
+  var sum = selectionSummary(sel.selected, rows);
+  var busy = !!progress;
+
+  function run(list) {
+    var guids = Object.keys(sel.selected).filter(function(g) { return sel.selected[g]; });
+    setMsg('');
+    setProgress('Adding\u2026');      // at once, so a second click finds Add disabled (Architect R4)
+    function post(part) {
+      // A 207 (some rows failed) is a success status, so its failed map arrives here.
+      return sendJson(API + '/lists/' + encodeURIComponent(list.guid) + '/members', creds, 'POST', { guids: part, rationale: why.trim() || null });
+    }
+    return bulkAdd(list, guids, lists.memberOf, post, setProgress).then(function(outcomes) {
+      return refreshLists(creds).catch(function() {}).then(function() {
+        setProgress('');
+        sel.setOutcomes(Object.assign({}, sel.outcomes, outcomes));
+        var keep = {};
+        Object.keys(outcomes).forEach(function(g) { if (outcomes[g].state === 'failed') keep[g] = true; });
+        sel.setSelected(keep);
+        setMsg(bulkSummary(outcomes, list.displayName));
+      });
+    });
+  }
+  function add() {
+    if (target === 'new') {
+      if (!newName.trim()) return;
+      setProgress('Creating the working set\u2026');
+      sendJson(API + '/lists', creds, 'POST', { name: newName.trim() })
+        .then(function(l) { setNewName(''); setTarget(l.guid); return run(Object.assign({ membersCapped: false }, l)); })
+        .catch(function(e) { setProgress(''); setMsg('The working set could not be created: ' + e.message); });
+      return;
+    }
+    var list = (lists.mine || []).filter(function(l) { return l.guid === target; })[0];
+    if (list) run(list);
+  }
+
+  return el('div', { className: 'rb-card', style: { padding: '8px 12px', marginBottom: 10 } },
+    el('div', { className: 'rb-row', style: { gap: 8, flexWrap: 'wrap' } },
+      el('button', { className: 'rb-edit', disabled: busy, onClick: function() { sel.setSelected(selectAllShown(rows, sel.selected)); } },
+        'Select all ' + rows.length + ' loaded ' + (what || 'results') + ' that match these filters'),
+      el('button', { className: 'rb-edit', disabled: busy || !sum.count, onClick: function() { sel.setSelected({}); } }, 'Clear all'),
+      el('span', { className: 'rb-note' }, sum.count + ' selected' + (sum.hidden ? ' (' + sum.hidden + ' hidden by the filters)' : '')),
+      el('select', { className: 'rb-select', value: target, disabled: busy, onChange: function(e) { setTarget(e.target.value); } },
+        el('option', { value: '' }, 'Add to working set\u2026'),
+        (lists.mine || []).map(function(l) { return el('option', { key: l.guid, value: l.guid }, l.displayName); }),
+        el('option', { value: 'new' }, 'New working set\u2026')),
+      target === 'new' && el('input', { className: 'rb-text', style: { maxWidth: 200, padding: '4px 8px' }, value: newName, placeholder: 'New working set name',
+        disabled: busy, onChange: function(e) { setNewName(e.target.value); } }),
+      target && el('input', { className: 'rb-text', style: { maxWidth: 240, padding: '4px 8px' }, value: why, placeholder: 'Why (optional, kept with each item)',
+        disabled: busy, onChange: function(e) { setWhy(e.target.value); } }),
+      el('button', { className: 'rb-btn', disabled: busy || !sum.count || !target || (target === 'new' && !newName.trim()), onClick: add },
+        'Add ' + sum.count + ' to working set\u2026')),
+    mayHaveMore && el('div', { className: 'rb-note', style: { marginTop: 4 } }, 'More results may exist: load more first to include them in Select all.'),
+    progress && el('div', { className: 'rb-note', style: { marginTop: 4 } }, el('span', { className: 'spinner', style: { width: 10, height: 10, display: 'inline-block', marginRight: 6 } }), progress),
+    msg && el('div', { className: msg.indexOf('failed') >= 0 || msg.indexOf('could not') >= 0 ? 'rb-err' : 'rb-note', style: { marginTop: 4 } }, msg));
 }
 
 var ROWS_SHOWN = 25;
 
 // Shows rows 25 at a time and reads feedback only for the rows on screen
 // (spec §4: per-row lookups are lazy, so a list costs a handful of calls).
-function ResultList({ rows, creds, idx, showMatched, renderExtra }) {
+// How many rows a list showed when it was left, so a return lands on the same rows (Dan, PO-38): the
+// saved count applies only to the same list (listKey: query, kind and filters), else ROWS_SHOWN.
+function initialShownCount(view, listKey) {
+  return view && view.shownKey === listKey && typeof view.shown === 'number' && view.shown > ROWS_SHOWN ? view.shown : ROWS_SHOWN;
+}
+
+function ResultList({ rows, creds, idx, showMatched, renderExtra, sel, viewSearch, listKey }) {
   var lists = useLists(creds);
-  var _n = useState(ROWS_SHOWN), shown = _n[0], setShown = _n[1];
+  var _n = useState(function() {
+    var store = viewSearch !== undefined ? viewStore() : null;
+    return initialShownCount(store ? loadView(store, viewSearch, Date.now()) : null, listKey);
+  }), shown = _n[0], setShown = _n[1];
+  function showMore() {
+    var n = shown + ROWS_SHOWN, store = viewSearch !== undefined ? viewStore() : null;
+    setShown(n);
+    if (store) saveView(store, viewSearch, { shown: n, shownKey: listKey }, Date.now());
+  }
   var _x = useState({}), extras = _x[0], setExtras = _x[1];
   var asked = useRef(new Set());
   var visible = rows.slice(0, shown);
@@ -1503,12 +1791,20 @@ function ResultList({ rows, creds, idx, showMatched, renderExtra }) {
   }, [rows, shown]);
   return el('div', null,
     visible.map(function(r) {
-      return el(ResultRow, { key: r.guid, row: r, idx: idx, extras: extras[r.guid], showMatched: showMatched,
+      var row = el(ResultRow, { key: r.guid, row: r, idx: idx, extras: extras[r.guid], showMatched: showMatched,
         inLists: lists && lists.memberOf && lists.memberOf[r.guid] ? lists.memberOf[r.guid].length : 0,
         extra: renderExtra ? renderExtra(r) : null });
+      if (!sel || !lists || !lists.canWrite) return row;
+      var o = sel.outcomes[r.guid];
+      return el('div', { key: r.guid, style: { display: 'flex', gap: 8, alignItems: 'flex-start' } },
+        el('input', { type: 'checkbox', style: { marginTop: 14 }, checked: !!sel.selected[r.guid], 'aria-label': 'Select ' + r.displayName,
+          onChange: function(e) { sel.toggle(r.guid, e.target.checked); } }),
+        el('div', { style: { flex: 1, minWidth: 0 } }, row,
+          o && el('div', { className: o.state === 'failed' ? 'rb-err' : 'rb-note', style: { margin: '-4px 0 8px' } },
+            o.state === 'failed' ? 'Not added: ' + o.message : OUTCOME_TEXT[o.state])));
     }),
     rows.length > shown && el('button', { className: 'rb-btn ghost', style: { marginTop: 10 },
-      onClick: function() { setShown(shown + ROWS_SHOWN); } }, 'Show ' + Math.min(ROWS_SHOWN, rows.length - shown) + ' more of ' + rows.length));
+      onClick: showMore }, 'Show ' + Math.min(ROWS_SHOWN, rows.length - shown) + ' more of ' + rows.length));
 }
 
 function SourceLine({ data, extra }) {
@@ -1532,7 +1828,7 @@ function NavBar({ route }) {
     return el('button', { className: 'rb-navtab' + (route.page === page ? ' on' : ''), onClick: function() { navigate(params); } }, label);
   }
   return el('div', { className: 'rb-nav' },
-    tab('home', 'Home', {}),
+    tab('home', HOME_LABEL, {}),
     tab('browse', 'Browse', { browse: 'tag' }),
     tab('help', 'Help', { help: '' }),
     el('form', { onSubmit: submit, style: { flex: 1, display: 'flex', maxWidth: 560, marginLeft: 'auto' } },
@@ -1548,6 +1844,26 @@ function uniqueValues(rows, pick) {
   return Object.keys(s).sort(function(a, b) { return a.toLowerCase() < b.toLowerCase() ? -1 : 1; });
 }
 
+// Category (the element's category property, matched exactly): the choices are the loaded rows'
+// categories, plus NO_CATEGORY when some row has none. '' means any category.
+var NO_CATEGORY = '(no category)';
+function categoryOptions(rows) {
+  var named = uniqueValues(rows, function(r) { return r.category ? [r.category] : []; });
+  var blank = rows.some(function(r) { return !r.category; });
+  return named.length ? (blank ? named.concat([NO_CATEGORY]) : named) : [];
+}
+function inCategory(row, cat) {
+  return !cat || (cat === NO_CATEGORY ? !row.category : row.category === cat);
+}
+
+function CategorySelect({ value, options, onChange }) {
+  return el('span', { className: 'rb-row', style: { gap: 2 } },
+    el('select', { className: 'rb-select', value: value, onChange: function(e) { onChange(e.target.value); }, disabled: !options.length && !value },
+      el('option', { value: '' }, options.length ? 'any category' : 'no categories here'),
+      options.map(function(c) { return el('option', { key: c, value: c }, c); })),
+    el(Help, { term: 'category' }));
+}
+
 // The kinds a search is narrowed to, from the URL's kind=table,schema; [] for All.
 function pickedKinds(kind) {
   return (kind || '').split(',').map(function(k) { return k.trim(); }).filter(Boolean);
@@ -1559,6 +1875,47 @@ function toggleKind(picked, id) {
   return next.length ? { kind: next.join(',') } : {};
 }
 
+var NO_FILTERS = { flavour: '', owner: '', badge: '', category: '', scope: false };
+
+// Rows of a new page added to those loaded: a row seen again keeps one entry and gains its reasons.
+function mergeResults(prev, rows) {
+  var out = prev.slice(), have = {};
+  out.forEach(function(r) { have[r.guid] = r; });
+  rows.forEach(function(r) {
+    if (have[r.guid]) r.matched.forEach(function(m) { if (have[r.guid].matched.indexOf(m) < 0) have[r.guid].matched.push(m); });
+    else { have[r.guid] = r; out.push(r); }
+  });
+  return out;
+}
+
+// Read pages 0..n-1 again, one at a time, n at most RESTORE_MAX_PAGES. If a page fails, stop and say so:
+// a partial list is never shown as the rows you had (Architect R3). An empty or last page ends early.
+// fetchPage(page) returns a promise of the page; onRows(rows so far, page) shows progress.
+// Resolves to {rows, complete, note}; never rejects.
+function restorePages(pages, fetchPage, onProgress, onRows) {
+  var n = Math.min(pages, RESTORE_MAX_PAGES), acc = [], read = 0, error = null, done = false;
+  var step = Promise.resolve();
+  for (var i = 0; i < n; i++) {
+    (function(page) {
+      step = step.then(function() {
+        if (done || error) return;
+        onProgress('Restoring the results you had: page ' + (page + 1) + ' of ' + n + '\u2026');
+        return Promise.resolve().then(function() { return fetchPage(page); }).then(function(d) {
+          acc = mergeResults(acc, d.items || []); read = page + 1; onRows(acc, d);
+          if (!d.mayHaveMore) done = true;
+        }, function(e) { error = (e && e.message) || String(e); });
+      });
+    })(i);
+  }
+  return step.then(function() {
+    var note = '';
+    if (error) note = 'Only ' + read + ' of the ' + n + ' pages you had could be read again (' + error +
+      '), so this is not the full list you left. Load more continues from here.';
+    else if (pages > n) note = 'The first ' + n + ' of the ' + pages + ' pages you had are shown again; Load more continues from here.';
+    return { rows: acc, complete: !error, note: note };
+  });
+}
+
 function SearchPage({ q, kind, creds }) {
   var kinds = useKinds(creds);
   var picked = pickedKinds(kind);
@@ -1567,40 +1924,58 @@ function SearchPage({ q, kind, creds }) {
   var _i = useState([]), items = _i[0], setItems = _i[1];
   var _e = useState(''), err = _e[0], setErr = _e[1];
   var _l = useState(false), loading = _l[0], setLoading = _l[1];
-  var _f = useState({ flavour: '', owner: '', badge: '', scope: false }), filt = _f[0], setFilt = _f[1];
+  var _f = useState(NO_FILTERS), filt = _f[0], setFilt = _f[1];
+  var _rs = useState(''), restoring = _rs[0], setRestoring = _rs[1];
+  var _rn = useState(''), restoreNote = _rn[0], setRestoreNote = _rn[1];
+  var sel = useBulkSelection(q + '|' + kind);
+  var here = window.location.search;
 
+  function pageUrl(page) {
+    return API + '/search?q=' + encodeURIComponent(q) + (kind ? '&kind=' + encodeURIComponent(kind) : '') + '&page=' + page;
+  }
   function load(page) {
     setLoading(true); setErr('');
-    var url = API + '/search?q=' + encodeURIComponent(q) + (kind ? '&kind=' + encodeURIComponent(kind) : '') + '&page=' + page;
-    getJson(url, creds).then(function(d) {
+    getJson(pageUrl(page), creds).then(function(d) {
       setData(d);
-      setItems(function(prev) {
-        var have = {}; var out = page ? prev.slice() : [];
-        out.forEach(function(r) { have[r.guid] = r; });
-        d.items.forEach(function(r) {
-          if (have[r.guid]) r.matched.forEach(function(m) { if (have[r.guid].matched.indexOf(m) < 0) have[r.guid].matched.push(m); });
-          else { have[r.guid] = r; out.push(r); }
-        });
-        return out;
-      });
+      setItems(function(prev) { return mergeResults(page ? prev : [], d.items); });
     }).catch(function(e) { setErr(e.message); }).finally(function() { setLoading(false); });
   }
+  // Coming back from a resource: the same pages again (see restorePages).
+  function restore(pages, scrollY) {
+    setLoading(true); setErr(''); setRestoreNote('');
+    restorePages(pages, function(page) { return getJson(pageUrl(page), creds); }, setRestoring, function(acc, d) { setItems(acc); setData(d); })
+      .then(function(r) {
+        setRestoring(''); setLoading(false);
+        setRestoreNote(r.note);
+        if (r.complete && scrollY) setTimeout(function() { restoreScroll(scrollY); }, 0);
+      });
+  }
   useEffect(function() {
-    setItems([]); setData(null); setFilt({ flavour: '', owner: '', badge: '', scope: false });
+    setItems([]); setData(null); setRestoreNote('');
+    var store = viewStore(), v = store ? loadView(store, here, Date.now()) : null;
+    setFilt(v && v.filt ? Object.assign({}, NO_FILTERS, v.filt) : NO_FILTERS);
     document.title = (q ? q + ' · ' : '') + 'Search · Resource Locator';
-    if (q) load(0);
+    if (q) { if (v && v.pages >= 1) restore(v.pages, v.scrollY); else load(0); }
   }, [q, kind, creds && creds.token]);
+  useEffect(function() {
+    var store = viewStore();
+    if (store && q && data && !restoring) saveView(store, here, { filt: filt, pages: data.page + 1 }, Date.now());
+  }, [filt, data && data.page, restoring]);
+  setPageLabel(routeLabel({ page: 'search', q: q }, picked.map(function(id) {
+    var k = kinds.filter(function(x) { return x.id === id; })[0]; return k ? k.label : id; }).join(', ')));
 
   var shown = items.filter(function(r) {
     if (filt.flavour && rowFlavour(idx, r) !== filt.flavour) return false;
     if (filt.owner && (r.owner || '(not recorded)') !== filt.owner) return false;
     if (filt.badge && r.badges.indexOf(filt.badge) < 0) return false;
+    if (!inCategory(r, filt.category)) return false;
     if (filt.scope && !r.hasScope) return false;
     return true;
   });
   var owners = uniqueValues(items, function(r) { return [r.owner || '(not recorded)']; });
   var badges = uniqueValues(items, function(r) { return r.badges; });
-  var filtering = filt.flavour || filt.owner || filt.badge || filt.scope;
+  var categories = categoryOptions(items);
+  var filtering = filt.flavour || filt.owner || filt.badge || filt.category || filt.scope;
   function set(k, v) { var n = Object.assign({}, filt); n[k] = v; setFilt(n); }
 
   if (!q) return el('div', { className: 'rb-page' }, el('div', { className: 'rb-absent' }, 'Type a word in the search box above.'));
@@ -1626,9 +2001,12 @@ function SearchPage({ q, kind, creds }) {
       el('select', { className: 'rb-select', value: filt.badge, onChange: function(e) { set('badge', e.target.value); }, disabled: !badges.length },
         el('option', { value: '' }, badges.length ? 'any badge' : 'no badges here'),
         badges.map(function(b) { return el('option', { key: b, value: b }, b); })),
+      el(CategorySelect, { value: filt.category, options: categories, onChange: function(v) { set('category', v); } }),
       el('label', { className: 'rb-note', style: { display: 'flex', gap: 4, alignItems: 'center' } },
         el('input', { type: 'checkbox', checked: filt.scope, onChange: function(e) { set('scope', e.target.checked); } }), 'has a data scope', el(Help, { term: 'dataScope' })),
-      filtering && el('button', { className: 'rb-edit', onClick: function() { setFilt({ flavour: '', owner: '', badge: '', scope: false }); } }, 'Clear')),
+      filtering && el('button', { className: 'rb-edit', onClick: function() { setFilt(NO_FILTERS); } }, 'Clear')),
+    restoring && el('div', { className: 'rb-note', style: { marginBottom: 10 } }, el('span', { className: 'spinner', style: { width: 10, height: 10, display: 'inline-block', marginRight: 6 } }), restoring),
+    restoreNote && el('div', { className: 'rb-err', style: { marginBottom: 10 } }, restoreNote),
     err && el('div', { className: 'rb-err', style: { marginBottom: 10 } }, 'Search failed: ' + err),
     data && el('div', { className: 'rb-note', style: { marginBottom: 10 } },
       filtering ? shown.length + ' of ' + items.length + ' loaded results match these filters (the filters apply to loaded results only). '
@@ -1639,7 +2017,9 @@ function SearchPage({ q, kind, creds }) {
       el('div', null, 'Nothing visible to you matches “' + q + '”' + (picked.length ? ' among ' + picked.map(function(id) {
         var k = kinds.filter(function(x) { return x.id === id; })[0]; return k ? k.label.toLowerCase() : id; }).join(', ') : '') + '.'),
       el('div', { className: 'rb-note', style: { marginTop: 6 } }, 'Zone security may hide some resources from your user, so this may be incomplete.')),
-    el(ResultList, { key: q + '|' + kind + '|' + JSON.stringify(filt), rows: shown, creds: creds, idx: idx, showMatched: true }),
+    items.length > 0 && el(BulkBar, { rows: shown, sel: sel, creds: creds, mayHaveMore: !!(data && data.mayHaveMore) }),
+    el(ResultList, { key: q + '|' + kind + '|' + JSON.stringify(filt), rows: shown, creds: creds, idx: idx, showMatched: true, sel: sel,
+      viewSearch: here, listKey: q + '|' + kind + '|' + JSON.stringify(filt) }),
     data && data.mayHaveMore && el('button', { className: 'rb-btn', style: { marginTop: 12 }, disabled: loading,
       onClick: function() { load(data.page + 1); } }, loading ? 'Loading…' : 'Load more results'),
     data && el('div', { className: 'rb-note', style: { marginTop: 12, display: 'flex', flexDirection: 'column', gap: 3 } },
@@ -1648,6 +2028,8 @@ function SearchPage({ q, kind, creds }) {
       data.cappedSources.length > 0 && el('span', null, 'These matches stopped at 50 and more may exist: ' + data.cappedSources.join(', ') + '.'),
       Object.keys(data.failedSources).length > 0 && el('span', { className: 'rb-err' },
         'Some sources could not be searched, so results may be incomplete: ' + Object.keys(data.failedSources).join(', ') + '.'),
+      data.termsNotShown > 0 && el('span', null, data.termsNotShown + ' glossary term' + (data.termsNotShown === 1 ? '' : 's') +
+        ' also matched; All leaves terms out, so pick Glossary terms to see them', el(Help, { term: 'term' }), '.'),
       data.notShown > 0 && el('span', null, data.notShown + ' match' + (data.notShown === 1 ? ' is' : 'es are') +
         ' not shown because they are operational records rather than resources (for example survey or connector reports) or are templates.'),
       el('span', null, 'Zone security may hide resources from your user, so results may be incomplete.')),
@@ -1665,7 +2047,7 @@ function Tile({ title, children, note, help }) {
 function CompactRow({ row, idx }) {
   return el('li', { className: 'rb-row', style: { gap: 6 } },
     el('span', { className: 'rb-kind', title: row.typeName }, KIND_ICONS[row.kind] || '•'),
-    el('button', { className: 'rb-link', onClick: function() { openResource(row.guid); } }, row.displayName),
+    el('button', { className: 'rb-link', onClick: function() { openElement(row); } }, row.displayName),
     el(FlavourBadge, { flavour: rowFlavour(idx, row) }),
     el('span', { className: 'rb-note' }, (row.updatedBy || 'unknown') + (row.automated ? ' (automation)' : '') + ' · ' + fmtDate(row.updateTime)));
 }
@@ -1690,7 +2072,7 @@ function FavouritesTile({ personaId }) {
       })));
 }
 
-// ── Work lists (phase 3) ─────────────────────────────────────────────────────
+// ── Working sets (phase 3) ───────────────────────────────────────────────────
 // One shared copy of "which lists can I see, and which of mine hold what", so
 // every row's "in N of your lists" and every Add-to-list menu agree after a change.
 
@@ -1737,25 +2119,25 @@ function ListsTile({ creds }) {
           + (l.sharedWith && l.sharedWith.length ? ' · shared with ' + l.sharedWith.map(function(g) { return g.displayName; }).join(', ') : '')));
     }));
   }
-  return el(Tile, { help: 'workList', title: 'My lists', note: 'work lists' },
+  return el(Tile, { help: 'workList', title: 'My working sets', note: 'WorkingSet' },
     !d ? el('div', { className: 'rb-absent' }, 'Loading…')
-    : d.error ? el('div', { className: 'rb-err' }, 'Lists could not be read: ' + d.error)
+    : d.error ? el('div', { className: 'rb-err' }, 'Working sets could not be read: ' + d.error)
     : el('div', null,
         d.mine.length ? list(d.mine)
-          : el('div', { className: 'rb-absent' }, d.canWrite ? 'You have no work lists yet.' : 'Sign in or choose a persona to keep work lists.'),
+          : el('div', { className: 'rb-absent' }, d.canWrite ? 'You have no working sets yet.' : 'Sign in or choose a persona to keep working sets.'),
         d.canWrite && el('form', { onSubmit: create, className: 'rb-row', style: { marginTop: 8, gap: 6 } },
-          el('input', { className: 'rb-text', style: { flex: 1, padding: '4px 8px' }, value: name, placeholder: 'New list name',
+          el('input', { className: 'rb-text', style: { flex: 1, padding: '4px 8px' }, value: name, placeholder: 'New working set name',
             onChange: function(e) { setName(e.target.value); } }),
           el('button', { className: 'rb-btn', disabled: busy || !name.trim() }, busy ? 'Creating…' : 'Create')),
         err && el('div', { className: 'rb-err' }, err),
         d.canWrite && el('div', { style: { marginTop: 12 } },
           el('div', { className: 'rb-note', style: { marginBottom: 4 } }, 'Shared with your teams (read-only: copy what you want)'),
           d.sharedWithMe.length ? list(d.sharedWithMe)
-            : el('div', { className: 'rb-absent' }, d.groupsNote || 'No list has been shared with your teams yet.')),
+            : el('div', { className: 'rb-absent' }, d.groupsNote || 'No working set has been shared with your teams yet.')),
         el('div', { style: { marginTop: 12 } },
           el('div', { className: 'rb-note', style: { marginBottom: 4 } }, 'From Resource Explorer (read-only: copy what you want)'),
           d.fromResourceExplorer.length ? list(d.fromResourceExplorer)
-            : el('div', { className: 'rb-absent' }, 'No Resource Explorer list has been published to Egeria yet.'))));
+            : el('div', { className: 'rb-absent' }, 'No Resource Explorer working set has been published to Egeria yet.'))));
 }
 
 // ── Help: how the Locator works, and every term it uses ─────────────────────
@@ -1778,11 +2160,11 @@ function HelpPage() {
           p('Pick one kind or several with the Kind buttons (for example Schemas and Tables together); All clears them. Results are ordered by how directly the text matches: Egeria holds no usage measure the Locator reads yet.'),
           p('"Load more results" stays offered until Egeria returns an empty page: a short page is not the last page.'))),
         sec('Browse and the resource page', el('div', null,
-          p('Browse lists resources by tag, badge, owner, source system, collection, flavour or data scope. A resource page shows what Egeria holds about one resource, and says what is missing rather than showing an empty table.'),
-          p('You can improve a description, add informal tags, notes and meanings, like or rate a resource, and keep it in a work list. Every change is made as you, with your own Egeria token.'))),
+          p('Browse lists resources by tag, badge, owner, source system, collection, folder, search keyword, category, flavour or data scope. A resource page shows what Egeria holds about one resource, and says what is missing rather than showing an empty table.'),
+          p('You can improve a description, add informal tags, notes and meanings, like or rate a resource, and keep it in a working set. Every change is made as you, with your own Egeria token.'))),
         sec('Data scope and data lenses', el('div', null,
           p('A data scope says what time and place a resource’s data covers. It is shown on result rows (◷ scope) and resource pages, and set or changed in The Catalog. Some scopes hold only usage readings that Egeria’s lineage service keeps; those are shown as usage, not as a scope.'),
-          p('A data lens says what scope of data a piece of work needs. Make one from the Data lenses tile on Home, link it to your work lists, and its page lists the resources whose data scope falls inside it. A resource that records none of the lens’s dimensions cannot be compared, and is counted as such.')))),
+          p('A data lens says what scope of data a piece of work needs. Make one from the Data lenses tile on Resource Locator Home, link it to your working sets, and its page lists the resources whose data scope falls inside it. A resource that records none of the lens’s dimensions cannot be compared, and is counted as such.')))),
       el('div', null,
         sec('Terms', el('dl', { style: { margin: 0 } }, Object.keys(TERMS).map(function(k) {
           return el(React.Fragment, { key: k },
@@ -1793,7 +2175,7 @@ function HelpPage() {
 
 // ── Data lenses ──────────────────────────────────────────────────────────────
 // A Data Lens says what scope of data a piece of work needs (time, place, scope
-// elements). It governs work lists, and resources whose data scope falls inside it are
+// elements). It governs working sets, and resources whose data scope falls inside it are
 // shown on its page so they can be added. Its fields come from Egeria's DataLens type
 // definition (static/data-scope-editor.js), so new dimensions appear without a change here.
 
@@ -1846,9 +2228,9 @@ function LensForm({ creds, lens, groups, onDone, onCancel }) {
     el('textarea', { className: 'rb-text', style: { width: '100%', minHeight: 54, padding: '4px 8px', marginBottom: 12, resize: 'vertical' }, value: desc,
       onChange: function(e) { setDesc(e.target.value); } }),
     !lens && el('div', { style: { marginBottom: 12 } },
-      el('label', { className: 'rb-note', style: { display: 'block', marginBottom: 4 } }, 'Governs one of your lists (optional)'),
+      el('label', { className: 'rb-note', style: { display: 'block', marginBottom: 4 } }, 'Governs one of your working sets (optional)'),
       el('select', { className: 'rb-select', value: listGuid, onChange: function(e) { setListGuid(e.target.value); } },
-        el('option', { value: '' }, 'no list yet'),
+        el('option', { value: '' }, 'no working set yet'),
         (lists && lists.mine || []).map(function(l) { return el('option', { key: l.guid, value: l.guid }, l.displayName); }))),
     el('div', { className: 'rb-note', style: { marginBottom: 8 } }, 'Scope: fill in only the dimensions the work cares about. A resource is matched on the dimensions it records.'),
     el(DataScopeEditor, { groups: groups.filter(function(g) { return !g.readOnly; }), scope: lens ? lens.scope : null, busy: busy, error: err,
@@ -1868,7 +2250,7 @@ function LensPage({ guid, creds }) {
   useEffect(function() {
     document.title = (isNew ? 'New data lens' : 'Data lens') + ' · Resource Locator';
     dataScopeFetchDimensions('DataLens', creds).then(setGroups).catch(function(e) { setErr(e.message); });
-    if (!isNew) getJson(API + '/lenses/' + encodeURIComponent(guid), creds).then(function(x) { setD(x); document.title = x.lens.displayName + ' · Data lens · Resource Locator'; })
+    if (!isNew) getJson(API + '/lenses/' + encodeURIComponent(guid), creds).then(function(x) { setD(x); document.title = x.lens.displayName + ' · Data lens · Resource Locator'; setPageLabel(routeLabel({ page: 'lens' }, x.lens.displayName)); })
       .catch(function(e) { setErr(e.message); });
   }, [guid, creds && creds.token]);
   function act(method, path, body) {
@@ -1877,7 +2259,7 @@ function LensPage({ guid, creds }) {
       .then(function(x) { setD(x); setPick(''); }).catch(function(e) { setErr(e.message); }).finally(function() { setBusy(false); });
   }
   var head = el('div', { className: 'rb-row', style: { gap: 8, marginBottom: 12 } },
-    el('button', { className: 'rb-link', onClick: function() { navigate({}); } }, '← Home'),
+    el('button', { className: 'rb-link', onClick: function() { navigate({}); } }, '← ' + HOME_LABEL),
     el('span', { className: 'rb-note' }, 'Data lens', el(Help, { term: 'dataLens' })));
   if (err && !d && !(isNew && groups)) return el('div', { className: 'rb-page' }, head, el('div', { className: 'rb-err' }, err));
   if (!groups || (!isNew && !d)) return el('div', { className: 'rb-page' }, head, el('div', { className: 'center', style: { height: 160 } }, el('div', { className: 'spinner' }), 'Loading…'));
@@ -1905,16 +2287,16 @@ function LensPage({ guid, creds }) {
               lens.description ? el('div', { style: { marginBottom: 10 } }, lens.description) : el('div', { className: 'rb-absent', style: { marginBottom: 10 } }, 'No description.'),
               el(DataScopeView, { groups: groups, scope: Object.keys(lens.scope).length ? lens.scope : null, absent: 'No dimensions set yet, so no resource can be matched.' }),
               lens.editable && el('button', { className: 'rb-edit', style: { marginTop: 10 }, onClick: function() { setEditing(true); } }, 'Edit'))),
-        el(Card, { help: 'workList', title: 'Lists it governs', source: 'GovernedBy' },
+        el(Card, { help: 'workList', title: 'Working sets it governs', source: 'GovernedBy' },
           lens.governs.length ? el('ul', { className: 'rb-list' }, lens.governs.map(function(g) {
             return el('li', { key: g.guid },
               el('button', { className: 'rb-link', onClick: function() { openList(g.guid); } }, g.displayName),
-              lens.editable && el('button', { className: 'rb-edit', disabled: busy, title: 'The lens stops governing this list (the list is kept)',
+              lens.editable && el('button', { className: 'rb-edit', disabled: busy, title: 'The lens stops governing this working set (the working set is kept)',
                 onClick: function() { act('DELETE', '/lists/' + encodeURIComponent(g.guid)); } }, 'unlink'));
-          })) : el('div', { className: 'rb-absent' }, 'It governs no list yet.'),
+          })) : el('div', { className: 'rb-absent' }, 'It governs no working set yet.'),
           lens.editable && myLists.length > 0 && el('div', { className: 'rb-row', style: { gap: 6, marginTop: 8 } },
             el('select', { className: 'rb-select', value: pick, onChange: function(e) { setPick(e.target.value); } },
-              el('option', { value: '' }, 'govern one of your lists…'),
+              el('option', { value: '' }, 'govern one of your working sets…'),
               myLists.map(function(l) { return el('option', { key: l.guid, value: l.guid }, l.displayName); })),
             el('button', { className: 'rb-btn', disabled: busy || !pick, onClick: function() { act('POST', '/lists', { listGuid: pick }); } }, 'Link')))),
       el('div', null,
@@ -1959,11 +2341,11 @@ function AddToList({ guid, creds }) {
   }
   return el('span', { style: { position: 'relative' } },
     el('button', { className: 'rb-edit', onClick: function() { setOpen(!open); },
-      title: 'Add this resource to one of your work lists' },
-      inLists.length ? '✓ in ' + inLists.length + ' of your lists' : '＋ Add to list'),
+      title: 'Add this resource to one of your working sets' },
+      inLists.length ? '✓ in ' + inLists.length + ' of your working sets' : '＋ Add to working set'),
     open && el('div', { className: 'rb-pop' },
-      el('div', { className: 'rb-note', style: { marginBottom: 6 } }, 'Your lists'),
-      d.mine.length === 0 && el('div', { className: 'rb-absent' }, 'No lists yet: make one below.'),
+      el('div', { className: 'rb-note', style: { marginBottom: 6 } }, 'Your working sets'),
+      d.mine.length === 0 && el('div', { className: 'rb-absent' }, 'No working sets yet: make one below.'),
       d.mine.map(function(l) {
         var has = inLists.indexOf(l.guid) >= 0;
         return el('label', { key: l.guid, className: 'rb-row', style: { gap: 6, fontSize: 12, padding: '3px 0', cursor: 'pointer' } },
@@ -1974,7 +2356,7 @@ function AddToList({ guid, creds }) {
       el('input', { className: 'rb-text', style: { marginTop: 8, padding: '4px 8px' }, value: why, placeholder: 'Why (optional, kept with the item)',
         onChange: function(e) { setWhy(e.target.value); } }),
       el('form', { onSubmit: createAndAdd, className: 'rb-row', style: { marginTop: 6, gap: 6 } },
-        el('input', { className: 'rb-text', style: { flex: 1, padding: '4px 8px' }, value: name, placeholder: 'New list',
+        el('input', { className: 'rb-text', style: { flex: 1, padding: '4px 8px' }, value: name, placeholder: 'New working set',
           onChange: function(e) { setName(e.target.value); } }),
         el('button', { className: 'rb-btn', disabled: !!busy || !name.trim() }, 'Create & add')),
       err && el('div', { className: 'rb-err', style: { marginTop: 6 } }, err),
@@ -2013,7 +2395,7 @@ function ShareCard({ lst, creds, onChange }) {
   return el('div', { className: 'rb-card' },
     el('div', { className: 'rb-row', style: { gap: 8 } },
       el('b', { style: { fontSize: 13 } }, 'Shared with'),
-      shared.length === 0 && el('span', { className: 'rb-absent' }, 'nobody yet: only you can see it in your lists'),
+      shared.length === 0 && el('span', { className: 'rb-absent' }, 'nobody yet: only you can see it in your working sets'),
       shared.map(function(g) {
         return el('span', { key: g.guid, className: 'rb-chip', title: g.typeName },
           (g.typeName === 'Community' ? '👥 ' : '🏢 ') + g.displayName,
@@ -2033,16 +2415,100 @@ function ShareCard({ lst, creds, onChange }) {
         ],
       groups && groups.how && groups.groups && groups.groups.length > 0 && el('span', { className: 'rb-note' }, 'Your teams come from ' + groups.how + '.')),
     lst.editable && el('div', { className: 'rb-note', style: { marginTop: 6 } },
-      'Members of a team see this list under “Shared with your teams” and can copy from it; only you change it.'),
+      'Members of a team see this working set under “Shared with your teams” and can copy from it; only you change it.'),
     err && el('div', { className: 'rb-err', style: { marginTop: 6 } }, err));
 }
 
 var ORIGINS = {
-  mine: 'Your list',
+  mine: 'Your working set',
   'resource-explorer': 'From Resource Explorer · read-only',
   portal: 'Shared with you · read-only',
   other: 'Working set · read-only',
 };
+
+// ── Delete a working set (PO-43) ─────────────────────────────────────────────
+// The owner deletes a working set: its team shares, the owner's own lenses and its member links are
+// removed, then the set. Members are never deleted. The server rebuilds the plan and refuses, in words,
+// anything else linked or anchored to the set; a delete that stops part-way says what is left.
+function plural(n, one, many) { return n + ' ' + (n === 1 ? one : (many || one + 's')); }
+
+function deleteConfirmText(plan) {
+  var lines = [];
+  if (plan.shares && plan.shares.length)
+    lines.push('It stops being shared with ' + plan.shares.map(function(g) { return g.displayName; }).join(', ') + '.');
+  if (plan.lenses && plan.lenses.length)
+    lines.push(plan.lenses.map(function(l) { return 'Data lens ‘' + l.displayName + '’'; }).join(', ') +
+      (plan.lenses.length === 1 ? ' stops' : ' stop') + ' governing it.');
+  return {
+    question: 'Delete working set ‘' + plan.displayName + '’? Its ' + plural(plan.members, 'resource') +
+      (plan.members === 1 ? ' stays' : ' stay') + '; only the set and its links are removed.',
+    lines: lines,
+    blockers: (plan.blockers || []).map(function(b) { return b.text; }),
+    canDelete: !!plan.canDelete && !(plan.blockers || []).length,
+  };
+}
+
+function deleteOutcomeText(d) {
+  if (d.deleted) return 'Deleted ‘' + d.displayName + '’. Its ' + plural(d.membersKept || 0, 'resource') +
+    (d.membersKept === 1 ? ' is' : ' are') + ' unchanged.';
+  if (d.blockers && d.blockers.length) return d.detail || 'Nothing was removed.';
+  var r = d.removed || {}, left = d.left || {}, f = d.failed || {};
+  var done = [];
+  if (r.members) done.push(plural(r.members, 'resource') + ' taken out of it');
+  if (r.shares && r.shares.length) done.push('no longer shared with ' + r.shares.map(function(g) { return g.displayName; }).join(', '));
+  if (r.lenses && r.lenses.length) done.push('no longer governed by ' + r.lenses.map(function(l) { return '‘' + l.displayName + '’'; }).join(', '));
+  var still = [];
+  if (left.members) still.push('still holds ' + plural(left.members, 'resource'));
+  if (left.members === null) still.push('may still hold resources (it could not be read again)');
+  if (left.shares && left.shares.length) still.push('is still shared with ' + left.shares.map(function(g) { return g.displayName; }).join(', '));
+  if (left.lenses && left.lenses.length) still.push('is still governed by ' + left.lenses.map(function(l) { return '‘' + l.displayName + '’'; }).join(', '));
+  var what = f.step === 'unlink' ? 'taking ‘' + (f.displayName || f.guid) + '’ out of it failed'
+           : f.step === 'unshare' ? 'stopping the share with ' + (f.displayName || f.guid) + ' failed'
+           : f.step === 'ungovern' ? 'unlinking data lens ‘' + (f.displayName || f.guid) + '’ failed'
+           : null;
+  if (what && f.message) what += ' (' + f.message + ')';
+  var head = 'The working set was not deleted' + (done.length ? ': ' + done.join(', ') + (what ? ', then ' + what : '') : (what ? ': ' + what : '')) + '.';
+  return head + (!what && f.message ? ' ' + f.message : '') +
+    (still.length ? ' It ' + still.join(', and ') + '.' : '') + (what ? ' Delete again to carry on.' : '');
+}
+
+function DeleteSetCard({ lst, creds, onDeleted }) {
+  var _p = useState(null), plan = _p[0], setPlan = _p[1];
+  var _b = useState(false), busy = _b[0], setBusy = _b[1];
+  var _m = useState(''), msg = _m[0], setMsg = _m[1];
+  function ask() {
+    setBusy(true); setMsg('');
+    getJson(API + '/lists/' + encodeURIComponent(lst.guid) + '/delete-plan', creds)
+      .then(setPlan).catch(function(x) { setMsg('Could not check what deleting would remove: ' + x.message); })
+      .finally(function() { setBusy(false); });
+  }
+  function run() {
+    setBusy(true); setMsg('');
+    egeriaFetch(API + '/lists/' + encodeURIComponent(lst.guid), creds, { method: 'DELETE' })
+      .then(function(r) { return r.json().catch(function() { return {}; }).then(function(d) { return { status: r.status, d: d }; }); })
+      .then(function(x) {
+        if (x.status === 200 && x.d.deleted) { refreshLists(creds); onDeleted(deleteOutcomeText(x.d)); return; }
+        setPlan(null); setMsg(typeof x.d.detail === 'string' && !x.d.removed && !x.d.blockers ? x.d.detail : deleteOutcomeText(x.d));
+        refreshLists(creds);
+      })
+      .catch(function(x) { setMsg('The delete could not be sent: ' + x.message); })
+      .finally(function() { setBusy(false); });
+  }
+  if (!plan) return el('div', { style: { marginTop: 10 } },
+    el('button', { className: 'rb-edit', disabled: busy, onClick: ask }, busy ? 'Checking…' : 'Delete working set…'),
+    msg && el('div', { className: 'rb-err', style: { marginTop: 6 } }, msg));
+  var t = deleteConfirmText(plan);
+  return el('div', { className: 'rb-card', style: { marginTop: 10 } },
+    el('div', { style: { fontWeight: 600 } }, t.question),
+    t.lines.map(function(l, i) { return el('div', { key: i, className: 'rb-note', style: { marginTop: 4 } }, l); }),
+    t.blockers.length > 0 && el('div', { style: { marginTop: 8 } },
+      el('div', { className: 'rb-err' }, 'It cannot be deleted here yet:'),
+      el('ul', { style: { margin: '4px 0 0 18px' } }, t.blockers.map(function(b, i) { return el('li', { key: i }, b); }))),
+    el('div', { className: 'rb-row', style: { gap: 8, marginTop: 10 } },
+      el('button', { className: 'rb-btn', disabled: busy || !t.canDelete, onClick: run }, busy ? 'Deleting…' : 'Delete'),
+      el('button', { className: 'rb-edit', disabled: busy, onClick: function() { setPlan(null); } }, 'Keep it')),
+    msg && el('div', { className: 'rb-err', style: { marginTop: 6 } }, msg));
+}
 
 function ListPage({ guid, creds }) {
   var idx = useFlavours(creds);
@@ -2054,14 +2520,18 @@ function ListPage({ guid, creds }) {
   var _n = useState(''), newName = _n[0], setNewName = _n[1];
   var _b = useState(false), busy = _b[0], setBusy = _b[1];
   var _m = useState(''), msg = _m[0], setMsg = _m[1];
+  var _g = useState(''), gone = _g[0], setGone = _g[1];
 
   function load() {
     return getJson(API + '/lists/' + encodeURIComponent(guid), creds)
-      .then(function(d) { setLst(d); document.title = d.displayName + ' · Resource Locator'; })
+      .then(function(d) { setLst(d); document.title = d.displayName + ' · Resource Locator'; setPageLabel(routeLabel({ page: 'list' }, d.displayName)); })
       .catch(function(x) { setErr(x.message); });
   }
-  useEffect(function() { setLst(null); setErr(''); setSel({}); setMsg(''); load(); }, [guid, creds && creds.token]);
+  useEffect(function() { setLst(null); setErr(''); setSel({}); setMsg(''); setGone(''); load(); }, [guid, creds && creds.token]);
 
+  if (gone) return el('div', { className: 'rb-page' }, el('div', { className: 'rb-card' },
+    el('div', null, gone), el('div', { style: { marginTop: 8 } },
+      el('button', { className: 'rb-link', onClick: function() { navigate({}); } }, '\u2190 ' + HOME_LABEL))));
   if (err) return el('div', { className: 'rb-page' }, el('div', { className: 'rb-card' }, el('div', { className: 'rb-err' }, err)));
   if (!lst) return el('div', { className: 'center', style: { height: 300 } }, el('div', { className: 'spinner' }), 'Loading…');
 
@@ -2108,7 +2578,7 @@ function ListPage({ guid, creds }) {
 
   return el('div', { className: 'rb-page' },
     el('div', { className: 'rb-crumb' },
-      el('button', { className: 'rb-link', onClick: function() { navigate({}); } }, 'Home'), '›',
+      el('button', { className: 'rb-link', onClick: function() { navigate({}); } }, HOME_LABEL), '›',
       el('span', { className: 'rb-type' }, ORIGINS[lst.origin] || lst.origin)),
     lst.editable
       ? el('div', { className: 'rb-title' }, el(EditableText, { value: lst.displayName, canWrite: true, placeholder: 'Untitled', onSave: save('name') }))
@@ -2117,38 +2587,39 @@ function ListPage({ guid, creds }) {
     el('div', { className: 'rb-attrib', style: { marginTop: 8 } },
       lst.creator ? ['made by ', el('b', { key: 'c' }, lst.creator), ' · '] : null,
       'last updated by ', el('b', null, lst.updatedBy || 'unknown'), ' · ', fmtDate(lst.updateTime)),
+    lst.editable && el(DeleteSetCard, { lst: lst, creds: creds, onDeleted: setGone }),
     lst.copiedFrom && el('div', { className: 'rb-note', style: { marginTop: 4 } },
       'Copied from ',
-      el('button', { className: 'rb-link', onClick: function() { openList(lst.copiedFrom.copiedFromGUID); } }, lst.copiedFrom.copiedFromName || 'another list'),
-      ' on ', fmtDate(lst.copiedFrom.copiedAt), '. A snapshot: later changes to that list do not appear here.'),
+      el('button', { className: 'rb-link', onClick: function() { openList(lst.copiedFrom.copiedFromGUID); } }, lst.copiedFrom.copiedFromName || 'another working set'),
+      ' on ', fmtDate(lst.copiedFrom.copiedAt), '. A snapshot: later changes to that working set do not appear here.'),
     el('div', { className: 'rb-card', style: { marginTop: 14 } },
       el(EditableText, { value: lst.description, canWrite: lst.editable, multiline: true,
         placeholder: 'No description.', onSave: save('description') })),
 
     el(ShareCard, { lst: lst, creds: creds, onChange: setLst }),
     canCopy && !lst.editable && el('div', { className: 'rb-card rb-row', style: { gap: 10 } },
-      el('b', { style: { fontSize: 13 } }, 'Copy to your own list'),
+      el('b', { style: { fontSize: 13 } }, 'Copy to a working set of your own'),
       el('button', { className: 'rb-link', onClick: function() { selectAll(true); } }, 'select all'),
       el('button', { className: 'rb-link', onClick: function() { selectAll(false); } }, 'none'),
       el('span', { className: 'rb-note' }, chosen.length + ' of ' + lst.members.length + ' chosen'),
       el('select', { className: 'rb-select', value: target, onChange: function(e) { setTarget(e.target.value); } },
-        el('option', { value: 'new' }, 'into a new list'),
+        el('option', { value: 'new' }, 'into a new working set'),
         (lists && lists.mine || []).map(function(l) { return el('option', { key: l.guid, value: l.guid }, 'into ' + l.displayName); })),
       target === 'new' && el('input', { className: 'rb-text', style: { width: 220, padding: '4px 8px' }, value: newName,
         placeholder: lst.displayName + ' (copy)', onChange: function(e) { setNewName(e.target.value); } }),
       el('button', { className: 'rb-btn', disabled: busy || !chosen.length, onClick: copy }, busy ? 'Copying…' : 'Copy'),
       msg && el('span', { className: 'rb-err' }, msg),
       el('div', { className: 'rb-note', style: { width: '100%' } },
-        'Each item keeps its reason. Nothing is written back to ' + (lst.origin === 'resource-explorer' ? 'Resource Explorer' : 'the original list') + '.')),
-    !lst.canWrite && !lst.editable && el('div', { className: 'rb-note', style: { marginBottom: 10 } }, 'Sign in or choose a persona to copy from this list.'),
+        'Each item keeps its reason. Nothing is written back to ' + (lst.origin === 'resource-explorer' ? 'Resource Explorer' : 'the original working set') + '.')),
+    !lst.canWrite && !lst.editable && el('div', { className: 'rb-note', style: { marginBottom: 10 } }, 'Sign in or choose a persona to copy from this working set.'),
 
     el('div', { className: 'rb-note', style: { marginBottom: 4 } },
       lst.members.length + ' item' + (lst.members.length === 1 ? '' : 's') + (lst.capped ? ' (the read stopped at its limit; there may be more)' : '') + '. By kind, then name.'),
     lst.members.length === 0 && el('div', { className: 'rb-absent' },
-      lst.editable ? 'Nothing here yet. Use “＋ Add to list” on a resource’s page.' : 'This list has no members visible to you.'),
+      lst.editable ? 'Nothing here yet. Use “＋ Add to working set” on a resource’s page.' : 'This working set has no members visible to you.'),
     el(ResultList, { rows: lst.members, creds: creds, idx: idx, renderExtra: memberExtra }),
     lst.editable && msg && el('div', { className: 'rb-err' }, msg),
-    el('div', { className: 'rb-note', style: { marginTop: 10 } }, 'Zone security may hide members from your user, so this list may be incomplete.'),
+    el('div', { className: 'rb-note', style: { marginTop: 10 } }, 'Zone security may hide members from your user, so this working set may be incomplete.'),
     el(SourceLine, { data: lst }));
 }
 
@@ -2158,7 +2629,8 @@ function HomePage({ creds, personaId }) {
   var _e = useState(''), err = _e[0], setErr = _e[1];
   var _p = useState(true), peopleOnly = _p[0], setPeopleOnly = _p[1];
   useEffect(function() {
-    document.title = 'Resource Locator';
+    document.title = 'Home · Resource Locator';
+    setPageLabel(HOME_LABEL);
     getJson(API + '/home', creds).then(function(h) {
       if (!h || !Array.isArray(h.recent) || !Array.isArray(h.recentPeople)) throw new Error('the server sent an unexpected response');
       setHome(h);
@@ -2188,7 +2660,7 @@ function HomePage({ creds, personaId }) {
             'From the ' + home.recentWindow.perType + ' most recently updated of each resource type. As of ' + fmtDate(home.asOf) + '.'))),
       el('div', null,
         el(Boundary, { what: 'Favourites tile' }, el(FavouritesTile, { personaId: personaId })),
-        el(Boundary, { what: 'Work lists tile' }, el(ListsTile, { creds: creds })),
+        el(Boundary, { what: 'Working sets tile' }, el(ListsTile, { creds: creds })),
         el(Boundary, { what: 'Data lenses tile' }, el(LensesTile, { creds: creds })),
         el(Tile, { help: 'browse', title: 'Browse' },
           el('div', { className: 'rb-row', style: { gap: 6 } }, FACETS.map(function(f) {
@@ -2200,30 +2672,151 @@ function HomePage({ creds, personaId }) {
 
 var FACETS = [
   { id: 'tag', label: 'Tag', term: 'tag', empty: 'No informal tags exist yet.' },
-  { id: 'badge', label: 'Badge', term: 'badge', empty: '' },
+  { id: 'badge', label: 'Badge', term: 'badge', empty: '' },   // a curated list (Dan, 2026-11-17, PO-34); PO-36 may make it a valid-value set
   { id: 'owner', label: 'Owner', term: 'owner', empty: 'No resource has a recorded owner yet.' },
   { id: 'source', label: 'Source system', term: 'source', empty: 'No databases or folders are catalogued yet.' },
-  { id: 'collection', label: 'Collection', term: 'collection', empty: 'No product families, data sharing hubs or work lists exist yet.' },
+  { id: 'collection', label: 'Collection', term: 'collection', empty: 'No product families, data sharing hubs or working sets exist yet.' },
+  { id: 'folder', label: 'Folder', term: 'folder', empty: 'No folders exist in Egeria that you can see.' },
+  { id: 'keyword', label: 'Search keyword', term: 'keyword', empty: 'No search keywords are attached to anything you can see.' },
+  { id: 'category', label: 'Category', term: 'category', empty: 'No resource or glossary term you can see has a category.' },
   { id: 'flavour', label: 'Flavour', term: 'flavour', empty: '' },
   { id: 'scope', label: 'Data scope', term: 'dataScope', empty: '' },
 ];
 
-function BrowsePage({ facet, value, creds }) {
+// The lenses a Browse list can be filtered by: your own, and those governing a list you can see.
+function lensChoices(lenses, lists) {
+  var visible = {};
+  ((lists && lists.mine) || []).concat((lists && lists.sharedWithMe) || []).forEach(function(l) { visible[l.guid] = true; });
+  return (lenses || []).filter(function(l) {
+    return l.origin === 'mine' || (l.governs || []).some(function(g) { return visible[g.guid]; });
+  });
+}
+
+var LENS_OUTCOMES = [
+  { id: 'inside', label: 'inside', term: 'dataLens' },
+  { id: 'outside', label: 'outside', term: 'dataLens' },
+  { id: 'notComparable', label: 'cannot be compared', term: 'notComparable' },
+  { id: 'notRead', label: 'scope not read', term: 'scopeNotRead' },
+];
+var OUTCOME_CHIP = { inside: 'inside the lens', outside: 'outside the lens', notComparable: 'cannot be compared', notRead: 'scope not read' };
+
+// The rows shown for the outcomes picked; counts always describe the whole list.
+function lensRows(items, picked) {
+  return items.filter(function(r) { return !r.lensOutcome || picked[r.lensOutcome.outcome]; });
+}
+
+function LensBar({ list, lensGuid, creds, picked, onPick, onLens }) {
+  var lists = useLists(creds);
+  var _l = useState(null), lenses = _l[0], setLenses = _l[1];
+  useEffect(function() {
+    getJson(API + '/lenses', creds).then(function(d) { setLenses(d.lenses || []); }).catch(function() { setLenses([]); });
+  }, [creds && creds.token]);
+  var choices = lensChoices(lenses, lists);
+  var c = list.lensCounts;
+  return el('div', { className: 'rb-row', style: { gap: 8, marginBottom: 10, flexWrap: 'wrap' } },
+    el('span', { className: 'rb-note' }, 'Lens', el(Help, { term: 'dataLens' }), ':'),
+    el('select', { className: 'rb-select', value: lensGuid || '', onChange: function(e) { onLens(e.target.value); }, disabled: lenses === null },
+      el('option', { value: '' }, lenses === null ? 'lenses …' : choices.length ? 'none' : 'no lens yet'),
+      choices.map(function(l) { return el('option', { key: l.guid, value: l.guid }, l.displayName); })),
+    lenses !== null && !choices.length && el('button', { className: 'rb-link', onClick: function() { openLens('new'); } }, 'New data lens'),
+    c && LENS_OUTCOMES.filter(function(o) { return o.id !== 'notRead' || c.notRead > 0; }).map(function(o) {
+      return el('button', { key: o.id, className: 'rb-facet' + (picked[o.id] ? ' on' : ''), 'aria-pressed': !!picked[o.id],
+        title: TERMS[o.term].def, onClick: function() { onPick(o.id); } },
+        o.label + ' ' + (c.partial ? 'at least ' : '') + c[o.id]);
+    }),
+    c && el(Help, { term: 'notComparable' }),
+    list.lens && !list.lens.dimensions.length && el('span', { className: 'rb-note' }, 'This lens has no dimensions yet, so no resource can be compared.'));
+}
+
+// What a Browse list read but does not show. Folder and keyword lists name the types (they can hold
+// anything); the older lists only count what is not a resource or is a template.
+function notShownLine(list) {
+  if (!list || !(list.notShown > 0)) return '';
+  var types = list.notShownTypes || null;
+  if (types && Object.keys(types).length) {
+    var named = Object.keys(types).sort(function(a, b) { return types[b] - types[a] || (a < b ? -1 : 1); })
+      .map(function(t) { return types[t] + ' ' + t; }).join(', ');
+    return list.notShown + ' not shown: ' + named + '. The Locator lists resources, glossary terms, columns and data fields.';
+  }
+  return list.notShown + ' element' + (list.notShown === 1 ? ' is' : 's are') + ' not shown because ' +
+    (list.notShown === 1 ? 'it is' : 'they are') + ' not a resource this app lists or ' + (list.notShown === 1 ? 'is a template' : 'are templates') + '.';
+}
+
+// A Browse list's URL. The value goes in the query, never the path: keywords, categories and owners
+// are free text and may hold a "/", which a path segment cannot carry past Apache (Architect R1).
+function browseListUrl(facet, value, lens) {
+  return API + '/browse/' + encodeURIComponent(facet) + '?value=' + encodeURIComponent(value) +
+    (lens ? '&lens=' + encodeURIComponent(lens) : '');
+}
+
+var BROWSE_POLL_MS = 8000;
+var VALUE_FILTER_MIN = 12;   // a values page with more than this many values gets a filter box
+
+// The values whose label or description holds every word typed, ignoring case.
+function filterValues(values, q) {
+  var words = String(q || '').toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return values;
+  return values.filter(function(v) {
+    var text = ((v.label || '') + ' ' + (v.description || '')).toLowerCase();
+    return words.every(function(w) { return text.indexOf(w) >= 0; });
+  });
+}
+
+function BrowsePage({ facet, value, lens, creds }) {
   var idx = useFlavours(creds);
   var f = FACETS.filter(function(x) { return x.id === facet; })[0] || FACETS[0];
-  var effective = f.id === 'scope' ? 'all' : value;
+  var effective = value;
+  var _p = useState({ inside: true }), picked = _p[0], setPicked = _p[1];
+  var _t = useState(0), tick = _t[0], setTick = _t[1];   // re-read while a list is still being counted
   var _v = useState(null), vals = _v[0], setVals = _v[1];
   var _l = useState(null), list = _l[0], setList = _l[1];
   var _e = useState(''), err = _e[0], setErr = _e[1];
+  var _vq = useState(''), vq = _vq[0], setVq = _vq[1];
+  useEffect(function() { setTick(0); }, [f.id, effective, lens]);
+  var browseHere = window.location.search;
+  var scrolled = useRef(false);
   useEffect(function() {
-    setErr(''); setVals(null); setList(null);
+    var store = viewStore(), v = store ? loadView(store, browseHere, Date.now()) : null;
+    setVq(v && typeof v.vq === 'string' ? v.vq : '');
+  }, [f.id]);
+  useEffect(function() {
+    if (!tick) { setErr(''); setVals(null); setList(null); }
     document.title = f.label + ' · Browse · Resource Locator';
+    var timer = null, live = true;
+    // While the full-resource count runs in the background the server says loading; ask again shortly.
+    function again(d) { if (live && d && d.loading) timer = setTimeout(function() { setTick(function(n) { return n + 1; }); }, BROWSE_POLL_MS); }
     if (effective) {
-      getJson(API + '/browse/' + f.id + '/' + encodeURIComponent(effective), creds).then(setList).catch(function(e) { setErr(e.message); });
+      getJson(browseListUrl(f.id, effective, lens), creds)
+        .then(function(d) { if (live) { setList(d); again(d); } }).catch(function(e) { if (live) setErr(e.message); });
     } else {
-      getJson(API + '/browse/' + f.id, creds).then(setVals).catch(function(e) { setErr(e.message); });
+      getJson(API + '/browse/' + f.id, creds).then(function(d) { if (live) { setVals(d); again(d); } }).catch(function(e) { if (live) setErr(e.message); });
     }
-  }, [f.id, effective, creds && creds.token]);
+    return function() { live = false; if (timer) clearTimeout(timer); };
+  }, [f.id, effective, lens, tick, creds && creds.token]);
+  function setLens(g) { navigate(Object.assign({ browse: f.id, value: effective }, g ? { lens: g } : {})); }
+  function togglePick(id) { var n = Object.assign({}, picked); n[id] = !n[id]; setPicked(n); }
+  var _c = useState(''), cat = _c[0], setCat = _c[1];
+  var sel = useBulkSelection(f.id + '|' + effective);
+  useEffect(function() {
+    var store = viewStore(), v = store ? loadView(store, browseHere, Date.now()) : null;
+    setCat(v && typeof v.cat === 'string' ? v.cat : '');
+    if (v && v.picked && typeof v.picked === 'object') setPicked(v.picked);
+    scrolled.current = false;
+  }, [f.id, effective]);
+  useEffect(function() {
+    var store = viewStore();
+    if (store) saveView(store, browseHere, { cat: cat, vq: vq, picked: picked }, Date.now());
+  }, [cat, vq, picked, browseHere]);
+  useEffect(function() {        // back from a resource: return to where the list was scrolled
+    if (scrolled.current || !list || list.loading) return;
+    scrolled.current = true;
+    var store = viewStore(), v = store ? loadView(store, browseHere, Date.now()) : null;
+    if (v && v.scrollY) setTimeout(function() { restoreScroll(v.scrollY); }, 0);
+  }, [list]);
+  setPageLabel(routeLabel({ page: 'browse', facet: f.id, value: effective },
+    list && list.title ? String(list.title).replace(/^(Keyword|Category): /, '') : ''));
+  var shownRows = list ? lensRows(list.items, picked).filter(function(r) { return inCategory(r, cat); }) : [];
+  var listCategories = list ? categoryOptions(list.items) : [];
 
   return el('div', { className: 'rb-page' },
     el('div', { className: 'rb-row', style: { gap: 6, marginBottom: 14 } },
@@ -2235,31 +2828,75 @@ function BrowsePage({ facet, value, creds }) {
     err && el('div', { className: 'rb-err' }, err),
     !err && !effective && !vals && el('div', { className: 'center', style: { height: 160 } }, el('div', { className: 'spinner' }), 'Loading…'),
     vals && el('div', null,
-      vals.values.length === 0 ? el('div', { className: 'rb-absent' }, f.empty || 'Nothing to browse here yet.')
-      : el('div', { className: 'rb-values' }, vals.values.map(function(v) {
+      vals.loading && vals.values.length === 0 ? el('div', { className: 'center', style: { height: 120 } }, el('div', { className: 'spinner' }), vals.note || 'Counting\u2026')
+      : vals.values.length === 0 ? el('div', { className: 'rb-absent' }, f.empty || 'Nothing to browse here yet.')
+      : el(React.Fragment, null,
+        vals.values.length > VALUE_FILTER_MIN && el('div', { className: 'rb-row', style: { gap: 8, marginBottom: 10 } },
+          el('input', { className: 'rb-text', value: vq, placeholder: 'Filter these ' + vals.values.length + ' ' + f.label.toLowerCase() + ' values\u2026',
+            'aria-label': 'Filter the ' + f.label.toLowerCase() + ' values', onChange: function(e) { setVq(e.target.value); }, style: { maxWidth: 360 } }),
+          vq && el('span', { className: 'rb-note' }, filterValues(vals.values, vq).length + ' of ' + vals.values.length),
+          vq && el('button', { className: 'rb-edit', onClick: function() { setVq(''); } }, 'Clear')),
+        vq && filterValues(vals.values, vq).length === 0 && el('div', { className: 'rb-absent' }, 'No ' + f.label.toLowerCase() + ' value matches \u201c' + vq + '\u201d.'),
+        el('div', { className: 'rb-values' }, filterValues(vals.values, vq).map(function(v) {
           var none = v.count === 0;
           return el('button', { key: v.id, className: 'rb-value' + (none ? ' none' : ''), disabled: none,
               title: none ? 'No resource has this yet' : '',
               onClick: function() { if (f.id === 'collection' && v.description === 'WorkingSet') openList(v.id); else navigate({ browse: f.id, value: v.id }); } },
             el('span', { className: 'n' }, v.label),
-            v.count !== undefined && el('span', { className: 'c' }, none ? 'none' : v.count),
+            (v.count !== undefined || v.counting) && el('span', { className: 'c', title: v.countAtLeast ? 'At least this many: a read stopped at its page limit' : '' },
+              v.counting ? 'counting\u2026' : none ? 'none' : (v.countAtLeast ? '\u2265 ' : '') + v.count),
             v.description && el('span', { className: 'rb-note' }, v.description));
-        })),
+        }))),
+      vals.note && !(vals.loading && vals.values.length === 0) && el('div', { className: 'rb-note', style: { marginTop: 8 } }, vals.note),
+      vals.refreshing && vals.values.length > 0 && el('div', { className: 'rb-note', style: { marginTop: 4 } },
+        'A newer count is being made in the background; these are from ' + fmtDate(vals.countedAt) + '.'),
       vals.countsAre && el('div', { className: 'rb-note', style: { marginTop: 8 } }, 'Counts are ' + vals.countsAre + '.'),
+      vals.notRead > 0 && el('div', { className: 'rb-note', style: { marginTop: 4 } }, vals.notRead + ' resource' + (vals.notRead === 1 ? '' : 's') +
+        ' could not be checked', el(Help, { term: 'scopeNotRead' }), '.'),
       el(SourceLine, { data: vals })),
     effective && !list && !err && el('div', { className: 'center', style: { height: 160 } }, el('div', { className: 'spinner' }), 'Loading…'),
     list && el('div', null,
       el('div', { className: 'rb-row', style: { marginBottom: 6 } },
-        f.id !== 'scope' && el('button', { className: 'rb-link', onClick: function() { navigate({ browse: f.id }); } }, '← all ' + f.label.toLowerCase() + ' values'),
+        el('button', { className: 'rb-link', onClick: function() { navigate({ browse: f.id }); } }, '← all ' + f.label.toLowerCase() + ' values'),
         el('h2', { style: { fontSize: 18 } }, list.title)),
       list.note && el('div', { className: 'rb-note', style: { marginBottom: 8 } }, list.note),
-      list.items.length === 0 && !list.note && el('div', { className: 'rb-absent' }, 'No resource visible to you is here.'),
+      list.heldBy && list.heldBy.length > 0 && el('div', { className: 'rb-note', style: { marginBottom: 6 } }, 'Held by: ',
+        list.heldBy.map(function(h, i) {
+          return el(React.Fragment, { key: h.guid }, i ? ', ' : '',
+            el('button', { className: 'rb-link', title: h.typeName, onClick: function() {
+              if (h.typeName === 'CollectionFolder') navigate({ browse: 'folder', value: h.guid }); else openElement(h); } }, h.displayName),
+            ' (' + h.typeName + ')');
+        })),
+      list.subfolders && list.subfolders.length > 0 && el('div', { className: 'rb-row', style: { gap: 6, marginBottom: 10, flexWrap: 'wrap' } },
+        el('span', { className: 'rb-note' }, 'Folders inside:'),
+        list.subfolders.map(function(sf) {
+          return el('button', { key: sf.guid, className: 'rb-facet', onClick: function() { navigate({ browse: 'folder', value: sf.guid }); } }, '\ud83d\udcc1 ' + sf.displayName);
+        })),
+      list.items.length > 0 && el(LensBar, { list: list, lensGuid: lens, creds: creds, picked: picked, onPick: togglePick, onLens: setLens }),
+      listCategories.length > 0 && el('div', { className: 'rb-row', style: { gap: 8, marginBottom: 10 } },
+        el('span', { className: 'rb-note' }, 'Narrow by category:'),
+        el(CategorySelect, { value: cat, options: listCategories, onChange: setCat }),
+        cat && el('span', { className: 'rb-note' }, shownRows.length + ' shown')),
+      list.items.length === 0 && !list.note && !list.loading && !(list.subfolders && list.subfolders.length) && el('div', { className: 'rb-absent' }, 'No resource visible to you is here.'),
       list.items.length > 0 && el('div', { className: 'rb-note', style: { marginBottom: 8 } },
-        list.items.length + ' resource' + (list.items.length === 1 ? '' : 's') + '. ' + (list.order || '')),
-      el(ResultList, { rows: list.items, creds: creds, idx: idx }),
+        (list.lens || cat ? shownRows.length + ' of ' : '') + (list.capped ? 'at least ' : '') + list.items.length + (list.notShownTypes ? ' item' : ' resource') + (list.items.length === 1 ? '' : 's') +
+        (list.lens ? ' shown for the lens \u201c' + list.lens.displayName + '\u201d' : '') + '. ' + (list.order || '')),
+      list.loading && el('div', { className: 'center', style: { height: 90 } }, el('div', { className: 'spinner' }), 'Counting every resource\u2026'),
+      list.refreshing && el('div', { className: 'rb-note', style: { marginBottom: 8 } }, 'A newer count is being made in the background; this is the last one.'),
+      list.scopeListsAsOf && list.scopeListsAsOf.noneAsOf && el('div', { className: 'rb-note', style: { marginBottom: 8 } },
+        'The recorded list is as of ' + fmtDate(list.scopeListsAsOf.recordedAsOf) + ' and the full resource read as of ' + fmtDate(list.scopeListsAsOf.noneAsOf) +
+        ': a resource scoped in between may sit in neither list, or both, until both refresh (10 minutes).'),
+      shownRows.length > 0 && el(BulkBar, { rows: shownRows, sel: sel, creds: creds, mayHaveMore: !!list.capped, what: 'rows' }),
+      el(ResultList, { key: (lens || '') + JSON.stringify(picked) + '|' + cat, rows: shownRows, creds: creds, idx: idx, showMatched: !!list.lens, sel: sel,
+        viewSearch: browseHere, listKey: (lens || '') + JSON.stringify(picked) + '|' + cat,
+        renderExtra: list.lens ? function(r) {
+          var o = r.lensOutcome || {};
+          return el('span', { className: 'rb-chip', title: TERMS[o.outcome === 'notComparable' ? 'notComparable' : o.outcome === 'notRead' ? 'scopeNotRead' : 'dataLens'].def },
+            OUTCOME_CHIP[o.outcome] || '', o.compared && o.compared.length ? ' on ' + o.compared.join(', ') : '',
+            o.outside && o.outside.length ? ' (outside on ' + o.outside.join(', ') + ')' : '');
+        } : null }),
       el('div', { className: 'rb-note', style: { marginTop: 10, display: 'flex', flexDirection: 'column', gap: 3 } },
-        list.notShown > 0 && el('span', null, list.notShown + ' element' + (list.notShown === 1 ? ' is' : 's are') +
-          ' not shown because ' + (list.notShown === 1 ? 'it is' : 'they are') + ' not a resource this app lists or ' + (list.notShown === 1 ? 'is a template' : 'are templates') + '.'),
+        list.notShown > 0 && el('span', null, notShownLine(list)),
         list.capped && el('span', null, 'The read stopped at its page limit, so this list may be incomplete.'),
         el('span', null, 'Zone security may hide resources from your user, so this list may be incomplete.')),
       el(SourceLine, { data: list })));
@@ -2316,7 +2953,7 @@ function App() {
     : route.page === 'list' ? el(ListPage, { key: route.guid, guid: route.guid, creds: creds })
     : route.page === 'lens' ? el(LensPage, { key: route.guid, guid: route.guid, creds: creds })
     : route.page === 'help' ? el(HelpPage, null)
-    : route.page === 'browse' ? el(BrowsePage, { facet: route.facet, value: route.value, creds: creds })
+    : route.page === 'browse' ? el(BrowsePage, { facet: route.facet, value: route.value, lens: route.lens, creds: creds })
     : el(HomePage, { creds: creds, personaId: personaId });
 
   return el(PersonaContext.Provider, { value: personaId },

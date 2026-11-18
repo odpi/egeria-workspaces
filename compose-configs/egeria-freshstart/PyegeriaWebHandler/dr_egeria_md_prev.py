@@ -1,6 +1,7 @@
 """
 This is an ongoing experiment in parsing and playing with Freddie docs
 """
+from egeria_auth import service_password  # PO-45: no built-in service password
 import os
 import sys
 from datetime import datetime
@@ -60,9 +61,9 @@ EGERIA_VIEW_SERVER_URL = os.environ.get("EGERIA_VIEW_SERVER_URL", "https://local
 EGERIA_INTEGRATION_DAEMON = os.environ.get("EGERIA_INTEGRATION_DAEMON", "integration-daemon")
 EGERIA_INTEGRATION_DAEMON_URL = os.environ.get("EGERIA_INTEGRATION_DAEMON_URL", "https://localhost:9443")
 EGERIA_ADMIN_USER = os.environ.get("ADMIN_USER", "garygeeke")
-EGERIA_ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "secret")
+EGERIA_ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")   # PO-45: no built-in "secret" (unused here)
 EGERIA_USER = os.environ.get("EGERIA_USER", "erinoverview")
-EGERIA_USER_PASSWORD = os.environ.get("EGERIA_USER_PASSWORD", "secret")
+EGERIA_USER_PASSWORD = service_password()
 EGERIA_WIDTH = os.environ.get("EGERIA_WIDTH", 220)
 EGERIA_JUPYTER = os.environ.get("EGERIA_JUPYTER", False)
 EGERIA_HOME_GLOSSARY_GUID = os.environ.get("EGERIA_HOME_GLOSSARY_GUID", None)
@@ -406,9 +407,9 @@ EGERIA_VIEW_SERVER_URL = os.environ.get("EGERIA_VIEW_SERVER_URL", "https://local
 EGERIA_INTEGRATION_DAEMON = os.environ.get("EGERIA_INTEGRATION_DAEMON", "integration-daemon")
 EGERIA_INTEGRATION_DAEMON_URL = os.environ.get("EGERIA_INTEGRATION_DAEMON_URL", "https://localhost:9443")
 EGERIA_ADMIN_USER = os.environ.get("ADMIN_USER", "garygeeke")
-EGERIA_ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "secret")
+EGERIA_ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")   # PO-45: no built-in "secret" (unused here)
 EGERIA_USER = os.environ.get("EGERIA_USER", "erinoverview")
-EGERIA_USER_PASSWORD = os.environ.get("EGERIA_USER_PASSWORD", "secret")
+EGERIA_USER_PASSWORD = service_password()
 EGERIA_WIDTH = os.environ.get("EGERIA_WIDTH", 220)
 EGERIA_JUPYTER = os.environ.get("EGERIA_JUPYTER", False)
 EGERIA_HOME_GLOSSARY_GUID = os.environ.get("EGERIA_HOME_GLOSSARY_GUID", None)

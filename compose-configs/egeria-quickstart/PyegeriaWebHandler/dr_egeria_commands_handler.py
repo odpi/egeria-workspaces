@@ -24,6 +24,7 @@ skipping _build_markdown_block() since the content is already a complete
 document rather than one title+params form.
 """
 
+from egeria_auth import service_password  # PO-45: no built-in service password
 import os
 import re
 import tempfile
@@ -366,7 +367,7 @@ def execute_command(req: ExecuteRequest):
     url     = req.url     or os.environ.get("EGERIA_PLATFORM_URL",  "https://egeria-main:9443")
     server  = req.server  or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
     user_id = req.user_id or os.environ.get("EGERIA_USER",          "erinoverview")
-    user_pwd = req.user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    user_pwd = req.user_pwd or service_password()
 
     block = _build_markdown_block(req.title, req.params, directive=req.directive)
     logger.info(f"Dr. Egeria execute: title={req.title!r} directive={req.directive!r}")
@@ -414,7 +415,7 @@ def execute_document(req: ExecuteDocumentRequest):
     url      = req.url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://egeria-main:9443")
     server   = req.server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
     user_id  = req.user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
-    user_pwd = req.user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    user_pwd = req.user_pwd or service_password()
 
     logger.info(f"Dr. Egeria execute-document: directive={req.directive!r} "
                 f"({len(req.content)} chars)")

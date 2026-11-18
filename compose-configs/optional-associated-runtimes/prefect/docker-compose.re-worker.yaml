@@ -61,6 +61,10 @@ services:
       EGERIA_USER_PASSWORD: "${RE_DAEMON_USER_PASSWORD:?set RE_DAEMON_USER_PASSWORD in .env.re-worker (see README)}"
       PYEGERIA_TIMEOUT_SECONDS: "30"
       GITHUB_TOKEN: "${GITHUB_TOKEN:-}"
+      # Key for the database passwords RE stores: the SAME value as trellis-re-web and trellis-re-worker
+      # (../trellis/.env). A step dispatched here decrypts db_password with it; unset, RE would derive a key
+      # from this container's hostname and could not read what the other RE processes stored.
+      TRELLIS_DB_CREDENTIAL_KEY: "${TRELLIS_DB_CREDENTIAL_KEY:?set TRELLIS_DB_CREDENTIAL_KEY in .env.re-worker (the same value as ../trellis/.env; see README)}"
       # The image's torch is CPU-only (see the NVIDIA overlay before changing this).
       EMBEDDINGS__DEVICE: cpu
       OBSERVABILITY__MLFLOW__ENABLED: "false"
