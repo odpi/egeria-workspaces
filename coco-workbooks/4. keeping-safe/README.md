@@ -8,6 +8,7 @@ The scenarios in this directory focus on security and the IT infrastructure that
 - [security-glossary.md](security-glossary.md) is the vocabulary that security people use - the goals and principles of security, the language of the ISMS, identity and access, kinds of attack, security testing and monitoring, and incident response.  Simon Burr wrote it with Ivor Padlock and Sidney Seeker when he found that words such as *threat*, *risk* and *vulnerability* meant different things to different people.  It underpins the security awareness training.
 - [risk-scopes.md](risk-scopes.md) is the security team's threat modelling output: it links the risks in the [risk register](../0.%20data-governance-program/risk-register.md) to the solution components of the strategic information supply chains that they threaten, using the `ScopedBy` relationship.  Since the components are linked to the systems that implement them in all three estates, scoping a risk to a component scopes it to every system that implements it.  It also lists the risks that have nothing to be scoped to yet.
 - [statement-of-applicability.md](statement-of-applicability.md) is Simon Burr's statement of applicability for the ISMS: the ISO/IEC 27001:2022 Annex A controls he has assessed so far as governance controls, the statement itself, and a `ControlApplicability` link to each control recording whether it applies, why, and how far it has been implemented.  The controls are linked to the security obligations they implement.
+- [batch-manufacturing-threat-models.md](batch-manufacturing-threat-models.md) is Simon Burr's STRIDE threat modelling of the Batch Manufacturing and Release information supply chain: a threat model (solution blueprint) for the supply chain and one for each of four Austin systems, the actors considered, fifteen risks linked to their STRIDE threats and scoped to the components they threaten, and the controls that treat them.  [batch-manufacturing-threat-model-links.md](batch-manufacturing-threat-model-links.md) links each system in the inventory to its threat model with `MoreInformation`.
 
 ## Loading the IT governance program
 
@@ -60,3 +61,17 @@ To record progress on a control, change its implementation status, implementatio
 ----
 License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/),
 Copyright Contributors to the ODPi Egeria project.
+
+## Loading the threat models
+
+`batch-manufacturing-threat-models.md` uses the solution components from `1. coco-data-hub/strategic-supply-chain-analysis.md`, the task and folio from `onboarding-simon-burr.md` and the Annex A controls from `statement-of-applicability.md`, so load those first.  It is loaded as Simon Burr:
+
+```bash
+dr_egeria --directive process --userid simonburr --user_pass secret batch-manufacturing-threat-models.md
+```
+
+`batch-manufacturing-threat-model-links.md` links the four Austin systems to their threat models, so it also needs the systems from the `1. coco-data-hub/extending-the-systems-inventory` notebook.  The systems are in the `business-systems` zone, which Simon Burr cannot read, so it is loaded as Gary Geeke:
+
+```bash
+dr_egeria --directive process --userid garygeeke --user_pass secret batch-manufacturing-threat-model-links.md
+```

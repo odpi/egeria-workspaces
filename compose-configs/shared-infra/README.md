@@ -106,6 +106,15 @@ The scripts in `docker-entrypoint-initdb.d` run only when the server's data volu
 predates it. The script creates only what is missing. To add another database later, write its script the same way
 and add it to `SHARED_POSTGRES_UPDATE_SCRIPTS` in `ensure-shared-infra.sh`.
 
+### Security operational data store (security_ods)
+
+The `security_ods` database receives the open metadata digital products of Egeria's *Security Observability* product
+family. Those products are in the security governance zone, so they are delivered to a database of their own rather
+than to `egeria_ods`: only `provisioner` (to deliver) and `surveyor` (to catalogue) may connect to it. It is created
+empty by `docker-entrypoint-initdb.d/init_security_ods.sql`, which `ensure-shared-infra.sh` also runs on every start.
+Cataloguing the database and taking out the subscription is done by
+`coco-workbooks/1. coco-data-hub/security-operational-data-store.md` in quickstart, run as Ivor Padlock.
+
 ### Query statistics (pg_stat_statements)
 
 PostgreSQL starts with `pg_stat_statements` preloaded and `track_activity_query_size=16384`, so slow or frequent

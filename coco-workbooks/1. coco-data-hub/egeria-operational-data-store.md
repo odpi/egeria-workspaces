@@ -1,10 +1,10 @@
 # Egeria Operational Data Store
 
 > **Author:** Peter Profile (Solution Architect)
-> **Version:** 1.1
+> **Version:** 1.2
 > **Status:** ACTIVE
-> **Date:** 2026-11-15
-> **Description:** Fills the `egeria_ods` database with Egeria's open metadata digital products - one table for each product - through a daily subscription to each of the top-level product families in the Open Metadata Digital Product Catalog.
+> **Date:** 2026-11-17
+> **Description:** Fills the `egeria_ods` database with Egeria's open metadata digital products - one table for each product - through a daily subscription to each of the top-level product families in the Open Metadata Digital Product Catalog, apart from Security Observability, which is delivered to the security team's own database.
 
 ---
 
@@ -33,7 +33,11 @@ instead this file subscribes to each of the families directly beneath it:
 | Survey Reports | `survey_reports` | The results of the surveys that Egeria has run against the organization's resources |
 | Governance Observability | `governance_observability` | Insights into the activity of the governance program |
 | IT Operations Observability | `it_operations_observability` | Insights into the operation of the IT infrastructure that Egeria monitors |
-| Security Observability | `security_observability` | Insights into security, including the nested Secrets Observability and User Observability families |
+
+The *Security Observability* family is not in the table.  Its products are in the security governance zone, which
+Peter Profile cannot see, so he cannot subscribe to it and `egeria_ods` does not hold it.  Ivor Padlock subscribes
+to it in [security-operational-data-store.md](security-operational-data-store.md), which delivers it to a database
+of the security team's own, `security_ods`.
 
 The file has three parts:
 
@@ -57,7 +61,8 @@ Run this file once.  Its commands are actions rather than definitions.  Running 
 harmless - it finds the database it has already catalogued - but the other commands do not look for what is already
 there, so a second run asks for a second description of each destination and a second subscription to it.
 
-When Egeria adds a top-level family to the catalog folder, add a section for it here.
+When Egeria adds a top-level family to the catalog folder, add a section for it here - unless its products are in a
+governance zone that Peter cannot see, in which case it needs a file of its own, run by someone who can.
 
 ---
 
@@ -460,58 +465,6 @@ PostgreSQL Tabular Data Set Collection::Coco PostgreSQL Server 1::egeria_ods.it_
 ### Journal Entry
 
 The Egeria operational data store subscribes to the IT Operations Observability product family: its products are delivered to egeria_ods.it_operations_observability once a day.
-
-___
-
----
-
-## Security Observability
-
-Delivers insights into security, including the nested Secrets Observability and User Observability families.
-
-___
-
-## Create Element
-
-### Element Type Name
-
-TabularDataSetCollection
-
-### Template GUID
-
-3f9a0ab3-072c-4cb1-a14f-6e0492e00dd7
-
-### Placeholder Property Values
-
-- hostIdentifier: host.docker.internal
-- serverName: Coco PostgreSQL Server 1
-- portNumber: 5442
-- secretsCollectionName: PostgreSQL Provisioning Secret
-- secretsStorePathName: secrets/integration.omsecrets
-- versionIdentifier: V1.0
-- databaseName: egeria_ods
-- schemaName: security_observability
-- schemaDescription: The products of the Security Observability product family, one table for each product, delivered by a daily subscription to the family.
-
-___
-
-## Initiate Subscription
-
-### Subscription Type
-
-ProvisioningActionProcess::Security Observability::Create Subscription::DAILY-REFRESH-SUBSCRIPTION
-
-### Subscription Requester
-
-Person::UK::986419
-
-### Destination Data Set
-
-PostgreSQL Tabular Data Set Collection::Coco PostgreSQL Server 1::egeria_ods.security_observability
-
-### Journal Entry
-
-The Egeria operational data store subscribes to the Security Observability product family: its products are delivered to egeria_ods.security_observability once a day.
 
 ___
 
