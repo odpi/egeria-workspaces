@@ -119,6 +119,32 @@ if [[ -z "$EGERIA_ADMIN_CALLER_PASSWORD_VAL" && -f .env ]]; then
   EGERIA_ADMIN_CALLER_PASSWORD_VAL="$(grep -E '^EGERIA_ADMIN_CALLER_PASSWORD=' .env | head -n1 | cut -d= -f2- || true)"
 fi
 
+# JWT_SECRET (RK-24b, 2026-11-18): signs the Portal's session cookies. This script rewrites .env every run, which
+# used to drop it, so the compose default (a value published in the repo) signed every freshstart's sessions.
+# An exported value wins, else the one already in .env is kept, else a random one is generated on this first run.
+# The published default is never kept. Never printed.
+_PUBLIC_JWT_DEFAULT="change-me-before-going-public"
+if [[ "${JWT_SECRET:-}" == "$_PUBLIC_JWT_DEFAULT" ]]; then
+  # An exported value wins at compose too, so it can't be replaced here: stop rather than start a Portal that
+  # refuses every sign-in (read-back M1).
+  echo "[gen-env.sh] STOP: the exported JWT_SECRET is the published example value, which anyone could use to forge sessions." >&2
+  echo "[gen-env.sh]   Unset it (unset JWT_SECRET) and re-run: a random one is generated into .env and kept." >&2
+  exit 1
+fi
+JWT_SECRET_VAL="${JWT_SECRET:-}"
+if [[ -z "$JWT_SECRET_VAL" && -f .env ]]; then
+  JWT_SECRET_VAL="$(grep -E '^JWT_SECRET=' .env | head -n1 | cut -d= -f2- || true)"
+fi
+JWT_SECRET_VAL="${JWT_SECRET_VAL%\"}"; JWT_SECRET_VAL="${JWT_SECRET_VAL#\"}"
+if [[ -z "$JWT_SECRET_VAL" || "$JWT_SECRET_VAL" == "$_PUBLIC_JWT_DEFAULT" ]]; then
+  if command -v openssl >/dev/null 2>&1; then
+    JWT_SECRET_VAL="$(openssl rand -hex 32)"
+  else
+    JWT_SECRET_VAL="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+  fi
+  echo "[gen-env.sh] JWT_SECRET: generated a new random value into .env (kept on later runs)." >&2
+fi
+
 TMP_ENV=".env.tmp"
 ( umask 077; : > "$TMP_ENV" )
 cat > "$TMP_ENV" <<EOF
@@ -129,10 +155,11 @@ HOST_GATEWAY_IP=${HOST_GATEWAY_IP}
 EGERIA_MEM_LIMIT=${EGERIA_MEM_LIMIT_VAL}
 CONFIG_JSON="${CONFIG_JSON_ESCAPED}"
 EOF
+printf 'JWT_SECRET=%s\n' "$JWT_SECRET_VAL" >> "$TMP_ENV"
 if [[ -n "$EGERIA_ADMIN_CALLER_PASSWORD_VAL" ]]; then
   printf 'EGERIA_ADMIN_CALLER_PASSWORD=%s\n' "$EGERIA_ADMIN_CALLER_PASSWORD_VAL" >> "$TMP_ENV"
 else
-  echo "[gen-env.sh] WARNING: EGERIA_ADMIN_CALLER_PASSWORD is not set: the Portal will not start until you export it or add it to compose-configs/egeria-freshstart/.env (the password of the EGERIA_ADMIN_CALLER_ID account)" >&2
+  echo "[gen-env.sh] WARNING: EGERIA_ADMIN_CALLER_PASSWORD is not set. It is the password of the Egeria account the Portal acts as (EGERIA_ADMIN_CALLER_ID, \"bootstrap\" by default). Add EGERIA_ADMIN_CALLER_PASSWORD=<that password> to compose-configs/egeria-freshstart/.env, or export it; see the freshstart README, \"Required .env settings\"." >&2
 fi
 mv -f "$TMP_ENV" .env
 chmod 600 .env

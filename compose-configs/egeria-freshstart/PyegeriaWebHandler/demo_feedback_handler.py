@@ -31,12 +31,12 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Session
 
-from demo_config import DEMO_DB_URL, SERVER_MANAGED_AUTH, DEMO_MODE
+from demo_config import DEMO_DB_URL, SERVER_MANAGED_AUTH, DEMO_MODE, jwt_signing_key
 
 # ── Schema / table ─────────────────────────────────────────────────────────────
 
 _SCHEMA = "demo"
-_JWT_SECRET = os.environ.get("JWT_SECRET", "change-me-before-going-public")
+_WARNED_NO_KEY = False   # RK-24b M2
 
 
 class _Base(DeclarativeBase):
@@ -95,7 +95,16 @@ def _jwt_payload(request: Request) -> dict:
             if auth.startswith("Bearer "):
                 token = auth[7:]
         if token:
-            return jwt.decode(token, _JWT_SECRET, algorithms=["HS256"])
+            # RK-24b: an unset or published key raises here, so the caller is anonymous (fails closed).
+            try:
+                key = jwt_signing_key()
+            except RuntimeError as exc:
+                global _WARNED_NO_KEY
+                if not _WARNED_NO_KEY:   # once per process, no value (read-back M2)
+                    logger.warning(f"Feedback: {exc} Treating every feedback caller as anonymous.")
+                    _WARNED_NO_KEY = True
+                return {}
+            return jwt.decode(token, key, algorithms=["HS256"])
     except Exception:
         pass
     return {}

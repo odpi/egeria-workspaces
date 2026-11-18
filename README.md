@@ -46,7 +46,7 @@ When you're ready to run your own copy, see [Getting started](#getting-started) 
 
 ### Requirements
 
-- [Docker Desktop](https://www.docker.com/get-started/) (or podman + podman-compose; see [Monitoring Podman with PyCharm](Monitoring%20Podman%20with%20PyCharm.md))
+- [Docker Desktop](https://www.docker.com/get-started/) (or podman + podman-compose; see [Monitoring Podman with PyCharm](design-docs/Monitoring%20Podman%20with%20PyCharm.md))
 - Egeria platform image `6.0` or later (use tag `stable` or a specific post-6.0 tag if you have older cached images)
 
 ### Start the platform
@@ -136,6 +136,9 @@ The recommended starting point for learning Egeria. Pre-loaded with [Coco Pharma
 
 Portal: `https://localhost:8843` · Platform: `https://localhost:9443` · Jupyter: `http://localhost:8888`
 
+When the script finishes, the platform is up but Egeria's servers are still starting: **allow about 4 minutes**, then open the
+Portal and **pick a persona** (for example Erin Overview). The Catalog keeps filling in with Coco's data for a few minutes after that.
+
 ### Egeria Freshstart — local, clean slate
 
 An empty Egeria environment for setting up your own metadata, governance policies and integrations. Suitable for a small team. Includes registration-gated access and a private data model.
@@ -145,7 +148,13 @@ An empty Egeria environment for setting up your own metadata, governance policie
 ./fresh-start-multi-host   # accessible from other hosts on your network
 ```
 
+Before the first run, set `EGERIA_ADMIN_CALLER_PASSWORD` in `compose-configs/egeria-freshstart/.env` (`JWT_SECRET` is
+generated for you). The [Freshstart README](compose-configs/egeria-freshstart/README.md#required-env-settings) says what it is.
+
 Portal: `https://localhost:7843` · Platform: `https://localhost:8443` · Jupyter: `http://localhost:7888`
+
+When the script finishes, allow about 4 minutes for Egeria's servers to start before you sign in (see the
+[Freshstart README](compose-configs/egeria-freshstart/README.md#first-run) for the first sign-in).
 
 ### Quickstart vs Freshstart — detailed comparison
 
@@ -307,7 +316,7 @@ Execute Dr. Egeria commands directly from your Obsidian vault:
 
 **Call Dr. Egeria**: MCP-based (over SSE); dynamic command discovery, content-first architecture (results written via the Obsidian API, no Docker volume permissions required).
    - Source: `obsidian-plugins/call-dr-egeria/`
-   - Guide: [Call Dr. Egeria Guide](Configuring%20and%20Using%20the%20Call%20Dr.%20Egeria%20Obsidian%20Plugin.md) · [Call Dr. Egeria README](obsidian-plugins/call-dr-egeria/README.md)
+   - Guide: [Call Dr. Egeria Guide](docs/Configuring%20and%20Using%20the%20Call%20Dr.%20Egeria%20Obsidian%20Plugin.md) · [Call Dr. Egeria README](obsidian-plugins/call-dr-egeria/README.md)
 
 For workspace-specific profiles (`work/Work-Obsidian`, `coco-workbooks`): [OBSIDIAN_PROFILES.md](compose-configs/egeria-quickstart/OBSIDIAN_PROFILES.md)
 
