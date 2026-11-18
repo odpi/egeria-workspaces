@@ -39,7 +39,7 @@ _NEEDED = {"_type_names", "_display_name", "_related", "_classifications", "_dat
            "_group_label", "_attribute_noun", "_merge_reads", "_is_term", "_meanings_of"}
 # Helpers only the quickstart copy has yet (the freshstart copy is stale; see BACKLOG
 # "Mirror egeria-freshstart"): loaded when present, so _row can call them.
-_OPTIONAL = {"_has_scope"}
+_OPTIONAL = {"_has_scope", "_classifications_read"}
 _CONSTS = {"_SKIP_CLASSIFICATIONS", "_LINEAGE_RELATIONSHIPS", "_TABLE_STATS_QN", "_COLUMN_STATS_QN",
            "_RESOURCE_TYPES", "_NOT_RESOURCES", "_KINDS", "_BADGES",
            "_REPO_QN_PREFIX", "_RE_LIST_PREFIX", "_PORTAL_LIST_PREFIX", "_COPY_KEYS", "_GROUP_TYPES",
@@ -272,7 +272,7 @@ def test_recent_rows_merge_newest_first_without_noise(rb):
     assert [r["guid"] for r in rb["_recent_rows"]([a, b])] == ["d", "t1"]
 
 
-# ── Phase 3: work lists ──────────────────────────────────────────────────────
+# ── Phase 3: working sets ──────────────────────────────────────────────────────
 
 def test_repo_is_a_plain_asset_named_by_its_url(rb):
     r = rb["_row"](_el("Asset", ["Referenceable"], qn="GitHubRepository::https://github.com/odpi/egeria"))

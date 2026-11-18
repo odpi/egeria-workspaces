@@ -3,7 +3,7 @@ SPDX-License-Identifier: Apache-2.0
 Copyright Contributors to the ODPi Egeria project.
 
 Resource Locator — FastAPI router (phase 1: the Resource page; phase 2: search, Home, Browse;
-phase 3: work lists).
+phase 3: working sets).
 
 A shop-for-resources app for people who look for resources (data, code, APIs, products)
 rather than curate them.
@@ -26,7 +26,7 @@ Endpoints:
   GET    /api/resource-browser/flavours                      → which resources are product or hub members (cached)
   GET    /api/resource-browser/row-extras?guids=             → tags, likes and rating summary for visible rows
   GET    /api/resource-browser/home                          → recently changed resources; popularity status
-  GET    /api/resource-browser/lists                         → work lists the user can see, and which hold what
+  GET    /api/resource-browser/lists                         → working sets the user can see, and which hold what
   GET    /api/resource-browser/lists/{guid}                  → one list, every member with its rationale
   POST   /api/resource-browser/lists                         → create a list of your own
   PUT    /api/resource-browser/lists/{guid}                  → rename it or change its description
@@ -49,8 +49,10 @@ under the server's own identity) writes are refused with 401 rather than made as
 a service account.
 """
 
+from egeria_auth import service_password  # PO-45: no built-in service password
 import asyncio
 import json
+import time
 import os
 import re
 import uuid
@@ -65,7 +67,7 @@ from pydantic import BaseModel
 
 from egeria_auth import async_apply_token, lineage_key as _lineage_key, token_user as _token_user
 from result_cache import request_identity
-from egeria_error_mapping import raise_egeria_http_error
+from egeria_error_mapping import describe_bulk_item_error, raise_egeria_http_error
 
 router = APIRouter(tags=["resource-browser"])
 
@@ -103,7 +105,7 @@ def _client_kwargs() -> dict:
         view_server=os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server"),
         platform_url=os.environ.get("EGERIA_PLATFORM_URL", "https://localhost:9443"),
         user_id=os.environ.get("EGERIA_USER", "erinoverview"),
-        user_pwd=os.environ.get("EGERIA_USER_PASSWORD", "secret"),
+        user_pwd=service_password(),
     )
 
 
@@ -240,6 +242,22 @@ def _has_scope(scope: Optional[dict]) -> bool:
     return False
 
 
+def _classifications_read(hdr: dict) -> bool:
+    """Whether this element header carries its classifications, so that "no DataScope" means none is
+    recorded rather than "not read" (Architect R1, 2026-11-17).
+
+    Measured on laz: every Browse source returns headers with classifications (collection members as
+    related elements, the source facet's anchored find, get_elements_by_classification, get_element_by_guid,
+    and _all_elements: 0 of 3,889 DataAssets without). Tags could not be measured (laz has none). Every
+    resource carries at least Anchors, so a header with no classification entry at all was not read with
+    them, and its row is "scope not read"."""
+    for val in (hdr or {}).values():
+        for v in (val if isinstance(val, list) else [val]):
+            if isinstance(v, dict) and v.get("class") == "ElementClassification":
+                return True
+    return False
+
+
 def _flavour(type_name: str, super_types: list, collections: list) -> dict:
     """Which of the spec's three flavours a resource is (§3).
 
@@ -354,7 +372,11 @@ def _jdbc_table_name(props: dict) -> Optional[str]:
 async def serve_resource_browser():
     if not _HTML.exists():
         raise HTTPException(status_code=404, detail="Resource Locator page not found")
-    return FileResponse(str(_HTML), media_type="text/html")
+    # no-store, like the Portal's other pages: without a Cache-Control header a browser
+    # guesses a freshness lifetime from Last-Modified and can keep showing the page from
+    # before a deploy for hours (2026-11-17: the Data lenses tile was missing for the owner).
+    return FileResponse(str(_HTML), media_type="text/html",
+                        headers={"Cache-Control": "no-store, must-revalidate"})
 
 
 # ── Reading a resource ────────────────────────────────────────────────────────
@@ -1271,7 +1293,7 @@ async def add_private_note(guid: str, body: PrivateNoteBody):
         logger.warning(f"resource-browser: private note {note_guid} by {user} saved but not re-zoned: {exc}")
         raise HTTPException(status_code=502, detail=(
             "Your note was saved, but Egeria did not make it private, so other people may be able to read it. "
-            f"({exc})"))
+            f"({describe_bulk_item_error(exc).rstrip('.')})"))
     try:
         await (await _expert_async())._async_create_related_elements({
             "class": "NewRelatedElementsRequestBody", "typeName": "Actions",
@@ -1281,7 +1303,7 @@ async def add_private_note(guid: str, body: PrivateNoteBody):
         logger.warning(f"resource-browser: private note {note_guid} by {user} not linked to {guid}: {exc}")
         raise HTTPException(status_code=502, detail=(
             "Your note was saved in your journal and is private, but Egeria did not link it to this resource, "
-            f"so it will not show here. ({exc})"))
+            f"so it will not show here. ({describe_bulk_item_error(exc).rstrip('.')})"))
     return await get_private_notes(guid)
 
 
@@ -1381,10 +1403,18 @@ _PART_KINDS = [
     ("field", "Data fields", ["DataField"]),
 ]
 
+# Glossary terms (Dan, 2026-11-17): a kind search filters on, though a term is neither a
+# resource nor a part of one. All does not include them (Architect Q1): about 1,500 terms
+# would crowd resources out of a relevance list. Browse lists that hold terms (a folder, a
+# keyword) show them as rows of their own.
+_OTHER_KINDS = [
+    ("term", "Glossary terms", ["GlossaryTerm"]),
+]
+
 # Resource Explorer publishes a GitHub repository as a plain Asset named
 # GitHubRepository::<url> (no subtype yet), so a repo is told by its name.
 _REPO_QN_PREFIX = "GitHubRepository::"
-_KIND_IDS = [k[0] for k in _KINDS] + [k[0] for k in _PART_KINDS] + ["other"]
+_KIND_IDS = [k[0] for k in _KINDS] + [k[0] for k in _PART_KINDS] + [k[0] for k in _OTHER_KINDS] + ["other"]
 
 # Governance classifications shown as badges.
 _BADGES = ["Confidentiality", "Confidence", "Criticality", "Impact", "Retention", "SecurityTags"]
@@ -1452,6 +1482,49 @@ def _part_row(el: dict, container: Optional[dict]) -> Optional[dict]:
     return row
 
 
+def _term_row(el: dict) -> Optional[dict]:
+    """A row for a glossary term: kind "term", with its summary and content status.
+
+    Which glossary holds a term is not in its header (a term anchors itself; the glossary is a
+    CollectionMembership), and its qualified name follows no single pattern on laz, so the row
+    names no glossary rather than guessing one; the term's page in Egeria Explorer shows it."""
+    hdr = (el or {}).get("elementHeader") or {}
+    type_name, supers = _type_names(hdr)
+    if "GlossaryTerm" not in [type_name] + list(supers or []):
+        return None
+    row = _row(el, any_type=True)
+    if not row:
+        return None
+    props = el.get("properties") or {}
+    row["kind"] = "term"
+    row["summary"] = props.get("summary") or ""
+    row["contentStatus"] = props.get("contentStatus") or ""
+    return row
+
+
+def _any_rows(elements: list) -> tuple:
+    """(rows, not_shown_by_type) for a Browse list that may hold more than resources (a folder,
+    a keyword): resources, glossary terms, and columns, attributes and data fields. A part's
+    container is not read here, so its row says only that it is part of something (partOf
+    unknown). Anything else is counted by its type name, so it is named, never just dropped."""
+    rows, not_shown = [], {}
+    for e in elements:
+        if not isinstance(e, dict):
+            continue
+        hdr = e.get("elementHeader") or {}
+        type_name, supers = _type_names(hdr)
+        r = _row(e) or _term_row(e)
+        if not r and _part_kind(type_name, supers):
+            r = _part_row(e, None)
+            if r:
+                r["partOfKnown"] = False
+        if r:
+            rows.append(r)
+        elif type_name:
+            not_shown[type_name] = not_shown.get(type_name, 0) + 1
+    return rows, not_shown
+
+
 def _is_repo(type_name: str, qualified_name: str) -> bool:
     return type_name == "Asset" and (qualified_name or "").startswith(_REPO_QN_PREFIX)
 
@@ -1481,10 +1554,12 @@ def _row(el: dict, any_type: bool = False) -> Optional[dict]:
         "displayName": _display_name(props, guid),
         "qualifiedName": props.get("qualifiedName", ""),
         "description": desc if len(desc) <= 400 else desc[:397] + "…",
+        "category": (props.get("category") or "").strip(),
         "owner": _owner(cls),
         "badges": [c["name"] for c in cls if c["name"] in _BADGES],
         "dataScope": _data_scope(cls),
         "hasScope": _has_scope(_data_scope(cls)),
+        "scopeRead": _classifications_read(hdr),
         "updatedBy": versions.get("updatedBy") or versions.get("createdBy") or "",
         "updateTime": versions.get("updateTime") or versions.get("createTime") or "",
         "automated": _looks_automated(versions.get("updatedBy") or versions.get("createdBy")),
@@ -1692,9 +1767,12 @@ def _kind_types(kinds: Optional[list]) -> list:
     """The resource types the text search asks for: every resource type for All (or when
     "other" is asked for, since other is whatever is left), else the union of the kinds'
     types. [] when only code repositories or parts are asked for."""
-    if kinds is None or "other" in kinds:
+    if kinds is None:
         return _RESOURCE_TYPES
-    return list(dict.fromkeys(t for k, _label, types in _KINDS if k in kinds for t in types))
+    extra = [t for k, _label, types in _OTHER_KINDS if k in kinds for t in types]
+    if "other" in kinds:
+        return _RESOURCE_TYPES + extra
+    return list(dict.fromkeys([t for k, _label, types in _KINDS if k in kinds for t in types] + extra))
 
 
 def _part_types(kinds: Optional[list]) -> list:
@@ -1860,25 +1938,47 @@ async def search(q: str = Query(..., min_length=1),
 
     found: dict = {}
     not_shown = 0
+    want_terms = bool(kinds) and "term" in kinds
+    terms_not_shown = 0
+
+    def rows_of(els):
+        """Resource rows, plus term rows when Glossary terms is picked. In All, a matching term
+        is counted apart (termsNotShown), not as an operational record."""
+        nonlocal terms_not_shown
+        rows, skipped = [], 0
+        for e in els:
+            r = _row(e)
+            if not r:
+                t = _term_row(e)
+                if t and want_terms:
+                    r = t
+                elif t:
+                    terms_not_shown += 1
+                    continue
+            if r:
+                rows.append(r)
+            else:
+                skipped += 1
+        return rows, skipped
     if "repos" in results and "repos" not in failed:
         for r in results["repos"]:
             _merge(found, [r], _text_reason(r, q))
     if "text" in results and "text" not in failed:
-        rows, skipped = _rows(results["text"])
+        rows, skipped = rows_of(results["text"])
         not_shown += skipped
         for r in rows:
             _merge(found, [r], _text_reason(r, q))
     if "tags" in results and "tags" not in failed:
         for name, els in results["tags"]:
-            rows, skipped = _rows(els)
+            rows, skipped = rows_of(els)
             not_shown += skipped
             _merge(found, rows, f"tag: {name}")
     if "keywords" in results and "keywords" not in failed:
-        rows, skipped = _rows(results["keywords"])
+        rows, skipped = rows_of(results["keywords"])
         not_shown += skipped
         _merge(found, rows, f"keyword: {q}")
     if "owners" in results and "owners" not in failed:
-        rows, skipped = _rows(results["owners"])
+        rows, skipped = rows_of(results["owners"])
         not_shown += skipped
         for r in rows:
             _merge(found, [r], f"owner: {r['owner']}")
@@ -1905,6 +2005,7 @@ async def search(q: str = Query(..., min_length=1),
         "mayHaveMore": may_have_more,
         "cappedSources": capped,
         "notShown": not_shown,
+        "termsNotShown": terms_not_shown,
         "parts": parts,
         "failedSources": failed,
         "order": _ORDER_NOTE,
@@ -1920,7 +2021,8 @@ async def search(q: str = Query(..., min_length=1),
 async def get_kinds():
     return JSONResponse({"kinds": [{"id": k, "label": label, "types": types} for k, label, types in _KINDS]
                          + [{"id": "other", "label": "Other", "types": []}],
-                         "parts": [{"id": k, "label": label, "types": types} for k, label, types in _PART_KINDS]})
+                         "parts": [{"id": k, "label": label, "types": types} for k, label, types in _PART_KINDS],
+                         "others": [{"id": k, "label": label, "types": types} for k, label, types in _OTHER_KINDS]})
 
 
 @router.get("/api/resource-browser/row-extras", summary="Tags, likes and rating summary for the rows on screen")
@@ -1990,9 +2092,9 @@ _RE_LIST_PREFIX = "WorkingSet::resource-explorer::"
 _PORTAL_LIST_PREFIX = "WorkingSet::portal::"
 
 
-# ── Work lists (phase 3, spec §5 option (a)) ─────────────────────────────────
+# ── Working sets (phase 3, spec §5 option (a)) ─────────────────────────────────
 #
-# A work list is an Egeria WorkingSet. The Portal's own lists are named
+# A working set (PO-42: called a work list until 2026-11-17) is an Egeria WorkingSet. The Portal's own lists are named
 # WorkingSet::portal::<user>::<slug> and only their creator changes them here.
 # Resource Explorer's published lists (WorkingSet::resource-explorer::<slug>) are
 # read-only: a person copies the members they want into a list of their own, and
@@ -2087,7 +2189,7 @@ async def _read_list(client, guid: str) -> dict:
         body={"class": "GetRequestBody", "graphQueryDepth": 1,
               "includeOnlyRelationships": ["CollectionMembership", "ResourceList"]})
     if not isinstance(el, dict) or _type_names(el.get("elementHeader") or {})[0] != "WorkingSet":
-        raise HTTPException(status_code=404, detail="That is not a work list visible to you.")
+        raise HTTPException(status_code=404, detail="That is not a working set visible to you.")
     return el
 
 
@@ -2097,13 +2199,13 @@ async def _my_list(client, guid: str) -> tuple:
     el = await _read_list(client, guid)
     rec = _list_record(el, me)
     if not rec["editable"]:
-        why = ("Resource Explorer lists are read-only here: copy the members you want into a list of your own."
-               if rec["origin"] == "resource-explorer" else "Only the person who made a list can change it.")
+        why = ("Resource Explorer working sets are read-only here: copy the members you want into a working set of your own."
+               if rec["origin"] == "resource-explorer" else "Only the person who made a working set can change it.")
         raise HTTPException(status_code=403, detail=why)
     return el, rec
 
 
-@router.get("/api/resource-browser/lists", summary="Work lists the user can see")
+@router.get("/api/resource-browser/lists", summary="Working sets the user can see")
 async def get_lists():
     try:
         client = await _explorer_async()
@@ -2114,7 +2216,7 @@ async def get_lists():
         if _is_unknown_type(exc):
             sets, capped = [], False
         else:
-            raise_egeria_http_error(exc, "resource-browser: work lists failed")
+            raise_egeria_http_error(exc, "resource-browser: working sets failed")
     me = _token_user()
     my_groups, groups_note = set(), None
     if me:
@@ -2131,6 +2233,9 @@ async def get_lists():
         members = [((i.get("relatedElement") or {}).get("elementHeader") or {}).get("guid")
                    for i in s.get("collectionMembers") or [] if isinstance(i, dict)]
         rec["memberCount"] = len([m for m in members if m])
+        # Architect R1 (PO-37): memberOf is only as complete as this read; a list at the read limit may
+        # hold more members than memberOf knows, so bulk add says "added or already in it" for it.
+        rec["membersCapped"] = rec["memberCount"] >= _LIST_CAP
         if rec["origin"] == "mine":
             mine.append(rec)
             for m in members:
@@ -2149,7 +2254,7 @@ async def get_lists():
                          "asOf": _now_iso(), "source": "ClassificationExplorer.get_elements (WorkingSet, CollectionMembership)"})
 
 
-@router.get("/api/resource-browser/lists/{guid}", summary="One work list with its members and why each is on it")
+@router.get("/api/resource-browser/lists/{guid}", summary="One working set with its members and why each is on it")
 async def get_list(guid: str):
     try:
         client = await _explorer_async()
@@ -2157,7 +2262,7 @@ async def get_list(guid: str):
     except HTTPException:
         raise
     except Exception as exc:
-        _raise_not_visible_or_mapped(exc, f"resource-browser: work list {guid} failed")
+        _raise_not_visible_or_mapped(exc, f"resource-browser: working set {guid} failed")
     members = _list_members(el)
     members.sort(key=lambda r: (r["kind"], r["displayName"].lower()))
     return JSONResponse({**_list_record(el, _token_user()), "members": members,
@@ -2173,7 +2278,7 @@ class NewListBody(BaseModel):
 async def _create_list(client, me: str, name: str, description: str, extra: Optional[dict] = None) -> str:
     name = name.strip()
     if not name or len(name) > 120:
-        raise HTTPException(status_code=400, detail="A list needs a name of up to 120 characters.")
+        raise HTTPException(status_code=400, detail="A working set needs a name of up to 120 characters.")
     props = {"class": "CollectionProperties", "typeName": "WorkingSet",
              "qualifiedName": f"{_PORTAL_LIST_PREFIX}{me}::{_list_slug(name, uuid.uuid4().hex[:6])}",
              "displayName": name, "description": description or ""}
@@ -2182,7 +2287,7 @@ async def _create_list(client, me: str, name: str, description: str, extra: Opti
     return await client._async_create_collection(body={"class": "NewElementRequestBody", "properties": props})
 
 
-@router.post("/api/resource-browser/lists", summary="Create a work list of your own")
+@router.post("/api/resource-browser/lists", summary="Create a working set of your own")
 async def create_list(body: NewListBody):
     me = _require_signed_in()
     try:
@@ -2200,12 +2305,12 @@ class EditListBody(BaseModel):
     description: Optional[str] = None
 
 
-@router.put("/api/resource-browser/lists/{guid}", summary="Rename a list of yours or change its description")
+@router.put("/api/resource-browser/lists/{guid}", summary="Rename a working set of yours or change its description")
 async def edit_list(guid: str, body: EditListBody):
     props = {"class": "CollectionProperties"}
     if body.name is not None:
         if not body.name.strip() or len(body.name) > 120:
-            raise HTTPException(status_code=400, detail="A list needs a name of up to 120 characters.")
+            raise HTTPException(status_code=400, detail="A working set needs a name of up to 120 characters.")
         props["displayName"] = body.name.strip()
     if body.description is not None:
         props["description"] = body.description
@@ -2227,7 +2332,7 @@ class MembersBody(BaseModel):
     rationale: Optional[str] = None
 
 
-@router.post("/api/resource-browser/lists/{guid}/members", summary="Add resources to a list of yours")
+@router.post("/api/resource-browser/lists/{guid}/members", summary="Add resources to a working set of yours")
 async def add_members(guid: str, body: MembersBody):
     wanted = [g for g in dict.fromkeys(str(x).strip() for x in body.guids) if g]
     if not wanted or len(wanted) > _ADD_CAP:
@@ -2245,7 +2350,7 @@ async def add_members(guid: str, body: MembersBody):
         try:
             await cm._async_add_to_collection(guid, g, body=_membership_body((body.rationale or "").strip() or None))
         except Exception as exc:
-            failed[g] = str(exc)[:200]
+            failed[g] = describe_bulk_item_error(exc)       # words only; the exception is logged
             logger.warning(f"resource-browser: add {g} to list {guid} failed: {exc}")
     out = await get_list(guid)
     if failed:
@@ -2255,7 +2360,7 @@ async def add_members(guid: str, body: MembersBody):
     return out
 
 
-@router.delete("/api/resource-browser/lists/{guid}/members/{member_guid}", summary="Remove a resource from a list of yours")
+@router.delete("/api/resource-browser/lists/{guid}/members/{member_guid}", summary="Remove a resource from a working set of yours")
 async def remove_member(guid: str, member_guid: str):
     try:
         client = await _explorer_async()
@@ -2276,7 +2381,7 @@ class CopyBody(BaseModel):
 
 
 @router.post("/api/resource-browser/lists/{guid}/copy",
-             summary="Copy members of a list (e.g. from Resource Explorer) into a list of your own")
+             summary="Copy members of a working set (e.g. from Resource Explorer) into a working set of your own")
 async def copy_list(guid: str, body: CopyBody):
     me = _require_signed_in()
     try:
@@ -2291,7 +2396,7 @@ async def copy_list(guid: str, body: CopyBody):
     chosen = list(members) if body.members is None else [g for g in dict.fromkeys(body.members) if g in members]
     unknown = [] if body.members is None else [g for g in body.members if g not in members]
     if not chosen:
-        raise HTTPException(status_code=400, detail="Choose at least one member of this list to copy.")
+        raise HTTPException(status_code=400, detail="Choose at least one member of this working set to copy.")
     try:
         cm = await _collections_async()
         if body.into:
@@ -2313,7 +2418,7 @@ async def copy_list(guid: str, body: CopyBody):
         try:
             await cm._async_add_to_collection(target, g, body=_membership_body(m["rationale"] or None, m["confidence"]))
         except Exception as exc:
-            failed[g] = str(exc)[:200]
+            failed[g] = describe_bulk_item_error(exc)       # words only; the exception is logged
             logger.warning(f"resource-browser: copy {g} into list {target} failed: {exc}")
     out = await get_list(target)
     data = json.loads(out.body)
@@ -2434,7 +2539,7 @@ class ShareBody(BaseModel):
     group: str
 
 
-@router.post("/api/resource-browser/lists/{guid}/share", summary="Share a list of yours with a Team or Community you belong to")
+@router.post("/api/resource-browser/lists/{guid}/share", summary="Share a working set of yours with a Team or Community you belong to")
 async def share_list(guid: str, body: ShareBody):
     try:
         client = await _explorer_async()
@@ -2454,7 +2559,7 @@ async def share_list(guid: str, body: ShareBody):
     return await get_list(guid)
 
 
-@router.delete("/api/resource-browser/lists/{guid}/share/{group}", summary="Stop sharing a list of yours with a group")
+@router.delete("/api/resource-browser/lists/{guid}/share/{group}", summary="Stop sharing a working set of yours with a group")
 async def unshare_list(guid: str, group: str):
     try:
         client = await _explorer_async()
@@ -2468,9 +2573,244 @@ async def unshare_list(guid: str, group: str):
     return await get_list(guid)
 
 
+
+# ── Delete a working set (PO-43, Dan 2026-11-17) ──────────────────────────────
+# "provide a delete for working sets … removing the links and then the working set". Egeria refuses to
+# delete a collection that still has members (OMAG-GENERIC-HANDLERS-403-005), so the owner's delete
+# takes out the links the Locator makes (team shares, the owner's own lenses, the members) and then
+# deletes the set. Members are never deleted: only their CollectionMembership link goes. Anything else
+# linked or anchored to the set is a blocker, named, and nothing is written (Architect read-back
+# 2026-11-17, Q3/Q4: the Locator removes only what it creates). Design note
+# DESIGN-RL-PO42-PO43-WORKING-SETS-RENAME-AND-DELETE-2026-11-17.
+
+_DELETE_LOCKS: dict = {}          # guid -> asyncio.Lock while a delete runs; dropped when it ends (R3)
+_ANCHORED_READ = 500
+
+
+def _set_links(el: dict, guid: str, me: Optional[str]) -> dict:
+    """members / shares / lenses the delete removes, and blockers it will not touch, from a set read
+    with every relationship (depth 1)."""
+    from resource_locator_lens_handler import _lens_origin, _LENS_PREFIX
+    members, shares, lenses, blockers = {}, {}, {}, []
+    capped = False
+    for key, val in (el or {}).items():
+        if key in ("elementHeader", "properties") or not isinstance(val, list):
+            continue
+        if len(val) >= _RELATED_LIMIT:
+            capped = True
+        for r in _related_recs(val):
+            kind, other = r["relationshipType"], f"\u2018{r['displayName']}\u2019 ({r['typeName']})"
+            if kind == "CollectionMembership" and not r["atEnd1"]:
+                members[r["guid"]] = {"guid": r["guid"], "displayName": r["displayName"], "typeName": r["typeName"]}
+                anchor = ((r["elementHeader"].get("anchor") or {}).get("classificationProperties") or {})
+                if anchor.get("anchorGUID") == guid:
+                    blockers.append({"kind": "anchored", "guid": r["guid"],
+                                     "text": f"{other} belongs to this working set (it is anchored to it), so "
+                                             "deleting the set would delete it too. Remove it from Egeria, or "
+                                             "re-anchor it, first."})
+            elif kind == "ResourceList" and r["atEnd1"] and _is_group(r["typeName"], r["superTypeNames"]):
+                shares[r["guid"]] = {"guid": r["guid"], "displayName": r["displayName"], "typeName": r["typeName"]}
+            elif kind == "GovernedBy" and r["typeName"] == "DataLens":
+                qn = r["qualifiedName"]
+                if _lens_origin(qn, me) == "mine":
+                    lenses[r["guid"]] = {"guid": r["guid"], "displayName": r["displayName"]}
+                else:
+                    owner = qn[len(_LENS_PREFIX):].split("::")[0] if qn.startswith(_LENS_PREFIX) else None
+                    blockers.append({"kind": "lens", "guid": r["guid"],
+                                     "text": f"Data lens \u2018{r['displayName']}\u2019"
+                                             + (f" (owned by {owner})" if owner else " (not yours)")
+                                             + " governs this working set; ask its owner to unlink it."})
+            else:
+                blockers.append({"kind": "link", "guid": r["guid"],
+                                 "text": f"A {kind} link to {other}: the Locator removes only the links it "
+                                         "makes (members, team shares, your data lenses). Remove it where it "
+                                         "was made."})
+    if capped:
+        blockers.append({"kind": "capped", "text": f"This working set has more links than the Locator reads at "
+                                                   f"once ({_RELATED_LIMIT:,}+), so delete is not offered here."})
+    return {"members": list(members.values()), "shares": list(shares.values()),
+            "lenses": list(lenses.values()), "blockers": blockers}
+
+
+async def _delete_plan(client, guid: str, me: str) -> dict:
+    """What deleting this working set would do, read only: the owner check, every relationship, and
+    every element anchored to the set."""
+    el = await client._async_get_element_by_guid(guid, graph_query_depth=1, output_format="JSON",
+                                                 body={"class": "GetRequestBody", "graphQueryDepth": 1})
+    if not isinstance(el, dict) or _type_names(el.get("elementHeader") or {})[0] != "WorkingSet":
+        raise HTTPException(status_code=404, detail="That is not a working set visible to you.")
+    rec = _list_record(el, me)
+    if not rec["editable"]:
+        raise HTTPException(status_code=403, detail=(
+            "Resource Explorer working sets are managed in Resource Explorer: delete it there."
+            if rec["origin"] == "resource-explorer" else "Only the person who made a working set can delete it."))
+    plan = _set_links(el, guid, me)
+    flagged = {b.get("guid") for b in plan["blockers"]}
+    anchored = await _anchored(client, guid, None)
+    for a in anchored:
+        h = a.get("elementHeader") or {}
+        if h.get("guid") and h["guid"] != guid and h["guid"] not in flagged:
+            plan["blockers"].append({"kind": "anchored", "guid": h["guid"],
+                                     "text": f"\u2018{_display_name(a.get('properties'), h['guid'])}\u2019 "
+                                             f"({_type_names(h)[0]}) belongs to this working set (it is anchored "
+                                             "to it), so deleting the set would delete it too. Remove it first."})
+    if len(anchored) >= _ANCHORED_READ:
+        plan["blockers"].append({"kind": "capped", "text": "More elements are anchored to this working set than "
+                                                           "the Locator reads at once, so delete is not offered here."})
+    return dict(plan, guid=guid, displayName=rec["displayName"])
+
+
+def _plan_view(plan: dict) -> dict:
+    return {"guid": plan["guid"], "displayName": plan["displayName"], "members": len(plan["members"]),
+            "memberNames": [m["displayName"] for m in plan["members"][:20]],
+            "shares": plan["shares"], "lenses": plan["lenses"], "blockers": plan["blockers"],
+            "canDelete": not plan["blockers"]}
+
+
+@router.get("/api/resource-browser/lists/{guid}/delete-plan",
+            summary="What deleting a working set of yours would remove (read only)")
+async def delete_plan(guid: str):
+    me = _require_signed_in()
+    try:
+        client = await _explorer_async()
+        plan = await _delete_plan(client, guid, me)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise_egeria_http_error(exc, f"resource-browser: delete plan for working set {guid} failed")
+    return JSONResponse(_plan_view(plan))
+
+
+def _is_has_members(exc: Exception) -> bool:
+    return "OMAG-GENERIC-HANDLERS-403-005" in str(exc)
+
+
+@router.delete("/api/resource-browser/lists/{guid}", summary="Delete a working set of yours (its resources stay)")
+async def delete_list(guid: str):
+    me = _require_signed_in()
+    lock = _DELETE_LOCKS.get(guid)
+    if lock is not None and lock.locked():
+        raise HTTPException(status_code=409, detail="A delete of this working set is already running.")
+    lock = _DELETE_LOCKS.setdefault(guid, asyncio.Lock())
+    try:
+        async with lock:
+            return await _run_delete(guid, me)
+    finally:
+        if _DELETE_LOCKS.get(guid) is lock and not lock.locked():
+            _DELETE_LOCKS.pop(guid, None)
+
+
+async def _run_delete(guid: str, me: str):
+    try:
+        client = await _explorer_async()
+        plan = await _delete_plan(client, guid, me)       # rebuilt here: the client's copy is never trusted
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise_egeria_http_error(exc, f"resource-browser: delete plan for working set {guid} failed")
+    if plan["blockers"]:
+        return JSONResponse(dict(_plan_view(plan), deleted=False,
+                                 detail="Nothing was removed: " + " ".join(b["text"] for b in plan["blockers"])),
+                            status_code=409)
+    removed = {"shares": [], "lenses": [], "members": 0}
+
+    def partial(step: str, target: Optional[dict], exc: Exception, left: dict, why: Optional[str] = None):
+        logger.warning(f"resource-browser: delete working set {guid} stopped at {step}: {exc}")
+        return JSONResponse({"guid": guid, "displayName": plan["displayName"], "deleted": False,
+                             "removed": removed, "left": left,
+                             "failed": {"step": step, "guid": (target or {}).get("guid"),
+                                        "displayName": (target or {}).get("displayName"),
+                                        # words only (CodeQL py/stack-trace-exposure, #895 alert 102): the
+                                        # exception is logged above, never sent to the browser
+                                        "message": why or describe_bulk_item_error(exc)}}, status_code=207)
+
+    def left_now(shares, lenses, members):
+        return {"shares": shares, "lenses": lenses, "members": len(members)}
+
+    try:
+        cm = await _collections_async()
+    except Exception as exc:
+        raise_egeria_http_error(exc, f"resource-browser: delete working set {guid} failed")
+    shares, lenses, members = list(plan["shares"]), list(plan["lenses"]), list(plan["members"])
+    while shares:
+        g = shares[0]
+        try:
+            await cm._async_detach_collection(g["guid"], guid)
+        except Exception as exc:
+            return partial("unshare", g, exc, left_now(shares, lenses, members))
+        removed["shares"].append(shares.pop(0))
+    if lenses:
+        from resource_locator_lens_handler import _officer_async
+        try:
+            officer = await _officer_async()
+        except Exception as exc:
+            return partial("ungovern", lenses[0], exc, left_now(shares, lenses, members))
+        while lenses:
+            lens = lenses[0]
+            try:
+                await officer._async_detach_governed_by_definition(guid, lens["guid"])
+            except Exception as exc:
+                return partial("ungovern", lens, exc, left_now(shares, lenses, members))
+            removed["lenses"].append(lenses.pop(0))
+    while members:                                         # one at a time, as bulk add does
+        m = members[0]
+        try:
+            await cm._async_remove_from_collection(guid, m["guid"])
+        except Exception as exc:
+            return partial("unlink", m, exc, left_now(shares, lenses, members))
+        members.pop(0)
+        removed["members"] += 1
+    try:
+        again = await _delete_plan(client, guid, me)
+    except Exception as exc:
+        return partial("re-read", None, exc, left_now([], [], []))
+    if again["members"] or again["shares"] or again["lenses"] or again["blockers"]:
+        return partial("re-read", None, RuntimeError("changed"),
+                       left_now(again["shares"], again["lenses"], again["members"]),
+                       why="Something was added to the working set while deleting it, so it was not deleted; "
+                           "nothing more was removed. Delete again to carry on.")
+    try:
+        # R1: no body, so cascade=False reaches Egeria as cascadedDelete=false (a passed body would make
+        # cascade a no-op, ISSUE-127). A soft delete; nothing anchored is deleted with it.
+        await cm._async_delete_collection(guid, cascade=False)
+    except Exception as exc:
+        if _is_has_members(exc):                           # R4: a member added after the re-read
+            try:
+                late = await _delete_plan(client, guid, me)
+                left = left_now(late["shares"], late["lenses"], late["members"])
+            except Exception:
+                left = {"shares": [], "lenses": [], "members": None}
+            return partial("delete", None, exc, left,
+                           why="A resource was added while deleting, so Egeria kept the working set; nothing more "
+                               "was removed. Delete again to carry on.")
+        return partial("delete", None, exc, left_now([], [], []),
+                       why=f"Every link was removed, but Egeria refused to delete the working set "
+                           f"({describe_bulk_item_error(exc).rstrip('.')}). It is empty now: delete again.")
+    logger.info(f"resource-browser: {me} deleted working set {guid} ({removed['members']} members kept)")
+    return JSONResponse({"guid": guid, "displayName": plan["displayName"], "deleted": True, "removed": removed,
+                         "membersKept": removed["members"]})
+
 # ── Browse ────────────────────────────────────────────────────────────────────
 
-_FACETS = ["tag", "badge", "owner", "source", "collection", "flavour", "scope"]
+_FACETS = ["tag", "badge", "owner", "source", "collection", "folder", "keyword", "category", "flavour", "scope"]
+
+# Architect R2 (2026-11-17): "none recorded" is every resource minus the recorded ones, so it is only
+# as complete as _all_elements. Measurement kept for the record:
+# Read-only check on laz 2026-11-17 (service user, against repository_qs_metadata_store.entity, current
+# Active non-proxy rows by leaf type): 40 of 45 resource types matched exactly (4,794 read vs 4,879
+# stored). Short: DigitalProduct 181/218 and DigitalProductFamily 10/15 (most stored ones are zoned),
+# Topic 5/6 (one Memento), TabularDataSet 31/37 and TabularDataSetCollection 276/312 (5 templates
+# each; the other 1 and 31 had no zone, Memento or template).
+# Explained since (EG-15b, Rocky + Architect, 2026-11-17): the missing ones are hidden by visibility, Promise
+# anchors when forLineage is off, and zones. The sweep reads as the signed-in user, so the list is complete
+# for what that user can see. It is labelled "of the resources you can see", not "at least"; a page-limit
+# cap still makes a count "at least".
+ALL_ELEMENTS_UNVERIFIED = False
+
+# Architect R5 (2026-11-17): the "none recorded" sweep reads every resource (~4,800 on laz, ~19 s cold) and
+# is cached per user, so several users opening Data scope at once would each sweep Egeria. At most one
+# sweep runs at a time; the others wait for it and then hit their own cache entry or run in turn.
+_ALL_RESOURCES_SWEEPS = asyncio.Semaphore(1)
 _SOURCE_TYPES = ["Database", "DataFolder", "FileFolder"]
 _COLLECTION_TYPES = ["DataSharingHub", "DigitalProductFamily", "WorkingSet"]
 
@@ -2490,6 +2830,103 @@ async def _anchored(client, guid: str, type_name: str) -> list:
     return _elements(await client._async_get_elements_by_classification_with_property_value(
         "Anchors", guid, ["anchorGUID"], metadata_element_type=type_name, starts_with=True, ends_with=True,
         graph_query_depth=0, output_format="JSON", page_size=500))
+
+
+def _folder_value(e: dict) -> Optional[dict]:
+    """A Browse value for a CollectionFolder; None for a template.
+
+    The anchor is named (by type) only when the Anchors classification carries an anchorGUID other
+    than the folder's own. Without one, the anchor type is the folder's own type: the folder anchors
+    itself, which says nothing about a parent (Architect R1, 2026-11-17; on laz "Schema Maker" has
+    anchorTypeName CollectionFolder, no anchorGUID, and is held by the dr-egeria Glossary). Nesting
+    is shown only from memberOfCollections, on the folder's own page ("Held by")."""
+    hdr = (e or {}).get("elementHeader") or {}
+    guid = hdr.get("guid")
+    if not guid or any(c["name"] == "Template" for c in _classifications(hdr)):
+        return None
+    props = e.get("properties") or {}
+    ap = ((hdr.get("anchor") or {}).get("classificationProperties")) or {}
+    anchored = ap.get("anchorGUID") and ap.get("anchorGUID") != guid and ap.get("anchorTypeName")
+    where = f"anchored to a {ap['anchorTypeName']}" if anchored else ""
+    return {"id": guid, "label": _display_name(props, guid), "description": where,
+            "category": props.get("category") or ""}
+
+
+async def _keyword_groups_value() -> dict:
+    """Every search keyword the user can see, grouped by its text ignoring case.
+
+    A SearchKeyword is one element per attachment, so a group's guids are its attachments. The
+    keyword list reads exactly these elements, so the list always accounts for its count
+    (Architect R3: a by-keyword lookup is exact and case-sensitive, so it would disagree)."""
+    client = await _explorer_async()
+    kws, capped = [], True
+    for p in range(25):
+        batch = _elements(await client._async_find_search_keywords(
+            "*", start_from=p * 200, page_size=200, output_format="JSON", graph_query_depth=0))
+        if not batch:
+            capped = False
+            break
+        kws.extend(batch)
+    groups = {}
+    for k in kws:
+        hdr = k.get("elementHeader") or {}
+        text = _display_name(k.get("properties"), "").strip()
+        if not text or not hdr.get("guid"):
+            continue
+        g = groups.setdefault(text.casefold(), {"label": text, "guids": []})
+        g["guids"].append(hdr["guid"])
+    return {"groups": groups, "capped": capped}
+
+
+_KEYWORD_READ_CAP = 500   # attachments read per keyword list (one read each); the rest are counted, not read
+
+
+async def _keyword_attachments(client, guids: list) -> tuple:
+    """(elements, hidden, failed, not_read) for a keyword group: what each keyword element is attached to.
+    hidden counts keyword elements that came back with nothing attached that the user can see;
+    failed counts keyword elements that could not be read; not_read counts those past
+    _KEYWORD_READ_CAP (Architect R2). None of them is ever dropped silently."""
+    not_read = max(0, len(guids) - _KEYWORD_READ_CAP)
+    guids = guids[:_KEYWORD_READ_CAP]
+    sem = asyncio.Semaphore(_LOOKUP_CONCURRENCY)
+
+    async def read(g):
+        async with sem:
+            return await client._async_get_element_by_guid(
+                g, graph_query_depth=1, output_format="JSON",
+                body={"class": "GetRequestBody", "graphQueryDepth": 1, "includeOnlyRelationships": ["SearchKeywordLink"]})
+    got = await asyncio.gather(*(read(g) for g in guids), return_exceptions=True)
+    els, hidden, failed = [], 0, 0
+    for k in got:
+        if isinstance(k, Exception) or not isinstance(k, dict):
+            failed += 1
+            continue
+        linked = [i.get("relatedElement") for i in k.get("keywordElements") or [] if isinstance(i, dict) and i.get("relatedElement")]
+        if not linked:
+            hidden += 1
+        els.extend(linked)
+    return els, hidden, failed, not_read
+
+
+_NO_CATEGORY = "(no category)"
+
+
+def _category_index(allr: dict) -> dict:
+    """{category: {"resources": [...rows], "terms": [...rows]}} from a finished sweep, with every
+    resource and term without a category under _NO_CATEGORY. Matching is exact (Egeria's own
+    get_elements_by_category matches exactly too); only surrounding blanks are trimmed (in _row)."""
+    out: dict = {}
+    for bucket, rows in (("resources", allr.get("rows") or []), ("terms", allr.get("terms") or [])):
+        for r in rows:
+            cat = r.get("category") or _NO_CATEGORY
+            out.setdefault(cat, {"resources": [], "terms": []})[bucket].append(r)
+    return out
+
+
+def _category_capped(allr: dict) -> bool:
+    """Whether category counts are "at least" (R6): any capped resource type, the unverified flag, or a
+    capped term read. A failed term read is not "at least": it is reported as terms not read."""
+    return bool(allr.get("cappedTypes")) or ALL_ELEMENTS_UNVERIFIED or bool(allr.get("termsCapped"))
 
 
 async def _facet_values(facet: str) -> dict:
@@ -2537,20 +2974,79 @@ async def _facet_values(facet: str) -> dict:
                 out.append({"id": hdr.get("guid", ""), "label": _display_name(e.get("properties"), hdr.get("guid", "")),
                             "description": _type_names(hdr)[0]})
         return {"values": sorted(out, key=lambda v: (v["description"], v["label"].lower()))}
+    if facet == "folder":
+        els, capped = await _all_elements(client, "CollectionFolder")
+        vals = [v for v in (_folder_value(e) for e in els) if v]
+        return {"values": sorted(vals, key=lambda v: v["label"].lower()), "capped": capped,
+                "countsAre": "at least these folders (the read stopped at its page limit)" if capped else None,
+                "note": "Open a folder to see what it holds. Folders show no count here: counting what each "
+                        "holds would take one read per folder."}
+    if facet == "keyword":
+        kw, _stamp = await _cached("keyword-groups", _keyword_groups_value)
+        vals = [{"id": g["label"], "label": g["label"], "count": len(g["guids"]), "countAtLeast": kw["capped"]}
+                for g in kw["groups"].values()]
+        return {"values": sorted(vals, key=lambda v: v["label"].lower()),
+                "countsAre": "attachments: a search keyword is attached to one element each, which you may not "
+                             "be able to see" + ("; at least these (the read stopped at its page limit)" if kw["capped"] else "")}
+    if facet == "category":
+        allr, stamp, loading, error = _all_resources_state()
+        if allr is None:
+            return {"values": [], "loading": True, "error": error,
+                    "note": ("The count failed; retrying shortly." if error else
+                             "Counting every resource and glossary term in the background (about 20 s the first "
+                             "time); this page refreshes itself.")}
+        idx, capped = _category_index(allr), _category_capped(allr)
+        vals = []
+        for cat, b in idx.items():
+            n_r, n_t = len(b["resources"]), len(b["terms"])
+            vals.append({"id": cat, "label": cat, "count": n_r + n_t, "countAtLeast": capped,
+                         "description": f"{n_r} resource{'s' if n_r != 1 else ''}" +
+                                        (f", {n_t} glossary term{'s' if n_t != 1 else ''}" if n_t else "")})
+        vals.sort(key=lambda v: (v["id"] == _NO_CATEGORY, v["label"].lower()))
+        note = ("Of the resources and glossary terms you can see. Infrastructure, governance definitions and design "
+                "patterns carry categories too; the Locator lists resources and terms only.")
+        if allr.get("termsError"):
+            note += f" Glossary terms could not be read ({allr['termsError']}), so these counts are resources only."
+        return {"values": vals, "note": note, "countedAt": stamp.isoformat(timespec="seconds") if stamp else None,
+                "refreshing": loading, "error": error,
+                "countsAre": "at least these (a read stopped at its page limit)" if capped else None}
     if facet == "flavour":
         return {"values": [{"id": "hub", "label": "Hub"}, {"id": "product", "label": "Product"},
                            {"id": "known", "label": "Known"}]}
     if facet == "scope":
-        return {"values": [{"id": "all", "label": "Resources with a data scope (time, place or another dimension)"}]}
+        recorded, none = await _scope_split()
+        counting = none["rows"] is None
+        return {"values": [
+            {"id": "recorded", "label": "Data scope recorded", "count": len(recorded["rows"]),
+             "countAtLeast": recorded["capped"],
+             "description": "A time, place or other dimension is recorded"},
+            {"id": "none", "label": "No data scope recorded", "count": None if counting else len(none["rows"]),
+             "counting": counting, "countAtLeast": none["capped"],
+             "description": (("The count failed; retrying shortly" if none["error"] else
+                              "Counting every resource in the background (about 20 s the first time)") if counting
+                             else "Of the resources you can see: needs a data scope (some hold only usage readings)")},
+        ], "notRead": len(none["notRead"]), "loading": counting, "error": none["error"],
+           "countsAre": "at least these where marked (a read stopped at its page limit)" if (recorded["capped"] or none["capped"]) else None}
     raise HTTPException(status_code=404, detail=f"Unknown browse facet {facet!r}.")
 
 
-@router.get("/api/resource-browser/browse/{facet}", summary="The values of one browse facet")
-async def browse_values(facet: str):
+@router.get("/api/resource-browser/browse/{facet}", summary="The values of one browse facet, or with ?value= the resources under one")
+async def browse_values(facet: str,
+                        value: Optional[str] = Query(None, description="A facet value: answers as /browse/{facet}/{value}. "
+                                                     "Use this form for free-text values (keywords, categories, owners), "
+                                                     "which may hold a \"/\" that a path cannot carry"),
+                        lens: Optional[str] = Query(None, description="With value: a Data Lens guid, as on the list endpoint")):
+    # Architect R1 (2026-11-17): a "/" in a path segment goes out as %2F, which Apache refuses (no
+    # AllowEncodedSlashes) and Starlette decodes before routing; laz has the keyword "App/AI Builder".
+    if value is not None:
+        return await browse_list(facet, value, lens)
     if facet not in _FACETS:
         raise HTTPException(status_code=404, detail=f"Unknown browse facet {facet!r}.")
     try:
-        value, stamp = await _cached(f"browse:{facet}", lambda: _facet_values(facet))
+        if facet in ("scope", "category"):   # not cached here: they keep their own ages, and "counting" must not stick
+            value, stamp = await _facet_values(facet), datetime.now(timezone.utc)
+        else:
+            value, stamp = await _cached(f"browse:{facet}", lambda: _facet_values(facet))
     except HTTPException:
         raise
     except Exception as exc:
@@ -2559,20 +3055,36 @@ async def browse_values(facet: str):
 
 
 async def _members(client, collection_guid: str) -> tuple:
+    """(title, type name, members, capped, held_by) for a collection or folder, from one depth-1 read.
+
+    Egeria returns at most _RELATED_LIMIT relationships per key at depth 1, so a full key is
+    capped: more members may exist (Architect R5, 2026-11-17). held_by is the collections that
+    hold this one (memberOfCollections), as {guid, displayName, typeName}."""
     el = await client._async_get_element_by_guid(
         collection_guid, graph_query_depth=1, output_format="JSON",
         body={"class": "GetRequestBody", "graphQueryDepth": 1, "includeOnlyRelationships": ["CollectionMembership"]})
     hdr = (el or {}).get("elementHeader") or {}
     title = _display_name((el or {}).get("properties"), collection_guid)
-    members = [i.get("relatedElement") for i in (el or {}).get("collectionMembers") or [] if isinstance(i, dict)]
-    return title, _type_names(hdr)[0], members
+    items = [i for i in (el or {}).get("collectionMembers") or [] if isinstance(i, dict)]
+    members = [i.get("relatedElement") for i in items]
+    held_by = []
+    for i in (el or {}).get("memberOfCollections") or []:
+        rel = (i or {}).get("relatedElement") or {}
+        rh = rel.get("elementHeader") or {}
+        if rh.get("guid"):
+            held_by.append({"guid": rh["guid"], "displayName": _display_name(rel.get("properties"), rh["guid"]),
+                            "typeName": _type_names(rh)[0]})
+    return title, _type_names(hdr)[0], members, len(items) >= _RELATED_LIMIT, held_by
 
 
 @router.get("/api/resource-browser/browse/{facet}/{value}", summary="The resources under one browse facet value")
-async def browse_list(facet: str, value: str):
+async def browse_list(facet: str, value: str, lens: Optional[str] = Query(None, description="A Data Lens guid: mark each resource inside / outside / cannot be compared")):
     if facet not in _FACETS:
         raise HTTPException(status_code=404, detail=f"Unknown browse facet {facet!r}.")
     title, note, source, capped = value, None, "", False
+    rows_override, scope_ages = None, None
+    extra = {}
+    scope_loading = scope_refreshing = False
     try:
         client = await _explorer_async()
         if facet == "tag":
@@ -2608,9 +3120,77 @@ async def browse_list(facet: str, value: str):
             note = "The source itself, what it anchors, and the tables of its schemas."
             source = "ClassificationExplorer.get_elements_by_classification_with_property_value (Anchors.anchorGUID)"
         elif facet == "collection":
-            title, ctype, els = await _members(client, value)
+            title, ctype, els, capped, _held = await _members(client, value)
             title = f"{title} ({ctype})" if ctype else title
             source = "ClassificationExplorer.get_element_by_guid (CollectionMembership)"
+        elif facet == "folder":
+            title, _ctype, members, capped, held_by = await _members(client, value)
+            subs = []
+            rest = []
+            for m in members:
+                mh = (m or {}).get("elementHeader") or {}
+                if _type_names(mh)[0] == "CollectionFolder" and mh.get("guid"):
+                    subs.append({"guid": mh["guid"], "displayName": _display_name((m or {}).get("properties"), mh["guid"])})
+                else:
+                    rest.append(m)
+            rows_override, by_type = _any_rows(rest)
+            extra.update(subfolders=sorted(subs, key=lambda f: f["displayName"].lower()), heldBy=held_by,
+                         notShownTypes=by_type, membersRead=len(members))
+            if not members:
+                note = "This folder holds nothing you can see. Zone security may hide some members from you."
+            elif not rows_override and not subs:
+                note = "This folder holds only elements the Locator does not list (named below)."
+            source = "ClassificationExplorer.get_element_by_guid (CollectionMembership, one level)"
+        elif facet == "keyword":
+            kw, _stamp = await _cached("keyword-groups", _keyword_groups_value)
+            group = kw["groups"].get(value.strip().casefold())
+            if not group:
+                raise HTTPException(status_code=404, detail=f"No search keyword {value!r} is visible to you.")
+            title = f"Keyword: {group['label']}"
+            linked, hidden, failed, past_cap = await _keyword_attachments(client, group["guids"])
+            seen, unique = set(), []
+            for e in linked:      # two spellings of a keyword on one element are two attachments, one row (R3)
+                g = ((e or {}).get("elementHeader") or {}).get("guid")
+                if g not in seen:
+                    seen.add(g)
+                    unique.append(e)
+            rows_override, by_type = _any_rows(unique)
+            capped = kw["capped"] or past_cap > 0
+            extra.update(notShownTypes=by_type, attachments=len(group["guids"]), hiddenAttachments=hidden,
+                         unreadAttachments=failed, attachmentsPastLimit=past_cap,
+                         duplicateLinks=len(linked) - len(unique))
+            if hidden:
+                note = (f"{hidden} of the {len(group['guids'])} attachments are to something you cannot see "
+                        "(zone security, or it was removed).")
+            if failed:
+                note = (note + " " if note else "") + f"{failed} attachments could not be read, so this list may be incomplete."
+            if past_cap:
+                note = (note + " " if note else "") + (f"Only the first {_KEYWORD_READ_CAP} attachments were read; "
+                                                      f"{past_cap} more were not (the read stopped at its limit).")
+            if len(linked) > len(unique):
+                dup = len(linked) - len(unique)
+                note = (note + " " if note else "") + (f"{dup} attachment{'s' if dup != 1 else ''} repeat an element already "
+                                                      "listed (the keyword in another spelling), so each element is listed once.")
+            source = ("ClassificationExplorer.find_search_keywords (every keyword, grouped ignoring case), then "
+                      "get_element_by_guid (SearchKeywordLink) per attachment")
+        elif facet == "category":
+            allr, stamp, loading, error = _all_resources_state()
+            title = "No category" if value == _NO_CATEGORY else f"Category: {value}"
+            source = ("the background read of every resource type and GlossaryTerm (ClassificationExplorer.get_elements), "
+                      "grouped by the category property")
+            if allr is None:
+                rows_override, scope_loading = [], True
+                note = ("Counting every resource and glossary term in the background: this takes about 20 seconds the "
+                        "first time, and this page refreshes itself." +
+                        (f" The last attempt failed ({error}); retrying shortly." if error else ""))
+            else:
+                b = _category_index(allr).get(value)
+                rows_override = (b["resources"] + b["terms"]) if b else []
+                capped, scope_refreshing = _category_capped(allr), loading
+                note = None if b else ("No resource or glossary term you can see has this category. "
+                                       "Zone security may hide some from you.")
+                if allr.get("termsError"):
+                    note = (note + " " if note else "") + "Glossary terms could not be read, so only resources are listed."
         elif facet == "flavour":
             if value not in ("hub", "product", "known"):
                 raise HTTPException(status_code=404, detail="Flavours are hub, product and known.")
@@ -2636,22 +3216,215 @@ async def browse_list(facet: str, value: str):
             capped = idx.get("capped", False)
             source = "the flavour index, then ClassificationExplorer.get_element_by_guid per resource"
         elif facet == "scope":
-            els, capped = await _classified(client, "DataScope")
-            scoped = [_has_scope(_data_scope(_classifications(e.get("elementHeader") or {}))) for e in els]
-            usage_only = [e for e, keep in zip(els, scoped) if not keep]
-            els = [e for e, keep in zip(els, scoped) if keep]
-            title = "Resources with a data scope"
-            if usage_only:
-                note = (f"{len(usage_only)} more carry a DataScope classification holding only usage readings "
-                        "from Egeria's lineage service (no time, place or other dimension), so they are not listed.")
-            source = "ClassificationExplorer.get_elements_by_classification (DataScope)"
+            if value not in ("recorded", "all", "none"):
+                raise HTTPException(status_code=404, detail="Data scope values are recorded and none.")
+            recorded, none = await _scope_split()
+            if value == "none":
+                rows_override = none["rows"] if none["rows"] is not None else []
+                capped = none["capped"]
+                title = "No data scope recorded"
+                scope_loading = none["rows"] is None
+                scope_refreshing = none["refreshing"]
+                note = ("Of the resources you can see, those whose data scope records no time, place or other dimension: "
+                        "no DataScope at all, or one holding only usage readings from Egeria's lineage service. "
+                        "Set one in The Catalog. What you can see depends on zone security and the Promise/Memento toggle.")
+                if none["notRead"]:
+                    note += f" {len(none['notRead'])} more could not be checked: their classifications were not read."
+                if scope_loading:
+                    note = ("Counting every resource in the background: this takes about 20 seconds the first time, "
+                            "and this page refreshes itself." +
+                            (f" The last attempt failed ({none['error']}); retrying shortly." if none["error"] else ""))
+                source = ("every resource type (ClassificationExplorer.get_elements) minus those with a data scope "
+                          "recorded (get_elements_by_classification DataScope)")
+            else:
+                # "all" is the old value id; it answers exactly as before (same value and title).
+                rows_override = recorded["rows"]
+                capped = recorded["capped"]
+                title = "Resources with a data scope"
+                if recorded["usageOnly"]:
+                    note = (f"{recorded['usageOnly']} more carry a DataScope classification holding only usage readings "
+                            "from Egeria's lineage service (no time, place or other dimension), so they are not listed.")
+                source = "ClassificationExplorer.get_elements_by_classification (DataScope)"
+            scope_ages = {"recordedAsOf": recorded["asOf"], "noneAsOf": none["asOf"]}
     except HTTPException:
         raise
     except Exception as exc:
         _raise_not_visible_or_mapped(exc, f"resource-browser: browse {facet}/{value} failed")
-    rows, not_shown = _rows(els)
+    if rows_override is not None:
+        rows, not_shown = [dict(r) for r in rows_override], 0
+    else:
+        rows, not_shown = _rows(els)
     uniq = list({r["guid"]: r for r in rows}.values())
     uniq.sort(key=lambda r: (r["kind"], r["displayName"].lower()))
-    return JSONResponse({"facet": facet, "value": value, "title": title, "items": uniq, "notShown": not_shown,
-                         "note": note, "capped": capped, "order": "By kind, then name.",
-                         "asOf": _now_iso(), "source": source})
+    out = {"facet": facet, "value": value, "title": title, "items": uniq, "notShown": not_shown,
+           "note": note, "capped": capped, "order": "By kind, then name.",
+           "asOf": _now_iso(), "source": source}
+    if extra:
+        out.update(extra)
+        out["notShown"] = not_shown + sum(extra.get("notShownTypes", {}).values())
+    if scope_ages:
+        out["scopeListsAsOf"] = scope_ages
+    if scope_loading or scope_refreshing:
+        out.update(loading=scope_loading, refreshing=scope_refreshing)
+    if lens:
+        out.update(await _apply_lens(lens, uniq, capped))
+    return JSONResponse(out)
+
+
+async def _apply_lens(lens_guid: str, rows: list, capped: bool) -> dict:
+    """Mark each row inside / outside / cannot be compared / scope not read for a lens.
+
+    The rows' DataScope came with the list's own read, so this costs one read of the lens.
+    "Cannot be compared" (records none of the lens's dimensions) is never counted as outside,
+    and a row whose classifications were not read is "scope not read", apart from both."""
+    import data_scope_handler as ds
+    import resource_locator_lens_handler as lh
+    try:
+        groups, _ = await ds._type_groups("DataLens")
+        el = await lh._read_lens(await _explorer_async(), lens_guid)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        _raise_not_visible_or_mapped(exc, f"resource-browser: lens {lens_guid} for browse failed")
+    rec = lh._lens_record(el, _token_user(), groups)
+    counts = {"inside": 0, "outside": 0, "notComparable": 0, "notRead": 0}
+    for r in rows:
+        r["lensOutcome"] = _lens_outcome(rec["scope"], r, lh._lens_match)
+        counts[r["lensOutcome"]["outcome"]] += 1
+    return {"lens": {"guid": rec["guid"], "displayName": rec["displayName"], "dimensions": rec["dimensions"]},
+            "lensCounts": dict(counts, partial=bool(capped))}
+
+
+def _lens_outcome(lens_scope: dict, row: dict, match) -> dict:
+    """One row's outcome against a lens; "notRead" when its classifications were not read."""
+    if not row.get("scopeRead", True):
+        return {"outcome": "notRead", "compared": [], "outside": []}
+    m = match(lens_scope, row.get("dataScope"))
+    return {"outcome": "notComparable" if m["outcome"] == "unknown" else m["outcome"],
+            "compared": m["compared"], "outside": m["outside"]}
+
+
+async def _scope_split() -> tuple:
+    """(recorded, none) lists for the Data scope facet, each with rows, capped and asOf.
+
+    recorded: resources whose DataScope records a dimension. none: every resource (the types
+    Search covers, and published code repositories) without one, including those whose DataScope
+    holds only usage readings. A resource whose classifications were not read is put in neither;
+    it is counted in none["notRead"]. Each list is cached per user with its own age."""
+    async def recorded_value():
+        client = await _explorer_async()
+        els, capped = await _classified(client, "DataScope")
+        rows = _rows(els)[0]
+        return {"rows": [r for r in rows if r["hasScope"]], "usageOnly": sum(1 for r in rows if not r["hasScope"]),
+                "capped": capped}
+
+    rec, rec_stamp = await _cached("scope-recorded", recorded_value)
+    allr, all_stamp, loading, error = _all_resources_state()
+    return _split_from(rec, rec_stamp, allr, all_stamp, loading, error)
+
+
+# The full-resource sweep runs in the background (Architect, public-demo condition, 2026-11-17): a cold
+# read takes ~19 s and queued reads would add up past Apache's 300 s proxy timeout. A request never waits
+# for it: it gets the last result (marked refreshing while a new one runs) or "loading", and the page polls.
+# One state per user and lineage mode (zone security and forLineage change what is visible).
+_SWEEP_STATE: dict = {}
+_SWEEP_RETRY_S = 60                 # Architect R8: after a failed sweep, wait this long before another
+_SWEEP_EVICT_S = 2 * _CACHE_TTL     # Architect R7: drop idle entries this old (tokens rotate every ~2 h)
+
+
+def _sweep_clock() -> float:
+    return time.monotonic()
+
+
+def _sweep_key() -> Optional[str]:
+    who = request_identity()
+    return None if who is None else f"scope-all-resources|{who}{_lineage_key()}"
+
+
+async def _run_sweep(key: str) -> None:
+    st = _SWEEP_STATE[key]
+    try:
+        async with _ALL_RESOURCES_SWEEPS:
+            value = await _all_resources_sweep()
+        st.update(value=value, stamp=datetime.now(timezone.utc), error=None, doneAt=_sweep_clock(), failedAt=None)
+    except Exception as exc:
+        logger.warning(f"resource-browser: full-resource sweep failed: {exc}")
+        st.update(error=describe_bulk_item_error(exc), failedAt=_sweep_clock())   # words only; logged above
+
+
+def _all_resources_state() -> tuple:
+    """(value, stamp, loading, error) for this user's full-resource sweep, starting one if needed.
+
+    Sync on purpose (no await): the check and the task start happen in one step on the event loop,
+    so concurrent requests start exactly one sweep per key (same rule as operations_handler)."""
+    key = _sweep_key()
+    if key is None:
+        raise HTTPException(status_code=401, detail="Your sign-in has expired: sign in again to read this list.")
+    now = _sweep_clock()
+
+    def is_running(entry):
+        return entry["task"] is not None and not entry["task"].done()
+    for k, entry in list(_SWEEP_STATE.items()):          # R7: evict idle entries (one per credential)
+        times = [t for t in (entry.get("doneAt"), entry.get("failedAt")) if t is not None]
+        last = max(times) if times else None
+        if k != key and not is_running(entry) and last is not None and now - last > _SWEEP_EVICT_S:
+            del _SWEEP_STATE[k]
+    st = _SWEEP_STATE.setdefault(key, {"value": None, "stamp": None, "task": None, "error": None,
+                                       "doneAt": None, "failedAt": None})
+    running = is_running(st)
+    fresh = st["doneAt"] is not None and now - st["doneAt"] < _CACHE_TTL
+    failed_recently = st["failedAt"] is not None and now - st["failedAt"] < _SWEEP_RETRY_S   # R8
+    if not fresh and not running and not failed_recently:
+        st["task"] = asyncio.create_task(_run_sweep(key))
+        running = True
+    return st["value"], st["stamp"], running, st["error"]
+
+
+async def _all_resources_sweep() -> dict:
+    client = await _explorer_async()
+    rows, capped_types = {}, []
+    for t in _RESOURCE_TYPES:
+        try:
+            els, capped = await _all_elements(client, t)
+        except Exception as exc:
+            if _is_unknown_type(exc):
+                continue
+            raise
+        if capped:
+            capped_types.append(t)
+        for r in _rows(els)[0]:
+            rows.setdefault(r["guid"], r)
+    repos, _stamp = await _cached("repos", _repos_value)
+    for r in repos:
+        rows.setdefault(r["guid"], r)
+    # Glossary terms, for Browse by category (Architect R2, 2026-11-17): read on their own, so a failed
+    # term read keeps the resource rows and the Data scope facet never fails because of terms. Terms are
+    # kept apart from "rows": they are not resources, so they never enter the data scope split (R1).
+    terms, terms_capped, terms_error = [], False, None
+    try:
+        els, terms_capped = await _all_elements(client, "GlossaryTerm")
+        terms = list({r["guid"]: r for r in (_term_row(e) for e in els) if r}.values())
+    except Exception as exc:
+        if not _is_unknown_type(exc):
+            logger.warning(f"resource-browser: glossary term read for categories failed: {exc}")
+            terms_error = describe_bulk_item_error(exc).rstrip('.')   # words only; logged above
+    return {"rows": list(rows.values()), "cappedTypes": capped_types,
+            "terms": terms, "termsCapped": terms_capped, "termsError": terms_error}
+
+
+def _split_from(rec: dict, rec_stamp, allr: Optional[dict], all_stamp, loading: bool = False,
+                error: Optional[str] = None) -> tuple:
+    """recorded and none lists. While the first sweep runs, none has loading=True and no rows: it was
+    not counted yet, which is never shown as 0. A later sweep refreshes in the background."""
+    recorded = dict(rec, asOf=rec_stamp.isoformat(timespec="seconds"))
+    if allr is None:
+        return recorded, {"rows": None, "notRead": [], "capped": True, "cappedTypes": [], "asOf": None,
+                          "loading": loading, "refreshing": False, "error": error}
+    scoped = {r["guid"] for r in rec["rows"]}
+    resources = [r for r in allr["rows"] if r.get("kind") != "term"]     # R1: a term is never "none recorded"
+    none_rows = [r for r in resources if r["guid"] not in scoped and r.get("scopeRead", True) and not r["hasScope"]]
+    not_read = [r for r in resources if r["guid"] not in scoped and not r.get("scopeRead", True)]
+    none = {"rows": none_rows, "notRead": not_read, "capped": bool(allr["cappedTypes"]) or ALL_ELEMENTS_UNVERIFIED,
+            "cappedTypes": allr["cappedTypes"], "asOf": all_stamp.isoformat(timespec="seconds"),
+            "loading": False, "refreshing": loading, "error": error}
+    return recorded, none

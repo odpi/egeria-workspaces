@@ -14,7 +14,8 @@ def _bootstrap_runtime_defaults() -> None:
     os.makedirs(log_directory, exist_ok=True)
 
     os.environ.setdefault("EGERIA_USER", "erinoverview")
-    os.environ.setdefault("EGERIA_USER_PASSWORD", "secret")
+    # No EGERIA_USER_PASSWORD default (PO-45): a built-in "secret" is the TR-12 shape. Unset, every
+    # Egeria sign-in refuses in words (egeria_auth.service_password).
     os.environ.setdefault("EGERIA_WIDTH", "100")
 
     root_default: str

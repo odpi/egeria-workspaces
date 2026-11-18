@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright Contributors to the Egeria project
+#
+# Docker Engine overlay for egeria-freshstart.
+# Applied automatically by fresh-start-local and fresh-start-multi-host when CONTAINER_ENGINE=docker.
+#
+# Restores condition: service_healthy on freshstart-jupyter-hub so Jupyter waits for the
+# Egeria platform to pass its healthcheck before starting.
+# Not applied with Podman because podman-compose 1.5.0 blocks indefinitely
+# when depends_on uses service_healthy.
+services:
+  freshstart-jupyter-hub:
+    depends_on:
+      freshstart-egeria-main:
+        condition: service_healthy

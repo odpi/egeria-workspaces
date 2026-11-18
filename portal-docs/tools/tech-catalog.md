@@ -40,8 +40,8 @@ Selecting any item opens a detail pane on the right. For most asset types this i
 
 The **Data scope** section of an asset's detail pane shows its `DataScope` classification: the time and place the asset's data covers. Data lenses in the [Resource Locator](resource-locator.md#data-lenses) are matched against it.
 
-- **Set a data scope** or **Edit** opens an editor with every dimension Egeria defines for DataScope: periods (when the data was collected, when it is valid, what period it covers; times are UTC), bounds (latitude −90 to 90, longitude −180 to 180, height), and scope elements (a name and the GUID of an Egeria element that defines the scope, such as a Location). Fill in what you know; an empty field clears that dimension.
-- **Clear data scope** removes the time and place.
+- **Set a data scope** or **Edit** opens an editor with every dimension Egeria defines for DataScope: periods (when the data was collected, when it is valid, what period it covers; type a year (`2026`), a month (`2026-03`) or a day (`2026-03-14`), which means the whole of it: a start is its first moment and an end its last, in UTC; add a time, `2026-03-14 09:30`, only when it matters), bounds (latitude −90 to 90, longitude −180 to 180, height), and scope elements (a name and the GUID of an Egeria element that defines the scope, such as a Location). Fill in what you know; an empty field clears that dimension, and emptying every field then saving clears the data scope.
+- **Clear** (beside Edit, and **Clear data scope** in the editor) removes the time and place, after a confirmation.
 - You must be signed in; the change is made as you. Without a sign-in the section is read-only.
 
 The fields come from Egeria's own DataScope type definition, so when Egeria adds a dimension it appears here with no change to the Portal. A start date after its end, a minimum above its maximum, or a latitude or longitude out of range is refused, and nothing is written.

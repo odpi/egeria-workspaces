@@ -80,6 +80,9 @@ services:
       TRELLIS_JWT_SECRET: "${TRELLIS_JWT_SECRET:?set TRELLIS_JWT_SECRET in .env (openssl rand -hex 32)}"
       # GitHub API token for RE surveys/discovery; unauthenticated calls hit the 60/h limit within one survey.
       GITHUB_TOKEN: "${GITHUB_TOKEN:-}"
+      # Key for the database passwords RE stores. Unset, RE derives one from the container hostname, which changes
+      # on every recreate and leaves stored credentials unreadable. re-web and re-worker must share the value.
+      TRELLIS_DB_CREDENTIAL_KEY: "${TRELLIS_DB_CREDENTIAL_KEY:?set TRELLIS_DB_CREDENTIAL_KEY in .env (openssl rand -hex 32)}"
       # ── Process role (target state — see header note; inert today) ───────
       WORKERS: "${TRELLIS_RE_WEB_WORKERS:-2}"
       EMBED_WORKER: "false"
@@ -178,6 +181,9 @@ services:
       TRELLIS_JWT_SECRET: "${TRELLIS_JWT_SECRET:?set TRELLIS_JWT_SECRET in .env (openssl rand -hex 32)}"
       # GitHub API token for RE surveys/discovery; unauthenticated calls hit the 60/h limit within one survey.
       GITHUB_TOKEN: "${GITHUB_TOKEN:-}"
+      # Key for the database passwords RE stores. Unset, RE derives one from the container hostname, which changes
+      # on every recreate and leaves stored credentials unreadable. re-web and re-worker must share the value.
+      TRELLIS_DB_CREDENTIAL_KEY: "${TRELLIS_DB_CREDENTIAL_KEY:?set TRELLIS_DB_CREDENTIAL_KEY in .env (openssl rand -hex 32)}"
       PGVECTOR_HOST: egeria-shared-postgres
       PGVECTOR_PORT: "5442"
       PGVECTOR_DBNAME: egeria_advisor

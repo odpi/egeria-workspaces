@@ -159,7 +159,7 @@ class PortalSupply:
             c = cls(self._server or os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server"),
                     self._url or os.environ.get("EGERIA_PLATFORM_URL", "https://localhost:9443"),
                     user_id=self._user or os.environ.get("EGERIA_USER", "erinoverview"),
-                    user_pwd=self._pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret"))
+                    user_pwd=self._pwd or service_password())
             check_client_platform(c)
             if token:
                 use_token(c, token)
@@ -273,15 +273,38 @@ def custom_platforms_allowed() -> bool:
     return not bool(_env_flag("DEMO_MODE"))
 
 
+# PO-45 (TR-12 shape): no built-in service password. A deployment that forgot EGERIA_USER_PASSWORD
+# used to sign in with the well-known demo password "secret"; now the Portal refuses, in words, before
+# any Egeria call. Every handler gets the password from service_password(); a scan test keeps a
+# "secret" default from coming back.
+SERVICE_PASSWORD_MISSING_WORDS = "the Portal's service password isn't configured (EGERIA_USER_PASSWORD)"
+
+
+class ServicePasswordMissing(HTTPException):
+    """EGERIA_USER_PASSWORD is unset or empty. An HTTPException (503), so a route answers in words."""
+
+    def __init__(self):
+        super().__init__(status_code=503, detail=f"The Portal cannot sign in to Egeria: {SERVICE_PASSWORD_MISSING_WORDS}.")
+
+
+def configured_service_password() -> Optional[str]:
+    """EGERIA_USER_PASSWORD, or None when it is unset or empty. Never raises (for comparisons)."""
+    return os.environ.get("EGERIA_USER_PASSWORD") or None
+
+
 def service_password() -> str:
-    return os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    """The Portal's own Egeria password; ServicePasswordMissing (503, in words) when it isn't configured."""
+    pwd = configured_service_password()
+    if not pwd:
+        raise ServicePasswordMissing()
+    return pwd
 
 
 def is_caller_password(pwd: Optional[str]) -> bool:
     """True when `pwd` is a password the caller supplied, not the Portal's own. The Portal holds exactly one
     password (EGERIA_USER_PASSWORD); any client carrying it is carrying the service credential, whoever
     typed it, so it is treated as the service password."""
-    return bool(pwd) and pwd != service_password()
+    return bool(pwd) and pwd != configured_service_password()
 
 
 # sha256(token) -> (normalized platform URL, expires_at). Filled by POST /api/egeria-token; process memory.
@@ -316,6 +339,79 @@ def bind_token_platform(token: str, url: str) -> None:
         _TOKEN_PLATFORMS.pop(k, None)
     exp = _token_exp(token)
     _TOKEN_PLATFORMS[_token_hash(token)] = (norm, exp if exp and exp > now else now + _TOKEN_BIND_DEFAULT_TTL)
+
+
+# ── PO-40: reuse a still-valid token for the same presented credential ─────────────────────────────
+# Every Portal page load called POST /api/egeria-token, which minted a new token each time, and every
+# per-user cache is keyed on a hash of the token (result_cache.credential_identity), so a reload, a
+# direct link or a new tab started every cache cold. The endpoint now hands back the token it already
+# minted for the same credential while it has at least _TOKEN_REUSE_MIN_LEFT seconds left.
+# Safe: the caller has just presented that exact credential and could mint a token with it anyway.
+# Architect read-back 2026-11-17: R1' only when a password was SENT (the env-fallback path, nothing
+# sent, mints per call; not is_caller_password, since the demo personas' passwords equal the service
+# password and would never be reused); R2 the key is an HMAC under a per-process secret, never a bare hash of a password, and the
+# lock dict is bounded with the map; R3 exp comes from the token we minted, unknown exp never reuses;
+# R4 the key is (resolved url, server, user_id, password), looked up only after the platform gate.
+# Signing out does not end an Egeria token (Egeria tokens cannot be revoked), so nothing is dropped then.
+_TOKEN_REUSE_MIN_LEFT = 15 * 60
+_TOKEN_REUSE_MAX = 500
+_TOKEN_REUSE_SECRET = os.urandom(32)
+_TOKEN_REUSE: dict = {}          # key -> (token, exp, stored_at)
+_TOKEN_REUSE_LOCKS: dict = {}    # key -> asyncio.Lock, bounded with _TOKEN_REUSE
+
+
+# The reuse key is only an in-memory lookup key under a per-process random salt, never stored. A key-stretching
+# function (PBKDF2) is used anyway, so the password is never put through a fast hash (CodeQL
+# py/weak-sensitive-data-hashing, #895 alert 101). About 20 ms on laz, once per /api/egeria-token call.
+_TOKEN_REUSE_ITERATIONS = 100_000
+
+
+def token_reuse_key(url: str, server: str, user_id: str, password: str) -> str:
+    import hashlib
+    msg = "\0".join([normalize_platform_url(url) or url or "", server or "", user_id or "", password or ""])
+    return hashlib.pbkdf2_hmac("sha256", msg.encode("utf-8"), _TOKEN_REUSE_SECRET, _TOKEN_REUSE_ITERATIONS).hex()
+
+
+def _token_reuse_prune(now: float) -> None:
+    for k in [k for k, (_, exp, _) in _TOKEN_REUSE.items() if exp <= now]:
+        _TOKEN_REUSE.pop(k, None)
+    if len(_TOKEN_REUSE) > _TOKEN_REUSE_MAX:
+        for k, _ in sorted(_TOKEN_REUSE.items(), key=lambda kv: kv[1][2])[:len(_TOKEN_REUSE) - _TOKEN_REUSE_MAX]:
+            _TOKEN_REUSE.pop(k, None)
+    for k in [k for k, lock in _TOKEN_REUSE_LOCKS.items() if k not in _TOKEN_REUSE and not lock.locked()]:
+        _TOKEN_REUSE_LOCKS.pop(k, None)
+
+
+def reusable_token(key: str) -> Optional[str]:
+    """The token stored for `key` if it still has at least _TOKEN_REUSE_MIN_LEFT seconds left."""
+    hit = _TOKEN_REUSE.get(key)
+    if not hit:
+        return None
+    token, exp, _ = hit
+    if exp - time.time() < _TOKEN_REUSE_MIN_LEFT or _token_expired(token):
+        _TOKEN_REUSE.pop(key, None)
+        return None
+    return token
+
+
+def remember_token(key: str, token: str) -> None:
+    """Keep a freshly minted token for reuse. A token whose exp cannot be read is never kept (R3)."""
+    now = time.time()
+    exp = _token_exp(token)
+    if exp is None or exp - now < _TOKEN_REUSE_MIN_LEFT:
+        _TOKEN_REUSE.pop(key, None)
+    else:
+        _TOKEN_REUSE[key] = (token, exp, now)
+    _token_reuse_prune(now)
+
+
+def token_reuse_lock(key: str):
+    import asyncio
+    lock = _TOKEN_REUSE_LOCKS.get(key)
+    if lock is None:
+        _token_reuse_prune(time.time())
+        lock = _TOKEN_REUSE_LOCKS[key] = asyncio.Lock()
+    return lock
 
 
 def token_platform(token: Optional[str]) -> Optional[str]:
@@ -448,6 +544,10 @@ class PlatformBody(BaseModel):
         resolve_platform(getattr(self, "url", None),
                          has_caller_password=is_caller_password(getattr(self, "user_pwd", None)),
                          token=_egeria_token.get())
+        refusal = named_user_refusal(getattr(self, "user_id", None), bool(getattr(self, "user_pwd", None)),
+                                     _egeria_token.get())
+        if refusal is not None:   # PO-41
+            raise refusal
         return self
 
 
@@ -476,6 +576,45 @@ def _query_platform_refusal(query_string: bytes, token: Optional[str],
             resolve_platform(u, has_caller_password=False, token=token)
     except PlatformRefused as exc:
         return exc
+    return None
+
+
+# ── PO-41: no Egeria sign-in as a caller-named user without that user's password ────────────────────
+# A request naming an Egeria user (query ?user_id=, a PlatformBody's user_id, /api/egeria-token's
+# user_id) used to be served by signing in as that user with the Portal's own password whenever no
+# password came with it, so anyone could act as any user whose password equals the service password
+# (on the demo, every persona). Now a named user other than EGERIA_USER needs a sign-in token
+# (X-Egeria-Token) or that user's password sent with the request; otherwise 400, before any client is
+# built. "Sent" is tested, not is_caller_password: the demo personas' passwords equal the service
+# password, so that test would refuse their own sign-ins. Background work (no request) is not touched.
+NAMED_USER_NEEDS_PASSWORD_WORDS = ("Send that user's own password (or a sign-in token) to act as them, "
+                                   "or leave user_id out to use the Portal's own user.")
+
+
+def service_user() -> str:
+    return os.environ.get("EGERIA_USER", "erinoverview")
+
+
+def named_user_refusal(user_id: Optional[str], password_sent: bool,
+                       token: Optional[str]) -> Optional["PlatformRefused"]:
+    """PlatformRefused(400) when `user_id` names a user other than EGERIA_USER and neither a token nor a
+    password came with it; None otherwise."""
+    if token or password_sent or not user_id or user_id == service_user():
+        return None
+    return PlatformRefused(400, NAMED_USER_NEEDS_PASSWORD_WORDS)
+
+
+def _query_named_user_refusal(query_string: bytes, token: Optional[str]) -> Optional["PlatformRefused"]:
+    """The PO-41 rule for a request's `user_id` query param(s). A query string never carries a password
+    (no route takes user_pwd from it), so a query user_id other than EGERIA_USER needs a token."""
+    from urllib.parse import parse_qsl
+    if token or not query_string:
+        return None
+    for k, v in parse_qsl(query_string.decode("latin-1"), keep_blank_values=True):
+        if k == "user_id":
+            refusal = named_user_refusal(v.strip() or None, False, token)
+            if refusal is not None:
+                return refusal
     return None
 
 
@@ -510,7 +649,8 @@ class EgeriaTokenMiddleware:
                 for_lineage = value.decode("latin-1").strip().lower() == "true"
             elif name == b"sec-fetch-site":
                 fetch_site = value.decode("latin-1").strip().lower()
-        refusal = _query_platform_refusal(scope.get("query_string") or b"", token, fetch_site)
+        refusal = (_query_platform_refusal(scope.get("query_string") or b"", token, fetch_site)
+                   or _query_named_user_refusal(scope.get("query_string") or b"", token))
         if refusal is not None:
             await _send_json(send, refusal.status_code, {"detail": refusal.detail})
             return

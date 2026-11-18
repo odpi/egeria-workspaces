@@ -26,6 +26,7 @@ missing SoA is a 404, and "no controls linked" is an empty `controls` list
 with `controlsRead: true`.
 """
 
+from egeria_auth import service_password  # PO-45: no built-in service password
 import os
 from typing import Optional
 
@@ -68,7 +69,7 @@ async def _security_officer_async(url: Optional[str] = None, server: Optional[st
         view_server=server or os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server"),
         platform_url=url or os.environ.get("EGERIA_PLATFORM_URL", "https://egeria-main:9443"),
         user_id=os.environ.get("EGERIA_USER", "erinoverview"),
-        user_pwd=os.environ.get("EGERIA_USER_PASSWORD", "secret"),
+        user_pwd=service_password(),
     )
     await async_apply_token(mgr)
     return mgr

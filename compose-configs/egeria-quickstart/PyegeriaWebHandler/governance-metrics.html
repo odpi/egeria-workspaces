@@ -281,10 +281,9 @@ function runReport(specName, btn){
   out.style.display = 'block';
   out.textContent = 'Running…';
   btn.disabled = true;
-  // As the viewer when Audit gave one (X-Egeria-Token); otherwise as before.
-  var runBody = (VIEWER && VIEWER.token)
-    ? { spec_name: specName, server: 'qs-view-server', output_format: 'DICT' }
-    : { spec_name: specName, server: 'qs-view-server', user_id: 'erinoverview', output_format: 'DICT' };
+  // As the viewer when Audit gave one (X-Egeria-Token, sent by viewerHeaders); otherwise as the Portal's
+  // own user. No user_id either way (PO-41: a user_id other than the Portal's needs its password).
+  var runBody = { spec_name: specName, server: 'qs-view-server', output_format: 'DICT' };
   fetch('/api/report-specs/execute', {
     method: 'POST', headers: viewerHeaders({'Content-Type': 'application/json'}),
     body: JSON.stringify(runBody),
