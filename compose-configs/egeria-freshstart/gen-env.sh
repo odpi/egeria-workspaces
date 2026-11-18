@@ -132,7 +132,7 @@ EOF
 if [[ -n "$EGERIA_ADMIN_CALLER_PASSWORD_VAL" ]]; then
   printf 'EGERIA_ADMIN_CALLER_PASSWORD=%s\n' "$EGERIA_ADMIN_CALLER_PASSWORD_VAL" >> "$TMP_ENV"
 else
-  echo "[gen-env.sh] WARNING: EGERIA_ADMIN_CALLER_PASSWORD is not set: the Portal will not start until you export it or add it to compose-configs/egeria-freshstart/.env (the password of the EGERIA_ADMIN_CALLER_ID account)" >&2
+  echo "[gen-env.sh] WARNING: EGERIA_ADMIN_CALLER_PASSWORD is not set. It is the password of the Egeria account the Portal acts as (EGERIA_ADMIN_CALLER_ID, \"bootstrap\" by default). Add EGERIA_ADMIN_CALLER_PASSWORD=<that password> to compose-configs/egeria-freshstart/.env, or export it; see the freshstart README, \"Required .env settings\"." >&2
 fi
 mv -f "$TMP_ENV" .env
 chmod 600 .env

@@ -249,6 +249,21 @@ EOF
   # there as the highest-priority tier (see gen-env.sh).
   export EGERIA_MEM_LIMIT
   ./gen-env.sh
+  # RK-24 (2026-11-18): stop here, in words, rather than let compose fail with "required variable … is missing".
+  if ! grep -qE '^EGERIA_ADMIN_CALLER_PASSWORD=.+' .env; then
+    cat >&2 <<'MSG'
+[fresh-start-local] STOP: EGERIA_ADMIN_CALLER_PASSWORD is not set.
+  It is the password of the Egeria account the Portal acts as: EGERIA_ADMIN_CALLER_ID, which is
+  "bootstrap" unless you changed it. On a brand-new freshstart it is bootstrap's initial password,
+  given in compose-configs/egeria-freshstart/README.md ("First run").
+  Add this line to compose-configs/egeria-freshstart/.env (git-ignored, never committed):
+      EGERIA_ADMIN_CALLER_PASSWORD=<bootstrap's password>
+  or export it in this shell, then run this script again.
+  If you later change bootstrap's password (First run, step 4), update this value to match and re-run.
+  See compose-configs/egeria-freshstart/README.md, "Required .env settings".
+MSG
+    exit 1
+  fi
 
   # Append TLS vars to .env immediately after gen-env.sh (which rewrites it each run).
   # SITE_URL is the one HTTPS URL the browser actually uses — everything
@@ -419,7 +434,9 @@ EOF
       _status="not-found"
     fi
     if [[ "$_status" == "healthy" ]]; then
-      echo "[fresh-start-local] freshstart-egeria-main is healthy."
+      echo "[fresh-start-local] freshstart-egeria-main is healthy: the platform is up."
+      # RK-25: "healthy" tests only Tomcat. Egeria's servers start after it, so don't let a newcomer sign in too early.
+      echo "[fresh-start-local] Egeria's servers are still starting: allow about 4 more minutes before signing in."
       _egeria_healthy=1
       break
     fi
