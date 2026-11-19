@@ -60,7 +60,7 @@ def _app(monkeypatch, demo_mode):
     client = TestClient(app)
 
     def demo(sub, role="user"):
-        return jwt.encode({"sub": sub, "role": role, "exp": int(time.time()) + 3600}, dfh._JWT_SECRET, algorithm="HS256")
+        return jwt.encode({"sub": sub, "role": role, "exp": int(time.time()) + 3600}, dfh.jwt_signing_key(), algorithm="HS256")
 
     def _get(who):
         headers, cookies = {}, {}
@@ -150,7 +150,7 @@ def noauth(monkeypatch):
 def _expired(demo, sub):
     from jose import jwt
     import demo_feedback_handler as dfh
-    return jwt.encode({"sub": sub, "role": "user", "exp": int(time.time()) - 60}, dfh._JWT_SECRET, algorithm="HS256")
+    return jwt.encode({"sub": sub, "role": "user", "exp": int(time.time()) - 60}, dfh.jwt_signing_key(), algorithm="HS256")
 
 
 def _redacted(st):
