@@ -43,7 +43,7 @@ from sqlalchemy.orm import Session
 
 from demo_config import (
     DEMO_MODE, SERVER_MANAGED_AUTH,
-    JWT_ALGORITHM, JWT_EXPIRY_ADMIN_SEC, JWT_EXPIRY_USER_SEC, JWT_SECRET,
+    JWT_ALGORITHM, JWT_EXPIRY_ADMIN_SEC, JWT_EXPIRY_USER_SEC, jwt_signing_key,
     SITE_URL, RESEND_API_KEY, RESEND_FROM,
 )
 from demo_db import Config, Event, User, get_db, get_config, log_event, set_config
@@ -63,16 +63,24 @@ def _verify(plain: str, hashed: str) -> bool:
     return _bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
 
 
+def _signing_key() -> str:
+    """PO-46b: the session key, refusing (503, in words) an unset one or a published default."""
+    try:
+        return jwt_signing_key()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+
 def _make_jwt(user_id: str, role: str) -> str:
     exp = JWT_EXPIRY_ADMIN_SEC if role == "admin" else JWT_EXPIRY_USER_SEC
     return jwt.encode(
         {"sub": user_id, "role": role, "exp": datetime.utcnow() + timedelta(seconds=exp)},
-        JWT_SECRET, algorithm=JWT_ALGORITHM,
+        _signing_key(), algorithm=JWT_ALGORITHM,
     )
 
 
 def _decode_jwt(token: str) -> dict:
-    return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    return jwt.decode(token, _signing_key(), algorithms=[JWT_ALGORITHM])
 
 
 def _token_from_request(request: Request) -> Optional[str]:

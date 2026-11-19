@@ -439,8 +439,8 @@ pushd compose-configs/egeria-quickstart >/dev/null
     _re_server_name="$(_pick EGERIA_RE_SERVER_NAME)"
     _ea_server_name="$(_pick EGERIA_EA_SERVER_NAME)"
 
-    # Generate JWT_SECRET if not already set
-    if [[ -z "$_jwt" ]]; then
+    # Generate JWT_SECRET if not already set, or if it is a value published in this repo (PO-46b)
+    if [[ -z "$_jwt" || "$_jwt" == "change-me-before-going-public" || "$_jwt" == "change-me-before-going-public-meow" ]]; then
       _jwt="$(openssl rand -hex 32 2>/dev/null \
         || python3 -c 'import secrets; print(secrets.token_hex(32))' 2>/dev/null)"
       echo "[quick-start-local]   Generated new JWT_SECRET."
@@ -618,7 +618,7 @@ EOF
 
   if [[ "$DEMO_MODE_FLAG" -eq 1 ]]; then
     {
-      echo "JWT_SECRET=${_jwt}"
+      # JWT_SECRET is not appended here: gen-env.sh writes it into .env from .env.demo (PO-46b).
       echo "WORKBENCH_SECRET=${_workbench_secret}"
       echo "CERT_DIR=${_cert_dir}"
       echo "ADMIN_BOOTSTRAP_EMAIL=${_admin_email}"

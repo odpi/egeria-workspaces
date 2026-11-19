@@ -112,7 +112,7 @@ written there (mail settings, for example) are not kept yet, so export them in t
 |----------|---------|-------------|
 | `DEMO_MODE` | `false` | Set `true` to activate demo auth gating |
 | `SITE_URL` | `http://localhost:8885` | Base URL used for email verification/reset links and as the public URL for the myEgeria service (textual-serve WebSocket origin). Must match what the browser uses to reach the portal. No trailing slash. |
-| `JWT_SECRET` | none: `./fresh-start-local` generates one into `.env` on the first run and keeps it (the published example value is refused) | HS256 signing key — **set in `.env`, never in yaml** |
+| `JWT_SECRET` | none: `./fresh-start-local` generates one into `.env` on the first run and keeps it (either published example value is refused) | HS256 signing key — **set in `.env`, never in yaml** |
 | `JWT_EXPIRY_USER_SECONDS` | `7200` | User session lifetime in seconds (2 h) |
 | `JWT_EXPIRY_ADMIN_SECONDS` | `604800` | Admin session lifetime in seconds (7 d) |
 
