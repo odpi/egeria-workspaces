@@ -102,59 +102,145 @@ def _egeria_token_from_request(request: "Request") -> str | None:
 
 
 # ── Area derivation ───────────────────────────────────────────────────────────
-# The Egeria type API doesn't carry an "area" field; area is a documentation
-# concept.  We derive it by walking up the supertype chain until we hit one of
-# the anchor types below.  The mapping can be extended here as new areas are
-# introduced without touching anything else.
+# "Area" is Egeria's documentation grouping 0–7 (egeria-project.org/types/N/).
+# The type API carries no area field, but every Egeria typedef carries
+# descriptionWiki = https://egeria-project.org/types/<area>/<model>-<Name>/,
+# and that <area> directory IS the area (Report → types/2/0239-Reports,
+# SurveyReport → types/6/0603-Survey-Reports).  _derive_area reads it first.
+#
+# AREA_ANCHORS is the fallback for a typedef without that wiki link (an
+# extension type, or a server that strips it): walk up the supertype chain to
+# the nearest anchor.  The anchors are exactly the Egeria entity types whose
+# model area differs from their supertype's, taken from the egeria source
+# (OpenMetadataType.java wiki pages + the open-metadata-types archive
+# supertypes, 8de9572c4d), so the walk gives Egeria's area for every one of
+# its 367 entity types.  Comments give each anchor's model number.
+# tests/test_type_area.py pins this; regenerate the list if Egeria adds types.
 
 AREA_ANCHORS: dict[str, int] = {
-    # Area 0 — Foundation (OpenMetadataRoot, Referenceable, and base infrastructure)
-    "OpenMetadataRoot": 0, "Referenceable": 0,
-    "SecurityAccessControl": 0, "SecurityGroup": 0,
-    # Area 1 — Collaboration (people, teams, organisations)
-    "Actor": 1, "ContactDetails": 1, "PersonRole": 1, "UserIdentity": 1,
-    "Team": 1, "Organization": 1,
-    # Area 2 — Assets, Connectors & Infrastructure
-    "Asset": 2, "Connection": 2, "ConnectorType": 2, "Endpoint": 2,
-    "DeployedConnector": 2, "SoftwareCapability": 2, "ITInfrastructure": 2,
-    # Area 3 — Glossary & Semantics
-    "Glossary": 3, "GlossaryTerm": 3, "GlossaryCategory": 3,
+    # Area 0 — Base Definitions and Infrastructure
+    "OpenMetadataRoot": 0,                    # 0010 ← None
+    # Area 1 — Collaboration
+    "Actor": 1,                               # 0110 ← Referenceable
+    "Comment": 1,                             # 0150 ← Referenceable
+    "Community": 1,                           # 0140 ← Referenceable
+    "ContactDetails": 1,                      # 0111 ← Referenceable
+    "ContributionRecord": 1,                  # 0125 ← Referenceable
+    "InformalTag": 1,                         # 0150 ← Referenceable
+    "Like": 1,                                # 0150 ← OpenMetadataRoot
+    "Meeting": 1,                             # 0135 ← Action
+    "NoteLog": 1,                             # 0160 ← Referenceable
+    "Notification": 1,                        # 0135 ← Action
+    "Project": 1,                             # 0130 ← AuthoredReferenceable
+    "Rating": 1,                              # 0150 ← OpenMetadataRoot
+    "Review": 1,                              # 0135 ← Action
+    "Skill": 1,                               # 0145 ← AuthoredReferenceable
+    "SkillSet": 1,                            # 0145 ← Collection
+    "ToDo": 1,                                # 0135 ← Action
+    # Area 2 — Assets
+    "Connection": 2,                          # 0201 ← Referenceable
+    "ConnectorType": 2,                       # 0201 ← Referenceable
+    "DataFeed": 2,                            # 0210 ← DataAsset
+    "DataSet": 2,                             # 0210 ← DataAsset
+    "DataStore": 2,                           # 0210 ← DataAsset
+    "DeployedSoftwareComponent": 2,           # 0215 ← Process
+    "EmbeddedProcess": 2,                     # 0215 ← Action
+    "Port": 2,                                # 0217 ← Referenceable
+    "RunnableSoftwareComponent": 2,           # 0282 ← Asset
+    "SoftwareComponent": 2,                   # 0281 ← Collection
+    # Area 3 — Glossary and Semantics
+    "Glossary": 3,                            # 0310 ← Collection
+    "GlossaryTerm": 3,                        # 0330 ← AuthoredReferenceable
     # Area 4 — Governance
-    "GovernanceDefinition": 4, "GovernanceZone": 4, "SubjectAreaDefinition": 4,
-    "GovernanceMetric": 4, "GovernanceDashboard": 4, "GovernanceExecutionPoint": 4,
-    "GovernanceClassificationLevel": 4, "EngineAction": 4, "IncidentReport": 4,
-    "ContextEvent": 4, "DataProcessingDescription": 4,
-    # Area 5 — Schemas
-    "SchemaType": 5, "SchemaAttribute": 5, "SchemaElement": 5,
-    # Area 6 — Data Stores
-    "DataStore": 6, "DataSet": 6, "DataFile": 6,
+    "ConnectorActivityReport": 4,             # 0457 ← Report
+    "ContextEvent": 4,                        # 0475 ← Referenceable
+    "ContextEventCollection": 4,              # 0475 ← Collection
+    "DataProcessingAction": 4,                # 0485 ← Collection
+    "DataProcessingDescription": 4,           # 0485 ← Collection
+    "EngineAction": 4,                        # 0463 ← Action
+    "GovernanceActionProcessInstance": 4,     # 0462 ← TransientEmbeddedProcess
+    "GovernanceDefinition": 4,                # 0401 ← AuthoredReferenceable
+    "GovernanceEngine": 4,                    # 0461 ← Engine
+    "GovernanceRole": 4,                      # 0445 ← PersonRole
+    "GovernanceService": 4,                   # 0461 ← DeployedConnector
+    "IncidentReport": 4,                      # 0470 ← Report
+    "IntegrationConnector": 4,                # 0464 ← DeployedConnector
+    "IntegrationGroup": 4,                    # 0464 ← SoftwareCapability
+    "NamingStandardRuleSet": 4,               # 0438 ← Collection
+    "SecurityList": 4,                        # 0423 ← Collection
+    "StatementOfApplicability": 4,            # 0423 ← AuthoredReferenceable
+    "SubjectArea": 4,                         # 0425 ← Collection
+    # Area 5 — Schema, Models and Reference Data
+    "DataDictionary": 5,                      # 0580 ← Collection
+    "DataField": 5,                           # 0580 ← AuthoredReferenceable
+    "DataSpec": 5,                            # 0580 ← Collection
+    "DataStructure": 5,                       # 0580 ← AuthoredReferenceable
+    "DataValueSpecification": 5,              # 0540 ← AuthoredReferenceable
+    "DesignModel": 5,                         # 0565 ← Collection
+    "DesignModelElement": 5,                  # 0565 ← AuthoredReferenceable
+    "DesignPattern": 5,                       # 0595 ← AuthoredReferenceable
+    "EventSet": 5,                            # 0535 ← Collection
+    "ImplementationSnippet": 5,               # 0504 ← Referenceable
+    "SchemaElement": 5,                       # 0501 ← AuthoredReferenceable
+    "ValidValueDefinition": 5,                # 0545 ← AuthoredReferenceable
+    # Area 6 — Discovery Surveys and Analysis
+    "Annotation": 6,                          # 0610 ← AuthoredReferenceable
+    "AnnotationReview": 6,                    # 0612 ← Review
+    "SurveyReport": 6,                        # 0603 ← Report
     # Area 7 — Lineage
-    # Types whose supertype chain runs Referenceable→OpenMetadataRoot (area 0)
-    # without passing through Process are listed here explicitly.
-    "Process": 7, "Port": 7, "LineageMapping": 7,
-    "InformationSupplyChain": 7, "InformationSupplyChainSegment": 7,
-    "SolutionBlueprint": 7, "SolutionComponent": 7, "SolutionPort": 7,
+    "Agreement": 7,                           # 0711 ← Collection
+    "BusinessCapability": 7,                  # 0715 ← Collection
+    "DataSharingHub": 7,                      # 0705 ← Collection
+    "DataSharingRequest": 7,                  # 0705 ← ToDo
+    "DigitalProduct": 7,                      # 0710 ← Collection
+    "DigitalProductCatalog": 7,               # 0710 ← Collection
+    "DigitalProductManager": 7,               # 0710 ← PersonRole
+    "InformationSupplyChain": 7,              # 0720 ← Collection
+    "ResultsSet": 7,                          # 0725 ← Collection
+    "SavedQuery": 7,                          # 0725 ← DataSet
+    "SolutionActorRole": 7,                   # 0730 ← ActorRole
+    "SolutionBlueprint": 7,                   # 0740 ← DesignModel
+    "SolutionComponent": 7,                   # 0730 ← DesignModelElement
+    "SolutionPort": 7,                        # 0735 ← DesignModelElement
 }
 
+# Egeria's own area titles (egeria-docs site/docs/types/<N>/index.md).
 AREA_NAMES: dict[int, str] = {
-    0: "Foundation",
+    0: "Base Definitions and Infrastructure",
     1: "Collaboration",
-    2: "Assets & Infrastructure",
-    3: "Glossary",
+    2: "Assets",
+    3: "Glossary and Semantics",
     4: "Governance",
-    5: "Schemas",
-    6: "Data Stores",
+    5: "Schema, Models and Reference Data",
+    6: "Discovery Surveys and Analysis",
     7: "Lineage",
 }
 
-def _derive_area(name: str, sup_map: dict, cache: dict) -> int:
+# egeria-project.org/types/<area>/ — the model page is optional (TeamLeader and
+# TeamMember link to the area page alone).
+_WIKI_AREA_RE = re.compile(r"egeria-project\.org/types/(\d)/")
+
+
+def _area_from_wiki(wiki) -> Optional[int]:
+    """Area from an Egeria descriptionWiki URL, or None when it has none."""
+    if not isinstance(wiki, str):
+        return None
+    m = _WIKI_AREA_RE.search(wiki)
+    return int(m.group(1)) if m else None
+
+
+def _derive_area(name: str, sup_map: dict, cache: dict,
+                 wiki_map: Optional[dict] = None) -> int:
+    """A type's Egeria area: its own descriptionWiki first, else its nearest
+    anchor up the supertype chain (each ancestor's wiki counts too), else 0."""
     if name in cache:
         return cache[name]
-    if name in AREA_ANCHORS:
-        cache[name] = AREA_ANCHORS[name]
-        return AREA_ANCHORS[name]
-    sup = sup_map.get(name)
-    result = _derive_area(sup, sup_map, cache) if sup else 0
+    result = _area_from_wiki((wiki_map or {}).get(name))
+    if result is None and name in AREA_ANCHORS:
+        result = AREA_ANCHORS[name]
+    if result is None:
+        sup = sup_map.get(name)
+        result = _derive_area(sup, sup_map, cache, wiki_map) if sup else 0
     cache[name] = result
     return result
 
@@ -573,6 +659,9 @@ async def get_all_types(
         td["name"]: _sup_name(td) for td in entity_raw if td.get("name")
     }
     area_cache: dict[str, int] = {}
+    wiki_map: dict[str, str] = {
+        td["name"]: td.get("descriptionWiki") for td in entity_raw if td.get("name")
+    }
 
     # ── Entities ──────────────────────────────────────────────────────────────
     entities: dict[str, dict] = {}
@@ -580,7 +669,7 @@ async def get_all_types(
         name = td.get("name")
         if not name:
             continue
-        derived = _derive_area(name, sup_map, area_cache)
+        derived = _derive_area(name, sup_map, area_cache, wiki_map)
         if area is not None and derived != area:
             continue
         entities[name] = {
