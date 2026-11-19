@@ -97,7 +97,7 @@ All settings are read from container environment variables at startup.
 |----------|---------|-------------|
 | `DEMO_MODE` | `false` | Set `true` to activate demo auth gating |
 | `SITE_URL` | `https://localhost:8843` | Base URL used for email verification/reset links and as the public URL for the myEgeria service (textual-serve WebSocket origin). Must match what the browser uses to reach the portal. No trailing slash. |
-| `JWT_SECRET` | `change-me-before-going-public` | HS256 signing key — **set in `.env`, never in yaml** |
+| `JWT_SECRET` | none: `./quick-start-local` generates one into `.env` on the first run and keeps it; with `--demo` it is kept in `.env.demo` (either published example value is refused) | HS256 signing key for Portal sessions — never in yaml |
 | `JWT_EXPIRY_USER_SECONDS` | `7200` | User session lifetime in seconds (2 h) |
 | `JWT_EXPIRY_ADMIN_SECONDS` | `604800` | Admin session lifetime in seconds (7 d) |
 

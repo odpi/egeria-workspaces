@@ -1786,7 +1786,19 @@ function _navFromEntry(entry) {
 // came from.
 function _resolveTypeToNav(typeName, superTypeNames) {
   if (typeName === 'EngineAction') return { section: 'processes', tab: 'actions' };
-  return _navFromEntry((typeof resolveTypeNav === 'function') ? resolveTypeNav(typeName, superTypeNames) : null);
+  var nav = _navFromEntry((typeof resolveTypeNav === 'function') ? resolveTypeNav(typeName, superTypeNames) : null);
+  if (nav) return nav;
+  // Fallback: a plain Asset (or an Asset subtype type-nav-map.json has no entry
+  // for) is still an asset, and The Catalog is where assets live -- e.g. a
+  // GitHub repository, which Resource Explorer deliberately catalogs as a bare
+  // `Asset`. AssetTabView fetches detail by GUID, so any Asset renders here.
+  // Done here rather than as an "Asset" key in type-nav-map.json because that
+  // map is shared with Explorer/Operations, and a catch-all key there could
+  // shadow a more specific ancestor in the supertype walk.
+  if (typeName === 'Asset' || (superTypeNames || []).indexOf('Asset') >= 0) {
+    return { section: 'data-assets', tab: 'data-stores' };
+  }
+  return null;
 }
 
 // Asset Relationships list — own component so its filter/sort state (shared

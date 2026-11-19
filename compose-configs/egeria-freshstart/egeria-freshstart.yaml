@@ -180,7 +180,7 @@ services:
       EGERIA_USER: "${EGERIA_ADMIN_CALLER_ID:-bootstrap}"
       # No built-in default (PO-45): set EGERIA_ADMIN_CALLER_PASSWORD in .env. fresh-start-local never
       # writes one (real users); without it, compose refuses to start.
-      EGERIA_USER_PASSWORD: "${EGERIA_ADMIN_CALLER_PASSWORD:?set EGERIA_ADMIN_CALLER_PASSWORD in compose-configs/egeria-freshstart/.env (the Portal service account password)}"
+      EGERIA_USER_PASSWORD: "${EGERIA_ADMIN_CALLER_PASSWORD:?set EGERIA_ADMIN_CALLER_PASSWORD in compose-configs/egeria-freshstart/.env to the password of the Egeria account EGERIA_ADMIN_CALLER_ID (bootstrap by default) - see the freshstart README, Required .env settings}"
       EGERIA_ROOT_PATH: "/"
       EGERIA_INBOX_PATH: "dr-egeria-inbox"
       EGERIA_OUTBOX_PATH: "dr-egeria-outbox"
@@ -188,7 +188,8 @@ services:
       # ── Auth (Egeria-backed, no SQLite) ──────────────────────────────────────
       DEMO_MODE: "false"
       FEEDBACK_DB_PATH: "/app/demo-data/feedback.db"
-      JWT_SECRET: "${JWT_SECRET:-change-me-before-going-public}"
+      # No published default (RK-24b): gen-env.sh generates JWT_SECRET into .env on the first run and keeps it.
+      JWT_SECRET: "${JWT_SECRET:?JWT_SECRET is not set: run ./fresh-start-local, which generates one into compose-configs/egeria-freshstart/.env}"
       SITE_URL: "${SITE_URL:-https://localhost:7843}"
       # Comma-separated Egeria user IDs that receive portal admin role.
       # Add your own admin userId here after first login.

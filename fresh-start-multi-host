@@ -78,6 +78,22 @@ EOF
   chmod 600 "$ENV_SSL"
 
   ./gen-env.sh
+  # RK-24 (2026-11-18): stop here, in words, rather than let compose fail with "required variable … is missing".
+  # Not just present: a value of "" or '' counts as missing too (read-back N2).
+  if ! grep -E '^EGERIA_ADMIN_CALLER_PASSWORD=' .env | head -n1 | cut -d= -f2- | tr -d "\"'" | grep -q .; then
+    cat >&2 <<'MSG'
+[fresh-start-multi-host] STOP: EGERIA_ADMIN_CALLER_PASSWORD is not set.
+  It is the password of the Egeria account the Portal acts as: EGERIA_ADMIN_CALLER_ID, which is
+  "bootstrap" unless you changed it. On a brand-new freshstart it is bootstrap's initial password,
+  given in compose-configs/egeria-freshstart/README.md ("First run").
+  Add this line to compose-configs/egeria-freshstart/.env (git-ignored, never committed):
+      EGERIA_ADMIN_CALLER_PASSWORD=<bootstrap's password>
+  or export it in this shell, then run this script again.
+  If you later change bootstrap's password (First run, step 4), update this value to match and re-run.
+  See compose-configs/egeria-freshstart/README.md, "Required .env settings".
+MSG
+    exit 1
+  fi
 
   _host_fqdn="$(grep '^HOST_FQDN=' .env | cut -d= -f2-)"
   if [[ -n "$_site_url_override" ]]; then

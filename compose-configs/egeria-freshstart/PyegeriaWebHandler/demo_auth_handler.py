@@ -56,10 +56,18 @@ from demo_config import (
     JWT_ALGORITHM,
     JWT_EXPIRY_ADMIN_SEC,
     JWT_EXPIRY_USER_SEC,
-    JWT_SECRET,
+    jwt_signing_key,
 )
 
 router = APIRouter(tags=["demo"])
+
+
+def _signing_key() -> str:
+    """RK-24b: the session key, refusing (503, in words) an unset one or the published default."""
+    try:
+        return jwt_signing_key()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
 
 _CONFIG_PATH = Path(os.environ.get("DEMO_DB_PATH", "/app/demo-data/demo.db")).with_name("config.json")
 
@@ -212,13 +220,13 @@ def _make_jwt(user_id: str, role: str, display_name: str, egeria_token: str) -> 
             "egeria_token": egeria_token,
             "exp": datetime.utcnow() + timedelta(seconds=exp),
         },
-        JWT_SECRET,
+        _signing_key(),
         algorithm=JWT_ALGORITHM,
     )
 
 
 def _decode_jwt(token: str) -> dict:
-    return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    return jwt.decode(token, _signing_key(), algorithms=[JWT_ALGORITHM])
 
 
 def _portal_token_from_request(request: Request) -> Optional[str]:

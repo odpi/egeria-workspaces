@@ -467,8 +467,8 @@ pushd compose-configs/egeria-quickstart >/dev/null
       printf -v "_carry_${_k}" '%s' "$(_pick "$_k")"
     done
 
-    # Generate JWT_SECRET if not already set
-    if [[ -z "$_jwt" ]]; then
+    # Generate JWT_SECRET if not already set, or if it is a value published in this repo (PO-46b)
+    if [[ -z "$_jwt" || "$_jwt" == "change-me-before-going-public" || "$_jwt" == "change-me-before-going-public-meow" ]]; then
       _jwt="$(openssl rand -hex 32 2>/dev/null \
         || python3 -c 'import secrets; print(secrets.token_hex(32))' 2>/dev/null)"
       echo "[quick-start-local]   Generated new JWT_SECRET."
@@ -649,7 +649,7 @@ EOF
 
   if [[ "$DEMO_MODE_FLAG" -eq 1 ]]; then
     {
-      echo "JWT_SECRET=${_jwt}"
+      # JWT_SECRET is not appended here: gen-env.sh writes it into .env from .env.demo (PO-46b).
       echo "WORKBENCH_SECRET=${_workbench_secret}"
       echo "CERT_DIR=${_cert_dir}"
       echo "ADMIN_BOOTSTRAP_EMAIL=${_admin_email}"
@@ -764,7 +764,10 @@ EOF
     # pushd here, so repo-root-relative paths would not resolve.
     "$REPO_ROOT/compose-configs/shared-infra/pin-latest-digest.sh" \
       "$REPO_ROOT/compose-configs/egeria-quickstart/Dockerfile-egeria-platform" \
-      docker.io/odpi/egeria-platform:latest
+      docker.io/odpi/egeria-platform:6.3 || {
+        echo "[quick-start-local] ERROR: --refresh-platform could not re-pin the egeria-platform image in compose-configs/egeria-quickstart/Dockerfile-egeria-platform (see pin-latest-digest output above)." >&2
+        exit 1
+      }
   fi
 
   # pyegeria-web's, jupyter's and my-profile's `pip install --upgrade pyegeria` each sit in
@@ -893,7 +896,10 @@ _egeria_healthy=0
 for _i in $(seq 1 20); do
   _status=$($CONTAINER_ENGINE inspect -f "$INSPECT_STATUS_FORMAT" quickstart-egeria-main 2>/dev/null || echo "not-found")
   if [[ "$_status" == "healthy" ]]; then
-    echo "[quick-start-local] egeria-main is healthy."
+    echo "[quick-start-local] egeria-main is healthy: the platform is up."
+    # RK-25: "healthy" tests only Tomcat. Egeria's servers start after it, so don't let a newcomer sign in too early.
+    echo "[quick-start-local] Egeria's servers are still starting: allow about 4 more minutes before signing in."
+    echo "[quick-start-local] Then open the Portal and pick a persona. The Catalog keeps filling in for a few minutes after that."
     _egeria_healthy=1
     break
   fi

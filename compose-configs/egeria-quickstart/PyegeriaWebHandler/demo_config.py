@@ -42,7 +42,20 @@ EGERIA_META_DB_PASSWORD:  str = os.environ.get("EGERIA_META_DB_PASSWORD",  "admi
 
 # ── JWT ────────────────────────────────────────────────────────────────────────
 
-JWT_SECRET: str       = os.environ.get("JWT_SECRET", "change-me-before-going-public")
+# PO-46b (as RK-24b for freshstart): no published default. quick-start-local's gen-env.sh keeps or generates
+# JWT_SECRET in .env; an unset key, or either value once published in this repo, is refused when a session is
+# signed or checked (anyone could forge those sessions).
+PUBLIC_JWT_DEFAULTS = ("change-me-before-going-public", "change-me-before-going-public-meow")
+PUBLIC_JWT_DEFAULT = PUBLIC_JWT_DEFAULTS[0]
+JWT_SECRET: str       = os.environ.get("JWT_SECRET") or ""
+
+
+def jwt_signing_key() -> str:
+    """The Portal's session-signing key, refusing an unset one or a published default (forgeable sessions)."""
+    if not JWT_SECRET or JWT_SECRET in PUBLIC_JWT_DEFAULTS:
+        raise RuntimeError("JWT_SECRET is not set, or is a published default, so Portal sessions could be forged. "
+                           "Run ./quick-start-local, which generates one into compose-configs/egeria-quickstart/.env.")
+    return JWT_SECRET
 JWT_ALGORITHM: str    = "HS256"
 JWT_EXPIRY_USER_SEC: int  = int(os.environ.get("JWT_EXPIRY_USER_SECONDS",  "7200"))    # 2 h
 JWT_EXPIRY_ADMIN_SEC: int = int(os.environ.get("JWT_EXPIRY_ADMIN_SECONDS", "604800"))  # 7 d
