@@ -1,0 +1,1840 @@
+{
+ "_source": "Built from the egeria source at 8de9572c4d: names + descriptionWiki from OpenMetadataType.java / OpenMetadataWikiPages.java, supertypes from open-metadata-types OpenMetadataTypesArchive*.java getDefaultEntityDef calls plus the three 6_1 setSuperType patches (DataProcessingDescription, DataProcessingAction -> Collection; DesignPattern -> AuthoredReferenceable). One row per entity type, in the shape the type API returns those three fields.",
+ "entityTypes": [
+  {
+   "name": "APIManager",
+   "superType": "SoftwareCapability",
+   "descriptionWiki": "https://egeria-project.org/types/0/0050-Applications-and-Processes/"
+  },
+  {
+   "name": "APIOperation",
+   "superType": "SchemaType",
+   "descriptionWiki": "https://egeria-project.org/types/5/0536-API-Schemas/"
+  },
+  {
+   "name": "APIParameter",
+   "superType": "SchemaAttribute",
+   "descriptionWiki": "https://egeria-project.org/types/5/0536-API-Schemas/"
+  },
+  {
+   "name": "APIParameterList",
+   "superType": "ComplexSchemaType",
+   "descriptionWiki": "https://egeria-project.org/types/5/0536-API-Schemas/"
+  },
+  {
+   "name": "APISchemaType",
+   "superType": "RootSchemaType",
+   "descriptionWiki": "https://egeria-project.org/types/5/0536-API-Schemas/"
+  },
+  {
+   "name": "Action",
+   "superType": "Process",
+   "descriptionWiki": "https://egeria-project.org/types/0/0013-Actions/"
+  },
+  {
+   "name": "ActivityEntry",
+   "superType": "Notification",
+   "descriptionWiki": "https://egeria-project.org/types/1/0135-Actions-For-People/"
+  },
+  {
+   "name": "Actor",
+   "superType": "Referenceable",
+   "descriptionWiki": "https://egeria-project.org/types/1/0110-Actors/"
+  },
+  {
+   "name": "ActorProfile",
+   "superType": "Actor",
+   "descriptionWiki": "https://egeria-project.org/types/1/0110-Actors/"
+  },
+  {
+   "name": "ActorRole",
+   "superType": "Actor",
+   "descriptionWiki": "https://egeria-project.org/types/1/0118-Actor-Roles/"
+  },
+  {
+   "name": "Agreement",
+   "superType": "Collection",
+   "descriptionWiki": "https://egeria-project.org/types/7/0711-Agreements/"
+  },
+  {
+   "name": "AnalyticalActionProcess",
+   "superType": "GovernanceActionProcess",
+   "descriptionWiki": "https://egeria-project.org/types/4/0462-Governance-Action-Processes/"
+  },
+  {
+   "name": "AnalyticsEngine",
+   "superType": "Engine",
+   "descriptionWiki": "https://egeria-project.org/types/0/0055-Data-Processing-Engines/"
+  },
+  {
+   "name": "AnalyticsModelRun",
+   "superType": "TransientEmbeddedProcess",
+   "descriptionWiki": "https://egeria-project.org/types/2/0265-Analytics-Assets/"
+  },
+  {
+   "name": "Annotation",
+   "superType": "AuthoredReferenceable",
+   "descriptionWiki": "https://egeria-project.org/types/6/0610-Annotations/"
+  },
+  {
+   "name": "AnnotationReview",
+   "superType": "Review",
+   "descriptionWiki": "https://egeria-project.org/types/6/0612-Annotation-Reviews/"
+  },
+  {
+   "name": "Application",
+   "superType": "SoftwareCapability",
+   "descriptionWiki": "https://egeria-project.org/types/0/0050-Applications-and-Processes/"
+  },
+  {
+   "name": "ArchiveFile",
+   "superType": "DataFile",
+   "descriptionWiki": "https://egeria-project.org/types/2/0226-Archive-Files/"
+  },
+  {
+   "name": "Asset",
+   "superType": "Referenceable",
+   "descriptionWiki": "https://egeria-project.org/types/0/0010-Base-Model/"
+  },
+  {
+   "name": "AssetOwner",
+   "superType": "GovernanceRole",
+   "descriptionWiki": "https://egeria-project.org/types/4/0445-Governance-Roles/"
+  },
+  {
+   "name": "AudioFile",
+   "superType": "MediaFile",
+   "descriptionWiki": "https://egeria-project.org/types/2/0221-Document-Stores/"
+  },
+  {
+   "name": "AuthoredReferenceable",
+   "superType": "Referenceable",
+   "descriptionWiki": "https://egeria-project.org/types/0/0010-Base-Model/"
+  },
+  {
+   "name": "AuthorizationManager",
+   "superType": "SoftwareCapability",
+   "descriptionWiki": "https://egeria-project.org/types/0/0050-Applications-and-Processes/"
+  },
+  {
+   "name": "AvroFile",
+   "superType": "DataFile",
+   "descriptionWiki": "https://egeria-project.org/types/2/0220-Files-and-Folders/"
+  },
+  {
+   "name": "BareMetalComputer",
+   "superType": "Host",
+   "descriptionWiki": "https://egeria-project.org/types/0/0035-Complex-Hosts/"
+  },
+  {
+   "name": "BlogEntry",
+   "superType": "Notification",
+   "descriptionWiki": "https://egeria-project.org/types/1/0135-Actions-For-People/"
+  },
+  {
+   "name": "BuildInstructionFile",
+   "superType": "DataFile",
+   "descriptionWiki": "https://egeria-project.org/types/2/0280-Software-Development-Assets/"
+  },
+  {
+   "name": "BusinessCapability",
+   "superType": "Collection",
+   "descriptionWiki": "https://egeria-project.org/types/7/0715-Digital-Business/"
+  },
+  {
+   "name": "BusinessImperative",
+   "superType": "GovernanceDriver",
+   "descriptionWiki": "https://egeria-project.org/types/4/0405-Governance-Drivers/"
+  },
+  {
+   "name": "BusinessOwner",
+   "superType": "GovernanceRole",
+   "descriptionWiki": "https://egeria-project.org/types/4/0445-Governance-Roles/"
+  },
+  {
+   "name": "CSVFile",
+   "superType": "DataFile",
+   "descriptionWiki": "https://egeria-project.org/types/2/0220-Files-and-Folders/"
+  },
+  {
+   "name": "CataloguingActionProcess",
+   "superType": "GovernanceActionProcess",
+   "descriptionWiki": "https://egeria-project.org/types/4/0462-Governance-Action-Processes/"
+  },
+  {
+   "name": "CertificationType",
+   "superType": "TermsAndConditions",
+   "descriptionWiki": "https://egeria-project.org/types/4/0440-Organizational-Controls/"
+  },
+  {
+   "name": "ChangeManagementLibrary",
+   "superType": "ResourceManager",
+   "descriptionWiki": "https://egeria-project.org/types/0/0056-Resource-Managers/"
+  },
+  {
+   "name": "CitedDocument",
+   "superType": "ExternalReference",
+   "descriptionWiki": "https://egeria-project.org/types/0/0016-Cited-Documents/"
+  },
+  {
+   "name": "ClassificationAnnotation",
+   "superType": "DataFieldAnnotation",
+   "descriptionWiki": "https://egeria-project.org/types/6/0635-Classification-Discovery/"
+  },
+  {
+   "name": "CodeAnalysisAnnotation",
+   "superType": "Annotation",
+   "descriptionWiki": "https://egeria-project.org/types/6/0680-Code-Analysis/"
+  },
+  {
+   "name": "CohortMember",
+   "superType": "SoftwareCapability",
+   "descriptionWiki": "https://egeria-project.org/types/0/0057-Software-Services/"
+  },
+  {
+   "name": "CohortRegistryStore",
+   "superType": "DataStore",
+   "descriptionWiki": "https://egeria-project.org/types/2/0225-Metadata-Repositories/"
+  },
+  {
+   "name": "Collection",
+   "superType": "AuthoredReferenceable",
+   "descriptionWiki": "https://egeria-project.org/types/0/0021-Collections/"
+  },
+  {
+   "name": "CollectionFolder",
+   "superType": "Collection",
+   "descriptionWiki": "https://egeria-project.org/types/0/0021-Collections/"
+  },
+  {
+   "name": "Comment",
+   "superType": "Referenceable",
+   "descriptionWiki": "https://egeria-project.org/types/1/0150-Feedback/"
+  },
+  {
+   "name": "Community",
+   "superType": "Referenceable",
+   "descriptionWiki": "https://egeria-project.org/types/1/0140-Communities/"
+  },
+  {
+   "name": "CommunityMember",
+   "superType": "PersonRole",
+   "descriptionWiki": "https://egeria-project.org/types/1/0140-Communities/"
+  },
+  {
+   "name": "ComplexSchemaType",
+   "superType": "SchemaType",
+   "descriptionWiki": "https://egeria-project.org/types/5/0505-Schema-Attributes/"
+  },
+  {
+   "name": "ComponentOwner",
+   "superType": "GovernanceRole",
+   "descriptionWiki": "https://egeria-project.org/types/4/0445-Governance-Roles/"
+  },
+  {
+   "name": "ConceptBead",
+   "superType": "ConceptModelElement",
+   "descriptionWiki": "https://egeria-project.org/types/5/0571-Concept-Models/"
+  },
+  {
+   "name": "ConceptBeadAttribute",
+   "superType": "ConceptModelElement",
+   "descriptionWiki": "https://egeria-project.org/types/5/0571-Concept-Models/"
+  },
+  {
+   "name": "ConceptBeadRelationship",
+   "superType": "ConceptModelElement",
+   "descriptionWiki": "https://egeria-project.org/types/5/0571-Concept-Models/"
+  },
+  {
+   "name": "ConceptModel",
+   "superType": "DesignModel",
+   "descriptionWiki": "https://egeria-project.org/types/5/0571-Concept-Models/"
+  },
+  {
+   "name": "ConceptModelElement",
+   "superType": "DesignModelElement",
+   "descriptionWiki": "https://egeria-project.org/types/5/0571-Concept-Models/"
+  },
+  {
+   "name": "Connection",
+   "superType": "Referenceable",
+   "descriptionWiki": "https://egeria-project.org/types/2/0201-Connectors-and-Connections/"
+  },
+  {
+   "name": "ConnectorActivityReport",
+   "superType": "Report",
+   "descriptionWiki": "https://egeria-project.org/types/4/0457-Connector-Activity-Reports/"
+  },
+  {
+   "name": "ConnectorType",
+   "superType": "Referenceable",
+   "descriptionWiki": "https://egeria-project.org/types/2/0201-Connectors-and-Connections/"
+  },
+  {
+   "name": "ContactDetails",
+   "superType": "Referenceable",
+   "descriptionWiki": "https://egeria-project.org/types/1/0111-Contact-Details/"
+  },
+  {
+   "name": "ContentCollectionManager",
+   "superType": "ResourceManager",
+   "descriptionWiki": "https://egeria-project.org/types/0/0056-Resource-Managers/"
+  },
+  {
+   "name": "ContextEvent",
+   "superType": "Referenceable",
+   "descriptionWiki": "https://egeria-project.org/types/4/0475-Context-Events/"
+  },
+  {
+   "name": "ContextEventCollection",
+   "superType": "Collection",
+   "descriptionWiki": "https://egeria-project.org/types/4/0475-Context-Events/"
+  },
+  {
+   "name": "ContributionRecord",
+   "superType": "Referenceable",
+   "descriptionWiki": "https://egeria-project.org/types/1/0125-Contribution/"
+  },
+  {
+   "name": "ContributorAnalysisAnnotation",
+   "superType": "Annotation",
+   "descriptionWiki": "https://egeria-project.org/types/6/0680-Code-Analysis/"
+  },
+  {
+   "name": "CrowdSourcingContributor",
+   "superType": "PersonRole",
+   "descriptionWiki": "https://egeria-project.org/types/1/0155-Crowd-Sourcing/"
+  },
+  {
+   "name": "DataAccessManager",
+   "superType": "DataManager",
+   "descriptionWiki": "https://egeria-project.org/types/0/0050-Applications-and-Processes/"
+  },
+  {
+   "name": "DataAsset",
+   "superType": "Asset",
+   "descriptionWiki": "https://egeria-project.org/types/0/0010-Base-Model/"
+  },
+  {
+   "name": "DataClass",
+   "superType": "DataValueSpecification",
+   "descriptionWiki": "https://egeria-project.org/types/5/0541-Data-Classes-and-Data-Grains/"
+  },
+  {
+   "name": "DataClassAnnotation",
+   "superType": "DataFieldAnnotation",
+   "descriptionWiki": "https://egeria-project.org/types/6/0625-Data-Class-Discovery/"
+  },
+  {
+   "name": "DataDictionary",
+   "superType": "Collection",
+   "descriptionWiki": "https://egeria-project.org/types/5/0580-Data-Dictionaries/"
+  },
+  {
+   "name": "DataFeed",
+   "superType": "DataAsset",
+   "descriptionWiki": "https://egeria-project.org/types/2/0210-Data-Stores/"
+  },
+  {
+   "name": "DataField",
+   "superType": "AuthoredReferenceable",
+   "descriptionWiki": "https://egeria-project.org/types/5/0580-Data-Dictionaries/"
+  },
+  {
+   "name": "DataFieldAnnotation",
+   "superType": "Annotation",
+   "descriptionWiki": "https://egeria-project.org/types/6/0610-Annotations/"
+  },
+  {
+   "name": "DataFile",
+   "superType": "DataStore",
+   "descriptionWiki": "https://egeria-project.org/types/2/0220-Files-and-Folders/"
+  },
+  {
+   "name": "DataFileCollection",
+   "superType": "DataSet",
+   "descriptionWiki": "https://egeria-project.org/types/2/0220-Files-and-Folders/"
+  },
+  {
+   "name": "DataFolder",
+   "superType": "FileFolder",
+   "descriptionWiki": "https://egeria-project.org/types/2/0220-Files-and-Folders/"
+  },
+  {
+   "name": "DataGrain",
+   "superType": "DataValueSpecification",
+   "descriptionWiki": "https://egeria-project.org/types/5/0541-Data-Classes-and-Data-Grains/"
+  },
+  {
+   "name": "DataGrainAnnotation",
+   "superType": "DataFieldAnnotation",
+   "descriptionWiki": "https://egeria-project.org/types/6/0626-Data-Grain-Discovery/"
+  },
+  {
+   "name": "DataItemOwner",
+   "superType": "GovernanceRole",
+   "descriptionWiki": "https://egeria-project.org/types/4/0445-Governance-Roles/"
+  },
+  {
+   "name": "DataLens",
+   "superType": "GovernanceControl",
+   "descriptionWiki": "https://egeria-project.org/types/4/0430-Development-Controls/"
+  },
+  {
+   "name": "DataManager",
+   "superType": "SoftwareCapability",
+   "descriptionWiki": "https://egeria-project.org/types/0/0050-Applications-and-Processes/"
+  },
+  {
+   "name": "DataMovementEngine",
+   "superType": "Engine",
+   "descriptionWiki": "https://egeria-project.org/types/0/0055-Data-Processing-Engines/"
+  },
+  {
+   "name": "DataProcessingAction",
+   "superType": "Collection",
+   "descriptionWiki": "https://egeria-project.org/types/4/0485-Data-Processing-Purposes/"
+  },
+  {
+   "name": "DataProcessingDescription",
+   "superType": "Collection",
+   "descriptionWiki": "https://egeria-project.org/types/4/0485-Data-Processing-Purposes/"
+  },
+  {
+   "name": "DataProcessingPurpose",
+   "superType": "GovernanceControl",
+   "descriptionWiki": "https://egeria-project.org/types/4/0485-Data-Processing-Purposes/"
+  },
+  {
+   "name": "DataQualityRule",
+   "superType": "GovernanceRule",
+   "descriptionWiki": "https://egeria-project.org/types/4/0450-Governance-Rollout/"
+  },
+  {
+   "name": "DataSet",
+   "superType": "DataAsset",
+   "descriptionWiki": "https://egeria-project.org/types/2/0210-Data-Stores/"
+  },
+  {
+   "name": "DataSharingHub",
+   "superType": "Collection",
+   "descriptionWiki": "https://egeria-project.org/types/7/0705-Data-Sharing/"
+  },
+  {
+   "name": "DataSharingRequest",
+   "superType": "ToDo",
+   "descriptionWiki": "https://egeria-project.org/types/7/0705-Data-Sharing/"
+  },
+  {
+   "name": "DataSpec",
+   "superType": "Collection",
+   "descriptionWiki": "https://egeria-project.org/types/5/0580-Data-Dictionaries/"
+  },
+  {
+   "name": "DataStore",
+   "superType": "DataAsset",
+   "descriptionWiki": "https://egeria-project.org/types/2/0210-Data-Stores/"
+  },
+  {
+   "name": "DataStructure",
+   "superType": "AuthoredReferenceable",
+   "descriptionWiki": "https://egeria-project.org/types/5/0580-Data-Dictionaries/"
+  },
+  {
+   "name": "DataValueSpecification",
+   "superType": "AuthoredReferenceable",
+   "descriptionWiki": "https://egeria-project.org/types/5/0540-Data-Value-Specifications/"
+  },
+  {
+   "name": "DataVirtualizationEngine",
+   "superType": "Engine",
+   "descriptionWiki": "https://egeria-project.org/types/0/0055-Data-Processing-Engines/"
+  },
+  {
+   "name": "Database",
+   "superType": "DataStore",
+   "descriptionWiki": "https://egeria-project.org/types/2/0224-Databases/"
+  },
+  {
+   "name": "DatabaseManager",
+   "superType": "DataManager",
+   "descriptionWiki": "https://egeria-project.org/types/0/0050-Applications-and-Processes/"
+  },
+  {
+   "name": "DeletingActionProcess",
+   "superType": "GovernanceActionProcess",
+   "descriptionWiki": "https://egeria-project.org/types/4/0462-Governance-Action-Processes/"
+  },
+  {
+   "name": "DeployedAPI",
+   "superType": "DeployedSoftwareComponent",
+   "descriptionWiki": "https://egeria-project.org/types/2/0212-Deployed-APIs/"
+  },
+  {
+   "name": "DeployedAnalyticsModel",
+   "superType": "DeployedSoftwareComponent",
+   "descriptionWiki": "https://egeria-project.org/types/2/0265-Analytics-Assets/"
+  },
+  {
+   "name": "DeployedConnector",
+   "superType": "DeployedSoftwareComponent",
+   "descriptionWiki": "https://egeria-project.org/types/2/0215-Software-Components/"
+  },
+  {
+   "name": "DeployedDatabaseSchema",
+   "superType": "DataSet",
+   "descriptionWiki": "https://egeria-project.org/types/2/0224-Databases/"
+  },
+  {
+   "name": "DeployedSoftwareComponent",
+   "superType": "Process",
+   "descriptionWiki": "https://egeria-project.org/types/2/0215-Software-Components/"
+  },
+  {
+   "name": "DesignModel",
+   "superType": "Collection",
+   "descriptionWiki": "https://egeria-project.org/types/5/0565-Design-Models/"
+  },
+  {
+   "name": "DesignModelElement",
+   "superType": "AuthoredReferenceable",
+   "descriptionWiki": "https://egeria-project.org/types/5/0565-Design-Models/"
+  },
+  {
+   "name": "DesignPattern",
+   "superType": "AuthoredReferenceable",
+   "descriptionWiki": "https://egeria-project.org/types/5/0595-Design-Patterns/"
+  },
+  {
+   "name": "DigitalProduct",
+   "superType": "Collection",
+   "descriptionWiki": "https://egeria-project.org/types/7/0710-Digital-Products/"
+  },
+  {
+   "name": "DigitalProductCatalog",
+   "superType": "Collection",
+   "descriptionWiki": "https://egeria-project.org/types/7/0710-Digital-Products/"
+  },
+  {
+   "name": "DigitalProductFamily",
+   "superType": "DigitalProduct",
+   "descriptionWiki": "https://egeria-project.org/types/7/0710-Digital-Products/"
+  },
+  {
+   "name": "DigitalProductManager",
+   "superType": "PersonRole",
+   "descriptionWiki": "https://egeria-project.org/types/7/0710-Digital-Products/"
+  },
+  {
+   "name": "DigitalSubscription",
+   "superType": "Agreement",
+   "descriptionWiki": "https://egeria-project.org/types/7/0712-Digital-Subscription/"
+  },
+  {
+   "name": "DisplayDataContainer",
+   "superType": "SchemaAttribute",
+   "descriptionWiki": "https://egeria-project.org/types/5/0537-Display-Schemas/"
+  },
+  {
+   "name": "DisplayDataField",
+   "superType": "SchemaAttribute",
+   "descriptionWiki": "https://egeria-project.org/types/5/0537-Display-Schemas/"
+  },
+  {
+   "name": "DisplayDataSchemaType",
+   "superType": "RootSchemaType",
+   "descriptionWiki": "https://egeria-project.org/types/5/0537-Display-Schemas/"
+  },
+  {
+   "name": "Document",
+   "superType": "MediaFile",
+   "descriptionWiki": "https://egeria-project.org/types/2/0221-Document-Stores/"
+  },
+  {
+   "name": "DocumentSchemaAttribute",
+   "superType": "SchemaAttribute",
+   "descriptionWiki": "https://egeria-project.org/types/5/0531-Document-Schemas/"
+  },
+  {
+   "name": "DocumentSchemaType",
+   "superType": "RootSchemaType",
+   "descriptionWiki": "https://egeria-project.org/types/5/0531-Document-Schemas/"
+  },
+  {
+   "name": "DocumentStore",
+   "superType": "DataStore",
+   "descriptionWiki": "https://egeria-project.org/types/2/0221-Document-Stores/"
+  },
+  {
+   "name": "EmbeddedProcess",
+   "superType": "Action",
+   "descriptionWiki": "https://egeria-project.org/types/2/0215-Software-Components/"
+  },
+  {
+   "name": "Endpoint",
+   "superType": "Referenceable",
+   "descriptionWiki": "https://egeria-project.org/types/0/0026-Endpoints/"
+  },
+  {
+   "name": "Engine",
+   "superType": "SoftwareCapability",
+   "descriptionWiki": "https://egeria-project.org/types/0/0055-Data-Processing-Engines/"
+  },
+  {
+   "name": "EngineAction",
+   "superType": "Action",
+   "descriptionWiki": "https://egeria-project.org/types/4/0463-Engine-Actions/"
+  },
+  {
+   "name": "EnumSchemaType",
+   "superType": "SimpleSchemaType",
+   "descriptionWiki": "https://egeria-project.org/types/5/0501-Schema-Elements/"
+  },
+  {
+   "name": "EventBroker",
+   "superType": "SoftwareCapability",
+   "descriptionWiki": "https://egeria-project.org/types/0/0050-Applications-and-Processes/"
+  },
+  {
+   "name": "EventManager",
+   "superType": "SoftwareCapability",
+   "descriptionWiki": "https://egeria-project.org/types/0/0050-Applications-and-Processes/"
+  },
+  {
+   "name": "EventSchemaAttribute",
+   "superType": "SchemaAttribute",
+   "descriptionWiki": "https://egeria-project.org/types/5/0535-Event-Schemas/"
+  },
+  {
+   "name": "EventSet",
+   "superType": "Collection",
+   "descriptionWiki": "https://egeria-project.org/types/5/0535-Event-Schemas/"
+  },
+  {
+   "name": "EventType",
+   "superType": "RootSchemaType",
+   "descriptionWiki": "https://egeria-project.org/types/5/0535-Event-Schemas/"
+  },
+  {
+   "name": "EventTypeList",
+   "superType": "SchemaTypeChoice",
+   "descriptionWiki": "https://egeria-project.org/types/5/0535-Event-Schemas/"
+  },
+  {
+   "name": "ExceptionType",
+   "superType": "GovernanceControl",
+   "descriptionWiki": "https://egeria-project.org/types/4/0455-Exception-Management/"
+  },
+  {
+   "name": "ExecutableFile",
+   "superType": "DataFile",
+   "descriptionWiki": "https://egeria-project.org/types/2/0280-Software-Development-Assets/"
+  },
+  {
+   "name": "ExplorerActionEngine",
+   "superType": "GovernanceEngine",
+   "descriptionWiki": "https://egeria-project.org/types/4/0461-Governance-Engines/"
+  },
+  {
+   "name": "ExplorerActionService",
+   "superType": "GovernanceService",
+   "descriptionWiki": "https://egeria-project.org/types/4/0461-Governance-Engines/"
+  },
+  {
+   "name": "ExploringActionProcess",
+   "superType": "GovernanceActionProcess",
+   "descriptionWiki": "https://egeria-project.org/types/4/0462-Governance-Action-Processes/"
+  },
+  {
+   "name": "ExternalDataSource",
+   "superType": "ExternalReference",
+   "descriptionWiki": "https://egeria-project.org/types/0/0014-External-References/"
+  },
+  {
+   "name": "ExternalId",
+   "superType": "Referenceable",
+   "descriptionWiki": "https://egeria-project.org/types/0/0017-External-Identifiers/"
+  },
+  {
+   "name": "ExternalModelSource",
+   "superType": "ExternalReference",
+   "descriptionWiki": "https://egeria-project.org/types/0/0014-External-References/"
+  },
+  {
+   "name": "ExternalReference",
+   "superType": "AuthoredReferenceable",
+   "descriptionWiki": "https://egeria-project.org/types/0/0014-External-References/"
+  },
+  {
+   "name": "ExternalSchemaType",
+   "superType": "SchemaType",
+   "descriptionWiki": "https://egeria-project.org/types/5/0507-External-Schema-Type/"
+  },
+  {
+   "name": "ExternalSourceCode",
+   "superType": "ExternalReference",
+   "descriptionWiki": "https://egeria-project.org/types/0/0014-External-References/"
+  },
+  {
+   "name": "ExternalStandard",
+   "superType": "ExternalReference",
+   "descriptionWiki": "https://egeria-project.org/types/0/0014-External-References/"
+  },
+  {
+   "name": "FileFolder",
+   "superType": "DataStore",
+   "descriptionWiki": "https://egeria-project.org/types/2/0220-Files-and-Folders/"
+  },
+  {
+   "name": "FileManager",
+   "superType": "ResourceManager",
+   "descriptionWiki": "https://egeria-project.org/types/0/0056-Resource-Managers/"
+  },
+  {
+   "name": "FileSystem",
+   "superType": "ResourceManager",
+   "descriptionWiki": "https://egeria-project.org/types/0/0056-Resource-Managers/"
+  },
+  {
+   "name": "FingerprintAnnotation",
+   "superType": "DataFieldAnnotation",
+   "descriptionWiki": "https://egeria-project.org/types/6/0620-Resource-Profiling/"
+  },
+  {
+   "name": "Folio",
+   "superType": "Collection",
+   "descriptionWiki": "https://egeria-project.org/types/0/0021-Collections/"
+  },
+  {
+   "name": "Form",
+   "superType": "DataSet",
+   "descriptionWiki": "https://egeria-project.org/types/2/0239-Reports/"
+  },
+  {
+   "name": "FunctionCall",
+   "superType": "TransientEmbeddedProcess",
+   "descriptionWiki": "https://egeria-project.org/types/2/0215-Software-Components/"
+  },
+  {
+   "name": "Glossary",
+   "superType": "Collection",
+   "descriptionWiki": "https://egeria-project.org/types/3/0310-Glossary/"
+  },
+  {
+   "name": "GlossaryTerm",
+   "superType": "AuthoredReferenceable",
+   "descriptionWiki": "https://egeria-project.org/types/3/0330-Terms/"
+  },
+  {
+   "name": "GovernanceAction",
+   "superType": "GovernanceControl",
+   "descriptionWiki": "https://egeria-project.org/types/4/0462-Governance-Action-Processes/"
+  },
+  {
+   "name": "GovernanceActionEngine",
+   "superType": "GovernanceEngine",
+   "descriptionWiki": "https://egeria-project.org/types/4/0461-Governance-Engines/"
+  },
+  {
+   "name": "GovernanceActionProcess",
+   "superType": "GovernanceAction",
+   "descriptionWiki": "https://egeria-project.org/types/4/0462-Governance-Action-Processes/"
+  },
+  {
+   "name": "GovernanceActionProcessInstance",
+   "superType": "TransientEmbeddedProcess",
+   "descriptionWiki": "https://egeria-project.org/types/4/0462-Governance-Action-Processes/"
+  },
+  {
+   "name": "GovernanceActionProcessStep",
+   "superType": "GovernanceActionType",
+   "descriptionWiki": "https://egeria-project.org/types/4/0462-Governance-Action-Processes/"
+  },
+  {
+   "name": "GovernanceActionService",
+   "superType": "GovernanceService",
+   "descriptionWiki": "https://egeria-project.org/types/4/0461-Governance-Engines/"
+  },
+  {
+   "name": "GovernanceActionType",
+   "superType": "GovernanceAction",
+   "descriptionWiki": "https://egeria-project.org/types/4/0462-Governance-Action-Processes/"
+  },
+  {
+   "name": "GovernanceApproach",
+   "superType": "GovernancePolicy",
+   "descriptionWiki": "https://egeria-project.org/types/4/0415-Governance-Responses/"
+  },
+  {
+   "name": "GovernanceControl",
+   "superType": "GovernanceDefinition",
+   "descriptionWiki": "https://egeria-project.org/types/4/0420-Governance-Controls/"
+  },
+  {
+   "name": "GovernanceDefinition",
+   "superType": "AuthoredReferenceable",
+   "descriptionWiki": "https://egeria-project.org/types/4/0401-Governance-Definitions/"
+  },
+  {
+   "name": "GovernanceDriver",
+   "superType": "GovernanceDefinition",
+   "descriptionWiki": "https://egeria-project.org/types/4/0405-Governance-Drivers/"
+  },
+  {
+   "name": "GovernanceEngine",
+   "superType": "Engine",
+   "descriptionWiki": "https://egeria-project.org/types/4/0461-Governance-Engines/"
+  },
+  {
+   "name": "GovernanceMetric",
+   "superType": "GovernanceControl",
+   "descriptionWiki": "https://egeria-project.org/types/4/0450-Governance-Rollout/"
+  },
+  {
+   "name": "GovernanceObligation",
+   "superType": "GovernancePolicy",
+   "descriptionWiki": "https://egeria-project.org/types/4/0415-Governance-Responses/"
+  },
+  {
+   "name": "GovernanceOfficer",
+   "superType": "GovernanceRole",
+   "descriptionWiki": "https://egeria-project.org/types/4/0445-Governance-Roles/"
+  },
+  {
+   "name": "GovernancePolicy",
+   "superType": "GovernanceDefinition",
+   "descriptionWiki": "https://egeria-project.org/types/4/0415-Governance-Responses/"
+  },
+  {
+   "name": "GovernancePrinciple",
+   "superType": "GovernancePolicy",
+   "descriptionWiki": "https://egeria-project.org/types/4/0415-Governance-Responses/"
+  },
+  {
+   "name": "GovernanceProcedure",
+   "superType": "GovernanceControl",
+   "descriptionWiki": "https://egeria-project.org/types/4/0440-Organizational-Controls/"
+  },
+  {
+   "name": "GovernanceRepresentative",
+   "superType": "GovernanceRole",
+   "descriptionWiki": "https://egeria-project.org/types/4/0445-Governance-Roles/"
+  },
+  {
+   "name": "GovernanceResponsibility",
+   "superType": "GovernanceControl",
+   "descriptionWiki": "https://egeria-project.org/types/4/0440-Organizational-Controls/"
+  },
+  {
+   "name": "GovernanceRole",
+   "superType": "PersonRole",
+   "descriptionWiki": "https://egeria-project.org/types/4/0445-Governance-Roles/"
+  },
+  {
+   "name": "GovernanceRule",
+   "superType": "GovernanceControl",
+   "descriptionWiki": "https://egeria-project.org/types/4/0450-Governance-Rollout/"
+  },
+  {
+   "name": "GovernanceService",
+   "superType": "DeployedConnector",
+   "descriptionWiki": "https://egeria-project.org/types/4/0461-Governance-Engines/"
+  },
+  {
+   "name": "GovernanceStrategy",
+   "superType": "GovernanceDriver",
+   "descriptionWiki": "https://egeria-project.org/types/4/0405-Governance-Drivers/"
+  },
+  {
+   "name": "GovernanceZone",
+   "superType": "SecurityAccessControl",
+   "descriptionWiki": "https://egeria-project.org/types/4/0424-Governance-Zones/"
+  },
+  {
+   "name": "GraphEdge",
+   "superType": "SchemaAttribute",
+   "descriptionWiki": "https://egeria-project.org/types/5/0533-Graph-Schemas/"
+  },
+  {
+   "name": "GraphSchemaType",
+   "superType": "RootSchemaType",
+   "descriptionWiki": "https://egeria-project.org/types/5/0533-Graph-Schemas/"
+  },
+  {
+   "name": "GraphStore",
+   "superType": "DataStore",
+   "descriptionWiki": "https://egeria-project.org/types/2/0222-Graph-Stores/"
+  },
+  {
+   "name": "GraphVertex",
+   "superType": "SchemaAttribute",
+   "descriptionWiki": "https://egeria-project.org/types/5/0533-Graph-Schemas/"
+  },
+  {
+   "name": "HomeCollection",
+   "superType": "Collection",
+   "descriptionWiki": "https://egeria-project.org/types/0/0021-Collections/"
+  },
+  {
+   "name": "Host",
+   "superType": "ITInfrastructure",
+   "descriptionWiki": "https://egeria-project.org/types/0/0035-Complex-Hosts/"
+  },
+  {
+   "name": "HostCluster",
+   "superType": "Host",
+   "descriptionWiki": "https://egeria-project.org/types/0/0035-Complex-Hosts/"
+  },
+  {
+   "name": "ITInfrastructure",
+   "superType": "Infrastructure",
+   "descriptionWiki": "https://egeria-project.org/types/0/0030-Operating-Platforms/"
+  },
+  {
+   "name": "ITProfile",
+   "superType": "ActorProfile",
+   "descriptionWiki": "https://egeria-project.org/types/1/0117-IT-Profiles/"
+  },
+  {
+   "name": "ITProfileRole",
+   "superType": "ActorRole",
+   "descriptionWiki": "https://egeria-project.org/types/1/0118-Actor-Roles/"
+  },
+  {
+   "name": "ITSubsystem",
+   "superType": "Collection",
+   "descriptionWiki": "https://egeria-project.org/types/0/0021-Collections/"
+  },
+  {
+   "name": "ImplementationSnippet",
+   "superType": "Referenceable",
+   "descriptionWiki": "https://egeria-project.org/types/5/0504-Implementation-Snippets/"
+  },
+  {
+   "name": "IncidentReport",
+   "superType": "Report",
+   "descriptionWiki": "https://egeria-project.org/types/4/0470-Incident-Reporting/"
+  },
+  {
+   "name": "InformalTag",
+   "superType": "Referenceable",
+   "descriptionWiki": "https://egeria-project.org/types/1/0150-Feedback/"
+  },
+  {
+   "name": "InformationSupplyChain",
+   "superType": "Collection",
+   "descriptionWiki": "https://egeria-project.org/types/7/0720-Information-Supply-Chains/"
+  },
+  {
+   "name": "InformationView",
+   "superType": "DataSet",
+   "descriptionWiki": "https://egeria-project.org/types/2/0235-Information-View/"
+  },
+  {
+   "name": "Infrastructure",
+   "superType": "Asset",
+   "descriptionWiki": "https://egeria-project.org/types/0/0010-Base-Model/"
+  },
+  {
+   "name": "IntegrationConnector",
+   "superType": "DeployedConnector",
+   "descriptionWiki": "https://egeria-project.org/types/4/0464-Dynamic-Integration-Groups/"
+  },
+  {
+   "name": "IntegrationGroup",
+   "superType": "SoftwareCapability",
+   "descriptionWiki": "https://egeria-project.org/types/4/0464-Dynamic-Integration-Groups/"
+  },
+  {
+   "name": "InventoryCatalog",
+   "superType": "SoftwareCapability",
+   "descriptionWiki": "https://egeria-project.org/types/0/0050-Applications-and-Processes/"
+  },
+  {
+   "name": "JSONFile",
+   "superType": "DataFile",
+   "descriptionWiki": "https://egeria-project.org/types/2/0220-Files-and-Folders/"
+  },
+  {
+   "name": "JournalEntry",
+   "superType": "Notification",
+   "descriptionWiki": "https://egeria-project.org/types/1/0135-Actions-For-People/"
+  },
+  {
+   "name": "KeyStoreFile",
+   "superType": "DataFile",
+   "descriptionWiki": "https://egeria-project.org/types/2/0227-Keystores/"
+  },
+  {
+   "name": "LicenseType",
+   "superType": "TermsAndConditions",
+   "descriptionWiki": "https://egeria-project.org/types/4/0440-Organizational-Controls/"
+  },
+  {
+   "name": "Like",
+   "superType": "OpenMetadataRoot",
+   "descriptionWiki": "https://egeria-project.org/types/1/0150-Feedback/"
+  },
+  {
+   "name": "LiteralSchemaType",
+   "superType": "SchemaType",
+   "descriptionWiki": "https://egeria-project.org/types/5/0501-Schema-Elements/"
+  },
+  {
+   "name": "Location",
+   "superType": "Referenceable",
+   "descriptionWiki": "https://egeria-project.org/types/0/0025-Locations/"
+  },
+  {
+   "name": "LocationOwner",
+   "superType": "GovernanceRole",
+   "descriptionWiki": "https://egeria-project.org/types/4/0445-Governance-Roles/"
+  },
+  {
+   "name": "LogFile",
+   "superType": "DataFile",
+   "descriptionWiki": "https://egeria-project.org/types/2/0223-Events-and-Logs/"
+  },
+  {
+   "name": "MapSchemaType",
+   "superType": "SchemaType",
+   "descriptionWiki": "https://egeria-project.org/types/5/0511-Map-Schema-Elements/"
+  },
+  {
+   "name": "MasterDataManager",
+   "superType": "ResourceManager",
+   "descriptionWiki": "https://egeria-project.org/types/0/0056-Resource-Managers/"
+  },
+  {
+   "name": "MediaCollection",
+   "superType": "DataSet",
+   "descriptionWiki": "https://egeria-project.org/types/2/0221-Document-Stores/"
+  },
+  {
+   "name": "MediaFile",
+   "superType": "DataFile",
+   "descriptionWiki": "https://egeria-project.org/types/2/0221-Document-Stores/"
+  },
+  {
+   "name": "Meeting",
+   "superType": "Action",
+   "descriptionWiki": "https://egeria-project.org/types/1/0135-Actions-For-People/"
+  },
+  {
+   "name": "MetadataCollection",
+   "superType": "DataSet",
+   "descriptionWiki": "https://egeria-project.org/types/2/0225-Metadata-Repositories/"
+  },
+  {
+   "name": "MetadataRepository",
+   "superType": "DataStore",
+   "descriptionWiki": "https://egeria-project.org/types/2/0225-Metadata-Repositories/"
+  },
+  {
+   "name": "MetadataRepositoryCohort",
+   "superType": "Referenceable",
+   "descriptionWiki": "https://egeria-project.org/types/0/0057-Software-Services/"
+  },
+  {
+   "name": "Methodology",
+   "superType": "GovernanceProcedure",
+   "descriptionWiki": "https://egeria-project.org/types/4/0440-Organizational-Controls/"
+  },
+  {
+   "name": "Namespace",
+   "superType": "Collection",
+   "descriptionWiki": "https://egeria-project.org/types/0/0021-Collections/"
+  },
+  {
+   "name": "NamingStandardRule",
+   "superType": "GovernanceRule",
+   "descriptionWiki": "https://egeria-project.org/types/4/0438-Naming-Standards/"
+  },
+  {
+   "name": "NamingStandardRuleSet",
+   "superType": "Collection",
+   "descriptionWiki": "https://egeria-project.org/types/4/0438-Naming-Standards/"
+  },
+  {
+   "name": "Network",
+   "superType": "ITInfrastructure",
+   "descriptionWiki": "https://egeria-project.org/types/0/0070-Networks-and-Gateways/"
+  },
+  {
+   "name": "NetworkGateway",
+   "superType": "SoftwareCapability",
+   "descriptionWiki": "https://egeria-project.org/types/0/0070-Networks-and-Gateways/"
+  },
+  {
+   "name": "Note",
+   "superType": "Notification",
+   "descriptionWiki": "https://egeria-project.org/types/1/0160-Notes/"
+  },
+  {
+   "name": "NoteLog",
+   "superType": "Referenceable",
+   "descriptionWiki": "https://egeria-project.org/types/1/0160-Notes/"
+  },
+  {
+   "name": "NoteLogAuthor",
+   "superType": "PersonRole",
+   "descriptionWiki": "https://egeria-project.org/types/1/0160-Notes/"
+  },
+  {
+   "name": "Notification",
+   "superType": "Action",
+   "descriptionWiki": "https://egeria-project.org/types/1/0135-Actions-For-People/"
+  },
+  {
+   "name": "NotificationManager",
+   "superType": "ResourceManager",
+   "descriptionWiki": "https://egeria-project.org/types/0/0056-Resource-Managers/"
+  },
+  {
+   "name": "NotificationType",
+   "superType": "GovernanceControl",
+   "descriptionWiki": "https://egeria-project.org/types/4/0451-Notifications/"
+  },
+  {
+   "name": "ObjectAttribute",
+   "superType": "SchemaAttribute",
+   "descriptionWiki": "https://egeria-project.org/types/5/0532-Object-Schemas/"
+  },
+  {
+   "name": "ObjectSchemaType",
+   "superType": "RootSchemaType",
+   "descriptionWiki": "https://egeria-project.org/types/5/0532-Object-Schemas/"
+  },
+  {
+   "name": "OpenMetadataRoot",
+   "superType": null,
+   "descriptionWiki": "https://egeria-project.org/types/0/0010-Base-Model/"
+  },
+  {
+   "name": "OperatingPlatform",
+   "superType": "AuthoredReferenceable",
+   "descriptionWiki": "https://egeria-project.org/types/0/0030-Operating-Platforms/"
+  },
+  {
+   "name": "Organization",
+   "superType": "Team",
+   "descriptionWiki": "https://egeria-project.org/types/1/0115-Teams/"
+  },
+  {
+   "name": "ParquetFile",
+   "superType": "DataFile",
+   "descriptionWiki": "https://egeria-project.org/types/2/0220-Files-and-Folders/"
+  },
+  {
+   "name": "PenetrationTestFindingAnnotation",
+   "superType": "SecurityFindingAnnotation",
+   "descriptionWiki": "https://egeria-project.org/types/6/0665-Security-Annotations/"
+  },
+  {
+   "name": "Person",
+   "superType": "ActorProfile",
+   "descriptionWiki": "https://egeria-project.org/types/1/0112-People/"
+  },
+  {
+   "name": "PersonRole",
+   "superType": "ActorRole",
+   "descriptionWiki": "https://egeria-project.org/types/1/0118-Actor-Roles/"
+  },
+  {
+   "name": "Perspective",
+   "superType": "Actor",
+   "descriptionWiki": "https://egeria-project.org/types/1/0145-Perspectives/"
+  },
+  {
+   "name": "Port",
+   "superType": "Referenceable",
+   "descriptionWiki": "https://egeria-project.org/types/2/0217-Ports/"
+  },
+  {
+   "name": "PortAlias",
+   "superType": "Port",
+   "descriptionWiki": "https://egeria-project.org/types/2/0217-Ports/"
+  },
+  {
+   "name": "PortImplementation",
+   "superType": "Port",
+   "descriptionWiki": "https://egeria-project.org/types/2/0217-Ports/"
+  },
+  {
+   "name": "PrimitiveSchemaType",
+   "superType": "SimpleSchemaType",
+   "descriptionWiki": "https://egeria-project.org/types/5/0501-Schema-Elements/"
+  },
+  {
+   "name": "Process",
+   "superType": "Asset",
+   "descriptionWiki": "https://egeria-project.org/types/0/0010-Base-Model/"
+  },
+  {
+   "name": "Project",
+   "superType": "AuthoredReferenceable",
+   "descriptionWiki": "https://egeria-project.org/types/1/0130-Projects/"
+  },
+  {
+   "name": "ProjectManager",
+   "superType": "PersonRole",
+   "descriptionWiki": "https://egeria-project.org/types/1/0130-Projects/"
+  },
+  {
+   "name": "PropertiesFile",
+   "superType": "DataFile",
+   "descriptionWiki": "https://egeria-project.org/types/2/0280-Software-Development-Assets/"
+  },
+  {
+   "name": "PropertyFacet",
+   "superType": "Referenceable",
+   "descriptionWiki": "https://egeria-project.org/types/0/0020-Property-Facets/"
+  },
+  {
+   "name": "ProvisioningActionProcess",
+   "superType": "GovernanceActionProcess",
+   "descriptionWiki": "https://egeria-project.org/types/4/0462-Governance-Action-Processes/"
+  },
+  {
+   "name": "QualityAnnotation",
+   "superType": "DataFieldAnnotation",
+   "descriptionWiki": "https://egeria-project.org/types/6/0640-Quality-Scores/"
+  },
+  {
+   "name": "QueryDataContainer",
+   "superType": "SchemaAttribute",
+   "descriptionWiki": "https://egeria-project.org/types/5/0537-Display-Schemas/"
+  },
+  {
+   "name": "QueryDataField",
+   "superType": "SchemaAttribute",
+   "descriptionWiki": "https://egeria-project.org/types/5/0537-Display-Schemas/"
+  },
+  {
+   "name": "QuerySchemaType",
+   "superType": "RootSchemaType",
+   "descriptionWiki": "https://egeria-project.org/types/5/0537-Display-Schemas/"
+  },
+  {
+   "name": "RESTAPIManager",
+   "superType": "APIManager",
+   "descriptionWiki": "https://egeria-project.org/types/0/0050-Applications-and-Processes/"
+  },
+  {
+   "name": "RasterFile",
+   "superType": "MediaFile",
+   "descriptionWiki": "https://egeria-project.org/types/2/0221-Document-Stores/"
+  },
+  {
+   "name": "Rating",
+   "superType": "OpenMetadataRoot",
+   "descriptionWiki": "https://egeria-project.org/types/1/0150-Feedback/"
+  },
+  {
+   "name": "RecentAccess",
+   "superType": "Collection",
+   "descriptionWiki": "https://egeria-project.org/types/0/0021-Collections/"
+  },
+  {
+   "name": "ReferenceCodeMappingTable",
+   "superType": "TabularDataSet",
+   "descriptionWiki": "https://egeria-project.org/types/2/0230-Code-Tables/"
+  },
+  {
+   "name": "ReferenceCodeTable",
+   "superType": "TabularDataSet",
+   "descriptionWiki": "https://egeria-project.org/types/2/0230-Code-Tables/"
+  },
+  {
+   "name": "ReferenceDataSet",
+   "superType": "ReferenceDataValue",
+   "descriptionWiki": "https://egeria-project.org/types/5/0545-Reference-Data/"
+  },
+  {
+   "name": "ReferenceDataValue",
+   "superType": "ValidValueDefinition",
+   "descriptionWiki": "https://egeria-project.org/types/5/0545-Reference-Data/"
+  },
+  {
+   "name": "ReferenceList",
+   "superType": "Collection",
+   "descriptionWiki": "https://egeria-project.org/types/0/0021-Collections/"
+  },
+  {
+   "name": "Referenceable",
+   "superType": "OpenMetadataRoot",
+   "descriptionWiki": "https://egeria-project.org/types/0/0010-Base-Model/"
+  },
+  {
+   "name": "Regulation",
+   "superType": "GovernanceDriver",
+   "descriptionWiki": "https://egeria-project.org/types/4/0405-Governance-Drivers/"
+  },
+  {
+   "name": "RegulationArticle",
+   "superType": "GovernanceDriver",
+   "descriptionWiki": "https://egeria-project.org/types/4/0405-Governance-Drivers/"
+  },
+  {
+   "name": "RelatedMedia",
+   "superType": "ExternalReference",
+   "descriptionWiki": "https://egeria-project.org/types/0/0015-Linked-Media-Types/"
+  },
+  {
+   "name": "RelationalColumn",
+   "superType": "TabularColumn",
+   "descriptionWiki": "https://egeria-project.org/types/5/0534-Relational-Schemas/"
+  },
+  {
+   "name": "RelationalDBSchemaType",
+   "superType": "RootSchemaType",
+   "descriptionWiki": "https://egeria-project.org/types/5/0534-Relational-Schemas/"
+  },
+  {
+   "name": "RelationalDBSchemaTypeList",
+   "superType": "RootSchemaType",
+   "descriptionWiki": "https://egeria-project.org/types/5/0534-Relational-Schemas/"
+  },
+  {
+   "name": "RelationalDatabase",
+   "superType": "Database",
+   "descriptionWiki": "https://egeria-project.org/types/2/0224-Databases/"
+  },
+  {
+   "name": "RelationalTable",
+   "superType": "SchemaAttribute",
+   "descriptionWiki": "https://egeria-project.org/types/5/0534-Relational-Schemas/"
+  },
+  {
+   "name": "RelationalTableType",
+   "superType": "TabularSchemaType",
+   "descriptionWiki": "https://egeria-project.org/types/5/0534-Relational-Schemas/"
+  },
+  {
+   "name": "RelationshipAdviceAnnotation",
+   "superType": "DataFieldAnnotation",
+   "descriptionWiki": "https://egeria-project.org/types/6/0650-Relationship-Discovery/"
+  },
+  {
+   "name": "Report",
+   "superType": "DataSet",
+   "descriptionWiki": "https://egeria-project.org/types/2/0239-Reports/"
+  },
+  {
+   "name": "ReportType",
+   "superType": "DataSpec",
+   "descriptionWiki": "https://egeria-project.org/types/5/0580-Data-Dictionaries/"
+  },
+  {
+   "name": "ReportingEngine",
+   "superType": "Engine",
+   "descriptionWiki": "https://egeria-project.org/types/0/0055-Data-Processing-Engines/"
+  },
+  {
+   "name": "RepositoryGovernanceEngine",
+   "superType": "GovernanceEngine",
+   "descriptionWiki": "https://egeria-project.org/types/4/0461-Governance-Engines/"
+  },
+  {
+   "name": "RepositoryGovernanceService",
+   "superType": "GovernanceService",
+   "descriptionWiki": "https://egeria-project.org/types/4/0461-Governance-Engines/"
+  },
+  {
+   "name": "RequestForAction",
+   "superType": "DataFieldAnnotation",
+   "descriptionWiki": "https://egeria-project.org/types/6/0690-Request-For-Action/"
+  },
+  {
+   "name": "Requirement",
+   "superType": "GovernanceControl",
+   "descriptionWiki": "https://egeria-project.org/types/4/0430-Development-Controls/"
+  },
+  {
+   "name": "ResearchQuestion",
+   "superType": "GovernanceControl",
+   "descriptionWiki": "https://egeria-project.org/types/4/0430-Development-Controls/"
+  },
+  {
+   "name": "ResourceManager",
+   "superType": "SoftwareCapability",
+   "descriptionWiki": "https://egeria-project.org/types/0/0056-Resource-Managers/"
+  },
+  {
+   "name": "ResourceMeasureAnnotation",
+   "superType": "Annotation",
+   "descriptionWiki": "https://egeria-project.org/types/6/0660-Resource-Measures/"
+  },
+  {
+   "name": "ResourcePhysicalStatusAnnotation",
+   "superType": "ResourceMeasureAnnotation",
+   "descriptionWiki": "https://egeria-project.org/types/6/0660-Resource-Measures/"
+  },
+  {
+   "name": "ResourceProfileAnnotation",
+   "superType": "DataFieldAnnotation",
+   "descriptionWiki": "https://egeria-project.org/types/6/0620-Resource-Profiling/"
+  },
+  {
+   "name": "ResourceProfileLogAnnotation",
+   "superType": "DataFieldAnnotation",
+   "descriptionWiki": "https://egeria-project.org/types/6/0620-Resource-Profiling/"
+  },
+  {
+   "name": "ResultsSet",
+   "superType": "Collection",
+   "descriptionWiki": "https://egeria-project.org/types/7/0725-Smart-Collections/"
+  },
+  {
+   "name": "Review",
+   "superType": "Action",
+   "descriptionWiki": "https://egeria-project.org/types/1/0135-Actions-For-People/"
+  },
+  {
+   "name": "Risk",
+   "superType": "GovernancePolicy",
+   "descriptionWiki": "https://egeria-project.org/types/4/0415-Governance-Responses/"
+  },
+  {
+   "name": "RootCollection",
+   "superType": "Collection",
+   "descriptionWiki": "https://egeria-project.org/types/0/0021-Collections/"
+  },
+  {
+   "name": "RootSchemaType",
+   "superType": "ComplexSchemaType",
+   "descriptionWiki": "https://egeria-project.org/types/5/0530-Tabular-Schemas/"
+  },
+  {
+   "name": "RunnableSoftwareComponent",
+   "superType": "Asset",
+   "descriptionWiki": "https://egeria-project.org/types/2/0282-Released-Software-Components/"
+  },
+  {
+   "name": "SavedQuery",
+   "superType": "DataSet",
+   "descriptionWiki": "https://egeria-project.org/types/7/0725-Smart-Collections/"
+  },
+  {
+   "name": "SchemaAnalysisAnnotation",
+   "superType": "Annotation",
+   "descriptionWiki": "https://egeria-project.org/types/6/0615-Schema-Extraction/"
+  },
+  {
+   "name": "SchemaAttribute",
+   "superType": "SchemaElement",
+   "descriptionWiki": "https://egeria-project.org/types/5/0505-Schema-Attributes/"
+  },
+  {
+   "name": "SchemaElement",
+   "superType": "AuthoredReferenceable",
+   "descriptionWiki": "https://egeria-project.org/types/5/0501-Schema-Elements/"
+  },
+  {
+   "name": "SchemaType",
+   "superType": "SchemaElement",
+   "descriptionWiki": "https://egeria-project.org/types/5/0501-Schema-Elements/"
+  },
+  {
+   "name": "SchemaTypeChoice",
+   "superType": "SchemaType",
+   "descriptionWiki": "https://egeria-project.org/types/5/0501-Schema-Elements/"
+  },
+  {
+   "name": "ScriptFile",
+   "superType": "DataFile",
+   "descriptionWiki": "https://egeria-project.org/types/2/0280-Software-Development-Assets/"
+  },
+  {
+   "name": "SearchKeyword",
+   "superType": "OpenMetadataRoot",
+   "descriptionWiki": "https://egeria-project.org/types/0/0012-Search-Keywords/"
+  },
+  {
+   "name": "SecretsCollection",
+   "superType": "DataSet",
+   "descriptionWiki": "https://egeria-project.org/types/2/0227-Keystores/"
+  },
+  {
+   "name": "SecurityAccessControl",
+   "superType": "GovernanceControl",
+   "descriptionWiki": "https://egeria-project.org/types/4/0423-Security-Definitions/"
+  },
+  {
+   "name": "SecurityFindingAnnotation",
+   "superType": "Annotation",
+   "descriptionWiki": "https://egeria-project.org/types/6/0665-Security-Annotations/"
+  },
+  {
+   "name": "SecurityGroup",
+   "superType": "SecurityList",
+   "descriptionWiki": "https://egeria-project.org/types/4/0423-Security-Definitions/"
+  },
+  {
+   "name": "SecurityList",
+   "superType": "Collection",
+   "descriptionWiki": "https://egeria-project.org/types/4/0423-Security-Definitions/"
+  },
+  {
+   "name": "SecurityPostureAnnotation",
+   "superType": "ResourceMeasureAnnotation",
+   "descriptionWiki": "https://egeria-project.org/types/6/0665-Security-Annotations/"
+  },
+  {
+   "name": "SecurityRole",
+   "superType": "SecurityList",
+   "descriptionWiki": "https://egeria-project.org/types/4/0423-Security-Definitions/"
+  },
+  {
+   "name": "SemanticAnnotation",
+   "superType": "DataFieldAnnotation",
+   "descriptionWiki": "https://egeria-project.org/types/6/0630-Semantic-Discovery/"
+  },
+  {
+   "name": "ServiceAccessControl",
+   "superType": "SecurityAccessControl",
+   "descriptionWiki": "https://egeria-project.org/types/4/0423-Security-Definitions/"
+  },
+  {
+   "name": "ServiceLevelObjective",
+   "superType": "TermsAndConditions",
+   "descriptionWiki": "https://egeria-project.org/types/4/0440-Organizational-Controls/"
+  },
+  {
+   "name": "SimpleSchemaType",
+   "superType": "SchemaType",
+   "descriptionWiki": "https://egeria-project.org/types/5/0501-Schema-Elements/"
+  },
+  {
+   "name": "Skill",
+   "superType": "AuthoredReferenceable",
+   "descriptionWiki": "https://egeria-project.org/types/1/0145-Perspectives/"
+  },
+  {
+   "name": "SkillSet",
+   "superType": "Collection",
+   "descriptionWiki": "https://egeria-project.org/types/1/0145-Perspectives/"
+  },
+  {
+   "name": "SoftwareArchive",
+   "superType": "Collection",
+   "descriptionWiki": "https://egeria-project.org/types/0/0030-Operating-Platforms/"
+  },
+  {
+   "name": "SoftwareCapability",
+   "superType": "Referenceable",
+   "descriptionWiki": "https://egeria-project.org/types/0/0042-Software-Capabilities/"
+  },
+  {
+   "name": "SoftwareComponent",
+   "superType": "Collection",
+   "descriptionWiki": "https://egeria-project.org/types/2/0281-Software-Modules/"
+  },
+  {
+   "name": "SoftwareLibrary",
+   "superType": "ResourceManager",
+   "descriptionWiki": "https://egeria-project.org/types/0/0056-Resource-Managers/"
+  },
+  {
+   "name": "SoftwareModule",
+   "superType": "SoftwareComponent",
+   "descriptionWiki": "https://egeria-project.org/types/2/0281-Software-Modules/"
+  },
+  {
+   "name": "SoftwareServer",
+   "superType": "ITInfrastructure",
+   "descriptionWiki": "https://egeria-project.org/types/0/0040-Software-Servers/"
+  },
+  {
+   "name": "SoftwareServerPlatform",
+   "superType": "ITInfrastructure",
+   "descriptionWiki": "https://egeria-project.org/types/0/0037-Software-Server-Platforms/"
+  },
+  {
+   "name": "SoftwareService",
+   "superType": "SoftwareCapability",
+   "descriptionWiki": "https://egeria-project.org/types/0/0057-Software-Services/"
+  },
+  {
+   "name": "SolutionActorRole",
+   "superType": "ActorRole",
+   "descriptionWiki": "https://egeria-project.org/types/7/0730-Solution-Components/"
+  },
+  {
+   "name": "SolutionBlueprint",
+   "superType": "DesignModel",
+   "descriptionWiki": "https://egeria-project.org/types/7/0740-Solution-Blueprints/"
+  },
+  {
+   "name": "SolutionComponent",
+   "superType": "DesignModelElement",
+   "descriptionWiki": "https://egeria-project.org/types/7/0730-Solution-Components/"
+  },
+  {
+   "name": "SolutionOwner",
+   "superType": "GovernanceRole",
+   "descriptionWiki": "https://egeria-project.org/types/4/0445-Governance-Roles/"
+  },
+  {
+   "name": "SolutionPort",
+   "superType": "DesignModelElement",
+   "descriptionWiki": "https://egeria-project.org/types/7/0735-Solution-Ports-and-Wires/"
+  },
+  {
+   "name": "SourceCodeFile",
+   "superType": "DataFile",
+   "descriptionWiki": "https://egeria-project.org/types/2/0280-Software-Development-Assets/"
+  },
+  {
+   "name": "SourceControlLibrary",
+   "superType": "ResourceManager",
+   "descriptionWiki": "https://egeria-project.org/types/0/0056-Resource-Managers/"
+  },
+  {
+   "name": "SpecificationPropertyValue",
+   "superType": "ValidValueDefinition",
+   "descriptionWiki": "https://egeria-project.org/types/5/0545-Reference-Data/"
+  },
+  {
+   "name": "SpreadsheetFile",
+   "superType": "DataFile",
+   "descriptionWiki": "https://egeria-project.org/types/2/0220-Files-and-Folders/"
+  },
+  {
+   "name": "StatementOfApplicability",
+   "superType": "AuthoredReferenceable",
+   "descriptionWiki": "https://egeria-project.org/types/4/0423-Security-Definitions/"
+  },
+  {
+   "name": "StorageVolume",
+   "superType": "Referenceable",
+   "descriptionWiki": "https://egeria-project.org/types/0/0036-Storage/"
+  },
+  {
+   "name": "StructSchemaType",
+   "superType": "ComplexSchemaType",
+   "descriptionWiki": "https://egeria-project.org/types/5/0501-Schema-Elements/"
+  },
+  {
+   "name": "SubjectArea",
+   "superType": "Collection",
+   "descriptionWiki": "https://egeria-project.org/types/4/0425-Subject-Areas/"
+  },
+  {
+   "name": "SubjectAreaOwner",
+   "superType": "GovernanceRole",
+   "descriptionWiki": "https://egeria-project.org/types/4/0445-Governance-Roles/"
+  },
+  {
+   "name": "SubscribingActionProcess",
+   "superType": "GovernanceActionProcess",
+   "descriptionWiki": "https://egeria-project.org/types/4/0462-Governance-Action-Processes/"
+  },
+  {
+   "name": "SurveyActionEngine",
+   "superType": "GovernanceEngine",
+   "descriptionWiki": "https://egeria-project.org/types/4/0461-Governance-Engines/"
+  },
+  {
+   "name": "SurveyActionService",
+   "superType": "GovernanceService",
+   "descriptionWiki": "https://egeria-project.org/types/4/0461-Governance-Engines/"
+  },
+  {
+   "name": "SurveyReport",
+   "superType": "Report",
+   "descriptionWiki": "https://egeria-project.org/types/6/0603-Survey-Reports/"
+  },
+  {
+   "name": "SurveyingActionProcess",
+   "superType": "GovernanceActionProcess",
+   "descriptionWiki": "https://egeria-project.org/types/4/0462-Governance-Action-Processes/"
+  },
+  {
+   "name": "TabularColumn",
+   "superType": "SchemaAttribute",
+   "descriptionWiki": "https://egeria-project.org/types/5/0530-Tabular-Schemas/"
+  },
+  {
+   "name": "TabularDataSet",
+   "superType": "DataSet",
+   "descriptionWiki": "https://egeria-project.org/types/2/0211-Tabular-Data-Sets/"
+  },
+  {
+   "name": "TabularDataSetCollection",
+   "superType": "DataSet",
+   "descriptionWiki": "https://egeria-project.org/types/2/0211-Tabular-Data-Sets/"
+  },
+  {
+   "name": "TabularFileColumn",
+   "superType": "TabularColumn",
+   "descriptionWiki": "https://egeria-project.org/types/5/0530-Tabular-Schemas/"
+  },
+  {
+   "name": "TabularSchemaType",
+   "superType": "RootSchemaType",
+   "descriptionWiki": "https://egeria-project.org/types/5/0530-Tabular-Schemas/"
+  },
+  {
+   "name": "Team",
+   "superType": "ActorProfile",
+   "descriptionWiki": "https://egeria-project.org/types/1/0115-Teams/"
+  },
+  {
+   "name": "TeamLeader",
+   "superType": "PersonRole",
+   "descriptionWiki": "https://egeria-project.org/types/1/"
+  },
+  {
+   "name": "TeamMember",
+   "superType": "PersonRole",
+   "descriptionWiki": "https://egeria-project.org/types/1/"
+  },
+  {
+   "name": "TeamRole",
+   "superType": "ActorRole",
+   "descriptionWiki": "https://egeria-project.org/types/1/0118-Actor-Roles/"
+  },
+  {
+   "name": "TechnologyType",
+   "superType": "ValidMetadataValue",
+   "descriptionWiki": "https://egeria-project.org/types/5/0545-Reference-Data/"
+  },
+  {
+   "name": "TermsAndConditions",
+   "superType": "GovernanceControl",
+   "descriptionWiki": "https://egeria-project.org/types/4/0440-Organizational-Controls/"
+  },
+  {
+   "name": "Threat",
+   "superType": "GovernanceDriver",
+   "descriptionWiki": "https://egeria-project.org/types/4/0405-Governance-Drivers/"
+  },
+  {
+   "name": "ThreeDImageFile",
+   "superType": "MediaFile",
+   "descriptionWiki": "https://egeria-project.org/types/2/0221-Document-Stores/"
+  },
+  {
+   "name": "ToDo",
+   "superType": "Action",
+   "descriptionWiki": "https://egeria-project.org/types/1/0135-Actions-For-People/"
+  },
+  {
+   "name": "Topic",
+   "superType": "DataFeed",
+   "descriptionWiki": "https://egeria-project.org/types/2/0223-Events-and-Logs/"
+  },
+  {
+   "name": "TransientEmbeddedProcess",
+   "superType": "EmbeddedProcess",
+   "descriptionWiki": "https://egeria-project.org/types/2/0215-Software-Components/"
+  },
+  {
+   "name": "TranslationDetail",
+   "superType": "OpenMetadataRoot",
+   "descriptionWiki": "https://egeria-project.org/types/0/0022-Translations/"
+  },
+  {
+   "name": "UserAccessDirectory",
+   "superType": "ResourceManager",
+   "descriptionWiki": "https://egeria-project.org/types/0/0056-Resource-Managers/"
+  },
+  {
+   "name": "UserAuthenticationManager",
+   "superType": "SoftwareCapability",
+   "descriptionWiki": "https://egeria-project.org/types/0/0050-Applications-and-Processes/"
+  },
+  {
+   "name": "UserIdentity",
+   "superType": "Actor",
+   "descriptionWiki": "https://egeria-project.org/types/1/0110-Actors/"
+  },
+  {
+   "name": "UserProfileManager",
+   "superType": "ResourceManager",
+   "descriptionWiki": "https://egeria-project.org/types/0/0056-Resource-Managers/"
+  },
+  {
+   "name": "ValidMetadataValue",
+   "superType": "ValidValueDefinition",
+   "descriptionWiki": "https://egeria-project.org/types/5/0545-Reference-Data/"
+  },
+  {
+   "name": "ValidValueDefinition",
+   "superType": "AuthoredReferenceable",
+   "descriptionWiki": "https://egeria-project.org/types/5/0545-Reference-Data/"
+  },
+  {
+   "name": "VectorFile",
+   "superType": "MediaFile",
+   "descriptionWiki": "https://egeria-project.org/types/2/0221-Document-Stores/"
+  },
+  {
+   "name": "VideoFile",
+   "superType": "MediaFile",
+   "descriptionWiki": "https://egeria-project.org/types/2/0221-Document-Stores/"
+  },
+  {
+   "name": "VirtualConnection",
+   "superType": "Connection",
+   "descriptionWiki": "https://egeria-project.org/types/2/0205-Connection-Linkage/"
+  },
+  {
+   "name": "VirtualContainer",
+   "superType": "Host",
+   "descriptionWiki": "https://egeria-project.org/types/0/0035-Complex-Hosts/"
+  },
+  {
+   "name": "VirtualMachine",
+   "superType": "Host",
+   "descriptionWiki": "https://egeria-project.org/types/0/0035-Complex-Hosts/"
+  },
+  {
+   "name": "VirtualRelationalTable",
+   "superType": "InformationView",
+   "descriptionWiki": "https://egeria-project.org/types/2/0235-Information-View/"
+  },
+  {
+   "name": "VulnerabilityAnnotation",
+   "superType": "SecurityFindingAnnotation",
+   "descriptionWiki": "https://egeria-project.org/types/6/0665-Security-Annotations/"
+  },
+  {
+   "name": "WatchdogActionEngine",
+   "superType": "GovernanceEngine",
+   "descriptionWiki": "https://egeria-project.org/types/4/0461-Governance-Engines/"
+  },
+  {
+   "name": "WatchdogActionService",
+   "superType": "GovernanceService",
+   "descriptionWiki": "https://egeria-project.org/types/4/0461-Governance-Engines/"
+  },
+  {
+   "name": "WorkItemList",
+   "superType": "Collection",
+   "descriptionWiki": "https://egeria-project.org/types/0/0021-Collections/"
+  },
+  {
+   "name": "WorkflowEngine",
+   "superType": "Engine",
+   "descriptionWiki": "https://egeria-project.org/types/0/0055-Data-Processing-Engines/"
+  },
+  {
+   "name": "WorkingSet",
+   "superType": "Collection",
+   "descriptionWiki": "https://egeria-project.org/types/0/0021-Collections/"
+  },
+  {
+   "name": "XMLFile",
+   "superType": "DataFile",
+   "descriptionWiki": "https://egeria-project.org/types/2/0220-Files-and-Folders/"
+  },
+  {
+   "name": "YAMLFile",
+   "superType": "PropertiesFile",
+   "descriptionWiki": "https://egeria-project.org/types/2/0280-Software-Development-Assets/"
+  }
+ ]
+}
