@@ -1773,8 +1773,12 @@ function _resolveTypeToNav(typeName, superTypeNames) {
   if (nav) return nav;
   // Fallback: a plain Asset (or an Asset subtype type-nav-map.json has no entry
   // for) is still an asset, and The Catalog is where assets live -- e.g. a
-  // GitHub repository, which Resource Explorer deliberately catalogs as a bare
-  // `Asset`. AssetTabView fetches detail by GUID, so any Asset renders here.
+  // GitHub repository Resource Explorer published before TR-89 as a bare
+  // `Asset` (still present on hosts whose Egeria was not reset). Since TR-89 a
+  // repository is a SourceControlLibrary, a SoftwareCapability rather than an
+  // Asset: the type-nav-map lookup above resolves it through its supertypes to
+  // Infrastructure > Software Capabilities, so it never reaches this fallback.
+  // AssetTabView fetches detail by GUID, so any Asset renders here.
   // Done here rather than as an "Asset" key in type-nav-map.json because that
   // map is shared with Explorer/Operations, and a catch-all key there could
   // shadow a more specific ancestor in the supertype walk.
