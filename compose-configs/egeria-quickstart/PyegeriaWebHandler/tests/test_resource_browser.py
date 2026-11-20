@@ -475,3 +475,84 @@ def test_meanings_are_terms_by_semantic_assignment(rb):
     other_rel = _part_item("t2", "GlossaryTerm", rel="RelatedTerm")
     out = rb["_meanings_of"]({"elementHeader": {}, "meanings": [t, not_term], "relatedTerms": [other_rel]})
     assert [(m["guid"], m["status"], m["assignedBy"]) for m in out] == [("t1", "PROPOSED", "erinoverview")]
+
+
+# ── TR-89: a repository is a SourceControlLibrary (and older ones a plain Asset) ──
+
+_SCL = ["SoftwareCapability", "Referenceable", "OpenMetadataRoot"]
+_REPO_QN = "GitHubRepository::https://github.com/odpi/egeria"
+
+
+def test_repo_is_a_source_control_library(rb):
+    r = rb["_row"](_el("SourceControlLibrary", _SCL, guid="scl", qn=_REPO_QN))
+    assert r and (r["kind"], r["typeName"]) == ("repo", "SourceControlLibrary")
+
+
+def _repos_ns(request, client):
+    """_repos_value from one handler copy, run against a fake Egeria client."""
+    path = _HANDLERS[request.param]
+    ns = _load(path)
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    names = {"_repos_value", "_is_unknown_type", "_elements"}
+    nodes = [n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name in names]
+    nodes += [n for n in tree.body if isinstance(n, ast.Assign)
+              and isinstance(n.targets[0], ast.Name) and n.targets[0].id == "_REPO_TYPES"]
+    assert {n.name for n in nodes if not isinstance(n, ast.Assign)} == names
+
+    async def _explorer_async():
+        return client
+    ns["_explorer_async"] = _explorer_async
+    exec(compile(ast.Module(body=nodes, type_ignores=[]), str(path), "exec"), ns)
+    return ns
+
+
+class _FakeClient:
+    """Answers find-by-property-value per subtype; `rows` is what any query returns (page 0)."""
+    def __init__(self, rows, fail=None):
+        self.rows, self.fail, self.asked = rows, fail or {}, []
+
+    async def _async_find_elements_by_property_value(self, **kw):
+        (subtype,) = kw["metadata_element_subtypes"]
+        self.asked.append(subtype)
+        if subtype in self.fail:
+            raise self.fail[subtype]
+        if kw["start_from"]:
+            return "No elements found"
+        # Egeria filters by subtype; a fake that returns every row to both queries is the
+        # duplicate case (the same element arriving twice), which _repos_value must collapse.
+        return list(self.rows)
+
+
+@pytest.fixture(params=sorted(_HANDLERS), ids=sorted(_HANDLERS))
+def handler(request):
+    return request
+
+
+def _run(coro):
+    import asyncio
+    return asyncio.run(coro)
+
+
+def test_repos_lists_each_repo_once_of_either_type(handler):
+    rows = [_el("SourceControlLibrary", _SCL, guid="scl", qn=_REPO_QN),
+            _el("Asset", ["Referenceable"], guid="old", qn=_REPO_QN + "-old")]
+    client = _FakeClient(rows)
+    ns = _repos_ns(handler, client)
+    out = _run(ns["_repos_value"]())
+    assert sorted(r["guid"] for r in out) == ["old", "scl"]          # each once, though both queries returned both
+    assert {r["kind"] for r in out} == {"repo"}
+    assert sorted(set(client.asked)) == ["Asset", "SourceControlLibrary"]
+
+
+def test_a_failed_repo_read_is_not_zero_repositories(handler):
+    rows = [_el("Asset", ["Referenceable"], guid="old", qn=_REPO_QN)]
+    # A real failure of either query raises: the caller reports "failed", never "0 repositories"
+    # (or only the older half, which would hide every SourceControlLibrary).
+    for subtype in ("SourceControlLibrary", "Asset"):
+        ns = _repos_ns(handler, _FakeClient(rows, fail={subtype: RuntimeError("500 view server down")}))
+        with pytest.raises(RuntimeError):
+            _run(ns["_repos_value"]())
+    # An Egeria that does not know the type cannot hold one: that query is skipped, the rest kept.
+    unknown = RuntimeError("OMAG-COMMON-400-018 The type name SourceControlLibrary is not recognized")
+    ns = _repos_ns(handler, _FakeClient(rows, fail={"SourceControlLibrary": unknown}))
+    assert [r["guid"] for r in _run(ns["_repos_value"]())] == ["old"]

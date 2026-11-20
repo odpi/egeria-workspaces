@@ -1358,12 +1358,15 @@ _KINDS = [
     ("topic", "Topics and feeds", ["Topic", "DataFeed"]),
     ("product", "Products", ["DigitalProduct"]),
     ("api", "APIs", ["DeployedAPI"]),
-    ("repo", "Code repositories", []),   # recognised by _REPO_QN_PREFIX, see _is_repo
+    ("repo", "Code repositories", []),   # SourceControlLibrary, or an older Asset by _REPO_QN_PREFIX; see _is_repo
 ]
 
-# Resource Explorer publishes a GitHub repository as a plain Asset named
-# GitHubRepository::<url> (no subtype yet), so a repo is told by its name.
+# Resource Explorer publishes a GitHub repository as a SourceControlLibrary (TR-89: a
+# SoftwareCapability, not an Asset) named GitHubRepository::<url>. Before TR-89 it was a
+# plain Asset with the same name, and hosts whose Egeria has not been reset still hold
+# those, so both are read: an SCL by its type, an older repo by its name.
 _REPO_QN_PREFIX = "GitHubRepository::"
+_REPO_TYPES = ["SourceControlLibrary", "Asset"]
 _KIND_IDS = [k[0] for k in _KINDS] + ["other"]
 
 # Governance classifications shown as badges.
@@ -1406,6 +1409,8 @@ def _looks_automated(user) -> bool:
 
 
 def _is_repo(type_name: str, qualified_name: str) -> bool:
+    if type_name == "SourceControlLibrary":
+        return True
     return type_name == "Asset" and (qualified_name or "").startswith(_REPO_QN_PREFIX)
 
 
@@ -1705,18 +1710,29 @@ async def _search_keywords(client, q):
 
 
 async def _repos_value():
-    """Every published code repository (a plain Asset named GitHubRepository::<url>), as rows."""
+    """Every published code repository named GitHubRepository::<url>, as rows: the
+    SourceControlLibrary ones (TR-89) and the older plain Assets, one row per GUID.
+
+    A failed read raises, so callers report it as failed, never as "no repositories". The one
+    failure skipped is an Egeria that does not know a type: it cannot hold any of that type."""
     client = await _explorer_async()
-    out = []
-    for p in range(10):
-        batch = _elements(await client._async_find_elements_by_property_value(
-            property_value=_REPO_QN_PREFIX, property_names=["qualifiedName"], metadata_element_subtypes=["Asset"],
-            starts_with=True, ends_with=False, ignore_case=False, graph_query_depth=0, output_format="JSON",
-            start_from=p * 200, page_size=200))
-        if not batch:
-            break
-        out.extend(r for r in (_row(e) for e in batch) if r and r["kind"] == "repo")
-    return out
+    out = {}
+    for subtype in _REPO_TYPES:
+        try:
+            for p in range(10):
+                batch = _elements(await client._async_find_elements_by_property_value(
+                    property_value=_REPO_QN_PREFIX, property_names=["qualifiedName"],
+                    metadata_element_subtypes=[subtype], starts_with=True, ends_with=False, ignore_case=False,
+                    graph_query_depth=0, output_format="JSON", start_from=p * 200, page_size=200))
+                if not batch:
+                    break
+                for r in (_row(e) for e in batch):
+                    if r and r["kind"] == "repo":
+                        out.setdefault(r["guid"], r)
+        except Exception as exc:
+            if not _is_unknown_type(exc):
+                raise
+    return list(out.values())
 
 
 async def _search_repos(q):
