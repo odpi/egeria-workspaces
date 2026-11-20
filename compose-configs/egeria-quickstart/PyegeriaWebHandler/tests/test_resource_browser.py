@@ -42,7 +42,7 @@ _NEEDED = {"_type_names", "_display_name", "_related", "_classifications", "_dat
 _OPTIONAL = {"_has_scope", "_classifications_read"}
 _CONSTS = {"_SKIP_CLASSIFICATIONS", "_LINEAGE_RELATIONSHIPS", "_TABLE_STATS_QN", "_COLUMN_STATS_QN",
            "_RESOURCE_TYPES", "_NOT_RESOURCES", "_KINDS", "_BADGES",
-           "_REPO_QN_PREFIX", "_RE_LIST_PREFIX", "_PORTAL_LIST_PREFIX", "_COPY_KEYS", "_GROUP_TYPES",
+           "_REPO_QN_PREFIX", "_REPO_TYPES", "_RE_LIST_PREFIX", "_PORTAL_LIST_PREFIX", "_COPY_KEYS", "_GROUP_TYPES",
            "_CONTAINS_KEYS", "_PART_OF_KEYS", "_PART_LABELS", "_COUNTED_TYPES"}
 
 
@@ -486,6 +486,14 @@ _REPO_QN = "GitHubRepository::https://github.com/odpi/egeria"
 def test_repo_is_a_source_control_library(rb):
     r = rb["_row"](_el("SourceControlLibrary", _SCL, guid="scl", qn=_REPO_QN))
     assert r and (r["kind"], r["typeName"]) == ("repo", "SourceControlLibrary")
+
+
+def test_a_source_control_library_not_named_as_a_repo_is_not_one(rb):
+    # The pre-reset GitHub singleton is an SCL but not a repository: search must not call it a
+    # "Code repository" that the repository list (read by name) does not have.
+    gh = _el("SourceControlLibrary", _SCL, guid="gh", name="GitHub", qn="SourceControlLibrary::github.com")
+    assert rb["_row"](gh) is None
+    assert rb["_row"](gh, any_type=True)["kind"] != "repo"
 
 
 def _repos_ns(request, client):

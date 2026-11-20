@@ -1414,7 +1414,7 @@ _OTHER_KINDS = [
 # Resource Explorer publishes a GitHub repository as a SourceControlLibrary (TR-89: a
 # SoftwareCapability, not an Asset) named GitHubRepository::<url>. Before TR-89 it was a
 # plain Asset with the same name, and hosts whose Egeria has not been reset still hold
-# those, so both are read: an SCL by its type, an older repo by its name.
+# those, so both are read, each told by its name.
 _REPO_QN_PREFIX = "GitHubRepository::"
 _REPO_TYPES = ["SourceControlLibrary", "Asset"]
 _KIND_IDS = [k[0] for k in _KINDS] + [k[0] for k in _PART_KINDS] + [k[0] for k in _OTHER_KINDS] + ["other"]
@@ -1529,9 +1529,9 @@ def _any_rows(elements: list) -> tuple:
 
 
 def _is_repo(type_name: str, qualified_name: str) -> bool:
-    if type_name == "SourceControlLibrary":
-        return True
-    return type_name == "Asset" and (qualified_name or "").startswith(_REPO_QN_PREFIX)
+    # By name for both types: other SourceControlLibraries exist that are not repositories
+    # (until laz's Egeria reset, the old GitHub singleton SourceControlLibrary::github.com).
+    return type_name in _REPO_TYPES and (qualified_name or "").startswith(_REPO_QN_PREFIX)
 
 
 def _row(el: dict, any_type: bool = False) -> Optional[dict]:
