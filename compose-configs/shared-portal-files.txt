@@ -9,3 +9,4 @@
 # Never list a per-environment file (compose-configs/ENVIRONMENT_DIVERGENCE.md).
 # Design: DESIGN-SHARE-3-PHASE1.md at the repository root.
 perspectives_handler.py
+type_system_handler.py
