@@ -26,6 +26,7 @@ _spec.loader.exec_module(sync)
 
 # Every file ever shared. Add to this when a later SHARE-3 phase shares more; never remove.
 SHARED_FLOOR = {
+    "static/egeria-shared-ui.js",
     "type_system_handler.py",
     "perspectives_handler.py",
 }

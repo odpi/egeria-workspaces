@@ -10,3 +10,4 @@
 # Design: DESIGN-SHARE-3-PHASE1.md at the repository root.
 perspectives_handler.py
 type_system_handler.py
+static/egeria-shared-ui.js
