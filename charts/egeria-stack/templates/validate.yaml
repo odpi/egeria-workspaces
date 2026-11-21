@@ -20,3 +20,10 @@
 {{- fail (printf "portal.platform.serviceName is %q but this release's platform Service is %q: leave it empty" .Values.portal.platform.serviceName (printf "%s-platform" .Release.Name)) -}}
 {{- end -}}
 {{- end -}}
+{{- /* The same refusal as the platform chart's (an umbrella's subchart fail would also fire, this names the umbrella value). */ -}}
+{{- if and .Values.core.enabled (eq (toString .Values.core.posture) "production") .Values.core.tls.existingSecret -}}
+{{- $tls := lookup "v1" "Secret" .Release.Namespace .Values.core.tls.existingSecret -}}
+{{- if and $tls $tls.data (hasKey $tls.data "keystore-password") (eq (index $tls.data "keystore-password" | b64dec) (.Files.Get "files/demo-keystore-password" | trim)) -}}
+{{- fail (printf "core.tls.existingSecret %q holds the PUBLIC demo keystore password from the Egeria repository, so anyone can open the keystore and this TLS is not private. The production posture refuses it: make a keystore and password of your own (see charts/tests/make_san_keystore.sh)." .Values.core.tls.existingSecret) -}}
+{{- end -}}
+{{- end -}}

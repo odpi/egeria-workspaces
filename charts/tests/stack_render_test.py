@@ -61,6 +61,34 @@ def main():
         check(env + ": helm test runs both canaries", tests == ["s-platform-canary", "s-portal-canary"], str(tests))
     ds = renders(PROD)
     check("production freshstart renders both parts with their requirements", any(d["kind"] == "StatefulSet" for d in ds) and any(d["kind"] == "NetworkPolicy" and d["metadata"]["name"] == "s-portal" for d in ds))
+    # the public demo keystore password is kept only to recognise it. It is a common word, so a substring test would match labels;
+    # test where a password would live instead: a Secret value, a ConfigMap value or a "password=<it>" line, an env value.
+    import base64, re
+    demo_pw = open(os.path.join(CHART, "files", "demo-keystore-password")).read().strip()
+
+    def holders(ds):
+        found = []
+        for d in ds:
+            name = d["metadata"]["name"]
+            vals = []
+            if d["kind"] == "Secret":
+                vals += [base64.b64decode(v).decode(errors="replace").strip() for v in (d.get("data") or {}).values() if v]
+                vals += [str(v).strip() for v in (d.get("stringData") or {}).values()]
+            if d["kind"] == "ConfigMap":
+                for v in (d.get("data") or {}).values():
+                    vals += [str(v).strip()] + re.findall(r"(?i)(?:password|pwd)[^=:\n]*[=:]\s*(\S+)", str(v))
+            if d["kind"] in ("Deployment", "StatefulSet", "Pod"):
+                spec = d["spec"].get("template", {}).get("spec", d["spec"])
+                for c in spec.get("containers", []) + spec.get("initContainers", []):
+                    vals += [str(e.get("value", "")).strip() for e in c.get("env", [])]
+            if demo_pw in vals:
+                found.append(name)
+        return found
+    rc, prod_out, _ = template(PROD)
+    check("production: the public demo keystore password is in no Secret, ConfigMap or env value", rc == 0 and holders([d for d in yaml.safe_load_all(prod_out) if d]) == [], str(holders([d for d in yaml.safe_load_all(prod_out) if d])))
+    for env in ("quickstart", "freshstart"):
+        h = holders(renders(V("values-demo.yaml") + V("values-%s.yaml" % env) + IMGS))
+        check(env + " demo: the public demo keystore password is held only by the platform's demo TLS Secret", h == ["s-platform-tls"], str(h))
     refuses("production + quickstart is refused (no Portal login gate)", V("values-production.yaml") + V("values-quickstart.yaml") + IMGS, ["login gate"])
     # agreement checks
     base = V("values-demo.yaml") + V("values-quickstart.yaml") + IMGS

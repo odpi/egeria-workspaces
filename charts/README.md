@@ -97,9 +97,12 @@ helm test st -n egeria      # both canaries
     the NetworkPolicy. It also showed PO-68: an empty-body `POST /api/egeria-token` through the Ingress returns a token, so do not publish a
     Portal Ingress until the Portal is fixed.
   * Not run: OpenShift, demoMode.
-* **Public demo keystore password:** when `tls.existingSecret` holds the public demo password (the image's own keystore), `helm install` and
-  `helm upgrade` print a WARNING in NOTES (platform chart and umbrella). It uses `lookup`, so it shows only against a real cluster (not
-  `helm template`); proven both ways on kind (demo password: warning; our own: none).
+* **Public demo keystore password:** when `tls.existingSecret` holds the public demo password (the image's own keystore), the demo posture prints a
+  WARNING in NOTES, and the **production posture refuses to install or upgrade** (`fail`, naming `tls.existingSecret`), in the platform chart and in the
+  umbrella (`core.tls.existingSecret`). Both use `lookup`, so they act only against a real cluster (not `helm template` or `--dry-run=client`);
+  proven on kind with `--dry-run=server`. `egeria-stack/files/demo-keystore-password` is that public demo value, kept only so the chart can recognise it
+  (`drift_test.py` checks it against the properties files; `stack_render_test.py` checks it never appears in a production manifest, and in a demo
+  one only inside the platform's demo TLS Secret).
 
 ## Secrets
 
@@ -121,8 +124,8 @@ HELM=helm3 python3 charts/tests/render_test.py      # the same on Helm 3 (also d
 bash charts/tests/kind_install.sh freshstart fs-one            # kind install; MODE=production, BUNDLED=1, HELM=helm3 supported
 ```
 
-`kind_install.sh` expects a running kind cluster and, with `MODE=production`, `KEYSTORE_POD=<namespace>/<pod>` (the image's own
-keystore is copied out of a running platform pod to build the TLS Secret). Do not preload images with `kind load`
+`kind_install.sh` expects a running kind cluster. With `MODE=production` it makes a keystore of its own (`make_san_keystore.sh`: random
+passwords, SANs for the Service names). Do not preload images with `kind load`
 on a Docker that uses the containerd image store: it leaves a broken import. Let the nodes pull the public images.
 
 ## Tool versions used (installed user-local in `~/.local/bin`, Python tools in a venv)

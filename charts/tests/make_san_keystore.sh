@@ -16,10 +16,10 @@ extendedKeyUsage=serverAuth,clientAuth
 CNF
 openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out server.crt -days 3 -extfile san.cnf 2>/dev/null
 cat server.crt ca.crt > chain.crt
-openssl pkcs12 -export -inkey server.key -in chain.crt -name "$ALIAS" -out keystore.p12 -passout "pass:$KPW" 2>/dev/null
+openssl pkcs12 -export -inkey server.key -in chain.crt -name "$ALIAS" -out keystore.p12 -passout file:keystore-password 2>/dev/null
 # the truststore holds the CA, so the platform trusts what it signed
-openssl pkcs12 -export -nokeys -in ca.crt -name egeria-test-ca -out truststore.p12 -passout "pass:$TPW" -jdktrust anyExtendedKeyUsage 2>/dev/null || \
-  openssl pkcs12 -export -nokeys -in ca.crt -name egeria-test-ca -out truststore.p12 -passout "pass:$TPW" 2>/dev/null
+openssl pkcs12 -export -nokeys -in ca.crt -name egeria-test-ca -out truststore.p12 -passout file:truststore-password -jdktrust anyExtendedKeyUsage 2>/dev/null || \
+  openssl pkcs12 -export -nokeys -in ca.crt -name egeria-test-ca -out truststore.p12 -passout file:truststore-password 2>/dev/null
 rm -f ca.key server.key server.csr san.cnf chain.crt server.crt ca.srl
 ls keystore.p12 truststore.p12 ca.crt >/dev/null
 echo "made keystore.p12, truststore.p12 and ca.crt in $OUT (SANs: $SVC, $SVC.$NS.svc.cluster.local, $SVC-hl.$NS.svc.cluster.local, localhost)"

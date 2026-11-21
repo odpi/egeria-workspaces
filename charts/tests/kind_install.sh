@@ -2,7 +2,7 @@
 # Install egeria-platform on a kind cluster with its own test Postgres and Kafka, then time the start.
 # usage: kind_install.sh <quickstart|freshstart> <namespace> [release]
 #   MODE=demo (default): values-demo.yaml. MODE=production: values-production.yaml with the Secrets it requires
-#   (made from the tracked demo files and the image's own keystore, so the mechanism is exercised, not real security).
+#   (the keystore is made by make_san_keystore.sh: our own, with SANs, so TLS checks are real; the secrets are the tracked demo files).
 #   HELM=helm3 to use Helm 3. BUNDLED=1: use the chart's demo Postgres and Kafka instead of this script's.
 #   needs: kind cluster up (kubectl context kind-<cluster>), the images loaded (see kind_setup.sh), helm.
 # The test Postgres and Kafka are NOT part of the chart: they exist only for this test, one pair per
@@ -35,19 +35,11 @@ if [ "$MODE" = production ]; then
   W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
   # secrets the production posture requires (values are never printed)
   kubectl -n "$NS" create secret generic prod-secrets --from-file="$CHART/files/$ENV/secrets" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
-  SRC=${KEYSTORE_POD:-}   # a running platform pod to take the image's keystores from (kubectl cp)
-  [ -n "$SRC" ] || { echo "MODE=production needs KEYSTORE_POD=<namespace>/<pod> (a running platform pod)"; exit 2; }
-  kubectl -n "${SRC%%/*}" cp -c platform "${SRC##*/}:/deployments/keystore.p12" "$W/keystore.p12"
-  kubectl -n "${SRC%%/*}" cp -c platform "${SRC##*/}:/deployments/truststore.p12" "$W/truststore.p12"
-  P=$CHART/files/$ENV/application.properties
-  # ca.crt for the canary's TLS verification: the certificate chain of the image's own demo keystore
-  kubectl -n "${SRC%%/*}" exec "${SRC##*/}" -c platform -- keytool -list -rfc -keystore /deployments/keystore.p12 \
-    -storepass "$(grep '^server.ssl.key-store-password=' "$P" | cut -d= -f2-)" -alias "$(grep '^server.ssl.keyAlias=' "$P" | cut -d= -f2-)" \
-    | sed -n '/BEGIN CERTIFICATE/,/END CERTIFICATE/p' > "$W/ca.crt"
-  kubectl -n "$NS" create secret generic prod-tls --from-file="$W/keystore.p12" --from-file="$W/truststore.p12" --from-file="$W/ca.crt" \
-    --from-literal=keystore-password="$(grep '^server.ssl.key-store-password=' "$P" | cut -d= -f2-)" \
-    --from-literal=truststore-password="$(grep '^server.ssl.trust-store-password=' "$P" | cut -d= -f2-)" \
-    --from-literal=key-alias="$(grep '^server.ssl.keyAlias=' "$P" | cut -d= -f2-)" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+  # a keystore of our own (random passwords, SANs for this release's Service names): the production posture refuses the public demo one
+  bash "$(dirname "$(readlink -f "$0")")/make_san_keystore.sh" "$W/tls" "$NS" "$REL-platform" >/dev/null
+  kubectl -n "$NS" create secret generic prod-tls --from-file="$W/tls/keystore.p12" --from-file="$W/tls/truststore.p12" --from-file="$W/tls/ca.crt" \
+    --from-file=keystore-password="$W/tls/keystore-password" --from-file=truststore-password="$W/tls/truststore-password" \
+    --from-file=key-alias="$W/tls/key-alias" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
   DIRF=$(python3 -c "import sys;print({'quickstart':'coco-user-directory','freshstart':'egeria-user-directory'}['$ENV'])")
   COL=$(python3 -c "print({'quickstart':'cocoUserDirectory','freshstart':'userDirectory'}['$ENV'])")
   CPW=$(python3 -I -c "import yaml,sys;print(yaml.safe_load(open(sys.argv[1]))['secretsCollections'][sys.argv[2]]['users']['omagspcatnpa']['secrets']['clearPassword'])" "$CHART/files/$ENV/secrets/$DIRF.omsecrets" "$COL")
@@ -55,7 +47,7 @@ if [ "$MODE" = production ]; then
   unset CPW
   $HELM upgrade --install "$REL" "$CHART" -n "$NS" -f "$CHART/values-production.yaml" "${ARGS[@]}" \
     --set secrets.existingSecret=prod-secrets --set tls.existingSecret=prod-tls --set canary.existingSecret=prod-canary \
-    --set canary.tlsServerName=localhost --set persistence.storageClassName="${STORAGE_CLASS:-standard}" --set resources.limits.cpu=4 ${EXTRA_HELM_ARGS:-} >/dev/null
+    --set persistence.storageClassName="${STORAGE_CLASS:-standard}" --set resources.limits.cpu=4 ${EXTRA_HELM_ARGS:-} >/dev/null
 else
   $HELM upgrade --install "$REL" "$CHART" -n "$NS" -f "$CHART/values-demo.yaml" "${ARGS[@]}" ${EXTRA_HELM_ARGS:-} >/dev/null
 fi
