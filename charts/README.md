@@ -70,8 +70,7 @@ kubectl -n egeria port-forward svc/pq-portal-web 8085:8085
 * Freshstart mounts the platform release's `<service>-properties` ConfigMap and `<service>-secrets` Secret (optional; override with
   `platform.propertiesConfigMap`, `platform.userDirectorySecret`).
 * Proven on kind (Helm 4): quickstart as UID 1001 then switched to 1000680000:0 on the same volume, and freshstart as 1000680000:0,
-  both passing `helm test`. Not run: a production-style install (render tests only; the platform's demo certificate is not valid for its Service name),
-  OpenShift, Ingress, the optional content claims.
+  both passing `helm test`. Production-style install: see the umbrella section. Not run: OpenShift, the optional content claims, demoMode.
 * Images reach kind through a local registry: `docker network connect kind <registry>`, and a `hosts.toml` for it on the node (see the session notes);
   do not use `kind load` with the containerd image store.
 
@@ -89,7 +88,18 @@ helm test st -n egeria      # both canaries
 * Each part's values go under `core:` and `portal:` and are that chart's own values. The environment must be set for all three
   (`environment`, `core.environment`, `portal.environment`); `values-quickstart.yaml` and `values-freshstart.yaml` do it, and the chart refuses a mismatch,
   differing postures, or a `portal.platform.serviceName` that is not `<release>-platform` (inside the stack the Portal finds its platform by itself).
-* Proven on kind: freshstart demo with the bundled Postgres and Kafka; both canaries pass. Production-style, Ingress and OpenShift installs of the stack are not run.
+* Proven on kind (Helm 4):
+  * freshstart demo with the bundled Postgres and Kafka: both canaries pass.
+  * **Production-style** (`tests/kind_stack_prod.sh <namespace> [release]`): external test Postgres and Kafka, a keystore of our own made by
+    `tests/make_san_keystore.sh` (random passwords, SANs for the Service names, so `strict.ssl=true` and the Portal's `tls.verify=true` check
+    hostnames), existing Secrets, image digests, NetworkPolicies; both canaries pass.
+  * **Ingress** (ingress-nginx v1.15.1 on kind): the front door answers through TLS and a direct request to the Portal on 8000 is blocked by
+    the NetworkPolicy. It also showed PO-68: an empty-body `POST /api/egeria-token` through the Ingress returns a token, so do not publish a
+    Portal Ingress until the Portal is fixed.
+  * Not run: OpenShift, demoMode.
+* **Public demo keystore password:** when `tls.existingSecret` holds the public demo password (the image's own keystore), `helm install` and
+  `helm upgrade` print a WARNING in NOTES (platform chart and umbrella). It uses `lookup`, so it shows only against a real cluster (not
+  `helm template`); proven both ways on kind (demo password: warning; our own: none).
 
 ## Secrets
 

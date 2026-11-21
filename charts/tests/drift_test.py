@@ -211,6 +211,12 @@ def main():
         check("portal %s demo canary password for omagspcatnpa equals the tracked user directory's" % penv,
               open(os.path.join(CHART, "..", "egeria-portal", "files", penv, "canary-password")).read().strip() == canary)
 
+    # the umbrella's copy of the public demo keystore password (for its NOTES warning)
+    mine = open(os.path.join(CHART, "..", "egeria-stack", "files", "demo-keystore-password")).read().strip()
+    for penv in ("quickstart", "freshstart"):
+        pw = re.search(r"^server\.ssl\.key-store-password=(.*)$", open(os.path.join(CHART, "files", penv, "application.properties")).read(), re.M).group(1)
+        check("the umbrella's demo keystore password equals the %s properties file's" % penv, mine == pw)
+
     print("\n%d failed" % len(failures) if failures else "\nno drift")
     return 1 if failures else 0
 
