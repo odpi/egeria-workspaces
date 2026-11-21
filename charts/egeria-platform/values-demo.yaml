@@ -1,0 +1,6 @@
+# Demo / laptop posture. Uses the tracked public demo secrets. Postgres and Kafka are
+# still external (set postgres.host and kafka.bootstrapServers); bundling them as
+# separate subchart releases comes later.
+posture: demo
+secrets:
+  useDemoFiles: true

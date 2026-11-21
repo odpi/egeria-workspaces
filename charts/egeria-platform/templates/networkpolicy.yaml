@@ -1,0 +1,27 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- $cfg := include "egeria-platform.cfg" . | fromYaml }}
+# Only pods labelled {{ .Values.networkPolicy.clientLabel }}=true in this namespace may reach the platform port.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $cfg.fullname }}
+  labels:
+    {{- include "egeria-common.labels" (dict "ctx" . "component" "platform") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "egeria-common.selectorLabels" (dict "ctx" . "component" "platform") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{ .Values.networkPolicy.clientLabel }}: "true"
+        # the platform's own pod, for its servers calling the platform's Service
+        - podSelector:
+            matchLabels:
+              {{- include "egeria-common.selectorLabels" (dict "ctx" . "component" "platform") | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ int $cfg.port }}
+{{- end }}

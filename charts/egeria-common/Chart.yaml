@@ -1,0 +1,5 @@
+apiVersion: v2
+name: egeria-common
+description: Shared helpers for the Egeria 6 Helm charts (names, labels, security context, failure messages).
+type: library
+version: 0.1.0

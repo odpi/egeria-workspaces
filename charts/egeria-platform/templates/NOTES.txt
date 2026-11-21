@@ -1,0 +1,11 @@
+{{- $cfg := include "egeria-platform.cfg" . | fromYaml -}}
+Egeria platform "{{ .Release.Name }}" ({{ .Values.environment }}, {{ .Values.posture }} posture){{ if include "egeria-common.openshift" . }}, OpenShift mode (global.openshift=true){{ else }}, plain Kubernetes mode{{ end }}.
+
+Servers: {{ join ", " $cfg.servers }}
+Service: {{ $cfg.fullname }}.{{ .Release.Namespace }}.svc.cluster.local, port {{ int $cfg.port }} (ClusterIP only; it is never exposed outside the cluster).
+Health:   https://localhost:{{ int $cfg.port }}{{ $cfg.healthPath }}  (200 or 401 counts as healthy)
+
+This only says the chart rendered. It does not say Egeria is ready: the first start loads content packs and can take several minutes.
+Check: kubectl -n {{ .Release.Namespace }} get pod {{ $cfg.fullname }}-0 and kubectl -n {{ .Release.Namespace }} logs {{ $cfg.fullname }}-0 | grep SERVER-OPS-0004
+(one line per server that has completed start-up; {{ len $cfg.servers }} are expected).
+Secrets: {{ if $cfg.createSecret }}created from the public demo files into Secret {{ $cfg.secretName }} (demo posture only){{ else }}read from the existing Secret {{ $cfg.secretName }}{{ end }}. Their values are never printed here.
