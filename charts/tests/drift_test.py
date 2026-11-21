@@ -200,6 +200,14 @@ def main():
     check("demo init SQL roles and passwords equal compose's init_egeria.sql (%d roles)" % len(mine), len(mine) == 3 and all(theirs.get(r) == p for r, p in mine.items()))
     check("demo init SQL databases are the ones compose creates", all(("create database %s;" % d) in orig for d in re.findall(r"CREATE DATABASE (\w+)'", sql)))
 
+    # Portal chart: Apache config files regenerate from compose, and the demo Egeria passwords are the tracked ones
+    gen = subprocess.run([sys.executable, os.path.join(CHART, "..", "tests", "gen_portal_conf.py"), "--check"], capture_output=True, text=True)
+    check("portal Apache config files (httpd.conf, proxy routes, vhost bodies) equal compose's", gen.returncode == 0, gen.stdout)
+    for penv, user, dirname, col in (("quickstart", "erinoverview", "coco-user-directory", "cocoUserDirectory"), ("freshstart", "bootstrap", "egeria-user-directory", "userDirectory")):
+        tracked = yaml.safe_load(open(os.path.join(CHART, "files", penv, "secrets", dirname + ".omsecrets")))["secretsCollections"][col]["users"][user]["secrets"]["clearPassword"]
+        mine = open(os.path.join(CHART, "..", "egeria-portal", "files", penv, "egeria-user-password")).read().strip()
+        check("portal %s demo Egeria password for %s equals the tracked user directory's" % (penv, user), mine == tracked)
+
     print("\n%d failed" % len(failures) if failures else "\nno drift")
     return 1 if failures else 0
 

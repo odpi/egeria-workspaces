@@ -1,0 +1,19 @@
+{{- $cfg := include "egeria-portal.cfg" . | fromYaml -}}
+Egeria Portal ({{ .Values.environment }}, {{ .Values.posture }}) installed as {{ .Release.Name }}.
+
+NOT VERIFIED until `helm test {{ .Release.Name }} -n {{ .Release.Namespace }}` prints PASS. The Portal pod is
+Ready only when it can get a token from Egeria ({{ $cfg.platformUrl }}); if the platform is still starting, wait.
+
+Front door (Apache, plain HTTP; TLS belongs at the Ingress):
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ $cfg.webname }} 8085:8085   then open http://localhost:8085/portal
+{{- if .Values.ingress.enabled }}
+  Ingress host: {{ .Values.ingress.host }}
+{{- end }}
+{{- if $cfg.createSecret }}
+
+The demo posture created Secret {{ $cfg.secretName }} (random jwt-secret and token, kept across upgrades; the Egeria password
+is the public demo one). Never use it outside a demo.
+{{- end }}
+
+Self-repair stays in the app: the Portal heals missing Egeria content itself and reports it on its bootstrap status
+route (GET /api/bootstrap/status through the front door, or the banner in the UI). Readiness stays Ready while it heals.

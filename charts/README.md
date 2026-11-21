@@ -1,4 +1,4 @@
-# Egeria Helm charts (TR-112, phase 1)
+# Egeria Helm charts (TR-112, phases 1 and 2)
 
 Helm charts for the Egeria 6 OMAG Server Platform. **Compose stays the source of truth**: the charts are
 additive, nothing under `compose-configs/` is changed, and `tests/drift_test.py` fails if the chart and
@@ -8,6 +8,7 @@ compose disagree.
 |---|---|
 | `egeria-common/` | Library chart: names, labels, pod and container security contexts (`global.openshift`). |
 | `egeria-platform/` | One OMAG platform, one replica (the chart refuses more), for the `quickstart` or the `freshstart` environment. |
+| `egeria-portal/` | The Portal: pyegeria-web (one pod) behind an Apache front door (Phase 2). Images from `compose-configs/egeria-quickstart/README-portal-images.md`. |
 | `egeria-demo-postgres/` | **Demo only.** One PostgreSQL pod and an idempotent set-up Job (creates only, never drops). |
 | `egeria-demo-kafka/` | **Demo only.** One single-node Kafka (KRaft), no persistence. |
 
@@ -33,6 +34,36 @@ helm install egeria charts/egeria-platform -n egeria -f charts/egeria-platform/v
 ```
 
 The chart refuses to render, naming the setting, when something required is missing (see `egeria-platform/templates/_helpers.tpl`).
+
+## Portal (Phase 2)
+
+```bash
+helm dependency update charts/egeria-portal
+helm install pq charts/egeria-portal -n egeria -f charts/egeria-portal/values-demo.yaml \
+  --set environment=quickstart --set platform.serviceName=<platform release>-platform \
+  --set images.portal.repository=<registry>/portal-quickstart --set images.portal.tag=quickstart-6.3-<sha> \
+  --set images.apache.repository=<registry>/apache-web --set images.apache.tag=6.3-<sha>
+helm test pq -n egeria      # a real Egeria call through the front door; only the PASS line means ready
+kubectl -n egeria port-forward svc/pq-portal-web 8085:8085
+```
+
+* One Portal pod (state is files and sqlite on one volume, strategy Recreate) and one Apache front door. The front door serves plain HTTP
+  on 8085: TLS ends at the Ingress (`ingress.enabled`, `ingress.host`, `ingress.tlsSecretName`).
+* `httpd.conf` and the proxy routes are compose's, copied into `files/` by `tests/gen_portal_conf.py` and checked by `drift_test.py`;
+  the vhost is the chart's. Routes to services this chart does not deploy (My Profile, Trellis) stay in the config and answer 503.
+* `EGERIA_ROOT_PATH` is `/app/dr-egeria`, never compose's `/` (a non-root user cannot write there); `portal_render_test.py` checks it.
+* **Readiness is an Egeria call**: the Portal pod is Ready only when `POST /api/egeria-token` (its own user) succeeds, so a platform outage
+  makes the Portal not Ready (the Apache pod stays up). The Portal itself heals Egeria content on its own; nothing in Helm hooks.
+* Demo posture creates a Secret (random `jwt-secret` and `mcp-access-token`, kept across upgrades; the public demo Egeria password).
+  Production needs `secrets.existingSecret` (keys `jwt-secret`, `egeria-user-password`, `mcp-access-token`), `tls.caSecret` (key `ca.crt`),
+  image digests, a StorageClass, and refuses `demoMode`.
+* Freshstart mounts the platform release's `<service>-properties` ConfigMap and `<service>-secrets` Secret (optional; override with
+  `platform.propertiesConfigMap`, `platform.userDirectorySecret`).
+* Proven on kind (Helm 4): quickstart as UID 1001 then switched to 1000680000:0 on the same volume, and freshstart as 1000680000:0,
+  both passing `helm test`. Not run: a production-style install (render tests only; the platform's demo certificate is not valid for its Service name),
+  OpenShift, Ingress, the optional content claims.
+* Images reach kind through a local registry: `docker network connect kind <registry>`, and a `hosts.toml` for it on the node (see the session notes);
+  do not use `kind load` with the containerd image store.
 
 ## Secrets
 
@@ -81,4 +112,4 @@ The demo Postgres needs uid 999 and is not supported there: use your own databas
 * Readiness: a Ready pod means the platform process answers (200 or 401 on the origin endpoint, as in compose). The servers load
   content packs for a few more minutes. `helm test` is what proves the servers are up.
 * The demo Postgres and Kafka are not tuned like compose's shared-infra and have no backups or high availability.
-* Phase 1 covers the platform only. The Portal, Resource Explorer and Egeria Advisor charts, and the OpenShift run, are later phases.
+* The umbrella chart, Resource Explorer and Egeria Advisor charts, and the OpenShift run are later phases.

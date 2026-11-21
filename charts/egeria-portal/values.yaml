@@ -1,0 +1,109 @@
+# egeria-portal: pyegeria-web plus the Apache front door. Compose is the source of truth for the
+# environment's settings; charts/tests/drift_test.py checks the copies in files/.
+
+global:
+  # true: no runAsUser/runAsGroup/fsGroup (restricted-v2 assigns the UID, GID 0).
+  openshift: false
+
+# quickstart | freshstart. Picks the platform port, the view server, the Egeria user and the demo password.
+environment: quickstart
+# demo | production. Normally set by values-demo.yaml or values-production.yaml.
+posture: demo
+
+# One Portal pod: its state is files and sqlite on one volume. The chart refuses more.
+replicas: 1
+
+platform:
+  # REQUIRED. The Service of the egeria-platform release in this namespace, usually <release>-platform.
+  serviceName: ""
+  # Empty means the environment's port: 9443 (quickstart) or 8443 (freshstart).
+  port: ""
+  # Empty means the environment's view server: qs-view-server or fs-view-server.
+  viewServer: ""
+  # Freshstart's Portal reads the platform's application.properties and user directory (compose mounts them).
+  # Empty means <platform.serviceName>-properties (ConfigMap) and <platform.serviceName>-secrets (Secret), the
+  # egeria-platform chart's own names. Both mounts are optional.
+  propertiesConfigMap: ""
+  userDirectorySecret: ""
+
+egeria:
+  # Empty means the environment's Egeria user for the Portal: erinoverview (quickstart) or bootstrap (freshstart).
+  userId: ""
+
+secrets:
+  # A Secret with keys jwt-secret, egeria-user-password and mcp-access-token. Required in production.
+  # Empty in the demo posture: the chart creates one (random jwt-secret and token, kept across upgrades;
+  # the Egeria password is the public demo one from the tracked files).
+  existingSecret: ""
+
+tls:
+  # Whether the Portal checks the platform's certificate. The demo certificate is self-signed.
+  verify: false
+  # Production: a Secret with key ca.crt (PEM) to verify the platform's certificate against.
+  caSecret: ""
+
+images:
+  portal:
+    repository: ""     # for example localhost:5001/portal-quickstart
+    tag: ""
+    digest: ""         # required in production
+    pullPolicy: IfNotPresent
+  apache:
+    repository: ""     # for example localhost:5001/apache-web
+    tag: ""
+    digest: ""
+    pullPolicy: IfNotPresent
+
+demoMode: false          # the public-demo login gate and registration; see the Portal's demo-mode.md
+siteUrl: ""              # SITE_URL: the external URL (links in emails)
+extraEnv: []             # additional environment entries for the Portal container
+
+securityContext:
+  runAsUser: 1001
+  runAsGroup: 0
+  fsGroup: 0
+
+persistence:
+  size: 2Gi
+  storageClassName: ""
+  existingClaim: ""      # one volume: state (~/.pyegeria), demo-data and the Dr.Egeria inbox and outbox, in sub-directories
+
+# Content compose mounts (README-portal-images.md). Each is an existing PVC; empty means an empty directory.
+content:
+  config: {existingClaim: ""}
+  work: {existingClaim: ""}
+  cocoWorkbooks: {existingClaim: ""}
+  designPatterns: {existingClaim: ""}
+  templates: {existingClaim: ""}
+  cocoDags: {existingClaim: ""}
+# The platform's data exchange folders, read-only (the platform chart's exchange claims).
+exchange:
+  loadingBay: {existingClaim: ""}
+  landingArea: {existingClaim: ""}
+  cocoDataLake: {existingClaim: ""}
+  distributionHub: {existingClaim: ""}
+  treasuryDtsHistory: {existingClaim: ""}
+
+resources:
+  portal:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits: {memory: 2Gi}
+  apache:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {memory: 256Mi}
+
+ingress:
+  enabled: false
+  className: ""
+  host: ""
+  tlsSecretName: ""
+  annotations: {}
+
+networkPolicy:
+  enabled: false
+  # Added to the Portal pod so the platform's NetworkPolicy (clientLabel) lets it in.
+  platformClientLabel: egeria.odpi.org/client
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

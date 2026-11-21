@@ -1,0 +1,46 @@
+{{- $cfg := include "egeria-portal.cfg" . | fromYaml -}}
+# helm test: proves the Portal through its front door, including a real Egeria call. Only the PASS line means ready.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ $cfg.fullname }}-canary
+  labels:
+    app.kubernetes.io/name: portal-canary
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: egeria
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  restartPolicy: Never
+  securityContext:
+    {{- include "egeria-common.podSecurityContext" . | nindent 4 }}
+  containers:
+    - name: canary
+      image: {{ $cfg.apacheImage }}
+      imagePullPolicy: {{ .Values.images.apache.pullPolicy }}
+      securityContext:
+        {{- include "egeria-common.containerSecurityContext" . | nindent 8 }}
+      env:
+        - {name: FRONT, value: "http://{{ $cfg.webname }}:8085"}
+      command:
+        - python3
+        - -c
+        - |
+          import http.client, json, os, sys, urllib.parse
+          u = urllib.parse.urlparse(os.environ["FRONT"])
+          def call(method, path, body=None, headers=None):
+              c = http.client.HTTPConnection(u.hostname, u.port, timeout=120)
+              c.request(method, path, body, headers or {})
+              r = c.getresponse()
+              return r.status, r.read()
+          def need(ok, what):
+              print(("ok:   " if ok else "FAIL: ") + what, flush=True)
+              if not ok:
+                  sys.exit(1)
+          s, _ = call("GET", "/portal")
+          need(s in (200, 301, 302), f"front door answers /portal (HTTP {s}; freshstart redirects)")
+          s, b = call("POST", "/api/egeria-token", "{}", {"Content-Type": "application/json"})
+          need(s == 200, f"Portal gets a bearer token from Egeria through the front door (HTTP {s})")
+          need(bool(json.loads(b).get("token")), "the response carries a token")
+          print("PASS: portal up, front door and Egeria token verified")
