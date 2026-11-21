@@ -82,6 +82,9 @@ canary:
   name: "Egeria:IntegrationGroup:Default"
   # Empty means the environment's view server (the one named *-view-server).
   viewServer: ""
+  # Production verifies TLS with ca.crt from the TLS Secret (add that key). If the certificate is not
+  # valid for the Service name, set the name it is valid for; the test then resolves it to the Service.
+  tlsServerName: ""
   timeoutSeconds: 600
 
 jvm:

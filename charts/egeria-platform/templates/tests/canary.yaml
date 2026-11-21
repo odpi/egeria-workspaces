@@ -15,6 +15,14 @@ spec:
   restartPolicy: Never
   securityContext:
     {{- include "egeria-common.podSecurityContext" . | nindent 4 }}
+  {{- if and $cfg.strictSsl (not $cfg.createTlsSecret) }}
+  volumes:
+    - name: tls
+      secret:
+        secretName: {{ $cfg.tlsSecretName }}
+        optional: true
+        items: [{key: ca.crt, path: ca.crt}]
+  {{- end }}
   containers:
     - name: canary
       image: {{ $img }}
@@ -25,16 +33,23 @@ spec:
         requests: {cpu: 50m, memory: 64Mi}
         limits: {memory: 128Mi}
       env:
-        - {name: BASE, value: "https://{{ $cfg.fullname }}.{{ .Release.Namespace }}.svc.cluster.local:{{ int $cfg.port }}"}
         - {name: SERVERS, value: {{ join " " $cfg.servers | quote }}}
         - {name: VIEW_SERVER, value: {{ $cfg.viewServer }}}
         - {name: CANARY_GUID, value: {{ $v.canary.guid | quote }}}
         - {name: CANARY_NAME, value: {{ $v.canary.name | quote }}}
+        - {name: STRICT, value: {{ $cfg.strictSsl | quote }}}
+        - {name: TLS_NAME, value: {{ $v.canary.tlsServerName | quote }}}
+        - {name: SVC, value: {{ $cfg.fullname }}.{{ .Release.Namespace }}.svc.cluster.local}
+        - {name: PORT, value: {{ int $cfg.port | quote }}}
         - {name: TIMEOUT, value: {{ $v.canary.timeoutSeconds | quote }}}
         {{- if $cfg.hasCanary }}
         - {name: CANARY_USER, valueFrom: {secretKeyRef: {name: {{ $cfg.canarySecretName }}, key: userId}}}
         - {name: CANARY_PASSWORD, valueFrom: {secretKeyRef: {name: {{ $cfg.canarySecretName }}, key: password}}}
         {{- end }}
+      {{- if and $cfg.strictSsl (not $cfg.createTlsSecret) }}
+      volumeMounts:
+        - {name: tls, mountPath: /tls, readOnly: true}
+      {{- end }}
       command:
         - sh
         - -c
@@ -44,20 +59,29 @@ spec:
           exit 1
           {{- else }}
           set -u
+          # TLS: demo (strict.ssl=false) skips verification; production verifies against ca.crt from the TLS Secret.
+          if [ "$STRICT" = true ]; then
+            [ -s /tls/ca.crt ] || { echo "FAIL: production verifies TLS: add a ca.crt key (PEM CA or server certificate) to the TLS Secret, then run helm test again." >&2; exit 1; }
+            CURL="curl -s --cacert /tls/ca.crt"
+          else
+            CURL="curl -s -k"
+          fi
+          HOSTN=${TLS_NAME:-$SVC}
+          if [ -n "$TLS_NAME" ]; then CURL="$CURL --resolve $TLS_NAME:$PORT:$(getent hosts "$SVC" | awk '{print $1; exit}')"; fi
+          BASE="https://$HOSTN:$PORT"
           fail() { echo "FAIL: $*" >&2; exit 1; }
           end=$(( $(date +%s) + TIMEOUT ))
-          body=$(printf '{"userId":"%s","password":"%s"}' "$CANARY_USER" "$CANARY_PASSWORD")
           # 1. log in (the password is never printed)
           token=
           while [ -z "$token" ]; do
-            token=$(curl -k -s --max-time 20 -X POST -H 'Content-Type: application/json' -d "$body" "$BASE/api/token" || true)
+            token=$(printf '{"userId":"%s","password":"%s"}' "$CANARY_USER" "$CANARY_PASSWORD" | $CURL --max-time 20 -X POST -H 'Content-Type: application/json' --data @- "$BASE/api/token" || true)
             case "$token" in eyJ*) ;; *) token=; [ "$(date +%s)" -lt "$end" ] || fail "could not get a token for account $CANARY_USER from $BASE within ${TIMEOUT}s"; sleep 10 ;; esac
           done
           echo "ok: logged in as $CANARY_USER"
           auth="Authorization: Bearer $token"
           # 2. every server in startup.server.list is active
           while :; do
-            active=$(curl -k -s --max-time 30 -H "$auth" "$BASE/open-metadata/platform-services/server-platform/servers/active" || true)
+            active=$($CURL --max-time 30 -H "$auth" "$BASE/open-metadata/platform-services/server-platform/servers/active" || true)
             missing=
             for s in $SERVERS; do case "$active" in *"\"$s\""*) ;; *) missing="$missing $s" ;; esac; done
             case "$active" in *'"relatedHTTPCode":200'*) [ -z "$missing" ] && break ;; *) missing="${missing:- (no valid answer; is $CANARY_USER allowed to list active servers?)}" ;; esac
@@ -68,7 +92,7 @@ spec:
           # 3. read the canary element through the view server
           r=
           while :; do
-            r=$(curl -k -s --max-time 60 -X POST -H 'Content-Type: application/json' -H "$auth" -d '{"class":"GetRequestBody","asOfTime":null}' \
+            r=$($CURL --max-time 60 -X POST -H 'Content-Type: application/json' -H "$auth" -d '{"class":"GetRequestBody","asOfTime":null}' \
               "$BASE/servers/$VIEW_SERVER/api/open-metadata/metadata-expert/metadata-elements/$CANARY_GUID" || true)
             case "$r" in *'"relatedHTTPCode":200'*"$CANARY_NAME"*) break ;; esac
             [ "$(date +%s)" -lt "$end" ] || fail "could not read $CANARY_NAME ($CANARY_GUID) through $VIEW_SERVER within ${TIMEOUT}s"

@@ -43,6 +43,17 @@ def compose_main(env):
     return next(s for n, s in services.items() if n.endswith("egeria-main"))
 
 
+def dockerfile_instructions(env):
+    """Every instruction (first word) in the compose Dockerfile, comments and blank lines aside."""
+    p = os.path.join(REPO, "compose-configs", "egeria-%s" % env, "Dockerfile-egeria-platform")
+    out = []
+    for line in open(p):
+        t = line.strip()
+        if t and not t.startswith("#"):
+            out.append(t.split()[0].upper())
+    return out
+
+
 def dockerfile_from(env):
     p = os.path.join(REPO, "compose-configs", "egeria-%s" % env, "Dockerfile-egeria-platform")
     for line in open(p):
@@ -80,6 +91,11 @@ def main():
         want = "%s:%s@%s" % (img["repository"], img["tag"], img["digest"])
         check("%s: image matches the compose Dockerfile FROM" % env, frm == want, "%s != %s" % (frm, want))
         check("%s: rendered image is that image" % env, main_c["image"] == want)
+
+        # the chart assumes the compose image is the upstream image unchanged: any other Dockerfile
+        # instruction (RUN, COPY, ENV, USER, ...) would change the image, and the chart would drift from it
+        other = [i for i in dockerfile_instructions(env) if i != "FROM"]
+        check("%s: compose Dockerfile has only FROM (no instruction the chart would miss)" % env, not other, str(other))
 
         # environment keys: same set, except the allowed ones
         missing = set(menv) - set(cenv) - set(ALLOWED)

@@ -37,7 +37,7 @@ The chart refuses to render, naming the setting, when something required is miss
 ## Secrets
 
 * `secrets.existingSecret`: a Secret whose keys are the file names mounted at `/deployments/secrets` (`egeria-servers.omsecrets`, ...).
-* `tls.existingSecret` (required in production): `keystore.p12`, `truststore.p12`, `keystore-password`, `truststore-password`, optional `key-alias`, `rsa-key-id`.
+* `tls.existingSecret` (required in production): `keystore.p12`, `truststore.p12`, `keystore-password`, `truststore-password`, optional `key-alias`, `rsa-key-id`, and `ca.crt` (PEM CA or server certificate, required for `helm test` in production, which verifies TLS and never uses `-k`; set `canary.tlsServerName` if the certificate is not valid for the Service name).
   TLS passwords never appear in a ConfigMap; they reach the platform as environment overrides from this Secret.
   `strict.ssl` is `true` in production, and `tls.strictSsl=false` is refused there.
 * `canary.existingSecret` (needed for `helm test` in production): keys `userId` and `password` of a non-personal account that may list active servers and read metadata.

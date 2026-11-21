@@ -214,7 +214,9 @@ def main():
         check("%s: demo infra renders Postgres, its init Job and Kafka" % env, {("StatefulSet", "r1-demo-postgres"), ("Job", "r1-demo-postgres-init"), ("Deployment", "r1-demo-kafka")} <= kinds)
         job = [d for d in ds if d["kind"] == "Job"][0]
         check("%s: init Job is a post-install,post-upgrade hook" % env, job["metadata"]["annotations"]["helm.sh/hook"] == "post-install,post-upgrade")
-        sqls = "".join(d["data"]["init-egeria-demo.sql"] for d in ds if d["kind"] == "ConfigMap" and "init-egeria-demo.sql" in d.get("data", {}))
+        import base64
+        sqls = "".join(base64.b64decode(d["data"]["init-egeria-demo.sql"]).decode() for d in ds if d["kind"] == "Secret" and "init-egeria-demo.sql" in d.get("data", {}))
+        check("%s: the init SQL (it holds role passwords) is in a Secret, not a ConfigMap" % env, bool(sqls) and not [1 for d in ds if d["kind"] == "ConfigMap" and "init-egeria-demo.sql" in d.get("data", {})])
         check("%s: init SQL never drops or truncates" % env, not re.search(r"(?i)\b(drop|truncate)\b", sqls))
         check("%s: init SQL only creates what is missing" % env, "IF NOT EXISTS" in sqls or "WHERE NOT EXISTS" in sqls)
         check("%s: no cluster-scoped objects with demo infra" % env, not [d["kind"] for d in ds if d["kind"] in CLUSTER_SCOPED])
@@ -222,6 +224,22 @@ def main():
         check("%s: platform waits for its dependencies" % env, ss["spec"]["template"]["spec"]["initContainers"][0]["name"] == "wait-for-dependencies")
     out = renders(DEMO + INFRA + ["--set", "postgres.host=other", "--set", "kafka.bootstrapServers=k:9"])
     check("explicit postgres.host and kafka.bootstrapServers win over demo infra", "jdbc:postgresql://other:" in out and '"kafkaEndpoint" : "k:9"' in out)
+
+    # 9. no password in any ConfigMap of any chart (bundled demo infra included); canary TLS and login
+    for env in ("quickstart", "freshstart"):
+        for label, extra in (("demo", DEMO + ["-f", os.path.join(CHART, "values-demo-infra.yaml")]), ("production", PROD)):
+            ds = docs(renders(extra + BASE + ["--set", "environment=" + env]))
+            cm = "\n".join(str(d.get("data")) + str(d.get("binaryData")) for d in ds if d["kind"] == "ConfigMap")
+            check("%s/%s no password in any ConfigMap (all charts)" % (env, label),
+                  not re.search(r"(?i)password\s*['\"=:]|password\s+'", cm.replace("\\n", "\n")),
+                  "found password-like text")
+    ds = docs(renders(PROD + BASE + ["--set", "canary.existingSecret=my-canary"]))
+    pod = [d for d in ds if d["kind"] == "Pod"][0]
+    script = pod["spec"]["containers"][0]["command"][2]
+    check("canary sends the login JSON on stdin (--data @-), never in argv", "--data @-" in script and "-d \"$body\"" not in script)
+    check("production canary verifies TLS with ca.crt and has no -k fallback in the strict branch", "--cacert /tls/ca.crt" in script and any(v["name"] == "tls" for v in pod["spec"].get("volumes", [])))
+    d_pod = [d for d in docs(renders(DEMO + BASE)) if d["kind"] == "Pod"][0]
+    check("demo canary has no TLS volume", "volumes" not in d_pod["spec"])
 
     print("\n%d failed" % len(failures) if failures else "\nall passed")
     return 1 if failures else 0

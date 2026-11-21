@@ -127,7 +127,11 @@ if [ "$MODE" = production ]; then
   kubectl -n "${SRC%%/*}" cp -c platform "${SRC##*/}:/deployments/keystore.p12" "$W/keystore.p12"
   kubectl -n "${SRC%%/*}" cp -c platform "${SRC##*/}:/deployments/truststore.p12" "$W/truststore.p12"
   P=$CHART/files/$ENV/application.properties
-  kubectl -n "$NS" create secret generic prod-tls --from-file="$W/keystore.p12" --from-file="$W/truststore.p12" \
+  # ca.crt for the canary's TLS verification: the certificate chain of the image's own demo keystore
+  kubectl -n "${SRC%%/*}" exec "${SRC##*/}" -c platform -- keytool -list -rfc -keystore /deployments/keystore.p12 \
+    -storepass "$(grep '^server.ssl.key-store-password=' "$P" | cut -d= -f2-)" -alias "$(grep '^server.ssl.keyAlias=' "$P" | cut -d= -f2-)" \
+    | sed -n '/BEGIN CERTIFICATE/,/END CERTIFICATE/p' > "$W/ca.crt"
+  kubectl -n "$NS" create secret generic prod-tls --from-file="$W/keystore.p12" --from-file="$W/truststore.p12" --from-file="$W/ca.crt" \
     --from-literal=keystore-password="$(grep '^server.ssl.key-store-password=' "$P" | cut -d= -f2-)" \
     --from-literal=truststore-password="$(grep '^server.ssl.trust-store-password=' "$P" | cut -d= -f2-)" \
     --from-literal=key-alias="$(grep '^server.ssl.keyAlias=' "$P" | cut -d= -f2-)" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
@@ -138,7 +142,7 @@ if [ "$MODE" = production ]; then
   unset CPW
   $HELM upgrade --install "$REL" "$CHART" -n "$NS" -f "$CHART/values-production.yaml" "${ARGS[@]}" \
     --set secrets.existingSecret=prod-secrets --set tls.existingSecret=prod-tls --set canary.existingSecret=prod-canary \
-    --set persistence.storageClassName="${STORAGE_CLASS:-standard}" --set resources.limits.cpu=4 ${EXTRA_HELM_ARGS:-} >/dev/null
+    --set canary.tlsServerName=localhost --set persistence.storageClassName="${STORAGE_CLASS:-standard}" --set resources.limits.cpu=4 ${EXTRA_HELM_ARGS:-} >/dev/null
 else
   $HELM upgrade --install "$REL" "$CHART" -n "$NS" -f "$CHART/values-demo.yaml" "${ARGS[@]}" ${EXTRA_HELM_ARGS:-} >/dev/null
 fi

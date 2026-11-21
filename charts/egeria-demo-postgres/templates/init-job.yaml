@@ -44,5 +44,5 @@ spec:
             - {name: init, mountPath: /init, readOnly: true}
       volumes:
         - name: init
-          configMap: {name: {{ $name }}-init}
+          secret: {secretName: {{ $name }}-init, defaultMode: 0444}
 {{- end }}

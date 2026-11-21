@@ -48,7 +48,7 @@ spec:
             - {name: init, mountPath: /docker-entrypoint-initdb.d}
       volumes:
         - name: init
-          configMap: {name: {{ $name }}-init}
+          secret: {secretName: {{ $name }}-init, defaultMode: 0444}
         {{- if not .Values.persistence.enabled }}
         - {name: data, emptyDir: {}}
         {{- end }}
