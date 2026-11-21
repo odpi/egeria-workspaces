@@ -72,6 +72,8 @@ run_check() {   # image label user... : start, wait for health, write checks
     # Dr.Egeria inbox and outbox (EGERIA_ROOT_PATH, EGERIA_INBOX_PATH, EGERIA_OUTBOX_PATH from the image)
     docker exec tr112a-c sh -c 'mkdir -p "$EGERIA_ROOT_PATH/$EGERIA_INBOX_PATH" "$EGERIA_ROOT_PATH/$EGERIA_OUTBOX_PATH" && echo x > "$EGERIA_ROOT_PATH/$EGERIA_INBOX_PATH/probe.md" && echo x > "$EGERIA_ROOT_PATH/$EGERIA_OUTBOX_PATH/probe.md"' >/dev/null 2>&1 \
       && ok "$label: Dr.Egeria inbox and outbox writable" || bad "$label: Dr.Egeria inbox or outbox not writable"
+    docker exec tr112a-c sh -c "grep -q '^Umask:.0002' /proc/1/status" >/dev/null 2>&1 \
+      && ok "$label: umask is 002 (files the app creates are group-writable)" || bad "$label: umask is not 002"
     # _rebuild_catalog overwrites the tracked catalog in place
     docker exec tr112a-c sh -c 'cp egeria_request_body_catalog.json /tmp/cat.json && cat /tmp/cat.json > egeria_request_body_catalog.json' >/dev/null 2>&1 \
       && ok "$label: request body catalog overwritable" || bad "$label: request body catalog not overwritable"

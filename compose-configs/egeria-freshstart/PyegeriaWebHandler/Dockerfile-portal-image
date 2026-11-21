@@ -49,4 +49,6 @@ EXPOSE 8000
 
 # No --reload. Binds IPv4 (0.0.0.0) because kubelet probes and Services use the pod IPv4 address.
 # Compose binds "::", which asyncio makes IPv6-only; set PORTAL_BIND=:: on an IPv6-only cluster.
-CMD ["sh", "-c", "exec uvicorn pyegeria_handler:app --host \"${PORTAL_BIND:-0.0.0.0}\" --port 8000 --loop asyncio"]
+# umask 002: files the app creates are group-writable (g=u), so a later start under a different UID with GID 0
+# (OpenShift assigns one per namespace, and it can change) can still write them.
+CMD ["sh", "-c", "umask 002; exec uvicorn pyegeria_handler:app --host \"${PORTAL_BIND:-0.0.0.0}\" --port 8000 --loop asyncio"]
