@@ -20,6 +20,6 @@ tests/browser/node_modules
 junit*.xml
 **/*-results.xml
 **/test-results
-*.db
-*.sqlite
+**/*.db
+**/*.sqlite
 Dockerfile*
