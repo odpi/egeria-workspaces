@@ -100,7 +100,9 @@ helm test st -n egeria      # both canaries
 * **Public demo keystore password:** when `tls.existingSecret` holds the public demo password (the image's own keystore), the demo posture prints a
   WARNING in NOTES, and the **production posture refuses to install or upgrade** (`fail`, naming `tls.existingSecret`), in the platform chart and in the
   umbrella (`core.tls.existingSecret`). Both use `lookup`, so they act only against a real cluster (not `helm template` or `--dry-run=client`);
-  proven on kind with `--dry-run=server`. `egeria-stack/files/demo-keystore-password` is that public demo value, kept only so the chart can recognise it
+  proven on kind with `--dry-run=server`. Two limits: `lookup` sees only a Secret that exists at install or upgrade time (a Secret created or
+  changed later is not checked until the next `helm upgrade`), and the check reads only the `keystore-password` key (a demo `truststore-password`
+  or a keystore that was re-encrypted elsewhere is not recognised). `egeria-stack/files/demo-keystore-password` is that public demo value, kept only so the chart can recognise it
   (`drift_test.py` checks it against the properties files; `stack_render_test.py` checks it never appears in a production manifest, and in a demo
   one only inside the platform's demo TLS Secret).
 
