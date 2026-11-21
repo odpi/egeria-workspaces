@@ -11,3 +11,4 @@
 perspectives_handler.py
 type_system_handler.py
 static/egeria-shared-ui.js
+digital_products_handler.py
