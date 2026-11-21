@@ -1,0 +1,25 @@
+# Used by BuildKit for Dockerfile-portal-image only; compose's Dockerfile-fast-api build is unaffected.
+# Keeps developer-machine leftovers out of the image.
+.git
+.gitignore
+.env
+.env.*
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.hypothesis
+.mypy_cache
+.ruff_cache
+logs
+debug_log.log
+**/.venv
+**/node_modules
+tests/browser/.venv
+tests/browser/node_modules
+**/*.log
+junit*.xml
+**/*-results.xml
+**/test-results
+*.db
+*.sqlite
+Dockerfile*

@@ -19,8 +19,8 @@ bad() { echo "FAIL: $*"; fail=1; }
 if [ "${1:-}" = build ]; then
   for e in quickstart freshstart; do
     docker build -q -f "$CC/egeria-$e/PyegeriaWebHandler/Dockerfile-portal-image" -t "portal-$e:$e-$TAG" "$CC/egeria-$e/PyegeriaWebHandler" >/dev/null
-    docker build -q -f "$CC/egeria-quickstart/Dockerfile-apache-web-nonroot" -t "apache-web:$e-$TAG" "$CC/egeria-quickstart" >/dev/null
   done
+  docker build -q -f "$CC/egeria-quickstart/Dockerfile-apache-web-nonroot" -t "apache-web:$TAG" "$CC/egeria-quickstart" >/dev/null
 fi
 
 M=$(mktemp -d); trap 'rm -rf "$M"; docker rm -f tr112a-c >/dev/null 2>&1 || true' EXIT
@@ -48,7 +48,7 @@ run_check() {   # image label user... : start, wait for health, write checks
       -v "$M/loading-bay":/deployments/loading-bay:ro -v "$M/landing-area":/deployments/landing-area:ro \
       -v "$M/coco-data-lake":/deployments/coco-data-lake:ro -v "$M/distribution-hub":/deployments/distribution-hub:ro \
       -v "$M/treasury-dts-history":/deployments/treasury-dts-history:ro "$img" >/dev/null
-    local url=http://127.0.0.1:8000/ writes="/home/portal/.pyegeria /app/logs /app/demo-data /app/workbench-access /app /tmp"
+    local url=http://127.0.0.1:8000/ writes="/home/portal/.pyegeria /app/logs /app/demo-data /app/workbench-access /app/dr-egeria /app /tmp"
   else
     docker run -d --name tr112a-c "$@" "$img" >/dev/null
     local url=http://127.0.0.1:8085/ writes="/usr/local/apache2/logs /tmp"
@@ -68,6 +68,14 @@ run_check() {   # image label user... : start, wait for health, write checks
   for p in $writes; do
     docker exec tr112a-c sh -c "f=\$(mktemp -p $p) && rm -f \$f" >/dev/null 2>&1 && ok "$label: $p writable" || bad "$label: $p not writable"
   done
+  if [ "$kind" = portal ]; then
+    # Dr.Egeria inbox and outbox (EGERIA_ROOT_PATH, EGERIA_INBOX_PATH, EGERIA_OUTBOX_PATH from the image)
+    docker exec tr112a-c sh -c 'mkdir -p "$EGERIA_ROOT_PATH/$EGERIA_INBOX_PATH" "$EGERIA_ROOT_PATH/$EGERIA_OUTBOX_PATH" && echo x > "$EGERIA_ROOT_PATH/$EGERIA_INBOX_PATH/probe.md" && echo x > "$EGERIA_ROOT_PATH/$EGERIA_OUTBOX_PATH/probe.md"' >/dev/null 2>&1 \
+      && ok "$label: Dr.Egeria inbox and outbox writable" || bad "$label: Dr.Egeria inbox or outbox not writable"
+    # _rebuild_catalog overwrites the tracked catalog in place
+    docker exec tr112a-c sh -c 'cp egeria_request_body_catalog.json /tmp/cat.json && cat /tmp/cat.json > egeria_request_body_catalog.json' >/dev/null 2>&1 \
+      && ok "$label: request body catalog overwritable" || bad "$label: request body catalog not overwritable"
+  fi
   docker exec tr112a-c sh -c "echo x > /config/w" >/dev/null 2>&1 && [ "$kind" = portal ] && bad "$label: read-only /config was writable" || true
   [ "$kind" = portal ] && { docker exec tr112a-c sh -c 'test -f /home/portal/.pyegeria/bootstrap.log' && ok "$label: state written under HOME/.pyegeria" || echo "note: no bootstrap.log yet"; }
   docker rm -f tr112a-c >/dev/null
@@ -76,16 +84,28 @@ run_check() {   # image label user... : start, wait for health, write checks
 for e in quickstart freshstart; do
   run_check "portal-$e:$e-$TAG" "portal-$e default user" portal
   run_check "portal-$e:$e-$TAG" "portal-$e --user $ARB:0" portal --user $ARB:0
-  run_check "apache-web:$e-$TAG" "apache-web-$e default user" apache
-  run_check "apache-web:$e-$TAG" "apache-web-$e --user $ARB:0" apache --user $ARB:0
+  if [ "$e" = quickstart ]; then   # one environment-neutral Apache image
+    run_check "apache-web:$TAG" "apache-web default user" apache
+    run_check "apache-web:$TAG" "apache-web --user $ARB:0" apache --user $ARB:0
+  fi
   u=$(docker run --rm --entrypoint id "portal-$e:$e-$TAG" -u); [ "$u" != 0 ] && ok "portal-$e default user is not root (uid $u)" || bad "portal-$e runs as root"
   g=$(docker run --rm --entrypoint id "portal-$e:$e-$TAG" -g); [ "$g" = 0 ] && ok "portal-$e default group is 0" || bad "portal-$e group is $g"
+done
+
+# nothing from a developer machine lands in the image: build from a copy of the context that has junk in it
+for e in quickstart freshstart; do
+  X=$M/ctx-$e; cp -r "$CC/egeria-$e/PyegeriaWebHandler" "$X"
+  mkdir -p "$X/logs" "$X/tests/browser/.venv" "$X/.hypothesis"; : > "$X/logs/x.log"; : > "$X/debug_log.log"; : > "$X/tests/browser/.venv/x"; : > "$X/.hypothesis/x"; : > "$X/junit.xml"; : > "$X/stray.db"
+  docker build -q -f "$X/Dockerfile-portal-image" -t "portal-$e:ctxcheck" "$X" >/dev/null
+  left=$(docker run --rm --entrypoint sh "portal-$e:ctxcheck" -c 'cd /app; ls -d logs/x.log debug_log.log tests/browser/.venv .hypothesis junit.xml stray.db .git 2>/dev/null; true')
+  [ -z "$left" ] && ok "portal-$e: no logs, debug log, .venv, .hypothesis, result XML or .db baked in" || bad "portal-$e: baked in: $left"
+  docker rmi -f "portal-$e:ctxcheck" >/dev/null
 done
 
 # every EXPOSEd port of the Portal images is >= 1024
 # (the Apache image also inherits EXPOSE 80 from the httpd base image: metadata only, it never listens there; run_check proves that)
 for i in "portal-quickstart:quickstart-$TAG" "portal-freshstart:freshstart-$TAG"; do
-  for p in $(docker image inspect "$i" --format '{{range $k,$v := .Config.ExposedPorts}}{{$k}} {{end}}' | tr -d '/tcp'); do
+  for p in $(docker image inspect "$i" --format '{{range $k,$v := .Config.ExposedPorts}}{{$k}} {{end}}' | sed "s#/tcp##g"); do
     [ "$p" -ge 1024 ] && ok "$i exposes $p" || bad "$i exposes privileged port $p"
   done
 done
