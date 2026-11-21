@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
 # Install egeria-platform on a kind cluster with its own test Postgres and Kafka, then time the start.
 # usage: kind_install.sh <quickstart|freshstart> <namespace> [release]
+#   MODE=demo (default): values-demo.yaml. MODE=production: values-production.yaml with the Secrets it requires
+#   (made from the tracked demo files and the image's own keystore, so the mechanism is exercised, not real security).
+#   HELM=helm3 to use Helm 3. BUNDLED=1: use the chart's demo Postgres and Kafka instead of this script's.
 #   needs: kind cluster up (kubectl context kind-<cluster>), the images loaded (see kind_setup.sh), helm.
 # The test Postgres and Kafka are NOT part of the chart: they exist only for this test, one pair per
 # namespace (design note 16: one each is the default). Nothing here touches laz or pop-os.
 set -euo pipefail
 ENV=${1:?environment}; NS=${2:?namespace}; REL=${3:-$ENV}
 HELM=${HELM:-helm}
+MODE=${MODE:-demo}
+BUNDLED=${BUNDLED:-0}
 REPO=$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)
 CHART=$REPO/charts/egeria-platform
 SHARED=$REPO/compose-configs/shared-infra
@@ -15,6 +20,7 @@ KFIMG=${KFIMG:-cleanstart/kafka@sha256:3bfad519feac67e6bd1ae2b18b3e4770cdf2fedf5
 case $ENV in quickstart) PORT=9443; PFX=qs ;; freshstart) PORT=8443; PFX=fs ;; *) echo "environment?"; exit 2 ;; esac
 
 kubectl get ns "$NS" >/dev/null 2>&1 || kubectl create ns "$NS" >/dev/null
+if [ "$BUNDLED" != 1 ]; then
 kubectl -n "$NS" create configmap pg-init \
   --from-file=init_egeria.sql="$SHARED/docker-entrypoint-initdb.d/init_egeria.sql" \
   --from-file=init_egeria_ods.sql="$SHARED/docker-entrypoint-initdb.d/init_egeria_ods.sql" \
@@ -103,11 +109,39 @@ spec:
 YAML
 kubectl -n "$NS" rollout status deploy/postgres --timeout=300s
 kubectl -n "$NS" rollout status deploy/kafka --timeout=300s
+fi
 
 T0=$(date +%s)
-$HELM upgrade --install "$REL" "$CHART" -n "$NS" -f "$CHART/values-demo.yaml" \
-  --set environment="$ENV" --set postgres.host=postgres --set kafka.bootstrapServers=kafka.$NS.svc.cluster.local:9192 \
-  ${EXTRA_HELM_ARGS:-} >/dev/null
+ARGS=(--set environment="$ENV")
+if [ "$BUNDLED" = 1 ]; then
+  ARGS+=(-f "$CHART/values-demo-infra.yaml")
+else
+  ARGS+=(--set postgres.host=postgres --set kafka.bootstrapServers=kafka.$NS.svc.cluster.local:9192)
+fi
+if [ "$MODE" = production ]; then
+  W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
+  # secrets the production posture requires (values are never printed)
+  kubectl -n "$NS" create secret generic prod-secrets --from-file="$CHART/files/$ENV/secrets" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+  SRC=${KEYSTORE_POD:-}   # a running platform pod to take the image's keystores from (kubectl cp)
+  [ -n "$SRC" ] || { echo "MODE=production needs KEYSTORE_POD=<namespace>/<pod> (a running platform pod)"; exit 2; }
+  kubectl -n "${SRC%%/*}" cp -c platform "${SRC##*/}:/deployments/keystore.p12" "$W/keystore.p12"
+  kubectl -n "${SRC%%/*}" cp -c platform "${SRC##*/}:/deployments/truststore.p12" "$W/truststore.p12"
+  P=$CHART/files/$ENV/application.properties
+  kubectl -n "$NS" create secret generic prod-tls --from-file="$W/keystore.p12" --from-file="$W/truststore.p12" \
+    --from-literal=keystore-password="$(grep '^server.ssl.key-store-password=' "$P" | cut -d= -f2-)" \
+    --from-literal=truststore-password="$(grep '^server.ssl.trust-store-password=' "$P" | cut -d= -f2-)" \
+    --from-literal=key-alias="$(grep '^server.ssl.keyAlias=' "$P" | cut -d= -f2-)" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+  DIRF=$(python3 -c "import sys;print({'quickstart':'coco-user-directory','freshstart':'egeria-user-directory'}['$ENV'])")
+  COL=$(python3 -c "print({'quickstart':'cocoUserDirectory','freshstart':'userDirectory'}['$ENV'])")
+  CPW=$(python3 -I -c "import yaml,sys;print(yaml.safe_load(open(sys.argv[1]))['secretsCollections'][sys.argv[2]]['users']['omagspcatnpa']['secrets']['clearPassword'])" "$CHART/files/$ENV/secrets/$DIRF.omsecrets" "$COL")
+  kubectl -n "$NS" create secret generic prod-canary --from-literal=userId=omagspcatnpa --from-literal=password="$CPW" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+  unset CPW
+  $HELM upgrade --install "$REL" "$CHART" -n "$NS" -f "$CHART/values-production.yaml" "${ARGS[@]}" \
+    --set secrets.existingSecret=prod-secrets --set tls.existingSecret=prod-tls --set canary.existingSecret=prod-canary \
+    --set persistence.storageClassName="${STORAGE_CLASS:-standard}" --set resources.limits.cpu=4 ${EXTRA_HELM_ARGS:-} >/dev/null
+else
+  $HELM upgrade --install "$REL" "$CHART" -n "$NS" -f "$CHART/values-demo.yaml" "${ARGS[@]}" ${EXTRA_HELM_ARGS:-} >/dev/null
+fi
 POD=$REL-platform-0
 echo "[$ENV/$NS] installed release $REL at $(date -u +%T); waiting for $POD"
 for i in $(seq 1 120); do

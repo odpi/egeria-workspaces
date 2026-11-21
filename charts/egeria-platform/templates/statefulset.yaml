@@ -26,6 +26,29 @@ spec:
       securityContext:
         {{- include "egeria-common.podSecurityContext" . | nindent 8 }}
       initContainers:
+        # Waits until Postgres and Kafka accept connections, so the servers do not start against
+        # a database that is still being created (one reachable Kafka bootstrap server is enough).
+        - name: wait-for-dependencies
+          image: {{ $img }}
+          imagePullPolicy: {{ $v.image.pullPolicy }}
+          securityContext:
+            {{- include "egeria-common.containerSecurityContext" . | nindent 12 }}
+          env:
+            - {name: PG, value: "{{ $cfg.pgHost }}:{{ $cfg.pgPort }}"}
+            - {name: KAFKA, value: {{ $cfg.kafka | quote }}}
+          command:
+            - bash
+            - -c
+            - |
+              up() { timeout 3 bash -c "exec 3<>/dev/tcp/${1%:*}/${1##*:}" 2>/dev/null; }
+              end=$(( $(date +%s) + 600 ))
+              until up "$PG"; do [ "$(date +%s)" -lt "$end" ] || { echo "ERROR: PostgreSQL $PG not reachable after 600 s (postgres.host, postgres.port)" >&2; exit 1; }; echo "waiting for PostgreSQL $PG"; sleep 3; done
+              ok=
+              while [ -z "$ok" ]; do
+                for b in $(echo "$KAFKA" | tr ',' ' '); do up "$b" && ok=1; done
+                [ -n "$ok" ] || { [ "$(date +%s)" -lt "$end" ] || { echo "ERROR: Kafka $KAFKA not reachable after 600 s (kafka.bootstrapServers)" >&2; exit 1; }; echo "waiting for Kafka $KAFKA"; sleep 3; }
+              done
+              echo "PostgreSQL and Kafka are reachable"
         # Seeds each server's configuration document into the data volume only when it is
         # missing, because the admin API rewrites them. platform.configs.overwrite forces a copy.
         - name: seed-config-documents
@@ -74,7 +97,16 @@ spec:
             # server.port is always set: nothing relies on the image's 7443 default.
             - {name: server.port, value: {{ $cfg.port | quote }}}
             - {name: startup.server.list, value: {{ join "," $cfg.servers | quote }}}
-            - {name: KAFKA_BOOTSTRAP_SERVERS, value: {{ $v.kafka.bootstrapServers | quote }}}
+            - {name: strict.ssl, value: {{ $cfg.strictSsl | quote }}}
+            - {name: server.ssl.key-store-password, valueFrom: {secretKeyRef: {name: {{ $cfg.tlsSecretName }}, key: keystore-password}}}
+            - {name: server.ssl.trust-store-password, valueFrom: {secretKeyRef: {name: {{ $cfg.tlsSecretName }}, key: truststore-password}}}
+            - {name: server.ssl.keyAlias, valueFrom: {secretKeyRef: {name: {{ $cfg.tlsSecretName }}, key: key-alias, optional: true}}}
+            - {name: rsa.key-id, valueFrom: {secretKeyRef: {name: {{ $cfg.tlsSecretName }}, key: rsa-key-id, optional: true}}}
+            {{- if not $cfg.createTlsSecret }}
+            - {name: server.ssl.key-store, value: /deployments/tls/keystore.p12}
+            - {name: server.ssl.trust-store, value: /deployments/tls/truststore.p12}
+            {{- end }}
+            - {name: KAFKA_BOOTSTRAP_SERVERS, value: {{ $cfg.kafka | quote }}}
             {{- if $cfg.xtdb }}
             - {name: XTDB_ENABLE_BYTEUTILS_SHA1, value: "True"}
             - {name: XTDB_DISABLE_LIBCRYPTO, value: "True"}
@@ -114,6 +146,9 @@ spec:
             - {name: data, mountPath: /deployments/logs, subPath: logs}
             - {name: data, mountPath: /deployments/logs/security, subPath: security-logs}
             - {name: secrets, mountPath: /deployments/secrets, readOnly: true}
+            {{- if not $cfg.createTlsSecret }}
+            - {name: tls, mountPath: /deployments/tls, readOnly: true}
+            {{- end }}
             - {name: properties, mountPath: /deployments/application.properties, subPath: application.properties, readOnly: true}
             {{- range $name, $x := $v.exchange }}
             {{- if $x.enabled }}
@@ -131,6 +166,15 @@ spec:
           secret:
             secretName: {{ $cfg.secretName }}
             defaultMode: 0444
+        {{- if not $cfg.createTlsSecret }}
+        - name: tls
+          secret:
+            secretName: {{ $cfg.tlsSecretName }}
+            defaultMode: 0444
+            items:
+              - {key: keystore.p12, path: keystore.p12}
+              - {key: truststore.p12, path: truststore.p12}
+        {{- end }}
         {{- if $v.persistence.existingClaim }}
         - name: data
           persistentVolumeClaim:

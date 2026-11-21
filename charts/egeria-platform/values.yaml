@@ -35,7 +35,14 @@ platform:
     # The admin API rewrites the config documents, so they are only seeded when missing.
     overwrite: false
 
-# External Postgres (required). The database name defaults from the environment
+# DEMO ONLY: bundled single-node Postgres and Kafka, off by default (use values-demo-infra.yaml).
+# When enabled, postgres.host / kafka.bootstrapServers default to them. Refused in production.
+demoPostgres:
+  enabled: false
+demoKafka:
+  enabled: false
+
+# External Postgres (required unless demoPostgres is enabled). The database name defaults from the environment
 # (egeria / egeria_freshstart). The credentials live in the secrets, not here.
 postgres:
   host: ""
@@ -51,6 +58,31 @@ secrets:
   existingSecret: ""
   # Demo only: create the Secret from the tracked public demo .omsecrets files.
   useDemoFiles: false
+
+# TLS identity of the platform. Passwords never go in the properties ConfigMap.
+tls:
+  # Secret with keystore.p12, truststore.p12, keystore-password and truststore-password
+  # (optional: key-alias, rsa-key-id). Required by the production posture. Empty in the
+  # demo posture means the image's built-in demo keystore, with the tracked demo passwords
+  # held in a chart-created Secret.
+  existingSecret: ""
+  # "" = demo false, production true. strict.ssl=false is refused in production.
+  strictSsl: ""
+
+# helm test: proves the servers are really up. It logs in, requires every server in
+# startup.server.list to be active, then reads one record from the view server.
+canary:
+  # Secret with keys userId and password (a non-personal account allowed to list active servers
+  # and read metadata). Required in production. Demo: built from the tracked user directory.
+  existingSecret: ""
+  # Demo only: the account taken from the tracked user directory (its name only is used here).
+  demoUserId: omagspcatnpa
+  # CoreContentPack integration group "Egeria:IntegrationGroup:Default", read by GUID through the view server.
+  guid: 2648e33f-7501-4789-b524-f025bb9eaa57
+  name: "Egeria:IntegrationGroup:Default"
+  # Empty means the environment's view server (the one named *-view-server).
+  viewServer: ""
+  timeoutSeconds: 600
 
 jvm:
   # Same as compose's EGERIA_JAVA_OPTS_APPEND default.

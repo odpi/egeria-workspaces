@@ -9,3 +9,13 @@ dependencies:
   - name: egeria-common
     version: 0.1.0
     repository: file://../egeria-common
+  - name: egeria-demo-postgres
+    version: 0.1.0
+    repository: file://../egeria-demo-postgres
+    alias: demoPostgres
+    condition: demoPostgres.enabled
+  - name: egeria-demo-kafka
+    version: 0.1.0
+    repository: file://../egeria-demo-kafka
+    alias: demoKafka
+    condition: demoKafka.enabled

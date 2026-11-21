@@ -1,0 +1,6 @@
+apiVersion: v2
+name: egeria-demo-kafka
+description: DEMO ONLY - a single-node Kafka (KRaft) for trying out egeria-platform. Not for production; bring your own Kafka there.
+type: application
+version: 0.1.0
+appVersion: "4"

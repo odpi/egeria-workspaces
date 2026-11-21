@@ -25,6 +25,8 @@ BASE = ["-f", os.path.join(CHART, "values-demo.yaml"),
 ALLOWED = {
     "HOST_FQDN": "compose host name for published ports; the chart has Services, nothing uses it",
 }
+# Environment overrides the chart adds on purpose: the TLS settings that moved to a Secret.
+TLS_ENV = {"strict.ssl", "server.ssl.key-store-password", "server.ssl.trust-store-password", "server.ssl.keyAlias", "rsa.key-id"}
 failures = []
 
 
@@ -61,7 +63,7 @@ def render(env):
 
 
 def main():
-    subprocess.run([HELM, "dependency", "build", CHART], capture_output=True, check=True)
+    subprocess.run([HELM, "dependency", "update", CHART], capture_output=True, check=True)
     values = yaml.safe_load(open(os.path.join(CHART, "values.yaml")))
     for env in ("quickstart", "freshstart"):
         c = compose_main(env)
@@ -69,7 +71,7 @@ def main():
         ss = [d for d in ds if d["kind"] == "StatefulSet"][0]
         pod = ss["spec"]["template"]["spec"]
         main_c = pod["containers"][0]
-        cenv = {e["name"]: e["value"] for e in main_c["env"]}
+        cenv = {e["name"]: e.get("value") for e in main_c["env"]}
         menv = {k: str(v) for k, v in c["environment"].items()}
 
         # image: the compose Dockerfile's FROM line, tag and digest
@@ -81,7 +83,7 @@ def main():
 
         # environment keys: same set, except the allowed ones
         missing = set(menv) - set(cenv) - set(ALLOWED)
-        extra = set(cenv) - set(menv)
+        extra = set(cenv) - set(menv) - TLS_ENV
         check("%s: no compose environment key is missing from the chart" % env, not missing, str(sorted(missing)))
         check("%s: the chart adds no environment key compose lacks" % env, not extra, str(sorted(extra)))
         for k in ("XTDB_ENABLE_BYTEUTILS_SHA1", "XTDB_DISABLE_LIBCRYPTO", "server.port", "startup.server.list"):
@@ -147,6 +149,40 @@ def main():
         repointed = {"kafkaEndpoint", "egeriaEndpoint", "repositoryDatabaseURL"}
         diff = {k for k in orig if rendered.get(k) != orig[k]} - repointed
         check("%s: placeholder variables equal compose except the re-pointed endpoints" % env, not diff, str(sorted(diff)))
+
+        # TLS: the chart's demo TLS Secret holds exactly the values compose's properties file has
+        import base64
+        tls = [d for d in ds if d["kind"] == "Secret" and d["metadata"]["name"].endswith("-tls")][0]["data"]
+        got = {k: base64.b64decode(v or "").decode() for k, v in tls.items()}
+        orig_text = open(runtime).read()
+        want = {"keystore-password": "server.ssl.key-store-password", "truststore-password": "server.ssl.trust-store-password",
+                "key-alias": "server.ssl.keyAlias", "rsa-key-id": "rsa.key-id"}
+        same = all(got[k] == re.search(r"^%s=(.*)$" % re.escape(p), orig_text, re.M).group(1) for k, p in want.items())
+        check("%s: demo TLS Secret values equal compose's properties file" % env, same)
+        check("%s: strict.ssl demo value equals compose's" % env,
+              cenv["strict.ssl"] == re.search(r"^strict\.ssl=(.*)$", orig_text, re.M).group(1))
+        props_out = [d for d in ds if d["kind"] == "ConfigMap" and d["metadata"]["name"].endswith("-properties")][0]["data"]["application.properties"]
+        code = lambda t: {l for l in t.splitlines() if l.strip() and not l.lstrip().startswith("#")}
+        removed = code(orig_text) - code(props_out)
+        allowed = re.compile(r"(server\.ssl\.(key-store-password|trust-store-password|keyAlias)|rsa\.key-id|strict\.ssl|server\.port)=|^\s+(\"|\{|\})")
+        odd = [l for l in removed if not allowed.search(l) and not l.startswith("platform.placeholder")]
+        check("%s: only the TLS settings, port and placeholder block differ from compose's properties file" % env, not odd, str(odd[:3]))
+
+    # demo infra: same images, entrypoint and role passwords as compose's shared-infra
+    shared = os.path.join(REPO, "compose-configs", "shared-infra")
+    envx = open(os.path.join(shared, ".env.example")).read()
+    pg = yaml.safe_load(open(os.path.join(CHART, "..", "egeria-demo-postgres", "values.yaml")))["image"]
+    kf = yaml.safe_load(open(os.path.join(CHART, "..", "egeria-demo-kafka", "values.yaml")))["image"]
+    check("demo Postgres image equals compose's SHARED_POSTGRES_IMAGE", "SHARED_POSTGRES_IMAGE=%s:%s" % (pg["repository"], pg["tag"]) in envx)
+    check("demo Kafka image equals compose's SHARED_KAFKA_IMAGE (digest pinned)", "SHARED_KAFKA_IMAGE=%s@%s" % (kf["repository"], kf["digest"]) in envx)
+    check("demo Kafka entrypoint equals compose's kafka-entrypoint.sh",
+          filecmp.cmp(os.path.join(CHART, "..", "egeria-demo-kafka", "files", "kafka-entrypoint.sh"), os.path.join(shared, "kafka-entrypoint.sh"), shallow=False))
+    sql = open(os.path.join(CHART, "..", "egeria-demo-postgres", "files", "init-egeria-demo.sql")).read()
+    orig = open(os.path.join(shared, "docker-entrypoint-initdb.d", "init_egeria.sql")).read()
+    mine = dict(re.findall(r"CREATE ROLE (\w+) WITH [A-Z ]+ PASSWORD '([^']*)'", sql))
+    theirs = dict(re.findall(r"create user (\w+) .*?password '([^']*)'", orig))
+    check("demo init SQL roles and passwords equal compose's init_egeria.sql (%d roles)" % len(mine), len(mine) == 3 and all(theirs.get(r) == p for r, p in mine.items()))
+    check("demo init SQL databases are the ones compose creates", all(("create database %s;" % d) in orig for d in re.findall(r"CREATE DATABASE (\w+)'", sql)))
 
     print("\n%d failed" % len(failures) if failures else "\nno drift")
     return 1 if failures else 0

@@ -1,0 +1,16 @@
+# DEMO ONLY. One Kafka node, no persistence (an emptyDir), no TLS or auth, no HA.
+# Same image and entrypoint as compose's shared-infra (SHARED_KAFKA_IMAGE, kafka-entrypoint.sh).
+# Port is fixed at 9192, as in compose.
+image:
+  repository: cleanstart/kafka
+  digest: sha256:3bfad519feac67e6bd1ae2b18b3e4770cdf2fedf53ecff7b38a520a7c5d77564
+  pullPolicy: IfNotPresent
+# Same retention settings as compose (a topic must not grow without bound: see the entrypoint's header).
+retention:
+  hours: "24"
+  bytes: "536870912"
+  segmentBytes: "107374182"
+heap: "-Xmx1G -Xms1G"
+resources:
+  requests: {cpu: 200m, memory: 1536Mi}
+  limits: {memory: 2560Mi}

@@ -1,6 +1,6 @@
 # Production-style posture: hardened and operable, not highly available.
 # Required: secrets.existingSecret, postgres.host, kafka.bootstrapServers, and
-# persistence.storageClassName. The chart refuses to render without them.
+# persistence.storageClassName and tls.existingSecret. (canary.existingSecret is needed for helm test.) The chart refuses to render without them.
 posture: production
 secrets:
   useDemoFiles: false

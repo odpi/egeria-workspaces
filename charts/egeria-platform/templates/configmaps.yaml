@@ -5,6 +5,9 @@
 {{- $props := .Files.Get (printf "files/%s/application.properties" $env) -}}
 {{- $props = regexReplaceAllLiteral `(?m)^server\.port=.*$` $props (printf "server.port=%d" (int $cfg.port)) -}}
 {{- $props = regexReplaceAllLiteral `(?s)platform\.placeholder\.variables=\\\n  \{.*?\n  \}` $props $cfg.placeholderBlock -}}
+{{- /* TLS passwords, the key alias and the token key id move to the TLS Secret (env overrides). */ -}}
+{{- $props = regexReplaceAllLiteral `(?m)^(server\.ssl\.(key-store-password|trust-store-password|keyAlias)|rsa\.key-id)=.*\n` $props "" -}}
+{{- $props = regexReplaceAllLiteral `(?m)^strict\.ssl=.*\n` $props "" -}}
 {{- if contains "host.docker.internal" $props -}}
 {{- fail "internal error: host.docker.internal is still in the rendered application.properties" -}}
 {{- end }}

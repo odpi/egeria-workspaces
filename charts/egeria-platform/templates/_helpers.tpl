@@ -54,10 +54,16 @@ servers: [fs-metadata-store, fs-engine-host, fs-integration-daemon, fs-view-serv
 {{- end -}}
 {{- end -}}
 
-{{- if not $v.postgres.host -}}
+{{- if and (eq $v.posture "production") (or $v.demoPostgres.enabled $v.demoKafka.enabled) -}}
+{{- fail "demoPostgres and demoKafka are demo only: the production posture needs your own postgres.host and kafka.bootstrapServers." -}}
+{{- end -}}
+{{- $pgHost := default (ternary (printf "%s-demo-postgres" .Release.Name) "" $v.demoPostgres.enabled) $v.postgres.host -}}
+{{- $pgPort := ternary 5442 (int $v.postgres.port) (and $v.demoPostgres.enabled (not $v.postgres.host)) -}}
+{{- $kafka := default (ternary (printf "%s-demo-kafka.%s.svc.cluster.local:9192" .Release.Name .Release.Namespace) "" $v.demoKafka.enabled) $v.kafka.bootstrapServers -}}
+{{- if not $pgHost -}}
 {{- fail "set postgres.host: the platform needs an external PostgreSQL (host name of a service in or outside the cluster). The database defaults to the environment's: egeria or egeria_freshstart." -}}
 {{- end -}}
-{{- if not $v.kafka.bootstrapServers -}}
+{{- if not $kafka -}}
 {{- fail "set kafka.bootstrapServers: the platform needs an external Kafka (host:port)." -}}
 {{- end -}}
 
@@ -75,6 +81,11 @@ servers: [fs-metadata-store, fs-engine-host, fs-integration-daemon, fs-view-serv
 {{- end -}}
 {{- end -}}
 
+{{- if eq $v.posture "production" -}}
+{{- if not $v.tls.existingSecret -}}{{- fail "the production posture requires tls.existingSecret: a Secret with keystore.p12, truststore.p12, keystore-password and truststore-password. The demo keystore built into the image is demo only." -}}{{- end -}}
+{{- if eq (toString $v.tls.strictSsl) "false" -}}{{- fail "tls.strictSsl=false is demo only: the production posture checks TLS certificates (strict.ssl=true)." -}}{{- end -}}
+{{- end -}}
+
 {{- $startup := mul (int $v.probes.startup.failureThreshold) (int $v.probes.startup.periodSeconds) -}}
 {{- if lt $startup 600 -}}
 {{- fail (printf "probes.startup allows %d seconds (failureThreshold x periodSeconds): it must be at least 600, because the first start loads content packs. Raise probes.startup.failureThreshold." $startup) -}}
@@ -86,13 +97,13 @@ servers: [fs-metadata-store, fs-engine-host, fs-integration-daemon, fs-view-serv
 {{- $self := printf "https://%s.%s.svc.cluster.local:%d" $headless .Release.Namespace $port -}}
 {{- $pairs := list
   (list "organizationName" (ternary "null" (printf "%q" $org) (eq $org "null")))
-  (list "kafkaEndpoint" (printf "%q" $v.kafka.bootstrapServers))
+  (list "kafkaEndpoint" (printf "%q" $kafka))
   (list "egeriaEndpoint" (printf "%q" $self))
   (list "egeriaLocalEndpoint" (printf "%q" (printf "https://localhost:%d" $port)))
   (list "secretsStoreProvider" (printf "%q" "org.odpi.openmetadata.adapters.connectors.secretsstore.yaml.YAMLSecretsStoreProvider"))
   (list "egeriaServersSecretsStore" (printf "%q" "/deployments/secrets/egeria-servers.omsecrets"))
   (list "egeriaServersSecretsCollection" (printf "%q" "EgeriaServers"))
-  (list "repositoryDatabaseURL" (printf "%q" (printf "jdbc:postgresql://%s:%d/%s" $v.postgres.host (int $v.postgres.port) (default $d.database $v.postgres.database))))
+  (list "repositoryDatabaseURL" (printf "%q" (printf "jdbc:postgresql://%s:%d/%s" $pgHost (int $pgPort) (default $d.database $v.postgres.database))))
   (list "repositorySecretCollectionName" (printf "%q" "PostgreSQLRepository"))
   (list "userDirectorySecretsStore" (printf "%q" $d.userDirectoryStore))
   (list "userDirectorySecretsCollectionName" (printf "%q" $d.userDirectoryCollection))
@@ -108,9 +119,19 @@ port: {{ $port }}
 healthPath: {{ $v.platform.healthPath | quote }}
 servers: {{ toJson $servers }}
 xtdb: {{ $d.xtdb }}
+kafka: {{ $kafka | quote }}
+pgHost: {{ $pgHost | quote }}
+pgPort: {{ $pgPort }}
 cpuLimit: {{ default $d.cpuLimit $v.resources.limits.cpu | quote }}
 secretName: {{ default (printf "%s-secrets" $fullname) $v.secrets.existingSecret }}
 createSecret: {{ not $v.secrets.existingSecret }}
+viewServer: {{ default (index (without (mustRegexFindAll "[a-z-]+-view-server" (join " " $servers) -1) "") 0) $v.canary.viewServer | quote }}
+canarySecretName: {{ default (printf "%s-canary" $fullname) $v.canary.existingSecret }}
+createCanarySecret: {{ and (not $v.canary.existingSecret) (eq $v.posture "demo") }}
+hasCanary: {{ or (not (not $v.canary.existingSecret)) (eq $v.posture "demo") }}
+tlsSecretName: {{ default (printf "%s-tls" $fullname) $v.tls.existingSecret }}
+createTlsSecret: {{ not $v.tls.existingSecret }}
+strictSsl: {{ ternary (eq (toString $v.tls.strictSsl) "true") (eq $v.posture "production") (ne (toString $v.tls.strictSsl) "") }}
 placeholderBlock: {{ $block | toJson }}
 {{- end -}}
 
@@ -122,3 +143,8 @@ placeholderBlock: {{ $block | toJson }}
   code=$(curl -k -s -o /dev/null -w '%{http_code}' --max-time 10 "https://localhost:{{ .port }}{{ .healthPath }}");
   [ "$code" = 200 ] || [ "$code" = 401 ]
 {{- end -}}
+
+{{/* Value of one property line in a properties file: dict "name" "props". */}}
+{{- define "egeria-platform.prop" -}}
+{{- regexFind (printf "(?m)^%s=.*$" (regexQuoteMeta .name)) .props | trimPrefix (printf "%s=" .name) -}}
+{{- end }}
