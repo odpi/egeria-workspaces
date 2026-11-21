@@ -179,6 +179,50 @@ def get_perspectives(
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     """Return all Perspective elements from the metadata repository."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
+    try:
+        mgr = _get_actor_manager(url, server, user_id, user_pwd)
+    except Exception as exc:
+        logger.exception("Failed to create ActorManager")
+        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+
+    try:
+        raw = mgr.find_actor_profiles(
+            search_string="*",
+            starts_with=True,
+            output_format="JSON",
+            start_from=start_from,
+            page_size=page_size,
+            metadata_element_type="Perspective",
+            graph_query_depth=0,
+            sequencing_order="PROPERTY_ASCENDING",
+            sequencing_property="displayName",
+            as_of_time=as_of_time or None,
+        )
+    except Exception as exc:
+        logger.exception("find_actor_profiles (Perspective) failed")
+        raise HTTPException(status_code=500, detail=f"Perspective retrieval failed: {exc}")
+
+    if not isinstance(raw, list):
+        raw = []
+
+    if not include_templates:
+        raw = [e for e in raw if not _is_template(e)]
+
+    perspectives = [_serialize_perspective(p) for p in raw if _type_name(p) == "Perspective"]
+    perspectives.sort(key=lambda p: (p.get("displayName") or "").lower())
+    return JSONResponse({"perspectives": perspectives, "total": len(perspectives)})
+
+
+@router.get("/api/perspectives/{perspective_guid}", summary="Get a single Perspective by GUID")
+def get_perspective(
+    perspective_guid: str,
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
+):
+    """Return full detail for a single Perspective, including linked Questions via ScopedBy."""
     # get_actor_profile_by_guid enforces ActorProfile type server-side and Perspective is
     # not an ActorProfile subtype, so it rejects it. ClassificationExplorer's generic
     # get_element_by_guid accepts any element and returns the same shape (identical

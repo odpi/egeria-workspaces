@@ -182,48 +182,10 @@ def get_node_children(
     return JSONResponse(result)
 
 
-@router.get("/api/collections/{node_guid}", summary="Detail for one collection node")
-def get_node(
-    node_guid: str,
-    url:      Optional[str] = Query(None),
-    server:   Optional[str] = Query(None),
-    user_id:  Optional[str] = Query(None),
-):
-    """Detail for a single collection node: properties, members, relationships."""
-    user_pwd = None  # never from the URL: a password in a query string lands in access logs
-    try:
-        mgr = _get_manager(url, server, user_id, user_pwd)
-    except Exception as exc:
-        logger.exception("Failed to create CollectionManager")
-        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
-
-    raw = None
-    try:
-        raw = mgr.get_collection_by_guid(node_guid, output_format="JSON")
-    except Exception:
-        pass
-    if not raw:
-        # Non-collection member (e.g. an asset) — fall back to the digital-products node lookup.
-        from digital_products_handler import get_node as dp_get_node
-        # Keyword args: dp_get_node is a route function (node_guid, url, server, user_id) with no
-        # user_pwd; a fifth positional arg raised TypeError (PO-24).
-        return dp_get_node(node_guid, url=url, server=server, user_id=user_id)
-
-    node = _serialize_node(raw)
-    node["relationships"] = _extract_all_rels(raw)
-    try:
-        raw_members = mgr.get_collection_members(
-            collection_guid=node_guid,
-            output_format="JSON",
-            page_size=200,
-            body={"class": "ResultsRequestBody", "graphQueryDepth": 0},
-        )
-    except Exception:
-        raw_members = []
-    node["children"] = [_serialize_node(m) for m in raw_members] if isinstance(raw_members, list) else []
-    return JSONResponse(node)
-
-
+# Must be registered before GET /api/collections/{node_guid} below — FastAPI/
+# Starlette matches routes in declaration order, and a bare "by-type" would
+# otherwise be swallowed by {node_guid} as if it were a guid (PO-60; quickstart
+# has the same order).
 @router.get("/api/collections/by-type", summary="Existing collections of a given subtype")
 def get_collections_by_type(
     type_name: str = Query(..., description="Collection subtype, e.g. DigitalProduct, Agreement, or plain Collection"),
@@ -251,6 +213,46 @@ def get_collections_by_type(
         logger.exception(f"Failed to find collections of type {type_name}")
         raise HTTPException(status_code=500, detail=f"Failed to find collections of type {type_name}: {exc}")
     return JSONResponse([_serialize_node(c) for c in cols] if isinstance(cols, list) else [])
+
+
+@router.get("/api/collections/{node_guid}", summary="Detail for one collection node")
+def get_node(
+    node_guid: str,
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+):
+    """Detail for a single collection node: properties, members, relationships."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
+    try:
+        mgr = _get_manager(url, server, user_id, user_pwd)
+    except Exception as exc:
+        logger.exception("Failed to create CollectionManager")
+        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+
+    raw = None
+    try:
+        raw = mgr.get_collection_by_guid(node_guid, output_format="JSON")
+    except Exception:
+        pass
+    if not raw:
+        # Non-collection member (e.g. an asset) — fall back to the digital-products node lookup.
+        from digital_products_handler import get_node as dp_get_node
+        return dp_get_node(node_guid, url, server, user_id)  # its signature; it applies the service password itself
+
+    node = _serialize_node(raw)
+    node["relationships"] = _extract_all_rels(raw)
+    try:
+        raw_members = mgr.get_collection_members(
+            collection_guid=node_guid,
+            output_format="JSON",
+            page_size=200,
+            body={"class": "ResultsRequestBody", "graphQueryDepth": 0},
+        )
+    except Exception:
+        raw_members = []
+    node["children"] = [_serialize_node(m) for m in raw_members] if isinstance(raw_members, list) else []
+    return JSONResponse(node)
 
 
 class CreateCollectionBody(PlatformBody):
