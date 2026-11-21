@@ -275,6 +275,22 @@ def test_password_request_with_a_session_still_signs_in_as_sent(client, mode):
     assert _Mint.calls == [(HOME, "peterprofile", "own")]
 
 
+@pytest.mark.parametrize("mode", [DEMO], indirect=True)
+def test_demo_signed_in_same_password_twice_reuses_the_token_po40(client, mode):
+    """PO-40 token reuse still applies in a login-gated mode: a signed-in demo session sending the same
+    password twice gets back the token minted the first time (the other PO-40 tests run in local mode)."""
+    if not hasattr(egeria_auth, "token_reuse_key"):
+        pytest.skip("only quickstart has PO-40 token reuse")
+    cookies = _session_cookie("someone@example.org")
+    body = {"user_id": "peterprofile", "password": "own"}
+    first = _post(client, body, cookies=cookies)
+    second = _post(client, body, cookies=cookies)
+    assert first.status_code == 200 and second.status_code == 200, (first.text, second.text)
+    assert second.json()["token"] == first.json()["token"]
+    assert second.json()["user_id"] == "peterprofile"
+    assert _Mint.calls == [(HOME, "peterprofile", "own")]          # minted once, then reused
+
+
 @pytest.mark.parametrize("mode", [LOCAL, DEMO, SERVER_MANAGED], indirect=True)
 def test_password_request_foreign_platform_gate_unchanged(client, mode):
     r = _post(client, {"url": FOREIGN, "user_id": "x", "password": SERVICE_PWD})
