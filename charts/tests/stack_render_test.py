@@ -67,6 +67,9 @@ def main():
     refuses("a core.environment that differs is refused", base + ["--set", "core.environment=freshstart"], ["core.environment", "freshstart"])
     refuses("a portal.environment that differs is refused", base + ["--set", "portal.environment=freshstart"], ["portal.environment"])
     refuses("differing postures are refused", base + ["--set", "portal.posture=production"], ["posture"])
+    refuses("posture=production alone (parts still demo) is refused, naming values-production.yaml",
+            base + ["--set", "posture=production"], ["posture", "values-production.yaml"])
+    refuses("core.posture=production alone is refused", base + ["--set", "core.posture=production"], ["posture"])
     refuses("a portal.platform.serviceName that is not this release's platform is refused", base + ["--set", "portal.platform.serviceName=other"], ["portal.platform.serviceName", "s-platform"])
     refuses("a bad top-level environment is refused", base + ["--set", "environment=bogus"], ["environment"])
     # two releases do not collide

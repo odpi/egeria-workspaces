@@ -55,7 +55,7 @@ spec:
           # Sign in as the canary account (non-personal), never with an empty body, which would mint the Portal's own token.
           body = json.dumps({"user_id": os.environ["CANARY_USER"], "password": os.environ["CANARY_PASSWORD"]})
           s, b = call("POST", "/api/egeria-token", body, {"Content-Type": "application/json"}, os.environ["TOKEN_BASE"])
-          need(s == 200, f"the canary account gets a bearer token from Egeria through the front door (HTTP {s})")
+          need(s == 200, f"the canary account gets a bearer token from Egeria via {os.environ['TOKEN_BASE']} (HTTP {s})")
           need(bool(json.loads(b).get("token")), "the response carries a token")
           print("PASS: portal up, front door and Egeria token verified")
           {{- else }}

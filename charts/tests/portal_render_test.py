@@ -193,6 +193,7 @@ def main():
     tb = [l for l in dm.splitlines() if "TOKEN_BASE" in l]
     ro = [l for l in dm.splitlines() if "REDIRECT_OK" in l and "name:" in l]
     check("demoMode: TOKEN_BASE is the Portal Service, REDIRECT_OK true", tb and "r1-portal:8000" in tb[0] and ro and '"true"' in ro[0], str(tb + ro))
+    check("the canary message names the address it used (not 'front door' when it went to 8000)", "via {os.environ['TOKEN_BASE']}" in dm and "through the front door (HTTP" not in dm)
     rc, qs, _ = template(DEMO + BASE)
     tb = [l for l in qs.splitlines() if "TOKEN_BASE" in l]
     ro = [l for l in qs.splitlines() if "REDIRECT_OK" in l and "name:" in l]

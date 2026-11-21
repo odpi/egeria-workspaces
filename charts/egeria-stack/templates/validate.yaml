@@ -13,8 +13,8 @@
 {{- if ne (toString .Values.portal.environment) $env -}}
 {{- fail (printf "portal.environment is %q but environment is %q: set portal.environment to the same value" (toString .Values.portal.environment) $env) -}}
 {{- end -}}
-{{- if ne (toString .Values.core.posture) (toString .Values.portal.posture) -}}
-{{- fail (printf "core.posture is %q but portal.posture is %q: both parts use the same posture" (toString .Values.core.posture) (toString .Values.portal.posture)) -}}
+{{- if or (ne (toString .Values.core.posture) (toString .Values.posture)) (ne (toString .Values.portal.posture) (toString .Values.posture)) -}}
+{{- fail (printf "posture is %q, core.posture is %q and portal.posture is %q: all three must be the same. Use -f values-%s.yaml, which sets all three (setting posture alone changes nothing in the parts)." (toString .Values.posture) (toString .Values.core.posture) (toString .Values.portal.posture) (toString .Values.posture)) -}}
 {{- end -}}
 {{- if and .Values.portal.platform.serviceName (ne .Values.portal.platform.serviceName (printf "%s-platform" .Release.Name)) -}}
 {{- fail (printf "portal.platform.serviceName is %q but this release's platform Service is %q: leave it empty" .Values.portal.platform.serviceName (printf "%s-platform" .Release.Name)) -}}
