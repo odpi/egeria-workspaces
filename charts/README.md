@@ -52,8 +52,17 @@ kubectl -n egeria port-forward svc/pq-portal-web 8085:8085
 * `httpd.conf` and the proxy routes are compose's, copied into `files/` by `tests/gen_portal_conf.py` and checked by `drift_test.py`;
   the vhost is the chart's. Routes to services this chart does not deploy (My Profile, Trellis) stay in the config and answer 503.
 * `EGERIA_ROOT_PATH` is `/app/dr-egeria`, never compose's `/` (a non-root user cannot write there); `portal_render_test.py` checks it.
-* **Readiness is an Egeria call**: the Portal pod is Ready only when `POST /api/egeria-token` (its own user) succeeds, so a platform outage
-  makes the Portal not Ready (the Apache pod stays up). The Portal itself heals Egeria content on its own; nothing in Helm hooks.
+* **Readiness is a plain `GET /`**, like liveness and startup: an Egeria outage must not become a 503 at the Ingress, and a probe must not
+  mint tokens. Egeria reachability is proven by `helm test`, which signs in as a non-personal canary account (`canary.existingSecret`,
+  keys `userId` and `password`; the demo posture makes one from the tracked files) through the front door. The Portal heals Egeria content
+  itself; nothing in Helm hooks.
+* **Login gate:** `SERVER_MANAGED_AUTH` is set explicitly (true for freshstart, false for quickstart). The chart refuses production with
+  quickstart (no gate there), refuses an Ingress with quickstart and `demoMode=false` (an ungated Portal) unless `allowUngatedPortal=true`
+  (demo only; NOTES warns), and refuses an Ingress without `networkPolicy.enabled`: the gate trusts the edge header Apache adds, so the
+  Portal Service on 8000 must be reachable only from the front door. The Ingress backend is always `<release>-portal-web`.
+* `extraEnv` may not set names the chart owns (`EGERIA_ROOT_PATH`, `DEMO_MODE`, `SERVER_MANAGED_AUTH`, passwords, ...).
+* Known issue PO-68 (Portal, HIGH): `POST /api/egeria-token` with an empty body mints the Portal's service-user token for any caller.
+  Fix it in the Portal before any chart Ingress; then the canary should also assert that `{}` without a session gets 401.
 * Demo posture creates a Secret (random `jwt-secret` and `mcp-access-token`, kept across upgrades; the public demo Egeria password).
   Production needs `secrets.existingSecret` (keys `jwt-secret`, `egeria-user-password`, `mcp-access-token`), `tls.caSecret` (key `ca.crt`),
   image digests, a StorageClass, and refuses `demoMode`.

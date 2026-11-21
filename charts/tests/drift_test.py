@@ -207,6 +207,9 @@ def main():
         tracked = yaml.safe_load(open(os.path.join(CHART, "files", penv, "secrets", dirname + ".omsecrets")))["secretsCollections"][col]["users"][user]["secrets"]["clearPassword"]
         mine = open(os.path.join(CHART, "..", "egeria-portal", "files", penv, "egeria-user-password")).read().strip()
         check("portal %s demo Egeria password for %s equals the tracked user directory's" % (penv, user), mine == tracked)
+        canary = yaml.safe_load(open(os.path.join(CHART, "files", penv, "secrets", dirname + ".omsecrets")))["secretsCollections"][col]["users"]["omagspcatnpa"]["secrets"]["clearPassword"]
+        check("portal %s demo canary password for omagspcatnpa equals the tracked user directory's" % penv,
+              open(os.path.join(CHART, "..", "egeria-portal", "files", penv, "canary-password")).read().strip() == canary)
 
     print("\n%d failed" % len(failures) if failures else "\nno drift")
     return 1 if failures else 0

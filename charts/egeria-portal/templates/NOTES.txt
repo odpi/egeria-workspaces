@@ -1,13 +1,18 @@
 {{- $cfg := include "egeria-portal.cfg" . | fromYaml -}}
 Egeria Portal ({{ .Values.environment }}, {{ .Values.posture }}) installed as {{ .Release.Name }}.
 
-NOT VERIFIED until `helm test {{ .Release.Name }} -n {{ .Release.Namespace }}` prints PASS. The Portal pod is
-Ready only when it can get a token from Egeria ({{ $cfg.platformUrl }}); if the platform is still starting, wait.
+NOT VERIFIED until `helm test {{ .Release.Name }} -n {{ .Release.Namespace }}` prints PASS. A Ready Portal pod only means the
+process answers; `helm test` signs in to Egeria ({{ $cfg.platformUrl }}) as the canary account through the front door.
 
 Front door (Apache, plain HTTP; TLS belongs at the Ingress):
   kubectl -n {{ .Release.Namespace }} port-forward svc/{{ $cfg.webname }} 8085:8085   then open http://localhost:8085/portal
 {{- if .Values.ingress.enabled }}
   Ingress host: {{ .Values.ingress.host }}
+{{- end }}
+{{- if and .Values.allowUngatedPortal (not $cfg.gated) }}
+
+WARNING: allowUngatedPortal is true and this quickstart Portal has NO login gate. Anyone who can reach it can use Egeria as the
+Portal's service user. Demo only; never on a network you do not control.
 {{- end }}
 {{- if $cfg.createSecret }}
 

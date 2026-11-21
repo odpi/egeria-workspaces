@@ -55,8 +55,13 @@ images:
     pullPolicy: IfNotPresent
 
 demoMode: false          # the public-demo login gate and registration; see the Portal's demo-mode.md
+# A quickstart Portal behind an Ingress with demoMode=false has no login gate (local mode: anyone reaches the Portal as its
+# service user). The chart refuses that unless this is true. Demo posture only; NOTES warns.
+allowUngatedPortal: false
 siteUrl: ""              # SITE_URL: the external URL (links in emails)
-extraEnv: []             # additional environment entries for the Portal container
+# Additional environment entries for the Portal container. The chart refuses names it owns (EGERIA_ROOT_PATH,
+# DEMO_MODE, SERVER_MANAGED_AUTH, JWT_SECRET, EGERIA_USER_PASSWORD, MCP_ACCESS_TOKEN, EGERIA_USER, PORTAL_ALLOWED_PLATFORM_URLS).
+extraEnv: []
 
 securityContext:
   runAsUser: 1001
@@ -91,6 +96,11 @@ resources:
   apache:
     requests: {cpu: 50m, memory: 64Mi}
     limits: {memory: 256Mi}
+
+canary:
+  # helm test signs in with this non-personal account ({user_id, password}), never as the Portal's own user.
+  # Keys userId and password. Required for helm test in production; the demo posture makes one from the tracked demo files.
+  existingSecret: ""
 
 ingress:
   enabled: false

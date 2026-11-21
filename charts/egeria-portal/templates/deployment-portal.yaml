@@ -51,6 +51,8 @@ spec:
             - {name: EGERIA_OUTBOX_PATH, value: dr-egeria-outbox}
             - {name: HOME, value: /home/portal}
             - {name: DEMO_MODE, value: {{ $v.demoMode | quote }}}
+            # Set explicitly: the image's default differs by environment (true for freshstart, false for quickstart).
+            - {name: SERVER_MANAGED_AUTH, value: {{ $cfg.managedAuth | quote }}}
             - {name: DEMO_DB_PATH, value: /app/demo-data/demo.db}
             - {name: FEEDBACK_DB_PATH, value: /app/demo-data/feedback.db}
             - {name: PYEGERIA_SSL_VERIFY, value: {{ $v.tls.verify | quote }}}
@@ -82,19 +84,12 @@ spec:
             httpGet: {path: /, port: http}
             periodSeconds: 10
             failureThreshold: 60
-          # Ready only when the Portal can get a token from Egeria (POST /api/egeria-token with the Portal's own user).
+          # Plain GET /, like liveness: Egeria reachability is proven by `helm test`, not by pod readiness (a platform
+          # outage must not turn into a 503 at the Ingress, and a probe must not mint tokens).
           readinessProbe:
-            exec:
-              command:
-                - python
-                - -c
-                - |
-                  import http.client,sys
-                  c=http.client.HTTPConnection("127.0.0.1",8000,timeout=25)
-                  c.request("POST","/api/egeria-token","{}",{"Content-Type":"application/json"})
-                  sys.exit(0 if c.getresponse().status==200 else 1)
-            periodSeconds: 30
-            timeoutSeconds: 30
+            httpGet: {path: /, port: http}
+            periodSeconds: 10
+            timeoutSeconds: 5
             failureThreshold: 3
           livenessProbe:
             httpGet: {path: /, port: http}

@@ -23,6 +23,11 @@ spec:
         {{- include "egeria-common.containerSecurityContext" . | nindent 8 }}
       env:
         - {name: FRONT, value: "http://{{ $cfg.webname }}:8085"}
+        - {name: REDIRECT_OK, value: {{ $cfg.managedAuth | quote }}}
+        {{- if $cfg.hasCanary }}
+        - {name: CANARY_USER, valueFrom: {secretKeyRef: {name: {{ $cfg.canarySecretName }}, key: userId}}}
+        - {name: CANARY_PASSWORD, valueFrom: {secretKeyRef: {name: {{ $cfg.canarySecretName }}, key: password}}}
+        {{- end }}
       command:
         - python3
         - -c
@@ -38,9 +43,18 @@ spec:
               print(("ok:   " if ok else "FAIL: ") + what, flush=True)
               if not ok:
                   sys.exit(1)
+          # freshstart's gate redirects /portal to its login page; quickstart serves it
+          ok_codes = (200, 301, 302) if os.environ["REDIRECT_OK"] == "true" else (200,)
           s, _ = call("GET", "/portal")
-          need(s in (200, 301, 302), f"front door answers /portal (HTTP {s}; freshstart redirects)")
-          s, b = call("POST", "/api/egeria-token", "{}", {"Content-Type": "application/json"})
-          need(s == 200, f"Portal gets a bearer token from Egeria through the front door (HTTP {s})")
+          need(s in ok_codes, f"front door answers /portal (HTTP {s})")
+          {{- if $cfg.hasCanary }}
+          # Sign in as the canary account (non-personal), never with an empty body, which would mint the Portal's own token.
+          body = json.dumps({"user_id": os.environ["CANARY_USER"], "password": os.environ["CANARY_PASSWORD"]})
+          s, b = call("POST", "/api/egeria-token", body, {"Content-Type": "application/json"})
+          need(s == 200, f"the canary account gets a bearer token from Egeria through the front door (HTTP {s})")
           need(bool(json.loads(b).get("token")), "the response carries a token")
           print("PASS: portal up, front door and Egeria token verified")
+          {{- else }}
+          print("FAIL: set canary.existingSecret (keys userId and password: a non-personal account that may sign in) so helm test can prove the Egeria call")
+          sys.exit(1)
+          {{- end }}

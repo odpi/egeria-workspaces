@@ -61,6 +61,22 @@ composeHost: freshstart-pyegeria-web
 {{- if and $prod $v.ingress.enabled (not $v.ingress.tlsSecretName) -}}
 {{- fail "set ingress.tlsSecretName: the production posture requires Ingress TLS" -}}
 {{- end -}}
+{{- if and $prod (eq $v.environment "quickstart") -}}
+{{- fail "the production posture needs a login gate, and the quickstart environment has none (SERVER_MANAGED_AUTH is false there; only the public-demo SQLite accounts gate it). Use environment=freshstart for a gated Portal." -}}
+{{- end -}}
+{{- if and $v.ingress.enabled (eq $v.environment "quickstart") (not $v.demoMode) (not $v.allowUngatedPortal) -}}
+{{- fail "ingress.enabled with environment=quickstart and demoMode=false would publish a Portal with no login gate (local mode: anyone reaches Egeria as the Portal's service user). Use environment=freshstart, or demoMode=true, or set allowUngatedPortal=true (demo posture only)." -}}
+{{- end -}}
+{{- if and $v.ingress.enabled (not $v.networkPolicy.enabled) -}}
+{{- fail "set networkPolicy.enabled=true: with an Ingress, the Portal Service on 8000 must be reachable only from the Apache front door, because the login gate trusts the edge header Apache adds. A direct path to 8000 would bypass the gate." -}}
+{{- end -}}
+{{- if and $v.allowUngatedPortal $prod -}}
+{{- fail "allowUngatedPortal is demo only." -}}
+{{- end -}}
+{{- $owned := list "EGERIA_ROOT_PATH" "EGERIA_INBOX_PATH" "EGERIA_OUTBOX_PATH" "DEMO_MODE" "SERVER_MANAGED_AUTH" "JWT_SECRET" "EGERIA_USER_PASSWORD" "MCP_ACCESS_TOKEN" "EGERIA_USER" "PORTAL_ALLOWED_PLATFORM_URLS" "EGERIA_PLATFORM_URL" -}}
+{{- range $e := $v.extraEnv -}}
+{{- if has $e.name $owned -}}{{- fail (printf "extraEnv may not set %s: the chart owns it (set the matching value instead)." $e.name) -}}{{- end -}}
+{{- end -}}
 {{- $port := int (default $d.platformPort $v.platform.port) -}}
 {{- $name := include "egeria-common.name" (dict "ctx" . "component" "portal") -}}
 {{- $web := include "egeria-common.name" (dict "ctx" . "component" "portal-web") -}}
@@ -74,6 +90,11 @@ userId: {{ default $d.userId $v.egeria.userId | quote }}
 composeHost: {{ $d.composeHost | quote }}
 secretName: {{ default (printf "%s-secrets" $name) $v.secrets.existingSecret }}
 createSecret: {{ not $v.secrets.existingSecret }}
+canarySecretName: {{ default (printf "%s-canary" $name) $v.canary.existingSecret }}
+createCanarySecret: {{ and (not $v.canary.existingSecret) (not $prod) }}
+hasCanary: {{ or (not (not $v.canary.existingSecret)) (not $prod) }}
+managedAuth: {{ eq $v.environment "freshstart" }}
+gated: {{ or (eq $v.environment "freshstart") $v.demoMode }}
 portalImage: {{ include "egeria-portal.image" (dict "img" $v.images.portal "name" "images.portal" "prod" $prod) | quote }}
 apacheImage: {{ include "egeria-portal.image" (dict "img" $v.images.apache "name" "images.apache" "prod" $prod) | quote }}
 dataClaim: {{ default (printf "%s-data" $name) $v.persistence.existingClaim }}
