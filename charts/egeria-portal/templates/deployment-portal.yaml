@@ -3,8 +3,8 @@
 {{- $labels := include "egeria-common.labels" (dict "ctx" . "component" "portal") -}}
 {{- $content := dict "config" "/config" "work" "/work" "cocoWorkbooks" "/coco-workbooks" "designPatterns" "/design-patterns" "templates" "/app/templates" "cocoDags" "/app/coco-dags" -}}
 {{- $exchange := dict "loadingBay" "loading-bay" "landingArea" "landing-area" "cocoDataLake" "coco-data-lake" "distributionHub" "distribution-hub" "treasuryDtsHistory" "treasury-dts-history" -}}
-{{- $propsCm := default (printf "%s-properties" $v.platform.serviceName) $v.platform.propertiesConfigMap -}}
-{{- $userDirSecret := default (printf "%s-secrets" $v.platform.serviceName) $v.platform.userDirectorySecret -}}
+{{- $propsCm := default (printf "%s-properties" $cfg.platformHost) $v.platform.propertiesConfigMap -}}
+{{- $userDirSecret := default (printf "%s-secrets" $cfg.platformHost) $v.platform.userDirectorySecret -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:

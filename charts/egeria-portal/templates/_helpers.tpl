@@ -37,7 +37,12 @@ composeHost: freshstart-pyegeria-web
 {{- fail (printf "posture must be demo or production, not %q (use values-demo.yaml or values-production.yaml)" $v.posture) -}}
 {{- end -}}
 {{- $prod := eq $v.posture "production" -}}
-{{- if not $v.platform.serviceName -}}
+{{- if and $prod (eq $v.environment "quickstart") -}}
+{{- fail "the production posture needs a login gate, and the quickstart environment has none (SERVER_MANAGED_AUTH is false there; only the public-demo SQLite accounts gate it). Use environment=freshstart for a gated Portal." -}}
+{{- end -}}
+{{- $stack := and $v.global (eq (toString (default false $v.global.stack)) "true") -}}
+{{- $platformSvc := default (ternary (printf "%s-platform" .Release.Name) "" $stack) $v.platform.serviceName -}}
+{{- if not $platformSvc -}}
 {{- fail "set platform.serviceName to the Service of the egeria-platform release in this namespace (usually <release>-platform)" -}}
 {{- end -}}
 {{- if and $prod (not $v.secrets.existingSecret) -}}
@@ -61,9 +66,6 @@ composeHost: freshstart-pyegeria-web
 {{- if and $prod $v.ingress.enabled (not $v.ingress.tlsSecretName) -}}
 {{- fail "set ingress.tlsSecretName: the production posture requires Ingress TLS" -}}
 {{- end -}}
-{{- if and $prod (eq $v.environment "quickstart") -}}
-{{- fail "the production posture needs a login gate, and the quickstart environment has none (SERVER_MANAGED_AUTH is false there; only the public-demo SQLite accounts gate it). Use environment=freshstart for a gated Portal." -}}
-{{- end -}}
 {{- if and $v.ingress.enabled (eq $v.environment "quickstart") (not $v.demoMode) (not $v.allowUngatedPortal) -}}
 {{- fail "ingress.enabled with environment=quickstart and demoMode=false would publish a Portal with no login gate (local mode: anyone reaches Egeria as the Portal's service user). Use environment=freshstart, or demoMode=true, or set allowUngatedPortal=true (demo posture only)." -}}
 {{- end -}}
@@ -83,8 +85,8 @@ composeHost: freshstart-pyegeria-web
 fullname: {{ $name }}
 webname: {{ $web }}
 prod: {{ $prod }}
-platformUrl: {{ printf "https://%s:%d" $v.platform.serviceName $port | quote }}
-platformHost: {{ $v.platform.serviceName | quote }}
+platformUrl: {{ printf "https://%s:%d" $platformSvc $port | quote }}
+platformHost: {{ $platformSvc | quote }}
 viewServer: {{ default $d.viewServer $v.platform.viewServer | quote }}
 userId: {{ default $d.userId $v.egeria.userId | quote }}
 composeHost: {{ $d.composeHost | quote }}

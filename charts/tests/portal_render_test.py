@@ -189,6 +189,14 @@ def main():
     check("production without canary.existingSecret: the canary says what to set and fails", "set canary.existingSecret" in out and "sys.exit(1)" in out)
     rc, out, _ = template(PROD + BASE + ["--set", "environment=freshstart", "--set", "canary.existingSecret=my-canary"])
     check("production with canary.existingSecret: the canary reads it", "name: my-canary" in out and "PASS: portal up" in out)
+    rc, dm, _ = template(DEMO + BASE + ["--set", "demoMode=true"])
+    tb = [l for l in dm.splitlines() if "TOKEN_BASE" in l]
+    ro = [l for l in dm.splitlines() if "REDIRECT_OK" in l and "name:" in l]
+    check("demoMode: TOKEN_BASE is the Portal Service, REDIRECT_OK true", tb and "r1-portal:8000" in tb[0] and ro and '"true"' in ro[0], str(tb + ro))
+    rc, qs, _ = template(DEMO + BASE)
+    tb = [l for l in qs.splitlines() if "TOKEN_BASE" in l]
+    ro = [l for l in qs.splitlines() if "REDIRECT_OK" in l and "name:" in l]
+    check("ungated quickstart: TOKEN_BASE is the front door, REDIRECT_OK false", tb and "r1-portal-web:8085" in tb[0] and ro and '"false"' in ro[0], str(tb + ro))
     check("the canary accepts a redirect on freshstart only", 'name: REDIRECT_OK, value: "true"' in out.replace("- {", "{") or "REDIRECT_OK" in out)
 
     if failures:

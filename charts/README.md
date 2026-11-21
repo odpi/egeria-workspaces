@@ -8,6 +8,7 @@ compose disagree.
 |---|---|
 | `egeria-common/` | Library chart: names, labels, pod and container security contexts (`global.openshift`). |
 | `egeria-platform/` | One OMAG platform, one replica (the chart refuses more), for the `quickstart` or the `freshstart` environment. |
+| `egeria-stack/` | Umbrella: the platform (alias `core`) and the Portal (alias `portal`) as one release, so one `helm install` and one `helm test` for both. |
 | `egeria-portal/` | The Portal: pyegeria-web (one pod) behind an Apache front door (Phase 2). Images from `compose-configs/egeria-quickstart/README-portal-images.md`. |
 | `egeria-demo-postgres/` | **Demo only.** One PostgreSQL pod and an idempotent set-up Job (creates only, never drops). |
 | `egeria-demo-kafka/` | **Demo only.** One single-node Kafka (KRaft), no persistence. |
@@ -73,6 +74,22 @@ kubectl -n egeria port-forward svc/pq-portal-web 8085:8085
   OpenShift, Ingress, the optional content claims.
 * Images reach kind through a local registry: `docker network connect kind <registry>`, and a `hosts.toml` for it on the node (see the session notes);
   do not use `kind load` with the containerd image store.
+
+## Umbrella (Phase 2)
+
+```bash
+helm dependency update charts/egeria-platform; helm dependency update charts/egeria-portal; helm dependency update charts/egeria-stack
+helm install st charts/egeria-stack -n egeria --create-namespace -f charts/egeria-stack/values-demo.yaml -f charts/egeria-stack/values-freshstart.yaml \
+  --set core.demoPostgres.enabled=true --set core.demoKafka.enabled=true --set core.persistence.storageClassName=standard \
+  --set portal.images.portal.repository=<registry>/portal-freshstart --set portal.images.portal.tag=freshstart-6.3-<sha> \
+  --set portal.images.apache.repository=<registry>/apache-web --set portal.images.apache.tag=6.3-<sha>
+helm test st -n egeria      # both canaries
+```
+
+* Each part's values go under `core:` and `portal:` and are that chart's own values. The environment must be set for all three
+  (`environment`, `core.environment`, `portal.environment`); `values-quickstart.yaml` and `values-freshstart.yaml` do it, and the chart refuses a mismatch,
+  differing postures, or a `portal.platform.serviceName` that is not `<release>-platform` (inside the stack the Portal finds its platform by itself).
+* Proven on kind: freshstart demo with the bundled Postgres and Kafka; both canaries pass. Production-style, Ingress and OpenShift installs of the stack are not run.
 
 ## Secrets
 

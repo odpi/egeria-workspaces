@@ -1,0 +1,10 @@
+# Demo posture for both parts. Set environment, images and postgres/kafka (or add
+# -f charts/egeria-platform/values-demo-infra.yaml under core: via --set core.demoPostgres.enabled=true
+# and --set core.demoKafka.enabled=true).
+posture: demo
+core:
+  posture: demo
+  secrets:
+    useDemoFiles: true
+portal:
+  posture: demo

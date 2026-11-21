@@ -1,0 +1,4 @@
+Egeria stack ({{ .Values.environment }}, {{ .Values.posture }}) installed as {{ .Release.Name }}: platform {{ .Release.Name }}-platform, Portal {{ .Release.Name }}-portal.
+
+NOT VERIFIED until `helm test {{ .Release.Name }} -n {{ .Release.Namespace }}` prints PASS for both parts (the platform canary and the Portal canary).
+The platform takes minutes to load its content packs; the Portal pod starts at once and waits for it.

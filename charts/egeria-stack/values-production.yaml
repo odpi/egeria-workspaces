@@ -1,0 +1,16 @@
+# Production-style posture for both parts. Each part keeps its own requirements (see their values-production.yaml):
+# core: postgres.host, kafka.bootstrapServers, secrets.existingSecret, tls.existingSecret, persistence, resources;
+# portal: secrets.existingSecret, tls.caSecret, canary.existingSecret, image digests, persistence. Only freshstart (the Portal has a login gate there).
+posture: production
+core:
+  posture: production
+  secrets:
+    useDemoFiles: false
+  networkPolicy:
+    enabled: true
+portal:
+  posture: production
+  tls:
+    verify: true
+  networkPolicy:
+    enabled: true

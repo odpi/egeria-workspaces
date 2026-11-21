@@ -23,7 +23,10 @@ spec:
         {{- include "egeria-common.containerSecurityContext" . | nindent 8 }}
       env:
         - {name: FRONT, value: "http://{{ $cfg.webname }}:8085"}
-        - {name: REDIRECT_OK, value: {{ $cfg.managedAuth | quote }}}
+        - {name: REDIRECT_OK, value: {{ $cfg.gated | quote }}}
+        # Under demoMode the demo gate refuses /api/egeria-token without a demo session when the request comes through
+        # Apache (which adds the edge header), so the token check goes to the Portal Service directly (the NetworkPolicy admits the canary).
+        - {name: TOKEN_BASE, value: {{ ternary (printf "http://%s:8000" $cfg.fullname) (printf "http://%s:8085" $cfg.webname) .Values.demoMode | quote }}}
         {{- if $cfg.hasCanary }}
         - {name: CANARY_USER, valueFrom: {secretKeyRef: {name: {{ $cfg.canarySecretName }}, key: userId}}}
         - {name: CANARY_PASSWORD, valueFrom: {secretKeyRef: {name: {{ $cfg.canarySecretName }}, key: password}}}
@@ -34,8 +37,9 @@ spec:
         - |
           import http.client, json, os, sys, urllib.parse
           u = urllib.parse.urlparse(os.environ["FRONT"])
-          def call(method, path, body=None, headers=None):
-              c = http.client.HTTPConnection(u.hostname, u.port, timeout=120)
+          def call(method, path, body=None, headers=None, base=None):
+              b = urllib.parse.urlparse(base or os.environ["FRONT"])
+              c = http.client.HTTPConnection(b.hostname, b.port, timeout=120)
               c.request(method, path, body, headers or {})
               r = c.getresponse()
               return r.status, r.read()
@@ -43,14 +47,14 @@ spec:
               print(("ok:   " if ok else "FAIL: ") + what, flush=True)
               if not ok:
                   sys.exit(1)
-          # freshstart's gate redirects /portal to its login page; quickstart serves it
+          # a gated Portal (freshstart, or demoMode) redirects /portal to its login page; an ungated quickstart serves it
           ok_codes = (200, 301, 302) if os.environ["REDIRECT_OK"] == "true" else (200,)
           s, _ = call("GET", "/portal")
           need(s in ok_codes, f"front door answers /portal (HTTP {s})")
           {{- if $cfg.hasCanary }}
           # Sign in as the canary account (non-personal), never with an empty body, which would mint the Portal's own token.
           body = json.dumps({"user_id": os.environ["CANARY_USER"], "password": os.environ["CANARY_PASSWORD"]})
-          s, b = call("POST", "/api/egeria-token", body, {"Content-Type": "application/json"})
+          s, b = call("POST", "/api/egeria-token", body, {"Content-Type": "application/json"}, os.environ["TOKEN_BASE"])
           need(s == 200, f"the canary account gets a bearer token from Egeria through the front door (HTTP {s})")
           need(bool(json.loads(b).get("token")), "the response carries a token")
           print("PASS: portal up, front door and Egeria token verified")
