@@ -50,6 +50,11 @@ def _env(monkeypatch):
     import pyegeria
     monkeypatch.setattr(pyegeria, "AssetMaker", _Mint)
     _Mint.calls = []
+    # The no-password cases here are the local (no login gate) rule. PO-68: in the login-gated modes a
+    # no-password request first needs a signed-in Portal user (test_po68_token_route_gate.py).
+    import demo_config
+    monkeypatch.setattr(demo_config, "DEMO_MODE", False)
+    monkeypatch.setattr(demo_config, "SERVER_MANAGED_AUTH", False)
 
 
 @pytest.fixture
