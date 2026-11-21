@@ -12,6 +12,8 @@ Fix a failure by editing quickstart's copy and running
     python3 compose-configs/sync_shared_portal_files.py
 """
 import importlib.util
+import re
+import sys
 import subprocess
 from pathlib import Path
 
@@ -69,3 +71,71 @@ def test_git_tracks_regular_files(rel):
 
 def test_check_mode_agrees():
     assert sync.main(["--check"]) == 0
+
+
+# ── Both trees really run the shared file (not a stale or shadowing copy) ──────────────────
+
+ENVS = {
+    "egeria-quickstart": ROOT / "compose-configs" / "egeria-quickstart",
+    "egeria-freshstart": ROOT / "compose-configs" / "egeria-freshstart",
+}
+_SKIP_DIRS = {".venv", "venv", "node_modules", "__pycache__", ".pytest_cache"}
+
+
+def _files_named(tree: Path, name: str) -> list:
+    return [p for p in tree.rglob(name) if not (set(p.relative_to(tree).parts) & _SKIP_DIRS)]
+
+
+@pytest.mark.parametrize("env", sorted(ENVS))
+@pytest.mark.parametrize("rel", sorted(r for r in sync.shared_files() if r.endswith(".py")))
+def test_python_module_resolves_to_the_shared_copy(env, rel):
+    """The app runs from PyegeriaWebHandler/ (/app): `import <module>` must find the mirrored file
+    there, and no second copy of it may exist anywhere in the tree to shadow it."""
+    app = ENVS[env] / "PyegeriaWebHandler"
+    mod = Path(rel).with_suffix("").as_posix().replace("/", ".")
+    out = subprocess.run(
+        [sys.executable, "-c", "import importlib.util,sys; sys.path.insert(0,'.'); "
+         f"s=importlib.util.find_spec({mod!r}); print(s.origin if s else '')"],
+        cwd=app, capture_output=True, text=True)
+    assert Path(out.stdout.strip()).resolve() == (app / rel).resolve(), out.stdout + out.stderr
+    others = [p for p in _files_named(app, Path(rel).name) if p.resolve() != (app / rel).resolve()]
+    assert not others, f"{env}: other copies of {Path(rel).name} could be imported or served instead: {others}"
+
+
+@pytest.mark.parametrize("env", sorted(ENVS))
+def test_shared_js_is_what_the_pages_load(env):
+    """Each env's pages load /static/egeria-shared-ui.js; the app mounts /static from
+    PyegeriaWebHandler/static; that env's Apache proxies /static to its own pyegeria-web. So the
+    browser gets the mirrored file, and there is exactly one file of that name in the tree."""
+    app = ENVS[env] / "PyegeriaWebHandler"
+    copies = _files_named(app, "egeria-shared-ui.js")
+    assert copies == [app / "static" / "egeria-shared-ui.js"], copies
+    assert re.search(r'_static_dir\s*=\s*SCRIPT_DIR\s*/\s*"static"', (app / "pyegeria_handler.py").read_text())
+    for page in sorted(app.glob("*.html")):
+        for src in re.findall(r'<script[^>]+src="([^"]*egeria-shared-ui\.js[^"]*)"', page.read_text(encoding="utf-8")):
+            assert src.split("?")[0] == "/static/egeria-shared-ui.js", f"{page.name} loads {src}"
+    container = "quickstart-pyegeria-web" if env == "egeria-quickstart" else "freshstart-pyegeria-web"
+    apache = "\n".join(p.read_text(encoding="utf-8") for p in (ENVS[env] / "sites-available").glob("*.conf"))
+    assert re.search(rf'<Location "/static">\s*ProxyPreserveHost On\s*ProxyPass http://{container}:8000/static', apache), \
+        f"{env}: Apache no longer proxies /static to {container}"
+
+
+_TOP_DECL = re.compile(r"^(async\s+function|function|var|const|let|class)\s+([A-Za-z0-9_$]+)", re.M)
+
+
+@pytest.mark.parametrize("env", sorted(ENVS))
+def test_pages_do_not_redeclare_shared_js_names_lexically(env):
+    """Pages load after egeria-shared-ui.js in the same global scope. A page `const`/`let`/`class`
+    with a name the shared file declares is a SyntaxError that blanks the page; node --check on
+    either file alone cannot see it."""
+    app = ENVS[env] / "PyegeriaWebHandler"
+    shared = {m.group(2) for m in _TOP_DECL.finditer((app / "static" / "egeria-shared-ui.js").read_text(encoding="utf-8"))}
+    clashes = []
+    for page in sorted(app.glob("*.html")):
+        text = page.read_text(encoding="utf-8")
+        if "egeria-shared-ui.js" not in text:
+            continue
+        for m in _TOP_DECL.finditer(text):
+            if m.group(2) in shared and m.group(1) in ("const", "let", "class"):
+                clashes.append(f"{page.name}: {m.group(1)} {m.group(2)}")
+    assert not clashes, clashes
