@@ -148,6 +148,34 @@ def main():
     check("extraEnv reaches web and worker", all(env_of(kind(ds3, "Deployment", n)[0], c)["MY_SETTING"]["value"] == "1" for n, c in (("r1-re-web", "web"), ("r1-re-worker", "worker"))))
     ing = renders(DEMO + BASE + ["--set", "ingress.enabled=true", "--set", "ingress.host=h.example"])
     check("an Ingress points at the web Service on its http port", kind(ing, "Ingress")[0]["spec"]["rules"][0]["http"]["paths"][0]["backend"]["service"]["name"] == "r1-re-web")
+    # Prefect worker (increment 2): off by default; on, a worker deployment of the SAME image
+    check("Prefect is off by default: no Prefect worker, PREFECT_ENABLED false", not [d for d in ds if d["metadata"]["name"] == "r1-re-prefect-worker"] and we["PREFECT_ENABLED"]["value"] == "false")
+    PF = ["--set", "prefect.enabled=true", "--set", "prefect.apiUrl=http://prefect-server:4200/api"]
+    dpf = renders(DEMO + BASE + PF)
+    pw = kind(dpf, "Deployment", "r1-re-prefect-worker")[0]
+    pwc = pw["spec"]["template"]["spec"]["containers"][0]
+    wfe, pfe = env_of(kind(dpf, "Deployment", "r1-re-worker")[0], "worker"), env_of(pw, "prefect-worker")
+    check("the Prefect worker runs the `prefect-worker` role on the SAME image as web and worker (one commit, which RE requires to dispatch)",
+          pwc["args"] == ["prefect-worker"] and pwc["image"] == kind(dpf, "Deployment", "r1-re-web")[0]["spec"]["template"]["spec"]["containers"][0]["image"])
+    check("web, worker and the Prefect worker all get PREFECT_ENABLED true, the API URL and the pool", all(
+          e["PREFECT_ENABLED"]["value"] == "true" and e["PREFECT_API_URL"]["value"] == "http://prefect-server:4200/api" and e["PREFECT_WORK_POOL"]["value"] == "resource-explorer-pool"
+          for e in (env_of(kind(dpf, "Deployment", "r1-re-web")[0], "web"), wfe, pfe)))
+    check("the Prefect worker is external-mode like the others (it runs steps that read the registry)", pfe["RE_SCHEMA_MODE"]["value"] == "external")
+    ic = pw["spec"]["template"]["spec"]["initContainers"][0]
+    check("an init step makes the work pool first (prefect deploy needs it to exist)", ic["name"] == "work-pool" and "work-pool create" in ic["args"][0] and "--type process" in ic["args"][0])
+    check("the Prefect worker mounts the shared data claim, has no port and no HTTP probe", any(v["name"] == "data" for v in pw["spec"]["template"]["spec"]["volumes"])
+          and "ports" not in pwc and "readinessProbe" not in pwc)
+    check("the Prefect worker carries the platform client label", pw["spec"]["template"]["metadata"]["labels"].get("egeria.odpi.org/client") == "true")
+    dpk = renders(DEMO + BASE + PF + ["--set", "prefect.apiKeySecret=pf-key", "--set", "prefect.dispatchSteps=survey"])
+    check("an API key Secret and the dispatch steps reach the pods; the key is read from the Secret, never rendered",
+          env_of(kind(dpk, "Deployment", "r1-re-prefect-worker")[0], "prefect-worker")["PREFECT_API_KEY"]["valueFrom"]["secretKeyRef"] == {"name": "pf-key", "key": "api-key"}
+          and env_of(kind(dpk, "Deployment", "r1-re-web")[0], "web")["PREFECT_DISPATCH_STEPS"]["value"] == "survey")
+    dpp = renders(PROD + BASE + PF)
+    check("production + Prefect renders a NetworkPolicy for the Prefect worker too", "r1-re-prefect-worker" in [d["metadata"]["name"] for d in kind(dpp, "NetworkPolicy")])
+    tp = kind(dpf, "Pod")[0]["spec"]["containers"][0]
+    check("with Prefect the helm test also waits for an ONLINE worker on the pool", "workers/filter" in tp["args"][0] and {e["name"] for e in tp["env"]} >= {"PREFECT_API_URL", "PREFECT_WORK_POOL"})
+    refuses("Prefect enabled needs prefect.apiUrl", DEMO + BASE + ["--set", "prefect.enabled=true"], ["prefect.apiUrl", "does not run a Prefect server"])
+    refuses("extraEnv cannot override the Prefect settings the chart owns", DEMO + BASE + PF + ["--set", "extraEnv[0].name=PREFECT_API_URL", "--set", "extraEnv[0].value=x"], ["PREFECT_API_URL"])
     # helm test
     t = kind(ds, "Pod")[0]
     check("the helm test pod is a test hook that reaches the web Service", t["metadata"]["annotations"]["helm.sh/hook"] == "test"

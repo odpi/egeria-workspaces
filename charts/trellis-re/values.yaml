@@ -78,6 +78,21 @@ llm:
     model: ""
   # Provider keys and any other LLM setting go in extraEnv / extraEnvFrom.
 
+prefect:
+  # Resource Explorer can hand survey steps to a Prefect worker (the image's `prefect-worker` role). The Prefect SERVER is yours: this chart
+  # does not run one (point apiUrl at it). web, worker and the Prefect worker run ONE image, so they are always the same commit, which RE
+  # requires before it dispatches (it warns and runs the steps locally otherwise).
+  enabled: false
+  apiUrl: ""               # REQUIRED when enabled, for example http://prefect-server:4200/api
+  workPool: resource-explorer-pool    # a `process` pool: the chart's init step creates it when it is missing
+  dispatchSteps: ""        # PREFECT_DISPATCH_STEPS: which steps run on Prefect; empty is the image default (an unknown token stops start-up)
+  apiKeySecret: ""         # optional: a Secret with key api-key, for a Prefect server that wants one (Prefect Cloud)
+  worker:
+    replicas: 1
+    resources:
+      requests: {cpu: 250m, memory: 1Gi}
+      limits: {memory: 3Gi}
+
 logs:
   # pyegeria and the Dr.Egeria child write logs under a relative `logs` directory, which is /app (root-owned) in the image: an arbitrary
   # OpenShift UID cannot create it. A pod-local path avoids that (found on OpenShift Local, 2026-11-22).

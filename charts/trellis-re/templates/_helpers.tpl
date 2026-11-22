@@ -45,18 +45,24 @@ Use: {{ $cfg := include "trellis-re.cfg" . | fromYaml }}
 {{- if not (has $v.llm.backend (list "ollama" "openai" "anthropic")) -}}
 {{- fail (printf "llm.backend must be ollama, openai or anthropic, not %q" $v.llm.backend) -}}
 {{- end -}}
-{{- $owned := list "RE_SCHEMA_MODE" "PGVECTOR_HOST" "PGVECTOR_PORT" "PGVECTOR_DBNAME" "PGVECTOR_USER" "PGVECTOR_PASSWORD" "PGVECTOR_SCHEMA" "EGERIA_PLATFORM_URL" "EGERIA_VIEW_SERVER_URL" "EGERIA_VIEW_SERVER" "RE_DAEMON_USER_ID" "RE_DAEMON_USER_PASSWORD" "RE_JWT_SECRET" "TRELLIS_DB_CREDENTIAL_KEY" "PYEGERIA_SSL_VERIFY" "PYEGERIA_CA_BUNDLE" "PREFECT_ENABLED" "EMBEDDINGS__DEVICE" "PYEGERIA_LOG_DIRECTORY" "EMBED_WORKER" -}}
+{{- if and $v.prefect.enabled (not $v.prefect.apiUrl) -}}
+{{- fail "set prefect.apiUrl (prefect.enabled is true): the Prefect server's API, for example http://prefect-server:4200/api. This chart does not run a Prefect server." -}}
+{{- end -}}
+{{- if and $v.prefect.enabled (lt (int $v.prefect.worker.replicas) 1) -}}{{- fail "prefect.worker.replicas must be at least 1 (prefect.enabled is true)" -}}{{- end -}}
+{{- $owned := list "RE_SCHEMA_MODE" "PGVECTOR_HOST" "PGVECTOR_PORT" "PGVECTOR_DBNAME" "PGVECTOR_USER" "PGVECTOR_PASSWORD" "PGVECTOR_SCHEMA" "EGERIA_PLATFORM_URL" "EGERIA_VIEW_SERVER_URL" "EGERIA_VIEW_SERVER" "RE_DAEMON_USER_ID" "RE_DAEMON_USER_PASSWORD" "RE_JWT_SECRET" "TRELLIS_DB_CREDENTIAL_KEY" "PYEGERIA_SSL_VERIFY" "PYEGERIA_CA_BUNDLE" "PREFECT_ENABLED" "EMBEDDINGS__DEVICE" "PYEGERIA_LOG_DIRECTORY" "EMBED_WORKER" "PREFECT_API_URL" "PREFECT_WORK_POOL" "PREFECT_DISPATCH_STEPS" "PREFECT_API_KEY" -}}
 {{- range $e := $v.extraEnv -}}
 {{- if has $e.name $owned -}}{{- fail (printf "extraEnv: %s is set by the chart; change the chart value it comes from instead" $e.name) -}}{{- end -}}
 {{- end -}}
 {{- $web := include "egeria-common.name" (dict "ctx" . "component" "re-web") -}}
 {{- $worker := include "egeria-common.name" (dict "ctx" . "component" "re-worker") -}}
+{{- $pfworker := include "egeria-common.name" (dict "ctx" . "component" "re-prefect-worker") -}}
 {{- $job := include "egeria-common.name" (dict "ctx" . "component" "re-schema") -}}
 {{- $secretName := default (include "egeria-common.name" (dict "ctx" . "component" "re-secrets")) $v.secrets.existingSecret -}}
 {{- $dataClaim := default (include "egeria-common.name" (dict "ctx" . "component" "re-data")) $v.persistence.existingClaim -}}
 webname: {{ $web }}
 workername: {{ $worker }}
 jobname: {{ $job }}
+prefectworkername: {{ $pfworker }}
 secretName: {{ $secretName }}
 createSecret: {{ not $v.secrets.existingSecret }}
 dataClaim: {{ $dataClaim }}
@@ -89,8 +95,20 @@ ownerKey: {{ ternary $v.database.owner.passwordKey $v.database.passwordKey (not 
 {{- if $v.tls.caSecret }}
 - {name: PYEGERIA_CA_BUNDLE, value: /etc/egeria-ca/ca.crt}
 {{- end }}
-# One RE commit per release: Prefect dispatch is off here (a later increment adds the Prefect worker), and no MLflow or Phoenix.
+# web, worker and the Prefect worker run one image: one RE commit per release, which RE requires before it dispatches. No MLflow or Phoenix.
+{{- if $v.prefect.enabled }}
+- {name: PREFECT_ENABLED, value: "true"}
+- {name: PREFECT_API_URL, value: {{ $v.prefect.apiUrl | quote }}}
+- {name: PREFECT_WORK_POOL, value: {{ $v.prefect.workPool | quote }}}
+{{- if $v.prefect.dispatchSteps }}
+- {name: PREFECT_DISPATCH_STEPS, value: {{ $v.prefect.dispatchSteps | quote }}}
+{{- end }}
+{{- if $v.prefect.apiKeySecret }}
+- {name: PREFECT_API_KEY, valueFrom: {secretKeyRef: {name: {{ $v.prefect.apiKeySecret }}, key: api-key}}}
+{{- end }}
+{{- else }}
 - {name: PREFECT_ENABLED, value: "false"}
+{{- end }}
 - {name: OBSERVABILITY__MLFLOW__ENABLED, value: "false"}
 - {name: OBSERVABILITY__PHOENIX__ENABLED, value: "false"}
 - {name: EMBEDDINGS__DEVICE, value: {{ $v.embeddings.device | quote }}}

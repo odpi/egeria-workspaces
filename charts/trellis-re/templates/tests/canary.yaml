@@ -22,6 +22,14 @@ spec:
       imagePullPolicy: {{ $v.image.pullPolicy }}
       securityContext:
         {{- include "egeria-common.containerSecurityContext" . | nindent 8 }}
+      {{- if $v.prefect.enabled }}
+      env:
+        - {name: PREFECT_API_URL, value: {{ $v.prefect.apiUrl | quote }}}
+        - {name: PREFECT_WORK_POOL, value: {{ $v.prefect.workPool | quote }}}
+        {{- if $v.prefect.apiKeySecret }}
+        - {name: PREFECT_API_KEY, valueFrom: {secretKeyRef: {name: {{ $v.prefect.apiKeySecret }}, key: api-key}}}
+        {{- end }}
+      {{- end }}
       command: ["/bin/sh", "-c"]
       args:
         - |
@@ -34,6 +42,31 @@ spec:
           done
           r=$(code $base/health/ready);  [ "$r" = 200 ] && echo "ok: /health/ready answers 200 (the registry's Postgres is reachable)" || { echo "FAIL: /health/ready gave $r"; fail=1; }
           r=$(code $base/api/projects);  [ "$r" = 401 ] && echo "ok: a protected API refuses an anonymous caller (401)" || { echo "FAIL: /api/projects gave $r without a login (want 401)"; fail=1; }
+          {{- if $v.prefect.enabled }}
+          # Prefect: the server answers, the work pool exists, and a worker of this commit is ONLINE on it.
+          python - <<'PY' || fail=1
+          import json, os, sys, time, urllib.request
+          api, pool = os.environ["PREFECT_API_URL"].rstrip("/"), os.environ["PREFECT_WORK_POOL"]
+          hdr = {"Content-Type": "application/json"}
+          if os.environ.get("PREFECT_API_KEY"):
+              hdr["Authorization"] = "Bearer " + os.environ["PREFECT_API_KEY"]
+          def call(path, body=None):
+              req = urllib.request.Request(api + path, data=None if body is None else json.dumps(body).encode(), headers=hdr)
+              return json.load(urllib.request.urlopen(req, timeout=15))
+          ok = False
+          for _ in range(60):
+              try:
+                  online = [w for w in call("/work_pools/%s/workers/filter" % pool, {}) if w.get("status") == "ONLINE"]
+                  if online:
+                      ok = True
+                      break
+              except Exception as e:
+                  last = e
+              time.sleep(5)
+          print("ok: Prefect reachable and a worker is ONLINE on pool " + pool if ok else "FAIL: no ONLINE worker on pool %s at %s" % (pool, api))
+          sys.exit(0 if ok else 1)
+          PY
+          {{- end }}
           [ "$fail" = 0 ] && echo "PASS: Resource Explorer web is up and gated" || exit 1
       resources:
         requests: {cpu: 50m, memory: 64Mi}

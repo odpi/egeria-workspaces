@@ -1,0 +1,90 @@
+{{- if .Values.prefect.enabled }}
+{{- $cfg := include "trellis-re.cfg" . | fromYaml -}}
+{{- $v := .Values -}}
+{{- $labels := include "egeria-common.labels" (dict "ctx" . "component" "re-prefect-worker") -}}
+# The image's `prefect-worker` role: deploys its own deployment (re-survey-step-<commit>), prunes old ones, and serves only its own queue.
+# A `process` worker runs each step as a subprocess of this pod, so the pod carries the same environment, data volume and image as the worker.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $cfg.prefectworkername }}
+  labels:
+    {{- $labels | nindent 4 }}
+spec:
+  replicas: {{ $v.prefect.worker.replicas }}
+  selector:
+    matchLabels:
+      {{- include "egeria-common.selectorLabels" (dict "ctx" . "component" "re-prefect-worker") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- $labels | nindent 8 }}
+        {{ $v.networkPolicy.platformClientLabel }}: "true"
+    spec:
+      securityContext:
+        {{- include "egeria-common.podSecurityContext" . | nindent 8 }}
+      {{- include "egeria-common.podIdentity" . | nindent 6 }}
+      {{- with $v.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $v.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $v.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        # `prefect deploy` needs the work pool to exist, and a worker only creates it when it starts: make it first (a no-op when it exists).
+        - name: work-pool
+          image: {{ $cfg.image }}
+          imagePullPolicy: {{ $v.image.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              for i in $(seq 1 60); do prefect work-pool inspect "$PREFECT_WORK_POOL" >/dev/null 2>&1 && exit 0
+                prefect work-pool create "$PREFECT_WORK_POOL" --type process >/dev/null 2>&1 && exit 0; sleep 5; done
+              echo "could not reach or create the work pool $PREFECT_WORK_POOL at $PREFECT_API_URL" >&2; exit 1
+          securityContext:
+            {{- include "egeria-common.containerSecurityContext" . | nindent 12 }}
+          env:
+            - {name: PREFECT_API_URL, value: {{ $v.prefect.apiUrl | quote }}}
+            - {name: PREFECT_WORK_POOL, value: {{ $v.prefect.workPool | quote }}}
+            {{- if $v.prefect.apiKeySecret }}
+            - {name: PREFECT_API_KEY, valueFrom: {secretKeyRef: {name: {{ $v.prefect.apiKeySecret }}, key: api-key}}}
+            {{- end }}
+          resources:
+            requests: {cpu: 50m, memory: 256Mi}
+            limits: {memory: 512Mi}
+      containers:
+        - name: prefect-worker
+          image: {{ $cfg.image }}
+          imagePullPolicy: {{ $v.image.pullPolicy }}
+          args: [prefect-worker]
+          securityContext:
+            {{- include "egeria-common.containerSecurityContext" . | nindent 12 }}
+          env:
+            {{- include "trellis-re.env" . | nindent 12 }}
+          {{- with $v.extraEnvFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml $v.prefect.worker.resources | nindent 12 }}
+          # No port and no HTTP probe, like the worker: a crash restarts the pod and it re-registers its deployment.
+          volumeMounts:
+            - {name: data, mountPath: /app/data}
+            {{- if $v.tls.caSecret }}
+            - {name: egeria-ca, mountPath: /etc/egeria-ca, readOnly: true}
+            {{- end }}
+      volumes:
+        - name: data
+          persistentVolumeClaim: {claimName: {{ $cfg.dataClaim }}}
+        {{- if $v.tls.caSecret }}
+        - name: egeria-ca
+          secret: {secretName: {{ $v.tls.caSecret }}}
+        {{- end }}
+{{- end }}
