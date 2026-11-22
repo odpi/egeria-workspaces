@@ -101,7 +101,11 @@ helm test st -n egeria      # both canaries
     our manifests; both canaries pass. The test Postgres and Kafka run as fixed UIDs, so they are in a separate namespace with the `anyuid` SCC
     (the demo Postgres chart is not supported on OpenShift). The VM needs more than crc's defaults (20 GB RAM, 8 CPUs, 70 GB disk: the default
     31 GB disk reached kubelet disk-pressure and stopped scheduling the test pod). Images were loaded into the node over SSH (`podman load`).
-  * Not run: production-style on OpenShift, demoMode, Ingress/Route on OpenShift.
+  * **Production-style on OpenShift Local** (`tests/crc_stack_prod.sh`): the kind production posture (own SAN keystore with random passwords,
+    existing Secrets, `tls.verify`, NetworkPolicies, images pinned by digest) with `global.openshift=true`. The images are pushed to the cluster's
+    internal registry so the digests are real registry digests. All three pods ran under **restricted-v2** (UID 1000680000, GID 0), 5/5 servers
+    started and both canaries passed. The test infrastructure is in `<namespace>-infra` under `anyuid`, as above.
+  * Not run: demoMode, Ingress/Route on OpenShift.
 * **Public demo keystore password:** when `tls.existingSecret` holds the public demo password (the image's own keystore), the demo posture prints a
   WARNING in NOTES, and the **production posture refuses to install or upgrade** (`fail`, naming `tls.existingSecret`), in the platform chart and in the
   umbrella (`core.tls.existingSecret`). Both use `lookup`, so they act only against a real cluster (not `helm template` or `--dry-run=client`);
