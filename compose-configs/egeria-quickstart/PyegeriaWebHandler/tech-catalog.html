@@ -4466,10 +4466,10 @@ function ModelSignatureTable({ rows, st, onNavigateToElement }) {
   });
 }
 
-// A run's lineage: results = data lineage out of the run; other = its remaining lineage, each with its direction.
+// A run's lineage: results = the DataFlow out of the run (PO-81); other = its remaining lineage, each with its direction.
 // The read's words when it returned none: never an empty list, never "none" (a read can hide lineage).
 var MODEL_LINEAGE_WORDS = {
-  results: { 'none-returned': 'Results: this read returned no data lineage out of the run.', 'not-read': 'Results: not read by this card yet.' },
+  results: { 'none-returned': 'Results: this read returned no DataFlow out of the run.', 'not-read': 'Results: not read by this card yet.' },
   other:   { 'none-returned': 'This read returned no other lineage for the run.', 'not-read': 'Other lineage: not read by this card yet.' },
 };
 var _MODEL_LINEAGE_COLS = [['element', 'Element', 210], ['rel', 'Relationship', 140], ['direction', 'Direction', 130], ['label', 'Label', 180]];
@@ -4669,7 +4669,7 @@ function AnalyticsModelRunDetail({ detail, onNavigateToElement }) {
     React.createElement('div', { key: 'pvh', style: _MODEL_SECTION_HDR }, 'Configuration values (processing variables)' + _modelCount(detail.variables, lists.variables)),
     React.createElement('div', { key: 'pvn', className: 'model-variables-note', style: { fontSize: 11, color: 'var(--dim)', marginBottom: 6 } }, MODEL_VARIABLES_NOTE),
     React.createElement(ModelVariablesTable, { key: 'pv', rows: detail.variables, st: lists.variables, onNavigateToElement: onNavigateToElement }),
-    React.createElement('div', { key: 'rsh', style: _MODEL_SECTION_HDR }, 'Results (lineage out of the run)' + _modelCount(detail.results, lists.results)),
+    React.createElement('div', { key: 'rsh', style: _MODEL_SECTION_HDR }, 'Results (DataFlow out of the run)' + _modelCount(detail.results, lists.results)),
     React.createElement(ModelLineageTable, { key: 'rs', rows: detail.results, st: lists.results, kind: 'results', onNavigateToElement: onNavigateToElement }),
     React.createElement('div', { key: 'olh', style: _MODEL_SECTION_HDR }, 'Other lineage' + _modelCount(detail.otherLineage, lists.otherLineage)),
     React.createElement(ModelLineageTable, { key: 'ol', rows: detail.otherLineage, st: lists.otherLineage, kind: 'other', onNavigateToElement: onNavigateToElement }),

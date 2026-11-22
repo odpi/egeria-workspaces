@@ -389,7 +389,7 @@ def test_nothing_is_listed_twice_on_a_card(client):
 
 
 
-# ── results: lineage out of the run ──────────────────────────────────────────────────────────────────────
+# ── results: the DataFlow out of the run (PO-81) ──────────────────────────────────────────────────────────────────────
 
 def lin(rel_type, rel_guid, guid, name, at_end1, el_type="DataFile"):
     r = rel(rel_type, rel_guid, guid, el_type=el_type, el_props={"displayName": name}, super_types=["Asset", "Referenceable"])
@@ -398,7 +398,9 @@ def lin(rel_type, rel_guid, guid, name, at_end1, el_type="DataFile"):
     return r
 
 
-def test_results_are_data_lineage_out_of_the_run_and_the_rest_is_other_lineage(client):
+def test_results_are_the_dataflows_out_of_the_run_and_the_rest_is_other_lineage(client):
+    """PO-81: a run's results are the DataFlow out of it: EXACTLY one here. A LineageMapping (a column-level mapping) is lineage
+    but not a result, so it is listed under Other lineage with its direction; an undirected DataFlow is not a result either."""
     mrel = lin("ProcessCall", "pc-1", "m-1", "Churn predictor", True, el_type="DeployedAnalyticsModel")
     mrel["relatedElement"]["elementHeader"]["type"]["superTypeNames"] = MODEL_SUPERS
     el = run(extra={"lineageLinkage": [
@@ -409,10 +411,11 @@ def test_results_are_data_lineage_out_of_the_run_and_the_rest_is_other_lineage(c
         lin("DataFlow", "df-x", "f-x", "unknown.csv", None),            # no relatedElementAtEnd1
         mrel]})
     body = client(FakeExplorer(about=ABOUT_6_4, elements={"r-1": el})).get("/api/analytics-model-runs/r-1").json()
-    assert [r["relationshipGuid"] for r in body["results"]] == ["df-out", "lm-1"]
+    assert [r["relationshipGuid"] for r in body["results"]] == ["df-out"]
+    assert len(body["results"]) == 1
     assert body["lists"]["results"] == {"state": "read"}
     other = {r["relationshipGuid"]: r["direction"] for r in body["otherLineage"]}
-    assert other == {"df-in": "into the run", "cf-1": "out of the run", "df-x": "direction not recorded"}
+    assert other == {"df-in": "into the run", "cf-1": "out of the run", "lm-1": "out of the run", "df-x": "direction not recorded"}
     assert [m["relationshipGuid"] for m in body["models"]] == ["pc-1"]      # shown as the model, not again as lineage
     assert "lineageLinkage" not in body["relationships"]
 
@@ -430,3 +433,19 @@ def test_the_rest_of_a_list_stays_in_relationships_when_one_entry_is_shown(clien
     assert [r["relationshipGuid"] for r in body["runs"]] == ["df-r"]
     shown = body["relationships"]["lineageLinkage"]
     assert len(shown) == 1 and "ds-1" in str(shown) and "r-5" not in str(shown)
+
+
+def test_data_mapping_and_ultimate_destination_out_of_the_run_are_other_lineage_not_results(client):
+    el = run(extra={"lineageLinkage": [lin("DataFlow", "df-out", "f-out", "scores.csv", False),
+                                       lin("DataMapping", "dm-1", "c-2", "mapped column", False),
+                                       lin("UltimateDestination", "ud-1", "f-ud", "warehouse table", False)]})
+    body = client(FakeExplorer(about=ABOUT_6_4, elements={"r-1": el})).get("/api/analytics-model-runs/r-1").json()
+    assert [r["relationshipGuid"] for r in body["results"]] == ["df-out"]
+    assert {r["relationshipGuid"] for r in body["otherLineage"]} == {"dm-1", "ud-1"}
+
+
+def test_a_run_with_only_lineage_mappings_out_has_no_results_and_says_so_not_none(client):
+    el = run(extra={"lineageLinkage": [lin("LineageMapping", "lm-1", "c-1", "score column", False)]})
+    body = client(FakeExplorer(about=ABOUT_6_4, elements={"r-1": el})).get("/api/analytics-model-runs/r-1").json()
+    assert body["results"] == [] and body["lists"]["results"] == {"state": "none-returned"}      # read, none out: said as that
+    assert [r["relationshipGuid"] for r in body["otherLineage"]] == ["lm-1"]
