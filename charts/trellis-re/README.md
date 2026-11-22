@@ -10,7 +10,7 @@ helm install re charts/trellis-re -n <ns> -f charts/trellis-re/values-demo.yaml 
   --set egeria.platformUrl=https://<platform>:9443 --set egeria.daemon.userId=<account> --set egeria.daemon.existingSecret=<secret>
 ```
 
-Tested: `charts/tests/re_render_test.py` (no cluster) and `charts/tests/kind_re.sh` (kind). See `charts/docs/testing.md`.
+Tested: `charts/tests/re_render_test.py` (no cluster) and `charts/tests/kind_re.sh` (kind, demo and `MODE=production`). With `tls.verify=true` the platform's CA must pass strict verification (the image runs Python 3.13: a CA needs `keyUsage` with `keyCertSign` and key identifiers). See `charts/docs/testing.md`.
 
 ## How the schema is handled
 

@@ -3,16 +3,19 @@
 # kind_infra.sh makes, with the schema split of TR-115: the schema Job runs as an OWNER role, the pods as a RUNTIME role that holds only
 # default privileges on the owner's objects (no DDL rights).
 # usage: kind_re.sh <namespace> [release]        env: RE_IMAGE (default tr112-registry:5000/trellis/resource-explorer) RE_TAG (default tr115-efd55108)
+#   MODE=demo (default) | production: production runs the platform with its own SAN keystore (kind_install.sh MODE=production) and the chart in the
+#   production posture: image by digest, existing Secrets, tls.verify=true against the platform CA, NetworkPolicies, a separate owner role.
+#   SKIP_PLATFORM=1: the platform, Postgres and Kafka are already installed.
 # Secret values are generated here or read from tracked demo files and are never printed. Test infrastructure only, NOT part of any chart.
 set -euo pipefail
 NS=${1:?namespace}; REL=${2:-re}
 HERE=$(cd "$(dirname "$(readlink -f "$0")")" && pwd); CHARTS=$(dirname "$HERE")
 IMG=${RE_IMAGE:-tr112-registry:5000/trellis/resource-explorer}; TAG=${RE_TAG:-tr115-efd55108}
-HELM=${HELM:-helm}
+HELM=${HELM:-helm}; MODE=${MODE:-demo}
 W=$(mktemp -d); trap 'rm -rf "$W"' EXIT; umask 077
 
 # 1. an Egeria platform (quickstart demo) plus the test Postgres and Kafka (SKIP_PLATFORM=1 when they are already installed)
-[ "${SKIP_PLATFORM:-0}" = 1 ] || bash "$HERE/kind_install.sh" quickstart "$NS" qs
+[ "${SKIP_PLATFORM:-0}" = 1 ] || MODE=$MODE bash "$HERE/kind_install.sh" quickstart "$NS" qs
 
 # 2. the RE database: an owner role (the schema Job) and a runtime role (the pods). The runtime role gets default privileges on what
 #    the owner creates, and nothing else. The extension is the admin's (a managed Postgres often refuses it to the Job's role).
@@ -45,7 +48,18 @@ kubectl -n "$NS" create secret generic re-egeria --from-file=password="$W/egeria
 # 3. Resource Explorer
 $HELM dependency update "$CHARTS/trellis-re" >/dev/null
 T0=$(date +%s)
-$HELM upgrade --install "$REL" "$CHARTS/trellis-re" -n "$NS" -f "$CHARTS/trellis-re/values-demo.yaml" \
+POSTURE=(-f "$CHARTS/trellis-re/values-demo.yaml")
+if [ "$MODE" = production ]; then
+  # secrets the production posture requires (values never printed): the shared JWT and credential key, and the platform's CA
+  openssl rand -hex 24 | tr -d '\n' > "$W/jwt"; openssl rand -hex 16 | tr -d '\n' > "$W/ckey"
+  kubectl -n "$NS" create secret generic re-secrets --from-file=jwt-secret="$W/jwt" --from-file=db-credential-key="$W/ckey" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+  kubectl -n "$NS" get secret prod-tls -o jsonpath='{.data.ca\.crt}' | base64 -d > "$W/ca.crt"
+  kubectl -n "$NS" create secret generic re-ca --from-file=ca.crt="$W/ca.crt" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+  DIG=$(sg docker -c "docker image inspect localhost:5001/trellis/resource-explorer:$TAG --format '{{index .RepoDigests 0}}'" | sed 's/.*@//')
+  POSTURE=(-f "$CHARTS/trellis-re/values-production.yaml" --set image.digest="$DIG" --set secrets.existingSecret=re-secrets --set tls.caSecret=re-ca)
+  echo "production posture; image $IMG:$TAG@${DIG:0:19}..."
+fi
+$HELM upgrade --install "$REL" "$CHARTS/trellis-re" -n "$NS" "${POSTURE[@]}" \
   --set image.repository="$IMG" --set image.tag="$TAG" \
   --set database.host=postgres --set database.port=5442 --set database.name=re_proof --set database.user=re_rt --set database.existingSecret=re-db \
   --set database.owner.user=re_owner --set database.owner.existingSecret=re-owner-db \
@@ -53,5 +67,4 @@ $HELM upgrade --install "$REL" "$CHARTS/trellis-re" -n "$NS" -f "$CHARTS/trellis
   --set persistence.storageClassName=standard --set 'persistence.accessModes={ReadWriteOnce}' --wait --timeout 15m | sed -n '/^NOTES/,$p'
 echo "installed $REL in $NS after $(( $(date +%s) - T0 ))s"
 kubectl -n "$NS" get pods
-echo "--- schema Job (hook; deleted before the next hook run, so read it from the install log if gone)"
 $HELM test "$REL" -n "$NS" --logs 2>&1 | grep -E "^ok|^FAIL|^PASS|Phase|TEST SUITE|Error"
