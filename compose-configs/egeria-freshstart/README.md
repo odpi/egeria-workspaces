@@ -177,7 +177,13 @@ EGERIA_ADMIN_CALLER_PASSWORD=bootstraps-current-password
   random one into `.env` on the first run and keeps it. If you set your own, use a long random string; the published
   example value is refused, because anyone could forge sessions signed with it.
 
-`./fresh-start-local` rewrites `.env` on every run but keeps both values. It writes the file private (mode 600);
+- `MCP_ACCESS_TOKEN` (the token the Portal's MCP endpoints require, sent as `X-API-Key` or `?token=`): you don't need to
+  set it. `./fresh-start-local` generates a random one into `.env` on the first run and keeps it; read it from `.env`
+  to configure an MCP client such as the Call Dr. Egeria Obsidian plugin. If it is unset the MCP endpoints are off and
+  say so. The value this stack used to publish is refused (`./fresh-start-local` stops, and the
+  Portal won't start with it), because anyone who could reach the Portal's port could drive the MCP tools with it.
+
+`./fresh-start-local` rewrites `.env` on every run but keeps these values. It writes the file private (mode 600);
 never commit it.
 
 Optional:
