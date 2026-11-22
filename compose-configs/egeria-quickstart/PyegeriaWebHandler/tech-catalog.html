@@ -588,7 +588,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
      URL guarantees a fresh fetch regardless of prior cache state. -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
 <script>window.EGERIA_FOR_LINEAGE = true; window.EGERIA_FOR_LINEAGE_VISIBLE = false;  /* shown per-section by App */</script>
-<script src="/static/egeria-shared-ui.js?v=2026-11-17-po41"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-11-22-cv2"></script>
 <script src="/static/data-scope-editor.js?v=2026-11-17b"></script>
 <script>
 'use strict';
@@ -954,6 +954,7 @@ function TechTypeDetail({ item, detailLoading, creds, onNavigate }) {
     resourceListEl,
     extRefsEl,
     instancesEl,
+    React.createElement(E64RelatedPanel, { guid: item.guid }),
     React.createElement(EgeriaCommentsSection, { guid: item.guid })
   );
 }
@@ -2049,6 +2050,7 @@ function AssetDetail({ item, detailLoading, onNavigate, creds, sectionId }) {
     rels.length > 0 && React.createElement(AssetRelationships, { rels: rels, cardStyle: cardStyle, onNavigate: onNavigate }),
 
     // Comments
+    React.createElement(E64RelatedPanel, { guid: item.guid }),
     React.createElement(EgeriaCommentsSection, { guid: item.guid }),
 
     // TC-13: tabular preview modal (shared component) for file assets
@@ -4111,6 +4113,7 @@ function NamespaceDetail({ item, detailLoading, creds, onNavigate }) {
       })
     ),
 
+    React.createElement(E64RelatedPanel, { guid: item.guid }),
     React.createElement(EgeriaCommentsSection, { guid: item.guid })
   );
 }
@@ -4175,6 +4178,524 @@ function NamespacesView({ creds, navTarget, onNavigate }) {
   );
 }
 
+// ── Configuration Values and Models and Runs (moved here from Egeria Explorer, 2026-11-22) ─────────
+// Configuration Values (#data-values): the values that configure a process, model or run (Egeria 6.4
+// DataValue / LiteralDataValue, linked to what they configure by ProcessingVariable) -- not the data in
+// assets, not Valid Metadata Values, not Reference Data. Models and Runs (#analytics-models):
+// DeployedAnalyticsModel and AnalyticsModelRun (Egeria 5.2), RunMetrics (6.2). Backends: e64_handler.py
+// (/api/data-values) and analytics_models_handler.py (/api/analytics-models, /api/analytics-model-runs).
+// The list + detail frame (E64ElementsView) and the 6.4 helpers are in static/egeria-shared-ui.js.
+// The part between catalog-models-pure:begin/end runs under node in tests/test_e64_cards_js.py and
+// tests/test_analytics_models_js.py: keep it free of hooks.
+/* catalog-models-pure:begin */
+// ── Configuration Values: DataValue / LiteralDataValue (Egeria 6.4) ──
+// The values that configure a process, model or run, linked to it by ProcessingVariable.
+// Egeria's position is an Integer where 0 (or none) means "unset" (EmbeddedDataValueProperties,
+// ProcessingVariableProperties); the backend sends position: null and positionSet: false for those
+// (e64PositionText, e64ByPosition and E64PositionedTable are in static/egeria-shared-ui.js).
+var _DATA_VALUE_KIND_WORDS = {
+  'empty': 'No value is recorded on this configuration value.',
+  'not-literal': 'A DataValue holds no value of its own: only a LiteralDataValue does.',
+};
+
+function DataValueValuePanel({ value }) {
+  var v = value || { kind: 'empty' };
+  if (_DATA_VALUE_KIND_WORDS[v.kind]) return React.createElement('div', { className: 'e64-value', 'data-kind': v.kind, style: { fontSize: 12, color: 'var(--dim)' } }, _DATA_VALUE_KIND_WORDS[v.kind]);
+  var parts = [];
+  if (v.dataValue !== null && v.dataValue !== undefined) parts.push(React.createElement('div', { key: 'lit', style: { marginBottom: 8 } },
+    React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', marginBottom: 2 } }, 'Literal value'),
+    React.createElement('code', { style: { fontSize: 13, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' } }, String(v.dataValue))));
+  if (v.dataValueList) parts.push(React.createElement('div', { key: 'list', style: { marginBottom: 8 } },
+    React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', marginBottom: 2 } }, 'Value list (' + v.dataValueList.length + ')'),
+    React.createElement(E64Table, { cols: [['n', '#', 50], ['v', 'Value', 400]], rows: v.dataValueList.map(function(x, i) { return { n: i + 1, v: x }; }),
+      rowKey: function(r) { return 'l' + r.n; }, cell: function(k, r) { return String(r[k]); } })));
+  if (v.dataValueMap) {
+    var keys = Object.keys(v.dataValueMap).sort();
+    parts.push(React.createElement('div', { key: 'map', style: { marginBottom: 8 } },
+      React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', marginBottom: 2 } }, 'Value map (' + keys.length + ')'),
+      React.createElement(E64Table, { cols: [['k', 'Key', 180], ['v', 'Value', 320]], rows: keys.map(function(k) { return { k: k, v: v.dataValueMap[k] }; }),
+        rowKey: function(r) { return 'm' + r.k; }, cell: function(k, r) { return String(r[k]); } })));
+  }
+  return React.createElement('div', { className: 'e64-value', 'data-kind': v.kind }, parts);
+}
+
+// ── Models and Runs: DeployedAnalyticsModel, AnalyticsModelRun (Egeria 5.2), RunMetrics (6.2) ──
+// Backend: analytics_models_handler.py. Not 6.4 types, so no section is gated; the shared
+// 6.4 helpers above are reused for list words, dates and tables. A value Egeria didn't record
+// is said in words ("not recorded"), never shown as 0; a run with no RunMetrics says so.
+function modelFmtDuration(ms) {
+  if (ms === null || ms === undefined || ms === '' || isNaN(Number(ms))) return '';
+  var n = Math.max(0, Math.round(Number(ms)));
+  if (n < 1000) return n + ' ms';
+  var s = Math.floor(n / 1000), d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  var parts = [];
+  if (d) parts.push(d + ' d'); if (h) parts.push(h + ' h'); if (m) parts.push(m + ' min'); if (sec || !parts.length) parts.push(sec + ' s');
+  return parts.slice(0, 2).join(' ');
+}
+
+function modelFmtBytes(b) {
+  var n = Number(b);
+  if (b === null || b === undefined || b === '' || isNaN(n)) return '';
+  var units = ['B', 'KB', 'MB', 'GB', 'TB'], i = 0;
+  while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+  return (i ? n.toFixed(1) : String(n)) + ' ' + units[i];
+}
+
+// A date cell: the date, "not recorded" when absent, "not readable: <raw>" when it can't be parsed.
+function modelDateText(raw, absent) {
+  if (raw === null || raw === undefined || raw === '') return { text: absent || 'not recorded', state: 'absent' };
+  if (isNaN(e64ParseTime(raw))) return { text: 'not readable: ' + raw, state: 'unreadable' };
+  var t = new Date(e64ParseTime(raw));
+  return { text: e64FmtDate(raw) + ' ' + t.toISOString().slice(11, 16) + ' UTC', state: 'ok' };
+}
+
+var _RUN_METRICS_ROWS = [
+  ['runCount', 'Runs recorded', 'count'], ['failedRunCount', 'Failed runs', 'count'],
+  ['firstRunStartTime', 'First run started', 'time'], ['lastRunId', 'Last run id', 'text'],
+  ['lastRunStartTime', 'Last run started', 'time'], ['lastRunEndTime', 'Last run ended', 'time'],
+  ['lastRunStatus', 'Last run status', 'text'], ['lastRunDuration', 'Last run duration', 'ms'],
+  ['totalRunDuration', 'Total run time', 'ms'], ['lastRunRowsRead', 'Last run rows read', 'count'],
+  ['lastRunRowsWritten', 'Last run rows written', 'count'], ['lastRunBytesRead', 'Last run bytes read', 'bytes'],
+  ['lastRunBytesWritten', 'Last run bytes written', 'bytes'], ['totalRowsRead', 'Total rows read', 'count'],
+  ['totalRowsWritten', 'Total rows written', 'count'], ['totalBytesRead', 'Total bytes read', 'bytes'],
+  ['totalBytesWritten', 'Total bytes written', 'bytes'],
+];
+
+// Words for run metrics that have no values to show, or null when the table should be shown.
+function runMetricsWords(m, noun) {
+  var s = m && m.state;
+  if (s === 'read') return null;
+  if (s === 'needs-6.2') return { text: m.words || 'Run metrics need Egeria 6.2.', tone: 'warn' };
+  if (s === 'not-known') return { text: 'No run metrics are recorded for this ' + noun + '. This platform’s Egeria version could not be read; run metrics need Egeria 6.2.', tone: 'warn' };
+  if (s === 'none') return { text: 'No run metrics are recorded for this ' + noun + '.', tone: 'dim' };
+  return { text: 'Run metrics: not read.', tone: 'warn' };
+}
+
+// [{key, label, text, title, recorded}] for every RunMetrics field: unrecorded ones say so.
+function runMetricsRows(m) {
+  var v = (m && m.values) || {};
+  return _RUN_METRICS_ROWS.map(function(f) {
+    var raw = v[f[0]], has = raw !== null && raw !== undefined && raw !== '';
+    var text = 'not recorded', title = '';
+    if (has) {
+      if (f[2] === 'time') text = modelDateText(raw).text;
+      else if (f[2] === 'ms') { text = modelFmtDuration(raw); title = raw + ' ms'; }
+      else if (f[2] === 'bytes') { text = modelFmtBytes(raw); title = raw + ' bytes'; }
+      else if (f[2] === 'count') text = Number(raw).toLocaleString('en-GB');
+      else text = String(raw);
+    }
+    return { key: f[0], label: f[1], text: text, title: title, recorded: has };
+  });
+}
+
+function RunMetricsPanel({ metrics, noun }) {
+  var w = runMetricsWords(metrics, noun);
+  if (w) return React.createElement('div', { className: 'model-metrics-note', 'data-state': metrics && metrics.state,
+    style: { fontSize: 12, color: _E64_TONE[w.tone] || 'var(--dim)', padding: '4px 0', overflowWrap: 'anywhere' } }, w.text);
+  var rows = runMetricsRows(metrics);
+  var extra = (metrics && metrics.additionalProperties) || {};
+  Object.keys(extra).sort().forEach(function(k) { rows.push({ key: 'ap-' + k, label: k, text: String(extra[k]), title: 'additional property', recorded: true }); });
+  return React.createElement(E64Table, {
+    cols: [['label', 'Metric', 200], ['text', 'Value', 260]], rows: rows, minWidth: 420,
+    rowKey: function(r) { return r.key; },
+    cell: function(k, r) {
+      if (k === 'text') return React.createElement('span', { title: r.title || undefined, style: { color: r.recorded ? 'var(--text)' : 'var(--dim)' } }, r.text);
+      return r.label;
+    },
+  });
+}
+
+// The run's own dates: requested, started, completed, and the duration when both ends are readable.
+function modelRunDates(d) {
+  var rows = [['requestedTime', 'Requested'], ['startTime', 'Started'], ['completionTime', 'Completed']].map(function(f) {
+    var x = modelDateText(d && d[f[0]]);
+    return { key: f[0], label: f[1], text: x.text, state: x.state };
+  });
+  var a = e64ParseTime(d && d.startTime), b = e64ParseTime(d && d.completionTime);
+  var duration = (!isNaN(a) && !isNaN(b) && b >= a) ? modelFmtDuration(b - a)
+    : (isNaN(a) ? 'not known: no readable start time' : 'not known: no readable completion time');
+  return { rows: rows, duration: duration };
+}
+
+function ModelRunDatesPanel({ detail }) {
+  var m = modelRunDates(detail);
+  var rows = m.rows.concat([{ key: 'duration', label: 'Duration', text: m.duration, state: m.duration.indexOf('not known') === 0 ? 'absent' : 'ok' }]);
+  return React.createElement(E64Table, {
+    cols: [['label', 'Date', 160], ['text', 'Value', 300]], rows: rows, minWidth: 420,
+    rowKey: function(r) { return r.key; },
+    cell: function(k, r) {
+      if (k === 'text') return React.createElement('span', { 'data-state': r.state, style: { color: r.state === 'ok' ? 'var(--text)' : (r.state === 'unreadable' ? '#fbbf24' : 'var(--dim)') } }, r.text);
+      return r.label;
+    },
+  });
+}
+
+function _modelRowsOrNote(rows, st, emptyText) {
+  rows = rows || [];
+  var words = e64ListWords(st);
+  if (words && !rows.length) {
+    if (st && st.state === 'none') return React.createElement('div', { className: 'e64-list-note', 'data-state': 'none', style: { fontSize: 12, color: 'var(--dim)', padding: '4px 0' } }, emptyText);
+    return React.createElement(E64ListNote, { st: st });
+  }
+  if (!rows.length) return React.createElement('div', { className: 'e64-list-note', 'data-state': 'none', style: { fontSize: 12, color: 'var(--dim)', padding: '4px 0' } }, emptyText);
+  return null;
+}
+
+var _MODEL_RUN_COLS = [['element', 'Run', 200], ['status', 'Status', 120], ['start', 'Started', 150], ['end', 'Completed', 150],
+  ['last', 'Last run status', 130], ['rel', 'Linked by', 130]];
+
+function ModelRunsTable({ rows, st, onNavigateToElement }) {
+  var note = _modelRowsOrNote(rows, st, 'No runs are linked to this model.');
+  if (note) return note;
+  return React.createElement(E64Table, {
+    cols: _MODEL_RUN_COLS, rows: rows, minWidth: 880,
+    rowKey: function(r, i) { return r.relationshipGuid || ('run-' + i); },
+    cell: function(k, r) {
+      if (k === 'element') return _e64ElementCell(r, onNavigateToElement);
+      if (k === 'status') return r.activityStatus || React.createElement('span', { style: { color: 'var(--dim)' } }, 'not recorded');
+      if (k === 'start') return React.createElement('span', { style: { color: r.startTime ? 'var(--text)' : 'var(--dim)' } }, modelDateText(r.startTime, 'start not recorded').text);
+      if (k === 'end') return React.createElement('span', { style: { color: r.completionTime ? 'var(--text)' : 'var(--dim)' } }, modelDateText(r.completionTime, 'not recorded').text);
+      if (k === 'last') return r.lastRunStatus || React.createElement('span', { style: { color: 'var(--dim)' } }, r.hasRunMetrics ? 'not recorded' : 'no run metrics');
+      if (k === 'rel') return r.relationshipType || '';
+      return '';
+    },
+  });
+}
+
+var _RUN_MODEL_COLS = [['element', 'Model', 220], ['lang', 'Language', 120], ['version', 'Version', 100], ['rel', 'Linked by', 140]];
+
+function RunModelsTable({ rows, st, onNavigateToElement }) {
+  var note = _modelRowsOrNote(rows, st, 'No model is linked to this run.');
+  if (note) return note;
+  return React.createElement(E64Table, {
+    cols: _RUN_MODEL_COLS, rows: rows, minWidth: 580,
+    rowKey: function(r, i) { return r.relationshipGuid || ('model-' + i); },
+    cell: function(k, r) {
+      if (k === 'element') return _e64ElementCell(r, onNavigateToElement);
+      if (k === 'lang') return r.implementationLanguage || '—';
+      if (k === 'version') return r.versionIdentifier || '—';
+      if (k === 'rel') return r.relationshipType || '';
+      return '';
+    },
+  });
+}
+
+var _MODEL_PROJECT_COLS = [['element', 'Project', 220], ['kind', 'Kind', 110], ['hypothesis', 'Hypothesis', 260], ['rel', 'Linked by', 130]];
+
+function ModelProjectsTable({ rows, st, onNavigateToElement }) {
+  var note = _modelRowsOrNote(rows, st, 'No projects or experiments are linked.');
+  if (note) return note;
+  return React.createElement(E64Table, {
+    cols: _MODEL_PROJECT_COLS, rows: rows, minWidth: 720,
+    rowKey: function(r, i) { return r.relationshipGuid || ('proj-' + i); },
+    cell: function(k, r) {
+      if (k === 'element') return _e64ElementCell(r, onNavigateToElement);
+      if (k === 'kind') return r.isExperiment ? React.createElement('span', { className: 'badge', style: { color: '#f0abfc', border: '0.5px solid #f0abfc', background: 'transparent' } }, 'Experiment') : 'Project';
+      if (k === 'hypothesis') return r.isExperiment ? (r.hypothesis || React.createElement('span', { style: { color: 'var(--dim)' } }, 'no hypothesis recorded')) : '';
+      if (k === 'rel') return r.relationshipType || '';
+      return '';
+    },
+  });
+}
+
+var _MODEL_SOURCE_COLS = [['element', 'Source', 220], ['url', 'URL', 280], ['org', 'Organization', 140]];
+
+function ModelSourcesTable({ rows, st, onNavigateToElement }) {
+  var note = _modelRowsOrNote(rows, st, 'No model sources are linked.');
+  if (note) return note;
+  return React.createElement(E64Table, {
+    cols: _MODEL_SOURCE_COLS, rows: rows, minWidth: 640,
+    rowKey: function(r, i) { return r.relationshipGuid || ('src-' + i); },
+    cell: function(k, r) {
+      if (k === 'element') return _e64ElementCell(r, onNavigateToElement);
+      if (k === 'url') return r.url ? React.createElement('a', { href: r.url, target: '_blank', rel: 'noopener noreferrer' }, r.url) : React.createElement('span', { style: { color: 'var(--dim)' } }, 'no URL recorded');
+      if (k === 'org') return r.organization || '—';
+      return '';
+    },
+  });
+}
+
+
+// A run's parameters (ProcessingVariable, Egeria 6.4): "the data values used to configure the processing of the
+// element", in position order. Results are not processing variables: a run is a process, so its outputs are
+// lineage leaving it (ModelLineageTable below).
+var MODEL_VARIABLES_NOTE = 'Egeria links these as the configuration values (the run\u2019s parameters) used to configure the run, in position order, each with its label. '
+  + 'A run\u2019s results are not recorded here: as a process, its outputs are recorded as lineage from the run.';
+var _MODEL_VARIABLE_COLS = [['element', 'Configuration value', 190], ['position', 'Position', 100], ['label', 'Label', 130],
+  ['value', 'Value', 280], ['type', 'Type and format', 150]];
+
+function ModelVariablesTable({ rows, st, onNavigateToElement, emptyText }) {
+  var model = e64ByPosition(rows);
+  var note = _modelRowsOrNote(model, st, emptyText || 'No parameters are linked to configure this run.');
+  if (note) return note;
+  return React.createElement(E64Table, {
+    cols: _MODEL_VARIABLE_COLS, rows: model, minWidth: 850,
+    rowKey: function(r, i) { return r.relationshipGuid || ('pv-' + i); },
+    cell: function(k, r) {
+      if (k === 'element') return _e64ElementCell(r, onNavigateToElement);
+      if (k === 'position') return React.createElement('span', { style: { color: r.positionSet ? 'var(--text)' : 'var(--dim)' } }, e64PositionText(r));
+      if (k === 'label') return React.createElement('div', null, r.label || React.createElement('span', { style: { color: 'var(--dim)' } }, 'no label'),
+        r.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)' } }, r.description));
+      if (k === 'value') return React.createElement(DataValueValuePanel, { value: r.value });
+      if (k === 'type') return [r.dataType, r.dataFormat].filter(Boolean).join(' · ') || React.createElement('span', { style: { color: 'var(--dim)' } }, 'not recorded');
+      return '';
+    },
+  });
+}
+
+// A model's signature (SupportedVariableType -> SchemaType, Egeria 6.4): what it accepts, in position order.
+var _MODEL_SIGNATURE_COLS = [['element', 'Variable type', 200], ['position', 'Position', 100], ['label', 'Label', 140],
+  ['cardinality', 'Cardinality', 160], ['dataType', 'Data type', 110]];
+
+function ModelSignatureTable({ rows, st, onNavigateToElement }) {
+  var model = e64ByPosition(rows);
+  var note = _modelRowsOrNote(model, st, 'No variable types are declared for this model.');
+  if (note) return note;
+  return React.createElement(E64Table, {
+    cols: _MODEL_SIGNATURE_COLS, rows: model, minWidth: 710,
+    rowKey: function(r, i) { return r.relationshipGuid || ('svt-' + i); },
+    cell: function(k, r) {
+      if (k === 'element') return _e64ElementCell(r, onNavigateToElement);
+      if (k === 'position') return React.createElement('span', { style: { color: r.positionSet ? 'var(--text)' : 'var(--dim)' } }, e64PositionText(r));
+      if (k === 'label') return React.createElement('div', null, r.label || '—',
+        r.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)' } }, r.description));
+      if (k === 'cardinality') return e64CardinalityText(r);
+      if (k === 'dataType') return r.dataType || '—';
+      return '';
+    },
+  });
+}
+
+// A run's lineage: results = data lineage out of the run; other = its remaining lineage, each with its direction.
+// The read's words when it returned none: never an empty list, never "none" (a read can hide lineage).
+var MODEL_LINEAGE_WORDS = {
+  results: { 'none-returned': 'Results: this read returned no data lineage out of the run.', 'not-read': 'Results: not read by this card yet.' },
+  other:   { 'none-returned': 'This read returned no other lineage for the run.', 'not-read': 'Other lineage: not read by this card yet.' },
+};
+var _MODEL_LINEAGE_COLS = [['element', 'Element', 210], ['rel', 'Relationship', 140], ['direction', 'Direction', 130], ['label', 'Label', 180]];
+
+function ModelLineageTable({ rows, st, kind, onNavigateToElement }) {
+  rows = rows || [];
+  if (!rows.length || !st || st.state !== 'read') {
+    var words = MODEL_LINEAGE_WORDS[kind] || MODEL_LINEAGE_WORDS.results;
+    var state = (st && st.state) || 'not-read';
+    return React.createElement('div', { className: 'model-lineage-note', 'data-state': state, style: { fontSize: 12, color: 'var(--dim)', padding: '4px 0' } },
+      words[state] || words['not-read']);
+  }
+  return React.createElement(E64Table, {
+    cols: _MODEL_LINEAGE_COLS, rows: rows, minWidth: 660,
+    rowKey: function(r, i) { return r.relationshipGuid || ('lin-' + i); },
+    cell: function(k, r) {
+      if (k === 'element') return _e64ElementCell(r, onNavigateToElement);
+      if (k === 'rel') return r.relationshipType || '';
+      if (k === 'direction') return r.direction || '';
+      if (k === 'label') return React.createElement('div', null, r.label || '—',
+        r.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)' } }, r.description));
+      return '';
+    },
+  });
+}
+
+// List subtitles (E64ElementsView cfg.subtitle, static/egeria-shared-ui.js).
+function modelListSubtitle(s) {
+  return [s.implementationLanguage, s.versionIdentifier ? 'version ' + s.versionIdentifier : ''].filter(Boolean).join(' · ');
+}
+function modelRunListSubtitle(s) {
+  var start = s.startTime ? (isNaN(e64ParseTime(s.startTime)) ? 'start not readable' : 'started ' + e64FmtDate(s.startTime)) : 'start not recorded';
+  return [s.activityStatus, start].filter(Boolean).join(' · ');
+}
+/* catalog-models-pure:end */
+
+// A relationship list's key in words (dataValueUses -> "Data value uses").
+function _catalogRelLabel(key) {
+  return String(key || '').replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase().replace(/^./, function(ch) { return ch.toUpperCase(); });
+}
+
+function DataValueDetail({ detail, onNavigateToElement }) {
+  var personaId = React.useContext(PersonaContext);
+  var sectionHdr = { fontWeight: 700, fontSize: 13, marginBottom: 10, marginTop: 20, paddingBottom: 6, borderBottom: '1px solid var(--border)', color: 'var(--accent)' };
+  var lists = detail.lists || {};
+  var count = function(rows, st) { return st && st.state === 'read' ? ' (' + (rows || []).length + ')' : ''; };
+  var fmt = [['Data type', detail.dataType], ['Data format', detail.dataFormat], ['Length', detail.length], ['Usage', detail.usage],
+             ['Fingerprint', detail.fingerprint ? detail.fingerprint + (detail.fingerprintAlgorithm ? ' (' + detail.fingerprintAlgorithm + ')' : '') : ''],
+             ['Hash', detail.hash !== '' && detail.hash !== null && detail.hash !== undefined ? detail.hash + (detail.hashAlgorithm ? ' (' + detail.hashAlgorithm + ')' : '') : '']];
+  return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%', minWidth: 0, overflowWrap: 'anywhere' } },
+    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
+      React.createElement('div', { style: { fontSize: 18, fontWeight: 700 } }, detail.displayName || detail.qualifiedName || detail.guid),
+      detail.typeName && React.createElement('span', { className: 'badge', style: { background: 'rgba(94,234,212,.1)', color: '#5eead4', border: '0.5px solid rgba(94,234,212,.3)' } }, detail.typeName),
+      React.createElement('div', { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
+        personaId && React.createElement(FavoriteButton, { app: 'tech-catalog', section: 'data-values', label: detail.displayName || detail.qualifiedName, icon: '◇', url: '/tech-catalog?guid=' + encodeURIComponent(detail.guid) + '#data-values', personaId: personaId }),
+        React.createElement(EgeriaFeedbackWidget, { guid: detail.guid })),
+      React.createElement(HeaderInfoButton, { header: detail._header }),
+      React.createElement(CopyJsonButton, { data: detail })),
+    React.createElement('code', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 12 } }, detail.guid),
+    detail.description && React.createElement('div', { style: { fontSize: 13, marginBottom: 16 } }, renderMd(detail.description)),
+    React.createElement('div', { style: sectionHdr }, 'Format and type'),
+    React.createElement('table', { style: { borderCollapse: 'collapse', width: '100%', maxWidth: 560 } },
+      React.createElement('tbody', null, fmt.map(function(f) {
+        var has = f[1] !== '' && f[1] !== null && f[1] !== undefined;
+        return React.createElement('tr', { key: f[0] },
+          React.createElement('td', { style: Object.assign({}, _E64_TD, { color: 'var(--dim)', width: 140 }) }, f[0]),
+          React.createElement('td', { style: _E64_TD }, has ? String(f[1]) : React.createElement('span', { style: { color: 'var(--dim)' } }, 'not recorded')));
+      }))),
+    React.createElement('div', { style: sectionHdr }, 'Value'),
+    React.createElement(DataValueValuePanel, { value: detail.value }),
+    React.createElement('div', { style: sectionHdr }, 'Configures (processing variables)' + count(detail.usedBy, lists.dataValueUses)),
+    React.createElement(E64PositionedTable, { rows: detail.usedBy, st: lists.dataValueUses, onNavigateToElement: onNavigateToElement }),
+    React.createElement('div', { style: sectionHdr }, 'Stored in' + count(detail.storedIn, lists.dataValueSources)),
+    React.createElement(E64PositionedTable, { rows: detail.storedIn, st: lists.dataValueSources, onNavigateToElement: onNavigateToElement, withPosition: false }),
+    React.createElement('div', { style: sectionHdr }, 'Embedded values' + count(detail.embedded, lists.embeddedDataValues)),
+    React.createElement(E64PositionedTable, { rows: detail.embedded, st: lists.embeddedDataValues, onNavigateToElement: onNavigateToElement }),
+    React.createElement('div', { style: sectionHdr }, 'Part of' + count(detail.partOf, lists.parentDataValues)),
+    React.createElement(E64PositionedTable, { rows: detail.partOf, st: lists.parentDataValues, onNavigateToElement: onNavigateToElement }),
+    React.createElement('div', { style: sectionHdr }, 'Other properties'),
+    React.createElement(GenericPropertiesTable, {
+      item: detail,
+      priority: ['qualifiedName', 'identifier', 'versionIdentifier'],
+      skip: ['usedBy', 'storedIn', 'embedded', 'partOf', 'lists', 'value', 'isLiteral', 'status', 'additionalProperties', 'description', 'displayName',
+             'dataType', 'dataFormat', 'length', 'usage', 'fingerprint', 'fingerprintAlgorithm', 'hash', 'hashAlgorithm'],
+    }),
+    React.createElement(AdditionalPropertiesTable, { data: detail.additionalProperties }),
+    React.createElement('div', { style: { marginTop: 20 } },
+      React.createElement(AvailableMermaidDiagrams, { data: detail }),
+      React.createElement(MermaidSection, { guid: detail.guid, data: detail })),
+    detail.relationships && Object.keys(detail.relationships).length > 0 && React.createElement('div', null,
+      React.createElement('div', { style: sectionHdr }, 'Relationships'),
+      Object.entries(detail.relationships).map(function(pair) {
+        return React.createElement(RelationshipSection, { key: pair[0], title: _catalogRelLabel(pair[0]), items: pair[1], onNavigateToElement: onNavigateToElement });
+      })),
+    React.createElement(ClassificationsAndRawJson, { item: detail }),
+    React.createElement(E64RelatedPanel, { guid: detail.guid, onNavigateToElement: typeof onNavigateToElement === 'function' ? onNavigateToElement : null }),
+    React.createElement(EgeriaCommentsSection, { guid: detail.guid })
+  );
+}
+
+var DATA_VALUES_VIEW_CFG = {
+  listUrl: '/api/data-values', detailUrl: function(g) { return '/api/data-values/' + encodeURIComponent(g); },
+  noun: 'Configuration value', nounPlural: 'Configuration values', empty: 'No configuration values exist yet.', Detail: DataValueDetail,
+  sideKey: 'DataValuesView.sideW',
+  subtitle: function(s) { return [s.typeName === 'LiteralDataValue' ? 'literal' : '', s.dataType, s.dataFormat].filter(Boolean).join(' · '); },
+};
+
+// ── Models and Runs (#analytics-models): DeployedAnalyticsModel and AnalyticsModelRun ──
+// Two sub-tabs (SECTION_TABS['analytics-models']) over E64ElementsView. Runs, models, projects and sources are found by the related
+// element's type across every relationship (Egeria has no relationship reserved for model -> run).
+var _MODEL_SKIP = ['runs', 'models', 'projects', 'sources', 'variables', 'variableTypes', 'related', 'results', 'otherLineage', 'lists', 'runMetrics', 'status', 'additionalProperties', 'description', 'displayName',
+  'implementationLanguage', 'deployedImplementationType', 'versionIdentifier', 'activityStatus', 'userDefinedActivityStatus',
+  'requestedTime', 'requestedStartTime', 'startTime', 'dueTime', 'completionTime', 'lastPauseTime', 'lastResumeTime'];
+
+function ModelCardFrame({ detail, onNavigateToElement, tab, icon, color, badges, children }) {
+  var personaId = React.useContext(PersonaContext);
+  var badge = function(label, val) {
+    return React.createElement('span', { key: label, className: 'badge', title: label,
+      style: { color: val ? color : 'var(--dim)', border: '0.5px solid ' + (val ? color : 'var(--border)'), background: 'transparent', whiteSpace: 'normal' } },
+      label + ': ' + (val || 'not recorded'));
+  };
+  return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%', minWidth: 0, overflowWrap: 'anywhere' } },
+    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
+      React.createElement('div', { style: { fontSize: 18, fontWeight: 700 } }, detail.displayName || detail.qualifiedName || detail.guid),
+      detail.typeName && React.createElement('span', { className: 'badge', style: { background: 'transparent', color: color, border: '0.5px solid ' + color } }, detail.typeName),
+      React.createElement('div', { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
+        personaId && React.createElement(FavoriteButton, { app: 'tech-catalog', section: 'analytics-models', label: detail.displayName || detail.qualifiedName, icon: icon,
+          url: '/tech-catalog?guid=' + encodeURIComponent(detail.guid) + '&kind=' + tab + '#analytics-models', personaId: personaId }),
+        React.createElement(EgeriaFeedbackWidget, { guid: detail.guid })),
+      React.createElement(HeaderInfoButton, { header: detail._header }),
+      React.createElement(CopyJsonButton, { data: detail })),
+    React.createElement('code', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 12 } }, detail.guid),
+    React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 } }, badges.map(function(b) { return badge(b[0], b[1]); })),
+    detail.description && React.createElement('div', { style: { fontSize: 13, marginBottom: 16 } }, renderMd(detail.description)),
+    children,
+    React.createElement('div', { style: _MODEL_SECTION_HDR }, 'Other properties'),
+    React.createElement(GenericPropertiesTable, { item: detail, priority: ['qualifiedName', 'identifier', 'expectedBehaviour', 'formula', 'formulaType'], skip: _MODEL_SKIP }),
+    React.createElement(AdditionalPropertiesTable, { data: detail.additionalProperties }),
+    React.createElement('div', { style: { marginTop: 20 } },
+      React.createElement(AvailableMermaidDiagrams, { data: detail }),
+      React.createElement(MermaidSection, { guid: detail.guid, data: detail })),
+    detail.relationships && Object.keys(detail.relationships).length > 0 && React.createElement('div', null,
+      React.createElement('div', { style: _MODEL_SECTION_HDR }, 'Other relationships'),
+      Object.entries(detail.relationships).map(function(pair) {
+        return React.createElement(RelationshipSection, { key: pair[0], title: _catalogRelLabel(pair[0]), items: pair[1], onNavigateToElement: onNavigateToElement });
+      })),
+    React.createElement(ClassificationsAndRawJson, { item: detail }),
+    // The other Egeria 6.4 links (decisions, data values provided, Branch), from this card's own read without the
+    // lists shown above: E64RelatedPanel's rows, so nothing is fetched twice or shown twice (the S2 ruling).
+    React.createElement('div', { className: 'e64-related' },
+      React.createElement('div', { style: _MODEL_SECTION_HDR }, 'Decisions and other Egeria 6.4 links'),
+      React.createElement(E64RelatedRows, { data: detail.related, onNavigateToElement: typeof onNavigateToElement === 'function' ? onNavigateToElement : null })),
+    React.createElement(EgeriaCommentsSection, { guid: detail.guid })
+  );
+}
+
+var _MODEL_SECTION_HDR = { fontWeight: 700, fontSize: 13, marginBottom: 10, marginTop: 20, paddingBottom: 6, borderBottom: '1px solid var(--border)', color: 'var(--accent)' };
+
+function _modelCount(rows, st) { return st && st.state === 'read' ? ' (' + (rows || []).length + ')' : ''; }
+
+function _modelSharedSections(detail, onNavigateToElement, noun) {
+  var lists = detail.lists || {};
+  return [
+    React.createElement('div', { key: 'mh', style: _MODEL_SECTION_HDR }, 'Run metrics'),
+    React.createElement(RunMetricsPanel, { key: 'm', metrics: detail.runMetrics, noun: noun }),
+    React.createElement('div', { key: 'ph', style: _MODEL_SECTION_HDR }, 'Projects and experiments' + _modelCount(detail.projects, lists.projects)),
+    React.createElement(ModelProjectsTable, { key: 'p', rows: detail.projects, st: lists.projects, onNavigateToElement: onNavigateToElement }),
+    React.createElement('div', { key: 'sh', style: _MODEL_SECTION_HDR }, 'Model sources' + _modelCount(detail.sources, lists.sources)),
+    React.createElement(ModelSourcesTable, { key: 's', rows: detail.sources, st: lists.sources, onNavigateToElement: onNavigateToElement }),
+  ];
+}
+
+function AnalyticsModelDetail({ detail, onNavigateToElement }) {
+  var lists = detail.lists || {};
+  return React.createElement(ModelCardFrame, {
+    detail: detail, onNavigateToElement: onNavigateToElement, tab: 'models', icon: '◈', color: '#f0abfc',
+    badges: [['Language', detail.implementationLanguage], ['Implementation', detail.deployedImplementationType],
+             ['Version', detail.versionIdentifier], ['Status', detail.activityStatus || detail.userDefinedActivityStatus]],
+  },
+    React.createElement('div', { key: 'sgh', style: _MODEL_SECTION_HDR }, 'Signature: the variable types this model is configured with' + _modelCount(detail.variableTypes, lists.variableTypes)),
+    React.createElement(ModelSignatureTable, { key: 'sg', rows: detail.variableTypes, st: lists.variableTypes, onNavigateToElement: onNavigateToElement }),
+    React.createElement('div', { key: 'rh', style: _MODEL_SECTION_HDR }, 'Runs' + _modelCount(detail.runs, lists.runs)),
+    React.createElement(ModelRunsTable, { key: 'r', rows: detail.runs, st: lists.runs, onNavigateToElement: onNavigateToElement }),
+    React.createElement('div', { key: 'cvh', style: _MODEL_SECTION_HDR }, 'Configuration values (processing variables)' + _modelCount(detail.variables, lists.variables)),
+    React.createElement(ModelVariablesTable, { key: 'cv', rows: detail.variables, st: lists.variables, onNavigateToElement: onNavigateToElement, emptyText: 'No configuration values are linked to this model.' }),
+    React.createElement(React.Fragment, { key: 'shared' }, _modelSharedSections(detail, onNavigateToElement, 'model')));
+}
+
+function AnalyticsModelRunDetail({ detail, onNavigateToElement }) {
+  var lists = detail.lists || {};
+  return React.createElement(ModelCardFrame, {
+    detail: detail, onNavigateToElement: onNavigateToElement, tab: 'runs', icon: '▶', color: '#93c5fd',
+    badges: [['Status', detail.activityStatus || detail.userDefinedActivityStatus]],
+  },
+    React.createElement('div', { key: 'dh', style: _MODEL_SECTION_HDR }, 'Dates'),
+    React.createElement(ModelRunDatesPanel, { key: 'd', detail: detail }),
+    React.createElement('div', { key: 'pvh', style: _MODEL_SECTION_HDR }, 'Configuration values (processing variables)' + _modelCount(detail.variables, lists.variables)),
+    React.createElement('div', { key: 'pvn', className: 'model-variables-note', style: { fontSize: 11, color: 'var(--dim)', marginBottom: 6 } }, MODEL_VARIABLES_NOTE),
+    React.createElement(ModelVariablesTable, { key: 'pv', rows: detail.variables, st: lists.variables, onNavigateToElement: onNavigateToElement }),
+    React.createElement('div', { key: 'rsh', style: _MODEL_SECTION_HDR }, 'Results (lineage out of the run)' + _modelCount(detail.results, lists.results)),
+    React.createElement(ModelLineageTable, { key: 'rs', rows: detail.results, st: lists.results, kind: 'results', onNavigateToElement: onNavigateToElement }),
+    React.createElement('div', { key: 'olh', style: _MODEL_SECTION_HDR }, 'Other lineage' + _modelCount(detail.otherLineage, lists.otherLineage)),
+    React.createElement(ModelLineageTable, { key: 'ol', rows: detail.otherLineage, st: lists.otherLineage, kind: 'other', onNavigateToElement: onNavigateToElement }),
+    React.createElement('div', { key: 'mdh', style: _MODEL_SECTION_HDR }, 'Model' + _modelCount(detail.models, lists.models)),
+    React.createElement(RunModelsTable, { key: 'md', rows: detail.models, st: lists.models, onNavigateToElement: onNavigateToElement }),
+    React.createElement(React.Fragment, { key: 'shared' }, _modelSharedSections(detail, onNavigateToElement, 'run')));
+}
+
+var ANALYTICS_MODELS_VIEW_CFG = {
+  listUrl: '/api/analytics-models', detailUrl: function(g) { return '/api/analytics-models/' + encodeURIComponent(g); },
+  noun: 'Model', nounPlural: 'Models', empty: 'No analytics models are catalogued yet.', Detail: AnalyticsModelDetail,
+  sideKey: 'AnalyticsModelsView.sideW', subtitle: modelListSubtitle,
+};
+var ANALYTICS_MODEL_RUNS_VIEW_CFG = {
+  listUrl: '/api/analytics-model-runs', detailUrl: function(g) { return '/api/analytics-model-runs/' + encodeURIComponent(g); },
+  noun: 'Model run', nounPlural: 'Model runs', empty: 'No model runs are catalogued yet.', Detail: AnalyticsModelRunDetail,
+  sideKey: 'AnalyticsModelRunsView.sideW', subtitle: modelRunListSubtitle,
+};
+
+// Section → tab → the E64ElementsView config it shows (SECTION_TABS entries with custom: true).
+var CATALOG_E64_TAB_CFG = {
+  'config-values': DATA_VALUES_VIEW_CFG,
+  'models': ANALYTICS_MODELS_VIEW_CFG,
+  'runs': ANALYTICS_MODEL_RUNS_VIEW_CFG,
+};
+
 var SECTION_TABS = {
   infrastructure: [
     { id: 'infrastructure', label: 'IT Infrastructure', endpoint: '/api/tech-catalog/infrastructure' },
@@ -4193,6 +4714,13 @@ var SECTION_TABS = {
     { id: 'software-components', label: 'Software Components', endpoint: '/api/tech-catalog/software-components' },
     { id: 'actions', label: 'Actions', endpoint: '/api/tech-catalog/actions' },
     { id: 'governance-processes', label: 'Governance Processes', custom: true },
+  ],
+  'data-values': [
+    { id: 'config-values', label: 'Configuration Values', custom: true },
+  ],
+  'analytics-models': [
+    { id: 'models', label: 'Models', custom: true },
+    { id: 'runs',   label: 'Model runs', custom: true },
   ],
   surveys: [
     { id: 'survey-reports', label: 'Survey Reports', endpoint: '/api/tech-catalog/survey-reports' },
@@ -4219,7 +4747,7 @@ function _infrastructureTabs(d) {
   return tabs.concat(SECTION_TABS.infrastructure.filter(function(t) { return t.id !== 'infrastructure'; }));
 }
 
-function SectionView({ sectionId, creds, navTarget, onNavigate, searchQuery }) {
+function SectionView({ sectionId, creds, navTarget, onNavigate, onNavigateToElement, searchQuery }) {
   if (sectionId === 'search') {
     return React.createElement(SearchView, { creds: creds, onNavigate: onNavigate, initialQuery: searchQuery });
   }
@@ -4251,7 +4779,11 @@ function SectionView({ sectionId, creds, navTarget, onNavigate, searchQuery }) {
   var tabs = (sectionId === 'infrastructure' && infraTypes)
     ? _infrastructureTabs(infraTypes)
     : (SECTION_TABS[sectionId] || []);
-  var _tab = useState(tabs[0] ? tabs[0].id : ''), activeTab = _tab[0], setActiveTab = _tab[1];
+  // A deep link (?kind=runs, or a ?guid= resolved to a tab) opens on its tab rather than flashing the first one.
+  var _tab = useState(function() {
+    if (navTarget && navTarget.section === sectionId && navTarget.tab && tabs.some(function(t) { return t.id === navTarget.tab; })) return navTarget.tab;
+    return tabs[0] ? tabs[0].id : '';
+  }), activeTab = _tab[0], setActiveTab = _tab[1];
 
   // When a cross-nav target arrives for this section, switch to the right sub-tab
   useEffect(function() {
@@ -4279,6 +4811,10 @@ function SectionView({ sectionId, creds, navTarget, onNavigate, searchQuery }) {
           ? React.createElement(SurveyTypesView, { key: 'survey-types', creds: creds })
           : currentTab.id === 'governance-processes'
           ? React.createElement(GovernanceProcessesView, { key: 'governance-processes', creds: creds, navTarget: navTarget, onNavigate: onNavigate })
+          : CATALOG_E64_TAB_CFG[currentTab.id]
+          ? React.createElement(E64ElementsView, { key: currentTab.id, cfg: CATALOG_E64_TAB_CFG[currentTab.id],
+              navGuid: navTarget && navTarget.guid && navTarget.section === sectionId && (!navTarget.tab || navTarget.tab === currentTab.id) ? navTarget.guid : null,
+              onNavigateToElement: onNavigateToElement })
           : null)
       : currentTab && React.createElement(AssetTabView, {
           key: currentTab.id,
@@ -4307,6 +4843,9 @@ var SECTIONS = [
   // tab has been removed from Explorer and its list+detail view moved here
   // (NamespacesView/NamespaceDetail above) — The Catalog is now its only home.
   { id: 'namespaces',     icon: '🗂️', label: 'Namespaces', desc: 'Namespaces group elements under a particular namespace, e.g. Unity Catalog Catalogs.' },
+  // Moved here from Egeria Explorer on 2026-11-22 (an old Explorer link redirects to these).
+  { id: 'analytics-models', icon: '◈', label: 'Models and Runs', desc: 'Deployed analytics models and their runs: each model with its signature, runs (newest first), configuration values, run metrics, projects and experiments, and model sources; each run with its dates, parameters, results (lineage out of the run), model and run metrics.' },
+  { id: 'data-values', icon: '◇', label: 'Configuration Values', desc: 'The values that configure a process, model or run (Egeria 6.4 DataValue and LiteralDataValue, linked by ProcessingVariable) -- not the data in assets, Valid Metadata Values or Reference Data. Each shows its format and type, the value itself (a literal, a list or a map), what it configures (with position), where it is stored, the values embedded in it and what it is part of. Needs Egeria 6.4.' },
 ];
 // ALL_SECTIONS includes Search for the nav-bar button list; Search is not a splash tile group.
 var ALL_SECTIONS = SECTIONS.concat([{ id: 'search', icon: '🔎', label: 'Search' }]);
@@ -4335,6 +4874,12 @@ var SPLASH_GROUPS = [
     label: 'Discovery & Analysis',
     blurb: 'Results from automated survey runs — survey reports and their analysis annotations.',
     sections: ['surveys'],
+  },
+  {
+    key: 'models',
+    label: 'Models and Configuration',
+    blurb: 'Analytics models and their runs, and the values that configure processes, models and runs.',
+    sections: ['analytics-models', 'data-values'],
   },
 ];
 var SECTIONS_BY_ID = {};
@@ -4501,10 +5046,19 @@ function usePublishSelectedGuid(guid) {
 }
 
 // ── App ───────────────────────────────────────────────────────────────────────
+// The first navTarget from the URL: #analytics-models?kind=runs with no ?guid= opens the Model runs tab
+// (a ?guid= is resolved through element-nav instead, which also picks the tab).
+function catalogInitialNavTarget(search, hash) {
+  var p = new URLSearchParams(search || '');
+  var h = String(hash || '').replace(/^#/, '');
+  if (h === 'analytics-models' && !p.get('guid') && p.get('kind') === 'runs') return { section: 'analytics-models', tab: 'runs' };
+  return null;
+}
+
 function App() {
   var _section   = useState(function() {
     var hash  = window.location.hash.slice(1);
-    var valid = new Set(['glossary','infrastructure','data-assets','apis','processes','tech-types','surveys','search','namespaces']);
+    var valid = new Set(['glossary','infrastructure','data-assets','apis','processes','tech-types','surveys','search','namespaces','data-values','analytics-models']);
     if (valid.has(hash)) return hash;
     return '';  // ?guid= section is resolved via element-nav after auth
   }), section = _section[0], setSection = _section[1];
@@ -4525,7 +5079,8 @@ function App() {
   var _srvMgd    = useState(false), srvManaged = _srvMgd[0],    setSrvManaged = _srvMgd[1];
   var _demoMode  = useState(false), demoMode   = _demoMode[0],  setDemoMode   = _demoMode[1];
   var _ready     = useState(false), ready      = _ready[0],     setReady      = _ready[1];
-  var _navTarget = useState(null), navTarget  = _navTarget[0], setNavTarget  = _navTarget[1];
+  // ?kind=runs#analytics-models (an old Explorer link, or a favourite) opens the Model runs tab.
+  var _navTarget = useState(function() { return catalogInitialNavTarget(window.location.search, window.location.hash); }), navTarget  = _navTarget[0], setNavTarget  = _navTarget[1];
   // Set when a ?guid= deep-link resolves to a type The Catalog doesn't own
   // (e.g. a Valid Value or Actor reached via search) — shows an honest
   // "not part of The Catalog" panel instead of silently defaulting into the
@@ -4570,6 +5125,17 @@ function App() {
     }
     setNavTarget(nav);
     setSection(nav.section);
+  }
+
+  // A card's row link (E64Table, RelationshipSection, E64RelatedRows): a type The Catalog owns opens
+  // here; an Explorer type opens the Explorer (handleNavigate's cross-app path); anything else
+  // opens in the element popup.
+  function navigateToElementFromCard(item) {
+    if (!item || !item.guid) return;
+    var nav = _resolveTypeToNav(item.typeName, item.superTypeNames || item.superTypes || []);
+    if (nav) { handleNavigate(Object.assign({ guid: item.guid, displayName: item.displayName || item.guid }, nav)); return; }
+    if (typeof crossAppNavigate === 'function' && crossAppNavigate(item)) return;
+    elementView.open(item.guid, item.displayName);
   }
 
   // Resolve deep-link ?guid= to the correct section/tab via element-nav
@@ -4701,7 +5267,7 @@ function App() {
       })
     ),
     section
-      ? React.createElement(SectionView, { sectionId: section, creds: creds, navTarget: navTarget, onNavigate: handleNavigate, searchQuery: searchQ })
+      ? React.createElement(SectionView, { sectionId: section, creds: creds, navTarget: navTarget, onNavigate: handleNavigate, onNavigateToElement: navigateToElementFromCard, searchQuery: searchQ })
       : unresolvedNav
         ? React.createElement(UnresolvedElement, { nav: unresolvedNav, onDismiss: function() { setUnresolvedNav(null); } })
         : React.createElement(Splash, { onSelect: function(id, q) { if (q) setSearchQ(q); setSection(id); }, authUser: authUser, activePersona: activePersona, creds: creds, demoMode: demoMode, srvManaged: srvManaged, saveCreds: setCreds }),

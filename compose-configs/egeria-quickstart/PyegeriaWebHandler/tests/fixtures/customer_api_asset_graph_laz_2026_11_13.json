@@ -1,0 +1,4764 @@
+{
+ "anchorMermaidGraph": "---\ntitle: Asset - Customer API [5d6ec7aa-9b13-4286-ad00-af82709a259b]\n---\nflowchart LR\n%%{init: {\"flowchart\": {\"htmlLabels\": false}} }%%\n\nsubgraph 1 [Classifications]\ndirection TB\n2@{ shape: rounded, label: \"*Anchors*\n\"}\nend\n3@{ shape: rounded, label: \"*Deployed A P I*\n**Customer API**\"}\n4@{ shape: rounded, label: \"*A P I Parameter*\n**customerNo**\"}\n5@{ shape: rounded, label: \"*A P I Parameter List*\n**Get Customer Operation Request Parameter List**\"}\n6@{ shape: rounded, label: \"*A P I Schema Type*\n**Customer API API Schema Type**\"}\n7@{ shape: rounded, label: \"*A P I Parameter*\n**customerNo**\"}\n8@{ shape: rounded, label: \"*A P I Parameter List*\n**Get Customer Operation Response Parameter List**\"}\n9@{ shape: rounded, label: \"*A P I Parameter*\n**customerCardId**\"}\n10@{ shape: rounded, label: \"*A P I Operation*\n**Get Customer Operation**\"}\n11@{ shape: rounded, label: \"*A P I Parameter*\n**customerName**\"}\n10==>|\"A P I Response\"|8\n8==>|\"[3] 1..1 [Attribute For Schema]\"|11\n5==>|\"[1] 1..1 [Attribute For Schema]\"|4\n8==>|\"[4] 1..1 [Attribute For Schema]\"|9\n8==>|\"[2] 1..1 [Attribute For Schema]\"|7\n3==>|\"Schema\"|6\n12@{ shape: rect, label: \"*Glossary Term*\n**UniqueCustomerIdentifier**\"}\n7==>|\"Semantic Assignment\"|12\n6==>|\"A P I Operations\"|10\n10==>|\"A P I Request\"|5\n4==>|\"Semantic Assignment\"|12\nstyle 11 color:#000000, fill:#ffffe0, stroke:#004563\nstyle 1 color:#000000, fill:#F9F7ED, stroke:#b7c0c7\nstyle 12 color:#000000, fill:#66CDAA, stroke:#008080\nstyle 3 color:#000000, fill:#e0ab18, stroke:#004563\nstyle 4 color:#000000, fill:#ffffe0, stroke:#004563\nstyle 5 color:#000000, fill:#ffffe0, stroke:#004563\nstyle 6 color:#000000, fill:#ffffe0, stroke:#004563\nstyle 7 color:#000000, fill:#ffffe0, stroke:#004563\nstyle 8 color:#000000, fill:#ffffe0, stroke:#004563\nstyle 9 color:#000000, fill:#ffffe0, stroke:#004563\nstyle 10 color:#000000, fill:#ffffe0, stroke:#004563\n",
+ "anchoredElements": [
+  {
+   "elementHeader": {
+    "anchor": {
+     "class": "ElementClassification",
+     "classificationName": "Anchors",
+     "classificationOrigin": "ASSIGNED",
+     "classificationProperties": {
+      "anchorDomainName": "Asset",
+      "anchorGUID": "5d6ec7aa-9b13-4286-ad00-af82709a259b",
+      "anchorTypeName": "DeployedAPI",
+      "class": "AnchorsProperties",
+      "typeName": "Anchors"
+     },
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+      "homeMetadataCollectionName": "SimpleComboCatalog",
+      "originCategory": "CONTENT_PACK",
+      "sourceServer": "qs-metadata-store"
+     },
+     "status": "ACTIVE",
+     "type": {
+      "typeCategory": "CLASSIFICATION_DEF",
+      "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+      "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+      "typeName": "Anchors",
+      "typeVersion": 1
+     },
+     "versions": {
+      "createTime": "2021-09-19T10:10:51.579+00:00",
+      "createdBy": "Egeria",
+      "maintainedBy": [
+       "Egeria"
+      ],
+      "updateTime": "2021-09-19T10:10:51.579+00:00",
+      "updatedBy": "Egeria",
+      "version": 1
+     }
+    },
+    "class": "ElementHeader",
+    "guid": "1ca8155c-fc49-4d43-b54a-7ffc945ed796",
+    "headerVersion": 0,
+    "origin": {
+     "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+     "homeMetadataCollectionName": "SimpleComboCatalog",
+     "license": "Apache-2.0",
+     "originCategory": "CONTENT_PACK",
+     "sourceServer": "qs-metadata-store"
+    },
+    "schemaType": {
+     "class": "ElementClassification",
+     "classificationName": "TypeEmbeddedAttribute",
+     "classificationOrigin": "ASSIGNED",
+     "classificationProperties": {
+      "class": "TypeEmbeddedAttributeProperties",
+      "dataType": "string",
+      "schemaTypeName": "PrimitiveSchemaType",
+      "typeName": "TypeEmbeddedAttribute"
+     },
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+      "homeMetadataCollectionName": "SimpleComboCatalog",
+      "originCategory": "CONTENT_PACK",
+      "sourceServer": "qs-metadata-store"
+     },
+     "status": "ACTIVE",
+     "type": {
+      "typeCategory": "CLASSIFICATION_DEF",
+      "typeDescription": "Type information embedded within an attribute.",
+      "typeId": "e2bb76bb-774a-43ff-9045-3a05f663d5d9",
+      "typeName": "TypeEmbeddedAttribute",
+      "typeVersion": 2
+     },
+     "versions": {
+      "createTime": "2021-09-19T10:10:51.579+00:00",
+      "createdBy": "Egeria",
+      "maintainedBy": [
+       "Egeria"
+      ],
+      "updateTime": "2021-09-19T10:10:51.579+00:00",
+      "updatedBy": "Egeria",
+      "version": 1
+     }
+    },
+    "status": "ACTIVE",
+    "type": {
+     "superTypeNames": [
+      "SchemaAttribute",
+      "SchemaElement",
+      "AuthoredReferenceable",
+      "Referenceable",
+      "OpenMetadataRoot"
+     ],
+     "typeCategory": "ENTITY_DEF",
+     "typeDescription": "A data value that is part of an API definition.",
+     "typeId": "10277b13-509c-480e-9829-bc16d0eafc53",
+     "typeName": "APIParameter",
+     "typeVersion": 1
+    },
+    "versions": {
+     "createTime": "2021-09-19T10:10:51.579+00:00",
+     "createdBy": "Egeria",
+     "maintainedBy": [
+      "Egeria"
+     ],
+     "updateTime": "2021-09-19T10:10:51.579+00:00",
+     "updatedBy": "Egeria",
+     "version": 1
+    }
+   },
+   "properties": {
+    "class": "APIParameterProperties",
+    "description": "The unique identifier assigned internally for a customer.",
+    "displayName": "customerNo",
+    "length": 12,
+    "namespacePath": "global-api-gateway/CustomerDomain/APIs/Customer/getCustomer/request",
+    "qualifiedName": "APIParameter::global-api-gateway/CustomerDomain/APIs/Customer/getCustomer/request/customerNo",
+    "sortOrder": "UNSORTED",
+    "typeName": "APIParameter"
+   }
+  },
+  {
+   "elementHeader": {
+    "anchor": {
+     "class": "ElementClassification",
+     "classificationName": "Anchors",
+     "classificationOrigin": "ASSIGNED",
+     "classificationProperties": {
+      "anchorDomainName": "Asset",
+      "anchorGUID": "5d6ec7aa-9b13-4286-ad00-af82709a259b",
+      "anchorTypeName": "DeployedAPI",
+      "class": "AnchorsProperties",
+      "typeName": "Anchors"
+     },
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+      "homeMetadataCollectionName": "SimpleComboCatalog",
+      "originCategory": "CONTENT_PACK",
+      "sourceServer": "qs-metadata-store"
+     },
+     "status": "ACTIVE",
+     "type": {
+      "typeCategory": "CLASSIFICATION_DEF",
+      "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+      "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+      "typeName": "Anchors",
+      "typeVersion": 1
+     },
+     "versions": {
+      "createTime": "2021-09-19T10:10:51.579+00:00",
+      "createdBy": "Egeria",
+      "maintainedBy": [
+       "Egeria"
+      ],
+      "updateTime": "2021-09-19T10:10:51.579+00:00",
+      "updatedBy": "Egeria",
+      "version": 1
+     }
+    },
+    "class": "ElementHeader",
+    "guid": "31c9875d-2095-43f4-8168-12ac1c6d5900",
+    "headerVersion": 0,
+    "origin": {
+     "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+     "homeMetadataCollectionName": "SimpleComboCatalog",
+     "license": "Apache-2.0",
+     "originCategory": "CONTENT_PACK",
+     "sourceServer": "qs-metadata-store"
+    },
+    "status": "ACTIVE",
+    "type": {
+     "superTypeNames": [
+      "ComplexSchemaType",
+      "SchemaType",
+      "SchemaElement",
+      "AuthoredReferenceable",
+      "Referenceable",
+      "OpenMetadataRoot"
+     ],
+     "typeCategory": "ENTITY_DEF",
+     "typeDescription": "A list of parameters for an API operation.",
+     "typeId": "ba167b12-969f-49d3-8bea-d04228d9a44b",
+     "typeName": "APIParameterList",
+     "typeVersion": 1
+    },
+    "versions": {
+     "createTime": "2021-09-19T10:10:51.579+00:00",
+     "createdBy": "Egeria",
+     "maintainedBy": [
+      "Egeria"
+     ],
+     "updateTime": "2021-09-19T10:10:51.579+00:00",
+     "updatedBy": "Egeria",
+     "version": 1
+    }
+   },
+   "properties": {
+    "class": "APIParameterListProperties",
+    "displayName": "Get Customer Operation Request Parameter List",
+    "qualifiedName": "APIOperation::global-api-gateway/CustomerDomain/APIs/Customer/getCustomer_request",
+    "required": true,
+    "typeName": "APIParameterList"
+   }
+  },
+  {
+   "elementHeader": {
+    "anchor": {
+     "class": "ElementClassification",
+     "classificationName": "Anchors",
+     "classificationOrigin": "ASSIGNED",
+     "classificationProperties": {
+      "anchorDomainName": "Asset",
+      "anchorGUID": "5d6ec7aa-9b13-4286-ad00-af82709a259b",
+      "anchorTypeName": "DeployedAPI",
+      "class": "AnchorsProperties",
+      "typeName": "Anchors"
+     },
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+      "homeMetadataCollectionName": "SimpleComboCatalog",
+      "originCategory": "CONTENT_PACK",
+      "sourceServer": "qs-metadata-store"
+     },
+     "status": "ACTIVE",
+     "type": {
+      "typeCategory": "CLASSIFICATION_DEF",
+      "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+      "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+      "typeName": "Anchors",
+      "typeVersion": 1
+     },
+     "versions": {
+      "createTime": "2021-09-19T10:10:51.579+00:00",
+      "createdBy": "Egeria",
+      "maintainedBy": [
+       "Egeria"
+      ],
+      "updateTime": "2021-09-19T10:10:51.579+00:00",
+      "updatedBy": "Egeria",
+      "version": 1
+     }
+    },
+    "class": "ElementHeader",
+    "guid": "5d6ec7aa-9b13-4286-ad00-af82709a259b",
+    "headerVersion": 0,
+    "origin": {
+     "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+     "homeMetadataCollectionName": "SimpleComboCatalog",
+     "license": "Apache-2.0",
+     "originCategory": "CONTENT_PACK",
+     "sourceServer": "qs-metadata-store"
+    },
+    "status": "ACTIVE",
+    "type": {
+     "superTypeNames": [
+      "DeployedSoftwareComponent",
+      "Process",
+      "Asset",
+      "Referenceable",
+      "OpenMetadataRoot"
+     ],
+     "typeCategory": "ENTITY_DEF",
+     "typeDescription": "A callable interface running at an endpoint.",
+     "typeId": "7dbb3e63-138f-49f1-97b4-66313871fc14",
+     "typeName": "DeployedAPI",
+     "typeVersion": 1
+    },
+    "usageActivity": {
+     "class": "ElementClassification",
+     "classificationName": "UsageActivity",
+     "classificationOrigin": "ASSIGNED",
+     "classificationProperties": {
+      "class": "UsageActivityProperties",
+      "deleteAttachmentCount": 0,
+      "deleteFeedbackCount": 0,
+      "explicitGetCount": 0,
+      "findCount": 24,
+      "typeName": "UsageActivity",
+      "updateAttachmentCount": 0,
+      "updateFeedbackCount": 0,
+      "updatePropertyCount": 0
+     },
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+      "homeMetadataCollectionName": "qs-metadata-store",
+      "originCategory": "LOCAL_COHORT",
+      "sourceServer": "qs-metadata-store"
+     },
+     "status": "ACTIVE",
+     "type": {
+      "typeCategory": "CLASSIFICATION_DEF",
+      "typeDescription": "Describes the usage activity around an anchor element and its anchored elements: how often it is explicitly retrieved, found through searches, has its properties updated, and has its attachments and feedback updated or deleted.",
+      "typeId": "cfae23a1-8020-431f-a603-1f1bb0e01cb3",
+      "typeName": "UsageActivity",
+      "typeVersion": 1
+     },
+     "versions": {
+      "createTime": "2026-11-12T11:20:50.336+00:00",
+      "createdBy": "pepysnpa",
+      "lastRequestId": "5e0babb4-a4a6-4fc6-b7dc-3fda52c88a83",
+      "maintainedBy": [
+       "pepysnpa"
+      ],
+      "updateTime": "2026-11-13T18:17:05.385+00:00",
+      "updatedBy": "pepysnpa",
+      "version": 5
+     }
+    },
+    "versions": {
+     "createTime": "2021-09-19T10:10:51.579+00:00",
+     "createdBy": "Egeria",
+     "maintainedBy": [
+      "Egeria"
+     ],
+     "updateTime": "2021-09-19T10:10:51.579+00:00",
+     "updatedBy": "Egeria",
+     "version": 1
+    }
+   },
+   "properties": {
+    "activityStatus": "APPROVED",
+    "category": "Customer Domain",
+    "class": "DeployedAPIProperties",
+    "deployedImplementationType": "REST API",
+    "description": "API for interacting with customer master.",
+    "displayName": "Customer API",
+    "namespacePath": "global-api-gateway/CustomerDomain/APIs",
+    "qualifiedName": "DeployedAPI::global-api-gateway/CustomerDomain/APIs/Customer",
+    "resourceName": "global-api-gateway/CustomerDomain/APIs/Customer",
+    "typeName": "DeployedAPI",
+    "versionIdentifier": "1.0"
+   }
+  },
+  {
+   "elementHeader": {
+    "anchor": {
+     "class": "ElementClassification",
+     "classificationName": "Anchors",
+     "classificationOrigin": "ASSIGNED",
+     "classificationProperties": {
+      "anchorDomainName": "Asset",
+      "anchorGUID": "5d6ec7aa-9b13-4286-ad00-af82709a259b",
+      "anchorTypeName": "DeployedAPI",
+      "class": "AnchorsProperties",
+      "typeName": "Anchors"
+     },
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+      "homeMetadataCollectionName": "SimpleComboCatalog",
+      "originCategory": "CONTENT_PACK",
+      "sourceServer": "qs-metadata-store"
+     },
+     "status": "ACTIVE",
+     "type": {
+      "typeCategory": "CLASSIFICATION_DEF",
+      "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+      "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+      "typeName": "Anchors",
+      "typeVersion": 1
+     },
+     "versions": {
+      "createTime": "2021-09-19T10:10:51.579+00:00",
+      "createdBy": "Egeria",
+      "maintainedBy": [
+       "Egeria"
+      ],
+      "updateTime": "2021-09-19T10:10:51.579+00:00",
+      "updatedBy": "Egeria",
+      "version": 1
+     }
+    },
+    "class": "ElementHeader",
+    "guid": "8b7fbe7e-4d58-4778-bf22-c8a7e71de353",
+    "headerVersion": 0,
+    "origin": {
+     "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+     "homeMetadataCollectionName": "SimpleComboCatalog",
+     "license": "Apache-2.0",
+     "originCategory": "CONTENT_PACK",
+     "sourceServer": "qs-metadata-store"
+    },
+    "status": "ACTIVE",
+    "type": {
+     "superTypeNames": [
+      "RootSchemaType",
+      "ComplexSchemaType",
+      "SchemaType",
+      "SchemaElement",
+      "AuthoredReferenceable",
+      "Referenceable",
+      "OpenMetadataRoot"
+     ],
+     "typeCategory": "ENTITY_DEF",
+     "typeDescription": "Description of an API.",
+     "typeId": "b46cddb3-9864-4c5d-8a49-266b3fc95cb8",
+     "typeName": "APISchemaType",
+     "typeVersion": 1
+    },
+    "versions": {
+     "createTime": "2021-09-19T10:10:51.579+00:00",
+     "createdBy": "Egeria",
+     "maintainedBy": [
+      "Egeria"
+     ],
+     "updateTime": "2021-09-19T10:10:51.579+00:00",
+     "updatedBy": "Egeria",
+     "version": 1
+    }
+   },
+   "properties": {
+    "class": "APISchemaTypeProperties",
+    "displayName": "Customer API API Schema Type",
+    "qualifiedName": "DeployedAPI::global-api-gateway/CustomerDomain/APIs/Customer_api_schema_type",
+    "typeName": "APISchemaType"
+   }
+  },
+  {
+   "elementHeader": {
+    "anchor": {
+     "class": "ElementClassification",
+     "classificationName": "Anchors",
+     "classificationOrigin": "ASSIGNED",
+     "classificationProperties": {
+      "anchorDomainName": "Asset",
+      "anchorGUID": "5d6ec7aa-9b13-4286-ad00-af82709a259b",
+      "anchorTypeName": "DeployedAPI",
+      "class": "AnchorsProperties",
+      "typeName": "Anchors"
+     },
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+      "homeMetadataCollectionName": "SimpleComboCatalog",
+      "originCategory": "CONTENT_PACK",
+      "sourceServer": "qs-metadata-store"
+     },
+     "status": "ACTIVE",
+     "type": {
+      "typeCategory": "CLASSIFICATION_DEF",
+      "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+      "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+      "typeName": "Anchors",
+      "typeVersion": 1
+     },
+     "versions": {
+      "createTime": "2021-09-19T10:10:51.579+00:00",
+      "createdBy": "Egeria",
+      "maintainedBy": [
+       "Egeria"
+      ],
+      "updateTime": "2021-09-19T10:10:51.579+00:00",
+      "updatedBy": "Egeria",
+      "version": 1
+     }
+    },
+    "class": "ElementHeader",
+    "guid": "a7b6360d-3c76-4ffc-8fbb-4d57b7ddbb8f",
+    "headerVersion": 0,
+    "origin": {
+     "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+     "homeMetadataCollectionName": "SimpleComboCatalog",
+     "license": "Apache-2.0",
+     "originCategory": "CONTENT_PACK",
+     "sourceServer": "qs-metadata-store"
+    },
+    "schemaType": {
+     "class": "ElementClassification",
+     "classificationName": "TypeEmbeddedAttribute",
+     "classificationOrigin": "ASSIGNED",
+     "classificationProperties": {
+      "class": "TypeEmbeddedAttributeProperties",
+      "dataType": "string",
+      "schemaTypeName": "PrimitiveSchemaType",
+      "typeName": "TypeEmbeddedAttribute"
+     },
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+      "homeMetadataCollectionName": "SimpleComboCatalog",
+      "originCategory": "CONTENT_PACK",
+      "sourceServer": "qs-metadata-store"
+     },
+     "status": "ACTIVE",
+     "type": {
+      "typeCategory": "CLASSIFICATION_DEF",
+      "typeDescription": "Type information embedded within an attribute.",
+      "typeId": "e2bb76bb-774a-43ff-9045-3a05f663d5d9",
+      "typeName": "TypeEmbeddedAttribute",
+      "typeVersion": 2
+     },
+     "versions": {
+      "createTime": "2021-09-19T10:10:51.579+00:00",
+      "createdBy": "Egeria",
+      "maintainedBy": [
+       "Egeria"
+      ],
+      "updateTime": "2021-09-19T10:10:51.579+00:00",
+      "updatedBy": "Egeria",
+      "version": 1
+     }
+    },
+    "status": "ACTIVE",
+    "type": {
+     "superTypeNames": [
+      "SchemaAttribute",
+      "SchemaElement",
+      "AuthoredReferenceable",
+      "Referenceable",
+      "OpenMetadataRoot"
+     ],
+     "typeCategory": "ENTITY_DEF",
+     "typeDescription": "A data value that is part of an API definition.",
+     "typeId": "10277b13-509c-480e-9829-bc16d0eafc53",
+     "typeName": "APIParameter",
+     "typeVersion": 1
+    },
+    "versions": {
+     "createTime": "2021-09-19T10:10:51.579+00:00",
+     "createdBy": "Egeria",
+     "maintainedBy": [
+      "Egeria"
+     ],
+     "updateTime": "2021-09-19T10:10:51.579+00:00",
+     "updatedBy": "Egeria",
+     "version": 1
+    }
+   },
+   "properties": {
+    "class": "APIParameterProperties",
+    "description": "The unique identifier assigned internally for a customer.",
+    "displayName": "customerNo",
+    "length": 12,
+    "namespacePath": "global-api-gateway/CustomerDomain/APIs/Customer/getCustomer/response",
+    "qualifiedName": "APIParameter::global-api-gateway/CustomerDomain/APIs/Customer/getCustomer/response/customerNo",
+    "sortOrder": "UNSORTED",
+    "typeName": "APIParameter"
+   }
+  },
+  {
+   "elementHeader": {
+    "anchor": {
+     "class": "ElementClassification",
+     "classificationName": "Anchors",
+     "classificationOrigin": "ASSIGNED",
+     "classificationProperties": {
+      "anchorDomainName": "Asset",
+      "anchorGUID": "5d6ec7aa-9b13-4286-ad00-af82709a259b",
+      "anchorTypeName": "DeployedAPI",
+      "class": "AnchorsProperties",
+      "typeName": "Anchors"
+     },
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+      "homeMetadataCollectionName": "SimpleComboCatalog",
+      "originCategory": "CONTENT_PACK",
+      "sourceServer": "qs-metadata-store"
+     },
+     "status": "ACTIVE",
+     "type": {
+      "typeCategory": "CLASSIFICATION_DEF",
+      "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+      "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+      "typeName": "Anchors",
+      "typeVersion": 1
+     },
+     "versions": {
+      "createTime": "2021-09-19T10:10:51.579+00:00",
+      "createdBy": "Egeria",
+      "maintainedBy": [
+       "Egeria"
+      ],
+      "updateTime": "2021-09-19T10:10:51.579+00:00",
+      "updatedBy": "Egeria",
+      "version": 1
+     }
+    },
+    "class": "ElementHeader",
+    "guid": "afa6ecb1-d357-410a-baae-f3c07f07c303",
+    "headerVersion": 0,
+    "origin": {
+     "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+     "homeMetadataCollectionName": "SimpleComboCatalog",
+     "license": "Apache-2.0",
+     "originCategory": "CONTENT_PACK",
+     "sourceServer": "qs-metadata-store"
+    },
+    "status": "ACTIVE",
+    "type": {
+     "superTypeNames": [
+      "ComplexSchemaType",
+      "SchemaType",
+      "SchemaElement",
+      "AuthoredReferenceable",
+      "Referenceable",
+      "OpenMetadataRoot"
+     ],
+     "typeCategory": "ENTITY_DEF",
+     "typeDescription": "A list of parameters for an API operation.",
+     "typeId": "ba167b12-969f-49d3-8bea-d04228d9a44b",
+     "typeName": "APIParameterList",
+     "typeVersion": 1
+    },
+    "versions": {
+     "createTime": "2021-09-19T10:10:51.579+00:00",
+     "createdBy": "Egeria",
+     "maintainedBy": [
+      "Egeria"
+     ],
+     "updateTime": "2021-09-19T10:10:51.579+00:00",
+     "updatedBy": "Egeria",
+     "version": 1
+    }
+   },
+   "properties": {
+    "class": "APIParameterListProperties",
+    "displayName": "Get Customer Operation Response Parameter List",
+    "qualifiedName": "APIOperation::global-api-gateway/CustomerDomain/APIs/Customer/getCustomer_response",
+    "required": true,
+    "typeName": "APIParameterList"
+   }
+  },
+  {
+   "elementHeader": {
+    "anchor": {
+     "class": "ElementClassification",
+     "classificationName": "Anchors",
+     "classificationOrigin": "ASSIGNED",
+     "classificationProperties": {
+      "anchorDomainName": "Asset",
+      "anchorGUID": "5d6ec7aa-9b13-4286-ad00-af82709a259b",
+      "anchorTypeName": "DeployedAPI",
+      "class": "AnchorsProperties",
+      "typeName": "Anchors"
+     },
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+      "homeMetadataCollectionName": "SimpleComboCatalog",
+      "originCategory": "CONTENT_PACK",
+      "sourceServer": "qs-metadata-store"
+     },
+     "status": "ACTIVE",
+     "type": {
+      "typeCategory": "CLASSIFICATION_DEF",
+      "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+      "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+      "typeName": "Anchors",
+      "typeVersion": 1
+     },
+     "versions": {
+      "createTime": "2021-09-19T10:10:51.579+00:00",
+      "createdBy": "Egeria",
+      "maintainedBy": [
+       "Egeria"
+      ],
+      "updateTime": "2021-09-19T10:10:51.579+00:00",
+      "updatedBy": "Egeria",
+      "version": 1
+     }
+    },
+    "class": "ElementHeader",
+    "guid": "c35bcf0d-302d-4e60-ad17-778114937594",
+    "headerVersion": 0,
+    "origin": {
+     "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+     "homeMetadataCollectionName": "SimpleComboCatalog",
+     "license": "Apache-2.0",
+     "originCategory": "CONTENT_PACK",
+     "sourceServer": "qs-metadata-store"
+    },
+    "schemaType": {
+     "class": "ElementClassification",
+     "classificationName": "TypeEmbeddedAttribute",
+     "classificationOrigin": "ASSIGNED",
+     "classificationProperties": {
+      "class": "TypeEmbeddedAttributeProperties",
+      "dataType": "string",
+      "schemaTypeName": "PrimitiveSchemaType",
+      "typeName": "TypeEmbeddedAttribute"
+     },
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+      "homeMetadataCollectionName": "SimpleComboCatalog",
+      "originCategory": "CONTENT_PACK",
+      "sourceServer": "qs-metadata-store"
+     },
+     "status": "ACTIVE",
+     "type": {
+      "typeCategory": "CLASSIFICATION_DEF",
+      "typeDescription": "Type information embedded within an attribute.",
+      "typeId": "e2bb76bb-774a-43ff-9045-3a05f663d5d9",
+      "typeName": "TypeEmbeddedAttribute",
+      "typeVersion": 2
+     },
+     "versions": {
+      "createTime": "2021-09-19T10:10:51.579+00:00",
+      "createdBy": "Egeria",
+      "maintainedBy": [
+       "Egeria"
+      ],
+      "updateTime": "2021-09-19T10:10:51.579+00:00",
+      "updatedBy": "Egeria",
+      "version": 1
+     }
+    },
+    "status": "ACTIVE",
+    "type": {
+     "superTypeNames": [
+      "SchemaAttribute",
+      "SchemaElement",
+      "AuthoredReferenceable",
+      "Referenceable",
+      "OpenMetadataRoot"
+     ],
+     "typeCategory": "ENTITY_DEF",
+     "typeDescription": "A data value that is part of an API definition.",
+     "typeId": "10277b13-509c-480e-9829-bc16d0eafc53",
+     "typeName": "APIParameter",
+     "typeVersion": 1
+    },
+    "versions": {
+     "createTime": "2021-09-19T10:10:51.579+00:00",
+     "createdBy": "Egeria",
+     "maintainedBy": [
+      "Egeria"
+     ],
+     "updateTime": "2021-09-19T10:10:51.579+00:00",
+     "updatedBy": "Egeria",
+     "version": 1
+    }
+   },
+   "properties": {
+    "class": "APIParameterProperties",
+    "description": "The store card number for the customer.  Null if not issued.",
+    "displayName": "customerCardId",
+    "length": 10,
+    "namespacePath": "global-api-gateway/CustomerDomain/APIs/Customer/getCustomer/responses",
+    "qualifiedName": "global-api-gateway/CustomerDomain/APIs/Customer/getCustomer/responses/customerCardId",
+    "sortOrder": "UNSORTED",
+    "typeName": "APIParameter"
+   }
+  },
+  {
+   "elementHeader": {
+    "anchor": {
+     "class": "ElementClassification",
+     "classificationName": "Anchors",
+     "classificationOrigin": "ASSIGNED",
+     "classificationProperties": {
+      "anchorDomainName": "Asset",
+      "anchorGUID": "5d6ec7aa-9b13-4286-ad00-af82709a259b",
+      "anchorTypeName": "DeployedAPI",
+      "class": "AnchorsProperties",
+      "typeName": "Anchors"
+     },
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+      "homeMetadataCollectionName": "SimpleComboCatalog",
+      "originCategory": "CONTENT_PACK",
+      "sourceServer": "qs-metadata-store"
+     },
+     "status": "ACTIVE",
+     "type": {
+      "typeCategory": "CLASSIFICATION_DEF",
+      "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+      "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+      "typeName": "Anchors",
+      "typeVersion": 1
+     },
+     "versions": {
+      "createTime": "2021-09-19T10:10:51.579+00:00",
+      "createdBy": "Egeria",
+      "maintainedBy": [
+       "Egeria"
+      ],
+      "updateTime": "2021-09-19T10:10:51.579+00:00",
+      "updatedBy": "Egeria",
+      "version": 1
+     }
+    },
+    "class": "ElementHeader",
+    "guid": "c39c77b8-1415-4569-8b40-9b50518210dc",
+    "headerVersion": 0,
+    "origin": {
+     "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+     "homeMetadataCollectionName": "SimpleComboCatalog",
+     "license": "Apache-2.0",
+     "originCategory": "CONTENT_PACK",
+     "sourceServer": "qs-metadata-store"
+    },
+    "status": "ACTIVE",
+    "type": {
+     "superTypeNames": [
+      "SchemaType",
+      "SchemaElement",
+      "AuthoredReferenceable",
+      "Referenceable",
+      "OpenMetadataRoot"
+     ],
+     "typeCategory": "ENTITY_DEF",
+     "typeDescription": "Description of an API operation.",
+     "typeId": "f1c0af19-2729-4fac-996e-a7badff3c21c",
+     "typeName": "APIOperation",
+     "typeVersion": 1
+    },
+    "versions": {
+     "createTime": "2021-09-19T10:10:51.579+00:00",
+     "createdBy": "Egeria",
+     "maintainedBy": [
+      "Egeria"
+     ],
+     "updateTime": "2021-09-19T10:10:51.579+00:00",
+     "updatedBy": "Egeria",
+     "version": 1
+    }
+   },
+   "properties": {
+    "class": "APIOperationProperties",
+    "command": "GET",
+    "description": "API operation to retrieved details about the customer.",
+    "displayName": "Get Customer Operation",
+    "namespacePath": "global-api-gateway/CustomerDomain/APIs/Customer",
+    "path": "global-api-gateway/CustomerDomain/APIs/Customer/getCustomer",
+    "qualifiedName": "APIOperation::global-api-gateway/CustomerDomain/APIs/Customer/getCustomer",
+    "typeName": "APIOperation"
+   }
+  },
+  {
+   "elementHeader": {
+    "anchor": {
+     "class": "ElementClassification",
+     "classificationName": "Anchors",
+     "classificationOrigin": "ASSIGNED",
+     "classificationProperties": {
+      "anchorDomainName": "Asset",
+      "anchorGUID": "5d6ec7aa-9b13-4286-ad00-af82709a259b",
+      "anchorTypeName": "DeployedAPI",
+      "class": "AnchorsProperties",
+      "typeName": "Anchors"
+     },
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+      "homeMetadataCollectionName": "SimpleComboCatalog",
+      "originCategory": "CONTENT_PACK",
+      "sourceServer": "qs-metadata-store"
+     },
+     "status": "ACTIVE",
+     "type": {
+      "typeCategory": "CLASSIFICATION_DEF",
+      "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+      "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+      "typeName": "Anchors",
+      "typeVersion": 1
+     },
+     "versions": {
+      "createTime": "2021-09-19T10:10:51.579+00:00",
+      "createdBy": "Egeria",
+      "maintainedBy": [
+       "Egeria"
+      ],
+      "updateTime": "2021-09-19T10:10:51.579+00:00",
+      "updatedBy": "Egeria",
+      "version": 1
+     }
+    },
+    "class": "ElementHeader",
+    "guid": "f132688a-c5d0-47b8-9982-e2dca8b923c6",
+    "headerVersion": 0,
+    "origin": {
+     "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+     "homeMetadataCollectionName": "SimpleComboCatalog",
+     "license": "Apache-2.0",
+     "originCategory": "CONTENT_PACK",
+     "sourceServer": "qs-metadata-store"
+    },
+    "schemaType": {
+     "class": "ElementClassification",
+     "classificationName": "TypeEmbeddedAttribute",
+     "classificationOrigin": "ASSIGNED",
+     "classificationProperties": {
+      "class": "TypeEmbeddedAttributeProperties",
+      "dataType": "string",
+      "schemaTypeName": "PrimitiveSchemaType",
+      "typeName": "TypeEmbeddedAttribute"
+     },
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+      "homeMetadataCollectionName": "SimpleComboCatalog",
+      "originCategory": "CONTENT_PACK",
+      "sourceServer": "qs-metadata-store"
+     },
+     "status": "ACTIVE",
+     "type": {
+      "typeCategory": "CLASSIFICATION_DEF",
+      "typeDescription": "Type information embedded within an attribute.",
+      "typeId": "e2bb76bb-774a-43ff-9045-3a05f663d5d9",
+      "typeName": "TypeEmbeddedAttribute",
+      "typeVersion": 2
+     },
+     "versions": {
+      "createTime": "2021-09-19T10:10:51.579+00:00",
+      "createdBy": "Egeria",
+      "maintainedBy": [
+       "Egeria"
+      ],
+      "updateTime": "2021-09-19T10:10:51.579+00:00",
+      "updatedBy": "Egeria",
+      "version": 1
+     }
+    },
+    "status": "ACTIVE",
+    "type": {
+     "superTypeNames": [
+      "SchemaAttribute",
+      "SchemaElement",
+      "AuthoredReferenceable",
+      "Referenceable",
+      "OpenMetadataRoot"
+     ],
+     "typeCategory": "ENTITY_DEF",
+     "typeDescription": "A data value that is part of an API definition.",
+     "typeId": "10277b13-509c-480e-9829-bc16d0eafc53",
+     "typeName": "APIParameter",
+     "typeVersion": 1
+    },
+    "versions": {
+     "createTime": "2021-09-19T10:10:51.579+00:00",
+     "createdBy": "Egeria",
+     "maintainedBy": [
+      "Egeria"
+     ],
+     "updateTime": "2021-09-19T10:10:51.579+00:00",
+     "updatedBy": "Egeria",
+     "version": 1
+    }
+   },
+   "properties": {
+    "class": "APIParameterProperties",
+    "description": "The name for a customer - as supplied by the customer.",
+    "displayName": "customerName",
+    "length": 40,
+    "namespacePath": "global-api-gateway/CustomerDomain/APIs/Customer/getCustomer/response",
+    "qualifiedName": "global-api-gateway/CustomerDomain/APIs/Customer/getCustomer/response/customerName",
+    "sortOrder": "UNSORTED",
+    "typeName": "APIParameter"
+   }
+  }
+ ],
+ "class": "AssetGraph",
+ "elementHeader": {
+  "anchor": {
+   "class": "ElementClassification",
+   "classificationName": "Anchors",
+   "classificationOrigin": "ASSIGNED",
+   "classificationProperties": {
+    "anchorDomainName": "Asset",
+    "anchorGUID": "5d6ec7aa-9b13-4286-ad00-af82709a259b",
+    "anchorTypeName": "DeployedAPI",
+    "class": "AnchorsProperties",
+    "typeName": "Anchors"
+   },
+   "headerVersion": 0,
+   "origin": {
+    "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+    "homeMetadataCollectionName": "SimpleComboCatalog",
+    "originCategory": "CONTENT_PACK",
+    "sourceServer": "qs-metadata-store"
+   },
+   "status": "ACTIVE",
+   "type": {
+    "typeCategory": "CLASSIFICATION_DEF",
+    "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+    "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+    "typeName": "Anchors",
+    "typeVersion": 1
+   },
+   "versions": {
+    "createTime": "2021-09-19T10:10:51.579+00:00",
+    "createdBy": "Egeria",
+    "maintainedBy": [
+     "Egeria"
+    ],
+    "updateTime": "2021-09-19T10:10:51.579+00:00",
+    "updatedBy": "Egeria",
+    "version": 1
+   }
+  },
+  "class": "ElementHeader",
+  "guid": "5d6ec7aa-9b13-4286-ad00-af82709a259b",
+  "headerVersion": 0,
+  "origin": {
+   "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+   "homeMetadataCollectionName": "SimpleComboCatalog",
+   "license": "Apache-2.0",
+   "originCategory": "CONTENT_PACK",
+   "sourceServer": "qs-metadata-store"
+  },
+  "status": "ACTIVE",
+  "type": {
+   "superTypeNames": [
+    "DeployedSoftwareComponent",
+    "Process",
+    "Asset",
+    "Referenceable",
+    "OpenMetadataRoot"
+   ],
+   "typeCategory": "ENTITY_DEF",
+   "typeDescription": "A callable interface running at an endpoint.",
+   "typeId": "7dbb3e63-138f-49f1-97b4-66313871fc14",
+   "typeName": "DeployedAPI",
+   "typeVersion": 1
+  },
+  "usageActivity": {
+   "class": "ElementClassification",
+   "classificationName": "UsageActivity",
+   "classificationOrigin": "ASSIGNED",
+   "classificationProperties": {
+    "class": "UsageActivityProperties",
+    "deleteAttachmentCount": 0,
+    "deleteFeedbackCount": 0,
+    "explicitGetCount": 0,
+    "findCount": 24,
+    "typeName": "UsageActivity",
+    "updateAttachmentCount": 0,
+    "updateFeedbackCount": 0,
+    "updatePropertyCount": 0
+   },
+   "headerVersion": 0,
+   "origin": {
+    "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+    "homeMetadataCollectionName": "qs-metadata-store",
+    "originCategory": "LOCAL_COHORT",
+    "sourceServer": "qs-metadata-store"
+   },
+   "status": "ACTIVE",
+   "type": {
+    "typeCategory": "CLASSIFICATION_DEF",
+    "typeDescription": "Describes the usage activity around an anchor element and its anchored elements: how often it is explicitly retrieved, found through searches, has its properties updated, and has its attachments and feedback updated or deleted.",
+    "typeId": "cfae23a1-8020-431f-a603-1f1bb0e01cb3",
+    "typeName": "UsageActivity",
+    "typeVersion": 1
+   },
+   "versions": {
+    "createTime": "2026-11-12T11:20:50.336+00:00",
+    "createdBy": "pepysnpa",
+    "lastRequestId": "5e0babb4-a4a6-4fc6-b7dc-3fda52c88a83",
+    "maintainedBy": [
+     "pepysnpa"
+    ],
+    "updateTime": "2026-11-13T18:17:05.385+00:00",
+    "updatedBy": "pepysnpa",
+    "version": 5
+   }
+  },
+  "versions": {
+   "createTime": "2021-09-19T10:10:51.579+00:00",
+   "createdBy": "Egeria",
+   "maintainedBy": [
+    "Egeria"
+   ],
+   "updateTime": "2021-09-19T10:10:51.579+00:00",
+   "updatedBy": "Egeria",
+   "version": 1
+  }
+ },
+ "fieldLevelLineageGraph": "---\ntitle: Field-Level Lineage Analysis Graph for Asset - Customer API [5d6ec7aa-9b13-4286-ad00-af82709a259b]\n---\nflowchart TD\n%%{init: {\"flowchart\": {\"htmlLabels\": false}} }%%\n\n1@{ shape: rounded, label: \"*Deployed A P I*\n**Customer API**\"}\n2@{ shape: rect, label: \"*A P I Parameter*\n**customerNo**\"}\n3@{ shape: rect, label: \"*Relational Column*\n**CUSTID**\"}\n3 4@-- \"maps [Data Mapping]\" ------>2\n5@{ shape: rect, label: \"*A P I Parameter*\n**customerNo**\"}\n5 6@-- \"maps [Data Mapping]\" ------>3\n7@{ shape: rect, label: \"*A P I Parameter*\n**customerName**\"}\n8@{ shape: rect, label: \"*Relational Column*\n**CUSTNAME**\"}\n7 9@-- \"maps [Data Mapping]\" ------>8\n10@{ shape: rect, label: \"*A P I Parameter*\n**customerCardId**\"}\n11@{ shape: rect, label: \"*Relational Column*\n**CUSTCARD**\"}\n10 12@-- \"maps [Data Mapping]\" ------>11\n13@{ shape: rounded, label: \"*Deployed Database Schema*\n**5335eeac-54b3-4d53-a38c-bd354b33766e**\"}\n13-. \"Anchor for\" .->3\n13-. \"Anchor for\" .->8\n13-. \"Anchor for\" .->11\nstyle 11 color:#ffffe0, fill:#800080, stroke:#CCFFFF\nstyle 1 color:#000000, fill:#e0ab18, stroke:#004563\nstyle 2 color:#ffffe0, fill:#800080, stroke:#CCFFFF\nstyle 13 color:#000000, fill:#ffffe0, stroke:#004563\nstyle 3 color:#ffffe0, fill:#800080, stroke:#CCFFFF\nstyle 5 color:#ffffe0, fill:#800080, stroke:#CCFFFF\nstyle 7 color:#ffffe0, fill:#800080, stroke:#CCFFFF\nstyle 8 color:#ffffe0, fill:#800080, stroke:#CCFFFF\nstyle 10 color:#ffffe0, fill:#800080, stroke:#CCFFFF\n12@{ animation: fast }\n4@{ animation: fast }\n6@{ animation: fast }\n9@{ animation: fast }\n",
+ "informationSupplyChainMermaidGraph": "---\ntitle: Information Supply Chain Analysis Graph for Asset - Customer API [5d6ec7aa-9b13-4286-ad00-af82709a259b]\n---\nflowchart TD\n%%{init: {\"flowchart\": {\"htmlLabels\": false}} }%%\n\n1@{ shape: rounded, label: \"*Deployed A P I*\n**Customer API**\"}\n2@{ shape: flip-tri, label: \"*Information Supply Chain*\n**Simple Catalog Information Supply Chain**\"}\n2==>1\nstyle 1 color:#000000, fill:#e0ab18, stroke:#004563\nstyle 2 color:#FFFFFF, fill:#004563, stroke:#b7c0c7\n",
+ "lineageLinkage": [
+  {
+   "class": "RelatedMetadataElementSummary",
+   "relatedElement": {
+    "elementHeader": {
+     "anchor": {
+      "class": "ElementClassification",
+      "classificationName": "Anchors",
+      "classificationOrigin": "ASSIGNED",
+      "classificationProperties": {
+       "anchorDomainName": "Asset",
+       "anchorGUID": "c96334c1-64b2-4d0a-ab35-0ce9988e38bc",
+       "anchorTypeName": "BareMetalComputer",
+       "class": "AnchorsProperties",
+       "typeName": "Anchors"
+      },
+      "headerVersion": 0,
+      "origin": {
+       "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+       "homeMetadataCollectionName": "SimpleComboCatalog",
+       "originCategory": "CONTENT_PACK",
+       "sourceServer": "qs-metadata-store"
+      },
+      "status": "ACTIVE",
+      "type": {
+       "typeCategory": "CLASSIFICATION_DEF",
+       "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+       "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+       "typeName": "Anchors",
+       "typeVersion": 1
+      },
+      "versions": {
+       "createTime": "2021-09-19T10:10:51.579+00:00",
+       "createdBy": "Egeria",
+       "maintainedBy": [
+        "Egeria"
+       ],
+       "updateTime": "2021-09-19T10:10:51.579+00:00",
+       "updatedBy": "Egeria",
+       "version": 1
+      }
+     },
+     "class": "ElementHeader",
+     "guid": "5335eeac-54b3-4d53-a38c-bd354b33766e",
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+      "homeMetadataCollectionName": "SimpleComboCatalog",
+      "license": "Apache-2.0",
+      "originCategory": "CONTENT_PACK",
+      "sourceServer": "qs-metadata-store"
+     },
+     "status": "ACTIVE",
+     "type": {
+      "superTypeNames": [
+       "DataSet",
+       "DataAsset",
+       "Asset",
+       "Referenceable",
+       "OpenMetadataRoot"
+      ],
+      "typeCategory": "ENTITY_DEF",
+      "typeDescription": "A collection of database tables and views running in a database server.",
+      "typeId": "eab811ec-556a-45f1-9091-bc7ac8face0f",
+      "typeName": "DeployedDatabaseSchema",
+      "typeVersion": 1
+     },
+     "usageActivity": {
+      "class": "ElementClassification",
+      "classificationName": "UsageActivity",
+      "classificationOrigin": "ASSIGNED",
+      "classificationProperties": {
+       "class": "UsageActivityProperties",
+       "deleteAttachmentCount": 0,
+       "deleteFeedbackCount": 0,
+       "explicitGetCount": 0,
+       "findCount": 23,
+       "typeName": "UsageActivity",
+       "updateAttachmentCount": 0,
+       "updateFeedbackCount": 0,
+       "updatePropertyCount": 0
+      },
+      "headerVersion": 0,
+      "origin": {
+       "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+       "homeMetadataCollectionName": "qs-metadata-store",
+       "originCategory": "LOCAL_COHORT",
+       "sourceServer": "qs-metadata-store"
+      },
+      "status": "ACTIVE",
+      "type": {
+       "typeCategory": "CLASSIFICATION_DEF",
+       "typeDescription": "Describes the usage activity around an anchor element and its anchored elements: how often it is explicitly retrieved, found through searches, has its properties updated, and has its attachments and feedback updated or deleted.",
+       "typeId": "cfae23a1-8020-431f-a603-1f1bb0e01cb3",
+       "typeName": "UsageActivity",
+       "typeVersion": 1
+      },
+      "versions": {
+       "createTime": "2026-11-12T11:19:25.671+00:00",
+       "createdBy": "pepysnpa",
+       "lastRequestId": "5e0babb4-a4a6-4fc6-b7dc-3fda52c88a83",
+       "maintainedBy": [
+        "pepysnpa"
+       ],
+       "updateTime": "2026-11-13T17:35:35.781+00:00",
+       "updatedBy": "pepysnpa",
+       "version": 4
+      }
+     },
+     "versions": {
+      "createTime": "2021-09-19T10:10:51.579+00:00",
+      "createdBy": "Egeria",
+      "maintainedBy": [
+       "Egeria"
+      ],
+      "updateTime": "2021-09-19T10:10:51.579+00:00",
+      "updatedBy": "Egeria",
+      "version": 1
+     }
+    },
+    "properties": {
+     "category": "Customer Domain",
+     "class": "DeployedDatabaseSchemaProperties",
+     "contentStatus": "ACTIVE",
+     "deployedImplementationType": "JDBC Relational Database Schema",
+     "description": "Retail banking schema.",
+     "displayName": "RETAILSCHEMA",
+     "namespacePath": "V37B8752.FH567.sys/BRANCH",
+     "qualifiedName": "DeployedDatabaseSchema::V37B8752.FH567.sys/BRANCH.RETAILSCHEMA",
+     "resourceName": "V37B8752.FH567.sys/BRANCH.RETAILSCHEMA",
+     "typeName": "DeployedDatabaseSchema",
+     "versionIdentifier": "1.0"
+    }
+   },
+   "relatedElementAtEnd1": false,
+   "relationshipHeader": {
+    "class": "ElementHeader",
+    "guid": "fee3b954-ffca-4111-a95f-683b8b074965",
+    "headerVersion": 0,
+    "origin": {
+     "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+     "homeMetadataCollectionName": "SimpleComboCatalog",
+     "license": "Apache-2.0",
+     "originCategory": "CONTENT_PACK",
+     "sourceServer": "qs-metadata-store"
+    },
+    "status": "ACTIVE",
+    "type": {
+     "superTypeNames": [
+      "DataLineageRelationship",
+      "LineageRelationship",
+      "LabeledRelationship"
+     ],
+     "typeCategory": "RELATIONSHIP_DEF",
+     "typeDescription": "Shows that data flows in one direction from one element to another.",
+     "typeId": "d2490c0c-06cc-458a-add2-33cf2f5dd724",
+     "typeName": "DataFlow",
+     "typeVersion": 2
+    },
+    "versions": {
+     "createTime": "2021-09-19T10:10:51.579+00:00",
+     "createdBy": "Egeria",
+     "maintainedBy": [
+      "Egeria"
+     ],
+     "updateTime": "2021-09-19T10:10:51.579+00:00",
+     "updatedBy": "Egeria",
+     "version": 1
+    }
+   },
+   "relationshipProperties": {
+    "class": "DataFlowProperties",
+    "iscQualifiedName": "InformationSupplyChain::SimpleCatalogInformationSupplyChain",
+    "label": "calls",
+    "typeName": "DataFlow"
+   }
+  }
+ ],
+ "localLineageGraph": "---\ntitle: Lineage associated with Asset - Customer API [5d6ec7aa-9b13-4286-ad00-af82709a259b]\n---\nflowchart LR\n%%{init: {\"flowchart\": {\"htmlLabels\": false}} }%%\n\n1@{ shape: rounded, label: \"*Deployed A P I*\n**Customer API**\"}\n2@{ shape: win-pane, label: \"*Deployed Database Schema*\n**RETAILSCHEMA**\"}\n1 3@-- \"calls [Data Flow]\" ------>2\nstyle 1 color:#000000, fill:#e0ab18, stroke:#004563\nstyle 2 color:#000000, fill:#BDB76B, stroke:#004563\n3@{ animation: fast }\n",
+ "mermaidGraph": "---\ntitle: DeployedAPI - Customer API [5d6ec7aa-9b13-4286-ad00-af82709a259b]\n---\nflowchart TD\n%%{init: {\"flowchart\": {\"htmlLabels\": false}} }%%\n\n1@{ shape: rounded, label: \"*Deployed A P I*\n**Customer API**\"}\n2@{ shape: rect, label: \"*A P I Schema Type*\n**Customer API API Schema Type**\"}\n1==>|\"Schema\"|2\n3@{ shape: rect, label: \"*A P I Operation*\n**Get Customer Operation**\"}\n2==>|\"A P I Operations\"|3\n4@{ shape: rect, label: \"*A P I Parameter List*\n**Get Customer Operation Response Parameter List**\"}\n3==>|\"A P I Response\"|4\n5@{ shape: rect, label: \"*A P I Parameter*\n**customerName**\"}\n4==>|\"[3] 1..1 [Attribute For Schema]\"|5\n6@{ shape: rect, label: \"*A P I Parameter*\n**customerCardId**\"}\n4==>|\"[4] 1..1 [Attribute For Schema]\"|6\n7@{ shape: rect, label: \"*A P I Parameter*\n**customerNo**\"}\n4==>|\"[2] 1..1 [Attribute For Schema]\"|7\n8@{ shape: rect, label: \"*A P I Parameter List*\n**Get Customer Operation Request Parameter List**\"}\n3==>|\"A P I Request\"|8\n9@{ shape: rect, label: \"*A P I Parameter*\n**customerNo**\"}\n8==>|\"[1] 1..1 [Attribute For Schema]\"|9\n10@{ shape: win-pane, label: \"*Deployed Database Schema*\n**RETAILSCHEMA**\"}\n1==>|\"calls [Data Flow]\"|10\nstyle 1 color:#000000, fill:#e0ab18, stroke:#004563\nstyle 2 color:#ffffe0, fill:#800080, stroke:#CCFFFF\nstyle 3 color:#ffffe0, fill:#800080, stroke:#CCFFFF\nstyle 4 color:#ffffe0, fill:#800080, stroke:#CCFFFF\nstyle 5 color:#ffffe0, fill:#800080, stroke:#CCFFFF\nstyle 6 color:#ffffe0, fill:#800080, stroke:#CCFFFF\nstyle 7 color:#ffffe0, fill:#800080, stroke:#CCFFFF\nstyle 8 color:#ffffe0, fill:#800080, stroke:#CCFFFF\nstyle 9 color:#ffffe0, fill:#800080, stroke:#CCFFFF\nstyle 10 color:#000000, fill:#BDB76B, stroke:#004563\n",
+ "partOfInformationSupplyChains": [
+  {
+   "elementHeader": {
+    "anchor": {
+     "class": "ElementClassification",
+     "classificationName": "Anchors",
+     "classificationOrigin": "ASSIGNED",
+     "classificationProperties": {
+      "anchorDomainName": "AuthoredReferenceable",
+      "anchorTypeName": "InformationSupplyChain",
+      "class": "AnchorsProperties",
+      "typeName": "Anchors"
+     },
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+      "homeMetadataCollectionName": "SimpleComboCatalog",
+      "originCategory": "CONTENT_PACK",
+      "sourceServer": "qs-metadata-store"
+     },
+     "status": "ACTIVE",
+     "type": {
+      "typeCategory": "CLASSIFICATION_DEF",
+      "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+      "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+      "typeName": "Anchors",
+      "typeVersion": 1
+     },
+     "versions": {
+      "createTime": "2021-09-19T10:10:51.579+00:00",
+      "createdBy": "Egeria",
+      "maintainedBy": [
+       "Egeria"
+      ],
+      "updateTime": "2021-09-19T10:10:51.579+00:00",
+      "updatedBy": "Egeria",
+      "version": 1
+     }
+    },
+    "class": "ElementHeader",
+    "guid": "669bb244-721b-47fd-bc57-79a176a7479b",
+    "headerVersion": 0,
+    "origin": {
+     "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+     "homeMetadataCollectionName": "SimpleComboCatalog",
+     "license": "Apache-2.0",
+     "originCategory": "CONTENT_PACK",
+     "sourceServer": "qs-metadata-store"
+    },
+    "status": "ACTIVE",
+    "type": {
+     "superTypeNames": [
+      "Collection",
+      "AuthoredReferenceable",
+      "Referenceable",
+      "OpenMetadataRoot"
+     ],
+     "typeCategory": "ENTITY_DEF",
+     "typeDescription": "A description of a managed flow of information between multiple systems.",
+     "typeId": "fa6de61d-98cb-48c4-b21f-ab7186235fd4",
+     "typeName": "InformationSupplyChain",
+     "typeVersion": 1
+    },
+    "versions": {
+     "createTime": "2021-09-19T10:10:51.579+00:00",
+     "createdBy": "Egeria",
+     "maintainedBy": [
+      "Egeria"
+     ],
+     "updateTime": "2021-09-19T10:10:51.579+00:00",
+     "updatedBy": "Egeria",
+     "version": 1
+    }
+   },
+   "properties": {
+    "class": "InformationSupplyChainProperties",
+    "description": "Supply of customer data and notifications of customer details change.",
+    "displayName": "Simple Catalog Information Supply Chain",
+    "qualifiedName": "InformationSupplyChain::SimpleCatalogInformationSupplyChain",
+    "typeName": "InformationSupplyChain",
+    "versionIdentifier": "1.0"
+   }
+  }
+ ],
+ "properties": {
+  "activityStatus": "APPROVED",
+  "category": "Customer Domain",
+  "class": "DeployedAPIProperties",
+  "deployedImplementationType": "REST API",
+  "description": "API for interacting with customer master.",
+  "displayName": "Customer API",
+  "namespacePath": "global-api-gateway/CustomerDomain/APIs",
+  "qualifiedName": "DeployedAPI::global-api-gateway/CustomerDomain/APIs/Customer",
+  "resourceName": "global-api-gateway/CustomerDomain/APIs/Customer",
+  "typeName": "DeployedAPI",
+  "versionIdentifier": "1.0"
+ },
+ "relationships": [
+  {
+   "class": "RelatedMetadataNodeSummary",
+   "relatedElement": {
+    "elementHeader": {
+     "anchor": {
+      "class": "ElementClassification",
+      "classificationName": "Anchors",
+      "classificationOrigin": "ASSIGNED",
+      "classificationProperties": {
+       "anchorDomainName": "Asset",
+       "anchorGUID": "5d6ec7aa-9b13-4286-ad00-af82709a259b",
+       "anchorTypeName": "DeployedAPI",
+       "class": "AnchorsProperties",
+       "typeName": "Anchors"
+      },
+      "headerVersion": 0,
+      "origin": {
+       "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+       "homeMetadataCollectionName": "SimpleComboCatalog",
+       "originCategory": "CONTENT_PACK",
+       "sourceServer": "qs-metadata-store"
+      },
+      "status": "ACTIVE",
+      "type": {
+       "typeCategory": "CLASSIFICATION_DEF",
+       "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+       "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+       "typeName": "Anchors",
+       "typeVersion": 1
+      },
+      "versions": {
+       "createTime": "2021-09-19T10:10:51.579+00:00",
+       "createdBy": "Egeria",
+       "maintainedBy": [
+        "Egeria"
+       ],
+       "updateTime": "2021-09-19T10:10:51.579+00:00",
+       "updatedBy": "Egeria",
+       "version": 1
+      }
+     },
+     "class": "ElementHeader",
+     "guid": "afa6ecb1-d357-410a-baae-f3c07f07c303",
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+      "homeMetadataCollectionName": "SimpleComboCatalog",
+      "license": "Apache-2.0",
+      "originCategory": "CONTENT_PACK",
+      "sourceServer": "qs-metadata-store"
+     },
+     "status": "ACTIVE",
+     "type": {
+      "superTypeNames": [
+       "ComplexSchemaType",
+       "SchemaType",
+       "SchemaElement",
+       "AuthoredReferenceable",
+       "Referenceable",
+       "OpenMetadataRoot"
+      ],
+      "typeCategory": "ENTITY_DEF",
+      "typeDescription": "A list of parameters for an API operation.",
+      "typeId": "ba167b12-969f-49d3-8bea-d04228d9a44b",
+      "typeName": "APIParameterList",
+      "typeVersion": 1
+     },
+     "versions": {
+      "createTime": "2021-09-19T10:10:51.579+00:00",
+      "createdBy": "Egeria",
+      "maintainedBy": [
+       "Egeria"
+      ],
+      "updateTime": "2021-09-19T10:10:51.579+00:00",
+      "updatedBy": "Egeria",
+      "version": 1
+     }
+    },
+    "properties": {
+     "class": "APIParameterListProperties",
+     "displayName": "Get Customer Operation Response Parameter List",
+     "qualifiedName": "APIOperation::global-api-gateway/CustomerDomain/APIs/Customer/getCustomer_response",
+     "required": true,
+     "typeName": "APIParameterList"
+    }
+   },
+   "relatedElementAtEnd1": false,
+   "relationshipHeader": {
+    "class": "ElementHeader",
+    "guid": "8fe0c076-54b1-4337-afe2-7cf8f13639df",
+    "headerVersion": 0,
+    "origin": {
+     "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+     "homeMetadataCollectionName": "SimpleComboCatalog",
+     "license": "Apache-2.0",
+     "originCategory": "CONTENT_PACK",
+     "sourceServer": "qs-metadata-store"
+    },
+    "status": "ACTIVE",
+    "type": {
+     "typeCategory": "RELATIONSHIP_DEF",
+     "typeDescription": "Link between an API operation and its response structure.",
+     "typeId": "e8001de2-1bb1-442b-a66f-9addc3641eae",
+     "typeName": "APIResponse",
+     "typeVersion": 1
+    },
+    "versions": {
+     "createTime": "2021-09-19T10:10:51.579+00:00",
+     "createdBy": "Egeria",
+     "maintainedBy": [
+      "Egeria"
+     ],
+     "updateTime": "2021-09-19T10:10:51.579+00:00",
+     "updatedBy": "Egeria",
+     "version": 1
+    }
+   },
+   "startingElementGUID": "c39c77b8-1415-4569-8b40-9b50518210dc"
+  },
+  {
+   "class": "RelatedMetadataNodeSummary",
+   "relatedElement": {
+    "elementHeader": {
+     "anchor": {
+      "class": "ElementClassification",
+      "classificationName": "Anchors",
+      "classificationOrigin": "ASSIGNED",
+      "classificationProperties": {
+       "anchorDomainName": "Asset",
+       "anchorGUID": "5335eeac-54b3-4d53-a38c-bd354b33766e",
+       "anchorTypeName": "DeployedDatabaseSchema",
+       "class": "AnchorsProperties",
+       "typeName": "Anchors"
+      },
+      "headerVersion": 0,
+      "origin": {
+       "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+       "homeMetadataCollectionName": "SimpleComboCatalog",
+       "originCategory": "CONTENT_PACK",
+       "sourceServer": "qs-metadata-store"
+      },
+      "status": "ACTIVE",
+      "type": {
+       "typeCategory": "CLASSIFICATION_DEF",
+       "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+       "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+       "typeName": "Anchors",
+       "typeVersion": 1
+      },
+      "versions": {
+       "createTime": "2021-09-19T10:10:51.579+00:00",
+       "createdBy": "Egeria",
+       "maintainedBy": [
+        "Egeria"
+       ],
+       "updateTime": "2021-09-19T10:10:51.579+00:00",
+       "updatedBy": "Egeria",
+       "version": 1
+      }
+     },
+     "class": "ElementHeader",
+     "guid": "b543242a-298a-4d5b-9f79-57102c6e02fc",
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+      "homeMetadataCollectionName": "SimpleComboCatalog",
+      "license": "Apache-2.0",
+      "originCategory": "CONTENT_PACK",
+      "sourceServer": "qs-metadata-store"
+     },
+     "schemaType": {
+      "class": "ElementClassification",
+      "classificationName": "TypeEmbeddedAttribute",
+      "classificationOrigin": "ASSIGNED",
+      "classificationProperties": {
+       "class": "TypeEmbeddedAttributeProperties",
+       "dataType": "CHAR",
+       "schemaTypeName": "PrimitiveSchemaType",
+       "typeName": "TypeEmbeddedAttribute"
+      },
+      "headerVersion": 0,
+      "origin": {
+       "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+       "homeMetadataCollectionName": "SimpleComboCatalog",
+       "originCategory": "CONTENT_PACK",
+       "sourceServer": "qs-metadata-store"
+      },
+      "status": "ACTIVE",
+      "type": {
+       "typeCategory": "CLASSIFICATION_DEF",
+       "typeDescription": "Type information embedded within an attribute.",
+       "typeId": "e2bb76bb-774a-43ff-9045-3a05f663d5d9",
+       "typeName": "TypeEmbeddedAttribute",
+       "typeVersion": 2
+      },
+      "versions": {
+       "createTime": "2021-09-19T10:10:51.579+00:00",
+       "createdBy": "Egeria",
+       "maintainedBy": [
+        "Egeria"
+       ],
+       "updateTime": "2021-09-19T10:10:51.579+00:00",
+       "updatedBy": "Egeria",
+       "version": 1
+      }
+     },
+     "status": "ACTIVE",
+     "type": {
+      "superTypeNames": [
+       "TabularColumn",
+       "SchemaAttribute",
+       "SchemaElement",
+       "AuthoredReferenceable",
+       "Referenceable",
+       "OpenMetadataRoot"
+      ],
+      "typeCategory": "ENTITY_DEF",
+      "typeDescription": "A column within a relational table.",
+      "typeId": "aa8d5470-6dbc-4648-9e2f-045e5df9d2f9",
+      "typeName": "RelationalColumn",
+      "typeVersion": 1
+     },
+     "versions": {
+      "createTime": "2021-09-19T10:10:51.579+00:00",
+      "createdBy": "Egeria",
+      "maintainedBy": [
+       "Egeria"
+      ],
+      "updateTime": "2021-09-19T10:10:51.579+00:00",
+      "updatedBy": "Egeria",
+      "version": 1
+     }
+    },
+    "properties": {
+     "class": "RelationalColumnProperties",
+     "description": "The unique identifier assigned internally for a customer.",
+     "displayName": "CUSTID",
+     "length": 12,
+     "namespacePath": "V37B8752.FH567.sys/BRANCH.RETAILSCHEMA.CUSTOMER",
+     "qualifiedName": "RelationalColumn::V37B8752.FH567.sys/BRANCH.RETAILSCHEMA.CUSTOMER.CUSTID",
+     "sortOrder": "UNSORTED",
+     "typeName": "RelationalColumn"
+    }
+   },
+   "relatedElementAtEnd1": true,
+   "relationshipHeader": {
+    "class": "ElementHeader",
+    "guid": "9446bae2-b310-468f-a441-bf087cdf4ba2",
+    "headerVersion": 0,
+    "origin": {
+     "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+     "homeMetadataCollectionName": "SimpleComboCatalog",
+     "license": "Apache-2.0",
+     "originCategory": "CONTENT_PACK",
+     "sourceServer": "qs-metadata-store"
+    },
+    "status": "ACTIVE",
+    "type": {
+     "superTypeNames": [
+      "LineageRelationship",
+      "LabeledRelationship"
+     ],
+     "typeCategory": "RELATIONSHIP_DEF",
+     "typeDescription": "A mapping relationship between data values from different assets showing how data is copied/transformed from one to the other.",
+     "typeId": "3264af28-d81b-42f3-b1c7-fdc774a4d179",
+     "typeName": "DataMapping",
+     "typeVersion": 2
+    },
+    "versions": {
+     "createTime": "2021-09-19T10:10:51.579+00:00",
+     "createdBy": "Egeria",
+     "maintainedBy": [
+      "Egeria"
+     ],
+     "updateTime": "2021-09-19T10:10:51.579+00:00",
+     "updatedBy": "Egeria",
+     "version": 1
+    }
+   },
+   "relationshipProperties": {
+    "class": "DataMappingProperties",
+    "label": "maps",
+    "typeName": "DataMapping"
+   },
+   "startingElementGUID": "a7b6360d-3c76-4ffc-8fbb-4d57b7ddbb8f"
+  },
+  {
+   "class": "RelatedMetadataNodeSummary",
+   "relatedElement": {
+    "elementHeader": {
+     "anchor": {
+      "class": "ElementClassification",
+      "classificationName": "Anchors",
+      "classificationOrigin": "ASSIGNED",
+      "classificationProperties": {
+       "anchorDomainName": "Asset",
+       "anchorGUID": "5d6ec7aa-9b13-4286-ad00-af82709a259b",
+       "anchorTypeName": "DeployedAPI",
+       "class": "AnchorsProperties",
+       "typeName": "Anchors"
+      },
+      "headerVersion": 0,
+      "origin": {
+       "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+       "homeMetadataCollectionName": "SimpleComboCatalog",
+       "originCategory": "CONTENT_PACK",
+       "sourceServer": "qs-metadata-store"
+      },
+      "status": "ACTIVE",
+      "type": {
+       "typeCategory": "CLASSIFICATION_DEF",
+       "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+       "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+       "typeName": "Anchors",
+       "typeVersion": 1
+      },
+      "versions": {
+       "createTime": "2021-09-19T10:10:51.579+00:00",
+       "createdBy": "Egeria",
+       "maintainedBy": [
+        "Egeria"
+       ],
+       "updateTime": "2021-09-19T10:10:51.579+00:00",
+       "updatedBy": "Egeria",
+       "version": 1
+      }
+     },
+     "class": "ElementHeader",
+     "guid": "afa6ecb1-d357-410a-baae-f3c07f07c303",
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+      "homeMetadataCollectionName": "SimpleComboCatalog",
+      "license": "Apache-2.0",
+      "originCategory": "CONTENT_PACK",
+      "sourceServer": "qs-metadata-store"
+     },
+     "status": "ACTIVE",
+     "type": {
+      "superTypeNames": [
+       "ComplexSchemaType",
+       "SchemaType",
+       "SchemaElement",
+       "AuthoredReferenceable",
+       "Referenceable",
+       "OpenMetadataRoot"
+      ],
+      "typeCategory": "ENTITY_DEF",
+      "typeDescription": "A list of parameters for an API operation.",
+      "typeId": "ba167b12-969f-49d3-8bea-d04228d9a44b",
+      "typeName": "APIParameterList",
+      "typeVersion": 1
+     },
+     "versions": {
+      "createTime": "2021-09-19T10:10:51.579+00:00",
+      "createdBy": "Egeria",
+      "maintainedBy": [
+       "Egeria"
+      ],
+      "updateTime": "2021-09-19T10:10:51.579+00:00",
+      "updatedBy": "Egeria",
+      "version": 1
+     }
+    },
+    "properties": {
+     "class": "APIParameterListProperties",
+     "displayName": "Get Customer Operation Response Parameter List",
+     "qualifiedName": "APIOperation::global-api-gateway/CustomerDomain/APIs/Customer/getCustomer_response",
+     "required": true,
+     "typeName": "APIParameterList"
+    }
+   },
+   "relatedElementAtEnd1": true,
+   "relationshipHeader": {
+    "class": "ElementHeader",
+    "guid": "1ff82d8e-171f-466a-b69c-14dd6affc6e4",
+    "headerVersion": 0,
+    "origin": {
+     "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+     "homeMetadataCollectionName": "SimpleComboCatalog",
+     "license": "Apache-2.0",
+     "originCategory": "CONTENT_PACK",
+     "sourceServer": "qs-metadata-store"
+    },
+    "status": "ACTIVE",
+    "type": {
+     "typeCategory": "RELATIONSHIP_DEF",
+     "typeDescription": "Link between a complex schema type and its attributes.",
+     "typeId": "86b176a2-015c-44a6-8106-54d5d69ba661",
+     "typeName": "AttributeForSchema",
+     "typeVersion": 1
+    },
+    "versions": {
+     "createTime": "2021-09-19T10:10:51.579+00:00",
+     "createdBy": "Egeria",
+     "maintainedBy": [
+      "Egeria"
+     ],
+     "updateTime": "2021-09-19T10:10:51.579+00:00",
+     "updatedBy": "Egeria",
+     "version": 1
+    }
+   },
+   "relationshipProperties": {
+    "class": "AttributeForSchemaProperties",
+    "maxCardinality": 1,
+    "minCardinality": 1,
+    "position": 3,
+    "typeName": "AttributeForSchema"
+   },
+   "startingElementGUID": "f132688a-c5d0-47b8-9982-e2dca8b923c6"
+  },
+  {
+   "class": "RelatedMetadataNodeSummary",
+   "relatedElement": {
+    "elementHeader": {
+     "anchor": {
+      "class": "ElementClassification",
+      "classificationName": "Anchors",
+      "classificationOrigin": "ASSIGNED",
+      "classificationProperties": {
+       "anchorDomainName": "Asset",
+       "anchorGUID": "5d6ec7aa-9b13-4286-ad00-af82709a259b",
+       "anchorTypeName": "DeployedAPI",
+       "class": "AnchorsProperties",
+       "typeName": "Anchors"
+      },
+      "headerVersion": 0,
+      "origin": {
+       "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+       "homeMetadataCollectionName": "SimpleComboCatalog",
+       "originCategory": "CONTENT_PACK",
+       "sourceServer": "qs-metadata-store"
+      },
+      "status": "ACTIVE",
+      "type": {
+       "typeCategory": "CLASSIFICATION_DEF",
+       "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+       "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+       "typeName": "Anchors",
+       "typeVersion": 1
+      },
+      "versions": {
+       "createTime": "2021-09-19T10:10:51.579+00:00",
+       "createdBy": "Egeria",
+       "maintainedBy": [
+        "Egeria"
+       ],
+       "updateTime": "2021-09-19T10:10:51.579+00:00",
+       "updatedBy": "Egeria",
+       "version": 1
+      }
+     },
+     "class": "ElementHeader",
+     "guid": "1ca8155c-fc49-4d43-b54a-7ffc945ed796",
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+      "homeMetadataCollectionName": "SimpleComboCatalog",
+      "license": "Apache-2.0",
+      "originCategory": "CONTENT_PACK",
+      "sourceServer": "qs-metadata-store"
+     },
+     "schemaType": {
+      "class": "ElementClassification",
+      "classificationName": "TypeEmbeddedAttribute",
+      "classificationOrigin": "ASSIGNED",
+      "classificationProperties": {
+       "class": "TypeEmbeddedAttributeProperties",
+       "dataType": "string",
+       "schemaTypeName": "PrimitiveSchemaType",
+       "typeName": "TypeEmbeddedAttribute"
+      },
+      "headerVersion": 0,
+      "origin": {
+       "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+       "homeMetadataCollectionName": "SimpleComboCatalog",
+       "originCategory": "CONTENT_PACK",
+       "sourceServer": "qs-metadata-store"
+      },
+      "status": "ACTIVE",
+      "type": {
+       "typeCategory": "CLASSIFICATION_DEF",
+       "typeDescription": "Type information embedded within an attribute.",
+       "typeId": "e2bb76bb-774a-43ff-9045-3a05f663d5d9",
+       "typeName": "TypeEmbeddedAttribute",
+       "typeVersion": 2
+      },
+      "versions": {
+       "createTime": "2021-09-19T10:10:51.579+00:00",
+       "createdBy": "Egeria",
+       "maintainedBy": [
+        "Egeria"
+       ],
+       "updateTime": "2021-09-19T10:10:51.579+00:00",
+       "updatedBy": "Egeria",
+       "version": 1
+      }
+     },
+     "status": "ACTIVE",
+     "type": {
+      "superTypeNames": [
+       "SchemaAttribute",
+       "SchemaElement",
+       "AuthoredReferenceable",
+       "Referenceable",
+       "OpenMetadataRoot"
+      ],
+      "typeCategory": "ENTITY_DEF",
+      "typeDescription": "A data value that is part of an API definition.",
+      "typeId": "10277b13-509c-480e-9829-bc16d0eafc53",
+      "typeName": "APIParameter",
+      "typeVersion": 1
+     },
+     "versions": {
+      "createTime": "2021-09-19T10:10:51.579+00:00",
+      "createdBy": "Egeria",
+      "maintainedBy": [
+       "Egeria"
+      ],
+      "updateTime": "2021-09-19T10:10:51.579+00:00",
+      "updatedBy": "Egeria",
+      "version": 1
+     }
+    },
+    "properties": {
+     "class": "APIParameterProperties",
+     "description": "The unique identifier assigned internally for a customer.",
+     "displayName": "customerNo",
+     "length": 12,
+     "namespacePath": "global-api-gateway/CustomerDomain/APIs/Customer/getCustomer/request",
+     "qualifiedName": "APIParameter::global-api-gateway/CustomerDomain/APIs/Customer/getCustomer/request/customerNo",
+     "sortOrder": "UNSORTED",
+     "typeName": "APIParameter"
+    }
+   },
+   "relatedElementAtEnd1": false,
+   "relationshipHeader": {
+    "class": "ElementHeader",
+    "guid": "1b40ebf9-2754-4719-9ef3-ac5045a8616a",
+    "headerVersion": 0,
+    "origin": {
+     "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+     "homeMetadataCollectionName": "SimpleComboCatalog",
+     "license": "Apache-2.0",
+     "originCategory": "CONTENT_PACK",
+     "sourceServer": "qs-metadata-store"
+    },
+    "status": "ACTIVE",
+    "type": {
+     "typeCategory": "RELATIONSHIP_DEF",
+     "typeDescription": "Link between a complex schema type and its attributes.",
+     "typeId": "86b176a2-015c-44a6-8106-54d5d69ba661",
+     "typeName": "AttributeForSchema",
+     "typeVersion": 1
+    },
+    "versions": {
+     "createTime": "2021-09-19T10:10:51.579+00:00",
+     "createdBy": "Egeria",
+     "maintainedBy": [
+      "Egeria"
+     ],
+     "updateTime": "2021-09-19T10:10:51.579+00:00",
+     "updatedBy": "Egeria",
+     "version": 1
+    }
+   },
+   "relationshipProperties": {
+    "class": "AttributeForSchemaProperties",
+    "maxCardinality": 1,
+    "minCardinality": 1,
+    "position": 1,
+    "typeName": "AttributeForSchema"
+   },
+   "startingElementGUID": "31c9875d-2095-43f4-8168-12ac1c6d5900"
+  },
+  {
+   "class": "RelatedMetadataNodeSummary",
+   "relatedElement": {
+    "elementHeader": {
+     "anchor": {
+      "class": "ElementClassification",
+      "classificationName": "Anchors",
+      "classificationOrigin": "ASSIGNED",
+      "classificationProperties": {
+       "anchorDomainName": "Asset",
+       "anchorGUID": "5d6ec7aa-9b13-4286-ad00-af82709a259b",
+       "anchorTypeName": "DeployedAPI",
+       "class": "AnchorsProperties",
+       "typeName": "Anchors"
+      },
+      "headerVersion": 0,
+      "origin": {
+       "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+       "homeMetadataCollectionName": "SimpleComboCatalog",
+       "originCategory": "CONTENT_PACK",
+       "sourceServer": "qs-metadata-store"
+      },
+      "status": "ACTIVE",
+      "type": {
+       "typeCategory": "CLASSIFICATION_DEF",
+       "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+       "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+       "typeName": "Anchors",
+       "typeVersion": 1
+      },
+      "versions": {
+       "createTime": "2021-09-19T10:10:51.579+00:00",
+       "createdBy": "Egeria",
+       "maintainedBy": [
+        "Egeria"
+       ],
+       "updateTime": "2021-09-19T10:10:51.579+00:00",
+       "updatedBy": "Egeria",
+       "version": 1
+      }
+     },
+     "class": "ElementHeader",
+     "guid": "afa6ecb1-d357-410a-baae-f3c07f07c303",
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+      "homeMetadataCollectionName": "SimpleComboCatalog",
+      "license": "Apache-2.0",
+      "originCategory": "CONTENT_PACK",
+      "sourceServer": "qs-metadata-store"
+     },
+     "status": "ACTIVE",
+     "type": {
+      "superTypeNames": [
+       "ComplexSchemaType",
+       "SchemaType",
+       "SchemaElement",
+       "AuthoredReferenceable",
+       "Referenceable",
+       "OpenMetadataRoot"
+      ],
+      "typeCategory": "ENTITY_DEF",
+      "typeDescription": "A list of parameters for an API operation.",
+      "typeId": "ba167b12-969f-49d3-8bea-d04228d9a44b",
+      "typeName": "APIParameterList",
+      "typeVersion": 1
+     },
+     "versions": {
+      "createTime": "2021-09-19T10:10:51.579+00:00",
+      "createdBy": "Egeria",
+      "maintainedBy": [
+       "Egeria"
+      ],
+      "updateTime": "2021-09-19T10:10:51.579+00:00",
+      "updatedBy": "Egeria",
+      "version": 1
+     }
+    },
+    "properties": {
+     "class": "APIParameterListProperties",
+     "displayName": "Get Customer Operation Response Parameter List",
+     "qualifiedName": "APIOperation::global-api-gateway/CustomerDomain/APIs/Customer/getCustomer_response",
+     "required": true,
+     "typeName": "APIParameterList"
+    }
+   },
+   "relatedElementAtEnd1": true,
+   "relationshipHeader": {
+    "class": "ElementHeader",
+    "guid": "b2aab614-a5e7-4c7f-805d-dfcdd604468a",
+    "headerVersion": 0,
+    "origin": {
+     "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+     "homeMetadataCollectionName": "SimpleComboCatalog",
+     "license": "Apache-2.0",
+     "originCategory": "CONTENT_PACK",
+     "sourceServer": "qs-metadata-store"
+    },
+    "status": "ACTIVE",
+    "type": {
+     "typeCategory": "RELATIONSHIP_DEF",
+     "typeDescription": "Link between a complex schema type and its attributes.",
+     "typeId": "86b176a2-015c-44a6-8106-54d5d69ba661",
+     "typeName": "AttributeForSchema",
+     "typeVersion": 1
+    },
+    "versions": {
+     "createTime": "2021-09-19T10:10:51.579+00:00",
+     "createdBy": "Egeria",
+     "maintainedBy": [
+      "Egeria"
+     ],
+     "updateTime": "2021-09-19T10:10:51.579+00:00",
+     "updatedBy": "Egeria",
+     "version": 1
+    }
+   },
+   "relationshipProperties": {
+    "class": "AttributeForSchemaProperties",
+    "maxCardinality": 1,
+    "minCardinality": 1,
+    "position": 4,
+    "typeName": "AttributeForSchema"
+   },
+   "startingElementGUID": "c35bcf0d-302d-4e60-ad17-778114937594"
+  },
+  {
+   "class": "RelatedMetadataNodeSummary",
+   "relatedElement": {
+    "elementHeader": {
+     "anchor": {
+      "class": "ElementClassification",
+      "classificationName": "Anchors",
+      "classificationOrigin": "ASSIGNED",
+      "classificationProperties": {
+       "anchorDomainName": "Asset",
+       "anchorGUID": "c96334c1-64b2-4d0a-ab35-0ce9988e38bc",
+       "anchorTypeName": "BareMetalComputer",
+       "class": "AnchorsProperties",
+       "typeName": "Anchors"
+      },
+      "headerVersion": 0,
+      "origin": {
+       "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+       "homeMetadataCollectionName": "SimpleComboCatalog",
+       "originCategory": "CONTENT_PACK",
+       "sourceServer": "qs-metadata-store"
+      },
+      "status": "ACTIVE",
+      "type": {
+       "typeCategory": "CLASSIFICATION_DEF",
+       "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+       "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+       "typeName": "Anchors",
+       "typeVersion": 1
+      },
+      "versions": {
+       "createTime": "2021-09-19T10:10:51.579+00:00",
+       "createdBy": "Egeria",
+       "maintainedBy": [
+        "Egeria"
+       ],
+       "updateTime": "2021-09-19T10:10:51.579+00:00",
+       "updatedBy": "Egeria",
+       "version": 1
+      }
+     },
+     "class": "ElementHeader",
+     "guid": "5335eeac-54b3-4d53-a38c-bd354b33766e",
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+      "homeMetadataCollectionName": "SimpleComboCatalog",
+      "license": "Apache-2.0",
+      "originCategory": "CONTENT_PACK",
+      "sourceServer": "qs-metadata-store"
+     },
+     "status": "ACTIVE",
+     "type": {
+      "superTypeNames": [
+       "DataSet",
+       "DataAsset",
+       "Asset",
+       "Referenceable",
+       "OpenMetadataRoot"
+      ],
+      "typeCategory": "ENTITY_DEF",
+      "typeDescription": "A collection of database tables and views running in a database server.",
+      "typeId": "eab811ec-556a-45f1-9091-bc7ac8face0f",
+      "typeName": "DeployedDatabaseSchema",
+      "typeVersion": 1
+     },
+     "usageActivity": {
+      "class": "ElementClassification",
+      "classificationName": "UsageActivity",
+      "classificationOrigin": "ASSIGNED",
+      "classificationProperties": {
+       "class": "UsageActivityProperties",
+       "deleteAttachmentCount": 0,
+       "deleteFeedbackCount": 0,
+       "explicitGetCount": 0,
+       "findCount": 23,
+       "typeName": "UsageActivity",
+       "updateAttachmentCount": 0,
+       "updateFeedbackCount": 0,
+       "updatePropertyCount": 0
+      },
+      "headerVersion": 0,
+      "origin": {
+       "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+       "homeMetadataCollectionName": "qs-metadata-store",
+       "originCategory": "LOCAL_COHORT",
+       "sourceServer": "qs-metadata-store"
+      },
+      "status": "ACTIVE",
+      "type": {
+       "typeCategory": "CLASSIFICATION_DEF",
+       "typeDescription": "Describes the usage activity around an anchor element and its anchored elements: how often it is explicitly retrieved, found through searches, has its properties updated, and has its attachments and feedback updated or deleted.",
+       "typeId": "cfae23a1-8020-431f-a603-1f1bb0e01cb3",
+       "typeName": "UsageActivity",
+       "typeVersion": 1
+      },
+      "versions": {
+       "createTime": "2026-11-12T11:19:25.671+00:00",
+       "createdBy": "pepysnpa",
+       "lastRequestId": "5e0babb4-a4a6-4fc6-b7dc-3fda52c88a83",
+       "maintainedBy": [
+        "pepysnpa"
+       ],
+       "updateTime": "2026-11-13T17:35:35.781+00:00",
+       "updatedBy": "pepysnpa",
+       "version": 4
+      }
+     },
+     "versions": {
+      "createTime": "2021-09-19T10:10:51.579+00:00",
+      "createdBy": "Egeria",
+      "maintainedBy": [
+       "Egeria"
+      ],
+      "updateTime": "2021-09-19T10:10:51.579+00:00",
+      "updatedBy": "Egeria",
+      "version": 1
+     }
+    },
+    "properties": {
+     "category": "Customer Domain",
+     "class": "DeployedDatabaseSchemaProperties",
+     "contentStatus": "ACTIVE",
+     "deployedImplementationType": "JDBC Relational Database Schema",
+     "description": "Retail banking schema.",
+     "displayName": "RETAILSCHEMA",
+     "namespacePath": "V37B8752.FH567.sys/BRANCH",
+     "qualifiedName": "DeployedDatabaseSchema::V37B8752.FH567.sys/BRANCH.RETAILSCHEMA",
+     "resourceName": "V37B8752.FH567.sys/BRANCH.RETAILSCHEMA",
+     "typeName": "DeployedDatabaseSchema",
+     "versionIdentifier": "1.0"
+    }
+   },
+   "relatedElementAtEnd1": false,
+   "relationshipHeader": {
+    "class": "ElementHeader",
+    "guid": "fee3b954-ffca-4111-a95f-683b8b074965",
+    "headerVersion": 0,
+    "origin": {
+     "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+     "homeMetadataCollectionName": "SimpleComboCatalog",
+     "license": "Apache-2.0",
+     "originCategory": "CONTENT_PACK",
+     "sourceServer": "qs-metadata-store"
+    },
+    "status": "ACTIVE",
+    "type": {
+     "superTypeNames": [
+      "DataLineageRelationship",
+      "LineageRelationship",
+      "LabeledRelationship"
+     ],
+     "typeCategory": "RELATIONSHIP_DEF",
+     "typeDescription": "Shows that data flows in one direction from one element to another.",
+     "typeId": "d2490c0c-06cc-458a-add2-33cf2f5dd724",
+     "typeName": "DataFlow",
+     "typeVersion": 2
+    },
+    "versions": {
+     "createTime": "2021-09-19T10:10:51.579+00:00",
+     "createdBy": "Egeria",
+     "maintainedBy": [
+      "Egeria"
+     ],
+     "updateTime": "2021-09-19T10:10:51.579+00:00",
+     "updatedBy": "Egeria",
+     "version": 1
+    }
+   },
+   "relationshipProperties": {
+    "class": "DataFlowProperties",
+    "iscQualifiedName": "InformationSupplyChain::SimpleCatalogInformationSupplyChain",
+    "label": "calls",
+    "typeName": "DataFlow"
+   },
+   "startingElementGUID": "5d6ec7aa-9b13-4286-ad00-af82709a259b"
+  },
+  {
+   "class": "RelatedMetadataNodeSummary",
+   "relatedElement": {
+    "elementHeader": {
+     "anchor": {
+      "class": "ElementClassification",
+      "classificationName": "Anchors",
+      "classificationOrigin": "ASSIGNED",
+      "classificationProperties": {
+       "anchorDomainName": "Asset",
+       "anchorGUID": "5335eeac-54b3-4d53-a38c-bd354b33766e",
+       "anchorTypeName": "DeployedDatabaseSchema",
+       "class": "AnchorsProperties",
+       "typeName": "Anchors"
+      },
+      "headerVersion": 0,
+      "origin": {
+       "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+       "homeMetadataCollectionName": "SimpleComboCatalog",
+       "originCategory": "CONTENT_PACK",
+       "sourceServer": "qs-metadata-store"
+      },
+      "status": "ACTIVE",
+      "type": {
+       "typeCategory": "CLASSIFICATION_DEF",
+       "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+       "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+       "typeName": "Anchors",
+       "typeVersion": 1
+      },
+      "versions": {
+       "createTime": "2021-09-19T10:10:51.579+00:00",
+       "createdBy": "Egeria",
+       "maintainedBy": [
+        "Egeria"
+       ],
+       "updateTime": "2021-09-19T10:10:51.579+00:00",
+       "updatedBy": "Egeria",
+       "version": 1
+      }
+     },
+     "class": "ElementHeader",
+     "guid": "b543242a-298a-4d5b-9f79-57102c6e02fc",
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+      "homeMetadataCollectionName": "SimpleComboCatalog",
+      "license": "Apache-2.0",
+      "originCategory": "CONTENT_PACK",
+      "sourceServer": "qs-metadata-store"
+     },
+     "schemaType": {
+      "class": "ElementClassification",
+      "classificationName": "TypeEmbeddedAttribute",
+      "classificationOrigin": "ASSIGNED",
+      "classificationProperties": {
+       "class": "TypeEmbeddedAttributeProperties",
+       "dataType": "CHAR",
+       "schemaTypeName": "PrimitiveSchemaType",
+       "typeName": "TypeEmbeddedAttribute"
+      },
+      "headerVersion": 0,
+      "origin": {
+       "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+       "homeMetadataCollectionName": "SimpleComboCatalog",
+       "originCategory": "CONTENT_PACK",
+       "sourceServer": "qs-metadata-store"
+      },
+      "status": "ACTIVE",
+      "type": {
+       "typeCategory": "CLASSIFICATION_DEF",
+       "typeDescription": "Type information embedded within an attribute.",
+       "typeId": "e2bb76bb-774a-43ff-9045-3a05f663d5d9",
+       "typeName": "TypeEmbeddedAttribute",
+       "typeVersion": 2
+      },
+      "versions": {
+       "createTime": "2021-09-19T10:10:51.579+00:00",
+       "createdBy": "Egeria",
+       "maintainedBy": [
+        "Egeria"
+       ],
+       "updateTime": "2021-09-19T10:10:51.579+00:00",
+       "updatedBy": "Egeria",
+       "version": 1
+      }
+     },
+     "status": "ACTIVE",
+     "type": {
+      "superTypeNames": [
+       "TabularColumn",
+       "SchemaAttribute",
+       "SchemaElement",
+       "AuthoredReferenceable",
+       "Referenceable",
+       "OpenMetadataRoot"
+      ],
+      "typeCategory": "ENTITY_DEF",
+      "typeDescription": "A column within a relational table.",
+      "typeId": "aa8d5470-6dbc-4648-9e2f-045e5df9d2f9",
+      "typeName": "RelationalColumn",
+      "typeVersion": 1
+     },
+     "versions": {
+      "createTime": "2021-09-19T10:10:51.579+00:00",
+      "createdBy": "Egeria",
+      "maintainedBy": [
+       "Egeria"
+      ],
+      "updateTime": "2021-09-19T10:10:51.579+00:00",
+      "updatedBy": "Egeria",
+      "version": 1
+     }
+    },
+    "properties": {
+     "class": "RelationalColumnProperties",
+     "description": "The unique identifier assigned internally for a customer.",
+     "displayName": "CUSTID",
+     "length": 12,
+     "namespacePath": "V37B8752.FH567.sys/BRANCH.RETAILSCHEMA.CUSTOMER",
+     "qualifiedName": "RelationalColumn::V37B8752.FH567.sys/BRANCH.RETAILSCHEMA.CUSTOMER.CUSTID",
+     "sortOrder": "UNSORTED",
+     "typeName": "RelationalColumn"
+    }
+   },
+   "relatedElementAtEnd1": false,
+   "relationshipHeader": {
+    "class": "ElementHeader",
+    "guid": "f9a4e553-667b-418a-b28d-58df15901d3f",
+    "headerVersion": 0,
+    "origin": {
+     "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+     "homeMetadataCollectionName": "SimpleComboCatalog",
+     "license": "Apache-2.0",
+     "originCategory": "CONTENT_PACK",
+     "sourceServer": "qs-metadata-store"
+    },
+    "status": "ACTIVE",
+    "type": {
+     "superTypeNames": [
+      "LineageRelationship",
+      "LabeledRelationship"
+     ],
+     "typeCategory": "RELATIONSHIP_DEF",
+     "typeDescription": "A mapping relationship between data values from different assets showing how data is copied/transformed from one to the other.",
+     "typeId": "3264af28-d81b-42f3-b1c7-fdc774a4d179",
+     "typeName": "DataMapping",
+     "typeVersion": 2
+    },
+    "versions": {
+     "createTime": "2021-09-19T10:10:51.579+00:00",
+     "createdBy": "Egeria",
+     "maintainedBy": [
+      "Egeria"
+     ],
+     "updateTime": "2021-09-19T10:10:51.579+00:00",
+     "updatedBy": "Egeria",
+     "version": 1
+    }
+   },
+   "relationshipProperties": {
+    "class": "DataMappingProperties",
+    "label": "maps",
+    "typeName": "DataMapping"
+   },
+   "startingElementGUID": "1ca8155c-fc49-4d43-b54a-7ffc945ed796"
+  },
+  {
+   "class": "RelatedMetadataNodeSummary",
+   "relatedElement": {
+    "elementHeader": {
+     "anchor": {
+      "class": "ElementClassification",
+      "classificationName": "Anchors",
+      "classificationOrigin": "ASSIGNED",
+      "classificationProperties": {
+       "anchorDomainName": "Asset",
+       "anchorGUID": "5d6ec7aa-9b13-4286-ad00-af82709a259b",
+       "anchorTypeName": "DeployedAPI",
+       "class": "AnchorsProperties",
+       "typeName": "Anchors"
+      },
+      "headerVersion": 0,
+      "origin": {
+       "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+       "homeMetadataCollectionName": "SimpleComboCatalog",
+       "originCategory": "CONTENT_PACK",
+       "sourceServer": "qs-metadata-store"
+      },
+      "status": "ACTIVE",
+      "type": {
+       "typeCategory": "CLASSIFICATION_DEF",
+       "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+       "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+       "typeName": "Anchors",
+       "typeVersion": 1
+      },
+      "versions": {
+       "createTime": "2021-09-19T10:10:51.579+00:00",
+       "createdBy": "Egeria",
+       "maintainedBy": [
+        "Egeria"
+       ],
+       "updateTime": "2021-09-19T10:10:51.579+00:00",
+       "updatedBy": "Egeria",
+       "version": 1
+      }
+     },
+     "class": "ElementHeader",
+     "guid": "a7b6360d-3c76-4ffc-8fbb-4d57b7ddbb8f",
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+      "homeMetadataCollectionName": "SimpleComboCatalog",
+      "license": "Apache-2.0",
+      "originCategory": "CONTENT_PACK",
+      "sourceServer": "qs-metadata-store"
+     },
+     "schemaType": {
+      "class": "ElementClassification",
+      "classificationName": "TypeEmbeddedAttribute",
+      "classificationOrigin": "ASSIGNED",
+      "classificationProperties": {
+       "class": "TypeEmbeddedAttributeProperties",
+       "dataType": "string",
+       "schemaTypeName": "PrimitiveSchemaType",
+       "typeName": "TypeEmbeddedAttribute"
+      },
+      "headerVersion": 0,
+      "origin": {
+       "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+       "homeMetadataCollectionName": "SimpleComboCatalog",
+       "originCategory": "CONTENT_PACK",
+       "sourceServer": "qs-metadata-store"
+      },
+      "status": "ACTIVE",
+      "type": {
+       "typeCategory": "CLASSIFICATION_DEF",
+       "typeDescription": "Type information embedded within an attribute.",
+       "typeId": "e2bb76bb-774a-43ff-9045-3a05f663d5d9",
+       "typeName": "TypeEmbeddedAttribute",
+       "typeVersion": 2
+      },
+      "versions": {
+       "createTime": "2021-09-19T10:10:51.579+00:00",
+       "createdBy": "Egeria",
+       "maintainedBy": [
+        "Egeria"
+       ],
+       "updateTime": "2021-09-19T10:10:51.579+00:00",
+       "updatedBy": "Egeria",
+       "version": 1
+      }
+     },
+     "status": "ACTIVE",
+     "type": {
+      "superTypeNames": [
+       "SchemaAttribute",
+       "SchemaElement",
+       "AuthoredReferenceable",
+       "Referenceable",
+       "OpenMetadataRoot"
+      ],
+      "typeCategory": "ENTITY_DEF",
+      "typeDescription": "A data value that is part of an API definition.",
+      "typeId": "10277b13-509c-480e-9829-bc16d0eafc53",
+      "typeName": "APIParameter",
+      "typeVersion": 1
+     },
+     "versions": {
+      "createTime": "2021-09-19T10:10:51.579+00:00",
+      "createdBy": "Egeria",
+      "maintainedBy": [
+       "Egeria"
+      ],
+      "updateTime": "2021-09-19T10:10:51.579+00:00",
+      "updatedBy": "Egeria",
+      "version": 1
+     }
+    },
+    "properties": {
+     "class": "APIParameterProperties",
+     "description": "The unique identifier assigned internally for a customer.",
+     "displayName": "customerNo",
+     "length": 12,
+     "namespacePath": "global-api-gateway/CustomerDomain/APIs/Customer/getCustomer/response",
+     "qualifiedName": "APIParameter::global-api-gateway/CustomerDomain/APIs/Customer/getCustomer/response/customerNo",
+     "sortOrder": "UNSORTED",
+     "typeName": "APIParameter"
+    }
+   },
+   "relatedElementAtEnd1": false,
+   "relationshipHeader": {
+    "class": "ElementHeader",
+    "guid": "ecba7059-40e8-42c8-bc85-72ccee2fb5fa",
+    "headerVersion": 0,
+    "origin": {
+     "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+     "homeMetadataCollectionName": "SimpleComboCatalog",
+     "license": "Apache-2.0",
+     "originCategory": "CONTENT_PACK",
+     "sourceServer": "qs-metadata-store"
+    },
+    "status": "ACTIVE",
+    "type": {
+     "typeCategory": "RELATIONSHIP_DEF",
+     "typeDescription": "Link between a complex schema type and its attributes.",
+     "typeId": "86b176a2-015c-44a6-8106-54d5d69ba661",
+     "typeName": "AttributeForSchema",
+     "typeVersion": 1
+    },
+    "versions": {
+     "createTime": "2021-09-19T10:10:51.579+00:00",
+     "createdBy": "Egeria",
+     "maintainedBy": [
+      "Egeria"
+     ],
+     "updateTime": "2021-09-19T10:10:51.579+00:00",
+     "updatedBy": "Egeria",
+     "version": 1
+    }
+   },
+   "relationshipProperties": {
+    "class": "AttributeForSchemaProperties",
+    "maxCardinality": 1,
+    "minCardinality": 1,
+    "position": 2,
+    "typeName": "AttributeForSchema"
+   },
+   "startingElementGUID": "afa6ecb1-d357-410a-baae-f3c07f07c303"
+  },
+  {
+   "class": "RelatedMetadataNodeSummary",
+   "relatedElement": {
+    "elementHeader": {
+     "anchor": {
+      "class": "ElementClassification",
+      "classificationName": "Anchors",
+      "classificationOrigin": "ASSIGNED",
+      "classificationProperties": {
+       "anchorDomainName": "Asset",
+       "anchorGUID": "5d6ec7aa-9b13-4286-ad00-af82709a259b",
+       "anchorTypeName": "DeployedAPI",
+       "class": "AnchorsProperties",
+       "typeName": "Anchors"
+      },
+      "headerVersion": 0,
+      "origin": {
+       "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+       "homeMetadataCollectionName": "SimpleComboCatalog",
+       "originCategory": "CONTENT_PACK",
+       "sourceServer": "qs-metadata-store"
+      },
+      "status": "ACTIVE",
+      "type": {
+       "typeCategory": "CLASSIFICATION_DEF",
+       "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+       "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+       "typeName": "Anchors",
+       "typeVersion": 1
+      },
+      "versions": {
+       "createTime": "2021-09-19T10:10:51.579+00:00",
+       "createdBy": "Egeria",
+       "maintainedBy": [
+        "Egeria"
+       ],
+       "updateTime": "2021-09-19T10:10:51.579+00:00",
+       "updatedBy": "Egeria",
+       "version": 1
+      }
+     },
+     "class": "ElementHeader",
+     "guid": "5d6ec7aa-9b13-4286-ad00-af82709a259b",
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+      "homeMetadataCollectionName": "SimpleComboCatalog",
+      "license": "Apache-2.0",
+      "originCategory": "CONTENT_PACK",
+      "sourceServer": "qs-metadata-store"
+     },
+     "status": "ACTIVE",
+     "type": {
+      "superTypeNames": [
+       "DeployedSoftwareComponent",
+       "Process",
+       "Asset",
+       "Referenceable",
+       "OpenMetadataRoot"
+      ],
+      "typeCategory": "ENTITY_DEF",
+      "typeDescription": "A callable interface running at an endpoint.",
+      "typeId": "7dbb3e63-138f-49f1-97b4-66313871fc14",
+      "typeName": "DeployedAPI",
+      "typeVersion": 1
+     },
+     "usageActivity": {
+      "class": "ElementClassification",
+      "classificationName": "UsageActivity",
+      "classificationOrigin": "ASSIGNED",
+      "classificationProperties": {
+       "class": "UsageActivityProperties",
+       "deleteAttachmentCount": 0,
+       "deleteFeedbackCount": 0,
+       "explicitGetCount": 0,
+       "findCount": 24,
+       "typeName": "UsageActivity",
+       "updateAttachmentCount": 0,
+       "updateFeedbackCount": 0,
+       "updatePropertyCount": 0
+      },
+      "headerVersion": 0,
+      "origin": {
+       "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+       "homeMetadataCollectionName": "qs-metadata-store",
+       "originCategory": "LOCAL_COHORT",
+       "sourceServer": "qs-metadata-store"
+      },
+      "status": "ACTIVE",
+      "type": {
+       "typeCategory": "CLASSIFICATION_DEF",
+       "typeDescription": "Describes the usage activity around an anchor element and its anchored elements: how often it is explicitly retrieved, found through searches, has its properties updated, and has its attachments and feedback updated or deleted.",
+       "typeId": "cfae23a1-8020-431f-a603-1f1bb0e01cb3",
+       "typeName": "UsageActivity",
+       "typeVersion": 1
+      },
+      "versions": {
+       "createTime": "2026-11-12T11:20:50.336+00:00",
+       "createdBy": "pepysnpa",
+       "lastRequestId": "5e0babb4-a4a6-4fc6-b7dc-3fda52c88a83",
+       "maintainedBy": [
+        "pepysnpa"
+       ],
+       "updateTime": "2026-11-13T18:17:05.385+00:00",
+       "updatedBy": "pepysnpa",
+       "version": 5
+      }
+     },
+     "versions": {
+      "createTime": "2021-09-19T10:10:51.579+00:00",
+      "createdBy": "Egeria",
+      "maintainedBy": [
+       "Egeria"
+      ],
+      "updateTime": "2021-09-19T10:10:51.579+00:00",
+      "updatedBy": "Egeria",
+      "version": 1
+     }
+    },
+    "properties": {
+     "activityStatus": "APPROVED",
+     "category": "Customer Domain",
+     "class": "DeployedAPIProperties",
+     "deployedImplementationType": "REST API",
+     "description": "API for interacting with customer master.",
+     "displayName": "Customer API",
+     "namespacePath": "global-api-gateway/CustomerDomain/APIs",
+     "qualifiedName": "DeployedAPI::global-api-gateway/CustomerDomain/APIs/Customer",
+     "resourceName": "global-api-gateway/CustomerDomain/APIs/Customer",
+     "typeName": "DeployedAPI",
+     "versionIdentifier": "1.0"
+    }
+   },
+   "relatedElementAtEnd1": true,
+   "relationshipHeader": {
+    "class": "ElementHeader",
+    "guid": "f8c23d32-1496-4aea-8b56-9ca0c918fe33",
+    "headerVersion": 0,
+    "origin": {
+     "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+     "homeMetadataCollectionName": "SimpleComboCatalog",
+     "license": "Apache-2.0",
+     "originCategory": "CONTENT_PACK",
+     "sourceServer": "qs-metadata-store"
+    },
+    "status": "ACTIVE",
+    "type": {
+     "typeCategory": "RELATIONSHIP_DEF",
+     "typeDescription": "The structure of the data stored in a digital resource described by the attached asset or port.",
+     "typeId": "815b004d-73c6-4728-9dd9-536f4fe803cd",
+     "typeName": "Schema",
+     "typeVersion": 1
+    },
+    "versions": {
+     "createTime": "2021-09-19T10:10:51.579+00:00",
+     "createdBy": "Egeria",
+     "maintainedBy": [
+      "Egeria"
+     ],
+     "updateTime": "2021-09-19T10:10:51.579+00:00",
+     "updatedBy": "Egeria",
+     "version": 1
+    }
+   },
+   "startingElementGUID": "8b7fbe7e-4d58-4778-bf22-c8a7e71de353"
+  },
+  {
+   "class": "RelatedMetadataNodeSummary",
+   "relatedElement": {
+    "elementHeader": {
+     "anchor": {
+      "class": "ElementClassification",
+      "classificationName": "Anchors",
+      "classificationOrigin": "ASSIGNED",
+      "classificationProperties": {
+       "anchorDomainName": "Asset",
+       "anchorGUID": "5335eeac-54b3-4d53-a38c-bd354b33766e",
+       "anchorTypeName": "DeployedDatabaseSchema",
+       "class": "AnchorsProperties",
+       "typeName": "Anchors"
+      },
+      "headerVersion": 0,
+      "origin": {
+       "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+       "homeMetadataCollectionName": "SimpleComboCatalog",
+       "originCategory": "CONTENT_PACK",
+       "sourceServer": "qs-metadata-store"
+      },
+      "status": "ACTIVE",
+      "type": {
+       "typeCategory": "CLASSIFICATION_DEF",
+       "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+       "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+       "typeName": "Anchors",
+       "typeVersion": 1
+      },
+      "versions": {
+       "createTime": "2021-09-19T10:10:51.579+00:00",
+       "createdBy": "Egeria",
+       "maintainedBy": [
+        "Egeria"
+       ],
+       "updateTime": "2021-09-19T10:10:51.579+00:00",
+       "updatedBy": "Egeria",
+       "version": 1
+      }
+     },
+     "class": "ElementHeader",
+     "guid": "8da3d551-bb50-491f-9956-99afbe5d4dd8",
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+      "homeMetadataCollectionName": "SimpleComboCatalog",
+      "license": "Apache-2.0",
+      "originCategory": "CONTENT_PACK",
+      "sourceServer": "qs-metadata-store"
+     },
+     "schemaType": {
+      "class": "ElementClassification",
+      "classificationName": "TypeEmbeddedAttribute",
+      "classificationOrigin": "ASSIGNED",
+      "classificationProperties": {
+       "class": "TypeEmbeddedAttributeProperties",
+       "dataType": "CHAR",
+       "schemaTypeName": "PrimitiveSchemaType",
+       "typeName": "TypeEmbeddedAttribute"
+      },
+      "headerVersion": 0,
+      "origin": {
+       "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+       "homeMetadataCollectionName": "SimpleComboCatalog",
+       "originCategory": "CONTENT_PACK",
+       "sourceServer": "qs-metadata-store"
+      },
+      "status": "ACTIVE",
+      "type": {
+       "typeCategory": "CLASSIFICATION_DEF",
+       "typeDescription": "Type information embedded within an attribute.",
+       "typeId": "e2bb76bb-774a-43ff-9045-3a05f663d5d9",
+       "typeName": "TypeEmbeddedAttribute",
+       "typeVersion": 2
+      },
+      "versions": {
+       "createTime": "2021-09-19T10:10:51.579+00:00",
+       "createdBy": "Egeria",
+       "maintainedBy": [
+        "Egeria"
+       ],
+       "updateTime": "2021-09-19T10:10:51.579+00:00",
+       "updatedBy": "Egeria",
+       "version": 1
+      }
+     },
+     "status": "ACTIVE",
+     "type": {
+      "superTypeNames": [
+       "TabularColumn",
+       "SchemaAttribute",
+       "SchemaElement",
+       "AuthoredReferenceable",
+       "Referenceable",
+       "OpenMetadataRoot"
+      ],
+      "typeCategory": "ENTITY_DEF",
+      "typeDescription": "A column within a relational table.",
+      "typeId": "aa8d5470-6dbc-4648-9e2f-045e5df9d2f9",
+      "typeName": "RelationalColumn",
+      "typeVersion": 1
+     },
+     "versions": {
+      "createTime": "2021-09-19T10:10:51.579+00:00",
+      "createdBy": "Egeria",
+      "maintainedBy": [
+       "Egeria"
+      ],
+      "updateTime": "2021-09-19T10:10:51.579+00:00",
+      "updatedBy": "Egeria",
+      "version": 1
+     }
+    },
+    "properties": {
+     "class": "RelationalColumnProperties",
+     "description": "The name for a customer - as supplied by the customer.",
+     "displayName": "CUSTNAME",
+     "length": 40,
+     "namespacePath": "V37B8752.FH567.sys/BRANCH.RETAILSCHEMA.CUSTOMER",
+     "qualifiedName": "RelationalColumn::V37B8752.FH567.sys/BRANCH.RETAILSCHEMA.CUSTOMER.CUSTNAME",
+     "sortOrder": "UNSORTED",
+     "typeName": "RelationalColumn"
+    }
+   },
+   "relatedElementAtEnd1": false,
+   "relationshipHeader": {
+    "class": "ElementHeader",
+    "guid": "e05476ec-f0d5-4267-a023-4816a39c91a1",
+    "headerVersion": 0,
+    "origin": {
+     "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+     "homeMetadataCollectionName": "SimpleComboCatalog",
+     "license": "Apache-2.0",
+     "originCategory": "CONTENT_PACK",
+     "sourceServer": "qs-metadata-store"
+    },
+    "status": "ACTIVE",
+    "type": {
+     "superTypeNames": [
+      "LineageRelationship",
+      "LabeledRelationship"
+     ],
+     "typeCategory": "RELATIONSHIP_DEF",
+     "typeDescription": "A mapping relationship between data values from different assets showing how data is copied/transformed from one to the other.",
+     "typeId": "3264af28-d81b-42f3-b1c7-fdc774a4d179",
+     "typeName": "DataMapping",
+     "typeVersion": 2
+    },
+    "versions": {
+     "createTime": "2021-09-19T10:10:51.579+00:00",
+     "createdBy": "Egeria",
+     "maintainedBy": [
+      "Egeria"
+     ],
+     "updateTime": "2021-09-19T10:10:51.579+00:00",
+     "updatedBy": "Egeria",
+     "version": 1
+    }
+   },
+   "relationshipProperties": {
+    "class": "DataMappingProperties",
+    "label": "maps",
+    "typeName": "DataMapping"
+   },
+   "startingElementGUID": "f132688a-c5d0-47b8-9982-e2dca8b923c6"
+  },
+  {
+   "class": "RelatedMetadataNodeSummary",
+   "relatedElement": {
+    "elementHeader": {
+     "anchor": {
+      "class": "ElementClassification",
+      "classificationName": "Anchors",
+      "classificationOrigin": "ASSIGNED",
+      "classificationProperties": {
+       "anchorDomainName": "AuthoredReferenceable",
+       "anchorScopeGUIDs": [
+        "08c8e87f-6818-4753-892f-c2cd12f4b1ad"
+       ],
+       "anchorTypeName": "GlossaryTerm",
+       "class": "AnchorsProperties",
+       "typeName": "Anchors"
+      },
+      "headerVersion": 0,
+      "origin": {
+       "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+       "homeMetadataCollectionName": "SimpleComboCatalog",
+       "originCategory": "CONTENT_PACK",
+       "sourceServer": "qs-metadata-store"
+      },
+      "status": "ACTIVE",
+      "type": {
+       "typeCategory": "CLASSIFICATION_DEF",
+       "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+       "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+       "typeName": "Anchors",
+       "typeVersion": 1
+      },
+      "versions": {
+       "createTime": "2021-09-19T10:10:51.579+00:00",
+       "createdBy": "Egeria",
+       "maintainedBy": [
+        "Egeria"
+       ],
+       "updateTime": "2021-09-19T10:10:51.579+00:00",
+       "updatedBy": "Egeria",
+       "version": 1
+      }
+     },
+     "class": "ElementHeader",
+     "guid": "08982082-d070-4ec5-a21e-4335e09a4c3b",
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+      "homeMetadataCollectionName": "SimpleComboCatalog",
+      "license": "Apache-2.0",
+      "originCategory": "CONTENT_PACK",
+      "sourceServer": "qs-metadata-store"
+     },
+     "status": "ACTIVE",
+     "type": {
+      "superTypeNames": [
+       "AuthoredReferenceable",
+       "Referenceable",
+       "OpenMetadataRoot"
+      ],
+      "typeCategory": "ENTITY_DEF",
+      "typeDescription": "A semantic description of something, such as a concept, object, asset, technology, role or group.",
+      "typeId": "0db3e6ec-f5ef-4d75-ae38-b7ee6fd6ec0a",
+      "typeName": "GlossaryTerm",
+      "typeVersion": 1
+     },
+     "usageActivity": {
+      "class": "ElementClassification",
+      "classificationName": "UsageActivity",
+      "classificationOrigin": "ASSIGNED",
+      "classificationProperties": {
+       "class": "UsageActivityProperties",
+       "deleteAttachmentCount": 0,
+       "deleteFeedbackCount": 0,
+       "explicitGetCount": 0,
+       "findCount": 8,
+       "typeName": "UsageActivity",
+       "updateAttachmentCount": 0,
+       "updateFeedbackCount": 0,
+       "updatePropertyCount": 0
+      },
+      "headerVersion": 0,
+      "origin": {
+       "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+       "homeMetadataCollectionName": "qs-metadata-store",
+       "originCategory": "LOCAL_COHORT",
+       "sourceServer": "qs-metadata-store"
+      },
+      "status": "ACTIVE",
+      "type": {
+       "typeCategory": "CLASSIFICATION_DEF",
+       "typeDescription": "Describes the usage activity around an anchor element and its anchored elements: how often it is explicitly retrieved, found through searches, has its properties updated, and has its attachments and feedback updated or deleted.",
+       "typeId": "cfae23a1-8020-431f-a603-1f1bb0e01cb3",
+       "typeName": "UsageActivity",
+       "typeVersion": 1
+      },
+      "versions": {
+       "createTime": "2026-11-12T11:19:25.922+00:00",
+       "createdBy": "pepysnpa",
+       "lastRequestId": "5e0babb4-a4a6-4fc6-b7dc-3fda52c88a83",
+       "maintainedBy": [
+        "pepysnpa"
+       ],
+       "updateTime": "2026-11-13T17:56:44.559+00:00",
+       "updatedBy": "pepysnpa",
+       "version": 4
+      }
+     },
+     "versions": {
+      "createTime": "2021-09-19T10:10:51.579+00:00",
+      "createdBy": "Egeria",
+      "maintainedBy": [
+       "Egeria"
+      ],
+      "updateTime": "2021-09-19T10:10:51.579+00:00",
+      "updatedBy": "Egeria",
+      "version": 1
+     }
+    },
+    "properties": {
+     "class": "GlossaryTermProperties",
+     "description": "Unique identifier for a customer generated on first contact.",
+     "displayName": "UniqueCustomerIdentifier",
+     "qualifiedName": "GlossaryTerm::MainGlossary/Unique_Customer_Identifier",
+     "typeName": "GlossaryTerm",
+     "versionIdentifier": "1.0"
+    }
+   },
+   "relatedElementAtEnd1": false,
+   "relationshipHeader": {
+    "class": "ElementHeader",
+    "guid": "8c398c4d-b613-4541-9c68-b3ee958406ca",
+    "headerVersion": 0,
+    "origin": {
+     "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+     "homeMetadataCollectionName": "SimpleComboCatalog",
+     "license": "Apache-2.0",
+     "originCategory": "CONTENT_PACK",
+     "sourceServer": "qs-metadata-store"
+    },
+    "status": "ACTIVE",
+    "type": {
+     "typeCategory": "RELATIONSHIP_DEF",
+     "typeDescription": "Links a glossary term to another element such as an asset or schema element to indicate that the data stored in the corresponding part of the digital resource has this meaning.",
+     "typeId": "e6670973-645f-441a-bec7-6f5570345b92",
+     "typeName": "SemanticAssignment",
+     "typeVersion": 1
+    },
+    "versions": {
+     "createTime": "2021-09-19T10:10:51.579+00:00",
+     "createdBy": "Egeria",
+     "maintainedBy": [
+      "Egeria"
+     ],
+     "updateTime": "2021-09-19T10:10:51.579+00:00",
+     "updatedBy": "Egeria",
+     "version": 1
+    }
+   },
+   "startingElementGUID": "a7b6360d-3c76-4ffc-8fbb-4d57b7ddbb8f"
+  },
+  {
+   "class": "RelatedMetadataNodeSummary",
+   "relatedElement": {
+    "elementHeader": {
+     "anchor": {
+      "class": "ElementClassification",
+      "classificationName": "Anchors",
+      "classificationOrigin": "ASSIGNED",
+      "classificationProperties": {
+       "anchorDomainName": "Asset",
+       "anchorGUID": "5d6ec7aa-9b13-4286-ad00-af82709a259b",
+       "anchorTypeName": "DeployedAPI",
+       "class": "AnchorsProperties",
+       "typeName": "Anchors"
+      },
+      "headerVersion": 0,
+      "origin": {
+       "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+       "homeMetadataCollectionName": "SimpleComboCatalog",
+       "originCategory": "CONTENT_PACK",
+       "sourceServer": "qs-metadata-store"
+      },
+      "status": "ACTIVE",
+      "type": {
+       "typeCategory": "CLASSIFICATION_DEF",
+       "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+       "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+       "typeName": "Anchors",
+       "typeVersion": 1
+      },
+      "versions": {
+       "createTime": "2021-09-19T10:10:51.579+00:00",
+       "createdBy": "Egeria",
+       "maintainedBy": [
+        "Egeria"
+       ],
+       "updateTime": "2021-09-19T10:10:51.579+00:00",
+       "updatedBy": "Egeria",
+       "version": 1
+      }
+     },
+     "class": "ElementHeader",
+     "guid": "8b7fbe7e-4d58-4778-bf22-c8a7e71de353",
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+      "homeMetadataCollectionName": "SimpleComboCatalog",
+      "license": "Apache-2.0",
+      "originCategory": "CONTENT_PACK",
+      "sourceServer": "qs-metadata-store"
+     },
+     "status": "ACTIVE",
+     "type": {
+      "superTypeNames": [
+       "RootSchemaType",
+       "ComplexSchemaType",
+       "SchemaType",
+       "SchemaElement",
+       "AuthoredReferenceable",
+       "Referenceable",
+       "OpenMetadataRoot"
+      ],
+      "typeCategory": "ENTITY_DEF",
+      "typeDescription": "Description of an API.",
+      "typeId": "b46cddb3-9864-4c5d-8a49-266b3fc95cb8",
+      "typeName": "APISchemaType",
+      "typeVersion": 1
+     },
+     "versions": {
+      "createTime": "2021-09-19T10:10:51.579+00:00",
+      "createdBy": "Egeria",
+      "maintainedBy": [
+       "Egeria"
+      ],
+      "updateTime": "2021-09-19T10:10:51.579+00:00",
+      "updatedBy": "Egeria",
+      "version": 1
+     }
+    },
+    "properties": {
+     "class": "APISchemaTypeProperties",
+     "displayName": "Customer API API Schema Type",
+     "qualifiedName": "DeployedAPI::global-api-gateway/CustomerDomain/APIs/Customer_api_schema_type",
+     "typeName": "APISchemaType"
+    }
+   },
+   "relatedElementAtEnd1": true,
+   "relationshipHeader": {
+    "class": "ElementHeader",
+    "guid": "16416742-3fb8-4bf0-b39e-f445a0112e39",
+    "headerVersion": 0,
+    "origin": {
+     "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+     "homeMetadataCollectionName": "SimpleComboCatalog",
+     "license": "Apache-2.0",
+     "originCategory": "CONTENT_PACK",
+     "sourceServer": "qs-metadata-store"
+    },
+    "status": "ACTIVE",
+    "type": {
+     "typeCategory": "RELATIONSHIP_DEF",
+     "typeDescription": "Link between an API and its operations.",
+     "typeId": "03737169-ceb5-45f0-84f0-21c5929945af",
+     "typeName": "APIOperations",
+     "typeVersion": 1
+    },
+    "versions": {
+     "createTime": "2021-09-19T10:10:51.579+00:00",
+     "createdBy": "Egeria",
+     "maintainedBy": [
+      "Egeria"
+     ],
+     "updateTime": "2021-09-19T10:10:51.579+00:00",
+     "updatedBy": "Egeria",
+     "version": 1
+    }
+   },
+   "startingElementGUID": "c39c77b8-1415-4569-8b40-9b50518210dc"
+  },
+  {
+   "class": "RelatedMetadataNodeSummary",
+   "relatedElement": {
+    "elementHeader": {
+     "anchor": {
+      "class": "ElementClassification",
+      "classificationName": "Anchors",
+      "classificationOrigin": "ASSIGNED",
+      "classificationProperties": {
+       "anchorDomainName": "Asset",
+       "anchorGUID": "5d6ec7aa-9b13-4286-ad00-af82709a259b",
+       "anchorTypeName": "DeployedAPI",
+       "class": "AnchorsProperties",
+       "typeName": "Anchors"
+      },
+      "headerVersion": 0,
+      "origin": {
+       "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+       "homeMetadataCollectionName": "SimpleComboCatalog",
+       "originCategory": "CONTENT_PACK",
+       "sourceServer": "qs-metadata-store"
+      },
+      "status": "ACTIVE",
+      "type": {
+       "typeCategory": "CLASSIFICATION_DEF",
+       "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+       "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+       "typeName": "Anchors",
+       "typeVersion": 1
+      },
+      "versions": {
+       "createTime": "2021-09-19T10:10:51.579+00:00",
+       "createdBy": "Egeria",
+       "maintainedBy": [
+        "Egeria"
+       ],
+       "updateTime": "2021-09-19T10:10:51.579+00:00",
+       "updatedBy": "Egeria",
+       "version": 1
+      }
+     },
+     "class": "ElementHeader",
+     "guid": "31c9875d-2095-43f4-8168-12ac1c6d5900",
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+      "homeMetadataCollectionName": "SimpleComboCatalog",
+      "license": "Apache-2.0",
+      "originCategory": "CONTENT_PACK",
+      "sourceServer": "qs-metadata-store"
+     },
+     "status": "ACTIVE",
+     "type": {
+      "superTypeNames": [
+       "ComplexSchemaType",
+       "SchemaType",
+       "SchemaElement",
+       "AuthoredReferenceable",
+       "Referenceable",
+       "OpenMetadataRoot"
+      ],
+      "typeCategory": "ENTITY_DEF",
+      "typeDescription": "A list of parameters for an API operation.",
+      "typeId": "ba167b12-969f-49d3-8bea-d04228d9a44b",
+      "typeName": "APIParameterList",
+      "typeVersion": 1
+     },
+     "versions": {
+      "createTime": "2021-09-19T10:10:51.579+00:00",
+      "createdBy": "Egeria",
+      "maintainedBy": [
+       "Egeria"
+      ],
+      "updateTime": "2021-09-19T10:10:51.579+00:00",
+      "updatedBy": "Egeria",
+      "version": 1
+     }
+    },
+    "properties": {
+     "class": "APIParameterListProperties",
+     "displayName": "Get Customer Operation Request Parameter List",
+     "qualifiedName": "APIOperation::global-api-gateway/CustomerDomain/APIs/Customer/getCustomer_request",
+     "required": true,
+     "typeName": "APIParameterList"
+    }
+   },
+   "relatedElementAtEnd1": false,
+   "relationshipHeader": {
+    "class": "ElementHeader",
+    "guid": "fc7dfd10-cb05-431c-a0b3-84c253e1d392",
+    "headerVersion": 0,
+    "origin": {
+     "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+     "homeMetadataCollectionName": "SimpleComboCatalog",
+     "license": "Apache-2.0",
+     "originCategory": "CONTENT_PACK",
+     "sourceServer": "qs-metadata-store"
+    },
+    "status": "ACTIVE",
+    "type": {
+     "typeCategory": "RELATIONSHIP_DEF",
+     "typeDescription": "Link between an API operation and its request structure.",
+     "typeId": "4ab3b466-31bd-48ea-8aa2-75623476f2e2",
+     "typeName": "APIRequest",
+     "typeVersion": 1
+    },
+    "versions": {
+     "createTime": "2021-09-19T10:10:51.579+00:00",
+     "createdBy": "Egeria",
+     "maintainedBy": [
+      "Egeria"
+     ],
+     "updateTime": "2021-09-19T10:10:51.579+00:00",
+     "updatedBy": "Egeria",
+     "version": 1
+    }
+   },
+   "startingElementGUID": "c39c77b8-1415-4569-8b40-9b50518210dc"
+  },
+  {
+   "class": "RelatedMetadataNodeSummary",
+   "relatedElement": {
+    "elementHeader": {
+     "anchor": {
+      "class": "ElementClassification",
+      "classificationName": "Anchors",
+      "classificationOrigin": "ASSIGNED",
+      "classificationProperties": {
+       "anchorDomainName": "Asset",
+       "anchorGUID": "5335eeac-54b3-4d53-a38c-bd354b33766e",
+       "anchorTypeName": "DeployedDatabaseSchema",
+       "class": "AnchorsProperties",
+       "typeName": "Anchors"
+      },
+      "headerVersion": 0,
+      "origin": {
+       "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+       "homeMetadataCollectionName": "SimpleComboCatalog",
+       "originCategory": "CONTENT_PACK",
+       "sourceServer": "qs-metadata-store"
+      },
+      "status": "ACTIVE",
+      "type": {
+       "typeCategory": "CLASSIFICATION_DEF",
+       "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+       "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+       "typeName": "Anchors",
+       "typeVersion": 1
+      },
+      "versions": {
+       "createTime": "2021-09-19T10:10:51.579+00:00",
+       "createdBy": "Egeria",
+       "maintainedBy": [
+        "Egeria"
+       ],
+       "updateTime": "2021-09-19T10:10:51.579+00:00",
+       "updatedBy": "Egeria",
+       "version": 1
+      }
+     },
+     "class": "ElementHeader",
+     "guid": "328a0bd2-76ce-4312-a1ac-9e62ac7b5457",
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+      "homeMetadataCollectionName": "SimpleComboCatalog",
+      "license": "Apache-2.0",
+      "originCategory": "CONTENT_PACK",
+      "sourceServer": "qs-metadata-store"
+     },
+     "schemaType": {
+      "class": "ElementClassification",
+      "classificationName": "TypeEmbeddedAttribute",
+      "classificationOrigin": "ASSIGNED",
+      "classificationProperties": {
+       "class": "TypeEmbeddedAttributeProperties",
+       "dataType": "CHAR",
+       "schemaTypeName": "PrimitiveSchemaType",
+       "typeName": "TypeEmbeddedAttribute"
+      },
+      "headerVersion": 0,
+      "origin": {
+       "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+       "homeMetadataCollectionName": "SimpleComboCatalog",
+       "originCategory": "CONTENT_PACK",
+       "sourceServer": "qs-metadata-store"
+      },
+      "status": "ACTIVE",
+      "type": {
+       "typeCategory": "CLASSIFICATION_DEF",
+       "typeDescription": "Type information embedded within an attribute.",
+       "typeId": "e2bb76bb-774a-43ff-9045-3a05f663d5d9",
+       "typeName": "TypeEmbeddedAttribute",
+       "typeVersion": 2
+      },
+      "versions": {
+       "createTime": "2021-09-19T10:10:51.579+00:00",
+       "createdBy": "Egeria",
+       "maintainedBy": [
+        "Egeria"
+       ],
+       "updateTime": "2021-09-19T10:10:51.579+00:00",
+       "updatedBy": "Egeria",
+       "version": 1
+      }
+     },
+     "status": "ACTIVE",
+     "type": {
+      "superTypeNames": [
+       "TabularColumn",
+       "SchemaAttribute",
+       "SchemaElement",
+       "AuthoredReferenceable",
+       "Referenceable",
+       "OpenMetadataRoot"
+      ],
+      "typeCategory": "ENTITY_DEF",
+      "typeDescription": "A column within a relational table.",
+      "typeId": "aa8d5470-6dbc-4648-9e2f-045e5df9d2f9",
+      "typeName": "RelationalColumn",
+      "typeVersion": 1
+     },
+     "versions": {
+      "createTime": "2021-09-19T10:10:51.579+00:00",
+      "createdBy": "Egeria",
+      "maintainedBy": [
+       "Egeria"
+      ],
+      "updateTime": "2021-09-19T10:10:51.579+00:00",
+      "updatedBy": "Egeria",
+      "version": 1
+     }
+    },
+    "properties": {
+     "class": "RelationalColumnProperties",
+     "description": "The store card number for the customer.  Null if not issued.",
+     "displayName": "CUSTCARD",
+     "length": 10,
+     "namespacePath": "V37B8752.FH567.sys/BRANCH.RETAILSCHEMA.CUSTOMER",
+     "qualifiedName": "RelationalColumn::V37B8752.FH567.sys/BRANCH.RETAILSCHEMA.CUSTOMER.CUSTCARD",
+     "sortOrder": "UNSORTED",
+     "typeName": "RelationalColumn"
+    }
+   },
+   "relatedElementAtEnd1": false,
+   "relationshipHeader": {
+    "class": "ElementHeader",
+    "guid": "80280284-94e9-4d57-9bec-1053ee1dd7d8",
+    "headerVersion": 0,
+    "origin": {
+     "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+     "homeMetadataCollectionName": "SimpleComboCatalog",
+     "license": "Apache-2.0",
+     "originCategory": "CONTENT_PACK",
+     "sourceServer": "qs-metadata-store"
+    },
+    "status": "ACTIVE",
+    "type": {
+     "superTypeNames": [
+      "LineageRelationship",
+      "LabeledRelationship"
+     ],
+     "typeCategory": "RELATIONSHIP_DEF",
+     "typeDescription": "A mapping relationship between data values from different assets showing how data is copied/transformed from one to the other.",
+     "typeId": "3264af28-d81b-42f3-b1c7-fdc774a4d179",
+     "typeName": "DataMapping",
+     "typeVersion": 2
+    },
+    "versions": {
+     "createTime": "2021-09-19T10:10:51.579+00:00",
+     "createdBy": "Egeria",
+     "maintainedBy": [
+      "Egeria"
+     ],
+     "updateTime": "2021-09-19T10:10:51.579+00:00",
+     "updatedBy": "Egeria",
+     "version": 1
+    }
+   },
+   "relationshipProperties": {
+    "class": "DataMappingProperties",
+    "label": "maps",
+    "typeName": "DataMapping"
+   },
+   "startingElementGUID": "c35bcf0d-302d-4e60-ad17-778114937594"
+  },
+  {
+   "class": "RelatedMetadataNodeSummary",
+   "relatedElement": {
+    "elementHeader": {
+     "anchor": {
+      "class": "ElementClassification",
+      "classificationName": "Anchors",
+      "classificationOrigin": "ASSIGNED",
+      "classificationProperties": {
+       "anchorDomainName": "AuthoredReferenceable",
+       "anchorScopeGUIDs": [
+        "08c8e87f-6818-4753-892f-c2cd12f4b1ad"
+       ],
+       "anchorTypeName": "GlossaryTerm",
+       "class": "AnchorsProperties",
+       "typeName": "Anchors"
+      },
+      "headerVersion": 0,
+      "origin": {
+       "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+       "homeMetadataCollectionName": "SimpleComboCatalog",
+       "originCategory": "CONTENT_PACK",
+       "sourceServer": "qs-metadata-store"
+      },
+      "status": "ACTIVE",
+      "type": {
+       "typeCategory": "CLASSIFICATION_DEF",
+       "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+       "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+       "typeName": "Anchors",
+       "typeVersion": 1
+      },
+      "versions": {
+       "createTime": "2021-09-19T10:10:51.579+00:00",
+       "createdBy": "Egeria",
+       "maintainedBy": [
+        "Egeria"
+       ],
+       "updateTime": "2021-09-19T10:10:51.579+00:00",
+       "updatedBy": "Egeria",
+       "version": 1
+      }
+     },
+     "class": "ElementHeader",
+     "guid": "08982082-d070-4ec5-a21e-4335e09a4c3b",
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+      "homeMetadataCollectionName": "SimpleComboCatalog",
+      "license": "Apache-2.0",
+      "originCategory": "CONTENT_PACK",
+      "sourceServer": "qs-metadata-store"
+     },
+     "status": "ACTIVE",
+     "type": {
+      "superTypeNames": [
+       "AuthoredReferenceable",
+       "Referenceable",
+       "OpenMetadataRoot"
+      ],
+      "typeCategory": "ENTITY_DEF",
+      "typeDescription": "A semantic description of something, such as a concept, object, asset, technology, role or group.",
+      "typeId": "0db3e6ec-f5ef-4d75-ae38-b7ee6fd6ec0a",
+      "typeName": "GlossaryTerm",
+      "typeVersion": 1
+     },
+     "usageActivity": {
+      "class": "ElementClassification",
+      "classificationName": "UsageActivity",
+      "classificationOrigin": "ASSIGNED",
+      "classificationProperties": {
+       "class": "UsageActivityProperties",
+       "deleteAttachmentCount": 0,
+       "deleteFeedbackCount": 0,
+       "explicitGetCount": 0,
+       "findCount": 8,
+       "typeName": "UsageActivity",
+       "updateAttachmentCount": 0,
+       "updateFeedbackCount": 0,
+       "updatePropertyCount": 0
+      },
+      "headerVersion": 0,
+      "origin": {
+       "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+       "homeMetadataCollectionName": "qs-metadata-store",
+       "originCategory": "LOCAL_COHORT",
+       "sourceServer": "qs-metadata-store"
+      },
+      "status": "ACTIVE",
+      "type": {
+       "typeCategory": "CLASSIFICATION_DEF",
+       "typeDescription": "Describes the usage activity around an anchor element and its anchored elements: how often it is explicitly retrieved, found through searches, has its properties updated, and has its attachments and feedback updated or deleted.",
+       "typeId": "cfae23a1-8020-431f-a603-1f1bb0e01cb3",
+       "typeName": "UsageActivity",
+       "typeVersion": 1
+      },
+      "versions": {
+       "createTime": "2026-11-12T11:19:25.922+00:00",
+       "createdBy": "pepysnpa",
+       "lastRequestId": "5e0babb4-a4a6-4fc6-b7dc-3fda52c88a83",
+       "maintainedBy": [
+        "pepysnpa"
+       ],
+       "updateTime": "2026-11-13T17:56:44.559+00:00",
+       "updatedBy": "pepysnpa",
+       "version": 4
+      }
+     },
+     "versions": {
+      "createTime": "2021-09-19T10:10:51.579+00:00",
+      "createdBy": "Egeria",
+      "maintainedBy": [
+       "Egeria"
+      ],
+      "updateTime": "2021-09-19T10:10:51.579+00:00",
+      "updatedBy": "Egeria",
+      "version": 1
+     }
+    },
+    "properties": {
+     "class": "GlossaryTermProperties",
+     "description": "Unique identifier for a customer generated on first contact.",
+     "displayName": "UniqueCustomerIdentifier",
+     "qualifiedName": "GlossaryTerm::MainGlossary/Unique_Customer_Identifier",
+     "typeName": "GlossaryTerm",
+     "versionIdentifier": "1.0"
+    }
+   },
+   "relatedElementAtEnd1": false,
+   "relationshipHeader": {
+    "class": "ElementHeader",
+    "guid": "76956b71-5e13-450c-8aaa-d5b201f345be",
+    "headerVersion": 0,
+    "origin": {
+     "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+     "homeMetadataCollectionName": "SimpleComboCatalog",
+     "license": "Apache-2.0",
+     "originCategory": "CONTENT_PACK",
+     "sourceServer": "qs-metadata-store"
+    },
+    "status": "ACTIVE",
+    "type": {
+     "typeCategory": "RELATIONSHIP_DEF",
+     "typeDescription": "Links a glossary term to another element such as an asset or schema element to indicate that the data stored in the corresponding part of the digital resource has this meaning.",
+     "typeId": "e6670973-645f-441a-bec7-6f5570345b92",
+     "typeName": "SemanticAssignment",
+     "typeVersion": 1
+    },
+    "versions": {
+     "createTime": "2021-09-19T10:10:51.579+00:00",
+     "createdBy": "Egeria",
+     "maintainedBy": [
+      "Egeria"
+     ],
+     "updateTime": "2021-09-19T10:10:51.579+00:00",
+     "updatedBy": "Egeria",
+     "version": 1
+    }
+   },
+   "startingElementGUID": "1ca8155c-fc49-4d43-b54a-7ffc945ed796"
+  }
+ ],
+ "schemaType": {
+  "class": "RelatedMetadataHierarchySummary",
+  "nestedElements": [
+   {
+    "class": "RelatedMetadataHierarchySummary",
+    "nestedElements": [
+     {
+      "class": "RelatedMetadataHierarchySummary",
+      "nestedElements": [
+       {
+        "class": "RelatedMetadataElementSummary",
+        "relatedElement": {
+         "elementHeader": {
+          "anchor": {
+           "class": "ElementClassification",
+           "classificationName": "Anchors",
+           "classificationOrigin": "ASSIGNED",
+           "classificationProperties": {
+            "anchorDomainName": "Asset",
+            "anchorGUID": "5d6ec7aa-9b13-4286-ad00-af82709a259b",
+            "anchorTypeName": "DeployedAPI",
+            "class": "AnchorsProperties",
+            "typeName": "Anchors"
+           },
+           "headerVersion": 0,
+           "origin": {
+            "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+            "homeMetadataCollectionName": "SimpleComboCatalog",
+            "originCategory": "CONTENT_PACK",
+            "sourceServer": "qs-metadata-store"
+           },
+           "status": "ACTIVE",
+           "type": {
+            "typeCategory": "CLASSIFICATION_DEF",
+            "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+            "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+            "typeName": "Anchors",
+            "typeVersion": 1
+           },
+           "versions": {
+            "createTime": "2021-09-19T10:10:51.579+00:00",
+            "createdBy": "Egeria",
+            "maintainedBy": [
+             "Egeria"
+            ],
+            "updateTime": "2021-09-19T10:10:51.579+00:00",
+            "updatedBy": "Egeria",
+            "version": 1
+           }
+          },
+          "class": "ElementHeader",
+          "guid": "f132688a-c5d0-47b8-9982-e2dca8b923c6",
+          "headerVersion": 0,
+          "origin": {
+           "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+           "homeMetadataCollectionName": "SimpleComboCatalog",
+           "license": "Apache-2.0",
+           "originCategory": "CONTENT_PACK",
+           "sourceServer": "qs-metadata-store"
+          },
+          "schemaType": {
+           "class": "ElementClassification",
+           "classificationName": "TypeEmbeddedAttribute",
+           "classificationOrigin": "ASSIGNED",
+           "classificationProperties": {
+            "class": "TypeEmbeddedAttributeProperties",
+            "dataType": "string",
+            "schemaTypeName": "PrimitiveSchemaType",
+            "typeName": "TypeEmbeddedAttribute"
+           },
+           "headerVersion": 0,
+           "origin": {
+            "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+            "homeMetadataCollectionName": "SimpleComboCatalog",
+            "originCategory": "CONTENT_PACK",
+            "sourceServer": "qs-metadata-store"
+           },
+           "status": "ACTIVE",
+           "type": {
+            "typeCategory": "CLASSIFICATION_DEF",
+            "typeDescription": "Type information embedded within an attribute.",
+            "typeId": "e2bb76bb-774a-43ff-9045-3a05f663d5d9",
+            "typeName": "TypeEmbeddedAttribute",
+            "typeVersion": 2
+           },
+           "versions": {
+            "createTime": "2021-09-19T10:10:51.579+00:00",
+            "createdBy": "Egeria",
+            "maintainedBy": [
+             "Egeria"
+            ],
+            "updateTime": "2021-09-19T10:10:51.579+00:00",
+            "updatedBy": "Egeria",
+            "version": 1
+           }
+          },
+          "status": "ACTIVE",
+          "type": {
+           "superTypeNames": [
+            "SchemaAttribute",
+            "SchemaElement",
+            "AuthoredReferenceable",
+            "Referenceable",
+            "OpenMetadataRoot"
+           ],
+           "typeCategory": "ENTITY_DEF",
+           "typeDescription": "A data value that is part of an API definition.",
+           "typeId": "10277b13-509c-480e-9829-bc16d0eafc53",
+           "typeName": "APIParameter",
+           "typeVersion": 1
+          },
+          "versions": {
+           "createTime": "2021-09-19T10:10:51.579+00:00",
+           "createdBy": "Egeria",
+           "maintainedBy": [
+            "Egeria"
+           ],
+           "updateTime": "2021-09-19T10:10:51.579+00:00",
+           "updatedBy": "Egeria",
+           "version": 1
+          }
+         },
+         "properties": {
+          "class": "APIParameterProperties",
+          "description": "The name for a customer - as supplied by the customer.",
+          "displayName": "customerName",
+          "length": 40,
+          "namespacePath": "global-api-gateway/CustomerDomain/APIs/Customer/getCustomer/response",
+          "qualifiedName": "global-api-gateway/CustomerDomain/APIs/Customer/getCustomer/response/customerName",
+          "sortOrder": "UNSORTED",
+          "typeName": "APIParameter"
+         }
+        },
+        "relatedElementAtEnd1": false,
+        "relationshipHeader": {
+         "class": "ElementHeader",
+         "guid": "1ff82d8e-171f-466a-b69c-14dd6affc6e4",
+         "headerVersion": 0,
+         "origin": {
+          "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+          "homeMetadataCollectionName": "SimpleComboCatalog",
+          "license": "Apache-2.0",
+          "originCategory": "CONTENT_PACK",
+          "sourceServer": "qs-metadata-store"
+         },
+         "status": "ACTIVE",
+         "type": {
+          "typeCategory": "RELATIONSHIP_DEF",
+          "typeDescription": "Link between a complex schema type and its attributes.",
+          "typeId": "86b176a2-015c-44a6-8106-54d5d69ba661",
+          "typeName": "AttributeForSchema",
+          "typeVersion": 1
+         },
+         "versions": {
+          "createTime": "2021-09-19T10:10:51.579+00:00",
+          "createdBy": "Egeria",
+          "maintainedBy": [
+           "Egeria"
+          ],
+          "updateTime": "2021-09-19T10:10:51.579+00:00",
+          "updatedBy": "Egeria",
+          "version": 1
+         }
+        },
+        "relationshipProperties": {
+         "class": "AttributeForSchemaProperties",
+         "maxCardinality": 1,
+         "minCardinality": 1,
+         "position": 3,
+         "typeName": "AttributeForSchema"
+        }
+       },
+       {
+        "class": "RelatedMetadataElementSummary",
+        "relatedElement": {
+         "elementHeader": {
+          "anchor": {
+           "class": "ElementClassification",
+           "classificationName": "Anchors",
+           "classificationOrigin": "ASSIGNED",
+           "classificationProperties": {
+            "anchorDomainName": "Asset",
+            "anchorGUID": "5d6ec7aa-9b13-4286-ad00-af82709a259b",
+            "anchorTypeName": "DeployedAPI",
+            "class": "AnchorsProperties",
+            "typeName": "Anchors"
+           },
+           "headerVersion": 0,
+           "origin": {
+            "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+            "homeMetadataCollectionName": "SimpleComboCatalog",
+            "originCategory": "CONTENT_PACK",
+            "sourceServer": "qs-metadata-store"
+           },
+           "status": "ACTIVE",
+           "type": {
+            "typeCategory": "CLASSIFICATION_DEF",
+            "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+            "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+            "typeName": "Anchors",
+            "typeVersion": 1
+           },
+           "versions": {
+            "createTime": "2021-09-19T10:10:51.579+00:00",
+            "createdBy": "Egeria",
+            "maintainedBy": [
+             "Egeria"
+            ],
+            "updateTime": "2021-09-19T10:10:51.579+00:00",
+            "updatedBy": "Egeria",
+            "version": 1
+           }
+          },
+          "class": "ElementHeader",
+          "guid": "c35bcf0d-302d-4e60-ad17-778114937594",
+          "headerVersion": 0,
+          "origin": {
+           "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+           "homeMetadataCollectionName": "SimpleComboCatalog",
+           "license": "Apache-2.0",
+           "originCategory": "CONTENT_PACK",
+           "sourceServer": "qs-metadata-store"
+          },
+          "schemaType": {
+           "class": "ElementClassification",
+           "classificationName": "TypeEmbeddedAttribute",
+           "classificationOrigin": "ASSIGNED",
+           "classificationProperties": {
+            "class": "TypeEmbeddedAttributeProperties",
+            "dataType": "string",
+            "schemaTypeName": "PrimitiveSchemaType",
+            "typeName": "TypeEmbeddedAttribute"
+           },
+           "headerVersion": 0,
+           "origin": {
+            "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+            "homeMetadataCollectionName": "SimpleComboCatalog",
+            "originCategory": "CONTENT_PACK",
+            "sourceServer": "qs-metadata-store"
+           },
+           "status": "ACTIVE",
+           "type": {
+            "typeCategory": "CLASSIFICATION_DEF",
+            "typeDescription": "Type information embedded within an attribute.",
+            "typeId": "e2bb76bb-774a-43ff-9045-3a05f663d5d9",
+            "typeName": "TypeEmbeddedAttribute",
+            "typeVersion": 2
+           },
+           "versions": {
+            "createTime": "2021-09-19T10:10:51.579+00:00",
+            "createdBy": "Egeria",
+            "maintainedBy": [
+             "Egeria"
+            ],
+            "updateTime": "2021-09-19T10:10:51.579+00:00",
+            "updatedBy": "Egeria",
+            "version": 1
+           }
+          },
+          "status": "ACTIVE",
+          "type": {
+           "superTypeNames": [
+            "SchemaAttribute",
+            "SchemaElement",
+            "AuthoredReferenceable",
+            "Referenceable",
+            "OpenMetadataRoot"
+           ],
+           "typeCategory": "ENTITY_DEF",
+           "typeDescription": "A data value that is part of an API definition.",
+           "typeId": "10277b13-509c-480e-9829-bc16d0eafc53",
+           "typeName": "APIParameter",
+           "typeVersion": 1
+          },
+          "versions": {
+           "createTime": "2021-09-19T10:10:51.579+00:00",
+           "createdBy": "Egeria",
+           "maintainedBy": [
+            "Egeria"
+           ],
+           "updateTime": "2021-09-19T10:10:51.579+00:00",
+           "updatedBy": "Egeria",
+           "version": 1
+          }
+         },
+         "properties": {
+          "class": "APIParameterProperties",
+          "description": "The store card number for the customer.  Null if not issued.",
+          "displayName": "customerCardId",
+          "length": 10,
+          "namespacePath": "global-api-gateway/CustomerDomain/APIs/Customer/getCustomer/responses",
+          "qualifiedName": "global-api-gateway/CustomerDomain/APIs/Customer/getCustomer/responses/customerCardId",
+          "sortOrder": "UNSORTED",
+          "typeName": "APIParameter"
+         }
+        },
+        "relatedElementAtEnd1": false,
+        "relationshipHeader": {
+         "class": "ElementHeader",
+         "guid": "b2aab614-a5e7-4c7f-805d-dfcdd604468a",
+         "headerVersion": 0,
+         "origin": {
+          "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+          "homeMetadataCollectionName": "SimpleComboCatalog",
+          "license": "Apache-2.0",
+          "originCategory": "CONTENT_PACK",
+          "sourceServer": "qs-metadata-store"
+         },
+         "status": "ACTIVE",
+         "type": {
+          "typeCategory": "RELATIONSHIP_DEF",
+          "typeDescription": "Link between a complex schema type and its attributes.",
+          "typeId": "86b176a2-015c-44a6-8106-54d5d69ba661",
+          "typeName": "AttributeForSchema",
+          "typeVersion": 1
+         },
+         "versions": {
+          "createTime": "2021-09-19T10:10:51.579+00:00",
+          "createdBy": "Egeria",
+          "maintainedBy": [
+           "Egeria"
+          ],
+          "updateTime": "2021-09-19T10:10:51.579+00:00",
+          "updatedBy": "Egeria",
+          "version": 1
+         }
+        },
+        "relationshipProperties": {
+         "class": "AttributeForSchemaProperties",
+         "maxCardinality": 1,
+         "minCardinality": 1,
+         "position": 4,
+         "typeName": "AttributeForSchema"
+        }
+       },
+       {
+        "class": "RelatedMetadataElementSummary",
+        "relatedElement": {
+         "elementHeader": {
+          "anchor": {
+           "class": "ElementClassification",
+           "classificationName": "Anchors",
+           "classificationOrigin": "ASSIGNED",
+           "classificationProperties": {
+            "anchorDomainName": "Asset",
+            "anchorGUID": "5d6ec7aa-9b13-4286-ad00-af82709a259b",
+            "anchorTypeName": "DeployedAPI",
+            "class": "AnchorsProperties",
+            "typeName": "Anchors"
+           },
+           "headerVersion": 0,
+           "origin": {
+            "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+            "homeMetadataCollectionName": "SimpleComboCatalog",
+            "originCategory": "CONTENT_PACK",
+            "sourceServer": "qs-metadata-store"
+           },
+           "status": "ACTIVE",
+           "type": {
+            "typeCategory": "CLASSIFICATION_DEF",
+            "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+            "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+            "typeName": "Anchors",
+            "typeVersion": 1
+           },
+           "versions": {
+            "createTime": "2021-09-19T10:10:51.579+00:00",
+            "createdBy": "Egeria",
+            "maintainedBy": [
+             "Egeria"
+            ],
+            "updateTime": "2021-09-19T10:10:51.579+00:00",
+            "updatedBy": "Egeria",
+            "version": 1
+           }
+          },
+          "class": "ElementHeader",
+          "guid": "a7b6360d-3c76-4ffc-8fbb-4d57b7ddbb8f",
+          "headerVersion": 0,
+          "origin": {
+           "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+           "homeMetadataCollectionName": "SimpleComboCatalog",
+           "license": "Apache-2.0",
+           "originCategory": "CONTENT_PACK",
+           "sourceServer": "qs-metadata-store"
+          },
+          "schemaType": {
+           "class": "ElementClassification",
+           "classificationName": "TypeEmbeddedAttribute",
+           "classificationOrigin": "ASSIGNED",
+           "classificationProperties": {
+            "class": "TypeEmbeddedAttributeProperties",
+            "dataType": "string",
+            "schemaTypeName": "PrimitiveSchemaType",
+            "typeName": "TypeEmbeddedAttribute"
+           },
+           "headerVersion": 0,
+           "origin": {
+            "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+            "homeMetadataCollectionName": "SimpleComboCatalog",
+            "originCategory": "CONTENT_PACK",
+            "sourceServer": "qs-metadata-store"
+           },
+           "status": "ACTIVE",
+           "type": {
+            "typeCategory": "CLASSIFICATION_DEF",
+            "typeDescription": "Type information embedded within an attribute.",
+            "typeId": "e2bb76bb-774a-43ff-9045-3a05f663d5d9",
+            "typeName": "TypeEmbeddedAttribute",
+            "typeVersion": 2
+           },
+           "versions": {
+            "createTime": "2021-09-19T10:10:51.579+00:00",
+            "createdBy": "Egeria",
+            "maintainedBy": [
+             "Egeria"
+            ],
+            "updateTime": "2021-09-19T10:10:51.579+00:00",
+            "updatedBy": "Egeria",
+            "version": 1
+           }
+          },
+          "status": "ACTIVE",
+          "type": {
+           "superTypeNames": [
+            "SchemaAttribute",
+            "SchemaElement",
+            "AuthoredReferenceable",
+            "Referenceable",
+            "OpenMetadataRoot"
+           ],
+           "typeCategory": "ENTITY_DEF",
+           "typeDescription": "A data value that is part of an API definition.",
+           "typeId": "10277b13-509c-480e-9829-bc16d0eafc53",
+           "typeName": "APIParameter",
+           "typeVersion": 1
+          },
+          "versions": {
+           "createTime": "2021-09-19T10:10:51.579+00:00",
+           "createdBy": "Egeria",
+           "maintainedBy": [
+            "Egeria"
+           ],
+           "updateTime": "2021-09-19T10:10:51.579+00:00",
+           "updatedBy": "Egeria",
+           "version": 1
+          }
+         },
+         "properties": {
+          "class": "APIParameterProperties",
+          "description": "The unique identifier assigned internally for a customer.",
+          "displayName": "customerNo",
+          "length": 12,
+          "namespacePath": "global-api-gateway/CustomerDomain/APIs/Customer/getCustomer/response",
+          "qualifiedName": "APIParameter::global-api-gateway/CustomerDomain/APIs/Customer/getCustomer/response/customerNo",
+          "sortOrder": "UNSORTED",
+          "typeName": "APIParameter"
+         }
+        },
+        "relatedElementAtEnd1": false,
+        "relationshipHeader": {
+         "class": "ElementHeader",
+         "guid": "ecba7059-40e8-42c8-bc85-72ccee2fb5fa",
+         "headerVersion": 0,
+         "origin": {
+          "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+          "homeMetadataCollectionName": "SimpleComboCatalog",
+          "license": "Apache-2.0",
+          "originCategory": "CONTENT_PACK",
+          "sourceServer": "qs-metadata-store"
+         },
+         "status": "ACTIVE",
+         "type": {
+          "typeCategory": "RELATIONSHIP_DEF",
+          "typeDescription": "Link between a complex schema type and its attributes.",
+          "typeId": "86b176a2-015c-44a6-8106-54d5d69ba661",
+          "typeName": "AttributeForSchema",
+          "typeVersion": 1
+         },
+         "versions": {
+          "createTime": "2021-09-19T10:10:51.579+00:00",
+          "createdBy": "Egeria",
+          "maintainedBy": [
+           "Egeria"
+          ],
+          "updateTime": "2021-09-19T10:10:51.579+00:00",
+          "updatedBy": "Egeria",
+          "version": 1
+         }
+        },
+        "relationshipProperties": {
+         "class": "AttributeForSchemaProperties",
+         "maxCardinality": 1,
+         "minCardinality": 1,
+         "position": 2,
+         "typeName": "AttributeForSchema"
+        }
+       }
+      ],
+      "relatedElement": {
+       "elementHeader": {
+        "anchor": {
+         "class": "ElementClassification",
+         "classificationName": "Anchors",
+         "classificationOrigin": "ASSIGNED",
+         "classificationProperties": {
+          "anchorDomainName": "Asset",
+          "anchorGUID": "5d6ec7aa-9b13-4286-ad00-af82709a259b",
+          "anchorTypeName": "DeployedAPI",
+          "class": "AnchorsProperties",
+          "typeName": "Anchors"
+         },
+         "headerVersion": 0,
+         "origin": {
+          "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+          "homeMetadataCollectionName": "SimpleComboCatalog",
+          "originCategory": "CONTENT_PACK",
+          "sourceServer": "qs-metadata-store"
+         },
+         "status": "ACTIVE",
+         "type": {
+          "typeCategory": "CLASSIFICATION_DEF",
+          "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+          "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+          "typeName": "Anchors",
+          "typeVersion": 1
+         },
+         "versions": {
+          "createTime": "2021-09-19T10:10:51.579+00:00",
+          "createdBy": "Egeria",
+          "maintainedBy": [
+           "Egeria"
+          ],
+          "updateTime": "2021-09-19T10:10:51.579+00:00",
+          "updatedBy": "Egeria",
+          "version": 1
+         }
+        },
+        "class": "ElementHeader",
+        "guid": "afa6ecb1-d357-410a-baae-f3c07f07c303",
+        "headerVersion": 0,
+        "origin": {
+         "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+         "homeMetadataCollectionName": "SimpleComboCatalog",
+         "license": "Apache-2.0",
+         "originCategory": "CONTENT_PACK",
+         "sourceServer": "qs-metadata-store"
+        },
+        "status": "ACTIVE",
+        "type": {
+         "superTypeNames": [
+          "ComplexSchemaType",
+          "SchemaType",
+          "SchemaElement",
+          "AuthoredReferenceable",
+          "Referenceable",
+          "OpenMetadataRoot"
+         ],
+         "typeCategory": "ENTITY_DEF",
+         "typeDescription": "A list of parameters for an API operation.",
+         "typeId": "ba167b12-969f-49d3-8bea-d04228d9a44b",
+         "typeName": "APIParameterList",
+         "typeVersion": 1
+        },
+        "versions": {
+         "createTime": "2021-09-19T10:10:51.579+00:00",
+         "createdBy": "Egeria",
+         "maintainedBy": [
+          "Egeria"
+         ],
+         "updateTime": "2021-09-19T10:10:51.579+00:00",
+         "updatedBy": "Egeria",
+         "version": 1
+        }
+       },
+       "properties": {
+        "class": "APIParameterListProperties",
+        "displayName": "Get Customer Operation Response Parameter List",
+        "qualifiedName": "APIOperation::global-api-gateway/CustomerDomain/APIs/Customer/getCustomer_response",
+        "required": true,
+        "typeName": "APIParameterList"
+       }
+      },
+      "relatedElementAtEnd1": false,
+      "relationshipHeader": {
+       "class": "ElementHeader",
+       "guid": "8fe0c076-54b1-4337-afe2-7cf8f13639df",
+       "headerVersion": 0,
+       "origin": {
+        "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+        "homeMetadataCollectionName": "SimpleComboCatalog",
+        "license": "Apache-2.0",
+        "originCategory": "CONTENT_PACK",
+        "sourceServer": "qs-metadata-store"
+       },
+       "status": "ACTIVE",
+       "type": {
+        "typeCategory": "RELATIONSHIP_DEF",
+        "typeDescription": "Link between an API operation and its response structure.",
+        "typeId": "e8001de2-1bb1-442b-a66f-9addc3641eae",
+        "typeName": "APIResponse",
+        "typeVersion": 1
+       },
+       "versions": {
+        "createTime": "2021-09-19T10:10:51.579+00:00",
+        "createdBy": "Egeria",
+        "maintainedBy": [
+         "Egeria"
+        ],
+        "updateTime": "2021-09-19T10:10:51.579+00:00",
+        "updatedBy": "Egeria",
+        "version": 1
+       }
+      }
+     },
+     {
+      "class": "RelatedMetadataHierarchySummary",
+      "nestedElements": [
+       {
+        "class": "RelatedMetadataElementSummary",
+        "relatedElement": {
+         "elementHeader": {
+          "anchor": {
+           "class": "ElementClassification",
+           "classificationName": "Anchors",
+           "classificationOrigin": "ASSIGNED",
+           "classificationProperties": {
+            "anchorDomainName": "Asset",
+            "anchorGUID": "5d6ec7aa-9b13-4286-ad00-af82709a259b",
+            "anchorTypeName": "DeployedAPI",
+            "class": "AnchorsProperties",
+            "typeName": "Anchors"
+           },
+           "headerVersion": 0,
+           "origin": {
+            "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+            "homeMetadataCollectionName": "SimpleComboCatalog",
+            "originCategory": "CONTENT_PACK",
+            "sourceServer": "qs-metadata-store"
+           },
+           "status": "ACTIVE",
+           "type": {
+            "typeCategory": "CLASSIFICATION_DEF",
+            "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+            "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+            "typeName": "Anchors",
+            "typeVersion": 1
+           },
+           "versions": {
+            "createTime": "2021-09-19T10:10:51.579+00:00",
+            "createdBy": "Egeria",
+            "maintainedBy": [
+             "Egeria"
+            ],
+            "updateTime": "2021-09-19T10:10:51.579+00:00",
+            "updatedBy": "Egeria",
+            "version": 1
+           }
+          },
+          "class": "ElementHeader",
+          "guid": "1ca8155c-fc49-4d43-b54a-7ffc945ed796",
+          "headerVersion": 0,
+          "origin": {
+           "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+           "homeMetadataCollectionName": "SimpleComboCatalog",
+           "license": "Apache-2.0",
+           "originCategory": "CONTENT_PACK",
+           "sourceServer": "qs-metadata-store"
+          },
+          "schemaType": {
+           "class": "ElementClassification",
+           "classificationName": "TypeEmbeddedAttribute",
+           "classificationOrigin": "ASSIGNED",
+           "classificationProperties": {
+            "class": "TypeEmbeddedAttributeProperties",
+            "dataType": "string",
+            "schemaTypeName": "PrimitiveSchemaType",
+            "typeName": "TypeEmbeddedAttribute"
+           },
+           "headerVersion": 0,
+           "origin": {
+            "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+            "homeMetadataCollectionName": "SimpleComboCatalog",
+            "originCategory": "CONTENT_PACK",
+            "sourceServer": "qs-metadata-store"
+           },
+           "status": "ACTIVE",
+           "type": {
+            "typeCategory": "CLASSIFICATION_DEF",
+            "typeDescription": "Type information embedded within an attribute.",
+            "typeId": "e2bb76bb-774a-43ff-9045-3a05f663d5d9",
+            "typeName": "TypeEmbeddedAttribute",
+            "typeVersion": 2
+           },
+           "versions": {
+            "createTime": "2021-09-19T10:10:51.579+00:00",
+            "createdBy": "Egeria",
+            "maintainedBy": [
+             "Egeria"
+            ],
+            "updateTime": "2021-09-19T10:10:51.579+00:00",
+            "updatedBy": "Egeria",
+            "version": 1
+           }
+          },
+          "status": "ACTIVE",
+          "type": {
+           "superTypeNames": [
+            "SchemaAttribute",
+            "SchemaElement",
+            "AuthoredReferenceable",
+            "Referenceable",
+            "OpenMetadataRoot"
+           ],
+           "typeCategory": "ENTITY_DEF",
+           "typeDescription": "A data value that is part of an API definition.",
+           "typeId": "10277b13-509c-480e-9829-bc16d0eafc53",
+           "typeName": "APIParameter",
+           "typeVersion": 1
+          },
+          "versions": {
+           "createTime": "2021-09-19T10:10:51.579+00:00",
+           "createdBy": "Egeria",
+           "maintainedBy": [
+            "Egeria"
+           ],
+           "updateTime": "2021-09-19T10:10:51.579+00:00",
+           "updatedBy": "Egeria",
+           "version": 1
+          }
+         },
+         "properties": {
+          "class": "APIParameterProperties",
+          "description": "The unique identifier assigned internally for a customer.",
+          "displayName": "customerNo",
+          "length": 12,
+          "namespacePath": "global-api-gateway/CustomerDomain/APIs/Customer/getCustomer/request",
+          "qualifiedName": "APIParameter::global-api-gateway/CustomerDomain/APIs/Customer/getCustomer/request/customerNo",
+          "sortOrder": "UNSORTED",
+          "typeName": "APIParameter"
+         }
+        },
+        "relatedElementAtEnd1": false,
+        "relationshipHeader": {
+         "class": "ElementHeader",
+         "guid": "1b40ebf9-2754-4719-9ef3-ac5045a8616a",
+         "headerVersion": 0,
+         "origin": {
+          "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+          "homeMetadataCollectionName": "SimpleComboCatalog",
+          "license": "Apache-2.0",
+          "originCategory": "CONTENT_PACK",
+          "sourceServer": "qs-metadata-store"
+         },
+         "status": "ACTIVE",
+         "type": {
+          "typeCategory": "RELATIONSHIP_DEF",
+          "typeDescription": "Link between a complex schema type and its attributes.",
+          "typeId": "86b176a2-015c-44a6-8106-54d5d69ba661",
+          "typeName": "AttributeForSchema",
+          "typeVersion": 1
+         },
+         "versions": {
+          "createTime": "2021-09-19T10:10:51.579+00:00",
+          "createdBy": "Egeria",
+          "maintainedBy": [
+           "Egeria"
+          ],
+          "updateTime": "2021-09-19T10:10:51.579+00:00",
+          "updatedBy": "Egeria",
+          "version": 1
+         }
+        },
+        "relationshipProperties": {
+         "class": "AttributeForSchemaProperties",
+         "maxCardinality": 1,
+         "minCardinality": 1,
+         "position": 1,
+         "typeName": "AttributeForSchema"
+        }
+       }
+      ],
+      "relatedElement": {
+       "elementHeader": {
+        "anchor": {
+         "class": "ElementClassification",
+         "classificationName": "Anchors",
+         "classificationOrigin": "ASSIGNED",
+         "classificationProperties": {
+          "anchorDomainName": "Asset",
+          "anchorGUID": "5d6ec7aa-9b13-4286-ad00-af82709a259b",
+          "anchorTypeName": "DeployedAPI",
+          "class": "AnchorsProperties",
+          "typeName": "Anchors"
+         },
+         "headerVersion": 0,
+         "origin": {
+          "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+          "homeMetadataCollectionName": "SimpleComboCatalog",
+          "originCategory": "CONTENT_PACK",
+          "sourceServer": "qs-metadata-store"
+         },
+         "status": "ACTIVE",
+         "type": {
+          "typeCategory": "CLASSIFICATION_DEF",
+          "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+          "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+          "typeName": "Anchors",
+          "typeVersion": 1
+         },
+         "versions": {
+          "createTime": "2021-09-19T10:10:51.579+00:00",
+          "createdBy": "Egeria",
+          "maintainedBy": [
+           "Egeria"
+          ],
+          "updateTime": "2021-09-19T10:10:51.579+00:00",
+          "updatedBy": "Egeria",
+          "version": 1
+         }
+        },
+        "class": "ElementHeader",
+        "guid": "31c9875d-2095-43f4-8168-12ac1c6d5900",
+        "headerVersion": 0,
+        "origin": {
+         "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+         "homeMetadataCollectionName": "SimpleComboCatalog",
+         "license": "Apache-2.0",
+         "originCategory": "CONTENT_PACK",
+         "sourceServer": "qs-metadata-store"
+        },
+        "status": "ACTIVE",
+        "type": {
+         "superTypeNames": [
+          "ComplexSchemaType",
+          "SchemaType",
+          "SchemaElement",
+          "AuthoredReferenceable",
+          "Referenceable",
+          "OpenMetadataRoot"
+         ],
+         "typeCategory": "ENTITY_DEF",
+         "typeDescription": "A list of parameters for an API operation.",
+         "typeId": "ba167b12-969f-49d3-8bea-d04228d9a44b",
+         "typeName": "APIParameterList",
+         "typeVersion": 1
+        },
+        "versions": {
+         "createTime": "2021-09-19T10:10:51.579+00:00",
+         "createdBy": "Egeria",
+         "maintainedBy": [
+          "Egeria"
+         ],
+         "updateTime": "2021-09-19T10:10:51.579+00:00",
+         "updatedBy": "Egeria",
+         "version": 1
+        }
+       },
+       "properties": {
+        "class": "APIParameterListProperties",
+        "displayName": "Get Customer Operation Request Parameter List",
+        "qualifiedName": "APIOperation::global-api-gateway/CustomerDomain/APIs/Customer/getCustomer_request",
+        "required": true,
+        "typeName": "APIParameterList"
+       }
+      },
+      "relatedElementAtEnd1": false,
+      "relationshipHeader": {
+       "class": "ElementHeader",
+       "guid": "fc7dfd10-cb05-431c-a0b3-84c253e1d392",
+       "headerVersion": 0,
+       "origin": {
+        "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+        "homeMetadataCollectionName": "SimpleComboCatalog",
+        "license": "Apache-2.0",
+        "originCategory": "CONTENT_PACK",
+        "sourceServer": "qs-metadata-store"
+       },
+       "status": "ACTIVE",
+       "type": {
+        "typeCategory": "RELATIONSHIP_DEF",
+        "typeDescription": "Link between an API operation and its request structure.",
+        "typeId": "4ab3b466-31bd-48ea-8aa2-75623476f2e2",
+        "typeName": "APIRequest",
+        "typeVersion": 1
+       },
+       "versions": {
+        "createTime": "2021-09-19T10:10:51.579+00:00",
+        "createdBy": "Egeria",
+        "maintainedBy": [
+         "Egeria"
+        ],
+        "updateTime": "2021-09-19T10:10:51.579+00:00",
+        "updatedBy": "Egeria",
+        "version": 1
+       }
+      }
+     }
+    ],
+    "relatedElement": {
+     "elementHeader": {
+      "anchor": {
+       "class": "ElementClassification",
+       "classificationName": "Anchors",
+       "classificationOrigin": "ASSIGNED",
+       "classificationProperties": {
+        "anchorDomainName": "Asset",
+        "anchorGUID": "5d6ec7aa-9b13-4286-ad00-af82709a259b",
+        "anchorTypeName": "DeployedAPI",
+        "class": "AnchorsProperties",
+        "typeName": "Anchors"
+       },
+       "headerVersion": 0,
+       "origin": {
+        "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+        "homeMetadataCollectionName": "SimpleComboCatalog",
+        "originCategory": "CONTENT_PACK",
+        "sourceServer": "qs-metadata-store"
+       },
+       "status": "ACTIVE",
+       "type": {
+        "typeCategory": "CLASSIFICATION_DEF",
+        "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+        "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+        "typeName": "Anchors",
+        "typeVersion": 1
+       },
+       "versions": {
+        "createTime": "2021-09-19T10:10:51.579+00:00",
+        "createdBy": "Egeria",
+        "maintainedBy": [
+         "Egeria"
+        ],
+        "updateTime": "2021-09-19T10:10:51.579+00:00",
+        "updatedBy": "Egeria",
+        "version": 1
+       }
+      },
+      "class": "ElementHeader",
+      "guid": "c39c77b8-1415-4569-8b40-9b50518210dc",
+      "headerVersion": 0,
+      "origin": {
+       "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+       "homeMetadataCollectionName": "SimpleComboCatalog",
+       "license": "Apache-2.0",
+       "originCategory": "CONTENT_PACK",
+       "sourceServer": "qs-metadata-store"
+      },
+      "status": "ACTIVE",
+      "type": {
+       "superTypeNames": [
+        "SchemaType",
+        "SchemaElement",
+        "AuthoredReferenceable",
+        "Referenceable",
+        "OpenMetadataRoot"
+       ],
+       "typeCategory": "ENTITY_DEF",
+       "typeDescription": "Description of an API operation.",
+       "typeId": "f1c0af19-2729-4fac-996e-a7badff3c21c",
+       "typeName": "APIOperation",
+       "typeVersion": 1
+      },
+      "versions": {
+       "createTime": "2021-09-19T10:10:51.579+00:00",
+       "createdBy": "Egeria",
+       "maintainedBy": [
+        "Egeria"
+       ],
+       "updateTime": "2021-09-19T10:10:51.579+00:00",
+       "updatedBy": "Egeria",
+       "version": 1
+      }
+     },
+     "properties": {
+      "class": "APIOperationProperties",
+      "command": "GET",
+      "description": "API operation to retrieved details about the customer.",
+      "displayName": "Get Customer Operation",
+      "namespacePath": "global-api-gateway/CustomerDomain/APIs/Customer",
+      "path": "global-api-gateway/CustomerDomain/APIs/Customer/getCustomer",
+      "qualifiedName": "APIOperation::global-api-gateway/CustomerDomain/APIs/Customer/getCustomer",
+      "typeName": "APIOperation"
+     }
+    },
+    "relatedElementAtEnd1": false,
+    "relationshipHeader": {
+     "class": "ElementHeader",
+     "guid": "16416742-3fb8-4bf0-b39e-f445a0112e39",
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+      "homeMetadataCollectionName": "SimpleComboCatalog",
+      "license": "Apache-2.0",
+      "originCategory": "CONTENT_PACK",
+      "sourceServer": "qs-metadata-store"
+     },
+     "status": "ACTIVE",
+     "type": {
+      "typeCategory": "RELATIONSHIP_DEF",
+      "typeDescription": "Link between an API and its operations.",
+      "typeId": "03737169-ceb5-45f0-84f0-21c5929945af",
+      "typeName": "APIOperations",
+      "typeVersion": 1
+     },
+     "versions": {
+      "createTime": "2021-09-19T10:10:51.579+00:00",
+      "createdBy": "Egeria",
+      "maintainedBy": [
+       "Egeria"
+      ],
+      "updateTime": "2021-09-19T10:10:51.579+00:00",
+      "updatedBy": "Egeria",
+      "version": 1
+     }
+    }
+   }
+  ],
+  "relatedElement": {
+   "elementHeader": {
+    "anchor": {
+     "class": "ElementClassification",
+     "classificationName": "Anchors",
+     "classificationOrigin": "ASSIGNED",
+     "classificationProperties": {
+      "anchorDomainName": "Asset",
+      "anchorGUID": "5d6ec7aa-9b13-4286-ad00-af82709a259b",
+      "anchorTypeName": "DeployedAPI",
+      "class": "AnchorsProperties",
+      "typeName": "Anchors"
+     },
+     "headerVersion": 0,
+     "origin": {
+      "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+      "homeMetadataCollectionName": "SimpleComboCatalog",
+      "originCategory": "CONTENT_PACK",
+      "sourceServer": "qs-metadata-store"
+     },
+     "status": "ACTIVE",
+     "type": {
+      "typeCategory": "CLASSIFICATION_DEF",
+      "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+      "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+      "typeName": "Anchors",
+      "typeVersion": 1
+     },
+     "versions": {
+      "createTime": "2021-09-19T10:10:51.579+00:00",
+      "createdBy": "Egeria",
+      "maintainedBy": [
+       "Egeria"
+      ],
+      "updateTime": "2021-09-19T10:10:51.579+00:00",
+      "updatedBy": "Egeria",
+      "version": 1
+     }
+    },
+    "class": "ElementHeader",
+    "guid": "8b7fbe7e-4d58-4778-bf22-c8a7e71de353",
+    "headerVersion": 0,
+    "origin": {
+     "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+     "homeMetadataCollectionName": "SimpleComboCatalog",
+     "license": "Apache-2.0",
+     "originCategory": "CONTENT_PACK",
+     "sourceServer": "qs-metadata-store"
+    },
+    "status": "ACTIVE",
+    "type": {
+     "superTypeNames": [
+      "RootSchemaType",
+      "ComplexSchemaType",
+      "SchemaType",
+      "SchemaElement",
+      "AuthoredReferenceable",
+      "Referenceable",
+      "OpenMetadataRoot"
+     ],
+     "typeCategory": "ENTITY_DEF",
+     "typeDescription": "Description of an API.",
+     "typeId": "b46cddb3-9864-4c5d-8a49-266b3fc95cb8",
+     "typeName": "APISchemaType",
+     "typeVersion": 1
+    },
+    "versions": {
+     "createTime": "2021-09-19T10:10:51.579+00:00",
+     "createdBy": "Egeria",
+     "maintainedBy": [
+      "Egeria"
+     ],
+     "updateTime": "2021-09-19T10:10:51.579+00:00",
+     "updatedBy": "Egeria",
+     "version": 1
+    }
+   },
+   "properties": {
+    "class": "APISchemaTypeProperties",
+    "displayName": "Customer API API Schema Type",
+    "qualifiedName": "DeployedAPI::global-api-gateway/CustomerDomain/APIs/Customer_api_schema_type",
+    "typeName": "APISchemaType"
+   }
+  },
+  "relatedElementAtEnd1": false,
+  "relationshipHeader": {
+   "class": "ElementHeader",
+   "guid": "f8c23d32-1496-4aea-8b56-9ca0c918fe33",
+   "headerVersion": 0,
+   "origin": {
+    "homeMetadataCollectionId": "83e785b1-5bcc-4714-8f89-f6639ec55ca0",
+    "homeMetadataCollectionName": "SimpleComboCatalog",
+    "license": "Apache-2.0",
+    "originCategory": "CONTENT_PACK",
+    "sourceServer": "qs-metadata-store"
+   },
+   "status": "ACTIVE",
+   "type": {
+    "typeCategory": "RELATIONSHIP_DEF",
+    "typeDescription": "The structure of the data stored in a digital resource described by the attached asset or port.",
+    "typeId": "815b004d-73c6-4728-9dd9-536f4fe803cd",
+    "typeName": "Schema",
+    "typeVersion": 1
+   },
+   "versions": {
+    "createTime": "2021-09-19T10:10:51.579+00:00",
+    "createdBy": "Egeria",
+    "maintainedBy": [
+     "Egeria"
+    ],
+    "updateTime": "2021-09-19T10:10:51.579+00:00",
+    "updatedBy": "Egeria",
+    "version": 1
+   }
+  }
+ }
+}

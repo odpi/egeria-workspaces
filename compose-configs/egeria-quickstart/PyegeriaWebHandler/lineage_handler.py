@@ -29,7 +29,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
 
 from egeria_auth import check_client_platform, use_token
-from egeria_error_mapping import _is_auth_error
+from egeria_error_mapping import _is_auth_error, auth_http_exception
 
 router = APIRouter(tags=["lineage"])
 
@@ -246,8 +246,9 @@ def get_asset_graph(
         return JSONResponse(el)
     except Exception as exc:
         if _is_auth_error(exc) and not _egeria_error_message(exc):
-            # Expired token: a 401 lets the page mint a new one for its own user and retry.
-            raise HTTPException(status_code=401, detail="Egeria rejected the token")
+            # Expired token: a 401 lets the page mint a new one for its own user and retry. A 403 is "Not
+            # permitted": the user is signed in and a new token will not help (PO-9).
+            raise auth_http_exception(exc, "Egeria rejected the token")
         if _is_no_data_error(exc):
             return JSONResponse({"error": "not_found"}, status_code=404)
         logger.exception("get_asset_graph failed for guid=%s", guid)
@@ -339,8 +340,9 @@ def get_asset_lineage_graph(
             logger.warning(f"get_asset_lineage_graph: Egeria failed for guid={guid}: {egeria_msg}")
             raise HTTPException(status_code=502, detail=f"Egeria could not build the lineage graph: {egeria_msg}")
         if _is_auth_error(exc):
-            # Expired token: a 401 lets the page mint a new one for its own user and retry.
-            raise HTTPException(status_code=401, detail="Egeria rejected the token")
+            # Expired token: a 401 lets the page mint a new one for its own user and retry. A 403 is "Not
+            # permitted": the user is signed in and a new token will not help (PO-9).
+            raise auth_http_exception(exc, "Egeria rejected the token")
         if _is_no_data_error(exc):
             return JSONResponse(_empty)
         logger.exception("get_asset_lineage_graph failed for guid=%s", guid)
