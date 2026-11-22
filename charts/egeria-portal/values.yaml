@@ -65,7 +65,9 @@ images:
 trustedProxies: ""
 # Behind an Ingress controller the peer Apache sees is the controller. PO-83 walks X-Forwarded-For past EVERY trusted hop, so adding the controller's range here
 # (an IP or CIDR, comma-separated; it is ADDED to the list above) makes limits count per real client instead of one shared budget for everyone behind the
-# controller. Keep it NARROW: the controller's own pods or namespace range, never the pod network (the chart refuses /0 and anything wider than /16 for IPv4).
+# controller. Keep it NARROW: at most /24 (IPv4) or /120 (IPv6), 256 addresses, and NEVER the pod network (on kind, 10.244.0.0/16, and Calico's default, 192.168.0.0/16, a /16 IS
+# the whole pod network: any pod that reaches Apache could then forge X-Forwarded-For and pick its own rate-limit key). A multi-node controller is several /24s. Better still,
+# the exact pods: a headless Service over the controller's pods, with its full name here (it is re-resolved every 60 s). The chart refuses anything wider, in this value and in trustedProxies.
 ingressControllerCidr: ""
 demoMode: false          # the public-demo login gate and registration; see the Portal's demo-mode.md
 # A quickstart Portal behind an Ingress with demoMode=false has no login gate (local mode: anyone reaches the Portal as its

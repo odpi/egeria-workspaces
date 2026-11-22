@@ -266,9 +266,9 @@ def main():
         web = kind(ds, "Deployment", "r1-portal-web")[0]
         check(tag + ": the headless Service has no cluster IP and selects exactly the Apache pods",
               len(hl) == 1 and hl[0]["spec"]["clusterIP"] == "None" and hl[0]["spec"]["selector"] == web["spec"]["selector"]["matchLabels"], str(hl))
-    ds = renders(DEMO + BASE + ["--set-string", "trustedProxies= 10.0.0.0/8 \\, apache.example.org "])
+    ds = renders(DEMO + BASE + ["--set-string", "trustedProxies= 10.244.3.0/24 \\, apache.example.org "])
     check("trustedProxies replaces the default; whitespace is stripped (an IP, a CIDR and a hostname may be mixed)",
-          env_of(kind(ds, "Deployment", "r1-portal")[0], "portal")["PORTAL_TRUSTED_PROXIES"]["value"] == "10.0.0.0/8,apache.example.org")
+          env_of(kind(ds, "Deployment", "r1-portal")[0], "portal")["PORTAL_TRUSTED_PROXIES"]["value"] == "10.244.3.0/24,apache.example.org")
     refuses("extraEnv cannot set PORTAL_TRUSTED_PROXIES", DEMO + BASE + ["--set", "extraEnv[0].name=PORTAL_TRUSTED_PROXIES", "--set", "extraEnv[0].value=0.0.0.0/0"], ["PORTAL_TRUSTED_PROXIES"])
     # (8) PO-83 behind an Ingress controller: its range is ADDED, narrow only, and a NOTES warning when it is missing
     HL = "r1-portal-web-hl.ns1.svc.cluster.local"
@@ -276,11 +276,18 @@ def main():
         return env_of(kind(renders(DEMO + BASE + extra), "Deployment", "r1-portal")[0], "portal")["PORTAL_TRUSTED_PROXIES"]["value"]
     check("ingressControllerCidr is ADDED to the default (the headless Apache Service stays)", trusted(["--set", "ingressControllerCidr=10.244.3.0/24"]) == HL + ",10.244.3.0/24", trusted(["--set", "ingressControllerCidr=10.244.3.0/24"]))
     check("it is added to an explicit trustedProxies too, and several ranges may be listed (comma, whitespace ignored)",
-          trusted(["--set", "trustedProxies=192.168.1.5", "--set-string", "ingressControllerCidr=10.244.3.0/24 \\, 2001:db8::/80"]) == "192.168.1.5,10.244.3.0/24,2001:db8::/80")
+          trusted(["--set", "trustedProxies=192.168.1.5", "--set-string", "ingressControllerCidr=10.244.3.0/24 \\, 2001:db8::/120"]) == "192.168.1.5,10.244.3.0/24,2001:db8::/120")
     check("unset, the list is exactly the default", trusted([]) == HL)
-    for wide in ("0.0.0.0/0", "::/0", "10.0.0.0/8", "10.244.0.0/15", "fd00::/8", "2001:db8::/48"):
-        refuses("ingressControllerCidr " + wide + " is refused as too wide, in words", DEMO + BASE + ["--set-string", "ingressControllerCidr=" + wide], ["too wide", "never the pod network"])
-    check("a /16 (IPv4) is the widest accepted", trusted(["--set", "ingressControllerCidr=10.244.0.0/16"]) == HL + ",10.244.0.0/16")
+    # W1: narrow means /24 (IPv4) or /120 (IPv6), at most 256 addresses: on kind (10.244.0.0/16) and Calico (192.168.0.0/16) a /16 IS the whole pod network
+    for wide in ("0.0.0.0/0", "::/0", "10.0.0.0/8", "10.244.0.0/16", "192.168.0.0/16", "10.244.2.0/23", "fd00::/8", "2001:db8::/48", "2001:db8::/64", "2001:db8::/119"):
+        refuses("ingressControllerCidr " + wide + " is refused as not narrow, in words", DEMO + BASE + ["--set-string", "ingressControllerCidr=" + wide], ["not narrow enough", "/24 or narrower", "/120", "pod network"])
+        refuses("trustedProxies " + wide + " is refused the same way (W2: the override had no check)", DEMO + BASE + ["--set-string", "trustedProxies=" + wide], ["trustedProxies entry", "not narrow enough"])
+    refuses("one wide entry in a list refuses the whole list", DEMO + BASE + ["--set-string", "trustedProxies=10.244.3.0/24\\,10.244.0.0/16"], ["10.244.0.0/16", "not narrow enough"])
+    refuses("a wide range in ingressControllerCidr is refused even with a good trustedProxies", DEMO + BASE + ["--set-string", "trustedProxies=apache.example.org", "--set-string", "ingressControllerCidr=10.0.0.0/8"], ["ingressControllerCidr entry"])
+    check("a /24 (IPv4) and a /120 (IPv6) are the widest accepted", trusted(["--set", "ingressControllerCidr=10.244.3.0/24"]) == HL + ",10.244.3.0/24"
+          and trusted(["--set", "ingressControllerCidr=2001:db8::/120"]) == HL + ",2001:db8::/120")
+    check("single hosts (/32, /128, bare IPs) and hostnames are accepted in either value", trusted(["--set", "ingressControllerCidr=10.244.3.7/32"]) == HL + ",10.244.3.7/32"
+          and trusted(["--set", "trustedProxies=10.1.2.3\\,ctl.ingress.svc.cluster.local"]) == "10.1.2.3,ctl.ingress.svc.cluster.local")
     ING = ["--set", "demoMode=true", "--set", "ingress.enabled=true", "--set", "ingress.host=h.example", "--set", "networkPolicy.enabled=true"]
     WARN = "Ingress controller's rate-limit budget"
     check("NOTES warns when an Ingress is on and no controller range is set", WARN in notes(DEMO + BASE + ING)[1])

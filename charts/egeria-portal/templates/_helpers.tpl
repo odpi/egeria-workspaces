@@ -27,6 +27,21 @@ composeHost: freshstart-pyegeria-web
 {{- if .img.digest -}}{{ printf "%s:%s@%s" .img.repository .img.tag .img.digest }}{{- else -}}{{ printf "%s:%s" .img.repository .img.tag }}{{- end -}}
 {{- end -}}
 
+{{/* Refuse a trusted-proxy entry that is not narrow (call with dict "list" <comma list> "name" <value name>). A CIDR must be /24 or narrower (IPv4) or /120 or narrower
+(IPv6): 256 addresses at most. On kind (10.244.0.0/16) and Calico's default (192.168.0.0/16) even a /16 is the WHOLE pod network, and any pod that can reach Apache could
+then forge X-Forwarded-For and choose its own rate-limit key. Hostnames and bare IPs are not checked here. */}}
+{{- define "egeria-portal.checkProxyList" -}}
+{{- range $c := splitList "," (regexReplaceAll "\\s+" .list "") -}}
+{{- if contains "/" $c -}}
+{{- $ok := false -}}
+{{- if contains ":" $c -}}{{- $ok = regexMatch "/(12[0-8])$" $c -}}{{- else if contains "." $c -}}{{- $ok = regexMatch "/(2[4-9]|3[0-2])$" $c -}}{{- end -}}
+{{- if not $ok -}}
+{{- fail (printf "%s entry %q is not narrow enough: a range must be /24 or narrower (IPv4) or /120 or narrower (IPv6), at most 256 addresses. The Portal believes X-Forwarded-For from every address in it, so a range that covers the pod network lets any pod that reaches Apache pick its own rate-limit key. List the controller's /24s (several for a multi-node controller), or better its exact pods: a headless Service over them, with its full name here." $.name $c) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
 {{- define "egeria-portal.cfg" -}}
 {{- $v := .Values -}}
 {{- $d := include "egeria-portal.envDefaults" $v.environment | fromYaml -}}
@@ -90,11 +105,8 @@ composeHost: freshstart-pyegeria-web
 {{- $web := include "egeria-common.name" (dict "ctx" . "component" "portal-web") -}}
 {{- $webhl := include "egeria-common.name" (dict "ctx" . "component" "portal-web-hl") -}}
 {{- $ctl := regexReplaceAll "\\s+" (default "" $v.ingressControllerCidr) "" -}}
-{{- range $c := splitList "," $ctl -}}
-{{- if or (eq $c "0.0.0.0/0") (eq $c "::/0") (and (contains "." $c) (regexMatch "/([0-9]|1[0-5])$" $c)) (and (contains ":" $c) (regexMatch "/([0-9]|[1-5][0-9]|6[0-4])$" $c)) -}}
-{{- fail (printf "ingressControllerCidr %q is too wide: it must be the Ingress controller's own pods or namespace range, never the pod network, because every address in it would be believed about X-Forwarded-For (a rate-limit bypass). Use a range of /16 or narrower (IPv4), /65 or narrower (IPv6)." $c) -}}
-{{- end -}}
-{{- end -}}
+{{- include "egeria-portal.checkProxyList" (dict "list" $ctl "name" "ingressControllerCidr") -}}
+{{- include "egeria-portal.checkProxyList" (dict "list" (default "" $v.trustedProxies) "name" "trustedProxies") -}}
 {{- $base := regexReplaceAll "\\s+" (default (printf "%s.%s.svc.cluster.local" $webhl .Release.Namespace) $v.trustedProxies) "" -}}
 {{- $trusted := ternary (printf "%s,%s" $base $ctl) $base (ne $ctl "") -}}
 fullname: {{ $name }}
