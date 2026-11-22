@@ -131,8 +131,10 @@ On OpenShift Local the StorageClass was `crc-csi-hostpath-provisioner`.
 
 ## Routes
 
-OpenShift turns an Ingress into a Route, so the chart's own Ingress is enough; there is no Route template. This is
-what `charts/tests/crc_route.sh` adds to an installed stack:
+OpenShift turns an Ingress into a Route, so the chart's own Ingress is enough; there is no Route template. **A freshstart
+Portal cannot be given a Route**: the chart refuses its Ingress until PO-78 (no server-side API gate), so a Route is made
+only for the quickstart `demoMode` Portal, which is what `charts/tests/crc_route.sh` does. For freshstart use `oc port-forward`.
+This is what `crc_route.sh` adds to an installed stack:
 
 ```bash
 helm upgrade qs charts/egeria-stack -n egeria-demo --reuse-values \

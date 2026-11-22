@@ -1,7 +1,7 @@
 # Production-style posture for both parts. Each part keeps its own requirements (see their values-production.yaml):
 # core: postgres.host, kafka.bootstrapServers, secrets.existingSecret, tls.existingSecret, persistence, resources;
 # portal: secrets.existingSecret, tls.caSecret, platform.userDirectorySecret (usually core.secrets.existingSecret), canary.existingSecret,
-# image digests, persistence. Only freshstart (the Portal has a login gate there).
+# image digests, persistence. Only freshstart, and only behind port-forward: its sign-in page is not a server-side gate (PO-78), so an Ingress is refused.
 posture: production
 core:
   posture: production

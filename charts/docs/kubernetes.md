@@ -125,8 +125,10 @@ helm test st -n egeria --logs                         # wait for both PASS lines
 kubectl -n egeria port-forward svc/st-portal-web 8085:8085
 ```
 
-Open `http://localhost:8085/portal`. Freshstart has a login gate: sign in with an account from the freshstart user
-directory (`charts/egeria-platform/files/freshstart/secrets/egeria-user-directory.omsecrets`).
+Open `http://localhost:8085/portal`. Freshstart shows a sign-in page: sign in with an account from the freshstart user
+directory (`charts/egeria-platform/files/freshstart/secrets/egeria-user-directory.omsecrets`). The sign-in is in the UI only
+until PO-78 lands: the Portal has no server-side API gate, and a request that carries no token is answered as the Portal's
+service user. That is why the chart refuses an Ingress (and so an OpenShift Route) on freshstart: use `port-forward`.
 
 Notes:
 
@@ -140,7 +142,8 @@ Notes:
 
 This is the posture of `charts/tests/kind_stack_prod.sh`, which passed on kind with an external test Postgres and
 Kafka. The production posture works only with **freshstart**: the chart refuses a production Portal on quickstart,
-because quickstart has no login gate.
+because quickstart has no login gate. Freshstart has only a sign-in page until PO-78 (no server-side API gate), so a
+production Portal is reached with `port-forward`: the chart refuses an Ingress, and so a Route, for it.
 
 What production requires, and the chart refuses to render without:
 
@@ -290,7 +293,7 @@ With `networkPolicy.enabled` (on in production):
   front door itself (8085) is open to anything that can reach its Service; tighten it for your Ingress controller if
   you need to.
 
-The Portal's login gate trusts a header that Apache adds, so a direct path to port 8000 would bypass the gate. That is
+The Portal's login gate (quickstart `demoMode`) trusts a header that Apache adds, so a direct path to port 8000 would bypass the gate. That is
 why the chart refuses an Ingress without `networkPolicy.enabled`. On kind, a direct request to port 8000 was shown to
 be blocked.
 
@@ -318,7 +321,11 @@ TLS ends at the Ingress.
 The chart refuses an Ingress:
 
 - without `networkPolicy.enabled` (see above);
-- on quickstart with `demoMode: false`, because that Portal has no login gate. Use freshstart or `demoMode: true`,
+- on **freshstart**, in any posture, because the freshstart Portal has no server-side API gate yet (PO-78): a request that
+  carries no token is answered as the Portal's service user, and the sign-in page is only a screen. Leave `ingress.enabled`
+  false and use `port-forward`. An OpenShift Route is made from the Ingress, so this refuses a Route too (a Route you
+  create by hand is outside the chart and equally exposed);
+- on quickstart with `demoMode: false`, because that Portal has no login gate. Use `demoMode: true`,
   or, in the demo posture only, set `allowUngatedPortal: true` (NOTES then prints a warning).
 
 Set `portal.siteUrl` to the external URL so links in e-mails are right.

@@ -98,6 +98,7 @@ Every refusal names the value to change, for example
 | `posture is ..., core.posture is ... and portal.posture is ...` | Pass `values-<posture>.yaml` instead of `--set posture=...` |
 | `the production posture needs a login gate, and the quickstart environment has none` | Production requires freshstart |
 | `ingress.enabled with environment=quickstart and demoMode=false ...` | See [kubernetes.md — Ingress](kubernetes.md#ingress) |
+| `the freshstart Portal has no server-side API gate yet (PO-78) ...` | Freshstart cannot be exposed through an Ingress or Route yet; leave `ingress.enabled` false and use `port-forward` |
 | `set networkPolicy.enabled=true: with an Ingress ...` | An Ingress always needs the Portal NetworkPolicy |
 | `... holds the PUBLIC demo keystore password ...` | Make a keystore of your own ([kubernetes.md](kubernetes.md#2-keystore-tlsexistingsecret)) |
 | `set images.portal.digest: the production posture pins images by digest` | [Image digests](kubernetes.md#5-image-digests) |
