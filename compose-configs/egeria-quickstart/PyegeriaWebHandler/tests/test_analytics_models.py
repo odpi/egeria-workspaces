@@ -359,3 +359,30 @@ def test_every_route_is_async_and_token_only():
 def test_registered_in_the_app():
     src = (Path(__file__).resolve().parent.parent / "pyegeria_handler.py").read_text()
     assert "from analytics_models_handler import router" in src and "app.include_router(analytics_models_router)" in src
+
+
+# ── read-back rules on the new Phase C base (W1, S2) ─────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("path", ["/api/analytics-models/m-1", "/api/analytics-model-runs/r-1"])
+def test_a_404_on_a_6_4_platform_card_is_an_error_with_no_version_words(client, path):
+    r = client(FakeExplorer(about=ABOUT_6_4, fail=client_error(404))).get(path)
+    assert r.status_code == 404
+    assert "needs64" not in r.text and "needsVersion" not in r.text and "need Egeria" not in r.text
+
+
+def test_nothing_is_listed_twice_on_a_card(client):
+    dec = rel("Outcome", "o-1", "dec-1", el_type="Decision", el_props={"displayName": "Use it"})
+    other = rel("ResourceList", "rl-9", "c-9", el_type="Collection")
+    el = model(runs=[run_rel("ph-1", "r-1", "one")],
+               extra={"associatedDecisions": [dec], "resourceListUsers": [other],
+                      "workedOnByProjects": [project_rel("pt-1", "p-1", "Exp", hypothesis="h")],
+                      "processVariableTypes": [svt("s-1", "st-1", "x", position=1)],
+                      "processingVariables": [pv("pv-1", "dv-1", "v", position=1)]})
+    body = client(FakeExplorer(about=ABOUT_6_4, elements={"m-1": el})).get("/api/analytics-models/m-1").json()
+    own = {r["relationshipGuid"] for k in ("runs", "projects", "sources", "variables", "variableTypes") for r in body[k]}
+    related = {r.get("relationshipGuid") for s_ in body["related"]["sections"] for l in s_["lists"] for r in l["rows"]}
+    general = set(body["relationships"])
+    assert own == {"ph-1", "pt-1", "s-1", "pv-1"} and related == {"o-1"}
+    assert not own & related
+    assert general == {"resourceListUsers"}                 # only what no section shows
+    assert not general & set(e64.E64_LISTS)
