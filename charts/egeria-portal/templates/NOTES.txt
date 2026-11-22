@@ -8,6 +8,12 @@ Front door (Apache, plain HTTP; TLS belongs at the Ingress):
   kubectl -n {{ .Release.Namespace }} port-forward svc/{{ $cfg.webname }} 8085:8085   then open http://localhost:8085/portal
 {{- if .Values.ingress.enabled }}
   Ingress host: {{ .Values.ingress.host }}
+{{- if and (not .Values.ingressControllerCidr) (not .Values.trustedProxies) }}
+
+WARNING: an Ingress is on and ingressControllerCidr is empty: the Portal sees the Ingress controller as every user's address, so every user
+shares the Ingress controller's rate-limit budget (ten bad sign-ins from anyone lock everyone out for a minute). Set ingressControllerCidr to
+the controller's pod or namespace range (narrow, never the pod network).
+{{- end }}
 {{- end }}
 {{- if and .Values.allowUngatedPortal (not $cfg.gated) }}
 

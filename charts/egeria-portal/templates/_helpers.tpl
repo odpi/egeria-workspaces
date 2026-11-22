@@ -89,7 +89,14 @@ composeHost: freshstart-pyegeria-web
 {{- $name := include "egeria-common.name" (dict "ctx" . "component" "portal") -}}
 {{- $web := include "egeria-common.name" (dict "ctx" . "component" "portal-web") -}}
 {{- $webhl := include "egeria-common.name" (dict "ctx" . "component" "portal-web-hl") -}}
-{{- $trusted := regexReplaceAll "\\s+" (default (printf "%s.%s.svc.cluster.local" $webhl .Release.Namespace) $v.trustedProxies) "" -}}
+{{- $ctl := regexReplaceAll "\\s+" (default "" $v.ingressControllerCidr) "" -}}
+{{- range $c := splitList "," $ctl -}}
+{{- if or (eq $c "0.0.0.0/0") (eq $c "::/0") (and (contains "." $c) (regexMatch "/([0-9]|1[0-5])$" $c)) (and (contains ":" $c) (regexMatch "/([0-9]|[1-5][0-9]|6[0-4])$" $c)) -}}
+{{- fail (printf "ingressControllerCidr %q is too wide: it must be the Ingress controller's own pods or namespace range, never the pod network, because every address in it would be believed about X-Forwarded-For (a rate-limit bypass). Use a range of /16 or narrower (IPv4), /65 or narrower (IPv6)." $c) -}}
+{{- end -}}
+{{- end -}}
+{{- $base := regexReplaceAll "\\s+" (default (printf "%s.%s.svc.cluster.local" $webhl .Release.Namespace) $v.trustedProxies) "" -}}
+{{- $trusted := ternary (printf "%s,%s" $base $ctl) $base (ne $ctl "") -}}
 fullname: {{ $name }}
 webname: {{ $web }}
 webhlname: {{ $webhl }}

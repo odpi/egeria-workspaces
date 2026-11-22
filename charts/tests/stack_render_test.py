@@ -110,6 +110,9 @@ def main():
         check(tag + ": the stack's Portal trusts the Apache headless Service by its full name", pe["PORTAL_TRUSTED_PROXIES"]["value"] == "s-portal-web-hl.ns1.svc.cluster.local", str(pe.get("PORTAL_TRUSTED_PROXIES")))
         check(tag + ": the headless Service exists in the stack", any(d["kind"] == "Service" and d["metadata"]["name"] == "s-portal-web-hl" and d["spec"]["clusterIP"] == "None" for d in ds))
     ds = renders(V("values-demo.yaml") + V("values-quickstart.yaml") + IMGS + ["--set", "portal.trustedProxies=10.0.0.0/8"])
+    ds2 = renders(V("values-demo.yaml") + V("values-quickstart.yaml") + IMGS + ["--set", "portal.ingressControllerCidr=10.244.3.0/24"])
+    check("portal.ingressControllerCidr passes through the umbrella and is added to the default",
+          env_of(kind(ds2, "Deployment", "s-portal")[0], "portal")["PORTAL_TRUSTED_PROXIES"]["value"] == "s-portal-web-hl.ns1.svc.cluster.local,10.244.3.0/24")
     check("portal.trustedProxies passes through the umbrella", env_of(kind(ds, "Deployment", "s-portal")[0], "portal")["PORTAL_TRUSTED_PROXIES"]["value"] == "10.0.0.0/8")
     # agreement checks
     base = V("values-demo.yaml") + V("values-quickstart.yaml") + IMGS

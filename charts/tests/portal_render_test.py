@@ -29,6 +29,12 @@ def template(args, release="r1"):
     return p.returncode, p.stdout, p.stderr
 
 
+def notes(args, release="r1"):
+    """The NOTES text `helm install --dry-run` prints."""
+    p = subprocess.run([HELM, "install", release, CHART, "--namespace", "ns1", "--dry-run=client"] + args, capture_output=True, text=True)
+    return p.returncode, p.stdout.split("NOTES:", 1)[-1] if "NOTES:" in p.stdout else "", p.stderr
+
+
 def docs(out):
     return [d for d in yaml.safe_load_all(out) if d]
 
@@ -264,6 +270,23 @@ def main():
     check("trustedProxies replaces the default; whitespace is stripped (an IP, a CIDR and a hostname may be mixed)",
           env_of(kind(ds, "Deployment", "r1-portal")[0], "portal")["PORTAL_TRUSTED_PROXIES"]["value"] == "10.0.0.0/8,apache.example.org")
     refuses("extraEnv cannot set PORTAL_TRUSTED_PROXIES", DEMO + BASE + ["--set", "extraEnv[0].name=PORTAL_TRUSTED_PROXIES", "--set", "extraEnv[0].value=0.0.0.0/0"], ["PORTAL_TRUSTED_PROXIES"])
+    # (8) PO-83 behind an Ingress controller: its range is ADDED, narrow only, and a NOTES warning when it is missing
+    HL = "r1-portal-web-hl.ns1.svc.cluster.local"
+    def trusted(extra):
+        return env_of(kind(renders(DEMO + BASE + extra), "Deployment", "r1-portal")[0], "portal")["PORTAL_TRUSTED_PROXIES"]["value"]
+    check("ingressControllerCidr is ADDED to the default (the headless Apache Service stays)", trusted(["--set", "ingressControllerCidr=10.244.3.0/24"]) == HL + ",10.244.3.0/24", trusted(["--set", "ingressControllerCidr=10.244.3.0/24"]))
+    check("it is added to an explicit trustedProxies too, and several ranges may be listed (comma, whitespace ignored)",
+          trusted(["--set", "trustedProxies=192.168.1.5", "--set-string", "ingressControllerCidr=10.244.3.0/24 \\, 2001:db8::/80"]) == "192.168.1.5,10.244.3.0/24,2001:db8::/80")
+    check("unset, the list is exactly the default", trusted([]) == HL)
+    for wide in ("0.0.0.0/0", "::/0", "10.0.0.0/8", "10.244.0.0/15", "fd00::/8", "2001:db8::/48"):
+        refuses("ingressControllerCidr " + wide + " is refused as too wide, in words", DEMO + BASE + ["--set-string", "ingressControllerCidr=" + wide], ["too wide", "never the pod network"])
+    check("a /16 (IPv4) is the widest accepted", trusted(["--set", "ingressControllerCidr=10.244.0.0/16"]) == HL + ",10.244.0.0/16")
+    ING = ["--set", "demoMode=true", "--set", "ingress.enabled=true", "--set", "ingress.host=h.example", "--set", "networkPolicy.enabled=true"]
+    WARN = "Ingress controller's rate-limit budget"
+    check("NOTES warns when an Ingress is on and no controller range is set", WARN in notes(DEMO + BASE + ING)[1])
+    check("no warning once ingressControllerCidr is set", WARN not in notes(DEMO + BASE + ING + ["--set", "ingressControllerCidr=10.244.3.0/24"])[1])
+    check("no warning when trustedProxies is set explicitly (the operator chose the list)", WARN not in notes(DEMO + BASE + ING + ["--set", "trustedProxies=10.244.3.0/24"])[1])
+    check("no warning without an Ingress", WARN not in notes(DEMO + BASE)[1])
     # (6) the image message points at the docs
     refuses("a missing image repository points at charts/docs/kubernetes.md#images", DEMO + ["--set", "platform.serviceName=p"], ["charts/docs/kubernetes.md#images"])
     if failures:

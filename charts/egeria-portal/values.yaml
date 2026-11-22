@@ -63,6 +63,10 @@ images:
 # which is right whenever Apache is the only thing that reaches the Portal (the NetworkPolicy the chart requires with an Ingress). Setting it REPLACES that
 # default (for example a pod CIDR); never use 0.0.0.0/0: a NetworkPolicy gap would become a rate-limit bypass. Your cluster domain is not cluster.local? Set it here.
 trustedProxies: ""
+# Behind an Ingress controller the peer Apache sees is the controller. PO-83 walks X-Forwarded-For past EVERY trusted hop, so adding the controller's range here
+# (an IP or CIDR, comma-separated; it is ADDED to the list above) makes limits count per real client instead of one shared budget for everyone behind the
+# controller. Keep it NARROW: the controller's own pods or namespace range, never the pod network (the chart refuses /0 and anything wider than /16 for IPv4).
+ingressControllerCidr: ""
 demoMode: false          # the public-demo login gate and registration; see the Portal's demo-mode.md
 # A quickstart Portal behind an Ingress with demoMode=false has no login gate (local mode: anyone reaches the Portal as its
 # service user). The chart refuses that unless this is true. Demo posture only; NOTES warns.
