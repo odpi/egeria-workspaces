@@ -9,6 +9,8 @@ Endpoints:
 """
 
 from egeria_auth import service_password  # PO-45: no built-in service password
+from egeria_auth import get_request_token, use_token
+from result_cache import request_identity
 import os
 from typing import List, Optional
 
@@ -179,7 +181,7 @@ def _classification_explorer(url, server, user_id, user_pwd, token=None):
         token=token,
     )
     if token:
-        ce.set_bearer_token(token)
+        use_token(ce, token)   # act only as the token's user: no 401 re-login as the service user
     return ce
 
 
@@ -440,12 +442,14 @@ def oldest_create_time(
     """
     user_pwd = None  # never from the URL: a password in a query string lands in access logs
     import time
-    key = f"{url or ''}|{server or ''}|{user_id or ''}"
-    hit = _oldest_cache.get(key)
+    who = request_identity(user_id, user_pwd)  # hashed credential; None = expired token, bypass the cache
+    key = f"{url or ''}|{server or ''}|{who}"
+    hit = (_oldest_cache.get(key) if who else None)
     if hit and time.time() - hit[0] < _OLDEST_TTL:
         return JSONResponse({"createTime": hit[1]})
     try:
-        ce = _classification_explorer(url, server, user_id, user_pwd)
+        # The caller's token, as the search route uses: the lookup is zone-filtered, and the key is theirs.
+        ce = _classification_explorer(url, server, user_id, user_pwd, token=get_request_token())
         # find_root_elements takes sequencing only via an explicit body (kwargs
         # are not forwarded to it); a plain wildcard property search is rejected
         # by Egeria (null propertyValue).
@@ -463,6 +467,6 @@ def oldest_create_time(
     created = None
     if isinstance(raw, list) and raw and isinstance(raw[0], dict):
         created = ((raw[0].get("elementHeader") or {}).get("versions") or {}).get("createTime")
-    if created:
+    if created and who:
         _oldest_cache[key] = (time.time(), created)
     return JSONResponse({"createTime": created})

@@ -17,12 +17,14 @@ Endpoints:
 from egeria_auth import service_password  # PO-45: no built-in service password
 import os
 from egeria_auth import apply_token
+import contextvars
 import threading
 import time
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from egeria_auth import lineage_key as _lineage_key
+from result_cache import request_identity
 from fastapi.responses import JSONResponse
 from loguru import logger
 
@@ -418,8 +420,9 @@ def list_blueprints_by_folio(
     folios are its memberOfCollections entries whose type is Folio; blueprints in
     no folio are returned under `ungrouped`. Built from one depth-1 find."""
     user_pwd = None  # never from the URL: a password in a query string lands in access logs
-    cache_key = f"{url or ''}|{server or ''}|{user_id or ''}{_lineage_key()}"
-    cached = _BP_FOLIO_CACHE.get(cache_key)
+    who = request_identity(user_id, user_pwd)  # hashed credential; None = expired token, bypass the cache
+    cache_key = f"{url or ''}|{server or ''}|{who}{_lineage_key()}"
+    cached = _BP_FOLIO_CACHE.get(cache_key) if who else None
     if not refresh and cached and (time.time() - cached[0]) < _BP_FOLIO_TTL:
         return JSONResponse(cached[1])
 
@@ -472,7 +475,8 @@ def list_blueprints_by_folio(
     ungrouped.sort(key=lambda b: (b.get("displayName") or "").lower())
 
     result = {"folios": folio_list, "ungrouped": ungrouped, "total": len(raw)}
-    _BP_FOLIO_CACHE[cache_key] = (time.time(), result)
+    if who:
+        _BP_FOLIO_CACHE[cache_key] = (time.time(), result)
     return JSONResponse(result)
 
 
@@ -618,8 +622,9 @@ def list_components_tree(
     that inlines nestedSolutionComponents (children) and usedInSolutionComponents
     (parents)."""
     user_pwd = None  # never from the URL: a password in a query string lands in access logs
-    cache_key = f"{url or ''}|{server or ''}|{user_id or ''}{_lineage_key()}"
-    cached = _COMP_TREE_CACHE.get(cache_key)
+    who = request_identity(user_id, user_pwd)  # hashed credential; None = expired token, bypass the cache
+    cache_key = f"{url or ''}|{server or ''}|{who}{_lineage_key()}"
+    cached = _COMP_TREE_CACHE.get(cache_key) if who else None
     if not refresh and cached and (time.time() - cached[0]) < _COMP_TREE_TTL:
         return JSONResponse(cached[1])
 
@@ -675,7 +680,8 @@ def list_components_tree(
     roots = [build(g, set()) for g in summary if g not in has_parent]
     roots.sort(key=lambda n: (n.get("displayName") or "").lower())
     result = {"roots": roots, "total": len(summary)}
-    _COMP_TREE_CACHE[cache_key] = (time.time(), result)
+    if who:
+        _COMP_TREE_CACHE[cache_key] = (time.time(), result)
     return JSONResponse(result)
 
 
@@ -752,7 +758,14 @@ def list_component_groups(
     to, and how many wires and implementations it has. Returns {"loading": true}
     until the first build finishes; {"stale": true} while a rebuild is running."""
     user_pwd = None  # never from the URL: a password in a query string lands in access logs
-    cache_key = f"{url or ''}|{server or ''}|{user_id or ''}{_lineage_key()}"
+    who = request_identity(user_id, user_pwd)  # hashed credential; None = expired token, bypass the cache
+    cache_key = f"{url or ''}|{server or ''}|{who}{_lineage_key()}"
+    if who is None:
+        # Expired token: no cache, no background build -- build here so Egeria's refusal reaches the caller.
+        try:
+            return JSONResponse({**_build_component_groups(url, server, user_id, user_pwd), "stale": False})
+        except Exception as exc:
+            raise_egeria_http_error(exc, "Building solution component groups failed")
     cached = _COMP_GROUPS_CACHE.get(cache_key)
     fresh = cached and not refresh and (time.time() - cached[0]) < _COMP_GROUPS_TTL
     if not fresh:
@@ -761,8 +774,12 @@ def list_component_groups(
             if start:
                 _COMP_GROUPS_BUILDING.add(cache_key)
         if start:
-            threading.Thread(target=_refresh_component_groups, daemon=True,
-                             args=(cache_key, (url, server, user_id, user_pwd))).start()
+            # Run the build in a COPY of this request's context: a plain Thread starts with an empty one,
+            # so the build lost the caller's X-Egeria-Token (it ran as the Portal's service user, whatever
+            # the cache key said) and the Promise/Memento forLineage toggle.
+            ctx = contextvars.copy_context()
+            threading.Thread(target=ctx.run, daemon=True,
+                             args=(_refresh_component_groups, cache_key, (url, server, user_id, user_pwd))).start()
     if not cached:
         return JSONResponse({"loading": True})
     return JSONResponse({**cached[1], "stale": not fresh})
