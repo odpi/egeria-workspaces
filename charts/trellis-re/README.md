@@ -52,3 +52,11 @@ In `external` mode the pods send no DDL, so a vector collection the schema Job h
 projects), so `helm upgrade` (which runs the Job as a hook) or running that command is enough; the pods need no restart. There is no
 automatic trigger: ingesting a new resource before the Job has run fails loudly, by design. The reindex swap and collection
 rename/drop are refused in external mode too.
+
+## Prefect (optional)
+
+`prefect.enabled=true` adds a Prefect worker (the image's `prefect-worker` role) and turns Prefect dispatch on for web and worker. You run the
+Prefect server; set `prefect.apiUrl` (and `prefect.apiKeySecret`, a Secret with key `api-key`, if your server wants one). web, worker and the Prefect
+worker are one image, so one commit, which RE requires before it dispatches (otherwise it warns and runs the steps itself). An init step creates the
+`process` work pool when it is missing. The worker is a `process` worker: each step runs as a subprocess of its pod, with the pod's environment and
+the shared data volume. `prefect.dispatchSteps` chooses which steps go to Prefect (empty: the image default).

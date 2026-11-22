@@ -64,9 +64,11 @@ spec:
         - name: server
           image: $IMG:$TAG
           command: ["prefect", "server", "start", "--host", "0.0.0.0", "--port", "4200"]
-          env: [{name: HOME, value: /tmp/pfhome}]
+          env: [{name: PREFECT_HOME, value: /prefect}]
           ports: [{containerPort: 4200}]
           readinessProbe: {httpGet: {path: /api/health, port: 4200}, periodSeconds: 5, failureThreshold: 60}
+          volumeMounts: [{name: prefect-home, mountPath: /prefect}]
+      volumes: [{name: prefect-home, emptyDir: {}}]
 ---
 apiVersion: v1
 kind: Service
