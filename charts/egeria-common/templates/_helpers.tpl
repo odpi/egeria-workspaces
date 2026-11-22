@@ -62,3 +62,30 @@ capabilities:
 {{- fail (printf "set %s%s" .name (default "" .hint)) -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Pod identity: serviceAccountName and imagePullSecrets, for every pod (test pods too). Call with the root context.
+Pull secrets are the chart's own imagePullSecrets plus global.imagePullSecrets (set once in an umbrella); each entry is
+a name or {name: ...}. The ServiceAccount is never created: serviceAccountName must name one that exists.
+*/}}
+{{- define "egeria-common.podIdentity" -}}
+{{- if .Values.serviceAccountName }}
+serviceAccountName: {{ .Values.serviceAccountName }}
+{{- end }}
+{{- $all := list -}}
+{{- range $s := (default list .Values.imagePullSecrets) }}{{ $all = append $all $s }}{{ end -}}
+{{- if and .Values.global .Values.global.imagePullSecrets }}{{ range $s := .Values.global.imagePullSecrets }}{{ $all = append $all $s }}{{ end }}{{ end -}}
+{{- $names := list -}}
+{{- range $s := $all }}
+{{- $n := "" }}
+{{- if kindIs "string" $s }}{{ $n = $s }}{{ else if kindIs "map" $s }}{{ $n = get $s "name" }}{{ end }}
+{{- if not $n }}{{ fail "imagePullSecrets: each entry is a Secret name or {name: <Secret>}" }}{{ end }}
+{{- $names = append $names $n }}
+{{- end -}}
+{{- with ($names | uniq) }}
+imagePullSecrets:
+{{- range . }}
+  - name: {{ . }}
+{{- end }}
+{{- end }}
+{{- end -}}

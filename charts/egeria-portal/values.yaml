@@ -4,6 +4,8 @@
 global:
   # true: no runAsUser/runAsGroup/fsGroup (restricted-v2 assigns the UID, GID 0).
   openshift: false
+  # Pull Secrets for every pod (in egeria-stack, set once here for all parts): Secret names or {name: ...}.
+  imagePullSecrets: []
 
 # quickstart | freshstart. Picks the platform port, the view server, the Egeria user and the demo password.
 environment: quickstart
@@ -24,6 +26,8 @@ platform:
   # Empty means <platform.serviceName>-properties (ConfigMap) and <platform.serviceName>-secrets (Secret), the
   # egeria-platform chart's own names. Both mounts are optional.
   propertiesConfigMap: ""
+  # REQUIRED for a production freshstart Portal: the platform chart creates <platform.serviceName>-secrets only in the demo
+  # posture, so name the platform's own Secret (usually the same as the platform's secrets.existingSecret). The chart refuses without it.
   userDirectorySecret: ""
 
 egeria:
@@ -97,6 +101,17 @@ resources:
     requests: {cpu: 50m, memory: 64Mi}
     limits: {memory: 256Mi}
 
+# Probe timings (the checks themselves are fixed: GET / for the Portal, TCP 8085 for Apache). Only initialDelaySeconds,
+# periodSeconds, timeoutSeconds, failureThreshold and successThreshold may be set.
+probes:
+  portal:
+    startup: {periodSeconds: 10, failureThreshold: 60}
+    readiness: {periodSeconds: 10, timeoutSeconds: 5, failureThreshold: 3}
+    liveness: {periodSeconds: 30, timeoutSeconds: 10, failureThreshold: 5}
+  apache:
+    readiness: {periodSeconds: 10}
+    liveness: {periodSeconds: 30, failureThreshold: 5}
+
 canary:
   # helm test signs in with this non-personal account ({user_id, password}), never as the Portal's own user.
   # Keys userId and password. Required for helm test in production; the demo posture makes one from the tracked demo files.
@@ -114,6 +129,12 @@ networkPolicy:
   # Added to the Portal pod so the platform's NetworkPolicy (clientLabel) lets it in.
   platformClientLabel: egeria.odpi.org/client
 
+# Pod identity, for every pod of this chart (test pods too). serviceAccountName names an existing ServiceAccount (the chart
+# creates none; empty means the namespace's default). imagePullSecrets: Secret names or {name: ...}, added to global.imagePullSecrets.
+serviceAccountName: ""
+imagePullSecrets: []
+
+# Scheduling: applied to both the Portal pod and the Apache front door pod.
 nodeSelector: {}
 tolerations: []
 affinity: {}

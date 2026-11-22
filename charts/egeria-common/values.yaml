@@ -2,3 +2,5 @@
 global:
   # Read by the helpers; see egeria-common.openshift.
   openshift: false
+  # Read by egeria-common.podIdentity.
+  imagePullSecrets: []

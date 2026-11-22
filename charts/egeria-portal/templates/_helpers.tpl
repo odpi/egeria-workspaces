@@ -21,7 +21,7 @@ composeHost: freshstart-pyegeria-web
 
 {{/* image reference: repository:tag[@digest]; dict "img" <values.images.x> "name" "images.portal" "prod" bool */}}
 {{- define "egeria-portal.image" -}}
-{{- if not .img.repository -}}{{- fail (printf "set %s.repository (the image from charts/README: for example localhost:5001/portal-quickstart)" .name) -}}{{- end -}}
+{{- if not .img.repository -}}{{- fail (printf "set %s.repository: the Portal and Apache images are not published, build them as charts/docs/kubernetes.md#images describes (for example localhost:5001/portal-quickstart)" .name) -}}{{- end -}}
 {{- if not .img.tag -}}{{- fail (printf "set %s.tag" .name) -}}{{- end -}}
 {{- if and .prod (not .img.digest) -}}{{- fail (printf "set %s.digest: the production posture pins images by digest" .name) -}}{{- end -}}
 {{- if .img.digest -}}{{ printf "%s:%s@%s" .img.repository .img.tag .img.digest }}{{- else -}}{{ printf "%s:%s" .img.repository .img.tag }}{{- end -}}
@@ -72,6 +72,9 @@ composeHost: freshstart-pyegeria-web
 {{- if and $v.ingress.enabled (not $v.networkPolicy.enabled) -}}
 {{- fail "set networkPolicy.enabled=true: with an Ingress, the Portal Service on 8000 must be reachable only from the Apache front door, because the login gate trusts the edge header Apache adds. A direct path to 8000 would bypass the gate." -}}
 {{- end -}}
+{{- if and $prod (eq $v.environment "freshstart") (not $v.platform.userDirectorySecret) -}}
+{{- fail "set platform.userDirectorySecret (in egeria-stack: portal.platform.userDirectorySecret) to the platform's Secret, usually the same one as the platform's secrets.existingSecret: the freshstart Portal reads the user directory from its key egeria-user-directory.omsecrets. The default <platform>-secrets exists only in the demo posture, and the optional mount would find nothing." -}}
+{{- end -}}
 {{- if and $v.allowUngatedPortal $prod -}}
 {{- fail "allowUngatedPortal is demo only." -}}
 {{- end -}}
@@ -101,4 +104,13 @@ portalImage: {{ include "egeria-portal.image" (dict "img" $v.images.portal "name
 apacheImage: {{ include "egeria-portal.image" (dict "img" $v.images.apache "name" "images.apache" "prod" $prod) | quote }}
 dataClaim: {{ default (printf "%s-data" $name) $v.persistence.existingClaim }}
 createDataClaim: {{ not $v.persistence.existingClaim }}
+{{- end -}}
+
+{{/* Probe timings from values: only timing keys, so the probe's handler stays the chart's. dict "name" "probes.x.y" "t" <map> */}}
+{{- define "egeria-portal.probeTiming" -}}
+{{- $allowed := list "initialDelaySeconds" "periodSeconds" "timeoutSeconds" "failureThreshold" "successThreshold" -}}
+{{- range $k, $_ := .t -}}
+{{- if not (has $k $allowed) -}}{{- fail (printf "%s.%s is not allowed: only %s can be set (the probe's check is the chart's)" $.name $k (join ", " $allowed)) -}}{{- end -}}
+{{- end -}}
+{{- if .t }}{{ toYaml .t }}{{ end -}}
 {{- end -}}

@@ -42,6 +42,7 @@ $HELM upgrade --install "$REL" "$CHARTS/egeria-stack" -n "$NS" -f "$CHARTS/egeri
   --set core.secrets.existingSecret=prod-secrets --set core.tls.existingSecret=prod-tls --set core.canary.existingSecret=prod-canary \
   --set core.persistence.storageClassName=standard --set core.resources.limits.cpu=4 \
   --set portal.secrets.existingSecret=prod-portal --set portal.tls.caSecret=prod-ca --set portal.canary.existingSecret=prod-canary \
+  --set portal.platform.userDirectorySecret=prod-secrets \
   --set portal.persistence.storageClassName=standard \
   --set portal.images.portal.repository="$REG/portal-freshstart" --set portal.images.portal.tag="$PTAG" --set portal.images.portal.digest="$PD" \
   --set portal.images.apache.repository="$REG/apache-web" --set portal.images.apache.tag="$ATAG" --set portal.images.apache.digest="$AD" \

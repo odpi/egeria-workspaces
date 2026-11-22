@@ -122,6 +122,7 @@ Tested live on OpenShift Local (quickstart, demo posture, with a Route). Not run
 | Key | Default | What |
 |---|---|---|
 | `global.openshift` | `false` | `true` on OpenShift: no fixed UIDs anywhere ([openshift.md](openshift.md)) |
+| `global.imagePullSecrets` | `[]` | Pull Secrets for every pod of every part, demo infra and test pods included ([below](#images-and-pull-secrets)) |
 | `global.stack` | `true` | Tells the Portal its platform is `<release>-platform`. Do not change. |
 | `environment` | `quickstart` | Must equal `core.environment` and `portal.environment`. Use `values-<environment>.yaml`. |
 | `posture` | `demo` | Must equal `core.posture` and `portal.posture`. Use `values-<posture>.yaml`. |
@@ -137,6 +138,7 @@ Tested live on OpenShift Local (quickstart, demo posture, with a Route). Not run
 | Key | Default | What |
 |---|---|---|
 | `global.openshift` | `false` | No `runAsUser`/`runAsGroup`/`fsGroup` when `true` |
+| `global.imagePullSecrets` | `[]` | Pull Secrets for every pod, added to `imagePullSecrets` |
 | `environment` | `quickstart` | `quickstart` or `freshstart` |
 | `posture` | `demo` | `demo` or `production`; set by `values-demo.yaml` / `values-production.yaml` |
 | `replicas` | `1` | Only 1 is accepted |
@@ -191,7 +193,7 @@ The Postgres user and password are not values: they are in `egeria-servers.omsec
 |---|---|---|
 | `image.repository` | `docker.io/odpi/egeria-platform` | |
 | `image.tag` | `"6.3"` | |
-| `image.digest` | `sha256:483726b6...ebda29c` | Always set it: the template always writes `repository:tag@digest`, so an empty digest gives an invalid image reference |
+| `image.digest` | `sha256:483726b6...ebda29c` | The reference is `repository:tag@digest`; with an empty digest it is `repository:tag`, with an empty tag `repository@digest`. One of the two is required. |
 | `image.pullPolicy` | `IfNotPresent` | |
 
 **Resources, probes, storage and network**
@@ -211,6 +213,8 @@ The Postgres user and password are not values: they are in `egeria-servers.omsec
 | `securityContext` | `runAsUser: 185`, `runAsGroup: 0`, `fsGroup: 0` | Ignored when `global.openshift` is `true` |
 | `networkPolicy.enabled` | `false` | `values-production.yaml` sets `true` |
 | `networkPolicy.clientLabel` | `egeria.odpi.org/client` | Pods labelled `<clientLabel>: "true"` may reach the platform |
+| `serviceAccountName` | `""` | An existing ServiceAccount for the platform pod and its test pod; the chart creates none. Empty means the namespace's `default`. |
+| `imagePullSecrets` | `[]` | Pull Secrets (names or `{name: ...}`) for the platform pod and its test pod |
 | `nodeSelector`, `tolerations`, `affinity` | `{}`, `[]`, `{}` | Passed to the pod |
 
 ### egeria-portal
@@ -220,6 +224,7 @@ The Postgres user and password are not values: they are in `egeria-servers.omsec
 | Key | Default | What |
 |---|---|---|
 | `global.openshift` | `false` | No `runAsUser`/`runAsGroup`/`fsGroup` when `true` |
+| `global.imagePullSecrets` | `[]` | Pull Secrets for every pod, added to `imagePullSecrets` |
 | `environment` | `quickstart` | Must match the platform's. Production requires `freshstart`. |
 | `posture` | `demo` | |
 | `replicas` | `1` | Only 1 is accepted |
@@ -227,7 +232,7 @@ The Postgres user and password are not values: they are in `egeria-servers.omsec
 | `platform.port` | `""` | Empty means 9443 / 8443 |
 | `platform.viewServer` | `""` | Empty means `qs-view-server` / `fs-view-server` |
 | `platform.propertiesConfigMap` | `""` | Freshstart only. Empty means `<platform.serviceName>-properties`. Optional mount. |
-| `platform.userDirectorySecret` | `""` | Freshstart only. Empty means `<platform.serviceName>-secrets`, which the platform chart creates only in demo. Set it to your platform Secret in production. Optional mount. |
+| `platform.userDirectorySecret` | `""` | Freshstart only. The Secret with the key `egeria-user-directory.omsecrets`, usually the platform's `secrets.existingSecret`. **Required in a production freshstart Portal** (the chart refuses without it). In demo, empty means `<platform.serviceName>-secrets`, the platform chart's demo Secret. |
 | `egeria.userId` | `""` | Empty means `erinoverview` / `bootstrap` |
 
 **Login and site**
@@ -282,7 +287,14 @@ The Postgres user and password are not values: they are in `egeria-servers.omsec
 | `content.<name>.existingClaim` | `""` | `config`, `work`, `cocoWorkbooks`, `designPatterns`, `templates`, `cocoDags`. An existing PVC; empty means an empty directory. |
 | `exchange.<name>.existingClaim` | `""` | `loadingBay`, `landingArea`, `cocoDataLake`, `distributionHub`, `treasuryDtsHistory`: the platform's exchange claims, mounted read-only |
 | `securityContext` | `runAsUser: 1001`, `runAsGroup: 0`, `fsGroup: 0` | Ignored when `global.openshift` is `true` |
-| `nodeSelector`, `tolerations`, `affinity` | `{}`, `[]`, `{}` | All three apply to the Portal pod; only `nodeSelector` also applies to the Apache pod |
+| `probes.portal.startup` | `periodSeconds: 10`, `failureThreshold: 60` | Timings of the Portal's `GET /` probes ([Resources and probes](#resources-and-probes)) |
+| `probes.portal.readiness` | `periodSeconds: 10`, `timeoutSeconds: 5`, `failureThreshold: 3` | |
+| `probes.portal.liveness` | `periodSeconds: 30`, `timeoutSeconds: 10`, `failureThreshold: 5` | |
+| `probes.apache.readiness` | `periodSeconds: 10` | Timings of Apache's TCP probes on 8085 |
+| `probes.apache.liveness` | `periodSeconds: 30`, `failureThreshold: 5` | |
+| `serviceAccountName` | `""` | An existing ServiceAccount for the Portal, Apache and test pods; the chart creates none |
+| `imagePullSecrets` | `[]` | Pull Secrets (names or `{name: ...}`) for the Portal, Apache and test pods |
+| `nodeSelector`, `tolerations`, `affinity` | `{}`, `[]`, `{}` | Applied to both the Portal pod and the Apache pod |
 
 ### egeria-demo-postgres and egeria-demo-kafka
 
@@ -302,6 +314,8 @@ Demo only. As subcharts of the platform, set them under `demoPostgres.` and `dem
 | `demoKafka.retention` | `hours: "24"`, `bytes: "536870912"`, `segmentBytes: "107374182"` | Same as compose |
 | `demoKafka.heap` | `-Xmx1G -Xms1G` | |
 | `demoKafka.resources` | requests `200m` / `1536Mi`, limits `memory: 2560Mi` | |
+| `demoPostgres.serviceAccountName`, `demoKafka.serviceAccountName` | `""` | An existing ServiceAccount (the Postgres one also runs its set-up Job) |
+| `demoPostgres.imagePullSecrets`, `demoKafka.imagePullSecrets` | `[]` | Added to `global.imagePullSecrets` |
 
 Postgres listens on 5442 and Kafka on 9192, as in compose. Both use the public demo passwords.
 
@@ -319,10 +333,13 @@ chart refuses less, because the first start loads content packs. On a slow clust
 A Ready platform pod means the platform process answers. It does not mean the servers are up; that is what
 `helm test` proves.
 
-**Portal and Apache.** Their requests and limits are values (`resources.portal`, `resources.apache`); their probes are
-fixed in the templates. The Portal's readiness, liveness and startup probes are a plain `GET /`, on purpose: an
-Egeria outage must not turn into a 503 at the Ingress, and a probe must not mint tokens. Apache's probes are TCP
-checks on 8085.
+**Portal and Apache.** Their requests and limits are values (`resources.portal`, `resources.apache`), and so are their
+probe timings (`probes.portal.*`, `probes.apache.*`; the defaults are the numbers the live runs used). The checks
+themselves are fixed: the Portal's startup, readiness and liveness probes are a plain `GET /`, on purpose (an Egeria
+outage must not turn into a 503 at the Ingress, and a probe must not mint tokens), and Apache's are TCP checks on 8085.
+Only `initialDelaySeconds`, `periodSeconds`, `timeoutSeconds`, `failureThreshold` and `successThreshold` may be set;
+the chart refuses any other key. For example, to give a slow node more time:
+`--set portal.probes.portal.startup.failureThreshold=120`. Overriding them is render-tested only (TR-123), not yet run on a cluster.
 
 ## Storage
 
@@ -357,21 +374,30 @@ claims, two pods can share them only on one node. This sharing was not part of t
 Building them: [kubernetes.md — Images](kubernetes.md#images). Production requires a digest for the Portal and
 Apache images; set the platform's digest whenever you change its repository or tag.
 
-The charts have **no `imagePullSecrets` value** and set no ServiceAccount, so pods use the namespace's `default`
-ServiceAccount. For a private registry, attach the pull Secret to it:
+**Private registry.** Create a pull Secret and name it in `imagePullSecrets`. In the umbrella, `global.imagePullSecrets`
+reaches every pod at once: the platform, the Portal, Apache, both test pods, and the demo Postgres (with its set-up Job)
+and Kafka. Each chart's own `imagePullSecrets` is added to the global list for that chart's pods only. An entry is a
+Secret name or `{name: ...}`.
 
 ```bash
 kubectl -n egeria create secret generic regcred --type=kubernetes.io/dockerconfigjson --from-file=.dockerconfigjson=<path to a docker config.json>
-kubectl -n egeria patch serviceaccount default -p '{"imagePullSecrets":[{"name":"regcred"}]}'
+helm install st charts/egeria-stack ... --set 'global.imagePullSecrets[0]=regcred'
 ```
 
-On OpenShift, `oc secrets link default regcred --for=pull -n egeria` does the same. This was not part of the live
-runs, which used a local registry (kind) or the internal registry (OpenShift).
+**ServiceAccounts.** By default pods use the namespace's `default` ServiceAccount. `serviceAccountName` (per chart:
+`core.serviceAccountName`, `portal.serviceAccountName`, `core.demoPostgres.serviceAccountName`,
+`core.demoKafka.serviceAccountName`) names an existing one for that chart's pods, test pods included. The charts never
+create a ServiceAccount. On OpenShift the ServiceAccount also decides which SCCs a pod may use; keep the Egeria ones
+under `restricted-v2`.
+
+Render-tested only (TR-123); not yet run on a cluster. The live runs used a local registry (kind) or the internal registry (OpenShift), with no pull
+Secret.
 
 ## Scheduling and extra environment
 
 `nodeSelector`, `tolerations` and `affinity` exist in both the platform and the Portal chart. In the Portal chart all
-three apply to the Portal pod, but only `nodeSelector` reaches the Apache front door's pod.
+three apply to both the Portal pod and the Apache front door's pod (tolerations and affinity on Apache are new in
+TR-123: render-tested only).
 
 `portal.extraEnv` adds container environment entries to the Portal, in Kubernetes `env` form (`value` or
 `valueFrom`). The chart refuses names it owns: `EGERIA_ROOT_PATH`, `EGERIA_INBOX_PATH`, `EGERIA_OUTBOX_PATH`,

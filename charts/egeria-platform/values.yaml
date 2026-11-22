@@ -4,6 +4,8 @@
 global:
   # Set explicitly. true: no runAsUser/runAsGroup/fsGroup (restricted-v2 assigns the UID, GID 0).
   openshift: false
+  # Pull Secrets for every pod (in egeria-stack, set once here for all parts): Secret names or {name: ...}.
+  imagePullSecrets: []
 
 # quickstart | freshstart. Picks the port, the five servers, the config documents,
 # the properties file, the demo secrets and the database name.
@@ -152,6 +154,11 @@ networkPolicy:
   enabled: false
   # Pods with this label (same namespace) may reach the platform port.
   clientLabel: egeria.odpi.org/client
+
+# Pod identity, for every pod of this chart (test pods too). serviceAccountName names an existing ServiceAccount (the chart
+# creates none; empty means the namespace's default). imagePullSecrets: Secret names or {name: ...}, added to global.imagePullSecrets.
+serviceAccountName: ""
+imagePullSecrets: []
 
 nodeSelector: {}
 tolerations: []

@@ -17,7 +17,8 @@ V = lambda n: ["-f", os.path.join(CHART, n)]
 PROD = V("values-production.yaml") + V("values-freshstart.yaml") + IMGS + [
     "--set", "core.secrets.existingSecret=s", "--set", "core.tls.existingSecret=t", "--set", "core.persistence.storageClassName=fast",
     "--set", "core.resources.limits.cpu=4", "--set", "portal.secrets.existingSecret=ps", "--set", "portal.tls.caSecret=ca",
-    "--set", "portal.persistence.storageClassName=fast", "--set", "portal.images.portal.digest=" + DIG, "--set", "portal.images.apache.digest=" + DIG]
+    "--set", "portal.persistence.storageClassName=fast", "--set", "portal.images.portal.digest=" + DIG, "--set", "portal.images.apache.digest=" + DIG,
+    "--set", "portal.platform.userDirectorySecret=s"]
 failures = []
 
 
@@ -114,6 +115,38 @@ def main():
     ds = renders(base + ["--set", "global.openshift=true"])
     ok = all(not ({"runAsUser", "runAsGroup", "fsGroup"} & set(d["spec"]["template"]["spec"]["securityContext"])) for d in ds if d["kind"] in ("Deployment", "StatefulSet"))
     check("global.openshift reaches both parts: no runAsUser, runAsGroup or fsGroup", ok)
+    # TR-123: a production freshstart Portal names the platform's Secret for its user directory (no silent optional mount)
+    refuses("production freshstart without portal.platform.userDirectorySecret is refused, naming it",
+            [a for a in PROD if a != "portal.platform.userDirectorySecret=s"][:-1], ["portal.platform.userDirectorySecret", "secrets.existingSecret"])
+    ds = renders(PROD)
+    dep = next(d for d in ds if d["kind"] == "Deployment" and d["metadata"]["name"] == "s-portal")
+    vol = next(v for v in dep["spec"]["template"]["spec"]["volumes"] if v["name"] == "platform-userdir")
+    check("production: the Portal's user directory comes from the named platform Secret", vol["secret"]["secretName"] == "s")
+    # TR-123: pull Secrets and ServiceAccounts reach every pod; global.imagePullSecrets is set once for all parts
+    ds = renders(base + ["--set", "core.demoPostgres.enabled=true", "--set", "core.demoKafka.enabled=true",
+                         "--set", "global.imagePullSecrets[0]=regcred", "--set", "core.imagePullSecrets[0].name=core-only",
+                         "--set", "core.serviceAccountName=egeria-sa", "--set", "portal.serviceAccountName=portal-sa",
+                         "--set", "core.demoPostgres.serviceAccountName=pg-sa"])
+    pods = {}
+    for d in ds:
+        if d["kind"] in ("Deployment", "StatefulSet", "Job"):
+            pods[d["metadata"]["name"]] = d["spec"]["template"]["spec"]
+        elif d["kind"] == "Pod":
+            pods[d["metadata"]["name"]] = d["spec"]
+    names = lambda ps: [x["name"] for x in ps.get("imagePullSecrets", [])]
+    check("global.imagePullSecrets reaches every pod, test pods and demo infra included (%d pods)" % len(pods),
+          len(pods) >= 8 and all("regcred" in names(ps) for ps in pods.values()), str({k: names(v) for k, v in pods.items()}))
+    check("a part's own imagePullSecrets is added to the global ones, only for that part",
+          names(pods["s-platform"]) == ["core-only", "regcred"] and names(pods["s-platform-canary"]) == ["core-only", "regcred"] and names(pods["s-portal"]) == ["regcred"])
+    sa = {k: v.get("serviceAccountName") for k, v in pods.items()}
+    check("serviceAccountName per part: platform (and its test), Portal, Apache, Portal test, demo Postgres (and its Job)",
+          sa["s-platform"] == sa["s-platform-canary"] == "egeria-sa" and sa["s-portal"] == sa["s-portal-web"] == sa["s-portal-canary"] == "portal-sa"
+          and sa["s-demo-postgres"] == sa["s-demo-postgres-init"] == "pg-sa" and sa["s-demo-kafka"] is None, str(sa))
+    ds = renders(base)
+    check("no serviceAccountName or imagePullSecrets is rendered by default",
+          not any(("serviceAccountName" in (d["spec"]["template"]["spec"] if d["kind"] != "Pod" else d["spec"]) or "imagePullSecrets" in (d["spec"]["template"]["spec"] if d["kind"] != "Pod" else d["spec"]))
+                  for d in ds if d["kind"] in ("Deployment", "StatefulSet", "Job", "Pod")))
+    refuses("an imagePullSecrets entry with no name is refused", base + ["--set", "global.imagePullSecrets[0].foo=bar"], ["imagePullSecrets"])
     if failures:
         print("\n%d FAILED" % len(failures))
         sys.exit(1)

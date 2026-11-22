@@ -71,6 +71,9 @@ The Portal and Apache images must be in a registry the cluster can pull from ([k
   digests. Pods pull them as `image-registry.openshift-image-registry.svc:5000/<namespace>/<image>`. See
   `charts/tests/crc_stack_prod.sh` for the push (a `pusher` ServiceAccount with `system:image-builder`).
 
+For an external private registry, create a pull Secret and set `global.imagePullSecrets`
+([configuration.md — Images and pull secrets](configuration.md#images-and-pull-secrets)); that is render-tested only.
+
 A pod in another namespace can pull from the internal registry once it is allowed to:
 
 ```bash
@@ -116,7 +119,7 @@ helm upgrade --install ps charts/egeria-stack -n egeria-prod \
   --set core.secrets.existingSecret=prod-secrets --set core.tls.existingSecret=prod-tls --set core.canary.existingSecret=prod-canary \
   --set core.persistence.storageClassName=<class> --set core.resources.limits.cpu=4 \
   --set portal.secrets.existingSecret=prod-portal --set portal.tls.caSecret=prod-ca --set portal.canary.existingSecret=prod-canary \
-  --set portal.persistence.storageClassName=<class> \
+  --set portal.persistence.storageClassName=<class> --set portal.platform.userDirectorySecret=prod-secrets \
   --set portal.images.portal.repository=image-registry.openshift-image-registry.svc:5000/egeria-prod/portal-freshstart \
   --set portal.images.portal.tag=<tag> --set portal.images.portal.digest=sha256:<digest> \
   --set portal.images.apache.repository=image-registry.openshift-image-registry.svc:5000/egeria-prod/apache-web \

@@ -27,6 +27,7 @@ spec:
     spec:
       securityContext:
         {{- include "egeria-common.podSecurityContext" . | nindent 8 }}
+      {{- include "egeria-common.podIdentity" . | nindent 6 }}
       containers:
         - name: portal
           image: {{ $cfg.portalImage }}
@@ -82,20 +83,15 @@ spec:
           # The Portal starts even while Egeria is unreachable (it retries), so start-up is judged on the Portal alone.
           startupProbe:
             httpGet: {path: /, port: http}
-            periodSeconds: 10
-            failureThreshold: 60
+            {{- include "egeria-portal.probeTiming" (dict "name" "probes.portal.startup" "t" $v.probes.portal.startup) | nindent 12 }}
           # Plain GET /, like liveness: Egeria reachability is proven by `helm test`, not by pod readiness (a platform
           # outage must not turn into a 503 at the Ingress, and a probe must not mint tokens).
           readinessProbe:
             httpGet: {path: /, port: http}
-            periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 3
+            {{- include "egeria-portal.probeTiming" (dict "name" "probes.portal.readiness" "t" $v.probes.portal.readiness) | nindent 12 }}
           livenessProbe:
             httpGet: {path: /, port: http}
-            periodSeconds: 30
-            timeoutSeconds: 10
-            failureThreshold: 5
+            {{- include "egeria-portal.probeTiming" (dict "name" "probes.portal.liveness" "t" $v.probes.portal.liveness) | nindent 12 }}
           volumeMounts:
             - {name: data, mountPath: /home/portal/.pyegeria, subPath: state}
             - {name: data, mountPath: /app/demo-data, subPath: demo-data}

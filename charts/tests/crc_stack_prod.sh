@@ -67,6 +67,7 @@ helm upgrade --install "$REL" "$CHARTS/egeria-stack" -n "$NS" -f "$CHARTS/egeria
   --set core.secrets.existingSecret=prod-secrets --set core.tls.existingSecret=prod-tls --set core.canary.existingSecret=prod-canary \
   --set core.persistence.storageClassName=crc-csi-hostpath-provisioner --set core.resources.limits.cpu=4 \
   --set portal.secrets.existingSecret=prod-portal --set portal.tls.caSecret=prod-ca --set portal.canary.existingSecret=prod-canary \
+  --set portal.platform.userDirectorySecret=prod-secrets \
   --set portal.persistence.storageClassName=crc-csi-hostpath-provisioner \
   --set portal.images.portal.repository="$INREG/$NS/portal-freshstart" --set portal.images.portal.tag="$PTAG" --set portal.images.portal.digest="$PD" \
   --set portal.images.apache.repository="$INREG/$NS/apache-web" --set portal.images.apache.tag="$TAG" --set portal.images.apache.digest="$AD" \

@@ -84,8 +84,13 @@ containerd image store. For the Portal images, connect a local registry to kind'
   authenticated API 401 for an anonymous caller, http redirected to an `https://` location, `helm test` passed.
 
 **Not run:** demoMode on kind; a Route on the production-style stack or with its own certificate; a full OpenShift
-cluster; the optional Portal content claims; `imagePullSecrets` on the `default` ServiceAccount;
-`portal.platform.userDirectorySecret`; sharing exchange claims between the platform and the Portal.
+cluster; the optional Portal content claims; sharing exchange claims between the platform and the Portal.
+
+**TR-123, render-tested only:** `imagePullSecrets`, `global.imagePullSecrets` and `serviceAccountName` on every pod;
+`portal.platform.userDirectorySecret` (now required for a production freshstart Portal, and set by `kind_stack_prod.sh`
+and `crc_stack_prod.sh`, which have not been re-run with it); Portal and Apache probe timings from values; Apache
+tolerations and affinity; the platform image reference without a digest. A cray run on kind and OpenShift Local should
+re-run `kind_stack_prod.sh`, `crc_stack.sh`, `crc_stack_prod.sh` and `crc_route.sh` to prove them.
 
 The canary account and the Portal's Egeria user in the production-style runs used the public demo user-directory
 passwords. Those runs prove the wiring, not production credential hygiene.

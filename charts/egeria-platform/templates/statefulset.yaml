@@ -1,6 +1,6 @@
 {{- $cfg := include "egeria-platform.cfg" . | fromYaml -}}
 {{- $v := .Values -}}
-{{- $img := printf "%s:%s@%s" $v.image.repository $v.image.tag $v.image.digest -}}
+{{- $img := include "egeria-platform.image" . -}}
 {{- $labels := include "egeria-common.labels" (dict "ctx" . "component" "platform") -}}
 {{- $health := include "egeria-platform.healthCommand" (dict "port" (int $cfg.port) "healthPath" $cfg.healthPath) -}}
 apiVersion: apps/v1
@@ -25,6 +25,7 @@ spec:
     spec:
       securityContext:
         {{- include "egeria-common.podSecurityContext" . | nindent 8 }}
+      {{- include "egeria-common.podIdentity" . | nindent 6 }}
       initContainers:
         # Waits until Postgres and Kafka accept connections, so the servers do not start against
         # a database that is still being created (one reachable Kafka bootstrap server is enough).

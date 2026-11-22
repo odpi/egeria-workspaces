@@ -77,5 +77,6 @@ A Ready pod does **not** mean Egeria is up. The first start loads content packs 
   `restricted-v2`.
 - **Resource Explorer** (phase 3) is not charted yet. It waits on TR-115: Resource Explorer's other stores still run
   their own DDL in external-schema mode.
-- **No `imagePullSecrets` value.** For a private registry, attach the pull Secret to the namespace's `default`
-  ServiceAccount ([docs/configuration.md](docs/configuration.md#images-and-pull-secrets)).
+- **Not yet run on a cluster:** the TR-123 additions (`imagePullSecrets` and `serviceAccountName`, configurable Portal
+  and Apache probes, Apache tolerations and affinity, the `portal.platform.userDirectorySecret` requirement). They are
+  render-tested; a kind and OpenShift Local run is still to come.

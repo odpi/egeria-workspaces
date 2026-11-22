@@ -147,7 +147,7 @@ What production requires, and the chart refuses to render without:
 | Part | Required |
 |---|---|
 | Platform (`core.` in the stack) | `postgres.host`, `kafka.bootstrapServers`, `secrets.existingSecret`, `tls.existingSecret`, `persistence.storageClassName` (or `persistence.existingClaim`), CPU and memory in both `resources.requests` and `resources.limits` (the default `limits.cpu` is empty, so set it). `canary.existingSecret` is needed for `helm test`. |
-| Portal (`portal.` in the stack) | `secrets.existingSecret`, `tls.caSecret`, `canary.existingSecret` (for `helm test`), `images.portal.digest`, `images.apache.digest`, `persistence.storageClassName` (or `persistence.existingClaim`). With an Ingress: `ingress.tlsSecretName`. |
+| Portal (`portal.` in the stack) | `secrets.existingSecret`, `tls.caSecret`, `platform.userDirectorySecret`, `canary.existingSecret` (for `helm test`), `images.portal.digest`, `images.apache.digest`, `persistence.storageClassName` (or `persistence.existingClaim`). With an Ingress: `ingress.tlsSecretName`. |
 
 `values-production.yaml` also turns on `networkPolicy.enabled` for both parts and `tls.verify` for the Portal.
 It refuses `demoPostgres`, `demoKafka`, `secrets.useDemoFiles`, `tls.strictSsl=false`, `demoMode` and
@@ -242,9 +242,13 @@ Pass values by file, as above, so passwords do not land in your shell history.
 Production pins the Portal and Apache images by digest and refuses to render without one. Take the digest your
 registry reports for the pushed image (for example `docker image inspect <image> --format '{{index .RepoDigests 0}}'`).
 The platform image is already pinned in `charts/egeria-platform/values.yaml`; if you override `core.image.repository`
-or `core.image.tag`, set `core.image.digest` too.
+or `core.image.tag`, set `core.image.digest` too (or set it empty to pull by tag, which production does not stop but
+is not pinned).
 
 ### 6. Install
+
+If your registry needs credentials, add `--set 'global.imagePullSecrets[0]=<pull secret>'`
+([configuration.md — Images and pull secrets](configuration.md#images-and-pull-secrets)).
 
 ```bash
 helm install st charts/egeria-stack -n egeria \
@@ -256,6 +260,7 @@ helm install st charts/egeria-stack -n egeria \
   --set core.persistence.storageClassName=<class> --set core.resources.limits.cpu=4 \
   --set portal.secrets.existingSecret=portal-secrets --set portal.tls.caSecret=egeria-ca \
   --set portal.canary.existingSecret=egeria-canary --set portal.persistence.storageClassName=<class> \
+  --set portal.platform.userDirectorySecret=egeria-secrets \
   --set portal.images.portal.repository=<registry>/portal-freshstart --set portal.images.portal.tag=freshstart-6.3-<sha> \
   --set portal.images.portal.digest=sha256:<digest> \
   --set portal.images.apache.repository=<registry>/apache-web --set portal.images.apache.tag=6.3-<sha> \
@@ -267,11 +272,12 @@ For a long list like this, a values file of your own is easier to review than `-
 `-f` files above.
 
 **The Portal and the platform's user directory (freshstart).** The freshstart Portal mounts the platform's
-`application.properties` and user directory. By default it looks for `<release>-platform-properties` (a ConfigMap
-the platform chart always creates) and `<release>-platform-secrets` (the Secret the platform chart creates **only in
-the demo posture**). Both mounts are optional, so with `core.secrets.existingSecret` the Portal starts without the
-user directory, with no error. To give it the directory, set `portal.platform.userDirectorySecret` to your platform
-Secret (it reads the key `egeria-user-directory.omsecrets`). This setting was not part of the live runs.
+`application.properties` and user directory. It finds the properties by itself (`<release>-platform-properties`, a
+ConfigMap the platform chart always creates). The user directory is in your platform Secret, so name it:
+`portal.platform.userDirectorySecret=egeria-secrets` (the Portal reads its key `egeria-user-directory.omsecrets`).
+The production posture refuses a freshstart Portal without it, because the default (`<release>-platform-secrets`) exists
+only in the demo posture and the optional mount would find nothing. The live production-style runs predate this
+setting; not yet run on a cluster.
 
 ### NetworkPolicies
 

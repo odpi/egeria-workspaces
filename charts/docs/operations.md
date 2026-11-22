@@ -101,6 +101,9 @@ Every refusal names the value to change, for example
 | `set networkPolicy.enabled=true: with an Ingress ...` | An Ingress always needs the Portal NetworkPolicy |
 | `... holds the PUBLIC demo keystore password ...` | Make a keystore of your own ([kubernetes.md](kubernetes.md#2-keystore-tlsexistingsecret)) |
 | `set images.portal.digest: the production posture pins images by digest` | [Image digests](kubernetes.md#5-image-digests) |
+| `set images.portal.repository: the Portal and Apache images are not published ...` | Build them ([kubernetes.md — Images](kubernetes.md#images)) |
+| `set platform.userDirectorySecret (in egeria-stack: portal.platform.userDirectorySecret) ...` | Name your platform Secret ([kubernetes.md](kubernetes.md#6-install)) |
+| `probes.portal.readiness.httpGet is not allowed ...` | Only probe timings can be set ([configuration.md](configuration.md#resources-and-probes)) |
 | `extraEnv may not set ...` | Set the matching chart value instead |
 
 ### The platform pod stays in `Init`
@@ -154,6 +157,12 @@ until the check passes.
   Give crc a bigger disk ([openshift.md](openshift.md#openshift-local-sizing)).
 - `ImagePullBackOff` for an image you loaded into the node by name, after pushing images to the internal registry:
   see [openshift.md — Known quirk](openshift.md#known-quirk-an-image-by-name-after-a-registry-push).
+
+### `ImagePullBackOff` from a private registry
+
+Set `global.imagePullSecrets` (or a chart's `imagePullSecrets`) to a pull Secret in the release's namespace
+([configuration.md](configuration.md#images-and-pull-secrets)). Check it reached the pod:
+`kubectl -n egeria get pod st-platform-0 -o jsonpath='{.spec.imagePullSecrets}'`.
 
 ### Images on kind
 

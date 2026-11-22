@@ -15,6 +15,7 @@ spec:
   restartPolicy: Never
   securityContext:
     {{- include "egeria-common.podSecurityContext" . | nindent 4 }}
+  {{- include "egeria-common.podIdentity" . | nindent 2 }}
   containers:
     - name: canary
       image: {{ $cfg.apacheImage }}
