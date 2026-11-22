@@ -6,6 +6,7 @@
 #   MODE=demo (default) | production: production runs the platform with its own SAN keystore (kind_install.sh MODE=production) and the chart in the
 #   production posture: image by digest, existing Secrets, tls.verify=true against the platform CA, NetworkPolicies, a separate owner role.
 #   SKIP_PLATFORM=1: the platform, Postgres and Kafka are already installed.
+#   PREFECT=1: also run a Prefect server (the RE image's own `prefect server start`, SQLite, test only) and enable the chart's Prefect worker.
 # Secret values are generated here or read from tracked demo files and are never printed. Test infrastructure only, NOT part of any chart.
 set -euo pipefail
 NS=${1:?namespace}; REL=${2:-re}
@@ -46,6 +47,37 @@ PY
 kubectl -n "$NS" create secret generic re-egeria --from-file=password="$W/egeria-pw" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
 
 # 3. Resource Explorer
+PFARGS=()
+if [ "${PREFECT:-0}" = 1 ]; then
+  # a test Prefect server from the RE image (its own client version): one pod, SQLite on an emptyDir. NOT part of the chart.
+  kubectl -n "$NS" apply -f - >/dev/null <<YAML
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: prefect-server}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: prefect-server}}
+  template:
+    metadata: {labels: {app: prefect-server}}
+    spec:
+      containers:
+        - name: server
+          image: $IMG:$TAG
+          command: ["prefect", "server", "start", "--host", "0.0.0.0", "--port", "4200"]
+          env: [{name: HOME, value: /tmp/pfhome}]
+          ports: [{containerPort: 4200}]
+          readinessProbe: {httpGet: {path: /api/health, port: 4200}, periodSeconds: 5, failureThreshold: 60}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: prefect-server}
+spec:
+  selector: {app: prefect-server}
+  ports: [{port: 4200, targetPort: 4200}]
+YAML
+  kubectl -n "$NS" rollout status deploy/prefect-server --timeout=300s
+  PFARGS=(--set prefect.enabled=true --set prefect.apiUrl=http://prefect-server:4200/api)
+fi
 $HELM dependency update "$CHARTS/trellis-re" >/dev/null
 T0=$(date +%s)
 POSTURE=(-f "$CHARTS/trellis-re/values-demo.yaml")
@@ -64,7 +96,20 @@ $HELM upgrade --install "$REL" "$CHARTS/trellis-re" -n "$NS" "${POSTURE[@]}" \
   --set database.host=postgres --set database.port=5442 --set database.name=re_proof --set database.user=re_rt --set database.existingSecret=re-db \
   --set database.owner.user=re_owner --set database.owner.existingSecret=re-owner-db \
   --set egeria.platformUrl=https://qs-platform:9443 --set egeria.daemon.userId=omagspcatnpa --set egeria.daemon.existingSecret=re-egeria \
-  --set persistence.storageClassName=standard --set 'persistence.accessModes={ReadWriteOnce}' --wait --timeout 15m | sed -n '/^NOTES/,$p'
+  --set persistence.storageClassName=standard --set 'persistence.accessModes={ReadWriteOnce}' "${PFARGS[@]}" --wait --timeout 15m | sed -n '/^NOTES/,$p'
 echo "installed $REL in $NS after $(( $(date +%s) - T0 ))s"
 kubectl -n "$NS" get pods
 $HELM test "$REL" -n "$NS" --logs 2>&1 | grep -E "^ok|^FAIL|^PASS|Phase|TEST SUITE|Error"
+if [ "${PREFECT:-0}" = 1 ]; then
+  echo "--- Prefect: the worker's deployment and pool, as the server sees them"
+  kubectl -n "$NS" exec deploy/${REL}-re-web -- python - <<'PY'
+import json, os, urllib.request
+api = os.environ["PREFECT_API_URL"].rstrip("/"); pool = os.environ["PREFECT_WORK_POOL"]
+def post(path, body):
+    req = urllib.request.Request(api + path, data=json.dumps(body).encode(), headers={"Content-Type": "application/json"})
+    return json.load(urllib.request.urlopen(req, timeout=15))
+print("pool:", [p["name"] + "/" + p["type"] for p in post("/work_pools/filter", {}) if p["name"] == pool])
+print("deployments:", [d["name"] for d in post("/deployments/filter", {})])
+print("workers:", [(w["name"][:28], w["status"]) for w in post("/work_pools/%s/workers/filter" % pool, {})])
+PY
+fi
