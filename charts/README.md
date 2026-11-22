@@ -24,7 +24,7 @@ Not included yet: Resource Explorer and Egeria Advisor charts (a later phase; se
 ## Two choices you make for every install
 
 1. **Environment:** `quickstart` (the Coco Pharmaceuticals demo content, port 9443, servers `qs-*`) or `freshstart`
-   (an empty Egeria with a login gate on the Portal, port 8443, servers `fs-*`).
+   (an empty Egeria with a sign-in page on the Portal (no server-side API gate until PO-78, so port-forward only), port 8443, servers `fs-*`).
    See [docs/configuration.md](docs/configuration.md#quickstart-or-freshstart).
 2. **Posture:** `demo` or `production`. You pick it with a values file (`values-demo.yaml` or `values-production.yaml`).
    - **Demo** builds its Secrets from the public demo files tracked in this repository. Anyone can read those
