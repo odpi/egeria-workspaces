@@ -6232,6 +6232,7 @@ const SECTION_LABELS = {
   'perspectives':      'Perspectives',
   'governance':        'Governance Definitions',
   'statements-of-applicability': 'Statements of Applicability',
+  'decisions': 'Decisions',
   'report-specs':      'Reports',
   'analytics':         'Analytic Functions',
   'digital-products':  'Digital Products',
@@ -6916,6 +6917,14 @@ const _SPLASH_CAPABILITIES = [
     icon: '☑',
     title: 'Statements of Applicability',
     description: 'Review statements of applicability: for each scope, which governance controls apply, why, and how far each is implemented — with an implementation summary and links to the controls.',
+    requiresConnection: true,
+  },
+  {
+    section: 'decisions',
+    group: 'review',
+    icon: '⚑',
+    title: 'Decisions',
+    description: 'Review decisions (Egeria 6.4): disposition, importance and status; summary, scope and implications; review and expiry dates flagged when overdue; the elements assessed as inputs, one row per assessment; and the outcomes. Needs Egeria 6.4.',
     requiresConnection: true,
   },
   {
@@ -8175,7 +8184,7 @@ const AREA_NAMES = {
 // ── Solution Architect ─────────────────────────────────────────────────────────
 
 // ── Data Design tab ──────────────────────────────────────────────────────────
-function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDigitalProduct }) {
+function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
   const _ddPersonaId = React.useContext(PersonaContext);
   const [subNav, setSubNav] = React.useState('specs');
@@ -8267,6 +8276,8 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
     'DataClass':     { color: '#fb923c', go: function(g) { switchAndSelect('classes',    g); } },
     'GlossaryTerm':    { color: '#86efac', go: function(g) { onNavigateToGlossary        && onNavigateToGlossary(g); } },
     'DigitalProduct':  { color: '#fde68a', go: function(g) { onNavigateToDigitalProduct  && onNavigateToDigitalProduct(g); } },
+    // Egeria 6.4 (odpi/egeria#9463): routed through the app's single dispatcher
+    'Decision':        { color: '#c4b5fd', go: function(g) { onNavigateToElement && onNavigateToElement({ guid: g, typeName: 'Decision' }); } },
   };
 
   function relSection(title, items) {
@@ -9702,6 +9713,7 @@ function _elementIsLinkable(item) {
   if (item.typeName === 'Project') return true;
   if (item.typeName === 'InformalTag') return true;
   if (item.typeName === 'ContextEvent') return true;
+  if (item.typeName === 'Decision' || superTypes.indexOf('Decision') !== -1) return true;  // Egeria 6.4
   // Egeria's internal type-system registry — every entity/relationship/
   // classification typeName also exists as a ValidMetadataValue, which is why
   // a search for e.g. "SmartQuery" can legitimately match one. Routes to the
@@ -13281,6 +13293,381 @@ function ContextEventsView({ navGuid, onNavigateToElement }) {
   );
 }
 
+// ── Egeria 6.4: Decisions (and the shared 6.4 helpers) ───────────────────────
+// odpi/egeria#9463 adds Decision, Assessment (multi-link: one element can be assessed
+// many times, so a row is keyed by the relationship GUID), Outcome, DataValue and the
+// reverse-end lists. Backend: e64_handler.py. On an Egeria before 6.4 a route answers
+// { needs64: true, words } and the card shows those words: never an error, never "none".
+// A list's state comes from the backend (egeria_6_4_support.list_state):
+//   read · none (asked for, Egeria returned none) · not-read (not asked for) ·
+//   needs-6.4 (platform before 6.4) · not-known (platform version unreadable).
+// The pure helpers and hook-free tables between e64-pure:begin/end run under node in
+// tests/test_e64_cards_js.py — keep them free of hooks and of names defined elsewhere
+// (except _elementIsLinkable, which the harness stubs).
+/* e64-pure:begin */
+var E64_LIST_WORDS = {
+  'none':     { text: 'None recorded.', tone: 'dim' },
+  'not-read': { text: 'Not read: this list was not asked for.', tone: 'warn' },
+  'not-known': { text: 'Not known: this platform’s Egeria version could not be read, so it may not have the Egeria 6.4 lists.', tone: 'warn' },
+  'needs-6.4': { text: 'Needs Egeria 6.4.', tone: 'warn' },
+};
+
+// Words for a list that has no rows to show, or null when its rows should be shown.
+function e64ListWords(st) {
+  var s = st && st.state;
+  if (s === 'read') return null;
+  if (s === 'needs-6.4') return { text: (st.words || E64_LIST_WORDS['needs-6.4'].text), tone: 'warn' };
+  return E64_LIST_WORDS[s] || E64_LIST_WORDS['not-read'];
+}
+
+function e64ParseTime(s) {
+  if (s === null || s === undefined || s === '') return NaN;
+  var t = Date.parse(String(s));
+  return isNaN(t) ? NaN : t;
+}
+
+// UTC: Egeria dates are instants, usually at UTC midnight; local time would show the day before in the Americas.
+function e64FmtDate(s) {
+  var t = e64ParseTime(s);
+  if (isNaN(t)) return s ? String(s) : '';
+  return new Date(t).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
+}
+
+// A Decision's review and expiry, against `nowMs`. A missing date is said in words ("No review
+// date") and is never shown as on time; a date that can't be read is said as such, not guessed.
+function decisionDateFlags(d, nowMs) {
+  d = d || {};
+  var flag = function(raw, kind) {
+    if (!raw) return kind === 'review'
+      ? { state: 'none', text: 'No review date', tone: 'warn' }
+      : { state: 'none', text: 'No expiry date', tone: 'dim' };
+    var t = e64ParseTime(raw);
+    if (isNaN(t)) return { state: 'unreadable', text: (kind === 'review' ? 'Review date' : 'Expiry date') + ' not readable: ' + raw, tone: 'warn' };
+    var when = e64FmtDate(raw);
+    if (kind === 'review') return t < nowMs
+      ? { state: 'overdue', text: 'Review overdue (was due ' + when + ')', tone: 'bad' }
+      : { state: 'scheduled', text: 'Next review ' + when, tone: 'ok' };
+    return t < nowMs
+      ? { state: 'expired', text: 'Expired on ' + when, tone: 'bad' }
+      : { state: 'active', text: 'Expires ' + when, tone: 'ok' };
+  };
+  return { review: flag(d.nextReviewTime, 'review'), expiry: flag(d.expiryTime, 'expiry') };
+}
+
+// One row per assessment, keyed by its relationship GUID. When an element was assessed more than
+// once, each of its rows says which assessment it is ("2 of 3"), oldest first.
+function decisionAssessmentRows(rows) {
+  var list = (rows || []).slice();
+  var byEl = {};
+  list.forEach(function(r) { var k = r.guid || ''; (byEl[k] = byEl[k] || []).push(r); });
+  Object.keys(byEl).forEach(function(k) {
+    byEl[k].sort(function(a, b) {
+      var ta = e64ParseTime(a.assessmentTime), tb = e64ParseTime(b.assessmentTime);
+      if (isNaN(ta) && isNaN(tb)) return 0; if (isNaN(ta)) return 1; if (isNaN(tb)) return -1; return ta - tb;
+    });
+  });
+  var out = [];
+  Object.keys(byEl).sort(function(a, b) {
+    var na = (byEl[a][0].displayName || a).toLowerCase(), nb = (byEl[b][0].displayName || b).toLowerCase();
+    return na < nb ? -1 : na > nb ? 1 : 0;
+  }).forEach(function(k) {
+    var group = byEl[k];
+    group.forEach(function(r, i) {
+      out.push(Object.assign({}, r, {
+        key: r.relationshipGuid || ('row-' + k + '-' + i),
+        nth: group.length > 1 ? (i + 1) + ' of ' + group.length : '',
+      }));
+    });
+  });
+  return out;
+}
+
+var _E64_TONE = { ok: '#34d399', bad: '#f87171', warn: '#fbbf24', dim: 'var(--dim)' };
+
+function E64ListNote({ st }) {
+  var w = e64ListWords(st);
+  if (!w) return null;
+  return React.createElement('div', { className: 'e64-list-note', 'data-state': st && st.state,
+    style: { fontSize: 12, color: _E64_TONE[w.tone] || 'var(--dim)', padding: '4px 0' } }, w.text);
+}
+
+function E64Needs64({ words }) {
+  return React.createElement('div', { className: 'e64-needs64', role: 'status',
+    style: { margin: 16, padding: '10px 14px', borderRadius: 6, border: '1px solid rgba(251,191,36,.4)', background: 'rgba(251,191,36,.08)', color: '#fbbf24', fontSize: 13, overflowWrap: 'anywhere' } },
+    words || 'Needs Egeria 6.4.');
+}
+
+function _e64ElementCell(r, onNavigateToElement) {
+  var linkable = onNavigateToElement && r.guid && typeof _elementIsLinkable === 'function' && _elementIsLinkable(r);
+  var name = r.displayName || r.qualifiedName || r.guid || '—';
+  return React.createElement('div', null,
+    linkable
+      ? React.createElement('a', { href: '#', title: r.qualifiedName || r.guid, onClick: function(e) { e.preventDefault(); onNavigateToElement(r); } }, name)
+      : React.createElement('span', { title: r.qualifiedName || r.guid }, name),
+    r.typeName && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)' } }, r.typeName));
+}
+
+var _E64_TH = { textAlign: 'left', padding: '6px 8px', fontSize: 10, color: 'var(--dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)', verticalAlign: 'bottom', whiteSpace: 'normal', overflowWrap: 'anywhere' };
+var _E64_TD = { padding: '6px 8px', fontSize: 12, verticalAlign: 'top', whiteSpace: 'normal', wordBreak: 'break-word', overflowWrap: 'anywhere', borderTop: '1px solid var(--border)' };
+
+// A plain <table>: egeria-resize.js makes every column draggable (owner rule: all widths user-resizable).
+function E64Table({ cols, rows, cell, rowKey, minWidth }) {
+  return React.createElement('div', { style: { overflowX: 'auto', maxWidth: '100%' } },
+    React.createElement('table', { style: { width: '100%', minWidth: minWidth || 0, borderCollapse: 'collapse', tableLayout: 'fixed' } },
+      React.createElement('colgroup', null, cols.map(function(c) { return React.createElement('col', { key: c[0], style: { width: c[2] } }); })),
+      React.createElement('thead', null, React.createElement('tr', null,
+        cols.map(function(c) { return React.createElement('th', { key: c[0], style: _E64_TH }, c[1]); }))),
+      React.createElement('tbody', null, rows.map(function(r, i) {
+        return React.createElement('tr', { key: rowKey(r, i), 'data-row-key': rowKey(r, i) },
+          cols.map(function(c) { return React.createElement('td', { key: c[0], style: _E64_TD }, cell(c[0], r)); }));
+      }))));
+}
+
+var _DECISION_ASSESSMENT_COLS = [['element', 'Element', 170], ['label', 'Assessment', 140], ['when', 'Assessed', 110],
+  ['assessor', 'Assessor', 150], ['expiry', 'Expires', 100], ['notes', 'Notes', 200]];
+
+function DecisionAssessmentsTable({ rows, st, onNavigateToElement }) {
+  var words = e64ListWords(st);
+  var model = decisionAssessmentRows(rows);
+  if (words && !model.length) return React.createElement(E64ListNote, { st: st });
+  if (!model.length) return React.createElement(E64ListNote, { st: { state: 'none' } });
+  return React.createElement(E64Table, {
+    cols: _DECISION_ASSESSMENT_COLS, rows: model, minWidth: 870,
+    rowKey: function(r) { return r.key; },
+    cell: function(k, r) {
+      if (k === 'element') return _e64ElementCell(r, onNavigateToElement);
+      if (k === 'label') return React.createElement('div', null, r.label || '—',
+        r.nth && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)' } }, 'assessment ' + r.nth + ' of this element'),
+        r.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)' } }, r.description));
+      if (k === 'when') return r.assessmentTime ? e64FmtDate(r.assessmentTime) : React.createElement('span', { style: { color: 'var(--dim)' } }, 'not recorded');
+      if (k === 'assessor') return React.createElement('div', null, r.assessor || '—',
+        (r.assessorTypeName || r.assessorPropertyName) && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)' } },
+          [r.assessorTypeName, r.assessorPropertyName].filter(Boolean).join(' · ')));
+      if (k === 'expiry') return r.expiryTime ? e64FmtDate(r.expiryTime) : '—';
+      if (k === 'notes') return r.notes || '';
+      return '';
+    },
+  });
+}
+
+var _DECISION_OUTCOME_COLS = [['element', 'Outcome', 200], ['label', 'Label', 140], ['importance', 'Importance', 110],
+  ['disposition', 'Disposition', 120], ['description', 'Description', 220]];
+
+function DecisionOutcomesTable({ rows, st, onNavigateToElement }) {
+  var words = e64ListWords(st);
+  rows = rows || [];
+  if (words && !rows.length) return React.createElement(E64ListNote, { st: st });
+  if (!rows.length) return React.createElement(E64ListNote, { st: { state: 'none' } });
+  return React.createElement(E64Table, {
+    cols: _DECISION_OUTCOME_COLS, rows: rows, minWidth: 790,
+    rowKey: function(r, i) { return r.relationshipGuid || ('row-' + i); },
+    cell: function(k, r) {
+      if (k === 'element') return _e64ElementCell(r, onNavigateToElement);
+      return r[k] || '—';
+    },
+  });
+}
+
+function DecisionDatesPanel({ detail, nowMs }) {
+  var f = decisionDateFlags(detail, nowMs);
+  var chip = function(x, key) {
+    return React.createElement('span', { key: key, className: 'badge e64-date', 'data-state': x.state,
+      style: { color: _E64_TONE[x.tone], border: '0.5px solid ' + _E64_TONE[x.tone], background: 'transparent', whiteSpace: 'normal' } }, x.text);
+  };
+  var row = function(label, raw) {
+    return React.createElement('tr', { key: label },
+      React.createElement('td', { style: Object.assign({}, _E64_TD, { color: 'var(--dim)', width: 140 }) }, label),
+      React.createElement('td', { style: _E64_TD }, raw ? e64FmtDate(raw) : React.createElement('span', { style: { color: 'var(--dim)' } }, 'not recorded')));
+  };
+  return React.createElement('div', null,
+    React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 } }, chip(f.review, 'review'), chip(f.expiry, 'expiry')),
+    React.createElement('table', { style: { borderCollapse: 'collapse', width: '100%', maxWidth: 520 } },
+      React.createElement('tbody', null,
+        row('Started', detail.startTime), row('Last reviewed', detail.lastReviewTime),
+        row('Next review', detail.nextReviewTime), row('Expires', detail.expiryTime))));
+}
+
+function DecisionBody({ detail }) {
+  var block = function(label, val) {
+    if (!val || (Array.isArray(val) && !val.length)) return null;
+    return React.createElement('div', { key: label, style: { marginBottom: 10 } },
+      React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 } }, label),
+      Array.isArray(val)
+        ? React.createElement('ul', { style: { margin: '0 0 0 18px', padding: 0, fontSize: 13 } }, val.map(function(v, i) { return React.createElement('li', { key: i }, String(v)); }))
+        : React.createElement('div', { style: { fontSize: 13, whiteSpace: 'pre-wrap' } }, String(val)));
+  };
+  var parts = [block('Summary', detail.summary), block('Scope', detail.scope), block('Usage', detail.usage),
+               block('Implications', detail.implications), block('Notes', detail.notes)].filter(Boolean);
+  return parts.length ? React.createElement('div', null, parts)
+    : React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'No summary, scope, usage, implications or notes are recorded.');
+}
+
+function DecisionHeaderBadges({ detail }) {
+  var badge = function(label, val, color) {
+    return React.createElement('span', { key: label, className: 'badge', title: label,
+      style: { color: val ? color : 'var(--dim)', border: '0.5px solid ' + (val ? color : 'var(--border)'), background: 'transparent', whiteSpace: 'normal' } },
+      label + ': ' + (val || 'not recorded'));
+  };
+  return React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 } },
+    badge('Disposition', detail.disposition, '#c4b5fd'), badge('Importance', detail.importance, '#fbbf24'),
+    badge('Status', detail.contentStatus, '#34d399'));
+}
+/* e64-pure:end */
+
+function _e64FetchJson(url, creds) {
+  return egeriaFetch(url, creds).then(function(r) {
+    if (r.ok) return r.json();
+    return r.json().catch(function() { return {}; }).then(function(body) {
+      var err = new Error((body && body.detail) || ('HTTP ' + r.status));
+      err.status = r.status;
+      throw err;
+    });
+  });
+}
+
+function DecisionDetail({ detail, onNavigateToElement }) {
+  var personaId = React.useContext(PersonaContext);
+  var sectionHdr = { fontWeight: 700, fontSize: 13, marginBottom: 10, marginTop: 20, paddingBottom: 6, borderBottom: '1px solid var(--border)', color: 'var(--accent)' };
+  var lists = detail.lists || {};
+  var count = function(rows, st) { return st && st.state === 'read' ? ' (' + (rows || []).length + ')' : ''; };
+  return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%', minWidth: 0, overflowWrap: 'anywhere' } },
+    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
+      React.createElement('div', { style: { fontSize: 18, fontWeight: 700 } }, detail.displayName || detail.qualifiedName || detail.guid),
+      detail.typeName && React.createElement('span', { className: 'badge', style: { background: 'rgba(167,139,250,.1)', color: '#c4b5fd', border: '0.5px solid rgba(167,139,250,.3)' } }, detail.typeName),
+      React.createElement('div', { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
+        personaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'decisions', label: detail.displayName || detail.qualifiedName, icon: '⚑', url: '/egeria-explorer?guid=' + encodeURIComponent(detail.guid) + '#decisions', personaId: personaId }),
+        React.createElement(EgeriaFeedbackWidget, { guid: detail.guid })),
+      React.createElement(HeaderInfoButton, { header: detail._header }),
+      React.createElement(CopyJsonButton, { data: detail })),
+    React.createElement('code', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 12 } }, detail.guid),
+    React.createElement(DecisionHeaderBadges, { detail: detail }),
+    detail.description && React.createElement('div', { style: { fontSize: 13, marginBottom: 16 } }, renderMd(detail.description)),
+    React.createElement(DecisionBody, { detail: detail }),
+    React.createElement('div', { style: sectionHdr }, 'Dates'),
+    React.createElement(DecisionDatesPanel, { detail: detail, nowMs: Date.now() }),
+    React.createElement('div', { style: sectionHdr }, 'Assessed inputs' + count(detail.assessments, lists.inputsToDecision)),
+    React.createElement(DecisionAssessmentsTable, { rows: detail.assessments, st: lists.inputsToDecision, onNavigateToElement: onNavigateToElement }),
+    React.createElement('div', { style: sectionHdr }, 'Outcomes' + count(detail.outcomes, lists.decisionOutcomes)),
+    React.createElement(DecisionOutcomesTable, { rows: detail.outcomes, st: lists.decisionOutcomes, onNavigateToElement: onNavigateToElement }),
+    React.createElement('div', { style: sectionHdr }, 'Other properties'),
+    React.createElement(GenericPropertiesTable, {
+      item: detail,
+      priority: ['qualifiedName', 'identifier', 'authors', 'userDefinedContentStatus', 'versionIdentifier'],
+      skip: ['assessments', 'outcomes', 'lists', 'status', 'additionalProperties', 'summary', 'scope', 'usage', 'implications', 'notes',
+             'disposition', 'importance', 'contentStatus', 'startTime', 'lastReviewTime', 'nextReviewTime', 'expiryTime', 'description', 'displayName'],
+    }),
+    React.createElement(AdditionalPropertiesTable, { data: detail.additionalProperties }),
+    React.createElement('div', { style: { marginTop: 20 } },
+      React.createElement(AvailableMermaidDiagrams, { data: detail }),
+      React.createElement(MermaidSection, { guid: detail.guid, data: detail })),
+    detail.relationships && Object.keys(detail.relationships).length > 0 && React.createElement('div', null,
+      React.createElement('div', { style: sectionHdr }, 'Relationships'),
+      Object.entries(detail.relationships).map(function(pair) {
+        return React.createElement(RelationshipSection, { key: pair[0], title: _prettyRelLabel(pair[0]), items: pair[1], onNavigateToElement: onNavigateToElement });
+      })),
+    React.createElement(ClassificationsAndRawJson, { item: detail }),
+    React.createElement(EgeriaCommentsSection, { guid: detail.guid })
+  );
+}
+
+// A list + detail pane for one 6.4 element type (Decisions now; Data Values reuse it).
+// cfg: { listUrl, detailUrl(guid), noun, nounPlural, empty, Detail, sideKey, subtitle(item) }
+function E64ElementsView({ cfg, navGuid, onNavigateToElement }) {
+  const creds = React.useContext(CredContext);
+  const [sideW, onDivDown] = useResizable(280, null, null, cfg.sideKey);
+  const [filter, setFilter] = useState('');
+  const [inclTempl, setInclTempl] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [list, setList] = useState({ state: 'loading', items: [], capped: false, error: '', words: '' });
+  const [selected, setSelected] = useState(function() {
+    return new URLSearchParams(window.location.search).get('guid') || null;
+  });
+  usePublishNav(selected, null);
+  const [detail, setDetail] = useState({ state: 'idle', data: null, error: '', status: 0 });
+
+  useEffect(function() {
+    if (!creds) return;
+    setList({ state: 'loading', items: [], capped: false, error: '', words: '' });
+    _e64FetchJson(cfg.listUrl + (inclTempl ? '?include_templates=true' : ''), creds)
+      .then(function(d) {
+        if (d.needs64) setList({ state: 'needs64', items: [], capped: false, error: '', words: d.words });
+        else setList({ state: 'ready', items: d.items || [], capped: !!d.capped, error: '', words: '' });
+      })
+      .catch(function(e) { setList({ state: 'error', items: [], capped: false, error: e.message, words: '' }); });
+  }, [creds, attempt, inclTempl]);
+
+  useEffect(function() { if (navGuid) setSelected(navGuid); }, [navGuid]);
+
+  useEffect(function() {
+    if (!selected || !creds) { setDetail({ state: 'idle', data: null, error: '', status: 0 }); return; }
+    var cancelled = false;
+    setDetail({ state: 'loading', data: null, error: '', status: 0 });
+    _e64FetchJson(cfg.detailUrl(selected), creds)
+      .then(function(d) { if (!cancelled) setDetail(d.needs64 ? { state: 'needs64', data: null, error: d.words, status: 200 } : { state: 'ready', data: d, error: '', status: 200 }); })
+      .catch(function(e) { if (!cancelled) setDetail({ state: e.status === 404 ? 'missing' : 'error', data: null, error: e.message, status: e.status || 0 }); });
+    return function() { cancelled = true; };
+  }, [selected, creds, attempt]);
+
+  var filtered = useMemo(function() {
+    var q = filter.trim().toLowerCase();
+    if (!q) return list.items;
+    return list.items.filter(function(s) {
+      return [s.displayName, s.qualifiedName, cfg.subtitle(s)].some(function(v) { return (v || '').toLowerCase().includes(q); });
+    });
+  }, [list.items, filter]);
+
+  var msg = function(text, color) { return React.createElement('div', { style: { padding: 12, color: color || 'var(--dim)', fontSize: 12, overflowWrap: 'anywhere' } }, text); };
+
+  return React.createElement('div', { className: 'body' },
+    React.createElement('div', { className: 'sidebar', style: { width: sideW, display: 'flex', flexDirection: 'column' } },
+      React.createElement('div', { className: 'search-wrap', style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+        React.createElement('input', { className: 'search-input', type: 'search', placeholder: 'Filter ' + cfg.nounPlural.toLowerCase() + '…', value: filter, onChange: function(e) { setFilter(e.target.value); } }),
+        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+          React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' } },
+            React.createElement('input', { type: 'checkbox', checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { margin: 0, cursor: 'pointer', accentColor: 'var(--accent)' } }),
+            'Include templates'),
+          React.createElement('button', {
+            onClick: function() { setAttempt(function(a) { return a + 1; }); },
+            style: { marginLeft: 'auto', padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'rgba(20,32,52,.8)', color: 'var(--text)', cursor: 'pointer', fontSize: 11 },
+          }, '↻ Refresh'))),
+      list.state === 'loading' && msg('Loading…'),
+      list.state === 'needs64' && React.createElement(E64Needs64, { words: list.words }),
+      list.state === 'error' && msg('Couldn\'t read ' + cfg.nounPlural.toLowerCase() + ': ' + list.error, '#f87171'),
+      list.state === 'ready' && list.items.length === 0 && msg(cfg.empty),
+      list.state === 'ready' && list.items.length > 0 && filtered.length === 0 && msg('No matches.'),
+      list.state === 'ready' && list.capped && msg('Showing the first ' + list.items.length + ' — the list may be incomplete.', '#fbbf24'),
+      React.createElement('div', { style: { overflowY: 'auto', flex: 1 } },
+        filtered.map(function(s) {
+          var on = s.guid === selected;
+          var sub = cfg.subtitle(s);
+          return React.createElement('div', { key: s.guid, className: 'tree-item' + (on ? ' sel' : ''), onClick: function() { setSelected(s.guid); },
+            style: { display: 'block', minWidth: 0, padding: '6px 10px', whiteSpace: 'normal', overflowWrap: 'anywhere' } },
+            React.createElement('div', { style: { fontWeight: on ? 600 : 400, fontSize: 13 } }, s.displayName || s.qualifiedName || s.guid),
+            sub && React.createElement('div', { title: sub, style: { fontSize: 11, color: 'var(--dim)', marginTop: 2 } }, sub));
+        }))),
+    React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
+    React.createElement('div', { className: 'main', style: { minWidth: 0 } },
+      !selected ? (list.state === 'needs64' ? React.createElement(E64Needs64, { words: list.words }) : msg('Select a ' + cfg.noun.toLowerCase() + ' to see it.'))
+      : detail.state === 'loading' ? msg('Loading…')
+      : detail.state === 'needs64' ? React.createElement(E64Needs64, { words: detail.error })
+      : detail.state === 'missing' ? msg(cfg.noun + ' ' + selected + ' was not found: ' + detail.error, '#fbbf24')
+      : detail.state === 'error' ? msg('Couldn\'t read this ' + cfg.noun.toLowerCase() + ' (' + (detail.status ? 'HTTP ' + detail.status + ': ' : '') + detail.error + ').', '#f87171')
+      : detail.data && React.createElement(cfg.Detail, { key: detail.data.guid, detail: detail.data, onNavigateToElement: onNavigateToElement })
+    )
+  );
+}
+
+var DECISIONS_VIEW_CFG = {
+  listUrl: '/api/decisions', detailUrl: function(g) { return '/api/decisions/' + encodeURIComponent(g); },
+  noun: 'Decision', nounPlural: 'Decisions', empty: 'No decisions exist yet.', Detail: DecisionDetail,
+  sideKey: 'DecisionsView.sideW',
+  subtitle: function(s) { return [s.disposition, s.contentStatus].filter(Boolean).join(' · '); },
+};
+
+function DecisionsView({ navGuid, onNavigateToElement }) {
+  return React.createElement(E64ElementsView, { cfg: DECISIONS_VIEW_CFG, navGuid: navGuid, onNavigateToElement: onNavigateToElement });
+}
+
 // ── Statements of Applicability ──────────────────────────────────────────────
 // A StatementOfApplicability (Security Officer, Egeria 6.3) records which governance
 // controls apply to a scope and how far each is implemented. Each control is linked
@@ -14143,7 +14530,7 @@ function App() {
     var hash = window.location.hash.slice(1).split('?')[0];
     var valid = new Set(['type-system','reference-data','digital-products','collections','glossary',
       'report-specs','analytics','valid-values','rest-apis','python-api','solution-architect',
-      'data-design','perspectives','dr-egeria','isc','locations','actors','communities','business-capabilities','notelogs','governance','statements-of-applicability','naming-vocabulary','policy-enforcement','action-center','duplicate-review','projects','informal-tags','context-events','external-references','external-identifiers','agreements','search']);
+      'data-design','perspectives','dr-egeria','isc','locations','actors','communities','business-capabilities','notelogs','governance','statements-of-applicability','decisions','naming-vocabulary','policy-enforcement','action-center','duplicate-review','projects','informal-tags','context-events','external-references','external-identifiers','agreements','search']);
     return valid.has(hash) ? hash : 'splash';
   });
   // Same setter as before, but a real section change also drops the one-shot ?guid=/?kind=.
@@ -14285,6 +14672,12 @@ function App() {
     setSection('informal-tags');
   }, []);
 
+  const [decisionsNavGuid, setDecisionsNavGuid] = useState(null);
+  const onNavigateToDecision = useCallback(function(guid) {
+    setDecisionsNavGuid(guid || null);
+    setSection('decisions');
+  }, []);
+
   const [soaNavGuid, setSoaNavGuid] = useState(null);
   const onNavigateToSoa = useCallback(function(guid) {
     setSoaNavGuid(guid || null);
@@ -14378,6 +14771,7 @@ function App() {
     if (typeName === 'InformalTag') { onNavigateToInformalTag(guid); return; }
     if (typeName === 'ContextEvent') { onNavigateToContextEvent(guid); return; }
     if (typeName === 'StatementOfApplicability') { onNavigateToSoa(guid); return; }
+    if (typeName === 'Decision' || superTypes.indexOf('Decision') !== -1) { onNavigateToDecision(guid); return; }
     // ValidValueDefinition's other concrete subtypes (ReferenceDataSet,
     // ValidValueSet, …) resolve through the same generic by-guid endpoint as
     // ReferenceDataValue — unlike ValidMetadataValue below, these don't need
@@ -14424,7 +14818,7 @@ function App() {
     // Endpoint — Referenceable, not Asset, so it needs its own branch;
     // Tech Catalog's Infrastructure tab already has a dedicated fetch path.
     if (typeName === 'Endpoint') { window.open('/tech-catalog?guid=' + encodeURIComponent(guid), '_blank'); return; }
-  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToCollection, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToBusinessCapability, onNavigateToAction, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDesignPattern, onNavigateToDataDesign, onNavigateToPerspective, onNavigateToExternalReference, onNavigateToExternalIdentifier, onNavigateToAgreement, onNavigateToProject, onNavigateToValidValues, onNavigateToInformalTag, onNavigateToContextEvent, onNavigateToSoa]);
+  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToCollection, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToBusinessCapability, onNavigateToAction, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDesignPattern, onNavigateToDataDesign, onNavigateToPerspective, onNavigateToExternalReference, onNavigateToExternalIdentifier, onNavigateToAgreement, onNavigateToProject, onNavigateToValidValues, onNavigateToInformalTag, onNavigateToContextEvent, onNavigateToSoa, onNavigateToDecision]);
 
   const [typeSideW, onTypeDivDown] = useResizable(254, null, null, 'App.typeSideW');
 
@@ -14560,7 +14954,7 @@ function App() {
         }),
         React.createElement(NavGroup, {
           label: 'Review', connected: connected, currentSection: section,
-          isActive: ['glossary','reference-data','data-design','collections','solution-architect','isc','locations','actors','communities','business-capabilities','notelogs','perspectives','governance','statements-of-applicability','naming-vocabulary','policy-enforcement','action-center','duplicate-review','projects','informal-tags','context-events','external-references','external-identifiers','agreements'].includes(section),
+          isActive: ['glossary','reference-data','data-design','collections','solution-architect','isc','locations','actors','communities','business-capabilities','notelogs','perspectives','governance','statements-of-applicability','decisions','naming-vocabulary','policy-enforcement','action-center','duplicate-review','projects','informal-tags','context-events','external-references','external-identifiers','agreements'].includes(section),
           onSelect: setSection,
           items: [
             { id: 'glossary',           label: 'Glossary',                needsConnect: true },
@@ -14577,6 +14971,7 @@ function App() {
             { id: 'perspectives',       label: 'Perspectives',            needsConnect: true },
             { id: 'governance',         label: 'Governance Definitions',  needsConnect: true },
             { id: 'statements-of-applicability', label: 'Statements of Applicability', needsConnect: true },
+            { id: 'decisions',          label: 'Decisions',               needsConnect: true },
             { id: 'naming-vocabulary',  label: 'Naming Vocabulary',       needsConnect: true },
             { id: 'policy-enforcement', label: 'Policy Enforcement',     needsConnect: true },
             { id: 'action-center',      label: 'Action Center',           needsConnect: true },
@@ -14688,7 +15083,7 @@ function App() {
       : section === 'solution-architect'
       ? React.createElement(SolutionArchitectView, { key: credsKey, navProp: solutionNav, onNavigateToElement: onNavigateToElement })
       : section === 'data-design'
-      ? React.createElement(DataDesignView, { key: credsKey, navGuid: dataDesignNav.guid, navType: dataDesignNav.type, onNavigateToGlossary: onNavigateToGlossary, onNavigateToDigitalProduct: onNavigateToDigitalProduct })
+      ? React.createElement(DataDesignView, { key: credsKey, navGuid: dataDesignNav.guid, navType: dataDesignNav.type, onNavigateToGlossary: onNavigateToGlossary, onNavigateToDigitalProduct: onNavigateToDigitalProduct, onNavigateToElement: onNavigateToElement })
       : section === 'perspectives'
       ? React.createElement(PerspectivesView, { key: credsKey, navGuid: perspectiveNav, onNavigateToGlossary: onNavigateToGlossary, onNavigateToElement: onNavigateToElement })
       : section === 'dr-egeria'
@@ -14719,6 +15114,8 @@ function App() {
       ? React.createElement(ProjectsView, { key: credsKey, navGuid: projectNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'statements-of-applicability'
       ? React.createElement(StatementsOfApplicabilityView, { key: credsKey, navGuid: soaNavGuid, onNavigateToElement: onNavigateToElement })
+      : section === 'decisions'
+      ? React.createElement(DecisionsView, { key: credsKey, navGuid: decisionsNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'context-events'
       ? React.createElement(ContextEventsView, { key: credsKey, navGuid: contextEventsNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'informal-tags'
