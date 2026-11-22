@@ -26,9 +26,9 @@ None is 6.4-only, so no route is gated. What a run takes in and gives out is 6.4
     configured with (its signature).
 A run is a TransientEmbeddedProcess, so its results are recorded as lineage leaving it. The graph read returns
 lineage in one list, lineageLinkage (AttributedElementConverterBase: DataFlow, ControlFlow, ProcessCall,
-LineageMapping, ...), each entry with relatedElementAtEnd1. "Results (lineage out of the run)" are the data-lineage
-entries (DataFlow end 1 = dataSupplier, LineageMapping/DataMapping source end, UltimateDestination) where the run
-is at end 1. The run's other lineage entries are listed with their direction; the general Relationships block
+LineageMapping, ...), each entry with relatedElementAtEnd1. "Results (DataFlow out of the run)" are the DataFlow entries
+(end 1 = dataSupplier) where the run is at end 1 (PO-81). The run's other lineage entries, LineageMapping, DataMapping and
+UltimateDestination included, are listed with their direction; the general Relationships block
 leaves lineageLinkage out, so nothing is listed twice.
 Those lists use C1's list_state (needs-6.4 words on a platform before 6.4). The 6.4 gate's cached answer is
 also read for absent run metrics (RunMetrics is 6.2) and for the list routes' 404 rule: a bare 404 says
@@ -301,12 +301,14 @@ def related_rows_for_card(element: dict, carries: Optional[bool], words: str) ->
     return {**rel, "sections": sections, "carries": carries}
 
 
-# Data lineage whose end 1 is the source: with the run at end 1 (relatedElementAtEnd1 false), data leaves the run.
-_RESULT_LINEAGE = ("DataFlow", "LineageMapping", "DataMapping", "UltimateDestination")
+# PO-81: a run's results are the DataFlow out of it: a DataFlow's end 1 is the supplier, so with the run at end 1
+# (relatedElementAtEnd1 false) data leaves the run. LineageMapping, DataMapping and UltimateDestination are lineage too, but a
+# mapping of one element's data to another's is not the run's result: they are listed under Other lineage with their direction.
+_RESULT_LINEAGE = ("DataFlow",)
 
 
 def lineage_rows(element: dict, skip_rel_guids=()) -> tuple:
-    """(results, other) from the run's lineageLinkage. results: data lineage out of the run. other: every other
+    """(results, other) from the run's lineageLinkage. results: the DataFlow out of the run. other: every other
     lineage entry, with its direction in words ("out of the run", "into the run", "direction not recorded").
     Relationships the card already shows elsewhere (skip_rel_guids) are left out."""
     results, other = [], []
