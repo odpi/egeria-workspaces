@@ -671,12 +671,8 @@ function ResizeDivider({ onMouseDown }) {
 }
 
 /* ── Token-aware fetch (shared by Egeria Explorer + Tech Catalog) ────────────
- * egeriaFetch passes url/server as (non-secret) query params and the Egeria
- * bearer token as the X-Egeria-Token header — never user_pwd in the URL.
- * user_id goes in the URL only when there is no token: with a token every
- * handler takes the identity from it (egeria_auth.apply_token, request_identity)
- * and ignores ?user_id=, so sending it only misleads whoever reads the access
- * log (PO-4). Without a token many handlers still read it, so it stays there.
+ * egeriaFetch passes url/server/user_id as (non-secret) query params and the
+ * Egeria bearer token as the X-Egeria-Token header — never user_pwd in the URL.
  * On HTTP 401 it refreshes the token once via the callback an App registers in
  * _tokenRefresher.refresh, then retries. Each SPA registers its own refresher. */
 var _tokenRefresher = { refresh: null };
@@ -689,7 +685,7 @@ function egeriaFetch(url, creds, opts) {
     var p = new URLSearchParams();
     if (creds.url)    p.set('url',     creds.url);
     if (creds.server) p.set('server',  creds.server);
-    if (creds.userId && !creds.token) p.set('user_id', creds.userId);
+    if (creds.userId) p.set('user_id', creds.userId);
     if (creds.token)  headers['X-Egeria-Token'] = creds.token;
     var qs = p.toString();
     if (qs) queryUrl = url + (url.indexOf('?') === -1 ? '?' : '&') + qs;
