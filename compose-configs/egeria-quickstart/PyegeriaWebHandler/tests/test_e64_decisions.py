@@ -66,6 +66,15 @@ def test_unknown_version_then_bare_404_is_needs_6_4_not_an_error(client):
         assert "does not serve this request (HTTP 404)" in r.json()["words"]
 
 
+def test_a_404_on_a_6_4_platform_is_an_error_not_needs_6_4(client):
+    # read-back W1: laz is on 6.4, so a 404 there is a real failure and must not hide behind the gate's words
+    c = client(FakeExplorer(about=ABOUT_6_4, fail=client_error(404)))
+    for path in ("/api/decisions", "/api/decisions/dec-1"):
+        r = c.get(path)
+        assert r.status_code >= 400, path
+        assert "needs64" not in r.text and "needs Egeria 6.4" not in r.text
+
+
 def test_other_errors_stay_errors(client):
     r = client(FakeExplorer(about=ABOUT_6_4, fail=client_error(400))).get("/api/decisions")
     assert r.status_code >= 400 and "needs64" not in r.text

@@ -15,8 +15,9 @@ the platform is 6.4.
 
 The version gate (egeria_6_4_support): on an Egeria before 6.4 the answer is HTTP 200 with
 `needs64: true` and the gate's sentence. It is never an error, and never an empty list that reads as
-"none". When the platform's version can't be read, the read is sent; a bare HTTP 404 from it is read as
-"needs Egeria 6.4" as well.
+"none". Only when the platform's version can't be read is the read sent on trust, and then a bare HTTP 404
+from it is read as "needs Egeria 6.4" as well. On a platform known to be 6.4 a 404 is a real error and is
+reported as one.
 
 Auth: token only (X-Egeria-Token header, stashed by EgeriaTokenMiddleware and read by async_apply_token).
 No user_id/user_pwd query params; service credentials come from env vars, and only when no token is sent.
@@ -210,7 +211,7 @@ async def list_decisions(include_templates: bool = Query(False),
     try:
         raw, capped = await _list_of_type(client, "Decision")
     except Exception as exc:
-        if e64.is_missing_6_4_endpoint(exc):
+        if carries is None and e64.is_missing_6_4_endpoint(exc):   # a 404 on a 6.4 platform is a real error
             return _needs64("The Decisions list", purl, items=[], total=0)
         _raise_http(exc, "get_elements(Decision) failed")
     if not include_templates:
@@ -233,7 +234,7 @@ async def get_decision(guid: str, url: Optional[str] = Query(None), server: Opti
     try:
         element = await _read_element(client, guid, "Decision")
     except Exception as exc:
-        if e64.is_missing_6_4_endpoint(exc):
+        if carries is None and e64.is_missing_6_4_endpoint(exc):   # a 404 on a 6.4 platform is a real error
             return _needs64("The Decision card", purl)
         _raise_http(exc, "get_element_by_guid(Decision) failed")
     if not _is_type(element, "Decision"):

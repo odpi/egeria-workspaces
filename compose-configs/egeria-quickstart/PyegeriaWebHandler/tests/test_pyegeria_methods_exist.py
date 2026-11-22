@@ -120,6 +120,15 @@ def test_a_forward_shim_with_a_full_fallback_is_not_an_import_finding():
     other = ("try:\n    from pyegeria.core.no_such_module_yet import f\n"
              "except ValueError:\n    def f():\n        return 1\n")
     assert [f.kind for f in pyegeria_calls.scan_source(other, "<snippet>").findings] == ["import"]
+    # read-back S1: a module the installed pyegeria HAS is checked as usual, fallback or not, so a renamed
+    # name in it is a finding rather than a silent fallback to the copy
+    present = ("try:\n    from pyegeria.core._exceptions import NoSuchNameAnyMore\n"
+               "except ImportError:\n    class NoSuchNameAnyMore(Exception):\n        pass\n")
+    assert [f.kind for f in pyegeria_calls.scan_source(present, "<snippet>").findings] == ["import"]
+    # only the handler's own top-level definitions count: a name defined inside a nested function does not
+    nested = ("try:\n    from pyegeria.core.no_such_module_yet import f, g\n"
+              "except ImportError:\n    def f():\n        def g():\n            return 2\n        return g\n")
+    assert [f.kind for f in pyegeria_calls.scan_source(nested, "<snippet>").findings] == ["import", "import"]
 
 
 def test_the_scan_accepts_delegated_and_real_names():
