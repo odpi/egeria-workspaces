@@ -1,0 +1,64 @@
+{{- $name := include "egeria-demo-postgres.name" . -}}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "egeria-demo-postgres.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  serviceName: {{ $name }}
+  selector:
+    matchLabels:
+      {{- include "egeria-demo-postgres.selector" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "egeria-demo-postgres.labels" . | nindent 8 }}
+      annotations:
+        checksum/init: {{ .Files.Get "files/init-egeria-demo.sql" | sha256sum }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ .Values.securityContext.runAsUser }}
+        runAsGroup: {{ .Values.securityContext.runAsGroup }}
+        fsGroup: {{ .Values.securityContext.fsGroup }}
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: postgres
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["-p", "5442", "-c", "shared_preload_libraries=pg_stat_statements", "-c", "max_connections=300"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          env:
+            - {name: POSTGRES_USER, value: postgres}
+            - name: POSTGRES_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ $name }}-superuser, key: password}}
+            - {name: PGDATA, value: /var/lib/postgresql/data/pgdata}
+          ports: [{name: postgres, containerPort: 5442}]
+          readinessProbe:
+            exec: {command: [sh, -c, "pg_isready -U postgres -p 5442"]}
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - {name: data, mountPath: /var/lib/postgresql/data}
+            - {name: init, mountPath: /docker-entrypoint-initdb.d}
+      volumes:
+        - name: init
+          secret: {secretName: {{ $name }}-init, defaultMode: 0444}
+        {{- if not .Values.persistence.enabled }}
+        - {name: data, emptyDir: {}}
+        {{- end }}
+  {{- if .Values.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata: {name: data}
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- if .Values.persistence.storageClassName }}
+        storageClassName: {{ .Values.persistence.storageClassName }}
+        {{- end }}
+        resources: {requests: {storage: {{ .Values.persistence.size }}}}
+  {{- end }}

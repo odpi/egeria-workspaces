@@ -1,0 +1,22 @@
+# DEMO ONLY. One PostgreSQL pod, public demo role passwords, no backups, no HA.
+# Same image as compose's shared-infra (SHARED_POSTGRES_IMAGE). Port is fixed at 5442, as in compose.
+image:
+  repository: pgvector/pgvector
+  tag: pg17
+  pullPolicy: IfNotPresent
+persistence:
+  # false = an emptyDir: the data is lost when the pod is rescheduled.
+  enabled: true
+  size: 5Gi
+  storageClassName: ""
+resources:
+  requests: {cpu: 200m, memory: 512Mi}
+  limits: {memory: 2Gi}
+# Runs as the image's postgres user (999). Not supported on OpenShift's arbitrary UIDs: use your own database there.
+securityContext:
+  runAsUser: 999
+  runAsGroup: 999
+  fsGroup: 999
+# Post-install/upgrade Job that re-runs the idempotent set-up (creates only, never drops).
+initJob:
+  enabled: true

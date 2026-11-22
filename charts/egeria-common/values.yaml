@@ -1,0 +1,4 @@
+# egeria-common is a library chart: it has no values of its own. This file exists because ct lint requires one.
+global:
+  # Read by the helpers; see egeria-common.openshift.
+  openshift: false

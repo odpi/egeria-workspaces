@@ -1,0 +1,159 @@
+{{- $cfg := include "egeria-portal.cfg" . | fromYaml -}}
+{{- $v := .Values -}}
+{{- $labels := include "egeria-common.labels" (dict "ctx" . "component" "portal") -}}
+{{- $content := dict "config" "/config" "work" "/work" "cocoWorkbooks" "/coco-workbooks" "designPatterns" "/design-patterns" "templates" "/app/templates" "cocoDags" "/app/coco-dags" -}}
+{{- $exchange := dict "loadingBay" "loading-bay" "landingArea" "landing-area" "cocoDataLake" "coco-data-lake" "distributionHub" "distribution-hub" "treasuryDtsHistory" "treasury-dts-history" -}}
+{{- $propsCm := default (printf "%s-properties" $cfg.platformHost) $v.platform.propertiesConfigMap -}}
+{{- $userDirSecret := default (printf "%s-secrets" $cfg.platformHost) $v.platform.userDirectorySecret -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $cfg.fullname }}
+  labels:
+    {{- $labels | nindent 4 }}
+spec:
+  replicas: 1
+  # One volume, one writer: never two pods at once.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "egeria-common.selectorLabels" (dict "ctx" . "component" "portal") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- $labels | nindent 8 }}
+        {{ $v.networkPolicy.platformClientLabel }}: "true"
+    spec:
+      securityContext:
+        {{- include "egeria-common.podSecurityContext" . | nindent 8 }}
+      containers:
+        - name: portal
+          image: {{ $cfg.portalImage }}
+          imagePullPolicy: {{ $v.images.portal.pullPolicy }}
+          securityContext:
+            {{- include "egeria-common.containerSecurityContext" . | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - {name: EGERIA_PLATFORM_URL, value: {{ $cfg.platformUrl }}}
+            - {name: EGERIA_VIEW_SERVER, value: {{ $cfg.viewServer }}}
+            - {name: EGERIA_VIEW_SERVER_URL, value: {{ $cfg.platformUrl }}}
+            - {name: EGERIA_INTEGRATION_DAEMON_URL, value: {{ $cfg.platformUrl }}}
+            - {name: EGERIA_USER, value: {{ $cfg.userId }}}
+            - {name: EGERIA_USER_PASSWORD, valueFrom: {secretKeyRef: {name: {{ $cfg.secretName }}, key: egeria-user-password}}}
+            - {name: JWT_SECRET, valueFrom: {secretKeyRef: {name: {{ $cfg.secretName }}, key: jwt-secret}}}
+            - {name: MCP_ACCESS_TOKEN, valueFrom: {secretKeyRef: {name: {{ $cfg.secretName }}, key: mcp-access-token}}}
+            # Never "/" (compose's value): a non-root user cannot write there. The image's group-0 directory instead.
+            - {name: EGERIA_ROOT_PATH, value: /app/dr-egeria}
+            - {name: EGERIA_INBOX_PATH, value: dr-egeria-inbox}
+            - {name: EGERIA_OUTBOX_PATH, value: dr-egeria-outbox}
+            - {name: HOME, value: /home/portal}
+            - {name: DEMO_MODE, value: {{ $v.demoMode | quote }}}
+            # Set explicitly: the image's default differs by environment (true for freshstart, false for quickstart).
+            - {name: SERVER_MANAGED_AUTH, value: {{ $cfg.managedAuth | quote }}}
+            - {name: DEMO_DB_PATH, value: /app/demo-data/demo.db}
+            - {name: FEEDBACK_DB_PATH, value: /app/demo-data/feedback.db}
+            - {name: PYEGERIA_SSL_VERIFY, value: {{ $v.tls.verify | quote }}}
+            {{- if $v.tls.caSecret }}
+            - {name: PYEGERIA_CA_BUNDLE, value: /etc/egeria-ca/ca.crt}
+            {{- end }}
+            - {name: PORTAL_ALLOWED_PLATFORM_URLS, value: {{ $cfg.platformUrl }}}
+            {{- if $v.content.cocoWorkbooks.existingClaim }}
+            - {name: EGERIA_BOOTSTRAP_SCAN_ROOTS, value: /coco-workbooks}
+            {{- else }}
+            - {name: EGERIA_BOOTSTRAP_SCAN_ROOTS, value: ""}
+            {{- end }}
+            {{- if $v.siteUrl }}
+            - {name: SITE_URL, value: {{ $v.siteUrl | quote }}}
+            {{- end }}
+            {{- if eq $v.environment "freshstart" }}
+            - {name: EGERIA_ADMIN_USERS, value: bootstrap}
+            - {name: EGERIA_ADMIN_CALLER_ID, value: bootstrap}
+            - {name: EGERIA_USER_SECRETS_PATH, value: /secrets/user-directory.omsecrets}
+            - {name: APPLICATION_PROPERTIES_PATH, value: /platform/application.properties}
+            {{- end }}
+            {{- with $v.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          resources:
+            {{- toYaml $v.resources.portal | nindent 12 }}
+          # The Portal starts even while Egeria is unreachable (it retries), so start-up is judged on the Portal alone.
+          startupProbe:
+            httpGet: {path: /, port: http}
+            periodSeconds: 10
+            failureThreshold: 60
+          # Plain GET /, like liveness: Egeria reachability is proven by `helm test`, not by pod readiness (a platform
+          # outage must not turn into a 503 at the Ingress, and a probe must not mint tokens).
+          readinessProbe:
+            httpGet: {path: /, port: http}
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: {path: /, port: http}
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+          volumeMounts:
+            - {name: data, mountPath: /home/portal/.pyegeria, subPath: state}
+            - {name: data, mountPath: /app/demo-data, subPath: demo-data}
+            - {name: data, mountPath: /app/dr-egeria, subPath: dr-egeria}
+            {{- range $k, $path := $content }}
+            - {name: content-{{ $k | kebabcase }}, mountPath: {{ $path }}}
+            {{- end }}
+            {{- range $k, $dir := $exchange }}
+            - {name: exchange-{{ $k | kebabcase }}, mountPath: /deployments/{{ $dir }}, readOnly: true}
+            {{- end }}
+            {{- if $v.tls.caSecret }}
+            - {name: ca, mountPath: /etc/egeria-ca, readOnly: true}
+            {{- end }}
+            {{- if eq $v.environment "freshstart" }}
+            - {name: platform-properties, mountPath: /platform, readOnly: true}
+            - {name: platform-userdir, mountPath: /secrets, readOnly: true}
+            {{- end }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ $cfg.dataClaim }}
+        {{- range $k, $path := $content }}
+        - name: content-{{ $k | kebabcase }}
+          {{- $claim := (index $v.content $k).existingClaim }}
+          {{- if $claim }}
+          persistentVolumeClaim: {claimName: {{ $claim }}}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        {{- end }}
+        {{- range $k, $dir := $exchange }}
+        - name: exchange-{{ $k | kebabcase }}
+          {{- $claim := (index $v.exchange $k).existingClaim }}
+          {{- if $claim }}
+          persistentVolumeClaim: {claimName: {{ $claim }}, readOnly: true}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        {{- end }}
+        {{- if $v.tls.caSecret }}
+        - name: ca
+          secret: {secretName: {{ $v.tls.caSecret }}}
+        {{- end }}
+        {{- if eq $v.environment "freshstart" }}
+        - name: platform-properties
+          configMap: {name: {{ $propsCm }}, optional: true}
+        - name: platform-userdir
+          secret:
+            secretName: {{ $userDirSecret }}
+            optional: true
+            items: [{key: egeria-user-directory.omsecrets, path: user-directory.omsecrets}]
+        {{- end }}
+      {{- with $v.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $v.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $v.affinity }}
+      affinity: {{- toYaml . | nindent 8 }}
+      {{- end }}

@@ -1,0 +1,9 @@
+# chart-testing config: ct lint --config charts/ct.yaml
+chart-dirs:
+  - charts
+target-branch: main
+validate-maintainers: false
+chart-yaml-schema: charts/ct/chart_schema.yaml
+lint-conf: charts/ct/lintconf.yaml
+helm-extra-args: --timeout 120s
+check-version-increment: false

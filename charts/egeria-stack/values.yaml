@@ -1,0 +1,19 @@
+# egeria-stack: the platform (subchart alias "core") and the Portal (alias "portal") as one release.
+# Values for each go under core: and portal: and are those charts' own values (see their values.yaml).
+# What is shared is set once here and checked by the chart.
+
+global:
+  # true: no runAsUser/runAsGroup/fsGroup anywhere (OpenShift restricted-v2).
+  openshift: false
+  # Tells the Portal its platform is this release's own Service, <release>-platform. Do not change.
+  stack: true
+
+# quickstart | freshstart. Must be the same for both; set it once here.
+environment: quickstart
+# demo | production. Use values-demo.yaml or values-production.yaml.
+posture: demo
+
+core:
+  enabled: true
+portal:
+  enabled: true

@@ -1,0 +1,81 @@
+# Non-root Apache front door for Kubernetes / OpenShift (TR-112a). Compose does NOT use this file:
+# it builds Dockerfile-apache-web (root master process). This variant is the same image plus
+# the default httpd.conf and proxy confs baked in (a chart overrides them with a ConfigMap),
+# and runs as a numeric UID with GID 0 so it also works under an arbitrary UID.
+# Listens on 8085 (httpd.conf), so no privileged port. Build context: this directory, for both
+# environments (freshstart builds from ../egeria-quickstart too).
+FROM docker.io/library/python:3.14-slim-bookworm@sha256:9ab8d9c8514b44f90cf0029dd42fdd7e9e211e639c8b995304cc04568dee900f AS python-base
+
+FROM docker.io/library/httpd:2.4-bookworm@sha256:fbc12199ccad031d8047e9c789d65aceee2d14f99ba90664cd3a3996867a5582
+
+# Copy Python from the python-base image
+COPY --from=python-base /usr/local/ /usr/local/
+
+# For settng up FastAPI
+COPY ./sites-available/fastapi-proxy.conf /usr/local/apache2/conf/extra/fastapi-proxy.conf
+
+# Install necessary libraries for Python and Apache
+# Use HTTPS apt sources to avoid environments that block outbound HTTP.
+RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list.d/*.sources && \
+    apt-get -o Acquire::Retries=10 update && \
+    apt-get install -y --no-install-recommends \
+    ca-certificates \
+    libsqlite3-0 \
+    libexpat1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Enable the necessary Apache modules for reverse proxying
+# These are often enabled by default, but explicitly enabling ensures it.
+# The 'a2enmod' command is not available in the httpd image, so we modify httpd.conf directly.
+# This sed command uncomments the LoadModule lines for proxy and proxy_http
+RUN sed -i '/^#LoadModule proxy_module modules\/mod_proxy.so/s/^#//' /usr/local/apache2/conf/httpd.conf && \
+    sed -i '/^#LoadModule proxy_http_module modules\/mod_proxy_http.so/s/^#//' /usr/local/apache2/conf/httpd.conf && \
+    sed -i '/^#LoadModule rewrite_module modules\/mod_rewrite.so/s/^#//' /usr/local/apache2/conf/httpd.conf
+
+# This tells Apache to load your fastapi-proxy.conf
+RUN echo "Include conf/extra/fastapi-proxy.conf" >> /usr/local/apache2/conf/httpd.conf
+
+
+# Set working directory
+WORKDIR /usr/local/apache2
+
+# Create a Python virtual environment for CGI scripts
+RUN python3 -m venv /usr/local/apache2/venv
+
+# Install pyegeria and other required Python packages in the virtual environment
+RUN /usr/local/apache2/venv/bin/pip install --no-cache-dir --retries 10 --timeout 60 --upgrade pip
+
+# pyegeria in its own layer, same pattern as Dockerfile-jupyter. Docker caches
+# this layer, so a plain rebuild — including redeploy-demo, which deletes the
+# image but not the build cache — keeps the previously-installed version. To
+# pull a fresh one, bump the cache key or pin a version at build time:
+#   docker compose build --build-arg PYEGERIA_BUST=$(date +%s) apache-web
+#   docker compose build --build-arg PYEGERIA_VERSION=pyegeria==6.1.0 apache-web
+# NO_CACHE=1 ./redeploy-demo does the same thing for every image at once.
+ARG PYEGERIA_VERSION=pyegeria>=6.3.0
+ARG PYEGERIA_BUST=0
+RUN echo "pyegeria layer ${PYEGERIA_BUST}" \
+    && /usr/local/apache2/venv/bin/pip install --no-cache-dir --retries 10 --timeout 60 --upgrade "${PYEGERIA_VERSION}"
+
+
+# Make sure the CGI scripts directory exists
+RUN mkdir -p /usr/local/apache2/htdocs/cgi-bin
+
+# Create a wrapper script to activate the virtual environment for CGI scripts
+RUN echo '#!/bin/bash\nsource /usr/local/apache2/venv/bin/activate\nexec "$@"' > /usr/local/apache2/venv_wrapper.sh && \
+    chmod +x /usr/local/apache2/venv_wrapper.sh
+
+# Set permissions for CGI scripts
+RUN chmod -R 755 /usr/local/apache2/htdocs/cgi-bin
+
+# --- non-root, arbitrary-UID variant ---
+COPY ./httpd.conf /usr/local/apache2/conf/httpd.conf
+# Only the files compose mounts: fastapi-ssl.conf is IncludeOptional and breaks without its certificates.
+COPY ./sites-available/fastapi-proxy.conf ./sites-available/proxy-locations.conf /usr/local/apache2/conf/extra/
+COPY ./markdown-header.html /usr/local/apache2/conf/markdown-header.html
+# Writable paths, group 0 with g=u: logs/ (error log, scoreboard, CGI socket), the PID file
+# (/tmp/httpd.pid via httpd.conf PidFile), and /tmp. Config and htdocs stay read-only.
+RUN mkdir -p /usr/local/apache2/logs && chgrp -R 0 /usr/local/apache2/logs \
+    && chmod -R g=u /usr/local/apache2/logs && chmod 1777 /tmp
+USER 1001:0
+EXPOSE 8085

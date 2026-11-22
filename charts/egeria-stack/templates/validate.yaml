@@ -1,0 +1,29 @@
+{{- /* The two parts must agree. A mismatch would start a Portal for one environment against the other's platform. */ -}}
+{{- $env := .Values.environment -}}
+{{- if not (has $env (list "quickstart" "freshstart")) -}}
+{{- fail (printf "environment must be quickstart or freshstart, not %q (set environment)" $env) -}}
+{{- end -}}
+{{- if not (has .Values.posture (list "demo" "production")) -}}
+{{- fail (printf "posture must be demo or production, not %q (use values-demo.yaml or values-production.yaml)" .Values.posture) -}}
+{{- end -}}
+{{- if and .Values.core.enabled .Values.portal.enabled -}}
+{{- if ne (toString .Values.core.environment) $env -}}
+{{- fail (printf "core.environment is %q but environment is %q: set environment once, with --set environment=... and --set core.environment=... %s" (toString .Values.core.environment) $env "to the same value (the umbrella cannot set a subchart's values for you)") -}}
+{{- end -}}
+{{- if ne (toString .Values.portal.environment) $env -}}
+{{- fail (printf "portal.environment is %q but environment is %q: set portal.environment to the same value" (toString .Values.portal.environment) $env) -}}
+{{- end -}}
+{{- if or (ne (toString .Values.core.posture) (toString .Values.posture)) (ne (toString .Values.portal.posture) (toString .Values.posture)) -}}
+{{- fail (printf "posture is %q, core.posture is %q and portal.posture is %q: all three must be the same. Use -f values-%s.yaml, which sets all three (setting posture alone changes nothing in the parts)." (toString .Values.posture) (toString .Values.core.posture) (toString .Values.portal.posture) (toString .Values.posture)) -}}
+{{- end -}}
+{{- if and .Values.portal.platform.serviceName (ne .Values.portal.platform.serviceName (printf "%s-platform" .Release.Name)) -}}
+{{- fail (printf "portal.platform.serviceName is %q but this release's platform Service is %q: leave it empty" .Values.portal.platform.serviceName (printf "%s-platform" .Release.Name)) -}}
+{{- end -}}
+{{- end -}}
+{{- /* The same refusal as the platform chart's (an umbrella's subchart fail would also fire, this names the umbrella value). */ -}}
+{{- if and .Values.core.enabled (eq (toString .Values.core.posture) "production") .Values.core.tls.existingSecret -}}
+{{- $tls := lookup "v1" "Secret" .Release.Namespace .Values.core.tls.existingSecret -}}
+{{- if and $tls $tls.data (hasKey $tls.data "keystore-password") (eq (index $tls.data "keystore-password" | b64dec) (.Files.Get "files/demo-keystore-password" | trim)) -}}
+{{- fail (printf "core.tls.existingSecret %q holds the PUBLIC demo keystore password from the Egeria repository, so anyone can open the keystore and this TLS is not private. The production posture refuses it: make a keystore and password of your own (see charts/tests/make_san_keystore.sh)." .Values.core.tls.existingSecret) -}}
+{{- end -}}
+{{- end -}}
