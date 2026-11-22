@@ -126,10 +126,25 @@ def test_templates_left_out_unless_asked(client):
     assert client(fake).get("/api/analytics-models?include_templates=true").json()["total"] == 2
 
 
-def test_a_bare_404_on_the_list_says_the_platform_lacks_the_type_in_words(client):
-    body = client(FakeExplorer(about=ABOUT_6_4, fail=client_error(404))).get("/api/analytics-models").json()
+def test_a_bare_404_with_the_version_unreadable_says_the_platform_lacks_the_type(client):
+    fake = FakeExplorer(about=RuntimeError("unreadable"), fail=client_error(404))
+    body = client(fake).get("/api/analytics-models").json()
     assert body["needsVersion"] is True and body["items"] == []
-    assert "need Egeria 5.2 or later" in body["words"]
+    assert "need Egeria 5.2 or later" in body["words"] and "version could not be read" in body["words"]
+
+
+@pytest.mark.parametrize("about", [ABOUT_6_4, ABOUT_6_3])
+def test_a_bare_404_on_a_known_platform_is_an_error_with_no_version_words(client, about):
+    r = client(FakeExplorer(about=about, fail=client_error(404))).get("/api/analytics-models")
+    assert r.status_code == 404
+    assert "needsVersion" not in r.text and "need Egeria" not in r.text
+
+
+def test_a_platform_known_to_predate_5_2_sends_nothing(client):
+    fake = FakeExplorer(about={"version": "5.1", "time": "2025-01-01T00:00:00Z"})
+    body = client(fake).get("/api/analytics-model-runs").json()
+    assert body["needsVersion"] is True and "runs Egeria 5.1" in body["words"]
+    assert fake.calls == []
 
 
 def test_other_errors_stay_errors(client):
@@ -231,6 +246,82 @@ def test_run_card_dates_model_and_metrics(client):
     assert body["models"][0]["guid"] == "m-1" and body["lists"]["models"] == {"state": "read"}
     assert body["startTime"] == "2026-11-20T10:00:00Z" and body["completionTime"] == ""   # missing date: empty, said in words by the UI
     assert body["activityStatus"] == "COMPLETED" and body["runMetrics"]["state"] == "read"
+
+
+# ── parameters and results (ProcessingVariable), the signature (SupportedVariableType): Egeria 6.4 ─────────
+
+def pv(rel_guid, dv_guid, name, position=None, label="", literal=None, el_type="LiteralDataValue", **dv):
+    rp = {"label": label}
+    if position is not None:
+        rp["position"] = position
+    props = {"displayName": name, **dv, **({"dataValue": literal} if literal is not None else {})}
+    return rel("ProcessingVariable", rel_guid, dv_guid, el_type=el_type, el_props=props, rel_props=rp,
+               super_types=(["DataValue", "Referenceable"] if el_type == "LiteralDataValue" else ["Referenceable"]))
+
+
+def svt(rel_guid, st_guid, name, position=None, mn=None, mx=None):
+    rp = {"label": name}
+    for k, v in (("position", position), ("minCardinality", mn), ("maxCardinality", mx)):
+        if v is not None:
+            rp[k] = v
+    return rel("SupportedVariableType", rel_guid, st_guid, el_type="PrimitiveSchemaType", el_props={"displayName": name, "dataType": "float"},
+               rel_props=rp, super_types=["SchemaType", "Referenceable"])
+
+
+def test_run_parameters_and_results_in_position_order_with_values(client):
+    el = run(extra={"processingVariables": [
+        pv("pv-3", "dv-3", "score", position=0, label="result", literal="0.82", dataType="float"),
+        pv("pv-2", "dv-2", "threshold", position=2, label="parameter", literal="0.5"),
+        pv("pv-1", "dv-1", "training set", position=1, label="input", el_type="DataValue", dataFormat="parquet"),
+        pv("pv-1", "dv-1", "training set", position=1, label="input", el_type="DataValue")]})   # same relationship twice
+    body = client(FakeExplorer(about=ABOUT_6_4, elements={"r-1": el})).get("/api/analytics-model-runs/r-1").json()
+    assert [v["relationshipGuid"] for v in body["variables"]] == ["pv-1", "pv-2", "pv-3"]   # 1, 2, then unset
+    assert body["variables"][2]["position"] is None and body["variables"][2]["positionSet"] is False
+    assert body["variables"][1]["value"] == {"kind": "literal", "dataValue": "0.5", "dataValueList": None, "dataValueMap": None}
+    assert body["variables"][0]["value"] == {"kind": "not-literal"} and body["variables"][0]["dataFormat"] == "parquet"
+    assert [v["label"] for v in body["variables"]] == ["input", "parameter", "result"]
+    assert body["lists"]["variables"] == {"state": "read"}
+    assert "processingVariables" not in body["relationships"]
+    assert all(l["key"] != "processingVariables" for s_ in body["related"]["sections"] for l in s_["lists"])
+
+
+def test_run_with_no_variables_on_6_4_says_none_and_before_6_4_needs_6_4(client):
+    body = client(FakeExplorer(about=ABOUT_6_4, elements={"r-1": run()})).get("/api/analytics-model-runs/r-1").json()
+    assert body["variables"] == [] and body["lists"]["variables"] == {"state": "none"}
+    # the gate caches per platform URL: each platform here gets its own
+    body = client(FakeExplorer(about=ABOUT_6_3, elements={"r-1": run()}, url="https://e63.test:9443")).get("/api/analytics-model-runs/r-1").json()
+    st = body["lists"]["variables"]
+    assert st["state"] == "needs-6.4" and "parameters and results" in st["words"] and "runs Egeria 6.3" in st["words"]
+    body = client(FakeExplorer(about=RuntimeError("x"), elements={"r-1": run()}, url="https://unknown.test:9443")).get("/api/analytics-model-runs/r-1").json()
+    assert body["lists"]["variables"] == {"state": "not-known"}
+
+
+def test_model_signature_in_position_order(client):
+    el = model(extra={"processVariableTypes": [svt("s-2", "st-2", "threshold", position=2, mn=1, mx=1),
+                                                svt("s-0", "st-0", "extras", position=0),
+                                                svt("s-1", "st-1", "features", position=1, mn=1)]})
+    body = client(FakeExplorer(about=ABOUT_6_4, elements={"m-1": el})).get("/api/analytics-models/m-1").json()
+    assert [t["relationshipGuid"] for t in body["variableTypes"]] == ["s-1", "s-2", "s-0"]
+    assert body["variableTypes"][0]["minCardinality"] == 1 and body["variableTypes"][0]["maxCardinality"] is None
+    assert body["variableTypes"][0]["dataType"] == "float" and body["lists"]["variableTypes"] == {"state": "read"}
+    assert "processVariableTypes" not in body["relationships"]
+
+
+def test_model_signature_before_6_4_says_needs_6_4(client):
+    body = client(FakeExplorer(about=ABOUT_6_3, elements={"m-1": model()})).get("/api/analytics-models/m-1").json()
+    assert body["lists"]["variableTypes"]["state"] == "needs-6.4" and "signature" in body["lists"]["variableTypes"]["words"]
+
+
+def test_other_6_4_lists_go_to_related_rows_and_never_to_relationships(client):
+    dec = rel("Outcome", "o-1", "dec-1", el_type="Decision", el_props={"displayName": "Use the churn model"})
+    el = model(extra={"associatedDecisions": [dec]})
+    body = client(FakeExplorer(about=ABOUT_6_4, elements={"m-1": el})).get("/api/analytics-models/m-1").json()
+    assert "associatedDecisions" not in body["relationships"]
+    keys = [l["key"] for s_ in body["related"]["sections"] for l in s_["lists"]]
+    assert "associatedDecisions" in keys
+    assert not set(keys) & {"processingVariables", "processVariableTypes", "workedOnByProjects", "projectTargets"}
+    out = [l for s_ in body["related"]["sections"] for l in s_["lists"] if l["key"] == "associatedDecisions"][0]
+    assert out["rows"][0]["guid"] == "dec-1" and out["st"] == {"state": "read"}
 
 
 def test_run_with_no_model_says_none(client):

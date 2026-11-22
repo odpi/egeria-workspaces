@@ -17,8 +17,20 @@ The types (Egeria source 90232870b2; design note DESIGN-PORTAL-MODELS-2026-11-22
   ExternalModelSource (ExternalReference): Egeria 6.0.
   RunMetrics, a classification on Process (ElementHeader.runMetrics): Egeria 6.2.
   ProjectTarget (workedOnByProjects / projectTargets), the project link: Egeria 6.4.
-None is 6.4-only, so no route is gated. The 6.4 gate's cached answer is read only to choose words: for the
-project list (C1's list_state) and for absent run metrics on a platform before 6.2.
+None is 6.4-only, so no route is gated. What a run takes in and gives out is 6.4 (odpi/egeria#9463):
+  ProcessingVariable (Referenceable -> DataValue; label, description, position; 0 = unset): the data values an
+    element uses. Egeria gives it no direction, so parameters and results are one list in position order, and
+    the label (when its author set one) is what tells them apart. The card says so.
+  SupportedVariableType (Referenceable -> SchemaType; position, minCardinality, maxCardinality): the types of
+    value an element accepts, i.e. a model's declared signature.
+Those lists use C1's list_state (needs-6.4 words on a platform before 6.4). The 6.4 gate's cached answer is
+also read for absent run metrics (RunMetrics is 6.2) and for the list routes' 404 rule: a bare 404 says
+"the platform lacks the types" only when the version could not be read; on a platform whose version is
+known (5.2 or later) a 404 is an error.
+
+The other 6.4 lists (decisions, data values provided, Branch) come from e64_handler.serialize_related over the
+card's own graph read, without the lists the card already shows; the general Relationships block repeats none of
+the 6.4 lists (the S2 ruling).
 
 No relationship type is reserved for model -> run (a run is a TransientEmbeddedProcess, so usually
 ProcessHierarchy). So runs, models, projects and model sources are found by the related element's type across
@@ -37,7 +49,8 @@ from fastapi.responses import JSONResponse
 
 import egeria_6_4_support as e64
 from common_serialize import _authored_fields, _classifications, _generic_relationships, _header_summary
-from e64_handler import _explorer_async, _gate, _is_template, _is_type, _list_of_type, _raise_http
+from e64_handler import (_by_position, _explorer_async, _gate, _is_template, _is_type, _list_of_type, _raise_http,
+                         literal_value, serialize_related)
 from egeria_error_mapping import EGERIA_ERROR_RESPONSES
 from graph_keys import extract_graph_fields
 
@@ -218,6 +231,69 @@ def source_rows(element: dict) -> list:
     return sorted(rows, key=lambda r: (r["displayName"] or "").lower())
 
 
+def _entries(element: dict, key: str) -> list:
+    val = element.get(key) if isinstance(element, dict) else None
+    entries = val if isinstance(val, list) else ([val] if isinstance(val, dict) else [])
+    out, seen = [], set()
+    for entry in entries:
+        if not isinstance(entry, dict) or not isinstance(entry.get("relatedElement"), dict):
+            continue
+        rg = (entry.get("relationshipHeader") or {}).get("guid") or ""
+        if rg:
+            if rg in seen:
+                continue
+            seen.add(rg)
+        out.append(entry)
+    return out
+
+
+def processing_variable_rows(element: dict) -> list:
+    """The data values the element uses (ProcessingVariable): one row per relationship, in position order, each
+    with its value as the Data Value card shows it (literal_value)."""
+    rows = []
+    for entry in _entries(element, "processingVariables"):
+        rel = entry["relatedElement"]
+        p = e64.props(rel)
+        rp = _clean(entry.get("relationshipProperties") or {})
+        is_literal = _is_of(rel, "LiteralDataValue")
+        rows.append({**_row_base("processingVariables", entry, rel),
+                     "label": rp.get("label") or "", "description": rp.get("description") or "",
+                     "position": rp.get("position"),
+                     "dataType": p.get("dataType") or "", "dataFormat": p.get("dataFormat") or "",
+                     "usage": p.get("usage") or "", "isLiteral": is_literal, "value": literal_value(p, is_literal)})
+    return _by_position(rows)
+
+
+def variable_type_rows(element: dict) -> list:
+    """The types of value the element accepts (SupportedVariableType -> SchemaType), in position order."""
+    rows = []
+    for entry in _entries(element, "processVariableTypes"):
+        rel = entry["relatedElement"]
+        p = e64.props(rel)
+        rp = _clean(entry.get("relationshipProperties") or {})
+        rows.append({**_row_base("processVariableTypes", entry, rel),
+                     "label": rp.get("label") or "", "description": rp.get("description") or "",
+                     "position": rp.get("position"), "minCardinality": rp.get("minCardinality"),
+                     "maxCardinality": rp.get("maxCardinality"), "dataType": p.get("dataType") or ""})
+    return _by_position(rows)
+
+
+# The 6.4 lists a Models and Runs card shows in its own sections; the related rows leave these out.
+_SHOWN_E64 = ("processingVariables", "processVariableTypes", "workedOnByProjects", "projectTargets")
+
+
+def related_rows_for_card(element: dict, carries: Optional[bool], words: str) -> dict:
+    """e64_handler.serialize_related over this card's graph read (which asked for every list), without the lists
+    the card already shows, and without sections left empty."""
+    rel = serialize_related(element, carries, words, requested=e64.relationship_fields())
+    sections = []
+    for sec in rel["sections"]:
+        lists = [lst for lst in sec["lists"] if lst["key"] not in _SHOWN_E64]
+        if lists:
+            sections.append({**sec, "lists": lists})
+    return {**rel, "sections": sections, "carries": carries}
+
+
 def _rows_state(rows: list) -> dict:
     """A graph read asks for every relationship list: rows = read, none = none."""
     return {"state": e64.READ if rows else e64.NONE}
@@ -237,6 +313,8 @@ def _serialize_common(element: dict, carries: Optional[bool], version: str, purl
     guid = h.get("guid", "")
     words = e64.needs_6_4_words(what, purl, version) if carries is False else ""
     projects = project_rows(element)
+    variables = processing_variable_rows(element)
+    requested = e64.relationship_fields()
     sources = source_rows(element)
     return {
         # flat, top-level keys: GenericPropertiesTable reads item[key]
@@ -257,16 +335,25 @@ def _serialize_common(element: dict, carries: Optional[bool], version: str, purl
         "runMetrics": run_metrics(element, carries, version, purl),
         "projects": projects,
         "sources": sources,
-        "lists": {"projects": _projects_state(element, projects, carries, words), "sources": _rows_state(sources)},
+        "variables": variables,
+        "lists": {"projects": _projects_state(element, projects, carries, words), "sources": _rows_state(sources),
+                  "variables": e64.list_state(element, "processingVariables", requested, carries, words)},
+        "related": related_rows_for_card(element, carries, words),
     }
 
 
 def _shown_keys(element: dict, *types) -> set:
-    return {k for t in types for k, _e, _r in related_of_type(element, t)}
+    """The relationship lists the card's own sections show, plus every 6.4 list (shown in the card's sections or
+    its related rows): the general Relationships block repeats none of them."""
+    return {k for t in types for k, _e, _r in related_of_type(element, t)} | set(e64.E64_LISTS)
 
 
 def serialize_model(element: dict, carries: Optional[bool] = True, version: str = "", purl: str = "") -> dict:
-    node = _serialize_common(element, carries, version, purl, "The project list")
+    node = _serialize_common(element, carries, version, purl, "The model's 6.4 lists (projects, variables)")
+    types = variable_type_rows(element)
+    node["variableTypes"] = types
+    node["lists"]["variableTypes"] = e64.list_state(element, "processVariableTypes", e64.relationship_fields(),
+                                                    carries, e64.needs_6_4_words("The model's signature (SupportedVariableType)", purl, version) if carries is False else "")
     runs = run_rows(element)
     node["runs"] = runs
     node["lists"]["runs"] = _rows_state(runs)
@@ -276,7 +363,7 @@ def serialize_model(element: dict, carries: Optional[bool] = True, version: str 
 
 
 def serialize_run(element: dict, carries: Optional[bool] = True, version: str = "", purl: str = "") -> dict:
-    node = _serialize_common(element, carries, version, purl, "The project list")
+    node = _serialize_common(element, carries, version, purl, "The run's parameters and results (ProcessingVariable)")
     models = model_rows(element)
     node["models"] = models
     node["lists"]["models"] = _rows_state(models)
@@ -305,11 +392,12 @@ def serialize_run_list_item(el: dict) -> dict:
             "hasRunMetrics": _classification(el, "RunMetrics") is not None}
 
 
-def _needs_types(what: str, purl: str) -> JSONResponse:
+def _needs_types(what: str, purl: str, version: str = "") -> JSONResponse:
     where = f"the platform at {purl}" if purl else "this platform"
-    return JSONResponse({"needsVersion": True, "items": [], "total": 0,
-                         "words": f"{what} need Egeria 5.2 or later (DeployedAnalyticsModel, AnalyticsModelRun): "
-                                  f"{where} answered HTTP 404 for this type, so none could be listed."})
+    lead = f"{what} need Egeria 5.2 or later (DeployedAnalyticsModel, AnalyticsModelRun): {where}"
+    tail = (f" runs Egeria {version}. Nothing was sent to Egeria." if version
+            else " answered HTTP 404 for this type and its version could not be read, so none could be listed.")
+    return JSONResponse({"needsVersion": True, "items": [], "total": 0, "words": lead + tail})
 
 
 async def _list(type_name: str, what: str, serializer, include_templates: bool, url, server):
@@ -317,11 +405,16 @@ async def _list(type_name: str, what: str, serializer, include_templates: bool, 
         client = await _explorer_async(url, server)
     except Exception as exc:
         _raise_http(exc, "ClassificationExplorer client failed")
+    carries, version, purl = await _gate(client)
+    if carries is False and egeria_at_least(version, (5, 2)) is False:
+        return _needs_types(what, purl, version)          # known to predate the types: nothing is sent
     try:
         raw, capped = await _list_of_type(client, type_name)
     except Exception as exc:
-        if e64.is_missing_6_4_endpoint(exc):    # a bare 404: the platform has no such type
-            return _needs_types(what, getattr(client, "platform_url", "") or "")
+        # A bare 404 means "the platform lacks the types" only when its version could not be read; on a
+        # platform whose version is known (5.2 or later) it is a real error (the W1 rule).
+        if carries is None and e64.is_missing_6_4_endpoint(exc):
+            return _needs_types(what, purl or getattr(client, "platform_url", "") or "")
         _raise_http(exc, f"get_elements({type_name}) failed")
     if not include_templates:
         raw = [e for e in raw if not _is_template(e)]

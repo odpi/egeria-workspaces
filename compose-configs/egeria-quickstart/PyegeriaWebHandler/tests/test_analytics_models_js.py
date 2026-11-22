@@ -12,9 +12,12 @@ from test_e64_cards_js import HTML, _DIR, _run  # noqa: E402
 
 
 def _render(component, props):
+    # the outer table's own rows and cells only: a value cell can hold a nested table (a value list or map)
     return _run(f"var t = render(React.createElement({component}, {json.dumps(props)}));"
-                "out({ text: text(t), keys: rows(t).map(function(r) { return r.p['data-row-key']; }), "
-                "      cells: rows(t).map(function(r) { return all(r, 'td').map(text); }) });")
+                "function kids(n, tag) { var o = []; (function f(c) { (c || []).forEach(function(x) { if (Array.isArray(x)) f(x); else if (x && x.t === tag) o.push(x); }); })(n.c); return o; }"
+                "var tb = all(t, 'tbody')[0]; var trs = tb ? kids(tb, 'tr') : [];"
+                "out({ text: text(t), keys: trs.map(function(r) { return r.p['data-row-key']; }), "
+                "      cells: trs.map(function(r) { return kids(r, 'td').map(text); }) });")
 
 
 def _run_row(rel, guid, name, start="", status="", last="", has=False, end=""):
@@ -129,6 +132,47 @@ def test_list_subtitles():
     assert out == ["Python · version 3", "", "COMPLETED · started 20 Nov 2026", "start not recorded", "start not readable"]
 
 
+# ── parameters and results, the signature (Egeria 6.4) ───────────────────────────────────────────────────
+
+def _pv(rel, guid, name, position, label="", value=None, data_type="", fmt=""):
+    return {"relationshipGuid": rel, "guid": guid, "typeName": "LiteralDataValue", "displayName": name, "label": label,
+            "description": "", "position": position, "positionSet": position is not None, "dataType": data_type,
+            "dataFormat": fmt, "value": value or {"kind": "not-literal"}}
+
+
+def test_parameters_and_results_zero_one_many():
+    assert _render("ModelVariablesTable", {"rows": [], "st": {"state": "none"}})["text"] == "No parameters or results are linked."
+    w = "The run's parameters and results (ProcessingVariable) needs Egeria 6.4 (odpi/egeria#9463 ...): the platform at x runs Egeria 6.3."
+    assert "needs Egeria 6.4" in _render("ModelVariablesTable", {"rows": [], "st": {"state": "needs-6.4", "words": w}})["text"]
+    one = _render("ModelVariablesTable", {"rows": [_pv("pv-1", "dv-1", "threshold", 1, "parameter",
+                                                       {"kind": "literal", "dataValue": "0.5", "dataValueList": None, "dataValueMap": None}, "float")],
+                                          "st": {"state": "read"}})
+    assert one["keys"] == ["pv-1"] and one["cells"][0][1] == "position 1" and "0.5" in one["cells"][0][3]
+    many = _render("ModelVariablesTable", {"rows": [
+        _pv("pv-u", "dv-u", "score", None, "result", {"kind": "literal", "dataValue": "0.82", "dataValueList": None, "dataValueMap": None}),
+        _pv("pv-2", "dv-2", "labels", 2, "", {"kind": "list", "dataValue": None, "dataValueList": ["a", "b"], "dataValueMap": None}),
+        _pv("pv-1", "dv-1", "training set", 1, "input", None, "", "parquet")], "st": {"state": "read"}})
+    assert many["keys"] == ["pv-1", "pv-2", "pv-u"]                    # by position, unset last
+    assert many["cells"][2][1] == "position unset" and many["cells"][1][2].strip() == "no label"
+    assert "holds no value of its own" in many["cells"][0][3] and many["cells"][0][4] == "parquet"
+    assert "Value list (2)" in many["cells"][1][3]
+
+
+def test_the_run_card_says_parameters_and_results_have_no_direction():
+    assert "no direction" in _run("out(MODEL_VARIABLES_NOTE);")
+
+
+def test_signature():
+    assert _render("ModelSignatureTable", {"rows": [], "st": {"state": "none"}})["text"] == "No variable types are declared for this model."
+    rows = [{"relationshipGuid": "s-0", "guid": "st-0", "typeName": "PrimitiveSchemaType", "displayName": "extras", "label": "extras",
+             "position": None, "positionSet": False, "minCardinality": None, "maxCardinality": None, "dataType": ""},
+            {"relationshipGuid": "s-1", "guid": "st-1", "typeName": "PrimitiveSchemaType", "displayName": "features", "label": "features",
+             "position": 1, "positionSet": True, "minCardinality": 1, "maxCardinality": None, "dataType": "float"}]
+    r = _render("ModelSignatureTable", {"rows": rows, "st": {"state": "read"}})
+    assert r["keys"] == ["s-1", "s-0"] and r["cells"][0][3] == "min 1, max not set" and r["cells"][1][3] == "min not set, max not set"
+    assert r["cells"][1][4] == "—"
+
+
 # ── wiring (the pyegeria-spa-add-tab checks) ─────────────────────────────────────────────────────────────
 
 def test_models_section_is_wired():
@@ -158,4 +202,4 @@ def test_lists_and_panes_are_resizable():
     # that egeria-resize.js makes column-resizable)
     assert "sideKey: 'AnalyticsModelsView.sideW'" in HTML and "sideKey: 'AnalyticsModelRunsView.sideW'" in HTML
     block = HTML[HTML.index("// ── Models and Runs: DeployedAnalyticsModel"):HTML.index("/* e64-pure:end */")]
-    assert block.count("React.createElement(E64Table") == 6   # metrics, dates, runs, model, projects, sources and "'table'" not in block
+    assert block.count("React.createElement(E64Table") == 8   # metrics, dates, runs, model, projects, sources, variables, signature and "'table'" not in block

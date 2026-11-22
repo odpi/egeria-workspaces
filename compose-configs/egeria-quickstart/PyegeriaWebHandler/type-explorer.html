@@ -13690,6 +13690,56 @@ function ModelSourcesTable({ rows, st, onNavigateToElement }) {
   });
 }
 
+
+// Parameters and results (ProcessingVariable, Egeria 6.4): one list in position order. Egeria gives the
+// relationship no direction, so the card says that the label is what tells a parameter from a result.
+var MODEL_VARIABLES_NOTE = 'Egeria records parameters and results as one list (ProcessingVariable) with no direction: '
+  + 'they are in position order, and the label, when its author set one, says which is which.';
+var _MODEL_VARIABLE_COLS = [['element', 'Data value', 190], ['position', 'Position', 100], ['label', 'Label', 130],
+  ['value', 'Value', 280], ['type', 'Type and format', 150]];
+
+function ModelVariablesTable({ rows, st, onNavigateToElement, emptyText }) {
+  var model = e64ByPosition(rows);
+  var note = _modelRowsOrNote(model, st, emptyText || 'No parameters or results are linked.');
+  if (note) return note;
+  return React.createElement(E64Table, {
+    cols: _MODEL_VARIABLE_COLS, rows: model, minWidth: 850,
+    rowKey: function(r, i) { return r.relationshipGuid || ('pv-' + i); },
+    cell: function(k, r) {
+      if (k === 'element') return _e64ElementCell(r, onNavigateToElement);
+      if (k === 'position') return React.createElement('span', { style: { color: r.positionSet ? 'var(--text)' : 'var(--dim)' } }, e64PositionText(r));
+      if (k === 'label') return React.createElement('div', null, r.label || React.createElement('span', { style: { color: 'var(--dim)' } }, 'no label'),
+        r.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)' } }, r.description));
+      if (k === 'value') return React.createElement(DataValueValuePanel, { value: r.value });
+      if (k === 'type') return [r.dataType, r.dataFormat].filter(Boolean).join(' · ') || React.createElement('span', { style: { color: 'var(--dim)' } }, 'not recorded');
+      return '';
+    },
+  });
+}
+
+// A model's signature (SupportedVariableType -> SchemaType, Egeria 6.4): what it accepts, in position order.
+var _MODEL_SIGNATURE_COLS = [['element', 'Variable type', 200], ['position', 'Position', 100], ['label', 'Label', 140],
+  ['cardinality', 'Cardinality', 160], ['dataType', 'Data type', 110]];
+
+function ModelSignatureTable({ rows, st, onNavigateToElement }) {
+  var model = e64ByPosition(rows);
+  var note = _modelRowsOrNote(model, st, 'No variable types are declared for this model.');
+  if (note) return note;
+  return React.createElement(E64Table, {
+    cols: _MODEL_SIGNATURE_COLS, rows: model, minWidth: 710,
+    rowKey: function(r, i) { return r.relationshipGuid || ('svt-' + i); },
+    cell: function(k, r) {
+      if (k === 'element') return _e64ElementCell(r, onNavigateToElement);
+      if (k === 'position') return React.createElement('span', { style: { color: r.positionSet ? 'var(--text)' : 'var(--dim)' } }, e64PositionText(r));
+      if (k === 'label') return React.createElement('div', null, r.label || '—',
+        r.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)' } }, r.description));
+      if (k === 'cardinality') return e64CardinalityText(r);
+      if (k === 'dataType') return r.dataType || '—';
+      return '';
+    },
+  });
+}
+
 // List subtitles (E64ElementsView cfg.subtitle).
 function modelListSubtitle(s) {
   return [s.implementationLanguage, s.versionIdentifier ? 'version ' + s.versionIdentifier : ''].filter(Boolean).join(' · ');
@@ -13929,7 +13979,7 @@ function DataValuesView({ navGuid, onNavigateToElement }) {
 // ── Models and Runs (#analytics-models): DeployedAnalyticsModel and AnalyticsModelRun ──
 // Two sub-tabs over E64ElementsView. Runs, models, projects and sources are found by the related
 // element's type across every relationship (Egeria has no relationship reserved for model -> run).
-var _MODEL_SKIP = ['runs', 'models', 'projects', 'sources', 'lists', 'runMetrics', 'status', 'additionalProperties', 'description', 'displayName',
+var _MODEL_SKIP = ['runs', 'models', 'projects', 'sources', 'variables', 'variableTypes', 'related', 'lists', 'runMetrics', 'status', 'additionalProperties', 'description', 'displayName',
   'implementationLanguage', 'deployedImplementationType', 'versionIdentifier', 'activityStatus', 'userDefinedActivityStatus',
   'requestedTime', 'requestedStartTime', 'startTime', 'dueTime', 'completionTime', 'lastPauseTime', 'lastResumeTime'];
 
@@ -13966,7 +14016,11 @@ function ModelCardFrame({ detail, onNavigateToElement, tab, icon, color, badges,
         return React.createElement(RelationshipSection, { key: pair[0], title: _prettyRelLabel(pair[0]), items: pair[1], onNavigateToElement: onNavigateToElement });
       })),
     React.createElement(ClassificationsAndRawJson, { item: detail }),
-    React.createElement(E64RelatedPanel, { guid: detail.guid, onNavigateToElement: typeof onNavigateToElement === 'function' ? onNavigateToElement : null }),
+    // The other Egeria 6.4 links (decisions, data values provided, Branch), from this card's own read without the
+    // lists shown above: E64RelatedPanel's rows, so nothing is fetched twice or shown twice (the S2 ruling).
+    React.createElement('div', { className: 'e64-related' },
+      React.createElement('div', { style: _MODEL_SECTION_HDR }, 'Decisions and other Egeria 6.4 links'),
+      React.createElement(E64RelatedRows, { data: detail.related, onNavigateToElement: typeof onNavigateToElement === 'function' ? onNavigateToElement : null })),
     React.createElement(EgeriaCommentsSection, { guid: detail.guid })
   );
 }
@@ -13994,8 +14048,12 @@ function AnalyticsModelDetail({ detail, onNavigateToElement }) {
     badges: [['Language', detail.implementationLanguage], ['Implementation', detail.deployedImplementationType],
              ['Version', detail.versionIdentifier], ['Status', detail.activityStatus || detail.userDefinedActivityStatus]],
   },
+    React.createElement('div', { key: 'sgh', style: _MODEL_SECTION_HDR }, 'Signature: the variable types it accepts' + _modelCount(detail.variableTypes, lists.variableTypes)),
+    React.createElement(ModelSignatureTable, { key: 'sg', rows: detail.variableTypes, st: lists.variableTypes, onNavigateToElement: onNavigateToElement }),
     React.createElement('div', { key: 'rh', style: _MODEL_SECTION_HDR }, 'Runs' + _modelCount(detail.runs, lists.runs)),
     React.createElement(ModelRunsTable, { key: 'r', rows: detail.runs, st: lists.runs, onNavigateToElement: onNavigateToElement }),
+    React.createElement('div', { key: 'cvh', style: _MODEL_SECTION_HDR }, 'Configured values' + _modelCount(detail.variables, lists.variables)),
+    React.createElement(ModelVariablesTable, { key: 'cv', rows: detail.variables, st: lists.variables, onNavigateToElement: onNavigateToElement, emptyText: 'No data values are linked to configure this model.' }),
     React.createElement(React.Fragment, { key: 'shared' }, _modelSharedSections(detail, onNavigateToElement, 'model')));
 }
 
@@ -14007,6 +14065,9 @@ function AnalyticsModelRunDetail({ detail, onNavigateToElement }) {
   },
     React.createElement('div', { key: 'dh', style: _MODEL_SECTION_HDR }, 'Dates'),
     React.createElement(ModelRunDatesPanel, { key: 'd', detail: detail }),
+    React.createElement('div', { key: 'pvh', style: _MODEL_SECTION_HDR }, 'Parameters and results' + _modelCount(detail.variables, lists.variables)),
+    React.createElement('div', { key: 'pvn', className: 'model-variables-note', style: { fontSize: 11, color: 'var(--dim)', marginBottom: 6 } }, MODEL_VARIABLES_NOTE),
+    React.createElement(ModelVariablesTable, { key: 'pv', rows: detail.variables, st: lists.variables, onNavigateToElement: onNavigateToElement }),
     React.createElement('div', { key: 'mdh', style: _MODEL_SECTION_HDR }, 'Model' + _modelCount(detail.models, lists.models)),
     React.createElement(RunModelsTable, { key: 'md', rows: detail.models, st: lists.models, onNavigateToElement: onNavigateToElement }),
     React.createElement(React.Fragment, { key: 'shared' }, _modelSharedSections(detail, onNavigateToElement, 'run')));

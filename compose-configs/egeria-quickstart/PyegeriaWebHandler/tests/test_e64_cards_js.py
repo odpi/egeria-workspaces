@@ -342,7 +342,10 @@ def test_branch_badge():
 def test_the_related_panel_is_on_every_explorer_card_and_the_catalogs():
     comments = HTML.count("React.createElement(EgeriaCommentsSection, { guid: ")
     panels = HTML.count("React.createElement(E64RelatedPanel, { guid: ")
-    assert comments == panels == 24       # 23 + the Models and Runs card frame (both its cards)
+    # The Models and Runs card frame renders the same rows (E64RelatedRows) from its own graph read instead
+    # of the panel's fetch, without the lists it shows in its own sections (S2).
+    assert panels == 23 and comments == 24
+    assert HTML.count("React.createElement(E64RelatedRows, { data: detail.related") == 1
     tc = (_DIR / "tech-catalog.html").read_text()
     assert tc.count("React.createElement(E64RelatedPanel, { guid: item.guid })") == 3
     assert "E64UI.isLinkable = _elementIsLinkable;" in HTML
