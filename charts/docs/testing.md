@@ -52,6 +52,7 @@ the final `0 chart(s) failed` line matters.
 | `tests/make_san_keystore.sh <out> <ns> <svc> [alias]` | A throwaway CA (3 days) and a keystore and truststore with SANs for the Service names and random passwords | used by the above |
 | `tests/crc_stack.sh [ns] [release]` | Demo `egeria-stack` with `global.openshift=true` on OpenShift Local; infra in `<ns>-infra` under `anyuid`. `ENVIRONMENT=quickstart DEMO_MODE=true` for demoMode. | crc |
 | `tests/crc_stack_prod.sh [ns] [release]` | Production-style stack on OpenShift Local, images pushed to the internal registry. Keeps its Secrets on a re-run. | crc |
+| `tests/kind_trusted_proxies.sh <ns> [release]` | PO-83: the Portal's sign-in rate limit counts per real client IP when `PORTAL_TRUSTED_PROXIES` names the Apache headless Service, shares one budget when it does not, and port 8000 is reachable only through Apache | kind |
 | `tests/crc_route.sh [ns] [release] [host]` | Adds an edge Route (from the chart's Ingress) to an installed stack and checks it from the host | crc |
 
 `kind_install.sh` expects a running kind cluster. Do not preload images with `kind load` on a Docker that uses the
@@ -80,6 +81,7 @@ containerd image store. For the Portal images, connect a local registry to kind'
   200) with the a79109b7 image.
 - Quickstart demoMode stack (`ENVIRONMENT=quickstart DEMO_MODE=true crc_stack.sh egeria-demo qs`): `restricted-v2`
   (UID 1000730000, GID 0), 5/5 servers, both canaries passed including the PO-68 check.
+- PO-83 trusted proxies (`kind_trusted_proxies.sh`, Portal image from `claude/po83-auth-rate-limits` cd4ebc84, quickstart demoMode): with the chart's default `PORTAL_TRUSTED_PROXIES=<release>-portal-web-hl.<ns>.svc.cluster.local`, client A made 10 bad sign-ins (401) then was limited (429), and client B, a different pod, still got 401; with a trusted list that does not include Apache, client B was limited (429) by A's attempts (the shared budget); a direct request to the Portal on 8000 timed out (NetworkPolicy) while `/portal` through Apache answered 302. Found on the way: current Portal images keep the demo sign-in in Postgres (`DEMO_DB_*`), not SQLite, so the chart's `DEMO_DB_PATH` is stale (the sign-in answered 500 until the script gave the Portal a database).
 - Route (`crc_route.sh`) on the demoMode stack: `/portal` 302, `/login` 200, `POST {}` to `/api/egeria-token` 401, an
   authenticated API 401 for an anonymous caller, http redirected to an `https://` location, `helm test` passed.
 
