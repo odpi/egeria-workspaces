@@ -8,6 +8,8 @@ Endpoints:
   GET /api/e64/status          -> whether the platform carries the 6.4 additions, with the gate's words
   GET /api/decisions           -> the Decisions list
   GET /api/decisions/{guid}    -> one Decision: header, body, dates, assessed inputs, outcomes
+  GET /api/data-values         -> the Data Values list (DataValue and LiteralDataValue)
+  GET /api/data-values/{guid}  -> one DataValue: format and type, the value, used by, stored in, embedded, part of
 
 Reads use pyegeria's generic ClassificationExplorer calls (elements/by-type, elements/{guid}), which every
 pyegeria the Portal runs has. So the cards don't need the unreleased 6.4 wrappers, and they work as soon as
@@ -182,6 +184,102 @@ def serialize_decision(element: dict, carries: Optional[bool] = True, words: str
     return node
 
 
+# ── DataValue / LiteralDataValue ─────────────────────────────────────────────────────────────────────────
+
+_POSITIONED = ("label", "description", "position")
+_DATA_VALUE_LISTS = ("dataValueUses", "dataValueSources", "embeddedDataValues", "parentDataValues")
+_DATA_VALUE_KEYS = ("dataFormat", "dataType", "length", "usage", "fingerprint", "fingerprintAlgorithm", "hash",
+                    "hashAlgorithm")
+_LITERAL_KEYS = ("dataValue", "dataValueList", "dataValueMap")
+_DV_NOT_IN_TABLE = {"class", "typeName", "extendedProperties", "additionalProperties", "description", "displayName",
+                    *_DATA_VALUE_KEYS, *_LITERAL_KEYS}
+
+
+def position_of(row: dict):
+    """A relationship's position as an int, or None when unset. Egeria's 0 means "unset" (the .http samples and
+    ProcessingVariableProperties / EmbeddedDataValueProperties: Integer, 0 = no position)."""
+    v = row.get("position")
+    if isinstance(v, bool):
+        return None
+    try:
+        n = int(v)
+    except (TypeError, ValueError):
+        return None
+    return n if n != 0 else None
+
+
+def _by_position(rows: list) -> list:
+    """Set positions ascending; rows with no position after them, by name. Each row gets `positionSet`."""
+    for r in rows:
+        r["position"] = position_of(r)
+        r["positionSet"] = r["position"] is not None
+    return sorted(rows, key=lambda r: (not r["positionSet"], r["position"] or 0, (r["displayName"] or "").lower()))
+
+
+def literal_value(p: dict, is_literal: bool) -> dict:
+    """{kind, dataValue, dataValueList, dataValueMap}. kind: literal | list | map | several | empty (a
+    LiteralDataValue with no value recorded) | not-literal (a plain DataValue holds no value of its own)."""
+    if not is_literal:
+        return {"kind": "not-literal"}
+    lit = p.get("dataValue")
+    lst = p.get("dataValueList")
+    mp = p.get("dataValueMap")
+    lst = lst if isinstance(lst, list) and lst else None
+    mp = mp if isinstance(mp, dict) and mp else None
+    lit = lit if lit not in (None, "") else None
+    present = [k for k, v in (("literal", lit), ("list", lst), ("map", mp)) if v is not None]
+    kind = present[0] if len(present) == 1 else ("several" if present else "empty")
+    return {"kind": kind, "dataValue": lit, "dataValueList": lst, "dataValueMap": mp}
+
+
+def serialize_data_value_list_item(el: dict) -> dict:
+    p = e64.props(el)
+    guid = e64.hdr(el).get("guid", "")
+    return {
+        "guid": guid,
+        "typeName": e64.type_name(el),
+        "displayName": e64.display_name(p, guid),
+        "qualifiedName": p.get("qualifiedName") or "",
+        "dataType": p.get("dataType") or "",
+        "dataFormat": p.get("dataFormat") or "",
+    }
+
+
+def serialize_data_value(element: dict, carries: Optional[bool] = True, words: str = "", requested=None) -> dict:
+    """The DataValue card (also LiteralDataValue). `requested` as for serialize_decision."""
+    requested = e64.relationship_fields() if requested is None else requested
+    p = e64.props(element)
+    h = e64.hdr(element)
+    guid = h.get("guid", "")
+    is_literal = _is_type(element, "LiteralDataValue")
+    node = {
+        **{k: v for k, v in p.items() if k not in _DV_NOT_IN_TABLE and v not in (None, "", [], {})},
+        "guid": guid,
+        "typeName": e64.type_name(element),
+        "superTypeNames": (h.get("type") or {}).get("superTypeNames") or [],
+        "displayName": e64.display_name(p, guid),
+        "description": p.get("description") or "",
+        "status": h.get("status") or "",
+        "isLiteral": is_literal,
+        **{k: (p.get(k) if p.get(k) is not None else "") for k in _DATA_VALUE_KEYS},
+        "value": literal_value(p, is_literal),
+        "additionalProperties": p.get("additionalProperties") or {},
+        "mermaidGraph": element.get("mermaidGraph") or "",
+        **{k: v for k, v in extract_graph_fields(element).items() if k != "mermaidGraph"},
+        "_header": _header_summary(element),
+        **_authored_fields(element),
+        "classifications": _classifications(element),
+        "usedBy": _by_position(e64.related_rows(element, "dataValueUses", _POSITIONED)),
+        "storedIn": sorted(e64.related_rows(element, "dataValueSources", ("label", "description")),
+                           key=lambda r: (r["displayName"] or "").lower()),
+        "embedded": _by_position(e64.related_rows(element, "embeddedDataValues", _POSITIONED)),
+        "partOf": _by_position(e64.related_rows(element, "parentDataValues", _POSITIONED)),
+        "lists": {k: e64.list_state(element, k, requested, carries, words) for k in _DATA_VALUE_LISTS},
+        "relationships": _generic_relationships(element, skip=_DATA_VALUE_LISTS),
+    }
+    return node
+
+
 # ── Endpoints ────────────────────────────────────────────────────────────────────────────────────────────
 
 @router.get("/api/e64/status", summary="Whether the platform carries the Egeria 6.4 additions",
@@ -241,3 +339,49 @@ async def get_decision(guid: str, url: Optional[str] = Query(None), server: Opti
         raise HTTPException(status_code=404, detail=f"{guid!r} is a {e64.type_name(element) or 'element'}, "
                                                     "not a Decision.")
     return JSONResponse(serialize_decision(element, carries=True if carries is None else carries))
+
+
+@router.get("/api/data-values", summary="List Data Values and Literal Data Values (Egeria 6.4)",
+            responses=EGERIA_ERROR_RESPONSES)
+async def list_data_values(include_templates: bool = Query(False),
+                           url: Optional[str] = Query(None), server: Optional[str] = Query(None)):
+    try:
+        client = await _explorer_async(url, server)
+    except Exception as exc:
+        _raise_http(exc, "ClassificationExplorer client failed")
+    carries, version, purl = await _gate(client)
+    if carries is False:
+        return _needs64("The Data Values list", purl, version, items=[], total=0)
+    try:
+        raw, capped = await _list_of_type(client, "DataValue")     # by-type includes LiteralDataValue
+    except Exception as exc:
+        if carries is None and e64.is_missing_6_4_endpoint(exc):   # a 404 on a 6.4 platform is a real error
+            return _needs64("The Data Values list", purl, items=[], total=0)
+        _raise_http(exc, "get_elements(DataValue) failed")
+    if not include_templates:
+        raw = [e for e in raw if not _is_template(e)]
+    items = [serialize_data_value_list_item(e) for e in raw]
+    items.sort(key=lambda x: (x["displayName"] or x["qualifiedName"]).lower())
+    return JSONResponse({"items": items, "total": len(items), "capped": capped})
+
+
+@router.get("/api/data-values/{guid}", summary="Get a Data Value with its uses, sources and embedded values (Egeria 6.4)",
+            responses=EGERIA_ERROR_RESPONSES)
+async def get_data_value(guid: str, url: Optional[str] = Query(None), server: Optional[str] = Query(None)):
+    try:
+        client = await _explorer_async(url, server)
+    except Exception as exc:
+        _raise_http(exc, "ClassificationExplorer client failed")
+    carries, version, purl = await _gate(client)
+    if carries is False:
+        return _needs64("The Data Value card", purl, version)
+    try:
+        element = await _read_element(client, guid, "DataValue")
+    except Exception as exc:
+        if carries is None and e64.is_missing_6_4_endpoint(exc):   # a 404 on a 6.4 platform is a real error
+            return _needs64("The Data Value card", purl)
+        _raise_http(exc, "get_element_by_guid(DataValue) failed")
+    if not _is_type(element, "DataValue"):
+        raise HTTPException(status_code=404, detail=f"{guid!r} is a {e64.type_name(element) or 'element'}, "
+                                                    "not a Data Value.")
+    return JSONResponse(serialize_data_value(element, carries=True if carries is None else carries))

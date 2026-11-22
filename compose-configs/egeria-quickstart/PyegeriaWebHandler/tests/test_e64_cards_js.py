@@ -207,3 +207,61 @@ def test_the_page_parses():
     scripts = re.findall(r"<script(?:(?!src)[^>])*>(.*?)</script>", HTML, re.S)
     r = subprocess.run([node, "--check", "-"], input="\n".join(scripts), capture_output=True, text=True, timeout=60)
     assert r.returncode == 0, r.stderr[:2000]
+
+
+# ── C2: DataValue / LiteralDataValue ─────────────────────────────────────────────────────────────────────
+
+def _prow(rel, el, name, position, set_=None):
+    return {"relationshipGuid": rel, "guid": el, "typeName": "DataValue", "displayName": name, "label": "",
+            "description": "", "position": position, "positionSet": (position is not None) if set_ is None else set_}
+
+
+EMB = [_prow("e-3", "d3", "Third", 3), _prow("e-0", "d0", "Unset (0)", None), _prow("e-1", "d1", "First", 1),
+       _prow("e-n", "dn", "Another unset", None)]
+
+
+def _ptable(rows, st, extra=""):
+    return _run(f"var t = render(React.createElement(E64PositionedTable, {{ rows: {json.dumps(rows)}, st: {json.dumps(st)}{extra} }}));"
+                "out({ text: text(t), keys: rows(t).map(function(r) { return r.p['data-row-key']; }), "
+                "      cells: rows(t).map(function(r) { return all(r, 'td').map(text); }) });")
+
+
+def test_embedded_values_ordered_by_position_and_unset_said_in_words():
+    r = _ptable(EMB, {"state": "read"})
+    assert r["keys"] == ["e-1", "e-3", "e-n", "e-0"]
+    assert [c[1] for c in r["cells"]] == ["position 1", "position 3", "position unset", "position unset"]
+
+
+def test_positioned_table_zero_one_many():
+    assert _ptable([], {"state": "none"})["text"] == "None recorded."
+    assert "Needs" in _ptable([], {"state": "needs-6.4"})["text"]
+    assert _ptable(EMB[:1], {"state": "read"})["keys"] == ["e-3"]
+    assert len(_ptable(EMB, {"state": "read"})["keys"]) == 4
+
+
+def test_stored_in_has_no_position_column():
+    r = _ptable([_prow("s-1", "f1", "limits.csv", None)], {"state": "read"}, ", withPosition: false")
+    assert len(r["cells"][0]) == 3 and "position" not in r["text"]
+
+
+@pytest.mark.parametrize("value,expect", [
+    ({"kind": "literal", "dataValue": "3"}, ["Literal value 3"]),
+    ({"kind": "list", "dataValueList": ["a", "b"]}, ["Value list (2)", "1 a", "2 b"]),
+    ({"kind": "map", "dataValueMap": {"retries": "3", "backoff": "2s"}}, ["Value map (2)", "backoff 2s", "retries 3"]),
+    ({"kind": "empty"}, ["No value is recorded"]),
+    ({"kind": "not-literal"}, ["holds no value of its own"]),
+])
+def test_value_panel_literal_list_map_and_words(value, expect):
+    t = _run(f"out(text(render(React.createElement(DataValueValuePanel, {{ value: {json.dumps(value)} }}))));")
+    for e in expect:
+        assert e in t, (e, t)
+
+
+def test_data_values_section_is_wired():
+    assert "'data-values': 'Data Values'," in HTML
+    assert "section: 'data-values'," in HTML and "{ id: 'data-values'," in HTML
+    assert "section === 'data-values'\n      ? React.createElement(DataValuesView" in HTML
+    assert HTML.count("'decisions','data-values'") == 2
+    assert "{ onNavigateToDataValue(guid); return; }" in HTML
+    assert "item.typeName === 'LiteralDataValue' || superTypes.indexOf('DataValue') !== -1) return true;" in HTML
+    assert "'DataValue':       { color:" in HTML and "'LiteralDataValue': { color:" in HTML

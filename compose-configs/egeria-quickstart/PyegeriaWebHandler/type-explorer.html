@@ -6233,6 +6233,7 @@ const SECTION_LABELS = {
   'governance':        'Governance Definitions',
   'statements-of-applicability': 'Statements of Applicability',
   'decisions': 'Decisions',
+  'data-values': 'Data Values',
   'report-specs':      'Reports',
   'analytics':         'Analytic Functions',
   'digital-products':  'Digital Products',
@@ -6925,6 +6926,14 @@ const _SPLASH_CAPABILITIES = [
     icon: '⚑',
     title: 'Decisions',
     description: 'Review decisions (Egeria 6.4): disposition, importance and status; summary, scope and implications; review and expiry dates flagged when overdue; the elements assessed as inputs, one row per assessment; and the outcomes. Needs Egeria 6.4.',
+    requiresConnection: true,
+  },
+  {
+    section: 'data-values',
+    group: 'review',
+    icon: '◇',
+    title: 'Data Values',
+    description: 'Browse data values and literal data values (Egeria 6.4): format and type, the value itself (a literal, a list or a map), the processes that use it (with position), where it is stored, the values embedded in it in position order, and what it is part of. Needs Egeria 6.4.',
     requiresConnection: true,
   },
   {
@@ -8278,6 +8287,8 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
     'DigitalProduct':  { color: '#fde68a', go: function(g) { onNavigateToDigitalProduct  && onNavigateToDigitalProduct(g); } },
     // Egeria 6.4 (odpi/egeria#9463): routed through the app's single dispatcher
     'Decision':        { color: '#c4b5fd', go: function(g) { onNavigateToElement && onNavigateToElement({ guid: g, typeName: 'Decision' }); } },
+    'DataValue':       { color: '#5eead4', go: function(g) { onNavigateToElement && onNavigateToElement({ guid: g, typeName: 'DataValue' }); } },
+    'LiteralDataValue': { color: '#5eead4', go: function(g) { onNavigateToElement && onNavigateToElement({ guid: g, typeName: 'LiteralDataValue' }); } },
   };
 
   function relSection(title, items) {
@@ -9714,6 +9725,7 @@ function _elementIsLinkable(item) {
   if (item.typeName === 'InformalTag') return true;
   if (item.typeName === 'ContextEvent') return true;
   if (item.typeName === 'Decision' || superTypes.indexOf('Decision') !== -1) return true;  // Egeria 6.4
+  if (item.typeName === 'DataValue' || item.typeName === 'LiteralDataValue' || superTypes.indexOf('DataValue') !== -1) return true;  // Egeria 6.4
   // Egeria's internal type-system registry — every entity/relationship/
   // classification typeName also exists as a ValidMetadataValue, which is why
   // a search for e.g. "SmartQuery" can legitimately match one. Routes to the
@@ -13512,6 +13524,71 @@ function DecisionHeaderBadges({ detail }) {
     badge('Disposition', detail.disposition, '#c4b5fd'), badge('Importance', detail.importance, '#fbbf24'),
     badge('Status', detail.contentStatus, '#34d399'));
 }
+// ── DataValue / LiteralDataValue (Egeria 6.4) ──
+// Egeria's position is an Integer where 0 (or none) means "unset" (EmbeddedDataValueProperties,
+// ProcessingVariableProperties); the backend sends position: null and positionSet: false for those.
+function e64PositionText(r) {
+  var n = r && r.position;
+  return (r && r.positionSet && n !== null && n !== undefined) ? 'position ' + n : 'position unset';
+}
+
+// Set positions ascending, unset ones after them by name (the backend orders the same way).
+function e64ByPosition(rows) {
+  return (rows || []).slice().sort(function(a, b) {
+    var sa = !!(a.positionSet && a.position !== null && a.position !== undefined);
+    var sb = !!(b.positionSet && b.position !== null && b.position !== undefined);
+    if (sa !== sb) return sa ? -1 : 1;
+    if (sa && a.position !== b.position) return a.position - b.position;
+    var na = (a.displayName || '').toLowerCase(), nb = (b.displayName || '').toLowerCase();
+    return na < nb ? -1 : na > nb ? 1 : 0;
+  });
+}
+
+var _DATA_VALUE_KIND_WORDS = {
+  'empty': 'No value is recorded on this literal data value.',
+  'not-literal': 'A DataValue holds no value of its own: only a LiteralDataValue does.',
+};
+
+function DataValueValuePanel({ value }) {
+  var v = value || { kind: 'empty' };
+  if (_DATA_VALUE_KIND_WORDS[v.kind]) return React.createElement('div', { className: 'e64-value', 'data-kind': v.kind, style: { fontSize: 12, color: 'var(--dim)' } }, _DATA_VALUE_KIND_WORDS[v.kind]);
+  var parts = [];
+  if (v.dataValue !== null && v.dataValue !== undefined) parts.push(React.createElement('div', { key: 'lit', style: { marginBottom: 8 } },
+    React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', marginBottom: 2 } }, 'Literal value'),
+    React.createElement('code', { style: { fontSize: 13, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' } }, String(v.dataValue))));
+  if (v.dataValueList) parts.push(React.createElement('div', { key: 'list', style: { marginBottom: 8 } },
+    React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', marginBottom: 2 } }, 'Value list (' + v.dataValueList.length + ')'),
+    React.createElement(E64Table, { cols: [['n', '#', 50], ['v', 'Value', 400]], rows: v.dataValueList.map(function(x, i) { return { n: i + 1, v: x }; }),
+      rowKey: function(r) { return 'l' + r.n; }, cell: function(k, r) { return String(r[k]); } })));
+  if (v.dataValueMap) {
+    var keys = Object.keys(v.dataValueMap).sort();
+    parts.push(React.createElement('div', { key: 'map', style: { marginBottom: 8 } },
+      React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', marginBottom: 2 } }, 'Value map (' + keys.length + ')'),
+      React.createElement(E64Table, { cols: [['k', 'Key', 180], ['v', 'Value', 320]], rows: keys.map(function(k) { return { k: k, v: v.dataValueMap[k] }; }),
+        rowKey: function(r) { return 'm' + r.k; }, cell: function(k, r) { return String(r[k]); } })));
+  }
+  return React.createElement('div', { className: 'e64-value', 'data-kind': v.kind }, parts);
+}
+
+var _E64_POSITIONED_COLS = [['element', 'Element', 220], ['position', 'Position', 110], ['label', 'Label', 140], ['description', 'Description', 240]];
+
+// Used by / embedded / part of: one row per relationship, ordered by position, "position unset" for 0.
+function E64PositionedTable({ rows, st, onNavigateToElement, withPosition }) {
+  var words = e64ListWords(st);
+  var model = withPosition === false ? (rows || []) : e64ByPosition(rows);
+  if (words && !model.length) return React.createElement(E64ListNote, { st: st });
+  if (!model.length) return React.createElement(E64ListNote, { st: { state: 'none' } });
+  var cols = withPosition === false ? _E64_POSITIONED_COLS.filter(function(c) { return c[0] !== 'position'; }) : _E64_POSITIONED_COLS;
+  return React.createElement(E64Table, {
+    cols: cols, rows: model, minWidth: 600,
+    rowKey: function(r, i) { return r.relationshipGuid || ('row-' + i); },
+    cell: function(k, r) {
+      if (k === 'element') return _e64ElementCell(r, onNavigateToElement);
+      if (k === 'position') return React.createElement('span', { style: { color: r.positionSet ? 'var(--text)' : 'var(--dim)' } }, e64PositionText(r));
+      return r[k] || '';
+    },
+  });
+}
 /* e64-pure:end */
 
 function _e64FetchJson(url, creds) {
@@ -13666,6 +13743,75 @@ var DECISIONS_VIEW_CFG = {
 
 function DecisionsView({ navGuid, onNavigateToElement }) {
   return React.createElement(E64ElementsView, { cfg: DECISIONS_VIEW_CFG, navGuid: navGuid, onNavigateToElement: onNavigateToElement });
+}
+
+function DataValueDetail({ detail, onNavigateToElement }) {
+  var personaId = React.useContext(PersonaContext);
+  var sectionHdr = { fontWeight: 700, fontSize: 13, marginBottom: 10, marginTop: 20, paddingBottom: 6, borderBottom: '1px solid var(--border)', color: 'var(--accent)' };
+  var lists = detail.lists || {};
+  var count = function(rows, st) { return st && st.state === 'read' ? ' (' + (rows || []).length + ')' : ''; };
+  var fmt = [['Data type', detail.dataType], ['Data format', detail.dataFormat], ['Length', detail.length], ['Usage', detail.usage],
+             ['Fingerprint', detail.fingerprint ? detail.fingerprint + (detail.fingerprintAlgorithm ? ' (' + detail.fingerprintAlgorithm + ')' : '') : ''],
+             ['Hash', detail.hash !== '' && detail.hash !== null && detail.hash !== undefined ? detail.hash + (detail.hashAlgorithm ? ' (' + detail.hashAlgorithm + ')' : '') : '']];
+  return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%', minWidth: 0, overflowWrap: 'anywhere' } },
+    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
+      React.createElement('div', { style: { fontSize: 18, fontWeight: 700 } }, detail.displayName || detail.qualifiedName || detail.guid),
+      detail.typeName && React.createElement('span', { className: 'badge', style: { background: 'rgba(94,234,212,.1)', color: '#5eead4', border: '0.5px solid rgba(94,234,212,.3)' } }, detail.typeName),
+      React.createElement('div', { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
+        personaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'data-values', label: detail.displayName || detail.qualifiedName, icon: '◇', url: '/egeria-explorer?guid=' + encodeURIComponent(detail.guid) + '#data-values', personaId: personaId }),
+        React.createElement(EgeriaFeedbackWidget, { guid: detail.guid })),
+      React.createElement(HeaderInfoButton, { header: detail._header }),
+      React.createElement(CopyJsonButton, { data: detail })),
+    React.createElement('code', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 12 } }, detail.guid),
+    detail.description && React.createElement('div', { style: { fontSize: 13, marginBottom: 16 } }, renderMd(detail.description)),
+    React.createElement('div', { style: sectionHdr }, 'Format and type'),
+    React.createElement('table', { style: { borderCollapse: 'collapse', width: '100%', maxWidth: 560 } },
+      React.createElement('tbody', null, fmt.map(function(f) {
+        var has = f[1] !== '' && f[1] !== null && f[1] !== undefined;
+        return React.createElement('tr', { key: f[0] },
+          React.createElement('td', { style: Object.assign({}, _E64_TD, { color: 'var(--dim)', width: 140 }) }, f[0]),
+          React.createElement('td', { style: _E64_TD }, has ? String(f[1]) : React.createElement('span', { style: { color: 'var(--dim)' } }, 'not recorded')));
+      }))),
+    React.createElement('div', { style: sectionHdr }, 'Value'),
+    React.createElement(DataValueValuePanel, { value: detail.value }),
+    React.createElement('div', { style: sectionHdr }, 'Used by' + count(detail.usedBy, lists.dataValueUses)),
+    React.createElement(E64PositionedTable, { rows: detail.usedBy, st: lists.dataValueUses, onNavigateToElement: onNavigateToElement }),
+    React.createElement('div', { style: sectionHdr }, 'Stored in' + count(detail.storedIn, lists.dataValueSources)),
+    React.createElement(E64PositionedTable, { rows: detail.storedIn, st: lists.dataValueSources, onNavigateToElement: onNavigateToElement, withPosition: false }),
+    React.createElement('div', { style: sectionHdr }, 'Embedded values' + count(detail.embedded, lists.embeddedDataValues)),
+    React.createElement(E64PositionedTable, { rows: detail.embedded, st: lists.embeddedDataValues, onNavigateToElement: onNavigateToElement }),
+    React.createElement('div', { style: sectionHdr }, 'Part of' + count(detail.partOf, lists.parentDataValues)),
+    React.createElement(E64PositionedTable, { rows: detail.partOf, st: lists.parentDataValues, onNavigateToElement: onNavigateToElement }),
+    React.createElement('div', { style: sectionHdr }, 'Other properties'),
+    React.createElement(GenericPropertiesTable, {
+      item: detail,
+      priority: ['qualifiedName', 'identifier', 'versionIdentifier'],
+      skip: ['usedBy', 'storedIn', 'embedded', 'partOf', 'lists', 'value', 'isLiteral', 'status', 'additionalProperties', 'description', 'displayName',
+             'dataType', 'dataFormat', 'length', 'usage', 'fingerprint', 'fingerprintAlgorithm', 'hash', 'hashAlgorithm'],
+    }),
+    React.createElement(AdditionalPropertiesTable, { data: detail.additionalProperties }),
+    React.createElement('div', { style: { marginTop: 20 } },
+      React.createElement(AvailableMermaidDiagrams, { data: detail }),
+      React.createElement(MermaidSection, { guid: detail.guid, data: detail })),
+    detail.relationships && Object.keys(detail.relationships).length > 0 && React.createElement('div', null,
+      React.createElement('div', { style: sectionHdr }, 'Relationships'),
+      Object.entries(detail.relationships).map(function(pair) {
+        return React.createElement(RelationshipSection, { key: pair[0], title: _prettyRelLabel(pair[0]), items: pair[1], onNavigateToElement: onNavigateToElement });
+      })),
+    React.createElement(ClassificationsAndRawJson, { item: detail }),
+    React.createElement(EgeriaCommentsSection, { guid: detail.guid })
+  );
+}
+
+var DATA_VALUES_VIEW_CFG = {
+  listUrl: '/api/data-values', detailUrl: function(g) { return '/api/data-values/' + encodeURIComponent(g); },
+  noun: 'Data value', nounPlural: 'Data values', empty: 'No data values exist yet.', Detail: DataValueDetail,
+  sideKey: 'DataValuesView.sideW',
+  subtitle: function(s) { return [s.typeName === 'LiteralDataValue' ? 'literal' : '', s.dataType, s.dataFormat].filter(Boolean).join(' · '); },
+};
+
+function DataValuesView({ navGuid, onNavigateToElement }) {
+  return React.createElement(E64ElementsView, { cfg: DATA_VALUES_VIEW_CFG, navGuid: navGuid, onNavigateToElement: onNavigateToElement });
 }
 
 // ── Statements of Applicability ──────────────────────────────────────────────
@@ -14530,7 +14676,7 @@ function App() {
     var hash = window.location.hash.slice(1).split('?')[0];
     var valid = new Set(['type-system','reference-data','digital-products','collections','glossary',
       'report-specs','analytics','valid-values','rest-apis','python-api','solution-architect',
-      'data-design','perspectives','dr-egeria','isc','locations','actors','communities','business-capabilities','notelogs','governance','statements-of-applicability','decisions','naming-vocabulary','policy-enforcement','action-center','duplicate-review','projects','informal-tags','context-events','external-references','external-identifiers','agreements','search']);
+      'data-design','perspectives','dr-egeria','isc','locations','actors','communities','business-capabilities','notelogs','governance','statements-of-applicability','decisions','data-values','naming-vocabulary','policy-enforcement','action-center','duplicate-review','projects','informal-tags','context-events','external-references','external-identifiers','agreements','search']);
     return valid.has(hash) ? hash : 'splash';
   });
   // Same setter as before, but a real section change also drops the one-shot ?guid=/?kind=.
@@ -14678,6 +14824,12 @@ function App() {
     setSection('decisions');
   }, []);
 
+  const [dataValuesNavGuid, setDataValuesNavGuid] = useState(null);
+  const onNavigateToDataValue = useCallback(function(guid) {
+    setDataValuesNavGuid(guid || null);
+    setSection('data-values');
+  }, []);
+
   const [soaNavGuid, setSoaNavGuid] = useState(null);
   const onNavigateToSoa = useCallback(function(guid) {
     setSoaNavGuid(guid || null);
@@ -14772,6 +14924,7 @@ function App() {
     if (typeName === 'ContextEvent') { onNavigateToContextEvent(guid); return; }
     if (typeName === 'StatementOfApplicability') { onNavigateToSoa(guid); return; }
     if (typeName === 'Decision' || superTypes.indexOf('Decision') !== -1) { onNavigateToDecision(guid); return; }
+    if (typeName === 'DataValue' || typeName === 'LiteralDataValue' || superTypes.indexOf('DataValue') !== -1) { onNavigateToDataValue(guid); return; }
     // ValidValueDefinition's other concrete subtypes (ReferenceDataSet,
     // ValidValueSet, …) resolve through the same generic by-guid endpoint as
     // ReferenceDataValue — unlike ValidMetadataValue below, these don't need
@@ -14818,7 +14971,7 @@ function App() {
     // Endpoint — Referenceable, not Asset, so it needs its own branch;
     // Tech Catalog's Infrastructure tab already has a dedicated fetch path.
     if (typeName === 'Endpoint') { window.open('/tech-catalog?guid=' + encodeURIComponent(guid), '_blank'); return; }
-  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToCollection, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToBusinessCapability, onNavigateToAction, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDesignPattern, onNavigateToDataDesign, onNavigateToPerspective, onNavigateToExternalReference, onNavigateToExternalIdentifier, onNavigateToAgreement, onNavigateToProject, onNavigateToValidValues, onNavigateToInformalTag, onNavigateToContextEvent, onNavigateToSoa, onNavigateToDecision]);
+  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToCollection, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToBusinessCapability, onNavigateToAction, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDesignPattern, onNavigateToDataDesign, onNavigateToPerspective, onNavigateToExternalReference, onNavigateToExternalIdentifier, onNavigateToAgreement, onNavigateToProject, onNavigateToValidValues, onNavigateToInformalTag, onNavigateToContextEvent, onNavigateToSoa, onNavigateToDecision, onNavigateToDataValue]);
 
   const [typeSideW, onTypeDivDown] = useResizable(254, null, null, 'App.typeSideW');
 
@@ -14954,7 +15107,7 @@ function App() {
         }),
         React.createElement(NavGroup, {
           label: 'Review', connected: connected, currentSection: section,
-          isActive: ['glossary','reference-data','data-design','collections','solution-architect','isc','locations','actors','communities','business-capabilities','notelogs','perspectives','governance','statements-of-applicability','decisions','naming-vocabulary','policy-enforcement','action-center','duplicate-review','projects','informal-tags','context-events','external-references','external-identifiers','agreements'].includes(section),
+          isActive: ['glossary','reference-data','data-design','collections','solution-architect','isc','locations','actors','communities','business-capabilities','notelogs','perspectives','governance','statements-of-applicability','decisions','data-values','naming-vocabulary','policy-enforcement','action-center','duplicate-review','projects','informal-tags','context-events','external-references','external-identifiers','agreements'].includes(section),
           onSelect: setSection,
           items: [
             { id: 'glossary',           label: 'Glossary',                needsConnect: true },
@@ -14972,6 +15125,7 @@ function App() {
             { id: 'governance',         label: 'Governance Definitions',  needsConnect: true },
             { id: 'statements-of-applicability', label: 'Statements of Applicability', needsConnect: true },
             { id: 'decisions',          label: 'Decisions',               needsConnect: true },
+            { id: 'data-values',        label: 'Data Values',             needsConnect: true },
             { id: 'naming-vocabulary',  label: 'Naming Vocabulary',       needsConnect: true },
             { id: 'policy-enforcement', label: 'Policy Enforcement',     needsConnect: true },
             { id: 'action-center',      label: 'Action Center',           needsConnect: true },
@@ -15116,6 +15270,8 @@ function App() {
       ? React.createElement(StatementsOfApplicabilityView, { key: credsKey, navGuid: soaNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'decisions'
       ? React.createElement(DecisionsView, { key: credsKey, navGuid: decisionsNavGuid, onNavigateToElement: onNavigateToElement })
+      : section === 'data-values'
+      ? React.createElement(DataValuesView, { key: credsKey, navGuid: dataValuesNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'context-events'
       ? React.createElement(ContextEventsView, { key: credsKey, navGuid: contextEventsNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'informal-tags'
