@@ -241,6 +241,35 @@ def main():
     d_pod = [d for d in docs(renders(DEMO + BASE)) if d["kind"] == "Pod"][0]
     check("demo canary has no TLS volume", "volumes" not in d_pod["spec"])
 
+    # --- TR-123 ---
+    # (1) image reference: an empty digest is left out
+    def images(out):
+        ds = docs(out)
+        sts = [d for d in ds if d["kind"] == "StatefulSet" and d["metadata"]["name"] == "r1-platform"][0]["spec"]["template"]["spec"]
+        pod = [d for d in ds if d["kind"] == "Pod"][0]["spec"]
+        return {c["image"] for c in sts["initContainers"] + sts["containers"] + pod["containers"]}
+    d0 = yaml.safe_load(open(os.path.join(CHART, "values.yaml")))["image"]
+    check("default: repository:tag@digest in the platform, its init containers and the test pod",
+          images(renders(DEMO + BASE)) == {"%s:%s@%s" % (d0["repository"], d0["tag"], d0["digest"])})
+    check("empty digest: repository:tag (no dangling @)", images(renders(DEMO + BASE + ["--set", "image.digest="])) == {"%s:%s" % (d0["repository"], d0["tag"])})
+    check("digest set, tag empty: repository@digest",
+          images(renders(DEMO + BASE + ["--set", "image.tag=", "--set", "image.digest=sha256:" + "b" * 64])) == {"%s@sha256:%s" % (d0["repository"], "b" * 64)})
+    refuses("neither tag nor digest is refused", DEMO + BASE + ["--set", "image.tag=", "--set", "image.digest="], ["image.tag", "image.digest"])
+    # (3) pull Secrets and ServiceAccount on the platform and its test pod; none by default
+    ds = docs(renders(DEMO + BASE + ["--set", "imagePullSecrets[0]=regcred", "--set", "serviceAccountName=egeria-sa"]))
+    specs = [d["spec"]["template"]["spec"] for d in ds if d["kind"] == "StatefulSet" and d["metadata"]["name"] == "r1-platform"] + [d["spec"] for d in ds if d["kind"] == "Pod"]
+    check("imagePullSecrets and serviceAccountName on the platform and its test pod",
+          len(specs) == 2 and all(s["imagePullSecrets"] == [{"name": "regcred"}] and s["serviceAccountName"] == "egeria-sa" for s in specs))
+    ds = docs(renders(DEMO + BASE))
+    check("no imagePullSecrets or serviceAccountName by default",
+          not any(k in d["spec"]["template"]["spec"] for d in ds if d["kind"] == "StatefulSet" for k in ("imagePullSecrets", "serviceAccountName")))
+    ds = docs(renders(DEMO + ["-f", os.path.join(CHART, "values-demo-infra.yaml"), "--set", "global.imagePullSecrets[0]=regcred",
+                              "--set", "demoKafka.serviceAccountName=kafka-sa"]))
+    demo = {d["metadata"]["name"]: d["spec"]["template"]["spec"] for d in ds if d["kind"] in ("StatefulSet", "Deployment", "Job")}
+    check("global.imagePullSecrets reaches the demo Postgres, its Job and the demo Kafka; demoKafka.serviceAccountName reaches Kafka",
+          all(demo[n]["imagePullSecrets"] == [{"name": "regcred"}] for n in ("r1-demo-postgres", "r1-demo-postgres-init", "r1-demo-kafka"))
+          and demo["r1-demo-kafka"]["serviceAccountName"] == "kafka-sa", str(sorted(demo)))
+
     print("\n%d failed" % len(failures) if failures else "\nall passed")
     return 1 if failures else 0
 

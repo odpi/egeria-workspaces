@@ -17,7 +17,8 @@ DEMO = ["-f", os.path.join(CHART, "values-demo.yaml")]
 DIG = "sha256:" + "a" * 64
 PROD = ["-f", os.path.join(CHART, "values-production.yaml"), "--set", "environment=freshstart", "--set", "secrets.existingSecret=my-secrets",
         "--set", "tls.caSecret=my-ca", "--set", "persistence.storageClassName=fast",
-        "--set", "images.portal.digest=" + DIG, "--set", "images.apache.digest=" + DIG]
+        "--set", "images.portal.digest=" + DIG, "--set", "images.apache.digest=" + DIG,
+        "--set", "platform.userDirectorySecret=my-platform-secrets"]
 CLUSTER_SCOPED = {"ClusterRole", "ClusterRoleBinding", "Namespace", "PersistentVolume", "StorageClass",
                   "CustomResourceDefinition", "SecurityContextConstraints", "PriorityClass", "IngressClass"}
 failures = []
@@ -122,16 +123,20 @@ def main():
     refuses("production refuses without secrets.existingSecret", [a for a in PROD if a != "my-secrets"][:0] + ["-f", os.path.join(CHART, "values-production.yaml"), "--set", "environment=freshstart"] + BASE + ["--set", "persistence.storageClassName=fast", "--set", "images.portal.digest=" + DIG, "--set", "images.apache.digest=" + DIG, "--set", "tls.caSecret=c"], ["secrets.existingSecret"])
     refuses("production refuses tls.verify=false", PROD + BASE + ["--set", "tls.verify=false"], ["tls.verify"])
     refuses("production requires tls.caSecret", PROD + BASE + ["--set", "tls.caSecret="], ["tls.caSecret"])
-    refuses("production requires image digests", ["-f", os.path.join(CHART, "values-production.yaml"), "--set", "environment=freshstart", "--set", "secrets.existingSecret=s", "--set", "tls.caSecret=c", "--set", "persistence.storageClassName=f"] + BASE, ["digest"])
+    refuses("production requires image digests", ["-f", os.path.join(CHART, "values-production.yaml"), "--set", "environment=freshstart", "--set", "secrets.existingSecret=s", "--set", "tls.caSecret=c", "--set", "persistence.storageClassName=f", "--set", "platform.userDirectorySecret=u"] + BASE, ["digest"])
     refuses("production requires a StorageClass", PROD + BASE + ["--set", "persistence.storageClassName="], ["persistence.storageClassName"])
     refuses("production refuses demoMode", PROD + BASE + ["--set", "demoMode=true"], ["demoMode"])
     refuses("ingress needs a host", DEMO + BASE + ["--set", "ingress.enabled=true"], ["ingress.host"])
-    refuses("production ingress needs TLS", PROD + BASE + ["--set", "ingress.enabled=true", "--set", "ingress.host=h.example"], ["ingress.tlsSecretName"])
+    # PO-78: the freshstart Portal has no server-side API gate, so it is never exposed through an Ingress (or a Route made from it)
+    PO78 = ["PO-78", "no server-side API gate", "port-forward"]
+    refuses("production + freshstart + Ingress is refused (PO-78)", PROD + BASE + ["--set", "ingress.enabled=true", "--set", "ingress.host=h.example", "--set", "ingress.tlsSecretName=tls", "--set", "networkPolicy.enabled=true"], PO78)
+    refuses("demo + freshstart + Ingress is refused (PO-78)", DEMO + BASE + ["--set", "environment=freshstart", "--set", "ingress.enabled=true", "--set", "ingress.host=h.example", "--set", "networkPolicy.enabled=true"], PO78)
+    refuses("freshstart + Ingress with the OpenShift Route annotation is refused (PO-78): a Route is made from the Ingress", PROD + BASE + ["--set", "ingress.enabled=true", "--set", "ingress.host=h.example", "--set", "ingress.tlsSecretName=tls", "--set", "networkPolicy.enabled=true", "--set-string", "ingress.annotations.route\\.openshift\\.io/termination=edge", "--set", "global.openshift=true"], PO78)
+    check("production + freshstart WITHOUT an Ingress still renders (port-forward)", bool(renders(PROD + BASE)))
+    check("demo + freshstart WITHOUT an Ingress still renders (port-forward)", bool(renders(DEMO + BASE + ["--set", "environment=freshstart"])))
+    check("the PO-78 refusal says why in words (the sign-in page is a screen only)", "sign-in page is a screen only" in template(PROD + BASE + ["--set", "ingress.enabled=true", "--set", "ingress.host=h.example"])[2])
 
     # optional pieces
-    ds = renders(PROD + BASE + ["--set", "ingress.enabled=true", "--set", "ingress.host=h.example", "--set", "ingress.tlsSecretName=tls"])
-    check("production renders an Ingress with TLS and a NetworkPolicy", len(kind(ds, "Ingress")) == 1 and len(kind(ds, "NetworkPolicy")) == 1
-          and kind(ds, "Ingress")[0]["spec"]["tls"][0]["secretName"] == "tls")
     ds = renders(DEMO + BASE + ["--set", "content.cocoWorkbooks.existingClaim=wb", "--set", "exchange.loadingBay.existingClaim=lb"])
     vols = {v["name"]: v for v in kind(ds, "Deployment", "r1-portal")[0]["spec"]["template"]["spec"]["volumes"]}
     check("an existing claim is mounted, others are empty directories",
@@ -159,13 +164,10 @@ def main():
     refuses("ingress + quickstart + demoMode=false is refused", DEMO + BASE + NP + ING, ["no login gate", "allowUngatedPortal"])
     check("ingress + quickstart + demoMode=true renders", bool(renders(DEMO + BASE + NP + ING + ["--set", "demoMode=true"])))
     check("ingress + quickstart + allowUngatedPortal=true renders (demo only)", bool(renders(DEMO + BASE + NP + ING + ["--set", "allowUngatedPortal=true"])))
-    check("ingress + freshstart renders", bool(renders(DEMO + BASE + NP + ING + ["--set", "environment=freshstart"])))
     refuses("allowUngatedPortal is refused in production", PROD + BASE + ["--set", "allowUngatedPortal=true"], ["allowUngatedPortal"])
     # the Portal Service on 8000 is reachable only from the front door whenever there is an Ingress
-    refuses("an Ingress requires networkPolicy.enabled", DEMO + BASE + ING + ["--set", "environment=freshstart"], ["networkPolicy.enabled", "8000"])
-    for tag, extra in (("demo/freshstart", DEMO + BASE + NP + ING + ["--set", "environment=freshstart"]),
-                       ("demo/quickstart+demoMode", DEMO + BASE + NP + ING + ["--set", "demoMode=true"]),
-                       ("production/freshstart", PROD + BASE + ING + ["--set", "environment=freshstart", "--set", "ingress.tlsSecretName=tls"])):
+    refuses("an Ingress requires networkPolicy.enabled", DEMO + BASE + ING + ["--set", "demoMode=true"], ["networkPolicy.enabled", "8000"])
+    for tag, extra in (("demo/quickstart+demoMode", DEMO + BASE + NP + ING + ["--set", "demoMode=true"]),):
         ds = renders(extra)
         ing = kind(ds, "Ingress")[0]
         backends = [p["backend"]["service"]["name"] for r in ing["spec"]["rules"] for p in r["http"]["paths"]]
@@ -194,12 +196,63 @@ def main():
     ro = [l for l in dm.splitlines() if "REDIRECT_OK" in l and "name:" in l]
     check("demoMode: TOKEN_BASE is the Portal Service, REDIRECT_OK true", tb and "r1-portal:8000" in tb[0] and ro and '"true"' in ro[0], str(tb + ro))
     check("the canary message names the address it used (not 'front door' when it went to 8000)", "via {os.environ['TOKEN_BASE']}" in dm and "through the front door (HTTP" not in dm)
+    check("gated Portal (demoMode): the canary asserts that an empty token request without a session gets 401 (PO-68)", "a request with no password and no session is refused" in dm and "need(s == 401" in dm)
+    rc, fs, _ = template(DEMO + BASE + ["--set", "environment=freshstart"])
+    fro = [l for l in fs.splitlines() if "REDIRECT_OK" in l and "name:" in l]
+    check("freshstart: REDIRECT_OK is true, so the canary runs the PO-68 401 check", fro and '"true"' in fro[0] and "need(s == 401" in fs, str(fro))
     rc, qs, _ = template(DEMO + BASE)
     tb = [l for l in qs.splitlines() if "TOKEN_BASE" in l]
     ro = [l for l in qs.splitlines() if "REDIRECT_OK" in l and "name:" in l]
-    check("ungated quickstart: TOKEN_BASE is the front door, REDIRECT_OK false", tb and "r1-portal-web:8085" in tb[0] and ro and '"false"' in ro[0], str(tb + ro))
+    check("ungated quickstart: TOKEN_BASE is the front door, REDIRECT_OK false (so the PO-68 401 check is skipped)", tb and "r1-portal-web:8085" in tb[0] and ro and '"false"' in ro[0], str(tb + ro))
     check("the canary accepts a redirect on freshstart only", 'name: REDIRECT_OK, value: "true"' in out.replace("- {", "{") or "REDIRECT_OK" in out)
 
+    # --- TR-123 ---
+    # (2) production freshstart names the platform's user-directory Secret; demo keeps the default name (optional mount)
+    noud = [a for a in PROD if a != "platform.userDirectorySecret=my-platform-secrets"][:-1]
+    refuses("production freshstart without platform.userDirectorySecret is refused, naming it", noud + BASE, ["platform.userDirectorySecret", "egeria-user-directory.omsecrets"])
+    vols = {v["name"]: v for v in kind(renders(PROD + BASE), "Deployment", "r1-portal")[0]["spec"]["template"]["spec"]["volumes"]}
+    check("production: the user directory is mounted from the named Secret", vols["platform-userdir"]["secret"]["secretName"] == "my-platform-secrets")
+    vols = {v["name"]: v for v in kind(renders(DEMO + BASE + ["--set", "environment=freshstart"]), "Deployment", "r1-portal")[0]["spec"]["template"]["spec"]["volumes"]}
+    check("demo freshstart: the default <platform>-secrets is still used (the platform's demo Secret)", vols["platform-userdir"]["secret"]["secretName"] == "egeria-platform-secrets")
+    # (3) pull Secrets and ServiceAccount on all three pods (Portal, Apache, test)
+    rc, out, err = template(DEMO + BASE + ["--set", "imagePullSecrets[0]=regcred", "--set", "global.imagePullSecrets[0].name=shared", "--set", "serviceAccountName=portal-sa"])
+    ds = docs(out)
+    specs = [d["spec"]["template"]["spec"] for d in kind(ds, "Deployment")] + [d["spec"] for d in kind(ds, "Pod")]
+    check("imagePullSecrets (own + global) and serviceAccountName are on the Portal, Apache and test pods",
+          len(specs) == 3 and all([x["name"] for x in s["imagePullSecrets"]] == ["regcred", "shared"] and s["serviceAccountName"] == "portal-sa" for s in specs),
+          str([(s.get("imagePullSecrets"), s.get("serviceAccountName")) for s in specs]))
+    # (4) Apache gets the chart's tolerations and affinity, like the Portal
+    ds = renders(DEMO + BASE + ["--set", "tolerations[0].key=dedicated", "--set", "tolerations[0].operator=Exists",
+                                "--set", "affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key=zone",
+                                "--set", "affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator=Exists",
+                                "--set", "nodeSelector.pool=egeria"])
+    web = kind(ds, "Deployment", "r1-portal-web")[0]["spec"]["template"]["spec"]
+    por = kind(ds, "Deployment", "r1-portal")[0]["spec"]["template"]["spec"]
+    check("Apache has the same nodeSelector, tolerations and affinity as the Portal",
+          all(web.get(k) and web.get(k) == por.get(k) for k in ("nodeSelector", "tolerations", "affinity")), str({k: web.get(k) for k in ("tolerations", "affinity")}))
+    # (5) probes: today's numbers by default, overridable, handler fixed
+    ds = renders(DEMO + BASE)
+    pc = kind(ds, "Deployment", "r1-portal")[0]["spec"]["template"]["spec"]["containers"][0]
+    ac = kind(ds, "Deployment", "r1-portal-web")[0]["spec"]["template"]["spec"]["containers"][0]
+    check("default Portal probes keep the earlier numbers",
+          pc["startupProbe"] == {"httpGet": {"path": "/", "port": "http"}, "periodSeconds": 10, "failureThreshold": 60}
+          and pc["readinessProbe"] == {"httpGet": {"path": "/", "port": "http"}, "periodSeconds": 10, "timeoutSeconds": 5, "failureThreshold": 3}
+          and pc["livenessProbe"] == {"httpGet": {"path": "/", "port": "http"}, "periodSeconds": 30, "timeoutSeconds": 10, "failureThreshold": 5},
+          str({k: pc[k] for k in ("startupProbe", "readinessProbe", "livenessProbe")}))
+    check("default Apache probes keep the earlier numbers",
+          ac["readinessProbe"] == {"tcpSocket": {"port": "http"}, "periodSeconds": 10}
+          and ac["livenessProbe"] == {"tcpSocket": {"port": "http"}, "periodSeconds": 30, "failureThreshold": 5}, str((ac["readinessProbe"], ac["livenessProbe"])))
+    ds = renders(DEMO + BASE + ["--set", "probes.portal.startup.failureThreshold=120", "--set", "probes.portal.readiness.timeoutSeconds=9",
+                                "--set", "probes.apache.liveness.periodSeconds=7", "--set", "probes.apache.readiness.initialDelaySeconds=3"])
+    pc = kind(ds, "Deployment", "r1-portal")[0]["spec"]["template"]["spec"]["containers"][0]
+    ac = kind(ds, "Deployment", "r1-portal-web")[0]["spec"]["template"]["spec"]["containers"][0]
+    check("probe overrides reach the Portal and Apache, the checks stay GET / and TCP",
+          pc["startupProbe"]["failureThreshold"] == 120 and pc["startupProbe"]["periodSeconds"] == 10 and pc["readinessProbe"]["timeoutSeconds"] == 9
+          and pc["startupProbe"]["httpGet"]["path"] == "/" and ac["livenessProbe"]["periodSeconds"] == 7 and ac["readinessProbe"]["initialDelaySeconds"] == 3
+          and "tcpSocket" in ac["livenessProbe"])
+    refuses("a probe value that is not a timing is refused", DEMO + BASE + ["--set", "probes.portal.readiness.httpGet.path=/x"], ["probes.portal.readiness.httpGet", "not allowed"])
+    # (6) the image message points at the docs
+    refuses("a missing image repository points at charts/docs/kubernetes.md#images", DEMO + ["--set", "platform.serviceName=p"], ["charts/docs/kubernetes.md#images"])
     if failures:
         print("\n%d FAILED" % len(failures))
         sys.exit(1)

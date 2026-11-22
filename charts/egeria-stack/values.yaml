@@ -5,6 +5,8 @@
 global:
   # true: no runAsUser/runAsGroup/fsGroup anywhere (OpenShift restricted-v2).
   openshift: false
+  # Pull Secrets for every pod (in egeria-stack, set once here for all parts): Secret names or {name: ...}.
+  imagePullSecrets: []
   # Tells the Portal its platform is this release's own Service, <release>-platform. Do not change.
   stack: true
 

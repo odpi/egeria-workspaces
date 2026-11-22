@@ -14,3 +14,8 @@ heap: "-Xmx1G -Xms1G"
 resources:
   requests: {cpu: 200m, memory: 1536Mi}
   limits: {memory: 2560Mi}
+
+# Pod identity: an existing ServiceAccount (none is created; empty = the namespace's default) and pull Secrets
+# (names or {name: ...}), added to global.imagePullSecrets.
+serviceAccountName: ""
+imagePullSecrets: []

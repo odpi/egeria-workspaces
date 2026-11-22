@@ -21,7 +21,7 @@ composeHost: freshstart-pyegeria-web
 
 {{/* image reference: repository:tag[@digest]; dict "img" <values.images.x> "name" "images.portal" "prod" bool */}}
 {{- define "egeria-portal.image" -}}
-{{- if not .img.repository -}}{{- fail (printf "set %s.repository (the image from charts/README: for example localhost:5001/portal-quickstart)" .name) -}}{{- end -}}
+{{- if not .img.repository -}}{{- fail (printf "set %s.repository: the Portal and Apache images are not published, build them as charts/docs/kubernetes.md#images describes (for example localhost:5001/portal-quickstart)" .name) -}}{{- end -}}
 {{- if not .img.tag -}}{{- fail (printf "set %s.tag" .name) -}}{{- end -}}
 {{- if and .prod (not .img.digest) -}}{{- fail (printf "set %s.digest: the production posture pins images by digest" .name) -}}{{- end -}}
 {{- if .img.digest -}}{{ printf "%s:%s@%s" .img.repository .img.tag .img.digest }}{{- else -}}{{ printf "%s:%s" .img.repository .img.tag }}{{- end -}}
@@ -38,7 +38,7 @@ composeHost: freshstart-pyegeria-web
 {{- end -}}
 {{- $prod := eq $v.posture "production" -}}
 {{- if and $prod (eq $v.environment "quickstart") -}}
-{{- fail "the production posture needs a login gate, and the quickstart environment has none (SERVER_MANAGED_AUTH is false there; only the public-demo SQLite accounts gate it). Use environment=freshstart for a gated Portal." -}}
+{{- fail "the production posture needs a login gate, and the quickstart environment has none (SERVER_MANAGED_AUTH is false there; only the public-demo SQLite accounts gate it). The freshstart Portal has a sign-in page, but no server-side API gate yet (PO-78), so it cannot be exposed through an Ingress either: run it behind port-forward." -}}
 {{- end -}}
 {{- $stack := and $v.global (eq (toString (default false $v.global.stack)) "true") -}}
 {{- $platformSvc := default (ternary (printf "%s-platform" .Release.Name) "" $stack) $v.platform.serviceName -}}
@@ -60,6 +60,9 @@ composeHost: freshstart-pyegeria-web
 {{- if and $prod $v.demoMode -}}
 {{- fail "demoMode is demo only (it enables registration and the login gate of the public demos)." -}}
 {{- end -}}
+{{- if and $v.ingress.enabled (eq $v.environment "freshstart") -}}
+{{- fail "the freshstart Portal has no server-side API gate yet (PO-78): requests that carry no token are answered as the Portal's service user, so it must not be exposed through an Ingress (or an OpenShift Route, which is made from the Ingress). Leave ingress.enabled false and use kubectl port-forward. The sign-in page is a screen only; it does not protect the API." -}}
+{{- end -}}
 {{- if and $v.ingress.enabled (not $v.ingress.host) -}}
 {{- fail "set ingress.host (ingress.enabled is true)" -}}
 {{- end -}}
@@ -71,6 +74,9 @@ composeHost: freshstart-pyegeria-web
 {{- end -}}
 {{- if and $v.ingress.enabled (not $v.networkPolicy.enabled) -}}
 {{- fail "set networkPolicy.enabled=true: with an Ingress, the Portal Service on 8000 must be reachable only from the Apache front door, because the login gate trusts the edge header Apache adds. A direct path to 8000 would bypass the gate." -}}
+{{- end -}}
+{{- if and $prod (eq $v.environment "freshstart") (not $v.platform.userDirectorySecret) -}}
+{{- fail "set platform.userDirectorySecret (in egeria-stack: portal.platform.userDirectorySecret) to the platform's Secret, usually the same one as the platform's secrets.existingSecret: the freshstart Portal reads the user directory from its key egeria-user-directory.omsecrets. The default <platform>-secrets exists only in the demo posture, and the optional mount would find nothing." -}}
 {{- end -}}
 {{- if and $v.allowUngatedPortal $prod -}}
 {{- fail "allowUngatedPortal is demo only." -}}
@@ -101,4 +107,13 @@ portalImage: {{ include "egeria-portal.image" (dict "img" $v.images.portal "name
 apacheImage: {{ include "egeria-portal.image" (dict "img" $v.images.apache "name" "images.apache" "prod" $prod) | quote }}
 dataClaim: {{ default (printf "%s-data" $name) $v.persistence.existingClaim }}
 createDataClaim: {{ not $v.persistence.existingClaim }}
+{{- end -}}
+
+{{/* Probe timings from values: only timing keys, so the probe's handler stays the chart's. dict "name" "probes.x.y" "t" <map> */}}
+{{- define "egeria-portal.probeTiming" -}}
+{{- $allowed := list "initialDelaySeconds" "periodSeconds" "timeoutSeconds" "failureThreshold" "successThreshold" -}}
+{{- range $k, $_ := .t -}}
+{{- if not (has $k $allowed) -}}{{- fail (printf "%s.%s is not allowed: only %s can be set (the probe's check is the chart's)" $.name $k (join ", " $allowed)) -}}{{- end -}}
+{{- end -}}
+{{- if .t }}{{ toYaml .t }}{{ end -}}
 {{- end -}}

@@ -148,3 +148,11 @@ placeholderBlock: {{ $block | toJson }}
 {{- define "egeria-platform.prop" -}}
 {{- regexFind (printf "(?m)^%s=.*$" (regexQuoteMeta .name)) .props | trimPrefix (printf "%s=" .name) -}}
 {{- end }}
+
+{{/* Image reference: repository:tag, repository@digest, or repository:tag@digest (an empty digest is left out). */}}
+{{- define "egeria-platform.image" -}}
+{{- $i := .Values.image -}}
+{{- if not $i.repository -}}{{- fail "set image.repository" -}}{{- end -}}
+{{- if not (or $i.tag $i.digest) -}}{{- fail "set image.tag or image.digest" -}}{{- end -}}
+{{- $i.repository -}}{{- if $i.tag -}}:{{ $i.tag }}{{- end -}}{{- if $i.digest -}}@{{ $i.digest }}{{- end -}}
+{{- end -}}
