@@ -83,6 +83,11 @@ async def _lifespan(app: FastAPI):
     # `docker logs`. Add a Portal-only sink here, after that config has run (see portal_logging.py).
     from portal_logging import ensure_portal_log_sink
     ensure_portal_log_sink()
+    # PO-82: refuse to start with the published MCP token (anyone reaching the port could drive the MCP tools). An unset token is
+    # fine: MCP is simply off. Raises RuntimeError with words.
+    import demo_config
+    if demo_config.mcp_access_token() == "":
+        logger.warning(demo_config.MCP_OFF_WORDS)
     from obsidian_lock_handler import start_scheduler as obs_start, stop_scheduler as obs_stop
     from jupyter_lock_handler import start_scheduler as jup_start, stop_scheduler as jup_stop
     from bootstrap_monitor_handler import start_scheduler as boot_start, stop_scheduler as boot_stop
@@ -138,8 +143,8 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# Security Token (Simplified for local use)
-MCP_ACCESS_TOKEN = os.environ.get("MCP_ACCESS_TOKEN", "egeria-secret-mcp-token")
+# PO-82: the MCP token comes from MCP_ACCESS_TOKEN (demo_config), with no published default. Unset: MCP is off and its
+# endpoints answer with words. The published value is refused at startup (see _lifespan) and, if it got here anyway, per request.
 
 # Use a standard ASGI middleware instead of BaseHTTPMiddleware to avoid 
 # issues with custom response types like SSE.
@@ -168,8 +173,22 @@ class MCPTokenMiddleware:
                     await self.app(scope, receive, send)
                     return
 
-            token = request.query_params.get("token") or request.headers.get("X-API-Key")
-            if token != MCP_ACCESS_TOKEN:
+            import hmac
+
+            import demo_config
+
+            try:
+                expected = demo_config.mcp_access_token()
+            except RuntimeError as exc:                 # the published value: refuse, never fall back to it
+                response = JSONResponse(status_code=503, content={"detail": str(exc)})
+                await response(scope, receive, send)
+                return
+            if not expected:                            # no token set: MCP is off
+                response = JSONResponse(status_code=503, content={"detail": demo_config.MCP_OFF_WORDS})
+                await response(scope, receive, send)
+                return
+            token = request.query_params.get("token") or request.headers.get("X-API-Key") or ""
+            if not hmac.compare_digest(token.encode("utf-8"), expected.encode("utf-8")):
                 response = JSONResponse(
                     status_code=403, 
                     content={"detail": "Invalid MCP Access Token"}

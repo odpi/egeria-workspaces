@@ -312,7 +312,9 @@ services:
       # demo persona password into .env when it is missing or empty (an exported value wins); a plain
       # `docker compose up` without it refuses to start instead of signing in with a well-known password.
       EGERIA_USER_PASSWORD: "${QUICKSTART_PERSONA_PASSWORD:?set QUICKSTART_PERSONA_PASSWORD in compose-configs/egeria-quickstart/.env (quick-start-local writes the demo password there)}"
-      MCP_ACCESS_TOKEN: "egeria-secret-mcp-token"
+      # No published default (PO-82): gen-env.sh generates MCP_ACCESS_TOKEN into .env on the first run and keeps it. Unset,
+      # the MCP endpoints are off and say so; the old published value is refused when the Portal starts.
+      MCP_ACCESS_TOKEN: "${MCP_ACCESS_TOKEN:-}"
       # ── Demo mode — set DEMO_MODE=true to enable public access with auth ──────
       DEMO_MODE: "false"
       DEMO_DB_PATH: "/app/demo-data/demo.db"
