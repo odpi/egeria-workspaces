@@ -16,6 +16,7 @@ BASE = ["--set", "image.repository=r.example/re", "--set", "image.tag=t",
         "--set", "egeria.platformUrl=https://platform:9443", "--set", "egeria.daemon.userId=re", "--set", "egeria.daemon.existingSecret=re-egeria"]
 DEMO = ["-f", os.path.join(CHART, "values-demo.yaml")]
 PROD = ["-f", os.path.join(CHART, "values-production.yaml"), "--set", "image.digest=" + DIG, "--set", "secrets.existingSecret=re-secrets",
+        "--set", "database.owner.user=re_owner", "--set", "database.owner.existingSecret=re-owner-db",
         "--set", "tls.caSecret=re-ca", "--set", "persistence.storageClassName=fast"]
 CLUSTER_SCOPED = {"ClusterRole", "ClusterRoleBinding", "Namespace", "PersistentVolume", "StorageClass",
                   "CustomResourceDefinition", "SecurityContextConstraints", "PriorityClass", "IngressClass"}
@@ -139,6 +140,16 @@ def main():
     refuses("refuses zero workers", DEMO + BASE + ["--set", "worker.replicas=0"], ["worker.replicas"])
     refuses("production requires secrets.existingSecret", without(PROD, "secrets.existingSecret=re-secrets") + BASE, ["secrets.existingSecret"])
     refuses("production requires an image digest", without(PROD, "image.digest=" + DIG) + BASE, ["image.digest"])
+    # TR-115: production must have a separate owner role, so the pods' runtime role never needs DDL (Architect read-back W1)
+    refuses("production refuses without database.owner.user", without(PROD, "database.owner.user=re_owner") + BASE, ["database.owner.user", "no DDL rights"])
+    refuses("production refuses without database.owner.existingSecret", without(PROD, "database.owner.existingSecret=re-owner-db") + BASE, ["database.owner.existingSecret"])
+    refuses("production refuses an owner that is the runtime role", PROD + BASE + ["--set", "database.owner.user=re_rt"], ["same role", "database.user"])
+    dpo = renders(PROD + BASE)
+    jo = env_of(kind(dpo, "Job")[0], "schema")
+    check("production Job runs as the owner role with the owner's Secret, the pods as the runtime role",
+          jo["PGVECTOR_USER"]["value"] == "re_owner" and jo["PGVECTOR_PASSWORD"]["valueFrom"]["secretKeyRef"]["name"] == "re-owner-db"
+          and env_of(kind(dpo, "Deployment", "r1-re-web")[0], "web")["PGVECTOR_USER"]["value"] == "re_rt")
+    check("demo may keep one role (the defaults)", bool(renders(DEMO + BASE)))
     refuses("production requires tls.verify", PROD + BASE + ["--set", "tls.verify=false"], ["tls.verify"])
     refuses("production requires a StorageClass or claim", without(PROD, "persistence.storageClassName=fast") + BASE, ["persistence.storageClassName"])
     refuses("production Ingress needs TLS", PROD + BASE + ["--set", "ingress.enabled=true", "--set", "ingress.host=h.example"], ["ingress.tlsSecretName"])

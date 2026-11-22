@@ -2,7 +2,7 @@
 {{- $v := .Values -}}
 # `resource-explorer schema apply`: creates and migrates the registry and the four stores, writes the version markers.
 # A pre-install/pre-upgrade hook, so the schema is at this version before any pod starts (the pods refuse to start otherwise).
-# It runs as the OWNER role; the pods hold only the runtime role. A second run sends no DDL.
+# It runs as the OWNER role; the pods hold only the runtime role. A second run changes nothing (it still reads the projects and reconciles the collections).
 # The Secrets named in database.* must already exist: hooks run before the chart's own objects.
 apiVersion: batch/v1
 kind: Job

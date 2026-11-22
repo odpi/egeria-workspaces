@@ -31,6 +31,14 @@ Use: {{ $cfg := include "trellis-re.cfg" . | fromYaml }}
 {{- if and $prod (not $v.secrets.existingSecret) -}}
 {{- fail "the production posture requires secrets.existingSecret: a Secret with keys jwt-secret and db-credential-key, shared by every pod" -}}
 {{- end -}}
+{{- if $prod -}}
+{{- if or (not $v.database.owner.user) (not $v.database.owner.existingSecret) -}}
+{{- fail "the production posture requires database.owner.user and database.owner.existingSecret: the schema Job runs as a separate OWNER role and the pods as the runtime role, which must hold no DDL rights (TR-115). Without an owner the Job would run as the runtime role, and an operator would have to grant it DDL, which removes the guarantee." -}}
+{{- end -}}
+{{- if eq $v.database.owner.user $v.database.user -}}
+{{- fail "database.owner.user is the same role as database.user: the production posture needs two roles, so that the pods' runtime role holds no DDL rights (TR-115). Make a separate owner role." -}}
+{{- end -}}
+{{- end -}}
 {{- if and $prod (not $v.tls.verify) -}}{{- fail "the production posture requires tls.verify=true" -}}{{- end -}}
 {{- if and $v.tls.verify (not $v.tls.caSecret) $prod -}}
 {{- fail "set tls.caSecret: a Secret with key ca.crt that the platform's certificate chains to (tls.verify is true)" -}}

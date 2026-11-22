@@ -37,7 +37,7 @@ ALTER DEFAULT PRIVILEGES FOR ROLE re_owner GRANT SELECT, INSERT, UPDATE, DELETE 
 ALTER DEFAULT PRIVILEGES FOR ROLE re_owner GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO re_rt;
 ```
 
-Then set `database.user=re_rt` and `database.owner.user=re_owner` (with `database.owner.existingSecret`).
+Then set `database.user=re_rt` and `database.owner.user=re_owner` (with `database.owner.existingSecret`). In the production posture the chart **refuses** unless the owner role and its Secret are set and differ from the runtime role: with one role the Job would run as the runtime role, and giving that role DDL rights voids the split. The demo posture may use one role.
 
 ## A new resource needs the schema Job
 
