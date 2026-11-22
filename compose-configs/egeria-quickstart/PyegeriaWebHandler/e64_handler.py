@@ -10,6 +10,9 @@ Endpoints:
   GET /api/decisions/{guid}    -> one Decision: header, body, dates, assessed inputs, outcomes
   GET /api/data-values         -> the Data Values list (DataValue and LiteralDataValue)
   GET /api/data-values/{guid}  -> one DataValue: format and type, the value, used by, stored in, embedded, part of
+  GET /api/e64/elements/{guid}/related -> the 6.4 rows for any element's existing card: decisions, projects,
+                                          project targets, processing variables, variable types, data values
+                                          provided, and the Branch classification
 
 Reads use pyegeria's generic ClassificationExplorer calls (elements/by-type, elements/{guid}), which every
 pyegeria the Portal runs has. So the cards don't need the unreleased 6.4 wrappers, and they work as soon as
@@ -385,3 +388,83 @@ async def get_data_value(guid: str, url: Optional[str] = Query(None), server: Op
         raise HTTPException(status_code=404, detail=f"{guid!r} is a {e64.type_name(element) or 'element'}, "
                                                     "not a Data Value.")
     return JSONResponse(serialize_data_value(element, carries=True if carries is None else carries))
+
+
+# ── The 6.4 rows on any element's existing card ──────────────────────────────────────────────────────────
+# (section key, title, [(list key, row label, relationship property fields, applies-to type or None = any)])
+# The relationship types are read with include_only_relationships, so the read is small whatever the element.
+_REVERSE_SECTIONS = (
+    ("decisions", "Decisions", (
+        ("associatedDecisions", "Outcome of", _OUTCOME_FIELDS, None),
+        ("assessmentDecisions", "Assessed for", _ASSESSMENT_FIELDS, None),
+    )),
+    ("projects", "Projects", (
+        ("workedOnByProjects", "Worked on by projects", ("label", "description"), None),
+        ("projectTargets", "Project targets", ("label", "description"), "Project"),
+    )),
+    ("variables", "Process variables", (
+        ("processingVariables", "Processing variables", _POSITIONED, None),
+        ("processVariableTypes", "Variable types", ("label", "description", "position", "minCardinality",
+                                                     "maxCardinality"), None),
+        ("processVariableTypeUses", "Variable type of", ("label", "description", "position", "minCardinality",
+                                                          "maxCardinality"), "SchemaType"),
+    )),
+    ("dataValues", "Data values", (
+        ("providesDataValues", "Provides data values", ("label", "description"), "Asset"),
+    )),
+)
+_REVERSE_REL_TYPES = sorted({e64.E64_LISTS[k] for _s, _t, lists in _REVERSE_SECTIONS for k, *_ in lists})
+_POSITION_LISTS = {"processingVariables", "processVariableTypes", "processVariableTypeUses"}
+
+
+def _requested_for(rel_types) -> set:
+    """The lists a read limited to `rel_types` asks for: every RELATIONSHIP_FIELDS list whose relationship
+    types are all among them."""
+    return {k for k, types in e64.relationship_fields().items() if types and set(types) <= set(rel_types)}
+
+
+def serialize_related(element: dict, carries: Optional[bool], words: str = "", requested=None) -> dict:
+    """{guid, typeName, branch, sections: [{key, title, lists: [{key, label, rows, st}]}]}. A list that
+    doesn't apply to the element's type (projectTargets on a non-Project, ...) is left out."""
+    requested = _requested_for(_REVERSE_REL_TYPES) if requested is None else requested
+    h = e64.hdr(element)
+    t = h.get("type") or {}
+    types = {t.get("typeName") or "", *(t.get("superTypeNames") or [])}
+    sections = []
+    for key, title, lists in _REVERSE_SECTIONS:
+        out = []
+        for lk, label, fields, applies in lists:
+            if applies and applies not in types:
+                continue
+            rows = e64.related_rows(element, lk, fields)
+            rows = _by_position(rows) if lk in _POSITION_LISTS else sorted(rows, key=lambda r: (r["displayName"] or "").lower())
+            out.append({"key": lk, "label": label, "relationshipType": e64.E64_LISTS[lk], "rows": rows,
+                        "st": e64.list_state(element, lk, requested, carries, words)})
+        if out:
+            sections.append({"key": key, "title": title, "lists": out})
+    return {"guid": h.get("guid", ""), "typeName": t.get("typeName") or "",
+            "branch": e64.branch_of(element), "sections": sections}
+
+
+@router.get("/api/e64/elements/{guid}/related",
+            summary="The Egeria 6.4 rows for an element's card: decisions, projects, process variables, Branch",
+            responses=EGERIA_ERROR_RESPONSES)
+async def get_e64_related(guid: str, url: Optional[str] = Query(None), server: Optional[str] = Query(None)):
+    try:
+        client = await _explorer_async(url, server)
+    except Exception as exc:
+        _raise_http(exc, "ClassificationExplorer client failed")
+    carries, version, purl = await _gate(client)
+    if carries is False:
+        return _needs64("Decisions, project targets, process variables and Branch", purl, version, guid=guid)
+    try:
+        raw = await client._async_get_element_by_guid(guid, graph_query_depth=1, output_format="JSON",
+                                                      include_only_relationships=_REVERSE_REL_TYPES)
+    except Exception as exc:
+        if carries is None and e64.is_missing_6_4_endpoint(exc):   # a 404 on a 6.4 platform is a real error
+            return _needs64("Decisions, project targets, process variables and Branch", purl, guid=guid)
+        _raise_http(exc, "get_element_by_guid (6.4 rows) failed")
+    element = raw[0] if isinstance(raw, list) and raw else raw
+    if not isinstance(element, dict) or not e64.hdr(element).get("guid"):
+        raise HTTPException(status_code=404, detail=f"No element {guid!r} is visible to you.")
+    return JSONResponse({**serialize_related(element, carries), "carries": carries})

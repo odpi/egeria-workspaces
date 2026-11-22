@@ -614,7 +614,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   <!-- Bump ?v= whenever egeria-shared-ui.js changes — see tech-catalog.html for why. -->
   <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
   <script>window.EGERIA_FOR_LINEAGE = true; window.EGERIA_FOR_LINEAGE_VISIBLE = false;  /* shown per-section by App */</script>
-  <script src="/static/egeria-shared-ui.js?v=2026-11-17-po41"></script>
+  <script src="/static/egeria-shared-ui.js?v=2026-11-22-e64"></script>
   <script src="/static/egeria-not-measured.js?v=2026-11-11a"></script>
   <script src="/static/egeria-table.js?v=2026-11-12a"></script>
   <script>"use strict";
@@ -4601,6 +4601,7 @@ function ReferenceDataDetail({ item, onNavigateToElement }) {
     ),
     React.createElement(GenericRelationshipsSection, { relationships: item.relationships, onNavigateToElement: onNavigateToElement }),
     React.createElement(ClassificationsAndRawJson, { item: item }),
+    React.createElement(E64RelatedPanel, { guid: item.guid, onNavigateToElement: typeof onNavigateToElement === 'function' ? onNavigateToElement : null }),
     React.createElement(EgeriaCommentsSection, { guid: item.guid })
   );
 }
@@ -4882,6 +4883,7 @@ function ExternalReferenceDetail({ item, onNavigateToElement }) {
       })
     ),
     React.createElement(ClassificationsAndRawJson, { item: item }),
+    React.createElement(E64RelatedPanel, { guid: item.guid, onNavigateToElement: typeof onNavigateToElement === 'function' ? onNavigateToElement : null }),
     React.createElement(EgeriaCommentsSection, { guid: item.guid })
   );
 }
@@ -5072,6 +5074,7 @@ function ExternalIdentifierDetail({ item, onNavigateToElement }) {
     ),
     React.createElement(GenericRelationshipsSection, { relationships: item.relationships, onNavigateToElement: onNavigateToElement }),
     React.createElement(ClassificationsAndRawJson, { item: item }),
+    React.createElement(E64RelatedPanel, { guid: item.guid, onNavigateToElement: typeof onNavigateToElement === 'function' ? onNavigateToElement : null }),
     React.createElement(EgeriaCommentsSection, { guid: item.guid })
   );
 }
@@ -5261,6 +5264,7 @@ function AgreementDetail({ item, onNavigateToElement }) {
       })
     ),
     React.createElement(ClassificationsAndRawJson, { item: item }),
+    React.createElement(E64RelatedPanel, { guid: item.guid, onNavigateToElement: typeof onNavigateToElement === 'function' ? onNavigateToElement : null }),
     React.createElement(EgeriaCommentsSection, { guid: item.guid })
   );
 }
@@ -5575,6 +5579,7 @@ function DigitalProductDetail({ product, onNavigateToElement, creds, selection }
       );
     })(),
     React.createElement(ClassificationsAndRawJson, { item: product, creds: creds }),
+    React.createElement(E64RelatedPanel, { guid: product.guid, onNavigateToElement: typeof onNavigateToElement === 'function' ? onNavigateToElement : null }),
     React.createElement(EgeriaCommentsSection, { guid: product.guid }),
     previewDs && React.createElement(TabularPreviewModal, { fetchUrl: '/api/digital-products/' + previewDs.guid + '/tabular', name: previewDs.name, creds: creds, onClose: function() { setPreviewDs(null); } }),
     selection && modalAction && React.createElement(AddToCollectionModal, {
@@ -7231,6 +7236,7 @@ function ValidValueDetail({ item, onNavigateToElement }) {
     ),
     React.createElement(GenericRelationshipsSection, { relationships: item.relationships, onNavigateToElement: onNavigateToElement }),
     React.createElement(ClassificationsAndRawJson, { item: item }),
+    React.createElement(E64RelatedPanel, { guid: item.guid, onNavigateToElement: typeof onNavigateToElement === 'function' ? onNavigateToElement : null }),
     React.createElement(EgeriaCommentsSection, { guid: item.guid })
   );
 }
@@ -8379,7 +8385,8 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
         )
       ),
       renderAllRels(detail.relationships),
-      React.createElement(EgeriaCommentsSection, { guid: detail.guid })
+      React.createElement(E64RelatedPanel, { guid: detail.guid, onNavigateToElement: typeof onNavigateToElement === 'function' ? onNavigateToElement : null }),
+    React.createElement(EgeriaCommentsSection, { guid: detail.guid })
     );
   }
 
@@ -8596,6 +8603,7 @@ function SolutionBlueprintDetail({ blueprint, onNavigateToComponent, onNavigateT
     ),
     React.createElement(GenericRelationshipsSection, { relationships: blueprint.relationships, onNavigateToElement: onNavigateToElement }),
     React.createElement(ClassificationsAndRawJson, { item: blueprint }),
+    React.createElement(E64RelatedPanel, { guid: blueprint.guid, onNavigateToElement: typeof onNavigateToElement === 'function' ? onNavigateToElement : null }),
     React.createElement(EgeriaCommentsSection, { guid: blueprint.guid })
   );
 }
@@ -8657,6 +8665,7 @@ function SolutionComponentDetail({ component, onNavigateToBlueprint, onNavigateT
     relSection("Wired From", component.wiredFrom, onNavigateToComponent),
     React.createElement(GenericRelationshipsSection, { relationships: component.relationships, onNavigateToElement: onNavigateToElement }),
     React.createElement(ClassificationsAndRawJson, { item: component, creds: creds }),
+    React.createElement(E64RelatedPanel, { guid: component.guid, onNavigateToElement: typeof onNavigateToElement === 'function' ? onNavigateToElement : null }),
     React.createElement(EgeriaCommentsSection, { guid: component.guid })
   );
 }
@@ -8747,6 +8756,7 @@ function DesignPatternDetail({ pattern, onNavigateToPattern, onNavigateToElement
     React.createElement(GenericRelationshipsSection, { relationships: pattern.relationships, onNavigateToElement: onNavigateToElement }),
     pattern.legal && React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', fontStyle: 'italic', marginTop: 8, marginBottom: 16, borderTop: '1px solid var(--border)', paddingTop: 8 } }, pattern.legal),
     React.createElement(ClassificationsAndRawJson, { item: pattern }),
+    React.createElement(E64RelatedPanel, { guid: pattern.guid, onNavigateToElement: typeof onNavigateToElement === 'function' ? onNavigateToElement : null }),
     React.createElement(EgeriaCommentsSection, { guid: pattern.guid })
   );
 }
@@ -9505,6 +9515,7 @@ function ISCDetail({ data, detail, onNavigateToElement }) {
       });
     }),
     React.createElement(ClassificationsAndRawJson, { item: src }),
+    React.createElement(E64RelatedPanel, { guid: src.guid, onNavigateToElement: typeof onNavigateToElement === 'function' ? onNavigateToElement : null }),
     React.createElement(EgeriaCommentsSection, { guid: src.guid })
   );
 }
@@ -9869,6 +9880,7 @@ function LocationDetail({ data, detail, onNavigateToElement }) {
     React.createElement(RelationshipSection, { title: "Reference Values", items: src.referenceValues, onNavigateToElement: onNavigateToElement }),
     React.createElement(GenericRelationshipsSection, { relationships: src.relationships, onNavigateToElement: onNavigateToElement }),
     React.createElement(ClassificationsAndRawJson, { item: src }),
+    React.createElement(E64RelatedPanel, { guid: src.guid, onNavigateToElement: typeof onNavigateToElement === 'function' ? onNavigateToElement : null }),
     React.createElement(EgeriaCommentsSection, { guid: src.guid })
   );
 }
@@ -10213,6 +10225,7 @@ function ActorDetail({ data, detail, onNavigateToElement }) {
       return React.createElement(RelationshipSection, { key: k, title: _prettyRelLabel(k), items: relationships[k], onNavigateToElement: onNavigateToElement });
     }),
     React.createElement(ClassificationsAndRawJson, { item: src }),
+    React.createElement(E64RelatedPanel, { guid: src.guid, onNavigateToElement: typeof onNavigateToElement === 'function' ? onNavigateToElement : null }),
     React.createElement(EgeriaCommentsSection, { guid: src.guid })
   );
 }
@@ -10481,6 +10494,7 @@ function CommunityDetail({ data, detail, onNavigateToElement }) {
       return React.createElement(RelationshipSection, { key: k, title: _prettyRelLabel(k), items: relationships[k], onNavigateToElement: onNavigateToElement });
     }),
     React.createElement(ClassificationsAndRawJson, { item: src }),
+    React.createElement(E64RelatedPanel, { guid: src.guid, onNavigateToElement: typeof onNavigateToElement === 'function' ? onNavigateToElement : null }),
     React.createElement(EgeriaCommentsSection, { guid: src.guid })
   );
 }
@@ -10773,6 +10787,7 @@ function ActionDetail({ data, onNavigateToElement }) {
     }),
     relKeys.length === 0 && React.createElement("div", { style: { fontSize: 12, color: 'var(--dim)' } }, 'No related elements recorded for this action.'),
     React.createElement(ClassificationsAndRawJson, { item: data }),
+    React.createElement(E64RelatedPanel, { guid: data.guid, onNavigateToElement: typeof onNavigateToElement === 'function' ? onNavigateToElement : null }),
     React.createElement(EgeriaCommentsSection, { guid: data.guid })
   );
 }
@@ -11310,6 +11325,7 @@ function BusinessCapabilityDetail({ data, detail, onNavigateToElement }) {
       return React.createElement(RelationshipSection, { key: k, title: _prettyRelLabel(k), items: relationships[k], onNavigateToElement: onNavigateToElement });
     }),
     React.createElement(ClassificationsAndRawJson, { item: src }),
+    React.createElement(E64RelatedPanel, { guid: src.guid, onNavigateToElement: typeof onNavigateToElement === 'function' ? onNavigateToElement : null }),
     React.createElement(EgeriaCommentsSection, { guid: src.guid })
   );
 }
@@ -11616,6 +11632,7 @@ function NoteLogDetail({ data, detail, onNavigateToElement }) {
                 visibleNotes.map(function(e) { return React.createElement(NoteEntryCard, { key: e.guid, entry: e, colW: colW, expanded: expandedNotes.has(e.guid), onToggle: function() { toggleNote(e.guid); } }); })
               )
         ),
+    React.createElement(E64RelatedPanel, { guid: src.guid, onNavigateToElement: typeof onNavigateToElement === 'function' ? onNavigateToElement : null }),
     React.createElement(EgeriaCommentsSection, { guid: src.guid })
   );
 }
@@ -12788,6 +12805,7 @@ function ProjectDetail({ project, children, onSelectChild, onNavigateToElement }
     React.createElement(AvailableMermaidDiagrams, { data: project }),
     React.createElement(MermaidSection, { guid: project.guid, data: project }),
     project.guid && React.createElement(RawJsonViewer, { guid: project.guid }),
+    React.createElement(E64RelatedPanel, { guid: project.guid, onNavigateToElement: typeof onNavigateToElement === 'function' ? onNavigateToElement : null }),
     React.createElement(EgeriaCommentsSection, { guid: project.guid })
   );
 }
@@ -12948,6 +12966,7 @@ function GovDefDetail({ definition, onNavigateToElement }) {
       })
     ),
     React.createElement(ClassificationsAndRawJson, { item: definition }),
+    React.createElement(E64RelatedPanel, { guid: definition.guid, onNavigateToElement: typeof onNavigateToElement === 'function' ? onNavigateToElement : null }),
     React.createElement(EgeriaCommentsSection, { guid: definition.guid })
   );
 }
@@ -13285,7 +13304,8 @@ function ContextEventsView({ navGuid, onNavigateToElement }) {
               ),
 
             // ── Comments / feedback ─────────────────────────────────────────
-            React.createElement(EgeriaCommentsSection, { guid: detail.guid })
+            React.createElement(E64RelatedPanel, { guid: detail.guid, onNavigateToElement: typeof onNavigateToElement === 'function' ? onNavigateToElement : null }),
+    React.createElement(EgeriaCommentsSection, { guid: detail.guid })
           )
     ),
     modalAction && React.createElement(AddToCollectionModal, {
@@ -13305,7 +13325,7 @@ function ContextEventsView({ navGuid, onNavigateToElement }) {
   );
 }
 
-// ── Egeria 6.4: Decisions (and the shared 6.4 helpers) ───────────────────────
+// ── Egeria 6.4: Decisions and Data Values ────────────────────────────────────
 // odpi/egeria#9463 adds Decision, Assessment (multi-link: one element can be assessed
 // many times, so a row is keyed by the relationship GUID), Outcome, DataValue and the
 // reverse-end lists. Backend: e64_handler.py. On an Egeria before 6.4 a route answers
@@ -13313,38 +13333,13 @@ function ContextEventsView({ navGuid, onNavigateToElement }) {
 // A list's state comes from the backend (egeria_6_4_support.list_state):
 //   read · none (asked for, Egeria returned none) · not-read (not asked for) ·
 //   needs-6.4 (platform before 6.4) · not-known (platform version unreadable).
-// The pure helpers and hook-free tables between e64-pure:begin/end run under node in
-// tests/test_e64_cards_js.py — keep them free of hooks and of names defined elsewhere
-// (except _elementIsLinkable, which the harness stubs).
+// The helpers every 6.4 card shares (list words, dates, E64Table, positions, the 6.4 rows
+// panel for other cards) are in static/egeria-shared-ui.js between e64-shared:begin/end.
+// The pure helpers and hook-free tables between e64-pure:begin/end here, and that shared
+// block, run under node in tests/test_e64_cards_js.py: keep them free of hooks and of
+// names defined elsewhere (except _elementIsLinkable, which the harness stubs).
+E64UI.isLinkable = _elementIsLinkable;   // the Explorer's own routing decides which rows link
 /* e64-pure:begin */
-var E64_LIST_WORDS = {
-  'none':     { text: 'None recorded.', tone: 'dim' },
-  'not-read': { text: 'Not read: this list was not asked for.', tone: 'warn' },
-  'not-known': { text: 'Not known: this platform’s Egeria version could not be read, so it may not have the Egeria 6.4 lists.', tone: 'warn' },
-  'needs-6.4': { text: 'Needs Egeria 6.4.', tone: 'warn' },
-};
-
-// Words for a list that has no rows to show, or null when its rows should be shown.
-function e64ListWords(st) {
-  var s = st && st.state;
-  if (s === 'read') return null;
-  if (s === 'needs-6.4') return { text: (st.words || E64_LIST_WORDS['needs-6.4'].text), tone: 'warn' };
-  return E64_LIST_WORDS[s] || E64_LIST_WORDS['not-read'];
-}
-
-function e64ParseTime(s) {
-  if (s === null || s === undefined || s === '') return NaN;
-  var t = Date.parse(String(s));
-  return isNaN(t) ? NaN : t;
-}
-
-// UTC: Egeria dates are instants, usually at UTC midnight; local time would show the day before in the Americas.
-function e64FmtDate(s) {
-  var t = e64ParseTime(s);
-  if (isNaN(t)) return s ? String(s) : '';
-  return new Date(t).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
-}
-
 // A Decision's review and expiry, against `nowMs`. A missing date is said in words ("No review
 // date") and is never shown as on time; a date that can't be read is said as such, not guessed.
 function decisionDateFlags(d, nowMs) {
@@ -13364,75 +13359,6 @@ function decisionDateFlags(d, nowMs) {
       : { state: 'active', text: 'Expires ' + when, tone: 'ok' };
   };
   return { review: flag(d.nextReviewTime, 'review'), expiry: flag(d.expiryTime, 'expiry') };
-}
-
-// One row per assessment, keyed by its relationship GUID. When an element was assessed more than
-// once, each of its rows says which assessment it is ("2 of 3"), oldest first.
-function decisionAssessmentRows(rows) {
-  var list = (rows || []).slice();
-  var byEl = {};
-  list.forEach(function(r) { var k = r.guid || ''; (byEl[k] = byEl[k] || []).push(r); });
-  Object.keys(byEl).forEach(function(k) {
-    byEl[k].sort(function(a, b) {
-      var ta = e64ParseTime(a.assessmentTime), tb = e64ParseTime(b.assessmentTime);
-      if (isNaN(ta) && isNaN(tb)) return 0; if (isNaN(ta)) return 1; if (isNaN(tb)) return -1; return ta - tb;
-    });
-  });
-  var out = [];
-  Object.keys(byEl).sort(function(a, b) {
-    var na = (byEl[a][0].displayName || a).toLowerCase(), nb = (byEl[b][0].displayName || b).toLowerCase();
-    return na < nb ? -1 : na > nb ? 1 : 0;
-  }).forEach(function(k) {
-    var group = byEl[k];
-    group.forEach(function(r, i) {
-      out.push(Object.assign({}, r, {
-        key: r.relationshipGuid || ('row-' + k + '-' + i),
-        nth: group.length > 1 ? (i + 1) + ' of ' + group.length : '',
-      }));
-    });
-  });
-  return out;
-}
-
-var _E64_TONE = { ok: '#34d399', bad: '#f87171', warn: '#fbbf24', dim: 'var(--dim)' };
-
-function E64ListNote({ st }) {
-  var w = e64ListWords(st);
-  if (!w) return null;
-  return React.createElement('div', { className: 'e64-list-note', 'data-state': st && st.state,
-    style: { fontSize: 12, color: _E64_TONE[w.tone] || 'var(--dim)', padding: '4px 0' } }, w.text);
-}
-
-function E64Needs64({ words }) {
-  return React.createElement('div', { className: 'e64-needs64', role: 'status',
-    style: { margin: 16, padding: '10px 14px', borderRadius: 6, border: '1px solid rgba(251,191,36,.4)', background: 'rgba(251,191,36,.08)', color: '#fbbf24', fontSize: 13, overflowWrap: 'anywhere' } },
-    words || 'Needs Egeria 6.4.');
-}
-
-function _e64ElementCell(r, onNavigateToElement) {
-  var linkable = onNavigateToElement && r.guid && typeof _elementIsLinkable === 'function' && _elementIsLinkable(r);
-  var name = r.displayName || r.qualifiedName || r.guid || '—';
-  return React.createElement('div', null,
-    linkable
-      ? React.createElement('a', { href: '#', title: r.qualifiedName || r.guid, onClick: function(e) { e.preventDefault(); onNavigateToElement(r); } }, name)
-      : React.createElement('span', { title: r.qualifiedName || r.guid }, name),
-    r.typeName && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)' } }, r.typeName));
-}
-
-var _E64_TH = { textAlign: 'left', padding: '6px 8px', fontSize: 10, color: 'var(--dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)', verticalAlign: 'bottom', whiteSpace: 'normal', overflowWrap: 'anywhere' };
-var _E64_TD = { padding: '6px 8px', fontSize: 12, verticalAlign: 'top', whiteSpace: 'normal', wordBreak: 'break-word', overflowWrap: 'anywhere', borderTop: '1px solid var(--border)' };
-
-// A plain <table>: egeria-resize.js makes every column draggable (owner rule: all widths user-resizable).
-function E64Table({ cols, rows, cell, rowKey, minWidth }) {
-  return React.createElement('div', { style: { overflowX: 'auto', maxWidth: '100%' } },
-    React.createElement('table', { style: { width: '100%', minWidth: minWidth || 0, borderCollapse: 'collapse', tableLayout: 'fixed' } },
-      React.createElement('colgroup', null, cols.map(function(c) { return React.createElement('col', { key: c[0], style: { width: c[2] } }); })),
-      React.createElement('thead', null, React.createElement('tr', null,
-        cols.map(function(c) { return React.createElement('th', { key: c[0], style: _E64_TH }, c[1]); }))),
-      React.createElement('tbody', null, rows.map(function(r, i) {
-        return React.createElement('tr', { key: rowKey(r, i), 'data-row-key': rowKey(r, i) },
-          cols.map(function(c) { return React.createElement('td', { key: c[0], style: _E64_TD }, cell(c[0], r)); }));
-      }))));
 }
 
 var _DECISION_ASSESSMENT_COLS = [['element', 'Element', 170], ['label', 'Assessment', 140], ['when', 'Assessed', 110],
@@ -13526,24 +13452,8 @@ function DecisionHeaderBadges({ detail }) {
 }
 // ── DataValue / LiteralDataValue (Egeria 6.4) ──
 // Egeria's position is an Integer where 0 (or none) means "unset" (EmbeddedDataValueProperties,
-// ProcessingVariableProperties); the backend sends position: null and positionSet: false for those.
-function e64PositionText(r) {
-  var n = r && r.position;
-  return (r && r.positionSet && n !== null && n !== undefined) ? 'position ' + n : 'position unset';
-}
-
-// Set positions ascending, unset ones after them by name (the backend orders the same way).
-function e64ByPosition(rows) {
-  return (rows || []).slice().sort(function(a, b) {
-    var sa = !!(a.positionSet && a.position !== null && a.position !== undefined);
-    var sb = !!(b.positionSet && b.position !== null && b.position !== undefined);
-    if (sa !== sb) return sa ? -1 : 1;
-    if (sa && a.position !== b.position) return a.position - b.position;
-    var na = (a.displayName || '').toLowerCase(), nb = (b.displayName || '').toLowerCase();
-    return na < nb ? -1 : na > nb ? 1 : 0;
-  });
-}
-
+// ProcessingVariableProperties); the backend sends position: null and positionSet: false for those
+// (e64PositionText, e64ByPosition and E64PositionedTable are in static/egeria-shared-ui.js).
 var _DATA_VALUE_KIND_WORDS = {
   'empty': 'No value is recorded on this literal data value.',
   'not-literal': 'A DataValue holds no value of its own: only a LiteralDataValue does.',
@@ -13570,25 +13480,6 @@ function DataValueValuePanel({ value }) {
   return React.createElement('div', { className: 'e64-value', 'data-kind': v.kind }, parts);
 }
 
-var _E64_POSITIONED_COLS = [['element', 'Element', 220], ['position', 'Position', 110], ['label', 'Label', 140], ['description', 'Description', 240]];
-
-// Used by / embedded / part of: one row per relationship, ordered by position, "position unset" for 0.
-function E64PositionedTable({ rows, st, onNavigateToElement, withPosition }) {
-  var words = e64ListWords(st);
-  var model = withPosition === false ? (rows || []) : e64ByPosition(rows);
-  if (words && !model.length) return React.createElement(E64ListNote, { st: st });
-  if (!model.length) return React.createElement(E64ListNote, { st: { state: 'none' } });
-  var cols = withPosition === false ? _E64_POSITIONED_COLS.filter(function(c) { return c[0] !== 'position'; }) : _E64_POSITIONED_COLS;
-  return React.createElement(E64Table, {
-    cols: cols, rows: model, minWidth: 600,
-    rowKey: function(r, i) { return r.relationshipGuid || ('row-' + i); },
-    cell: function(k, r) {
-      if (k === 'element') return _e64ElementCell(r, onNavigateToElement);
-      if (k === 'position') return React.createElement('span', { style: { color: r.positionSet ? 'var(--text)' : 'var(--dim)' } }, e64PositionText(r));
-      return r[k] || '';
-    },
-  });
-}
 /* e64-pure:end */
 
 function _e64FetchJson(url, creds) {
@@ -13643,6 +13534,7 @@ function DecisionDetail({ detail, onNavigateToElement }) {
         return React.createElement(RelationshipSection, { key: pair[0], title: _prettyRelLabel(pair[0]), items: pair[1], onNavigateToElement: onNavigateToElement });
       })),
     React.createElement(ClassificationsAndRawJson, { item: detail }),
+    React.createElement(E64RelatedPanel, { guid: detail.guid, onNavigateToElement: typeof onNavigateToElement === 'function' ? onNavigateToElement : null }),
     React.createElement(EgeriaCommentsSection, { guid: detail.guid })
   );
 }
@@ -13799,6 +13691,7 @@ function DataValueDetail({ detail, onNavigateToElement }) {
         return React.createElement(RelationshipSection, { key: pair[0], title: _prettyRelLabel(pair[0]), items: pair[1], onNavigateToElement: onNavigateToElement });
       })),
     React.createElement(ClassificationsAndRawJson, { item: detail }),
+    React.createElement(E64RelatedPanel, { guid: detail.guid, onNavigateToElement: typeof onNavigateToElement === 'function' ? onNavigateToElement : null }),
     React.createElement(EgeriaCommentsSection, { guid: detail.guid })
   );
 }
@@ -14139,6 +14032,7 @@ function SoaDetail({ detail, onNavigateToElement }) {
         return React.createElement(RelationshipSection, { key: pair[0], title: _prettyRelLabel(pair[0]), items: pair[1], onNavigateToElement: onNavigateToElement });
       })),
     React.createElement(ClassificationsAndRawJson, { item: detail }),
+    React.createElement(E64RelatedPanel, { guid: detail.guid, onNavigateToElement: typeof onNavigateToElement === 'function' ? onNavigateToElement : null }),
     React.createElement(EgeriaCommentsSection, { guid: detail.guid })
   );
 }

@@ -14,6 +14,7 @@ import pytest
 
 _DIR = Path(__file__).resolve().parent.parent
 HTML = (_DIR / "type-explorer.html").read_text()
+SHARED = (_DIR / "static" / "egeria-shared-ui.js").read_text()
 
 # A stub React: createElement builds {t, p, c}; components are plain functions of props (no hooks here).
 _PRELUDE = r"""
@@ -45,9 +46,11 @@ function out(x) { console.log(JSON.stringify(x)); }
 
 
 def _block():
+    sh = re.search(r"/\* e64-shared:begin \*/(.*?)/\* e64-shared:end \*/", SHARED, re.S)
+    assert sh, "the e64-shared block is missing from static/egeria-shared-ui.js"
     m = re.search(r"/\* e64-pure:begin \*/(.*?)/\* e64-pure:end \*/", HTML, re.S)
     assert m, "the e64-pure block is missing from type-explorer.html"
-    return m.group(1)
+    return sh.group(1) + "\nE64UI.isLinkable = _elementIsLinkable;\n" + m.group(1)
 
 
 def _run(body):
@@ -265,3 +268,89 @@ def test_data_values_section_is_wired():
     assert "{ onNavigateToDataValue(guid); return; }" in HTML
     assert "item.typeName === 'LiteralDataValue' || superTypes.indexOf('DataValue') !== -1) return true;" in HTML
     assert "'DataValue':       { color:" in HTML and "'LiteralDataValue': { color:" in HTML
+
+
+# ── C3: the 6.4 rows on an existing card (E64RelatedRows in egeria-shared-ui.js) ──────────────────────────
+
+def _list(key, label, rows, state="read"):
+    return {"key": key, "label": label, "rows": rows, "st": {"state": state}}
+
+
+def _related(sections, carries=True, branch=None, **kw):
+    return {"guid": "g", "typeName": "GlossaryTerm", "carries": carries, "branch": branch, "sections": sections, **kw}
+
+
+def _render_related(data):
+    return _run(f"var t = render(React.createElement(E64RelatedRows, {{ data: {json.dumps(data)}, onNavigateToElement: function(){{}} }}));"
+                "out({ text: text(t), lists: all(t, 'div').filter(function(d) { return d.p['data-list']; }).map(function(d) {"
+                "  return [d.p['data-list'], rows(d).map(function(r) { return r.p['data-row-key']; }), text(d)]; }) });")
+
+
+DEC = lambda rel, name, label, when: {"relationshipGuid": rel, "guid": "dec-" + name, "typeName": "Decision",
+                                      "displayName": name, "label": label, "assessmentTime": when, "assessor": "Erin"}
+
+
+def test_related_needs_6_4_is_one_line_of_words():
+    r = _render_related({"needs64": True, "words": "Decisions, project targets ... needs Egeria 6.4 (x): runs Egeria 6.3."})
+    assert r["text"] == "Decisions, project targets ... needs Egeria 6.4 (x): runs Egeria 6.3." and r["lists"] == []
+
+
+def test_related_all_none_is_one_line_and_not_known_is_not_none():
+    secs = [{"key": "decisions", "title": "Decisions", "lists": [_list("associatedDecisions", "Outcome of", [], "none")]},
+            {"key": "projects", "title": "Projects", "lists": [_list("workedOnByProjects", "Worked on by projects", [], "none")]}]
+    r = _render_related(_related(secs))
+    assert r["text"] == "None recorded: no decisions, projects are linked to this element."
+    secs[0]["lists"][0]["st"] = {"state": "not-known"}
+    r = _render_related(_related(secs, carries=None))
+    assert "None recorded: no" not in r["text"] and "Not known:" in r["text"] and "Branch: not known" in r["text"]
+
+
+def test_related_zero_one_many_and_two_assessments_for_one_decision():
+    secs = [{"key": "decisions", "title": "Decisions", "lists": [
+        _list("associatedDecisions", "Outcome of", [dict(DEC("o-1", "Adopt", "Rollout", ""), importance="High")]),
+        _list("assessmentDecisions", "Assessed for", [DEC("a-2", "Adopt", "Re-review", "2026-05-01T00:00:00Z"),
+                                                      DEC("a-1", "Adopt", "First", "2026-02-01T00:00:00Z"),
+                                                      DEC("a-3", "Retire", "Only", "")]),
+    ]}, {"key": "projects", "title": "Projects", "lists": [_list("workedOnByProjects", "Worked on by projects", [], "none")]}]
+    lists = {k: (keys, t) for k, keys, t in _render_related(_related(secs))["lists"]}
+    assert lists["associatedDecisions"][0] == ["o-1"] and "High" in lists["associatedDecisions"][1]
+    assert lists["assessmentDecisions"][0] == ["a-1", "a-2", "a-3"]
+    assert "assessment 1 of 2 for this decision" in lists["assessmentDecisions"][1]
+    assert "not recorded" in lists["assessmentDecisions"][1]
+    assert lists["workedOnByProjects"][0] == [] and "None recorded." in lists["workedOnByProjects"][1]
+
+
+def test_related_positions_and_cardinality_in_words():
+    rows = [{"relationshipGuid": "v-0", "guid": "st-0", "typeName": "PrimitiveSchemaType", "displayName": "Z",
+             "position": None, "positionSet": False, "minCardinality": None, "maxCardinality": 3},
+            {"relationshipGuid": "v-2", "guid": "st-2", "typeName": "PrimitiveSchemaType", "displayName": "A",
+             "position": 2, "positionSet": True, "minCardinality": 1, "maxCardinality": None}]
+    secs = [{"key": "variables", "title": "Process variables", "lists": [_list("processVariableTypes", "Variable types", rows)]}]
+    (k, keys, t), = _render_related(_related(secs))["lists"]
+    assert keys == ["v-2", "v-0"]
+    assert "position 2" in t and "position unset" in t
+    assert "min 1, max not set" in t and "min not set, max 3" in t
+
+
+def test_branch_badge():
+    r = _render_related(_related([], branch={"displayName": "main", "purpose": "default branch", "scope": "",
+                                             "url": "https://github.com/odpi/egeria/tree/main"}))
+    assert "Branch: main" in r["text"] and "default branch" in r["text"]
+    assert "Branch" not in _render_related(_related([], branch=None))["text"]      # known: no Branch, no badge
+
+
+def test_the_related_panel_is_on_every_explorer_card_and_the_catalogs():
+    comments = HTML.count("React.createElement(EgeriaCommentsSection, { guid: ")
+    panels = HTML.count("React.createElement(E64RelatedPanel, { guid: ")
+    assert comments == panels == 23
+    tc = (_DIR / "tech-catalog.html").read_text()
+    assert tc.count("React.createElement(E64RelatedPanel, { guid: item.guid })") == 3
+    assert "E64UI.isLinkable = _elementIsLinkable;" in HTML
+    for page in ("type-explorer.html", "tech-catalog.html"):
+        assert "egeria-shared-ui.js?v=2026-11-22-e64" in (_DIR / page).read_text()
+
+
+def test_type_nav_map_routes_the_6_4_types_to_their_explorer_sections():
+    m = json.loads((_DIR / "static" / "type-nav-map.json").read_text())
+    assert m["Decision"] == {"explorerHash": "decisions"}
+    assert m["DataValue"] == m["LiteralDataValue"] == {"explorerHash": "data-values"}
