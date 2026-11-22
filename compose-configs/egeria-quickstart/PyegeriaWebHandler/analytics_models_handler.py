@@ -256,7 +256,7 @@ def _entries(element: dict, key: str) -> list:
 
 def processing_variable_rows(element: dict) -> list:
     """The data values the element uses (ProcessingVariable): one row per relationship, in position order, each
-    with its value as the Data Value card shows it (literal_value)."""
+    with its value as the Configuration Value card (The Catalog) shows it (literal_value)."""
     rows = []
     for entry in _entries(element, "processingVariables"):
         rel = entry["relatedElement"]

@@ -344,7 +344,7 @@ async def get_decision(guid: str, url: Optional[str] = Query(None), server: Opti
     return JSONResponse(serialize_decision(element, carries=True if carries is None else carries))
 
 
-@router.get("/api/data-values", summary="List Data Values and Literal Data Values (Egeria 6.4)",
+@router.get("/api/data-values", summary="List Configuration Values: DataValue and LiteralDataValue (Egeria 6.4)",
             responses=EGERIA_ERROR_RESPONSES)
 async def list_data_values(include_templates: bool = Query(False),
                            url: Optional[str] = Query(None), server: Optional[str] = Query(None)):
@@ -354,12 +354,12 @@ async def list_data_values(include_templates: bool = Query(False),
         _raise_http(exc, "ClassificationExplorer client failed")
     carries, version, purl = await _gate(client)
     if carries is False:
-        return _needs64("The Data Values list", purl, version, items=[], total=0)
+        return _needs64("The Configuration Values list", purl, version, items=[], total=0)
     try:
         raw, capped = await _list_of_type(client, "DataValue")     # by-type includes LiteralDataValue
     except Exception as exc:
         if carries is None and e64.is_missing_6_4_endpoint(exc):   # a 404 on a 6.4 platform is a real error
-            return _needs64("The Data Values list", purl, items=[], total=0)
+            return _needs64("The Configuration Values list", purl, items=[], total=0)
         _raise_http(exc, "get_elements(DataValue) failed")
     if not include_templates:
         raw = [e for e in raw if not _is_template(e)]
@@ -368,7 +368,7 @@ async def list_data_values(include_templates: bool = Query(False),
     return JSONResponse({"items": items, "total": len(items), "capped": capped})
 
 
-@router.get("/api/data-values/{guid}", summary="Get a Data Value with its uses, sources and embedded values (Egeria 6.4)",
+@router.get("/api/data-values/{guid}", summary="Get a Configuration Value (DataValue) with what it configures, its sources and embedded values (Egeria 6.4)",
             responses=EGERIA_ERROR_RESPONSES)
 async def get_data_value(guid: str, url: Optional[str] = Query(None), server: Optional[str] = Query(None)):
     try:
@@ -377,16 +377,16 @@ async def get_data_value(guid: str, url: Optional[str] = Query(None), server: Op
         _raise_http(exc, "ClassificationExplorer client failed")
     carries, version, purl = await _gate(client)
     if carries is False:
-        return _needs64("The Data Value card", purl, version)
+        return _needs64("The Configuration Value card", purl, version)
     try:
         element = await _read_element(client, guid, "DataValue")
     except Exception as exc:
         if carries is None and e64.is_missing_6_4_endpoint(exc):   # a 404 on a 6.4 platform is a real error
-            return _needs64("The Data Value card", purl)
+            return _needs64("The Configuration Value card", purl)
         _raise_http(exc, "get_element_by_guid(DataValue) failed")
     if not _is_type(element, "DataValue"):
         raise HTTPException(status_code=404, detail=f"{guid!r} is a {e64.type_name(element) or 'element'}, "
-                                                    "not a Data Value.")
+                                                    "not a configuration value (DataValue).")
     return JSONResponse(serialize_data_value(element, carries=True if carries is None else carries))
 
 
@@ -409,8 +409,8 @@ _REVERSE_SECTIONS = (
         ("processVariableTypeUses", "Variable type of", ("label", "description", "position", "minCardinality",
                                                           "maxCardinality"), "SchemaType"),
     )),
-    ("dataValues", "Data values", (
-        ("providesDataValues", "Provides data values", ("label", "description"), "Asset"),
+    ("dataValues", "Configuration values", (
+        ("providesDataValues", "Provides configuration values", ("label", "description"), "Asset"),
     )),
 )
 _REVERSE_REL_TYPES = sorted({e64.E64_LISTS[k] for _s, _t, lists in _REVERSE_SECTIONS for k, *_ in lists})

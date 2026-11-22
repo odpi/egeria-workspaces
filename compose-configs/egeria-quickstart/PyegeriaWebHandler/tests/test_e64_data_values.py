@@ -45,7 +45,7 @@ def _card(client, el):
 def test_before_6_4_list_and_card_say_needs_6_4_and_send_nothing(client):
     fake = FakeExplorer(about=ABOUT_6_3, elements={"dv-1": data_value()})
     c = client(fake)
-    for path, lead in (("/api/data-values", "The Data Values list"), ("/api/data-values/dv-1", "The Data Value card")):
+    for path, lead in (("/api/data-values", "The Configuration Values list"), ("/api/data-values/dv-1", "The Configuration Value card")):
         r = c.get(path)
         assert r.status_code == 200 and r.json()["needs64"] is True
         assert r.json()["words"].startswith(lead + " needs Egeria 6.4")
@@ -122,7 +122,7 @@ def test_lists_read_and_absent_are_none(client):
 def test_wrong_type_is_404(client):
     fake = FakeExplorer(about=ABOUT_6_4, elements={"x": {"elementHeader": {"guid": "x", "type": {"typeName": "Decision"}}}})
     r = client(fake).get("/api/data-values/x")
-    assert r.status_code == 404 and "not a Data Value" in r.json()["detail"]
+    assert r.status_code == 404 and "not a configuration value (DataValue)" in r.json()["detail"]
 
 
 def test_position_of():

@@ -15,6 +15,7 @@ import pytest
 _DIR = Path(__file__).resolve().parent.parent
 HTML = (_DIR / "type-explorer.html").read_text()
 SHARED = (_DIR / "static" / "egeria-shared-ui.js").read_text()
+CATALOG = (_DIR / "tech-catalog.html").read_text()
 
 # A stub React: createElement builds {t, p, c}; components are plain functions of props (no hooks here).
 _PRELUDE = r"""
@@ -50,7 +51,10 @@ def _block():
     assert sh, "the e64-shared block is missing from static/egeria-shared-ui.js"
     m = re.search(r"/\* e64-pure:begin \*/(.*?)/\* e64-pure:end \*/", HTML, re.S)
     assert m, "the e64-pure block is missing from type-explorer.html"
-    return sh.group(1) + "\nE64UI.isLinkable = _elementIsLinkable;\n" + m.group(1)
+    # Configuration Values and Models and Runs moved to The Catalog (2026-11-22): their pure helpers too.
+    c = re.search(r"/\* catalog-models-pure:begin \*/(.*?)/\* catalog-models-pure:end \*/", CATALOG, re.S)
+    assert c, "the catalog-models-pure block is missing from tech-catalog.html"
+    return sh.group(1) + "\nE64UI.isLinkable = _elementIsLinkable;\n" + m.group(1) + "\n" + c.group(1)
 
 
 def _run(body):
@@ -260,12 +264,11 @@ def test_value_panel_literal_list_map_and_words(value, expect):
         assert e in t, (e, t)
 
 
-def test_data_values_section_is_wired():
-    assert "'data-values': 'Data Values'," in HTML
-    assert "section: 'data-values'," in HTML and "{ id: 'data-values'," in HTML
-    assert "section === 'data-values'\n      ? React.createElement(DataValuesView" in HTML
-    assert HTML.count("'decisions','data-values'") == 2
-    assert "{ onNavigateToDataValue(guid); return; }" in HTML
+def test_configuration_values_section_is_wired_in_the_catalog():
+    assert "{ id: 'data-values', icon: '◇', label: 'Configuration Values'," in CATALOG
+    assert "  'data-values': [\n    { id: 'config-values', label: 'Configuration Values', custom: true },\n  ]," in CATALOG
+    assert "'config-values': DATA_VALUES_VIEW_CFG," in CATALOG
+    # the Explorer still links to data values (they open in The Catalog)
     assert "item.typeName === 'LiteralDataValue' || superTypes.indexOf('DataValue') !== -1) return true;" in HTML
     assert "'DataValue':       { color:" in HTML and "'LiteralDataValue': { color:" in HTML
 
@@ -299,7 +302,7 @@ def test_related_all_none_is_one_line_and_not_known_is_not_none():
     secs = [{"key": "decisions", "title": "Decisions", "lists": [_list("associatedDecisions", "Outcome of", [], "none")]},
             {"key": "projects", "title": "Projects", "lists": [_list("workedOnByProjects", "Worked on by projects", [], "none")]}]
     r = _render_related(_related(secs))
-    assert r["text"] == "None recorded: no decisions, projects are linked to this element."
+    assert r["text"] == "None recorded: no decisions or projects are linked to this element."   # PO-73
     secs[0]["lists"][0]["st"] = {"state": "not-known"}
     r = _render_related(_related(secs, carries=None))
     assert "None recorded: no" not in r["text"] and "Not known:" in r["text"] and "Branch: not known" in r["text"]
@@ -342,18 +345,22 @@ def test_branch_badge():
 def test_the_related_panel_is_on_every_explorer_card_and_the_catalogs():
     comments = HTML.count("React.createElement(EgeriaCommentsSection, { guid: ")
     panels = HTML.count("React.createElement(E64RelatedPanel, { guid: ")
-    # The Models and Runs card frame renders the same rows (E64RelatedRows) from its own graph read instead
-    # of the panel's fetch, without the lists it shows in its own sections (S2).
-    assert panels == 23 and comments == 24
-    assert HTML.count("React.createElement(E64RelatedRows, { data: detail.related") == 1
-    tc = (_DIR / "tech-catalog.html").read_text()
+    # Configuration Values and Models and Runs moved to The Catalog (2026-11-22): every Explorer card left has
+    # the panel. In The Catalog: the asset cards (3) and the Configuration Value card fetch it; the Models and
+    # Runs card frame renders the same rows (E64RelatedRows) from its own graph read instead, without the lists
+    # it shows in its own sections (S2).
+    assert panels == 22 and comments == 22
+    assert HTML.count("E64RelatedRows, { data: detail.related") == 0
+    tc = CATALOG
     assert tc.count("React.createElement(E64RelatedPanel, { guid: item.guid })") == 3
+    assert tc.count("React.createElement(E64RelatedPanel, { guid: detail.guid") == 1
+    assert tc.count("React.createElement(E64RelatedRows, { data: detail.related") == 1
     assert "E64UI.isLinkable = _elementIsLinkable;" in HTML
     for page in ("type-explorer.html", "tech-catalog.html"):
-        assert "egeria-shared-ui.js?v=2026-11-22-e64" in (_DIR / page).read_text()
+        assert "egeria-shared-ui.js?v=2026-11-22-cv" in (_DIR / page).read_text()
 
 
 def test_type_nav_map_routes_the_6_4_types_to_their_explorer_sections():
     m = json.loads((_DIR / "static" / "type-nav-map.json").read_text())
     assert m["Decision"] == {"explorerHash": "decisions"}
-    assert m["DataValue"] == m["LiteralDataValue"] == {"explorerHash": "data-values"}
+    assert m["DataValue"] == m["LiteralDataValue"] == {"catalogSection": "data-values", "catalogTab": "config-values"}

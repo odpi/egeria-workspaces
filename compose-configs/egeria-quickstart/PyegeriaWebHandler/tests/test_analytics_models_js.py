@@ -1,4 +1,5 @@
-"""Models and Runs in type-explorer.html: the pure helpers and hook-free tables (inside e64-pure), run under node
+"""Models and Runs in tech-catalog.html (moved from type-explorer.html 2026-11-22): the pure helpers and hook-free
+tables (inside catalog-models-pure), run under node
 with test_e64_cards_js's stub React. Rows are shaped like analytics_models_handler.py's (tests/test_analytics_models.py
 pins those against the handler). Skipped when node is not installed.
 """
@@ -8,7 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from test_e64_cards_js import HTML, _DIR, _run  # noqa: E402
+from test_e64_cards_js import CATALOG, HTML, _DIR, _run  # noqa: E402
 
 
 def _render(component, props):
@@ -162,8 +163,8 @@ def test_the_run_card_says_parameters_configure_it_and_results_are_lineage():
     note = _run("out(MODEL_VARIABLES_NOTE);")
     assert note.startswith("Egeria links these as the data values used to configure the run, in position order, each with its label.")
     assert "results are not recorded here: as a process, its outputs are recorded as lineage from the run." in note
-    assert "Parameters (processing variables)" in HTML and "'Parameters and results'" not in HTML
-    assert "'Signature: the variable types this model is configured with'" in HTML
+    assert "Parameters (processing variables)" in CATALOG and "'Parameters and results'" not in CATALOG
+    assert "'Signature: the variable types this model is configured with'" in CATALOG
 
 
 def _lin(rel, guid, name, rel_type="DataFlow", direction="out of the run"):
@@ -194,30 +195,33 @@ def test_signature():
 # ── wiring (the pyegeria-spa-add-tab checks) ─────────────────────────────────────────────────────────────
 
 def test_models_section_is_wired():
-    assert "'analytics-models': 'Models and Runs'," in HTML                         # SECTION_LABELS
-    assert "section: 'analytics-models'," in HTML                                   # home-page card
-    assert "{ id: 'analytics-models'," in HTML                                      # nav menu
-    assert "section === 'analytics-models'\n      ? React.createElement(AnalyticsModelsView" in HTML   # render switch
-    assert HTML.count("'data-values','analytics-models'") == 2                      # valid hashes + isActive
-    assert "onNavigateToAnalyticsModel(guid, 'models'); return; }" in HTML           # dispatcher
-    assert "onNavigateToAnalyticsModel(guid, 'runs'); return; }" in HTML
-    assert "onNavigateToDataValue, onNavigateToAnalyticsModel]);" in HTML           # dispatcher deps
+    # The Catalog (Catalog sub-tab pattern): a SECTIONS tile, a splash group, SECTION_TABS custom tabs, the hash set
+    assert "{ id: 'analytics-models', icon: '◈', label: 'Models and Runs'," in CATALOG
+    assert "sections: ['analytics-models', 'data-values']," in CATALOG
+    assert ("  'analytics-models': [\n    { id: 'models', label: 'Models', custom: true },\n"
+            "    { id: 'runs',   label: 'Model runs', custom: true },\n  ],") in CATALOG
+    assert "'models': ANALYTICS_MODELS_VIEW_CFG," in CATALOG and "'runs': ANALYTICS_MODEL_RUNS_VIEW_CFG," in CATALOG
+    assert "'namespaces','data-values','analytics-models']);" in CATALOG
+    assert "onNavigateToElement: navigateToElementFromCard" in CATALOG
+    # The Explorer still links to models and runs (they open in The Catalog)
     assert "if (item.typeName === 'DeployedAnalyticsModel' || superTypes.indexOf('DeployedAnalyticsModel') !== -1) return true;" in HTML
     assert "if (item.typeName === 'AnalyticsModelRun' || superTypes.indexOf('AnalyticsModelRun') !== -1) return true;" in HTML
     assert "'DeployedAnalyticsModel': { color:" in HTML and "'AnalyticsModelRun': { color:" in HTML   # DD_TYPE_NAV
-    assert "d.needs64 || d.needsVersion" in HTML                                    # before-5.2 words, not an empty list
+    assert "window.open(catalogUrlForElement(guid, typeName, superTypes), '_blank'); return;" in HTML
+    shared = (_DIR / "static" / "egeria-shared-ui.js").read_text()
+    assert "d.needs64 || d.needsVersion" in shared                                  # before-5.2 words, not an empty list
 
 
-def test_type_nav_map_routes_models_and_runs():
+def test_type_nav_map_routes_models_and_runs_to_the_catalog():
     m = json.loads((_DIR / "static" / "type-nav-map.json").read_text())
-    assert m["DeployedAnalyticsModel"]["explorerHash"] == "analytics-models" and m["DeployedAnalyticsModel"]["kind"] == "models"
-    assert m["DeployedAnalyticsModel"]["catalogSection"] == "processes"             # The Catalog keeps its own card
-    assert m["AnalyticsModelRun"] == {"explorerHash": "analytics-models", "kind": "runs"}
+    assert m["DeployedAnalyticsModel"] == {"catalogSection": "analytics-models", "catalogTab": "models"}
+    assert m["AnalyticsModelRun"] == {"catalogSection": "analytics-models", "catalogTab": "runs"}
 
 
 def test_lists_and_panes_are_resizable():
     # the list pane is E64ElementsView (useResizable + ResizeDivider); every table is E64Table (a plain <table>
     # that egeria-resize.js makes column-resizable)
-    assert "sideKey: 'AnalyticsModelsView.sideW'" in HTML and "sideKey: 'AnalyticsModelRunsView.sideW'" in HTML
-    block = HTML[HTML.index("// ── Models and Runs: DeployedAnalyticsModel"):HTML.index("/* e64-pure:end */")]
+    # (the sideKeys keep their Explorer names, so a width someone set there carries over)
+    assert "sideKey: 'AnalyticsModelsView.sideW'" in CATALOG and "sideKey: 'AnalyticsModelRunsView.sideW'" in CATALOG
+    block = CATALOG[CATALOG.index("// ── Models and Runs: DeployedAnalyticsModel"):CATALOG.index("/* catalog-models-pure:end */")]
     assert block.count("React.createElement(E64Table") == 9   # metrics, dates, runs, model, projects, sources, variables, signature, lineage and "'table'" not in block

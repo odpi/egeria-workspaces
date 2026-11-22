@@ -5086,10 +5086,10 @@ var _E64_RELATED_COLS = {
   assessmentDecisions:     [['element', 'Decision', 200], ['assessment', 'Assessment', 160], ['when', 'Assessed', 110], ['assessor', 'Assessor', 150]],
   workedOnByProjects:      [['element', 'Project', 220], ['label', 'Label', 140], ['description', 'Description', 240]],
   projectTargets:          [['element', 'Target', 220], ['label', 'Label', 140], ['description', 'Description', 240]],
-  processingVariables:     [['element', 'Data value', 220], ['position', 'Position', 110], ['label', 'Label', 140]],
+  processingVariables:     [['element', 'Configuration value', 220], ['position', 'Position', 110], ['label', 'Label', 140]],
   processVariableTypes:    [['element', 'Schema type', 220], ['position', 'Position', 110], ['cardinality', 'Cardinality', 170], ['label', 'Label', 140]],
   processVariableTypeUses: [['element', 'Used by', 220], ['position', 'Position', 110], ['cardinality', 'Cardinality', 170], ['label', 'Label', 140]],
-  providesDataValues:      [['element', 'Data value', 220], ['label', 'Label', 140], ['description', 'Description', 240]],
+  providesDataValues:      [['element', 'Configuration value', 220], ['label', 'Label', 140], ['description', 'Description', 240]],
 };
 
 // Rows in display order: assessments numbered per decision, positioned lists by position.
@@ -5098,6 +5098,12 @@ function e64RelatedRows(list) {
   if (list && list.key === 'assessmentDecisions') return decisionAssessmentRows(rows);
   if (list && (_E64_RELATED_COLS[list.key] || []).some(function(c) { return c[0] === 'position'; })) return e64ByPosition(rows);
   return rows;
+}
+
+// "a", "a or b", "a, b or c": the words for "none of these" (PO-73).
+function e64JoinOr(words) {
+  if (words.length < 2) return words.join('');
+  return words.slice(0, -1).join(', ') + ' or ' + words[words.length - 1];
 }
 
 // True when every list was read and is empty: the panel then says so in one line.
@@ -5129,7 +5135,7 @@ function E64RelatedRows({ data, onNavigateToElement }) {
   var badge = React.createElement(E64BranchBadge, { branch: data.branch, carries: data.carries });
   if (e64RelatedAllNone(data)) return React.createElement('div', null, badge,
     React.createElement('div', { className: 'e64-list-note', 'data-state': 'all-none', style: { fontSize: 12, color: 'var(--dim)', padding: '4px 0' } },
-      'None recorded: no ' + (data.sections || []).map(function(s) { return s.title.toLowerCase(); }).join(', ') + ' are linked to this element.'));
+      'None recorded: no ' + e64JoinOr((data.sections || []).map(function(s) { return s.title.toLowerCase(); })) + ' are linked to this element.'));
   return React.createElement('div', null, badge,
     (data.sections || []).map(function(sec) {
       return React.createElement('div', { key: sec.key, 'data-section': sec.key },
@@ -5181,4 +5187,108 @@ function E64RelatedPanel({ guid, creds, onNavigateToElement }) {
     st.state === 'loading' ? React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'Loading…')
     : st.state === 'error' ? React.createElement('div', { style: { fontSize: 12, color: '#f87171' } }, 'Couldn’t read the Egeria 6.4 links: ' + st.error)
     : React.createElement(E64RelatedRows, { data: st.data, onNavigateToElement: onNavigateToElement }));
+}
+
+// A JSON read that keeps the HTTP status on the error (404 = not found, said as such).
+function _e64FetchJson(url, creds) {
+  return egeriaFetch(url, creds).then(function(r) {
+    if (r.ok) return r.json();
+    return r.json().catch(function() { return {}; }).then(function(body) {
+      var err = new Error((body && body.detail) || ('HTTP ' + r.status));
+      err.status = r.status;
+      throw err;
+    });
+  });
+}
+
+// A list + detail pane for one element type: the Explorer's Decisions, The Catalog's Configuration
+// Values and Models and Runs. The open item is published for the Promise/Memento toggle
+// (window.__egeriaNavExtra, the same way as the Explorer's own nav hook).
+// cfg: { listUrl, detailUrl(guid), noun, nounPlural, empty, Detail, sideKey, subtitle(item) }
+function E64ElementsView({ cfg, navGuid, onNavigateToElement }) {
+  const creds = React.useContext(CredContext);
+  const [sideW, onDivDown] = useResizable(280, null, null, cfg.sideKey);
+  const [filter, setFilter] = React.useState('');
+  const [inclTempl, setInclTempl] = React.useState(false);
+  const [attempt, setAttempt] = React.useState(0);
+  const [list, setList] = React.useState({ state: 'loading', items: [], capped: false, error: '', words: '' });
+  const [selected, setSelected] = React.useState(function() {
+    return new URLSearchParams(window.location.search).get('guid') || null;
+  });
+  React.useEffect(function() {
+    window.__egeriaNavExtra = { guid: selected || null, kind: null };
+    return function() { window.__egeriaNavExtra = null; };
+  }, [selected || '']);
+  const [detail, setDetail] = React.useState({ state: 'idle', data: null, error: '', status: 0 });
+
+  React.useEffect(function() {
+    if (!creds) return;
+    setList({ state: 'loading', items: [], capped: false, error: '', words: '' });
+    _e64FetchJson(cfg.listUrl + (inclTempl ? '?include_templates=true' : ''), creds)
+      .then(function(d) {
+        if (d.needs64 || d.needsVersion) setList({ state: 'needs64', items: [], capped: false, error: '', words: d.words });
+        else setList({ state: 'ready', items: d.items || [], capped: !!d.capped, error: '', words: '' });
+      })
+      .catch(function(e) { setList({ state: 'error', items: [], capped: false, error: e.message, words: '' }); });
+  }, [creds, attempt, inclTempl]);
+
+  React.useEffect(function() { if (navGuid) setSelected(navGuid); }, [navGuid]);
+
+  React.useEffect(function() {
+    if (!selected || !creds) { setDetail({ state: 'idle', data: null, error: '', status: 0 }); return; }
+    var cancelled = false;
+    setDetail({ state: 'loading', data: null, error: '', status: 0 });
+    _e64FetchJson(cfg.detailUrl(selected), creds)
+      .then(function(d) { if (!cancelled) setDetail(d.needs64 ? { state: 'needs64', data: null, error: d.words, status: 200 } : { state: 'ready', data: d, error: '', status: 200 }); })
+      .catch(function(e) { if (!cancelled) setDetail({ state: e.status === 404 ? 'missing' : 'error', data: null, error: e.message, status: e.status || 0 }); });
+    return function() { cancelled = true; };
+  }, [selected, creds, attempt]);
+
+  var filtered = React.useMemo(function() {
+    var q = filter.trim().toLowerCase();
+    if (!q) return list.items;
+    return list.items.filter(function(s) {
+      return [s.displayName, s.qualifiedName, cfg.subtitle(s)].some(function(v) { return (v || '').toLowerCase().includes(q); });
+    });
+  }, [list.items, filter]);
+
+  var msg = function(text, color) { return React.createElement('div', { style: { padding: 12, color: color || 'var(--dim)', fontSize: 12, overflowWrap: 'anywhere' } }, text); };
+
+  return React.createElement('div', { className: 'body' },
+    React.createElement('div', { className: 'sidebar', style: { width: sideW, display: 'flex', flexDirection: 'column' } },
+      React.createElement('div', { className: 'search-wrap', style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+        React.createElement('input', { className: 'search-input', type: 'search', placeholder: 'Filter ' + cfg.nounPlural.toLowerCase() + '…', value: filter, onChange: function(e) { setFilter(e.target.value); } }),
+        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+          React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' } },
+            React.createElement('input', { type: 'checkbox', checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { margin: 0, cursor: 'pointer', accentColor: 'var(--accent)' } }),
+            'Include templates'),
+          React.createElement('button', {
+            onClick: function() { setAttempt(function(a) { return a + 1; }); },
+            style: { marginLeft: 'auto', padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'rgba(20,32,52,.8)', color: 'var(--text)', cursor: 'pointer', fontSize: 11 },
+          }, '↻ Refresh'))),
+      list.state === 'loading' && msg('Loading…'),
+      list.state === 'needs64' && React.createElement(E64Needs64, { words: list.words }),
+      list.state === 'error' && msg('Couldn\'t read ' + cfg.nounPlural.toLowerCase() + ': ' + list.error, '#f87171'),
+      list.state === 'ready' && list.items.length === 0 && msg(cfg.empty),
+      list.state === 'ready' && list.items.length > 0 && filtered.length === 0 && msg('No matches.'),
+      list.state === 'ready' && list.capped && msg('Showing the first ' + list.items.length + ' — the list may be incomplete.', '#fbbf24'),
+      React.createElement('div', { style: { overflowY: 'auto', flex: 1 } },
+        filtered.map(function(s) {
+          var on = s.guid === selected;
+          var sub = cfg.subtitle(s);
+          return React.createElement('div', { key: s.guid, className: 'tree-item' + (on ? ' sel' : ''), onClick: function() { setSelected(s.guid); },
+            style: { display: 'block', minWidth: 0, padding: '6px 10px', whiteSpace: 'normal', overflowWrap: 'anywhere' } },
+            React.createElement('div', { style: { fontWeight: on ? 600 : 400, fontSize: 13 } }, s.displayName || s.qualifiedName || s.guid),
+            sub && React.createElement('div', { title: sub, style: { fontSize: 11, color: 'var(--dim)', marginTop: 2 } }, sub));
+        }))),
+    React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
+    React.createElement('div', { className: 'main', style: { minWidth: 0 } },
+      !selected ? (list.state === 'needs64' ? React.createElement(E64Needs64, { words: list.words }) : msg('Select a ' + cfg.noun.toLowerCase() + ' to see it.'))
+      : detail.state === 'loading' ? msg('Loading…')
+      : detail.state === 'needs64' ? React.createElement(E64Needs64, { words: detail.error })
+      : detail.state === 'missing' ? msg(cfg.noun + ' ' + selected + ' was not found: ' + detail.error, '#fbbf24')
+      : detail.state === 'error' ? msg('Couldn\'t read this ' + cfg.noun.toLowerCase() + ' (' + (detail.status ? 'HTTP ' + detail.status + ': ' : '') + detail.error + ').', '#f87171')
+      : detail.data && React.createElement(cfg.Detail, { key: detail.data.guid, detail: detail.data, onNavigateToElement: onNavigateToElement })
+    )
+  );
 }
