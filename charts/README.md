@@ -114,7 +114,16 @@ helm test st -n egeria      # both canaries
     would not match the keystore a running platform already loaded (the platform canary then hangs on TLS verification).
   * **Portal canary: PO-68 check.** On a gated Portal (freshstart, or demoMode) the canary also posts `{}` with no session and requires 401. On OpenShift
     only freshstart was run live (the demoMode half is from reading the code and the render tests); it passes with the image built with c6aedd12 and FAILS (HTTP 200) with the a79109b7 image, so it catches a Portal image that predates the fix.
-  * Not run: demoMode, Ingress/Route on OpenShift.
+  * **demoMode on OpenShift Local** (`ENVIRONMENT=quickstart DEMO_MODE=true tests/crc_stack.sh egeria-demo qs`, Portal image built with c6aedd12): the quickstart demo
+    stack with `portal.demoMode=true` and a bootstrap admin (random password in the Secret `demo-admin`) is admitted under restricted-v2 (UID 1000730000, GID 0), 5/5 servers
+    started, and both canaries pass, including the PO-68 check live: the canary goes to the Portal Service on 8000 (the Apache edge header would trip the demo gate) and
+    `{}` without a session gets 401. This closes the "demoMode from reading the code" note. The Portal's own demo accounts are NOT created by the chart: the admin signs in
+    at `/login`, and `peterprofile` and the other Coco personas are Egeria personas picked after signing in (they exist in the quickstart metadata, not in the freshstart user directory).
+  * **Known quirk:** after `crc_stack_prod.sh` has pushed an image to the internal registry, the node no longer resolves the same `docker.io/library/apache-web:<tag>` by name
+    (kubelet tries to pull it and is refused). A later demo install must take Apache from the internal registry by digest (`--set portal.images.apache.repository=
+    image-registry.openshift-image-registry.svc:5000/<ns>/apache-web --set portal.images.apache.digest=sha256:...`, plus `oc policy add-role-to-group system:image-puller
+    system:serviceaccounts:<demo ns> -n <ns>`), or run the demo install before the production one. Cause not found.
+  * Not run: demoMode on kind, Ingress/Route on OpenShift.
 * **Public demo keystore password:** when `tls.existingSecret` holds the public demo password (the image's own keystore), the demo posture prints a
   WARNING in NOTES, and the **production posture refuses to install or upgrade** (`fail`, naming `tls.existingSecret`), in the platform chart and in the
   umbrella (`core.tls.existingSecret`). Both use `lookup`, so they act only against a real cluster (not `helm template` or `--dry-run=client`);
