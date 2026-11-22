@@ -16,6 +16,11 @@ platform names and GUIDs to a request with no cookie, or a bogus one). Now:
 Runs in a clean checkout: the signing key is a test key set on demo_config (as
 test_report_spec_sync_redaction.py does), and no test reaches Egeria (the platform URL refuses connections
 at once; the credential exchange's client is replaced).
+
+Both process modes: the gate reads demo_config.SERVER_MANAGED_AUTH per request, so its checks run whatever
+the process's SERVER_MANAGED_AUTH is. The sign-in routes (/api/auth/*, /api/platform/org-name, the /login
+and /register pages' freshstart behaviour) are mounted at import from that env, so the cases that need
+them (`signin_routes`) are skipped, with the reason, in a process started with SERVER_MANAGED_AUTH=false.
 """
 import base64
 import json
@@ -93,6 +98,17 @@ def _env(monkeypatch):
 def app():
     import pyegeria_handler as handler
     return handler.app
+
+
+@pytest.fixture
+def signin_routes(app):
+    """Skip unless this process mounted freshstart's sign-in routes (SERVER_MANAGED_AUTH true at import)."""
+    import pyegeria_handler as handler
+    # The same import-time flag that decides the mounting (pyegeria_handler: DEMO_MODE or SERVER_MANAGED_AUTH).
+    # Not app.routes: FastAPI >= 0.165 nests included routers there, so their paths are not listed.
+    if not handler._LOGIN_REQUIRED:
+        pytest.skip("sign-in routes are mounted at import only when SERVER_MANAGED_AUTH is true; "
+                    "this process started with it false")
 
 
 @pytest.fixture
@@ -201,7 +217,7 @@ def test_signed_in_bearer_header_counts_as_a_session(client):
     assert r.status_code == 200
 
 
-def test_signed_in_user_gets_auth_me(client):
+def test_signed_in_user_gets_auth_me(client, signin_routes):
     r = _get(client, "/api/auth/me", _session())
     assert r.status_code == 200
     assert r.json()["authenticated"] is True and r.json()["user_id"] == "peterprofile"
@@ -209,24 +225,30 @@ def test_signed_in_user_gets_auth_me(client):
 
 # ── the public list ───────────────────────────────────────────────────────────────────────────────────
 
-@pytest.mark.parametrize("path", ["/", "/login", "/privacy", "/static/egeria-logo.png", "/api/platform/org-name"])
+@pytest.mark.parametrize("path", ["/", "/privacy", "/static/egeria-logo.png"])
 def test_public_paths_need_no_session(client, path):
     r = _get(client, path)
     assert r.status_code == 200, (r.status_code, r.text[:300])
 
 
-def test_register_still_sends_to_login(client):
+@pytest.mark.parametrize("path", ["/login", "/api/platform/org-name"])
+def test_sign_in_page_and_its_heading_need_no_session(client, signin_routes, path):
+    r = _get(client, path)
+    assert r.status_code == 200, (r.status_code, r.text[:300])
+
+
+def test_register_still_sends_to_login(client, signin_routes):
     r = _get(client, "/register")
     assert r.status_code in (302, 307) and r.headers["location"] == "/login"
 
 
-def test_auth_me_without_a_session_says_not_signed_in(client):
+def test_auth_me_without_a_session_says_not_signed_in(client, signin_routes):
     r = _get(client, "/api/auth/me", "not-a-jwt")
     assert r.status_code == 200
     assert r.json()["authenticated"] is False
 
 
-def test_login_route_is_reachable_without_a_session(client):
+def test_login_route_is_reachable_without_a_session(client, signin_routes):
     """The sign-in itself: the gate does not answer it (a bad body is the route's 422, not the gate's 401)."""
     client.cookies.clear()
     r = client.post("/api/auth/login", json={})
