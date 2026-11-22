@@ -62,8 +62,10 @@ kubectl -n egeria port-forward svc/pq-portal-web 8085:8085
   (demo only; NOTES warns), and refuses an Ingress without `networkPolicy.enabled`: the gate trusts the edge header Apache adds, so the
   Portal Service on 8000 must be reachable only from the front door. The Ingress backend is always `<release>-portal-web`.
 * `extraEnv` may not set names the chart owns (`EGERIA_ROOT_PATH`, `DEMO_MODE`, `SERVER_MANAGED_AUTH`, passwords, ...).
-* Known issue PO-68 (Portal, HIGH): `POST /api/egeria-token` with an empty body mints the Portal's service-user token for any caller.
-  Fix it in the Portal before any chart Ingress; then the canary should also assert that `{}` without a session gets 401.
+* PO-68 (Portal, HIGH): `POST /api/egeria-token` with an empty body minted the Portal's service-user token for any caller. It is fixed upstream
+  (odpi/egeria-workspaces#907, c6aedd12), but the Portal images these charts were tested with (built from a79109b7) PREDATE that fix and still have
+  the bug. Rebuild the Portal image from a tree that contains c6aedd12 before publishing a chart Ingress; then the canary should also assert that
+  `{}` without a session gets 401.
 * Demo posture creates a Secret (random `jwt-secret` and `mcp-access-token`, kept across upgrades; the public demo Egeria password).
   Production needs `secrets.existingSecret` (keys `jwt-secret`, `egeria-user-password`, `mcp-access-token`), `tls.caSecret` (key `ca.crt`),
   image digests, a StorageClass, and refuses `demoMode`.
@@ -94,8 +96,8 @@ helm test st -n egeria      # both canaries
     `tests/make_san_keystore.sh` (random passwords, SANs for the Service names, so `strict.ssl=true` and the Portal's `tls.verify=true` check
     hostnames), existing Secrets, image digests, NetworkPolicies; both canaries pass.
   * **Ingress** (ingress-nginx v1.15.1 on kind): the front door answers through TLS and a direct request to the Portal on 8000 is blocked by
-    the NetworkPolicy. It also showed PO-68: an empty-body `POST /api/egeria-token` through the Ingress returns a token, so do not publish a
-    Portal Ingress until the Portal is fixed.
+    the NetworkPolicy. It also showed PO-68: an empty-body `POST /api/egeria-token` through the Ingress returns a token (that image predates the
+    upstream fix c6aedd12), so do not publish a Portal Ingress with an image built before it.
   * **OpenShift Local (crc 2.65.0, OpenShift 5.0.0)** (`tests/crc_stack.sh`): freshstart demo stack with `global.openshift=true`; the platform,
     the Portal and Apache were admitted under **restricted-v2** with an assigned UID (here 1000670000), GID 0 and no `runAsUser`/`fsGroup` in
     our manifests; both canaries pass. The test Postgres and Kafka run as fixed UIDs, so they are in a separate namespace with the `anyuid` SCC
