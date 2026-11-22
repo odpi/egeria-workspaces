@@ -128,14 +128,14 @@ def get(url, token=None, data=None, ssl_ctx=None):
     req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json", **({"Authorization": "Bearer " + token} if token else {})})
     try:
         r = urllib.request.urlopen(req, timeout=20, context=ssl_ctx)
-        return r.status, r.read().decode()[:2000]
+        return r.status, r.read().decode()
     except urllib.error.HTTPError as e:
-        return e.code, e.read().decode()[:300]
+        return e.code, e.read().decode()
 st, body = get(base + "/.well-known/agents.json")
 idx = json.loads(body)
 print("agents.json:", st, "base_url=", idx["base_url"], "egeria=", idx.get("egeria"), "agents=", [a["name"] for a in idx["agents"]])
 user, pw, plat = os.environ["RE_DAEMON_USER_ID"], os.environ["RE_DAEMON_USER_PASSWORD"], os.environ["EGERIA_PLATFORM_URL"]
-st, tok = get(plat + "/servers/" + os.environ["EGERIA_VIEW_SERVER"] + "/api/v1/users/" + user + "/token", data=json.dumps({"userId": user, "password": pw}).encode(), ssl_ctx=ctx)
+st, tok = get(plat + "/api/token", data=json.dumps({"userId": user, "password": pw}).encode(), ssl_ctx=ctx)
 tok = tok.strip().strip('"')
 print("egeria token:", st, "len>0" if len(tok) > 20 else "none")
 print("whoami with an Egeria token:", get(base + "/whoami", tok)[0])
