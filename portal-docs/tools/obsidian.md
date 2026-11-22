@@ -78,7 +78,7 @@ In demo mode the portal also writes your persona's Egeria credentials into the p
 Open **Settings → Call Dr. Egeria Settings (MCP)**:
 
 - **MCP Server URL** — see table above
-- **MCP Access Token** — must match `MCP_ACCESS_TOKEN` in the backend (default: `egeria-secret-mcp-token`)
+- **MCP Access Token** — must match `MCP_ACCESS_TOKEN` in the backend. There is no default: the stack generates one into its `.env` (`compose-configs/egeria-quickstart/.env`) on the first run; copy it from there. In demo mode the portal fills it in when you take the Obsidian lock.
 - **Egeria User ID / Password** — your persona credentials; auto-populated by the portal in demo mode
 - **Default Directive** — `process` / `validate` / `display`
 - **Outbox Path** — where results are saved (relative to vault root, default: `dr-egeria-outbox`)
