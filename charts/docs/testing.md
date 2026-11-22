@@ -52,6 +52,7 @@ the final `0 chart(s) failed` line matters.
 | `tests/make_san_keystore.sh <out> <ns> <svc> [alias]` | A throwaway CA (3 days) and a keystore and truststore with SANs for the Service names and random passwords | used by the above |
 | `tests/crc_stack.sh [ns] [release]` | Demo `egeria-stack` with `global.openshift=true` on OpenShift Local; infra in `<ns>-infra` under `anyuid`. `ENVIRONMENT=quickstart DEMO_MODE=true` for demoMode. | crc |
 | `tests/crc_stack_prod.sh [ns] [release]` | Production-style stack on OpenShift Local, images pushed to the internal registry. Keeps its Secrets on a re-run. | crc |
+| `tests/kind_re.sh <ns> [release]` | `trellis-re` (Resource Explorer) on a quickstart platform with the test Postgres: owner role for the schema Job, runtime role for the pods | kind |
 | `tests/crc_route.sh [ns] [release] [host]` | Adds an edge Route (from the chart's Ingress) to an installed stack and checks it from the host | crc |
 
 `kind_install.sh` expects a running kind cluster. Do not preload images with `kind load` on a Docker that uses the
@@ -80,6 +81,7 @@ containerd image store. For the Portal images, connect a local registry to kind'
   200) with the a79109b7 image.
 - Quickstart demoMode stack (`ENVIRONMENT=quickstart DEMO_MODE=true crc_stack.sh egeria-demo qs`): `restricted-v2`
   (UID 1000730000, GID 0), 5/5 servers, both canaries passed including the PO-68 check.
+- Resource Explorer (`kind_re.sh`, trellis `efd55108`): the schema Job (owner role) printed `schema ready`, a second `helm upgrade` ran it again with the same line, the pods ran `RE_SCHEMA_MODE=external` as a role that cannot create anything (`permission denied for schema`) and has DML on every table the owner made, six marker rows were written, and `helm test` passed (`/health/ready` 200, a protected API 401). An unapplied schema is refused with `SchemaNotReady`. Not run: a production-posture install, OpenShift, the Prefect worker.
 - Route (`crc_route.sh`) on the demoMode stack: `/portal` 302, `/login` 200, `POST {}` to `/api/egeria-token` 401, an
   authenticated API 401 for an anonymous caller, http redirected to an `https://` location, `helm test` passed.
 
