@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from rate_limiter import ACCOUNT_EMAIL_LIMIT, LOGIN_LIMIT, limiter  # PO-83: per real client IP
 from fastapi.responses import JSONResponse, RedirectResponse
 from jose import JWTError, jwt
 from loguru import logger
@@ -383,7 +384,8 @@ class RoleUpdateRequest(BaseModel):
 # ── Registration & verification ────────────────────────────────────────────────
 
 @router.post("/api/auth/register", summary="Register a new demo account")
-def register(req: RegisterRequest, db: Session = Depends(get_db)):
+@limiter.limit(ACCOUNT_EMAIL_LIMIT)
+def register(request: Request, req: RegisterRequest, db: Session = Depends(get_db)):
     if len(req.password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
     if db.query(User).filter(User.email == req.email.lower()).first():
@@ -420,7 +422,8 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/api/auth/resend-verification", summary="Resend email verification link")
-def resend_verification(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
+@limiter.limit(ACCOUNT_EMAIL_LIMIT)
+def resend_verification(request: Request, req: ForgotPasswordRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == req.email.lower()).first()
     if not user or user.verified:
         # Return success regardless to avoid email enumeration
@@ -468,7 +471,8 @@ def verify_email(token: str, db: Session = Depends(get_db)):
 # ── Login / logout ─────────────────────────────────────────────────────────────
 
 @router.post("/api/auth/login", summary="Log in and receive a session cookie")
-def login(req: LoginRequest, response: Response, db: Session = Depends(get_db)):
+@limiter.limit(LOGIN_LIMIT)
+def login(request: Request, req: LoginRequest, response: Response, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == req.email.lower()).first()
     if not user or not _verify(req.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
@@ -512,7 +516,8 @@ def get_me(request: Request, db: Session = Depends(get_db)):
 # ── Password reset ─────────────────────────────────────────────────────────────
 
 @router.post("/api/auth/forgot-password", summary="Request a password-reset email")
-def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
+@limiter.limit(ACCOUNT_EMAIL_LIMIT)
+def forgot_password(request: Request, req: ForgotPasswordRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == req.email.lower()).first()
     if user and user.verified:
         token = secrets.token_urlsafe(32)
@@ -530,7 +535,8 @@ def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/api/auth/reset-password", summary="Set a new password using a reset token")
-def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
+@limiter.limit(ACCOUNT_EMAIL_LIMIT)
+def reset_password(request: Request, req: ResetPasswordRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.reset_token == req.token).first()
     if not user or not user.reset_expires or user.reset_expires < datetime.utcnow():
         raise HTTPException(status_code=400, detail="Invalid or expired reset link")

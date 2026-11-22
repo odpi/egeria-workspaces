@@ -315,6 +315,9 @@ services:
       # No published default (PO-82): gen-env.sh generates MCP_ACCESS_TOKEN into .env on the first run and keeps it. Unset,
       # the MCP endpoints are off and say so; the old published value is refused when the Portal starts.
       MCP_ACCESS_TOKEN: "${MCP_ACCESS_TOKEN:-}"
+      # Rate limits are per real client IP (PO-83): X-Forwarded-For is read only from these proxies (hostnames, IPs or
+      # CIDRs), so set it to whatever sits directly in front of this container. Default: this stack's Apache.
+      PORTAL_TRUSTED_PROXIES: "${PORTAL_TRUSTED_PROXIES:-quickstart-web-server}"
       # ── Demo mode — set DEMO_MODE=true to enable public access with auth ──────
       DEMO_MODE: "false"
       DEMO_DB_PATH: "/app/demo-data/demo.db"
