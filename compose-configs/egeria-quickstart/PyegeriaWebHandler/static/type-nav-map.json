@@ -139,6 +139,11 @@
   "NoteLog": { "explorerHash": "notelogs" },
   "Perspective": { "explorerHash": "perspectives" },
   "Project": { "explorerHash": "projects" },
+  "Decision": { "explorerHash": "decisions" },
+  "DeployedAnalyticsModel": { "catalogSection": "analytics-models", "catalogTab": "models" },
+  "AnalyticsModelRun": { "catalogSection": "analytics-models", "catalogTab": "runs" },
+  "DataValue": { "catalogSection": "data-values", "catalogTab": "config-values" },
+  "LiteralDataValue": { "catalogSection": "data-values", "catalogTab": "config-values" },
   "ExternalId": { "explorerHash": "external-identifiers" },
   "Agreement": { "explorerHash": "agreements" },
   "DataSharingAgreement": { "explorerHash": "agreements" },
@@ -146,6 +151,7 @@
 
   "InformalTag": { "explorerHash": "informal-tags" },
   "ContextEvent": { "explorerHash": "context-events" },
+  "StatementOfApplicability": { "explorerHash": "statements-of-applicability" },
 
   "ToDo": { "explorerHash": "action-center" },
   "Notification": { "explorerHash": "action-center" },

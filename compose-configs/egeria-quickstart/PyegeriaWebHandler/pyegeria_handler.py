@@ -43,6 +43,7 @@ def _bootstrap_runtime_defaults() -> None:
 _bootstrap_runtime_defaults()
 
 import asyncio
+import contextvars
 import concurrent.futures
 import io
 import threading
@@ -190,6 +191,10 @@ if DEMO_MODE:
 # handlers (apply_token) reuse a pre-obtained bearer token (LE-4).
 from egeria_auth import EgeriaTokenMiddleware
 app.add_middleware(EgeriaTokenMiddleware)
+# The Portal serves many users: an identity-less report-spec read must see no private specs, not the
+# service user's (portal_spec_identity; pyegeria R-A). The middleware above gives each request its user.
+import portal_spec_identity  # noqa: E402
+portal_spec_identity.declare_multi_user()
 app.add_middleware(SlowAPIMiddleware)
 
 # CORS configuration for Obsidian security
@@ -355,6 +360,12 @@ from context_events_handler import router as context_events_router
 app.include_router(context_events_router)
 from soa_handler import router as soa_router
 app.include_router(soa_router)
+
+# Egeria 6.4 cards (odpi/egeria#9463): Decisions, Configuration Values, and the 6.4 rows on other cards
+from e64_handler import router as e64_router
+app.include_router(e64_router)
+from analytics_models_handler import router as analytics_models_router
+app.include_router(analytics_models_router)
 from favorites_handler import router as favorites_router
 app.include_router(favorites_router)
 from obsidian_lock_handler import router as obsidian_lock_router
@@ -854,7 +865,10 @@ async def process_markdown(request: ProcessRequest):
     try:
         logger.debug(f"Received request for input_file: {request.input_file}")
         loop = asyncio.get_event_loop()
-        result: ProcessResponse = await loop.run_in_executor(executor, _invoke_processor, request)
+        # copy_context: the worker thread sees this request's X-Egeria-Token, forLineage and report-spec
+        # identity contextvars (run_in_executor does not carry them; PO-21).
+        result: ProcessResponse = await loop.run_in_executor(
+            executor, contextvars.copy_context().run, _invoke_processor, request)
         return JSONResponse(content=result.model_dump())
     except HTTPException:
         raise
@@ -927,6 +941,11 @@ class NoCacheStaticFiles(StaticFiles):
 
 
 # Static assets (logos, etc.) — must be mounted before the "/" catch-all below.
+# /static/egeria-table.js comes from pyegeria's package data when it ships one (PO-5); registered
+# before the /static mount so this route wins for that one path.
+from egeria_table_asset import router as egeria_table_router
+app.include_router(egeria_table_router)
+
 _static_dir = SCRIPT_DIR / "static"
 if _static_dir.is_dir():
     app.mount("/static", NoCacheStaticFiles(directory=str(_static_dir)), name="static")

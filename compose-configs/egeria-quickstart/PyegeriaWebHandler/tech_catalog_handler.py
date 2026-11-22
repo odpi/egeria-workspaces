@@ -107,13 +107,9 @@ def _apply_token(client, token: Optional[str]):
         client.create_egeria_bearer_token()
 
 
-def _is_auth_error(exc: Exception) -> bool:
-    """Return True if exc represents a 401/403 from Egeria (token expired or access denied)."""
-    http_code = getattr(exc, "response_code", None) or getattr(exc, "http_status_code", None)
-    if http_code in (401, 403):
-        return True
-    s = str(exc).upper()
-    return "USER_NOT_AUTHORIZED" in s or "NOT_AUTHORIZED" in s or "AUTHORIZATION_ERROR" in s
+from egeria_error_mapping import (  # noqa: E402  (PO-9)
+    AUTH_403_DETAIL, _auth_status, _is_auth_error, auth_http_exception,
+)
 
 
 def _asset_maker(url, server, user_id, user_pwd, token: Optional[str] = None):
@@ -351,6 +347,7 @@ def _extract_relationships(el: dict) -> list:
     - Single-dict keys: e.g. 'schemaType' which is a single RelatedMetadataElementSummary
     """
     _SKIP_KEYS = {"elementHeader", "properties", "classifications", "class"}
+    own_guid = (el.get("elementHeader") or {}).get("guid") if isinstance(el, dict) else None
     result = []
     # Each relationship once -- the graph's flat `relationships` list repeats
     # the ones already under their typed keys (see _relationship_items_once).
@@ -358,6 +355,19 @@ def _extract_relationships(el: dict) -> list:
         # Single-dict values (e.g. schemaType) only count with a relationshipHeader
         if isinstance(el.get(key), dict) and not item.get("relationshipHeader"):
             continue
+        # The graph's flat `relationships` list holds the WHOLE reachable subgraph
+        # (get_asset_graph_by_guid, depth 5): each entry's startingElementGUID says
+        # which element the relationship was recorded from. Only the element's own
+        # are its relationships; the rest belong to nested elements (an API's
+        # parameters, a schema's attributes) and were shown as the asset's own --
+        # e.g. Customer API listed SemanticAssignment -> UniqueCustomerIdentifier
+        # twice, once per customerNo parameter. The nested ones are still read by
+        # _serialize_schema straight from el["relationships"]. Typed keys are not
+        # filtered, and an entry without startingElementGUID is kept.
+        if key == "relationships" and own_guid:
+            start = item.get("startingElementGUID")
+            if start and start != own_guid:
+                continue
         r = _unwrap_rel_item(item, key)
         if r:
             result.append(r)
@@ -1401,7 +1411,7 @@ def list_infrastructure_types(
         types = _entity_type_map(url, server, user_id, user_pwd, token=_token_from_request(request), refresh=refresh)
     except Exception as exc:
         if _is_auth_error(exc):
-            raise HTTPException(status_code=401, detail=str(exc))
+            raise auth_http_exception(exc, str(exc))
         logger.exception("list_infrastructure_types failed")
         raise HTTPException(status_code=500, detail=str(exc))
     subs = []
@@ -1670,7 +1680,9 @@ async def _fill_list_cache(key: str, label: str, fetch_page, serialize) -> None:
         if entry:
             entry["refreshing"] = False
         else:
-            _da_errors[key] = "Unauthorized" if _is_auth_error(exc) else str(exc)
+            # An auth refusal keeps its kind (PO-9): "Unauthorized" (401, sign in again) or "Not permitted" (403).
+            _da_errors[key] = ((("Not permitted" if _auth_status(exc) == 403 else "Unauthorized")
+                                if _is_auth_error(exc) else str(exc)))
     finally:
         _da_tasks.pop(key, None)
 
@@ -1713,7 +1725,8 @@ def _cached_list_response(key: str, label: str, refresh: bool, fetch_page, seria
     entry, stale, loading, err = _get_list_cached(
         key, refresh, lambda: _fill_list_cache(key, label, fetch_page, serialize))
     if err:
-        raise HTTPException(status_code=401 if err == "Unauthorized" else 500, detail=err)
+        status = 401 if err == "Unauthorized" else 403 if err == "Not permitted" else 500
+        raise HTTPException(status_code=status, detail=AUTH_403_DETAIL if status == 403 else err)
     if loading:
         return JSONResponse({"items": [], "loading": True, "rootType": root_type})
     return JSONResponse({"items": entry["items"], "total": len(entry["items"]), "capped": entry["capped"],
@@ -1943,7 +1956,7 @@ def get_governance_process_detail(
         raise
     except Exception as exc:
         if _is_auth_error(exc):
-            raise HTTPException(status_code=401, detail="Token expired or unauthorized")
+            raise auth_http_exception(exc, "Token expired or unauthorized")
         logger.exception("get_governance_process_detail failed for %s", guid)
         raise HTTPException(status_code=500, detail=str(exc))
 
@@ -1981,7 +1994,7 @@ def get_element_nav(
         raise
     except Exception as exc:
         if _is_auth_error(exc):
-            raise HTTPException(status_code=401, detail="Token expired or unauthorized")
+            raise auth_http_exception(exc, "Token expired or unauthorized")
         logger.exception("get_element_nav failed for %s", guid)
         raise HTTPException(status_code=500, detail=str(exc))
 
@@ -2011,7 +2024,7 @@ def get_asset_detail(
         raise
     except Exception as exc:
         if _is_auth_error(exc):
-            raise HTTPException(status_code=401, detail=f"Token expired or user not authorized for element {guid!r}")
+            raise auth_http_exception(exc, f"Token expired or user not authorized for element {guid!r}")
         logger.exception("get_asset_detail failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
@@ -2117,7 +2130,7 @@ def get_asset_preview(
         raise
     except Exception as exc:
         if _is_auth_error(exc):
-            raise HTTPException(status_code=401, detail="Token expired or not authorized")
+            raise auth_http_exception(exc, "Token expired or not authorized")
         logger.exception("get_asset_preview: detail fetch failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
@@ -2203,7 +2216,7 @@ def list_survey_reports(
         return JSONResponse({"items": items, "total": len(items), "capped": capped})
     except Exception as exc:
         if _is_auth_error(exc):
-            raise HTTPException(status_code=401, detail="Token expired or unauthorized")
+            raise auth_http_exception(exc, "Token expired or unauthorized")
         logger.exception("list_survey_reports failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
@@ -2248,7 +2261,7 @@ def get_survey_annotations(
         return JSONResponse({"items": items, "total": len(items)})
     except Exception as exc:
         if _is_auth_error(exc):
-            raise HTTPException(status_code=401, detail="Token expired or unauthorized")
+            raise auth_http_exception(exc, "Token expired or unauthorized")
         logger.exception("get_survey_annotations failed for %s", guid)
         raise HTTPException(status_code=500, detail=str(exc))
 
@@ -2302,7 +2315,7 @@ def list_annotations(
         return JSONResponse({"items": items, "startFrom": start_from, "nextStart": start_from + page_size, "hasMore": more})
     except Exception as exc:
         if _is_auth_error(exc):
-            raise HTTPException(status_code=401, detail="Token expired or unauthorized")
+            raise auth_http_exception(exc, "Token expired or unauthorized")
         logger.exception("list_annotations failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
@@ -2333,7 +2346,7 @@ def get_annotation_detail(
         raise
     except Exception as exc:
         if _is_auth_error(exc):
-            raise HTTPException(status_code=401, detail="Token expired or unauthorized")
+            raise auth_http_exception(exc, "Token expired or unauthorized")
         logger.exception("get_annotation_detail failed for %s", guid)
         raise HTTPException(status_code=500, detail=str(exc))
 
