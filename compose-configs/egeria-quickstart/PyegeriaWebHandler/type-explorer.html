@@ -13691,16 +13691,17 @@ function ModelSourcesTable({ rows, st, onNavigateToElement }) {
 }
 
 
-// Parameters and results (ProcessingVariable, Egeria 6.4): one list in position order. Egeria gives the
-// relationship no direction, so the card says that the label is what tells a parameter from a result.
-var MODEL_VARIABLES_NOTE = 'Egeria records parameters and results as one list (ProcessingVariable) with no direction: '
-  + 'they are in position order, and the label, when its author set one, says which is which.';
+// A run's parameters (ProcessingVariable, Egeria 6.4): "the data values used to configure the processing of the
+// element", in position order. Results are not processing variables: a run is a process, so its outputs are
+// lineage leaving it (ModelLineageTable below).
+var MODEL_VARIABLES_NOTE = 'Egeria links these as the data values used to configure the run, in position order, each with its label. '
+  + 'A run\u2019s results are not recorded here: as a process, its outputs are recorded as lineage from the run.';
 var _MODEL_VARIABLE_COLS = [['element', 'Data value', 190], ['position', 'Position', 100], ['label', 'Label', 130],
   ['value', 'Value', 280], ['type', 'Type and format', 150]];
 
 function ModelVariablesTable({ rows, st, onNavigateToElement, emptyText }) {
   var model = e64ByPosition(rows);
-  var note = _modelRowsOrNote(model, st, emptyText || 'No parameters or results are linked.');
+  var note = _modelRowsOrNote(model, st, emptyText || 'No parameters are linked to configure this run.');
   if (note) return note;
   return React.createElement(E64Table, {
     cols: _MODEL_VARIABLE_COLS, rows: model, minWidth: 850,
@@ -13735,6 +13736,36 @@ function ModelSignatureTable({ rows, st, onNavigateToElement }) {
         r.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)' } }, r.description));
       if (k === 'cardinality') return e64CardinalityText(r);
       if (k === 'dataType') return r.dataType || '—';
+      return '';
+    },
+  });
+}
+
+// A run's lineage: results = data lineage out of the run; other = its remaining lineage, each with its direction.
+// The read's words when it returned none: never an empty list, never "none" (a read can hide lineage).
+var MODEL_LINEAGE_WORDS = {
+  results: { 'none-returned': 'Results: this read returned no data lineage out of the run.', 'not-read': 'Results: not read by this card yet.' },
+  other:   { 'none-returned': 'This read returned no other lineage for the run.', 'not-read': 'Other lineage: not read by this card yet.' },
+};
+var _MODEL_LINEAGE_COLS = [['element', 'Element', 210], ['rel', 'Relationship', 140], ['direction', 'Direction', 130], ['label', 'Label', 180]];
+
+function ModelLineageTable({ rows, st, kind, onNavigateToElement }) {
+  rows = rows || [];
+  if (!rows.length || !st || st.state !== 'read') {
+    var words = MODEL_LINEAGE_WORDS[kind] || MODEL_LINEAGE_WORDS.results;
+    var state = (st && st.state) || 'not-read';
+    return React.createElement('div', { className: 'model-lineage-note', 'data-state': state, style: { fontSize: 12, color: 'var(--dim)', padding: '4px 0' } },
+      words[state] || words['not-read']);
+  }
+  return React.createElement(E64Table, {
+    cols: _MODEL_LINEAGE_COLS, rows: rows, minWidth: 660,
+    rowKey: function(r, i) { return r.relationshipGuid || ('lin-' + i); },
+    cell: function(k, r) {
+      if (k === 'element') return _e64ElementCell(r, onNavigateToElement);
+      if (k === 'rel') return r.relationshipType || '';
+      if (k === 'direction') return r.direction || '';
+      if (k === 'label') return React.createElement('div', null, r.label || '—',
+        r.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)' } }, r.description));
       return '';
     },
   });
@@ -13979,7 +14010,7 @@ function DataValuesView({ navGuid, onNavigateToElement }) {
 // ── Models and Runs (#analytics-models): DeployedAnalyticsModel and AnalyticsModelRun ──
 // Two sub-tabs over E64ElementsView. Runs, models, projects and sources are found by the related
 // element's type across every relationship (Egeria has no relationship reserved for model -> run).
-var _MODEL_SKIP = ['runs', 'models', 'projects', 'sources', 'variables', 'variableTypes', 'related', 'lists', 'runMetrics', 'status', 'additionalProperties', 'description', 'displayName',
+var _MODEL_SKIP = ['runs', 'models', 'projects', 'sources', 'variables', 'variableTypes', 'related', 'results', 'otherLineage', 'lists', 'runMetrics', 'status', 'additionalProperties', 'description', 'displayName',
   'implementationLanguage', 'deployedImplementationType', 'versionIdentifier', 'activityStatus', 'userDefinedActivityStatus',
   'requestedTime', 'requestedStartTime', 'startTime', 'dueTime', 'completionTime', 'lastPauseTime', 'lastResumeTime'];
 
@@ -14048,7 +14079,7 @@ function AnalyticsModelDetail({ detail, onNavigateToElement }) {
     badges: [['Language', detail.implementationLanguage], ['Implementation', detail.deployedImplementationType],
              ['Version', detail.versionIdentifier], ['Status', detail.activityStatus || detail.userDefinedActivityStatus]],
   },
-    React.createElement('div', { key: 'sgh', style: _MODEL_SECTION_HDR }, 'Signature: the variable types it accepts' + _modelCount(detail.variableTypes, lists.variableTypes)),
+    React.createElement('div', { key: 'sgh', style: _MODEL_SECTION_HDR }, 'Signature: the variable types this model is configured with' + _modelCount(detail.variableTypes, lists.variableTypes)),
     React.createElement(ModelSignatureTable, { key: 'sg', rows: detail.variableTypes, st: lists.variableTypes, onNavigateToElement: onNavigateToElement }),
     React.createElement('div', { key: 'rh', style: _MODEL_SECTION_HDR }, 'Runs' + _modelCount(detail.runs, lists.runs)),
     React.createElement(ModelRunsTable, { key: 'r', rows: detail.runs, st: lists.runs, onNavigateToElement: onNavigateToElement }),
@@ -14065,9 +14096,13 @@ function AnalyticsModelRunDetail({ detail, onNavigateToElement }) {
   },
     React.createElement('div', { key: 'dh', style: _MODEL_SECTION_HDR }, 'Dates'),
     React.createElement(ModelRunDatesPanel, { key: 'd', detail: detail }),
-    React.createElement('div', { key: 'pvh', style: _MODEL_SECTION_HDR }, 'Parameters and results' + _modelCount(detail.variables, lists.variables)),
+    React.createElement('div', { key: 'pvh', style: _MODEL_SECTION_HDR }, 'Parameters (processing variables)' + _modelCount(detail.variables, lists.variables)),
     React.createElement('div', { key: 'pvn', className: 'model-variables-note', style: { fontSize: 11, color: 'var(--dim)', marginBottom: 6 } }, MODEL_VARIABLES_NOTE),
     React.createElement(ModelVariablesTable, { key: 'pv', rows: detail.variables, st: lists.variables, onNavigateToElement: onNavigateToElement }),
+    React.createElement('div', { key: 'rsh', style: _MODEL_SECTION_HDR }, 'Results (lineage out of the run)' + _modelCount(detail.results, lists.results)),
+    React.createElement(ModelLineageTable, { key: 'rs', rows: detail.results, st: lists.results, kind: 'results', onNavigateToElement: onNavigateToElement }),
+    React.createElement('div', { key: 'olh', style: _MODEL_SECTION_HDR }, 'Other lineage' + _modelCount(detail.otherLineage, lists.otherLineage)),
+    React.createElement(ModelLineageTable, { key: 'ol', rows: detail.otherLineage, st: lists.otherLineage, kind: 'other', onNavigateToElement: onNavigateToElement }),
     React.createElement('div', { key: 'mdh', style: _MODEL_SECTION_HDR }, 'Model' + _modelCount(detail.models, lists.models)),
     React.createElement(RunModelsTable, { key: 'md', rows: detail.models, st: lists.models, onNavigateToElement: onNavigateToElement }),
     React.createElement(React.Fragment, { key: 'shared' }, _modelSharedSections(detail, onNavigateToElement, 'run')));

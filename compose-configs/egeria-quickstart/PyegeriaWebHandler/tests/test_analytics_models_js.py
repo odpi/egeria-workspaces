@@ -141,8 +141,8 @@ def _pv(rel, guid, name, position, label="", value=None, data_type="", fmt=""):
 
 
 def test_parameters_and_results_zero_one_many():
-    assert _render("ModelVariablesTable", {"rows": [], "st": {"state": "none"}})["text"] == "No parameters or results are linked."
-    w = "The run's parameters and results (ProcessingVariable) needs Egeria 6.4 (odpi/egeria#9463 ...): the platform at x runs Egeria 6.3."
+    assert _render("ModelVariablesTable", {"rows": [], "st": {"state": "none"}})["text"] == "No parameters are linked to configure this run."
+    w = "The run's parameters (processing variables) needs Egeria 6.4 (odpi/egeria#9463 ...): the platform at x runs Egeria 6.3."
     assert "needs Egeria 6.4" in _render("ModelVariablesTable", {"rows": [], "st": {"state": "needs-6.4", "words": w}})["text"]
     one = _render("ModelVariablesTable", {"rows": [_pv("pv-1", "dv-1", "threshold", 1, "parameter",
                                                        {"kind": "literal", "dataValue": "0.5", "dataValueList": None, "dataValueMap": None}, "float")],
@@ -158,8 +158,26 @@ def test_parameters_and_results_zero_one_many():
     assert "Value list (2)" in many["cells"][1][3]
 
 
-def test_the_run_card_says_parameters_and_results_have_no_direction():
-    assert "no direction" in _run("out(MODEL_VARIABLES_NOTE);")
+def test_the_run_card_says_parameters_configure_it_and_results_are_lineage():
+    note = _run("out(MODEL_VARIABLES_NOTE);")
+    assert note.startswith("Egeria links these as the data values used to configure the run, in position order, each with its label.")
+    assert "results are not recorded here: as a process, its outputs are recorded as lineage from the run." in note
+    assert "Parameters (processing variables)" in HTML and "'Parameters and results'" not in HTML
+    assert "'Signature: the variable types this model is configured with'" in HTML
+
+
+def _lin(rel, guid, name, rel_type="DataFlow", direction="out of the run"):
+    return {"relationshipGuid": rel, "guid": guid, "typeName": "DataFile", "displayName": name,
+            "relationshipType": rel_type, "direction": direction, "label": "", "description": ""}
+
+
+def test_results_lineage_out_of_the_run_and_words_never_none():
+    r = _render("ModelLineageTable", {"rows": [_lin("df-1", "f-1", "scores.csv")], "st": {"state": "read"}, "kind": "results"})
+    assert r["keys"] == ["df-1"] and r["cells"][0][1] == "DataFlow" and r["cells"][0][2] == "out of the run"
+    t = _render("ModelLineageTable", {"rows": [], "st": {"state": "none-returned"}, "kind": "results"})["text"]
+    assert t == "Results: this read returned no data lineage out of the run." and "none" not in t.lower().replace("returned no", "")
+    assert _render("ModelLineageTable", {"rows": [], "st": None, "kind": "results"})["text"] == "Results: not read by this card yet."
+    assert _render("ModelLineageTable", {"rows": [], "st": {"state": "none-returned"}, "kind": "other"})["text"] == "This read returned no other lineage for the run."
 
 
 def test_signature():
@@ -202,4 +220,4 @@ def test_lists_and_panes_are_resizable():
     # that egeria-resize.js makes column-resizable)
     assert "sideKey: 'AnalyticsModelsView.sideW'" in HTML and "sideKey: 'AnalyticsModelRunsView.sideW'" in HTML
     block = HTML[HTML.index("// ── Models and Runs: DeployedAnalyticsModel"):HTML.index("/* e64-pure:end */")]
-    assert block.count("React.createElement(E64Table") == 8   # metrics, dates, runs, model, projects, sources, variables, signature and "'table'" not in block
+    assert block.count("React.createElement(E64Table") == 9   # metrics, dates, runs, model, projects, sources, variables, signature, lineage and "'table'" not in block

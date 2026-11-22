@@ -291,7 +291,7 @@ def test_run_with_no_variables_on_6_4_says_none_and_before_6_4_needs_6_4(client)
     # the gate caches per platform URL: each platform here gets its own
     body = client(FakeExplorer(about=ABOUT_6_3, elements={"r-1": run()}, url="https://e63.test:9443")).get("/api/analytics-model-runs/r-1").json()
     st = body["lists"]["variables"]
-    assert st["state"] == "needs-6.4" and "parameters and results" in st["words"] and "runs Egeria 6.3" in st["words"]
+    assert st["state"] == "needs-6.4" and "parameters (processing variables)" in st["words"] and "runs Egeria 6.3" in st["words"]
     body = client(FakeExplorer(about=RuntimeError("x"), elements={"r-1": run()}, url="https://unknown.test:9443")).get("/api/analytics-model-runs/r-1").json()
     assert body["lists"]["variables"] == {"state": "not-known"}
 
@@ -386,3 +386,47 @@ def test_nothing_is_listed_twice_on_a_card(client):
     assert not own & related
     assert general == {"resourceListUsers"}                 # only what no section shows
     assert not general & set(e64.E64_LISTS)
+
+
+
+# ── results: lineage out of the run ──────────────────────────────────────────────────────────────────────
+
+def lin(rel_type, rel_guid, guid, name, at_end1, el_type="DataFile"):
+    r = rel(rel_type, rel_guid, guid, el_type=el_type, el_props={"displayName": name}, super_types=["Asset", "Referenceable"])
+    if at_end1 is not None:
+        r["relatedElementAtEnd1"] = at_end1
+    return r
+
+
+def test_results_are_data_lineage_out_of_the_run_and_the_rest_is_other_lineage(client):
+    mrel = lin("ProcessCall", "pc-1", "m-1", "Churn predictor", True, el_type="DeployedAnalyticsModel")
+    mrel["relatedElement"]["elementHeader"]["type"]["superTypeNames"] = MODEL_SUPERS
+    el = run(extra={"lineageLinkage": [
+        lin("DataFlow", "df-out", "f-out", "scores.csv", False),        # run at end 1: data leaves the run
+        lin("DataFlow", "df-in", "f-in", "training.csv", True),         # run at end 2: data comes in
+        lin("ControlFlow", "cf-1", "p-next", "next step", False),       # out, but not data
+        lin("LineageMapping", "lm-1", "c-1", "score column", False),
+        lin("DataFlow", "df-x", "f-x", "unknown.csv", None),            # no relatedElementAtEnd1
+        mrel]})
+    body = client(FakeExplorer(about=ABOUT_6_4, elements={"r-1": el})).get("/api/analytics-model-runs/r-1").json()
+    assert [r["relationshipGuid"] for r in body["results"]] == ["df-out", "lm-1"]
+    assert body["lists"]["results"] == {"state": "read"}
+    other = {r["relationshipGuid"]: r["direction"] for r in body["otherLineage"]}
+    assert other == {"df-in": "into the run", "cf-1": "out of the run", "df-x": "direction not recorded"}
+    assert [m["relationshipGuid"] for m in body["models"]] == ["pc-1"]      # shown as the model, not again as lineage
+    assert "lineageLinkage" not in body["relationships"]
+
+
+def test_a_run_whose_read_returned_no_lineage_says_so_not_none(client):
+    body = client(FakeExplorer(about=ABOUT_6_4, elements={"r-1": run()})).get("/api/analytics-model-runs/r-1").json()
+    assert body["results"] == [] and body["lists"]["results"] == {"state": "none-returned"}
+    assert body["lists"]["otherLineage"] == {"state": "none-returned"}
+
+
+def test_the_rest_of_a_list_stays_in_relationships_when_one_entry_is_shown(client):
+    ds = lin("DataFlow", "df-d", "ds-1", "features table", False)
+    el = model(extra={"lineageLinkage": [run_rel("df-r", "r-5", "lineage run", rel_type="DataFlow"), ds]})
+    body = client(FakeExplorer(about=ABOUT_6_4, elements={"m-1": el})).get("/api/analytics-models/m-1").json()
+    assert [r["relationshipGuid"] for r in body["runs"]] == ["df-r"]
+    shown = body["relationships"]["lineageLinkage"]
+    assert len(shown) == 1 and "ds-1" in str(shown) and "r-5" not in str(shown)

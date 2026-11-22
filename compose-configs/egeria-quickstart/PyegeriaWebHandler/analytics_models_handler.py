@@ -18,11 +18,18 @@ The types (Egeria source 90232870b2; design note DESIGN-PORTAL-MODELS-2026-11-22
   RunMetrics, a classification on Process (ElementHeader.runMetrics): Egeria 6.2.
   ProjectTarget (workedOnByProjects / projectTargets), the project link: Egeria 6.4.
 None is 6.4-only, so no route is gated. What a run takes in and gives out is 6.4 (odpi/egeria#9463):
-  ProcessingVariable (Referenceable -> DataValue; label, description, position; 0 = unset): the data values an
-    element uses. Egeria gives it no direction, so parameters and results are one list in position order, and
-    the label (when its author set one) is what tells them apart. The card says so.
-  SupportedVariableType (Referenceable -> SchemaType; position, minCardinality, maxCardinality): the types of
-    value an element accepts, i.e. a model's declared signature.
+  ProcessingVariable (Referenceable -> DataValue; label, description, position; 0 = unset): "Links an element to
+    a data value used to configure its processing". These are a run's parameters, in position order with their
+    labels. Results are NOT processing variables.
+  SupportedVariableType (Referenceable -> SchemaType; position, minCardinality, maxCardinality): "a type of data
+    value that is used to initialize/configure an element such as a process": the variable types a model is
+    configured with (its signature).
+A run is a TransientEmbeddedProcess, so its results are recorded as lineage leaving it. The graph read returns
+lineage in one list, lineageLinkage (AttributedElementConverterBase: DataFlow, ControlFlow, ProcessCall,
+LineageMapping, ...), each entry with relatedElementAtEnd1. "Results (lineage out of the run)" are the data-lineage
+entries (DataFlow end 1 = dataSupplier, LineageMapping/DataMapping source end, UltimateDestination) where the run
+is at end 1. The run's other lineage entries are listed with their direction; the general Relationships block
+leaves lineageLinkage out, so nothing is listed twice.
 Those lists use C1's list_state (needs-6.4 words on a platform before 6.4). The 6.4 gate's cached answer is
 also read for absent run metrics (RunMetrics is 6.2) and for the list routes' 404 rule: a bare 404 says
 "the platform lacks the types" only when the version could not be read; on a platform whose version is
@@ -294,6 +301,42 @@ def related_rows_for_card(element: dict, carries: Optional[bool], words: str) ->
     return {**rel, "sections": sections, "carries": carries}
 
 
+# Data lineage whose end 1 is the source: with the run at end 1 (relatedElementAtEnd1 false), data leaves the run.
+_RESULT_LINEAGE = ("DataFlow", "LineageMapping", "DataMapping", "UltimateDestination")
+
+
+def lineage_rows(element: dict, skip_rel_guids=()) -> tuple:
+    """(results, other) from the run's lineageLinkage. results: data lineage out of the run. other: every other
+    lineage entry, with its direction in words ("out of the run", "into the run", "direction not recorded").
+    Relationships the card already shows elsewhere (skip_rel_guids) are left out."""
+    results, other = [], []
+    for entry in _entries(element, "lineageLinkage"):
+        rel = entry["relatedElement"]
+        row = _row_base("lineageLinkage", entry, rel)
+        if row["relationshipGuid"] and row["relationshipGuid"] in skip_rel_guids:
+            continue
+        rp = _clean(entry.get("relationshipProperties") or {})
+        row["label"] = rp.get("label") or ""
+        row["description"] = rp.get("description") or ""
+        at1 = entry.get("relatedElementAtEnd1")
+        row["direction"] = ("out of the run" if at1 is False else "into the run" if at1 is True
+                            else "direction not recorded")
+        if at1 is False and row["relationshipType"] in _RESULT_LINEAGE:
+            results.append(row)
+        else:
+            other.append(row)
+    key = lambda r: (r["relationshipType"], (r["displayName"] or "").lower())
+    return sorted(results, key=key), sorted(other, key=lambda r: (r["direction"], *key(r)))
+
+
+def _lineage_state(element: dict, rows: list) -> dict:
+    """read: rows. Otherwise the read returned no such lineage: said as that, never as "none" (lineage can be
+    hidden from a read, e.g. by the Portal's lineage-visibility setting)."""
+    if rows:
+        return {"state": e64.READ}
+    return {"state": "none-returned"}
+
+
 def _rows_state(rows: list) -> dict:
     """A graph read asks for every relationship list: rows = read, none = none."""
     return {"state": e64.READ if rows else e64.NONE}
@@ -342,10 +385,22 @@ def _serialize_common(element: dict, carries: Optional[bool], version: str, purl
     }
 
 
-def _shown_keys(element: dict, *types) -> set:
-    """The relationship lists the card's own sections show, plus every 6.4 list (shown in the card's sections or
-    its related rows): the general Relationships block repeats none of them."""
-    return {k for t in types for k, _e, _r in related_of_type(element, t)} | set(e64.E64_LISTS)
+def _general_relationships(element: dict, shown_rel_guids: set, skip_keys=()) -> dict:
+    """The general Relationships block: every relationship the card's own sections don't show. Shown
+    relationships are removed one by one (by relationship GUID), so the rest of a list stays: a model's
+    lineage list that holds a run and a data set still lists the data set. The 14 6.4 lists (shown in the
+    card's sections or its related rows) and `skip_keys` are left out whole."""
+    rest = {}
+    for key, val in element.items():
+        if isinstance(val, list) and any(isinstance(e, dict) and "relatedElement" in e for e in val):
+            val = [e for e in val if not (isinstance(e, dict)
+                                          and (e.get("relationshipHeader") or {}).get("guid") in shown_rel_guids)]
+        rest[key] = val
+    return _generic_relationships(rest, skip=tuple(set(e64.E64_LISTS) | set(skip_keys)))
+
+
+def _shown_rel_guids(node: dict, *keys) -> set:
+    return {r["relationshipGuid"] for k in keys for r in node.get(k) or [] if r.get("relationshipGuid")}
 
 
 def serialize_model(element: dict, carries: Optional[bool] = True, version: str = "", purl: str = "") -> dict:
@@ -357,18 +412,22 @@ def serialize_model(element: dict, carries: Optional[bool] = True, version: str 
     runs = run_rows(element)
     node["runs"] = runs
     node["lists"]["runs"] = _rows_state(runs)
-    shown = _shown_keys(element, RUN_TYPE, PROJECT_TYPE, SOURCE_TYPE)
-    node["relationships"] = _generic_relationships(element, skip=tuple(shown))
+    node["relationships"] = _general_relationships(element, _shown_rel_guids(node, "runs", "projects", "sources"))
     return node
 
 
 def serialize_run(element: dict, carries: Optional[bool] = True, version: str = "", purl: str = "") -> dict:
-    node = _serialize_common(element, carries, version, purl, "The run's parameters and results (ProcessingVariable)")
+    node = _serialize_common(element, carries, version, purl, "The run's parameters (processing variables)")
     models = model_rows(element)
     node["models"] = models
     node["lists"]["models"] = _rows_state(models)
-    shown = _shown_keys(element, MODEL_TYPE, PROJECT_TYPE, SOURCE_TYPE)
-    node["relationships"] = _generic_relationships(element, skip=tuple(shown))
+    shown_rels = _shown_rel_guids(node, "models", "projects", "sources")
+    results, other = lineage_rows(element, shown_rels)
+    node["results"], node["otherLineage"] = results, other
+    node["lists"]["results"] = _lineage_state(element, results)
+    node["lists"]["otherLineage"] = _lineage_state(element, other)
+    # lineageLinkage is shown whole as results + other lineage
+    node["relationships"] = _general_relationships(element, shown_rels, skip_keys=("lineageLinkage",))
     return node
 
 
