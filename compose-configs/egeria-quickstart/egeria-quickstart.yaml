@@ -313,6 +313,9 @@ services:
       # `docker compose up` without it refuses to start instead of signing in with a well-known password.
       EGERIA_USER_PASSWORD: "${QUICKSTART_PERSONA_PASSWORD:?set QUICKSTART_PERSONA_PASSWORD in compose-configs/egeria-quickstart/.env (quick-start-local writes the demo password there)}"
       MCP_ACCESS_TOKEN: "egeria-secret-mcp-token"
+      # Rate limits are per real client IP (PO-83): X-Forwarded-For is read only from these proxies (hostnames, IPs or
+      # CIDRs), so set it to whatever sits directly in front of this container. Default: this stack's Apache.
+      PORTAL_TRUSTED_PROXIES: "${PORTAL_TRUSTED_PROXIES:-quickstart-web-server}"
       # ── Demo mode — set DEMO_MODE=true to enable public access with auth ──────
       DEMO_MODE: "false"
       DEMO_DB_PATH: "/app/demo-data/demo.db"

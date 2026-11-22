@@ -41,6 +41,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from rate_limiter import LOGIN_LIMIT, limiter  # PO-83: per real client IP
 from egeria_auth import check_client_platform, lineage_key as _lineage_key, token_user as _token_user, use_token
 from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
@@ -581,6 +582,7 @@ def _portal_session(request: Request):
 
 
 @router.post("/api/egeria-token", summary="Exchange Egeria credentials for a bearer token")
+@limiter.limit(LOGIN_LIMIT)   # PO-83: a sent password is checked by Egeria, so it is a guessing route
 async def get_egeria_bearer_token(request: Request):
     """Called once at login. Returns a short-lived Egeria bearer token so that
     subsequent catalog API calls can pass X-Egeria-Token instead of user_pwd.

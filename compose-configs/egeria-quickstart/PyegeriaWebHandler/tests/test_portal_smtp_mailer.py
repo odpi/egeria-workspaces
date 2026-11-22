@@ -110,7 +110,7 @@ def _parts(msg):
 
 
 def test_verification_mail_goes_by_starttls_with_login(smtp, logs):
-    h.resend_verification(h.ForgotPasswordRequest(email="erin@pdr-demo.org"), db=FakeDB(_user(verified=False)))
+    h.resend_verification.__wrapped__(None, h.ForgotPasswordRequest(email="erin@pdr-demo.org"), db=FakeDB(_user(verified=False)))  # past the PO-83 limit
     (conn,) = smtp.made
     assert (conn.host, conn.port, conn.ssl, conn.timeout) == ("smtp.example.test", 587, False, h.SMTP_TIMEOUT_S)
     assert conn.starttls_ctx is not None and conn.starttls_ctx.verify_mode.name == "CERT_REQUIRED"
@@ -124,7 +124,7 @@ def test_verification_mail_goes_by_starttls_with_login(smtp, logs):
 
 
 def test_reset_mail(smtp, logs):
-    h.forgot_password(h.ForgotPasswordRequest(email="erin@pdr-demo.org"), db=FakeDB(_user(verified=True)))
+    h.forgot_password.__wrapped__(None, h.ForgotPasswordRequest(email="erin@pdr-demo.org"), db=FakeDB(_user(verified=True)))  # past the PO-83 limit
     msg, to = smtp.made[0].sent[0]
     assert to == ["erin@pdr-demo.org"] and msg["Subject"] == "Reset your Egeria Demo password"
     assert "/reset-password?token=" in _parts(msg)["text/plain"]

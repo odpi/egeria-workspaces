@@ -185,6 +185,9 @@ services:
       EGERIA_INBOX_PATH: "dr-egeria-inbox"
       EGERIA_OUTBOX_PATH: "dr-egeria-outbox"
       MCP_ACCESS_TOKEN: "egeria-secret-mcp-token"
+      # Rate limits are per real client IP (PO-83): X-Forwarded-For is read only from these proxies (hostnames, IPs or
+      # CIDRs), so set it to whatever sits directly in front of this container. Default: this stack's Apache.
+      PORTAL_TRUSTED_PROXIES: "${PORTAL_TRUSTED_PROXIES:-freshstart-web-server}"
       # ── Auth (Egeria-backed, no SQLite) ──────────────────────────────────────
       DEMO_MODE: "false"
       FEEDBACK_DB_PATH: "/app/demo-data/feedback.db"
