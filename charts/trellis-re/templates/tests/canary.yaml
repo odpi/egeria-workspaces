@@ -42,6 +42,15 @@ spec:
           done
           r=$(code $base/health/ready);  [ "$r" = 200 ] && echo "ok: /health/ready answers 200 (the registry's Postgres is reachable)" || { echo "FAIL: /health/ready gave $r"; fail=1; }
           r=$(code $base/api/projects);  [ "$r" = 401 ] && echo "ok: a protected API refuses an anonymous caller (401)" || { echo "FAIL: /api/projects gave $r without a login (want 401)"; fail=1; }
+          {{- if $v.a2a.enabled }}
+          # A2A: the role answers, the public index is served, and an agent call with no token is refused with a Bearer challenge.
+          a2a=http://{{ $cfg.a2aname }}:{{ $v.a2a.port }}
+          r=$(code $a2a/health);  [ "$r" = 200 ] && echo "ok: A2A $a2a/health answers 200" || { echo "FAIL: $a2a/health gave $r"; fail=1; }
+          r=$(code $a2a/.well-known/agents.json); [ "$r" = 200 ] && echo "ok: the public agents.json index is served (200)" || { echo "FAIL: agents.json gave $r"; fail=1; }
+          h=$(curl -si -m 15 -X POST -H 'Content-Type: application/json' -d '{}' $a2a/agents/docs/v1/message:send | tr -d '\r')
+          echo "$h" | head -1 | grep -q " 401" && echo "$h" | grep -qi '^www-authenticate: *bearer' \
+            && echo "ok: an A2A call with no token is refused (401 with a WWW-Authenticate: Bearer challenge)" || { echo "FAIL: an anonymous A2A call was not refused with 401 and a Bearer challenge"; fail=1; }
+          {{- end }}
           {{- if $v.prefect.enabled }}
           # Prefect: the server answers, the work pool exists, and a worker of this commit is ONLINE on it.
           python - <<'PY' || fail=1

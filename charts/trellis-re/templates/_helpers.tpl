@@ -57,19 +57,29 @@ Use: {{ $cfg := include "trellis-re.cfg" . | fromYaml }}
 {{- fail "set prefect.apiUrl (prefect.enabled is true): the Prefect server's API, for example http://prefect-server:4200/api. This chart does not run a Prefect server." -}}
 {{- end -}}
 {{- if and $v.prefect.enabled (lt (int $v.prefect.worker.replicas) 1) -}}{{- fail "prefect.worker.replicas must be at least 1 (prefect.enabled is true)" -}}{{- end -}}
-{{- $owned := list "RE_SCHEMA_MODE" "PGVECTOR_HOST" "PGVECTOR_PORT" "PGVECTOR_DBNAME" "PGVECTOR_USER" "PGVECTOR_PASSWORD" "PGVECTOR_SCHEMA" "EGERIA_PLATFORM_URL" "EGERIA_VIEW_SERVER_URL" "EGERIA_VIEW_SERVER" "RE_DAEMON_USER_ID" "RE_DAEMON_USER_PASSWORD" "RE_JWT_SECRET" "TRELLIS_DB_CREDENTIAL_KEY" "PYEGERIA_SSL_VERIFY" "PYEGERIA_CA_BUNDLE" "PREFECT_ENABLED" "EMBEDDINGS__DEVICE" "PYEGERIA_LOG_DIRECTORY" "EMBED_WORKER" "PREFECT_API_URL" "PREFECT_WORK_POOL" "PREFECT_DISPATCH_STEPS" "PREFECT_API_KEY" -}}
+{{- if and $v.a2a.enabled (ne (int $v.a2a.replicas) 1) -}}
+{{- fail "a2a.replicas must be 1: the A2A context store is in memory, so a task started on one pod is invisible on another (more replicas need sticky routing, which this chart does not set up)" -}}
+{{- end -}}
+{{- if and $v.a2a.enabled $prod $v.a2a.publicUrl (not (hasPrefix "https://" $v.a2a.publicUrl)) (not (hasPrefix "http://" $v.a2a.publicUrl)) -}}
+{{- fail "a2a.publicUrl must start with http:// or https://" -}}
+{{- end -}}
+{{- $owned := list "RE_SCHEMA_MODE" "PGVECTOR_HOST" "PGVECTOR_PORT" "PGVECTOR_DBNAME" "PGVECTOR_USER" "PGVECTOR_PASSWORD" "PGVECTOR_SCHEMA" "EGERIA_PLATFORM_URL" "EGERIA_VIEW_SERVER_URL" "EGERIA_VIEW_SERVER" "RE_DAEMON_USER_ID" "RE_DAEMON_USER_PASSWORD" "RE_JWT_SECRET" "TRELLIS_DB_CREDENTIAL_KEY" "PYEGERIA_SSL_VERIFY" "PYEGERIA_CA_BUNDLE" "PREFECT_ENABLED" "EMBEDDINGS__DEVICE" "PYEGERIA_LOG_DIRECTORY" "EMBED_WORKER" "A2A_ALLOW_ANONYMOUS" "A2A_PUBLIC_URL" "PORT" "HOST" "PREFECT_API_URL" "PREFECT_WORK_POOL" "PREFECT_DISPATCH_STEPS" "PREFECT_API_KEY" -}}
 {{- range $e := $v.extraEnv -}}
+{{- if eq $e.name "A2A_ALLOW_ANONYMOUS" -}}{{- fail "extraEnv: A2A_ALLOW_ANONYMOUS would remove the bearer-token gate from every A2A agent; the chart never sets it (it is false) and refuses to pass it through. A2A is for signed-in callers only." -}}{{- end -}}
 {{- if has $e.name $owned -}}{{- fail (printf "extraEnv: %s is set by the chart; change the chart value it comes from instead" $e.name) -}}{{- end -}}
 {{- end -}}
 {{- $web := include "egeria-common.name" (dict "ctx" . "component" "re-web") -}}
 {{- $worker := include "egeria-common.name" (dict "ctx" . "component" "re-worker") -}}
 {{- $pfworker := include "egeria-common.name" (dict "ctx" . "component" "re-prefect-worker") -}}
+{{- $a2a := include "egeria-common.name" (dict "ctx" . "component" "re-a2a") -}}
 {{- $job := include "egeria-common.name" (dict "ctx" . "component" "re-schema") -}}
 {{- $secretName := default (include "egeria-common.name" (dict "ctx" . "component" "re-secrets")) $v.secrets.existingSecret -}}
 {{- $dataClaim := default (include "egeria-common.name" (dict "ctx" . "component" "re-data")) $v.persistence.existingClaim -}}
 webname: {{ $web }}
 workername: {{ $worker }}
 jobname: {{ $job }}
+a2aname: {{ $a2a }}
+a2aurl: {{ default (printf "http://%s:%d" $a2a (int $v.a2a.port)) $v.a2a.publicUrl }}
 prefectworkername: {{ $pfworker }}
 secretName: {{ $secretName }}
 createSecret: {{ not $v.secrets.existingSecret }}
@@ -81,8 +91,8 @@ ownerSecret: {{ default $v.database.existingSecret $v.database.owner.existingSec
 ownerKey: {{ ternary $v.database.owner.passwordKey $v.database.passwordKey (not (empty $v.database.owner.existingSecret)) }}
 {{- end -}}
 
-{{/* The environment shared by the web and worker pods. Call with the root context. */}}
-{{- define "trellis-re.env" -}}
+{{/* The environment every RE pod gets, without the Egeria service account and without extraEnv. Call with the root context. */}}
+{{- define "trellis-re.envCore" -}}
 {{- $v := .Values -}}
 {{- $cfg := include "trellis-re.cfg" . | fromYaml -}}
 - {name: RE_SCHEMA_MODE, value: external}
@@ -95,8 +105,6 @@ ownerKey: {{ ternary $v.database.owner.passwordKey $v.database.passwordKey (not 
 - {name: EGERIA_PLATFORM_URL, value: {{ $v.egeria.platformUrl | quote }}}
 - {name: EGERIA_VIEW_SERVER_URL, value: {{ $v.egeria.platformUrl | quote }}}
 - {name: EGERIA_VIEW_SERVER, value: {{ $v.egeria.viewServer | quote }}}
-- {name: RE_DAEMON_USER_ID, value: {{ $v.egeria.daemon.userId | quote }}}
-- {name: RE_DAEMON_USER_PASSWORD, valueFrom: {secretKeyRef: {name: {{ $v.egeria.daemon.existingSecret }}, key: {{ $v.egeria.daemon.passwordKey }}}}}
 - {name: RE_JWT_SECRET, valueFrom: {secretKeyRef: {name: {{ $cfg.secretName }}, key: jwt-secret}}}
 - {name: TRELLIS_DB_CREDENTIAL_KEY, valueFrom: {secretKeyRef: {name: {{ $cfg.secretName }}, key: db-credential-key}}}
 - {name: PYEGERIA_SSL_VERIFY, value: {{ $v.tls.verify | quote }}}
@@ -131,9 +139,28 @@ ownerKey: {{ ternary $v.database.owner.passwordKey $v.database.passwordKey (not 
 {{- if $v.publicUrl }}
 - {name: RE_PUBLIC_URL, value: {{ $v.publicUrl | quote }}}
 {{- end }}
-{{- with $v.extraEnv }}
+{{- end -}}
+
+
+{{/* RE's Egeria service account (RE_DAEMON_*): the worker loops, the Prefect steps and web need it; the A2A pod does not unless a2a.serviceAccount is set. */}}
+{{- define "trellis-re.daemonEnv" -}}
+{{- $v := .Values -}}
+- {name: RE_DAEMON_USER_ID, value: {{ $v.egeria.daemon.userId | quote }}}
+- {name: RE_DAEMON_USER_PASSWORD, valueFrom: {secretKeyRef: {name: {{ $v.egeria.daemon.existingSecret }}, key: {{ $v.egeria.daemon.passwordKey }}}}}
+{{- end -}}
+
+{{/* extraEnv: appended last, after the chart's own names were checked in trellis-re.cfg. */}}
+{{- define "trellis-re.extraEnv" -}}
+{{- with .Values.extraEnv }}
 {{ toYaml . }}
 {{- end }}
+{{- end -}}
+
+{{/* The environment of the web, worker and Prefect worker pods (the A2A pod composes its own). Call with the root context. */}}
+{{- define "trellis-re.env" -}}
+{{ include "trellis-re.envCore" . }}
+{{ include "trellis-re.daemonEnv" . }}
+{{- include "trellis-re.extraEnv" . }}
 {{- end -}}
 
 {{/* Probe timing from a values dict, every field optional */}}

@@ -93,6 +93,18 @@ prefect:
       requests: {cpu: 250m, memory: 1Gi}
       limits: {memory: 3Gi}
 
+a2a:
+  # The `a2a` role: every Resource Explorer agent on ONE port behind a bearer token (a trellis app JWT or a raw Egeria token; there is no static
+  # A2A token). A ClusterIP Service only: no Ingress here. The cards and /.well-known/agents.json are public by design; every agent call needs a token.
+  enabled: false
+  port: 8100               # the image's PORT is 8810 (web), so the chart sets this one explicitly
+  replicas: 1              # the A2A context store is in memory: a task started on one pod is invisible on another. The chart refuses more than 1.
+  serviceAccount: false    # true: also give the A2A pod RE's Egeria service account (RE_DAEMON_*). The agents make no service-account Egeria call today, so the default is off.
+  publicUrl: ""            # A2A_PUBLIC_URL, the URL written into the cards. Empty means the in-cluster Service URL; set it when callers use another address.
+  resources:
+    requests: {cpu: 250m, memory: 1Gi}
+    limits: {memory: 3Gi}
+
 logs:
   # pyegeria and the Dr.Egeria child write logs under a relative `logs` directory, which is /app (root-owned) in the image: an arbitrary
   # OpenShift UID cannot create it. A pod-local path avoids that (found on OpenShift Local, 2026-11-22).

@@ -187,6 +187,50 @@ def main():
     check("with Prefect the helm test also waits for an ONLINE worker on the pool", "workers/filter" in tp["args"][0] and {e["name"] for e in tp["env"]} >= {"PREFECT_API_URL", "PREFECT_WORK_POOL"})
     refuses("Prefect enabled needs prefect.apiUrl", DEMO + BASE + ["--set", "prefect.enabled=true"], ["prefect.apiUrl", "does not run a Prefect server"])
     refuses("extraEnv cannot override the Prefect settings the chart owns", DEMO + BASE + PF + ["--set", "extraEnv[0].name=PREFECT_API_URL", "--set", "extraEnv[0].value=x"], ["PREFECT_API_URL"])
+    # A2A (increment 3): off by default; on, a Service-only deployment of the SAME image on its own port, without the Egeria service account
+    check("A2A is off by default: nothing named re-a2a renders", not [d for d in ds if "re-a2a" in d["metadata"]["name"]])
+    check("an install without a2a renders exactly as before (same kinds, same names)", sorted((d["kind"], d["metadata"]["name"]) for d in ds) ==
+          sorted((d["kind"], d["metadata"]["name"]) for d in renders(DEMO + BASE + ["--set", "a2a.enabled=false"])))
+    dA = renders(DEMO + BASE + ["--set", "a2a.enabled=true"])
+    aw = kind(dA, "Deployment", "r1-re-a2a")[0]
+    ac = aw["spec"]["template"]["spec"]["containers"][0]
+    ae, we2 = env_of(aw, "a2a"), env_of(kind(dA, "Deployment", "r1-re-web")[0], "web")
+    check("the A2A pod runs the `a2a` role on the SAME image as web", ac["args"] == ["a2a"] and ac["image"] == kind(dA, "Deployment", "r1-re-web")[0]["spec"]["template"]["spec"]["containers"][0]["image"])
+    check("PORT is set explicitly to the A2A port, so the image's PORT=8810 cannot leak through", ae["PORT"]["value"] == "8100" and ac["ports"][0]["containerPort"] == 8100)
+    check("A2A_PUBLIC_URL defaults to the in-cluster Service URL", ae["A2A_PUBLIC_URL"]["value"] == "http://r1-re-a2a:8100")
+    dAu = renders(DEMO + BASE + ["--set", "a2a.enabled=true", "--set", "a2a.publicUrl=https://a2a.example.org", "--set", "a2a.port=9000"])
+    check("a2a.publicUrl and a2a.port are honoured", env_of(kind(dAu, "Deployment", "r1-re-a2a")[0], "a2a")["A2A_PUBLIC_URL"]["value"] == "https://a2a.example.org"
+          and env_of(kind(dAu, "Deployment", "r1-re-a2a")[0], "a2a")["PORT"]["value"] == "9000")
+    check("A2A_ALLOW_ANONYMOUS is false", ae["A2A_ALLOW_ANONYMOUS"]["value"] == "false")
+    svc = kind(dA, "Service", "r1-re-a2a")[0]
+    check("a ClusterIP Service only: no Ingress, no other exposure", svc["spec"].get("type", "ClusterIP") == "ClusterIP" and not kind(dA, "Ingress"))
+    check("the A2A pod does not get RE's Egeria service account (least privilege)", "RE_DAEMON_USER_ID" not in ae and "RE_DAEMON_USER_PASSWORD" not in ae)
+    dAs = renders(DEMO + BASE + ["--set", "a2a.enabled=true", "--set", "a2a.serviceAccount=true"])
+    check("a2a.serviceAccount=true is the explicit opt-in to the service account", "RE_DAEMON_USER_PASSWORD" in env_of(kind(dAs, "Deployment", "r1-re-a2a")[0], "a2a"))
+    check("it uses the RUNTIME database role in external mode, never the owner", ae["RE_SCHEMA_MODE"]["value"] == "external" and ae["PGVECTOR_USER"]["value"] == "re_rt"
+          and "re-owner-db" not in str(aw))
+    same = ["JWT" , "RE_JWT_SECRET", "TRELLIS_DB_CREDENTIAL_KEY", "EGERIA_PLATFORM_URL", "EGERIA_VIEW_SERVER", "PYEGERIA_SSL_VERIFY", "LLM__BACKEND", "EMBEDDINGS__DEVICE",
+            "PGVECTOR_HOST", "PGVECTOR_PASSWORD", "PGVECTOR_SCHEMA"]
+    check("A2A reads the same secrets, Egeria, database and LLM settings as web", all(ae[k] == we2[k] for k in same if k != "JWT"))
+    dAl = renders(DEMO + BASE + ["--set", "a2a.enabled=true", "--set", "llm.backend=openai", "--set", "llm.ollama.baseUrl=http://ollama:11434",
+                                 "--set", "extraEnvFrom[0].secretRef.name=llm-keys"])
+    pa, pw_ = kind(dAl, "Deployment", "r1-re-a2a")[0]["spec"]["template"]["spec"]["containers"][0], kind(dAl, "Deployment", "r1-re-web")[0]["spec"]["template"]["spec"]["containers"][0]
+    check("the LLM settings and the API-key envFrom reach A2A exactly as they reach web",
+          {e["name"]: e.get("value") for e in pa["env"] if e["name"].startswith("LLM__")} == {e["name"]: e.get("value") for e in pw_["env"] if e["name"].startswith("LLM__")}
+          and pa["envFrom"] == pw_["envFrom"] == [{"secretRef": {"name": "llm-keys"}}])
+    check("A2A has probes on /health only (no database in it)", ac["livenessProbe"]["httpGet"]["path"] == "/health" and ac["readinessProbe"]["httpGet"]["path"] == "/health")
+    dAp = renders(PROD + BASE + ["--set", "a2a.enabled=true"])
+    anp = [d for d in kind(dAp, "NetworkPolicy") if d["metadata"]["name"] == "r1-re-a2a"][0]
+    check("production: a NetworkPolicy lets anything that can reach the Service in on the A2A port only (and the helm test pod is covered by that)",
+          anp["spec"]["ingress"] == [{"ports": [{"protocol": "TCP", "port": 8100}]}] and anp["spec"]["policyTypes"] == ["Ingress"])
+    refuses("A2A refuses more than one replica (the context store is in memory)", DEMO + BASE + ["--set", "a2a.enabled=true", "--set", "a2a.replicas=2"], ["a2a.replicas", "in memory"])
+    refuses("A2A_ALLOW_ANONYMOUS cannot be passed through extraEnv, in words", DEMO + BASE + ["--set", "a2a.enabled=true", "--set", "extraEnv[0].name=A2A_ALLOW_ANONYMOUS", "--set-string", "extraEnv[0].value=true"],
+            ["A2A_ALLOW_ANONYMOUS", "bearer-token gate"])
+    refuses("extraEnv cannot override A2A_PUBLIC_URL or PORT", DEMO + BASE + ["--set", "a2a.enabled=true", "--set", "extraEnv[0].name=PORT", "--set", "extraEnv[0].value=1"], ["PORT"])
+    refuses("production + A2A still needs secrets.existingSecret (the JWT secret that verifies app tokens)", without(PROD, "secrets.existingSecret=re-secrets") + BASE + ["--set", "a2a.enabled=true"], ["secrets.existingSecret"])
+    ta = kind(dA, "Pod")[0]["spec"]["containers"][0]["args"][0]
+    check("with A2A the helm test checks /health, the public index, and that an anonymous call is refused with a WWW-Authenticate challenge",
+          "http://r1-re-a2a:8100" in ta and "$a2a/health" in ta and "agents.json" in ta and "www-authenticate" in ta.lower())
     # helm test
     t = kind(ds, "Pod")[0]
     check("the helm test pod is a test hook that reaches the web Service", t["metadata"]["annotations"]["helm.sh/hook"] == "test"

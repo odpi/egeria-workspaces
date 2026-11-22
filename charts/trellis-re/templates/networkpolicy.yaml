@@ -43,4 +43,22 @@ spec:
       {{- include "egeria-common.selectorLabels" (dict "ctx" . "component" "re-prefect-worker") | nindent 6 }}
   policyTypes: [Ingress]
 {{- end }}
+{{- if .Values.a2a.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $cfg.a2aname }}
+  labels:
+    {{- include "egeria-common.labels" (dict "ctx" . "component" "re-a2a") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "egeria-common.selectorLabels" (dict "ctx" . "component" "re-a2a") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: {{ .Values.a2a.port }}
+{{- end }}
 {{- end }}

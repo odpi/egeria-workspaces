@@ -60,3 +60,18 @@ Prefect server; set `prefect.apiUrl` (and `prefect.apiKeySecret`, a Secret with 
 worker are one image, so one commit, which RE requires before it dispatches (otherwise it warns and runs the steps itself). An init step creates the
 `process` work pool when it is missing. The worker is a `process` worker: each step runs as a subprocess of its pod, with the pod's environment and
 the shared data volume. `prefect.dispatchSteps` chooses which steps go to Prefect (empty: the image default).
+
+## A2A (optional)
+
+`a2a.enabled=true` adds the `a2a` role: every Resource Explorer agent on **one port** (`a2a.port`, 8100: the image's own `PORT` is 8810, so the chart sets it
+explicitly) behind a bearer token. It is a ClusterIP Service only; there is no Ingress for it. The cards and `/.well-known/agents.json` are public by design;
+every agent call needs a token, either a trellis app JWT (verified with the shared `jwt-secret`, so a web login's token works) or a raw Egeria token (validated
+against the platform; the result is cached for the token's own lifetime, keyed on a hash of the token). There is no static A2A token, and
+`A2A_ALLOW_ANONYMOUS` is never set by the chart and is refused through `extraEnv`.
+
+- **Who may reach it:** the NetworkPolicy lets anything that can reach the Service in, on the A2A port only, as for web. Narrow it for your Ingress controller or Portal if you need to.
+- **Credentials:** the same runtime database role and Secrets as web, and the same LLM settings and `extraEnvFrom` (provider API keys). It does **not** get RE's Egeria
+  service account unless you set `a2a.serviceAccount=true` (the agents make no service-account Egeria call today).
+- **One replica.** The conversation context is held in memory: a restart or a rollout loses the conversations that are open, and the chart refuses more than one
+  replica (a task started on one pod is invisible on another).
+- **`A2A_PUBLIC_URL`** is the URL written into the cards; it defaults to the in-cluster Service URL. Set `a2a.publicUrl` when callers reach it another way.
