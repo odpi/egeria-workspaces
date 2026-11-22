@@ -169,7 +169,7 @@ def test_configuration_values_is_the_name_a_person_sees():
     assert "{ id: 'config-values', label: 'Configuration Values', custom: true }" in CATALOG # tab / heading
     assert "noun: 'Configuration value', nounPlural: 'Configuration values', empty: 'No configuration values exist yet.'" in CATALOG
     assert "'Configures (processing variables)'" in CATALOG
-    assert "'Configuration values' + _modelCount(detail.variables, lists.variables)" in CATALOG
+    assert CATALOG.count("'Configuration values (processing variables)' + _modelCount(detail.variables, lists.variables)") == 2
     assert "emptyText: 'No configuration values are linked to this model.'" in CATALOG
     desc = re.search(r"\{ id: 'data-values', icon: '◇', label: 'Configuration Values', desc: '([^']*)' \}", CATALOG).group(1)
     for words in ("configure a process, model or run", "DataValue and LiteralDataValue", "ProcessingVariable",
@@ -189,6 +189,51 @@ def test_the_old_name_is_not_shown_anywhere(path):
 def test_the_backend_version_words_use_the_new_name():
     src = (_DIR / "e64_handler.py").read_text()
     assert '"The Configuration Values list"' in src and '"The Configuration Value card"' in src
+
+
+# ── PO-76: a ProcessingVariable link has one name, "Configuration values" ───────────────────────────────
+# Every string a person can see says "configuration values"; "processing variables" appears only as the
+# bracketed Egeria name after it, and "process variables" not at all.
+
+_PV_FILES = ["type-explorer.html", "tech-catalog.html", "e64_handler.py", "analytics_models_handler.py",
+             "egeria_6_4_support.py", "static/egeria-shared-ui.js"]
+
+
+def _shown_strings(src):
+    for m in re.finditer(r"(['\"])[^'\"\n]*\1", src):
+        line = src[src.rfind("\n", 0, m.start()) + 1:m.start()].lstrip()
+        if not line.startswith(("//", "#", "*")):
+            yield m.group(0)
+
+
+@pytest.mark.parametrize("path", [*_PV_FILES, "fresh:static/egeria-shared-ui.js"])
+def test_po_76_no_process_variables_wording_on_screen(path):
+    src = ((FRESH / path[6:]) if path.startswith("fresh:") else (_DIR / path)).read_text()
+    bad = [s for s in _shown_strings(src)
+           if re.search(r"\bprocess variables?\b", s, re.I)
+           or re.search(r"(?<!\()\bprocessing variables?\b", s, re.I)]
+    assert bad == [], bad
+
+
+def test_po_76_the_6_4_panel_has_one_configuration_values_section():
+    src = (_DIR / "e64_handler.py").read_text()
+    block = src[src.index("_REVERSE_SECTIONS = ("):src.index("_REVERSE_REL_TYPES")]
+    titles = re.findall(r'^    \("(\w+)", "([^"]+)", \($', block, re.M)
+    assert titles == [("decisions", "Decisions"), ("projects", "Projects"), ("variables", "Configuration values")]
+    assert '("processingVariables", "Configuration values (processing variables)"' in block
+    assert '("providesDataValues", "Provides configuration values"' in block
+    for root in (_DIR, FRESH):
+        ui = (root / "static/egeria-shared-ui.js").read_text()
+        assert "'Decisions, projects and configuration values'" in ui
+
+
+def test_po_76_the_needs_6_4_words_name_configuration_values():
+    sup = (_DIR / "egeria_6_4_support.py").read_text()
+    assert "needs Egeria 6.4 (odpi/egeria#9463, configuration values and decisions)" in sup
+    src = (_DIR / "e64_handler.py").read_text()
+    assert src.count('"Decisions, project targets, configuration values and Branch"') == 2
+    am = (_DIR / "analytics_models_handler.py").read_text()
+    assert "\"The run's configuration values (processing variables)\"" in am
 
 
 # ── PO-73: the 6.4 panel's "none of these" line joins with "or" ─────────────────────────────────────────

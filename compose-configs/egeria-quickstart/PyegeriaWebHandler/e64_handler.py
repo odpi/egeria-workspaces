@@ -2,17 +2,17 @@
 SPDX-License-Identifier: Apache-2.0
 Copyright Contributors to the ODPi Egeria project.
 
-Egeria 6.4 cards for the Egeria Explorer (odpi/egeria#9463, process variables and decisions).
+Egeria 6.4 cards for the Egeria Explorer and The Catalog (odpi/egeria#9463, configuration values and decisions).
 
 Endpoints:
   GET /api/e64/status          -> whether the platform carries the 6.4 additions, with the gate's words
   GET /api/decisions           -> the Decisions list
   GET /api/decisions/{guid}    -> one Decision: header, body, dates, assessed inputs, outcomes
-  GET /api/data-values         -> the Data Values list (DataValue and LiteralDataValue)
+  GET /api/data-values         -> the Configuration Values list (DataValue and LiteralDataValue)
   GET /api/data-values/{guid}  -> one DataValue: format and type, the value, used by, stored in, embedded, part of
   GET /api/e64/elements/{guid}/related -> the 6.4 rows for any element's existing card: decisions, projects,
-                                          project targets, processing variables, variable types, data values
-                                          provided, and the Branch classification
+                                          project targets, configuration values (processing variables),
+                                          variable types, configuration values provided, and the Branch classification
 
 Reads use pyegeria's generic ClassificationExplorer calls (elements/by-type, elements/{guid}), which every
 pyegeria the Portal runs has. So the cards don't need the unreleased 6.4 wrappers, and they work as soon as
@@ -402,14 +402,12 @@ _REVERSE_SECTIONS = (
         ("workedOnByProjects", "Worked on by projects", ("label", "description"), None),
         ("projectTargets", "Project targets", ("label", "description"), "Project"),
     )),
-    ("variables", "Process variables", (
-        ("processingVariables", "Processing variables", _POSITIONED, None),
+    ("variables", "Configuration values", (
+        ("processingVariables", "Configuration values (processing variables)", _POSITIONED, None),
         ("processVariableTypes", "Variable types", ("label", "description", "position", "minCardinality",
                                                      "maxCardinality"), None),
         ("processVariableTypeUses", "Variable type of", ("label", "description", "position", "minCardinality",
                                                           "maxCardinality"), "SchemaType"),
-    )),
-    ("dataValues", "Configuration values", (
         ("providesDataValues", "Provides configuration values", ("label", "description"), "Asset"),
     )),
 )
@@ -447,7 +445,7 @@ def serialize_related(element: dict, carries: Optional[bool], words: str = "", r
 
 
 @router.get("/api/e64/elements/{guid}/related",
-            summary="The Egeria 6.4 rows for an element's card: decisions, projects, process variables, Branch",
+            summary="The Egeria 6.4 rows for an element's card: decisions, projects, configuration values, Branch",
             responses=EGERIA_ERROR_RESPONSES)
 async def get_e64_related(guid: str, url: Optional[str] = Query(None), server: Optional[str] = Query(None)):
     try:
@@ -456,13 +454,13 @@ async def get_e64_related(guid: str, url: Optional[str] = Query(None), server: O
         _raise_http(exc, "ClassificationExplorer client failed")
     carries, version, purl = await _gate(client)
     if carries is False:
-        return _needs64("Decisions, project targets, process variables and Branch", purl, version, guid=guid)
+        return _needs64("Decisions, project targets, configuration values and Branch", purl, version, guid=guid)
     try:
         raw = await client._async_get_element_by_guid(guid, graph_query_depth=1, output_format="JSON",
                                                       include_only_relationships=_REVERSE_REL_TYPES)
     except Exception as exc:
         if carries is None and e64.is_missing_6_4_endpoint(exc):   # a 404 on a 6.4 platform is a real error
-            return _needs64("Decisions, project targets, process variables and Branch", purl, guid=guid)
+            return _needs64("Decisions, project targets, configuration values and Branch", purl, guid=guid)
         _raise_http(exc, "get_element_by_guid (6.4 rows) failed")
     element = raw[0] if isinstance(raw, list) and raw else raw
     if not isinstance(element, dict) or not e64.hdr(element).get("guid"):

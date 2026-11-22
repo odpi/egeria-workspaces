@@ -40,10 +40,10 @@ Every `.py` and `.html` file in `compose-configs/egeria-quickstart/PyegeriaWebHa
 
 ### Built since the last pass
 
-- **Egeria 6.4 process variables and decisions** (new types, odpi/egeria#9463; branches E64 C1–C3, `e64_handler.py`, `e64_router`):
+- **Egeria 6.4 configuration values and decisions** (new types, odpi/egeria#9463; branches E64 C1–C3, `e64_handler.py`, `e64_router`):
   - a **Decisions** section (`/api/decisions`): disposition, importance and status; summary, scope, usage, implications and notes; review and expiry dates flagged against now; assessed inputs, one row per `Assessment` relationship; `Outcome`s;
-  - a **Data Values** section (`/api/data-values`) for `DataValue` and `LiteralDataValue`: format and type, the value (literal, list or map), used by (`ProcessingVariable`, with position), stored in (`DataValueSource`), embedded values (`EmbeddedDataValue`) by position, part of;
-  - the 6.4 rows on 23 Explorer cards and The Catalog's 3 detail cards (`/api/e64/elements/{guid}/related`): decisions, worked on by projects, project targets (`ProjectTarget`), processing variables, variable types (`SupportedVariableType`), data values provided, and a `Branch` badge.
+  - a **Configuration Values** section in The Catalog (`/api/data-values`) for `DataValue` and `LiteralDataValue`: format and type, the value (literal, list or map), configures (`ProcessingVariable`, with position), stored in (`DataValueSource`), embedded values (`EmbeddedDataValue`) by position, part of;
+  - the 6.4 rows on 23 Explorer cards and The Catalog's 3 detail cards (`/api/e64/elements/{guid}/related`): decisions, worked on by projects, project targets (`ProjectTarget`), configuration values (`ProcessingVariable`), variable types (`SupportedVariableType`), configuration values provided, and a `Branch` badge.
   - On an Egeria before 6.4 each says "needs Egeria 6.4" in words, never an error or "none".
 - **Governance classifications & zones** (the original's #1): `governance_classifications_handler.py`, `governance_zones_handler.py`, `subject_area_handler.py`; all still wired. The security-specific types are gap 03.
 - **Business Capability model** (was #7): `business_capability_handler.py`, still wired.

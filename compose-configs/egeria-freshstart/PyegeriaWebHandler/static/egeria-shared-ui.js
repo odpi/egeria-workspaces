@@ -4914,7 +4914,8 @@ function ClsPurposeGroup({ groupKey, count, children }) {
 }
 
 /* -- Egeria 6.4 (odpi/egeria#9463): helpers every 6.4 card shares ---------------
- * Used by the Explorer's Decision and Data Value cards (type-explorer.html) and by
+ * Used by the Explorer's Decision card (type-explorer.html), The Catalog's Configuration
+ * Value and Models and Runs cards (tech-catalog.html), and by
  * E64RelatedPanel, the 6.4 rows on any element's existing card (the Explorer's cards
  * and The Catalog's asset card). Backend: e64_handler.py (quickstart).
  * A list's state comes from the backend (egeria_6_4_support.list_state):
@@ -5183,7 +5184,7 @@ function E64RelatedPanel({ guid, creds, onNavigateToElement }) {
   }, [guid, creds]);
   var sectionHdr = { fontWeight: 700, fontSize: 13, marginBottom: 6, marginTop: 20, paddingBottom: 6, borderBottom: '1px solid var(--border)', color: 'var(--accent)' };
   return React.createElement('div', { className: 'e64-related' },
-    React.createElement('div', { style: sectionHdr }, 'Decisions, projects and process variables'),
+    React.createElement('div', { style: sectionHdr }, 'Decisions, projects and configuration values'),
     st.state === 'loading' ? React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'Loading…')
     : st.state === 'error' ? React.createElement('div', { style: { fontSize: 12, color: '#f87171' } }, 'Couldn’t read the Egeria 6.4 links: ' + st.error)
     : React.createElement(E64RelatedRows, { data: st.data, onNavigateToElement: onNavigateToElement }));

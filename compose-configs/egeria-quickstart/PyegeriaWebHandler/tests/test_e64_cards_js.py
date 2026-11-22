@@ -328,7 +328,7 @@ def test_related_positions_and_cardinality_in_words():
              "position": None, "positionSet": False, "minCardinality": None, "maxCardinality": 3},
             {"relationshipGuid": "v-2", "guid": "st-2", "typeName": "PrimitiveSchemaType", "displayName": "A",
              "position": 2, "positionSet": True, "minCardinality": 1, "maxCardinality": None}]
-    secs = [{"key": "variables", "title": "Process variables", "lists": [_list("processVariableTypes", "Variable types", rows)]}]
+    secs = [{"key": "variables", "title": "Configuration values", "lists": [_list("processVariableTypes", "Variable types", rows)]}]
     (k, keys, t), = _render_related(_related(secs))["lists"]
     assert keys == ["v-2", "v-0"]
     assert "position 2" in t and "position unset" in t
@@ -357,7 +357,7 @@ def test_the_related_panel_is_on_every_explorer_card_and_the_catalogs():
     assert tc.count("React.createElement(E64RelatedRows, { data: detail.related") == 1
     assert "E64UI.isLinkable = _elementIsLinkable;" in HTML
     for page in ("type-explorer.html", "tech-catalog.html"):
-        assert "egeria-shared-ui.js?v=2026-11-22-cv" in (_DIR / page).read_text()
+        assert "egeria-shared-ui.js?v=2026-11-22-cv2" in (_DIR / page).read_text()
 
 
 def test_type_nav_map_routes_the_6_4_types_to_their_explorer_sections():

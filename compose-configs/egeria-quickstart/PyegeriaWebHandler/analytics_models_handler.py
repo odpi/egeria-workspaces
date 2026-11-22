@@ -2,7 +2,7 @@
 SPDX-License-Identifier: Apache-2.0
 Copyright Contributors to the ODPi Egeria project.
 
-Analytics models and model runs for the Egeria Explorer ("Models and Runs", #analytics-models).
+Analytics models and model runs for The Catalog ("Models and Runs", #analytics-models).
 
 Endpoints:
   GET /api/analytics-models              -> the DeployedAnalyticsModel list
@@ -404,7 +404,7 @@ def _shown_rel_guids(node: dict, *keys) -> set:
 
 
 def serialize_model(element: dict, carries: Optional[bool] = True, version: str = "", purl: str = "") -> dict:
-    node = _serialize_common(element, carries, version, purl, "The model's 6.4 lists (projects, variables)")
+    node = _serialize_common(element, carries, version, purl, "The model's 6.4 lists (projects, configuration values)")
     types = variable_type_rows(element)
     node["variableTypes"] = types
     node["lists"]["variableTypes"] = e64.list_state(element, "processVariableTypes", e64.relationship_fields(),
@@ -417,7 +417,7 @@ def serialize_model(element: dict, carries: Optional[bool] = True, version: str 
 
 
 def serialize_run(element: dict, carries: Optional[bool] = True, version: str = "", purl: str = "") -> dict:
-    node = _serialize_common(element, carries, version, purl, "The run's parameters (processing variables)")
+    node = _serialize_common(element, carries, version, purl, "The run's configuration values (processing variables)")
     models = model_rows(element)
     node["models"] = models
     node["lists"]["models"] = _rows_state(models)

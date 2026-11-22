@@ -143,7 +143,7 @@ def _pv(rel, guid, name, position, label="", value=None, data_type="", fmt=""):
 
 def test_parameters_and_results_zero_one_many():
     assert _render("ModelVariablesTable", {"rows": [], "st": {"state": "none"}})["text"] == "No parameters are linked to configure this run."
-    w = "The run's parameters (processing variables) needs Egeria 6.4 (odpi/egeria#9463 ...): the platform at x runs Egeria 6.3."
+    w = "The run's configuration values (processing variables) needs Egeria 6.4 (odpi/egeria#9463 ...): the platform at x runs Egeria 6.3."
     assert "needs Egeria 6.4" in _render("ModelVariablesTable", {"rows": [], "st": {"state": "needs-6.4", "words": w}})["text"]
     one = _render("ModelVariablesTable", {"rows": [_pv("pv-1", "dv-1", "threshold", 1, "parameter",
                                                        {"kind": "literal", "dataValue": "0.5", "dataValueList": None, "dataValueMap": None}, "float")],
@@ -161,9 +161,9 @@ def test_parameters_and_results_zero_one_many():
 
 def test_the_run_card_says_parameters_configure_it_and_results_are_lineage():
     note = _run("out(MODEL_VARIABLES_NOTE);")
-    assert note.startswith("Egeria links these as the data values used to configure the run, in position order, each with its label.")
+    assert note.startswith("Egeria links these as the configuration values (the run\u2019s parameters) used to configure the run, in position order, each with its label.")
     assert "results are not recorded here: as a process, its outputs are recorded as lineage from the run." in note
-    assert "Parameters (processing variables)" in CATALOG and "'Parameters and results'" not in CATALOG
+    assert "'Configuration values (processing variables)' + _modelCount" in CATALOG and "'Parameters and results'" not in CATALOG
     assert "'Signature: the variable types this model is configured with'" in CATALOG
 
 

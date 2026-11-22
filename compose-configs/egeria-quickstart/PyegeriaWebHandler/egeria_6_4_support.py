@@ -2,7 +2,7 @@
 SPDX-License-Identifier: Apache-2.0
 Copyright Contributors to the ODPi Egeria project.
 
-Egeria 6.4 (odpi/egeria#9463, process variables and decisions) support for the Egeria Explorer cards:
+Egeria 6.4 (odpi/egeria#9463, configuration values and decisions) support for the Egeria Explorer and Catalog cards:
 the version gate, the 14 new relationship lists, and the rule that tells "needs Egeria 6.4", "not read"
 and "none" apart. Used by e64_handler.py.
 
@@ -82,7 +82,7 @@ except ImportError:
 
     def needs_6_4_words(what: str, platform_url: str = "", version: str = "") -> str:
         where = f"the platform at {platform_url}" if platform_url else "this platform"
-        lead = f"{what} needs Egeria 6.4 (odpi/egeria#9463, process variables and decisions): {where}"
+        lead = f"{what} needs Egeria 6.4 (odpi/egeria#9463, configuration values and decisions): {where}"
         if version:
             return f"{lead} runs Egeria {version}. Nothing was sent to Egeria."
         return f"{lead} does not serve this request (HTTP 404), so nothing was changed."

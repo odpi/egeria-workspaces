@@ -221,7 +221,7 @@ def _header_summary(el: dict) -> Optional[dict]:
 
 
 # The 14 Egeria 6.4 lists (odpi/egeria#9463) have one home on a card: E64RelatedPanel (the element's
-# decisions, projects, process variables and data values, with their relationship properties and the
+# decisions, projects and configuration values (processing variables and data values), with their relationship properties and the
 # absence rule), or the Decision / Data Value card's own sections. So the generic relationship block
 # never repeats them (E64 read-back S2).
 def _e64_list_keys() -> frozenset:

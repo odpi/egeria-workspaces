@@ -588,7 +588,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
      URL guarantees a fresh fetch regardless of prior cache state. -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
 <script>window.EGERIA_FOR_LINEAGE = true; window.EGERIA_FOR_LINEAGE_VISIBLE = false;  /* shown per-section by App */</script>
-<script src="/static/egeria-shared-ui.js?v=2026-11-22-cv"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-11-22-cv2"></script>
 <script src="/static/data-scope-editor.js?v=2026-11-17b"></script>
 <script>
 'use strict';
@@ -4194,7 +4194,7 @@ function NamespacesView({ creds, navTarget, onNavigate }) {
 // ProcessingVariableProperties); the backend sends position: null and positionSet: false for those
 // (e64PositionText, e64ByPosition and E64PositionedTable are in static/egeria-shared-ui.js).
 var _DATA_VALUE_KIND_WORDS = {
-  'empty': 'No value is recorded on this literal data value.',
+  'empty': 'No value is recorded on this configuration value.',
   'not-literal': 'A DataValue holds no value of its own: only a LiteralDataValue does.',
 };
 
@@ -4419,7 +4419,7 @@ function ModelSourcesTable({ rows, st, onNavigateToElement }) {
 // A run's parameters (ProcessingVariable, Egeria 6.4): "the data values used to configure the processing of the
 // element", in position order. Results are not processing variables: a run is a process, so its outputs are
 // lineage leaving it (ModelLineageTable below).
-var MODEL_VARIABLES_NOTE = 'Egeria links these as the data values used to configure the run, in position order, each with its label. '
+var MODEL_VARIABLES_NOTE = 'Egeria links these as the configuration values (the run\u2019s parameters) used to configure the run, in position order, each with its label. '
   + 'A run\u2019s results are not recorded here: as a process, its outputs are recorded as lineage from the run.';
 var _MODEL_VARIABLE_COLS = [['element', 'Configuration value', 190], ['position', 'Position', 100], ['label', 'Label', 130],
   ['value', 'Value', 280], ['type', 'Type and format', 150]];
@@ -4653,7 +4653,7 @@ function AnalyticsModelDetail({ detail, onNavigateToElement }) {
     React.createElement(ModelSignatureTable, { key: 'sg', rows: detail.variableTypes, st: lists.variableTypes, onNavigateToElement: onNavigateToElement }),
     React.createElement('div', { key: 'rh', style: _MODEL_SECTION_HDR }, 'Runs' + _modelCount(detail.runs, lists.runs)),
     React.createElement(ModelRunsTable, { key: 'r', rows: detail.runs, st: lists.runs, onNavigateToElement: onNavigateToElement }),
-    React.createElement('div', { key: 'cvh', style: _MODEL_SECTION_HDR }, 'Configuration values' + _modelCount(detail.variables, lists.variables)),
+    React.createElement('div', { key: 'cvh', style: _MODEL_SECTION_HDR }, 'Configuration values (processing variables)' + _modelCount(detail.variables, lists.variables)),
     React.createElement(ModelVariablesTable, { key: 'cv', rows: detail.variables, st: lists.variables, onNavigateToElement: onNavigateToElement, emptyText: 'No configuration values are linked to this model.' }),
     React.createElement(React.Fragment, { key: 'shared' }, _modelSharedSections(detail, onNavigateToElement, 'model')));
 }
@@ -4666,7 +4666,7 @@ function AnalyticsModelRunDetail({ detail, onNavigateToElement }) {
   },
     React.createElement('div', { key: 'dh', style: _MODEL_SECTION_HDR }, 'Dates'),
     React.createElement(ModelRunDatesPanel, { key: 'd', detail: detail }),
-    React.createElement('div', { key: 'pvh', style: _MODEL_SECTION_HDR }, 'Parameters (processing variables)' + _modelCount(detail.variables, lists.variables)),
+    React.createElement('div', { key: 'pvh', style: _MODEL_SECTION_HDR }, 'Configuration values (processing variables)' + _modelCount(detail.variables, lists.variables)),
     React.createElement('div', { key: 'pvn', className: 'model-variables-note', style: { fontSize: 11, color: 'var(--dim)', marginBottom: 6 } }, MODEL_VARIABLES_NOTE),
     React.createElement(ModelVariablesTable, { key: 'pv', rows: detail.variables, st: lists.variables, onNavigateToElement: onNavigateToElement }),
     React.createElement('div', { key: 'rsh', style: _MODEL_SECTION_HDR }, 'Results (lineage out of the run)' + _modelCount(detail.results, lists.results)),

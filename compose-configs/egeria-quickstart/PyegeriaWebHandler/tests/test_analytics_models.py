@@ -291,7 +291,7 @@ def test_run_with_no_variables_on_6_4_says_none_and_before_6_4_needs_6_4(client)
     # the gate caches per platform URL: each platform here gets its own
     body = client(FakeExplorer(about=ABOUT_6_3, elements={"r-1": run()}, url="https://e63.test:9443")).get("/api/analytics-model-runs/r-1").json()
     st = body["lists"]["variables"]
-    assert st["state"] == "needs-6.4" and "parameters (processing variables)" in st["words"] and "runs Egeria 6.3" in st["words"]
+    assert st["state"] == "needs-6.4" and "configuration values (processing variables)" in st["words"] and "runs Egeria 6.3" in st["words"]
     body = client(FakeExplorer(about=RuntimeError("x"), elements={"r-1": run()}, url="https://unknown.test:9443")).get("/api/analytics-model-runs/r-1").json()
     assert body["lists"]["variables"] == {"state": "not-known"}
 
