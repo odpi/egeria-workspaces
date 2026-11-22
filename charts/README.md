@@ -96,7 +96,12 @@ helm test st -n egeria      # both canaries
   * **Ingress** (ingress-nginx v1.15.1 on kind): the front door answers through TLS and a direct request to the Portal on 8000 is blocked by
     the NetworkPolicy. It also showed PO-68: an empty-body `POST /api/egeria-token` through the Ingress returns a token, so do not publish a
     Portal Ingress until the Portal is fixed.
-  * Not run: OpenShift, demoMode.
+  * **OpenShift Local (crc 2.65.0, OpenShift 5.0.0)** (`tests/crc_stack.sh`): freshstart demo stack with `global.openshift=true`; the platform,
+    the Portal and Apache were admitted under **restricted-v2** with an assigned UID (here 1000670000), GID 0 and no `runAsUser`/`fsGroup` in
+    our manifests; both canaries pass. The test Postgres and Kafka run as fixed UIDs, so they are in a separate namespace with the `anyuid` SCC
+    (the demo Postgres chart is not supported on OpenShift). The VM needs more than crc's defaults (20 GB RAM, 8 CPUs, 70 GB disk: the default
+    31 GB disk reached kubelet disk-pressure and stopped scheduling the test pod). Images were loaded into the node over SSH (`podman load`).
+  * Not run: production-style on OpenShift, demoMode, Ingress/Route on OpenShift.
 * **Public demo keystore password:** when `tls.existingSecret` holds the public demo password (the image's own keystore), the demo posture prints a
   WARNING in NOTES, and the **production posture refuses to install or upgrade** (`fail`, naming `tls.existingSecret`), in the platform chart and in the
   umbrella (`core.tls.existingSecret`). Both use `lookup`, so they act only against a real cluster (not `helm template` or `--dry-run=client`);
