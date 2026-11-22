@@ -4912,3 +4912,273 @@ function ClsPurposeGroup({ groupKey, count, children }) {
     open && React.createElement('div', { style: { paddingLeft: 12 } }, children)
   );
 }
+
+/* -- Egeria 6.4 (odpi/egeria#9463): helpers every 6.4 card shares ---------------
+ * Used by the Explorer's Decision and Data Value cards (type-explorer.html) and by
+ * E64RelatedPanel, the 6.4 rows on any element's existing card (the Explorer's cards
+ * and The Catalog's asset card). Backend: e64_handler.py (quickstart).
+ * A list's state comes from the backend (egeria_6_4_support.list_state):
+ *   read, none (asked for, Egeria returned none), not-read (not asked for),
+ *   needs-6.4 (platform before 6.4), not-known (platform version unreadable).
+ * Absence is said in words; "needs Egeria 6.4" is never shown as an error or as "none".
+ * The part between e64-shared:begin and e64-shared:end runs under node in
+ * tests/test_e64_cards_js.py: keep it free of hooks. */
+/* e64-shared:begin */
+var E64_LIST_WORDS = {
+  'none':     { text: 'None recorded.', tone: 'dim' },
+  'not-read': { text: 'Not read: this list was not asked for.', tone: 'warn' },
+  'not-known': { text: 'Not known: this platform’s Egeria version could not be read, so it may not have the Egeria 6.4 lists.', tone: 'warn' },
+  'needs-6.4': { text: 'Needs Egeria 6.4.', tone: 'warn' },
+};
+
+// Words for a list that has no rows to show, or null when its rows should be shown.
+function e64ListWords(st) {
+  var s = st && st.state;
+  if (s === 'read') return null;
+  if (s === 'needs-6.4') return { text: (st.words || E64_LIST_WORDS['needs-6.4'].text), tone: 'warn' };
+  return E64_LIST_WORDS[s] || E64_LIST_WORDS['not-read'];
+}
+
+function e64ParseTime(s) {
+  if (s === null || s === undefined || s === '') return NaN;
+  var t = Date.parse(String(s));
+  return isNaN(t) ? NaN : t;
+}
+
+// UTC: Egeria dates are instants, usually at UTC midnight; local time would show the day before in the Americas.
+function e64FmtDate(s) {
+  var t = e64ParseTime(s);
+  if (isNaN(t)) return s ? String(s) : '';
+  return new Date(t).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
+}
+
+// One row per assessment, keyed by its relationship GUID. Rows group by r.guid: an element assessed
+// more than once for a Decision, or a Decision an element was assessed for more than once. Each row
+// of a group says which assessment it is ('2 of 3'), oldest first.
+function decisionAssessmentRows(rows) {
+  var list = (rows || []).slice();
+  var byEl = {};
+  list.forEach(function(r) { var k = r.guid || ''; (byEl[k] = byEl[k] || []).push(r); });
+  Object.keys(byEl).forEach(function(k) {
+    byEl[k].sort(function(a, b) {
+      var ta = e64ParseTime(a.assessmentTime), tb = e64ParseTime(b.assessmentTime);
+      if (isNaN(ta) && isNaN(tb)) return 0; if (isNaN(ta)) return 1; if (isNaN(tb)) return -1; return ta - tb;
+    });
+  });
+  var out = [];
+  Object.keys(byEl).sort(function(a, b) {
+    var na = (byEl[a][0].displayName || a).toLowerCase(), nb = (byEl[b][0].displayName || b).toLowerCase();
+    return na < nb ? -1 : na > nb ? 1 : 0;
+  }).forEach(function(k) {
+    var group = byEl[k];
+    group.forEach(function(r, i) {
+      out.push(Object.assign({}, r, {
+        key: r.relationshipGuid || ('row-' + k + '-' + i),
+        nth: group.length > 1 ? (i + 1) + ' of ' + group.length : '',
+      }));
+    });
+  });
+  return out;
+}
+
+var _E64_TONE = { ok: '#34d399', bad: '#f87171', warn: '#fbbf24', dim: 'var(--dim)' };
+
+function E64ListNote({ st }) {
+  var w = e64ListWords(st);
+  if (!w) return null;
+  return React.createElement('div', { className: 'e64-list-note', 'data-state': st && st.state,
+    style: { fontSize: 12, color: _E64_TONE[w.tone] || 'var(--dim)', padding: '4px 0' } }, w.text);
+}
+
+function E64Needs64({ words }) {
+  return React.createElement('div', { className: 'e64-needs64', role: 'status',
+    style: { margin: 16, padding: '10px 14px', borderRadius: 6, border: '1px solid rgba(251,191,36,.4)', background: 'rgba(251,191,36,.08)', color: '#fbbf24', fontSize: 13, overflowWrap: 'anywhere' } },
+    words || 'Needs Egeria 6.4.');
+}
+
+// The related element's name, linked when the page can open it: the page's own
+// onNavigateToElement with its own predicate (E64UI.isLinkable; the Explorer sets
+// _elementIsLinkable), or else the Portal-wide cross-app link (isElementLinkable /
+// crossAppNavigate, from static/type-nav-map.json).
+var E64UI = { isLinkable: null };
+
+function _e64ElementCell(r, onNavigateToElement) {
+  var go = null;
+  if (r.guid && onNavigateToElement) {
+    var pred = E64UI.isLinkable || (typeof isElementLinkable === 'function' ? isElementLinkable : null);
+    if (pred && pred(r)) go = function() { onNavigateToElement(r); };
+  } else if (r.guid && typeof isElementLinkable === 'function' && isElementLinkable(r)) {
+    go = function() { crossAppNavigate(r); };
+  }
+  var name = r.displayName || r.qualifiedName || r.guid || '—';
+  return React.createElement('div', null,
+    go
+      ? React.createElement('a', { href: '#', title: r.qualifiedName || r.guid, onClick: function(e) { e.preventDefault(); go(); } }, name)
+      : React.createElement('span', { title: r.qualifiedName || r.guid }, name),
+    r.typeName && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)' } }, r.typeName));
+}
+
+var _E64_TH = { textAlign: 'left', padding: '6px 8px', fontSize: 10, color: 'var(--dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)', verticalAlign: 'bottom', whiteSpace: 'normal', overflowWrap: 'anywhere' };
+var _E64_TD = { padding: '6px 8px', fontSize: 12, verticalAlign: 'top', whiteSpace: 'normal', wordBreak: 'break-word', overflowWrap: 'anywhere', borderTop: '1px solid var(--border)' };
+
+// A plain <table>: egeria-resize.js makes every column draggable (owner rule: all widths user-resizable).
+function E64Table({ cols, rows, cell, rowKey, minWidth }) {
+  return React.createElement('div', { style: { overflowX: 'auto', maxWidth: '100%' } },
+    React.createElement('table', { style: { width: '100%', minWidth: minWidth || 0, borderCollapse: 'collapse', tableLayout: 'fixed' } },
+      React.createElement('colgroup', null, cols.map(function(c) { return React.createElement('col', { key: c[0], style: { width: c[2] } }); })),
+      React.createElement('thead', null, React.createElement('tr', null,
+        cols.map(function(c) { return React.createElement('th', { key: c[0], style: _E64_TH }, c[1]); }))),
+      React.createElement('tbody', null, rows.map(function(r, i) {
+        return React.createElement('tr', { key: rowKey(r, i), 'data-row-key': rowKey(r, i) },
+          cols.map(function(c) { return React.createElement('td', { key: c[0], style: _E64_TD }, cell(c[0], r)); }));
+      }))));
+}
+
+// Egeria's position is an Integer where 0 (or none) means unset (EmbeddedDataValueProperties,
+// ProcessingVariableProperties, SupportedVariableTypeProperties); the backend sends position: null
+// and positionSet: false for those.
+function e64PositionText(r) {
+  var n = r && r.position;
+  return (r && r.positionSet && n !== null && n !== undefined) ? 'position ' + n : 'position unset';
+}
+
+// Set positions ascending, unset ones after them by name (the backend orders the same way).
+function e64ByPosition(rows) {
+  return (rows || []).slice().sort(function(a, b) {
+    var sa = !!(a.positionSet && a.position !== null && a.position !== undefined);
+    var sb = !!(b.positionSet && b.position !== null && b.position !== undefined);
+    if (sa !== sb) return sa ? -1 : 1;
+    if (sa && a.position !== b.position) return a.position - b.position;
+    var na = (a.displayName || '').toLowerCase(), nb = (b.displayName || '').toLowerCase();
+    return na < nb ? -1 : na > nb ? 1 : 0;
+  });
+}
+
+var _E64_POSITIONED_COLS = [['element', 'Element', 220], ['position', 'Position', 110], ['label', 'Label', 140], ['description', 'Description', 240]];
+
+// Used by / embedded / part of: one row per relationship, ordered by position, 'position unset' for 0.
+function E64PositionedTable({ rows, st, onNavigateToElement, withPosition }) {
+  var words = e64ListWords(st);
+  var model = withPosition === false ? (rows || []) : e64ByPosition(rows);
+  if (words && !model.length) return React.createElement(E64ListNote, { st: st });
+  if (!model.length) return React.createElement(E64ListNote, { st: { state: 'none' } });
+  var cols = withPosition === false ? _E64_POSITIONED_COLS.filter(function(c) { return c[0] !== 'position'; }) : _E64_POSITIONED_COLS;
+  return React.createElement(E64Table, {
+    cols: cols, rows: model, minWidth: 600,
+    rowKey: function(r, i) { return r.relationshipGuid || ('row-' + i); },
+    cell: function(k, r) {
+      if (k === 'element') return _e64ElementCell(r, onNavigateToElement);
+      if (k === 'position') return React.createElement('span', { style: { color: r.positionSet ? 'var(--text)' : 'var(--dim)' } }, e64PositionText(r));
+      return r[k] || '';
+    },
+  });
+}
+
+// SupportedVariableType cardinality in words; an unset bound is said, not guessed.
+function e64CardinalityText(r) {
+  var b = function(v, w) { return (v === null || v === undefined || v === '') ? w + ' not set' : w + ' ' + v; };
+  return b(r && r.minCardinality, 'min') + ', ' + b(r && r.maxCardinality, 'max');
+}
+
+// The columns each reverse-end list shows (e64_handler._REVERSE_SECTIONS sends the rows).
+var _E64_RELATED_COLS = {
+  associatedDecisions:     [['element', 'Decision', 200], ['label', 'Label', 140], ['importance', 'Importance', 110], ['disposition', 'Disposition', 120]],
+  assessmentDecisions:     [['element', 'Decision', 200], ['assessment', 'Assessment', 160], ['when', 'Assessed', 110], ['assessor', 'Assessor', 150]],
+  workedOnByProjects:      [['element', 'Project', 220], ['label', 'Label', 140], ['description', 'Description', 240]],
+  projectTargets:          [['element', 'Target', 220], ['label', 'Label', 140], ['description', 'Description', 240]],
+  processingVariables:     [['element', 'Data value', 220], ['position', 'Position', 110], ['label', 'Label', 140]],
+  processVariableTypes:    [['element', 'Schema type', 220], ['position', 'Position', 110], ['cardinality', 'Cardinality', 170], ['label', 'Label', 140]],
+  processVariableTypeUses: [['element', 'Used by', 220], ['position', 'Position', 110], ['cardinality', 'Cardinality', 170], ['label', 'Label', 140]],
+  providesDataValues:      [['element', 'Data value', 220], ['label', 'Label', 140], ['description', 'Description', 240]],
+};
+
+// Rows in display order: assessments numbered per decision, positioned lists by position.
+function e64RelatedRows(list) {
+  var rows = (list && list.rows) || [];
+  if (list && list.key === 'assessmentDecisions') return decisionAssessmentRows(rows);
+  if (list && (_E64_RELATED_COLS[list.key] || []).some(function(c) { return c[0] === 'position'; })) return e64ByPosition(rows);
+  return rows;
+}
+
+// True when every list was read and is empty: the panel then says so in one line.
+function e64RelatedAllNone(data) {
+  var lists = [];
+  ((data && data.sections) || []).forEach(function(s) { lists = lists.concat(s.lists || []); });
+  return lists.length > 0 && lists.every(function(l) { return l.st && l.st.state === 'none' && !(l.rows || []).length; });
+}
+
+function E64BranchBadge({ branch, carries }) {
+  if (!branch) {
+    if (carries === null || carries === undefined) return React.createElement('span', { className: 'badge e64-branch', 'data-state': 'not-known',
+      style: { color: '#fbbf24', border: '0.5px solid rgba(251,191,36,.4)', background: 'transparent' } }, 'Branch: not known');
+    return null;
+  }
+  var label = '⎇ Branch' + (branch.displayName ? ': ' + branch.displayName : '');
+  var detail = [branch.purpose, branch.scope].filter(Boolean).join(' · ');
+  return React.createElement('span', { className: 'badge e64-branch', 'data-state': 'branch', title: [detail, branch.url].filter(Boolean).join('\n'),
+    style: { color: '#f0abfc', border: '0.5px solid rgba(240,171,252,.5)', background: 'rgba(240,171,252,.08)', whiteSpace: 'normal', overflowWrap: 'anywhere' } },
+    label, detail && React.createElement('span', { style: { color: 'var(--dim)' } }, ' — ' + detail),
+    branch.url && React.createElement('a', { href: branch.url, target: '_blank', rel: 'noopener noreferrer', style: { marginLeft: 6 } }, '↗'));
+}
+
+// The hook-free body of E64RelatedPanel, given the /api/e64/elements/{guid}/related answer.
+function E64RelatedRows({ data, onNavigateToElement }) {
+  if (!data) return null;
+  if (data.needs64) return React.createElement(E64Needs64, { words: data.words });
+  var hdr = { fontWeight: 600, fontSize: 12, margin: '12px 0 4px', color: 'var(--text)' };
+  var badge = React.createElement(E64BranchBadge, { branch: data.branch, carries: data.carries });
+  if (e64RelatedAllNone(data)) return React.createElement('div', null, badge,
+    React.createElement('div', { className: 'e64-list-note', 'data-state': 'all-none', style: { fontSize: 12, color: 'var(--dim)', padding: '4px 0' } },
+      'None recorded: no ' + (data.sections || []).map(function(s) { return s.title.toLowerCase(); }).join(', ') + ' are linked to this element.'));
+  return React.createElement('div', null, badge,
+    (data.sections || []).map(function(sec) {
+      return React.createElement('div', { key: sec.key, 'data-section': sec.key },
+        (sec.lists || []).map(function(l) {
+          var rows = e64RelatedRows(l);
+          var cols = _E64_RELATED_COLS[l.key] || [['element', 'Element', 220], ['label', 'Label', 140]];
+          return React.createElement('div', { key: l.key, 'data-list': l.key },
+            React.createElement('div', { style: hdr }, l.label + (l.st && l.st.state === 'read' ? ' (' + rows.length + ')' : '')),
+            !rows.length ? React.createElement(E64ListNote, { st: (l.st && l.st.state === 'read') ? { state: 'none' } : l.st })
+              : React.createElement(E64Table, {
+                  cols: cols, rows: rows, minWidth: cols.reduce(function(n, c) { return n + c[2]; }, 0),
+                  rowKey: function(r, i) { return r.key || r.relationshipGuid || ('row-' + i); },
+                  cell: function(k, r) {
+                    if (k === 'element') return _e64ElementCell(r, onNavigateToElement);
+                    if (k === 'position') return React.createElement('span', { style: { color: r.positionSet ? 'var(--text)' : 'var(--dim)' } }, e64PositionText(r));
+                    if (k === 'cardinality') return e64CardinalityText(r);
+                    if (k === 'when') return r.assessmentTime ? e64FmtDate(r.assessmentTime) : 'not recorded';
+                    if (k === 'assessment') return React.createElement('div', null, r.label || '—',
+                      r.nth && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)' } }, 'assessment ' + r.nth + ' for this decision'));
+                    if (k === 'assessor') return [r.assessor, r.assessorTypeName].filter(Boolean).join(' · ') || '—';
+                    return r[k] || '';
+                  },
+                }));
+        }));
+    }));
+}
+/* e64-shared:end */
+
+// The 6.4 rows on an element's existing card: fetched when the card opens (a small read,
+// limited to the 6.4 relationship types). The page passes its own onNavigateToElement, or
+// rows link across apps.
+function E64RelatedPanel({ guid, creds, onNavigateToElement }) {
+  var ctxCreds = React.useContext(CredContext);   // the page's credentials (both SPAs provide CredContext)
+  creds = creds || ctxCreds;
+  const [st, setSt] = React.useState({ state: 'loading', data: null, error: '' });
+  React.useEffect(function() {
+    if (!guid) return;
+    var cancelled = false;
+    setSt({ state: 'loading', data: null, error: '' });
+    egeriaFetch('/api/e64/elements/' + encodeURIComponent(guid) + '/related', creds)
+      .then(function(r) { return r.json().catch(function() { return {}; }).then(function(b) { if (!r.ok) throw new Error(b.detail || ('HTTP ' + r.status)); return b; }); })
+      .then(function(d) { if (!cancelled) setSt({ state: 'ready', data: d, error: '' }); })
+      .catch(function(e) { if (!cancelled) setSt({ state: 'error', data: null, error: e.message }); });
+    return function() { cancelled = true; };
+  }, [guid, creds]);
+  var sectionHdr = { fontWeight: 700, fontSize: 13, marginBottom: 6, marginTop: 20, paddingBottom: 6, borderBottom: '1px solid var(--border)', color: 'var(--accent)' };
+  return React.createElement('div', { className: 'e64-related' },
+    React.createElement('div', { style: sectionHdr }, 'Decisions, projects and process variables'),
+    st.state === 'loading' ? React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'Loading…')
+    : st.state === 'error' ? React.createElement('div', { style: { fontSize: 12, color: '#f87171' } }, 'Couldn’t read the Egeria 6.4 links: ' + st.error)
+    : React.createElement(E64RelatedRows, { data: st.data, onNavigateToElement: onNavigateToElement }));
+}
