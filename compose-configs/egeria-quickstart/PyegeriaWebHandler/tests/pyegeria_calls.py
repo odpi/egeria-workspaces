@@ -260,6 +260,34 @@ class _ModuleScan:
             if ok:
                 for h in t.handlers:
                     out.update(id(n) for s in h.body for n in ast.walk(s) if isinstance(n, ast.ImportFrom))
+            out.update(self._forward_shim_imports(t))
+        return out
+
+    @staticmethod
+    def _forward_shim_imports(t: ast.Try) -> set:
+        """ImportFrom nodes in a ``try`` body for a module a newer pyegeria has, guarded by an ``except
+        ImportError`` (or ModuleNotFoundError) branch that defines every imported name itself: a forward shim
+        (``try: from pyegeria.core.new import f / except ImportError: def f(...): ...``). The installed
+        pyegeria may predate the module; the fallback is what runs then, so the import is not a rename."""
+        def catches_import_error(h):
+            names = [h.type] if not isinstance(h.type, ast.Tuple) else list(h.type.elts)
+            return any(isinstance(n, ast.Name) and n.id in ("ImportError", "ModuleNotFoundError") for n in names)
+        handlers = [h for h in t.handlers if h.type is not None and catches_import_error(h)]
+        if not handlers:
+            return set()
+        defined = set()
+        for h in handlers:
+            for stmt in h.body:
+                for n in ast.walk(stmt):
+                    if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                        defined.add(n.name)
+                    elif isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store):
+                        defined.add(n.id)
+        out = set()
+        for stmt in t.body:
+            if isinstance(stmt, ast.ImportFrom) and stmt.module and stmt.module.split(".")[0] in LIB_ROOTS:
+                if all(a.name != "*" and (a.asname or a.name) in defined for a in stmt.names):
+                    out.add(id(stmt))
         return out
 
     def _collect_imports(self):

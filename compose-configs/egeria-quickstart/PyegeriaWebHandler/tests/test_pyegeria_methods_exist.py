@@ -108,6 +108,20 @@ def test_the_scan_catches_a_reintroduced_bad_name(snippet, kind):
     assert [f.kind for f in findings] == [kind], [str(f) for f in findings]
 
 
+def test_a_forward_shim_with_a_full_fallback_is_not_an_import_finding():
+    """try-import a module a newer pyegeria has; the except ImportError branch defines every name (the
+    Egeria 6.4 gate in egeria_6_4_support.py). A fallback that misses a name is still a finding."""
+    full = ("try:\n    from pyegeria.core.no_such_module_yet import f, g as h\n"
+            "except ImportError:\n    def f():\n        return 1\n    h = f\n")
+    assert pyegeria_calls.scan_source(full, "<snippet>").findings == []
+    partial = ("try:\n    from pyegeria.core.no_such_module_yet import f, g\n"
+               "except ImportError:\n    def f():\n        return 1\n")
+    assert [f.kind for f in pyegeria_calls.scan_source(partial, "<snippet>").findings] == ["import", "import"]
+    other = ("try:\n    from pyegeria.core.no_such_module_yet import f\n"
+             "except ValueError:\n    def f():\n        return 1\n")
+    assert [f.kind for f in pyegeria_calls.scan_source(other, "<snippet>").findings] == ["import"]
+
+
 def test_the_scan_accepts_delegated_and_real_names():
     snippet = ("from pyegeria import EgeriaTech, ExternalReferences\n"
                "def f():\n    t = EgeriaTech('v', 'u', 'x', 'p')\n    t.get_external_identifiers_by_guid('g')\n"
