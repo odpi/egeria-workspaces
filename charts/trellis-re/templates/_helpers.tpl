@@ -45,7 +45,7 @@ Use: {{ $cfg := include "trellis-re.cfg" . | fromYaml }}
 {{- if not (has $v.llm.backend (list "ollama" "openai" "anthropic")) -}}
 {{- fail (printf "llm.backend must be ollama, openai or anthropic, not %q" $v.llm.backend) -}}
 {{- end -}}
-{{- $owned := list "RE_SCHEMA_MODE" "PGVECTOR_HOST" "PGVECTOR_PORT" "PGVECTOR_DBNAME" "PGVECTOR_USER" "PGVECTOR_PASSWORD" "PGVECTOR_SCHEMA" "EGERIA_PLATFORM_URL" "EGERIA_VIEW_SERVER_URL" "EGERIA_VIEW_SERVER" "RE_DAEMON_USER_ID" "RE_DAEMON_USER_PASSWORD" "RE_JWT_SECRET" "TRELLIS_DB_CREDENTIAL_KEY" "PYEGERIA_SSL_VERIFY" "PYEGERIA_CA_BUNDLE" "PREFECT_ENABLED" "EMBEDDINGS__DEVICE" "EMBED_WORKER" -}}
+{{- $owned := list "RE_SCHEMA_MODE" "PGVECTOR_HOST" "PGVECTOR_PORT" "PGVECTOR_DBNAME" "PGVECTOR_USER" "PGVECTOR_PASSWORD" "PGVECTOR_SCHEMA" "EGERIA_PLATFORM_URL" "EGERIA_VIEW_SERVER_URL" "EGERIA_VIEW_SERVER" "RE_DAEMON_USER_ID" "RE_DAEMON_USER_PASSWORD" "RE_JWT_SECRET" "TRELLIS_DB_CREDENTIAL_KEY" "PYEGERIA_SSL_VERIFY" "PYEGERIA_CA_BUNDLE" "PREFECT_ENABLED" "EMBEDDINGS__DEVICE" "PYEGERIA_LOG_DIRECTORY" "EMBED_WORKER" -}}
 {{- range $e := $v.extraEnv -}}
 {{- if has $e.name $owned -}}{{- fail (printf "extraEnv: %s is set by the chart; change the chart value it comes from instead" $e.name) -}}{{- end -}}
 {{- end -}}
@@ -94,6 +94,7 @@ ownerKey: {{ ternary $v.database.owner.passwordKey $v.database.passwordKey (not 
 - {name: OBSERVABILITY__MLFLOW__ENABLED, value: "false"}
 - {name: OBSERVABILITY__PHOENIX__ENABLED, value: "false"}
 - {name: EMBEDDINGS__DEVICE, value: {{ $v.embeddings.device | quote }}}
+- {name: PYEGERIA_LOG_DIRECTORY, value: {{ $v.logs.directory | quote }}}
 - {name: LLM__BACKEND, value: {{ $v.llm.backend | quote }}}
 {{- if $v.llm.ollama.baseUrl }}
 - {name: LLM__OLLAMA__BASE_URL, value: {{ $v.llm.ollama.baseUrl | quote }}}

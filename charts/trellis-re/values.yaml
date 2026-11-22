@@ -78,6 +78,11 @@ llm:
     model: ""
   # Provider keys and any other LLM setting go in extraEnv / extraEnvFrom.
 
+logs:
+  # pyegeria and the Dr.Egeria child write logs under a relative `logs` directory, which is /app (root-owned) in the image: an arbitrary
+  # OpenShift UID cannot create it. A pod-local path avoids that (found on OpenShift Local, 2026-11-22).
+  directory: /tmp/pyegeria-logs
+
 embeddings:
   device: cpu              # the image is CPU-only torch; the MiniLM model is baked into the image (no download)
 

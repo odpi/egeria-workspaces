@@ -89,6 +89,7 @@ def main():
     # shared secrets: sessions and stored DB credentials are keyed on them, so every pod reads the same Secret
     check("web and worker read the same JWT and credential-key Secret", all(
           e[k]["valueFrom"]["secretKeyRef"]["name"] == "r1-re-secrets" for e in (we, wo) for k in ("RE_JWT_SECRET", "TRELLIS_DB_CREDENTIAL_KEY")))
+    check("pyegeria logs go to a pod-local writable path (an arbitrary OpenShift UID cannot create /app/logs)", we["PYEGERIA_LOG_DIRECTORY"]["value"] == "/tmp/pyegeria-logs" and wo["PYEGERIA_LOG_DIRECTORY"]["value"] == "/tmp/pyegeria-logs")
     check("the web pod does not embed the worker loops", we["EMBED_WORKER"]["value"] == "0")
     check("Prefect, MLflow and Phoenix are off", all(we[k]["value"] == "false" for k in ("PREFECT_ENABLED", "OBSERVABILITY__MLFLOW__ENABLED", "OBSERVABILITY__PHOENIX__ENABLED")))
     sec = kind(ds, "Secret")[0]

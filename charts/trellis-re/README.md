@@ -39,7 +39,16 @@ ALTER DEFAULT PRIVILEGES FOR ROLE re_owner GRANT USAGE, SELECT, UPDATE ON SEQUEN
 
 Then set `database.user=re_rt` and `database.owner.user=re_owner` (with `database.owner.existingSecret`).
 
-## A new resource needs a schema apply
+## A new resource needs the schema Job
 
-In `external` mode a vector collection that the schema Job has not created is refused. Adding a resource (a repository) means running
-`helm upgrade` (or the Job) before its first ingest. The reindex swap and collection rename/drop are refused in external mode too.
+In `external` mode the pods send no DDL, so a vector collection the schema Job has not created is refused, with a message that says
+**a new resource needs the schema Job: `helm upgrade`, or run `resource-explorer schema apply`**. What counts as a new resource:
+
+- a new project (its `<slug>_<type>` collections);
+- a project whose `homepage_url` or `docs_url` points at a new host (website ingestion writes `web_docs_<host>`, keyed on the host, not on a repository);
+- a collection name a project has recorded (a site shared with a sibling repository).
+
+`resource-explorer schema apply` declares and creates all of them on every run (a no-op when nothing is new, apart from reading the
+projects), so `helm upgrade` (which runs the Job as a hook) or running that command is enough; the pods need no restart. There is no
+automatic trigger: ingesting a new resource before the Job has run fails loudly, by design. The reindex swap and collection
+rename/drop are refused in external mode too.
