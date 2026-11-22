@@ -32,6 +32,18 @@ import egeria_auth  # noqa: E402
 HOME = "https://egeria.home.test:9443"
 SERVICE_USER = "portal-service-user"
 SERVICE_PWD = "service-secret"
+
+
+# PO-78: freshstart's gate (server_auth_gate.py) needs a Portal session for every route but its public list,
+# so these tests, which check the rules behind it, call as a signed-in Portal user (a test-key session).
+PORTAL_SESSION_KEY = "po78-test-only-signing-key-0123456789abcdef"
+
+
+def _portal_session(user_id="peterprofile"):
+    from datetime import datetime, timedelta
+    from jose import jwt
+    return jwt.encode({"sub": user_id, "role": "user", "display_name": user_id,
+                       "exp": datetime.utcnow() + timedelta(hours=8)}, PORTAL_SESSION_KEY, algorithm="HS256")
 WORDS = egeria_auth.NAMED_USER_NEEDS_PASSWORD_WORDS
 
 
@@ -44,6 +56,8 @@ def _env(monkeypatch):
     monkeypatch.setenv("EGERIA_USER", SERVICE_USER)
     monkeypatch.setenv("EGERIA_USER_PASSWORD", SERVICE_PWD)
     monkeypatch.setattr(egeria_auth, "_TOKEN_PLATFORMS", {})
+    import demo_config
+    monkeypatch.setattr(demo_config, "JWT_SECRET", PORTAL_SESSION_KEY)
 
     async def send(self, request, *a, **k):
         raise AssertionError(f"outbound call to {request.url}")
@@ -58,7 +72,9 @@ def app():
 
 @pytest.fixture
 def client(app):
-    return TestClient(app, raise_server_exceptions=False)
+    c = TestClient(app, raise_server_exceptions=False)
+    c.cookies.set("demo_token", _portal_session())
+    return c
 
 
 def _walk(routes, prefix=""):
