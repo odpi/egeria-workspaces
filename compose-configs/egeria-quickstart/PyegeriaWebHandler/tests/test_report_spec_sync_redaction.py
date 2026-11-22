@@ -42,7 +42,10 @@ def _app(monkeypatch, demo_mode):
     import demo_feedback_handler as dfh
     import report_specs_handler as rsh
     from egeria_auth import EgeriaTokenMiddleware
+    import demo_config
 
+    # PO-46b: jwt_signing_key() refuses an unset key, so a clean checkout (CI) needs a test-only one.
+    monkeypatch.setattr(demo_config, "JWT_SECRET", "sync-redaction-test-only-signing-key-0123456789")
     monkeypatch.setattr(dfh, "DEMO_MODE", demo_mode)     # on: _is_admin really checks; off: laz
     monkeypatch.setattr(dfh, "SERVER_MANAGED_AUTH", False)
     monkeypatch.setattr(rss, "start", lambda trigger: False)   # POST never starts a real sync here
