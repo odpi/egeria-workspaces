@@ -196,12 +196,12 @@ def main():
     check("the canary message names the address it used (not 'front door' when it went to 8000)", "via {os.environ['TOKEN_BASE']}" in dm and "through the front door (HTTP" not in dm)
     check("gated Portal (demoMode): the canary asserts that an empty token request without a session gets 401 (PO-68)", "a request with no password and no session is refused" in dm and "need(s == 401" in dm)
     rc, fs, _ = template(DEMO + BASE + ["--set", "environment=freshstart"])
-    check("freshstart: the PO-68 401 check is present too", "need(s == 401" in fs)
+    fro = [l for l in fs.splitlines() if "REDIRECT_OK" in l and "name:" in l]
+    check("freshstart: REDIRECT_OK is true, so the canary runs the PO-68 401 check", fro and '"true"' in fro[0] and "need(s == 401" in fs, str(fro))
     rc, qs, _ = template(DEMO + BASE)
-    check("ungated quickstart: the 401 check is guarded by REDIRECT_OK, which is false there", 'REDIRECT_OK, value: "false"' in qs.replace("- {", "{") or ("REDIRECT_OK" in qs and 'value: "false"' in qs))
     tb = [l for l in qs.splitlines() if "TOKEN_BASE" in l]
     ro = [l for l in qs.splitlines() if "REDIRECT_OK" in l and "name:" in l]
-    check("ungated quickstart: TOKEN_BASE is the front door, REDIRECT_OK false", tb and "r1-portal-web:8085" in tb[0] and ro and '"false"' in ro[0], str(tb + ro))
+    check("ungated quickstart: TOKEN_BASE is the front door, REDIRECT_OK false (so the PO-68 401 check is skipped)", tb and "r1-portal-web:8085" in tb[0] and ro and '"false"' in ro[0], str(tb + ro))
     check("the canary accepts a redirect on freshstart only", 'name: REDIRECT_OK, value: "true"' in out.replace("- {", "{") or "REDIRECT_OK" in out)
 
     if failures:

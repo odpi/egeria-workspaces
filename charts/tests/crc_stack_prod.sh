@@ -4,6 +4,9 @@
 # with global.openshift=true. Images are pushed to the cluster's internal registry so the digests are real registry digests.
 # usage: crc_stack_prod.sh [namespace] [release]      needs: crc running, docker (for the images), helm, openssl, ssh.
 # Secret values and the push token are generated here or read from tracked demo files and are never printed.
+# NOTE: the canary account (omagspcatnpa) and the Portal's Egeria user (bootstrap) take their passwords from the PUBLIC demo user directory
+# (the freshstart tree's egeria-user-directory.omsecrets), because the platform's own user directory has those accounts. This proves the
+# production posture's wiring, not production credential hygiene: a real install uses its own accounts and passwords.
 # The test Postgres and Kafka run as fixed UIDs, so they live in a separate namespace (<ns>-infra) with the anyuid SCC.
 set -euo pipefail
 NS=${1:-egeria-prod}; REL=${2:-ps}; INFRA=${NS}-infra
@@ -15,7 +18,6 @@ SSH="ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev
 ROUTE=$($OC -n openshift-image-registry get route default-route -o jsonpath='{.spec.host}')   # reachable from the VM, which pushes
 INREG=image-registry.openshift-image-registry.svc:5000                                         # how the pods pull
 W=$(mktemp -d); trap 'rm -rf "$W"' EXIT; umask 077
-alias kubectl="$OC"; shopt -s expand_aliases
 
 $OC get project "$NS" >/dev/null 2>&1 || $OC new-project "$NS" >/dev/null
 $OC get project "$INFRA" >/dev/null 2>&1 || $OC new-project "$INFRA" >/dev/null
@@ -27,7 +29,7 @@ $OC -n "$NS" policy add-role-to-user system:image-builder -z pusher >/dev/null
 $OC -n "$NS" create token pusher --duration=1h | $SSH "sudo podman login --tls-verify=false -u pusher --password-stdin $ROUTE" >/dev/null
 digest() {   # <name:tag> -> sha256:...
   docker save "docker.io/library/$1" 2>/dev/null | $SSH 'sudo podman load' >/dev/null 2>&1 || docker save "$1" | $SSH 'sudo podman load' >/dev/null
-  $SSH "sudo podman tag docker.io/library/$1 $ROUTE/$NS/$1 && sudo podman push --tls-verify=false --digestfile /tmp/dg $ROUTE/$NS/$1 >/dev/null 2>&1 && cat /tmp/dg"
+  $SSH "f=\$(sudo mktemp) && sudo podman tag docker.io/library/$1 $ROUTE/$NS/$1 && sudo podman push --tls-verify=false --digestfile \$f $ROUTE/$NS/$1 >/dev/null 2>&1 && sudo cat \$f; sudo rm -f \$f"
 }
 PD=$(digest "portal-freshstart:$PTAG"); AD=$(digest "apache-web:$TAG")
 [ -n "$PD" ] && [ -n "$AD" ] || { echo "image push failed" >&2; exit 1; }
