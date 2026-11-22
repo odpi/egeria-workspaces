@@ -251,6 +251,19 @@ def main():
           and pc["startupProbe"]["httpGet"]["path"] == "/" and ac["livenessProbe"]["periodSeconds"] == 7 and ac["readinessProbe"]["initialDelaySeconds"] == 3
           and "tcpSocket" in ac["livenessProbe"])
     refuses("a probe value that is not a timing is refused", DEMO + BASE + ["--set", "probes.portal.readiness.httpGet.path=/x"], ["probes.portal.readiness.httpGet", "not allowed"])
+    # (7) PO-83: the Portal trusts X-Forwarded-For only from the Apache pods, named by a headless Service
+    for tag, args in (("demo/quickstart", DEMO + BASE), ("demo/freshstart", DEMO + BASE + ["--set", "environment=freshstart"]), ("production/freshstart", PROD + BASE)):
+        ds = renders(args)
+        pe = env_of(kind(ds, "Deployment", "r1-portal")[0], "portal")
+        check(tag + ": PORTAL_TRUSTED_PROXIES defaults to the headless Apache Service's full name", pe["PORTAL_TRUSTED_PROXIES"]["value"] == "r1-portal-web-hl.ns1.svc.cluster.local", str(pe.get("PORTAL_TRUSTED_PROXIES")))
+        hl = kind(ds, "Service", "r1-portal-web-hl")
+        web = kind(ds, "Deployment", "r1-portal-web")[0]
+        check(tag + ": the headless Service has no cluster IP and selects exactly the Apache pods",
+              len(hl) == 1 and hl[0]["spec"]["clusterIP"] == "None" and hl[0]["spec"]["selector"] == web["spec"]["selector"]["matchLabels"], str(hl))
+    ds = renders(DEMO + BASE + ["--set-string", "trustedProxies= 10.0.0.0/8 \\, apache.example.org "])
+    check("trustedProxies replaces the default; whitespace is stripped (an IP, a CIDR and a hostname may be mixed)",
+          env_of(kind(ds, "Deployment", "r1-portal")[0], "portal")["PORTAL_TRUSTED_PROXIES"]["value"] == "10.0.0.0/8,apache.example.org")
+    refuses("extraEnv cannot set PORTAL_TRUSTED_PROXIES", DEMO + BASE + ["--set", "extraEnv[0].name=PORTAL_TRUSTED_PROXIES", "--set", "extraEnv[0].value=0.0.0.0/0"], ["PORTAL_TRUSTED_PROXIES"])
     # (6) the image message points at the docs
     refuses("a missing image repository points at charts/docs/kubernetes.md#images", DEMO + ["--set", "platform.serviceName=p"], ["charts/docs/kubernetes.md#images"])
     if failures:

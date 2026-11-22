@@ -239,6 +239,7 @@ The Postgres user and password are not values: they are in `egeria-servers.omsec
 
 | Key | Default | What |
 |---|---|---|
+| `trustedProxies` | `""` | `PORTAL_TRUSTED_PROXIES` (PO-83): the peers whose `X-Forwarded-For` the Portal believes, so its auth rate limits count per real client IP. Comma-separated IPs, CIDRs and hostnames, re-resolved every 60 s. Empty means the chart's headless Service for the Apache pods (`<release>-portal-web-hl.<namespace>.svc.cluster.local`): the Portal's peer is the Apache pod, whose IP no template can know. Setting it **replaces** that default. Never `0.0.0.0/0`: a NetworkPolicy gap would become a rate-limit bypass. A new Apache pod is untrusted for up to 60 s after a rollout, which falls back safely to one shared budget. Another cluster domain than `cluster.local`? Set it here. |
 | `demoMode` | `false` | [demoMode](#demomode). Refused in production. |
 | `allowUngatedPortal` | `false` | Allows an Ingress on a quickstart Portal without `demoMode`. Demo only; NOTES warns. |
 | `siteUrl` | `""` | `SITE_URL`: the external URL, for links in e-mails |

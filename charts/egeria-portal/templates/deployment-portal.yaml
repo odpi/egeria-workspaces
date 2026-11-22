@@ -61,6 +61,8 @@ spec:
             - {name: PYEGERIA_CA_BUNDLE, value: /etc/egeria-ca/ca.crt}
             {{- end }}
             - {name: PORTAL_ALLOWED_PLATFORM_URLS, value: {{ $cfg.platformUrl }}}
+            # Who the Portal believes about X-Forwarded-For (PO-83: rate limits are per real client IP). Only a trusted TCP peer, which is the Apache pod.
+            - {name: PORTAL_TRUSTED_PROXIES, value: {{ $cfg.trustedProxies | quote }}}
             {{- if $v.content.cocoWorkbooks.existingClaim }}
             - {name: EGERIA_BOOTSTRAP_SCAN_ROOTS, value: /coco-workbooks}
             {{- else }}

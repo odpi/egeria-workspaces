@@ -81,15 +81,19 @@ composeHost: freshstart-pyegeria-web
 {{- if and $v.allowUngatedPortal $prod -}}
 {{- fail "allowUngatedPortal is demo only." -}}
 {{- end -}}
-{{- $owned := list "EGERIA_ROOT_PATH" "EGERIA_INBOX_PATH" "EGERIA_OUTBOX_PATH" "DEMO_MODE" "SERVER_MANAGED_AUTH" "JWT_SECRET" "EGERIA_USER_PASSWORD" "MCP_ACCESS_TOKEN" "EGERIA_USER" "PORTAL_ALLOWED_PLATFORM_URLS" "EGERIA_PLATFORM_URL" -}}
+{{- $owned := list "EGERIA_ROOT_PATH" "EGERIA_INBOX_PATH" "EGERIA_OUTBOX_PATH" "DEMO_MODE" "SERVER_MANAGED_AUTH" "JWT_SECRET" "EGERIA_USER_PASSWORD" "MCP_ACCESS_TOKEN" "EGERIA_USER" "PORTAL_ALLOWED_PLATFORM_URLS" "PORTAL_TRUSTED_PROXIES" "EGERIA_PLATFORM_URL" -}}
 {{- range $e := $v.extraEnv -}}
 {{- if has $e.name $owned -}}{{- fail (printf "extraEnv may not set %s: the chart owns it (set the matching value instead)." $e.name) -}}{{- end -}}
 {{- end -}}
 {{- $port := int (default $d.platformPort $v.platform.port) -}}
 {{- $name := include "egeria-common.name" (dict "ctx" . "component" "portal") -}}
 {{- $web := include "egeria-common.name" (dict "ctx" . "component" "portal-web") -}}
+{{- $webhl := include "egeria-common.name" (dict "ctx" . "component" "portal-web-hl") -}}
+{{- $trusted := regexReplaceAll "\\s+" (default (printf "%s.%s.svc.cluster.local" $webhl .Release.Namespace) $v.trustedProxies) "" -}}
 fullname: {{ $name }}
 webname: {{ $web }}
+webhlname: {{ $webhl }}
+trustedProxies: {{ $trusted | quote }}
 prod: {{ $prod }}
 platformUrl: {{ printf "https://%s:%d" $platformSvc $port | quote }}
 platformHost: {{ $platformSvc | quote }}
