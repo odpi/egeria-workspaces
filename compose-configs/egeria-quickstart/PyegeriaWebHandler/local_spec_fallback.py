@@ -94,7 +94,9 @@ def _register_analytics() -> None:
 
 def _egeria_labels() -> set:
     from pyegeria.view.egeria_spec_cache import egeria_tier
-    return set(egeria_tier(force=True).keys())
+    from portal_spec_identity import anonymous_spec_identity
+    with anonymous_spec_identity():        # process-wide registration: as no one, never a requester's specs
+        return set(egeria_tier(force=True).keys())
 
 
 def _registered_by(label: str) -> str | None:

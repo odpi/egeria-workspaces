@@ -220,7 +220,19 @@ def _header_summary(el: dict) -> Optional[dict]:
     }
 
 
-_RELATIONSHIP_SKIP_KEYS = {"elementHeader", "properties", "classifications", "class"}
+# The 14 Egeria 6.4 lists (odpi/egeria#9463) have one home on a card: E64RelatedPanel (the element's
+# decisions, projects and configuration values (processing variables and data values), with their relationship properties and the
+# absence rule), or the Decision / Data Value card's own sections. So the generic relationship block
+# never repeats them (E64 read-back S2).
+def _e64_list_keys() -> frozenset:
+    try:
+        from egeria_6_4_support import E64_LISTS
+        return frozenset(E64_LISTS)
+    except ImportError:   # a copy of this module without the 6.4 support next to it
+        return frozenset()
+
+
+_RELATIONSHIP_SKIP_KEYS = {"elementHeader", "properties", "classifications", "class"} | _e64_list_keys()
 _REL_ITEM_META_KEYS = {"relationshipHeader", "relationshipProperties", "relatedElement",
                         "relatedElementAtEnd1", "class"}
 
