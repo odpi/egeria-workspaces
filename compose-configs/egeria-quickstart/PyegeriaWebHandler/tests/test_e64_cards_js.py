@@ -342,7 +342,7 @@ def test_branch_badge():
 def test_the_related_panel_is_on_every_explorer_card_and_the_catalogs():
     comments = HTML.count("React.createElement(EgeriaCommentsSection, { guid: ")
     panels = HTML.count("React.createElement(E64RelatedPanel, { guid: ")
-    assert comments == panels == 23
+    assert comments == panels == 24       # 23 + the Models and Runs card frame (both its cards)
     tc = (_DIR / "tech-catalog.html").read_text()
     assert tc.count("React.createElement(E64RelatedPanel, { guid: item.guid })") == 3
     assert "E64UI.isLinkable = _elementIsLinkable;" in HTML

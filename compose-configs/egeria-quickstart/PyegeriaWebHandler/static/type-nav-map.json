@@ -140,6 +140,8 @@
   "Perspective": { "explorerHash": "perspectives" },
   "Project": { "explorerHash": "projects" },
   "Decision": { "explorerHash": "decisions" },
+  "DeployedAnalyticsModel": { "catalogSection": "processes", "catalogTab": "software-components", "explorerHash": "analytics-models", "kind": "models" },
+  "AnalyticsModelRun": { "explorerHash": "analytics-models", "kind": "runs" },
   "DataValue": { "explorerHash": "data-values" },
   "LiteralDataValue": { "explorerHash": "data-values" },
   "ExternalId": { "explorerHash": "external-identifiers" },

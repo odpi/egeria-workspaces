@@ -359,6 +359,8 @@ app.include_router(soa_router)
 # Egeria 6.4 cards (odpi/egeria#9463): Decisions, Data Values, and the 6.4 rows on other cards
 from e64_handler import router as e64_router
 app.include_router(e64_router)
+from analytics_models_handler import router as analytics_models_router
+app.include_router(analytics_models_router)
 from favorites_handler import router as favorites_router
 app.include_router(favorites_router)
 from obsidian_lock_handler import router as obsidian_lock_router
