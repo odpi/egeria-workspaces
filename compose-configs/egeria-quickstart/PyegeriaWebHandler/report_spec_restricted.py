@@ -92,8 +92,10 @@ def _token_user(token: str) -> Optional[str]:
 
 
 def _is_token_refused(exc: BaseException) -> bool:
-    """The same test the execute route uses for an Egeria 401."""
-    return getattr(exc, "http_error_code", None) == 401 or "HTTP Code: 401" in str(exc)
+    """The same test the execute route uses for an Egeria 401: by exception class and code, never by text
+    (PO-9). A 403 is not a refused token: the user is signed in and Egeria refused this read for them."""
+    from egeria_error_mapping import auth_error_status
+    return auth_error_status(exc) == 401
 
 
 # ── the cache ─────────────────────────────────────────────────────────────────
@@ -210,7 +212,9 @@ def visible_label(token: str, label: str) -> Optional[Dict[str, Any]]:
 def _remember_fetch(label: str) -> None:
     try:
         from pyegeria.view import egeria_spec_cache as esc
-        for (lab, ver) in list(getattr(esc, "_FETCHED", {}) or {}):
+        for key in list(getattr(esc, "_FETCHED", {}) or {}):
+            # (label, version) before pyegeria's spec-cache identity change; (identity, label, version) after.
+            lab, ver = key[-2], key[-1]
             if lab == label:
                 _RESTRICTED_FETCHED.add((lab, ver))
     except Exception:  # noqa: BLE001
@@ -228,7 +232,9 @@ def is_restricted_fetch(name: str) -> bool:
 def _shared_tier_version(label: str) -> Optional[int]:
     try:
         from pyegeria.view.egeria_spec_cache import egeria_tier_info
-        info = egeria_tier_info(label) or {}
+        from portal_spec_identity import anonymous_spec_identity
+        with anonymous_spec_identity():    # the shared tier, as no one: never the caller's private specs
+            info = egeria_tier_info(label) or {}
     except Exception:  # noqa: BLE001
         return None
     v = info.get("header_version")
@@ -247,6 +253,18 @@ def public_fetched_name_allowed(name: str) -> bool:
     return _shared_tier_version(m.group("label")) == int(m.group("version"))
 
 
+def _fetched_as(client: Any, name: str, fetched_spec) -> Any:
+    """The fetched copy of `name` for the identity that fetched it: `client`'s credential identity. pyegeria
+    keys a fetched spec by the fetching client's identity, with no fallback (spec-cache identity change); asked
+    outside any `spec_identity`, it would look up as the Portal's service user and find nothing. A pyegeria
+    without `client_credential_identity` keys by name alone."""
+    from portal_spec_identity import spec_cache_attr
+    client_credential_identity = spec_cache_attr("client_credential_identity")
+    if client_credential_identity is None:
+        return fetched_spec(name)
+    return fetched_spec(name, identity=client_credential_identity(client))
+
+
 def describe(token: str, label: str) -> Dict[str, Any]:
     """The full definition of a restricted spec this user can see, fetched from Egeria as them:
     {"spec": <the Report Specs row shape>, "zones", "usedBy"} or raises LookupError (not visible)."""
@@ -255,14 +273,15 @@ def describe(token: str, label: str) -> Dict[str, Any]:
         raise LookupError(f"No restricted report spec named '{label}' is visible to you.")
     from pyegeria.view.egeria_spec_cache import fetch_spec_for_call, fetched_spec
     _RESTRICTED_LABELS.add(label)          # before the fetch: the public path refuses its name from now on
+    client = _user_client(token)
     try:
-        internal = fetch_spec_for_call(_user_client(token), label)
+        internal = fetch_spec_for_call(client, label)
     except Exception as exc:  # noqa: BLE001
         if _is_token_refused(exc):
             raise TokenRefused("Egeria refused your sign-in token; sign in again.") from exc
         raise
     _remember_fetch(label)
-    fs = fetched_spec(internal.split(":", 1)[-1])
+    fs = _fetched_as(client, internal.split(":", 1)[-1], fetched_spec)
     if fs is None:
         raise LookupError(f"'{label}' was fetched but its definition could not be read.")
     from report_specs_handler import _serialize

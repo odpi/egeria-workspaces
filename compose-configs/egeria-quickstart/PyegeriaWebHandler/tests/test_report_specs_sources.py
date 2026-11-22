@@ -138,6 +138,10 @@ def test_admin_gate_fails_closed_when_the_check_cannot_load(api, monkeypatch):
 
 
 def test_anonymous_status_withholds_error_detail(api, monkeypatch):
+    # A non-admin exists only with auth on: without auth a request with no token is the local
+    # owner and gets the detail (F1b; test_report_spec_sync_redaction.py covers that side).
+    import demo_feedback_handler
+    monkeypatch.setattr(demo_feedback_handler, "DEMO_MODE", True)
     monkeypatch.setattr(report_specs_handler, "_is_admin_closed", lambda request: False)
     report_spec_sync._STATE.update(running=False, outcome="failed", error="ConnectError: secret-host:9443 refused",
                                    report=None)

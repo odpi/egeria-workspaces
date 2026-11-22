@@ -592,7 +592,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   <!-- Bump ?v= whenever egeria-shared-ui.js changes — see tech-catalog.html for why. -->
   <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
   <script>window.EGERIA_FOR_LINEAGE = true; window.EGERIA_FOR_LINEAGE_VISIBLE = false;  /* shown per-section by App */</script>
-  <script src="/static/egeria-shared-ui.js?v=2026-11-17-po41"></script>
+  <script src="/static/egeria-shared-ui.js?v=2026-11-22-cv2"></script>
   <script>"use strict";
 
 const {
@@ -603,7 +603,36 @@ const {
   useRef
 } = React;
 
+// PO-20: a persona identity is ready for a Dr.Egeria run once its token is minted (or the mint was tried
+// and failed, `tokenTried`, F1b R2). Same rule as F1b's rsCredsReady.
+function dreCredsReady(creds) {
+  return !(creds && creds.userId && creds.password && !creds.token && !creds.tokenTried);
+}
+
 // ── Credential context ────────────────────────────────────────────────────────
+// A token minted for one identity must not land on another (A2, 2026-11-15). A mint started for the
+// creds read from localStorage on load (or a 401 refresh) can resolve after the user switched persona
+// (saveCreds); setting its result then would put the stale identity back. Used as a functional
+// setCreds: keep the result only while the current creds are still the identity it was minted for.
+// Each saveCreds call takes a ticket; a mint's result is kept only while its ticket is still the latest
+// (A2 R1): two quick switches (erin -> peter -> rover) whose mints resolve out of order end with rover.
+function takeSaveTicket(seqRef) {
+  var ticket = ++seqRef.current;
+  return function isLatest() { return ticket === seqRef.current; };
+}
+
+// A 401 refresh minted for an identity the user has since left is refused, so egeriaFetch does not retry
+// that request as the old identity and land its answer in the new identity's view (it keeps the 401).
+function refreshedOrRefused(current, withTok) {
+  if (credsIfStillCurrent(current, withTok) !== withTok) throw new Error('the identity changed during the token refresh');
+  return withTok;
+}
+
+function credsIfStillCurrent(cur, result) {
+  if (!cur || !result) return cur;
+  var same = ['url', 'server', 'userId', 'password'].every(function(k) { return (cur[k] || '') === (result[k] || ''); });
+  return same ? result : cur;
+}
 // CredContext now lives in /static/egeria-shared-ui.js (shared with the Tech
 // Catalog). This SPA still provides it via CredContext.Provider value={creds}.
 
@@ -7058,23 +7087,33 @@ function DrEgeriaCommandsView() {
     var effectiveTitle = execVerb
       ? execVerb + ' ' + titleParts.slice(1).join(' ')
       : activeItem.title;
-    fetch('/api/dr-egeria/execute', {
+    // PO-20: the run is made as the sign-in token's user. A persona whose token is still being minted
+    // is not ready: say so rather than send the request early (F1b's first-load rule). With a token the
+    // server ignores user_id and never reads a password; only a token-less no-auth Portal uses them.
+    if (!dreCredsReady(creds)) {
+      setExecResult({ authError: 'Signing in to Egeria has not finished yet; try again in a moment.' });
+      setExecState('error');
+      return;
+    }
+    var execBody = { title: effectiveTitle, params: execParams, directive: directive,
+                     url: creds && creds.url, server: creds && creds.server };
+    if (!(creds && creds.token)) { execBody.user_id = creds && creds.userId; execBody.user_pwd = creds && creds.password; }
+    egeriaFetch('/api/dr-egeria/execute', creds, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title:    effectiveTitle,
-        params:   execParams,
-        directive: directive,
-        url:      creds.url,
-        server:   creds.server,
-        user_id:  creds.userId,
-        user_pwd: creds.password,
-      })
+      body: JSON.stringify(execBody)
     })
-    .then(function(r) { return r.json(); })
+    .then(function(r) {
+      if (r.status === 401 || r.status === 403) {
+        return r.json().catch(function() { return {}; }).then(function(b) {
+          return { authError: (r.status === 401 ? 'Sign in again: ' : 'Not permitted: ') + (b.detail || ('HTTP ' + r.status)) };
+        });
+      }
+      return r.json();
+    })
     .then(function(data) {
       setExecResult(data);
-      setExecState('done');
+      setExecState(data && data.authError ? 'error' : 'done');
     })
     .catch(function(e) {
       setExecResult({ networkError: String(e) });
@@ -7166,7 +7205,8 @@ function DrEgeriaCommandsView() {
             background: 'rgba(248,113,113,.08)', border: '1px solid rgba(248,113,113,.2)' } },
           React.createElement("span", { style: { fontSize: 16 } }, "✗"),
           React.createElement("span", { style: { fontSize: 12, color: '#f87171', fontWeight: 600 } },
-            execResult && execResult.networkError ? "Network error: " + execResult.networkError : "Execution failed")
+            execResult && execResult.authError ? execResult.authError
+              : execResult && execResult.networkError ? "Network error: " + execResult.networkError : "Execution failed")
         ),
         execState === 'done' && execResult && (function() {
           var success  = execResult.success;
@@ -11487,8 +11527,11 @@ function App() {
       .catch(function() { return c; });
   }, []);
 
+  const saveSeq = React.useRef(0);
   const saveCreds = useCallback(function(c) {
+    var isLatest = takeSaveTicket(saveSeq);
     acquireToken(c).then(function(withTok) {
+      if (!isLatest()) return;              // a later save superseded this one (A2 R1)
       setCreds(withTok);
       setConnected(true);
       setCredsKey(function(k) { return k + 1; });
@@ -11502,13 +11545,21 @@ function App() {
   // token field changing does not re-trigger this (guarded), avoiding loops.
   useEffect(function() {
     if (creds.token) return;
-    acquireToken(creds).then(function(withTok) { if (withTok.token) setCreds(withTok); });
+    acquireToken(creds).then(function(withTok) {
+      if (withTok.token) setCreds(function(cur) { return credsIfStillCurrent(cur, withTok); });
+    });
   }, [creds.url, creds.server, creds.userId, creds.password]);
 
   // Let egeriaFetch refresh an expired token on a 401 and retry once.
+  const credsNow = React.useRef(creds);
+  credsNow.current = creds;
   useEffect(function() {
     _tokenRefresher.refresh = function(oldCreds) {
-      return acquireToken(oldCreds).then(function(withTok) { setCreds(withTok); return withTok; });
+      return acquireToken(oldCreds).then(function(withTok) {
+        refreshedOrRefused(credsNow.current, withTok);   // rejects: egeriaFetch keeps the 401, no stale retry
+        setCreds(function(cur) { return credsIfStillCurrent(cur, withTok); });   // never a switched-away identity
+        return withTok;
+      });
     };
     return function() { _tokenRefresher.refresh = null; };
   }, [acquireToken]);

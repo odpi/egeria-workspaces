@@ -6,7 +6,8 @@
  * BEFORE each SPA's app script, so these are plain globals referenced by name.
  * Scope: robust clipboard + the mermaid diagram family + useResizable +
  *        markdown renderer + glossary tree + Egeria Feedback widgets +
- *        relationship-purpose metadata, hook, badge and grouping helpers.
+ *        relationship- and classification-purpose metadata, hooks, badges
+ *        and grouping helpers.
  * Depends on host globals: React, window.mermaid; CSS: .mermaid-wrap;
  * CSS vars: --accent --border --panel --muted --dim --md-code-bg.
  * Feedback widgets use bare fetch() against /api/egeria-feedback/* (cookie auth).
@@ -27,6 +28,7 @@ var _MERMAID_FIELD_LABELS = {
   solutionBlueprintMermaidGraph:         'Blueprint Graph',
   solutionSubcomponentMermaidGraph:      'Subcomponent Graph',
   actionMermaidGraph:                    'Action Graph',
+  activityMermaidGraph:                  'Activity Graph',
   localLineageGraph:                     'Local Lineage',
   fieldLevelLineageGraph:                'Field-Level Lineage',
   governanceActionProcessMermaidGraph:   'Governance Action Process',
@@ -34,9 +36,13 @@ var _MERMAID_FIELD_LABELS = {
   collectionMermaidMindMap:              'Collection Mind Map',
   zoneProfileMermaidPieChart:            'Zone Profile',
   zoneProfileAnchoredMermaidPieChart:    'Zone Anchored Profile',
+  zoneProfileAllMermaidPieChart:         'Zone All Assets',
   zoneProfileAllPieChart:                'Zone All Assets',
   userAccountTypeProfileMermaidPieChart: 'Account Type Profile',
+  userAccountStatusProfileMermaidPieChart: 'Account Status',
   userAccountStatusMermaidPieChart:      'Account Status',
+  rootHierarchyMermaidGraph:             'Root Hierarchy',
+  fullLineageMermaidGraph:               'Full Lineage',
 };
 
 var _MERMAID_SECTION_FIELDS = new Set(['mermaidGraph', 'anchorMermaidGraph']);
@@ -70,6 +76,20 @@ function copyToClipboard(text) {
 function _isMermaidKey(k) {
   var kl = k.toLowerCase();
   return kl.indexOf('mermaid') !== -1 || /(?:graph|mindmap|piechart|chart)$/i.test(k);
+}
+
+/* Display order for a set of diagram keys: the context graph first, then Action, then Activity (Egeria 6.3
+ * moved those relationships out of mermaidGraph into their own graphs), then the rest alphabetically by
+ * label. Keep in step with graph_keys.order_graph_keys in the server. */
+var _GRAPH_PREFERRED_ORDER = ['mermaidgraph', 'actionmermaidgraph', 'activitymermaidgraph'];
+function _graphKeysOrdered(keys) {
+  return keys.slice().sort(function(a, b) {
+    var ra = _GRAPH_PREFERRED_ORDER.indexOf(a.toLowerCase()), rb = _GRAPH_PREFERRED_ORDER.indexOf(b.toLowerCase());
+    ra = ra < 0 ? _GRAPH_PREFERRED_ORDER.length : ra; rb = rb < 0 ? _GRAPH_PREFERRED_ORDER.length : rb;
+    if (ra !== rb) return ra - rb;
+    var la = _mermaidLabel(a).toLowerCase(), lb = _mermaidLabel(b).toLowerCase();
+    return la < lb ? -1 : la > lb ? 1 : 0;
+  });
 }
 
 function _mermaidLabel(k) {
@@ -234,7 +254,7 @@ function diagramExpandButton(getSvg, title, opts) {
   return b;
 }
 
-function MermaidDiagram({ code }) {
+function MermaidDiagram({ code, label }) {
   const ref = React.useRef(null);
   const [errMsg, setErrMsg] = React.useState('');
   const [copyState, setCopyState] = React.useState('');  // '' | 'ok' | 'fail'
@@ -290,7 +310,7 @@ function MermaidDiagram({ code }) {
   var expandBtn = code && !errMsg && React.createElement('button', {
     onClick: function(e) {
       e.stopPropagation();
-      if (ref.current) openDiagramViewer(ref.current.innerHTML, 'Diagram');
+      if (ref.current) openDiagramViewer(ref.current.innerHTML, label || 'Diagram');
     },
     title: 'Open larger, with pan and zoom',
     style: { fontSize: 10, padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)',
@@ -323,19 +343,60 @@ function DiagramPanelFromData({ code, label }) {
   );
 }
 
+/* GraphTabs — ONE compact chip bar for all the diagrams an element carries, instead of a stack of
+ * "Show X" buttons. graphs: { key: mermaidCode }. Nothing renders until a chip is chosen (a big diagram is
+ * costly); choosing the open chip again hides it. Only the chosen diagram is mounted. `extra` is a list of
+ * { key, label, load } for diagrams fetched on demand (the chip loads them, then shows them). */
+function GraphTabs({ graphs, extra, initial }) {
+  var _a = React.useState(initial || null), active = _a[0], setActive = _a[1];
+  var _l = React.useState({}), loaded = _l[0], setLoaded = _l[1];        // extra key -> { state, code }
+  var items = _graphKeysOrdered(Object.keys(graphs || {})).map(function(k) {
+    return { key: k, label: _mermaidLabel(k), code: graphs[k] };
+  }).concat((extra || []).map(function(x) { return { key: x.key, label: x.label, load: x.load }; }));
+  if (items.length === 0) return null;
+  var current = items.filter(function(it) { return it.key === active; })[0];
+  var chipStyle = function(on) { return { fontSize: 12, padding: '3px 10px', borderRadius: 4, cursor: 'pointer',
+    border: '1px solid ' + (on ? 'var(--accent)' : 'var(--border)'),
+    background: on ? 'rgba(96,165,250,.22)' : 'rgba(96,165,250,.08)', color: 'var(--accent)', fontWeight: on ? 600 : 400 }; };
+  function choose(it) {
+    if (active === it.key) { setActive(null); return; }
+    setActive(it.key);
+    if (it.load && !loaded[it.key]) {
+      setLoaded(function(m) { var n = Object.assign({}, m); n[it.key] = { state: 'loading' }; return n; });
+      Promise.resolve(it.load()).then(function(code) {
+        setLoaded(function(m) { var n = Object.assign({}, m); n[it.key] = { state: 'done', code: code || '' }; return n; });
+      }).catch(function() {
+        setLoaded(function(m) { var n = Object.assign({}, m); n[it.key] = { state: 'done', code: '' }; return n; });
+      });
+    }
+  }
+  var code = current && (current.load ? (loaded[current.key] && loaded[current.key].code) : current.code);
+  var state = current && current.load ? (loaded[current.key] && loaded[current.key].state) : 'done';
+  return React.createElement('div', { style: { margin: '8px 0' } },
+    React.createElement('div', { role: 'tablist', 'aria-label': 'Diagrams', style: { display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' } },
+      React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)', marginRight: 2 } }, '▦ Diagrams'),
+      items.map(function(it) {
+        return React.createElement('button', { key: it.key, role: 'tab', 'aria-selected': active === it.key, onClick: function() { choose(it); }, style: chipStyle(active === it.key) }, it.label);
+      })),
+    current && state === 'loading' && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '6px 0' } }, 'Loading diagram…'),
+    current && state === 'done' && !code && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '4px 0' } }, 'No diagram available for this element.'),
+    current && state === 'done' && code && React.createElement('div', { style: { marginTop: 6 } },
+      React.createElement(MermaidDiagram, { key: current.key, code: code, label: current.label }))
+  );
+}
+
 function AvailableMermaidDiagrams({ data, skip }) {
   if (!data) return null;
   var skipSet = skip || _MERMAID_SECTION_FIELDS;
-  var panels = [];
+  var graphs = {};
   Object.keys(data).forEach(function(k) {
     if (skipSet.has(k)) return;
     var code = data[k];
     if (typeof code !== 'string' || !code.trim() || code.toLowerCase().indexOf('no ') === 0) return;
     if (!_isMermaidKey(k)) return;
-    panels.push(React.createElement(DiagramPanelFromData, { key: k, code: code, label: _mermaidLabel(k) }));
+    graphs[k] = code;
   });
-  if (panels.length === 0) return null;
-  return React.createElement('div', { style: { margin: '8px 0' } }, panels);
+  return React.createElement(GraphTabs, { graphs: graphs });
 }
 
 /* Drag-to-resize width for a pane (paired with ResizeDivider / .col-divider).
@@ -679,24 +740,134 @@ function refreshPersonaToken(oldCreds) {
     });
 }
 
+/* ── Persona/session ownership (BACKLOG.md QS-10) ────────────────────────────
+ * localStorage['egeria-persona'] is one shared key read by every Explorer SPA
+ * and written by the Portal's persona picker — it has no relationship to
+ * which Portal account is actually signed in, and nothing clears it except an
+ * explicit Logout. So a persona chosen once on a browser stays cached
+ * indefinitely: a *different* Portal account signing in later on the same
+ * browser silently inherits it — the Portal header shows the new account, but
+ * every Egeria call still executes as whoever's persona was last picked.
+ * Tag each stored persona with the portal account id that picked it, and
+ * drop it (plus any cached creds/token minted from it) the moment that stops
+ * matching the currently-authenticated account, rather than trusting
+ * whatever's cached. */
+function loadOwnedPersona(portalUserId) {
+  try {
+    var raw = localStorage.getItem('egeria-persona');
+    if (!raw) return null;
+    var stored = JSON.parse(raw);
+    if (stored.ownerId !== (portalUserId || null)) {
+      localStorage.removeItem('egeria-persona');
+      localStorage.removeItem('egeria-creds');
+      return null;
+    }
+    return stored;
+  } catch (e) { return null; }
+}
+function saveOwnedPersona(info, portalUserId) {
+  var tagged = Object.assign({}, info, { ownerId: portalUserId || null });
+  try { localStorage.setItem('egeria-persona', JSON.stringify(tagged)); } catch (e) {}
+  return tagged;
+}
+
 /* ──────────────────────────────────────────────────────────────────────────
- * Catalog search — shared by tech-catalog.html's SearchView and type-explorer
- * .html's ExplorerSearchView in quickstart. Ported here (2026-08-15, follow-up
- * to the bulk-action sync) because type-explorer.html's ExplorerSearchView
- * reference implementation already depends on it — porting the bulk-select
- * pattern for that view without this hook leaves `useCatalogSearch`/
- * `CATALOG_SEARCH_CATEGORY_ICONS`/`highlightHtml` as dangling references
- * (a runtime ReferenceError, invisible to `node --check`'s syntax-only pass).
- * freshstart's tech-catalog.html SearchView was NOT rewired onto this hook —
- * it still uses its own local q/data/err/loading/facets/selTypes state, and
- * its own local `highlightHtml`/`_hlEscape`/`SEARCH_CATEGORY_ICONS` (different
- * name from CATALOG_SEARCH_CATEGORY_ICONS below, so no collision there). Its
- * page-level `<script>` loads after this shared file and its own `highlightHtml`
- * plain-function declaration simply overwrites this one in the shared global
- * scope — harmless, since both implementations are identical; only
- * type-explorer.html's ExplorerSearchView actually depends on the shared one.
+ * Type-graph helpers — promoted from type-explorer.html (2026-08-14) so any
+ * screen can walk the /api/types supertype/subtype graph without a private
+ * copy. Canonical here now; type-explorer.html no longer keeps its own
+ * getChain/getAllProps/getSubs — see SHARE-3 in BACKLOG.md for why duplicate
+ * copies of the same logic are worth avoiding in this codebase.
  * ────────────────────────────────────────────────────────────────────────── */
 
+function getChain(name, entities) {
+  var chain = [];
+  var n = name;
+  while (n && entities[n]) {
+    chain.unshift(n);
+    n = entities[n].supertype;
+  }
+  return chain;
+}
+
+function getAllProps(name, entities) {
+  var out = [];
+  getChain(name, entities).forEach(function(tn) {
+    var t = entities[tn];
+    ((t && t.props) || []).forEach(function(p) {
+      out.push(Object.assign({}, p, { source: tn }));
+    });
+  });
+  return out;
+}
+
+// Direct subtypes only (one level). See getAllSubs below for the full
+// transitive tree.
+function getSubs(name, entities) {
+  return Object.keys(entities).filter(function(n) {
+    var t = entities[n];
+    return t && t.supertype === name;
+  });
+}
+
+// Transitive subtypes — needed wherever the direct children aren't enough
+// (e.g. Collection's subtype tree is multi-level: Agreement, DigitalProduct,
+// SubjectArea, … each have their own children too).
+function getAllSubs(name, entities) {
+  var direct = getSubs(name, entities);
+  var all = direct.slice();
+  direct.forEach(function(n) {
+    all = all.concat(getAllSubs(n, entities));
+  });
+  return all;
+}
+
+// Fetches /api/types once per mount and returns just the `entities` map (what
+// getChain/getSubs/getAllSubs operate on) — pass the same `creds` shape
+// already threaded through other egeriaFetch call sites. Returns null while
+// loading, {} on error (callers treat both as "nothing to show yet" rather
+// than needing a separate error state for what's usually a background lookup
+// feeding a picker, not the screen's primary content).
+function useTypeGraph(creds) {
+  var state = React.useState(null);
+  var entities = state[0], setEntities = state[1];
+  React.useEffect(function() {
+    egeriaFetch('/api/types', creds).then(function(r) {
+      return r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status));
+    }).then(function(data) {
+      setEntities((data && data.entities) || {});
+    }).catch(function() {
+      setEntities({});
+    });
+    // Mount-once by design: consumers so far (a picker inside a short-lived
+    // modal) don't need this to react to creds changing mid-lifetime. If a
+    // future consumer does, reconsider before just adding [creds] here —
+    // `creds` is often a fresh object each render, which would refetch every
+    // render unless the caller already memoizes it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return entities;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Catalog search — shared by tech-catalog.html's SearchView and
+ * type-explorer.html's ExplorerSearchView, both of which hit the exact same
+ * /api/catalog/search backend (also reused, hand-duplicated per its own
+ * header comment, by demo-portal.html's plain-JS omni-search bar — that one
+ * can't share this hook, no React runtime there — see BACKLOG.md NEXT-12).
+ * Before 2026-08-14 (BACKLOG.md FIX-7) this ~90-line block of state/debounce/
+ * fetch logic plus three helper functions (highlight, escape, group-by-type)
+ * were duplicated near-verbatim between the two apps. Consolidated here;
+ * each app still owns its OWN result-row rendering, which genuinely differs
+ * (Catalog: bulk-select checkboxes + SearchResultCard's type-nav-map.json routing;
+ * Explorer: a simpler inline card + onNavigateToElement/_elementIsLinkable).
+ * ────────────────────────────────────────────────────────────────────────── */
+
+// Canonical icon-per-category map for search result group headers. Union of
+// the two apps' previously-separate (90%-identical) maps — 'valid-values'
+// only ever appears in Explorer's data (Catalog doesn't own that type, see
+// SearchResultCard's fallback below), harmless to carry in both. 'projects'
+// picked Catalog's 📁 (Explorer previously used ◉ — purely cosmetic, no
+// behavior tied to the choice).
 var CATALOG_SEARCH_CATEGORY_ICONS = {
   'glossary':       '📖',
   'tech-types':     '🔧',
@@ -759,6 +930,15 @@ function useCatalogSearch(creds, initialQuery, onReset) {
   var _data = React.useState(null), data = _data[0], setData = _data[1];
   var _err = React.useState(null), err = _err[0], setErr = _err[1];
   var _loading = React.useState(false), loading = _loading[0], setLoading = _loading[1];
+  // Facet chips come from the BASE (unrestricted) search's typeFacets, kept
+  // stable across scoped re-searches so the full breadth stays visible for
+  // further toggling — a scoped response's own typeFacets would only ever
+  // show the type(s) it was scoped to. Toggling a chip re-searches server-side
+  // (metadata_element_subtypes) rather than filtering client-side: page_size
+  // caps the base search, so a less-common type can be crowded out of that
+  // page entirely — scoping the search itself gets a complete count for it.
+  // Safe to do here (unlike a pre-search picker) because these typeNames came
+  // from a real prior result, not a curated/guessed list.
   var _baseFacets = React.useState(null), baseFacets = _baseFacets[0], setBaseFacets = _baseFacets[1];
   var _selTypes = React.useState([]), selTypes = _selTypes[0], setSelTypes = _selTypes[1];
   var timer = React.useRef(null);
@@ -783,6 +963,13 @@ function useCatalogSearch(creds, initialQuery, onReset) {
     var val = e.target.value;
     setQ(val);
     setSelTypes([]); setBaseFacets(null);
+    // A fresh query is a fresh result set — leftover selections from a
+    // previous search are no longer visible as checked boxes anywhere on
+    // screen, so silently carrying them into a later "Add to Collection"
+    // is a trap (live-verified 2026-08-14: reported as "5 added" when only
+    // 1 checkbox was visibly checked). Facet-chip toggles (toggleType) don't
+    // go through this function and correctly keep the selection — narrowing
+    // the same search is a different action from starting a new one.
     if (onReset) onReset();
     clearTimeout(timer.current);
     if (val.trim().length >= 2) timer.current = setTimeout(function() { doSearch(val, []); }, 400);
@@ -812,67 +999,9 @@ function useCatalogSearch(creds, initialQuery, onReset) {
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
- * Type-graph helpers (subset ported from quickstart's egeria-shared-ui.js,
- * 2026-08-15) — only the pieces AddToCollectionModal below needs to walk the
- * /api/types subtype tree (e.g. Collection → SubjectArea, DigitalProduct…).
- * type-explorer.html keeps its own local getChain/getAllProps/getSubs (not
- * yet promoted to this shared file here, unlike quickstart's SHARE-3 — out of
- * scope for this port), so only getSubs/getAllSubs/useTypeGraph are added
- * here to avoid a wider, unrelated refactor.
- * ────────────────────────────────────────────────────────────────────────── */
-
-// Direct subtypes only (one level). See getAllSubs below for the full
-// transitive tree.
-function getSubs(name, entities) {
-  return Object.keys(entities).filter(function(n) {
-    var t = entities[n];
-    return t && t.supertype === name;
-  });
-}
-
-// Transitive subtypes — needed wherever the direct children aren't enough
-// (e.g. Collection's subtype tree is multi-level: Agreement, DigitalProduct,
-// SubjectArea, … each have their own children too).
-function getAllSubs(name, entities) {
-  var direct = getSubs(name, entities);
-  var all = direct.slice();
-  direct.forEach(function(n) {
-    all = all.concat(getAllSubs(n, entities));
-  });
-  return all;
-}
-
-// Fetches /api/types once per mount and returns just the `entities` map (what
-// getSubs/getAllSubs operate on) — pass the same `creds` shape already
-// threaded through other egeriaFetch call sites. Returns null while loading,
-// {} on error (callers treat both as "nothing to show yet" rather than
-// needing a separate error state for what's usually a background lookup
-// feeding a picker, not the screen's primary content).
-function useTypeGraph(creds) {
-  var state = React.useState(null);
-  var entities = state[0], setEntities = state[1];
-  React.useEffect(function() {
-    egeriaFetch('/api/types', creds).then(function(r) {
-      return r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status));
-    }).then(function(data) {
-      setEntities((data && data.entities) || {});
-    }).catch(function() {
-      setEntities({});
-    });
-    // Mount-once by design — see quickstart's egeria-shared-ui.js for the
-    // full rationale (a picker inside a short-lived modal doesn't need this
-    // to react to creds changing mid-lifetime).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  return entities;
-}
-
-/* ──────────────────────────────────────────────────────────────────────────
  * Bulk selection — shared by any screen that renders a list of elements and
- * wants a "select some, then act on them" flow. Ported from quickstart's
- * egeria-shared-ui.js (2026-08-15) — see that file's history for the design
- * rationale (pilot: tech-catalog.html's search results + Add-to-Collection,
- * 2026-08-14).
+ * wants a "select some, then act on them" flow. Pilot: tech-catalog.html's
+ * search results + Add-to-Collection (2026-08-14).
  * ────────────────────────────────────────────────────────────────────────── */
 
 // selected is a Map<guid, {guid, displayName, typeName}> — stores enough per
@@ -1181,8 +1310,17 @@ function AddToCollectionModal({ items, creds, action, onClose, onDone }) {
 }
 
 // Bulk zone-membership add/remove — same overlay/header/submit/result chrome
-// as AddToCollectionModal (deliberately not unified into one shared shell —
-// see quickstart's egeria-shared-ui.js history for the rationale). Backend:
+// as AddToCollectionModal (deliberately not unified into one shared shell:
+// AddToCollectionModal has ~20 existing call sites across type-explorer.html/
+// tech-catalog.html/egeria-insights.html, and retrofitting it into a
+// config-driven shell right now would touch all of them for zero behavior
+// change — pure risk. This is the second data point; if a third bulk-action
+// type (e.g. classify/declassify, BACKLOG.md task #18) shows up, that's the
+// signal to actually extract the shared shell both of these would plug into).
+//
+// Simpler picker than collections' — no "create new" mode (governance zones
+// are predefined policy concepts, not something a user spins up ad hoc from
+// a bulk-select flow) and no type/subtype selector (one flat list). Backend:
 // governance_zones_handler.py — POST/DELETE /api/zone-membership/{zone}/
 // members. Unlike collection membership (a relationship, pure blind write),
 // zone membership is a classification whose zoneMembership property is a
@@ -1327,6 +1465,424 @@ function ZoneMembershipModal({ items, creds, action, onClose, onDone }) {
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
+ * Governance classifications (Confidentiality / Criticality / Impact) — bulk
+ * classify/declassify. v1 scope only these three (Dan's call, 2026-08-16);
+ * Retention deliberately excluded (its properties are a different shape —
+ * retentionBasis/status strings + archiveAfter/deleteAfter timestamps, not
+ * a simple level dropdown). See governance_classifications_handler.py's
+ * module docstring for the full design rationale, live authorization test
+ * (garygeeke and other lower-privilege personas succeed — no permission gate
+ * needed), and confirmation that level values come from Egeria's own
+ * valid-metadata-values registry (never hardcoded — see the level-property
+ * + valid-values-lookup calls in ClassificationModal below).
+ * ────────────────────────────────────────────────────────────────────────── */
+
+var CLASSIFICATION_LABELS = {
+  confidentiality: 'Confidentiality', criticality: 'Criticality', impact: 'Impact', confidence: 'Confidence',
+  prime_word: 'PrimeWord', class_word: 'ClassWord', modifier: 'Modifier',
+};
+
+// Egeria's own type definition says these classifications are validFor
+// "Referenceable" -- i.e. technically attachable to almost anything,
+// including a Notification or ToDo, which doesn't make sense in practice.
+// Since Egeria's type model doesn't enforce a narrower rule, the guard is
+// curated here per the classifications' own doc guidance ("typically a data
+// field, schema attribute or glossary term" -- see
+// https://egeria-project.org/types/4/0422-Governed-Data-Classifications/).
+// This is a UI-only guard (BulkActionBar hides Classify/Declassify unless
+// every selected item passes) -- governance_classifications_handler.py does
+// not re-check it server-side.
+var CLASSIFICATION_APPLICABLE_SUPERTYPES = ['Asset', 'SchemaAttribute', 'SchemaElement', 'GlossaryTerm'];
+function classificationApplicable(item) {
+  if (!item) return false;
+  var types = [item.typeName].concat(item.superTypeNames || []);
+  return types.some(function(t) { return CLASSIFICATION_APPLICABLE_SUPERTYPES.indexOf(t) !== -1; });
+}
+
+// Pulls the numeric level out of one of an item's classifications (as
+// returned by _extract_classifications in the *_handler.py files: {typeName,
+// properties: {...stringified...}}). The three v1 classifications each store
+// their level under a differently-named property (confidentialityLevel /
+// criticalityLevel / severityLevel -- see governance_classifications_handler.
+// py's CLASSIFICATIONS map) but all three end in "Level", so matching that
+// suffix avoids hardcoding all three names a second time here. Returns
+// undefined if the classification isn't present or has no such property.
+function classificationLevelValue(cls) {
+  if (!cls || !cls.properties) return undefined;
+  var keys = Object.keys(cls.properties);
+  for (var i = 0; i < keys.length; i++) {
+    if (/Level$/i.test(keys[i])) return cls.properties[keys[i]];
+  }
+  return undefined;
+}
+
+
+// Module-level cache: sorted-and-joined typeNames -> resolved classification
+// keys array. Entity/classification type defs don't change at runtime (same
+// assumption governance_classifications_handler.py's own
+// _VALID_CLASSIFICATIONS_CACHE makes server-side), so once a given
+// type-name combination has been resolved there's no reason to refetch it
+// for the life of the page.
+var _applicableClassificationsCache = {};
+
+// Replaces the old hardcoded-supertype classificationApplicable() guess with
+// a live, per-type-combination lookup against GET /api/classification/
+// applicable (Dan's call, 2026-08-17) -- which itself intersects Egeria's
+// authoritative ValidMetadataManager.get_valid_classification_types() across
+// every distinct type in typeNames, filtered to classifications this app
+// actually knows how to bulk set/clear (governance_classifications_handler.
+// py's CLASSIFICATIONS registry). typeNames: array of distinct typeName
+// strings from the current selection (order-independent, dedup'd by the
+// cache key). Returns { names: string[]|null, loading }; names is null only
+// while the very first lookup for a given key is in flight.
+function useApplicableClassifications(creds, typeNames) {
+  var key = (typeNames || []).filter(Boolean).slice().sort().join(',');
+  var state = React.useState(function() { return { key: key, names: _applicableClassificationsCache[key] || null }; });
+  var st = state[0], setSt = state[1];
+
+  React.useEffect(function() {
+    if (!key) { setSt({ key: key, names: [] }); return; }
+    if (_applicableClassificationsCache[key]) {
+      setSt({ key: key, names: _applicableClassificationsCache[key] });
+      return;
+    }
+    setSt({ key: key, names: null });
+    egeriaFetch('/api/classification/applicable?entity_types=' + encodeURIComponent(key), creds)
+      .then(function(r) { return r.ok ? r.json() : { classifications: [] }; })
+      .then(function(d) {
+        var names = d.classifications || [];
+        _applicableClassificationsCache[key] = names;
+        setSt({ key: key, names: names });
+      })
+      .catch(function() { setSt({ key: key, names: [] }); });
+  }, [key, creds]);
+
+  // Guard against a stale response landing after `key` has already moved on
+  // (selection changed types mid-flight) -- only trust st when its key matches.
+  return (st.key === key) ? { names: st.names, loading: st.names === null } : { names: null, loading: true };
+}
+
+// The verb (Classify/Reclassify/Declassify) is picked inside the modal via
+// tabs, not baked into which BulkActionBar button was clicked (Dan's call,
+// 2026-08-18 -- same move as AddToCollectionModal/ZoneMembershipModal's
+// verb tabs, and it simplifies Reclassify: instead of the caller scanning
+// every classification up front to guess which one you meant
+// (findCommonClassification, 2026-08-17), you pick the classification name
+// first (the searchable dropdown, unchanged) and Reclassify just prefills
+// the Level from whatever that specific classification's current value is
+// across the selection -- recomputed live below, not resolved by the caller.
+// `action`/`initialClassificationName` still seed the initial tab/dropdown
+// value so any caller not yet updated to the 1-button pattern keeps working.
+function ClassificationModal({ items, creds, action, initialClassificationName, title, applicableClassifications, onClose, onDone }) {
+  var verbState = React.useState(action === 'clear' ? 'declassify' : (initialClassificationName ? 'reclassify' : 'classify'));
+  var verb = verbState[0], setVerb = verbState[1];
+  var isClear = verb === 'declassify';
+  // Which classifications the dropdown offers -- callers that have already
+  // resolved this via useApplicableClassifications pass it in; falls back to
+  // every classification this app knows about for callers that haven't
+  // adopted that yet (behavior-identical to before 2026-08-17).
+  var offeredKeys = (applicableClassifications && applicableClassifications.length > 0)
+    ? applicableClassifications : Object.keys(CLASSIFICATION_LABELS);
+  var classNameState = React.useState(initialClassificationName || offeredKeys[0] || 'confidentiality');
+  var classificationName = classNameState[0], setClassificationName = classNameState[1];
+  var classFilterState = React.useState(''); // free-text filter for the searchable classification dropdown
+  var classFilter = classFilterState[0], setClassFilter = classFilterState[1];
+  var datalistId = 'classification-modal-options-' + React.useId();
+  // "level" (needs a Level dropdown + valid-values lookup) or "marker" (bare
+  // apply/clear, e.g. PrimeWord -- no properties at all). Resolved from the
+  // level-property endpoint below; defaults to "level" so the UI doesn't
+  // flash-hide the Level field before the first fetch resolves.
+  var kindState = React.useState('level');
+  var kind = kindState[0], setKind = kindState[1];
+  var levelsState = React.useState(null); // null = not loaded
+  var levels = levelsState[0], setLevels = levelsState[1];
+  var levelsLoadingState = React.useState(true);
+  var levelsLoading = levelsLoadingState[0], setLevelsLoading = levelsLoadingState[1];
+  var levelsErrState = React.useState(null);
+  var levelsError = levelsErrState[0], setLevelsError = levelsErrState[1];
+  var levelState = React.useState(''); // selected level value (string of an int)
+  var level = levelState[0], setLevel = levelState[1];
+  var notesState = React.useState('');
+  var notes = notesState[0], setNotes = notesState[1];
+  // Extra properties beyond level+notes -- from GET .../schema, which reads
+  // Egeria's own ClassificationDef.attributeDefinitions live (Dan's call,
+  // 2026-08-17: "present the parameters of the classification and allow a
+  // user to optionally fill them out"). All optional; [] for marker
+  // classifications and for 'clear' (never fetched then).
+  var extraSchemaState = React.useState([]);
+  var extraSchema = extraSchemaState[0], setExtraSchema = extraSchemaState[1];
+  var extraValuesState = React.useState({}); // { [propName]: string | boolean }
+  var extraValues = extraValuesState[0], setExtraValues = extraValuesState[1];
+  var showAdvancedState = React.useState(false);
+  var showAdvanced = showAdvancedState[0], setShowAdvanced = showAdvancedState[1];
+  var submittingState = React.useState(false);
+  var submitting = submittingState[0], setSubmitting = submittingState[1];
+  var resultState = React.useState(null);
+  var result = resultState[0], setResult = resultState[1];
+  var submitErrState = React.useState(null);
+  var submitError = submitErrState[0], setSubmitError = submitErrState[1];
+
+  // Live Reclassify prefill: whatever level the currently-picked
+  // classification already has, IF every selected item shares the same one
+  // (each item's .classifications array -- present when the caller passes
+  // full term/element objects rather than bare {guid,displayName,typeName}
+  // selection entries; falls back to no prefill, same as a blank Classify,
+  // if that data isn't there). null = no uniform existing value to prefill.
+  var reclassifyPrefill = React.useMemo(function() {
+    if (verb !== 'reclassify') return null;
+    var label = CLASSIFICATION_LABELS[classificationName];
+    if (!label) return null;
+    var vals = items.map(function(item) {
+      var cls = (item.classifications || []).find(function(c) { return c.typeName === label; });
+      return cls ? classificationLevelValue(cls) : undefined;
+    });
+    var first = vals[0];
+    return (first !== undefined && vals.every(function(v) { return v === first; })) ? first : null;
+  }, [verb, classificationName, items]);
+
+  // Fetch this classification's kind + level-property name, then (for "level"
+  // kind only) its valid values -- both come from the live registry
+  // (governance_classifications_handler.py's level-property endpoint, then
+  // valid_values_handler.py's registry lookup), never hardcoded here. Only
+  // needed for classify/reclassify; declassify doesn't need a level either way.
+  React.useEffect(function() {
+    if (isClear) return;
+    setLevelsLoading(true); setLevelsError(null); setLevel(''); setLevels(null);
+    egeriaFetch('/api/classification/' + encodeURIComponent(classificationName) + '/level-property', creds)
+      .then(function(r) { return r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)); })
+      .then(function(d) {
+        var k = d.kind || 'level';
+        setKind(k);
+        if (k !== 'level') { setLevels([]); setLevelsLoading(false); return null; }
+        return egeriaFetch('/api/valid-values/lookup?property_name=' + encodeURIComponent(d.level_field), creds);
+      })
+      .then(function(r) { return (r === null) ? null : (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))); })
+      .then(function(d) {
+        if (d === null) return; // marker classification -- nothing more to load
+        var vs = (d.values || []).slice().sort(function(a, b) { return Number(a.preferredValue) - Number(b.preferredValue); });
+        setLevels(vs);
+        setLevelsLoading(false);
+        if (reclassifyPrefill !== null && reclassifyPrefill !== undefined) {
+          var match = vs.find(function(v) { return String(v.preferredValue) === String(reclassifyPrefill); });
+          if (match) setLevel(String(match.preferredValue));
+        }
+      })
+      .catch(function(e) { setLevelsError(e.message || String(e)); setLevelsLoading(false); });
+  }, [classificationName, isClear, verb]);
+
+  // Independent of the level-property effect above (different endpoint, and
+  // needed regardless of whether the level lookup succeeds) -- fetches this
+  // classification's extra editable properties. Backend returns [] for
+  // marker-kind classifications and for anything whose schema is exhausted
+  // by level+notes, so no local `kind` gating needed here.
+  React.useEffect(function() {
+    if (isClear) { setExtraSchema([]); return; }
+    setExtraValues({});
+    setShowAdvanced(false);
+    egeriaFetch('/api/classification/' + encodeURIComponent(classificationName) + '/schema', creds)
+      .then(function(r) { return r.ok ? r.json() : { properties: [] }; })
+      .then(function(d) { setExtraSchema(d.properties || []); })
+      .catch(function() { setExtraSchema([]); });
+  }, [classificationName, isClear]);
+
+  // Keeps the searchable-dropdown text input in sync with classificationName
+  // whenever it changes programmatically (initial mount, or the Reclassify
+  // prefill) -- the input's own onChange is what drives it the other way.
+  React.useEffect(function() {
+    setClassFilter(CLASSIFICATION_LABELS[classificationName] || classificationName);
+  }, [classificationName]);
+
+  function submit() {
+    if (submitting) return;
+    if (!isClear && kind === 'level' && level === '') return;
+    setSubmitting(true);
+    setSubmitError(null);
+    var url = '/api/classification/' + encodeURIComponent(classificationName) + '/members';
+    // Only properties the user actually touched are sent -- an empty/untouched
+    // field means "let the backend apply its own default" (statusIdentifier=0,
+    // confidence=100) rather than overwriting with a blank value.
+    var extraProps = {};
+    extraSchema.forEach(function(p) {
+      var v = extraValues[p.name];
+      if (v === undefined || v === null || v === '') return;
+      if (p.kind === 'int' || p.kind === 'number') extraProps[p.name] = Number(v);
+      else if (p.kind === 'boolean') { if (v) extraProps[p.name] = true; }
+      else extraProps[p.name] = v;
+    });
+    var payload = (isClear || kind !== 'level')
+      ? { guids: items.map(function(i) { return i.guid; }) }
+      : { guids: items.map(function(i) { return i.guid; }), level: Number(level), notes: notes || undefined,
+          extra_properties: Object.keys(extraProps).length ? extraProps : undefined };
+    egeriaFetch(url, creds, {
+      method: isClear ? 'DELETE' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+      .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || ('HTTP ' + r.status)); }); })
+      .then(function(res) { setResult(res); setSubmitting(false); if (onDone) onDone(res); })
+      .catch(function(e) { setSubmitError(e.message || String(e)); setSubmitting(false); });
+  }
+
+  var el = React.createElement;
+  var inp = { width: '100%', boxSizing: 'border-box', background: 'var(--bg)', border: '1px solid var(--border)',
+              borderRadius: 6, padding: '7px 9px', color: 'var(--text)', fontSize: 12, fontFamily: 'inherit', outline: 'none' };
+
+  return el('div', {
+    onClick: function(e) { if (e.target === e.currentTarget && !submitting) onClose(); },
+    style: { position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.45)',
+             display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  },
+    el('div', { style: { background: 'var(--surface,var(--card))', border: '1px solid var(--border)',
+        borderRadius: 12, padding: '22px 26px', width: 420, boxShadow: '0 8px 32px rgba(0,0,0,0.3)' } },
+
+      el('div', { style: { fontWeight: 700, fontSize: 14, marginBottom: 4 } },
+        title || (verb === 'declassify' ? 'Declassify' : verb === 'reclassify' ? 'Reclassify' : 'Classify')),
+      el('div', { style: { fontSize: 11, color: 'var(--muted)', marginBottom: 14 } },
+        items.length + ' element' + (items.length === 1 ? '' : 's') + ' selected'),
+
+      !result && el(React.Fragment, null,
+        el('div', { style: { display: 'flex', gap: 6, marginBottom: 14 } },
+          [['classify', 'Classify'], ['reclassify', 'Reclassify'], ['declassify', 'Declassify']].map(function(pair) {
+            var id = pair[0], label = pair[1], active = verb === id;
+            return el('button', {
+              key: id, disabled: submitting,
+              onClick: function() { setVerb(id); },
+              style: { flex: 1, fontSize: 12, padding: '6px 8px', borderRadius: 6, cursor: submitting ? 'default' : 'pointer',
+                       border: '1px solid ' + (active ? 'var(--accent)' : 'var(--border)'),
+                       background: active ? 'var(--accent)' : 'transparent',
+                       color: active ? 'var(--bg)' : 'var(--dim)', fontWeight: active ? 700 : 400 },
+            }, label);
+          })
+        ),
+        el('label', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 3 } }, 'Classification'),
+        // Searchable dropdown (native <input list> + <datalist>, no extra
+        // component needed) -- offeredKeys can run to dozens as more
+        // classifications gain set/clear support, so a plain <select>
+        // stops being browsable long before then (Dan's call, 2026-08-17).
+        el('input', {
+          type: 'text', list: datalistId, disabled: submitting,
+          value: classFilter,
+          placeholder: 'Search classifications…',
+          onChange: function(e) {
+            var v = e.target.value;
+            setClassFilter(v);
+            var match = offeredKeys.find(function(k) { return CLASSIFICATION_LABELS[k] === v; });
+            if (match) setClassificationName(match);
+          },
+          style: Object.assign({}, inp, { marginBottom: 10 }),
+        }),
+        el('datalist', { id: datalistId },
+          offeredKeys.map(function(k) {
+            return el('option', { key: k, value: CLASSIFICATION_LABELS[k] || k });
+          })
+        ),
+
+        !isClear && kind === 'level' && el(React.Fragment, null,
+          el('label', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 3 } }, 'Level'),
+          levelsLoading && el('div', { style: { fontSize: 12, color: 'var(--dim)', padding: '6px 0' } }, 'Loading…'),
+          levelsError && el('div', { style: { fontSize: 12, color: '#f87171', padding: '6px 0' } }, 'Error: ' + levelsError),
+          !levelsLoading && !levelsError && levels && el('select', {
+            value: level, disabled: submitting,
+            onChange: function(e) { setLevel(e.target.value); },
+            style: Object.assign({}, inp, { marginBottom: 10 }),
+          },
+            el('option', { value: '' }, '— choose —'),
+            levels.map(function(v) {
+              return el('option', { key: v.preferredValue, value: v.preferredValue }, v.displayName + ' (' + v.preferredValue + ')');
+            })
+          ),
+          el('label', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 3 } }, 'Notes (optional)'),
+          el('textarea', {
+            value: notes, disabled: submitting,
+            onChange: function(e) { setNotes(e.target.value); },
+            rows: 2,
+            style: Object.assign({}, inp, { marginBottom: 10, resize: 'vertical', fontFamily: 'inherit' }),
+          }),
+
+          // Everything else this classification's own typedef defines
+          // (steward, source, confidence score, ...) -- live from Egeria's
+          // ClassificationDef, not hardcoded, so it stays correct as new
+          // classifications are added to the registry. Collapsed by default:
+          // most bulk-classify actions only need the level.
+          extraSchema.length > 0 && el('div', { style: { marginBottom: 10 } },
+            el('button', {
+              type: 'button', onClick: function() { setShowAdvanced(!showAdvanced); }, disabled: submitting,
+              style: { fontSize: 11, color: 'var(--accent)', background: 'transparent', border: 'none',
+                       padding: 0, cursor: submitting ? 'default' : 'pointer', textDecoration: 'underline' },
+            }, showAdvanced ? '▾ Hide advanced properties' : '▸ Show advanced properties (optional)'),
+            showAdvanced && el('div', { style: { marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 } },
+              extraSchema.map(function(p) {
+                var val = extraValues[p.name];
+                function setVal(v) { setExtraValues(function(prev) { var next = Object.assign({}, prev); next[p.name] = v; return next; }); }
+                return el('div', { key: p.name },
+                  el('label', {
+                    style: { fontSize: 11, color: 'var(--dim)', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 },
+                    title: p.description || undefined,
+                  },
+                    p.kind === 'boolean' && el('input', {
+                      type: 'checkbox', checked: !!val, disabled: submitting,
+                      onChange: function(e) { setVal(e.target.checked); },
+                    }),
+                    p.name
+                  ),
+                  p.kind !== 'boolean' && el('input', {
+                    type: (p.kind === 'int' || p.kind === 'number') ? 'number' : (p.kind === 'date' ? 'date' : 'text'),
+                    value: val || '', disabled: submitting,
+                    onChange: function(e) { setVal(e.target.value); },
+                    style: inp,
+                  })
+                );
+              })
+            )
+          )
+        ),
+
+        !isClear && kind === 'marker' && !levelsLoading && el('div', { style: { fontSize: 12, color: 'var(--dim)', margin: '2px 0 10px' } },
+          'This classification has no additional properties — just apply it.'),
+
+        submitError && el('div', { style: { fontSize: 12, color: '#f87171', marginBottom: 8 } }, 'Error: ' + submitError),
+
+        el('div', { style: { display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 10 } },
+          el('button', {
+            onClick: onClose, disabled: submitting,
+            style: { fontSize: 12, padding: '6px 14px', borderRadius: 6, border: '1px solid var(--border)',
+                     background: 'transparent', color: 'var(--dim)', cursor: submitting ? 'default' : 'pointer' },
+          }, 'Cancel'),
+          el('button', {
+            onClick: submit, disabled: (!isClear && kind === 'level' && level === '') || submitting,
+            style: { fontSize: 12, padding: '6px 14px', borderRadius: 6, border: '1px solid var(--accent)',
+                     background: ((!isClear && kind === 'level' && level === '') || submitting) ? 'var(--panel)' : 'var(--accent)',
+                     color: ((!isClear && kind === 'level' && level === '') || submitting) ? 'var(--dim)' : 'var(--bg)',
+                     cursor: ((!isClear && kind === 'level' && level === '') || submitting) ? 'default' : 'pointer' },
+          }, submitting ? (isClear ? 'Clearing…' : 'Setting…') : (isClear ? 'Clear' : 'Set'))
+        )
+      ),
+
+      result && el(React.Fragment, null,
+        el('div', { style: { fontSize: 13, marginBottom: 6 } },
+          '✓ ', isClear ? result.removed.length : result.added.length,
+          isClear ? ' cleared.' : ' classified.'),
+        result.failed && result.failed.length > 0 && el('div', { style: { fontSize: 12, color: '#f87171', marginBottom: 10 } },
+          result.failed.length + ' failed:',
+          el('ul', { style: { margin: '4px 0 0 18px', padding: 0 } },
+            result.failed.map(function(f) {
+              return el('li', { key: f.guid }, f.guid + ' — ' + f.error);
+            })
+          )
+        ),
+        el('div', { style: { display: 'flex', justifyContent: 'flex-end', marginTop: 10 } },
+          el('button', {
+            onClick: onClose,
+            style: { fontSize: 12, padding: '6px 14px', borderRadius: 6, border: '1px solid var(--accent)',
+                     background: 'var(--accent)', color: 'var(--bg)', cursor: 'pointer' },
+          }, 'Done')
+        )
+      )
+    )
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
  * Egeria Feedback widgets (likes / ratings / comments) — shared by both SPAs.
  * Behaviour-identical extraction from type-explorer.html (canonical). They use
  * bare fetch() against /api/egeria-feedback/* (session/cookie auth, env-agnostic).
@@ -1444,6 +2000,7 @@ function EgeriaFeedbackWidget({ guid, creds, readOnly }) {
   return React.createElement('div', {
     style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, marginBottom: 2, fontSize: 12, userSelect: 'none' }
   },
+    React.createElement(CurrentNotAsOfNote, null),
     React.createElement('span', { onClick: handleLike, title: readOnly ? 'Sign in to like' : (liked ? 'Unlike' : 'Like'), style: likeStyle },
       '♥ ' + feedbackData.likes_count),
     React.createElement('span', { style: { color: 'var(--border)' } }, '|'),
@@ -1582,7 +2139,8 @@ function EgeriaCommentsSection({ guid, creds, readOnly }) {
   return React.createElement('div', { style: { marginTop: 28, borderTop: '1px solid var(--border)', paddingTop: 16 } },
     React.createElement('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 } },
       'Comments',
-      !loading && React.createElement('span', { style: { background: 'rgba(96,165,250,.12)', color: 'var(--accent)', borderRadius: 8, padding: '0 6px', fontSize: 10, fontWeight: 600 } }, comments.length)
+      !loading && React.createElement('span', { style: { background: 'rgba(96,165,250,.12)', color: 'var(--accent)', borderRadius: 8, padding: '0 6px', fontSize: 10, fontWeight: 600 } }, comments.length),
+      React.createElement(CurrentNotAsOfNote, null)
     ),
     loading
       ? React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', marginBottom: 12 } }, 'Loading…')
@@ -1966,6 +2524,36 @@ var CredContext = (typeof React !== 'undefined') ? React.createContext({ url: ''
 // Set by each SPA's App via PersonaContext.Provider and read by detail panels.
 var PersonaContext = (typeof React !== 'undefined') ? React.createContext(null) : null;
 
+// AsOfContext — the As-of slider's point in time (ISO string), or null for "now". Every view that renders a
+// TimeSlider provides it (AsOfContext.Provider value={asOfTime}); the shared secondary widgets read it, so a
+// widget added to such a view later follows the slider without any prop threading:
+//   MermaidSection, AssignedElementsSection, RawJsonViewer -> add as_of_time to their request, refetch on change
+//   EgeriaFeedbackWidget, EgeriaCommentsSection            -> stay current, and say so ("current — not as of …")
+var AsOfContext = (typeof React !== 'undefined') ? React.createContext(null) : null;
+
+function useAsOf() {
+  return AsOfContext ? React.useContext(AsOfContext) : null;
+}
+
+// "&as_of_time=…" / "?as_of_time=…" for a set time, "" for now (so a "now" request is byte-identical to before).
+function asOfParam(asOf, sep) {
+  return asOf ? (sep || '?') + 'as_of_time=' + encodeURIComponent(asOf) : '';
+}
+
+function asOfLabel(asOf) {
+  try { return new Date(asOf).toLocaleString(); } catch (e) { return String(asOf); }
+}
+
+// The small "current — not as of <time>" note for widgets that show live reactions inside a past view.
+function CurrentNotAsOfNote() {
+  var asOf = useAsOf();
+  if (!asOf) return null;
+  return React.createElement('span', {
+    title: 'Likes, ratings and comments are always shown as they are now; the As-of slider does not apply to them.',
+    style: { fontSize: 10, color: 'var(--dim)', fontStyle: 'italic', marginLeft: 6 }
+  }, 'current — not as of ' + asOfLabel(asOf));
+}
+
 /* Single lazy-loading diagram panel. fetchUrl is called on first open; label
  * appears in the header. field: which key to read from the JSON response
  * (default 'mermaidGraph'). Reads creds from CredContext + uses egeriaFetch so
@@ -2006,22 +2594,56 @@ function DiagramPanel({ fetchUrl, label, buttonLabel, field }) {
   );
 }
 
-/* Context diagram + anchored graph buttons for any element GUID. */
-function MermaidSection({ guid }) {
+/* Every diagram for any element GUID, as one chip bar (see GraphTabs): Context first, then Action and
+ * Activity (Egeria 6.3 moved those relationships out of the context graph), then whatever else the element
+ * carries, and the Anchored graph. The element is fetched ONCE, when the chip bar first loads (a deep
+ * context walk is costly, so it stays on demand): the Context chip loads it and the other chips then
+ * appear. The Anchored graph is its own, costlier read and loads only when its chip is chosen. */
+function MermaidSection({ guid, data }) {
+  var creds = React.useContext(CredContext);
+  var asOf = useAsOf();                                                   // the view's As-of slider (null = now)
+  var _g = React.useState(null), graphs = _g[0], setGraphs = _g[1];        // null = not loaded yet
+  var _b = React.useState(false), busy = _b[0], setBusy = _b[1];
+  var _o = React.useState(false), open = _o[0], setOpen = _o[1];
+  var _a = React.useState(false), absent = _a[0], setAbsent = _a[1];       // 404 at a past time
+  // A new element or a new time: drop what was loaded (it described another element or another time).
+  React.useEffect(function() { setGraphs(null); setBusy(false); setOpen(false); setAbsent(false); }, [guid, asOf]);
   if (!guid) return null;
+  var btnStyle = { fontSize: 12, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer' };
+  function loadAll() {
+    setOpen(true);
+    if (graphs !== null || busy) return;
+    setBusy(true);
+    egeriaFetch('/api/mermaid/' + encodeURIComponent(guid) + asOfParam(asOf), creds)
+      .then(function(r) {
+        if (r.status === 404 && asOf) { setAbsent(true); return null; }   // did not exist yet at that time
+        return r.ok ? r.json() : null;
+      })
+      .then(function(d) { setGraphs((d && d.graphs) || (d && d.mermaidGraph ? { mermaidGraph: d.mermaidGraph } : {})); setBusy(false); })
+      .catch(function() { setGraphs({}); setBusy(false); });
+  }
+  var extra = [{
+    key: '__anchored', label: 'Anchored Graph',
+    load: function() {
+      return egeriaFetch('/api/mermaid/' + encodeURIComponent(guid) + '/anchored' + asOfParam(asOf), creds)
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(d) { return (d && d.mermaidGraph) || ''; });
+    }
+  }];
+  // the element's own anchor graph, if it came back, would duplicate the Anchored chip: leave it to that chip
+  var shown = {};
+  // `data` is the host pane's own element, whose diagram keys AvailableMermaidDiagrams already offers: do not
+  // list the same diagram twice.
+  Object.keys(graphs || {}).forEach(function(k) {
+    if (k === 'anchorMermaidGraph') return;
+    if (k !== 'mermaidGraph' && data && typeof data[k] === 'string' && data[k].trim()) return;
+    shown[k] = graphs[k];
+  });
   return React.createElement('div', { style: { margin: '8px 0' } },
-    React.createElement(DiagramPanel, {
-      key: 'ctx:' + guid,
-      fetchUrl: '/api/mermaid/' + encodeURIComponent(guid),
-      label: 'Context Diagram',
-      buttonLabel: '▦ Load Context Diagram'
-    }),
-    React.createElement(DiagramPanel, {
-      key: 'anc:' + guid,
-      fetchUrl: '/api/mermaid/' + encodeURIComponent(guid) + '/anchored',
-      label: 'Anchored Graph',
-      buttonLabel: '▦ Load Anchored Graph'
-    })
+    !open && React.createElement('button', { onClick: loadAll, style: btnStyle }, '▦ Load Diagrams (context, action, activity, anchored…)'),
+    open && busy && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '6px 0' } }, 'Loading diagrams…'),
+    open && absent && !busy && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '6px 0' } }, 'This element did not exist at ' + asOfLabel(asOf) + ', so it has no diagrams then.'),
+    open && graphs !== null && !busy && !absent && React.createElement(GraphTabs, { graphs: shown, extra: extra, initial: shown.mermaidGraph ? 'mermaidGraph' : null })
   );
 }
 
@@ -2035,16 +2657,22 @@ function AssignedElementsSection({ termGuid, onNavigateToElement, isElementLinka
   const [data, setData]       = React.useState(null);
   const [loading, setLoading] = React.useState(false);
   const [visible, setVisible] = React.useState(false);
+  const [failed, setFailed]   = React.useState(false);
   const creds = React.useContext(CredContext);
+  const asOf = useAsOf();                                   // the view's As-of slider (null = now)
   var btnStyle = { fontSize: 12, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer' };
+
+  // A new term or a new time: what was loaded described another term or another time.
+  React.useEffect(function() { setData(null); setLoading(false); setVisible(false); setFailed(false); }, [termGuid, asOf]);
 
   function toggle() {
     if (data === null && !loading) {
-      setLoading(true); setVisible(true);
-      egeriaFetch('/api/glossary/term/' + encodeURIComponent(termGuid) + '/assigned-elements', creds)
-        .then(function(r) { return r.ok ? r.json() : null; })
+      setLoading(true); setVisible(true); setFailed(false);
+      egeriaFetch('/api/glossary/term/' + encodeURIComponent(termGuid) + '/assigned-elements' + asOfParam(asOf), creds)
+        .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(function(j) { setData(j || { physical: [], logical: [], other: [], total: 0 }); setLoading(false); })
-        .catch(function() { setData({ physical: [], logical: [], other: [], total: 0 }); setLoading(false); });
+        // a failed lookup is not "nothing is assigned": say it failed
+        .catch(function() { setFailed(true); setLoading(false); });
     } else {
       setVisible(function(v) { return !v; });
     }
@@ -2071,7 +2699,12 @@ function AssignedElementsSection({ termGuid, onNavigateToElement, isElementLinka
   return React.createElement('div', { style: { margin: '4px 0 12px' } },
     React.createElement('button', { onClick: toggle, style: btnStyle }, btnLabel),
     visible && loading && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '6px 0' } }, 'Looking up assigned elements…'),
-    visible && !loading && data && data.total === 0 && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '4px 0' } }, 'No physical or logical elements are assigned this term yet.'),
+    visible && !loading && failed && React.createElement('div', { style: { fontSize: 11, color: '#f87171', padding: '4px 0' } }, 'Could not look up the assigned elements. ', React.createElement('a', { href: '#', onClick: function(e) { e.preventDefault(); setVisible(false); toggle(); } }, 'Try again')),
+    // capped: the assignment read stopped at readLimit, so the list is a lower bound and an empty one means
+    // "none in the part that was read" -- never shown as complete.
+    visible && !loading && data && data.capped && React.createElement('div', { style: { fontSize: 11, color: '#fbbf24', padding: '4px 0' } },
+      'At least ' + data.total + ' — the assignment read stopped at ' + (data.readLimit || 5000).toLocaleString() + ', so more may exist.'),
+    visible && !loading && data && data.total === 0 && !data.capped && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '4px 0' } }, asOf ? 'No physical or logical elements were assigned this term at ' + asOfLabel(asOf) + '.' : 'No physical or logical elements are assigned this term yet.'),
     visible && !loading && data && data.total > 0 && React.createElement('div', { style: { marginTop: 8 } },
       renderGroup('Physical elements', data.physical),
       renderGroup('Logical elements', data.logical),
@@ -2515,7 +3148,14 @@ function _isCatalogType(item) {
   // Types displayed in the Tech Catalog (resolves ?guid via its element-nav).
   var st = item.superTypeNames || item.superTypes || [];
   var tn = item.typeName || '';
-  return st.indexOf('Asset') !== -1 || tn === 'Endpoint' || tn === 'SoftwareCapability' || st.indexOf('SoftwareCapability') !== -1;
+  if (st.indexOf('Asset') !== -1 || tn === 'Endpoint' || tn === 'SoftwareCapability' || st.indexOf('SoftwareCapability') !== -1) return true;
+  // Falls back to the type-nav map for types Tech Catalog owns an internal
+  // view for (catalogSection) but that aren't Assets/Endpoint/SoftwareCapability
+  // — e.g. Namespace, a Collection subtype. Only when there's no explorerHash:
+  // a type with both (GlossaryTerm, GovernanceActionProcess) already resolved
+  // via resolveExplorerNav() above and never reaches this fallback.
+  var nav = (typeof resolveTypeNav === 'function') ? resolveTypeNav(tn, st) : null;
+  return !!(nav && nav.catalogSection && !nav.explorerHash);
 }
 
 /* Unified element-nav: prefer an Explorer panel, else the Tech Catalog. Returns
@@ -2614,11 +3254,13 @@ function Collapsible({ title, defaultOpen, count, children }) {
 // no inline display, just a copy action with a brief confirmation.
 function RawJsonViewer({ guid, creds, depth }) {
   var _s = React.useState('idle'), state = _s[0], setState = _s[1]; // idle | loading | copied | error
+  var asOf = useAsOf();                                              // the view's As-of slider (null = now)
 
   function handleClick() {
     if (state === 'loading') return;
     setState('loading');
-    var url = '/api/debug/raw/' + encodeURIComponent(guid) + (depth != null ? '?depth=' + depth : '');
+    var url = '/api/debug/raw/' + encodeURIComponent(guid) + (depth != null ? '?depth=' + depth : '')
+      + asOfParam(asOf, depth != null ? '&' : '?');
     egeriaFetch(url, creds).then(function(r) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.json();
@@ -2637,7 +3279,7 @@ function RawJsonViewer({ guid, creds, depth }) {
   var label = state === 'loading' ? 'Copying…'
     : state === 'copied' ? '✓ Copied raw JSON'
     : state === 'error' ? 'Copy failed'
-    : 'Copy raw JSON (debug)';
+    : 'Copy raw JSON (debug)' + (asOf ? ' as of ' + asOfLabel(asOf) : '');
 
   return React.createElement('div', {
     onClick: handleClick,
@@ -2742,19 +3384,31 @@ function ClassificationPropertyValue({ value, creds }) {
 function ClassificationsAndRawJson({ item, creds }) {
   var ctxCreds = React.useContext(CredContext);
   var effectiveCreds = creds || ctxCreds;
+  // Hook before the early return (rules of hooks). Grouped by classification
+  // purpose once the map is ready; flat until then, or if the lookup failed.
+  var cp = useClassificationPurposes(effectiveCreds);
   if (!item) return null;
   var classifs = item.classifications || [];
+  function card(c) {
+    return React.createElement('div', { key: c.typeName, style: { borderLeft: '3px solid var(--classif)', paddingLeft: 8, marginBottom: 6 } },
+      React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--classif)', marginBottom: Object.keys(c.properties || {}).length ? 4 : 0 } }, c.typeName),
+      Object.entries(c.properties || {}).map(function(e) {
+        return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
+          e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, React.createElement(ClassificationPropertyValue, { value: e[1], creds: effectiveCreds })));
+      })
+    );
+  }
+  var grouped = cp.ready && cp.serverReportsPurpose === true;
   return React.createElement(React.Fragment, null,
     classifs.length > 0 && React.createElement(Collapsible, { title: 'Classifications', count: classifs.length, defaultOpen: false },
-      classifs.map(function(c) {
-        return React.createElement('div', { key: c.typeName, style: { borderLeft: '3px solid var(--classif)', paddingLeft: 8, marginBottom: 6 } },
-          React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--classif)', marginBottom: Object.keys(c.properties || {}).length ? 4 : 0 } }, c.typeName),
-          Object.entries(c.properties || {}).map(function(e) {
-            return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
-              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, React.createElement(ClassificationPropertyValue, { value: e[1], creds: effectiveCreds })));
+      cp.serverReportsPurpose === false && React.createElement('div', {
+        style: { fontSize: 11, color: 'var(--dim)', fontStyle: 'italic', padding: '0 0 6px' }
+      }, CLS_PURPOSE_NONE_HINT),
+      grouped
+        ? groupByClassificationPurpose(classifs, function(c) { return c.typeName; }, cp.purposeOf, cp.unrecognisedOf).map(function(g) {
+            return React.createElement(ClsPurposeGroup, { key: g.key, groupKey: g.key, count: g.items.length }, g.items.map(card));
           })
-        );
-      })
+        : classifs.map(card)
     ),
     item.guid && React.createElement(RawJsonViewer, { guid: item.guid, creds: effectiveCreds })
   );
@@ -3188,23 +3842,13 @@ function GenericPropertiesTable({ item, priority, skip, extra, renderValue }) {
   );
 }
 
-/* ── HeaderInfoButton — pops up elementHeader metadata (guid, type, status,
- * version, created/updated by+time) common to every element, regardless of
- * type. Mirrors the "Show Context Diagram" toggle-button convention used for
- * mermaid graphs. Drop into any Detail component's header-button row next to
- * CopyJsonButton. `header` is the normalized subset a backend serializer
- * produces via common_serialize.py::_header_summary (or an equivalent
- * frontend-side pick of guid/typeName/status/version/createdBy/etc off the
- * item, for handlers not yet updated to send a dedicated `_header` field). ── */
-
-// Renders a Referenceable's plain additionalProperties Map<String,String>
-// (e.g. a ValidMetadataValue's "explanation" note) as its own resizable
-// sub-table, instead of it getting flattened into a generic properties
-// table's giant "k: v; k2: v2" cell. Ported from quickstart (2026-08-16,
-// SHARE-3 drift audit) -- digital_products_handler.py's _serialize_node
-// deliberately skips additionalProperties in its flat prop-string builder
-// for the same reason (see that file's _extract_props comment) and surfaces
-// it as this structured dict instead.
+// AdditionalPropertiesTable — renders a Referenceable's `additionalProperties`
+// (a plain Map<String,String>, e.g. ValidMetadataValue's "explanation" note or
+// spec-property placeholder documentation) as its own compact sub-table, rather
+// than folded into GenericPropertiesTable as one long "k: v; k2: v2" cell.
+// `data` is the raw {key: value} dict — pass item.additionalProperties straight
+// through (backend keeps it structured for exactly this; see digital_products_
+// handler.py's _serialize_node).
 function AdditionalPropertiesTable({ data }) {
   var entries = Object.entries(data || {}).filter(function(e) { return e[1] !== undefined && e[1] !== null && String(e[1]).trim() !== ''; });
   if (entries.length === 0) return null;
@@ -3227,6 +3871,14 @@ function AdditionalPropertiesTable({ data }) {
   );
 }
 
+/* ── HeaderInfoButton — pops up elementHeader metadata (guid, type, status,
+ * version, created/updated by+time) common to every element, regardless of
+ * type. Mirrors the "Show Context Diagram" toggle-button convention used for
+ * mermaid graphs. Drop into any Detail component's header-button row next to
+ * CopyJsonButton. `header` is the normalized subset a backend serializer
+ * produces via common_serialize.py::_header_summary (or an equivalent
+ * frontend-side pick of guid/typeName/status/version/createdBy/etc off the
+ * item, for handlers not yet updated to send a dedicated `_header` field). ── */
 function _fmtHeaderDate(iso) {
   if (!iso) return '';
   try { return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }); } catch (e) { return iso; }
@@ -3970,5 +4622,674 @@ function GenericRelationshipsSection({ relationships, onNavigateToElement, skip,
       return React.createElement(PurposeFamilySection, { key: f.key, familyKey: f.key, count: count },
         famKeys.map(function(k) { return section(k, f.key); }));
     })
+  );
+}
+
+/* ── Classification purpose ──────────────────────────────────────────────────
+ * Egeria gives every classification TYPE a purpose (OpenMetadataClassificationPurpose,
+ * https://egeria-project.org/concepts/classification-purpose/) saying why the
+ * type exists. It is its own six-value enum, not the relationship one, and six
+ * groups are few enough that each purpose is its own group (no families).
+ *
+ * Purpose is per type: callers map a classification's typeName through the map
+ * from GET /api/types/classification-purposes (or seedClassificationPurposes()
+ * when the page already holds /api/types). Three different answers stay
+ * distinct:
+ *   - a recognised purpose (one of the six);
+ *   - "Purpose not recognised by this Portal: X" — the server sent a value
+ *     this Portal doesn't know (say a seventh purpose added to Egeria later);
+ *   - "No purpose reported" — the server sent none. Never CATEGORY, Egeria's
+ *     enum default, which would claim something the server never said.
+ * Group keys: the purpose constant, '__unrec:<raw value>', or '__none'.
+ * A server that reports no purposes at all gets a one-line hint and the flat
+ * list, never empty groups.
+ *
+ * Exports (globals):
+ *   CLS_PURPOSES, CLS_PURPOSE_ORDER, CLS_PURPOSE_CONCEPT_URL, CLS_PURPOSE_NONE_HINT,
+ *   clsPurposeInfo(purpose), clsPurposeKey(purpose, unrecognised), clsPurposeInfoForKey(key),
+ *   seedClassificationPurposes(map, serverReportsPurpose, creds, unrecognised),
+ *   useClassificationPurposes(creds),
+ *   groupByClassificationPurpose(items, getTypeName, purposeOf, unrecognisedOf),
+ *   ClsPurposeBadge({purpose, compact}), ClsPurposeChips({keys, counts, selected, onToggle, onClear}),
+ *   useClsPurposeOpen(key, defaultOpen), CLS_PURPOSE_FOLD_KEY.
+ * CSS vars injected here: --cls-purpose-<key> (dark on :root, light on :root.light). */
+
+var CLS_PURPOSE_CONCEPT_URL = 'https://egeria-project.org/concepts/classification-purpose/';
+var CLS_PURPOSE_NONE_HINT = "This Egeria server doesn't report classification purposes, so classifications aren't grouped.";
+
+// Descriptions are Egeria's own (OpenMetadataClassificationPurpose.java).
+var CLS_PURPOSES = {
+  GOVERNANCE:                { label: 'Governance',                key: 'governance',
+                               desc: 'Describes the governance characteristics of the element, such as its owner, confidentiality, criticality, or retention, which determine the governance actions that are appropriate.' },
+  GOVERNANCE_IMPLEMENTATION: { label: 'Governance Implementation', key: 'govimpl',
+                               desc: 'Identifies the element as a place where governance is implemented, such as a control, verification, or enforcement point, or a policy management point.' },
+  CATEGORY:                  { label: 'Category',                  key: 'category',
+                               desc: 'Refines the kind of element, such as the kind of project, collection, location, log, or glossary term.' },
+  DESCRIPTIVE:               { label: 'Descriptive',               key: 'descriptive',
+                               desc: 'Adds detail about the shape or encoding of the data that the element describes, such as a primary key or a calculated value.' },
+  ANALYTICAL:                { label: 'Analytical',                key: 'analytical',
+                               desc: "Statistics and profiles gathered about the element and its use, typically maintained by Egeria's own services such as the nanny connectors." },
+  MANAGEMENT:                { label: 'Management',                key: 'management',
+                               desc: 'Used by Egeria to manage the element, for example its anchor, zone membership, template status, or whether it is a memento or a known duplicate.' },
+};
+// Display order: what a reader acts on first (governance), then what the
+// element is, then Egeria's own bookkeeping. Unclassified always last.
+var CLS_PURPOSE_ORDER = ['GOVERNANCE', 'GOVERNANCE_IMPLEMENTATION', 'CATEGORY', 'DESCRIPTIVE', 'ANALYTICAL', 'MANAGEMENT'];
+Object.keys(CLS_PURPOSES).forEach(function(p) { CLS_PURPOSES[p].color = 'var(--cls-purpose-' + CLS_PURPOSES[p].key + ')'; });
+var _CLS_NO_PURPOSE = { label: 'No purpose reported', key: 'unclassified', color: 'var(--cls-purpose-unclassified)',
+                        desc: 'The server reports no purpose for these classification types.' };
+
+/* Info for a purpose constant; the "No purpose reported" entry for null. */
+function clsPurposeInfo(purpose) {
+  return (purpose && CLS_PURPOSES[purpose]) || _CLS_NO_PURPOSE;
+}
+
+/* Group key for one type: its recognised purpose, '__unrec:<raw>' when the
+ * server sent a value this Portal doesn't know, else '__none'. */
+function clsPurposeKey(purpose, unrecognised) {
+  if (purpose && CLS_PURPOSES[purpose]) return purpose;
+  if (unrecognised != null && unrecognised !== '') return '__unrec:' + unrecognised;
+  return '__none';
+}
+
+/* Info (label, desc, colour, fold key) for a group key from clsPurposeKey. */
+function clsPurposeInfoForKey(key) {
+  if (key && key.indexOf('__unrec:') === 0) {
+    var raw = key.slice(8);
+    return { label: 'Not recognised: ' + raw, key: 'unrecognised', raw: raw, color: 'var(--cls-purpose-unclassified)',
+             desc: 'Purpose not recognised by this Portal: ' + raw + '. The server reports it, but this Portal ' +
+                   "doesn't know it yet (it may be newer than the Portal)." };
+  }
+  return clsPurposeInfo(key === '__none' ? null : key);
+}
+
+(function injectClsPurposeTokens() {
+  if (typeof document === 'undefined' || document.getElementById('egeria-cls-purpose-tokens')) return;
+  var css =
+    ':root{--cls-purpose-governance:#a78bfa;--cls-purpose-govimpl:#f472b6;--cls-purpose-category:#38bdf8;' +
+    '--cls-purpose-descriptive:#4ade80;--cls-purpose-analytical:#fbbf24;--cls-purpose-management:#94a3b8;--cls-purpose-unclassified:#9ca3af;}' +
+    ':root.light{--cls-purpose-governance:#6d28d9;--cls-purpose-govimpl:#be185d;--cls-purpose-category:#0369a1;' +
+    '--cls-purpose-descriptive:#15803d;--cls-purpose-analytical:#b45309;--cls-purpose-management:#475569;--cls-purpose-unclassified:#6b7280;}';
+  var el = document.createElement('style');
+  el.id = 'egeria-cls-purpose-tokens';
+  el.textContent = css;
+  (document.head || document.documentElement).appendChild(el);
+})();
+
+// One cache entry per "url|server", same shape as the relationship one:
+//   { purposes: {typeName: purpose|null} | null,
+//     serverReportsPurpose: true | false | null,   // null = not known yet / fetch failed
+//     error, promise, listeners }
+var _clsPurposeCache = {};
+
+function _clsPurposeEntry(creds) {
+  var k = ((creds && creds.url) || '') + '|' + ((creds && creds.server) || '');
+  if (!_clsPurposeCache[k]) {
+    _clsPurposeCache[k] = { purposes: null, unrecognised: {}, serverReportsPurpose: null, error: null, promise: null, listeners: new Set() };
+  }
+  return _clsPurposeCache[k];
+}
+
+function _clsPurposeNotify(entry) {
+  entry.listeners.forEach(function(fn) { try { fn(); } catch (e) {} });
+}
+
+/* Seed the map from data the page already holds. `map` may be
+ * {typeName: 'GOVERNANCE'} (the endpoint's `purposes`, with its
+ * `unrecognised` dict passed as the 4th argument) or the /api/types
+ * `classifications` dict ({typeName: {classificationPurpose,
+ * classificationPurposeUnrecognised}}). A string this page doesn't know is
+ * kept as unrecognised, never dropped to "none". When serverReportsPurpose is
+ * omitted it is derived: true if any type has a purpose value of any kind. */
+function seedClassificationPurposes(map, serverReportsPurpose, creds, unrecognised) {
+  var entry = _clsPurposeEntry(creds);
+  var purposes = {}, unrec = {};
+  Object.keys(unrecognised || {}).forEach(function(name) {
+    if (unrecognised[name] != null && unrecognised[name] !== '') unrec[name] = String(unrecognised[name]);
+  });
+  Object.keys(map || {}).forEach(function(name) {
+    var v = map[name], raw = null;
+    if (v && typeof v === 'object') { raw = v.classificationPurposeUnrecognised; v = v.classificationPurpose; }
+    if (v && CLS_PURPOSES[v]) { purposes[name] = v; return; }
+    purposes[name] = null;
+    if (typeof v === 'string' && v) raw = v;           // a value the backend knew but this page doesn't
+    if (raw != null && raw !== '') unrec[name] = String(raw);
+  });
+  entry.purposes = purposes;
+  entry.unrecognised = unrec;
+  entry.serverReportsPurpose = (serverReportsPurpose != null)
+    ? !!serverReportsPurpose
+    : (Object.keys(purposes).some(function(n) { return purposes[n] != null; }) || Object.keys(unrec).length > 0);
+  entry.error = null;
+  entry.promise = entry.promise || Promise.resolve();
+  _clsPurposeNotify(entry);
+}
+
+function _loadClassificationPurposes(creds) {
+  var entry = _clsPurposeEntry(creds);
+  if (entry.promise) return entry.promise;
+  var url = '/api/types/classification-purposes';
+  var req = (creds && typeof egeriaFetch === 'function') ? egeriaFetch(url, creds) : fetch(url);
+  entry.promise = req.then(function(r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }).then(function(body) {
+    seedClassificationPurposes((body && body.purposes) || {}, body && body.serverReportsPurpose, creds, body && body.unrecognised);
+  }).catch(function(err) {
+    // A failed lookup is NOT "the server reports no purposes": leave
+    // serverReportsPurpose null (flat list, no hint) and let the next mount retry.
+    entry.error = String((err && err.message) || err);
+    entry.promise = null;
+    _clsPurposeNotify(entry);
+  });
+  return entry.promise;
+}
+
+/* Hook: { ready, error, serverReportsPurpose, purposeOf(typeName),
+ * unrecognisedOf(typeName) }. Keep the flat layout until
+ * ready && serverReportsPurpose === true. */
+function useClassificationPurposes(creds) {
+  var entry = _clsPurposeEntry(creds);
+  var _t = React.useState(0), bump = _t[1];
+  React.useEffect(function() {
+    var fn = function() { bump(function(n) { return n + 1; }); };
+    entry.listeners.add(fn);
+    if (!entry.purposes) _loadClassificationPurposes(creds);
+    return function() { entry.listeners.delete(fn); };
+  }, [entry]);
+  var purposes = entry.purposes;
+  return {
+    ready: !!purposes || !!entry.error,
+    error: entry.error,
+    serverReportsPurpose: entry.serverReportsPurpose,
+    purposeOf: function(typeName) { return (purposes && typeName && purposes[typeName]) || null; },
+    unrecognisedOf: function(typeName) { return (typeName && entry.unrecognised[typeName]) || null; },
+  };
+}
+
+/* Split items into [{ key, purpose, info, items }]: CLS_PURPOSE_ORDER, then
+ * one group per unrecognised value (A–Z), then "No purpose reported"; empty
+ * groups are dropped. purpose is the recognised constant or null. Item order
+ * within a group is preserved, so sort first. */
+function groupByClassificationPurpose(items, getTypeName, purposeOf, unrecognisedOf) {
+  var buckets = {};
+  (items || []).forEach(function(item) {
+    var n = getTypeName(item);
+    var k = clsPurposeKey(purposeOf(n), unrecognisedOf ? unrecognisedOf(n) : null);
+    (buckets[k] = buckets[k] || []).push(item);
+  });
+  var unrecKeys = Object.keys(buckets).filter(function(k) { return k.indexOf('__unrec:') === 0; }).sort();
+  return CLS_PURPOSE_ORDER.concat(unrecKeys, ['__none'])
+    .filter(function(k) { return buckets[k]; })
+    .map(function(k) {
+      return { key: k, purpose: CLS_PURPOSES[k] ? k : null, info: clsPurposeInfoForKey(k), items: buckets[k] };
+    });
+}
+
+/* Small badge for one purpose; renders nothing for null/unknown (no fake default). */
+function ClsPurposeBadge({ purpose, compact }) {
+  var info = purpose && CLS_PURPOSES[purpose];
+  if (!info) return null;
+  return React.createElement('span', {
+    title: info.label + ' — ' + info.desc,
+    style: {
+      display: 'inline-block', flexShrink: 0, whiteSpace: 'nowrap',
+      fontSize: compact ? 9 : 10, fontWeight: 600, letterSpacing: '0.02em',
+      padding: compact ? '0 5px' : '1px 6px', borderRadius: 3, lineHeight: 1.5,
+      color: info.color, border: '1px solid ' + info.color,
+      background: 'color-mix(in srgb, ' + info.color + ' 12%, transparent)',
+    }
+  }, info.label);
+}
+
+/* Multi-select purpose filter chips. keys: group keys present (clsPurposeKey);
+ * counts: key -> number of rows. */
+function ClsPurposeChips({ keys, counts, selected, onToggle, onClear }) {
+  return React.createElement('div', {
+      style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, margin: '0 0 10px' }
+    },
+    React.createElement('span', { style: { fontSize: 11, color: 'var(--muted)' } }, 'Purpose'),
+    keys.map(function(k) {
+      var info = clsPurposeInfoForKey(k);
+      var on = selected.has(k);
+      return React.createElement('button', {
+        key: k, onClick: function() { onToggle(k); }, title: info.desc, 'aria-pressed': on,
+        style: {
+          fontSize: 11, padding: '1px 8px', borderRadius: 10, cursor: 'pointer',
+          border: '1px solid ' + info.color, color: on ? 'var(--bg)' : info.color,
+          background: on ? info.color : 'transparent', fontWeight: on ? 700 : 500
+        }
+      }, info.label, ' ', counts[k]);
+    }),
+    selected.size > 0 && React.createElement('button', {
+      onClick: onClear,
+      style: { fontSize: 11, background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', padding: 0 }
+    }, 'Clear'));
+}
+
+/* Fold state per purpose group, shared by every panel and app in this browser
+ * (like the relationship families, but its own key). */
+var CLS_PURPOSE_FOLD_KEY = 'egeria-cls-purpose-open';
+
+function useClsPurposeOpen(key, defaultOpen) {
+  var _s = React.useState(function() {
+    try {
+      var saved = (JSON.parse(localStorage.getItem(CLS_PURPOSE_FOLD_KEY) || '{}') || {})[key];
+      if (typeof saved === 'boolean') return saved;
+    } catch (e) {}
+    return !!defaultOpen;
+  });
+  var open = _s[0], setOpen = _s[1];
+  function toggle() {
+    var next = !open;
+    setOpen(next);
+    try {
+      var all = JSON.parse(localStorage.getItem(CLS_PURPOSE_FOLD_KEY) || '{}') || {};
+      all[key] = next;
+      localStorage.setItem(CLS_PURPOSE_FOLD_KEY, JSON.stringify(all));
+    } catch (e) {}
+  }
+  return [open, toggle];
+}
+
+/* One purpose group inside an element's Classifications section: a foldable
+ * header in the purpose hue with its count. Open by default, because the
+ * Classifications section around it already starts folded. */
+function ClsPurposeGroup({ groupKey, count, children }) {
+  var info = clsPurposeInfoForKey(groupKey);
+  var _o = useClsPurposeOpen(info.key, true), open = _o[0], toggle = _o[1];
+  return React.createElement('div', { 'data-cls-purpose': info.key, style: { marginBottom: 4 } },
+    React.createElement('div', {
+      onClick: toggle, role: 'button', 'aria-expanded': open, title: info.desc,
+      style: { display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', cursor: 'pointer', userSelect: 'none',
+               fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: info.color }
+    },
+      React.createElement(FoldTriangle, { open: open, size: 10, style: { color: info.color } }),
+      React.createElement('span', { style: { width: 8, height: 8, borderRadius: 2, background: info.color, display: 'inline-block' } }),
+      info.label,
+      React.createElement('span', { style: { color: 'var(--dim)', fontWeight: 600 } }, '(' + count + ')')
+    ),
+    open && React.createElement('div', { style: { paddingLeft: 12 } }, children)
+  );
+}
+
+/* -- Egeria 6.4 (odpi/egeria#9463): helpers every 6.4 card shares ---------------
+ * Used by the Explorer's Decision card (type-explorer.html), The Catalog's Configuration
+ * Value and Models and Runs cards (tech-catalog.html), and by
+ * E64RelatedPanel, the 6.4 rows on any element's existing card (the Explorer's cards
+ * and The Catalog's asset card). Backend: e64_handler.py (quickstart).
+ * A list's state comes from the backend (egeria_6_4_support.list_state):
+ *   read, none (asked for, Egeria returned none), not-read (not asked for),
+ *   needs-6.4 (platform before 6.4), not-known (platform version unreadable).
+ * Absence is said in words; "needs Egeria 6.4" is never shown as an error or as "none".
+ * The part between e64-shared:begin and e64-shared:end runs under node in
+ * tests/test_e64_cards_js.py: keep it free of hooks. */
+/* e64-shared:begin */
+var E64_LIST_WORDS = {
+  'none':     { text: 'None recorded.', tone: 'dim' },
+  'not-read': { text: 'Not read: this list was not asked for.', tone: 'warn' },
+  'not-known': { text: 'Not known: this platform’s Egeria version could not be read, so it may not have the Egeria 6.4 lists.', tone: 'warn' },
+  'needs-6.4': { text: 'Needs Egeria 6.4.', tone: 'warn' },
+};
+
+// Words for a list that has no rows to show, or null when its rows should be shown.
+function e64ListWords(st) {
+  var s = st && st.state;
+  if (s === 'read') return null;
+  if (s === 'needs-6.4') return { text: (st.words || E64_LIST_WORDS['needs-6.4'].text), tone: 'warn' };
+  return E64_LIST_WORDS[s] || E64_LIST_WORDS['not-read'];
+}
+
+function e64ParseTime(s) {
+  if (s === null || s === undefined || s === '') return NaN;
+  var t = Date.parse(String(s));
+  return isNaN(t) ? NaN : t;
+}
+
+// UTC: Egeria dates are instants, usually at UTC midnight; local time would show the day before in the Americas.
+function e64FmtDate(s) {
+  var t = e64ParseTime(s);
+  if (isNaN(t)) return s ? String(s) : '';
+  return new Date(t).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
+}
+
+// One row per assessment, keyed by its relationship GUID. Rows group by r.guid: an element assessed
+// more than once for a Decision, or a Decision an element was assessed for more than once. Each row
+// of a group says which assessment it is ('2 of 3'), oldest first.
+function decisionAssessmentRows(rows) {
+  var list = (rows || []).slice();
+  var byEl = {};
+  list.forEach(function(r) { var k = r.guid || ''; (byEl[k] = byEl[k] || []).push(r); });
+  Object.keys(byEl).forEach(function(k) {
+    byEl[k].sort(function(a, b) {
+      var ta = e64ParseTime(a.assessmentTime), tb = e64ParseTime(b.assessmentTime);
+      if (isNaN(ta) && isNaN(tb)) return 0; if (isNaN(ta)) return 1; if (isNaN(tb)) return -1; return ta - tb;
+    });
+  });
+  var out = [];
+  Object.keys(byEl).sort(function(a, b) {
+    var na = (byEl[a][0].displayName || a).toLowerCase(), nb = (byEl[b][0].displayName || b).toLowerCase();
+    return na < nb ? -1 : na > nb ? 1 : 0;
+  }).forEach(function(k) {
+    var group = byEl[k];
+    group.forEach(function(r, i) {
+      out.push(Object.assign({}, r, {
+        key: r.relationshipGuid || ('row-' + k + '-' + i),
+        nth: group.length > 1 ? (i + 1) + ' of ' + group.length : '',
+      }));
+    });
+  });
+  return out;
+}
+
+var _E64_TONE = { ok: '#34d399', bad: '#f87171', warn: '#fbbf24', dim: 'var(--dim)' };
+
+function E64ListNote({ st }) {
+  var w = e64ListWords(st);
+  if (!w) return null;
+  return React.createElement('div', { className: 'e64-list-note', 'data-state': st && st.state,
+    style: { fontSize: 12, color: _E64_TONE[w.tone] || 'var(--dim)', padding: '4px 0' } }, w.text);
+}
+
+function E64Needs64({ words }) {
+  return React.createElement('div', { className: 'e64-needs64', role: 'status',
+    style: { margin: 16, padding: '10px 14px', borderRadius: 6, border: '1px solid rgba(251,191,36,.4)', background: 'rgba(251,191,36,.08)', color: '#fbbf24', fontSize: 13, overflowWrap: 'anywhere' } },
+    words || 'Needs Egeria 6.4.');
+}
+
+// The related element's name, linked when the page can open it: the page's own
+// onNavigateToElement with its own predicate (E64UI.isLinkable; the Explorer sets
+// _elementIsLinkable), or else the Portal-wide cross-app link (isElementLinkable /
+// crossAppNavigate, from static/type-nav-map.json).
+var E64UI = { isLinkable: null };
+
+function _e64ElementCell(r, onNavigateToElement) {
+  var go = null;
+  if (r.guid && onNavigateToElement) {
+    var pred = E64UI.isLinkable || (typeof isElementLinkable === 'function' ? isElementLinkable : null);
+    if (pred && pred(r)) go = function() { onNavigateToElement(r); };
+  } else if (r.guid && typeof isElementLinkable === 'function' && isElementLinkable(r)) {
+    go = function() { crossAppNavigate(r); };
+  }
+  var name = r.displayName || r.qualifiedName || r.guid || '—';
+  return React.createElement('div', null,
+    go
+      ? React.createElement('a', { href: '#', title: r.qualifiedName || r.guid, onClick: function(e) { e.preventDefault(); go(); } }, name)
+      : React.createElement('span', { title: r.qualifiedName || r.guid }, name),
+    r.typeName && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)' } }, r.typeName));
+}
+
+var _E64_TH = { textAlign: 'left', padding: '6px 8px', fontSize: 10, color: 'var(--dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)', verticalAlign: 'bottom', whiteSpace: 'normal', overflowWrap: 'anywhere' };
+var _E64_TD = { padding: '6px 8px', fontSize: 12, verticalAlign: 'top', whiteSpace: 'normal', wordBreak: 'break-word', overflowWrap: 'anywhere', borderTop: '1px solid var(--border)' };
+
+// A plain <table>: egeria-resize.js makes every column draggable (owner rule: all widths user-resizable).
+function E64Table({ cols, rows, cell, rowKey, minWidth }) {
+  return React.createElement('div', { style: { overflowX: 'auto', maxWidth: '100%' } },
+    React.createElement('table', { style: { width: '100%', minWidth: minWidth || 0, borderCollapse: 'collapse', tableLayout: 'fixed' } },
+      React.createElement('colgroup', null, cols.map(function(c) { return React.createElement('col', { key: c[0], style: { width: c[2] } }); })),
+      React.createElement('thead', null, React.createElement('tr', null,
+        cols.map(function(c) { return React.createElement('th', { key: c[0], style: _E64_TH }, c[1]); }))),
+      React.createElement('tbody', null, rows.map(function(r, i) {
+        return React.createElement('tr', { key: rowKey(r, i), 'data-row-key': rowKey(r, i) },
+          cols.map(function(c) { return React.createElement('td', { key: c[0], style: _E64_TD }, cell(c[0], r)); }));
+      }))));
+}
+
+// Egeria's position is an Integer where 0 (or none) means unset (EmbeddedDataValueProperties,
+// ProcessingVariableProperties, SupportedVariableTypeProperties); the backend sends position: null
+// and positionSet: false for those.
+function e64PositionText(r) {
+  var n = r && r.position;
+  return (r && r.positionSet && n !== null && n !== undefined) ? 'position ' + n : 'position unset';
+}
+
+// Set positions ascending, unset ones after them by name (the backend orders the same way).
+function e64ByPosition(rows) {
+  return (rows || []).slice().sort(function(a, b) {
+    var sa = !!(a.positionSet && a.position !== null && a.position !== undefined);
+    var sb = !!(b.positionSet && b.position !== null && b.position !== undefined);
+    if (sa !== sb) return sa ? -1 : 1;
+    if (sa && a.position !== b.position) return a.position - b.position;
+    var na = (a.displayName || '').toLowerCase(), nb = (b.displayName || '').toLowerCase();
+    return na < nb ? -1 : na > nb ? 1 : 0;
+  });
+}
+
+var _E64_POSITIONED_COLS = [['element', 'Element', 220], ['position', 'Position', 110], ['label', 'Label', 140], ['description', 'Description', 240]];
+
+// Used by / embedded / part of: one row per relationship, ordered by position, 'position unset' for 0.
+function E64PositionedTable({ rows, st, onNavigateToElement, withPosition }) {
+  var words = e64ListWords(st);
+  var model = withPosition === false ? (rows || []) : e64ByPosition(rows);
+  if (words && !model.length) return React.createElement(E64ListNote, { st: st });
+  if (!model.length) return React.createElement(E64ListNote, { st: { state: 'none' } });
+  var cols = withPosition === false ? _E64_POSITIONED_COLS.filter(function(c) { return c[0] !== 'position'; }) : _E64_POSITIONED_COLS;
+  return React.createElement(E64Table, {
+    cols: cols, rows: model, minWidth: 600,
+    rowKey: function(r, i) { return r.relationshipGuid || ('row-' + i); },
+    cell: function(k, r) {
+      if (k === 'element') return _e64ElementCell(r, onNavigateToElement);
+      if (k === 'position') return React.createElement('span', { style: { color: r.positionSet ? 'var(--text)' : 'var(--dim)' } }, e64PositionText(r));
+      return r[k] || '';
+    },
+  });
+}
+
+// SupportedVariableType cardinality in words; an unset bound is said, not guessed.
+function e64CardinalityText(r) {
+  var b = function(v, w) { return (v === null || v === undefined || v === '') ? w + ' not set' : w + ' ' + v; };
+  return b(r && r.minCardinality, 'min') + ', ' + b(r && r.maxCardinality, 'max');
+}
+
+// The columns each reverse-end list shows (e64_handler._REVERSE_SECTIONS sends the rows).
+var _E64_RELATED_COLS = {
+  associatedDecisions:     [['element', 'Decision', 200], ['label', 'Label', 140], ['importance', 'Importance', 110], ['disposition', 'Disposition', 120]],
+  assessmentDecisions:     [['element', 'Decision', 200], ['assessment', 'Assessment', 160], ['when', 'Assessed', 110], ['assessor', 'Assessor', 150]],
+  workedOnByProjects:      [['element', 'Project', 220], ['label', 'Label', 140], ['description', 'Description', 240]],
+  projectTargets:          [['element', 'Target', 220], ['label', 'Label', 140], ['description', 'Description', 240]],
+  processingVariables:     [['element', 'Configuration value', 220], ['position', 'Position', 110], ['label', 'Label', 140]],
+  processVariableTypes:    [['element', 'Schema type', 220], ['position', 'Position', 110], ['cardinality', 'Cardinality', 170], ['label', 'Label', 140]],
+  processVariableTypeUses: [['element', 'Used by', 220], ['position', 'Position', 110], ['cardinality', 'Cardinality', 170], ['label', 'Label', 140]],
+  providesDataValues:      [['element', 'Configuration value', 220], ['label', 'Label', 140], ['description', 'Description', 240]],
+};
+
+// Rows in display order: assessments numbered per decision, positioned lists by position.
+function e64RelatedRows(list) {
+  var rows = (list && list.rows) || [];
+  if (list && list.key === 'assessmentDecisions') return decisionAssessmentRows(rows);
+  if (list && (_E64_RELATED_COLS[list.key] || []).some(function(c) { return c[0] === 'position'; })) return e64ByPosition(rows);
+  return rows;
+}
+
+// "a", "a or b", "a, b or c": the words for "none of these" (PO-73).
+function e64JoinOr(words) {
+  if (words.length < 2) return words.join('');
+  return words.slice(0, -1).join(', ') + ' or ' + words[words.length - 1];
+}
+
+// True when every list was read and is empty: the panel then says so in one line.
+function e64RelatedAllNone(data) {
+  var lists = [];
+  ((data && data.sections) || []).forEach(function(s) { lists = lists.concat(s.lists || []); });
+  return lists.length > 0 && lists.every(function(l) { return l.st && l.st.state === 'none' && !(l.rows || []).length; });
+}
+
+function E64BranchBadge({ branch, carries }) {
+  if (!branch) {
+    if (carries === null || carries === undefined) return React.createElement('span', { className: 'badge e64-branch', 'data-state': 'not-known',
+      style: { color: '#fbbf24', border: '0.5px solid rgba(251,191,36,.4)', background: 'transparent' } }, 'Branch: not known');
+    return null;
+  }
+  var label = '⎇ Branch' + (branch.displayName ? ': ' + branch.displayName : '');
+  var detail = [branch.purpose, branch.scope].filter(Boolean).join(' · ');
+  return React.createElement('span', { className: 'badge e64-branch', 'data-state': 'branch', title: [detail, branch.url].filter(Boolean).join('\n'),
+    style: { color: '#f0abfc', border: '0.5px solid rgba(240,171,252,.5)', background: 'rgba(240,171,252,.08)', whiteSpace: 'normal', overflowWrap: 'anywhere' } },
+    label, detail && React.createElement('span', { style: { color: 'var(--dim)' } }, ' — ' + detail),
+    branch.url && React.createElement('a', { href: branch.url, target: '_blank', rel: 'noopener noreferrer', style: { marginLeft: 6 } }, '↗'));
+}
+
+// The hook-free body of E64RelatedPanel, given the /api/e64/elements/{guid}/related answer.
+function E64RelatedRows({ data, onNavigateToElement }) {
+  if (!data) return null;
+  if (data.needs64) return React.createElement(E64Needs64, { words: data.words });
+  var hdr = { fontWeight: 600, fontSize: 12, margin: '12px 0 4px', color: 'var(--text)' };
+  var badge = React.createElement(E64BranchBadge, { branch: data.branch, carries: data.carries });
+  if (e64RelatedAllNone(data)) return React.createElement('div', null, badge,
+    React.createElement('div', { className: 'e64-list-note', 'data-state': 'all-none', style: { fontSize: 12, color: 'var(--dim)', padding: '4px 0' } },
+      'None recorded: no ' + e64JoinOr((data.sections || []).map(function(s) { return s.title.toLowerCase(); })) + ' are linked to this element.'));
+  return React.createElement('div', null, badge,
+    (data.sections || []).map(function(sec) {
+      return React.createElement('div', { key: sec.key, 'data-section': sec.key },
+        (sec.lists || []).map(function(l) {
+          var rows = e64RelatedRows(l);
+          var cols = _E64_RELATED_COLS[l.key] || [['element', 'Element', 220], ['label', 'Label', 140]];
+          return React.createElement('div', { key: l.key, 'data-list': l.key },
+            React.createElement('div', { style: hdr }, l.label + (l.st && l.st.state === 'read' ? ' (' + rows.length + ')' : '')),
+            !rows.length ? React.createElement(E64ListNote, { st: (l.st && l.st.state === 'read') ? { state: 'none' } : l.st })
+              : React.createElement(E64Table, {
+                  cols: cols, rows: rows, minWidth: cols.reduce(function(n, c) { return n + c[2]; }, 0),
+                  rowKey: function(r, i) { return r.key || r.relationshipGuid || ('row-' + i); },
+                  cell: function(k, r) {
+                    if (k === 'element') return _e64ElementCell(r, onNavigateToElement);
+                    if (k === 'position') return React.createElement('span', { style: { color: r.positionSet ? 'var(--text)' : 'var(--dim)' } }, e64PositionText(r));
+                    if (k === 'cardinality') return e64CardinalityText(r);
+                    if (k === 'when') return r.assessmentTime ? e64FmtDate(r.assessmentTime) : 'not recorded';
+                    if (k === 'assessment') return React.createElement('div', null, r.label || '—',
+                      r.nth && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)' } }, 'assessment ' + r.nth + ' for this decision'));
+                    if (k === 'assessor') return [r.assessor, r.assessorTypeName].filter(Boolean).join(' · ') || '—';
+                    return r[k] || '';
+                  },
+                }));
+        }));
+    }));
+}
+/* e64-shared:end */
+
+// The 6.4 rows on an element's existing card: fetched when the card opens (a small read,
+// limited to the 6.4 relationship types). The page passes its own onNavigateToElement, or
+// rows link across apps.
+function E64RelatedPanel({ guid, creds, onNavigateToElement }) {
+  var ctxCreds = React.useContext(CredContext);   // the page's credentials (both SPAs provide CredContext)
+  creds = creds || ctxCreds;
+  const [st, setSt] = React.useState({ state: 'loading', data: null, error: '' });
+  React.useEffect(function() {
+    if (!guid) return;
+    var cancelled = false;
+    setSt({ state: 'loading', data: null, error: '' });
+    egeriaFetch('/api/e64/elements/' + encodeURIComponent(guid) + '/related', creds)
+      .then(function(r) { return r.json().catch(function() { return {}; }).then(function(b) { if (!r.ok) throw new Error(b.detail || ('HTTP ' + r.status)); return b; }); })
+      .then(function(d) { if (!cancelled) setSt({ state: 'ready', data: d, error: '' }); })
+      .catch(function(e) { if (!cancelled) setSt({ state: 'error', data: null, error: e.message }); });
+    return function() { cancelled = true; };
+  }, [guid, creds]);
+  var sectionHdr = { fontWeight: 700, fontSize: 13, marginBottom: 6, marginTop: 20, paddingBottom: 6, borderBottom: '1px solid var(--border)', color: 'var(--accent)' };
+  return React.createElement('div', { className: 'e64-related' },
+    React.createElement('div', { style: sectionHdr }, 'Decisions, projects and configuration values'),
+    st.state === 'loading' ? React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'Loading…')
+    : st.state === 'error' ? React.createElement('div', { style: { fontSize: 12, color: '#f87171' } }, 'Couldn’t read the Egeria 6.4 links: ' + st.error)
+    : React.createElement(E64RelatedRows, { data: st.data, onNavigateToElement: onNavigateToElement }));
+}
+
+// A JSON read that keeps the HTTP status on the error (404 = not found, said as such).
+function _e64FetchJson(url, creds) {
+  return egeriaFetch(url, creds).then(function(r) {
+    if (r.ok) return r.json();
+    return r.json().catch(function() { return {}; }).then(function(body) {
+      var err = new Error((body && body.detail) || ('HTTP ' + r.status));
+      err.status = r.status;
+      throw err;
+    });
+  });
+}
+
+// A list + detail pane for one element type: the Explorer's Decisions, The Catalog's Configuration
+// Values and Models and Runs. The open item is published for the Promise/Memento toggle
+// (window.__egeriaNavExtra, the same way as the Explorer's own nav hook).
+// cfg: { listUrl, detailUrl(guid), noun, nounPlural, empty, Detail, sideKey, subtitle(item) }
+function E64ElementsView({ cfg, navGuid, onNavigateToElement }) {
+  const creds = React.useContext(CredContext);
+  const [sideW, onDivDown] = useResizable(280, null, null, cfg.sideKey);
+  const [filter, setFilter] = React.useState('');
+  const [inclTempl, setInclTempl] = React.useState(false);
+  const [attempt, setAttempt] = React.useState(0);
+  const [list, setList] = React.useState({ state: 'loading', items: [], capped: false, error: '', words: '' });
+  const [selected, setSelected] = React.useState(function() {
+    return new URLSearchParams(window.location.search).get('guid') || null;
+  });
+  React.useEffect(function() {
+    window.__egeriaNavExtra = { guid: selected || null, kind: null };
+    return function() { window.__egeriaNavExtra = null; };
+  }, [selected || '']);
+  const [detail, setDetail] = React.useState({ state: 'idle', data: null, error: '', status: 0 });
+
+  React.useEffect(function() {
+    if (!creds) return;
+    setList({ state: 'loading', items: [], capped: false, error: '', words: '' });
+    _e64FetchJson(cfg.listUrl + (inclTempl ? '?include_templates=true' : ''), creds)
+      .then(function(d) {
+        if (d.needs64 || d.needsVersion) setList({ state: 'needs64', items: [], capped: false, error: '', words: d.words });
+        else setList({ state: 'ready', items: d.items || [], capped: !!d.capped, error: '', words: '' });
+      })
+      .catch(function(e) { setList({ state: 'error', items: [], capped: false, error: e.message, words: '' }); });
+  }, [creds, attempt, inclTempl]);
+
+  React.useEffect(function() { if (navGuid) setSelected(navGuid); }, [navGuid]);
+
+  React.useEffect(function() {
+    if (!selected || !creds) { setDetail({ state: 'idle', data: null, error: '', status: 0 }); return; }
+    var cancelled = false;
+    setDetail({ state: 'loading', data: null, error: '', status: 0 });
+    _e64FetchJson(cfg.detailUrl(selected), creds)
+      .then(function(d) { if (!cancelled) setDetail(d.needs64 ? { state: 'needs64', data: null, error: d.words, status: 200 } : { state: 'ready', data: d, error: '', status: 200 }); })
+      .catch(function(e) { if (!cancelled) setDetail({ state: e.status === 404 ? 'missing' : 'error', data: null, error: e.message, status: e.status || 0 }); });
+    return function() { cancelled = true; };
+  }, [selected, creds, attempt]);
+
+  var filtered = React.useMemo(function() {
+    var q = filter.trim().toLowerCase();
+    if (!q) return list.items;
+    return list.items.filter(function(s) {
+      return [s.displayName, s.qualifiedName, cfg.subtitle(s)].some(function(v) { return (v || '').toLowerCase().includes(q); });
+    });
+  }, [list.items, filter]);
+
+  var msg = function(text, color) { return React.createElement('div', { style: { padding: 12, color: color || 'var(--dim)', fontSize: 12, overflowWrap: 'anywhere' } }, text); };
+
+  return React.createElement('div', { className: 'body' },
+    React.createElement('div', { className: 'sidebar', style: { width: sideW, display: 'flex', flexDirection: 'column' } },
+      React.createElement('div', { className: 'search-wrap', style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+        React.createElement('input', { className: 'search-input', type: 'search', placeholder: 'Filter ' + cfg.nounPlural.toLowerCase() + '…', value: filter, onChange: function(e) { setFilter(e.target.value); } }),
+        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+          React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' } },
+            React.createElement('input', { type: 'checkbox', checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { margin: 0, cursor: 'pointer', accentColor: 'var(--accent)' } }),
+            'Include templates'),
+          React.createElement('button', {
+            onClick: function() { setAttempt(function(a) { return a + 1; }); },
+            style: { marginLeft: 'auto', padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'rgba(20,32,52,.8)', color: 'var(--text)', cursor: 'pointer', fontSize: 11 },
+          }, '↻ Refresh'))),
+      list.state === 'loading' && msg('Loading…'),
+      list.state === 'needs64' && React.createElement(E64Needs64, { words: list.words }),
+      list.state === 'error' && msg('Couldn\'t read ' + cfg.nounPlural.toLowerCase() + ': ' + list.error, '#f87171'),
+      list.state === 'ready' && list.items.length === 0 && msg(cfg.empty),
+      list.state === 'ready' && list.items.length > 0 && filtered.length === 0 && msg('No matches.'),
+      list.state === 'ready' && list.capped && msg('Showing the first ' + list.items.length + ' — the list may be incomplete.', '#fbbf24'),
+      React.createElement('div', { style: { overflowY: 'auto', flex: 1 } },
+        filtered.map(function(s) {
+          var on = s.guid === selected;
+          var sub = cfg.subtitle(s);
+          return React.createElement('div', { key: s.guid, className: 'tree-item' + (on ? ' sel' : ''), onClick: function() { setSelected(s.guid); },
+            style: { display: 'block', minWidth: 0, padding: '6px 10px', whiteSpace: 'normal', overflowWrap: 'anywhere' } },
+            React.createElement('div', { style: { fontWeight: on ? 600 : 400, fontSize: 13 } }, s.displayName || s.qualifiedName || s.guid),
+            sub && React.createElement('div', { title: sub, style: { fontSize: 11, color: 'var(--dim)', marginTop: 2 } }, sub));
+        }))),
+    React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
+    React.createElement('div', { className: 'main', style: { minWidth: 0 } },
+      !selected ? (list.state === 'needs64' ? React.createElement(E64Needs64, { words: list.words }) : msg('Select a ' + cfg.noun.toLowerCase() + ' to see it.'))
+      : detail.state === 'loading' ? msg('Loading…')
+      : detail.state === 'needs64' ? React.createElement(E64Needs64, { words: detail.error })
+      : detail.state === 'missing' ? msg(cfg.noun + ' ' + selected + ' was not found: ' + detail.error, '#fbbf24')
+      : detail.state === 'error' ? msg('Couldn\'t read this ' + cfg.noun.toLowerCase() + ' (' + (detail.status ? 'HTTP ' + detail.status + ': ' : '') + detail.error + ').', '#f87171')
+      : detail.data && React.createElement(cfg.Detail, { key: detail.data.guid, detail: detail.data, onNavigateToElement: onNavigateToElement })
+    )
   );
 }
