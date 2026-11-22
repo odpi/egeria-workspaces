@@ -1,0 +1,40 @@
+{{- $cfg := include "trellis-re.cfg" . | fromYaml -}}
+{{- $v := .Values -}}
+# helm test: the web role answers, its registry is reachable (/health/ready), and a protected API refuses an anonymous caller.
+# The pod uses the Resource Explorer image because it carries curl; it needs no credentials.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "egeria-common.name" (dict "ctx" . "component" "re-canary") }}
+  labels:
+    {{- include "egeria-common.labels" (dict "ctx" . "component" "re-canary") | nindent 4 }}
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  restartPolicy: Never
+  securityContext:
+    {{- include "egeria-common.podSecurityContext" . | nindent 4 }}
+  {{- include "egeria-common.podIdentity" . | nindent 2 }}
+  containers:
+    - name: canary
+      image: {{ $cfg.image }}
+      imagePullPolicy: {{ $v.image.pullPolicy }}
+      securityContext:
+        {{- include "egeria-common.containerSecurityContext" . | nindent 8 }}
+      command: ["/bin/sh", "-c"]
+      args:
+        - |
+          set -u
+          base=http://{{ $cfg.webname }}:8810
+          fail=0
+          code() { curl -s -o /dev/null -m 15 -w '%{http_code}' "$@"; }
+          for i in $(seq 1 {{ div (int $v.probes.web.startup.failureThreshold) 1 }}); do
+            [ "$(code $base/health/ready)" = 200 ] && break; sleep 5
+          done
+          r=$(code $base/health/ready);  [ "$r" = 200 ] && echo "ok: /health/ready answers 200 (the registry's Postgres is reachable)" || { echo "FAIL: /health/ready gave $r"; fail=1; }
+          r=$(code $base/api/projects);  [ "$r" = 401 ] && echo "ok: a protected API refuses an anonymous caller (401)" || { echo "FAIL: /api/projects gave $r without a login (want 401)"; fail=1; }
+          [ "$fail" = 0 ] && echo "PASS: Resource Explorer web is up and gated" || exit 1
+      resources:
+        requests: {cpu: 50m, memory: 64Mi}
+        limits: {memory: 256Mi}

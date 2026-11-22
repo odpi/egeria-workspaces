@@ -1,0 +1,77 @@
+{{- $cfg := include "trellis-re.cfg" . | fromYaml -}}
+{{- $v := .Values -}}
+{{- $labels := include "egeria-common.labels" (dict "ctx" . "component" "re-web") -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $cfg.webname }}
+  labels:
+    {{- $labels | nindent 4 }}
+spec:
+  replicas: {{ $v.web.replicas }}
+  selector:
+    matchLabels:
+      {{- include "egeria-common.selectorLabels" (dict "ctx" . "component" "re-web") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- $labels | nindent 8 }}
+        {{ $v.networkPolicy.platformClientLabel }}: "true"
+    spec:
+      securityContext:
+        {{- include "egeria-common.podSecurityContext" . | nindent 8 }}
+      {{- include "egeria-common.podIdentity" . | nindent 6 }}
+      {{- with $v.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $v.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $v.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: web
+          image: {{ $cfg.image }}
+          imagePullPolicy: {{ $v.image.pullPolicy }}
+          args: [web]
+          securityContext:
+            {{- include "egeria-common.containerSecurityContext" . | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: 8810
+          env:
+            - {name: EMBED_WORKER, value: "0"}
+            {{- include "trellis-re.env" . | nindent 12 }}
+          {{- with $v.extraEnvFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml $v.web.resources | nindent 12 }}
+          # /health always answers; /health/ready needs the registry's Postgres. In external mode the web start itself
+          # refuses until `schema apply` has brought every store to this version.
+          startupProbe:
+            httpGet: {path: /health, port: http}
+            {{- include "trellis-re.probeTiming" $v.probes.web.startup | nindent 12 }}
+          readinessProbe:
+            httpGet: {path: /health/ready, port: http}
+            {{- include "trellis-re.probeTiming" $v.probes.web.readiness | nindent 12 }}
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            {{- include "trellis-re.probeTiming" $v.probes.web.liveness | nindent 12 }}
+          volumeMounts:
+            - {name: data, mountPath: /app/data}
+            {{- if $v.tls.caSecret }}
+            - {name: egeria-ca, mountPath: /etc/egeria-ca, readOnly: true}
+            {{- end }}
+      volumes:
+        - name: data
+          persistentVolumeClaim: {claimName: {{ $cfg.dataClaim }}}
+        {{- if $v.tls.caSecret }}
+        - name: egeria-ca
+          secret: {secretName: {{ $v.tls.caSecret }}}
+        {{- end }}

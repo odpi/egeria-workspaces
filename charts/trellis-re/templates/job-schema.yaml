@@ -1,0 +1,49 @@
+{{- $cfg := include "trellis-re.cfg" . | fromYaml -}}
+{{- $v := .Values -}}
+# `resource-explorer schema apply`: creates and migrates the registry and the four stores, writes the version markers.
+# A pre-install/pre-upgrade hook, so the schema is at this version before any pod starts (the pods refuse to start otherwise).
+# It runs as the OWNER role; the pods hold only the runtime role. A second run sends no DDL.
+# The Secrets named in database.* must already exist: hooks run before the chart's own objects.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $cfg.jobname }}
+  labels:
+    {{- include "egeria-common.labels" (dict "ctx" . "component" "re-schema") | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "0"
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: {{ $v.schemaJob.backoffLimit }}
+  activeDeadlineSeconds: {{ $v.schemaJob.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "egeria-common.labels" (dict "ctx" . "component" "re-schema") | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      securityContext:
+        {{- include "egeria-common.podSecurityContext" . | nindent 8 }}
+      {{- include "egeria-common.podIdentity" . | nindent 6 }}
+      containers:
+        - name: schema
+          image: {{ $cfg.image }}
+          imagePullPolicy: {{ $v.image.pullPolicy }}
+          args: [schema-apply]
+          securityContext:
+            {{- include "egeria-common.containerSecurityContext" . | nindent 12 }}
+          env:
+            # Not external: this is the process that sends the DDL.
+            - {name: RE_SCHEMA_MODE, value: auto}
+            - {name: PGVECTOR_HOST, value: {{ $v.database.host | quote }}}
+            - {name: PGVECTOR_PORT, value: {{ $v.database.port | quote }}}
+            - {name: PGVECTOR_DBNAME, value: {{ $v.database.name | quote }}}
+            - {name: PGVECTOR_USER, value: {{ $cfg.ownerUser | quote }}}
+            - {name: PGVECTOR_SCHEMA, value: {{ $v.database.schema | quote }}}
+            - {name: PGVECTOR_PASSWORD, valueFrom: {secretKeyRef: {name: {{ $cfg.ownerSecret }}, key: {{ $cfg.ownerKey }}}}}
+            - {name: PREFECT_ENABLED, value: "false"}
+            - {name: OBSERVABILITY__MLFLOW__ENABLED, value: "false"}
+            - {name: OBSERVABILITY__PHOENIX__ENABLED, value: "false"}
+          resources:
+            {{- toYaml $v.schemaJob.resources | nindent 12 }}

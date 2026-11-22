@@ -1,0 +1,64 @@
+{{- $cfg := include "trellis-re.cfg" . | fromYaml -}}
+{{- $v := .Values -}}
+{{- $labels := include "egeria-common.labels" (dict "ctx" . "component" "re-worker") -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $cfg.workername }}
+  labels:
+    {{- $labels | nindent 4 }}
+spec:
+  replicas: {{ $v.worker.replicas }}
+  selector:
+    matchLabels:
+      {{- include "egeria-common.selectorLabels" (dict "ctx" . "component" "re-worker") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- $labels | nindent 8 }}
+        {{ $v.networkPolicy.platformClientLabel }}: "true"
+    spec:
+      securityContext:
+        {{- include "egeria-common.podSecurityContext" . | nindent 8 }}
+      {{- include "egeria-common.podIdentity" . | nindent 6 }}
+      {{- with $v.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $v.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $v.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: worker
+          image: {{ $cfg.image }}
+          imagePullPolicy: {{ $v.image.pullPolicy }}
+          args: [worker]
+          securityContext:
+            {{- include "egeria-common.containerSecurityContext" . | nindent 12 }}
+          env:
+            {{- include "trellis-re.env" . | nindent 12 }}
+          {{- with $v.extraEnvFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml $v.worker.resources | nindent 12 }}
+          # No port and no HTTP probe: the image's own healthcheck is for the web role. A crash restarts the pod, and the
+          # loops' Postgres advisory locks free themselves when a worker dies.
+          volumeMounts:
+            - {name: data, mountPath: /app/data}
+            {{- if $v.tls.caSecret }}
+            - {name: egeria-ca, mountPath: /etc/egeria-ca, readOnly: true}
+            {{- end }}
+      volumes:
+        - name: data
+          persistentVolumeClaim: {claimName: {{ $cfg.dataClaim }}}
+        {{- if $v.tls.caSecret }}
+        - name: egeria-ca
+          secret: {secretName: {{ $v.tls.caSecret }}}
+        {{- end }}

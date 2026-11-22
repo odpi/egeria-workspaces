@@ -1,0 +1,122 @@
+# trellis-re: Resource Explorer (web, worker, schema Job). It needs an Egeria platform and a Postgres with the pgvector
+# extension that you run yourself; this chart creates neither. Processes are the roles of the image's entrypoint
+# (docs/process-model.md in the trellis repo): the schema Job runs `schema-apply`, the pods run in RE_SCHEMA_MODE=external.
+
+global:
+  openshift: false        # true: no runAsUser/runAsGroup/fsGroup (restricted-v2 assigns the UID, GID 0)
+  imagePullSecrets: []
+
+# demo | production. Normally set by values-demo.yaml or values-production.yaml.
+posture: demo
+
+serviceAccountName: ""
+imagePullSecrets: []
+securityContext:
+  runAsUser: 1000          # the image's default user (trellis); not rendered with global.openshift
+  runAsGroup: 1000
+  fsGroup: 1000
+
+image:
+  repository: ""           # for example localhost:5001/trellis/resource-explorer (build: trellis repo, docker/Dockerfile.resource-explorer)
+  tag: ""
+  digest: ""               # required in production
+  pullPolicy: IfNotPresent
+
+web:
+  replicas: 1              # stateless apart from /app/data and Postgres; any number works with the shared JWT secret
+  resources:
+    requests: {cpu: 250m, memory: 1Gi}
+    limits: {memory: 3Gi}
+worker:
+  replicas: 1              # the three leader-elected loops hold Postgres advisory locks: a second replica is a safe standby
+  resources:
+    requests: {cpu: 250m, memory: 1Gi}
+    limits: {memory: 3Gi}
+
+# Postgres with the pgvector extension. The runtime role needs only USAGE on its schemas (plan TR-115): the schema Job
+# uses the owner role, which creates the schemas, tables, indexes and (if the admin has not) the extension.
+database:
+  host: ""                 # REQUIRED
+  port: 5432
+  name: ""                 # REQUIRED, the database
+  schema: resource_explorer
+  user: ""                 # REQUIRED, the runtime role
+  # REQUIRED. A Secret with the runtime role's password under passwordKey. It must exist before `helm install`
+  # (the schema Job runs as a pre-install hook, before the chart's own objects).
+  existingSecret: ""
+  passwordKey: password
+  owner:
+    # The schema Job's role. Empty means the runtime role and its Secret (fine for a demo; use a separate owner role in production).
+    user: ""
+    existingSecret: ""
+    passwordKey: password
+
+egeria:
+  platformUrl: ""          # REQUIRED, for example https://qs-platform:9443
+  viewServer: qs-view-server
+  daemon:
+    userId: ""             # REQUIRED, RE's service account (RE_DAEMON_USER_ID)
+    # REQUIRED. A Secret with the service account's password under passwordKey.
+    existingSecret: ""
+    passwordKey: password
+
+tls:
+  verify: false            # whether RE checks the platform's certificate (PYEGERIA_SSL_VERIFY)
+  caSecret: ""             # production: a Secret with key ca.crt to verify against
+
+secrets:
+  # A Secret with keys jwt-secret and db-credential-key, shared by every pod (web, worker). Required in production.
+  # Empty in the demo posture: the chart creates one with random values, kept across upgrades.
+  existingSecret: ""
+
+publicUrl: ""              # RE_PUBLIC_URL, for links in e-mails and the Portal (empty is allowed)
+
+llm:
+  backend: ollama          # ollama | openai | anthropic
+  ollama:
+    baseUrl: ""            # for example http://ollama:11434
+    model: ""
+  # Provider keys and any other LLM setting go in extraEnv / extraEnvFrom.
+
+embeddings:
+  device: cpu              # the image is CPU-only torch; the MiniLM model is baked into the image (no download)
+
+persistence:
+  # /app/data holds the cloned-repository cache and the file-type cache, shared by web and worker. Compose shares one volume,
+  # so the default asks for ReadWriteMany. A single-node cluster (kind, OpenShift Local) can use ReadWriteOnce:
+  # every pod lands on the one node, and a ReadWriteOnce volume may be mounted by several pods on one node.
+  existingClaim: ""
+  storageClassName: ""
+  size: 20Gi
+  accessModes: [ReadWriteMany]
+
+ingress:
+  enabled: false
+  className: ""
+  host: ""
+  tlsSecretName: ""        # required in production
+  annotations: {}
+
+networkPolicy:
+  enabled: false
+  # Added to the web and worker pods so the platform chart's NetworkPolicy lets them in.
+  platformClientLabel: egeria.odpi.org/client
+
+schemaJob:
+  backoffLimit: 2
+  activeDeadlineSeconds: 900
+  resources:
+    requests: {cpu: 100m, memory: 512Mi}
+    limits: {memory: 2Gi}
+
+probes:
+  web:
+    startup: {periodSeconds: 5, failureThreshold: 60}
+    readiness: {periodSeconds: 10, failureThreshold: 3, timeoutSeconds: 5}
+    liveness: {periodSeconds: 20, failureThreshold: 3, timeoutSeconds: 5}
+
+extraEnv: []               # appended to web and worker (names the chart owns are refused)
+extraEnvFrom: []           # secretRef / configMapRef entries, for provider API keys and the like
+nodeSelector: {}
+tolerations: []
+affinity: {}

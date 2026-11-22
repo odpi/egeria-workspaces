@@ -1,0 +1,3 @@
+image: {repository: example/resource-explorer, tag: ci}
+database: {host: pg, name: re, user: re, existingSecret: re-db}
+egeria: {platformUrl: "https://platform:9443", daemon: {userId: re, existingSecret: re-egeria}}
