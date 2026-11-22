@@ -107,6 +107,10 @@ helm test st -n egeria      # both canaries
     existing Secrets, `tls.verify`, NetworkPolicies, images pinned by digest) with `global.openshift=true`. The images are pushed to the cluster's
     internal registry so the digests are real registry digests. All three pods ran under **restricted-v2** (UID 1000680000, GID 0), 5/5 servers
     started and both canaries passed. The test infrastructure is in `<namespace>-infra` under `anyuid`, as above.
+  * **Re-run with the PO-68 fix:** the Portal image rebuilt from this branch plus c6aedd12 (`freshstart-6.3-c6aedd12`, merged in a throwaway
+    worktree, the branch itself is unchanged) passed both canaries again, and `{}` posted to `/api/egeria-token` without a session now returns 401.
+    A wrong password still returns 500 (not changed by that fix). `crc_stack_prod.sh` keeps the first run's Secrets on a re-run: a new random CA
+    would not match the keystore a running platform already loaded (the platform canary then hangs on TLS verification).
   * Not run: demoMode, Ingress/Route on OpenShift.
 * **Public demo keystore password:** when `tls.existingSecret` holds the public demo password (the image's own keystore), the demo posture prints a
   WARNING in NOTES, and the **production posture refuses to install or upgrade** (`fail`, naming `tls.existingSecret`), in the platform chart and in the

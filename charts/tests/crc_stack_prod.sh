@@ -33,14 +33,18 @@ PD=$(digest "portal-freshstart:$PTAG"); AD=$(digest "apache-web:$TAG")
 [ -n "$PD" ] && [ -n "$AD" ] || { echo "image push failed" >&2; exit 1; }
 
 bash "$HERE/kind_infra.sh" "$INFRA"
-bash "$HERE/make_san_keystore.sh" "$W/tls" "$NS" "$REL-platform" >/dev/null
-SECDIR=$CHARTS/egeria-platform/files/freshstart/secrets
-$OC -n "$NS" create secret generic prod-secrets --from-file="$SECDIR" --dry-run=client -o yaml | $OC apply -f - >/dev/null
-$OC -n "$NS" create secret generic prod-tls --from-file="$W/tls/keystore.p12" --from-file="$W/tls/truststore.p12" --from-file="$W/tls/ca.crt" \
-  --from-file=keystore-password="$W/tls/keystore-password" --from-file=truststore-password="$W/tls/truststore-password" \
-  --from-file=key-alias="$W/tls/key-alias" --dry-run=client -o yaml | $OC apply -f - >/dev/null
-$OC -n "$NS" create secret generic prod-ca --from-file=ca.crt="$W/tls/ca.crt" --dry-run=client -o yaml | $OC apply -f - >/dev/null
-python3 -I - "$SECDIR/egeria-user-directory.omsecrets" "$W" <<'PY'
+# Re-runs keep the Secrets of the first run: a new random CA would not match the keystore a running platform already loaded.
+if $OC -n "$NS" get secret prod-tls >/dev/null 2>&1; then
+  echo "keeping the existing Secrets in $NS (delete prod-tls to regenerate them, then restart the platform pod)"
+else
+  bash "$HERE/make_san_keystore.sh" "$W/tls" "$NS" "$REL-platform" >/dev/null
+  SECDIR=$CHARTS/egeria-platform/files/freshstart/secrets
+  $OC -n "$NS" create secret generic prod-secrets --from-file="$SECDIR" --dry-run=client -o yaml | $OC apply -f - >/dev/null
+  $OC -n "$NS" create secret generic prod-tls --from-file="$W/tls/keystore.p12" --from-file="$W/tls/truststore.p12" --from-file="$W/tls/ca.crt" \
+    --from-file=keystore-password="$W/tls/keystore-password" --from-file=truststore-password="$W/tls/truststore-password" \
+    --from-file=key-alias="$W/tls/key-alias" --dry-run=client -o yaml | $OC apply -f - >/dev/null
+  $OC -n "$NS" create secret generic prod-ca --from-file=ca.crt="$W/tls/ca.crt" --dry-run=client -o yaml | $OC apply -f - >/dev/null
+  python3 -I - "$SECDIR/egeria-user-directory.omsecrets" "$W" <<'PY'
 import sys, yaml
 u = yaml.safe_load(open(sys.argv[1]))["secretsCollections"]["userDirectory"]["users"]
 w = sys.argv[2]
@@ -48,11 +52,12 @@ open(w + "/canary-user", "w").write("omagspcatnpa")
 open(w + "/canary-pw", "w").write(u["omagspcatnpa"]["secrets"]["clearPassword"])
 open(w + "/portal-egeria-pw", "w").write(u["bootstrap"]["secrets"]["clearPassword"])
 PY
-openssl rand -hex 24 > "$W/jwt"; openssl rand -hex 16 > "$W/mcp"
-$OC -n "$NS" create secret generic prod-canary --from-file=userId="$W/canary-user" --from-file=password="$W/canary-pw" --dry-run=client -o yaml | $OC apply -f - >/dev/null
-$OC -n "$NS" create secret generic prod-portal --from-file=jwt-secret="$W/jwt" --from-file=mcp-access-token="$W/mcp" \
-  --from-file=egeria-user-password="$W/portal-egeria-pw" --dry-run=client -o yaml | $OC apply -f - >/dev/null
+  openssl rand -hex 24 > "$W/jwt"; openssl rand -hex 16 > "$W/mcp"
+  $OC -n "$NS" create secret generic prod-canary --from-file=userId="$W/canary-user" --from-file=password="$W/canary-pw" --dry-run=client -o yaml | $OC apply -f - >/dev/null
+  $OC -n "$NS" create secret generic prod-portal --from-file=jwt-secret="$W/jwt" --from-file=mcp-access-token="$W/mcp" \
+    --from-file=egeria-user-password="$W/portal-egeria-pw" --dry-run=client -o yaml | $OC apply -f - >/dev/null
 
+fi
 for c in egeria-platform egeria-portal egeria-stack; do helm dependency update "$CHARTS/$c" >/dev/null; done
 helm upgrade --install "$REL" "$CHARTS/egeria-stack" -n "$NS" -f "$CHARTS/egeria-stack/values-production.yaml" -f "$CHARTS/egeria-stack/values-freshstart.yaml" \
   --set global.openshift=true \
