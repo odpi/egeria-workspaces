@@ -127,7 +127,7 @@ helm test st -n egeria      # both canaries
     `portal.ingress.host=<name>.apps-crc.testing`, the annotation `route.openshift.io/termination=edge` and `portal.networkPolicy.enabled=true` (which the chart requires with an
     Ingress) give an edge Route with the router's default certificate, plain http redirected to https. The Route targets the Apache Service only. Checked from the host through
     the Route on the demo stack: `/portal` 302 to the login page, `/login` 200, `POST {}` to `/api/egeria-token` 401 (PO-68), an authenticated API 401 for an anonymous caller,
-    http redirected; `helm test` passes. The in-cluster canary still goes to the Portal Service on 8000 under demoMode (the Apache edge header trips the demo gate).
+    plain http redirected to https (the Location header must start with `https://`, so the router's redirect is told apart from Apache's own); `helm test` passes. The in-cluster canary still goes to the Portal Service on 8000 under demoMode (the Apache edge header trips the demo gate).
   * Not run: demoMode on kind; a Route with a production-style stack or with its own certificate.
 * **Public demo keystore password:** when `tls.existingSecret` holds the public demo password (the image's own keystore), the demo posture prints a
   WARNING in NOTES, and the **production posture refuses to install or upgrade** (`fail`, naming `tls.existingSecret`), in the platform chart and in the

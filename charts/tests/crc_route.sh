@@ -19,5 +19,7 @@ WANT=302; chk "$H/portal"                                    # the login gate re
 WANT=200; chk "$H/login"
 WANT=401; chk -X POST -H 'Content-Type: application/json' -d '{}' "$H/api/egeria-token"      # PO-68: no password, no session
 WANT=401; chk "$H/api/operations/platforms"                  # an authenticated API is closed to an anonymous caller
-WANT=302; chk "http://$HOSTN/portal"                         # plain http is redirected to https
+# plain http: the router's http->https redirect, told apart from Apache's own /login redirect (which would also be a 302 over plain http)
+loc=$(curl -sk -o /dev/null -w "%{redirect_url}" "http://$HOSTN/portal"); echo "${loc:-none}  http://$HOSTN/portal (Location)"
+case "$loc" in https://*) ;; *) echo "FAIL: plain http is not redirected to https" >&2; exit 1;; esac
 helm test "$REL" -n "$NS" --logs 2>&1 | grep -E "^FAIL|^PASS"
