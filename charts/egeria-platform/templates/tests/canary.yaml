@@ -1,6 +1,6 @@
 {{- $cfg := include "egeria-platform.cfg" . | fromYaml -}}
 {{- $v := .Values -}}
-{{- $img := printf "%s:%s@%s" $v.image.repository $v.image.tag $v.image.digest -}}
+{{- $img := include "egeria-platform.image" . -}}
 apiVersion: v1
 kind: Pod
 metadata:
@@ -15,6 +15,7 @@ spec:
   restartPolicy: Never
   securityContext:
     {{- include "egeria-common.podSecurityContext" . | nindent 4 }}
+  {{- include "egeria-common.podIdentity" . | nindent 2 }}
   {{- if and $cfg.strictSsl (not $cfg.createTlsSecret) }}
   volumes:
     - name: tls

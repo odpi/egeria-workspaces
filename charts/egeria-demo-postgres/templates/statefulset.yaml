@@ -18,6 +18,7 @@ spec:
       annotations:
         checksum/init: {{ .Files.Get "files/init-egeria-demo.sql" | sha256sum }}
     spec:
+      {{- include "egeria-demo-postgres.podIdentity" . | nindent 6 }}
       securityContext:
         runAsNonRoot: true
         runAsUser: {{ .Values.securityContext.runAsUser }}

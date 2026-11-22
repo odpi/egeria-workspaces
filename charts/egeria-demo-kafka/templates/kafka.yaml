@@ -43,6 +43,7 @@ spec:
       annotations:
         checksum/entrypoint: {{ .Files.Get "files/kafka-entrypoint.sh" | sha256sum }}
     spec:
+      {{- include "egeria-demo-kafka.podIdentity" . | nindent 6 }}
       securityContext:
         runAsNonRoot: true
         seccompProfile: {type: RuntimeDefault}

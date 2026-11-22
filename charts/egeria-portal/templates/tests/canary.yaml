@@ -15,6 +15,7 @@ spec:
   restartPolicy: Never
   securityContext:
     {{- include "egeria-common.podSecurityContext" . | nindent 4 }}
+  {{- include "egeria-common.podIdentity" . | nindent 2 }}
   containers:
     - name: canary
       image: {{ $cfg.apacheImage }}
@@ -57,6 +58,12 @@ spec:
           s, b = call("POST", "/api/egeria-token", body, {"Content-Type": "application/json"}, os.environ["TOKEN_BASE"])
           need(s == 200, f"the canary account gets a bearer token from Egeria via {os.environ['TOKEN_BASE']} (HTTP {s})")
           need(bool(json.loads(b).get("token")), "the response carries a token")
+          # PO-68: with no password and no Portal session, a gated Portal must refuse (401) instead of minting the Portal's own service-user
+          # token. An ungated quickstart behaves that way by design (local mode), so only a gated Portal is checked.
+          if os.environ["REDIRECT_OK"] == "true":
+              anon = "{}"
+              s, _ = call("POST", "/api/egeria-token", anon, {"Content-Type": "application/json"}, os.environ["TOKEN_BASE"])
+              need(s == 401, f"a request with no password and no session is refused (HTTP {s}; 200 would mean PO-68: the Portal image predates the fix)")
           print("PASS: portal up, front door and Egeria token verified")
           {{- else }}
           print("FAIL: set canary.existingSecret (keys userId and password: a non-personal account that may sign in) so helm test can prove the Egeria call")

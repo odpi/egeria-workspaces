@@ -65,6 +65,14 @@ def _run():
     return res
 
 
+# PO-4 is reverted in egeriaFetch (shared with freshstart via SHARE-3): freshstart's caches still key on
+# ?user_id=, so dropping it with a token would make token users share cache entries. The tests that assert
+# the PO-4 behaviour are parked, not deleted; the no-token test below still holds and still runs.
+PO4_PARKED = pytest.mark.skip(
+    reason="PO-4 reverted until PO-80 (freshstart request_identity cache keys) lands; re-land in both trees")
+
+
+@PO4_PARKED
 def test_with_a_token_the_url_names_no_user():
     call = _run()["withToken"]
     assert call["token"] == "t1"
@@ -78,6 +86,7 @@ def test_without_a_token_user_id_stays():
     assert call["url"] == "/api/types?area=1&url=https%3A%2F%2Fp%3A9443&server=qs&user_id=peterprofile"
 
 
+@PO4_PARKED
 def test_a_401_still_refreshes_and_the_retry_names_no_user():
     res = _run()["retry"]
     assert res["status"] == 200
@@ -85,6 +94,7 @@ def test_a_401_still_refreshes_and_the_retry_names_no_user():
     assert all("user_id" not in c["url"] for c in res["calls"]), res["calls"]
 
 
+@PO4_PARKED
 def test_source_pin():
     src = _egeria_fetch_src()
     assert "if (creds.userId && !creds.token) p.set('user_id', creds.userId);" in src

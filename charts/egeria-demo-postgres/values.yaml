@@ -20,3 +20,8 @@ securityContext:
 # Post-install/upgrade Job that re-runs the idempotent set-up (creates only, never drops).
 initJob:
   enabled: true
+
+# Pod identity: an existing ServiceAccount (none is created; empty = the namespace's default) and pull Secrets
+# (names or {name: ...}), added to global.imagePullSecrets.
+serviceAccountName: ""
+imagePullSecrets: []
