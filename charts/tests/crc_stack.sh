@@ -26,8 +26,12 @@ $OC adm policy add-scc-to-user anyuid -z default -n "$INFRA"      # test Postgre
 bash "$HERE/kind_infra.sh" "$INFRA"
 DEMOARGS=()
 if [ "$DEMO" = true ]; then   # the public-demo login: registration, and a bootstrap admin so the first sign-in is possible
-  $OC -n "$NS" get secret demo-admin >/dev/null 2>&1 || $OC -n "$NS" create secret generic demo-admin --from-literal=password="$(openssl rand -hex 12)" >/dev/null
-  DV=$(mktemp); trap 'rm -f "$DV"' EXIT
+  if ! $OC -n "$NS" get secret demo-admin >/dev/null 2>&1; then   # by file, so the password is never in a command line
+    PW=$(umask 077; mktemp); trap 'rm -f "$PW"' EXIT
+    openssl rand -hex 12 > "$PW"
+    $OC -n "$NS" create secret generic demo-admin --from-file=password="$PW" >/dev/null
+  fi
+  DV=$(mktemp); trap 'rm -f "$DV" "${PW:-}"' EXIT
   cat > "$DV" <<YAML
 portal:
   demoMode: true
