@@ -195,8 +195,11 @@ def test_the_backend_version_words_use_the_new_name():
 # Every string a person can see says "configuration values"; "processing variables" appears only as the
 # bracketed Egeria name after it, and "process variables" not at all.
 
+# egeria_6_4_support.py is left out: its needs-6.4 lead "(odpi/egeria#9463, process variables and decisions)"
+# is a vendored copy of pyegeria's egeria_6_4_gate.needs_6_4_words and must match it word for word
+# (tests/test_e64_gate.py); it changes in pyegeria first.
 _PV_FILES = ["type-explorer.html", "tech-catalog.html", "e64_handler.py", "analytics_models_handler.py",
-             "egeria_6_4_support.py", "static/egeria-shared-ui.js"]
+             "static/egeria-shared-ui.js"]
 
 
 def _shown_strings(src):
@@ -227,9 +230,7 @@ def test_po_76_the_6_4_panel_has_one_configuration_values_section():
         assert "'Decisions, projects and configuration values'" in ui
 
 
-def test_po_76_the_needs_6_4_words_name_configuration_values():
-    sup = (_DIR / "egeria_6_4_support.py").read_text()
-    assert "needs Egeria 6.4 (odpi/egeria#9463, configuration values and decisions)" in sup
+def test_po_76_the_needs_6_4_subjects_name_configuration_values():
     src = (_DIR / "e64_handler.py").read_text()
     assert src.count('"Decisions, project targets, configuration values and Branch"') == 2
     am = (_DIR / "analytics_models_handler.py").read_text()
