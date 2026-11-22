@@ -30,6 +30,7 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 from pydantic import BaseModel
 from egeria_auth import PlatformBody  # platform gate on the body's url (see egeria_auth)
+from result_cache import request_identity
 
 from egeria_error_mapping import describe_bulk_item_error
 
@@ -140,8 +141,9 @@ def get_tree(
         logger.exception("Failed to create CollectionManager")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
-    cache_key = f"{root_guid}|{url or ''}|{server or ''}|{user_id or ''}|{as_of_time or ''}{_lineage_key()}"
-    cached = _TREE_CACHE.get(cache_key)
+    who = request_identity(user_id, user_pwd)  # hashed credential; None = expired token, bypass the cache
+    cache_key = f"{root_guid}|{url or ''}|{server or ''}|{who}|{as_of_time or ''}{_lineage_key()}"
+    cached = (_TREE_CACHE.get(cache_key) if who else None)
     if cached and (time.time() - cached[0]) < _TREE_CACHE_TTL:
         return JSONResponse(cached[1])
 
@@ -151,7 +153,8 @@ def get_tree(
     children = _children_level(mgr, root_guid, as_of_time)
 
     result = {"root": root, "children": children}
-    _TREE_CACHE[cache_key] = (time.time(), result)
+    if who:
+        _TREE_CACHE[cache_key] = (time.time(), result)
     return JSONResponse(result)
 
 
@@ -172,13 +175,15 @@ def get_node_children(
         logger.exception("Failed to create CollectionManager")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
-    cache_key = f"children|{node_guid}|{url or ''}|{server or ''}|{user_id or ''}|{as_of_time or ''}{_lineage_key()}"
-    cached = _TREE_CACHE.get(cache_key)
+    who = request_identity(user_id, user_pwd)  # hashed credential; None = expired token, bypass the cache
+    cache_key = f"children|{node_guid}|{url or ''}|{server or ''}|{who}|{as_of_time or ''}{_lineage_key()}"
+    cached = (_TREE_CACHE.get(cache_key) if who else None)
     if cached and (time.time() - cached[0]) < _TREE_CACHE_TTL:
         return JSONResponse(cached[1])
 
     result = {"children": _children_level(mgr, node_guid, as_of_time)}
-    _TREE_CACHE[cache_key] = (time.time(), result)
+    if who:
+        _TREE_CACHE[cache_key] = (time.time(), result)
     return JSONResponse(result)
 
 
