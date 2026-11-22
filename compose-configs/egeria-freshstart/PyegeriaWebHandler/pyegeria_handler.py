@@ -159,6 +159,10 @@ class MCPTokenMiddleware:
         await self.app(scope, receive, send)
 
 app.add_middleware(MCPTokenMiddleware)
+# PO-78: with SERVER_MANAGED_AUTH (read per request; true by default) every request needs a Portal session
+# except a short public list; see server_auth_gate.py (quickstart's twin is demo_auth_gate.py).
+from server_auth_gate import ServerAuthGateMiddleware
+app.add_middleware(ServerAuthGateMiddleware)
 # Stash any X-Egeria-Token request header into a contextvar so token-capable
 # handlers (apply_token) reuse a pre-obtained bearer token (LE-4).
 from egeria_auth import EgeriaTokenMiddleware
