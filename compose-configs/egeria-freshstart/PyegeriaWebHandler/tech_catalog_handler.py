@@ -42,7 +42,7 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from rate_limiter import LOGIN_LIMIT, limiter  # PO-83: per real client IP
-from egeria_auth import check_client_platform, lineage_key as _lineage_key, token_user as _token_user, use_token
+from egeria_auth import check_client_platform, lineage_key as _lineage_key, use_token
 from result_cache import credential_identity, request_identity
 from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
