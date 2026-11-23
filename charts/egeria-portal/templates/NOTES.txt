@@ -20,6 +20,11 @@ the controller's pod or namespace range (narrow, never the pod network).
 WARNING: allowUngatedPortal is true and this quickstart Portal has NO login gate. Anyone who can reach it can use Egeria as the
 Portal's service user. Demo only; never on a network you do not control.
 {{- end }}
+{{- if .Values.demoMode }}
+
+demoMode needs a Portal image with the TR-134 change (it reads DEMO_DB_PATH; an older image defaults to Postgres and
+will not start or will lose its accounts). The demo database is SQLite at /app/demo-data/demo.db on the Portal volume.
+{{- end }}
 {{- if $cfg.createSecret }}
 
 The demo posture created Secret {{ $cfg.secretName }} (random jwt-secret and token, kept across upgrades; the Egeria password
