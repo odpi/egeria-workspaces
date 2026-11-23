@@ -42,6 +42,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from rate_limiter import LOGIN_LIMIT, limiter  # PO-83: per real client IP
 from egeria_auth import check_client_platform, lineage_key as _lineage_key, use_token
 from result_cache import credential_identity, request_identity
 from fastapi.responses import FileResponse, JSONResponse
@@ -143,7 +144,7 @@ async def _governance_officer_async(url, server, user_id, user_pwd, token: Optio
     mgr = GovernanceOfficer(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
     check_client_platform(mgr, token)
     if token:
-        mgr.set_bearer_token(token)
+        use_token(mgr, token)   # never falls back to the service user; see egeria_auth.use_token
     else:
         await mgr._async_create_egeria_bearer_token()
     return mgr
@@ -531,7 +532,7 @@ async def _automated_curation_async(url, server, user_id, user_pwd, token: Optio
     """Async twin of _automated_curation -- for async def routes, which must
     never call the sync _apply_token()'s create_egeria_bearer_token() fallback
     (it internally does asyncio.get_event_loop().run_until_complete(), which
-    raises inside an already-running loop). set_bearer_token() is a plain
+    raises inside an already-running loop). use_token() is a plain
     attribute set and is safe either way, so only the no-token fallback path
     needs the async variant."""
     from pyegeria import AutomatedCuration
@@ -539,7 +540,7 @@ async def _automated_curation_async(url, server, user_id, user_pwd, token: Optio
     ac = AutomatedCuration(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
     check_client_platform(ac, token)
     if token:
-        ac.set_bearer_token(token)
+        use_token(ac, token)   # never falls back to the service user; see egeria_auth.use_token
     else:
         await ac._async_create_egeria_bearer_token()
     return ac
@@ -604,6 +605,7 @@ async def _portal_session(request: Request, demo_mode: bool):
 
 
 @router.post("/api/egeria-token", summary="Exchange Egeria credentials for a bearer token")
+@limiter.limit(LOGIN_LIMIT)   # PO-83: a sent password is checked by Egeria, so it is a guessing route
 async def get_egeria_bearer_token(request: Request):
     """Called once at login. Returns a short-lived Egeria bearer token so that
     subsequent catalog API calls can pass X-Egeria-Token instead of user_pwd.
@@ -1644,7 +1646,7 @@ async def _async_asset_maker(url, server, user_id, user_pwd, token: Optional[str
     mgr = AssetMaker(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
     check_client_platform(mgr, token)
     if token:
-        mgr.set_bearer_token(token)
+        use_token(mgr, token)   # never falls back to the service user; see egeria_auth.use_token
     else:
         await mgr._async_create_egeria_bearer_token()
     return mgr

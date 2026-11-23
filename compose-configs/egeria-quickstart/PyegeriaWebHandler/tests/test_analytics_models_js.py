@@ -176,7 +176,7 @@ def test_results_lineage_out_of_the_run_and_words_never_none():
     r = _render("ModelLineageTable", {"rows": [_lin("df-1", "f-1", "scores.csv")], "st": {"state": "read"}, "kind": "results"})
     assert r["keys"] == ["df-1"] and r["cells"][0][1] == "DataFlow" and r["cells"][0][2] == "out of the run"
     t = _render("ModelLineageTable", {"rows": [], "st": {"state": "none-returned"}, "kind": "results"})["text"]
-    assert t == "Results: this read returned no data lineage out of the run." and "none" not in t.lower().replace("returned no", "")
+    assert t == "Results: this read returned no DataFlow out of the run." and "none" not in t.lower().replace("returned no", "")
     assert _render("ModelLineageTable", {"rows": [], "st": None, "kind": "results"})["text"] == "Results: not read by this card yet."
     assert _render("ModelLineageTable", {"rows": [], "st": {"state": "none-returned"}, "kind": "other"})["text"] == "This read returned no other lineage for the run."
 
@@ -225,3 +225,9 @@ def test_lists_and_panes_are_resizable():
     assert "sideKey: 'AnalyticsModelsView.sideW'" in CATALOG and "sideKey: 'AnalyticsModelRunsView.sideW'" in CATALOG
     block = CATALOG[CATALOG.index("// ── Models and Runs: DeployedAnalyticsModel"):CATALOG.index("/* catalog-models-pure:end */")]
     assert block.count("React.createElement(E64Table") == 9   # metrics, dates, runs, model, projects, sources, variables, signature, lineage and "'table'" not in block
+
+
+def test_the_results_heading_says_dataflow_not_lineage():
+    html = (Path(__file__).resolve().parents[1] / "tech-catalog.html").read_text(encoding="utf-8")
+    assert "'Results (DataFlow out of the run)'" in html
+    assert "Results (lineage out of the run)" not in html

@@ -16,9 +16,13 @@ interface CallDrEgeriaSettings {
     verbose: boolean;
 }
 
+const MCP_TOKEN_MISSING = "MCP Access Token is not set: copy MCP_ACCESS_TOKEN from your stack's .env (compose-configs/egeria-quickstart/.env or egeria-freshstart/.env) into this plugin's settings.";
+
 const DEFAULT_SETTINGS: CallDrEgeriaSettings = {
     mcpUrl: "http://localhost:8000/sse",
-    mcpToken: "egeria-secret-mcp-token",
+    // No default (PO-82): each stack generates its own MCP_ACCESS_TOKEN into its .env; copy it from there.
+    // In demo mode the portal writes it into data.json when you take the Obsidian lock.
+    mcpToken: "",
     userId: "erinoverview",
     userPass: "secret",
     egeriaUrl: "https://host.docker.internal:9443",
@@ -57,6 +61,11 @@ export default class CallDrEgeriaPlugin extends Plugin {
         const file = this.app.workspace.getActiveFile();
         if (!file) {
             new Notice("No active file.");
+            return;
+        }
+
+        if (!this.settings.mcpToken) {
+            new Notice(MCP_TOKEN_MISSING, 10000);
             return;
         }
 
@@ -284,9 +293,9 @@ class CallDrEgeriaSettingTab extends PluginSettingTab {
 
         new Setting(containerEl)
             .setName("MCP Access Token")
-            .setDesc("Security token for MCP access.")
+            .setDesc("The MCP_ACCESS_TOKEN from your stack's .env (compose-configs/egeria-quickstart/.env or egeria-freshstart/.env). There is no default.")
             .addText(text => text
-                .setPlaceholder("Enter token")
+                .setPlaceholder("MCP_ACCESS_TOKEN from .env")
                 .setValue(this.plugin.settings.mcpToken)
                 .onChange(async (value) => {
                     this.plugin.settings.mcpToken = value;
@@ -408,6 +417,10 @@ class CallDrEgeriaSettingTab extends PluginSettingTab {
     }
 
     async refreshSpecs() {
+        if (!this.plugin.settings.mcpToken) {
+            new Notice(MCP_TOKEN_MISSING, 10000);
+            return;
+        }
         new Notice("Refreshing Dr. Egeria specs...");
         try {
             const url = new URL(this.plugin.settings.mcpUrl);
