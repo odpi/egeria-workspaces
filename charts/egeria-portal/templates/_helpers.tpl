@@ -27,6 +27,21 @@ composeHost: freshstart-pyegeria-web
 {{- if .img.digest -}}{{ printf "%s:%s@%s" .img.repository .img.tag .img.digest }}{{- else -}}{{ printf "%s:%s" .img.repository .img.tag }}{{- end -}}
 {{- end -}}
 
+{{/* Refuse a trusted-proxy entry that is not narrow (call with dict "list" <comma list> "name" <value name>). A CIDR must be /24 or narrower (IPv4) or /120 or narrower
+(IPv6): 256 addresses at most. On kind (10.244.0.0/16) and Calico's default (192.168.0.0/16) even a /16 is the WHOLE pod network, and any pod that can reach Apache could
+then forge X-Forwarded-For and choose its own rate-limit key. Hostnames and bare IPs are not checked here. */}}
+{{- define "egeria-portal.checkProxyList" -}}
+{{- range $c := splitList "," (regexReplaceAll "\\s+" .list "") -}}
+{{- if contains "/" $c -}}
+{{- $ok := false -}}
+{{- if contains ":" $c -}}{{- $ok = regexMatch "/(12[0-8])$" $c -}}{{- else if contains "." $c -}}{{- $ok = regexMatch "/(2[4-9]|3[0-2])$" $c -}}{{- end -}}
+{{- if not $ok -}}
+{{- fail (printf "%s entry %q is not narrow enough: a range must be /24 or narrower (IPv4) or /120 or narrower (IPv6), at most 256 addresses. The Portal believes X-Forwarded-For from every address in it, so a range that covers the pod network lets any pod that reaches Apache pick its own rate-limit key. List the controller's /24s (several for a multi-node controller), or better its exact pods: a headless Service over them, with its full name here." $.name $c) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
 {{- define "egeria-portal.cfg" -}}
 {{- $v := .Values -}}
 {{- $d := include "egeria-portal.envDefaults" $v.environment | fromYaml -}}
@@ -81,15 +96,23 @@ composeHost: freshstart-pyegeria-web
 {{- if and $v.allowUngatedPortal $prod -}}
 {{- fail "allowUngatedPortal is demo only." -}}
 {{- end -}}
-{{- $owned := list "EGERIA_ROOT_PATH" "EGERIA_INBOX_PATH" "EGERIA_OUTBOX_PATH" "DEMO_MODE" "SERVER_MANAGED_AUTH" "JWT_SECRET" "EGERIA_USER_PASSWORD" "MCP_ACCESS_TOKEN" "EGERIA_USER" "PORTAL_ALLOWED_PLATFORM_URLS" "EGERIA_PLATFORM_URL" -}}
+{{- $owned := list "EGERIA_ROOT_PATH" "EGERIA_INBOX_PATH" "EGERIA_OUTBOX_PATH" "DEMO_MODE" "SERVER_MANAGED_AUTH" "JWT_SECRET" "EGERIA_USER_PASSWORD" "MCP_ACCESS_TOKEN" "EGERIA_USER" "PORTAL_ALLOWED_PLATFORM_URLS" "PORTAL_TRUSTED_PROXIES" "EGERIA_PLATFORM_URL" -}}
 {{- range $e := $v.extraEnv -}}
 {{- if has $e.name $owned -}}{{- fail (printf "extraEnv may not set %s: the chart owns it (set the matching value instead)." $e.name) -}}{{- end -}}
 {{- end -}}
 {{- $port := int (default $d.platformPort $v.platform.port) -}}
 {{- $name := include "egeria-common.name" (dict "ctx" . "component" "portal") -}}
 {{- $web := include "egeria-common.name" (dict "ctx" . "component" "portal-web") -}}
+{{- $webhl := include "egeria-common.name" (dict "ctx" . "component" "portal-web-hl") -}}
+{{- $ctl := regexReplaceAll "\\s+" (default "" $v.ingressControllerCidr) "" -}}
+{{- include "egeria-portal.checkProxyList" (dict "list" $ctl "name" "ingressControllerCidr") -}}
+{{- include "egeria-portal.checkProxyList" (dict "list" (default "" $v.trustedProxies) "name" "trustedProxies") -}}
+{{- $base := regexReplaceAll "\\s+" (default (printf "%s.%s.svc.cluster.local" $webhl .Release.Namespace) $v.trustedProxies) "" -}}
+{{- $trusted := ternary (printf "%s,%s" $base $ctl) $base (ne $ctl "") -}}
 fullname: {{ $name }}
 webname: {{ $web }}
+webhlname: {{ $webhl }}
+trustedProxies: {{ $trusted | quote }}
 prod: {{ $prod }}
 platformUrl: {{ printf "https://%s:%d" $platformSvc $port | quote }}
 platformHost: {{ $platformSvc | quote }}

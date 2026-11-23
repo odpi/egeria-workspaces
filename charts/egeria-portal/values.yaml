@@ -58,6 +58,17 @@ images:
     digest: ""
     pullPolicy: IfNotPresent
 
+# PORTAL_TRUSTED_PROXIES (PO-83): the peers whose X-Forwarded-For the Portal believes, so its auth rate limits count per real client IP. Comma-separated
+# IPs, CIDRs and hostnames, re-resolved every 60 s. Empty means the headless Service of the Apache pods (<release>-portal-web-hl.<namespace>.svc.cluster.local),
+# which is right whenever Apache is the only thing that reaches the Portal (the NetworkPolicy the chart requires with an Ingress). Setting it REPLACES that
+# default (for example a pod CIDR); never use 0.0.0.0/0: a NetworkPolicy gap would become a rate-limit bypass. Your cluster domain is not cluster.local? Set it here.
+trustedProxies: ""
+# Behind an Ingress controller the peer Apache sees is the controller. PO-83 walks X-Forwarded-For past EVERY trusted hop, so adding the controller's range here
+# (an IP or CIDR, comma-separated; it is ADDED to the list above) makes limits count per real client instead of one shared budget for everyone behind the
+# controller. Keep it NARROW: at most /24 (IPv4) or /120 (IPv6), 256 addresses, and NEVER the pod network (on kind, 10.244.0.0/16, and Calico's default, 192.168.0.0/16, a /16 IS
+# the whole pod network: any pod that reaches Apache could then forge X-Forwarded-For and pick its own rate-limit key). A multi-node controller is several /24s. Better still,
+# the exact pods: a headless Service over the controller's pods, with its full name here (it is re-resolved every 60 s). The chart refuses anything wider, in this value and in trustedProxies.
+ingressControllerCidr: ""
 demoMode: false          # the public-demo login gate and registration; see the Portal's demo-mode.md
 # A quickstart Portal behind an Ingress with demoMode=false has no login gate (local mode: anyone reaches the Portal as its
 # service user). The chart refuses that unless this is true. Demo posture only; NOTES warns.
