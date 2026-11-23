@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # NEEDS the freshstart Ingress refusal lifted (branch tr112-lift-freshstart-ingress-refusal) and the egeria-stack re.enabled option (tr112-re-in-stack): on either branch alone the install is refused.
 # One freshstart demo stack on kind, with Resource Explorer enabled in the umbrella (re.enabled) and the Portal behind ingress-nginx.
+# Also proves PO-83 (a separate 429 budget per client; needs a Portal image with #914) and prints the worker's Egeria errors in full.
 # Proves: (1) the freshstart Ingress is allowed and a Portal image with PO-78 answers an anonymous read with 401, a page with 302 /login,
 # and a signed-in read with 200; helm test (with its PO-78 canary step) passes; (2) the umbrella derives RE's platform URL, view server
 # and CA settings so RE reaches the platform and `helm test` passes for it.
@@ -11,7 +12,7 @@ set -euo pipefail
 kubectl config current-context | grep -q "^kind-" || { echo "not a kind context" >&2; exit 2; }
 NS=${1:?namespace}; REL=${2:-st}
 HERE=$(cd "$(dirname "$(readlink -f "$0")")" && pwd); CHARTS=$(dirname "$HERE")
-REG=${REGISTRY:-tr112-registry:5000}; PTAG=${PORTAL_TAG:-odpi-e437a084}; RTAG=${RE_TAG:-main-4867b7b0}
+REG=${REGISTRY:-tr112-registry:5000}; PTAG=${PORTAL_TAG:-odpi-f62b5baa}; RTAG=${RE_TAG:-main-4867b7b0}
 HOST=portal.test; LP=${INGRESS_PORT:-18080}
 W=$(mktemp -d); trap 'rm -rf "$W"; [ -n "${PF:-}" ] && kill "$PF" 2>/dev/null || true' EXIT; umask 077
 
@@ -92,5 +93,18 @@ LOGIN=$(curl -s -m 30 -o /dev/null -w '%{http_code}' -c "$W/jar" -H "Host: $HOST
 echo "sign-in (POST /api/auth/login): HTTP $LOGIN"
 echo "signed-in GET /api/operations/platforms: HTTP $(code -b "$W/jar" $IN/api/operations/platforms)   (200 expected)"
 echo "signed-in GET /portal: HTTP $(code -b "$W/jar" $IN/portal)   (200 expected)"
+echo "=== PO-83: separate sign-in budget per client (two pods, straight to the Apache front door, bad password, 10/minute per client)"
+for c in a b; do
+  kubectl -n "$NS" get pod client-$c >/dev/null 2>&1 || kubectl -n "$NS" run client-$c --image="$REG/trellis/resource-explorer:$RTAG" --restart=Never --command -- sleep 3600 >/dev/null
+done
+kubectl -n "$NS" wait --for=condition=Ready pod/client-a pod/client-b --timeout=180s >/dev/null
+bad() { kubectl -n "$NS" exec "client-$1" -- curl -s -o /dev/null -m 15 -w '%{http_code}' -X POST -H 'Content-Type: application/json' \
+  -d '{"user_id":"nobody","password":"wrong-password"}' http://$REL-portal-web:8085/api/auth/login; }
+OUT=""; for _ in $(seq 1 12); do OUT="$OUT $(bad a)"; done
+echo "client A, 12 bad sign-ins:$OUT   (401s, then 429)"
+echo "client B, 1 bad sign-in right after: $(bad b)   (401 = B has its own budget)"
+kubectl -n "$NS" exec deploy/$REL-portal -- sh -c 'echo PORTAL_TRUSTED_PROXIES=$PORTAL_TRUSTED_PROXIES' 2>&1 | tail -1
+echo "=== RE worker: any Egeria error (full text)"
+kubectl -n "$NS" logs deploy/$REL-re-worker 2>&1 | grep -n -B2 -A14 "Egeria detected error" | head -60 || true
 echo "=== Resource Explorer: the schema Job and its pods"
 kubectl -n "$NS" get job,pods 2>&1 | grep -i "re-" || true
