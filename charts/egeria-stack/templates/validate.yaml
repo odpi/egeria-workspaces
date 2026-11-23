@@ -27,3 +27,18 @@
 {{- fail (printf "core.tls.existingSecret %q holds the PUBLIC demo keystore password from the Egeria repository, so anyone can open the keystore and this TLS is not private. The production posture refuses it: make a keystore and password of your own (see charts/tests/make_san_keystore.sh)." .Values.core.tls.existingSecret) -}}
 {{- end -}}
 {{- end -}}
+{{- /* Resource Explorer: same environment and posture as the stack, and a platform to talk to. */ -}}
+{{- if .Values.re.enabled -}}
+{{- if ne (toString .Values.re.environment) $env -}}
+{{- fail (printf "re.environment is %q but environment is %q: set re.environment to the same value (-f values-%s.yaml does it)" (toString .Values.re.environment) $env $env) -}}
+{{- end -}}
+{{- if ne (toString .Values.re.posture) (toString .Values.posture) -}}
+{{- fail (printf "posture is %q but re.posture is %q: use -f values-%s.yaml, which sets all of them" (toString .Values.posture) (toString .Values.re.posture) .Values.posture) -}}
+{{- end -}}
+{{- if and (not .Values.core.enabled) (not .Values.re.egeria.platformUrl) -}}
+{{- fail "re.enabled needs a platform: core.enabled is false, so set re.egeria.platformUrl" -}}
+{{- end -}}
+{{- if and .Values.core.enabled .Values.re.egeria.platformUrl -}}
+{{- fail "re.egeria.platformUrl is set while core.enabled is true: leave it empty, the stack derives this release's platform Service" -}}
+{{- end -}}
+{{- end -}}

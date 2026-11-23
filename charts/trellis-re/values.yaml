@@ -5,6 +5,11 @@
 global:
   openshift: false        # true: no runAsUser/runAsGroup/fsGroup (restricted-v2 assigns the UID, GID 0)
   imagePullSecrets: []
+  stack: false            # true inside egeria-stack: the platform URL is this release's platform Service
+  tls: {}                 # stack-wide TLS: verify, caSecret (used when tls.* is empty)
+
+# quickstart | freshstart: picks the platform port and view server when the platform URL is derived (egeria-stack).
+environment: quickstart
 
 # demo | production. Normally set by values-demo.yaml or values-production.yaml.
 posture: demo
@@ -52,8 +57,8 @@ database:
     passwordKey: password
 
 egeria:
-  platformUrl: ""          # REQUIRED, for example https://qs-platform:9443
-  viewServer: qs-view-server
+  platformUrl: ""          # REQUIRED outside an egeria-stack (inside one: this release's platform Service), for example https://qs-platform:9443
+  viewServer: ""           # empty: qs-view-server (quickstart) or fs-view-server (freshstart)
   daemon:
     userId: ""             # REQUIRED, RE's service account (RE_DAEMON_USER_ID)
     # REQUIRED. A Secret with the service account's password under passwordKey.

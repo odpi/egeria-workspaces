@@ -15,3 +15,5 @@ portal:
     verify: true
   networkPolicy:
     enabled: true
+re:
+  posture: production

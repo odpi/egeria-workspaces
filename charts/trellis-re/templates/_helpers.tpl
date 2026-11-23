@@ -17,9 +17,21 @@ Use: {{ $cfg := include "trellis-re.cfg" . | fromYaml }}
 {{- fail (printf "posture must be demo or production, not %q (use values-demo.yaml or values-production.yaml)" $v.posture) -}}
 {{- end -}}
 {{- $prod := eq $v.posture "production" -}}
-{{- range $p := list (list "database.host" $v.database.host) (list "database.name" $v.database.name) (list "database.user" $v.database.user) (list "egeria.platformUrl" $v.egeria.platformUrl) (list "egeria.daemon.userId" $v.egeria.daemon.userId) -}}
+{{- range $p := list (list "database.host" $v.database.host) (list "database.name" $v.database.name) (list "database.user" $v.database.user) (list "egeria.daemon.userId" $v.egeria.daemon.userId) -}}
 {{- if not (index $p 1) -}}{{- fail (printf "set %s" (index $p 0)) -}}{{- end -}}
 {{- end -}}
+{{- /* In an umbrella (global.stack) the platform is this release's own Service; outside one it must be set. */ -}}
+{{- $gtls := default (dict) (get (default (dict) $v.global) "tls") -}}
+{{- $stack := eq (toString (default false (get (default (dict) $v.global) "stack"))) "true" -}}
+{{- if not (has $v.environment (list "quickstart" "freshstart")) -}}{{- fail (printf "environment must be quickstart or freshstart, not %q" $v.environment) -}}{{- end -}}
+{{- $platformUrl := $v.egeria.platformUrl -}}
+{{- if not $platformUrl -}}
+{{- if $stack -}}{{- $platformUrl = printf "https://%s-platform:%d" .Release.Name (ternary 9443 8443 (eq $v.environment "quickstart")) -}}
+{{- else -}}{{- fail "set egeria.platformUrl" -}}{{- end -}}
+{{- end -}}
+{{- $viewServer := default (ternary "qs-view-server" "fs-view-server" (eq $v.environment "quickstart")) $v.egeria.viewServer -}}
+{{- $tlsVerify := or $v.tls.verify (eq (toString (default false $gtls.verify)) "true") -}}
+{{- $caSecret := default (default "" $gtls.caSecret) $v.tls.caSecret -}}
 {{- if not $v.database.existingSecret -}}
 {{- fail "set database.existingSecret: a Secret with the runtime role's password (key database.passwordKey). It must exist before the install: the schema Job runs as a pre-install hook." -}}
 {{- end -}}
@@ -39,9 +51,9 @@ Use: {{ $cfg := include "trellis-re.cfg" . | fromYaml }}
 {{- fail "database.owner.user is the same role as database.user: the production posture needs two roles, so that the pods' runtime role holds no DDL rights (TR-115). Make a separate owner role." -}}
 {{- end -}}
 {{- end -}}
-{{- if and $prod (not $v.tls.verify) -}}{{- fail "the production posture requires tls.verify=true" -}}{{- end -}}
-{{- if and $v.tls.verify (not $v.tls.caSecret) $prod -}}
-{{- fail "set tls.caSecret: a Secret with key ca.crt that the platform's certificate chains to (tls.verify is true)" -}}
+{{- if and $prod (not $tlsVerify) -}}{{- fail "the production posture requires tls.verify=true (or global.tls.verify in a stack)" -}}{{- end -}}
+{{- if and $tlsVerify (not $caSecret) $prod -}}
+{{- fail "set tls.caSecret (or global.tls.caSecret in a stack): a Secret with key ca.crt that the platform's certificate chains to (tls.verify is true)" -}}
 {{- end -}}
 {{- if and $prod (not $v.persistence.storageClassName) (not $v.persistence.existingClaim) -}}
 {{- fail "the production posture requires persistence.storageClassName (or persistence.existingClaim)" -}}
@@ -75,6 +87,10 @@ Use: {{ $cfg := include "trellis-re.cfg" . | fromYaml }}
 {{- $job := include "egeria-common.name" (dict "ctx" . "component" "re-schema") -}}
 {{- $secretName := default (include "egeria-common.name" (dict "ctx" . "component" "re-secrets")) $v.secrets.existingSecret -}}
 {{- $dataClaim := default (include "egeria-common.name" (dict "ctx" . "component" "re-data")) $v.persistence.existingClaim -}}
+platformUrl: {{ $platformUrl | quote }}
+viewServer: {{ $viewServer | quote }}
+tlsVerify: {{ $tlsVerify }}
+caSecret: {{ $caSecret | quote }}
 webname: {{ $web }}
 workername: {{ $worker }}
 jobname: {{ $job }}
@@ -102,13 +118,13 @@ ownerKey: {{ ternary $v.database.owner.passwordKey $v.database.passwordKey (not 
 - {name: PGVECTOR_USER, value: {{ $v.database.user | quote }}}
 - {name: PGVECTOR_SCHEMA, value: {{ $v.database.schema | quote }}}
 - {name: PGVECTOR_PASSWORD, valueFrom: {secretKeyRef: {name: {{ $v.database.existingSecret }}, key: {{ $v.database.passwordKey }}}}}
-- {name: EGERIA_PLATFORM_URL, value: {{ $v.egeria.platformUrl | quote }}}
-- {name: EGERIA_VIEW_SERVER_URL, value: {{ $v.egeria.platformUrl | quote }}}
-- {name: EGERIA_VIEW_SERVER, value: {{ $v.egeria.viewServer | quote }}}
+- {name: EGERIA_PLATFORM_URL, value: {{ $cfg.platformUrl | quote }}}
+- {name: EGERIA_VIEW_SERVER_URL, value: {{ $cfg.platformUrl | quote }}}
+- {name: EGERIA_VIEW_SERVER, value: {{ $cfg.viewServer | quote }}}
 - {name: RE_JWT_SECRET, valueFrom: {secretKeyRef: {name: {{ $cfg.secretName }}, key: jwt-secret}}}
 - {name: TRELLIS_DB_CREDENTIAL_KEY, valueFrom: {secretKeyRef: {name: {{ $cfg.secretName }}, key: db-credential-key}}}
-- {name: PYEGERIA_SSL_VERIFY, value: {{ $v.tls.verify | quote }}}
-{{- if $v.tls.caSecret }}
+- {name: PYEGERIA_SSL_VERIFY, value: {{ $cfg.tlsVerify | quote }}}
+{{- if $cfg.caSecret }}
 - {name: PYEGERIA_CA_BUNDLE, value: /etc/egeria-ca/ca.crt}
 {{- end }}
 # web, worker and the Prefect worker run one image: one RE commit per release, which RE requires before it dispatches. No MLflow or Phoenix.

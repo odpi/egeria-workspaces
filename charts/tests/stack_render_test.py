@@ -153,6 +153,38 @@ def main():
           not any(("serviceAccountName" in (d["spec"]["template"]["spec"] if d["kind"] != "Pod" else d["spec"]) or "imagePullSecrets" in (d["spec"]["template"]["spec"] if d["kind"] != "Pod" else d["spec"]))
                   for d in ds if d["kind"] in ("Deployment", "StatefulSet", "Job", "Pod")))
     refuses("an imagePullSecrets entry with no name is refused", base + ["--set", "global.imagePullSecrets[0].foo=bar"], ["imagePullSecrets"])
+    # --- Resource Explorer in the umbrella (re.enabled, off by default) ---
+    RE_ = ["--set", "re.enabled=true", "--set", "re.image.repository=r/re", "--set", "re.image.tag=t", "--set", "re.database.host=pg.example",
+           "--set", "re.database.name=re", "--set", "re.database.user=re", "--set", "re.database.existingSecret=re-db",
+           "--set", "re.egeria.daemon.userId=re", "--set", "re.egeria.daemon.existingSecret=re-egeria"]
+    def re_env(ds, name="s-trellis-re-web"):
+        dep = next((d for d in ds if d["kind"] == "Deployment" and d["metadata"]["name"].endswith("re-web")), None)
+        return {x["name"]: x for x in dep["spec"]["template"]["spec"]["containers"][0]["env"]} if dep else {}
+    off = renders(V("values-demo.yaml") + V("values-quickstart.yaml") + IMGS)
+    check("re.enabled is false by default: no Resource Explorer object", not [d for d in off if "re-" in d["metadata"]["name"] and d["kind"] in ("Deployment", "Job")])
+    for env, port, vs in (("quickstart", 9443, "qs-view-server"), ("freshstart", 8443, "fs-view-server")):
+        ds = renders(V("values-demo.yaml") + V("values-%s.yaml" % env) + IMGS + RE_)
+        e = re_env(ds)
+        check("RE " + env + ": the platform URL and view server are derived from this release", e.get("EGERIA_PLATFORM_URL", {}).get("value") == "https://s-platform:%d" % port
+              and e.get("EGERIA_VIEW_SERVER", {}).get("value") == vs, str({k: v.get("value") for k, v in e.items() if "EGERIA" in k}))
+        keys = [(d["kind"], d["metadata"]["name"]) for d in ds]
+        check("RE " + env + ": the schema Job and the three parts render with no duplicate object", len(keys) == len(set(keys)) and any(k[0] == "Job" and "re-schema" in k[1] for k in keys))
+    ds = renders(V("values-demo.yaml") + V("values-quickstart.yaml") + IMGS + RE_ + ["--set", "global.tls.verify=true", "--set", "global.tls.caSecret=stack-ca"])
+    e = re_env(ds)
+    check("RE: global.tls.verify and caSecret reach RE (entered once)", e["PYEGERIA_SSL_VERIFY"]["value"] == "true" and e.get("PYEGERIA_CA_BUNDLE", {}).get("value") == "/etc/egeria-ca/ca.crt")
+    ds = renders(V("values-demo.yaml") + V("values-quickstart.yaml") + IMGS + RE_ + ["--set", "global.tls.caSecret=stack-ca", "--set", "re.tls.caSecret=own-ca"])
+    check("RE: its own tls.caSecret wins over global.tls", any(v.get("secret", {}).get("secretName") == "own-ca" for d in ds if d["kind"] == "Deployment" and d["metadata"]["name"].endswith("re-web") for v in d["spec"]["template"]["spec"]["volumes"]))
+    refuses("RE with a different environment is refused", V("values-demo.yaml") + V("values-quickstart.yaml") + IMGS + RE_ + ["--set", "re.environment=freshstart"], ["re.environment"])
+    refuses("RE with a different posture is refused (RE's own production refusals fire first)", V("values-demo.yaml") + V("values-quickstart.yaml") + IMGS + RE_ + ["--set", "re.posture=production"], ["production"])
+    refuses("RE with its own platformUrl while the stack has a platform is refused", V("values-demo.yaml") + V("values-quickstart.yaml") + IMGS + RE_ + ["--set", "re.egeria.platformUrl=https://x:9443"], ["re.egeria.platformUrl"])
+    refuses("RE without core.enabled needs re.egeria.platformUrl", V("values-demo.yaml") + V("values-quickstart.yaml") + IMGS + RE_ + ["--set", "core.enabled=false"], ["re.egeria.platformUrl"])
+    refuses("RE keeps its own refusals: no image", V("values-demo.yaml") + V("values-quickstart.yaml") + IMGS + ["--set", "re.enabled=true", "--set", "re.database.host=h", "--set", "re.database.name=n", "--set", "re.database.user=u", "--set", "re.database.existingSecret=d", "--set", "re.egeria.daemon.userId=u", "--set", "re.egeria.daemon.existingSecret=e"], ["image.repository"])
+    refuses("RE keeps its own refusals: no database Secret", V("values-demo.yaml") + V("values-quickstart.yaml") + IMGS + RE_ + ["--set", "re.database.existingSecret="], ["database.existingSecret"])
+    refuses("RE in production keeps its refusals (owner role, digest, secrets)", PROD + RE_, ["production"])
+    refuses("RE in production without TLS verification is refused (global.tls.verify or tls.verify)", PROD + RE_ + ["--set", "re.image.digest=" + DIG, "--set", "re.secrets.existingSecret=rs", "--set", "re.database.owner.user=own", "--set", "re.database.owner.existingSecret=own-pw", "--set", "re.persistence.storageClassName=fast"], ["tls.verify"])
+    ds = renders(PROD + RE_ + ["--set", "re.image.digest=" + DIG, "--set", "re.secrets.existingSecret=rs", "--set", "re.database.owner.user=own", "--set", "re.database.owner.existingSecret=own-pw",
+                              "--set", "re.persistence.storageClassName=fast", "--set", "global.tls.verify=true", "--set", "global.tls.caSecret=ca"])
+    check("RE in production renders with global.tls and an owner role", re_env(ds).get("PYEGERIA_SSL_VERIFY", {}).get("value") == "true")
     if failures:
         print("\n%d FAILED" % len(failures))
         sys.exit(1)

@@ -75,15 +75,15 @@ spec:
             {{- include "trellis-re.probeTiming" $v.probes.web.liveness | nindent 12 }}
           volumeMounts:
             - {name: data, mountPath: /app/data}
-            {{- if $v.tls.caSecret }}
+            {{- if $cfg.caSecret }}
             - {name: egeria-ca, mountPath: /etc/egeria-ca, readOnly: true}
             {{- end }}
       volumes:
         - name: data
           persistentVolumeClaim: {claimName: {{ $cfg.dataClaim }}}
-        {{- if $v.tls.caSecret }}
+        {{- if $cfg.caSecret }}
         - name: egeria-ca
-          secret: {secretName: {{ $v.tls.caSecret }}}
+          secret: {secretName: {{ $cfg.caSecret }}}
         {{- end }}
 ---
 apiVersion: v1

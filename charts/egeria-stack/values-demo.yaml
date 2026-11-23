@@ -8,3 +8,5 @@ core:
     useDemoFiles: true
 portal:
   posture: demo
+re:
+  posture: demo
