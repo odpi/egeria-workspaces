@@ -25,6 +25,14 @@ Portal's service user. Demo only; never on a network you do not control.
 demoMode needs a Portal image with the TR-134 change (it reads DEMO_DB_PATH; an older image defaults to Postgres and
 will not start or will lose its accounts). The demo database is SQLite at /app/demo-data/demo.db on the Portal volume.
 {{- end }}
+{{- if and .Values.ingress.enabled (eq .Values.environment "freshstart") }}
+
+Freshstart behind an Ingress (or an OpenShift Route made from it) is safe only with a Portal image that has the server-side
+sign-in gate (PO-78, odpi/egeria-workspaces#912) and per-client auth rate limits (PO-83, #914). The chart cannot read the
+image's version, so `helm test` checks it: an anonymous GET of an API route through the front door must return 401 and a
+page must redirect to /login. An older image answers with 200 as the service user, and `helm test` fails with
+"the Portal image predates PO-78". Run `helm test` before you expose the Portal.
+{{- end }}
 {{- if $cfg.createSecret }}
 
 The demo posture created Secret {{ $cfg.secretName }} (random jwt-secret and token, kept across upgrades; the Egeria password

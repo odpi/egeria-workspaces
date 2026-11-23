@@ -25,6 +25,7 @@ spec:
       env:
         - {name: FRONT, value: "http://{{ $cfg.webname }}:8085"}
         - {name: REDIRECT_OK, value: {{ $cfg.gated | quote }}}
+        - {name: SERVER_GATE, value: {{ $cfg.managedAuth | quote }}}
         # Under demoMode the demo gate refuses /api/egeria-token without a demo session when the request comes through
         # Apache (which adds the edge header), so the token check goes to the Portal Service directly (the NetworkPolicy admits the canary).
         - {name: TOKEN_BASE, value: {{ ternary (printf "http://%s:8000" $cfg.fullname) (printf "http://%s:8085" $cfg.webname) .Values.demoMode | quote }}}
@@ -52,6 +53,19 @@ spec:
           ok_codes = (200, 301, 302) if os.environ["REDIRECT_OK"] == "true" else (200,)
           s, _ = call("GET", "/portal")
           need(s in ok_codes, f"front door answers /portal (HTTP {s})")
+          # PO-78 (freshstart): the Portal has a server-side sign-in gate. A page must send an anonymous visitor to /login, and an
+          # anonymous read of an API route must be refused (401). An image without PO-78 answers that read with 200 as the
+          # service user, so this step fails the test: freshstart behind an Ingress needs an image that has PO-78.
+          if os.environ["SERVER_GATE"] == "true":
+              b = urllib.parse.urlparse(os.environ["FRONT"])
+              c = http.client.HTTPConnection(b.hostname, b.port, timeout=120)
+              c.request("GET", "/portal")
+              r = c.getresponse()
+              loc = r.getheader("Location") or ""
+              r.read()
+              need(r.status == 302 and "/login" in loc, f"an anonymous page request is redirected to /login (HTTP {r.status}, Location {loc!r})")
+              s, _ = call("GET", "/api/operations/platforms")
+              need(s == 401, f"an anonymous read of an API route is refused (HTTP {s}; 200 means the Portal image predates PO-78: reads are open as the service user)")
           {{- if $cfg.hasCanary }}
           # Sign in as the canary account (non-personal), never with an empty body, which would mint the Portal's own token.
           body = json.dumps({"user_id": os.environ["CANARY_USER"], "password": os.environ["CANARY_PASSWORD"]})

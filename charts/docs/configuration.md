@@ -51,10 +51,10 @@ Every refusal is a Helm `fail` with a message that names the setting to change.
 | User directory file | `coco-user-directory.omsecrets` | `egeria-user-directory.omsecrets` |
 | Platform CPU limit (default) | 4 | none |
 | Portal's Egeria user | `erinoverview` | `bootstrap` |
-| Portal login gate | **None** (`SERVER_MANAGED_AUTH=false`): anyone who reaches the Portal uses Egeria as its service user, unless `demoMode` is on | A sign-in page only (`SERVER_MANAGED_AUTH=true`; `bootstrap` is the Portal admin). **No server-side API gate until PO-78**: a request with no token is answered as the service user |
+| Portal login gate | **None** (`SERVER_MANAGED_AUTH=false`): anyone who reaches the Portal uses Egeria as its service user, unless `demoMode` is on | Yes (`SERVER_MANAGED_AUTH=true`; a Portal image with PO-78); `bootstrap` is the Portal admin |
 | Portal image | `portal-quickstart` | `portal-freshstart` |
 | Production posture | Platform: allowed. Portal (and so the stack): **refused** | Allowed |
-| Ingress (and an OpenShift Route made from it) | Only with `demoMode: true` (or `allowUngatedPortal` in a demo) | **Refused** until PO-78 (no server-side API gate): use `port-forward` |
+| Ingress | Only with `demoMode: true` (or `allowUngatedPortal` in a demo) | Allowed |
 
 Each environment's configuration comes from `charts/egeria-platform/files/<environment>/`: `application.properties`,
 one configuration document per server under `servers/`, and the demo secrets under `secrets/`. These are copies of
