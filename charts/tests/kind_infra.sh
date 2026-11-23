@@ -3,6 +3,7 @@
 # They exist so a chart can be installed with external infrastructure, the production-style way.
 # usage: kind_infra.sh <namespace>        (Services: postgres:5442, kafka.<ns>.svc.cluster.local:9192)
 set -euo pipefail
+kubectl config current-context | grep -q "^kind-" || { echo "not a kind context" >&2; exit 2; }
 NS=${1:?namespace}
 REPO=$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)
 SHARED=$REPO/compose-configs/shared-infra
