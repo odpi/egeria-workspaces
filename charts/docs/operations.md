@@ -14,7 +14,7 @@ minutes loading content packs. Only the `PASS` lines mean the stack is ready.
 | Test pod | What it does | Success line |
 |---|---|---|
 | `<release>-platform-canary` | Signs in to the platform as the canary account; waits until every server in the server list is active; reads the canary element (`Egeria:IntegrationGroup:Default`) through the view server. In production it verifies TLS against `ca.crt` and never uses `-k`. | `PASS: platform up, servers verified` |
-| `<release>-portal-canary` | Requests `/portal` through the Apache front door (freshstart and `demoMode` redirect to their sign-in page); gets an Egeria token as the canary account; on freshstart or `demoMode` also checks that a token request with no password and no session is refused with 401 (the PO-68 token check; it does not test the API gate PO-78 is about). | `PASS: portal up, front door and Egeria token verified` |
+| `<release>-portal-canary` | Requests `/portal` through the Apache front door (freshstart and `demoMode` redirect to their sign-in page); gets an Egeria token as the canary account; on freshstart or `demoMode` also checks that a token request with no password and no session is refused with 401 (the PO-68 token check; it does not probe the server-side API gate of PO-78, so check that on your image). | `PASS: portal up, front door and Egeria token verified` |
 
 Each platform test step retries for up to `canary.timeoutSeconds` (600 by default). Run `helm test` again if the first
 start has not finished. The test pods are kept after a run, so you can read them later:
@@ -98,7 +98,6 @@ Every refusal names the value to change, for example
 | `posture is ..., core.posture is ... and portal.posture is ...` | Pass `values-<posture>.yaml` instead of `--set posture=...` |
 | `the production posture needs a login gate, and the quickstart environment has none` | Production requires freshstart |
 | `ingress.enabled with environment=quickstart and demoMode=false ...` | See [kubernetes.md — Ingress](kubernetes.md#ingress) |
-| `the freshstart Portal has no server-side API gate yet (PO-78) ...` | Freshstart cannot be exposed through an Ingress or Route yet; leave `ingress.enabled` false and use `port-forward` |
 | `set networkPolicy.enabled=true: with an Ingress ...` | An Ingress always needs the Portal NetworkPolicy |
 | `... holds the PUBLIC demo keystore password ...` | Make a keystore of your own ([kubernetes.md](kubernetes.md#2-keystore-tlsexistingsecret)) |
 | `set images.portal.digest: the production posture pins images by digest` | [Image digests](kubernetes.md#5-image-digests) |

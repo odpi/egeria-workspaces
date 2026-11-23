@@ -14,6 +14,13 @@ Front door (Apache, plain HTTP; TLS belongs at the Ingress):
 WARNING: allowUngatedPortal is true and this quickstart Portal has NO login gate. Anyone who can reach it can use Egeria as the
 Portal's service user. Demo only; never on a network you do not control.
 {{- end }}
+{{- if and .Values.ingress.enabled (eq .Values.environment "freshstart") }}
+
+Freshstart behind an Ingress (or an OpenShift Route made from it) is safe only with a Portal image that has the server-side
+sign-in gate (PO-78, odpi/egeria-workspaces#912) and per-client auth rate limits (PO-83, #914). The chart cannot read the
+image's version. An older image answers a request with no token as the Portal's service user. Check it: an anonymous
+GET /api/... through the Ingress must return 401, and a page must redirect to /login.
+{{- end }}
 {{- if $cfg.createSecret }}
 
 The demo posture created Secret {{ $cfg.secretName }} (random jwt-secret and token, kept across upgrades; the Egeria password

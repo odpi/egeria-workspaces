@@ -90,12 +90,6 @@ def main():
     for env in ("quickstart", "freshstart"):
         h = holders(renders(V("values-demo.yaml") + V("values-%s.yaml" % env) + IMGS))
         check(env + " demo: the public demo keystore password is held only by the platform's demo TLS Secret", h == ["s-platform-tls"], str(h))
-    # PO-78: freshstart has no server-side API gate, so the stack refuses an Ingress on it (and renders without one: port-forward)
-    refuses("production freshstart + a Portal Ingress is refused (PO-78)", PROD + ["--set", "portal.ingress.enabled=true", "--set", "portal.ingress.host=h.example",
-            "--set", "portal.ingress.tlsSecretName=tls"], ["PO-78", "no server-side API gate", "port-forward"])
-    refuses("demo freshstart + a Portal Ingress is refused (PO-78)", V("values-demo.yaml") + V("values-freshstart.yaml") + IMGS + ["--set", "portal.ingress.enabled=true",
-            "--set", "portal.ingress.host=h.example", "--set", "portal.networkPolicy.enabled=true"], ["PO-78", "port-forward"])
-    check("production freshstart without an Ingress still renders (port-forward)", rc == 0)
     refuses("production + quickstart is refused (no Portal login gate)", V("values-production.yaml") + V("values-quickstart.yaml") + IMGS, ["login gate"])
     # agreement checks
     base = V("values-demo.yaml") + V("values-quickstart.yaml") + IMGS
