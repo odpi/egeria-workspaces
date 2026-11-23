@@ -42,3 +42,13 @@
 {{- fail "re.egeria.platformUrl is set while core.enabled is true: leave it empty, the stack derives this release's platform Service" -}}
 {{- end -}}
 {{- end -}}
+{{- /* A platform on a non-default port: every part that talks to it must be told the same port (no part follows core.platform.port). */ -}}
+{{- if and .Values.core.enabled (toString .Values.core.platform.port) -}}
+{{- $p := toString .Values.core.platform.port -}}
+{{- if and .Values.portal.enabled (ne (toString .Values.portal.platform.port) $p) -}}
+{{- fail (printf "core.platform.port is %s but portal.platform.port is %q: set portal.platform.port to the same value" $p (toString .Values.portal.platform.port)) -}}
+{{- end -}}
+{{- if and .Values.re.enabled (ne (toString .Values.re.egeria.platformPort) $p) -}}
+{{- fail (printf "core.platform.port is %s but re.egeria.platformPort is %q: set re.egeria.platformPort to the same value" $p (toString .Values.re.egeria.platformPort)) -}}
+{{- end -}}
+{{- end -}}

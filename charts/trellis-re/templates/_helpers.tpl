@@ -26,7 +26,7 @@ Use: {{ $cfg := include "trellis-re.cfg" . | fromYaml }}
 {{- if not (has $v.environment (list "quickstart" "freshstart")) -}}{{- fail (printf "environment must be quickstart or freshstart, not %q" $v.environment) -}}{{- end -}}
 {{- $platformUrl := $v.egeria.platformUrl -}}
 {{- if not $platformUrl -}}
-{{- if $stack -}}{{- $platformUrl = printf "https://%s-platform:%d" .Release.Name (ternary 9443 8443 (eq $v.environment "quickstart")) -}}
+{{- if $stack -}}{{- $platformUrl = printf "https://%s-platform:%d" .Release.Name (int (default (ternary 9443 8443 (eq $v.environment "quickstart")) $v.egeria.platformPort)) -}}
 {{- else -}}{{- fail "set egeria.platformUrl" -}}{{- end -}}
 {{- end -}}
 {{- $viewServer := default (ternary "qs-view-server" "fs-view-server" (eq $v.environment "quickstart")) $v.egeria.viewServer -}}

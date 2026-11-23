@@ -185,6 +185,14 @@ def main():
     ds = renders(PROD + RE_ + ["--set", "re.image.digest=" + DIG, "--set", "re.secrets.existingSecret=rs", "--set", "re.database.owner.user=own", "--set", "re.database.owner.existingSecret=own-pw",
                               "--set", "re.persistence.storageClassName=fast", "--set", "global.tls.verify=true", "--set", "global.tls.caSecret=ca"])
     check("RE in production renders with global.tls and an owner role", re_env(ds).get("PYEGERIA_SSL_VERIFY", {}).get("value") == "true")
+    # platform on a non-default port: Portal and RE must be told the same port
+    PT = V("values-demo.yaml") + V("values-quickstart.yaml") + IMGS + ["--set", "core.platform.port=9444"]
+    refuses("core.platform.port without portal.platform.port is refused", PT, ["portal.platform.port", "9444"])
+    refuses("core.platform.port with RE but no re.egeria.platformPort is refused", PT + ["--set", "portal.platform.port=9444"] + RE_, ["re.egeria.platformPort", "9444"])
+    ds = renders(PT + ["--set", "portal.platform.port=9444", "--set", "re.egeria.platformPort=9444"] + RE_)
+    check("on port 9444 the Portal and RE both use it", re_env(ds)["EGERIA_PLATFORM_URL"]["value"] == "https://s-platform:9444"
+          and next(d for d in ds if d["kind"] == "Deployment" and d["metadata"]["name"] == "s-portal")["spec"]["template"]["spec"]["containers"][0]["env"].__str__().count("s-platform:9444") >= 1)
+    refuses("RE and the Portal on the wrong port: re.egeria.platformPort differs from core.platform.port", PT + ["--set", "portal.platform.port=9444", "--set", "re.egeria.platformPort=9443"] + RE_, ["re.egeria.platformPort"])
     if failures:
         print("\n%d FAILED" % len(failures))
         sys.exit(1)

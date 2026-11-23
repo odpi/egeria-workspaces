@@ -58,6 +58,7 @@ database:
 
 egeria:
   platformUrl: ""          # REQUIRED outside an egeria-stack (inside one: this release's platform Service), for example https://qs-platform:9443
+  platformPort: ""         # inside a stack, when the platform runs on a non-default port: the same value as core.platform.port (the stack checks)
   viewServer: ""           # empty: qs-view-server (quickstart) or fs-view-server (freshstart)
   daemon:
     userId: ""             # REQUIRED, RE's service account (RE_DAEMON_USER_ID)
