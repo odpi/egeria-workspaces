@@ -53,6 +53,7 @@ the final `0 chart(s) failed` line matters.
 | `tests/crc_stack.sh [ns] [release]` | Demo `egeria-stack` with `global.openshift=true` on OpenShift Local; infra in `<ns>-infra` under `anyuid`. `ENVIRONMENT=quickstart DEMO_MODE=true` for demoMode. | crc |
 | `tests/crc_stack_prod.sh [ns] [release]` | Production-style stack on OpenShift Local, images pushed to the internal registry. Keeps its Secrets on a re-run. | crc |
 | `tests/kind_re.sh <ns> [release]` | `trellis-re` (Resource Explorer) on a quickstart platform with the test Postgres: owner role for the schema Job, runtime role for the pods | kind |
+| `tests/kind_stack_re_ingress.sh <ns> [release]` | A freshstart demo stack with `re.enabled` and the Portal behind ingress-nginx: helm test (with the PO-78 canary step), anonymous 401 and 302, signed-in 200. Needs the refusal-lift branch too | kind |
 | `tests/crc_re.sh [ns] [release]` | `trellis-re` in the production posture on OpenShift Local (restricted-v2, image by digest from the internal registry, own SAN keystore, tls.verify, NetworkPolicies, owner/runtime roles); one platform at a time, so scale other platform releases to zero first | crc |
 | `tests/crc_route.sh [ns] [release] [host]` | Adds an edge Route (from the chart's Ingress) to an installed stack and checks it from the host | crc |
 
