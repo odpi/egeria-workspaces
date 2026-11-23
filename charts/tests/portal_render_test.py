@@ -156,6 +156,14 @@ def main():
         e = env_of(kind(renders(extra), "Deployment", "r1-portal")[0], "portal")
         return e["DEMO_MODE"]["value"], e["SERVER_MANAGED_AUTH"]["value"]
     check("mode demo-quickstart: DEMO_MODE true, SERVER_MANAGED_AUTH false", modes(DEMO + BASE + ["--set", "demoMode=true"]) == ("true", "false"))
+    # TR-134: demo database is explicit SQLite on the Portal PVC; never Postgres by accident
+    for tag, extra in (("demoMode", DEMO + BASE + ["--set", "demoMode=true"]), ("freshstart", DEMO + BASE + ["--set", "environment=freshstart"])):
+        pd = kind(renders(extra), "Deployment", "r1-portal")[0]
+        e = env_of(pd, "portal")
+        check("TR-134 " + tag + ": DEMO_DB_PATH is set to the PVC path, DEMO_DB_HOST and DEMO_DB_URL are not set",
+              e.get("DEMO_DB_PATH", {}).get("value") == "/app/demo-data/demo.db" and "DEMO_DB_HOST" not in e and "DEMO_DB_URL" not in e, str(sorted(e)))
+        mounts = [m["mountPath"] for c in pd["spec"]["template"]["spec"]["containers"] if c["name"] == "portal" for m in c.get("volumeMounts", [])]
+        check("TR-134 " + tag + ": /app/demo-data is a mounted volume", "/app/demo-data" in mounts, str(mounts))
     check("mode local-quickstart: both false (no gate; not allowed behind an Ingress)", modes(DEMO + BASE) == ("false", "false"))
     check("mode freshstart: DEMO_MODE false, SERVER_MANAGED_AUTH true", modes(DEMO + BASE + ["--set", "environment=freshstart"]) == ("false", "true"))
     NP = ["--set", "networkPolicy.enabled=true"]
@@ -176,7 +184,7 @@ def main():
         sources = [f["podSelector"]["matchLabels"].get("app.kubernetes.io/name") for r in np["spec"]["ingress"] for f in r["from"]]
         check(tag + ": the Portal's NetworkPolicy admits only portal-web and the canary", sorted(sources) == ["portal-canary", "portal-web"])
     # extraEnv cannot override what the chart owns
-    for name in ("EGERIA_ROOT_PATH", "DEMO_MODE", "SERVER_MANAGED_AUTH", "JWT_SECRET", "EGERIA_USER_PASSWORD"):
+    for name in ("EGERIA_ROOT_PATH", "DEMO_MODE", "SERVER_MANAGED_AUTH", "JWT_SECRET", "EGERIA_USER_PASSWORD", "DEMO_DB_PATH", "DEMO_DB_HOST", "DEMO_DB_URL"):
         refuses("extraEnv may not set " + name, DEMO + BASE + ["--set", "extraEnv[0].name=" + name, "--set", "extraEnv[0].value=x"], ["extraEnv", name])
     ds = renders(DEMO + BASE + ["--set", "extraEnv[0].name=MY_SETTING", "--set-string", "extraEnv[0].value=1"])
     e = env_of(kind(ds, "Deployment", "r1-portal")[0], "portal")

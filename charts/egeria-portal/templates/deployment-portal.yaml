@@ -54,6 +54,9 @@ spec:
             - {name: DEMO_MODE, value: {{ $v.demoMode | quote }}}
             # Set explicitly: the image's default differs by environment (true for freshstart, false for quickstart).
             - {name: SERVER_MANAGED_AUTH, value: {{ $cfg.managedAuth | quote }}}
+            # TR-134: the Portal picks its demo database by DEMO_DB_HOST or DEMO_DB_URL (Postgres), else DEMO_DB_PATH
+            # (SQLite), else it refuses to start in DEMO_MODE. The chart sets only the path (on the Portal PVC), so the
+            # demo database is SQLite and survives a pod restart. All three names are owned: extraEnv cannot flip it.
             - {name: DEMO_DB_PATH, value: /app/demo-data/demo.db}
             - {name: FEEDBACK_DB_PATH, value: /app/demo-data/feedback.db}
             - {name: PYEGERIA_SSL_VERIFY, value: {{ $v.tls.verify | quote }}}

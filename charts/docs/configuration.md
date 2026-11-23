@@ -113,6 +113,13 @@ signing in; they exist in the quickstart metadata, not in the freshstart user di
 Under `demoMode`, `helm test` sends its token checks to the Portal Service on port 8000 directly, because the Apache
 edge header trips the demo gate. The Portal NetworkPolicy admits the test pod for that.
 
+**Image requirement (TR-134).** `demoMode` needs a Portal image that has the TR-134 change. That image picks its demo
+database from `DEMO_DB_HOST` or `DEMO_DB_URL` (Postgres), else `DEMO_DB_PATH` (SQLite), and **refuses to start** in
+demo mode if none of the three is set. The chart sets only `DEMO_DB_PATH=/app/demo-data/demo.db`, on the Portal
+volume, so the demo database is SQLite and survives a pod restart. The chart owns all three names, so `extraEnv` cannot
+switch the Portal to Postgres. An external-Postgres option is a later item. An older image that still defaults to
+Postgres ignores `DEMO_DB_PATH`; do not use one with `demoMode`.
+
 Tested live on OpenShift Local (quickstart, demo posture, with a Route). Not run on kind.
 
 ## Values reference
