@@ -4,3 +4,5 @@ core:
   environment: freshstart
 portal:
   environment: freshstart
+re:
+  environment: freshstart

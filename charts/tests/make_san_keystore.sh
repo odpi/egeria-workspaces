@@ -8,11 +8,16 @@ OUT=${1:?outdir}; NS=${2:?namespace}; SVC=${3:?service name}; ALIAS=${4:-egerias
 umask 077; mkdir -p "$OUT"; cd "$OUT"
 KPW=$(openssl rand -hex 16); TPW=$(openssl rand -hex 16)
 printf %s "$KPW" > keystore-password; printf %s "$TPW" > truststore-password; printf %s "$ALIAS" > key-alias
-openssl req -x509 -newkey rsa:2048 -nodes -keyout ca.key -out ca.crt -days 3 -subj "/CN=egeria-test-ca" 2>/dev/null
+# A CA that passes strict verification (Python 3.13 and OpenSSL 3 check keyUsage and key identifiers): a real CA has them.
+openssl req -x509 -newkey rsa:2048 -nodes -keyout ca.key -out ca.crt -days 3 -subj "/CN=egeria-test-ca" \
+  -addext "basicConstraints=critical,CA:TRUE" -addext "keyUsage=critical,keyCertSign,cRLSign" -addext "subjectKeyIdentifier=hash" 2>/dev/null
 openssl req -newkey rsa:2048 -nodes -keyout server.key -out server.csr -subj "/CN=$SVC" 2>/dev/null
 cat > san.cnf <<CNF
 subjectAltName=DNS:$SVC,DNS:$SVC.$NS,DNS:$SVC.$NS.svc,DNS:$SVC.$NS.svc.cluster.local,DNS:$SVC-hl,DNS:$SVC-hl.$NS.svc.cluster.local,DNS:localhost,IP:127.0.0.1
 extendedKeyUsage=serverAuth,clientAuth
+keyUsage=critical,digitalSignature,keyEncipherment
+authorityKeyIdentifier=keyid
+subjectKeyIdentifier=hash
 CNF
 openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out server.crt -days 3 -extfile san.cnf 2>/dev/null
 cat server.crt ca.crt > chain.crt

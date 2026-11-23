@@ -1,0 +1,21 @@
+{{- $cfg := include "trellis-re.cfg" . | fromYaml -}}
+{{- if $cfg.createDataClaim }}
+# /app/data: the cloned-repository cache and the file-type cache, shared by web and worker.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $cfg.dataClaim }}
+  labels:
+    {{- include "egeria-common.labels" (dict "ctx" . "component" "re") | nindent 4 }}
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  accessModes:
+    {{- toYaml .Values.persistence.accessModes | nindent 4 }}
+  {{- if .Values.persistence.storageClassName }}
+  storageClassName: {{ .Values.persistence.storageClassName }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size }}
+{{- end }}

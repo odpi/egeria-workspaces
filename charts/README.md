@@ -19,7 +19,7 @@ the charts copy its configuration, and `tests/drift_test.py` fails if the two dr
 The two demo charts are subcharts of `egeria-platform` (aliases `demoPostgres` and `demoKafka`, both off by default).
 The production posture refuses them.
 
-Not included yet: Resource Explorer and Egeria Advisor charts (a later phase; see [Known limits](#known-limits)).
+Resource Explorer (`trellis-re/`) installs on its own or inside the stack with `re.enabled=true` (off by default). The stack derives its platform URL and view server, and reads the stack-wide `global.tls.verify` and `global.tls.caSecret`; it keeps its own refusals (owner role, image digest, Secrets). Not included yet: the Egeria Advisor chart (a later phase; see [Known limits](#known-limits)).
 
 ## Two choices you make for every install
 
@@ -75,8 +75,8 @@ A Ready pod does **not** mean Egeria is up. The first start loads content packs 
   on such an image. See [docs/operations.md](docs/operations.md#helm-test-fails-the-po-68-check).
 - **The demo Postgres and Kafka** have no tuning, backups or high availability, and they do not run on OpenShift's
   `restricted-v2`.
-- **Resource Explorer** (phase 3) is not charted yet. It waits on TR-115: Resource Explorer's other stores still run
-  their own DDL in external-schema mode.
+- **Resource Explorer in the stack (`re.enabled`)** is render-tested only. A live proof of the whole stack (platform, Portal,
+  Resource Explorer) waits for a Resource Explorer image from merged trellis with TR-115 and TR-133.
 - **Not yet run on a cluster:** the TR-123 additions (`imagePullSecrets` and `serviceAccountName`, configurable Portal
   and Apache probes, Apache tolerations and affinity, the `portal.platform.userDirectorySecret` requirement). They are
   render-tested; a kind and OpenShift Local run is still to come.
