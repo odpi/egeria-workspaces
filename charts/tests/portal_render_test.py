@@ -135,8 +135,14 @@ def main():
         return r.returncode, r.stdout
     FS_ING = ["--set", "ingress.enabled=true", "--set", "ingress.host=h.example", "--set", "networkPolicy.enabled=true"]
     rc, nt = notes(PROD + BASE + FS_ING + ["--set", "ingress.tlsSecretName=tls"])
-    check("freshstart + Ingress (production) renders and NOTES names PO-78, PO-83 and the 401 check", rc == 0 and "PO-78" in nt and "PO-83" in nt and "must return 401" in nt, nt[-300:])
+    check("freshstart + Ingress (production) renders and NOTES names PO-78, PO-83 and the 401 check", rc == 0 and "PO-78" in nt and "PO-83" in nt and "helm test" in nt and "predates PO-78" in nt, nt[-300:])
     rc, nt = notes(PROD + BASE)
+    rc, out, _ = template(DEMO + BASE + ["--set", "environment=freshstart"])
+    check("freshstart canary: an anonymous page must redirect to /login and an anonymous API read must be 401 (PO-78)",
+          'SERVER_GATE' in out and "/api/operations/platforms" in out and "need(s == 401" in out and "predates PO-78" in out and 'need(r.status == 302 and "/login" in loc' in out)
+    check("freshstart canary: SERVER_GATE is true", '{name: SERVER_GATE, value: "true"}' in out or 'name: SERVER_GATE\n          value: "true"' in out or ('SERVER_GATE' in out and 'value: "true"' in out.split("SERVER_GATE",1)[1][:40]))
+    rc, out, _ = template(DEMO + BASE + ["--set", "environment=quickstart"])
+    check("quickstart canary: SERVER_GATE is false (no PO-78 step runs)", 'value: "false"' in out.split("SERVER_GATE",1)[1][:40])
     check("freshstart without an Ingress: no image warning", rc == 0 and "Freshstart behind an Ingress" not in nt)
 
     # optional pieces

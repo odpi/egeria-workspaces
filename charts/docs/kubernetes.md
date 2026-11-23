@@ -317,8 +317,10 @@ TLS ends at the Ingress.
 
 **Freshstart behind an Ingress or a Route needs a Portal image with PO-78** (the server-side sign-in gate, odpi
 #912) **and PO-83** (per-client auth rate limits, #914). The chart cannot read an image's version, so it does not refuse an
-older image; NOTES prints this warning whenever a freshstart Ingress is enabled. Check your image: an anonymous
-`GET /api/...` through the Ingress must return 401 and a page must redirect to `/login`.
+older image. Instead NOTES warns whenever a freshstart Ingress is enabled, and **`helm test` fails on an image without
+PO-78**: on freshstart the canary checks that an anonymous page request is redirected to `/login` and that an anonymous
+`GET /api/operations/platforms` through the front door returns 401 (an old image answers 200 as the service user).
+Run `helm test` before you expose the Portal. The canary does not test PO-83.
 
 The chart refuses an Ingress:
 

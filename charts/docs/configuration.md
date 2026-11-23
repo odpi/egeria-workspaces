@@ -51,7 +51,7 @@ Every refusal is a Helm `fail` with a message that names the setting to change.
 | User directory file | `coco-user-directory.omsecrets` | `egeria-user-directory.omsecrets` |
 | Platform CPU limit (default) | 4 | none |
 | Portal's Egeria user | `erinoverview` | `bootstrap` |
-| Portal login gate | **None** (`SERVER_MANAGED_AUTH=false`): anyone who reaches the Portal uses Egeria as its service user, unless `demoMode` is on | Yes (`SERVER_MANAGED_AUTH=true`); `bootstrap` is the Portal admin |
+| Portal login gate | **None** (`SERVER_MANAGED_AUTH=false`): anyone who reaches the Portal uses Egeria as its service user, unless `demoMode` is on | Yes (`SERVER_MANAGED_AUTH=true`; a Portal image with PO-78); `bootstrap` is the Portal admin |
 | Portal image | `portal-quickstart` | `portal-freshstart` |
 | Production posture | Platform: allowed. Portal (and so the stack): **refused** | Allowed |
 | Ingress | Only with `demoMode: true` (or `allowUngatedPortal` in a demo) | Allowed |
