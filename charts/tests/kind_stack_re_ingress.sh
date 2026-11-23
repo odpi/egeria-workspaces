@@ -8,6 +8,7 @@
 #   env: PORTAL_TAG (portal-freshstart + apache-web tag), RE_TAG, REGISTRY (default tr112-registry:5000), INGRESS_PORT (local port, default 18080)
 # Secret values are generated here or read from tracked demo files and are never printed. Test infrastructure only, NOT part of any chart.
 set -euo pipefail
+kubectl config current-context | grep -q "^kind-" || { echo "not a kind context" >&2; exit 2; }
 NS=${1:?namespace}; REL=${2:-st}
 HERE=$(cd "$(dirname "$(readlink -f "$0")")" && pwd); CHARTS=$(dirname "$HERE")
 REG=${REGISTRY:-tr112-registry:5000}; PTAG=${PORTAL_TAG:-odpi-e437a084}; RTAG=${RE_TAG:-main-4867b7b0}

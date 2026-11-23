@@ -10,6 +10,7 @@
 #   PREFECT=1: also run a Prefect server (the RE image's own `prefect server start`, SQLite, test only) and enable the chart's Prefect worker.
 # Secret values are generated here or read from tracked demo files and are never printed. Test infrastructure only, NOT part of any chart.
 set -euo pipefail
+kubectl config current-context | grep -q "^kind-" || { echo "not a kind context" >&2; exit 2; }
 NS=${1:?namespace}; REL=${2:-re}
 HERE=$(cd "$(dirname "$(readlink -f "$0")")" && pwd); CHARTS=$(dirname "$HERE")
 IMG=${RE_IMAGE:-tr112-registry:5000/trellis/resource-explorer}; TAG=${RE_TAG:-tr115-efd55108}
