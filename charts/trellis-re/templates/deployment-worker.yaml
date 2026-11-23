@@ -33,6 +33,42 @@ spec:
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      initContainers:
+        # Wait until the Egeria view server is ACTIVE (not just the platform port open): the worker's bootstrap and heal run once at
+        # start and skip what they cannot reach. Same sign-in and poll as the platform canary (egeria-common.waitForServers).
+        - name: wait-for-egeria
+          image: {{ $cfg.image }}
+          imagePullPolicy: {{ $v.image.pullPolicy }}
+          securityContext:
+            {{- include "egeria-common.containerSecurityContext" . | nindent 12 }}
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {memory: 128Mi}
+          env:
+            - {name: BASE, value: {{ $cfg.platformUrl | quote }}}
+            - {name: SERVERS, value: {{ $cfg.viewServer | quote }}}
+            - {name: TIMEOUT, value: {{ int $v.egeria.waitTimeoutSeconds | quote }}}
+            - {name: STRICT, value: {{ $cfg.tlsVerify | quote }}}
+            - {name: CA_FILE, value: {{ ternary "/etc/egeria-ca/ca.crt" "" (not (not $cfg.caSecret)) | quote }}}
+            - {name: WAIT_USER, value: {{ $v.egeria.daemon.userId | quote }}}
+            - {name: WAIT_PASSWORD, valueFrom: {secretKeyRef: {name: {{ $v.egeria.daemon.existingSecret }}, key: {{ $v.egeria.daemon.passwordKey }}}}}
+          {{- if $cfg.caSecret }}
+          volumeMounts:
+            - {name: egeria-ca, mountPath: /etc/egeria-ca, readOnly: true}
+          {{- end }}
+          command:
+            - sh
+            - -c
+            - |
+              set -u
+              if [ "$STRICT" = true ]; then
+                if [ -n "$CA_FILE" ]; then CURL="curl -s --cacert $CA_FILE"; else CURL="curl -s"; fi
+              else
+                CURL="curl -s -k"
+              fi
+              fail() { echo "FAIL: $*" >&2; echo "Resource Explorer's worker waits for the Egeria view server $SERVERS at $BASE ($TIMEOUT s, egeria.waitTimeoutSeconds). The pod restarts and tries again." >&2; exit 1; }
+              end=$(( $(date +%s) + TIMEOUT ))
+              {{- include "egeria-common.waitForServers" (dict "user" "WAIT_USER" "password" "WAIT_PASSWORD" "progress" true) | nindent 14 }}
       containers:
         - name: worker
           image: {{ $cfg.image }}

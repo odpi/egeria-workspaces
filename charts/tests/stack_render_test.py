@@ -193,6 +193,18 @@ def main():
     check("on port 9444 the Portal and RE both use it", re_env(ds)["EGERIA_PLATFORM_URL"]["value"] == "https://s-platform:9444"
           and next(d for d in ds if d["kind"] == "Deployment" and d["metadata"]["name"] == "s-portal")["spec"]["template"]["spec"]["containers"][0]["env"].__str__().count("s-platform:9444") >= 1)
     refuses("RE and the Portal on the wrong port: re.egeria.platformPort differs from core.platform.port", PT + ["--set", "portal.platform.port=9444", "--set", "re.egeria.platformPort=9443"] + RE_, ["re.egeria.platformPort"])
+    # the worker's wait follows the derived platform URL (and re.egeria.platformPort)
+    def worker_wait(ds):
+        dep = next(d for d in ds if d["kind"] == "Deployment" and d["metadata"]["name"].endswith("re-worker"))
+        ic = dep["spec"]["template"]["spec"].get("initContainers", [])
+        return {e["name"]: e.get("value") for e in ic[0]["env"]} if ic else {}
+    for env, port, vs in (("quickstart", 9443, "qs-view-server"), ("freshstart", 8443, "fs-view-server")):
+        e = worker_wait(renders(V("values-demo.yaml") + V("values-%s.yaml" % env) + IMGS + RE_))
+        check("stack %s: the worker waits for %s at https://s-platform:%d" % (env, vs, port), e.get("BASE") == "https://s-platform:%d" % port and e.get("SERVERS") == vs, str(e))
+    e = worker_wait(renders(PT + ["--set", "portal.platform.port=9444", "--set", "re.egeria.platformPort=9444"] + RE_))
+    check("stack on port 9444: the worker waits at https://s-platform:9444", e.get("BASE") == "https://s-platform:9444", str(e))
+    off = renders(V("values-demo.yaml") + V("values-quickstart.yaml") + IMGS)
+    check("RE off: no wait-for-egeria init container anywhere", not any(c["name"] == "wait-for-egeria" for d in off if d["kind"] in ("Deployment", "StatefulSet", "Job") for c in d["spec"]["template"]["spec"].get("initContainers", [])))
     if failures:
         print("\n%d FAILED" % len(failures))
         sys.exit(1)

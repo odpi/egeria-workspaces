@@ -104,7 +104,9 @@ OUT=""; for _ in $(seq 1 12); do OUT="$OUT $(bad a)"; done
 echo "client A, 12 bad sign-ins:$OUT   (401s, then 429)"
 echo "client B, 1 bad sign-in right after: $(bad b)   (401 = B has its own budget)"
 kubectl -n "$NS" exec deploy/$REL-portal -- sh -c 'echo PORTAL_TRUSTED_PROXIES=$PORTAL_TRUSTED_PROXIES' 2>&1 | tail -1
-echo "=== RE worker: any Egeria error (full text)"
+kubectl -n "$NS" delete pod client-a client-b --wait=false >/dev/null 2>&1 || true
+echo "=== RE worker: its first startup checks (the init container waits for the view server) and any Egeria error (full text)"
+kubectl -n "$NS" logs deploy/$REL-re-worker -c wait-for-egeria 2>&1 | tail -4 || true
 kubectl -n "$NS" logs deploy/$REL-re-worker 2>&1 | grep -n -B2 -A14 "Egeria detected error" | head -60 || true
 echo "=== Resource Explorer: the schema Job and its pods"
 kubectl -n "$NS" get job,pods 2>&1 | grep -i "re-" || true

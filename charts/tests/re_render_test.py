@@ -235,6 +235,31 @@ def main():
     t = kind(ds, "Pod")[0]
     check("the helm test pod is a test hook that reaches the web Service", t["metadata"]["annotations"]["helm.sh/hook"] == "test"
           and "http://r1-re-web:8810" in t["spec"]["containers"][0]["args"][0])
+    # --- the worker waits for the view server to be ACTIVE (init container); the web does not ---
+    def inits(ds, name_suffix):
+        dep = next(d for d in ds if d["kind"] == "Deployment" and d["metadata"]["name"].endswith(name_suffix))
+        return dep["spec"]["template"]["spec"].get("initContainers", [])
+    ds = renders(DEMO + BASE)
+    w = inits(ds, "re-worker")
+    check("the worker has the wait-for-egeria init container", [c["name"] for c in w] == ["wait-for-egeria"], str(w))
+    check("the web has no init container (it reports Egeria unreachable instead of waiting)", inits(ds, "re-web") == [])
+    check("no other RE Deployment or Job gets the wait", all(not d["spec"]["template"]["spec"].get("initContainers") for d in ds if d["kind"] in ("Deployment", "Job") and not d["metadata"]["name"].endswith("re-worker")))
+    ie = {e["name"]: e for e in w[0]["env"]}
+    check("the wait targets the platform URL and view server", ie["BASE"]["value"] == "https://platform:9443" and ie["SERVERS"]["value"] == "qs-view-server", str(ie["BASE"]) + str(ie["SERVERS"]))
+    check("the wait takes the password only from the daemon Secret (secretKeyRef), the user as a plain value",
+          ie["WAIT_PASSWORD"]["valueFrom"]["secretKeyRef"] == {"name": "re-egeria", "key": "password"} and "value" not in ie["WAIT_PASSWORD"] and ie["WAIT_USER"]["value"] == "re")
+    script = w[0]["command"][2]
+    check("the password is not put in argv or echoed (stdin only)", '--data @-' in script and 'echo "$WAIT_PASSWORD' not in script and '-d "' not in script and "WAIT_PASSWORD\"" not in script.replace('"$WAIT_PASSWORD"', ""))
+    check("the wait is bounded and says why it failed", "end=$(( $(date +%s) + TIMEOUT ))" in script and "exit 1" in script and "allowed to list active servers" in script and "waiting:" in script)
+    check("demo: the wait skips TLS verification like the platform canary", ie["STRICT"]["value"] == "false" and "curl -s -k" in script)
+    ds = renders(DEMO + BASE + ["--set", "egeria.waitTimeoutSeconds=1200"])
+    check("egeria.waitTimeoutSeconds reaches the init container", {e["name"]: e for e in inits(ds, "re-worker")[0]["env"]}["TIMEOUT"]["value"] == "1200")
+    ds = renders(PROD + BASE + ["--set", "egeria.platformUrl=https://platform:8443"])
+    wp = inits(ds, "re-worker")[0]
+    pe = {e["name"]: e for e in wp["env"]}
+    check("production: the wait verifies TLS with the CA Secret (--cacert from the mounted ca.crt)", pe["STRICT"]["value"] == "true" and pe["CA_FILE"]["value"] == "/etc/egeria-ca/ca.crt"
+          and "--cacert $CA_FILE" in wp["command"][2] and any(m["mountPath"] == "/etc/egeria-ca" for m in wp["volumeMounts"]))
+    check("production: the wait does not use -k when verifying", "STRICT\" = true" in wp["command"][2] or '"$STRICT" = true' in wp["command"][2])
     if failures:
         print("\n%d FAILED" % len(failures))
         sys.exit(1)
