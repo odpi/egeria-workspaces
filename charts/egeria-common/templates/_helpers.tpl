@@ -93,16 +93,17 @@ imagePullSecrets:
 {{/*
 egeria-common.waitForServers: shell steps shared by the platform canary and Resource Explorer's wait. Signs in to the platform and polls
 the active-servers list until every name in $SERVERS is active. The caller defines CURL, BASE, SERVERS, end (a deadline in epoch seconds)
-and fail(), and exports the two environment variables named here. The password goes in on stdin, never in argv or the log.
+TIMEOUT (seconds, only for the messages) and fail(), and exports the two environment variables named here. The password goes in on stdin, never in argv or the log.
 Use: {{ include "egeria-common.waitForServers" (dict "user" "CANARY_USER" "password" "CANARY_PASSWORD" "progress" false) | nindent 10 }}
 */}}
 {{- define "egeria-common.waitForServers" -}}
-# 1. log in (the password is never printed)
+# 1. log in (the password is never printed). The body is built with printf, because the images have no jq: a password containing
+# a double quote or a backslash makes the sign-in fail (with words, and nothing is printed). Give the account a password without them.
 token=
 tick=$(date +%s)
 while [ -z "$token" ]; do
   token=$(printf '{"userId":"%s","password":"%s"}' "${{ .user }}" "${{ .password }}" | $CURL --max-time 20 -X POST -H 'Content-Type: application/json' --data @- "$BASE/api/token" || true)
-  case "$token" in eyJ*) ;; *) token=; [ "$(date +%s)" -lt "$end" ] || fail "could not get a token for account ${{ .user }} from $BASE before the deadline"
+  case "$token" in eyJ*) ;; *) token=; [ "$(date +%s)" -lt "$end" ] || fail "could not get a token for account ${{ .user }} from $BASE within ${TIMEOUT}s"
     {{- if .progress }}
     [ $(( $(date +%s) - tick )) -lt 60 ] || { echo "waiting: no token yet from $BASE"; tick=$(date +%s); }
     {{- end }}
@@ -116,7 +117,7 @@ while :; do
   missing=
   for s in $SERVERS; do case "$active" in *"\"$s\""*) ;; *) missing="$missing $s" ;; esac; done
   case "$active" in *'"relatedHTTPCode":200'*) [ -z "$missing" ] && break ;; *) missing="${missing:- (no valid answer; is ${{ .user }} allowed to list active servers?)}" ;; esac
-  [ "$(date +%s)" -lt "$end" ] || fail "servers not active before the deadline:$missing"
+  [ "$(date +%s)" -lt "$end" ] || fail "servers not active after ${TIMEOUT}s:$missing"
   {{- if .progress }}
   [ $(( $(date +%s) - tick )) -lt 60 ] || { echo "waiting: not active yet:$missing"; tick=$(date +%s); }
   {{- end }}
