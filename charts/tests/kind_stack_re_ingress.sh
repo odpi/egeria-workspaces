@@ -81,12 +81,15 @@ IN=http://127.0.0.1:$LP
 code() { curl -s -o /dev/null -m 20 -w '%{http_code}' -H "Host: $HOST" "$@"; }
 echo "anonymous GET /api/operations/platforms: HTTP $(code $IN/api/operations/platforms)   (401 expected)"
 echo "anonymous GET /portal: HTTP $(curl -s -o /dev/null -m 20 -w '%{http_code} -> %{redirect_url}' -H "Host: $HOST" $IN/portal | sed "s#http://$HOST##")   (302 -> /login expected)"
-PW=$(cat "$W/egeria-pw")
-# An Egeria token alone is not a Portal session (PO-78): sign in at /api/auth/login and keep the demo_token cookie.
-LOGIN=$(curl -s -m 30 -o /dev/null -w '%{http_code}' -c "$W/jar" -H "Host: $HOST" -H 'Content-Type: application/json' -d "{\"user_id\":\"omagspcatnpa\",\"password\":\"$PW\"}" $IN/api/auth/login)
+python3 -I - "$W" <<'PY'
+import json, sys
+w = sys.argv[1]
+open(w + "/login.json", "w").write(json.dumps({"user_id": "omagspcatnpa", "password": open(w + "/egeria-pw").read()}))
+PY
+# The password goes in a file (umask 077), never in curl's argv. An Egeria token alone is not a Portal session (PO-78): sign in at /api/auth/login and keep the demo_token cookie.
+LOGIN=$(curl -s -m 30 -o /dev/null -w '%{http_code}' -c "$W/jar" -H "Host: $HOST" -H 'Content-Type: application/json' --data @"$W/login.json" $IN/api/auth/login)
 echo "sign-in (POST /api/auth/login): HTTP $LOGIN"
 echo "signed-in GET /api/operations/platforms: HTTP $(code -b "$W/jar" $IN/api/operations/platforms)   (200 expected)"
 echo "signed-in GET /portal: HTTP $(code -b "$W/jar" $IN/portal)   (200 expected)"
-unset PW
 echo "=== Resource Explorer: the schema Job and its pods"
 kubectl -n "$NS" get job,pods 2>&1 | grep -i "re-" || true
