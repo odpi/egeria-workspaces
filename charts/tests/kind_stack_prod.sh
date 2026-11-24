@@ -5,6 +5,7 @@
 #                                                      REGISTRY (default tr112-registry:5000; the kind nodes must be able to pull it)
 # Secret values are generated here or read from the tracked demo files and are never printed.
 set -euo pipefail
+kubectl config current-context | grep -q "^kind-" || { echo "not a kind context" >&2; exit 2; }
 NS=${1:?namespace}; REL=${2:-ps}
 HERE=$(cd "$(dirname "$(readlink -f "$0")")" && pwd); CHARTS=$(dirname "$HERE")
 REG=${REGISTRY:-tr112-registry:5000}; PTAG=${PORTAL_TAG:-freshstart-6.3-a79109b7}; ATAG=${APACHE_TAG:-6.3-a79109b7}

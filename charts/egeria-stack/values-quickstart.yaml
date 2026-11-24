@@ -4,3 +4,5 @@ core:
   environment: quickstart
 portal:
   environment: quickstart
+re:
+  environment: quickstart

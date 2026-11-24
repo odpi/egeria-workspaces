@@ -72,24 +72,7 @@ spec:
           BASE="https://$HOSTN:$PORT"
           fail() { echo "FAIL: $*" >&2; exit 1; }
           end=$(( $(date +%s) + TIMEOUT ))
-          # 1. log in (the password is never printed)
-          token=
-          while [ -z "$token" ]; do
-            token=$(printf '{"userId":"%s","password":"%s"}' "$CANARY_USER" "$CANARY_PASSWORD" | $CURL --max-time 20 -X POST -H 'Content-Type: application/json' --data @- "$BASE/api/token" || true)
-            case "$token" in eyJ*) ;; *) token=; [ "$(date +%s)" -lt "$end" ] || fail "could not get a token for account $CANARY_USER from $BASE within ${TIMEOUT}s"; sleep 10 ;; esac
-          done
-          echo "ok: logged in as $CANARY_USER"
-          auth="Authorization: Bearer $token"
-          # 2. every server in startup.server.list is active
-          while :; do
-            active=$($CURL --max-time 30 -H "$auth" "$BASE/open-metadata/platform-services/server-platform/servers/active" || true)
-            missing=
-            for s in $SERVERS; do case "$active" in *"\"$s\""*) ;; *) missing="$missing $s" ;; esac; done
-            case "$active" in *'"relatedHTTPCode":200'*) [ -z "$missing" ] && break ;; *) missing="${missing:- (no valid answer; is $CANARY_USER allowed to list active servers?)}" ;; esac
-            [ "$(date +%s)" -lt "$end" ] || fail "servers not active after ${TIMEOUT}s:$missing"
-            sleep 10
-          done
-          echo "ok: all active: $SERVERS"
+          {{- include "egeria-common.waitForServers" (dict "user" "CANARY_USER" "password" "CANARY_PASSWORD" "progress" false) | nindent 10 }}
           # 3. read the canary element through the view server
           r=
           while :; do

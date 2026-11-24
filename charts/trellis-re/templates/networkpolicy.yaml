@@ -1,0 +1,64 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- $cfg := include "trellis-re.cfg" . | fromYaml -}}
+# Ingress rules only. The web pods accept traffic on 8810 from anywhere that can reach their Service (the Ingress controller
+# included; add a stricter selector for yours if needed). The worker has no port, so nothing may connect to it.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $cfg.webname }}
+  labels:
+    {{- include "egeria-common.labels" (dict "ctx" . "component" "re-web") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "egeria-common.selectorLabels" (dict "ctx" . "component" "re-web") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 8810
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $cfg.workername }}
+  labels:
+    {{- include "egeria-common.labels" (dict "ctx" . "component" "re-worker") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "egeria-common.selectorLabels" (dict "ctx" . "component" "re-worker") | nindent 6 }}
+  policyTypes: [Ingress]
+{{- if .Values.prefect.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $cfg.prefectworkername }}
+  labels:
+    {{- include "egeria-common.labels" (dict "ctx" . "component" "re-prefect-worker") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "egeria-common.selectorLabels" (dict "ctx" . "component" "re-prefect-worker") | nindent 6 }}
+  policyTypes: [Ingress]
+{{- end }}
+{{- if .Values.a2a.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $cfg.a2aname }}
+  labels:
+    {{- include "egeria-common.labels" (dict "ctx" . "component" "re-a2a") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "egeria-common.selectorLabels" (dict "ctx" . "component" "re-a2a") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: {{ .Values.a2a.port }}
+{{- end }}
+{{- end }}
