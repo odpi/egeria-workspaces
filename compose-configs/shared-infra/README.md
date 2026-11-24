@@ -188,6 +188,49 @@ SHARED_KAFKA_IMAGE=<your-compatible-hardened-kafka-image>
 > Kafka persistence uses a dedicated host directory (`HARDENED_KAFKA_DATA_DIR`) prepared by
 > `ensure-shared-infra.sh`, so it does not depend on the legacy `/bitnami/kafka` volume permissions.
 
+### Kafka image versions: layout and user
+
+The default image is `cleanstart/kafka` 4.4.0. It is laid out differently from the 4.1.1 image used before it:
+
+| | 4.1.1 | 4.4.0 |
+|---|---|---|
+| Kafka home (`bin/`, `config/`, `libs/`) | `/usr/lib/kafka` | `/opt/kafka` |
+| Broker's own server logs | `/usr/lib/kafka/logs` | `/opt/kafka/logs` |
+| Runs as | uid 65532, gid 65532 | uid 1000, gid 1000 (`kafka`) |
+
+Nothing in this directory depends on which one is in use:
+
+- `kafka-entrypoint.sh` looks for Kafka in `/opt/kafka` and then `/usr/lib/kafka` (set `KAFKA_HOME` to override), so the
+  same script starts either image.
+- `kafka-log4j2.yaml` is mounted at `/etc/egeria-kafka/log4j2.yaml`, outside Kafka home, and the entrypoint passes it to
+  the broker. The Kafka command line tools keep the image's own logging configuration.
+- To run a Kafka command in the container, use the path for the image, for example
+  `docker exec egeria-shared-kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9192 --list`.
+
+**Moving an existing installation from 4.1.1 to 4.4.0 on Linux.** The files in `HARDENED_KAFKA_DATA_DIR` were written
+by uid 65532 and the 4.4.0 broker runs as uid 1000. `ensure-shared-infra.sh` tries to open up the permissions, but
+with Docker it cannot change files that the container's user owns, and prints
+`Warning: Could not fully set permissions`. Stop Kafka and change the owner before starting the new image:
+
+```bash
+docker stop egeria-shared-kafka
+sudo chown -R 1000:1000 runtime-volumes/shared-infra-hardened-kafka
+./compose-configs/shared-infra/ensure-shared-infra.sh
+```
+
+If this step is missed, the broker does not start: the entrypoint exits with
+`ERROR: /var/lib/kafka-data/kraft-logs is not writable by uid 1000` and the same `chown` command. Docker Desktop on
+macOS maps the ownership of bind-mounted files, so no change is needed there. A new installation needs no change on
+any platform.
+
+`gen-env.sh` moves an existing `.env` from the 4.1.1 digest to the 4.4.0 one the next time it runs, unless
+`SHARED_KAFKA_IMAGE` is set in the environment.
+
+> Do not stay on Kafka 4.1.1. Its group coordinator can stop serving a `__consumer_offsets` partition when the
+> container's clock steps backwards (`Histogram recorded value cannot be negative` in the broker log). Every consumer
+> group on that partition then rebalances every five seconds and receives no events until the broker is restarted.
+> This is fixed in Kafka 4.1.2 and later.
+
 You can also manage the shared stack directly from this directory:
 
 ```bash
@@ -265,4 +308,10 @@ Rollback to a previous Kafka or Postgres image reference:
 SHARED_KAFKA_IMAGE=<previous-kafka-image-ref> ./compose-configs/shared-infra/ensure-shared-infra.sh
 SHARED_POSTGRES_IMAGE=<previous-postgres-image-ref> ./compose-configs/shared-infra/ensure-shared-infra.sh
 ```
+
+Rolling Kafka back from 4.4.0 to 4.1.1 works only while the cluster's `metadata.version` is still the 4.1 one, which
+it is unless someone has raised it with `kafka-features.sh upgrade`. The 4.1.1 reference is
+`docker.io/cleanstart/kafka@sha256:3bfad519feac67e6bd1ae2b18b3e4770cdf2fedf53ecff7b38a520a7c5d77564`. On Linux, also
+return the data directory to the 4.1.1 image's user first (`sudo chown -R 65532:65532 <HARDENED_KAFKA_DATA_DIR>`). See
+[Kafka image versions: layout and user](#kafka-image-versions-layout-and-user) for why 4.1.1 is only a stopgap.
 

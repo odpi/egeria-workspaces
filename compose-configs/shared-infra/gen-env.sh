@@ -42,8 +42,16 @@ fi
 if [[ "$SHARED_KAFKA_IMAGE_VAL" == bitnamilegacy/kafka* || "$SHARED_KAFKA_IMAGE_VAL" == cleanstart/kafka* ]]; then
   SHARED_KAFKA_IMAGE_VAL=""
 fi
+# Move an existing .env off the Kafka 4.1.1 pin, but only when the value came from .env: its group coordinator
+# can stick a __consumer_offsets partition for good (see kafka-entrypoint.sh). A value passed in the environment
+# is left alone, so the README's rollback command still works.
+KAFKA_4_1_1_DIGEST="sha256:3bfad519feac67e6bd1ae2b18b3e4770cdf2fedf53ecff7b38a520a7c5d77564"
+if [[ -z "${SHARED_KAFKA_IMAGE:-}" && "$SHARED_KAFKA_IMAGE_VAL" == *"$KAFKA_4_1_1_DIGEST" ]]; then
+  SHARED_KAFKA_IMAGE_VAL=""
+fi
 if [[ -z "$SHARED_KAFKA_IMAGE_VAL" ]]; then
-  SHARED_KAFKA_IMAGE_VAL="docker.io/cleanstart/kafka@sha256:3bfad519feac67e6bd1ae2b18b3e4770cdf2fedf53ecff7b38a520a7c5d77564"
+  # cleanstart/kafka 4.4.0 (multi-arch index), 2026-11-24.
+  SHARED_KAFKA_IMAGE_VAL="docker.io/cleanstart/kafka@sha256:84c3c05ef52cf5bca344705224ab20729c26b63f588b1ee7d71eedb57daf1812"
 fi
 
 SHARED_POSTGRES_IMAGE_VAL="${SHARED_POSTGRES_IMAGE:-}"
