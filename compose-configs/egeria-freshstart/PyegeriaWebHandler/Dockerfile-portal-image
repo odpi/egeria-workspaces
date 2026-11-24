@@ -23,7 +23,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --retries 10 --timeout 60 -r requirements.txt
 
 # Same floor and cache-bust pattern as Dockerfile-fast-api.
-ARG PYEGERIA_VERSION=pyegeria>=6.3.0
+ARG PYEGERIA_VERSION=pyegeria>=6.3.3
 ARG PYEGERIA_BUST=0
 RUN echo "pyegeria layer ${PYEGERIA_BUST}" \
     && pip install --no-cache-dir --retries 10 --timeout 60 "${PYEGERIA_VERSION}" --upgrade

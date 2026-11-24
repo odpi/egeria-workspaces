@@ -2471,6 +2471,17 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
         });
       }
       uncNote('leaderboard', uncMark('leaderboard', store));
+    } else if (leadEl) {
+      // PO-86: null or missing = the leaderboard could not be read. Never leave "Loading…" up once the response
+      // has arrived, and never say "no karma records" (that is [], a real answer).
+      leadEl.innerHTML = '';
+      var nmLead = document.createElement('div');
+      nmLead.className = 'lead-nm';
+      nmLead.style.cssText = 'color:var(--muted);font-size:.8rem;padding:8px 0';
+      var nmWhy = nmReason('leaderboard', store);
+      nmLead.textContent = 'Not measured: the karma leaderboard could not be read' + (nmWhy ? ' (' + nmWhy + ')' : '');
+      leadEl.appendChild(nmLead);
+      uncNote('leaderboard', null);
     }
     // Engagement over time — real weekly feedback trend (renderVega falls
     // through silently when engagementChart is null on an older pyegeria).

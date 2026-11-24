@@ -271,10 +271,10 @@ def test_result_cache_drop():
     assert cache.drop(lambda k: k[0] == "a") == 1 and cache.lookup(("a",))[0] == "miss"
 
 
-def test_router_is_registered_and_the_floor_is_6_3_0():
+def test_router_is_registered_and_the_floor_is_6_3_3():
     assert "from report_spec_publish_handler import router as report_spec_publish_router" in (ROOT / "pyegeria_handler.py").read_text()
-    assert (ROOT / "requirements.txt").read_text().splitlines()[6].startswith("pyegeria>=6.3.0")
-    assert "ARG PYEGERIA_VERSION=pyegeria>=6.3.0" in (ROOT / "Dockerfile-fast-api").read_text()
+    assert (ROOT / "requirements.txt").read_text().splitlines()[6].startswith("pyegeria>=6.3.3")
+    assert "ARG PYEGERIA_VERSION=pyegeria>=6.3.3" in (ROOT / "Dockerfile-fast-api").read_text()
 
 
 def test_the_handler_never_falls_back_to_a_password():
