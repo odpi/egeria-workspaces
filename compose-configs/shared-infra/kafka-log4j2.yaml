@@ -1,4 +1,5 @@
-# Egeria shared-infra override of Kafka 4.1.1's config/log4j2.yaml (bind-mounted by shared-infra.yaml).
+# Egeria shared-infra override of Kafka's config/log4j2.yaml (bind-mounted by shared-infra.yaml and passed to the
+# broker by kafka-entrypoint.sh). Written against 4.1.1; the stock file is unchanged in 4.4.0, checked 2026-11-24.
 # Two changes from the stock file, both because the stock file never deletes its hourly rotations and the
 # container's writable layer reached 3.1 GB of server.log.* (2026-11-10):
 #   1. every RollingFile keeps only its newest rotations up to a total size (server.log 500 MB, others 50 MB),

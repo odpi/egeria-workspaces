@@ -3,7 +3,7 @@
 # Copyright Contributors to the Egeria project
 #
 # Kafka KRaft entrypoint — replaces the one baked into the cleanstart/kafka
-# image (/usr/local/bin/kafka-entrypoint.sh).
+# image (see IMAGE LAYOUTS below for where that is in each image version).
 #
 # WHY THIS EXISTS
 # ---------------
@@ -33,12 +33,51 @@
 #
 # If the image is ever bumped, re-check the vendor entrypoint for new settings
 # worth carrying across — this file deliberately shadows it.
+#
+# IMAGE LAYOUTS
+# -------------
+# cleanstart/kafka changed layout between the 4.1.1 image and the 4.4.0 image
+# (2026-11-24), and this script runs on both so that a rollback of
+# SHARED_KAFKA_IMAGE needs no other change:
+#
+#                      4.1.1 image            4.4.0 image
+#   Kafka home         /usr/lib/kafka         /opt/kafka
+#   runs as            uid 65532 (clnstrt)    uid 1000 (kafka)
+#   vendor entrypoint  /usr/local/bin/kafka-entrypoint.sh
+#                                             /etc/kafka/docker/run (Apache's)
+#
+# So KAFKA_HOME is detected rather than assumed, and the log4j2 override is
+# passed with KAFKA_LOG4J_OPTS from a path that is the same in both images
+# rather than mounted over a file inside Kafka home.
+#
+# The change of user matters on Linux: a log dir written by uid 65532 is not
+# writable by uid 1000, and the broker then fails obscurely. The check below
+# fails early with the chown to run. (Docker Desktop on macOS maps bind-mount
+# ownership, so it does not arise there.)
+#
+# 4.1.1 must not be used except to roll back: its group coordinator can stick
+# a __consumer_offsets partition for good when the container clock steps
+# backwards ("Histogram recorded value cannot be negative"), which leaves every
+# consumer group on that partition rebalancing every 5 s and receiving nothing
+# until the broker is restarted. Fixed in Kafka 4.1.2.
 
 set -e
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting Kafka KRaft entrypoint (egeria-workspaces override)"
 
-KAFKA_HOME=${KAFKA_HOME:-/usr/lib/kafka}
+if [ -z "${KAFKA_HOME:-}" ]; then
+    for candidate in /opt/kafka /usr/lib/kafka; do
+        if [ -x "$candidate/bin/kafka-server-start.sh" ]; then
+            KAFKA_HOME=$candidate
+            break
+        fi
+    done
+fi
+if [ -z "${KAFKA_HOME:-}" ]; then
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: no Kafka installation found in /opt/kafka or /usr/lib/kafka; set KAFKA_HOME" >&2
+    exit 1
+fi
+LOG4J_OVERRIDE=${EGERIA_KAFKA_LOG4J_CONFIG:-/etc/egeria-kafka/log4j2.yaml}
 CONFIG_DIR=${CONFIG_DIR:-/opt/kafka/config}
 LOG_DIR=${KAFKA_CFG_LOG_DIRS:-/opt/kafka/kraft-logs}
 
@@ -47,6 +86,14 @@ echo "[$(date '+%Y-%m-%d %H:%M:%S')] Config directory:   $CONFIG_DIR"
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Log directory:      $LOG_DIR"
 
 mkdir -p "$CONFIG_DIR" "$LOG_DIR"
+
+# An existing log dir must be writable by the user this image runs as. See
+# IMAGE LAYOUTS in the header: the user changed between image versions.
+if [ ! -w "$LOG_DIR" ] || { [ -f "$LOG_DIR/meta.properties" ] && [ ! -w "$LOG_DIR/meta.properties" ]; }; then
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: $LOG_DIR is not writable by uid $(id -u)." >&2
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')]        On the host, run: sudo chown -R $(id -u):$(id -g) <HARDENED_KAFKA_DATA_DIR>" >&2
+    exit 1
+fi
 
 # Retention/segment defaults mirror shared-infra.yaml's intent. Sized for a
 # demo environment that produces a large, low-value audit-log stream: keep a
@@ -139,6 +186,16 @@ if [ ! -f "$LOG_DIR/meta.properties" ]; then
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] Log directory formatted successfully"
 else
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] Log directory already formatted, skipping format"
+fi
+
+# The log4j2 override is given to the broker only, after the format step, so
+# that kafka-storage.sh above and the command-line tools run with `docker exec`
+# keep their own console-only tools-log4j2.yaml.
+if [ -f "$LOG4J_OVERRIDE" ]; then
+    export KAFKA_LOG4J_OPTS="-Dlog4j2.configurationFile=$LOG4J_OVERRIDE"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Broker log4j2 configuration: $LOG4J_OVERRIDE"
+else
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] No log4j2 override at $LOG4J_OVERRIDE; using the image's own"
 fi
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting Kafka server in KRaft mode"
