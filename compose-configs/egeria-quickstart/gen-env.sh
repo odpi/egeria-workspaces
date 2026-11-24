@@ -150,6 +150,65 @@ fi
 source "${SCRIPT_DIR}/persona-password.sh"
 resolve_persona_password .env "${SCRIPT_DIR}/PyegeriaWebHandler/personas.json"
 
+# JWT_SECRET (PO-46b, as RK-24b for freshstart): signs the Portal's session cookies. This script rewrites .env every
+# run, which used to drop it outside --demo, so the compose default (a value published in the repo) signed every
+# quickstart's sessions. An exported value wins, else .env.demo's (quick-start-local --demo writes it before calling
+# this script), else the one already in .env, else a random one is generated on this first run. A published value is
+# never kept. Never printed.
+_PUBLIC_JWT_DEFAULTS=("change-me-before-going-public" "change-me-before-going-public-meow")
+_is_public_jwt() { local v="$1" p; for p in "${_PUBLIC_JWT_DEFAULTS[@]}"; do [[ "$v" == "$p" ]] && return 0; done; return 1; }
+if [[ -n "${JWT_SECRET:-}" ]] && _is_public_jwt "$JWT_SECRET"; then
+  # An exported value wins at compose too, so it can't be replaced here: stop rather than start a Portal that
+  # refuses every sign-in.
+  echo "[gen-env.sh] STOP: the exported JWT_SECRET is a published example value, which anyone could use to forge sessions." >&2
+  echo "[gen-env.sh]   Unset it (unset JWT_SECRET) and re-run: a random one is generated into .env and kept." >&2
+  exit 1
+fi
+JWT_SECRET_VAL="${JWT_SECRET:-}"
+for _jwt_file in .env.demo .env; do
+  if [[ -z "$JWT_SECRET_VAL" && -f "$_jwt_file" ]]; then
+    JWT_SECRET_VAL="$(grep -E '^JWT_SECRET=' "$_jwt_file" | head -n1 | cut -d= -f2- || true)"
+    JWT_SECRET_VAL="${JWT_SECRET_VAL%\"}"; JWT_SECRET_VAL="${JWT_SECRET_VAL#\"}"
+    if _is_public_jwt "$JWT_SECRET_VAL"; then JWT_SECRET_VAL=""; fi
+  fi
+done
+if [[ -z "$JWT_SECRET_VAL" ]]; then
+  if command -v openssl >/dev/null 2>&1; then
+    JWT_SECRET_VAL="$(openssl rand -hex 32)"
+  else
+    JWT_SECRET_VAL="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+  fi
+  echo "[gen-env.sh] JWT_SECRET: generated a new random value into .env (kept on later runs)." >&2
+fi
+
+# MCP_ACCESS_TOKEN (PO-82, as PO-79 for freshstart): the token the Portal's MCP endpoints require. It used to be a value
+# published in the compose file, so anyone who could reach pyegeria-web:8000 could drive the MCP tools. Same rules as
+# JWT_SECRET: an exported value wins (refused if it is the published one), else .env.demo's, else the one already in .env,
+# else a random one is generated on this first run. A published value is never kept. Never printed.
+_PUBLIC_MCP_TOKENS=("egeria-secret-mcp-token")
+_is_public_mcp() { local v="$1" p; for p in "${_PUBLIC_MCP_TOKENS[@]}"; do [[ "$v" == "$p" ]] && return 0; done; return 1; }
+if [[ -n "${MCP_ACCESS_TOKEN:-}" ]] && _is_public_mcp "$MCP_ACCESS_TOKEN"; then
+  echo "[gen-env.sh] STOP: the exported MCP_ACCESS_TOKEN is a published example value, which anyone could use to drive the MCP tools." >&2
+  echo "[gen-env.sh]   Unset it (unset MCP_ACCESS_TOKEN) and re-run: a random one is generated into .env and kept." >&2
+  exit 1
+fi
+MCP_ACCESS_TOKEN_VAL="${MCP_ACCESS_TOKEN:-}"
+for _mcp_file in .env.demo .env; do
+  if [[ -z "$MCP_ACCESS_TOKEN_VAL" && -f "$_mcp_file" ]]; then
+    MCP_ACCESS_TOKEN_VAL="$(grep -E '^MCP_ACCESS_TOKEN=' "$_mcp_file" | head -n1 | cut -d= -f2- || true)"
+    MCP_ACCESS_TOKEN_VAL="${MCP_ACCESS_TOKEN_VAL%\"}"; MCP_ACCESS_TOKEN_VAL="${MCP_ACCESS_TOKEN_VAL#\"}"
+    if _is_public_mcp "$MCP_ACCESS_TOKEN_VAL"; then MCP_ACCESS_TOKEN_VAL=""; fi
+  fi
+done
+if [[ -z "$MCP_ACCESS_TOKEN_VAL" ]]; then
+  if command -v openssl >/dev/null 2>&1; then
+    MCP_ACCESS_TOKEN_VAL="$(openssl rand -hex 32)"
+  else
+    MCP_ACCESS_TOKEN_VAL="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+  fi
+  echo "[gen-env.sh] MCP_ACCESS_TOKEN: generated a new random value into .env (kept on later runs)." >&2
+fi
+
 # Write .env atomically (mode 600: it now carries a password)
 TMP_ENV=".env.tmp"
 ( umask 077; : > "$TMP_ENV" )
@@ -165,7 +224,9 @@ EGERIA_CPU_LIMIT=${EGERIA_CPU_LIMIT_VAL}
 CONFIG_JSON="${CONFIG_JSON_ESCAPED}"
 QUICKSTART_PERSONA_PASSWORD=${QUICKSTART_PERSONA_PASSWORD_VAL}
 EOF
+printf 'JWT_SECRET=%s\n' "$JWT_SECRET_VAL" >> "$TMP_ENV"
+printf 'MCP_ACCESS_TOKEN=%s\n' "$MCP_ACCESS_TOKEN_VAL" >> "$TMP_ENV"
 mv -f "$TMP_ENV" .env
 chmod 600 .env
 
-echo "[gen-env.sh] Wrote .env with HOST_FQDN=${HOST_FQDN}, KAFKA_CLUSTER_ID=${KAFKA_CLUSTER_ID_VAL}, EGERIA_MEM_LIMIT=${EGERIA_MEM_LIMIT_VAL}, EGERIA_CPU_LIMIT=${EGERIA_CPU_LIMIT_VAL}, QUICKSTART_PERSONA_PASSWORD ${QUICKSTART_PERSONA_PASSWORD_SOURCE} (not shown)" >&2
+echo "[gen-env.sh] Wrote .env with HOST_FQDN=${HOST_FQDN}, KAFKA_CLUSTER_ID=${KAFKA_CLUSTER_ID_VAL}, EGERIA_MEM_LIMIT=${EGERIA_MEM_LIMIT_VAL}, EGERIA_CPU_LIMIT=${EGERIA_CPU_LIMIT_VAL}, QUICKSTART_PERSONA_PASSWORD ${QUICKSTART_PERSONA_PASSWORD_SOURCE} (not shown), JWT_SECRET and MCP_ACCESS_TOKEN (kept or generated, not shown)" >&2

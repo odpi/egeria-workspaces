@@ -1,0 +1,10 @@
+{{- /* Renders nothing. Production refuses a TLS Secret that holds the PUBLIC demo keystore password: TLS anyone can open is not TLS.
+       lookup is empty under helm template and --dry-run=client, so this fires only against a real cluster. */ -}}
+{{- $cfg := include "egeria-platform.cfg" . | fromYaml -}}
+{{- if and (eq .Values.posture "production") (not $cfg.createTlsSecret) }}
+{{- $tls := lookup "v1" "Secret" .Release.Namespace $cfg.tlsSecretName }}
+{{- $demoPw := include "egeria-platform.prop" (dict "name" "server.ssl.key-store-password" "props" (.Files.Get (printf "files/%s/application.properties" .Values.environment))) }}
+{{- if and $tls $tls.data (hasKey $tls.data "keystore-password") (eq (index $tls.data "keystore-password" | b64dec) $demoPw) }}
+{{- fail (printf "tls.existingSecret %q holds the PUBLIC demo keystore password from the Egeria repository, so anyone can open the keystore and this TLS is not private. The production posture refuses it: make a keystore and password of your own (see charts/tests/make_san_keystore.sh for an example) and point tls.existingSecret at it." $cfg.tlsSecretName) -}}
+{{- end }}
+{{- end }}

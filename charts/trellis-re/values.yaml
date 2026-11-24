@@ -1,0 +1,163 @@
+# trellis-re: Resource Explorer (web, worker, schema Job). It needs an Egeria platform and a Postgres with the pgvector
+# extension that you run yourself; this chart creates neither. Processes are the roles of the image's entrypoint
+# (docs/process-model.md in the trellis repo): the schema Job runs `schema-apply`, the pods run in RE_SCHEMA_MODE=external.
+
+global:
+  openshift: false        # true: no runAsUser/runAsGroup/fsGroup (restricted-v2 assigns the UID, GID 0)
+  imagePullSecrets: []
+  stack: false            # true inside egeria-stack: the platform URL is this release's platform Service
+  tls: {}                 # stack-wide TLS: verify, caSecret (used when tls.* is empty)
+
+# quickstart | freshstart: picks the platform port and view server when the platform URL is derived (egeria-stack).
+environment: quickstart
+
+# demo | production. Normally set by values-demo.yaml or values-production.yaml.
+posture: demo
+
+serviceAccountName: ""
+imagePullSecrets: []
+securityContext:
+  runAsUser: 1000          # the image's default user (trellis); not rendered with global.openshift
+  runAsGroup: 1000
+  fsGroup: 1000
+
+image:
+  repository: ""           # for example localhost:5001/trellis/resource-explorer (build: trellis repo, docker/Dockerfile.resource-explorer)
+  tag: ""
+  digest: ""               # required in production
+  pullPolicy: IfNotPresent
+
+web:
+  replicas: 1              # stateless apart from /app/data and Postgres; any number works with the shared JWT secret
+  resources:
+    requests: {cpu: 250m, memory: 1Gi}
+    limits: {memory: 3Gi}
+worker:
+  replicas: 1              # the three leader-elected loops hold Postgres advisory locks: a second replica is a safe standby
+  resources:
+    requests: {cpu: 250m, memory: 1Gi}
+    limits: {memory: 3Gi}
+
+# Postgres with the pgvector extension. The runtime role needs only USAGE on its schemas (plan TR-115): the schema Job
+# uses the owner role, which creates the schemas, tables, indexes and (if the admin has not) the extension.
+database:
+  host: ""                 # REQUIRED
+  port: 5432
+  name: ""                 # REQUIRED, the database
+  schema: resource_explorer
+  user: ""                 # REQUIRED, the runtime role
+  # REQUIRED. A Secret with the runtime role's password under passwordKey. It must exist before `helm install`
+  # (the schema Job runs as a pre-install hook, before the chart's own objects).
+  existingSecret: ""
+  passwordKey: password
+  owner:
+    # The schema Job's role. Empty means the runtime role and its Secret (fine for a demo; use a separate owner role in production).
+    user: ""
+    existingSecret: ""
+    passwordKey: password
+
+egeria:
+  platformUrl: ""          # REQUIRED outside an egeria-stack (inside one: this release's platform Service), for example https://qs-platform:9443
+  platformPort: ""         # inside a stack, when the platform runs on a non-default port: the same value as core.platform.port (the stack checks)
+  # The worker waits (init container) until this view server is ACTIVE on the platform, for at most this long, then the pod restarts.
+  # Keep it at least the platform's own start time (about 3 minutes on kind, more on a slow node).
+  waitTimeoutSeconds: 900
+  viewServer: ""           # empty: qs-view-server (quickstart) or fs-view-server (freshstart)
+  daemon:
+    userId: ""             # REQUIRED, RE's service account (RE_DAEMON_USER_ID)
+    # REQUIRED. A Secret with the service account's password under passwordKey.
+    existingSecret: ""
+    passwordKey: password
+
+tls:
+  verify: false            # whether RE checks the platform's certificate (PYEGERIA_SSL_VERIFY)
+  caSecret: ""             # production: a Secret with key ca.crt to verify against
+
+secrets:
+  # A Secret with keys jwt-secret and db-credential-key, shared by every pod (web, worker). Required in production.
+  # Empty in the demo posture: the chart creates one with random values, kept across upgrades.
+  existingSecret: ""
+
+publicUrl: ""              # RE_PUBLIC_URL, for links in e-mails and the Portal (empty is allowed)
+
+llm:
+  backend: ollama          # ollama | openai | anthropic
+  ollama:
+    baseUrl: ""            # for example http://ollama:11434
+    model: ""
+  # Provider keys and any other LLM setting go in extraEnv / extraEnvFrom.
+
+prefect:
+  # Resource Explorer can hand survey steps to a Prefect worker (the image's `prefect-worker` role). The Prefect SERVER is yours: this chart
+  # does not run one (point apiUrl at it). web, worker and the Prefect worker run ONE image, so they are always the same commit, which RE
+  # requires before it dispatches (it warns and runs the steps locally otherwise).
+  enabled: false
+  apiUrl: ""               # REQUIRED when enabled, for example http://prefect-server:4200/api
+  workPool: resource-explorer-pool    # a `process` pool: the chart's init step creates it when it is missing
+  dispatchSteps: ""        # PREFECT_DISPATCH_STEPS: which steps run on Prefect; empty is the image default (an unknown token stops start-up)
+  apiKeySecret: ""         # optional: a Secret with key api-key, for a Prefect server that wants one (Prefect Cloud)
+  worker:
+    replicas: 1
+    resources:
+      requests: {cpu: 250m, memory: 1Gi}
+      limits: {memory: 3Gi}
+
+a2a:
+  # The `a2a` role: every Resource Explorer agent on ONE port behind a bearer token (a trellis app JWT or a raw Egeria token; there is no static
+  # A2A token). A ClusterIP Service only: no Ingress here. The cards and /.well-known/agents.json are public by design; every agent call needs a token.
+  enabled: false
+  port: 8100               # the image's PORT is 8810 (web), so the chart sets this one explicitly
+  replicas: 1              # the A2A context store is in memory: a task started on one pod is invisible on another. The chart refuses more than 1.
+  serviceAccount: false    # true: also give the A2A pod RE's Egeria service account (RE_DAEMON_*). The agents make no service-account Egeria call today, so the default is off.
+  publicUrl: ""            # A2A_PUBLIC_URL, the URL written into the cards. Empty means the in-cluster Service URL; set it when callers use another address.
+  resources:
+    requests: {cpu: 250m, memory: 1Gi}
+    limits: {memory: 3Gi}
+
+logs:
+  # pyegeria and the Dr.Egeria child write logs under a relative `logs` directory, which is /app (root-owned) in the image: an arbitrary
+  # OpenShift UID cannot create it. A pod-local path avoids that (found on OpenShift Local, 2026-11-22).
+  directory: /tmp/pyegeria-logs
+
+embeddings:
+  device: cpu              # the image is CPU-only torch; the MiniLM model is baked into the image (no download)
+
+persistence:
+  # /app/data holds the cloned-repository cache and the file-type cache, shared by web and worker. Compose shares one volume,
+  # so the default asks for ReadWriteMany. A single-node cluster (kind, OpenShift Local) can use ReadWriteOnce:
+  # every pod lands on the one node, and a ReadWriteOnce volume may be mounted by several pods on one node.
+  existingClaim: ""
+  storageClassName: ""
+  size: 20Gi
+  accessModes: [ReadWriteMany]
+
+ingress:
+  enabled: false
+  className: ""
+  host: ""
+  tlsSecretName: ""        # required in production
+  annotations: {}
+
+networkPolicy:
+  enabled: false
+  # Added to the web and worker pods so the platform chart's NetworkPolicy lets them in.
+  platformClientLabel: egeria.odpi.org/client
+
+schemaJob:
+  backoffLimit: 2
+  activeDeadlineSeconds: 900
+  resources:
+    requests: {cpu: 100m, memory: 512Mi}
+    limits: {memory: 2Gi}
+
+probes:
+  web:
+    startup: {periodSeconds: 5, failureThreshold: 60}
+    readiness: {periodSeconds: 10, failureThreshold: 3, timeoutSeconds: 5}
+    liveness: {periodSeconds: 20, failureThreshold: 3, timeoutSeconds: 5}
+
+extraEnv: []               # appended to web and worker (names the chart owns are refused)
+extraEnvFrom: []           # secretRef / configMapRef entries, for provider API keys and the like
+nodeSelector: {}
+tolerations: []
+affinity: {}

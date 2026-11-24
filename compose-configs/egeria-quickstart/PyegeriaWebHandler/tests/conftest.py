@@ -56,3 +56,12 @@ def _no_lazy_report_spec_sync():
     report_spec_sync._LAZY["enabled"] = False
     yield
     report_spec_sync._LAZY["enabled"] = False
+
+
+@pytest.fixture(autouse=True)
+def _fresh_rate_limits():
+    """PO-83: the auth routes are rate-limited per client IP, and every TestClient calls from the same address
+    ("testclient"), so no test may inherit another test's count."""
+    from rate_limiter import limiter
+    limiter.reset()
+    yield

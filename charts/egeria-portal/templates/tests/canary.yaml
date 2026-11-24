@@ -1,0 +1,85 @@
+{{- $cfg := include "egeria-portal.cfg" . | fromYaml -}}
+# helm test: proves the Portal through its front door, including a real Egeria call. Only the PASS line means ready.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ $cfg.fullname }}-canary
+  labels:
+    app.kubernetes.io/name: portal-canary
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: egeria
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  restartPolicy: Never
+  securityContext:
+    {{- include "egeria-common.podSecurityContext" . | nindent 4 }}
+  {{- include "egeria-common.podIdentity" . | nindent 2 }}
+  containers:
+    - name: canary
+      image: {{ $cfg.apacheImage }}
+      imagePullPolicy: {{ .Values.images.apache.pullPolicy }}
+      securityContext:
+        {{- include "egeria-common.containerSecurityContext" . | nindent 8 }}
+      env:
+        - {name: FRONT, value: "http://{{ $cfg.webname }}:8085"}
+        - {name: REDIRECT_OK, value: {{ $cfg.gated | quote }}}
+        - {name: SERVER_GATE, value: {{ $cfg.managedAuth | quote }}}
+        # Under demoMode the demo gate refuses /api/egeria-token without a demo session when the request comes through
+        # Apache (which adds the edge header), so the token check goes to the Portal Service directly (the NetworkPolicy admits the canary).
+        - {name: TOKEN_BASE, value: {{ ternary (printf "http://%s:8000" $cfg.fullname) (printf "http://%s:8085" $cfg.webname) .Values.demoMode | quote }}}
+        {{- if $cfg.hasCanary }}
+        - {name: CANARY_USER, valueFrom: {secretKeyRef: {name: {{ $cfg.canarySecretName }}, key: userId}}}
+        - {name: CANARY_PASSWORD, valueFrom: {secretKeyRef: {name: {{ $cfg.canarySecretName }}, key: password}}}
+        {{- end }}
+      command:
+        - python3
+        - -c
+        - |
+          import http.client, json, os, sys, urllib.parse
+          u = urllib.parse.urlparse(os.environ["FRONT"])
+          def call(method, path, body=None, headers=None, base=None):
+              b = urllib.parse.urlparse(base or os.environ["FRONT"])
+              c = http.client.HTTPConnection(b.hostname, b.port, timeout=120)
+              c.request(method, path, body, headers or {})
+              r = c.getresponse()
+              return r.status, r.read()
+          def need(ok, what):
+              print(("ok:   " if ok else "FAIL: ") + what, flush=True)
+              if not ok:
+                  sys.exit(1)
+          # a gated Portal (freshstart, or demoMode) redirects /portal to its login page; an ungated quickstart serves it
+          ok_codes = (200, 301, 302) if os.environ["REDIRECT_OK"] == "true" else (200,)
+          s, _ = call("GET", "/portal")
+          need(s in ok_codes, f"front door answers /portal (HTTP {s})")
+          # PO-78 (freshstart): the Portal has a server-side sign-in gate. A page must send an anonymous visitor to /login, and an
+          # anonymous read of an API route must be refused (401). An image without PO-78 answers that read with 200 as the
+          # service user, so this step fails the test: freshstart behind an Ingress needs an image that has PO-78.
+          if os.environ["SERVER_GATE"] == "true":
+              b = urllib.parse.urlparse(os.environ["FRONT"])
+              c = http.client.HTTPConnection(b.hostname, b.port, timeout=120)
+              c.request("GET", "/portal")
+              r = c.getresponse()
+              loc = r.getheader("Location") or ""
+              r.read()
+              need(r.status == 302 and "/login" in loc, f"an anonymous page request is redirected to /login (HTTP {r.status}, Location {loc!r})")
+              s, _ = call("GET", "/api/operations/platforms")
+              need(s == 401, f"an anonymous read of an API route is refused (HTTP {s}; 200 means the Portal image predates PO-78: reads are open as the service user)")
+          {{- if $cfg.hasCanary }}
+          # Sign in as the canary account (non-personal), never with an empty body, which would mint the Portal's own token.
+          body = json.dumps({"user_id": os.environ["CANARY_USER"], "password": os.environ["CANARY_PASSWORD"]})
+          s, b = call("POST", "/api/egeria-token", body, {"Content-Type": "application/json"}, os.environ["TOKEN_BASE"])
+          need(s == 200, f"the canary account gets a bearer token from Egeria via {os.environ['TOKEN_BASE']} (HTTP {s})")
+          need(bool(json.loads(b).get("token")), "the response carries a token")
+          # PO-68: with no password and no Portal session, a gated Portal must refuse (401) instead of minting the Portal's own service-user
+          # token. An ungated quickstart behaves that way by design (local mode), so only a gated Portal is checked.
+          if os.environ["REDIRECT_OK"] == "true":
+              anon = "{}"
+              s, _ = call("POST", "/api/egeria-token", anon, {"Content-Type": "application/json"}, os.environ["TOKEN_BASE"])
+              need(s == 401, f"a request with no password and no session is refused (HTTP {s}; 200 would mean PO-68: the Portal image predates the fix)")
+          print("PASS: portal up, front door and Egeria token verified")
+          {{- else }}
+          print("FAIL: set canary.existingSecret (keys userId and password: a non-personal account that may sign in) so helm test can prove the Egeria call")
+          sys.exit(1)
+          {{- end }}

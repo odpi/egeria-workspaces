@@ -42,7 +42,7 @@ from loguru import logger
 from pydantic import BaseModel
 
 import workbench_access as wb
-from demo_config import DEMO_MODE
+from demo_config import DEMO_MODE, PUBLIC_MCP_TOKENS
 
 router = APIRouter(prefix="/api/obsidian", tags=["obsidian-lock"])
 
@@ -174,7 +174,8 @@ def _inject_persona(persona_id: str) -> None:
     existing.update({
         "userId":   persona_id,
         "userPass": personas[persona_id]["password"],
-        "mcpToken": os.environ.get("MCP_ACCESS_TOKEN", "egeria-secret-mcp-token"),
+        # PO-82: the real token, or "" when MCP is off. Never the published example value.
+        "mcpToken": "" if (os.environ.get("MCP_ACCESS_TOKEN") or "") in PUBLIC_MCP_TOKENS else (os.environ.get("MCP_ACCESS_TOKEN") or ""),
     })
     _PLUGIN_DATA_JSON.write_text(json.dumps(existing, indent=2))
     logger.info(f"obsidian lock: injected persona '{persona_id}' into data.json")

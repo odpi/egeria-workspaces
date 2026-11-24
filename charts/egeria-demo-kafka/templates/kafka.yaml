@@ -1,0 +1,87 @@
+{{- $name := printf "%s-demo-kafka" .Release.Name -}}
+{{- if gt (len $name) 63 -}}{{- fail (printf "release name %q is too long: %q would be over 63 characters" .Release.Name $name) -}}{{- end -}}
+{{- $labels := printf "app.kubernetes.io/name: demo-kafka\napp.kubernetes.io/instance: %s\napp.kubernetes.io/managed-by: %s\napp.kubernetes.io/part-of: egeria\nhelm.sh/chart: %s-%s" .Release.Name .Release.Service .Chart.Name .Chart.Version -}}
+{{- $sel := printf "app.kubernetes.io/name: demo-kafka\napp.kubernetes.io/instance: %s" .Release.Name -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-entrypoint
+  labels:
+    {{- $labels | nindent 4 }}
+data:
+  egeria-kafka-entrypoint.sh: |
+{{ .Files.Get "files/kafka-entrypoint.sh" | indent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- $labels | nindent 4 }}
+spec:
+  selector:
+    {{- $sel | nindent 4 }}
+  ports:
+    - {name: kafka, port: 9192, targetPort: 9192}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- $labels | nindent 4 }}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels:
+      {{- $sel | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- $labels | nindent 8 }}
+      annotations:
+        checksum/entrypoint: {{ .Files.Get "files/kafka-entrypoint.sh" | sha256sum }}
+    spec:
+      {{- include "egeria-demo-kafka.podIdentity" . | nindent 6 }}
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: kafka
+          image: {{ .Values.image.repository }}@{{ .Values.image.digest }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          command: ["/usr/local/bin/egeria-kafka-entrypoint.sh"]
+          env:
+            - {name: KAFKA_CFG_NODE_ID, value: "1"}
+            - {name: KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE, value: "true"}
+            - {name: KAFKA_CFG_PROCESS_ROLES, value: "controller,broker"}
+            - {name: KAFKA_CFG_CONTROLLER_LISTENER_NAMES, value: CONTROLLER}
+            - {name: KAFKA_CFG_CONTROLLER_QUORUM_VOTERS, value: "1@127.0.0.1:9193"}
+            - {name: KAFKA_CFG_LISTENERS, value: "PLAINTEXT://0.0.0.0:9192,CONTROLLER://0.0.0.0:9193"}
+            - {name: KAFKA_CFG_ADVERTISED_LISTENERS, value: "PLAINTEXT://{{ $name }}.{{ .Release.Namespace }}.svc.cluster.local:9192,CONTROLLER://127.0.0.1:9193"}
+            - {name: KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP, value: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"}
+            - {name: KAFKA_KRAFT_CLUSTER_ID, value: "42"}
+            - {name: KAFKA_CFG_LOG_DIRS, value: /tmp/kraft-logs}
+            - {name: KAFKA_CFG_LOG_RETENTION_HOURS, value: {{ .Values.retention.hours | quote }}}
+            - {name: KAFKA_CFG_LOG_RETENTION_BYTES, value: {{ .Values.retention.bytes | quote }}}
+            - {name: KAFKA_CFG_LOG_SEGMENT_BYTES, value: {{ .Values.retention.segmentBytes | quote }}}
+            - {name: KAFKA_CFG_LOG_CLEANER_ENABLE, value: "true"}
+            - {name: KAFKA_HEAP_OPTS, value: {{ .Values.heap | quote }}}
+            - {name: KAFKA_OPTS, value: "-XX:+ExitOnOutOfMemoryError"}
+          ports: [{name: kafka, containerPort: 9192}]
+          readinessProbe:
+            tcpSocket: {port: 9192}
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - {name: entry, mountPath: /usr/local/bin/egeria-kafka-entrypoint.sh, subPath: egeria-kafka-entrypoint.sh}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: entry
+          configMap: {name: {{ $name }}-entrypoint, defaultMode: 0755}
+        - {name: tmp, emptyDir: {}}

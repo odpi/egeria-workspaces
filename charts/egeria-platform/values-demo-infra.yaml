@@ -1,0 +1,6 @@
+# DEMO ONLY: add the bundled single-node Postgres and Kafka (with the idempotent database set-up Job).
+# helm install egeria charts/egeria-platform -f values-demo.yaml -f values-demo-infra.yaml
+demoPostgres:
+  enabled: true
+demoKafka:
+  enabled: true

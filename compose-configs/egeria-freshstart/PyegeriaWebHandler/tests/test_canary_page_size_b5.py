@@ -104,7 +104,7 @@ def test_oldest_create_time_under_b5(monkeypatch):
             bodies.append(body)
             return NO if body.get("pageSize") == 1 else [oldest, newer]   # sorted oldest first
 
-    monkeypatch.setattr(cs, "_classification_explorer", lambda *a: FakeCE())
+    monkeypatch.setattr(cs, "_classification_explorer", lambda *a, **k: FakeCE())
     monkeypatch.setattr(cs, "_oldest_cache", {})                         # no cache in play
     r = cs.oldest_create_time(url=None, server=None, user_id=None)
     import json
@@ -120,7 +120,7 @@ def test_oldest_create_time_with_nothing_is_still_could_not_tell(monkeypatch):
         def find_root_elements(self, body=None, output_format=None):
             return NO
 
-    monkeypatch.setattr(cs, "_classification_explorer", lambda *a: FakeCE())
+    monkeypatch.setattr(cs, "_classification_explorer", lambda *a, **k: FakeCE())
     monkeypatch.setattr(cs, "_oldest_cache", {})
     import json
     assert json.loads(cs.oldest_create_time(url=None, server=None, user_id=None).body) == {"createTime": None}

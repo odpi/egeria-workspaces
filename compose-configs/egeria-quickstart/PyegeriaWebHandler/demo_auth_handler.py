@@ -28,12 +28,16 @@ Routes:
 import json
 import os
 import secrets
+import smtplib
+import ssl
+from email.message import EmailMessage
 import resend as _resend
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from rate_limiter import ACCOUNT_EMAIL_LIMIT, LOGIN_LIMIT, limiter  # PO-83: per real client IP
 from fastapi.responses import JSONResponse, RedirectResponse
 from jose import JWTError, jwt
 from loguru import logger
@@ -43,8 +47,9 @@ from sqlalchemy.orm import Session
 
 from demo_config import (
     DEMO_MODE, SERVER_MANAGED_AUTH,
-    JWT_ALGORITHM, JWT_EXPIRY_ADMIN_SEC, JWT_EXPIRY_USER_SEC, JWT_SECRET,
+    JWT_ALGORITHM, JWT_EXPIRY_ADMIN_SEC, JWT_EXPIRY_USER_SEC, jwt_signing_key,
     SITE_URL, RESEND_API_KEY, RESEND_FROM,
+    SMTP_HOST, SMTP_PORT, SMTP_SSL, SMTP_USER, SMTP_PASSWORD, SMTP_FROM, SMTP_TIMEOUT_S,
 )
 from demo_db import Config, Event, User, get_db, get_config, log_event, set_config
 
@@ -63,16 +68,24 @@ def _verify(plain: str, hashed: str) -> bool:
     return _bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
 
 
+def _signing_key() -> str:
+    """PO-46b: the session key, refusing (503, in words) an unset one or a published default."""
+    try:
+        return jwt_signing_key()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+
 def _make_jwt(user_id: str, role: str) -> str:
     exp = JWT_EXPIRY_ADMIN_SEC if role == "admin" else JWT_EXPIRY_USER_SEC
     return jwt.encode(
         {"sub": user_id, "role": role, "exp": datetime.utcnow() + timedelta(seconds=exp)},
-        JWT_SECRET, algorithm=JWT_ALGORITHM,
+        _signing_key(), algorithm=JWT_ALGORITHM,
     )
 
 
 def _decode_jwt(token: str) -> dict:
-    return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    return jwt.decode(token, _signing_key(), algorithms=[JWT_ALGORITHM])
 
 
 def _token_from_request(request: Request) -> Optional[str]:
@@ -111,31 +124,86 @@ def require_admin(request: Request, db: Session = Depends(get_db)) -> User:
     return user
 
 
-# ── Email via Resend ───────────────────────────────────────────────────────────
+# ── Email: Resend, else SMTP ───────────────────────────────────────────────────
+# Precedence (the same as infra-check's): RESEND_API_KEY set -> Resend, which also
+# needs RESEND_FROM (no fall-back to SMTP); else SMTP_HOST set -> SMTP; else skipped,
+# said in the log. Secrets are never logged; error text has them masked.
+
+def _scrub(text: str) -> str:
+    for secret in (SMTP_PASSWORD, RESEND_API_KEY):
+        if secret:
+            text = text.replace(secret, "***")
+    return text
+
+
+def _smtp_connect(host: str, port: int, use_ssl: bool):
+    """An open, encrypted connection: implicit TLS (SMTP_SSL) or STARTTLS. Certificates
+    are verified; SMTP_TIMEOUT_S bounds the connect and every command."""
+    context = ssl.create_default_context()
+    if use_ssl:
+        return smtplib.SMTP_SSL(host, port, timeout=SMTP_TIMEOUT_S, context=context)
+    conn = smtplib.SMTP(host, port, timeout=SMTP_TIMEOUT_S)
+    try:
+        conn.starttls(context=context)
+    except Exception:
+        conn.close()
+        raise
+    return conn
+
+
+def _send_via_smtp(to: str, subject: str, html: str, text: str, bcc: list[str] | None) -> None:
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = SMTP_FROM
+    msg["To"] = to                  # bcc goes only into the envelope, never a header
+    msg.set_content(text or "This message is HTML; view it in an HTML-capable mail client.")
+    msg.add_alternative(html, subtype="html")
+    conn = _smtp_connect(SMTP_HOST, SMTP_PORT, SMTP_SSL)
+    try:
+        if SMTP_USER and SMTP_PASSWORD:
+            conn.login(SMTP_USER, SMTP_PASSWORD)
+        conn.send_message(msg, to_addrs=[to] + list(bcc or []))
+    finally:
+        try:
+            conn.quit()
+        except Exception:  # noqa: BLE001 -- the message is already sent or already failed
+            pass
+
 
 def _send_email(to: str, subject: str, html: str, text: str = "", bcc: list[str] | None = None) -> None:
-    if not RESEND_API_KEY:
-        logger.warning(f"RESEND_API_KEY not set — skipped email to {to!r}: {subject}")
+    if RESEND_API_KEY:
+        if not RESEND_FROM:
+            logger.warning(f"RESEND_FROM not set — skipped email to {to!r}: {subject}")
+            return
+        _resend.api_key = RESEND_API_KEY
+        try:
+            params: _resend.Emails.SendParams = {
+                "from": RESEND_FROM,
+                "to": [to],
+                "subject": subject,
+                "html": html,
+            }
+            if text:
+                params["text"] = text
+            if bcc:
+                params["bcc"] = bcc
+            _resend.Emails.send(params)
+            logger.info(f"Email sent to {to!r} (resend): {subject}")
+        except Exception as exc:
+            logger.error(f"Failed to send email to {to!r} (resend): {_scrub(str(exc))}")
         return
-    if not RESEND_FROM:
-        logger.warning(f"RESEND_FROM not set — skipped email to {to!r}: {subject}")
+    if SMTP_HOST:
+        if not SMTP_FROM:
+            logger.warning(f"SMTP_FROM (or SMTP_USER / ADMIN_BOOTSTRAP_EMAIL) not set — skipped email to {to!r}: {subject}")
+            return
+        try:
+            _send_via_smtp(to, subject, html, text, bcc)
+            logger.info(f"Email sent to {to!r} (smtp): {subject}")
+        except Exception as exc:
+            logger.error(f"Failed to send email to {to!r} (smtp): {type(exc).__name__}: {_scrub(str(exc))}")
         return
-    _resend.api_key = RESEND_API_KEY
-    try:
-        params: _resend.Emails.SendParams = {
-            "from": RESEND_FROM,
-            "to": [to],
-            "subject": subject,
-            "html": html,
-        }
-        if text:
-            params["text"] = text
-        if bcc:
-            params["bcc"] = bcc
-        _resend.Emails.send(params)
-        logger.info(f"Email sent to {to!r}: {subject}")
-    except Exception as exc:
-        logger.error(f"Failed to send email to {to!r}: {exc}")
+    logger.warning(f"Email not configured (RESEND_API_KEY + RESEND_FROM, or SMTP_HOST, unset) — "
+                   f"skipped email to {to!r}: {subject}")
 
 
 def _send_welcome_email(user) -> None:
@@ -316,7 +384,8 @@ class RoleUpdateRequest(BaseModel):
 # ── Registration & verification ────────────────────────────────────────────────
 
 @router.post("/api/auth/register", summary="Register a new demo account")
-def register(req: RegisterRequest, db: Session = Depends(get_db)):
+@limiter.limit(ACCOUNT_EMAIL_LIMIT)
+def register(request: Request, req: RegisterRequest, db: Session = Depends(get_db)):
     if len(req.password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
     if db.query(User).filter(User.email == req.email.lower()).first():
@@ -353,7 +422,8 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/api/auth/resend-verification", summary="Resend email verification link")
-def resend_verification(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
+@limiter.limit(ACCOUNT_EMAIL_LIMIT)
+def resend_verification(request: Request, req: ForgotPasswordRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == req.email.lower()).first()
     if not user or user.verified:
         # Return success regardless to avoid email enumeration
@@ -401,7 +471,8 @@ def verify_email(token: str, db: Session = Depends(get_db)):
 # ── Login / logout ─────────────────────────────────────────────────────────────
 
 @router.post("/api/auth/login", summary="Log in and receive a session cookie")
-def login(req: LoginRequest, response: Response, db: Session = Depends(get_db)):
+@limiter.limit(LOGIN_LIMIT)
+def login(request: Request, req: LoginRequest, response: Response, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == req.email.lower()).first()
     if not user or not _verify(req.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
@@ -445,7 +516,8 @@ def get_me(request: Request, db: Session = Depends(get_db)):
 # ── Password reset ─────────────────────────────────────────────────────────────
 
 @router.post("/api/auth/forgot-password", summary="Request a password-reset email")
-def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
+@limiter.limit(ACCOUNT_EMAIL_LIMIT)
+def forgot_password(request: Request, req: ForgotPasswordRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == req.email.lower()).first()
     if user and user.verified:
         token = secrets.token_urlsafe(32)
@@ -463,7 +535,8 @@ def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/api/auth/reset-password", summary="Set a new password using a reset token")
-def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
+@limiter.limit(ACCOUNT_EMAIL_LIMIT)
+def reset_password(request: Request, req: ResetPasswordRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.reset_token == req.token).first()
     if not user or not user.reset_expires or user.reset_expires < datetime.utcnow():
         raise HTTPException(status_code=400, detail="Invalid or expired reset link")

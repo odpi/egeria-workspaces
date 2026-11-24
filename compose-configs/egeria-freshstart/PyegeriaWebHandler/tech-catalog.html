@@ -588,7 +588,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
      URL guarantees a fresh fetch regardless of prior cache state. -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
 <script>window.EGERIA_FOR_LINEAGE = true; window.EGERIA_FOR_LINEAGE_VISIBLE = false;  /* shown per-section by App */</script>
-<script src="/static/egeria-shared-ui.js?v=2026-11-17-po41"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-11-22-cv2"></script>
 <script>
 'use strict';
 // React hook aliases (mirror type-explorer.html)
@@ -1773,8 +1773,12 @@ function _resolveTypeToNav(typeName, superTypeNames) {
   if (nav) return nav;
   // Fallback: a plain Asset (or an Asset subtype type-nav-map.json has no entry
   // for) is still an asset, and The Catalog is where assets live -- e.g. a
-  // GitHub repository, which Resource Explorer deliberately catalogs as a bare
-  // `Asset`. AssetTabView fetches detail by GUID, so any Asset renders here.
+  // GitHub repository Resource Explorer published before TR-89 as a bare
+  // `Asset` (still present on hosts whose Egeria was not reset). Since TR-89 a
+  // repository is a SourceControlLibrary, a SoftwareCapability rather than an
+  // Asset: the type-nav-map lookup above resolves it through its supertypes to
+  // Infrastructure > Software Capabilities, so it never reaches this fallback.
+  // AssetTabView fetches detail by GUID, so any Asset renders here.
   // Done here rather than as an "Asset" key in type-nav-map.json because that
   // map is shared with Explorer/Operations, and a catch-all key there could
   // shadow a more specific ancestor in the supertype walk.

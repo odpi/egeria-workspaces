@@ -17,3 +17,17 @@ def _configured_service_password(monkeypatch):
     import os
     if not os.environ.get("EGERIA_USER_PASSWORD"):
         monkeypatch.setenv("EGERIA_USER_PASSWORD", "secret")
+
+
+@pytest.fixture(autouse=True)
+def _fresh_rate_limits():
+    """PO-83: the auth routes are rate-limited per client IP, and every TestClient calls from the same address
+    ("testclient"), so no test may inherit another test's count."""
+    import sys
+    from pathlib import Path
+    here = str(Path(__file__).resolve().parents[1])
+    if here not in sys.path:
+        sys.path.insert(0, here)
+    from rate_limiter import limiter
+    limiter.reset()
+    yield

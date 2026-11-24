@@ -65,7 +65,7 @@ Open **Settings → Call Dr. Egeria Settings (MCP)**:
 
 ### MCP Settings
 - **MCP Server URL** — See table above. Auto-set by `deploy:coco` for container use.
-- **MCP Access Token** — Must match `MCP_ACCESS_TOKEN` in the backend container. Default: `egeria-secret-mcp-token`.
+- **MCP Access Token** — Must match `MCP_ACCESS_TOKEN` in the backend container. There is no default: `quick-start-local` (or `fresh-start-local`) generates one into the stack's `.env` on the first run; copy it from there. With it unset the MCP endpoints are off; the value the stack used to publish is refused.
 
 ### Egeria Settings
 - **User ID / Password** — Your Egeria persona credentials. In demo mode the portal writes these automatically when you acquire the Obsidian session.

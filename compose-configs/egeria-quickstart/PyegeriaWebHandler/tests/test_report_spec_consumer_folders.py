@@ -112,7 +112,8 @@ class _Egeria:
         self.view_server = "test-view"
 
     def _folder(self) -> dict:
-        return {"elementHeader": {"guid": PORTAL_GUID, "type": {"typeName": "CollectionFolder"}},
+        return {"elementHeader": {"guid": PORTAL_GUID, "type": {"typeName": "CollectionFolder",
+                                                                "superTypeNames": ["Collection"]}},
                 "properties": {"qualifiedName": self.folder_qn}}
 
     def get_element_by_unique_name(self, name, *_, **__):
@@ -149,6 +150,25 @@ def _manifest(tmp_path) -> dict:
 def _fresh_tier():
     yield
     esc._invalidate_tier()
+
+
+@pytest.fixture(autouse=True)
+def _no_real_explorer(monkeypatch):
+    """The fake answers every read; a real ClassificationExplorer would try to reach https://test:9443."""
+    built = []
+    try:
+        import pyegeria.omvs.classification_explorer as ce
+    except ImportError:
+        yield built
+        return
+
+    class _Refused:
+        def __init__(self, *a, **k):
+            built.append(a)
+            raise AssertionError("a real ClassificationExplorer was built: the fake lacks a read pyegeria uses")
+    monkeypatch.setattr(ce, "ClassificationExplorer", _Refused)
+    yield built
+    assert not built, "a real ClassificationExplorer was built: the fake lacks a read pyegeria uses"
 
 
 def test_deploy_first_then_rename_keeps_the_spec(tmp_path):

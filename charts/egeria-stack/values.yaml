@@ -1,0 +1,29 @@
+# egeria-stack: the platform (subchart alias "core") and the Portal (alias "portal") as one release.
+# Values for each go under core: and portal: and are those charts' own values (see their values.yaml).
+# What is shared is set once here and checked by the chart.
+
+global:
+  # true: no runAsUser/runAsGroup/fsGroup anywhere (OpenShift restricted-v2).
+  openshift: false
+  # Pull Secrets for every pod (in egeria-stack, set once here for all parts): Secret names or {name: ...}.
+  imagePullSecrets: []
+  # Tells the Portal its platform is this release's own Service, <release>-platform. Do not change.
+  stack: true
+  # Stack-wide TLS for parts that read it (Resource Explorer): verify (true|false) and caSecret (a Secret with ca.crt).
+  # A part's own tls.* wins when set. Set the CA once here instead of in every part.
+  tls: {}
+
+# quickstart | freshstart. Must be the same for both; set it once here.
+environment: quickstart
+# demo | production. Use values-demo.yaml or values-production.yaml.
+posture: demo
+
+core:
+  enabled: true
+portal:
+  enabled: true
+# Resource Explorer (chart trellis-re), off by default. It talks to this release's platform Service, which the chart derives,
+# and shares the stack's environment (re.environment must equal environment). It needs a Postgres with pgvector and its own
+# Secrets, image and Egeria service account (see charts/trellis-re/README.md); it keeps its own refusals.
+re:
+  enabled: false

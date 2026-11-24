@@ -42,7 +42,39 @@ EGERIA_META_DB_PASSWORD:  str = os.environ.get("EGERIA_META_DB_PASSWORD",  "admi
 
 # ── JWT ────────────────────────────────────────────────────────────────────────
 
-JWT_SECRET: str       = os.environ.get("JWT_SECRET", "change-me-before-going-public")
+# PO-46b (as RK-24b for freshstart): no published default. quick-start-local's gen-env.sh keeps or generates
+# JWT_SECRET in .env; an unset key, or either value once published in this repo, is refused when a session is
+# signed or checked (anyone could forge those sessions).
+PUBLIC_JWT_DEFAULTS = ("change-me-before-going-public", "change-me-before-going-public-meow")
+PUBLIC_JWT_DEFAULT = PUBLIC_JWT_DEFAULTS[0]
+JWT_SECRET: str       = os.environ.get("JWT_SECRET") or ""
+
+
+def jwt_signing_key() -> str:
+    """The Portal's session-signing key, refusing an unset one or a published default (forgeable sessions)."""
+    if not JWT_SECRET or JWT_SECRET in PUBLIC_JWT_DEFAULTS:
+        raise RuntimeError("JWT_SECRET is not set, or is a published default, so Portal sessions could be forged. "
+                           "Run ./quick-start-local, which generates one into compose-configs/egeria-quickstart/.env.")
+    return JWT_SECRET
+
+
+# PO-82 (quickstart's PO-79): the MCP endpoints' token. It used to default to a value published in the compose file and in
+# pyegeria_handler, so anyone who could reach pyegeria-web:8000 (on the public demo, any user's Jupyter container on
+# egeria_network) could drive the MCP tools. No published default: gen-env.sh generates MCP_ACCESS_TOKEN into .env on the
+# first run and keeps it. UNSET means MCP is off (its endpoints answer with words); the published value is refused when the
+# Portal starts and per request, the way a published JWT_SECRET is refused (PO-46b).
+PUBLIC_MCP_TOKENS = ("egeria-secret-mcp-token",)
+MCP_ACCESS_TOKEN: str = os.environ.get("MCP_ACCESS_TOKEN") or ""
+MCP_OFF_WORDS = ("MCP is off: MCP_ACCESS_TOKEN is not set. Run ./quick-start-local, which generates one into "
+                 "compose-configs/egeria-quickstart/.env, and restart the Portal.")
+
+
+def mcp_access_token() -> str:
+    """The token the MCP endpoints require, "" when MCP is off (unset). Raises for the published value, which anyone could use."""
+    if MCP_ACCESS_TOKEN in PUBLIC_MCP_TOKENS:
+        raise RuntimeError("MCP_ACCESS_TOKEN is a published example value, so anyone who can reach the Portal could drive its MCP "
+                           "tools. Unset it and run ./quick-start-local, which generates one into compose-configs/egeria-quickstart/.env.")
+    return MCP_ACCESS_TOKEN
 JWT_ALGORITHM: str    = "HS256"
 JWT_EXPIRY_USER_SEC: int  = int(os.environ.get("JWT_EXPIRY_USER_SECONDS",  "7200"))    # 2 h
 JWT_EXPIRY_ADMIN_SEC: int = int(os.environ.get("JWT_EXPIRY_ADMIN_SECONDS", "604800"))  # 7 d
@@ -53,6 +85,35 @@ JWT_EXPIRY_ADMIN_SEC: int = int(os.environ.get("JWT_EXPIRY_ADMIN_SECONDS", "6048
 
 RESEND_API_KEY: str = os.environ.get("RESEND_API_KEY", "")
 RESEND_FROM:    str = os.environ.get("RESEND_FROM",    "")
+
+# ── SMTP (email, when Resend is not configured) ────────────────────────────────
+# Used only when RESEND_API_KEY is unset (Resend wins; a key without RESEND_FROM
+# skips rather than falling back). Set SMTP_PASSWORD in .env / .env.demo, never in
+# the yaml. The same keys and defaults as infra-check (bin/egeria_upgrade_reset.py).
+#   SMTP_PORT  default 587 with STARTTLS; SMTP_SSL=true means implicit TLS, default 465
+#   SMTP_USER  login user, else ADMIN_BOOTSTRAP_EMAIL (no login when either user or
+#              password is empty)
+#   SMTP_FROM  sender, else the user
+
+def _env_flag(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _env_port(name: str, default: int) -> int:
+    raw = os.environ.get(name, "").strip()
+    try:
+        return int(raw) if raw else default
+    except ValueError:      # a typo must not take the Portal down at import
+        return default
+
+
+SMTP_HOST:     str  = os.environ.get("SMTP_HOST", "").strip()
+SMTP_SSL:      bool = _env_flag("SMTP_SSL")
+SMTP_PORT:     int  = _env_port("SMTP_PORT", 465 if SMTP_SSL else 587)
+SMTP_USER:     str  = os.environ.get("SMTP_USER", "").strip() or os.environ.get("ADMIN_BOOTSTRAP_EMAIL", "").strip()
+SMTP_PASSWORD: str  = os.environ.get("SMTP_PASSWORD", "")
+SMTP_FROM:     str  = os.environ.get("SMTP_FROM", "").strip() or SMTP_USER
+SMTP_TIMEOUT_S: int = 20    # connect + each command; a dead server must not hang a registration
 
 # ── URLs ───────────────────────────────────────────────────────────────────────
 

@@ -155,12 +155,24 @@ def _save_sheets(sheets) -> None:
     _invalidate_sheets_cache()
 
 
+def _registry_key() -> str:
+    """The registry cache key: one per spec identity (PO-7). pyegeria's registry holds the EGERIA tier of
+    the CURRENT spec identity (the request's token user, set by EgeriaTokenMiddleware; no one without a
+    token), so one process-wide entry would show a user another user's private specs for a minute, or hide
+    a user's own private specs behind a registry built for someone else. A pyegeria without identities has
+    one tier for everyone, so one key."""
+    from portal_spec_identity import spec_cache_attr
+    current = spec_cache_attr("current_spec_identity")
+    return "registry" if current is None else f"registry|{current()!r}"
+
+
 def _report_registry() -> dict:
     from pyegeria.view.base_report_formats import get_report_registry
-    hit = _cache_get("registry")
+    key = _registry_key()
+    hit = _cache_get(key)
     if hit is not None:
         return hit
-    return _cache_put("registry", get_report_registry())
+    return _cache_put(key, get_report_registry())
 
 
 # ── Live Egeria lookup for Report-typed placements ──────────────────────────
@@ -275,7 +287,7 @@ def _verify_token_with_egeria(token: str, user: str) -> None:
     unexpected error) refuses the write with 503 -- fail closed, never "unverified but OK".
     Sync: this runs in sync routes only (see CLAUDE.md's async invariants)."""
     from egeria_auth import check_client_platform, use_token
-    from egeria_error_mapping import _is_auth_error
+    from egeria_error_mapping import _is_auth_error, auth_http_exception
     import pyegeria
     from pyegeria import MyProfile, PyegeriaNotFoundException
     pyegeria.enable_ssl_check = False
@@ -292,8 +304,8 @@ def _verify_token_with_egeria(token: str, user: str) -> None:
             return                        # HTTP 404 from Egeria: it accepted the token; no profile for this user
         _refuse_unverified(user, exc)
     except Exception as exc:  # noqa: BLE001
-        if _is_auth_error(exc):
-            raise HTTPException(status_code=401, detail="Egeria refused the sign-in token; sign in again")
+        if _is_auth_error(exc):   # 401 sign in again; 403 "Not permitted" refuses the write too (PO-9)
+            raise auth_http_exception(exc, "Egeria refused the sign-in token; sign in again")
         _refuse_unverified(user, exc)
 
 

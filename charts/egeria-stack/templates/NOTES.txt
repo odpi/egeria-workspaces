@@ -1,0 +1,13 @@
+Egeria stack ({{ .Values.environment }}, {{ .Values.posture }}) installed as {{ .Release.Name }}: platform {{ .Release.Name }}-platform, Portal {{ .Release.Name }}-portal.
+
+NOT VERIFIED until `helm test {{ .Release.Name }} -n {{ .Release.Namespace }}` prints PASS for both parts (the platform canary and the Portal canary).
+The platform takes minutes to load its content packs; the Portal pod starts at once and waits for it.
+{{- /* The platform chart's own NOTES.txt is not shown inside an umbrella, so the same check lives here. */ -}}
+{{- if and .Values.core.enabled .Values.core.tls.existingSecret }}
+{{- $tls := lookup "v1" "Secret" .Release.Namespace .Values.core.tls.existingSecret }}
+{{- if and $tls $tls.data (hasKey $tls.data "keystore-password") (eq (index $tls.data "keystore-password" | b64dec) (.Files.Get "files/demo-keystore-password" | trim)) }}
+
+WARNING: the keystore password in Secret {{ .Values.core.tls.existingSecret }} is the PUBLIC demo password from the Egeria repository. Anyone can open a keystore
+protected with it, so this platform's TLS is not private. Make a keystore of your own and a password of your own.
+{{- end }}
+{{- end }}

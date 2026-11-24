@@ -1,0 +1,35 @@
+{{- $cfg := include "egeria-platform.cfg" . | fromYaml -}}
+{{- $sel := include "egeria-common.selectorLabels" (dict "ctx" . "component" "platform") -}}
+# Clients (Portal, RE, EA) use this one. Only ready pods are behind it.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $cfg.fullname }}
+  labels:
+    {{- include "egeria-common.labels" (dict "ctx" . "component" "platform") | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- $sel | nindent 4 }}
+  ports:
+    - name: https
+      port: {{ int $cfg.port }}
+      targetPort: https
+---
+# Headless: the platform's own servers reach it here while it is still starting,
+# so it publishes not-ready addresses. Also the StatefulSet's governing service.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $cfg.headless }}
+  labels:
+    {{- include "egeria-common.labels" (dict "ctx" . "component" "platform") | nindent 4 }}
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    {{- $sel | nindent 4 }}
+  ports:
+    - name: https
+      port: {{ int $cfg.port }}
+      targetPort: https

@@ -1,0 +1,49 @@
+{{- $cfg := include "egeria-portal.cfg" . | fromYaml -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $cfg.fullname }}
+  labels:
+    {{- include "egeria-common.labels" (dict "ctx" . "component" "portal") | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "egeria-common.selectorLabels" (dict "ctx" . "component" "portal") | nindent 4 }}
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+---
+# The front door: what the Ingress (or a port-forward) points at.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $cfg.webname }}
+  labels:
+    {{- include "egeria-common.labels" (dict "ctx" . "component" "portal-web") | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "egeria-common.selectorLabels" (dict "ctx" . "component" "portal-web") | nindent 4 }}
+  ports:
+    - name: http
+      port: 8085
+      targetPort: http
+---
+# Headless: it resolves to the Apache pod IPs. The Portal sees the Apache POD's IP as its peer, which no template can know, so
+# PORTAL_TRUSTED_PROXIES names this Service and the Portal re-resolves it every 60 s (a new Apache pod is untrusted for up to
+# 60 s after a rollout, which fails safe into a shared rate-limit budget).
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $cfg.webhlname }}
+  labels:
+    {{- include "egeria-common.labels" (dict "ctx" . "component" "portal-web") | nindent 4 }}
+spec:
+  clusterIP: None
+  selector:
+    {{- include "egeria-common.selectorLabels" (dict "ctx" . "component" "portal-web") | nindent 4 }}
+  ports:
+    - name: http
+      port: 8085
+      targetPort: http

@@ -43,6 +43,7 @@ def _bootstrap_runtime_defaults() -> None:
 _bootstrap_runtime_defaults()
 
 import asyncio
+import contextvars
 import concurrent.futures
 import io
 import threading
@@ -78,6 +79,11 @@ from rate_limiter import limiter
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
+    # PO-79: refuse to start with the published MCP token (anyone reaching the port could drive the MCP tools). An unset token is
+    # fine: MCP is simply off. Raises RuntimeError with words.
+    import demo_config
+    if demo_config.mcp_access_token() == "":
+        logger.warning(demo_config.MCP_OFF_WORDS)
     from obsidian_lock_handler import start_scheduler as obs_start, stop_scheduler as obs_stop
     from jupyter_lock_handler import start_scheduler as jup_start, stop_scheduler as jup_stop
     from bootstrap_monitor_handler import start_scheduler as boot_start, stop_scheduler as boot_stop
@@ -116,8 +122,8 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# Security Token (Simplified for local use)
-MCP_ACCESS_TOKEN = os.environ.get("MCP_ACCESS_TOKEN", "egeria-secret-mcp-token")
+# PO-79: the MCP token comes from MCP_ACCESS_TOKEN (demo_config), with no published default. Unset: MCP is off and its
+# endpoints answer with words. The published value is refused at startup (see _lifespan) and, if it got here anyway, per request.
 
 # Use a standard ASGI middleware instead of BaseHTTPMiddleware to avoid 
 # issues with custom response types like SSE.
@@ -146,8 +152,22 @@ class MCPTokenMiddleware:
                     await self.app(scope, receive, send)
                     return
 
-            token = request.query_params.get("token") or request.headers.get("X-API-Key")
-            if token != MCP_ACCESS_TOKEN:
+            import hmac
+
+            import demo_config
+
+            try:
+                expected = demo_config.mcp_access_token()
+            except RuntimeError as exc:                 # the published value: refuse, never fall back to it
+                response = JSONResponse(status_code=503, content={"detail": str(exc)})
+                await response(scope, receive, send)
+                return
+            if not expected:                            # no token set: MCP is off
+                response = JSONResponse(status_code=503, content={"detail": demo_config.MCP_OFF_WORDS})
+                await response(scope, receive, send)
+                return
+            token = request.query_params.get("token") or request.headers.get("X-API-Key") or ""
+            if not hmac.compare_digest(token.encode("utf-8"), expected.encode("utf-8")):
                 response = JSONResponse(
                     status_code=403, 
                     content={"detail": "Invalid MCP Access Token"}
@@ -158,10 +178,18 @@ class MCPTokenMiddleware:
         await self.app(scope, receive, send)
 
 app.add_middleware(MCPTokenMiddleware)
+# PO-78: with SERVER_MANAGED_AUTH (read per request; true by default) every request needs a Portal session
+# except a short public list; see server_auth_gate.py (quickstart's twin is demo_auth_gate.py).
+from server_auth_gate import ServerAuthGateMiddleware
+app.add_middleware(ServerAuthGateMiddleware)
 # Stash any X-Egeria-Token request header into a contextvar so token-capable
 # handlers (apply_token) reuse a pre-obtained bearer token (LE-4).
 from egeria_auth import EgeriaTokenMiddleware
 app.add_middleware(EgeriaTokenMiddleware)
+# The Portal serves many users: an identity-less report-spec read must see no private specs, not the
+# service user's (portal_spec_identity; pyegeria R-A). The middleware above gives each request its user.
+import portal_spec_identity  # noqa: E402
+portal_spec_identity.declare_multi_user()
 app.add_middleware(SlowAPIMiddleware)
 
 # CORS configuration for Obsidian security
@@ -757,7 +785,10 @@ async def process_markdown(request: ProcessRequest):
     try:
         logger.debug(f"Received request for input_file: {request.input_file}")
         loop = asyncio.get_event_loop()
-        result: ProcessResponse = await loop.run_in_executor(executor, _invoke_processor, request)
+        # copy_context: the worker thread sees this request's X-Egeria-Token, forLineage and report-spec
+        # identity contextvars (run_in_executor does not carry them; PO-21).
+        result: ProcessResponse = await loop.run_in_executor(
+            executor, contextvars.copy_context().run, _invoke_processor, request)
         return JSONResponse(content=result.model_dump())
     except Exception as e:
         print_basic_exception(e)
@@ -828,6 +859,11 @@ class NoCacheStaticFiles(StaticFiles):
 
 
 # Static assets (logos, etc.) — must be mounted before the "/" catch-all below.
+# /static/egeria-table.js comes from pyegeria's package data when it ships one (PO-5); registered
+# before the /static mount so this route wins for that one path.
+from egeria_table_asset import router as egeria_table_router
+app.include_router(egeria_table_router)
+
 _static_dir = SCRIPT_DIR / "static"
 if _static_dir.is_dir():
     app.mount("/static", NoCacheStaticFiles(directory=str(_static_dir)), name="static")

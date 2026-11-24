@@ -1,0 +1,11 @@
+environment: quickstart
+core:
+  environment: quickstart
+  postgres: {host: pg.example}
+  kafka: {bootstrapServers: "kafka.example:9092"}
+  secrets: {useDemoFiles: true}
+portal:
+  environment: quickstart
+  images:
+    portal: {repository: registry.example/portal-quickstart, tag: lint}
+    apache: {repository: registry.example/apache-web, tag: lint}

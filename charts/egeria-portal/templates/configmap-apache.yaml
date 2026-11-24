@@ -1,0 +1,24 @@
+{{- $cfg := include "egeria-portal.cfg" . | fromYaml -}}
+# The Apache front door's configuration. httpd.conf and the proxy routes are compose's (files/, drift-tested);
+# the vhost is the chart's: plain HTTP on 8085, because TLS ends at the Ingress.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $cfg.webname }}-conf
+  labels:
+    {{- include "egeria-common.labels" (dict "ctx" . "component" "portal-web") | nindent 4 }}
+data:
+  httpd.conf: |
+    {{- .Files.Get "files/httpd.conf" | nindent 4 }}
+  proxy-locations.conf: |
+    {{- .Files.Get "files/proxy-locations.conf" | replace "quickstart-pyegeria-web:8000" (printf "%s:8000" $cfg.fullname) | nindent 4 }}
+  fastapi-proxy.conf: |
+    <VirtualHost *:8085>
+        ServerAdmin webmaster@localhost
+        ServerName localhost
+    {{- (.Files.Get (printf "files/%s/vhost-body.conf" .Values.environment)) | replace (printf "%s:8000" $cfg.composeHost) (printf "%s:8000" $cfg.fullname) | nindent 4 }}
+        ErrorLog /usr/local/apache2/logs/error.log
+        CustomLog /proc/self/fd/1 combined
+        # TLS ends at the Ingress: tell pyegeria-web the original scheme.
+        RequestHeader set X-Forwarded-Proto "https"
+    </VirtualHost>
