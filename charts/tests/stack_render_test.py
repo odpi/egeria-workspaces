@@ -90,12 +90,6 @@ def main():
     for env in ("quickstart", "freshstart"):
         h = holders(renders(V("values-demo.yaml") + V("values-%s.yaml" % env) + IMGS))
         check(env + " demo: the public demo keystore password is held only by the platform's demo TLS Secret", h == ["s-platform-tls"], str(h))
-    # PO-78: freshstart has no server-side API gate, so the stack refuses an Ingress on it (and renders without one: port-forward)
-    refuses("production freshstart + a Portal Ingress is refused (PO-78)", PROD + ["--set", "portal.ingress.enabled=true", "--set", "portal.ingress.host=h.example",
-            "--set", "portal.ingress.tlsSecretName=tls"], ["PO-78", "no server-side API gate", "port-forward"])
-    refuses("demo freshstart + a Portal Ingress is refused (PO-78)", V("values-demo.yaml") + V("values-freshstart.yaml") + IMGS + ["--set", "portal.ingress.enabled=true",
-            "--set", "portal.ingress.host=h.example", "--set", "portal.networkPolicy.enabled=true"], ["PO-78", "port-forward"])
-    check("production freshstart without an Ingress still renders (port-forward)", rc == 0)
     refuses("production + quickstart is refused (no Portal login gate)", V("values-production.yaml") + V("values-quickstart.yaml") + IMGS, ["login gate"])
     # PO-83: the stack passes the Portal's trusted-proxy setting through; the default is the Apache headless Service in the release namespace
     def kind(ds, k, name):
@@ -173,6 +167,58 @@ def main():
           not any(("serviceAccountName" in (d["spec"]["template"]["spec"] if d["kind"] != "Pod" else d["spec"]) or "imagePullSecrets" in (d["spec"]["template"]["spec"] if d["kind"] != "Pod" else d["spec"]))
                   for d in ds if d["kind"] in ("Deployment", "StatefulSet", "Job", "Pod")))
     refuses("an imagePullSecrets entry with no name is refused", base + ["--set", "global.imagePullSecrets[0].foo=bar"], ["imagePullSecrets"])
+    # --- Resource Explorer in the umbrella (re.enabled, off by default) ---
+    RE_ = ["--set", "re.enabled=true", "--set", "re.image.repository=r/re", "--set", "re.image.tag=t", "--set", "re.database.host=pg.example",
+           "--set", "re.database.name=re", "--set", "re.database.user=re", "--set", "re.database.existingSecret=re-db",
+           "--set", "re.egeria.daemon.userId=re", "--set", "re.egeria.daemon.existingSecret=re-egeria"]
+    def re_env(ds, name="s-trellis-re-web"):
+        dep = next((d for d in ds if d["kind"] == "Deployment" and d["metadata"]["name"].endswith("re-web")), None)
+        return {x["name"]: x for x in dep["spec"]["template"]["spec"]["containers"][0]["env"]} if dep else {}
+    off = renders(V("values-demo.yaml") + V("values-quickstart.yaml") + IMGS)
+    check("re.enabled is false by default: no Resource Explorer object", not [d for d in off if "re-" in d["metadata"]["name"] and d["kind"] in ("Deployment", "Job")])
+    for env, port, vs in (("quickstart", 9443, "qs-view-server"), ("freshstart", 8443, "fs-view-server")):
+        ds = renders(V("values-demo.yaml") + V("values-%s.yaml" % env) + IMGS + RE_)
+        e = re_env(ds)
+        check("RE " + env + ": the platform URL and view server are derived from this release", e.get("EGERIA_PLATFORM_URL", {}).get("value") == "https://s-platform:%d" % port
+              and e.get("EGERIA_VIEW_SERVER", {}).get("value") == vs, str({k: v.get("value") for k, v in e.items() if "EGERIA" in k}))
+        keys = [(d["kind"], d["metadata"]["name"]) for d in ds]
+        check("RE " + env + ": the schema Job and the three parts render with no duplicate object", len(keys) == len(set(keys)) and any(k[0] == "Job" and "re-schema" in k[1] for k in keys))
+    ds = renders(V("values-demo.yaml") + V("values-quickstart.yaml") + IMGS + RE_ + ["--set", "global.tls.verify=true", "--set", "global.tls.caSecret=stack-ca"])
+    e = re_env(ds)
+    check("RE: global.tls.verify and caSecret reach RE (entered once)", e["PYEGERIA_SSL_VERIFY"]["value"] == "true" and e.get("PYEGERIA_CA_BUNDLE", {}).get("value") == "/etc/egeria-ca/ca.crt")
+    ds = renders(V("values-demo.yaml") + V("values-quickstart.yaml") + IMGS + RE_ + ["--set", "global.tls.caSecret=stack-ca", "--set", "re.tls.caSecret=own-ca"])
+    check("RE: its own tls.caSecret wins over global.tls", any(v.get("secret", {}).get("secretName") == "own-ca" for d in ds if d["kind"] == "Deployment" and d["metadata"]["name"].endswith("re-web") for v in d["spec"]["template"]["spec"]["volumes"]))
+    refuses("RE with a different environment is refused", V("values-demo.yaml") + V("values-quickstart.yaml") + IMGS + RE_ + ["--set", "re.environment=freshstart"], ["re.environment"])
+    refuses("RE with a different posture is refused (RE's own production refusals fire first)", V("values-demo.yaml") + V("values-quickstart.yaml") + IMGS + RE_ + ["--set", "re.posture=production"], ["production"])
+    refuses("RE with its own platformUrl while the stack has a platform is refused", V("values-demo.yaml") + V("values-quickstart.yaml") + IMGS + RE_ + ["--set", "re.egeria.platformUrl=https://x:9443"], ["re.egeria.platformUrl"])
+    refuses("RE without core.enabled needs re.egeria.platformUrl", V("values-demo.yaml") + V("values-quickstart.yaml") + IMGS + RE_ + ["--set", "core.enabled=false"], ["re.egeria.platformUrl"])
+    refuses("RE keeps its own refusals: no image", V("values-demo.yaml") + V("values-quickstart.yaml") + IMGS + ["--set", "re.enabled=true", "--set", "re.database.host=h", "--set", "re.database.name=n", "--set", "re.database.user=u", "--set", "re.database.existingSecret=d", "--set", "re.egeria.daemon.userId=u", "--set", "re.egeria.daemon.existingSecret=e"], ["image.repository"])
+    refuses("RE keeps its own refusals: no database Secret", V("values-demo.yaml") + V("values-quickstart.yaml") + IMGS + RE_ + ["--set", "re.database.existingSecret="], ["database.existingSecret"])
+    refuses("RE in production keeps its refusals (owner role, digest, secrets)", PROD + RE_, ["production"])
+    refuses("RE in production without TLS verification is refused (global.tls.verify or tls.verify)", PROD + RE_ + ["--set", "re.image.digest=" + DIG, "--set", "re.secrets.existingSecret=rs", "--set", "re.database.owner.user=own", "--set", "re.database.owner.existingSecret=own-pw", "--set", "re.persistence.storageClassName=fast"], ["tls.verify"])
+    ds = renders(PROD + RE_ + ["--set", "re.image.digest=" + DIG, "--set", "re.secrets.existingSecret=rs", "--set", "re.database.owner.user=own", "--set", "re.database.owner.existingSecret=own-pw",
+                              "--set", "re.persistence.storageClassName=fast", "--set", "global.tls.verify=true", "--set", "global.tls.caSecret=ca"])
+    check("RE in production renders with global.tls and an owner role", re_env(ds).get("PYEGERIA_SSL_VERIFY", {}).get("value") == "true")
+    # platform on a non-default port: Portal and RE must be told the same port
+    PT = V("values-demo.yaml") + V("values-quickstart.yaml") + IMGS + ["--set", "core.platform.port=9444"]
+    refuses("core.platform.port without portal.platform.port is refused", PT, ["portal.platform.port", "9444"])
+    refuses("core.platform.port with RE but no re.egeria.platformPort is refused", PT + ["--set", "portal.platform.port=9444"] + RE_, ["re.egeria.platformPort", "9444"])
+    ds = renders(PT + ["--set", "portal.platform.port=9444", "--set", "re.egeria.platformPort=9444"] + RE_)
+    check("on port 9444 the Portal and RE both use it", re_env(ds)["EGERIA_PLATFORM_URL"]["value"] == "https://s-platform:9444"
+          and next(d for d in ds if d["kind"] == "Deployment" and d["metadata"]["name"] == "s-portal")["spec"]["template"]["spec"]["containers"][0]["env"].__str__().count("s-platform:9444") >= 1)
+    refuses("RE and the Portal on the wrong port: re.egeria.platformPort differs from core.platform.port", PT + ["--set", "portal.platform.port=9444", "--set", "re.egeria.platformPort=9443"] + RE_, ["re.egeria.platformPort"])
+    # the worker's wait follows the derived platform URL (and re.egeria.platformPort)
+    def worker_wait(ds):
+        dep = next(d for d in ds if d["kind"] == "Deployment" and d["metadata"]["name"].endswith("re-worker"))
+        ic = dep["spec"]["template"]["spec"].get("initContainers", [])
+        return {e["name"]: e.get("value") for e in ic[0]["env"]} if ic else {}
+    for env, port, vs in (("quickstart", 9443, "qs-view-server"), ("freshstart", 8443, "fs-view-server")):
+        e = worker_wait(renders(V("values-demo.yaml") + V("values-%s.yaml" % env) + IMGS + RE_))
+        check("stack %s: the worker waits for %s at https://s-platform:%d" % (env, vs, port), e.get("BASE") == "https://s-platform:%d" % port and e.get("SERVERS") == vs, str(e))
+    e = worker_wait(renders(PT + ["--set", "portal.platform.port=9444", "--set", "re.egeria.platformPort=9444"] + RE_))
+    check("stack on port 9444: the worker waits at https://s-platform:9444", e.get("BASE") == "https://s-platform:9444", str(e))
+    off = renders(V("values-demo.yaml") + V("values-quickstart.yaml") + IMGS)
+    check("RE off: no wait-for-egeria init container anywhere", not any(c["name"] == "wait-for-egeria" for d in off if d["kind"] in ("Deployment", "StatefulSet", "Job") for c in d["spec"]["template"]["spec"].get("initContainers", [])))
     if failures:
         print("\n%d FAILED" % len(failures))
         sys.exit(1)

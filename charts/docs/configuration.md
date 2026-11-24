@@ -51,10 +51,10 @@ Every refusal is a Helm `fail` with a message that names the setting to change.
 | User directory file | `coco-user-directory.omsecrets` | `egeria-user-directory.omsecrets` |
 | Platform CPU limit (default) | 4 | none |
 | Portal's Egeria user | `erinoverview` | `bootstrap` |
-| Portal login gate | **None** (`SERVER_MANAGED_AUTH=false`): anyone who reaches the Portal uses Egeria as its service user, unless `demoMode` is on | A sign-in page only (`SERVER_MANAGED_AUTH=true`; `bootstrap` is the Portal admin). **No server-side API gate until PO-78**: a request with no token is answered as the service user |
+| Portal login gate | **None** (`SERVER_MANAGED_AUTH=false`): anyone who reaches the Portal uses Egeria as its service user, unless `demoMode` is on | Yes (`SERVER_MANAGED_AUTH=true`; a Portal image with PO-78); `bootstrap` is the Portal admin |
 | Portal image | `portal-quickstart` | `portal-freshstart` |
 | Production posture | Platform: allowed. Portal (and so the stack): **refused** | Allowed |
-| Ingress (and an OpenShift Route made from it) | Only with `demoMode: true` (or `allowUngatedPortal` in a demo) | **Refused** until PO-78 (no server-side API gate): use `port-forward` |
+| Ingress | Only with `demoMode: true` (or `allowUngatedPortal` in a demo) | Allowed |
 
 Each environment's configuration comes from `charts/egeria-platform/files/<environment>/`: `application.properties`,
 one configuration document per server under `servers/`, and the demo secrets under `secrets/`. These are copies of
@@ -112,6 +112,13 @@ signing in; they exist in the quickstart metadata, not in the freshstart user di
 
 Under `demoMode`, `helm test` sends its token checks to the Portal Service on port 8000 directly, because the Apache
 edge header trips the demo gate. The Portal NetworkPolicy admits the test pod for that.
+
+**Image requirement (TR-134).** `demoMode` needs a Portal image that has the TR-134 change. That image picks its demo
+database from `DEMO_DB_HOST` or `DEMO_DB_URL` (Postgres), else `DEMO_DB_PATH` (SQLite), and **refuses to start** in
+demo mode if none of the three is set. The chart sets only `DEMO_DB_PATH=/app/demo-data/demo.db`, on the Portal
+volume, so the demo database is SQLite and survives a pod restart. The chart owns all three names, so `extraEnv` cannot
+switch the Portal to Postgres. An external-Postgres option is a later item. An older image that still defaults to
+Postgres ignores `DEMO_DB_PATH`; do not use one with `demoMode`.
 
 Tested live on OpenShift Local (quickstart, demo posture, with a Route). Not run on kind.
 

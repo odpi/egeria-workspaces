@@ -53,7 +53,7 @@ then forge X-Forwarded-For and choose its own rate-limit key. Hostnames and bare
 {{- end -}}
 {{- $prod := eq $v.posture "production" -}}
 {{- if and $prod (eq $v.environment "quickstart") -}}
-{{- fail "the production posture needs a login gate, and the quickstart environment has none (SERVER_MANAGED_AUTH is false there; only the public-demo SQLite accounts gate it). The freshstart Portal has a sign-in page, but no server-side API gate yet (PO-78), so it cannot be exposed through an Ingress either: run it behind port-forward." -}}
+{{- fail "the production posture needs a login gate, and the quickstart environment has none (SERVER_MANAGED_AUTH is false there; only the public-demo SQLite accounts gate it). Use environment=freshstart for a gated Portal." -}}
 {{- end -}}
 {{- $stack := and $v.global (eq (toString (default false $v.global.stack)) "true") -}}
 {{- $platformSvc := default (ternary (printf "%s-platform" .Release.Name) "" $stack) $v.platform.serviceName -}}
@@ -75,9 +75,6 @@ then forge X-Forwarded-For and choose its own rate-limit key. Hostnames and bare
 {{- if and $prod $v.demoMode -}}
 {{- fail "demoMode is demo only (it enables registration and the login gate of the public demos)." -}}
 {{- end -}}
-{{- if and $v.ingress.enabled (eq $v.environment "freshstart") -}}
-{{- fail "the freshstart Portal has no server-side API gate yet (PO-78): requests that carry no token are answered as the Portal's service user, so it must not be exposed through an Ingress (or an OpenShift Route, which is made from the Ingress). Leave ingress.enabled false and use kubectl port-forward. The sign-in page is a screen only; it does not protect the API." -}}
-{{- end -}}
 {{- if and $v.ingress.enabled (not $v.ingress.host) -}}
 {{- fail "set ingress.host (ingress.enabled is true)" -}}
 {{- end -}}
@@ -96,7 +93,7 @@ then forge X-Forwarded-For and choose its own rate-limit key. Hostnames and bare
 {{- if and $v.allowUngatedPortal $prod -}}
 {{- fail "allowUngatedPortal is demo only." -}}
 {{- end -}}
-{{- $owned := list "EGERIA_ROOT_PATH" "EGERIA_INBOX_PATH" "EGERIA_OUTBOX_PATH" "DEMO_MODE" "SERVER_MANAGED_AUTH" "JWT_SECRET" "EGERIA_USER_PASSWORD" "MCP_ACCESS_TOKEN" "EGERIA_USER" "PORTAL_ALLOWED_PLATFORM_URLS" "PORTAL_TRUSTED_PROXIES" "EGERIA_PLATFORM_URL" -}}
+{{- $owned := list "EGERIA_ROOT_PATH" "EGERIA_INBOX_PATH" "EGERIA_OUTBOX_PATH" "DEMO_MODE" "SERVER_MANAGED_AUTH" "JWT_SECRET" "EGERIA_USER_PASSWORD" "MCP_ACCESS_TOKEN" "EGERIA_USER" "PORTAL_ALLOWED_PLATFORM_URLS" "PORTAL_TRUSTED_PROXIES" "EGERIA_PLATFORM_URL" "DEMO_DB_PATH" "DEMO_DB_HOST" "DEMO_DB_URL" -}}
 {{- range $e := $v.extraEnv -}}
 {{- if has $e.name $owned -}}{{- fail (printf "extraEnv may not set %s: the chart owns it (set the matching value instead)." $e.name) -}}{{- end -}}
 {{- end -}}

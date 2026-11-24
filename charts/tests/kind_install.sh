@@ -8,6 +8,7 @@
 # The test Postgres and Kafka are NOT part of the chart: they exist only for this test, one pair per
 # namespace (design note 16: one each is the default). Nothing here touches laz or pop-os.
 set -euo pipefail
+kubectl config current-context | grep -q "^kind-" || { echo "not a kind context" >&2; exit 2; }
 ENV=${1:?environment}; NS=${2:?namespace}; REL=${3:-$ENV}
 HELM=${HELM:-helm}
 MODE=${MODE:-demo}

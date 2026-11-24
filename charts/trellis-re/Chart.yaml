@@ -1,0 +1,10 @@
+apiVersion: v2
+name: trellis-re
+description: "Trellis Resource Explorer: the web role, one worker and a schema Job, against an existing Egeria platform and a Postgres with pgvector."
+type: application
+version: 0.1.0
+appVersion: "tr115"
+dependencies:
+  - name: egeria-common
+    version: 0.1.0
+    repository: file://../egeria-common

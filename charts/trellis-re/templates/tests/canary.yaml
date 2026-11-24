@@ -1,0 +1,82 @@
+{{- $cfg := include "trellis-re.cfg" . | fromYaml -}}
+{{- $v := .Values -}}
+# helm test: the web role answers, its registry is reachable (/health/ready), and a protected API refuses an anonymous caller.
+# The pod uses the Resource Explorer image because it carries curl; it needs no credentials.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "egeria-common.name" (dict "ctx" . "component" "re-canary") }}
+  labels:
+    {{- include "egeria-common.labels" (dict "ctx" . "component" "re-canary") | nindent 4 }}
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  restartPolicy: Never
+  securityContext:
+    {{- include "egeria-common.podSecurityContext" . | nindent 4 }}
+  {{- include "egeria-common.podIdentity" . | nindent 2 }}
+  containers:
+    - name: canary
+      image: {{ $cfg.image }}
+      imagePullPolicy: {{ $v.image.pullPolicy }}
+      securityContext:
+        {{- include "egeria-common.containerSecurityContext" . | nindent 8 }}
+      {{- if $v.prefect.enabled }}
+      env:
+        - {name: PREFECT_API_URL, value: {{ $v.prefect.apiUrl | quote }}}
+        - {name: PREFECT_WORK_POOL, value: {{ $v.prefect.workPool | quote }}}
+        {{- if $v.prefect.apiKeySecret }}
+        - {name: PREFECT_API_KEY, valueFrom: {secretKeyRef: {name: {{ $v.prefect.apiKeySecret }}, key: api-key}}}
+        {{- end }}
+      {{- end }}
+      command: ["/bin/sh", "-c"]
+      args:
+        - |
+          set -u
+          base=http://{{ $cfg.webname }}:8810
+          fail=0
+          code() { curl -s -o /dev/null -m 15 -w '%{http_code}' "$@"; }
+          for i in $(seq 1 {{ div (int $v.probes.web.startup.failureThreshold) 1 }}); do
+            [ "$(code $base/health/ready)" = 200 ] && break; sleep 5
+          done
+          r=$(code $base/health/ready);  [ "$r" = 200 ] && echo "ok: /health/ready answers 200 (the registry's Postgres is reachable)" || { echo "FAIL: /health/ready gave $r"; fail=1; }
+          r=$(code $base/api/projects);  [ "$r" = 401 ] && echo "ok: a protected API refuses an anonymous caller (401)" || { echo "FAIL: /api/projects gave $r without a login (want 401)"; fail=1; }
+          {{- if $v.a2a.enabled }}
+          # A2A: the role answers, the public index is served, and an agent call with no token is refused with a Bearer challenge.
+          a2a=http://{{ $cfg.a2aname }}:{{ $v.a2a.port }}
+          r=$(code $a2a/health);  [ "$r" = 200 ] && echo "ok: A2A $a2a/health answers 200" || { echo "FAIL: $a2a/health gave $r"; fail=1; }
+          r=$(code $a2a/.well-known/agents.json); [ "$r" = 200 ] && echo "ok: the public agents.json index is served (200)" || { echo "FAIL: agents.json gave $r"; fail=1; }
+          h=$(curl -si -m 15 -X POST -H 'Content-Type: application/json' -d '{}' $a2a/agents/docs/v1/message:send | tr -d '\r')
+          echo "$h" | head -1 | grep -q " 401" && echo "$h" | grep -qi '^www-authenticate: *bearer' \
+            && echo "ok: an A2A call with no token is refused (401 with a WWW-Authenticate: Bearer challenge)" || { echo "FAIL: an anonymous A2A call was not refused with 401 and a Bearer challenge"; fail=1; }
+          {{- end }}
+          {{- if $v.prefect.enabled }}
+          # Prefect: the server answers, the work pool exists, and a worker of this commit is ONLINE on it.
+          python - <<'PY' || fail=1
+          import json, os, sys, time, urllib.request
+          api, pool = os.environ["PREFECT_API_URL"].rstrip("/"), os.environ["PREFECT_WORK_POOL"]
+          hdr = {"Content-Type": "application/json"}
+          if os.environ.get("PREFECT_API_KEY"):
+              hdr["Authorization"] = "Bearer " + os.environ["PREFECT_API_KEY"]
+          def call(path, body=None):
+              req = urllib.request.Request(api + path, data=None if body is None else json.dumps(body).encode(), headers=hdr)
+              return json.load(urllib.request.urlopen(req, timeout=15))
+          ok = False
+          for _ in range(60):
+              try:
+                  online = [w for w in call("/work_pools/%s/workers/filter" % pool, {}) if w.get("status") == "ONLINE"]
+                  if online:
+                      ok = True
+                      break
+              except Exception as e:
+                  last = e
+              time.sleep(5)
+          print("ok: Prefect reachable and a worker is ONLINE on pool " + pool if ok else "FAIL: no ONLINE worker on pool %s at %s" % (pool, api))
+          sys.exit(0 if ok else 1)
+          PY
+          {{- end }}
+          [ "$fail" = 0 ] && echo "PASS: Resource Explorer web is up and gated" || exit 1
+      resources:
+        requests: {cpu: 50m, memory: 64Mi}
+        limits: {memory: 256Mi}

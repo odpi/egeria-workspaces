@@ -133,16 +133,28 @@ def main():
     refuses("production requires a StorageClass", PROD + BASE + ["--set", "persistence.storageClassName="], ["persistence.storageClassName"])
     refuses("production refuses demoMode", PROD + BASE + ["--set", "demoMode=true"], ["demoMode"])
     refuses("ingress needs a host", DEMO + BASE + ["--set", "ingress.enabled=true"], ["ingress.host"])
-    # PO-78: the freshstart Portal has no server-side API gate, so it is never exposed through an Ingress (or a Route made from it)
-    PO78 = ["PO-78", "no server-side API gate", "port-forward"]
-    refuses("production + freshstart + Ingress is refused (PO-78)", PROD + BASE + ["--set", "ingress.enabled=true", "--set", "ingress.host=h.example", "--set", "ingress.tlsSecretName=tls", "--set", "networkPolicy.enabled=true"], PO78)
-    refuses("demo + freshstart + Ingress is refused (PO-78)", DEMO + BASE + ["--set", "environment=freshstart", "--set", "ingress.enabled=true", "--set", "ingress.host=h.example", "--set", "networkPolicy.enabled=true"], PO78)
-    refuses("freshstart + Ingress with the OpenShift Route annotation is refused (PO-78): a Route is made from the Ingress", PROD + BASE + ["--set", "ingress.enabled=true", "--set", "ingress.host=h.example", "--set", "ingress.tlsSecretName=tls", "--set", "networkPolicy.enabled=true", "--set-string", "ingress.annotations.route\\.openshift\\.io/termination=edge", "--set", "global.openshift=true"], PO78)
-    check("production + freshstart WITHOUT an Ingress still renders (port-forward)", bool(renders(PROD + BASE)))
-    check("demo + freshstart WITHOUT an Ingress still renders (port-forward)", bool(renders(DEMO + BASE + ["--set", "environment=freshstart"])))
-    check("the PO-78 refusal says why in words (the sign-in page is a screen only)", "sign-in page is a screen only" in template(PROD + BASE + ["--set", "ingress.enabled=true", "--set", "ingress.host=h.example"])[2])
+    refuses("production ingress needs TLS", PROD + BASE + ["--set", "ingress.enabled=true", "--set", "ingress.host=h.example"], ["ingress.tlsSecretName"])
+
+    # PO-78 guard: freshstart behind an Ingress renders and NOTES warns about the image (the chart cannot read its version)
+    def notes(extra):
+        r = subprocess.run([HELM, "install", "r1", CHART, "--dry-run=client", "--namespace", "ns"] + extra, capture_output=True, text=True)
+        return r.returncode, r.stdout
+    FS_ING = ["--set", "ingress.enabled=true", "--set", "ingress.host=h.example", "--set", "networkPolicy.enabled=true"]
+    rc, nt = notes(PROD + BASE + FS_ING + ["--set", "ingress.tlsSecretName=tls"])
+    check("freshstart + Ingress (production) renders and NOTES names PO-78, PO-83 and the 401 check", rc == 0 and "PO-78" in nt and "PO-83" in nt and "helm test" in nt and "predates PO-78" in nt, nt[-300:])
+    rc, nt = notes(PROD + BASE)
+    rc, out, _ = template(DEMO + BASE + ["--set", "environment=freshstart"])
+    check("freshstart canary: an anonymous page must redirect to /login and an anonymous API read must be 401 (PO-78)",
+          'SERVER_GATE' in out and "/api/operations/platforms" in out and "need(s == 401" in out and "predates PO-78" in out and 'need(r.status == 302 and "/login" in loc' in out)
+    check("freshstart canary: SERVER_GATE is true", '{name: SERVER_GATE, value: "true"}' in out or 'name: SERVER_GATE\n          value: "true"' in out or ('SERVER_GATE' in out and 'value: "true"' in out.split("SERVER_GATE",1)[1][:40]))
+    rc, out, _ = template(DEMO + BASE + ["--set", "environment=quickstart"])
+    check("quickstart canary: SERVER_GATE is false (no PO-78 step runs)", 'value: "false"' in out.split("SERVER_GATE",1)[1][:40])
+    check("freshstart without an Ingress: no image warning", rc == 0 and "Freshstart behind an Ingress" not in nt)
 
     # optional pieces
+    ds = renders(PROD + BASE + ["--set", "ingress.enabled=true", "--set", "ingress.host=h.example", "--set", "ingress.tlsSecretName=tls"])
+    check("production renders an Ingress with TLS and a NetworkPolicy", len(kind(ds, "Ingress")) == 1 and len(kind(ds, "NetworkPolicy")) == 1
+          and kind(ds, "Ingress")[0]["spec"]["tls"][0]["secretName"] == "tls")
     ds = renders(DEMO + BASE + ["--set", "content.cocoWorkbooks.existingClaim=wb", "--set", "exchange.loadingBay.existingClaim=lb"])
     vols = {v["name"]: v for v in kind(ds, "Deployment", "r1-portal")[0]["spec"]["template"]["spec"]["volumes"]}
     check("an existing claim is mounted, others are empty directories",
@@ -162,6 +174,14 @@ def main():
         e = env_of(kind(renders(extra), "Deployment", "r1-portal")[0], "portal")
         return e["DEMO_MODE"]["value"], e["SERVER_MANAGED_AUTH"]["value"]
     check("mode demo-quickstart: DEMO_MODE true, SERVER_MANAGED_AUTH false", modes(DEMO + BASE + ["--set", "demoMode=true"]) == ("true", "false"))
+    # TR-134: demo database is explicit SQLite on the Portal PVC; never Postgres by accident
+    for tag, extra in (("demoMode", DEMO + BASE + ["--set", "demoMode=true"]), ("freshstart", DEMO + BASE + ["--set", "environment=freshstart"])):
+        pd = kind(renders(extra), "Deployment", "r1-portal")[0]
+        e = env_of(pd, "portal")
+        check("TR-134 " + tag + ": DEMO_DB_PATH is set to the PVC path, DEMO_DB_HOST and DEMO_DB_URL are not set",
+              e.get("DEMO_DB_PATH", {}).get("value") == "/app/demo-data/demo.db" and "DEMO_DB_HOST" not in e and "DEMO_DB_URL" not in e, str(sorted(e)))
+        mounts = [m["mountPath"] for c in pd["spec"]["template"]["spec"]["containers"] if c["name"] == "portal" for m in c.get("volumeMounts", [])]
+        check("TR-134 " + tag + ": /app/demo-data is a mounted volume", "/app/demo-data" in mounts, str(mounts))
     check("mode local-quickstart: both false (no gate; not allowed behind an Ingress)", modes(DEMO + BASE) == ("false", "false"))
     check("mode freshstart: DEMO_MODE false, SERVER_MANAGED_AUTH true", modes(DEMO + BASE + ["--set", "environment=freshstart"]) == ("false", "true"))
     NP = ["--set", "networkPolicy.enabled=true"]
@@ -170,10 +190,13 @@ def main():
     refuses("ingress + quickstart + demoMode=false is refused", DEMO + BASE + NP + ING, ["no login gate", "allowUngatedPortal"])
     check("ingress + quickstart + demoMode=true renders", bool(renders(DEMO + BASE + NP + ING + ["--set", "demoMode=true"])))
     check("ingress + quickstart + allowUngatedPortal=true renders (demo only)", bool(renders(DEMO + BASE + NP + ING + ["--set", "allowUngatedPortal=true"])))
+    check("ingress + freshstart renders", bool(renders(DEMO + BASE + NP + ING + ["--set", "environment=freshstart"])))
     refuses("allowUngatedPortal is refused in production", PROD + BASE + ["--set", "allowUngatedPortal=true"], ["allowUngatedPortal"])
     # the Portal Service on 8000 is reachable only from the front door whenever there is an Ingress
-    refuses("an Ingress requires networkPolicy.enabled", DEMO + BASE + ING + ["--set", "demoMode=true"], ["networkPolicy.enabled", "8000"])
-    for tag, extra in (("demo/quickstart+demoMode", DEMO + BASE + NP + ING + ["--set", "demoMode=true"]),):
+    refuses("an Ingress requires networkPolicy.enabled", DEMO + BASE + ING + ["--set", "environment=freshstart"], ["networkPolicy.enabled", "8000"])
+    for tag, extra in (("demo/freshstart", DEMO + BASE + NP + ING + ["--set", "environment=freshstart"]),
+                       ("demo/quickstart+demoMode", DEMO + BASE + NP + ING + ["--set", "demoMode=true"]),
+                       ("production/freshstart", PROD + BASE + ING + ["--set", "environment=freshstart", "--set", "ingress.tlsSecretName=tls"])):
         ds = renders(extra)
         ing = kind(ds, "Ingress")[0]
         backends = [p["backend"]["service"]["name"] for r in ing["spec"]["rules"] for p in r["http"]["paths"]]
@@ -182,7 +205,7 @@ def main():
         sources = [f["podSelector"]["matchLabels"].get("app.kubernetes.io/name") for r in np["spec"]["ingress"] for f in r["from"]]
         check(tag + ": the Portal's NetworkPolicy admits only portal-web and the canary", sorted(sources) == ["portal-canary", "portal-web"])
     # extraEnv cannot override what the chart owns
-    for name in ("EGERIA_ROOT_PATH", "DEMO_MODE", "SERVER_MANAGED_AUTH", "JWT_SECRET", "EGERIA_USER_PASSWORD"):
+    for name in ("EGERIA_ROOT_PATH", "DEMO_MODE", "SERVER_MANAGED_AUTH", "JWT_SECRET", "EGERIA_USER_PASSWORD", "DEMO_DB_PATH", "DEMO_DB_HOST", "DEMO_DB_URL"):
         refuses("extraEnv may not set " + name, DEMO + BASE + ["--set", "extraEnv[0].name=" + name, "--set", "extraEnv[0].value=x"], ["extraEnv", name])
     ds = renders(DEMO + BASE + ["--set", "extraEnv[0].name=MY_SETTING", "--set-string", "extraEnv[0].value=1"])
     e = env_of(kind(ds, "Deployment", "r1-portal")[0], "portal")
