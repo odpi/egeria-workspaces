@@ -1,0 +1,100 @@
+{{- $cfg := include "trellis-re.cfg" . | fromYaml -}}
+{{- $v := .Values -}}
+{{- $labels := include "egeria-common.labels" (dict "ctx" . "component" "re-worker") -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $cfg.workername }}
+  labels:
+    {{- $labels | nindent 4 }}
+spec:
+  replicas: {{ $v.worker.replicas }}
+  selector:
+    matchLabels:
+      {{- include "egeria-common.selectorLabels" (dict "ctx" . "component" "re-worker") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- $labels | nindent 8 }}
+        {{ $v.networkPolicy.platformClientLabel }}: "true"
+    spec:
+      securityContext:
+        {{- include "egeria-common.podSecurityContext" . | nindent 8 }}
+      {{- include "egeria-common.podIdentity" . | nindent 6 }}
+      {{- with $v.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $v.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $v.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        # Wait until the Egeria view server is ACTIVE (not just the platform port open): the worker's bootstrap and heal run once at
+        # start and skip what they cannot reach. Same sign-in and poll as the platform canary (egeria-common.waitForServers).
+        - name: wait-for-egeria
+          image: {{ $cfg.image }}
+          imagePullPolicy: {{ $v.image.pullPolicy }}
+          securityContext:
+            {{- include "egeria-common.containerSecurityContext" . | nindent 12 }}
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {memory: 128Mi}
+          env:
+            - {name: BASE, value: {{ $cfg.platformUrl | quote }}}
+            - {name: SERVERS, value: {{ $cfg.viewServer | quote }}}
+            - {name: TIMEOUT, value: {{ int $v.egeria.waitTimeoutSeconds | quote }}}
+            - {name: STRICT, value: {{ $cfg.tlsVerify | quote }}}
+            - {name: CA_FILE, value: {{ ternary "/etc/egeria-ca/ca.crt" "" (not (not $cfg.caSecret)) | quote }}}
+            - {name: WAIT_USER, value: {{ $v.egeria.daemon.userId | quote }}}
+            - {name: WAIT_PASSWORD, valueFrom: {secretKeyRef: {name: {{ $v.egeria.daemon.existingSecret }}, key: {{ $v.egeria.daemon.passwordKey }}}}}
+          {{- if $cfg.caSecret }}
+          volumeMounts:
+            - {name: egeria-ca, mountPath: /etc/egeria-ca, readOnly: true}
+          {{- end }}
+          command:
+            - sh
+            - -c
+            - |
+              set -u
+              if [ "$STRICT" = true ]; then
+                if [ -n "$CA_FILE" ]; then CURL="curl -s --cacert $CA_FILE"; else CURL="curl -s"; fi
+              else
+                CURL="curl -s -k"
+              fi
+              fail() { echo "FAIL: $*" >&2; echo "Resource Explorer's worker waits for the Egeria view server $SERVERS at $BASE ($TIMEOUT s, egeria.waitTimeoutSeconds). The pod restarts and tries again." >&2; exit 1; }
+              end=$(( $(date +%s) + TIMEOUT ))
+              {{- include "egeria-common.waitForServers" (dict "user" "WAIT_USER" "password" "WAIT_PASSWORD" "progress" true) | nindent 14 }}
+      containers:
+        - name: worker
+          image: {{ $cfg.image }}
+          imagePullPolicy: {{ $v.image.pullPolicy }}
+          args: [worker]
+          securityContext:
+            {{- include "egeria-common.containerSecurityContext" . | nindent 12 }}
+          env:
+            {{- include "trellis-re.env" . | nindent 12 }}
+          {{- with $v.extraEnvFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml $v.worker.resources | nindent 12 }}
+          # No port and no HTTP probe: the image's own healthcheck is for the web role. A crash restarts the pod, and the
+          # loops' Postgres advisory locks free themselves when a worker dies.
+          volumeMounts:
+            - {name: data, mountPath: /app/data}
+            {{- if $cfg.caSecret }}
+            - {name: egeria-ca, mountPath: /etc/egeria-ca, readOnly: true}
+            {{- end }}
+      volumes:
+        - name: data
+          persistentVolumeClaim: {claimName: {{ $cfg.dataClaim }}}
+        {{- if $cfg.caSecret }}
+        - name: egeria-ca
+          secret: {secretName: {{ $cfg.caSecret }}}
+        {{- end }}

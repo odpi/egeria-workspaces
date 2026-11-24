@@ -2213,13 +2213,23 @@ def _compute_people(as_of_time, url, server, user_id, user_pwd) -> dict:
     # Leaderboard — per-person karma rollup. Cheap: one bounded find over
     # ContributionRecord elements (already anchored to their owning Person via
     # the standard Anchors classification), no per-person loop.
+    # PO-86: null means "could not be read" and [] means "no contributors"; the page shows them differently, so
+    # `leaderboard` is None whenever the read did not happen or did not complete, and notMeasured says why.
     leaderboard = None
-    if karma_leaderboard is not None and expert is not None:
+    not_measured: dict = {}
+    if karma_leaderboard is None:
+        not_measured["leaderboard"] = "this pyegeria has no karma leaderboard"
+    elif expert is None:
+        not_measured["leaderboard"] = "no Egeria connection could be made for it"
+    else:
         _n0 = _scan_pos()
         try:
             leaderboard = karma_leaderboard(expert, as_of_time)
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"overview people: karma_leaderboard failed: {exc}")
+            not_measured["leaderboard"] = f"the contribution record find failed ({type(exc).__name__})"
+        if leaderboard is None and "leaderboard" not in not_measured:
+            not_measured["leaderboard"] = "Egeria did not return every contribution record"   # pyegeria 6.3.3 (PY-22)
         _mark_from_scans(_n0, {"leaderboard": ("counts", leaderboard)}, unconfirmed)
 
     # Engagement over time — weekly feedback-event trend. Reuses the same
@@ -2261,7 +2271,7 @@ def _compute_people(as_of_time, url, server, user_id, user_pwd) -> dict:
         "engagementSeries":   engagement_series_data,  # weekly feedback trend, 12wk
         "engagementChart":    engagement_chart,
         "unconfirmed":        unconfirmed,
-        "notMeasured":        {},
+        "notMeasured":        not_measured,
         "partial":            True,
         "source":             "live:people",
     }

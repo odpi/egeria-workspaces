@@ -47,6 +47,24 @@ def jwt_signing_key() -> str:
         raise RuntimeError("JWT_SECRET is not set, or is a published default, so Portal sessions could be forged. "
                            "Run ./fresh-start-local, which generates one into compose-configs/egeria-freshstart/.env.")
     return JWT_SECRET
+# PO-79: the MCP endpoints' token. It used to default to a value published in the compose file and this module, so anyone who
+# could reach the Portal's port could drive the MCP tools. No published default: gen-env.sh generates MCP_ACCESS_TOKEN into
+# .env on the first run and keeps it. UNSET means MCP is off (its endpoints answer with words, never the published value);
+# the published value is refused when the Portal starts, the way a published JWT_SECRET is refused (PO-46b).
+PUBLIC_MCP_TOKENS = ("egeria-secret-mcp-token",)
+MCP_ACCESS_TOKEN: str = os.environ.get("MCP_ACCESS_TOKEN") or ""
+MCP_OFF_WORDS = ("MCP is off: MCP_ACCESS_TOKEN is not set. Run ./fresh-start-local, which generates one into "
+                 "compose-configs/egeria-freshstart/.env, and restart the Portal.")
+
+
+def mcp_access_token() -> str:
+    """The token the MCP endpoints require, "" when MCP is off (unset). Raises for the published value, which anyone could use."""
+    if MCP_ACCESS_TOKEN in PUBLIC_MCP_TOKENS:
+        raise RuntimeError("MCP_ACCESS_TOKEN is a published example value, so anyone who can reach the Portal could drive its MCP tools. "
+                           "Unset it and run ./fresh-start-local, which generates one into compose-configs/egeria-freshstart/.env.")
+    return MCP_ACCESS_TOKEN
+
+
 JWT_ALGORITHM: str    = "HS256"
 JWT_EXPIRY_USER_SEC: int  = int(os.environ.get("JWT_EXPIRY_USER_SECONDS",  "7200"))    # 2 h
 JWT_EXPIRY_ADMIN_SEC: int = int(os.environ.get("JWT_EXPIRY_ADMIN_SECONDS", "604800"))  # 7 d

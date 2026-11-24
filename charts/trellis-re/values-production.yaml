@@ -1,0 +1,6 @@
+# Production posture: image digest, own Secrets, a verified platform certificate, a StorageClass or claim, NetworkPolicies.
+posture: production
+tls:
+  verify: true
+networkPolicy:
+  enabled: true

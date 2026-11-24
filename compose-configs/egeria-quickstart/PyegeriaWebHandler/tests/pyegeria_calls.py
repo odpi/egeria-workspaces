@@ -260,6 +260,46 @@ class _ModuleScan:
             if ok:
                 for h in t.handlers:
                     out.update(id(n) for s in h.body for n in ast.walk(s) if isinstance(n, ast.ImportFrom))
+            out.update(self._forward_shim_imports(t))
+        return out
+
+    @staticmethod
+    def _forward_shim_imports(t: ast.Try) -> set:
+        """ImportFrom nodes in a ``try`` body for a module the installed pyegeria does NOT have, guarded by an
+        ``except ImportError`` (or ModuleNotFoundError) branch that defines every imported name at its own top
+        level: a forward shim (``try: from pyegeria.core.new import f / except ImportError: def f(...): ...``).
+        The fallback is what runs on this pyegeria, so the import is not a rename. Once the module exists, the
+        import is checked like any other, so a later rename of one of its names is a finding instead of a
+        silent fallback."""
+        def catches_import_error(h):
+            names = [h.type] if not isinstance(h.type, ast.Tuple) else list(h.type.elts)
+            return any(isinstance(n, ast.Name) and n.id in ("ImportError", "ModuleNotFoundError") for n in names)
+
+        def module_absent(name):
+            import importlib.util
+            try:
+                return importlib.util.find_spec(name) is None
+            except (ImportError, ValueError):     # a parent package is missing too
+                return True
+
+        handlers = [h for h in t.handlers if h.type is not None and catches_import_error(h)]
+        if not handlers:
+            return set()
+        defined = set()
+        for h in handlers:
+            for stmt in h.body:                    # the handler's own top-level statements only
+                if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    defined.add(stmt.name)
+                elif isinstance(stmt, ast.Assign):
+                    defined.update(n.id for tgt in stmt.targets for n in ast.walk(tgt) if isinstance(n, ast.Name))
+                elif isinstance(stmt, (ast.AnnAssign, ast.AugAssign)) and isinstance(stmt.target, ast.Name):
+                    defined.add(stmt.target.id)
+        out = set()
+        for stmt in t.body:
+            if isinstance(stmt, ast.ImportFrom) and stmt.module and stmt.module.split(".")[0] in LIB_ROOTS \
+                    and stmt.level == 0 and module_absent(stmt.module):
+                if all(a.name != "*" and (a.asname or a.name) in defined for a in stmt.names):
+                    out.add(id(stmt))
         return out
 
     def _collect_imports(self):

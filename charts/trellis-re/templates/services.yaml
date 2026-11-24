@@ -1,0 +1,14 @@
+{{- $cfg := include "trellis-re.cfg" . | fromYaml -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $cfg.webname }}
+  labels:
+    {{- include "egeria-common.labels" (dict "ctx" . "component" "re-web") | nindent 4 }}
+spec:
+  selector:
+    {{- include "egeria-common.selectorLabels" (dict "ctx" . "component" "re-web") | nindent 4 }}
+  ports:
+    - name: http
+      port: 8810
+      targetPort: http

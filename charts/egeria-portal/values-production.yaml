@@ -1,0 +1,7 @@
+# Production-style posture: your own Secrets, images pinned by digest, a verified platform certificate,
+# a StorageClass, requests and limits, and (freshstart) platform.userDirectorySecret.
+posture: production
+tls:
+  verify: true
+networkPolicy:
+  enabled: true

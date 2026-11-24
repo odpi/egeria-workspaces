@@ -1,0 +1,6 @@
+# Values for `ct lint` / `helm lint`: the settings the chart requires, with placeholder names.
+platform:
+  serviceName: egeria-platform
+images:
+  portal: {repository: registry.example/portal-quickstart, tag: lint}
+  apache: {repository: registry.example/apache-web, tag: lint}

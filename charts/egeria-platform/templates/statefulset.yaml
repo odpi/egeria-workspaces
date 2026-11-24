@@ -1,0 +1,215 @@
+{{- $cfg := include "egeria-platform.cfg" . | fromYaml -}}
+{{- $v := .Values -}}
+{{- $img := include "egeria-platform.image" . -}}
+{{- $labels := include "egeria-common.labels" (dict "ctx" . "component" "platform") -}}
+{{- $health := include "egeria-platform.healthCommand" (dict "port" (int $cfg.port) "healthPath" $cfg.healthPath) -}}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $cfg.fullname }}
+  labels:
+    {{- $labels | nindent 4 }}
+spec:
+  # One platform, one replica (the chart refuses more).
+  replicas: 1
+  serviceName: {{ $cfg.headless }}
+  selector:
+    matchLabels:
+      {{- include "egeria-common.selectorLabels" (dict "ctx" . "component" "platform") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- $labels | nindent 8 }}
+      annotations:
+        checksum/properties: {{ include (print $.Template.BasePath "/configmaps.yaml") . | sha256sum }}
+    spec:
+      securityContext:
+        {{- include "egeria-common.podSecurityContext" . | nindent 8 }}
+      {{- include "egeria-common.podIdentity" . | nindent 6 }}
+      initContainers:
+        # Waits until Postgres and Kafka accept connections, so the servers do not start against
+        # a database that is still being created (one reachable Kafka bootstrap server is enough).
+        - name: wait-for-dependencies
+          image: {{ $img }}
+          imagePullPolicy: {{ $v.image.pullPolicy }}
+          securityContext:
+            {{- include "egeria-common.containerSecurityContext" . | nindent 12 }}
+          env:
+            - {name: PG, value: "{{ $cfg.pgHost }}:{{ $cfg.pgPort }}"}
+            - {name: KAFKA, value: {{ $cfg.kafka | quote }}}
+          command:
+            - bash
+            - -c
+            - |
+              up() { timeout 3 bash -c "exec 3<>/dev/tcp/${1%:*}/${1##*:}" 2>/dev/null; }
+              end=$(( $(date +%s) + 600 ))
+              until up "$PG"; do [ "$(date +%s)" -lt "$end" ] || { echo "ERROR: PostgreSQL $PG not reachable after 600 s (postgres.host, postgres.port)" >&2; exit 1; }; echo "waiting for PostgreSQL $PG"; sleep 3; done
+              ok=
+              while [ -z "$ok" ]; do
+                for b in $(echo "$KAFKA" | tr ',' ' '); do up "$b" && ok=1; done
+                [ -n "$ok" ] || { [ "$(date +%s)" -lt "$end" ] || { echo "ERROR: Kafka $KAFKA not reachable after 600 s (kafka.bootstrapServers)" >&2; exit 1; }; echo "waiting for Kafka $KAFKA"; sleep 3; }
+              done
+              echo "PostgreSQL and Kafka are reachable"
+        # Seeds each server's configuration document into the data volume only when it is
+        # missing, because the admin API rewrites them. platform.configs.overwrite forces a copy.
+        - name: seed-config-documents
+          image: {{ $img }}
+          imagePullPolicy: {{ $v.image.pullPolicy }}
+          securityContext:
+            {{- include "egeria-common.containerSecurityContext" . | nindent 12 }}
+          env:
+            - name: OVERWRITE
+              value: {{ $v.platform.configs.overwrite | quote }}
+            - name: SERVERS
+              value: {{ join " " $cfg.servers | quote }}
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              for s in $SERVERS; do
+                src="/config-docs/$s.config"
+                dst="/deployments/data/servers/$s/config/$s.config"
+                if [ ! -s "$src" ]; then
+                  echo "ERROR: there is no configuration document for server $s in the chart's config documents ConfigMap. Add it, or remove $s from platform.serverList." >&2
+                  exit 1
+                fi
+                if [ -f "$dst" ] && [ "$OVERWRITE" != "true" ]; then
+                  echo "kept existing configuration document for $s"
+                  continue
+                fi
+                mkdir -p "$(dirname "$dst")"
+                cp "$src" "$dst"
+                echo "seeded configuration document for $s"
+              done
+          volumeMounts:
+            - {name: data, mountPath: /deployments/data, subPath: data}
+            - {name: configdocs, mountPath: /config-docs, readOnly: true}
+      containers:
+        - name: platform
+          image: {{ $img }}
+          imagePullPolicy: {{ $v.image.pullPolicy }}
+          securityContext:
+            {{- include "egeria-common.containerSecurityContext" . | nindent 12 }}
+          ports:
+            - name: https
+              containerPort: {{ int $cfg.port }}
+          env:
+            # server.port is always set: nothing relies on the image's 7443 default.
+            - {name: server.port, value: {{ $cfg.port | quote }}}
+            - {name: startup.server.list, value: {{ join "," $cfg.servers | quote }}}
+            - {name: strict.ssl, value: {{ $cfg.strictSsl | quote }}}
+            - {name: server.ssl.key-store-password, valueFrom: {secretKeyRef: {name: {{ $cfg.tlsSecretName }}, key: keystore-password}}}
+            - {name: server.ssl.trust-store-password, valueFrom: {secretKeyRef: {name: {{ $cfg.tlsSecretName }}, key: truststore-password}}}
+            - {name: server.ssl.keyAlias, valueFrom: {secretKeyRef: {name: {{ $cfg.tlsSecretName }}, key: key-alias, optional: true}}}
+            - {name: rsa.key-id, valueFrom: {secretKeyRef: {name: {{ $cfg.tlsSecretName }}, key: rsa-key-id, optional: true}}}
+            {{- if not $cfg.createTlsSecret }}
+            - {name: server.ssl.key-store, value: /deployments/tls/keystore.p12}
+            - {name: server.ssl.trust-store, value: /deployments/tls/truststore.p12}
+            {{- end }}
+            - {name: KAFKA_BOOTSTRAP_SERVERS, value: {{ $cfg.kafka | quote }}}
+            {{- if $cfg.xtdb }}
+            - {name: XTDB_ENABLE_BYTEUTILS_SHA1, value: "True"}
+            - {name: XTDB_DISABLE_LIBCRYPTO, value: "True"}
+            {{- end }}
+            - {name: JAVA_OPTS_APPEND, value: {{ $v.jvm.javaOptsAppend | quote }}}
+          resources:
+            requests:
+              {{- toYaml $v.resources.requests | nindent 14 }}
+            limits:
+              memory: {{ $v.resources.limits.memory }}
+              {{- if $cfg.cpuLimit }}
+              cpu: {{ $cfg.cpuLimit | quote }}
+              {{- end }}
+          startupProbe:
+            exec:
+              command:
+                {{- $health | nindent 16 }}
+            periodSeconds: {{ $v.probes.startup.periodSeconds }}
+            failureThreshold: {{ $v.probes.startup.failureThreshold }}
+            timeoutSeconds: {{ $v.probes.startup.timeoutSeconds }}
+          readinessProbe:
+            exec:
+              command:
+                {{- $health | nindent 16 }}
+            periodSeconds: {{ $v.probes.readiness.periodSeconds }}
+            failureThreshold: {{ $v.probes.readiness.failureThreshold }}
+            timeoutSeconds: {{ $v.probes.readiness.timeoutSeconds }}
+          livenessProbe:
+            exec:
+              command:
+                {{- $health | nindent 16 }}
+            periodSeconds: {{ $v.probes.liveness.periodSeconds }}
+            failureThreshold: {{ $v.probes.liveness.failureThreshold }}
+            timeoutSeconds: {{ $v.probes.liveness.timeoutSeconds }}
+          volumeMounts:
+            - {name: data, mountPath: /deployments/data, subPath: data}
+            - {name: data, mountPath: /deployments/logs, subPath: logs}
+            - {name: data, mountPath: /deployments/logs/security, subPath: security-logs}
+            - {name: secrets, mountPath: /deployments/secrets, readOnly: true}
+            {{- if not $cfg.createTlsSecret }}
+            - {name: tls, mountPath: /deployments/tls, readOnly: true}
+            {{- end }}
+            - {name: properties, mountPath: /deployments/application.properties, subPath: application.properties, readOnly: true}
+            {{- range $name, $x := $v.exchange }}
+            {{- if $x.enabled }}
+            - {name: exchange-{{ $name }}, mountPath: /deployments/{{ $name }}}
+            {{- end }}
+            {{- end }}
+      volumes:
+        - name: configdocs
+          configMap:
+            name: {{ $cfg.fullname }}-configdocs
+        - name: properties
+          configMap:
+            name: {{ $cfg.fullname }}-properties
+        - name: secrets
+          secret:
+            secretName: {{ $cfg.secretName }}
+            defaultMode: 0444
+        {{- if not $cfg.createTlsSecret }}
+        - name: tls
+          secret:
+            secretName: {{ $cfg.tlsSecretName }}
+            defaultMode: 0444
+            items:
+              - {key: keystore.p12, path: keystore.p12}
+              - {key: truststore.p12, path: truststore.p12}
+        {{- end }}
+        {{- if $v.persistence.existingClaim }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ $v.persistence.existingClaim }}
+        {{- end }}
+        {{- range $name, $x := $v.exchange }}
+        {{- if $x.enabled }}
+        - name: exchange-{{ $name }}
+          persistentVolumeClaim:
+            claimName: {{ default (printf "%s-%s" $cfg.fullname $name) $x.existingClaim }}
+        {{- end }}
+        {{- end }}
+      {{- with $v.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $v.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $v.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  {{- if not $v.persistence.existingClaim }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- if $v.persistence.storageClassName }}
+        storageClassName: {{ $v.persistence.storageClassName }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ $v.persistence.size }}
+  {{- end }}

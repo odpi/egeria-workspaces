@@ -590,7 +590,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
      browsers that cached the file before that header existed. -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
 <script>window.EGERIA_FOR_LINEAGE = true;</script>
-<script src="/static/egeria-shared-ui.js?v=2026-11-17-po41"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-11-22-cv2"></script>
 
 <script>
 'use strict';
@@ -1020,7 +1020,11 @@ function SearchResults({ results, selection }) {
     el('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, fontSize: 12.5, color: 'var(--muted)' } },
       el('b', { style: { color: 'var(--text)', fontSize: 14 } }, results.total),
       results.fullCount
-        ? ('matching elements (exact' + (results.truncated ? ', truncated at 10,000' : '') + ')')
+        ? (results.truncated
+            ? (results.total >= 10000
+                ? 'matching elements found — stopped at the 10,000 cap, there may be more'
+                : 'matching elements found — stopped early (Egeria repeated a page), there may be more')
+            : 'matching elements (counted until Egeria reported no more)')
         : ('matching elements' + (results.capped ? ' (showing top ' + results.total + ' — refine to see more, or run an exact count)' : '')),
       items.length > 0 && el('input', { type: 'search', placeholder: 'Filter results…', value: filter,
         onChange: function(e){ setFilter(e.target.value); },
