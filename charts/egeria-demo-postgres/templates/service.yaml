@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "egeria-demo-postgres.name" . }}
+  labels:
+    {{- include "egeria-demo-postgres.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "egeria-demo-postgres.selector" . | nindent 4 }}
+  ports:
+    - {name: postgres, port: 5442, targetPort: 5442}

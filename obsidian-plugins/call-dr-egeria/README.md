@@ -52,7 +52,7 @@ After deploying, reload the plugin in Obsidian: **Settings → Community Plugins
 Open **Settings → Call Dr. Egeria Settings (MCP)**:
 
 - **MCP Server URL** — SSE endpoint (see table above)
-- **MCP Access Token** — must match `MCP_ACCESS_TOKEN` in the backend container (default: `egeria-secret-mcp-token`)
+- **MCP Access Token** — must match `MCP_ACCESS_TOKEN` in the backend container. There is no default: `quick-start-local` (or `fresh-start-local`) generates one into the stack's `.env` (`compose-configs/egeria-quickstart/.env`) on the first run; copy it from there. In demo mode the portal fills it in when you take the Obsidian lock. The value the stack used to publish is refused. `node deploy.mjs <vault> --container` takes it from the `MCP_ACCESS_TOKEN` environment variable if set.
 - **Egeria User ID / Password** — persona credentials; auto-populated by the portal in demo mode
 - **Default Directive** — `process` / `validate` / `display`
 - **Outbox Path** — where results are saved (relative to vault root)

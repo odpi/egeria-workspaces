@@ -1,0 +1,87 @@
+{{- $cfg := include "egeria-platform.cfg" . | fromYaml -}}
+{{- $v := .Values -}}
+{{- $img := include "egeria-platform.image" . -}}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ $cfg.fullname }}-canary
+  labels:
+    {{- include "egeria-common.labels" (dict "ctx" . "component" "canary") | nindent 4 }}
+    {{ $v.networkPolicy.clientLabel }}: "true"
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  restartPolicy: Never
+  securityContext:
+    {{- include "egeria-common.podSecurityContext" . | nindent 4 }}
+  {{- include "egeria-common.podIdentity" . | nindent 2 }}
+  {{- if and $cfg.strictSsl (not $cfg.createTlsSecret) }}
+  volumes:
+    - name: tls
+      secret:
+        secretName: {{ $cfg.tlsSecretName }}
+        optional: true
+        items: [{key: ca.crt, path: ca.crt}]
+  {{- end }}
+  containers:
+    - name: canary
+      image: {{ $img }}
+      imagePullPolicy: {{ $v.image.pullPolicy }}
+      securityContext:
+        {{- include "egeria-common.containerSecurityContext" . | nindent 8 }}
+      resources:
+        requests: {cpu: 50m, memory: 64Mi}
+        limits: {memory: 128Mi}
+      env:
+        - {name: SERVERS, value: {{ join " " $cfg.servers | quote }}}
+        - {name: VIEW_SERVER, value: {{ $cfg.viewServer }}}
+        - {name: CANARY_GUID, value: {{ $v.canary.guid | quote }}}
+        - {name: CANARY_NAME, value: {{ $v.canary.name | quote }}}
+        - {name: STRICT, value: {{ $cfg.strictSsl | quote }}}
+        - {name: TLS_NAME, value: {{ $v.canary.tlsServerName | quote }}}
+        - {name: SVC, value: {{ $cfg.fullname }}.{{ .Release.Namespace }}.svc.cluster.local}
+        - {name: PORT, value: {{ int $cfg.port | quote }}}
+        - {name: TIMEOUT, value: {{ $v.canary.timeoutSeconds | quote }}}
+        {{- if $cfg.hasCanary }}
+        - {name: CANARY_USER, valueFrom: {secretKeyRef: {name: {{ $cfg.canarySecretName }}, key: userId}}}
+        - {name: CANARY_PASSWORD, valueFrom: {secretKeyRef: {name: {{ $cfg.canarySecretName }}, key: password}}}
+        {{- end }}
+      {{- if and $cfg.strictSsl (not $cfg.createTlsSecret) }}
+      volumeMounts:
+        - {name: tls, mountPath: /tls, readOnly: true}
+      {{- end }}
+      command:
+        - sh
+        - -c
+        - |
+          {{- if not $cfg.hasCanary }}
+          echo "FAIL: set canary.existingSecret to a Secret with keys userId and password (a non-personal account allowed to list active servers and read metadata), then run helm test again." >&2
+          exit 1
+          {{- else }}
+          set -u
+          # TLS: demo (strict.ssl=false) skips verification; production verifies against ca.crt from the TLS Secret.
+          if [ "$STRICT" = true ]; then
+            [ -s /tls/ca.crt ] || { echo "FAIL: production verifies TLS: add a ca.crt key (PEM CA or server certificate) to the TLS Secret, then run helm test again." >&2; exit 1; }
+            CURL="curl -s --cacert /tls/ca.crt"
+          else
+            CURL="curl -s -k"
+          fi
+          HOSTN=${TLS_NAME:-$SVC}
+          if [ -n "$TLS_NAME" ]; then CURL="$CURL --resolve $TLS_NAME:$PORT:$(getent hosts "$SVC" | awk '{print $1; exit}')"; fi
+          BASE="https://$HOSTN:$PORT"
+          fail() { echo "FAIL: $*" >&2; exit 1; }
+          end=$(( $(date +%s) + TIMEOUT ))
+          {{- include "egeria-common.waitForServers" (dict "user" "CANARY_USER" "password" "CANARY_PASSWORD" "progress" false) | nindent 10 }}
+          # 3. read the canary element through the view server
+          r=
+          while :; do
+            r=$($CURL --max-time 60 -X POST -H 'Content-Type: application/json' -H "$auth" -d '{"class":"GetRequestBody","asOfTime":null}' \
+              "$BASE/servers/$VIEW_SERVER/api/open-metadata/metadata-expert/metadata-elements/$CANARY_GUID" || true)
+            case "$r" in *'"relatedHTTPCode":200'*"$CANARY_NAME"*) break ;; esac
+            [ "$(date +%s)" -lt "$end" ] || fail "could not read $CANARY_NAME ($CANARY_GUID) through $VIEW_SERVER within ${TIMEOUT}s"
+            sleep 10
+          done
+          echo "ok: read $CANARY_NAME through $VIEW_SERVER"
+          echo "PASS: platform up, servers verified"
+          {{- end }}

@@ -1,0 +1,14 @@
+# SHARE-3: Egeria Portal files that quickstart and freshstart share.
+#
+# Paths are relative to PyegeriaWebHandler/. The canonical copy is
+# egeria-quickstart/PyegeriaWebHandler/<path>; egeria-freshstart holds a
+# byte-identical mirror. Edit quickstart's copy, then run
+#     python3 compose-configs/sync_shared_portal_files.py
+# tests/test_shared_portal_files.py fails CI on any difference.
+#
+# Never list a per-environment file (compose-configs/ENVIRONMENT_DIVERGENCE.md).
+# Design: DESIGN-SHARE-3-PHASE1.md at the repository root.
+perspectives_handler.py
+type_system_handler.py
+static/egeria-shared-ui.js
+digital_products_handler.py

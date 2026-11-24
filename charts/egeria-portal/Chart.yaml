@@ -1,0 +1,10 @@
+apiVersion: v2
+name: egeria-portal
+description: "The Egeria Portal (pyegeria-web) behind an Apache front door, for the quickstart or freshstart environment."
+type: application
+version: 0.1.0
+appVersion: "6.3"
+dependencies:
+  - name: egeria-common
+    version: 0.1.0
+    repository: file://../egeria-common

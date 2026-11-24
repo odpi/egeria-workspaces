@@ -123,11 +123,13 @@ fi
 # used to drop it, so the compose default (a value published in the repo) signed every freshstart's sessions.
 # An exported value wins, else the one already in .env is kept, else a random one is generated on this first run.
 # The published default is never kept. Never printed.
-_PUBLIC_JWT_DEFAULT="change-me-before-going-public"
-if [[ "${JWT_SECRET:-}" == "$_PUBLIC_JWT_DEFAULT" ]]; then
+# PO-46b: the quickstart compose file published a second value; refuse both.
+_PUBLIC_JWT_DEFAULTS=("change-me-before-going-public" "change-me-before-going-public-meow")
+_is_public_jwt() { local v="$1" p; for p in "${_PUBLIC_JWT_DEFAULTS[@]}"; do [[ "$v" == "$p" ]] && return 0; done; return 1; }
+if [[ -n "${JWT_SECRET:-}" ]] && _is_public_jwt "$JWT_SECRET"; then
   # An exported value wins at compose too, so it can't be replaced here: stop rather than start a Portal that
   # refuses every sign-in (read-back M1).
-  echo "[gen-env.sh] STOP: the exported JWT_SECRET is the published example value, which anyone could use to forge sessions." >&2
+  echo "[gen-env.sh] STOP: the exported JWT_SECRET is a published example value, which anyone could use to forge sessions." >&2
   echo "[gen-env.sh]   Unset it (unset JWT_SECRET) and re-run: a random one is generated into .env and kept." >&2
   exit 1
 fi
@@ -136,13 +138,37 @@ if [[ -z "$JWT_SECRET_VAL" && -f .env ]]; then
   JWT_SECRET_VAL="$(grep -E '^JWT_SECRET=' .env | head -n1 | cut -d= -f2- || true)"
 fi
 JWT_SECRET_VAL="${JWT_SECRET_VAL%\"}"; JWT_SECRET_VAL="${JWT_SECRET_VAL#\"}"
-if [[ -z "$JWT_SECRET_VAL" || "$JWT_SECRET_VAL" == "$_PUBLIC_JWT_DEFAULT" ]]; then
+if [[ -z "$JWT_SECRET_VAL" ]] || _is_public_jwt "$JWT_SECRET_VAL"; then
   if command -v openssl >/dev/null 2>&1; then
     JWT_SECRET_VAL="$(openssl rand -hex 32)"
   else
     JWT_SECRET_VAL="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
   fi
   echo "[gen-env.sh] JWT_SECRET: generated a new random value into .env (kept on later runs)." >&2
+fi
+
+# MCP_ACCESS_TOKEN (PO-79): the token the Portal's MCP endpoints require. It used to be a value published in the compose file, so
+# anyone who could reach the port could drive the MCP tools. Same rules as JWT_SECRET: an exported value wins (refused if it is the
+# published one), else the one already in .env is kept, else a random one is generated on this first run. Never printed.
+_PUBLIC_MCP_TOKENS=("egeria-secret-mcp-token")
+_is_public_mcp() { local v="$1" p; for p in "${_PUBLIC_MCP_TOKENS[@]}"; do [[ "$v" == "$p" ]] && return 0; done; return 1; }
+if [[ -n "${MCP_ACCESS_TOKEN:-}" ]] && _is_public_mcp "$MCP_ACCESS_TOKEN"; then
+  echo "[gen-env.sh] STOP: the exported MCP_ACCESS_TOKEN is a published example value, which anyone could use to drive the MCP tools." >&2
+  echo "[gen-env.sh]   Unset it (unset MCP_ACCESS_TOKEN) and re-run: a random one is generated into .env and kept." >&2
+  exit 1
+fi
+MCP_ACCESS_TOKEN_VAL="${MCP_ACCESS_TOKEN:-}"
+if [[ -z "$MCP_ACCESS_TOKEN_VAL" && -f .env ]]; then
+  MCP_ACCESS_TOKEN_VAL="$(grep -E '^MCP_ACCESS_TOKEN=' .env | head -n1 | cut -d= -f2- || true)"
+fi
+MCP_ACCESS_TOKEN_VAL="${MCP_ACCESS_TOKEN_VAL%\"}"; MCP_ACCESS_TOKEN_VAL="${MCP_ACCESS_TOKEN_VAL#\"}"
+if [[ -z "$MCP_ACCESS_TOKEN_VAL" ]] || _is_public_mcp "$MCP_ACCESS_TOKEN_VAL"; then
+  if command -v openssl >/dev/null 2>&1; then
+    MCP_ACCESS_TOKEN_VAL="$(openssl rand -hex 32)"
+  else
+    MCP_ACCESS_TOKEN_VAL="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+  fi
+  echo "[gen-env.sh] MCP_ACCESS_TOKEN: generated a new random value into .env (kept on later runs)." >&2
 fi
 
 TMP_ENV=".env.tmp"
@@ -156,6 +182,7 @@ EGERIA_MEM_LIMIT=${EGERIA_MEM_LIMIT_VAL}
 CONFIG_JSON="${CONFIG_JSON_ESCAPED}"
 EOF
 printf 'JWT_SECRET=%s\n' "$JWT_SECRET_VAL" >> "$TMP_ENV"
+printf 'MCP_ACCESS_TOKEN=%s\n' "$MCP_ACCESS_TOKEN_VAL" >> "$TMP_ENV"
 if [[ -n "$EGERIA_ADMIN_CALLER_PASSWORD_VAL" ]]; then
   printf 'EGERIA_ADMIN_CALLER_PASSWORD=%s\n' "$EGERIA_ADMIN_CALLER_PASSWORD_VAL" >> "$TMP_ENV"
 else

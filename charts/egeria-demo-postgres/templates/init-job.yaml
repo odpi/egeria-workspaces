@@ -1,0 +1,49 @@
+{{- if .Values.initJob.enabled }}
+{{- $name := include "egeria-demo-postgres.name" . -}}
+{{- /* Re-runs the idempotent set-up after every install and upgrade, so a data volume that
+       predates a role or database picks it up. It creates only; it never drops anything. */}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $name }}-init
+  labels:
+    {{- include "egeria-demo-postgres.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 30
+  template:
+    spec:
+      restartPolicy: OnFailure
+      {{- include "egeria-demo-postgres.podIdentity" . | nindent 6 }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ .Values.securityContext.runAsUser }}
+        runAsGroup: {{ .Values.securityContext.runAsGroup }}
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: init
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          env:
+            - {name: PGHOST, value: {{ $name }}}
+            - {name: PGPORT, value: "5442"}
+            - {name: PGUSER, value: postgres}
+            - name: PGPASSWORD
+              valueFrom: {secretKeyRef: {name: {{ $name }}-superuser, key: password}}
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -q; do echo "waiting for PostgreSQL"; sleep 3; done
+              psql -v ON_ERROR_STOP=1 -f /init/init-egeria-demo.sql
+          volumeMounts:
+            - {name: init, mountPath: /init, readOnly: true}
+      volumes:
+        - name: init
+          secret: {secretName: {{ $name }}-init, defaultMode: 0444}
+{{- end }}

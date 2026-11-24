@@ -202,6 +202,15 @@ regenerated on every `quick-start-local` run). infra-check runs on the host, so 
 containers' environment. Only the keys above are read from those files, and no value is ever logged; a
 failed send has the API key and password masked.
 
+**Where to put them.** On a `--demo` install, put them in `.env.demo`. On a plain (non-demo) install, such
+as laz, which has no `.env.demo` by design, put them in `.env`. `gen-env.sh` rewrites `.env` on every
+`quick-start-local` run, so `quick-start-local` reads these keys first and writes back the ones that have a
+value: `RESEND_API_KEY`, `RESEND_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SSL`, `SMTP_USER`,
+`SMTP_PASSWORD`, `SMTP_FROM`, `INFRA_ALERT_EMAIL` and `ALERT_EMAIL_TO`. Under `--demo`, `.env.demo` wins
+over `.env`, and the keys are kept in both files. Values are written to the files only, never printed.
+(Before 2026-11-13 a plain run dropped every one of them except `ALERT_EMAIL_TO`, and `--demo` dropped the
+`SMTP_*` keys and `INFRA_ALERT_EMAIL`.)
+
 **Unconfigured is visible, never silent.** While the recipient or the sender is missing, every log line ends
 "alerting not configured (unset: …)", naming what's missing, and nothing is sent. The state isn't advanced,
 so the first run after configuring emails whatever is already wrong. A failed send is logged ("alert NOT

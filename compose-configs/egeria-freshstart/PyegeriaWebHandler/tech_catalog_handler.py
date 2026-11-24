@@ -41,7 +41,9 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from egeria_auth import check_client_platform, lineage_key as _lineage_key, token_user as _token_user, use_token
+from rate_limiter import LOGIN_LIMIT, limiter  # PO-83: per real client IP
+from egeria_auth import check_client_platform, lineage_key as _lineage_key, use_token
+from result_cache import credential_identity, request_identity
 from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
 
@@ -144,7 +146,7 @@ async def _governance_officer_async(url, server, user_id, user_pwd, token: Optio
     mgr = GovernanceOfficer(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
     check_client_platform(mgr, token)
     if token:
-        mgr.set_bearer_token(token)
+        use_token(mgr, token)   # never falls back to the service user; see egeria_auth.use_token
     else:
         await mgr._async_create_egeria_bearer_token()
     return mgr
@@ -523,7 +525,7 @@ async def _automated_curation_async(url, server, user_id, user_pwd, token: Optio
     """Async twin of _automated_curation -- for async def routes, which must
     never call the sync _apply_token()'s create_egeria_bearer_token() fallback
     (it internally does asyncio.get_event_loop().run_until_complete(), which
-    raises inside an already-running loop). set_bearer_token() is a plain
+    raises inside an already-running loop). use_token() is a plain
     attribute set and is safe either way, so only the no-token fallback path
     needs the async variant."""
     from pyegeria import AutomatedCuration
@@ -531,7 +533,7 @@ async def _automated_curation_async(url, server, user_id, user_pwd, token: Optio
     ac = AutomatedCuration(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
     check_client_platform(ac, token)
     if token:
-        ac.set_bearer_token(token)
+        use_token(ac, token)   # never falls back to the service user; see egeria_auth.use_token
     else:
         await ac._async_create_egeria_bearer_token()
     return ac
@@ -547,7 +549,41 @@ def _discovery_client(url, server, user_id, user_pwd, token: Optional[str] = Non
 
 # ── Token exchange endpoint ───────────────────────────────────────────────────
 
+# PO-68: who may ask for a token WITHOUT sending a password. All three modes (ENVIRONMENT_DIVERGENCE.md):
+#   - local quickstart (neither flag): anyone, as before (no login gate by design);
+#   - demo (DEMO_MODE): a signed-in Portal user; the token is still the Portal's own user's;
+#   - freshstart (SERVER_MANAGED_AUTH): a signed-in Portal user, who gets back THEIR OWN Egeria token (the
+#     one /api/auth/login minted with their password and keeps in the Portal session), never the service
+#     user's. Before this, POST {} minted a token for the service user (bootstrap) for any caller.
+SIGN_IN_FIRST_WORDS = ("Sign in to the Portal first, or send your own Egeria user and password: "
+                       "this Portal gives out a token without a password only to a signed-in user.")
+SESSION_TOKEN_EXPIRED_WORDS = ("Your Egeria sign-in has expired: sign in to the Portal again, "
+                               "or send your own Egeria user and password.")
+SESSION_NO_TOKEN_WORDS = ("This Portal session holds no Egeria sign-in: send your own Egeria user and "
+                          "password.")
+SESSION_OTHER_USER_WORDS = ("You are signed in to the Portal as a different user: send that user's own "
+                            "password to act as them.")
+SESSION_OTHER_PLATFORM_WORDS = ("Your Portal sign-in is for this Portal's own platform only: send your own "
+                                "user and password to use another platform.")
+
+
+def _login_modes() -> tuple:
+    """(DEMO_MODE, SERVER_MANAGED_AUTH), read at call time so each mode can be tested."""
+    import demo_config
+    return bool(demo_config.DEMO_MODE), bool(getattr(demo_config, "SERVER_MANAGED_AUTH", False))
+
+
+def _portal_session(request: Request):
+    """The signed-in Portal user (demo_auth_handler.CurrentUser: user_id, egeria_token) or None."""
+    from demo_auth_handler import get_current_user
+    try:
+        return get_current_user(request)
+    except HTTPException:       # PO-46b: no usable session key, so no session can be trusted (fails closed)
+        return None
+
+
 @router.post("/api/egeria-token", summary="Exchange Egeria credentials for a bearer token")
+@limiter.limit(LOGIN_LIMIT)   # PO-83: a sent password is checked by Egeria, so it is a guessing route
 async def get_egeria_bearer_token(request: Request):
     """Called once at login. Returns a short-lived Egeria bearer token so that
     subsequent catalog API calls can pass X-Egeria-Token instead of user_pwd.
@@ -557,8 +593,9 @@ async def get_egeria_bearer_token(request: Request):
     PORTAL_ALLOW_CUSTOM_PLATFORMS). The token is bound to the platform it was minted for, and the response
     names that platform. The body is read only as application/json (415 otherwise), so a cross-site
     text/plain "simple" POST cannot reach here."""
-    from egeria_auth import (bind_token_platform, is_caller_password, named_user_refusal, resolve_platform,
-                             service_user)
+    from egeria_auth import (_token_expired as egeria_auth_token_expired, bind_token_platform,
+                             default_platform_url, is_caller_password, named_user_refusal,
+                             normalize_platform_url, resolve_platform, service_user)
     ctype = (request.headers.get("content-type") or "").split(";")[0].strip().lower()
     if ctype != "application/json":
         raise HTTPException(status_code=415, detail="Send the credentials as application/json.")
@@ -578,6 +615,32 @@ async def get_egeria_bearer_token(request: Request):
     # any user_id, as before. "Sent" is tested, not is_caller_password: on the demo every persona
     # password equals the service password, so that test would refuse every persona sign-in.
     asked_user = body.get("user_id") or None
+    # PO-68: with no password sent, the login-gated modes need a signed-in Portal user (words above).
+    demo_mode, server_managed = _login_modes()
+    gated = caller_pwd is None and (demo_mode or server_managed)
+    session = _portal_session(request) if gated else None
+    if caller_pwd is None and demo_mode:
+        if session is None:
+            raise HTTPException(status_code=401, detail=SIGN_IN_FIRST_WORDS)
+        # then as before: the Portal's own user (PO-41 below)
+    elif caller_pwd is None and server_managed:
+        if session is None:
+            raise HTTPException(status_code=401, detail=SIGN_IN_FIRST_WORDS)
+        if asked_user and asked_user != session.user_id:
+            raise HTTPException(status_code=400, detail=SESSION_OTHER_USER_WORDS)
+        token = session.egeria_token or None
+        if token is None:
+            raise HTTPException(status_code=401, detail=SESSION_NO_TOKEN_WORDS)
+        if egeria_auth_token_expired(token):
+            raise HTTPException(status_code=401, detail=SESSION_TOKEN_EXPIRED_WORDS)
+        # The sign-in (demo_auth_handler.login) was made at the Portal's own platform, EGERIA_PLATFORM_URL.
+        if normalize_platform_url(url) != normalize_platform_url(default_platform_url()):
+            raise HTTPException(status_code=400, detail=SESSION_OTHER_PLATFORM_WORDS)
+        # The user's own token, minted at sign-in. Nothing is minted here, so `renew` cannot renew it:
+        # an expired one is refused above and the user signs in again.
+        bind_token_platform(token, url)
+        return JSONResponse({"token": token, "user_id": session.user_id, "platform_url": url})
+    # else local quickstart: no login gate, unchanged.
     refusal = named_user_refusal(asked_user, caller_pwd is not None, None)
     if refusal is not None:
         raise refusal
@@ -1495,7 +1558,7 @@ async def _async_asset_maker(url, server, user_id, user_pwd, token: Optional[str
     mgr = AssetMaker(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
     check_client_platform(mgr, token)
     if token:
-        mgr.set_bearer_token(token)
+        use_token(mgr, token)   # never falls back to the service user; see egeria_auth.use_token
     else:
         await mgr._async_create_egeria_bearer_token()
     return mgr
@@ -1558,7 +1621,12 @@ def _get_list_cached(key: str, refresh: bool, start_fill):
 
 
 def _list_key(kind: str, url, server, user_id, user_pwd, include_templates: bool, as_of_time: Optional[str]) -> str:
-    who = _token_user() or _creds(url, server, user_id, user_pwd)[2]
+    # The hashed credential presented (result_cache.request_identity), not the token's unverified `sub`
+    # or a bare user id: zone security shows users different elements and a cache hit checks nothing.
+    who = request_identity(user_id, user_pwd)
+    if who is None:
+        # Expired token: never serve (or start) a cached list for it; these fills read many pages.
+        raise HTTPException(status_code=401, detail="Egeria token expired; sign in again")
     return f"{kind}|{who}|{url or ''}|{server or ''}|{include_templates}|{as_of_time or ''}{_lineage_key()}"
 
 
@@ -2392,9 +2460,19 @@ async def list_survey_types(
     so a cold/stale cache spawns one background Task per cache key and the request
     returns at once. Cold -> {"items": [], "loading": true}; stale -> the old items
     plus "stale": true and "loading": true. The UI polls until loading is false.
+
+    Built as the Portal's service user on the configured platform, for every caller alike: survey types
+    come from TechnologyType reference data, the same for everyone, so one shared entry (key `svc:<user>`)
+    is correct by construction -- unlike a key on the caller's bare user_id, which every token user shared
+    while the entry held whichever caller's view filled it first. The caller's url/server/user_id/user_pwd
+    are deliberately ignored: the service password is never sent to a platform the request names.
     """
+    # Reference data, shared by construction: built with an explicit service-credential client (below,
+    # never the request token) and keyed on that service identity plus the platform/server it reads.
     user_pwd = None  # never from the URL: a password in a query string lands in access logs
-    cache_key = f"{url}|{server}|{user_id}"
+    svc_url, svc_server, _, _ = _creds(None, None, None, None)
+    svc_identity = credential_identity(None, None, None, os.environ.get("EGERIA_USER", "erinoverview"))  # "svc:<user>"
+    cache_key = f"{svc_identity}|{svc_url}|{svc_server}{_lineage_key()}"
     cached = _SURVEY_TYPES_CACHE.get(cache_key)
     fresh = bool(cached) and (time.time() - cached["ts"]) < _SURVEY_TYPES_TTL
     if fresh:
@@ -2403,9 +2481,8 @@ async def list_survey_types(
     if cache_key not in _SURVEY_TYPES_TASKS:
         # No await between this check and the registration below, so only one
         # Task per key can ever be created.
-        token = _token_from_request(request)
         try:
-            ac = await _automated_curation_async(url, server, user_id, user_pwd, token=token)
+            ac = await _automated_curation_async(None, None, None, None, token=None)   # env service user
         except Exception as exc:
             logger.exception("list_survey_types: client creation failed")
             raise HTTPException(status_code=500, detail=str(exc))

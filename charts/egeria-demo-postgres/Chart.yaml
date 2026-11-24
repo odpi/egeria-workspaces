@@ -1,0 +1,6 @@
+apiVersion: v2
+name: egeria-demo-postgres
+description: DEMO ONLY - a single PostgreSQL for trying out egeria-platform. Not for production; bring your own database there.
+type: application
+version: 0.1.0
+appVersion: "17"

@@ -1,0 +1,8 @@
+# One environment for both parts (a umbrella cannot set a subchart value from a top-level one).
+environment: freshstart
+core:
+  environment: freshstart
+portal:
+  environment: freshstart
+re:
+  environment: freshstart

@@ -33,6 +33,7 @@ Performance notes (qs-view-server, pyegeria 6.0.14.6):
 from egeria_auth import service_password  # PO-45: no built-in service password
 import os
 from egeria_auth import apply_token
+import contextvars
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from typing import Optional
 
@@ -293,7 +294,9 @@ def get_notelog(
     mermaid = ""
     if qn:
         creds = {"url": url, "server": server, "user_id": user_id, "user_pwd": user_pwd}
-        future = _EXECUTOR.submit(_enrich_subjects_in_thread, creds, qn, guid)
+        # In a COPY of this request's context: a pool thread has its own (empty) one, so the enrichment
+        # lost the caller's X-Egeria-Token and ran as the Portal's service user (PO-80).
+        future = _EXECUTOR.submit(contextvars.copy_context().run, _enrich_subjects_in_thread, creds, qn, guid)
         try:
             result = future.result(timeout=SUBJECT_TIMEOUT)
             if result:

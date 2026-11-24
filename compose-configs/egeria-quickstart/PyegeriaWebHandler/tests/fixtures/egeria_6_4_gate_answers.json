@@ -1,0 +1,148 @@
+{
+ "source": "egeria-python release/next-6.4 5bf2a53e pyegeria/core/egeria_6_4_gate.py",
+ "carries_6_4": [
+  {
+   "about": {
+    "version": "6.4-SNAPSHOT",
+    "time": "2026-11-21T19:52:59.236Z"
+   },
+   "answer": [
+    true,
+    "6.4-SNAPSHOT built 2026-11-21T19:52:59.236Z"
+   ]
+  },
+  {
+   "about": {
+    "version": "6.4-SNAPSHOT",
+    "time": "2026-11-20T10:00:00Z"
+   },
+   "answer": [
+    false,
+    "6.4-SNAPSHOT built 2026-11-20T10:00:00Z"
+   ]
+  },
+  {
+   "about": {
+    "version": "6.4-SNAPSHOT"
+   },
+   "answer": [
+    null,
+    "6.4-SNAPSHOT"
+   ]
+  },
+  {
+   "about": {
+    "version": "6.3"
+   },
+   "answer": [
+    false,
+    "6.3"
+   ]
+  },
+  {
+   "about": {
+    "version": "6.3.1"
+   },
+   "answer": [
+    false,
+    "6.3.1"
+   ]
+  },
+  {
+   "about": {
+    "version": "6.4"
+   },
+   "answer": [
+    true,
+    "6.4"
+   ]
+  },
+  {
+   "about": {
+    "version": "6.4.0"
+   },
+   "answer": [
+    true,
+    "6.4.0"
+   ]
+  },
+  {
+   "about": {
+    "version": "6.5-SNAPSHOT"
+   },
+   "answer": [
+    true,
+    "6.5-SNAPSHOT"
+   ]
+  },
+  {
+   "about": {
+    "version": "6.3-SNAPSHOT",
+    "time": "2026-11-22T00:00:00Z"
+   },
+   "answer": [
+    false,
+    "6.3-SNAPSHOT"
+   ]
+  },
+  {
+   "about": {
+    "version": "banana"
+   },
+   "answer": [
+    null,
+    "banana"
+   ]
+  },
+  {
+   "about": {},
+   "answer": [
+    null,
+    ""
+   ]
+  },
+  {
+   "about": "not json",
+   "answer": [
+    null,
+    ""
+   ]
+  },
+  {
+   "about": {
+    "version": "6.4-SNAPSHOT",
+    "time": "2026-11-21T20:00:00"
+   },
+   "answer": [
+    null,
+    "6.4-SNAPSHOT"
+   ]
+  }
+ ],
+ "needs_6_4_words": [
+  {
+   "args": [
+    "The Decisions list",
+    "https://laz:9443",
+    "6.3"
+   ],
+   "words": "The Decisions list needs Egeria 6.4 (odpi/egeria#9463, process variables and decisions): the platform at https://laz:9443 runs Egeria 6.3. Nothing was sent to Egeria."
+  },
+  {
+   "args": [
+    "The Decision card",
+    "https://laz:9443",
+    ""
+   ],
+   "words": "The Decision card needs Egeria 6.4 (odpi/egeria#9463, process variables and decisions): the platform at https://laz:9443 does not serve this request (HTTP 404), so nothing was changed."
+  },
+  {
+   "args": [
+    "This view",
+    "",
+    ""
+   ],
+   "words": "This view needs Egeria 6.4 (odpi/egeria#9463, process variables and decisions): this platform does not serve this request (HTTP 404), so nothing was changed."
+  }
+ ]
+}

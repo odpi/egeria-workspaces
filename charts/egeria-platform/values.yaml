@@ -1,0 +1,165 @@
+# egeria-platform: one OMAG Server Platform. Compose is the source of truth: every
+# default below is read from compose-configs/ and checked by charts/tests/drift_test.py.
+
+global:
+  # Set explicitly. true: no runAsUser/runAsGroup/fsGroup (restricted-v2 assigns the UID, GID 0).
+  openshift: false
+  # Pull Secrets for every pod (in egeria-stack, set once here for all parts): Secret names or {name: ...}.
+  imagePullSecrets: []
+
+# quickstart | freshstart. Picks the port, the five servers, the config documents,
+# the properties file, the demo secrets and the database name.
+environment: quickstart
+
+# demo | production. Normally set by values-demo.yaml or values-production.yaml.
+posture: demo
+
+# The upstream image, pinned by digest (design note section 14.3).
+image:
+  repository: docker.io/odpi/egeria-platform
+  tag: "6.3"
+  digest: sha256:483726b69b9e789749995d114633eeeab0f70a9c26ec5e59ae0e3d300ebda29c
+  pullPolicy: IfNotPresent
+
+# One platform, one replica. The chart refuses more, with words.
+replicas: 1
+
+platform:
+  # Empty means the environment's value from compose: 9443 (quickstart) or 8443 (freshstart).
+  port: ""
+  # Both environments use this path and accept HTTP 200 or 401.
+  healthPath: /open-metadata/platform-services/server-platform/origin
+  # Empty means the environment's five servers (startup.server.list in compose).
+  serverList: []
+  # Empty means the environment's value. Use the string "null" for none.
+  organizationName: ""
+  configs:
+    # The admin API rewrites the config documents, so they are only seeded when missing.
+    overwrite: false
+
+# DEMO ONLY: bundled single-node Postgres and Kafka, off by default (use values-demo-infra.yaml).
+# When enabled, postgres.host / kafka.bootstrapServers default to them. Refused in production.
+demoPostgres:
+  enabled: false
+demoKafka:
+  enabled: false
+
+# External Postgres (required unless demoPostgres is enabled). The database name defaults from the environment
+# (egeria / egeria_freshstart). The credentials live in the secrets, not here.
+postgres:
+  host: ""
+  port: 5442
+  database: ""
+
+# External Kafka (required): host:port of the bootstrap server.
+kafka:
+  bootstrapServers: ""
+
+secrets:
+  # An existing Secret whose keys are the file names for /deployments/secrets.
+  existingSecret: ""
+  # Demo only: create the Secret from the tracked public demo .omsecrets files.
+  useDemoFiles: false
+
+# TLS identity of the platform. Passwords never go in the properties ConfigMap.
+tls:
+  # Secret with keystore.p12, truststore.p12, keystore-password and truststore-password
+  # (optional: key-alias, rsa-key-id). Required by the production posture. Empty in the
+  # demo posture means the image's built-in demo keystore, with the tracked demo passwords
+  # held in a chart-created Secret.
+  existingSecret: ""
+  # "" = demo false, production true. strict.ssl=false is refused in production.
+  strictSsl: ""
+
+# helm test: proves the servers are really up. It logs in, requires every server in
+# startup.server.list to be active, then reads one record from the view server.
+canary:
+  # Secret with keys userId and password (a non-personal account allowed to list active servers
+  # and read metadata). Required in production. Demo: built from the tracked user directory.
+  existingSecret: ""
+  # Demo only: the account taken from the tracked user directory (its name only is used here).
+  demoUserId: omagspcatnpa
+  # CoreContentPack integration group "Egeria:IntegrationGroup:Default", read by GUID through the view server.
+  guid: 2648e33f-7501-4789-b524-f025bb9eaa57
+  name: "Egeria:IntegrationGroup:Default"
+  # Empty means the environment's view server (the one named *-view-server).
+  viewServer: ""
+  # Production verifies TLS with ca.crt from the TLS Secret (add that key). If the certificate is not
+  # valid for the Service name, set the name it is valid for; the test then resolves it to the Service.
+  tlsServerName: ""
+  timeoutSeconds: 600
+
+jvm:
+  # Same as compose's EGERIA_JAVA_OPTS_APPEND default.
+  javaOptsAppend: >-
+    -XX:MaxMetaspaceSize=512m
+    -XX:-UseParallelGC
+    -XX:+UseG1GC
+    -XX:MaxRAMPercentage=60.0
+    -XX:MinHeapFreeRatio=20
+    -XX:MaxHeapFreeRatio=40
+    -XX:GCTimeRatio=19
+    -Xms2g
+    -XX:+HeapDumpOnOutOfMemoryError
+    -XX:HeapDumpPath=/deployments/logs
+
+# Compose: mem_limit 6g; cpus 4 in quickstart, no cpu cap in freshstart. An empty
+# limits.cpu means the environment's compose value; the production posture requires one.
+resources:
+  requests:
+    cpu: "1"
+    memory: 3Gi
+  limits:
+    cpu: ""
+    memory: 6Gi
+
+probes:
+  # failureThreshold x periodSeconds must be at least 600 (first start loads content packs).
+  startup:
+    periodSeconds: 10
+    failureThreshold: 60
+    timeoutSeconds: 15
+  readiness:
+    periodSeconds: 15
+    failureThreshold: 4
+    timeoutSeconds: 15
+  liveness:
+    periodSeconds: 30
+    failureThreshold: 10
+    timeoutSeconds: 15
+
+# One PVC: data, logs and security logs (subPaths data, logs, security-logs).
+persistence:
+  size: 20Gi
+  storageClassName: ""
+  existingClaim: ""
+
+# Optional exchange folders mounted at /deployments/<name>. Off unless enabled.
+exchange:
+  landing-area: {enabled: false, existingClaim: "", size: 5Gi}
+  distribution-hub: {enabled: false, existingClaim: "", size: 5Gi}
+  surveys: {enabled: false, existingClaim: "", size: 5Gi}
+  loading-bay: {enabled: false, existingClaim: "", size: 5Gi}
+  coco-data-lake: {enabled: false, existingClaim: "", size: 5Gi}
+  treasury-dts-history: {enabled: false, existingClaim: "", size: 5Gi}
+  work: {enabled: false, existingClaim: "", size: 5Gi}
+
+# The image runs as uid 185, gid 0. Ignored when global.openshift is true.
+securityContext:
+  runAsUser: 185
+  runAsGroup: 0
+  fsGroup: 0
+
+networkPolicy:
+  enabled: false
+  # Pods with this label (same namespace) may reach the platform port.
+  clientLabel: egeria.odpi.org/client
+
+# Pod identity, for every pod of this chart (test pods too). serviceAccountName names an existing ServiceAccount (the chart
+# creates none; empty means the namespace's default). imagePullSecrets: Secret names or {name: ...}, added to global.imagePullSecrets.
+serviceAccountName: ""
+imagePullSecrets: []
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

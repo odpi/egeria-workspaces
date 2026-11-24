@@ -42,6 +42,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from rate_limiter import LOGIN_LIMIT, limiter  # PO-83: per real client IP
 from egeria_auth import check_client_platform, lineage_key as _lineage_key, use_token
 from result_cache import credential_identity, request_identity
 from fastapi.responses import FileResponse, JSONResponse
@@ -107,13 +108,9 @@ def _apply_token(client, token: Optional[str]):
         client.create_egeria_bearer_token()
 
 
-def _is_auth_error(exc: Exception) -> bool:
-    """Return True if exc represents a 401/403 from Egeria (token expired or access denied)."""
-    http_code = getattr(exc, "response_code", None) or getattr(exc, "http_status_code", None)
-    if http_code in (401, 403):
-        return True
-    s = str(exc).upper()
-    return "USER_NOT_AUTHORIZED" in s or "NOT_AUTHORIZED" in s or "AUTHORIZATION_ERROR" in s
+from egeria_error_mapping import (  # noqa: E402  (PO-9)
+    AUTH_403_DETAIL, _auth_status, _is_auth_error, auth_http_exception,
+)
 
 
 def _asset_maker(url, server, user_id, user_pwd, token: Optional[str] = None):
@@ -147,7 +144,7 @@ async def _governance_officer_async(url, server, user_id, user_pwd, token: Optio
     mgr = GovernanceOfficer(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
     check_client_platform(mgr, token)
     if token:
-        mgr.set_bearer_token(token)
+        use_token(mgr, token)   # never falls back to the service user; see egeria_auth.use_token
     else:
         await mgr._async_create_egeria_bearer_token()
     return mgr
@@ -351,6 +348,7 @@ def _extract_relationships(el: dict) -> list:
     - Single-dict keys: e.g. 'schemaType' which is a single RelatedMetadataElementSummary
     """
     _SKIP_KEYS = {"elementHeader", "properties", "classifications", "class"}
+    own_guid = (el.get("elementHeader") or {}).get("guid") if isinstance(el, dict) else None
     result = []
     # Each relationship once -- the graph's flat `relationships` list repeats
     # the ones already under their typed keys (see _relationship_items_once).
@@ -358,6 +356,19 @@ def _extract_relationships(el: dict) -> list:
         # Single-dict values (e.g. schemaType) only count with a relationshipHeader
         if isinstance(el.get(key), dict) and not item.get("relationshipHeader"):
             continue
+        # The graph's flat `relationships` list holds the WHOLE reachable subgraph
+        # (get_asset_graph_by_guid, depth 5): each entry's startingElementGUID says
+        # which element the relationship was recorded from. Only the element's own
+        # are its relationships; the rest belong to nested elements (an API's
+        # parameters, a schema's attributes) and were shown as the asset's own --
+        # e.g. Customer API listed SemanticAssignment -> UniqueCustomerIdentifier
+        # twice, once per customerNo parameter. The nested ones are still read by
+        # _serialize_schema straight from el["relationships"]. Typed keys are not
+        # filtered, and an entry without startingElementGUID is kept.
+        if key == "relationships" and own_guid:
+            start = item.get("startingElementGUID")
+            if start and start != own_guid:
+                continue
         r = _unwrap_rel_item(item, key)
         if r:
             result.append(r)
@@ -521,7 +532,7 @@ async def _automated_curation_async(url, server, user_id, user_pwd, token: Optio
     """Async twin of _automated_curation -- for async def routes, which must
     never call the sync _apply_token()'s create_egeria_bearer_token() fallback
     (it internally does asyncio.get_event_loop().run_until_complete(), which
-    raises inside an already-running loop). set_bearer_token() is a plain
+    raises inside an already-running loop). use_token() is a plain
     attribute set and is safe either way, so only the no-token fallback path
     needs the async variant."""
     from pyegeria import AutomatedCuration
@@ -529,7 +540,7 @@ async def _automated_curation_async(url, server, user_id, user_pwd, token: Optio
     ac = AutomatedCuration(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
     check_client_platform(ac, token)
     if token:
-        ac.set_bearer_token(token)
+        use_token(ac, token)   # never falls back to the service user; see egeria_auth.use_token
     else:
         await ac._async_create_egeria_bearer_token()
     return ac
@@ -545,7 +556,56 @@ def _discovery_client(url, server, user_id, user_pwd, token: Optional[str] = Non
 
 # ── Token exchange endpoint ───────────────────────────────────────────────────
 
+# PO-68: who may ask for a token WITHOUT sending a password. All three modes (ENVIRONMENT_DIVERGENCE.md):
+#   - local quickstart (neither flag): anyone, as before (no login gate by design);
+#   - demo (DEMO_MODE): a signed-in Portal user; the token is still the Portal's own user's;
+#   - freshstart (SERVER_MANAGED_AUTH): a signed-in Portal user, who gets back THEIR OWN Egeria token (the
+#     one /api/auth/login minted with their password and keeps in the Portal session), never the service
+#     user's. Before this, POST {} minted a token for the service user (bootstrap) for any caller.
+SIGN_IN_FIRST_WORDS = ("Sign in to the Portal first, or send your own Egeria user and password: "
+                       "this Portal gives out a token without a password only to a signed-in user.")
+SESSION_TOKEN_EXPIRED_WORDS = ("Your Egeria sign-in has expired: sign in to the Portal again, "
+                               "or send your own Egeria user and password.")
+SESSION_NO_TOKEN_WORDS = ("This Portal session holds no Egeria sign-in: send your own Egeria user and "
+                          "password.")
+SESSION_OTHER_USER_WORDS = ("You are signed in to the Portal as a different user: send that user's own "
+                            "password to act as them.")
+SESSION_OTHER_PLATFORM_WORDS = ("Your Portal sign-in is for this Portal's own platform only: send your own "
+                                "user and password to use another platform.")
+
+
+def _login_modes() -> tuple:
+    """(DEMO_MODE, SERVER_MANAGED_AUTH), read at call time so each mode can be tested."""
+    import demo_config
+    return bool(demo_config.DEMO_MODE), bool(getattr(demo_config, "SERVER_MANAGED_AUTH", False))
+
+
+async def _portal_session(request: Request, demo_mode: bool):
+    """The signed-in Portal user, or None. Demo: a valid session of an existing, verified account (the same
+    check DemoAuthGateMiddleware makes, so a direct :8000 call without the edge header is held to it too).
+    Server-managed: the session's user and the Egeria token it carries; quickstart's sessions carry none,
+    so that user is asked to send their own password. Returns an object with user_id and egeria_token."""
+    from types import SimpleNamespace
+    from jose import JWTError
+    from demo_auth_handler import _decode_jwt, _token_from_request
+    token = _token_from_request(request)
+    if not token:
+        return None
+    if demo_mode:
+        from demo_auth_gate import _authenticated
+        if not await _authenticated(dict(request.scope["headers"])):
+            return None
+    try:
+        payload = _decode_jwt(token)
+    except (JWTError, HTTPException):   # PO-46b: no usable session key, so no session can be trusted
+        return None
+    if not isinstance(payload, dict) or not payload.get("sub"):
+        return None
+    return SimpleNamespace(user_id=payload["sub"], egeria_token=payload.get("egeria_token") or "")
+
+
 @router.post("/api/egeria-token", summary="Exchange Egeria credentials for a bearer token")
+@limiter.limit(LOGIN_LIMIT)   # PO-83: a sent password is checked by Egeria, so it is a guessing route
 async def get_egeria_bearer_token(request: Request):
     """Called once at login. Returns a short-lived Egeria bearer token so that
     subsequent catalog API calls can pass X-Egeria-Token instead of user_pwd.
@@ -555,8 +615,9 @@ async def get_egeria_bearer_token(request: Request):
     PORTAL_ALLOW_CUSTOM_PLATFORMS). The token is bound to the platform it was minted for, and the response
     names that platform. The body is read only as application/json (415 otherwise), so a cross-site
     text/plain "simple" POST cannot reach here."""
-    from egeria_auth import (bind_token_platform, is_caller_password, named_user_refusal, remember_token,
-                             resolve_platform, reusable_token, service_user, token_reuse_key,
+    from egeria_auth import (_token_expired as egeria_auth_token_expired, bind_token_platform,
+                             default_platform_url, is_caller_password, named_user_refusal, normalize_platform_url,
+                             remember_token, resolve_platform, reusable_token, service_user, token_reuse_key,
                              token_reuse_lock)
     ctype = (request.headers.get("content-type") or "").split(";")[0].strip().lower()
     if ctype != "application/json":
@@ -577,6 +638,32 @@ async def get_egeria_bearer_token(request: Request):
     # any user_id, as before. "Sent" is tested, not is_caller_password: on the demo every persona
     # password equals the service password, so that test would refuse every persona sign-in.
     asked_user = body.get("user_id") or None
+    # PO-68: with no password sent, the login-gated modes need a signed-in Portal user (words above).
+    demo_mode, server_managed = _login_modes()
+    gated = caller_pwd is None and (demo_mode or server_managed)
+    session = await _portal_session(request, demo_mode) if gated else None
+    if caller_pwd is None and demo_mode:
+        if session is None:
+            raise HTTPException(status_code=401, detail=SIGN_IN_FIRST_WORDS)
+        # then as before: the Portal's own user (PO-41 below)
+    elif caller_pwd is None and server_managed:
+        if session is None:
+            raise HTTPException(status_code=401, detail=SIGN_IN_FIRST_WORDS)
+        if asked_user and asked_user != session.user_id:
+            raise HTTPException(status_code=400, detail=SESSION_OTHER_USER_WORDS)
+        token = session.egeria_token or None
+        if token is None:
+            raise HTTPException(status_code=401, detail=SESSION_NO_TOKEN_WORDS)
+        if egeria_auth_token_expired(token):
+            raise HTTPException(status_code=401, detail=SESSION_TOKEN_EXPIRED_WORDS)
+        # The sign-in (demo_auth_handler.login) was made at the Portal's own platform, EGERIA_PLATFORM_URL.
+        if normalize_platform_url(url) != normalize_platform_url(default_platform_url()):
+            raise HTTPException(status_code=400, detail=SESSION_OTHER_PLATFORM_WORDS)
+        # The user's own token, minted at sign-in. Nothing is minted here, so `renew` cannot renew it:
+        # an expired one is refused above and the user signs in again.
+        bind_token_platform(token, url)
+        return JSONResponse({"token": token, "user_id": session.user_id, "platform_url": url})
+    # else local quickstart: no login gate, unchanged.
     refusal = named_user_refusal(asked_user, caller_pwd is not None, None)
     if refusal is not None:
         raise refusal
@@ -1326,7 +1413,7 @@ def list_infrastructure_types(
         types = _entity_type_map(url, server, user_id, user_pwd, token=_token_from_request(request), refresh=refresh)
     except Exception as exc:
         if _is_auth_error(exc):
-            raise HTTPException(status_code=401, detail=str(exc))
+            raise auth_http_exception(exc, str(exc))
         logger.exception("list_infrastructure_types failed")
         raise HTTPException(status_code=500, detail=str(exc))
     subs = []
@@ -1559,7 +1646,7 @@ async def _async_asset_maker(url, server, user_id, user_pwd, token: Optional[str
     mgr = AssetMaker(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
     check_client_platform(mgr, token)
     if token:
-        mgr.set_bearer_token(token)
+        use_token(mgr, token)   # never falls back to the service user; see egeria_auth.use_token
     else:
         await mgr._async_create_egeria_bearer_token()
     return mgr
@@ -1595,7 +1682,9 @@ async def _fill_list_cache(key: str, label: str, fetch_page, serialize) -> None:
         if entry:
             entry["refreshing"] = False
         else:
-            _da_errors[key] = "Unauthorized" if _is_auth_error(exc) else str(exc)
+            # An auth refusal keeps its kind (PO-9): "Unauthorized" (401, sign in again) or "Not permitted" (403).
+            _da_errors[key] = ((("Not permitted" if _auth_status(exc) == 403 else "Unauthorized")
+                                if _is_auth_error(exc) else str(exc)))
     finally:
         _da_tasks.pop(key, None)
 
@@ -1638,7 +1727,8 @@ def _cached_list_response(key: str, label: str, refresh: bool, fetch_page, seria
     entry, stale, loading, err = _get_list_cached(
         key, refresh, lambda: _fill_list_cache(key, label, fetch_page, serialize))
     if err:
-        raise HTTPException(status_code=401 if err == "Unauthorized" else 500, detail=err)
+        status = 401 if err == "Unauthorized" else 403 if err == "Not permitted" else 500
+        raise HTTPException(status_code=status, detail=AUTH_403_DETAIL if status == 403 else err)
     if loading:
         return JSONResponse({"items": [], "loading": True, "rootType": root_type})
     return JSONResponse({"items": entry["items"], "total": len(entry["items"]), "capped": entry["capped"],
@@ -1868,7 +1958,7 @@ def get_governance_process_detail(
         raise
     except Exception as exc:
         if _is_auth_error(exc):
-            raise HTTPException(status_code=401, detail="Token expired or unauthorized")
+            raise auth_http_exception(exc, "Token expired or unauthorized")
         logger.exception("get_governance_process_detail failed for %s", guid)
         raise HTTPException(status_code=500, detail=str(exc))
 
@@ -1906,7 +1996,7 @@ def get_element_nav(
         raise
     except Exception as exc:
         if _is_auth_error(exc):
-            raise HTTPException(status_code=401, detail="Token expired or unauthorized")
+            raise auth_http_exception(exc, "Token expired or unauthorized")
         logger.exception("get_element_nav failed for %s", guid)
         raise HTTPException(status_code=500, detail=str(exc))
 
@@ -1936,7 +2026,7 @@ def get_asset_detail(
         raise
     except Exception as exc:
         if _is_auth_error(exc):
-            raise HTTPException(status_code=401, detail=f"Token expired or user not authorized for element {guid!r}")
+            raise auth_http_exception(exc, f"Token expired or user not authorized for element {guid!r}")
         logger.exception("get_asset_detail failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
@@ -2042,7 +2132,7 @@ def get_asset_preview(
         raise
     except Exception as exc:
         if _is_auth_error(exc):
-            raise HTTPException(status_code=401, detail="Token expired or not authorized")
+            raise auth_http_exception(exc, "Token expired or not authorized")
         logger.exception("get_asset_preview: detail fetch failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
@@ -2128,7 +2218,7 @@ def list_survey_reports(
         return JSONResponse({"items": items, "total": len(items), "capped": capped})
     except Exception as exc:
         if _is_auth_error(exc):
-            raise HTTPException(status_code=401, detail="Token expired or unauthorized")
+            raise auth_http_exception(exc, "Token expired or unauthorized")
         logger.exception("list_survey_reports failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
@@ -2173,7 +2263,7 @@ def get_survey_annotations(
         return JSONResponse({"items": items, "total": len(items)})
     except Exception as exc:
         if _is_auth_error(exc):
-            raise HTTPException(status_code=401, detail="Token expired or unauthorized")
+            raise auth_http_exception(exc, "Token expired or unauthorized")
         logger.exception("get_survey_annotations failed for %s", guid)
         raise HTTPException(status_code=500, detail=str(exc))
 
@@ -2227,7 +2317,7 @@ def list_annotations(
         return JSONResponse({"items": items, "startFrom": start_from, "nextStart": start_from + page_size, "hasMore": more})
     except Exception as exc:
         if _is_auth_error(exc):
-            raise HTTPException(status_code=401, detail="Token expired or unauthorized")
+            raise auth_http_exception(exc, "Token expired or unauthorized")
         logger.exception("list_annotations failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
@@ -2258,7 +2348,7 @@ def get_annotation_detail(
         raise
     except Exception as exc:
         if _is_auth_error(exc):
-            raise HTTPException(status_code=401, detail="Token expired or unauthorized")
+            raise auth_http_exception(exc, "Token expired or unauthorized")
         logger.exception("get_annotation_detail failed for %s", guid)
         raise HTTPException(status_code=500, detail=str(exc))
 

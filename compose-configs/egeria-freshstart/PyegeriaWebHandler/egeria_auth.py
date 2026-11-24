@@ -88,7 +88,20 @@ def use_token(client, token: str) -> None:
     reaches the browser, which mints a new token for its own user."""
     client.set_bearer_token(token)
     client.user_id = _token_sub(token) or client.user_id
-    client.user_pwd = None
+    _no_password(client)
+
+
+def _no_password(client) -> None:
+    """Clear the client's password and opt it out of pyegeria's configured default password
+    (`use_default_password = False`, pyegeria's NO_PASSWORD opt-out), so neither it nor any sub-client it
+    builds later can sign in as the configured (demo) user. Sub-clients it already built are cleared too.
+    On a pyegeria without the opt-out the attribute is simply unused."""
+    for c in (client, *list((getattr(client, "_instantiated_clients", None) or {}).values())):
+        c.user_pwd = None
+        try:
+            setattr(c, "use_default_password", False)
+        except Exception:  # noqa: BLE001 -- a client that refuses the attribute keeps working without it
+            pass
 
 
 def _token_expired(token: Optional[str]) -> bool:
@@ -498,7 +511,9 @@ class EgeriaTokenMiddleware:
         reset = _egeria_token.set(token)
         reset_fl = _for_lineage.set(for_lineage)
         try:
-            with lineage_visible(for_lineage):
+            # Report-spec reads run as the token's user, never as the Portal's service user (Erin).
+            from portal_spec_identity import request_spec_identity
+            with lineage_visible(for_lineage), request_spec_identity(token):
                 await self.app(scope, receive, send)
         finally:
             _for_lineage.reset(reset_fl)

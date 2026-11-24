@@ -341,8 +341,26 @@ def _default_resolver(client, sheet, *, perspective=None, spec_lookup=None, **kw
     return NS(placements=out)
 
 
-class _Refused(Exception):
-    response_code = 401
+def _pyegeria_refusal(status, words="refused"):
+    """What pyegeria raises when Egeria refuses the caller (PO-9 matches by class and code, not text): a
+    transport 401 for a refused/expired token, Egeria's own 403 (UserNotAuthorizedException) for a user who
+    is signed in but may not see this."""
+    import httpx
+    from pyegeria.core._exceptions import PyegeriaUnauthorizedException
+    req = httpx.Request("POST", "https://egeria.test:9443/x")
+    if status == 401:
+        return PyegeriaUnauthorizedException(httpx.Response(401, request=req, text=words), {},
+                                             additional_info={"userid": "peterprofile"})
+    body = {"relatedHTTPCode": 403, "exceptionClassName": "UserNotAuthorizedException",
+            "exceptionErrorMessageId": "OPEN-METADATA-SECURITY-403-020", "exceptionErrorMessage": words}
+    return PyegeriaUnauthorizedException(httpx.Response(200, request=req, json=body), {},
+                                         additional_info={**body, "userid": "peterprofile"})
+
+
+def _Refused(words):
+    """A refused token, as pyegeria raises it (was a bare Exception with response_code 401, which matched
+    only because the old check read any response_code attribute)."""
+    return _pyegeria_refusal(401, words)
 
 
 def test_a_refused_token_is_a_401_not_a_quiet_fallback_to_the_local_file(env):

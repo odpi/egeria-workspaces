@@ -176,13 +176,29 @@ def test_component_groups_build_runs_with_the_callers_token(monkeypatch):
 
 # ── follow-up: auth failures surface; survey types are the service user's ────
 
+def _pyegeria_refusal(status, words="refused"):
+    """What pyegeria raises when Egeria refuses the caller (PO-9 matches by class and code, not text): a
+    transport 401 for a refused/expired token, Egeria's own 403 (UserNotAuthorizedException) for a user who
+    is signed in but may not see this."""
+    import httpx
+    from pyegeria.core._exceptions import PyegeriaUnauthorizedException
+    req = httpx.Request("POST", "https://egeria.test:9443/x")
+    if status == 401:
+        return PyegeriaUnauthorizedException(httpx.Response(401, request=req, text=words), {},
+                                             additional_info={"userid": "peterprofile"})
+    body = {"relatedHTTPCode": 403, "exceptionClassName": "UserNotAuthorizedException",
+            "exceptionErrorMessageId": "OPEN-METADATA-SECURITY-403-020", "exceptionErrorMessage": words}
+    return PyegeriaUnauthorizedException(httpx.Response(200, request=req, json=body), {},
+                                         additional_info={**body, "userid": "peterprofile"})
+
+
 class _Refusing:
-    """get_collection_members raises what pyegeria raises for a refused/expired token."""
+    """get_collection_members raises what pyegeria raises for a refused token (401) or a refusal (403)."""
     def __init__(self, status):
         self.status = status
 
     def get_collection_members(self, **k):
-        raise RuntimeError(f"Client error '{self.status} ' -- HTTP code: {self.status}")
+        raise _pyegeria_refusal(self.status)
 
 
 @pytest.mark.parametrize("setup,path", ROUTES[:4])
