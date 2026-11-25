@@ -186,18 +186,51 @@ def _is_admin_closed(request: Request) -> bool:
 
 
 def _sync_detail_allowed(request: Optional[Request]) -> bool:
-    """Error text and skip reasons from the sync go to administrators and to signed-in callers
-    (an unexpired X-Egeria-Token); anonymous callers get the outcome without the detail."""
+    """Error text, skip names and skip reasons from the sync go to administrators only. The sync
+    reads as the service account, so its skip list can name zoned specs (and their zones) that a
+    signed-in viewer cannot read (F1, 2026-11-15). Everyone else gets the outcome, the counts and
+    the skip categories (report_spec_sync.public_status).
+
+    With auth on (DEMO_MODE or SERVER_MANAGED_AUTH) that is the Portal's admin check, failing
+    closed. With auth off (a local quickstart such as laz) that check says everyone is an
+    administrator, so the sync detail has its own rule (F1b, 2026-11-15): a request with no
+    X-Egeria-Token (the local owner, not signed in as a persona) gets the detail; a request with a
+    persona token, valid or expired, gets it only if the token's user is listed in
+    EGERIA_ADMIN_USERS (demo_config) or PORTAL_SYNC_DETAIL_USERS (comma-separated, empty by
+    default). Any doubt, an unreadable token or an error gives the public status."""
     if request is None:
         return False
     try:
-        from egeria_auth import _token_expired, get_request_token
+        import demo_feedback_handler as dfh
+        auth_on = bool(dfh.DEMO_MODE or dfh.SERVER_MANAGED_AUTH)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"report specs: auth mode unknown, withholding sync detail: {exc}")
+        return False
+    if auth_on:
+        return _is_admin_closed(request)
+    try:
+        from egeria_auth import _token_sub, get_request_token
         token = get_request_token()
-        if token and not _token_expired(token):
+        if not token:
             return True
+        user = _token_sub(token)
+        return bool(user) and user in _sync_detail_users()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"report specs: sync detail check failed, withholding it: {exc}")
+        return False
+
+
+def _sync_detail_users() -> set:
+    """The persona users who see the sync detail on a Portal without auth: EGERIA_ADMIN_USERS from
+    demo_config if it has one, plus PORTAL_SYNC_DETAIL_USERS. Empty by default."""
+    users = set()
+    try:
+        import demo_config
+        users |= {str(u).strip() for u in (getattr(demo_config, "EGERIA_ADMIN_USERS", None) or ()) if str(u).strip()}
     except Exception:  # noqa: BLE001
         pass
-    return _is_admin_closed(request)
+    users |= {u.strip() for u in os.environ.get("PORTAL_SYNC_DETAIL_USERS", "").split(",") if u.strip()}
+    return users
 
 
 def _sync_status_for(request: Optional[Request]) -> dict:
@@ -395,15 +428,15 @@ def sync_from_egeria(request: Request):
     _admin_gate(request)
     import report_spec_sync
     started = report_spec_sync.start("admin")
-    st = dict(report_spec_sync.status(), detail=True)
+    st = _sync_status_for(request)      # the same detail rule as GET (F1b: a persona on laz sees counts)
     return JSONResponse({"started": started, "already_running": not started,
                          "running_words": report_spec_sync.running_words(st), **st})
 
 
 @router.get("/api/report-specs/sync", summary="The last sync of report specs from Egeria")
 def sync_status(request: Request):
-    """Outcome, counts and what a running sync is doing, for everyone. Error text and skip
-    reasons only for administrators and signed-in callers (detail: true)."""
+    """Outcome, counts, skip categories and what a running sync is doing, for everyone. Error
+    text and skip names and reasons only for administrators (detail: true)."""
     import report_spec_sync
     st = _sync_status_for(request)
     return JSONResponse(dict(st, running_words=report_spec_sync.running_words(st)))
@@ -709,6 +742,16 @@ def missing_pinned_element(exc, params: Optional[dict]) -> Optional[str]:
     return None
 
 
+def _run_user(token, user_id):
+    """The user a run is made as. With a token, the token's user: pyegeria reads the EGERIA tier for
+    credential_identity(user, ...), so passing the service user (EGERIA_USER, Erin) would run a signed-in
+    user's report against Erin's specs."""
+    if token:
+        from egeria_auth import _token_sub
+        return _token_sub(token) or user_id
+    return user_id
+
+
 def _run_spec(req, request, token, url, server, user_id, user_pwd):
     """Run the spec; return the result, or raise the HTTPException the browser should see."""
     from pyegeria.view.format_set_executor import exec_report_spec
@@ -724,7 +767,7 @@ def _run_spec(req, request, token, url, server, user_id, user_pwd):
             params=req.params,
             view_server=server,
             view_url=url,
-            user=user_id,
+            user=_run_user(token, user_id),
             user_pass=user_pwd,
             token=token,
             supply=PortalSupply(request, view_server=server, view_url=url, user_id=user_id, user_pwd=user_pwd),
@@ -738,10 +781,14 @@ def _run_spec(req, request, token, url, server, user_id, user_pwd):
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
-        # Propagate Egeria 401s as HTTP 401 so the client can show a meaningful message.
-        exc_text = str(exc)
-        if "HTTP Code: 401" in exc_text or getattr(exc, "http_error_code", None) == 401:
-            raise HTTPException(status_code=401, detail="Not authorized for this operation — the current user does not have permission for this report")
+        # An Egeria auth refusal keeps its kind (PO-9, by class + code): 401 the sign-in was refused, so sign
+        # in again; 403 the user is signed in and may not run this, so a new token will not help.
+        from egeria_error_mapping import AUTH_403_DETAIL, auth_error_status
+        status = auth_error_status(exc)
+        if status == 403:
+            raise HTTPException(status_code=403, detail=AUTH_403_DETAIL)
+        if status == 401:
+            raise HTTPException(status_code=401, detail=TOKEN_REFUSED_WORDS)
         gone = missing_pinned_element(exc, req.params)
         if gone:
             logger.info(f"exec_report_spec {req.spec_name!r}: {gone}")

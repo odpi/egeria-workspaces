@@ -37,6 +37,18 @@ FOREIGN = "https://evil.example.com"
 SERVICE_PWD = "service-secret"
 
 
+# PO-78: freshstart's gate (server_auth_gate.py) needs a Portal session for every route but its public list,
+# so these tests, which check the rules behind it, call as a signed-in Portal user (a test-key session).
+PORTAL_SESSION_KEY = "po78-test-only-signing-key-0123456789abcdef"
+
+
+def _portal_session(user_id="peterprofile"):
+    from datetime import datetime, timedelta
+    from jose import jwt
+    return jwt.encode({"sub": user_id, "role": "user", "display_name": user_id,
+                       "exp": datetime.utcnow() + timedelta(hours=8)}, PORTAL_SESSION_KEY, algorithm="HS256")
+
+
 @pytest.fixture(autouse=True)
 def _env(monkeypatch):
     """A known allowlist and service password; no custom-platform flag; a fresh token map."""
@@ -46,6 +58,8 @@ def _env(monkeypatch):
     monkeypatch.setenv("EGERIA_PLATFORM_URL", HOME)
     monkeypatch.setenv("EGERIA_USER_PASSWORD", SERVICE_PWD)
     monkeypatch.setattr(egeria_auth, "_TOKEN_PLATFORMS", {})
+    import demo_config
+    monkeypatch.setattr(demo_config, "JWT_SECRET", PORTAL_SESSION_KEY)
     real = socket.getaddrinfo
 
     def fake_getaddrinfo(host, *a, **k):     # the foreign host is "public"; nothing is resolved for real
@@ -174,7 +188,9 @@ class _FakeRM:
 @pytest.fixture(scope="module")
 def app_client():
     import pyegeria_handler as handler  # noqa: E402
-    return TestClient(handler.app)       # no `with`: the lifespan (bootstrap) never runs
+    c = TestClient(handler.app)       # no `with`: the lifespan (bootstrap) never runs
+    c.cookies.set("demo_token", _portal_session())
+    return c
 
 
 def test_operations_platforms_foreign_url_is_400_with_no_outbound(app_client, monkeypatch, no_outbound):

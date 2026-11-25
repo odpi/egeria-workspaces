@@ -1,0 +1,3703 @@
+{
+ "_note": "REAL SHAPE, read-only capture 2026-11-25 from the live quickstart platform (image egeria-quickstart-platform@sha256:c461d5bfce7f..., pyegeria 6.3.3 in quickstart-pyegeria-web), SolutionArchitect.find_solution_roles(search_string='*', metadata_element_type='SolutionActorRole', graph_query_depth=1) and get_solution_role_by_guid. 4 of the 23 SolutionActorRole elements, unmodified. Not SYNTHETIC.",
+ "list": [
+  {
+   "class": "OpenMetadataRootElement",
+   "elementHeader": {
+    "class": "ElementHeader",
+    "headerVersion": 0,
+    "status": "ACTIVE",
+    "type": {
+     "typeId": "cb3e6866-9ab5-4d95-9921-ff1b9fbe4d29",
+     "typeName": "SolutionActorRole",
+     "superTypeNames": [
+      "ActorRole",
+      "Actor",
+      "Referenceable",
+      "OpenMetadataRoot"
+     ],
+     "typeVersion": 1,
+     "typeDescription": "An actor role that is designed for interacting with a solution.",
+     "typeCategory": "ENTITY_DEF"
+    },
+    "origin": {
+     "sourceServer": "qs-metadata-store",
+     "originCategory": "LOCAL_COHORT",
+     "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+     "homeMetadataCollectionName": "qs-metadata-store"
+    },
+    "versions": {
+     "createdBy": "jacquardnpa",
+     "updatedBy": "jacquardnpa",
+     "maintainedBy": [
+      "jacquardnpa"
+     ],
+     "createTime": "2026-11-23T23:07:56.354+00:00",
+     "updateTime": "2026-11-23T23:07:56.354+00:00",
+     "version": 1,
+     "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+    },
+    "guid": "5c7a8b4b-eff3-4c9c-b818-081e78f3f55d",
+    "anchor": {
+     "class": "ElementClassification",
+     "headerVersion": 0,
+     "status": "ACTIVE",
+     "type": {
+      "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+      "typeName": "Anchors",
+      "typeVersion": 1,
+      "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+      "typeCategory": "CLASSIFICATION_DEF"
+     },
+     "origin": {
+      "sourceServer": "qs-metadata-store",
+      "originCategory": "LOCAL_COHORT",
+      "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+      "homeMetadataCollectionName": "qs-metadata-store"
+     },
+     "versions": {
+      "createdBy": "jacquardnpa",
+      "updatedBy": "jacquardnpa",
+      "maintainedBy": [
+       "jacquardnpa"
+      ],
+      "createTime": "2026-11-23T23:07:56.353+00:00",
+      "updateTime": "2026-11-23T23:07:56.353+00:00",
+      "version": 1,
+      "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+     },
+     "classificationOrigin": "ASSIGNED",
+     "classificationName": "Anchors",
+     "classificationProperties": {
+      "class": "AnchorsProperties",
+      "typeName": "Anchors",
+      "anchorTypeName": "SolutionActorRole",
+      "anchorDomainName": "Actor",
+      "zoneMembership": [
+       "digital-products"
+      ]
+     }
+    },
+    "zoneMembership": {
+     "class": "ElementClassification",
+     "headerVersion": 0,
+     "status": "ACTIVE",
+     "type": {
+      "typeId": "52993f4b-d853-47ae-a2e6-f22b96863533",
+      "typeName": "ZoneMembership",
+      "typeVersion": 1,
+      "typeDescription": "Defines the element's membership of the governance zones.",
+      "typeCategory": "CLASSIFICATION_DEF"
+     },
+     "origin": {
+      "sourceServer": "qs-metadata-store",
+      "originCategory": "LOCAL_COHORT",
+      "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+      "homeMetadataCollectionName": "qs-metadata-store"
+     },
+     "versions": {
+      "createdBy": "jacquardnpa",
+      "updatedBy": "jacquardnpa",
+      "maintainedBy": [
+       "jacquardnpa"
+      ],
+      "createTime": "2026-11-23T23:07:56.353+00:00",
+      "updateTime": "2026-11-23T23:07:56.353+00:00",
+      "version": 1,
+      "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+     },
+     "classificationOrigin": "ASSIGNED",
+     "classificationName": "ZoneMembership",
+     "classificationProperties": {
+      "class": "ZoneMembershipProperties",
+      "typeName": "ZoneMembership",
+      "zoneMembership": [
+       "digital-products"
+      ]
+     }
+    }
+   },
+   "memberOfCollections": [
+    {
+     "class": "RelatedMetadataElementSummary",
+     "relationshipHeader": {
+      "class": "ElementHeader",
+      "headerVersion": 0,
+      "status": "ACTIVE",
+      "type": {
+       "typeId": "5cabb76a-e25b-4bb5-8b93-768bbac005af",
+       "typeName": "CollectionMembership",
+       "typeVersion": 1,
+       "typeDescription": "Identifies a member of a collection.",
+       "typeCategory": "RELATIONSHIP_DEF"
+      },
+      "origin": {
+       "sourceServer": "qs-metadata-store",
+       "originCategory": "LOCAL_COHORT",
+       "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+       "homeMetadataCollectionName": "qs-metadata-store"
+      },
+      "versions": {
+       "createdBy": "jacquardnpa",
+       "updatedBy": "jacquardnpa",
+       "maintainedBy": [
+        "jacquardnpa"
+       ],
+       "createTime": "2026-11-23T23:08:00.942+00:00",
+       "updateTime": "2026-11-23T23:08:00.942+00:00",
+       "version": 1,
+       "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+      },
+      "guid": "cbfde2bb-cf4f-4e48-a8cb-5804472f8e1c"
+     },
+     "relatedElement": {
+      "elementHeader": {
+       "class": "ElementHeader",
+       "headerVersion": 0,
+       "status": "ACTIVE",
+       "type": {
+        "typeId": "4aa47799-5128-4eeb-bd72-e357b49f8bfe",
+        "typeName": "SolutionBlueprint",
+        "superTypeNames": [
+         "DesignModel",
+         "Collection",
+         "AuthoredReferenceable",
+         "Referenceable",
+         "OpenMetadataRoot"
+        ],
+        "typeVersion": 1,
+        "typeDescription": "Collection of solution components that make up a solution for digital services such as digital products.",
+        "typeCategory": "ENTITY_DEF"
+       },
+       "origin": {
+        "sourceServer": "qs-metadata-store",
+        "originCategory": "LOCAL_COHORT",
+        "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+        "homeMetadataCollectionName": "qs-metadata-store"
+       },
+       "versions": {
+        "createdBy": "jacquardnpa",
+        "updatedBy": "jacquardnpa",
+        "maintainedBy": [
+         "jacquardnpa"
+        ],
+        "createTime": "2026-11-23T23:08:00.677+00:00",
+        "updateTime": "2026-11-23T23:08:00.677+00:00",
+        "version": 1,
+        "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+       },
+       "guid": "9c9330c8-6a3c-436b-aef6-6a359c6989db",
+       "anchor": {
+        "class": "ElementClassification",
+        "headerVersion": 0,
+        "status": "ACTIVE",
+        "type": {
+         "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+         "typeName": "Anchors",
+         "typeVersion": 1,
+         "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+         "typeCategory": "CLASSIFICATION_DEF"
+        },
+        "origin": {
+         "sourceServer": "qs-metadata-store",
+         "originCategory": "LOCAL_COHORT",
+         "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+         "homeMetadataCollectionName": "qs-metadata-store"
+        },
+        "versions": {
+         "createdBy": "jacquardnpa",
+         "updatedBy": "jacquardnpa",
+         "maintainedBy": [
+          "jacquardnpa"
+         ],
+         "createTime": "2026-11-23T23:08:00.674+00:00",
+         "updateTime": "2026-11-23T23:08:00.674+00:00",
+         "version": 1,
+         "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+        },
+        "classificationOrigin": "ASSIGNED",
+        "classificationName": "Anchors",
+        "classificationProperties": {
+         "class": "AnchorsProperties",
+         "typeName": "Anchors",
+         "anchorTypeName": "SolutionBlueprint",
+         "anchorDomainName": "AuthoredReferenceable",
+         "zoneMembership": [
+          "digital-products"
+         ]
+        }
+       },
+       "zoneMembership": {
+        "class": "ElementClassification",
+        "headerVersion": 0,
+        "status": "ACTIVE",
+        "type": {
+         "typeId": "52993f4b-d853-47ae-a2e6-f22b96863533",
+         "typeName": "ZoneMembership",
+         "typeVersion": 1,
+         "typeDescription": "Defines the element's membership of the governance zones.",
+         "typeCategory": "CLASSIFICATION_DEF"
+        },
+        "origin": {
+         "sourceServer": "qs-metadata-store",
+         "originCategory": "LOCAL_COHORT",
+         "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+         "homeMetadataCollectionName": "qs-metadata-store"
+        },
+        "versions": {
+         "createdBy": "jacquardnpa",
+         "updatedBy": "jacquardnpa",
+         "maintainedBy": [
+          "jacquardnpa"
+         ],
+         "createTime": "2026-11-23T23:08:00.674+00:00",
+         "updateTime": "2026-11-23T23:08:00.674+00:00",
+         "version": 1,
+         "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+        },
+        "classificationOrigin": "ASSIGNED",
+        "classificationName": "ZoneMembership",
+        "classificationProperties": {
+         "class": "ZoneMembershipProperties",
+         "typeName": "ZoneMembership",
+         "zoneMembership": [
+          "digital-products"
+         ]
+        }
+       }
+      },
+      "properties": {
+       "class": "SolutionBlueprintProperties",
+       "typeName": "SolutionBlueprint",
+       "qualifiedName": "SolutionBlueprint::Jacquard::Open Metadata Digital Product Community Solution Blueprint::6.4-SNAPSHOT",
+       "displayName": "Open Metadata Digital Product Community Solution Blueprint",
+       "description": "Description of the organization of the open metadata digital product communities.",
+       "versionIdentifier": "6.4-SNAPSHOT"
+      }
+     },
+     "relatedElementAtEnd1": true
+    }
+   ],
+   "interactingWithSolutionComponents": [
+    {
+     "class": "RelatedMetadataElementSummary",
+     "relationshipHeader": {
+      "class": "ElementHeader",
+      "headerVersion": 0,
+      "status": "ACTIVE",
+      "type": {
+       "typeId": "b6722d63-9924-4877-82b0-f9207cd78174",
+       "typeName": "SolutionComponentActor",
+       "typeVersion": 1,
+       "typeDescription": "An actor that is interacting with the solution component.",
+       "typeCategory": "RELATIONSHIP_DEF"
+      },
+      "origin": {
+       "sourceServer": "qs-metadata-store",
+       "originCategory": "LOCAL_COHORT",
+       "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+       "homeMetadataCollectionName": "qs-metadata-store"
+      },
+      "versions": {
+       "createdBy": "jacquardnpa",
+       "updatedBy": "jacquardnpa",
+       "maintainedBy": [
+        "jacquardnpa"
+       ],
+       "createTime": "2026-11-23T23:07:57.913+00:00",
+       "updateTime": "2026-11-23T23:07:57.913+00:00",
+       "version": 1,
+       "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+      },
+      "guid": "84ef8450-7639-460e-a7f4-0b4908ec8c05"
+     },
+     "relationshipProperties": {
+      "class": "SolutionComponentActorProperties",
+      "typeName": "SolutionComponentActor",
+      "role": "Member of",
+      "description": "Individuals from different parts of the organization can belong to the community to receive information about the products, supply new requirements, provide feedback about the products and to discuss how different consumers are using the products."
+     },
+     "relatedElement": {
+      "elementHeader": {
+       "class": "ElementHeader",
+       "headerVersion": 0,
+       "status": "ACTIVE",
+       "type": {
+        "typeId": "b83f3d42-f3f7-4155-ae65-58fb44ea7644",
+        "typeName": "SolutionComponent",
+        "superTypeNames": [
+         "DesignModelElement",
+         "AuthoredReferenceable",
+         "Referenceable",
+         "OpenMetadataRoot"
+        ],
+        "typeVersion": 2,
+        "typeDescription": "Description of a well-defined capability within a solution.",
+        "typeCategory": "ENTITY_DEF"
+       },
+       "origin": {
+        "sourceServer": "qs-metadata-store",
+        "originCategory": "LOCAL_COHORT",
+        "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+        "homeMetadataCollectionName": "qs-metadata-store"
+       },
+       "versions": {
+        "createdBy": "jacquardnpa",
+        "updatedBy": "jacquardnpa",
+        "maintainedBy": [
+         "jacquardnpa"
+        ],
+        "createTime": "2026-11-23T23:07:56.786+00:00",
+        "updateTime": "2026-11-23T23:07:56.786+00:00",
+        "version": 1,
+        "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+       },
+       "guid": "241ea29b-4a95-42b6-b7ee-e84fa690e5fd",
+       "anchor": {
+        "class": "ElementClassification",
+        "headerVersion": 0,
+        "status": "ACTIVE",
+        "type": {
+         "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+         "typeName": "Anchors",
+         "typeVersion": 1,
+         "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+         "typeCategory": "CLASSIFICATION_DEF"
+        },
+        "origin": {
+         "sourceServer": "qs-metadata-store",
+         "originCategory": "LOCAL_COHORT",
+         "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+         "homeMetadataCollectionName": "qs-metadata-store"
+        },
+        "versions": {
+         "createdBy": "jacquardnpa",
+         "updatedBy": "jacquardnpa",
+         "maintainedBy": [
+          "jacquardnpa"
+         ],
+         "createTime": "2026-11-23T23:07:56.784+00:00",
+         "updateTime": "2026-11-23T23:07:56.784+00:00",
+         "version": 1,
+         "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+        },
+        "classificationOrigin": "ASSIGNED",
+        "classificationName": "Anchors",
+        "classificationProperties": {
+         "class": "AnchorsProperties",
+         "typeName": "Anchors",
+         "anchorTypeName": "SolutionComponent",
+         "anchorDomainName": "AuthoredReferenceable"
+        }
+       }
+      },
+      "properties": {
+       "class": "SolutionComponentProperties",
+       "typeName": "SolutionComponent",
+       "qualifiedName": "SolutionComponent::Jacquard::Digital Product Community::6.4-SNAPSHOT",
+       "displayName": "Digital Product Community",
+       "description": "The community of interest for those people who are using the open metadata digital products.",
+       "versionIdentifier": "6.4-SNAPSHOT",
+       "solutionComponentType": "Manual Process"
+      }
+     },
+     "relatedElementAtEnd1": false
+    }
+   ],
+   "properties": {
+    "class": "SolutionActorRoleProperties",
+    "typeName": "SolutionActorRole",
+    "qualifiedName": "SolutionActorRole::Jacquard::OpenMetadataProductMember",
+    "identifier": "OpenMetadataProductMember",
+    "displayName": "Open Metadata Digital Product Community Member",
+    "description": "Community to exchange information and collect feedback about the open metadata digital products.",
+    "actorRoleGroups": [
+     "community-member"
+    ]
+   },
+   "mermaidGraph": "---\ntitle: SolutionActorRole - Open Metadata Digital Product Community Member [5c7a8b4b-eff3-4c9c-b818-081e78f3f55d]\n---\nflowchart TD\n%%{init: {\"flowchart\": {\"htmlLabels\": false}} }%%\n\n1@{ shape: rounded, label: \"*Solution Actor Role*\n**Open Metadata Digital Product Community Member**\"}\n2@{ shape: rect, label: \"*Solution Blueprint*\n**Open Metadata Digital Product Community Solution Blueprint**\"}\n2==>|\"Collection Membership\"|1\n3@{ shape: rect, label: \"*Solution Component*\n**Digital Product Community**\"}\n1==>|\"Member of [Solution Component Actor]\"|3\nstyle 1 color:#000000, fill:#e0ab18, stroke:#004563\nstyle 2 color:#000000, fill:#f5fffa, stroke:#000000\nstyle 3 color:#000000, fill:#DDA0DD, stroke:#000000\n"
+  },
+  {
+   "class": "OpenMetadataRootElement",
+   "elementHeader": {
+    "class": "ElementHeader",
+    "headerVersion": 0,
+    "status": "ACTIVE",
+    "type": {
+     "typeId": "cb3e6866-9ab5-4d95-9921-ff1b9fbe4d29",
+     "typeName": "SolutionActorRole",
+     "superTypeNames": [
+      "ActorRole",
+      "Actor",
+      "Referenceable",
+      "OpenMetadataRoot"
+     ],
+     "typeVersion": 1,
+     "typeDescription": "An actor role that is designed for interacting with a solution.",
+     "typeCategory": "ENTITY_DEF"
+    },
+    "origin": {
+     "sourceServer": "qs-metadata-store",
+     "originCategory": "LOCAL_COHORT",
+     "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+     "homeMetadataCollectionName": "qs-metadata-store"
+    },
+    "versions": {
+     "createdBy": "jacquardnpa",
+     "updatedBy": "jacquardnpa",
+     "maintainedBy": [
+      "jacquardnpa"
+     ],
+     "createTime": "2026-11-23T23:07:56.323+00:00",
+     "updateTime": "2026-11-23T23:07:56.323+00:00",
+     "version": 1,
+     "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+    },
+    "guid": "9f7c39ca-024d-4779-b3b6-ebbef401e923",
+    "anchor": {
+     "class": "ElementClassification",
+     "headerVersion": 0,
+     "status": "ACTIVE",
+     "type": {
+      "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+      "typeName": "Anchors",
+      "typeVersion": 1,
+      "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+      "typeCategory": "CLASSIFICATION_DEF"
+     },
+     "origin": {
+      "sourceServer": "qs-metadata-store",
+      "originCategory": "LOCAL_COHORT",
+      "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+      "homeMetadataCollectionName": "qs-metadata-store"
+     },
+     "versions": {
+      "createdBy": "jacquardnpa",
+      "updatedBy": "jacquardnpa",
+      "maintainedBy": [
+       "jacquardnpa"
+      ],
+      "createTime": "2026-11-23T23:07:56.322+00:00",
+      "updateTime": "2026-11-23T23:07:56.322+00:00",
+      "version": 1,
+      "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+     },
+     "classificationOrigin": "ASSIGNED",
+     "classificationName": "Anchors",
+     "classificationProperties": {
+      "class": "AnchorsProperties",
+      "typeName": "Anchors",
+      "anchorTypeName": "SolutionActorRole",
+      "anchorDomainName": "Actor",
+      "zoneMembership": [
+       "digital-products"
+      ]
+     }
+    },
+    "zoneMembership": {
+     "class": "ElementClassification",
+     "headerVersion": 0,
+     "status": "ACTIVE",
+     "type": {
+      "typeId": "52993f4b-d853-47ae-a2e6-f22b96863533",
+      "typeName": "ZoneMembership",
+      "typeVersion": 1,
+      "typeDescription": "Defines the element's membership of the governance zones.",
+      "typeCategory": "CLASSIFICATION_DEF"
+     },
+     "origin": {
+      "sourceServer": "qs-metadata-store",
+      "originCategory": "LOCAL_COHORT",
+      "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+      "homeMetadataCollectionName": "qs-metadata-store"
+     },
+     "versions": {
+      "createdBy": "jacquardnpa",
+      "updatedBy": "jacquardnpa",
+      "maintainedBy": [
+       "jacquardnpa"
+      ],
+      "createTime": "2026-11-23T23:07:56.322+00:00",
+      "updateTime": "2026-11-23T23:07:56.322+00:00",
+      "version": 1,
+      "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+     },
+     "classificationOrigin": "ASSIGNED",
+     "classificationName": "ZoneMembership",
+     "classificationProperties": {
+      "class": "ZoneMembershipProperties",
+      "typeName": "ZoneMembership",
+      "zoneMembership": [
+       "digital-products"
+      ]
+     }
+    }
+   },
+   "memberOfCollections": [
+    {
+     "class": "RelatedMetadataElementSummary",
+     "relationshipHeader": {
+      "class": "ElementHeader",
+      "headerVersion": 0,
+      "status": "ACTIVE",
+      "type": {
+       "typeId": "5cabb76a-e25b-4bb5-8b93-768bbac005af",
+       "typeName": "CollectionMembership",
+       "typeVersion": 1,
+       "typeDescription": "Identifies a member of a collection.",
+       "typeCategory": "RELATIONSHIP_DEF"
+      },
+      "origin": {
+       "sourceServer": "qs-metadata-store",
+       "originCategory": "LOCAL_COHORT",
+       "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+       "homeMetadataCollectionName": "qs-metadata-store"
+      },
+      "versions": {
+       "createdBy": "jacquardnpa",
+       "updatedBy": "jacquardnpa",
+       "maintainedBy": [
+        "jacquardnpa"
+       ],
+       "createTime": "2026-11-23T23:08:00.283+00:00",
+       "updateTime": "2026-11-23T23:08:00.283+00:00",
+       "version": 1,
+       "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+      },
+      "guid": "13f83a55-e8cf-499b-8ed7-ad222b3f567c"
+     },
+     "relatedElement": {
+      "elementHeader": {
+       "class": "ElementHeader",
+       "headerVersion": 0,
+       "status": "ACTIVE",
+       "type": {
+        "typeId": "4aa47799-5128-4eeb-bd72-e357b49f8bfe",
+        "typeName": "SolutionBlueprint",
+        "superTypeNames": [
+         "DesignModel",
+         "Collection",
+         "AuthoredReferenceable",
+         "Referenceable",
+         "OpenMetadataRoot"
+        ],
+        "typeVersion": 1,
+        "typeDescription": "Collection of solution components that make up a solution for digital services such as digital products.",
+        "typeCategory": "ENTITY_DEF"
+       },
+       "origin": {
+        "sourceServer": "qs-metadata-store",
+        "originCategory": "LOCAL_COHORT",
+        "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+        "homeMetadataCollectionName": "qs-metadata-store"
+       },
+       "versions": {
+        "createdBy": "jacquardnpa",
+        "updatedBy": "jacquardnpa",
+        "maintainedBy": [
+         "jacquardnpa"
+        ],
+        "createTime": "2026-11-23T23:08:00.024+00:00",
+        "updateTime": "2026-11-23T23:08:00.024+00:00",
+        "version": 1,
+        "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+       },
+       "guid": "c9bef397-e81e-4663-b002-57f6e5e76565",
+       "anchor": {
+        "class": "ElementClassification",
+        "headerVersion": 0,
+        "status": "ACTIVE",
+        "type": {
+         "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+         "typeName": "Anchors",
+         "typeVersion": 1,
+         "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+         "typeCategory": "CLASSIFICATION_DEF"
+        },
+        "origin": {
+         "sourceServer": "qs-metadata-store",
+         "originCategory": "LOCAL_COHORT",
+         "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+         "homeMetadataCollectionName": "qs-metadata-store"
+        },
+        "versions": {
+         "createdBy": "jacquardnpa",
+         "updatedBy": "jacquardnpa",
+         "maintainedBy": [
+          "jacquardnpa"
+         ],
+         "createTime": "2026-11-23T23:08:00.023+00:00",
+         "updateTime": "2026-11-23T23:08:00.023+00:00",
+         "version": 1,
+         "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+        },
+        "classificationOrigin": "ASSIGNED",
+        "classificationName": "Anchors",
+        "classificationProperties": {
+         "class": "AnchorsProperties",
+         "typeName": "Anchors",
+         "anchorTypeName": "SolutionBlueprint",
+         "anchorDomainName": "AuthoredReferenceable",
+         "zoneMembership": [
+          "digital-products"
+         ]
+        }
+       },
+       "zoneMembership": {
+        "class": "ElementClassification",
+        "headerVersion": 0,
+        "status": "ACTIVE",
+        "type": {
+         "typeId": "52993f4b-d853-47ae-a2e6-f22b96863533",
+         "typeName": "ZoneMembership",
+         "typeVersion": 1,
+         "typeDescription": "Defines the element's membership of the governance zones.",
+         "typeCategory": "CLASSIFICATION_DEF"
+        },
+        "origin": {
+         "sourceServer": "qs-metadata-store",
+         "originCategory": "LOCAL_COHORT",
+         "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+         "homeMetadataCollectionName": "qs-metadata-store"
+        },
+        "versions": {
+         "createdBy": "jacquardnpa",
+         "updatedBy": "jacquardnpa",
+         "maintainedBy": [
+          "jacquardnpa"
+         ],
+         "createTime": "2026-11-23T23:08:00.023+00:00",
+         "updateTime": "2026-11-23T23:08:00.023+00:00",
+         "version": 1,
+         "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+        },
+        "classificationOrigin": "ASSIGNED",
+        "classificationName": "ZoneMembership",
+        "classificationProperties": {
+         "class": "ZoneMembershipProperties",
+         "typeName": "ZoneMembership",
+         "zoneMembership": [
+          "digital-products"
+         ]
+        }
+       }
+      },
+      "properties": {
+       "class": "SolutionBlueprintProperties",
+       "typeName": "SolutionBlueprint",
+       "qualifiedName": "SolutionBlueprint::Jacquard::Cancelling a Subscription to a Digital Product::6.4-SNAPSHOT",
+       "displayName": "Cancelling a Subscription to a Digital Product",
+       "description": "Description of the processing used to cancel a subscription to an Open Metadata Digital Product.",
+       "versionIdentifier": "6.4-SNAPSHOT"
+      }
+     },
+     "relatedElementAtEnd1": true
+    },
+    {
+     "class": "RelatedMetadataElementSummary",
+     "relationshipHeader": {
+      "class": "ElementHeader",
+      "headerVersion": 0,
+      "status": "ACTIVE",
+      "type": {
+       "typeId": "5cabb76a-e25b-4bb5-8b93-768bbac005af",
+       "typeName": "CollectionMembership",
+       "typeVersion": 1,
+       "typeDescription": "Identifies a member of a collection.",
+       "typeCategory": "RELATIONSHIP_DEF"
+      },
+      "origin": {
+       "sourceServer": "qs-metadata-store",
+       "originCategory": "LOCAL_COHORT",
+       "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+       "homeMetadataCollectionName": "qs-metadata-store"
+      },
+      "versions": {
+       "createdBy": "jacquardnpa",
+       "updatedBy": "jacquardnpa",
+       "maintainedBy": [
+        "jacquardnpa"
+       ],
+       "createTime": "2026-11-23T23:07:59.928+00:00",
+       "updateTime": "2026-11-23T23:07:59.928+00:00",
+       "version": 1,
+       "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+      },
+      "guid": "0570f92e-d98e-4871-ab41-500f99bba20e"
+     },
+     "relatedElement": {
+      "elementHeader": {
+       "class": "ElementHeader",
+       "headerVersion": 0,
+       "status": "ACTIVE",
+       "type": {
+        "typeId": "4aa47799-5128-4eeb-bd72-e357b49f8bfe",
+        "typeName": "SolutionBlueprint",
+        "superTypeNames": [
+         "DesignModel",
+         "Collection",
+         "AuthoredReferenceable",
+         "Referenceable",
+         "OpenMetadataRoot"
+        ],
+        "typeVersion": 1,
+        "typeDescription": "Collection of solution components that make up a solution for digital services such as digital products.",
+        "typeCategory": "ENTITY_DEF"
+       },
+       "origin": {
+        "sourceServer": "qs-metadata-store",
+        "originCategory": "LOCAL_COHORT",
+        "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+        "homeMetadataCollectionName": "qs-metadata-store"
+       },
+       "versions": {
+        "createdBy": "jacquardnpa",
+        "updatedBy": "jacquardnpa",
+        "maintainedBy": [
+         "jacquardnpa"
+        ],
+        "createTime": "2026-11-23T23:07:59.577+00:00",
+        "updateTime": "2026-11-23T23:07:59.577+00:00",
+        "version": 1,
+        "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+       },
+       "guid": "ce9b1efc-77d5-4ba1-bbb5-08137fc87636",
+       "anchor": {
+        "class": "ElementClassification",
+        "headerVersion": 0,
+        "status": "ACTIVE",
+        "type": {
+         "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+         "typeName": "Anchors",
+         "typeVersion": 1,
+         "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+         "typeCategory": "CLASSIFICATION_DEF"
+        },
+        "origin": {
+         "sourceServer": "qs-metadata-store",
+         "originCategory": "LOCAL_COHORT",
+         "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+         "homeMetadataCollectionName": "qs-metadata-store"
+        },
+        "versions": {
+         "createdBy": "jacquardnpa",
+         "updatedBy": "jacquardnpa",
+         "maintainedBy": [
+          "jacquardnpa"
+         ],
+         "createTime": "2026-11-23T23:07:59.576+00:00",
+         "updateTime": "2026-11-23T23:07:59.576+00:00",
+         "version": 1,
+         "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+        },
+        "classificationOrigin": "ASSIGNED",
+        "classificationName": "Anchors",
+        "classificationProperties": {
+         "class": "AnchorsProperties",
+         "typeName": "Anchors",
+         "anchorTypeName": "SolutionBlueprint",
+         "anchorDomainName": "AuthoredReferenceable",
+         "zoneMembership": [
+          "digital-products"
+         ]
+        }
+       },
+       "zoneMembership": {
+        "class": "ElementClassification",
+        "headerVersion": 0,
+        "status": "ACTIVE",
+        "type": {
+         "typeId": "52993f4b-d853-47ae-a2e6-f22b96863533",
+         "typeName": "ZoneMembership",
+         "typeVersion": 1,
+         "typeDescription": "Defines the element's membership of the governance zones.",
+         "typeCategory": "CLASSIFICATION_DEF"
+        },
+        "origin": {
+         "sourceServer": "qs-metadata-store",
+         "originCategory": "LOCAL_COHORT",
+         "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+         "homeMetadataCollectionName": "qs-metadata-store"
+        },
+        "versions": {
+         "createdBy": "jacquardnpa",
+         "updatedBy": "jacquardnpa",
+         "maintainedBy": [
+          "jacquardnpa"
+         ],
+         "createTime": "2026-11-23T23:07:59.576+00:00",
+         "updateTime": "2026-11-23T23:07:59.576+00:00",
+         "version": 1,
+         "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+        },
+        "classificationOrigin": "ASSIGNED",
+        "classificationName": "ZoneMembership",
+        "classificationProperties": {
+         "class": "ZoneMembershipProperties",
+         "typeName": "ZoneMembership",
+         "zoneMembership": [
+          "digital-products"
+         ]
+        }
+       }
+      },
+      "properties": {
+       "class": "SolutionBlueprintProperties",
+       "typeName": "SolutionBlueprint",
+       "qualifiedName": "SolutionBlueprint::Jacquard::Creating a new Subscription to a Digital Product::6.4-SNAPSHOT",
+       "displayName": "Creating a new Subscription to a Digital Product",
+       "description": "Description of the processing when a consumer creates a new subscription to an Open Metadata Digital Product.",
+       "versionIdentifier": "6.4-SNAPSHOT"
+      }
+     },
+     "relatedElementAtEnd1": true
+    },
+    {
+     "class": "RelatedMetadataElementSummary",
+     "relationshipHeader": {
+      "class": "ElementHeader",
+      "headerVersion": 0,
+      "status": "ACTIVE",
+      "type": {
+       "typeId": "5cabb76a-e25b-4bb5-8b93-768bbac005af",
+       "typeName": "CollectionMembership",
+       "typeVersion": 1,
+       "typeDescription": "Identifies a member of a collection.",
+       "typeCategory": "RELATIONSHIP_DEF"
+      },
+      "origin": {
+       "sourceServer": "qs-metadata-store",
+       "originCategory": "LOCAL_COHORT",
+       "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+       "homeMetadataCollectionName": "qs-metadata-store"
+      },
+      "versions": {
+       "createdBy": "jacquardnpa",
+       "updatedBy": "jacquardnpa",
+       "maintainedBy": [
+        "jacquardnpa"
+       ],
+       "createTime": "2026-11-23T23:07:59.555+00:00",
+       "updateTime": "2026-11-23T23:07:59.555+00:00",
+       "version": 1,
+       "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+      },
+      "guid": "c646b311-b794-4197-8b31-542d4c15bdec"
+     },
+     "relatedElement": {
+      "elementHeader": {
+       "class": "ElementHeader",
+       "headerVersion": 0,
+       "status": "ACTIVE",
+       "type": {
+        "typeId": "4aa47799-5128-4eeb-bd72-e357b49f8bfe",
+        "typeName": "SolutionBlueprint",
+        "superTypeNames": [
+         "DesignModel",
+         "Collection",
+         "AuthoredReferenceable",
+         "Referenceable",
+         "OpenMetadataRoot"
+        ],
+        "typeVersion": 1,
+        "typeDescription": "Collection of solution components that make up a solution for digital services such as digital products.",
+        "typeCategory": "ENTITY_DEF"
+       },
+       "origin": {
+        "sourceServer": "qs-metadata-store",
+        "originCategory": "LOCAL_COHORT",
+        "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+        "homeMetadataCollectionName": "qs-metadata-store"
+       },
+       "versions": {
+        "createdBy": "jacquardnpa",
+        "updatedBy": "jacquardnpa",
+        "maintainedBy": [
+         "jacquardnpa"
+        ],
+        "createTime": "2026-11-23T23:07:59.345+00:00",
+        "updateTime": "2026-11-23T23:07:59.345+00:00",
+        "version": 1,
+        "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+       },
+       "guid": "f80b6a21-9c42-4eb5-8f63-59ef64118fd4",
+       "anchor": {
+        "class": "ElementClassification",
+        "headerVersion": 0,
+        "status": "ACTIVE",
+        "type": {
+         "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+         "typeName": "Anchors",
+         "typeVersion": 1,
+         "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+         "typeCategory": "CLASSIFICATION_DEF"
+        },
+        "origin": {
+         "sourceServer": "qs-metadata-store",
+         "originCategory": "LOCAL_COHORT",
+         "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+         "homeMetadataCollectionName": "qs-metadata-store"
+        },
+        "versions": {
+         "createdBy": "jacquardnpa",
+         "updatedBy": "jacquardnpa",
+         "maintainedBy": [
+          "jacquardnpa"
+         ],
+         "createTime": "2026-11-23T23:07:59.342+00:00",
+         "updateTime": "2026-11-23T23:07:59.342+00:00",
+         "version": 1,
+         "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+        },
+        "classificationOrigin": "ASSIGNED",
+        "classificationName": "Anchors",
+        "classificationProperties": {
+         "class": "AnchorsProperties",
+         "typeName": "Anchors",
+         "anchorTypeName": "SolutionBlueprint",
+         "anchorDomainName": "AuthoredReferenceable",
+         "zoneMembership": [
+          "digital-products"
+         ]
+        }
+       },
+       "zoneMembership": {
+        "class": "ElementClassification",
+        "headerVersion": 0,
+        "status": "ACTIVE",
+        "type": {
+         "typeId": "52993f4b-d853-47ae-a2e6-f22b96863533",
+         "typeName": "ZoneMembership",
+         "typeVersion": 1,
+         "typeDescription": "Defines the element's membership of the governance zones.",
+         "typeCategory": "CLASSIFICATION_DEF"
+        },
+        "origin": {
+         "sourceServer": "qs-metadata-store",
+         "originCategory": "LOCAL_COHORT",
+         "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+         "homeMetadataCollectionName": "qs-metadata-store"
+        },
+        "versions": {
+         "createdBy": "jacquardnpa",
+         "updatedBy": "jacquardnpa",
+         "maintainedBy": [
+          "jacquardnpa"
+         ],
+         "createTime": "2026-11-23T23:07:59.342+00:00",
+         "updateTime": "2026-11-23T23:07:59.342+00:00",
+         "version": 1,
+         "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+        },
+        "classificationOrigin": "ASSIGNED",
+        "classificationName": "ZoneMembership",
+        "classificationProperties": {
+         "class": "ZoneMembershipProperties",
+         "typeName": "ZoneMembership",
+         "zoneMembership": [
+          "digital-products"
+         ]
+        }
+       }
+      },
+      "properties": {
+       "class": "SolutionBlueprintProperties",
+       "typeName": "SolutionBlueprint",
+       "qualifiedName": "SolutionBlueprint::Jacquard::Searching for Digital Products::6.4-SNAPSHOT",
+       "displayName": "Searching for Digital Products",
+       "description": "Description of the processing when a potential consumer is searching the Open Metadata Digital Product Catalog for the right data for their project.",
+       "versionIdentifier": "6.4-SNAPSHOT"
+      }
+     },
+     "relatedElementAtEnd1": true
+    },
+    {
+     "class": "RelatedMetadataElementSummary",
+     "relationshipHeader": {
+      "class": "ElementHeader",
+      "headerVersion": 0,
+      "status": "ACTIVE",
+      "type": {
+       "typeId": "5cabb76a-e25b-4bb5-8b93-768bbac005af",
+       "typeName": "CollectionMembership",
+       "typeVersion": 1,
+       "typeDescription": "Identifies a member of a collection.",
+       "typeCategory": "RELATIONSHIP_DEF"
+      },
+      "origin": {
+       "sourceServer": "qs-metadata-store",
+       "originCategory": "LOCAL_COHORT",
+       "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+       "homeMetadataCollectionName": "qs-metadata-store"
+      },
+      "versions": {
+       "createdBy": "jacquardnpa",
+       "updatedBy": "jacquardnpa",
+       "maintainedBy": [
+        "jacquardnpa"
+       ],
+       "createTime": "2026-11-23T23:07:59.323+00:00",
+       "updateTime": "2026-11-23T23:07:59.323+00:00",
+       "version": 1,
+       "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+      },
+      "guid": "ec2742a6-5b51-4e95-bf83-c2e070211a89"
+     },
+     "relatedElement": {
+      "elementHeader": {
+       "class": "ElementHeader",
+       "headerVersion": 0,
+       "status": "ACTIVE",
+       "type": {
+        "typeId": "4aa47799-5128-4eeb-bd72-e357b49f8bfe",
+        "typeName": "SolutionBlueprint",
+        "superTypeNames": [
+         "DesignModel",
+         "Collection",
+         "AuthoredReferenceable",
+         "Referenceable",
+         "OpenMetadataRoot"
+        ],
+        "typeVersion": 1,
+        "typeDescription": "Collection of solution components that make up a solution for digital services such as digital products.",
+        "typeCategory": "ENTITY_DEF"
+       },
+       "origin": {
+        "sourceServer": "qs-metadata-store",
+        "originCategory": "LOCAL_COHORT",
+        "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+        "homeMetadataCollectionName": "qs-metadata-store"
+       },
+       "versions": {
+        "createdBy": "jacquardnpa",
+        "updatedBy": "jacquardnpa",
+        "maintainedBy": [
+         "jacquardnpa"
+        ],
+        "createTime": "2026-11-23T23:07:58.946+00:00",
+        "updateTime": "2026-11-23T23:07:58.946+00:00",
+        "version": 1,
+        "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+       },
+       "guid": "477ab54f-2d8e-42e7-8cd1-62a826479b30",
+       "anchor": {
+        "class": "ElementClassification",
+        "headerVersion": 0,
+        "status": "ACTIVE",
+        "type": {
+         "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+         "typeName": "Anchors",
+         "typeVersion": 1,
+         "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+         "typeCategory": "CLASSIFICATION_DEF"
+        },
+        "origin": {
+         "sourceServer": "qs-metadata-store",
+         "originCategory": "LOCAL_COHORT",
+         "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+         "homeMetadataCollectionName": "qs-metadata-store"
+        },
+        "versions": {
+         "createdBy": "jacquardnpa",
+         "updatedBy": "jacquardnpa",
+         "maintainedBy": [
+          "jacquardnpa"
+         ],
+         "createTime": "2026-11-23T23:07:58.945+00:00",
+         "updateTime": "2026-11-23T23:07:58.945+00:00",
+         "version": 1,
+         "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+        },
+        "classificationOrigin": "ASSIGNED",
+        "classificationName": "Anchors",
+        "classificationProperties": {
+         "class": "AnchorsProperties",
+         "typeName": "Anchors",
+         "anchorTypeName": "SolutionBlueprint",
+         "anchorDomainName": "AuthoredReferenceable",
+         "zoneMembership": [
+          "digital-products"
+         ]
+        }
+       },
+       "zoneMembership": {
+        "class": "ElementClassification",
+        "headerVersion": 0,
+        "status": "ACTIVE",
+        "type": {
+         "typeId": "52993f4b-d853-47ae-a2e6-f22b96863533",
+         "typeName": "ZoneMembership",
+         "typeVersion": 1,
+         "typeDescription": "Defines the element's membership of the governance zones.",
+         "typeCategory": "CLASSIFICATION_DEF"
+        },
+        "origin": {
+         "sourceServer": "qs-metadata-store",
+         "originCategory": "LOCAL_COHORT",
+         "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+         "homeMetadataCollectionName": "qs-metadata-store"
+        },
+        "versions": {
+         "createdBy": "jacquardnpa",
+         "updatedBy": "jacquardnpa",
+         "maintainedBy": [
+          "jacquardnpa"
+         ],
+         "createTime": "2026-11-23T23:07:58.945+00:00",
+         "updateTime": "2026-11-23T23:07:58.945+00:00",
+         "version": 1,
+         "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+        },
+        "classificationOrigin": "ASSIGNED",
+        "classificationName": "ZoneMembership",
+        "classificationProperties": {
+         "class": "ZoneMembershipProperties",
+         "typeName": "ZoneMembership",
+         "zoneMembership": [
+          "digital-products"
+         ]
+        }
+       }
+      },
+      "properties": {
+       "class": "SolutionBlueprintProperties",
+       "typeName": "SolutionBlueprint",
+       "qualifiedName": "SolutionBlueprint::Jacquard::Jacquard Digital Product Loom::6.4-SNAPSHOT",
+       "displayName": "Jacquard Digital Product Loom",
+       "description": "Description of the processing used to create and manage the digital products derived from open metadata in the Open Metadata Digital Product Catalog.",
+       "versionIdentifier": "6.4-SNAPSHOT"
+      }
+     },
+     "relatedElementAtEnd1": true
+    },
+    {
+     "class": "RelatedMetadataElementSummary",
+     "relationshipHeader": {
+      "class": "ElementHeader",
+      "headerVersion": 0,
+      "status": "ACTIVE",
+      "type": {
+       "typeId": "5cabb76a-e25b-4bb5-8b93-768bbac005af",
+       "typeName": "CollectionMembership",
+       "typeVersion": 1,
+       "typeDescription": "Identifies a member of a collection.",
+       "typeCategory": "RELATIONSHIP_DEF"
+      },
+      "origin": {
+       "sourceServer": "qs-metadata-store",
+       "originCategory": "LOCAL_COHORT",
+       "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+       "homeMetadataCollectionName": "qs-metadata-store"
+      },
+      "versions": {
+       "createdBy": "jacquardnpa",
+       "updatedBy": "jacquardnpa",
+       "maintainedBy": [
+        "jacquardnpa"
+       ],
+       "createTime": "2026-11-23T23:07:58.861+00:00",
+       "updateTime": "2026-11-23T23:07:58.861+00:00",
+       "version": 1,
+       "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+      },
+      "guid": "9be15efe-0028-4240-8c5d-7ee2b9e834dc"
+     },
+     "relatedElement": {
+      "elementHeader": {
+       "class": "ElementHeader",
+       "headerVersion": 0,
+       "status": "ACTIVE",
+       "type": {
+        "typeId": "4aa47799-5128-4eeb-bd72-e357b49f8bfe",
+        "typeName": "SolutionBlueprint",
+        "superTypeNames": [
+         "DesignModel",
+         "Collection",
+         "AuthoredReferenceable",
+         "Referenceable",
+         "OpenMetadataRoot"
+        ],
+        "typeVersion": 1,
+        "typeDescription": "Collection of solution components that make up a solution for digital services such as digital products.",
+        "typeCategory": "ENTITY_DEF"
+       },
+       "origin": {
+        "sourceServer": "qs-metadata-store",
+        "originCategory": "LOCAL_COHORT",
+        "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+        "homeMetadataCollectionName": "qs-metadata-store"
+       },
+       "versions": {
+        "createdBy": "jacquardnpa",
+        "updatedBy": "jacquardnpa",
+        "maintainedBy": [
+         "jacquardnpa"
+        ],
+        "createTime": "2026-11-23T23:07:58.243+00:00",
+        "updateTime": "2026-11-23T23:07:58.243+00:00",
+        "version": 1,
+        "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+       },
+       "guid": "c1bd75f9-3ab9-4367-85c3-5abb4f12acf7",
+       "anchor": {
+        "class": "ElementClassification",
+        "headerVersion": 0,
+        "status": "ACTIVE",
+        "type": {
+         "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+         "typeName": "Anchors",
+         "typeVersion": 1,
+         "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+         "typeCategory": "CLASSIFICATION_DEF"
+        },
+        "origin": {
+         "sourceServer": "qs-metadata-store",
+         "originCategory": "LOCAL_COHORT",
+         "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+         "homeMetadataCollectionName": "qs-metadata-store"
+        },
+        "versions": {
+         "createdBy": "jacquardnpa",
+         "updatedBy": "jacquardnpa",
+         "maintainedBy": [
+          "jacquardnpa"
+         ],
+         "createTime": "2026-11-23T23:07:58.242+00:00",
+         "updateTime": "2026-11-23T23:07:58.242+00:00",
+         "version": 1,
+         "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+        },
+        "classificationOrigin": "ASSIGNED",
+        "classificationName": "Anchors",
+        "classificationProperties": {
+         "class": "AnchorsProperties",
+         "typeName": "Anchors",
+         "anchorTypeName": "SolutionBlueprint",
+         "anchorDomainName": "AuthoredReferenceable",
+         "zoneMembership": [
+          "digital-products"
+         ]
+        }
+       },
+       "zoneMembership": {
+        "class": "ElementClassification",
+        "headerVersion": 0,
+        "status": "ACTIVE",
+        "type": {
+         "typeId": "52993f4b-d853-47ae-a2e6-f22b96863533",
+         "typeName": "ZoneMembership",
+         "typeVersion": 1,
+         "typeDescription": "Defines the element's membership of the governance zones.",
+         "typeCategory": "CLASSIFICATION_DEF"
+        },
+        "origin": {
+         "sourceServer": "qs-metadata-store",
+         "originCategory": "LOCAL_COHORT",
+         "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+         "homeMetadataCollectionName": "qs-metadata-store"
+        },
+        "versions": {
+         "createdBy": "jacquardnpa",
+         "updatedBy": "jacquardnpa",
+         "maintainedBy": [
+          "jacquardnpa"
+         ],
+         "createTime": "2026-11-23T23:07:58.242+00:00",
+         "updateTime": "2026-11-23T23:07:58.242+00:00",
+         "version": 1,
+         "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+        },
+        "classificationOrigin": "ASSIGNED",
+        "classificationName": "ZoneMembership",
+        "classificationProperties": {
+         "class": "ZoneMembershipProperties",
+         "typeName": "ZoneMembership",
+         "zoneMembership": [
+          "digital-products"
+         ]
+        }
+       }
+      },
+      "properties": {
+       "class": "SolutionBlueprintProperties",
+       "typeName": "SolutionBlueprint",
+       "qualifiedName": "SolutionBlueprint::Jacquard::Open Metadata Digital Product Catalog Components::6.4-SNAPSHOT",
+       "displayName": "Open Metadata Digital Product Catalog Components",
+       "description": "Description of the processing used to create and manage the digital products derived from open metadata.",
+       "versionIdentifier": "6.4-SNAPSHOT"
+      }
+     },
+     "relatedElementAtEnd1": true
+    }
+   ],
+   "interactingWithSolutionComponents": [
+    {
+     "class": "RelatedMetadataElementSummary",
+     "relationshipHeader": {
+      "class": "ElementHeader",
+      "headerVersion": 0,
+      "status": "ACTIVE",
+      "type": {
+       "typeId": "b6722d63-9924-4877-82b0-f9207cd78174",
+       "typeName": "SolutionComponentActor",
+       "typeVersion": 1,
+       "typeDescription": "An actor that is interacting with the solution component.",
+       "typeCategory": "RELATIONSHIP_DEF"
+      },
+      "origin": {
+       "sourceServer": "qs-metadata-store",
+       "originCategory": "LOCAL_COHORT",
+       "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+       "homeMetadataCollectionName": "qs-metadata-store"
+      },
+      "versions": {
+       "createdBy": "jacquardnpa",
+       "updatedBy": "jacquardnpa",
+       "maintainedBy": [
+        "jacquardnpa"
+       ],
+       "createTime": "2026-11-23T23:07:58.176+00:00",
+       "updateTime": "2026-11-23T23:07:58.176+00:00",
+       "version": 1,
+       "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+      },
+      "guid": "f58781fc-14ce-4133-92bb-303837dc4ac7"
+     },
+     "relationshipProperties": {
+      "class": "SolutionComponentActorProperties",
+      "typeName": "SolutionComponentActor",
+      "role": "Cancel product subscription",
+      "description": "Request that an existing subscription pipeline is shutdown.  The subscription type determines whether the data at the destination is removed or not."
+     },
+     "relatedElement": {
+      "elementHeader": {
+       "class": "ElementHeader",
+       "headerVersion": 0,
+       "status": "ACTIVE",
+       "type": {
+        "typeId": "b83f3d42-f3f7-4155-ae65-58fb44ea7644",
+        "typeName": "SolutionComponent",
+        "superTypeNames": [
+         "DesignModelElement",
+         "AuthoredReferenceable",
+         "Referenceable",
+         "OpenMetadataRoot"
+        ],
+        "typeVersion": 2,
+        "typeDescription": "Description of a well-defined capability within a solution.",
+        "typeCategory": "ENTITY_DEF"
+       },
+       "origin": {
+        "sourceServer": "qs-metadata-store",
+        "originCategory": "LOCAL_COHORT",
+        "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+        "homeMetadataCollectionName": "qs-metadata-store"
+       },
+       "versions": {
+        "createdBy": "jacquardnpa",
+        "updatedBy": "jacquardnpa",
+        "maintainedBy": [
+         "jacquardnpa"
+        ],
+        "createTime": "2026-11-23T23:07:56.947+00:00",
+        "updateTime": "2026-11-23T23:07:56.947+00:00",
+        "version": 1,
+        "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+       },
+       "guid": "b28dc0fa-9023-413e-8121-8a9d179686fd",
+       "anchor": {
+        "class": "ElementClassification",
+        "headerVersion": 0,
+        "status": "ACTIVE",
+        "type": {
+         "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+         "typeName": "Anchors",
+         "typeVersion": 1,
+         "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+         "typeCategory": "CLASSIFICATION_DEF"
+        },
+        "origin": {
+         "sourceServer": "qs-metadata-store",
+         "originCategory": "LOCAL_COHORT",
+         "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+         "homeMetadataCollectionName": "qs-metadata-store"
+        },
+        "versions": {
+         "createdBy": "jacquardnpa",
+         "updatedBy": "jacquardnpa",
+         "maintainedBy": [
+          "jacquardnpa"
+         ],
+         "createTime": "2026-11-23T23:07:56.944+00:00",
+         "updateTime": "2026-11-23T23:07:56.944+00:00",
+         "version": 1,
+         "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+        },
+        "classificationOrigin": "ASSIGNED",
+        "classificationName": "Anchors",
+        "classificationProperties": {
+         "class": "AnchorsProperties",
+         "typeName": "Anchors",
+         "anchorTypeName": "SolutionComponent",
+         "anchorDomainName": "AuthoredReferenceable"
+        }
+       },
+       "duplicateClassifications": [
+        {
+         "class": "ElementClassification",
+         "headerVersion": 0,
+         "status": "ACTIVE",
+         "type": {
+          "typeId": "e55062b2-907f-44bd-9831-255642285731",
+          "typeName": "KnownDuplicate",
+          "typeVersion": 1,
+          "typeDescription": "Defines that duplicate resolution processing is required.",
+          "typeCategory": "CLASSIFICATION_DEF"
+         },
+         "origin": {
+          "sourceServer": "qs-metadata-store",
+          "originCategory": "LOCAL_COHORT",
+          "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+          "homeMetadataCollectionName": "qs-metadata-store"
+         },
+         "versions": {
+          "createdBy": "jacquardnpa",
+          "updatedBy": "jacquardnpa",
+          "maintainedBy": [
+           "jacquardnpa"
+          ],
+          "createTime": "2026-11-23T23:08:02.159+00:00",
+          "updateTime": "2026-11-23T23:08:02.159+00:00",
+          "version": 1,
+          "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+         },
+         "classificationOrigin": "ASSIGNED",
+         "classificationName": "KnownDuplicate",
+         "classificationProperties": {
+          "class": "KnownDuplicateProperties",
+          "typeName": "KnownDuplicate"
+         }
+        }
+       ]
+      },
+      "properties": {
+       "class": "SolutionComponentProperties",
+       "typeName": "SolutionComponent",
+       "qualifiedName": "SolutionComponent::Jacquard::Cancel Product Subscription::6.4-SNAPSHOT",
+       "displayName": "Cancel Product Subscription",
+       "description": "The process of cancelling an existing consumer's subscription to a digital product.",
+       "versionIdentifier": "6.4-SNAPSHOT",
+       "solutionComponentType": "Automated Action"
+      }
+     },
+     "relatedElementAtEnd1": false
+    },
+    {
+     "class": "RelatedMetadataElementSummary",
+     "relationshipHeader": {
+      "class": "ElementHeader",
+      "headerVersion": 0,
+      "status": "ACTIVE",
+      "type": {
+       "typeId": "b6722d63-9924-4877-82b0-f9207cd78174",
+       "typeName": "SolutionComponentActor",
+       "typeVersion": 1,
+       "typeDescription": "An actor that is interacting with the solution component.",
+       "typeCategory": "RELATIONSHIP_DEF"
+      },
+      "origin": {
+       "sourceServer": "qs-metadata-store",
+       "originCategory": "LOCAL_COHORT",
+       "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+       "homeMetadataCollectionName": "qs-metadata-store"
+      },
+      "versions": {
+       "createdBy": "jacquardnpa",
+       "updatedBy": "jacquardnpa",
+       "maintainedBy": [
+        "jacquardnpa"
+       ],
+       "createTime": "2026-11-23T23:07:58.136+00:00",
+       "updateTime": "2026-11-23T23:07:58.136+00:00",
+       "version": 1,
+       "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+      },
+      "guid": "25b30854-efc1-4f45-a08a-2e99f1472710"
+     },
+     "relationshipProperties": {
+      "class": "SolutionComponentActorProperties",
+      "typeName": "SolutionComponentActor",
+      "role": "Subscribe to product",
+      "description": "Request that a new subscription is activated.  The selected subscription type determines the level of service and the type of technology to use when provisioning the product data."
+     },
+     "relatedElement": {
+      "elementHeader": {
+       "class": "ElementHeader",
+       "headerVersion": 0,
+       "status": "ACTIVE",
+       "type": {
+        "typeId": "b83f3d42-f3f7-4155-ae65-58fb44ea7644",
+        "typeName": "SolutionComponent",
+        "superTypeNames": [
+         "DesignModelElement",
+         "AuthoredReferenceable",
+         "Referenceable",
+         "OpenMetadataRoot"
+        ],
+        "typeVersion": 2,
+        "typeDescription": "Description of a well-defined capability within a solution.",
+        "typeCategory": "ENTITY_DEF"
+       },
+       "origin": {
+        "sourceServer": "qs-metadata-store",
+        "originCategory": "LOCAL_COHORT",
+        "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+        "homeMetadataCollectionName": "qs-metadata-store"
+       },
+       "versions": {
+        "createdBy": "jacquardnpa",
+        "updatedBy": "jacquardnpa",
+        "maintainedBy": [
+         "jacquardnpa"
+        ],
+        "createTime": "2026-11-23T23:07:56.890+00:00",
+        "updateTime": "2026-11-23T23:07:56.890+00:00",
+        "version": 1,
+        "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+       },
+       "guid": "1199d3ff-56dc-4e04-8201-53a831789423",
+       "anchor": {
+        "class": "ElementClassification",
+        "headerVersion": 0,
+        "status": "ACTIVE",
+        "type": {
+         "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+         "typeName": "Anchors",
+         "typeVersion": 1,
+         "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+         "typeCategory": "CLASSIFICATION_DEF"
+        },
+        "origin": {
+         "sourceServer": "qs-metadata-store",
+         "originCategory": "LOCAL_COHORT",
+         "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+         "homeMetadataCollectionName": "qs-metadata-store"
+        },
+        "versions": {
+         "createdBy": "jacquardnpa",
+         "updatedBy": "jacquardnpa",
+         "maintainedBy": [
+          "jacquardnpa"
+         ],
+         "createTime": "2026-11-23T23:07:56.888+00:00",
+         "updateTime": "2026-11-23T23:07:56.888+00:00",
+         "version": 1,
+         "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+        },
+        "classificationOrigin": "ASSIGNED",
+        "classificationName": "Anchors",
+        "classificationProperties": {
+         "class": "AnchorsProperties",
+         "typeName": "Anchors",
+         "anchorTypeName": "SolutionComponent",
+         "anchorDomainName": "AuthoredReferenceable"
+        }
+       },
+       "duplicateClassifications": [
+        {
+         "class": "ElementClassification",
+         "headerVersion": 0,
+         "status": "ACTIVE",
+         "type": {
+          "typeId": "e55062b2-907f-44bd-9831-255642285731",
+          "typeName": "KnownDuplicate",
+          "typeVersion": 1,
+          "typeDescription": "Defines that duplicate resolution processing is required.",
+          "typeCategory": "CLASSIFICATION_DEF"
+         },
+         "origin": {
+          "sourceServer": "qs-metadata-store",
+          "originCategory": "LOCAL_COHORT",
+          "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+          "homeMetadataCollectionName": "qs-metadata-store"
+         },
+         "versions": {
+          "createdBy": "jacquardnpa",
+          "updatedBy": "jacquardnpa",
+          "maintainedBy": [
+           "jacquardnpa"
+          ],
+          "createTime": "2026-11-23T23:08:01.967+00:00",
+          "updateTime": "2026-11-23T23:08:01.967+00:00",
+          "version": 1,
+          "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+         },
+         "classificationOrigin": "ASSIGNED",
+         "classificationName": "KnownDuplicate",
+         "classificationProperties": {
+          "class": "KnownDuplicateProperties",
+          "typeName": "KnownDuplicate"
+         }
+        }
+       ]
+      },
+      "properties": {
+       "class": "SolutionComponentProperties",
+       "typeName": "SolutionComponent",
+       "qualifiedName": "SolutionComponent::Jacquard::Create New Product Subscription::6.4-SNAPSHOT",
+       "displayName": "Create New Product Subscription",
+       "description": "The process of setting up the subscription for a new consumer.",
+       "versionIdentifier": "6.4-SNAPSHOT",
+       "solutionComponentType": "Automated Action"
+      }
+     },
+     "relatedElementAtEnd1": false
+    },
+    {
+     "class": "RelatedMetadataElementSummary",
+     "relationshipHeader": {
+      "class": "ElementHeader",
+      "headerVersion": 0,
+      "status": "ACTIVE",
+      "type": {
+       "typeId": "b6722d63-9924-4877-82b0-f9207cd78174",
+       "typeName": "SolutionComponentActor",
+       "typeVersion": 1,
+       "typeDescription": "An actor that is interacting with the solution component.",
+       "typeCategory": "RELATIONSHIP_DEF"
+      },
+      "origin": {
+       "sourceServer": "qs-metadata-store",
+       "originCategory": "LOCAL_COHORT",
+       "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+       "homeMetadataCollectionName": "qs-metadata-store"
+      },
+      "versions": {
+       "createdBy": "jacquardnpa",
+       "updatedBy": "jacquardnpa",
+       "maintainedBy": [
+        "jacquardnpa"
+       ],
+       "createTime": "2026-11-23T23:07:58.093+00:00",
+       "updateTime": "2026-11-23T23:07:58.093+00:00",
+       "version": 1,
+       "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+      },
+      "guid": "ed67b73a-3779-427c-b2cc-a953bd298af1"
+     },
+     "relationshipProperties": {
+      "class": "SolutionComponentActorProperties",
+      "typeName": "SolutionComponentActor",
+      "role": "Shop for data",
+      "description": "Perform searches on the product catalog to locate possible products for their project."
+     },
+     "relatedElement": {
+      "elementHeader": {
+       "class": "ElementHeader",
+       "headerVersion": 0,
+       "status": "ACTIVE",
+       "type": {
+        "typeId": "b83f3d42-f3f7-4155-ae65-58fb44ea7644",
+        "typeName": "SolutionComponent",
+        "superTypeNames": [
+         "DesignModelElement",
+         "AuthoredReferenceable",
+         "Referenceable",
+         "OpenMetadataRoot"
+        ],
+        "typeVersion": 2,
+        "typeDescription": "Description of a well-defined capability within a solution.",
+        "typeCategory": "ENTITY_DEF"
+       },
+       "origin": {
+        "sourceServer": "qs-metadata-store",
+        "originCategory": "LOCAL_COHORT",
+        "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+        "homeMetadataCollectionName": "qs-metadata-store"
+       },
+       "versions": {
+        "createdBy": "jacquardnpa",
+        "updatedBy": "jacquardnpa",
+        "maintainedBy": [
+         "jacquardnpa"
+        ],
+        "createTime": "2026-11-23T23:07:56.842+00:00",
+        "updateTime": "2026-11-23T23:07:56.842+00:00",
+        "version": 1,
+        "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+       },
+       "guid": "3732af1c-e934-439c-9f6e-189abffdf874",
+       "anchor": {
+        "class": "ElementClassification",
+        "headerVersion": 0,
+        "status": "ACTIVE",
+        "type": {
+         "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+         "typeName": "Anchors",
+         "typeVersion": 1,
+         "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+         "typeCategory": "CLASSIFICATION_DEF"
+        },
+        "origin": {
+         "sourceServer": "qs-metadata-store",
+         "originCategory": "LOCAL_COHORT",
+         "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+         "homeMetadataCollectionName": "qs-metadata-store"
+        },
+        "versions": {
+         "createdBy": "jacquardnpa",
+         "updatedBy": "jacquardnpa",
+         "maintainedBy": [
+          "jacquardnpa"
+         ],
+         "createTime": "2026-11-23T23:07:56.841+00:00",
+         "updateTime": "2026-11-23T23:07:56.841+00:00",
+         "version": 1,
+         "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+        },
+        "classificationOrigin": "ASSIGNED",
+        "classificationName": "Anchors",
+        "classificationProperties": {
+         "class": "AnchorsProperties",
+         "typeName": "Anchors",
+         "anchorTypeName": "SolutionComponent",
+         "anchorDomainName": "AuthoredReferenceable"
+        }
+       }
+      },
+      "properties": {
+       "class": "SolutionComponentProperties",
+       "typeName": "SolutionComponent",
+       "qualifiedName": "SolutionComponent::Jacquard::Product Catalog::6.4-SNAPSHOT",
+       "displayName": "Product Catalog",
+       "description": "Supports the process of locating the appropriate digital product by providing organized, searchable descriptions of the digital products to the product consumers.",
+       "versionIdentifier": "6.4-SNAPSHOT",
+       "solutionComponentType": "Data Storage"
+      }
+     },
+     "relatedElementAtEnd1": false
+    }
+   ],
+   "properties": {
+    "class": "SolutionActorRoleProperties",
+    "typeName": "SolutionActorRole",
+    "qualifiedName": "SolutionActorRole::Jacquard::OpenMetadataProductSubscriber",
+    "identifier": "OpenMetadataProductSubscriber",
+    "displayName": "Open Metadata Product Subscriber",
+    "description": "Subscriber to one of the open metadata data products from Open Metadata Ecosystem."
+   },
+   "mermaidGraph": "---\ntitle: SolutionActorRole - Open Metadata Product Subscriber [9f7c39ca-024d-4779-b3b6-ebbef401e923]\n---\nflowchart TD\n%%{init: {\"flowchart\": {\"htmlLabels\": false}} }%%\n\n1@{ shape: rounded, label: \"*Solution Actor Role*\n**Open Metadata Product Subscriber**\"}\n2@{ shape: rect, label: \"*Solution Blueprint*\n**Cancelling a Subscription to a Digital Product**\"}\n2==>|\"Collection Membership\"|1\n3@{ shape: rect, label: \"*Solution Blueprint*\n**Creating a new Subscription to a Digital Product**\"}\n3==>|\"Collection Membership\"|1\n4@{ shape: rect, label: \"*Solution Blueprint*\n**Searching for Digital Products**\"}\n4==>|\"Collection Membership\"|1\n5@{ shape: rect, label: \"*Solution Blueprint*\n**Jacquard Digital Product Loom**\"}\n5==>|\"Collection Membership\"|1\n6@{ shape: rect, label: \"*Solution Blueprint*\n**Open Metadata Digital Product Catalog Components**\"}\n6==>|\"Collection Membership\"|1\n7@{ shape: rect, label: \"*Solution Component [Known Duplicate]*\n**Cancel Product Subscription**\"}\n1==>|\"Cancel product subscription [Solution Component Actor]\"|7\n8@{ shape: rect, label: \"*Solution Component [Known Duplicate]*\n**Create New Product Subscription**\"}\n1==>|\"Subscribe to product [Solution Component Actor]\"|8\n9@{ shape: rect, label: \"*Solution Component*\n**Product Catalog**\"}\n1==>|\"Shop for data [Solution Component Actor]\"|9\nstyle 1 color:#000000, fill:#e0ab18, stroke:#004563\nstyle 2 color:#000000, fill:#f5fffa, stroke:#000000\nstyle 3 color:#000000, fill:#f5fffa, stroke:#000000\nstyle 4 color:#000000, fill:#f5fffa, stroke:#000000\nstyle 5 color:#000000, fill:#f5fffa, stroke:#000000\nstyle 6 color:#000000, fill:#f5fffa, stroke:#000000\nstyle 7 color:#000000, fill:#DDA0DD, stroke:#000000\nstyle 8 color:#000000, fill:#DDA0DD, stroke:#000000\nstyle 9 color:#000000, fill:#DDA0DD, stroke:#000000\n"
+  },
+  {
+   "class": "OpenMetadataRootElement",
+   "elementHeader": {
+    "class": "ElementHeader",
+    "headerVersion": 0,
+    "status": "ACTIVE",
+    "type": {
+     "typeId": "cb3e6866-9ab5-4d95-9921-ff1b9fbe4d29",
+     "typeName": "SolutionActorRole",
+     "superTypeNames": [
+      "ActorRole",
+      "Actor",
+      "Referenceable",
+      "OpenMetadataRoot"
+     ],
+     "typeVersion": 1,
+     "typeDescription": "An actor role that is designed for interacting with a solution.",
+     "typeCategory": "ENTITY_DEF"
+    },
+    "origin": {
+     "sourceServer": "qs-metadata-store",
+     "originCategory": "CONTENT_PACK",
+     "homeMetadataCollectionId": "09450b83-20ff-4a8b-a8fb-f9b527bbcba6",
+     "homeMetadataCollectionName": "CoreContentPack",
+     "license": "Apache 2.0"
+    },
+    "versions": {
+     "createdBy": "Egeria Project",
+     "updatedBy": "Egeria Project",
+     "maintainedBy": [
+      "Egeria Project"
+     ],
+     "createTime": "2026-04-01T06:45:49.989+00:00",
+     "updateTime": "2026-04-01T06:45:49.989+00:00",
+     "version": 1791191572534
+    },
+    "guid": "19d7e01f-6177-452e-afda-d6311900f900",
+    "anchor": {
+     "class": "ElementClassification",
+     "headerVersion": 0,
+     "status": "ACTIVE",
+     "type": {
+      "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+      "typeName": "Anchors",
+      "typeVersion": 1,
+      "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+      "typeCategory": "CLASSIFICATION_DEF"
+     },
+     "origin": {
+      "sourceServer": "qs-metadata-store",
+      "originCategory": "CONTENT_PACK",
+      "homeMetadataCollectionId": "09450b83-20ff-4a8b-a8fb-f9b527bbcba6",
+      "homeMetadataCollectionName": "CoreContentPack"
+     },
+     "versions": {
+      "createdBy": "Egeria Project",
+      "updatedBy": "Egeria Project",
+      "maintainedBy": [
+       "Egeria Project"
+      ],
+      "createTime": "2026-04-01T06:45:49.989+00:00",
+      "updateTime": "2026-04-01T06:45:49.989+00:00",
+      "version": 1791191572534
+     },
+     "classificationOrigin": "ASSIGNED",
+     "classificationName": "Anchors",
+     "classificationProperties": {
+      "class": "AnchorsProperties",
+      "typeName": "Anchors",
+      "anchorTypeName": "SolutionActorRole",
+      "anchorDomainName": "Actor"
+     }
+    }
+   },
+   "properties": {
+    "class": "SolutionActorRoleProperties",
+    "typeName": "SolutionActorRole",
+    "qualifiedName": "SolutionActorRole::RUNTIME-MANAGER::Runtime Manager",
+    "identifier": "RUNTIME-MANAGER",
+    "displayName": "Runtime Manager",
+    "description": "A person responsible for the management and operation of the Open Metadata runtime environments.  This includes Egeria and its dependent software."
+   }
+  },
+  {
+   "class": "OpenMetadataRootElement",
+   "elementHeader": {
+    "class": "ElementHeader",
+    "headerVersion": 0,
+    "status": "ACTIVE",
+    "type": {
+     "typeId": "cb3e6866-9ab5-4d95-9921-ff1b9fbe4d29",
+     "typeName": "SolutionActorRole",
+     "superTypeNames": [
+      "ActorRole",
+      "Actor",
+      "Referenceable",
+      "OpenMetadataRoot"
+     ],
+     "typeVersion": 1,
+     "typeDescription": "An actor role that is designed for interacting with a solution.",
+     "typeCategory": "ENTITY_DEF"
+    },
+    "origin": {
+     "sourceServer": "qs-metadata-store",
+     "originCategory": "CONTENT_PACK",
+     "homeMetadataCollectionId": "655b1965-4c29-4a0e-8a5d-3f55a37b3799",
+     "homeMetadataCollectionName": "Coco Pharmaceuticals Combination",
+     "license": "Apache 2.0"
+    },
+    "versions": {
+     "createdBy": "Egeria Project",
+     "updatedBy": "Egeria Project",
+     "maintainedBy": [
+      "Egeria Project"
+     ],
+     "createTime": "2021-12-20T07:20:40.038+00:00",
+     "updateTime": "2021-12-20T07:20:40.038+00:00",
+     "version": 1787846084192
+    },
+    "guid": "0c757e35-8a42-4d5f-b01b-c72a6cea65cc",
+    "anchor": {
+     "class": "ElementClassification",
+     "headerVersion": 0,
+     "status": "ACTIVE",
+     "type": {
+      "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+      "typeName": "Anchors",
+      "typeVersion": 1,
+      "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+      "typeCategory": "CLASSIFICATION_DEF"
+     },
+     "origin": {
+      "sourceServer": "qs-metadata-store",
+      "originCategory": "CONTENT_PACK",
+      "homeMetadataCollectionId": "655b1965-4c29-4a0e-8a5d-3f55a37b3799",
+      "homeMetadataCollectionName": "Coco Pharmaceuticals Combination"
+     },
+     "versions": {
+      "createdBy": "Egeria Project",
+      "updatedBy": "Egeria Project",
+      "maintainedBy": [
+       "Egeria Project"
+      ],
+      "createTime": "2021-12-20T07:20:40.038+00:00",
+      "updateTime": "2021-12-20T07:20:40.038+00:00",
+      "version": 1787846084192
+     },
+     "classificationOrigin": "ASSIGNED",
+     "classificationName": "Anchors",
+     "classificationProperties": {
+      "class": "AnchorsProperties",
+      "typeName": "Anchors",
+      "anchorTypeName": "SolutionActorRole",
+      "anchorDomainName": "Actor"
+     }
+    }
+   },
+   "memberOfCollections": [
+    {
+     "class": "RelatedMetadataElementSummary",
+     "relationshipHeader": {
+      "class": "ElementHeader",
+      "headerVersion": 0,
+      "status": "ACTIVE",
+      "type": {
+       "typeId": "5cabb76a-e25b-4bb5-8b93-768bbac005af",
+       "typeName": "CollectionMembership",
+       "typeVersion": 1,
+       "typeDescription": "Identifies a member of a collection.",
+       "typeCategory": "RELATIONSHIP_DEF"
+      },
+      "origin": {
+       "sourceServer": "qs-metadata-store",
+       "originCategory": "CONTENT_PACK",
+       "homeMetadataCollectionId": "655b1965-4c29-4a0e-8a5d-3f55a37b3799",
+       "homeMetadataCollectionName": "Coco Pharmaceuticals Combination",
+       "license": "Apache 2.0"
+      },
+      "versions": {
+       "createdBy": "Egeria Project",
+       "updatedBy": "Egeria Project",
+       "maintainedBy": [
+        "Egeria Project"
+       ],
+       "createTime": "2021-12-20T07:20:40.038+00:00",
+       "updateTime": "2021-12-20T07:20:40.038+00:00",
+       "version": 1787846084192
+      },
+      "guid": "b1a45972-9446-4b14-8a7b-8e1157dfff42"
+     },
+     "relatedElement": {
+      "elementHeader": {
+       "class": "ElementHeader",
+       "headerVersion": 0,
+       "status": "ACTIVE",
+       "type": {
+        "typeId": "4aa47799-5128-4eeb-bd72-e357b49f8bfe",
+        "typeName": "SolutionBlueprint",
+        "superTypeNames": [
+         "DesignModel",
+         "Collection",
+         "AuthoredReferenceable",
+         "Referenceable",
+         "OpenMetadataRoot"
+        ],
+        "typeVersion": 1,
+        "typeDescription": "Collection of solution components that make up a solution for digital services such as digital products.",
+        "typeCategory": "ENTITY_DEF"
+       },
+       "origin": {
+        "sourceServer": "qs-metadata-store",
+        "originCategory": "CONTENT_PACK",
+        "homeMetadataCollectionId": "655b1965-4c29-4a0e-8a5d-3f55a37b3799",
+        "homeMetadataCollectionName": "Coco Pharmaceuticals Combination",
+        "license": "Apache 2.0"
+       },
+       "versions": {
+        "createdBy": "Egeria Project",
+        "updatedBy": "Egeria Project",
+        "maintainedBy": [
+         "Egeria Project"
+        ],
+        "createTime": "2021-12-20T07:20:40.038+00:00",
+        "updateTime": "2021-12-20T07:20:40.038+00:00",
+        "version": 1794828147120
+       },
+       "guid": "c4f8d707-7c85-4125-b5fd-c3257a2ef2ef",
+       "anchor": {
+        "class": "ElementClassification",
+        "headerVersion": 0,
+        "status": "ACTIVE",
+        "type": {
+         "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+         "typeName": "Anchors",
+         "typeVersion": 1,
+         "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+         "typeCategory": "CLASSIFICATION_DEF"
+        },
+        "origin": {
+         "sourceServer": "qs-metadata-store",
+         "originCategory": "CONTENT_PACK",
+         "homeMetadataCollectionId": "655b1965-4c29-4a0e-8a5d-3f55a37b3799",
+         "homeMetadataCollectionName": "Coco Pharmaceuticals Combination"
+        },
+        "versions": {
+         "createdBy": "Egeria Project",
+         "updatedBy": "Egeria Project",
+         "maintainedBy": [
+          "Egeria Project"
+         ],
+         "createTime": "2021-12-20T07:20:40.038+00:00",
+         "updateTime": "2021-12-20T07:20:40.038+00:00",
+         "version": 1794828147120
+        },
+        "classificationOrigin": "ASSIGNED",
+        "classificationName": "Anchors",
+        "classificationProperties": {
+         "class": "AnchorsProperties",
+         "typeName": "Anchors",
+         "anchorTypeName": "SolutionBlueprint",
+         "anchorDomainName": "AuthoredReferenceable"
+        }
+       }
+      },
+      "properties": {
+       "class": "SolutionBlueprintProperties",
+       "typeName": "SolutionBlueprint",
+       "qualifiedName": "SolutionBlueprint::Clinical Trial Management::Clinical Trial Management Solution Blueprint",
+       "identifier": "Clinical Trial Management",
+       "displayName": "Clinical Trial Management Solution Blueprint",
+       "description": "A description of how a clinical trial is managed in Coco Pharmaceuticals.",
+       "versionIdentifier": "6.4-SNAPSHOT"
+      }
+     },
+     "relatedElementAtEnd1": true
+    }
+   ],
+   "interactingWithSolutionComponents": [
+    {
+     "class": "RelatedMetadataElementSummary",
+     "relationshipHeader": {
+      "class": "ElementHeader",
+      "headerVersion": 0,
+      "status": "ACTIVE",
+      "type": {
+       "typeId": "b6722d63-9924-4877-82b0-f9207cd78174",
+       "typeName": "SolutionComponentActor",
+       "typeVersion": 1,
+       "typeDescription": "An actor that is interacting with the solution component.",
+       "typeCategory": "RELATIONSHIP_DEF"
+      },
+      "origin": {
+       "sourceServer": "qs-metadata-store",
+       "originCategory": "CONTENT_PACK",
+       "homeMetadataCollectionId": "655b1965-4c29-4a0e-8a5d-3f55a37b3799",
+       "homeMetadataCollectionName": "Coco Pharmaceuticals Combination",
+       "license": "Apache 2.0"
+      },
+      "versions": {
+       "createdBy": "Egeria Project",
+       "updatedBy": "Egeria Project",
+       "maintainedBy": [
+        "Egeria Project"
+       ],
+       "createTime": "2021-12-20T07:20:40.038+00:00",
+       "updateTime": "2021-12-20T07:20:40.038+00:00",
+       "version": 1791225115316
+      },
+      "guid": "0c3acfae-e3b2-4e88-bd53-6a5fd9475cb2"
+     },
+     "relationshipProperties": {
+      "class": "SolutionComponentActorProperties",
+      "typeName": "SolutionComponentActor",
+      "role": "Author",
+      "description": "Assembles the treatment efficacy evidence and process descriptions into the report."
+     },
+     "relatedElement": {
+      "elementHeader": {
+       "class": "ElementHeader",
+       "headerVersion": 0,
+       "status": "ACTIVE",
+       "type": {
+        "typeId": "b83f3d42-f3f7-4155-ae65-58fb44ea7644",
+        "typeName": "SolutionComponent",
+        "superTypeNames": [
+         "DesignModelElement",
+         "AuthoredReferenceable",
+         "Referenceable",
+         "OpenMetadataRoot"
+        ],
+        "typeVersion": 2,
+        "typeDescription": "Description of a well-defined capability within a solution.",
+        "typeCategory": "ENTITY_DEF"
+       },
+       "origin": {
+        "sourceServer": "qs-metadata-store",
+        "originCategory": "CONTENT_PACK",
+        "homeMetadataCollectionId": "655b1965-4c29-4a0e-8a5d-3f55a37b3799",
+        "homeMetadataCollectionName": "Coco Pharmaceuticals Combination",
+        "license": "Apache 2.0"
+       },
+       "versions": {
+        "createdBy": "Egeria Project",
+        "updatedBy": "Egeria Project",
+        "maintainedBy": [
+         "Egeria Project"
+        ],
+        "createTime": "2021-12-20T07:20:40.038+00:00",
+        "updateTime": "2021-12-20T07:20:40.038+00:00",
+        "version": 1791225115316
+       },
+       "guid": "72a86eec-9734-4bc0-babb-4fec0aa7c9ff",
+       "anchor": {
+        "class": "ElementClassification",
+        "headerVersion": 0,
+        "status": "ACTIVE",
+        "type": {
+         "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+         "typeName": "Anchors",
+         "typeVersion": 1,
+         "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+         "typeCategory": "CLASSIFICATION_DEF"
+        },
+        "origin": {
+         "sourceServer": "qs-metadata-store",
+         "originCategory": "CONTENT_PACK",
+         "homeMetadataCollectionId": "655b1965-4c29-4a0e-8a5d-3f55a37b3799",
+         "homeMetadataCollectionName": "Coco Pharmaceuticals Combination"
+        },
+        "versions": {
+         "createdBy": "Egeria Project",
+         "updatedBy": "Egeria Project",
+         "maintainedBy": [
+          "Egeria Project"
+         ],
+         "createTime": "2021-12-20T07:20:40.038+00:00",
+         "updateTime": "2021-12-20T07:20:40.038+00:00",
+         "version": 1791225115316
+        },
+        "classificationOrigin": "ASSIGNED",
+        "classificationName": "Anchors",
+        "classificationProperties": {
+         "class": "AnchorsProperties",
+         "typeName": "Anchors",
+         "anchorTypeName": "SolutionComponent",
+         "anchorDomainName": "AuthoredReferenceable"
+        }
+       }
+      },
+      "properties": {
+       "class": "SolutionComponentProperties",
+       "typeName": "SolutionComponent",
+       "qualifiedName": "SolutionComponent::Assemble Treatment Assessment Report::V1.0",
+       "identifier": "Assemble-Treatment-Assessment-Report",
+       "displayName": "Assemble Treatment Assessment Report",
+       "description": "A process of creating a filing report for the regulators detailing the findings from the clinical trial.",
+       "versionIdentifier": "V1.0",
+       "solutionComponentType": "Manual Process",
+       "plannedDeployedImplementationType": "Manual Process"
+      }
+     },
+     "relatedElementAtEnd1": false
+    },
+    {
+     "class": "RelatedMetadataElementSummary",
+     "relationshipHeader": {
+      "class": "ElementHeader",
+      "headerVersion": 0,
+      "status": "ACTIVE",
+      "type": {
+       "typeId": "b6722d63-9924-4877-82b0-f9207cd78174",
+       "typeName": "SolutionComponentActor",
+       "typeVersion": 1,
+       "typeDescription": "An actor that is interacting with the solution component.",
+       "typeCategory": "RELATIONSHIP_DEF"
+      },
+      "origin": {
+       "sourceServer": "qs-metadata-store",
+       "originCategory": "CONTENT_PACK",
+       "homeMetadataCollectionId": "655b1965-4c29-4a0e-8a5d-3f55a37b3799",
+       "homeMetadataCollectionName": "Coco Pharmaceuticals Combination",
+       "license": "Apache 2.0"
+      },
+      "versions": {
+       "createdBy": "Egeria Project",
+       "updatedBy": "Egeria Project",
+       "maintainedBy": [
+        "Egeria Project"
+       ],
+       "createTime": "2021-12-20T07:20:40.038+00:00",
+       "updateTime": "2021-12-20T07:20:40.038+00:00",
+       "version": 1791225115316
+      },
+      "guid": "969386c5-d812-4ad8-8b91-fd28a210d9d6"
+     },
+     "relationshipProperties": {
+      "class": "SolutionComponentActorProperties",
+      "typeName": "SolutionComponentActor",
+      "role": "Results Interpreter",
+      "description": "Interprets the results of the weekly measurements analysis."
+     },
+     "relatedElement": {
+      "elementHeader": {
+       "class": "ElementHeader",
+       "headerVersion": 0,
+       "status": "ACTIVE",
+       "type": {
+        "typeId": "b83f3d42-f3f7-4155-ae65-58fb44ea7644",
+        "typeName": "SolutionComponent",
+        "superTypeNames": [
+         "DesignModelElement",
+         "AuthoredReferenceable",
+         "Referenceable",
+         "OpenMetadataRoot"
+        ],
+        "typeVersion": 2,
+        "typeDescription": "Description of a well-defined capability within a solution.",
+        "typeCategory": "ENTITY_DEF"
+       },
+       "origin": {
+        "sourceServer": "qs-metadata-store",
+        "originCategory": "CONTENT_PACK",
+        "homeMetadataCollectionId": "655b1965-4c29-4a0e-8a5d-3f55a37b3799",
+        "homeMetadataCollectionName": "Coco Pharmaceuticals Combination",
+        "license": "Apache 2.0"
+       },
+       "versions": {
+        "createdBy": "Egeria Project",
+        "updatedBy": "Egeria Project",
+        "maintainedBy": [
+         "Egeria Project"
+        ],
+        "createTime": "2021-12-20T07:20:40.038+00:00",
+        "updateTime": "2021-12-20T07:20:40.038+00:00",
+        "version": 1791225115316
+       },
+       "guid": "b5c8da4c-f925-4cf1-8294-e43cd2c1a584",
+       "anchor": {
+        "class": "ElementClassification",
+        "headerVersion": 0,
+        "status": "ACTIVE",
+        "type": {
+         "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+         "typeName": "Anchors",
+         "typeVersion": 1,
+         "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+         "typeCategory": "CLASSIFICATION_DEF"
+        },
+        "origin": {
+         "sourceServer": "qs-metadata-store",
+         "originCategory": "CONTENT_PACK",
+         "homeMetadataCollectionId": "655b1965-4c29-4a0e-8a5d-3f55a37b3799",
+         "homeMetadataCollectionName": "Coco Pharmaceuticals Combination"
+        },
+        "versions": {
+         "createdBy": "Egeria Project",
+         "updatedBy": "Egeria Project",
+         "maintainedBy": [
+          "Egeria Project"
+         ],
+         "createTime": "2021-12-20T07:20:40.038+00:00",
+         "updateTime": "2021-12-20T07:20:40.038+00:00",
+         "version": 1791225115316
+        },
+        "classificationOrigin": "ASSIGNED",
+        "classificationName": "Anchors",
+        "classificationProperties": {
+         "class": "AnchorsProperties",
+         "typeName": "Anchors",
+         "anchorTypeName": "SolutionComponent",
+         "anchorDomainName": "AuthoredReferenceable"
+        }
+       }
+      },
+      "properties": {
+       "class": "SolutionComponentProperties",
+       "typeName": "SolutionComponent",
+       "qualifiedName": "SolutionComponent::Analyse Patient Data::V1.0",
+       "identifier": "Analyse-Patient-Data",
+       "displayName": "Analyse Patient Data",
+       "description": "ML Flow based analytics pipeline to run the variety of models over the patient data.",
+       "versionIdentifier": "V1.0",
+       "solutionComponentType": "Insight Model",
+       "plannedDeployedImplementationType": "AI Workflow"
+      }
+     },
+     "relatedElementAtEnd1": false
+    }
+   ],
+   "properties": {
+    "class": "SolutionActorRoleProperties",
+    "typeName": "SolutionActorRole",
+    "qualifiedName": "SolutionActorRole::Coco::NewTreatmentResearcher",
+    "identifier": "NewTreatmentResearcher",
+    "displayName": "New Treatment Researcher",
+    "description": "A member of Coco Pharmaceutical's Trial Research Team responsible for the development of the new treatment under trial.",
+    "scope": "Within Solution"
+   },
+   "mermaidGraph": "---\ntitle: SolutionActorRole - New Treatment Researcher [0c757e35-8a42-4d5f-b01b-c72a6cea65cc]\n---\nflowchart TD\n%%{init: {\"flowchart\": {\"htmlLabels\": false}} }%%\n\n1@{ shape: rounded, label: \"*Solution Actor Role*\n**New Treatment Researcher**\"}\n2@{ shape: rect, label: \"*Solution Blueprint*\n**Clinical Trial Management Solution Blueprint**\"}\n2==>|\"Collection Membership\"|1\n3@{ shape: rect, label: \"*Solution Component*\n**Assemble Treatment Assessment Report**\"}\n1==>|\"Author [Solution Component Actor]\"|3\n4@{ shape: rect, label: \"*Solution Component*\n**Analyse Patient Data**\"}\n1==>|\"Results Interpreter [Solution Component Actor]\"|4\nstyle 1 color:#000000, fill:#e0ab18, stroke:#004563\nstyle 2 color:#000000, fill:#f5fffa, stroke:#000000\nstyle 3 color:#000000, fill:#DDA0DD, stroke:#000000\nstyle 4 color:#000000, fill:#DDA0DD, stroke:#000000\n"
+  }
+ ],
+ "by_guid": {
+  "class": "OpenMetadataRootElement",
+  "elementHeader": {
+   "class": "ElementHeader",
+   "headerVersion": 0,
+   "status": "ACTIVE",
+   "type": {
+    "typeId": "cb3e6866-9ab5-4d95-9921-ff1b9fbe4d29",
+    "typeName": "SolutionActorRole",
+    "superTypeNames": [
+     "ActorRole",
+     "Actor",
+     "Referenceable",
+     "OpenMetadataRoot"
+    ],
+    "typeVersion": 1,
+    "typeDescription": "An actor role that is designed for interacting with a solution.",
+    "typeCategory": "ENTITY_DEF"
+   },
+   "origin": {
+    "sourceServer": "qs-metadata-store",
+    "originCategory": "LOCAL_COHORT",
+    "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+    "homeMetadataCollectionName": "qs-metadata-store"
+   },
+   "versions": {
+    "createdBy": "jacquardnpa",
+    "updatedBy": "jacquardnpa",
+    "maintainedBy": [
+     "jacquardnpa"
+    ],
+    "createTime": "2026-11-23T23:07:56.323+00:00",
+    "updateTime": "2026-11-23T23:07:56.323+00:00",
+    "version": 1,
+    "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+   },
+   "guid": "9f7c39ca-024d-4779-b3b6-ebbef401e923",
+   "anchor": {
+    "class": "ElementClassification",
+    "headerVersion": 0,
+    "status": "ACTIVE",
+    "type": {
+     "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+     "typeName": "Anchors",
+     "typeVersion": 1,
+     "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+     "typeCategory": "CLASSIFICATION_DEF"
+    },
+    "origin": {
+     "sourceServer": "qs-metadata-store",
+     "originCategory": "LOCAL_COHORT",
+     "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+     "homeMetadataCollectionName": "qs-metadata-store"
+    },
+    "versions": {
+     "createdBy": "jacquardnpa",
+     "updatedBy": "jacquardnpa",
+     "maintainedBy": [
+      "jacquardnpa"
+     ],
+     "createTime": "2026-11-23T23:07:56.322+00:00",
+     "updateTime": "2026-11-23T23:07:56.322+00:00",
+     "version": 1,
+     "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+    },
+    "classificationOrigin": "ASSIGNED",
+    "classificationName": "Anchors",
+    "classificationProperties": {
+     "class": "AnchorsProperties",
+     "typeName": "Anchors",
+     "anchorTypeName": "SolutionActorRole",
+     "anchorDomainName": "Actor",
+     "zoneMembership": [
+      "digital-products"
+     ]
+    }
+   },
+   "zoneMembership": {
+    "class": "ElementClassification",
+    "headerVersion": 0,
+    "status": "ACTIVE",
+    "type": {
+     "typeId": "52993f4b-d853-47ae-a2e6-f22b96863533",
+     "typeName": "ZoneMembership",
+     "typeVersion": 1,
+     "typeDescription": "Defines the element's membership of the governance zones.",
+     "typeCategory": "CLASSIFICATION_DEF"
+    },
+    "origin": {
+     "sourceServer": "qs-metadata-store",
+     "originCategory": "LOCAL_COHORT",
+     "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+     "homeMetadataCollectionName": "qs-metadata-store"
+    },
+    "versions": {
+     "createdBy": "jacquardnpa",
+     "updatedBy": "jacquardnpa",
+     "maintainedBy": [
+      "jacquardnpa"
+     ],
+     "createTime": "2026-11-23T23:07:56.322+00:00",
+     "updateTime": "2026-11-23T23:07:56.322+00:00",
+     "version": 1,
+     "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+    },
+    "classificationOrigin": "ASSIGNED",
+    "classificationName": "ZoneMembership",
+    "classificationProperties": {
+     "class": "ZoneMembershipProperties",
+     "typeName": "ZoneMembership",
+     "zoneMembership": [
+      "digital-products"
+     ]
+    }
+   }
+  },
+  "memberOfCollections": [
+   {
+    "class": "RelatedMetadataElementSummary",
+    "relationshipHeader": {
+     "class": "ElementHeader",
+     "headerVersion": 0,
+     "status": "ACTIVE",
+     "type": {
+      "typeId": "5cabb76a-e25b-4bb5-8b93-768bbac005af",
+      "typeName": "CollectionMembership",
+      "typeVersion": 1,
+      "typeDescription": "Identifies a member of a collection.",
+      "typeCategory": "RELATIONSHIP_DEF"
+     },
+     "origin": {
+      "sourceServer": "qs-metadata-store",
+      "originCategory": "LOCAL_COHORT",
+      "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+      "homeMetadataCollectionName": "qs-metadata-store"
+     },
+     "versions": {
+      "createdBy": "jacquardnpa",
+      "updatedBy": "jacquardnpa",
+      "maintainedBy": [
+       "jacquardnpa"
+      ],
+      "createTime": "2026-11-23T23:08:00.283+00:00",
+      "updateTime": "2026-11-23T23:08:00.283+00:00",
+      "version": 1,
+      "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+     },
+     "guid": "13f83a55-e8cf-499b-8ed7-ad222b3f567c"
+    },
+    "relatedElement": {
+     "elementHeader": {
+      "class": "ElementHeader",
+      "headerVersion": 0,
+      "status": "ACTIVE",
+      "type": {
+       "typeId": "4aa47799-5128-4eeb-bd72-e357b49f8bfe",
+       "typeName": "SolutionBlueprint",
+       "superTypeNames": [
+        "DesignModel",
+        "Collection",
+        "AuthoredReferenceable",
+        "Referenceable",
+        "OpenMetadataRoot"
+       ],
+       "typeVersion": 1,
+       "typeDescription": "Collection of solution components that make up a solution for digital services such as digital products.",
+       "typeCategory": "ENTITY_DEF"
+      },
+      "origin": {
+       "sourceServer": "qs-metadata-store",
+       "originCategory": "LOCAL_COHORT",
+       "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+       "homeMetadataCollectionName": "qs-metadata-store"
+      },
+      "versions": {
+       "createdBy": "jacquardnpa",
+       "updatedBy": "jacquardnpa",
+       "maintainedBy": [
+        "jacquardnpa"
+       ],
+       "createTime": "2026-11-23T23:08:00.024+00:00",
+       "updateTime": "2026-11-23T23:08:00.024+00:00",
+       "version": 1,
+       "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+      },
+      "guid": "c9bef397-e81e-4663-b002-57f6e5e76565",
+      "anchor": {
+       "class": "ElementClassification",
+       "headerVersion": 0,
+       "status": "ACTIVE",
+       "type": {
+        "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+        "typeName": "Anchors",
+        "typeVersion": 1,
+        "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+        "typeCategory": "CLASSIFICATION_DEF"
+       },
+       "origin": {
+        "sourceServer": "qs-metadata-store",
+        "originCategory": "LOCAL_COHORT",
+        "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+        "homeMetadataCollectionName": "qs-metadata-store"
+       },
+       "versions": {
+        "createdBy": "jacquardnpa",
+        "updatedBy": "jacquardnpa",
+        "maintainedBy": [
+         "jacquardnpa"
+        ],
+        "createTime": "2026-11-23T23:08:00.023+00:00",
+        "updateTime": "2026-11-23T23:08:00.023+00:00",
+        "version": 1,
+        "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+       },
+       "classificationOrigin": "ASSIGNED",
+       "classificationName": "Anchors",
+       "classificationProperties": {
+        "class": "AnchorsProperties",
+        "typeName": "Anchors",
+        "anchorTypeName": "SolutionBlueprint",
+        "anchorDomainName": "AuthoredReferenceable",
+        "zoneMembership": [
+         "digital-products"
+        ]
+       }
+      },
+      "zoneMembership": {
+       "class": "ElementClassification",
+       "headerVersion": 0,
+       "status": "ACTIVE",
+       "type": {
+        "typeId": "52993f4b-d853-47ae-a2e6-f22b96863533",
+        "typeName": "ZoneMembership",
+        "typeVersion": 1,
+        "typeDescription": "Defines the element's membership of the governance zones.",
+        "typeCategory": "CLASSIFICATION_DEF"
+       },
+       "origin": {
+        "sourceServer": "qs-metadata-store",
+        "originCategory": "LOCAL_COHORT",
+        "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+        "homeMetadataCollectionName": "qs-metadata-store"
+       },
+       "versions": {
+        "createdBy": "jacquardnpa",
+        "updatedBy": "jacquardnpa",
+        "maintainedBy": [
+         "jacquardnpa"
+        ],
+        "createTime": "2026-11-23T23:08:00.023+00:00",
+        "updateTime": "2026-11-23T23:08:00.023+00:00",
+        "version": 1,
+        "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+       },
+       "classificationOrigin": "ASSIGNED",
+       "classificationName": "ZoneMembership",
+       "classificationProperties": {
+        "class": "ZoneMembershipProperties",
+        "typeName": "ZoneMembership",
+        "zoneMembership": [
+         "digital-products"
+        ]
+       }
+      }
+     },
+     "properties": {
+      "class": "SolutionBlueprintProperties",
+      "typeName": "SolutionBlueprint",
+      "qualifiedName": "SolutionBlueprint::Jacquard::Cancelling a Subscription to a Digital Product::6.4-SNAPSHOT",
+      "displayName": "Cancelling a Subscription to a Digital Product",
+      "description": "Description of the processing used to cancel a subscription to an Open Metadata Digital Product.",
+      "versionIdentifier": "6.4-SNAPSHOT"
+     }
+    },
+    "relatedElementAtEnd1": true
+   },
+   {
+    "class": "RelatedMetadataElementSummary",
+    "relationshipHeader": {
+     "class": "ElementHeader",
+     "headerVersion": 0,
+     "status": "ACTIVE",
+     "type": {
+      "typeId": "5cabb76a-e25b-4bb5-8b93-768bbac005af",
+      "typeName": "CollectionMembership",
+      "typeVersion": 1,
+      "typeDescription": "Identifies a member of a collection.",
+      "typeCategory": "RELATIONSHIP_DEF"
+     },
+     "origin": {
+      "sourceServer": "qs-metadata-store",
+      "originCategory": "LOCAL_COHORT",
+      "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+      "homeMetadataCollectionName": "qs-metadata-store"
+     },
+     "versions": {
+      "createdBy": "jacquardnpa",
+      "updatedBy": "jacquardnpa",
+      "maintainedBy": [
+       "jacquardnpa"
+      ],
+      "createTime": "2026-11-23T23:07:59.928+00:00",
+      "updateTime": "2026-11-23T23:07:59.928+00:00",
+      "version": 1,
+      "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+     },
+     "guid": "0570f92e-d98e-4871-ab41-500f99bba20e"
+    },
+    "relatedElement": {
+     "elementHeader": {
+      "class": "ElementHeader",
+      "headerVersion": 0,
+      "status": "ACTIVE",
+      "type": {
+       "typeId": "4aa47799-5128-4eeb-bd72-e357b49f8bfe",
+       "typeName": "SolutionBlueprint",
+       "superTypeNames": [
+        "DesignModel",
+        "Collection",
+        "AuthoredReferenceable",
+        "Referenceable",
+        "OpenMetadataRoot"
+       ],
+       "typeVersion": 1,
+       "typeDescription": "Collection of solution components that make up a solution for digital services such as digital products.",
+       "typeCategory": "ENTITY_DEF"
+      },
+      "origin": {
+       "sourceServer": "qs-metadata-store",
+       "originCategory": "LOCAL_COHORT",
+       "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+       "homeMetadataCollectionName": "qs-metadata-store"
+      },
+      "versions": {
+       "createdBy": "jacquardnpa",
+       "updatedBy": "jacquardnpa",
+       "maintainedBy": [
+        "jacquardnpa"
+       ],
+       "createTime": "2026-11-23T23:07:59.577+00:00",
+       "updateTime": "2026-11-23T23:07:59.577+00:00",
+       "version": 1,
+       "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+      },
+      "guid": "ce9b1efc-77d5-4ba1-bbb5-08137fc87636",
+      "anchor": {
+       "class": "ElementClassification",
+       "headerVersion": 0,
+       "status": "ACTIVE",
+       "type": {
+        "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+        "typeName": "Anchors",
+        "typeVersion": 1,
+        "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+        "typeCategory": "CLASSIFICATION_DEF"
+       },
+       "origin": {
+        "sourceServer": "qs-metadata-store",
+        "originCategory": "LOCAL_COHORT",
+        "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+        "homeMetadataCollectionName": "qs-metadata-store"
+       },
+       "versions": {
+        "createdBy": "jacquardnpa",
+        "updatedBy": "jacquardnpa",
+        "maintainedBy": [
+         "jacquardnpa"
+        ],
+        "createTime": "2026-11-23T23:07:59.576+00:00",
+        "updateTime": "2026-11-23T23:07:59.576+00:00",
+        "version": 1,
+        "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+       },
+       "classificationOrigin": "ASSIGNED",
+       "classificationName": "Anchors",
+       "classificationProperties": {
+        "class": "AnchorsProperties",
+        "typeName": "Anchors",
+        "anchorTypeName": "SolutionBlueprint",
+        "anchorDomainName": "AuthoredReferenceable",
+        "zoneMembership": [
+         "digital-products"
+        ]
+       }
+      },
+      "zoneMembership": {
+       "class": "ElementClassification",
+       "headerVersion": 0,
+       "status": "ACTIVE",
+       "type": {
+        "typeId": "52993f4b-d853-47ae-a2e6-f22b96863533",
+        "typeName": "ZoneMembership",
+        "typeVersion": 1,
+        "typeDescription": "Defines the element's membership of the governance zones.",
+        "typeCategory": "CLASSIFICATION_DEF"
+       },
+       "origin": {
+        "sourceServer": "qs-metadata-store",
+        "originCategory": "LOCAL_COHORT",
+        "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+        "homeMetadataCollectionName": "qs-metadata-store"
+       },
+       "versions": {
+        "createdBy": "jacquardnpa",
+        "updatedBy": "jacquardnpa",
+        "maintainedBy": [
+         "jacquardnpa"
+        ],
+        "createTime": "2026-11-23T23:07:59.576+00:00",
+        "updateTime": "2026-11-23T23:07:59.576+00:00",
+        "version": 1,
+        "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+       },
+       "classificationOrigin": "ASSIGNED",
+       "classificationName": "ZoneMembership",
+       "classificationProperties": {
+        "class": "ZoneMembershipProperties",
+        "typeName": "ZoneMembership",
+        "zoneMembership": [
+         "digital-products"
+        ]
+       }
+      }
+     },
+     "properties": {
+      "class": "SolutionBlueprintProperties",
+      "typeName": "SolutionBlueprint",
+      "qualifiedName": "SolutionBlueprint::Jacquard::Creating a new Subscription to a Digital Product::6.4-SNAPSHOT",
+      "displayName": "Creating a new Subscription to a Digital Product",
+      "description": "Description of the processing when a consumer creates a new subscription to an Open Metadata Digital Product.",
+      "versionIdentifier": "6.4-SNAPSHOT"
+     }
+    },
+    "relatedElementAtEnd1": true
+   },
+   {
+    "class": "RelatedMetadataElementSummary",
+    "relationshipHeader": {
+     "class": "ElementHeader",
+     "headerVersion": 0,
+     "status": "ACTIVE",
+     "type": {
+      "typeId": "5cabb76a-e25b-4bb5-8b93-768bbac005af",
+      "typeName": "CollectionMembership",
+      "typeVersion": 1,
+      "typeDescription": "Identifies a member of a collection.",
+      "typeCategory": "RELATIONSHIP_DEF"
+     },
+     "origin": {
+      "sourceServer": "qs-metadata-store",
+      "originCategory": "LOCAL_COHORT",
+      "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+      "homeMetadataCollectionName": "qs-metadata-store"
+     },
+     "versions": {
+      "createdBy": "jacquardnpa",
+      "updatedBy": "jacquardnpa",
+      "maintainedBy": [
+       "jacquardnpa"
+      ],
+      "createTime": "2026-11-23T23:07:59.555+00:00",
+      "updateTime": "2026-11-23T23:07:59.555+00:00",
+      "version": 1,
+      "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+     },
+     "guid": "c646b311-b794-4197-8b31-542d4c15bdec"
+    },
+    "relatedElement": {
+     "elementHeader": {
+      "class": "ElementHeader",
+      "headerVersion": 0,
+      "status": "ACTIVE",
+      "type": {
+       "typeId": "4aa47799-5128-4eeb-bd72-e357b49f8bfe",
+       "typeName": "SolutionBlueprint",
+       "superTypeNames": [
+        "DesignModel",
+        "Collection",
+        "AuthoredReferenceable",
+        "Referenceable",
+        "OpenMetadataRoot"
+       ],
+       "typeVersion": 1,
+       "typeDescription": "Collection of solution components that make up a solution for digital services such as digital products.",
+       "typeCategory": "ENTITY_DEF"
+      },
+      "origin": {
+       "sourceServer": "qs-metadata-store",
+       "originCategory": "LOCAL_COHORT",
+       "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+       "homeMetadataCollectionName": "qs-metadata-store"
+      },
+      "versions": {
+       "createdBy": "jacquardnpa",
+       "updatedBy": "jacquardnpa",
+       "maintainedBy": [
+        "jacquardnpa"
+       ],
+       "createTime": "2026-11-23T23:07:59.345+00:00",
+       "updateTime": "2026-11-23T23:07:59.345+00:00",
+       "version": 1,
+       "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+      },
+      "guid": "f80b6a21-9c42-4eb5-8f63-59ef64118fd4",
+      "anchor": {
+       "class": "ElementClassification",
+       "headerVersion": 0,
+       "status": "ACTIVE",
+       "type": {
+        "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+        "typeName": "Anchors",
+        "typeVersion": 1,
+        "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+        "typeCategory": "CLASSIFICATION_DEF"
+       },
+       "origin": {
+        "sourceServer": "qs-metadata-store",
+        "originCategory": "LOCAL_COHORT",
+        "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+        "homeMetadataCollectionName": "qs-metadata-store"
+       },
+       "versions": {
+        "createdBy": "jacquardnpa",
+        "updatedBy": "jacquardnpa",
+        "maintainedBy": [
+         "jacquardnpa"
+        ],
+        "createTime": "2026-11-23T23:07:59.342+00:00",
+        "updateTime": "2026-11-23T23:07:59.342+00:00",
+        "version": 1,
+        "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+       },
+       "classificationOrigin": "ASSIGNED",
+       "classificationName": "Anchors",
+       "classificationProperties": {
+        "class": "AnchorsProperties",
+        "typeName": "Anchors",
+        "anchorTypeName": "SolutionBlueprint",
+        "anchorDomainName": "AuthoredReferenceable",
+        "zoneMembership": [
+         "digital-products"
+        ]
+       }
+      },
+      "zoneMembership": {
+       "class": "ElementClassification",
+       "headerVersion": 0,
+       "status": "ACTIVE",
+       "type": {
+        "typeId": "52993f4b-d853-47ae-a2e6-f22b96863533",
+        "typeName": "ZoneMembership",
+        "typeVersion": 1,
+        "typeDescription": "Defines the element's membership of the governance zones.",
+        "typeCategory": "CLASSIFICATION_DEF"
+       },
+       "origin": {
+        "sourceServer": "qs-metadata-store",
+        "originCategory": "LOCAL_COHORT",
+        "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+        "homeMetadataCollectionName": "qs-metadata-store"
+       },
+       "versions": {
+        "createdBy": "jacquardnpa",
+        "updatedBy": "jacquardnpa",
+        "maintainedBy": [
+         "jacquardnpa"
+        ],
+        "createTime": "2026-11-23T23:07:59.342+00:00",
+        "updateTime": "2026-11-23T23:07:59.342+00:00",
+        "version": 1,
+        "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+       },
+       "classificationOrigin": "ASSIGNED",
+       "classificationName": "ZoneMembership",
+       "classificationProperties": {
+        "class": "ZoneMembershipProperties",
+        "typeName": "ZoneMembership",
+        "zoneMembership": [
+         "digital-products"
+        ]
+       }
+      }
+     },
+     "properties": {
+      "class": "SolutionBlueprintProperties",
+      "typeName": "SolutionBlueprint",
+      "qualifiedName": "SolutionBlueprint::Jacquard::Searching for Digital Products::6.4-SNAPSHOT",
+      "displayName": "Searching for Digital Products",
+      "description": "Description of the processing when a potential consumer is searching the Open Metadata Digital Product Catalog for the right data for their project.",
+      "versionIdentifier": "6.4-SNAPSHOT"
+     }
+    },
+    "relatedElementAtEnd1": true
+   },
+   {
+    "class": "RelatedMetadataElementSummary",
+    "relationshipHeader": {
+     "class": "ElementHeader",
+     "headerVersion": 0,
+     "status": "ACTIVE",
+     "type": {
+      "typeId": "5cabb76a-e25b-4bb5-8b93-768bbac005af",
+      "typeName": "CollectionMembership",
+      "typeVersion": 1,
+      "typeDescription": "Identifies a member of a collection.",
+      "typeCategory": "RELATIONSHIP_DEF"
+     },
+     "origin": {
+      "sourceServer": "qs-metadata-store",
+      "originCategory": "LOCAL_COHORT",
+      "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+      "homeMetadataCollectionName": "qs-metadata-store"
+     },
+     "versions": {
+      "createdBy": "jacquardnpa",
+      "updatedBy": "jacquardnpa",
+      "maintainedBy": [
+       "jacquardnpa"
+      ],
+      "createTime": "2026-11-23T23:07:59.323+00:00",
+      "updateTime": "2026-11-23T23:07:59.323+00:00",
+      "version": 1,
+      "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+     },
+     "guid": "ec2742a6-5b51-4e95-bf83-c2e070211a89"
+    },
+    "relatedElement": {
+     "elementHeader": {
+      "class": "ElementHeader",
+      "headerVersion": 0,
+      "status": "ACTIVE",
+      "type": {
+       "typeId": "4aa47799-5128-4eeb-bd72-e357b49f8bfe",
+       "typeName": "SolutionBlueprint",
+       "superTypeNames": [
+        "DesignModel",
+        "Collection",
+        "AuthoredReferenceable",
+        "Referenceable",
+        "OpenMetadataRoot"
+       ],
+       "typeVersion": 1,
+       "typeDescription": "Collection of solution components that make up a solution for digital services such as digital products.",
+       "typeCategory": "ENTITY_DEF"
+      },
+      "origin": {
+       "sourceServer": "qs-metadata-store",
+       "originCategory": "LOCAL_COHORT",
+       "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+       "homeMetadataCollectionName": "qs-metadata-store"
+      },
+      "versions": {
+       "createdBy": "jacquardnpa",
+       "updatedBy": "jacquardnpa",
+       "maintainedBy": [
+        "jacquardnpa"
+       ],
+       "createTime": "2026-11-23T23:07:58.946+00:00",
+       "updateTime": "2026-11-23T23:07:58.946+00:00",
+       "version": 1,
+       "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+      },
+      "guid": "477ab54f-2d8e-42e7-8cd1-62a826479b30",
+      "anchor": {
+       "class": "ElementClassification",
+       "headerVersion": 0,
+       "status": "ACTIVE",
+       "type": {
+        "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+        "typeName": "Anchors",
+        "typeVersion": 1,
+        "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+        "typeCategory": "CLASSIFICATION_DEF"
+       },
+       "origin": {
+        "sourceServer": "qs-metadata-store",
+        "originCategory": "LOCAL_COHORT",
+        "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+        "homeMetadataCollectionName": "qs-metadata-store"
+       },
+       "versions": {
+        "createdBy": "jacquardnpa",
+        "updatedBy": "jacquardnpa",
+        "maintainedBy": [
+         "jacquardnpa"
+        ],
+        "createTime": "2026-11-23T23:07:58.945+00:00",
+        "updateTime": "2026-11-23T23:07:58.945+00:00",
+        "version": 1,
+        "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+       },
+       "classificationOrigin": "ASSIGNED",
+       "classificationName": "Anchors",
+       "classificationProperties": {
+        "class": "AnchorsProperties",
+        "typeName": "Anchors",
+        "anchorTypeName": "SolutionBlueprint",
+        "anchorDomainName": "AuthoredReferenceable",
+        "zoneMembership": [
+         "digital-products"
+        ]
+       }
+      },
+      "zoneMembership": {
+       "class": "ElementClassification",
+       "headerVersion": 0,
+       "status": "ACTIVE",
+       "type": {
+        "typeId": "52993f4b-d853-47ae-a2e6-f22b96863533",
+        "typeName": "ZoneMembership",
+        "typeVersion": 1,
+        "typeDescription": "Defines the element's membership of the governance zones.",
+        "typeCategory": "CLASSIFICATION_DEF"
+       },
+       "origin": {
+        "sourceServer": "qs-metadata-store",
+        "originCategory": "LOCAL_COHORT",
+        "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+        "homeMetadataCollectionName": "qs-metadata-store"
+       },
+       "versions": {
+        "createdBy": "jacquardnpa",
+        "updatedBy": "jacquardnpa",
+        "maintainedBy": [
+         "jacquardnpa"
+        ],
+        "createTime": "2026-11-23T23:07:58.945+00:00",
+        "updateTime": "2026-11-23T23:07:58.945+00:00",
+        "version": 1,
+        "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+       },
+       "classificationOrigin": "ASSIGNED",
+       "classificationName": "ZoneMembership",
+       "classificationProperties": {
+        "class": "ZoneMembershipProperties",
+        "typeName": "ZoneMembership",
+        "zoneMembership": [
+         "digital-products"
+        ]
+       }
+      }
+     },
+     "properties": {
+      "class": "SolutionBlueprintProperties",
+      "typeName": "SolutionBlueprint",
+      "qualifiedName": "SolutionBlueprint::Jacquard::Jacquard Digital Product Loom::6.4-SNAPSHOT",
+      "displayName": "Jacquard Digital Product Loom",
+      "description": "Description of the processing used to create and manage the digital products derived from open metadata in the Open Metadata Digital Product Catalog.",
+      "versionIdentifier": "6.4-SNAPSHOT"
+     }
+    },
+    "relatedElementAtEnd1": true
+   },
+   {
+    "class": "RelatedMetadataElementSummary",
+    "relationshipHeader": {
+     "class": "ElementHeader",
+     "headerVersion": 0,
+     "status": "ACTIVE",
+     "type": {
+      "typeId": "5cabb76a-e25b-4bb5-8b93-768bbac005af",
+      "typeName": "CollectionMembership",
+      "typeVersion": 1,
+      "typeDescription": "Identifies a member of a collection.",
+      "typeCategory": "RELATIONSHIP_DEF"
+     },
+     "origin": {
+      "sourceServer": "qs-metadata-store",
+      "originCategory": "LOCAL_COHORT",
+      "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+      "homeMetadataCollectionName": "qs-metadata-store"
+     },
+     "versions": {
+      "createdBy": "jacquardnpa",
+      "updatedBy": "jacquardnpa",
+      "maintainedBy": [
+       "jacquardnpa"
+      ],
+      "createTime": "2026-11-23T23:07:58.861+00:00",
+      "updateTime": "2026-11-23T23:07:58.861+00:00",
+      "version": 1,
+      "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+     },
+     "guid": "9be15efe-0028-4240-8c5d-7ee2b9e834dc"
+    },
+    "relatedElement": {
+     "elementHeader": {
+      "class": "ElementHeader",
+      "headerVersion": 0,
+      "status": "ACTIVE",
+      "type": {
+       "typeId": "4aa47799-5128-4eeb-bd72-e357b49f8bfe",
+       "typeName": "SolutionBlueprint",
+       "superTypeNames": [
+        "DesignModel",
+        "Collection",
+        "AuthoredReferenceable",
+        "Referenceable",
+        "OpenMetadataRoot"
+       ],
+       "typeVersion": 1,
+       "typeDescription": "Collection of solution components that make up a solution for digital services such as digital products.",
+       "typeCategory": "ENTITY_DEF"
+      },
+      "origin": {
+       "sourceServer": "qs-metadata-store",
+       "originCategory": "LOCAL_COHORT",
+       "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+       "homeMetadataCollectionName": "qs-metadata-store"
+      },
+      "versions": {
+       "createdBy": "jacquardnpa",
+       "updatedBy": "jacquardnpa",
+       "maintainedBy": [
+        "jacquardnpa"
+       ],
+       "createTime": "2026-11-23T23:07:58.243+00:00",
+       "updateTime": "2026-11-23T23:07:58.243+00:00",
+       "version": 1,
+       "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+      },
+      "guid": "c1bd75f9-3ab9-4367-85c3-5abb4f12acf7",
+      "anchor": {
+       "class": "ElementClassification",
+       "headerVersion": 0,
+       "status": "ACTIVE",
+       "type": {
+        "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+        "typeName": "Anchors",
+        "typeVersion": 1,
+        "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+        "typeCategory": "CLASSIFICATION_DEF"
+       },
+       "origin": {
+        "sourceServer": "qs-metadata-store",
+        "originCategory": "LOCAL_COHORT",
+        "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+        "homeMetadataCollectionName": "qs-metadata-store"
+       },
+       "versions": {
+        "createdBy": "jacquardnpa",
+        "updatedBy": "jacquardnpa",
+        "maintainedBy": [
+         "jacquardnpa"
+        ],
+        "createTime": "2026-11-23T23:07:58.242+00:00",
+        "updateTime": "2026-11-23T23:07:58.242+00:00",
+        "version": 1,
+        "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+       },
+       "classificationOrigin": "ASSIGNED",
+       "classificationName": "Anchors",
+       "classificationProperties": {
+        "class": "AnchorsProperties",
+        "typeName": "Anchors",
+        "anchorTypeName": "SolutionBlueprint",
+        "anchorDomainName": "AuthoredReferenceable",
+        "zoneMembership": [
+         "digital-products"
+        ]
+       }
+      },
+      "zoneMembership": {
+       "class": "ElementClassification",
+       "headerVersion": 0,
+       "status": "ACTIVE",
+       "type": {
+        "typeId": "52993f4b-d853-47ae-a2e6-f22b96863533",
+        "typeName": "ZoneMembership",
+        "typeVersion": 1,
+        "typeDescription": "Defines the element's membership of the governance zones.",
+        "typeCategory": "CLASSIFICATION_DEF"
+       },
+       "origin": {
+        "sourceServer": "qs-metadata-store",
+        "originCategory": "LOCAL_COHORT",
+        "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+        "homeMetadataCollectionName": "qs-metadata-store"
+       },
+       "versions": {
+        "createdBy": "jacquardnpa",
+        "updatedBy": "jacquardnpa",
+        "maintainedBy": [
+         "jacquardnpa"
+        ],
+        "createTime": "2026-11-23T23:07:58.242+00:00",
+        "updateTime": "2026-11-23T23:07:58.242+00:00",
+        "version": 1,
+        "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+       },
+       "classificationOrigin": "ASSIGNED",
+       "classificationName": "ZoneMembership",
+       "classificationProperties": {
+        "class": "ZoneMembershipProperties",
+        "typeName": "ZoneMembership",
+        "zoneMembership": [
+         "digital-products"
+        ]
+       }
+      }
+     },
+     "properties": {
+      "class": "SolutionBlueprintProperties",
+      "typeName": "SolutionBlueprint",
+      "qualifiedName": "SolutionBlueprint::Jacquard::Open Metadata Digital Product Catalog Components::6.4-SNAPSHOT",
+      "displayName": "Open Metadata Digital Product Catalog Components",
+      "description": "Description of the processing used to create and manage the digital products derived from open metadata.",
+      "versionIdentifier": "6.4-SNAPSHOT"
+     }
+    },
+    "relatedElementAtEnd1": true
+   }
+  ],
+  "interactingWithSolutionComponents": [
+   {
+    "class": "RelatedMetadataElementSummary",
+    "relationshipHeader": {
+     "class": "ElementHeader",
+     "headerVersion": 0,
+     "status": "ACTIVE",
+     "type": {
+      "typeId": "b6722d63-9924-4877-82b0-f9207cd78174",
+      "typeName": "SolutionComponentActor",
+      "typeVersion": 1,
+      "typeDescription": "An actor that is interacting with the solution component.",
+      "typeCategory": "RELATIONSHIP_DEF"
+     },
+     "origin": {
+      "sourceServer": "qs-metadata-store",
+      "originCategory": "LOCAL_COHORT",
+      "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+      "homeMetadataCollectionName": "qs-metadata-store"
+     },
+     "versions": {
+      "createdBy": "jacquardnpa",
+      "updatedBy": "jacquardnpa",
+      "maintainedBy": [
+       "jacquardnpa"
+      ],
+      "createTime": "2026-11-23T23:07:58.176+00:00",
+      "updateTime": "2026-11-23T23:07:58.176+00:00",
+      "version": 1,
+      "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+     },
+     "guid": "f58781fc-14ce-4133-92bb-303837dc4ac7"
+    },
+    "relationshipProperties": {
+     "class": "SolutionComponentActorProperties",
+     "typeName": "SolutionComponentActor",
+     "role": "Cancel product subscription",
+     "description": "Request that an existing subscription pipeline is shutdown.  The subscription type determines whether the data at the destination is removed or not."
+    },
+    "relatedElement": {
+     "elementHeader": {
+      "class": "ElementHeader",
+      "headerVersion": 0,
+      "status": "ACTIVE",
+      "type": {
+       "typeId": "b83f3d42-f3f7-4155-ae65-58fb44ea7644",
+       "typeName": "SolutionComponent",
+       "superTypeNames": [
+        "DesignModelElement",
+        "AuthoredReferenceable",
+        "Referenceable",
+        "OpenMetadataRoot"
+       ],
+       "typeVersion": 2,
+       "typeDescription": "Description of a well-defined capability within a solution.",
+       "typeCategory": "ENTITY_DEF"
+      },
+      "origin": {
+       "sourceServer": "qs-metadata-store",
+       "originCategory": "LOCAL_COHORT",
+       "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+       "homeMetadataCollectionName": "qs-metadata-store"
+      },
+      "versions": {
+       "createdBy": "jacquardnpa",
+       "updatedBy": "jacquardnpa",
+       "maintainedBy": [
+        "jacquardnpa"
+       ],
+       "createTime": "2026-11-23T23:07:56.947+00:00",
+       "updateTime": "2026-11-23T23:07:56.947+00:00",
+       "version": 1,
+       "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+      },
+      "guid": "b28dc0fa-9023-413e-8121-8a9d179686fd",
+      "anchor": {
+       "class": "ElementClassification",
+       "headerVersion": 0,
+       "status": "ACTIVE",
+       "type": {
+        "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+        "typeName": "Anchors",
+        "typeVersion": 1,
+        "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+        "typeCategory": "CLASSIFICATION_DEF"
+       },
+       "origin": {
+        "sourceServer": "qs-metadata-store",
+        "originCategory": "LOCAL_COHORT",
+        "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+        "homeMetadataCollectionName": "qs-metadata-store"
+       },
+       "versions": {
+        "createdBy": "jacquardnpa",
+        "updatedBy": "jacquardnpa",
+        "maintainedBy": [
+         "jacquardnpa"
+        ],
+        "createTime": "2026-11-23T23:07:56.944+00:00",
+        "updateTime": "2026-11-23T23:07:56.944+00:00",
+        "version": 1,
+        "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+       },
+       "classificationOrigin": "ASSIGNED",
+       "classificationName": "Anchors",
+       "classificationProperties": {
+        "class": "AnchorsProperties",
+        "typeName": "Anchors",
+        "anchorTypeName": "SolutionComponent",
+        "anchorDomainName": "AuthoredReferenceable"
+       }
+      },
+      "duplicateClassifications": [
+       {
+        "class": "ElementClassification",
+        "headerVersion": 0,
+        "status": "ACTIVE",
+        "type": {
+         "typeId": "e55062b2-907f-44bd-9831-255642285731",
+         "typeName": "KnownDuplicate",
+         "typeVersion": 1,
+         "typeDescription": "Defines that duplicate resolution processing is required.",
+         "typeCategory": "CLASSIFICATION_DEF"
+        },
+        "origin": {
+         "sourceServer": "qs-metadata-store",
+         "originCategory": "LOCAL_COHORT",
+         "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+         "homeMetadataCollectionName": "qs-metadata-store"
+        },
+        "versions": {
+         "createdBy": "jacquardnpa",
+         "updatedBy": "jacquardnpa",
+         "maintainedBy": [
+          "jacquardnpa"
+         ],
+         "createTime": "2026-11-23T23:08:02.159+00:00",
+         "updateTime": "2026-11-23T23:08:02.159+00:00",
+         "version": 1,
+         "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+        },
+        "classificationOrigin": "ASSIGNED",
+        "classificationName": "KnownDuplicate",
+        "classificationProperties": {
+         "class": "KnownDuplicateProperties",
+         "typeName": "KnownDuplicate"
+        }
+       }
+      ]
+     },
+     "properties": {
+      "class": "SolutionComponentProperties",
+      "typeName": "SolutionComponent",
+      "qualifiedName": "SolutionComponent::Jacquard::Cancel Product Subscription::6.4-SNAPSHOT",
+      "displayName": "Cancel Product Subscription",
+      "description": "The process of cancelling an existing consumer's subscription to a digital product.",
+      "versionIdentifier": "6.4-SNAPSHOT",
+      "solutionComponentType": "Automated Action"
+     }
+    },
+    "relatedElementAtEnd1": false
+   },
+   {
+    "class": "RelatedMetadataElementSummary",
+    "relationshipHeader": {
+     "class": "ElementHeader",
+     "headerVersion": 0,
+     "status": "ACTIVE",
+     "type": {
+      "typeId": "b6722d63-9924-4877-82b0-f9207cd78174",
+      "typeName": "SolutionComponentActor",
+      "typeVersion": 1,
+      "typeDescription": "An actor that is interacting with the solution component.",
+      "typeCategory": "RELATIONSHIP_DEF"
+     },
+     "origin": {
+      "sourceServer": "qs-metadata-store",
+      "originCategory": "LOCAL_COHORT",
+      "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+      "homeMetadataCollectionName": "qs-metadata-store"
+     },
+     "versions": {
+      "createdBy": "jacquardnpa",
+      "updatedBy": "jacquardnpa",
+      "maintainedBy": [
+       "jacquardnpa"
+      ],
+      "createTime": "2026-11-23T23:07:58.136+00:00",
+      "updateTime": "2026-11-23T23:07:58.136+00:00",
+      "version": 1,
+      "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+     },
+     "guid": "25b30854-efc1-4f45-a08a-2e99f1472710"
+    },
+    "relationshipProperties": {
+     "class": "SolutionComponentActorProperties",
+     "typeName": "SolutionComponentActor",
+     "role": "Subscribe to product",
+     "description": "Request that a new subscription is activated.  The selected subscription type determines the level of service and the type of technology to use when provisioning the product data."
+    },
+    "relatedElement": {
+     "elementHeader": {
+      "class": "ElementHeader",
+      "headerVersion": 0,
+      "status": "ACTIVE",
+      "type": {
+       "typeId": "b83f3d42-f3f7-4155-ae65-58fb44ea7644",
+       "typeName": "SolutionComponent",
+       "superTypeNames": [
+        "DesignModelElement",
+        "AuthoredReferenceable",
+        "Referenceable",
+        "OpenMetadataRoot"
+       ],
+       "typeVersion": 2,
+       "typeDescription": "Description of a well-defined capability within a solution.",
+       "typeCategory": "ENTITY_DEF"
+      },
+      "origin": {
+       "sourceServer": "qs-metadata-store",
+       "originCategory": "LOCAL_COHORT",
+       "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+       "homeMetadataCollectionName": "qs-metadata-store"
+      },
+      "versions": {
+       "createdBy": "jacquardnpa",
+       "updatedBy": "jacquardnpa",
+       "maintainedBy": [
+        "jacquardnpa"
+       ],
+       "createTime": "2026-11-23T23:07:56.890+00:00",
+       "updateTime": "2026-11-23T23:07:56.890+00:00",
+       "version": 1,
+       "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+      },
+      "guid": "1199d3ff-56dc-4e04-8201-53a831789423",
+      "anchor": {
+       "class": "ElementClassification",
+       "headerVersion": 0,
+       "status": "ACTIVE",
+       "type": {
+        "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+        "typeName": "Anchors",
+        "typeVersion": 1,
+        "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+        "typeCategory": "CLASSIFICATION_DEF"
+       },
+       "origin": {
+        "sourceServer": "qs-metadata-store",
+        "originCategory": "LOCAL_COHORT",
+        "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+        "homeMetadataCollectionName": "qs-metadata-store"
+       },
+       "versions": {
+        "createdBy": "jacquardnpa",
+        "updatedBy": "jacquardnpa",
+        "maintainedBy": [
+         "jacquardnpa"
+        ],
+        "createTime": "2026-11-23T23:07:56.888+00:00",
+        "updateTime": "2026-11-23T23:07:56.888+00:00",
+        "version": 1,
+        "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+       },
+       "classificationOrigin": "ASSIGNED",
+       "classificationName": "Anchors",
+       "classificationProperties": {
+        "class": "AnchorsProperties",
+        "typeName": "Anchors",
+        "anchorTypeName": "SolutionComponent",
+        "anchorDomainName": "AuthoredReferenceable"
+       }
+      },
+      "duplicateClassifications": [
+       {
+        "class": "ElementClassification",
+        "headerVersion": 0,
+        "status": "ACTIVE",
+        "type": {
+         "typeId": "e55062b2-907f-44bd-9831-255642285731",
+         "typeName": "KnownDuplicate",
+         "typeVersion": 1,
+         "typeDescription": "Defines that duplicate resolution processing is required.",
+         "typeCategory": "CLASSIFICATION_DEF"
+        },
+        "origin": {
+         "sourceServer": "qs-metadata-store",
+         "originCategory": "LOCAL_COHORT",
+         "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+         "homeMetadataCollectionName": "qs-metadata-store"
+        },
+        "versions": {
+         "createdBy": "jacquardnpa",
+         "updatedBy": "jacquardnpa",
+         "maintainedBy": [
+          "jacquardnpa"
+         ],
+         "createTime": "2026-11-23T23:08:01.967+00:00",
+         "updateTime": "2026-11-23T23:08:01.967+00:00",
+         "version": 1,
+         "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+        },
+        "classificationOrigin": "ASSIGNED",
+        "classificationName": "KnownDuplicate",
+        "classificationProperties": {
+         "class": "KnownDuplicateProperties",
+         "typeName": "KnownDuplicate"
+        }
+       }
+      ]
+     },
+     "properties": {
+      "class": "SolutionComponentProperties",
+      "typeName": "SolutionComponent",
+      "qualifiedName": "SolutionComponent::Jacquard::Create New Product Subscription::6.4-SNAPSHOT",
+      "displayName": "Create New Product Subscription",
+      "description": "The process of setting up the subscription for a new consumer.",
+      "versionIdentifier": "6.4-SNAPSHOT",
+      "solutionComponentType": "Automated Action"
+     }
+    },
+    "relatedElementAtEnd1": false
+   },
+   {
+    "class": "RelatedMetadataElementSummary",
+    "relationshipHeader": {
+     "class": "ElementHeader",
+     "headerVersion": 0,
+     "status": "ACTIVE",
+     "type": {
+      "typeId": "b6722d63-9924-4877-82b0-f9207cd78174",
+      "typeName": "SolutionComponentActor",
+      "typeVersion": 1,
+      "typeDescription": "An actor that is interacting with the solution component.",
+      "typeCategory": "RELATIONSHIP_DEF"
+     },
+     "origin": {
+      "sourceServer": "qs-metadata-store",
+      "originCategory": "LOCAL_COHORT",
+      "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+      "homeMetadataCollectionName": "qs-metadata-store"
+     },
+     "versions": {
+      "createdBy": "jacquardnpa",
+      "updatedBy": "jacquardnpa",
+      "maintainedBy": [
+       "jacquardnpa"
+      ],
+      "createTime": "2026-11-23T23:07:58.093+00:00",
+      "updateTime": "2026-11-23T23:07:58.093+00:00",
+      "version": 1,
+      "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+     },
+     "guid": "ed67b73a-3779-427c-b2cc-a953bd298af1"
+    },
+    "relationshipProperties": {
+     "class": "SolutionComponentActorProperties",
+     "typeName": "SolutionComponentActor",
+     "role": "Shop for data",
+     "description": "Perform searches on the product catalog to locate possible products for their project."
+    },
+    "relatedElement": {
+     "elementHeader": {
+      "class": "ElementHeader",
+      "headerVersion": 0,
+      "status": "ACTIVE",
+      "type": {
+       "typeId": "b83f3d42-f3f7-4155-ae65-58fb44ea7644",
+       "typeName": "SolutionComponent",
+       "superTypeNames": [
+        "DesignModelElement",
+        "AuthoredReferenceable",
+        "Referenceable",
+        "OpenMetadataRoot"
+       ],
+       "typeVersion": 2,
+       "typeDescription": "Description of a well-defined capability within a solution.",
+       "typeCategory": "ENTITY_DEF"
+      },
+      "origin": {
+       "sourceServer": "qs-metadata-store",
+       "originCategory": "LOCAL_COHORT",
+       "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+       "homeMetadataCollectionName": "qs-metadata-store"
+      },
+      "versions": {
+       "createdBy": "jacquardnpa",
+       "updatedBy": "jacquardnpa",
+       "maintainedBy": [
+        "jacquardnpa"
+       ],
+       "createTime": "2026-11-23T23:07:56.842+00:00",
+       "updateTime": "2026-11-23T23:07:56.842+00:00",
+       "version": 1,
+       "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+      },
+      "guid": "3732af1c-e934-439c-9f6e-189abffdf874",
+      "anchor": {
+       "class": "ElementClassification",
+       "headerVersion": 0,
+       "status": "ACTIVE",
+       "type": {
+        "typeId": "aa44f302-2e43-4669-a1e7-edaae414fc6e",
+        "typeName": "Anchors",
+        "typeVersion": 1,
+        "typeDescription": "Identifies the anchor entity for an element that is part of a large composite object such as an asset.",
+        "typeCategory": "CLASSIFICATION_DEF"
+       },
+       "origin": {
+        "sourceServer": "qs-metadata-store",
+        "originCategory": "LOCAL_COHORT",
+        "homeMetadataCollectionId": "9905c3cb-94c5-4494-9229-0d6f69c0b842",
+        "homeMetadataCollectionName": "qs-metadata-store"
+       },
+       "versions": {
+        "createdBy": "jacquardnpa",
+        "updatedBy": "jacquardnpa",
+        "maintainedBy": [
+         "jacquardnpa"
+        ],
+        "createTime": "2026-11-23T23:07:56.841+00:00",
+        "updateTime": "2026-11-23T23:07:56.841+00:00",
+        "version": 1,
+        "lastRequestId": "eda173b7-662f-4256-850c-b740b784e8c7"
+       },
+       "classificationOrigin": "ASSIGNED",
+       "classificationName": "Anchors",
+       "classificationProperties": {
+        "class": "AnchorsProperties",
+        "typeName": "Anchors",
+        "anchorTypeName": "SolutionComponent",
+        "anchorDomainName": "AuthoredReferenceable"
+       }
+      }
+     },
+     "properties": {
+      "class": "SolutionComponentProperties",
+      "typeName": "SolutionComponent",
+      "qualifiedName": "SolutionComponent::Jacquard::Product Catalog::6.4-SNAPSHOT",
+      "displayName": "Product Catalog",
+      "description": "Supports the process of locating the appropriate digital product by providing organized, searchable descriptions of the digital products to the product consumers.",
+      "versionIdentifier": "6.4-SNAPSHOT",
+      "solutionComponentType": "Data Storage"
+     }
+    },
+    "relatedElementAtEnd1": false
+   }
+  ],
+  "properties": {
+   "class": "SolutionActorRoleProperties",
+   "typeName": "SolutionActorRole",
+   "qualifiedName": "SolutionActorRole::Jacquard::OpenMetadataProductSubscriber",
+   "identifier": "OpenMetadataProductSubscriber",
+   "displayName": "Open Metadata Product Subscriber",
+   "description": "Subscriber to one of the open metadata data products from Open Metadata Ecosystem."
+  },
+  "mermaidGraph": "---\ntitle: SolutionActorRole - Open Metadata Product Subscriber [9f7c39ca-024d-4779-b3b6-ebbef401e923]\n---\nflowchart TD\n%%{init: {\"flowchart\": {\"htmlLabels\": false}} }%%\n\n1@{ shape: rounded, label: \"*Solution Actor Role*\n**Open Metadata Product Subscriber**\"}\n2@{ shape: rect, label: \"*Solution Blueprint*\n**Cancelling a Subscription to a Digital Product**\"}\n2==>|\"Collection Membership\"|1\n3@{ shape: rect, label: \"*Solution Blueprint*\n**Creating a new Subscription to a Digital Product**\"}\n3==>|\"Collection Membership\"|1\n4@{ shape: rect, label: \"*Solution Blueprint*\n**Searching for Digital Products**\"}\n4==>|\"Collection Membership\"|1\n5@{ shape: rect, label: \"*Solution Blueprint*\n**Jacquard Digital Product Loom**\"}\n5==>|\"Collection Membership\"|1\n6@{ shape: rect, label: \"*Solution Blueprint*\n**Open Metadata Digital Product Catalog Components**\"}\n6==>|\"Collection Membership\"|1\n7@{ shape: rect, label: \"*Solution Component [Known Duplicate]*\n**Cancel Product Subscription**\"}\n1==>|\"Cancel product subscription [Solution Component Actor]\"|7\n8@{ shape: rect, label: \"*Solution Component [Known Duplicate]*\n**Create New Product Subscription**\"}\n1==>|\"Subscribe to product [Solution Component Actor]\"|8\n9@{ shape: rect, label: \"*Solution Component*\n**Product Catalog**\"}\n1==>|\"Shop for data [Solution Component Actor]\"|9\nstyle 1 color:#000000, fill:#e0ab18, stroke:#004563\nstyle 2 color:#000000, fill:#f5fffa, stroke:#000000\nstyle 3 color:#000000, fill:#f5fffa, stroke:#000000\nstyle 4 color:#000000, fill:#f5fffa, stroke:#000000\nstyle 5 color:#000000, fill:#f5fffa, stroke:#000000\nstyle 6 color:#000000, fill:#f5fffa, stroke:#000000\nstyle 7 color:#000000, fill:#DDA0DD, stroke:#000000\nstyle 8 color:#000000, fill:#DDA0DD, stroke:#000000\nstyle 9 color:#000000, fill:#DDA0DD, stroke:#000000\n"
+ }
+}

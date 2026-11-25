@@ -9,6 +9,23 @@ what's actually open — a stub with a link is left in place of each moved
 section. Sections with any open/pending sub-items stay here even if their
 header says "done", since part of the work is still live.
 ---
+## CAT-CONTAINS The Catalog: a "Contains" view of an asset's nested parts (2026-11-13) — open, MEDIUM
+
+**Ask (owner, 2026-11-13):** after fix/catalog-relationships-own-only (9c32b5b5), show nested objects more clearly.
+
+**Background:**
+- The asset detail reads `get_asset_graph_by_guid` at depth 5. Its flat `relationships` list holds the whole reachable subgraph, and the detail page listed all of it as the asset's own (Customer API: 15, of which 2 were its own).
+- 9c32b5b5 keeps only the asset's own. The nested parts' relationships are now visible only where `_serialize_schema` reads them, on the Schema tab.
+- Read-back: `~/.re-gate/READBACK-portal-catalog-relationships-own-only-9c32b5b5-2026-11-13.md`.
+
+**Scope sketch:**
+- A "Contains" tab or view: the asset's nested parts as a tree (API → operations → request/response → parameters; database → schemas → tables → columns; schema type → attributes), each part with its own relationships beside it (e.g. a parameter's SemanticAssignment to a glossary term).
+- Cover every containment relationship. This also fixes the empty API Schema tab: APIOperations, APIRequest and APIResponse are missing from `_SCHEMA_CONTAINMENT_RELS` in `tech_catalog_handler.py`.
+- Optional performance work: load the detail shallow (graph depth 1) and fetch the depth-5 tree only when the Contains or Schema tab opens. Today, large assets time out under load (3 of 37 in the read-back).
+- Keep graph depth 5 for the tree. Depth 3 would drop the deepest parts (API parameters sit about 5 links down).
+
+**Where:** `compose-configs/egeria-quickstart/PyegeriaWebHandler/tech_catalog_handler.py` and the Catalog SPA (`tech-catalog.html`). Use the `pyegeria-spa-add-tab` skill.
+
 ## LD-FOLDERS Local dashboards held in Egeria folders, like report specs (2026-11-11) — open, MEDIUM
 
 **Ask (owner, 2026-11-11):** use the same folder approach for local dashboards as for report specs.

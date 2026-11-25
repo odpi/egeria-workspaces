@@ -78,6 +78,9 @@ def test_a_service_route_refuses_in_words_with_no_egeria_call(monkeypatch, no_ou
 
 def test_the_token_endpoint_refuses_in_words(monkeypatch, no_outbound):
     monkeypatch.delenv("EGERIA_USER_PASSWORD", raising=False)
+    import demo_config      # the local (no login gate) mode, where {} reaches the service password (PO-68)
+    monkeypatch.setattr(demo_config, "DEMO_MODE", False)
+    monkeypatch.setattr(demo_config, "SERVER_MANAGED_AUTH", False)
     import pyegeria_handler as handler
     r = TestClient(handler.app, raise_server_exceptions=False).post("/api/egeria-token", json={})
     assert r.status_code == 503 and WORDS in r.json()["detail"], r.text

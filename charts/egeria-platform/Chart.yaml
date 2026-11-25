@@ -1,0 +1,21 @@
+apiVersion: v2
+name: egeria-platform
+description: One Egeria 6 OMAG Server Platform (quickstart or freshstart environment), single replica.
+type: application
+version: 0.1.0
+# appVersion is the Egeria release; the image is pinned by digest in values.yaml.
+appVersion: "6.3"
+dependencies:
+  - name: egeria-common
+    version: 0.1.0
+    repository: file://../egeria-common
+  - name: egeria-demo-postgres
+    version: 0.1.0
+    repository: file://../egeria-demo-postgres
+    alias: demoPostgres
+    condition: demoPostgres.enabled
+  - name: egeria-demo-kafka
+    version: 0.1.0
+    repository: file://../egeria-demo-kafka
+    alias: demoKafka
+    condition: demoKafka.enabled

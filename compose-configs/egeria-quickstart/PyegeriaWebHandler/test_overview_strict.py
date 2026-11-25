@@ -91,13 +91,22 @@ class _FullPageMgr(_FailingMgr):
         return [{"elementHeader": {"guid": f"g{i}"}} for i in range(om.DEFAULT_CAP)]
 
 
-def test_stale_asset_note_reaches_the_summary_payload(monkeypatch):
-    # Drives the real _compute_summary and real pyegeria stale_assets: a full Asset page is a sample, so
-    # the count is None and the payload carries pyegeria's own words as staleAssetNote (not a bare "—").
-    monkeypatch.setattr(oh, "_expert", lambda *a, **k: _FullPageMgr())
+class _FailedReadMgr(_FailingMgr):
+    """A native Asset count that works, but every find fails: stale_assets has a total to bisect over and
+    then cannot read the rows in update-time order."""
+    def count_metadata_elements(self, body, push_down=None):
+        return 1000
+
+
+def test_stale_asset_note_reaches_the_summary_payload(monkeypatch, native):
+    # Drives the real _compute_summary and real pyegeria stale_assets. Since pyegeria 6.3.0 stale_assets
+    # never reads a page of Assets (so there is no "page cap" case): it counts natively, then bisects over
+    # one-row reads. With the count answered and the reads failing, staleCount is None and the payload
+    # carries pyegeria's own words as staleAssetNote (not a bare "—").
+    monkeypatch.setattr(oh, "_expert", lambda *a, **k: _FailedReadMgr())
     payload = oh._compute_summary(None, "https://x", "srv", "u", "p")
     assert payload["staleAssetCount"] is None
-    assert payload["staleAssetNote"] and "page cap" in payload["staleAssetNote"]
+    assert payload["staleAssetNote"] and "update-time order failed" in payload["staleAssetNote"]
 
 
 def test_stale_asset_note_label_is_pinned():

@@ -65,7 +65,7 @@ The server binds to all interfaces (`::`) so it is reachable via mDNS names (e.g
 **Obsidian "Call Dr. Egeria" plugin settings:**
 - Transport: `SSE`
 - URL: `http://localhost:8800/sse` (or the remote hostname)
-- Token: value of `MCP_API_KEY` in the container environment (default: `egeria-secret-mcp-token`)
+- Token: value of `MCP_ACCESS_TOKEN` in the container environment (no default: generated into the stack's `.env` on the first run; unset means MCP is off)
 
 **MCP Inspector (for debugging):**
 ```bash
@@ -239,7 +239,7 @@ graph TD
 
 The SSE endpoint is protected at two levels:
 
-- **Token authentication**: Requests must include the `MCP_API_KEY` value as either an `X-API-Key` header or a `?token=` query parameter. Default: `egeria-secret-mcp-token`. Set a unique value per environment via the container environment variable.
+- **Token authentication**: Requests must include the `MCP_ACCESS_TOKEN` value as either an `X-API-Key` header or a `?token=` query parameter. There is no default: `quick-start-local` / `fresh-start-local` generate a random `MCP_ACCESS_TOKEN` into the stack's `.env` and keep it; unset, the endpoints are off, and the value the stack used to publish is refused.
 - **CORS**: Configured to allow all origins (`*`) to accommodate Obsidian (`app://obsidian.md`) and remote HTTP clients.
 
 For stdio transport (Claude Desktop), no token is required — the connection is secured by the `docker exec` process boundary.

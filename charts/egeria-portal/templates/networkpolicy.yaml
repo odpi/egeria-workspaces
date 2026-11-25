@@ -1,0 +1,29 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- $cfg := include "egeria-portal.cfg" . | fromYaml -}}
+# The Portal accepts traffic only from its own front door; the front door accepts traffic from the Ingress controller
+# or anywhere in the cluster that can reach its Service (add a stricter selector for your controller if needed).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $cfg.fullname }}
+  labels:
+    {{- include "egeria-common.labels" (dict "ctx" . "component" "portal") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "egeria-common.selectorLabels" (dict "ctx" . "component" "portal") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "egeria-common.selectorLabels" (dict "ctx" . "component" "portal-web") | nindent 14 }}
+        # helm test
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: portal-canary
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports:
+        - protocol: TCP
+          port: 8000
+{{- end }}

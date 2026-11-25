@@ -733,7 +733,7 @@
 
 <!-- Shared portal helpers: egeriaFetch (adds creds + auto 401-refresh), crossAppNavigate -->
 <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
-<script src="/static/egeria-shared-ui.js?v=2026-11-17-po41"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-11-22-cv2"></script>
 <!-- Vega-Lite chart rendering (NEXT-10 P1) — same CDN trio pyegeria's own
      vega_to_html() assumes. Backend sends ready Vega-Lite specs; renderVega()
      below just embeds them. -->
@@ -2450,6 +2450,17 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
         });
       }
       uncNote('leaderboard', uncMark('leaderboard', store));
+    } else if (leadEl) {
+      // PO-86: null or missing = the leaderboard could not be read. Never leave "Loading…" up once the response
+      // has arrived, and never say "no karma records" (that is [], a real answer).
+      leadEl.innerHTML = '';
+      var nmLead = document.createElement('div');
+      nmLead.className = 'lead-nm';
+      nmLead.style.cssText = 'color:var(--muted);font-size:.8rem;padding:8px 0';
+      var nmWhy = nmReason('leaderboard', store);
+      nmLead.textContent = 'Not measured: the karma leaderboard could not be read' + (nmWhy ? ' (' + nmWhy + ')' : '');
+      leadEl.appendChild(nmLead);
+      uncNote('leaderboard', null);
     }
     // Engagement over time — real weekly feedback trend (renderVega falls
     // through silently when engagementChart is null on an older pyegeria).

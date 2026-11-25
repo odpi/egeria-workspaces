@@ -24,7 +24,9 @@ if (isContainer) {
     if (!fs.existsSync(dataJsonPath)) {
         const containerDefaults = {
             mcpUrl: 'http://pyegeria-web:8000/sse',
-            mcpToken: 'egeria-secret-mcp-token',
+            // No published default (PO-82): the stack's own MCP_ACCESS_TOKEN (from its .env), else blank. In demo mode the
+            // portal writes it into data.json when a persona takes the Obsidian lock.
+            mcpToken: process.env.MCP_ACCESS_TOKEN || '',
             userId: 'erinoverview',
             userPass: 'secret',
             egeriaUrl: 'https://host.docker.internal:9443',
@@ -37,6 +39,9 @@ if (isContainer) {
         };
         fs.writeFileSync(dataJsonPath, JSON.stringify(containerDefaults, null, 2));
         console.log(`  Wrote container defaults to data.json (mcpUrl: pyegeria-web:8000/sse)`);
+        if (!containerDefaults.mcpToken) {
+            console.log(`  mcpToken is blank: set it in the plugin's settings to MCP_ACCESS_TOKEN from the stack's .env`);
+        }
     } else {
         console.log(`  data.json already exists — skipping defaults (user config preserved)`);
     }

@@ -1,0 +1,102 @@
+{{- if .Values.a2a.enabled }}
+{{- $cfg := include "trellis-re.cfg" . | fromYaml -}}
+{{- $v := .Values -}}
+{{- $labels := include "egeria-common.labels" (dict "ctx" . "component" "re-a2a") -}}
+# The `a2a` role: `resource-explorer serve`, every agent on one port behind a bearer token. Same image, same environment and the same
+# RUNTIME database role as web (RE_SCHEMA_MODE=external: it sends no DDL). It calls no other agent: the orchestrator routes in-process.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $cfg.a2aname }}
+  labels:
+    {{- $labels | nindent 4 }}
+spec:
+  replicas: {{ $v.a2a.replicas }}
+  selector:
+    matchLabels:
+      {{- include "egeria-common.selectorLabels" (dict "ctx" . "component" "re-a2a") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- $labels | nindent 8 }}
+        {{ $v.networkPolicy.platformClientLabel }}: "true"
+    spec:
+      securityContext:
+        {{- include "egeria-common.podSecurityContext" . | nindent 8 }}
+      {{- include "egeria-common.podIdentity" . | nindent 6 }}
+      {{- with $v.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $v.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $v.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: a2a
+          image: {{ $cfg.image }}
+          imagePullPolicy: {{ $v.image.pullPolicy }}
+          args: [a2a]
+          securityContext:
+            {{- include "egeria-common.containerSecurityContext" . | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ $v.a2a.port }}
+          env:
+            # The image sets PORT=8810 for web; the a2a role must not inherit it.
+            - {name: PORT, value: {{ $v.a2a.port | quote }}}
+            - {name: A2A_PUBLIC_URL, value: {{ $cfg.a2aurl | quote }}}
+            # Never anonymous: the chart owns this name, so it cannot be turned on through extraEnv.
+            - {name: A2A_ALLOW_ANONYMOUS, value: "false"}
+            {{- include "trellis-re.envCore" . | nindent 12 }}
+            {{- if $v.a2a.serviceAccount }}
+            {{- include "trellis-re.daemonEnv" . | nindent 12 }}
+            {{- end }}
+            {{- include "trellis-re.extraEnv" . | nindent 12 }}
+          {{- with $v.extraEnvFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml $v.a2a.resources | nindent 12 }}
+          # /health is the role's liveness and answers without a token or the database.
+          startupProbe:
+            httpGet: {path: /health, port: http}
+            {{- include "trellis-re.probeTiming" $v.probes.web.startup | nindent 12 }}
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+            {{- include "trellis-re.probeTiming" $v.probes.web.readiness | nindent 12 }}
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            {{- include "trellis-re.probeTiming" $v.probes.web.liveness | nindent 12 }}
+          volumeMounts:
+            - {name: data, mountPath: /app/data}
+            {{- if $cfg.caSecret }}
+            - {name: egeria-ca, mountPath: /etc/egeria-ca, readOnly: true}
+            {{- end }}
+      volumes:
+        - name: data
+          persistentVolumeClaim: {claimName: {{ $cfg.dataClaim }}}
+        {{- if $cfg.caSecret }}
+        - name: egeria-ca
+          secret: {secretName: {{ $cfg.caSecret }}}
+        {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $cfg.a2aname }}
+  labels:
+    {{- $labels | nindent 4 }}
+spec:
+  selector:
+    {{- include "egeria-common.selectorLabels" (dict "ctx" . "component" "re-a2a") | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ $v.a2a.port }}
+      targetPort: http
+{{- end }}

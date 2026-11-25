@@ -607,7 +607,9 @@ def get_node(
     if not raw:
         # Non-collection member (e.g. an asset) — fall back to the digital-products node lookup.
         from digital_products_handler import get_node as dp_get_node
-        return dp_get_node(node_guid, url, server, user_id, user_pwd, as_of_time=as_of_time)
+        # Keyword args: dp_get_node is a route function (node_guid, url, server, user_id, as_of_time)
+        # with no user_pwd; passing user_pwd positionally landed in as_of_time (TypeError, PO-24).
+        return dp_get_node(node_guid, url=url, server=server, user_id=user_id, as_of_time=as_of_time)
 
     node = _serialize_node(raw)
     node["relationships"] = _extract_all_rels(raw)

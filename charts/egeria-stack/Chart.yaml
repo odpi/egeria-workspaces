@@ -1,0 +1,22 @@
+apiVersion: v2
+name: egeria-stack
+description: "Egeria platform and Portal as one release (umbrella chart), with Resource Explorer as an option (re.enabled). Egeria Advisor comes in a later phase."
+type: application
+version: 0.1.0
+appVersion: "6.3"
+dependencies:
+  - name: egeria-platform
+    version: 0.1.0
+    repository: file://../egeria-platform
+    alias: core
+    condition: core.enabled
+  - name: egeria-portal
+    version: 0.1.0
+    repository: file://../egeria-portal
+    alias: portal
+    condition: portal.enabled
+  - name: trellis-re
+    version: 0.1.0
+    repository: file://../trellis-re
+    alias: re
+    condition: re.enabled

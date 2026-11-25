@@ -52,6 +52,14 @@ Everything **else** in `PyegeriaWebHandler/` (the Explorer/Catalog handlers,
 byte-identical** and relies on the runtime flags above. Apply changes to those in
 **both** envs.
 
+**Shared by a guarded mirror (SHARE-3, 2026-11-21):** the files listed in
+`compose-configs/shared-portal-files.txt` have ONE canonical copy, quickstart's.
+Freshstart's copy is written by `compose-configs/sync_shared_portal_files.py`,
+and `tests/test_shared_portal_files.py` fails CI on any difference. Edit
+quickstart's copy, then run the script. Never edit freshstart's copy, and never
+list a file from the per-env table above (the script refuses them). See
+`DESIGN-SHARE-3-PHASE1.md` at the repository root.
+
 **Now also converged (2026-08-12): `egeria-overview.html` + `overview_handler.py`
 + `overview_specs.py` + `overview_containers.py`.** Ported from quickstart-only
 to freshstart (BACKLOG.md NEXT-11) using the same pattern `tech-catalog.html`

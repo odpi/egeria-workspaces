@@ -16,11 +16,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 # brings the reworked My Profile (one key binding convention on every screen,
 # discoverable Roles -> My Team, Scorecard workflow fix); 6.2.9 was tested with the quickstart portal and
 # My Profile on 2026-10-22; 6.2.10 (2026-10-23) is the release the October
-# Egeria reset redeploys on. The floor matters:
+# Egeria reset redeploys on. 6.3.2 (2026-11-22) brings My Profile's Work with
+# Projects / Find Project (egeria-python #604), mouse clicks that land on the right
+# row and footer keys (#605), and the Project Scope column in its project detail.
+# The floor matters:
 # right after a release PyPI's index can still offer the previous version, so a
 # lower floor can silently build without the fix. Textual and
 # textual-serve come with pyegeria -- don't pin them separately.
-ARG PYEGERIA_VERSION=pyegeria>=6.3.0
+ARG PYEGERIA_VERSION=pyegeria>=6.3.3
 ARG PYEGERIA_BUST=0
 RUN echo "pyegeria layer ${PYEGERIA_BUST}" \
     && pip install --no-cache-dir --retries 10 --timeout 60 "${PYEGERIA_VERSION}" --upgrade nest_asyncio

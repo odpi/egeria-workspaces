@@ -1,0 +1,43 @@
+{{- $cfg := include "egeria-portal.cfg" . | fromYaml -}}
+Egeria Portal ({{ .Values.environment }}, {{ .Values.posture }}) installed as {{ .Release.Name }}.
+
+NOT VERIFIED until `helm test {{ .Release.Name }} -n {{ .Release.Namespace }}` prints PASS. A Ready Portal pod only means the
+process answers; `helm test` signs in to Egeria ({{ $cfg.platformUrl }}) as the canary account through the front door.
+
+Front door (Apache, plain HTTP; TLS belongs at the Ingress):
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ $cfg.webname }} 8085:8085   then open http://localhost:8085/portal
+{{- if .Values.ingress.enabled }}
+  Ingress host: {{ .Values.ingress.host }}
+{{- if and (not .Values.ingressControllerCidr) (not .Values.trustedProxies) }}
+
+WARNING: an Ingress is on and ingressControllerCidr is empty: the Portal sees the Ingress controller as every user's address, so every user
+shares the Ingress controller's rate-limit budget (ten bad sign-ins from anyone lock everyone out for a minute). Set ingressControllerCidr to
+the controller's pod or namespace range (narrow, never the pod network).
+{{- end }}
+{{- end }}
+{{- if and .Values.allowUngatedPortal (not $cfg.gated) }}
+
+WARNING: allowUngatedPortal is true and this quickstart Portal has NO login gate. Anyone who can reach it can use Egeria as the
+Portal's service user. Demo only; never on a network you do not control.
+{{- end }}
+{{- if .Values.demoMode }}
+
+demoMode needs a Portal image with the TR-134 change (it reads DEMO_DB_PATH; an older image defaults to Postgres and
+will not start or will lose its accounts). The demo database is SQLite at /app/demo-data/demo.db on the Portal volume.
+{{- end }}
+{{- if and .Values.ingress.enabled (eq .Values.environment "freshstart") }}
+
+Freshstart behind an Ingress (or an OpenShift Route made from it) is safe only with a Portal image that has the server-side
+sign-in gate (PO-78, odpi/egeria-workspaces#912) and per-client auth rate limits (PO-83, #914). The chart cannot read the
+image's version, so `helm test` checks it: an anonymous GET of an API route through the front door must return 401 and a
+page must redirect to /login. An older image answers with 200 as the service user, and `helm test` fails with
+"the Portal image predates PO-78". Run `helm test` before you expose the Portal.
+{{- end }}
+{{- if $cfg.createSecret }}
+
+The demo posture created Secret {{ $cfg.secretName }} (random jwt-secret and token, kept across upgrades; the Egeria password
+is the public demo one). Never use it outside a demo.
+{{- end }}
+
+Self-repair stays in the app: the Portal heals missing Egeria content itself and reports it on its bootstrap status
+route (GET /api/bootstrap/status through the front door, or the banner in the UI). Readiness stays Ready while it heals.

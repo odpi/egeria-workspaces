@@ -39,6 +39,7 @@ from typing import Optional
 import httpx
 import yaml
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from rate_limiter import LOGIN_LIMIT, limiter  # PO-83: per real client IP
 from fastapi.responses import JSONResponse
 from jose import JWTError, jwt
 from loguru import logger
@@ -363,7 +364,8 @@ class ConfigUpdateRequest(BaseModel):
 # ── Login / logout ─────────────────────────────────────────────────────────────
 
 @router.post("/api/auth/login")
-async def login(req: LoginRequest, response: Response):
+@limiter.limit(LOGIN_LIMIT)
+async def login(request: Request, req: LoginRequest, response: Response):
     status, text = await _egeria_token_call(req.user_id, req.password)
 
     if "CREDENTIALS_EXPIRED" in text:
@@ -385,7 +387,8 @@ async def login(req: LoginRequest, response: Response):
 
 
 @router.post("/api/auth/change-password")
-async def change_password(req: ChangePasswordRequest, response: Response):
+@limiter.limit(LOGIN_LIMIT)   # checks the old password with Egeria: a guessing route like login
+async def change_password(request: Request, req: ChangePasswordRequest, response: Response):
     """First-login forced password change — validates old creds and sets new password."""
     status, text = await _egeria_token_call(req.user_id, req.password, req.new_password)
 

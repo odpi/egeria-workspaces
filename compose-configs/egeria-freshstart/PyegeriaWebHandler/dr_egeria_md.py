@@ -38,9 +38,36 @@ EGERIA_OUTBOX_PATH = os.environ.get("EGERIA_OUTBOX_PATH", "dr-egeria-outbox")
 # Initial load
 load_commands()
 
+
+def _no_password():
+    """pyegeria's NO_PASSWORD opt-out (6.2.42+), or None on an older pyegeria (whose use_token scrub still
+    leaves the client without a password)."""
+    try:
+        from pyegeria.core._no_password import NO_PASSWORD
+        return NO_PASSWORD
+    except ImportError:
+        return None
+
+
+def _client(server: str, url: str, userid: str, user_pass: Optional[str], token: Optional[str] = None):
+    """The EgeriaTech a Dr.Egeria run uses. With a token (PO-20): built as the token's user with NO_PASSWORD
+    and the token attached (egeria_auth.use_token), so it holds no password and an expired token is a 401,
+    never a sign-in as anyone else; the platform must be the one the token may go to. Without one: signs in
+    with userid/user_pass, as before."""
+    from egeria_auth import is_caller_password, resolve_platform, use_token
+    if token:
+        url = resolve_platform(url, token=token)   # before the client: its constructor calls url
+        client = EgeriaTech(server, url, user_id=userid, user_pwd=_no_password())
+        use_token(client, token)
+        return client
+    url = resolve_platform(url, has_caller_password=is_caller_password(user_pass))   # before the client: its constructor calls url
+    client = EgeriaTech(server, url, user_id=userid)
+    client.create_egeria_bearer_token(userid, user_pass)
+    return client
+
 async def process_md_file_async(input_file: str, output_folder: str, directive: str,
                                 server: str, url: str, userid: str, user_pass: str,
-                                outbox_path: Optional[str] = None) -> str:
+                                outbox_path: Optional[str] = None, token: Optional[str] = None) -> str:
     # Get latest configuration from environment dynamically
     width = int(os.environ.get("EGERIA_WIDTH", "100"))
     root_path = os.environ.get("EGERIA_ROOT_PATH", "/")
@@ -48,10 +75,7 @@ async def process_md_file_async(input_file: str, output_folder: str, directive: 
     outbox_env = os.environ.get("EGERIA_OUTBOX_PATH", "dr-egeria-outbox")
 
     console = Console(width=width, force_terminal=False)
-    from egeria_auth import is_caller_password, resolve_platform
-    url = resolve_platform(url, has_caller_password=is_caller_password(user_pass))   # before the client: its constructor calls url
-    client = EgeriaTech(server, url, user_id=userid)
-    client.create_egeria_bearer_token(userid, user_pass)
+    client = _client(server, url, userid, user_pass, token)
     
     dispatcher = setup_dispatcher(client)
     
@@ -103,7 +127,7 @@ async def process_md_file_async(input_file: str, output_folder: str, directive: 
 async def process_md_file_structured_async(
     input_file: str, output_folder: str, directive: str,
     server: str, url: str, userid: str, user_pass: str,
-    outbox_path: Optional[str] = None,
+    outbox_path: Optional[str] = None, token: Optional[str] = None,
 ) -> dict:
     """Like process_md_file_async but returns the full per-command result list alongside aggregated output."""
     width = int(os.environ.get("EGERIA_WIDTH", "100"))
@@ -111,10 +135,7 @@ async def process_md_file_structured_async(
     inbox_path = os.environ.get("EGERIA_INBOX_PATH", "dr-egeria-inbox")
 
     Console(width=width, force_terminal=False)
-    from egeria_auth import is_caller_password, resolve_platform
-    url = resolve_platform(url, has_caller_password=is_caller_password(user_pass))   # before the client: its constructor calls url
-    client = EgeriaTech(server, url, user_id=userid)
-    client.create_egeria_bearer_token(userid, user_pass)
+    client = _client(server, url, userid, user_pass, token)
 
     dispatcher = setup_dispatcher(client)
 
@@ -202,12 +223,12 @@ async def process_md_file_structured_async(
 def process_markdown_file_structured(
     input_file: str, output_folder: str, directive: str,
     server: str, url: str, userid: str, user_pass: str,
-    outbox_path: Optional[str] = None,
+    outbox_path: Optional[str] = None, token: Optional[str] = None,
 ) -> dict:
     """Synchronous wrapper returning per-command result metadata alongside aggregated output."""
     try:
         return asyncio.run(process_md_file_structured_async(
-            input_file, output_folder, directive, server, url, userid, user_pass, outbox_path
+            input_file, output_folder, directive, server, url, userid, user_pass, outbox_path, token
         ))
     except Exception as e:
         return {"output": f"Error: Async processing failed: {e}", "results": [], "error": str(e)}
@@ -215,10 +236,10 @@ def process_markdown_file_structured(
 
 def process_markdown_file(input_file: str, output_folder: str, directive: str,
                         server: str, url: str, userid: str, user_pass: str,
-                        outbox_path: Optional[str] = None) -> str:
+                        outbox_path: Optional[str] = None, token: Optional[str] = None) -> str:
     """Synchronous wrapper for backward compatibility with existing pyegeria_handler.py and mcp_server.py"""
     try:
-        return asyncio.run(process_md_file_async(input_file, output_folder, directive, server, url, userid, user_pass, outbox_path))
+        return asyncio.run(process_md_file_async(input_file, output_folder, directive, server, url, userid, user_pass, outbox_path, token))
     except Exception as e:
         print(f"Async processing failed: {e}")
         return f"Error: Async processing failed: {e}"

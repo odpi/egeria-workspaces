@@ -1,0 +1,48 @@
+{
+ "source": "egeria-python release/next-6.4 5bf2a53e pyegeria/view/egeria_relationship_fields.py (generated from Egeria 0dbf4687 = 90232870b2)",
+ "total_lists": 307,
+ "egeria_6_4_rows": {
+  "decisionOutcomes": [
+   "Outcome"
+  ],
+  "associatedDecisions": [
+   "Outcome"
+  ],
+  "inputsToDecision": [
+   "Assessment"
+  ],
+  "assessmentDecisions": [
+   "Assessment"
+  ],
+  "projectTargets": [
+   "ProjectTarget"
+  ],
+  "workedOnByProjects": [
+   "ProjectTarget"
+  ],
+  "processingVariables": [
+   "ProcessingVariable"
+  ],
+  "dataValueUses": [
+   "ProcessingVariable"
+  ],
+  "embeddedDataValues": [
+   "EmbeddedDataValue"
+  ],
+  "parentDataValues": [
+   "EmbeddedDataValue"
+  ],
+  "dataValueSources": [
+   "DataValueSource"
+  ],
+  "providesDataValues": [
+   "DataValueSource"
+  ],
+  "processVariableTypes": [
+   "SupportedVariableType"
+  ],
+  "processVariableTypeUses": [
+   "SupportedVariableType"
+  ]
+ }
+}

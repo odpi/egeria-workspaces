@@ -5,7 +5,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Egeria Quickstart Demo Sandbox · Coco Pharmaceuticals</title>
+  <title>Egeria Freshstart Demo Sandbox</title>
   <script src="/static/app-bar.js?v=2026-10-05a"></script>
   <script src="/static/egeria-resize.js?v=2026-11-04a"></script>
   <script src="/static/bootstrap-banner.js?v=2026-08-18a"></script>
@@ -177,7 +177,7 @@
   <div class="hdr-logos">
     <img src="/static/egeria-logo.png" alt="Egeria" style="height:26px">
   </div>
-  <div class="hdr-title" id="hdr-title">Egeria Quickstart Demo Sandbox</div>
+  <div class="hdr-title" id="hdr-title">Egeria Freshstart Demo Sandbox</div>
   <div class="hdr-search" id="hdr-search">
     <input type="search" id="portal-search-input" placeholder="🔎 Search the metadata catalog…" autocomplete="off">
     <div class="psr-panel" id="psr-panel"></div>
@@ -197,8 +197,8 @@
 <div class="hero">
   <div class="hero-inner">
     <div class="hero-text">
-      <h1 id="hero-title">Welcome to the Egeria Quickstart Demo Sandbox</h1>
-      <p id="hero-sub">This environment showcases <strong>Egeria</strong> — the open metadata platform — using Coco Pharmaceuticals, a fictional company whose data landscape illustrates real-world governance, lineage, and cataloguing challenges. Register once, choose a persona, and explore the metadata environment from that character's perspective.</p>
+      <h1 id="hero-title">Welcome to the Egeria Freshstart Demo Sandbox</h1>
+      <p id="hero-sub">An open metadata platform for learning, development, and experimentation. Select a tool below to get started.</p>
     </div>
     <div class="hero-links">
       <div>
@@ -206,7 +206,6 @@
         <div class="hero-links-row">
           <a href="https://egeria-project.ai" target="_blank" rel="noopener">Documentation ↗</a>
           <a href="https://github.com/odpi" target="_blank" rel="noopener">GitHub ↗</a>
-          <a href="https://egeria-project.org/practices/coco-pharmaceuticals" target="_blank" rel="noopener">Coco Pharmaceuticals ↗</a>
         </div>
       </div>
       <div>
@@ -224,14 +223,6 @@
 
 <!-- ── Main ───────────────────────────────────────────────────────────────── -->
 <main class="main">
-
-  <!-- Coco Pharmaceuticals intro — always visible -->
-  <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px 24px;margin-bottom:24px;line-height:1.65;">
-    <span style="font-weight:700;color:var(--text)">Coco Pharmaceuticals</span>
-    <span style="color:var(--muted);font-size:0.88rem"> is a fictional mid-sized pharmaceutical company that is growing and evolving quickly to meet new challenges and opportunities. New products are being developed and evaluated through Clinical Trials, new mergers and acquisitions are evolving the business, and new regulations need to be addressed and accommodated. To support them in their efforts, Coco Pharmaceuticals has been adopting Egeria to help them understand, transform and manage their business data, and support the use of AI, new applications and new analytical techniques. Come and join them on this exciting journey. Start by choosing one of the many personas that are part of Coco Pharmaceuticals to view this environment from their perspective.
-    </span>
-    <a href="/docs/viewer.html?src=quickstart/coco/overview.md" target="_blank" rel="noopener" style="color:var(--accent);font-size:0.82rem;text-decoration:none;white-space:nowrap"> Learn more ↗</a>
-  </div>
 
   <!-- Persona section -->
   <div class="persona-section">
@@ -327,7 +318,7 @@ Promise.all([
   fetch('/api/platform/portal-config').then(function(r){ return r.json(); }).catch(function(){ return {}; }),
 ]).then(function(results) {
   var me = results[0];
-  var orgName = (results[1].name && results[1].name.trim()) ? results[1].name : 'Egeria Quickstart';
+  var orgName = (results[1].name && results[1].name.trim()) ? results[1].name : 'Egeria Freshstart';
   var platformCfg = results[2] || {};
   var advisorRunning = !!platformCfg.advisor_running;
   if (!me.demo_mode) {
@@ -444,9 +435,9 @@ function renderFavorites(favs) {
 
 // ── App grid ──────────────────────────────────────────────────────────────────
 function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
-  var jupyterUrl = 'http://' + window.location.hostname + ':8888/?token=egeria';
+  var jupyterUrl = 'http://' + window.location.hostname + ':7888/?token=egeria';
   _jupUrl = jupyterUrl;
-  advisorUrl = advisorUrl || ('http://' + window.location.hostname + ':8880/');
+  advisorUrl = advisorUrl || ('http://' + window.location.hostname + ':7880/');
   var apps = [
     // Row 1 — primary tools
     { icon: '📊', name: 'Egeria Overview',
@@ -479,12 +470,9 @@ function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
       enabled: true, jupyter: true },
     { icon: '🗒️', name: 'Obsidian Vault',
       desc: _obsidianUrl
-        ? 'Open the Coco Pharmaceuticals workbook vault in your local Obsidian install.'
-        : 'Open the workbook vault in the shared browser-based Obsidian, or browse on GitHub.',
+        ? 'Open the workbook vault in your local Obsidian install.'
+        : 'Browse the workbook vault on GitHub, or set OBSIDIAN_VAULT_URL to open it in your local Obsidian.',
       enabled: true, obsidian: true },
-    { icon: '🖥️', name: 'My Egeria',
-      desc: 'Explore your Egeria profile, roles, teams, actions, and data catalog.',
-      url: '/my-egeria/', newTab: true, enabled: true },
     { icon: '🤖', name: 'Egeria Advisor',
       desc: advisorRunning ? 'AI-powered guidance for your Egeria environment.' : 'AI-powered guidance for your Egeria environment. (Not currently running)',
       url: advisorUrl, newTab: true, enabled: !demoMode, unavailable: !demoMode && !advisorRunning },
@@ -553,18 +541,9 @@ var _obsStatus    = null;   // last fetched status object
 
 function _obsIsLocal() { return !!_obsidianUrl; }
 
-function _obsContainerUrl() {
-  var isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-  return isLocal
-    ? 'http://' + location.hostname + ':8860'
-    : 'https://' + location.hostname + ':8861';
-}
-
 function _obsLaunchTarget() {
   if (_obsIsLocal()) {
     window.location.href = _obsidianUrl.startsWith('obsidian://') ? _obsidianUrl : ('obsidian://open?vault=' + encodeURIComponent(_obsidianUrl));
-  } else {
-    window.open(_obsContainerUrl(), '_blank', 'noopener');
   }
 }
 
@@ -606,58 +585,9 @@ function _renderObsTile(s) {
     return;
   }
 
-  // Lock disabled: show direct link with no state management
-  if (s.state === 'DISABLED') {
-    html = '<div class="obs-actions">'
-      + '<button class="btn btn-accent" onclick="window.open(\'http://\'+location.hostname+\':8860\',\'_blank\',\'noopener\')">Open Obsidian →</button>'
-      + _obsGhBtn()
-      + '</div>';
-    el.innerHTML = html;
-    return;
-  }
-
-  // Container Obsidian: full lock UI
-  if (s.evicting && isMine) {
-    var deadline = new Date(s.evict_deadline + 'Z');
-    var secsLeft = Math.max(0, Math.round((deadline - Date.now()) / 1000));
-    html += '<div class="obs-evict">⚠ Admin needs Obsidian in ~' + Math.ceil(secsLeft / 60) + ' min. Please save and close.</div>';
-  }
-
-  if (s.state === 'FREE') {
-    html += '<div class="obs-status obs-free">● Available</div>'
-      + '<div class="obs-actions">'
-      + '<button class="btn btn-accent" onclick="acquireObsidian()">Use Obsidian →</button>'
-      + _obsGhBtn()
-      + '</div>';
-
-  } else if (isMine) {
-    var mins = s.minutes_left !== null ? s.minutes_left : '?';
-    var idleWarn = s.idle_warning ? ' ⚠ idle' : '';
-    html += '<div class="obs-status obs-mine">● Your session · ' + mins + ' min left' + idleWarn + '</div>'
-      + '<div class="obs-actions">'
-      + '<button class="btn btn-accent" onclick="_obsLaunchTarget()">Open Obsidian →</button>'
-      + '<button class="btn" onclick="extendObsidian()">Extend</button>'
-      + '<button class="btn" onclick="releaseObsidian()" style="color:var(--muted)">Release</button>'
-      + '</div>';
-
-  } else if (s.state === 'STUCK') {
-    html += '<div class="obs-status obs-stuck">⚠ Session may be idle</div>'
-      + '<div class="obs-hint">An admin can free it using the admin panel.</div>'
-      + _obsGhBtn();
-
-  } else {
-    // IN_USE or ADMIN_IN_USE by someone else
-    var who = s.holder_display ? ' by ' + esc(s.holder_display) : '';
-    var eta  = s.minutes_left ? ' · ~' + s.minutes_left + ' min remaining' : '';
-    var ev   = (s.evicting && s.evict_deadline)
-      ? ' (eviction in ~' + Math.ceil(Math.max(0, new Date(s.evict_deadline + 'Z') - Date.now()) / 60000) + ' min)'
-      : '';
-    html += '<div class="obs-status obs-busy">● In use' + who + eta + ev + '</div>'
-      + '<div class="obs-hint">Check back later</div>'
-      + _obsGhBtn();
-  }
-
-  el.innerHTML = html;
+  // PO-61: freshstart runs no Obsidian container (quickstart does), so there is no
+  // shared vault to lock or open -- offer the GitHub copy only.
+  el.innerHTML = '<div class="obs-actions">' + (_obsGhBtn() || '<span class="obs-hint">Set OBSIDIAN_VAULT_URL to open your local vault.</span>') + '</div>';
 }
 
 function acquireObsidian() {
@@ -878,7 +808,7 @@ function saveNotebookBookmark() {
   var label = (document.getElementById('jup-nb-label').value || '').trim()
               || path.split('/').pop().replace(/\.ipynb$/i, '');
   // Build the JupyterLab deep-link: /lab/tree/<path>?token=egeria
-  var nbUrl = 'http://' + window.location.hostname + ':8888/lab/tree/'
+  var nbUrl = 'http://' + window.location.hostname + ':7888/lab/tree/'
               + path.split('/').map(encodeURIComponent).join('/') + '?token=egeria';
   var persona = _currentPersonaId;
   if (!persona) return;
