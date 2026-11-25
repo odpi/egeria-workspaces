@@ -6622,6 +6622,146 @@ function SolutionComponentDetail({ component, onNavigateToBlueprint, onNavigateT
   );
 }
 
+/* solution-role-pure:begin */
+// SolutionActorRole card: a DESIGN-time role (not the Actors card's role-as-assignment). Read only; a field the type does not return is not shown.
+function SolutionRoleCard(props) {
+  var role = props.role;
+
+  if (!role) {
+    return null;
+  }
+
+  function listSection(title, items, onOpen, emptyText, liveBadge) {
+    var dataTest = title.toLowerCase().replace(/ /g, '-');
+    if (!items || items.length === 0) {
+      return React.createElement(
+        'div',
+        { 'data-test': dataTest, style: { marginBottom: 16 } },
+        React.createElement(
+          'div',
+          { style: { fontWeight: 600, fontSize: 13 } },
+          title + ' (0) ',
+          liveBadge ? React.createElement('span', { className: 'badge' }, 'live') : null
+        ),
+        React.createElement('div', { className: 'empty' }, emptyText)
+      );
+    }
+    return React.createElement(
+      'div',
+      { 'data-test': dataTest, style: { marginBottom: 16 } },
+      React.createElement(
+        'div',
+        { style: { fontWeight: 600, fontSize: 13 } },
+        title + ' (' + items.length + ') ',
+        liveBadge ? React.createElement('span', { className: 'badge' }, 'live') : null
+      ),
+      items.map(function(item) {
+        return React.createElement(
+          'div',
+          { key: item.guid, style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 } },
+          React.createElement('span', {}, item.displayName || item.qualifiedName),
+          item.typeName ? React.createElement('span', { className: 'badge' }, item.typeName) : null,
+          onOpen && typeof onOpen === 'function' ? React.createElement(
+            'button',
+            { onClick: function() { onOpen(item); }, style: { marginLeft: 'auto' } },
+            'View'
+          ) : null
+        );
+      })
+    );
+  }
+
+  var displayName = role.displayName || role.qualifiedName;
+  var badgeText = role.typeName || 'SolutionActorRole';
+
+  return React.createElement(
+    'div',
+    {},
+    React.createElement(
+      'div',
+      { 'data-test': 'role-header', style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 4 } },
+      React.createElement(
+        'div',
+        { style: { fontSize: 18, fontWeight: 700 } },
+        displayName
+      ),
+      React.createElement('span', { className: 'badge' }, badgeText)
+    ),
+    React.createElement('code', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, role.guid),
+    React.createElement(
+      'div',
+      { 'data-test': 'role-fields', style: { marginTop: 16 } },
+      role.qualifiedName ? React.createElement(
+        'div',
+        { 'data-field': 'qualified-name', style: { display: 'flex', justifyContent: 'space-between', marginTop: 4 } },
+        React.createElement('span', {}, 'Qualified name'),
+        React.createElement('span', {}, role.qualifiedName)
+      ) : null,
+      role.identifier ? React.createElement(
+        'div',
+        { 'data-field': 'identifier', style: { display: 'flex', justifyContent: 'space-between', marginTop: 4 } },
+        React.createElement('span', {}, 'Identifier'),
+        React.createElement('span', {}, role.identifier)
+      ) : null,
+      role.title ? React.createElement(
+        'div',
+        { 'data-field': 'title', style: { display: 'flex', justifyContent: 'space-between', marginTop: 4 } },
+        React.createElement('span', {}, 'Title'),
+        React.createElement('span', {}, role.title)
+      ) : null,
+      role.scope ? React.createElement(
+        'div',
+        { 'data-field': 'scope', style: { display: 'flex', justifyContent: 'space-between', marginTop: 4 } },
+        React.createElement('span', {}, 'Scope'),
+        React.createElement('span', {}, role.scope)
+      ) : null,
+      role.actorRoleGroups && role.actorRoleGroups.length > 0 ? React.createElement(
+        'div',
+        { 'data-field': 'role-groups', style: { display: 'flex', justifyContent: 'space-between', marginTop: 4 } },
+        React.createElement('span', {}, 'Role groups'),
+        React.createElement('span', {}, role.actorRoleGroups.join(', '))
+      ) : null,
+      role.status ? React.createElement(
+        'div',
+        { 'data-field': 'status', style: { display: 'flex', justifyContent: 'space-between', marginTop: 4 } },
+        React.createElement('span', {}, 'Status'),
+        React.createElement('span', {}, role.status)
+      ) : null
+    ),
+    role.description ? React.createElement(
+      'div',
+      { 'data-test': 'role-description', style: { marginTop: 16 } },
+      role.description
+    ) : null,
+    listSection(
+      'Used in blueprints',
+      role.blueprints,
+      props.onNavigateToBlueprint,
+      'Not used in any blueprint'
+    ),
+    listSection(
+      'Used by components',
+      role.components,
+      props.onNavigateToComponent,
+      'No solution component uses this role'
+    ),
+    listSection(
+      'Also a member of',
+      role.memberOf,
+      props.onNavigateToElement,
+      'Not a member of any other collection'
+    ),
+    listSection(
+      'Who holds it',
+      role.holders,
+      props.onNavigateToElement,
+      'No current holder found for this role',
+      true
+    )
+  );
+}
+/* solution-role-pure:end */
+
 function DesignPatternDetail({ pattern, onNavigateToPattern, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
   var _saPersonaId = React.useContext(PersonaContext);
@@ -7673,6 +7813,7 @@ function _elementIsLinkable(item) {
   if (item.typeName === 'InformationSupplyChain') return true;
   if (item.typeName === 'SolutionComponent' || superTypes.indexOf('SolutionComponent') !== -1) return true;
   if (item.typeName === 'SolutionBlueprint' || superTypes.indexOf('SolutionBlueprint') !== -1) return true;
+  if (item.typeName === 'SolutionActorRole' || superTypes.indexOf('SolutionActorRole') !== -1) return true;
   if (item.typeName === 'DesignPattern' || superTypes.indexOf('DesignPattern') !== -1) return true;
   if (item.typeName === 'Perspective') return true;
   if (item.typeName === 'Project') return true;
@@ -9680,8 +9821,8 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
   const [subNav, setSubNav] = useState(function() {
     var params = new URLSearchParams(window.location.search);
     var k = params.get('kind');
-    return (k === 'components' || k === 'patterns') ? k : 'blueprints';
-  }); // 'blueprints' | 'components' | 'patterns'
+    return (k === 'components' || k === 'patterns' || k === 'roles') ? k : 'blueprints';
+  }); // 'blueprints' | 'components' | 'patterns' | 'roles'
 
   const [bpState, setBpState]   = useState('loading');
   const [bpAttempt, setBpAttempt] = useState(0);
@@ -9701,6 +9842,16 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
   });
   const [patDetail, setPatDetail] = useState(null);
   const [patDetailState, setPatDetailState] = useState('idle');
+  const [roleState, setRoleState]   = useState('idle');
+  const [roleAttempt, setRoleAttempt] = useState(0);
+  const [roles, setRoles] = useState([]);
+  const [roleError, setRoleError]   = useState('');
+  const [selectedRole, setSelectedRole] = useState(function() {
+    var params = new URLSearchParams(window.location.search);
+    return params.get('kind') === 'roles' ? (params.get('guid') || null) : null;
+  });
+  const [roleDetail, setRoleDetail] = useState(null);
+  const [roleDetailState, setRoleDetailState] = useState('idle');
   const [expandedPatCats, setExpandedPatCats] = useState(new Set());
   const togglePatCat = useCallback(function(cat) {
     setExpandedPatCats(function(prev) { var n = new Set(prev); if (n.has(cat)) n.delete(cat); else n.add(cat); return n; });
@@ -9839,6 +9990,16 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
       .catch(function(e) { setPatError(e.message); setPatState('error'); });
   }, [subNav, patAttempt, inclTempl]);
 
+  // Load solution actor roles when sub-nav switches to roles (lazy)
+  useEffect(function() {
+    if (subNav !== 'roles' || roleState !== 'idle') return;
+    setRoleState('loading'); setRoleError('');
+    egeriaFetch('/api/solution/roles' + (inclTempl ? '?include_templates=true' : ''), creds)
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) { setRoles(data.roles || []); setRoleState('ready'); })
+      .catch(function(e) { setRoleError(e.message); setRoleState('error'); });
+  }, [subNav, roleAttempt, inclTempl]);
+
   // Fetch blueprint detail when selection changes. `cancelled` discards a
   // response that arrives after a newer selection superseded this fetch —
   // same race-condition class found in Collections/Digital Products
@@ -9871,10 +10032,10 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
   useEffect(function() {
     window.__egeriaNavExtra = {
       kind: subNav,
-      guid: subNav === 'components' ? selectedComp : subNav === 'patterns' ? selectedPat : selectedBp,
+      guid: subNav === 'components' ? selectedComp : subNav === 'patterns' ? selectedPat : subNav === 'roles' ? selectedRole : selectedBp,
     };
     return function() { window.__egeriaNavExtra = null; };
-  }, [subNav, selectedBp, selectedComp, selectedPat]);
+  }, [subNav, selectedBp, selectedComp, selectedPat, selectedRole]);
 
   // Fetch component detail when selection changes (same race guard as above).
   useEffect(function() {
@@ -9911,6 +10072,24 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
     return function() { cancelled = true; };
   }, [selectedPat]);
 
+  // Fetch role detail when selection changes (same race guard as above).
+  useEffect(function() {
+    if (!selectedRole) { setRoleDetail(null); return; }
+    var cancelled = false;
+    setRoleDetailState('loading');
+    egeriaFetch('/api/solution/roles/' + selectedRole, creds)
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) { if (!cancelled) { setRoleDetail(data); setRoleDetailState('ready'); } })
+      .catch(function() { if (!cancelled) setRoleDetailState('error'); });
+    return function() { cancelled = true; };
+  }, [selectedRole]);
+
+  function onNavigateToRole(guid) {
+    setSubNav('roles');
+    if (roleState === 'idle') setRoleAttempt(function(a) { return a + 1; });
+    setSelectedRole(guid);
+  }
+
   function onNavigateToPattern(guid) {
     setSubNav('patterns');
     if (patState === 'idle') setPatAttempt(function(a) { return a + 1; });
@@ -9933,6 +10112,7 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
     if (!navProp || !navProp.guid) return;
     if (navProp.kind === 'components') onNavigateToComponent(navProp.guid);
     else if (navProp.kind === 'patterns') onNavigateToPattern(navProp.guid);
+    else if (navProp.kind === 'roles') onNavigateToRole(navProp.guid);
     else onNavigateToBlueprint(navProp.guid);
   }, [navProp]);
 
@@ -9941,7 +10121,8 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
     React.createElement("div", { style: { display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
       React.createElement("button", { onClick: function() { setSubNav('blueprints'); setFilter(''); selection.clear(); }, style: { flex: 1, padding: '8px 0', background: 'none', border: 'none', cursor: 'pointer', fontWeight: subNav === 'blueprints' ? 700 : 400, color: subNav === 'blueprints' ? 'var(--accent)' : 'var(--fg)', borderBottom: subNav === 'blueprints' ? '2px solid var(--accent)' : '2px solid transparent', fontSize: 13 } }, "Blueprints"),
       React.createElement("button", { onClick: function() { setSubNav('components'); setFilter(''); selection.clear(); }, style: { flex: 1, padding: '8px 0', background: 'none', border: 'none', cursor: 'pointer', fontWeight: subNav === 'components' ? 700 : 400, color: subNav === 'components' ? 'var(--accent)' : 'var(--fg)', borderBottom: subNav === 'components' ? '2px solid var(--accent)' : '2px solid transparent', fontSize: 13 } }, "Components"),
-      React.createElement("button", { onClick: function() { setSubNav('patterns'); setFilter(''); selection.clear(); }, style: { flex: 1, padding: '8px 0', background: 'none', border: 'none', cursor: 'pointer', fontWeight: subNav === 'patterns' ? 700 : 400, color: subNav === 'patterns' ? 'var(--accent)' : 'var(--fg)', borderBottom: subNav === 'patterns' ? '2px solid var(--accent)' : '2px solid transparent', fontSize: 13 } }, "Patterns")
+      React.createElement("button", { onClick: function() { setSubNav('patterns'); setFilter(''); selection.clear(); }, style: { flex: 1, padding: '8px 0', background: 'none', border: 'none', cursor: 'pointer', fontWeight: subNav === 'patterns' ? 700 : 400, color: subNav === 'patterns' ? 'var(--accent)' : 'var(--fg)', borderBottom: subNav === 'patterns' ? '2px solid var(--accent)' : '2px solid transparent', fontSize: 13 } }, "Patterns"),
+      React.createElement("button", { onClick: function() { setSubNav('roles'); setFilter(''); selection.clear(); }, style: { flex: 1, padding: '8px 0', background: 'none', border: 'none', cursor: 'pointer', fontWeight: subNav === 'roles' ? 700 : 400, color: subNav === 'roles' ? 'var(--accent)' : 'var(--fg)', borderBottom: subNav === 'roles' ? '2px solid var(--accent)' : '2px solid transparent', fontSize: 13 } }, "Roles")
     ),
     // Search bar (shared — resets on sub-nav change)
     React.createElement("div", { className: "search-wrap" },
@@ -9957,6 +10138,7 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
           setBpAttempt(function(a) { return a + 1; });
           setCompAttempt(function(a) { return a + 1; });
           setPatAttempt(function(a) { return a + 1; });
+          setRoleAttempt(function(a) { return a + 1; });
         }
       }, "↻ Refresh")
     ),
@@ -10159,6 +10341,33 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
     // endpoint (unlike Blueprints' Folio grouping, which needs its own /folios
     // call to read memberOfCollections) since `category` is already a plain
     // scalar property on every pattern summary — no extra query needed.
+    subNav === 'roles' && React.createElement("div", { style: { overflowY: 'auto', flex: 1 } },
+      (roleState === 'idle' || roleState === 'loading') && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading roles…"),
+      roleState === 'error' && React.createElement("div", { style: { padding: 16 } },
+        React.createElement("div", { style: { color: '#f87171', fontSize: 13, marginBottom: 8 } }, "Error: " + roleError),
+        React.createElement("button", { className: "view-tab on", onClick: function() { setRoleState('idle'); setRoleAttempt(function(a) { return a + 1; }); } }, "Retry")
+      ),
+      roleState === 'ready' && (function() {
+        var q = filter.toLowerCase();
+        var vis = roles.filter(function(r) { return !q || (r.displayName || r.qualifiedName || '').toLowerCase().includes(q); });
+        if (!roles.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "No solution roles found");
+        if (!vis.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "No matches");
+        return vis.map(function(r) {
+          return React.createElement("div", {
+            key: r.guid, className: "tree-item" + (selectedRole === r.guid ? " sel" : ""),
+            style: { paddingLeft: 26 },
+            onClick: function() { setSelectedRole(r.guid); }, title: r.qualifiedName || r.guid,
+          },
+            r.guid && React.createElement("input", {
+              type: "checkbox", checked: selection.isSelected(r.guid), style: { flexShrink: 0, cursor: 'pointer' },
+              onClick: function(e) { e.stopPropagation(); },
+              onChange: function() { selection.toggle({ guid: r.guid, displayName: r.displayName, typeName: r.typeName || 'SolutionActorRole' }); },
+            }),
+            React.createElement("span", { className: "type-name" }, r.displayName || r.qualifiedName)
+          );
+        });
+      })()
+    ),
     subNav === 'patterns' && React.createElement("div", { style: { overflowY: 'auto', flex: 1 } },
       (patState === 'idle' || patState === 'loading') && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading patterns…"),
       patState === 'error' && React.createElement("div", { style: { padding: 16 } },
@@ -10242,6 +10451,25 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
         onNavigateToComponent: onNavigateToComponent,
         onNavigateToElement: onNavigateToElement
       })
+    ),
+    subNav === 'roles' && React.createElement(React.Fragment, null,
+      !selectedRole && React.createElement("div", { className: "center" },
+        React.createElement("span", { style: { color: 'var(--muted)' } }, "Select a solution role from the sidebar")
+      ),
+      selectedRole && roleDetailState === 'loading' && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "Loading…"),
+      selectedRole && roleDetailState === 'error' && React.createElement("div", { style: { padding: 24, color: '#f87171' } }, "Failed to load solution role detail"),
+      selectedRole && roleDetailState === 'ready' && roleDetail && React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
+        React.createElement(SolutionRoleCard, {
+          role: roleDetail,
+          // the card hands each handler the whole item; the App-level onNavigateToElement reads typeName/superTypeNames from it,
+          // while the blueprint and component handlers of this view take a guid
+          onNavigateToBlueprint: function(it) { onNavigateToBlueprint(it.guid); },
+          onNavigateToComponent: function(it) { onNavigateToComponent(it.guid); },
+          onNavigateToElement: onNavigateToElement
+        }),
+        React.createElement(GenericRelationshipsSection, { relationships: roleDetail.relationships, onNavigateToElement: onNavigateToElement }),
+        React.createElement(ClassificationsAndRawJson, { item: roleDetail, creds: creds })
+      )
     ),
     subNav === 'patterns' && React.createElement(React.Fragment, null,
       !selectedPat && React.createElement("div", { className: "center" },
@@ -11728,6 +11956,12 @@ function App() {
     setSolutionNav({ kind: 'blueprints', guid: guid });
     setSection('solution-architect');
   }, []);
+  // A SolutionActorRole is an ActorRole (superTypeNames), but it is the DESIGN-time role of a solution, not the
+  // Actors card's role-as-assignment: it opens the Solution Architect Roles tab (most specific type wins).
+  const onNavigateToSolutionRole = useCallback(function(guid) {
+    setSolutionNav({ kind: 'roles', guid: guid });
+    setSection('solution-architect');
+  }, []);
   const onNavigateToDesignPattern = useCallback(function(guid) {
     setSolutionNav({ kind: 'patterns', guid: guid });
     setSection('solution-architect');
@@ -11761,6 +11995,7 @@ function App() {
     if (typeName === 'NoteLog') { onNavigateToNoteLog(guid); return; }
     if (typeName === 'InformationSupplyChain') { onNavigateToISC(guid); return; }
     if (typeName === 'SolutionBlueprint' || superTypes.indexOf('SolutionBlueprint') !== -1) { onNavigateToSolutionBlueprint(guid); return; }
+    if (typeName === 'SolutionActorRole' || superTypes.indexOf('SolutionActorRole') !== -1) { onNavigateToSolutionRole(guid); return; }  // before the ActorRole (Actors card) fallback below
     if (typeName === 'SolutionComponent' || superTypes.indexOf('SolutionComponent') !== -1) { onNavigateToSolutionComponent(guid); return; }
     if (typeName === 'DesignPattern' || superTypes.indexOf('DesignPattern') !== -1) { onNavigateToDesignPattern(guid); return; }
     if (DD_TYPES_SET[typeName]) { onNavigateToDataDesign(typeName, guid); return; }
@@ -11808,7 +12043,7 @@ function App() {
     // Endpoint — Referenceable, not Asset, so it needs its own branch;
     // Tech Catalog's Infrastructure tab already has a dedicated fetch path.
     if (typeName === 'Endpoint') { window.open('/tech-catalog?guid=' + encodeURIComponent(guid), '_blank'); return; }
-  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToCollection, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToBusinessCapability, onNavigateToAction, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDesignPattern, onNavigateToDataDesign, onNavigateToPerspective, onNavigateToProject, onNavigateToValidValues, onNavigateToInformalTag, onNavigateToContextEvent]);
+  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToCollection, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToBusinessCapability, onNavigateToAction, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToSolutionRole, onNavigateToDesignPattern, onNavigateToDataDesign, onNavigateToPerspective, onNavigateToProject, onNavigateToValidValues, onNavigateToInformalTag, onNavigateToContextEvent]);
 
   const [typeSideW, onTypeDivDown] = useResizable(254, null, null, 'App.typeSideW');
 
