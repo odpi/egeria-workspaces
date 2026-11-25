@@ -52,4 +52,16 @@ def test_in_app_dispatcher_routes_solution_actor_role_before_the_actor_fallback(
     start = html.index("const onNavigateToElement = useCallback(function(item) {")
     chain = html[start:start + 12000]
     assert chain.index("typeName === 'SolutionActorRole'") < chain.index("_actorKindForType(typeName, superTypes)")
+    # a future subtype of SolutionActorRole must not fall back to Actors either: the branch also tests the supertypes
+    assert "superTypes.indexOf('SolutionActorRole') !== -1) { onNavigateToSolutionRole(guid)" in chain
     assert "kind: 'roles'" in html[html.index("const onNavigateToSolutionRole"):][:300]
+
+
+def test_blueprint_and_component_links_on_the_card_unwrap_the_item_to_a_guid():
+    # the card passes the whole item to every handler; this view's blueprint/component handlers take a guid
+    html = (_HANDLER_DIR / "type-explorer.html").read_text()
+    at = html.index("React.createElement(SolutionRoleCard, {")
+    wiring = html[at:at + 900]
+    assert "onNavigateToBlueprint: function(it) { onNavigateToBlueprint(it.guid); }" in wiring
+    assert "onNavigateToComponent: function(it) { onNavigateToComponent(it.guid); }" in wiring
+    assert "onNavigateToElement: onNavigateToElement" in wiring

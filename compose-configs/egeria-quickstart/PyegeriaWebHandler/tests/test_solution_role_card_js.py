@@ -86,7 +86,7 @@ def test_a_bare_role_shows_no_placeholder_for_missing_fields():
 def test_empty_states_say_what_is_missing_in_words():
     r = _render(EMPTY)
     for words in ("Not used in any blueprint", "No solution component uses this role",
-                  "Not a member of any other collection", "Nobody is assigned to this role right now"):
+                  "Not a member of any other collection", "No current holder found for this role"):
         assert words in r["text"]
     for title in ("Used in blueprints (0)", "Used by components (0)", "Also a member of (0)", "Who holds it (0)"):
         assert title in r["text"]
@@ -98,6 +98,35 @@ def test_links_to_blueprints_components_and_other_collections_with_counts():
                   "Used in blueprints (2)", "Used by components (3)", "Also a member of (1)", "Who holds it (1)"):
         assert words in r["text"]
     assert r["buttons"] == 7                       # one View per linked item: 2 + 3 + 1 + 1
+
+
+def _click_all(role):
+    """Clicks every View button in order and returns what each handler received: [[kind, argument], ...]."""
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node not available")
+    body = ("var calls = [];"
+            "var t = render(React.createElement(SolutionRoleCard, { role: " + json.dumps(role) + ","
+            " onNavigateToBlueprint: function(x) { calls.push(['blueprint', x]); },"
+            " onNavigateToComponent: function(x) { calls.push(['component', x]); },"
+            " onNavigateToElement: function(x) { calls.push(['element', x]); } }));"
+            "all(t, 'button').forEach(function(b) { b.p.onClick(); }); out(calls);")
+    r = subprocess.run([node, "-e", _PRELUDE + _block() + "\n" + body], capture_output=True, text=True, timeout=20)
+    assert r.returncode == 0, r.stderr
+    return json.loads(r.stdout)
+
+
+def test_clicking_view_hands_the_handler_the_whole_item():
+    # The App-level onNavigateToElement reads item.typeName / superTypeNames / guid; a bare guid string would route nowhere.
+    role = json.loads(json.dumps(FULL))
+    role["memberOf"][0]["superTypeNames"] = ["Collection", "Referenceable"]
+    calls = _click_all(role)
+    assert [c[0] for c in calls] == ["blueprint", "blueprint", "component", "component", "component", "element", "element"]
+    for kind, arg in calls:
+        assert isinstance(arg, dict) and arg["guid"] and arg["typeName"]
+    assert calls[0][1] == role["blueprints"][0]
+    assert calls[5][1] == role["memberOf"][0] and calls[5][1]["superTypeNames"] == ["Collection", "Referenceable"]
+    assert calls[6][1] == role["holders"][0]
 
 
 def test_without_handlers_nothing_pretends_to_be_a_link():

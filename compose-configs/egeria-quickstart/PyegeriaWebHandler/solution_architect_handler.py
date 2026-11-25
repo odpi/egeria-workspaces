@@ -590,6 +590,7 @@ def list_roles(
 
     roles = [_serialize_role_summary(r) for r in raw]
     roles.sort(key=lambda r: (r.get("displayName") or "").lower())
+    # `total` is the length of THIS (filtered) page, not a platform total: page_size/start_from page the platform's answer.
     return JSONResponse({"roles": roles, "total": len(roles)})
 
 

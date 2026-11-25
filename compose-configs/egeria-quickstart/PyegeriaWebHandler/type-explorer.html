@@ -8759,7 +8759,7 @@ function SolutionRoleCard(props) {
           item.typeName ? React.createElement('span', { className: 'badge' }, item.typeName) : null,
           onOpen && typeof onOpen === 'function' ? React.createElement(
             'button',
-            { onClick: function() { onOpen(item.guid); }, style: { marginLeft: 'auto' } },
+            { onClick: function() { onOpen(item); }, style: { marginLeft: 'auto' } },
             'View'
           ) : null
         );
@@ -8851,7 +8851,7 @@ function SolutionRoleCard(props) {
       'Who holds it',
       role.holders,
       props.onNavigateToElement,
-      'Nobody is assigned to this role right now',
+      'No current holder found for this role',
       true
     )
   );
@@ -9929,7 +9929,7 @@ function _elementIsLinkable(item) {
   if (item.typeName === 'InformationSupplyChain') return true;
   if (item.typeName === 'SolutionComponent' || superTypes.indexOf('SolutionComponent') !== -1) return true;
   if (item.typeName === 'SolutionBlueprint' || superTypes.indexOf('SolutionBlueprint') !== -1) return true;
-  if (item.typeName === 'SolutionActorRole') return true;
+  if (item.typeName === 'SolutionActorRole' || superTypes.indexOf('SolutionActorRole') !== -1) return true;
   if (item.typeName === 'DesignPattern' || superTypes.indexOf('DesignPattern') !== -1) return true;
   if (item.typeName === 'Perspective') return true;
   if (item.typeName === 'Project') return true;
@@ -12612,8 +12612,10 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
       selectedRole && roleDetailState === 'ready' && roleDetail && React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
         React.createElement(SolutionRoleCard, {
           role: roleDetail,
-          onNavigateToBlueprint: onNavigateToBlueprint,
-          onNavigateToComponent: onNavigateToComponent,
+          // the card hands each handler the whole item; the App-level onNavigateToElement reads typeName/superTypeNames from it,
+          // while the blueprint and component handlers of this view take a guid
+          onNavigateToBlueprint: function(it) { onNavigateToBlueprint(it.guid); },
+          onNavigateToComponent: function(it) { onNavigateToComponent(it.guid); },
           onNavigateToElement: onNavigateToElement
         }),
         React.createElement(GenericRelationshipsSection, { relationships: roleDetail.relationships, onNavigateToElement: onNavigateToElement }),
@@ -14951,7 +14953,7 @@ function App() {
     if (typeName === 'NoteLog') { onNavigateToNoteLog(guid); return; }
     if (typeName === 'InformationSupplyChain') { onNavigateToISC(guid); return; }
     if (typeName === 'SolutionBlueprint' || superTypes.indexOf('SolutionBlueprint') !== -1) { onNavigateToSolutionBlueprint(guid); return; }
-    if (typeName === 'SolutionActorRole') { onNavigateToSolutionRole(guid); return; }  // before the ActorRole (Actors card) fallback below
+    if (typeName === 'SolutionActorRole' || superTypes.indexOf('SolutionActorRole') !== -1) { onNavigateToSolutionRole(guid); return; }  // before the ActorRole (Actors card) fallback below
     if (typeName === 'SolutionComponent' || superTypes.indexOf('SolutionComponent') !== -1) { onNavigateToSolutionComponent(guid); return; }
     if (typeName === 'DesignPattern' || superTypes.indexOf('DesignPattern') !== -1) { onNavigateToDesignPattern(guid); return; }
     if (DD_TYPES_SET[typeName]) { onNavigateToDataDesign(typeName, guid); return; }
