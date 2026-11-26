@@ -44,6 +44,10 @@ jobs:
       run: |
         pytest tests/test_shared_portal_files.py
 
+    - name: Guard that every served page initialises mermaid with securityLevel 'strict'
+      run: |
+        pytest tests/test_mermaid_security_level.py
+
     - name: Run Quickstart Handler tests
       run: |
         pytest compose-configs/egeria-quickstart/PyegeriaWebHandler/tests/test_fastapi_handler_health.py compose-configs/egeria-quickstart/PyegeriaWebHandler/tests/test_mcp_server_basic.py

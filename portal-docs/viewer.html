@@ -110,7 +110,7 @@
 </div>
 
 <script>
-  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.classList.contains('light') ? 'default' : 'dark', securityLevel: 'loose' });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.classList.contains('light') ? 'default' : 'dark', securityLevel: 'strict' });
   // Diagrams are rendered once from the fetched markdown; simplest correct re-theme is a reload.
   window.addEventListener('egeria-theme-change', function() { location.reload(); });
 
