@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Dr.Egeria templates for solution boundaries** ([#927](https://github.com/odpi/egeria-workspaces/pull/927)): *Create Solution Boundary* and *Create Design Model Boundary*, basic and advanced, under `templates/*/Solution Architect/`, copied unchanged from egeria-python v6.3.4. They need pyegeria 6.3.4 and an Egeria platform with odpi/egeria#9465. Members are added with the Collection Membership commands, and Egeria refuses to delete a boundary that still has members. **Known issue (egeria-python #613):** on an Update, give the Version Identifier, Qualified Name or GUID; an Update that names only the Display Name can create a duplicate. `templates/README.md` and the Portal's advanced templates page say so.
+- **A Roles tab for solution roles on the Solution Architect page**, quickstart ([#923](https://github.com/odpi/egeria-workspaces/pull/923)) and freshstart ([#924](https://github.com/odpi/egeria-workspaces/pull/924)). A `SolutionActorRole` is an `ActorRole` by supertype, so links to one used to land on the Actors card. It now has its own card, with "Who holds it" and "Also a member of", served by `/api/solution/roles` and `/api/solution/roles/{guid}`.
+- **Egeria 6.4 cards in the Explorer and The Catalog** ([#911](https://github.com/odpi/egeria-workspaces/pull/911)): a Decisions section in Egeria Explorer, and Configuration Values (`DataValue` / `LiteralDataValue`) and Models and Runs (analytics models and model runs, with parameters, results and signature) in The Catalog. Existing cards show an element's Egeria 6.4 links and a Branch badge. On an Egeria 6.3 platform these say they need 6.4. The Type Coverage Registry is regenerated for Egeria 6.4.
+- **Helm charts for Kubernetes and OpenShift** (`charts/`, TR-112: [#908](https://github.com/odpi/egeria-workspaces/pull/908), [#909](https://github.com/odpi/egeria-workspaces/pull/909), [#915](https://github.com/odpi/egeria-workspaces/pull/915), [#916](https://github.com/odpi/egeria-workspaces/pull/916)): `egeria-platform`, `egeria-portal` (Portal and Apache front door, on new non-root images), the `egeria-stack` umbrella, `trellis-re` (Resource Explorer web, worker and schema Job, with optional Prefect worker and A2A role), demo PostgreSQL and Kafka, and a shared `egeria-common` library. A production posture refuses the public demo keystore password; `helm test` runs a canary; `charts/docs/` has deployment, configuration, operations, OpenShift and testing guides.
+- **SMTP mail for the demo Portal** when Resend is not configured ([#911](https://github.com/odpi/egeria-workspaces/pull/911)): `SMTP_HOST`, `SMTP_PORT`, `SMTP_SSL`, `SMTP_USER`, `SMTP_PASSWORD` and `SMTP_FROM`. `gen-env.sh` keeps the mail settings when it rewrites `.env`.
+- **A script to prune old Airflow run log directories** in `optional-associated-runtimes/airflow-marquez/` ([#905](https://github.com/odpi/egeria-workspaces/pull/905)). Airflow keeps no file-log retention of its own.
+
+### Changed
+- **The quickstart Egeria platform is pinned to the 6.4-SNAPSHOT build that has solution boundaries** (odpi/egeria#9465), by digest `sha256:5a8d6a12…0309f`, instead of the released 6.3 ([#925](https://github.com/odpi/egeria-workspaces/pull/925)). The freshstart platform Dockerfile and the `egeria-platform` Helm chart use the same pin, and the multi-host scripts and `fresh-start-local --refresh-platform` now re-pin the tag in the Dockerfile's `FROM` line, so they stay on that snapshot instead of moving back to 6.3 or `latest` ([#926](https://github.com/odpi/egeria-workspaces/pull/926)).
+- **Published ports also answer on IPv6** ([#926](https://github.com/odpi/egeria-workspaces/pull/926)). With `--lan` or `--demo` on Docker, on a host with IPv6, the start scripts add `egeria-quickstart-ipv6.yaml` or `egeria-freshstart-ipv6.yaml`, so a host name that resolves to an IPv6 address no longer gives intermittent "network error"s. `EGERIA_BIND_IP6=none` turns this off.
+- **The shared Kafka broker is 4.4.0** (was 4.1.1, [#918](https://github.com/odpi/egeria-workspaces/pull/918)). The image's Kafka home is `/opt/kafka` and the broker runs as uid 1000. On Linux, an existing installation's Kafka data must change owner before the first start; see *Kafka image versions* in `compose-configs/shared-infra/README.md`.
+- **The pyegeria floor is 6.3.4** ([#927](https://github.com/odpi/egeria-workspaces/pull/927)) in both Portal `requirements.txt` files and every `PYEGERIA_VERSION` default (Portal fast-api and portal images, Apache web images, Jupyter, My Egeria). It was raised to 6.3.3 on 2026-11-24 ([#917](https://github.com/odpi/egeria-workspaces/pull/917)), and My Egeria to 6.3.2 ([#910](https://github.com/odpi/egeria-workspaces/pull/910)).
+- **Freshstart's Portal shares four files with quickstart's** (SHARE-3 phase 1, [#906](https://github.com/odpi/egeria-workspaces/pull/906), [#913](https://github.com/odpi/egeria-workspaces/pull/913)): `perspectives_handler.py`, `type_system_handler.py`, `digital_products_handler.py` and `static/egeria-shared-ui.js`. Quickstart's copy is canonical; `compose-configs/sync_shared_portal_files.py` writes the mirror and a test fails on drift. Freshstart gains the quickstart features in those files, such as classification purposes and the digital products mesh.
+- **The Resource Browser finds code repositories that Resource Explorer publishes as `SourceControlLibrary`** ([#904](https://github.com/odpi/egeria-workspaces/pull/904)).
+- **The PyegeriaWebHandler images no longer bake in local leftovers** ([#927](https://github.com/odpi/egeria-workspaces/pull/927)): a `.dockerignore` in the quickstart and freshstart build contexts leaves out `logs/`, `debug_log.log`, `__pycache__/` and `.pytest_cache/`.
+
+### Fixed
+- **`quick-start-local --demo` on a host with IPv6 no longer publishes JupyterHub on `[::]:8888`** ([#926](https://github.com/odpi/egeria-workspaces/pull/926)). The IPv6 overlay is now added before `egeria-quickstart-demo.yaml`, whose port resets then also remove the IPv6 entries.
+- **Freshstart Portal fixes** ([#905](https://github.com/odpi/egeria-workspaces/pull/905)): the home page points at freshstart's ports, not quickstart's (PO-61); `/api/collections/by-type` is served (PO-60); the Perspectives list and detail routes work again (PO-59).
+- **Portal fixes** ([#911](https://github.com/odpi/egeria-workspaces/pull/911)):
+  - The Catalog lists only an asset's own relationships, not every relationship in its subgraph.
+  - Dr.Egeria execute runs as the sign-in token's user (PO-20, PO-21).
+  - Egeria's 403 is told apart from a refused sign-in by exception class and code, not message text, so operations, glossary and The Catalog no longer answer every auth error with "session expired" (PO-9).
+  - Insights' exhaustive searches page to an empty page, not a short one, and a complete count is not called "exact".
+  - Statements of Applicability are linked from other screens (PO-23); a collection's non-collection members open (PO-24).
+  - The Resource Locator page is served with `Cache-Control: no-store`.
+- **The Overview's karma leaderboard says when it could not be read**, instead of "Loading…" for good (PO-86, [#917](https://github.com/odpi/egeria-workspaces/pull/917)).
+
+### Security
+- **The freshstart Portal has a server-side sign-in gate** (PO-78, [#912](https://github.com/odpi/egeria-workspaces/pull/912)). Before it, a read route answered a caller with no session as the Portal's service user.
+- **`/api/egeria-token` needs a signed-in user when no password is sent** (PO-68, [#907](https://github.com/odpi/egeria-workspaces/pull/907)). On freshstart, an empty request used to mint a token for the service user.
+- **Neither stack publishes its MCP token** (PO-79, PO-82, [#914](https://github.com/odpi/egeria-workspaces/pull/914)). `MCP_ACCESS_TOKEN` is generated into `.env` and kept; the value that used to be published is refused; on freshstart, unset means MCP is off.
+- **The auth routes are rate-limited again, per real client IP** (PO-83, [#914](https://github.com/odpi/egeria-workspaces/pull/914)). In the Helm chart the Portal trusts `X-Forwarded-For` only from its Apache pods ([#915](https://github.com/odpi/egeria-workspaces/pull/915)).
+- **Freshstart's caches key on the presented credential**, not a bare `?user_id=` (PO-80, [#914](https://github.com/odpi/egeria-workspaces/pull/914)).
+- **Report-spec reads run as the signed-in user**, and the report-spec sync status names no skipped spec or zone to non-admins ([#911](https://github.com/odpi/egeria-workspaces/pull/911)).
+- **With no token and no sign-in required, Dr.Egeria uses the service password, never a built-in one** ([#911](https://github.com/odpi/egeria-workspaces/pull/911)).
+- **`quick-start-local --demo` no longer echoes the Resend API key** as it is typed ([#911](https://github.com/odpi/egeria-workspaces/pull/911)).
+
 ## [6.3] - 2026-11-19
 
 This release goes with Egeria 6.3 and needs pyegeria 6.3.0 or later. [RELEASE_NOTES.md](RELEASE_NOTES.md) summarizes the main changes.
