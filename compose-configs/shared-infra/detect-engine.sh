@@ -92,6 +92,50 @@ egeria_widen_bind() {
     elif [[ "$EGERIA_BIND_IP" != "0.0.0.0" ]]; then
         echo "[$1] WARNING: EGERIA_BIND_IP=${EGERIA_BIND_IP} is exported in your shell, so it is kept; other machines may not reach these ports." >&2
     fi
+    egeria_resolve_bind_ip6
+}
+
+# True when this host can accept IPv6 connections at all.
+egeria_host_has_ipv6() {
+    if [[ "$(uname -s)" == "Linux" ]]; then
+        [[ -r /proc/sys/net/ipv6/conf/all/disable_ipv6 ]] \
+            && [[ "$(cat /proc/sys/net/ipv6/conf/all/disable_ipv6)" == "0" ]]
+    else
+        return 0
+    fi
+}
+
+# IPv6 companion to a widened EGERIA_BIND_IP. A port published on 0.0.0.0
+# answers on IPv4 only, but a host name such as <machine>.local usually
+# resolves to IPv6 addresses as well, and a browser that picks one of those is
+# refused -- it shows up as an intermittent "network error" on some requests.
+# When ports are published on every IPv4 interface, EGERIA_BIND_IP6 is set to
+# "::" and the start scripts add the stack's *-ipv6.yaml overlay, which
+# publishes the browser-facing ports a second time on IPv6. It stays empty (no
+# overlay) for loopback or a specific address, on a host without IPv6, and on
+# Podman, where an IPv6 port entry has not been tried. An EGERIA_BIND_IP6
+# exported in the shell wins: an address to use it, "none" to switch this off.
+egeria_resolve_bind_ip6() {
+    if [[ -n "${EGERIA_BIND_IP6:-}" ]]; then
+        if [[ "$EGERIA_BIND_IP6" == "none" ]]; then
+            EGERIA_BIND_IP6=""
+        fi
+    elif [[ "${EGERIA_BIND_IP:-}" == "0.0.0.0" && "$CONTAINER_ENGINE" == "docker" ]] \
+        && egeria_host_has_ipv6; then
+        EGERIA_BIND_IP6="::"
+    else
+        EGERIA_BIND_IP6=""
+    fi
+    export EGERIA_BIND_IP6
+}
+
+# Text for the "Published ports bind to" messages.
+egeria_bind_description() {
+    if [[ -n "${EGERIA_BIND_IP6:-}" ]]; then
+        echo "${EGERIA_BIND_IP} and [${EGERIA_BIND_IP6}]"
+    else
+        echo "${EGERIA_BIND_IP}"
+    fi
 }
 
 # True when published ports answer only on this machine's loopback.

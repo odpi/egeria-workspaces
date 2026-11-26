@@ -100,7 +100,7 @@ done
 if [[ "$LAN_FLAG" -eq 1 ]]; then
   egeria_widen_bind fresh-start-local
 fi
-echo "[fresh-start-local] Published ports bind to ${EGERIA_BIND_IP}."
+echo "[fresh-start-local] Published ports bind to $(egeria_bind_description)."
 
 image_exists() {
   local image_ref="$1"
@@ -299,15 +299,25 @@ MSG
   # keep re-confirming the SAME pinned digest forever -- --refresh-platform
   # needs this explicit re-resolve step first to actually pick up a newer
   # image. See compose-configs/shared-infra/pin-latest-digest.sh's own
-  # docstring for the full reasoning. (Both stacks pin docker.io/odpi/
-  # egeria-platform:6.3 -- keep the image:tag below in step with that
-  # Dockerfile's own FROM line.)
+  # docstring for the full reasoning.
   if [[ "$REFRESH_PLATFORM" -eq 1 ]]; then
     # NOTE: absolute paths -- we are inside the compose-configs/egeria-freshstart
     # pushd here, so repo-root-relative paths would not resolve.
+    #
+    # The image:tag to re-resolve is read from the Dockerfile's own FROM line
+    # rather than written here.  A tag written here goes stale when the
+    # Dockerfile's pin moves to another version, and then --refresh-platform
+    # silently moves the platform back to the old one.
+    _platform_dockerfile="$REPO_ROOT/compose-configs/egeria-freshstart/Dockerfile-egeria-platform"
+    _platform_image_tag="$(sed -nE 's/^FROM[[:space:]]+([^[:space:]@]*odpi\/egeria-platform:[^[:space:]@]+).*/\1/p' "$_platform_dockerfile" | head -n 1)"
+    if [[ -z "$_platform_image_tag" ]]; then
+      echo "[fresh-start-local] ERROR: --refresh-platform found no 'FROM <registry>/odpi/egeria-platform:<tag>' line in ${_platform_dockerfile}, so it does not know which tag to refresh." >&2
+      exit 1
+    fi
+    echo "[fresh-start-local] --refresh-platform: re-resolving the newest build of ${_platform_image_tag}"
     "$REPO_ROOT/compose-configs/shared-infra/pin-latest-digest.sh" \
-      "$REPO_ROOT/compose-configs/egeria-freshstart/Dockerfile-egeria-platform" \
-      docker.io/odpi/egeria-platform:6.3 || {
+      "$_platform_dockerfile" \
+      "$_platform_image_tag" || {
         echo "[fresh-start-local] ERROR: --refresh-platform could not re-pin the egeria-platform image in compose-configs/egeria-freshstart/Dockerfile-egeria-platform (see pin-latest-digest output above)." >&2
         exit 1
       }
@@ -354,6 +364,11 @@ MSG
   COMPOSE_FILES=(-f egeria-freshstart.yaml -f egeria-freshstart-local.yaml -f egeria-freshstart-ssl.yaml)
   if [[ "$CONTAINER_ENGINE" != "podman" ]]; then
     COMPOSE_FILES+=(-f egeria-freshstart-docker.yaml)
+  fi
+  # --lan on a host with IPv6: publish the browser-facing ports on IPv6 as
+  # well (see egeria_resolve_bind_ip6 in detect-engine.sh).
+  if [[ -n "${EGERIA_BIND_IP6:-}" ]]; then
+    COMPOSE_FILES+=(-f egeria-freshstart-ipv6.yaml)
   fi
 
   echo "[fresh-start-local] Starting core freshstart stack (host-gateway mappings enabled)..."
@@ -460,7 +475,7 @@ EGERIA_MEM_LIMIT_PRINT=$(grep '^EGERIA_MEM_LIMIT=' compose-configs/egeria-freshs
 echo "  - Effective HOST_FQDN: ${HOST_FQDN_PRINT}"
 echo "  - Effective KAFKA_CLUSTER_ID: ${KAFKA_CLUSTER_ID_PRINT}"
 echo "  - Effective EGERIA_MEM_LIMIT: ${EGERIA_MEM_LIMIT_PRINT}"
-echo "  - Published ports bind to: ${EGERIA_BIND_IP}"
+echo "  - Published ports bind to: $(egeria_bind_description)"
 URL_HOST="$(egeria_url_host "${HOST_FQDN_PRINT}")"
 _site_url_print=$(grep '^SITE_URL=' compose-configs/egeria-freshstart/.env | cut -d= -f2- || echo "https://${HOST_FQDN_PRINT:-localhost}:7843")
 if egeria_bind_is_loopback; then
