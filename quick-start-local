@@ -742,13 +742,17 @@ EOF
   if [[ "$CONTAINER_ENGINE" != "podman" ]]; then
     COMPOSE_FILES+=(-f egeria-quickstart-docker.yaml)
   fi
-  if [[ "$DEMO_MODE_FLAG" -eq 1 ]]; then
-    COMPOSE_FILES+=(-f egeria-quickstart-demo.yaml)
-  fi
   # --lan / --demo on a host with IPv6: publish the browser-facing ports on
   # IPv6 as well (see egeria_resolve_bind_ip6 in detect-engine.sh).
+  # This overlay must come BEFORE egeria-quickstart-demo.yaml: the demo file
+  # takes ports away from some services (jupyter-hub: `ports: !reset []`), and
+  # a later file would add the IPv6 entry back, publishing JupyterHub on [::]
+  # in demo mode.
   if [[ -n "${EGERIA_BIND_IP6:-}" ]]; then
     COMPOSE_FILES+=(-f egeria-quickstart-ipv6.yaml)
+  fi
+  if [[ "$DEMO_MODE_FLAG" -eq 1 ]]; then
+    COMPOSE_FILES+=(-f egeria-quickstart-demo.yaml)
   fi
   # CERT_DIR pointing at the well-known Let's Encrypt output path (set above,
   # first run or subsequent) means this demo is using Let's Encrypt — keep
