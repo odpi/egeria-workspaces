@@ -402,6 +402,14 @@ class PlatformBody(BaseModel):
                                      _egeria_token.get())
         if refusal is not None:   # PO-41
             raise refusal
+        # On the demo Portal, a sent password goes only with a demo persona's user name. Not when a sign-in
+        # token is presented: clients then authenticate with the token only (use_token never falls back to
+        # the body's credentials), as the PO-41 rule above also assumes.
+        if not _egeria_token.get():
+            refusal = demo_persona_refusal(getattr(self, "user_id", None) or service_user(),
+                                           bool(getattr(self, "user_pwd", None)))
+            if refusal is not None:
+                raise refusal
         return self
 
 
