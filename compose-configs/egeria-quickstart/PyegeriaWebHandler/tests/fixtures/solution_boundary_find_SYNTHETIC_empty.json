@@ -1,0 +1,4 @@
+{
+ "_note": "SYNTHETIC. The empty-state answer of a boundary find or a DesignModelBoundary find: no element. The live quickstart platform has no SolutionBoundary today, so the routes and the view must handle an empty list.",
+ "list": []
+}

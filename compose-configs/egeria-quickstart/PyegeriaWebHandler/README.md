@@ -696,6 +696,18 @@ Response: `[{ guid, displayName, qualifiedName, componentType, description, merm
 
 **`GET /api/solution/components/{guid}/implementations`** — Implementation elements linked to a component.
 
+**`GET /api/solution/boundaries`** — All solution boundaries (read-only). Query params: `url`, `server`, `user_id`, `start_from`, `page_size`, `include_templates`.
+
+Response: `{ boundaries: [{ guid, displayName, qualifiedName, description, status, typeName, memberCount }], total }`. `memberCount` is `null` in a list (a depth-0 find carries no members). An empty list is a normal answer.
+
+**`GET /api/solution/boundaries/{guid}`** — One solution boundary with its member hierarchy (404 for an unknown GUID).
+
+Response: the summary plus `memberOf` (a blueprint or another boundary it belongs to), the diagrams the element carries (`mermaidGraph`, `collectionMermaidMindMap`), `relationships`, and `memberHierarchy: { members: [{ guid, typeName, displayName, relationshipType, isBoundary, cycle, deeperNotShown, alsoLinkedTo, children }], nodeCount, maxDepth, maxNodes, complete, notes }`. Members are read from `collectionMembers[].relatedElement` and `nestedElements` only (never `sideLinks` or `memberOfCollections`, which lead up to a parent). The walk stops at 8 levels or 500 members, like the `Solution-Boundary` report spec, and says so in `notes`; a member already above it on the path is returned with `cycle: true` and not followed again.
+
+**`GET /api/solution/design-model-boundaries`** — Design model boundaries that are not solution boundaries (read-only). Read through the collection requests filtered to `DesignModelBoundary`; that find also returns solution boundaries (a solution boundary is a design model boundary), which are dropped here by TYPE NAME, never by display name.
+
+The three routes are `async def` and make find and get requests only: nothing creates, updates, deletes or links a boundary or its members. Blueprint and component detail also carry `boundaries` (the `SolutionBoundary` entries of `memberOfCollections`) for the "Member of boundary" links. Egeria refuses to delete a solution boundary that still has members unless the request cascades (403 `OMAG-GENERIC-HANDLERS-403-005`): members must be removed first. A Dr.Egeria Update that names only the Display Name can create a duplicate (#613): give the GUID or Version Identifier.
+
 #### Data Design
 
 **`GET /api/data-design/specs`** — All DataSpec elements (Collection subtypes).

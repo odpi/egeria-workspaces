@@ -6499,7 +6499,7 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
   );
 }
 
-function SolutionBlueprintDetail({ blueprint, onNavigateToComponent, onNavigateToBlueprint, onNavigateToElement }) {
+function SolutionBlueprintDetail({ blueprint, onNavigateToComponent, onNavigateToBlueprint, onNavigateToBoundary, onNavigateToElement }) {
   var _saPersonaId = React.useContext(PersonaContext);
   if (!blueprint) return null;
 
@@ -6555,13 +6555,14 @@ function SolutionBlueprintDetail({ blueprint, onNavigateToComponent, onNavigateT
         );
       })
     ),
+    React.createElement(SolutionBoundaryLinks, { items: blueprint.boundaries, onOpen: onNavigateToBoundary }),
     React.createElement(GenericRelationshipsSection, { relationships: blueprint.relationships, onNavigateToElement: onNavigateToElement }),
     React.createElement(ClassificationsAndRawJson, { item: blueprint }),
     React.createElement(EgeriaCommentsSection, { guid: blueprint.guid })
   );
 }
 
-function SolutionComponentDetail({ component, onNavigateToBlueprint, onNavigateToComponent, onNavigateToElement }) {
+function SolutionComponentDetail({ component, onNavigateToBlueprint, onNavigateToComponent, onNavigateToBoundary, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
   var _saPersonaId = React.useContext(PersonaContext);
 
@@ -6610,6 +6611,7 @@ function SolutionComponentDetail({ component, onNavigateToBlueprint, onNavigateT
       })
     ),
     relSection("Parent Blueprints", component.blueprints, onNavigateToBlueprint),
+    React.createElement(SolutionBoundaryLinks, { items: component.boundaries, onOpen: onNavigateToBoundary }),
     React.createElement(RelationshipSection, { title: "Information Supply Chains", items: component.informationSupplyChains, onNavigateToElement: onNavigateToElement }),
     relSection("Parent Components", component.parentComponents, onNavigateToComponent),
     relSection("Sub-components", component.subComponents, onNavigateToComponent),
@@ -6761,6 +6763,207 @@ function SolutionRoleCard(props) {
   );
 }
 /* solution-role-pure:end */
+
+/* solution-boundary-pure:begin */
+// Solution Boundary views (Part C). READ ONLY: nothing here changes a boundary or its members. There is no form, no input and no write call; the only controls
+// are "View" buttons that open another element. Egeria's own refusals are described in the help text, never exercised.
+var SOLUTION_BOUNDARY_TYPE = 'SolutionBoundary';
+var SOLUTION_BOUNDARY_HELP = [
+  'A solution boundary groups the blueprints, components, roles and other boundaries of one solution. This view only reads them.',
+  'A design model boundary is a boundary of a design model that is not a solution boundary. Design model boundaries are listed on their own.',
+  'Egeria refuses to delete a solution boundary that still has members, unless the request cascades: 403 OMAG-GENERIC-HANDLERS-403-005. Members must be removed first. Nothing in this view deletes.',
+  'When you change a boundary with Dr.Egeria, give its GUID or Version Identifier: an Update that names only the Display Name can create a duplicate (#613).'
+];
+
+function boundaryTargetKind(typeName) {
+  if (typeName === 'SolutionBoundary') return 'boundary';
+  if (typeName === 'SolutionBlueprint') return 'blueprint';
+  if (typeName === 'SolutionComponent') return 'component';
+  if (typeName === 'SolutionActorRole') return 'role';
+  return 'element';
+}
+
+// What "View" does for an item, or null when this page has nowhere to send it. The blueprint, component, role and boundary handlers take a guid;
+// the generic element handler takes the whole item (it reads typeName and superTypeNames from it).
+function boundaryOpenHandler(item, props) {
+  var k = boundaryTargetKind(item.typeName);
+  if (k === 'boundary' && typeof props.onNavigateToBoundary === 'function') return function() { props.onNavigateToBoundary(item.guid); };
+  if (k === 'blueprint' && typeof props.onNavigateToBlueprint === 'function') return function() { props.onNavigateToBlueprint(item.guid); };
+  if (k === 'component' && typeof props.onNavigateToComponent === 'function') return function() { props.onNavigateToComponent(item.guid); };
+  if (k === 'role' && typeof props.onNavigateToRole === 'function') return function() { props.onNavigateToRole(item.guid); };
+  if (typeof props.onNavigateToElement === 'function') return function() { props.onNavigateToElement(item); };
+  return null;
+}
+
+function boundaryViewButton(handler) {
+  return handler ? React.createElement('button', { onClick: handler, style: { marginLeft: 'auto' } }, 'View →') : null;
+}
+
+function SolutionBoundaryNode(props) {
+  var node = props.node;
+  var depth = props.depth || 0;
+  var kids = node.children || [];
+  var label = React.createElement(
+    'span',
+    { 'data-test': 'member-row', style: { display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
+    React.createElement('span', {}, node.displayName || node.qualifiedName || node.guid),
+    node.typeName ? React.createElement('span', { className: 'badge' }, node.typeName) : null,
+    node.cycle ? React.createElement('span', { 'data-test': 'cycle-note', style: { color: 'var(--dim)', fontStyle: 'italic' } }, '(already above: not followed again)') : null,
+    node.deeperNotShown ? React.createElement('span', { 'data-test': 'deeper-note', style: { color: 'var(--dim)', fontStyle: 'italic' } }, '(deeper members not shown)') : null,
+    node.alsoLinkedTo && node.alsoLinkedTo.length > 0 ? React.createElement(
+      'span',
+      { 'data-test': 'also-linked', style: { color: 'var(--dim)', fontSize: 11 } },
+      'also linked to: ' + node.alsoLinkedTo.map(function(l) { return (l.typeName ? l.typeName + ': ' : '') + (l.displayName || l.qualifiedName || l.guid); }).join(', ')
+    ) : null,
+    boundaryViewButton(node.cycle ? null : boundaryOpenHandler(node, props))
+  );
+  if (kids.length === 0) {
+    return React.createElement('div', { key: node.guid, 'data-test': 'member-node', 'data-guid': node.guid, 'data-depth': depth, style: { marginTop: 4 } }, label);
+  }
+  return React.createElement(
+    'details',
+    { key: node.guid, 'data-test': 'member-node', 'data-guid': node.guid, 'data-depth': depth, open: depth < 2, style: { marginTop: 4 } },
+    React.createElement('summary', { style: { cursor: 'pointer' } }, label),
+    React.createElement(
+      'div',
+      { style: { paddingLeft: 18, borderLeft: '1px solid var(--border)', marginLeft: 6 } },
+      kids.map(function(child, i) {
+        return React.createElement(SolutionBoundaryNode, Object.assign({}, props, { key: (child.guid || '') + ':' + i, node: child, depth: depth + 1 }));
+      })
+    )
+  );
+}
+
+function SolutionBoundaryTree(props) {
+  var h = props.hierarchy;
+  var members = h && h.members ? h.members : [];
+  return React.createElement(
+    'div',
+    { 'data-test': 'member-hierarchy', style: { marginBottom: 16 } },
+    React.createElement('div', { style: { fontWeight: 600, fontSize: 13 } }, 'Members (' + (h && h.nodeCount ? h.nodeCount : 0) + ')'),
+    members.length === 0
+      ? React.createElement('div', { className: 'empty', 'data-test': 'no-members' }, 'This boundary has no members')
+      : members.map(function(m, i) {
+        return React.createElement(SolutionBoundaryNode, Object.assign({}, props, { key: (m.guid || '') + ':' + i, node: m, depth: 0 }));
+      }),
+    h && h.notes && h.notes.length > 0 ? React.createElement(
+      'div',
+      { 'data-test': 'hierarchy-notes', role: 'status', style: { marginTop: 8, fontSize: 12, color: 'var(--dim)' } },
+      h.notes.map(function(n, i) { return React.createElement('div', { key: i }, n); })
+    ) : null
+  );
+}
+
+// "Member of boundary" on a blueprint or component: the boundaries it belongs to. Nothing is shown when it belongs to none.
+function SolutionBoundaryLinks(props) {
+  var items = props.items;
+  if (!items || items.length === 0) return null;
+  return React.createElement(
+    'div',
+    { 'data-test': 'member-of-boundary', style: { marginBottom: 16 } },
+    React.createElement('div', { style: { fontWeight: 600, fontSize: 13, marginBottom: 6, color: 'var(--accent)' } }, 'Member of boundary (' + items.length + ')'),
+    items.map(function(item) {
+      return React.createElement(
+        'div',
+        { key: item.guid, style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '4px 0', borderTop: '1px solid var(--border)' } },
+        React.createElement('span', {}, item.displayName || item.qualifiedName),
+        item.typeName ? React.createElement('span', { className: 'badge' }, item.typeName) : null,
+        typeof props.onOpen === 'function' ? boundaryViewButton(function() { props.onOpen(item.guid); }) : null
+      );
+    })
+  );
+}
+
+// The sidebar list of boundaries. An empty list and a filter that matches nothing each say so.
+function SolutionBoundaryList(props) {
+  var items = props.items || [];
+  var q = (props.filter || '').toLowerCase();
+  if (items.length === 0) return React.createElement('div', { 'data-test': 'boundary-list-empty', style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, props.emptyText || 'No boundaries found');
+  var vis = items.filter(function(b) { return !q || (b.displayName || b.qualifiedName || '').toLowerCase().indexOf(q) !== -1; });
+  if (vis.length === 0) return React.createElement('div', { 'data-test': 'boundary-list-nomatch', style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, 'No matches');
+  return React.createElement(
+    'div',
+    { 'data-test': 'boundary-list' },
+    vis.map(function(b) {
+      return React.createElement(
+        'div',
+        { key: b.guid, className: 'tree-item' + (props.selected === b.guid ? ' sel' : ''), 'data-guid': b.guid, style: { paddingLeft: 26 }, title: b.qualifiedName || b.guid, onClick: function() { props.onSelect(b); } },
+        React.createElement('span', { className: 'type-name' }, b.displayName || b.qualifiedName),
+        b.typeName && b.typeName !== SOLUTION_BOUNDARY_TYPE ? React.createElement('span', { className: 'badge', style: { marginLeft: 4 } }, b.typeName) : null
+      );
+    })
+  );
+}
+
+function SolutionBoundaryHelp() {
+  return React.createElement(
+    'details',
+    { 'data-test': 'boundary-help', style: { marginBottom: 16, fontSize: 12, color: 'var(--dim)' } },
+    React.createElement('summary', { style: { cursor: 'pointer' } }, 'About solution boundaries'),
+    SOLUTION_BOUNDARY_HELP.map(function(t, i) { return React.createElement('p', { key: i, style: { margin: '6px 0' } }, t); })
+  );
+}
+
+// The solution boundary card (header, fields, description, member hierarchy, what it is a member of, help). The diagram and the raw relationships are added by the caller.
+function SolutionBoundaryCard(props) {
+  var b = props.boundary;
+  if (!b) return null;
+  function field(name, key, value) {
+    return value ? React.createElement(
+      'div',
+      { 'data-field': key, style: { display: 'flex', justifyContent: 'space-between', marginTop: 4 } },
+      React.createElement('span', {}, name),
+      React.createElement('span', {}, value)
+    ) : null;
+  }
+  return React.createElement(
+    'div',
+    {},
+    React.createElement(
+      'div',
+      { 'data-test': 'boundary-header', style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 4 } },
+      React.createElement('div', { style: { fontSize: 18, fontWeight: 700 } }, b.displayName || b.qualifiedName),
+      React.createElement('span', { className: 'badge' }, b.typeName || SOLUTION_BOUNDARY_TYPE)
+    ),
+    React.createElement('code', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, b.guid),
+    React.createElement(
+      'div',
+      { 'data-test': 'boundary-fields', style: { marginTop: 16, marginBottom: 16 } },
+      field('Qualified name', 'qualified-name', b.qualifiedName),
+      field('Version', 'version', b.versionIdentifier),
+      field('Lifecycle status', 'lifecycle-status', b.lifecycleStatus),
+      field('Status', 'status', b.status)
+    ),
+    b.description ? React.createElement('div', { 'data-test': 'boundary-description', style: { marginBottom: 16 } }, b.description) : null,
+    React.createElement(SolutionBoundaryTree, {
+      hierarchy: b.memberHierarchy, onNavigateToBoundary: props.onNavigateToBoundary, onNavigateToBlueprint: props.onNavigateToBlueprint,
+      onNavigateToComponent: props.onNavigateToComponent, onNavigateToRole: props.onNavigateToRole, onNavigateToElement: props.onNavigateToElement
+    }),
+    React.createElement(SolutionBoundaryLinks, { items: b.memberOf, onOpen: function(guid) { var m = (b.memberOf || []).filter(function(x) { return x.guid === guid; })[0]; var h = m ? boundaryOpenHandler(m, props) : null; if (h) h(); } }),
+    React.createElement(SolutionBoundaryHelp, {})
+  );
+}
+/* solution-boundary-pure:end */
+
+// A solution boundary as the main pane: the card, the diagram the element carries (Solution-Boundary-Mermaid), the raw relationships and the classifications.
+function SolutionBoundaryDetail(props) {
+  var creds = React.useContext(CredContext);
+  var boundary = props.boundary;
+  if (!boundary) return null;
+  return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
+    React.createElement(SolutionBoundaryCard, {
+      boundary: boundary,
+      onNavigateToBoundary: props.onNavigateToBoundary, onNavigateToBlueprint: props.onNavigateToBlueprint,
+      onNavigateToComponent: props.onNavigateToComponent, onNavigateToRole: props.onNavigateToRole, onNavigateToElement: props.onNavigateToElement
+    }),
+    React.createElement("div", { style: { marginBottom: 8 } },
+      React.createElement(AvailableMermaidDiagrams, { data: boundary }),
+      React.createElement(MermaidSection, { guid: boundary.guid, data: boundary })
+    ),
+    React.createElement(GenericRelationshipsSection, { relationships: boundary.relationships, onNavigateToElement: props.onNavigateToElement }),
+    React.createElement(ClassificationsAndRawJson, { item: boundary, creds: creds })
+  );
+}
 
 function DesignPatternDetail({ pattern, onNavigateToPattern, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
@@ -9821,8 +10024,8 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
   const [subNav, setSubNav] = useState(function() {
     var params = new URLSearchParams(window.location.search);
     var k = params.get('kind');
-    return (k === 'components' || k === 'patterns' || k === 'roles') ? k : 'blueprints';
-  }); // 'blueprints' | 'components' | 'patterns' | 'roles'
+    return (k === 'components' || k === 'patterns' || k === 'roles' || k === 'boundaries') ? k : 'blueprints';
+  }); // 'blueprints' | 'components' | 'patterns' | 'roles' | 'boundaries'
 
   const [bpState, setBpState]   = useState('loading');
   const [bpAttempt, setBpAttempt] = useState(0);
@@ -9852,6 +10055,19 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
   });
   const [roleDetail, setRoleDetail] = useState(null);
   const [roleDetailState, setRoleDetailState] = useState('idle');
+  // Solution boundaries and design model boundaries (read-only; each list loads when the Boundaries tab is first opened)
+  const [boundaryState, setBoundaryState]   = useState('idle');
+  const [boundaryAttempt, setBoundaryAttempt] = useState(0);
+  const boundaryLoadedTempl = React.useRef(null);   // the "Include templates" setting the boundary lists were last loaded with
+  const [boundaries, setBoundaries] = useState([]);
+  const [dmBoundaries, setDmBoundaries] = useState([]);
+  const [boundaryError, setBoundaryError]   = useState('');
+  const [selectedBoundary, setSelectedBoundary] = useState(function() {
+    var params = new URLSearchParams(window.location.search);
+    return params.get('kind') === 'boundaries' ? (params.get('guid') || null) : null;
+  });
+  const [boundaryDetail, setBoundaryDetail] = useState(null);
+  const [boundaryDetailState, setBoundaryDetailState] = useState('idle');
   const [expandedPatCats, setExpandedPatCats] = useState(new Set());
   const togglePatCat = useCallback(function(cat) {
     setExpandedPatCats(function(prev) { var n = new Set(prev); if (n.has(cat)) n.delete(cat); else n.add(cat); return n; });
@@ -10000,6 +10216,24 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
       .catch(function(e) { setRoleError(e.message); setRoleState('error'); });
   }, [subNav, roleAttempt, inclTempl]);
 
+  // Load solution boundaries and design model boundaries when the Boundaries tab is first opened (lazy). Two read-only GETs; an empty answer is a normal state.
+  // It loads while the state is 'idle' (first open, Refresh, Retry) AND again when "Include templates" changes after a load: boundaryLoadedTempl remembers which
+  // setting the lists on screen were loaded with, so a changed setting is a new load, and a response for an older setting is dropped.
+  useEffect(function() {
+    if (subNav !== 'boundaries') return;
+    if (boundaryState !== 'idle' && boundaryLoadedTempl.current === inclTempl) return;
+    boundaryLoadedTempl.current = inclTempl;
+    var cancelled = false, done = false;
+    setBoundaryState('loading'); setBoundaryError('');
+    var q = inclTempl ? '?include_templates=true' : '';
+    function get(path) { return egeriaFetch(path + q, creds).then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }); }
+    Promise.all([get('/api/solution/boundaries'), get('/api/solution/design-model-boundaries')])
+      .then(function(res) { done = true; if (!cancelled) { setBoundaries(res[0].boundaries || []); setDmBoundaries(res[1].boundaries || []); setBoundaryState('ready'); } })
+      .catch(function(e) { done = true; if (!cancelled) { setBoundaryError(e.message); setBoundaryState('error'); } });
+    // leaving mid-load (or changing the setting) drops this answer AND forgets the setting, so the next run loads again instead of waiting on a load nobody is listening to
+    return function() { cancelled = true; if (!done) boundaryLoadedTempl.current = null; };
+  }, [subNav, boundaryAttempt, inclTempl]);
+
   // Fetch blueprint detail when selection changes. `cancelled` discards a
   // response that arrives after a newer selection superseded this fetch —
   // same race-condition class found in Collections/Digital Products
@@ -10032,10 +10266,10 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
   useEffect(function() {
     window.__egeriaNavExtra = {
       kind: subNav,
-      guid: subNav === 'components' ? selectedComp : subNav === 'patterns' ? selectedPat : subNav === 'roles' ? selectedRole : selectedBp,
+      guid: subNav === 'components' ? selectedComp : subNav === 'patterns' ? selectedPat : subNav === 'roles' ? selectedRole : subNav === 'boundaries' ? selectedBoundary : selectedBp,
     };
     return function() { window.__egeriaNavExtra = null; };
-  }, [subNav, selectedBp, selectedComp, selectedPat, selectedRole]);
+  }, [subNav, selectedBp, selectedComp, selectedPat, selectedRole, selectedBoundary]);
 
   // Fetch component detail when selection changes (same race guard as above).
   useEffect(function() {
@@ -10084,6 +10318,23 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
     return function() { cancelled = true; };
   }, [selectedRole]);
 
+  // Fetch boundary detail when selection changes (same race guard as above).
+  useEffect(function() {
+    if (!selectedBoundary) { setBoundaryDetail(null); return; }
+    var cancelled = false;
+    setBoundaryDetailState('loading');
+    egeriaFetch('/api/solution/boundaries/' + encodeURIComponent(selectedBoundary), creds)
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) { if (!cancelled) { setBoundaryDetail(data); setBoundaryDetailState('ready'); } })
+      .catch(function() { if (!cancelled) setBoundaryDetailState('error'); });
+    return function() { cancelled = true; };
+  }, [selectedBoundary]);
+
+  function onNavigateToBoundary(guid) {
+    setSubNav('boundaries');
+    setSelectedBoundary(guid);
+  }
+
   function onNavigateToRole(guid) {
     setSubNav('roles');
     if (roleState === 'idle') setRoleAttempt(function(a) { return a + 1; });
@@ -10113,6 +10364,7 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
     if (navProp.kind === 'components') onNavigateToComponent(navProp.guid);
     else if (navProp.kind === 'patterns') onNavigateToPattern(navProp.guid);
     else if (navProp.kind === 'roles') onNavigateToRole(navProp.guid);
+    else if (navProp.kind === 'boundaries') onNavigateToBoundary(navProp.guid);
     else onNavigateToBlueprint(navProp.guid);
   }, [navProp]);
 
@@ -10122,7 +10374,8 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
       React.createElement("button", { onClick: function() { setSubNav('blueprints'); setFilter(''); selection.clear(); }, style: { flex: 1, padding: '8px 0', background: 'none', border: 'none', cursor: 'pointer', fontWeight: subNav === 'blueprints' ? 700 : 400, color: subNav === 'blueprints' ? 'var(--accent)' : 'var(--fg)', borderBottom: subNav === 'blueprints' ? '2px solid var(--accent)' : '2px solid transparent', fontSize: 13 } }, "Blueprints"),
       React.createElement("button", { onClick: function() { setSubNav('components'); setFilter(''); selection.clear(); }, style: { flex: 1, padding: '8px 0', background: 'none', border: 'none', cursor: 'pointer', fontWeight: subNav === 'components' ? 700 : 400, color: subNav === 'components' ? 'var(--accent)' : 'var(--fg)', borderBottom: subNav === 'components' ? '2px solid var(--accent)' : '2px solid transparent', fontSize: 13 } }, "Components"),
       React.createElement("button", { onClick: function() { setSubNav('patterns'); setFilter(''); selection.clear(); }, style: { flex: 1, padding: '8px 0', background: 'none', border: 'none', cursor: 'pointer', fontWeight: subNav === 'patterns' ? 700 : 400, color: subNav === 'patterns' ? 'var(--accent)' : 'var(--fg)', borderBottom: subNav === 'patterns' ? '2px solid var(--accent)' : '2px solid transparent', fontSize: 13 } }, "Patterns"),
-      React.createElement("button", { onClick: function() { setSubNav('roles'); setFilter(''); selection.clear(); }, style: { flex: 1, padding: '8px 0', background: 'none', border: 'none', cursor: 'pointer', fontWeight: subNav === 'roles' ? 700 : 400, color: subNav === 'roles' ? 'var(--accent)' : 'var(--fg)', borderBottom: subNav === 'roles' ? '2px solid var(--accent)' : '2px solid transparent', fontSize: 13 } }, "Roles")
+      React.createElement("button", { onClick: function() { setSubNav('roles'); setFilter(''); selection.clear(); }, style: { flex: 1, padding: '8px 0', background: 'none', border: 'none', cursor: 'pointer', fontWeight: subNav === 'roles' ? 700 : 400, color: subNav === 'roles' ? 'var(--accent)' : 'var(--fg)', borderBottom: subNav === 'roles' ? '2px solid var(--accent)' : '2px solid transparent', fontSize: 13 } }, "Roles"),
+      React.createElement("button", { onClick: function() { setSubNav('boundaries'); setFilter(''); selection.clear(); }, "data-test": "boundaries-tab", style: { flex: 1, padding: '8px 0', background: 'none', border: 'none', cursor: 'pointer', fontWeight: subNav === 'boundaries' ? 700 : 400, color: subNav === 'boundaries' ? 'var(--accent)' : 'var(--fg)', borderBottom: subNav === 'boundaries' ? '2px solid var(--accent)' : '2px solid transparent', fontSize: 13 } }, "Boundaries")
     ),
     // Search bar (shared — resets on sub-nav change)
     React.createElement("div", { className: "search-wrap" },
@@ -10139,6 +10392,7 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
           setCompAttempt(function(a) { return a + 1; });
           setPatAttempt(function(a) { return a + 1; });
           setRoleAttempt(function(a) { return a + 1; });
+          setBoundaryState('idle'); setBoundaryAttempt(function(a) { return a + 1; });
         }
       }, "↻ Refresh")
     ),
@@ -10368,6 +10622,19 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
         });
       })()
     ),
+    subNav === 'boundaries' && React.createElement("div", { style: { overflowY: 'auto', flex: 1 } },
+      (boundaryState === 'idle' || boundaryState === 'loading') && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading boundaries…"),
+      boundaryState === 'error' && React.createElement("div", { style: { padding: 16 } },
+        React.createElement("div", { style: { color: '#f87171', fontSize: 13, marginBottom: 8 } }, "Error: " + boundaryError),
+        React.createElement("button", { className: "view-tab on", onClick: function() { setBoundaryState('idle'); setBoundaryAttempt(function(a) { return a + 1; }); } }, "Retry")
+      ),
+      boundaryState === 'ready' && React.createElement(React.Fragment, null,
+        React.createElement("div", { style: { padding: '8px 10px', fontSize: 11, fontWeight: 700, color: 'var(--text)', background: 'var(--panel)', borderBottom: '1px solid var(--border)' } }, "Solution Boundaries (" + boundaries.length + ")"),
+        React.createElement(SolutionBoundaryList, { items: boundaries, filter: filter, selected: selectedBoundary, emptyText: "No solution boundaries found", onSelect: function(b) { setSelectedBoundary(b.guid); } }),
+        React.createElement("div", { style: { padding: '8px 10px', fontSize: 11, fontWeight: 700, color: 'var(--text)', background: 'var(--panel)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' } }, "Design Model Boundaries (" + dmBoundaries.length + ")"),
+        React.createElement(SolutionBoundaryList, { items: dmBoundaries, filter: filter, selected: null, emptyText: "No design model boundaries found", onSelect: function(b) { onNavigateToElement(b); } })
+      )
+    ),
     subNav === 'patterns' && React.createElement("div", { style: { overflowY: 'auto', flex: 1 } },
       (patState === 'idle' || patState === 'loading') && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading patterns…"),
       patState === 'error' && React.createElement("div", { style: { padding: 16 } },
@@ -10436,7 +10703,7 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
       selectedBp && bpDetailState === 'loading' && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "Loading…"),
       selectedBp && bpDetailState === 'error' && React.createElement("div", { style: { padding: 24, color: '#f87171' } }, "Failed to load blueprint detail"),
       selectedBp && bpDetailState === 'ready' && bpDetail && !bpDeep && React.createElement("div", { style: { padding: '4px 24px 0', fontSize: 11, color: 'var(--dim)' } }, "Loading the full relationship diagram…"),
-      selectedBp && bpDetailState === 'ready' && bpDetail && React.createElement(SolutionBlueprintDetail, { blueprint: bpDetail, onNavigateToComponent: onNavigateToComponent, onNavigateToBlueprint: onNavigateToBlueprint, onNavigateToElement: onNavigateToElement })
+      selectedBp && bpDetailState === 'ready' && bpDetail && React.createElement(SolutionBlueprintDetail, { blueprint: bpDetail, onNavigateToComponent: onNavigateToComponent, onNavigateToBlueprint: onNavigateToBlueprint, onNavigateToBoundary: onNavigateToBoundary, onNavigateToElement: onNavigateToElement })
     ),
     subNav === 'components' && React.createElement(React.Fragment, null,
       !selectedComp && React.createElement("div", { className: "center" },
@@ -10449,6 +10716,24 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
         component: compDetail,
         onNavigateToBlueprint: onNavigateToBlueprint,
         onNavigateToComponent: onNavigateToComponent,
+        onNavigateToBoundary: onNavigateToBoundary,
+        onNavigateToElement: onNavigateToElement
+      })
+    ),
+    subNav === 'boundaries' && React.createElement(React.Fragment, null,
+      !selectedBoundary && React.createElement("div", { className: "center", style: { flexDirection: 'column', gap: 8 } },
+        React.createElement("span", { style: { color: 'var(--muted)' } }, "Select a solution boundary from the sidebar"),
+        boundaryState === 'ready' && boundaries.length === 0 && React.createElement("span", { "data-test": "no-boundaries", style: { color: 'var(--dim)', fontSize: 12 } }, "There are no solution boundaries on this platform yet"),
+        React.createElement("div", { style: { maxWidth: 560 } }, React.createElement(SolutionBoundaryHelp, {}))
+      ),
+      selectedBoundary && boundaryDetailState === 'loading' && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "Loading…"),
+      selectedBoundary && boundaryDetailState === 'error' && React.createElement("div", { style: { padding: 24, color: '#f87171' } }, "Failed to load solution boundary detail"),
+      selectedBoundary && boundaryDetailState === 'ready' && boundaryDetail && React.createElement(SolutionBoundaryDetail, {
+        boundary: boundaryDetail,
+        onNavigateToBoundary: onNavigateToBoundary,
+        onNavigateToBlueprint: onNavigateToBlueprint,
+        onNavigateToComponent: onNavigateToComponent,
+        onNavigateToRole: onNavigateToRole,
         onNavigateToElement: onNavigateToElement
       })
     ),
@@ -11962,6 +12247,11 @@ function App() {
     setSolutionNav({ kind: 'roles', guid: guid });
     setSection('solution-architect');
   }, []);
+  // A SolutionBoundary opens the Solution Architect Boundaries tab.
+  const onNavigateToSolutionBoundary = useCallback(function(guid) {
+    setSolutionNav({ kind: 'boundaries', guid: guid });
+    setSection('solution-architect');
+  }, []);
   const onNavigateToDesignPattern = useCallback(function(guid) {
     setSolutionNav({ kind: 'patterns', guid: guid });
     setSection('solution-architect');
@@ -11995,6 +12285,7 @@ function App() {
     if (typeName === 'NoteLog') { onNavigateToNoteLog(guid); return; }
     if (typeName === 'InformationSupplyChain') { onNavigateToISC(guid); return; }
     if (typeName === 'SolutionBlueprint' || superTypes.indexOf('SolutionBlueprint') !== -1) { onNavigateToSolutionBlueprint(guid); return; }
+    if (typeName === 'SolutionBoundary') { onNavigateToSolutionBoundary(guid); return; }
     if (typeName === 'SolutionActorRole' || superTypes.indexOf('SolutionActorRole') !== -1) { onNavigateToSolutionRole(guid); return; }  // before the ActorRole (Actors card) fallback below
     if (typeName === 'SolutionComponent' || superTypes.indexOf('SolutionComponent') !== -1) { onNavigateToSolutionComponent(guid); return; }
     if (typeName === 'DesignPattern' || superTypes.indexOf('DesignPattern') !== -1) { onNavigateToDesignPattern(guid); return; }
@@ -12043,7 +12334,7 @@ function App() {
     // Endpoint — Referenceable, not Asset, so it needs its own branch;
     // Tech Catalog's Infrastructure tab already has a dedicated fetch path.
     if (typeName === 'Endpoint') { window.open('/tech-catalog?guid=' + encodeURIComponent(guid), '_blank'); return; }
-  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToCollection, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToBusinessCapability, onNavigateToAction, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToSolutionRole, onNavigateToDesignPattern, onNavigateToDataDesign, onNavigateToPerspective, onNavigateToProject, onNavigateToValidValues, onNavigateToInformalTag, onNavigateToContextEvent]);
+  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToCollection, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToBusinessCapability, onNavigateToAction, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToSolutionRole, onNavigateToSolutionBoundary, onNavigateToDesignPattern, onNavigateToDataDesign, onNavigateToPerspective, onNavigateToProject, onNavigateToValidValues, onNavigateToInformalTag, onNavigateToContextEvent]);
 
   const [typeSideW, onTypeDivDown] = useResizable(254, null, null, 'App.typeSideW');
 
