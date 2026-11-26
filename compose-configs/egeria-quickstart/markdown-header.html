@@ -7,6 +7,7 @@
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
     <script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.5.0/dist/purify.min.js"></script>
     <!-- Add additional script to help with mermaid rendering -->
     <style>
         body {
@@ -135,55 +136,76 @@
             }
         });
 
-        // Get the original markdown file URL from the referrer or query parameter
-        function getMarkdownUrl() {
-            // Try to get the URL from the referrer
-            const referrer = document.referrer;
-            if (referrer && referrer.endsWith('.md')) {
-                return referrer;
+        // The viewer shows only markdown files from this site. A candidate must be a path on this
+        // origin: no scheme, no host (including a leading "//"), no backslash or control character.
+        // Returns the path (with any query), or null when the candidate is not accepted.
+        function sameOriginPath(candidate) {
+            if (typeof candidate !== 'string') return null;
+            const s = candidate.trim();
+            if (!s || s.length > 2048) return null;
+            if (/[\\\u0000-\u001f\u007f]/.test(s)) return null;
+            if (s.startsWith('//')) return null;
+            if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(s)) return null;
+            let u;
+            try {
+                u = new URL(s.startsWith('/') ? s : '/' + s, window.location.origin);
+            } catch (e) {
+                return null;
             }
+            if (u.origin !== window.location.origin) return null;
+            return u.pathname + u.search;
+        }
 
-            // If no referrer, try to get from URL parameters
+        // Get the markdown file's path from the query parameter, the referrer or the viewer's own URL.
+        // Returns { path } or { rejected } (the text that was not accepted).
+        function getMarkdownUrl() {
+            // Apache redirects /some/file.md to /markdown-viewer?url=/some/file.md
             const urlParams = new URLSearchParams(window.location.search);
             let mdUrl = urlParams.get('url');
             if (mdUrl) {
                 try {
                     // Handle both encoded and non-encoded URLs
                     mdUrl = decodeURIComponent(mdUrl);
-
-                    // Ensure the URL is properly formatted
-                    if (!mdUrl.startsWith('/') && !mdUrl.startsWith('http')) {
-                        mdUrl = '/' + mdUrl;
-                    }
-
-                    // If the URL doesn't end with .md, add it
-                    if (!mdUrl.endsWith('.md')) {
-                        mdUrl = mdUrl + '.md';
-                    }
-
-                    return mdUrl;
                 } catch (e) {
                     console.error("Error decoding URL:", e);
-                    // If decoding fails, try to use the raw URL
-                    return mdUrl;
                 }
+                const path = sameOriginPath(mdUrl);
+                if (!path) return { rejected: mdUrl };
+                // If the path doesn't end with .md, add it
+                return { path: path.endsWith('.md') ? path : path + '.md' };
             }
 
-            // If all else fails, use the document.URL but replace /markdown-viewer with the original path
-            const currentUrl = document.URL;
-            if (currentUrl.includes('/markdown-viewer')) {
-                // This is a fallback and might not work in all cases
-                return currentUrl.replace('/markdown-viewer', '');
+            // A markdown page on this site that linked here
+            try {
+                const ref = document.referrer ? new URL(document.referrer) : null;
+                if (ref && ref.origin === window.location.origin && ref.pathname.endsWith('.md')) {
+                    return { path: ref.pathname };
+                }
+            } catch (e) {
+                // not a usable referrer
             }
 
-            // Last resort: just use the current URL (original behavior)
-            return window.location.href;
+            // Fallback: the viewer's own path, with /markdown-viewer removed
+            const own = window.location.pathname;
+            if (own.includes('/markdown-viewer')) {
+                const path = sameOriginPath(own.replace('/markdown-viewer', ''));
+                if (path) return { path };
+            }
+            return { rejected: '' };
         }
 
         // Fetch the markdown content
-        const mdUrl = getMarkdownUrl();
+        const target = getMarkdownUrl();
+        const mdUrl = target.path || '';
         console.log("Fetching markdown from URL:", mdUrl);
 
+        if (!target.path) {
+            document.getElementById('content').innerHTML = `
+                <h1>Cannot show this file</h1>
+                <p>The markdown viewer shows only files on this site, given as a path such as /folder/file.md.</p>
+                <p>Not accepted: <code>${escapeHtml(target.rejected)}</code></p>
+            `;
+        } else
         // Add a special header to bypass the rewrite rule
         fetch(mdUrl, {
             headers: {
@@ -253,7 +275,6 @@
                     pedantic: false,
                     gfm: true,
                     breaks: false,
-                    sanitize: false,
                     smartLists: true,
                     smartypants: false,
                     xhtml: false,
@@ -261,7 +282,12 @@
                 });
 
                 // Render markdown
-                document.getElementById('content').innerHTML = marked.parse(text);
+                // marked does not sanitise its output; DOMPurify does, before it goes into the page.
+                // Without DOMPurify the file is not shown.
+                if (!window.DOMPurify || typeof window.DOMPurify.sanitize !== 'function') {
+                    throw new Error('The HTML sanitiser (DOMPurify) did not load, so the file is not shown.');
+                }
+                document.getElementById('content').innerHTML = window.DOMPurify.sanitize(marked.parse(text));
 
                 // Render mermaid diagrams with enhanced error handling
                 console.log("Starting mermaid diagram rendering");

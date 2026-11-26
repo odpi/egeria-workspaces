@@ -149,3 +149,39 @@ def test_served_mermaid_loads_are_major_11():
                 bad.append(f"{p.relative_to(ROOT).as_posix()}: mermaid{m.group(1) or ' (no version)'}")
     assert seen, "no mermaid script loads found"
     assert not bad, f"mermaid loads not pinned to major 11: {bad}"
+
+
+# The Apache markdown viewer: it shows only files from this site, and sanitises marked's HTML.
+VIEWER = Q + "markdown-header.html"
+DOMPURIFY_SRC = re.compile(r'<script src="https://cdn\.jsdelivr\.net/npm/dompurify@(\d+\.\d+\.\d+)/dist/purify\.min\.js"></script>')
+
+
+def _viewer() -> str:
+    return (ROOT / VIEWER).read_text(encoding="utf-8")
+
+
+def test_viewer_loads_pinned_dompurify_before_its_script():
+    text = _viewer()
+    m = DOMPURIFY_SRC.search(text)
+    assert m, "markdown-header.html must load DOMPurify from jsdelivr at an exact version"
+    assert m.start() < text.index("<script>\n"), "DOMPurify must load before the page's own script"
+
+
+def test_viewer_sanitises_marked_output():
+    text = _viewer()
+    assert "DOMPurify.sanitize(marked.parse(" in text
+    assert not re.search(r"innerHTML\s*=\s*marked\.parse\(", text), "marked output must not go into the page unsanitised"
+    assert "sanitize: false" not in text  # a no-op since marked 8; misleading
+
+
+def test_viewer_accepts_only_same_origin_paths():
+    text = _viewer()
+    assert "function sameOriginPath(" in text
+    body = text[text.index("function sameOriginPath("):text.index("function getMarkdownUrl(")]
+    for needed in ("startsWith('//')", "[a-zA-Z][a-zA-Z0-9+.-]*:", "\\\\", "u.origin !== window.location.origin"):
+        assert needed in body, f"sameOriginPath no longer checks {needed!r}"
+    gm = text[text.index("function getMarkdownUrl("):text.index("const target = getMarkdownUrl()")]
+    assert "sameOriginPath(mdUrl)" in gm, "the ?url= value must go through sameOriginPath"
+    assert "ref.origin === window.location.origin" in gm, "a referrer must be same-origin"
+    assert "return referrer" not in gm and "window.location.href" not in gm
+    assert "if (!target.path)" in text, "a rejected address must not be fetched"
