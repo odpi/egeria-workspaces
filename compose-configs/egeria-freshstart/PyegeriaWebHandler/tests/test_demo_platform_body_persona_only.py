@@ -54,6 +54,24 @@ class _Body(egeria_auth.PlatformBody):
 
 
 RAN = []
+CLIENTS = []
+
+
+class _Client:
+    """A pyegeria-shaped client built from the body's credentials, as the routes build theirs. Records every
+    password sign-in, which must never happen when a token is presented."""
+    signins = []
+
+    def __init__(self, platform_url, user_id, user_pwd):
+        self.platform_url, self.user_id, self.user_pwd = platform_url, user_id, user_pwd
+        self.token = None
+
+    def set_bearer_token(self, token):
+        self.token = token
+
+    async def _async_create_egeria_bearer_token(self):
+        _Client.signins.append((self.user_id, self.user_pwd))
+        return "minted"
 
 
 def _app():
@@ -64,6 +82,14 @@ def _app():
     async def route(body: _Body):
         RAN.append(body.user_id)
         return {"ran_as": body.user_id}
+
+    @app.post("/body-client")
+    async def route_with_client(body: _Body):
+        RAN.append(body.user_id)
+        c = _Client(body.url or HOME, body.user_id, body.user_pwd)
+        await egeria_auth.async_apply_token(c)
+        CLIENTS.append(c)
+        return {"client_user": c.user_id}
     return app
 
 
@@ -77,6 +103,8 @@ def _env(monkeypatch):
     monkeypatch.setenv("EGERIA_USER_PASSWORD", SERVICE_PWD)
     monkeypatch.setattr(egeria_auth, "_TOKEN_PLATFORMS", {})
     RAN.clear()
+    CLIENTS.clear()
+    _Client.signins = []
 
 
 @pytest.fixture
@@ -147,6 +175,21 @@ def test_demo_no_user_no_password_runs_unchanged(client, demo):
 def test_demo_with_a_token_the_body_credentials_are_not_checked(client, demo):
     r = _post(client, token=PETER, user_id=NOT_A_PERSONA, user_pwd="some-password")
     assert r.status_code == 200, r.text
+
+
+def test_demo_with_a_token_the_body_password_is_never_used(client, demo):
+    """The token skip is safe only because a client given a token never uses the body's password: it is
+    signed in by the token alone and keeps no password afterwards."""
+    r = client.post("/body-client", json={"user_id": NOT_A_PERSONA, "user_pwd": "some-password"},
+                    headers={"X-Egeria-Token": PETER})
+    assert r.status_code == 200, r.text
+    assert RAN == [NOT_A_PERSONA]                     # the request proceeded
+    [c] = CLIENTS
+    assert _Client.signins == []                      # no password sign-in, with the body's password or any
+    assert c.token == PETER
+    assert c.user_pwd is None                         # the body password is dropped from the client
+    assert c.user_id == "peterprofile"                # it acts as the token's user, not the body's
+    assert r.json()["client_user"] == "peterprofile"
 
 
 # ── local: unchanged ─────────────────────────────────────────────────────────────────────────────────
