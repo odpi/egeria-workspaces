@@ -5,6 +5,9 @@ Copyright Contributors to the ODPi Egeria project.
 
 P1 of the Portal boundary view: capture REAL-SHAPE fixtures for Solution Boundaries, READ-ONLY, from the live quickstart platform.
 
+MEMBERS are read from collectionMembers[].relatedElement and, below it, nestedElements ONLY (never sideLinks or memberOfCollections, which lead UP
+to a parent), so an inner boundary that merely has a parent is not counted as nested.
+
 WHAT IT CALLS (find and get requests only; the five names in ALLOWED_CALLS are the whole list, and a call to any other name stops the script):
   SolutionArchitect._async_find_solution_boundaries          (a) a boundary find
   SolutionArchitect._async_get_solution_boundary_by_guid     (b) a boundary by GUID that has members, including a NESTED boundary
@@ -105,15 +108,45 @@ def element_list(result) -> list:
     return []
 
 
-def nested_boundaries(detail: dict) -> set:
-    """GUIDs of Solution Boundaries inside a boundary's own answer, other than the boundary itself."""
+MAX_TREE_DEPTH = 50      # a safety stop for the member walk; the guids on the current path are never followed again
+
+
+def members_below(detail: dict) -> list:
+    """The members of a boundary as (guid, type name, depth, parent guid), depth 1 = a direct member. The walk follows ONLY
+    `collectionMembers[].relatedElement` and, below it, `nestedElements` (the same shape, recursively), as pyegeria's
+    solution_boundary_member_hierarchy does (RelatedMetadataHierarchySummary, odpi/egeria #9465). It never reads `sideLinks` or
+    `memberOfCollections`: those lead UP to a parent, and counting a parent as a nested member would make an inner boundary look nested."""
+    out: list = []
     root = guid_of(detail)
-    return {guid_of(d) for d in walk(detail) if type_name(d) == "SolutionBoundary" and guid_of(d) and guid_of(d) != root}
+
+    def walk(items, depth, path, parent):
+        for item in items if isinstance(items, list) else []:
+            related = item.get("relatedElement") if isinstance(item, dict) else None
+            if not isinstance(related, dict):
+                continue
+            guid = guid_of(related)
+            if guid and guid in path:
+                continue                                   # already above: a cycle, not followed again
+            out.append((guid, type_name(related), depth, parent))
+            if depth < MAX_TREE_DEPTH:
+                walk(item.get("nestedElements"), depth + 1, path | {guid}, guid)
+
+    walk(detail.get("collectionMembers"), 1, {root} if root else set(), root)
+    return out
+
+
+def nested_boundaries(detail: dict) -> dict:
+    """GUID -> depth of every Solution Boundary that is a MEMBER (at any depth) of this boundary, from collectionMembers / nestedElements only."""
+    found: dict = {}
+    for guid, tname, depth, _ in members_below(detail):
+        if tname == "SolutionBoundary" and guid and guid not in found:
+            found[guid] = depth
+    return found
 
 
 def other_elements(detail: dict) -> set:
-    root = guid_of(detail)
-    return {guid_of(d) for d in walk(detail) if guid_of(d) and guid_of(d) != root}
+    """GUIDs of every member (any type, any depth) of this boundary, from collectionMembers / nestedElements only."""
+    return {guid for guid, _, _, _ in members_below(detail) if guid}
 
 
 def member_of_boundaries(detail: dict) -> list:
@@ -211,7 +244,7 @@ async def capture(args, sa, cm, log: list) -> dict:
             continue
         nested, members = nested_boundaries(detail), other_elements(detail)
         name = (detail.get("properties") or {}).get("displayName", "")
-        print(f"  boundary {guid} {name!r}: {len(members)} elements around it, {len(nested)} nested boundaries")
+        print(f"  boundary {guid} {name!r}: {len(members)} members, {len(nested)} nested boundaries {dict(sorted(nested.items()))}")
         if nested and (best is None or (len(nested), len(members)) > (len(best["nested"]), len(best["members"]))):
             best = {"guid": guid, "name": name, "detail": detail, "nested": nested, "members": members}
     report["seen"]["boundaries_looked_at"] = min(len(boundaries), MAX_DETAIL_CALLS)
@@ -256,7 +289,7 @@ async def capture(args, sa, cm, log: list) -> dict:
     report["fixtures"] = {
         "solution_boundary_find": {"list": boundaries, "calls": "SolutionArchitect.find_solution_boundaries(search_string='*', page_size=500, graph_query_depth=1)"},
         "solution_boundary_by_guid_nested": {"by_guid": best["detail"], "calls": f"SolutionArchitect.get_solution_boundary_by_guid(guid={best['guid']!r}, graph_query_depth={args.depth}); "
-                                             f"{len(best['nested'])} nested Solution Boundaries among its members"},
+                                             f"{len(best['nested'])} nested Solution Boundaries among its members (guid: depth, 1 = a direct member): {dict(sorted(best['nested'].items(), key=lambda kv: (kv[1], kv[0])))}"},
         "design_model_boundary_find_mixed_types": {"list": dmb, "calls": "CollectionManager.find_collections(search_string='*', metadata_element_type='DesignModelBoundary', page_size=500, "
                                                     f"graph_query_depth=1) returned types {types}"},
         "solution_blueprint_member_of_boundary": {"by_guid": chosen["detail"], "calls": f"SolutionArchitect.get_solution_blueprint_by_guid(guid={chosen['guid']!r}, graph_query_depth=3); "
