@@ -6,8 +6,10 @@ PATHLIST: one repo-relative file path per line, optionally `path<TAB>size-in-byt
 recognizer/listpaths.py; never from a dirty working tree). Paths use `/`, are relative, and appear once.
 
 Outputs in OUTDIR (byte-identical for the same input and profile; nothing in them depends on time, run id or the tree sha):
-  components.txt  one directory per line, the input format of the Phase 0 scorer (top-level components; parts of a component are findings)
-  findings.jsonl  one finding per recognized node (a subtree root, a matched file, or a claimed directory)
+  components.txt      one directory per line, the input format of the Phase 0 scorer (top-level components)
+  components-all.txt  the same plus the parts of components (a manifest nested inside a component), for the manifest-probe regression
+  findings.jsonl      one finding per (rule, directory) that a rule claimed, with the files and bytes it claimed, sorted by path then rule
+                      (--per-file also writes findings-files.jsonl: one finding per file, large, for debugging)
   classes.json    files and bytes per role, per relevance and per rule; the classified, hidden and unclassified shares
   report.md       a short human summary
 
@@ -89,8 +91,24 @@ class Recognizer:
         self.needed_names = set()
         for r in self.dir_rules:
             self.needed_names |= r.has_files | r.parent_has_files
+        # hidden subtree rules that depend on the path alone (a rule that also tests a file name cannot say a DIRECTORY is hidden)
+        self.hidden_subtrees = [r for r in self.file_rules if r.grain == "subtree" and r.relevance == "hidden"
+                                and set(r.match) <= {"path_segment", "path_glob"}]
         self.claims: dict[str, Rule] = {}             # directory -> the first dir rule that claims it
         self.subtree_claims: dict[str, set] = {}      # rule id -> directories claimed with grain subtree
+
+    def inside_hidden_subtree(self, d: str) -> bool:
+        """Is directory `d` inside (or at the root of) a subtree that a hidden-relevance path rule claims? Such a directory can never be a
+        component: a pyproject.toml inside node_modules is vendored, not a component."""
+        if not self.hidden_subtrees or not d:
+            return False
+        segs = d.split("/")
+        for r in self.hidden_subtrees:
+            if r.segments and any(x in r.segments for x in segs):
+                return True
+            if r.root_globs and any(g.match("/".join(segs[:i + 1])) for g in r.root_globs for i in range(len(segs))):
+                return True
+        return False
 
     # ---- directory rules (has_file / parent_has_file) -------------------------------------------------------------------
     def index_directories(self, path_list: Path) -> None:
@@ -110,6 +128,8 @@ class Recognizer:
                     d = d[:d.rfind("/")] if "/" in d else ""
         candidates = set(holders) | all_dirs if need_all else set(holders)
         for d in sorted(candidates):
+            if self.inside_hidden_subtree(d):                # vendored (or any hidden subtree) wins over a manifest inside it
+                continue
             parent = d[:d.rfind("/")] if "/" in d else ""
             own = holders.get(d, set())
             par = holders.get(parent, set()) if d else set()
@@ -179,48 +199,42 @@ class Recognizer:
         return f
 
     # ---- the run --------------------------------------------------------------------------------------------------------
-    def run(self, path_list: Path, out: Path) -> dict:
+    def run(self, path_list: Path, out: Path, per_file: bool = False) -> dict:
         out.mkdir(parents=True, exist_ok=True)
         self.index_directories(path_list)
 
-        components = sorted(d for d, r in self.claims.items() if r.grain == "component")
-        comp_set = set(components)
-        dir_findings = []
-        top_components = []
-        for d in sorted(self.claims):
-            r = self.claims[d]
-            extra = None
-            if r.grain == "component":
-                parent = None
-                segs = d.split("/") if d else []
-                for i in range(len(segs) - 1, 0, -1):          # the nearest enclosing component, deepest first
-                    if "/".join(segs[:i]) in comp_set:
-                        parent = "/".join(segs[:i])
-                        break
-                if parent is None and d and "" in comp_set:    # the repository root is itself a component
-                    parent = "."
-                if parent is None:
-                    top_components.append(d or ".")
-                extra = {"part_of": parent} if parent else None
-            dir_findings.append(self.finding(r, d or ".", r.grain, extra))
-        dir_findings.sort(key=lambda f: (f["path"], f["rule_id"]))
+        comp_dirs = sorted(d for d, r in self.claims.items() if r.grain == "component")
+        comp_set = set(comp_dirs)
+        top_components, all_components = [], []
+        parts_of: dict[str, str | None] = {}
+        for d in comp_dirs:
+            parent = None
+            segs = d.split("/") if d else []
+            for i in range(len(segs) - 1, 0, -1):              # the nearest enclosing component, deepest first
+                if "/".join(segs[:i]) in comp_set:
+                    parent = "/".join(segs[:i])
+                    break
+            # a manifest at the repository root makes the root a component (kind root-project) but NOT the parent of the others:
+            # parts exist only below a non-root component
+            parts_of[d] = parent
+            all_components.append(d or ".")
+            if parent is None:
+                top_components.append(d or ".")
 
         by_role: dict[str, list] = {}
         by_rel: dict[str, list] = {}
         by_rule: dict[str, list] = {}
+        counts: dict[tuple, list] = {}                         # (directory, rule id) -> [files, bytes] claimed
+        rules_by_id = self.p.rules_by_id()
         total_files = total_bytes = 0
-        emitted: set = set()
-        di = 0
 
         def bump(table, key, size):
             cell = table.setdefault(key, [0, 0])
             cell[0] += 1
             cell[1] += size
 
-        with open(out / "findings.jsonl", "w", encoding="utf-8", newline="\n") as fj:
-            def put(f):
-                fj.write(json.dumps(f, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n")
-
+        fj = open(out / "findings-files.jsonl", "w", encoding="utf-8", newline="\n") if per_file else None
+        try:
             for path, size in read_rows(path_list):
                 total_files += 1
                 total_bytes += size
@@ -233,23 +247,51 @@ class Recognizer:
                 bump(by_role, rule.role, size)
                 bump(by_rel, rule.relevance, size)
                 bump(by_rule, rule.id, size)
-                if rule.is_dir_rule:                      # its directory finding is already in dir_findings
-                    continue
-                key = (rule.id, node)
-                if grain == "subtree" and key in emitted:
-                    continue
-                if grain == "subtree":
-                    emitted.add(key)
-                while di < len(dir_findings) and dir_findings[di]["path"] < node:
-                    put(dir_findings[di])
-                    di += 1
-                put(self.finding(rule, node, grain))
-            while di < len(dir_findings):
-                put(dir_findings[di])
-                di += 1
+                if grain == "dir":                              # a file-name rule: the finding is the directory that holds the file
+                    cut = path.rfind("/")
+                    directory = path[:cut] if cut >= 0 else "."
+                else:
+                    directory = node or "."
+                cell = counts.setdefault((directory, rule.id), [0, 0])
+                cell[0] += 1
+                cell[1] += size
+                if fj is not None:
+                    f = self.finding(rule, path, grain)
+                    f["files"], f["bytes"] = 1, size
+                    fj.write(json.dumps(f, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n")
+        finally:
+            if fj is not None:
+                fj.close()
+
+        findings = []
+        for (directory, rid), (nf, nb) in counts.items():
+            r = rules_by_id[rid]
+            grain = "subtree" if r.grain == "subtree" else "dir"
+            f = self.finding(r, directory, grain)
+            f["files"], f["bytes"] = nf, nb
+            findings.append(f)
+        done = {(f["path"], f["rule_id"]) for f in findings}
+        for d, r in self.claims.items():                       # a claimed directory with no file counted against it (components)
+            key = (d or ".", r.id)
+            if key in done:
+                f = next(x for x in findings if (x["path"], x["rule_id"]) == key)
+                if parts_of.get(d):
+                    f["part_of"] = parts_of[d]
+                continue
+            extra = {"part_of": parts_of[d]} if parts_of.get(d) else None
+            if d == "" and r.grain == "component":             # the repository root: flag it, keep what the manifest rule said
+                extra = {"root": True, "kind": "root-project", "manifest_kind": r.kind}
+            f = self.finding(r, d or ".", r.grain, extra)
+            findings.append(f)
+        findings.sort(key=lambda f: (f["path"], f["rule_id"]))
+        with open(out / "findings.jsonl", "w", encoding="utf-8", newline="\n") as fh:
+            for f in findings:
+                fh.write(json.dumps(f, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n")
 
         top_components.sort()
+        all_components.sort()
         (out / "components.txt").write_text("".join(c + "\n" for c in top_components), encoding="utf-8")
+        (out / "components-all.txt").write_text("".join(c + "\n" for c in all_components), encoding="utf-8")
 
         def table(t):
             return {k: {"files": v[0], "bytes": v[1]} for k, v in sorted(t.items())}
@@ -270,7 +312,8 @@ class Recognizer:
                 "classified_bytes": share(total_bytes - unc[1], total_bytes), "hidden_bytes": share(hid[1], total_bytes),
                 "unclassified_bytes": share(unc[1], total_bytes),
             },
-            "components": {"top_level": len(top_components), "parts": len(components) - len(top_components)},
+            "components": {"top_level": len(top_components), "parts": len(all_components) - len(top_components)},
+            "findings": len(findings),
         }
         (out / "classes.json").write_text(json.dumps(classes, indent=2, sort_keys=True, ensure_ascii=False) + "\n", encoding="utf-8")
         (out / "report.md").write_text(render_report(classes), encoding="utf-8")
@@ -301,9 +344,10 @@ def main(argv=None) -> int:
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--profile", default="generic-relevance")
     ap.add_argument("--profiles-dir", type=Path, default=DEFAULT_PROFILES)
+    ap.add_argument("--per-file", action="store_true", help="also write findings-files.jsonl, one finding per file (debugging; large)")
     a = ap.parse_args(argv)
     prof = load_profile(a.profile, a.profiles_dir)
-    c = Recognizer(prof).run(a.pathlist, a.out)
+    c = Recognizer(prof).run(a.pathlist, a.out, per_file=a.per_file)
     print(f"{prof.profile_id} {prof.version}: {c['total_files']:,} files; unclassified {c['shares']['unclassified_files']:.1%}, "
           f"hidden {c['shares']['hidden_files']:.1%}; components {c['components']['top_level']}")
     return 0

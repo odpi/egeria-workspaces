@@ -2,9 +2,9 @@
 # It says what is NOT worth showing (build output, installed packages, VCS internals, runtime output, backups, copies of other trees).
 # It names no component: that is the code-repo profile's job (M1). Everything these rules do not claim stays 'unclassified', which is a result.
 # The rules are ordered and the FIRST match wins. The order is the census's: .git, then installed/build directories, then file-name
-# classes (events, dumps, logs, backups), and the worktree-copy name pattern LAST, so it only claims files nothing else claims.
+# classes (events, dumps, logs, backups). The worktree-copy name pattern now lives in its own profile (worktree-copies, 0.1.0).
 profile_id: generic-relevance
-version: 0.1.0
+version: 0.2.0
 status: proposed
 applies_to: any
 roles: [component, source, test, docs, config, generated, vendored, scratch, archive, audit,
@@ -77,12 +77,5 @@ rules:
     basis: convention
     confidence: medium
     evidence: ".bak, .sql.gz and .dump are backup and dump file endings"
-  - id: R-copy-worktree-name
-    match: {path_glob: ["wt-*/**", "ws-*/**", "ews-*/**", "trellis-wt*/**", "trellis-re-ui*/**", "*-vocab[0-9]*/**"]}
-    assign: {role: worktree-copy, kind: tree-copy-by-name}
-    grain: subtree
-    basis: judgement
-    confidence: low
-    evidence: "a top-level folder named wt-*, ws-*, ews-*, trellis-wt*, trellis-re-ui* or *-vocab<N> is, by this workspace's convention, a working copy of another tree; a duplicate-tree test would be sounder (open point)"
 path_grammar: []
 name_grammar: []

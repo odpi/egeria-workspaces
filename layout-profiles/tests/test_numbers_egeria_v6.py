@@ -17,8 +17,8 @@ CENSUS = json.loads((HERE / "census_egeria_v6.json").read_text())
 
 
 @pytest.mark.skipif(LIST is None or not LIST.is_file(), reason="LAYOUT_EGERIA_V6_PATHS is unset or not a file (make a list with recognizer/listpaths.py)")
-def test_class_counts_equal_the_architect_census(tmp_path):
-    c = Recognizer(load_profile("generic-relevance", HERE.parent / "profiles")).run(LIST, tmp_path)
+def test_class_counts_equal_the_phase0_census(tmp_path):
+    c = Recognizer(load_profile("egeria-workspace", HERE.parent / "profiles")).run(LIST, tmp_path)
     n = lambda *rules: sum(c["by_rule"].get(r, {}).get("files", 0) for r in rules)
     got = {
         "total_files": c["total_files"],

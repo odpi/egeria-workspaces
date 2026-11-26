@@ -64,8 +64,8 @@ def test_the_shallowest_subtree_root_is_the_node(tmp_path):
 
 
 def test_file_rules_give_one_finding_per_file(tmp_path):
-    c, f = run(make_profile([LOG]), tmp_path, ["a.log", "d/b.log", "d/c.txt"])
-    assert [x["path"] for x in f] == ["a.log", "d/b.log"]
+    c, f = run(make_profile([LOG]), tmp_path, [("a.log", 3), ("d/b.log", 4), ("d/e.log", 5), ("d/c.txt", 9)])
+    assert [(x["path"], x["files"], x["bytes"]) for x in f] == [(".", 1, 3), ("d", 2, 9)]       # one finding per (rule, directory), with counts
     assert all(x["grain"] == "dir" and x["role"] == "runtime-output" for x in f)
 
 
@@ -163,7 +163,7 @@ def test_finding_ids_are_stable_across_runs_and_across_a_different_tree_sha(tmp_
     assert all(len(v) == 16 and int(v, 16) >= 0 for v in ids(f1).values())
     # the finding body carries no time, run id or tree sha
     assert set(f1[0]) == {"finding_id", "path", "role", "kind", "relevance", "rule_id", "basis", "confidence", "evidence", "grain",
-                          "profile_id", "profile_version"}
+                          "profile_id", "profile_version", "files", "bytes"}
 
 
 def test_finding_id_changes_with_rule_path_profile_and_major_version_only(tmp_path):
@@ -192,10 +192,12 @@ def test_components_come_from_manifest_files_and_nested_ones_are_parts(tmp_path)
     rows = ["pyproject.toml", "packages/a/pyproject.toml", "packages/a/src/x.py", "packages/a/examples/e1/pyproject.toml",
             "packages/b/pyproject.toml", "docs/index.md"]
     c, f = run(make_profile([PYPROJ]), tmp_path, rows)
-    assert (tmp_path / "out" / "components.txt").read_text() == ".\n"            # the root is a component; everything below is a part of it
+    assert (tmp_path / "out" / "components.txt").read_text() == ".\npackages/a\npackages/b\n"    # the root is a component, not their parent
     parts = {x["path"]: x.get("part_of") for x in f if x["rule_id"] == "R-comp"}
-    assert parts == {".": None, "packages/a": ".", "packages/a/examples/e1": "packages/a", "packages/b": "."}
-    assert c["components"] == {"top_level": 1, "parts": 3}
+    assert parts == {".": None, "packages/a": None, "packages/a/examples/e1": "packages/a", "packages/b": None}
+    root = next(x for x in f if x["path"] == ".")
+    assert root["root"] is True and root["kind"] == "root-project" and root["manifest_kind"] == "python-package"
+    assert c["components"] == {"top_level": 3, "parts": 1}
 
 
 def test_without_a_root_manifest_the_top_level_ones_are_components(tmp_path):
@@ -234,12 +236,12 @@ def test_findings_interleave_directory_and_file_findings_deterministically(tmp_p
     _, f = run(make_profile([PYPROJ, LOG]), tmp_path, rows, "x")
     _, g = run(make_profile([PYPROJ, LOG]), tmp_path, rows, "y")
     assert [x["finding_id"] for x in f] == [x["finding_id"] for x in g]
-    assert [x["path"] for x in f] == ["a", "a/run.log", "b/run.log", "c"]
+    assert [(x["path"], x["rule_id"]) for x in f] == [("a", "R-comp"), ("a", "R-log"), ("b", "R-log"), ("c", "R-comp")]
 
 
 # ---- the shipped generic profile on a synthetic tree -------------------------------------------------------------------------
 
-def test_generic_relevance_on_a_synthetic_tree(tmp_path):
+def test_generic_relevance_on_a_synthetic_tree(tmp_path):        # the worktree name rule is NOT in generic-relevance since 0.2.0
     from recognizer.layout_profile import load_profile
     prof = load_profile("generic-relevance", PROFILES)
     rows = ["svc/.git/HEAD", "svc/node_modules/x/index.js", "svc/build/out.class", "svc/__pycache__/m.pyc", "svc/src/main.py",
@@ -248,7 +250,8 @@ def test_generic_relevance_on_a_synthetic_tree(tmp_path):
     c, f = run(prof, tmp_path, rows)
     got = {k: v["files"] for k, v in c["by_rule"].items()}
     assert got == {"R-vcs-git": 1, "R-vend-installed": 2, "R-gen-build-output": 1, "R-gen-tool-cache": 1, "R-run-log": 2,
-                   "R-run-openlineage-event": 1, "R-run-heap-dump": 1, "R-backup-dir": 1, "R-backup-file": 1, "R-copy-worktree-name": 1,
-                   "(none)": 2}
-    assert c["by_role"]["unclassified"]["files"] == 2                          # svc/src/main.py and README.md
+                   "R-run-openlineage-event": 1, "R-run-heap-dump": 1, "R-backup-dir": 1, "R-backup-file": 1, "(none)": 3}
+    assert c["by_role"]["unclassified"]["files"] == 3                          # svc/src/main.py, README.md, wt-feature/src/a.py
+    c2, _ = run(load_profile("egeria-workspace", PROFILES), tmp_path, rows, "ws")      # with the workspace profile the copy is claimed
+    assert c2["by_rule"]["R-copy-worktree-name"]["files"] == 1 and c2["by_role"]["unclassified"]["files"] == 2
     assert c["components"] == {"top_level": 0, "parts": 0}

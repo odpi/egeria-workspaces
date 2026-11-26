@@ -10,3 +10,5 @@ Nothing here is copied from a repository: profiles are written from conventions,
   - tune set, by `recognizer/gitlist.py` (`git ls-tree -r -l` of one commit): trellis `142bd786`, datahub `bc0c3ef7ef2`, superset `d2cce51dd`.
 - Answer keys: not used in M0. Only the header lines (repo, commit, path) of the three tune-set keys were read to find the commits.
   The two held-out answer keys (airbyte, egeria-docs) were not opened, and those repositories were not run.
+- M1: the three tune-set answer keys (trellis, datahub, superset; draft labels, unreviewed) were used only through the Phase 0 scorer, for the manifest-probe
+  regression; none was copied or edited, and the scores are provisional until the keys are reviewed.

@@ -1,0 +1,88 @@
+# code-repo: components of a code repository from the files that declare them (manifests), with nested ones kept as PARTS of the
+# enclosing component. It extends generic-relevance, so build output, installed packages and VCS internals are hidden, and a manifest
+# inside such a subtree is never a component (hidden subtrees win). One claim per directory: the FIRST manifest rule below that matches.
+# metadata.yaml is last on purpose: a directory that only carries metadata.yaml is a weaker claim (connector-style repos), and the
+# Phase 0 manifest-probe baselines do not count it.
+profile_id: code-repo
+version: 0.1.0
+status: proposed
+applies_to: code-repo
+extends: [generic-relevance]
+roles: [component]
+relevance:
+  primary: [component]
+  supporting: []
+  hidden: []
+rules:
+  - id: R-comp-pyproject
+    match: {has_file: pyproject.toml}
+    assign: {role: component, kind: python-package}
+    grain: component
+    basis: manifest
+    confidence: high
+    evidence: "pyproject.toml declares a Python package or project"
+  - id: R-comp-setup-py
+    match: {has_file: setup.py}
+    assign: {role: component, kind: python-package}
+    grain: component
+    basis: manifest
+    confidence: high
+    evidence: "setup.py declares a Python package"
+  - id: R-comp-package-json
+    match: {has_file: package.json}
+    assign: {role: component, kind: node-package}
+    grain: component
+    basis: manifest
+    confidence: high
+    evidence: "package.json declares a Node package"
+  - id: R-comp-pom
+    match: {has_file: pom.xml}
+    assign: {role: component, kind: maven-module}
+    grain: component
+    basis: manifest
+    confidence: high
+    evidence: "pom.xml declares a Maven module"
+  - id: R-comp-gradle
+    match: {has_file: build.gradle}
+    assign: {role: component, kind: gradle-module}
+    grain: component
+    basis: manifest
+    confidence: high
+    evidence: "build.gradle declares a Gradle module"
+  - id: R-comp-cargo
+    match: {has_file: Cargo.toml}
+    assign: {role: component, kind: rust-crate}
+    grain: component
+    basis: manifest
+    confidence: high
+    evidence: "Cargo.toml declares a Rust crate"
+  - id: R-comp-go-mod
+    match: {has_file: go.mod}
+    assign: {role: component, kind: go-module}
+    grain: component
+    basis: manifest
+    confidence: high
+    evidence: "go.mod declares a Go module"
+  - id: R-comp-helm-chart
+    match: {has_file: Chart.yaml}
+    assign: {role: component, kind: helm-chart}
+    grain: component
+    basis: manifest
+    confidence: high
+    evidence: "Chart.yaml declares a Helm chart"
+  - id: R-comp-dockerfile
+    match: {has_file: Dockerfile}
+    assign: {role: component, kind: docker-image}
+    grain: component
+    basis: manifest
+    confidence: medium
+    evidence: "a Dockerfile builds an image; it may be a test fixture or a sub-image of a larger component"
+  - id: R-comp-metadata-yaml
+    match: {has_file: metadata.yaml}
+    assign: {role: component, kind: connector-metadata}
+    grain: component
+    basis: manifest
+    confidence: medium
+    evidence: "metadata.yaml describes a connector or deployable unit that may carry no language manifest of its own"
+path_grammar: []
+name_grammar: []
