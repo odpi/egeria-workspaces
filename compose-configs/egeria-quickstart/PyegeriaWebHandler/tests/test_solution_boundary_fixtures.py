@@ -70,3 +70,9 @@ def test_no_fixture_carries_a_token_password_or_header():
     for name in (BLUEPRINT_FILE, BOUNDARY_FILE, FIND_FILE, DMB_FILE):
         text = (_FX / name).read_text()
         assert not re.search(r"eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}", text) and not re.search(r'"[^"]*(?:token|passw|secret|authoriz|cookie|bearer)[^"]*"\s*:', text, re.I), name
+
+
+def test_the_empty_state_fixture_is_an_empty_list_labelled_synthetic():
+    # live has no SolutionBoundary today: the routes and the view must handle this answer
+    e = load("solution_boundary_find_SYNTHETIC_empty.json")
+    assert e["list"] == [] and "SYNTHETIC" in e["_note"] and "SYNTHETIC" in "solution_boundary_find_SYNTHETIC_empty.json"
