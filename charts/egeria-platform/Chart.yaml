@@ -4,7 +4,7 @@ description: One Egeria 6 OMAG Server Platform (quickstart or freshstart environ
 type: application
 version: 0.1.0
 # appVersion is the Egeria release; the image is pinned by digest in values.yaml.
-appVersion: "6.3"
+appVersion: "6.4-SNAPSHOT"
 dependencies:
   - name: egeria-common
     version: 0.1.0

@@ -75,7 +75,7 @@ The platform pod waits up to 600 seconds for both to accept TCP connections befo
 
 | Image | Where it comes from |
 |---|---|
-| Platform | `docker.io/odpi/egeria-platform:6.3`, pinned by digest in `charts/egeria-platform/values.yaml`. Public; nothing to build. |
+| Platform | `docker.io/odpi/egeria-platform:6.4-SNAPSHOT`, pinned by digest in `charts/egeria-platform/values.yaml`. Public; nothing to build. |
 | Portal (`portal-quickstart` or `portal-freshstart`) | **Build it yourself.** It is not published. |
 | Apache front door (`apache-web`, one image for both environments) | **Build it yourself.** It is not published. |
 

@@ -122,8 +122,15 @@ MSG
   # "pulling newer base images when available" build below would just keep
   # re-confirming the same old pinned digest forever. See
   # compose-configs/shared-infra/pin-latest-digest.sh's own docstring.
-  # (freshstart's Dockerfile pulls from quay.io, not docker.io.)
-  ../shared-infra/pin-latest-digest.sh Dockerfile-egeria-platform quay.io/odpi/egeria-platform:latest
+  # The image:tag to re-resolve is read from the Dockerfile's own FROM line,
+  # as in fresh-start-local: a tag written here goes stale when the pin moves
+  # to another version, and the re-pin then moves the platform back to it.
+  _platform_image_tag="$(sed -nE 's/^FROM[[:space:]]+([^[:space:]@]*odpi\/egeria-platform:[^[:space:]@]+).*/\1/p' Dockerfile-egeria-platform | head -n 1)"
+  if [[ -z "$_platform_image_tag" ]]; then
+    echo "[fresh-start-multi-host] ERROR: found no 'FROM <registry>/odpi/egeria-platform:<tag>' line in Dockerfile-egeria-platform, so it does not know which tag to re-pin." >&2
+    exit 1
+  fi
+  ../shared-infra/pin-latest-digest.sh Dockerfile-egeria-platform "$_platform_image_tag"
 
   echo "[fresh-start-multi-host] Building freshstart images (pulling newer base images when available)..."
   $COMPOSE_CMD -p egeria-freshstart -f egeria-freshstart.yaml build "${COMPOSE_BUILD_FLAGS[@]}"

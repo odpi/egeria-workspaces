@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright Contributors to the ODPi Egeria project.
+#
+# IPv6 overlay for egeria-quickstart's browser-facing ports.
+# Applied automatically by quick-start-local when --lan or --demo publishes
+# the ports on every interface and the host has IPv6 (detect-engine.sh sets
+# EGERIA_BIND_IP6 -- see egeria_resolve_bind_ip6 there for the rules).
+#
+# The base files publish on ${EGERIA_BIND_IP}, which is an IPv4 address. A host
+# name such as <machine>.local usually resolves to IPv6 addresses too, and a
+# browser that picks one of those is refused, which shows up in the portal as
+# an intermittent "network error". Compose appends these entries to each
+# service's existing ports, so every port below answers on both.
+#
+# Not for use on its own: EGERIA_BIND_IP6 has no default here on purpose.
+services:
+  jupyter-hub:
+    ports:
+      - "[${EGERIA_BIND_IP6:?set by quick-start-local}]:8888:7888"
+
+  egeria-main:
+    ports:
+      - "[${EGERIA_BIND_IP6:?set by quick-start-local}]:9443:9443"
+
+  apache-web:
+    ports:
+      - "[${EGERIA_BIND_IP6:?set by quick-start-local}]:8885:8085"
+      - "[${EGERIA_BIND_IP6:?set by quick-start-local}]:${HTTPS_PORT:-8843}:443"

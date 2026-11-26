@@ -121,5 +121,5 @@ Installed user-local in `~/.local/bin`, Python tools in a venv.
 | kind node image | kindest/node v1.37.0 | kind's default for v0.33.0 (pulled by kind; digest not recorded) |
 | OpenShift Local | crc 2.65.0, OpenShift 5.0.0 | |
 
-The platform image is `docker.io/odpi/egeria-platform:6.3@sha256:483726b69b9e789749995d114633eeeab0f70a9c26ec5e59ae0e3d300ebda29c`,
+The platform image is `docker.io/odpi/egeria-platform:6.4-SNAPSHOT@sha256:5a8d6a128e011db5d9eda698f8d46d3c389f59100d69eab31428a0390000309f`,
 the same image as the compose Dockerfiles (the drift test compares them). It runs as UID 185, GID 0.
