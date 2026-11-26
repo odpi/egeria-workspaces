@@ -5,28 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Markdown Viewer</title>
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.8.0/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
     <!-- Add additional script to help with mermaid rendering -->
-    <script>
-        // This function will be called after the page loads to ensure mermaid is properly initialized
-        window.addEventListener('load', function() {
-            console.log("Window loaded, checking for mermaid diagrams");
-            setTimeout(function() {
-                const diagrams = document.querySelectorAll('.mermaid');
-                console.log(`Found ${diagrams.length} mermaid diagrams on page load`);
-                if (diagrams.length > 0) {
-                    console.log("Attempting to re-render mermaid diagrams");
-                    try {
-                        mermaid.initialize({ startOnLoad: true, securityLevel: 'strict' });
-                        mermaid.init(undefined, diagrams);
-                    } catch (e) {
-                        console.error("Error re-initializing mermaid:", e);
-                    }
-                }
-            }, 1000); // Wait 1 second to ensure everything is loaded
-        });
-    </script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
@@ -122,6 +103,12 @@
     </div>
     <div id="content"></div>
     <script>
+        // Text from the markdown file is put into the page as text, never as markup.
+        function escapeHtml(s) {
+            return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
         // Initialize mermaid with enhanced configuration
         mermaid.initialize({
             startOnLoad: false, // Changed to false to manually control initialization
@@ -130,7 +117,6 @@
             logLevel: 'info', // Changed to info for more detailed logging
             fontFamily: 'monospace',
             flowchart: {
-                htmlLabels: true,
                 curve: 'basis'
             },
             sequence: {
@@ -216,6 +202,12 @@
                 const originalCodeRenderer = renderer.code;
 
                 renderer.code = function(code, language) {
+                    // marked 13 and later pass one token ({ text, lang }) instead of (code, language).
+                    const token = (code && typeof code === 'object') ? code : null;
+                    if (token) {
+                        language = token.lang;
+                        code = token.text;
+                    }
                     console.log("Renderer.code called with language:", language);
 
                     // Handle both 'mermaid' and undefined language with mermaid content
@@ -231,19 +223,20 @@
                             // Ensure code is a string before calling trim()
                             const cleanCode = typeof code === 'string' ? code.trim() : String(code);
 
-                            return `<div class="mermaid" id="${diagramId}">${cleanCode}</div>`;
+                            // Escaped, so that the diagram text reaches mermaid unchanged (mermaid reads textContent).
+                            return `<div class="mermaid" id="${diagramId}">${escapeHtml(cleanCode)}</div>`;
                         } catch (error) {
                             console.error("Error rendering mermaid diagram:", error);
                             return `<div class="mermaid-error-container">
                                 <div class="mermaid-error">
                                     <p>Error rendering mermaid diagram:</p>
-                                    <pre>${error.message}</pre>
-                                    <pre>${code}</pre>
+                                    <pre>${escapeHtml(error.message)}</pre>
+                                    <pre>${escapeHtml(code)}</pre>
                                 </div>
                             </div>`;
                         }
                     }
-                    return originalCodeRenderer.call(this, code, language);
+                    return token ? originalCodeRenderer.call(this, token) : originalCodeRenderer.call(this, code, language);
                 };
 
                 // Set options for marked
@@ -277,32 +270,24 @@
                 const mermaidDiagrams = document.querySelectorAll('.mermaid');
                 console.log(`Found ${mermaidDiagrams.length} mermaid diagrams`);
 
-                // Process each diagram individually for better error isolation
-                mermaidDiagrams.forEach((element, index) => {
-                    console.log(`Processing mermaid diagram ${index}:`, element.id);
-                    console.log(`Diagram content: ${element.textContent.substring(0, 100)}...`);
-
-                    try {
-                        // Force a re-parse of the diagram
+                // Render each diagram in turn, for error isolation. mermaid.render() with the element's own
+                // unique id: separate mermaid.run() calls in the same millisecond reuse svg ids, and diagrams
+                // then overwrite each other's content and styles.
+                (async () => {
+                    for (const [index, element] of Array.from(mermaidDiagrams).entries()) {
+                        console.log(`Processing mermaid diagram ${index}:`, element.id);
                         const content = element.textContent;
-                        element.textContent = content;
-
-                        // Use the newer run method if available, otherwise fall back to init
-                        if (typeof mermaid.run === 'function') {
-                            mermaid.run({
-                                nodes: [element]
-                            }).catch(diagramError => {
-                                console.error(`Error running mermaid diagram ${index}:`, diagramError);
-                                handleMermaidError(element, diagramError, index);
-                            });
-                        } else {
-                            mermaid.init(undefined, [element]);
+                        try {
+                            const { svg, bindFunctions } = await mermaid.render(element.id + '-svg', content);
+                            element.innerHTML = svg;
+                            if (bindFunctions) bindFunctions(element);
+                            element.setAttribute('data-processed', 'true');
+                        } catch (diagramError) {
+                            element.textContent = content;
+                            handleMermaidError(element, diagramError, index);
                         }
-                    } catch (diagramError) {
-                        console.error(`Error initializing mermaid diagram ${index}:`, diagramError);
-                        handleMermaidError(element, diagramError, index);
                     }
-                });
+                })();
 
                 // Helper function to handle mermaid errors consistently
                 function handleMermaidError(element, error, index) {
@@ -311,8 +296,8 @@
                     element.innerHTML = `
                         <div class="mermaid-error">
                             <p>Error rendering mermaid diagram:</p>
-                            <pre>${error.message}</pre>
-                            <pre>${originalContent}</pre>
+                            <pre>${escapeHtml(error.message)}</pre>
+                            <pre>${escapeHtml(originalContent)}</pre>
                         </div>
                     `;
                     element.classList.remove('mermaid');
@@ -324,8 +309,8 @@
                 document.getElementById('content').innerHTML = `
                     <h1>Error Loading Markdown</h1>
                     <p>There was an error loading or rendering the markdown file:</p>
-                    <pre>${error.message}</pre>
-                    <p>URL attempted: ${mdUrl}</p>
+                    <pre>${escapeHtml(error.message)}</pre>
+                    <p>URL attempted: ${escapeHtml(mdUrl)}</p>
                 `;
             });
     </script>

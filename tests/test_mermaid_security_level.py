@@ -14,8 +14,15 @@ Every `mermaid.initialize(...)` call in those files must say `securityLevel: 'st
 value may appear. EXPECTED pins each file's number of calls, so a new call site, or a page that gains mermaid, has
 to be added here on purpose.
 
-Out of scope: notebooks and the generated sample HTML under coco-workbooks/ and workbooks/. They are not served by
-the Portal or Apache.
+coco-workbooks/ is bind-mounted into the quickstart web server (htdocs/coco-workbooks), pyegeria-web, jupyter and
+obsidian, so its HTML is served too. Its generated sample pages (egeria-api-samples/pyegeria/work/mermaid_graphs/)
+rely on mermaid's default level, which is 'strict', and their graph text is static. The guard checks that none of
+its HTML sets a level other than 'strict'.
+
+Every served page that loads mermaid from the CDN loads major version 11 (`mermaid@11`), never a floating
+`npm/mermaid/dist` and never another major version.
+
+Out of scope: the notebooks under workbooks/ and coco-workbooks/. A user runs their code cells in Jupyter.
 """
 from __future__ import annotations
 
@@ -36,7 +43,7 @@ EXPECTED = {
     F + "PyegeriaWebHandler/lineage-explorer.html": 1,
     Q + "PyegeriaWebHandler/local-dashboards.html": 1,
     Q + "PyegeriaWebHandler/governance-metrics.html": 1,
-    Q + "markdown-header.html": 2,
+    Q + "markdown-header.html": 1,
     "portal-docs/viewer.html": 1,
     "exchange-quickstart/distribution-hub/index.html": 1,
     "exchange-quickstart/loading-bay/index.html": 1,
@@ -55,6 +62,8 @@ SERVED_DIRS = (
 )
 SERVED_FILES = (Q + "markdown-header.html",)
 SKIP_PARTS = {"node_modules", "tests", ".venv", "__pycache__"}
+SERVED_STATIC_DIRS = ("coco-workbooks",)  # default level allowed; an explicit level must be 'strict'
+MERMAID_SRC = re.compile(r"cdn\.jsdelivr\.net/npm/mermaid(@[^/\"']*)?/")
 
 INIT = re.compile(r"mermaid\s*\.\s*initialize\s*\(")
 LEVEL = re.compile(r"securityLevel\s*:\s*['\"]([A-Za-z]+)['\"]")
@@ -67,6 +76,13 @@ def _served_sources():
             if p.suffix in (".html", ".js") and p.is_file() and not SKIP_PARTS.intersection(p.relative_to(ROOT).parts):
                 files.append(p)
     return files
+
+
+def _static_sources():
+    for d in SERVED_STATIC_DIRS:
+        for p in (ROOT / d).rglob("*.html"):
+            if p.is_file() and not SKIP_PARTS.intersection(p.relative_to(ROOT).parts):
+                yield p
 
 
 def _init_calls(text: str) -> list[str]:
@@ -111,3 +127,25 @@ def test_shared_ui_copies_identical():
     a = (ROOT / Q / "PyegeriaWebHandler/static/egeria-shared-ui.js").read_bytes()
     b = (ROOT / F / "PyegeriaWebHandler/static/egeria-shared-ui.js").read_bytes()
     assert a == b
+
+
+def test_static_served_html_sets_no_weaker_level():
+    files = list(_static_sources())
+    assert files, "no coco-workbooks HTML found; the guard would check nothing"
+    weaker = []
+    for p in files:
+        text = p.read_text(encoding="utf-8", errors="replace")
+        weaker += [f"{p.relative_to(ROOT).as_posix()}: {lvl}" for lvl in LEVEL.findall(text) if lvl != "strict"]
+    assert not weaker, f"securityLevel other than 'strict': {weaker}"
+
+
+def test_served_mermaid_loads_are_major_11():
+    bad, seen = [], 0
+    for p in list(_served_sources()) + list(_static_sources()):
+        for m in MERMAID_SRC.finditer(p.read_text(encoding="utf-8", errors="replace")):
+            seen += 1
+            ver = (m.group(1) or "")[1:]
+            if not (ver == "11" or ver.startswith("11.")):
+                bad.append(f"{p.relative_to(ROOT).as_posix()}: mermaid{m.group(1) or ' (no version)'}")
+    assert seen, "no mermaid script loads found"
+    assert not bad, f"mermaid loads not pinned to major 11: {bad}"
