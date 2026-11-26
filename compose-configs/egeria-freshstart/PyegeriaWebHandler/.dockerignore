@@ -1,0 +1,6 @@
+# Keeps git-ignored local leftovers out of the Dockerfile-fast-api image (`COPY . .`).
+# Dockerfile-portal-image uses its own Dockerfile-portal-image.dockerignore instead.
+logs/
+debug_log.log
+__pycache__/
+.pytest_cache/

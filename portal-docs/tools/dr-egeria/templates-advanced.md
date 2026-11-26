@@ -84,6 +84,17 @@ Lab Data Extractor
 QA Validator
 ```
 
+### Create a solution boundary
+Needs pyegeria 6.3.4 and an Egeria platform with odpi/egeria#9465. Add members with the Collection Membership commands. On an Update, give the Version Identifier, Qualified Name or GUID (egeria-python #613).
+```markdown
+## Create Solution Boundary
+### Display Name
+Clinical Data Pipeline — Ingest
+
+### Description
+The components and roles that bring lab data into the pipeline.
+```
+
 ---
 
 ## Data Design
