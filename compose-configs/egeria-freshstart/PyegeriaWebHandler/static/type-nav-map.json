@@ -110,6 +110,7 @@
 
   "SolutionComponent": { "explorerHash": "solution-architect", "kind": "components" },
   "SolutionBlueprint": { "explorerHash": "solution-architect", "kind": "blueprints" },
+  "SolutionActorRole": { "explorerHash": "solution-architect", "kind": "roles" },
   "InformationSupplyChain": { "explorerHash": "isc" },
   "ActorRole": { "explorerHash": "actors", "kind": "roles" },
   "ActorProfile": { "explorerHash": "actors", "kind": "profiles" },
