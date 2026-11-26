@@ -404,6 +404,21 @@ From the third egeria-v6 draw (`tuned_on: "egeria-v6 third draw (c67c74a8)"`, a 
 Un-hidden: 0 files. Newly hidden: 3,187 files (2,322 build-output files in 33 Gradle module folders, previously shown; 865 runtime-volumes files, previously unclassified). No file changes rule. The one build-like folder still shown
 is a one-file `dist` folder with a sibling folder and no layout child. All 33 hidden folders satisfy both (a) and (b). The tune set (trellis, datahub, superset), the mkdocs sample and the trellis docs are byte-identical (findings differ only in the profile version).
 
+## N1 (Phase 1c): composing profiles (`--profile a,b`)
+
+`--profile code-repo-conventions,docs-site` composes profiles at run time (`compose_profiles`; a profile may also `extends` several). The FIRST-listed profile's rules are checked first, so it wins a
+conflict; a directory is claimed once; a profile that two of them extend (generic-relevance) is loaded once; hidden subtrees still win (nothing inside node_modules, a build folder or a nested repository is
+read or claimed). The composite is named `a+b` and its parts and versions are in `classes.json` (`composed_of`). The manifest-reading blocks of the parts combine (readers unioned, caps the tighter).
+
+What it enables: the docs-site rules inside a code repository: `mkdocs.yml` sites with their nav sections (the D1 identity), the no-nav fallback, and Docusaurus sites. A site's sections are parts of the
+site's directory even when a code manifest claimed it (the repository root stays the `root-project`). A Docusaurus site is recognized by its config file NAME wherever it is, also when a convention
+(`docs`) claimed the directory first.
+
+**Tune set with docs-site added** (provisional, vs the draft keys; before = `code-repo-conventions` alone): trellis and datahub: components and scores identical (trellis: the 2 files of `docs/archive` become hidden archive).
+superset: recall unchanged (1.00); six new `doc-section` parts appear, from the Docusaurus site in `docs/` (`docs/docs/contributing`, `creating-charts-dashboards`, `databases`, `installation`, `miscellaneous`,
+`security`; low-confidence fallback), which the draft key does not label: ALL 45/36/6/3 -> 51/36/6/9 (candidates / TP / labelled-FP / unlabelled), labelled precision 0.86 unchanged, precision against all candidates 0.80 -> 0.71.
+The key predates the docs-section principle; whether these are labelled is the key audit's question.
+
 ## Decisions made so far (for review)
 
 1. `vendored` (installed packages) and `generated` (build output, tool caches) are separate roles; both are hidden. `.cache` is `generated`.
@@ -434,3 +449,5 @@ M7: `mkdocs.yml` was read only in the mkdocs tutorial sample and in synthetic te
 M5b: no repository was read; the egeria-v6 list is names and sizes only (its `.gitmodules` question is therefore a names check); nothing under the held-out trees or keys was listed, opened or run.
 
 M5c: names and sizes only; nothing under the held-out trees or keys was listed, opened or run.
+
+N1: composition tested on the three tune-set repositories and synthetic trees only; no held-out tree or key was listed, opened or run.

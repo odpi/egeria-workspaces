@@ -43,6 +43,7 @@ STRUCTURAL_OPS = ("sibling-manifests-top-level",)
 STRUCTURAL_KEYS = ("id", "op", "min", "basis", "confidence", "evidence")
 SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
 SLUG = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
+COMPOSITE_ID = re.compile(r"^[a-z0-9][a-z0-9._-]*(\+[a-z0-9][a-z0-9._-]*)+$")      # `a+b`: a composition made at run time, never a file name
 RULE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
@@ -375,11 +376,11 @@ def _structural(where: str, items: Any) -> tuple:
     return tuple(out)
 
 
-def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None = None, _stack: tuple = ()) -> Profile:
+def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None = None, _stack: tuple = (), _composite: bool = False) -> Profile:
     """Validate a parsed YAML document and return the composed Profile (its `extends` resolved from `profiles_dir`)."""
     _check_keys(source, doc, TOP_KEYS, ("profile_id", "version", "status", "applies_to", "roles", "relevance", "rules"))
     pid = doc["profile_id"]
-    if not isinstance(pid, str) or not SLUG.match(pid):
+    if not isinstance(pid, str) or not (SLUG.match(pid) or (_composite and COMPOSITE_ID.match(pid))):
         raise ProfileError(f"{source}: profile_id must be a lowercase slug")
     if pid in _stack:
         raise ProfileError(f"{source}: extends cycle {' -> '.join(_stack + (pid,))}")
@@ -518,3 +519,20 @@ def load_profile(profile_id_or_path: str, profiles_dir: Path | str | None = None
     if p.stem != prof.profile_id and p.suffix in (".yaml", ".yml") and not str(profile_id_or_path).endswith((".yaml", ".yml")):
         raise ProfileError(f"{p}: profile_id {prof.profile_id!r} does not match the file name")
     return prof
+
+
+def compose_profiles(spec: str, profiles_dir: Path | str | None = None) -> Profile:
+    """`a` loads one profile; `a,b,c` composes several in the order given: the FIRST-listed profile's rules are checked first, so it wins a conflict, a directory is
+    claimed once, and a profile that two of them extend (generic-relevance) is loaded once. The composite is named `a+b+c` (its parts and versions are in `composed_of`)."""
+    ids = [x.strip() for x in str(spec).split(",") if x.strip()]
+    if not ids:
+        raise ProfileError("no profile named")
+    if len(set(ids)) != len(ids):
+        raise ProfileError(f"a profile is listed twice in {spec!r}")
+    if len(ids) == 1:
+        return load_profile(ids[0], profiles_dir)
+    if profiles_dir is None:
+        raise ProfileError("composing profiles needs a profiles directory")
+    doc = {"profile_id": "+".join(ids), "version": "0.0.0", "status": "proposed", "applies_to": "any", "roles": ["component"],
+           "relevance": {"primary": ["component"], "supporting": [], "hidden": []}, "extends": ids, "rules": []}
+    return parse_profile(doc, f"<composition {spec}>", Path(profiles_dir), (), _composite=True)

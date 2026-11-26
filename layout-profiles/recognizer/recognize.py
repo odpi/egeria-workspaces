@@ -28,11 +28,11 @@ import sys
 from pathlib import Path
 
 try:
-    from .layout_profile import Profile, Rule, load_profile
+    from .layout_profile import Profile, Rule, compose_profiles, load_profile
     from . import manifests as mf
 except ImportError:                                   # run as a script
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from layout_profile import Profile, Rule, load_profile  # type: ignore
+    from layout_profile import Profile, Rule, compose_profiles, load_profile  # type: ignore
     import manifests as mf  # type: ignore
 
 UNCLASSIFIED = "unclassified"
@@ -279,7 +279,7 @@ class Recognizer:
             if "mkdocs" in mr.readers:
                 self._apply_docs_sections(mr, path_list, all_dirs)
         if self.p.manifest_reading is not None and self.p.manifest_reading.fallback_site_rule is not None:
-            self._apply_generator_sites(self.p.manifest_reading, path_list, all_dirs)
+            self._apply_generator_sites(self.p.manifest_reading, path_list, all_dirs, holders)
         self.component_dirs = {d for d, r in self.claims.items() if r.grain == "component"}
 
     # ---- manifest reading (M6) --------------------------------------------------------------------------------------------
@@ -468,12 +468,14 @@ class Recognizer:
                 ex["unresolved_nav"] = unresolved[:50]
                 self.docs_stats["unresolved"] += len(unresolved)
 
-    def _apply_generator_sites(self, mr, path_list: Path, dirs: set) -> None:
+    def _apply_generator_sites(self, mr, path_list: Path, dirs: set, holders: dict) -> None:
         """A documentation site recognized by its generator's config FILE NAME only (the file is never read): its content folder is the generator's default,
         `docs/` beside the config, and the fallback applies there: one low-confidence section per top-level folder of that folder that holds pages."""
         sites = {}
-        for d, r in sorted(self.claims.items()):
-            if r.id == mr.fallback_site_rule and r.grain == "component" and not self._dir_is_hidden(d):
+        marker_rule = next((r for r in self.p.rules if r.id == mr.fallback_site_rule), None)
+        markers = marker_rule.has_files if marker_rule is not None else frozenset()
+        for d in sorted(holders):                           # by the marker file NAME, whoever claimed the directory (in a composition the first-listed profile may have)
+            if holders[d] & markers and not self._dir_is_hidden(d):
                 sites[self._join(d, "docs")] = d
         if not sites:
             return
@@ -845,7 +847,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("pathlist", type=Path)
     ap.add_argument("--out", type=Path, required=True)
-    ap.add_argument("--profile", default="generic-relevance")
+    ap.add_argument("--profile", default="generic-relevance", help="a profile id, or several joined by commas: the first-listed wins a conflict (code-repo-conventions,docs-site)")
     ap.add_argument("--profiles-dir", type=Path, default=DEFAULT_PROFILES)
     ap.add_argument("--copies-of", action="append", default=[], metavar="KIND",
                     help="also write candidate-copies.json: components of this kind with identical sets of file names (names only; repeatable)")
@@ -854,7 +856,7 @@ def main(argv=None) -> int:
     src.add_argument("--blobs-dir", type=Path, metavar="DIR", help="let the profile's manifest reading read files below DIR (a non-git tree; symlinks not followed)")
     ap.add_argument("--per-file", action="store_true", help="also write findings-files.jsonl, one finding per file (debugging; large)")
     a = ap.parse_args(argv)
-    prof = load_profile(a.profile, a.profiles_dir)
+    prof = compose_profiles(a.profile, a.profiles_dir)
     source = mf.GitBlobSource(*a.blobs_git) if a.blobs_git else (mf.FileSource(str(a.blobs_dir)) if a.blobs_dir else None)
     try:
         c = Recognizer(prof, blob_source=source).run(a.pathlist, a.out, per_file=a.per_file, copies_of=tuple(a.copies_of))
