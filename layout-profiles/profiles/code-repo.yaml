@@ -3,15 +3,17 @@
 # inside such a subtree is never a component (hidden subtrees win). One claim per directory: the FIRST manifest rule below that matches.
 # metadata.yaml is last on purpose: a directory that only carries metadata.yaml is a weaker claim (connector-style repos), and the
 # Phase 0 manifest-probe baselines do not count it.
+# 0.2.0 adds `manifest_reading` (below): where the recognizer is given a blob source it may read a short closed list of manifests for the members
+# they declare. Without a source the profile behaves exactly as 0.1.0 (names and sizes only).
 profile_id: code-repo
-version: 0.1.0
+version: 0.2.0
 status: proposed
 applies_to: code-repo
 extends: [generic-relevance]
-roles: [component]
+roles: [component, other]
 relevance:
   primary: [component]
-  supporting: []
+  supporting: [other]
   hidden: []
 rules:
   - id: R-comp-pyproject
@@ -84,5 +86,25 @@ rules:
     basis: manifest
     confidence: medium
     evidence: "metadata.yaml describes a connector or deployable unit that may carry no language manifest of its own"
+manifest_reading:
+  # The readers are a subset of the closed list in recognizer/manifests.py. A profile may tighten a cap, never raise it (defaults: 256 KiB per file,
+  # 5,000 manifests and 64 MiB per survey). Lock files, .env files, data files and anything in a hidden subtree are never opened.
+  readers: [package-json, pnpm-workspace, lerna, cargo, uv, go-work, maven, gradle]
+  member_rule:
+    id: M-workspace-member
+    role: component
+    kind: workspace-member
+    basis: manifest-content
+    confidence: high
+    evidence: "a manifest of the repository names this directory as a member of its workspace or a module of its build"
+    tuned_on: [trellis, datahub, superset]
+  aggregator_rule:
+    id: M-aggregator
+    role: other
+    kind: workspace-aggregator
+    basis: manifest-content
+    confidence: high
+    evidence: "this directory's manifest only aggregates its members (a package.json with workspaces, a pom with pom packaging, a virtual Cargo or uv workspace): the members are the components, not the aggregator"
+    tuned_on: [trellis, datahub, superset]
 path_grammar: []
 name_grammar: []

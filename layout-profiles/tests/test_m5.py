@@ -34,8 +34,8 @@ def roles(tmp_path, rows, **kw):
     ("src/test/java/A.java", "test"), ("pkg/test_a.py", "test"), ("pkg/a_test.py", "test"), ("pkg/a_test.go", "test"),
     ("web/a.test.ts", "test"), ("web/a.spec.tsx", "test"),
     ("docs/a.png", "docs"), ("doc/x.txt", "docs"), ("README.md", "docs"), ("LICENSE", "docs"), ("LICENSE-APACHE", "docs"), ("pkg/NOTES.rst", "docs"),
-    ("a/b/c.yaml", "config"), ("a.yml", "config"), ("x/y.toml", "config"), ("setup.cfg", "config"), ("tox.ini", "config"), (".editorconfig", "config"),
-    ("package.json", "build"), ("pom.xml", "build"), ("Makefile", "build"), ("Dockerfile", "build"), ("Dockerfile.base", "build"),
+    ("a/b/c.yaml", "config"), ("a.yml", "config"), ("x/y.toml", "config"), ("tox.ini", "config"), (".editorconfig", "config"),
+    ("package.json", "build"), ("pkg/pyproject.toml", "build"), ("x/Cargo.toml", "build"), ("chart/Chart.yaml", "build"), ("setup.cfg", "build"), ("pom.xml", "build"), ("Makefile", "build"), ("Dockerfile", "build"), ("Dockerfile.base", "build"),
     ("app/build.gradle", "build"), ("app/build.gradle.kts", "build"), ("gradlew", "build"),
     ("src/a.txt", "source"), ("lib/b.dat", "source"), ("pkg/a.py", "source"), ("pkg/a.ts", "source"), ("pkg/A.java", "source"),
 ])
@@ -45,15 +45,16 @@ def test_each_path_pattern_gives_its_role(tmp_path, path, role):
     assert got[path][0] == role, got[path]
 
 
-def test_first_match_order_is_ci_test_docs_config_build_source_other(tmp_path):
+def test_first_match_order_is_ci_test_docs_build_config_source_other(tmp_path):
     got = roles(tmp_path, [".github/tests/a.py", "tests/README.md", "docs/a.py", "docs/x.yaml", "pkg/pyproject.toml", "pkg/a.py", "z/odd.xyz"])
     assert got[".github/tests/a.py"][0] == "ci"                   # ci before test
     assert got["tests/README.md"][0] == "test"                    # test before docs
     assert got["docs/a.py"][0] == "docs"                          # docs before source
     assert got["docs/x.yaml"][0] == "docs"                        # docs before config
-    assert got["pkg/pyproject.toml"][0] == "config"               # the brief's order: *.toml is config before build
+    assert got["pkg/pyproject.toml"][0] == "build"                # 0.3.0: exact manifest names are build BEFORE the config extensions
     assert got["pkg/a.py"][0] == "source"
     assert got["z/odd.xyz"] == ("other", "F-other")
+    assert roles(tmp_path, ["a/x.yaml", "a/Chart.yaml"], out="b")["a/x.yaml"][0] == "config"      # a plain .yaml is still config
 
 
 def test_a_source_extension_needs_a_component_a_dotfile_needs_a_component_root(tmp_path):
@@ -101,7 +102,7 @@ def test_file_roles_never_unhide_a_hidden_file(tmp_path):
 
 def test_every_file_role_rule_carries_evidence_basis_confidence_and_tuned_on():
     p = load_profile("code-repo-conventions", PROFILES)
-    assert p.version == "0.2.0" and len(p.file_roles) >= 12
+    assert p.version == "0.3.0" and len(p.file_roles) >= 12
     for r in p.file_roles:
         assert r.id.startswith("F-") and r.evidence.strip() and r.basis and r.confidence and r.tuned_on, r.id
         assert r.grain == "dir" and not r.is_dir_rule

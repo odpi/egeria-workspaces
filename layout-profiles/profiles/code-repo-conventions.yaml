@@ -6,7 +6,7 @@
 # (a rule motivated by one repository is suspect; ablate it). Tune set: trellis, datahub, superset only (scores provisional). The component rules are
 # FROZEN as in 0.1.0; 0.2.0 adds only the file_roles layer below (path rules, no file content), which can neither change a component nor un-hide a file.
 profile_id: code-repo-conventions
-version: 0.2.0
+version: 0.3.0
 status: proposed
 applies_to: code-repo
 extends: [code-repo]
@@ -92,8 +92,8 @@ file_roles:
   # The FILE-ROLE layer: every file that no rule above claimed (nothing hidden, no component rule) gets exactly one role from these path rules,
   # FIRST match wins, in the order of the Phase 1b brief: ci, test, docs, config, build, source, other. Names and paths only. `other` is a
   # classified result, reported beside the unclassified target, and is a catch-all the report must keep visible (flag it above 20%).
-  # Note the brief's order: a manifest such as pyproject.toml or Chart.yaml is `config` (it matches *.toml / *.yaml first); `build` keeps only
-  # the manifests that no config pattern claims (package.json, pom.xml, go.mod, ...), Makefile, Dockerfile* and *.gradle*.
+  # 0.3.0: the build rules (exact manifest names, Makefile, Dockerfile*, *.gradle*) come BEFORE the config extensions, so pyproject.toml, Cargo.toml and
+  # Chart.yaml are `build`, not `config` (the brief's intent: a manifest is a build definition).
   - id: F-ci
     match: {path_glob: [".github/**", ".circleci/**", "**/.github/**", ".gitlab-ci.yml", "Jenkinsfile"]}
     assign: {role: ci, kind: ci-definition}
@@ -150,6 +150,22 @@ file_roles:
     confidence: medium
     evidence: "a Markdown or reStructuredText file anywhere in a repository is written documentation (a README inside a package, a design note); the brief's top-level *.md / *.rst is the special case of this"
     tuned_on: [trellis, datahub, superset]
+  - id: F-build-manifest
+    match: {name: [package.json, package-lock.json, pyproject.toml, setup.py, setup.cfg, Cargo.toml, Cargo.lock, pom.xml, go.mod, go.sum, go.work, Chart.yaml, MANIFEST.in, Makefile, CMakeLists.txt, build.sbt, Gemfile, settings.gradle, settings.gradle.kts]}
+    assign: {role: build, kind: build-definition}
+    grain: dir
+    basis: convention
+    confidence: high
+    evidence: "package manifests and make or build-tool definitions say how the component is built"
+    tuned_on: ["brief 0335c236 (the manifests themselves), name list is the builder's, not fitted"]
+  - id: F-build-docker
+    match: {name_regex: ["^Dockerfile", "\\.gradle(\\.kts)?$", "^gradlew(\\.bat)?$"]}
+    assign: {role: build, kind: build-definition}
+    grain: dir
+    basis: convention
+    confidence: high
+    evidence: "Dockerfile*, *.gradle and the Gradle wrapper scripts are build definitions"
+    tuned_on: ["brief 0335c236 (patterns), not fitted to a repository"]
   - id: F-config-ext
     match: {extension: [.yaml, .yml, .toml, .ini, .cfg]}
     assign: {role: config, kind: configuration-file}
@@ -173,22 +189,6 @@ file_roles:
     basis: convention
     confidence: medium
     evidence: "a dotfile directly in a component's directory (.gitignore, .dockerignore, .eslintrc) configures that component's tools"
-    tuned_on: ["brief 0335c236 (patterns), not fitted to a repository"]
-  - id: F-build-manifest
-    match: {name: [package.json, package-lock.json, pom.xml, go.mod, go.sum, Cargo.lock, setup.py, MANIFEST.in, Makefile, CMakeLists.txt, build.sbt, Gemfile]}
-    assign: {role: build, kind: build-definition}
-    grain: dir
-    basis: convention
-    confidence: high
-    evidence: "package manifests and make or build-tool definitions say how the component is built"
-    tuned_on: ["brief 0335c236 (the manifests themselves), name list is the builder's, not fitted"]
-  - id: F-build-docker
-    match: {name_regex: ["^Dockerfile", "\\.gradle(\\.kts)?$", "^gradlew(\\.bat)?$"]}
-    assign: {role: build, kind: build-definition}
-    grain: dir
-    basis: convention
-    confidence: high
-    evidence: "Dockerfile*, *.gradle and the Gradle wrapper scripts are build definitions"
     tuned_on: ["brief 0335c236 (patterns), not fitted to a repository"]
   - id: F-source-folder
     match: {path_glob: ["src/**", "lib/**"]}

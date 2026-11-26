@@ -28,9 +28,11 @@ from pathlib import Path
 
 try:
     from .layout_profile import Profile, Rule, load_profile
+    from . import manifests as mf
 except ImportError:                                   # run as a script
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from layout_profile import Profile, Rule, load_profile  # type: ignore
+    import manifests as mf  # type: ignore
 
 UNCLASSIFIED = "unclassified"
 DEFAULT_PROFILES = Path(__file__).resolve().parent.parent / "profiles"
@@ -85,8 +87,14 @@ def read_rows(path: Path):
 
 
 class Recognizer:
-    def __init__(self, profile: Profile):
+    def __init__(self, profile: Profile, blob_source=None):
         self.p = profile
+        self.blob_source = blob_source                # where manifests may be read from (a git object database or a tree); None = names and sizes only
+        self.reading = None                           # the ManifestReading result of the last run (None when nothing was read)
+        self.member_of: dict = {}                     # directory -> the Decl that declares it a workspace or module member
+        self.aggregators: dict = {}                   # directory -> the Decl that makes it an aggregator (not a component)
+        self.extras: dict = {}                        # directory -> extra finding fields (content evidence, notes)
+        self.hidden_roots: list = []
         self.file_rules = [r for r in profile.rules if not r.is_dir_rule]
         self.dir_rules = [r for r in profile.rules if r.is_dir_rule]
         self.needed_names = set()                    # file names (and entry names) whose presence in a directory a dir rule asks about
@@ -141,7 +149,10 @@ class Recognizer:
         holders: dict[str, set] = {}
         all_dirs: set = set()
         need_all = any(not (r.has_files or r.has_entries) for r in self.dir_rules)   # a rule that does not start from an entry must see every directory
-        for path, _ in read_rows(path_list):
+        mr = self.p.manifest_reading if self.blob_source is not None else None
+        collect_dirs = need_all or mr is not None
+        candidates_m: list = []                                  # (path, size) of files whose NAME is on the closed list of manifests
+        for path, size in read_rows(path_list):
             cut = path.rfind("/")
             d, name = (path[:cut], path[cut + 1:]) if cut >= 0 else ("", path)
             if name in self.needed_names:
@@ -151,7 +162,9 @@ class Recognizer:
                 for i in range(len(segs) - 1):
                     if segs[i] in self.needed_dir_entries:
                         holders.setdefault("/".join(segs[:i]), set()).add(segs[i])
-            if need_all:
+            if mr is not None and name in mf.ALLOWED_FILES:
+                candidates_m.append((path, size))
+            if collect_dirs:
                 while d and d not in all_dirs:
                     all_dirs.add(d)
                     d = d[:d.rfind("/")] if "/" in d else ""
@@ -176,6 +189,9 @@ class Recognizer:
                     self.subtree_claims.setdefault(r.id, set()).add(d)
                     hidden_roots.append(d)
                     break
+        self.hidden_roots = hidden_roots
+        if mr is not None:
+            self._read_manifests(mr, candidates_m)
         # pass 2: every other directory rule
         for d in order:
             if self.inside_hidden_subtree(d) or any(d == h or d.startswith(h + "/") for h in hidden_roots):
@@ -188,7 +204,66 @@ class Recognizer:
                 if r.grain == "subtree":
                     self.subtree_claims.setdefault(r.id, set()).add(d)
                 break
+        if mr is not None and self.reading is not None:
+            dir_files: dict = {}
+            for path, _ in candidates_m:
+                dir_files.setdefault(path.rpartition("/")[0], set()).add(path.rpartition("/")[2])
+            self._apply_manifest_content(mr, all_dirs, dir_files)
         self.component_dirs = {d for d, r in self.claims.items() if r.grain == "component"}
+
+    # ---- manifest reading (M6) --------------------------------------------------------------------------------------------
+    def _dir_is_hidden(self, d: str) -> bool:
+        return self.inside_hidden_subtree(d) or any(d == h or d.startswith(h + "/") for h in self.hidden_roots)
+
+    def _read_manifests(self, mr, candidates: list) -> None:
+        def hidden(path: str) -> bool:
+            rule, _, _ = self.classify(path)
+            return rule is not None and rule.relevance == "hidden"
+        self.reading = mf.read_manifests(candidates, self.blob_source, set(mr.readers), hidden, max_file_bytes=mr.max_file_bytes,
+                                         max_blobs=mr.max_blobs, max_total_bytes=mr.max_total_bytes)
+
+    def _apply_manifest_content(self, mr, dirs: set, dir_files: dict) -> None:
+        """Turn what the manifests declared into claims: a declared member is a component (claimed by the member rule where no manifest rule
+        already claimed it); a manifest directory that only AGGREGATES its members is not one. Hidden directories never take part."""
+        rd = self.reading
+        ladder = {"high": "medium", "medium": "low", "low": "low"}
+        for path in sorted(rd.decls):
+            for decl in rd.decls[path]:
+                members, unresolved = mf.resolve_members(decl, dirs, dir_files)
+                members = [m for m in members if not self._dir_is_hidden(m)]
+                d = decl.directory
+                ex = self.extras.setdefault(d, {})
+                if decl.members:
+                    ex.setdefault("evidence_file", decl.file)
+                    ex.setdefault("evidence_field", decl.field)
+                    ex.setdefault("evidence_blob", decl.blob)
+                    ex["members_declared"] = ex.get("members_declared", 0) + len(members)
+                    if unresolved:
+                        ex["unresolved_members"] = sorted(set(ex.get("unresolved_members", [])) | set(unresolved))
+                if decl.name and "manifest_name" not in ex:
+                    ex["manifest_name"] = decl.name
+                for m in members:
+                    if m in self.member_of:
+                        continue
+                    self.member_of[m] = decl
+                    me = self.extras.setdefault(m, {})
+                    me.update({"member_of": d or ".", "evidence_file": decl.file, "evidence_field": decl.field, "evidence_blob": decl.blob})
+                    if m not in self.claims:
+                        self.claims[m] = mr.member_rule
+                if decl.aggregator and d != "" and d in self.claims and self.claims[d].grain == "component" and self.claims[d].basis == "manifest":
+                    self.aggregators[d] = decl
+                    ex["manifest_kind"] = self.claims[d].kind
+                    self.claims[d] = mr.aggregator_rule
+        for path, note in sorted(rd.notes.items()):
+            d = path.rpartition("/")[0]
+            if d not in self.claims or note == "missing":
+                continue
+            ex = self.extras.setdefault(d, {})
+            if note.startswith("parse_error"):
+                ex["parse_error"] = note.split(": ", 1)[1]
+                ex["confidence"] = ladder[self.claims[d].confidence]
+            else:
+                ex["skipped"] = note
 
     # ---- file rules -----------------------------------------------------------------------------------------------------
     def _under_component(self, dirs: list, root_only: bool) -> bool:
@@ -307,6 +382,9 @@ class Recognizer:
             # parts exist only below a non-root component
             parts_of[d] = parent
             all_components.append(d or ".")
+        for d in comp_dirs:                                      # a declared workspace or module member is a component of its own, not a part of its parent
+            if d in self.member_of:
+                parts_of[d] = None
         promoted: dict[str, dict] = {}                           # part -> the structural rule that made it a top-level component
         for sr in self.p.structural:
             if sr["op"] != "sibling-manifests-top-level":
@@ -378,6 +456,7 @@ class Recognizer:
                 f = next(x for x in findings if (x["path"], x["rule_id"]) == key)
                 if parts_of.get(d):
                     f["part_of"] = parts_of[d]
+                f.update(self.extras.get(d, {}))
                 continue
             extra = {"part_of": parts_of[d]} if parts_of.get(d) else None
             if d in promoted:
@@ -386,6 +465,7 @@ class Recognizer:
                          "structure_evidence": sr["evidence"]}
             if d == "" and r.grain == "component":             # the repository root: flag it, keep what the manifest rule said
                 extra = {"root": True, "kind": "root-project", "manifest_kind": r.kind}
+            extra = {**(extra or {}), **self.extras.get(d, {})} or None
             f = self.finding(r, d or ".", r.grain, extra)
             findings.append(f)
         findings.sort(key=lambda f: (f["path"], f["rule_id"]))
@@ -397,6 +477,8 @@ class Recognizer:
             groups = self.candidate_copies(path_list, tuple(copies_of))
             (out / "candidate-copies.json").write_text(json.dumps({"kinds": sorted(copies_of), "groups": groups}, indent=2, sort_keys=True) + "\n",
                                                        encoding="utf-8")
+        if self.reading is not None:                                # names only: the paths opened, in order (evidence for the read log)
+            (out / "manifest-reads.txt").write_text("".join(p + "\n" for p in self.reading.log), encoding="utf-8")
         top_components.sort()
         all_components.sort()
         (out / "components.txt").write_text("".join(c + "\n" for c in top_components), encoding="utf-8")
@@ -424,6 +506,13 @@ class Recognizer:
             "components": {"top_level": len(top_components), "parts": len(all_components) - len(top_components)},
             "findings": len(findings),
         }
+        if self.p.manifest_reading is not None:
+            mrd = self.p.manifest_reading
+            classes["manifest_reading"] = {"enabled": self.reading is not None, "readers": list(mrd.readers), "max_file_bytes": mrd.max_file_bytes,
+                                           "max_blobs": mrd.max_blobs, "max_total_bytes": mrd.max_total_bytes,
+                                           "members": len(self.member_of), "aggregators": sorted(d or "." for d in self.aggregators)}
+            if self.reading is not None:
+                classes["manifest_reading"].update(self.reading.stats.as_dict())
         if self.p.file_roles:                                      # the file-role layer: `other` is classified, and reported beside the target
             classes["shares"]["other_files"] = share(by_role.get("other", [0, 0])[0], total_files)
             classes["shares"]["other_bytes"] = share(by_role.get("other", [0, 0])[1], total_bytes)
@@ -443,6 +532,16 @@ def render_report(c: dict) -> str:
     lines += ["", "| relevance | files | bytes |", "|---|---:|---:|"]
     for rel, v in sorted(c["by_relevance"].items(), key=lambda kv: (-kv[1]["files"], kv[0])):
         lines.append(f"| {rel} | {v['files']:,} | {v['bytes']:,} |")
+    mr = c.get("manifest_reading")
+    if mr is not None:
+        if not mr["enabled"]:
+            lines += ["", "Manifest reading: not enabled for this run (no blob source); names and sizes only."]
+        else:
+            lines += ["", f"Manifest reading: {mr['blobs_read']:,} manifest(s) read ({mr['bytes_read']:,} bytes) of {mr['candidates']:,} candidate(s); "
+                      f"{mr['members']:,} declared member(s), {len(mr['aggregators'])} aggregator(s); skipped: {mr['skipped_size']} over the size cap, "
+                      f"{mr['skipped_hidden']} in hidden subtrees; {mr['parse_errors']} parse error(s)."]
+            if mr["cap_reached"]:
+                lines += [f"CAP REACHED ({mr['cap_reached']}): {mr['cap_skipped']:,} manifest(s) were not read; their findings stay names-only."]
     lines += ["", "| rule | files | bytes |", "|---|---:|---:|"]
     for rid, v in sorted(c["by_rule"].items(), key=lambda kv: (-kv[1]["files"], kv[0])):
         lines.append(f"| {rid} | {v['files']:,} | {v['bytes']:,} |")
@@ -458,10 +557,18 @@ def main(argv=None) -> int:
     ap.add_argument("--profiles-dir", type=Path, default=DEFAULT_PROFILES)
     ap.add_argument("--copies-of", action="append", default=[], metavar="KIND",
                     help="also write candidate-copies.json: components of this kind with identical sets of file names (names only; repeatable)")
+    src = ap.add_mutually_exclusive_group()
+    src.add_argument("--blobs-git", nargs=2, metavar=("REPO", "REV"), help="let the profile's manifest reading read blobs of REV from the git repository REPO")
+    src.add_argument("--blobs-dir", type=Path, metavar="DIR", help="let the profile's manifest reading read files below DIR (a non-git tree; symlinks not followed)")
     ap.add_argument("--per-file", action="store_true", help="also write findings-files.jsonl, one finding per file (debugging; large)")
     a = ap.parse_args(argv)
     prof = load_profile(a.profile, a.profiles_dir)
-    c = Recognizer(prof).run(a.pathlist, a.out, per_file=a.per_file, copies_of=tuple(a.copies_of))
+    source = mf.GitBlobSource(*a.blobs_git) if a.blobs_git else (mf.FileSource(str(a.blobs_dir)) if a.blobs_dir else None)
+    try:
+        c = Recognizer(prof, blob_source=source).run(a.pathlist, a.out, per_file=a.per_file, copies_of=tuple(a.copies_of))
+    finally:
+        if source is not None:
+            source.close()
     print(f"{prof.profile_id} {prof.version}: {c['total_files']:,} files; unclassified {c['shares']['unclassified_files']:.1%}, "
           f"hidden {c['shares']['hidden_files']:.1%}; components {c['components']['top_level']}")
     return 0

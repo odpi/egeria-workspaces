@@ -24,7 +24,7 @@ ROLES = ("component", "source", "test", "docs", "config", "generated", "vendored
          "vcs-internal", "worktree-copy", "backup", "secret", "example", "ci", "tooling", "build", "data-fixture", "other")
 RELEVANCES = ("primary", "supporting", "hidden")
 GRAINS = ("subtree", "dir", "component")
-BASES = ("manifest", "convention", "judgement")
+BASES = ("manifest", "manifest-content", "convention", "judgement")
 CONFIDENCES = ("high", "medium", "low")
 MATCH_KEYS = ("path_glob", "path_segment", "name", "name_regex", "extension", "has_file", "parent_has_file", "has_entry", "ancestor_has_entry",
               "component_scope")
@@ -32,9 +32,11 @@ DIR_ONLY_KEYS = ("has_file", "parent_has_file", "has_entry", "ancestor_has_entry
 COMPONENT_SCOPES = ("within", "root")                  # file rules only: under some component / directly in a component's directory
 FILE_ONLY_KEYS = ("extension",)                        # meaningful only for a file name
 ASSIGN_KEYS = ("role", "relevance", "kind")
-TOP_KEYS = ("profile_id", "version", "status", "applies_to", "extends", "roles", "relevance", "rules", "file_roles", "structural_rules", "path_grammar", "name_grammar")
+TOP_KEYS = ("profile_id", "version", "status", "applies_to", "extends", "roles", "relevance", "rules", "file_roles", "manifest_reading", "structural_rules", "path_grammar", "name_grammar")
 RULE_KEYS = ("id", "match", "assign", "grain", "basis", "confidence", "evidence")
 RULE_OPTIONAL_KEYS = ("tuned_on",)       # which repositories motivated the rule, so a reviewer can ablate it (a one-repository rule is suspect)
+MANIFEST_READING_KEYS = ("readers", "max_file_bytes", "max_blobs", "max_total_bytes", "member_rule", "aggregator_rule")
+MANIFEST_RULE_KEYS = ("id", "role", "kind", "basis", "confidence", "evidence")
 STRUCTURAL_OPS = ("sibling-manifests-top-level",)
 STRUCTURAL_KEYS = ("id", "op", "min", "basis", "confidence", "evidence")
 SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
@@ -109,6 +111,19 @@ class Rule:
         return bool(self.has_files or self.parent_has_files or self.has_entries or self.ancestor_entries) or self.grain == "component"
 
 
+@dataclass(frozen=True)
+class ManifestReading:
+    """Which manifests the recognizer MAY read (a subset of the closed list in manifests.py), the caps, and the two rules whose ids, basis,
+    confidence and evidence the findings copy: one for a directory that a manifest declares as a MEMBER (a workspace or module member), one for a
+    directory that only AGGREGATES its members (it is not a component)."""
+    readers: tuple
+    max_file_bytes: int
+    max_blobs: int
+    max_total_bytes: int
+    member_rule: Rule
+    aggregator_rule: Rule
+
+
 @dataclass
 class Profile:
     profile_id: str
@@ -118,6 +133,7 @@ class Profile:
     roles: tuple
     relevance: dict                              # role -> primary | supporting | hidden
     rules: list = field(default_factory=list)
+    manifest_reading: ManifestReading | None = None
     file_roles: tuple = ()                       # the FILE-ROLE layer: path rules that give a file a role only where no rule above claimed it
     extends: tuple = ()
     path_grammar: tuple = ()
@@ -224,6 +240,51 @@ def _compile_rule(where: str, raw: dict, roles: tuple, rel_map: dict, origin: st
     )
 
 
+def _manifest_reading(where: str, doc: Any, roles: tuple, rel_map: dict, origin: str):
+    if doc is None:
+        return None
+    from .manifests import DEFAULT_MAX_BLOBS, DEFAULT_MAX_FILE_BYTES, DEFAULT_MAX_TOTAL_BYTES, READERS
+    w = f"{where} manifest_reading"
+    _check_keys(w, doc, MANIFEST_READING_KEYS + ("tuned_on",), ("readers", "member_rule", "aggregator_rule"))
+    readers = doc["readers"]
+    if not isinstance(readers, list) or not readers or any(r not in READERS for r in readers) or len(set(readers)) != len(readers):
+        raise ProfileError(f"{w}: readers must be a non-empty list of distinct names from {list(READERS)}")
+    caps = {}
+    for key, default in (("max_file_bytes", DEFAULT_MAX_FILE_BYTES), ("max_blobs", DEFAULT_MAX_BLOBS), ("max_total_bytes", DEFAULT_MAX_TOTAL_BYTES)):
+        v = doc.get(key, default)
+        if not isinstance(v, int) or isinstance(v, bool) or v < 1 or v > default:
+            raise ProfileError(f"{w}: {key} must be an integer from 1 to {default} (a profile may tighten a cap, never raise it)")
+        caps[key] = v
+    rules = {}
+    for which in ("member_rule", "aggregator_rule"):
+        raw = doc[which]
+        _check_keys(f"{w} {which}", raw, MANIFEST_RULE_KEYS + ("tuned_on",), MANIFEST_RULE_KEYS)
+        if raw["role"] not in roles:
+            raise ProfileError(f"{w} {which}: unknown role {raw['role']!r}; allowed {list(roles)}")
+        if which == "member_rule" and raw["role"] != "component":
+            raise ProfileError(f"{w} member_rule: the role must be 'component'")
+        if which == "aggregator_rule" and raw["role"] == "component":
+            raise ProfileError(f"{w} aggregator_rule: an aggregator is NOT a component")
+        rel = rel_map.get(raw["role"])
+        if rel is None:
+            raise ProfileError(f"{w} {which}: role {raw['role']!r} has no relevance")
+        for key, allowed in (("basis", BASES), ("confidence", CONFIDENCES)):
+            if raw[key] not in allowed:
+                raise ProfileError(f"{w} {which}: {key} {raw[key]!r} is not one of {list(allowed)}")
+        if not isinstance(raw["evidence"], str) or not raw["evidence"].strip():
+            raise ProfileError(f"{w} {which}: evidence must be a non-empty string")
+        if not isinstance(raw["id"], str) or not RULE_ID.match(raw["id"]):
+            raise ProfileError(f"{w} {which}: id must be a simple identifier")
+        tuned = raw.get("tuned_on", [])
+        if not isinstance(tuned, list) or not all(isinstance(x, str) and x for x in tuned):
+            raise ProfileError(f"{w} {which}: tuned_on must be a list of repository names")
+        rules[which] = Rule(id=raw["id"], match={}, role=raw["role"], relevance=rel, kind=raw["kind"], grain="component" if which == "member_rule" else "dir",
+                            basis=raw["basis"], confidence=raw["confidence"], evidence=raw["evidence"].strip(), origin=origin, tuned_on=tuple(tuned))
+    if rules["member_rule"].id == rules["aggregator_rule"].id:
+        raise ProfileError(f"{w}: member_rule and aggregator_rule need different ids")
+    return ManifestReading(readers=tuple(readers), member_rule=rules["member_rule"], aggregator_rule=rules["aggregator_rule"], **caps)
+
+
 def _grammar(where: str, items: Any, must: tuple) -> tuple:
     if items is None:
         return ()
@@ -306,6 +367,7 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
     for n, raw in enumerate(raw_rules):
         own_rules.append(_compile_rule(f"{source} rules[{n}]", raw, tuple(roles), rel_map, pid))
 
+    mreading = _manifest_reading(source, doc.get("manifest_reading"), tuple(roles), rel_map, pid)
     raw_fr = doc.get("file_roles") or []
     if not isinstance(raw_fr, list):
         raise ProfileError(f"{source}: file_roles must be a list")
@@ -334,6 +396,8 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
             merged_rel.setdefault(role, level)          # the child's mapping wins
         rules.extend(base.rules)
         own_fr.extend(base.file_roles)
+        if mreading is None:
+            mreading = base.manifest_reading             # the child's own wins; otherwise the first extended profile that has one
         structural.extend(base.structural)
         composed.extend(base.composed_of)
     own_ids = [r.id for r in own_rules] + [r.id for r in own_fr if r.origin == pid]
@@ -371,7 +435,7 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
         raise ProfileError(f"{source}: structural rule ids must differ from rule ids")
     composed = list(dict.fromkeys(composed))
     return Profile(profile_id=pid, version=version, status=doc["status"], applies_to=doc["applies_to"], roles=tuple(all_roles),
-                   relevance=merged_rel, rules=rules, file_roles=tuple(fr_out), extends=tuple(extends), path_grammar=path_grammar, name_grammar=name_grammar,
+                   relevance=merged_rel, rules=rules, file_roles=tuple(fr_out), manifest_reading=mreading, extends=tuple(extends), path_grammar=path_grammar, name_grammar=name_grammar,
                    composed_of=tuple(composed), structural=tuple(structural))
 
 

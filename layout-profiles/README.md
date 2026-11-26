@@ -248,6 +248,52 @@ specific rule is ordered first, so the nested rule keeps the other 60,798.
 Totals on the M0 egeria-v6 list (`egeria-workspace` 0.2.0): 2,612,019 files, unchanged; hidden 2,463,243 -> 2,585,046 (+121,803, exactly the four
 rules' files); unclassified 148,776 -> 26,973; files the old rules hid that are now not hidden: 0. The old rules' counts match the Phase 0 census as before.
 
+## M6: manifest reading (`recognizer/manifests.py`; `code-repo` 0.2.0, `code-repo-conventions` 0.3.0)
+
+Until M5 the recognizer read names and sizes only. M6 lets it read a SHORT, CLOSED list of manifests, when it is given a blob source
+(`--blobs-git REPO REV` reads the blobs of one commit from the git object database; `--blobs-dir DIR` reads a non-git tree without following symlinks).
+Without a source the run is exactly the names-and-sizes run of M5 (`classes.json` says `manifest_reading.enabled: false`).
+
+**What may be read, and what is extracted** (nothing else is copied into a finding): `package.json` (`name`, `workspaces`), `pnpm-workspace.yaml` (`packages`),
+`lerna.json` (`packages`), `Cargo.toml` (`[package].name`, `[workspace].members/exclude`), `pyproject.toml` (`[project].name`, `[tool.poetry].name`,
+`[tool.uv.workspace].members/exclude`), `go.work` (`use`), `pom.xml` (`artifactId`, `packaging`, `modules`), `settings.gradle(.kts)` (the string literals of `include`
+calls, by regex, never evaluated). **Never opened:** lock files, `.env` files, data files, notebooks, `setup.py`, `build.gradle`, `Dockerfile`, `metadata.yaml`,
+CODEOWNERS, and anything inside a hidden subtree (hidden wins before any read; the paths actually opened are written to `manifest-reads.txt`).
+`go.mod`, `Chart.yaml`, `catalog-info.yaml` and `mkdocs.yml` are also on the Phase 2 list; M6 does not need them and does not read them (mkdocs is M7).
+
+**Caps** (a profile may tighten, never raise): 256 KiB per file, 5,000 manifests and 64 MiB per survey, shallowest manifests first. A manifest over the file cap
+or past a survey cap is not read: its finding stays presence-only and carries `skipped: size` or `skipped: cap`; a cap reached is named in `report.md` and in
+`classes.json`. **Safe parsing:** `json.loads` (depth <= 50), `tomllib`, a YAML SafeLoader subclass that turns every unknown tag (`!ENV`, `!!python/name:`) into
+null and refuses aliases, XML refused when it has a DOCTYPE or ENTITY, 1 s per file. A parse error never aborts a survey: the finding keeps its presence-only claim,
+with `parse_error` and one step lower confidence. Member paths are resolved against the path list only: absolute, `..` or no match = `unresolved` (listed on the
+declaring directory's finding, never created or fetched).
+
+**What it changes.** A directory a manifest declares as a workspace or module member is a component of its own (top-level, not a part of the aggregator), claimed by
+the member rule `M-workspace-member` (basis `manifest-content`) where no manifest rule claimed it, and carrying `member_of`, `evidence_file`, `evidence_field`
+and `evidence_blob`. A non-root directory that only AGGREGATES (a `package.json` / `pnpm-workspace.yaml` / `lerna.json` with workspaces, a pom with `pom` packaging,
+a virtual Cargo or uv workspace) is no longer a component: it gets `M-aggregator` (role `other`) and keeps `manifest_kind`. The repository root stays a component
+(`root-project`). The `S-workspace-siblings` name-and-shape rule stays as the fallback where nothing declares the members.
+
+**Fix from the M5 review.** In the file-role layer the exact manifest names (`pyproject.toml`, `Cargo.toml`, `Chart.yaml`, `setup.cfg`, `package.json`, ...) now come
+BEFORE the config extensions, so a manifest is `build`, not `config`. Tune-set shares after the fix: trellis config 3.0% / build 0.7%, datahub 2.8% / 1.6%, superset
+2.5% / 1.0%; `other` unchanged (5.2%, 16.2%, 15.9%).
+
+**Regression (provisional against the draft keys; ALL = components-all.txt, TOP = components.txt; candidates / TP / labelled-FP / unlabelled):**
+
+| repo | list | before (names only) | with manifest reading | change |
+|---|---|---|---|---|
+| trellis | ALL | 19 / 18 / 1 / 0, recall 1.00, precision 0.95 | same | none (26 manifests read, 24 members, no aggregator) |
+| trellis | TOP | 18 / 18 / 0 / 0, 1.00, 1.00 | same | none |
+| superset | ALL | 46 / 36 / 6 / 4, 1.00, 0.86 | 45 / 36 / 6 / 3, 1.00, 0.86 | the aggregator `superset-frontend` (a lerna workspace of 56 packages) is no longer a candidate; it was an unlabelled one |
+| superset | TOP | 39 / 35 / 2 / 2, 0.97, 0.95 | 42 / 36 / 5 / 1, 1.00, 0.88 | `superset-frontend/src` is found (was the one miss); three workspace members become top-level: `superset-frontend/cypress-base` and the two `tools/eslint-plugin-*` packages, which the draft key labels non-components (`cypress-base` is a labelled test fixture), so labelled precision falls |
+| datahub | ALL | 84 / 66 / 11 / 7, 1.00, 0.86 | same | none |
+| datahub | TOP | 75 / 63 / 9 / 3, 0.95, 0.88 | 80 / 66 / 11 / 3, 1.00, 0.86 | the three misses (`metadata-io/metadata-io-api`, `openapi-entity-servlet/generators`, `openapi-servlet/models`) are found, because Gradle members are no longer parts of their parent; two more members are labelled test fixtures in the draft key (`entity-registry/custom-test-model`, `metadata-service/plugin/src/test/sample-test-plugins`), so labelled precision falls |
+
+So recall never drops and on the TOP lists it rises to 1.00; labelled precision on the superset and datahub TOP lists falls by the declared members the draft key
+calls test fixtures. That is the rule doing what it says (a declared member is a component), against a key that applies a further judgement (a test fixture is
+not one); it is reported, not tuned away, and the key labels are for review. The M1 manifest-probe baselines reproduce unchanged (trellis 25/14, superset 37/30,
+datahub 82/65, names only). Two runs of each repository are byte-identical.
+
 ## Decisions made so far (for review)
 
 1. `vendored` (installed packages) and `generated` (build output, tool caches) are separate roles; both are hidden. `.cache` is `generated`.
@@ -270,3 +316,5 @@ No Egeria type or API is used or invented; no key was opened for M0, and in M1 o
 the two held-out keys and repositories were not touched.
 
 M5 (Phase 1b): no held-out key or repository was opened or run (the tune set is trellis, datahub, superset, the mkdocs sample and the egeria-v6 list); the tune-set answer keys were used only through the scorer, to check that the component scores did not move.
+
+M6: manifests were read only from the three tune-set repositories (by commit, through the git object database) and from synthetic files in tests; no held-out repository, tree or key was listed, opened or run.
