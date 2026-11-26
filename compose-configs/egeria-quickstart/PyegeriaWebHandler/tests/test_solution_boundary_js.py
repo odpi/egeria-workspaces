@@ -234,3 +234,43 @@ def test_blueprint_and_component_detail_show_the_member_of_boundary_links_and_th
 
 def test_the_page_says_so_when_there_are_no_boundaries():
     assert "There are no solution boundaries on this platform yet" in _HTML and "No design model boundaries found" in _HTML
+
+
+def _boundary_load_effect():
+    """The body of the effect that loads the boundary lists, wrapped as a function of the values it reads, so node can run it with stubs."""
+    a = _HTML.index("  useEffect(function() {\n    if (subNav !== 'boundaries') return;")
+    b = _HTML.index("  }, [subNav, boundaryAttempt, inclTempl]);", a)
+    body = _HTML[a:b].split("useEffect(function() {", 1)[1]
+    assert "[subNav, boundaryAttempt, inclTempl]" in _HTML[b:b + 80]
+    return body
+
+
+def test_toggling_include_templates_after_the_first_load_reloads_the_boundary_lists():
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node not available")
+    js = ("var ref = { current: null }; var fetched = []; var states = []; var cleanups = [];"
+          "function egeriaFetch(u) { fetched.push(u); return new Promise(function() {}); }"
+          "function run(subNav, boundaryState, inclTempl) {"
+          "  var setBoundaryState = function(s) { states.push(s); }, setBoundaryError = function() {}, setBoundaries = function() {}, setDmBoundaries = function() {}, creds = {}, boundaryLoadedTempl = ref;"
+          "  var cleanup = (function() {" + _boundary_load_effect() + "})(); if (cleanup) cleanups.push(cleanup); return fetched.length; }"
+          "var out1 = run('boundaries', 'idle', false);"       # first open: loads both lists, no query
+          "var out2 = run('boundaries', 'ready', false);"      # same setting, already loaded: nothing
+          "var out3 = run('boundaries', 'ready', true);"       # templates switched on after the load: reloads both, with the flag
+          "var out4 = run('boundaries', 'ready', true);"       # nothing new
+          "var out5 = run('boundaries', 'ready', false);"      # and off again: reloads without it
+          "var out6 = run('roles', 'idle', true);"             # another tab: never loads
+          "console.log(JSON.stringify({ counts: [out1, out2, out3, out4, out5, out6], fetched: fetched, states: states, cleanups: cleanups.length }));")
+    r = subprocess.run([node, "-e", js], capture_output=True, text=True, timeout=20)
+    assert r.returncode == 0, r.stderr
+    d = json.loads(r.stdout)
+    assert d["counts"] == [2, 2, 4, 4, 6, 6]
+    assert d["fetched"] == ["/api/solution/boundaries", "/api/solution/design-model-boundaries",
+                            "/api/solution/boundaries?include_templates=true", "/api/solution/design-model-boundaries?include_templates=true",
+                            "/api/solution/boundaries", "/api/solution/design-model-boundaries"]
+    assert d["states"] == ["loading", "loading", "loading"] and d["cleanups"] == 3                  # each load returns a cleanup that drops its stale answer
+
+
+def test_the_boundary_load_effect_drops_an_answer_for_an_older_setting():
+    body = _boundary_load_effect()
+    assert "boundaryLoadedTempl.current === inclTempl" in body and "if (!cancelled)" in body and "return function() { cancelled = true; }" in body
