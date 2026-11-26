@@ -127,6 +127,52 @@ components, and a **part** exists only below a non-root component (for example a
 (top-level components, including `.` for the root) stands on its own, and `components-all.txt` keeps every manifest directory. The Phase 0
 scorer ignores `.`, so scoring is unaffected. Gate 1 reports both lists.
 
+## M2: components by convention (`profiles/code-repo-conventions.yaml`, extends `code-repo`)
+
+A manifest cannot find the documentation, configuration, scripts, deployment files, tests or requirements of a repository, nor a Python backend or
+a frontend `src` that has no manifest of its own. M2 adds, each with its own evidence string, basis and confidence: top-level `docs`/`doc`/
+`documentation`, `config`/`configs`/`conf`, `scripts`, `docker`/`deploy`/`deployment`/`k8s`, `tests`/`test`, `requirements` (kind documentation,
+configuration, scripts, deployment, test-suite, dependency-pins); a top-level directory with an `__init__.py` (an importable Python package where
+the manifest sits at the root); the `src` directly under a top-level folder that holds a `package.json` (judgement, low); and manifests under
+`examples/` become role `example` (kind sample-project) and are not candidates. The rules come first, so a conventional name wins over a manifest
+in the same directory. To express them the engine now lets a component rule test the directory itself with `path_glob`, `path_segment`, `name`
+or `name_regex` (no file needed). Parts: only a component that a *manifest* declares can have parts; a convention folder such as `docker/` groups
+its images, so they stay top-level components.
+
+Scores against the DRAFT keys (provisional until the key review; tune set only). "All" = components-all.txt, "top" = components.txt; candidates
+exclude the root and metadata.yaml-only directories; recall = TP / key size; precision is true precision TP / candidates (labelled false
+positives are those the key excludes explicitly):
+
+| repo | list | candidates | TP | labelled FP | unlabelled | recall | true precision | M1 manifest probe (recall / true precision) |
+|---|---|---:|---:|---:|---:|---:|---:|---|
+| trellis | all | 19 | 18 | 1 | 0 | 1.00 | 0.95 | 0.78 / 0.56 |
+| trellis | top | 18 | 18 | 0 | 0 | 1.00 | 1.00 | |
+| superset | all | 46 | 36 | 6 | 4 | 1.00 | 0.78 | 0.83 / 0.81 |
+| superset | top | 39 | 35 | 2 | 2 | 0.97 | 0.90 | |
+| datahub | all | 84 | 66 | 11 | 7 | 1.00 | 0.79 | 0.98 / 0.79 |
+| datahub | top | 75 | 63 | 9 | 3 | 0.95 | 0.84 | |
+
+(M1 probe figures are from the regression above; trellis' ten example manifests are the main precision gain: 25 candidates to 19.)
+
+**Recall 1.00 on the tune set is a fit, not a result.** The rules were written while looking at these three trees and scored against labels
+made for them, so the numbers above say the rules can describe these repositories, not that they will on another. The only real test is the
+held-out repositories at M4, run once by the reviewer; they were not touched. Precision on superset (0.78) is slightly BELOW the manifest probe's
+(0.81): four unlabelled `src` directories of manifest components.
+
+**Structural rule (not a name list).** `structural_rules: S-workspace-siblings` (judgement, low; evidence "workspace-style layout: many sibling
+manifests under one parent"): five or more nested manifest directories of the SAME kind that are direct siblings under one parent directory,
+inside a manifest component, are top-level components instead of parts (an npm or cargo workspace, a multi-module build: the parent only
+aggregates them). Four siblings stay parts; kinds are counted separately; siblings under different parents are not pooled; no folder name is
+involved. Such a finding carries `structure_rule_id`, `structure_basis`, `structure_confidence` and `structure_evidence`. On superset it lifts
+the top-level list from recall 0.25 to 0.97 (the `superset-frontend` plugins and packages); it changes nothing on trellis or datahub.
+
+**Overfit controls.** Every M2 rule has a `tuned_on` note naming the tune-set repositories that motivated it, so a reviewer can ablate it; a
+rule motivated by one repository is suspect: R-conv-config (trellis), R-conv-tests, R-conv-requirements, R-conv-root-import-package,
+R-conv-node-src and S-workspace-siblings (superset). Two or more: R-ex-example-manifest and R-conv-docs (trellis, datahub), R-conv-scripts
+and R-conv-deployment (trellis, superset). No rule was added for the 11 labelled false positives of datahub (examples, fixtures and docker
+sub-images): the same pattern did not appear in two of the three repositories. **M2 is frozen at `code-repo-conventions` 0.1.0**; the figures
+above are its final provisional scores.
+
 ## Decisions made so far (for review)
 
 1. `vendored` (installed packages) and `generated` (build output, tool caches) are separate roles; both are hidden. `.cache` is `generated`.
@@ -138,6 +184,7 @@ scorer ignores `.`, so scoring is unaffected. Gate 1 reports both lists.
 4. `components.txt` lists the top-level components (the root as `.`, nested manifest directories); `components-all.txt` adds the parts.
 5. Sizes are optional in the list; without them bytes are 0.
 6. One `unclassified` class (148,776 files in egeria-v6); a residual-primary class only if a rule says so.
+7. Parts belong to manifest components only (M2).
 
 ## Open points
 

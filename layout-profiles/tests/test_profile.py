@@ -96,7 +96,6 @@ def test_document_level_errors(bad):
     {"match": {"extension": ".log"}, "grain": "component"},                  # a component is a directory claim
     {"match": {"has_file": "x"}, "assign": {"role": "vendored"}, "grain": "component"},   # a component must assign role component
     {"match": {"has_file": "x", "extension": ".log"}, "grain": "dir"},       # a directory test plus a file-name test
-    {"match": {"has_file": "x", "path_glob": "a/**"}, "grain": "dir"},
     {"match": {"name_regex": "("}, "grain": "dir"},                          # a regex that does not compile
 ])
 def test_rule_level_errors(changes):

@@ -1,0 +1,102 @@
+# code-repo-conventions: components that a manifest cannot find, by the conventional names and shapes of a code repository
+# (docs, config, scripts, docker, tests, requirements, a root import package, a node package's src), and manifests under examples/ that are
+# samples rather than components. Extends code-repo; its rules are checked FIRST, so a conventional name wins over a manifest in the same
+# directory (docs/ that happens to hold a package.json is documentation), and an example wins over its manifest.
+# Every rule here is basis: convention (or judgement) with its own evidence and a tuned_on note naming the tune-set repositories that motivated it
+# (a rule motivated by one repository is suspect; ablate it). Tune set: trellis, datahub, superset only (scores provisional). FROZEN at 0.1.0.
+profile_id: code-repo-conventions
+version: 0.1.0
+status: proposed
+applies_to: code-repo
+extends: [code-repo]
+roles: [component, example]
+relevance:
+  primary: [component]
+  supporting: [example]
+  hidden: []
+rules:
+  - id: R-ex-example-manifest
+    match: {path_segment: [examples, example], has_file: [pyproject.toml, setup.py, package.json, pom.xml, build.gradle, Cargo.toml, go.mod, Chart.yaml, Dockerfile]}
+    assign: {role: example, kind: sample-project}
+    grain: dir
+    basis: convention
+    confidence: medium
+    evidence: "a manifest under an examples/ directory declares a sample project, not a package of the repository"
+    tuned_on: [trellis, datahub]
+  - id: R-conv-docs
+    match: {path_glob: [docs, doc, documentation]}
+    assign: {role: component, kind: documentation}
+    grain: component
+    basis: convention
+    confidence: medium
+    evidence: "a top-level docs, doc or documentation directory holds the repository's documentation"
+    tuned_on: [trellis, datahub]
+  - id: R-conv-config
+    match: {path_glob: [config, configs, conf]}
+    assign: {role: component, kind: configuration}
+    grain: component
+    basis: convention
+    confidence: medium
+    evidence: "a top-level config, configs or conf directory holds the repository's configuration"
+    tuned_on: [trellis]
+  - id: R-conv-scripts
+    match: {path_glob: [scripts, script]}
+    assign: {role: component, kind: scripts}
+    grain: component
+    basis: convention
+    confidence: medium
+    evidence: "a top-level scripts directory holds the repository's helper scripts"
+    tuned_on: [trellis, superset]
+  - id: R-conv-deployment
+    match: {path_glob: [docker, deploy, deployment, k8s]}
+    assign: {role: component, kind: deployment}
+    grain: component
+    basis: convention
+    confidence: medium
+    evidence: "a top-level docker, deploy, deployment or k8s directory holds container and deployment definitions"
+    tuned_on: [trellis, superset]
+  - id: R-conv-tests
+    match: {path_glob: [tests, test]}
+    assign: {role: component, kind: test-suite}
+    grain: component
+    basis: convention
+    confidence: medium
+    evidence: "a top-level tests or test directory is the repository's test suite"
+    tuned_on: [superset]
+  - id: R-conv-requirements
+    match: {path_glob: [requirements]}
+    assign: {role: component, kind: dependency-pins}
+    grain: component
+    basis: convention
+    confidence: low
+    evidence: "a top-level requirements directory holds the pinned dependency sets of a Python project that keeps them outside a manifest"
+    tuned_on: [superset]
+  - id: R-conv-root-import-package
+    match: {path_glob: "*", has_file: __init__.py}
+    assign: {role: component, kind: python-package}
+    grain: component
+    basis: judgement
+    confidence: low
+    evidence: "a top-level directory with an __init__.py is an importable Python package even where the manifest sits at the repository root"
+    tuned_on: [superset]
+  - id: R-conv-node-src
+    match: {path_glob: "*/src", parent_has_file: package.json}
+    assign: {role: component, kind: source-root}
+    grain: component
+    basis: judgement
+    confidence: low
+    evidence: "the src directory directly under a top-level folder that holds a package.json is that application's source root, the substantive part where the package.json is only a build wrapper; a src inside a nested package is part of that package, not a component"
+    tuned_on: [superset]
+structural_rules:
+  # Not a name list: a SHAPE. Five or more manifest directories of the same kind that are direct siblings under one parent directory, inside a
+  # manifest component, are a workspace-style layout (an npm or cargo workspace, a gradle multi-module build): the parent only aggregates them,
+  # so each one is a top-level component rather than a part. Four siblings stay parts.
+  - id: S-workspace-siblings
+    op: sibling-manifests-top-level
+    min: 5
+    basis: judgement
+    confidence: low
+    evidence: "workspace-style layout: many sibling manifests under one parent"
+    tuned_on: [superset]
+path_grammar: []
+name_grammar: []

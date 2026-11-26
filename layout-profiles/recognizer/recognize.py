@@ -116,7 +116,7 @@ class Recognizer:
             return
         holders: dict[str, set] = {}
         all_dirs: set = set()
-        need_all = any(r.parent_has_files for r in self.dir_rules)
+        need_all = any(not r.has_files for r in self.dir_rules)      # a rule that does not start from a file must see every directory
         for path, _ in read_rows(path_list):
             cut = path.rfind("/")
             d, name = (path[:cut], path[cut + 1:]) if cut >= 0 else ("", path)
@@ -140,6 +140,8 @@ class Recognizer:
                 if r.parent_has_files and not (r.parent_has_files & par):
                     continue
                 if r.segments and not any(s in r.segments for s in segs):
+                    continue
+                if r.globs and (not d or not any(g.match(d) for g in r.globs)):
                     continue
                 if r.names and name not in r.names:
                     continue
@@ -205,21 +207,35 @@ class Recognizer:
 
         comp_dirs = sorted(d for d, r in self.claims.items() if r.grain == "component")
         comp_set = set(comp_dirs)
+        # only a component that a MANIFEST declares can have parts: a convention folder (docker/, docs/) groups things, it does not contain them
+        part_parents = {d for d in comp_dirs if self.claims[d].basis == "manifest"}
         top_components, all_components = [], []
         parts_of: dict[str, str | None] = {}
         for d in comp_dirs:
             parent = None
             segs = d.split("/") if d else []
             for i in range(len(segs) - 1, 0, -1):              # the nearest enclosing component, deepest first
-                if "/".join(segs[:i]) in comp_set:
+                if "/".join(segs[:i]) in part_parents:
                     parent = "/".join(segs[:i])
                     break
             # a manifest at the repository root makes the root a component (kind root-project) but NOT the parent of the others:
             # parts exist only below a non-root component
             parts_of[d] = parent
             all_components.append(d or ".")
-            if parent is None:
-                top_components.append(d or ".")
+        promoted: dict[str, dict] = {}                           # part -> the structural rule that made it a top-level component
+        for sr in self.p.structural:
+            if sr["op"] != "sibling-manifests-top-level":
+                continue
+            groups: dict[tuple, list] = {}
+            for d, parent in parts_of.items():
+                if parent is not None and d not in promoted:
+                    groups.setdefault((d.rpartition("/")[0], self.claims[d].kind), []).append(d)
+            for (_, _), members in sorted(groups.items()):
+                if len(members) >= sr["min"]:
+                    for d in members:
+                        promoted[d] = sr
+                        parts_of[d] = None
+        top_components = [d or "." for d in comp_dirs if parts_of[d] is None]
 
         by_role: dict[str, list] = {}
         by_rel: dict[str, list] = {}
@@ -279,6 +295,10 @@ class Recognizer:
                     f["part_of"] = parts_of[d]
                 continue
             extra = {"part_of": parts_of[d]} if parts_of.get(d) else None
+            if d in promoted:
+                sr = promoted[d]
+                extra = {"structure_rule_id": sr["id"], "structure_basis": sr["basis"], "structure_confidence": sr["confidence"],
+                         "structure_evidence": sr["evidence"]}
             if d == "" and r.grain == "component":             # the repository root: flag it, keep what the manifest rule said
                 extra = {"root": True, "kind": "root-project", "manifest_kind": r.kind}
             f = self.finding(r, d or ".", r.grain, extra)

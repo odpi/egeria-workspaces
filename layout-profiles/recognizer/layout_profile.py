@@ -30,8 +30,11 @@ MATCH_KEYS = ("path_glob", "path_segment", "name", "name_regex", "extension", "h
 DIR_ONLY_KEYS = ("has_file", "parent_has_file")        # evaluated against a directory, not a file
 FILE_ONLY_KEYS = ("extension",)                        # meaningful only for a file name
 ASSIGN_KEYS = ("role", "relevance", "kind")
-TOP_KEYS = ("profile_id", "version", "status", "applies_to", "extends", "roles", "relevance", "rules", "path_grammar", "name_grammar")
+TOP_KEYS = ("profile_id", "version", "status", "applies_to", "extends", "roles", "relevance", "rules", "structural_rules", "path_grammar", "name_grammar")
 RULE_KEYS = ("id", "match", "assign", "grain", "basis", "confidence", "evidence")
+RULE_OPTIONAL_KEYS = ("tuned_on",)       # which repositories motivated the rule, so a reviewer can ablate it (a one-repository rule is suspect)
+STRUCTURAL_OPS = ("sibling-manifests-top-level",)
+STRUCTURAL_KEYS = ("id", "op", "min", "basis", "confidence", "evidence")
 SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
 SLUG = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 RULE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -83,6 +86,7 @@ class Rule:
     confidence: str
     evidence: str
     origin: str                                  # the profile that defined it
+    tuned_on: tuple = ()                         # repositories that motivated the rule (documentation for ablation; never used to match)
     # compiled forms (filled by the loader)
     segments: frozenset = frozenset()
     names: frozenset = frozenset()
@@ -95,7 +99,9 @@ class Rule:
 
     @property
     def is_dir_rule(self) -> bool:
-        return bool(self.has_files or self.parent_has_files)
+        """A rule is evaluated against DIRECTORIES when it tests a directory's files (has_file / parent_has_file) or claims a component:
+        its path_glob / path_segment / name / name_regex then apply to the directory itself."""
+        return bool(self.has_files or self.parent_has_files) or self.grain == "component"
 
 
 @dataclass
@@ -111,6 +117,7 @@ class Profile:
     path_grammar: tuple = ()
     name_grammar: tuple = ()
     composed_of: tuple = ()                      # ((profile_id, version), ...) in the order their rules are checked
+    structural: tuple = ()                       # structural rules (dicts), the child's first
 
     @property
     def major(self) -> str:
@@ -132,8 +139,11 @@ def _check_keys(where: str, obj: Any, allowed: tuple, required: tuple = ()) -> N
 
 
 def _compile_rule(where: str, raw: dict, roles: tuple, rel_map: dict, origin: str) -> Rule:
-    _check_keys(where, raw, RULE_KEYS, RULE_KEYS)
+    _check_keys(where, raw, RULE_KEYS + RULE_OPTIONAL_KEYS, RULE_KEYS)
     rid = raw["id"]
+    tuned_on = raw.get("tuned_on", [])
+    if not isinstance(tuned_on, list) or not all(isinstance(x, str) and x for x in tuned_on):
+        raise ProfileError(f"{where} rule {rid!r}: tuned_on must be a list of repository names")
     where = f"{where} rule {rid!r}"
     if not isinstance(rid, str) or not RULE_ID.match(rid):
         raise ProfileError(f"{where}: id must be a simple identifier")
@@ -160,8 +170,9 @@ def _compile_rule(where: str, raw: dict, roles: tuple, rel_map: dict, origin: st
 
     dir_keys = [k for k in DIR_ONLY_KEYS if k in match]
     file_keys = [k for k in FILE_ONLY_KEYS if k in match]
-    if dir_keys and file_keys:
-        raise ProfileError(f"{where}: {dir_keys} (a directory test) cannot be combined with {file_keys} (a file-name test)")
+    dir_rule = bool(dir_keys) or raw["grain"] == "component"
+    if dir_rule and file_keys:
+        raise ProfileError(f"{where}: a directory rule ({dir_keys or 'grain component'}) cannot test {file_keys} (a file-name test)")
     for key in ("name", "extension", "path_segment", "path_glob", "name_regex", "has_file", "parent_has_file"):
         if key in match:
             for v in _as_list(match[key]):
@@ -174,16 +185,14 @@ def _compile_rule(where: str, raw: dict, roles: tuple, rel_map: dict, origin: st
             globs.append(re.compile(glob_to_regex(g)))
         except re.error as exc:
             raise ProfileError(f"{where}: bad path_glob {g!r}: {exc}") from exc
-        if grain == "subtree":
+        if grain == "subtree" and not dir_rule:
             if not g.endswith("/**"):
                 raise ProfileError(f"{where}: a subtree rule's path_glob must end with '/**' (it names the root directory), got {g!r}")
             root_globs.append(re.compile(glob_to_regex(g[:-3])))
-    if dir_keys and "path_glob" in match:
-        raise ProfileError(f"{where}: path_glob cannot be combined with {dir_keys} in v0 (use path_segment, name or name_regex on the directory)")
-    if grain == "subtree" and not dir_keys and "path_segment" not in match and "path_glob" not in match:
+    if grain == "subtree" and not dir_rule and "path_segment" not in match and "path_glob" not in match:
         raise ProfileError(f"{where}: grain subtree needs path_segment or path_glob to say where the subtree starts")
-    if grain == "component" and not dir_keys:
-        raise ProfileError(f"{where}: grain component is a directory claim: it needs has_file or parent_has_file")
+    if grain == "component" and not any(k in match for k in ("has_file", "parent_has_file", "path_glob", "path_segment", "name", "name_regex")):
+        raise ProfileError(f"{where}: grain component is a directory claim: it needs a test of the directory")
     if grain == "component" and role != "component":
         raise ProfileError(f"{where}: grain component must assign role 'component' (a part of a component gets its own rule)")
     name_res = []
@@ -193,7 +202,7 @@ def _compile_rule(where: str, raw: dict, roles: tuple, rel_map: dict, origin: st
         except re.error as exc:
             raise ProfileError(f"{where}: bad name_regex {rx!r}: {exc}") from exc
     return Rule(
-        id=rid, match=dict(match), role=role, relevance=relevance, kind=assign.get("kind"), grain=grain, basis=raw["basis"],
+        tuned_on=tuple(tuned_on), id=rid, match=dict(match), role=role, relevance=relevance, kind=assign.get("kind"), grain=grain, basis=raw["basis"],
         confidence=raw["confidence"], evidence=evidence.strip(), origin=origin,
         segments=frozenset(_as_list(match.get("path_segment", []))), names=frozenset(_as_list(match.get("name", []))),
         extensions=tuple(_as_list(match.get("extension", []))), globs=tuple(globs), root_globs=tuple(root_globs),
@@ -211,6 +220,30 @@ def _grammar(where: str, items: Any, must: tuple) -> tuple:
     for n, item in enumerate(items):
         _check_keys(f"{where}[{n}]", item, must, must)
         out.append(dict(item))
+    return tuple(out)
+
+
+def _structural(where: str, items: Any) -> tuple:
+    if items is None:
+        return ()
+    if not isinstance(items, list):
+        raise ProfileError(f"{where}: structural_rules must be a list")
+    out = []
+    for n, item in enumerate(items):
+        w = f"{where} structural_rules[{n}]"
+        _check_keys(w, item, STRUCTURAL_KEYS + ("tuned_on",), STRUCTURAL_KEYS)
+        if item["op"] not in STRUCTURAL_OPS:
+            raise ProfileError(f"{w}: op {item['op']!r} is not one of {list(STRUCTURAL_OPS)}")
+        if not isinstance(item["min"], int) or isinstance(item["min"], bool) or item["min"] < 2:
+            raise ProfileError(f"{w}: min must be an integer of at least 2")
+        for key, allowed in (("basis", BASES), ("confidence", CONFIDENCES)):
+            if item[key] not in allowed:
+                raise ProfileError(f"{w}: {key} {item[key]!r} is not one of {list(allowed)}")
+        if not isinstance(item["evidence"], str) or not item["evidence"].strip():
+            raise ProfileError(f"{w}: evidence must be a non-empty string")
+        if not isinstance(item["id"], str) or not RULE_ID.match(item["id"]):
+            raise ProfileError(f"{w}: id must be a simple identifier")
+        out.append({**item, "evidence": item["evidence"].strip(), "tuned_on": list(item.get("tuned_on", []))})
     return tuple(out)
 
 
@@ -266,6 +299,7 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
     composed = [(pid, version)]
     path_grammar = _grammar(f"{source} path_grammar", doc.get("path_grammar"), ("id", "pattern", "yields"))
     name_grammar = _grammar(f"{source} name_grammar", doc.get("name_grammar"), ("id", "pattern", "yields"))
+    structural = list(_structural(source, doc.get("structural_rules")))
     for base_id in extends:
         if profiles_dir is None:
             raise ProfileError(f"{source}: extends {base_id!r} but no profiles directory was given")
@@ -276,7 +310,11 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
         for role, level in base.relevance.items():
             merged_rel.setdefault(role, level)          # the child's mapping wins
         rules.extend(base.rules)
+        structural.extend(base.structural)
         composed.extend(base.composed_of)
+    sids = [x["id"] for x in structural]
+    if len(set(sids)) != len(sids) or set(sids) & {r.id for r in rules}:
+        raise ProfileError(f"{source}: structural rule ids must be unique and differ from rule ids")
     seen: dict[str, str] = {}
     for rule in rules:
         if rule.id in seen:
@@ -284,7 +322,7 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
         seen[rule.id] = rule.origin
     return Profile(profile_id=pid, version=version, status=doc["status"], applies_to=doc["applies_to"], roles=tuple(all_roles),
                    relevance=merged_rel, rules=rules, extends=tuple(extends), path_grammar=path_grammar, name_grammar=name_grammar,
-                   composed_of=tuple(composed))
+                   composed_of=tuple(composed), structural=tuple(structural))
 
 
 def load_profile(profile_id_or_path: str, profiles_dir: Path | str | None = None, _stack: tuple = ()) -> Profile:
