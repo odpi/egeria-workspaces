@@ -127,7 +127,7 @@ TUNE = os.environ.get("LAYOUT_TUNE_PATHS_DIR")
 
 
 @pytest.mark.skipif(not TUNE or not (Path(TUNE) / "trellis.paths.tsv").is_file(), reason="LAYOUT_TUNE_PATHS_DIR (trellis/datahub/superset lists) not set")
-@pytest.mark.parametrize("repo,all_candidates,top_candidates", [("trellis", 19, 18), ("datahub", 81, 74), ("superset", 44, 39)])      # names only; N3 (Phase 1c) excludes fixtures, samples and tooling: datahub 84/75 -> 81/74, superset 46/39 -> 44/39
+@pytest.mark.parametrize("repo,all_candidates,top_candidates", [("trellis", 19, 18), ("datahub", 79, 73), ("superset", 44, 39)])      # names only; N3 (Phase 1c) excludes fixtures, samples and tooling: datahub 84/75 -> 81/74, superset 46/39 -> 44/39; Phase 1d (test- prefix, test-3 tail) datahub -> 79/73
 def test_candidate_counts_with_conventions(tmp_path, repo, all_candidates, top_candidates):
     """Pinned so a rule change that moves the numbers is seen. candidates = the list minus the root and minus directories claimed only by
     metadata.yaml. Scored against the draft keys (provisional): trellis recall 1.00, superset 1.00, datahub 1.00 on components-all."""
@@ -200,7 +200,7 @@ def test_structural_rule_schema_errors():
 def test_every_m2_rule_names_the_repositories_that_motivated_it():
     p = load_profile("code-repo-conventions", PROFILES)
     own = [r for r in p.rules if r.origin == "code-repo-conventions"]
-    assert len(own) == 11 and all(r.tuned_on for r in own)
+    assert len(own) == 12 and all(r.tuned_on for r in own)
     assert all(set(r.tuned_on) <= {"trellis", "datahub", "superset"} for r in own if not r.id.startswith(("R-fx-", "R-tool-")))        # the Phase 1c rules name the spent M8 repositories too
     assert [x["id"] for x in p.structural] == ["S-workspace-siblings"] and p.structural[0]["tuned_on"] == ["superset"]
     one_repo = sorted(r.id for r in own if len(r.tuned_on) == 1)

@@ -49,7 +49,7 @@ def test_a_segment_ending_in_the_plural_tests_after_an_underscore_or_hyphen_coun
     assert run(tmp_path, proj(p)).by[p]["role"] == "fixture"
 
 
-@pytest.mark.parametrize("seg", ["unit_test", "smoke-test", "legacy-plugin-chart-paired-t-test", "e2e_test", "latest", "contest", "attest", "testing-tools-x", "tester", "protests", "my-testbed", "tests-and-more", "sampler", "exampled", "demonstration"])
+@pytest.mark.parametrize("seg", ["unit_test", "smoke-test", "legacy-plugin-chart-paired-t-test", "e2e_test", "latest", "contest", "attest", "testing-tools-x", "tester", "protests", "my-testbed", "sampler", "exampled", "demonstration"])
 def test_whole_segments_only_and_the_singular_test_suffix_does_not_count(tmp_path, seg):
     p = f"real/{seg}/proj"
     r = run(tmp_path, proj(p))
@@ -128,7 +128,7 @@ def test_no_segment_list_contains_a_name_from_a_held_out_or_spent_repository():
 def test_the_new_rules_carry_their_provenance_and_the_test_folder_rule_comes_first():
     p = load_profile("code-repo-conventions", PROFILES)
     ids = [r.id for r in p.rules]
-    assert p.version == "0.4.0" and ids.index("R-conv-tests") < ids.index("R-fx-test-project") < ids.index("R-fx-sample-project") < ids.index("R-conv-docs")
+    assert p.version == "0.5.0" and ids.index("R-conv-tests") < ids.index("R-fx-test-project") < ids.index("R-fx-sample-project") < ids.index("R-conv-docs")
     assert ids.index("R-conv-scripts") < ids.index("R-tool-package")                                                   # the top-level scripts folder keeps its component
     by = {r.id: r for r in p.rules}
     for rid in ("R-fx-test-project", "R-fx-sample-project", "R-tool-package"):

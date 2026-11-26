@@ -6,14 +6,14 @@
 # 0.2.0 adds `manifest_reading` (below): where the recognizer is given a blob source it may read a short closed list of manifests for the members
 # they declare. Without a source the profile behaves exactly as 0.1.0 (names and sizes only).
 profile_id: code-repo
-version: 0.3.0
+version: 0.4.0
 status: proposed
 applies_to: code-repo
 extends: [generic-relevance]
-roles: [component, other]
+roles: [component, other, tooling]
 relevance:
   primary: [component]
-  supporting: [other]
+  supporting: [other, tooling]
   hidden: []
 rules:
   - id: R-comp-pyproject
@@ -98,6 +98,14 @@ manifest_reading:
     confidence: high
     evidence: "a manifest of the repository names this directory as a member of its workspace or a module of its build (a Gradle include, with its projectDir mapping where there is one)"
     tuned_on: [trellis, datahub, superset, "iceberg (M8, spent)"]
+  included_build_rule:
+    id: M-included-build
+    role: tooling
+    kind: tooling-build
+    basis: manifest-content
+    confidence: medium
+    evidence: "settings.gradle(.kts) names this directory in includeBuild(...): a composite build that supplies plugins and conventions to the main build is the repository's internal tooling, and so is every project below it. Known limit: a composite build that includes a real product build is mis-classed"
+    tuned_on: ["kafka (N7, spent)"]
   aggregator_rule:
     id: M-aggregator
     role: other

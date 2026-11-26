@@ -240,6 +240,7 @@ class Decl:
     sections: list = field(default_factory=list)  # mkdocs: the top-level nav entries, [{"title": str | None, "pages": [str, ...]}], pages in nav order
     has_nav: bool = False
     inherit: str | None = None                  # mkdocs: the INHERIT path string, as written (never opened through)
+    included_builds: list = field(default_factory=list)  # gradle: the directories of `includeBuild('dir')` literals (internal tooling), as written
     project_dirs: dict = field(default_factory=dict)  # gradle: included project path -> the directory a projectDir literal maps it to
 
 
@@ -319,9 +320,11 @@ def extract(reader: str, path: str, data: bytes) -> Decl | None:
                              r"|(?:new\s+)?File\s*\(\s*(?:settingsDir|rootDir|rootProject\.projectDir)\s*,\s*[\"']([^\"'\n]+)[\"']\s*\))", text):
             dir_map[m.group(1).replace(":", "/")] = next(g for g in m.groups()[1:] if g)
         members = list(dict.fromkeys(dir_map.get(p, p) for p in projects))
-        d = Decl(reader, path, directory, "include", None, members, aggregator=False) if members else None
+        builds = list(dict.fromkeys(m.group(1).strip() for m in re.finditer(r"\bincludeBuild\s*\(?\s*[\"']([^\"'\n]+)[\"']", text)))
+        d = Decl(reader, path, directory, "include", None, members, aggregator=False) if (members or builds) else None
         if d is not None:
             d.project_dirs = {p: dir_map[p] for p in projects if p in dir_map}
+            d.included_builds = builds
         return d
     if reader == "gitmodules":
         # path entries of the [submodule "..."] sections ONLY: the url, branch and every other key are never extracted, so they cannot reach a finding or a log

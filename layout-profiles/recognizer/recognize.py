@@ -111,6 +111,7 @@ class Recognizer:
         self._child_rel: dict = {}                    # directory -> the has_child_dir paths that exist directly below it
         self._file_count: dict = {}                   # directory -> number of files directly in it
         self._dir_count: dict = {}                    # directory -> number of sub-directories directly in it
+        self.tooling_roots: set = set()               # directories an includeBuild marked as internal tooling (nothing below them is a component)
         self._children: dict | None = None            # directory -> its sub-directories (built when first needed)
         self._src_dirs: set = set()                   # candidate-named directories that have a source-like file below them (for no_source_files rules)
         self._gm_index: dict = {}                     # directory -> (path, size) of its .gitmodules
@@ -300,6 +301,8 @@ class Recognizer:
             return True
         parts = d.split("/")
         for i in range(1, len(parts)):
+            if "/".join(parts[:i]) in self.tooling_roots:
+                return True
             a = self.claims.get("/".join(parts[:i]))
             if a is not None and a.grain == "component":
                 return True
@@ -691,10 +694,33 @@ class Recognizer:
         profile's exclusion rule for that segment instead of the member rule: the same principle as for a manifest project."""
         segs = d.split("/")
         for r in self.dir_rules:
-            if r.role in ("fixture", "example", "tooling") and r.grain == "dir" and (r.segment_res or r.segments):
+            if r.role in ("fixture", "example", "tooling", "test-support") and r.grain == "dir" and (r.segment_res or r.segments):
                 if (r.segments and any(x in r.segments for x in segs)) or (r.segment_res and any(rx.search(x) for x in segs for rx in r.segment_res)):
                     return r
         return None
+
+    def _apply_included_builds(self, mr, decl, dirs: set) -> None:
+        """D3: `includeBuild('dir')` in settings.gradle(.kts) (a string literal, never evaluated) marks `dir` as internal tooling: the directory and every manifest
+        project below it are role tooling, not components. A path that leaves the repository or is not a directory of the list is ignored."""
+        import posixpath
+        rule = mr.included_build_rule
+        if rule is None or not decl.included_builds:
+            return
+        for raw in decl.included_builds:
+            q = raw.replace("\\", "/")
+            if q.startswith("/") or (len(q) > 1 and q[1] == ":"):
+                continue
+            full = posixpath.normpath(posixpath.join(decl.directory, q) if decl.directory else q)
+            if full.startswith("..") or full in (".", "") or full not in dirs or self._dir_is_hidden(full):
+                continue
+            self.tooling_roots.add(full)
+            for d in [full] + sorted(x for x in list(self.claims) if x.startswith(full + "/")):
+                c = self.claims.get(d)
+                if d == full or (c is not None and c.grain == "component"):
+                    self.claims[d] = rule
+                    self.extras.setdefault(d, {}).update({"tooling_of": decl.directory or ".", "evidence_file": decl.file, "evidence_field": "includeBuild", "evidence_blob": decl.blob})
+                    self.member_of.pop(d, None)
+            self.docs_stats.setdefault("included_builds", 0)
 
     def _gradle_aggregators(self, members: list, dirs: set) -> set:
         """Included Gradle projects that only AGGREGATE: no file of their own and every sub-directory an included project too (a parent such as `a` for
@@ -753,6 +779,10 @@ class Recognizer:
                     self.aggregators[d] = decl
                     ex["manifest_kind"] = self.claims[d].kind
                     self.claims[d] = mr.aggregator_rule
+        for path in sorted(rd.decls):                          # D3: included builds are internal tooling (after every member claim, so nothing below them stays a component)
+            for decl in rd.decls[path]:
+                if decl.reader == "gradle":
+                    self._apply_included_builds(mr, decl, dirs)
         for path, note in sorted(rd.notes.items()):
             d = path.rpartition("/")[0]
             if d not in self.claims or note == "missing":

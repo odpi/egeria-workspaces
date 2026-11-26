@@ -508,6 +508,34 @@ claims a directory that is hidden, inside a claimed component (the repository ro
 `charts/tests` (a judgement test-suite), `coco-data` (it holds code, so it is not data), `design-patterns` (55% Markdown), `portal-docs` (70%), `exchange-freshstart` (two notebooks). The eight false positives: four Dockerfile images inside deployments (parts in the
 top-level list), three under `runtime-volumes` (hidden by the egeria-workspace profile's data rule, which this profile does not include: composed with it the all-components list is 24/19/5 and the top-level list 20/19/1) and `work`, three notebooks in a folder the key calls scratch.
 
+## Phase 1d (D1 to D4): the four general gaps behind kafka's recorded exception (`code-repo-conventions` 0.5.0, `code-repo` 0.4.0)
+
+- **D1: a test word with a version or number tail.** The test segments (`test`, `tests`, `testing`; no new words) also match when one is followed by `[-_.]` and a number, optionally a short tag: `foo-tests-44`, `tests_2`, `integration-tests-3.7`, `test-3-rc1`. The word must start the segment or follow `-`, `_` or `.`.
+  Not matched: `latest-3`, `contest-2`, `attest_1`, `paired-t-test`, `my-testing` (no number).
+- **D2: `test-`, `test_`, `tests-` and `tests_` prefixes** count as test segments (for a manifest project and for a declared member). **Known limit (kept by Dan):** a PUBLISHED test library named this way (a `test-utils` artifact) is excluded; it is the same kind of limit as `tools`, which stays an internal-tooling segment, so a shipped module named `tools` is missed. A top-level test folder
+  (`tests`, `integration_tests`, ...) still keeps its convention component.
+- **D3: `includeBuild('<dir>')`** (and `includeBuild '<dir>'`, the Kotlin form) in `settings.gradle(.kts)`, a string literal read by regex and never evaluated, marks `<dir>` and every manifest project below it as role `tooling` (`M-included-build`), not components. A path that leaves the repository, is
+  absolute, is not a directory of the list or is not a literal is ignored. `buildSrc` stays tooling as before. **Known limit:** a composite build that includes a real product build is mis-classed.
+- **D4: benchmark harnesses are test support.** A manifest project with a `benchmark`, `benchmarks`, `bench` or `jmh` segment, or one starting or ending with them joined by `-` or `_`, is role `test-support` (new), kind `benchmark-project`, and not a component. `workbench` and `benchmarker` are not matched.
+
+No name from a held-out or spent repository is in any rule (a test checks the earlier list and `upgrade-system`, `api-checker`, `generator`, `test-common`, `kafka`, `streams`, `connect`, `tools-api`). `tuned_on` for D3 and D4 names "kafka (N7, spent)".
+
+**D5, re-score (a FIT for kafka, which is spent; candidates / TP / labelled-FP / unlabelled; before = the Phase 1c code at 283fb3f0):**
+
+| repo (key) | list | before | after | changed candidates |
+|---|---|---|---|---|
+| kafka (b1bdaf54), spent | all | 73/31/37/5, recall 0.91, precision 0.46 | 36/30/1/5, recall 0.88, precision 0.97 | 37 removed (below) |
+| kafka | top | 72/31/37/4 | 35/30/1/4, precision 0.97 | the same |
+| trellis | all, top | 19/18/1/0, 18/18/0/0 | same | none |
+| superset (42, composite) | all, top | 49/42/4/3, 46/42/3/1 | same | none |
+| datahub | all | 81/66/9/6 | 79/66/8/5, precision 0.89 | `test-models` (a labelled false positive), `metadata-integration/java/spark-lineage/spark-smoke-test/test-spark-lineage` |
+| datahub | top | 78/66/9/3 | 77/66/8/3 | `test-models` |
+| egeria-workspaces dogfood | all, top | 27/19/8/0, 23/19/4/0 | same | none |
+| egeria-python dogfood | all, top | 9/9/0/0 | same | none |
+
+Tune-set recall does not drop (1.00 on trellis, superset and datahub). The kafka figures reproduce the recorded exception before the change (73 candidates, precision 0.46). The 37 removed kafka candidates: the 34 `streams/upgrade-system-tests-*` projects (D1), the three `test-common/*` projects and `connect/test-plugins` (D2), `api-checker` and its
+three sub-projects (D3), `jmh-benchmarks` (D4) and `streams/test-utils`. That last one is the key's published test library: the known limit of D2 costs one true component (recall 0.91 -> 0.88), and leaves one labelled false positive.
+
 ## Decisions made so far (for review)
 
 1. `vendored` (installed packages) and `generated` (build output, tool caches) are separate roles; both are hidden. `.cache` is `generated`.
@@ -550,3 +578,5 @@ N4: the mkdocs tutorial sample and the trellis tree only; no held-out tree or ke
 N5: synthetic trees and the mkdocs tutorial sample; no held-out tree or key was opened.
 
 N6: the workspaces and egeria-python dogfood trees by git object database only (not held out); synthetic tests; no held-out tree or key was opened.
+
+Phase 1d: the kafka tree (spent) was listed by names and read for settings.gradle through the git object database as a fit; no unspent held-out tree or key was opened.

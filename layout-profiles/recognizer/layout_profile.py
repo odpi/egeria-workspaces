@@ -21,7 +21,7 @@ import yaml
 STATUSES = ("proposed", "confirmed", "retired")
 APPLIES_TO = ("any", "code-repo", "docs-site", "workspace-of-repos")
 ROLES = ("component", "source", "test", "docs", "config", "generated", "vendored", "scratch", "archive", "audit", "runtime-output",
-         "vcs-internal", "worktree-copy", "backup", "secret", "example", "ci", "tooling", "build", "data-fixture", "other", "fixture", "static-assets", "theme", "include-fragments")
+         "vcs-internal", "worktree-copy", "backup", "secret", "example", "ci", "tooling", "build", "data-fixture", "other", "fixture", "static-assets", "theme", "include-fragments", "test-support")
 RELEVANCES = ("primary", "supporting", "hidden")
 GRAINS = ("subtree", "dir", "component")
 BASES = ("manifest", "manifest-content", "convention", "judgement")
@@ -36,9 +36,9 @@ TOP_KEYS = ("profile_id", "version", "status", "applies_to", "extends", "roles",
 RULE_KEYS = ("id", "match", "assign", "grain", "basis", "confidence", "evidence")
 RULE_OPTIONAL_KEYS = ("tuned_on",)       # which repositories motivated the rule, so a reviewer can ablate it (a one-repository rule is suspect)
 MANIFEST_READING_KEYS = ("readers", "max_file_bytes", "max_blobs", "max_total_bytes", "member_rule", "aggregator_rule", "section_rule", "fallback_section_rule",
-                         "docs_content_rule", "site_output_rule", "fallback_site_rule", "submodule_rule", "translation_rule")
-MANIFEST_RULE_NAMES = ("member_rule", "aggregator_rule", "section_rule", "fallback_section_rule", "translation_rule")
-OPTIONAL_MANIFEST_RULES = ("translation_rule",)        # allowed with the mkdocs reader, never required
+                         "docs_content_rule", "site_output_rule", "fallback_site_rule", "submodule_rule", "translation_rule", "included_build_rule")
+MANIFEST_RULE_NAMES = ("member_rule", "aggregator_rule", "section_rule", "fallback_section_rule", "translation_rule", "included_build_rule")
+OPTIONAL_MANIFEST_RULES = ("translation_rule", "included_build_rule")        # allowed with the mkdocs reader, never required
 MANIFEST_RULE_KEYS = ("id", "role", "kind", "basis", "confidence", "evidence")
 STRUCTURAL_OPS = ("sibling-manifests-top-level", "compose-deployment", "notebook-folder", "mostly-extension-folder")
 STRUCTURAL_OPTIONAL = ("tuned_on", "kind", "share", "extensions", "no_code", "name_regex", "yaml_key")
@@ -135,6 +135,7 @@ class ManifestReading:
     member_rule: Rule | None = None
     aggregator_rule: Rule | None = None
     section_rule: Rule | None = None             # mkdocs: a top-level nav section (kind doc-section, a part of its site)
+    included_build_rule: Rule | None = None      # gradle: a directory named by `includeBuild('dir')` is internal tooling (role tooling), and so is every manifest project below it
     translation_rule: Rule | None = None         # mkdocs: a site whose mkdocs.yml INHERITs another site's is a translation of it (kind doc-translation), not a site
     fallback_section_rule: Rule | None = None    # mkdocs: a top-level folder of the docs folder that holds pages, where there is no nav (low confidence)
     docs_content_rule: str | None = None         # id of the profile's rule that claims the docs folder (applied where mkdocs.yml names another docs_dir)
@@ -301,6 +302,8 @@ def _manifest_reading(where: str, doc: Any, roles: tuple, rel_map: dict, origin:
         need |= {"section_rule", "fallback_section_rule"}
     if "translation_rule" in doc and "mkdocs" not in readers:
         raise ProfileError(f"{w}: translation_rule needs the mkdocs reader")
+    if "included_build_rule" in doc and "gradle" not in readers:
+        raise ProfileError(f"{w}: included_build_rule needs the gradle reader")
     for which in (x for x in MANIFEST_RULE_NAMES if x not in OPTIONAL_MANIFEST_RULES):
         if (which in doc) != (which in need):
             raise ProfileError(f"{w}: {which} is {'required' if which in need else 'not allowed'} for readers {list(readers)}")
@@ -314,6 +317,8 @@ def _manifest_reading(where: str, doc: Any, roles: tuple, rel_map: dict, origin:
             raise ProfileError(f"{w} {which}: the role must be 'component'")
         if which == "aggregator_rule" and raw["role"] == "component":
             raise ProfileError(f"{w} aggregator_rule: an aggregator is NOT a component")
+        if which == "included_build_rule" and raw["role"] == "component":
+            raise ProfileError(f"{w} included_build_rule: an included build is internal tooling, NOT a component")
         rel = rel_map.get(raw["role"])
         if rel is None:
             raise ProfileError(f"{w} {which}: role {raw['role']!r} has no relevance")
@@ -327,7 +332,7 @@ def _manifest_reading(where: str, doc: Any, roles: tuple, rel_map: dict, origin:
         tuned = raw.get("tuned_on", [])
         if not isinstance(tuned, list) or not all(isinstance(x, str) and x for x in tuned):
             raise ProfileError(f"{w} {which}: tuned_on must be a list of repository names")
-        rules[which] = Rule(id=raw["id"], match={}, role=raw["role"], relevance=rel, kind=raw["kind"], grain="dir" if which == "aggregator_rule" else "component",
+        rules[which] = Rule(id=raw["id"], match={}, role=raw["role"], relevance=rel, kind=raw["kind"], grain="dir" if which in ("aggregator_rule", "included_build_rule") else "component",
                             basis=raw["basis"], confidence=raw["confidence"], evidence=raw["evidence"].strip(), origin=origin, tuned_on=tuple(tuned))
     ids = [r.id for r in rules.values()]
     if len(set(ids)) != len(ids):

@@ -102,7 +102,7 @@ def test_file_roles_never_unhide_a_hidden_file(tmp_path):
 
 def test_every_file_role_rule_carries_evidence_basis_confidence_and_tuned_on():
     p = load_profile("code-repo-conventions", PROFILES)
-    assert p.version == "0.4.0" and len(p.file_roles) >= 12
+    assert p.version == "0.5.0" and len(p.file_roles) >= 12
     for r in p.file_roles:
         assert r.id.startswith("F-") and r.evidence.strip() and r.basis and r.confidence and r.tuned_on, r.id
         assert r.grain == "dir" and not r.is_dir_rule

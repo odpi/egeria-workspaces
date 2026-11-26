@@ -6,14 +6,14 @@
 # (a rule motivated by one repository is suspect; ablate it). Tune set: trellis, datahub, superset only (scores provisional). The component rules are
 # FROZEN as in 0.1.0; 0.2.0 adds only the file_roles layer below (path rules, no file content), which can neither change a component nor un-hide a file.
 profile_id: code-repo-conventions
-version: 0.4.0
+version: 0.5.0
 status: proposed
 applies_to: code-repo
 extends: [code-repo]
-roles: [component, example, fixture, tooling, source, test, docs, config, build, ci, other]
+roles: [component, example, fixture, test-support, tooling, source, test, docs, config, build, ci, other]
 relevance:
   primary: [component]
-  supporting: [example, fixture, tooling, source, test, docs, config, build, ci, other]
+  supporting: [example, fixture, test-support, tooling, source, test, docs, config, build, ci, other]
   hidden: []
 rules:
   - id: R-conv-tests
@@ -25,12 +25,12 @@ rules:
     evidence: "a top-level folder named test, tests, testing or __tests__, or ending in the PLURAL _tests or -tests (integration_tests, unit-tests), is the repository's test suite; it is checked BEFORE the fixture rule so only the manifest projects INSIDE it are excluded"
     tuned_on: [superset, datahub]
   - id: R-fx-test-project
-    match: {segment_regex: ['(?i)^(?:test|tests|testing|__tests__|testfixtures|fixture|fixtures|testdata|test-data)$|(?:_|-)tests$'], has_file: [pyproject.toml, setup.py, package.json, pom.xml, build.gradle, build.gradle.kts, Cargo.toml, go.mod, Chart.yaml, Dockerfile]}
+    match: {segment_regex: ['(?i)^(?:test|tests|testing|__tests__|testfixtures|fixture|fixtures|testdata|test-data)$|(?:_|-)tests$', '(?i)(?:^|[-_.])(?:test|tests|testing)[-_.]+\d[\d.]*(?:[-_.]?[a-z0-9]{1,6})?$', '(?i)^tests?[-_]'], has_file: [pyproject.toml, setup.py, package.json, pom.xml, build.gradle, build.gradle.kts, Cargo.toml, go.mod, Chart.yaml, Dockerfile]}
     assign: {role: fixture, kind: sample-project}
     grain: dir
     basis: convention
     confidence: medium
-    evidence: "a manifest project whose path has a test, tests, testing, __tests__, testFixtures, fixture(s), testdata or test-data segment, or one ending in the plural _tests or -tests, is a fixture (the singular -test and _test are not: a package may be named for a statistical test) of the test suite, not a package of the repository"
+    evidence: "a manifest project whose path has a test, tests, testing, __tests__, testFixtures, fixture(s), testdata or test-data segment, or one ending in the plural _tests or -tests, is a fixture (the singular -test and _test are not: a package may be named for a statistical test). Also: a test word (test, tests, testing) followed by a version or number tail (foo-tests-44, tests_2, integration-tests-3.7), and a segment that STARTS with test-, test_, tests- or tests_. Known limit, kept by Dan: a PUBLISHED test library named that way (a test-utils artifact) is excluded of the test suite, not a package of the repository"
     tuned_on: [trellis, datahub, "iceberg (M8, spent)", "dagster (M8, spent)"]
   - id: R-fx-sample-project
     match: {segment_regex: ['(?i)^(?:sample|samples|example|examples|template|templates|demo|demos)$'], has_file: [pyproject.toml, setup.py, package.json, pom.xml, build.gradle, build.gradle.kts, Cargo.toml, go.mod, Chart.yaml, Dockerfile]}
@@ -40,6 +40,14 @@ rules:
     confidence: medium
     evidence: "a manifest project whose path has a sample(s), example(s), template(s) or demo(s) segment declares a sample, template or demo project, not a package of the repository"
     tuned_on: [trellis, datahub, "dagster (M8, spent)"]
+  - id: R-fx-benchmark-project
+    match: {segment_regex: ['(?i)^(?:benchmarks?|bench|jmh)$|^(?:benchmarks?|bench|jmh)[-_]|[-_](?:benchmarks?|bench|jmh)$'], has_file: [pyproject.toml, setup.py, package.json, pom.xml, build.gradle, build.gradle.kts, Cargo.toml, go.mod, Chart.yaml, Dockerfile]}
+    assign: {role: test-support, kind: benchmark-project}
+    grain: dir
+    basis: convention
+    confidence: medium
+    evidence: "a manifest project whose path has a benchmark, benchmarks, bench or jmh segment, or one starting or ending with one of them joined by - or _, is a benchmark harness: test support, not a package the repository ships"
+    tuned_on: ["kafka (N7, spent)"]
   - id: R-conv-docs
     match: {path_glob: [docs, doc, documentation]}
     assign: {role: component, kind: documentation}
