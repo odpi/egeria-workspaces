@@ -36,7 +36,7 @@ TOP_KEYS = ("profile_id", "version", "status", "applies_to", "extends", "roles",
 RULE_KEYS = ("id", "match", "assign", "grain", "basis", "confidence", "evidence")
 RULE_OPTIONAL_KEYS = ("tuned_on",)       # which repositories motivated the rule, so a reviewer can ablate it (a one-repository rule is suspect)
 MANIFEST_READING_KEYS = ("readers", "max_file_bytes", "max_blobs", "max_total_bytes", "member_rule", "aggregator_rule", "section_rule", "fallback_section_rule",
-                         "docs_content_rule", "site_output_rule")
+                         "docs_content_rule", "site_output_rule", "fallback_site_rule")
 MANIFEST_RULE_NAMES = ("member_rule", "aggregator_rule", "section_rule", "fallback_section_rule")
 MANIFEST_RULE_KEYS = ("id", "role", "kind", "basis", "confidence", "evidence")
 STRUCTURAL_OPS = ("sibling-manifests-top-level",)
@@ -128,6 +128,7 @@ class ManifestReading:
     fallback_section_rule: Rule | None = None    # mkdocs: a top-level folder of the docs folder that holds pages, where there is no nav (low confidence)
     docs_content_rule: str | None = None         # id of the profile's rule that claims the docs folder (applied where mkdocs.yml names another docs_dir)
     site_output_rule: str | None = None          # id of the profile's rule that hides the built site (applied where mkdocs.yml names another site_dir)
+    fallback_site_rule: str | None = None        # id of the profile's rule that recognizes a site by its generator's config FILE NAME (never read): the fallback sections apply there
 
 
 @dataclass
@@ -298,10 +299,11 @@ def _manifest_reading(where: str, doc: Any, roles: tuple, rel_map: dict, origin:
     ids = [r.id for r in rules.values()]
     if len(set(ids)) != len(ids):
         raise ProfileError(f"{w}: the manifest rules need different ids")
-    for key in ("docs_content_rule", "site_output_rule"):
+    for key in ("docs_content_rule", "site_output_rule", "fallback_site_rule"):
         if key in doc and (not isinstance(doc[key], str) or not RULE_ID.match(doc[key]) or "mkdocs" not in readers):
             raise ProfileError(f"{w}: {key} must name a rule id and needs the mkdocs reader")
     return ManifestReading(readers=tuple(readers), docs_content_rule=doc.get("docs_content_rule"), site_output_rule=doc.get("site_output_rule"),
+                           fallback_site_rule=doc.get("fallback_site_rule"),
                            **{k: rules.get(k) for k in MANIFEST_RULE_NAMES}, **caps)
 
 
@@ -439,7 +441,7 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
     rules = deduped
     if mreading is not None:
         ids_now = {r.id for r in rules}
-        for key in ("docs_content_rule", "site_output_rule"):
+        for key in ("docs_content_rule", "site_output_rule", "fallback_site_rule"):
             ref = getattr(mreading, key)
             if ref is not None and ref not in ids_now:
                 raise ProfileError(f"{source}: manifest_reading.{key} names {ref!r}, which is not a rule of this profile")

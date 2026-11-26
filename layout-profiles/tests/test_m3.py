@@ -33,7 +33,7 @@ def test_profile_loads_with_evidence_and_tuned_on():
     p = load_profile("docs-site", PROFILES)
     own = [r for r in p.rules if r.origin == "docs-site"]
     assert [r.id for r in own][0] == "R-docs-site-mkdocs"                       # the mkdocs.yml rule is first
-    assert all(r.evidence and r.tuned_on and set(r.tuned_on) <= {"mkdocs-sample", "trellis"} for r in own)
+    assert all(r.evidence and r.tuned_on and set(r.tuned_on) <= {"mkdocs-sample", "trellis", "note 568fc678 (no repository looked at)"} for r in own)
     assert [pid for pid, _ in p.composed_of] == ["docs-site", "generic-relevance"]
 
 

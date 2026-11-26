@@ -6,7 +6,7 @@
 # Extends generic-relevance, so venv, node_modules and build output are hidden and counted. Tuned on the mkdocs tutorial sample and the trellis
 # docs folder only (see tuned_on); egeria-docs has not been seen.
 profile_id: docs-site
-version: 0.2.0
+version: 0.2.1
 status: proposed
 applies_to: docs-site
 extends: [generic-relevance]
@@ -24,13 +24,21 @@ rules:
     confidence: high
     evidence: "a directory that holds mkdocs.yml (or mkdocs.yaml) is the root of an MkDocs documentation site"
     tuned_on: [mkdocs-sample]
+  - id: R-docs-site-docusaurus
+    match: {has_file: [docusaurus.config.js, docusaurus.config.ts, docusaurus.config.mjs, docusaurus.config.cjs]}
+    assign: {role: component, kind: docs-site}
+    grain: component
+    basis: convention
+    confidence: medium
+    evidence: "a directory that holds a docusaurus.config file is the root of a Docusaurus documentation site; recognized by the file NAME only, the file is never read"
+    tuned_on: ["note 568fc678 (no repository looked at)"]
   - id: R-docs-site-content
-    match: {name: docs, parent_has_file: [mkdocs.yml, mkdocs.yaml]}
+    match: {name: docs, parent_has_file: [mkdocs.yml, mkdocs.yaml, docusaurus.config.js, docusaurus.config.ts, docusaurus.config.mjs, docusaurus.config.cjs]}
     assign: {role: docs, kind: docs-content}
     grain: subtree
     basis: convention
     confidence: medium
-    evidence: "docs beside mkdocs.yml is MkDocs' default docs_dir, the site's content; a site that sets docs_dir elsewhere is not recognized from names"
+    evidence: "docs beside mkdocs.yml (or a docusaurus.config file) is the generator's default content folder; a site that sets docs_dir elsewhere is not recognized from names"
     tuned_on: [mkdocs-sample]
   - id: R-docs-site-output
     match: {name: site, parent_has_file: [mkdocs.yml, mkdocs.yaml]}
@@ -59,6 +67,7 @@ rules:
 manifest_reading:
   readers: [mkdocs]
   docs_content_rule: R-docs-site-content      # where mkdocs.yml names another docs_dir, that folder is claimed as the default `docs` is
+  fallback_site_rule: R-docs-site-docusaurus  # a site recognized by a generator config FILE NAME gets the fallback sections (its config is never read)
   site_output_rule: R-docs-site-output        # where mkdocs.yml names another site_dir, that folder is hidden as the default `site` is
   section_rule:
     id: M-docs-section

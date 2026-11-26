@@ -168,10 +168,10 @@ def test_two_runs_are_byte_identical(tmp_path):
 
 
 # ---- the profile -------------------------------------------------------------------------------------------------------------------------
-def test_the_docs_site_profile_is_0_2_0_with_a_section_rule_and_a_low_confidence_fallback():
+def test_the_docs_site_profile_is_0_2_1_with_a_section_rule_and_a_low_confidence_fallback():
     p = load_profile("docs-site", PROFILES)
     m = p.manifest_reading
-    assert p.version == "0.2.0" and m.readers == ("mkdocs",) and m.member_rule is None and m.aggregator_rule is None
+    assert p.version == "0.2.1" and m.readers == ("mkdocs",) and m.member_rule is None and m.aggregator_rule is None
     assert (m.section_rule.confidence, m.fallback_section_rule.confidence) == ("high", "low")
     assert m.section_rule.kind == m.fallback_section_rule.kind == "doc-section" and m.docs_content_rule == "R-docs-site-content" and m.site_output_rule == "R-docs-site-output"
     assert all(r.evidence and r.tuned_on for r in (m.section_rule, m.fallback_section_rule))
@@ -186,7 +186,7 @@ def _doc(**change):
 
 @pytest.mark.parametrize("change,msg", [
     ({"section_rule": None}, "section_rule"), ({"readers": ["mkdocs", "cargo"]}, "member_rule"), ({"docs_content_rule": "R-nope"}, "not a rule of this profile"),
-    ({"site_output_rule": 5}, "site_output_rule"),
+    ({"site_output_rule": 5}, "site_output_rule"), ({"fallback_site_rule": "R-nope"}, "not a rule of this profile"),
 ])
 def test_a_bad_docs_manifest_reading_block_is_a_load_error(change, msg):
     d = _doc(**change)
@@ -194,3 +194,43 @@ def test_a_bad_docs_manifest_reading_block_is_a_load_error(change, msg):
         del d["manifest_reading"]["section_rule"]
     with pytest.raises(ProfileError, match=msg):
         parse_profile(d, "t", PROFILES)
+
+
+# ---- a site recognized by a generator config FILE NAME (Docusaurus), never read ---------------------------------------------------------------------
+DOCU = {"w/docusaurus.config.js": "module.exports = {secret: 'NEVER READ'};", "w/docs/index.md": "x", "w/docs/intro/a.md": "x", "w/docs/intro/b.md": "x", "w/docs/guides/g.mdx": "x",
+        "w/docs/assets/logo.md": "x", "w/docs/img/p.png": "x", "w/docs/_partials/p.md": "x", "w/docs/top.md": "x", "w/sidebars.js": "module.exports = {}"}
+
+
+@pytest.mark.parametrize("config", ["docusaurus.config.js", "docusaurus.config.ts", "docusaurus.config.mjs", "docusaurus.config.cjs"])
+def test_a_docusaurus_config_file_name_makes_its_directory_a_docs_site_with_fallback_sections(tmp_path, config):
+    files = {k.replace("docusaurus.config.js", config): v for k, v in DOCU.items()}
+    r = survey(tmp_path, files, None, site="")
+    assert r.comps == ["w"] and r.f["w"]["rule_id"] == "R-docs-site-docusaurus" and r.f["w"]["kind"] == "docs-site" and r.f["w"]["basis"] == "convention"
+    assert sections(r) == ["w/docs/guides", "w/docs/intro"]
+    g = r.f["w/docs/intro"]
+    assert g["rule_id"] == "M-docs-section-folder" and g["confidence"] == "low" and g["part_of"] == "w" and g["identity"] == "folder-fallback"
+    assert r.f["w"]["docs_dir"] == "docs" and r.f["w/docs"]["role"] == "docs"                                        # the generator default content folder is claimed
+
+
+def test_the_generator_config_and_sidebars_are_never_opened(tmp_path):
+    r = survey(tmp_path, DOCU, None, site="")
+    assert r.rec.reading is None or r.rec.reading.log == []
+    assert "NEVER READ" not in json.dumps(r.f) + (r.out / "report.md").read_text()
+    assert not (r.out / "manifest-reads.txt").exists() or (r.out / "manifest-reads.txt").read_text() == ""
+
+
+def test_the_docusaurus_fallback_does_not_need_a_blob_source_and_is_deterministic(tmp_path):
+    a = survey(tmp_path, DOCU, None, site="", source=False, out="a", name="ta")
+    b = survey(tmp_path, DOCU, None, site="", out="b", name="tb")
+    assert sections(a) == sections(b) == ["w/docs/guides", "w/docs/intro"]
+    assert (a.out / "components-all.txt").read_bytes() == (b.out / "components-all.txt").read_bytes()
+
+
+def test_a_plain_docs_folder_with_no_generator_config_is_still_not_a_site(tmp_path):
+    r = survey(tmp_path, {"docs/guide/a.md": "x", "docs/ref/b.md": "x", "sidebars.js": "x", "docusaurus.md": "x"}, None, site="")
+    assert sections(r) == [] and r.comps == ["docs"] and r.f["docs"]["kind"] == "documentation"
+
+
+def test_a_docusaurus_config_inside_a_hidden_subtree_makes_no_site(tmp_path):
+    r = survey(tmp_path, {"node_modules/x/docusaurus.config.js": "x", "node_modules/x/docs/g/a.md": "x"}, None, site="")
+    assert sections(r) == [] and r.comps == []

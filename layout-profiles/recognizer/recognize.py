@@ -35,6 +35,7 @@ except ImportError:                                   # run as a script
     import manifests as mf  # type: ignore
 
 UNCLASSIFIED = "unclassified"
+DOC_SKIP_NAMES = frozenset({"assets", "js", "css", "img", "images", "overrides", "snippets", "includes"})   # never a documentation section on their own
 DEFAULT_PROFILES = Path(__file__).resolve().parent.parent / "profiles"
 
 
@@ -152,7 +153,8 @@ class Recognizer:
         all_dirs: set = set()
         need_all = any(not (r.has_files or r.has_entries) for r in self.dir_rules)   # a rule that does not start from an entry must see every directory
         mr = self.p.manifest_reading if self.blob_source is not None else None
-        collect_dirs = need_all or mr is not None
+        mr_any = self.p.manifest_reading
+        collect_dirs = need_all or mr is not None or (mr_any is not None and mr_any.fallback_site_rule is not None)
         candidates_m: list = []                                  # (path, size) of files whose NAME is on the closed list of manifests
         for path, size in read_rows(path_list):
             cut = path.rfind("/")
@@ -215,6 +217,8 @@ class Recognizer:
             self._apply_manifest_content(mr, all_dirs, dir_files)
             if "mkdocs" in mr.readers:
                 self._apply_docs_sections(mr, path_list, all_dirs)
+        if self.p.manifest_reading is not None and self.p.manifest_reading.fallback_site_rule is not None:
+            self._apply_generator_sites(self.p.manifest_reading, path_list, all_dirs)
         self.component_dirs = {d for d, r in self.claims.items() if r.grain == "component"}
 
     # ---- manifest reading (M6) --------------------------------------------------------------------------------------------
@@ -329,7 +333,6 @@ class Recognizer:
                     pre = root + "/" if root else ""
                     if path.startswith(pre) and "/" in path[len(pre):]:
                         tops[root].add(path[len(pre):].split("/", 1)[0])
-        skip_names = {"assets", "js", "css", "img", "images", "overrides", "snippets", "includes"}
         for decl, site, docs_root, entries in sites:
             ex = self.extras[site]
             landing, unresolved, seen = None, [], set()
@@ -356,7 +359,7 @@ class Recognizer:
                 self._add_section(mr.section_rule, identity, how, site, info, dirs)
             if not decl.has_nav:
                 for top in sorted(tops.get(docs_root, ())):
-                    if top.lower() in skip_names or top.startswith((".", "_")):
+                    if top.lower() in DOC_SKIP_NAMES or top.startswith((".", "_")):
                         continue
                     identity = self._join(docs_root, top)
                     if identity in seen:
@@ -371,6 +374,32 @@ class Recognizer:
             if unresolved:
                 ex["unresolved_nav"] = unresolved[:50]
                 self.docs_stats["unresolved"] += len(unresolved)
+
+    def _apply_generator_sites(self, mr, path_list: Path, dirs: set) -> None:
+        """A documentation site recognized by its generator's config FILE NAME only (the file is never read): its content folder is the generator's default,
+        `docs/` beside the config, and the fallback applies there: one low-confidence section per top-level folder of that folder that holds pages."""
+        sites = {}
+        for d, r in sorted(self.claims.items()):
+            if r.id == mr.fallback_site_rule and r.grain == "component" and not self._dir_is_hidden(d):
+                sites[self._join(d, "docs")] = d
+        if not sites:
+            return
+        tops: dict = {root: set() for root in sites}
+        for path, _ in read_rows(path_list):
+            if path.endswith((".md", ".mdx", ".rst")):
+                for root in sites:
+                    pre = root + "/"
+                    if path.startswith(pre) and "/" in path[len(pre):]:
+                        tops[root].add(path[len(pre):].split("/", 1)[0])
+        for root, site in sites.items():
+            ex = self.extras.setdefault(site, {})
+            ex["docs_dir"] = "docs"
+            for top in sorted(tops[root]):
+                if top.lower() in DOC_SKIP_NAMES or top.startswith((".", "_")):
+                    continue
+                info = {"site": site or ".", "identity": "folder-fallback", "evidence_field": "generator-default-docs-dir", "pages_kept": None, "nav_title": None}
+                self._add_section(mr.fallback_section_rule, self._join(root, top), "folder", site, info, dirs)
+                self.docs_stats["fallback_sections"] += 1
 
     def _add_section(self, rule, identity: str, how: str, site: str, info: dict, dirs: set) -> None:
         if how == "first-page":

@@ -312,8 +312,10 @@ not a component, listed as `unresolved_nav` on the site. Two entries with the sa
 
 **No nav.** A site whose `mkdocs.yml` has no nav gets, as a fallback, one `doc-section` of LOW confidence (`M-docs-section-folder`, basis `convention`) per top-level folder of
 `docs_dir` that holds Markdown or reStructuredText pages, except `assets`, `js`, `css`, `img`, `images`, `overrides`, `snippets`, `includes` and names starting with `.` or `_`.
-A documentation folder with no `mkdocs.yml` (the Docusaurus case, whose sidebars are JavaScript and are not read) is NOT a site and gets no sections: it stays one
-`documentation` component. A malformed, oversize or past-cap `mkdocs.yml` leaves the presence-only site (`parse_error` or `skipped`, lower confidence).
+A site built by another generator is recognized by its config FILE NAME only: a directory that holds `docusaurus.config.{js,ts,mjs,cjs}` (never read; the sidebars are JavaScript
+and are not read either) is a `docs-site` component (`R-docs-site-docusaurus`, `basis: convention`), its content folder is the generator default `docs/` beside the config, and
+the same low-confidence fallback applies there (it needs no blob source). A plain documentation folder with NO site generator (no `mkdocs.yml`, no generator config) is NOT a
+site and gets no sections: it stays one `documentation` component (version 0.2.1 of the profile adds the Docusaurus rule). A malformed, oversize or past-cap `mkdocs.yml` leaves the presence-only site (`parse_error` or `skipped`, lower confidence).
 Translations (language folders beside the main site) are not recognized in this milestone.
 
 **Scores against the tuning keys** (provisional; the mkdocs sample is a tutorial tree, not a held-out one):
