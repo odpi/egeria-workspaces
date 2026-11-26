@@ -82,6 +82,13 @@ that throws without React also loaded). If you add a type to one, add it to
 both `egeria-shared-ui.js` copies **and** both `demo-portal.html` copies —
 four places, not two.
 
+**Solution Boundaries view (Portal Part C, 2026-11): the same feature in both environments, no intended difference.**
+`solution_architect_handler.py` (three read-only async routes, the async factories, the `boundaries` field on blueprint and component detail) and
+`type-explorer.html` (the Boundaries tab, the "Member of boundary" links, the in-app navigation) were changed with the same patch in each env's own copy;
+neither file is in `shared-portal-files.txt`. The only differences are in the tests: freshstart's `test_solution_boundary_js.py` inlines the stub React
+(freshstart has no `test_e64_cards_js.py`), and freshstart has no `test_graph_keys.py` route-count pin or `capture_boundary_fixtures.py`. Apply future
+changes to both copies of both files.
+
 ---
 
 ## Known regressions this guard would have prevented (2026-06-18/19)
