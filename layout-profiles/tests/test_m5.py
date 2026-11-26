@@ -231,7 +231,7 @@ def test_logs_under_runtime_volumes_are_runtime_output_with_or_without_a_suffix(
 @pytest.mark.parametrize("path", ["runtime-volumes-old/logs/x", "repo/runtime-volumes/svc/mylogs/x", "repo/runtime-volumes/svc/logs-old/x", "repo/logs/x",
                                   "repo/runtime-volumes/data/x"])
 def test_the_runtime_logs_rule_matches_whole_path_segments_under_runtime_volumes_only(tmp_path, path):
-    assert path not in ws(tmp_path, [path])
+    assert path not in roles(tmp_path, [path], profile="generic-relevance")      # generic-relevance only: egeria-workspace hides ALL of runtime-volumes (M5c)
 
 
 def test_nothing_the_old_rules_hid_becomes_unhidden(tmp_path):
@@ -254,6 +254,6 @@ def test_nothing_the_old_rules_hid_becomes_unhidden(tmp_path):
 def test_the_new_rules_carry_evidence_and_the_sample_they_came_from():
     p = load_profile("generic-relevance", PROFILES)
     new = [r for r in p.rules if r.id in ("R-wt-claude-worktree", "R-tool-idea", "R-run-volume-logs", "R-vend-nested-repo")]
-    assert len(new) == 4 and p.version == "0.4.0"
+    assert len(new) == 4 and p.version == "0.5.0"
     assert all(r.relevance == "hidden" and r.grain == "subtree" and r.evidence and r.tuned_on == ("egeria-v6 stratified sample (6994dff1)",) for r in new)
     assert [r.id for r in p.rules][-4:] == ["R-wt-claude-worktree", "R-tool-idea", "R-run-volume-logs", "R-vend-nested-repo"]     # after every older rule

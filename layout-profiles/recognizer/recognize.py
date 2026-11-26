@@ -108,6 +108,9 @@ class Recognizer:
         self.extras: dict = {}                        # directory -> extra finding fields (content evidence, notes)
         self.hidden_roots: list = []
         self.hidden_root_set: set = set()
+        self._child_rel: dict = {}                    # directory -> the has_child_dir paths that exist directly below it
+        self._file_count: dict = {}                   # directory -> number of files directly in it
+        self._dir_count: dict = {}                    # directory -> number of sub-directories directly in it
         self._src_dirs: set = set()                   # candidate-named directories that have a source-like file below them (for no_source_files rules)
         self._gm_index: dict = {}                     # directory -> (path, size) of its .gitmodules
         self._gm_cache: dict = {}                     # directory -> the set of directories its .gitmodules declares as submodules
@@ -122,10 +125,13 @@ class Recognizer:
             self.needed_names |= r.has_files | r.parent_has_files | r.has_entries | r.ancestor_entries
             self.needed_dir_entries |= r.has_entries | r.ancestor_entries
         self.hidden_dir_rules = [r for r in self.dir_rules if r.grain == "subtree" and r.relevance == "hidden"]
+        self.child_first: dict = {}                   # first segment of a has_child_dir path -> the paths that start with it
         self.nosource_names = set()
         for r in self.dir_rules:
             if r.no_source:
                 self.nosource_names |= r.names
+            for cp in r.child_dirs:
+                self.child_first.setdefault(cp.split("/")[0], set()).add(cp)
         self.component_dirs: set = set()             # directories a component rule claims (filled by index_directories); '' is the root
         # hidden subtree rules that depend on the path alone (a rule that also tests a file name cannot say a DIRECTORY is hidden)
         self.hidden_subtrees = [r for r in self.file_rules if r.grain == "subtree" and r.relevance == "hidden"
@@ -157,6 +163,12 @@ class Recognizer:
             return False
         if r.no_source and d in self._src_dirs:
             return False
+        if r.child_dirs and not (r.child_dirs & self._child_rel.get(d, set())):
+            return False
+        if r.orphaned:
+            parent = d[:d.rfind("/")] if "/" in d else ""
+            if self._file_count.get(parent, 0) or self._dir_count.get(parent, 0) != 1:
+                return False
         if r.parent_tokens:
             parent_name = segs[-2] if len(segs) >= 2 else ""
             if not (r.parent_tokens & name_tokens(parent_name)):
@@ -201,14 +213,23 @@ class Recognizer:
                 for i in range(len(segs) - 1):
                     if segs[i] in self.nosource_names:
                         self._src_dirs.add("/".join(segs[:i + 1]))
+            if self.child_first:
+                segs = path.split("/")
+                for i in range(len(segs) - 1):
+                    for cp in self.child_first.get(segs[i], ()):
+                        parts = cp.split("/")
+                        if segs[i:i + len(parts)] == parts and i + len(parts) <= len(segs) - 1:
+                            self._child_rel.setdefault("/".join(segs[:i]), set()).add(cp)       # `docs/javadoc` directly below `.../build`
             if mr is not None and name in mf.ALLOWED_FILES:
                 candidates_m.append((path, size))
                 if name == ".gitmodules":
                     self._gm_index[d] = (path, size)
             if collect_dirs:
+                self._file_count[d] = self._file_count.get(d, 0) + 1
                 while d and d not in all_dirs:
                     all_dirs.add(d)
                     d = d[:d.rfind("/")] if "/" in d else ""
+                    self._dir_count[d] = self._dir_count.get(d, 0) + 1
         candidates = set(holders) | set(subdirs) | all_dirs if need_all else set(holders) | set(subdirs)
         order = sorted(candidates)
 

@@ -376,6 +376,34 @@ other tightened rules (all worktree-named folders of the list hold a `.git` file
 files (1,658 distribution-hub, 57 checkpoints, 2 private). 115 hidden files only change rule (73 build -> nested repository, 34 worktree or nested-repository -> distribution-hub, 8 nested repository -> checkpoints). The total is unchanged.
 Hidden 2,585,046 -> 2,584,440. Tune set (trellis, datahub, superset, with manifest reading) and the mkdocs sample and trellis docs: components, file roles and scores are byte-identical to M7.
 
+## M5c: build-layout corroboration, orphaned output and runtime-volumes data (`generic-relevance` 0.5.0, `workspace-runtime-data` 0.1.0, `egeria-workspace` 0.4.0)
+
+From the third egeria-v6 draw (`tuned_on: "egeria-v6 third draw (c67c74a8)"`, a sample that is now spent): all 30 build folders that M5b un-hid were orphaned Gradle output.
+
+1. `build`, `target`, `dist` and `.next` are ALSO hidden when either holds, alongside the M5b corroborations (a manifest beside the folder; no source-like file below it):
+   (a) **build-tool layout**: the folder directly contains a child folder from a fixed list. Gradle `build/`: `classes`, `libs`, `tmp`, `reports`, `generated`, `docs/javadoc` (`R-gen-build-output-gradle-layout`);
+   Maven `target/`: `classes`, `test-classes`, `maven-status` (`R-gen-build-output-maven-layout`). The lists are Dan's, exactly; a name is added only with his word (`dist` has no list).
+   (b) **orphaned**: the folder's parent holds nothing but that folder, no files and no other folders (`R-gen-build-output-orphaned`; the root of the scanned tree counts as a parent).
+   With none of the four the folder stays `R-gen-build-output-unconfirmed`: shown, low confidence. New directory tests: `has_child_dir` (relative folder paths, two levels allowed) and `orphaned`.
+2. **egeria-workspace only:** everything under a `runtime-volumes` folder (any depth) is hidden runtime data (`R-run-volume-data`, role `runtime-output`), in a small profile (`workspace-runtime-data`) composed
+   LAST, so every earlier rule keeps its files and only files nobody claimed move. It is not in generic-relevance, which keeps the narrower `R-run-volume-logs` for other profiles.
+3. **No name-only `logs` rule:** a folder called `logs` elsewhere stays shown.
+
+**Against M5b, on the M0 egeria-v6 list** (2,612,019 files, unchanged; names and sizes only):
+
+| rule | M5b | M5c |
+|---|---:|---:|
+| R-gen-build-output-gradle-layout (hidden) | - | 2,322 |
+| R-gen-build-output-maven-layout (hidden) | - | 0 |
+| R-gen-build-output-orphaned (hidden) | - | 0 (the 33 orphans are claimed by the layout rule first) |
+| R-gen-build-output-unconfirmed (shown, low) | 2,323 | 1 |
+| R-run-volume-data (hidden) | - | 865 |
+| unclassified | 25,256 | 24,391 |
+| hidden | 2,584,440 | 2,587,627 |
+
+Un-hidden: 0 files. Newly hidden: 3,187 files (2,322 build-output files in 33 Gradle module folders, previously shown; 865 runtime-volumes files, previously unclassified). No file changes rule. The one build-like folder still shown
+is a one-file `dist` folder with a sibling folder and no layout child. All 33 hidden folders satisfy both (a) and (b). The tune set (trellis, datahub, superset), the mkdocs sample and the trellis docs are byte-identical (findings differ only in the profile version).
+
 ## Decisions made so far (for review)
 
 1. `vendored` (installed packages) and `generated` (build output, tool caches) are separate roles; both are hidden. `.cache` is `generated`.
@@ -404,3 +432,5 @@ M6: manifests were read only from the three tune-set repositories (by commit, th
 M7: `mkdocs.yml` was read only in the mkdocs tutorial sample and in synthetic tests; the trellis docs run read nothing. No held-out repository, tree or key was listed, opened or run.
 
 M5b: no repository was read; the egeria-v6 list is names and sizes only (its `.gitmodules` question is therefore a names check); nothing under the held-out trees or keys was listed, opened or run.
+
+M5c: names and sizes only; nothing under the held-out trees or keys was listed, opened or run.

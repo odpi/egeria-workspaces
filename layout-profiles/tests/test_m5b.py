@@ -69,7 +69,7 @@ def test_a_build_folder_with_no_manifest_and_source_inside_is_shown_with_low_con
 
 
 def test_source_found_anywhere_below_the_folder_counts_and_a_deeper_build_folder_is_covered_by_the_outer_one(tmp_path):
-    r = run(tmp_path, {"p/build/deep/er/x.go": "x", "p/build/ok.bin": "x", "q/dist/a.bin": "x", "q/dist/node/b.ts": "x", "q/src/x.txt": "x"})
+    r = run(tmp_path, {"p/build/deep/er/x.go": "x", "p/build/ok.bin": "x", "p/keep.txt": "x", "q/dist/a.bin": "x", "q/dist/node/b.ts": "x", "q/src/x.txt": "x"})
     assert rule_of(r, "p/build/ok.bin")[0] == "R-gen-build-output-unconfirmed"                      # a .go file anywhere below makes it a source-like folder
     assert rule_of(r, "q/dist/a.bin")[0] == "R-gen-build-output-unconfirmed"
     r2 = run(tmp_path, {"app/pom.xml": "<project/>", "app/target/classes/x.class": "x", "app/target/dist/y.js": "x"}, out="o2", name="t2")
@@ -77,7 +77,7 @@ def test_source_found_anywhere_below_the_folder_counts_and_a_deeper_build_folder
 
 
 def test_the_name_must_be_the_whole_folder_name_and_a_manifest_in_a_parent_further_up_does_not_corroborate(tmp_path):
-    r = run(tmp_path, {"pom.xml": "<project/>", "a/builds/x.py": "x", "a/dist-info/y.py": "x", "a/rebuild/z.py": "x", "a/sub/dist/w.py": "x"})
+    r = run(tmp_path, {"pom.xml": "<project/>", "a/builds/x.py": "x", "a/dist-info/y.py": "x", "a/rebuild/z.py": "x", "a/sub/dist/w.py": "x", "a/sub/keep.txt": "x"})
     assert all(p not in r.pf for p in ("a/builds/x.py", "a/dist-info/y.py", "a/rebuild/z.py"))
     assert rule_of(r, "a/sub/dist/w.py")[0] == "R-gen-build-output-unconfirmed"                      # the manifest is two levels up, not beside it
 
@@ -190,7 +190,7 @@ def test_a_gitmodules_path_that_is_unsafe_is_ignored(tmp_path):
 def test_the_profiles_carry_the_review_provenance_and_the_new_rules_come_before_the_m5_rules():
     g = load_profile("generic-relevance", PROFILES)
     ids = [r.id for r in g.rules]
-    assert g.version == "0.4.0" and load_profile("worktree-copies", PROFILES).version == "0.2.0"
+    assert g.version == "0.5.0" and load_profile("worktree-copies", PROFILES).version == "0.2.0"
     assert ids.index("R-gen-build-output") < ids.index("R-gen-tool-cache") and ids[-4:] == ["R-wt-claude-worktree", "R-tool-idea", "R-run-volume-logs", "R-vend-nested-repo"]
     assert ids.index("R-gen-ipynb-checkpoints") < ids.index("R-gen-distribution-hub") < ids.index("R-secret-private-in-cert-dir") < ids.index("R-wt-claude-worktree")
     by = {r.id: r for r in g.rules}

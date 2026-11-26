@@ -17,3 +17,4 @@ Nothing here is copied from a repository: profiles are written from conventions,
 - M7 (Phase 1b): the five `mkdocs.yml` files of the mkdocs tutorial sample (a public tutorial tree used for tuning, 914 bytes in all) were read for their nav; tests use synthetic nav files only.
 - M7 follow-up: the Docusaurus rule uses the config file NAME only, from the manifest-reading scope note; no Docusaurus repository was looked at and no config was read.
 - M5b (Phase 1b): the egeria-v6 list is used by names and sizes only, as before; `.gitmodules` is read only by the recognizer in tests (synthetic files) and where a blob source is given; the three new rules come from the egeria-v6 re-check sample, which is now spent.
+- M5c (Phase 1b): the egeria-v6 list by names and sizes only; the layout lists and the runtime-volumes rule are the owner's rulings after the third draw, which is now spent.

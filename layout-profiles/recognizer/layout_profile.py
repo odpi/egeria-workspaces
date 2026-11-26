@@ -27,8 +27,8 @@ GRAINS = ("subtree", "dir", "component")
 BASES = ("manifest", "manifest-content", "convention", "judgement")
 CONFIDENCES = ("high", "medium", "low")
 MATCH_KEYS = ("path_glob", "path_segment", "name", "name_regex", "extension", "has_file", "parent_has_file", "has_entry", "ancestor_has_entry",
-              "component_scope", "no_source_files", "parent_name_token")
-DIR_ONLY_KEYS = ("has_file", "parent_has_file", "has_entry", "ancestor_has_entry", "no_source_files", "parent_name_token")   # evaluated against a directory, not a file
+              "component_scope", "no_source_files", "parent_name_token", "has_child_dir", "orphaned")
+DIR_ONLY_KEYS = ("has_file", "parent_has_file", "has_entry", "ancestor_has_entry", "no_source_files", "parent_name_token", "has_child_dir", "orphaned")   # evaluated against a directory, not a file
 COMPONENT_SCOPES = ("within", "root")                  # file rules only: under some component / directly in a component's directory
 FILE_ONLY_KEYS = ("extension",)                        # meaningful only for a file name
 ASSIGN_KEYS = ("role", "relevance", "kind")
@@ -104,6 +104,8 @@ class Rule:
     parent_has_files: frozenset = frozenset()
     has_entries: frozenset = frozenset()         # a FILE or a sub-DIRECTORY of this name sits directly in the directory (.git is either)
     ancestor_entries: frozenset = frozenset()    # some proper ancestor directory (the scanned root included) has such an entry
+    child_dirs: frozenset = frozenset()          # directory rules: the directory directly contains a sub-directory with one of these relative paths (docs/javadoc is two levels)
+    orphaned: bool = False                       # directory rules: the PARENT directory holds nothing but this directory (no files, no other sub-directories)
     no_source: bool = False                      # directory rules: no file anywhere below the directory has a source-code extension
     parent_tokens: frozenset = frozenset()       # directory rules: one of these is a whole word of the PARENT directory's name (split at punctuation and case changes)
     named_dir: bool = False                      # a subtree rule that names the directory (`name`) rather than a path: it is a directory rule
@@ -113,7 +115,7 @@ class Rule:
     def is_dir_rule(self) -> bool:
         """A rule is evaluated against DIRECTORIES when it tests a directory's files (has_file / parent_has_file / has_entry /
         ancestor_has_entry) or claims a component: its path_glob / path_segment / name / name_regex then apply to the directory itself."""
-        return bool(self.has_files or self.parent_has_files or self.has_entries or self.ancestor_entries or self.no_source or self.parent_tokens) \
+        return bool(self.has_files or self.parent_has_files or self.has_entries or self.ancestor_entries or self.no_source or self.parent_tokens or self.child_dirs or self.orphaned) \
             or self.grain == "component" or self.named_dir
 
 
@@ -215,8 +217,12 @@ def _compile_rule(where: str, raw: dict, roles: tuple, rel_map: dict, origin: st
         raise ProfileError(f"{where}: component_scope applies to a FILE rule; this rule tests a directory")
     if dir_rule and file_keys:
         raise ProfileError(f"{where}: a directory rule ({dir_keys or 'grain component'}) cannot test {file_keys} (a file-name test)")
-    if "no_source_files" in match and match["no_source_files"] is not True:
-        raise ProfileError(f"{where}: match.no_source_files must be true")
+    for flag in ("no_source_files", "orphaned"):
+        if flag in match and match[flag] is not True:
+            raise ProfileError(f"{where}: match.{flag} must be true")
+    for c in _as_list(match.get("has_child_dir", [])):
+        if not isinstance(c, str) or not c or c.startswith("/") or c.endswith("/") or any(x in ("", "..", ".") for x in c.split("/")):
+            raise ProfileError(f"{where}: match.has_child_dir needs relative folder paths like 'classes' or 'docs/javadoc', got {c!r}")
     for key in ("name", "extension", "path_segment", "path_glob", "name_regex", "has_file", "parent_has_file", "has_entry", "ancestor_has_entry", "parent_name_token"):
         if key in match:
             for v in _as_list(match[key]):
@@ -253,6 +259,7 @@ def _compile_rule(where: str, raw: dict, roles: tuple, rel_map: dict, origin: st
         name_res=tuple(name_res), has_files=frozenset(_as_list(match.get("has_file", []))),
         parent_has_files=frozenset(_as_list(match.get("parent_has_file", []))),
         has_entries=frozenset(_as_list(match.get("has_entry", []))), ancestor_entries=frozenset(_as_list(match.get("ancestor_has_entry", []))),
+        child_dirs=frozenset(_as_list(match.get("has_child_dir", []))), orphaned=bool(match.get("orphaned", False)),
         no_source=bool(match.get("no_source_files", False)), parent_tokens=frozenset(t.lower() for t in _as_list(match.get("parent_name_token", []))),
         scope=scope, named_dir=named_dir,
     )

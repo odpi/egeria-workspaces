@@ -4,8 +4,8 @@ Needs a path list of an egeria-v6 working tree (names and sizes only, made by re
 Set LAYOUT_EGERIA_V6_PATHS to its location; the test skips if the variable is unset or the file is missing.
 
 Two layers. (1) The rules that Phase 0 counted and that no later change touched (vendored installs, event files, logs, .git, dumps, heap dumps, tool caches,
-backups) must still equal the Phase 0 census EXACTLY. (2) The per-rule table of the current profile (egeria-workspace 0.3.0, after the M5 hiding rules and the
-M5b tightenings) must match, and every file is in exactly one class."""
+backups) must still equal the Phase 0 census EXACTLY. (2) The per-rule table of the current profile (egeria-workspace 0.4.0, after the M5 hiding rules, the
+M5b tightenings and the M5c build-layout and runtime-volumes rules) must match, and every file is in exactly one class."""
 import json
 import os
 from pathlib import Path
@@ -30,7 +30,7 @@ def test_class_counts_equal_the_phase0_census_and_the_current_rule_table(tmp_pat
     assert untouched["runtime_events"] == CENSUS["runtime_events"] and untouched["logs"] == CENSUS["logs"] and untouched["vcs_internal"] == CENSUS["vcs_internal"]
     assert untouched["backups"] == CENSUS["backups"] and untouched["heap_dumps"] == CENSUS["heap_dumps"]
     assert untouched["vendored_installs"] + n("R-gen-tool-cache") == 1083855 + 2798          # the Phase 0 "vendored or build" figure also held the build folders (below)
-    table = {k: v for k, v in CENSUS["m5b_rules_egeria_workspace_0_3_0"].items() if k != "note"}
+    table = {k: v for k, v in CENSUS["m5c_rules_egeria_workspace_0_4_0"].items() if k != "note"}
     got = {k: v["files"] for k, v in c["by_rule"].items() if k != "(none)"}
     got["unclassified"] = c["by_role"]["unclassified"]["files"]
     assert got == table

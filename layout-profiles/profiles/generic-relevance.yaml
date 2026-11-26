@@ -3,13 +3,16 @@
 # It names no component: that is the code-repo profile's job (M1). Everything these rules do not claim stays 'unclassified', which is a result.
 # 0.3.0 adds four HIDDEN rules at the END (so no earlier rule's count can move): .claude/worktrees copies, .idea, logs under runtime-volumes,
 # and a repository nested inside another repository. All four were found by the egeria-v6 stratified check (42 of 50 unclassified directories were junk).
+# 0.5.0 (Dan, 2026-11-26, after the third draw): build/target/dist/.next are also hidden when a build-tool layout folder is inside (Gradle classes, libs, tmp,
+# reports, generated, docs/javadoc; Maven classes, test-classes, maven-status) or when the folder is ORPHANED (its parent holds nothing else). No other layout name
+# without Dan's word. There is NO name-only `logs` rule.
 # 0.4.0 (Dan's review, 2026-11-26): the build-output rule now needs corroboration to HIDE (a build manifest beside it, or no source-code file inside it); the name
 # alone is a shown, low-confidence finding. Log and backup files are hidden as FILES only. A submodule that the outer .gitmodules declares is not a nested
 # repository. Added: .ipynb_checkpoints, exchange-*/distribution-hub, and `private` folders inside certificate folders (role secret, by name only).
 # The rules are ordered and the FIRST match wins. The order is the census's: .git, then installed/build directories, then file-name
 # classes (events, dumps, logs, backups). The worktree-copy name pattern now lives in its own profile (worktree-copies, 0.1.0).
 profile_id: generic-relevance
-version: 0.4.0
+version: 0.5.0
 status: proposed
 applies_to: any
 roles: [component, source, test, docs, config, generated, vendored, scratch, archive, audit,
@@ -49,6 +52,30 @@ rules:
     confidence: medium
     evidence: "a directory named target, build, dist or .next with no source-code file anywhere below it holds build output; with no manifest beside it this is the only corroboration"
     tuned_on: ["Dan's review 2026-11-26"]
+  - id: R-gen-build-output-gradle-layout
+    match: {name: build, has_child_dir: [classes, libs, tmp, reports, generated, docs/javadoc]}
+    assign: {role: generated, kind: build-output}
+    grain: subtree
+    basis: convention
+    confidence: medium
+    evidence: "a build folder that directly holds one of the Gradle output folders classes, libs, tmp, reports, generated or docs/javadoc is Gradle build output"
+    tuned_on: ["egeria-v6 third draw (c67c74a8)"]
+  - id: R-gen-build-output-maven-layout
+    match: {name: target, has_child_dir: [classes, test-classes, maven-status]}
+    assign: {role: generated, kind: build-output}
+    grain: subtree
+    basis: convention
+    confidence: medium
+    evidence: "a target folder that directly holds one of the Maven output folders classes, test-classes or maven-status is Maven build output"
+    tuned_on: ["egeria-v6 third draw (c67c74a8)"]
+  - id: R-gen-build-output-orphaned
+    match: {name: [target, build, dist, .next], orphaned: true}
+    assign: {role: generated, kind: build-output}
+    grain: subtree
+    basis: convention
+    confidence: medium
+    evidence: "a build, target, dist or .next folder whose parent holds nothing but that folder is orphaned build output: the module it belonged to is gone (a Gradle module folder that holds only build/)"
+    tuned_on: ["egeria-v6 third draw (c67c74a8)"]
   - id: R-gen-build-output-unconfirmed
     match: {name: [target, build, dist, .next]}
     assign: {role: generated, relevance: supporting, kind: build-output-unconfirmed}
