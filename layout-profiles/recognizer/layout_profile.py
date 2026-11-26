@@ -35,7 +35,9 @@ ASSIGN_KEYS = ("role", "relevance", "kind")
 TOP_KEYS = ("profile_id", "version", "status", "applies_to", "extends", "roles", "relevance", "rules", "file_roles", "manifest_reading", "structural_rules", "path_grammar", "name_grammar")
 RULE_KEYS = ("id", "match", "assign", "grain", "basis", "confidence", "evidence")
 RULE_OPTIONAL_KEYS = ("tuned_on",)       # which repositories motivated the rule, so a reviewer can ablate it (a one-repository rule is suspect)
-MANIFEST_READING_KEYS = ("readers", "max_file_bytes", "max_blobs", "max_total_bytes", "member_rule", "aggregator_rule")
+MANIFEST_READING_KEYS = ("readers", "max_file_bytes", "max_blobs", "max_total_bytes", "member_rule", "aggregator_rule", "section_rule", "fallback_section_rule",
+                         "docs_content_rule", "site_output_rule")
+MANIFEST_RULE_NAMES = ("member_rule", "aggregator_rule", "section_rule", "fallback_section_rule")
 MANIFEST_RULE_KEYS = ("id", "role", "kind", "basis", "confidence", "evidence")
 STRUCTURAL_OPS = ("sibling-manifests-top-level",)
 STRUCTURAL_KEYS = ("id", "op", "min", "basis", "confidence", "evidence")
@@ -120,8 +122,12 @@ class ManifestReading:
     max_file_bytes: int
     max_blobs: int
     max_total_bytes: int
-    member_rule: Rule
-    aggregator_rule: Rule
+    member_rule: Rule | None = None
+    aggregator_rule: Rule | None = None
+    section_rule: Rule | None = None             # mkdocs: a top-level nav section (kind doc-section, a part of its site)
+    fallback_section_rule: Rule | None = None    # mkdocs: a top-level folder of the docs folder that holds pages, where there is no nav (low confidence)
+    docs_content_rule: str | None = None         # id of the profile's rule that claims the docs folder (applied where mkdocs.yml names another docs_dir)
+    site_output_rule: str | None = None          # id of the profile's rule that hides the built site (applied where mkdocs.yml names another site_dir)
 
 
 @dataclass
@@ -245,7 +251,7 @@ def _manifest_reading(where: str, doc: Any, roles: tuple, rel_map: dict, origin:
         return None
     from .manifests import DEFAULT_MAX_BLOBS, DEFAULT_MAX_FILE_BYTES, DEFAULT_MAX_TOTAL_BYTES, READERS
     w = f"{where} manifest_reading"
-    _check_keys(w, doc, MANIFEST_READING_KEYS + ("tuned_on",), ("readers", "member_rule", "aggregator_rule"))
+    _check_keys(w, doc, MANIFEST_READING_KEYS + ("tuned_on",), ("readers",))
     readers = doc["readers"]
     if not isinstance(readers, list) or not readers or any(r not in READERS for r in readers) or len(set(readers)) != len(readers):
         raise ProfileError(f"{w}: readers must be a non-empty list of distinct names from {list(READERS)}")
@@ -255,14 +261,23 @@ def _manifest_reading(where: str, doc: Any, roles: tuple, rel_map: dict, origin:
         if not isinstance(v, int) or isinstance(v, bool) or v < 1 or v > default:
             raise ProfileError(f"{w}: {key} must be an integer from 1 to {default} (a profile may tighten a cap, never raise it)")
         caps[key] = v
+    from .manifests import CODE_READERS
+    need = set()
+    if set(readers) & set(CODE_READERS):
+        need |= {"member_rule", "aggregator_rule"}
+    if "mkdocs" in readers:
+        need |= {"section_rule", "fallback_section_rule"}
+    for which in MANIFEST_RULE_NAMES:
+        if (which in doc) != (which in need):
+            raise ProfileError(f"{w}: {which} is {'required' if which in need else 'not allowed'} for readers {list(readers)}")
     rules = {}
-    for which in ("member_rule", "aggregator_rule"):
+    for which in (x for x in MANIFEST_RULE_NAMES if x in doc):
         raw = doc[which]
         _check_keys(f"{w} {which}", raw, MANIFEST_RULE_KEYS + ("tuned_on",), MANIFEST_RULE_KEYS)
         if raw["role"] not in roles:
             raise ProfileError(f"{w} {which}: unknown role {raw['role']!r}; allowed {list(roles)}")
-        if which == "member_rule" and raw["role"] != "component":
-            raise ProfileError(f"{w} member_rule: the role must be 'component'")
+        if which in ("member_rule", "section_rule", "fallback_section_rule") and raw["role"] != "component":
+            raise ProfileError(f"{w} {which}: the role must be 'component'")
         if which == "aggregator_rule" and raw["role"] == "component":
             raise ProfileError(f"{w} aggregator_rule: an aggregator is NOT a component")
         rel = rel_map.get(raw["role"])
@@ -278,11 +293,16 @@ def _manifest_reading(where: str, doc: Any, roles: tuple, rel_map: dict, origin:
         tuned = raw.get("tuned_on", [])
         if not isinstance(tuned, list) or not all(isinstance(x, str) and x for x in tuned):
             raise ProfileError(f"{w} {which}: tuned_on must be a list of repository names")
-        rules[which] = Rule(id=raw["id"], match={}, role=raw["role"], relevance=rel, kind=raw["kind"], grain="component" if which == "member_rule" else "dir",
+        rules[which] = Rule(id=raw["id"], match={}, role=raw["role"], relevance=rel, kind=raw["kind"], grain="dir" if which == "aggregator_rule" else "component",
                             basis=raw["basis"], confidence=raw["confidence"], evidence=raw["evidence"].strip(), origin=origin, tuned_on=tuple(tuned))
-    if rules["member_rule"].id == rules["aggregator_rule"].id:
-        raise ProfileError(f"{w}: member_rule and aggregator_rule need different ids")
-    return ManifestReading(readers=tuple(readers), member_rule=rules["member_rule"], aggregator_rule=rules["aggregator_rule"], **caps)
+    ids = [r.id for r in rules.values()]
+    if len(set(ids)) != len(ids):
+        raise ProfileError(f"{w}: the manifest rules need different ids")
+    for key in ("docs_content_rule", "site_output_rule"):
+        if key in doc and (not isinstance(doc[key], str) or not RULE_ID.match(doc[key]) or "mkdocs" not in readers):
+            raise ProfileError(f"{w}: {key} must name a rule id and needs the mkdocs reader")
+    return ManifestReading(readers=tuple(readers), docs_content_rule=doc.get("docs_content_rule"), site_output_rule=doc.get("site_output_rule"),
+                           **{k: rules.get(k) for k in MANIFEST_RULE_NAMES}, **caps)
 
 
 def _grammar(where: str, items: Any, must: tuple) -> tuple:
@@ -417,6 +437,12 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
         seen[rule.id] = rule.origin
         deduped.append(rule)
     rules = deduped
+    if mreading is not None:
+        ids_now = {r.id for r in rules}
+        for key in ("docs_content_rule", "site_output_rule"):
+            ref = getattr(mreading, key)
+            if ref is not None and ref not in ids_now:
+                raise ProfileError(f"{source}: manifest_reading.{key} names {ref!r}, which is not a rule of this profile")
     fr_out = []
     for rule in own_fr:                                  # same dedupe for the file-role layer; ids are unique across both lists
         if rule.id in seen:

@@ -29,14 +29,16 @@ except ImportError:                                                   # pragma: 
     tomllib = None
 
 # ---- the closed list --------------------------------------------------------------------------------------------------------------
-READERS = ("package-json", "pnpm-workspace", "lerna", "cargo", "uv", "go-work", "maven", "gradle")
+READERS = ("package-json", "pnpm-workspace", "lerna", "cargo", "uv", "go-work", "maven", "gradle", "mkdocs")
+CODE_READERS = tuple(r for r in READERS if r != "mkdocs")
 ALLOWED_FILES = {                                         # exact file name -> readers that may extract fields from it
     "package.json": ("package-json",), "pnpm-workspace.yaml": ("pnpm-workspace",), "lerna.json": ("lerna",), "Cargo.toml": ("cargo",),
     "pyproject.toml": ("uv",), "go.work": ("go-work",), "pom.xml": ("maven",), "settings.gradle": ("gradle",), "settings.gradle.kts": ("gradle",),
+    "mkdocs.yml": ("mkdocs",), "mkdocs.yaml": ("mkdocs",),
 }
 MEMBER_MANIFESTS = {                                      # a GLOB member must hold one of these files directly (the tools ignore directories without one)
     "package-json": {"package.json"}, "pnpm-workspace": {"package.json"}, "lerna": {"package.json"}, "cargo": {"Cargo.toml"}, "uv": {"pyproject.toml"},
-    "go-work": set(), "maven": set(), "gradle": set(),
+    "go-work": set(), "maven": set(), "gradle": set(), "mkdocs": set(),
 }
 DEFAULT_MAX_FILE_BYTES = 256 * 1024
 DEFAULT_MAX_BLOBS = 5000
@@ -233,6 +235,10 @@ class Decl:
     excludes: list = field(default_factory=list)
     aggregator: bool = False                    # this directory only AGGREGATES its members (it is not itself a package)
     blob: str | None = None
+    docs_dir: str | None = None                 # mkdocs: the content folder, relative to the site directory (None = not stated: the default `docs`)
+    site_dir: str | None = None                 # mkdocs: the build output folder (None = the default `site`)
+    sections: list = field(default_factory=list)  # mkdocs: the top-level nav entries, [{"title": str | None, "pages": [str, ...]}], pages in nav order
+    has_nav: bool = False
 
 
 def _strs(value) -> list:
@@ -303,7 +309,48 @@ def extract(reader: str, path: str, data: bytes) -> Decl | None:
             for lit in re.findall(r"[\"']([^\"'\n]+)[\"']", m.group(1)):
                 members.append(lit.strip().lstrip(":").replace(":", "/"))
         return Decl(reader, path, directory, "include", None, members, aggregator=False) if members else None
+    if reader == "mkdocs":
+        doc = parse_yaml(data)
+        if not isinstance(doc, dict):
+            raise ManifestParseError("mkdocs.yml is not a mapping")
+        docs_dir, site_dir = doc.get("docs_dir"), doc.get("site_dir")
+        nav = doc.get("nav")
+        d = Decl(reader, path, directory, "nav", None, docs_dir=docs_dir if isinstance(docs_dir, str) else None,
+                 site_dir=site_dir if isinstance(site_dir, str) else None)
+        if isinstance(nav, list):
+            d.has_nav = True
+            d.sections = [s for s in (_nav_entry(e) for e in nav) if s is not None]
+        return d
     raise ValueError(f"unknown reader {reader!r}")
+
+
+def _nav_entry(entry) -> dict | None:
+    """One TOP-LEVEL nav entry: a page path, `{title: page}`, `{title: url}` or `{title: [children...]}`. The pages are collected in nav order,
+    recursing into sub-groups. Only titles and path strings are kept."""
+    pages: list = []
+
+    def walk(node):
+        if isinstance(node, str):
+            pages.append(node)
+        elif isinstance(node, dict):
+            for v in node.values():
+                walk(v)
+        elif isinstance(node, list):
+            for v in node:
+                walk(v)
+    title = None
+    if isinstance(entry, dict) and len(entry) == 1:
+        (k, v), = entry.items()
+        title = k if isinstance(k, str) else None
+        walk(v)
+    else:
+        walk(entry)
+    return {"title": title, "pages": pages} if pages else None
+
+
+def is_nav_url_or_anchor(p: str) -> bool:
+    q = p.strip()
+    return q.startswith("#") or "://" in q or q.startswith(("mailto:", "//", "tel:"))
 
 
 # ---- caps and the survey of one tree ------------------------------------------------------------------------------------------------

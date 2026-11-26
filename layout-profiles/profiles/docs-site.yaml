@@ -1,11 +1,12 @@
-# docs-site: documentation sites and documentation folders, from names alone (no file contents read; no nav, no docs_dir/site_dir settings).
+# docs-site: documentation sites and documentation folders. 0.1.0 worked from names alone; 0.2.0 adds `manifest_reading` (below): given a blob source it reads
+# mkdocs.yml for the nav (each top-level entry is a doc-section component, a part of its site), docs_dir and site_dir. Without a source it is the 0.1.0 profile.
 # A directory holding mkdocs.yml (or mkdocs.yaml) is a docs site. Beside it, the DEFAULT content folder `docs` and the DEFAULT build output `site`
 # are claimed (mkdocs' defaults; a site that sets other names in the file is not understood without reading it). A top-level documentation folder
 # with no mkdocs.yml is NOT a site: it is the documentation component of a repository. The mkdocs.yml rule is first, so a directory is claimed once.
 # Extends generic-relevance, so venv, node_modules and build output are hidden and counted. Tuned on the mkdocs tutorial sample and the trellis
 # docs folder only (see tuned_on); egeria-docs has not been seen.
 profile_id: docs-site
-version: 0.1.0
+version: 0.2.0
 status: proposed
 applies_to: docs-site
 extends: [generic-relevance]
@@ -55,5 +56,25 @@ rules:
     confidence: medium
     evidence: "a top-level docs, doc or documentation directory with no mkdocs.yml is the repository's documentation, not a documentation site"
     tuned_on: [trellis]
+manifest_reading:
+  readers: [mkdocs]
+  docs_content_rule: R-docs-site-content      # where mkdocs.yml names another docs_dir, that folder is claimed as the default `docs` is
+  site_output_rule: R-docs-site-output        # where mkdocs.yml names another site_dir, that folder is hidden as the default `site` is
+  section_rule:
+    id: M-docs-section
+    role: component
+    kind: doc-section
+    basis: manifest-content
+    confidence: high
+    evidence: "a top-level entry of the nav of mkdocs.yml is a documentation section; its identity is the one top-level folder of docs_dir that all its pages share, otherwise its first page file"
+    tuned_on: [mkdocs-sample]
+  fallback_section_rule:
+    id: M-docs-section-folder
+    role: component
+    kind: doc-section
+    basis: convention
+    confidence: low
+    evidence: "mkdocs.yml has no nav, so each top-level folder of docs_dir that holds pages (not assets, js, css, img, images, overrides, snippets or includes) is taken as a section"
+    tuned_on: [mkdocs-sample]
 path_grammar: []
 name_grammar: []

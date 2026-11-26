@@ -294,6 +294,42 @@ calls test fixtures. That is the rule doing what it says (a declared member is a
 not one); it is reported, not tuned away, and the key labels are for review. The M1 manifest-probe baselines reproduce unchanged (trellis 25/14, superset 37/30,
 datahub 82/65, names only). Two runs of each repository are byte-identical.
 
+## M7: documentation sections from the nav (`docs-site` 0.2.0; the `mkdocs` reader)
+
+Given a blob source, `docs-site` reads `mkdocs.yml` / `mkdocs.yaml` (fields: `nav` titles and paths, `docs_dir`, `site_dir`; nothing else) and turns each
+TOP-LEVEL nav entry into a `doc-section` component (`M-docs-section`, basis `manifest-content`), a PART of its site (it is in `components-all.txt`, not in
+`components.txt`). The site itself stays a `docs-site` component.
+
+**Section identity.** Collect the entry's page paths in nav order, recursing into sub-groups. Skip URLs and anchors (an entry that starts with `#`; a
+`page.md#frag` names `page.md`) and entries outside `docs_dir` (absolute or with `..`); keep only paths that resolve to a FILE of the path list. If every kept page
+sits under ONE top-level folder of `docs_dir` (at any depth below it; a page directly in `docs_dir` does not) the identity is that folder; otherwise it is the first
+kept page's file path (so a section can be a FILE path). A single-page section in a folder is that folder; one directly in `docs_dir` is that page. No kept page:
+not a component, listed as `unresolved_nav` on the site. Two entries with the same identity make one component. The bare `index.md` entry is the site's landing page
+(`landing_page` on the site), not a section.
+
+**docs_dir and site_dir.** Where `mkdocs.yml` names another `docs_dir` the folder is claimed as the default `docs` is; another `site_dir` is hidden (generated) as the default
+`site` is. An absolute or `..` docs_dir gives no sections (`unresolved_docs_dir`).
+
+**No nav.** A site whose `mkdocs.yml` has no nav gets, as a fallback, one `doc-section` of LOW confidence (`M-docs-section-folder`, basis `convention`) per top-level folder of
+`docs_dir` that holds Markdown or reStructuredText pages, except `assets`, `js`, `css`, `img`, `images`, `overrides`, `snippets`, `includes` and names starting with `.` or `_`.
+A documentation folder with no `mkdocs.yml` (the Docusaurus case, whose sidebars are JavaScript and are not read) is NOT a site and gets no sections: it stays one
+`documentation` component. A malformed, oversize or past-cap `mkdocs.yml` leaves the presence-only site (`parse_error` or `skipped`, lower confidence).
+Translations (language folders beside the main site) are not recognized in this milestone.
+
+**Scores against the tuning keys** (provisional; the mkdocs sample is a tutorial tree, not a held-out one):
+
+| key | list | candidates / TP / labelled-FP / unlabelled | recall | precision |
+|---|---|---|---|---|
+| mkdocs sample v1 (21 components: 5 sites + 16 sections) | components-all.txt | 21 / 21 / 0 / 0 | 1.00 | 1.00 |
+| mkdocs sample v1 | components.txt (top level only) | 5 / 5 / 0 / 0 | 0.24 | 1.00 |
+| trellis docs | components-all.txt, names only or with reading | 1 / 1 / 0 / 0 | 1.00 | 1.00 |
+
+The top-level list scores 0.24 BY DESIGN: sections are parts of their sites, and the 16 sections are in the all-components list. In the sample the four sites with a
+nav each yield four one-page sections (the page file is the identity), the four landing pages are not sections, and `source_code_final`'s nav names `platform.md`, which
+is not in its docs folder: unresolved, so no section. `trellis-docs` is unchanged: no `mkdocs.yml`, so no reading and no sections. The code-repo outputs of M6 are
+byte-identical. The `.idea`, `venv` and `site` folders stay hidden and counted. The recall of 1.00 on the sample is a fit, not a result: the key was written from the same
+nav the rule reads.
+
 ## Decisions made so far (for review)
 
 1. `vendored` (installed packages) and `generated` (build output, tool caches) are separate roles; both are hidden. `.cache` is `generated`.
@@ -318,3 +354,5 @@ the two held-out keys and repositories were not touched.
 M5 (Phase 1b): no held-out key or repository was opened or run (the tune set is trellis, datahub, superset, the mkdocs sample and the egeria-v6 list); the tune-set answer keys were used only through the scorer, to check that the component scores did not move.
 
 M6: manifests were read only from the three tune-set repositories (by commit, through the git object database) and from synthetic files in tests; no held-out repository, tree or key was listed, opened or run.
+
+M7: `mkdocs.yml` was read only in the mkdocs tutorial sample and in synthetic tests; the trellis docs run read nothing. No held-out repository, tree or key was listed, opened or run.

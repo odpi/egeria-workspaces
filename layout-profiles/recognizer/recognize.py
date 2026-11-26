@@ -95,6 +95,8 @@ class Recognizer:
         self.aggregators: dict = {}                   # directory -> the Decl that makes it an aggregator (not a component)
         self.extras: dict = {}                        # directory -> extra finding fields (content evidence, notes)
         self.hidden_roots: list = []
+        self.file_components: dict = {}               # path of a FILE that is a component (a doc section that is one page) -> (rule, site directory, extra fields)
+        self.docs_stats = {"sites_read": 0, "sections": 0, "unresolved": 0, "fallback_sections": 0, "landing_pages": 0, "merged": 0}
         self.file_rules = [r for r in profile.rules if not r.is_dir_rule]
         self.dir_rules = [r for r in profile.rules if r.is_dir_rule]
         self.needed_names = set()                    # file names (and entry names) whose presence in a directory a dir rule asks about
@@ -192,6 +194,8 @@ class Recognizer:
         self.hidden_roots = hidden_roots
         if mr is not None:
             self._read_manifests(mr, candidates_m)
+            if self.reading is not None and "mkdocs" in mr.readers:
+                self._apply_docs_dirs(mr, all_dirs)
         # pass 2: every other directory rule
         for d in order:
             if self.inside_hidden_subtree(d) or any(d == h or d.startswith(h + "/") for h in hidden_roots):
@@ -209,6 +213,8 @@ class Recognizer:
             for path, _ in candidates_m:
                 dir_files.setdefault(path.rpartition("/")[0], set()).add(path.rpartition("/")[2])
             self._apply_manifest_content(mr, all_dirs, dir_files)
+            if "mkdocs" in mr.readers:
+                self._apply_docs_sections(mr, path_list, all_dirs)
         self.component_dirs = {d for d, r in self.claims.items() if r.grain == "component"}
 
     # ---- manifest reading (M6) --------------------------------------------------------------------------------------------
@@ -221,6 +227,160 @@ class Recognizer:
             return rule is not None and rule.relevance == "hidden"
         self.reading = mf.read_manifests(candidates, self.blob_source, set(mr.readers), hidden, max_file_bytes=mr.max_file_bytes,
                                          max_blobs=mr.max_blobs, max_total_bytes=mr.max_total_bytes)
+
+    @staticmethod
+    def _safe_rel(p):
+        """A folder name from a manifest as a clean relative path ('' = the site directory itself), or None when absolute, with `..`, or not a string."""
+        if not isinstance(p, str):
+            return None
+        q = p.strip().replace("\\", "/")
+        if q.startswith("./"):
+            q = q[2:]
+        q = q.rstrip("/")
+        if q.startswith("/") or any(x == ".." for x in q.split("/")) or (len(q) > 1 and q[1] == ":"):
+            return None
+        return "." if q == "" else q
+
+    @staticmethod
+    def _join(base: str, rel: str) -> str:
+        return base if rel in (".", "") else (base + "/" + rel if base else rel)
+
+    def _mkdocs_decls(self):
+        for path in sorted(self.reading.decls):
+            for decl in self.reading.decls[path]:
+                if decl.reader == "mkdocs":
+                    yield decl
+
+    def _apply_docs_dirs(self, mr, dirs: set) -> None:
+        """BEFORE the component claims: where mkdocs.yml names another docs_dir or site_dir, claim them as the profile's content and output rules claim the
+        defaults (the built site becomes a hidden subtree that nothing inside can escape)."""
+        by_id = {r.id: r for r in self.p.rules}
+        for decl in self._mkdocs_decls():
+            site = decl.directory
+            if self._dir_is_hidden(site):
+                continue
+            for key, rid, default in (("docs_dir", mr.docs_content_rule, "docs"), ("site_dir", mr.site_output_rule, "site")):
+                raw = getattr(decl, key)
+                rel = default if raw is None else self._safe_rel(raw)
+                if rel is None or rel == "." or rid is None:
+                    continue
+                d = self._join(site, rel)
+                if d in dirs and d not in self.claims and not self._dir_is_hidden(d):
+                    r = by_id[rid]
+                    self.claims[d] = r
+                    self.subtree_claims.setdefault(r.id, set()).add(d)
+                    if r.relevance == "hidden":
+                        self.hidden_roots.append(d)
+
+    def _apply_docs_sections(self, mr, path_list: Path, dirs: set) -> None:
+        """AFTER the component claims. Each top-level nav entry of a read mkdocs.yml is a `doc-section` component, a part of its site. SECTION IDENTITY:
+        collect the entry's page paths in nav order (sub-groups included); skip URLs and anchors; keep those that resolve to a FILE of the path list inside
+        docs_dir. If every kept page sits under ONE top-level folder of docs_dir (at any depth below it; a page directly in docs_dir does not) the identity
+        is that folder, otherwise the first kept page's file path. No kept page: no component (unresolved). The entry for docs_dir/index.md is the landing
+        page, not a section. Where mkdocs.yml has no nav, each top-level folder of docs_dir that holds pages (not assets, js, css, img, images, overrides,
+        snippets, includes) is a section of LOW confidence."""
+        import posixpath
+        sites = []
+        wanted: set = set()
+        fallback_roots: dict = {}
+        for decl in self._mkdocs_decls():
+            site = decl.directory
+            r = self.claims.get(site)
+            if r is None or r.grain != "component" or self._dir_is_hidden(site):
+                continue
+            ex = self.extras.setdefault(site, {})
+            ex.setdefault("evidence_file", decl.file)
+            ex.setdefault("evidence_blob", decl.blob)
+            dd = "docs" if decl.docs_dir is None else self._safe_rel(decl.docs_dir)
+            if dd is None:
+                ex["unresolved_docs_dir"] = decl.docs_dir if isinstance(decl.docs_dir, str) else None
+                continue
+            docs_root = self._join(site, dd)
+            ex["docs_dir"] = dd
+            ex["site_dir"] = "site" if decl.site_dir is None else (self._safe_rel(decl.site_dir) or "site")
+            self.docs_stats["sites_read"] += 1
+            entries = []
+            for sec in decl.sections:
+                kept = []
+                for raw in sec["pages"]:
+                    if mf.is_nav_url_or_anchor(raw):
+                        continue
+                    q = raw.strip().split("#", 1)[0].replace("\\", "/")
+                    if q.startswith("./"):
+                        q = q[2:]
+                    if not q or q.startswith("/") or any(x in ("..", "") for x in q.split("/")):
+                        continue
+                    full = self._join(docs_root, posixpath.normpath(q)) if docs_root else posixpath.normpath(q)
+                    kept.append(full)
+                    wanted.add(full)
+                entries.append((sec["title"], sec["pages"], kept))
+            sites.append((decl, site, docs_root, entries))
+            if not decl.has_nav:
+                fallback_roots[docs_root] = site
+        if not sites:
+            return
+        existing: set = set()
+        tops: dict = {root: set() for root in fallback_roots}
+        for path, _ in read_rows(path_list):
+            if path in wanted:
+                existing.add(path)
+            if fallback_roots and path.endswith((".md", ".mdx", ".rst")):
+                for root in fallback_roots:
+                    pre = root + "/" if root else ""
+                    if path.startswith(pre) and "/" in path[len(pre):]:
+                        tops[root].add(path[len(pre):].split("/", 1)[0])
+        skip_names = {"assets", "js", "css", "img", "images", "overrides", "snippets", "includes"}
+        for decl, site, docs_root, entries in sites:
+            ex = self.extras[site]
+            landing, unresolved, seen = None, [], set()
+            ev = {"evidence_file": decl.file, "evidence_field": "nav", "evidence_blob": decl.blob, "site": site or "."}
+            for title, raw_pages, kept in entries:
+                kept = [k for k in kept if k in existing]
+                if not kept:
+                    unresolved.append(title or raw_pages[0])
+                    continue
+                if kept == [self._join(docs_root, "index.md")]:
+                    landing = kept[0]
+                    continue
+                prefix = docs_root + "/" if docs_root else ""
+                tops_of = {k[len(prefix):].split("/", 1)[0] for k in kept if "/" in k[len(prefix):]}
+                if len(tops_of) == 1 and all("/" in k[len(prefix):] for k in kept):
+                    identity, how = prefix + next(iter(tops_of)), "folder"
+                else:
+                    identity, how = kept[0], "first-page"
+                if identity in seen:
+                    self.docs_stats["merged"] += 1
+                    continue
+                seen.add(identity)
+                info = {**ev, "nav_title": title, "identity": how, "pages_kept": len(kept)}
+                self._add_section(mr.section_rule, identity, how, site, info, dirs)
+            if not decl.has_nav:
+                for top in sorted(tops.get(docs_root, ())):
+                    if top.lower() in skip_names or top.startswith((".", "_")):
+                        continue
+                    identity = self._join(docs_root, top)
+                    if identity in seen:
+                        continue
+                    seen.add(identity)
+                    info = {**ev, "evidence_field": "docs_dir", "identity": "folder-fallback", "pages_kept": None, "nav_title": None}
+                    self._add_section(mr.fallback_section_rule, identity, "folder", site, info, dirs)
+                    self.docs_stats["fallback_sections"] += 1
+            if landing:
+                ex["landing_page"] = landing
+                self.docs_stats["landing_pages"] += 1
+            if unresolved:
+                ex["unresolved_nav"] = unresolved[:50]
+                self.docs_stats["unresolved"] += len(unresolved)
+
+    def _add_section(self, rule, identity: str, how: str, site: str, info: dict, dirs: set) -> None:
+        if how == "first-page":
+            if not self._dir_is_hidden(identity.rpartition("/")[0]):
+                self.file_components[identity] = (rule, site, info)
+                self.docs_stats["sections"] += 1
+        elif identity in dirs and not self._dir_is_hidden(identity) and identity not in self.claims:
+            self.claims[identity] = rule
+            self.extras.setdefault(identity, {}).update(info)
+            self.docs_stats["sections"] += 1
 
     def _apply_manifest_content(self, mr, dirs: set, dir_files: dict) -> None:
         """Turn what the manifests declared into claims: a declared member is a component (claimed by the member rule where no manifest rule
@@ -385,6 +545,10 @@ class Recognizer:
         for d in comp_dirs:                                      # a declared workspace or module member is a component of its own, not a part of its parent
             if d in self.member_of:
                 parts_of[d] = None
+            elif self.claims[d].kind in ("doc-section",) and self.extras.get(d, {}).get("site") is not None:
+                parts_of[d] = self.extras[d]["site"] or "."      # a documentation section is a part of its site, whatever the site's depth
+        for fpath in sorted(self.file_components):               # a section that is ONE PAGE: a component whose path is the page file, a part of its site
+            all_components.append(fpath)
         promoted: dict[str, dict] = {}                           # part -> the structural rule that made it a top-level component
         for sr in self.p.structural:
             if sr["op"] != "sibling-manifests-top-level":
@@ -468,6 +632,8 @@ class Recognizer:
             extra = {**(extra or {}), **self.extras.get(d, {})} or None
             f = self.finding(r, d or ".", r.grain, extra)
             findings.append(f)
+        for fpath, (rule, site, info) in self.file_components.items():
+            findings.append(self.finding(rule, fpath, "component", {**info, "part_of": site or "."}))
         findings.sort(key=lambda f: (f["path"], f["rule_id"]))
         with open(out / "findings.jsonl", "w", encoding="utf-8", newline="\n") as fh:
             for f in findings:
@@ -511,6 +677,8 @@ class Recognizer:
             classes["manifest_reading"] = {"enabled": self.reading is not None, "readers": list(mrd.readers), "max_file_bytes": mrd.max_file_bytes,
                                            "max_blobs": mrd.max_blobs, "max_total_bytes": mrd.max_total_bytes,
                                            "members": len(self.member_of), "aggregators": sorted(d or "." for d in self.aggregators)}
+            if "mkdocs" in mrd.readers:
+                classes["manifest_reading"]["docs_sections"] = dict(self.docs_stats)
             if self.reading is not None:
                 classes["manifest_reading"].update(self.reading.stats.as_dict())
         if self.p.file_roles:                                      # the file-role layer: `other` is classified, and reported beside the target
