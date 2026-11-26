@@ -58,6 +58,8 @@ jobs:
         pytest compose-configs/egeria-freshstart/PyegeriaWebHandler/tests/test_demo_token_persona_only.py
         pytest compose-configs/egeria-quickstart/PyegeriaWebHandler/tests/test_demo_platform_body_persona_only.py
         pytest compose-configs/egeria-freshstart/PyegeriaWebHandler/tests/test_demo_platform_body_persona_only.py
+        (cd compose-configs/egeria-quickstart/PyegeriaWebHandler && pytest tests/test_mcp_tool_credentials.py)
+        (cd compose-configs/egeria-freshstart/PyegeriaWebHandler && pytest tests/test_mcp_tool_credentials.py)
 
     - name: Run Quickstart Handler tests
       run: |
