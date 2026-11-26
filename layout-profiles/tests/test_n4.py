@@ -92,7 +92,7 @@ def test_the_layer_never_un_hides_and_never_changes_a_component_and_is_determini
 
 def test_the_rules_are_roles_the_loader_knows_and_carry_evidence():
     p = compose_profiles("docs-site", PROFILES)
-    assert p.version == "0.3.0" and [r.id for r in p.file_roles] == ["F-docs-fragments", "F-docs-theme", "F-docs-static", "F-docs-page", "F-docs-config", "F-docs-other"]
+    assert p.version == "0.4.0" and [r.id for r in p.file_roles] == ["F-docs-fragments", "F-docs-theme", "F-docs-static", "F-docs-page", "F-docs-config", "F-docs-other"]
     assert all(r.evidence and r.tuned_on and r.grain == "dir" and r.relevance == "supporting" for r in p.file_roles)
     assert {r.role for r in p.file_roles} == {"include-fragments", "theme", "static-assets", "docs", "config", "other"}
 

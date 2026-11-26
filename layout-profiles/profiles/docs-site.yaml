@@ -7,7 +7,7 @@
 # Extends generic-relevance, so venv, node_modules and build output are hidden and counted. Tuned on the mkdocs tutorial sample and the trellis
 # docs folder only (see tuned_on); egeria-docs has not been seen.
 profile_id: docs-site
-version: 0.3.0
+version: 0.4.0
 status: proposed
 applies_to: docs-site
 extends: [generic-relevance]
@@ -130,6 +130,14 @@ manifest_reading:
     confidence: high
     evidence: "a top-level entry of the nav of mkdocs.yml is a documentation section; its identity is the one top-level folder of docs_dir that all its pages share, otherwise its first page file"
     tuned_on: [mkdocs-sample]
+  translation_rule:
+    id: M-docs-translation
+    role: component
+    kind: doc-translation
+    basis: manifest-content
+    confidence: high
+    evidence: "this site's mkdocs.yml INHERITs the mkdocs.yml of another site: it is a translation (a language folder) of that site, not a site of its own, and its nav entries are not sections"
+    tuned_on: ["fastapi (M8, spent)"]
   fallback_section_rule:
     id: M-docs-section-folder
     role: component

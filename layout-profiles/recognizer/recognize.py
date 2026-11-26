@@ -117,7 +117,7 @@ class Recognizer:
         self._gm_cache: dict = {}                     # directory -> the set of directories its .gitmodules declares as submodules
         self.submodules_exempt: list = []             # (outer, path) pairs the nested-repository rule did NOT claim because .gitmodules declares them
         self.file_components: dict = {}               # path of a FILE that is a component (a doc section that is one page) -> (rule, site directory, extra fields)
-        self.docs_stats = {"sites_read": 0, "sections": 0, "unresolved": 0, "fallback_sections": 0, "landing_pages": 0, "merged": 0}
+        self.docs_stats = {"sites_read": 0, "sections": 0, "unresolved": 0, "fallback_sections": 0, "landing_pages": 0, "merged": 0, "translations": 0, "inherit_warnings": 0}
         self.file_rules = [r for r in profile.rules if not r.is_dir_rule]
         self.dir_rules = [r for r in profile.rules if r.is_dir_rule]
         self.needed_names = set()                    # file names (and entry names) whose presence in a directory a dir rule asks about
@@ -383,6 +383,7 @@ class Recognizer:
         sites = []
         wanted: set = set()
         fallback_roots: dict = {}
+        inherit: dict = {}                                       # site directory -> (the INHERIT string, the resolved path of its target or None)
         for decl in self._mkdocs_decls():
             site = decl.directory
             r = self.claims.get(site)
@@ -391,6 +392,14 @@ class Recognizer:
             ex = self.extras.setdefault(site, {})
             ex.setdefault("evidence_file", decl.file)
             ex.setdefault("evidence_blob", decl.blob)
+            if decl.inherit and mr.translation_rule is not None:
+                q = decl.inherit.replace("\\", "/")
+                full = None if (q.startswith("/") or (len(q) > 1 and q[1] == ":")) else posixpath.normpath(posixpath.join(site, q) if site else q)
+                if full is not None and (full.startswith("..") or full in (".", "")):
+                    full = None                                  # above the repository root: never resolved
+                inherit[site] = (decl.inherit, full)
+                if full is not None:
+                    wanted.add(full)
             dd = "docs" if decl.docs_dir is None else self._safe_rel(decl.docs_dir)
             if dd is None:
                 ex["unresolved_docs_dir"] = decl.docs_dir if isinstance(decl.docs_dir, str) else None
@@ -429,7 +438,41 @@ class Recognizer:
                     pre = root + "/" if root else ""
                     if path.startswith(pre) and "/" in path[len(pre):]:
                         tops[root].add(path[len(pre):].split("/", 1)[0])
+        # translations: a config whose INHERIT resolves to ANOTHER site's mkdocs.yml (a file of the path list, never read through) makes its directory a translation of that site
+        base_of: dict = {}
+        warnings: dict = {}
+        for site, (raw, full) in inherit.items():
+            if full is None:
+                warnings[site] = f"INHERIT {raw!r} is not a path inside the repository"
+            elif full not in existing:
+                warnings[site] = f"INHERIT target not found: {full}"
+            elif full.rpartition("/")[2] not in ("mkdocs.yml", "mkdocs.yaml"):
+                warnings[site] = f"INHERIT target is not a mkdocs.yml: {full}"
+            elif full.rpartition("/")[0] == site or self._dir_is_hidden(full.rpartition("/")[0]):
+                warnings[site] = f"INHERIT target is not another site: {full}"
+            else:
+                base_of[site] = full.rpartition("/")[0]
+        for site in sorted(base_of):                             # an INHERIT cycle makes none of its members a translation
+            seen_c, cur = {site}, base_of[site]
+            while cur in base_of:
+                if cur in seen_c:
+                    warnings[site] = f"INHERIT cycle through {cur or '.'}"
+                    break
+                seen_c.add(cur)
+                cur = base_of[cur]
+        base_of = {k: v for k, v in base_of.items() if k not in warnings}
+        for site, base in base_of.items():
+            decl = next(x[0] for x in sites if x[1] == site)
+            self.claims[site] = mr.translation_rule
+            self.extras.setdefault(site, {}).update({"site": base, "translation_of": base or ".", "evidence_file": decl.file, "evidence_field": "INHERIT",
+                                                     "evidence_blob": decl.blob, "inherit": decl.inherit})
+            self.docs_stats["translations"] += 1
+        for site, msg in warnings.items():
+            self.extras.setdefault(site, {})["inherit_warning"] = msg
+            self.docs_stats["inherit_warnings"] += 1
         for decl, site, docs_root, entries in sites:
+            if site in base_of:
+                continue                                         # a translation: its nav entries are NOT sections
             ex = self.extras[site]
             landing, unresolved, seen = None, [], set()
             ev = {"evidence_file": decl.file, "evidence_field": "nav", "evidence_blob": decl.blob, "site": site or "."}
@@ -707,7 +750,7 @@ class Recognizer:
         for d in comp_dirs:                                      # a declared workspace or module member is a component of its own, not a part of its parent
             if d in self.member_of:
                 parts_of[d] = None
-            elif self.claims[d].kind in ("doc-section",) and self.extras.get(d, {}).get("site") is not None:
+            elif self.claims[d].kind in ("doc-section", "doc-translation") and self.extras.get(d, {}).get("site") is not None:
                 parts_of[d] = self.extras[d]["site"] or "."      # a documentation section is a part of its site, whatever the site's depth
         for fpath in sorted(self.file_components):               # a section that is ONE PAGE: a component whose path is the page file, a part of its site
             all_components.append(fpath)

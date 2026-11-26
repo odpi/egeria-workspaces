@@ -36,8 +36,9 @@ TOP_KEYS = ("profile_id", "version", "status", "applies_to", "extends", "roles",
 RULE_KEYS = ("id", "match", "assign", "grain", "basis", "confidence", "evidence")
 RULE_OPTIONAL_KEYS = ("tuned_on",)       # which repositories motivated the rule, so a reviewer can ablate it (a one-repository rule is suspect)
 MANIFEST_READING_KEYS = ("readers", "max_file_bytes", "max_blobs", "max_total_bytes", "member_rule", "aggregator_rule", "section_rule", "fallback_section_rule",
-                         "docs_content_rule", "site_output_rule", "fallback_site_rule", "submodule_rule")
-MANIFEST_RULE_NAMES = ("member_rule", "aggregator_rule", "section_rule", "fallback_section_rule")
+                         "docs_content_rule", "site_output_rule", "fallback_site_rule", "submodule_rule", "translation_rule")
+MANIFEST_RULE_NAMES = ("member_rule", "aggregator_rule", "section_rule", "fallback_section_rule", "translation_rule")
+OPTIONAL_MANIFEST_RULES = ("translation_rule",)        # allowed with the mkdocs reader, never required
 MANIFEST_RULE_KEYS = ("id", "role", "kind", "basis", "confidence", "evidence")
 STRUCTURAL_OPS = ("sibling-manifests-top-level",)
 STRUCTURAL_KEYS = ("id", "op", "min", "basis", "confidence", "evidence")
@@ -133,6 +134,7 @@ class ManifestReading:
     member_rule: Rule | None = None
     aggregator_rule: Rule | None = None
     section_rule: Rule | None = None             # mkdocs: a top-level nav section (kind doc-section, a part of its site)
+    translation_rule: Rule | None = None         # mkdocs: a site whose mkdocs.yml INHERITs another site's is a translation of it (kind doc-translation), not a site
     fallback_section_rule: Rule | None = None    # mkdocs: a top-level folder of the docs folder that holds pages, where there is no nav (low confidence)
     docs_content_rule: str | None = None         # id of the profile's rule that claims the docs folder (applied where mkdocs.yml names another docs_dir)
     site_output_rule: str | None = None          # id of the profile's rule that hides the built site (applied where mkdocs.yml names another site_dir)
@@ -296,7 +298,9 @@ def _manifest_reading(where: str, doc: Any, roles: tuple, rel_map: dict, origin:
         need |= {"member_rule", "aggregator_rule"}
     if "mkdocs" in readers:
         need |= {"section_rule", "fallback_section_rule"}
-    for which in MANIFEST_RULE_NAMES:
+    if "translation_rule" in doc and "mkdocs" not in readers:
+        raise ProfileError(f"{w}: translation_rule needs the mkdocs reader")
+    for which in (x for x in MANIFEST_RULE_NAMES if x not in OPTIONAL_MANIFEST_RULES):
         if (which in doc) != (which in need):
             raise ProfileError(f"{w}: {which} is {'required' if which in need else 'not allowed'} for readers {list(readers)}")
     rules = {}
@@ -305,7 +309,7 @@ def _manifest_reading(where: str, doc: Any, roles: tuple, rel_map: dict, origin:
         _check_keys(f"{w} {which}", raw, MANIFEST_RULE_KEYS + ("tuned_on",), MANIFEST_RULE_KEYS)
         if raw["role"] not in roles:
             raise ProfileError(f"{w} {which}: unknown role {raw['role']!r}; allowed {list(roles)}")
-        if which in ("member_rule", "section_rule", "fallback_section_rule") and raw["role"] != "component":
+        if which in ("member_rule", "section_rule", "fallback_section_rule", "translation_rule") and raw["role"] != "component":
             raise ProfileError(f"{w} {which}: the role must be 'component'")
         if which == "aggregator_rule" and raw["role"] == "component":
             raise ProfileError(f"{w} aggregator_rule: an aggregator is NOT a component")

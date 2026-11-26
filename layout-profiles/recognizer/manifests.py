@@ -239,6 +239,7 @@ class Decl:
     site_dir: str | None = None                 # mkdocs: the build output folder (None = the default `site`)
     sections: list = field(default_factory=list)  # mkdocs: the top-level nav entries, [{"title": str | None, "pages": [str, ...]}], pages in nav order
     has_nav: bool = False
+    inherit: str | None = None                  # mkdocs: the INHERIT path string, as written (never opened through)
     project_dirs: dict = field(default_factory=dict)  # gradle: included project path -> the directory a projectDir literal maps it to
 
 
@@ -346,6 +347,8 @@ def extract(reader: str, path: str, data: bytes) -> Decl | None:
         nav = doc.get("nav")
         d = Decl(reader, path, directory, "nav", None, docs_dir=docs_dir if isinstance(docs_dir, str) else None,
                  site_dir=site_dir if isinstance(site_dir, str) else None)
+        inh = doc.get("INHERIT")
+        d.inherit = inh.strip() if isinstance(inh, str) and inh.strip() else None
         if isinstance(nav, list):
             d.has_nav = True
             d.sections = [s for s in (_nav_entry(e) for e in nav) if s is not None]

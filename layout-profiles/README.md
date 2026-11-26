@@ -473,6 +473,15 @@ image under `docs/` is a static asset, not a page. In a composition (`code-repo-
 
 Components and scores are identical to M7 (mkdocs sample 21/21, trellis docs 1/1; superset's composite unchanged).
 
+## N5 (Phase 1c): INHERIT translations (`docs-site` 0.4.0)
+
+`INHERIT` joins the mkdocs fields that are read (path string only; manifest note d2bf881b). A directory whose `mkdocs.yml` has `INHERIT: <path>` that resolves to ANOTHER site's `mkdocs.yml` (or `.yaml`) is a `doc-translation`
+component (`M-docs-translation`), a PART of that site (`part_of`, `translation_of`), NOT a `docs-site`; its nav entries are not sections, and it is in `components-all.txt`, not `components.txt`. The path is resolved against the path
+list only: relative to the config's directory, never above the repository root, never absolute; the inherited file is never read through it (it is read only if it is itself a site, as always). Where the target is missing, is not a
+`mkdocs.yml`, is outside the repository or is the same directory, the directory stays a site and the finding carries `inherit_warning` (counted in `classes.json`). An INHERIT cycle makes no translation (both stay sites, with a warning);
+a chain resolves one step at a time (`c` -> `b` -> `a`: `c` is a translation of `b`, `b` of `a`). A non-string or empty `INHERIT` is ignored. Without a blob source nothing is known and every config stays a site.
+`tuned_on` is "fastapi (M8, spent)". Tune set and the mkdocs sample: unchanged (none of them has an INHERIT).
+
 ## Decisions made so far (for review)
 
 1. `vendored` (installed packages) and `generated` (build output, tool caches) are separate roles; both are hidden. `.cache` is `generated`.
@@ -511,3 +520,5 @@ N2: synthetic settings files and the three tune-set repositories only; no held-o
 N3: the tune-set repositories and synthetic trees only; no held-out tree or key was listed, opened or run.
 
 N4: the mkdocs tutorial sample and the trellis tree only; no held-out tree or key was opened.
+
+N5: synthetic trees and the mkdocs tutorial sample; no held-out tree or key was opened.

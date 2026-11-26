@@ -168,10 +168,10 @@ def test_two_runs_are_byte_identical(tmp_path):
 
 
 # ---- the profile -------------------------------------------------------------------------------------------------------------------------
-def test_the_docs_site_profile_is_0_3_0_with_a_section_rule_and_a_low_confidence_fallback():
+def test_the_docs_site_profile_is_0_4_0_with_a_section_rule_and_a_low_confidence_fallback():
     p = load_profile("docs-site", PROFILES)
     m = p.manifest_reading
-    assert p.version == "0.3.0" and m.readers == ("mkdocs", "gitmodules") and m.member_rule is None and m.aggregator_rule is None
+    assert p.version == "0.4.0" and m.readers == ("mkdocs", "gitmodules") and m.member_rule is None and m.aggregator_rule is None
     assert (m.section_rule.confidence, m.fallback_section_rule.confidence) == ("high", "low")
     assert m.section_rule.kind == m.fallback_section_rule.kind == "doc-section" and m.docs_content_rule == "R-docs-site-content" and m.site_output_rule == "R-docs-site-output"
     assert all(r.evidence and r.tuned_on for r in (m.section_rule, m.fallback_section_rule))
