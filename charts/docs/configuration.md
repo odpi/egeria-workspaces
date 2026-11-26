@@ -199,8 +199,8 @@ The Postgres user and password are not values: they are in `egeria-servers.omsec
 | Key | Default | What |
 |---|---|---|
 | `image.repository` | `docker.io/odpi/egeria-platform` | |
-| `image.tag` | `"6.3"` | |
-| `image.digest` | `sha256:483726b6...ebda29c` | The reference is `repository:tag@digest`; with an empty digest it is `repository:tag`, with an empty tag `repository@digest`. One of the two is required. |
+| `image.tag` | `"6.4-SNAPSHOT"` | |
+| `image.digest` | `sha256:5a8d6a12...000309f` | The reference is `repository:tag@digest`; with an empty digest it is `repository:tag`, with an empty tag `repository@digest`. One of the two is required. |
 | `image.pullPolicy` | `IfNotPresent` | |
 
 **Resources, probes, storage and network**

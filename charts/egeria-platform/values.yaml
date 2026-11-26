@@ -17,8 +17,8 @@ posture: demo
 # The upstream image, pinned by digest (design note section 14.3).
 image:
   repository: docker.io/odpi/egeria-platform
-  tag: "6.3"
-  digest: sha256:483726b69b9e789749995d114633eeeab0f70a9c26ec5e59ae0e3d300ebda29c
+  tag: "6.4-SNAPSHOT"
+  digest: sha256:5a8d6a128e011db5d9eda698f8d46d3c389f59100d69eab31428a0390000309f
   pullPolicy: IfNotPresent
 
 # One platform, one replica. The chart refuses more, with words.
