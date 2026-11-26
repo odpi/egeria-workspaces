@@ -128,22 +128,22 @@ def test_a_manifest_that_declares_nothing_gives_no_declaration():
 
 # ---- members are components, aggregators are not ----------------------------------------------------------------------------------------
 def test_npm_workspace_members_are_top_level_components_and_the_aggregator_is_not(tmp_path):
-    files = {"tools/package.json": NPM_WS, "tools/packages/a/package.json": PKG("a"), "tools/packages/b/package.json": PKG("b"),
-             "tools/packages/a/src/x.js": "x", "tools/packages/notes/readme.md": "n", "svc/package.json": PKG("svc")}
+    files = {"mono/package.json": NPM_WS, "mono/packages/a/package.json": PKG("a"), "mono/packages/b/package.json": PKG("b"),
+             "mono/packages/a/src/x.js": "x", "mono/packages/notes/readme.md": "n", "svc/package.json": PKG("svc")}
     r = survey(tmp_path, files)
-    assert r.comps == ["svc", "tools/packages/a", "tools/packages/b"]                  # tools aggregates; packages/notes has no package.json
-    assert "tools" not in r.allc
-    assert r.by["tools"]["rule_id"] == "M-aggregator" and r.by["tools"]["role"] == "other" and r.by["tools"]["manifest_kind"] == "node-package"
-    assert r.by["tools"]["evidence_file"] == "tools/package.json" and r.by["tools"]["evidence_field"] == "workspaces" and r.by["tools"]["evidence_blob"]
-    m = r.by["tools/packages/a"]
-    assert m["rule_id"] == "R-comp-package-json" and m["member_of"] == "tools" and m["evidence_file"] == "tools/package.json"
+    assert r.comps == ["mono/packages/a", "mono/packages/b", "svc"]                  # mono aggregates; packages/notes has no package.json
+    assert "mono" not in r.allc
+    assert r.by["mono"]["rule_id"] == "M-aggregator" and r.by["mono"]["role"] == "other" and r.by["mono"]["manifest_kind"] == "node-package"
+    assert r.by["mono"]["evidence_file"] == "mono/package.json" and r.by["mono"]["evidence_field"] == "workspaces" and r.by["mono"]["evidence_blob"]
+    m = r.by["mono/packages/a"]
+    assert m["rule_id"] == "R-comp-package-json" and m["member_of"] == "mono" and m["evidence_file"] == "mono/package.json"
 
 
 def test_without_a_blob_source_the_run_is_names_and_sizes_only(tmp_path):
-    files = {"tools/package.json": NPM_WS, "tools/packages/a/package.json": PKG("a")}
+    files = {"mono/package.json": NPM_WS, "mono/packages/a/package.json": PKG("a")}
     r = survey(tmp_path, files, source=False)
     assert r.rec.reading is None and r.c["manifest_reading"]["enabled"] is False
-    assert r.comps == ["tools"] and r.allc == ["tools", "tools/packages/a"]               # unchanged M2 behaviour: the parent is the component
+    assert r.comps == ["mono"] and r.allc == ["mono", "mono/packages/a"]               # unchanged M2 behaviour: the parent is the component
     assert "Manifest reading: not enabled" in (r.out / "report.md").read_text()
     assert not (r.out / "manifest-reads.txt").exists()
 
@@ -270,7 +270,7 @@ def test_a_finding_id_does_not_change_when_an_unrelated_manifest_field_changes(t
 
 
 def test_two_runs_are_byte_identical_and_git_and_file_sources_agree(tmp_path):
-    files = {"tools/package.json": NPM_WS, "tools/packages/a/package.json": PKG("a"), "tools/packages/b/package.json": PKG("b"), "svc/package.json": PKG("s"),
+    files = {"mono/package.json": NPM_WS, "mono/packages/a/package.json": PKG("a"), "mono/packages/b/package.json": PKG("b"), "svc/package.json": PKG("s"),
              "pom.xml": "<project><artifactId>x</artifactId><packaging>pom</packaging><modules><module>m</module></modules></project>", "m/pom.xml": "<project/>"}
     r1 = survey(tmp_path, files, out="o1", name="t1")
     r2 = survey(tmp_path, files, out="o2", name="t2")
@@ -282,7 +282,7 @@ def test_two_runs_are_byte_identical_and_git_and_file_sources_agree(tmp_path):
     subprocess.run(["git", "init", "-q", str(root)], check=True, env=env)
     subprocess.run(["git", "-C", str(root), "add", "-A"], check=True, env=env)
     tree = subprocess.run(["git", "-C", str(root), "write-tree"], check=True, capture_output=True, text=True, env=env).stdout.strip()
-    (root / "tools" / "package.json").write_text('{"workspaces": ["DIRTY/*"]}')            # a dirty working tree must not leak in
+    (root / "mono" / "package.json").write_text('{"workspaces": ["DIRTY/*"]}')            # a dirty working tree must not leak in
     src = mf.GitBlobSource(str(root), tree)
     rec = Recognizer(load_profile("code-repo-conventions", PROFILES), blob_source=src)
     rec.run(tmp_path / "t1.tsv", tmp_path / "o3")
@@ -291,7 +291,7 @@ def test_two_runs_are_byte_identical_and_git_and_file_sources_agree(tmp_path):
         assert (tmp_path / "o3" / n).read_bytes() == (r1.out / n).read_bytes(), n
     f1 = {x["path"]: x for x in map(json.loads, (r1.out / "findings.jsonl").read_text().splitlines())}
     f3 = {x["path"]: x for x in map(json.loads, (tmp_path / "o3" / "findings.jsonl").read_text().splitlines())}
-    assert f1["tools"]["evidence_blob"] == f3["tools"]["evidence_blob"]                    # a git blob id in both (the file source hashes like git)
+    assert f1["mono"]["evidence_blob"] == f3["mono"]["evidence_blob"]                    # a git blob id in both (the file source hashes like git)
 
 
 def test_git_source_reads_the_commit_not_the_working_tree_and_discards_oversize(tmp_path):
@@ -317,7 +317,7 @@ def test_git_source_reads_the_commit_not_the_working_tree_and_discards_oversize(
 def test_the_shipped_profiles_enable_manifest_reading_with_the_note_s_caps():
     p = load_profile("code-repo-conventions", PROFILES)
     m = p.manifest_reading
-    assert p.version == "0.3.0" and load_profile("code-repo", PROFILES).version == "0.3.0"
+    assert p.version == "0.4.0" and load_profile("code-repo", PROFILES).version == "0.3.0"
     assert (m.max_file_bytes, m.max_blobs, m.max_total_bytes) == (256 * 1024, 5000, 64 * 1024 * 1024)
     assert set(m.readers) == set(mf.CODE_READERS) | {"gitmodules"} and m.member_rule.basis == "manifest-content" and m.aggregator_rule.role == "other"
     assert not set(mf.ALLOWED_FILES) & {"package-lock.json", "yarn.lock", "pnpm-lock.yaml", "Cargo.lock", "poetry.lock", "uv.lock", "go.sum", ".env", "CODEOWNERS"}

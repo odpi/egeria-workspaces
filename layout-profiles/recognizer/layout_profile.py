@@ -21,14 +21,14 @@ import yaml
 STATUSES = ("proposed", "confirmed", "retired")
 APPLIES_TO = ("any", "code-repo", "docs-site", "workspace-of-repos")
 ROLES = ("component", "source", "test", "docs", "config", "generated", "vendored", "scratch", "archive", "audit", "runtime-output",
-         "vcs-internal", "worktree-copy", "backup", "secret", "example", "ci", "tooling", "build", "data-fixture", "other")
+         "vcs-internal", "worktree-copy", "backup", "secret", "example", "ci", "tooling", "build", "data-fixture", "other", "fixture")
 RELEVANCES = ("primary", "supporting", "hidden")
 GRAINS = ("subtree", "dir", "component")
 BASES = ("manifest", "manifest-content", "convention", "judgement")
 CONFIDENCES = ("high", "medium", "low")
 MATCH_KEYS = ("path_glob", "path_segment", "name", "name_regex", "extension", "has_file", "parent_has_file", "has_entry", "ancestor_has_entry",
-              "component_scope", "no_source_files", "parent_name_token", "has_child_dir", "orphaned")
-DIR_ONLY_KEYS = ("has_file", "parent_has_file", "has_entry", "ancestor_has_entry", "no_source_files", "parent_name_token", "has_child_dir", "orphaned")   # evaluated against a directory, not a file
+              "component_scope", "no_source_files", "parent_name_token", "has_child_dir", "orphaned", "segment_regex")
+DIR_ONLY_KEYS = ("has_file", "parent_has_file", "has_entry", "ancestor_has_entry", "no_source_files", "parent_name_token", "has_child_dir", "orphaned", "segment_regex")   # evaluated against a directory, not a file
 COMPONENT_SCOPES = ("within", "root")                  # file rules only: under some component / directly in a component's directory
 FILE_ONLY_KEYS = ("extension",)                        # meaningful only for a file name
 ASSIGN_KEYS = ("role", "relevance", "kind")
@@ -105,6 +105,7 @@ class Rule:
     parent_has_files: frozenset = frozenset()
     has_entries: frozenset = frozenset()         # a FILE or a sub-DIRECTORY of this name sits directly in the directory (.git is either)
     ancestor_entries: frozenset = frozenset()    # some proper ancestor directory (the scanned root included) has such an entry
+    segment_res: tuple = ()                      # directory rules: some WHOLE segment of the directory's path matches one of these regexes (write (?i) for case-insensitive)
     child_dirs: frozenset = frozenset()          # directory rules: the directory directly contains a sub-directory with one of these relative paths (docs/javadoc is two levels)
     orphaned: bool = False                       # directory rules: the PARENT directory holds nothing but this directory (no files, no other sub-directories)
     no_source: bool = False                      # directory rules: no file anywhere below the directory has a source-code extension
@@ -116,7 +117,7 @@ class Rule:
     def is_dir_rule(self) -> bool:
         """A rule is evaluated against DIRECTORIES when it tests a directory's files (has_file / parent_has_file / has_entry /
         ancestor_has_entry) or claims a component: its path_glob / path_segment / name / name_regex then apply to the directory itself."""
-        return bool(self.has_files or self.parent_has_files or self.has_entries or self.ancestor_entries or self.no_source or self.parent_tokens or self.child_dirs or self.orphaned) \
+        return bool(self.has_files or self.parent_has_files or self.has_entries or self.ancestor_entries or self.no_source or self.parent_tokens or self.child_dirs or self.orphaned or self.segment_res) \
             or self.grain == "component" or self.named_dir
 
 
@@ -246,6 +247,14 @@ def _compile_rule(where: str, raw: dict, roles: tuple, rel_map: dict, origin: st
         raise ProfileError(f"{where}: grain component is a directory claim: it needs a test of the directory")
     if grain == "component" and role != "component":
         raise ProfileError(f"{where}: grain component must assign role 'component' (a part of a component gets its own rule)")
+    seg_res = []
+    for rx in _as_list(match.get("segment_regex", [])):
+        if not isinstance(rx, str) or not rx:
+            raise ProfileError(f"{where}: match.segment_regex needs non-empty regexes")
+        try:
+            seg_res.append(re.compile(rx))
+        except re.error as exc:
+            raise ProfileError(f"{where}: bad segment_regex {rx!r}: {exc}") from exc
     name_res = []
     for rx in _as_list(match.get("name_regex", [])):
         try:
@@ -260,7 +269,7 @@ def _compile_rule(where: str, raw: dict, roles: tuple, rel_map: dict, origin: st
         name_res=tuple(name_res), has_files=frozenset(_as_list(match.get("has_file", []))),
         parent_has_files=frozenset(_as_list(match.get("parent_has_file", []))),
         has_entries=frozenset(_as_list(match.get("has_entry", []))), ancestor_entries=frozenset(_as_list(match.get("ancestor_has_entry", []))),
-        child_dirs=frozenset(_as_list(match.get("has_child_dir", []))), orphaned=bool(match.get("orphaned", False)),
+        segment_res=tuple(seg_res), child_dirs=frozenset(_as_list(match.get("has_child_dir", []))), orphaned=bool(match.get("orphaned", False)),
         no_source=bool(match.get("no_source_files", False)), parent_tokens=frozenset(t.lower() for t in _as_list(match.get("parent_name_token", []))),
         scope=scope, named_dir=named_dir,
     )

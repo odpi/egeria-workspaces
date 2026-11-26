@@ -178,6 +178,8 @@ class Recognizer:
             return False
         if r.segments and not any(s in r.segments for s in segs):
             return False
+        if r.segment_res and not any(rx.search(sg) for sg in segs for rx in r.segment_res):
+            return False
         if r.globs and (not d or not any(g.match(d) for g in r.globs)):
             return False
         if r.names and name not in r.names:
@@ -507,6 +509,16 @@ class Recognizer:
             self.extras.setdefault(identity, {}).update(info)
             self.docs_stats["sections"] += 1
 
+    def _segment_exclusion(self, d: str):
+        """A declared member (it has no manifest of its own to be claimed by) whose path has a fixture, sample, template or tooling segment is claimed by the
+        profile's exclusion rule for that segment instead of the member rule: the same principle as for a manifest project."""
+        segs = d.split("/")
+        for r in self.dir_rules:
+            if r.role in ("fixture", "example", "tooling") and r.grain == "dir" and (r.segment_res or r.segments):
+                if (r.segments and any(x in r.segments for x in segs)) or (r.segment_res and any(rx.search(x) for x in segs for rx in r.segment_res)):
+                    return r
+        return None
+
     def _gradle_aggregators(self, members: list, dirs: set) -> set:
         """Included Gradle projects that only AGGREGATE: no file of their own and every sub-directory an included project too (a parent such as `a` for
         `include 'a:b', 'a:c'`)."""
@@ -559,7 +571,7 @@ class Recognizer:
                     me = self.extras.setdefault(m, {})
                     me.update({"member_of": d or ".", "evidence_file": decl.file, "evidence_field": decl.field, "evidence_blob": decl.blob})
                     if m not in self.claims:
-                        self.claims[m] = mr.member_rule
+                        self.claims[m] = self._segment_exclusion(m) or mr.member_rule
                 if decl.aggregator and d != "" and d in self.claims and self.claims[d].grain == "component" and self.claims[d].basis == "manifest":
                     self.aggregators[d] = decl
                     ex["manifest_kind"] = self.claims[d].kind

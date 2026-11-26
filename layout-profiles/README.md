@@ -429,6 +429,34 @@ included project) is not a component: it gets `M-aggregator` and is listed in `g
 
 Tune set (trellis, datahub, superset, with manifest reading): components and scores identical to before N2 (none of the three uses `projectDir`; the aggregator test removes nothing there).
 
+## N3 (Phase 1c): fixtures, samples, templates and tooling are not components (`code-repo-conventions` 0.4.0)
+
+Dan's key principle, as GENERAL rules with general segment lists (whole segments, case-insensitive; no name from a held-out or spent repository in them, which a test asserts):
+
+- **(a) A manifest project whose path has a test, sample, template or demo segment is not a component.** Test-like segments (`R-fx-test-project`, role `fixture`, kind `sample-project`): `test`, `tests`, `testing`, `__tests__`,
+  `testFixtures`, `fixture`, `fixtures`, `testdata`, `test-data`, and any segment ending in the PLURAL `_tests` or `-tests`. Sample-like segments (`R-fx-sample-project`, role `example`, kind `sample-project`): `sample`, `samples`,
+  `example`, `examples`, `template`, `templates`, `demo`, `demos`. The project's own directory name counts. A directory with no manifest is not a project and is untouched.
+  **Exception:** a TOP-LEVEL test folder (`tests`, `test`, `testing`, `__tests__`, `integration_tests`, `smoke-tests`, ...) keeps or gets its convention component, kind `test-suite` (`R-conv-tests`, checked first); only the manifest projects INSIDE it are excluded.
+  A top-level `examples/` or `templates/` stays role `example` and is not a component.
+- **(b) A package under a tooling segment is tooling and not a component** (`R-tool-package`, role `tooling`): `tools`, `tooling`, `devtools`, `dev-tools`, `build-tools`, `buildSrc`, `_ext`, `ci`, `.ci`, `.github`, `.buildkite`, `.circleci`, `scripts`.
+  The top-level `scripts` folder keeps its convention component (`R-conv-scripts` comes first).
+- A manifest-declared member (a Gradle include, a workspace member) with no manifest of its own is excluded by the same segments (it is claimed by the exclusion rule, not the member rule).
+- New directory test `segment_regex` (a whole path segment matches); new role `fixture`. `R-ex-example-manifest` (examples/example only, M2) is replaced by `R-fx-sample-project`.
+
+**Plural suffixes only.** The singular `-test` and `_test` suffixes were dropped after the first tune-set run: superset's `legacy-plugin-chart-paired-t-test` is a real component (it is named for a statistical test), and `smoke-test`-style names are not reliably fixtures. Only `_tests` and `-tests` count.
+
+**Tune set against the draft keys, row by row** (candidates / TP / labelled-FP / unlabelled; N2 baseline -> N3; superset against the key that now labels its Docusaurus sections, so its rows use the composition `code-repo-conventions,docs-site`):
+
+| repo | list | before | after | what changed |
+|---|---|---|---|---|
+| trellis | ALL, TOP | 19/18/1/0, 18/18/0/0 | same | nothing |
+| superset (composite, 42 truth) | ALL | 51/42/6/3 | 49/42/4/3 | removed: the two `tools/eslint-plugin-*` packages (tooling; labelled non-components); recall 1.00 |
+| superset (composite) | TOP | 48/42/5/1 | 46/42/3/1 | the same two |
+| datahub | ALL | 84/66/11/7 | 81/66/9/6 | removed: `buildSrc` (tooling), `metadata-service/plugin/src/test/sample-test-plugins` and `smoke-test/tests/cypress` (labelled test fixtures); recall 1.00 |
+| datahub | TOP | 80/66/11/3 | 78/66/9/3 | `buildSrc` is not in the list; the two labelled fixtures removed |
+
+Net: labelled false positives fall (superset 6 -> 4, datahub 11 -> 9) and no true package is lost.
+
 ## Decisions made so far (for review)
 
 1. `vendored` (installed packages) and `generated` (build output, tool caches) are separate roles; both are hidden. `.cache` is `generated`.
@@ -463,3 +491,5 @@ M5c: names and sizes only; nothing under the held-out trees or keys was listed, 
 N1: composition tested on the three tune-set repositories and synthetic trees only; no held-out tree or key was listed, opened or run.
 
 N2: synthetic settings files and the three tune-set repositories only; no held-out tree or key was opened.
+
+N3: the tune-set repositories and synthetic trees only; no held-out tree or key was listed, opened or run.

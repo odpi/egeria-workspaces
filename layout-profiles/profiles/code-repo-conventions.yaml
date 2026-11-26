@@ -6,24 +6,40 @@
 # (a rule motivated by one repository is suspect; ablate it). Tune set: trellis, datahub, superset only (scores provisional). The component rules are
 # FROZEN as in 0.1.0; 0.2.0 adds only the file_roles layer below (path rules, no file content), which can neither change a component nor un-hide a file.
 profile_id: code-repo-conventions
-version: 0.3.0
+version: 0.4.0
 status: proposed
 applies_to: code-repo
 extends: [code-repo]
-roles: [component, example, source, test, docs, config, build, ci, other]
+roles: [component, example, fixture, tooling, source, test, docs, config, build, ci, other]
 relevance:
   primary: [component]
-  supporting: [example, source, test, docs, config, build, ci, other]
+  supporting: [example, fixture, tooling, source, test, docs, config, build, ci, other]
   hidden: []
 rules:
-  - id: R-ex-example-manifest
-    match: {path_segment: [examples, example], has_file: [pyproject.toml, setup.py, package.json, pom.xml, build.gradle, Cargo.toml, go.mod, Chart.yaml, Dockerfile]}
+  - id: R-conv-tests
+    match: {path_glob: "*", name_regex: ['(?i)^(?:test|tests|testing|__tests__)$|(?:_|-)tests$']}
+    assign: {role: component, kind: test-suite}
+    grain: component
+    basis: convention
+    confidence: medium
+    evidence: "a top-level folder named test, tests, testing or __tests__, or ending in the PLURAL _tests or -tests (integration_tests, unit-tests), is the repository's test suite; it is checked BEFORE the fixture rule so only the manifest projects INSIDE it are excluded"
+    tuned_on: [superset, datahub]
+  - id: R-fx-test-project
+    match: {segment_regex: ['(?i)^(?:test|tests|testing|__tests__|testfixtures|fixture|fixtures|testdata|test-data)$|(?:_|-)tests$'], has_file: [pyproject.toml, setup.py, package.json, pom.xml, build.gradle, build.gradle.kts, Cargo.toml, go.mod, Chart.yaml, Dockerfile]}
+    assign: {role: fixture, kind: sample-project}
+    grain: dir
+    basis: convention
+    confidence: medium
+    evidence: "a manifest project whose path has a test, tests, testing, __tests__, testFixtures, fixture(s), testdata or test-data segment, or one ending in the plural _tests or -tests, is a fixture (the singular -test and _test are not: a package may be named for a statistical test) of the test suite, not a package of the repository"
+    tuned_on: [trellis, datahub, "iceberg (M8, spent)", "dagster (M8, spent)"]
+  - id: R-fx-sample-project
+    match: {segment_regex: ['(?i)^(?:sample|samples|example|examples|template|templates|demo|demos)$'], has_file: [pyproject.toml, setup.py, package.json, pom.xml, build.gradle, build.gradle.kts, Cargo.toml, go.mod, Chart.yaml, Dockerfile]}
     assign: {role: example, kind: sample-project}
     grain: dir
     basis: convention
     confidence: medium
-    evidence: "a manifest under an examples/ directory declares a sample project, not a package of the repository"
-    tuned_on: [trellis, datahub]
+    evidence: "a manifest project whose path has a sample(s), example(s), template(s) or demo(s) segment declares a sample, template or demo project, not a package of the repository"
+    tuned_on: [trellis, datahub, "dagster (M8, spent)"]
   - id: R-conv-docs
     match: {path_glob: [docs, doc, documentation]}
     assign: {role: component, kind: documentation}
@@ -48,6 +64,14 @@ rules:
     confidence: medium
     evidence: "a top-level scripts directory holds the repository's helper scripts"
     tuned_on: [trellis, superset]
+  - id: R-tool-package
+    match: {segment_regex: ['(?i)^(?:tools|tooling|devtools|dev-tools|build-tools|buildsrc|_ext|ci|\.ci|\.github|\.buildkite|\.circleci|scripts)$'], has_file: [pyproject.toml, setup.py, package.json, pom.xml, build.gradle, build.gradle.kts, Cargo.toml, go.mod, Chart.yaml, Dockerfile]}
+    assign: {role: tooling, kind: tooling-package}
+    grain: dir
+    basis: convention
+    confidence: medium
+    evidence: "a package under a tools, tooling, devtools, dev-tools, build-tools, buildSrc, _ext, ci, .ci, .github, .buildkite, .circleci or scripts folder is the repository's own tooling, not a package it ships"
+    tuned_on: [superset, "dagster (M8, spent)"]
   - id: R-conv-deployment
     match: {path_glob: [docker, deploy, deployment, k8s]}
     assign: {role: component, kind: deployment}
@@ -56,14 +80,6 @@ rules:
     confidence: medium
     evidence: "a top-level docker, deploy, deployment or k8s directory holds container and deployment definitions"
     tuned_on: [trellis, superset]
-  - id: R-conv-tests
-    match: {path_glob: [tests, test]}
-    assign: {role: component, kind: test-suite}
-    grain: component
-    basis: convention
-    confidence: medium
-    evidence: "a top-level tests or test directory is the repository's test suite"
-    tuned_on: [superset]
   - id: R-conv-requirements
     match: {path_glob: [requirements]}
     assign: {role: component, kind: dependency-pins}
