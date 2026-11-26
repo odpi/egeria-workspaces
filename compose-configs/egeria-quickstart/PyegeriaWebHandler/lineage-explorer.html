@@ -609,7 +609,7 @@ function MermaidDiagram({ code }) {
         if (ref.current) ref.current.innerHTML = '<pre style="color:#f87171;font-size:11px">Mermaid library failed to load (check network access to cdn.jsdelivr.net) — diagram cannot be rendered.</pre>';
         return;
       }
-      window.mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' });
+      window.mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'strict' });
       window.mermaid.render(id.current, code)
         .then(function(r) { if (ref.current) ref.current.innerHTML = r.svg; })
         .catch(function(e) { console.error('Mermaid render error:', e); if (ref.current) ref.current.innerHTML = '<pre style="color:red;font-size:10px">' + String(e) + '</pre>'; });

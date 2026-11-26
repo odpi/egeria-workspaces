@@ -268,7 +268,7 @@ function renderMermaidBlock(id, code){
     if (!(window.mermaid && window.mermaid.render)) { setTimeout(tryRender, 150); return; }
     var el = document.getElementById(id);
     if (!el) return;
-    try { window.mermaid.initialize({ startOnLoad: false, theme: document.documentElement.classList.contains('light') ? 'default' : 'dark', securityLevel: 'loose' }); } catch (e) {}
+    try { window.mermaid.initialize({ startOnLoad: false, theme: document.documentElement.classList.contains('light') ? 'default' : 'dark', securityLevel: 'strict' }); } catch (e) {}
     window.mermaid.render(id + '-svg', code)
       .then(function(res){ var el2 = document.getElementById(id); if (el2) { el2.innerHTML = res.svg || ''; egeriaAttachExpand(el2, 'Diagram'); } })
       .catch(function(err){ var el2 = document.getElementById(id); if (el2) el2.innerHTML = '<div class="p-note">⚠ Mermaid render failed: ' + esc(String(err)) + '</div>'; });

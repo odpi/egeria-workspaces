@@ -18,7 +18,7 @@
                 if (diagrams.length > 0) {
                     console.log("Attempting to re-render mermaid diagrams");
                     try {
-                        mermaid.initialize({ startOnLoad: true });
+                        mermaid.initialize({ startOnLoad: true, securityLevel: 'strict' });
                         mermaid.init(undefined, diagrams);
                     } catch (e) {
                         console.error("Error re-initializing mermaid:", e);
@@ -126,7 +126,7 @@
         mermaid.initialize({
             startOnLoad: false, // Changed to false to manually control initialization
             theme: 'default',
-            securityLevel: 'loose',
+            securityLevel: 'strict',
             logLevel: 'info', // Changed to info for more detailed logging
             fontFamily: 'monospace',
             flowchart: {

@@ -265,7 +265,7 @@ function MermaidDiagram({ code, label }) {
     if (ref.current) ref.current.innerHTML = '';
 
     function doRender() {
-      try { window.mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' }); } catch(_) {}
+      try { window.mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'strict' }); } catch(_) {}
       var id = 'mmd' + Math.random().toString(36).slice(2);
       window.mermaid.render(id, code)
         .then(function(result) {
