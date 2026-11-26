@@ -6,7 +6,7 @@
 # 0.2.0 adds `manifest_reading` (below): where the recognizer is given a blob source it may read a short closed list of manifests for the members
 # they declare. Without a source the profile behaves exactly as 0.1.0 (names and sizes only).
 profile_id: code-repo
-version: 0.2.0
+version: 0.3.0
 status: proposed
 applies_to: code-repo
 extends: [generic-relevance]
@@ -96,15 +96,15 @@ manifest_reading:
     kind: workspace-member
     basis: manifest-content
     confidence: high
-    evidence: "a manifest of the repository names this directory as a member of its workspace or a module of its build"
-    tuned_on: [trellis, datahub, superset]
+    evidence: "a manifest of the repository names this directory as a member of its workspace or a module of its build (a Gradle include, with its projectDir mapping where there is one)"
+    tuned_on: [trellis, datahub, superset, "iceberg (M8, spent)"]
   aggregator_rule:
     id: M-aggregator
     role: other
     kind: workspace-aggregator
     basis: manifest-content
     confidence: high
-    evidence: "this directory's manifest only aggregates its members (a package.json with workspaces, a pom with pom packaging, a virtual Cargo or uv workspace): the members are the components, not the aggregator"
-    tuned_on: [trellis, datahub, superset]
+    evidence: "this directory's manifest only aggregates its members (a package.json with workspaces, a pom with pom packaging, a virtual Cargo or uv workspace, a Gradle project whose only children are other included projects): the members are the components, not the aggregator"
+    tuned_on: [trellis, datahub, superset, "iceberg (M8, spent)"]
 path_grammar: []
 name_grammar: []

@@ -111,6 +111,7 @@ class Recognizer:
         self._child_rel: dict = {}                    # directory -> the has_child_dir paths that exist directly below it
         self._file_count: dict = {}                   # directory -> number of files directly in it
         self._dir_count: dict = {}                    # directory -> number of sub-directories directly in it
+        self._children: dict | None = None            # directory -> its sub-directories (built when first needed)
         self._src_dirs: set = set()                   # candidate-named directories that have a source-like file below them (for no_source_files rules)
         self._gm_index: dict = {}                     # directory -> (path, size) of its .gitmodules
         self._gm_cache: dict = {}                     # directory -> the set of directories its .gitmodules declares as submodules
@@ -506,6 +507,21 @@ class Recognizer:
             self.extras.setdefault(identity, {}).update(info)
             self.docs_stats["sections"] += 1
 
+    def _gradle_aggregators(self, members: list, dirs: set) -> set:
+        """Included Gradle projects that only AGGREGATE: no file of their own and every sub-directory an included project too (a parent such as `a` for
+        `include 'a:b', 'a:c'`)."""
+        inc = set(members)
+        if self._children is None:
+            self._children = {}
+            for x in dirs:
+                self._children.setdefault(x[:x.rfind("/")] if "/" in x else "", set()).add(x)
+        out = set()
+        for m in inc:
+            kids = self._children.get(m, set())
+            if kids and not self._file_count.get(m, 0) and kids <= inc:
+                out.add(m)
+        return out
+
     def _apply_manifest_content(self, mr, dirs: set, dir_files: dict) -> None:
         """Turn what the manifests declared into claims: a declared member is a component (claimed by the member rule where no manifest rule
         already claimed it); a manifest directory that only AGGREGATES its members is not one. Hidden directories never take part."""
@@ -528,6 +544,14 @@ class Recognizer:
                         ex["unresolved_members"] = sorted(set(ex.get("unresolved_members", [])) | set(unresolved))
                 if decl.name and "manifest_name" not in ex:
                     ex["manifest_name"] = decl.name
+                if decl.reader == "gradle" and members:
+                    aggs = self._gradle_aggregators(members, dirs)
+                    ex["gradle_aggregators"] = sorted(aggs)
+                    for a in aggs:                                  # an included project whose only children are other included projects is not a component
+                        if a not in self.claims:
+                            self.claims[a] = mr.aggregator_rule
+                            self.extras.setdefault(a, {}).update({"member_of": d or ".", "evidence_file": decl.file, "evidence_field": decl.field, "evidence_blob": decl.blob})
+                    members = [m for m in members if m not in aggs]
                 for m in members:
                     if m in self.member_of:
                         continue

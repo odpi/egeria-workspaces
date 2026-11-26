@@ -239,6 +239,7 @@ class Decl:
     site_dir: str | None = None                 # mkdocs: the build output folder (None = the default `site`)
     sections: list = field(default_factory=list)  # mkdocs: the top-level nav entries, [{"title": str | None, "pages": [str, ...]}], pages in nav order
     has_nav: bool = False
+    project_dirs: dict = field(default_factory=dict)  # gradle: included project path -> the directory a projectDir literal maps it to
 
 
 def _strs(value) -> list:
@@ -304,11 +305,23 @@ def extract(reader: str, path: str, data: bytes) -> Decl | None:
     if reader == "gradle":
         text = re.sub(r"/\*.*?\*/", "", data.decode("utf-8", "replace"), flags=re.DOTALL)
         text = re.sub(r"//[^\n]*", "", text)
-        members: list = []
+        projects: list = []
         for m in re.finditer(r"\binclude\s*\(?\s*((?:[\"'][^\"'\n]+[\"']\s*,?\s*)+)", text):
             for lit in re.findall(r"[\"']([^\"'\n]+)[\"']", m.group(1)):
-                members.append(lit.strip().lstrip(":").replace(":", "/"))
-        return Decl(reader, path, directory, "include", None, members, aggregator=False) if members else None
+                projects.append(lit.strip().lstrip(":").replace(":", "/"))
+        # `project(':x').projectDir = file('dir')` and the `new File(...)` forms: string literals only, by regex, never evaluated. Each included project's
+        # directory is the mapped one where there is a mapping, otherwise its path (`:a:b` is a/b).
+        dir_map: dict = {}
+        for m in re.finditer(r"\b(?:project|findProject)\s*\(\s*[\"']:?([^\"'\n]+)[\"']\s*\)\s*\??\.\s*projectDir\s*=\s*"
+                             r"(?:file\s*\(\s*[\"']([^\"'\n]+)[\"']\s*\)"
+                             r"|(?:new\s+)?File\s*\(\s*[\"']([^\"'\n]+)[\"']\s*\)"
+                             r"|(?:new\s+)?File\s*\(\s*(?:settingsDir|rootDir|rootProject\.projectDir)\s*,\s*[\"']([^\"'\n]+)[\"']\s*\))", text):
+            dir_map[m.group(1).replace(":", "/")] = next(g for g in m.groups()[1:] if g)
+        members = list(dict.fromkeys(dir_map.get(p, p) for p in projects))
+        d = Decl(reader, path, directory, "include", None, members, aggregator=False) if members else None
+        if d is not None:
+            d.project_dirs = {p: dir_map[p] for p in projects if p in dir_map}
+        return d
     if reader == "gitmodules":
         # path entries of the [submodule "..."] sections ONLY: the url, branch and every other key are never extracted, so they cannot reach a finding or a log
         text = data.decode("utf-8", "replace")

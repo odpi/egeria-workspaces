@@ -419,6 +419,16 @@ superset: recall unchanged (1.00); six new `doc-section` parts appear, from the 
 `security`; low-confidence fallback), which the draft key does not label: ALL 45/36/6/3 -> 51/36/6/9 (candidates / TP / labelled-FP / unlabelled), labelled precision 0.86 unchanged, precision against all candidates 0.80 -> 0.71.
 The key predates the docs-section principle; whether these are labelled is the key audit's question.
 
+## N2 (Phase 1c): Gradle `projectDir` mappings and aggregators (`code-repo` 0.3.0)
+
+`settings.gradle(.kts)`: besides `include`, the recognizer reads `project(':x').projectDir = file('dir')` and the `new File('dir')` / `new File(settingsDir, 'dir')` / `File(rootDir, "dir")` forms (also
+`findProject(...)`), as string literals by regex; nothing is evaluated (a variable, a computed path or a `rootProject.children.each` loop is not read). Each included project's directory is the mapped one
+where there is a mapping, otherwise its path (`:a:b` is `a/b`); a mapping for a project that is not included is ignored. An include with no directory in the path list (a BOM, a mapped folder that does not
+exist, a path with `..` or an absolute one) is not a component and is listed in `unresolved_members`. An included project whose only children are other included projects (no file of its own, every sub-folder an
+included project) is not a component: it gets `M-aggregator` and is listed in `gradle_aggregators`; its children are the components. `tuned_on` for the member and aggregator rules now also names "iceberg (M8, spent)".
+
+Tune set (trellis, datahub, superset, with manifest reading): components and scores identical to before N2 (none of the three uses `projectDir`; the aggregator test removes nothing there).
+
 ## Decisions made so far (for review)
 
 1. `vendored` (installed packages) and `generated` (build output, tool caches) are separate roles; both are hidden. `.cache` is `generated`.
@@ -451,3 +461,5 @@ M5b: no repository was read; the egeria-v6 list is names and sizes only (its `.g
 M5c: names and sizes only; nothing under the held-out trees or keys was listed, opened or run.
 
 N1: composition tested on the three tune-set repositories and synthetic trees only; no held-out tree or key was listed, opened or run.
+
+N2: synthetic settings files and the three tune-set repositories only; no held-out tree or key was opened.
