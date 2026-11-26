@@ -273,4 +273,35 @@ def test_toggling_include_templates_after_the_first_load_reloads_the_boundary_li
 
 def test_the_boundary_load_effect_drops_an_answer_for_an_older_setting():
     body = _boundary_load_effect()
-    assert "boundaryLoadedTempl.current === inclTempl" in body and "if (!cancelled)" in body and "return function() { cancelled = true; }" in body
+    assert "boundaryLoadedTempl.current === inclTempl" in body and "if (!cancelled)" in body
+    assert "return function() { cancelled = true; if (!done) boundaryLoadedTempl.current = null; }" in body and body.count("done = true") == 2
+
+
+def test_leaving_mid_load_and_coming_back_loads_again_and_the_stale_answer_is_dropped():
+    # SYNTHETIC timing: the answers are promises the test settles by hand
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node not available")
+    js = ("var ref = { current: null }; var calls = []; var pending = []; var states = []; var shown = [];"
+          "function egeriaFetch(u) { return new Promise(function(resolve) { pending.push({ url: u, resolve: resolve }); calls.push(u); }); }"
+          "function run(subNav, boundaryState, inclTempl, tag) {"
+          "  var setBoundaryState = function(s) { states.push(tag + ':' + s); }, setBoundaryError = function() {}, creds = {}, boundaryLoadedTempl = ref;"
+          "  var setBoundaries = function(b) { shown.push(tag + ':' + b.length); }, setDmBoundaries = function() {};"
+          "  return (function() {" + _boundary_load_effect() + "})(); }"
+          "function answer(n) { var a = pending.splice(0, n); a.forEach(function(p) { p.resolve({ ok: true, json: function() { return Promise.resolve({ boundaries: [{ guid: 'g' }] }); } }); }); return a.length; }"
+          "async function main() {"
+          "  var c1 = run('boundaries', 'idle', false, 'first');"        # open Boundaries: two requests, state loading
+          "  c1();"                                                      # switch sub-tab before the answer arrives: the cleanup runs
+          "  var c2 = run('boundaries', 'loading', false, 'second');"    # come back: the state is still 'loading', but the load must start again
+          "  var afterReturn = calls.length;"
+          "  answer(4); await new Promise(function(r) { setTimeout(r, 20); });"   # both loads' answers arrive; the first load's are stale
+          "  c2();"                                                      # leave again, after the load completed
+          "  var c3 = run('boundaries', 'ready', false, 'third');"       # come back: a completed load is not fetched again
+          "  console.log(JSON.stringify({ afterReturn: afterReturn, total: calls.length, shown: shown, states: states, third: c3 === undefined }));"
+          "} main();")
+    r = subprocess.run([node, "-e", js], capture_output=True, text=True, timeout=20)
+    assert r.returncode == 0, r.stderr
+    d = json.loads(r.stdout)
+    assert d["afterReturn"] == 4 and d["total"] == 4 and d["third"] is True      # leaving mid-load reloads on return; a completed load does not refetch
+    assert d["shown"] == ["second:1"]                                           # the stale answer of the first load is dropped
+    assert d["states"] == ["first:loading", "second:loading", "second:ready"]

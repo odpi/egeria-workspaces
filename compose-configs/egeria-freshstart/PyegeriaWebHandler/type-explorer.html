@@ -10223,14 +10223,15 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
     if (subNav !== 'boundaries') return;
     if (boundaryState !== 'idle' && boundaryLoadedTempl.current === inclTempl) return;
     boundaryLoadedTempl.current = inclTempl;
-    var cancelled = false;
+    var cancelled = false, done = false;
     setBoundaryState('loading'); setBoundaryError('');
     var q = inclTempl ? '?include_templates=true' : '';
     function get(path) { return egeriaFetch(path + q, creds).then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }); }
     Promise.all([get('/api/solution/boundaries'), get('/api/solution/design-model-boundaries')])
-      .then(function(res) { if (!cancelled) { setBoundaries(res[0].boundaries || []); setDmBoundaries(res[1].boundaries || []); setBoundaryState('ready'); } })
-      .catch(function(e) { if (!cancelled) { setBoundaryError(e.message); setBoundaryState('error'); } });
-    return function() { cancelled = true; };
+      .then(function(res) { done = true; if (!cancelled) { setBoundaries(res[0].boundaries || []); setDmBoundaries(res[1].boundaries || []); setBoundaryState('ready'); } })
+      .catch(function(e) { done = true; if (!cancelled) { setBoundaryError(e.message); setBoundaryState('error'); } });
+    // leaving mid-load (or changing the setting) drops this answer AND forgets the setting, so the next run loads again instead of waiting on a load nobody is listening to
+    return function() { cancelled = true; if (!done) boundaryLoadedTempl.current = null; };
   }, [subNav, boundaryAttempt, inclTempl]);
 
   // Fetch blueprint detail when selection changes. `cancelled` discards a
