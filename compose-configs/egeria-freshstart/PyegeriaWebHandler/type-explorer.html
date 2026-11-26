@@ -5056,7 +5056,7 @@ function ConnectionForm({ saveCreds }) {
         ),
         React.createElement('div', { style: rowStyle },
           React.createElement('label', { style: labelStyle }, 'Password'),
-          React.createElement('input', { style: fieldStyle, type: 'password', value: form.password, placeholder: 'secret', onChange: function(e) { set('password', e.target.value); } })
+          React.createElement('input', { style: fieldStyle, type: 'password', autoComplete: 'current-password', value: form.password, placeholder: 'secret', onChange: function(e) { set('password', e.target.value); } })
         ),
         React.createElement('button', {
           type: 'submit',

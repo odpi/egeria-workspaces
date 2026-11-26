@@ -48,6 +48,10 @@ jobs:
       run: |
         pytest tests/test_mermaid_security_level.py
 
+    - name: Guard that every served password input is masked
+      run: |
+        pytest tests/test_password_inputs_masked.py
+
     - name: Demo Portal token route accepts a sent password only with a demo persona's user name
       run: |
         pytest compose-configs/egeria-quickstart/PyegeriaWebHandler/tests/test_demo_token_persona_only.py
