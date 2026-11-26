@@ -89,9 +89,13 @@ class Recognizer:
         self.p = profile
         self.file_rules = [r for r in profile.rules if not r.is_dir_rule]
         self.dir_rules = [r for r in profile.rules if r.is_dir_rule]
-        self.needed_names = set()
+        self.needed_names = set()                    # file names (and entry names) whose presence in a directory a dir rule asks about
+        self.needed_dir_entries = set()              # names of SUB-DIRECTORIES a dir rule asks about (has_entry: .git is a file OR a directory)
         for r in self.dir_rules:
-            self.needed_names |= r.has_files | r.parent_has_files
+            self.needed_names |= r.has_files | r.parent_has_files | r.has_entries | r.ancestor_entries
+            self.needed_dir_entries |= r.has_entries | r.ancestor_entries
+        self.hidden_dir_rules = [r for r in self.dir_rules if r.grain == "subtree" and r.relevance == "hidden"]
+        self.component_dirs: set = set()             # directories a component rule claims (filled by index_directories); '' is the root
         # hidden subtree rules that depend on the path alone (a rule that also tests a file name cannot say a DIRECTORY is hidden)
         self.hidden_subtrees = [r for r in self.file_rules if r.grain == "subtree" and r.relevance == "hidden"
                                 and set(r.match) <= {"path_segment", "path_glob"}]
@@ -112,50 +116,116 @@ class Recognizer:
         return False
 
     # ---- directory rules (has_file / parent_has_file) -------------------------------------------------------------------
+    def _dir_rule_matches(self, r: Rule, d: str, own: set, par: set, anc: list, holders: dict, segs: list, name: str) -> bool:
+        if r.has_files and not (r.has_files & own):
+            return False
+        if r.has_entries and not (r.has_entries & own):
+            return False
+        if r.ancestor_entries and not any(r.ancestor_entries & holders.get(a, set()) for a in anc):
+            return False
+        if r.parent_has_files and not (r.parent_has_files & par):
+            return False
+        if r.segments and not any(s in r.segments for s in segs):
+            return False
+        if r.globs and (not d or not any(g.match(d) for g in r.globs)):
+            return False
+        if r.names and name not in r.names:
+            return False
+        if r.name_res and not any(rx.search(name) for rx in r.name_res):
+            return False
+        return True
+
     def index_directories(self, path_list: Path) -> None:
         if not self.dir_rules:
             return
         holders: dict[str, set] = {}
         all_dirs: set = set()
-        need_all = any(not r.has_files for r in self.dir_rules)      # a rule that does not start from a file must see every directory
+        need_all = any(not (r.has_files or r.has_entries) for r in self.dir_rules)   # a rule that does not start from an entry must see every directory
         for path, _ in read_rows(path_list):
             cut = path.rfind("/")
             d, name = (path[:cut], path[cut + 1:]) if cut >= 0 else ("", path)
             if name in self.needed_names:
                 holders.setdefault(d, set()).add(name)
+            if self.needed_dir_entries:                      # a sub-directory entry: `.git/HEAD` under `x` makes `.git` an entry of `x`
+                segs = path.split("/")
+                for i in range(len(segs) - 1):
+                    if segs[i] in self.needed_dir_entries:
+                        holders.setdefault("/".join(segs[:i]), set()).add(segs[i])
             if need_all:
                 while d and d not in all_dirs:
                     all_dirs.add(d)
                     d = d[:d.rfind("/")] if "/" in d else ""
         candidates = set(holders) | all_dirs if need_all else set(holders)
-        for d in sorted(candidates):
-            if self.inside_hidden_subtree(d):                # vendored (or any hidden subtree) wins over a manifest inside it
-                continue
+        order = sorted(candidates)
+
+        def context(d):
             parent = d[:d.rfind("/")] if "/" in d else ""
-            own = holders.get(d, set())
-            par = holders.get(parent, set()) if d else set()
-            segs, name = (d.split("/") if d else []), (d.rsplit("/", 1)[-1] if d else "")
+            segs = d.split("/") if d else []
+            anc = [""] + ["/".join(segs[:i]) for i in range(1, len(segs))] if d else []
+            return holders.get(d, set()), (holders.get(parent, set()) if d else set()), anc, segs, (d.rsplit("/", 1)[-1] if d else "")
+
+        # pass 1: a directory that a HIDDEN subtree dir rule claims (a nested repository) is vendored, whatever manifest it holds: vendored wins
+        hidden_roots: list = []
+        for d in order:
+            if self.inside_hidden_subtree(d) or any(d == h or d.startswith(h + "/") for h in hidden_roots):
+                continue
+            own, par, anc, segs, name = context(d)
+            for r in self.hidden_dir_rules:
+                if self._dir_rule_matches(r, d, own, par, anc, holders, segs, name):
+                    self.claims[d] = r
+                    self.subtree_claims.setdefault(r.id, set()).add(d)
+                    hidden_roots.append(d)
+                    break
+        # pass 2: every other directory rule
+        for d in order:
+            if self.inside_hidden_subtree(d) or any(d == h or d.startswith(h + "/") for h in hidden_roots):
+                continue                                       # vendored (or any hidden subtree) wins over a manifest inside it
+            own, par, anc, segs, name = context(d)
             for r in self.dir_rules:
-                if r.has_files and not (r.has_files & own):
-                    continue
-                if r.parent_has_files and not (r.parent_has_files & par):
-                    continue
-                if r.segments and not any(s in r.segments for s in segs):
-                    continue
-                if r.globs and (not d or not any(g.match(d) for g in r.globs)):
-                    continue
-                if r.names and name not in r.names:
-                    continue
-                if r.name_res and not any(rx.search(name) for rx in r.name_res):
+                if r in self.hidden_dir_rules or not self._dir_rule_matches(r, d, own, par, anc, holders, segs, name):
                     continue
                 self.claims[d] = r
                 if r.grain == "subtree":
                     self.subtree_claims.setdefault(r.id, set()).add(d)
                 break
+        self.component_dirs = {d for d, r in self.claims.items() if r.grain == "component"}
 
     # ---- file rules -----------------------------------------------------------------------------------------------------
+    def _under_component(self, dirs: list, root_only: bool) -> bool:
+        if not self.component_dirs:
+            return False
+        if root_only:
+            return "/".join(dirs) in self.component_dirs
+        return "" in self.component_dirs or any("/".join(dirs[:i + 1]) in self.component_dirs for i in range(len(dirs)))
+
+    def _file_match(self, r: Rule, path: str, name: str, dirs: list, dirset: set):
+        """Does FILE rule `r` claim this file? Returns (rule, node_path, node_grain) or None."""
+        idx = -1
+        if r.segments:
+            if not (r.segments & dirset):
+                return None
+            idx = next(i for i, s in enumerate(dirs) if s in r.segments)
+        if r.names and name not in r.names:
+            return None
+        if r.extensions and not any(name.endswith(e) for e in r.extensions):
+            return None
+        if r.name_res and not any(rx.search(name) for rx in r.name_res):
+            return None
+        if r.globs and not any(g.match(path) for g in r.globs):
+            return None
+        if r.scope and not self._under_component(dirs, r.scope == "root"):
+            return None
+        if r.grain == "subtree":
+            if idx < 0:
+                idx = next((i for i in range(len(dirs)) if any(g.match("/".join(dirs[:i + 1])) for g in r.root_globs)), -1)
+            if idx < 0:
+                return None
+            return r, "/".join(dirs[:idx + 1]), "subtree"
+        return r, path, "dir"
+
     def classify(self, path: str):
-        """Return (rule, node_path, node_grain) for the first rule that claims this file, or (None, None, None)."""
+        """Return (rule, node_path, node_grain) for the first rule that claims this file, or (None, None, None). The rules come first (in
+        order); the FILE-ROLE layer (profile.file_roles) is consulted only for a file no rule claimed, so it can never un-hide a file."""
         parts = path.split("/")
         name = parts[-1]
         dirs = parts[:-1]
@@ -169,26 +239,13 @@ class Recognizer:
                         if pre in claimed:
                             return r, pre, "subtree"
                 continue
-            idx = -1
-            if r.segments:
-                if not (r.segments & dirset):
-                    continue
-                idx = next(i for i, s in enumerate(dirs) if s in r.segments)
-            if r.names and name not in r.names:
-                continue
-            if r.extensions and not any(name.endswith(e) for e in r.extensions):
-                continue
-            if r.name_res and not any(rx.search(name) for rx in r.name_res):
-                continue
-            if r.globs and not any(g.match(path) for g in r.globs):
-                continue
-            if r.grain == "subtree":
-                if idx < 0:
-                    idx = next((i for i in range(len(dirs)) if any(g.match("/".join(dirs[:i + 1])) for g in r.root_globs)), -1)
-                if idx < 0:
-                    continue
-                return r, "/".join(dirs[:idx + 1]), "subtree"
-            return r, path, "dir"
+            hit = self._file_match(r, path, name, dirs, dirset)
+            if hit:
+                return hit
+        for r in self.p.file_roles:
+            hit = self._file_match(r, path, name, dirs, dirset)
+            if hit:
+                return hit
         return None, None, None
 
     def finding(self, rule: Rule, path: str, grain: str, extra: dict | None = None) -> dict:
@@ -367,6 +424,9 @@ class Recognizer:
             "components": {"top_level": len(top_components), "parts": len(all_components) - len(top_components)},
             "findings": len(findings),
         }
+        if self.p.file_roles:                                      # the file-role layer: `other` is classified, and reported beside the target
+            classes["shares"]["other_files"] = share(by_role.get("other", [0, 0])[0], total_files)
+            classes["shares"]["other_bytes"] = share(by_role.get("other", [0, 0])[1], total_bytes)
         (out / "classes.json").write_text(json.dumps(classes, indent=2, sort_keys=True, ensure_ascii=False) + "\n", encoding="utf-8")
         (out / "report.md").write_text(render_report(classes), encoding="utf-8")
         return classes

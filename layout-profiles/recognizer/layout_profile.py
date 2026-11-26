@@ -21,16 +21,18 @@ import yaml
 STATUSES = ("proposed", "confirmed", "retired")
 APPLIES_TO = ("any", "code-repo", "docs-site", "workspace-of-repos")
 ROLES = ("component", "source", "test", "docs", "config", "generated", "vendored", "scratch", "archive", "audit", "runtime-output",
-         "vcs-internal", "worktree-copy", "backup", "secret", "example", "ci", "tooling")
+         "vcs-internal", "worktree-copy", "backup", "secret", "example", "ci", "tooling", "build", "data-fixture", "other")
 RELEVANCES = ("primary", "supporting", "hidden")
 GRAINS = ("subtree", "dir", "component")
 BASES = ("manifest", "convention", "judgement")
 CONFIDENCES = ("high", "medium", "low")
-MATCH_KEYS = ("path_glob", "path_segment", "name", "name_regex", "extension", "has_file", "parent_has_file")
-DIR_ONLY_KEYS = ("has_file", "parent_has_file")        # evaluated against a directory, not a file
+MATCH_KEYS = ("path_glob", "path_segment", "name", "name_regex", "extension", "has_file", "parent_has_file", "has_entry", "ancestor_has_entry",
+              "component_scope")
+DIR_ONLY_KEYS = ("has_file", "parent_has_file", "has_entry", "ancestor_has_entry")   # evaluated against a directory, not a file
+COMPONENT_SCOPES = ("within", "root")                  # file rules only: under some component / directly in a component's directory
 FILE_ONLY_KEYS = ("extension",)                        # meaningful only for a file name
 ASSIGN_KEYS = ("role", "relevance", "kind")
-TOP_KEYS = ("profile_id", "version", "status", "applies_to", "extends", "roles", "relevance", "rules", "structural_rules", "path_grammar", "name_grammar")
+TOP_KEYS = ("profile_id", "version", "status", "applies_to", "extends", "roles", "relevance", "rules", "file_roles", "structural_rules", "path_grammar", "name_grammar")
 RULE_KEYS = ("id", "match", "assign", "grain", "basis", "confidence", "evidence")
 RULE_OPTIONAL_KEYS = ("tuned_on",)       # which repositories motivated the rule, so a reviewer can ablate it (a one-repository rule is suspect)
 STRUCTURAL_OPS = ("sibling-manifests-top-level",)
@@ -96,12 +98,15 @@ class Rule:
     name_res: tuple = ()
     has_files: frozenset = frozenset()
     parent_has_files: frozenset = frozenset()
+    has_entries: frozenset = frozenset()         # a FILE or a sub-DIRECTORY of this name sits directly in the directory (.git is either)
+    ancestor_entries: frozenset = frozenset()    # some proper ancestor directory (the scanned root included) has such an entry
+    scope: str = ""                              # file rules: '' | 'within' (under a component) | 'root' (directly in a component's directory)
 
     @property
     def is_dir_rule(self) -> bool:
-        """A rule is evaluated against DIRECTORIES when it tests a directory's files (has_file / parent_has_file) or claims a component:
-        its path_glob / path_segment / name / name_regex then apply to the directory itself."""
-        return bool(self.has_files or self.parent_has_files) or self.grain == "component"
+        """A rule is evaluated against DIRECTORIES when it tests a directory's files (has_file / parent_has_file / has_entry /
+        ancestor_has_entry) or claims a component: its path_glob / path_segment / name / name_regex then apply to the directory itself."""
+        return bool(self.has_files or self.parent_has_files or self.has_entries or self.ancestor_entries) or self.grain == "component"
 
 
 @dataclass
@@ -113,6 +118,7 @@ class Profile:
     roles: tuple
     relevance: dict                              # role -> primary | supporting | hidden
     rules: list = field(default_factory=list)
+    file_roles: tuple = ()                       # the FILE-ROLE layer: path rules that give a file a role only where no rule above claimed it
     extends: tuple = ()
     path_grammar: tuple = ()
     name_grammar: tuple = ()
@@ -124,7 +130,7 @@ class Profile:
         return self.version.split(".")[0]
 
     def rules_by_id(self) -> dict:
-        return {r.id: r for r in self.rules}
+        return {r.id: r for r in (*self.rules, *self.file_roles)}
 
 
 def _check_keys(where: str, obj: Any, allowed: tuple, required: tuple = ()) -> None:
@@ -171,9 +177,14 @@ def _compile_rule(where: str, raw: dict, roles: tuple, rel_map: dict, origin: st
     dir_keys = [k for k in DIR_ONLY_KEYS if k in match]
     file_keys = [k for k in FILE_ONLY_KEYS if k in match]
     dir_rule = bool(dir_keys) or raw["grain"] == "component"
+    scope = match.get("component_scope", "")
+    if scope and scope not in COMPONENT_SCOPES:
+        raise ProfileError(f"{where}: component_scope {scope!r} is not one of {list(COMPONENT_SCOPES)}")
+    if scope and dir_rule:
+        raise ProfileError(f"{where}: component_scope applies to a FILE rule; this rule tests a directory")
     if dir_rule and file_keys:
         raise ProfileError(f"{where}: a directory rule ({dir_keys or 'grain component'}) cannot test {file_keys} (a file-name test)")
-    for key in ("name", "extension", "path_segment", "path_glob", "name_regex", "has_file", "parent_has_file"):
+    for key in ("name", "extension", "path_segment", "path_glob", "name_regex", "has_file", "parent_has_file", "has_entry", "ancestor_has_entry"):
         if key in match:
             for v in _as_list(match[key]):
                 if not isinstance(v, str) or not v:
@@ -208,6 +219,8 @@ def _compile_rule(where: str, raw: dict, roles: tuple, rel_map: dict, origin: st
         extensions=tuple(_as_list(match.get("extension", []))), globs=tuple(globs), root_globs=tuple(root_globs),
         name_res=tuple(name_res), has_files=frozenset(_as_list(match.get("has_file", []))),
         parent_has_files=frozenset(_as_list(match.get("parent_has_file", []))),
+        has_entries=frozenset(_as_list(match.get("has_entry", []))), ancestor_entries=frozenset(_as_list(match.get("ancestor_has_entry", []))),
+        scope=scope,
     )
 
 
@@ -293,6 +306,15 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
     for n, raw in enumerate(raw_rules):
         own_rules.append(_compile_rule(f"{source} rules[{n}]", raw, tuple(roles), rel_map, pid))
 
+    raw_fr = doc.get("file_roles") or []
+    if not isinstance(raw_fr, list):
+        raise ProfileError(f"{source}: file_roles must be a list")
+    own_fr = []
+    for n, raw in enumerate(raw_fr):
+        r = _compile_rule(f"{source} file_roles[{n}]", raw, tuple(roles), rel_map, pid)
+        if r.is_dir_rule or r.grain != "dir":
+            raise ProfileError(f"{source} file_roles[{n}] rule {r.id!r}: a file-role rule tests a FILE and has grain 'dir'")
+        own_fr.append(r)
     all_roles = list(roles)
     merged_rel = dict(rel_map)
     rules = list(own_rules)
@@ -311,9 +333,10 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
         for role, level in base.relevance.items():
             merged_rel.setdefault(role, level)          # the child's mapping wins
         rules.extend(base.rules)
+        own_fr.extend(base.file_roles)
         structural.extend(base.structural)
         composed.extend(base.composed_of)
-    own_ids = [r.id for r in own_rules]
+    own_ids = [r.id for r in own_rules] + [r.id for r in own_fr if r.origin == pid]
     if len(set(own_ids)) != len(own_ids):
         raise ProfileError(f"{source}: rule id {next(i for i in own_ids if own_ids.count(i) > 1)!r} is used twice in this profile; ids must be unique")
     own_sids = [x["id"] for x in structural_own]
@@ -330,6 +353,14 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
         seen[rule.id] = rule.origin
         deduped.append(rule)
     rules = deduped
+    fr_out = []
+    for rule in own_fr:                                  # same dedupe for the file-role layer; ids are unique across both lists
+        if rule.id in seen:
+            if seen[rule.id] == rule.origin and any(x.id == rule.id for x in fr_out):
+                continue
+            raise ProfileError(f"{source}: rule id {rule.id!r} is used twice (in {seen[rule.id]!r} and {rule.origin!r}); ids must be unique")
+        seen[rule.id] = rule.origin
+        fr_out.append(rule)
     uniq, seen_s = [], set()
     for x in structural:
         if x["id"] not in seen_s:
@@ -340,7 +371,7 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
         raise ProfileError(f"{source}: structural rule ids must differ from rule ids")
     composed = list(dict.fromkeys(composed))
     return Profile(profile_id=pid, version=version, status=doc["status"], applies_to=doc["applies_to"], roles=tuple(all_roles),
-                   relevance=merged_rel, rules=rules, extends=tuple(extends), path_grammar=path_grammar, name_grammar=name_grammar,
+                   relevance=merged_rel, rules=rules, file_roles=tuple(fr_out), extends=tuple(extends), path_grammar=path_grammar, name_grammar=name_grammar,
                    composed_of=tuple(composed), structural=tuple(structural))
 
 

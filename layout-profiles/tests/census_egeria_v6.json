@@ -8,5 +8,13 @@
   "backups": 16,
   "heap_dumps": 3,
   "worktree_copy_residual": 52946,
-  "residual": 148776
+  "residual": 148776,
+  "m5_new_hidden_rules": {
+    "R-wt-claude-worktree": 57668,
+    "R-tool-idea": 1612,
+    "R-run-volume-logs": 1725,
+    "R-vend-nested-repo": 60798,
+    "unclassified_after": 26973,
+    "note": "egeria-workspace 0.2.0 (generic-relevance 0.3.0): the four M5 rules take 121803 of the 148776 residual files; the old rules' counts do not move"
+  }
 }

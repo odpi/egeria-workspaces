@@ -18,7 +18,7 @@ def run(tmp_path, rows, profile="docs-site", out="out", profiles_dir=PROFILES, c
     p = tmp_path / f"{out}.tsv"
     p.write_text("".join(f"{r}\n" for r in rows))
     c = Recognizer(load_profile(profile, profiles_dir)).run(p, tmp_path / out, copies_of=tuple(copies))
-    f = [json.loads(x) for x in (tmp_path / out / "findings.jsonl").read_text().splitlines()]
+    f = [x for x in (json.loads(y) for y in (tmp_path / out / "findings.jsonl").read_text().splitlines()) if not x["rule_id"].startswith("F-")]   # the file-role layer (M5) is tested in test_m5
     return c, f, {(x["path"], x["rule_id"]): x for x in f}
 
 

@@ -201,6 +201,53 @@ On the sample the copies report finds one group: `source_code_step_4`, `source_c
 names; `source_code_final` and `src` differ. `tuned_on` is `mkdocs-sample` for the three mkdocs rules and `trellis` for the archive and the
 plain-docs-folder rules (one-tree rules: suspect).
 
+## M5: a file-role layer, and four more hidden rules (Phase 1b)
+
+**The file-role layer** (`code-repo-conventions` 0.2.0, top-level key `file_roles`). Path rules, no file content. A file that no rule above claimed
+(nothing hidden, no component) gets exactly one role, FIRST match wins, in the brief's order: `ci`, `test`, `docs`, `config`, `build`, `source`,
+then the catch-all `other`. It cannot change a component (components come from directory rules only; `components.txt` and `components-all.txt`
+are byte-identical to M2 on all three tune repositories) and it cannot un-hide a file (it is consulted last). `other` is a classified result,
+reported beside the unclassified target (`shares.other_files`); the target is "unclassified at most 5%", and `other` above 20% is flagged.
+New schema pieces: the `file_roles` list (same keys as a rule; grain `dir`; file tests only), the match key `component_scope` (`within` = under
+some component, `root` = directly in a component's directory), and the roles `build`, `data-fixture`, `other`.
+
+Order, as in the brief: a manifest such as `pyproject.toml` or `Chart.yaml` is `config` (it matches `*.toml` / `*.yaml` first); `build` keeps the manifests
+no config pattern claims, `Makefile`, `Dockerfile*`, `*.gradle*`. `data-fixture`, `example` and `generated`/`vendored` have no pattern in this layer.
+
+| repository (committed tree) | files | unclassified | other | docs | source | test | config | build | ci |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| trellis | 4,470 | 0.0% | 5.2% | 35.3% | 28.5% | 27.2% | 3.5% | 0.1% | 0.1% |
+| datahub | 7,273 | 0.0% | 16.2% | 4.9% | 48.8% | 25.3% | 2.9% | 1.5% | 0.4% |
+| superset | 5,511 | 0.0% | 15.8% | 6.4% | 54.1% | 19.3% | 2.6% | 0.9% | 0.9% |
+
+`other` is under 20% everywhere. `tuned_on` is honest: the patterns that come straight from the brief say so and are not fitted to a repository.
+Only `F-docs-markup-anywhere` (a `.md`, `.mdx` or `.rst` file anywhere, the generalisation of the brief's top-level `*.md`) was added after a look at
+the tune set: trellis `other` was 39.6% before it, almost all nested Markdown files; its `tuned_on` is trellis, datahub and superset (the three have
+Markdown outside the top level). The component scores are unchanged (trellis 19/18, superset 46/36, datahub 84/66; recall 1.00 on each list).
+
+**Four hidden rules** (`generic-relevance` 0.3.0), added AFTER every older rule and ordered specific-first among themselves, so no older rule's
+count moves. Each carries `tuned_on: ["egeria-v6 stratified sample (6994dff1)"]`. They are written from that sample, which is now spent.
+
+| rule | what | files on the egeria-v6 list |
+|---|---|---:|
+| `R-wt-claude-worktree` | a folder under `.claude/worktrees/` is a working copy, whatever it is named (worktree-copy, hidden) | 57,668 |
+| `R-tool-idea` | `.idea` is IDE tooling (hidden) | 1,612 |
+| `R-run-volume-logs` | a `logs` folder under `runtime-volumes` is runtime output, with or without a `.log` suffix | 1,725 |
+| `R-vend-nested-repo` | a repository inside another repository is vendored (hidden) | 60,798 |
+
+Globs match whole path segments. Unanchored (`**/`) forms are needed because both `.claude/worktrees` and `runtime-volumes` sit one level down in
+the workspace (`<repo>/.claude/worktrees/*`, `<repo>/runtime-volumes/...`).
+
+**The nested-repository reading** (settled in review). A directory is hidden when it holds a `.git` (a folder or a worktree file) AND some ancestor
+directory, the scanned root included, also holds a `.git`. For a lone repository scanned from its root this is "any `.git` below the root". For a workspace of
+repositories the repositories directly under the workspace root are not nested: read literally ("any directory below the root that holds a `.git`"), the
+rule would hide the 27 real repositories of the workspace, 148,753 of the 148,776 previously unclassified files. A nested repository wins over a manifest
+inside it ("vendored wins"), also for the manifest of the repository itself. Overlap: all 57,668 worktree-rule files also match the nested rule; the
+specific rule is ordered first, so the nested rule keeps the other 60,798.
+
+Totals on the M0 egeria-v6 list (`egeria-workspace` 0.2.0): 2,612,019 files, unchanged; hidden 2,463,243 -> 2,585,046 (+121,803, exactly the four
+rules' files); unclassified 148,776 -> 26,973; files the old rules hid that are now not hidden: 0. The old rules' counts match the Phase 0 census as before.
+
 ## Decisions made so far (for review)
 
 1. `vendored` (installed packages) and `generated` (build output, tool caches) are separate roles; both are hidden. `.cache` is `generated`.
@@ -221,3 +268,5 @@ plain-docs-folder rules (one-tree rules: suspect).
 
 No Egeria type or API is used or invented; no key was opened for M0, and in M1 only the three tune-set keys were used (via the scorer);
 the two held-out keys and repositories were not touched.
+
+M5 (Phase 1b): no held-out key or repository was opened or run (the tune set is trellis, datahub, superset, the mkdocs sample and the egeria-v6 list); the tune-set answer keys were used only through the scorer, to check that the component scores did not move.

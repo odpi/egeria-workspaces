@@ -3,16 +3,17 @@
 # samples rather than components. Extends code-repo; its rules are checked FIRST, so a conventional name wins over a manifest in the same
 # directory (docs/ that happens to hold a package.json is documentation), and an example wins over its manifest.
 # Every rule here is basis: convention (or judgement) with its own evidence and a tuned_on note naming the tune-set repositories that motivated it
-# (a rule motivated by one repository is suspect; ablate it). Tune set: trellis, datahub, superset only (scores provisional). FROZEN at 0.1.0.
+# (a rule motivated by one repository is suspect; ablate it). Tune set: trellis, datahub, superset only (scores provisional). The component rules are
+# FROZEN as in 0.1.0; 0.2.0 adds only the file_roles layer below (path rules, no file content), which can neither change a component nor un-hide a file.
 profile_id: code-repo-conventions
-version: 0.1.0
+version: 0.2.0
 status: proposed
 applies_to: code-repo
 extends: [code-repo]
-roles: [component, example]
+roles: [component, example, source, test, docs, config, build, ci, other]
 relevance:
   primary: [component]
-  supporting: [example]
+  supporting: [example, source, test, docs, config, build, ci, other]
   hidden: []
 rules:
   - id: R-ex-example-manifest
@@ -87,6 +88,132 @@ rules:
     confidence: low
     evidence: "the src directory directly under a top-level folder that holds a package.json is that application's source root, the substantive part where the package.json is only a build wrapper; a src inside a nested package is part of that package, not a component"
     tuned_on: [superset]
+file_roles:
+  # The FILE-ROLE layer: every file that no rule above claimed (nothing hidden, no component rule) gets exactly one role from these path rules,
+  # FIRST match wins, in the order of the Phase 1b brief: ci, test, docs, config, build, source, other. Names and paths only. `other` is a
+  # classified result, reported beside the unclassified target, and is a catch-all the report must keep visible (flag it above 20%).
+  # Note the brief's order: a manifest such as pyproject.toml or Chart.yaml is `config` (it matches *.toml / *.yaml first); `build` keeps only
+  # the manifests that no config pattern claims (package.json, pom.xml, go.mod, ...), Makefile, Dockerfile* and *.gradle*.
+  - id: F-ci
+    match: {path_glob: [".github/**", ".circleci/**", "**/.github/**", ".gitlab-ci.yml", "Jenkinsfile"]}
+    assign: {role: ci, kind: ci-definition}
+    grain: dir
+    basis: convention
+    confidence: high
+    evidence: "CI service definitions live in .github, .circleci, .gitlab-ci.yml and a Jenkinsfile"
+    tuned_on: ["brief 0335c236 (patterns), not fitted to a repository"]
+  - id: F-test-dir
+    match: {path_segment: [tests, test, __tests__]}
+    assign: {role: test, kind: test-file}
+    grain: dir
+    basis: convention
+    confidence: high
+    evidence: "a file inside a folder named tests, test or __tests__ belongs to the test suite"
+    tuned_on: ["brief 0335c236 (patterns), not fitted to a repository"]
+  - id: F-test-maven
+    match: {path_glob: ["src/test/**", "**/src/test/**"]}
+    assign: {role: test, kind: test-file}
+    grain: dir
+    basis: convention
+    confidence: high
+    evidence: "src/test is the Maven and Gradle folder for tests"
+    tuned_on: ["brief 0335c236 (patterns), not fitted to a repository"]
+  - id: F-test-name
+    match: {name_regex: ["^test_.*\\.py$", "_test\\.py$", "_test\\.go$", "\\.test\\.tsx?$", "\\.spec\\.tsx?$"]}
+    assign: {role: test, kind: test-file}
+    grain: dir
+    basis: convention
+    confidence: high
+    evidence: "test_*.py, *_test.py, *_test.go, *.test.ts(x) and *.spec.ts(x) are the file names the language test runners collect"
+    tuned_on: ["brief 0335c236 (patterns), not fitted to a repository"]
+  - id: F-docs-folder
+    match: {path_glob: ["docs/**", "doc/**"]}
+    assign: {role: docs, kind: documentation-file}
+    grain: dir
+    basis: convention
+    confidence: high
+    evidence: "a file under the top-level docs or doc folder is documentation"
+    tuned_on: ["brief 0335c236 (patterns), not fitted to a repository"]
+  - id: F-docs-top-file
+    match: {path_glob: ["*.md", "*.rst", "LICENSE*"]}
+    assign: {role: docs, kind: documentation-file}
+    grain: dir
+    basis: convention
+    confidence: high
+    evidence: "a README, changelog or licence file at the top of the repository is documentation"
+    tuned_on: ["brief 0335c236 (patterns), not fitted to a repository"]
+  - id: F-docs-markup-anywhere
+    match: {extension: [.md, .mdx, .rst]}
+    assign: {role: docs, kind: documentation-file}
+    grain: dir
+    basis: convention
+    confidence: medium
+    evidence: "a Markdown or reStructuredText file anywhere in a repository is written documentation (a README inside a package, a design note); the brief's top-level *.md / *.rst is the special case of this"
+    tuned_on: [trellis, datahub, superset]
+  - id: F-config-ext
+    match: {extension: [.yaml, .yml, .toml, .ini, .cfg]}
+    assign: {role: config, kind: configuration-file}
+    grain: dir
+    basis: convention
+    confidence: medium
+    evidence: "YAML, TOML, INI and CFG files are configuration"
+    tuned_on: ["brief 0335c236 (patterns), not fitted to a repository"]
+  - id: F-config-editorconfig
+    match: {name: .editorconfig}
+    assign: {role: config, kind: configuration-file}
+    grain: dir
+    basis: convention
+    confidence: high
+    evidence: ".editorconfig is editor configuration"
+    tuned_on: ["brief 0335c236 (patterns), not fitted to a repository"]
+  - id: F-config-component-dotfile
+    match: {name_regex: "^\\.[^/]+$", component_scope: root}
+    assign: {role: config, kind: configuration-file}
+    grain: dir
+    basis: convention
+    confidence: medium
+    evidence: "a dotfile directly in a component's directory (.gitignore, .dockerignore, .eslintrc) configures that component's tools"
+    tuned_on: ["brief 0335c236 (patterns), not fitted to a repository"]
+  - id: F-build-manifest
+    match: {name: [package.json, package-lock.json, pom.xml, go.mod, go.sum, Cargo.lock, setup.py, MANIFEST.in, Makefile, CMakeLists.txt, build.sbt, Gemfile]}
+    assign: {role: build, kind: build-definition}
+    grain: dir
+    basis: convention
+    confidence: high
+    evidence: "package manifests and make or build-tool definitions say how the component is built"
+    tuned_on: ["brief 0335c236 (the manifests themselves), name list is the builder's, not fitted"]
+  - id: F-build-docker
+    match: {name_regex: ["^Dockerfile", "\\.gradle(\\.kts)?$", "^gradlew(\\.bat)?$"]}
+    assign: {role: build, kind: build-definition}
+    grain: dir
+    basis: convention
+    confidence: high
+    evidence: "Dockerfile*, *.gradle and the Gradle wrapper scripts are build definitions"
+    tuned_on: ["brief 0335c236 (patterns), not fitted to a repository"]
+  - id: F-source-folder
+    match: {path_glob: ["src/**", "lib/**"]}
+    assign: {role: source, kind: source-file}
+    grain: dir
+    basis: convention
+    confidence: medium
+    evidence: "a file under the top-level src or lib folder is source"
+    tuned_on: ["brief 0335c236 (patterns), not fitted to a repository"]
+  - id: F-source-ext
+    match: {extension: [.py, .pyi, .js, .jsx, .mjs, .cjs, .ts, .tsx, .java, .kt, .scala, .go, .rs, .rb, .php, .c, .h, .cc, .cpp, .hpp, .cs, .swift, .sh, .sql], component_scope: within}
+    assign: {role: source, kind: source-file}
+    grain: dir
+    basis: convention
+    confidence: medium
+    evidence: "a file with a programming-language extension inside a component is source"
+    tuned_on: ["brief 0335c236 (patterns), not fitted to a repository"]
+  - id: F-other
+    match: {path_glob: "**"}
+    assign: {role: other, kind: not-recognized}
+    grain: dir
+    basis: convention
+    confidence: low
+    evidence: "no file-role pattern claims this file; it is classified as other and reported separately from unclassified"
+    tuned_on: ["brief 0335c236 (catch-all)"]
 structural_rules:
   # Not a name list: a SHAPE. Five or more manifest directories of the same kind that are direct siblings under one parent directory, inside a
   # manifest component, are a workspace-style layout (an npm or cargo workspace, a gradle multi-module build): the parent only aggregates them,

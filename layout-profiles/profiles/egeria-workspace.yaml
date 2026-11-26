@@ -1,7 +1,7 @@
 # egeria-workspace: the profile for a workspace that holds many repositories and their working copies (the egeria-v6 tree).
 # Its rules are those of generic-relevance, then worktree-copies LAST (an earlier extends entry is checked first).
 profile_id: egeria-workspace
-version: 0.1.0
+version: 0.2.0
 status: proposed
 applies_to: workspace-of-repos
 extends: [generic-relevance, worktree-copies]

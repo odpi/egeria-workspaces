@@ -12,3 +12,4 @@ Nothing here is copied from a repository: profiles are written from conventions,
   The two held-out answer keys (airbyte, egeria-docs) were not opened, and those repositories were not run.
 - M1: the three tune-set answer keys (trellis, datahub, superset; draft labels, unreviewed) were used only through the Phase 0 scorer, for the manifest-probe
   regression; none was copied or edited, and the scores are provisional until the keys are reviewed.
+- M5 (Phase 1b): no new answer key was used beyond the three tune-set keys (through the scorer, to confirm the component scores did not move). The egeria-v6 stratified sample (a 89-directory sheet) motivated the four hidden rules; it is spent. The held-out repositories of Phase 1b were not listed, opened or run.

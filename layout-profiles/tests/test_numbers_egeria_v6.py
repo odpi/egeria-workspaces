@@ -29,8 +29,11 @@ def test_class_counts_equal_the_phase0_census(tmp_path):
         "backups": n("R-backup-dir", "R-backup-file"),
         "heap_dumps": n("R-run-heap-dump"),
         "worktree_copy_residual": n("R-copy-worktree-name"),
-        "residual": c["by_role"]["unclassified"]["files"],
+        "residual": c["by_role"]["unclassified"]["files"] + n("R-wt-claude-worktree", "R-tool-idea", "R-run-volume-logs", "R-vend-nested-repo"),
     }
-    want = {k: v for k, v in CENSUS.items() if k != "source"}
-    assert got == want
+    want = {k: v for k, v in CENSUS.items() if k not in ("source", "m5_new_hidden_rules")}
+    assert got == want                      # the OLD rules' counts are exactly the census; the four M5 rules only split the old residual
     assert sum(v for k, v in got.items() if k != "total_files") == got["total_files"]      # every file is in exactly one class
+    m5 = CENSUS["m5_new_hidden_rules"]
+    assert {r: n(r) for r in m5 if r.startswith("R-")} == {r: v for r, v in m5.items() if r.startswith("R-")}
+    assert c["by_role"]["unclassified"]["files"] == m5["unclassified_after"]

@@ -45,14 +45,14 @@ def test_the_shipped_generic_profile_loads_and_is_ordered():
     ids = [r.id for r in p.rules]
     assert ids[0] == "R-vcs-git" and "R-copy-worktree-name" not in ids      # .git first; the worktree name pattern moved out in 0.2.0
     assert len(set(ids)) == len(ids)
-    assert p.status == "proposed" and p.version == "0.2.0"
+    assert p.status == "proposed" and p.version == "0.3.0"
     assert all(r.evidence and r.basis and r.confidence for r in p.rules)
 
 
 def test_the_workspace_profile_composes_generic_first_and_the_worktree_name_rule_last():
     p = load_profile("egeria-workspace", PROFILES)
     ids = [r.id for r in p.rules]
-    assert ids[0] == "R-vcs-git" and ids[-1] == "R-copy-worktree-name" and len(ids) == 10
+    assert ids[0] == "R-vcs-git" and ids[-1] == "R-copy-worktree-name" and len(ids) == 14
     assert [pid for pid, _ in p.composed_of] == ["egeria-workspace", "generic-relevance", "worktree-copies"]
     assert p.applies_to == "workspace-of-repos"
 
