@@ -29,8 +29,8 @@ except ImportError:                                                   # pragma: 
     tomllib = None
 
 # ---- the closed list --------------------------------------------------------------------------------------------------------------
-READERS = ("package-json", "pnpm-workspace", "lerna", "cargo", "uv", "go-work", "maven", "gradle", "mkdocs", "gitmodules")
-CODE_READERS = tuple(r for r in READERS if r not in ("mkdocs", "gitmodules"))
+READERS = ("package-json", "pnpm-workspace", "lerna", "cargo", "uv", "go-work", "maven", "gradle", "mkdocs", "gitmodules", "compose-services")
+CODE_READERS = tuple(r for r in READERS if r not in ("mkdocs", "gitmodules", "compose-services"))
 ALLOWED_FILES = {                                         # exact file name -> readers that may extract fields from it
     "package.json": ("package-json",), "pnpm-workspace.yaml": ("pnpm-workspace",), "lerna.json": ("lerna",), "Cargo.toml": ("cargo",),
     "pyproject.toml": ("uv",), "go.work": ("go-work",), "pom.xml": ("maven",), "settings.gradle": ("gradle",), "settings.gradle.kts": ("gradle",),
@@ -410,6 +410,7 @@ class ManifestReading:
     log: list = field(default_factory=list)                # every path actually opened, in order
     stats: ReadStats = field(default_factory=ReadStats)
     blobs: dict = field(default_factory=dict)              # manifest path -> blob sha
+    compose_dirs: set = field(default_factory=set)         # directories that hold a YAML file with a top-level `services` mapping (read by read_yaml_key)
 
 
 def read_manifests(candidates: list, source, readers, hidden, *, max_file_bytes=DEFAULT_MAX_FILE_BYTES, max_blobs=DEFAULT_MAX_BLOBS,
@@ -510,3 +511,36 @@ def resolve_members(decl: Decl, dirs: set, dir_files: dict) -> tuple[list, list]
             continue
         found.extend(h for h in hits if h != base and not any(x.match(h) for x in exclude_rx))
     return sorted(set(found)), sorted(set(unresolved))
+
+
+def read_yaml_key(candidates: list, source, hidden, key: str, *, out: "ManifestReading", max_file_bytes=DEFAULT_MAX_FILE_BYTES, max_blobs=DEFAULT_MAX_BLOBS,
+                  max_total_bytes=DEFAULT_MAX_TOTAL_BYTES) -> set:
+    """Read YAML files (path, size) and return the directories of those whose TOP-LEVEL `key` is a mapping (a compose file has `services:`). The same caps and the same
+    safe loader as every manifest; shallowest first, so the budget that is left after the manifests goes to the shallowest files; a file that does not parse (a Helm
+    template, a file with a tag) is skipped quietly. Every path opened is in the read log."""
+    found: set = set()
+    for path, size in sorted(candidates, key=lambda c: (c[0].count("/"), c[0])):
+        if hidden(path):
+            out.stats.skipped_hidden += 1
+            continue
+        if size > max_file_bytes:
+            out.stats.skipped_size += 1
+            continue
+        if out.stats.blobs_read >= max_blobs or out.stats.bytes_read >= max_total_bytes:
+            out.stats.cap_reached = out.stats.cap_reached or ("blobs" if out.stats.blobs_read >= max_blobs else "bytes")
+            out.stats.cap_skipped += 1
+            continue
+        out.log.append(path)
+        data, sha, note = source.read(path, max_file_bytes)
+        if data is None:
+            continue
+        out.stats.blobs_read += 1
+        out.stats.bytes_read += len(data)
+        try:
+            doc = parse_yaml(data)
+        except ManifestParseError:
+            continue
+        if isinstance(doc, dict) and isinstance(doc.get(key), dict) and doc[key]:
+            found.add(path.rpartition("/")[0])
+    out.compose_dirs |= found
+    return found

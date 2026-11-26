@@ -482,6 +482,32 @@ list only: relative to the config's directory, never above the repository root, 
 a chain resolves one step at a time (`c` -> `b` -> `a`: `c` is a translation of `b`, `b` of `a`). A non-string or empty `INHERIT` is ignored. Without a blob source nothing is known and every config stays a site.
 `tuned_on` is "fastapi (M8, spent)". Tune set and the mkdocs sample: unchanged (none of them has an INHERIT).
 
+## N6 (Phase 1c): the workspace-repo profile (`workspace-repo` 0.1.0; structural rules)
+
+For repositories whose parts are deployments, notebooks, templates and documents rather than packages. `workspace-repo` extends `code-repo-conventions` then `docs-site` (the code profile wins a conflict) and adds four STRUCTURAL rules
+(`structural_rules`, new ops), by file kinds and names, never by a repository's folder names (a test asserts none is named in them). They run after every other claim, so a manifest or convention claim always wins, and none
+claims a directory that is hidden, inside a claimed component (the repository root does not count) or, for (a) and (b), a fixture, sample or tooling path. A deployment found this way also has parts: the images and projects built inside it.
+
+- **(a) `S-compose-deployment`** (kind `deployment`): a directory holding a compose file by name (`compose.y?ml`, `docker-compose*.y?ml`, `*-compose.y?ml`) or a YAML file whose top-level `services` key is a mapping (new reader `compose-services`, the same
+  caps and safe loader as every manifest, shallowest first, after the manifests; Helm `templates/` folders and hidden subtrees are never opened; a file that does not parse is skipped quietly). The unit is the child of the nearest GROUPING folder (a non-root
+  folder with two or more children that hold deployments), otherwise the outermost compose directory on the way.
+- **(b) `S-notebooks`** (kind `notebooks`): the shallowest directory with three or more `.ipynb` files below it (hidden checkpoints do not count), or holding an Obsidian vault (`.obsidian/`).
+- **(c) `S-mostly-docs`** (kind `documentation`): a top-level directory of at least 3 files, at least 80% of them `.md` by count. **(d) `S-mostly-data`** (kind `sample-data`): the same with at least 80% `.csv`, `.json`, `.jsonl`, `.parquet` or `.yaml` and no code.
+  The minimum of three files is mine (a one-file folder would trivially qualify). New structural-rule keys: `kind`, `share`, `extensions`, `no_code`, `name_regex`, `yaml_key`.
+
+**Scored on the dogfood key of the workspaces repository itself (b0da1ad8; commit 6b040618, names and the compose YAML read from the git object database). These rules were tuned on it and the builder knows the repository: the score is a FIT, not a result.**
+
+| key | list | before (`code-repo-conventions,docs-site`) | `workspace-repo` |
+|---|---|---|---|
+| egeria-workspaces (24) | all components | 17/11/6/0, recall 0.46, precision 0.65 | 27/19/8/0, recall 0.79, precision 0.70 |
+| egeria-workspaces | top level | 17/11/6/0 | 23/19/4/0, precision 0.83 |
+| egeria-python (9), a regression check | all and top | 8/8/0/0, recall 0.89 | 9/9/0/0, recall 1.00 |
+
+(candidates / TP / labelled-FP / unlabelled.) Found by the new rules: the three compose-configs deployments (two directly, `optional-associated-runtimes` as the unit of its 13 deployments), `coco-workbooks` (an Obsidian vault), `workbooks` (notebooks),
+`exchange-quickstart` (3 notebooks; the key calls it an exchange area), `templates` and `design-docs` (mostly Markdown); in egeria-python `sample-data` (mostly Markdown, kind documentation where the key says sample data; the path matches). Still missed:
+`charts/tests` (a judgement test-suite), `coco-data` (it holds code, so it is not data), `design-patterns` (55% Markdown), `portal-docs` (70%), `exchange-freshstart` (two notebooks). The eight false positives: four Dockerfile images inside deployments (parts in the
+top-level list), three under `runtime-volumes` (hidden by the egeria-workspace profile's data rule, which this profile does not include: composed with it the all-components list is 24/19/5 and the top-level list 20/19/1) and `work`, three notebooks in a folder the key calls scratch.
+
 ## Decisions made so far (for review)
 
 1. `vendored` (installed packages) and `generated` (build output, tool caches) are separate roles; both are hidden. `.cache` is `generated`.
@@ -522,3 +548,5 @@ N3: the tune-set repositories and synthetic trees only; no held-out tree or key 
 N4: the mkdocs tutorial sample and the trellis tree only; no held-out tree or key was opened.
 
 N5: synthetic trees and the mkdocs tutorial sample; no held-out tree or key was opened.
+
+N6: the workspaces and egeria-python dogfood trees by git object database only (not held out); synthetic tests; no held-out tree or key was opened.

@@ -283,7 +283,141 @@ class Recognizer:
                 self._apply_docs_sections(mr, path_list, all_dirs)
         if self.p.manifest_reading is not None and self.p.manifest_reading.fallback_site_rule is not None:
             self._apply_generator_sites(self.p.manifest_reading, path_list, all_dirs, holders)
+        self._apply_structural_dirs(path_list, all_dirs)
         self.component_dirs = {d for d, r in self.claims.items() if r.grain == "component"}
+
+    # ---- structural claims by file kinds and names (N6) -------------------------------------------------------------------
+    def _structural_rule(self, sr: dict) -> Rule:
+        return Rule(id=sr["id"], match={}, role="component", relevance="primary", kind=sr["kind"], grain="component", basis=sr["basis"], confidence=sr["confidence"],
+                    evidence=sr["evidence"], origin="structural", tuned_on=tuple(sr.get("tuned_on", [])))
+
+    def _structural_blocked(self, d: str, exclusion: bool) -> bool:
+        """May `d` NOT be claimed by a structural rule? It is claimed already, hidden, inside a claimed component (the repository root does not count), or, for the
+        deployment and notebook rules, a fixture, sample or tooling path."""
+        if d in self.claims or self._dir_is_hidden(d):
+            return True
+        if exclusion and self._segment_exclusion(d) is not None:
+            return True
+        parts = d.split("/")
+        for i in range(1, len(parts)):
+            a = self.claims.get("/".join(parts[:i]))
+            if a is not None and a.grain == "component":
+                return True
+        return False
+
+    def _claim_structural(self, d: str, sr: dict, extra: dict) -> None:
+        self.claims[d] = self._structural_rule(sr)
+        self.extras.setdefault(d, {}).update({"structure_rule_id": sr["id"], "structure_op": sr["op"], "structure_basis": sr["basis"],
+                                              "structure_confidence": sr["confidence"], "structure_evidence": sr["evidence"], **extra})
+
+    def _apply_structural_dirs(self, path_list: Path, dirs: set) -> None:
+        """AFTER every other claim. Four structural rules by file KINDS and NAMES, never by a repository's folder names:
+        (a) a directory holding a compose file (by name, or a YAML file whose top-level `services` key is a mapping, read under the manifest caps) is a deployment;
+            the unit is the child of the nearest GROUPING folder (a folder with two or more children that hold deployments), else the outermost compose directory;
+        (b) the shallowest directory with at least `min` notebooks below it, or that holds an Obsidian vault (.obsidian/), is a notebooks component;
+        (c)/(d) a top-level directory of at least `min` files, at least `share` of them of the listed extensions (and, for data, holding no code), is a component of that kind."""
+        ops = [sr for sr in self.p.structural if sr["op"] != "sibling-manifests-top-level"]
+        if not ops:
+            return
+        compose_ops = [sr for sr in ops if sr["op"] == "compose-deployment"]
+        nb_ops = [sr for sr in ops if sr["op"] == "notebook-folder"]
+        ext_ops = [sr for sr in ops if sr["op"] == "mostly-extension-folder"]
+        compose_rx = [re.compile(x) for sr in compose_ops for x in sr.get("name_regex", [])]
+        want_ext = tuple(sorted({e for sr in ext_ops for e in sr["extensions"]}))
+        named_compose: set = set()
+        yaml_cands: list = []
+        chart_dirs: set = set()
+        ipynb: dict = {}
+        vaults: set = set()
+        top: dict = {}
+        hidden_cache: dict = {}
+
+        def dir_hidden(d):
+            if d not in hidden_cache:
+                hidden_cache[d] = self._dir_is_hidden(d)
+            return hidden_cache[d]
+
+        for path, size in read_rows(path_list):
+            cut = path.rfind("/")
+            d, name = (path[:cut], path[cut + 1:]) if cut >= 0 else ("", path)
+            if dir_hidden(d):
+                continue
+            first = path.split("/", 1)[0] if cut >= 0 else None
+            if name == "Chart.yaml":
+                chart_dirs.add(d)
+            if compose_rx and any(rx.search(name) for rx in compose_rx):
+                if not self._file_is_hidden(path):
+                    named_compose.add(d)
+            elif compose_ops and name.endswith((".yml", ".yaml")):
+                yaml_cands.append((path, size))
+            if nb_ops:
+                if name.endswith(".ipynb") and not self._file_is_hidden(path):
+                    parts = path.split("/")[:-1]
+                    for i in range(1, len(parts) + 1):
+                        ipynb["/".join(parts[:i])] = ipynb.get("/".join(parts[:i]), 0) + 1
+                if "/.obsidian/" in "/" + path:
+                    seg = path.split("/")
+                    vaults.add("/".join(seg[:seg.index(".obsidian")]))
+            if ext_ops and first is not None and first not in self.claims and not dir_hidden(first):
+                if self._file_is_hidden(path):
+                    continue
+                st = top.setdefault(first, {"files": 0, "ext": {}, "code": False})
+                st["files"] += 1
+                for e in want_ext:
+                    if name.endswith(e):
+                        st["ext"][e] = st["ext"].get(e, 0) + 1
+                        break
+                if name.endswith(SOURCE_EXTENSIONS):
+                    st["code"] = True
+
+        # (a) deployments
+        for sr in compose_ops:
+            mr = self.p.manifest_reading
+            found = set(named_compose)
+            key = sr.get("yaml_key")
+            if key and self.blob_source is not None and mr is not None and "compose-services" in mr.readers and self.reading is not None:
+                cands = [(p, sz) for p, sz in yaml_cands if p.rpartition("/")[0] not in found
+                         and not (p.rpartition("/")[0].rpartition("/")[2] == "templates" and p.rpartition("/")[0].rpartition("/")[0] in chart_dirs)]
+                found |= mf.read_yaml_key(cands, self.blob_source, self._file_is_hidden, key, out=self.reading, max_file_bytes=mr.max_file_bytes,
+                                          max_blobs=mr.max_blobs, max_total_bytes=mr.max_total_bytes)
+            cdirs = sorted(c for c in found if c and not self._structural_blocked(c, True))
+            kids: dict = {}
+            for c in cdirs:
+                parts = c.split("/")
+                for i in range(1, len(parts)):
+                    kids.setdefault("/".join(parts[:i]), set()).add(parts[i])
+            groups = {g for g, k in kids.items() if len(k) >= 2 and g not in found}
+            units: dict = {}
+            for c in cdirs:
+                parts = c.split("/")
+                unit = None
+                for i in range(1, len(parts)):                     # the shallowest grouping ancestor: the unit is its child on the way to c
+                    if "/".join(parts[:i]) in groups:
+                        unit = "/".join(parts[:i + 1])
+                        break
+                if unit is None:                                    # no grouping folder: the outermost compose directory on the way
+                    unit = next(("/".join(parts[:i]) for i in range(1, len(parts) + 1) if "/".join(parts[:i]) in found), c)
+                units.setdefault(unit, []).append(c)
+            for unit in sorted(units):
+                if not self._structural_blocked(unit, True):
+                    self._claim_structural(unit, sr, {"deployment_dirs": len(units[unit])})
+
+        # (b) notebooks
+        for sr in nb_ops:
+            cands = {d for d, n in ipynb.items() if n >= sr["min"]} | vaults
+            for d in sorted(cands, key=lambda x: (x.count("/"), x)):
+                if d and not self._structural_blocked(d, True):
+                    self._claim_structural(d, sr, {"notebooks": ipynb.get(d, 0), "vault": d in vaults})
+
+        # (c) and (d) top-level directories that are mostly one kind of file
+        for sr in ext_ops:
+            for t in sorted(top):
+                st = top[t]
+                n = sum(st["ext"].get(e, 0) for e in sr["extensions"])
+                if st["files"] < sr["min"] or n < sr["share"] * st["files"] or (sr.get("no_code") and st["code"]):
+                    continue
+                if not self._structural_blocked(t, False):
+                    self._claim_structural(t, sr, {"files_counted": st["files"], "share": round(n / st["files"], 3)})
 
     # ---- manifest reading (M6) --------------------------------------------------------------------------------------------
     def _under_hidden_root(self, d: str) -> bool:
@@ -733,7 +867,8 @@ class Recognizer:
         comp_dirs = sorted(d for d, r in self.claims.items() if r.grain == "component")
         comp_set = set(comp_dirs)
         # only a component that a MANIFEST declares can have parts: a convention folder (docker/, docs/) groups things, it does not contain them
-        part_parents = {d for d in comp_dirs if self.claims[d].basis == "manifest"}
+        # a deployment that a structural rule found (a compose directory) also has parts: the images and projects built inside it belong to it
+        part_parents = {d for d in comp_dirs if self.claims[d].basis == "manifest" or (self.claims[d].origin == "structural" and self.claims[d].kind == "deployment")}
         top_components, all_components = [], []
         parts_of: dict[str, str | None] = {}
         for d in comp_dirs:

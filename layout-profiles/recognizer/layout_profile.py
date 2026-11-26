@@ -40,7 +40,8 @@ MANIFEST_READING_KEYS = ("readers", "max_file_bytes", "max_blobs", "max_total_by
 MANIFEST_RULE_NAMES = ("member_rule", "aggregator_rule", "section_rule", "fallback_section_rule", "translation_rule")
 OPTIONAL_MANIFEST_RULES = ("translation_rule",)        # allowed with the mkdocs reader, never required
 MANIFEST_RULE_KEYS = ("id", "role", "kind", "basis", "confidence", "evidence")
-STRUCTURAL_OPS = ("sibling-manifests-top-level",)
+STRUCTURAL_OPS = ("sibling-manifests-top-level", "compose-deployment", "notebook-folder", "mostly-extension-folder")
+STRUCTURAL_OPTIONAL = ("tuned_on", "kind", "share", "extensions", "no_code", "name_regex", "yaml_key")
 STRUCTURAL_KEYS = ("id", "op", "min", "basis", "confidence", "evidence")
 SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
 SLUG = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
@@ -373,11 +374,41 @@ def _structural(where: str, items: Any) -> tuple:
     out = []
     for n, item in enumerate(items):
         w = f"{where} structural_rules[{n}]"
-        _check_keys(w, item, STRUCTURAL_KEYS + ("tuned_on",), STRUCTURAL_KEYS)
+        _check_keys(w, item, STRUCTURAL_KEYS + STRUCTURAL_OPTIONAL, STRUCTURAL_KEYS)
         if item["op"] not in STRUCTURAL_OPS:
             raise ProfileError(f"{w}: op {item['op']!r} is not one of {list(STRUCTURAL_OPS)}")
-        if not isinstance(item["min"], int) or isinstance(item["min"], bool) or item["min"] < 2:
-            raise ProfileError(f"{w}: min must be an integer of at least 2")
+        least = 2 if item["op"] == "sibling-manifests-top-level" else 1
+        if not isinstance(item["min"], int) or isinstance(item["min"], bool) or item["min"] < least:
+            raise ProfileError(f"{w}: min must be an integer of at least {least}")
+        if item["op"] != "sibling-manifests-top-level":                     # the ops that CLAIM a directory as a component say what kind it is
+            if not isinstance(item.get("kind"), str) or not item["kind"].strip():
+                raise ProfileError(f"{w}: op {item['op']!r} needs a kind")
+        elif "kind" in item:
+            raise ProfileError(f"{w}: op 'sibling-manifests-top-level' takes no kind")
+        if item["op"] == "mostly-extension-folder":
+            exts = item.get("extensions")
+            share = item.get("share")
+            if not isinstance(exts, list) or not exts or not all(isinstance(x, str) and x.startswith(".") for x in exts):
+                raise ProfileError(f"{w}: op 'mostly-extension-folder' needs extensions, a list of endings like '.md'")
+            if not isinstance(share, (int, float)) or isinstance(share, bool) or not 0.5 <= share <= 1:
+                raise ProfileError(f"{w}: share must be a number from 0.5 to 1")
+        elif "extensions" in item or "share" in item or "no_code" in item:
+            raise ProfileError(f"{w}: extensions, share and no_code belong to op 'mostly-extension-folder'")
+        if "no_code" in item and item["no_code"] is not True:
+            raise ProfileError(f"{w}: no_code must be true")
+        if item["op"] == "compose-deployment":
+            rx = item.get("name_regex", [])
+            if not isinstance(rx, list) or not all(isinstance(x, str) and x for x in rx):
+                raise ProfileError(f"{w}: name_regex must be a list of regexes")
+            for x in rx:
+                try:
+                    re.compile(x)
+                except re.error as exc:
+                    raise ProfileError(f"{w}: bad name_regex {x!r}: {exc}") from exc
+            if "yaml_key" in item and (not isinstance(item["yaml_key"], str) or not item["yaml_key"]):
+                raise ProfileError(f"{w}: yaml_key must be a key name")
+        elif "name_regex" in item or "yaml_key" in item:
+            raise ProfileError(f"{w}: name_regex and yaml_key belong to op 'compose-deployment'")
         for key, allowed in (("basis", BASES), ("confidence", CONFIDENCES)):
             if item[key] not in allowed:
                 raise ProfileError(f"{w}: {key} {item[key]!r} is not one of {list(allowed)}")
