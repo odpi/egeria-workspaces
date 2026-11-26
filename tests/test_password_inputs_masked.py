@@ -95,3 +95,46 @@ def test_only_known_type_toggle():
         if re.search(r"['\"]password['\"]\s*\?\s*['\"]text['\"]\s*:\s*['\"]password['\"]", text):
             toggles.append(p.relative_to(ROOT).as_posix())
     assert set(toggles) <= {"compose-configs/egeria-freshstart/PyegeriaWebHandler/demo-admin.html"}, toggles
+
+
+# ── No served page writes a password into browser storage ────────────────────────────────────────────
+STORAGE_WRITE = re.compile(r"(?:localStorage|sessionStorage)\s*\.\s*setItem\s*\(")
+STORED_OBJECT = re.compile(r"JSON\.stringify\(\s*([A-Za-z_$][\w$.]*)\s*\)")
+
+
+def _call_args(text: str, start: int) -> str:
+    depth, i = 1, start
+    while i < len(text) and depth:
+        depth += {"(": 1, ")": -1}.get(text[i], 0)
+        i += 1
+    return text[start:i - 1]
+
+
+def test_no_page_writes_a_password_into_browser_storage():
+    """Fails on a storage write whose value names a password, or that stores a whole credentials object
+    (JSON.stringify(creds) and the like, which would carry its password field along)."""
+    bad = []
+    for p in _sources():
+        text = p.read_text(encoding="utf-8", errors="replace")
+        rel = p.relative_to(ROOT).as_posix()
+        for m in STORAGE_WRITE.finditer(text):
+            args = _call_args(text, m.end())
+            line = text[:m.start()].count("\n") + 1
+            if PASSWORDISH.search(args):
+                bad.append(f"{rel}:{line}")
+                continue
+            obj = STORED_OBJECT.search(args)
+            if obj and re.search(r"(?i)cred|form|login|auth", obj.group(1)):
+                bad.append(f"{rel}:{line} (stores {obj.group(1)} whole)")
+    assert not bad, f"browser-storage writes that may carry a password: {bad}"
+
+
+def test_explorer_stores_only_url_server_and_user_id():
+    for tree in ("egeria-quickstart", "egeria-freshstart"):
+        text = (ROOT / f"compose-configs/{tree}/PyegeriaWebHandler/type-explorer.html").read_text(encoding="utf-8")
+        writes = [_call_args(text, m.end()) for m in STORAGE_WRITE.finditer(text) if "egeria-creds" in
+                  _call_args(text, m.end())]
+        assert writes, tree
+        for w in writes:
+            keys = set(re.findall(r"(\w+)\s*:", w))
+            assert keys == {"url", "server", "userId"}, (tree, w)
