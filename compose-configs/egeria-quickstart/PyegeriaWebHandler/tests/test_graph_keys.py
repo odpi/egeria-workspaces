@@ -82,7 +82,7 @@ def test_the_governance_definition_detail_carries_action_and_activity_graphs():
 # A truncated edit once dropped seven routes and every test passed: pin the route count of every handler this
 # change touched (counts taken before the change).
 @pytest.mark.parametrize("module,routes", [
-    ("isc_handler", 2), ("solution_architect_handler", 10), ("data_design_handler", 10),
+    ("isc_handler", 2), ("solution_architect_handler", 15), ("data_design_handler", 10),
     ("business_capability_handler", 2), ("mermaid_handler", 2), ("tech_catalog_handler", 28),
     ("digital_products_handler", 6), ("governance_definitions_handler", 4),
 ])
