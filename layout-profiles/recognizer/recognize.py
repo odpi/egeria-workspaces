@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -35,6 +36,16 @@ except ImportError:                                   # run as a script
     import manifests as mf  # type: ignore
 
 UNCLASSIFIED = "unclassified"
+SOURCE_EXTENSIONS = (".py", ".pyi", ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".java", ".kt", ".scala", ".go", ".rs", ".rb", ".php", ".c", ".h", ".cc", ".cpp",
+                     ".hpp", ".cs", ".swift", ".sh", ".sql")                    # a file with one of these endings is source-like (the no_source_files test)
+_TOKEN = re.compile(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+|[0-9]+")
+
+
+def name_tokens(name: str) -> set:
+    """The whole words of a directory name, lower-case: split at punctuation and at case changes (`EgeriaRootCA` -> egeria, root, ca; `pki-certs` -> pki, certs)."""
+    return {t.lower() for t in _TOKEN.findall(name)}
+
+
 DOC_SKIP_NAMES = frozenset({"assets", "js", "css", "img", "images", "overrides", "snippets", "includes"})   # never a documentation section on their own
 DEFAULT_PROFILES = Path(__file__).resolve().parent.parent / "profiles"
 
@@ -96,6 +107,11 @@ class Recognizer:
         self.aggregators: dict = {}                   # directory -> the Decl that makes it an aggregator (not a component)
         self.extras: dict = {}                        # directory -> extra finding fields (content evidence, notes)
         self.hidden_roots: list = []
+        self.hidden_root_set: set = set()
+        self._src_dirs: set = set()                   # candidate-named directories that have a source-like file below them (for no_source_files rules)
+        self._gm_index: dict = {}                     # directory -> (path, size) of its .gitmodules
+        self._gm_cache: dict = {}                     # directory -> the set of directories its .gitmodules declares as submodules
+        self.submodules_exempt: list = []             # (outer, path) pairs the nested-repository rule did NOT claim because .gitmodules declares them
         self.file_components: dict = {}               # path of a FILE that is a component (a doc section that is one page) -> (rule, site directory, extra fields)
         self.docs_stats = {"sites_read": 0, "sections": 0, "unresolved": 0, "fallback_sections": 0, "landing_pages": 0, "merged": 0}
         self.file_rules = [r for r in profile.rules if not r.is_dir_rule]
@@ -106,6 +122,10 @@ class Recognizer:
             self.needed_names |= r.has_files | r.parent_has_files | r.has_entries | r.ancestor_entries
             self.needed_dir_entries |= r.has_entries | r.ancestor_entries
         self.hidden_dir_rules = [r for r in self.dir_rules if r.grain == "subtree" and r.relevance == "hidden"]
+        self.nosource_names = set()
+        for r in self.dir_rules:
+            if r.no_source:
+                self.nosource_names |= r.names
         self.component_dirs: set = set()             # directories a component rule claims (filled by index_directories); '' is the root
         # hidden subtree rules that depend on the path alone (a rule that also tests a file name cannot say a DIRECTORY is hidden)
         self.hidden_subtrees = [r for r in self.file_rules if r.grain == "subtree" and r.relevance == "hidden"
@@ -127,13 +147,20 @@ class Recognizer:
         return False
 
     # ---- directory rules (has_file / parent_has_file) -------------------------------------------------------------------
-    def _dir_rule_matches(self, r: Rule, d: str, own: set, par: set, anc: list, holders: dict, segs: list, name: str) -> bool:
+    def _dir_rule_matches(self, r: Rule, d: str, own: set, par: set, anc: list, holders: dict, segs: list, name: str, subdirs: dict | None = None) -> bool:
+        subdirs = subdirs if subdirs is not None else {}
         if r.has_files and not (r.has_files & own):
             return False
-        if r.has_entries and not (r.has_entries & own):
+        if r.has_entries and not (r.has_entries & (own | subdirs.get(d, set()))):
             return False
-        if r.ancestor_entries and not any(r.ancestor_entries & holders.get(a, set()) for a in anc):
+        if r.ancestor_entries and not any(r.ancestor_entries & (holders.get(a, set()) | subdirs.get(a, set())) for a in anc):
             return False
+        if r.no_source and d in self._src_dirs:
+            return False
+        if r.parent_tokens:
+            parent_name = segs[-2] if len(segs) >= 2 else ""
+            if not (r.parent_tokens & name_tokens(parent_name)):
+                return False
         if r.parent_has_files and not (r.parent_has_files & par):
             return False
         if r.segments and not any(s in r.segments for s in segs):
@@ -150,12 +177,15 @@ class Recognizer:
         if not self.dir_rules:
             return
         holders: dict[str, set] = {}
+        subdirs: dict[str, set] = {}                              # directory -> names of SUB-DIRECTORIES that a rule asked about (has_entry)
         all_dirs: set = set()
         need_all = any(not (r.has_files or r.has_entries) for r in self.dir_rules)   # a rule that does not start from an entry must see every directory
         mr = self.p.manifest_reading if self.blob_source is not None else None
         mr_any = self.p.manifest_reading
         collect_dirs = need_all or mr is not None or (mr_any is not None and mr_any.fallback_site_rule is not None)
         candidates_m: list = []                                  # (path, size) of files whose NAME is on the closed list of manifests
+        if mr is not None:
+            self.reading = mf.ManifestReading()
         for path, size in read_rows(path_list):
             cut = path.rfind("/")
             d, name = (path[:cut], path[cut + 1:]) if cut >= 0 else ("", path)
@@ -165,14 +195,21 @@ class Recognizer:
                 segs = path.split("/")
                 for i in range(len(segs) - 1):
                     if segs[i] in self.needed_dir_entries:
-                        holders.setdefault("/".join(segs[:i]), set()).add(segs[i])
+                        subdirs.setdefault("/".join(segs[:i]), set()).add(segs[i])
+            if self.nosource_names and path.endswith(SOURCE_EXTENSIONS):
+                segs = path.split("/")
+                for i in range(len(segs) - 1):
+                    if segs[i] in self.nosource_names:
+                        self._src_dirs.add("/".join(segs[:i + 1]))
             if mr is not None and name in mf.ALLOWED_FILES:
                 candidates_m.append((path, size))
+                if name == ".gitmodules":
+                    self._gm_index[d] = (path, size)
             if collect_dirs:
                 while d and d not in all_dirs:
                     all_dirs.add(d)
                     d = d[:d.rfind("/")] if "/" in d else ""
-        candidates = set(holders) | all_dirs if need_all else set(holders)
+        candidates = set(holders) | set(subdirs) | all_dirs if need_all else set(holders) | set(subdirs)
         order = sorted(candidates)
 
         def context(d):
@@ -184,14 +221,17 @@ class Recognizer:
         # pass 1: a directory that a HIDDEN subtree dir rule claims (a nested repository) is vendored, whatever manifest it holds: vendored wins
         hidden_roots: list = []
         for d in order:
-            if self.inside_hidden_subtree(d) or any(d == h or d.startswith(h + "/") for h in hidden_roots):
+            if self.inside_hidden_subtree(d) or self._under_hidden_root(d):
                 continue
             own, par, anc, segs, name = context(d)
             for r in self.hidden_dir_rules:
-                if self._dir_rule_matches(r, d, own, par, anc, holders, segs, name):
+                if self._dir_rule_matches(r, d, own, par, anc, holders, segs, name, subdirs):
+                    if mr is not None and r.id == mr.submodule_rule and self._declared_submodule(d, mr):
+                        continue                               # the outer repository's .gitmodules declares it: part of the outer repository, not vendored
                     self.claims[d] = r
                     self.subtree_claims.setdefault(r.id, set()).add(d)
                     hidden_roots.append(d)
+                    self.hidden_root_set.add(d)
                     break
         self.hidden_roots = hidden_roots
         if mr is not None:
@@ -200,11 +240,11 @@ class Recognizer:
                 self._apply_docs_dirs(mr, all_dirs)
         # pass 2: every other directory rule
         for d in order:
-            if self.inside_hidden_subtree(d) or any(d == h or d.startswith(h + "/") for h in hidden_roots):
+            if self.inside_hidden_subtree(d) or self._under_hidden_root(d):
                 continue                                       # vendored (or any hidden subtree) wins over a manifest inside it
             own, par, anc, segs, name = context(d)
             for r in self.dir_rules:
-                if r in self.hidden_dir_rules or not self._dir_rule_matches(r, d, own, par, anc, holders, segs, name):
+                if r in self.hidden_dir_rules or not self._dir_rule_matches(r, d, own, par, anc, holders, segs, name, subdirs):
                     continue
                 self.claims[d] = r
                 if r.grain == "subtree":
@@ -222,15 +262,46 @@ class Recognizer:
         self.component_dirs = {d for d, r in self.claims.items() if r.grain == "component"}
 
     # ---- manifest reading (M6) --------------------------------------------------------------------------------------------
+    def _under_hidden_root(self, d: str) -> bool:
+        """Is `d` a hidden-subtree root that a directory rule claimed, or inside one? (a walk up the prefixes against a set: no scan of the roots)"""
+        if not self.hidden_root_set:
+            return False
+        while d:
+            if d in self.hidden_root_set:
+                return True
+            d = d[:d.rfind("/")] if "/" in d else ""
+        return False
+
     def _dir_is_hidden(self, d: str) -> bool:
-        return self.inside_hidden_subtree(d) or any(d == h or d.startswith(h + "/") for h in self.hidden_roots)
+        return self.inside_hidden_subtree(d) or self._under_hidden_root(d)
+
+    def _file_is_hidden(self, path: str) -> bool:
+        rule, _, _ = self.classify(path)
+        return rule is not None and rule.relevance == "hidden"
+
+    def _declared_submodule(self, d: str, mr) -> bool:
+        """Does the .gitmodules of an enclosing, visible repository declare `d` as a submodule? Only the `path` entries are read (never the url), and only
+        where a blob source is given; the file is read at most once per directory and counts against the caps."""
+        parts = d.split("/")
+        for i in range(len(parts)):                              # proper ancestors, shallowest first: '' (the root), a, a/b ...
+            a = "/".join(parts[:i])
+            if a not in self._gm_index or self._dir_is_hidden(a):
+                continue
+            if a not in self._gm_cache:
+                path, size = self._gm_index[a]
+                before = len(self.reading.log)
+                mf.read_manifests([(path, size)], self.blob_source, {"gitmodules"}, self._file_is_hidden, max_file_bytes=mr.max_file_bytes,
+                                  max_blobs=mr.max_blobs, max_total_bytes=mr.max_total_bytes, out=self.reading)
+                decls = self.reading.decls.get(path, [])
+                self._gm_cache[a] = {self._join(a, rel) for dec in decls for m in dec.members for rel in [self._safe_rel(m)] if rel not in (None, ".")}
+            if d in self._gm_cache[a]:
+                self.submodules_exempt.append((a or ".", d))
+                return True
+        return False
 
     def _read_manifests(self, mr, candidates: list) -> None:
-        def hidden(path: str) -> bool:
-            rule, _, _ = self.classify(path)
-            return rule is not None and rule.relevance == "hidden"
-        self.reading = mf.read_manifests(candidates, self.blob_source, set(mr.readers), hidden, max_file_bytes=mr.max_file_bytes,
-                                         max_blobs=mr.max_blobs, max_total_bytes=mr.max_total_bytes)
+        self.reading = mf.read_manifests(candidates, self.blob_source, set(mr.readers) - {"gitmodules"}, self._file_is_hidden, max_file_bytes=mr.max_file_bytes,
+                                         max_blobs=mr.max_blobs, max_total_bytes=mr.max_total_bytes, out=self.reading)
 
     @staticmethod
     def _safe_rel(p):
@@ -275,6 +346,7 @@ class Recognizer:
                     self.subtree_claims.setdefault(r.id, set()).add(d)
                     if r.relevance == "hidden":
                         self.hidden_roots.append(d)
+                        self.hidden_root_set.add(d)
 
     def _apply_docs_sections(self, mr, path_list: Path, dirs: set) -> None:
         """AFTER the component claims. Each top-level nav entry of a read mkdocs.yml is a `doc-section` component, a part of its site. SECTION IDENTITY:
@@ -418,6 +490,8 @@ class Recognizer:
         ladder = {"high": "medium", "medium": "low", "low": "low"}
         for path in sorted(rd.decls):
             for decl in rd.decls[path]:
+                if decl.reader not in mf.CODE_READERS:
+                    continue                                       # mkdocs and gitmodules declarations are not workspace members
                 members, unresolved = mf.resolve_members(decl, dirs, dir_files)
                 members = [m for m in members if not self._dir_is_hidden(m)]
                 d = decl.directory

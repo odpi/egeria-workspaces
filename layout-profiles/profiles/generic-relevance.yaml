@@ -3,10 +3,13 @@
 # It names no component: that is the code-repo profile's job (M1). Everything these rules do not claim stays 'unclassified', which is a result.
 # 0.3.0 adds four HIDDEN rules at the END (so no earlier rule's count can move): .claude/worktrees copies, .idea, logs under runtime-volumes,
 # and a repository nested inside another repository. All four were found by the egeria-v6 stratified check (42 of 50 unclassified directories were junk).
+# 0.4.0 (Dan's review, 2026-11-26): the build-output rule now needs corroboration to HIDE (a build manifest beside it, or no source-code file inside it); the name
+# alone is a shown, low-confidence finding. Log and backup files are hidden as FILES only. A submodule that the outer .gitmodules declares is not a nested
+# repository. Added: .ipynb_checkpoints, exchange-*/distribution-hub, and `private` folders inside certificate folders (role secret, by name only).
 # The rules are ordered and the FIRST match wins. The order is the census's: .git, then installed/build directories, then file-name
 # classes (events, dumps, logs, backups). The worktree-copy name pattern now lives in its own profile (worktree-copies, 0.1.0).
 profile_id: generic-relevance
-version: 0.3.0
+version: 0.4.0
 status: proposed
 applies_to: any
 roles: [component, source, test, docs, config, generated, vendored, scratch, archive, audit,
@@ -31,12 +34,29 @@ rules:
     confidence: high
     evidence: "package-manager install, virtual-environment and dependency-cache directories hold other projects' code, restored from a manifest"
   - id: R-gen-build-output
-    match: {path_segment: [target, build, dist, .next]}
+    match: {name: [target, build, dist, .next], parent_has_file: [package.json, pom.xml, build.gradle, build.gradle.kts, settings.gradle, settings.gradle.kts, Cargo.toml, pyproject.toml, setup.py, setup.cfg, go.mod, CMakeLists.txt, Makefile, build.sbt, Gemfile, composer.json, Package.swift, tsconfig.json]}
     assign: {role: generated, kind: build-output}
     grain: subtree
     basis: convention
     confidence: medium
-    evidence: "target, build, dist and .next are the usual names of build-tool output; a source folder that happens to be called build would be misread"
+    evidence: "target, build, dist and .next are the usual names of build-tool output, and the directory beside them holds a build manifest that says there is something to build"
+    tuned_on: ["Dan's review 2026-11-26"]
+  - id: R-gen-build-output-no-source
+    match: {name: [target, build, dist, .next], no_source_files: true}
+    assign: {role: generated, kind: build-output}
+    grain: subtree
+    basis: convention
+    confidence: medium
+    evidence: "a directory named target, build, dist or .next with no source-code file anywhere below it holds build output; with no manifest beside it this is the only corroboration"
+    tuned_on: ["Dan's review 2026-11-26"]
+  - id: R-gen-build-output-unconfirmed
+    match: {name: [target, build, dist, .next]}
+    assign: {role: generated, relevance: supporting, kind: build-output-unconfirmed}
+    grain: subtree
+    basis: convention
+    confidence: low
+    evidence: "the name alone (target, build, dist, .next) is not enough to hide a folder: no build manifest beside it and source-code files inside it, so it may be a source folder; it is shown, with low confidence"
+    tuned_on: ["Dan's review 2026-11-26"]
   - id: R-gen-tool-cache
     match: {path_segment: [__pycache__, .pytest_cache, .mypy_cache, .ruff_cache, .cache]}
     assign: {role: generated, kind: tool-cache}
@@ -64,7 +84,8 @@ rules:
     grain: dir
     basis: convention
     confidence: medium
-    evidence: "a .log file is runtime output; a checked-in sample log would be misread"
+    evidence: "a .log file is runtime output; a checked-in sample log would be misread. Only the matching FILES are hidden: one stray .log never hides its folder"
+    tuned_on: ["Dan's review 2026-11-26"]
   - id: R-backup-dir
     match: {path_segment: db-backups}
     assign: {role: backup, kind: database-backup}
@@ -78,7 +99,32 @@ rules:
     grain: dir
     basis: convention
     confidence: medium
-    evidence: ".bak, .sql.gz and .dump are backup and dump file endings"
+    evidence: ".bak, .sql.gz and .dump are backup and dump file endings. Only the matching FILES are hidden: one stray .bak never hides its folder"
+    tuned_on: ["Dan's review 2026-11-26"]
+  - id: R-gen-ipynb-checkpoints
+    match: {path_segment: .ipynb_checkpoints}
+    assign: {role: generated, kind: notebook-checkpoints}
+    grain: subtree
+    basis: convention
+    confidence: high
+    evidence: ".ipynb_checkpoints holds the autosaved copies that Jupyter keeps beside a notebook"
+    tuned_on: ["egeria-v6 re-check sample (be675143)"]
+  - id: R-gen-distribution-hub
+    match: {path_glob: ["exchange-*/distribution-hub/**", "**/exchange-*/distribution-hub/**"]}
+    assign: {role: generated, kind: distribution-hub-output}
+    grain: subtree
+    basis: convention
+    confidence: medium
+    evidence: "the distribution-hub folder of an exchange-* folder holds what a running exchange publishes, not source"
+    tuned_on: ["egeria-v6 re-check sample (be675143)"]
+  - id: R-secret-private-in-cert-dir
+    match: {name: private, parent_name_token: [cert, certificate, ca, pki]}
+    assign: {role: secret, kind: private-key-folder}
+    grain: subtree
+    basis: convention
+    confidence: medium
+    evidence: "a folder named private inside a folder whose name has the whole word cert, certificate, ca or pki (any case; EgeriaRootCA is egeria, root, ca) holds private keys; recognized by name only, its files are never read"
+    tuned_on: ["egeria-v6 re-check sample (be675143)"]
   - id: R-wt-claude-worktree
     match: {path_glob: [".claude/worktrees/*/**", "**/.claude/worktrees/*/**"]}
     assign: {role: worktree-copy, kind: claude-worktree}
@@ -109,7 +155,10 @@ rules:
     grain: subtree
     basis: convention
     confidence: medium
-    evidence: "a directory that holds its own .git (a folder or a worktree file) inside another repository, the scanned root included, is a vendored or copied repository, not part of the outer one; a repository that sits directly under a workspace root that is not itself a repository is not nested"
+    evidence: "a directory that holds its own .git (a folder or a worktree file) inside another repository, the scanned root included, is a vendored or copied repository, not part of the outer one; a repository that sits directly under a workspace root that is not itself a repository is not nested; a directory the outer repository's .gitmodules declares as a submodule is part of the outer repository and is not claimed"
     tuned_on: ["egeria-v6 stratified sample (6994dff1)"]
+manifest_reading:
+  readers: [gitmodules]
+  submodule_rule: R-vend-nested-repo          # a directory the outer repository's .gitmodules declares (path entries only, never the url) is not claimed by this rule
 path_grammar: []
 name_grammar: []

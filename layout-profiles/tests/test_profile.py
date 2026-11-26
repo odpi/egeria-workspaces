@@ -45,14 +45,14 @@ def test_the_shipped_generic_profile_loads_and_is_ordered():
     ids = [r.id for r in p.rules]
     assert ids[0] == "R-vcs-git" and "R-copy-worktree-name" not in ids      # .git first; the worktree name pattern moved out in 0.2.0
     assert len(set(ids)) == len(ids)
-    assert p.status == "proposed" and p.version == "0.3.0"
+    assert p.status == "proposed" and p.version == "0.4.0"
     assert all(r.evidence and r.basis and r.confidence for r in p.rules)
 
 
 def test_the_workspace_profile_composes_generic_first_and_the_worktree_name_rule_last():
     p = load_profile("egeria-workspace", PROFILES)
     ids = [r.id for r in p.rules]
-    assert ids[0] == "R-vcs-git" and ids[-1] == "R-copy-worktree-name" and len(ids) == 14
+    assert ids[0] == "R-vcs-git" and ids[-1] == "R-copy-worktree-name-only" and len(ids) == 20
     assert [pid for pid, _ in p.composed_of] == ["egeria-workspace", "generic-relevance", "worktree-copies"]
     assert p.applies_to == "workspace-of-repos"
 
@@ -91,7 +91,6 @@ def test_document_level_errors(bad):
     {"grain": "forest"}, {"basis": "vibes"}, {"confidence": "certain"},
     {"evidence": ""}, {"evidence": "   "},                                   # a claim without evidence
     {"id": "has space"},
-    {"match": {"path_glob": "wt-*/x"}, "grain": "subtree"},                  # a subtree glob must end with /**
     {"match": {"extension": ".log"}, "grain": "subtree"},                    # a subtree needs somewhere to start
     {"match": {"extension": ".log"}, "grain": "component"},                  # a component is a directory claim
     {"match": {"has_file": "x"}, "assign": {"role": "vendored"}, "grain": "component"},   # a component must assign role component

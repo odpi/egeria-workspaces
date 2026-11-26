@@ -319,7 +319,7 @@ def test_the_shipped_profiles_enable_manifest_reading_with_the_note_s_caps():
     m = p.manifest_reading
     assert p.version == "0.3.0" and load_profile("code-repo", PROFILES).version == "0.2.0"
     assert (m.max_file_bytes, m.max_blobs, m.max_total_bytes) == (256 * 1024, 5000, 64 * 1024 * 1024)
-    assert set(m.readers) == set(mf.CODE_READERS) and m.member_rule.basis == "manifest-content" and m.aggregator_rule.role == "other"
+    assert set(m.readers) == set(mf.CODE_READERS) | {"gitmodules"} and m.member_rule.basis == "manifest-content" and m.aggregator_rule.role == "other"
     assert not set(mf.ALLOWED_FILES) & {"package-lock.json", "yarn.lock", "pnpm-lock.yaml", "Cargo.lock", "poetry.lock", "uv.lock", "go.sum", ".env", "CODEOWNERS"}
     assert all(r.evidence and r.tuned_on for r in (m.member_rule, m.aggregator_rule))
 

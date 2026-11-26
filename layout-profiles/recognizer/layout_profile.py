@@ -27,8 +27,8 @@ GRAINS = ("subtree", "dir", "component")
 BASES = ("manifest", "manifest-content", "convention", "judgement")
 CONFIDENCES = ("high", "medium", "low")
 MATCH_KEYS = ("path_glob", "path_segment", "name", "name_regex", "extension", "has_file", "parent_has_file", "has_entry", "ancestor_has_entry",
-              "component_scope")
-DIR_ONLY_KEYS = ("has_file", "parent_has_file", "has_entry", "ancestor_has_entry")   # evaluated against a directory, not a file
+              "component_scope", "no_source_files", "parent_name_token")
+DIR_ONLY_KEYS = ("has_file", "parent_has_file", "has_entry", "ancestor_has_entry", "no_source_files", "parent_name_token")   # evaluated against a directory, not a file
 COMPONENT_SCOPES = ("within", "root")                  # file rules only: under some component / directly in a component's directory
 FILE_ONLY_KEYS = ("extension",)                        # meaningful only for a file name
 ASSIGN_KEYS = ("role", "relevance", "kind")
@@ -36,7 +36,7 @@ TOP_KEYS = ("profile_id", "version", "status", "applies_to", "extends", "roles",
 RULE_KEYS = ("id", "match", "assign", "grain", "basis", "confidence", "evidence")
 RULE_OPTIONAL_KEYS = ("tuned_on",)       # which repositories motivated the rule, so a reviewer can ablate it (a one-repository rule is suspect)
 MANIFEST_READING_KEYS = ("readers", "max_file_bytes", "max_blobs", "max_total_bytes", "member_rule", "aggregator_rule", "section_rule", "fallback_section_rule",
-                         "docs_content_rule", "site_output_rule", "fallback_site_rule")
+                         "docs_content_rule", "site_output_rule", "fallback_site_rule", "submodule_rule")
 MANIFEST_RULE_NAMES = ("member_rule", "aggregator_rule", "section_rule", "fallback_section_rule")
 MANIFEST_RULE_KEYS = ("id", "role", "kind", "basis", "confidence", "evidence")
 STRUCTURAL_OPS = ("sibling-manifests-top-level",)
@@ -104,13 +104,17 @@ class Rule:
     parent_has_files: frozenset = frozenset()
     has_entries: frozenset = frozenset()         # a FILE or a sub-DIRECTORY of this name sits directly in the directory (.git is either)
     ancestor_entries: frozenset = frozenset()    # some proper ancestor directory (the scanned root included) has such an entry
+    no_source: bool = False                      # directory rules: no file anywhere below the directory has a source-code extension
+    parent_tokens: frozenset = frozenset()       # directory rules: one of these is a whole word of the PARENT directory's name (split at punctuation and case changes)
+    named_dir: bool = False                      # a subtree rule that names the directory (`name`) rather than a path: it is a directory rule
     scope: str = ""                              # file rules: '' | 'within' (under a component) | 'root' (directly in a component's directory)
 
     @property
     def is_dir_rule(self) -> bool:
         """A rule is evaluated against DIRECTORIES when it tests a directory's files (has_file / parent_has_file / has_entry /
         ancestor_has_entry) or claims a component: its path_glob / path_segment / name / name_regex then apply to the directory itself."""
-        return bool(self.has_files or self.parent_has_files or self.has_entries or self.ancestor_entries) or self.grain == "component"
+        return bool(self.has_files or self.parent_has_files or self.has_entries or self.ancestor_entries or self.no_source or self.parent_tokens) \
+            or self.grain == "component" or self.named_dir
 
 
 @dataclass(frozen=True)
@@ -128,6 +132,7 @@ class ManifestReading:
     fallback_section_rule: Rule | None = None    # mkdocs: a top-level folder of the docs folder that holds pages, where there is no nav (low confidence)
     docs_content_rule: str | None = None         # id of the profile's rule that claims the docs folder (applied where mkdocs.yml names another docs_dir)
     site_output_rule: str | None = None          # id of the profile's rule that hides the built site (applied where mkdocs.yml names another site_dir)
+    submodule_rule: str | None = None            # id of the profile's nested-repository rule: a directory the outer repository's .gitmodules declares is NOT claimed by it
     fallback_site_rule: str | None = None        # id of the profile's rule that recognizes a site by its generator's config FILE NAME (never read): the fallback sections apply there
 
 
@@ -199,7 +204,10 @@ def _compile_rule(where: str, raw: dict, roles: tuple, rel_map: dict, origin: st
 
     dir_keys = [k for k in DIR_ONLY_KEYS if k in match]
     file_keys = [k for k in FILE_ONLY_KEYS if k in match]
-    dir_rule = bool(dir_keys) or raw["grain"] == "component"
+    # a subtree rule that names a DIRECTORY (by `name`, or by a path_glob that does not end in /**) is a directory rule: it claims that directory and everything below it
+    named_dir = raw["grain"] == "subtree" and "path_segment" not in match and (
+        ("name" in match and "path_glob" not in match) or ("path_glob" in match and not any(str(g).endswith("/**") for g in _as_list(match["path_glob"]))))
+    dir_rule = bool(dir_keys) or raw["grain"] == "component" or named_dir
     scope = match.get("component_scope", "")
     if scope and scope not in COMPONENT_SCOPES:
         raise ProfileError(f"{where}: component_scope {scope!r} is not one of {list(COMPONENT_SCOPES)}")
@@ -207,7 +215,9 @@ def _compile_rule(where: str, raw: dict, roles: tuple, rel_map: dict, origin: st
         raise ProfileError(f"{where}: component_scope applies to a FILE rule; this rule tests a directory")
     if dir_rule and file_keys:
         raise ProfileError(f"{where}: a directory rule ({dir_keys or 'grain component'}) cannot test {file_keys} (a file-name test)")
-    for key in ("name", "extension", "path_segment", "path_glob", "name_regex", "has_file", "parent_has_file", "has_entry", "ancestor_has_entry"):
+    if "no_source_files" in match and match["no_source_files"] is not True:
+        raise ProfileError(f"{where}: match.no_source_files must be true")
+    for key in ("name", "extension", "path_segment", "path_glob", "name_regex", "has_file", "parent_has_file", "has_entry", "ancestor_has_entry", "parent_name_token"):
         if key in match:
             for v in _as_list(match[key]):
                 if not isinstance(v, str) or not v:
@@ -243,7 +253,8 @@ def _compile_rule(where: str, raw: dict, roles: tuple, rel_map: dict, origin: st
         name_res=tuple(name_res), has_files=frozenset(_as_list(match.get("has_file", []))),
         parent_has_files=frozenset(_as_list(match.get("parent_has_file", []))),
         has_entries=frozenset(_as_list(match.get("has_entry", []))), ancestor_entries=frozenset(_as_list(match.get("ancestor_has_entry", []))),
-        scope=scope,
+        no_source=bool(match.get("no_source_files", False)), parent_tokens=frozenset(t.lower() for t in _as_list(match.get("parent_name_token", []))),
+        scope=scope, named_dir=named_dir,
     )
 
 
@@ -299,12 +310,26 @@ def _manifest_reading(where: str, doc: Any, roles: tuple, rel_map: dict, origin:
     ids = [r.id for r in rules.values()]
     if len(set(ids)) != len(ids):
         raise ProfileError(f"{w}: the manifest rules need different ids")
-    for key in ("docs_content_rule", "site_output_rule", "fallback_site_rule"):
-        if key in doc and (not isinstance(doc[key], str) or not RULE_ID.match(doc[key]) or "mkdocs" not in readers):
+    if ("submodule_rule" in doc) != ("gitmodules" in readers):
+        raise ProfileError(f"{w}: submodule_rule is needed exactly when the gitmodules reader is enabled")
+    for key in ("docs_content_rule", "site_output_rule", "fallback_site_rule", "submodule_rule"):
+        if key in doc and (not isinstance(doc[key], str) or not RULE_ID.match(doc[key]) or (key != "submodule_rule" and "mkdocs" not in readers)):
             raise ProfileError(f"{w}: {key} must name a rule id and needs the mkdocs reader")
     return ManifestReading(readers=tuple(readers), docs_content_rule=doc.get("docs_content_rule"), site_output_rule=doc.get("site_output_rule"),
-                           fallback_site_rule=doc.get("fallback_site_rule"),
+                           fallback_site_rule=doc.get("fallback_site_rule"), submodule_rule=doc.get("submodule_rule"),
                            **{k: rules.get(k) for k in MANIFEST_RULE_NAMES}, **caps)
+
+
+def _merge_reading(own, base):
+    """Two manifest_reading blocks (the child's and an extended profile's) combine: the readers are the union (child's first), each rule or rule id is the
+    child's where it has one, and every cap is the TIGHTER of the two. The child's block alone, or the base's alone, is returned unchanged."""
+    if own is None or base is None:
+        return own if own is not None else base
+    from dataclasses import replace
+    readers = tuple(dict.fromkeys(own.readers + base.readers))
+    kw = {k: (getattr(own, k) if getattr(own, k) is not None else getattr(base, k)) for k in MANIFEST_RULE_NAMES + ("docs_content_rule", "site_output_rule", "fallback_site_rule", "submodule_rule")}
+    return replace(own, readers=readers, max_file_bytes=min(own.max_file_bytes, base.max_file_bytes), max_blobs=min(own.max_blobs, base.max_blobs),
+                   max_total_bytes=min(own.max_total_bytes, base.max_total_bytes), **kw)
 
 
 def _grammar(where: str, items: Any, must: tuple) -> tuple:
@@ -418,8 +443,7 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
             merged_rel.setdefault(role, level)          # the child's mapping wins
         rules.extend(base.rules)
         own_fr.extend(base.file_roles)
-        if mreading is None:
-            mreading = base.manifest_reading             # the child's own wins; otherwise the first extended profile that has one
+        mreading = _merge_reading(mreading, base.manifest_reading)
         structural.extend(base.structural)
         composed.extend(base.composed_of)
     own_ids = [r.id for r in own_rules] + [r.id for r in own_fr if r.origin == pid]
@@ -441,7 +465,7 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
     rules = deduped
     if mreading is not None:
         ids_now = {r.id for r in rules}
-        for key in ("docs_content_rule", "site_output_rule", "fallback_site_rule"):
+        for key in ("docs_content_rule", "site_output_rule", "fallback_site_rule", "submodule_rule"):
             ref = getattr(mreading, key)
             if ref is not None and ref not in ids_now:
                 raise ProfileError(f"{source}: manifest_reading.{key} names {ref!r}, which is not a rule of this profile")

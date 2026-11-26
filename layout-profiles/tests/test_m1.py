@@ -85,10 +85,10 @@ def test_a_manifest_inside_a_worktree_copy_is_not_a_component_in_a_workspace(tmp
         "profile_id: ws-code\nversion: 0.1.0\nstatus: proposed\napplies_to: workspace-of-repos\nextends: [code-repo, worktree-copies]\n"
         "roles: [component]\nrelevance: {primary: [component], supporting: [], hidden: []}\nrules: []\n")
     p = tmp_path / "l.tsv"
-    p.write_text("real/pyproject.toml\nwt-x/pyproject.toml\nwt-x/src/a.py\n")
+    p.write_text("real/pyproject.toml\nwt-x/.git\nwt-x/pyproject.toml\nwt-x/src/a.py\n")        # wt-x holds a .git FILE: a worktree
     c = Recognizer(load_profile("ws-code", tmp_path)).run(p, tmp_path / "o")
     assert (tmp_path / "o" / "components-all.txt").read_text() == "real\n"          # the copy's manifest is hidden with the copy
-    assert c["by_role"]["worktree-copy"]["files"] == 2
+    assert c["by_role"]["worktree-copy"]["files"] == 3
 
 
 def test_first_manifest_rule_wins_per_directory_and_kinds(tmp_path):

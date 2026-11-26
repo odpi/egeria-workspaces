@@ -95,7 +95,7 @@ def test_file_roles_never_unhide_a_hidden_file(tmp_path):
     rows = ["node_modules/p/tests/a.py", "build/out/docs/x.md", "pkg/pyproject.toml", "pkg/.pytest_cache/v/x.json", "pkg/a.py"]
     got = roles(tmp_path, rows)
     assert got["node_modules/p/tests/a.py"] == ("vendored", "R-vend-installed")
-    assert got["build/out/docs/x.md"][1] == "R-gen-build-output"
+    assert got["build/out/docs/x.md"][1] == "R-gen-build-output-no-source"     # no manifest beside it, but no source below it either
     assert got["pkg/.pytest_cache/v/x.json"][1] == "R-gen-tool-cache"
     assert got["pkg/a.py"][0] == "source"
 
@@ -242,17 +242,18 @@ def test_nothing_the_old_rules_hid_becomes_unhidden(tmp_path):
     p.write_text("".join(f"{r}\n" for r in sorted(rows)))
     new.run(p, tmp_path / "o", per_file=True)
     got = {json.loads(l)["path"]: json.loads(l) for l in (tmp_path / "o" / "findings-files.jsonl").read_text().splitlines()}
+    # (M5b un-hides on purpose: the name-only worktree copy `wt-1` is now SHOWN; see test_m5b. The rules that were not tightened still hide as before.)
     for path in ("a/.git/HEAD", "a/node_modules/x/y.js", "a/build/o.class", "a/__pycache__/m.pyc", "a/e.openlineageevent", "a/h.hprof", "a/l.log",
-                 "a/db-backups/d", "a/x.bak", "wt-1/a.py"):
+                 "a/db-backups/d", "a/x.bak"):
         assert got[path]["relevance"] == "hidden", path
-    old_ids = {"R-vcs-git", "R-vend-installed", "R-gen-build-output", "R-gen-tool-cache", "R-run-openlineage-event", "R-run-heap-dump", "R-run-log",
-               "R-backup-dir", "R-backup-file", "R-copy-worktree-name"}
-    assert {got[p]["rule_id"] for p in ("a/.git/HEAD", "a/node_modules/x/y.js", "wt-1/a.py")} <= old_ids
+    old_ids = {"R-vcs-git", "R-vend-installed", "R-gen-build-output-no-source", "R-gen-tool-cache", "R-run-openlineage-event", "R-run-heap-dump", "R-run-log",
+               "R-backup-dir", "R-backup-file"}
+    assert {got[p]["rule_id"] for p in ("a/.git/HEAD", "a/node_modules/x/y.js", "a/build/o.class")} <= old_ids
 
 
 def test_the_new_rules_carry_evidence_and_the_sample_they_came_from():
     p = load_profile("generic-relevance", PROFILES)
     new = [r for r in p.rules if r.id in ("R-wt-claude-worktree", "R-tool-idea", "R-run-volume-logs", "R-vend-nested-repo")]
-    assert len(new) == 4 and p.version == "0.3.0"
+    assert len(new) == 4 and p.version == "0.4.0"
     assert all(r.relevance == "hidden" and r.grain == "subtree" and r.evidence and r.tuned_on == ("egeria-v6 stratified sample (6994dff1)",) for r in new)
     assert [r.id for r in p.rules][-4:] == ["R-wt-claude-worktree", "R-tool-idea", "R-run-volume-logs", "R-vend-nested-repo"]     # after every older rule

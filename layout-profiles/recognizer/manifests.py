@@ -29,16 +29,16 @@ except ImportError:                                                   # pragma: 
     tomllib = None
 
 # ---- the closed list --------------------------------------------------------------------------------------------------------------
-READERS = ("package-json", "pnpm-workspace", "lerna", "cargo", "uv", "go-work", "maven", "gradle", "mkdocs")
-CODE_READERS = tuple(r for r in READERS if r != "mkdocs")
+READERS = ("package-json", "pnpm-workspace", "lerna", "cargo", "uv", "go-work", "maven", "gradle", "mkdocs", "gitmodules")
+CODE_READERS = tuple(r for r in READERS if r not in ("mkdocs", "gitmodules"))
 ALLOWED_FILES = {                                         # exact file name -> readers that may extract fields from it
     "package.json": ("package-json",), "pnpm-workspace.yaml": ("pnpm-workspace",), "lerna.json": ("lerna",), "Cargo.toml": ("cargo",),
     "pyproject.toml": ("uv",), "go.work": ("go-work",), "pom.xml": ("maven",), "settings.gradle": ("gradle",), "settings.gradle.kts": ("gradle",),
-    "mkdocs.yml": ("mkdocs",), "mkdocs.yaml": ("mkdocs",),
+    "mkdocs.yml": ("mkdocs",), "mkdocs.yaml": ("mkdocs",), ".gitmodules": ("gitmodules",),
 }
 MEMBER_MANIFESTS = {                                      # a GLOB member must hold one of these files directly (the tools ignore directories without one)
     "package-json": {"package.json"}, "pnpm-workspace": {"package.json"}, "lerna": {"package.json"}, "cargo": {"Cargo.toml"}, "uv": {"pyproject.toml"},
-    "go-work": set(), "maven": set(), "gradle": set(), "mkdocs": set(),
+    "go-work": set(), "maven": set(), "gradle": set(), "mkdocs": set(), "gitmodules": set(),
 }
 DEFAULT_MAX_FILE_BYTES = 256 * 1024
 DEFAULT_MAX_BLOBS = 5000
@@ -309,6 +309,22 @@ def extract(reader: str, path: str, data: bytes) -> Decl | None:
             for lit in re.findall(r"[\"']([^\"'\n]+)[\"']", m.group(1)):
                 members.append(lit.strip().lstrip(":").replace(":", "/"))
         return Decl(reader, path, directory, "include", None, members, aggregator=False) if members else None
+    if reader == "gitmodules":
+        # path entries of the [submodule "..."] sections ONLY: the url, branch and every other key are never extracted, so they cannot reach a finding or a log
+        text = data.decode("utf-8", "replace")
+        if "\0" in text:
+            raise ManifestParseError("gitmodules: binary content")
+        paths: list = []
+        in_submodule = False
+        for line in text.splitlines():
+            t = line.strip()
+            if t.startswith("["):
+                in_submodule = bool(re.match(r"^\[\s*submodule\s+\"[^\"]*\"\s*\]", t))
+                continue
+            m = re.match(r"^path\s*=\s*(.+?)\s*$", t) if in_submodule else None
+            if m:
+                paths.append(m.group(1).strip().strip('"'))
+        return Decl(reader, path, directory, "submodule.path", None, paths) if paths else None
     if reader == "mkdocs":
         doc = parse_yaml(data)
         if not isinstance(doc, dict):
@@ -381,11 +397,11 @@ class ManifestReading:
 
 
 def read_manifests(candidates: list, source, readers, hidden, *, max_file_bytes=DEFAULT_MAX_FILE_BYTES, max_blobs=DEFAULT_MAX_BLOBS,
-                   max_total_bytes=DEFAULT_MAX_TOTAL_BYTES) -> ManifestReading:
+                   max_total_bytes=DEFAULT_MAX_TOTAL_BYTES, out: "ManifestReading | None" = None) -> ManifestReading:
     """`candidates` is a list of (path, size) whose file NAME is on the closed list. `hidden(path)` says a path is inside a hidden subtree.
     Order: shallowest first, then by path, so the caps drop the deepest first and the result is deterministic."""
-    out = ManifestReading()
-    out.stats.candidates = len(candidates)
+    out = out if out is not None else ManifestReading()                      # an existing result accumulates (the caps count across calls)
+    out.stats.candidates += len(candidates)
     for path, size in sorted(candidates, key=lambda c: (c[0].count("/"), c[0])):
         name = path.rpartition("/")[2]
         rs = [r for r in ALLOWED_FILES.get(name, ()) if r in readers]

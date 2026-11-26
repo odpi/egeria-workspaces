@@ -1,8 +1,10 @@
 # worktree-copies: recognizes the working copies of other trees that pile up beside the real ones in a workspace of repositories.
-# A name pattern is a stand-in for a duplicate-tree test (backlog), hence basis judgement and confidence low. Compose it LAST (see
-# egeria-workspace): it must only claim files that no other rule claims, which is how the Phase 0 census counted worktree copies.
+# 0.2.0 (Dan's review, 2026-11-26): the NAME alone is not enough to hide a folder. A folder with a worktree name AND a .git FILE (the link a `git worktree`
+# leaves; a clone has a .git folder instead) is hidden as a worktree copy; the name alone is a shown, low-confidence finding.
+# A name pattern is a stand-in for a duplicate-tree test (backlog), hence basis judgement. Compose it LAST (see egeria-workspace): it must only claim
+# files that no other rule claims, which is how the Phase 0 census counted worktree copies.
 profile_id: worktree-copies
-version: 0.1.0
+version: 0.2.0
 status: proposed
 applies_to: workspace-of-repos
 roles: [worktree-copy]
@@ -12,11 +14,20 @@ relevance:
   hidden: [worktree-copy]
 rules:
   - id: R-copy-worktree-name
-    match: {path_glob: ["wt-*/**", "ws-*/**", "ews-*/**", "trellis-wt*/**", "trellis-re-ui*/**", "*-vocab[0-9]*/**"]}
-    assign: {role: worktree-copy, kind: tree-copy-by-name}
+    match: {path_glob: ["wt-*", "ws-*", "ews-*", "trellis-wt*", "trellis-re-ui*", "*-vocab[0-9]*"], has_file: .git}
+    assign: {role: worktree-copy, kind: tree-copy-by-name-and-worktree-link}
+    grain: subtree
+    basis: judgement
+    confidence: medium
+    evidence: "a top-level folder named wt-*, ws-*, ews-*, trellis-wt*, trellis-re-ui* or *-vocab<N> that also holds a .git FILE (the link of a git worktree) is, by this workspace's convention, a working copy of another tree"
+    tuned_on: ["Dan's review 2026-11-26"]
+  - id: R-copy-worktree-name-only
+    match: {path_glob: ["wt-*", "ws-*", "ews-*", "trellis-wt*", "trellis-re-ui*", "*-vocab[0-9]*"]}
+    assign: {role: worktree-copy, relevance: supporting, kind: tree-copy-by-name-only}
     grain: subtree
     basis: judgement
     confidence: low
-    evidence: "a top-level folder named wt-*, ws-*, ews-*, trellis-wt*, trellis-re-ui* or *-vocab<N> is, by this workspace's convention, a working copy of another tree"
+    evidence: "a top-level folder with a worktree-style name but no .git file is not shown to be a worktree (it may be a clone, or a real folder with an unlucky name): it is shown, with low confidence"
+    tuned_on: ["Dan's review 2026-11-26"]
 path_grammar: []
 name_grammar: []

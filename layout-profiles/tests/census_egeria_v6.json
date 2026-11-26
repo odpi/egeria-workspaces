@@ -16,5 +16,27 @@
     "R-vend-nested-repo": 60798,
     "unclassified_after": 26973,
     "note": "egeria-workspace 0.2.0 (generic-relevance 0.3.0): the four M5 rules take 121803 of the 148776 residual files; the old rules' counts do not move"
+  },
+  "m5b_rules_egeria_workspace_0_3_0": {
+    "R-backup-dir": 3,
+    "R-backup-file": 13,
+    "R-copy-worktree-name": 52928,
+    "R-gen-build-output": 24871,
+    "R-gen-build-output-unconfirmed": 2323,
+    "R-gen-distribution-hub": 1692,
+    "R-gen-ipynb-checkpoints": 65,
+    "R-gen-tool-cache": 2798,
+    "R-run-heap-dump": 3,
+    "R-run-log": 623778,
+    "R-run-openlineage-event": 634944,
+    "R-run-volume-logs": 1725,
+    "R-secret-private-in-cert-dir": 2,
+    "R-tool-idea": 1612,
+    "R-vcs-git": 37636,
+    "R-vend-installed": 1083855,
+    "R-vend-nested-repo": 60861,
+    "R-wt-claude-worktree": 57654,
+    "unclassified": 25256,
+    "note": "egeria-workspace 0.3.0 (generic-relevance 0.4.0, worktree-copies 0.2.0) on the M0 list, names and sizes only. Against M5: 2,323 build-output files are now SHOWN (34 folders with no manifest beside them and source-like files inside), 1,717 files are newly hidden by the three new rules, and the rest only change rule"
   }
 }

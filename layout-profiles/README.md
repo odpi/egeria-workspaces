@@ -332,6 +332,50 @@ is not in its docs folder: unresolved, so no section. `trellis-docs` is unchange
 byte-identical. The `.idea`, `venv` and `site` folders stay hidden and counted. The recall of 1.00 on the sample is a fit, not a result: the key was written from the same
 nav the rule reads.
 
+## M5b: tighter hiding, four more rules (`generic-relevance` 0.4.0, `worktree-copies` 0.2.0)
+
+Dan's review rulings of 2026-11-26 (`tuned_on: "Dan's review 2026-11-26"`) and three rules from the egeria-v6 re-check sample (`tuned_on: "egeria-v6 re-check sample (be675143)"`).
+M5's "nothing hidden becomes unhidden" check does NOT apply here: this milestone un-hides on purpose, and reports what it un-hides.
+
+**Tightened**
+1. `R-run-log`, `R-backup-file`: hide only the matching FILES; a folder is never hidden because of one stray `.log` or `.bak`. The rules were file-level already, so no count moves. Where a
+   majority of a folder's files match, the other files are already hidden by other rules (checked on the M0 list: 0 further files), so no folder-promotion rule was added.
+2. `R-gen-build-output` (`build`, `target`, `dist`, `.next`): hidden only with corroboration, as three directory rules in order: a build manifest beside the folder (`R-gen-build-output`);
+   else no source-like file anywhere below it (`R-gen-build-output-no-source`); else the folder is SHOWN as `generated`, low confidence (`R-gen-build-output-unconfirmed`, relevance supporting).
+   A manifest corroborates whatever is inside; "source-like" is the file-role layer's list of programming-language extensions. New directory tests: `no_source_files`.
+3. `R-copy-worktree-name` (worktree-copies): a worktree name AND a `.git` FILE (the link of a `git worktree`; a clone has a `.git` folder) hides the folder. The name alone is
+   `R-copy-worktree-name-only`: shown, low confidence.
+4. `R-vend-nested-repo`: a directory that the outer repository's `.gitmodules` declares as a submodule is part of the outer repository, so it is not claimed. Only the `path` entries of the
+   `[submodule "..."]` sections are extracted (never the url); the file is read through the same capped, safe reader (reader `gitmodules`, only where a blob source is given, never inside a
+   hidden subtree, at most once per directory). Without a blob source every nested repository is vendored, as in M5.
+
+**Added**, ahead of the M5 rules, in this order: `R-gen-ipynb-checkpoints` (`.ipynb_checkpoints`, any depth, generated, hidden), `R-gen-distribution-hub` (`exchange-*/distribution-hub/**`, hidden;
+written with the unanchored `**/` form too, because in the workspace the folder sits one level down: `<repo>/exchange-quickstart/distribution-hub`), `R-secret-private-in-cert-dir` (a folder named
+`private` whose PARENT's name has the whole word `cert`, `certificate`, `ca` or `pki`, any case: role `secret`, hidden, by name only; the words are split at punctuation and at case changes, so
+`EgeriaRootCA` is egeria, root, ca; `certs` and `capital` are not matches). Archive stays hidden in the default view (the role map; no rule change).
+
+**Per-rule files on the M0 egeria-v6 list** (2,612,019 files; names and sizes only; `egeria-workspace` 0.3.0). M5 -> M5b:
+
+| rule | M5 | M5b |
+|---|---:|---:|
+| R-gen-build-output (hidden: manifest beside) | 27,267 | 24,871 |
+| R-gen-build-output-no-source (hidden) | - | 0 |
+| R-gen-build-output-unconfirmed (SHOWN, low) | - | 2,323 |
+| R-copy-worktree-name (hidden: name + `.git` file) | 52,946 | 52,928 |
+| R-copy-worktree-name-only (SHOWN, low) | - | 0 |
+| R-gen-ipynb-checkpoints | - | 65 |
+| R-gen-distribution-hub | - | 1,692 |
+| R-secret-private-in-cert-dir | - | 2 |
+| R-vend-nested-repo | 60,798 | 60,861 |
+| R-wt-claude-worktree | 57,668 | 57,654 |
+| R-run-log / R-backup-file / R-vend-installed / R-vcs-git / events / dumps / caches | unchanged | unchanged |
+| unclassified | 26,973 | 25,256 |
+
+Un-hidden: 2,323 files, in 34 `build` folders (all under one repository of the workspace) that have no manifest beside them and source-like files inside; 0 files from the
+other tightened rules (all worktree-named folders of the list hold a `.git` file; the list has no `.gitmodules`, so rule 4 un-hides nothing here; the file was not read). Newly hidden: 1,717
+files (1,658 distribution-hub, 57 checkpoints, 2 private). 115 hidden files only change rule (73 build -> nested repository, 34 worktree or nested-repository -> distribution-hub, 8 nested repository -> checkpoints). The total is unchanged.
+Hidden 2,585,046 -> 2,584,440. Tune set (trellis, datahub, superset, with manifest reading) and the mkdocs sample and trellis docs: components, file roles and scores are byte-identical to M7.
+
 ## Decisions made so far (for review)
 
 1. `vendored` (installed packages) and `generated` (build output, tool caches) are separate roles; both are hidden. `.cache` is `generated`.
@@ -358,3 +402,5 @@ M5 (Phase 1b): no held-out key or repository was opened or run (the tune set is 
 M6: manifests were read only from the three tune-set repositories (by commit, through the git object database) and from synthetic files in tests; no held-out repository, tree or key was listed, opened or run.
 
 M7: `mkdocs.yml` was read only in the mkdocs tutorial sample and in synthetic tests; the trellis docs run read nothing. No held-out repository, tree or key was listed, opened or run.
+
+M5b: no repository was read; the egeria-v6 list is names and sizes only (its `.gitmodules` question is therefore a names check); nothing under the held-out trees or keys was listed, opened or run.

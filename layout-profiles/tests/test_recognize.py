@@ -249,9 +249,9 @@ def test_generic_relevance_on_a_synthetic_tree(tmp_path):        # the worktree 
             "wt-feature/src/a.py", "wt-feature/node_modules/p.js", "wt-feature/run.log", "README.md"]
     c, f = run(prof, tmp_path, rows)
     got = {k: v["files"] for k, v in c["by_rule"].items()}
-    assert got == {"R-vcs-git": 1, "R-vend-installed": 2, "R-gen-build-output": 1, "R-gen-tool-cache": 1, "R-run-log": 2,
+    assert got == {"R-vcs-git": 1, "R-vend-installed": 2, "R-gen-build-output-no-source": 1, "R-gen-tool-cache": 1, "R-run-log": 2,
                    "R-run-openlineage-event": 1, "R-run-heap-dump": 1, "R-backup-dir": 1, "R-backup-file": 1, "(none)": 3}
     assert c["by_role"]["unclassified"]["files"] == 3                          # svc/src/main.py, README.md, wt-feature/src/a.py
     c2, _ = run(load_profile("egeria-workspace", PROFILES), tmp_path, rows, "ws")      # with the workspace profile the copy is claimed
-    assert c2["by_rule"]["R-copy-worktree-name"]["files"] == 1 and c2["by_role"]["unclassified"]["files"] == 2
+    assert c2["by_rule"]["R-copy-worktree-name-only"]["files"] == 1 and c2["by_role"]["unclassified"]["files"] == 2      # M5b: the name alone is shown
     assert c["components"] == {"top_level": 0, "parts": 0}
