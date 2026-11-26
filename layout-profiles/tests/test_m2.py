@@ -200,8 +200,8 @@ def test_structural_rule_schema_errors():
 def test_every_m2_rule_names_the_repositories_that_motivated_it():
     p = load_profile("code-repo-conventions", PROFILES)
     own = [r for r in p.rules if r.origin == "code-repo-conventions"]
-    assert len(own) == 12 and all(r.tuned_on for r in own)
-    assert all(set(r.tuned_on) <= {"trellis", "datahub", "superset"} for r in own if not r.id.startswith(("R-fx-", "R-tool-")))        # the Phase 1c rules name the spent M8 repositories too
+    assert len(own) == 14 and all(r.tuned_on for r in own)
+    assert all(set(r.tuned_on) <= {"trellis", "datahub", "superset"} for r in own if not r.id.startswith(("R-fx-", "R-tool-", "R-conv-test-group")))        # the Phase 1c rules name the spent M8 repositories too
     assert [x["id"] for x in p.structural] == ["S-workspace-siblings"] and p.structural[0]["tuned_on"] == ["superset"]
     one_repo = sorted(r.id for r in own if len(r.tuned_on) == 1)
     assert "R-conv-node-src" in one_repo and "R-conv-docs" not in one_repo             # one-repository rules are visible, hence ablatable

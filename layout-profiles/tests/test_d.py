@@ -165,7 +165,7 @@ def test_no_rule_contains_a_name_from_a_held_out_or_spent_repository():
 def test_the_new_rules_carry_provenance_and_the_known_limits_are_stated():
     p = load_profile("code-repo-conventions", PROFILES)
     by = {r.id: r for r in p.rules}
-    assert p.version == "0.5.0" and "Known limit" in by["R-fx-test-project"].evidence and by["R-fx-benchmark-project"].role == "test-support"
+    assert p.version == "0.6.0" and "Known limit" in by["R-fx-test-project"].evidence and by["R-fx-benchmark-project"].role == "test-support"
     assert by["R-fx-benchmark-project"].tuned_on == ("kafka (N7, spent)",) and ids_in_order(p, "R-fx-sample-project", "R-fx-benchmark-project", "R-conv-docs")
     m = load_profile("code-repo", PROFILES).manifest_reading.included_build_rule
     assert m.id == "M-included-build" and m.role == "tooling" and "Known limit" in m.evidence and m.tuned_on == ("kafka (N7, spent)",)

@@ -6,7 +6,7 @@
 # (a rule motivated by one repository is suspect; ablate it). Tune set: trellis, datahub, superset only (scores provisional). The component rules are
 # FROZEN as in 0.1.0; 0.2.0 adds only the file_roles layer below (path rules, no file content), which can neither change a component nor un-hide a file.
 profile_id: code-repo-conventions
-version: 0.5.0
+version: 0.6.0
 status: proposed
 applies_to: code-repo
 extends: [code-repo]
@@ -24,6 +24,14 @@ rules:
     confidence: medium
     evidence: "a top-level folder named test, tests, testing or __tests__, or ending in the PLURAL _tests or -tests (integration_tests, unit-tests), is the repository's test suite; it is checked BEFORE the fixture rule so only the manifest projects INSIDE it are excluded"
     tuned_on: [superset, datahub]
+  - id: R-conv-test-group
+    match: {path_glob: "*", name_regex: ['(?i)(?:_|-)test$'], groups_projects: {min: 2, files: [pyproject.toml, setup.py, package.json, pom.xml, build.gradle, build.gradle.kts, Cargo.toml, go.mod, Chart.yaml, Dockerfile]}}
+    assign: {role: component, kind: test-suite}
+    grain: component
+    basis: convention
+    confidence: medium
+    evidence: "a top-level folder whose name ends in the SINGULAR _test or -test, that is not itself a project (no manifest of its own, not a declared member) and that has more than one project below it (at least 2), groups the repository's tests: it is a test-suite, like a plural -tests folder, and the projects inside it are excluded (R-fx-test-group-project). A leaf project named ...-test is a package and is not touched. Known limit: a real product folder that groups two or more published test libraries would be excluded"
+    tuned_on: ["spring-boot (D6, spent)"]
   - id: R-fx-test-project
     match: {segment_regex: ['(?i)^(?:test|tests|testing|__tests__|testfixtures|fixture|fixtures|testdata|test-data)$|(?:_|-)tests$', '(?i)(?:^|[-_.])(?:test|tests|testing)[-_.]+\d[\d.]*(?:[-_.]?[a-z0-9]{1,6})?$', '(?i)^tests?[-_]'], has_file: [pyproject.toml, setup.py, package.json, pom.xml, build.gradle, build.gradle.kts, Cargo.toml, go.mod, Chart.yaml, Dockerfile]}
     assign: {role: fixture, kind: sample-project}
@@ -32,6 +40,14 @@ rules:
     confidence: medium
     evidence: "a manifest project whose path has a test, tests, testing, __tests__, testFixtures, fixture(s), testdata or test-data segment, or one ending in the plural _tests or -tests, is a fixture (the singular -test and _test are not: a package may be named for a statistical test). Also: a test word (test, tests, testing) followed by a version or number tail (foo-tests-44, tests_2, integration-tests-3.7), and a segment that STARTS with test-, test_, tests- or tests_. Known limit, kept by Dan: a PUBLISHED test library named that way (a test-utils artifact) is excluded of the test suite, not a package of the repository"
     tuned_on: [trellis, datahub, "iceberg (M8, spent)", "dagster (M8, spent)"]
+  - id: R-fx-test-group-project
+    match: {group_segment_regex: {min: 2, files: [pyproject.toml, setup.py, package.json, pom.xml, build.gradle, build.gradle.kts, Cargo.toml, go.mod, Chart.yaml, Dockerfile], regex: ['(?i)(?:_|-)test$']}, has_file: [pyproject.toml, setup.py, package.json, pom.xml, build.gradle, build.gradle.kts, Cargo.toml, go.mod, Chart.yaml, Dockerfile]}
+    assign: {role: fixture, kind: sample-project}
+    grain: dir
+    basis: convention
+    confidence: medium
+    evidence: "a manifest project below a folder whose name ends in the SINGULAR _test or -test, when that folder is not itself a project and has more than one project below it, is a test project, not a package of the repository (the folder groups tests). A leaf project that is itself named ...-test is not below such a folder and stays a component. Known limit: a folder that groups two or more published test libraries"
+    tuned_on: ["spring-boot (D6, spent)"]
   - id: R-fx-sample-project
     match: {segment_regex: ['(?i)^(?:sample|samples|example|examples|template|templates|demo|demos)$'], has_file: [pyproject.toml, setup.py, package.json, pom.xml, build.gradle, build.gradle.kts, Cargo.toml, go.mod, Chart.yaml, Dockerfile]}
     assign: {role: example, kind: sample-project}

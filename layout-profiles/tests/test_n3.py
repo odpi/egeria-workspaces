@@ -128,7 +128,7 @@ def test_no_segment_list_contains_a_name_from_a_held_out_or_spent_repository():
 def test_the_new_rules_carry_their_provenance_and_the_test_folder_rule_comes_first():
     p = load_profile("code-repo-conventions", PROFILES)
     ids = [r.id for r in p.rules]
-    assert p.version == "0.5.0" and ids.index("R-conv-tests") < ids.index("R-fx-test-project") < ids.index("R-fx-sample-project") < ids.index("R-conv-docs")
+    assert p.version == "0.6.0" and ids.index("R-conv-tests") < ids.index("R-fx-test-project") < ids.index("R-fx-sample-project") < ids.index("R-conv-docs")
     assert ids.index("R-conv-scripts") < ids.index("R-tool-package")                                                   # the top-level scripts folder keeps its component
     by = {r.id: r for r in p.rules}
     for rid in ("R-fx-test-project", "R-fx-sample-project", "R-tool-package"):

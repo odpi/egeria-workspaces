@@ -111,6 +111,10 @@ class Recognizer:
         self._child_rel: dict = {}                    # directory -> the has_child_dir paths that exist directly below it
         self._file_count: dict = {}                   # directory -> number of files directly in it
         self._dir_count: dict = {}                    # directory -> number of sub-directories directly in it
+        self._holders: dict = {}                      # directory -> the manifest-like names it holds (the set the dir rules asked about)
+        self._pre_dirs: set = set()                   # every directory of the list and the manifest names it holds, kept for the E1 project count
+        self._pre_dir_files: dict = {}
+        self._group_cache: dict = {}                  # frozenset of manifest names -> {directory: number of projects below it}, and the project set
         self.tooling_roots: set = set()               # directories an includeBuild marked as internal tooling (nothing below them is a component)
         self._children: dict | None = None            # directory -> its sub-directories (built when first needed)
         self._src_dirs: set = set()                   # candidate-named directories that have a source-like file below them (for no_source_files rules)
@@ -124,7 +128,7 @@ class Recognizer:
         self.needed_names = set()                    # file names (and entry names) whose presence in a directory a dir rule asks about
         self.needed_dir_entries = set()              # names of SUB-DIRECTORIES a dir rule asks about (has_entry: .git is a file OR a directory)
         for r in self.dir_rules:
-            self.needed_names |= r.has_files | r.parent_has_files | r.has_entries | r.ancestor_entries
+            self.needed_names |= r.has_files | r.parent_has_files | r.has_entries | r.ancestor_entries | r.group_files
             self.needed_dir_entries |= r.has_entries | r.ancestor_entries
         self.hidden_dir_rules = [r for r in self.dir_rules if r.grain == "subtree" and r.relevance == "hidden"]
         self.child_first: dict = {}                   # first segment of a has_child_dir path -> the paths that start with it
@@ -165,6 +169,11 @@ class Recognizer:
             return False
         if r.no_source and d in self._src_dirs:
             return False
+        if r.group_min:
+            if "groups_projects" in r.match and not self._groups_projects(d, r):
+                return False
+            if r.group_seg_res and not any(self._groups_projects("/".join(segs[:i]), r) and any(rx.search(segs[i - 1]) for rx in r.group_seg_res) for i in range(1, len(segs))):
+                return False
         if r.child_dirs and not (r.child_dirs & self._child_rel.get(d, set())):
             return False
         if r.orphaned:
@@ -188,6 +197,39 @@ class Recognizer:
         if r.name_res and not any(rx.search(name) for rx in r.name_res):
             return False
         return True
+
+    def _project_counts(self, files: frozenset):
+        """E1: (the project directories, directory -> number of projects strictly below it) for one set of manifest names. A project is a directory that holds one of
+        the manifest files, or that a manifest read declares as a member (a Gradle parent that only aggregates its members is not one). Hidden directories do not count."""
+        got = self._group_cache.get(files)
+        if got is not None:
+            return got
+        proj = {d for d, names in self._holders.items() if names & files and d}
+        rd = self.reading
+        if rd is not None and self._pre_dirs:
+            for path in sorted(rd.decls):
+                for decl in rd.decls[path]:
+                    if decl.reader not in mf.CODE_READERS:
+                        continue
+                    members, _ = mf.resolve_members(decl, self._pre_dirs, self._pre_dir_files)
+                    if decl.reader == "gradle" and members:
+                        members = [m for m in members if m not in self._gradle_aggregators(members, self._pre_dirs)]
+                    proj |= {m for m in members if m}
+        proj = {d for d in proj if not self._dir_is_hidden(d)}
+        below: dict = {}
+        for d in proj:
+            while "/" in d:
+                d = d[:d.rfind("/")]
+                below[d] = below.get(d, 0) + 1
+        self._group_cache[files] = (proj, below)
+        return self._group_cache[files]
+
+    def _groups_projects(self, d: str, r: Rule) -> bool:
+        """E1: `d` is not itself a project and at least `r.group_min` projects lie below it (a folder that GROUPS projects)."""
+        if not d:
+            return False
+        proj, below = self._project_counts(r.group_files)
+        return d not in proj and below.get(d, 0) >= r.group_min
 
     def index_directories(self, path_list: Path) -> None:
         if not self.dir_rules:
@@ -263,6 +305,11 @@ class Recognizer:
             self._read_manifests(mr, candidates_m)
             if self.reading is not None and "mkdocs" in mr.readers:
                 self._apply_docs_dirs(mr, all_dirs)
+        self._holders = holders
+        if mr is not None and self.reading is not None:
+            self._pre_dirs = all_dirs
+            for path, _ in candidates_m:
+                self._pre_dir_files.setdefault(path.rpartition("/")[0], set()).add(path.rpartition("/")[2])
         # pass 2: every other directory rule
         for d in order:
             if self.inside_hidden_subtree(d) or self._under_hidden_root(d):
@@ -694,8 +741,10 @@ class Recognizer:
         profile's exclusion rule for that segment instead of the member rule: the same principle as for a manifest project."""
         segs = d.split("/")
         for r in self.dir_rules:
-            if r.role in ("fixture", "example", "tooling", "test-support") and r.grain == "dir" and (r.segment_res or r.segments):
+            if r.role in ("fixture", "example", "tooling", "test-support") and r.grain == "dir" and (r.segment_res or r.segments or r.group_seg_res):
                 if (r.segments and any(x in r.segments for x in segs)) or (r.segment_res and any(rx.search(x) for x in segs for rx in r.segment_res)):
+                    return r
+                if r.group_seg_res and any(self._groups_projects("/".join(segs[:i]), r) and any(rx.search(segs[i - 1]) for rx in r.group_seg_res) for i in range(1, len(segs))):
                     return r
         return None
 

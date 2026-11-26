@@ -317,7 +317,7 @@ def test_git_source_reads_the_commit_not_the_working_tree_and_discards_oversize(
 def test_the_shipped_profiles_enable_manifest_reading_with_the_note_s_caps():
     p = load_profile("code-repo-conventions", PROFILES)
     m = p.manifest_reading
-    assert p.version == "0.5.0" and load_profile("code-repo", PROFILES).version == "0.4.0"
+    assert p.version == "0.6.0" and load_profile("code-repo", PROFILES).version == "0.4.0"
     assert (m.max_file_bytes, m.max_blobs, m.max_total_bytes) == (256 * 1024, 5000, 64 * 1024 * 1024)
     assert set(m.readers) == set(mf.CODE_READERS) | {"gitmodules"} and m.member_rule.basis == "manifest-content" and m.aggregator_rule.role == "other"
     assert not set(mf.ALLOWED_FILES) & {"package-lock.json", "yarn.lock", "pnpm-lock.yaml", "Cargo.lock", "poetry.lock", "uv.lock", "go.sum", ".env", "CODEOWNERS"}

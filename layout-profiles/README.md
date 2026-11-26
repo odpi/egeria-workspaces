@@ -536,6 +536,30 @@ No name from a held-out or spent repository is in any rule (a test checks the ea
 Tune-set recall does not drop (1.00 on trellis, superset and datahub). The kafka figures reproduce the recorded exception before the change (73 candidates, precision 0.46). The 37 removed kafka candidates: the 34 `streams/upgrade-system-tests-*` projects (D1), the three `test-common/*` projects and `connect/test-plugins` (D2), `api-checker` and its
 three sub-projects (D3), `jmh-benchmarks` (D4) and `streams/test-utils`. That last one is the key's published test library: the known limit of D2 costs one true component (recall 0.91 -> 0.88), and leaves one labelled false positive.
 
+## Phase 1e (E1, E2): a singular test-grouping folder (`code-repo-conventions` 0.6.0)
+
+Cause (the D6 gate-1 recorded exception, spring-boot, now spent): 109 of 114 labelled false positives sat below ONE top-level test folder with a SINGULAR name (`<word>-test`) whose many projects do not end in `-tests`; the same folders were the 3 recall misses (the top-level test-suite components).
+
+- **E1, one structural rule.** A directory whose own name ends, case-insensitively, in `-test` or `_test` is a test segment when BOTH: (i) it is not itself a project (no manifest file of its own, not a declared Gradle/npm/Cargo/... member that is more than an aggregator), and (ii) MORE THAN ONE project (at least 2) lies below it. Two new match keys: `groups_projects: {min, files}` (the directory itself) and `group_segment_regex: {min, files, regex}` (some proper ancestor with a matching name groups projects). Two rules use them: `R-conv-test-group` (a TOP-LEVEL such folder keeps or gets its convention component, kind test-suite, like the plural `-tests` folder) and `R-fx-test-group-project` (a manifest project below such a folder, or a declared member with no manifest, is a fixture, not a component). A project is a directory holding one of the manifest names, or a member that a manifest read declares; hidden (vendored) directories do not count; a names-only run counts manifest files.
+- **Unchanged:** a leaf project named `...-test` (it is itself the project, so condition (i) fails: a statistical-test package stays a component); a `-test` folder with one project; a `-test` folder that has its own manifest and sub-projects; words ending in `test` without the separator (`latest`, `contest`, `attest`). The plural-only ruling stays for leaf projects. N1 to N6 and D1 to D4 are untouched.
+- **Known limit (stated, as for D2):** a real product folder named `<word>-test` that groups two or more published modules (for example several published test libraries under one folder) is excluded. Test source-set folders with camelCase names (`intTest`, `dockerTest`) are still not test segments; that is a separate rule and Dan's call, not in this phase.
+- No name from a held-out or spent repository and no word list is in any rule: a test asserts that the rules' match values and the recognizer sources contain none of `smoke`, `spring`, `integration-test`, `system-test`. `tuned_on` names `spring-boot (D6, spent)` on the two new rules.
+
+**E2, re-score (a FIT, not a result; candidates / TP / labelled-FP / unlabelled; before = 196ca988):**
+
+| repo (key) | list | before | after | changed candidates |
+|---|---|---|---|---|
+| spring-boot (a1aaf8a9), spent | all | 587/326/114/147, recall 0.99, precision 0.74 | 481/329/5/147, recall 1.00, precision 0.99 | 109 removed (all `smoke-test/spring-boot-smoke-test-*`), 3 added: `integration-test`, `smoke-test`, `system-test` (test-suite, R-conv-test-group) |
+| spring-boot | top | 586/326/114/146 | 480/329/5/146 | the same 109 removed, the same 3 added |
+| kafka (b1bdaf54), spent | all, top | 36/30/1/5, 35/30/1/4 | same | none |
+| trellis | all, top | 19/18/1/0, 18/18/0/0 | same | none |
+| superset (42, composite) | all, top | 49/42/4/3, 46/42/3/1 | same (the paired-t-test package stays a component) | none |
+| datahub | all, top | 79/66/8/5, 77/66/8/3 | same | none |
+| egeria-workspaces dogfood | all, top | 27/19/8/0, 23/19/4/0 | same | none |
+| egeria-python dogfood | all, top | 9/9/0/0 | same | none |
+
+Tune-set recall does not drop (1.00 on trellis, superset and datahub). The 146 unlabelled Maven fixtures under `src/intTest` and `src/dockerTest` are unchanged (out of scope), and so is the unlabelled count (147). The 5 labelled false positives left on spring-boot are not caused by this rule. The after figures are a fit: E1 was tuned after seeing D6, so it counts as fixed only after E3 (a fresh held-out code repository, Architect only).
+
 ## Decisions made so far (for review)
 
 1. `vendored` (installed packages) and `generated` (build output, tool caches) are separate roles; both are hidden. `.cache` is `generated`.
