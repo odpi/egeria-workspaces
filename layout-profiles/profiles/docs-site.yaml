@@ -1,0 +1,59 @@
+# docs-site: documentation sites and documentation folders, from names alone (no file contents read; no nav, no docs_dir/site_dir settings).
+# A directory holding mkdocs.yml (or mkdocs.yaml) is a docs site. Beside it, the DEFAULT content folder `docs` and the DEFAULT build output `site`
+# are claimed (mkdocs' defaults; a site that sets other names in the file is not understood without reading it). A top-level documentation folder
+# with no mkdocs.yml is NOT a site: it is the documentation component of a repository. The mkdocs.yml rule is first, so a directory is claimed once.
+# Extends generic-relevance, so venv, node_modules and build output are hidden and counted. Tuned on the mkdocs tutorial sample and the trellis
+# docs folder only (see tuned_on); egeria-docs has not been seen.
+profile_id: docs-site
+version: 0.1.0
+status: proposed
+applies_to: docs-site
+extends: [generic-relevance]
+roles: [component, docs, generated, archive]
+relevance:
+  primary: [component]
+  supporting: [docs]
+  hidden: [archive, generated]
+rules:
+  - id: R-docs-site-mkdocs
+    match: {has_file: [mkdocs.yml, mkdocs.yaml]}
+    assign: {role: component, kind: docs-site}
+    grain: component
+    basis: manifest
+    confidence: high
+    evidence: "a directory that holds mkdocs.yml (or mkdocs.yaml) is the root of an MkDocs documentation site"
+    tuned_on: [mkdocs-sample]
+  - id: R-docs-site-content
+    match: {name: docs, parent_has_file: [mkdocs.yml, mkdocs.yaml]}
+    assign: {role: docs, kind: docs-content}
+    grain: subtree
+    basis: convention
+    confidence: medium
+    evidence: "docs beside mkdocs.yml is MkDocs' default docs_dir, the site's content; a site that sets docs_dir elsewhere is not recognized from names"
+    tuned_on: [mkdocs-sample]
+  - id: R-docs-site-output
+    match: {name: site, parent_has_file: [mkdocs.yml, mkdocs.yaml]}
+    assign: {role: generated, kind: docs-build-output}
+    grain: subtree
+    basis: convention
+    confidence: medium
+    evidence: "site beside mkdocs.yml is MkDocs' default site_dir, the built HTML; a site that sets site_dir elsewhere is not recognized from names"
+    tuned_on: [mkdocs-sample]
+  - id: R-docs-archive-folder
+    match: {path_glob: ["docs/archive/**", "doc/archive/**"]}
+    assign: {role: archive, kind: archived-documentation}
+    grain: subtree
+    basis: convention
+    confidence: medium
+    evidence: "an archive folder directly under the top-level docs folder holds retired documents, not the live documentation"
+    tuned_on: [trellis]
+  - id: R-docs-folder-top-level
+    match: {path_glob: [docs, doc, documentation]}
+    assign: {role: component, kind: documentation}
+    grain: component
+    basis: convention
+    confidence: medium
+    evidence: "a top-level docs, doc or documentation directory with no mkdocs.yml is the repository's documentation, not a documentation site"
+    tuned_on: [trellis]
+path_grammar: []
+name_grammar: []

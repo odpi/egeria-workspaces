@@ -299,7 +299,8 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
     composed = [(pid, version)]
     path_grammar = _grammar(f"{source} path_grammar", doc.get("path_grammar"), ("id", "pattern", "yields"))
     name_grammar = _grammar(f"{source} name_grammar", doc.get("name_grammar"), ("id", "pattern", "yields"))
-    structural = list(_structural(source, doc.get("structural_rules")))
+    structural_own = _structural(source, doc.get("structural_rules"))
+    structural = list(structural_own)
     for base_id in extends:
         if profiles_dir is None:
             raise ProfileError(f"{source}: extends {base_id!r} but no profiles directory was given")
@@ -312,14 +313,32 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
         rules.extend(base.rules)
         structural.extend(base.structural)
         composed.extend(base.composed_of)
-    sids = [x["id"] for x in structural]
-    if len(set(sids)) != len(sids) or set(sids) & {r.id for r in rules}:
+    own_ids = [r.id for r in own_rules]
+    if len(set(own_ids)) != len(own_ids):
+        raise ProfileError(f"{source}: rule id {next(i for i in own_ids if own_ids.count(i) > 1)!r} is used twice in this profile; ids must be unique")
+    own_sids = [x["id"] for x in structural_own]
+    if len(set(own_sids)) != len(own_sids) or set(own_sids) & set(own_ids):
         raise ProfileError(f"{source}: structural rule ids must be unique and differ from rule ids")
-    seen: dict[str, str] = {}
+    # A profile reached twice (a diamond: two extended profiles share a base) contributes its rules ONCE, at the first place it is met.
+    # The same rule id coming from two DIFFERENT profiles is still an error.
+    deduped, seen = [], {}
     for rule in rules:
         if rule.id in seen:
+            if seen[rule.id] == rule.origin:
+                continue
             raise ProfileError(f"{source}: rule id {rule.id!r} is used twice (in {seen[rule.id]!r} and {rule.origin!r}); ids must be unique")
         seen[rule.id] = rule.origin
+        deduped.append(rule)
+    rules = deduped
+    uniq, seen_s = [], set()
+    for x in structural:
+        if x["id"] not in seen_s:
+            seen_s.add(x["id"])
+            uniq.append(x)
+    structural = uniq
+    if seen_s & set(seen):
+        raise ProfileError(f"{source}: structural rule ids must differ from rule ids")
+    composed = list(dict.fromkeys(composed))
     return Profile(profile_id=pid, version=version, status=doc["status"], applies_to=doc["applies_to"], roles=tuple(all_roles),
                    relevance=merged_rel, rules=rules, extends=tuple(extends), path_grammar=path_grammar, name_grammar=name_grammar,
                    composed_of=tuple(composed), structural=tuple(structural))

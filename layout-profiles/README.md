@@ -154,6 +154,8 @@ positives are those the key excludes explicitly):
 
 (M1 probe figures are from the regression above; trellis' ten example manifests are the main precision gain: 25 candidates to 19.)
 
+**Held out on keys and on tuning, not blind on facts.** The held-out repositories (airbyte, egeria-docs) were not tuned on and their answer keys were not opened, but the brief and the Phase 0 notes carry facts about them (egeria-docs' site and docs layout; airbyte's connectors that carry a `metadata.yaml`), and some rules exist because of such facts: the `metadata.yaml` rule in `code-repo` is there because the brief's manifest list named it for airbyte. Results on those repositories are therefore *key-blind, not fact-blind*: that weakens the claim and does not invalidate the test. Every held-out result must say so.
+
 **Recall 1.00 on the tune set is a fit, not a result.** The rules were written while looking at these three trees and scored against labels
 made for them, so the numbers above say the rules can describe these repositories, not that they will on another. The only real test is the
 held-out repositories at M4, run once by the reviewer; they were not touched. Precision on superset (0.78) is slightly BELOW the manifest probe's
@@ -172,6 +174,32 @@ R-conv-node-src and S-workspace-siblings (superset). Two or more: R-ex-example-m
 and R-conv-deployment (trellis, superset). No rule was added for the 11 labelled false positives of datahub (examples, fixtures and docker
 sub-images): the same pattern did not appear in two of the three repositories. **M2 is frozen at `code-repo-conventions` 0.1.0**; the figures
 above are its final provisional scores.
+
+## M3: documentation sites (`profiles/docs-site.yaml`, names only)
+
+`docs-site` 0.1.0 (extends `generic-relevance`): a directory holding `mkdocs.yml` or `mkdocs.yaml` is a docs-site component (manifest, high);
+beside it the default content folder `docs` (role docs, subtree) and the default build output `site` (generated, hidden, counted) are claimed.
+A top-level docs folder with **no** `mkdocs.yml` is the repository's documentation (kind `documentation`), never a site; a `docs/archive`
+folder under it is archive (hidden; the only name, because it is the only one that occurs in a tuning tree). The mkdocs rule comes first, so a directory is claimed once; composed with
+`code-repo-conventions` in either order, the first-listed profile wins (tested both ways) and the loader now accepts a shared base reached twice
+(a diamond) while a real id clash between two profiles is still an error. No rule finds *sections*: in the tuning sample they are files
+(`tutorials.md` ...), and the key says a section is not a component. The navigation, a non-default `docs_dir` or `site_dir`: not recognized,
+because that needs the contents of `mkdocs.yml`, which is not read.
+
+**Candidate copies (a report, not a rule).** `--copies-of KIND` writes `candidate-copies.json`: components of that kind whose sorted sets of
+relative file names are identical (the files compared are those the profile does not hide, so a built `site/` or a `venv` does not make two copies
+differ). Nothing is hidden or merged because of it; it is evidence for a later duplicate-tree test.
+
+Scores against the two tuning keys (provisional; a names-only fit on two tiny trees, not a result; the keys were written before this profile):
+
+| tree | candidates | TP | labelled FP | unlabelled | recall | precision | hidden and counted |
+|---|---:|---:|---:|---:|---:|---:|---|
+| mkdocs tutorial sample (17,522 files) | 5 | 5 | 0 | 0 | 1.00 | 1.00 | `site/` 2 x 45 files, `venv` 17,345 files |
+| trellis docs folder (scored on the whole trellis list) | 1 | 1 | 0 | 0 | 1.00 | 1.00 | `docs/archive` 2 files |
+
+On the sample the copies report finds one group: `source_code_step_4`, `source_code_step_5` and `source_code_step_6` have identical sets of 9 file
+names; `source_code_final` and `src` differ. `tuned_on` is `mkdocs-sample` for the three mkdocs rules and `trellis` for the archive and the
+plain-docs-folder rules (one-tree rules: suspect).
 
 ## Decisions made so far (for review)
 

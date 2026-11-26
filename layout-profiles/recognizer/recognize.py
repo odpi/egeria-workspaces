@@ -8,6 +8,7 @@ recognizer/listpaths.py; never from a dirty working tree). Paths use `/`, are re
 Outputs in OUTDIR (byte-identical for the same input and profile; nothing in them depends on time, run id or the tree sha):
   components.txt      one directory per line, the input format of the Phase 0 scorer (top-level components)
   components-all.txt  the same plus the parts of components (a manifest nested inside a component), for the manifest-probe regression
+  candidate-copies.json  (with --copies-of KIND) groups of components of that kind whose sets of relative file names are identical (names only)
   findings.jsonl      one finding per (rule, directory) that a rule claimed, with the files and bytes it claimed, sorted by path then rule
                       (--per-file also writes findings-files.jsonl: one finding per file, large, for debugging)
   classes.json    files and bytes per role, per relevance and per rule; the classified, hidden and unclassified shares
@@ -201,7 +202,34 @@ class Recognizer:
         return f
 
     # ---- the run --------------------------------------------------------------------------------------------------------
-    def run(self, path_list: Path, out: Path, per_file: bool = False) -> dict:
+    def candidate_copies(self, path_list: Path, kinds: tuple) -> list:
+        """NAMES-ONLY report (not a rule): group the components of the given kinds whose sorted sets of relative file names are identical. The
+        files counted are those under the component that the profile does not hide (a built site/ or a venv does not make two copies differ).
+        A group is evidence for the later duplicate-tree test; nothing is hidden or merged because of it."""
+        members = {d: set() for d, r in self.claims.items() if r.grain == "component" and r.kind in kinds}
+        if not members:
+            return []
+        for path, _ in read_rows(path_list):
+            dirs = path.split("/")[:-1]
+            hits = [("/".join(dirs[:i + 1]), i + 1) for i in range(len(dirs)) if "/".join(dirs[:i + 1]) in members]
+            if "" in members:
+                hits.append(("", 0))
+            if not hits:
+                continue
+            rule, _, _ = self.classify(path)
+            if rule is not None and rule.relevance == "hidden":
+                continue
+            for d, depth in hits:
+                members[d].add(path[len(d) + 1:] if d else path)
+        groups: dict[str, list] = {}
+        for d, names in members.items():
+            if names:
+                key = hashlib.sha256("\n".join(sorted(names)).encode("utf-8")).hexdigest()
+                groups.setdefault(key, []).append(d or ".")
+        return [{"names_sha256": k, "files": len(members["" if v[0] == "." else v[0]]), "members": sorted(v)}
+                for k, v in sorted(groups.items(), key=lambda kv: (sorted(kv[1]), kv[0])) if len(v) > 1]
+
+    def run(self, path_list: Path, out: Path, per_file: bool = False, copies_of: tuple = ()) -> dict:
         out.mkdir(parents=True, exist_ok=True)
         self.index_directories(path_list)
 
@@ -308,6 +336,10 @@ class Recognizer:
             for f in findings:
                 fh.write(json.dumps(f, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n")
 
+        if copies_of:
+            groups = self.candidate_copies(path_list, tuple(copies_of))
+            (out / "candidate-copies.json").write_text(json.dumps({"kinds": sorted(copies_of), "groups": groups}, indent=2, sort_keys=True) + "\n",
+                                                       encoding="utf-8")
         top_components.sort()
         all_components.sort()
         (out / "components.txt").write_text("".join(c + "\n" for c in top_components), encoding="utf-8")
@@ -364,10 +396,12 @@ def main(argv=None) -> int:
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--profile", default="generic-relevance")
     ap.add_argument("--profiles-dir", type=Path, default=DEFAULT_PROFILES)
+    ap.add_argument("--copies-of", action="append", default=[], metavar="KIND",
+                    help="also write candidate-copies.json: components of this kind with identical sets of file names (names only; repeatable)")
     ap.add_argument("--per-file", action="store_true", help="also write findings-files.jsonl, one finding per file (debugging; large)")
     a = ap.parse_args(argv)
     prof = load_profile(a.profile, a.profiles_dir)
-    c = Recognizer(prof).run(a.pathlist, a.out, per_file=a.per_file)
+    c = Recognizer(prof).run(a.pathlist, a.out, per_file=a.per_file, copies_of=tuple(a.copies_of))
     print(f"{prof.profile_id} {prof.version}: {c['total_files']:,} files; unclassified {c['shares']['unclassified_files']:.1%}, "
           f"hidden {c['shares']['hidden_files']:.1%}; components {c['components']['top_level']}")
     return 0
