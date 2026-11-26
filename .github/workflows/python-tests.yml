@@ -48,6 +48,11 @@ jobs:
       run: |
         pytest tests/test_mermaid_security_level.py
 
+    - name: Demo Portal token route accepts a sent password only with a demo persona's user name
+      run: |
+        pytest compose-configs/egeria-quickstart/PyegeriaWebHandler/tests/test_demo_token_persona_only.py
+        pytest compose-configs/egeria-freshstart/PyegeriaWebHandler/tests/test_demo_token_persona_only.py
+
     - name: Run Quickstart Handler tests
       run: |
         pytest compose-configs/egeria-quickstart/PyegeriaWebHandler/tests/test_fastapi_handler_health.py compose-configs/egeria-quickstart/PyegeriaWebHandler/tests/test_mcp_server_basic.py
