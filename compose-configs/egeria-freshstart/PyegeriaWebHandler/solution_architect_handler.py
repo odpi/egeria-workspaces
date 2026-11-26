@@ -7,6 +7,8 @@ Solution Architect Explorer — FastAPI router.
 Endpoints:
   GET /api/solution/blueprints                       → list all solution blueprints
   GET /api/solution/blueprints/{guid}                → full detail for a blueprint
+  GET /api/solution/roles                            → list all solution actor roles (design-time roles)
+  GET /api/solution/roles/{guid}                     → full detail for a solution actor role
   GET /api/solution/components                       → list all solution components
   GET /api/solution/components/{guid}                → full detail for a component
   GET /api/solution/components/{guid}/implementations → concrete implementations
@@ -354,6 +356,63 @@ def _serialize_pattern_detail(element: dict) -> dict:
     return detail
 
 
+# SolutionActorRole is a DESIGN-time role (SolutionActorRoleProperties: identifier, scope,
+# actorRoleGroups on top of the Referenceable fields). It is NOT the Actors card's
+# ActorRole-as-assignment. find_solution_roles with no type filter returns every ActorRole
+# subtype (PersonRole, GovernanceRole, SolutionActorRole -- 371 elements on the quickstart
+# platform, so a 200-row page held only 15 of the 23 solution roles), hence the type filter
+# on the call AND a defensive type check on the result.
+_SOLUTION_ROLE_TYPE = "SolutionActorRole"
+
+
+def _serialize_role_summary(element: dict) -> dict:
+    """Only what the type returns. `title` is read if a platform returns it (the pyegeria
+    properties class has no title; the live quickstart elements carry none), and is empty,
+    not invented, otherwise."""
+    props  = _props(element)
+    header = _header(element)
+    groups = props.get("actorRoleGroups") or []
+    return {
+        "guid":            header.get("guid", ""),
+        "displayName":     props.get("displayName") or props.get("name") or "",
+        "qualifiedName":   props.get("qualifiedName") or "",
+        "description":     props.get("description") or "",
+        "identifier":      props.get("identifier") or "",
+        "title":           props.get("title") or "",
+        "scope":           props.get("scope") or "",
+        "actorRoleGroups": groups if isinstance(groups, list) else [groups],
+        "status":          header.get("status") or "",
+        "typeName":        _type_name(element),
+        "_header":         _header_summary(element),
+        **_authored_fields(element),
+        "classifications": _classifications(element),
+    }
+
+
+def _serialize_role_detail(element: dict) -> dict:
+    detail = _serialize_role_summary(element)
+    # memberOfCollections mixes the design models a role sits in (SolutionBlueprint today;
+    # a Folio or, later, a SolutionBoundary): split by type so a blueprint link is a blueprint.
+    collections = _serialize_rel_entries(_rel_list(element, "memberOfCollections"))
+    detail["blueprints"] = [c for c in collections if c["typeName"] == "SolutionBlueprint"]
+    detail["memberOf"]   = [c for c in collections if c["typeName"] != "SolutionBlueprint"]
+    detail["components"] = _serialize_rel_entries(_rel_list(element, "interactingWithSolutionComponents"))
+    # Who holds the role NOW: live ActorRole-to-actor assignments. A design role has none by
+    # default, so an empty list is the normal answer; the card marks the list "live".
+    holders, seen = [], set()
+    for key in ("rolePerformers", "assignedActors"):
+        for h in _serialize_rel_entries(_rel_list(element, key)):
+            if h["guid"] not in seen:
+                seen.add(h["guid"])
+                holders.append(h)
+    detail["holders"] = holders
+    detail.update(_extract_mermaid_fields(element))
+    detail["relationships"] = _generic_relationships(element, skip=(
+        "memberOfCollections", "interactingWithSolutionComponents", "rolePerformers", "assignedActors",
+    ))
+    return detail
+
+
 # ── Endpoints ──────────────────────────────────────────────────────────────────
 
 @router.get("/api/solution/blueprints", summary="List all solution blueprints", responses=EGERIA_ERROR_RESPONSES)
@@ -503,6 +562,72 @@ def get_blueprint(
         raise HTTPException(status_code=404, detail=f"Blueprint {guid!r} not found")
 
     return JSONResponse(_serialize_blueprint_detail(raw))
+
+
+@router.get("/api/solution/roles", summary="List all solution actor roles", responses=EGERIA_ERROR_RESPONSES)
+def list_roles(
+    start_from: int = Query(0,   ge=0),
+    page_size:  int = Query(200, ge=1, le=500),
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
+):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
+    try:
+        mgr = _get_manager(url, server, user_id, user_pwd)
+    except Exception as exc:
+        raise_egeria_http_error(exc, "Failed to create SolutionArchitect manager")
+
+    try:
+        raw = mgr.find_solution_roles(
+            search_string="*",
+            metadata_element_type=_SOLUTION_ROLE_TYPE,
+            output_format="JSON",
+            start_from=start_from,
+            page_size=page_size,
+            graph_query_depth=0,
+            sequencing_order="PROPERTY_ASCENDING",
+            sequencing_property="displayName",
+        )
+    except Exception as exc:
+        raise_egeria_http_error(exc, "find_solution_roles failed")
+
+    if not isinstance(raw, list):
+        raw = []
+
+    raw = [r for r in raw if _type_name(r) == _SOLUTION_ROLE_TYPE]
+    if not include_templates:
+        raw = [r for r in raw if not _is_template(r)]
+
+    roles = [_serialize_role_summary(r) for r in raw]
+    roles.sort(key=lambda r: (r.get("displayName") or "").lower())
+    # `total` is the length of THIS (filtered) page, not a platform total: page_size/start_from page the platform's answer.
+    return JSONResponse({"roles": roles, "total": len(roles)})
+
+
+@router.get("/api/solution/roles/{guid}", summary="Get a single solution actor role by GUID", responses=EGERIA_ERROR_RESPONSES)
+def get_role(
+    guid: str,
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
+    try:
+        mgr = _get_manager(url, server, user_id, user_pwd)
+    except Exception as exc:
+        raise_egeria_http_error(exc, "Failed to create SolutionArchitect manager")
+
+    try:
+        raw = mgr.get_solution_role_by_guid(guid, output_format="JSON")
+    except Exception as exc:
+        raise_egeria_http_error(exc, "get_solution_role_by_guid failed")
+
+    if not raw or isinstance(raw, str):
+        raise HTTPException(status_code=404, detail=f"Solution role {guid!r} not found")
+
+    return JSONResponse(_serialize_role_detail(raw))
 
 
 @router.get("/api/solution/components", summary="List all solution components", responses=EGERIA_ERROR_RESPONSES)
