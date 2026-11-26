@@ -1,0 +1,12 @@
+{
+  "source": "Phase 0 census (2026-11-26): os.scandir walk of an egeria-v6 working tree, symlinks not followed; the notes are kept outside this repository",
+  "total_files": 2612019,
+  "vendored_or_build": 1113920,
+  "runtime_events": 634944,
+  "logs": 623778,
+  "vcs_internal": 37636,
+  "backups": 16,
+  "heap_dumps": 3,
+  "worktree_copy_residual": 52946,
+  "residual": 148776
+}

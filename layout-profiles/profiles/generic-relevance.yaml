@@ -1,0 +1,88 @@
+# generic-relevance: the path-and-name rules of the Phase 0 census (a path-rule classifier), as a profile.
+# It says what is NOT worth showing (build output, installed packages, VCS internals, runtime output, backups, copies of other trees).
+# It names no component: that is the code-repo profile's job (M1). Everything these rules do not claim stays 'unclassified', which is a result.
+# The rules are ordered and the FIRST match wins. The order is the census's: .git, then installed/build directories, then file-name
+# classes (events, dumps, logs, backups), and the worktree-copy name pattern LAST, so it only claims files nothing else claims.
+profile_id: generic-relevance
+version: 0.1.0
+status: proposed
+applies_to: any
+roles: [component, source, test, docs, config, generated, vendored, scratch, archive, audit,
+        runtime-output, vcs-internal, worktree-copy, backup, secret, example, ci, tooling]
+relevance:
+  primary: [component]
+  supporting: [source, test, docs, config, ci, tooling, example]
+  hidden: [generated, vendored, scratch, archive, audit, runtime-output, vcs-internal, worktree-copy, backup, secret]
+rules:
+  - id: R-vcs-git
+    match: {path_segment: .git}
+    assign: {role: vcs-internal, kind: git-internals}
+    grain: subtree
+    basis: convention
+    confidence: high
+    evidence: ".git is the version-control directory of a repository; nothing in it is part of the repository's content"
+  - id: R-vend-installed
+    match: {path_segment: [node_modules, .venv, venv, site-packages, .tox, .gradle, .m2]}
+    assign: {role: vendored, kind: installed-packages}
+    grain: subtree
+    basis: convention
+    confidence: high
+    evidence: "package-manager install, virtual-environment and dependency-cache directories hold other projects' code, restored from a manifest"
+  - id: R-gen-build-output
+    match: {path_segment: [target, build, dist, .next]}
+    assign: {role: generated, kind: build-output}
+    grain: subtree
+    basis: convention
+    confidence: medium
+    evidence: "target, build, dist and .next are the usual names of build-tool output; a source folder that happens to be called build would be misread"
+  - id: R-gen-tool-cache
+    match: {path_segment: [__pycache__, .pytest_cache, .mypy_cache, .ruff_cache, .cache]}
+    assign: {role: generated, kind: tool-cache}
+    grain: subtree
+    basis: convention
+    confidence: high
+    evidence: "interpreter and tool cache directories are rebuilt on demand"
+  - id: R-run-openlineage-event
+    match: {extension: .openlineageevent}
+    assign: {role: runtime-output, kind: openlineage-event-file}
+    grain: dir
+    basis: convention
+    confidence: high
+    evidence: "an .openlineageevent file is one lineage event written by a running connector, not a source file"
+  - id: R-run-heap-dump
+    match: {extension: .hprof}
+    assign: {role: runtime-output, kind: heap-dump}
+    grain: dir
+    basis: convention
+    confidence: high
+    evidence: ".hprof is the Java heap-dump format"
+  - id: R-run-log
+    match: {extension: .log}
+    assign: {role: runtime-output, kind: log-file}
+    grain: dir
+    basis: convention
+    confidence: medium
+    evidence: "a .log file is runtime output; a checked-in sample log would be misread"
+  - id: R-backup-dir
+    match: {path_segment: db-backups}
+    assign: {role: backup, kind: database-backup}
+    grain: subtree
+    basis: convention
+    confidence: medium
+    evidence: "a directory named db-backups holds database backups"
+  - id: R-backup-file
+    match: {extension: [.bak, .sql.gz, .dump]}
+    assign: {role: backup, kind: backup-file}
+    grain: dir
+    basis: convention
+    confidence: medium
+    evidence: ".bak, .sql.gz and .dump are backup and dump file endings"
+  - id: R-copy-worktree-name
+    match: {path_glob: ["wt-*/**", "ws-*/**", "ews-*/**", "trellis-wt*/**", "trellis-re-ui*/**", "*-vocab[0-9]*/**"]}
+    assign: {role: worktree-copy, kind: tree-copy-by-name}
+    grain: subtree
+    basis: judgement
+    confidence: low
+    evidence: "a top-level folder named wt-*, ws-*, ews-*, trellis-wt*, trellis-re-ui* or *-vocab<N> is, by this workspace's convention, a working copy of another tree; a duplicate-tree test would be sounder (open point)"
+path_grammar: []
+name_grammar: []
