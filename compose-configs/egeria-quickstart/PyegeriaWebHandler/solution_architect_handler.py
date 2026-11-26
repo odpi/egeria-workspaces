@@ -9,6 +9,9 @@ Endpoints:
   GET /api/solution/blueprints/{guid}                → full detail for a blueprint
   GET /api/solution/roles                            → list all solution actor roles (design-time roles)
   GET /api/solution/roles/{guid}                     → full detail for a solution actor role
+  GET /api/solution/boundaries                       → list all solution boundaries (READ-ONLY)
+  GET /api/solution/boundaries/{guid}                → one solution boundary with its member hierarchy (depth- and size-capped)
+  GET /api/solution/design-model-boundaries          → design model boundaries that are NOT solution boundaries
   GET /api/solution/components                       → list all solution components
   GET /api/solution/components/{guid}                → full detail for a component
   GET /api/solution/components/{guid}/implementations → concrete implementations
@@ -18,7 +21,7 @@ Endpoints:
 
 from egeria_auth import service_password  # PO-45: no built-in service password
 import os
-from egeria_auth import apply_token
+from egeria_auth import apply_token, async_apply_token
 import contextvars
 import threading
 import time
@@ -85,6 +88,30 @@ def _get_manager(url=None, server=None, user_id=None, user_pwd=None):
     mgr = SolutionArchitect(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
     apply_token(mgr)
     return mgr
+
+
+async def _get_manager_async(url=None, server=None, user_id=None, user_pwd=None):
+    """Async twin of _get_manager for `async def` routes (CLAUDE.md: never the sync token step or run_until_complete inside a running loop)."""
+    from pyegeria import SolutionArchitect
+    url      = url      or os.environ.get("EGERIA_PLATFORM_URL",   "https://localhost:9443")
+    server   = server   or os.environ.get("EGERIA_VIEW_SERVER",    "qs-view-server")
+    user_id  = user_id  or os.environ.get("EGERIA_USER",           "erinoverview")
+    user_pwd = user_pwd or service_password()
+    mgr = SolutionArchitect(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+    await async_apply_token(mgr)
+    return mgr
+
+
+async def _get_collection_manager_async(url=None, server=None, user_id=None, user_pwd=None):
+    """The collection requests, for the design model boundary list (it has no view-service request of its own)."""
+    from pyegeria import CollectionManager
+    url      = url      or os.environ.get("EGERIA_PLATFORM_URL",   "https://localhost:9443")
+    server   = server   or os.environ.get("EGERIA_VIEW_SERVER",    "qs-view-server")
+    user_id  = user_id  or os.environ.get("EGERIA_USER",           "erinoverview")
+    user_pwd = user_pwd or service_password()
+    cm = CollectionManager(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+    await async_apply_token(cm)
+    return cm
 
 
 def _is_template(element: dict) -> bool:
@@ -175,6 +202,7 @@ def _serialize_blueprint_detail(element: dict) -> dict:
         components = _serialize_rel_entries(_rel_list(element, "collectionMembers"))
     detail["components"] = components
     detail["memberOf"] = _serialize_rel_entries(_rel_list(element, "memberOfCollections"))
+    detail["boundaries"] = _boundaries_of(element)
     # Generic catch-all so any relationship key not curated above (e.g. resourceList,
     # governanceDefinitions) still surfaces instead of being silently dropped.
     detail["relationships"] = _generic_relationships(element, skip=(
@@ -229,6 +257,7 @@ def _serialize_component_detail(element: dict) -> dict:
     detail["subComponents"]           = _serialize_rel_entries(_rel_list(element, "nestedSolutionComponents"))
     detail["blueprints"]              = blueprints
     detail["informationSupplyChains"] = supply_chains
+    detail["boundaries"]              = _boundaries_of(element)
     detail["actors"]                  = _serialize_rel_entries(_rel_list(element, "actors"))
     # Egeria returns every SolutionLinkingWire under wiredTo, whichever end this
     # component is on. The typedef's end1 is "wiredFrom" (where the wire starts)
@@ -399,6 +428,111 @@ def _serialize_role_detail(element: dict) -> dict:
         "memberOfCollections", "interactingWithSolutionComponents", "rolePerformers", "assignedActors",
     ))
     return detail
+
+
+_SOLUTION_BOUNDARY_TYPE = "SolutionBoundary"
+# The same caps as pyegeria's Solution-Boundary report spec (solution_boundary_member_hierarchy): stop at 8 levels or 500 members and SAY so.
+_HIERARCHY_MAX_DEPTH = 8
+_HIERARCHY_MAX_NODES = 500
+
+
+def _serialize_boundary_summary(element: dict) -> dict:
+    props  = _props(element)
+    header = _header(element)
+    members = element.get("collectionMembers")
+    return {
+        "guid":              header.get("guid", ""),
+        "displayName":       props.get("displayName") or props.get("name") or "",
+        "qualifiedName":     props.get("qualifiedName") or "",
+        "description":       props.get("description") or "",
+        "versionIdentifier": props.get("versionIdentifier") or "",
+        "lifecycleStatus":   props.get("lifecycleStatus") or "",
+        "userDefinedStatus": props.get("userDefinedStatus") or "",
+        "status":            header.get("status") or "",
+        "typeName":          _type_name(element),
+        # direct members, when the answer carries them (a depth-0 find does not: then null, not 0)
+        "memberCount":       len(members) if isinstance(members, list) else None,
+        "_header":           _header_summary(element),
+        **_authored_fields(element),
+        "classifications": _classifications(element),
+    }
+
+
+def _member_node(item: dict) -> dict:
+    related = (item.get("relatedElement") or {}) if isinstance(item, dict) else {}
+    header, props = related.get("elementHeader") or {}, related.get("properties") or {}
+    rel_type = ((item.get("relationshipHeader") or {}).get("type") or {}).get("typeName") or ""
+    return {
+        "guid":             header.get("guid") or "",
+        "typeName":         (header.get("type") or {}).get("typeName") or "",
+        "displayName":      props.get("displayName") or props.get("name") or props.get("qualifiedName") or "",
+        "qualifiedName":    props.get("qualifiedName") or "",
+        "relationshipType": rel_type,
+    }
+
+
+def _boundary_member_hierarchy(element: dict, max_depth: int = _HIERARCHY_MAX_DEPTH, max_nodes: int = _HIERARCHY_MAX_NODES) -> dict:
+    """The members of a solution boundary as a tree, from `collectionMembers[].relatedElement` and, below it, `nestedElements` ONLY (never `sideLinks` or
+    `memberOfCollections`: those lead UP to a parent). The same rules as pyegeria's solution_boundary_member_hierarchy: membership can be shared and in
+    principle cyclic, so the walk keeps the guids on the current path and does not follow a member already on it (the node is returned with `cycle: true`),
+    stops at `max_depth` levels and at `max_nodes` members, and says so in `notes` instead of cutting silently. A `sideLinks` entry that names something
+    other than the member's own parent is shown as `alsoLinkedTo`. Nothing here changes anything."""
+    count = {"n": 0}
+    notes: list = []
+    flags = {"cap": False, "depth": False, "cycle": False}
+
+    def walk(items, depth, path, parent):
+        out = []
+        for item in items if isinstance(items, list) else []:
+            if not isinstance(item, dict) or not isinstance(item.get("relatedElement"), dict):
+                continue
+            if count["n"] >= max_nodes:
+                flags["cap"] = True
+                return out
+            count["n"] += 1
+            node = _member_node(item)
+            node["isBoundary"] = node["typeName"] == _SOLUTION_BOUNDARY_TYPE
+            node["cycle"] = bool(node["guid"] and node["guid"] in path)
+            node["alsoLinkedTo"] = [n for n in (_member_node(sl) for sl in (item.get("sideLinks") or []) if isinstance(sl, dict)) if n["guid"] and n["guid"] != parent]
+            node["children"] = []
+            node["deeperNotShown"] = False
+            if node["cycle"]:
+                flags["cycle"] = True
+            else:
+                nested = item.get("nestedElements")
+                if isinstance(nested, list) and nested:
+                    if depth + 1 >= max_depth:
+                        node["deeperNotShown"] = True
+                        flags["depth"] = True
+                    else:
+                        node["children"] = walk(nested, depth + 1, path | {node["guid"]}, node["guid"])
+            out.append(node)
+        return out
+
+    root = _header(element).get("guid") or ""
+    members = walk(element.get("collectionMembers"), 0, {root} if root else set(), root)
+    if flags["cap"]:
+        notes.append(f"More members are not shown: the view stops at {max_nodes} members.")
+    if flags["depth"]:
+        notes.append(f"Deeper members are not shown: the view stops at {max_depth} levels.")
+    if flags["cycle"]:
+        notes.append("A member that is already above it in the hierarchy was not followed again.")
+    return {"members": members, "nodeCount": count["n"], "maxDepth": max_depth, "maxNodes": max_nodes, "complete": not notes, "notes": notes}
+
+
+def _serialize_boundary_detail(element: dict) -> dict:
+    detail = _serialize_boundary_summary(element)
+    detail.update(_extract_mermaid_fields(element))
+    # what this boundary is itself a member of: a blueprint, or another boundary
+    detail["memberOf"] = _serialize_rel_entries(_rel_list(element, "memberOfCollections"))
+    detail["memberHierarchy"] = _boundary_member_hierarchy(element)
+    detail["relationships"] = _generic_relationships(element, skip=("memberOfCollections", "collectionMembers"))
+    return detail
+
+
+def _boundaries_of(element: dict) -> list:
+    """The solution boundaries an element is a member of: `memberOfCollections[].relatedElement` of type SolutionBoundary, found by type name."""
+    return [e for e in _serialize_rel_entries(_rel_list(element, "memberOfCollections")) if e["typeName"] == _SOLUTION_BOUNDARY_TYPE]
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────────
@@ -616,6 +750,112 @@ def get_role(
         raise HTTPException(status_code=404, detail=f"Solution role {guid!r} not found")
 
     return JSONResponse(_serialize_role_detail(raw))
+
+
+# ── Solution boundaries (READ-ONLY: find and get requests only, never a change to a boundary or its members) ──────────────────────────
+# Egeria refuses to delete a SolutionBoundary that still has members, unless the request cascades: 403 OMAG-GENERIC-HANDLERS-403-005. Nothing here deletes.
+
+@router.get("/api/solution/boundaries", summary="List all solution boundaries", responses=EGERIA_ERROR_RESPONSES)
+async def list_boundaries(
+    start_from: int = Query(0,   ge=0),
+    page_size:  int = Query(200, ge=1, le=500),
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
+):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
+    try:
+        mgr = await _get_manager_async(url, server, user_id, user_pwd)
+    except Exception as exc:
+        raise_egeria_http_error(exc, "Failed to create SolutionArchitect manager")
+
+    try:
+        raw = await mgr._async_find_solution_boundaries(
+            search_string="*",
+            output_format="JSON",
+            start_from=start_from,
+            page_size=page_size,
+            graph_query_depth=0,
+            sequencing_order="PROPERTY_ASCENDING",
+            sequencing_property="displayName",
+        )
+    except Exception as exc:
+        raise_egeria_http_error(exc, "find_solution_boundaries failed")
+
+    if not isinstance(raw, list):
+        raw = []
+    if not include_templates:
+        raw = [b for b in raw if not _is_template(b)]
+
+    boundaries = [_serialize_boundary_summary(b) for b in raw]
+    boundaries.sort(key=lambda b: (b.get("displayName") or "").lower())
+    # `total` is the length of THIS page, not a platform total: page_size/start_from page the platform's answer.
+    return JSONResponse({"boundaries": boundaries, "total": len(boundaries)})
+
+
+@router.get("/api/solution/boundaries/{guid}", summary="Get a solution boundary with its member hierarchy", responses=EGERIA_ERROR_RESPONSES)
+async def get_boundary(
+    guid: str,
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+):
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
+    try:
+        mgr = await _get_manager_async(url, server, user_id, user_pwd)
+    except Exception as exc:
+        raise_egeria_http_error(exc, "Failed to create SolutionArchitect manager")
+
+    try:
+        raw = await mgr._async_get_solution_boundary_by_guid(guid, body=_DETAIL_GRAPH_BODY_DICT, output_format="JSON")
+    except Exception as exc:
+        raise_egeria_http_error(exc, "get_solution_boundary_by_guid failed")
+
+    if not raw or isinstance(raw, str):
+        raise HTTPException(status_code=404, detail=f"Solution boundary {guid!r} not found")
+
+    return JSONResponse(_serialize_boundary_detail(raw))
+
+
+@router.get("/api/solution/design-model-boundaries", summary="List design model boundaries that are not solution boundaries", responses=EGERIA_ERROR_RESPONSES)
+async def list_design_model_boundaries(
+    start_from: int = Query(0,   ge=0),
+    page_size:  int = Query(200, ge=1, le=500),
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
+):
+    """A design model boundary has no view-service request of its own: it is read through the collection requests, filtered to DesignModelBoundary. That find
+    ALSO returns solution boundaries (a solution boundary IS a design model boundary), so they are dropped here by TYPE NAME, never by display name."""
+    user_pwd = None  # never from the URL: a password in a query string lands in access logs
+    try:
+        cm = await _get_collection_manager_async(url, server, user_id, user_pwd)
+    except Exception as exc:
+        raise_egeria_http_error(exc, "Failed to create CollectionManager")
+
+    try:
+        raw = await cm._async_find_collections(
+            search_string="*",
+            metadata_element_type="DesignModelBoundary",
+            output_format="JSON",
+            start_from=start_from,
+            page_size=page_size,
+            graph_query_depth=0,
+        )
+    except Exception as exc:
+        raise_egeria_http_error(exc, "find_collections (DesignModelBoundary) failed")
+
+    if not isinstance(raw, list):
+        raw = []
+    raw = [b for b in raw if _type_name(b) != _SOLUTION_BOUNDARY_TYPE]
+    if not include_templates:
+        raw = [b for b in raw if not _is_template(b)]
+
+    boundaries = [_serialize_boundary_summary(b) for b in raw]
+    boundaries.sort(key=lambda b: (b.get("displayName") or "").lower())
+    return JSONResponse({"boundaries": boundaries, "total": len(boundaries)})
 
 
 @router.get("/api/solution/components", summary="List all solution components", responses=EGERIA_ERROR_RESPONSES)
