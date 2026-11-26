@@ -41,7 +41,7 @@ def test_a_directory_with_mkdocs_yml_is_a_docs_site_with_its_default_children(tm
     rows = ["web/" + r for r in SITE] + ["web/overrides/main.html"]
     c, f, by = run(tmp_path, rows)
     assert by[("web", "R-docs-site-mkdocs")]["kind"] == "docs-site" and by[("web", "R-docs-site-mkdocs")]["basis"] == "manifest"
-    assert by[("web/docs", "R-docs-site-content")]["role"] == "docs" and by[("web/docs", "R-docs-site-content")]["files"] == 2
+    assert by[("web/docs", "R-docs-site-content")]["role"] == "docs" and by[("web/docs", "R-docs-site-content")]["kind"] == "docs-content"      # 0.3.0: the folder is claimed, its files are classified one by one
     out = by[("web/site", "R-docs-site-output")]
     assert out["role"] == "generated" and out["relevance"] == "hidden" and out["files"] == 2          # hidden AND counted
     assert lines(tmp_path, "components-all.txt") == ["web"]

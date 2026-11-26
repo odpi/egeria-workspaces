@@ -457,6 +457,22 @@ Dan's key principle, as GENERAL rules with general segment lists (whole segments
 
 Net: labelled false positives fall (superset 6 -> 4, datahub 11 -> 9) and no true package is lost.
 
+## N4 (Phase 1c): a docs-site file-role layer (`docs-site` 0.3.0)
+
+The docs counterpart of M5: a `file_roles` layer, consulted last (it cannot change a component or un-hide a file) and only for files INSIDE a component (a site or a documentation folder). First match wins:
+`F-docs-fragments` (`snippets`, `includes` folders -> role `include-fragments`), `F-docs-theme` (`overrides`, `theme` -> `theme`), `F-docs-static` (`assets`, `img`, `images`, `css`, `js`, `static` -> `static-assets`),
+`F-docs-page` (`.md`, `.mdx`, `.rst`, `.ipynb` -> `docs`), `F-docs-config` (`.yml`, `.yaml`, `.toml`, `.ini`, `.cfg` -> `config`), `F-docs-other` (everything else -> `other`, classified and reported). All are supporting; the built
+`site/` stays generated and hidden (`R-docs-site-output`). New roles `static-assets`, `theme`, `include-fragments`. The patterns come from the plan's role list, not from a repository (`tuned_on` says so).
+One structural change: the content-folder rule `R-docs-site-content` still CLAIMS the folder (it is a component for the layer's scope and for `docs_dir`) but no longer classifies every file below it as `docs`; its files are classified one by one, so an
+image under `docs/` is a static asset, not a page. In a composition (`code-repo-conventions,docs-site`) the code roles come first.
+
+| tree | files | unclassified | other | notes |
+|---|---:|---:|---:|---|
+| mkdocs tutorial sample | 17,522 | 0.0% | 37 (0.21%; 57% of the 65 files that are not hidden: the sample's Python code and requirements, outside any docs folder) | 99.6% hidden (venv, build output); docs 22, config 6 |
+| trellis docs folder (34 files of the trellis tree) | 34 | 0 | 2 (`docs/experiments/*.json`) | docs 30, archive 2 (hidden) |
+
+Components and scores are identical to M7 (mkdocs sample 21/21, trellis docs 1/1; superset's composite unchanged).
+
 ## Decisions made so far (for review)
 
 1. `vendored` (installed packages) and `generated` (build output, tool caches) are separate roles; both are hidden. `.cache` is `generated`.
@@ -493,3 +509,5 @@ N1: composition tested on the three tune-set repositories and synthetic trees on
 N2: synthetic settings files and the three tune-set repositories only; no held-out tree or key was opened.
 
 N3: the tune-set repositories and synthetic trees only; no held-out tree or key was listed, opened or run.
+
+N4: the mkdocs tutorial sample and the trellis tree only; no held-out tree or key was opened.

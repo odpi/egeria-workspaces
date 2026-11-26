@@ -21,7 +21,7 @@ import yaml
 STATUSES = ("proposed", "confirmed", "retired")
 APPLIES_TO = ("any", "code-repo", "docs-site", "workspace-of-repos")
 ROLES = ("component", "source", "test", "docs", "config", "generated", "vendored", "scratch", "archive", "audit", "runtime-output",
-         "vcs-internal", "worktree-copy", "backup", "secret", "example", "ci", "tooling", "build", "data-fixture", "other", "fixture")
+         "vcs-internal", "worktree-copy", "backup", "secret", "example", "ci", "tooling", "build", "data-fixture", "other", "fixture", "static-assets", "theme", "include-fragments")
 RELEVANCES = ("primary", "supporting", "hidden")
 GRAINS = ("subtree", "dir", "component")
 BASES = ("manifest", "manifest-content", "convention", "judgement")
