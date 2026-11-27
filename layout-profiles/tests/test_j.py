@@ -250,9 +250,7 @@ def test_the_shipped_profiles_disable_and_replace_nothing():
 
 # ---- disabling a rule another part depends on: it loads, and behaves as documented
 def overlay(tmp_path, name, **doc):
-    import shutil
-    for f in PROFILES.glob("*.yaml"):
-        shutil.copy(f, tmp_path / f.name)
+    # an overlay beside no copies: it extends the SHIPPED profiles in place (J3b)
     write(tmp_path, name, {"profile_id": name, "version": "0.1.0", "status": "proposed", "applies_to": "code-repo", "roles": ["component"],
                            "relevance": {"primary": ["component"], "supporting": [], "hidden": []}, "rules": [], **doc})
     return load_profile(name, tmp_path)
@@ -614,3 +612,106 @@ def test_turning_a_read_setting_on_again_reads_exactly_what_the_default_reads(tm
                            "relevance": {"primary": ["component"], "supporting": [], "hidden": []}, "rules": [], "extends": ["off"],
                            "settings": {"private-test-packages-internal": True}})
     assert load_profile("on", tmp_path).manifest_reading.skip_fields == frozenset() == load_profile("code-repo-conventions", PROFILES).manifest_reading.skip_fields
+
+
+# ======================================================================== J3b =======================================================================================
+# D-J4 (the Architect's ruling): a profile loaded from the package's own profiles/ folder is SHIPPED; any other file is an OVERLAY. A chain with an overlay may
+# read no more than the shipped profiles of the chain: the same or fewer readers, no field they skip, caps only tighter.
+CODE_MR = {"member_rule": {"id": "M2", "role": "component", "kind": "k", "basis": "manifest-content", "confidence": "high", "evidence": "e"},
+           "aggregator_rule": {"id": "AG2", "role": "other", "kind": "k", "basis": "manifest-content", "confidence": "high", "evidence": "e"}}
+
+
+def test_shipped_and_overlay_are_recorded_for_every_profile_of_the_chain(tmp_path):
+    d = load_profile("code-repo-conventions", PROFILES)
+    assert d.shipped is True and d.has_overlay is False
+    assert dict(d.chain_shipped) == {"code-repo-conventions": True, "code-repo": True, "generic-relevance": True}
+    p = overlay(tmp_path, "mine", extends=["code-repo-conventions"], settings={"docs-min-files": 1})
+    assert p.shipped is False and p.has_overlay is True and dict(p.chain_shipped)["mine"] is False and dict(p.chain_shipped)["code-repo"] is True
+    c = compose_profiles("code-repo-conventions,docs-site", PROFILES)
+    assert c.shipped is None and c.has_overlay is False
+
+
+def test_an_overlay_adding_a_reader_is_rejected(tmp_path):
+    with pytest.raises(ProfileError, match=r"D-J4.*\['compose-services'\]"):
+        overlay(tmp_path, "mine", extends=["code-repo-conventions"], manifest_reading={"readers": ["compose-services"]})
+
+
+def test_an_overlay_adding_a_reader_through_a_composition_with_its_own_reading_is_rejected(tmp_path):
+    with pytest.raises(ProfileError, match="D-J4"):
+        overlay(tmp_path, "mine", extends=["generic-relevance"], roles=["component", "other", "tooling"],
+                relevance={"primary": ["component"], "supporting": ["other", "tooling"], "hidden": []},
+                manifest_reading={"readers": ["package-json"], **CODE_MR})
+
+
+def test_an_overlay_adding_a_field_is_rejected(tmp_path):
+    # the only fields are those the readers extract; an overlay cannot name a field, and a field a shipped chain skips cannot be read again
+    with pytest.raises(ProfileError):
+        overlay(tmp_path, "mine", extends=["code-repo-conventions"], manifest_reading={"readers": ["package-json"], "fields": ["package-json.version"], **CODE_MR})
+    with pytest.raises(ProfileError, match="narrow"):
+        overlay(tmp_path, "mine2", extends=["code-repo-conventions"], settings={"read-more": {"type": "bool", "default": True, "doc": "d", "reads": ["package-json.version"]}})
+
+
+def test_an_overlay_may_not_read_a_field_a_shipped_profile_skips(tmp_path):
+    # model: a shipped chain whose package-json.private is skipped; an overlay of it that turns the setting back on would read the field again
+    import recognizer.layout_profile as lpm
+    shipped = load_profile("code-repo-conventions", PROFILES)
+    from dataclasses import replace
+    base = replace(shipped, shipped_skip=frozenset({"package-json.private"}))
+    orig = lpm.load_profile
+    try:
+        lpm.load_profile = lambda pid, d=None, _stack=(): base if pid == "code-repo-conventions" else orig(pid, d, _stack)
+        with pytest.raises(ProfileError, match="skip"):
+            lpm.parse_profile({**BASE, "profile_id": "mine", "extends": ["code-repo-conventions"], "rules": []}, "mine", PROFILES)
+    finally:
+        lpm.load_profile = orig
+
+
+def test_an_overlay_narrowing_is_accepted(tmp_path):
+    p = overlay(tmp_path, "mine", extends=["code-repo-conventions"], settings={"private-test-packages-internal": False}, roles=["component", "other"],
+                relevance={"primary": ["component"], "supporting": ["other"], "hidden": []}, manifest_reading={"readers": ["package-json"], "max_blobs": 100, **CODE_MR})
+    d = load_profile("code-repo-conventions", PROFILES)
+    assert set(p.manifest_reading.readers) == set(d.manifest_reading.readers) and p.manifest_reading.max_blobs == 100
+    assert p.manifest_reading.skip_fields == frozenset({"package-json.private"})
+
+
+def test_an_overlay_reading_nothing_new_is_accepted_and_reads_the_same(tmp_path):
+    p = overlay(tmp_path, "mine", extends=["code-repo-conventions"], settings={"docs-min-files": 1})
+    d = load_profile("code-repo-conventions", PROFILES)
+    assert p.manifest_reading == d.manifest_reading
+
+
+def test_a_shipped_profile_adding_a_reader_is_accepted_as_today():
+    d = load_profile("docs-site", PROFILES)                        # docs-site adds mkdocs to generic-relevance's gitmodules: both shipped
+    g = load_profile("generic-relevance", PROFILES)
+    assert set(d.manifest_reading.readers) - set(g.manifest_reading.readers) == {"mkdocs"} and d.has_overlay is False
+    w = load_profile("workspace-repo", PROFILES)
+    assert "compose-services" in w.manifest_reading.readers and w.has_overlay is False
+
+
+def test_a_copy_of_a_shipped_profile_in_another_folder_is_an_overlay(tmp_path):
+    import shutil
+    shutil.copy(PROFILES / "docs-site.yaml", tmp_path / "docs-site.yaml")      # a byte-identical copy, outside the package's profiles/ folder
+    with pytest.raises(ProfileError, match=r"D-J4.*mkdocs"):
+        load_profile("docs-site", tmp_path)                                    # its base generic-relevance is shipped (found in place); the copy adds mkdocs
+    shutil.copy(PROFILES / "generic-relevance.yaml", tmp_path / "generic-relevance.yaml")
+    with pytest.raises(ProfileError, match="D-J4"):
+        load_profile("generic-relevance", tmp_path)                            # no shipped profile in the chain at all: it may read nothing
+
+
+def test_a_copy_that_reads_nothing_is_an_overlay_that_loads(tmp_path):
+    import shutil
+    shutil.copy(PROFILES / "worktree-copies.yaml", tmp_path / "worktree-copies.yaml")
+    p = load_profile("worktree-copies", tmp_path)
+    assert p.shipped is False and p.has_overlay is True
+
+
+def test_an_overlay_may_not_loosen_a_cap(tmp_path):
+    with pytest.raises(ProfileError):
+        overlay(tmp_path, "mine", extends=["code-repo-conventions"], roles=["component", "other"], relevance={"primary": ["component"], "supporting": ["other"], "hidden": []},
+                manifest_reading={"readers": ["package-json"], "max_blobs": 6000, **CODE_MR})
+
+
+def test_the_cli_default_folder_is_shipped():
+    from recognizer.recognize import DEFAULT_PROFILES
+    from recognizer.layout_profile import SHIPPED_DIR
+    assert DEFAULT_PROFILES.resolve() == SHIPPED_DIR

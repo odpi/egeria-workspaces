@@ -2,7 +2,6 @@
 candidate-copies report. Synthetic path lists; the tune-tree pins skip when the lists are not given."""
 import json
 import os
-import shutil
 from pathlib import Path
 
 import pytest
@@ -86,8 +85,7 @@ def test_in_the_docs_site_profile_mkdocs_yml_wins_over_the_docs_folder_rule(tmp_
 
 
 def compose(tmp_path, name, order):
-    for n in ("generic-relevance", "docs-site", "code-repo", "code-repo-conventions"):
-        shutil.copy(PROFILES / f"{n}.yaml", tmp_path / f"{n}.yaml")
+    # Phase 1j J3b: an overlay in this folder extends the SHIPPED profiles in place; a copy here would itself be an overlay (and may not add a reader)
     (tmp_path / f"{name}.yaml").write_text(
         f"profile_id: {name}\nversion: 0.1.0\nstatus: proposed\napplies_to: any\nextends: {order}\nroles: [component]\n"
         "relevance: {primary: [component], supporting: [], hidden: []}\nrules: []\n")
@@ -179,9 +177,7 @@ def test_only_the_named_kind_is_compared(tmp_path):
     p = tmp_path / "m.tsv"
     p.write_text("".join(r + "\n" for r in rows))
     from recognizer.layout_profile import load_profile as lp
-    shutil.copy(PROFILES / "code-repo.yaml", tmp_path / "code-repo.yaml")
-    shutil.copy(PROFILES / "docs-site.yaml", tmp_path / "docs-site.yaml")
-    shutil.copy(PROFILES / "generic-relevance.yaml", tmp_path / "generic-relevance.yaml")
+    # Phase 1j J3b: an overlay in this folder extends the SHIPPED profiles in place; a copy here would itself be an overlay (and may not add a reader)
     (tmp_path / "both.yaml").write_text("profile_id: both\nversion: 0.1.0\nstatus: proposed\napplies_to: any\nextends: [docs-site, code-repo]\nroles: [component]\n"
                                         "relevance: {primary: [component], supporting: [], hidden: []}\nrules: []\n")
     Recognizer(lp("both", tmp_path)).run(p, tmp_path / "o", copies_of=("docs-site",))

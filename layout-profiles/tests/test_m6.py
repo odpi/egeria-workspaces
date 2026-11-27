@@ -232,7 +232,7 @@ def test_the_per_survey_cap_stops_reading_and_is_reported(tmp_path):
     doc["manifest_reading"]["max_blobs"] = 2
     doc["extends"] = []
     doc["rules"] = [r for r in doc["rules"] if r["id"] == "R-comp-package-json"]
-    prof = parse_profile(doc, "tight", PROFILES)
+    prof = parse_profile(doc, "tight", PROFILES, _shipped=True)                       # a shipped profile's caps, modelled in memory (J3b)
     files = {f"p{i}/package.json": PKG(f"p{i}") for i in range(5)}
     r = survey(tmp_path, files, prof=prof)
     st = r.c["manifest_reading"]
@@ -345,5 +345,5 @@ def test_a_bad_manifest_reading_block_is_a_load_error(change, msg):
 
 
 def test_a_profile_may_tighten_a_cap():
-    p = parse_profile(_doc(max_blobs=10, max_file_bytes=1024), "t", PROFILES)
+    p = parse_profile(_doc(max_blobs=10, max_file_bytes=1024), "t", PROFILES, _shipped=True)
     assert p.manifest_reading.max_blobs == 10 and p.manifest_reading.max_file_bytes == 1024

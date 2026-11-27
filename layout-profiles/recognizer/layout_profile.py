@@ -39,6 +39,7 @@ TOP_KEYS = ("profile_id", "version", "status", "applies_to", "extends", "roles",
 LIST_NAME = re.compile(r"^[a-z0-9][a-z0-9-]*$")                     # J0: a named list (`lists:`), referred to as `$name` (a whole value or list element) or `{$name}` in a regex
 LIST_REF = re.compile(r"^\$([a-z0-9][a-z0-9-]*)$")
 LIST_INTERP = re.compile(r"\{\$([a-z0-9][a-z0-9-]*)\}")
+SHIPPED_DIR = Path(__file__).resolve().parent.parent / "profiles"    # J3b: a profile loaded from HERE is shipped; any other file is an overlay
 SETTING_TYPES = ("bool", "int", "list")              # J3: the types of a named setting
 NARROWABLE_FIELDS = ("package-json.private",)       # J3/D-J4: the manifest fields a setting may switch OFF (the reader honours the skip); a setting can never add one
 RULE_KEYS = ("id", "match", "assign", "grain", "basis", "confidence", "evidence")
@@ -216,6 +217,12 @@ class Profile:
     settings_set: tuple = ()                     # J3: names a profile of the chain SET (with `settings: {name: value}`), in order
     all_rules: tuple = ()                        # J3: every rule, active or not (a `when:` that does not hold), for profiles that extend this one
     all_file_roles: tuple = ()
+    shipped: bool | None = None                  # J3b: loaded from the package's own profiles/ folder (True), from anywhere else (False); None: a composition made in code
+    chain_shipped: tuple = ()                    # J3b: ((profile_id, shipped), ...) for this profile and every profile it extends, in composed_of order
+    has_overlay: bool = False                    # J3b: an overlay is somewhere in the chain
+    shipped_readers: frozenset = frozenset()     # J3b: the readers the SHIPPED profiles of the chain declare (an overlay chain may read no more)
+    shipped_skip: frozenset = frozenset()        # J3b: the fields the shipped profiles of the chain already skip
+    shipped_caps: tuple = ()                     # J3b: (max_file_bytes, max_blobs, max_total_bytes) of the shipped profiles of the chain
     structural: tuple = ()                       # structural rules (dicts), the child's first
 
     @property
@@ -764,7 +771,8 @@ def _no_refs_in_reading(source: str, raw: Any) -> None:
     walk(raw)
 
 
-def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None = None, _stack: tuple = (), _composite: bool = False) -> Profile:
+def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None = None, _stack: tuple = (), _composite: bool = False,
+                  _shipped: bool | None = None) -> Profile:
     """Validate a parsed YAML document and return the composed Profile (its `extends` resolved from `profiles_dir`)."""
     _check_keys(source, doc, TOP_KEYS, ("profile_id", "version", "status", "applies_to", "roles", "relevance", "rules"))
     pid = doc["profile_id"]
@@ -987,6 +995,35 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
     if seen_s & set(seen):
         raise ProfileError(f"{source}: structural rule ids must differ from rule ids")
     composed = list(dict.fromkeys(composed))
+    # J3b (D-J4): an OVERLAY may not widen what is read. The shipped profiles of the chain fix the readers (and so the manifest names, the fields and the content
+    # reads they make), the fields already skipped and the caps; a chain with an overlay must stay within them.
+    shipped = None if _composite else bool(_shipped)
+    has_overlay = (shipped is False) or any(b.has_overlay for b in bases)
+    s_readers, s_skip, s_caps = set(), set(), None
+    for b in bases:
+        s_readers |= b.shipped_readers
+        s_skip |= b.shipped_skip
+        if b.shipped_caps:
+            s_caps = b.shipped_caps if s_caps is None else tuple(min(x, y) for x, y in zip(s_caps, b.shipped_caps))
+    own_reading = _manifest_reading(source, doc.get("manifest_reading"), tuple(roles), rel_map, pid) if shipped and doc.get("manifest_reading") is not None else None
+    if own_reading is not None:
+        s_readers |= set(own_reading.readers)
+        oc = (own_reading.max_file_bytes, own_reading.max_blobs, own_reading.max_total_bytes)
+        s_caps = oc if s_caps is None else tuple(min(x, y) for x, y in zip(s_caps, oc))
+    if shipped and mreading is not None and not has_overlay:
+        s_skip |= set(mreading.skip_fields)
+    if has_overlay and mreading is not None:
+        extra = [r for r in mreading.readers if r not in s_readers]
+        if extra:
+            raise ProfileError(f"{source}: an overlay may not add a reader (D-J4): {extra} is not read by the shipped profiles of this chain")
+        lost = sorted(s_skip - set(mreading.skip_fields))
+        if lost:
+            raise ProfileError(f"{source}: an overlay may not read a field the shipped profiles skip (D-J4): {lost}")
+        caps = (mreading.max_file_bytes, mreading.max_blobs, mreading.max_total_bytes)
+        if s_caps is not None and any(c > sc for c, sc in zip(caps, s_caps)):
+            raise ProfileError(f"{source}: an overlay may only tighten the reading caps (D-J4)")
+    chain = [(pid, shipped)] + [x for b in bases for x in b.chain_shipped]
+    chain = list(dict.fromkeys(chain))
     return Profile(profile_id=pid, version=version, status=doc["status"], applies_to=doc["applies_to"], roles=tuple(all_roles),
                    relevance=merged_rel, rules=rules, file_roles=tuple(fr_out), manifest_reading=mreading, extends=tuple(extends), path_grammar=path_grammar, name_grammar=name_grammar,
                    composed_of=tuple(composed), structural=tuple(structural), lists=lists,
@@ -994,7 +1031,8 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
                    effective_order=tuple(r.id for r in rules) + tuple(r.id for r in fr_out),
                    overridden=tuple(dict.fromkeys([x for b in bases for x in b.overridden] + list(overrides))),
                    settings_decl=decls, settings=values, settings_set=tuple(dict.fromkeys([x for b in bases for x in b.settings_set] + list(own_values))),
-                   all_rules=all_rules_out, all_file_roles=all_fr_out)
+                   all_rules=all_rules_out, all_file_roles=all_fr_out, shipped=shipped, chain_shipped=tuple(chain), has_overlay=has_overlay,
+                   shipped_readers=frozenset(s_readers), shipped_skip=frozenset(s_skip), shipped_caps=s_caps or ())
 
 
 def load_profile(profile_id_or_path: str, profiles_dir: Path | str | None = None, _stack: tuple = ()) -> Profile:
@@ -1007,6 +1045,9 @@ def load_profile(profile_id_or_path: str, profiles_dir: Path | str | None = None
         base_dir = Path(profiles_dir)
     else:
         base_dir = Path(profiles_dir) if profiles_dir else p.parent
+    if not p.is_file() and p.suffix in (".yaml", ".yml") and Path(profile_id_or_path).suffix not in (".yaml", ".yml") \
+            and (SHIPPED_DIR / p.name).is_file():
+        p, base_dir = SHIPPED_DIR / p.name, SHIPPED_DIR          # J3b: an overlay folder may extend a SHIPPED profile it does not hold a copy of
     if not p.is_file():
         raise ProfileError(f"profile file not found: {p}")
     text = p.read_text(encoding="utf-8")
@@ -1022,7 +1063,7 @@ def load_profile(profile_id_or_path: str, profiles_dir: Path | str | None = None
                 dup = sorted({x for x in names if names.count(x) > 1})
                 if dup:
                     raise ProfileError(f"{p}: list name(s) {dup} defined twice in this profile")
-    prof = parse_profile(doc, str(p), base_dir, _stack)
+    prof = parse_profile(doc, str(p), base_dir, _stack, _shipped=p.resolve().parent == SHIPPED_DIR)
     if p.stem != prof.profile_id and p.suffix in (".yaml", ".yml") and not str(profile_id_or_path).endswith((".yaml", ".yml")):
         raise ProfileError(f"{p}: profile_id {prof.profile_id!r} does not match the file name")
     return prof
