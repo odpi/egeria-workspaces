@@ -596,7 +596,33 @@ Cause (a confirming run found two false components, both outside what Phase 1f c
 - **G2, minimum content for a top-level docs folder**, in BOTH `R-conv-docs` (code-repo-conventions) and `R-docs-folder-top-level` (docs-site). A top-level `docs`, `doc` or `documentation` directory is a component ONLY when either (i) it holds a site or build configuration file, directly or in a direct child folder (`docs/source/conf.py`): `mkdocs.yml`, `mkdocs.yaml`, `docusaurus.config.{js,ts,mjs,cjs}`, `conf.py`, `antora.yml`, `book.toml`, `_config.yml`, `package.json`, `pom.xml`, `build.gradle`, `build.gradle.kts`, `Makefile`; or (ii) at least **2** documentation files lie anywhere below it, counted by extension `.md`, `.mdx`, `.rst`, `.adoc`, `.asciidoc`, `.txt`, `.ipynb` (images and other assets do not count; the extension test is case-sensitive, like the `extension` key). Otherwise it is not a component and appears in no candidate list, but its files still get file roles (`docs`, or `other`) and are counted as before. Names only: no file is opened (a test runs it with and without a blob source). The threshold of 2 is a judgement, stated in the rule evidence: a single notes file is not a documentation component.
 - **New match key** `min_content: {files: [names], min_files: n, extensions: [.ext]}` (a directory rule): the directory holds one of `files` directly or in a direct child folder, or has at least `min_files` files with one of `extensions` anywhere below it. The recognizer notes the names and counts the files while it reads the path list. The two rules carry the same lists (a test checks).
 - **Unchanged by G2:** a docs folder with a site config or 2 or more doc files (as before); a nested `x/docs/` (the rules are top-level only, as before); `docs/` beside or holding `mkdocs.yml` in docs-site (the site rules come first, as before). Finding ids of unaffected components do not change (the major versions are unchanged). The banned-name assertion also covers the G2 lists.
-- **Known limits:** a site config deeper than one level below the docs folder is not seen; the folder is then judged by (ii) only. (ii) counts files, not sections: a docs folder of 2 notes is a component. This is a judgement, open to review. A `docs` folder failing G2 is not a component, but it is not hidden either: its files are classified and counted as before.
+- **Known limits:** a site config deeper than one level below the docs folder is not seen; the folder is then judged by (ii) only. (ii) counts files, not sections: a docs folder of 2 notes is a component. This is a judgement, open to review. A `docs` folder failing G2 is not a component, but it is not hidden either: its files are classified and counted as before. The doc-file count includes files under hidden subtrees inside the docs folder (for example `docs/node_modules/**/*.md`), and the extensions are case-sensitive (`.MD` is not counted).
+
+**G3, re-score (a FIT, not a result; candidates / TP / labelled-FP / unlabelled; before = 19946822, the signed Phase 1f F2; after = a1fa4f5b, the signed G2):** path lists made with `recognizer/gitlist.py` (names and sizes only) and manifests read through the git object database (`--blobs-git`); mkdocs-sample from its saved list, with no blob source. Profile `code-repo-conventions,docs-site` unless noted. The intellij-platform-gradle-plugin repository is the Phase 1f confirming repository, now spent: the two Phase 1g cases come from it, so its row is a fit, not a confirmation.
+
+| repo (key) | list | before | after | changed candidates |
+|---|---|---|---|---|
+| spring-boot (v1 db483c08), spent | all, top | 335/329/5/1, 334/329/5/0, recall 1.00 | same | none |
+| kafka (b1bdaf54), spent | all, top | 36/30/1/5, 35/30/1/4, recall 0.88 | same | none |
+| dagster, spent | all | 117/97/10/10, recall 0.99, precision 0.91 | same | none (file roles below) |
+| dagster | top | 111/96/6/9, recall 0.98, precision 0.94 | same | none |
+| iceberg, spent | all, top | 66/55/11/0 (recall 0.86), 53/49/4/0 (recall 0.77) | same | none |
+| fastapi, spent | all, top | 12/8/0/4 (recall 0.42), 5/1/0/4 (recall 0.05) | same | none |
+| airbyte, spent | all, top | 270/261/3/6 (recall 0.56), 262/257/1/4 (recall 0.55) | same | none |
+| mkdocs-material, spent | all, top | 9/7/1/1 (recall 1.00), 3/1/1/1 (recall 0.14) | same | none |
+| motif, spent | all, top | 15/14/1/0, recall 1.00 | same | none |
+| btorch, spent | all, top | 21/20/1/0 (recall 1.00), 5/4/1/0 (recall 0.20) | same | none |
+| koject, spent | all, top | 18/17/1/0 (recall 1.00), 14/13/1/0 (recall 0.76) | same | none |
+| intellij-platform-gradle-plugin, spent (a fit) | all, top | 2/0/2/0 (the key has no components; 2 labelled false positives) | 0/0/0/0 | 2 removed: `.teamcity` (G1: now `R-tool-package` tooling, its 4 files role `ci`), `docs` (G2: one Markdown file, `docs/agents/audit.md`, no config; the file keeps role `docs`) |
+| egeria-docs-v6, spent | all, top | 10/5/0/5 (recall 0.19), 1/1/0/0 (recall 0.04) | same | none |
+| mkdocs-sample (`docs-site`) | all, top | 5/5/0/0, recall 0.24 | same | none |
+| trellis (`code-repo-conventions`) | all, top | 19/18/1/0, 18/18/0/0 | same | none |
+| superset (42, composite) | all, top | 49/42/4/3, 46/42/3/1 | same | none |
+| datahub (`code-repo-conventions`) | all, top | 79/66/8/5, 77/66/8/3 | same | none |
+| egeria-workspaces dogfood (`workspace-repo`) | all, top | 27/19/8/0, 23/19/4/0 | same | none |
+| egeria-python dogfood (`workspace-repo`) | all, top | 9/9/0/0 | same | none |
+
+fastapi was scored at M8 with `docs-site` alone, before the composite existed; the composite is the right fit profile now, so its figures here are not comparable with M8's. Tune-set recall does not drop (1.00 on trellis, superset and datahub), and no recall changes anywhere. Every top-level `docs`, `doc` or `documentation` folder of these repositories stays a candidate except the intellij one: the smallest kept is the egeria-workspaces `docs` (3 documentation files among its 16 files, no config); the others hold a config (mkdocs.yml, docusaurus.config, `_config.yml`, `build.gradle`) or 32 or more documentation files. Outside the candidate lists, the only finding changes are G1 file roles: on dagster, 57 files under `.buildkite/` (its two tooling packages, their tests and `hooks/`) move to role `ci` (from source 39, test 8, other 6, build 2, config 2), and on intellij the 4 `.teamcity` files move to `ci`. Every other output is identical except the profile versions (0.8.0, 0.5.0) and the copied evidence text of the changed rules, in findings, `classes.json` and the report header; finding ids are unchanged. Two runs of the new code give byte-identical outputs (107 of 107 files). The NB05 `bids-dataset` outputs (seeds 1 to 3 clean, drift-a and drift-b, and ds000117) are byte-identical with and without the Phase 1g profile and recognizer hunks applied to the NB05 head.
 
 ## Decisions made so far (for review)
 
@@ -644,3 +670,5 @@ N6: the workspaces and egeria-python dogfood trees by git object database only (
 Phase 1d: the kafka tree (spent) was listed by names and read for settings.gradle through the git object database as a fit; no unspent held-out tree or key was opened.
 
 Phase 1f: synthetic trees for F1; for F2 the spent spring-boot and kafka trees, the tune set and the two dogfood trees were read by names and through the git object database (the E2 path lists and commits) and scored only through the scorer; no unspent held-out tree or key was listed, opened or run.
+
+Phase 1g: synthetic trees for G1 and G2; for G3 the spent repositories named in the Architect's scope, the tune set and the two dogfood trees were listed by names with `gitlist.py` and read through the git object database, and scored only through the scorer; no unspent held-out tree or key was listed, opened or run.
