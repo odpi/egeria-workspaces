@@ -7070,14 +7070,40 @@ function _sectionIcon(section) {
   return found ? found.icon : '⭐';
 }
 
+// ── Stored connection settings (localStorage 'egeria-creds') ────────────────────────────────────
+// Only { url, server, userId } are stored. The password is kept in memory for the page's life and is
+// never written to browser storage. readStoredCreds also removes a password that an older version of
+// this page stored.
+function readStoredCreds() {
+  try {
+    var s = localStorage.getItem('egeria-creds');
+    var base = s ? JSON.parse(s) : {};
+    if (!base || typeof base !== 'object') base = {};
+    var out = { url: base.url || '', server: base.server || '', userId: base.userId || '' };
+    if (Object.prototype.hasOwnProperty.call(base, 'password')) {
+      localStorage.setItem('egeria-creds', JSON.stringify({ url: out.url, server: out.server, userId: out.userId }));
+    }
+    return out;
+  } catch(e) { return { url: '', server: '', userId: '' }; }
+}
+function writeStoredCreds(c) {
+  try {
+    localStorage.setItem('egeria-creds', JSON.stringify({ url: c.url || '', server: c.server || '', userId: c.userId || '' }));
+  } catch(e) {}
+}
+
 function ConnectionForm({ saveCreds }) {
   const creds = React.useContext(CredContext);
-  const [form, setForm] = React.useState({
-    url:      creds.url,
-    server:   creds.server,
-    userId:   creds.userId,
-    password: creds.password,
+  const [form, setForm] = React.useState(function() {
+    var stored = readStoredCreds();
+    return {
+      url:      creds.url    || stored.url,
+      server:   creds.server || stored.server,
+      userId:   creds.userId || stored.userId,
+      password: creds.password,            // in memory only: empty after a reload
+    };
   });
+  var askPassword = !creds.userId && !!readStoredCreds().userId;
   const [saved, setSaved] = React.useState(false);
   function set(k, v) { setForm(function(f) { return Object.assign({}, f, { [k]: v }); }); setSaved(false); }
   function onSubmit(e) {
@@ -7108,7 +7134,7 @@ function ConnectionForm({ saveCreds }) {
         ),
         React.createElement('div', { style: rowStyle },
           React.createElement('label', { style: labelStyle }, 'Password'),
-          React.createElement('input', { style: fieldStyle, type: 'password', value: form.password, placeholder: 'secret', onChange: function(e) { set('password', e.target.value); } })
+          React.createElement('input', { style: fieldStyle, type: 'password', autoComplete: 'current-password', value: form.password, placeholder: 'secret', onChange: function(e) { set('password', e.target.value); } })
         ),
         React.createElement('button', {
           type: 'submit',
@@ -7116,7 +7142,9 @@ function ConnectionForm({ saveCreds }) {
         }, saved ? '✔ Saved' : 'Connect')
       ),
       React.createElement('p', { style: { margin: '8px 0 0', fontSize: 11, color: 'var(--dim)' } },
-        'Leave fields empty to use server defaults from environment variables. Settings are saved to browser local storage.'
+        askPassword
+          ? 'Enter the password for ' + readStoredCreds().userId + ' again: the password is not saved in the browser.'
+          : 'Leave fields empty to use server defaults from environment variables. The platform URL, view server and user ID are saved in this browser; the password is not.'
       )
     )
   );
@@ -14908,14 +14936,15 @@ function App() {
     // Empty defaults work in every mode: blank fields are omitted by egeriaFetch, so the backend
     // handlers fall back to their env service account. local-Quickstart users may fill the
     // form to browse as a specific user; Freshstart uses the portal JWT; demo uses the persona.
-    try {
-      var s = localStorage.getItem('egeria-creds');
-      var base = s ? JSON.parse(s) : {};
-      return { url: base.url || '', server: base.server || '', userId: base.userId || '', password: base.password || '' };
-    } catch(e) { return { url: '', server: '', userId: '', password: '' }; }
+    // The password is never stored in the browser, so a stored user ID is not used until the
+    // password is entered again (Connection Settings shows it); persona pages re-run
+    // select-persona on load. Until then the page starts as on a first visit.
+    var stored = readStoredCreds();
+    return { url: stored.url, server: stored.server, userId: '', password: '' };
   });
   const [connected, setConnected] = useState(function() {
-    try { return !!localStorage.getItem('egeria-creds'); } catch(e) { return false; }
+    var stored = readStoredCreds();
+    try { return !!localStorage.getItem('egeria-creds') && !stored.userId; } catch(e) { return false; }
   });
   // Bumped every time the user saves new credentials so all connected section views remount and re-fetch.
   const [credsKey, setCredsKey] = useState(0);
@@ -14956,8 +14985,8 @@ function App() {
       setConnected(true);
       setCredsKey(function(k) { return k + 1; });
       setTypeAttempt(function(t) { return t + 1; });
-      // Persist identity only — never the short-lived bearer token.
-      try { localStorage.setItem('egeria-creds', JSON.stringify({ url: withTok.url, server: withTok.server, userId: withTok.userId, password: withTok.password })); } catch(e) {}
+      // Persist identity only: never the password (kept in memory for this page) or the bearer token.
+      writeStoredCreds(withTok);
     });
   }, [acquireToken]);
 
