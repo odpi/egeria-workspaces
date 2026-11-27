@@ -331,14 +331,20 @@ def _mcp_credentials(url: Optional[str], server_name: Optional[str], user_id: Op
 
     - No parameter default carries a credential, so the published tool schema never shows the service password.
     - A user_id other than the service user needs its own password (the PO-41 rule, named_user_refusal).
+    - On the demo Portal, a sent password goes only with a demo persona's user name (demo_persona_refusal).
     - The service password only goes to an allow-listed platform (egeria_auth.resolve_platform).
     Raises CredentialRefused, which callers turn into an error reply. egeria_auth is imported here, not at
     module load, so the MCP server still starts where FastAPI isn't installed.
     """
-    from egeria_auth import (PlatformRefused, is_caller_password, named_user_refusal, resolve_platform,
-                             service_user)
+    from egeria_auth import (PlatformRefused, demo_persona_refusal, is_caller_password, named_user_refusal,
+                             resolve_platform, service_user)
     from egeria_auth import configured_service_password
     refusal = named_user_refusal(user_id or None, bool(user_pass), None)
+    if refusal is not None:
+        raise CredentialRefused(refusal.detail)
+    # On the demo Portal, a sent password goes only with a demo persona's user name (defence in depth: the
+    # MCP transport is already behind the demo sign-in gate and the MCP access token).
+    refusal = demo_persona_refusal(user_id or service_user(), bool(user_pass))
     if refusal is not None:
         raise CredentialRefused(refusal.detail)
     try:
