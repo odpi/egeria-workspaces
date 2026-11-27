@@ -210,7 +210,7 @@ def test_the_manifest_reading_blocks_of_a_child_and_its_base_combine():
     d = yaml.safe_load((PROFILES / "code-repo.yaml").read_text())
     d["manifest_reading"]["max_blobs"] = 10
     (PROFILES / "..").resolve()
-    merged = parse_profile(d, "t", PROFILES)
+    merged = parse_profile(d, "t", PROFILES, _shipped=True)
     assert merged.manifest_reading.max_blobs == 10 and merged.manifest_reading.submodule_rule == "R-vend-nested-repo"
 
 
@@ -242,7 +242,7 @@ def test_new_match_keys_are_validated_and_a_named_subtree_is_a_directory_rule():
 def test_submodule_rule_is_needed_exactly_when_the_gitmodules_reader_is_on():
     mr = {"readers": ["gitmodules"]}
     with pytest.raises(ProfileError, match="submodule_rule"):
-        parse_profile(_doc(manifest_reading=mr))
+        parse_profile(_doc(manifest_reading=mr), _shipped=True)
     with pytest.raises(ProfileError, match="not a rule"):
-        parse_profile(_doc(manifest_reading={**mr, "submodule_rule": "R-nope"}))
-    assert parse_profile(_doc(manifest_reading={**mr, "submodule_rule": "R-x"})).manifest_reading.submodule_rule == "R-x"
+        parse_profile(_doc(manifest_reading={**mr, "submodule_rule": "R-nope"}), _shipped=True)
+    assert parse_profile(_doc(manifest_reading={**mr, "submodule_rule": "R-x"}), _shipped=True).manifest_reading.submodule_rule == "R-x"
