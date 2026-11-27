@@ -11,8 +11,8 @@
 #                                              sha256, and that every MANIFEST row has its file
 #
 # The majors are fixed here (Dan's decision D-87a): viewer.html stays on marked 12 (its renderer uses the marked <=12 API),
-# markdown-header.html uses marked 15, and mermaid 11, highlight.js 11 and DOMPurify 3. Moving a page to a new major is a code
-# change, not a refresh.
+# markdown-header.html uses marked 15, and mermaid 11, highlight.js 11, DOMPurify 3 and svg-pan-zoom 3 (the mermaid graph pages).
+# Moving a page to a new major is a code change, not a refresh.
 #
 # Fails (non-zero, portal-vendor/ untouched) if: a tarball's sha512 does not match the registry, a listed file is missing from a
 # tarball, a written file's sha256 does not match what was extracted, or the total exceeds 15 MB (C6).
@@ -45,6 +45,8 @@ PACKAGES = [
                                                         ("styles/github-dark.min.css", "styles/github-dark.min.css"),
                                                         ("LICENSE", "LICENSE")], []),
     ("dompurify@3", "dompurify", 3, [("dist/purify.min.js", "purify.min.js"), ("LICENSE", "LICENSE")], []),
+    # zoom and pan on the pyegeria mermaid graph pages (coco-workbooks/**/mermaid_graphs/), formerly loaded from bumbu.me
+    ("svg-pan-zoom@3", "svg-pan-zoom", 3, [("dist/svg-pan-zoom.min.js", "svg-pan-zoom.min.js"), ("LICENSE", "LICENSE")], []),
 ]
 
 

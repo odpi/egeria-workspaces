@@ -7,13 +7,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Egeria Docs</title>
   <script src="/static/app-bar.js?v=2026-10-05a"></script>
-  <!-- marked.js — markdown parser -->
-  <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+  <!-- Libraries are served from the Portal at /vendor/ (portal-vendor/, see scripts/vendor-portal-assets.sh), not a CDN -->
+  <!-- marked.js — markdown parser (major 12: the renderer below uses the marked <=12 API) -->
+  <script src="/vendor/marked@12/marked.min.js"></script>
   <!-- mermaid.js — diagram rendering -->
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
-  <!-- highlight.js — code syntax highlighting (jsdelivr, already in CSP whitelist) -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/highlight.min.js"></script>
+  <script src="/vendor/mermaid@11/mermaid.min.js"></script>
+  <!-- highlight.js — code syntax highlighting (browser build from @highlightjs/cdn-assets) -->
+  <link rel="stylesheet" href="/vendor/highlight.js@11/styles/github-dark.min.css">
+  <script src="/vendor/highlight.js@11/highlight.min.js"></script>
   <style>
     :root {
       --bg: #1a1a2e; --card: #16213e; --border: #0f3460;
