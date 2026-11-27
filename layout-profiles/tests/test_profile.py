@@ -145,9 +145,12 @@ def test_extends_errors(tmp_path):
     with pytest.raises(ProfileError):
         load_profile("lonely", tmp_path)                                      # an unknown base
     write(tmp_path, "dup-a", doc(profile_id="dup-a"))
-    write(tmp_path, "dup-b", doc(profile_id="dup-b", extends=["dup-a"]))      # both define R-a
+    write(tmp_path, "dup-b", doc(profile_id="dup-b", extends=["dup-a"]))      # both define R-a: since Phase 1j J1 the child's R-a REPLACES the base's
+    assert load_profile("dup-b", tmp_path).replaced == ("R-a",)
+    write(tmp_path, "dup-c", doc(profile_id="dup-c"))
+    write(tmp_path, "dup-d", doc(profile_id="dup-d", extends=["dup-a", "dup-c"], rules=[]))   # R-a from two DIFFERENT extended profiles
     with pytest.raises(ProfileError):
-        load_profile("dup-b", tmp_path)
+        load_profile("dup-d", tmp_path)
 
 
 def test_a_file_name_that_disagrees_with_the_profile_id_is_an_error(tmp_path):

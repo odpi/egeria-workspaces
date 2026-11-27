@@ -232,7 +232,7 @@ def test_the_per_survey_cap_stops_reading_and_is_reported(tmp_path):
     doc["manifest_reading"]["max_blobs"] = 2
     doc["extends"] = []
     doc["rules"] = [r for r in doc["rules"] if r["id"] == "R-comp-package-json"]
-    prof = parse_profile(doc, "tight", PROFILES)
+    prof = parse_profile(doc, "tight", PROFILES, _shipped=True)                       # a shipped profile's caps, modelled in memory (J3b)
     files = {f"p{i}/package.json": PKG(f"p{i}") for i in range(5)}
     r = survey(tmp_path, files, prof=prof)
     st = r.c["manifest_reading"]
@@ -317,7 +317,7 @@ def test_git_source_reads_the_commit_not_the_working_tree_and_discards_oversize(
 def test_the_shipped_profiles_enable_manifest_reading_with_the_note_s_caps():
     p = load_profile("code-repo-conventions", PROFILES)
     m = p.manifest_reading
-    assert p.version == "0.9.0" and load_profile("code-repo", PROFILES).version == "0.4.0"
+    assert p.version == "0.11.0" and load_profile("code-repo", PROFILES).version == "0.5.0"
     assert (m.max_file_bytes, m.max_blobs, m.max_total_bytes) == (256 * 1024, 5000, 64 * 1024 * 1024)
     assert set(m.readers) == set(mf.CODE_READERS) | {"gitmodules"} and m.member_rule.basis == "manifest-content" and m.aggregator_rule.role == "other"
     assert not set(mf.ALLOWED_FILES) & {"package-lock.json", "yarn.lock", "pnpm-lock.yaml", "Cargo.lock", "poetry.lock", "uv.lock", "go.sum", ".env", "CODEOWNERS"}
@@ -345,5 +345,5 @@ def test_a_bad_manifest_reading_block_is_a_load_error(change, msg):
 
 
 def test_a_profile_may_tighten_a_cap():
-    p = parse_profile(_doc(max_blobs=10, max_file_bytes=1024), "t", PROFILES)
+    p = parse_profile(_doc(max_blobs=10, max_file_bytes=1024), "t", PROFILES, _shipped=True)
     assert p.manifest_reading.max_blobs == 10 and p.manifest_reading.max_file_bytes == 1024

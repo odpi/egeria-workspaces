@@ -2,7 +2,8 @@
 
     python -m recognizer.drift OLD_OUTDIR NEW_OUTDIR [--out DRIFT.json]
 
-Compares the CONFORMANCE findings of the two surveys by finding_id (`sha256(profile_id@major | rule_id | path)`): `new` are in NEW only, `resolved`
+First checks the two surveys' configurations (`recognizer.config_drift.config_change`, Phase 1j J5): when they differ, the result is a
+CONFIGURATION CHANGE (or UNRECORDED), reported as such, and the findings are not compared. Otherwise it compares the CONFORMANCE findings of the two surveys by finding_id (`sha256(profile_id@major | rule_id | path)`): `new` are in NEW only, `resolved`
 in OLD only, `unchanged` in both (an unchanged id whose status or reason changed, for example a field that went from invalid to missing, is
 marked `changed` with the old status). The two surveys must use the same profile id and major version, or the ids are not comparable.
 Writes NEW_OUTDIR/drift.json (or --out) and puts a "Drift" section into NEW_OUTDIR/report.md, replacing an earlier one.
@@ -19,9 +20,11 @@ from pathlib import Path
 
 try:
     from .conformance import FINDING_KEYS, conformance_findings, put_section
+    from .config_drift import config_change, headline as config_headline
 except ImportError:                                   # run as a script
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from conformance import FINDING_KEYS, conformance_findings, put_section  # type: ignore
+    from config_drift import config_change, headline as config_headline  # type: ignore
 
 BEGIN = "<!-- drift:begin -->"
 END = "<!-- drift:end -->"
@@ -49,6 +52,9 @@ def part_findings(outdir: Path) -> list:
 
 def diff(old: Path, new: Path) -> dict:
     po, pn = _profile(old), _profile(new)
+    change = config_change(old, new)                    # J5: first; a configuration change is not finding drift
+    if change is not None:
+        return {"old_profile": po, "new_profile": pn, "configuration_change": change}
     if po["profile_id"] != pn["profile_id"] or po["version"].split(".")[0] != pn["version"].split(".")[0]:
         raise DriftError(f"the surveys use {po['profile_id']} {po['version']} and {pn['profile_id']} {pn['version']}: finding ids are comparable only "
                          "for the same profile id and major version")
@@ -85,11 +91,15 @@ def diff(old: Path, new: Path) -> dict:
 
 
 def headline(d: dict) -> str:
+    if "configuration_change" in d:
+        return config_headline(d["configuration_change"])
     c = d["counts"]
     return f"{c['new']} new since last survey; {c['resolved']} resolved; {c['unchanged']} unchanged"
 
 
 def section(d: dict) -> str:
+    if "configuration_change" in d:
+        return "\n".join([BEGIN, "## Drift since the previous survey", "", f"**{headline(d)}**; findings are not compared (see drift.json).", "", END, ""])
     lines = [BEGIN, "## Drift since the previous survey", "", f"**{headline(d)}** (by finding id).", ""]
     if "parts" in d:
         pt = d["parts"]

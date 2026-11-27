@@ -78,9 +78,7 @@ def test_a_manifest_inside_a_hidden_subtree_is_never_a_component(tmp_path, hidde
 
 
 def test_a_manifest_inside_a_worktree_copy_is_not_a_component_in_a_workspace(tmp_path):
-    import shutil
-    for n in ("generic-relevance", "worktree-copies", "code-repo"):
-        shutil.copy(PROFILES / f"{n}.yaml", tmp_path / f"{n}.yaml")
+    # Phase 1j J3b: an overlay in this folder extends the SHIPPED profiles in place; a copy here would itself be an overlay (and may not add a reader)
     (tmp_path / "ws-code.yaml").write_text(
         "profile_id: ws-code\nversion: 0.1.0\nstatus: proposed\napplies_to: workspace-of-repos\nextends: [code-repo, worktree-copies]\n"
         "roles: [component]\nrelevance: {primary: [component], supporting: [], hidden: []}\nrules: []\n")

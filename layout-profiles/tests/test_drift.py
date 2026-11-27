@@ -159,3 +159,20 @@ def test_running_the_reports_again_changes_nothing(tmp_path):
     dr.write(a, b)
     assert {p.name: p.read_bytes() for p in b.iterdir()} == before
     assert (b / "report.md").read_text().count(dr.BEGIN) == 1
+
+
+def test_a_configuration_change_is_reported_not_compared(tmp_path):
+    """Merge note (1j read-back): drift runs config_change() first (J5); surveys with different configurations are not compared by finding id."""
+    out = survey(tmp_path, g.generate(1, 2, 0)[0], "x")
+    other = tmp_path / "y"
+    other.mkdir()
+    for name in ("findings.jsonl", "classes.json", "report.md"):
+        (other / name).write_text((out / name).read_text())
+    cl = json.loads((other / "classes.json").read_text())
+    cl["configuration"]["config_sha256"] = "0" * 64
+    (other / "classes.json").write_text(json.dumps(cl))
+    d = dr.write(out, other)
+    assert d["configuration_change"]["status"] == "CONFIGURATION CHANGED" and "counts" not in d
+    assert dr.headline(d).startswith("CONFIGURATION CHANGED (not finding drift)")
+    assert "findings are not compared" in (other / "report.md").read_text()
+    assert dr.diff(out, out)["counts"]["new"] == 0                  # the same configuration: compared by finding id, as before
