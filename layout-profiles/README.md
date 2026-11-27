@@ -640,6 +640,28 @@ Cause (Dan's ruling): `R-conv-scripts` made every top-level `scripts` folder a c
 - **Unchanged by H2:** a config/ of application configuration or templates (`broker.properties`, `log4j2.yaml`, `config.json` with `__init__.py`, `templates/`) and a MIX of linter files and any other file stay `R-conv-config` components; a nested `x/config/` is unaffected; a linter folder name deeper than a direct child does not qualify.
 - **Known limits (H2):** the lint lists are closed: a linter outside them makes its config/ a component. A config/ mixing linter files with even one other file stays a component.
 
+**H3, re-score (a FIT, not a result; candidates / TP / labelled-FP / unlabelled; before = be1f71eb, the signed G3; after = the H2 tree 868c2e05; the G3 harness, path lists and profiles; the CURRENT keys, five of which now label a top-level `scripts` excluded, class tooling: btorch, dagster, egeria-python, superset, trellis):** two spent repositories are added, ideavim and test-retry-gradle-plugin; both show the cases this phase addresses, so their rows are a fit.
+
+| repo (key) | list | before | after | changed candidates |
+|---|---|---|---|---|
+| dagster, spent | all | 117/96/11/10, recall 0.99, precision 0.90 | 115/96/9/10, precision 0.91 | `scripts` (H1), `config` (H2: linter-only) removed |
+| dagster | top | 111/95/7/9 | 109/95/5/9, precision 0.95 | the same |
+| fastapi, spent | all, top | 12/8/0/4, 5/1/0/4 | 11/8/0/3, 4/1/0/3 | `scripts` (H1, unlabelled) removed |
+| motif, spent | all, top | 15/14/1/0, precision 0.93 | 14/14/0/0, precision 1.00 | `config` (H2) removed |
+| btorch, spent | all | 21/19/2/0, precision 0.90 | 20/19/1/0, precision 0.95 | `scripts` (H1) removed |
+| btorch | top | 5/3/2/0 | 4/3/1/0 | the same |
+| ideavim, spent (a fit) | all | 23/20/3/0, precision 0.87 | 20/20/0/0, precision 1.00 | `scripts`, `scripts-ts` (H1) and `scripts-ts/src` (H1, the src of a tooling package) removed |
+| ideavim | top | 22/20/2/0 | 20/20/0/0 | `scripts`, `scripts-ts` |
+| test-retry-gradle-plugin, spent (a fit) | all, top | 3/2/1/0, precision 0.67 | 2/2/0/0, precision 1.00 | `config` (H2) removed |
+| trellis (`code-repo-conventions`) | all | 19/17/2/0, precision 0.89 | 18/17/1/0, precision 0.94 | `scripts` (H1) removed |
+| trellis | top | 18/17/1/0 | 17/17/0/0, precision 1.00 | the same |
+| superset (41, composite) | all | 49/41/5/3, precision 0.89 | 48/41/4/3, precision 0.91 | `scripts` (H1) removed |
+| superset | top | 46/41/4/1 | 45/41/3/1 | the same |
+| egeria-python dogfood (`workspace-repo`) | all, top | 9/8/1/0, precision 0.89 | 8/8/0/0, precision 1.00 | `scripts` (H1) removed |
+| spring-boot, kafka, iceberg, airbyte, mkdocs-material, koject, intellij-platform-gradle-plugin, egeria-docs-v6, mkdocs-sample, datahub, egeria-workspaces dogfood | all, top | as in G3 | same | none |
+
+Recall changes nowhere; tune-set recall stays 1.00 (trellis, superset, datahub) against the current keys. `scripts` leaves the candidate list in every repository where it was one (dagster, fastapi, btorch, ideavim, trellis, superset, egeria-python), and so do ideavim's `scripts-ts` and its `src`. The keyed `config` components (kafka, egeria-python, trellis) stay candidates; the three `config` folders that leave (dagster, motif, test-retry-gradle-plugin) hold only linter configuration. No `tools/src` (or other src below a tooling folder) was a candidate in these repositories, so the `parent_not_role` effect shows only on ideavim. File roles do not change anywhere (`file_scope`): no file-role finding and no per-role or per-rule count in `classes.json` moves; the only other changes are the component counts, the profile version (0.9.0) and the copied evidence text of the changed rules. Two runs of the new code give byte-identical outputs (119 of 119 files). The NB05 `bids-dataset` outputs (seeds 1 to 3 clean, drift-a and drift-b, and ds000117) are byte-identical with and without the Phase 1g and 1h profile and recognizer hunks applied to the NB05 head.
+
 ## Decisions made so far (for review)
 
 1. `vendored` (installed packages) and `generated` (build output, tool caches) are separate roles; both are hidden. `.cache` is `generated`.
@@ -688,3 +710,5 @@ Phase 1d: the kafka tree (spent) was listed by names and read for settings.gradl
 Phase 1f: synthetic trees for F1; for F2 the spent spring-boot and kafka trees, the tune set and the two dogfood trees were read by names and through the git object database (the E2 path lists and commits) and scored only through the scorer; no unspent held-out tree or key was listed, opened or run.
 
 Phase 1g: synthetic trees for G1 and G2; for G3 the spent repositories named in the Architect's scope, the tune set and the two dogfood trees were listed by names with `gitlist.py` and read through the git object database, and scored only through the scorer; no unspent held-out tree or key was listed, opened or run.
+
+Phase 1h: synthetic trees for H1 and H2; for H3 the repositories of G3 plus the spent ideavim and test-retry-gradle-plugin trees, listed by names with `gitlist.py` and read through the git object database, and scored only through the scorer against the current keys; no unspent held-out tree or key was listed, opened or run.
