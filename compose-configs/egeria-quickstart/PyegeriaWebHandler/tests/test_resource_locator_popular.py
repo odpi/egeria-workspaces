@@ -18,8 +18,10 @@ Pinned here (honest-data rules, design-docs/popularity-and-usage-measures.md §5
 Quickstart only: the freshstart copy is stale (BACKLOG "Mirror egeria-freshstart"). Functions are
 extracted with ast and run without pyegeria or FastAPI, as in test_resource_browser.py."""
 import ast
+import asyncio
 import json
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -28,8 +30,10 @@ import pytest
 _HERE = Path(__file__).resolve().parent
 _HANDLER = _HERE.parent / "resource_browser_handler.py"
 _FIXTURE = _HERE / "fixtures" / "po27_datascope_usage_rocky_2026_11_27.json"
-_FUNCS = {"_type_names", "_display_name", "_classifications", "_data_scope", "_has_scope", "_usage_number", "_usage"}
-_CONSTS = {"_SKIP_CLASSIFICATIONS", "_USAGE_COUNTS", "_USAGE_RATES", "_USAGE_TEXTS"}
+_FUNCS = {"_type_names", "_display_name", "_classifications", "_data_scope", "_has_scope", "_usage_number", "_usage",
+          "_iso_time", "_popular"}
+_CONSTS = {"_SKIP_CLASSIFICATIONS", "_USAGE_COUNTS", "_USAGE_RATES", "_USAGE_TEXTS", "_POPULAR_SHOWN",
+           "_POPULAR_NONE", "_POPULAR_SOURCE"}
 
 
 @pytest.fixture(scope="module")
@@ -38,8 +42,7 @@ def rb():
     nodes = [n for n in tree.body if (isinstance(n, ast.FunctionDef) and n.name in _FUNCS)
              or (isinstance(n, ast.Assign) and isinstance(n.targets[0], ast.Name) and n.targets[0].id in _CONSTS)]
     assert {n.name for n in nodes if isinstance(n, ast.FunctionDef)} == _FUNCS
-    from datetime import datetime
-    ns = {"Optional": Optional, "re": re, "datetime": datetime}
+    ns = {"Optional": Optional, "re": re, "datetime": datetime, "timezone": timezone}
     exec(compile(ast.Module(body=nodes, type_ignores=[]), str(_HANDLER), "exec"), ns)
     return ns
 
@@ -135,3 +138,151 @@ def test_data_scope_still_reads_the_header_form_and_has_scope_is_unchanged(rb):
     hdr2 = _el("b", {"readsPerDay": "2"})["elementHeader"]
     hdr2["dataScope"]["classificationProperties"]["dataCollectionStartTime"] = "2026-01-01T00:00:00Z"
     assert rb["_has_scope"](rb["_data_scope"](rb["_classifications"](hdr2))) is True
+
+
+# ── P2: the Popular tile ──────────────────────────────────────────────────────
+
+def _measured(guid, per_day=None, name=None, **more):
+    r = {} if per_day is None else {"readsPerDay": str(per_day)}
+    r.update({k: str(v) for k, v in more.items()})
+    return _el(guid, r, name=name or guid)
+
+
+def test_popular_ranks_the_p0_fixture_and_shows_the_as_of(rb):
+    p = rb["_popular"](_fixture_elements())
+    assert p["available"] is True and p["measure"] == "readsPerDay"
+    assert [r["guid"] for r in p["ranking"]] == ["9bb418d9-0001-4557-902c-7f1141d901dc"]
+    top = p["ranking"][0]
+    assert top["usage"]["readsPerDay"] == pytest.approx(86.36)
+    assert top["lastRead"] == "2026-11-27T00:29:17.154Z"
+    assert p["asOf"] == "2026-11-27T01:36:26Z"
+    assert p["window"] == {"start": "2026-10-28T01:36:26Z", "end": "2026-11-27T01:36:26Z"}
+    # The Topic was measured (readCount 1) but has no reads/day: listed apart, never ranked as 0.
+    assert [r["guid"] for r in p["unranked"]] == ["7d9391d0-2d92-4992-8088-fd79aa54594a"]
+    assert p["unranked"][0]["usage"] == {"readCount": 1, "lastReadAt": "2026-11-23T23:33:29.889Z"}
+    assert p["measured"] == 2 and p["notMeasured"] == 0
+    assert "DataScope" in p["source"]
+
+
+def test_popular_sort_is_reads_per_day_then_read_count_else_reads_in_window_then_name(rb):
+    els = [_measured("a", 1.5, name="Zed", readCount=3),
+           _measured("b", 1.5, name="Alpha", readCount=9),
+           _measured("c", 1.5, name="beta", readsInWindow=9),     # no readCount: readsInWindow breaks the tie
+           _measured("d", 1.5, name="Able", readsInWindow=5),
+           _measured("e", 4, name="Most"),
+           _measured("f", 0, name="Measured zero", readCount=0),
+           _measured("g", 1.5, name="Aardvark")]                  # neither count: after the others at 1.5
+    p = rb["_popular"](els)
+    # 4/day first; at 1.5/day: 9 (Alpha before beta by name), 5, 3, then no count; the measured 0 last.
+    assert [r["guid"] for r in p["ranking"]] == ["e", "b", "c", "d", "a", "g", "f"]
+
+
+def test_a_resource_without_readings_is_not_measured_and_never_ranked(rb):
+    els = [_measured("a", 2), _el("b", None), _el("c", {}), _el("d", {"lastReadByRunId": "r"})]
+    p = rb["_popular"](els)
+    assert [r["guid"] for r in p["ranking"]] == ["a"]
+    assert p["unranked"] == [] and p["notMeasured"] == 3 and p["measured"] == 1
+
+
+def test_a_measured_zero_is_ranked_as_zero_not_dropped(rb):
+    p = rb["_popular"]([_measured("z", 0, readCount=0)])
+    assert p["available"] is True
+    assert p["ranking"][0]["usage"]["readsPerDay"] == 0.0
+
+
+def test_no_usage_anywhere_says_popularity_is_not_available_yet(rb):
+    p = rb["_popular"]([_el("a", None), _el("b", {})])
+    assert p["available"] is False
+    assert p["reason"] == "Popularity not available yet: no usage readings on this platform"
+    assert p["notMeasured"] == 2 and "ranking" not in p
+    assert rb["_popular"]([])["available"] is False
+
+
+def test_all_are_kept_and_ten_are_shown(rb):
+    p = rb["_popular"]([_measured(f"g{i:02d}", i) for i in range(14)])
+    assert len(p["ranking"]) == 14 and p["shown"] == 10
+    assert p["ranking"][0]["guid"] == "g13"
+
+
+def test_last_read_falls_back_to_last_read_in_window(rb):
+    p = rb["_popular"]([_measured("a", 1, lastReadInWindow="2026-11-20T00:00:00Z")])
+    assert p["ranking"][0]["lastRead"] == "2026-11-20T00:00:00Z"
+    p = rb["_popular"]([_measured("a", 1)])
+    assert p["ranking"][0]["lastRead"] is None
+
+
+def test_as_of_is_the_latest_analysis_window_end(rb):
+    p = rb["_popular"]([_measured("a", 1, analysisWindowStart="2026-10-01T00:00:00Z", analysisWindowEnd="2026-10-31T00:00:00Z"),
+                        _measured("b", 2, analysisWindowStart="2026-10-28T01:36:26Z", analysisWindowEnd="2026-11-27T01:36:26Z")])
+    assert p["asOf"] == "2026-11-27T01:36:26Z"
+    assert p["window"] == {"start": "2026-10-28T01:36:26Z", "end": "2026-11-27T01:36:26Z"}
+    # No window recorded at all: the as-of is unknown (None), never invented.
+    p = rb["_popular"]([_measured("a", 1)])
+    assert p["asOf"] is None and p["window"] is None
+
+
+def test_templates_and_repeats_are_left_out(rb):
+    tmpl = {"template": {"class": "ElementClassification", "classificationName": "Template", "classificationProperties": {}}}
+    p = rb["_popular"]([_measured("a", 1), _measured("a", 1), _el("t", {"readsPerDay": "9"}, extra_cls=tmpl)])
+    assert [r["guid"] for r in p["ranking"]] == ["a"]
+
+
+def test_a_capped_read_is_said(rb):
+    p = rb["_popular"]([_measured("a", 1)], capped=True)
+    assert p["capped"] is True
+    p = rb["_popular"]([_el("a", None)], capped=True)
+    assert p["available"] is False and p["capped"] is True
+
+
+# ── P2: home() returns `popular`; a failed read says it failed ────────────────
+
+class _FakeClient:
+    def __init__(self, scoped=None, fail=False):
+        self.scoped, self.fail, self.classification_calls = scoped or [], fail, []
+
+    async def _async_get_elements(self, type_name, **kw):
+        return "No elements found"
+
+    async def _async_get_elements_by_classification(self, name, start_from=0, page_size=200, **kw):
+        self.classification_calls.append((name, start_from, page_size))
+        if self.fail:
+            raise RuntimeError("platform unavailable")
+        return self.scoped[start_from:start_from + page_size] or "No elements found"
+
+
+async def _coro(v):
+    return v
+
+
+def _home(monkeypatch, client):
+    import resource_browser_handler as mod
+    monkeypatch.setattr(mod, "_explorer_async", lambda: _coro(client))
+    mod._cache.clear()
+    return json.loads(asyncio.run(mod.home()).body)
+
+
+def test_home_returns_popular_from_the_data_scope_read(monkeypatch):
+    client = _FakeClient(_fixture_elements())
+    d = _home(monkeypatch, client)
+    assert d["popular"]["available"] is True
+    assert d["popular"]["ranking"][0]["guid"] == "9bb418d9-0001-4557-902c-7f1141d901dc"
+    assert d["popular"]["asOf"] == "2026-11-27T01:36:26Z"
+    assert client.classification_calls[0][0] == "DataScope"
+    assert "readAt" in d["popular"]
+    assert d["recent"] == []                       # the recently changed part is unaffected
+
+
+def test_home_says_when_no_resource_carries_usage(monkeypatch):
+    pop = _home(monkeypatch, _FakeClient([_el("a", None)]))["popular"]
+    assert pop["available"] is False and not pop.get("failed")
+    assert pop["reason"] == "Popularity not available yet: no usage readings on this platform"
+
+
+def test_home_says_a_failed_popularity_read_failed_and_still_serves_recent(monkeypatch):
+    d = _home(monkeypatch, _FakeClient(fail=True))
+    pop = d["popular"]
+    assert pop["available"] is False and pop["failed"] is True
+    assert "could not be read" in pop["reason"]
+    assert pop["reason"] != "Popularity not available yet: no usage readings on this platform"
+    assert "ranking" not in pop
+    assert d["recent"] == []
